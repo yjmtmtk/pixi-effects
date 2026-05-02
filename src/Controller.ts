@@ -13,9 +13,12 @@ const STYLE_ATTR = 'data-movie-controller';
 const STYLE_CSS = `
 .movie-controller-wrap { position: relative; display: inline-block; line-height: 0; }
 .movie-controller {
-  position: absolute; left: 0; right: 0; bottom: 0;
+  position: absolute;
   pointer-events: none;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
   opacity: 1;
   transition: opacity 200ms ease;
 }
@@ -29,6 +32,11 @@ const STYLE_CSS = `
   cursor: pointer;
   display: flex;
   align-items: center;
+  outline: none;
+}
+.mc-progress:focus-visible {
+  outline: 2px solid #007AFF;
+  outline-offset: 2px;
 }
 .mc-progress::before {
   content: ""; position: absolute; left: 0; right: 0;
@@ -197,6 +205,7 @@ export class Controller {
   private onProgress: ((e: { progress: number; frame: number; totalFrames: number }) => void) | null = null;
   private onWrapPointerMove: (() => void) | null = null;
   private onWrapMouseLeave: (() => void) | null = null;
+  private resizeObserver: ResizeObserver | null = null;
 
   constructor(movie: Movie, options: ControllerOptions) {
     if (!options || !options.canvas) {
@@ -216,6 +225,11 @@ export class Controller {
     this.root.className = this.options.className;
     this.wrapper.appendChild(this.root);
     this.buildBar();
+    this.syncRootToCanvas();
+    if (typeof ResizeObserver !== 'undefined') {
+      this.resizeObserver = new ResizeObserver(() => this.syncRootToCanvas());
+      this.resizeObserver.observe(this.options.canvas);
+    }
     this.root.setAttribute('data-state', 'visible');
     this.bindMovieEvents();
     this.bindPlayButton();
@@ -266,6 +280,7 @@ export class Controller {
     parent.insertBefore(wrap, canvas);
     wrap.appendChild(canvas);
     this.wrappedHere = true;
+
     return wrap;
   }
 
@@ -474,6 +489,16 @@ export class Controller {
     this.root.setAttribute('data-state', v ? 'visible' : 'hidden');
   }
 
+  private syncRootToCanvas(): void {
+    const c = this.options.canvas;
+    const cr = c.getBoundingClientRect();
+    const wr = this.wrapper.getBoundingClientRect();
+    this.root.style.left = `${cr.left - wr.left}px`;
+    this.root.style.top = `${cr.top - wr.top}px`;
+    this.root.style.width = `${cr.width}px`;
+    this.root.style.height = `${cr.height}px`;
+  }
+
   private bindKeyboard(): void {
     this.keyHandler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -546,6 +571,10 @@ export class Controller {
     if (this.onWrapMouseLeave) {
       this.wrapper.removeEventListener('mouseleave', this.onWrapMouseLeave);
       this.onWrapMouseLeave = null;
+    }
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
     }
     this.root.remove();
     if (this.wrappedHere) {
