@@ -58,7 +58,7 @@
             ],
             filters: [
               { type: 'custom', name: 'glow',   filter: new GlowFilter({ distance: 24, outerStrength: 1, color: 0x55aaff }) },
-              { type: 'custom', name: 'shadow', filter: new DropShadowFilter({ blur: 4, alpha: 0.4, offset: { x: 6, y: 6 } }) },
+              { type: 'custom', name: 'shadow', filter: new DropShadowFilter({ blur: 8, alpha: 0.7, offset: { x: 8, y: 8 }, color: 0xff44aa }) },
             ],
             style: { fontSize: 'GW * 0.085', fill: '#ffffff', fontWeight: 'bold' },
           },
@@ -106,7 +106,7 @@
               { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
             ],
             filters: [
-              { type: 'custom', name: 's', filter: new DropShadowFilter({ blur: 6, alpha: 0.5, offset: { x: 6, y: 6 }, color: 0x000000 }) },
+              { type: 'custom', name: 's', filter: new DropShadowFilter({ blur: 6, alpha: 0.7, offset: { x: 6, y: 6 }, color: 0x33ddff }) },
             ],
             style: { fontSize: 'GW * 0.03', fill: '#55ddaa', fontWeight: 'bold' },
           },
