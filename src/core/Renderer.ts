@@ -6,6 +6,20 @@ import {
 } from 'mediabunny';
 import type { Movie, RenderOptions } from './Movie';
 
+const VIDEO_CODEC_BY_FORMAT = {
+  mp4: 'avc',
+  mov: 'avc',
+  webm: 'vp9',
+  mkv: 'vp9',
+} as const;
+
+const AUDIO_CODEC_BY_FORMAT = {
+  mp4: 'aac',
+  mov: 'aac',
+  webm: 'opus',
+  mkv: 'opus',
+} as const;
+
 const qualityMap: Record<string, Quality> = {
   'very-low': QUALITY_VERY_LOW,
   'low': QUALITY_LOW,
@@ -22,14 +36,15 @@ const formatMap = {
 } as const;
 
 export async function exportFrames(movie: Movie, options: RenderOptions = {}): Promise<Blob> {
+  const fmt = options.format ?? 'mp4';
   const opts = {
-    format: options.format ?? 'mp4',
+    format: fmt,
     video: {
-      codec: options.video?.codec ?? 'avc',
+      codec: options.video?.codec ?? VIDEO_CODEC_BY_FORMAT[fmt],
       bitrate: qualityMap[options.video?.bitrate ?? 'high'] ?? QUALITY_HIGH,
     },
     audio: {
-      codec: options.audio?.codec ?? 'aac',
+      codec: options.audio?.codec ?? AUDIO_CODEC_BY_FORMAT[fmt],
       bitrate: qualityMap[options.audio?.bitrate ?? 'high'] ?? QUALITY_HIGH,
     },
   };
