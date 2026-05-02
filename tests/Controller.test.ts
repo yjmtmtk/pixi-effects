@@ -426,21 +426,55 @@ describe('Controller — export', () => {
     document.head.querySelectorAll('style[data-movie-controller]').forEach((n) => n.remove());
   });
 
-  it('clicking export shows overlay, calls movie.render, then hides overlay', async () => {
+  function openPopoverAndConfirm(canvas: HTMLCanvasElement): void {
+    (canvas.parentElement!.querySelector('.mc-export') as HTMLButtonElement).click();
+    (canvas.parentElement!.querySelector('.mc-export-confirm') as HTMLButtonElement).click();
+  }
+
+  it('clicking the download icon does NOT export immediately — only opens the popover', async () => {
     const canvas = makeCanvas();
     let renderCalled = false;
     const movie = makeFakeMovie();
     movie.render = async () => { renderCalled = true; return new Blob(); };
     const ctrl = new Controller(movie, { canvas });
     movie.emit('ready');
-    const exportBtn = canvas.parentElement!.querySelector('.mc-export') as HTMLButtonElement;
-    exportBtn.click();
-    // Overlay appears synchronously
+    (canvas.parentElement!.querySelector('.mc-export') as HTMLButtonElement).click();
+    expect(document.querySelector('.mc-export-overlay')).toBeNull();
+    expect(renderCalled).toBe(false);
+    expect(canvas.parentElement!.querySelector('.mc-settings-popover')!.getAttribute('data-open')).toBe('true');
+    ctrl.destroy();
+  });
+
+  it('confirm button shows overlay, calls movie.render, closes popover, then hides overlay', async () => {
+    const canvas = makeCanvas();
+    let renderCalled = false;
+    const movie = makeFakeMovie();
+    movie.render = async () => { renderCalled = true; return new Blob(); };
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    openPopoverAndConfirm(canvas);
+    // Overlay appears synchronously; popover is closed.
     expect(document.querySelector('.mc-export-overlay')).not.toBeNull();
-    // Wait two microtask flushes for render() + setTimeout(0)
+    expect(canvas.parentElement!.querySelector('.mc-settings-popover')!.getAttribute('data-open')).toBe('false');
     await new Promise((r) => setTimeout(r, 600));
     expect(renderCalled).toBe(true);
     expect(document.querySelector('.mc-export-overlay')).toBeNull();
+    ctrl.destroy();
+  });
+
+  it('progress overlay is mounted inside the controller root (canvas-scoped)', async () => {
+    const canvas = makeCanvas();
+    let resolveRender: ((b: Blob) => void) | null = null;
+    const movie = makeFakeMovie();
+    movie.render = () => new Promise<Blob>((res) => { resolveRender = res; });
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    openPopoverAndConfirm(canvas);
+    const overlay = document.querySelector('.mc-export-overlay') as HTMLDivElement;
+    const root = canvas.parentElement!.querySelector('.movie-controller') as HTMLDivElement;
+    expect(overlay.parentElement).toBe(root);
+    resolveRender!(new Blob());
+    await new Promise((r) => setTimeout(r, 600));
     ctrl.destroy();
   });
 
@@ -451,7 +485,7 @@ describe('Controller — export', () => {
     movie.render = () => new Promise<Blob>((res) => { resolveRender = res; });
     const ctrl = new Controller(movie, { canvas });
     movie.emit('ready');
-    (canvas.parentElement!.querySelector('.mc-export') as HTMLButtonElement).click();
+    openPopoverAndConfirm(canvas);
     movie.emit('progress', { progress: 42, frame: 84, totalFrames: 200 });
     const fill = document.querySelector('.mc-export-fill') as HTMLDivElement;
     const text = document.querySelector('.mc-export-text') as HTMLDivElement;
@@ -483,7 +517,7 @@ describe('Controller — export', () => {
       return el;
     }) as typeof document.createElement;
 
-    (canvas.parentElement!.querySelector('.mc-export') as HTMLButtonElement).click();
+    openPopoverAndConfirm(canvas);
     await new Promise((r) => setTimeout(r, 600));
     document.createElement = origCreate;
 
@@ -499,13 +533,13 @@ describe('Controller — export', () => {
     const movie = makeFakeMovie();
     const ctrl = new Controller(movie, { canvas });
     movie.emit('ready');
-    (canvas.parentElement!.querySelector('.mc-export') as HTMLButtonElement).click();
+    openPopoverAndConfirm(canvas);
     expect(document.querySelector('.mc-export-title')!.textContent).toBe('Exporting video...');
     expect(document.querySelector('.mc-export-text')!.textContent).toBe('0% (0 / 0 frames)');
     ctrl.destroy();
   });
 
-  it('handleExport passes the current format + quality to movie.render()', async () => {
+  it('confirm passes the current format + quality to movie.render()', async () => {
     const canvas = makeCanvas();
     let renderArgs: unknown = null;
     const movie = makeFakeMovie();
@@ -513,7 +547,7 @@ describe('Controller — export', () => {
     const ctrl = new Controller(movie, { canvas });
     movie.emit('ready');
 
-    // Pick non-default values via the popover selects.
+    // Pick non-default values via the popover selects (no need to open the popover for this).
     const fmt = canvas.parentElement!.querySelector('.mc-settings-format') as HTMLSelectElement;
     const q = canvas.parentElement!.querySelector('.mc-settings-quality') as HTMLSelectElement;
     fmt.value = 'webm';
@@ -521,7 +555,7 @@ describe('Controller — export', () => {
     q.value = 'medium';
     q.dispatchEvent(new Event('change', { bubbles: true }));
 
-    (canvas.parentElement!.querySelector('.mc-export') as HTMLButtonElement).click();
+    openPopoverAndConfirm(canvas);
     await new Promise((r) => setTimeout(r, 600));
     expect(renderArgs).toEqual({
       format: 'webm',
@@ -538,13 +572,28 @@ describe('Controller — export', () => {
     movie.render = async (opts?: unknown) => { renderArgs = opts; return new Blob(); };
     const ctrl = new Controller(movie, { canvas });
     movie.emit('ready');
-    (canvas.parentElement!.querySelector('.mc-export') as HTMLButtonElement).click();
+    openPopoverAndConfirm(canvas);
     await new Promise((r) => setTimeout(r, 600));
     expect(renderArgs).toEqual({
       format: 'mp4',
       video: { bitrate: 'high' },
       audio: { bitrate: 'high' },
     });
+    ctrl.destroy();
+  });
+
+  it('Shift+E shortcut bypasses the popover and exports directly', async () => {
+    const canvas = makeCanvas();
+    let renderCalled = false;
+    const movie = makeFakeMovie();
+    movie.render = async () => { renderCalled = true; return new Blob(); };
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE', shiftKey: true }));
+    await new Promise((r) => setTimeout(r, 600));
+    expect(renderCalled).toBe(true);
+    // Popover stays closed throughout the shortcut.
+    expect(canvas.parentElement!.querySelector('.mc-settings-popover')!.getAttribute('data-open')).toBe('false');
     ctrl.destroy();
   });
 });
@@ -614,18 +663,6 @@ describe('Controller — keyboard', () => {
     ctrl.destroy();
   });
 
-  it('Shift+E triggers export', () => {
-    const canvas = makeCanvas();
-    let called = false;
-    const movie = makeFakeMovie();
-    movie.render = async () => { called = true; return new Blob(); };
-    const ctrl = new Controller(movie, { canvas });
-    movie.emit('ready');
-    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE', shiftKey: true }));
-    expect(called).toBe(true);
-    ctrl.destroy();
-  });
-
   it('keyboard ignored when target is INPUT, TEXTAREA, SELECT, or contenteditable', () => {
     const canvas = makeCanvas();
     const movie = makeFakeMovie();
@@ -668,21 +705,18 @@ describe('Controller — settings popover (DOM)', () => {
     document.head.querySelectorAll('style[data-movie-controller]').forEach((n) => n.remove());
   });
 
-  it('renders a settings gear button left of the export button', () => {
+  it('renders the export button (acts as popover trigger)', () => {
     const canvas = makeCanvas();
     const movie = makeFakeMovie();
     const ctrl = new Controller(movie, { canvas });
     const bar = canvas.parentElement!.querySelector('.mc-bar')!;
-    const settings = bar.querySelector('.mc-settings');
-    const exportBtn = bar.querySelector('.mc-export');
-    expect(settings).not.toBeNull();
+    const exportBtn = bar.querySelector('.mc-export') as HTMLButtonElement;
     expect(exportBtn).not.toBeNull();
-    // Settings button comes immediately before the export button.
-    expect(settings!.nextElementSibling).toBe(exportBtn);
+    expect(exportBtn.getAttribute('aria-expanded')).toBe('false');
     ctrl.destroy();
   });
 
-  it('renders the settings popover with format and quality selects (closed by default)', () => {
+  it('renders the popover with format/quality selects + Download confirm button (closed by default)', () => {
     const canvas = makeCanvas();
     const movie = makeFakeMovie();
     const ctrl = new Controller(movie, { canvas });
@@ -692,20 +726,24 @@ describe('Controller — settings popover (DOM)', () => {
     expect(popover.getAttribute('data-open')).toBe('false');
     const fmt = popover.querySelector('.mc-settings-format') as HTMLSelectElement;
     const q = popover.querySelector('.mc-settings-quality') as HTMLSelectElement;
+    const confirm = popover.querySelector('.mc-export-confirm') as HTMLButtonElement;
     expect(Array.from(fmt.options).map((o) => o.value)).toEqual(['mp4', 'webm', 'mov']);
     expect(Array.from(q.options).map((o) => o.value)).toEqual(['low', 'medium', 'high', 'very-high']);
     expect(fmt.value).toBe('mp4');
     expect(q.value).toBe('high');
+    expect(confirm).not.toBeNull();
+    expect(confirm.textContent).toBe('Download');
     ctrl.destroy();
   });
 
-  it('omits gear and popover when showExportButton is false', () => {
+  it('omits popover and download button when showExportButton is false', () => {
     const canvas = makeCanvas();
     const movie = makeFakeMovie();
     const ctrl = new Controller(movie, { canvas, showExportButton: false });
     const root = canvas.parentElement!.querySelector('.movie-controller')!;
-    expect(root.querySelector('.mc-settings')).toBeNull();
+    expect(root.querySelector('.mc-export')).toBeNull();
     expect(root.querySelector('.mc-settings-popover')).toBeNull();
+    expect(root.querySelector('.mc-export-confirm')).toBeNull();
     ctrl.destroy();
   });
 });
@@ -716,20 +754,20 @@ describe('Controller — settings popover (interaction)', () => {
     document.head.querySelectorAll('style[data-movie-controller]').forEach((n) => n.remove());
   });
 
-  it('clicking the gear toggles open/closed and aria-expanded', () => {
+  it('clicking the download button toggles open/closed and aria-expanded', () => {
     const canvas = makeCanvas();
     const movie = makeFakeMovie();
     const ctrl = new Controller(movie, { canvas });
-    const gear = canvas.parentElement!.querySelector('.mc-settings') as HTMLButtonElement;
+    const exportBtn = canvas.parentElement!.querySelector('.mc-export') as HTMLButtonElement;
     const popover = canvas.parentElement!.querySelector('.mc-settings-popover') as HTMLDivElement;
     expect(popover.getAttribute('data-open')).toBe('false');
-    expect(gear.getAttribute('aria-expanded')).toBe('false');
-    gear.click();
+    expect(exportBtn.getAttribute('aria-expanded')).toBe('false');
+    exportBtn.click();
     expect(popover.getAttribute('data-open')).toBe('true');
-    expect(gear.getAttribute('aria-expanded')).toBe('true');
-    gear.click();
+    expect(exportBtn.getAttribute('aria-expanded')).toBe('true');
+    exportBtn.click();
     expect(popover.getAttribute('data-open')).toBe('false');
-    expect(gear.getAttribute('aria-expanded')).toBe('false');
+    expect(exportBtn.getAttribute('aria-expanded')).toBe('false');
     ctrl.destroy();
   });
 
@@ -737,9 +775,9 @@ describe('Controller — settings popover (interaction)', () => {
     const canvas = makeCanvas();
     const movie = makeFakeMovie();
     const ctrl = new Controller(movie, { canvas });
-    const gear = canvas.parentElement!.querySelector('.mc-settings') as HTMLButtonElement;
+    const exportBtn = canvas.parentElement!.querySelector('.mc-export') as HTMLButtonElement;
     const popover = canvas.parentElement!.querySelector('.mc-settings-popover') as HTMLDivElement;
-    gear.click();
+    exportBtn.click();
     expect(popover.getAttribute('data-open')).toBe('true');
     document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape' }));
     expect(popover.getAttribute('data-open')).toBe('false');
@@ -750,9 +788,9 @@ describe('Controller — settings popover (interaction)', () => {
     const canvas = makeCanvas();
     const movie = makeFakeMovie();
     const ctrl = new Controller(movie, { canvas });
-    const gear = canvas.parentElement!.querySelector('.mc-settings') as HTMLButtonElement;
+    const exportBtn = canvas.parentElement!.querySelector('.mc-export') as HTMLButtonElement;
     const popover = canvas.parentElement!.querySelector('.mc-settings-popover') as HTMLDivElement;
-    gear.click();
+    exportBtn.click();
     // Click inside popover (e.g. on a select) — stays open.
     const fmt = popover.querySelector('.mc-settings-format') as HTMLSelectElement;
     fmt.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
@@ -788,18 +826,18 @@ describe('Controller — settings popover (interaction)', () => {
       const ctrl = new Controller(movie, { canvas });
       movie.emit('ready');
       const root = canvas.parentElement!.querySelector('.movie-controller')!;
-      const gear = canvas.parentElement!.querySelector('.mc-settings') as HTMLButtonElement;
+      const exportBtn = canvas.parentElement!.querySelector('.mc-export') as HTMLButtonElement;
       const play = canvas.parentElement!.querySelector('.mc-play') as HTMLButtonElement;
 
       play.click(); // play
-      gear.click(); // open popover
+      exportBtn.click(); // open popover
 
       // 5 seconds elapse — bar must stay visible because popover is open.
       vi.advanceTimersByTime(5000);
       expect(root.getAttribute('data-state')).toBe('visible');
 
       // Close popover; idle timer resumes; after 2.5s the bar hides.
-      gear.click();
+      exportBtn.click();
       expect(root.getAttribute('data-state')).toBe('visible');
       vi.advanceTimersByTime(2501);
       expect(root.getAttribute('data-state')).toBe('hidden');

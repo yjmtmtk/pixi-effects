@@ -6,7 +6,6 @@ const ICONS = {
   volumeOn: '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M2 6 H5 L9 2 V14 L5 10 H2 Z"/><path d="M11 5 Q13 8 11 11" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M12.5 3.5 Q15.5 8 12.5 12.5" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>',
   volumeOff: '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M2 6 H5 L9 2 V14 L5 10 H2 Z"/><path d="M11 5 L15 11 M15 5 L11 11" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>',
   download: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2 V11 M4 7 L8 11 L12 7 M3 13 H13"/></svg>',
-  gear: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5 V3 M8 13 V14.5 M1.5 8 H3 M13 8 H14.5 M3.4 3.4 L4.5 4.5 M11.5 11.5 L12.6 12.6 M3.4 12.6 L4.5 11.5 M11.5 4.5 L12.6 3.4"/></svg>',
 } as const;
 
 const STYLE_ATTR = 'data-movie-controller';
@@ -126,32 +125,47 @@ const STYLE_CSS = `
   padding: 2px 6px;
   cursor: pointer;
 }
+.mc-export-confirm {
+  margin-top: 4px;
+  width: 100%;
+  background: #007AFF;
+  color: #fff;
+  border: 0;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.mc-export-confirm:hover { background: #0066d6; }
+.mc-export-confirm:disabled { background: rgba(255,255,255,0.18); cursor: not-allowed; }
 
 .mc-export-overlay {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,0.8);
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.7);
   display: flex; justify-content: center; align-items: center;
-  z-index: 9999;
+  z-index: 2;
 }
 .mc-export-panel {
-  background: #1a1a1a; color: #fff;
-  border-radius: 12px; padding: 30px;
-  text-align: center; min-width: 300px;
+  background: rgba(20,20,20,0.96); color: #fff;
+  border-radius: 8px; padding: 16px 20px;
+  text-align: center; min-width: 200px; max-width: 80%;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
-.mc-export-title { font-size: 18px; margin-bottom: 20px; }
+.mc-export-title { font-size: 13px; margin-bottom: 10px; opacity: 0.9; }
 .mc-export-track {
-  width: 100%; height: 8px;
-  background: #333; border-radius: 4px;
-  margin-bottom: 15px; overflow: hidden;
+  width: 100%; height: 6px;
+  background: rgba(255,255,255,0.15); border-radius: 3px;
+  margin-bottom: 8px; overflow: hidden;
 }
 .mc-export-fill {
   height: 100%; width: 0%;
   background: linear-gradient(90deg, #007AFF, #0056CC);
-  transition: width 0.3s ease; border-radius: 4px;
+  transition: width 0.3s ease; border-radius: 3px;
 }
 .mc-export-text {
-  color: #888; font-size: 14px;
+  color: rgba(255,255,255,0.7); font-size: 11px;
   font-family: Menlo, Monaco, monospace;
 }
 `;
@@ -233,10 +247,10 @@ export class Controller {
   private muteBtn!: HTMLButtonElement;
   private timeEl!: HTMLSpanElement;
   private exportBtn: HTMLButtonElement | null = null;
-  private settingsBtn: HTMLButtonElement | null = null;
   private settingsPopoverEl: HTMLDivElement | null = null;
   private settingsFormatSelect: HTMLSelectElement | null = null;
   private settingsQualitySelect: HTMLSelectElement | null = null;
+  private exportConfirmBtn: HTMLButtonElement | null = null;
   private exportFormat: 'mp4' | 'webm' | 'mov' = 'mp4';
   private exportQuality: 'low' | 'medium' | 'high' | 'very-high' = 'high';
   private settingsOpen = false;
@@ -289,16 +303,12 @@ export class Controller {
     this.bindPlayButton();
     this.bindScrubbing();
     this.bindMuteButton();
-    this.bindExportButton();
-    this.bindSettingsPopover();
+    this.bindExportPopover();
     this.bindVisibility();
     if (this.options.enableKeyboardShortcuts) this.bindKeyboard();
   }
 
   private buildBar(): void {
-    const settingsHtml = this.options.showExportButton ? `
-      <button class="mc-btn mc-settings" aria-label="Export settings" aria-expanded="false">${ICONS.gear}</button>
-    ` : '';
     const popoverHtml = this.options.showExportButton ? `
       <div class="mc-settings-popover" role="dialog" aria-label="Export settings" data-open="false">
         <label class="mc-settings-row">
@@ -318,6 +328,7 @@ export class Controller {
             <option value="very-high">Very High</option>
           </select>
         </label>
+        <button type="button" class="mc-export-confirm">Download</button>
       </div>
     ` : '';
     this.root.innerHTML = `
@@ -331,8 +342,7 @@ export class Controller {
         <button class="mc-btn mc-mute" aria-label="Mute">${ICONS.volumeOn}</button>
         <span class="mc-time">0:00 / 0:00</span>
         <div class="mc-spacer"></div>
-        ${settingsHtml}
-        ${this.options.showExportButton ? `<button class="mc-btn mc-export" aria-label="Export">${ICONS.download}</button>` : ''}
+        ${this.options.showExportButton ? `<button class="mc-btn mc-export" aria-label="Export" aria-expanded="false">${ICONS.download}</button>` : ''}
       </div>
     `;
     this.progressEl = this.root.querySelector('.mc-progress') as HTMLDivElement;
@@ -342,10 +352,10 @@ export class Controller {
     this.muteBtn = this.root.querySelector('.mc-mute') as HTMLButtonElement;
     this.timeEl = this.root.querySelector('.mc-time') as HTMLSpanElement;
     this.exportBtn = this.root.querySelector('.mc-export') as HTMLButtonElement | null;
-    this.settingsBtn = this.root.querySelector('.mc-settings') as HTMLButtonElement | null;
     this.settingsPopoverEl = this.root.querySelector('.mc-settings-popover') as HTMLDivElement | null;
     this.settingsFormatSelect = this.root.querySelector('.mc-settings-format') as HTMLSelectElement | null;
     this.settingsQualitySelect = this.root.querySelector('.mc-settings-quality') as HTMLSelectElement | null;
+    this.exportConfirmBtn = this.root.querySelector('.mc-export-confirm') as HTMLButtonElement | null;
     if (this.settingsFormatSelect) this.settingsFormatSelect.value = this.exportFormat;
     if (this.settingsQualitySelect) this.settingsQualitySelect.value = this.exportQuality;
   }
@@ -492,13 +502,22 @@ export class Controller {
     void this.movie.gotoFrame(frame);
   }
 
-  private bindSettingsPopover(): void {
-    if (!this.settingsBtn || !this.settingsPopoverEl) return;
+  private bindExportPopover(): void {
+    if (!this.exportBtn || !this.settingsPopoverEl) return;
 
-    this.settingsBtn.addEventListener('click', (e) => {
+    // Download icon on the bar toggles the popover (it does NOT directly trigger export).
+    this.exportBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       this.toggleSettings(!this.settingsOpen);
     });
+
+    // Confirm button inside the popover triggers the actual export, then closes.
+    if (this.exportConfirmBtn) {
+      this.exportConfirmBtn.addEventListener('click', () => {
+        this.toggleSettings(false);
+        void this.handleExport();
+      });
+    }
 
     if (this.settingsFormatSelect) {
       this.settingsFormatSelect.addEventListener('change', (e) => {
@@ -526,17 +545,17 @@ export class Controller {
       const target = e.target as Node | null;
       if (!target) return;
       if (this.settingsPopoverEl?.contains(target)) return;
-      if (this.settingsBtn?.contains(target)) return;
+      if (this.exportBtn?.contains(target)) return;
       this.toggleSettings(false);
     };
     document.addEventListener('pointerdown', this.settingsOutsideHandler);
   }
 
   private toggleSettings(open: boolean): void {
-    if (!this.settingsBtn || !this.settingsPopoverEl) return;
+    if (!this.exportBtn || !this.settingsPopoverEl) return;
     this.settingsOpen = open;
     this.settingsPopoverEl.setAttribute('data-open', open ? 'true' : 'false');
-    this.settingsBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    this.exportBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
     if (open) {
       // Keep the bar visible while the popover is open.
       if (this.hideTimer) { clearTimeout(this.hideTimer); this.hideTimer = null; }
@@ -545,13 +564,6 @@ export class Controller {
       // Resume normal auto-hide cadence after closing during playback.
       this.kickIdleTimer();
     }
-  }
-
-  private bindExportButton(): void {
-    if (!this.exportBtn) return;
-    this.exportBtn.addEventListener('click', () => {
-      void this.handleExport();
-    });
   }
 
   private async handleExport(): Promise<void> {
@@ -616,7 +628,7 @@ export class Controller {
         <div class="mc-export-text">0% (0 / 0 frames)</div>
       </div>
     `;
-    document.body.appendChild(overlay);
+    this.root.appendChild(overlay);
     this.exportOverlay = overlay;
     this.exportFillEl = overlay.querySelector('.mc-export-fill') as HTMLDivElement;
     this.exportTextEl = overlay.querySelector('.mc-export-text') as HTMLDivElement;
@@ -707,7 +719,8 @@ export class Controller {
         case 'KeyE':
           if (e.shiftKey && this.exportBtn) {
             e.preventDefault();
-            this.exportBtn.click();
+            // Power-user shortcut: skip the popover and export with current settings.
+            void this.handleExport();
           }
           break;
       }
