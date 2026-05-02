@@ -69,6 +69,7 @@ const STYLE_CSS = `
 .mc-progress.mc-scrubbing .mc-progress-thumb { transform: translate(-50%, -50%) scale(1); }
 
 .mc-bar {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -324,8 +325,8 @@ export class Controller {
         <div class="mc-progress-fill"></div>
         <div class="mc-progress-thumb"></div>
       </div>
-      ${popoverHtml}
       <div class="mc-bar">
+        ${popoverHtml}
         <button class="mc-btn mc-play" aria-label="Play">${ICONS.play}</button>
         <button class="mc-btn mc-mute" aria-label="Mute">${ICONS.volumeOn}</button>
         <span class="mc-time">0:00 / 0:00</span>
