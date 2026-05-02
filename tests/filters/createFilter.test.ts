@@ -8,6 +8,7 @@ vi.mock('pixi.js', () => {
   class Filter {
     resources: Record<string, unknown> = {};
     constructor(_opts?: unknown) { /* no-op */ }
+    apply() { /* PIXI calls this on render; presence of this method is the duck-type marker. */ }
   }
   class GlProgram { constructor(_opts: unknown) { /* no-op */ } }
   class BlurFilter extends Filter { strength = 8; quality = 4; constructor(_opts?: unknown) { super(); } }
@@ -77,10 +78,19 @@ describe('createFilter — custom', () => {
     expect(out._name).toBeUndefined();
   });
 
-  it('throws if `filter` is not a PIXI Filter instance', () => {
-    expect(() => createFilter({ type: 'custom', filter: { not: 'a filter' } as unknown }))
-      .toThrow(/requires a `filter` that is a PIXI Filter instance/);
-    expect(() => createFilter({ type: 'custom', filter: null as unknown }))
-      .toThrow(/requires a `filter` that is a PIXI Filter instance/);
+  it('throws on null / non-objects / objects without an apply method', () => {
+    expect(() => createFilter({ type: 'custom', filter: null as unknown })).toThrow(/PIXI Filter/);
+    expect(() => createFilter({ type: 'custom', filter: 'oops' as unknown })).toThrow(/PIXI Filter/);
+    expect(() => createFilter({ type: 'custom', filter: { not: 'a filter' } as unknown })).toThrow(/PIXI Filter/);
+  });
+
+  it('accepts cross-realm filters via duck-typing (has an `apply` method)', () => {
+    // Simulates a Filter instance loaded from a different bundled copy of pixi.js
+    // (e.g. when consumers pull pixi-filters via a CDN that bundles its own pixi).
+    const fake = { apply() { /* PIXI calls this during render */ }, otherProp: 42 };
+    const out = createFilter({ type: 'custom', name: 'fake', filter: fake as unknown }) as { _name?: string; otherProp: number };
+    expect(out).toBe(fake);
+    expect(out._name).toBe('fake');
+    expect(out.otherProp).toBe(42);
   });
 });
