@@ -21,6 +21,7 @@ export class Controller {
   private root: HTMLDivElement;
   private wrapper: HTMLDivElement;
   private wrappedHere = false;
+  private destroyed = false;
 
   constructor(movie: Movie, options: ControllerOptions) {
     if (!options || !options.canvas) {
@@ -61,6 +62,8 @@ export class Controller {
   }
 
   destroy(): void {
+    if (this.destroyed) return;
+    this.destroyed = true;
     this.root.remove();
     if (this.wrappedHere) {
       const parent = this.wrapper.parentElement;

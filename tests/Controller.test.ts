@@ -98,4 +98,14 @@ describe('Controller — mounting', () => {
     expect(canvas.parentElement).toBe(parent);
     expect(parent.querySelector('.movie-controller')).toBeNull();
   });
+
+  it('destroy is idempotent (second call is a no-op)', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    ctrl.destroy();
+    expect(() => ctrl.destroy()).not.toThrow();
+    // Canvas should remain in its original parent (document.body), not double-moved.
+    expect(canvas.parentElement).toBe(document.body);
+  });
 });
