@@ -69,16 +69,21 @@ export async function exportFrames(movie: Movie, options: RenderOptions = {}): P
     output.addAudioTrack(audioSource);
     await output.start();
     await audioSource.add(movie.audioBuffer);
-    audioSource.close();
+    await audioSource.close();
   } else {
     await output.start();
   }
 
   movie.app!.ticker.stop();
+  // Force a keyframe every ~2 seconds (and at frame 0). Improves seek
+  // responsiveness in players without inflating bitrate appreciably.
+  const keyframeIntervalFrames = Math.max(1, Math.round(2 * movie.frameRate));
   try {
     for (let frame = 0; frame <= movie.totalFrames; frame++) {
       await movie.gotoFrame(frame, true);
-      await canvasSource.add(frame / movie.frameRate, 1 / movie.frameRate);
+      const isKey = frame === 0 || frame % keyframeIntervalFrames === 0;
+      const addOpts = isKey ? { keyFrame: true } : undefined;
+      await canvasSource.add(frame / movie.frameRate, 1 / movie.frameRate, addOpts);
       const progress = Math.floor((frame / movie.totalFrames) * 100);
       movie.emit('progress', { progress, frame, totalFrames: movie.totalFrames });
     }
