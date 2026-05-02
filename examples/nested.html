@@ -7,7 +7,6 @@ canvas { width: min(960px, 100%); }</style></head>
   <h1>pixi-effects nested + audio</h1>
   <p>Provide an audio clip at <code>examples/_assets/bgm.mp3</code>.</p>
   <canvas id="stage" width="1280" height="720"></canvas>
-  <div id="ctrl"></div>
   <script type="importmap">
   { "imports": {
     "pixi.js":   "https://esm.sh/pixi.js@8.10.0?bundle-deps",
@@ -21,7 +20,7 @@ canvas { width: min(960px, 100%); }</style></head>
     import { Movie } from '../dist/index.js';
     import { Controller } from '../dist/Controller.js';
     const movie = new Movie();
-    new Controller(movie, { container: document.getElementById('ctrl') });
+    new Controller(movie, { canvas: document.getElementById('stage') });
     await movie.init({
       canvas: document.getElementById('stage'),
       width: 1280, height: 720, duration: 6, frameRate: 30,

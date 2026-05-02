@@ -10,7 +10,6 @@
   <h1>pixi-effects chromakey</h1>
   <p>Provide a green-screen clip at <code>examples/_assets/green.mp4</code>.</p>
   <canvas id="stage" width="1280" height="720"></canvas>
-  <div id="ctrl"></div>
   <script type="importmap">
   {
     "imports": {
@@ -28,7 +27,7 @@
 
     const movie = new Movie();
     window.__movie = movie;
-    new Controller(movie, { container: document.getElementById('ctrl') });
+    new Controller(movie, { canvas: document.getElementById('stage') });
     await movie.init({
       canvas: document.getElementById('stage'),
       width: 1280, height: 720, duration: 6, frameRate: 30,
