@@ -143,8 +143,12 @@ const STYLE_CSS = `
   background: #000;
 }
 .movie-controller-wrap:fullscreen > canvas {
-  width: auto; height: auto;
-  max-width: 100%; max-height: 100%;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: contain;
+  border-radius: 0;
 }
 
 .mc-settings-popover {
