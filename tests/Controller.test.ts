@@ -254,3 +254,71 @@ describe('Controller — playback', () => {
     ctrl.destroy();
   });
 });
+
+describe('Controller — scrubbing', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    document.head.querySelectorAll('style[data-movie-controller]').forEach((n) => n.remove());
+  });
+
+  it('pointerdown on progress pauses if playing and seeks to position', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie({ totalFrames: 100 } as Partial<Movie>);
+    movie.isPlaying = true;
+    const seeks: number[] = [];
+    movie.gotoFrame = async (f: number) => { seeks.push(f); movie.currentFrame = f; };
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+
+    const progress = canvas.parentElement!.querySelector('.mc-progress') as HTMLDivElement;
+    // Stub getBoundingClientRect because happy-dom returns zeros.
+    progress.getBoundingClientRect = () => ({ left: 0, top: 0, right: 200, bottom: 16, width: 200, height: 16, x: 0, y: 0, toJSON() { return {}; } });
+    progress.setPointerCapture = () => {};
+    progress.releasePointerCapture = () => {};
+
+    const down = new PointerEvent('pointerdown', { clientX: 100, pointerId: 1 });
+    progress.dispatchEvent(down);
+    expect(movie.isPlaying).toBe(false);
+    expect(seeks).toEqual([50]);
+    expect(progress.classList.contains('mc-scrubbing')).toBe(true);
+    ctrl.destroy();
+  });
+
+  it('pointermove while scrubbing seeks; pointerup resumes if was playing', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie({ totalFrames: 100 } as Partial<Movie>);
+    movie.isPlaying = true;
+    const seeks: number[] = [];
+    movie.gotoFrame = async (f: number) => { seeks.push(f); movie.currentFrame = f; };
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    const progress = canvas.parentElement!.querySelector('.mc-progress') as HTMLDivElement;
+    progress.getBoundingClientRect = () => ({ left: 0, top: 0, right: 200, bottom: 16, width: 200, height: 16, x: 0, y: 0, toJSON() { return {}; } });
+    progress.setPointerCapture = () => {};
+    progress.releasePointerCapture = () => {};
+
+    progress.dispatchEvent(new PointerEvent('pointerdown', { clientX: 0, pointerId: 1 }));
+    progress.dispatchEvent(new PointerEvent('pointermove', { clientX: 80, pointerId: 1 }));
+    progress.dispatchEvent(new PointerEvent('pointermove', { clientX: 200, pointerId: 1 }));
+    progress.dispatchEvent(new PointerEvent('pointerup', { clientX: 200, pointerId: 1 }));
+
+    expect(seeks).toEqual([0, 40, 100, 100]);
+    expect(movie.isPlaying).toBe(true);
+    expect(progress.classList.contains('mc-scrubbing')).toBe(false);
+    ctrl.destroy();
+  });
+
+  it('pointermove without scrubbing does NOT seek', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie({ totalFrames: 100 } as Partial<Movie>);
+    const seeks: number[] = [];
+    movie.gotoFrame = async (f: number) => { seeks.push(f); };
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    const progress = canvas.parentElement!.querySelector('.mc-progress') as HTMLDivElement;
+    progress.getBoundingClientRect = () => ({ left: 0, top: 0, right: 200, bottom: 16, width: 200, height: 16, x: 0, y: 0, toJSON() { return {}; } });
+    progress.dispatchEvent(new PointerEvent('pointermove', { clientX: 100, pointerId: 1 }));
+    expect(seeks).toEqual([]);
+    ctrl.destroy();
+  });
+});

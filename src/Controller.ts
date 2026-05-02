@@ -182,6 +182,8 @@ export class Controller {
   private timeEl!: HTMLSpanElement;
   private exportBtn: HTMLButtonElement | null = null;
   private isScrubbing = false;
+  private wasPlayingBeforeScrub = false;
+  private activePointerId: number | null = null;
 
   constructor(movie: Movie, options: ControllerOptions) {
     if (!options || !options.canvas) {
@@ -203,6 +205,7 @@ export class Controller {
     this.buildBar();
     this.bindMovieEvents();
     this.bindPlayButton();
+    this.bindScrubbing();
   }
 
   private buildBar(): void {
@@ -288,6 +291,48 @@ export class Controller {
     const cur = frame / fr;
     const total = this.movie.totalFrames / fr;
     this.timeEl.textContent = `${formatTime(cur)} / ${formatTime(total)}`;
+  }
+
+  private bindScrubbing(): void {
+    const onDown = (e: PointerEvent) => {
+      this.isScrubbing = true;
+      this.activePointerId = e.pointerId;
+      this.wasPlayingBeforeScrub = this.movie.isPlaying;
+      if (this.movie.isPlaying) {
+        this.movie.pause();
+        this.refreshPlayIcon();
+      }
+      this.progressEl.classList.add('mc-scrubbing');
+      try { this.progressEl.setPointerCapture(e.pointerId); } catch { /* unsupported */ }
+      this.seekFromPointer(e.clientX);
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!this.isScrubbing) return;
+      this.seekFromPointer(e.clientX);
+    };
+    const onUp = (e: PointerEvent) => {
+      if (!this.isScrubbing) return;
+      this.seekFromPointer(e.clientX);
+      this.isScrubbing = false;
+      this.activePointerId = null;
+      this.progressEl.classList.remove('mc-scrubbing');
+      try { this.progressEl.releasePointerCapture(e.pointerId); } catch { /* unsupported */ }
+      if (this.wasPlayingBeforeScrub) {
+        this.movie.play();
+        this.refreshPlayIcon();
+      }
+    };
+    this.progressEl.addEventListener('pointerdown', onDown);
+    this.progressEl.addEventListener('pointermove', onMove);
+    this.progressEl.addEventListener('pointerup', onUp);
+    this.progressEl.addEventListener('pointercancel', onUp);
+  }
+
+  private seekFromPointer(clientX: number): void {
+    const rect = this.progressEl.getBoundingClientRect();
+    const frame = pxToFrame(clientX, { left: rect.left, width: rect.width }, this.movie.totalFrames);
+    this.refreshProgress(frame);
+    void this.movie.gotoFrame(frame);
   }
 
   destroy(): void {
