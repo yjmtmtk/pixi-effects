@@ -779,6 +779,35 @@ describe('Controller — settings popover (interaction)', () => {
     expect(q.value).toBe('medium');
     ctrl.destroy();
   });
+
+  it('opening popover during playback prevents auto-hide; closing resumes it', () => {
+    vi.useFakeTimers();
+    try {
+      const canvas = makeCanvas();
+      const movie = makeFakeMovie();
+      const ctrl = new Controller(movie, { canvas });
+      movie.emit('ready');
+      const root = canvas.parentElement!.querySelector('.movie-controller')!;
+      const gear = canvas.parentElement!.querySelector('.mc-settings') as HTMLButtonElement;
+      const play = canvas.parentElement!.querySelector('.mc-play') as HTMLButtonElement;
+
+      play.click(); // play
+      gear.click(); // open popover
+
+      // 5 seconds elapse — bar must stay visible because popover is open.
+      vi.advanceTimersByTime(5000);
+      expect(root.getAttribute('data-state')).toBe('visible');
+
+      // Close popover; idle timer resumes; after 2.5s the bar hides.
+      gear.click();
+      expect(root.getAttribute('data-state')).toBe('visible');
+      vi.advanceTimersByTime(2501);
+      expect(root.getAttribute('data-state')).toBe('hidden');
+      ctrl.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe('Controller — visibility', () => {

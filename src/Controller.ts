@@ -635,7 +635,7 @@ export class Controller {
     const wrap = this.wrapper;
     this.onWrapPointerMove = () => this.kickIdleTimer();
     this.onWrapMouseLeave = () => {
-      if (this.movie.isPlaying) this.setVisible(false);
+      if (this.movie.isPlaying && !this.settingsOpen) this.setVisible(false);
     };
     wrap.addEventListener('pointermove', this.onWrapPointerMove);
     wrap.addEventListener('mouseleave', this.onWrapMouseLeave);
@@ -649,8 +649,9 @@ export class Controller {
     this.setVisible(true);
     if (this.hideTimer) { clearTimeout(this.hideTimer); this.hideTimer = null; }
     if (!this.movie.isPlaying) return;
+    if (this.settingsOpen) return;
     this.hideTimer = setTimeout(() => {
-      if (this.movie.isPlaying && !this.isScrubbing) this.setVisible(false);
+      if (this.movie.isPlaying && !this.isScrubbing && !this.settingsOpen) this.setVisible(false);
     }, Controller.HIDE_DELAY_MS);
   }
 
