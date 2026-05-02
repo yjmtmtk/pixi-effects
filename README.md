@@ -16,10 +16,11 @@ npm install pixi-effects pixi.js gsap
 import { Movie } from 'pixi-effects';
 import { Controller } from 'pixi-effects/controller';
 
+const canvas = document.querySelector('canvas')!;
 const movie = new Movie();
-new Controller(movie, { container: document.getElementById('ctrl')! });
+new Controller(movie, { canvas });
 await movie.init({
-  canvas: document.querySelector('canvas')!,
+  canvas,
   width: 1280, height: 720, duration: 5, frameRate: 30,
   composition: {
     sequences: [
