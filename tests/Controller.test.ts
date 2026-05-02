@@ -261,10 +261,8 @@ describe('Controller — playback', () => {
     const ctrl = new Controller(movie, { canvas });
     movie.emit('ready');
     movie.emit('frame', { frame: 100, totalFrames: 200 });
-    const fill = canvas.parentElement!.querySelector('.mc-progress-fill') as HTMLDivElement;
-    const thumb = canvas.parentElement!.querySelector('.mc-progress-thumb') as HTMLDivElement;
-    expect(fill.style.width).toBe('50%');
-    expect(thumb.style.left).toBe('50%');
+    const progress = canvas.parentElement!.querySelector('.mc-progress') as HTMLDivElement;
+    expect(progress.style.getPropertyValue('--mc-fill')).toBe('0.5');
     const time = canvas.parentElement!.querySelector('.mc-time')!;
     expect(time.textContent).toBe('0:04 / 0:08');
     ctrl.destroy();
@@ -357,7 +355,9 @@ describe('Controller — scrubbing', () => {
     progress.dispatchEvent(new PointerEvent('pointermove', { clientX: 200, pointerId: 1 }));
     progress.dispatchEvent(new PointerEvent('pointerup', { clientX: 200, pointerId: 1 }));
 
-    expect(seeks).toEqual([0, 40, 100, 100]);
+    // 12px inset on each side reduces effective track from 200 → 176px,
+    // so clientX=80 maps to round((80-12)/176 * 100) = 39 (not 40).
+    expect(seeks).toEqual([0, 39, 100, 100]);
     expect(movie.isPlaying).toBe(true);
     expect(progress.classList.contains('mc-scrubbing')).toBe(false);
     ctrl.destroy();

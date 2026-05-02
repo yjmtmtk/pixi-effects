@@ -39,14 +39,15 @@ const STYLE_CSS = `
   outline-offset: 2px;
 }
 .mc-progress::before {
-  content: ""; position: absolute; left: 0; right: 0;
+  content: ""; position: absolute; left: 12px; right: 12px;
   height: 3px; background: rgba(255,255,255,0.25);
   transition: height 120ms ease;
 }
 .mc-progress:hover::before, .mc-progress.mc-scrubbing::before { height: 5px; }
 .mc-progress-fill {
-  position: absolute; left: 0; top: 50%;
-  height: 3px; width: 0%;
+  position: absolute; left: 12px; top: 50%;
+  height: 3px;
+  width: calc((100% - 24px) * var(--mc-fill, 0));
   background: #007AFF;
   transform: translateY(-50%);
   transition: height 120ms ease;
@@ -56,12 +57,12 @@ const STYLE_CSS = `
 .mc-progress.mc-scrubbing .mc-progress-fill { height: 5px; }
 .mc-progress-thumb {
   position: absolute; top: 50%;
+  left: calc(12px + (100% - 24px) * var(--mc-fill, 0));
   width: 12px; height: 12px; border-radius: 50%;
   background: #007AFF;
   transform: translate(-50%, -50%) scale(0);
   transition: transform 120ms ease;
   pointer-events: none;
-  left: 0%;
 }
 .mc-progress:hover .mc-progress-thumb,
 .mc-progress.mc-scrubbing .mc-progress-thumb { transform: translate(-50%, -50%) scale(1); }
@@ -191,6 +192,7 @@ export class Controller {
   private exportBtn: HTMLButtonElement | null = null;
   private hideTimer: ReturnType<typeof setTimeout> | null = null;
   private static readonly HIDE_DELAY_MS = 2500;
+  private static readonly PROGRESS_INSET_PX = 12;
   private isScrubbing = false;
   private wasPlayingBeforeScrub = false;
   private activePointerId: number | null = null;
@@ -349,8 +351,7 @@ export class Controller {
   private refreshProgress(frame: number, totalFrames?: number): void {
     const total = totalFrames ?? this.movie.totalFrames;
     const pct = frameToPercent(frame, total);
-    this.progressFillEl.style.width = `${pct}%`;
-    this.progressThumbEl.style.left = `${pct}%`;
+    this.progressEl.style.setProperty('--mc-fill', String(pct / 100));
     this.progressEl.setAttribute('aria-valuenow', String(frame));
   }
 
@@ -398,7 +399,10 @@ export class Controller {
 
   private seekFromPointer(clientX: number): void {
     const rect = this.progressEl.getBoundingClientRect();
-    const frame = pxToFrame(clientX, { left: rect.left, width: rect.width }, this.movie.totalFrames);
+    const inset = Controller.PROGRESS_INSET_PX;
+    const innerLeft = rect.left + inset;
+    const innerWidth = Math.max(0, rect.width - 2 * inset);
+    const frame = pxToFrame(clientX, { left: innerLeft, width: innerWidth }, this.movie.totalFrames);
     this.refreshProgress(frame);
     void this.movie.gotoFrame(frame);
   }
