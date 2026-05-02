@@ -20,7 +20,14 @@ function makeFakeMovie(overrides: Partial<Movie> = {}): Movie {
     get muted() { return this._muted; },
     set muted(v: boolean) { this._muted = v; },
     play() { this.isPlaying = true; },
-    pause() { this.isPlaying = false; },
+    pause() {
+      const was = this.isPlaying;
+      this.isPlaying = false;
+      // Mirror real Movie.pause(): emits only on a true playing→paused transition.
+      if (was) {
+        for (const fn of listeners.pause ?? []) fn();
+      }
+    },
     async gotoFrame(f: number) { this.currentFrame = f; },
     toggleMute() { this._muted = !this._muted; return this._muted; },
     async render() { return new Blob(); },
@@ -1082,20 +1089,44 @@ describe('Controller — visibility', () => {
     ctrl.destroy();
   });
 
-  it('mouseleave on wrapper hides immediately when playing', () => {
+  it('mouseleave on wrapper hides immediately regardless of playing state', () => {
     const canvas = makeCanvas();
     const movie = makeFakeMovie();
     const ctrl = new Controller(movie, { canvas });
     movie.emit('ready');
     const wrap = canvas.parentElement!;
     const root = wrap.querySelector('.movie-controller')!;
+    // Playing case
     (wrap.querySelector('.mc-play') as HTMLButtonElement).click();
+    wrap.dispatchEvent(new MouseEvent('mouseleave'));
+    expect(root.getAttribute('data-state')).toBe('hidden');
+    // Pause and verify mouseleave still hides (YouTube-compatible).
+    (wrap.querySelector('.mc-play') as HTMLButtonElement).click(); // pause
+    // Pause shows the bar momentarily via kickIdleTimer.
+    expect(root.getAttribute('data-state')).toBe('visible');
     wrap.dispatchEvent(new MouseEvent('mouseleave'));
     expect(root.getAttribute('data-state')).toBe('hidden');
     ctrl.destroy();
   });
 
-  it('pause forces visible and cancels idle timer', () => {
+  it('paused state also auto-hides after the idle delay (YouTube-compatible)', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    const wrap = canvas.parentElement!;
+    const root = wrap.querySelector('.movie-controller')!;
+    // Movie is paused (default). Trigger pointer activity to start the timer.
+    wrap.dispatchEvent(new PointerEvent('pointermove'));
+    expect(root.getAttribute('data-state')).toBe('visible');
+    vi.advanceTimersByTime(2499);
+    expect(root.getAttribute('data-state')).toBe('visible');
+    vi.advanceTimersByTime(2);
+    expect(root.getAttribute('data-state')).toBe('hidden');
+    ctrl.destroy();
+  });
+
+  it('pause click triggers a fresh idle timer (bar shows then hides on idle)', () => {
     const canvas = makeCanvas();
     const movie = makeFakeMovie();
     const ctrl = new Controller(movie, { canvas });
@@ -1104,12 +1135,12 @@ describe('Controller — visibility', () => {
     const root = wrap.querySelector('.movie-controller')!;
     const play = wrap.querySelector('.mc-play') as HTMLButtonElement;
     play.click(); // play
-    wrap.dispatchEvent(new MouseEvent('mouseleave'));
+    vi.advanceTimersByTime(2501);
     expect(root.getAttribute('data-state')).toBe('hidden');
-    play.click(); // pause
+    play.click(); // pause — should re-show then hide on idle
     expect(root.getAttribute('data-state')).toBe('visible');
-    vi.advanceTimersByTime(5000);
-    expect(root.getAttribute('data-state')).toBe('visible');
+    vi.advanceTimersByTime(2501);
+    expect(root.getAttribute('data-state')).toBe('hidden');
     ctrl.destroy();
   });
 });

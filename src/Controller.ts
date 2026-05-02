@@ -480,8 +480,8 @@ export class Controller {
     };
     this.onPause = () => {
       this.refreshPlayIcon();
-      if (this.hideTimer) { clearTimeout(this.hideTimer); this.hideTimer = null; }
-      this.setVisible(true);
+      // YouTube-style: pause shows the bar momentarily, then auto-hides on idle.
+      this.kickIdleTimer();
     };
     this.onProgress = ({ progress, frame, totalFrames }) => {
       if (!this.isExporting || !this.exportFillEl || !this.exportTextEl) return;
@@ -498,9 +498,8 @@ export class Controller {
     this.playBtn.addEventListener('click', () => {
       if (this.movie.isPlaying) {
         this.movie.pause();
-        this.refreshPlayIcon();
-        if (this.hideTimer) { clearTimeout(this.hideTimer); this.hideTimer = null; }
-        this.setVisible(true);
+        // movie.pause() emits 'pause' which the onPause handler turns into
+        // refreshPlayIcon + kickIdleTimer, so no extra work here.
       } else {
         this.movie.play();
         this.refreshPlayIcon();
@@ -721,8 +720,8 @@ export class Controller {
       // Keep the bar visible while the popover is open.
       if (this.hideTimer) { clearTimeout(this.hideTimer); this.hideTimer = null; }
       this.setVisible(true);
-    } else if (this.movie.isPlaying) {
-      // Resume normal auto-hide cadence after closing during playback.
+    } else {
+      // Resume normal auto-hide cadence after closing.
       this.kickIdleTimer();
     }
   }
@@ -808,7 +807,7 @@ export class Controller {
     const wrap = this.wrapper;
     this.onWrapPointerMove = () => this.kickIdleTimer();
     this.onWrapMouseLeave = () => {
-      if (this.movie.isPlaying && !this.settingsOpen) this.setVisible(false);
+      if (!this.settingsOpen && !this.isScrubbing && !this.isVolumeScrubbing) this.setVisible(false);
     };
     wrap.addEventListener('pointermove', this.onWrapPointerMove);
     wrap.addEventListener('mouseleave', this.onWrapMouseLeave);
@@ -821,10 +820,9 @@ export class Controller {
   private kickIdleTimer(): void {
     this.setVisible(true);
     if (this.hideTimer) { clearTimeout(this.hideTimer); this.hideTimer = null; }
-    if (!this.movie.isPlaying) return;
     if (this.settingsOpen) return;
     this.hideTimer = setTimeout(() => {
-      if (this.movie.isPlaying && !this.isScrubbing && !this.isVolumeScrubbing && !this.settingsOpen) this.setVisible(false);
+      if (!this.isScrubbing && !this.isVolumeScrubbing && !this.settingsOpen) this.setVisible(false);
     }, Controller.HIDE_DELAY_MS);
   }
 
