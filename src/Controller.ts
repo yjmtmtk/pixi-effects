@@ -131,6 +131,26 @@ function uninstallStyles(): void {
   }
 }
 
+export function formatTime(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${r.toString().padStart(2, '0')}`;
+}
+
+export function frameToPercent(frame: number, totalFrames: number): number {
+  if (totalFrames <= 0) return 0;
+  const f = Math.min(Math.max(frame, 0), totalFrames);
+  return (f / totalFrames) * 100;
+}
+
+export function pxToFrame(clientX: number, rect: { left: number; width: number }, totalFrames: number): number {
+  if (rect.width <= 0 || totalFrames <= 0) return 0;
+  const ratio = (clientX - rect.left) / rect.width;
+  const clamped = Math.min(Math.max(ratio, 0), 1);
+  return Math.round(clamped * totalFrames);
+}
+
 export interface ControllerOptions {
   canvas: HTMLCanvasElement;
   showExportButton?: boolean;
@@ -154,6 +174,14 @@ export class Controller {
   private wrappedHere = false;
   private destroyed = false;
 
+  private progressEl!: HTMLDivElement;
+  private progressFillEl!: HTMLDivElement;
+  private progressThumbEl!: HTMLDivElement;
+  private playBtn!: HTMLButtonElement;
+  private muteBtn!: HTMLButtonElement;
+  private timeEl!: HTMLSpanElement;
+  private exportBtn: HTMLButtonElement | null = null;
+
   constructor(movie: Movie, options: ControllerOptions) {
     if (!options || !options.canvas) {
       throw new Error('Controller requires options.canvas (HTMLCanvasElement).');
@@ -171,6 +199,30 @@ export class Controller {
     this.root = document.createElement('div');
     this.root.className = this.options.className;
     this.wrapper.appendChild(this.root);
+    this.buildBar();
+  }
+
+  private buildBar(): void {
+    this.root.innerHTML = `
+      <div class="mc-progress" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0" aria-valuemax="${this.movie.totalFrames}" aria-valuenow="0">
+        <div class="mc-progress-fill"></div>
+        <div class="mc-progress-thumb"></div>
+      </div>
+      <div class="mc-bar">
+        <button class="mc-btn mc-play" aria-label="Play">${ICONS.play}</button>
+        <button class="mc-btn mc-mute" aria-label="Mute">${ICONS.volumeOn}</button>
+        <span class="mc-time">0:00 / 0:00</span>
+        <div class="mc-spacer"></div>
+        ${this.options.showExportButton ? `<button class="mc-btn mc-export" aria-label="Export">${ICONS.download}</button>` : ''}
+      </div>
+    `;
+    this.progressEl = this.root.querySelector('.mc-progress') as HTMLDivElement;
+    this.progressFillEl = this.root.querySelector('.mc-progress-fill') as HTMLDivElement;
+    this.progressThumbEl = this.root.querySelector('.mc-progress-thumb') as HTMLDivElement;
+    this.playBtn = this.root.querySelector('.mc-play') as HTMLButtonElement;
+    this.muteBtn = this.root.querySelector('.mc-mute') as HTMLButtonElement;
+    this.timeEl = this.root.querySelector('.mc-time') as HTMLSpanElement;
+    this.exportBtn = this.root.querySelector('.mc-export') as HTMLButtonElement | null;
   }
 
   private ensurePositioningContext(canvas: HTMLCanvasElement): HTMLDivElement {

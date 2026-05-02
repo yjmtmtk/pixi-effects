@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { Movie } from '../src/core/Movie';
 import { Controller } from '../src/Controller';
+import { formatTime, frameToPercent, pxToFrame } from '../src/Controller';
 
 type Listener = (...args: unknown[]) => void;
 
@@ -139,5 +140,66 @@ describe('Controller — styles', () => {
     expect(document.head.querySelectorAll('style[data-movie-controller]').length).toBe(1);
     b.destroy();
     expect(document.head.querySelectorAll('style[data-movie-controller]').length).toBe(0);
+  });
+});
+
+describe('Controller — pure helpers', () => {
+  it('formatTime: renders M:SS without leading zero on minutes', () => {
+    expect(formatTime(0)).toBe('0:00');
+    expect(formatTime(5)).toBe('0:05');
+    expect(formatTime(65)).toBe('1:05');
+    expect(formatTime(3599)).toBe('59:59');
+  });
+  it('formatTime: handles negatives by clamping to 0', () => {
+    expect(formatTime(-1)).toBe('0:00');
+  });
+  it('frameToPercent: returns clamped 0..100', () => {
+    expect(frameToPercent(0, 100)).toBe(0);
+    expect(frameToPercent(50, 100)).toBe(50);
+    expect(frameToPercent(100, 100)).toBe(100);
+    expect(frameToPercent(150, 100)).toBe(100);
+    expect(frameToPercent(-1, 100)).toBe(0);
+    expect(frameToPercent(0, 0)).toBe(0);
+  });
+  it('pxToFrame: maps clientX within rect to a frame, rounded and clamped', () => {
+    const rect = { left: 100, width: 200 } as DOMRect;
+    expect(pxToFrame(100, rect, 100)).toBe(0);
+    expect(pxToFrame(200, rect, 100)).toBe(50);
+    expect(pxToFrame(300, rect, 100)).toBe(100);
+    expect(pxToFrame(50, rect, 100)).toBe(0);
+    expect(pxToFrame(500, rect, 100)).toBe(100);
+    expect(pxToFrame(150, rect, 100)).toBe(25);
+  });
+});
+
+describe('Controller — bar DOM', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    document.head.querySelectorAll('style[data-movie-controller]').forEach((n) => n.remove());
+  });
+
+  it('renders progress bar, play/mute/time/spacer/export', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    const root = canvas.parentElement!.querySelector('.movie-controller')!;
+    expect(root.querySelector('.mc-progress')).not.toBeNull();
+    expect(root.querySelector('.mc-progress-fill')).not.toBeNull();
+    expect(root.querySelector('.mc-progress-thumb')).not.toBeNull();
+    expect(root.querySelector('.mc-bar')).not.toBeNull();
+    expect(root.querySelector('.mc-play')).not.toBeNull();
+    expect(root.querySelector('.mc-mute')).not.toBeNull();
+    expect(root.querySelector('.mc-time')!.textContent).toBe('0:00 / 0:00');
+    expect(root.querySelector('.mc-export')).not.toBeNull();
+    ctrl.destroy();
+  });
+
+  it('omits export button when showExportButton is false', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas, showExportButton: false });
+    const root = canvas.parentElement!.querySelector('.movie-controller')!;
+    expect(root.querySelector('.mc-export')).toBeNull();
+    ctrl.destroy();
   });
 });
