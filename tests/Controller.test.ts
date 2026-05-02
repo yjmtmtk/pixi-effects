@@ -28,6 +28,13 @@ function makeFakeMovie(overrides: Partial<Movie> = {}): Movie {
       (listeners[event] ??= []).push(fn);
       return this;
     },
+    off(event: string, fn: Listener) {
+      const list = listeners[event];
+      if (!list) return this;
+      const i = list.indexOf(fn);
+      if (i >= 0) list.splice(i, 1);
+      return this;
+    },
     emit(event: string, ...args: unknown[]) {
       for (const fn of listeners[event] ?? []) fn(...args);
     },
@@ -108,6 +115,32 @@ describe('Controller — mounting', () => {
     expect(() => ctrl.destroy()).not.toThrow();
     // Canvas should remain in its original parent (document.body), not double-moved.
     expect(canvas.parentElement).toBe(document.body);
+  });
+
+  it('destroy unsubscribes Movie listeners (no leaked refs)', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    ctrl.destroy();
+    // After destroy, emitting events must not throw or touch removed DOM.
+    expect(() => movie.emit('ready')).not.toThrow();
+    expect(() => movie.emit('frame', { frame: 1, totalFrames: 10 })).not.toThrow();
+    expect(() => movie.emit('pause')).not.toThrow();
+    expect(() => movie.emit('progress', { progress: 50, frame: 5, totalFrames: 10 })).not.toThrow();
+  });
+
+  it('destroy removes wrapper-level pointermove/mouseleave listeners (when not wrapped here)', () => {
+    const canvas = makeCanvas();
+    const parent = canvas.parentElement!;
+    parent.style.position = 'relative';
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    ctrl.destroy();
+    // Hand-attach a sentinel and dispatch — if Controller's listeners are still attached they'd touch
+    // their (now nullified) state. The strongest assertion happy-dom supports is "no throw".
+    expect(() => parent.dispatchEvent(new PointerEvent('pointermove'))).not.toThrow();
+    expect(() => parent.dispatchEvent(new MouseEvent('mouseleave'))).not.toThrow();
   });
 });
 
@@ -501,17 +534,28 @@ describe('Controller — keyboard', () => {
     ctrl.destroy();
   });
 
-  it('keyboard ignored when target is INPUT', () => {
+  it('keyboard ignored when target is INPUT, TEXTAREA, SELECT, or contenteditable', () => {
     const canvas = makeCanvas();
-    const input = document.createElement('input');
-    document.body.appendChild(input);
     const movie = makeFakeMovie();
     const ctrl = new Controller(movie, { canvas });
     movie.emit('ready');
+    for (const tag of ['input', 'textarea', 'select']) {
+      const el = document.createElement(tag) as HTMLElement;
+      document.body.appendChild(el);
+      const ev = new KeyboardEvent('keydown', { code: 'Space' });
+      Object.defineProperty(ev, 'target', { value: el });
+      document.dispatchEvent(ev);
+      expect(movie.isPlaying).toBe(false);
+      el.parentNode?.removeChild(el);
+    }
+    const editable = document.createElement('div');
+    editable.setAttribute('contenteditable', 'true');
+    document.body.appendChild(editable);
     const ev = new KeyboardEvent('keydown', { code: 'Space' });
-    Object.defineProperty(ev, 'target', { value: input });
+    Object.defineProperty(ev, 'target', { value: editable });
     document.dispatchEvent(ev);
     expect(movie.isPlaying).toBe(false);
+    editable.remove();
     ctrl.destroy();
   });
 

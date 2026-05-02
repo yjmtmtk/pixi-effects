@@ -222,6 +222,7 @@ export class Movie {
   }
 
   pause(): void {
+    const wasPlaying = this.isPlaying;
     this.isPlaying = false;
     if (this._raf) {
       cancelAnimationFrame(this._raf);
@@ -236,7 +237,7 @@ export class Movie {
       this.gainNode.disconnect();
       this.gainNode = null;
     }
-    this.emit('pause');
+    if (wasPlaying) this.emit('pause');
   }
 
   set volume(v: number) {

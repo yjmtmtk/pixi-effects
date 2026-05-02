@@ -191,6 +191,12 @@ export class Controller {
   private exportFillEl: HTMLDivElement | null = null;
   private exportTextEl: HTMLDivElement | null = null;
   private keyHandler: ((e: KeyboardEvent) => void) | null = null;
+  private onReady: (() => void) | null = null;
+  private onFrame: ((e: { frame: number; totalFrames: number }) => void) | null = null;
+  private onPause: (() => void) | null = null;
+  private onProgress: ((e: { progress: number; frame: number; totalFrames: number }) => void) | null = null;
+  private onWrapPointerMove: (() => void) | null = null;
+  private onWrapMouseLeave: (() => void) | null = null;
 
   constructor(movie: Movie, options: ControllerOptions) {
     if (!options || !options.canvas) {
@@ -264,28 +270,32 @@ export class Controller {
   }
 
   private bindMovieEvents(): void {
-    this.movie.on('ready', () => {
+    this.onReady = () => {
       this.progressEl.setAttribute('aria-valuemax', String(this.movie.totalFrames));
       this.refreshTime(0);
       this.refreshProgress(0);
       this.refreshMuteIcon();
-    });
-    this.movie.on('frame', ({ frame, totalFrames }) => {
+    };
+    this.onFrame = ({ frame, totalFrames }) => {
       if (!this.isScrubbing) {
         this.refreshProgress(frame, totalFrames);
       }
       this.refreshTime(frame);
-    });
-    this.movie.on('pause', () => {
+    };
+    this.onPause = () => {
       this.refreshPlayIcon();
       if (this.hideTimer) { clearTimeout(this.hideTimer); this.hideTimer = null; }
       this.setVisible(true);
-    });
-    this.movie.on('progress', ({ progress, frame, totalFrames }) => {
+    };
+    this.onProgress = ({ progress, frame, totalFrames }) => {
       if (!this.isExporting || !this.exportFillEl || !this.exportTextEl) return;
       this.exportFillEl.style.width = `${progress}%`;
       this.exportTextEl.textContent = `${progress}% (${frame} / ${totalFrames} フレーム)`;
-    });
+    };
+    this.movie.on('ready', this.onReady);
+    this.movie.on('frame', this.onFrame);
+    this.movie.on('pause', this.onPause);
+    this.movie.on('progress', this.onProgress);
   }
 
   private bindPlayButton(): void {
@@ -439,10 +449,12 @@ export class Controller {
 
   private bindVisibility(): void {
     const wrap = this.wrapper;
-    wrap.addEventListener('pointermove', () => this.kickIdleTimer());
-    wrap.addEventListener('mouseleave', () => {
+    this.onWrapPointerMove = () => this.kickIdleTimer();
+    this.onWrapMouseLeave = () => {
       if (this.movie.isPlaying) this.setVisible(false);
-    });
+    };
+    wrap.addEventListener('pointermove', this.onWrapPointerMove);
+    wrap.addEventListener('mouseleave', this.onWrapMouseLeave);
     this.root.addEventListener('pointerenter', () => {
       if (this.hideTimer) { clearTimeout(this.hideTimer); this.hideTimer = null; }
       this.setVisible(true);
@@ -465,7 +477,11 @@ export class Controller {
   private bindKeyboard(): void {
     this.keyHandler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      if (target && target.tagName === 'INPUT') return;
+      if (target) {
+        const tag = target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+        if (target.isContentEditable || target.getAttribute?.('contenteditable') === 'true') return;
+      }
       if (this.isExporting) return;
 
       switch (e.code) {
@@ -519,6 +535,18 @@ export class Controller {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    if (this.onReady) { this.movie.off('ready', this.onReady); this.onReady = null; }
+    if (this.onFrame) { this.movie.off('frame', this.onFrame); this.onFrame = null; }
+    if (this.onPause) { this.movie.off('pause', this.onPause); this.onPause = null; }
+    if (this.onProgress) { this.movie.off('progress', this.onProgress); this.onProgress = null; }
+    if (this.onWrapPointerMove) {
+      this.wrapper.removeEventListener('pointermove', this.onWrapPointerMove);
+      this.onWrapPointerMove = null;
+    }
+    if (this.onWrapMouseLeave) {
+      this.wrapper.removeEventListener('mouseleave', this.onWrapMouseLeave);
+      this.onWrapMouseLeave = null;
+    }
     this.root.remove();
     if (this.wrappedHere) {
       const parent = this.wrapper.parentElement;
