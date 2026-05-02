@@ -1,5 +1,136 @@
 import type { Movie } from './core/Movie';
 
+const ICONS = {
+  play: '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M3 2 L13 8 L3 14 Z"/></svg>',
+  pause: '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><rect x="3" y="2" width="3.5" height="12"/><rect x="9.5" y="2" width="3.5" height="12"/></svg>',
+  volumeOn: '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M2 6 H5 L9 2 V14 L5 10 H2 Z"/><path d="M11 5 Q13 8 11 11" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M12.5 3.5 Q15.5 8 12.5 12.5" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>',
+  volumeOff: '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M2 6 H5 L9 2 V14 L5 10 H2 Z"/><path d="M11 5 L15 11 M15 5 L11 11" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>',
+  download: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2 V11 M4 7 L8 11 L12 7 M3 13 H13"/></svg>',
+} as const;
+
+const STYLE_ATTR = 'data-movie-controller';
+
+const STYLE_CSS = `
+.movie-controller-wrap { position: relative; display: inline-block; line-height: 0; }
+.movie-controller {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  opacity: 1;
+  transition: opacity 200ms ease;
+}
+.movie-controller[data-state="hidden"] { opacity: 0; }
+.movie-controller > * { pointer-events: auto; }
+
+.mc-progress {
+  position: relative;
+  width: 100%;
+  height: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+.mc-progress::before {
+  content: ""; position: absolute; left: 0; right: 0;
+  height: 3px; background: rgba(255,255,255,0.25);
+  transition: height 120ms ease;
+}
+.mc-progress:hover::before, .mc-progress.mc-scrubbing::before { height: 5px; }
+.mc-progress-fill {
+  position: absolute; left: 0; top: 50%;
+  height: 3px; width: 0%;
+  background: #007AFF;
+  transform: translateY(-50%);
+  transition: height 120ms ease;
+  pointer-events: none;
+}
+.mc-progress:hover .mc-progress-fill,
+.mc-progress.mc-scrubbing .mc-progress-fill { height: 5px; }
+.mc-progress-thumb {
+  position: absolute; top: 50%;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: #007AFF;
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform 120ms ease;
+  pointer-events: none;
+  left: 0%;
+}
+.mc-progress:hover .mc-progress-thumb,
+.mc-progress.mc-scrubbing .mc-progress-thumb { transform: translate(-50%, -50%) scale(1); }
+
+.mc-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px 8px 12px;
+  background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0) 100%);
+  color: #fff;
+  line-height: 1;
+}
+.mc-btn {
+  background: none; border: 0; padding: 0; margin: 0;
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: #fff; opacity: 0.85; cursor: pointer;
+  transition: opacity 120ms ease;
+}
+.mc-btn:hover { opacity: 1; }
+.mc-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.mc-time {
+  font-size: 12px; font-family: Menlo, Monaco, monospace;
+  color: #fff; opacity: 0.85;
+  min-width: 90px;
+}
+.mc-spacer { flex: 1; }
+
+.mc-export-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.8);
+  display: flex; justify-content: center; align-items: center;
+  z-index: 9999;
+}
+.mc-export-panel {
+  background: #1a1a1a; color: #fff;
+  border-radius: 12px; padding: 30px;
+  text-align: center; min-width: 300px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+.mc-export-title { font-size: 18px; margin-bottom: 20px; }
+.mc-export-track {
+  width: 100%; height: 8px;
+  background: #333; border-radius: 4px;
+  margin-bottom: 15px; overflow: hidden;
+}
+.mc-export-fill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, #007AFF, #0056CC);
+  transition: width 0.3s ease; border-radius: 4px;
+}
+.mc-export-text {
+  color: #888; font-size: 14px;
+  font-family: Menlo, Monaco, monospace;
+}
+`;
+
+let styleRefCount = 0;
+
+function installStyles(): void {
+  if (styleRefCount === 0) {
+    const el = document.createElement('style');
+    el.setAttribute(STYLE_ATTR, '');
+    el.textContent = STYLE_CSS;
+    document.head.appendChild(el);
+  }
+  styleRefCount++;
+}
+
+function uninstallStyles(): void {
+  styleRefCount = Math.max(0, styleRefCount - 1);
+  if (styleRefCount === 0) {
+    document.head.querySelectorAll(`style[${STYLE_ATTR}]`).forEach((n) => n.remove());
+  }
+}
+
 export interface ControllerOptions {
   canvas: HTMLCanvasElement;
   showExportButton?: boolean;
@@ -35,6 +166,7 @@ export class Controller {
       className: options.className ?? 'movie-controller',
     };
 
+    installStyles();
     this.wrapper = this.ensurePositioningContext(this.options.canvas);
     this.root = document.createElement('div');
     this.root.className = this.options.className;
@@ -73,5 +205,6 @@ export class Controller {
         this.wrapper.remove();
       }
     }
+    uninstallStyles();
   }
 }

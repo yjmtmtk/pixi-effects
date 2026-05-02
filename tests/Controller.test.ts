@@ -109,3 +109,35 @@ describe('Controller — mounting', () => {
     expect(canvas.parentElement).toBe(document.body);
   });
 });
+
+describe('Controller — styles', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    document.head.querySelectorAll('style[data-movie-controller]').forEach((n) => n.remove());
+  });
+
+  it('injects exactly one stylesheet on construct, removes it on destroy', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+
+    const styles = document.head.querySelectorAll('style[data-movie-controller]');
+    expect(styles.length).toBe(1);
+
+    ctrl.destroy();
+    expect(document.head.querySelectorAll('style[data-movie-controller]').length).toBe(0);
+  });
+
+  it('injects only one stylesheet even with multiple controllers', () => {
+    const c1 = makeCanvas();
+    const c2 = makeCanvas();
+    const m = makeFakeMovie();
+    const a = new Controller(m, { canvas: c1 });
+    const b = new Controller(m, { canvas: c2 });
+    expect(document.head.querySelectorAll('style[data-movie-controller]').length).toBe(1);
+    a.destroy();
+    expect(document.head.querySelectorAll('style[data-movie-controller]').length).toBe(1);
+    b.destroy();
+    expect(document.head.querySelectorAll('style[data-movie-controller]').length).toBe(0);
+  });
+});
