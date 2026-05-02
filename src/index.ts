@@ -15,6 +15,7 @@ export type {
   ChromaKeyFilterSpec,
   BlurFilterSpec,
   ColorMatrixFilterSpec,
+  CustomFilterSpec,
   FilterSpec,
   SequenceCommon,
   VideoSequenceSpec,

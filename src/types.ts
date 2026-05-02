@@ -32,6 +32,32 @@ export interface AssetSpec {
 
 // ─── Filter specs ─────────────────────────────────────────────────────────
 
+/**
+ * Escape hatch for arbitrary PIXI filters (e.g. anything from `pixi-filters`,
+ * a custom user-built `Filter` subclass, or a community filter package).
+ *
+ * The instance is used as-is; animation paths (`filters.<name>.<prop>`) work
+ * as long as the filter has a writable property at that path.
+ *
+ * Example:
+ * ```ts
+ * import { GlowFilter } from 'pixi-filters';
+ *
+ * filters: [
+ *   { type: 'custom', name: 'glow', filter: new GlowFilter({ outerStrength: 2 }) },
+ * ],
+ * keyframes: [
+ *   { at: 1, to: { 'filters.glow.outerStrength': 5 }, duration: 0.5 },
+ * ],
+ * ```
+ */
+export interface CustomFilterSpec {
+  type: 'custom';
+  name?: string;
+  /** A PIXI `Filter` instance. Imported here as `unknown` to avoid a hard `pixi.js` type dep on consumers reading this file purely as types. */
+  filter: unknown;
+}
+
 export interface ChromaKeyFilterSpec {
   type: 'chromaKey';
   name?: string;
@@ -57,7 +83,7 @@ export interface ColorMatrixFilterSpec {
   alpha?: number;
 }
 
-export type FilterSpec = ChromaKeyFilterSpec | BlurFilterSpec | ColorMatrixFilterSpec;
+export type FilterSpec = ChromaKeyFilterSpec | BlurFilterSpec | ColorMatrixFilterSpec | CustomFilterSpec;
 
 // ─── Sequence specs ───────────────────────────────────────────────────────
 

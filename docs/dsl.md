@@ -348,3 +348,30 @@ Color matrix transform. Wraps PIXI's `ColorMatrixFilter`.
 ```
 
 Animatable: `brightness`, `saturate`, `contrast`, `hue`. (For animation paths, the underlying setters are `brightness_`, `saturate_`, `contrast_`, `hue_` — the keyframe path is `filters.<name>.brightness_`, etc. See [`src/filters/ColorMatrix.ts`](../src/filters/ColorMatrix.ts) for current names.)
+
+### `custom`
+
+Escape hatch for any PIXI `Filter` instance — including [pixi-filters](https://github.com/pixijs/filters), filters from community packages, or your own `Filter` subclass. The instance is used as-is; animation works the same way as for built-ins as long as the filter has writable properties at the addressed paths.
+
+```ts
+import { GlowFilter, OldFilmFilter } from 'pixi-filters';
+
+{
+  type: 'image',
+  asset: 'photo',
+  filters: [
+    { type: 'custom', name: 'glow', filter: new GlowFilter({ outerStrength: 1, color: 0xffaa00 }) },
+    { type: 'custom', name: 'film', filter: new OldFilmFilter() },
+  ],
+  keyframes: [
+    { at: 0,    to: { 'filters.glow.outerStrength': 4 }, duration: 1 },
+    { at: -0.5, to: { 'filters.film.noise': 0 },         duration: 0.5 },
+  ],
+}
+```
+
+Notes:
+
+- `filter` must be a PIXI `Filter` instance (constructor must have run on the consumer side). Plain object literals throw.
+- `pixi-filters` is **not** a dependency of pixi-effects — install it on your side if you want to use it.
+- Without a `name`, the filter still applies but cannot be addressed via `filters.<name>.<prop>` keyframe paths.
