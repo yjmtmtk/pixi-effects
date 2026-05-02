@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>pixistage — chromakey example</title>
+  <style>body { background: #222; margin: 16px; color: #ccc; font-family: sans-serif; }
+    canvas { width: min(960px, 100%); }</style>
+</head>
+<body>
+  <h1>pixistage chromakey</h1>
+  <p>Provide a green-screen clip at <code>examples/_assets/green.mp4</code>.</p>
+  <canvas id="stage" width="1280" height="720"></canvas>
+  <div id="ctrl"></div>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":   "https://esm.sh/pixi.js@8.10.0?bundle-deps",
+      "gsap":      "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":"https://esm.sh/mediabunny",
+      "expr-eval": "https://esm.sh/expr-eval@2.0.2"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../dist/index.js';
+    import { Controller } from '../dist/Controller.js';
+
+    const movie = new Movie();
+    window.__movie = movie;
+    new Controller(movie, { container: document.getElementById('ctrl') });
+    await movie.init({
+      canvas: document.getElementById('stage'),
+      width: 1280, height: 720, duration: 6, frameRate: 30,
+      background: '#0a3a5c',
+      assets: [{ name: 'green', src: '/examples/_assets/green.mp4' }],
+      composition: {
+        sequences: [
+          {
+            type: 'video', asset: 'green', name: 'fg',
+            initial: { x: 0, y: 0, scale: 'cover' },
+            filters: [
+              { name: 'k', type: 'chromaKey', keyColor: '#00ff00', threshold: 0.4, smoothing: 0.1, spill: 0.3 },
+              { name: 'b', type: 'blur', strength: 0 },
+            ],
+            keyframes: [
+              { at: 2,    to: { 'filters.b.strength': 8 }, duration: 1 },
+              { at: 4,    to: { 'filters.k.threshold': 0.5 }, duration: 1 },
+              { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+            ],
+          },
+        ],
+      },
+    });
+  </script>
+</body>
+</html>
