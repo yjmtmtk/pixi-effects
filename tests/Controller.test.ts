@@ -356,3 +356,48 @@ describe('Controller — mute', () => {
     ctrl.destroy();
   });
 });
+
+describe('Controller — export', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    document.head.querySelectorAll('style[data-movie-controller]').forEach((n) => n.remove());
+  });
+
+  it('clicking export shows overlay, calls movie.render, then hides overlay', async () => {
+    const canvas = makeCanvas();
+    let renderCalled = false;
+    const movie = makeFakeMovie();
+    movie.render = async () => { renderCalled = true; return new Blob(); };
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    const exportBtn = canvas.parentElement!.querySelector('.mc-export') as HTMLButtonElement;
+    exportBtn.click();
+    // Overlay appears synchronously
+    expect(document.querySelector('.mc-export-overlay')).not.toBeNull();
+    // Wait two microtask flushes for render() + setTimeout(0)
+    await new Promise((r) => setTimeout(r, 600));
+    expect(renderCalled).toBe(true);
+    expect(document.querySelector('.mc-export-overlay')).toBeNull();
+    ctrl.destroy();
+  });
+
+  it('progress events while exporting update the overlay text and bar', async () => {
+    const canvas = makeCanvas();
+    let resolveRender: ((b: Blob) => void) | null = null;
+    const movie = makeFakeMovie();
+    movie.render = () => new Promise<Blob>((res) => { resolveRender = res; });
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    (canvas.parentElement!.querySelector('.mc-export') as HTMLButtonElement).click();
+    movie.emit('progress', { progress: 42, frame: 84, totalFrames: 200 });
+    const fill = document.querySelector('.mc-export-fill') as HTMLDivElement;
+    const text = document.querySelector('.mc-export-text') as HTMLDivElement;
+    expect(fill.style.width).toBe('42%');
+    expect(text.textContent).toContain('42%');
+    expect(text.textContent).toContain('84');
+    expect(text.textContent).toContain('200');
+    resolveRender!(new Blob());
+    await new Promise((r) => setTimeout(r, 600));
+    ctrl.destroy();
+  });
+});

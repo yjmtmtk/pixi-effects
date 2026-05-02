@@ -184,6 +184,10 @@ export class Controller {
   private isScrubbing = false;
   private wasPlayingBeforeScrub = false;
   private activePointerId: number | null = null;
+  private isExporting = false;
+  private exportOverlay: HTMLDivElement | null = null;
+  private exportFillEl: HTMLDivElement | null = null;
+  private exportTextEl: HTMLDivElement | null = null;
 
   constructor(movie: Movie, options: ControllerOptions) {
     if (!options || !options.canvas) {
@@ -207,6 +211,7 @@ export class Controller {
     this.bindPlayButton();
     this.bindScrubbing();
     this.bindMuteButton();
+    this.bindExportButton();
   }
 
   private buildBar(): void {
@@ -264,6 +269,11 @@ export class Controller {
         this.refreshProgress(frame, totalFrames);
       }
       this.refreshTime(frame);
+    });
+    this.movie.on('progress', ({ progress, frame, totalFrames }) => {
+      if (!this.isExporting || !this.exportFillEl || !this.exportTextEl) return;
+      this.exportFillEl.style.width = `${progress}%`;
+      this.exportTextEl.textContent = `${progress}% (${frame} / ${totalFrames} フレーム)`;
     });
   }
 
@@ -350,6 +360,65 @@ export class Controller {
     void this.movie.gotoFrame(frame);
   }
 
+  private bindExportButton(): void {
+    if (!this.exportBtn) return;
+    this.exportBtn.addEventListener('click', () => {
+      void this.handleExport();
+    });
+  }
+
+  private async handleExport(): Promise<void> {
+    if (this.isExporting) return;
+    this.isExporting = true;
+    const wasPlaying = this.movie.isPlaying;
+    if (wasPlaying) {
+      this.movie.pause();
+      this.refreshPlayIcon();
+    }
+    this.showExportOverlay();
+    try {
+      await this.movie.render();
+      if (this.exportFillEl) this.exportFillEl.style.width = '100%';
+      if (this.exportTextEl) this.exportTextEl.textContent = '完了！動画を生成中...';
+      await new Promise((r) => setTimeout(r, 500));
+    } catch (err) {
+      console.error('Export failed:', err);
+      alert('エクスポートに失敗しました。');
+    } finally {
+      this.hideExportOverlay();
+      this.isExporting = false;
+      if (wasPlaying) {
+        this.movie.play();
+        this.refreshPlayIcon();
+      }
+    }
+  }
+
+  private showExportOverlay(): void {
+    const overlay = document.createElement('div');
+    overlay.className = 'mc-export-overlay';
+    overlay.innerHTML = `
+      <div class="mc-export-panel">
+        <div class="mc-export-title">動画をエクスポート中...</div>
+        <div class="mc-export-track"><div class="mc-export-fill"></div></div>
+        <div class="mc-export-text">0% (0 / 0 フレーム)</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    this.exportOverlay = overlay;
+    this.exportFillEl = overlay.querySelector('.mc-export-fill') as HTMLDivElement;
+    this.exportTextEl = overlay.querySelector('.mc-export-text') as HTMLDivElement;
+  }
+
+  private hideExportOverlay(): void {
+    if (this.exportOverlay) {
+      this.exportOverlay.remove();
+      this.exportOverlay = null;
+      this.exportFillEl = null;
+      this.exportTextEl = null;
+    }
+  }
+
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
@@ -362,6 +431,7 @@ export class Controller {
         this.wrapper.remove();
       }
     }
+    this.hideExportOverlay();
     uninstallStyles();
   }
 }
