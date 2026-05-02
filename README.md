@@ -1,6 +1,6 @@
 # pixi-effects
 
-> **Status**: pre-alpha (v0.1.0). TypeScript port of [pixistage](../pixistage/), API stable but unpublished.
+> **Status**: pre-alpha (v0.1.0). API stable but unpublished.
 
 Declarative composition and video rendering for the web. After Effects-style timelines on top of [PixiJS v8](https://pixijs.com/), with strict TypeScript types.
 
