@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { Movie } from '../src/core/Movie';
 import { Controller } from '../src/Controller';
-import { formatTime, frameToPercent, pxToFrame } from '../src/Controller';
+import { formatTime, frameToPercent, pxToFrame, extensionForMimeType } from '../src/Controller';
 
 type Listener = (...args: unknown[]) => void;
 
@@ -202,6 +202,14 @@ describe('Controller — pure helpers', () => {
     expect(pxToFrame(50, rect, 100)).toBe(0);
     expect(pxToFrame(500, rect, 100)).toBe(100);
     expect(pxToFrame(150, rect, 100)).toBe(25);
+  });
+  it('extensionForMimeType: maps common video MIMEs, falls back to mp4', () => {
+    expect(extensionForMimeType('video/mp4')).toBe('mp4');
+    expect(extensionForMimeType('video/webm')).toBe('webm');
+    expect(extensionForMimeType('video/quicktime')).toBe('mov');
+    expect(extensionForMimeType('video/x-matroska')).toBe('mkv');
+    expect(extensionForMimeType('')).toBe('mp4');
+    expect(extensionForMimeType('application/octet-stream')).toBe('mp4');
   });
 });
 
@@ -451,8 +459,49 @@ describe('Controller — export', () => {
     expect(text.textContent).toContain('42%');
     expect(text.textContent).toContain('84');
     expect(text.textContent).toContain('200');
+    expect(text.textContent).toContain('frames');
     resolveRender!(new Blob());
     await new Promise((r) => setTimeout(r, 600));
+    ctrl.destroy();
+  });
+
+  it('triggers a download with a sensible filename + extension', async () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    movie.render = async () => new Blob(['fake'], { type: 'video/mp4' });
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+
+    let clicked: HTMLAnchorElement | null = null;
+    const origCreate = document.createElement.bind(document);
+    document.createElement = ((tag: string) => {
+      const el = origCreate(tag);
+      if (tag.toLowerCase() === 'a') {
+        const a = el as HTMLAnchorElement;
+        a.click = () => { clicked = a; };
+      }
+      return el;
+    }) as typeof document.createElement;
+
+    (canvas.parentElement!.querySelector('.mc-export') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 600));
+    document.createElement = origCreate;
+
+    expect(clicked).not.toBeNull();
+    const a = clicked! as HTMLAnchorElement;
+    expect(a.download).toMatch(/^movie-\d{8}-\d{6}\.mp4$/);
+    expect(a.href).toMatch(/^blob:/);
+    ctrl.destroy();
+  });
+
+  it('overlay copy is in English', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    (canvas.parentElement!.querySelector('.mc-export') as HTMLButtonElement).click();
+    expect(document.querySelector('.mc-export-title')!.textContent).toBe('Exporting video...');
+    expect(document.querySelector('.mc-export-text')!.textContent).toBe('0% (0 / 0 frames)');
     ctrl.destroy();
   });
 });

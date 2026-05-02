@@ -160,6 +160,14 @@ export function pxToFrame(clientX: number, rect: { left: number; width: number }
   return Math.round(clamped * totalFrames);
 }
 
+export function extensionForMimeType(mime: string): string {
+  const t = (mime || '').toLowerCase();
+  if (t.includes('webm')) return 'webm';
+  if (t.includes('quicktime') || t.includes('mov')) return 'mov';
+  if (t.includes('matroska') || t.includes('mkv')) return 'mkv';
+  return 'mp4';
+}
+
 export interface ControllerOptions {
   canvas: HTMLCanvasElement;
   showExportButton?: boolean;
@@ -307,7 +315,7 @@ export class Controller {
     this.onProgress = ({ progress, frame, totalFrames }) => {
       if (!this.isExporting || !this.exportFillEl || !this.exportTextEl) return;
       this.exportFillEl.style.width = `${progress}%`;
-      this.exportTextEl.textContent = `${progress}% (${frame} / ${totalFrames} フレーム)`;
+      this.exportTextEl.textContent = `${progress}% (${frame} / ${totalFrames} frames)`;
     };
     this.movie.on('ready', this.onReady);
     this.movie.on('frame', this.onFrame);
@@ -424,13 +432,14 @@ export class Controller {
     }
     this.showExportOverlay();
     try {
-      await this.movie.render();
+      const blob = await this.movie.render();
       if (this.exportFillEl) this.exportFillEl.style.width = '100%';
-      if (this.exportTextEl) this.exportTextEl.textContent = '完了！動画を生成中...';
-      await new Promise((r) => setTimeout(r, 500));
+      if (this.exportTextEl) this.exportTextEl.textContent = 'Preparing download...';
+      this.triggerDownload(blob);
+      await new Promise((r) => setTimeout(r, 300));
     } catch (err) {
       console.error('Export failed:', err);
-      alert('エクスポートに失敗しました。');
+      alert('Export failed.');
     } finally {
       this.hideExportOverlay();
       this.isExporting = false;
@@ -441,14 +450,34 @@ export class Controller {
     }
   }
 
+  private triggerDownload(blob: Blob): void {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = this.makeFilename(blob);
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  }
+
+  private makeFilename(blob: Blob): string {
+    const ext = extensionForMimeType(blob.type);
+    const d = new Date();
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const ts = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+    return `movie-${ts}.${ext}`;
+  }
+
   private showExportOverlay(): void {
     const overlay = document.createElement('div');
     overlay.className = 'mc-export-overlay';
     overlay.innerHTML = `
       <div class="mc-export-panel">
-        <div class="mc-export-title">動画をエクスポート中...</div>
+        <div class="mc-export-title">Exporting video...</div>
         <div class="mc-export-track"><div class="mc-export-fill"></div></div>
-        <div class="mc-export-text">0% (0 / 0 フレーム)</div>
+        <div class="mc-export-text">0% (0 / 0 frames)</div>
       </div>
     `;
     document.body.appendChild(overlay);
