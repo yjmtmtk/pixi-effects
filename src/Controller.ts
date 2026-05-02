@@ -250,6 +250,8 @@ export class Controller {
   private exportFillEl: HTMLDivElement | null = null;
   private exportTextEl: HTMLDivElement | null = null;
   private keyHandler: ((e: KeyboardEvent) => void) | null = null;
+  private settingsKeyHandler: ((e: KeyboardEvent) => void) | null = null;
+  private settingsOutsideHandler: ((e: PointerEvent) => void) | null = null;
   private onReady: (() => void) | null = null;
   private onFrame: ((e: { frame: number; totalFrames: number }) => void) | null = null;
   private onPause: (() => void) | null = null;
@@ -287,6 +289,7 @@ export class Controller {
     this.bindScrubbing();
     this.bindMuteButton();
     this.bindExportButton();
+    this.bindSettingsPopover();
     this.bindVisibility();
     if (this.options.enableKeyboardShortcuts) this.bindKeyboard();
   }
@@ -486,6 +489,61 @@ export class Controller {
     const frame = pxToFrame(clientX, { left: innerLeft, width: innerWidth }, this.movie.totalFrames);
     this.refreshProgress(frame);
     void this.movie.gotoFrame(frame);
+  }
+
+  private bindSettingsPopover(): void {
+    if (!this.settingsBtn || !this.settingsPopoverEl) return;
+
+    this.settingsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.toggleSettings(!this.settingsOpen);
+    });
+
+    if (this.settingsFormatSelect) {
+      this.settingsFormatSelect.addEventListener('change', (e) => {
+        const v = (e.target as HTMLSelectElement).value;
+        if (v === 'mp4' || v === 'webm' || v === 'mov') this.exportFormat = v;
+      });
+    }
+    if (this.settingsQualitySelect) {
+      this.settingsQualitySelect.addEventListener('change', (e) => {
+        const v = (e.target as HTMLSelectElement).value;
+        if (v === 'low' || v === 'medium' || v === 'high' || v === 'very-high') this.exportQuality = v;
+      });
+    }
+
+    this.settingsKeyHandler = (e: KeyboardEvent) => {
+      if (e.code === 'Escape' && this.settingsOpen) {
+        e.preventDefault();
+        this.toggleSettings(false);
+      }
+    };
+    document.addEventListener('keydown', this.settingsKeyHandler);
+
+    this.settingsOutsideHandler = (e: PointerEvent) => {
+      if (!this.settingsOpen) return;
+      const target = e.target as Node | null;
+      if (!target) return;
+      if (this.settingsPopoverEl?.contains(target)) return;
+      if (this.settingsBtn?.contains(target)) return;
+      this.toggleSettings(false);
+    };
+    document.addEventListener('pointerdown', this.settingsOutsideHandler);
+  }
+
+  private toggleSettings(open: boolean): void {
+    if (!this.settingsBtn || !this.settingsPopoverEl) return;
+    this.settingsOpen = open;
+    this.settingsPopoverEl.setAttribute('data-open', open ? 'true' : 'false');
+    this.settingsBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) {
+      // Keep the bar visible while the popover is open.
+      if (this.hideTimer) { clearTimeout(this.hideTimer); this.hideTimer = null; }
+      this.setVisible(true);
+    } else if (this.movie.isPlaying) {
+      // Resume normal auto-hide cadence after closing during playback.
+      this.kickIdleTimer();
+    }
   }
 
   private bindExportButton(): void {
@@ -694,6 +752,14 @@ export class Controller {
     if (this.keyHandler) {
       document.removeEventListener('keydown', this.keyHandler);
       this.keyHandler = null;
+    }
+    if (this.settingsKeyHandler) {
+      document.removeEventListener('keydown', this.settingsKeyHandler);
+      this.settingsKeyHandler = null;
+    }
+    if (this.settingsOutsideHandler) {
+      document.removeEventListener('pointerdown', this.settingsOutsideHandler);
+      this.settingsOutsideHandler = null;
     }
     if (this.hideTimer) { clearTimeout(this.hideTimer); this.hideTimer = null; }
     this.hideExportOverlay();

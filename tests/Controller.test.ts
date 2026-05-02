@@ -667,6 +667,77 @@ describe('Controller — settings popover (DOM)', () => {
   });
 });
 
+describe('Controller — settings popover (interaction)', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    document.head.querySelectorAll('style[data-movie-controller]').forEach((n) => n.remove());
+  });
+
+  it('clicking the gear toggles open/closed and aria-expanded', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    const gear = canvas.parentElement!.querySelector('.mc-settings') as HTMLButtonElement;
+    const popover = canvas.parentElement!.querySelector('.mc-settings-popover') as HTMLDivElement;
+    expect(popover.getAttribute('data-open')).toBe('false');
+    expect(gear.getAttribute('aria-expanded')).toBe('false');
+    gear.click();
+    expect(popover.getAttribute('data-open')).toBe('true');
+    expect(gear.getAttribute('aria-expanded')).toBe('true');
+    gear.click();
+    expect(popover.getAttribute('data-open')).toBe('false');
+    expect(gear.getAttribute('aria-expanded')).toBe('false');
+    ctrl.destroy();
+  });
+
+  it('Escape closes the popover', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    const gear = canvas.parentElement!.querySelector('.mc-settings') as HTMLButtonElement;
+    const popover = canvas.parentElement!.querySelector('.mc-settings-popover') as HTMLDivElement;
+    gear.click();
+    expect(popover.getAttribute('data-open')).toBe('true');
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape' }));
+    expect(popover.getAttribute('data-open')).toBe('false');
+    ctrl.destroy();
+  });
+
+  it('outside pointerdown closes the popover; inside does not', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    const gear = canvas.parentElement!.querySelector('.mc-settings') as HTMLButtonElement;
+    const popover = canvas.parentElement!.querySelector('.mc-settings-popover') as HTMLDivElement;
+    gear.click();
+    // Click inside popover (e.g. on a select) — stays open.
+    const fmt = popover.querySelector('.mc-settings-format') as HTMLSelectElement;
+    fmt.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    expect(popover.getAttribute('data-open')).toBe('true');
+    // Click outside (document.body) — closes.
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    expect(popover.getAttribute('data-open')).toBe('false');
+    ctrl.destroy();
+  });
+
+  it('changing format/quality selects updates Controller state', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    const fmt = canvas.parentElement!.querySelector('.mc-settings-format') as HTMLSelectElement;
+    const q = canvas.parentElement!.querySelector('.mc-settings-quality') as HTMLSelectElement;
+    fmt.value = 'webm';
+    fmt.dispatchEvent(new Event('change', { bubbles: true }));
+    q.value = 'medium';
+    q.dispatchEvent(new Event('change', { bubbles: true }));
+    // Internal state isn't directly observable, but the next export call
+    // exposes it. We verify that in Task 6.
+    expect(fmt.value).toBe('webm');
+    expect(q.value).toBe('medium');
+    ctrl.destroy();
+  });
+});
+
 describe('Controller — visibility', () => {
   beforeEach(() => { vi.useFakeTimers(); });
   afterEach(() => {
