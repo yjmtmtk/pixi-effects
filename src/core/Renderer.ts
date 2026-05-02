@@ -28,12 +28,14 @@ const qualityMap: Record<string, Quality> = {
   'very-high': QUALITY_VERY_HIGH,
 };
 
-const formatMap = {
-  mp4:  Mp4OutputFormat,
-  mov:  MovOutputFormat,
-  webm: WebMOutputFormat,
-  mkv:  MkvOutputFormat,
-} as const;
+function makeOutputFormat(name: 'mp4' | 'mov' | 'webm' | 'mkv') {
+  switch (name) {
+    case 'mp4': return new Mp4OutputFormat({ fastStart: 'in-memory' });
+    case 'mov': return new MovOutputFormat({ fastStart: 'in-memory' });
+    case 'webm': return new WebMOutputFormat();
+    case 'mkv': return new MkvOutputFormat();
+  }
+}
 
 export async function exportFrames(movie: Movie, options: RenderOptions = {}): Promise<Blob> {
   const fmt = options.format ?? 'mp4';
@@ -50,7 +52,7 @@ export async function exportFrames(movie: Movie, options: RenderOptions = {}): P
   };
 
   const output = new Output({
-    format: new (formatMap[opts.format])(),
+    format: makeOutputFormat(opts.format),
     target: new BufferTarget(),
   });
   const canvasSource = new CanvasSource(movie.app!.canvas as HTMLCanvasElement, {
