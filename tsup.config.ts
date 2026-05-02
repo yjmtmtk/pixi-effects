@@ -12,5 +12,5 @@ export default defineConfig({
   splitting: false,
   treeshake: true,
   target: 'es2022',
-  external: ['pixi.js', 'gsap', 'gsap/PixiPlugin', 'mediabunny', 'expr-eval'],
+  external: ['pixi.js', 'gsap', 'gsap/PixiPlugin', 'mediabunny'],
 });

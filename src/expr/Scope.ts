@@ -8,7 +8,7 @@ export interface ScopeSequence {
   duration?: number;
 }
 
-/** Variables available to expr-eval evaluation. */
+/** Variables available to expression evaluation. */
 export interface Scope {
   w: number; h: number;
   W: number; H: number;

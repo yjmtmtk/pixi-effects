@@ -36,7 +36,6 @@
     "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
-    "expr-eval": "^2.0.2",
     "mediabunny": "^1.43.0"
   },
   "peerDependencies": {

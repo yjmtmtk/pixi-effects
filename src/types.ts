@@ -6,7 +6,7 @@
  * union over `type`, so editor autocomplete narrows correctly.
  */
 
-/** A string is treated as an expr-eval expression evaluated against the scope. */
+/** A string is treated as an arithmetic expression evaluated against the scope (see src/expr/Parser.ts). */
 export type Expr = string;
 
 /** Any prop value: a number, an Expr string, or any string passed through verbatim (e.g. color hex, font names). */
