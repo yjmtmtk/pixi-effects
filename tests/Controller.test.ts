@@ -402,6 +402,108 @@ describe('Controller — export', () => {
   });
 });
 
+describe('Controller — keyboard', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    document.head.querySelectorAll('style[data-movie-controller]').forEach((n) => n.remove());
+  });
+
+  it('Space toggles play/pause', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space' }));
+    expect(movie.isPlaying).toBe(true);
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space' }));
+    expect(movie.isPlaying).toBe(false);
+    ctrl.destroy();
+  });
+
+  it('ArrowLeft / ArrowRight step one frame', async () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie({ totalFrames: 100 } as Partial<Movie>);
+    movie.currentFrame = 50;
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowRight' }));
+    await Promise.resolve();
+    expect(movie.currentFrame).toBe(51);
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowLeft' }));
+    await Promise.resolve();
+    expect(movie.currentFrame).toBe(50);
+    ctrl.destroy();
+  });
+
+  it('ArrowUp / ArrowDown adjust volume by 5% and clamp', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    movie.volume = 0.5;
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowUp' }));
+    expect(movie.volume).toBeCloseTo(0.55, 5);
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowDown' }));
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowDown' }));
+    expect(movie.volume).toBeCloseTo(0.45, 5);
+    movie.volume = 0.98;
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowUp' }));
+    expect(movie.volume).toBe(1);
+    movie.volume = 0.02;
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowDown' }));
+    expect(movie.volume).toBe(0);
+    ctrl.destroy();
+  });
+
+  it('M toggles mute', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyM' }));
+    expect(movie.muted).toBe(true);
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyM' }));
+    expect(movie.muted).toBe(false);
+    ctrl.destroy();
+  });
+
+  it('Shift+E triggers export', () => {
+    const canvas = makeCanvas();
+    let called = false;
+    const movie = makeFakeMovie();
+    movie.render = async () => { called = true; return new Blob(); };
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE', shiftKey: true }));
+    expect(called).toBe(true);
+    ctrl.destroy();
+  });
+
+  it('keyboard ignored when target is INPUT', () => {
+    const canvas = makeCanvas();
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    const ev = new KeyboardEvent('keydown', { code: 'Space' });
+    Object.defineProperty(ev, 'target', { value: input });
+    document.dispatchEvent(ev);
+    expect(movie.isPlaying).toBe(false);
+    ctrl.destroy();
+  });
+
+  it('disabled by enableKeyboardShortcuts: false', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas, enableKeyboardShortcuts: false });
+    movie.emit('ready');
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space' }));
+    expect(movie.isPlaying).toBe(false);
+    ctrl.destroy();
+  });
+});
+
 describe('Controller — visibility', () => {
   beforeEach(() => { vi.useFakeTimers(); });
   afterEach(() => {

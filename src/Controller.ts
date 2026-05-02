@@ -190,6 +190,7 @@ export class Controller {
   private exportOverlay: HTMLDivElement | null = null;
   private exportFillEl: HTMLDivElement | null = null;
   private exportTextEl: HTMLDivElement | null = null;
+  private keyHandler: ((e: KeyboardEvent) => void) | null = null;
 
   constructor(movie: Movie, options: ControllerOptions) {
     if (!options || !options.canvas) {
@@ -216,6 +217,7 @@ export class Controller {
     this.bindMuteButton();
     this.bindExportButton();
     this.bindVisibility();
+    if (this.options.enableKeyboardShortcuts) this.bindKeyboard();
   }
 
   private buildBar(): void {
@@ -455,6 +457,60 @@ export class Controller {
     this.root.setAttribute('data-state', v ? 'visible' : 'hidden');
   }
 
+  private bindKeyboard(): void {
+    this.keyHandler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && target.tagName === 'INPUT') return;
+      if (this.isExporting) return;
+
+      switch (e.code) {
+        case 'Space':
+          e.preventDefault();
+          this.playBtn.click();
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          this.stepFrame(-1);
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          this.stepFrame(1);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          this.adjustVolume(0.05);
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          this.adjustVolume(-0.05);
+          break;
+        case 'KeyM':
+          e.preventDefault();
+          this.muteBtn.click();
+          break;
+        case 'KeyE':
+          if (e.shiftKey && this.exportBtn) {
+            e.preventDefault();
+            this.exportBtn.click();
+          }
+          break;
+      }
+    };
+    document.addEventListener('keydown', this.keyHandler);
+  }
+
+  private stepFrame(delta: number): void {
+    const next = Math.max(0, Math.min(this.movie.totalFrames, this.movie.currentFrame + delta));
+    void this.movie.gotoFrame(next);
+  }
+
+  private adjustVolume(delta: number): void {
+    const next = Math.max(0, Math.min(1, this.movie.volume + delta));
+    this.movie.volume = next;
+    if (this.movie.muted && next > 0) this.movie.muted = false;
+    this.refreshMuteIcon();
+  }
+
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
@@ -466,6 +522,10 @@ export class Controller {
         parent.insertBefore(canvas, this.wrapper);
         this.wrapper.remove();
       }
+    }
+    if (this.keyHandler) {
+      document.removeEventListener('keydown', this.keyHandler);
+      this.keyHandler = null;
     }
     if (this.hideTimer) { clearTimeout(this.hideTimer); this.hideTimer = null; }
     this.hideExportOverlay();
