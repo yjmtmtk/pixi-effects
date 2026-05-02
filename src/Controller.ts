@@ -6,6 +6,8 @@ const ICONS = {
   volumeOn: '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M2 6 H5 L9 2 V14 L5 10 H2 Z"/><path d="M11 5 Q13 8 11 11" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M12.5 3.5 Q15.5 8 12.5 12.5" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>',
   volumeOff: '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M2 6 H5 L9 2 V14 L5 10 H2 Z"/><path d="M11 5 L15 11 M15 5 L11 11" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>',
   download: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2 V11 M4 7 L8 11 L12 7 M3 13 H13"/></svg>',
+  fullscreenEnter: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6 V2 H6 M14 6 V2 H10 M2 10 V14 H6 M14 10 V14 H10"/></svg>',
+  fullscreenExit: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 V6 H2 M10 2 V6 H14 M6 14 V10 H2 M10 14 V10 H14"/></svg>',
 } as const;
 
 const STYLE_ATTR = 'data-movie-controller';
@@ -92,6 +94,58 @@ const STYLE_CSS = `
   min-width: 90px;
 }
 .mc-spacer { flex: 1; }
+
+.mc-volume { display: flex; align-items: center; }
+.mc-vol-slider {
+  position: relative;
+  width: 0;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  margin-left: 0;
+  outline: none;
+  transition: width 200ms ease, margin-left 200ms ease;
+  overflow: hidden;
+}
+.mc-volume:hover .mc-vol-slider,
+.mc-volume:focus-within .mc-vol-slider,
+.mc-vol-slider.mc-scrubbing {
+  width: 70px;
+  margin-left: 6px;
+}
+.mc-vol-slider:focus-visible { outline: 2px solid #007AFF; outline-offset: 2px; }
+.mc-vol-slider::before {
+  content: ""; position: absolute; left: 4px; right: 4px;
+  height: 3px; background: rgba(255,255,255,0.25); border-radius: 2px;
+}
+.mc-vol-fill {
+  position: absolute; left: 4px; top: 50%;
+  height: 3px;
+  width: calc((100% - 8px) * var(--mc-volume, 1));
+  background: #fff;
+  transform: translateY(-50%);
+  border-radius: 2px;
+  pointer-events: none;
+}
+.mc-vol-thumb {
+  position: absolute; top: 50%;
+  left: calc(4px + (100% - 8px) * var(--mc-volume, 1));
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #fff;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.movie-controller-wrap:fullscreen {
+  width: 100vw; height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  background: #000;
+}
+.movie-controller-wrap:fullscreen > canvas {
+  width: auto; height: auto;
+  max-width: 100%; max-height: 100%;
+}
 
 .mc-settings-popover {
   position: absolute;
@@ -209,6 +263,14 @@ export function pxToFrame(clientX: number, rect: { left: number; width: number }
   return Math.round(clamped * totalFrames);
 }
 
+export function pxToFraction(clientX: number, rect: { left: number; width: number }, inset = 0): number {
+  const innerLeft = rect.left + inset;
+  const innerWidth = Math.max(0, rect.width - 2 * inset);
+  if (innerWidth <= 0) return 0;
+  const ratio = (clientX - innerLeft) / innerWidth;
+  return Math.min(Math.max(ratio, 0), 1);
+}
+
 export function extensionForMimeType(mime: string): string {
   const t = (mime || '').toLowerCase();
   if (t.includes('webm')) return 'webm';
@@ -274,6 +336,12 @@ export class Controller {
   private onWrapPointerMove: (() => void) | null = null;
   private onWrapMouseLeave: (() => void) | null = null;
   private resizeObserver: ResizeObserver | null = null;
+  private volumeSliderEl: HTMLDivElement | null = null;
+  private volumeContainerEl: HTMLDivElement | null = null;
+  private fullscreenBtn: HTMLButtonElement | null = null;
+  private isVolumeScrubbing = false;
+  private fullscreenChangeHandler: (() => void) | null = null;
+  private wheelHandler: ((e: WheelEvent) => void) | null = null;
 
   constructor(movie: Movie, options: ControllerOptions) {
     if (!options || !options.canvas) {
@@ -303,7 +371,9 @@ export class Controller {
     this.bindPlayButton();
     this.bindScrubbing();
     this.bindMuteButton();
+    this.bindVolumeSlider();
     this.bindExportPopover();
+    this.bindFullscreen();
     this.bindVisibility();
     if (this.options.enableKeyboardShortcuts) this.bindKeyboard();
   }
@@ -339,10 +409,17 @@ export class Controller {
       <div class="mc-bar">
         ${popoverHtml}
         <button class="mc-btn mc-play" aria-label="Play">${ICONS.play}</button>
-        <button class="mc-btn mc-mute" aria-label="Mute">${ICONS.volumeOn}</button>
+        <div class="mc-volume">
+          <button class="mc-btn mc-mute" aria-label="Mute">${ICONS.volumeOn}</button>
+          <div class="mc-vol-slider" role="slider" tabindex="0" aria-label="Volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+            <div class="mc-vol-fill"></div>
+            <div class="mc-vol-thumb"></div>
+          </div>
+        </div>
         <span class="mc-time">0:00 / 0:00</span>
         <div class="mc-spacer"></div>
         ${this.options.showExportButton ? `<button class="mc-btn mc-export" aria-label="Export" aria-expanded="false">${ICONS.download}</button>` : ''}
+        <button class="mc-btn mc-fullscreen" aria-label="Enter fullscreen">${ICONS.fullscreenEnter}</button>
       </div>
     `;
     this.progressEl = this.root.querySelector('.mc-progress') as HTMLDivElement;
@@ -356,6 +433,9 @@ export class Controller {
     this.settingsFormatSelect = this.root.querySelector('.mc-settings-format') as HTMLSelectElement | null;
     this.settingsQualitySelect = this.root.querySelector('.mc-settings-quality') as HTMLSelectElement | null;
     this.exportConfirmBtn = this.root.querySelector('.mc-export-confirm') as HTMLButtonElement | null;
+    this.volumeSliderEl = this.root.querySelector('.mc-vol-slider') as HTMLDivElement | null;
+    this.volumeContainerEl = this.root.querySelector('.mc-volume') as HTMLDivElement | null;
+    this.fullscreenBtn = this.root.querySelector('.mc-fullscreen') as HTMLButtonElement | null;
     if (this.settingsFormatSelect) this.settingsFormatSelect.value = this.exportFormat;
     if (this.settingsQualitySelect) this.settingsQualitySelect.value = this.exportQuality;
   }
@@ -386,7 +466,7 @@ export class Controller {
       this.progressEl.setAttribute('aria-valuemax', String(this.movie.totalFrames));
       this.refreshTime(0);
       this.refreshProgress(0);
-      this.refreshMuteIcon();
+      this.refreshVolumeUI();
     };
     this.onFrame = ({ frame, totalFrames }) => {
       if (!this.isScrubbing) {
@@ -433,7 +513,7 @@ export class Controller {
   private bindMuteButton(): void {
     this.muteBtn.addEventListener('click', () => {
       this.movie.toggleMute();
-      this.refreshMuteIcon();
+      this.refreshVolumeUI();
     });
   }
 
@@ -441,6 +521,83 @@ export class Controller {
     const silent = this.movie.muted || this.movie.volume <= 0;
     this.muteBtn.innerHTML = silent ? ICONS.volumeOff : ICONS.volumeOn;
     this.muteBtn.setAttribute('aria-label', silent ? 'Unmute' : 'Mute');
+  }
+
+  private refreshVolumeUI(): void {
+    this.refreshMuteIcon();
+    if (!this.volumeSliderEl) return;
+    const effective = this.movie.muted ? 0 : this.movie.volume;
+    this.volumeSliderEl.style.setProperty('--mc-volume', String(effective));
+    this.volumeSliderEl.setAttribute('aria-valuenow', String(Math.round(effective * 100)));
+  }
+
+  private bindVolumeSlider(): void {
+    if (!this.volumeSliderEl || !this.volumeContainerEl) return;
+    const slider = this.volumeSliderEl;
+    const container = this.volumeContainerEl;
+
+    const setFromPointer = (clientX: number) => {
+      const rect = slider.getBoundingClientRect();
+      const v = pxToFraction(clientX, { left: rect.left, width: rect.width }, 4);
+      this.movie.volume = v;
+      if (this.movie.muted && v > 0) this.movie.muted = false;
+      this.refreshVolumeUI();
+    };
+
+    const onDown = (e: PointerEvent) => {
+      this.isVolumeScrubbing = true;
+      slider.classList.add('mc-scrubbing');
+      try { slider.setPointerCapture(e.pointerId); } catch { /* unsupported */ }
+      setFromPointer(e.clientX);
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!this.isVolumeScrubbing) return;
+      setFromPointer(e.clientX);
+    };
+    const onUp = (e: PointerEvent) => {
+      if (!this.isVolumeScrubbing) return;
+      this.isVolumeScrubbing = false;
+      slider.classList.remove('mc-scrubbing');
+      try { slider.releasePointerCapture(e.pointerId); } catch { /* unsupported */ }
+    };
+    slider.addEventListener('pointerdown', onDown);
+    slider.addEventListener('pointermove', onMove);
+    slider.addEventListener('pointerup', onUp);
+    slider.addEventListener('pointercancel', onUp);
+
+    this.wheelHandler = (e: WheelEvent) => {
+      e.preventDefault();
+      this.adjustVolume(e.deltaY < 0 ? 0.05 : -0.05);
+    };
+    container.addEventListener('wheel', this.wheelHandler, { passive: false });
+  }
+
+  private bindFullscreen(): void {
+    if (!this.fullscreenBtn) return;
+    this.fullscreenBtn.addEventListener('click', () => {
+      void this.toggleFullscreen();
+    });
+    this.fullscreenChangeHandler = () => this.refreshFullscreenIcon();
+    document.addEventListener('fullscreenchange', this.fullscreenChangeHandler);
+  }
+
+  private async toggleFullscreen(): Promise<void> {
+    try {
+      if (document.fullscreenElement === this.wrapper) {
+        await document.exitFullscreen();
+      } else {
+        await this.wrapper.requestFullscreen();
+      }
+    } catch (err) {
+      console.warn('pixi-effects: fullscreen denied:', err);
+    }
+  }
+
+  private refreshFullscreenIcon(): void {
+    if (!this.fullscreenBtn) return;
+    const inFs = document.fullscreenElement === this.wrapper;
+    this.fullscreenBtn.innerHTML = inFs ? ICONS.fullscreenExit : ICONS.fullscreenEnter;
+    this.fullscreenBtn.setAttribute('aria-label', inFs ? 'Exit fullscreen' : 'Enter fullscreen');
   }
 
   private refreshProgress(frame: number, totalFrames?: number): void {
@@ -663,7 +820,7 @@ export class Controller {
     if (!this.movie.isPlaying) return;
     if (this.settingsOpen) return;
     this.hideTimer = setTimeout(() => {
-      if (this.movie.isPlaying && !this.isScrubbing && !this.settingsOpen) this.setVisible(false);
+      if (this.movie.isPlaying && !this.isScrubbing && !this.isVolumeScrubbing && !this.settingsOpen) this.setVisible(false);
     }, Controller.HIDE_DELAY_MS);
   }
 
@@ -723,6 +880,12 @@ export class Controller {
             void this.handleExport();
           }
           break;
+        case 'KeyF':
+          if (this.fullscreenBtn) {
+            e.preventDefault();
+            void this.toggleFullscreen();
+          }
+          break;
       }
     };
     document.addEventListener('keydown', this.keyHandler);
@@ -737,7 +900,7 @@ export class Controller {
     const next = Math.max(0, Math.min(1, this.movie.volume + delta));
     this.movie.volume = next;
     if (this.movie.muted && next > 0) this.movie.muted = false;
-    this.refreshMuteIcon();
+    this.refreshVolumeUI();
   }
 
   destroy(): void {
@@ -779,6 +942,17 @@ export class Controller {
     if (this.settingsOutsideHandler) {
       document.removeEventListener('pointerdown', this.settingsOutsideHandler);
       this.settingsOutsideHandler = null;
+    }
+    if (this.fullscreenChangeHandler) {
+      document.removeEventListener('fullscreenchange', this.fullscreenChangeHandler);
+      this.fullscreenChangeHandler = null;
+    }
+    if (this.wheelHandler && this.volumeContainerEl) {
+      this.volumeContainerEl.removeEventListener('wheel', this.wheelHandler);
+      this.wheelHandler = null;
+    }
+    if (document.fullscreenElement === this.wrapper) {
+      void document.exitFullscreen().catch(() => {});
     }
     if (this.hideTimer) { clearTimeout(this.hideTimer); this.hideTimer = null; }
     this.hideExportOverlay();

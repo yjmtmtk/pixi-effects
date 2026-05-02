@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { Movie } from '../src/core/Movie';
 import { Controller } from '../src/Controller';
-import { formatTime, frameToPercent, pxToFrame, extensionForMimeType } from '../src/Controller';
+import { formatTime, frameToPercent, pxToFrame, pxToFraction, extensionForMimeType } from '../src/Controller';
 
 type Listener = (...args: unknown[]) => void;
 
@@ -202,6 +202,22 @@ describe('Controller — pure helpers', () => {
     expect(pxToFrame(50, rect, 100)).toBe(0);
     expect(pxToFrame(500, rect, 100)).toBe(100);
     expect(pxToFrame(150, rect, 100)).toBe(25);
+  });
+  it('pxToFraction: returns clamped 0..1 with optional inset', () => {
+    const rect = { left: 0, width: 100 } as DOMRect;
+    expect(pxToFraction(0, rect)).toBe(0);
+    expect(pxToFraction(50, rect)).toBe(0.5);
+    expect(pxToFraction(100, rect)).toBe(1);
+    expect(pxToFraction(-10, rect)).toBe(0);
+    expect(pxToFraction(150, rect)).toBe(1);
+    // With inset 4 on each side, effective range is left=4..96 (width 92).
+    const insetRect = { left: 0, width: 100 } as DOMRect;
+    expect(pxToFraction(4, insetRect, 4)).toBe(0);
+    expect(pxToFraction(50, insetRect, 4)).toBeCloseTo(46 / 92, 5);
+    expect(pxToFraction(96, insetRect, 4)).toBe(1);
+    // Width zero or fully consumed by inset -> 0.
+    expect(pxToFraction(10, { left: 0, width: 0 } as DOMRect)).toBe(0);
+    expect(pxToFraction(10, { left: 0, width: 8 } as DOMRect, 4)).toBe(0);
   });
   it('extensionForMimeType: maps common video MIMEs, falls back to mp4', () => {
     expect(extensionForMimeType('video/mp4')).toBe('mp4');
@@ -845,6 +861,177 @@ describe('Controller — settings popover (interaction)', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('Controller — volume slider', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    document.head.querySelectorAll('style[data-movie-controller]').forEach((n) => n.remove());
+  });
+
+  it('renders the volume container with mute button + slider, fill at 100% by default', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    const wrap = canvas.parentElement!;
+    expect(wrap.querySelector('.mc-volume')).not.toBeNull();
+    const slider = wrap.querySelector('.mc-vol-slider') as HTMLDivElement;
+    expect(slider).not.toBeNull();
+    expect(slider.style.getPropertyValue('--mc-volume')).toBe('1');
+    expect(slider.getAttribute('aria-valuenow')).toBe('100');
+    ctrl.destroy();
+  });
+
+  it('pointerdown + drag on the slider sets movie.volume and clears mute', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    movie.muted = true;
+    movie.volume = 0;
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    const slider = canvas.parentElement!.querySelector('.mc-vol-slider') as HTMLDivElement;
+    slider.getBoundingClientRect = () => ({ left: 0, top: 0, right: 78, bottom: 28, width: 78, height: 28, x: 0, y: 0, toJSON() { return {}; } });
+    slider.setPointerCapture = () => {};
+    slider.releasePointerCapture = () => {};
+
+    slider.dispatchEvent(new PointerEvent('pointerdown', { clientX: 39, pointerId: 1 }));
+    expect(movie.muted).toBe(false);
+    expect(movie.volume).toBeCloseTo(0.5, 2); // (39-4)/(78-8) = 35/70 = 0.5
+    expect(slider.classList.contains('mc-scrubbing')).toBe(true);
+
+    slider.dispatchEvent(new PointerEvent('pointermove', { clientX: 4, pointerId: 1 }));
+    expect(movie.volume).toBe(0);
+
+    slider.dispatchEvent(new PointerEvent('pointerup', { clientX: 4, pointerId: 1 }));
+    expect(slider.classList.contains('mc-scrubbing')).toBe(false);
+    ctrl.destroy();
+  });
+
+  it('wheel on the volume container adjusts volume by 5% (preventDefault)', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    movie.volume = 0.5;
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    const container = canvas.parentElement!.querySelector('.mc-volume') as HTMLDivElement;
+
+    const upEvent = new WheelEvent('wheel', { deltaY: -10, bubbles: true, cancelable: true });
+    container.dispatchEvent(upEvent);
+    expect(movie.volume).toBeCloseTo(0.55, 5);
+    expect(upEvent.defaultPrevented).toBe(true);
+
+    const downEvent = new WheelEvent('wheel', { deltaY: 10, bubbles: true, cancelable: true });
+    container.dispatchEvent(downEvent);
+    container.dispatchEvent(new WheelEvent('wheel', { deltaY: 10, bubbles: true, cancelable: true }));
+    expect(movie.volume).toBeCloseTo(0.45, 5);
+    ctrl.destroy();
+  });
+
+  it('mute click syncs the slider visual to 0 (without changing movie.volume)', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    movie.volume = 0.6;
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    const slider = canvas.parentElement!.querySelector('.mc-vol-slider') as HTMLDivElement;
+    expect(slider.style.getPropertyValue('--mc-volume')).toBe('0.6');
+    (canvas.parentElement!.querySelector('.mc-mute') as HTMLButtonElement).click();
+    expect(movie.muted).toBe(true);
+    expect(movie.volume).toBe(0.6); // volume itself unchanged
+    expect(slider.style.getPropertyValue('--mc-volume')).toBe('0'); // visual zeroed
+    expect(slider.getAttribute('aria-valuenow')).toBe('0');
+    ctrl.destroy();
+  });
+});
+
+describe('Controller — fullscreen', () => {
+  // Stub the Fullscreen API on the actual document + canvas-wrapper instances
+  // (happy-dom's prototype chain is unreliable for these properties).
+  function withFullscreenStub(canvas: HTMLCanvasElement) {
+    const state = { current: null as Element | null };
+    Object.defineProperty(document, 'fullscreenElement', {
+      configurable: true,
+      get() { return state.current; },
+    });
+    const installOnElement = (el: Element) => {
+      (el as any).requestFullscreen = () => {
+        state.current = el;
+        document.dispatchEvent(new Event('fullscreenchange'));
+        return Promise.resolve();
+      };
+    };
+    (document as any).exitFullscreen = () => {
+      state.current = null;
+      document.dispatchEvent(new Event('fullscreenchange'));
+      return Promise.resolve();
+    };
+    // Install on whatever ends up being the wrapper.
+    installOnElement(canvas.parentElement!);
+    return state;
+  }
+
+  afterEach(() => {
+    delete (document as any).exitFullscreen;
+    try { delete (document as any).fullscreenElement; } catch { /* property may be defined as accessor */ }
+    document.body.innerHTML = '';
+    document.head.querySelectorAll('style[data-movie-controller]').forEach((n) => n.remove());
+  });
+
+  it('renders the fullscreen button', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    const btn = canvas.parentElement!.querySelector('.mc-fullscreen') as HTMLButtonElement;
+    expect(btn).not.toBeNull();
+    expect(btn.getAttribute('aria-label')).toBe('Enter fullscreen');
+    ctrl.destroy();
+  });
+
+  it('clicking the button enters fullscreen and swaps icon; clicking again exits', async () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    const state = withFullscreenStub(canvas);
+    const btn = canvas.parentElement!.querySelector('.mc-fullscreen') as HTMLButtonElement;
+    const wrapper = canvas.parentElement!;
+    btn.click();
+    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    expect(state.current).toBe(wrapper);
+    expect(btn.getAttribute('aria-label')).toBe('Exit fullscreen');
+    btn.click();
+    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    expect(state.current).toBeNull();
+    expect(btn.getAttribute('aria-label')).toBe('Enter fullscreen');
+    ctrl.destroy();
+  });
+
+  it('F key toggles fullscreen', async () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    const state = withFullscreenStub(canvas);
+    const wrapper = canvas.parentElement!;
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyF' }));
+    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    expect(state.current).toBe(wrapper);
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyF' }));
+    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    expect(state.current).toBeNull();
+    ctrl.destroy();
+  });
+
+  it('destroy exits fullscreen if controller owns it', async () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    const state = withFullscreenStub(canvas);
+    (canvas.parentElement!.querySelector('.mc-fullscreen') as HTMLButtonElement).click();
+    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    expect(state.current).not.toBeNull();
+    ctrl.destroy();
+    expect(state.current).toBeNull();
   });
 });
 
