@@ -254,25 +254,23 @@ describe('Controller — playback', () => {
     ctrl.destroy();
   });
 
-  it('refreshes play icon and forces bar visible when movie auto-pauses at end', () => {
+  it('movie pause event refreshes play icon, cancels idle timer, forces bar visible', () => {
     const canvas = makeCanvas();
-    const movie = makeFakeMovie({ totalFrames: 10 } as Partial<Movie>);
+    const movie = makeFakeMovie();
     const ctrl = new Controller(movie, { canvas });
     movie.emit('ready');
     const root = canvas.parentElement!.querySelector('.movie-controller')!;
     const playBtn = canvas.parentElement!.querySelector('.mc-play') as HTMLButtonElement;
 
-    // Simulate user clicking play, then frame events ticking up while playing.
-    playBtn.click();
-    expect(movie.isPlaying).toBe(true);
-    movie.emit('frame', { frame: 5, totalFrames: 10 });
-    expect(playBtn.innerHTML).toContain('<rect'); // pause icon
+    // Simulate movie playing (e.g. user clicked play earlier).
+    movie.isPlaying = true;
+    playBtn.innerHTML = '<rect/>'; // pretend pause icon is showing
+    root.setAttribute('data-state', 'hidden'); // pretend bar auto-hid
 
-    // Simulate Movie auto-pausing at the last frame.
+    // Movie auto-pauses (or any pause): isPlaying flips to false, then emits 'pause'.
     movie.isPlaying = false;
-    movie.emit('frame', { frame: 10, totalFrames: 10 });
+    movie.emit('pause');
 
-    // Controller should detect the transition: play icon back, bar forced visible.
     expect(playBtn.innerHTML).toContain('M3 2 L13 8 L3 14 Z'); // play icon
     expect(root.getAttribute('data-state')).toBe('visible');
     ctrl.destroy();

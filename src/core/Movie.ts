@@ -64,6 +64,7 @@ export class Movie {
   on(event: 'ready', fn: () => void): this;
   on(event: 'frame', fn: (e: FrameEvent) => void): this;
   on(event: 'progress', fn: (e: ProgressEvent) => void): this;
+  on(event: 'pause', fn: () => void): this;
   on(event: string, fn: Listener): this {
     (this._events[event] ??= []).push(fn);
     if (event === 'ready' && this._initState === 'ready') {
@@ -235,6 +236,7 @@ export class Movie {
       this.gainNode.disconnect();
       this.gainNode = null;
     }
+    this.emit('pause');
   }
 
   set volume(v: number) {
