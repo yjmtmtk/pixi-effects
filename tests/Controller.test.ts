@@ -619,6 +619,54 @@ describe('Controller — keyboard', () => {
   });
 });
 
+describe('Controller — settings popover (DOM)', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    document.head.querySelectorAll('style[data-movie-controller]').forEach((n) => n.remove());
+  });
+
+  it('renders a settings gear button left of the export button', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    const bar = canvas.parentElement!.querySelector('.mc-bar')!;
+    const settings = bar.querySelector('.mc-settings');
+    const exportBtn = bar.querySelector('.mc-export');
+    expect(settings).not.toBeNull();
+    expect(exportBtn).not.toBeNull();
+    // Settings button comes immediately before the export button.
+    expect(settings!.nextElementSibling).toBe(exportBtn);
+    ctrl.destroy();
+  });
+
+  it('renders the settings popover with format and quality selects (closed by default)', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    const root = canvas.parentElement!.querySelector('.movie-controller')!;
+    const popover = root.querySelector('.mc-settings-popover') as HTMLDivElement;
+    expect(popover).not.toBeNull();
+    expect(popover.getAttribute('data-open')).toBe('false');
+    const fmt = popover.querySelector('.mc-settings-format') as HTMLSelectElement;
+    const q = popover.querySelector('.mc-settings-quality') as HTMLSelectElement;
+    expect(Array.from(fmt.options).map((o) => o.value)).toEqual(['mp4', 'webm', 'mov']);
+    expect(Array.from(q.options).map((o) => o.value)).toEqual(['low', 'medium', 'high', 'very-high']);
+    expect(fmt.value).toBe('mp4');
+    expect(q.value).toBe('high');
+    ctrl.destroy();
+  });
+
+  it('omits gear and popover when showExportButton is false', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas, showExportButton: false });
+    const root = canvas.parentElement!.querySelector('.movie-controller')!;
+    expect(root.querySelector('.mc-settings')).toBeNull();
+    expect(root.querySelector('.mc-settings-popover')).toBeNull();
+    ctrl.destroy();
+  });
+});
+
 describe('Controller — visibility', () => {
   beforeEach(() => { vi.useFakeTimers(); });
   afterEach(() => {

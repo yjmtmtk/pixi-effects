@@ -6,6 +6,7 @@ const ICONS = {
   volumeOn: '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M2 6 H5 L9 2 V14 L5 10 H2 Z"/><path d="M11 5 Q13 8 11 11" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M12.5 3.5 Q15.5 8 12.5 12.5" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>',
   volumeOff: '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M2 6 H5 L9 2 V14 L5 10 H2 Z"/><path d="M11 5 L15 11 M15 5 L11 11" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>',
   download: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2 V11 M4 7 L8 11 L12 7 M3 13 H13"/></svg>',
+  gear: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5 V3 M8 13 V14.5 M1.5 8 H3 M13 8 H14.5 M3.4 3.4 L4.5 4.5 M11.5 11.5 L12.6 12.6 M3.4 12.6 L4.5 11.5 M11.5 4.5 L12.6 3.4"/></svg>',
 } as const;
 
 const STYLE_ATTR = 'data-movie-controller';
@@ -91,6 +92,39 @@ const STYLE_CSS = `
   min-width: 90px;
 }
 .mc-spacer { flex: 1; }
+
+.mc-settings-popover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 12px;
+  background: rgba(20, 20, 20, 0.96);
+  border-radius: 8px;
+  padding: 10px 12px;
+  min-width: 180px;
+  color: #fff;
+  font-size: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mc-settings-popover[data-open="false"] { display: none; }
+.mc-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.mc-settings-row > span { color: rgba(255,255,255,0.85); }
+.mc-settings-row > select {
+  font: inherit;
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: pointer;
+}
 
 .mc-export-overlay {
   position: fixed; inset: 0;
@@ -198,6 +232,13 @@ export class Controller {
   private muteBtn!: HTMLButtonElement;
   private timeEl!: HTMLSpanElement;
   private exportBtn: HTMLButtonElement | null = null;
+  private settingsBtn: HTMLButtonElement | null = null;
+  private settingsPopoverEl: HTMLDivElement | null = null;
+  private settingsFormatSelect: HTMLSelectElement | null = null;
+  private settingsQualitySelect: HTMLSelectElement | null = null;
+  private exportFormat: 'mp4' | 'webm' | 'mov' = 'mp4';
+  private exportQuality: 'low' | 'medium' | 'high' | 'very-high' = 'high';
+  private settingsOpen = false;
   private hideTimer: ReturnType<typeof setTimeout> | null = null;
   private static readonly HIDE_DELAY_MS = 2500;
   private static readonly PROGRESS_INSET_PX = 12;
@@ -251,16 +292,42 @@ export class Controller {
   }
 
   private buildBar(): void {
+    const settingsHtml = this.options.showExportButton ? `
+      <button class="mc-btn mc-settings" aria-label="Export settings" aria-expanded="false">${ICONS.gear}</button>
+    ` : '';
+    const popoverHtml = this.options.showExportButton ? `
+      <div class="mc-settings-popover" role="dialog" aria-label="Export settings" data-open="false">
+        <label class="mc-settings-row">
+          <span>Format</span>
+          <select class="mc-settings-format">
+            <option value="mp4">MP4</option>
+            <option value="webm">WebM</option>
+            <option value="mov">MOV</option>
+          </select>
+        </label>
+        <label class="mc-settings-row">
+          <span>Quality</span>
+          <select class="mc-settings-quality">
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high" selected>High</option>
+            <option value="very-high">Very High</option>
+          </select>
+        </label>
+      </div>
+    ` : '';
     this.root.innerHTML = `
       <div class="mc-progress" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0" aria-valuemax="${this.movie.totalFrames}" aria-valuenow="0">
         <div class="mc-progress-fill"></div>
         <div class="mc-progress-thumb"></div>
       </div>
+      ${popoverHtml}
       <div class="mc-bar">
         <button class="mc-btn mc-play" aria-label="Play">${ICONS.play}</button>
         <button class="mc-btn mc-mute" aria-label="Mute">${ICONS.volumeOn}</button>
         <span class="mc-time">0:00 / 0:00</span>
         <div class="mc-spacer"></div>
+        ${settingsHtml}
         ${this.options.showExportButton ? `<button class="mc-btn mc-export" aria-label="Export">${ICONS.download}</button>` : ''}
       </div>
     `;
@@ -271,6 +338,12 @@ export class Controller {
     this.muteBtn = this.root.querySelector('.mc-mute') as HTMLButtonElement;
     this.timeEl = this.root.querySelector('.mc-time') as HTMLSpanElement;
     this.exportBtn = this.root.querySelector('.mc-export') as HTMLButtonElement | null;
+    this.settingsBtn = this.root.querySelector('.mc-settings') as HTMLButtonElement | null;
+    this.settingsPopoverEl = this.root.querySelector('.mc-settings-popover') as HTMLDivElement | null;
+    this.settingsFormatSelect = this.root.querySelector('.mc-settings-format') as HTMLSelectElement | null;
+    this.settingsQualitySelect = this.root.querySelector('.mc-settings-quality') as HTMLSelectElement | null;
+    if (this.settingsFormatSelect) this.settingsFormatSelect.value = this.exportFormat;
+    if (this.settingsQualitySelect) this.settingsQualitySelect.value = this.exportQuality;
   }
 
   private ensurePositioningContext(canvas: HTMLCanvasElement): HTMLDivElement {
