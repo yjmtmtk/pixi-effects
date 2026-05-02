@@ -322,3 +322,37 @@ describe('Controller — scrubbing', () => {
     ctrl.destroy();
   });
 });
+
+describe('Controller — mute', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    document.head.querySelectorAll('style[data-movie-controller]').forEach((n) => n.remove());
+  });
+
+  it('mute button toggles movie.muted and swaps icon', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    const muteBtn = canvas.parentElement!.querySelector('.mc-mute') as HTMLButtonElement;
+    expect(movie.muted).toBe(false);
+    expect(muteBtn.innerHTML).toContain('Q13 8 11 11'); // volumeOn waves
+    muteBtn.click();
+    expect(movie.muted).toBe(true);
+    expect(muteBtn.innerHTML).toContain('M11 5 L15 11'); // volumeOff X
+    muteBtn.click();
+    expect(movie.muted).toBe(false);
+    ctrl.destroy();
+  });
+
+  it('volume === 0 (not muted) shows volumeOff icon', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    movie.volume = 0;
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    const muteBtn = canvas.parentElement!.querySelector('.mc-mute') as HTMLButtonElement;
+    expect(muteBtn.innerHTML).toContain('M11 5 L15 11');
+    ctrl.destroy();
+  });
+});

@@ -206,6 +206,7 @@ export class Controller {
     this.bindMovieEvents();
     this.bindPlayButton();
     this.bindScrubbing();
+    this.bindMuteButton();
   }
 
   private buildBar(): void {
@@ -256,6 +257,7 @@ export class Controller {
       this.progressEl.setAttribute('aria-valuemax', String(this.movie.totalFrames));
       this.refreshTime(0);
       this.refreshProgress(0);
+      this.refreshMuteIcon();
     });
     this.movie.on('frame', ({ frame, totalFrames }) => {
       if (!this.isScrubbing) {
@@ -276,6 +278,19 @@ export class Controller {
   private refreshPlayIcon(): void {
     this.playBtn.innerHTML = this.movie.isPlaying ? ICONS.pause : ICONS.play;
     this.playBtn.setAttribute('aria-label', this.movie.isPlaying ? 'Pause' : 'Play');
+  }
+
+  private bindMuteButton(): void {
+    this.muteBtn.addEventListener('click', () => {
+      this.movie.toggleMute();
+      this.refreshMuteIcon();
+    });
+  }
+
+  private refreshMuteIcon(): void {
+    const silent = this.movie.muted || this.movie.volume <= 0;
+    this.muteBtn.innerHTML = silent ? ICONS.volumeOff : ICONS.volumeOn;
+    this.muteBtn.setAttribute('aria-label', silent ? 'Unmute' : 'Mute');
   }
 
   private refreshProgress(frame: number, totalFrames?: number): void {
