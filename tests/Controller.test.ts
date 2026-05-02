@@ -253,6 +253,30 @@ describe('Controller — playback', () => {
     expect(playBtn.innerHTML).toContain('M3 2 L13 8 L3 14 Z');
     ctrl.destroy();
   });
+
+  it('refreshes play icon and forces bar visible when movie auto-pauses at end', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie({ totalFrames: 10 } as Partial<Movie>);
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    const root = canvas.parentElement!.querySelector('.movie-controller')!;
+    const playBtn = canvas.parentElement!.querySelector('.mc-play') as HTMLButtonElement;
+
+    // Simulate user clicking play, then frame events ticking up while playing.
+    playBtn.click();
+    expect(movie.isPlaying).toBe(true);
+    movie.emit('frame', { frame: 5, totalFrames: 10 });
+    expect(playBtn.innerHTML).toContain('<rect'); // pause icon
+
+    // Simulate Movie auto-pausing at the last frame.
+    movie.isPlaying = false;
+    movie.emit('frame', { frame: 10, totalFrames: 10 });
+
+    // Controller should detect the transition: play icon back, bar forced visible.
+    expect(playBtn.innerHTML).toContain('M3 2 L13 8 L3 14 Z'); // play icon
+    expect(root.getAttribute('data-state')).toBe('visible');
+    ctrl.destroy();
+  });
 });
 
 describe('Controller — scrubbing', () => {

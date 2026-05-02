@@ -187,6 +187,7 @@ export class Controller {
   private wasPlayingBeforeScrub = false;
   private activePointerId: number | null = null;
   private isExporting = false;
+  private wasPlayingLastFrame = false;
   private exportOverlay: HTMLDivElement | null = null;
   private exportFillEl: HTMLDivElement | null = null;
   private exportTextEl: HTMLDivElement | null = null;
@@ -275,6 +276,18 @@ export class Controller {
         this.refreshProgress(frame, totalFrames);
       }
       this.refreshTime(frame);
+
+      // Detect play -> stopped transition (e.g. natural end of playback).
+      // Movie.play() internally calls pause() when reaching the last frame,
+      // but does not emit an event. Treat it like a user-driven pause:
+      // refresh the play icon, cancel the idle timer, force the bar visible.
+      const playingNow = this.movie.isPlaying;
+      if (this.wasPlayingLastFrame && !playingNow) {
+        this.refreshPlayIcon();
+        if (this.hideTimer) { clearTimeout(this.hideTimer); this.hideTimer = null; }
+        this.setVisible(true);
+      }
+      this.wasPlayingLastFrame = playingNow;
     });
     this.movie.on('progress', ({ progress, frame, totalFrames }) => {
       if (!this.isExporting || !this.exportFillEl || !this.exportTextEl) return;
