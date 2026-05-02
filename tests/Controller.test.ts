@@ -504,6 +504,49 @@ describe('Controller — export', () => {
     expect(document.querySelector('.mc-export-text')!.textContent).toBe('0% (0 / 0 frames)');
     ctrl.destroy();
   });
+
+  it('handleExport passes the current format + quality to movie.render()', async () => {
+    const canvas = makeCanvas();
+    let renderArgs: unknown = null;
+    const movie = makeFakeMovie();
+    movie.render = async (opts?: unknown) => { renderArgs = opts; return new Blob(); };
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+
+    // Pick non-default values via the popover selects.
+    const fmt = canvas.parentElement!.querySelector('.mc-settings-format') as HTMLSelectElement;
+    const q = canvas.parentElement!.querySelector('.mc-settings-quality') as HTMLSelectElement;
+    fmt.value = 'webm';
+    fmt.dispatchEvent(new Event('change', { bubbles: true }));
+    q.value = 'medium';
+    q.dispatchEvent(new Event('change', { bubbles: true }));
+
+    (canvas.parentElement!.querySelector('.mc-export') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 600));
+    expect(renderArgs).toEqual({
+      format: 'webm',
+      video: { bitrate: 'medium' },
+      audio: { bitrate: 'medium' },
+    });
+    ctrl.destroy();
+  });
+
+  it('default export options are mp4 + high', async () => {
+    const canvas = makeCanvas();
+    let renderArgs: unknown = null;
+    const movie = makeFakeMovie();
+    movie.render = async (opts?: unknown) => { renderArgs = opts; return new Blob(); };
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    (canvas.parentElement!.querySelector('.mc-export') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 600));
+    expect(renderArgs).toEqual({
+      format: 'mp4',
+      video: { bitrate: 'high' },
+      audio: { bitrate: 'high' },
+    });
+    ctrl.destroy();
+  });
 });
 
 describe('Controller — keyboard', () => {

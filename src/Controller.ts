@@ -563,7 +563,11 @@ export class Controller {
     }
     this.showExportOverlay();
     try {
-      const blob = await this.movie.render();
+      const blob = await this.movie.render({
+        format: this.exportFormat,
+        video: { bitrate: this.exportQuality },
+        audio: { bitrate: this.exportQuality },
+      });
       if (this.exportFillEl) this.exportFillEl.style.width = '100%';
       if (this.exportTextEl) this.exportTextEl.textContent = 'Preparing download...';
       this.triggerDownload(blob);
