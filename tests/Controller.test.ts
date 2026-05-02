@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { Movie } from '../src/core/Movie';
 import { Controller } from '../src/Controller';
 import { formatTime, frameToPercent, pxToFrame } from '../src/Controller';
@@ -398,6 +398,85 @@ describe('Controller — export', () => {
     expect(text.textContent).toContain('200');
     resolveRender!(new Blob());
     await new Promise((r) => setTimeout(r, 600));
+    ctrl.destroy();
+  });
+});
+
+describe('Controller — visibility', () => {
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => {
+    vi.useRealTimers();
+    document.body.innerHTML = '';
+    document.head.querySelectorAll('style[data-movie-controller]').forEach((n) => n.remove());
+  });
+
+  it('starts visible', () => {
+    const canvas = makeCanvas();
+    const ctrl = new Controller(makeFakeMovie(), { canvas });
+    const root = canvas.parentElement!.querySelector('.movie-controller')!;
+    expect(root.getAttribute('data-state')).toBe('visible');
+    ctrl.destroy();
+  });
+
+  it('on play, hides after 2500ms of no pointer activity', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    const root = canvas.parentElement!.querySelector('.movie-controller')!;
+    (canvas.parentElement!.querySelector('.mc-play') as HTMLButtonElement).click();
+    vi.advanceTimersByTime(2499);
+    expect(root.getAttribute('data-state')).toBe('visible');
+    vi.advanceTimersByTime(2);
+    expect(root.getAttribute('data-state')).toBe('hidden');
+    ctrl.destroy();
+  });
+
+  it('pointermove on wrapper resets the idle timer', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    const wrap = canvas.parentElement!;
+    const root = wrap.querySelector('.movie-controller')!;
+    (wrap.querySelector('.mc-play') as HTMLButtonElement).click();
+    vi.advanceTimersByTime(2000);
+    wrap.dispatchEvent(new PointerEvent('pointermove'));
+    vi.advanceTimersByTime(2000);
+    expect(root.getAttribute('data-state')).toBe('visible');
+    vi.advanceTimersByTime(600);
+    expect(root.getAttribute('data-state')).toBe('hidden');
+    ctrl.destroy();
+  });
+
+  it('mouseleave on wrapper hides immediately when playing', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    const wrap = canvas.parentElement!;
+    const root = wrap.querySelector('.movie-controller')!;
+    (wrap.querySelector('.mc-play') as HTMLButtonElement).click();
+    wrap.dispatchEvent(new MouseEvent('mouseleave'));
+    expect(root.getAttribute('data-state')).toBe('hidden');
+    ctrl.destroy();
+  });
+
+  it('pause forces visible and cancels idle timer', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    const wrap = canvas.parentElement!;
+    const root = wrap.querySelector('.movie-controller')!;
+    const play = wrap.querySelector('.mc-play') as HTMLButtonElement;
+    play.click(); // play
+    wrap.dispatchEvent(new MouseEvent('mouseleave'));
+    expect(root.getAttribute('data-state')).toBe('hidden');
+    play.click(); // pause
+    expect(root.getAttribute('data-state')).toBe('visible');
+    vi.advanceTimersByTime(5000);
+    expect(root.getAttribute('data-state')).toBe('visible');
     ctrl.destroy();
   });
 });

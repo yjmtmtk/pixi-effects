@@ -181,6 +181,8 @@ export class Controller {
   private muteBtn!: HTMLButtonElement;
   private timeEl!: HTMLSpanElement;
   private exportBtn: HTMLButtonElement | null = null;
+  private hideTimer: ReturnType<typeof setTimeout> | null = null;
+  private static readonly HIDE_DELAY_MS = 2500;
   private isScrubbing = false;
   private wasPlayingBeforeScrub = false;
   private activePointerId: number | null = null;
@@ -207,11 +209,13 @@ export class Controller {
     this.root.className = this.options.className;
     this.wrapper.appendChild(this.root);
     this.buildBar();
+    this.root.setAttribute('data-state', 'visible');
     this.bindMovieEvents();
     this.bindPlayButton();
     this.bindScrubbing();
     this.bindMuteButton();
     this.bindExportButton();
+    this.bindVisibility();
   }
 
   private buildBar(): void {
@@ -279,9 +283,16 @@ export class Controller {
 
   private bindPlayButton(): void {
     this.playBtn.addEventListener('click', () => {
-      if (this.movie.isPlaying) this.movie.pause();
-      else this.movie.play();
-      this.refreshPlayIcon();
+      if (this.movie.isPlaying) {
+        this.movie.pause();
+        this.refreshPlayIcon();
+        if (this.hideTimer) { clearTimeout(this.hideTimer); this.hideTimer = null; }
+        this.setVisible(true);
+      } else {
+        this.movie.play();
+        this.refreshPlayIcon();
+        this.kickIdleTimer();
+      }
     });
   }
 
@@ -419,6 +430,31 @@ export class Controller {
     }
   }
 
+  private bindVisibility(): void {
+    const wrap = this.wrapper;
+    wrap.addEventListener('pointermove', () => this.kickIdleTimer());
+    wrap.addEventListener('mouseleave', () => {
+      if (this.movie.isPlaying) this.setVisible(false);
+    });
+    this.root.addEventListener('pointerenter', () => {
+      if (this.hideTimer) { clearTimeout(this.hideTimer); this.hideTimer = null; }
+      this.setVisible(true);
+    });
+  }
+
+  private kickIdleTimer(): void {
+    this.setVisible(true);
+    if (this.hideTimer) { clearTimeout(this.hideTimer); this.hideTimer = null; }
+    if (!this.movie.isPlaying) return;
+    this.hideTimer = setTimeout(() => {
+      if (this.movie.isPlaying && !this.isScrubbing) this.setVisible(false);
+    }, Controller.HIDE_DELAY_MS);
+  }
+
+  private setVisible(v: boolean): void {
+    this.root.setAttribute('data-state', v ? 'visible' : 'hidden');
+  }
+
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
@@ -431,6 +467,7 @@ export class Controller {
         this.wrapper.remove();
       }
     }
+    if (this.hideTimer) { clearTimeout(this.hideTimer); this.hideTimer = null; }
     this.hideExportOverlay();
     uninstallStyles();
   }
