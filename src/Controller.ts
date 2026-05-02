@@ -181,6 +181,7 @@ export class Controller {
   private muteBtn!: HTMLButtonElement;
   private timeEl!: HTMLSpanElement;
   private exportBtn: HTMLButtonElement | null = null;
+  private isScrubbing = false;
 
   constructor(movie: Movie, options: ControllerOptions) {
     if (!options || !options.canvas) {
@@ -200,6 +201,8 @@ export class Controller {
     this.root.className = this.options.className;
     this.wrapper.appendChild(this.root);
     this.buildBar();
+    this.bindMovieEvents();
+    this.bindPlayButton();
   }
 
   private buildBar(): void {
@@ -243,6 +246,48 @@ export class Controller {
     wrap.appendChild(canvas);
     this.wrappedHere = true;
     return wrap;
+  }
+
+  private bindMovieEvents(): void {
+    this.movie.on('ready', () => {
+      this.progressEl.setAttribute('aria-valuemax', String(this.movie.totalFrames));
+      this.refreshTime(0);
+      this.refreshProgress(0);
+    });
+    this.movie.on('frame', ({ frame, totalFrames }) => {
+      if (!this.isScrubbing) {
+        this.refreshProgress(frame, totalFrames);
+      }
+      this.refreshTime(frame);
+    });
+  }
+
+  private bindPlayButton(): void {
+    this.playBtn.addEventListener('click', () => {
+      if (this.movie.isPlaying) this.movie.pause();
+      else this.movie.play();
+      this.refreshPlayIcon();
+    });
+  }
+
+  private refreshPlayIcon(): void {
+    this.playBtn.innerHTML = this.movie.isPlaying ? ICONS.pause : ICONS.play;
+    this.playBtn.setAttribute('aria-label', this.movie.isPlaying ? 'Pause' : 'Play');
+  }
+
+  private refreshProgress(frame: number, totalFrames?: number): void {
+    const total = totalFrames ?? this.movie.totalFrames;
+    const pct = frameToPercent(frame, total);
+    this.progressFillEl.style.width = `${pct}%`;
+    this.progressThumbEl.style.left = `${pct}%`;
+    this.progressEl.setAttribute('aria-valuenow', String(frame));
+  }
+
+  private refreshTime(frame: number): void {
+    const fr = this.movie.frameRate || 1;
+    const cur = frame / fr;
+    const total = this.movie.totalFrames / fr;
+    this.timeEl.textContent = `${formatTime(cur)} / ${formatTime(total)}`;
   }
 
   destroy(): void {

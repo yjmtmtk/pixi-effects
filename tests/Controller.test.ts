@@ -203,3 +203,54 @@ describe('Controller — bar DOM', () => {
     ctrl.destroy();
   });
 });
+
+describe('Controller — playback', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    document.head.querySelectorAll('style[data-movie-controller]').forEach((n) => n.remove());
+  });
+
+  it('ready event sets aria-valuemax and refreshes total time', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie({ totalFrames: 300, frameRate: 30, duration: 10 } as Partial<Movie>);
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    const progress = canvas.parentElement!.querySelector('.mc-progress')!;
+    expect(progress.getAttribute('aria-valuemax')).toBe('300');
+    const time = canvas.parentElement!.querySelector('.mc-time')!;
+    expect(time.textContent).toBe('0:00 / 0:10');
+    ctrl.destroy();
+  });
+
+  it('frame event updates progress fill and time text', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie({ totalFrames: 200, frameRate: 25, duration: 8 } as Partial<Movie>);
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    movie.emit('frame', { frame: 100, totalFrames: 200 });
+    const fill = canvas.parentElement!.querySelector('.mc-progress-fill') as HTMLDivElement;
+    const thumb = canvas.parentElement!.querySelector('.mc-progress-thumb') as HTMLDivElement;
+    expect(fill.style.width).toBe('50%');
+    expect(thumb.style.left).toBe('50%');
+    const time = canvas.parentElement!.querySelector('.mc-time')!;
+    expect(time.textContent).toBe('0:04 / 0:08');
+    ctrl.destroy();
+  });
+
+  it('play button click toggles movie play/pause and swaps icon', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    const playBtn = canvas.parentElement!.querySelector('.mc-play') as HTMLButtonElement;
+    expect(movie.isPlaying).toBe(false);
+    expect(playBtn.innerHTML).toContain('M3 2 L13 8 L3 14 Z'); // play triangle
+    playBtn.click();
+    expect(movie.isPlaying).toBe(true);
+    expect(playBtn.innerHTML).toContain('<rect'); // pause bars
+    playBtn.click();
+    expect(movie.isPlaying).toBe(false);
+    expect(playBtn.innerHTML).toContain('M3 2 L13 8 L3 14 Z');
+    ctrl.destroy();
+  });
+});
