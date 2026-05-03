@@ -69,6 +69,51 @@ export interface ChromaKeyFilterSpec {
 
 export type FilterSpec = ChromaKeyFilterSpec | CustomFilterSpec;
 
+// ─── Transition specs ────────────────────────────────────────────────────────
+
+export interface TransitionCommon {
+  /** Sibling sequence's `name` — the outgoing scene. */
+  from: string;
+  /** Sibling sequence's `name` — the incoming scene. Must be declared after `from` in the parent's `sequences[]`. */
+  to: string;
+  /** Start time (parent-relative seconds). Same `at` semantics as Keyframe. */
+  at: number;
+  /** Length of the transition in seconds. Must be > 0. */
+  duration: number;
+  /** GSAP easing name. Default `'none'` (linear). */
+  ease?: string;
+}
+
+export interface CrossfadeTransition extends TransitionCommon {
+  kind: 'crossfade';
+}
+
+export interface WipeTransition extends TransitionCommon {
+  kind: 'wipe';
+  direction: 'left' | 'right' | 'up' | 'down';
+  /** 0..1 edge softness. Default 0.02. */
+  smoothing?: number;
+}
+
+export interface IrisTransition extends TransitionCommon {
+  kind: 'iris';
+  /** `'in'` (default) = B opens up from a point. `'out'` = A closes down to a point. */
+  mode?: 'in' | 'out';
+  smoothing?: number;
+}
+
+export interface SlideTransition extends TransitionCommon {
+  kind: 'slide';
+  /** Direction of motion: `'left'` = both sequences slide leftward (B enters from the right). */
+  direction: 'left' | 'right' | 'up' | 'down';
+}
+
+export type TransitionSpec =
+  | CrossfadeTransition
+  | WipeTransition
+  | IrisTransition
+  | SlideTransition;
+
 // ─── Sequence specs ───────────────────────────────────────────────────────
 
 export interface SequenceCommon {
@@ -108,6 +153,7 @@ export interface CompositionSequenceSpec extends SequenceCommon {
   width?: number;
   height?: number;
   sequences?: SequenceSpec[];
+  transitions?: TransitionSpec[];
 }
 export type SequenceSpec =
   | VideoSequenceSpec
@@ -121,6 +167,7 @@ export interface CompositionSpec extends SequenceCommon {
   width?: number;
   height?: number;
   sequences?: SequenceSpec[];
+  transitions?: TransitionSpec[];
 }
 
 // ─── Internal shape types (used by sequences and core) ────────────────────
