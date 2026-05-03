@@ -296,6 +296,90 @@ initial: { x: 'GW/2', y: 'GH * 0.96', anchorX: 0.5, anchorY: 1 }
 
 ---
 
+## Transitions
+
+A composition can declare scene-to-scene `transitions` that compress paired keyframes into a single line and add visual effects (mask wipes, iris reveals) that aren't expressible at the keyframe level.
+
+```ts
+{
+  sequences: [
+    { type: 'video', name: 'A', asset: 'a', at: 0, duration: 5 },
+    { type: 'video', name: 'B', asset: 'b', at: 4, duration: 5 },
+  ],
+  transitions: [
+    { kind: 'crossfade', from: 'A', to: 'B', at: 4, duration: 1, ease: 'sine.inOut' },
+  ],
+}
+```
+
+Common fields (`TransitionCommon`):
+
+| Field      | Type    | Notes                                                                                  |
+| ---------- | ------- | -------------------------------------------------------------------------------------- |
+| `from`     | string  | sibling sequence's `name`. Must exist in the same composition.                         |
+| `to`       | string  | sibling sequence's `name`. Must be declared **after** `from` in `sequences[]`.         |
+| `at`       | number  | start of the transition (parent-relative seconds). Same `at` semantics as `Keyframe`.  |
+| `duration` | number  | seconds, must be > 0.                                                                  |
+| `ease`     | string? | GSAP easing name. Default `'none'` (linear).                                           |
+
+Validation runs at composition build time. Errors throw with the offending `transitions[<index>]` quoted in the message: missing names, `to` before `from`, transition window outside either sequence's lifespan, duplicate use of one sequence as `from`, `from === to`, `duration <= 0`.
+
+### `crossfade`
+
+Alpha cross-dissolve. `from` fades to `alpha: 0`, `to` starts at `alpha: 0` and fades to `1`, both over `[at, at + duration]`.
+
+```ts
+{ kind: 'crossfade', from: 'A', to: 'B', at: 4, duration: 1, ease: 'sine.inOut' }
+```
+
+If `to` already has an explicit `initial.alpha` (other than 0), the expander throws — remove the manual setting.
+
+### `wipe`
+
+A directional reveal. `to` is masked by a soft edge that travels across the screen.
+
+```ts
+{
+  kind: 'wipe', from: 'A', to: 'B', at: 4, duration: 1,
+  direction: 'left' | 'right' | 'up' | 'down',
+  smoothing: 0.04,    // 0..1 edge softness (default 0.02)
+}
+```
+
+`direction` is the direction of motion of the wipe edge.
+
+### `iris`
+
+A circular reveal centered on the canvas.
+
+```ts
+{
+  kind: 'iris', from: 'A', to: 'B', at: 4, duration: 1,
+  mode: 'in',         // default — B opens up from a point. 'out' = A closes down to a point.
+  smoothing: 0.03,    // 0..1 edge softness (default 0.02)
+}
+```
+
+`mode: 'in'` (default): B emerges from the center and grows outward.
+`mode: 'out'`: A disappears from the outside in, exposing B.
+
+### `slide`
+
+Both sequences slide together; the new scene comes in from the opposite side.
+
+```ts
+{
+  kind: 'slide', from: 'A', to: 'B', at: 4, duration: 1,
+  direction: 'left' | 'right' | 'up' | 'down',
+}
+```
+
+`direction` is the direction of motion. `'left'` means A slides off to the left and B enters from the right.
+
+If you've manually keyframed `x` / `y` on `A` or `B`, the slide expansion appends new keyframes alongside — your existing motion is not overwritten. Behavior with conflicting motion is the user's responsibility.
+
+---
+
 ## Filters
 
 Filters are named, ordered, and per-sequence. Animate parameters via `'filters.<name>.<param>'` keyframe paths.
