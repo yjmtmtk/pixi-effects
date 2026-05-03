@@ -21,13 +21,22 @@ export interface TransitionMaskOptions {
 const GL_FRAGMENT = `
 in vec2 vTextureCoord;
 uniform sampler2D uTexture;
+uniform vec4 uInputSize;     // PIXI-bound: xy = sprite render size in px
 uniform float uProgress;
 uniform float uSmoothing;
 uniform float uMode;
 
 out vec4 finalColor;
 
-float wipeReveal(vec2 uv, float p, float s, float mode) {
+// Aspect-corrected, corner-normalized distance from sprite center.
+// Returns 0 at center, 1 at the furthest corner — so p=1 fully reveals.
+float irisDist(vec2 uv, vec2 sizePx) {
+  vec2 offsetPx = (uv - vec2(0.5)) * sizePx;
+  float halfDiag = 0.5 * length(sizePx);
+  return length(offsetPx) / max(halfDiag, 1.0);
+}
+
+float wipeReveal(vec2 uv, float p, float s, float mode, vec2 sizePx) {
   // mode 0..3 = wipe directions; mode 4..5 = iris.
   if (mode < 0.5) {
     // wipe-left: B reveals from the right edge moving left
@@ -43,18 +52,18 @@ float wipeReveal(vec2 uv, float p, float s, float mode) {
     return smoothstep(1.0 - p - s, 1.0 - p + s, 1.0 - uv.y);
   } else if (mode < 4.5) {
     // iris-in: circle grows from center
-    float d = distance(uv, vec2(0.5)) * 2.0;  // 0..~1.41 across the canvas
+    float d = irisDist(uv, sizePx);
     return smoothstep(p + s, p - s, d);
   } else {
     // iris-out: circle shrinks toward center
-    float d = distance(uv, vec2(0.5)) * 2.0;
+    float d = irisDist(uv, sizePx);
     return smoothstep(p - s, p + s, d);
   }
 }
 
 void main(void) {
     vec4 raw = texture(uTexture, vTextureCoord);
-    float reveal = wipeReveal(vTextureCoord, uProgress, max(uSmoothing, 0.0001), uMode);
+    float reveal = wipeReveal(vTextureCoord, uProgress, max(uSmoothing, 0.0001), uMode, uInputSize.xy);
     finalColor = raw * reveal;
 }
 `;
@@ -109,7 +118,15 @@ fn mainVertex(
   return VSOutput(filterVertexPosition(aPosition), filterTextureCoord(aPosition));
 }
 
-fn wipeReveal(uv: vec2<f32>, p: f32, s: f32, mode: f32) -> f32 {
+// Aspect-corrected, corner-normalized distance from sprite center.
+// Returns 0 at center, 1 at the furthest corner — so p=1 fully reveals.
+fn irisDist(uv: vec2<f32>, sizePx: vec2<f32>) -> f32 {
+  let offsetPx = (uv - vec2<f32>(0.5)) * sizePx;
+  let halfDiag = 0.5 * length(sizePx);
+  return length(offsetPx) / max(halfDiag, 1.0);
+}
+
+fn wipeReveal(uv: vec2<f32>, p: f32, s: f32, mode: f32, sizePx: vec2<f32>) -> f32 {
   if (mode < 0.5) {
     return smoothstep(1.0 - p - s, 1.0 - p + s, uv.x);
   } else if (mode < 1.5) {
@@ -121,10 +138,10 @@ fn wipeReveal(uv: vec2<f32>, p: f32, s: f32, mode: f32) -> f32 {
     // wipe-down: B reveals from the top edge moving down
     return smoothstep(1.0 - p - s, 1.0 - p + s, 1.0 - uv.y);
   } else if (mode < 4.5) {
-    let d = distance(uv, vec2<f32>(0.5)) * 2.0;
+    let d = irisDist(uv, sizePx);
     return smoothstep(p + s, p - s, d);
   } else {
-    let d = distance(uv, vec2<f32>(0.5)) * 2.0;
+    let d = irisDist(uv, sizePx);
     return smoothstep(p - s, p + s, d);
   }
 }
@@ -132,7 +149,7 @@ fn wipeReveal(uv: vec2<f32>, p: f32, s: f32, mode: f32) -> f32 {
 @fragment
 fn mainFragment(@location(0) uv : vec2<f32>) -> @location(0) vec4<f32> {
   let raw = textureSample(uTexture, uSampler, uv);
-  let reveal = wipeReveal(uv, transitionUniforms.uProgress, max(transitionUniforms.uSmoothing, 0.0001), transitionUniforms.uMode);
+  let reveal = wipeReveal(uv, transitionUniforms.uProgress, max(transitionUniforms.uSmoothing, 0.0001), transitionUniforms.uMode, gfu.uInputSize.xy);
   return raw * reveal;
 }
 `;
