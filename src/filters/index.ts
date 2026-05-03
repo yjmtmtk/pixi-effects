@@ -1,8 +1,6 @@
 import type { Filter } from 'pixi.js';
 import type { FilterSpec, CustomFilterSpec } from '../types';
 import { ChromaKeyFilter } from './ChromaKey';
-import { Blur } from './Blur';
-import { ColorMatrix } from './ColorMatrix';
 
 interface FilterCtor {
   new (params: Record<string, unknown>): Filter;
@@ -10,8 +8,6 @@ interface FilterCtor {
 
 const registry: Record<Exclude<FilterSpec['type'], 'custom'>, FilterCtor> = {
   chromaKey: ChromaKeyFilter as unknown as FilterCtor,
-  blur: Blur as unknown as FilterCtor,
-  colorMatrix: ColorMatrix as unknown as FilterCtor,
 };
 
 /** Internal marker we set on filter instances so partition path resolution finds them. */

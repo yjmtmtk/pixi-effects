@@ -66,24 +66,8 @@ export interface ChromaKeyFilterSpec {
   smoothing?: number;
   spill?: number;
 }
-export interface BlurFilterSpec {
-  type: 'blur';
-  name?: string;
-  strength?: number;
-  quality?: number;
-  repeatEdgePixels?: boolean;
-}
-export interface ColorMatrixFilterSpec {
-  type: 'colorMatrix';
-  name?: string;
-  brightness?: number;
-  saturate?: number;
-  contrast?: number;
-  hue?: number;
-  alpha?: number;
-}
 
-export type FilterSpec = ChromaKeyFilterSpec | BlurFilterSpec | ColorMatrixFilterSpec | CustomFilterSpec;
+export type FilterSpec = ChromaKeyFilterSpec | CustomFilterSpec;
 
 // ─── Sequence specs ───────────────────────────────────────────────────────
 

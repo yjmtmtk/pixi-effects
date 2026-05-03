@@ -214,12 +214,14 @@ lineColor, lineAlpha, fillColor, fillAlpha
 Animate a named filter's parameter using a dot-path key:
 
 ```ts
+import { BlurFilter } from 'pixi.js';
+
 {
   type: 'video',
   asset: 'green',
   filters: [
     { name: 'k', type: 'chromaKey', keyColor: '#00ff00' },
-    { name: 'b', type: 'blur', strength: 0 },
+    { name: 'b', type: 'custom', filter: new BlurFilter({ strength: 0 }) },
   ],
   keyframes: [
     { at: 2, to: { 'filters.b.strength': 8 }, duration: 1 },
@@ -315,60 +317,35 @@ Removes a key color from the source. Works on video, image, or composition layer
 
 Animatable: `threshold`, `smoothing`, `spill`. `keyColor` is set at build time.
 
-### `blur`
-
-Gaussian blur. Wraps PIXI's `BlurFilter`.
-
-```ts
-{
-  name: 'b',
-  type: 'blur',
-  strength?: number,         // default 8
-  quality?: number,          // default 4 — number of passes
-  repeatEdgePixels?: boolean // default false
-}
-```
-
-Animatable: `strength`, `quality`. `strength: 0` is a no-op (cheap to animate from/to zero).
-
-### `colorMatrix`
-
-Color matrix transform. Wraps PIXI's `ColorMatrixFilter`.
-
-```ts
-{
-  name: 'cm',
-  type: 'colorMatrix',
-  brightness?: number,       // default 1   (multiplier)
-  saturate?: number,         // default 1   (>1 saturate, <1 desaturate, 0 grayscale)
-  contrast?: number,         // default 1
-  hue?: number,              // default 0   (degrees)
-  alpha?: number,            // default 1
-}
-```
-
-Animatable: `brightness`, `saturate`, `contrast`, `hue`. (For animation paths, the underlying setters are `brightness_`, `saturate_`, `contrast_`, `hue_` — the keyframe path is `filters.<name>.brightness_`, etc. See [`src/filters/ColorMatrix.ts`](../src/filters/ColorMatrix.ts) for current names.)
-
 ### `custom`
 
-Escape hatch for any PIXI `Filter` instance — including [pixi-filters](https://github.com/pixijs/filters), filters from community packages, or your own `Filter` subclass. The instance is used as-is; animation works the same way as for built-ins as long as the filter has writable properties at the addressed paths.
+Escape hatch for any PIXI `Filter` instance — including PIXI's own built-ins (`BlurFilter`, `ColorMatrixFilter`, `NoiseFilter`, etc.), [pixi-filters](https://github.com/pixijs/filters), community packages, or your own `Filter` subclass. The instance is used as-is; animation works the same way as for `chromaKey` as long as the filter has writable scalar properties at the addressed paths.
 
 ```ts
+import { BlurFilter } from 'pixi.js';
 import { GlowFilter, OldFilmFilter } from 'pixi-filters';
 
 {
   type: 'image',
   asset: 'photo',
   filters: [
+    { type: 'custom', name: 'b',    filter: new BlurFilter({ strength: 0 }) },
     { type: 'custom', name: 'glow', filter: new GlowFilter({ outerStrength: 1, color: 0xffaa00 }) },
     { type: 'custom', name: 'film', filter: new OldFilmFilter() },
   ],
   keyframes: [
-    { at: 0,    to: { 'filters.glow.outerStrength': 4 }, duration: 1 },
-    { at: -0.5, to: { 'filters.film.noise': 0 },         duration: 0.5 },
+    { at: 1,    to: { 'filters.b.strength': 8 },          duration: 0.5 },
+    { at: 2,    to: { 'filters.glow.outerStrength': 4 },  duration: 1 },
+    { at: -0.5, to: { 'filters.film.noise': 0 },          duration: 0.5 },
   ],
 }
 ```
+
+Notes:
+
+- `filter` must be a `Filter` instance (constructor must have run on the consumer side).
+- Animation paths use scalar property setters. Filters whose properties are PointData (e.g. `pixi-filters` `RGBSplitFilter` exposes `red: { x, y }`) currently don't propagate the change to the GPU uniform when only `.x` is mutated — replace the whole point in an `onUpdate` callback or use a scalar-API filter instead.
+- Without a `name`, the filter still applies but cannot be addressed via `filters.<name>.<prop>` keyframe paths.
 
 Notes:
 

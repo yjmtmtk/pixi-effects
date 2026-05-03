@@ -13,8 +13,6 @@ export type {
   Keyframe,
   AssetSpec,
   ChromaKeyFilterSpec,
-  BlurFilterSpec,
-  ColorMatrixFilterSpec,
   CustomFilterSpec,
   FilterSpec,
   SequenceCommon,

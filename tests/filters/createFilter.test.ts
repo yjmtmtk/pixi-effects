@@ -11,21 +11,10 @@ vi.mock('pixi.js', () => {
     apply() { /* PIXI calls this on render; presence of this method is the duck-type marker. */ }
   }
   class GlProgram { constructor(_opts: unknown) { /* no-op */ } }
-  class BlurFilter extends Filter { strength = 8; quality = 4; constructor(_opts?: unknown) { super(); } }
-  class ColorMatrixFilter extends Filter {
-    alpha = 1;
-    reset() {}
-    brightness(_v: number, _multiply?: boolean) {}
-    saturate(_v: number, _multiply?: boolean) {}
-    contrast(_v: number, _multiply?: boolean) {}
-    hue(_v: number, _multiply?: boolean) {}
-  }
   class Color { constructor(public input: string) {} red = 0; green = 1; blue = 0; }
   return {
     Filter,
     GlProgram,
-    BlurFilter,
-    ColorMatrixFilter,
     Color,
     defaultFilterVert: '',
   };
@@ -39,18 +28,6 @@ describe('createFilter — built-ins', () => {
     const f = createFilter({ type: 'chromaKey', name: 'k', keyColor: '#00ff00', threshold: 0.5 }) as Filter & { _name?: string };
     expect(f).toBeInstanceOf(Filter);
     expect(f._name).toBe('k');
-  });
-
-  it('builds blur filter', () => {
-    const f = createFilter({ type: 'blur', name: 'b', strength: 4 }) as Filter & { _name?: string };
-    expect(f).toBeInstanceOf(Filter);
-    expect(f._name).toBe('b');
-  });
-
-  it('builds colorMatrix filter', () => {
-    const f = createFilter({ type: 'colorMatrix', name: 'cm', saturate: 0.5 }) as Filter & { _name?: string };
-    expect(f).toBeInstanceOf(Filter);
-    expect(f._name).toBe('cm');
   });
 
   it('throws on an unknown filter type', () => {
