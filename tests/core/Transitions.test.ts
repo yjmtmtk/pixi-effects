@@ -413,4 +413,30 @@ describe('expandTransitions — slide', () => {
     const aLast = findSeqKfs(out, 'A').slice(-1)[0]!;
     expect(aLast.ease).toBe('power2.inOut');
   });
+
+  it('preserves a string-expression natural position (e.g. centered with `GW/2`)', () => {
+    // When B has `initial.x: 'GW/2'`, the slide-in should land back at 'GW/2',
+    // and B's start position should be '(GW/2) + W' (off-screen right of center).
+    const s = spec();
+    s.sequences![0] = { ...s.sequences![0]!, initial: { x: 'GW/2' } } as typeof s.sequences[0];
+    s.sequences![1] = { ...s.sequences![1]!, initial: { x: 'GW/2' } } as typeof s.sequences[1];
+    const out = expandTransitions({
+      ...s,
+      transitions: [{ kind: 'slide', from: 'A', to: 'B', at: 4, duration: 1, direction: 'left' }],
+    });
+    expect(findSeqKfs(out, 'A')).toContainEqual({ at: 4, to: { x: '(GW/2) - W' }, duration: 1, ease: 'none' });
+    expect(findSeqInitial(out, 'B').x).toBe('(GW/2) + W');
+    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 4, to: { x: 'GW/2' }, duration: 1, ease: 'none' });
+  });
+
+  it('preserves a numeric natural position', () => {
+    const s = spec();
+    s.sequences![1] = { ...s.sequences![1]!, initial: { x: 200 } } as typeof s.sequences[1];
+    const out = expandTransitions({
+      ...s,
+      transitions: [{ kind: 'slide', from: 'A', to: 'B', at: 4, duration: 1, direction: 'right' }],
+    });
+    expect(findSeqInitial(out, 'B').x).toBe('200 - W');
+    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 4, to: { x: 200 }, duration: 1, ease: 'none' });
+  });
 });

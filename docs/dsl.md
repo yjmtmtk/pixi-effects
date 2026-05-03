@@ -376,9 +376,9 @@ Both sequences slide together; the new scene comes in from the opposite side.
 
 `direction` is the direction of motion. `'left'` means A slides off to the left and B enters from the right.
 
-If you've manually keyframed `x` / `y` on `A` or `B`, the slide expansion appends new keyframes alongside — your existing motion is not overwritten. Behavior with conflicting motion is the user's responsibility.
+The slide macro reads each sequence's existing `initial.x` / `initial.y` (if any) and treats it as the natural resting position. `B` is shifted off-screen by ±W or ±H from that position and slides back to it; `A` slides from its position to off-screen on the opposite side. So a centered text with `initial: { x: 'GW/2', anchorX: 0.5 }` ends the slide centered, not at `x: 0`.
 
-Note: `slide` does **not** check for an existing `initial.x` / `initial.y` on the incoming sequence — the macro silently overwrites it. (Crossfade by contrast throws if `initial.alpha` is already set.) If you want a custom starting position for `B`, use a manual keyframe instead.
+If you've manually keyframed `x` / `y` on `A` or `B`, the slide expansion appends new keyframes alongside — your existing motion is not overwritten. Behavior with conflicting motion is the user's responsibility.
 
 ---
 

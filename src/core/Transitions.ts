@@ -204,20 +204,39 @@ function expandSlide(
   const isHorizontal = t.direction === 'left' || t.direction === 'right';
   const axis = isHorizontal ? 'x' : 'y';
   const dim = isHorizontal ? 'W' : 'H';
+  // sign of A's motion: -1 for left/up, +1 for right/down. B starts on the
+  // opposite side (so it can travel through the natural position in the same
+  // direction A is leaving).
+  const sign = (t.direction === 'left' || t.direction === 'up') ? -1 : 1;
 
-  // For 'left' / 'up': A slides toward the negative side, B starts on the positive side.
-  // For 'right' / 'down': A slides toward the positive side, B starts on the negative side.
-  const fromTarget = (t.direction === 'left' || t.direction === 'up') ? `-${dim}` : dim;
-  const toStart    = (t.direction === 'left' || t.direction === 'up') ? dim : `-${dim}`;
-
+  // Outgoing: slide A from its natural position to (natural ± W/H).
+  const fromInitial = ensureInitial(fromSeq);
+  const fromNatural = fromInitial[axis];
+  const fromTarget = composeDimOffset(fromNatural, sign, dim);
   const fromKfs = ensureKeyframes(fromSeq);
   fromKfs.push({ at: t.at, to: { [axis]: fromTarget }, duration: t.duration, ease });
 
+  // Incoming: B starts on the opposite side and slides back to its natural
+  // position. We preserve the user's existing initial[axis] (if any) as the
+  // destination, so a centered sequence stays centered after the slide.
   const toInitial = ensureInitial(toSeq);
-  toInitial[axis] = toStart;
-
+  const toNatural = toInitial[axis];
+  toInitial[axis] = composeDimOffset(toNatural, -sign, dim);
   const toKfs = ensureKeyframes(toSeq);
-  toKfs.push({ at: t.at, to: { [axis]: 0 }, duration: t.duration, ease });
+  toKfs.push({ at: t.at, to: { [axis]: (toNatural ?? 0) as string | number }, duration: t.duration, ease });
+}
+
+// Compose `natural + sign*dim` as a string expression (or short literal when
+// natural is 0/undefined). `dim` is 'W' or 'H' (parent width/height), `sign`
+// is +1 or -1.
+function composeDimOffset(natural: unknown, sign: number, dim: 'W' | 'H'): string {
+  const signed = sign === 1 ? dim : `-${dim}`;
+  if (natural === undefined || natural === 0) return signed;
+  if (typeof natural === 'number') {
+    return sign === 1 ? `${natural} + ${dim}` : `${natural} - ${dim}`;
+  }
+  // String expression: parenthesize to keep precedence intact.
+  return sign === 1 ? `(${String(natural)}) + ${dim}` : `(${String(natural)}) - ${dim}`;
 }
 
 function expandMask(
