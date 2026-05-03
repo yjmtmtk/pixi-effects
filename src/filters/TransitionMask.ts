@@ -81,7 +81,13 @@ float wipeReveal(vec2 uv, float p, float s, float mode, vec2 sizePx) {
 void main(void) {
     vec4 raw = texture(uTexture, vTextureCoord);
     float reveal = wipeReveal(vTextureCoord, uProgress, max(uSmoothing, 0.0001), uMode, uInputSize.xy);
-    if (uInvert > 0.5) reveal = 1.0 - reveal;
+    // Inverted mode uses a HARD binary cutoff (not 1 - reveal): A stays at
+    // alpha=1 throughout B's smoothstep zone and only switches to alpha=0
+    // where B has fully revealed. With PIXI's standard "over" blend, this
+    // gives an alpha-correct soft blend (B*B_a + A*(1-B_a)) at the edge —
+    // a soft (1 - reveal) mask would dim it to A*(1-B_a)^2 and let the
+    // background bleed through.
+    if (uInvert > 0.5) reveal = 1.0 - step(0.99, reveal);
     finalColor = raw * reveal;
 }
 `;
@@ -171,7 +177,8 @@ fn wipeReveal(uv: vec2<f32>, p: f32, s: f32, mode: f32, sizePx: vec2<f32>) -> f3
 fn mainFragment(@location(0) uv : vec2<f32>) -> @location(0) vec4<f32> {
   let raw = textureSample(uTexture, uSampler, uv);
   var reveal = wipeReveal(uv, transitionUniforms.uProgress, max(transitionUniforms.uSmoothing, 0.0001), transitionUniforms.uMode, gfu.uInputSize.xy);
-  if (transitionUniforms.uInvert > 0.5) { reveal = 1.0 - reveal; }
+  // See the GLSL comment above for why this is a hard step, not 1 - reveal.
+  if (transitionUniforms.uInvert > 0.5) { reveal = 1.0 - step(0.99, reveal); }
   return raw * reveal;
 }
 `;
