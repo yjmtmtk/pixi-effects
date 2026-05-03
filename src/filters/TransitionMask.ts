@@ -46,27 +46,35 @@ float irisDist(vec2 uv, vec2 sizePx) {
 }
 
 float wipeReveal(vec2 uv, float p, float s, float mode, vec2 sizePx) {
+  // Remap p so the smoothstep edge lies fully outside [0,1] at p=0 / p=1.
+  // Without this, smoothstep(1-s, 1+s, x) at p=0 returns 0.5 at x=1 (because
+  // x=1 sits inside the edge), so a 1-pixel-wide sliver of B is visible
+  // before the transition starts. Same artifact at p=1 on the opposite edge,
+  // and at d=0 for the iris (a single half-visible centre pixel — the dark
+  // dot bug). p ∈ [0,1] now maps to an effective edge that starts at -s and
+  // ends at 1+s, so reveal is exactly 0 at p=0 and exactly 1 at p=1.
+  float ep = p * (1.0 + 2.0 * s) - s;
   // mode 0..3 = wipe directions; mode 4..5 = iris.
   if (mode < 0.5) {
     // wipe-left: B reveals from the right edge moving left
-    return smoothstep(1.0 - p - s, 1.0 - p + s, uv.x);
+    return smoothstep(1.0 - ep - s, 1.0 - ep + s, uv.x);
   } else if (mode < 1.5) {
     // wipe-right: B reveals from the left edge moving right
-    return smoothstep(1.0 - p - s, 1.0 - p + s, 1.0 - uv.x);
+    return smoothstep(1.0 - ep - s, 1.0 - ep + s, 1.0 - uv.x);
   } else if (mode < 2.5) {
     // wipe-up
-    return smoothstep(1.0 - p - s, 1.0 - p + s, uv.y);
+    return smoothstep(1.0 - ep - s, 1.0 - ep + s, uv.y);
   } else if (mode < 3.5) {
     // wipe-down: B reveals from the top edge moving down
-    return smoothstep(1.0 - p - s, 1.0 - p + s, 1.0 - uv.y);
+    return smoothstep(1.0 - ep - s, 1.0 - ep + s, 1.0 - uv.y);
   } else if (mode < 4.5) {
     // iris-in: circle grows from center
     float d = irisDist(uv, sizePx);
-    return smoothstep(p + s, p - s, d);
+    return 1.0 - smoothstep(ep - s, ep + s, d);
   } else {
     // iris-out: circle shrinks toward center
     float d = irisDist(uv, sizePx);
-    return smoothstep(p - s, p + s, d);
+    return smoothstep(ep - s, ep + s, d);
   }
 }
 
@@ -138,22 +146,24 @@ fn irisDist(uv: vec2<f32>, sizePx: vec2<f32>) -> f32 {
 }
 
 fn wipeReveal(uv: vec2<f32>, p: f32, s: f32, mode: f32, sizePx: vec2<f32>) -> f32 {
+  // See the GLSL comment above for why we remap p — same logic applies here.
+  let ep = p * (1.0 + 2.0 * s) - s;
   if (mode < 0.5) {
-    return smoothstep(1.0 - p - s, 1.0 - p + s, uv.x);
+    return smoothstep(1.0 - ep - s, 1.0 - ep + s, uv.x);
   } else if (mode < 1.5) {
     // wipe-right: B reveals from the left edge moving right
-    return smoothstep(1.0 - p - s, 1.0 - p + s, 1.0 - uv.x);
+    return smoothstep(1.0 - ep - s, 1.0 - ep + s, 1.0 - uv.x);
   } else if (mode < 2.5) {
-    return smoothstep(1.0 - p - s, 1.0 - p + s, uv.y);
+    return smoothstep(1.0 - ep - s, 1.0 - ep + s, uv.y);
   } else if (mode < 3.5) {
     // wipe-down: B reveals from the top edge moving down
-    return smoothstep(1.0 - p - s, 1.0 - p + s, 1.0 - uv.y);
+    return smoothstep(1.0 - ep - s, 1.0 - ep + s, 1.0 - uv.y);
   } else if (mode < 4.5) {
     let d = irisDist(uv, sizePx);
-    return smoothstep(p + s, p - s, d);
+    return 1.0 - smoothstep(ep - s, ep + s, d);
   } else {
     let d = irisDist(uv, sizePx);
-    return smoothstep(p - s, p + s, d);
+    return smoothstep(ep - s, ep + s, d);
   }
 }
 

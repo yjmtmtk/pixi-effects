@@ -242,55 +242,43 @@ function composeDimOffset(natural: unknown, sign: number, dim: 'W' | 'H'): strin
 function expandMask(
   _comp: CompositionSpec | CompositionSequenceSpec,
   t: WipeTransition | IrisTransition,
-  fromSeq: SequenceSpec,
+  _fromSeq: SequenceSpec,
   toSeq: SequenceSpec,
   transitionIndex: number,
   mode: TransitionMode,
   smoothing: number | undefined,
 ): void {
+  // Only the incoming sequence gets a mask. With standard alpha "over"
+  // blending, an inverse mask on the outgoing would dim the smoothing zone
+  // (B*0.5 + A*0.5*0.5 → 25% black bleed at the edge), and at p=0 the iris
+  // smoothstep produces a half-visible centre pixel that shows through. The
+  // assumption is that scenes are opaque (a solid background covers the
+  // canvas) so B's reveal alone cleanly replaces A as `uProgress` advances.
+  // Transparent / text-only scenes should crossfade rather than wipe.
   const ease = t.ease ?? 'none';
-  const inName  = transitionFilterName(transitionIndex);             // on `to`
-  const outName = `${transitionFilterName(transitionIndex)}-out`;    // on `from`
-  const sm = smoothing ?? 0.02;
+  const filterName = transitionFilterName(transitionIndex);
 
-  // ── Incoming (B): mask reveals B as uProgress 0 → 1 ──
   const toFilters = ensureFilters(toSeq);
   rejectReservedNameCollision(toFilters, toSeq.name);
   toFilters.push({
     type: 'custom',
-    name: inName,
-    filter: new TransitionMaskFilter({ mode, smoothing: sm, progress: 0 }),
+    name: filterName,
+    filter: new TransitionMaskFilter({ mode, smoothing: smoothing ?? 0.02, progress: 0 }),
   });
   ensureKeyframes(toSeq).push({
     at: t.at,
-    to: { [`filters.${inName}.uProgress`]: 1 },
-    duration: t.duration,
-    ease,
-  });
-
-  // ── Outgoing (A): inverted mask hides A in lockstep with B's reveal, so
-  // a wipe of two sequences with transparency (e.g. text) doesn't leave A
-  // poking through the regions B has already revealed. ──
-  const fromFilters = ensureFilters(fromSeq);
-  rejectReservedNameCollision(fromFilters, fromSeq.name);
-  fromFilters.push({
-    type: 'custom',
-    name: outName,
-    filter: new TransitionMaskFilter({ mode, smoothing: sm, progress: 0, invert: true }),
-  });
-  ensureKeyframes(fromSeq).push({
-    at: t.at,
-    to: { [`filters.${outName}.uProgress`]: 1 },
+    to: { [`filters.${filterName}.uProgress`]: 1 },
     duration: t.duration,
     ease,
   });
 }
 
 // User-supplied filters with the reserved prefix collide with our internal
-// naming and should fail loud. Our own injected names (`_pe-transition-N` /
-// `_pe-transition-N-out`) are tolerated so a sequence can be `to` of one
-// transition and `from` of another.
-const OWN_NAME_PATTERN = /^_pe-transition-\d+(-out)?$/;
+// naming and should fail loud. Our own injected names (`_pe-transition-N`)
+// are tolerated so a sequence can be `to` of one transition and `from` of
+// another (the `from` side gets no filter today, but allowing the pattern
+// keeps the door open for future expansion).
+const OWN_NAME_PATTERN = /^_pe-transition-\d+$/;
 
 function rejectReservedNameCollision(filters: FilterSpec[], seqName: string | undefined): void {
   for (const f of filters) {
