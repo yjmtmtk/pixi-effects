@@ -6,6 +6,7 @@ import { loadAssetBundle } from './AssetLoader';
 import { CompositionSequence } from '../sequences/Composition';
 import { mixdown } from './AudioMixer';
 import { exportFrames } from './Renderer';
+import { expandTransitions } from './Transitions';
 import type { Sequence } from '../sequences/Base';
 import type {
   AssetSpec, CompositionSpec, CompositionShape, AudioDescriptor,
@@ -143,12 +144,13 @@ export class Movie {
       await loadAssetBundle(options.assets ?? [], audioContext);
 
       const rootShape: CompositionShape = { width: this.width, height: this.height, duration: this.duration };
+      const userComposition = options.composition ? expandTransitions(options.composition) : undefined;
       const rootSeqSpec = {
         type: 'composition' as const,
         width: this.width,
         height: this.height,
         duration: this.duration,
-        ...options.composition,
+        ...userComposition,
       };
       const composition = new CompositionSequence(rootSeqSpec, null, rootShape);
       await composition.build();
