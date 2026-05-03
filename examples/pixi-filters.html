@@ -115,14 +115,17 @@
             initial: { x: 'GW * 0.8', y: 'GH * 0.66', anchorX: 0.5, anchorY: 0.5, alpha: 0, scale: 0 },
             keyframes: [
               { at: 1.8,  to: { alpha: 1, scale: 1 }, duration: 0.45, ease: 'back.out(2.2)' },
-              { at: 3.0,  to: { 'filters.rs.red': -8, 'filters.rs.blue': 8 }, duration: 1.0, ease: 'sine.inOut' },
-              { at: 4.5,  to: { 'filters.rs.red':  0, 'filters.rs.blue': 0 }, duration: 1.0, ease: 'sine.inOut' },
+              // RGBSplitFilter exposes red/green/blue as PointData; animate the x components individually.
+              { at: 3.0,  to: { 'filters.rs.red.x': -28, 'filters.rs.blue.x':  28 }, duration: 0.9, ease: 'sine.inOut' },
+              { at: 4.5,  to: { 'filters.rs.red.x': -16, 'filters.rs.blue.x':  16 }, duration: 0.9, ease: 'sine.inOut' },
               { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
             ],
             filters: [
-              { type: 'custom', name: 'rs', filter: new RGBSplitFilter([0, 0], [0, 0], [0, 0]) },
+              // Static offset is large enough that R / G / B ghosts don't overlap into near-white.
+              { type: 'custom', name: 'rs', filter: new RGBSplitFilter([-16, 0], [0, 0], [16, 0]) },
             ],
-            style: { fontSize: 'GW * 0.03', fill: '#ff77cc', fontWeight: 'bold' },
+            // White source produces the canonical pure-red / pure-green / pure-blue ghost split.
+            style: { fontSize: 'GW * 0.03', fill: '#ffffff', fontWeight: 'bold' },
           },
 
           // ── OldFilmFilter applied to a vignette banner that crosses near the end ──
