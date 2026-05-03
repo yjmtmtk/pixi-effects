@@ -29,7 +29,7 @@
   <script type="module">
     import { Movie } from '../dist/index.js';
     import { Controller } from '../dist/Controller.js';
-    import { GlowFilter, DropShadowFilter, OldFilmFilter, RGBSplitFilter } from 'pixi-filters';
+    import { GlowFilter, DropShadowFilter, OldFilmFilter, OutlineFilter } from 'pixi-filters';
 
     const movie = new Movie();
     window.__movie = movie;
@@ -63,20 +63,14 @@
             style: { fontSize: 'GW * 0.085', fill: '#ffffff', fontWeight: 'bold' },
           },
 
-          // ── Subtitle: slowly drifting RGB split (glitchy chroma offset) ──
+          // ── Subtitle ────────────────────────────────────────────────────
           {
             type: 'text',
             text: 'community filters via { type: "custom" }',
             initial: { x: 'GW/2', y: 'GH * 0.46', anchorX: 0.5, anchorY: 0.5, alpha: 0 },
             keyframes: [
               { at: 0.5, to: { alpha: 1 }, duration: 0.7 },
-              // Chroma split breathes from neutral → wide → neutral
-              { at: 2.5, to: { 'filters.rgb.red':  -10, 'filters.rgb.blue':  10 }, duration: 1.5, ease: 'sine.inOut' },
-              { at: 4.0, to: { 'filters.rgb.red':    0, 'filters.rgb.blue':   0 }, duration: 1.0, ease: 'sine.inOut' },
               { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
-            ],
-            filters: [
-              { type: 'custom', name: 'rgb', filter: new RGBSplitFilter([0, 0], [0, 0], [0, 0]) },
             ],
             style: { fontSize: 'GW * 0.026', fill: '#88ccff', fontStyle: 'italic' },
           },
@@ -111,20 +105,17 @@
             style: { fontSize: 'GW * 0.03', fill: '#55ddaa', fontWeight: 'bold' },
           },
           {
-            type: 'text', text: 'RGB Split',
+            type: 'text', text: 'Outline',
             initial: { x: 'GW * 0.8', y: 'GH * 0.66', anchorX: 0.5, anchorY: 0.5, alpha: 0, scale: 0 },
             keyframes: [
               { at: 1.8,  to: { alpha: 1, scale: 1 }, duration: 0.45, ease: 'back.out(2.2)' },
-              // RGBSplitFilter exposes red/green/blue as PointData; animate the x components individually.
-              { at: 3.0,  to: { 'filters.rs.red.x': -28, 'filters.rs.blue.x':  28 }, duration: 0.9, ease: 'sine.inOut' },
-              { at: 4.5,  to: { 'filters.rs.red.x': -16, 'filters.rs.blue.x':  16 }, duration: 0.9, ease: 'sine.inOut' },
+              { at: 3.0,  to: { 'filters.ol.thickness': 8 }, duration: 0.9, ease: 'sine.inOut' },
+              { at: 4.5,  to: { 'filters.ol.thickness': 2 }, duration: 0.9, ease: 'sine.inOut' },
               { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
             ],
             filters: [
-              // Static offset is large enough that R / G / B ghosts don't overlap into near-white.
-              { type: 'custom', name: 'rs', filter: new RGBSplitFilter([-16, 0], [0, 0], [16, 0]) },
+              { type: 'custom', name: 'ol', filter: new OutlineFilter({ thickness: 2, color: 0xff77cc, alpha: 1, quality: 0.5 }) },
             ],
-            // White source produces the canonical pure-red / pure-green / pure-blue ghost split.
             style: { fontSize: 'GW * 0.03', fill: '#ffffff', fontWeight: 'bold' },
           },
 
@@ -148,7 +139,7 @@
           // ── Footer hint ──────────────────────────────────────────────────
           {
             type: 'text',
-            text: 'GlowFilter, DropShadowFilter, RGBSplitFilter, OldFilmFilter — all from `pixi-filters`',
+            text: 'GlowFilter, DropShadowFilter, OutlineFilter, OldFilmFilter — all from `pixi-filters`',
             initial: { x: 'GW/2', y: 'GH * 0.92', anchorX: 0.5, anchorY: 0.5, alpha: 0 },
             keyframes: [
               { at: 1.0, to: { alpha: 1 }, duration: 0.6 },
