@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>pixi-effects — transitions showcase</title>
+  <style>
+    body { background: #0a0a0f; margin: 0; font-family: sans-serif; color: #ccc; padding: 16px; }
+    h1 { font-weight: 500; margin: 0 0 4px 0; }
+    p { font-size: 13px; color: #888; margin: 0 0 16px 0; }
+    p code { background: #1a1a22; padding: 1px 6px; border-radius: 3px; color: #b5d3ff; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1>transitions showcase</h1>
+  <p>Chains <code>crossfade → wipe → iris → slide</code> across five labeled scenes.</p>
+  <canvas id="stage" width="1280" height="720"></canvas>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.10.0?bundle-deps",
+      "gsap":            "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":      "https://esm.sh/mediabunny"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../dist/index.js';
+    import { Controller } from '../dist/Controller.js';
+
+    const movie = new Movie();
+    window.__movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    const scene = (text, fill, name, at, duration) => ({
+      type: 'text', name, text, at, duration,
+      initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+      style: { fontSize: 'GW * 0.10', fill, fontWeight: 'bold' },
+    });
+
+    await movie.init({
+      canvas: document.getElementById('stage'),
+      width: 1280, height: 720, duration: 20, frameRate: 30,
+      background: '#0a0a0f',
+      composition: {
+        sequences: [
+          scene('SCENE A',          '#ff7755', 'A',  0, 5),
+          scene('SCENE B (wipe)',   '#55aaff', 'B',  4, 5),
+          scene('SCENE C (iris)',   '#55ddaa', 'C',  8, 5),
+          scene('SCENE D (slide)',  '#ff77cc', 'D', 12, 5),
+          scene('SCENE E (end)',    '#ffdd55', 'E', 16, 4),
+        ],
+        transitions: [
+          { kind: 'crossfade', from: 'A', to: 'B', at: 4,  duration: 1, ease: 'sine.inOut' },
+          { kind: 'wipe',      from: 'B', to: 'C', at: 8,  duration: 1, direction: 'left', smoothing: 0.04 },
+          { kind: 'iris',      from: 'C', to: 'D', at: 12, duration: 1, mode: 'in', smoothing: 0.03 },
+          { kind: 'slide',     from: 'D', to: 'E', at: 16, duration: 1, direction: 'left', ease: 'power2.inOut' },
+        ],
+      },
+    });
+  </script>
+</body>
+</html>
