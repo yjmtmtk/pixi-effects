@@ -57,6 +57,7 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
 
   // Track usage so we can detect a sequence being the `from` of two transitions.
   const fromCount = new Map<string, number>();
+  const toCount = new Map<string, number>();
 
   for (let i = 0; i < transitions.length; i++) {
     const t = transitions[i]!;
@@ -86,6 +87,12 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
     fromCount.set(t.from, fromUses);
     if (fromUses > 1) {
       throw new Error(`pixi-effects: ${tag} sequence "${t.from}" is used as \`from\` in more than one transition`);
+    }
+
+    const toUses = (toCount.get(t.to) ?? 0) + 1;
+    toCount.set(t.to, toUses);
+    if (toUses > 1) {
+      throw new Error(`pixi-effects: ${tag} sequence "${t.to}" is used as \`to\` in more than one transition`);
     }
 
     // Time-coverage validation. Negative `at` ("from the end") is supported

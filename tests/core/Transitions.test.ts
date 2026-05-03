@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { expandTransitions } from '../../src/core/Transitions';
-import type { CompositionSpec, CustomFilterSpec, Keyframe } from '../../src/types';
+import type { CompositionSpec, CompositionSequenceSpec, CustomFilterSpec, Keyframe } from '../../src/types';
 
 function spec(overrides: Partial<CompositionSpec> = {}): CompositionSpec {
   return {
@@ -113,6 +113,66 @@ describe('expandTransitions — validation', () => {
       ],
     });
     expect(() => expandTransitions(s)).not.toThrow();
+  });
+
+  it('throws when one sequence is the `to` of two transitions', () => {
+    const s = spec({
+      sequences: [
+        { type: 'text', name: 'A', text: 'a', at: 0, duration: 4 },
+        { type: 'text', name: 'B', text: 'b', at: 3, duration: 4 },
+        { type: 'text', name: 'C', text: 'c', at: 0, duration: 8 },
+      ],
+      transitions: [
+        { kind: 'crossfade', from: 'A', to: 'C', at: 3, duration: 1 },
+        { kind: 'crossfade', from: 'B', to: 'C', at: 6, duration: 1 },
+      ],
+    });
+    expect(() => expandTransitions(s)).toThrow(/"C".*used as `to`/i);
+  });
+
+  it('recurses into nested compositions and validates the inner transitions independently', () => {
+    const inner: CompositionSpec = {
+      type: 'composition',
+      width: 100, height: 100, duration: 8,
+      sequences: [
+        { type: 'text', name: 'Inner-A', text: 'ia', at: 0, duration: 4 },
+        { type: 'text', name: 'Inner-B', text: 'ib', at: 3, duration: 4 },
+      ],
+      transitions: [
+        { kind: 'crossfade', from: 'Inner-A', to: 'Inner-B', at: 3, duration: 1 },
+      ],
+    } as unknown as CompositionSpec;
+
+    const out = expandTransitions(spec({
+      sequences: [
+        { type: 'text', name: 'Outer', text: 'o', at: 0, duration: 10 },
+        inner as unknown as CompositionSequenceSpec,
+      ],
+    }));
+
+    // Inner composition should have its `transitions` field stripped.
+    const innerOut = out.sequences!.find((s) => 'sequences' in s) as { transitions?: unknown };
+    expect(innerOut.transitions).toBeUndefined();
+  });
+
+  it('throws when a nested composition has invalid transitions (e.g. unknown name)', () => {
+    const inner: CompositionSpec = {
+      type: 'composition',
+      width: 100, height: 100, duration: 8,
+      sequences: [
+        { type: 'text', name: 'Inner-A', text: 'ia', at: 0, duration: 4 },
+      ],
+      transitions: [
+        { kind: 'crossfade', from: 'Inner-A', to: 'Ghost', at: 3, duration: 1 },
+      ],
+    } as unknown as CompositionSpec;
+
+    expect(() => expandTransitions(spec({
+      sequences: [
+        { type: 'text', name: 'Outer', text: 'o', at: 0, duration: 10 },
+        inner as unknown as CompositionSequenceSpec,
+      ],
+    }))).toThrow(/transitions\[0\].*to.*"Ghost".*not found/i);
   });
 });
 

@@ -346,7 +346,7 @@ A directional reveal. `to` is masked by a soft edge that travels across the scre
 }
 ```
 
-`direction` is the direction of motion of the wipe edge.
+`direction` is the direction the wipe edge travels — `'left'` means the edge moves leftward across the canvas, exposing B starting from the right side. Mirror that for `'right'` / `'up'` / `'down'`.
 
 ### `iris`
 
@@ -377,6 +377,8 @@ Both sequences slide together; the new scene comes in from the opposite side.
 `direction` is the direction of motion. `'left'` means A slides off to the left and B enters from the right.
 
 If you've manually keyframed `x` / `y` on `A` or `B`, the slide expansion appends new keyframes alongside — your existing motion is not overwritten. Behavior with conflicting motion is the user's responsibility.
+
+Note: `slide` does **not** check for an existing `initial.x` / `initial.y` on the incoming sequence — the macro silently overwrites it. (Crossfade by contrast throws if `initial.alpha` is already set.) If you want a custom starting position for `B`, use a manual keyframe instead.
 
 ---
 
