@@ -302,11 +302,13 @@ describe('expandTransitions — wipe', () => {
     expect(inst.uSmoothing).toBeCloseTo(0.1, 5);
   });
 
-  it('throws if `to` already has a filter named with the reserved transition prefix', () => {
+  it('throws if `to` already has a user-supplied filter using the reserved prefix', () => {
+    // The internal pattern is `_pe-transition-<digit>(-out)?` — anything else
+    // under the reserved prefix is a name collision and must fail loud.
     const s = spec();
     s.sequences![1] = {
       ...s.sequences![1]!,
-      filters: [{ type: 'custom', name: '_pe-transition-0', filter: { apply() {} } as unknown }],
+      filters: [{ type: 'custom', name: '_pe-transition-custom', filter: { apply() {} } as unknown }],
     } as typeof s.sequences[1];
     expect(() => expandTransitions({
       ...s,

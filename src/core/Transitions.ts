@@ -119,10 +119,10 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
         expandCrossfade(out, t, fromEntry.seq, toEntry.seq);
         break;
       case 'wipe':
-        expandMask(out, t, toEntry.seq, i, wipeMode(t.direction), t.smoothing);
+        expandMask(out, t, fromEntry.seq, toEntry.seq, i, wipeMode(t.direction), t.smoothing);
         break;
       case 'iris':
-        expandMask(out, t, toEntry.seq, i, t.mode === 'out' ? 'iris-out' : 'iris-in', t.smoothing);
+        expandMask(out, t, fromEntry.seq, toEntry.seq, i, t.mode === 'out' ? 'iris-out' : 'iris-in', t.smoothing);
         break;
       case 'slide':
         expandSlide(out, t, fromEntry.seq, toEntry.seq);
@@ -242,38 +242,67 @@ function composeDimOffset(natural: unknown, sign: number, dim: 'W' | 'H'): strin
 function expandMask(
   _comp: CompositionSpec | CompositionSequenceSpec,
   t: WipeTransition | IrisTransition,
+  fromSeq: SequenceSpec,
   toSeq: SequenceSpec,
   transitionIndex: number,
   mode: TransitionMode,
   smoothing: number | undefined,
 ): void {
   const ease = t.ease ?? 'none';
-  const filterName = transitionFilterName(transitionIndex);
+  const inName  = transitionFilterName(transitionIndex);             // on `to`
+  const outName = `${transitionFilterName(transitionIndex)}-out`;    // on `from`
+  const sm = smoothing ?? 0.02;
 
-  const filters = ensureFilters(toSeq);
-  // Reject collision with user-managed filter names that share the reserved prefix.
+  // ── Incoming (B): mask reveals B as uProgress 0 → 1 ──
+  const toFilters = ensureFilters(toSeq);
+  rejectReservedNameCollision(toFilters, toSeq.name);
+  toFilters.push({
+    type: 'custom',
+    name: inName,
+    filter: new TransitionMaskFilter({ mode, smoothing: sm, progress: 0 }),
+  });
+  ensureKeyframes(toSeq).push({
+    at: t.at,
+    to: { [`filters.${inName}.uProgress`]: 1 },
+    duration: t.duration,
+    ease,
+  });
+
+  // ── Outgoing (A): inverted mask hides A in lockstep with B's reveal, so
+  // a wipe of two sequences with transparency (e.g. text) doesn't leave A
+  // poking through the regions B has already revealed. ──
+  const fromFilters = ensureFilters(fromSeq);
+  rejectReservedNameCollision(fromFilters, fromSeq.name);
+  fromFilters.push({
+    type: 'custom',
+    name: outName,
+    filter: new TransitionMaskFilter({ mode, smoothing: sm, progress: 0, invert: true }),
+  });
+  ensureKeyframes(fromSeq).push({
+    at: t.at,
+    to: { [`filters.${outName}.uProgress`]: 1 },
+    duration: t.duration,
+    ease,
+  });
+}
+
+// User-supplied filters with the reserved prefix collide with our internal
+// naming and should fail loud. Our own injected names (`_pe-transition-N` /
+// `_pe-transition-N-out`) are tolerated so a sequence can be `to` of one
+// transition and `from` of another.
+const OWN_NAME_PATTERN = /^_pe-transition-\d+(-out)?$/;
+
+function rejectReservedNameCollision(filters: FilterSpec[], seqName: string | undefined): void {
   for (const f of filters) {
-    if (typeof f.name === 'string' && f.name.startsWith('_pe-transition-')) {
+    if (
+      typeof f.name === 'string'
+      && f.name.startsWith('_pe-transition-')
+      && !OWN_NAME_PATTERN.test(f.name)
+    ) {
       throw new Error(
-        `pixi-effects: sequence "${toSeq.name}" already has a filter named "${f.name}" — ` +
+        `pixi-effects: sequence "${seqName}" already has a filter named "${f.name}" — ` +
         `the reserved name prefix "_pe-transition-" is for internally generated transition filters`,
       );
     }
   }
-
-  const filterInstance = new TransitionMaskFilter({
-    mode,
-    smoothing: smoothing ?? 0.02,
-    progress: 0,
-  });
-  filters.push({ type: 'custom', name: filterName, filter: filterInstance });
-
-  // Animate the filter's progress 0 → 1 over the transition window.
-  const kfs = ensureKeyframes(toSeq);
-  kfs.push({
-    at: t.at,
-    to: { [`filters.${filterName}.uProgress`]: 1 },
-    duration: t.duration,
-    ease,
-  });
 }

@@ -15,6 +15,14 @@ export interface TransitionMaskOptions {
   mode?: TransitionMode;
   smoothing?: number;
   progress?: number;
+  /**
+   * If true, the mask is applied as `1 - reveal` so the filter HIDES the
+   * sprite as `uProgress` grows from 0 → 1. Used on the outgoing sequence
+   * so wipe / iris transitions work for sequences with transparency
+   * (otherwise the outgoing sprite's transparent regions would let the
+   * incoming sprite's already-revealed pixels show through prematurely).
+   */
+  invert?: boolean;
 }
 
 // ── GLSL fragment (WebGL renderer) ───────────────────────────────────────
@@ -25,6 +33,7 @@ uniform vec4 uInputSize;     // PIXI-bound: xy = sprite render size in px
 uniform float uProgress;
 uniform float uSmoothing;
 uniform float uMode;
+uniform float uInvert;       // 0 or 1 — if 1, returns (1 - reveal)
 
 out vec4 finalColor;
 
@@ -64,6 +73,7 @@ float wipeReveal(vec2 uv, float p, float s, float mode, vec2 sizePx) {
 void main(void) {
     vec4 raw = texture(uTexture, vTextureCoord);
     float reveal = wipeReveal(vTextureCoord, uProgress, max(uSmoothing, 0.0001), uMode, uInputSize.xy);
+    if (uInvert > 0.5) reveal = 1.0 - reveal;
     finalColor = raw * reveal;
 }
 `;
@@ -83,6 +93,7 @@ struct TransitionUniforms {
   uProgress: f32,
   uMode: f32,
   uSmoothing: f32,
+  uInvert: f32,
 };
 
 @group(0) @binding(0) var<uniform> gfu: GlobalFilterUniforms;
@@ -149,7 +160,8 @@ fn wipeReveal(uv: vec2<f32>, p: f32, s: f32, mode: f32, sizePx: vec2<f32>) -> f3
 @fragment
 fn mainFragment(@location(0) uv : vec2<f32>) -> @location(0) vec4<f32> {
   let raw = textureSample(uTexture, uSampler, uv);
-  let reveal = wipeReveal(uv, transitionUniforms.uProgress, max(transitionUniforms.uSmoothing, 0.0001), transitionUniforms.uMode, gfu.uInputSize.xy);
+  var reveal = wipeReveal(uv, transitionUniforms.uProgress, max(transitionUniforms.uSmoothing, 0.0001), transitionUniforms.uMode, gfu.uInputSize.xy);
+  if (transitionUniforms.uInvert > 0.5) { reveal = 1.0 - reveal; }
   return raw * reveal;
 }
 `;
@@ -159,6 +171,7 @@ export class TransitionMaskFilter extends Filter {
     const mode = options.mode ?? 'wipe-left';
     const smoothing = options.smoothing ?? 0.02;
     const progress = options.progress ?? 0;
+    const invert = options.invert ?? false;
 
     super({
       glProgram: GlProgram.from({
@@ -175,6 +188,7 @@ export class TransitionMaskFilter extends Filter {
           uProgress:  { value: progress,        type: 'f32' },
           uMode:      { value: MODE_CODES[mode], type: 'f32' },
           uSmoothing: { value: smoothing,        type: 'f32' },
+          uInvert:    { value: invert ? 1 : 0,   type: 'f32' },
         }),
       },
     });
@@ -186,4 +200,6 @@ export class TransitionMaskFilter extends Filter {
   set uMode(v: number) { this.resources.transitionUniforms.uniforms.uMode = v; }
   get uSmoothing(): number { return this.resources.transitionUniforms.uniforms.uSmoothing as number; }
   set uSmoothing(v: number) { this.resources.transitionUniforms.uniforms.uSmoothing = v; }
+  get uInvert(): number { return this.resources.transitionUniforms.uniforms.uInvert as number; }
+  set uInvert(v: number) { this.resources.transitionUniforms.uniforms.uInvert = v; }
 }
