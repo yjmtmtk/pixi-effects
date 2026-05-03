@@ -40,17 +40,20 @@ export abstract class Sequence {
     return buildScope(this, this.parent, this.root);
   }
 
-  bindTimeline(timeline: Timeline): void {
+  bindTimeline(timeline: Timeline, offset = 0): void {
     if (!this.target) return;
     const scope = this.scope();
     applyInitial(this.target, this.spec.initial as Record<string, unknown> | undefined, scope as unknown as Record<string, number>);
-    applyKeyframes(timeline, this.target, this.spec.keyframes, this.duration!, scope as unknown as Record<string, number>);
+    applyKeyframes(timeline, this.target, this.spec.keyframes, this.duration!, scope as unknown as Record<string, number>, [], offset);
     // Hide before lifespan starts. GSAP's `set` only fires when the playhead
-    // crosses its time, so without this baseline a sequence with at>0 would
-    // render at t<at on PIXI's default `renderable: true`.
-    this.target.renderable = this.at <= 0;
-    timeline.set(this.target, { renderable: true }, this.at);
-    timeline.set(this.target, { renderable: false }, this.at + this.duration!);
+    // crosses its time, so without this baseline a sequence with at>0 (or any
+    // non-zero offset from a nested composition) would render at t<startTime
+    // on PIXI's default `renderable: true`.
+    const startTime = offset + this.at;
+    const endTime = startTime + this.duration!;
+    this.target.renderable = startTime <= 0;
+    timeline.set(this.target, { renderable: true }, startTime);
+    timeline.set(this.target, { renderable: false }, endTime);
   }
 
   collectAudio(_out: AudioDescriptor[], _baseTime: number): void {

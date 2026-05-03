@@ -46,9 +46,12 @@ export class CompositionSequence extends Sequence {
     this.buildFilters();
   }
 
-  override bindTimeline(timeline: Timeline): void {
-    super.bindTimeline(timeline);
-    for (const child of this._children) child.bindTimeline(timeline);
+  override bindTimeline(timeline: Timeline, offset = 0): void {
+    super.bindTimeline(timeline, offset);
+    // Children's `at` is relative to this composition's start, so push them
+    // forward by our absolute start time on the global timeline.
+    const childOffset = offset + this.at;
+    for (const child of this._children) child.bindTimeline(timeline, childOffset);
   }
 
   override collectAudio(out: AudioDescriptor[], baseTime: number): void {

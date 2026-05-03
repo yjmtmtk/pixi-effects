@@ -103,37 +103,39 @@ export function applyKeyframes(
   parentDuration: number,
   scope: Record<string, number>,
   skipKeys: string[] = [],
+  offset = 0,
 ): void {
   for (const raw of keyframes ?? []) {
     const kf = normalizeKeyframe(raw, parentDuration);
+    const at = offset + kf.at;
     if (kf.kind === 'set') {
       const resolved = normalizeProps(kf.set!, scope, { skipKeys });
       const { ownProps, filterProps } = partitionProps(resolved);
-      if (Object.keys(ownProps).length > 0) timeline.set(target, pixiwrap(ownProps), kf.at);
+      if (Object.keys(ownProps).length > 0) timeline.set(target, pixiwrap(ownProps), at);
       for (const [name, props] of Object.entries(filterProps)) {
         const f = findFilter(target as FilterTarget, name);
         if (!f) continue;
-        timeline.set(f, props, kf.at);
+        timeline.set(f, props, at);
       }
     } else if (kf.kind === 'to') {
       const resolved = normalizeProps(kf.to!, scope, { skipKeys });
       const { ownProps, filterProps } = partitionProps(resolved);
       if (Object.keys(ownProps).length > 0)
-        timeline.to(target, { ...pixiwrap(ownProps), duration: kf.duration, ease: kf.ease }, kf.at);
+        timeline.to(target, { ...pixiwrap(ownProps), duration: kf.duration, ease: kf.ease }, at);
       for (const [name, props] of Object.entries(filterProps)) {
         const f = findFilter(target as FilterTarget, name);
         if (!f) continue;
-        timeline.to(f, { ...props, duration: kf.duration, ease: kf.ease }, kf.at);
+        timeline.to(f, { ...props, duration: kf.duration, ease: kf.ease }, at);
       }
     } else if (kf.kind === 'from') {
       const resolved = normalizeProps(kf.from!, scope, { skipKeys });
       const { ownProps, filterProps } = partitionProps(resolved);
       if (Object.keys(ownProps).length > 0)
-        timeline.from(target, { ...pixiwrap(ownProps), duration: kf.duration, ease: kf.ease }, kf.at);
+        timeline.from(target, { ...pixiwrap(ownProps), duration: kf.duration, ease: kf.ease }, at);
       for (const [name, props] of Object.entries(filterProps)) {
         const f = findFilter(target as FilterTarget, name);
         if (!f) continue;
-        timeline.from(f, { ...props, duration: kf.duration, ease: kf.ease }, kf.at);
+        timeline.from(f, { ...props, duration: kf.duration, ease: kf.ease }, at);
       }
     } else {
       const fromResolved = normalizeProps(kf.from!, scope, { skipKeys });
@@ -146,7 +148,7 @@ export function applyKeyframes(
           target,
           { ...pixiwrap(fromSplit.ownProps) },
           { ...pixiwrap(toSplit.ownProps), duration: kf.duration, ease: kf.ease },
-          kf.at,
+          at,
         );
       }
       const filterNames = new Set([
@@ -160,7 +162,7 @@ export function applyKeyframes(
           f,
           { ...(fromSplit.filterProps[name] ?? {}) },
           { ...(toSplit.filterProps[name] ?? {}), duration: kf.duration, ease: kf.ease },
-          kf.at,
+          at,
         );
       }
     }
