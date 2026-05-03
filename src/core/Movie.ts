@@ -144,7 +144,19 @@ export class Movie {
       await loadAssetBundle(options.assets ?? [], audioContext);
 
       const rootShape: CompositionShape = { width: this.width, height: this.height, duration: this.duration };
-      const userComposition = options.composition ? expandTransitions(options.composition) : undefined;
+      // Inject root dimensions before expanding transitions: the macro
+      // expander reads `width` / `height` to compute filter areas, so the
+      // values must be present on the spec it sees rather than being merged
+      // in below as overrides.
+      const seededComposition = options.composition
+        ? {
+            ...options.composition,
+            width: options.composition.width ?? this.width,
+            height: options.composition.height ?? this.height,
+            duration: options.composition.duration ?? this.duration,
+          }
+        : undefined;
+      const userComposition = seededComposition ? expandTransitions(seededComposition) : undefined;
       const rootSeqSpec = {
         type: 'composition' as const,
         width: this.width,

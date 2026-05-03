@@ -1,4 +1,5 @@
 import type { Container } from 'pixi.js';
+import { Rectangle } from 'pixi.js';
 import { applyKeyframes, applyInitial } from '../core/Timeline';
 import { buildScope, type Scope } from '../expr/Scope';
 import { createFilter, type NamedFilter } from '../filters';
@@ -33,6 +34,13 @@ export abstract class Sequence {
     this.filters = specs.map(createFilter);
     if (this.target && 'filters' in this.target) {
       (this.target as unknown as { filters: NamedFilter[] }).filters = this.filters;
+    }
+    // Honor an explicit filterArea override (e.g. set by expandTransitions so
+    // a wipe / iris filter on a small text sprite still covers the whole
+    // composition rather than being clipped to the text bbox).
+    const fa = this.spec.filterArea;
+    if (fa && this.target) {
+      this.target.filterArea = new Rectangle(fa.x, fa.y, fa.width, fa.height);
     }
   }
 

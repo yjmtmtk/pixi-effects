@@ -30,7 +30,15 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
             keyframes: 'keyframes' in s && s.keyframes ? s.keyframes.slice() : undefined,
             filters:   'filters'   in s && s.filters   ? s.filters.slice()   : undefined,
           } as SequenceSpec;
-          if (cloned.type === 'composition') return expandTransitions(cloned);
+          if (cloned.type === 'composition') {
+            // Nested composition inherits its parent's dimensions when not
+            // explicitly set, so expandTransitions can compute filterArea
+            // for any wipe / iris transitions inside it.
+            const c = cloned as CompositionSequenceSpec;
+            if (c.width === undefined) c.width = spec.width;
+            if (c.height === undefined) c.height = spec.height;
+            return expandTransitions(c);
+          }
           return cloned;
         })
       : undefined,
@@ -43,6 +51,36 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
   const transitions = out.transitions;
   const sequences = out.sequences ?? [];
   const parentDuration = out.duration ?? Infinity;
+  const compW = out.width;
+  const compH = out.height;
+
+  // Pre-pass: any sequence participating in a wipe / iris transition gets
+  // wrapped in a full-composition-sized wrapper Composition so the mask
+  // filter can be attached to a target whose local-coord origin matches the
+  // composition's world origin. Without the wrap, the filter target would be
+  // the bare sprite (e.g. text), and PIXI's filterArea / coord transforms
+  // would be relative to that sprite — making the wipe / iris geometry
+  // impossible to express in canvas-relative space. Wrapping is a no-op for
+  // sequences that are already full-size compositions.
+  const masksParticipants = new Set<string>();
+  for (const t of transitions) {
+    if (t.kind === 'wipe' || t.kind === 'iris') {
+      masksParticipants.add(t.from);
+      masksParticipants.add(t.to);
+    }
+  }
+  if (masksParticipants.size > 0 && compW !== undefined && compH !== undefined) {
+    for (let i = 0; i < sequences.length; i++) {
+      const s = sequences[i]!;
+      if (!s.name || !masksParticipants.has(s.name)) continue;
+      // Reject user-supplied filters using the reserved prefix BEFORE wrapping
+      // so the check sees the user's actual filter list, not the wrapper's
+      // (clean) one.
+      const userFilters = (s as { filters?: FilterSpec[] }).filters;
+      if (userFilters) rejectReservedNameCollision(userFilters, s.name);
+      sequences[i] = wrapAsFullComposition(s, compW, compH);
+    }
+  }
 
   // Build a name → { index, sequence } map for O(1) lookup, and detect duplicate names.
   const byName = new Map<string, { index: number; seq: SequenceSpec }>();
@@ -132,6 +170,34 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
 
   delete (out as { transitions?: unknown }).transitions;
   return out;
+}
+
+// Wrap an arbitrary sequence in a Composition that fills the parent. The
+// wrapper takes over the sequence's name / at / duration (so the user's
+// transitions DSL still references the right scene), and the original
+// sequence becomes its sole child. Mask filters are then attached to the
+// wrapper Composition where local coords align with the parent's world
+// coords. If `seq` is already a Composition that fills the parent, no-op.
+function wrapAsFullComposition(seq: SequenceSpec, compW: number, compH: number): SequenceSpec {
+  if (seq.type === 'composition' && seq.width === compW && seq.height === compH) {
+    return seq;
+  }
+  const inner: SequenceSpec = { ...(seq as object) } as SequenceSpec;
+  // The inner sequence runs across the whole wrapper lifetime; its name
+  // belongs to the wrapper now (so transitions still resolve), and so do
+  // its at / duration on the parent timeline.
+  delete (inner as { name?: string }).name;
+  delete (inner as { at?: number }).at;
+  delete (inner as { duration?: number }).duration;
+  return {
+    type: 'composition',
+    name: seq.name,
+    at: seq.at,
+    duration: seq.duration,
+    width: compW,
+    height: compH,
+    sequences: [inner],
+  } as SequenceSpec;
 }
 
 function ensureKeyframes(seq: SequenceSpec): Keyframe[] {
@@ -240,7 +306,7 @@ function composeDimOffset(natural: unknown, sign: number, dim: 'W' | 'H'): strin
 }
 
 function expandMask(
-  _comp: CompositionSpec | CompositionSequenceSpec,
+  comp: CompositionSpec | CompositionSequenceSpec,
   t: WipeTransition | IrisTransition,
   fromSeq: SequenceSpec,
   toSeq: SequenceSpec,
@@ -252,6 +318,18 @@ function expandMask(
   const inName  = transitionFilterName(transitionIndex);             // on `to`
   const outName = `${transitionFilterName(transitionIndex)}-out`;    // on `from`
   const sm = smoothing ?? 0.02;
+
+  // Force the filter region to span the WHOLE composition. Without this PIXI
+  // would clip the filter to each sprite's bbox, so a wipe / iris on a small
+  // text sprite would only ever modify pixels inside the text's bounding box
+  // — the cut would appear to land at different canvas positions for sprites
+  // of different sizes (the bbox edge becomes the visual edge). With the
+  // filter area expanded to the whole composition, the wipe / iris geometry
+  // is computed in canvas space and the boundary is consistent across every
+  // participating sprite.
+  const compW = comp.width ?? 0;
+  const compH = comp.height ?? 0;
+  const fullArea = { x: 0, y: 0, width: compW, height: compH };
 
   // Incoming (B): soft mask that reveals B as uProgress 0 → 1.
   const toFilters = ensureFilters(toSeq);
@@ -267,6 +345,7 @@ function expandMask(
     duration: t.duration,
     ease,
   });
+  (toSeq as { filterArea?: typeof fullArea }).filterArea = fullArea;
 
   // Outgoing (A): inverted mask with a HARD binary cutoff (see TransitionMask
   // shader for the `step(0.99, reveal)` rationale). A stays at alpha=1 across
@@ -285,6 +364,7 @@ function expandMask(
     duration: t.duration,
     ease,
   });
+  (fromSeq as { filterArea?: typeof fullArea }).filterArea = fullArea;
 }
 
 // User-supplied filters with the reserved prefix collide with our internal

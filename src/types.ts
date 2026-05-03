@@ -123,6 +123,14 @@ export interface SequenceCommon {
   initial?: Props;
   keyframes?: Keyframe[];
   filters?: FilterSpec[];
+  /**
+   * Override PIXI's auto-computed filter region. By default, filters apply
+   * only inside the target's bounding box. Setting this to a parent-relative
+   * rectangle lets a filter (e.g. a wipe / iris transition) draw across an
+   * area larger than the sprite — useful when the sprite content is small
+   * but the visual effect should cover the whole composition.
+   */
+  filterArea?: { x: number; y: number; width: number; height: number };
 }
 
 export interface VideoSequenceSpec extends SequenceCommon {
