@@ -31,6 +31,8 @@ in vec2 vTextureCoord;
 uniform sampler2D uTexture;
 uniform vec4 uInputSize;     // PIXI-bound: xy = sprite render texture size (with padding)
 uniform vec4 uInputClamp;    // PIXI-bound: xy = min uv of unpadded content, zw = max uv
+uniform vec4 uOutputFrame;   // PIXI-bound: xy = sprite top-left on output, zw = bbox size in px
+uniform vec4 uGlobalFrame;   // PIXI-bound: xy = global frame offset, zw = canvas size in px
 uniform float uProgress;
 uniform float uSmoothing;
 uniform float uMode;
@@ -38,26 +40,39 @@ uniform float uInvert;
 
 out vec4 finalColor;
 
-// Re-normalize PIXI's vTextureCoord (which spans 0..bbox/inputSize across the
-// content because filters render onto a padded texture) into a true 0..1
-// across the unpadded bbox. Without this, two sprites with different bbox
-// sizes would have wipe / iris cuts at different fractional sprite positions
-// even though both are centered on the same canvas point.
-vec2 toContentUV(vec2 uv) {
-  return (uv - uInputClamp.xy) / (uInputClamp.zw - uInputClamp.xy);
+// Map sprite-local vTextureCoord → canvas-pixel position. We do this in two
+// steps: first un-pad vTextureCoord (it spans 0..bbox/inputSize because the
+// filter target has padding) into a true 0..1 across the bbox, then offset
+// and scale by uOutputFrame to get canvas pixels. Operating in canvas space
+// (rather than sprite-uv space) is what makes the wipe / iris edge land at
+// the same canvas position for sprites of any size: at uProgress=0.25 the
+// wipe edge is at canvas x = 0.75 * canvasW for every sprite, regardless of
+// each sprite's bbox.
+vec2 toCanvasPx(vec2 uv) {
+  vec2 bboxUV = (uv - uInputClamp.xy) / (uInputClamp.zw - uInputClamp.xy);
+  return uOutputFrame.xy + bboxUV * uOutputFrame.zw;
 }
 
-// Aspect-corrected, corner-normalized distance from bbox center in pixels.
-float irisDist(vec2 contentUV, vec2 bboxPx) {
-  vec2 offsetPx = (contentUV - vec2(0.5)) * bboxPx;
-  float halfDiag = 0.5 * length(bboxPx);
+vec2 toCanvasUV(vec2 uv) {
+  return toCanvasPx(uv) / uGlobalFrame.zw;
+}
+
+// Aspect-corrected, corner-normalized distance from canvas center.
+// Returns 0 at canvas center, 1 at the canvas corner — so iris is a true
+// circle in pixel space and p=1 reveals the entire canvas.
+float irisDistCanvas(vec2 uv) {
+  vec2 px = toCanvasPx(uv);
+  vec2 canvasSize = uGlobalFrame.zw;
+  vec2 offsetPx = px - canvasSize * 0.5;
+  float halfDiag = 0.5 * length(canvasSize);
   return length(offsetPx) / max(halfDiag, 1.0);
 }
 
-float wipeReveal(vec2 cuv, float p, float s, float mode, vec2 bboxPx) {
+float wipeReveal(vec2 uv, float p, float s, float mode) {
   // Remap p so the smoothstep edge lies fully outside [0,1] at p=0 / p=1
   // (otherwise smoothstep returns 0.5 at the very edge instead of 0 or 1).
   float ep = p * (1.0 + 2.0 * s) - s;
+  vec2 cuv = toCanvasUV(uv);
   if (mode < 0.5) {
     // wipe-left: B reveals from the right edge moving left
     return smoothstep(1.0 - ep - s, 1.0 - ep + s, cuv.x);
@@ -72,20 +87,18 @@ float wipeReveal(vec2 cuv, float p, float s, float mode, vec2 bboxPx) {
     return smoothstep(1.0 - ep - s, 1.0 - ep + s, 1.0 - cuv.y);
   } else if (mode < 4.5) {
     // iris-in: circle grows from center
-    float d = irisDist(cuv, bboxPx);
+    float d = irisDistCanvas(uv);
     return 1.0 - smoothstep(ep - s, ep + s, d);
   } else {
     // iris-out: circle shrinks toward center
-    float d = irisDist(cuv, bboxPx);
+    float d = irisDistCanvas(uv);
     return smoothstep(ep - s, ep + s, d);
   }
 }
 
 void main(void) {
     vec4 raw = texture(uTexture, vTextureCoord);
-    vec2 cuv = toContentUV(vTextureCoord);
-    vec2 bboxPx = (uInputClamp.zw - uInputClamp.xy) * uInputSize.xy;
-    float reveal = wipeReveal(cuv, uProgress, max(uSmoothing, 0.0001), uMode, bboxPx);
+    float reveal = wipeReveal(vTextureCoord, uProgress, max(uSmoothing, 0.0001), uMode);
     // Inverted mode uses a HARD binary cutoff: A stays at alpha=1 across
     // B's smoothstep zone and snaps off only where B has fully revealed.
     if (uInvert > 0.5) reveal = 1.0 - step(0.99, reveal);
@@ -145,20 +158,27 @@ fn mainVertex(
 }
 
 // Aspect-corrected, corner-normalized distance from sprite center.
-// Re-normalize PIXI's vTextureCoord into a true 0..1 across the unpadded
-// bbox content (see GLSL note for why this is necessary).
-fn toContentUV(uv: vec2<f32>) -> vec2<f32> {
-  return (uv - gfu.uInputClamp.xy) / (gfu.uInputClamp.zw - gfu.uInputClamp.xy);
+// Map sprite-local uv → canvas-pixel position (see GLSL note).
+fn toCanvasPx(uv: vec2<f32>) -> vec2<f32> {
+  let bboxUV = (uv - gfu.uInputClamp.xy) / (gfu.uInputClamp.zw - gfu.uInputClamp.xy);
+  return gfu.uOutputFrame.xy + bboxUV * gfu.uOutputFrame.zw;
 }
 
-fn irisDist(cuv: vec2<f32>, bboxPx: vec2<f32>) -> f32 {
-  let offsetPx = (cuv - vec2<f32>(0.5)) * bboxPx;
-  let halfDiag = 0.5 * length(bboxPx);
+fn toCanvasUV(uv: vec2<f32>) -> vec2<f32> {
+  return toCanvasPx(uv) / gfu.uGlobalFrame.zw;
+}
+
+fn irisDistCanvas(uv: vec2<f32>) -> f32 {
+  let px = toCanvasPx(uv);
+  let canvasSize = gfu.uGlobalFrame.zw;
+  let offsetPx = px - canvasSize * 0.5;
+  let halfDiag = 0.5 * length(canvasSize);
   return length(offsetPx) / max(halfDiag, 1.0);
 }
 
-fn wipeReveal(cuv: vec2<f32>, p: f32, s: f32, mode: f32, bboxPx: vec2<f32>) -> f32 {
+fn wipeReveal(uv: vec2<f32>, p: f32, s: f32, mode: f32) -> f32 {
   let ep = p * (1.0 + 2.0 * s) - s;
+  let cuv = toCanvasUV(uv);
   if (mode < 0.5) {
     return smoothstep(1.0 - ep - s, 1.0 - ep + s, cuv.x);
   } else if (mode < 1.5) {
@@ -170,10 +190,10 @@ fn wipeReveal(cuv: vec2<f32>, p: f32, s: f32, mode: f32, bboxPx: vec2<f32>) -> f
     // wipe-down: B reveals from the top edge moving down
     return smoothstep(1.0 - ep - s, 1.0 - ep + s, 1.0 - cuv.y);
   } else if (mode < 4.5) {
-    let d = irisDist(cuv, bboxPx);
+    let d = irisDistCanvas(uv);
     return 1.0 - smoothstep(ep - s, ep + s, d);
   } else {
-    let d = irisDist(cuv, bboxPx);
+    let d = irisDistCanvas(uv);
     return smoothstep(ep - s, ep + s, d);
   }
 }
@@ -181,9 +201,7 @@ fn wipeReveal(cuv: vec2<f32>, p: f32, s: f32, mode: f32, bboxPx: vec2<f32>) -> f
 @fragment
 fn mainFragment(@location(0) uv : vec2<f32>) -> @location(0) vec4<f32> {
   let raw = textureSample(uTexture, uSampler, uv);
-  let cuv = toContentUV(uv);
-  let bboxPx = (gfu.uInputClamp.zw - gfu.uInputClamp.xy) * gfu.uInputSize.xy;
-  var reveal = wipeReveal(cuv, transitionUniforms.uProgress, max(transitionUniforms.uSmoothing, 0.0001), transitionUniforms.uMode, bboxPx);
+  var reveal = wipeReveal(uv, transitionUniforms.uProgress, max(transitionUniforms.uSmoothing, 0.0001), transitionUniforms.uMode);
   if (transitionUniforms.uInvert > 0.5) { reveal = 1.0 - step(0.99, reveal); }
   return raw * reveal;
 }
