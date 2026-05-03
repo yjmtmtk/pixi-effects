@@ -357,8 +357,8 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
 
     // Time-coverage validation. Negative `at` on a sequence is parent-relative
     // ("from the end"); resolveAt() implements those semantics.
-    const tStart = t.at;
-    const tEnd = t.at + t.duration;
+    const tStart = resolveAt(t.at, parentDuration);
+    const tEnd = tStart + t.duration;
     const fromSeq = fromEntry.seq;
     const fromStart = resolveAt(fromSeq.at, parentDuration);
     const fromEnd = fromStart + (fromSeq.duration ?? parentDuration);
