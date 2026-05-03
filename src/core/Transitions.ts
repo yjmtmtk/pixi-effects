@@ -1,6 +1,6 @@
 import type {
   CompositionSpec, CompositionSequenceSpec, SequenceSpec, TransitionSpec,
-  CrossfadeTransition, WipeTransition, IrisTransition,
+  CrossfadeTransition, WipeTransition, IrisTransition, SlideTransition,
   Keyframe, FilterSpec,
 } from '../types';
 import { resolveAt } from './Timeline';
@@ -117,7 +117,9 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
       case 'iris':
         expandMask(out, t, toEntry.seq, i, t.mode === 'out' ? 'iris-out' : 'iris-in', t.smoothing);
         break;
-      // Slide is added in the next task.
+      case 'slide':
+        expandSlide(out, t, fromEntry.seq, toEntry.seq);
+        break;
     }
   }
 
@@ -183,6 +185,32 @@ function wipeMode(direction: WipeTransition['direction']): TransitionMode {
 
 function transitionFilterName(index: number): string {
   return `_pe-transition-${index}`;
+}
+
+function expandSlide(
+  _comp: CompositionSpec | CompositionSequenceSpec,
+  t: SlideTransition,
+  fromSeq: SequenceSpec,
+  toSeq: SequenceSpec,
+): void {
+  const ease = t.ease ?? 'none';
+  const isHorizontal = t.direction === 'left' || t.direction === 'right';
+  const axis = isHorizontal ? 'x' : 'y';
+  const dim = isHorizontal ? 'W' : 'H';
+
+  // For 'left' / 'up': A slides toward the negative side, B starts on the positive side.
+  // For 'right' / 'down': A slides toward the positive side, B starts on the negative side.
+  const fromTarget = (t.direction === 'left' || t.direction === 'up') ? `-${dim}` : dim;
+  const toStart    = (t.direction === 'left' || t.direction === 'up') ? dim : `-${dim}`;
+
+  const fromKfs = ensureKeyframes(fromSeq);
+  fromKfs.push({ at: t.at, to: { [axis]: fromTarget }, duration: t.duration, ease });
+
+  const toInitial = ensureInitial(toSeq);
+  toInitial[axis] = toStart;
+
+  const toKfs = ensureKeyframes(toSeq);
+  toKfs.push({ at: t.at, to: { [axis]: 0 }, duration: t.duration, ease });
 }
 
 function expandMask(

@@ -308,3 +308,49 @@ describe('expandTransitions — iris', () => {
     });
   });
 });
+
+describe('expandTransitions — slide', () => {
+  it('left: A.x → -W and B.x: W → 0', () => {
+    const out = expandTransitions(spec({
+      transitions: [{ kind: 'slide', from: 'A', to: 'B', at: 4, duration: 1, direction: 'left' }],
+    }));
+    expect(findSeqKfs(out, 'A')).toContainEqual({ at: 4, to: { x: '-W' }, duration: 1, ease: 'none' });
+    expect(findSeqInitial(out, 'B').x).toBe('W');
+    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 4, to: { x: 0 }, duration: 1, ease: 'none' });
+  });
+
+  it('right: A.x → W and B.x: -W → 0', () => {
+    const out = expandTransitions(spec({
+      transitions: [{ kind: 'slide', from: 'A', to: 'B', at: 4, duration: 1, direction: 'right' }],
+    }));
+    expect(findSeqKfs(out, 'A')).toContainEqual({ at: 4, to: { x: 'W' }, duration: 1, ease: 'none' });
+    expect(findSeqInitial(out, 'B').x).toBe('-W');
+    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 4, to: { x: 0 }, duration: 1, ease: 'none' });
+  });
+
+  it('up: A.y → -H and B.y: H → 0', () => {
+    const out = expandTransitions(spec({
+      transitions: [{ kind: 'slide', from: 'A', to: 'B', at: 4, duration: 1, direction: 'up' }],
+    }));
+    expect(findSeqKfs(out, 'A')).toContainEqual({ at: 4, to: { y: '-H' }, duration: 1, ease: 'none' });
+    expect(findSeqInitial(out, 'B').y).toBe('H');
+    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 4, to: { y: 0 }, duration: 1, ease: 'none' });
+  });
+
+  it('down: A.y → H and B.y: -H → 0', () => {
+    const out = expandTransitions(spec({
+      transitions: [{ kind: 'slide', from: 'A', to: 'B', at: 4, duration: 1, direction: 'down' }],
+    }));
+    expect(findSeqKfs(out, 'A')).toContainEqual({ at: 4, to: { y: 'H' }, duration: 1, ease: 'none' });
+    expect(findSeqInitial(out, 'B').y).toBe('-H');
+    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 4, to: { y: 0 }, duration: 1, ease: 'none' });
+  });
+
+  it('honors ease', () => {
+    const out = expandTransitions(spec({
+      transitions: [{ kind: 'slide', from: 'A', to: 'B', at: 4, duration: 1, direction: 'left', ease: 'power2.inOut' }],
+    }));
+    const aLast = findSeqKfs(out, 'A').slice(-1)[0]!;
+    expect(aLast.ease).toBe('power2.inOut');
+  });
+});
