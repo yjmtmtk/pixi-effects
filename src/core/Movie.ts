@@ -201,11 +201,16 @@ export class Movie {
       const frame = Math.floor(elapsed * this.frameRate);
       if (frame <= this.totalFrames) {
         inFlight = true;
-        this.gotoFrame(frame).finally(() => { inFlight = false; });
+        this.gotoFrame(frame)
+          .catch((err) => { console.warn('pixi-effects: gotoFrame failed during playback:', err); })
+          .finally(() => { inFlight = false; });
         this._raf = requestAnimationFrame(tick);
       } else {
         this.pause();
-        this.gotoFrame(this.totalFrames);
+        // Final frame — also catch so the play loop never leaves an unhandled rejection.
+        this.gotoFrame(this.totalFrames).catch((err) => {
+          console.warn('pixi-effects: final gotoFrame failed:', err);
+        });
       }
     };
     this._raf = requestAnimationFrame(tick);

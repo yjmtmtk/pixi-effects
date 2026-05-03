@@ -52,6 +52,42 @@ describe('FrameCache', () => {
     expect(fs[2]!.close).not.toHaveBeenCalled();
   });
 
+  it('swallows decoder errors thrown by sink.getSample and returns null', async () => {
+    const sink: FrameSink = {
+      async getSample() { throw new DOMException('Decoding error.', 'EncodingError'); },
+    };
+    const cache = new FrameCache(sink);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await expect(cache.getFrameAt(0.5)).resolves.toBeNull();
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('swallows errors thrown by sample.toVideoFrame() and returns null', async () => {
+    const sink: FrameSink = {
+      async getSample() {
+        return {
+          timestamp: 0,
+          toVideoFrame: () => { throw new DOMException('Decoding error.', 'EncodingError'); },
+          close: vi.fn(),
+        };
+      },
+    };
+    const cache = new FrameCache(sink);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await expect(cache.getFrameAt(0.5)).resolves.toBeNull();
+      // The pending entry must be cleared even on rejection so retries are possible.
+      await expect(cache.getFrameAt(0.5)).resolves.toBeNull();
+      expect(warn).toHaveBeenCalledTimes(2);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it('dispose closes all cached frames', async () => {
     const fs = [makeFakeFrame(0), makeFakeFrame(1)];
     const sink = makeFakeSink([

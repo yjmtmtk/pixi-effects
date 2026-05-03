@@ -64,11 +64,20 @@ export class FrameCache {
   }
 
   private async _fetch(time: number): Promise<VideoFrame | null> {
-    const sample = await this.sink.getSample(time);
-    if (!sample) return null;
-    const frame = sample.toVideoFrame();
-    sample.close?.();
-    return frame;
+    // WebCodecs decoders occasionally surface EncodingError / NotSupportedError
+    // on certain seeks (rapid scrubbing, malformed packets at chapter joins,
+    // EOF probes). Swallow and return null so the consumer (video sequence)
+    // simply keeps the previous frame instead of poisoning the playback loop.
+    try {
+      const sample = await this.sink.getSample(time);
+      if (!sample) return null;
+      const frame = sample.toVideoFrame();
+      sample.close?.();
+      return frame;
+    } catch (err) {
+      console.warn('pixi-effects: video frame decode failed at', time, 's —', err);
+      return null;
+    }
   }
 
   private _evictIfNeeded(): void {

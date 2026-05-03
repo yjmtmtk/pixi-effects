@@ -57,6 +57,11 @@ export class VideoSequence extends Sequence {
           if (!frame || !seq._ctx) return;
           seq._ctx.drawImage(frame, 0, 0);
           texture.source.update();
+        }).catch((err) => {
+          // FrameCache._fetch already swallows decoder errors; this is defense
+          // in depth against any failure inside the .then handler (e.g.
+          // drawImage on a frame that became invalid mid-draw).
+          console.warn('pixi-effects: video frame draw failed:', err);
         });
       },
     });
@@ -93,11 +98,23 @@ export class VideoSequence extends Sequence {
   async awaitFrameAt(time: number): Promise<void> {
     const mySeq = ++this._drawSeq;
     const lookup = this.spec.loop && this._sourceDuration > 0 ? time % this._sourceDuration : time;
-    const frame = await this._cache!.getFrameAt(lookup);
+    let frame: VideoFrame | null = null;
+    try {
+      frame = await this._cache!.getFrameAt(lookup);
+    } catch (err) {
+      // FrameCache should already handle this, but belt-and-suspenders so a
+      // sync render path (Movie.gotoFrame) never rejects mid-pipeline.
+      console.warn('pixi-effects: awaitFrameAt failed at', time, 's —', err);
+      return;
+    }
     if (mySeq !== this._drawSeq) return;
     if (frame && this._ctx) {
-      this._ctx.drawImage(frame, 0, 0);
-      (this.target as Sprite).texture.source.update();
+      try {
+        this._ctx.drawImage(frame, 0, 0);
+        (this.target as Sprite).texture.source.update();
+      } catch (err) {
+        console.warn('pixi-effects: drawImage failed at', time, 's —', err);
+      }
     }
   }
 
