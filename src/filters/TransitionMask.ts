@@ -29,64 +29,65 @@ export interface TransitionMaskOptions {
 const GL_FRAGMENT = `
 in vec2 vTextureCoord;
 uniform sampler2D uTexture;
-uniform vec4 uInputSize;     // PIXI-bound: xy = sprite render size in px
+uniform vec4 uInputSize;     // PIXI-bound: xy = sprite render texture size (with padding)
+uniform vec4 uInputClamp;    // PIXI-bound: xy = min uv of unpadded content, zw = max uv
 uniform float uProgress;
 uniform float uSmoothing;
 uniform float uMode;
-uniform float uInvert;       // 0 or 1 — if 1, returns (1 - reveal)
+uniform float uInvert;
 
 out vec4 finalColor;
 
-// Aspect-corrected, corner-normalized distance from sprite center.
-// Returns 0 at center, 1 at the furthest corner — so p=1 fully reveals.
-float irisDist(vec2 uv, vec2 sizePx) {
-  vec2 offsetPx = (uv - vec2(0.5)) * sizePx;
-  float halfDiag = 0.5 * length(sizePx);
+// Re-normalize PIXI's vTextureCoord (which spans 0..bbox/inputSize across the
+// content because filters render onto a padded texture) into a true 0..1
+// across the unpadded bbox. Without this, two sprites with different bbox
+// sizes would have wipe / iris cuts at different fractional sprite positions
+// even though both are centered on the same canvas point.
+vec2 toContentUV(vec2 uv) {
+  return (uv - uInputClamp.xy) / (uInputClamp.zw - uInputClamp.xy);
+}
+
+// Aspect-corrected, corner-normalized distance from bbox center in pixels.
+float irisDist(vec2 contentUV, vec2 bboxPx) {
+  vec2 offsetPx = (contentUV - vec2(0.5)) * bboxPx;
+  float halfDiag = 0.5 * length(bboxPx);
   return length(offsetPx) / max(halfDiag, 1.0);
 }
 
-float wipeReveal(vec2 uv, float p, float s, float mode, vec2 sizePx) {
-  // Remap p so the smoothstep edge lies fully outside [0,1] at p=0 / p=1.
-  // Without this, smoothstep(1-s, 1+s, x) at p=0 returns 0.5 at x=1 (because
-  // x=1 sits inside the edge), so a 1-pixel-wide sliver of B is visible
-  // before the transition starts. Same artifact at p=1 on the opposite edge,
-  // and at d=0 for the iris (a single half-visible centre pixel — the dark
-  // dot bug). p ∈ [0,1] now maps to an effective edge that starts at -s and
-  // ends at 1+s, so reveal is exactly 0 at p=0 and exactly 1 at p=1.
+float wipeReveal(vec2 cuv, float p, float s, float mode, vec2 bboxPx) {
+  // Remap p so the smoothstep edge lies fully outside [0,1] at p=0 / p=1
+  // (otherwise smoothstep returns 0.5 at the very edge instead of 0 or 1).
   float ep = p * (1.0 + 2.0 * s) - s;
-  // mode 0..3 = wipe directions; mode 4..5 = iris.
   if (mode < 0.5) {
     // wipe-left: B reveals from the right edge moving left
-    return smoothstep(1.0 - ep - s, 1.0 - ep + s, uv.x);
+    return smoothstep(1.0 - ep - s, 1.0 - ep + s, cuv.x);
   } else if (mode < 1.5) {
     // wipe-right: B reveals from the left edge moving right
-    return smoothstep(1.0 - ep - s, 1.0 - ep + s, 1.0 - uv.x);
+    return smoothstep(1.0 - ep - s, 1.0 - ep + s, 1.0 - cuv.x);
   } else if (mode < 2.5) {
     // wipe-up
-    return smoothstep(1.0 - ep - s, 1.0 - ep + s, uv.y);
+    return smoothstep(1.0 - ep - s, 1.0 - ep + s, cuv.y);
   } else if (mode < 3.5) {
     // wipe-down: B reveals from the top edge moving down
-    return smoothstep(1.0 - ep - s, 1.0 - ep + s, 1.0 - uv.y);
+    return smoothstep(1.0 - ep - s, 1.0 - ep + s, 1.0 - cuv.y);
   } else if (mode < 4.5) {
     // iris-in: circle grows from center
-    float d = irisDist(uv, sizePx);
+    float d = irisDist(cuv, bboxPx);
     return 1.0 - smoothstep(ep - s, ep + s, d);
   } else {
     // iris-out: circle shrinks toward center
-    float d = irisDist(uv, sizePx);
+    float d = irisDist(cuv, bboxPx);
     return smoothstep(ep - s, ep + s, d);
   }
 }
 
 void main(void) {
     vec4 raw = texture(uTexture, vTextureCoord);
-    float reveal = wipeReveal(vTextureCoord, uProgress, max(uSmoothing, 0.0001), uMode, uInputSize.xy);
-    // Inverted mode uses a HARD binary cutoff (not 1 - reveal): A stays at
-    // alpha=1 throughout B's smoothstep zone and only switches to alpha=0
-    // where B has fully revealed. With PIXI's standard "over" blend, this
-    // gives an alpha-correct soft blend (B*B_a + A*(1-B_a)) at the edge —
-    // a soft (1 - reveal) mask would dim it to A*(1-B_a)^2 and let the
-    // background bleed through.
+    vec2 cuv = toContentUV(vTextureCoord);
+    vec2 bboxPx = (uInputClamp.zw - uInputClamp.xy) * uInputSize.xy;
+    float reveal = wipeReveal(cuv, uProgress, max(uSmoothing, 0.0001), uMode, bboxPx);
+    // Inverted mode uses a HARD binary cutoff: A stays at alpha=1 across
+    // B's smoothstep zone and snaps off only where B has fully revealed.
     if (uInvert > 0.5) reveal = 1.0 - step(0.99, reveal);
     finalColor = raw * reveal;
 }
@@ -144,31 +145,35 @@ fn mainVertex(
 }
 
 // Aspect-corrected, corner-normalized distance from sprite center.
-// Returns 0 at center, 1 at the furthest corner — so p=1 fully reveals.
-fn irisDist(uv: vec2<f32>, sizePx: vec2<f32>) -> f32 {
-  let offsetPx = (uv - vec2<f32>(0.5)) * sizePx;
-  let halfDiag = 0.5 * length(sizePx);
+// Re-normalize PIXI's vTextureCoord into a true 0..1 across the unpadded
+// bbox content (see GLSL note for why this is necessary).
+fn toContentUV(uv: vec2<f32>) -> vec2<f32> {
+  return (uv - gfu.uInputClamp.xy) / (gfu.uInputClamp.zw - gfu.uInputClamp.xy);
+}
+
+fn irisDist(cuv: vec2<f32>, bboxPx: vec2<f32>) -> f32 {
+  let offsetPx = (cuv - vec2<f32>(0.5)) * bboxPx;
+  let halfDiag = 0.5 * length(bboxPx);
   return length(offsetPx) / max(halfDiag, 1.0);
 }
 
-fn wipeReveal(uv: vec2<f32>, p: f32, s: f32, mode: f32, sizePx: vec2<f32>) -> f32 {
-  // See the GLSL comment above for why we remap p — same logic applies here.
+fn wipeReveal(cuv: vec2<f32>, p: f32, s: f32, mode: f32, bboxPx: vec2<f32>) -> f32 {
   let ep = p * (1.0 + 2.0 * s) - s;
   if (mode < 0.5) {
-    return smoothstep(1.0 - ep - s, 1.0 - ep + s, uv.x);
+    return smoothstep(1.0 - ep - s, 1.0 - ep + s, cuv.x);
   } else if (mode < 1.5) {
     // wipe-right: B reveals from the left edge moving right
-    return smoothstep(1.0 - ep - s, 1.0 - ep + s, 1.0 - uv.x);
+    return smoothstep(1.0 - ep - s, 1.0 - ep + s, 1.0 - cuv.x);
   } else if (mode < 2.5) {
-    return smoothstep(1.0 - ep - s, 1.0 - ep + s, uv.y);
+    return smoothstep(1.0 - ep - s, 1.0 - ep + s, cuv.y);
   } else if (mode < 3.5) {
     // wipe-down: B reveals from the top edge moving down
-    return smoothstep(1.0 - ep - s, 1.0 - ep + s, 1.0 - uv.y);
+    return smoothstep(1.0 - ep - s, 1.0 - ep + s, 1.0 - cuv.y);
   } else if (mode < 4.5) {
-    let d = irisDist(uv, sizePx);
+    let d = irisDist(cuv, bboxPx);
     return 1.0 - smoothstep(ep - s, ep + s, d);
   } else {
-    let d = irisDist(uv, sizePx);
+    let d = irisDist(cuv, bboxPx);
     return smoothstep(ep - s, ep + s, d);
   }
 }
@@ -176,8 +181,9 @@ fn wipeReveal(uv: vec2<f32>, p: f32, s: f32, mode: f32, sizePx: vec2<f32>) -> f3
 @fragment
 fn mainFragment(@location(0) uv : vec2<f32>) -> @location(0) vec4<f32> {
   let raw = textureSample(uTexture, uSampler, uv);
-  var reveal = wipeReveal(uv, transitionUniforms.uProgress, max(transitionUniforms.uSmoothing, 0.0001), transitionUniforms.uMode, gfu.uInputSize.xy);
-  // See the GLSL comment above for why this is a hard step, not 1 - reveal.
+  let cuv = toContentUV(uv);
+  let bboxPx = (gfu.uInputClamp.zw - gfu.uInputClamp.xy) * gfu.uInputSize.xy;
+  var reveal = wipeReveal(cuv, transitionUniforms.uProgress, max(transitionUniforms.uSmoothing, 0.0001), transitionUniforms.uMode, bboxPx);
   if (transitionUniforms.uInvert > 0.5) { reveal = 1.0 - step(0.99, reveal); }
   return raw * reveal;
 }

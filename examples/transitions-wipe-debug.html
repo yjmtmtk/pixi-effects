@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>pixi-effects — wipe debug</title>
+  <style>
+    body { background: #0a0a0f; margin: 0; font-family: sans-serif; color: #ccc; padding: 16px; }
+    h1 { font-weight: 500; margin: 0 0 4px 0; }
+    p { font-size: 13px; color: #888; margin: 0 0 16px 0; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1>wipe transition — text only, smoothing=0</h1>
+  <p>Two text scenes, single wipe transition. Inspect the boundary at the wipe midpoint.</p>
+  <canvas id="stage" width="1280" height="720"></canvas>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.10.0?bundle-deps",
+      "gsap":            "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":      "https://esm.sh/mediabunny"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../dist/index.js';
+    import { Controller } from '../dist/Controller.js';
+
+    const movie = new Movie();
+    window.__movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    await movie.init({
+      canvas: document.getElementById('stage'),
+      width: 1280, height: 720, duration: 6, frameRate: 30,
+      background: '#0a0a0f',
+      composition: {
+        sequences: [
+          {
+            type: 'text', name: 'A', text: 'A', at: 0, duration: 4,
+            initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+            style: { fontSize: 'GW * 0.10', fill: '#ff7755', fontWeight: 'bold' },
+          },
+          {
+            type: 'text', name: 'B', text: 'BBBBBB', at: 2, duration: 4,
+            initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+            style: { fontSize: 'GW * 0.10', fill: '#55aaff', fontWeight: 'bold' },
+          },
+        ],
+        transitions: [
+          { kind: 'wipe', from: 'A', to: 'B', at: 2, duration: 1, direction: 'left', smoothing: 0 },
+        ],
+      },
+    });
+  </script>
+</body>
+</html>
