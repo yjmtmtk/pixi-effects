@@ -16,7 +16,6 @@
 - `src/index.ts` — re-export new types.
 - `src/core/Transitions.ts` — `expandTransitions(spec)` pure function: validate + macro-expand. ~250 lines.
 - `src/filters/TransitionMask.ts` — wipe + iris GLSL/WGSL filter. ~180 lines.
-- `src/filters/index.ts` — register `_pe-transition-mask` in the registry. +5 lines.
 - `src/core/Movie.ts` — call `expandTransitions(options.composition)` at the top of `init()`. +3 lines.
 - `tests/core/Transitions.test.ts` — validation + expansion unit tests. ~250 lines, ~25 cases.
 - `tests/filters/TransitionMask.test.ts` — filter construction smoke. ~40 lines, 3 cases.
@@ -650,7 +649,6 @@ git commit -m "feat(movie): run expandTransitions in init() so crossfade applies
 **Files:**
 - Create: `/Users/tomotakayajima/Desktop/yjm/git/pixi-effects/src/filters/TransitionMask.ts`
 - Create: `/Users/tomotakayajima/Desktop/yjm/git/pixi-effects/tests/filters/TransitionMask.test.ts`
-- Modify: `/Users/tomotakayajima/Desktop/yjm/git/pixi-effects/src/filters/index.ts`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -762,14 +760,14 @@ float wipeReveal(vec2 uv, float p, float s, float mode) {
     // wipe-left: B reveals from the right edge moving left
     return smoothstep(1.0 - p - s, 1.0 - p + s, uv.x);
   } else if (mode < 1.5) {
-    // wipe-right
-    return smoothstep(p - s, p + s, 1.0 - uv.x);
+    // wipe-right: B reveals from the left edge moving right
+    return smoothstep(1.0 - p - s, 1.0 - p + s, 1.0 - uv.x);
   } else if (mode < 2.5) {
     // wipe-up
     return smoothstep(1.0 - p - s, 1.0 - p + s, uv.y);
   } else if (mode < 3.5) {
-    // wipe-down
-    return smoothstep(p - s, p + s, 1.0 - uv.y);
+    // wipe-down: B reveals from the top edge moving down
+    return smoothstep(1.0 - p - s, 1.0 - p + s, 1.0 - uv.y);
   } else if (mode < 4.5) {
     // iris-in: circle grows from center
     float d = distance(uv, vec2(0.5)) * 2.0;  // 0..~1.41 across the canvas
@@ -789,9 +787,6 @@ void main(void) {
 `;
 
 // ── WGSL combined source (WebGPU renderer) ───────────────────────────────
-// IMPORTANT: PIXI v8's WGSL attribute extractor is regex-based and only finds
-// vertex `@location(N)` annotations when the param list is multi-line and uses
-// space before the colon. Don't tidy the whitespace.
 const WGSL_SOURCE = `
 struct GlobalFilterUniforms {
   uInputSize: vec4<f32>,
@@ -829,6 +824,11 @@ fn filterTextureCoord(aPosition : vec2<f32>) -> vec2<f32> {
   return aPosition * (gfu.uOutputFrame.zw * gfu.uInputSize.zw);
 }
 
+// NOTE on whitespace: PIXI v8's WGSL attribute extractor is regex-based and
+// expects the noise/blur reference format — multi-line param list + space
+// before the colon. A compact one-liner with no space before the colon parses
+// as having NO vertex attributes, which then causes a "Vertex attribute slot 0
+// not present in the VertexState" pipeline validation error.
 @vertex
 fn mainVertex(
   @location(0) aPosition : vec2<f32>,
@@ -840,11 +840,13 @@ fn wipeReveal(uv: vec2<f32>, p: f32, s: f32, mode: f32) -> f32 {
   if (mode < 0.5) {
     return smoothstep(1.0 - p - s, 1.0 - p + s, uv.x);
   } else if (mode < 1.5) {
-    return smoothstep(p - s, p + s, 1.0 - uv.x);
+    // wipe-right: B reveals from the left edge moving right
+    return smoothstep(1.0 - p - s, 1.0 - p + s, 1.0 - uv.x);
   } else if (mode < 2.5) {
     return smoothstep(1.0 - p - s, 1.0 - p + s, uv.y);
   } else if (mode < 3.5) {
-    return smoothstep(p - s, p + s, 1.0 - uv.y);
+    // wipe-down: B reveals from the top edge moving down
+    return smoothstep(1.0 - p - s, 1.0 - p + s, 1.0 - uv.y);
   } else if (mode < 4.5) {
     let d = distance(uv, vec2<f32>(0.5)) * 2.0;
     return smoothstep(p + s, p - s, d);
