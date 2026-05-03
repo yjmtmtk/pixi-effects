@@ -10,11 +10,26 @@ vi.mock('pixi.js', () => {
     constructor(_opts?: unknown) { /* no-op */ }
     apply() { /* PIXI calls this on render; presence of this method is the duck-type marker. */ }
   }
-  class GlProgram { constructor(_opts: unknown) { /* no-op */ } }
+  class GlProgram {
+    constructor(_opts: unknown) { /* no-op */ }
+    static from(_opts: unknown): GlProgram { return new GlProgram(_opts); }
+  }
+  class GpuProgram {
+    constructor(_opts: unknown) { /* no-op */ }
+    static from(_opts: unknown): GpuProgram { return new GpuProgram(_opts); }
+  }
+  class UniformGroup {
+    uniforms: Record<string, unknown>;
+    constructor(uniforms: Record<string, { value: unknown }>) {
+      this.uniforms = Object.fromEntries(Object.entries(uniforms).map(([k, v]) => [k, v.value]));
+    }
+  }
   class Color { constructor(public input: string) {} red = 0; green = 1; blue = 0; }
   return {
     Filter,
     GlProgram,
+    GpuProgram,
+    UniformGroup,
     Color,
     defaultFilterVert: '',
   };

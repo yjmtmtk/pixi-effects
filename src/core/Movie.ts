@@ -115,7 +115,7 @@ export class Movie {
         antialias: true,
         resolution: 1,
         autoDensity: false,
-        preference: 'webgl',
+        preference: 'webgpu',
         preserveDrawingBuffer: true,
         canvas: options.canvas,
       });
