@@ -1,8 +1,10 @@
 import type {
   CompositionSpec, CompositionSequenceSpec, SequenceSpec, TransitionSpec,
-  CrossfadeTransition, Keyframe,
+  CrossfadeTransition, WipeTransition, IrisTransition,
+  Keyframe, FilterSpec,
 } from '../types';
 import { resolveAt } from './Timeline';
+import { TransitionMaskFilter, type TransitionMode } from '../filters/TransitionMask';
 
 /**
  * Pure function: validate the composition's `transitions[]` and rewrite the
@@ -21,11 +23,12 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
       ? spec.sequences.map((s) => {
           const cloned: SequenceSpec = {
             ...s,
-            // Deep-clone the mutation surface only.
+            // Deep-clone the mutation surfaces only.
             initial: 'initial' in s && s.initial ? { ...s.initial } : undefined,
-            // Shallow: each Keyframe inside is a shared reference. Expansion
-            // only ever pushes new Keyframe literals — never mutate existing ones.
+            // Shallow: Keyframe / FilterSpec elements are shared references.
+            // Expansion only pushes new literals — never mutate existing ones.
             keyframes: 'keyframes' in s && s.keyframes ? s.keyframes.slice() : undefined,
+            filters:   'filters'   in s && s.filters   ? s.filters.slice()   : undefined,
           } as SequenceSpec;
           if (cloned.type === 'composition') return expandTransitions(cloned);
           return cloned;
@@ -108,7 +111,13 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
       case 'crossfade':
         expandCrossfade(out, t, fromEntry.seq, toEntry.seq);
         break;
-      // Other kinds are added in later tasks.
+      case 'wipe':
+        expandMask(out, t, toEntry.seq, i, wipeMode(t.direction), t.smoothing);
+        break;
+      case 'iris':
+        expandMask(out, t, toEntry.seq, i, t.mode === 'out' ? 'iris-out' : 'iris-in', t.smoothing);
+        break;
+      // Slide is added in the next task.
     }
   }
 
@@ -127,6 +136,12 @@ function ensureInitial(seq: SequenceSpec): Record<string, unknown> {
   const s = seq as { initial?: Record<string, unknown> };
   if (!s.initial) s.initial = {};
   return s.initial;
+}
+
+function ensureFilters(seq: SequenceSpec): FilterSpec[] {
+  const s = seq as { filters?: FilterSpec[] };
+  if (!s.filters) s.filters = [];
+  return s.filters;
 }
 
 function expandCrossfade(
@@ -155,4 +170,56 @@ function expandCrossfade(
   // Fade in.
   const toKfs = ensureKeyframes(toSeq);
   toKfs.push({ at: t.at, to: { alpha: 1 }, duration: t.duration, ease });
+}
+
+function wipeMode(direction: WipeTransition['direction']): TransitionMode {
+  switch (direction) {
+    case 'left':  return 'wipe-left';
+    case 'right': return 'wipe-right';
+    case 'up':    return 'wipe-up';
+    case 'down':  return 'wipe-down';
+  }
+}
+
+function transitionFilterName(index: number): string {
+  return `_pe-transition-${index}`;
+}
+
+function expandMask(
+  _comp: CompositionSpec | CompositionSequenceSpec,
+  t: WipeTransition | IrisTransition,
+  toSeq: SequenceSpec,
+  transitionIndex: number,
+  mode: TransitionMode,
+  smoothing: number | undefined,
+): void {
+  const ease = t.ease ?? 'none';
+  const filterName = transitionFilterName(transitionIndex);
+
+  const filters = ensureFilters(toSeq);
+  // Reject collision with user-managed filter names that share the reserved prefix.
+  for (const f of filters) {
+    if (typeof f.name === 'string' && f.name.startsWith('_pe-transition-')) {
+      throw new Error(
+        `pixi-effects: sequence "${toSeq.name}" already has a filter named "${f.name}" — ` +
+        `the reserved name prefix "_pe-transition-" is for internally generated transition filters`,
+      );
+    }
+  }
+
+  const filterInstance = new TransitionMaskFilter({
+    mode,
+    smoothing: smoothing ?? 0.02,
+    progress: 0,
+  });
+  filters.push({ type: 'custom', name: filterName, filter: filterInstance });
+
+  // Animate the filter's progress 0 → 1 over the transition window.
+  const kfs = ensureKeyframes(toSeq);
+  kfs.push({
+    at: t.at,
+    to: { [`filters.${filterName}.uProgress`]: 1 },
+    duration: t.duration,
+    ease,
+  });
 }

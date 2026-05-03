@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { expandTransitions } from '../../src/core/Transitions';
-import type { CompositionSpec, Keyframe } from '../../src/types';
+import type { CompositionSpec, CustomFilterSpec, Keyframe } from '../../src/types';
 
 function spec(overrides: Partial<CompositionSpec> = {}): CompositionSpec {
   return {
@@ -189,5 +189,122 @@ describe('expandTransitions — crossfade', () => {
     const before = JSON.stringify(input);
     expandTransitions(input);
     expect(JSON.stringify(input)).toBe(before);
+  });
+});
+
+function findCustomFilter(s: CompositionSpec, seqName: string, filterName: string): CustomFilterSpec | undefined {
+  const seq = s.sequences!.find((x) => x.name === seqName)!;
+  const filters = ('filters' in seq && seq.filters) ? seq.filters : [];
+  return filters.find((f) => f.type === 'custom' && f.name === filterName) as CustomFilterSpec | undefined;
+}
+
+describe('expandTransitions — wipe', () => {
+  it('attaches a TransitionMaskFilter to `to` with deterministic name', () => {
+    const out = expandTransitions(spec({
+      transitions: [{ kind: 'wipe', from: 'A', to: 'B', at: 4, duration: 1, direction: 'left' }],
+    }));
+    const f = findCustomFilter(out, 'B', '_pe-transition-0');
+    expect(f).toBeDefined();
+    expect(f!.type).toBe('custom');
+    // The filter instance should be a TransitionMaskFilter with mode set to wipe-left (uMode=0).
+    const inst = f!.filter as { uMode: number };
+    expect(inst.uMode).toBe(0);
+  });
+
+  it('appends a uProgress 0→1 keyframe path on `to`', () => {
+    const out = expandTransitions(spec({
+      transitions: [{ kind: 'wipe', from: 'A', to: 'B', at: 4, duration: 1, direction: 'right', ease: 'sine.in' }],
+    }));
+    const kfs = findSeqKfs(out, 'B');
+    expect(kfs).toContainEqual({
+      at: 4,
+      to: { 'filters._pe-transition-0.uProgress': 1 },
+      duration: 1,
+      ease: 'sine.in',
+    });
+  });
+
+  it('encodes direction in uMode (left=0, right=1, up=2, down=3)', () => {
+    for (const [dir, code] of [['left', 0], ['right', 1], ['up', 2], ['down', 3]] as const) {
+      const out = expandTransitions(spec({
+        transitions: [{ kind: 'wipe', from: 'A', to: 'B', at: 4, duration: 1, direction: dir }],
+      }));
+      const inst = findCustomFilter(out, 'B', '_pe-transition-0')!.filter as { uMode: number };
+      expect(inst.uMode).toBe(code);
+    }
+  });
+
+  it('honors smoothing override', () => {
+    const out = expandTransitions(spec({
+      transitions: [{ kind: 'wipe', from: 'A', to: 'B', at: 4, duration: 1, direction: 'left', smoothing: 0.1 }],
+    }));
+    const inst = findCustomFilter(out, 'B', '_pe-transition-0')!.filter as { uSmoothing: number };
+    expect(inst.uSmoothing).toBeCloseTo(0.1, 5);
+  });
+
+  it('throws if `to` already has a filter named with the reserved transition prefix', () => {
+    const s = spec();
+    s.sequences![1] = {
+      ...s.sequences![1]!,
+      filters: [{ type: 'custom', name: '_pe-transition-0', filter: { apply() {} } as unknown }],
+    } as typeof s.sequences[1];
+    expect(() => expandTransitions({
+      ...s,
+      transitions: [{ kind: 'wipe', from: 'A', to: 'B', at: 4, duration: 1, direction: 'left' }],
+    })).toThrow(/reserved.*name.*_pe-transition-/i);
+  });
+
+  it('assigns distinct filter names for two transitions with different indices (chained)', () => {
+    const out = expandTransitions(spec({
+      sequences: [
+        { type: 'text', name: 'A', text: 'a', at: 0, duration: 4 },
+        { type: 'text', name: 'B', text: 'b', at: 3, duration: 4 },
+        { type: 'text', name: 'C', text: 'c', at: 6, duration: 4 },
+      ],
+      transitions: [
+        { kind: 'wipe', from: 'A', to: 'B', at: 3, duration: 1, direction: 'left' },
+        { kind: 'wipe', from: 'B', to: 'C', at: 6, duration: 1, direction: 'right' },
+      ],
+    }));
+    expect(findCustomFilter(out, 'B', '_pe-transition-0')).toBeDefined();
+    expect(findCustomFilter(out, 'C', '_pe-transition-1')).toBeDefined();
+  });
+
+  it('does not mutate the input spec', () => {
+    const input = spec({ transitions: [{ kind: 'wipe', from: 'A', to: 'B', at: 4, duration: 1, direction: 'left' }] });
+    const before = JSON.stringify(input);
+    expandTransitions(input);
+    expect(JSON.stringify(input)).toBe(before);
+  });
+});
+
+describe('expandTransitions — iris', () => {
+  it('uses uMode=4 by default (iris-in)', () => {
+    const out = expandTransitions(spec({
+      transitions: [{ kind: 'iris', from: 'A', to: 'B', at: 4, duration: 1 }],
+    }));
+    const inst = findCustomFilter(out, 'B', '_pe-transition-0')!.filter as { uMode: number };
+    expect(inst.uMode).toBe(4);
+  });
+
+  it('uses uMode=5 when mode=out', () => {
+    const out = expandTransitions(spec({
+      transitions: [{ kind: 'iris', from: 'A', to: 'B', at: 4, duration: 1, mode: 'out' }],
+    }));
+    const inst = findCustomFilter(out, 'B', '_pe-transition-0')!.filter as { uMode: number };
+    expect(inst.uMode).toBe(5);
+  });
+
+  it('appends a uProgress 0→1 keyframe path on `to`', () => {
+    const out = expandTransitions(spec({
+      transitions: [{ kind: 'iris', from: 'A', to: 'B', at: 4, duration: 1, ease: 'power2.out' }],
+    }));
+    const kfs = findSeqKfs(out, 'B');
+    expect(kfs).toContainEqual({
+      at: 4,
+      to: { 'filters._pe-transition-0.uProgress': 1 },
+      duration: 1,
+      ease: 'power2.out',
+    });
   });
 });
