@@ -107,18 +107,30 @@ export class Movie {
       this.timeline = gsap.timeline({ paused: true, defaults: { ease: 'none' } });
       this.timeline.add(gsap.to({}, { duration: this.duration }));
 
-      this.app = new Application();
-      await this.app.init({
+      // Try WebGPU first, fall back to WebGL on any init failure. PIXI's
+      // autoDetectRenderer only checks `navigator.gpu` existence — it doesn't
+      // catch device-init failures (old drivers, GPU lost, hostile origin
+      // policies). We wrap and retry so those cases don't break playback.
+      const baseAppOptions = {
         width: this.width,
         height: this.height,
         background: this.background,
         antialias: true,
         resolution: 1,
         autoDensity: false,
-        preference: 'webgpu',
         preserveDrawingBuffer: true,
         canvas: options.canvas,
-      });
+      };
+      this.app = new Application();
+      try {
+        await this.app.init({ ...baseAppOptions, preference: 'webgpu' });
+      } catch (err) {
+        console.warn('pixi-effects: WebGPU init failed, falling back to WebGL —', err);
+        // PIXI's Application.init can't be called twice on the same instance,
+        // so create a fresh one for the fallback path.
+        this.app = new Application();
+        await this.app.init({ ...baseAppOptions, preference: 'webgl' });
+      }
 
       const root = new Container();
       root.cullable = true;
