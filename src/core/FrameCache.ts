@@ -66,8 +66,9 @@ export class FrameCache {
   private async _fetch(time: number): Promise<VideoFrame | null> {
     // WebCodecs decoders occasionally surface EncodingError / NotSupportedError
     // on certain seeks (rapid scrubbing, malformed packets at chapter joins,
-    // EOF probes). Swallow and return null so the consumer (video sequence)
-    // simply keeps the previous frame instead of poisoning the playback loop.
+    // EOF probes). These are known-transient and the next request usually
+    // succeeds, so log them at `debug` (hidden in default consoles) instead of
+    // `warn`. Anything else still warns loudly.
     try {
       const sample = await this.sink.getSample(time);
       if (!sample) return null;
@@ -75,7 +76,13 @@ export class FrameCache {
       sample.close?.();
       return frame;
     } catch (err) {
-      console.warn('pixi-effects: video frame decode failed at', time, 's —', err);
+      const isTransient = err instanceof DOMException
+        && (err.name === 'EncodingError' || err.name === 'NotSupportedError');
+      if (isTransient) {
+        console.debug('pixi-effects: transient video decode failure at', time, 's —', err.name);
+      } else {
+        console.warn('pixi-effects: video frame decode failed at', time, 's —', err);
+      }
       return null;
     }
   }

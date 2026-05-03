@@ -52,9 +52,26 @@ describe('FrameCache', () => {
     expect(fs[2]!.close).not.toHaveBeenCalled();
   });
 
-  it('swallows decoder errors thrown by sink.getSample and returns null', async () => {
+  it('swallows transient WebCodecs EncodingError, logs at debug (not warn)', async () => {
     const sink: FrameSink = {
       async getSample() { throw new DOMException('Decoding error.', 'EncodingError'); },
+    };
+    const cache = new FrameCache(sink);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const debug = vi.spyOn(console, 'debug').mockImplementation(() => {});
+    try {
+      await expect(cache.getFrameAt(0.5)).resolves.toBeNull();
+      expect(warn).not.toHaveBeenCalled();
+      expect(debug).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+      debug.mockRestore();
+    }
+  });
+
+  it('warns loudly on unexpected (non-DOMException) errors', async () => {
+    const sink: FrameSink = {
+      async getSample() { throw new Error('something else broke'); },
     };
     const cache = new FrameCache(sink);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -77,14 +94,14 @@ describe('FrameCache', () => {
       },
     };
     const cache = new FrameCache(sink);
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const debug = vi.spyOn(console, 'debug').mockImplementation(() => {});
     try {
       await expect(cache.getFrameAt(0.5)).resolves.toBeNull();
       // The pending entry must be cleared even on rejection so retries are possible.
       await expect(cache.getFrameAt(0.5)).resolves.toBeNull();
-      expect(warn).toHaveBeenCalledTimes(2);
+      expect(debug).toHaveBeenCalledTimes(2);
     } finally {
-      warn.mockRestore();
+      debug.mockRestore();
     }
   });
 
