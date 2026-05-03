@@ -45,6 +45,10 @@ export abstract class Sequence {
     const scope = this.scope();
     applyInitial(this.target, this.spec.initial as Record<string, unknown> | undefined, scope as unknown as Record<string, number>);
     applyKeyframes(timeline, this.target, this.spec.keyframes, this.duration!, scope as unknown as Record<string, number>);
+    // Hide before lifespan starts. GSAP's `set` only fires when the playhead
+    // crosses its time, so without this baseline a sequence with at>0 would
+    // render at t<at on PIXI's default `renderable: true`.
+    this.target.renderable = this.at <= 0;
     timeline.set(this.target, { renderable: true }, this.at);
     timeline.set(this.target, { renderable: false }, this.at + this.duration!);
   }
