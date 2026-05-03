@@ -1,4 +1,7 @@
-import type { CompositionSpec, CompositionSequenceSpec, SequenceSpec, TransitionSpec } from '../types';
+import type {
+  CompositionSpec, CompositionSequenceSpec, SequenceSpec, TransitionSpec,
+  CrossfadeTransition, Keyframe,
+} from '../types';
 import { resolveAt } from './Timeline';
 
 /**
@@ -10,14 +13,25 @@ import { resolveAt } from './Timeline';
  * Recurses into nested compositions.
  */
 export function expandTransitions<T extends CompositionSpec | CompositionSequenceSpec>(spec: T): T {
-  const out = { ...spec, sequences: spec.sequences ? [...spec.sequences] : undefined };
-  // Recurse into nested compositions first.
-  if (out.sequences) {
-    out.sequences = out.sequences.map((s) => {
-      if (s.type === 'composition') return expandTransitions(s);
-      return s;
-    });
-  }
+  // Shallow-clone every sequence (and recurse into nested compositions) so we
+  // can append keyframes / set initial without touching the user's input spec.
+  const out = {
+    ...spec,
+    sequences: spec.sequences
+      ? spec.sequences.map((s) => {
+          const cloned: SequenceSpec = {
+            ...s,
+            // Deep-clone the mutation surface only.
+            initial: 'initial' in s && s.initial ? { ...s.initial } : undefined,
+            // Shallow: each Keyframe inside is a shared reference. Expansion
+            // only ever pushes new Keyframe literals — never mutate existing ones.
+            keyframes: 'keyframes' in s && s.keyframes ? s.keyframes.slice() : undefined,
+          } as SequenceSpec;
+          if (cloned.type === 'composition') return expandTransitions(cloned);
+          return cloned;
+        })
+      : undefined,
+  };
   if (!out.transitions || out.transitions.length === 0) {
     delete (out as { transitions?: unknown }).transitions;
     return out;
@@ -89,10 +103,56 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
     if (tStart < toStart || tEnd > toEnd) {
       throw new Error(`pixi-effects: ${tag} window [${tStart}, ${tEnd}] is not covered by \`to\` "${t.to}" (lives [${toStart}, ${toEnd}], so it starts at ${toStart})`);
     }
+    // Validation passed; expand this transition into existing primitives.
+    switch (t.kind) {
+      case 'crossfade':
+        expandCrossfade(out, t, fromEntry.seq, toEntry.seq);
+        break;
+      // Other kinds are added in later tasks.
+    }
   }
 
-  // Macro expansion happens in later tasks; for now just strip the field
-  // (every transition validated successfully).
   delete (out as { transitions?: unknown }).transitions;
   return out;
+}
+
+function ensureKeyframes(seq: SequenceSpec): Keyframe[] {
+  // Sequences are loosely typed; treat keyframes as optional.
+  const s = seq as { keyframes?: Keyframe[] };
+  if (!s.keyframes) s.keyframes = [];
+  return s.keyframes;
+}
+
+function ensureInitial(seq: SequenceSpec): Record<string, unknown> {
+  const s = seq as { initial?: Record<string, unknown> };
+  if (!s.initial) s.initial = {};
+  return s.initial;
+}
+
+function expandCrossfade(
+  _comp: CompositionSpec | CompositionSequenceSpec,
+  t: CrossfadeTransition,
+  fromSeq: SequenceSpec,
+  toSeq: SequenceSpec,
+): void {
+  const ease = t.ease ?? 'none';
+
+  // Outgoing sequence fades to alpha 0 over the window.
+  const fromKfs = ensureKeyframes(fromSeq);
+  fromKfs.push({ at: t.at, to: { alpha: 0 }, duration: t.duration, ease });
+
+  // Incoming sequence starts invisible (initial.alpha = 0). Reject if user
+  // already set initial.alpha — that would be a silent override.
+  const toInitial = ensureInitial(toSeq);
+  if (toInitial.alpha !== undefined && toInitial.alpha !== 0) {
+    throw new Error(
+      `pixi-effects: crossfade "${t.from}"→"${t.to}" requires "${t.to}" to start invisible, ` +
+      `but it already has initial.alpha=${String(toInitial.alpha)}. Remove the manual setting.`,
+    );
+  }
+  toInitial.alpha = 0;
+
+  // Fade in.
+  const toKfs = ensureKeyframes(toSeq);
+  toKfs.push({ at: t.at, to: { alpha: 1 }, duration: t.duration, ease });
 }

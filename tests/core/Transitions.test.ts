@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { expandTransitions } from '../../src/core/Transitions';
-import type { CompositionSpec } from '../../src/types';
+import type { CompositionSpec, Keyframe } from '../../src/types';
 
 function spec(overrides: Partial<CompositionSpec> = {}): CompositionSpec {
   return {
@@ -113,5 +113,81 @@ describe('expandTransitions — validation', () => {
       ],
     });
     expect(() => expandTransitions(s)).not.toThrow();
+  });
+});
+
+function findSeqKfs(s: CompositionSpec, name: string): Keyframe[] {
+  const seq = s.sequences!.find((x) => x.name === name)!;
+  return ('keyframes' in seq && seq.keyframes) ? seq.keyframes : [];
+}
+
+function findSeqInitial(s: CompositionSpec, name: string): Record<string, unknown> {
+  const seq = s.sequences!.find((x) => x.name === name)!;
+  return ('initial' in seq && seq.initial) ? (seq.initial as Record<string, unknown>) : {};
+}
+
+describe('expandTransitions — crossfade', () => {
+  it('appends an alpha=0 fade-out keyframe to `from`', () => {
+    const out = expandTransitions(spec({
+      transitions: [{ kind: 'crossfade', from: 'A', to: 'B', at: 4, duration: 1 }],
+    }));
+    const kfs = findSeqKfs(out, 'A');
+    expect(kfs).toContainEqual({ at: 4, to: { alpha: 0 }, duration: 1, ease: 'none' });
+  });
+
+  it('sets initial.alpha=0 on `to` and appends an alpha=1 fade-in keyframe', () => {
+    const out = expandTransitions(spec({
+      transitions: [{ kind: 'crossfade', from: 'A', to: 'B', at: 4, duration: 1 }],
+    }));
+    expect(findSeqInitial(out, 'B').alpha).toBe(0);
+    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 4, to: { alpha: 1 }, duration: 1, ease: 'none' });
+  });
+
+  it('honors the `ease` field on both keyframes', () => {
+    const out = expandTransitions(spec({
+      transitions: [{ kind: 'crossfade', from: 'A', to: 'B', at: 4, duration: 1, ease: 'sine.inOut' }],
+    }));
+    expect(findSeqKfs(out, 'A').slice(-1)[0]!.ease).toBe('sine.inOut');
+    expect(findSeqKfs(out, 'B').slice(-1)[0]!.ease).toBe('sine.inOut');
+  });
+
+  it('throws if `to` already has a manual `initial.alpha`', () => {
+    const s = spec();
+    s.sequences![1] = { ...s.sequences![1]!, initial: { alpha: 0.5 } } as typeof s.sequences[1];
+    expect(() => expandTransitions({
+      ...s,
+      transitions: [{ kind: 'crossfade', from: 'A', to: 'B', at: 4, duration: 1 }],
+    })).toThrow(/"B".*already has.*initial\.alpha/i);
+  });
+
+  it('strips `transitions` from the returned spec', () => {
+    const out = expandTransitions(spec({
+      transitions: [{ kind: 'crossfade', from: 'A', to: 'B', at: 4, duration: 1 }],
+    }));
+    expect(out.transitions).toBeUndefined();
+  });
+
+  it('chained A→B→C: B gets both a fade-in and a fade-out keyframe', () => {
+    const out = expandTransitions(spec({
+      sequences: [
+        { type: 'text', name: 'A', text: 'a', at: 0, duration: 4 },
+        { type: 'text', name: 'B', text: 'b', at: 3, duration: 4 },
+        { type: 'text', name: 'C', text: 'c', at: 6, duration: 4 },
+      ],
+      transitions: [
+        { kind: 'crossfade', from: 'A', to: 'B', at: 3, duration: 1 },
+        { kind: 'crossfade', from: 'B', to: 'C', at: 6, duration: 1 },
+      ],
+    }));
+    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 3, to: { alpha: 1 }, duration: 1, ease: 'none' });
+    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 6, to: { alpha: 0 }, duration: 1, ease: 'none' });
+    expect(findSeqInitial(out, 'B').alpha).toBe(0);
+  });
+
+  it('does not mutate the input spec', () => {
+    const input = spec({ transitions: [{ kind: 'crossfade', from: 'A', to: 'B', at: 4, duration: 1 }] });
+    const before = JSON.stringify(input);
+    expandTransitions(input);
+    expect(JSON.stringify(input)).toBe(before);
   });
 });
