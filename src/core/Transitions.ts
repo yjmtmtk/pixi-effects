@@ -55,17 +55,21 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
   const compW = out.width;
   const compH = out.height;
 
-  // Pre-pass: any sequence participating in a mask-based transition (wipe /
-  // iris / dissolve) gets wrapped in a full-composition-sized wrapper
-  // Composition so the mask filter can be attached to a target whose
-  // local-coord origin matches the composition's world origin. Without the
-  // wrap, the filter target would be the bare sprite (e.g. text), and PIXI's
-  // filterArea / coord transforms would be relative to that sprite — making
-  // the mask geometry impossible to express in canvas-relative space.
+  // Pre-pass: any sequence participating in a transition that needs
+  // composition-relative geometry gets wrapped in a full-composition-sized
+  // wrapper Composition.
+  //
+  //   - mask transitions (wipe / iris / dissolve) need a target whose local
+  //     coord origin matches the composition's world origin so the filter's
+  //     canvas-relative math holds.
+  //   - zoom needs the scale transform to rotate around the composition
+  //     centre, not the sprite's top-left; the wrapper sits at the centre
+  //     with pivot at the centre, so scaling stays centred.
+  //
   // Wrapping is a no-op for sequences that are already full-size compositions.
   const masksParticipants = new Set<string>();
   for (const t of transitions) {
-    if (t.kind === 'wipe' || t.kind === 'iris' || t.kind === 'dissolve') {
+    if (t.kind === 'wipe' || t.kind === 'iris' || t.kind === 'dissolve' || t.kind === 'zoom') {
       masksParticipants.add(t.from);
       masksParticipants.add(t.to);
     }
@@ -185,9 +189,17 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
 // Wrap an arbitrary sequence in a Composition that fills the parent. The
 // wrapper takes over the sequence's name / at / duration (so the user's
 // transitions DSL still references the right scene), and the original
-// sequence becomes its sole child. Mask filters are then attached to the
-// wrapper Composition where local coords align with the parent's world
-// coords. If `seq` is already a Composition that fills the parent, no-op.
+// sequence becomes its sole child.
+//
+// The wrapper is positioned so its pivot sits at the composition centre and
+// its world position is the centre too — visually identical to position
+// (0,0) with no pivot, but it lets the zoom macro scale the wrapper around
+// the centre instead of around its top-left corner. Mask filters
+// (wipe / iris / dissolve) are unaffected because their canvas-relative math
+// only depends on the wrapper's *bbox*, which is still (0,0)-(W,H) in world
+// coords either way.
+//
+// If `seq` is already a Composition that fills the parent, no-op.
 function wrapAsFullComposition(seq: SequenceSpec, compW: number, compH: number): SequenceSpec {
   if (seq.type === 'composition' && seq.width === compW && seq.height === compH) {
     return seq;
@@ -206,6 +218,12 @@ function wrapAsFullComposition(seq: SequenceSpec, compW: number, compH: number):
     duration: seq.duration,
     width: compW,
     height: compH,
+    initial: {
+      x: compW / 2,
+      y: compH / 2,
+      pivotX: compW / 2,
+      pivotY: compH / 2,
+    },
     sequences: [inner],
   } as SequenceSpec;
 }
