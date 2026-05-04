@@ -1,7 +1,7 @@
 import { Container, Rectangle } from 'pixi.js';
 import { Sequence } from './Base';
 import { buildSequenceTree } from '../core/Composition';
-import type { CompositionSequenceSpec, AudioDescriptor, CompositionShape } from '../types';
+import type { CompositionSequenceSpec, AudioDescriptor, CompositionShape, SequenceSpec } from '../types';
 
 import type { gsap } from 'gsap';
 type Timeline = ReturnType<typeof gsap.timeline>;
@@ -41,6 +41,21 @@ export class CompositionSequence extends Sequence {
     );
     for (const child of this._children) {
       if (child.target) inner.addChild(child.target);
+      // If this child has a `mask` spec, build the mask sequence in the same
+      // composition shape, add its target to the same parent (so its
+      // transforms resolve in the same coord space), and wire PIXI's
+      // mask channel. PIXI v8 renders mask containers into the stencil /
+      // alpha buffer; they don't render as normal children.
+      const maskSpec = (child.spec as { mask?: SequenceSpec }).mask;
+      if (maskSpec && child.target) {
+        const built = await buildSequenceTree([maskSpec], this._compositionShape, this.root);
+        const maskSeq = built[0];
+        if (maskSeq?.target) {
+          inner.addChild(maskSeq.target);
+          (child.target as { mask: Container | null }).mask = maskSeq.target;
+          child.maskSequence = maskSeq;
+        }
+      }
     }
 
     this.buildFilters();
@@ -51,7 +66,13 @@ export class CompositionSequence extends Sequence {
     // Children's `at` is relative to this composition's start, so push them
     // forward by our absolute start time on the global timeline.
     const childOffset = offset + this.at;
-    for (const child of this._children) child.bindTimeline(timeline, childOffset);
+    for (const child of this._children) {
+      child.bindTimeline(timeline, childOffset);
+      // The mask shares the maskee's offset — its `at` is interpreted
+      // relative to the composition's start, just like the child itself,
+      // so a reveal-from-zero animation lines up naturally.
+      child.maskSequence?.bindTimeline(timeline, childOffset);
+    }
   }
 
   override collectAudio(out: AudioDescriptor[], baseTime: number): void {

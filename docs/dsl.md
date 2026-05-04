@@ -163,7 +163,7 @@ Every primitive draws centred on its local origin (so `anchorX`/`anchorY` and `p
 | `polygon` | `points: [[x,y], …]`                     | `open` (default false) |
 | `path`    | `d` (SVG path data)                      | —                      |
 
-**Style** lives on `initial` and is baked at build (not animatable in v1):
+**Style** is set on `initial` and animatable via keyframes:
 
 | Key           | Notes                                                        |
 |---------------|--------------------------------------------------------------|
@@ -172,6 +172,19 @@ Every primitive draws centred on its local origin (so `anchorX`/`anchorY` and `p
 | `strokeColor` | Hex string or number. Requires `strokeWidth > 0` to render.  |
 | `strokeAlpha` | 0..1, default 1                                              |
 | `strokeWidth` | Pixels. Default 0 (no stroke).                               |
+
+Colour keys (`fillColor`, `strokeColor`) tween through `gsap.utils.interpolate` so a hex-string keyframe blends through intermediate hues smoothly — no abrupt snap at the end. Numeric keys animate linearly.
+
+```ts
+{
+  type: 'shape', shape: 'circle', radius: 40,
+  initial: { x: 'W/2', y: 'H/2', fillColor: '#ff5577' },
+  keyframes: [
+    { at: 1, to: { fillColor: '#55ddaa' }, duration: 1.0, ease: 'sine.inOut' },
+    { at: 2, to: { strokeColor: '#fff', strokeWidth: 6 }, duration: 0.5 },
+  ],
+}
+```
 
 **Transforms animate normally.** `x`, `y`, `scale`, `scaleX`, `scaleY`, `rotation`, `alpha` etc. all go through the standard keyframe pipeline.
 
@@ -191,7 +204,46 @@ Every primitive draws centred on its local origin (so `anchorX`/`anchorY` and `p
 }
 ```
 
-> Animating fill / stroke colour or geometry (rebuilding the path each frame) is not supported in v1 — use transforms / alpha instead, or layer multiple shapes.
+> Geometry props themselves (`width`, `radius`, `points`, …) are baked at build time. Use `scale` / `scaleX` / `scaleY` for size animation.
+
+---
+
+## Masks
+
+Any sequence can carry an inline `mask` — itself a full sequence — that shapes which pixels of the maskee are visible. The mask runs in the same coordinate space as the maskee (added to the same parent composition) and shares its lifetime, so a circular avatar crop is just:
+
+```ts
+{
+  type: 'image', asset: 'photo',
+  initial: { x: 'W/2', y: 'H/2', anchorX: 0.5, anchorY: 0.5 },
+  mask: {
+    type: 'shape', shape: 'circle', radius: 130,
+    initial: { x: 'W/2', y: 'H/2', fillColor: '#ffffff' },
+  },
+}
+```
+
+The mask is itself a sequence, so it can have `keyframes` of its own — useful for reveal animations (a circle growing from `scale: 0` to full size, a rect wiping across, …):
+
+```ts
+// Iris reveal — image is wiped in by a growing circle
+{
+  type: 'image', asset: 'photo',
+  initial: { x: 'W/2', y: 'H/2', anchorX: 0.5, anchorY: 0.5 },
+  mask: {
+    type: 'shape', shape: 'circle', radius: 200,
+    initial: { x: 'W/2', y: 'H/2', fillColor: '#ffffff', scale: 0 },
+    keyframes: [
+      { at: 0, to: { scale: 1 }, duration: 1.0, ease: 'power2.out' },
+    ],
+  },
+}
+```
+
+Notes:
+- The mask sequence is rendered as a mask, not as a normal child — its `fillColor` / `strokeColor` only matter for which pixels are kept, not for the visible colour.
+- Any sequence type works as a mask (shape / image / text / nested composition); shapes are the natural choice for geometric reveals.
+- A left-to-right wipe needs the mask's pivot at its left edge. The default auto-centring makes `scaleX: 0 → 1` grow out from the centre; set `pivotX: -width/2` in the mask's `initial` to anchor it at the left.
 
 ---
 

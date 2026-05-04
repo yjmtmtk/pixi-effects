@@ -164,6 +164,21 @@ export interface SequenceCommon {
    * but the visual effect should cover the whole composition.
    */
   filterArea?: { x: number; y: number; width: number; height: number };
+  /**
+   * Inline mask spec. The mask sequence is built as a hidden sibling and
+   * wired via `target.mask` — it shapes which pixels of this sequence are
+   * visible. Mask coordinates live in the same space as this sequence
+   * (i.e. relative to the same parent composition).
+   *
+   * The mask is itself a sequence, so it can have its own `initial` and
+   * `keyframes` — useful for reveal animations (a circle growing from
+   * `radius: 0` to full-size). It defaults to running for this sequence's
+   * full lifetime.
+   *
+   * Any sequence type works as a mask; shapes are the natural choice for
+   * geometric reveals.
+   */
+  mask?: SequenceSpec;
 }
 
 export interface VideoSequenceSpec extends SequenceCommon {

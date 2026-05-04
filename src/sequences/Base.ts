@@ -18,6 +18,12 @@ export abstract class Sequence {
   at: number;
   duration: number | undefined;
   filters: NamedFilter[] = [];
+  /**
+   * Mask sequence built from `spec.mask`, if any. Built and added to the
+   * scene graph by the parent CompositionSequence; rendered as a mask
+   * (not a normal child) by PIXI when `target.mask = maskSequence.target`.
+   */
+  maskSequence: Sequence | null = null;
 
   constructor(spec: SequenceSpec, parent: CompositionShape | null, root: CompositionShape) {
     this.spec = spec;
@@ -69,6 +75,8 @@ export abstract class Sequence {
   }
 
   destroy(): void {
+    this.maskSequence?.destroy();
+    this.maskSequence = null;
     this.target?.destroy?.();
     this.target = null;
   }
