@@ -2,6 +2,7 @@ import { ImageSequence } from '../sequences/Image';
 import { TextSequence } from '../sequences/Text';
 import { AudioSequence } from '../sequences/Audio';
 import { VideoSequence } from '../sequences/Video';
+import { ShapeSequence } from '../sequences/Shape';
 import type { Sequence } from '../sequences/Base';
 import type { SequenceSpec, CompositionShape } from '../types';
 
@@ -20,6 +21,7 @@ const staticTypes: Partial<Record<SequenceSpec['type'], SequenceCtor>> = {
   text: TextSequence as unknown as SequenceCtor,
   audio: AudioSequence as unknown as SequenceCtor,
   video: VideoSequence as unknown as SequenceCtor,
+  shape: ShapeSequence as unknown as SequenceCtor,
 };
 
 export async function buildSequenceTree(

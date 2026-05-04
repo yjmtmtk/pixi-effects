@@ -135,6 +135,64 @@ Nested composition. Same shape as the root spec but with `type: 'composition'` a
 }
 ```
 
+### `shape`
+
+Parametric primitive backed by PIXI v8 `Graphics`. Six kinds, discriminated by `shape`. All geometry props accept the [expression language](#expressions), so dimensions can follow the canvas:
+
+```ts
+// Centered rounded panel that fills 80% of the canvas
+{
+  type: 'shape', shape: 'rect',
+  width: 'W * 0.8', height: 'H * 0.6', cornerRadius: 24,
+  initial: {
+    x: 'W/2', y: 'H/2',
+    fillColor: '#1a2640', fillAlpha: 0.85,
+    strokeColor: '#3a5680', strokeWidth: 2,
+  },
+}
+```
+
+Every primitive draws centred on its local origin (so `anchorX`/`anchorY` and `pivotX`/`pivotY` semantics line up with the other sequence types).
+
+| `shape`   | Required props                           | Optional               |
+|-----------|------------------------------------------|------------------------|
+| `rect`    | `width`, `height`                        | `cornerRadius`         |
+| `circle`  | `radius`                                 | —                      |
+| `ellipse` | `radiusX`, `radiusY`                     | —                      |
+| `line`    | `from: [x,y]`, `to: [x,y]`               | —                      |
+| `polygon` | `points: [[x,y], …]`                     | `open` (default false) |
+| `path`    | `d` (SVG path data)                      | —                      |
+
+**Style** lives on `initial` and is baked at build (not animatable in v1):
+
+| Key           | Notes                                                        |
+|---------------|--------------------------------------------------------------|
+| `fillColor`   | Hex string (`'#3399ff'`) or number (`0x3399ff`). Omit = no fill. |
+| `fillAlpha`   | 0..1, default 1                                              |
+| `strokeColor` | Hex string or number. Requires `strokeWidth > 0` to render.  |
+| `strokeAlpha` | 0..1, default 1                                              |
+| `strokeWidth` | Pixels. Default 0 (no stroke).                               |
+
+**Transforms animate normally.** `x`, `y`, `scale`, `scaleX`, `scaleY`, `rotation`, `alpha` etc. all go through the standard keyframe pipeline.
+
+```ts
+// SVG-path heart that scale-pops on entry, then beats twice
+{
+  type: 'shape', shape: 'path',
+  d: 'M 0 -20 C -30 -50 -70 -10 0 30 C 70 -10 30 -50 0 -20 Z',
+  initial: { x: 'W/2', y: 'H/2', fillColor: '#ff3366' },
+  keyframes: [
+    { at: 0,   from: { alpha: 0, scale: 0 },
+               to:   { alpha: 1, scale: 1 },
+               duration: 0.5, ease: 'back.out(2.5)' },
+    { at: 1.5, to: { scale: 1.2 }, duration: 0.3, ease: 'power2.out' },
+    { at: 1.8, to: { scale: 1.0 }, duration: 0.3, ease: 'power2.in' },
+  ],
+}
+```
+
+> Animating fill / stroke colour or geometry (rebuilding the path each frame) is not supported in v1 — use transforms / alpha instead, or layer multiple shapes.
+
 ---
 
 ## Assets

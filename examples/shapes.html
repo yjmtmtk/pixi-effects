@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>pixi-effects — shape primitives</title>
+  <style>
+    body { background: #0a0a0f; margin: 0; font-family: sans-serif; color: #ccc; padding: 16px; }
+    h1 { font-weight: 500; margin: 0 0 4px 0; }
+    p { font-size: 13px; color: #888; margin: 0 0 16px 0; max-width: 960px; }
+    p code { background: #1a1a22; padding: 1px 6px; border-radius: 3px; color: #b5d3ff; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Shape primitives</h1>
+  <p>Showcase of <code>type: 'shape'</code>: <code>rect</code>, <code>circle</code>, <code>ellipse</code>, <code>line</code>, <code>polygon</code>, and SVG <code>path</code>. Geometry follows the canvas via expressions; transforms (position, scale, rotation, alpha) animate through the standard keyframe pipeline.</p>
+  <canvas id="stage" width="1280" height="720"></canvas>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.10.0?bundle-deps",
+      "gsap":            "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":      "https://esm.sh/mediabunny"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../dist/index.js';
+    import { Controller } from '../dist/Controller.js';
+
+    const movie = new Movie();
+    window.__movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    await movie.init({
+      canvas: document.getElementById('stage'),
+      width: 1280, height: 720, duration: 9, frameRate: 30,
+      background: '#0a0a0f',
+      composition: {
+        sequences: [
+
+          // ── Background panel: rounded rect, slides up from below ──
+          {
+            type: 'shape', shape: 'rect',
+            width: 'W * 0.8', height: 'H * 0.6', cornerRadius: 24,
+            initial: {
+              x: 'W/2', y: 'H/2',
+              fillColor: '#1a2640', fillAlpha: 0.85,
+              strokeColor: '#3a5680', strokeWidth: 2,
+            },
+            keyframes: [
+              { at: 0, from: { y: 'H + 200', alpha: 0 },
+                       to:   { y: 'H/2',     alpha: 1 },
+                       duration: 0.8, ease: 'power3.out' },
+              { at: -0.6, to: { alpha: 0, y: 'H/2 - 40' }, duration: 0.6, ease: 'power2.in' },
+            ],
+          },
+
+          // ── Title text on top of the panel ──
+          {
+            type: 'text', text: 'shape primitives',
+            initial: { x: 'W/2', y: 'H * 0.32', anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+            keyframes: [
+              { at: 0.4, to: { alpha: 1 }, duration: 0.5 },
+              { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+            ],
+            style: { fontSize: 'GW * 0.05', fill: '#ffffff', fontWeight: 'bold' },
+          },
+
+          // ── Three pulsing circles ──
+          {
+            type: 'shape', shape: 'circle', radius: 38,
+            initial: { x: 'W * 0.32', y: 'H * 0.55', fillColor: '#ff5577' },
+            keyframes: [
+              { at: 1.0, from: { alpha: 0, scale: 0 },
+                         to:   { alpha: 1, scale: 1 },
+                         duration: 0.5, ease: 'back.out(2)' },
+              { at: 2.0, to: { scale: 1.2 }, duration: 0.5, ease: 'sine.inOut' },
+              { at: 2.5, to: { scale: 1.0 }, duration: 0.5, ease: 'sine.inOut' },
+              { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+            ],
+          },
+          {
+            type: 'shape', shape: 'circle', radius: 38,
+            initial: { x: 'W * 0.5',  y: 'H * 0.55', fillColor: '#55ddaa' },
+            keyframes: [
+              { at: 1.15, from: { alpha: 0, scale: 0 },
+                          to:   { alpha: 1, scale: 1 },
+                          duration: 0.5, ease: 'back.out(2)' },
+              { at: 2.15, to: { scale: 1.2 }, duration: 0.5, ease: 'sine.inOut' },
+              { at: 2.65, to: { scale: 1.0 }, duration: 0.5, ease: 'sine.inOut' },
+              { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+            ],
+          },
+          {
+            type: 'shape', shape: 'circle', radius: 38,
+            initial: { x: 'W * 0.68', y: 'H * 0.55', fillColor: '#5599ff' },
+            keyframes: [
+              { at: 1.30, from: { alpha: 0, scale: 0 },
+                          to:   { alpha: 1, scale: 1 },
+                          duration: 0.5, ease: 'back.out(2)' },
+              { at: 2.30, to: { scale: 1.2 }, duration: 0.5, ease: 'sine.inOut' },
+              { at: 2.80, to: { scale: 1.0 }, duration: 0.5, ease: 'sine.inOut' },
+              { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+            ],
+          },
+
+          // ── Spinning triangle (polygon) ──
+          {
+            type: 'shape', shape: 'polygon',
+            points: [[0, -50], [43, 25], [-43, 25]],
+            initial: {
+              x: 'W * 0.18', y: 'H * 0.75',
+              fillColor: '#ffaa55', alpha: 0,
+            },
+            keyframes: [
+              { at: 3.5, to: { alpha: 1 }, duration: 0.4 },
+              { at: 3.5, to: { rotation: Math.PI * 2 }, duration: 4, ease: 'none' },
+              { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+            ],
+          },
+
+          // ── Outlined ellipse, breathes ──
+          {
+            type: 'shape', shape: 'ellipse', radiusX: 90, radiusY: 50,
+            initial: {
+              x: 'W * 0.5', y: 'H * 0.78',
+              strokeColor: '#cc66ff', strokeWidth: 4, alpha: 0,
+            },
+            keyframes: [
+              { at: 3.7, to: { alpha: 1 }, duration: 0.4 },
+              { at: 4.2, to: { scale: 1.15 }, duration: 0.7, ease: 'sine.inOut' },
+              { at: 4.9, to: { scale: 1.0 },  duration: 0.7, ease: 'sine.inOut' },
+              { at: 5.6, to: { scale: 1.15 }, duration: 0.7, ease: 'sine.inOut' },
+              { at: 6.3, to: { scale: 1.0 },  duration: 0.7, ease: 'sine.inOut' },
+              { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+            ],
+          },
+
+          // ── SVG path heart, scale-pop ──
+          {
+            type: 'shape', shape: 'path',
+            d: 'M 0 -20 C -30 -50 -70 -10 0 30 C 70 -10 30 -50 0 -20 Z',
+            initial: {
+              x: 'W * 0.82', y: 'H * 0.75',
+              scale: 1.2,
+              fillColor: '#ff3366',
+              alpha: 0,
+            },
+            keyframes: [
+              { at: 4.0, from: { alpha: 0, scale: 0 },
+                         to:   { alpha: 1, scale: 1.2 },
+                         duration: 0.5, ease: 'back.out(2.5)' },
+              { at: 5.5, to: { scale: 1.4 }, duration: 0.3, ease: 'power2.out' },
+              { at: 5.8, to: { scale: 1.2 }, duration: 0.3, ease: 'power2.in' },
+              { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+            ],
+          },
+
+          // ── Underline (line), wipes in left → right via scaleX ──
+          {
+            type: 'shape', shape: 'line',
+            from: [-200, 0], to: [200, 0],
+            initial: {
+              x: 'W/2', y: 'H * 0.4',
+              strokeColor: '#88ccff', strokeWidth: 3,
+              scaleX: 0,
+            },
+            keyframes: [
+              { at: 0.7, to: { scaleX: 1 }, duration: 0.6, ease: 'power3.out' },
+              { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+            ],
+          },
+
+        ],
+      },
+    });
+  </script>
+</body>
+</html>

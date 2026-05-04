@@ -33,6 +33,13 @@ export type {
   TextSequenceSpec,
   AudioSequenceSpec,
   CompositionSequenceSpec,
+  ShapeSequenceSpec,
+  RectShapeSpec,
+  CircleShapeSpec,
+  EllipseShapeSpec,
+  LineShapeSpec,
+  PolygonShapeSpec,
+  PathShapeSpec,
   SequenceSpec,
   CompositionSpec,
 } from './types';

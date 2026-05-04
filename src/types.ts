@@ -196,12 +196,78 @@ export interface CompositionSequenceSpec extends SequenceCommon {
   sequences?: SequenceSpec[];
   transitions?: TransitionSpec[];
 }
+
+// ─── Shape sequence ──────────────────────────────────────────────────────
+//
+// `type: 'shape'` renders a parametric primitive (rect / circle / ellipse /
+// line / polygon / path) via PIXI v8 `Graphics`. Geometry properties
+// (width, radius, points, …) accept the usual expression language so they
+// can follow the canvas (`width: 'W * 0.5'`) and are resolved once at build.
+//
+// Style properties (`fillColor`, `fillAlpha`, `strokeColor`, `strokeAlpha`,
+// `strokeWidth`) live on the regular `initial` / `keyframes` surface and
+// animate via the standard pipeline — every frame the shape redraws itself
+// from its current style state, so colour/width tweens "just work".
+
+interface ShapeBase extends SequenceCommon {
+  type: 'shape';
+}
+
+export interface RectShapeSpec extends ShapeBase {
+  shape: 'rect';
+  width: PropValue;
+  height: PropValue;
+  /** Rounded corner radius. Default 0 (sharp). */
+  cornerRadius?: PropValue;
+}
+
+export interface CircleShapeSpec extends ShapeBase {
+  shape: 'circle';
+  radius: PropValue;
+}
+
+export interface EllipseShapeSpec extends ShapeBase {
+  shape: 'ellipse';
+  radiusX: PropValue;
+  radiusY: PropValue;
+}
+
+export interface LineShapeSpec extends ShapeBase {
+  shape: 'line';
+  /** Line endpoints relative to the shape's local origin. */
+  from: [PropValue, PropValue];
+  to: [PropValue, PropValue];
+}
+
+export interface PolygonShapeSpec extends ShapeBase {
+  shape: 'polygon';
+  /** Vertices in local space. The path is auto-closed. */
+  points: Array<[PropValue, PropValue]>;
+  /** When true, draw an open polyline instead of a closed polygon. Default false. */
+  open?: boolean;
+}
+
+export interface PathShapeSpec extends ShapeBase {
+  shape: 'path';
+  /** SVG path data (`d` attribute). Goes through PIXI's GraphicsContext.svg(). */
+  d: string;
+}
+
+export type ShapeSequenceSpec =
+  | RectShapeSpec
+  | CircleShapeSpec
+  | EllipseShapeSpec
+  | LineShapeSpec
+  | PolygonShapeSpec
+  | PathShapeSpec;
+
 export type SequenceSpec =
   | VideoSequenceSpec
   | ImageSequenceSpec
   | TextSequenceSpec
   | AudioSequenceSpec
-  | CompositionSequenceSpec;
+  | CompositionSequenceSpec
+  | ShapeSequenceSpec;
 
 /** Top-level composition (root node) — same as `CompositionSequenceSpec` minus the discriminant. */
 export interface CompositionSpec extends SequenceCommon {
