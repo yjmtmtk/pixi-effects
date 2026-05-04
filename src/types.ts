@@ -191,12 +191,26 @@ export interface VideoSequenceSpec extends SequenceCommon {
 export interface ImageSequenceSpec extends SequenceCommon {
   type: 'image';
   asset: string;
+  /**
+   * Colour space used to interpolate `tint` keyframes. Default `'rgb'`
+   * (linear sRGB lerp via PIXI's tint pipeline). Set to `'oklab'` /
+   * `'oklch'` for perceptually uniform interpolation — same semantics
+   * as on `shape`.
+   */
+  colorSpace?: 'rgb' | 'oklab' | 'oklch';
 }
 export interface TextSequenceSpec extends SequenceCommon {
   type: 'text';
   text?: string;
   /** Subset of PIXI v8 TextStyleOptions. String values may be exprs (e.g. fontSize: 'GW * 0.05'). */
   style?: Record<string, PropValue | { color?: PropValue; width?: PropValue }>;
+  /**
+   * Colour space used to interpolate `fill` keyframes. Default `'rgb'`.
+   * Set to `'oklab'` / `'oklch'` for perceptually uniform interpolation
+   * — same semantics as on `shape`. The text's fill is re-rasterised on
+   * every frame the tween is active.
+   */
+  colorSpace?: 'rgb' | 'oklab' | 'oklch';
 }
 export interface AudioSequenceSpec extends SequenceCommon {
   type: 'audio';

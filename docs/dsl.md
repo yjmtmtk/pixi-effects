@@ -67,6 +67,19 @@ Renders a [PIXI.Text](https://pixijs.com/8.x/guides/components/scene-objects/tex
 }
 ```
 
+The text's `fill` is also animatable via keyframes (under the `to`/`from`/`set` keys, not under `style`). Set `colorSpace` for perceptual interpolation:
+
+```ts
+{
+  type: 'text', text: 'COLORSPACE',
+  colorSpace: 'oklch',
+  style: { fill: '#ff0000', fontSize: 48, fontWeight: 'bold' },
+  keyframes: [
+    { at: 1, to: { fill: '#00ff00' }, duration: 2, ease: 'sine.inOut' },
+  ],
+}
+```
+
 ### `image`
 
 Renders a [PIXI.Sprite](https://pixijs.com/8.x/guides/components/scene-objects/sprite/sprite) from a registered asset. Intrinsic `w`/`h` come from the loaded texture.
@@ -76,6 +89,19 @@ Renders a [PIXI.Sprite](https://pixijs.com/8.x/guides/components/scene-objects/s
   type: 'image',
   asset: 'logo',
   initial: { x: 'GW/2 - w/2', y: 'GH/2 - h/2' },
+}
+```
+
+`tint` is animatable via keyframes. Optionally set `colorSpace` to interpolate the tint perceptually:
+
+```ts
+{
+  type: 'image', asset: 'logo',
+  colorSpace: 'oklch',                 // smooth hue sweep instead of muddy sRGB
+  initial: { tint: '#ff0000' },
+  keyframes: [
+    { at: 1, to: { tint: '#00ff00' }, duration: 2, ease: 'sine.inOut' },
+  ],
 }
 ```
 
@@ -225,7 +251,18 @@ Per-shape choice of how colour keyframes are interpolated. Default `'rgb'` (line
 }
 ```
 
-> Geometry props themselves (`width`, `radius`, `points`, …) are baked at build time. Use `scale` / `scaleX` / `scaleY` for size animation.
+**Scalar geometry is animatable.** `width`, `height`, `cornerRadius` (rect), `radius` (circle), `radiusX` / `radiusY` (ellipse) all flow through the same per-frame redraw and can be tweened via keyframes — useful for progress bars (animate `width`), pulsing icons (animate `radius`), or shape-morph callouts. Array geometry (polygon `points`, line endpoints, path `d`) is baked at build time; use `scale` / `scaleX` / `scaleY` for those.
+
+```ts
+// Progress bar — width animates from 0 to full canvas width
+{
+  type: 'shape', shape: 'rect', width: 0, height: 18, cornerRadius: 9,
+  initial: { x: 0, y: 'H/2', pivotX: 0, fillColor: '#5599ff' },
+  keyframes: [
+    { at: 0, to: { width: 'W' }, duration: 4, ease: 'sine.inOut' },
+  ],
+}
+```
 
 ---
 

@@ -31,7 +31,20 @@ function walk(
     return out;
   }
   if (isExpr(value) && !(currentKey !== null && skip.has(currentKey))) {
+    // Hex colour strings (`#fff`, `#ff0000`, `#ff0000ff`) are passed through
+    // verbatim — they're never expressions. Same for `rgb(...)` /
+    // `rgba(...)` / `oklch(...)` etc. Without this, a bare `tint: '#ff0000'`
+    // would be evaluated and silently zero out.
+    if (looksLikeColorString(value)) return value;
     return evaluateExpr(value, scope);
   }
   return value;
+}
+
+function looksLikeColorString(s: string): boolean {
+  if (s.length === 0) return false;
+  if (s.charCodeAt(0) === 35 /* '#' */) return true;
+  // Quick prefix check for css-style colour functions: rgb, rgba, hsl,
+  // hsla, oklab, oklch, lab, lch.
+  return /^(rgb|hsl|oklab|oklch|lab|lch)\b/i.test(s);
 }

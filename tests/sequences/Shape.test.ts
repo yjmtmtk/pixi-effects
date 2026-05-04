@@ -173,6 +173,70 @@ describe('ShapeSequence — initial style', () => {
   });
 });
 
+describe('ShapeSequence — geometry animation', () => {
+  it('circle radius is keyframable; onRender re-issues the new radius', async () => {
+    const { gsap } = await import('gsap');
+    const seq = await build({
+      type: 'shape', shape: 'circle', radius: 50, duration: 5,
+      initial: { fillColor: '#fff' },
+      keyframes: [
+        { at: 0, to: { radius: 100 }, duration: 1, ease: 'none' },
+      ],
+    });
+    const tl = gsap.timeline({ paused: true });
+    seq.bindTimeline(tl);
+    const g = (seq as unknown as { target: { onRender: () => void } }).target;
+    const state = (seq as unknown as { _state: { radius: number } })._state;
+
+    expect(state.radius).toBe(50);
+    tl.time(0.5);
+    expect(state.radius).toBeCloseTo(75, 1);
+
+    // onRender should re-issue .circle() with the LIVE radius — not the
+    // baked initial value.
+    calls.length = 0;
+    g.onRender();
+    expect(calls.find(c => c.method === 'circle')?.args).toEqual([0, 0, state.radius]);
+  });
+
+  it('rect width / height / cornerRadius all animate independently', async () => {
+    const { gsap } = await import('gsap');
+    const seq = await build({
+      type: 'shape', shape: 'rect',
+      width: 100, height: 50, cornerRadius: 0,
+      duration: 5,
+      initial: { fillColor: '#fff' },
+      keyframes: [
+        { at: 0, to: { width: 200, height: 100, cornerRadius: 20 }, duration: 1, ease: 'none' },
+      ],
+    });
+    const tl = gsap.timeline({ paused: true });
+    seq.bindTimeline(tl);
+    const state = (seq as unknown as { _state: { width: number; height: number; cornerRadius: number } })._state;
+
+    tl.time(0);   expect(state.width).toBe(100);
+    tl.time(0.5); expect(state.width).toBeCloseTo(150, 1); expect(state.height).toBeCloseTo(75, 1); expect(state.cornerRadius).toBeCloseTo(10, 1);
+    tl.time(1);   expect(state.width).toBe(200);
+  });
+
+  it('ellipse radiusX / radiusY animate', async () => {
+    const { gsap } = await import('gsap');
+    const seq = await build({
+      type: 'shape', shape: 'ellipse', radiusX: 80, radiusY: 30, duration: 5,
+      initial: { fillColor: '#fff' },
+      keyframes: [
+        { at: 0, to: { radiusX: 40, radiusY: 60 }, duration: 1, ease: 'none' },
+      ],
+    });
+    const tl = gsap.timeline({ paused: true });
+    seq.bindTimeline(tl);
+    const state = (seq as unknown as { _state: { radiusX: number; radiusY: number } })._state;
+    tl.time(0.5);
+    expect(state.radiusX).toBeCloseTo(60, 1);
+    expect(state.radiusY).toBeCloseTo(45, 1);
+  });
+});
+
 describe('ShapeSequence — keyframe chaining', () => {
   // Regression for the "fromValue locked at bind time" bug: when a
   // keyframe omits `from`, the tween must read the live state at tween
