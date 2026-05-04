@@ -201,7 +201,20 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
 //
 // If `seq` is already a Composition that fills the parent, no-op.
 function wrapAsFullComposition(seq: SequenceSpec, compW: number, compH: number): SequenceSpec {
+  // Centering initial: pivot at composition centre + position at composition
+  // centre. Visually identity at scale 1, but it lets zoom scale the target
+  // around the centre instead of around the top-left corner.
+  const centring: Record<string, unknown> = {
+    x: compW / 2,
+    y: compH / 2,
+    pivotX: compW / 2,
+    pivotY: compH / 2,
+  };
   if (seq.type === 'composition' && seq.width === compW && seq.height === compH) {
+    // Already full-canvas. Merge centring into the existing initial — any
+    // user-set value (e.g. an explicit x) takes precedence.
+    const existing = (seq as { initial?: Record<string, unknown> }).initial;
+    (seq as { initial?: Record<string, unknown> }).initial = { ...centring, ...(existing ?? {}) };
     return seq;
   }
   const inner: SequenceSpec = { ...(seq as object) } as SequenceSpec;
@@ -218,12 +231,7 @@ function wrapAsFullComposition(seq: SequenceSpec, compW: number, compH: number):
     duration: seq.duration,
     width: compW,
     height: compH,
-    initial: {
-      x: compW / 2,
-      y: compH / 2,
-      pivotX: compW / 2,
-      pivotY: compH / 2,
-    },
+    initial: centring,
     sequences: [inner],
   } as SequenceSpec;
 }
