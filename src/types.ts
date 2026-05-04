@@ -226,6 +226,19 @@ export interface CompositionSequenceSpec extends SequenceCommon {
 
 interface ShapeBase extends SequenceCommon {
   type: 'shape';
+  /**
+   * Colour space used to interpolate `fillColor` / `strokeColor` keyframes.
+   *
+   * - `'rgb'` (default): linear RGB tween via `gsap.utils.interpolate`.
+   *   Fast, but a red → green ramp passes through muddy brown / olive
+   *   greys at the midpoint because intermediate sRGB values are
+   *   perceptually unbalanced.
+   * - `'oklab'` / `'oklch'`: perceptually uniform colour spaces. Hue and
+   *   chroma stay vibrant through the transition. `oklch` interpolates
+   *   hue along the shorter angular path, giving smooth rainbow-like
+   *   sweeps; `oklab` is straight-line in the chromaticity plane.
+   */
+  colorSpace?: 'rgb' | 'oklab' | 'oklch';
 }
 
 export interface RectShapeSpec extends ShapeBase {

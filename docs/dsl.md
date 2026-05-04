@@ -173,7 +173,28 @@ Every primitive draws centred on its local origin (so `anchorX`/`anchorY` and `p
 | `strokeAlpha` | 0..1, default 1                                              |
 | `strokeWidth` | Pixels. Default 0 (no stroke).                               |
 
-Colour keys (`fillColor`, `strokeColor`) tween through `gsap.utils.interpolate` so a hex-string keyframe blends through intermediate hues smoothly — no abrupt snap at the end. Numeric keys animate linearly.
+Colour keys (`fillColor`, `strokeColor`) tween smoothly between hues — no snap at the end. Numeric keys (`fillAlpha` / `strokeAlpha` / `strokeWidth`) animate linearly.
+
+#### `colorSpace`
+
+Per-shape choice of how colour keyframes are interpolated. Default `'rgb'` (linear sRGB lerp via `gsap.utils.interpolate`) is fast but classic — a red → green ramp passes through muddy olive at the midpoint. The two perceptually uniform options keep saturation through the transition:
+
+| Value     | Behaviour                                                                                         |
+|-----------|---------------------------------------------------------------------------------------------------|
+| `'rgb'`   | Default. Linear sRGB lerp.                                                                        |
+| `'oklab'` | Straight line in OKLab's chromaticity plane. Brighter, more chromatic midpoints.                  |
+| `'oklch'` | (L, C, h) with hue along the shorter angular path. Smooth rainbow-style sweeps; ideal for hue cycling. |
+
+```ts
+{
+  type: 'shape', shape: 'circle', radius: 40,
+  colorSpace: 'oklch',                       // ← red → green via vibrant orange
+  initial: { fillColor: '#ff0000' },
+  keyframes: [
+    { at: 1, to: { fillColor: '#00ff00' }, duration: 2, ease: 'sine.inOut' },
+  ],
+}
+```
 
 ```ts
 {

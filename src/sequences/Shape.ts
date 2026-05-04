@@ -3,6 +3,7 @@ import { gsap } from 'gsap';
 import { Sequence } from './Base';
 import { evaluateExpr, isExpr } from '../expr/Parser';
 import { applyKeyframes, applyInitial, resolveAt } from '../core/Timeline';
+import { buildColorInterp, type ColorSpace, type ColorInput } from '../expr/colorInterp';
 import type { Scope } from '../expr/Scope';
 import type {
   ShapeSequenceSpec,
@@ -99,9 +100,10 @@ export class ShapeSequence extends Sequence {
 
     // Style: feed the same keyframe stream into a parallel set of tweens
     // targeting `_state`. Colour keys (fillColor / strokeColor) interpolate
-    // through gsap.utils.interpolate so a hex-string tween blends through
-    // intermediate colours instead of snapping at the end.
-    bindStyleKeyframes(timeline, this._state, this.spec.keyframes ?? [], this.duration!, scope, offset);
+    // through gsap.utils.interpolate (or OKLab / OKLCH if `colorSpace` is
+    // set on the spec) so a hex-string tween blends smoothly between hues.
+    const colorSpace: ColorSpace = (this.spec as { colorSpace?: ColorSpace }).colorSpace ?? 'rgb';
+    bindStyleKeyframes(timeline, this._state, this.spec.keyframes ?? [], this.duration!, scope, offset, colorSpace);
 
     const startTime = offset + this.at;
     const endTime = startTime + this.duration!;
@@ -176,6 +178,7 @@ function bindStyleKeyframes(
   parentDuration: number,
   scope: Scope,
   offset: number,
+  colorSpace: ColorSpace,
 ): void {
   for (const kf of keyframes) {
     const at = offset + resolveAt(kf.at, parentDuration);
@@ -202,13 +205,13 @@ function bindStyleKeyframes(
       const key = k as StyleKey;
       const fromRaw = fromStyle?.[key];
       const toRaw = toStyle?.[key];
-      const fromValue = fromRaw !== undefined
-        ? resolveStyleValue(key, fromRaw, scope)
-        : (state as unknown as Record<string, unknown>)[key];
-      const toValue = toRaw !== undefined
-        ? resolveStyleValue(key, toRaw, scope)
-        : (state as unknown as Record<string, unknown>)[key];
-      tweenStyleKey(timeline, state, key, fromValue, toValue, duration, ease, at);
+      // Crucially, only resolve `from` when the user actually specified it.
+      // Otherwise leave it undefined so the tween captures the live state
+      // value WHEN it starts (not at bind time, which would lock every
+      // chained keyframe back to the initial value — masking later changes).
+      const fromValue = fromRaw !== undefined ? resolveStyleValue(key, fromRaw, scope) : undefined;
+      const toValue   = toRaw   !== undefined ? resolveStyleValue(key, toRaw,   scope) : undefined;
+      tweenStyleKey(timeline, state, key, fromValue, toValue, duration, ease, at, colorSpace);
     }
   }
 }
@@ -217,27 +220,42 @@ function tweenStyleKey(
   timeline: Timeline,
   state: StyleState,
   key: StyleKey,
-  fromValue: unknown,
+  fromValue: unknown,    // undefined = pick up live state at tween start
   toValue: unknown,
   duration: number,
   ease: string,
   at: number,
+  colorSpace: ColorSpace,
 ): void {
-  if (COLOR_KEYS.has(key) && fromValue !== undefined && toValue !== undefined) {
-    // gsap.utils.interpolate handles hex strings and 0xRRGGBB numbers.
-    const interp = gsap.utils.interpolate(fromValue, toValue) as (p: number) => unknown;
+  if (COLOR_KEYS.has(key) && toValue !== undefined) {
+    // Build the colour interpolator at tween start so chained keyframes
+    // pick up the previous tween's end colour automatically.
+    let interp: ((p: number) => unknown) | null = null;
     const proxy = { p: 0 };
     timeline.fromTo(
       proxy,
       { p: 0 },
-      { p: 1, duration, ease, onUpdate: () => { (state as unknown as Record<string, unknown>)[key] = interp(proxy.p); } },
+      {
+        p: 1, duration, ease,
+        onStart: () => {
+          const startColor = (fromValue !== undefined ? fromValue : (state as unknown as Record<string, unknown>)[key]) as ColorInput | undefined;
+          if (startColor === undefined) return; // nothing to tween from
+          interp = colorSpace === 'rgb'
+            ? (gsap.utils.interpolate(startColor, toValue as ColorInput) as (p: number) => unknown)
+            : buildColorInterp(startColor, toValue as ColorInput, colorSpace);
+        },
+        onUpdate: () => { if (interp) (state as unknown as Record<string, unknown>)[key] = interp(proxy.p); },
+      },
       at,
     );
   } else if (toValue !== undefined) {
     // Numeric keys (fillAlpha, strokeAlpha, strokeWidth).
     if (fromValue !== undefined) {
+      // Only force a starting value when `from` was explicit on the keyframe.
       timeline.fromTo(state, { [key]: fromValue }, { [key]: toValue, duration, ease }, at);
     } else {
+      // Standard `.to()` picks up the live state value at tween start —
+      // chains correctly through prior keyframes.
       timeline.to(state, { [key]: toValue, duration, ease }, at);
     }
   }

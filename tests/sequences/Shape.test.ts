@@ -173,6 +173,55 @@ describe('ShapeSequence — initial style', () => {
   });
 });
 
+describe('ShapeSequence — keyframe chaining', () => {
+  // Regression for the "fromValue locked at bind time" bug: when a
+  // keyframe omits `from`, the tween must read the live state at tween
+  // start (not capture the initial value at bind time and snap back).
+  it('a strokeWidth tween chained 4→8→4 stays continuous (no snap-back)', async () => {
+    const { gsap } = await import('gsap');
+    const seq = await build({
+      type: 'shape', shape: 'circle', radius: 30, duration: 5,
+      initial: { strokeColor: '#fff', strokeWidth: 4 },
+      keyframes: [
+        { at: 0, to: { strokeWidth: 8 }, duration: 1, ease: 'none' },
+        { at: 1, to: { strokeWidth: 4 }, duration: 1, ease: 'none' },
+      ],
+    });
+
+    const tl = gsap.timeline({ paused: true });
+    seq.bindTimeline(tl);
+    const state = (seq as unknown as { _state: { strokeWidth: number } })._state;
+
+    tl.time(0);   expect(state.strokeWidth).toBeCloseTo(4, 1);
+    tl.time(1);   expect(state.strokeWidth).toBeCloseTo(8, 1); // peak after the 4→8 ramp
+    tl.time(1.5); expect(state.strokeWidth).toBeCloseTo(6, 1); // mid-tween of the 8→4 ramp
+    tl.time(2);   expect(state.strokeWidth).toBeCloseTo(4, 1); // returned to 4
+  });
+
+  it('a colour tween chained #cc66ff → #88ccff → #cc66ff sweeps both directions', async () => {
+    const { gsap } = await import('gsap');
+    const seq = await build({
+      type: 'shape', shape: 'circle', radius: 30, duration: 5,
+      initial: { strokeColor: '#cc66ff', strokeWidth: 4 },
+      keyframes: [
+        { at: 0, to: { strokeColor: '#88ccff' }, duration: 1, ease: 'none' },
+        { at: 1, to: { strokeColor: '#cc66ff' }, duration: 1, ease: 'none' },
+      ],
+    });
+
+    const tl = gsap.timeline({ paused: true });
+    seq.bindTimeline(tl);
+    const state = (seq as unknown as { _state: { strokeColor: string } })._state;
+
+    // Spot-check: the second tween's midpoint must NOT equal the start
+    // colour — it should be midway back from #88ccff toward #cc66ff.
+    tl.time(1);   const peak = state.strokeColor;
+    tl.time(1.5); const back = state.strokeColor;
+    expect(back).not.toBe(peak);
+    expect(back).not.toBe('#cc66ff');
+  });
+});
+
 describe('ShapeSequence — animated style', () => {
   // The redraw closure is set on `target.onRender` and reads from the
   // shape's `_state`. Manually invoking it lets us prove that mutating
