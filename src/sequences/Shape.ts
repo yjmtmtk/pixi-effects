@@ -42,6 +42,12 @@ export class ShapeSequence extends Sequence {
     const bounds = graphics.getLocalBounds();
     this.intrinsicWidth = bounds.width;
     this.intrinsicHeight = bounds.height;
+    // Default pivot to the visual centre so `x` / `y` position the centre
+    // for every shape kind — uniformly. Built-in primitives (rect, circle,
+    // ellipse) are already drawn around (0, 0) so this is a no-op for them;
+    // user-coord shapes (polygon, line, path) become naturally centred.
+    // A user-supplied initial.pivotX / pivotY overrides this in bindTimeline.
+    graphics.pivot.set(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
 
     this.buildFilters();
   }

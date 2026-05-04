@@ -4,6 +4,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // GraphicsContext to record the calls drawShape() makes — that's all we
 // need to verify routing per shape kind and expression resolution.
 const calls: Array<{ method: string; args: unknown[] }> = [];
+// Per-test override for what `getLocalBounds()` returns. Lets the
+// auto-centring test exercise the pivot computation without having to
+// implement real bbox math in the mock.
+let nextBounds: { x: number; y: number; width: number; height: number } = { x: 0, y: 0, width: 0, height: 0 };
+let lastGraphics: { pivot: { x: number; y: number; set: (x: number, y: number) => void } } | null = null;
 
 vi.mock('pixi.js', () => {
   class Rectangle { constructor(public x: number, public y: number, public width: number, public height: number) {} }
@@ -19,7 +24,8 @@ vi.mock('pixi.js', () => {
   }
   class Graphics extends Container {
     context: unknown = null;
-    constructor(opts?: { label?: string }) { super(opts); }
+    pivot = { x: 0, y: 0, set(x: number, y: number) { this.x = x; this.y = y; } };
+    constructor(opts?: { label?: string }) { super(opts); lastGraphics = this; }
     private _record(method: string, ...args: unknown[]) { calls.push({ method, args }); return this; }
     rect(...args: unknown[]) { return this._record('rect', ...args); }
     roundRect(...args: unknown[]) { return this._record('roundRect', ...args); }
@@ -31,7 +37,7 @@ vi.mock('pixi.js', () => {
     path(...args: unknown[]) { return this._record('path', ...args); }
     fill(...args: unknown[]) { return this._record('fill', ...args); }
     stroke(...args: unknown[]) { return this._record('stroke', ...args); }
-    getLocalBounds() { return new Rectangle(0, 0, 0, 0); }
+    getLocalBounds() { return new Rectangle(nextBounds.x, nextBounds.y, nextBounds.width, nextBounds.height); }
   }
   class GraphicsPath {
     constructor(public svgD: string) { calls.push({ method: 'GraphicsPath', args: [svgD] }); }
@@ -56,7 +62,11 @@ import type { ShapeSequenceSpec, CompositionShape } from '../../src/types';
 
 const root: CompositionShape = { width: 1280, height: 720, duration: 10 };
 
-beforeEach(() => { calls.length = 0; });
+beforeEach(() => {
+  calls.length = 0;
+  nextBounds = { x: 0, y: 0, width: 0, height: 0 };
+  lastGraphics = null;
+});
 
 function build(spec: ShapeSequenceSpec) {
   const seq = new ShapeSequence(spec, root, root);
@@ -159,5 +169,30 @@ describe('ShapeSequence — initial style', () => {
     expect(calls.some(c => c.method === 'rect')).toBe(true);
     expect(calls.some(c => c.method === 'fill')).toBe(false);
     expect(calls.some(c => c.method === 'stroke')).toBe(false);
+  });
+});
+
+describe('ShapeSequence — auto-centring via pivot', () => {
+  it('symmetrical bbox (rect / circle / ellipse) leaves pivot at (0, 0)', async () => {
+    nextBounds = { x: -50, y: -50, width: 100, height: 100 };
+    await build({ type: 'shape', shape: 'circle', radius: 50, duration: 1 });
+    expect(lastGraphics?.pivot.x).toBe(0);
+    expect(lastGraphics?.pivot.y).toBe(0);
+  });
+
+  it('off-centre bbox (polygon / path) sets pivot to the bbox centre', async () => {
+    // E.g. an SVG-path heart whose bbox happens to sit at x in [-70, 70],
+    // y in [-50, 30] → centre is (0, -10).
+    nextBounds = { x: -70, y: -50, width: 140, height: 80 };
+    await build({ type: 'shape', shape: 'path', d: 'M 0 0 Z', duration: 1 });
+    expect(lastGraphics?.pivot.x).toBe(0);
+    expect(lastGraphics?.pivot.y).toBe(-10);
+  });
+
+  it('non-zero bbox origin (e.g. polygon shifted right) shifts pivot accordingly', async () => {
+    nextBounds = { x: 20, y: 0, width: 80, height: 60 };
+    await build({ type: 'shape', shape: 'polygon', points: [[20, 0], [100, 0], [60, 60]], duration: 1 });
+    expect(lastGraphics?.pivot.x).toBe(60); // 20 + 80/2
+    expect(lastGraphics?.pivot.y).toBe(30); // 0 + 60/2
   });
 });
