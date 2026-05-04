@@ -42,8 +42,10 @@
       composition: {
         sequences: [
 
-          // ── Progress bar — width animates 0 → full, with the rounded
-          //     corners staying proportional to the bar height.
+          // ── Progress bar — width animates 0 → full. The fill rect uses
+          //     `anchorX: 0` so its LEFT edge stays pinned at x = W*0.15
+          //     while width grows rightward (a left-anchored progress bar).
+          //     The default `anchorX: 0.5` would expand symmetrically.
           {
             type: 'shape', shape: 'rect',
             width: 'W * 0.7', height: 18, cornerRadius: 9,
@@ -52,15 +54,12 @@
               fillColor: '#1a2640', strokeColor: '#3a5680', strokeWidth: 2,
             },
           },
-          // The fill — pivot pinned to the LEFT edge so the width animation
-          // grows the bar rightward. (Default centre-pivot would expand both
-          // sides.) Animate `width` directly: native, no scaling, sharp edges.
           {
             type: 'shape', shape: 'rect',
             width: 0, height: 18, cornerRadius: 9,
+            anchorX: 0,
             initial: {
               x: 'W * 0.15', y: 'H * 0.30',
-              pivotX: 0, // override the auto bbox-centre — keep at local origin
               fillColor: '#5599ff',
             },
             keyframes: [

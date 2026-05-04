@@ -22,7 +22,7 @@ type Timeline = ReturnType<typeof gsap.timeline>;
 // `LIVE_KEYS` is the union — any key in this set is stripped from the
 // standard transform/keyframe pipeline and routed through `_state` instead.
 type StyleKey = 'fillColor' | 'fillAlpha' | 'strokeColor' | 'strokeAlpha' | 'strokeWidth';
-type GeometryKey = 'width' | 'height' | 'cornerRadius' | 'radius' | 'radiusX' | 'radiusY';
+type GeometryKey = 'width' | 'height' | 'cornerRadius' | 'radius' | 'radiusX' | 'radiusY' | 'anchorX' | 'anchorY';
 type LiveKey = StyleKey | GeometryKey;
 
 const STYLE_KEYS = ['fillColor', 'fillAlpha', 'strokeColor', 'strokeAlpha', 'strokeWidth'] as const;
@@ -30,15 +30,21 @@ const COLOR_KEYS = new Set<LiveKey>(['fillColor', 'strokeColor']);
 
 // Per-shape-kind set of geometry keys that are animatable. Array geometry
 // (polygon points, line endpoints, path `d`) isn't animated in v1 — those
-// are baked once at build.
+// are baked once at build. `anchorX` / `anchorY` are also animatable —
+// useful for "morph from left-anchored to centred" tricks.
 const GEOMETRY_KEYS_BY_SHAPE: Record<ShapeSequenceSpec['shape'], readonly GeometryKey[]> = {
-  rect:    ['width', 'height', 'cornerRadius'],
-  circle:  ['radius'],
-  ellipse: ['radiusX', 'radiusY'],
+  rect:    ['width', 'height', 'cornerRadius', 'anchorX', 'anchorY'],
+  circle:  ['radius', 'anchorX', 'anchorY'],
+  ellipse: ['radiusX', 'radiusY', 'anchorX', 'anchorY'],
   line:    [],
   polygon: [],
   path:    [],
 };
+
+// Shape kinds whose geometry is drawn relative to a configurable anchor —
+// they don't need the build-time auto-pivot that user-coord shapes
+// (line / polygon / path) rely on for visual centring.
+const ANCHORED_SHAPES = new Set<ShapeSequenceSpec['shape']>(['rect', 'circle', 'ellipse']);
 
 interface ShapeState {
   // style
@@ -54,6 +60,8 @@ interface ShapeState {
   radius?: number;
   radiusX?: number;
   radiusY?: number;
+  anchorX?: number;
+  anchorY?: number;
 }
 
 export class ShapeSequence extends Sequence {
@@ -100,12 +108,15 @@ export class ShapeSequence extends Sequence {
     const bounds = graphics.getLocalBounds();
     this.intrinsicWidth = bounds.width;
     this.intrinsicHeight = bounds.height;
-    // Default pivot to the visual centre so `x` / `y` position the centre
-    // for every shape kind — uniformly. Built-in primitives (rect, circle,
-    // ellipse) are already drawn around (0, 0) so this is a no-op for them;
-    // user-coord shapes (polygon, line, path) become naturally centred.
+    // Auto-pivot only for user-coord shapes (line / polygon / path) — they
+    // need it to compensate for whatever local origin the user picked.
+    // Anchored shapes (rect / circle / ellipse) already control their own
+    // origin via `anchorX` / `anchorY`; setting pivot here would double-up
+    // and surprise the user.
     // A user-supplied initial.pivotX / pivotY overrides this in bindTimeline.
-    graphics.pivot.set(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    if (!ANCHORED_SHAPES.has(this.spec.shape)) {
+      graphics.pivot.set(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    }
 
     // Per-frame redraw: PIXI v8 `Container.onRender` fires during render, so
     // we read the (possibly tweened) `_state` and re-issue the geometry +
@@ -230,14 +241,31 @@ function drawRectFromState(g: Graphics, s: ShapeState): void {
   const w = s.width ?? 0;
   const h = s.height ?? 0;
   const r = s.cornerRadius ?? 0;
-  if (r > 0) g.roundRect(-w / 2, -h / 2, w, h, r);
-  else       g.rect(-w / 2, -h / 2, w, h);
+  const ax = s.anchorX ?? 0.5;
+  const ay = s.anchorY ?? 0.5;
+  // The local origin sits at (anchorX * w, anchorY * h) of the rect.
+  // anchorX:0 → left edge at origin (rect grows rightward when w animates).
+  // anchorX:0.5 → centred (default).
+  // (`0 - x` rather than `-x` to avoid JS's -0 quirk in the ax=0 case.)
+  const x = 0 - ax * w;
+  const y = 0 - ay * h;
+  if (r > 0) g.roundRect(x, y, w, h, r);
+  else       g.rect(x, y, w, h);
 }
 function drawCircleFromState(g: Graphics, s: ShapeState): void {
-  g.circle(0, 0, s.radius ?? 0);
+  const r = s.radius ?? 0;
+  const ax = s.anchorX ?? 0.5;
+  const ay = s.anchorY ?? 0.5;
+  // Anchor on the bbox of the circle: (ax, ay) in [0..1] × bbox (2r × 2r).
+  // ax:0 → left edge at origin (centre at +r along x).
+  g.circle((0.5 - ax) * 2 * r, (0.5 - ay) * 2 * r, r);
 }
 function drawEllipseFromState(g: Graphics, s: ShapeState): void {
-  g.ellipse(0, 0, s.radiusX ?? 0, s.radiusY ?? 0);
+  const rx = s.radiusX ?? 0;
+  const ry = s.radiusY ?? 0;
+  const ax = s.anchorX ?? 0.5;
+  const ay = s.anchorY ?? 0.5;
+  g.ellipse((0.5 - ax) * 2 * rx, (0.5 - ay) * 2 * ry, rx, ry);
 }
 function makeLineDraw(spec: LineShapeSpec, scope: Scope): (g: Graphics) => void {
   const fx = num(spec.from[0], scope);

@@ -261,17 +261,31 @@ export interface RectShapeSpec extends ShapeBase {
   height: PropValue;
   /** Rounded corner radius. Default 0 (sharp). */
   cornerRadius?: PropValue;
+  /**
+   * Where the local origin sits relative to the rect's bounding box.
+   * `0` = left / top edge, `0.5` = centre (default), `1` = right / bottom
+   * edge. Animating `width` with `anchorX: 0` makes the bar grow
+   * rightward (progress-bar style) without the left edge drifting.
+   */
+  anchorX?: PropValue;
+  anchorY?: PropValue;
 }
 
 export interface CircleShapeSpec extends ShapeBase {
   shape: 'circle';
   radius: PropValue;
+  /** See RectShapeSpec.anchorX. Default 0.5 (centre). */
+  anchorX?: PropValue;
+  anchorY?: PropValue;
 }
 
 export interface EllipseShapeSpec extends ShapeBase {
   shape: 'ellipse';
   radiusX: PropValue;
   radiusY: PropValue;
+  /** See RectShapeSpec.anchorX. Default 0.5 (centre). */
+  anchorX?: PropValue;
+  anchorY?: PropValue;
 }
 
 export interface LineShapeSpec extends ShapeBase {

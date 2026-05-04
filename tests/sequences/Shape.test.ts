@@ -173,6 +173,62 @@ describe('ShapeSequence — initial style', () => {
   });
 });
 
+describe('ShapeSequence — anchor', () => {
+  it('rect default anchor (0.5, 0.5) draws the rect centred on the local origin', async () => {
+    await build({ type: 'shape', shape: 'rect', width: 100, height: 50, duration: 1, initial: { fillColor: '#fff' } });
+    // No anchor specified → x = -0.5 * 100 = -50, y = -0.5 * 50 = -25.
+    const rect = calls.find(c => c.method === 'rect');
+    expect(rect?.args).toEqual([-50, -25, 100, 50]);
+  });
+
+  it('rect anchorX:0 draws from the local origin rightward (x=0)', async () => {
+    await build({ type: 'shape', shape: 'rect', width: 100, height: 50, anchorX: 0, duration: 1, initial: { fillColor: '#fff' } });
+    const rect = calls.find(c => c.method === 'rect');
+    // anchorX:0 → x = -0 * 100 = 0; anchorY default 0.5 → y = -25.
+    expect(rect?.args).toEqual([0, -25, 100, 50]);
+  });
+
+  it('rect anchorX:1 draws to the LEFT of the origin (x = -width)', async () => {
+    await build({ type: 'shape', shape: 'rect', width: 100, height: 50, anchorX: 1, duration: 1, initial: { fillColor: '#fff' } });
+    const rect = calls.find(c => c.method === 'rect');
+    expect(rect?.args).toEqual([-100, -25, 100, 50]);
+  });
+
+  it('progress-bar pattern: width animates 0 → W with anchorX:0; live state reflects the live width', async () => {
+    const { gsap } = await import('gsap');
+    const seq = await build({
+      type: 'shape', shape: 'rect', width: 0, height: 18, anchorX: 0, duration: 4,
+      initial: { x: 0, y: 0, fillColor: '#5599ff' },
+      keyframes: [{ at: 0, to: { width: 200 }, duration: 1, ease: 'none' }],
+    });
+    const tl = gsap.timeline({ paused: true });
+    seq.bindTimeline(tl);
+    const g = (seq as unknown as { target: { onRender: () => void } }).target;
+    const state = (seq as unknown as { _state: { width: number; anchorX: number } })._state;
+    expect(state.anchorX).toBe(0);
+
+    tl.time(0.5);
+    expect(state.width).toBeCloseTo(100, 1);
+
+    calls.length = 0;
+    g.onRender();
+    // anchorX:0 with width:100 → drawn from (0, -9) to (100, 9).
+    const rect = calls.find(c => c.method === 'rect');
+    expect(rect?.args[0]).toBe(0); // left edge stays at 0
+    expect(rect?.args[2]).toBeCloseTo(100, 1);
+  });
+
+  it('anchored shapes (rect/circle/ellipse) skip the build-time auto-pivot', async () => {
+    nextBounds = { x: 10, y: 20, width: 80, height: 60 };
+    await build({ type: 'shape', shape: 'rect', width: 80, height: 60, duration: 1, initial: { fillColor: '#fff' } });
+    // Without anchor, default 0.5/0.5 still draws around origin → bounds
+    // would be symmetric. But even if bounds aren't symmetric (mocked here),
+    // we deliberately skip the auto-pivot for anchored shape kinds.
+    expect(lastGraphics?.pivot.x).toBe(0);
+    expect(lastGraphics?.pivot.y).toBe(0);
+  });
+});
+
 describe('ShapeSequence — geometry animation', () => {
   it('circle radius is keyframable; onRender re-issues the new radius', async () => {
     const { gsap } = await import('gsap');

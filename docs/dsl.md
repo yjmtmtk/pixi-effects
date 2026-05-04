@@ -253,11 +253,14 @@ Per-shape choice of how colour keyframes are interpolated. Default `'rgb'` (line
 
 **Scalar geometry is animatable.** `width`, `height`, `cornerRadius` (rect), `radius` (circle), `radiusX` / `radiusY` (ellipse) all flow through the same per-frame redraw and can be tweened via keyframes — useful for progress bars (animate `width`), pulsing icons (animate `radius`), or shape-morph callouts. Array geometry (polygon `points`, line endpoints, path `d`) is baked at build time; use `scale` / `scaleX` / `scaleY` for those.
 
+`anchorX` / `anchorY` (default `0.5` each) control which point on the bbox sits at the local origin — `0` is left/top, `1` is right/bottom. They're animatable too. Critical for "grow from one edge" effects:
+
 ```ts
-// Progress bar — width animates from 0 to full canvas width
+// Left-anchored progress bar — width animates 0 → W, left edge stays at x
 {
   type: 'shape', shape: 'rect', width: 0, height: 18, cornerRadius: 9,
-  initial: { x: 0, y: 'H/2', pivotX: 0, fillColor: '#5599ff' },
+  anchorX: 0,                                  // ← left edge at x
+  initial: { x: 0, y: 'H/2', fillColor: '#5599ff' },
   keyframes: [
     { at: 0, to: { width: 'W' }, duration: 4, ease: 'sine.inOut' },
   ],
