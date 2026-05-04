@@ -474,3 +474,76 @@ Notes:
 - `filter` must be a PIXI `Filter` instance (constructor must have run on the consumer side). Plain object literals throw.
 - `pixi-filters` is **not** a dependency of pixi-effects — install it on your side if you want to use it.
 - Without a `name`, the filter still applies but cannot be addressed via `filters.<name>.<prop>` keyframe paths.
+
+---
+
+## Presets
+
+Presets are pure helpers that return a ready-to-use `SequenceSpec`. They expand into the existing keyframe / initial primitives — no engine surgery — so anything you can do with a preset you can also write by hand.
+
+### `kenBurns`
+
+Per-image motion preset for slideshows. Returns an `ImageSequenceSpec`; drop the result straight into `sequences[]`. Pair with `crossfade` / `dip` etc. transitions for the cuts between images — `kenBurns` itself emits no fade.
+
+```ts
+import { kenBurns } from 'pixi-effects';
+
+sequences: [
+  kenBurns({ asset: 'photo1', name: 'p1', at: 0,  duration: 6, motion: 'scale',    origin: [0.25, 0.25], zoom: 1.2 }),
+  kenBurns({ asset: 'photo2', name: 'p2', at: 5,  duration: 6, motion: 'rotation', angle: 6 }),
+  kenBurns({ asset: 'photo3', name: 'p3', at: 10, duration: 6, motion: 'position', from: [0, 0], to: [1, 1] }),
+  kenBurns({ asset: 'photo4', name: 'p4', at: 15, duration: 6, motion: 'still' }),
+],
+```
+
+The image is centred on the canvas; `fit` (default `'cover'`) controls how the texture is scaled to fill. The fitted scale is computed at runtime from the texture's intrinsic size, so you don't pass `imageWidth` / `imageHeight`.
+
+#### Common fields
+
+| Field      | Type                  | Notes                                                                                |
+| ---------- | --------------------- | ------------------------------------------------------------------------------------ |
+| `asset`    | string                | image asset name (registered via `Movie.init({ assets })`)                           |
+| `duration` | number                | seconds of animation (required)                                                      |
+| `name?`    | string                | sequence name so transitions can reference it                                        |
+| `at?`      | number                | start time, parent-relative seconds                                                  |
+| `fit?`     | `'cover'` \| `'contain'` | how the texture fills the canvas. Default `'cover'`.                              |
+| `ease?`    | string                | GSAP easing name. Default `'sine.inOut'`.                                            |
+
+#### `motion: 'still'`
+
+Image sits at the canvas centre, fitted but unanimated. Useful as a stable "rest" in between motion-heavy frames.
+
+#### `motion: 'scale'`
+
+Zoom in or out around an arbitrary 9-point pivot.
+
+| Field        | Type                       | Notes                                                                                       |
+| ------------ | -------------------------- | ------------------------------------------------------------------------------------------- |
+| `origin?`    | `[number, number]`         | pivot in [0..1] image coords. Default `[0.5, 0.5]` (centre). The original convention uses the 9-point grid `0.25 / 0.5 / 0.75`. |
+| `zoom?`      | number                     | zoom factor relative to the fitted base. Default `1.15`.                                    |
+| `direction?` | `'in'` \| `'out'`          | `'in'`: 1 → zoom (default). `'out'`: zoom → 1.                                              |
+
+The pivot point stays pinned at its world position; the rest of the image grows / shrinks around it. This is the "focal-point" zoom you want for ken-burns slideshows — the eye anchors on the pivot while the surrounding pixels move.
+
+#### `motion: 'rotation'`
+
+Gentle rotation while keeping the image filling the canvas.
+
+| Field        | Type                                | Notes                                                                                       |
+| ------------ | ----------------------------------- | ------------------------------------------------------------------------------------------- |
+| `angle?`     | number                              | total rotation in degrees. Default `8`. Capped at 30.                                       |
+| `direction?` | `'cw'` \| `'ccw'` \| `'through'`    | `'cw'` (default) = 0 → +angle. `'ccw'` = 0 → −angle. `'through'` = −angle/2 → +angle/2.     |
+
+The scale is over-set so the rotated bounding box still covers the canvas — no background gaps as the image tilts.
+
+#### `motion: 'position'`
+
+Pan the image between two points within its over-scaled bounds.
+
+| Field   | Type                | Notes                                                                                  |
+| ------- | ------------------- | -------------------------------------------------------------------------------------- |
+| `from?` | `[number, number]`  | start position in [0..1] of the over-scaled bounds. Default `[0.25, 0.25]`.            |
+| `to?`   | `[number, number]`  | end position. Default `[0.75, 0.75]`.                                                  |
+| `zoom?` | number              | over-scale factor (must be > 1 for any pan to be visible). Default `1.15`.             |
+
+`[0, 0]` looks at the top-left of the image; `[1, 1]` looks at the bottom-right. The default pans diagonally across the upper-left and lower-right quarters of the over-scaled image (matches the Yajima-Motion preset).

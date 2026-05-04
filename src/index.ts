@@ -6,6 +6,9 @@ export type {
   ProgressEvent,
 } from './core/Movie';
 
+export { kenBurns } from './presets/kenBurns';
+export type { KenBurnsOptions } from './presets/kenBurns';
+
 export type {
   Expr,
   PropValue,

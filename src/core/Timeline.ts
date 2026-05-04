@@ -71,6 +71,7 @@ const PIXI_SHORTHANDS = new Set([
   'anchor', 'anchorX', 'anchorY',
   'pivot', 'pivotX', 'pivotY',
   'skew', 'skewX', 'skewY',
+  'rotation',
   'position', 'positionX', 'positionY',
   'tilePosition', 'tilePositionX', 'tilePositionY',
   'tileScale', 'tileScaleX', 'tileScaleY',
