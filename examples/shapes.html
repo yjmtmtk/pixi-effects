@@ -87,16 +87,23 @@
             ],
           },
 
-          // ── Row 1: three pulsing circles, cascading entrance ──
-          ...[ '#ff5577', '#55ddaa', '#5599ff' ].map((fill, i) => ({
+          // ── Row 1: three pulsing circles that also ripple through the rainbow ──
+          // Cascading entrance + a 1 sec colour cycle so the demo shows that
+          // fillColor / strokeColor tween smoothly through intermediate hues.
+          ...[
+            { from: '#ff5577', to: '#55ddaa' },
+            { from: '#55ddaa', to: '#5599ff' },
+            { from: '#5599ff', to: '#ff5577' },
+          ].map((c, i) => ({
             type: 'shape', shape: 'circle', radius: 42,
-            initial: { x: COL[i], y: ROW1, fillColor: fill },
+            initial: { x: COL[i], y: ROW1, fillColor: c.from },
             keyframes: [
               { at: 1.0 + i * 0.15, from: { alpha: 0, scale: 0 },
                                     to:   { alpha: 1, scale: 1 },
                                     duration: 0.5, ease: 'back.out(2)' },
               { at: 2.0 + i * 0.15, to: { scale: 1.2 }, duration: 0.5, ease: 'sine.inOut' },
               { at: 2.5 + i * 0.15, to: { scale: 1.0 }, duration: 0.5, ease: 'sine.inOut' },
+              { at: 6.0 + i * 0.15, to: { fillColor: c.to }, duration: 1.0, ease: 'sine.inOut' },
               FADE_OUT,
             ],
           })),
@@ -124,8 +131,12 @@
               { at: 3.55, to: { alpha: 1 }, duration: 0.4 },
               { at: 4.05, to: { scale: 1.15 }, duration: 0.7, ease: 'sine.inOut' },
               { at: 4.75, to: { scale: 1.0 },  duration: 0.7, ease: 'sine.inOut' },
-              { at: 5.45, to: { scale: 1.15 }, duration: 0.7, ease: 'sine.inOut' },
-              { at: 6.15, to: { scale: 1.0 },  duration: 0.7, ease: 'sine.inOut' },
+              // Stroke colour + width tween together — both flow through the
+              // same _state pipeline so they stay perfectly in sync.
+              { at: 5.45, to: { scale: 1.15, strokeColor: '#88ccff', strokeWidth: 8 },
+                          duration: 0.7, ease: 'sine.inOut' },
+              { at: 6.15, to: { scale: 1.0,  strokeColor: '#cc66ff', strokeWidth: 4 },
+                          duration: 0.7, ease: 'sine.inOut' },
               FADE_OUT,
             ],
           },

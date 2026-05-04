@@ -27,6 +27,7 @@ vi.mock('pixi.js', () => {
     pivot = { x: 0, y: 0, set(x: number, y: number) { this.x = x; this.y = y; } };
     constructor(opts?: { label?: string }) { super(opts); lastGraphics = this; }
     private _record(method: string, ...args: unknown[]) { calls.push({ method, args }); return this; }
+    clear() { return this._record('clear'); }
     rect(...args: unknown[]) { return this._record('rect', ...args); }
     roundRect(...args: unknown[]) { return this._record('roundRect', ...args); }
     circle(...args: unknown[]) { return this._record('circle', ...args); }
@@ -168,6 +169,46 @@ describe('ShapeSequence — initial style', () => {
     await build({ type: 'shape', shape: 'rect', width: 50, height: 50, duration: 1 });
     expect(calls.some(c => c.method === 'rect')).toBe(true);
     expect(calls.some(c => c.method === 'fill')).toBe(false);
+    expect(calls.some(c => c.method === 'stroke')).toBe(false);
+  });
+});
+
+describe('ShapeSequence — animated style', () => {
+  // The redraw closure is set on `target.onRender` and reads from the
+  // shape's `_state`. Manually invoking it lets us prove that mutating
+  // `_state` between renders changes what the next .fill() / .stroke()
+  // would receive — which is exactly what the GSAP tween path does.
+  it('onRender re-issues geometry + fill/stroke from the live _state', async () => {
+    const seq = await build({
+      type: 'shape', shape: 'circle', radius: 30, duration: 1,
+      initial: { fillColor: '#ff0000', strokeColor: '#ffffff', strokeWidth: 2 },
+    });
+    const g = (seq as unknown as { target: { onRender: () => void } }).target;
+    const state = (seq as unknown as { _state: { fillColor: unknown; strokeWidth: number } })._state;
+    expect(state.fillColor).toBe('#ff0000');
+
+    calls.length = 0;
+    state.fillColor = '#00ff00';
+    g.onRender();
+
+    // Re-issued: clear → geometry → fill (with new colour) → stroke.
+    expect(calls[0]?.method).toBe('clear');
+    expect(calls.find(c => c.method === 'circle')?.args).toEqual([0, 0, 30]);
+    expect(calls.find(c => c.method === 'fill')?.args[0]).toEqual({ color: '#00ff00', alpha: 1 });
+    expect(calls.find(c => c.method === 'stroke')?.args[0]).toEqual({ color: '#ffffff', alpha: 1, width: 2 });
+  });
+
+  it('onRender skips stroke when strokeWidth is 0 (live)', async () => {
+    const seq = await build({
+      type: 'shape', shape: 'rect', width: 40, height: 40, duration: 1,
+      initial: { fillColor: '#444', strokeColor: '#fff', strokeWidth: 4 },
+    });
+    const g = (seq as unknown as { target: { onRender: () => void } }).target;
+    const state = (seq as unknown as { _state: { strokeWidth: number } })._state;
+
+    state.strokeWidth = 0;
+    calls.length = 0;
+    g.onRender();
     expect(calls.some(c => c.method === 'stroke')).toBe(false);
   });
 });

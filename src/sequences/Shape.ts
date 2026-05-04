@@ -1,7 +1,8 @@
 import { Graphics, GraphicsPath } from 'pixi.js';
+import { gsap } from 'gsap';
 import { Sequence } from './Base';
 import { evaluateExpr, isExpr } from '../expr/Parser';
-import { applyKeyframes, applyInitial } from '../core/Timeline';
+import { applyKeyframes, applyInitial, resolveAt } from '../core/Timeline';
 import type { Scope } from '../expr/Scope';
 import type {
   ShapeSequenceSpec,
@@ -10,19 +11,37 @@ import type {
   Props, Keyframe, PropValue,
 } from '../types';
 
-import type { gsap } from 'gsap';
 type Timeline = ReturnType<typeof gsap.timeline>;
 
-// Style props live on the shape, not the Graphics. We strip them out of
-// `initial` / `keyframes` before handing things to the standard pipeline so
-// they don't accidentally tween a non-existent Graphics property.
-const STYLE_KEYS = new Set([
-  'fillColor', 'fillAlpha',
-  'strokeColor', 'strokeAlpha', 'strokeWidth',
+// Style props live on the shape's `_state`, not on the Graphics. We strip
+// them out of the keyframe payload before handing the rest to the standard
+// pipeline; style is tweened separately so we can interpolate colours
+// correctly (gsap.utils.interpolate, not a numeric tween) and trigger a
+// per-frame redraw.
+type StyleKey = 'fillColor' | 'fillAlpha' | 'strokeColor' | 'strokeAlpha' | 'strokeWidth';
+const STYLE_KEYS = new Set<StyleKey>([
+  'fillColor', 'fillAlpha', 'strokeColor', 'strokeAlpha', 'strokeWidth',
 ]);
+const COLOR_KEYS = new Set<StyleKey>(['fillColor', 'strokeColor']);
+
+interface StyleState {
+  fillColor: string | number | undefined;
+  fillAlpha: number;
+  strokeColor: string | number | undefined;
+  strokeAlpha: number;
+  strokeWidth: number;
+}
 
 export class ShapeSequence extends Sequence {
   declare spec: ShapeSequenceSpec;
+  private _state: StyleState = {
+    fillColor: undefined,
+    fillAlpha: 1,
+    strokeColor: undefined,
+    strokeAlpha: 1,
+    strokeWidth: 0,
+  };
+  private _drawGeometry: (g: Graphics) => void = () => {};
 
   async build(): Promise<void> {
     const graphics = new Graphics({ label: this.spec.name });
@@ -33,11 +52,14 @@ export class ShapeSequence extends Sequence {
     }
 
     // Resolve geometry expressions against the current scope. Geometry is
-    // baked into the Graphics here — animating geometry would require a
-    // per-frame redraw hook, which we deliberately defer.
+    // baked into a closure so onRender can re-issue it each frame —
+    // animating geometry props themselves is still deferred, but style
+    // animation needs the path commands to fire after every clear().
     const scope = this.scope();
-    drawShape(graphics, this.spec, scope);
-    applyStaticStyle(graphics, this.spec.initial ?? {}, scope);
+    this._drawGeometry = (g: Graphics): void => drawShape(g, this.spec, scope);
+    this._drawGeometry(graphics);
+    seedStateFromInitial(this._state, this.spec.initial ?? {}, scope);
+    applyState(graphics, this._state);
 
     const bounds = graphics.getLocalBounds();
     this.intrinsicWidth = bounds.width;
@@ -49,18 +71,38 @@ export class ShapeSequence extends Sequence {
     // A user-supplied initial.pivotX / pivotY overrides this in bindTimeline.
     graphics.pivot.set(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
 
+    // Per-frame redraw: PIXI v8 `Container.onRender` fires during render, so
+    // we read the (possibly tweened) `_state` and re-issue the geometry +
+    // fill / stroke. Clearing first is essential because v8 records each
+    // .fill()/.stroke() as a separate instruction — without clear() the
+    // instruction list grows unbounded.
+    graphics.onRender = () => {
+      graphics.clear();
+      this._drawGeometry(graphics);
+      applyState(graphics, this._state);
+    };
+
     this.buildFilters();
   }
 
   override bindTimeline(timeline: Timeline, offset = 0): void {
     if (!this.target) return;
     const scope = this.scope();
+    // Non-style props go through the standard pipeline (transform, alpha,
+    // filter uniforms, …).
     const initial = stripStyle(this.spec.initial);
     const keyframes = this.spec.keyframes
       ? this.spec.keyframes.map(stripStyleKeyframe)
       : undefined;
     applyInitial(this.target, initial as Record<string, unknown> | undefined, scope as unknown as Record<string, number>);
     applyKeyframes(timeline, this.target, keyframes, this.duration!, scope as unknown as Record<string, number>, [], offset);
+
+    // Style: feed the same keyframe stream into a parallel set of tweens
+    // targeting `_state`. Colour keys (fillColor / strokeColor) interpolate
+    // through gsap.utils.interpolate so a hex-string tween blends through
+    // intermediate colours instead of snapping at the end.
+    bindStyleKeyframes(timeline, this._state, this.spec.keyframes ?? [], this.duration!, scope, offset);
+
     const startTime = offset + this.at;
     const endTime = startTime + this.duration!;
     this.target.renderable = startTime <= 0;
@@ -74,7 +116,7 @@ function stripStyle(props: Props | undefined): Props | undefined {
   const out: Record<string, unknown> = {};
   let changed = false;
   for (const k of Object.keys(props)) {
-    if (STYLE_KEYS.has(k)) { changed = true; continue; }
+    if (STYLE_KEYS.has(k as StyleKey)) { changed = true; continue; }
     out[k] = (props as Record<string, unknown>)[k];
   }
   return changed ? (out as unknown as Props) : props;
@@ -87,6 +129,118 @@ function stripStyleKeyframe(kf: Keyframe): Keyframe {
     to: stripStyle(kf.to),
     from: stripStyle(kf.from),
   };
+}
+
+function pickStyle(props: Props | undefined): Partial<StyleState> | null {
+  if (!props) return null;
+  const out: Partial<StyleState> = {};
+  let any = false;
+  for (const k of Object.keys(props)) {
+    if (STYLE_KEYS.has(k as StyleKey)) {
+      (out as Record<string, unknown>)[k] = (props as Record<string, unknown>)[k];
+      any = true;
+    }
+  }
+  return any ? out : null;
+}
+
+function resolveStyleValue(key: StyleKey, value: unknown, scope: Scope): unknown {
+  if (COLOR_KEYS.has(key)) return value; // hex string or number — pass through
+  if (typeof value === 'number') return value;
+  if (isExpr(value)) return evaluateExpr(value, scope as unknown as Record<string, number>);
+  const parsed = parseFloat(value as string);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function seedStateFromInitial(state: StyleState, initial: Props, scope: Scope): void {
+  const style = pickStyle(initial);
+  if (!style) return;
+  for (const [k, v] of Object.entries(style)) {
+    (state as unknown as Record<string, unknown>)[k] = resolveStyleValue(k as StyleKey, v, scope);
+  }
+}
+
+function applyState(g: Graphics, s: StyleState): void {
+  if (s.fillColor !== undefined) {
+    g.fill({ color: s.fillColor, alpha: s.fillAlpha });
+  }
+  if (s.strokeColor !== undefined && s.strokeWidth > 0) {
+    g.stroke({ color: s.strokeColor, alpha: s.strokeAlpha, width: s.strokeWidth });
+  }
+}
+
+function bindStyleKeyframes(
+  timeline: Timeline,
+  state: StyleState,
+  keyframes: Keyframe[],
+  parentDuration: number,
+  scope: Scope,
+  offset: number,
+): void {
+  for (const kf of keyframes) {
+    const at = offset + resolveAt(kf.at, parentDuration);
+    const duration = kf.duration ?? 0;
+    const ease = kf.ease ?? 'none';
+
+    if (kf.set) {
+      const style = pickStyle(kf.set);
+      if (style) {
+        for (const [k, v] of Object.entries(style)) {
+          const resolved = resolveStyleValue(k as StyleKey, v, scope);
+          timeline.call(() => { (state as unknown as Record<string, unknown>)[k] = resolved; }, [], at);
+        }
+      }
+    }
+
+    const fromStyle = pickStyle(kf.from);
+    const toStyle = pickStyle(kf.to);
+    const allKeys = new Set<string>([
+      ...(fromStyle ? Object.keys(fromStyle) : []),
+      ...(toStyle ? Object.keys(toStyle) : []),
+    ]);
+    for (const k of allKeys) {
+      const key = k as StyleKey;
+      const fromRaw = fromStyle?.[key];
+      const toRaw = toStyle?.[key];
+      const fromValue = fromRaw !== undefined
+        ? resolveStyleValue(key, fromRaw, scope)
+        : (state as unknown as Record<string, unknown>)[key];
+      const toValue = toRaw !== undefined
+        ? resolveStyleValue(key, toRaw, scope)
+        : (state as unknown as Record<string, unknown>)[key];
+      tweenStyleKey(timeline, state, key, fromValue, toValue, duration, ease, at);
+    }
+  }
+}
+
+function tweenStyleKey(
+  timeline: Timeline,
+  state: StyleState,
+  key: StyleKey,
+  fromValue: unknown,
+  toValue: unknown,
+  duration: number,
+  ease: string,
+  at: number,
+): void {
+  if (COLOR_KEYS.has(key) && fromValue !== undefined && toValue !== undefined) {
+    // gsap.utils.interpolate handles hex strings and 0xRRGGBB numbers.
+    const interp = gsap.utils.interpolate(fromValue, toValue) as (p: number) => unknown;
+    const proxy = { p: 0 };
+    timeline.fromTo(
+      proxy,
+      { p: 0 },
+      { p: 1, duration, ease, onUpdate: () => { (state as unknown as Record<string, unknown>)[key] = interp(proxy.p); } },
+      at,
+    );
+  } else if (toValue !== undefined) {
+    // Numeric keys (fillAlpha, strokeAlpha, strokeWidth).
+    if (fromValue !== undefined) {
+      timeline.fromTo(state, { [key]: fromValue }, { [key]: toValue, duration, ease }, at);
+    } else {
+      timeline.to(state, { [key]: toValue, duration, ease }, at);
+    }
+  }
 }
 
 function drawShape(g: Graphics, spec: ShapeSequenceSpec, scope: Scope): void {
@@ -136,21 +290,6 @@ function drawPath(g: Graphics, spec: PathShapeSpec): void {
   // through GraphicsContext.svg() would replace the whole context — and the
   // SVG parser bakes its own default styling, defeating our style controls).
   g.path(new GraphicsPath(spec.d));
-}
-
-// Apply fill / stroke from spec.initial. These are baked once at build —
-// they do not tween in v1. Anything missing means "no fill" / "no stroke".
-function applyStaticStyle(g: Graphics, initial: Props, scope: Scope): Graphics {
-  const fillColor   = initial.fillColor;
-  const fillAlpha   = initial.fillAlpha   !== undefined ? num(initial.fillAlpha,   scope) : 1;
-  const strokeColor = initial.strokeColor;
-  const strokeAlpha = initial.strokeAlpha !== undefined ? num(initial.strokeAlpha, scope) : 1;
-  const strokeWidth = initial.strokeWidth !== undefined ? num(initial.strokeWidth, scope) : 0;
-  if (fillColor !== undefined) g.fill({ color: fillColor as string | number, alpha: fillAlpha });
-  if (strokeColor !== undefined && strokeWidth > 0) {
-    g.stroke({ color: strokeColor as string | number, alpha: strokeAlpha, width: strokeWidth });
-  }
-  return g;
 }
 
 function num(v: PropValue, scope: Scope): number {
