@@ -1,6 +1,7 @@
 import type {
   CompositionSpec, CompositionSequenceSpec, SequenceSpec, TransitionSpec,
   CrossfadeTransition, WipeTransition, IrisTransition, SlideTransition,
+  DipTransition, ZoomTransition, DissolveTransition,
   Keyframe, FilterSpec,
 } from '../types';
 import { resolveAt } from './Timeline';
@@ -54,17 +55,17 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
   const compW = out.width;
   const compH = out.height;
 
-  // Pre-pass: any sequence participating in a wipe / iris transition gets
-  // wrapped in a full-composition-sized wrapper Composition so the mask
-  // filter can be attached to a target whose local-coord origin matches the
-  // composition's world origin. Without the wrap, the filter target would be
-  // the bare sprite (e.g. text), and PIXI's filterArea / coord transforms
-  // would be relative to that sprite — making the wipe / iris geometry
-  // impossible to express in canvas-relative space. Wrapping is a no-op for
-  // sequences that are already full-size compositions.
+  // Pre-pass: any sequence participating in a mask-based transition (wipe /
+  // iris / dissolve) gets wrapped in a full-composition-sized wrapper
+  // Composition so the mask filter can be attached to a target whose
+  // local-coord origin matches the composition's world origin. Without the
+  // wrap, the filter target would be the bare sprite (e.g. text), and PIXI's
+  // filterArea / coord transforms would be relative to that sprite — making
+  // the mask geometry impossible to express in canvas-relative space.
+  // Wrapping is a no-op for sequences that are already full-size compositions.
   const masksParticipants = new Set<string>();
   for (const t of transitions) {
-    if (t.kind === 'wipe' || t.kind === 'iris') {
+    if (t.kind === 'wipe' || t.kind === 'iris' || t.kind === 'dissolve') {
       masksParticipants.add(t.from);
       masksParticipants.add(t.to);
     }
@@ -164,6 +165,15 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
         break;
       case 'slide':
         expandSlide(out, t, fromEntry.seq, toEntry.seq);
+        break;
+      case 'dip':
+        expandDip(out, t, fromEntry.seq, toEntry.seq);
+        break;
+      case 'zoom':
+        expandZoom(out, t, fromEntry.seq, toEntry.seq);
+        break;
+      case 'dissolve':
+        expandDissolve(out, t, fromEntry.seq, toEntry.seq, i);
         break;
     }
   }
@@ -357,6 +367,123 @@ function expandMask(
     type: 'custom',
     name: outName,
     filter: new TransitionMaskFilter({ mode, smoothing: sm, progress: 0, invert: true }),
+  });
+  ensureKeyframes(fromSeq).push({
+    at: t.at,
+    to: { [`filters.${outName}.uProgress`]: 1 },
+    duration: t.duration,
+    ease,
+  });
+  (fromSeq as { filterArea?: typeof fullArea }).filterArea = fullArea;
+}
+
+function expandDip(
+  _comp: CompositionSpec | CompositionSequenceSpec,
+  t: DipTransition,
+  fromSeq: SequenceSpec,
+  toSeq: SequenceSpec,
+): void {
+  // A fades to 0 over the first half, B fades from 0 over the second half.
+  // The visible color in between is whatever sits behind A and B (canvas
+  // background or any persistent layer), so the user can dip-to-black /
+  // dip-to-white by setting `background` on Movie.init().
+  const ease = t.ease ?? 'none';
+  const half = t.duration / 2;
+
+  ensureKeyframes(fromSeq).push({
+    at: t.at, to: { alpha: 0 }, duration: half, ease,
+  });
+
+  const toInitial = ensureInitial(toSeq);
+  if (toInitial.alpha !== undefined && toInitial.alpha !== 0) {
+    throw new Error(
+      `pixi-effects: dip "${t.from}"→"${t.to}" requires "${t.to}" to start invisible, ` +
+      `but it already has initial.alpha=${String(toInitial.alpha)}. Remove the manual setting.`,
+    );
+  }
+  toInitial.alpha = 0;
+  ensureKeyframes(toSeq).push({
+    at: t.at + half, to: { alpha: 1 }, duration: half, ease,
+  });
+}
+
+function expandZoom(
+  _comp: CompositionSpec | CompositionSequenceSpec,
+  t: ZoomTransition,
+  fromSeq: SequenceSpec,
+  toSeq: SequenceSpec,
+): void {
+  // mode 'in' (default): B is the focus. B starts large + invisible, zooms
+  //   to scale 1 + alpha 1. A simply fades.
+  // mode 'out': A is the focus. A grows large + fades. B simply fades in.
+  const ease = t.ease ?? 'none';
+  const startScale = t.fromScale ?? 4;
+  const mode = t.mode ?? 'in';
+
+  if (mode === 'in') {
+    ensureKeyframes(fromSeq).push({
+      at: t.at, to: { alpha: 0 }, duration: t.duration, ease,
+    });
+    const toInitial = ensureInitial(toSeq);
+    toInitial.alpha = 0;
+    toInitial.scale = startScale;
+    ensureKeyframes(toSeq).push({
+      at: t.at, to: { alpha: 1, scale: 1 }, duration: t.duration, ease,
+    });
+  } else {
+    ensureKeyframes(fromSeq).push({
+      at: t.at, to: { alpha: 0, scale: startScale }, duration: t.duration, ease,
+    });
+    const toInitial = ensureInitial(toSeq);
+    toInitial.alpha = 0;
+    ensureKeyframes(toSeq).push({
+      at: t.at, to: { alpha: 1 }, duration: t.duration, ease,
+    });
+  }
+}
+
+function expandDissolve(
+  comp: CompositionSpec | CompositionSequenceSpec,
+  t: DissolveTransition,
+  fromSeq: SequenceSpec,
+  toSeq: SequenceSpec,
+  transitionIndex: number,
+): void {
+  const ease = t.ease ?? 'none';
+  const inName  = transitionFilterName(transitionIndex);
+  const outName = `${transitionFilterName(transitionIndex)}-out`;
+  const sm = t.smoothing ?? 0.05;
+  const scale = t.scale ?? 30;
+  const seed  = t.seed ?? 0;
+  const compW = comp.width ?? 0;
+  const compH = comp.height ?? 0;
+  const fullArea = { x: 0, y: 0, width: compW, height: compH };
+
+  // Incoming (B): noise-thresholded reveal, B appears as uProgress 0→1.
+  const toFilters = ensureFilters(toSeq);
+  rejectReservedNameCollision(toFilters, toSeq.name);
+  toFilters.push({
+    type: 'custom',
+    name: inName,
+    filter: new TransitionMaskFilter({ mode: 'dissolve', smoothing: sm, progress: 0, scale, seed }),
+  });
+  ensureKeyframes(toSeq).push({
+    at: t.at,
+    to: { [`filters.${inName}.uProgress`]: 1 },
+    duration: t.duration,
+    ease,
+  });
+  (toSeq as { filterArea?: typeof fullArea }).filterArea = fullArea;
+
+  // Outgoing (A): inverted mask. Same noise pattern (same seed) so the
+  // pixel reveal pattern is consistent — pixels A loses are the pixels B
+  // reveals at every progress step.
+  const fromFilters = ensureFilters(fromSeq);
+  rejectReservedNameCollision(fromFilters, fromSeq.name);
+  fromFilters.push({
+    type: 'custom',
+    name: outName,
+    filter: new TransitionMaskFilter({ mode: 'dissolve', smoothing: sm, progress: 0, scale, seed, invert: true }),
   });
   ensureKeyframes(fromSeq).push({
     at: t.at,

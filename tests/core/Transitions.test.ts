@@ -442,3 +442,87 @@ describe('expandTransitions — slide', () => {
     expect(findSeqKfs(out, 'B')).toContainEqual({ at: 4, to: { x: 200 }, duration: 1, ease: 'none' });
   });
 });
+
+describe('expandTransitions — dip', () => {
+  it('fades A out in the first half and B in in the second half', () => {
+    const out = expandTransitions(spec({
+      transitions: [{ kind: 'dip', from: 'A', to: 'B', at: 4, duration: 1, ease: 'sine.inOut' }],
+    }));
+    // A: alpha 1 → 0 over the first half [4, 4.5]
+    expect(findSeqKfs(out, 'A')).toContainEqual({ at: 4, to: { alpha: 0 }, duration: 0.5, ease: 'sine.inOut' });
+    // B: starts invisible, fades in over the second half [4.5, 5]
+    expect(findSeqInitial(out, 'B').alpha).toBe(0);
+    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 4.5, to: { alpha: 1 }, duration: 0.5, ease: 'sine.inOut' });
+  });
+
+  it('throws if `to` already has a non-zero initial.alpha', () => {
+    const s = spec();
+    s.sequences![1] = { ...s.sequences![1]!, initial: { alpha: 0.5 } } as typeof s.sequences[1];
+    expect(() => expandTransitions({
+      ...s,
+      transitions: [{ kind: 'dip', from: 'A', to: 'B', at: 4, duration: 1 }],
+    })).toThrow(/dip.*"B".*already has.*initial\.alpha/i);
+  });
+});
+
+describe('expandTransitions — zoom', () => {
+  it('mode=in (default): A fades, B starts at fromScale and zooms to 1', () => {
+    const out = expandTransitions(spec({
+      transitions: [{ kind: 'zoom', from: 'A', to: 'B', at: 4, duration: 1, fromScale: 3 }],
+    }));
+    expect(findSeqKfs(out, 'A')).toContainEqual({ at: 4, to: { alpha: 0 }, duration: 1, ease: 'none' });
+    const bInit = findSeqInitial(out, 'B');
+    expect(bInit.alpha).toBe(0);
+    expect(bInit.scale).toBe(3);
+    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 4, to: { alpha: 1, scale: 1 }, duration: 1, ease: 'none' });
+  });
+
+  it('mode=out: A zooms to fromScale and fades, B simply fades in', () => {
+    const out = expandTransitions(spec({
+      transitions: [{ kind: 'zoom', from: 'A', to: 'B', at: 4, duration: 1, mode: 'out', fromScale: 2 }],
+    }));
+    expect(findSeqKfs(out, 'A')).toContainEqual({ at: 4, to: { alpha: 0, scale: 2 }, duration: 1, ease: 'none' });
+    expect(findSeqInitial(out, 'B').alpha).toBe(0);
+    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 4, to: { alpha: 1 }, duration: 1, ease: 'none' });
+  });
+
+  it('default fromScale is 4', () => {
+    const out = expandTransitions(spec({
+      transitions: [{ kind: 'zoom', from: 'A', to: 'B', at: 4, duration: 1 }],
+    }));
+    expect(findSeqInitial(out, 'B').scale).toBe(4);
+  });
+});
+
+describe('expandTransitions — dissolve', () => {
+  it('attaches a TransitionMaskFilter with mode=dissolve to `to`', () => {
+    const out = expandTransitions(spec({
+      transitions: [{ kind: 'dissolve', from: 'A', to: 'B', at: 4, duration: 1 }],
+    }));
+    const f = findCustomFilter(out, 'B', '_pe-transition-0');
+    expect(f).toBeDefined();
+    const inst = f!.filter as { uMode: number };
+    expect(inst.uMode).toBe(6);
+  });
+
+  it('passes scale and seed through to the filter (reproducible noise)', () => {
+    const out = expandTransitions(spec({
+      transitions: [{ kind: 'dissolve', from: 'A', to: 'B', at: 4, duration: 1, scale: 50, seed: 7 }],
+    }));
+    const inst = findCustomFilter(out, 'B', '_pe-transition-0')!.filter as { uScale: number; uSeed: number };
+    expect(inst.uScale).toBe(50);
+    expect(inst.uSeed).toBe(7);
+  });
+
+  it('also injects an inverted dissolve filter on `from` with the same seed/scale', () => {
+    const out = expandTransitions(spec({
+      transitions: [{ kind: 'dissolve', from: 'A', to: 'B', at: 4, duration: 1, scale: 25, seed: 3 }],
+    }));
+    const fromFilter = findCustomFilter(out, 'A', '_pe-transition-0-out');
+    const inst = fromFilter!.filter as { uMode: number; uInvert: number; uScale: number; uSeed: number };
+    expect(inst.uMode).toBe(6);
+    expect(inst.uInvert).toBe(1);
+    expect(inst.uScale).toBe(25);
+    expect(inst.uSeed).toBe(3);
+  });
+});

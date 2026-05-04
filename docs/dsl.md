@@ -380,6 +380,42 @@ The slide macro reads each sequence's existing `initial.x` / `initial.y` (if any
 
 If you've manually keyframed `x` / `y` on `A` or `B`, the slide expansion appends new keyframes alongside — your existing motion is not overwritten. Behavior with conflicting motion is the user's responsibility.
 
+### `dip`
+
+"Dip through": A fades out across the first half of the window and B fades in across the second half. The visible color during the dip is whatever sits behind A and B — set `Movie.background` (or place a persistent layer beneath them) for dip-to-black / dip-to-white / dip-to-color.
+
+```ts
+{ kind: 'dip', from: 'A', to: 'B', at: 4, duration: 1, ease: 'sine.inOut' }
+```
+
+If `to` already has a non-zero `initial.alpha`, the expander throws — remove the manual setting.
+
+### `zoom`
+
+A scaled punch-in / punch-out. By default `B` opens up: it starts large and zooms back to scale 1 while fading in; `A` simply fades. With `mode: 'out'` it's the opposite — `A` zooms outward as it fades, and `B` fades in at scale 1.
+
+```ts
+{
+  kind: 'zoom', from: 'A', to: 'B', at: 4, duration: 1,
+  mode: 'in',          // default — B opens up. 'out' = A closes outward.
+  fromScale: 4,        // starting scale of the zoomed sequence (default 4)
+  ease: 'power2.out',
+}
+```
+
+### `dissolve`
+
+Pixel-grain noise reveal driven by deterministic 2D Perlin noise. Pixels with a low noise value reveal first; as `uProgress` advances, more pixels reveal. The same `seed` always produces the same dissolve pattern, so a render is bit-exact reproducible.
+
+```ts
+{
+  kind: 'dissolve', from: 'A', to: 'B', at: 4, duration: 1,
+  scale: 30,         // pattern frequency (higher = finer grain). Default 30.
+  seed: 0,           // pattern offset. Different seeds → different reveal patterns.
+  smoothing: 0.05,   // edge softness within each chunk. Default 0.05.
+}
+```
+
 ---
 
 ## Filters

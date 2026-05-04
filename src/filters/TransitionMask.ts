@@ -7,6 +7,7 @@ const MODE_CODES = {
   'wipe-down':  3,
   'iris-in':    4,
   'iris-out':   5,
+  'dissolve':   6,
 } as const;
 
 export type TransitionMode = keyof typeof MODE_CODES;
@@ -23,6 +24,14 @@ export interface TransitionMaskOptions {
    * incoming sprite's already-revealed pixels show through prematurely).
    */
   invert?: boolean;
+  /** Pattern frequency for `dissolve` mode (sample density of the noise). */
+  scale?: number;
+  /**
+   * Pattern offset for `dissolve` mode. The same seed always produces the
+   * same dissolve pattern (the noise is deterministic Perlin), so a render
+   * is bit-exact reproducible.
+   */
+  seed?: number;
 }
 
 // ── GLSL fragment (WebGL renderer) ───────────────────────────────────────
@@ -37,8 +46,43 @@ uniform float uProgress;
 uniform float uSmoothing;
 uniform float uMode;
 uniform float uInvert;
+uniform float uScale;
+uniform float uSeed;
 
 out vec4 finalColor;
+
+// Classic 2D Perlin noise (Stefan Gustavson). Deterministic — same input
+// always returns the same output, which is what makes the dissolve pattern
+// reproducible across renders.
+vec4 _permute(vec4 x) { return mod(((x * 34.0) + 1.0) * x, 289.0); }
+vec2 _fade(vec2 t) { return t * t * t * (t * (t * 6.0 - 15.0) + 10.0); }
+float perlin2(vec2 P) {
+  vec4 Pi = floor(P.xyxy) + vec4(0.0, 0.0, 1.0, 1.0);
+  vec4 Pf = fract(P.xyxy) - vec4(0.0, 0.0, 1.0, 1.0);
+  Pi = mod(Pi, 289.0);
+  vec4 ix = Pi.xzxz;
+  vec4 iy = Pi.yyww;
+  vec4 fx = Pf.xzxz;
+  vec4 fy = Pf.yyww;
+  vec4 i = _permute(_permute(ix) + iy);
+  vec4 gx = 2.0 * fract(i / 41.0) - 1.0;
+  vec4 gy = abs(gx) - 0.5;
+  vec4 tx = floor(gx + 0.5);
+  gx = gx - tx;
+  vec2 g00 = vec2(gx.x, gy.x);
+  vec2 g10 = vec2(gx.y, gy.y);
+  vec2 g01 = vec2(gx.z, gy.z);
+  vec2 g11 = vec2(gx.w, gy.w);
+  vec4 norm = 1.79284291400159 - 0.85373472095314 * vec4(dot(g00, g00), dot(g01, g01), dot(g10, g10), dot(g11, g11));
+  g00 *= norm.x; g01 *= norm.y; g10 *= norm.z; g11 *= norm.w;
+  float n00 = dot(g00, vec2(fx.x, fy.x));
+  float n10 = dot(g10, vec2(fx.y, fy.y));
+  float n01 = dot(g01, vec2(fx.z, fy.z));
+  float n11 = dot(g11, vec2(fx.w, fy.w));
+  vec2 fade_xy = _fade(Pf.xy);
+  vec2 n_x = mix(vec2(n00, n01), vec2(n10, n11), fade_xy.x);
+  return 2.3 * mix(n_x.x, n_x.y, fade_xy.y);
+}
 
 // Map sprite-local vTextureCoord → canvas-pixel position. We do this in two
 // steps: first un-pad vTextureCoord (it spans 0..bbox/inputSize because the
@@ -89,10 +133,16 @@ float wipeReveal(vec2 uv, float p, float s, float mode) {
     // iris-in: circle grows from center
     float d = irisDistCanvas(uv);
     return 1.0 - smoothstep(ep - s, ep + s, d);
-  } else {
+  } else if (mode < 5.5) {
     // iris-out: circle shrinks toward center
     float d = irisDistCanvas(uv);
     return smoothstep(ep - s, ep + s, d);
+  } else {
+    // dissolve: pixel-grain Perlin noise threshold. Pixels with a low noise
+    // value reveal first; as p grows, more pixels reveal.
+    vec2 sampleUV = cuv * uScale + vec2(uSeed, uSeed * 0.7);
+    float n = perlin2(sampleUV) * 0.5 + 0.5;  // remap to 0..1
+    return 1.0 - smoothstep(ep - s, ep + s, n);
   }
 }
 
@@ -122,6 +172,8 @@ struct TransitionUniforms {
   uMode: f32,
   uSmoothing: f32,
   uInvert: f32,
+  uScale: f32,
+  uSeed: f32,
 };
 
 @group(0) @binding(0) var<uniform> gfu: GlobalFilterUniforms;
@@ -176,6 +228,38 @@ fn irisDistCanvas(uv: vec2<f32>) -> f32 {
   return length(offsetPx) / max(halfDiag, 1.0);
 }
 
+// Classic 2D Perlin noise (Stefan Gustavson). Deterministic — same input
+// always returns the same output, so the dissolve pattern is reproducible.
+fn _wgsl_permute(x: vec4<f32>) -> vec4<f32> { return ((x * 34.0) + 1.0) * x % vec4<f32>(289.0); }
+fn _wgsl_fade(t: vec2<f32>) -> vec2<f32> { return t * t * t * (t * (t * 6.0 - 15.0) + 10.0); }
+fn perlin2(P: vec2<f32>) -> f32 {
+  var Pi: vec4<f32> = floor(vec4<f32>(P, P)) + vec4<f32>(0.0, 0.0, 1.0, 1.0);
+  var Pf: vec4<f32> = fract(vec4<f32>(P, P)) - vec4<f32>(0.0, 0.0, 1.0, 1.0);
+  Pi = Pi % vec4<f32>(289.0);
+  let ix = vec4<f32>(Pi.x, Pi.z, Pi.x, Pi.z);
+  let iy = vec4<f32>(Pi.y, Pi.y, Pi.w, Pi.w);
+  let fx = vec4<f32>(Pf.x, Pf.z, Pf.x, Pf.z);
+  let fy = vec4<f32>(Pf.y, Pf.y, Pf.w, Pf.w);
+  let i = _wgsl_permute(_wgsl_permute(ix) + iy);
+  var gx = 2.0 * fract(i / 41.0) - 1.0;
+  let gy = abs(gx) - 0.5;
+  let tx = floor(gx + 0.5);
+  gx = gx - tx;
+  var g00 = vec2<f32>(gx.x, gy.x);
+  var g10 = vec2<f32>(gx.y, gy.y);
+  var g01 = vec2<f32>(gx.z, gy.z);
+  var g11 = vec2<f32>(gx.w, gy.w);
+  let norm = 1.79284291400159 - 0.85373472095314 * vec4<f32>(dot(g00, g00), dot(g01, g01), dot(g10, g10), dot(g11, g11));
+  g00 = g00 * norm.x; g01 = g01 * norm.y; g10 = g10 * norm.z; g11 = g11 * norm.w;
+  let n00 = dot(g00, vec2<f32>(fx.x, fy.x));
+  let n10 = dot(g10, vec2<f32>(fx.y, fy.y));
+  let n01 = dot(g01, vec2<f32>(fx.z, fy.z));
+  let n11 = dot(g11, vec2<f32>(fx.w, fy.w));
+  let fade_xy = _wgsl_fade(vec2<f32>(Pf.x, Pf.y));
+  let n_x = mix(vec2<f32>(n00, n01), vec2<f32>(n10, n11), vec2<f32>(fade_xy.x));
+  return 2.3 * mix(n_x.x, n_x.y, fade_xy.y);
+}
+
 fn wipeReveal(uv: vec2<f32>, p: f32, s: f32, mode: f32) -> f32 {
   let ep = p * (1.0 + 2.0 * s) - s;
   let cuv = toCanvasUV(uv);
@@ -192,9 +276,13 @@ fn wipeReveal(uv: vec2<f32>, p: f32, s: f32, mode: f32) -> f32 {
   } else if (mode < 4.5) {
     let d = irisDistCanvas(uv);
     return 1.0 - smoothstep(ep - s, ep + s, d);
-  } else {
+  } else if (mode < 5.5) {
     let d = irisDistCanvas(uv);
     return smoothstep(ep - s, ep + s, d);
+  } else {
+    let sampleUV = cuv * transitionUniforms.uScale + vec2<f32>(transitionUniforms.uSeed, transitionUniforms.uSeed * 0.7);
+    let n = perlin2(sampleUV) * 0.5 + 0.5;
+    return 1.0 - smoothstep(ep - s, ep + s, n);
   }
 }
 
@@ -213,6 +301,8 @@ export class TransitionMaskFilter extends Filter {
     const smoothing = options.smoothing ?? 0.02;
     const progress = options.progress ?? 0;
     const invert = options.invert ?? false;
+    const scale = options.scale ?? 30;
+    const seed = options.seed ?? 0;
 
     super({
       glProgram: GlProgram.from({
@@ -230,6 +320,8 @@ export class TransitionMaskFilter extends Filter {
           uMode:      { value: MODE_CODES[mode], type: 'f32' },
           uSmoothing: { value: smoothing,        type: 'f32' },
           uInvert:    { value: invert ? 1 : 0,   type: 'f32' },
+          uScale:     { value: scale,            type: 'f32' },
+          uSeed:      { value: seed,             type: 'f32' },
         }),
       },
     });
@@ -243,4 +335,8 @@ export class TransitionMaskFilter extends Filter {
   set uSmoothing(v: number) { this.resources.transitionUniforms.uniforms.uSmoothing = v; }
   get uInvert(): number { return this.resources.transitionUniforms.uniforms.uInvert as number; }
   set uInvert(v: number) { this.resources.transitionUniforms.uniforms.uInvert = v; }
+  get uScale(): number { return this.resources.transitionUniforms.uniforms.uScale as number; }
+  set uScale(v: number) { this.resources.transitionUniforms.uniforms.uScale = v; }
+  get uSeed(): number { return this.resources.transitionUniforms.uniforms.uSeed as number; }
+  set uSeed(v: number) { this.resources.transitionUniforms.uniforms.uSeed = v; }
 }

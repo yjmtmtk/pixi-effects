@@ -108,11 +108,44 @@ export interface SlideTransition extends TransitionCommon {
   direction: 'left' | 'right' | 'up' | 'down';
 }
 
+/**
+ * "Dip through": A fades out across the first half of the window, B fades in
+ * across the second half. The visible color during the dip is whatever sits
+ * behind A and B (canvas background, or any persistent layer beneath them).
+ */
+export interface DipTransition extends TransitionCommon {
+  kind: 'dip';
+}
+
+export interface ZoomTransition extends TransitionCommon {
+  kind: 'zoom';
+  /**
+   * `'in'` (default): B opens up — starts at `fromScale` and zooms to 1.
+   * `'out'`: A closes — zooms from 1 to `fromScale` and fades.
+   */
+  mode?: 'in' | 'out';
+  /** Starting scale of the zoomed sequence. Default 4 (B starts 4x size). */
+  fromScale?: number;
+}
+
+export interface DissolveTransition extends TransitionCommon {
+  kind: 'dissolve';
+  /** Pattern frequency. Higher = finer grain. Default 30. */
+  scale?: number;
+  /** Pattern offset for reproducibly varying the dissolve shape. Default 0. */
+  seed?: number;
+  /** 0..1 edge softness within each chunk. Default 0.05. */
+  smoothing?: number;
+}
+
 export type TransitionSpec =
   | CrossfadeTransition
   | WipeTransition
   | IrisTransition
-  | SlideTransition;
+  | SlideTransition
+  | DipTransition
+  | ZoomTransition
+  | DissolveTransition;
 
 // ─── Sequence specs ───────────────────────────────────────────────────────
 
