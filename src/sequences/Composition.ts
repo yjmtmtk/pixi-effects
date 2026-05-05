@@ -52,7 +52,20 @@ export class CompositionSequence extends Sequence {
         const maskSeq = built[0];
         if (maskSeq?.target) {
           inner.addChild(maskSeq.target);
-          (child.target as { mask: Container | null }).mask = maskSeq.target;
+          // PIXI v8 `setMask` accepts an `inverse` flag — that's how we
+          // expose `maskInverted` from the spec. Falls back to plain
+          // `target.mask = …` for runtimes that don't have setMask
+          // (older PIXI builds).
+          const inverse = (child.spec as { maskInverted?: boolean }).maskInverted ?? false;
+          const t = child.target as Container & {
+            setMask?: (opts: { mask: Container | null; inverse?: boolean }) => void;
+            mask: Container | null;
+          };
+          if (typeof t.setMask === 'function') {
+            t.setMask({ mask: maskSeq.target, inverse });
+          } else {
+            t.mask = maskSeq.target;
+          }
           child.maskSequence = maskSeq;
         }
       }

@@ -14,9 +14,16 @@ vi.mock('pixi.js', () => {
     filters: unknown[] | null = null;
     label: string | undefined;
     mask: Container | null = null;
+    // Mirror PIXI v8's setMask({ mask, inverse }) so we can verify the
+    // wiring picks the right path when `maskInverted` is on the spec.
+    maskInverseSetting = false;
     children: Container[] = [];
     pivot = { x: 0, y: 0, set(x: number, y: number) { this.x = x; this.y = y; } };
     addChild(c: Container) { this.children.push(c); return c; }
+    setMask(opts: { mask: Container | null; inverse?: boolean }) {
+      this.mask = opts.mask;
+      this.maskInverseSetting = !!opts.inverse;
+    }
     constructor(opts?: { label?: string }) { this.label = opts?.label; }
     destroy() {}
   }
@@ -119,6 +126,44 @@ describe('Sequence — inline mask', () => {
     const child = seq._children[0]!;
     expect(child.maskSequence).toBeNull();
     expect((child.target as unknown as { mask: unknown }).mask).toBeNull();
+  });
+
+  it('maskInverted: true routes through PIXI setMask({ inverse: true })', async () => {
+    const spec: CompositionSequenceSpec = {
+      type: 'composition',
+      width: 1280, height: 720,
+      sequences: [
+        {
+          type: 'shape', shape: 'rect', width: 100, height: 100,
+          maskInverted: true,
+          initial: { x: 0, y: 0, fillColor: '#ff0000' },
+          mask: { type: 'shape', shape: 'circle', radius: 30, initial: { x: 0, y: 0, fillColor: '#ffffff' } },
+        },
+      ],
+    };
+    const seq = new CompositionSequence(spec, root, root);
+    await seq.build();
+    const child = seq._children[0]!;
+    expect((child.target as unknown as { maskInverseSetting: boolean }).maskInverseSetting).toBe(true);
+    expect((child.target as unknown as { mask: unknown }).mask).toBe(child.maskSequence?.target);
+  });
+
+  it('maskInverted defaults to false (normal masking)', async () => {
+    const spec: CompositionSequenceSpec = {
+      type: 'composition',
+      width: 1280, height: 720,
+      sequences: [
+        {
+          type: 'shape', shape: 'rect', width: 100, height: 100,
+          initial: { x: 0, y: 0, fillColor: '#ff0000' },
+          mask: { type: 'shape', shape: 'circle', radius: 30, initial: { x: 0, y: 0, fillColor: '#ffffff' } },
+        },
+      ],
+    };
+    const seq = new CompositionSequence(spec, root, root);
+    await seq.build();
+    const child = seq._children[0]!;
+    expect((child.target as unknown as { maskInverseSetting: boolean }).maskInverseSetting).toBe(false);
   });
 
   it('destroy() also tears down the mask sequence', async () => {

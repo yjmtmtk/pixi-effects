@@ -179,6 +179,14 @@ export interface SequenceCommon {
    * geometric reveals.
    */
   mask?: SequenceSpec;
+  /**
+   * When true, the mask is inverted: pixels inside the mask shape become
+   * transparent and pixels outside become visible. Useful for "knockout"
+   * effects (cut a hole through an image / panel). Default false.
+   *
+   * Routed through PIXI's native `setMask({ inverse: true })`.
+   */
+  maskInverted?: boolean;
 }
 
 export interface VideoSequenceSpec extends SequenceCommon {

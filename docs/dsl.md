@@ -304,7 +304,30 @@ The mask is itself a sequence, so it can have `keyframes` of its own — useful 
 Notes:
 - The mask sequence is rendered as a mask, not as a normal child — its `fillColor` / `strokeColor` only matter for which pixels are kept, not for the visible colour.
 - Any sequence type works as a mask (shape / image / text / nested composition); shapes are the natural choice for geometric reveals.
-- A left-to-right wipe needs the mask's pivot at its left edge. The default auto-centring makes `scaleX: 0 → 1` grow out from the centre; set `pivotX: -width/2` in the mask's `initial` to anchor it at the left.
+- For a left-to-right wipe, give the mask `anchorX: 0` (rect/circle/ellipse) so `width: 0 → full` grows rightward from the left edge.
+
+#### `maskInverted`
+
+When `true`, flip the mask sense: pixels INSIDE the mask shape become transparent, pixels OUTSIDE stay visible. Useful for knockout / cutout effects (punch a circular hole through a panel, etc.).
+
+```ts
+// Photo with a circular hole punched through the middle
+{
+  type: 'image', asset: 'photo',
+  initial: { x: 'W/2', y: 'H/2', anchorX: 0.5, anchorY: 0.5 },
+  maskInverted: true,
+  mask: {
+    type: 'shape', shape: 'circle', radius: 80,
+    initial: { x: 'W/2', y: 'H/2', fillColor: '#ffffff' },
+    keyframes: [
+      { at: 0, to: { radius: 120 }, duration: 1.5, ease: 'sine.inOut' },
+      { at: 1.5, to: { radius: 80 }, duration: 1.5, ease: 'sine.inOut' },
+    ],
+  },
+}
+```
+
+Routed through PIXI v8's native `setMask({ inverse: true })`.
 
 ---
 
