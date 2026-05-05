@@ -13,7 +13,7 @@
 </head>
 <body>
   <h1>Mask</h1>
-  <p>Inline <code>mask</code> on any sequence. The mask is itself a sequence — geometry, position, even keyframes — so reveal animations come for free. Three demos here: a circular avatar crop, a growing-circle reveal that wipes a photo in, and a rect mask sliding across to reveal text.</p>
+  <p>Inline <code>mask</code> on any sequence. The mask is itself a sequence — geometry, position, even keyframes — so reveal animations come for free. Four demos in a 2×2 grid: a circular avatar crop, a growing-circle iris reveal, a rect mask wiping across to reveal text, and an inverted mask punching a hole through a photo.</p>
   <canvas id="stage" width="1280" height="720"></canvas>
   <script type="importmap">
   {
@@ -40,7 +40,7 @@
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, 1920, 1080);
       ctx.fillStyle = 'rgba(255,255,255,0.92)';
-      ctx.font = 'bold 160px sans-serif';
+      ctx.font = 'bold 220px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(label, 960, 540);
@@ -50,6 +50,17 @@
     const movie = new Movie();
     window.__movie = movie;
     new Controller(movie, { canvas: document.getElementById('stage') });
+
+    // 2×2 grid layout — both rows + both columns share one source of truth
+    // so all four demos sit on a clean grid.
+    const COL = ['W * 0.27', 'W * 0.73'];
+    const ROW = ['H * 0.32', 'H * 0.72'];
+    const FADE_OUT = { at: -0.5, to: { alpha: 0 }, duration: 0.5 };
+    const LABEL = (text, col, row) => ({
+      type: 'text', text,
+      initial: { x: COL[col], y: row === 0 ? 'H * 0.10' : 'H * 0.50', anchorX: 0.5, anchorY: 0.5 },
+      style: { fontSize: 'GW * 0.018', fill: '#888', fontFamily: 'Menlo, monospace' },
+    });
 
     await movie.init({
       canvas: document.getElementById('stage'),
@@ -62,79 +73,81 @@
       composition: {
         sequences: [
 
-          // 1 — Circular avatar crop. Static circle mask, image stays put.
+          LABEL('avatar crop',     0, 0),
+          LABEL('iris reveal',     1, 0),
+          LABEL('text wipe',       0, 1),
+          LABEL('knockout',        1, 1),
+
+          // 1 — Top-left: circular avatar crop. Static circle mask.
           {
             type: 'image', asset: 'photoA',
-            initial: { x: 'W * 0.22', y: 'H * 0.5', anchorX: 0.5, anchorY: 0.5, scale: 0.4 },
+            initial: { x: COL[0], y: ROW[0], anchorX: 0.5, anchorY: 0.5, scale: 0.22 },
             keyframes: [
-              { at: 0,    from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.5 },
-              { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+              { at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.5 },
+              FADE_OUT,
             ],
             mask: {
-              type: 'shape', shape: 'circle', radius: 130,
-              initial: { x: 'W * 0.22', y: 'H * 0.5', fillColor: '#ffffff' },
+              type: 'shape', shape: 'circle', radius: 110,
+              initial: { x: COL[0], y: ROW[0], fillColor: '#ffffff' },
             },
           },
 
-          // 2 — Growing-circle reveal. Mask animates radius via scale tween,
-          //     so the image is "wiped in" as a circular iris.
+          // 2 — Top-right: iris reveal. Mask grows from scale 0 → 1.
           {
             type: 'image', asset: 'photoB',
-            initial: { x: 'W * 0.5', y: 'H * 0.5', anchorX: 0.5, anchorY: 0.5, scale: 0.4 },
+            initial: { x: COL[1], y: ROW[0], anchorX: 0.5, anchorY: 0.5, scale: 0.22 },
             keyframes: [
               { at: 0,    to: { alpha: 1 }, duration: 0 },
-              { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+              FADE_OUT,
             ],
             mask: {
-              type: 'shape', shape: 'circle', radius: 200,
-              initial: { x: 'W * 0.5', y: 'H * 0.5', fillColor: '#ffffff', scale: 0 },
+              type: 'shape', shape: 'circle', radius: 130,
+              initial: { x: COL[1], y: ROW[0], fillColor: '#ffffff', scale: 0 },
               keyframes: [
                 { at: 1.5, to: { scale: 1 }, duration: 1.0, ease: 'power2.out' },
               ],
             },
           },
 
-          // 3 — Rect mask wiping L→R to reveal text. Mask uses `anchorX: 0`
-          //     so the rect's left edge stays pinned and `width: 0 → full`
-          //     is a clean rightward wipe.
+          // 3 — Bottom-left: text wipe. Mask uses `anchorX: 0` so the
+          //     rect's left edge stays pinned and `width: 0 → full` is a
+          //     clean rightward wipe.
           {
             type: 'text', text: 'masked text',
-            initial: { x: 'W * 0.78', y: 'H * 0.5', anchorX: 0.5, anchorY: 0.5 },
-            style: { fontSize: 'GW * 0.04', fill: '#ffffff', fontWeight: 'bold' },
-            keyframes: [
-              { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
-            ],
+            initial: { x: COL[0], y: ROW[1], anchorX: 0.5, anchorY: 0.5 },
+            style: { fontSize: 'GW * 0.034', fill: '#ffffff', fontWeight: 'bold' },
+            keyframes: [FADE_OUT],
             mask: {
               type: 'shape', shape: 'rect',
-              width: 0, height: 100,
+              width: 0, height: 80,
               anchorX: 0,
               initial: {
-                x: 'W * 0.78 - 180', y: 'H * 0.5',
+                x: 'W * 0.27 - 160', y: ROW[1],
                 fillColor: '#ffffff',
               },
               keyframes: [
-                { at: 3.0, to: { width: 360 }, duration: 1.2, ease: 'power3.out' },
+                { at: 3.0, to: { width: 320 }, duration: 1.2, ease: 'power3.out' },
               ],
             },
           },
 
-          // 4 — Inverted mask (knockout): photo A with a hole punched
-          //     through it. `maskInverted: true` flips PIXI's mask sense
-          //     so pixels INSIDE the mask become transparent.
+          // 4 — Bottom-right: knockout. `maskInverted: true` flips PIXI's
+          //     mask sense so pixels INSIDE the circle become transparent.
+          //     Hole pulses 60 → 100 → 60 px.
           {
             type: 'image', asset: 'photoA',
             maskInverted: true,
-            initial: { x: 'W * 0.5', y: 'H * 0.85', anchorX: 0.5, anchorY: 0.5, scale: 0.18 },
+            initial: { x: COL[1], y: ROW[1], anchorX: 0.5, anchorY: 0.5, scale: 0.22 },
             keyframes: [
               { at: 0,    to: { alpha: 1 }, duration: 0 },
-              { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+              FADE_OUT,
             ],
             mask: {
               type: 'shape', shape: 'circle', radius: 60,
-              initial: { x: 'W * 0.5', y: 'H * 0.85', fillColor: '#ffffff' },
+              initial: { x: COL[1], y: ROW[1], fillColor: '#ffffff' },
               keyframes: [
-                { at: 5.0, to: { radius: 100 }, duration: 1.5, ease: 'sine.inOut' },
-                { at: 6.5, to: { radius: 60 },  duration: 1.5, ease: 'sine.inOut' },
+                { at: 4.5, to: { radius: 100 }, duration: 1.2, ease: 'sine.inOut' },
+                { at: 5.7, to: { radius: 60 },  duration: 1.2, ease: 'sine.inOut' },
               ],
             },
           },
