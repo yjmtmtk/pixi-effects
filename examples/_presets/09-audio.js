@@ -43,46 +43,47 @@ await movie.init({
         type: 'audio', asset: e.sfx, at: e.at, volume: 1,
       })),
 
-      // 0.8s click → small white dot fades in at left
+      // Each visual: fades in at its event, holds, fades out before the next event.
+
+      // 0.8s click → small white dot
       {
-        type: 'shape', shape: 'circle', radius: 22,
-        initial: { x: 'GW * 0.18', y: 'GH/2', fillColor: '#ffffff', alpha: 0, scale: 0 },
+        type: 'shape', shape: 'circle', radius: 28,
+        initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ffffff', alpha: 0, scale: 0 },
         keyframes: [
           { at: 0.8, to: { alpha: 1, scale: 1 }, duration: 0.15, ease: 'power2.out' },
-          { at: 1.6, to: { alpha: 0.4 }, duration: 0.5, ease: 'sine.in' },
-          { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+          { at: 2.4, to: { alpha: 0 }, duration: 0.2 },
         ],
       },
       {
         type: 'text', text: 'click',
-        initial: { x: 'GW * 0.18', y: 'GH * 0.62', anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        initial: { x: 'GW/2', y: 'GH * 0.62', anchorX: 0.5, anchorY: 0.5, alpha: 0 },
         keyframes: [
-          { at: 0.85, to: { alpha: 1 }, duration: 0.3 },
-          { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+          { at: 0.85, to: { alpha: 1 }, duration: 0.25 },
+          { at: 2.4,  to: { alpha: 0 }, duration: 0.2 },
         ],
-        style: { fontSize: 'GW * 0.018', fill: '#aaccee', fontFamily: 'Menlo, monospace' },
+        style: { fontSize: 'GW * 0.022', fill: '#aaccee', fontFamily: 'Menlo, monospace' },
       },
 
       // 2.6s pop → "POP!" text scale-pops in
       {
         type: 'text', text: 'POP!',
-        initial: { x: 'GW * 0.4', y: 'GH/2', anchorX: 0.5, anchorY: 0.5, alpha: 0, scale: 0 },
+        initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5, alpha: 0, scale: 0 },
         keyframes: [
           { at: 2.6, to: { alpha: 1, scale: 1 }, duration: 0.25, ease: 'back.out(3)' },
           { at: 3.0, to: { rotation: -8 }, duration: 0.2 },
-          { at: 3.2, to: { rotation: 0 }, duration: 0.2 },
-          { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+          { at: 3.2, to: { rotation: 0  }, duration: 0.2 },
+          { at: 4.7, to: { alpha: 0 }, duration: 0.3 },
         ],
-        style: { fontSize: 'GW * 0.07', fill: '#ffaa55', fontWeight: '900', letterSpacing: 4 },
+        style: { fontSize: 'GW * 0.09', fill: '#ffaa55', fontWeight: '900', letterSpacing: 4 },
       },
       {
         type: 'text', text: 'pop',
-        initial: { x: 'GW * 0.4', y: 'GH * 0.62', anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        initial: { x: 'GW/2', y: 'GH * 0.62', anchorX: 0.5, anchorY: 0.5, alpha: 0 },
         keyframes: [
-          { at: 2.65, to: { alpha: 1 }, duration: 0.3 },
-          { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+          { at: 2.65, to: { alpha: 1 }, duration: 0.25 },
+          { at: 4.7,  to: { alpha: 0 }, duration: 0.3 },
         ],
-        style: { fontSize: 'GW * 0.018', fill: '#aaccee', fontFamily: 'Menlo, monospace' },
+        style: { fontSize: 'GW * 0.022', fill: '#aaccee', fontFamily: 'Menlo, monospace' },
       },
 
       // 5.0s swoosh → arrow flies across the canvas
@@ -100,17 +101,17 @@ await movie.init({
         type: 'text', text: 'swoosh',
         initial: { x: 'GW/2', y: 'GH * 0.62', anchorX: 0.5, anchorY: 0.5, alpha: 0 },
         keyframes: [
-          { at: 5.05, to: { alpha: 1 }, duration: 0.3 },
-          { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+          { at: 5.05, to: { alpha: 1 }, duration: 0.25 },
+          { at: 7.3,  to: { alpha: 0 }, duration: 0.3 },
         ],
-        style: { fontSize: 'GW * 0.018', fill: '#aaccee', fontFamily: 'Menlo, monospace' },
+        style: { fontSize: 'GW * 0.022', fill: '#aaccee', fontFamily: 'Menlo, monospace' },
       },
 
-      // 7.6s chime → three stars (✦) appear with success vibe
-      ...[0.78, 0.5, 0.22].map((cx, i) => ({
+      // 7.6s chime → three stars (✦) clustered around centre
+      ...[-0.06, 0, 0.06].map((dx, i) => ({
         type: 'text', text: '✦',
         initial: {
-          x: \`GW * \${cx}\`, y: 'GH/2',
+          x: \`GW * (0.5 + \${dx})\`, y: 'GH/2',
           anchorX: 0.5, anchorY: 0.5,
           alpha: 0, scale: 0,
         },
@@ -118,21 +119,20 @@ await movie.init({
           { at: 7.6 + i * 0.08,
             to: { alpha: 1, scale: 1 },
             duration: 0.35, ease: 'back.out(2.2)' },
-          { at: 8.5,
-            to: { rotation: 25 },
-            duration: 0.4, ease: 'sine.inOut' },
+          { at: 8.5,  to: { rotation: 25 }, duration: 0.4, ease: 'sine.inOut' },
+          { at: 8.9,  to: { rotation: 0  }, duration: 0.4, ease: 'sine.inOut' },
           { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
         ],
-        style: { fontSize: 'GW * 0.06', fill: '#ffeb88' },
+        style: { fontSize: 'GW * 0.07', fill: '#ffeb88' },
       })),
       {
         type: 'text', text: 'chime',
         initial: { x: 'GW/2', y: 'GH * 0.62', anchorX: 0.5, anchorY: 0.5, alpha: 0 },
         keyframes: [
-          { at: 7.7, to: { alpha: 1 }, duration: 0.3 },
+          { at: 7.7, to: { alpha: 1 }, duration: 0.25 },
           { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
         ],
-        style: { fontSize: 'GW * 0.018', fill: '#aaccee', fontFamily: 'Menlo, monospace' },
+        style: { fontSize: 'GW * 0.022', fill: '#aaccee', fontFamily: 'Menlo, monospace' },
       },
 
       // ── Title ──
