@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>pixi-effects — 04 · media (image / video / audio)</title>
+  <style>
+    body { background: #0a0a0f; margin: 0; font-family: sans-serif; color: #ccc; padding: 16px; }
+    h1 { font-weight: 500; margin: 0 0 4px 0; }
+    p { font-size: 13px; color: #888; margin: 0 0 16px 0; max-width: 960px; }
+    p code, ul code { background: #1a1a22; padding: 1px 6px; border-radius: 3px; color: #b5d3ff; }
+    ul { font-size: 13px; color: #888; margin: 0 0 16px 0; padding-left: 20px; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1>04 · media</h1>
+  <p>
+    Image, video, and audio sequences in one composition. The video has a chroma-key filter so the green
+    background drops out, letting the underlying gradient image show through. The BGM fades in at the start
+    and out at the end, mixed by the engine on init and on render.
+  </p>
+  <ul>
+    <li><code>assets: [{ name, src }]</code> — registered before <code>composition</code> can refer to them</li>
+    <li><code>type: 'image'</code> — intrinsic <code>w</code>/<code>h</code> available in expressions; <code>tint</code> animatable</li>
+    <li><code>type: 'video'</code> — <code>scale: 'cover'</code> / <code>'contain'</code>, animatable <code>volume</code>, <code>audio</code> routing</li>
+    <li><code>type: 'audio'</code> — invisible track, volume keyframes, mixed at init and render time</li>
+    <li>One quick <code>chromaKey</code> filter (full filter coverage in 06)</li>
+  </ul>
+  <canvas id="stage" width="1280" height="720"></canvas>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.10.0?bundle-deps",
+      "gsap":            "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":      "https://esm.sh/mediabunny"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../dist/index.js';
+    import { Controller } from '../dist/Controller.js';
+
+    // Generate a 1280x720 gradient image inline so the example doesn't ship an asset file.
+    function gradientDataUrl() {
+      const c = document.createElement('canvas');
+      c.width = 1280; c.height = 720;
+      const ctx = c.getContext('2d');
+      const grad = ctx.createLinearGradient(0, 0, 1280, 720);
+      grad.addColorStop(0,    '#1a3a5c');
+      grad.addColorStop(0.5,  '#3a1a5c');
+      grad.addColorStop(1,    '#5c1a3a');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 1280, 720);
+      // Add a subtle dot grid
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      for (let y = 32; y < 720; y += 64) {
+        for (let x = 32; x < 1280; x += 64) {
+          ctx.beginPath();
+          ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      return c.toDataURL();
+    }
+
+    const movie = new Movie();
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    await movie.init({
+      canvas: document.getElementById('stage'),
+      width: 1280, height: 720, duration: 8, frameRate: 30,
+      background: '#000000',
+      assets: [
+        { name: 'bg',    src: gradientDataUrl() },
+        { name: 'green', src: '/examples/_assets/green.mp4' },
+        { name: 'bgm',   src: '/examples/_assets/bgm.mp3'   },
+      ],
+      composition: {
+        sequences: [
+          // ── Background image — fits the canvas, slow tint sweep ──
+          {
+            type: 'image', asset: 'bg',
+            // intrinsic w/h come from the loaded texture; here it's 1280x720 so cover = 1.
+            initial: { x: 0, y: 0, scale: 'cover' },
+            colorSpace: 'oklab',
+            keyframes: [
+              { at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.6 },
+              // Tint sweeps subtly through hues without going through grey.
+              { at: 1, to: { tint: '#ff99cc' }, duration: 3, ease: 'sine.inOut' },
+              { at: 4, to: { tint: '#ffffff' }, duration: 2, ease: 'sine.inOut' },
+              { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+            ],
+          },
+
+          // ── Foreground video, chroma-keyed against green so the background shows through ──
+          {
+            type: 'video', asset: 'green', name: 'fg',
+            audio: false,                     // mute video's own audio so BGM is the only sound
+            initial: { x: 0, y: 0, scale: 'contain', alpha: 0 },
+            filters: [
+              { name: 'k', type: 'chromaKey', keyColor: '#00ff00', threshold: 0.4, smoothing: 0.1, spill: 0.3 },
+            ],
+            keyframes: [
+              { at: 0.6, to: { alpha: 1 }, duration: 0.5 },
+              // Tighten the chroma-key threshold halfway through.
+              { at: 4,   to: { 'filters.k.threshold': 0.55 }, duration: 1 },
+              { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+            ],
+          },
+
+          // ── BGM track. No visual; volume keyframes fade in / out. ──
+          {
+            type: 'audio', asset: 'bgm',
+            volume: 0,
+            keyframes: [
+              { at: 0,    to: { volume: 0.6 }, duration: 1   },
+              { at: -1,   to: { volume: 0   }, duration: 1   },
+            ],
+          },
+
+          // ── Captions ──
+          {
+            type: 'text', text: 'image · video · audio',
+            initial: { x: 'GW/2', y: 'GH * 0.08', anchorX: 0.5, anchorY: 0.5 },
+            keyframes: [
+              { at: 0.3, from: { alpha: 0, y: 'GH * 0.04' },
+                         to:   { alpha: 1, y: 'GH * 0.08' },
+                         duration: 0.5, ease: 'power3.out' },
+              { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+            ],
+            style: { fontSize: 'GW * 0.04', fill: '#ffffff', fontWeight: 'bold' },
+          },
+          {
+            type: 'text', text: 'green-screen video over a gradient image, BGM fading in &amp; out',
+            initial: { x: 'GW/2', y: 'GH * 0.94', anchorX: 0.5, anchorY: 0.5 },
+            keyframes: [
+              { at: 0.6, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.5 },
+              { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+            ],
+            style: { fontSize: 'GW * 0.018', fill: '#aaccee', fontStyle: 'italic' },
+          },
+        ],
+      },
+    });
+  </script>
+</body>
+</html>

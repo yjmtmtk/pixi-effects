@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>pixi-effects — 07 · transitions</title>
+  <style>
+    body { background: #0a0a0f; margin: 0; font-family: sans-serif; color: #ccc; padding: 16px; }
+    h1 { font-weight: 500; margin: 0 0 4px 0; }
+    p { font-size: 13px; color: #888; margin: 0 0 16px 0; max-width: 960px; }
+    p code, ul code { background: #1a1a22; padding: 1px 6px; border-radius: 3px; color: #b5d3ff; }
+    ul { font-size: 13px; color: #888; margin: 0 0 16px 0; padding-left: 20px; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1>07 · transitions</h1>
+  <p>
+    Eight named scenes chained by all seven transition kinds.
+    Each scene is a full-canvas color with its label centred. Transitions sit on the
+    composition itself, not on individual sequences — they reference siblings by <code>name</code>.
+  </p>
+  <ul>
+    <li><code>crossfade</code> — alpha cross-dissolve</li>
+    <li><code>wipe</code> — soft directional reveal (shader mask)</li>
+    <li><code>iris</code> — circular reveal from / to a point</li>
+    <li><code>slide</code> — both sequences move together; new scene comes from the opposite side</li>
+    <li><code>dip</code> — A fades out, then B fades in; whatever is behind shows through</li>
+    <li><code>zoom</code> — punch-in / punch-out scale + fade</li>
+    <li><code>dissolve</code> — Perlin-noise pixel reveal, deterministic by <code>seed</code></li>
+  </ul>
+  <canvas id="stage" width="1280" height="720"></canvas>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.10.0?bundle-deps",
+      "gsap":            "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":      "https://esm.sh/mediabunny"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../dist/index.js';
+    import { Controller } from '../dist/Controller.js';
+
+    // Tiny solid-color PNG used as a stretchable background sprite.
+    function bgDataUrl(color) {
+      const c = document.createElement('canvas');
+      c.width = c.height = 8;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = color; ctx.fillRect(0, 0, 8, 8);
+      return c.toDataURL();
+    }
+
+    // Build a full-canvas colored background + centred label, addressable by name.
+    // Each scene runs from `at` for `duration` seconds and fully overlaps the next
+    // scene during its own transition window.
+    function scene(label, color, name, at, duration) {
+      return [
+        {
+          type: 'image', asset: `bg-${name}`, name,
+          at, duration,
+          initial: { x: 0, y: 0, scale: 'cover' },
+          // Default alpha 1; transitions handle fade as needed.
+        },
+        {
+          type: 'text', text: label, at, duration,
+          initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+          style: { fontSize: 'GW * 0.06', fill: '#ffffff', fontWeight: 'bold' },
+        },
+      ];
+    }
+
+    const SCENES = [
+      ['SCENE A',  '#a13b3b', 'A'],
+      ['SCENE B',  '#2266bb', 'B'],
+      ['SCENE C',  '#1d8c5e', 'C'],
+      ['SCENE D',  '#bb44aa', 'D'],
+      ['SCENE E',  '#222222', 'E'],   // dip-to-dark looks better with a tonal shift
+      ['SCENE F',  '#cc7733', 'F'],
+      ['SCENE G',  '#3366cc', 'G'],
+      ['SCENE H',  '#aa5544', 'H'],
+    ];
+
+    const SCENE_LEN = 4;     // each scene runs 4s
+    const T_DUR     = 1;     // each transition lasts 1s
+    const STEP      = SCENE_LEN - T_DUR;   // overlap by T_DUR so transitions sit in the seam
+
+    const movie = new Movie();
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    await movie.init({
+      canvas: document.getElementById('stage'),
+      width: 1280, height: 720,
+      duration: SCENES.length * STEP + T_DUR,    // exact total runtime
+      frameRate: 30,
+      // Background visible during a `dip` (which fades A out, then fades B in,
+      // showing whatever's behind in between).
+      background: '#000000',
+      assets: SCENES.map(([_, color, name]) => ({ name: `bg-${name}`, src: bgDataUrl(color) })),
+      composition: {
+        sequences: SCENES.flatMap(([label, color, name], i) =>
+          scene(label, color, name, i * STEP, SCENE_LEN)
+        ),
+        transitions: [
+          { kind: 'crossfade', from: 'A', to: 'B', at: 1 * STEP, duration: T_DUR, ease: 'sine.inOut' },
+          { kind: 'wipe',      from: 'B', to: 'C', at: 2 * STEP, duration: T_DUR, direction: 'left' },
+          { kind: 'iris',      from: 'C', to: 'D', at: 3 * STEP, duration: T_DUR, mode: 'in', ease: 'power2.inOut' },
+          { kind: 'slide',     from: 'D', to: 'E', at: 4 * STEP, duration: T_DUR, direction: 'left', ease: 'power2.inOut' },
+          { kind: 'dip',       from: 'E', to: 'F', at: 5 * STEP, duration: T_DUR, ease: 'sine.inOut' },
+          { kind: 'zoom',      from: 'F', to: 'G', at: 6 * STEP, duration: T_DUR, mode: 'in', fromScale: 4, ease: 'power2.out' },
+          { kind: 'dissolve',  from: 'G', to: 'H', at: 7 * STEP, duration: T_DUR, scale: 30, seed: 0 },
+        ],
+      },
+    });
+  </script>
+</body>
+</html>

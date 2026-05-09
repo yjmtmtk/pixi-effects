@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>pixi-effects — 05 · composition &amp; mask</title>
+  <style>
+    body { background: #0a0a0f; margin: 0; font-family: sans-serif; color: #ccc; padding: 16px; }
+    h1 { font-weight: 500; margin: 0 0 4px 0; }
+    p { font-size: 13px; color: #888; margin: 0 0 16px 0; max-width: 960px; }
+    p code, ul code { background: #1a1a22; padding: 1px 6px; border-radius: 3px; color: #b5d3ff; }
+    ul { font-size: 13px; color: #888; margin: 0 0 16px 0; padding-left: 20px; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1>05 · composition &amp; mask</h1>
+  <p>
+    Three nested compositions, each with its own coordinate system, plus three masks: a circular avatar
+    crop, an iris reveal, and a punched-out hole using <code>maskInverted</code>.
+  </p>
+  <ul>
+    <li><code>type: 'composition'</code> with explicit <code>width</code>/<code>height</code> — children use local <code>W</code>/<code>H</code>; <code>GW</code>/<code>GH</code> still refer to the root</li>
+    <li>Composition itself transforms as a unit (rotate the parent → children come along)</li>
+    <li><code>mask</code> on any sequence, animatable like a normal child</li>
+    <li><code>maskInverted: true</code> — flip the mask to punch a hole instead of cropping</li>
+  </ul>
+  <canvas id="stage" width="1280" height="720"></canvas>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.10.0?bundle-deps",
+      "gsap":            "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":      "https://esm.sh/mediabunny"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../dist/index.js';
+    import { Controller } from '../dist/Controller.js';
+
+    // Make a synthetic image so the example is self-contained: colorful tile pattern.
+    function tilePattern(palette) {
+      const c = document.createElement('canvas');
+      c.width = 480; c.height = 480;
+      const ctx = c.getContext('2d');
+      const t = 60;
+      for (let y = 0; y < 480; y += t) {
+        for (let x = 0; x < 480; x += t) {
+          ctx.fillStyle = palette[((x / t) + (y / t)) % palette.length];
+          ctx.fillRect(x, y, t, t);
+        }
+      }
+      return c.toDataURL();
+    }
+
+    const movie = new Movie();
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    await movie.init({
+      canvas: document.getElementById('stage'),
+      width: 1280, height: 720, duration: 7, frameRate: 30,
+      background: '#0a0a0f',
+      assets: [
+        { name: 'tilesA', src: tilePattern(['#ff5577', '#ffaa55', '#5599ff', '#55cc99']) },
+        { name: 'tilesB', src: tilePattern(['#aaffcc', '#7799ff', '#ffaadd', '#ffffaa']) },
+        { name: 'tilesC', src: tilePattern(['#5599ff', '#ff77aa', '#aaff77', '#ffcc55']) },
+      ],
+      composition: {
+        sequences: [
+
+          // ─── 1) Circular avatar crop (left tile) ─────────────────────
+          // A nested composition gives us a local coordinate space (480x480)
+          // so the mask + image align without GW/GH bookkeeping.
+          {
+            type: 'composition',
+            width: 480, height: 480,
+            initial: { x: 'GW * 0.08', y: 'GH/2 - 240' },
+            keyframes: [
+              { at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.5 },
+              { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+            ],
+            sequences: [
+              {
+                type: 'image', asset: 'tilesA',
+                initial: { x: 'W/2', y: 'H/2', anchorX: 0.5, anchorY: 0.5 },
+                keyframes: [
+                  // Slow drift & scale to prove the mask follows the image
+                  { at: 0, to: { rotation: 360, scale: 1.1 }, duration: 6.5, ease: 'sine.inOut' },
+                ],
+                mask: {
+                  // Plain circular crop — fillColor is irrelevant, only the geometry matters.
+                  type: 'shape', shape: 'circle', radius: 220,
+                  initial: { x: 'W/2', y: 'H/2', fillColor: '#ffffff' },
+                },
+              },
+              // Caption sits inside the same local space, on top of the image.
+              {
+                type: 'text', text: 'crop',
+                initial: { x: 'W/2', y: 'H + 30', anchorX: 0.5, anchorY: 0.5 },
+                style: { fontSize: 'GW * 0.022', fill: '#aaccee', fontFamily: 'Menlo, monospace' },
+              },
+            ],
+          },
+
+          // ─── 2) Iris reveal: mask itself is animated ────────────────
+          {
+            type: 'composition',
+            width: 480, height: 480,
+            initial: { x: 'GW/2 - 240', y: 'GH/2 - 240' },
+            keyframes: [
+              { at: 0.3, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.5 },
+              { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+            ],
+            sequences: [
+              {
+                type: 'image', asset: 'tilesB',
+                initial: { x: 'W/2', y: 'H/2', anchorX: 0.5, anchorY: 0.5 },
+                mask: {
+                  type: 'shape', shape: 'circle', radius: 240,
+                  // Start invisible (scale 0), grow to reveal the image.
+                  initial: { x: 'W/2', y: 'H/2', fillColor: '#ffffff', scale: 0 },
+                  keyframes: [
+                    { at: 0, to: { scale: 1 }, duration: 1.4, ease: 'power2.out' },
+                    // Pulse to show the mask itself can keyframe over time.
+                    { at: 3, to: { scale: 0.6 }, duration: 0.6, ease: 'sine.inOut' },
+                    { at: 3.6, to: { scale: 1 }, duration: 0.6, ease: 'sine.inOut' },
+                  ],
+                },
+              },
+              {
+                type: 'text', text: 'iris reveal',
+                initial: { x: 'W/2', y: 'H + 30', anchorX: 0.5, anchorY: 0.5 },
+                style: { fontSize: 'GW * 0.022', fill: '#aaccee', fontFamily: 'Menlo, monospace' },
+              },
+            ],
+          },
+
+          // ─── 3) Knockout: maskInverted punches a hole through the image ─
+          {
+            type: 'composition',
+            width: 480, height: 480,
+            initial: { x: 'GW * 0.92 - 480', y: 'GH/2 - 240' },
+            // Rotate the whole composition as a unit — the hole rotates with it.
+            keyframes: [
+              { at: 0.6, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.5 },
+              { at: 1, to: { rotation: 360 }, duration: 5, ease: 'sine.inOut' },
+              { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+            ],
+            sequences: [
+              {
+                type: 'image', asset: 'tilesC',
+                initial: { x: 'W/2', y: 'H/2', anchorX: 0.5, anchorY: 0.5 },
+                maskInverted: true,
+                mask: {
+                  // The CIRCLE here is the hole.
+                  type: 'shape', shape: 'circle', radius: 100,
+                  initial: { x: 'W/2', y: 'H/2', fillColor: '#ffffff' },
+                  keyframes: [
+                    { at: 1.5, to: { radius: 160 }, duration: 1.5, ease: 'sine.inOut' },
+                    { at: 3,   to: { radius: 100 }, duration: 1.5, ease: 'sine.inOut' },
+                  ],
+                },
+              },
+              {
+                type: 'text', text: 'maskInverted',
+                initial: { x: 'W/2', y: 'H + 30', anchorX: 0.5, anchorY: 0.5 },
+                style: { fontSize: 'GW * 0.022', fill: '#aaccee', fontFamily: 'Menlo, monospace' },
+              },
+            ],
+          },
+
+          // ─── Title bar at the top ──────────────────────────────────
+          {
+            type: 'text', text: 'composition + mask',
+            initial: { x: 'GW/2', y: 'GH * 0.08', anchorX: 0.5, anchorY: 0.5 },
+            keyframes: [
+              { at: 0, from: { alpha: 0, y: 'GH * 0.04' },
+                       to:   { alpha: 1, y: 'GH * 0.08' },
+                       duration: 0.5, ease: 'power3.out' },
+              { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+            ],
+            style: { fontSize: 'GW * 0.04', fill: '#ffffff', fontWeight: 'bold' },
+          },
+        ],
+      },
+    });
+  </script>
+</body>
+</html>

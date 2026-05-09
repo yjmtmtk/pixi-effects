@@ -57,12 +57,16 @@ const blob = await movie.render({ format: 'mp4' });
 
 - [**DSL reference**](./docs/dsl.md) — composition, sequences, keyframes, expressions, filters
 - [**API reference**](./docs/api.md) — `Movie`, `Controller`, events, render options
-- [**Examples**](./examples/) — runnable HTML files:
+- [**Examples**](./examples/) — runnable HTML files (read in order):
+  - `01-hello.html` — minimum viable composition
+  - `02-keyframes.html` — keyframes, easings, expressions
+  - `03-shapes.html` — every shape primitive
+  - `04-media.html` — image / video / audio
+  - `05-composition-mask.html` — nested compositions and masks
+  - `06-filters.html` — built-in and pixi-filters via `{ type: 'custom' }`
+  - `07-transitions.html` — all seven transition kinds in one timeline
+  - `08-presets-export.html` — `kenBurns` preset and `movie.render()` from code
   - `playground.html` — in-browser editor with preset dropdown
-  - `basic.html` — text + keyframes
-  - `chromakey.html` — green-screen video
-  - `nested.html` — nested compositions + audio
-  - `pixi-filters.html` — community filters (`GlowFilter`, `DropShadowFilter`, `RGBSplitFilter`, `OldFilmFilter`) via the `{ type: 'custom' }` adapter
 
 ## Browser support
 

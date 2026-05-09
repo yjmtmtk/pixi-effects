@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>pixi-effects — 02 · keyframes &amp; expressions</title>
+  <style>
+    body { background: #0a0a0f; margin: 0; font-family: sans-serif; color: #ccc; padding: 16px; }
+    h1 { font-weight: 500; margin: 0 0 4px 0; }
+    p { font-size: 13px; color: #888; margin: 0 0 16px 0; max-width: 960px; }
+    p code, ul code { background: #1a1a22; padding: 1px 6px; border-radius: 3px; color: #b5d3ff; }
+    ul { font-size: 13px; color: #888; margin: 0 0 16px 0; padding-left: 20px; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1>02 · keyframes &amp; expressions</h1>
+  <p>
+    A single text moves through every transform property on the timeline. Each segment is one keyframe
+    that exercises a different feature so you can see which knob does what.
+  </p>
+  <ul>
+    <li>PIXI shorthands: <code>scale</code>, <code>rotation</code> (degrees), <code>skewX</code>, <code>tint</code></li>
+    <li>Easing — <code>back.out</code>, <code>elastic.out</code>, <code>power2</code>, <code>sine.inOut</code></li>
+    <li>Expression scope: <code>GW</code>/<code>GH</code> (root size), <code>min(...)</code>, arithmetic</li>
+    <li>Mutually-exclusive keyframe forms: <code>from+to</code> (fromTo tween), <code>to</code> (continue from current), <code>set</code> (instantaneous)</li>
+    <li>Negative <code>at</code> for the closing fade-out</li>
+  </ul>
+  <canvas id="stage" width="1280" height="720"></canvas>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.10.0?bundle-deps",
+      "gsap":            "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":      "https://esm.sh/mediabunny"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../dist/index.js';
+    import { Controller } from '../dist/Controller.js';
+
+    const movie = new Movie();
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    await movie.init({
+      canvas: document.getElementById('stage'),
+      width: 1280, height: 720, duration: 8, frameRate: 30,
+      background: '#0a0a0f',
+      composition: {
+        sequences: [
+          // ── Word that walks through one transform per beat ──
+          {
+            type: 'text',
+            text: 'TWEEN',
+            initial: {
+              x: 'GW/2', y: 'GH/2',
+              anchorX: 0.5, anchorY: 0.5,
+              alpha: 0,
+            },
+            keyframes: [
+              // 0.0–0.6  scale-pop entry (fromTo)
+              { at: 0,   from: { alpha: 0, scale: 0 },
+                         to:   { alpha: 1, scale: 1 },
+                         duration: 0.6, ease: 'back.out(2)' },
+
+              // 1.0–1.6  rotation in degrees, elastic settle
+              { at: 1.0, to: { rotation: 18 }, duration: 0.6, ease: 'elastic.out(1, 0.5)' },
+              { at: 1.6, to: { rotation: 0  }, duration: 0.4, ease: 'sine.inOut' },
+
+              // 2.0–2.6  positional drift using GW/GH expressions
+              { at: 2.0, to: { x: 'GW * 0.7', y: 'GH * 0.5' }, duration: 0.6, ease: 'power2.inOut' },
+              { at: 2.6, to: { x: 'GW * 0.3', y: 'GH * 0.5' }, duration: 0.6, ease: 'power2.inOut' },
+              { at: 3.2, to: { x: 'GW/2',     y: 'GH/2'    }, duration: 0.4, ease: 'sine.out' },
+
+              // 3.8  `set` — instantaneous tint flip (no duration)
+              { at: 3.8, set: { tint: '#88ccff' } },
+
+              // 4.0–4.8  skew + scale wobble in parallel
+              { at: 4.0, to: { skewX: 18, scaleY: 0.85 }, duration: 0.4, ease: 'sine.inOut' },
+              { at: 4.4, to: { skewX: -18, scaleY: 1.15 }, duration: 0.4, ease: 'sine.inOut' },
+              { at: 4.8, to: { skewX: 0, scaleY: 1 },     duration: 0.4, ease: 'sine.out' },
+
+              // 5.4  tint cycle back to white
+              { at: 5.4, to: { tint: '#ffffff' }, duration: 0.6, ease: 'sine.inOut' },
+
+              // 6.0–6.6  pulse via responsive font-tied scale (uses min(GW, GH))
+              { at: 6.0, to: { scale: 1.4 }, duration: 0.3, ease: 'power2.out' },
+              { at: 6.3, to: { scale: 1   }, duration: 0.3, ease: 'power2.in' },
+
+              // -0.5  exit fade (negative `at` = duration - 0.5)
+              { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+            ],
+            style: {
+              fontSize: 'min(GW, GH) * 0.18',   // responsive: stays sane on tall canvases too
+              fill: '#ffffff',
+              fontWeight: '900',
+              fontFamily: 'system-ui, -apple-system, sans-serif',
+              letterSpacing: 8,
+            },
+          },
+
+          // ── Caption labelling the current beat ──
+          {
+            type: 'text',
+            text: 'pop · rotate · pan · tint · skew · pulse',
+            initial: { x: 'GW/2', y: 'GH * 0.86', anchorX: 0.5, anchorY: 0.5 },
+            keyframes: [
+              { at: 0.6, from: { alpha: 0, y: 'GH * 0.92' },
+                         to:   { alpha: 1, y: 'GH * 0.86' },
+                         duration: 0.5, ease: 'power3.out' },
+              { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+            ],
+            style: { fontSize: 'GW * 0.022', fill: '#88ccff', fontStyle: 'italic' },
+          },
+        ],
+      },
+    });
+  </script>
+</body>
+</html>

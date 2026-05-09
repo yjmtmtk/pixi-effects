@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>pixi-effects — 01 · hello</title>
+  <style>
+    body { background: #0a0a0f; margin: 0; font-family: sans-serif; color: #ccc; padding: 16px; }
+    h1 { font-weight: 500; margin: 0 0 4px 0; }
+    p { font-size: 13px; color: #888; margin: 0 0 16px 0; max-width: 960px; }
+    p code, ul code { background: #1a1a22; padding: 1px 6px; border-radius: 3px; color: #b5d3ff; }
+    ul { font-size: 13px; color: #888; margin: 0 0 16px 0; padding-left: 20px; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1>01 · hello</h1>
+  <p>
+    The smallest useful composition: one text sequence that fades in, sits, fades out.
+    Read this first — every later example just stacks more sequences and properties onto this skeleton.
+  </p>
+  <ul>
+    <li><code>Movie.init({ canvas, width, height, duration, frameRate, composition })</code> — the entry point</li>
+    <li><code>composition.sequences</code> — the list of things on screen</li>
+    <li><code>type: 'text'</code> with <code>style</code> (set once) and <code>initial</code> (transform applied before keyframes)</li>
+    <li><code>keyframes</code> with <code>from</code>/<code>to</code>/<code>at</code>/<code>duration</code>/<code>ease</code></li>
+    <li>Negative <code>at</code> — measured from the end (e.g. <code>at: -0.5</code> = 500ms before the composition ends)</li>
+  </ul>
+  <canvas id="stage" width="1280" height="720"></canvas>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.10.0?bundle-deps",
+      "gsap":            "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":      "https://esm.sh/mediabunny"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../dist/index.js';
+    import { Controller } from '../dist/Controller.js';
+
+    const movie = new Movie();
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    await movie.init({
+      canvas: document.getElementById('stage'),
+      width: 1280, height: 720, duration: 4, frameRate: 30,
+      background: '#0a0a0f',
+      composition: {
+        sequences: [
+          {
+            type: 'text',
+            text: 'hello',
+            // `initial` applies before any keyframe runs. Anchor 0.5/0.5 makes
+            // (x, y) the *centre* of the text rather than the top-left.
+            initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+            keyframes: [
+              // Entry: at t=0, animate from (alpha 0, scale 0.6) → (alpha 1, scale 1).
+              { at: 0, from: { alpha: 0, scale: 0.6 },
+                       to:   { alpha: 1, scale: 1 },
+                       duration: 0.6, ease: 'back.out(1.7)' },
+              // Exit: at t = duration - 0.5, fade alpha → 0 over 500ms.
+              { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+            ],
+            style: {
+              fontSize: 'GW * 0.12',   // expressions work inside style too
+              fill: '#ffffff',
+              fontWeight: 'bold',
+              fontFamily: 'system-ui, -apple-system, sans-serif',
+            },
+          },
+        ],
+      },
+    });
+  </script>
+</body>
+</html>

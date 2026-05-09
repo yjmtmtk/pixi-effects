@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>pixi-effects — 08 · presets &amp; export</title>
+  <style>
+    body { background: #0a0a0f; margin: 0; font-family: sans-serif; color: #ccc; padding: 16px; }
+    h1 { font-weight: 500; margin: 0 0 4px 0; }
+    p { font-size: 13px; color: #888; margin: 0 0 16px 0; max-width: 960px; }
+    p code, ul code { background: #1a1a22; padding: 1px 6px; border-radius: 3px; color: #b5d3ff; }
+    ul { font-size: 13px; color: #888; margin: 0 0 16px 0; padding-left: 20px; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+    .actions { margin: 12px 0 4px; }
+    .actions button {
+      background: #1a2140; color: #ddd; border: 1px solid #2a3563;
+      border-radius: 4px; padding: 6px 12px; font: inherit; cursor: pointer; margin-right: 6px;
+    }
+    .actions button:hover { background: #243069; }
+    .actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .actions select { background: #1a2140; color: #ddd; border: 1px solid #2a3563; border-radius: 4px; padding: 4px 8px; font: inherit; }
+    #status { font: 12px Menlo, monospace; color: #88ccff; }
+  </style>
+</head>
+<body>
+  <h1>08 · presets &amp; export</h1>
+  <p>
+    Four <code>kenBurns</code> motions chained with <code>crossfade</code> transitions, plus a button that
+    calls <code>movie.render()</code> from code — the same path the Controller's download button takes,
+    but here you choose the format and watch the progress event stream.
+  </p>
+  <ul>
+    <li><code>kenBurns({ asset, motion, ... })</code> — returns a <code>SequenceSpec</code> ready to drop into <code>sequences[]</code></li>
+    <li>Four motion modes: <code>still</code>, <code>scale</code> (focal-point zoom), <code>rotation</code>, <code>position</code> (pan)</li>
+    <li><code>movie.render({ format })</code> returns a <code>Blob</code>; supports <code>'mp4'</code> / <code>'webm'</code> / <code>'mov'</code></li>
+    <li>Progress events: <code>movie.on('progress', e =&gt; ...)</code></li>
+  </ul>
+  <div class="actions">
+    <select id="format">
+      <option value="mp4">MP4</option>
+      <option value="webm">WebM</option>
+      <option value="mov">MOV</option>
+    </select>
+    <button id="export">Export from code</button>
+    <span id="status"></span>
+  </div>
+  <canvas id="stage" width="1280" height="720"></canvas>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.10.0?bundle-deps",
+      "gsap":            "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":      "https://esm.sh/mediabunny"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie, kenBurns } from '../dist/index.js';
+    import { Controller } from '../dist/Controller.js';
+
+    // Generate four colourful images so the example doesn't ship asset files.
+    function makePhoto(label, palette) {
+      const c = document.createElement('canvas');
+      c.width = 1280; c.height = 720;
+      const ctx = c.getContext('2d');
+      const grad = ctx.createLinearGradient(0, 0, 1280, 720);
+      palette.forEach((color, i) => grad.addColorStop(i / (palette.length - 1), color));
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, 1280, 720);
+      // Sketchy frame
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 8;
+      ctx.strokeRect(40, 40, 1200, 640);
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.font = 'bold 200px system-ui, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(label, 640, 360);
+      return c.toDataURL();
+    }
+
+    const SCENE_LEN = 5;
+    const T_DUR = 1;
+    const STEP = SCENE_LEN - T_DUR;
+
+    const movie = new Movie();
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    await movie.init({
+      canvas: document.getElementById('stage'),
+      width: 1280, height: 720,
+      duration: 4 * STEP + T_DUR,
+      frameRate: 30,
+      background: '#000',
+      assets: [
+        { name: 'p1', src: makePhoto('STILL',    ['#ff5577', '#5577ff']) },
+        { name: 'p2', src: makePhoto('SCALE',    ['#33cc99', '#cc3399']) },
+        { name: 'p3', src: makePhoto('ROTATION', ['#ffaa55', '#5599ff']) },
+        { name: 'p4', src: makePhoto('PAN',      ['#88ccff', '#ffcc88']) },
+      ],
+      composition: {
+        sequences: [
+          // motion: 'still' — fitted, no animation. Useful as a rest beat.
+          kenBurns({ asset: 'p1', name: 'p1', at: 0 * STEP, duration: SCENE_LEN, motion: 'still' }),
+          // motion: 'scale' — focal-point zoom in on top-left quadrant.
+          kenBurns({ asset: 'p2', name: 'p2', at: 1 * STEP, duration: SCENE_LEN, motion: 'scale',
+                     origin: [0.25, 0.25], zoom: 1.25, direction: 'in' }),
+          // motion: 'rotation' — gentle tilt, cw 8 degrees over the duration.
+          kenBurns({ asset: 'p3', name: 'p3', at: 2 * STEP, duration: SCENE_LEN, motion: 'rotation',
+                     angle: 8, direction: 'cw' }),
+          // motion: 'position' — pan diagonally across the over-scaled image.
+          kenBurns({ asset: 'p4', name: 'p4', at: 3 * STEP, duration: SCENE_LEN, motion: 'position',
+                     from: [0, 0], to: [1, 1], zoom: 1.2 }),
+        ],
+        transitions: [
+          { kind: 'crossfade', from: 'p1', to: 'p2', at: 1 * STEP, duration: T_DUR, ease: 'sine.inOut' },
+          { kind: 'crossfade', from: 'p2', to: 'p3', at: 2 * STEP, duration: T_DUR, ease: 'sine.inOut' },
+          { kind: 'crossfade', from: 'p3', to: 'p4', at: 3 * STEP, duration: T_DUR, ease: 'sine.inOut' },
+        ],
+      },
+    });
+
+    // ── Programmatic export (the Controller download button does the same thing) ──
+    const btn = document.getElementById('export');
+    const fmt = document.getElementById('format');
+    const status = document.getElementById('status');
+
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      status.textContent = 'rendering 0%';
+
+      const onProgress = ({ progress }) => {
+        status.textContent = `rendering ${Math.round(progress * 100)}%`;
+      };
+      movie.on('progress', onProgress);
+
+      try {
+        const blob = await movie.render({ format: fmt.value });
+        movie.off('progress', onProgress);
+
+        // Trigger a download client-side.
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pixi-effects.${fmt.value}`;
+        a.click();
+        URL.revokeObjectURL(url);
+        status.textContent = `done · ${(blob.size / 1024 / 1024).toFixed(2)} MB`;
+      } catch (err) {
+        status.textContent = `error: ${err.message}`;
+        console.error(err);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
