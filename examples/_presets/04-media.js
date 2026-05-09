@@ -29,8 +29,8 @@ await movie.init({
   background: '#000000',
   assets: [
     { name: 'bg',    src: gradientDataUrl() },
-    { name: 'green', src: '/examples/_assets/green.mp4' },
-    { name: 'bgm',   src: '/examples/_assets/bgm.mp3'   },
+    { name: 'green', src: '_assets/green.mp4' },
+    { name: 'bgm',   src: '_assets/bgm.mp3'   },
   ],
   composition: {
     sequences: [
