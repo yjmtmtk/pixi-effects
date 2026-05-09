@@ -1,0 +1,131 @@
+// examples/_presets/03-shapes.js
+export default `new Controller(movie, { canvas });
+
+// 6 shape primitives in a 3x2 grid. Each tile shows one kind + a label.
+const COLS = ['GW * 0.18', 'GW * 0.5', 'GW * 0.82'];
+const ROWS = ['GH * 0.36', 'GH * 0.74'];
+const LABEL_OFFSET = 'GH * 0.13';
+const FADE_OUT = { at: -0.5, to: { alpha: 0 }, duration: 0.5 };
+
+function tile(label, x, y, shape) {
+  return [
+    shape,
+    {
+      type: 'text', text: label,
+      initial: { x, y: \`\${y} + \${LABEL_OFFSET}\`, anchorX: 0.5, anchorY: 0.5 },
+      keyframes: [
+        { at: 0.5, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.4 },
+        FADE_OUT,
+      ],
+      style: { fontSize: 'GW * 0.018', fill: '#aaaacc', fontFamily: 'Menlo, monospace' },
+    },
+  ];
+}
+
+await movie.init({
+  canvas,
+  width: 1280, height: 720, duration: 7, frameRate: 30,
+  background: '#0a0a0f',
+  composition: {
+    sequences: [
+      // ── rect: cornerRadius animates 0 → 50 → 0 ──
+      ...tile('rect · cornerRadius', COLS[0], ROWS[0], {
+        type: 'shape', shape: 'rect',
+        width: 140, height: 100, cornerRadius: 0,
+        initial: { x: COLS[0], y: ROWS[0], fillColor: '#ff6688', alpha: 0 },
+        keyframes: [
+          { at: 0,   to: { alpha: 1 }, duration: 0.4 },
+          { at: 0.6, to: { cornerRadius: 50 }, duration: 1.2, ease: 'sine.inOut' },
+          { at: 1.8, to: { cornerRadius: 0  }, duration: 1.2, ease: 'sine.inOut' },
+          FADE_OUT,
+        ],
+      }),
+
+      // ── circle: radius pulse + colorSpace oklch hue sweep ──
+      ...tile('circle · oklch hue', COLS[1], ROWS[0], {
+        type: 'shape', shape: 'circle', radius: 60,
+        colorSpace: 'oklch',
+        initial: { x: COLS[1], y: ROWS[0], fillColor: '#ff3355', alpha: 0 },
+        keyframes: [
+          { at: 0.1, to: { alpha: 1 }, duration: 0.4 },
+          { at: 0.6, to: { radius: 75, fillColor: '#ffaa33' }, duration: 0.8, ease: 'sine.inOut' },
+          { at: 1.4, to: { radius: 60, fillColor: '#33dd99' }, duration: 0.8, ease: 'sine.inOut' },
+          { at: 2.2, to: { radius: 75, fillColor: '#3388ff' }, duration: 0.8, ease: 'sine.inOut' },
+          { at: 3.0, to: { radius: 60, fillColor: '#aa55ff' }, duration: 0.8, ease: 'sine.inOut' },
+          FADE_OUT,
+        ],
+      }),
+
+      // ── ellipse: independent radiusX / radiusY breathing ──
+      ...tile('ellipse · radiusX/Y', COLS[2], ROWS[0], {
+        type: 'shape', shape: 'ellipse',
+        radiusX: 80, radiusY: 50,
+        initial: { x: COLS[2], y: ROWS[0], fillColor: '#33ccff', strokeColor: '#fff', strokeWidth: 2, alpha: 0 },
+        keyframes: [
+          { at: 0.2, to: { alpha: 1 }, duration: 0.4 },
+          { at: 0.6, to: { radiusX: 50, radiusY: 80 }, duration: 0.8, ease: 'sine.inOut' },
+          { at: 1.4, to: { radiusX: 80, radiusY: 50 }, duration: 0.8, ease: 'sine.inOut' },
+          { at: 2.2, to: { radiusX: 50, radiusY: 80 }, duration: 0.8, ease: 'sine.inOut' },
+          { at: 3.0, to: { radiusX: 80, radiusY: 50 }, duration: 0.8, ease: 'sine.inOut' },
+          FADE_OUT,
+        ],
+      }),
+
+      // ── line: from/to are baked at build, animate stroke + rotation ──
+      ...tile('line · stroke + rotation', COLS[0], ROWS[1], {
+        type: 'shape', shape: 'line',
+        from: [-80, 0], to: [80, 0],
+        initial: { x: COLS[0], y: ROWS[1], strokeColor: '#ffaa55', strokeWidth: 2, alpha: 0 },
+        keyframes: [
+          { at: 0.3, to: { alpha: 1 }, duration: 0.4 },
+          { at: 0.6, to: { rotation: 360, strokeWidth: 8 }, duration: 2.5, ease: 'sine.inOut' },
+          { at: 3.1, to: { strokeWidth: 2 }, duration: 0.4 },
+          FADE_OUT,
+        ],
+      }),
+
+      // ── polygon: triangle, fill alpha pulse, animate scale ──
+      ...tile('polygon · scale + α', COLS[1], ROWS[1], {
+        type: 'shape', shape: 'polygon',
+        points: [[0, -70], [60, 40], [-60, 40]],
+        initial: { x: COLS[1], y: ROWS[1], fillColor: '#55ddaa', strokeColor: '#fff', strokeWidth: 2, fillAlpha: 0.2, alpha: 0 },
+        keyframes: [
+          { at: 0.4, to: { alpha: 1 }, duration: 0.4 },
+          { at: 0.8, to: { fillAlpha: 1, scale: 1.15 }, duration: 0.8, ease: 'sine.inOut' },
+          { at: 1.6, to: { fillAlpha: 0.2, scale: 1 }, duration: 0.8, ease: 'sine.inOut' },
+          { at: 2.4, to: { fillAlpha: 1, scale: 1.15 }, duration: 0.8, ease: 'sine.inOut' },
+          { at: 3.2, to: { fillAlpha: 0.2, scale: 1 }, duration: 0.8, ease: 'sine.inOut' },
+          FADE_OUT,
+        ],
+      }),
+
+      // ── path (SVG): heart, scale-pop + double beat ──
+      ...tile('path · SVG d=...', COLS[2], ROWS[1], {
+        type: 'shape', shape: 'path',
+        d: 'M 0 -20 C -30 -50 -70 -10 0 30 C 70 -10 30 -50 0 -20 Z',
+        initial: { x: COLS[2], y: ROWS[1], fillColor: '#ff3366', alpha: 0 },
+        keyframes: [
+          { at: 0.5, from: { scale: 0 }, to: { alpha: 1, scale: 1 }, duration: 0.5, ease: 'back.out(2.5)' },
+          { at: 1.4, to: { scale: 1.25 }, duration: 0.2, ease: 'power2.out' },
+          { at: 1.6, to: { scale: 1    }, duration: 0.2, ease: 'power2.in' },
+          { at: 2.0, to: { scale: 1.25 }, duration: 0.2, ease: 'power2.out' },
+          { at: 2.2, to: { scale: 1    }, duration: 0.2, ease: 'power2.in' },
+          FADE_OUT,
+        ],
+      }),
+
+      // ── Bottom ribbon: anchorX:0 progress bar (fills 0 → W) ──
+      {
+        type: 'shape', shape: 'rect',
+        width: 0, height: 6, cornerRadius: 3,
+        anchorX: 0,
+        initial: { x: 'GW * 0.05', y: 'GH * 0.96', fillColor: '#88ccff' },
+        keyframes: [
+          { at: 0, to: { width: 'GW * 0.9' }, duration: 6.5, ease: 'sine.inOut' },
+          FADE_OUT,
+        ],
+      },
+    ],
+  },
+});
+`;
