@@ -32,7 +32,7 @@
   {
     "imports": {
       "pixi.js":         "https://esm.sh/pixi.js@8.10.0?bundle-deps",
-      "pixi-filters":    "https://esm.sh/pixi-filters@6.1.4?deps=pixi.js@8.10.0",
+      "pixi-filters":    "https://esm.sh/pixi-filters@6.1.4?external=pixi.js",
       "gsap":            "https://esm.sh/gsap@3.12.5",
       "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
       "mediabunny":      "https://esm.sh/mediabunny"
@@ -157,7 +157,7 @@
           // ─── Tile 4: stacked Glow + DropShadow from pixi-filters ──
           (() => {
             const glow = new GlowFilter({ outerStrength: 0, color: 0xff66cc, distance: 18 });
-            const shadow = new DropShadowFilter({ alpha: 0, blur: 4, distance: 0, rotation: 45, color: 0x000000 });
+            const shadow = new DropShadowFilter({ alpha: 0, blur: 2, offset: { x: 12, y: 12 }, color: 0x000000 });
             return {
               type: 'image', asset: 'photo',
               initial: { x: COLS[1], y: ROWS[1], anchorX: 0.5, anchorY: 0.5, scale: 0.5, alpha: 0 },
@@ -170,11 +170,11 @@
                 // Glow fades in & out
                 { at: 1.2, to: { 'filters.glow.outerStrength': 4 }, duration: 1.2, ease: 'sine.inOut' },
                 { at: 2.4, to: { 'filters.glow.outerStrength': 0 }, duration: 1.0, ease: 'sine.inOut' },
-                // Drop shadow grows then settles
-                { at: 2.6, to: { 'filters.shadow.alpha': 0.7,
-                                 'filters.shadow.distance': 32 }, duration: 1.0, ease: 'power2.out' },
+                // Drop shadow opacity + softness pulse (offset point is set at build time)
+                { at: 2.6, to: { 'filters.shadow.alpha': 0.8,
+                                 'filters.shadow.blur':  6 }, duration: 1.0, ease: 'sine.inOut' },
                 { at: 4.0, to: { 'filters.shadow.alpha': 0,
-                                 'filters.shadow.distance': 0 }, duration: 1.0 },
+                                 'filters.shadow.blur':  2 }, duration: 1.0, ease: 'sine.inOut' },
                 FADE_OUT,
               ],
             };
