@@ -68,6 +68,7 @@ const blob = await movie.render({ format: 'mp4' });
   - `06-filters.html` — built-in and pixi-filters via `{ type: 'custom' }`
   - `07-transitions.html` — all seven transition kinds in one timeline
   - `08-presets-export.html` — `kenBurns` preset and `movie.render()` from code
+  - `09-audio.html` — multi-track audio mixing with BGM ducking and SFX cues
   - `playground.html` — in-browser editor with preset dropdown
 
 ## Browser support

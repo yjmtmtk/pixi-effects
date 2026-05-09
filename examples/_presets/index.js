@@ -7,6 +7,7 @@ import compositionMask from './05-composition-mask.js';
 import filters from './06-filters.js';
 import transitions from './07-transitions.js';
 import presetsExport from './08-presets-export.js';
+import audio from './09-audio.js';
 
 export default [
   { id: '01-hello',       label: '01 · hello',              code: hello },
@@ -17,4 +18,5 @@ export default [
   { id: '06-filters',     label: '06 · filters',            code: filters },
   { id: '07-transitions', label: '07 · transitions',        code: transitions },
   { id: '08-presets',     label: '08 · presets + export',   code: presetsExport },
+  { id: '09-audio',       label: '09 · audio',              code: audio },
 ];

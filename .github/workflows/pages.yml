@@ -62,6 +62,7 @@ jobs:
               <li><a href="examples/06-filters.html"><small>06</small>filters</a></li>
               <li><a href="examples/07-transitions.html"><small>07</small>transitions</a></li>
               <li><a href="examples/08-presets-export.html"><small>08</small>presets &amp; export</a></li>
+              <li><a href="examples/09-audio.html"><small>09</small>audio (multi-track + ducking)</a></li>
             </ol>
             <a class="playground" href="examples/playground.html">▶ open playground</a>
           </body>
