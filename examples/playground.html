@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>pixi-effects — playground</title>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: #0d1220;
+      color: #ccc;
+      font-family: system-ui, -apple-system, sans-serif;
+      display: grid;
+      grid-template-rows: 36px 1fr auto;
+      grid-template-columns: 1fr 1fr;
+    }
+    #toolbar {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 12px;
+      background: #11162a;
+      border-bottom: 1px solid #1d2440;
+      font-size: 13px;
+    }
+    #toolbar .spacer { flex: 1; }
+    #toolbar .title  { color: #8899bb; font-size: 12px; }
+    #toolbar select, #toolbar button {
+      background: #1a2140;
+      color: #ddd;
+      border: 1px solid #2a3563;
+      border-radius: 4px;
+      padding: 4px 10px;
+      font: inherit;
+      cursor: pointer;
+    }
+    #toolbar button:hover, #toolbar select:hover { background: #243069; }
+    #editor {
+      overflow: auto;
+      border-right: 1px solid #1d2440;
+      min-width: 0;
+    }
+    #editor .cm-editor { height: 100%; }
+    #stageWrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      overflow: hidden;
+      min-width: 0;
+    }
+    #stage {
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      border-radius: 8px;
+      background: #000;
+    }
+    #err {
+      grid-column: 1 / -1;
+      display: none;
+      margin: 0;
+      padding: 8px 12px;
+      background: #3a0d12;
+      color: #ffaaaa;
+      font: 12px/1.4 Menlo, monospace;
+      white-space: pre-wrap;
+      max-height: 30vh;
+      overflow: auto;
+    }
+    @media (max-width: 720px) {
+      body { grid-template-columns: 1fr; grid-template-rows: 36px auto auto auto; }
+      #editor { border-right: none; border-bottom: 1px solid #1d2440; min-height: 240px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="toolbar">
+    <select id="preset" aria-label="Preset"></select>
+    <button id="run" type="button">▶ Run (⌘↵)</button>
+    <span class="spacer"></span>
+    <span class="title">pixi-effects · playground</span>
+  </div>
+  <div id="editor"></div>
+  <div id="stageWrap">
+    <canvas id="stage" width="1280" height="720"></canvas>
+  </div>
+  <pre id="err"></pre>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                     "https://esm.sh/pixi.js@8.10.0?bundle-deps",
+      "gsap":                        "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":             "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":                  "https://esm.sh/mediabunny",
+      "sucrase":                     "https://esm.sh/sucrase@3.35.0",
+      "codemirror":                  "https://esm.sh/codemirror@6.0.1",
+      "@codemirror/state":           "https://esm.sh/@codemirror/state@6.4.1",
+      "@codemirror/view":            "https://esm.sh/@codemirror/view@6.26.3",
+      "@codemirror/lang-javascript": "https://esm.sh/@codemirror/lang-javascript@6.2.2",
+      "@codemirror/theme-one-dark":  "https://esm.sh/@codemirror/theme-one-dark@6.1.2"
+    }
+  }
+  </script>
+</body>
+</html>
