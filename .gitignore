@@ -11,3 +11,4 @@ coverage/
 .idea/
 *.swp
 .cache/
+.playwright-mcp/

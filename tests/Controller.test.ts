@@ -1040,6 +1040,47 @@ describe('Controller — fullscreen', () => {
     ctrl.destroy();
     expect(state.current).toBeNull();
   });
+
+  it('repositions the controller bar on fullscreenchange even if canvas size is unchanged', () => {
+    // ResizeObserver only fires on size changes; entering fullscreen often shifts
+    // the canvas position without changing its size (when the viewport is wide
+    // enough that the canvas was already at intrinsic size). The controller must
+    // still resync its overlay position in that case.
+    const canvas = makeCanvas();
+    const parent = canvas.parentElement!;
+    parent.style.position = 'relative';
+
+    // Pre-fullscreen layout: parent at (1440, 36), canvas at (1520, 558), 1280x720.
+    parent.getBoundingClientRect = () => ({
+      left: 1440, top: 36, right: 2880, bottom: 1800, width: 1440, height: 1764, x: 1440, y: 36,
+      toJSON() { return {}; },
+    });
+    canvas.getBoundingClientRect = () => ({
+      left: 1520, top: 558, right: 2800, bottom: 1278, width: 1280, height: 720, x: 1520, y: 558,
+      toJSON() { return {}; },
+    });
+
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    const root = parent.querySelector('.movie-controller') as HTMLDivElement;
+    expect(root.style.left).toBe('80px');
+    expect(root.style.top).toBe('522px');
+
+    // Enter fullscreen: parent now spans the viewport, canvas is centered. Same size.
+    parent.getBoundingClientRect = () => ({
+      left: 0, top: 0, right: 2880, bottom: 1800, width: 2880, height: 1800, x: 0, y: 0,
+      toJSON() { return {}; },
+    });
+    canvas.getBoundingClientRect = () => ({
+      left: 800, top: 540, right: 2080, bottom: 1260, width: 1280, height: 720, x: 800, y: 540,
+      toJSON() { return {}; },
+    });
+    document.dispatchEvent(new Event('fullscreenchange'));
+
+    expect(root.style.left).toBe('800px');
+    expect(root.style.top).toBe('540px');
+    ctrl.destroy();
+  });
 });
 
 describe('Controller — visibility', () => {

@@ -369,6 +369,10 @@ export class Controller {
     if (typeof ResizeObserver !== 'undefined') {
       this.resizeObserver = new ResizeObserver(() => this.syncRootToCanvas());
       this.resizeObserver.observe(this.options.canvas);
+      // Also observe the wrapper: when its size changes (browser resize, sibling
+      // panels resizing) the canvas's position can shift without its own size
+      // changing, which canvas-only observation would miss.
+      this.resizeObserver.observe(this.wrapper);
     }
     this.root.setAttribute('data-state', 'visible');
     this.bindMovieEvents();
@@ -580,7 +584,12 @@ export class Controller {
     this.fullscreenBtn.addEventListener('click', () => {
       void this.toggleFullscreen();
     });
-    this.fullscreenChangeHandler = () => this.refreshFullscreenIcon();
+    this.fullscreenChangeHandler = () => {
+      this.refreshFullscreenIcon();
+      // Fullscreen reflow can shift the canvas without changing its size, which
+      // ResizeObserver would miss; resync the overlay explicitly.
+      this.syncRootToCanvas();
+    };
     document.addEventListener('fullscreenchange', this.fullscreenChangeHandler);
   }
 
