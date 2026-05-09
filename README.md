@@ -58,6 +58,7 @@ const blob = await movie.render({ format: 'mp4' });
 - [**DSL reference**](./docs/dsl.md) — composition, sequences, keyframes, expressions, filters
 - [**API reference**](./docs/api.md) — `Movie`, `Controller`, events, render options
 - [**Examples**](./examples/) — runnable HTML files:
+  - `playground.html` — in-browser editor with preset dropdown
   - `basic.html` — text + keyframes
   - `chromakey.html` — green-screen video
   - `nested.html` — nested compositions + audio
