@@ -2,6 +2,8 @@
 
 > **Status**: pre-alpha (v0.1.0). API stable but unpublished.
 
+**[Live demos →](https://yjmtmtk.github.io/pixi-effects/)** · 8 numbered examples + an in-browser playground.
+
 Declarative composition and video rendering for the web. After Effects-style timelines on top of [PixiJS v8](https://pixijs.com/) and [GSAP](https://gsap.com/), with strict TypeScript types. Render to MP4 / WebM / MOV via [mediabunny](https://mediabunny.dev/).
 
 - **Declarative DSL** — describe your composition as a tree of typed sequences (text, image, video, audio, nested compositions). No imperative tween code.
