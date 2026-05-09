@@ -5,7 +5,7 @@ new Controller(movie, { canvas });
 await movie.init({
   canvas,
   width: 1280, height: 720, duration: 8, frameRate: 30,
-  background: '#0d1220',
+  background: '#000000',
   composition: {
     sequences: [
 
@@ -78,14 +78,14 @@ await movie.init({
       {
         type: 'composition',
         width: 600, height: 120,
-        initial: { x: 'GW/2 - 300', y: 'GH * 0.86' },
+        initial: { x: 'GW/2', y: 'GH * 0.86 + 60', pivotX: 300, pivotY: 60 },
         keyframes: [
-          { at: 2.4, from: { alpha: 0, rotation: -0.2 },
+          { at: 2.4, from: { alpha: 0, rotation: -8 },
                      to:   { alpha: 1, rotation: 0 },
                      duration: 0.7, ease: 'elastic.out(1, 0.5)' },
-          { at: 5.0, to: { rotation:  0.04 }, duration: 0.5, ease: 'sine.inOut' },
-          { at: 5.5, to: { rotation: -0.04 }, duration: 0.5, ease: 'sine.inOut' },
-          { at: 6.0, to: { rotation:  0    }, duration: 0.3, ease: 'sine.out' },
+          { at: 5.0, to: { rotation:  3 }, duration: 0.5, ease: 'sine.inOut' },
+          { at: 5.5, to: { rotation: -3 }, duration: 0.5, ease: 'sine.inOut' },
+          { at: 6.0, to: { rotation:  0 }, duration: 0.3, ease: 'sine.out' },
           { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
         ],
         sequences: [
