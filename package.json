@@ -23,9 +23,9 @@
   ],
   "license": "MIT",
   "author": "tefista <tefista.dev@gmail.com>",
-  "repository": { "type": "git", "url": "git+https://github.com/tefista/pixi-effects.git" },
-  "homepage": "https://github.com/tefista/pixi-effects#readme",
-  "bugs": { "url": "https://github.com/tefista/pixi-effects/issues" },
+  "repository": { "type": "git", "url": "git+https://github.com/yjmtmtk/pixi-effects.git" },
+  "homepage": "https://github.com/yjmtmtk/pixi-effects#readme",
+  "bugs": { "url": "https://github.com/yjmtmtk/pixi-effects/issues" },
   "sideEffects": false,
   "scripts": {
     "build": "tsup",
