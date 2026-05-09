@@ -1,5 +1,7 @@
 // examples/_presets/basic.js
-export default `new Controller(movie, { canvas });
+export default `// Injected: movie (Movie instance), Controller (class), canvas (HTMLCanvasElement).
+// Press ⌘↵ / Ctrl+↵ to Run. Top-level await is supported.
+new Controller(movie, { canvas });
 await movie.init({
   canvas,
   width: 1280, height: 720, duration: 8, frameRate: 30,
