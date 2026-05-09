@@ -43,7 +43,7 @@
     import { Movie } from '../dist/index.js';
     import { Controller } from '../dist/Controller.js';
     import { BlurFilter, ColorMatrixFilter } from 'pixi.js';
-    import { GlowFilter, OldFilmFilter } from 'pixi-filters';
+    import { GlowFilter, DropShadowFilter } from 'pixi-filters';
 
     function gradientDataUrl() {
       const c = document.createElement('canvas');
@@ -154,28 +154,32 @@
           })(),
           caption('ColorMatrix · saturate', COLS[0], ROWS[1]),
 
-          // ─── Tile 4: stacked Glow + OldFilm from pixi-filters ─────
+          // ─── Tile 4: stacked Glow + DropShadow from pixi-filters ──
           (() => {
             const glow = new GlowFilter({ outerStrength: 0, color: 0xff66cc, distance: 18 });
-            const film = new OldFilmFilter({ noise: 0, sepia: 0.3, vignetting: 0.3 });
+            const shadow = new DropShadowFilter({ alpha: 0, blur: 4, distance: 0, rotation: 45, color: 0x000000 });
             return {
               type: 'image', asset: 'photo',
               initial: { x: COLS[1], y: ROWS[1], anchorX: 0.5, anchorY: 0.5, scale: 0.5, alpha: 0 },
               filters: [
-                { name: 'glow', type: 'custom', filter: glow },
-                { name: 'film', type: 'custom', filter: film },
+                { name: 'glow',   type: 'custom', filter: glow },
+                { name: 'shadow', type: 'custom', filter: shadow },
               ],
               keyframes: [
                 { at: 0.6, to: { alpha: 1 }, duration: 0.4 },
+                // Glow fades in & out
                 { at: 1.2, to: { 'filters.glow.outerStrength': 4 }, duration: 1.2, ease: 'sine.inOut' },
-                { at: 2.4, to: { 'filters.film.noise': 0.6 },        duration: 1.2 },
-                { at: 4.0, to: { 'filters.glow.outerStrength': 0 }, duration: 1.0 },
-                { at: 4.0, to: { 'filters.film.noise': 0 },          duration: 1.0 },
+                { at: 2.4, to: { 'filters.glow.outerStrength': 0 }, duration: 1.0, ease: 'sine.inOut' },
+                // Drop shadow grows then settles
+                { at: 2.6, to: { 'filters.shadow.alpha': 0.7,
+                                 'filters.shadow.distance': 32 }, duration: 1.0, ease: 'power2.out' },
+                { at: 4.0, to: { 'filters.shadow.alpha': 0,
+                                 'filters.shadow.distance': 0 }, duration: 1.0 },
                 FADE_OUT,
               ],
             };
           })(),
-          caption('Glow + OldFilm (pixi-filters)', COLS[1], ROWS[1]),
+          caption('Glow + DropShadow (pixi-filters)', COLS[1], ROWS[1]),
 
           // ─── Title ─────────────────────────────────────────────────
           {
