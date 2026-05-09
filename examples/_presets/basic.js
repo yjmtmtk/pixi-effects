@@ -1,0 +1,114 @@
+// examples/_presets/basic.js
+export default `new Controller(movie, { canvas });
+await movie.init({
+  canvas,
+  width: 1280, height: 720, duration: 8, frameRate: 30,
+  background: '#0d1220',
+  composition: {
+    sequences: [
+
+      // ── Title: scale-pop in, late punch, fade out ──
+      {
+        type: 'text',
+        text: 'pixi-effects',
+        initial: { x: 'GW/2', y: 'GH * 0.32', anchorX: 0.5, anchorY: 0.5 },
+        keyframes: [
+          { at: 0,    from: { alpha: 0, scale: 0 },
+                      to:   { alpha: 1, scale: 1 },
+                      duration: 0.6, ease: 'back.out(1.7)' },
+          { at: 4,    to: { scale: 1.15 }, duration: 0.25, ease: 'power2.out' },
+          { at: 4.25, to: { scale: 1    }, duration: 0.25, ease: 'power2.in' },
+          { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+        ],
+        style: { fontSize: 'GW * 0.085', fill: '#ffffff', fontWeight: 'bold' },
+      },
+
+      // ── Subtitle: slide up from below ──
+      {
+        type: 'text',
+        text: 'declarative composition for the web',
+        initial: { x: 'GW/2', anchorX: 0.5, anchorY: 0.5 },
+        keyframes: [
+          { at: 0.5, from: { y: 'GH', alpha: 0 },
+                     to:   { y: 'GH * 0.46', alpha: 1 },
+                     duration: 0.7, ease: 'power3.out' },
+          { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+        ],
+        style: { fontSize: 'GW * 0.026', fill: '#88ccff', fontStyle: 'italic' },
+      },
+
+      // ── Three feature pills ──
+      {
+        type: 'text', text: '✦ keyframes',
+        initial: { x: 'GW * 0.2', y: 'GH * 0.7', anchorX: 0.5, anchorY: 0.5 },
+        keyframes: [
+          { at: 1.4, from: { alpha: 0, scale: 0 },
+                     to:   { alpha: 1, scale: 1 },
+                     duration: 0.45, ease: 'back.out(2.2)' },
+          { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+        ],
+        style: { fontSize: 'GW * 0.022', fill: '#ffaa55' },
+      },
+      {
+        type: 'text', text: '✦ filters',
+        initial: { x: 'GW * 0.5', y: 'GH * 0.7', anchorX: 0.5, anchorY: 0.5 },
+        keyframes: [
+          { at: 1.6, from: { alpha: 0, scale: 0 },
+                     to:   { alpha: 1, scale: 1 },
+                     duration: 0.45, ease: 'back.out(2.2)' },
+          { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+        ],
+        style: { fontSize: 'GW * 0.022', fill: '#55ddaa' },
+      },
+      {
+        type: 'text', text: '✦ rendering',
+        initial: { x: 'GW * 0.8', y: 'GH * 0.7', anchorX: 0.5, anchorY: 0.5 },
+        keyframes: [
+          { at: 1.8, from: { alpha: 0, scale: 0 },
+                     to:   { alpha: 1, scale: 1 },
+                     duration: 0.45, ease: 'back.out(2.2)' },
+          { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+        ],
+        style: { fontSize: 'GW * 0.022', fill: '#ff77cc' },
+      },
+
+      // ── Nested rotating sub-composition with hint ──
+      {
+        type: 'composition',
+        width: 600, height: 120,
+        initial: { x: 'GW/2 - 300', y: 'GH * 0.86' },
+        keyframes: [
+          { at: 2.4, from: { alpha: 0, rotation: -0.2 },
+                     to:   { alpha: 1, rotation: 0 },
+                     duration: 0.7, ease: 'elastic.out(1, 0.5)' },
+          { at: 5.0, to: { rotation:  0.04 }, duration: 0.5, ease: 'sine.inOut' },
+          { at: 5.5, to: { rotation: -0.04 }, duration: 0.5, ease: 'sine.inOut' },
+          { at: 6.0, to: { rotation:  0    }, duration: 0.3, ease: 'sine.out' },
+          { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+        ],
+        sequences: [
+          {
+            type: 'text',
+            text: 'press play to scrub the timeline',
+            initial: { x: 300, y: 60, anchorX: 0.5, anchorY: 0.5 },
+            style: { fontSize: 28, fill: '#888899', fontStyle: 'italic' },
+          },
+        ],
+      },
+
+      // ── Corner badge ──
+      {
+        type: 'text',
+        text: 'v0.1.0',
+        initial: { x: 'GW * 0.97', y: 'GH * 0.05', anchorX: 1, anchorY: 0, alpha: 0 },
+        keyframes: [
+          { at: 0.4, to: { alpha: 1 }, duration: 0.5 },
+          { at: -0.5, to: { alpha: 0 }, duration: 0.5 },
+        ],
+        style: { fontSize: 'GW * 0.018', fill: '#666688', fontFamily: 'Menlo, monospace' },
+      },
+
+    ],
+  },
+});
+`;

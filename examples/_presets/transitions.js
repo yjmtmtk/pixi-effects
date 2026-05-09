@@ -1,0 +1,73 @@
+// examples/_presets/transitions.js
+export default `new Controller(movie, { canvas });
+
+// Tiny solid-color PNG used as a stretchable background sprite. We mint
+// these inline so the example doesn't ship asset files.
+function bgDataUrl(color) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 8;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, 8, 8);
+  return c.toDataURL();
+}
+
+// Each scene is a composition: full-canvas colored background + centered label.
+// Wrapping in a composition means the transition filter applies to the
+// canvas-sized container, so wipe / iris edges align across scenes
+// regardless of label width.
+function scene(label, color, name, at, duration) {
+  return {
+    type: 'composition', name, at, duration,
+    sequences: [
+      {
+        type: 'image', asset: \`bg-\${name}\`,
+        // Source is 8×8; stretch to the parent composition's full size.
+        initial: { scaleX: 'GW / 8', scaleY: 'GH / 8' },
+      },
+      {
+        type: 'text', text: label,
+        initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+        style: { fontSize: 'GW * 0.10', fill: '#ffffff', fontWeight: 'bold' },
+      },
+    ],
+  };
+}
+
+await movie.init({
+  canvas,
+  width: 1280, height: 720, duration: 32, frameRate: 30,
+  background: '#0a0a0f',
+  assets: [
+    { name: 'bg-A', src: bgDataUrl('#cc4422') },  // red-orange
+    { name: 'bg-B', src: bgDataUrl('#2266bb') },  // blue
+    { name: 'bg-C', src: bgDataUrl('#22aa66') },  // green
+    { name: 'bg-D', src: bgDataUrl('#aa3399') },  // magenta
+    { name: 'bg-E', src: bgDataUrl('#bb9922') },  // amber
+    { name: 'bg-F', src: bgDataUrl('#3399aa') },  // teal
+    { name: 'bg-G', src: bgDataUrl('#cc66cc') },  // pink-violet
+    { name: 'bg-H', src: bgDataUrl('#22aaaa') },  // cyan
+  ],
+  composition: {
+    sequences: [
+      scene('SCENE A',             '#cc4422', 'A',  0, 5),
+      scene('SCENE B (wipe)',      '#2266bb', 'B',  4, 5),
+      scene('SCENE C (iris)',      '#22aa66', 'C',  8, 5),
+      scene('SCENE D (slide)',     '#aa3399', 'D', 12, 5),
+      scene('SCENE E (dip)',       '#bb9922', 'E', 16, 5),
+      scene('SCENE F (zoom)',      '#3399aa', 'F', 20, 5),
+      scene('SCENE G (dissolve)',  '#cc66cc', 'G', 24, 5),
+      scene('SCENE H (end)',       '#22aaaa', 'H', 28, 4),
+    ],
+    transitions: [
+      { kind: 'crossfade', from: 'A', to: 'B', at: 4,  duration: 1, ease: 'sine.inOut' },
+      { kind: 'wipe',      from: 'B', to: 'C', at: 8,  duration: 1, direction: 'left', smoothing: 0.04 },
+      { kind: 'iris',      from: 'C', to: 'D', at: 12, duration: 1, mode: 'in', smoothing: 0.03 },
+      { kind: 'slide',     from: 'D', to: 'E', at: 16, duration: 1, direction: 'left', ease: 'power2.inOut' },
+      { kind: 'dip',       from: 'E', to: 'F', at: 20, duration: 1, ease: 'sine.inOut' },
+      { kind: 'zoom',      from: 'F', to: 'G', at: 24, duration: 1, mode: 'in', fromScale: 4, ease: 'power2.out' },
+      { kind: 'dissolve',  from: 'G', to: 'H', at: 28, duration: 1, scale: 25, seed: 0, smoothing: 0.05 },
+    ],
+  },
+});
+`;
