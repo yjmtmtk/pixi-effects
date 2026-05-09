@@ -104,5 +104,124 @@
     }
   }
   </script>
+
+  <script type="module">
+    import { Movie } from '../dist/index.js';
+    import { Controller } from '../dist/Controller.js';
+    import { EditorView, basicSetup } from 'codemirror';
+    import { keymap } from '@codemirror/view';
+    import { javascript } from '@codemirror/lang-javascript';
+    import { oneDark } from '@codemirror/theme-one-dark';
+    import { transform } from 'sucrase';
+    import presets from './_presets/index.js';
+
+    const presetSel = document.getElementById('preset');
+    const runBtn    = document.getElementById('run');
+    const errEl     = document.getElementById('err');
+
+    // Populate preset dropdown.
+    for (const p of presets) {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.label;
+      presetSel.appendChild(opt);
+    }
+    presetSel.value = presets[0].id;
+
+    // Build the editor with the first preset as initial content.
+    const view = new EditorView({
+      doc: presets[0].code,
+      extensions: [
+        basicSetup,
+        javascript({ typescript: true }),
+        oneDark,
+        keymap.of([
+          { key: 'Mod-Enter', preventDefault: true, run: () => { run(); return true; } },
+        ]),
+        EditorView.theme({ '&': { height: '100%', fontSize: '13px' } }),
+      ],
+      parent: document.getElementById('editor'),
+    });
+
+    let currentMovie = null;
+    let currentController = null;
+    let running = false;
+
+    function showError(err) {
+      console.error(err);
+      errEl.textContent = String(err && (err.stack || err.message) || err);
+      errEl.style.display = 'block';
+    }
+
+    function clearError() {
+      errEl.textContent = '';
+      errEl.style.display = 'none';
+    }
+
+    async function teardown() {
+      try { currentController?.destroy?.(); } catch (e) { console.warn('controller teardown', e); }
+      try { await currentMovie?.destroy?.(); } catch (e) { console.warn('movie teardown', e); }
+      currentController = null;
+      currentMovie = null;
+
+      // Replace the canvas with a fresh clone so any retained Pixi/GL context is dropped.
+      // Pixi's app.destroy(true, ...) removes the canvas from the DOM, so we may need to
+      // re-insert a fresh one into #stageWrap.
+      const wrap = document.getElementById('stageWrap');
+      const old = document.getElementById('stage');
+      const fresh = document.createElement('canvas');
+      fresh.id = 'stage';
+      fresh.width = 1280;
+      fresh.height = 720;
+      if (old && old.parentNode) {
+        old.replaceWith(fresh);
+      } else {
+        wrap.insertBefore(fresh, wrap.firstChild);
+      }
+    }
+
+    async function run() {
+      if (running) return;
+      running = true;
+      clearError();
+      runBtn.disabled = true;
+      try {
+        await teardown();
+        const src = view.state.doc.toString();
+        const out = transform(src, { transforms: ['typescript'] }).code;
+        const canvas = document.getElementById('stage');
+        const movie = new Movie();
+        currentMovie = movie;
+        // Capture the constructed Controller so teardown can find it.
+        // The snippet calls `new Controller(movie, { canvas })`; we pass a wrapper
+        // factory that records the instance, then returns it (so `new` evaluates to it).
+        const TrackedController = function (m, opts) {
+          const c = new Controller(m, opts);
+          currentController = c;
+          return c;
+        };
+        TrackedController.prototype = Controller.prototype;
+        const fn = new (async function(){}).constructor('movie', 'Controller', 'canvas', out);
+        await fn(movie, TrackedController, canvas);
+      } catch (err) {
+        showError(err);
+      } finally {
+        running = false;
+        runBtn.disabled = false;
+      }
+    }
+
+    presetSel.addEventListener('change', () => {
+      const p = presets.find(x => x.id === presetSel.value);
+      if (!p) return;
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: p.code } });
+      run();
+    });
+
+    runBtn.addEventListener('click', run);
+
+    // Initial Run so the page isn't blank on load.
+    run();
+  </script>
 </body>
 </html>
