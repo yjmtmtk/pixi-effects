@@ -126,8 +126,9 @@
       btn.disabled = true;
       status.textContent = 'rendering 0%';
 
+      // `progress` is already a 0-100 percentage from the engine.
       const onProgress = ({ progress }) => {
-        status.textContent = `rendering ${Math.round(progress * 100)}%`;
+        status.textContent = `rendering ${Math.round(progress)}%`;
       };
       movie.on('progress', onProgress);
 
