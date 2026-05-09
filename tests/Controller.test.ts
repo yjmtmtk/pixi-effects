@@ -1041,6 +1041,26 @@ describe('Controller — fullscreen', () => {
     expect(state.current).toBeNull();
   });
 
+  it('tags any wrapper (auto-created or reused) with data-mc-wrap so :fullscreen styles apply', () => {
+    // Auto-wrapped case
+    const c1 = makeCanvas();
+    const ctrl1 = new Controller(makeFakeMovie(), { canvas: c1 });
+    const w1 = c1.parentElement!;
+    expect(w1.classList.contains('movie-controller-wrap')).toBe(true);
+    expect(w1.hasAttribute('data-mc-wrap')).toBe(true);
+    ctrl1.destroy();
+
+    // Reused-parent case
+    const c2 = makeCanvas();
+    const reused = c2.parentElement!;
+    reused.style.position = 'relative';
+    const ctrl2 = new Controller(makeFakeMovie(), { canvas: c2 });
+    expect(reused.hasAttribute('data-mc-wrap')).toBe(true);
+    ctrl2.destroy();
+    // Reused parent should be cleaned up so we don't leave attributes behind on the user's element.
+    expect(reused.hasAttribute('data-mc-wrap')).toBe(false);
+  });
+
   it('repositions the controller bar on fullscreenchange even if canvas size is unchanged', () => {
     // ResizeObserver only fires on size changes; entering fullscreen often shifts
     // the canvas position without changing its size (when the viewport is wide

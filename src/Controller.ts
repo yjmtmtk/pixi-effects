@@ -137,12 +137,12 @@ const STYLE_CSS = `
   pointer-events: none;
 }
 
-.movie-controller-wrap:fullscreen {
+[data-mc-wrap]:fullscreen {
   width: 100vw; height: 100vh;
   display: flex; align-items: center; justify-content: center;
   background: #000;
 }
-.movie-controller-wrap:fullscreen > canvas {
+[data-mc-wrap]:fullscreen > canvas {
   width: 100% !important;
   height: 100% !important;
   max-width: none !important;
@@ -455,10 +455,14 @@ export class Controller {
     }
     const pos = getComputedStyle(parent).position;
     if (pos === 'relative' || pos === 'absolute' || pos === 'fixed' || pos === 'sticky') {
+      // Tag the user's element so the [data-mc-wrap]:fullscreen style hooks apply
+      // to it the same way they apply to our auto-wrap. Cleaned up on destroy.
+      parent.setAttribute('data-mc-wrap', '');
       return parent as HTMLDivElement;
     }
     const wrap = document.createElement('div');
     wrap.className = 'movie-controller-wrap';
+    wrap.setAttribute('data-mc-wrap', '');
     wrap.style.position = 'relative';
     wrap.style.display = 'inline-block';
     wrap.style.lineHeight = '0';
@@ -941,6 +945,8 @@ export class Controller {
         parent.insertBefore(canvas, this.wrapper);
         this.wrapper.remove();
       }
+    } else {
+      this.wrapper.removeAttribute('data-mc-wrap');
     }
     if (this.keyHandler) {
       document.removeEventListener('keydown', this.keyHandler);
