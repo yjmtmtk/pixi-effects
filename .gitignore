@@ -12,3 +12,11 @@ coverage/
 *.swp
 .cache/
 .playwright-mcp/
+.unsplash-cache/
+
+# Internal lab — not for distribution. Used to drive bug-finding and feature
+# ideation, but the assets (Unsplash photos, music) and the example itself
+# stay local.
+examples/wedding-profilemovie/
+docs/superpowers/specs/*-wedding-profilemovie-design.md
+docs/superpowers/plans/*-wedding-profilemovie.md
