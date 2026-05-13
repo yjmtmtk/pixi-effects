@@ -1,6 +1,6 @@
 # pixi-effects
 
-> **Status**: pre-alpha (v0.1.0). API stable but unpublished.
+> **Status**: v0.1.0. API stable; semver from here.
 
 **[Live demos →](https://yjmtmtk.github.io/pixi-effects/)** · 8 numbered examples + an in-browser playground.
 
