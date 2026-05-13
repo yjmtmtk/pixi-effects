@@ -40,20 +40,22 @@ describe('kenBurns()', () => {
       expect(s.initial?.scale).toBe('cover * 1');
       expect(s.initial?.pivotX).toBe('w * 0.5');
       expect(s.initial?.pivotY).toBe('h * 0.5');
-      // Centre origin → x stays at W/2 regardless of scale.
-      expect(s.initial?.x).toBe('W/2 - (cover) * 1 * w * 0');
+      // Focal point pinned at canvas (ox*W, oy*H). For centred origin = W/2.
+      expect(s.initial?.x).toBe('W * 0.5');
       expect(s.keyframes![0]!.to?.scale).toBe('cover * 1.15');
       expect(s.keyframes![0]!.duration).toBe(5);
       expect(s.keyframes![0]!.ease).toBe('sine.inOut');
     });
 
-    it('off-centre origin: pivot pinned at world (x,y) with image centre at canvas centre at start', () => {
+    it('off-centre origin: focal point pinned at canvas (ox·W, oy·H) so coverage holds at every scale', () => {
       const s = kenBurns({ asset: 'photo', duration: 4, motion: 'scale', origin: [0.25, 0.75], zoom: 1.2 });
       expect(s.initial?.pivotX).toBe('w * 0.25');
       expect(s.initial?.pivotY).toBe('h * 0.75');
-      // x = W/2 - cover * 1 * w * (0.5 - 0.25) = W/2 - cover * w * 0.25
-      expect(s.initial?.x).toBe('W/2 - (cover) * 1 * w * 0.25');
-      expect(s.initial?.y).toBe('H/2 - (cover) * 1 * h * -0.25');
+      // At s = baseScale the coverage inequality W − w·(1−ox)·s ≤ x ≤ w·ox·s
+      // collapses to a single point x = ox·W (and y = oy·H), so the focal
+      // point must sit there exactly.
+      expect(s.initial?.x).toBe('W * 0.25');
+      expect(s.initial?.y).toBe('H * 0.75');
     });
 
     it('direction: out reverses the scale endpoints', () => {

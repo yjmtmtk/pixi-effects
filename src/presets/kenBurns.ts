@@ -111,15 +111,23 @@ export function kenBurns(opts: KenBurnsOptions): ImageSequenceSpec {
     const toZ   = direction === 'in' ? zoom : 1;
 
     // Pivot at the chosen image-relative origin. The pivot point stays
-    // pinned at world (x, y); everything else zooms around it.
+    // pinned at world (x, y) = (ox*W, oy*H) — the focal point on the
+    // canvas matches the origin's image-relative position.
+    //
+    // This is the only constant pivot position that keeps the image
+    // covering the canvas at every scale s ≥ baseScale, for any
+    // origin in [0,1]². Coverage requires:
+    //     W - w·(1-ox)·s  ≤  x  ≤  w·ox·s
+    // At s = baseScale = max(W/w, H/h) the inequalities collapse to a
+    // single point x = ox·W (and y = oy·H), so any pivot that doesn't
+    // sit there will expose a canvas edge once the animation reaches
+    // baseScale. For s > baseScale the range widens and ox·W stays
+    // within it, so the same constant pivot works throughout.
     const pivotXExpr = `w * ${origin[0]}`;
     const pivotYExpr = `h * ${origin[1]}`;
-    // x positions the pivot so the IMAGE CENTRE lands at the canvas centre
-    // at the initial scale. (As scale animates, the centre drifts away
-    // from the pivot — that's the focal-point behaviour.)
     const initialScale = `${baseScale} * ${fromZ}`;
-    const xExpr = `W/2 - (${baseScale}) * ${fromZ} * w * ${0.5 - origin[0]}`;
-    const yExpr = `H/2 - (${baseScale}) * ${fromZ} * h * ${0.5 - origin[1]}`;
+    const xExpr = `W * ${origin[0]}`;
+    const yExpr = `H * ${origin[1]}`;
     initial = {
       x: xExpr, y: yExpr,
       pivotX: pivotXExpr, pivotY: pivotYExpr,
