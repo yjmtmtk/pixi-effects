@@ -91,7 +91,7 @@ await movie.init({
       {
         type: 'composition',
         width: 480, height: 480,
-        initial: { x: 'GW * 0.92 - 480', y: 'GH/2 - 240' },
+        initial: { x: 'GW * 0.92 - 240', y: 'GH/2', pivotX: 240, pivotY: 240 },
         keyframes: [
           { at: 0.6, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.5 },
           { at: 1, to: { rotation: 360 }, duration: 5, ease: 'sine.inOut' },
