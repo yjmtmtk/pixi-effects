@@ -19,6 +19,32 @@ Declarative composition and video rendering for the web. After Effects-style tim
 npm install pixi-effects pixi.js gsap
 ```
 
+### Browser via CDN (no bundler)
+
+Drop the imports into an [importmap](https://developer.mozilla.org/docs/Web/HTML/Element/script/type/importmap) and you're done — see [`examples/`](./examples/) for full files.
+
+```html
+<script type="importmap">
+{
+  "imports": {
+    "pixi.js":             "https://esm.sh/pixi.js@8.10.0?bundle-deps",
+    "gsap":                "https://esm.sh/gsap@3.12.5",
+    "gsap/PixiPlugin":     "https://esm.sh/gsap@3.12.5/PixiPlugin",
+    "mediabunny":          "https://esm.sh/mediabunny",
+    "pixi-effects":        "https://esm.sh/pixi-effects@0.1.0",
+    "pixi-effects/controller": "https://esm.sh/pixi-effects@0.1.0/controller"
+  }
+}
+</script>
+<script type="module">
+  import { Movie } from 'pixi-effects';
+  import { Controller } from 'pixi-effects/controller';
+  // ...
+</script>
+```
+
+jsDelivr (`https://cdn.jsdelivr.net/npm/pixi-effects@0.1.0/+esm`) and unpkg (`https://unpkg.com/pixi-effects@0.1.0`) work too — pick whichever CDN you trust.
+
 ## Quickstart
 
 ```ts
