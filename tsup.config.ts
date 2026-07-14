@@ -4,6 +4,7 @@ export default defineConfig({
   entry: {
     index: 'src/index.ts',
     Controller: 'src/Controller.ts',
+    three: 'src/three/index.ts',
   },
   format: ['esm', 'cjs'],
   dts: true,
@@ -12,5 +13,5 @@ export default defineConfig({
   splitting: false,
   treeshake: true,
   target: 'es2022',
-  external: ['pixi.js', 'gsap', 'gsap/PixiPlugin', 'mediabunny'],
+  external: ['pixi.js', 'gsap', 'gsap/PixiPlugin', 'mediabunny', 'three'],
 });

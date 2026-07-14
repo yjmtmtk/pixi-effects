@@ -11,6 +11,10 @@
     "./controller": {
       "import": { "types": "./dist/Controller.d.ts", "default": "./dist/Controller.js" },
       "require": { "types": "./dist/Controller.d.cts", "default": "./dist/Controller.cjs" }
+    },
+    "./three": {
+      "import": { "types": "./dist/three.d.ts", "default": "./dist/three.js" },
+      "require": { "types": "./dist/three.d.cts", "default": "./dist/three.cjs" }
     }
   },
   "main": "./dist/index.cjs",
@@ -19,7 +23,8 @@
   "files": ["dist", "README.md", "LICENSE"],
   "keywords": [
     "pixi", "pixijs", "video", "composition", "compositing", "rendering",
-    "after-effects", "motion-graphics", "timeline", "webgl", "gsap", "keyframe", "typescript"
+    "after-effects", "motion-graphics", "timeline", "webgl", "gsap", "keyframe", "typescript",
+    "three", "threejs"
   ],
   "license": "MIT",
   "author": "tefista <tefista.dev@gmail.com>",
@@ -40,7 +45,11 @@
   },
   "peerDependencies": {
     "gsap": "^3.12.0",
-    "pixi.js": "^8.0.0"
+    "pixi.js": "^8.0.0",
+    "three": ">=0.150.0"
+  },
+  "peerDependenciesMeta": {
+    "three": { "optional": true }
   },
   "devDependencies": {
     "tsup": "^8.0.0",
