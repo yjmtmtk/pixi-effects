@@ -12,6 +12,7 @@ export class ThreeSequence extends Sequence {
   private _camera: Camera | null = null;
   private _ctx: ThreeContext | null = null;
   private _objects: Record<string, object> = {};
+  private _warnedUpdate = false;
 
   private get _threeSpec(): ThreeSequenceSpec {
     return this.spec as unknown as ThreeSequenceSpec;
@@ -68,6 +69,30 @@ export class ThreeSequence extends Sequence {
       this._disposeRenderer();
       throw err;
     }
+  }
+
+  /**
+   * Per-frame sync hook. Movie._awaitVideoFrames duck-types on this method
+   * (same contract as VideoSequence) and awaits it inside gotoFrame — the
+   * single frame path shared by playback and export, which is what makes
+   * three layers deterministic in both.
+   */
+  async awaitFrameAt(local: number): Promise<void> {
+    if (!this._renderer || !this._scene || !this._camera || !this._ctx) return;
+    const spec = this._threeSpec;
+    const t = Math.max(0, Math.min(local, this.duration ?? local));
+    if (spec.update) {
+      try {
+        spec.update(t, this._ctx);
+      } catch (err) {
+        if (!this._warnedUpdate) {
+          this._warnedUpdate = true;
+          console.warn('pixi-effects: three update() threw (reported once) —', err);
+        }
+      }
+    }
+    this._renderer.render(this._scene, this._camera);
+    (this.target as Sprite | null)?.texture.source.update();
   }
 
   private _disposeRenderer(): void {
