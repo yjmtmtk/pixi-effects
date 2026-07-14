@@ -12,6 +12,9 @@ export type { SequenceCtor } from './core/Composition';
 export { kenBurns } from './presets/kenBurns';
 export type { KenBurnsOptions } from './presets/kenBurns';
 
+export { withFade } from './transforms/withFade';
+export type { WithFadeOptions } from './transforms/withFade';
+
 export type {
   Expr,
   PropValue,
