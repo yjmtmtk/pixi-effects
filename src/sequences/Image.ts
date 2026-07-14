@@ -73,6 +73,7 @@ export class ImageSequence extends Sequence {
     }
 
     const startTime = offset + this.at;
+    this.absoluteStart = startTime;
     const endTime = startTime + this.duration!;
     this.target.renderable = startTime <= 0;
     timeline.set(this.target, { renderable: true }, startTime);

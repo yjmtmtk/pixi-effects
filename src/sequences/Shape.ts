@@ -153,6 +153,7 @@ export class ShapeSequence extends Sequence {
     bindLiveKeyframes(timeline, this._state, this._liveKeys, this.spec.keyframes ?? [], this.duration!, scope, offset, colorSpace);
 
     const startTime = offset + this.at;
+    this.absoluteStart = startTime;
     const endTime = startTime + this.duration!;
     this.target.renderable = startTime <= 0;
     timeline.set(this.target, { renderable: true }, startTime);

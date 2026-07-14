@@ -26,9 +26,9 @@ export abstract class Sequence {
   maskSequence: Sequence | null = null;
   /**
    * Absolute start time on the global timeline (offset + at), recorded by
-   * bindTimeline. Movie._awaitVideoFrames uses it to hand awaitFrameAt a
-   * correct local time even for sequences nested in offset compositions.
-   * Null until the sequence is bound.
+   * bindTimeline. Movie._awaitVideoFrames uses it to determine the correct
+   * time to pass to awaitFrameAt. Subclasses that override bindTimeline
+   * without calling super must set this field themselves. Null until bound.
    */
   absoluteStart: number | null = null;
 
