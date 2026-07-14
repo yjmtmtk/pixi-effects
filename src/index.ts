@@ -6,6 +6,9 @@ export type {
   ProgressEvent,
 } from './core/Movie';
 
+export { registerSequenceType } from './core/Composition';
+export type { SequenceCtor } from './core/Composition';
+
 export { kenBurns } from './presets/kenBurns';
 export type { KenBurnsOptions } from './presets/kenBurns';
 
