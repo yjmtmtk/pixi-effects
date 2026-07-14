@@ -177,6 +177,7 @@ export class Movie {
       }
 
       this.timeline.progress(1).progress(0);
+      await this._awaitVideoFrames();
       this.app.renderer.render({ container: this.app.stage });
 
       this._initState = 'ready';
@@ -313,10 +314,17 @@ function safeRun(fn: () => unknown): void {
   try { fn(); } catch (e) { console.warn('pixi-effects: cleanup step threw, continuing:', e); }
 }
 
-function collectVideoSequences(seq: Sequence, out: VideoLike[]): void {
+/**
+ * Exported for tests/internal use only — not part of the public API.
+ * Walks a sequence tree (including mask sequences) collecting any node
+ * that exposes `awaitFrameAt`, so Movie can await frame-driven sequences
+ * (video, three) wherever they appear, including inside masks.
+ */
+export function collectVideoSequences(seq: Sequence, out: VideoLike[]): void {
   if (typeof (seq as Sequence & Partial<VideoLike>).awaitFrameAt === 'function') {
     out.push(seq as unknown as VideoLike);
   }
+  if (seq.maskSequence) collectVideoSequences(seq.maskSequence, out);
   for (const child of (seq as Sequence & { _children?: Sequence[] })._children ?? []) {
     collectVideoSequences(child, out);
   }
