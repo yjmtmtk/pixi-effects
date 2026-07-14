@@ -80,7 +80,11 @@
               const key = new THREE.DirectionalLight(0xffffff, 2.2);
               key.position.set(3, 4, 5);
               ctx.scene.add(key);
-              ctx.camera.position.z = 4;
+              // The knot's true in-plane extent is 1.5 * radius + tube = 1.85 world
+              // units (the p=2/q=3 curve bulges past `radius`). Keep the camera far
+              // enough back that the worst rotation phase still projects inside the
+              // layer — anything outside the layer rectangle is clipped by design.
+              ctx.camera.position.z = 6;
               return { objects: { knot } };
             },
             keyframes: [

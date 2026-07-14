@@ -338,6 +338,7 @@ keyframes: [
 2. `update(t)` must derive all state purely from `t` — no wall clock, no unseeded randomness. Playback and export both seek arbitrarily; anything else in `update` means identical timestamps can render different pixels.
 3. Each three sequence owns one WebGL context (an offscreen canvas + renderer). Browsers cap live WebGL contexts at roughly 8–16 — budget accordingly if a composition uses several three layers.
 4. Like `custom` filters, the spec carries functions (`setup`, optionally `update` / `dispose`) and is **not** JSON-serializable.
+5. The scene renders into the layer rectangle: anything that projects outside it is clipped at the layer's edges. Frame the camera with margin for the whole animation — rotating objects often project taller/wider than their resting pose (a `TorusKnotGeometry(radius, tube)`, for instance, extends to `1.5 * radius + tube`, not `radius`).
 
 ---
 
