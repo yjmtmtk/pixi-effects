@@ -3,6 +3,7 @@
 - [`Movie`](#movie) — composition runtime: init, playback, render
 - [`Controller`](#controller) — drop-in player UI overlay
 - [Helpers](#helpers) — pure utilities exported from `pixi-effects/controller`
+- [`pixi-effects/three`](#pixi-effectsthree) — optional three.js integration
 
 For DSL types (composition spec, sequences, filters, keyframes, expressions), see [DSL reference](./dsl.md).
 
@@ -251,3 +252,41 @@ Maps common video MIME types to file extensions. Falls back to `'mp4'`.
 | `quicktime` / `mov` | `mov`     |
 | `matroska` / `mkv`  | `mkv`     |
 | anything else       | `mp4`     |
+
+---
+
+## `pixi-effects/three`
+
+Optional three.js integration, imported from its own entry so the core `pixi-effects` entry never touches three.js:
+
+```ts
+import { registerThree, three, ThreeSequence } from 'pixi-effects/three';
+```
+
+**Install:** `npm i three`. `three` is a peer dependency marked optional (`peerDependenciesMeta.three.optional = true`) — consumers who never import `pixi-effects/three` are unaffected either way.
+
+For the `type: 'three'` spec shape (fields, keyframe paths, rules), see [DSL reference § three](./dsl.md#three).
+
+### `registerThree(): void`
+
+Registers the `'three'` sequence type with the composition builder. Call once, before `Movie.init()` builds a composition containing a `type: 'three'` sequence. Idempotent.
+
+### `three(spec: ThreeSequenceSpec): SequenceSpec`
+
+Typing helper — accepts a strongly-typed three spec and returns it as a plain `SequenceSpec`, so it drops straight into `composition.sequences` alongside `text` / `image` / etc. A cast only; not required for the sequence to work, but gives editor autocomplete on `setup` / `update` / `dispose`.
+
+### `ThreeSequence`
+
+The `Sequence` subclass that backs `type: 'three'`. Exported for advanced use (e.g. `instanceof` checks); most consumers only need `registerThree()` and `three()`.
+
+### Exported types
+
+```ts
+import type { ThreeContext, ThreeSetupResult, ThreeSequenceSpec } from 'pixi-effects/three';
+```
+
+| Type                | Notes                                                                          |
+| ------------------- | ------------------------------------------------------------------------------- |
+| `ThreeContext`      | `{ scene, camera, renderer, width, height }` handed to `setup` / `update` / `dispose`. |
+| `ThreeSetupResult`  | `{ objects?, camera? }` returned from `setup`.                                 |
+| `ThreeSequenceSpec` | the `type: 'three'` sequence spec.                                             |

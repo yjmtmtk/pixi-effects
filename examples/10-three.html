@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>pixi-effects — 10 · three.js layer</title>
+  <style>
+    body { background: #0d1220; margin: 0; font-family: sans-serif; color: #ccc; padding: 16px; }
+    h1 { font-weight: 500; margin: 0 0 4px 0; }
+    p { font-size: 13px; color: #888; margin: 0 0 16px 0; max-width: 960px; }
+    p code, ul code { background: #1a1a22; padding: 1px 6px; border-radius: 3px; color: #b5d3ff; }
+    ul { font-size: 13px; color: #888; margin: 0 0 16px 0; padding-left: 20px; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+    #export {
+      background: #1a2140; color: #ddd; border: 1px solid #2a3563;
+      border-radius: 4px; padding: 6px 12px; font: inherit; cursor: pointer; margin-top: 10px;
+    }
+    #export:hover { background: #243069; }
+  </style>
+</head>
+<body>
+  <h1>10 · three.js layer</h1>
+  <p>
+    A rotating torus knot rendered by three.js and composited as a normal pixi-effects sequence —
+    the <code>pixi-effects/three</code> entry bridges a three.js scene to a PIXI texture per frame.
+  </p>
+  <ul>
+    <li><code>registerThree()</code> — call once before <code>Movie.init</code> to register the <code>'three'</code> sequence type</li>
+    <li><code>three({ type: 'three', setup, ... })</code> — <code>setup(ctx)</code> builds the scene against <code>ctx.scene</code> / <code>ctx.camera</code> and can return <code>{ objects }</code> to expose named objects</li>
+    <li><code>'three.&lt;name&gt;.&lt;path&gt;'</code> keyframes — animate any exposed object's property, same <code>from</code>/<code>to</code>/<code>set</code> vocabulary as everything else</li>
+    <li><code>update(t)</code> must be a pure function of <code>t</code> (sequence-local seconds) — no wall clock, no unseeded randomness — so scrubbing and export render identical frames</li>
+    <li>The layer is a normal sprite once built: 2D <code>initial</code>/keyframe props (<code>alpha</code>, <code>x</code>/<code>y</code>, <code>scale</code>), masks, and filters all work on it</li>
+  </ul>
+  <canvas id="stage" width="1280" height="720"></canvas>
+  <br />
+  <button id="export">Export mp4</button>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.10.0?bundle-deps",
+      "gsap":            "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":      "https://esm.sh/mediabunny",
+      "three":           "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../dist/index.js';
+    import { Controller } from '../dist/Controller.js';
+    import { registerThree, three } from '../dist/three.js';
+    import * as THREE from 'three';
+
+    registerThree();
+
+    const movie = new Movie();
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    await movie.init({
+      canvas: document.getElementById('stage'),
+      width: 1280, height: 720, duration: 6, frameRate: 30,
+      background: '#0a0a0f',
+      composition: {
+        sequences: [
+          {
+            type: 'shape', shape: 'rect', name: 'bg',
+            width: 'GW', height: 'GH',
+            initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101830' },
+          },
+          three({
+            type: 'three', name: 'knot',
+            width: 'GW * 0.6', height: 'GH * 0.6',
+            initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+            setup: (ctx) => {
+              const knot = new THREE.Mesh(
+                new THREE.TorusKnotGeometry(1, 0.35, 128, 32),
+                new THREE.MeshStandardMaterial({ color: 0x7fb4ff, metalness: 0.6, roughness: 0.25 }),
+              );
+              ctx.scene.add(knot);
+              ctx.scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+              const key = new THREE.DirectionalLight(0xffffff, 2.2);
+              key.position.set(3, 4, 5);
+              ctx.scene.add(key);
+              ctx.camera.position.z = 4;
+              return { objects: { knot } };
+            },
+            keyframes: [
+              // Declarative path: keyframes drive exposed objects.
+              { at: 0, to: { 'three.knot.rotation.y': Math.PI * 2 }, duration: 6 },
+              { at: 0, to: { 'three.knot.rotation.x': Math.PI * 0.5 }, duration: 6 },
+              // 2D props still work — it's a normal sprite.
+              { at: 0, from: { alpha: 0 }, duration: 0.6 },
+              { at: -0.6, to: { alpha: 0 }, duration: 0.6 },
+            ],
+          }),
+          {
+            type: 'text', text: 'three.js layer',
+            style: { fontSize: 'GH * 0.05', fill: '#e8ecf8' },
+            initial: { x: 'GW/2', y: 'GH * 0.88', anchorX: 0.5, anchorY: 0.5 },
+            keyframes: [{ at: 0.4, from: { alpha: 0 }, duration: 0.6 }],
+          },
+        ],
+      },
+    });
+
+    document.getElementById('export').onclick = async () => {
+      const blob = await movie.render({ format: 'mp4' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = '10-three.mp4';
+      a.click();
+    };
+  </script>
+</body>
+</html>

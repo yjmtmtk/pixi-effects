@@ -269,6 +269,78 @@ Per-shape choice of how colour keyframes are interpolated. Default `'rgb'` (line
 
 ---
 
+## three
+
+Composites a [three.js](https://threejs.org/) scene as a normal layer. Each frame, the scene is rendered into an offscreen WebGL canvas and uploaded into the sequence's PIXI texture — so once built, the layer is a plain sprite: 2D `initial` / keyframe props, [masks](#masks), and [filters](#filters) all apply to it exactly like any other sequence type.
+
+`type: 'three'` lives in the optional `pixi-effects/three` entry, not core `pixi-effects` — see [API reference](./api.md#pixi-effectsthree) for install/import details.
+
+```ts
+import { registerThree, three } from 'pixi-effects/three';
+import * as THREE from 'three';
+
+registerThree();   // once, before Movie.init
+
+three({
+  type: 'three',
+  name: 'knot',
+  width: 'GW * 0.6', height: 'GH * 0.6',
+  initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+  setup: (ctx) => {
+    const knot = new THREE.Mesh(
+      new THREE.TorusKnotGeometry(1, 0.35, 128, 32),
+      new THREE.MeshStandardMaterial({ color: 0x7fb4ff }),
+    );
+    ctx.scene.add(knot);
+    ctx.camera.position.z = 4;
+    return { objects: { knot } };    // exposes `knot` to keyframes, see below
+  },
+  keyframes: [
+    { at: 0, to: { 'three.knot.rotation.y': Math.PI * 2 }, duration: 6 },
+  ],
+})
+```
+
+### Spec fields
+
+| Field        | Type                                                        | Notes                                                                                   |
+| ------------ | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `width?`     | `PropValue`                                                 | layer size in composition px; expressions allowed (e.g. `'W * 0.5'`). Default: parent composition size. |
+| `height?`    | `PropValue`                                                 | see `width`.                                                                              |
+| `resolution?`| `number`                                                    | supersampling factor for the offscreen canvas. Default `1`.                              |
+| `setup`      | `(ctx: ThreeContext) => Promise<ThreeSetupResult \| void> \| ThreeSetupResult \| void` | builds the scene once. Add objects to `ctx.scene`, position `ctx.camera` (or replace it via `{ camera }`). Async, so `Movie.init` can await GLTF / texture loading. |
+| `update?`    | `(t: number, ctx: ThreeContext) => void`                    | optional per-frame hook; `t` is sequence-local time in seconds.                          |
+| `dispose?`   | `(ctx: ThreeContext) => void`                                | cleanup for user-created GPU resources (geometries, materials, textures). Called from `destroy()`. |
+
+`ThreeContext` is `{ scene, camera, renderer, width, height }` — the three.js `Scene`, `Camera`, `WebGLRenderer`, and the resolved layer size in composition px.
+
+### Keyframe paths: `three.<name>.<path>`
+
+Objects returned from `setup`'s `{ objects }` are addressable from keyframes as `three.<name>.<path>`, using the same `from`/`to`/`set` vocabulary as every other prop:
+
+```ts
+setup: (ctx) => {
+  const knot = new THREE.Mesh(/* ... */);
+  ctx.scene.add(knot);
+  return { objects: { knot } };
+},
+keyframes: [
+  { at: 0, to: { 'three.knot.rotation.y': Math.PI * 2 }, duration: 6 },
+  { at: 0, to: { 'three.knot.position.x': 1.5 },         duration: 3 },
+],
+```
+
+`camera` is exposed implicitly as `three.camera.<path>` unless `setup`'s `objects` already defines a `camera` key.
+
+### Rules
+
+1. Call `registerThree()` before `Movie.init` builds a composition containing a `type: 'three'` sequence — the sequence type is looked up by name at build time.
+2. `update(t)` must derive all state purely from `t` — no wall clock, no unseeded randomness. Playback and export both seek arbitrarily; anything else in `update` means identical timestamps can render different pixels.
+3. Each three sequence owns one WebGL context (an offscreen canvas + renderer). Browsers cap live WebGL contexts at roughly 8–16 — budget accordingly if a composition uses several three layers.
+4. Like `custom` filters, the spec carries functions (`setup`, optionally `update` / `dispose`) and is **not** JSON-serializable.
+
+---
+
 ## Masks
 
 Any sequence can carry an inline `mask` — itself a full sequence — that shapes which pixels of the maskee are visible. The mask runs in the same coordinate space as the maskee (added to the same parent composition) and shares its lifetime, so a circular avatar crop is just:
