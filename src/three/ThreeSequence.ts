@@ -3,6 +3,7 @@ import { PerspectiveCamera, Scene, WebGLRenderer, type Camera } from 'three';
 import { Sequence } from '../sequences/Base';
 import { buildScope } from '../expr/Scope';
 import { evaluateExpr } from '../expr/Parser';
+import type { PathRouters } from '../core/Timeline';
 import type { PropValue } from '../types';
 import type { ThreeContext, ThreeSequenceSpec } from './types';
 
@@ -13,9 +14,14 @@ export class ThreeSequence extends Sequence {
   private _ctx: ThreeContext | null = null;
   private _objects: Record<string, object> = {};
   private _warnedUpdate = false;
+  private _warnedPaths = new Set<string>();
 
   private get _threeSpec(): ThreeSequenceSpec {
     return this.spec as unknown as ThreeSequenceSpec;
+  }
+
+  protected override pathRouters(): PathRouters {
+    return { three: (path) => this._resolveThreePath(path) };
   }
 
   async build(): Promise<void> {
@@ -93,6 +99,38 @@ export class ThreeSequence extends Sequence {
     }
     this._renderer.render(this._scene, this._camera);
     (this.target as Sprite | null)?.texture.source.update();
+  }
+
+  private _resolveThreePath(path: string): { target: object; prop: string } | null {
+    const segs = path.split('.');
+    if (segs.length < 2) {
+      this._warnPath(path, 'needs at least <object>.<prop>');
+      return null;
+    }
+    let obj: unknown = this._objects[segs[0]!];
+    if (obj == null) {
+      this._warnPath(path, `unknown object "${segs[0]}" — expose it via setup's { objects }`);
+      return null;
+    }
+    for (let i = 1; i < segs.length - 1; i++) {
+      obj = (obj as Record<string, unknown>)[segs[i]!];
+      if (obj == null) {
+        this._warnPath(path, `"${segs[i]}" is undefined along the path`);
+        return null;
+      }
+    }
+    const prop = segs[segs.length - 1]!;
+    if (typeof obj !== 'object' || !(prop in (obj as object))) {
+      this._warnPath(path, `no property "${prop}"`);
+      return null;
+    }
+    return { target: obj as object, prop };
+  }
+
+  private _warnPath(path: string, why: string): void {
+    if (this._warnedPaths.has(path)) return;
+    this._warnedPaths.add(path);
+    console.warn(`pixi-effects: keyframe path three.${path} ${why}; skipped`);
   }
 
   private _disposeRenderer(): void {
