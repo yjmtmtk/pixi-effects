@@ -24,6 +24,13 @@ export abstract class Sequence {
    * (not a normal child) by PIXI when `target.mask = maskSequence.target`.
    */
   maskSequence: Sequence | null = null;
+  /**
+   * Absolute start time on the global timeline (offset + at), recorded by
+   * bindTimeline. Movie._awaitVideoFrames uses it to hand awaitFrameAt a
+   * correct local time even for sequences nested in offset compositions.
+   * Null until the sequence is bound.
+   */
+  absoluteStart: number | null = null;
 
   constructor(spec: SequenceSpec, parent: CompositionShape | null, root: CompositionShape) {
     this.spec = spec;
@@ -65,6 +72,7 @@ export abstract class Sequence {
     // on PIXI's default `renderable: true`.
     const startTime = offset + this.at;
     const endTime = startTime + this.duration!;
+    this.absoluteStart = startTime;
     this.target.renderable = startTime <= 0;
     timeline.set(this.target, { renderable: true }, startTime);
     timeline.set(this.target, { renderable: false }, endTime);

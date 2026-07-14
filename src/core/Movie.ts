@@ -205,7 +205,7 @@ export class Movie {
     collectVideoSequences(this._rootSequence, collected);
     const t = this.currentFrame / this.frameRate;
     await Promise.all(collected.map(v => {
-      const local = t - v.at;
+      const local = t - (v.absoluteStart ?? v.at);
       if (local < 0 || local > (v.duration ?? 0)) return Promise.resolve();
       return v.awaitFrameAt(local);
     }));
@@ -305,6 +305,7 @@ export class Movie {
 interface VideoLike {
   at: number;
   duration: number | undefined;
+  absoluteStart?: number | null;
   awaitFrameAt(t: number): Promise<void>;
 }
 
