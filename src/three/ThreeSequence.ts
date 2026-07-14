@@ -138,7 +138,9 @@ export class ThreeSequence extends Sequence {
     try {
       this._renderer.dispose();
       this._renderer.forceContextLoss();
-    } catch { /* context may already be gone */ }
+    } catch (err) {
+      console.warn('pixi-effects: three renderer dispose threw —', err);
+    }
     this._renderer = null;
   }
 

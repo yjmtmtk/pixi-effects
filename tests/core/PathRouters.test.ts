@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { gsap } from 'gsap';
 import { applyKeyframes, applyInitial, splitRouted, type PathRouters } from '../../src/core/Timeline';
 

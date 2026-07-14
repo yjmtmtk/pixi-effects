@@ -307,7 +307,7 @@ three({
 | ------------ | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
 | `width?`     | `PropValue`                                                 | layer size in composition px; expressions allowed (e.g. `'W * 0.5'`). Default: parent composition size. |
 | `height?`    | `PropValue`                                                 | see `width`.                                                                              |
-| `resolution?`| `number`                                                    | supersampling factor for the offscreen canvas. Default `1`.                              |
+| `resolution?` | `number`                                                    | supersampling factor for the offscreen canvas. Default `1`.                              |
 | `setup`      | `(ctx: ThreeContext) => Promise<ThreeSetupResult \| void> \| ThreeSetupResult \| void` | builds the scene once. Add objects to `ctx.scene`, position `ctx.camera` (or replace it via `{ camera }`). Async, so `Movie.init` can await GLTF / texture loading. |
 | `update?`    | `(t: number, ctx: ThreeContext) => void`                    | optional per-frame hook; `t` is sequence-local time in seconds.                          |
 | `dispose?`   | `(ctx: ThreeContext) => void`                                | cleanup for user-created GPU resources (geometries, materials, textures). Called from `destroy()`. |

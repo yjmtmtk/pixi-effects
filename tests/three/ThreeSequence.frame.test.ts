@@ -69,9 +69,12 @@ describe('ThreeSequence.awaitFrameAt', () => {
   it('is a no-op after destroy', async () => {
     const update = vi.fn();
     const seq = await build({ update });
+    const renderer = (seq as any)._renderer as MockWebGLRenderer; // captured before destroy nulls it
+    const before = renderer.renderCalls.length;
     seq.destroy();
     await seq.awaitFrameAt(1);
     expect(update).not.toHaveBeenCalled();
+    expect(renderer.renderCalls.length).toBe(before);
   });
 });
 
