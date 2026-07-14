@@ -56,6 +56,44 @@ export function partitionProps(props: Record<string, unknown>): Partitioned {
   return { ownProps, filterProps };
 }
 
+/**
+ * Resolves a routed keyframe path to a concrete GSAP tween target.
+ * `path` is everything after the registered prefix + dot (for
+ * `three.cube.rotation.y` under prefix `three`, path = `cube.rotation.y`).
+ * Return null to skip the key (the router is expected to have warned).
+ */
+export type PathRouter = (path: string) => { target: object; prop: string } | null;
+export type PathRouters = Record<string, PathRouter>;
+
+export interface RoutedProp {
+  target: object;
+  prop: string;
+  /** Original full key, used to pair from/to sides of a fromTo keyframe. */
+  key: string;
+  value: unknown;
+}
+
+export function splitRouted(
+  props: Record<string, unknown>,
+  routers: PathRouters | undefined,
+): { rest: Record<string, unknown>; routed: RoutedProp[] } {
+  if (!routers) return { rest: props, routed: [] };
+  const rest: Record<string, unknown> = {};
+  const routed: RoutedProp[] = [];
+  for (const k of Object.keys(props)) {
+    const dot = k.indexOf('.');
+    const router = dot > 0 ? routers[k.slice(0, dot)] : undefined;
+    if (router) {
+      const hit = router(k.slice(dot + 1));
+      if (hit) routed.push({ target: hit.target, prop: hit.prop, key: k, value: props[k] });
+      // Unresolved keys are dropped — the router already warned.
+    } else {
+      rest[k] = props[k];
+    }
+  }
+  return { rest, routed };
+}
+
 interface FilterTarget { filters?: NamedFilter[] | null }
 
 function findFilter(target: FilterTarget, name: string): NamedFilter | null {
@@ -105,13 +143,16 @@ export function applyKeyframes(
   scope: Record<string, number>,
   skipKeys: string[] = [],
   offset = 0,
+  routers?: PathRouters,
 ): void {
   for (const raw of keyframes ?? []) {
     const kf = normalizeKeyframe(raw, parentDuration);
     const at = offset + kf.at;
     if (kf.kind === 'set') {
       const resolved = normalizeProps(kf.set!, scope, { skipKeys });
-      const { ownProps, filterProps } = partitionProps(resolved);
+      const { rest, routed } = splitRouted(resolved, routers);
+      for (const r of routed) timeline.set(r.target, { [r.prop]: r.value }, at);
+      const { ownProps, filterProps } = partitionProps(rest);
       if (Object.keys(ownProps).length > 0) timeline.set(target, pixiwrap(ownProps), at);
       for (const [name, props] of Object.entries(filterProps)) {
         const f = findFilter(target as FilterTarget, name);
@@ -120,7 +161,10 @@ export function applyKeyframes(
       }
     } else if (kf.kind === 'to') {
       const resolved = normalizeProps(kf.to!, scope, { skipKeys });
-      const { ownProps, filterProps } = partitionProps(resolved);
+      const { rest, routed } = splitRouted(resolved, routers);
+      for (const r of routed)
+        timeline.to(r.target, { [r.prop]: r.value, duration: kf.duration, ease: kf.ease }, at);
+      const { ownProps, filterProps } = partitionProps(rest);
       if (Object.keys(ownProps).length > 0)
         timeline.to(target, { ...pixiwrap(ownProps), duration: kf.duration, ease: kf.ease }, at);
       for (const [name, props] of Object.entries(filterProps)) {
@@ -130,7 +174,10 @@ export function applyKeyframes(
       }
     } else if (kf.kind === 'from') {
       const resolved = normalizeProps(kf.from!, scope, { skipKeys });
-      const { ownProps, filterProps } = partitionProps(resolved);
+      const { rest, routed } = splitRouted(resolved, routers);
+      for (const r of routed)
+        timeline.from(r.target, { [r.prop]: r.value, duration: kf.duration, ease: kf.ease }, at);
+      const { ownProps, filterProps } = partitionProps(rest);
       if (Object.keys(ownProps).length > 0)
         timeline.from(target, { ...pixiwrap(ownProps), duration: kf.duration, ease: kf.ease }, at);
       for (const [name, props] of Object.entries(filterProps)) {
@@ -141,8 +188,24 @@ export function applyKeyframes(
     } else {
       const fromResolved = normalizeProps(kf.from!, scope, { skipKeys });
       const toResolved = normalizeProps(kf.to!, scope, { skipKeys });
-      const fromSplit = partitionProps(fromResolved);
-      const toSplit = partitionProps(toResolved);
+      const fromRouted = splitRouted(fromResolved, routers);
+      const toRouted = splitRouted(toResolved, routers);
+      // Pair routed from/to entries by their original key.
+      const fromByKey = new Map(fromRouted.routed.map(r => [r.key, r]));
+      for (const r of toRouted.routed) {
+        const f = fromByKey.get(r.key);
+        fromByKey.delete(r.key);
+        if (f) {
+          timeline.fromTo(r.target, { [r.prop]: f.value },
+            { [r.prop]: r.value, duration: kf.duration, ease: kf.ease }, at);
+        } else {
+          timeline.to(r.target, { [r.prop]: r.value, duration: kf.duration, ease: kf.ease }, at);
+        }
+      }
+      for (const f of fromByKey.values())
+        timeline.from(f.target, { [f.prop]: f.value, duration: kf.duration, ease: kf.ease }, at);
+      const fromSplit = partitionProps(fromRouted.rest);
+      const toSplit = partitionProps(toRouted.rest);
       const ownKeys = new Set([...Object.keys(fromSplit.ownProps), ...Object.keys(toSplit.ownProps)]);
       if (ownKeys.size > 0) {
         timeline.fromTo(
@@ -175,10 +238,13 @@ export function applyInitial(
   initial: Record<string, unknown> | undefined,
   scope: Record<string, number>,
   skipKeys: string[] = [],
+  routers?: PathRouters,
 ): void {
   if (!initial) return;
   const resolved = normalizeProps(initial, scope, { skipKeys });
-  const { ownProps, filterProps } = partitionProps(resolved);
+  const { rest, routed } = splitRouted(resolved, routers);
+  for (const r of routed) gsap.set(r.target, { [r.prop]: r.value });
+  const { ownProps, filterProps } = partitionProps(rest);
   if (Object.keys(ownProps).length > 0) gsap.set(target, pixiwrap(ownProps));
   for (const [name, props] of Object.entries(filterProps)) {
     const f = findFilter(target as FilterTarget, name);

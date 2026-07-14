@@ -1,6 +1,6 @@
 import type { Container } from 'pixi.js';
 import { Rectangle } from 'pixi.js';
-import { applyKeyframes, applyInitial } from '../core/Timeline';
+import { applyKeyframes, applyInitial, type PathRouters } from '../core/Timeline';
 import { buildScope, type Scope } from '../expr/Scope';
 import { createFilter, type NamedFilter } from '../filters';
 import type { CompositionShape, SequenceSpec, AudioDescriptor } from '../types';
@@ -61,11 +61,20 @@ export abstract class Sequence {
     return buildScope(this, this.parent, this.root);
   }
 
+  /**
+   * Prefix routers contributed to the keyframe pipeline (e.g. `three.` in
+   * pixi-effects/three). Base sequences route nothing extra.
+   */
+  protected pathRouters(): PathRouters {
+    return {};
+  }
+
   bindTimeline(timeline: Timeline, offset = 0): void {
     if (!this.target) return;
     const scope = this.scope();
-    applyInitial(this.target, this.spec.initial as Record<string, unknown> | undefined, scope as unknown as Record<string, number>);
-    applyKeyframes(timeline, this.target, this.spec.keyframes, this.duration!, scope as unknown as Record<string, number>, [], offset);
+    const routers = this.pathRouters();
+    applyInitial(this.target, this.spec.initial as Record<string, unknown> | undefined, scope as unknown as Record<string, number>, [], routers);
+    applyKeyframes(timeline, this.target, this.spec.keyframes, this.duration!, scope as unknown as Record<string, number>, [], offset, routers);
     // Hide before lifespan starts. GSAP's `set` only fires when the playhead
     // crosses its time, so without this baseline a sequence with at>0 (or any
     // non-zero offset from a nested composition) would render at t<startTime
