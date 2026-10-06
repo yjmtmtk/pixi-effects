@@ -12,6 +12,7 @@ import { inspectScene, type InspectReport, type InspectOptions } from './inspect
 import { pickFrames, sheetLayout } from './frames';
 import { warnUnknownOptions } from './options';
 import { startWhenRunning } from './startWhenRunning';
+import { ensureFilterLibrary } from '../filters/named';
 import type { Sequence } from '../sequences/Base';
 import type {
   AssetSpec, CompositionSpec, CompositionShape, AudioDescriptor,
@@ -190,6 +191,7 @@ export class Movie {
             duration: options.composition.duration ?? this.duration,
           }
         : undefined;
+      await ensureFilterLibrary(seededComposition);            // pixi-filters, only when a layer names one of its filters
       const userComposition = seededComposition ? expandTransitions(seededComposition) : undefined;
       const rootSeqSpec = {
         type: 'composition' as const,

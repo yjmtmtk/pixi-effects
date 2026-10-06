@@ -49,10 +49,12 @@
   "peerDependencies": {
     "gsap": "^3.12.0",
     "pixi.js": "^8.0.0",
-    "three": ">=0.150.0"
+    "three": ">=0.150.0",
+    "pixi-filters": "^6.1.0"
   },
   "peerDependenciesMeta": {
-    "three": { "optional": true }
+    "three": { "optional": true },
+    "pixi-filters": { "optional": true }
   },
   "devDependencies": {
     "tsup": "^8.0.0",
@@ -61,6 +63,7 @@
     "happy-dom": "^15.0.0",
     "gsap": "^3.12.0",
     "pixi.js": "^8.22.0",
+    "pixi-filters": "^6.1.5",
     "three": "^0.185.1",
     "@types/three": "^0.185.0"
   },

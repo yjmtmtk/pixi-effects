@@ -1,12 +1,13 @@
 import type { Filter } from 'pixi.js';
 import type { FilterSpec, CustomFilterSpec } from '../types';
 import { ChromaKeyFilter } from './ChromaKey';
+import { createNamedFilter } from './named';
 
 interface FilterCtor {
   new (params: Record<string, unknown>): Filter;
 }
 
-const registry: Record<Exclude<FilterSpec['type'], 'custom'>, FilterCtor> = {
+const registry: Record<string, FilterCtor> = {
   chromaKey: ChromaKeyFilter as unknown as FilterCtor,
 };
 
@@ -35,10 +36,9 @@ export function createFilter(spec: FilterSpec): NamedFilter {
     named._name = spec.name;
     return named;
   }
-  const Cls = registry[spec.type];
-  if (!Cls) throw new Error(`pixi-effects: unknown filter type "${(spec as { type: string }).type}"`);
-  const { type: _t, name, ...params } = spec as Record<string, unknown> & { type: string; name?: string };
-  const inst = new Cls(params) as NamedFilter;
+  const { type, name, ...params } = spec as Record<string, unknown> & { type: string; name?: string };
+  const Cls = registry[type];
+  const inst = (Cls ? new Cls(params) : createNamedFilter(type, params)) as NamedFilter;
   inst._name = name;
   return inst;
 }

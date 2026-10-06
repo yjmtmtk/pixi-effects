@@ -934,6 +934,53 @@ Removes a key color from the source. Works on video, image, or composition layer
 
 Animatable: `threshold`, `smoothing`, `spill`. `keyColor` is set at build time.
 
+### Named filters (`{ type: 'glow', … }`)
+
+A filter by name, as plain data. `type` is the filter's class name without `Filter`, in camelCase (case does not matter), and every other key is that filter's own option. No import, and the layer stays JSON:
+
+```ts
+{ type: 'text', text: 'NEON', style: { fontSize: 140, fill: '#fff' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+  filters: [{ type: 'glow', name: 'halo', outerStrength: 0, color: '#ff4d9d', distance: 20 }],
+  keyframes: [{ at: 0, to: { 'filters.halo.outerStrength': 6 }, duration: 1 }] }       // animate any scalar option by name
+```
+
+Name a filter (`name: 'halo'`) to animate it with `'filters.halo.<option>'`. `blur`, `noise`, `alpha` and `colorMatrix` come from pixi.js. All the others come from the **`pixi-filters`** package, which is loaded the first time a layer uses one (add `"pixi-filters": "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"` to the import map, or `npm i pixi-filters`; `ai/template.html` already has it). A misspelt type says what you probably meant. Verified rendering and exporting in a real browser (`examples/_checks/named-filters.html`, 24 filters):
+
+| `type` | Options (the useful ones) | What it does |
+|---|---|---|
+| `blur` | `strength`, `quality` | Gaussian blur (pixi.js) |
+| `noise` | `noise` (0–1), `seed` | Film grain (pixi.js) |
+| `alpha` | `alpha` | Whole-layer opacity (pixi.js) |
+| `colorMatrix` | `preset`: `'sepia' 'grayscale' 'negative' 'polaroid' 'technicolor' 'vintage' 'kodachrome' 'browni'`, or `matrix` (20 numbers) | Colour grade (pixi.js) |
+| `adjustment` | `gamma contrast saturation brightness red green blue alpha` (1 = unchanged) | Colour grading |
+| `hslAdjustment` | `hue` (degrees) `saturation lightness colorize alpha` | Hue shift |
+| `grayscale` | – | Black and white |
+| `glow` | `distance outerStrength innerStrength color alpha quality knockout` | Glow around the shape |
+| `dropShadow` | `offset: { x, y }` `blur alpha color shadowOnly` | Shadow |
+| `outline` | `thickness color alpha quality knockout` | Stroke around the shape |
+| `pixelate` | `size` (a number, or `[w, h]`); animate `sizeX` / `sizeY` | Mosaic |
+| `crt` | `curvature lineWidth lineContrast noise vignetting vignettingAlpha time` | Old monitor |
+| `rgbSplit` | `red green blue` (each `{ x, y }` offset) | Chromatic aberration |
+| `oldFilm` | `sepia noise scratch scratchDensity vignetting seed` | Aged film |
+| `glitch` | `slices offset direction seed average` | Digital glitch |
+| `bulgePinch` | `center radius strength` | Bulge (+) / pinch (−) |
+| `twist` | `radius angle offset: { x, y }` | Swirl |
+| `zoomBlur` | `strength center innerRadius radius` | Radial zoom streaks |
+| `kawaseBlur` | `strength quality` | Cheap, wide blur |
+| `radialBlur` / `motionBlur` | `angle center radius` / `velocity kernelSize` | Spin / directional blur |
+| `emboss` | `strength` | Relief |
+| `ascii` | `size color replaceColor` | Text-art |
+| `colorOverlay` | `color alpha` | Tint over everything |
+| `advancedBloom` / `bloom` | `threshold bloomScale brightness blur` | Bloom |
+| `bevel`, `dot`, `crossHatch`, `tiltShift`, `reflection`, `shockwave`, `godray`, `simplexNoise`, `colorGradient`, `colorMap`, `colorReplace`, `multiColorReplace`, `convolution`, `backdropBlur`, `simpleLightmap`, `tiltShiftAxis` | see the [pixi-filters docs](https://pixijs.io/filters/docs/) | Other pixi-filters |
+
+Gotchas, all measured:
+
+- **Centres and offsets are in canvas pixels, not the layer's:** `twist.offset`, `bulgePinch.center`, `zoomBlur.center`, `radialBlur.center`, `shockwave.center` default to the canvas's top-left corner, so a layer in the middle looks unaffected. Put the centre on the layer: `{ type: 'twist', offset: { x: 640, y: 360 } }` for a layer centred on a 1280×720 canvas.
+- **A filter works inside the layer's bounds.** Glow, dropShadow, outline and blur draw outside it and are clipped unless you widen the area (`filterArea: { x: -24, y: -24, width: w + 48, height: h + 48 }`, in the layer's own coordinates). Do not widen it for `grayscale`, `oldFilm` or other filters that paint the whole area: they fill the extra margin with black.
+- **Animate scalars by name** (`'filters.halo.outerStrength'`). Options that are points (`rgbSplit.red`, `dropShadow.offset`) do not tween as a whole; animate `'filters.<name>.red.x'` if the filter exposes it, or swap the filter. `pixelate` animates through `sizeX` / `sizeY`, not `size`.
+- Some filters take their value as one argument; the DSL hides that (`{ type: 'pixelate', size: 8 }`, `{ type: 'emboss', strength: 6 }`).
+
 ### `custom`
 
 Escape hatch for any PIXI `Filter` instance — including PIXI's own built-ins (`BlurFilter`, `ColorMatrixFilter`, `NoiseFilter`, etc.), [pixi-filters](https://github.com/pixijs/filters), community packages, or your own `Filter` subclass. The instance is used as-is; animation works the same way as for `chromaKey` as long as the filter has writable scalar properties at the addressed paths.
@@ -967,7 +1014,7 @@ Notes:
 Notes:
 
 - `filter` must be a PIXI `Filter` instance (constructor must have run on the consumer side). Plain object literals throw.
-- `pixi-filters` is **not** a dependency of pixi-effects — install it on your side if you want to use it.
+- Use `custom` for a filter that has no name above (a community filter, or your own `Filter`). For everything in pixi.js and `pixi-filters`, prefer the named form.
 - Without a `name`, the filter still applies but cannot be addressed via `filters.<name>.<prop>` keyframe paths.
 
 ---
