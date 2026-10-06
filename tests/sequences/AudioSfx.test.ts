@@ -101,3 +101,19 @@ describe('audio layer with sfx — keyframes that land outside the sound', () =>
     expect(warn.mock.calls.map(c => String(c[0])).some(m => m.includes('layer "early"') && m.includes('before the movie'))).toBe(true);
   });
 });
+
+describe('audio layer with sfx — labels and duplicate warnings', () => {
+  it('a custom sound is labelled sfx "custom", not sfx "null"', async () => {
+    const audios = await build([{ type: 'audio', name: 'zap', sfx: { voices: [{ wave: 'square', freq: [800, 200] }] }, at: 1 }]);
+    expect(audios[0]!.source).toBe('sfx "custom"');
+  });
+
+  it('a keyframe past the end of an sfx with no duration is reported once, against the sound (not also against the parent)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await build([{ type: 'audio', name: 'p', sfx: 'pop', keyframes: [{ at: 3.5, to: { volume: 0 }, duration: 0.2 }] }]);   // parent lasts 3 s: past its end too
+    const msgs = warn.mock.calls.map(c => String(c[0])).filter(m => m.includes('layer "p"') && /keyframes\[0\]/.test(m));
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0]).toContain('after the sound ends');
+  });
+});
+

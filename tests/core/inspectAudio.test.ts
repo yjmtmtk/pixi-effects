@@ -58,3 +58,28 @@ describe('analyzeAudio', () => {
     expect(r.issues[0]).toContain('no audio');
   });
 });
+
+describe('analyzeAudio — a layer made inaudible by its own volume, and a sane window', () => {
+  it('flags a layer whose volume makes it inaudible even while something loud plays at the same time', () => {
+    const mix = pcm(2, t => (t >= 1 && t < 1.1 ? 0.5 * Math.sin(2 * Math.PI * 440 * t) : 0));      // a loud chime is playing
+    const quiet: AudioDescriptor = { ...src('layer "quiet"', 'sfx "pop"', 1, 1.1), initialVolume: 0.0001 };
+    const loud = src('layer "chime"', 'sfx "chime"', 1, 1.1);
+    const r = analyzeAudio(mix, [quiet, loud], { peak: 0.5, peakAt: 1 }, 2);
+    expect(r.issues.some(i => i.includes('layer "quiet"') && i.includes('inaudible'))).toBe(true);
+    expect(r.issues.some(i => i.includes('layer "chime"'))).toBe(false);
+  });
+
+  it('a layer whose volume is animated up later is not flagged for its starting volume', () => {
+    const mix = pcm(2, t => (t >= 1 && t < 1.1 ? 0.5 * Math.sin(2 * Math.PI * 440 * t) : 0));
+    const fadeIn: AudioDescriptor = { ...src('layer "fadein"', 'sfx "hit"', 1, 1.1), initialVolume: 0, volumeKeyframes: [{ time: 1.05, value: 0 }, { time: 1.1, value: 1 }] };
+    const r = analyzeAudio(mix, [fadeIn], { peak: 0.5, peakAt: 1 }, 2);
+    expect(r.issues.some(i => i.includes('inaudible'))).toBe(false);
+  });
+
+  it('a tiny `window` cannot ask for a million FFT windows', () => {
+    const mix = pcm(1, () => 0);
+    const r = analyzeAudio(mix, [], null, 1, { window: 1e-6 });
+    expect(r.windows.length).toBeLessThanOrEqual(100);
+  });
+});
+

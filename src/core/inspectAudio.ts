@@ -97,7 +97,8 @@ export function analyzeAudio(
     return p;
   };
 
-  const win = opts.window && opts.window > 0 ? opts.window : 0.1;
+  // at least 10 ms: a smaller window would ask for a spectrum per sample
+  const win = opts.window && opts.window > 0 ? Math.max(0.01, opts.window) : 0.1;
   const windows: AudioReport['windows'] = [];
   for (let t = 0; t < movieDuration - 1e-9; t += win) {
     const i0 = Math.floor(t * sr);
@@ -132,15 +133,20 @@ export function analyzeAudio(
     const layer = s.layer ?? 'an audio layer';
     const source = s.source ?? 'audio';
     const peakDb = db(peakIn(s.start, Math.min(s.end, movieDuration)));
+    const sound = soundOf(s);
+    // The layer's OWN level: the sound's peak at the loudest volume it ever has. Judging the mix instead would
+    // hide a nearly silent layer under a loud one.
+    const topVolume = Math.max(s.initialVolume ?? 1, ...(s.volumeKeyframes ?? []).map(k => k.value));
+    const ownDb = db(Math.pow(10, sound.peakDb / 20) * Math.max(0, topVolume));
     if (s.start >= movieDuration) {
       issues.push(`${layer} (${source}) starts at ${s.start.toFixed(2)}s, after the movie ends (${movieDuration}s)`);
-    } else if (peakDb < INAUDIBLE_DB) {
-      issues.push(`${layer} (${source}) is inaudible from ${s.start.toFixed(2)}s to ${s.end.toFixed(2)}s (mix peak ${peakDb} dBFS) — check its volume`);
+    } else if (ownDb < INAUDIBLE_DB || peakDb < INAUDIBLE_DB) {
+      issues.push(`${layer} (${source}) is inaudible from ${s.start.toFixed(2)}s to ${s.end.toFixed(2)}s (its own peak ${ownDb} dBFS at volume ${topVolume}; mix peak there ${peakDb} dBFS) — check its volume`);
     }
     if (s.synth && s.end > movieDuration + 1e-6 && s.start < movieDuration) {
       issues.push(`${layer} (${source}) is cut off by the end of the movie at ${movieDuration}s (it runs to ${s.end.toFixed(2)}s)`);
     }
-    return { layer, source, start: s.start, end: s.end, peakDb, sound: soundOf(s) };
+    return { layer, source, start: s.start, end: s.end, peakDb, sound };
   });
 
   return {

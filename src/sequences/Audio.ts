@@ -43,7 +43,7 @@ export class AudioSequence extends Sequence {
     const sfx = resolveSfx(spec.sfx, spec.duration, who);
     if (!sfx) return;                                     // warned; the layer stays silent
     this.duration = sfx.length;
-    this._source = `sfx "${sfx.preset}"`;
+    this._source = `sfx "${sfx.preset ?? 'custom'}"`;
     this._synth = { key: sfxKey(sfx), render: sr => renderSfx(sfx, sr) };
     // lintTiming measured keyframes against the parent's length; an sfx is usually much shorter.
     (spec.keyframes ?? []).forEach((kf, i) => {

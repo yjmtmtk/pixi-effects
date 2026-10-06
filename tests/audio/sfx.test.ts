@@ -191,6 +191,19 @@ describe('resolveSfx', () => {
     expect(warn.mock.calls.some(c => /duration/.test(String(c[0])))).toBe(true);
   });
 
+  it('a voice that can never be heard (from >= to, gain 0) warns and is skipped; a non-numeric seed warns', () => {
+    const warn = vi.fn();
+    expect(resolveSfx({ voices: [{ wave: 'sine', from: 0.8, to: 0.2 }] }, undefined, 'layer "a"', warn)).toBeNull();
+    expect(warn.mock.calls.map(c => String(c[0])).some(m => m.includes('voices[0]') && /from.*less than.*to/.test(m))).toBe(true);
+    const w2 = vi.fn();
+    expect(resolveSfx({ voices: [{ wave: 'sine', gain: 0 }, { wave: 'noise' }] }, undefined, 'layer "b"', w2)!.voices).toHaveLength(1);
+    expect(w2.mock.calls.map(c => String(c[0])).some(m => m.includes('voices[0]') && /gain/.test(m))).toBe(true);
+    const w3 = vi.fn();
+    expect(resolveSfx({ preset: 'pop', seed: Number.NaN }, undefined, 'layer "c"', w3)!.seed).toBe(0);
+    expect(resolveSfx({ preset: 'pop', seed: 'abc' as never }, undefined, 'layer "c"', w3)!.seed).toBe(0);
+    expect(w3.mock.calls.filter(c => /seed/.test(String(c[0])))).toHaveLength(2);
+  });
+
   it('sfxKey is equal exactly when the sounds are equal', () => {
     expect(sfxKey(S('pop'))).toBe(sfxKey(S('pop')));
     expect(sfxKey(S('pop'))).not.toBe(sfxKey(S('pop', { seed: 1 })));

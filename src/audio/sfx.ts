@@ -95,13 +95,22 @@ function resolveVoice(raw: unknown, where: string, warn: Warn): Voice | null {
     return null;
   }
   const num = (x: unknown, d: number) => (typeof x === 'number' && Number.isFinite(x) ? x : d);
+  const from = clamp(num(v.from, 0), 0, 1), to = clamp(num(v.to, 1), 0, 1);
+  if (!(from < to)) {
+    warn(`pixi-effects: ${where}: from (${from}) must be less than to (${to}): the voice would play for no time. The voice is skipped.`);
+    return null;
+  }
+  if (!(num(v.gain, 1) > 0)) {
+    warn(`pixi-effects: ${where}: gain is ${JSON.stringify(v.gain)}, which is silent (use a positive number; the default is 1). The voice is skipped.`);
+    return null;
+  }
   const out: Voice = {
     wave: v.wave as Voice['wave'],
     freq: range(v.freq, 20, 20000, 440, `${where}.freq`, warn),
     env: ENVELOPES.fall,
     pan: range(v.pan, -1, 1, 0, `${where}.pan`, warn),
-    from: clamp(num(v.from, 0), 0, 1),
-    to: clamp(num(v.to, 1), 0, 1),
+    from,
+    to,
     gain: Math.max(0, num(v.gain, 1)),
   };
   if (v.envelope !== undefined) {
@@ -176,6 +185,9 @@ export function resolveSfx(sfx: unknown, duration: unknown, who: string, warn: W
   const brightness = knob('brightness', 1, '');
   const rawSeed = Number(opts.seed ?? 0);
   const seed = Number.isFinite(rawSeed) ? Math.trunc(rawSeed) : 0;
+  if (opts.seed !== undefined && !Number.isFinite(rawSeed)) {
+    warn(`pixi-effects: ${who}: seed must be a number (got ${JSON.stringify(opts.seed)}); using 0`);
+  }
 
   const natural = preset ? PRESETS[preset].length : CUSTOM_LENGTH;
   let given: number | undefined;
