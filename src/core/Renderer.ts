@@ -5,6 +5,7 @@ import {
   Quality,
 } from 'mediabunny';
 import type { Movie, RenderOptions } from './Movie';
+import { resolveMotionBlur } from './motionBlur';
 
 const VIDEO_CODEC_BY_FORMAT = {
   mp4: 'avc',
@@ -94,7 +95,11 @@ export async function exportFrames(movie: Movie, options: RenderOptions = {}): P
     format: container,
     target: new BufferTarget(),
   });
-  const canvasSource = new CanvasSource(movie.app!.canvas as HTMLCanvasElement, {
+  // With motion blur every frame is drawn several times and averaged into this canvas, which is what gets encoded.
+  const mb = options.motionBlur !== undefined ? resolveMotionBlur(options.motionBlur, 'movie.render()') : (movie.motionBlur ?? null);
+  const stage = movie.app!.canvas as HTMLCanvasElement;
+  const blurCanvas = mb ? Object.assign(document.createElement('canvas'), { width: stage.width, height: stage.height }) : null;
+  const canvasSource = new CanvasSource(blurCanvas ?? stage, {
     codec: opts.video.codec as any,
     bitrate: opts.video.bitrate,
   });
@@ -122,7 +127,8 @@ export async function exportFrames(movie: Movie, options: RenderOptions = {}): P
   const keyframeIntervalFrames = Math.max(1, Math.round(2 * movie.frameRate));
   try {
     for (let frame = 0; frame <= movie.totalFrames; frame++) {
-      await movie.gotoFrame(frame, true);
+      if (mb && blurCanvas) await movie._exposeFrame(frame, mb, blurCanvas, false);
+      else await movie.gotoFrame(frame, true);
       const isKey = frame === 0 || frame % keyframeIntervalFrames === 0;
       const addOpts = isKey ? { keyFrame: true } : undefined;
       await canvasSource.add(frame / movie.frameRate, 1 / movie.frameRate, addOpts);
@@ -131,6 +137,7 @@ export async function exportFrames(movie: Movie, options: RenderOptions = {}): P
     }
     await canvasSource.close();
     await output.finalize();
+    if (mb) await movie.gotoFrame(movie.totalFrames, true);          // the stage shows the last frame itself, not its last sample
     return new Blob([output.target.buffer as ArrayBuffer], { type: output.format.mimeType });
   } finally {
     movie.app!.ticker.start();

@@ -31,6 +31,17 @@ Listen to `movie.on('progress', ({ progress }) => …)` for a percentage and `mo
 
 {{demo examples/08-presets-export.html}}
 
+## Motion blur
+
+Fast motion looks choppy at 30 frames a second. **Motion blur** exposes every frame the way a film camera does: it draws the frame several times at moments spread over the shutter interval and averages them, so fast things smear along their path.
+
+```js
+await movie.init({ /* … */ motionBlur: true });          // 8 samples, a 180° shutter (the film look)
+// or per call: movie.render({ motionBlur: { samples: 16, shutter: 0.75 } }), movie.snapshot(90, { motionBlur: false })
+```
+
+It applies to what you *make*: the exported video, snapshots and contact sheets, so `pixi-effects-check` shows what the file will look like. Live playback in the browser is not blurred. A render takes about `samples` times as long. `shutter` is how long the shutter stays open as a fraction of a frame (0.5 is the film look, 1 blurs more); `samples` is 2 to 64. More samples smooth very fast motion, which otherwise shows as separate ghost images.
+
 ## From a script, with no window
 
 ```bash
@@ -44,6 +55,7 @@ It starts a private web server and a headless Chrome, opens your page, waits for
 | `--quality very-low…very-high` | video and audio bitrate |
 | `--query lang=ja` | adds a query string to the page's address, so one page can render variants |
 | `--fail-on-warn` | exit code 1 if the page logged a warning (the file is still written) |
+| `--motion-blur 8` / `--shutter 0.5` | [motion blur](#motion-blur) for this file: the number of samples, and how long the shutter is open |
 | `--quiet` | no progress line |
 
 Exit code 0 means the file was written; 1 means the page or the render failed (no file); 2 means bad usage. It needs Node 22 or later and Chrome installed (or `CHROME=/path/to/chrome`). Your page must set `window.movie` and `window.__ready = true`, which the [first video](getting-started.html) already does. This is what you run in CI or in a batch.

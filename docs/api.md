@@ -43,6 +43,8 @@ interface MovieOptions {
   canvas?:     HTMLCanvasElement;   // existing canvas to render into; otherwise PixiJS creates one
   assets?:     AssetSpec[];         // [{ name, src }]
   composition?: CompositionSpec;    // root composition (see DSL reference)
+  poster?:     number;              // seconds: the frame shown before play (negative: from the end), see movie.poster
+  motionBlur?: boolean | number | { samples?: number; shutter?: number };   // blur for render() / snapshot() / contactSheet(), not live playback; see Motion blur
 }
 ```
 
@@ -71,7 +73,7 @@ Seeks to a specific frame. Pauses if currently playing? **No** — does not chan
 ### `movie.snapshot(frame?, options?): Promise<Blob | string>`
 
 ```ts
-snapshot(frame?: number, options?: { scale?: number; type?: 'image/png' | 'image/jpeg'; as?: 'blob' | 'dataURL' }): Promise<Blob | string>
+snapshot(frame?: number, options?: { scale?: number; type?: 'image/png' | 'image/jpeg'; as?: 'blob' | 'dataURL'; motionBlur?: MotionBlurSpec }): Promise<Blob | string>
 ```
 
 A picture of one frame: **the canvas only** (the player bar is not in it). Seeks to `frame` (default: the current frame) and stays there. `as: 'dataURL'` returns a `data:` URL string, handy when a script can only return text. Use it to look at what you built.
@@ -84,6 +86,7 @@ contactSheet(options?: {
   columns?: number;                                       // default 3
   cellWidth?: number;                                     // picture width in px, default 480
   as?: 'blob' | 'dataURL';
+  motionBlur?: MotionBlurSpec;                            // see Motion blur
 }): Promise<Blob | string>
 ```
 
@@ -160,8 +163,18 @@ interface RenderOptions {
     codec?:   string;   // default per format (mp4/mov→aac, webm/mkv→opus)
     bitrate?: 'very-low' | 'low' | 'medium' | 'high' | 'very-high';   // default 'high'
   };
+  motionBlur?: boolean | number | { samples?: number; shutter?: number };   // overrides movie.init's; false turns it off
 }
 ```
+
+#### Motion blur
+
+`movie.init({ motionBlur })` (or the same option on a single `render()`, `snapshot()` or `contactSheet()` call) exposes each frame the way a film camera does: the frame is drawn `samples` times at moments spread over the shutter interval around its time, and the pictures are averaged. Fast motion smears along its path; a still picture is unchanged. `true` is 8 samples at a 180° shutter, a number is the sample count (2–64), `{ samples, shutter }` sets both (`shutter` is the fraction of a frame the shutter stays open, above 0 and up to 1; `0.5` is the film look, `1` blurs more). `false` turns it off for one call.
+
+- It applies to what is **made**: the exported file, snapshots, contact sheets (so `pixi-effects-check` and `inspect`-style reviews show what the file will have). Live playback is not blurred.
+- Cost: a render takes about `samples` times as long (video layers are decoded once per sample). Eight samples is enough for most motion; raise it for very fast or large movement, where fewer samples show as separate ghost images instead of a smear.
+- After a blurred snapshot, contact sheet or render the playhead and the stage are on an exact frame again, not a sample.
+- `pixi-effects-render --motion-blur 8 [--shutter 0.5]` sets it for one file.
 
 **Audio codec fallback:** unless you name `audio.codec`, the first codec this browser can actually encode is used (mp4: `aac`, then `opus`, `mp3`, `flac`; webm: `opus`, `vorbis`). Chrome on Linux has no AAC encoder, so there an mp4 with sound carries Opus and a warning says so (before, the export failed with a message about encoder configurations). A codec you name is never swapped: if it cannot be encoded the error says which one would work.
 

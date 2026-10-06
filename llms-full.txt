@@ -23,7 +23,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
    - `await movie.snapshot(frame, { as: 'dataURL' })` → one frame, canvas only (no player bar).
    - `movie.inspectAudio()` → **hear with numbers**: for every sound its `start`, `sound.length`, `sound.peakDb`, `sound.loudestAt` (line this up with the picture) and `sound.brightnessHz` (< 500 dark, > 8000 airy), plus `issues` (limited mix, inaudible or cut-off sounds). Check it whenever the movie has audio; `render()` encodes this same mix.
    From a browser tool the result is a `data:` URL string: `agent-browser eval "movie.contactSheet({ count: 6, as: 'dataURL' })" | python3 ai/tools/save-image.py /absolute/sheet.png`, then open the PNG. Sheet tiles are small (~480 px): use `snapshot` for detail. `inspect` output is long on busy scenes: pass `{ layers: 'none' }` and read `issues` first. Give layers a `name` so inspect paths are readable. A moving ticker is not flagged as cut off.
-6. **Iterate** on what you saw (clipped text, collisions, wrong timing). Then export: `const blob = await movie.render({ format: 'mp4' })` (about real time; `movie.on('progress', …)` reports 0–100).
+6. **Iterate** on what you saw (clipped text, collisions, wrong timing). Fast motion looks choppy: add `motionBlur: true` to `movie.init` (render, snapshot and contact sheet then show a film-style blur; renders take ~8× longer). Then export: `const blob = await movie.render({ format: 'mp4' })` (about real time; `movie.on('progress', …)` reports 0–100).
 
 ## The rules that cause most failures
 
@@ -204,7 +204,7 @@ const movie = new Movie();
 await movie.init({ canvas, width, height, duration, frameRate, background, assets, composition });
 movie.play(); movie.pause();
 await movie.gotoFrame(n, true);                 // seek (frames; 30 fps => t = n/30)
-const blob = await movie.render({ format: 'mp4' });   // 'mp4' | 'webm' | 'mov' | 'mkv'; ~real-time
+const blob = await movie.render({ format: 'mp4' });   // 'mp4' | 'webm' | 'mov' | 'mkv'; ~real-time. Fast motion: `movie.init({ motionBlur: true })` (8 samples, 180° shutter; or a number / { samples: 2–64, shutter: 0–1 }) blurs render / snapshot / contactSheet, not live playback; a render takes `samples`× as long
 movie.on('progress', e => e.progress /* 0–100 */);
 movie.audioBuffer                                // mixed audio (after init), if any audio layers
 await movie.contactSheet({ count: 6, as: 'dataURL' })   // ONE image of several labelled frames — look at it. Options: frames | times | count, columns, cellWidth, as
@@ -2293,6 +2293,8 @@ interface MovieOptions {
   canvas?:     HTMLCanvasElement;   // existing canvas to render into; otherwise PixiJS creates one
   assets?:     AssetSpec[];         // [{ name, src }]
   composition?: CompositionSpec;    // root composition (see DSL reference)
+  poster?:     number;              // seconds: the frame shown before play (negative: from the end), see movie.poster
+  motionBlur?: boolean | number | { samples?: number; shutter?: number };   // blur for render() / snapshot() / contactSheet(), not live playback; see Motion blur
 }
 ```
 
@@ -2321,7 +2323,7 @@ Seeks to a specific frame. Pauses if currently playing? **No** — does not chan
 ### `movie.snapshot(frame?, options?): Promise<Blob | string>`
 
 ```ts
-snapshot(frame?: number, options?: { scale?: number; type?: 'image/png' | 'image/jpeg'; as?: 'blob' | 'dataURL' }): Promise<Blob | string>
+snapshot(frame?: number, options?: { scale?: number; type?: 'image/png' | 'image/jpeg'; as?: 'blob' | 'dataURL'; motionBlur?: MotionBlurSpec }): Promise<Blob | string>
 ```
 
 A picture of one frame: **the canvas only** (the player bar is not in it). Seeks to `frame` (default: the current frame) and stays there. `as: 'dataURL'` returns a `data:` URL string, handy when a script can only return text. Use it to look at what you built.
@@ -2334,6 +2336,7 @@ contactSheet(options?: {
   columns?: number;                                       // default 3
   cellWidth?: number;                                     // picture width in px, default 480
   as?: 'blob' | 'dataURL';
+  motionBlur?: MotionBlurSpec;                            // see Motion blur
 }): Promise<Blob | string>
 ```
 
@@ -2410,8 +2413,18 @@ interface RenderOptions {
     codec?:   string;   // default per format (mp4/mov→aac, webm/mkv→opus)
     bitrate?: 'very-low' | 'low' | 'medium' | 'high' | 'very-high';   // default 'high'
   };
+  motionBlur?: boolean | number | { samples?: number; shutter?: number };   // overrides movie.init's; false turns it off
 }
 ```
+
+#### Motion blur
+
+`movie.init({ motionBlur })` (or the same option on a single `render()`, `snapshot()` or `contactSheet()` call) exposes each frame the way a film camera does: the frame is drawn `samples` times at moments spread over the shutter interval around its time, and the pictures are averaged. Fast motion smears along its path; a still picture is unchanged. `true` is 8 samples at a 180° shutter, a number is the sample count (2–64), `{ samples, shutter }` sets both (`shutter` is the fraction of a frame the shutter stays open, above 0 and up to 1; `0.5` is the film look, `1` blurs more). `false` turns it off for one call.
+
+- It applies to what is **made**: the exported file, snapshots, contact sheets (so `pixi-effects-check` and `inspect`-style reviews show what the file will have). Live playback is not blurred.
+- Cost: a render takes about `samples` times as long (video layers are decoded once per sample). Eight samples is enough for most motion; raise it for very fast or large movement, where fewer samples show as separate ghost images instead of a smear.
+- After a blurred snapshot, contact sheet or render the playhead and the stage are on an exact frame again, not a sample.
+- `pixi-effects-render --motion-blur 8 [--shutter 0.5]` sets it for one file.
 
 **Audio codec fallback:** unless you name `audio.codec`, the first codec this browser can actually encode is used (mp4: `aac`, then `opus`, `mp3`, `flac`; webm: `opus`, `vorbis`). Chrome on Linux has no AAC encoder, so there an mp4 with sound carries Opus and a warning says so (before, the export failed with a message about encoder configurations). A codec you name is never swapped: if it cannot be encoded the error says which one would work.
 

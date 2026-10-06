@@ -14,6 +14,7 @@ import { pickFrames, sheetLayout } from './frames';
 import { warnUnknownOptions } from './options';
 import { startWhenRunning } from './startWhenRunning';
 import { normalizePoster } from './poster';
+import { resolveMotionBlur, blurTimes, type MotionBlurSpec, type MotionBlurOptions, type ResolvedMotionBlur } from './motionBlur';
 import { ensureFilterLibrary } from '../filters/named';
 import type { Sequence } from '../sequences/Base';
 import type {
@@ -40,15 +41,27 @@ export interface MovieOptions {
    * value counts back from the end. Default: none (the first frame).
    */
   poster?: number;
+  /**
+   * Motion blur for everything that is *made* (not for live playback): `render()`, `snapshot()` and `contactSheet()` expose each frame
+   * over a shutter interval and average `samples` renders of it, so fast motion smears like on film. `true` is 8 samples at a 180° shutter,
+   * a number is the sample count, `{ samples, shutter }` sets both. Default: off. Each of those calls can override it (`false` turns it off).
+   */
+  motionBlur?: MotionBlurSpec;
 }
 
+export type { MotionBlurSpec, MotionBlurOptions };
+
 export interface RenderOptions {
+  /** Motion blur for this export (see `MovieOptions.motionBlur`); overrides the movie's own setting, `false` turns it off. */
+  motionBlur?: MotionBlurSpec;
   format?: 'mp4' | 'mov' | 'webm' | 'mkv';
   video?: { codec?: string; bitrate?: 'very-low' | 'low' | 'medium' | 'high' | 'very-high' };
   audio?: { codec?: string; bitrate?: 'very-low' | 'low' | 'medium' | 'high' | 'very-high' };
 }
 
 export interface SnapshotOptions {
+  /** Motion blur for this picture (see `MovieOptions.motionBlur`); overrides the movie's own setting, `false` turns it off. */
+  motionBlur?: MotionBlurSpec;
   /** Output size relative to the canvas (default 1). */
   scale?: number;
   /** `'image/png'` (default) or `'image/jpeg'`. */
@@ -58,6 +71,8 @@ export interface SnapshotOptions {
 }
 
 export interface ContactSheetOptions {
+  /** Motion blur for these pictures (see `MovieOptions.motionBlur`); overrides the movie's own setting, `false` turns it off. */
+  motionBlur?: MotionBlurSpec;
   /** Frames to show. Default: `count` frames spread evenly over the movie. */
   frames?: number[];
   /** Times in seconds to show (used when `frames` is not given). */
@@ -91,6 +106,8 @@ export class Movie {
   private _cancelAudioStart: (() => void) | null = null;
   /** The poster time in seconds (`movie.init({ poster })`), or null. */
   poster: number | null = null;
+  /** The motion blur `render()`, `snapshot()` and `contactSheet()` apply unless told otherwise (`movie.init({ motionBlur })`), or null. */
+  motionBlur: ResolvedMotionBlur | null = null;
   private _posterFrame: number | null = null;
   /** The canvas shows the poster picture while the playhead is still at frame 0 (like `<video poster>`): the first seek or play replaces it. */
   private _atPoster = false;
@@ -192,7 +209,7 @@ export class Movie {
   }
 
   async init(options: MovieOptions = {}): Promise<void> {
-    warnUnknownOptions('movie.init()', options, ['width', 'height', 'duration', 'frameRate', 'background', 'canvas', 'assets', 'composition', 'poster']);
+    warnUnknownOptions('movie.init()', options, ['width', 'height', 'duration', 'frameRate', 'background', 'canvas', 'assets', 'composition', 'poster', 'motionBlur']);
     this._initState = 'pending';
     try {
       this.width = options.width ?? 1920;
@@ -202,6 +219,7 @@ export class Movie {
       this.totalFrames = Math.round(this.duration * this.frameRate);
       const poster = normalizePoster(options.poster, this.duration, this.frameRate);
       this.poster = poster.seconds;
+      this.motionBlur = resolveMotionBlur(options.motionBlur, 'movie.init()');
       this._posterFrame = poster.frame;
       this.background = options.background ?? '#000000';
 
@@ -327,11 +345,10 @@ export class Movie {
     this.emit('frame', { frame: this.currentFrame, totalFrames: this.totalFrames } satisfies FrameEvent);
   }
 
-  private async _awaitVideoFrames(): Promise<void> {
+  private async _awaitVideoFrames(t: number = this.currentFrame / this.frameRate): Promise<void> {
     if (!this._rootSequence) return;
     const collected: VideoLike[] = [];
     collectVideoSequences(this._rootSequence, collected);
-    const t = this.currentFrame / this.frameRate;
     await Promise.all(collected.map(v => {
       const local = t - (v.absoluteStart ?? v.at);
       if (local < 0 || local > (v.duration ?? 0)) return Promise.resolve();
@@ -346,14 +363,18 @@ export class Movie {
   async snapshot(frame?: number, opts?: SnapshotOptions & { as?: 'blob' }): Promise<Blob>;
   async snapshot(frame: number | undefined, opts: SnapshotOptions & { as: 'dataURL' }): Promise<string>;
   async snapshot(frame: number = this.currentFrame, opts: SnapshotOptions = {}): Promise<Blob | string> {
-    warnUnknownOptions('movie.snapshot()', opts, ['scale', 'type', 'as']);
+    warnUnknownOptions('movie.snapshot()', opts, ['scale', 'type', 'as', 'motionBlur']);
     this._requireReady('snapshot');
-    await this._quietly(() => this.gotoFrame(clampFrame(frame, this.totalFrames), true));
+    const mb = this._blurFor(opts.motionBlur, 'movie.snapshot()');
+    const f = clampFrame(frame, this.totalFrames);
+    let source = this.app!.canvas as HTMLCanvasElement;
+    if (mb) { source = this._blurCanvas(); await this._quietly(() => this._exposeFrame(f, mb, source, true)); }
+    else await this._quietly(() => this.gotoFrame(f, true));
     const scale = opts.scale ?? 1;
     const out = document.createElement('canvas');
     out.width = Math.max(1, Math.round(this.width * scale));
     out.height = Math.max(1, Math.round(this.height * scale));
-    out.getContext('2d')!.drawImage(this.app!.canvas as HTMLCanvasElement, 0, 0, out.width, out.height);
+    out.getContext('2d')!.drawImage(source, 0, 0, out.width, out.height);
     return encodeCanvas(out, opts.type ?? 'image/png', opts.as ?? 'blob');
   }
 
@@ -364,8 +385,10 @@ export class Movie {
   async contactSheet(opts?: ContactSheetOptions & { as?: 'blob' }): Promise<Blob>;
   async contactSheet(opts: ContactSheetOptions & { as: 'dataURL' }): Promise<string>;
   async contactSheet(opts: ContactSheetOptions = {}): Promise<Blob | string> {
-    warnUnknownOptions('movie.contactSheet()', opts, ['frames', 'times', 'count', 'columns', 'cellWidth', 'as']);
+    warnUnknownOptions('movie.contactSheet()', opts, ['frames', 'times', 'count', 'columns', 'cellWidth', 'as', 'motionBlur']);
     this._requireReady('contactSheet');
+    const mb = this._blurFor(opts.motionBlur, 'movie.contactSheet()');
+    const blurred = mb ? this._blurCanvas() : null;
     const frames = (opts.frames
       ?? opts.times?.map(t => Math.round(t * this.frameRate))
       ?? pickFrames(this.totalFrames, opts.count ?? 6)).map(f => clampFrame(f, this.totalFrames));
@@ -381,9 +404,10 @@ export class Movie {
     try {
       for (let i = 0; i < frames.length; i++) {
         const f = frames[i]!;
-        await this._quietly(() => this.gotoFrame(f, true));
+        if (mb && blurred) await this._quietly(() => this._exposeFrame(f, mb, blurred, true));
+        else await this._quietly(() => this.gotoFrame(f, true));
         const { x, y } = L.positions[i]!;
-        g.drawImage(this.app!.canvas as HTMLCanvasElement, x, y + LABEL_H, L.cellW, L.cellH);
+        g.drawImage(blurred ?? (this.app!.canvas as HTMLCanvasElement), x, y + LABEL_H, L.cellW, L.cellH);
         g.fillStyle = '#e8ecf8';
         g.font = '600 15px system-ui, sans-serif';
         g.textBaseline = 'middle';
@@ -461,9 +485,48 @@ export class Movie {
   }
 
   /** Projects every `threeD` layer for the current frame (see src/space). */
-  private _updateSpace(): void {
+  private _updateSpace(t: number = this.currentFrame / this.frameRate): void {
     if (!this._rootSequence || !this.app) return;
-    this._rootSequence.updateSpace(this.currentFrame / this.frameRate, this.app.renderer);
+    this._rootSequence.updateSpace(t, this.app.renderer);
+  }
+
+  /** The motion blur an operation uses: its own option when given (`false` is off), otherwise the movie's. */
+  private _blurFor(option: MotionBlurSpec | undefined, where: string): ResolvedMotionBlur | null {
+    return option === undefined ? this.motionBlur : resolveMotionBlur(option, where);
+  }
+
+  /**
+   * @internal Draw `frame` with motion blur into `target` (a canvas the size of the stage): the average of `mb.samples` renders at moments
+   * spread over the shutter interval around the frame time. With `settle` the playhead and the stage are left exactly on the frame.
+   */
+  async _exposeFrame(frame: number, mb: ResolvedMotionBlur, target: HTMLCanvasElement, settle: boolean): Promise<void> {
+    const g = target.getContext('2d')!;
+    const stage = this.app!.canvas as HTMLCanvasElement;
+    this._atPoster = false;
+    const times = blurTimes(frame, this.frameRate, mb, this.duration);
+    for (let k = 0; k < times.length; k++) {
+      const t = times[k]!;
+      this.timeline!.time(t);
+      await this._awaitVideoFrames(t);
+      this._updateSpace(t);
+      this._renderNow();
+      if (k === 0) g.clearRect(0, 0, target.width, target.height);
+      g.globalAlpha = 1 / (k + 1);                                     // a running mean: sample k weighs 1/(k + 1)
+      g.drawImage(stage, 0, 0, target.width, target.height);
+    }
+    g.globalAlpha = 1;
+    if (settle) await this._goto(frame);
+    else {
+      this.currentFrame = Math.max(0, Math.min(frame, this.totalFrames));
+      this.emit('frame', { frame: this.currentFrame, totalFrames: this.totalFrames } satisfies FrameEvent);
+    }
+  }
+
+  private _blurCanvas(): HTMLCanvasElement {
+    const stage = this.app!.canvas as HTMLCanvasElement;
+    const c = document.createElement('canvas');
+    c.width = stage.width; c.height = stage.height;
+    return c;
   }
 
   play(): void {
@@ -557,7 +620,7 @@ export class Movie {
   toggleMute(): boolean { this.muted = !this.muted; return this.muted; }
 
   async render(options?: RenderOptions): Promise<Blob> {
-    warnUnknownOptions('movie.render()', options, ['format', 'video', 'audio']);
+    warnUnknownOptions('movie.render()', options, ['format', 'video', 'audio', 'motionBlur']);
     try {
       return await this._quietly(() => exportFrames(this, options));
     } catch (err) {

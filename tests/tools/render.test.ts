@@ -31,6 +31,15 @@ describe('render.mjs — pure helpers', () => {
     expect(tool.parseRenderArgs(['p.html', '--fail-on-warn']).failOnWarn).toBe(true);
   });
 
+  it('parseRenderArgs: --motion-blur SAMPLES and --shutter', () => {
+    expect(tool.parseRenderArgs(['p.html']).motionBlur).toBeNull();
+    expect(tool.parseRenderArgs(['p.html', '--motion-blur', '8', '--shutter', '0.25'])).toMatchObject({ motionBlur: 8, shutter: 0.25 });
+    expect(() => tool.parseRenderArgs(['p.html', '--motion-blur', '1'])).toThrow(/2 to 64/);
+    expect(() => tool.parseRenderArgs(['p.html', '--motion-blur', 'lots'])).toThrow(/--motion-blur/);
+    expect(() => tool.parseRenderArgs(['p.html', '--motion-blur', '4', '--shutter', '2'])).toThrow(/--shutter/);
+    expect(() => tool.parseRenderArgs(['p.html', '--shutter', '0.5'])).toThrow(/goes with --motion-blur/);
+  });
+
   it('parseRenderArgs: clear errors for a typo, a bad value, or a missing value', () => {
     expect(() => tool.parseRenderArgs(['p.html', '--fast'])).toThrow(/unknown option --fast/);
     expect(() => tool.parseRenderArgs(['p.html', '--quality', 'ultra'])).toThrow(/very-low, low, medium, high or very-high/);
@@ -57,6 +66,14 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('render.mjs
     expect(readFileSync(out).subarray(4, 8).toString()).toBe('ftyp');      // an MP4 starts with an ftyp box
     expect(stdout).toMatch(/clip\.mp4/);
     expect(stdout).toMatch(/3\.5 s/);
+  }, 190_000);
+
+  it('--motion-blur renders every frame as an average of samples and still writes the file', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'render-test-'));
+    const out = join(dir, 'blur.mp4');
+    await promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), join(root, 'examples/_checks/motion-blur.html'), '-o', out, '--motion-blur', '3', '--shutter', '0.5', '--quiet', '--timeout', '150'], { timeout: 170_000 });
+    expect(statSync(out).size).toBeGreaterThan(2000);
+    expect(readFileSync(out).subarray(4, 8).toString()).toBe('ftyp');
   }, 190_000);
 
   it('picks the container from the extension (webm)', async () => {

@@ -146,7 +146,7 @@ const movie = new Movie();
 await movie.init({ canvas, width, height, duration, frameRate, background, assets, composition });
 movie.play(); movie.pause();
 await movie.gotoFrame(n, true);                 // seek (frames; 30 fps => t = n/30)
-const blob = await movie.render({ format: 'mp4' });   // 'mp4' | 'webm' | 'mov' | 'mkv'; ~real-time
+const blob = await movie.render({ format: 'mp4' });   // 'mp4' | 'webm' | 'mov' | 'mkv'; ~real-time. Fast motion: `movie.init({ motionBlur: true })` (8 samples, 180° shutter; or a number / { samples: 2–64, shutter: 0–1 }) blurs render / snapshot / contactSheet, not live playback; a render takes `samples`× as long
 movie.on('progress', e => e.progress /* 0–100 */);
 movie.audioBuffer                                // mixed audio (after init), if any audio layers
 await movie.contactSheet({ count: 6, as: 'dataURL' })   // ONE image of several labelled frames — look at it. Options: frames | times | count, columns, cellWidth, as

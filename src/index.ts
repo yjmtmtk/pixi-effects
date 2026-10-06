@@ -8,6 +8,8 @@ export type {
   ProgressEvent,
   VolumeEvent,
   MovieErrorEvent,
+  MotionBlurSpec,
+  MotionBlurOptions,
 } from './core/Movie';
 
 export type { InspectReport, InspectOptions, LayerInfo } from './core/inspect';

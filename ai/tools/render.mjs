@@ -13,6 +13,8 @@
  *
  * Options: -o, --out FILE (default ./<page name>.<format>; the container follows the extension: mp4 webm mov mkv) ·
  *          --format mp4|webm|mov|mkv · --quality very-low|low|medium|high|very-high (video and audio bitrate, default high) ·
+ *          --motion-blur SAMPLES (2-64: each frame is drawn that many times over the shutter and averaged; overrides the page's own motionBlur) ·
+ *          --shutter FRACTION (with --motion-blur: how long the shutter is open, 0-1 of a frame, default 0.5) ·
  *          --video-codec C · --audio-codec C · --query "a=1&b=2" (added to the page URL) · --fail-on-warn (exit 1 when the page
  *          logged a warning; the file is still written) · --quiet (no progress line) · --timeout SECONDS (default 900) ·
  *          --root DIR (static server root; default: the nearest folder above the page with dist/) · --chrome PATH
@@ -39,7 +41,7 @@ export function defaultOutput(page, format) {
 }
 
 export function parseRenderArgs(argv) {
-  const o = { page: null, out: null, format: null, quality: 'high', videoCodec: null, audioCodec: null, query: null, failOnWarn: false, quiet: false, timeout: 900, root: null, chrome: null };
+  const o = { page: null, out: null, format: null, quality: 'high', videoCodec: null, audioCodec: null, motionBlur: null, shutter: null, query: null, failOnWarn: false, quiet: false, timeout: 900, root: null, chrome: null };
   const need = (i, name) => { if (i + 1 >= argv.length) throw new Error(`${name} needs a value`); return argv[i + 1]; };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -52,7 +54,13 @@ export function parseRenderArgs(argv) {
       if (!QUALITIES.includes(o.quality)) throw new Error(`--quality must be very-low, low, medium, high or very-high (got "${o.quality}")`);
     } else if (a === '--video-codec') o.videoCodec = need(i++, a);
     else if (a === '--audio-codec') o.audioCodec = need(i++, a);
-    else if (a === '--query') o.query = need(i++, a).replace(/^\?/, '');
+    else if (a === '--motion-blur') {
+      o.motionBlur = Number(need(i++, a));
+      if (!(Number.isInteger(o.motionBlur) && o.motionBlur >= 2 && o.motionBlur <= 64)) throw new Error(`--motion-blur must be a whole number of samples from 2 to 64 (got "${argv[i]}")`);
+    } else if (a === '--shutter') {
+      o.shutter = Number(need(i++, a));
+      if (!(o.shutter > 0 && o.shutter <= 1)) throw new Error(`--shutter must be above 0 and at most 1 (0.5 is a 180° shutter), got "${argv[i]}"`);
+    } else if (a === '--query') o.query = need(i++, a).replace(/^\?/, '');
     else if (a === '--fail-on-warn') o.failOnWarn = true;
     else if (a === '--quiet') o.quiet = true;
     else if (a === '--timeout') o.timeout = Math.max(10, Number(need(i++, a)) || 900);
@@ -62,6 +70,7 @@ export function parseRenderArgs(argv) {
     else if (!o.page) o.page = a;
     else throw new Error(`unexpected argument ${a}`);
   }
+  if (o.shutter !== null && o.motionBlur === null) throw new Error('--shutter goes with --motion-blur SAMPLES');
   o.format ??= (o.out ? formatFromPath(o.out) : null) ?? 'mp4';
   return o;
 }
@@ -70,14 +79,14 @@ const UPLOAD = '/__pixi_effects_out';
 const kb = n => (n >= 1048576 ? `${(n / 1048576).toFixed(2)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 
 /** The page's side: render, and PUT the Blob to our server (so a long video never goes through base64). */
-const renderScript = (format, quality, videoCodec, audioCodec) => `(() => {
+const renderScript = (format, quality, videoCodec, audioCodec, motionBlur, shutter) => `(() => {
   window.__r = { state: 'running', progress: 0 };
   movie.on('progress', e => { window.__r.progress = e.progress; });
   (async () => {
     try {
       const video = { bitrate: ${JSON.stringify(quality)}${videoCodec ? `, codec: ${JSON.stringify(videoCodec)}` : ''} };
       const audio = { bitrate: ${JSON.stringify(quality)}${audioCodec ? `, codec: ${JSON.stringify(audioCodec)}` : ''} };
-      const blob = await movie.render({ format: ${JSON.stringify(format)}, video, audio });
+      const blob = await movie.render({ format: ${JSON.stringify(format)}, video, audio${motionBlur ? `, motionBlur: { samples: ${motionBlur}${shutter ? `, shutter: ${shutter}` : ''} }` : ''} });
       const res = await fetch(${JSON.stringify(UPLOAD)}, { method: 'PUT', body: blob });
       if (!res.ok) throw new Error('could not hand the file to the command (' + res.status + ')');
       window.__r = { state: 'done', bytes: blob.size, type: blob.type };
@@ -143,7 +152,7 @@ export async function runRender(opts, log = console.log, progress = () => {}) {
     }
     Object.assign(result, { duration: info.duration, frames: info.totalFrames, width: info.width, height: info.height, frameRate: info.frameRate });
 
-    await cdp.eval(renderScript(opts.format, opts.quality, opts.videoCodec, opts.audioCodec));
+    await cdp.eval(renderScript(opts.format, opts.quality, opts.videoCodec, opts.audioCodec, opts.motionBlur, opts.shutter));
     let state;
     for (;;) {
       left();

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>check · motion blur</title></head>
+<body>
+  <!--
+    Acceptance check (not an example): an 80 px white square crosses the canvas at 600 px/s (20 px per frame at 30 fps); at frame 30 (1 s) its centre is x = 700.
+    ?mb=true / ?mb=false sets movie.init({ motionBlur }); without it the movie has no blur of its own.
+  -->
+  <canvas id="stage" width="1280" height="720" style="width:640px"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+  </script>
+  <script type="importmap">
+  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "gsap": "https://esm.sh/gsap@3.12.5", "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin", "mediabunny": "https://esm.sh/mediabunny" } }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const mb = new URLSearchParams(location.search).get('mb');
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 4, frameRate: 30, background: '#000000',
+        ...(mb ? { motionBlur: mb === 'true' ? { samples: 8, shutter: 1 } : false } : {}),
+        composition: { sequences: [
+          { type: 'shape', shape: 'rect', width: 80, height: 80, initial: { x: 100, y: 360, fillColor: '#ffffff' },
+            keyframes: [{ at: 0, to: { x: 2500 }, duration: 4, ease: 'none' }] },
+        ] },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+  </script>
+</body>
+</html>
