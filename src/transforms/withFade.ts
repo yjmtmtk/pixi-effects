@@ -1,4 +1,5 @@
 import type { SequenceCommon, Keyframe } from '../types';
+import { warnUnknownOptions } from '../core/options';
 
 export interface WithFadeOptions {
   /** Fade-in duration (seconds), at the start of the sequence. */
@@ -34,6 +35,7 @@ export interface WithFadeOptions {
  * another.
  */
 export function withFade<T extends SequenceCommon>(spec: T, opts: WithFadeOptions): T {
+  warnUnknownOptions('withFade()', opts, ['in', 'out']);
   if (opts.in != null && opts.in > 0) {
     spec.initial = { ...(spec.initial ?? {}), alpha: 0 };
     const kf: Keyframe = { at: 0, to: { alpha: 1 }, duration: opts.in };

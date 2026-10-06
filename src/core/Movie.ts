@@ -9,6 +9,7 @@ import { exportFrames } from './Renderer';
 import { expandTransitions } from './Transitions';
 import { inspectScene, type InspectReport, type InspectOptions } from './inspect';
 import { pickFrames, sheetLayout } from './frames';
+import { warnUnknownOptions } from './options';
 import type { Sequence } from '../sequences/Base';
 import type {
   AssetSpec, CompositionSpec, CompositionShape, AudioDescriptor,
@@ -121,6 +122,7 @@ export class Movie {
   }
 
   async init(options: MovieOptions = {}): Promise<void> {
+    warnUnknownOptions('movie.init()', options, ['width', 'height', 'duration', 'frameRate', 'background', 'canvas', 'assets', 'composition']);
     this._initState = 'pending';
     try {
       this.width = options.width ?? 1920;
@@ -246,6 +248,7 @@ export class Movie {
   async snapshot(frame?: number, opts?: SnapshotOptions & { as?: 'blob' }): Promise<Blob>;
   async snapshot(frame: number | undefined, opts: SnapshotOptions & { as: 'dataURL' }): Promise<string>;
   async snapshot(frame: number = this.currentFrame, opts: SnapshotOptions = {}): Promise<Blob | string> {
+    warnUnknownOptions('movie.snapshot()', opts, ['scale', 'type', 'as']);
     this._requireReady('snapshot');
     await this.gotoFrame(clampFrame(frame, this.totalFrames), true);
     const scale = opts.scale ?? 1;
@@ -263,6 +266,7 @@ export class Movie {
   async contactSheet(opts?: ContactSheetOptions & { as?: 'blob' }): Promise<Blob>;
   async contactSheet(opts: ContactSheetOptions & { as: 'dataURL' }): Promise<string>;
   async contactSheet(opts: ContactSheetOptions = {}): Promise<Blob | string> {
+    warnUnknownOptions('movie.contactSheet()', opts, ['frames', 'times', 'count', 'columns', 'cellWidth', 'as']);
     this._requireReady('contactSheet');
     const frames = (opts.frames
       ?? opts.times?.map(t => Math.round(t * this.frameRate))
@@ -298,6 +302,7 @@ export class Movie {
    * the canvas, cut by an edge, empty, or overlapping other text. Seeks there and stays there.
    */
   async inspect(frame: number = this.currentFrame, opts: InspectOptions = { layers: 'visible' }): Promise<InspectReport> {
+    warnUnknownOptions('movie.inspect()', opts, ['layers']);
     this._requireReady('inspect');
     const f = clampFrame(frame, this.totalFrames);
     await this.gotoFrame(f, true);
@@ -403,6 +408,7 @@ export class Movie {
   toggleMute(): boolean { this.muted = !this.muted; return this.muted; }
 
   async render(options?: RenderOptions): Promise<Blob> {
+    warnUnknownOptions('movie.render()', options, ['format', 'video', 'audio']);
     return await exportFrames(this, options);
   }
 

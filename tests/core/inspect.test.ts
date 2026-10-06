@@ -104,5 +104,19 @@ describe('inspectScene', () => {
     expect(none.layers).toEqual([]);
     expect(none.summary.visible).toBe(1);
   });
+
+  it('does not raise issues for faint layers (mid-fade) or for text that is moving across the canvas on purpose', async () => {
+    const comp = await scene([
+      { type: 'text', name: 'faint', text: 'a', initial: { x: 5000, y: 10, alpha: 0.1 } },                                   // off-canvas but nearly invisible
+      { type: 'text', name: 'ticker', text: 'b', initial: { x: 1200, y: 300 }, keyframes: [{ at: 0, to: { x: -400 }, duration: 5 }] },   // x is animated: a marquee
+      { type: 'text', name: 'still', text: 'c', initial: { x: 1200, y: 500 } },                                                 // static and cut off: a real problem
+    ]);
+    const r = inspectScene(comp, 0, 0, { width: 1280, height: 720 });
+    expect(r.issues.some(i => i.includes('"faint"'))).toBe(false);
+    expect(r.issues.some(i => i.includes('"ticker"'))).toBe(false);
+    expect(r.issues.some(i => i.includes('"still"') && /cut off/.test(i))).toBe(true);
+    expect(r.layers.find(l => l.name === 'ticker')!.moving).toBe(true);
+    expect(r.layers.find(l => l.name === 'still')!.moving).toBe(false);
+  });
 });
 

@@ -1,4 +1,5 @@
 import type { ImageSequenceSpec, Props } from '../types';
+import { warnUnknownOptions } from '../core/options';
 
 /**
  * Ken Burns preset for a single image. Returns an `ImageSequenceSpec` ready
@@ -21,6 +22,8 @@ import type { ImageSequenceSpec, Props } from '../types';
  * Note: this preset emits no fade keyframes; pair it with `crossfade` /
  * `dip` / etc. transitions to chain images.
  */
+const KEN_BURNS_KEYS = ['asset', 'name', 'at', 'duration', 'fit', 'ease', 'motion', 'origin', 'zoom', 'direction', 'angle', 'from', 'to'] as const;
+
 export type KenBurnsOptions =
   & KenBurnsBase
   & (
@@ -82,6 +85,7 @@ interface KenBurnsPosition {
 }
 
 export function kenBurns(opts: KenBurnsOptions): ImageSequenceSpec {
+  warnUnknownOptions('kenBurns()', opts, KEN_BURNS_KEYS);
   const {
     asset, name, at, duration,
     fit = 'cover',

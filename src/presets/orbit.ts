@@ -1,6 +1,9 @@
 import { parseEase } from './_ease';
+import { warnUnknownOptions } from '../core/options';
 import { homeDistance, DEFAULT_FOV, DEG } from '../space/math';
 import type { CameraSequenceSpec, Keyframe } from '../types';
+
+const ORBIT_KEYS = ['duration', 'degrees', 'start', 'radius', 'center', 'width', 'height', 'fov', 'ease', 'dollyZoom', 'at', 'name', 'stepsPerSecond'] as const;
 
 export interface OrbitOptions {
   /** Length of the move in seconds. Required, > 0. */
@@ -48,6 +51,7 @@ export interface OrbitOptions {
  * keeping the `z = 0` plane the same size.
  */
 export function orbit(opts: OrbitOptions): CameraSequenceSpec {
+  warnUnknownOptions('orbit()', opts, ORBIT_KEYS);
   const {
     duration, degrees, width = 1280, height = 720, fov, ease = 'sine.inOut', stepsPerSecond = 10,
   } = opts;

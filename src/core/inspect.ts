@@ -1,6 +1,7 @@
 import type { Container } from 'pixi.js';
 import type { Sequence } from '../sequences/Base';
 import { CompositionSequence } from '../sequences/Composition';
+import { collectPropKeys } from '../space/specKeys';
 
 export interface Rect { x: number; y: number; width: number; height: number }
 
@@ -13,6 +14,8 @@ export interface LayerInfo {
   /** Alive at this frame, not hidden by an ancestor, and alpha > 0. */
   visible: boolean;
   alpha: number;
+  /** Its `x` or `y` is animated: text that moves across the canvas on purpose (a ticker) is not reported as cut off. */
+  moving: boolean;
   /** Where it is drawn, in canvas pixels. `null` inside a `threeD` layer (it is rendered into that layer's texture). */
   bounds: Rect | null;
   onCanvas: 'full' | 'partial' | 'none' | null;
@@ -33,6 +36,9 @@ export interface InspectOptions {
   /** Which layers to list: every layer, only those drawn at this frame, or none (just `issues` + `summary`). Default `'all'`. */
   layers?: 'all' | 'visible' | 'none';
 }
+
+/** Layers below this alpha are ignored by the layout checks. */
+const FAINT = 0.3;
 
 const intersection = (a: Rect, b: Rect): number => {
   const w = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
@@ -71,19 +77,24 @@ export function inspectScene(
         onCanvas = inter === 0 && area > 0 ? 'none' : inter >= area - 1e-6 ? 'full' : 'partial';
         if (area === 0) onCanvas = 'none';
       }
-      layers.push({ path: prefix + label, name, type: seq.spec.type, threeD, visible, alpha, bounds, onCanvas });
+      const keys = collectPropKeys(seq.spec);
+      const moving = (seq.spec.keyframes ?? []).length > 0 && (keys.has('x') || keys.has('y'));
+      layers.push({ path: prefix + label, name, type: seq.spec.type, threeD, visible, alpha, moving, bounds, onCanvas });
       if (seq instanceof CompositionSequence) walk(seq, prefix + label + '/', insideThreeD || threeD, visible);
     });
   };
   walk(root, '', false, true);
 
   const issues: string[] = [];
-  const texts = layers.filter(l => l.type === 'text' && l.visible && l.bounds);
+  // Faint layers (mid-fade) are not worth flagging.
+  const texts = layers.filter(l => l.type === 'text' && l.visible && l.alpha >= FAINT && l.bounds);
   for (const l of texts) {
     const b = l.bounds!;
     const who = `text layer "${l.path}"`;
     if (b.width < 1 || b.height < 1) {
       issues.push(`${who} has no size (empty text, or not drawn yet)`);
+    } else if (l.moving) {
+      // on purpose crossing the canvas edge (marquee, slide-in): not a layout problem
     } else if (l.onCanvas === 'none') {
       issues.push(`${who} is entirely outside the canvas (at ${Math.round(b.x)},${Math.round(b.y)}, ${Math.round(b.width)}×${Math.round(b.height)})`);
     } else if (l.onCanvas === 'partial') {
