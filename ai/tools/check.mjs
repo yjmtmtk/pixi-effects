@@ -13,7 +13,7 @@
  * Needs: Node >= 22 (built-in WebSocket), Chrome / Chromium installed (or --chrome PATH / CHROME=PATH). No npm dependencies.
  * The page must follow ai/template.html: it exposes `window.movie` and sets `window.__ready = true` (and `window.__logs`).
  *
- * Options: --out DIR · --frames N (contact sheet tiles, default 12) · --formats mp4,webm (default mp4) · --no-export ·
+ * Options: --strict (text overlaps fail the check; by default they are only listed for review) · --out DIR · --frames N (contact sheet tiles, default 12) · --formats mp4,webm (default mp4) · --no-export ·
  *          --timeout SECONDS (default 240) · --root DIR (static server root; default: the nearest folder above the page with dist/) · --chrome PATH
  */
 import { spawn } from 'node:child_process';
@@ -37,7 +37,7 @@ export function findChrome(env = process.env, exists = fs.existsSync, platform =
 }
 
 export function parseArgs(argv) {
-  const o = { page: null, out: null, frames: 12, formats: ['mp4'], export: true, timeout: 240, root: null, chrome: null };
+  const o = { page: null, out: null, frames: 12, formats: ['mp4'], export: true, timeout: 240, root: null, chrome: null, strict: false };
   const need = (i, name) => { if (i + 1 >= argv.length) throw new Error(`${name} needs a value`); return argv[i + 1]; };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -45,6 +45,7 @@ export function parseArgs(argv) {
     else if (a === '--frames') o.frames = Math.max(1, Math.round(Number(need(i++, a))) || 12);
     else if (a === '--formats') o.formats = need(i++, a).split(',').map(s => s.trim()).filter(Boolean);
     else if (a === '--no-export') o.export = false;
+    else if (a === '--strict') o.strict = true;
     else if (a === '--timeout') o.timeout = Math.max(10, Number(need(i++, a)) || 240);
     else if (a === '--root') o.root = need(i++, a);
     else if (a === '--chrome') o.chrome = need(i++, a);
@@ -67,6 +68,18 @@ export function groupIssues(perFrame) {
     }
   }
   return [...groups.values()];
+}
+
+/**
+ * Layout issues → { problems, review }. Cut off by an edge, outside the canvas and "no size" are exact: problems. Text that
+ * overlaps text is judged on layout boxes, not ink, so intentional designs trip it (ghost layers, a glow copy under a title,
+ * per-letter boxes, a wipe between two scenes: 7 of 30 gallery pieces): those are `review` items to look at on the contact
+ * sheet. `strict` makes every issue a problem.
+ */
+export function splitIssues(groups, strict = false) {
+  if (strict) return { problems: groups, review: [] };
+  const overlap = g => /\boverlap\b/.test(g.message);
+  return { problems: groups.filter(g => !overlap(g)), review: groups.filter(overlap) };
 }
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.mp4': 'video/mp4', '.webm': 'video/webm', '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf', '.wasm': 'application/wasm', '.map': 'application/json', '.md': 'text/plain; charset=utf-8', '.txt': 'text/plain; charset=utf-8' };
@@ -254,8 +267,9 @@ export async function runCheck(opts, log = console.log) {
     // layout: inspect over the whole timeline
     const stride = Math.max(1, Math.round(info.totalFrames / 60));
     const sweep = await cdp.eval(sweepScript(stride));
-    report.inspect = { checkedFrames: sweep.checked, issues: groupIssues(sweep.perFrame) };
-    if (report.inspect.issues.length) report.problems.push(`${report.inspect.issues.length} kind(s) of layout issue from movie.inspect`);
+    const grouped = splitIssues(groupIssues(sweep.perFrame), opts.strict);
+    report.inspect = { checkedFrames: sweep.checked, issues: grouped.problems, review: grouped.review };
+    if (grouped.problems.length) report.problems.push(`${grouped.problems.length} kind(s) of layout issue from movie.inspect`);
     left();
 
     // contact sheet
@@ -325,9 +339,16 @@ function finish(report, outDir, log) {
   L.push(`  warnings  ${report.logs?.length ? report.logs.length + ' — ' + report.logs.slice(0, 5).map(l => l.length > 220 ? l.slice(0, 217) + '…' : l).join('\n            ') + (report.logs.length > 5 ? `\n            … ${report.logs.length - 5} more (report.json)` : '') : 'none'}`);
   if (report.inspect) {
     const g = report.inspect.issues;
-    L.push(`  layout    ${g.length ? g.length + ' kind(s) of issue over ' + report.inspect.checkedFrames + ' frames:' : 'no issues over ' + report.inspect.checkedFrames + ' frames (movie.inspect)'}`);
-    for (const i of g.slice(0, 8)) L.push(`            - ${i.message}${i.count > 1 ? `  [${i.count} frames, ${i.firstFrame}–${i.lastFrame}]` : `  [frame ${i.firstFrame}]`}`);
+    const line = i => `            - ${i.message}${i.count > 1 ? `  [${i.count} frames, ${i.firstFrame}–${i.lastFrame}]` : `  [frame ${i.firstFrame}]`}`;
+    L.push(`  layout    ${g.length ? g.length + ' kind(s) of issue over ' + report.inspect.checkedFrames + ' frames:' : 'no cut-off / off-canvas text over ' + report.inspect.checkedFrames + ' frames (movie.inspect)'}`);
+    for (const i of g.slice(0, 8)) L.push(line(i));
     if (g.length > 8) L.push(`            … ${g.length - 8} more (report.json)`);
+    const rv = report.inspect.review;
+    if (rv.length) {
+      L.push(`  review    ${rv.length} text overlap(s) — often intentional (ghost / glow copies, per-letter boxes, a wipe); check them on the contact sheet, or use --strict to fail on them:`);
+      for (const i of rv.slice(0, 4)) L.push(line(i));
+      if (rv.length > 4) L.push(`            … ${rv.length - 4} more (report.json)`);
+    }
   }
   if (report.audio !== undefined) {
     const a = report.audio;

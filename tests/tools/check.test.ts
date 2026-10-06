@@ -31,6 +31,25 @@ describe('check.mjs — pure helpers', () => {
     ]);
   });
 
+  it('splitIssues: overlaps are for the eyes (often intentional), cut-off / off-canvas / no size are problems; strict makes all problems', () => {
+    const groups = [
+      { message: 'text layer "a" is cut off by the canvas edge: 12px beyond the right edge', count: 2, firstFrame: 0, lastFrame: 30 },
+      { message: 'text layers "g" and "t" overlap by 99% of the smaller one', count: 3, firstFrame: 36, lastFrame: 48 },
+      { message: 'text layer "b" has no size (empty text, or not drawn yet)', count: 1, firstFrame: 0, lastFrame: 0 },
+    ];
+    const loose = tool.splitIssues(groups, false);
+    expect(loose.problems.map((g: any) => g.message)).toEqual([groups[0].message, groups[2].message]);
+    expect(loose.review.map((g: any) => g.message)).toEqual([groups[1].message]);
+    const strict = tool.splitIssues(groups, true);
+    expect(strict.problems).toHaveLength(3);
+    expect(strict.review).toEqual([]);
+  });
+
+  it('parseArgs: --strict', () => {
+    expect(tool.parseArgs(['p.html', '--strict']).strict).toBe(true);
+    expect(tool.parseArgs(['p.html']).strict).toBe(false);
+  });
+
   it('findChrome: $CHROME wins, then the usual places; null when there is none', () => {
     expect(tool.findChrome({ CHROME: '/x/chrome' }, (p: string) => p === '/x/chrome', 'linux')).toBe('/x/chrome');
     expect(tool.findChrome({}, (p: string) => p === '/usr/bin/chromium', 'linux')).toBe('/usr/bin/chromium');
