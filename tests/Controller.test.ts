@@ -382,8 +382,8 @@ describe('Controller — scrubbing', () => {
     progress.releasePointerCapture = () => {};
 
     progress.dispatchEvent(new PointerEvent('pointerdown', { clientX: 0, pointerId: 1 }));
-    progress.dispatchEvent(new PointerEvent('pointermove', { clientX: 80, pointerId: 1 }));
-    progress.dispatchEvent(new PointerEvent('pointermove', { clientX: 200, pointerId: 1 }));
+    progress.dispatchEvent(new PointerEvent('pointermove', { clientX: 80, pointerId: 1, buttons: 1 }));
+    progress.dispatchEvent(new PointerEvent('pointermove', { clientX: 200, pointerId: 1, buttons: 1 }));
     progress.dispatchEvent(new PointerEvent('pointerup', { clientX: 200, pointerId: 1 }));
 
     // 12px inset on each side reduces effective track from 200 → 176px,
@@ -403,7 +403,7 @@ describe('Controller — scrubbing', () => {
     movie.emit('ready');
     const progress = canvas.parentElement!.querySelector('.mc-progress') as HTMLDivElement;
     progress.getBoundingClientRect = () => ({ left: 0, top: 0, right: 200, bottom: 16, width: 200, height: 16, x: 0, y: 0, toJSON() { return {}; } });
-    progress.dispatchEvent(new PointerEvent('pointermove', { clientX: 100, pointerId: 1 }));
+    progress.dispatchEvent(new PointerEvent('pointermove', { clientX: 100, pointerId: 1, buttons: 1 }));
     expect(seeks).toEqual([]);
     ctrl.destroy();
   });
@@ -908,7 +908,7 @@ describe('Controller — volume slider', () => {
     expect(movie.volume).toBeCloseTo(0.5, 2); // (39-4)/(78-8) = 35/70 = 0.5
     expect(slider.classList.contains('mc-scrubbing')).toBe(true);
 
-    slider.dispatchEvent(new PointerEvent('pointermove', { clientX: 4, pointerId: 1 }));
+    slider.dispatchEvent(new PointerEvent('pointermove', { clientX: 4, pointerId: 1, buttons: 1 }));
     expect(movie.volume).toBe(0);
 
     slider.dispatchEvent(new PointerEvent('pointerup', { clientX: 4, pointerId: 1 }));
@@ -1202,6 +1202,66 @@ describe('Controller — visibility', () => {
     expect(root.getAttribute('data-state')).toBe('visible');
     vi.advanceTimersByTime(2501);
     expect(root.getAttribute('data-state')).toBe('hidden');
+    ctrl.destroy();
+  });
+});
+
+describe('Controller — a scrub whose pointerup never arrives (released outside an iframe)', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    document.head.querySelectorAll('style[data-movie-controller]').forEach((n) => n.remove());
+  });
+  function setup() {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie({ totalFrames: 100 } as Partial<Movie>);
+    movie.isPlaying = true;
+    const seeks: number[] = [];
+    movie.gotoFrame = async (f: number) => { seeks.push(f); movie.currentFrame = f; };
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    const progress = canvas.parentElement!.querySelector('.mc-progress') as HTMLDivElement;
+    progress.getBoundingClientRect = () => ({ left: 0, top: 0, right: 200, bottom: 16, width: 200, height: 16, x: 0, y: 0, toJSON() { return {}; } });
+    progress.setPointerCapture = () => {};
+    progress.releasePointerCapture = () => {};
+    progress.dispatchEvent(new PointerEvent('pointerdown', { clientX: 20, pointerId: 1, buttons: 1 }));
+    return { ctrl, movie, progress, seeks };
+  }
+
+  it('a pointermove with no button down means the button was released elsewhere: the scrub ends and playback resumes', () => {
+    const { ctrl, movie, progress, seeks } = setup();
+    progress.dispatchEvent(new PointerEvent('pointermove', { clientX: 100, pointerId: 1, buttons: 1 }));
+    const before = seeks.length;
+    progress.dispatchEvent(new PointerEvent('pointermove', { clientX: 150, pointerId: 1, buttons: 0 }));
+    expect(progress.classList.contains('mc-scrubbing')).toBe(false);
+    expect(movie.isPlaying).toBe(true);
+    expect(seeks.length).toBe(before);                         // that move seeks nothing
+    progress.dispatchEvent(new PointerEvent('pointermove', { clientX: 190, pointerId: 1, buttons: 0 }));
+    expect(seeks.length).toBe(before);                         // and it does not keep scrubbing afterwards
+    ctrl.destroy();
+  });
+
+  it('losing the pointer capture ends the scrub', () => {
+    const { ctrl, movie, progress } = setup();
+    progress.dispatchEvent(new PointerEvent('lostpointercapture', { pointerId: 1 }));
+    expect(progress.classList.contains('mc-scrubbing')).toBe(false);
+    expect(movie.isPlaying).toBe(true);
+    ctrl.destroy();
+  });
+
+  it('the window losing focus ends the scrub', () => {
+    const { ctrl, movie, progress } = setup();
+    window.dispatchEvent(new Event('blur'));
+    expect(progress.classList.contains('mc-scrubbing')).toBe(false);
+    expect(movie.isPlaying).toBe(true);
+    ctrl.destroy();
+  });
+
+  it('a normal pointerup still seeks to where it was released and resumes once', () => {
+    const { ctrl, movie, progress, seeks } = setup();
+    progress.dispatchEvent(new PointerEvent('pointerup', { clientX: 200, pointerId: 1 }));
+    progress.dispatchEvent(new PointerEvent('lostpointercapture', { pointerId: 1 }));   // the browser follows with this
+    expect(seeks.at(-1)).toBe(100);
+    expect(movie.isPlaying).toBe(true);
     ctrl.destroy();
   });
 });

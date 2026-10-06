@@ -639,11 +639,18 @@
       opener = a;
       openPiece(p, { autoplay: true });
     });
+    // A drag that starts inside the player's iframe (the seek bar) and is released over the backdrop makes
+    // some browsers send a `click` to the dialog. Only a press that STARTED on the backdrop may close it:
+    // presses inside the iframe never reach this page, so the flag is still false then.
+    let pressedOnBackdrop = false;
+    dialog.addEventListener('pointerdown', (e) => { pressedOnBackdrop = !e.target.closest('.th-box, .th-cap, .th-btn'); });
     dialog.addEventListener('click', (e) => {
+      const fromBackdrop = pressedOnBackdrop;
+      pressedOnBackdrop = false;
       if (e.target.closest('[data-close]')) return closeTheatre();
       if (e.target.closest('[data-prev]')) return step(-1);
       if (e.target.closest('[data-next]')) return step(1);
-      if (!e.target.closest('.th-box, .th-cap, .th-btn')) closeTheatre();   // backdrop
+      if (!e.target.closest('.th-box, .th-cap, .th-btn') && fromBackdrop) closeTheatre();   // backdrop
     });
     dialog.addEventListener('cancel', (e) => { e.preventDefault(); closeTheatre(); });
     document.addEventListener('keydown', onKey);

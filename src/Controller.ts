@@ -346,6 +346,8 @@ export class Controller {
   private isVolumeScrubbing = false;
   private fullscreenChangeHandler: (() => void) | null = null;
   private wheelHandler: ((e: WheelEvent) => void) | null = null;
+  /** Ends a drag the pointerup of which never arrives (see bindScrubbing). */
+  private windowBlurHandler: (() => void) | null = null;
 
   constructor(movie: Movie, options: ControllerOptions) {
     if (!options || !options.canvas) {
@@ -561,20 +563,23 @@ export class Controller {
       try { slider.setPointerCapture(e.pointerId); } catch { /* unsupported */ }
       setFromPointer(e.clientX);
     };
-    const onMove = (e: PointerEvent) => {
-      if (!this.isVolumeScrubbing) return;
-      setFromPointer(e.clientX);
-    };
-    const onUp = (e: PointerEvent) => {
+    const finish = (pointerId?: number) => {
       if (!this.isVolumeScrubbing) return;
       this.isVolumeScrubbing = false;
       slider.classList.remove('mc-scrubbing');
-      try { slider.releasePointerCapture(e.pointerId); } catch { /* unsupported */ }
+      try { if (pointerId !== undefined) slider.releasePointerCapture(pointerId); } catch { /* unsupported */ }
     };
+    const onMove = (e: PointerEvent) => {
+      if (!this.isVolumeScrubbing) return;
+      if (e.buttons === 0) { finish(e.pointerId); return; }     // released outside an iframe: see bindScrubbing
+      setFromPointer(e.clientX);
+    };
+    const onUp = (e: PointerEvent) => finish(e.pointerId);
     slider.addEventListener('pointerdown', onDown);
     slider.addEventListener('pointermove', onMove);
     slider.addEventListener('pointerup', onUp);
     slider.addEventListener('pointercancel', onUp);
+    slider.addEventListener('lostpointercapture', () => finish());
 
     this.wheelHandler = (e: WheelEvent) => {
       e.preventDefault();
@@ -643,26 +648,35 @@ export class Controller {
       try { this.progressEl.setPointerCapture(e.pointerId); } catch { /* unsupported */ }
       this.seekFromPointer(e.clientX);
     };
-    const onMove = (e: PointerEvent) => {
+    // End the drag. `clientX` is given when the pointer was released over the bar (seek to where it was).
+    // A page inside an iframe never receives the pointerup of a button released OUTSIDE the iframe, so the
+    // drag also ends on lostpointercapture, on the window losing focus, and on the first pointermove that
+    // has no button down — otherwise it stayed "scrubbing" (paused, seeking on every hover).
+    const finish = (clientX?: number, pointerId?: number) => {
       if (!this.isScrubbing) return;
-      this.seekFromPointer(e.clientX);
-    };
-    const onUp = (e: PointerEvent) => {
-      if (!this.isScrubbing) return;
-      this.seekFromPointer(e.clientX);
+      if (clientX !== undefined) this.seekFromPointer(clientX);
       this.isScrubbing = false;
       this.activePointerId = null;
       this.progressEl.classList.remove('mc-scrubbing');
-      try { this.progressEl.releasePointerCapture(e.pointerId); } catch { /* unsupported */ }
+      try { if (pointerId !== undefined) this.progressEl.releasePointerCapture(pointerId); } catch { /* unsupported */ }
       if (this.wasPlayingBeforeScrub) {
         this.movie.play();
         this.refreshPlayIcon();
       }
     };
+    const onMove = (e: PointerEvent) => {
+      if (!this.isScrubbing) return;
+      if (e.buttons === 0) { finish(undefined, e.pointerId); return; }
+      this.seekFromPointer(e.clientX);
+    };
+    const onUp = (e: PointerEvent) => finish(e.clientX, e.pointerId);
     this.progressEl.addEventListener('pointerdown', onDown);
     this.progressEl.addEventListener('pointermove', onMove);
     this.progressEl.addEventListener('pointerup', onUp);
     this.progressEl.addEventListener('pointercancel', onUp);
+    this.progressEl.addEventListener('lostpointercapture', () => finish());
+    this.windowBlurHandler = () => { finish(); this.isVolumeScrubbing = false; this.volumeSliderEl?.classList.remove('mc-scrubbing'); };
+    window.addEventListener('blur', this.windowBlurHandler);
   }
 
   private seekFromPointer(clientX: number): void {
@@ -963,6 +977,10 @@ export class Controller {
     if (this.fullscreenChangeHandler) {
       document.removeEventListener('fullscreenchange', this.fullscreenChangeHandler);
       this.fullscreenChangeHandler = null;
+    }
+    if (this.windowBlurHandler) {
+      window.removeEventListener('blur', this.windowBlurHandler);
+      this.windowBlurHandler = null;
     }
     if (this.wheelHandler && this.volumeContainerEl) {
       this.volumeContainerEl.removeEventListener('wheel', this.wheelHandler);
