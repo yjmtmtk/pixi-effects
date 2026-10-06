@@ -31,6 +31,7 @@ jobs:
           cp -r dist examples ai _site/
           mkdir -p _site/docs && cp docs/dsl.md docs/api.md _site/docs/
           cp llms.txt llms-full.txt _site/
+          node scripts/build-guide.mjs _site/guide
           cat > _site/index.html <<'EOF'
           <!DOCTYPE html>
           <html lang="en">
@@ -50,6 +51,10 @@ jobs:
               .playground { display: inline-block; margin-top: 8px; padding: 10px 18px; background: #1a2140; color: #ddd; border-radius: 6px; text-decoration: none; }
               .playground:hover { background: #243069; color: #fff; }
               a.repo { color: #88ccff; font-size: 12px; }
+              a.guide { display: block; margin: 0 0 14px 0; padding: 22px 24px; background: linear-gradient(120deg, #14335a, #1b4a5a); color: #fff; border-radius: 10px; text-decoration: none; }
+              a.guide strong { display: block; font-size: 22px; font-weight: 600; letter-spacing: .01em; }
+              a.guide span { color: #b9e3ee; font-size: 14px; }
+              a.guide:hover { background: linear-gradient(120deg, #1a4272, #236070); }
               a.gallery { display: block; margin: 0 0 28px 0; padding: 22px 24px; background: linear-gradient(120deg, #1b2347, #2a1f4a); color: #fff; border-radius: 10px; text-decoration: none; }
               a.gallery strong { display: block; font-size: 22px; font-weight: 600; letter-spacing: .01em; }
               a.gallery span { color: #b9c3ee; font-size: 14px; }
@@ -61,7 +66,8 @@ jobs:
           <body>
             <h1>pixi-effects · examples</h1>
             <p>Declarative composition + video rendering for the web. Read in order — each example focuses on one feature area. <a class="repo" href="https://github.com/yjmtmtk/pixi-effects">github.com/yjmtmtk/pixi-effects</a></p>
-            <a class="gallery" href="examples/gallery/"><strong>▶ Gallery — 30 motion-graphics pieces</strong><span>Logo reveals, kinetic type, data stories, 2.5D, three.js and more — each one plain data written by an AI (fable, opus or sonnet).</span></a>
+            <a class="guide" href="guide/"><strong>📖 Guide — learn it, step by step</strong><span>Your first video in ten minutes, how it works, guides for text, shapes, audio, filters and 2.5D, a cookbook with live demos, and the tools that let an AI write and check a video.</span></a>
+            <a class="gallery" href="examples/gallery/"><strong>▶ Gallery — 33 motion-graphics pieces</strong><span>Logo reveals, kinetic type, data stories, 2.5D, three.js and more — each one plain data written by an AI (fable, opus or sonnet).</span></a>
             <p class="ai">For AI agents: <a href="ai/SKILL.md">SKILL.md</a><a href="llms.txt">llms.txt</a><a href="llms-full.txt">llms-full.txt</a><a href="ai/template.html">template.html</a></p>
             <ol>
               <li><a href="examples/01-hello.html"><small>01</small>hello — minimum viable composition</a></li>

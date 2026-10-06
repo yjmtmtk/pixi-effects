@@ -90,6 +90,17 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     expect(existsSync(join(out, 'sfx-export.mp4'))).toBe(true);
   }, 190_000);
 
+  it('the guide\'s first-video page (loaded from the CDN, as a reader would) passes the check, sound included', async () => {
+    const out = mkdtempSync(join(tmpdir(), 'check-test-'));
+    const { stdout } = await promisify(execFile)('node', [
+      join(root, 'ai/tools/check.mjs'), join(root, 'examples/_guide/first-video.html'), '--out', out, '--frames', '4', '--timeout', '150',
+    ], { timeout: 170_000 });
+    expect(stdout).toContain('RESULT: OK');
+    const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));
+    expect(report.logs).toEqual([]);
+    expect(report.hasAudio).toBe(true);
+  }, 190_000);
+
   it('exits 1 and names the problem when the page has one', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-test-'));
     const dir = join(root, 'examples/_checks');

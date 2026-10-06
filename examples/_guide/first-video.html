@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My first video</title>
+  <style>
+    body { margin: 0; padding: 16px; background: #0d1220; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+    .movie-controller-wrap { width: min(960px, 100%); }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@0.8.0/dist/index.js",
+      "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.8.0/dist/Controller.js"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const canvas = document.getElementById('stage');
+    const movie = new Movie();
+    new Controller(movie, { canvas });              // play / pause, a seek bar, volume, fullscreen, export
+
+    await movie.init({
+      canvas, width: 1280, height: 720, duration: 6, frameRate: 30, background: '#0d1220',
+      composition: {
+        sequences: [
+          // a title that rises and fades in; `at` inside keyframes counts from the start of THIS layer
+          { type: 'text', text: 'Hello, motion', style: { fontSize: 120, fontWeight: 'bold', fill: '#ffffff' },
+            initial: { x: 'GW / 2', y: 'GH / 2 - 20', anchorX: 0.5, anchorY: 0.5 },
+            keyframes: [{ at: 0.3, from: { alpha: 0, y: 'GH / 2 + 40' }, to: { alpha: 1, y: 'GH / 2 - 20' }, duration: 1, ease: 'power3.out' }] },
+          // a line under it that draws itself on (trimEnd 0 → 1)
+          { type: 'shape', shape: 'line', from: [400, 430], to: [880, 430], trimEnd: 0, strokeCap: 'round',
+            initial: { strokeColor: '#ffd166', strokeWidth: 8 },
+            at: 1, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 1.2, ease: 'power2.inOut' }] },
+          // a sound with no audio file
+          { type: 'audio', sfx: 'swoosh', at: 0.3 },
+        ],
+      },
+    });
+
+    window.movie = movie;      // so tools such as pixi-effects-check can find the movie
+    window.__ready = true;
+  </script>
+</body>
+</html>

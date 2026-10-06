@@ -20,3 +20,5 @@ coverage/
 examples/wedding-profilemovie/
 docs/superpowers/specs/*-wedding-profilemovie-design.md
 docs/superpowers/plans/*-wedding-profilemovie.md
+guide-preview/
+_site/
