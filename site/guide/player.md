@@ -42,12 +42,31 @@ controller.setTheme({ accent: '#7bd88f' });          // later, live; null puts a
 
 ## While it loads
 
-A piece with many layers can keep the page busy for a moment while it is built, and a first visit also downloads the libraries. Nothing in the page moves during that time unless you plan for it. Two rules:
+A piece with many layers can keep the page busy for a moment while it is built, and a first visit also downloads the libraries. Nothing in the page moves during that time unless you plan for it: add the shared loader.
 
-- **Put a loader in the HTML, and animate it with CSS `transform` and `opacity` only.** The browser runs those animations on its compositor thread, so the loader keeps moving smoothly even while the main thread is busy building your piece. A loader driven by JavaScript, `requestAnimationFrame`, `setInterval`, an SVG stroke or the canvas itself freezes together with the page. It should be on screen before any script runs (plain HTML and CSS), and you remove it when `await movie.init(...)` is done: by then the poster is on the canvas.
-- **Keep the build light.** Hundreds of particle layers are fine; thousands cost time. (The library adds each layer's animation to the timeline in one piece, so the cost grows with the number of layers, not with the square of the number of keyframes.)
+```html
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.10.0/dist/loader.css">
 
-`ai/template.html` and the gallery's [hanabi-night](../examples/gallery/hanabi-night.html) are examples (a spinning ring, and a tiny rocket that bursts).
+<div class="stage" style="position: relative; width: min(960px, 100%)">   <!-- any box with position: relative -->
+  <canvas id="stage" width="1280" height="720" style="display: block; width: 100%; height: auto"></canvas>
+  <div class="pe-loader" data-label="LOADING"></div>                      <!-- the loader: one line -->
+</div>
+```
+
+That is all. `movie.init()` finds the `.pe-loader` next to the canvas and fades it out once the movie is ready (the poster is on the canvas); if `init` fails it stops moving and says `COULD NOT LOAD`. No JavaScript of your own.
+
+| Look | Class |
+|---|---|
+| a ring (default) | `pe-loader` |
+| a breathing dot | `pe-loader pe-loader--pulse` |
+| a line sweeping along the bottom | `pe-loader pe-loader--bar` |
+| your own drawing | `pe-loader pe-loader--custom`, with your markup inside |
+
+Restyle it with variables on the element or any ancestor: `--pe-loader-color`, `--pe-loader-bg` (match your poster), `--pe-loader-track`, `--pe-loader-size`. Drop the label by leaving `data-label` out. `movie.init({ loader: '#my-loader' })` names another element; `loader: false` turns it off.
+
+**Why it does not freeze.** The loader is plain HTML and CSS, so it is on screen before any script runs, and it animates only `transform` and `opacity`. The browser runs those animations on its compositor thread, so they keep moving smoothly even while the main thread is busy building your piece. A loader driven by JavaScript, `requestAnimationFrame`, `setInterval`, an SVG stroke or the canvas itself freezes together with the page; **a loader of your own is welcome, just animate only `transform` and `opacity`**.
+
+**Keep the build light, too.** Hundreds of particle layers are fine; thousands cost time. The gallery's [hanabi-night](../examples/gallery/hanabi-night.html) has a loader of its own (a tiny rocket that bursts) on the shared frame.
 
 ## Build your own
 

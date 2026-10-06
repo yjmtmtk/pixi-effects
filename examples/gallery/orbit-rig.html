@@ -4,9 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>orbit-rig — pixi-effects gallery</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
   <style>
     body { background: #0d1220; margin: 0; padding: 16px; display: flex; justify-content: center; }
-    canvas { width: min(960px, 100%); border-radius: 8px; }
+    .pe-stage { position: relative; width: min(960px, 100%); border-radius: 8px; --pe-loader-bg: #0d1220; background: #0d1220; }
+    .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
   </style>
   <script type="application/json" id="piece-meta">{
     "title": "Orrery",
@@ -16,7 +18,7 @@
   }</script>
 </head>
 <body>
-  <canvas id="stage" width="1280" height="720"></canvas>
+  <div class="pe-stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
 
   <script>
     // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.

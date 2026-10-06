@@ -1,4 +1,6 @@
 export { Movie } from './core/Movie';
+export { resolveLoader, dismissLoader, failLoader } from './core/loader';
+export type { LoaderOption } from './core/loader';
 export type {
   SnapshotOptions,
   ContactSheetOptions,

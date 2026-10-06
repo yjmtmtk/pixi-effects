@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><title>check · the shared loader</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+  <style> body { margin: 0; padding: 16px; background: #0d1220; } .stage { position: relative; width: 640px; } .stage canvas { display: block; width: 100%; height: auto; } </style>
+</head>
+<body>
+  <!--
+    Acceptance check (not an example): the shared loader (dist/loader.css). ?look=pulse|bar|custom picks the look, ?fail=1 makes init fail, ?plain=1 has no loader at all.
+    The movie waits ~1.2 s before init() so the loader is on screen; once it is ready the loader must fade out and be removed.
+  -->
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+  </div>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    const q = new URLSearchParams(location.search);
+    if (q.has('bg')) document.querySelector('.stage').style.setProperty('--pe-loader-bg', 'rgb(255, 0, 0)');
+    if (!q.has('plain')) {
+      const el = document.createElement('div');
+      el.className = 'pe-loader' + (q.get('look') ? ' pe-loader--' + q.get('look') : '');
+      el.id = 'loader'; el.setAttribute('data-label', 'LOADING');
+      if (q.get('look') === 'custom') el.innerHTML = '<span id="mine">my own</span>';
+      document.querySelector('.stage').appendChild(el);
+    }
+  </script>
+  <script type="importmap">
+  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "gsap": "https://esm.sh/gsap@3.12.5", "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin", "mediabunny": "https://esm.sh/mediabunny" } }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const q = new URLSearchParams(location.search);
+    const movie = new Movie();
+    window.movie = movie;
+    await new Promise(r => setTimeout(r, 1200));
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 2, frameRate: 30, background: '#102040', poster: 1,
+        composition: q.has('fail') ? { sequences: [{ type: 'image', asset: 'nope' }] } : { sequences: [{ type: 'shape', shape: 'rect', width: 200, height: 200, initial: { x: 640, y: 360, fillColor: '#ffffff' } }] },
+      });
+      window.__ready = true;
+    } catch (e) { window.__failed = String(e.message || e); }
+  </script>
+</body>
+</html>

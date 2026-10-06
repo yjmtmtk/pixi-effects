@@ -4,13 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Solar System Flight</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
   <style>
     body { background: #07090f; margin: 0; padding: 16px; }
-    canvas { width: min(960px, 100%); border-radius: 8px; display: block; margin: 0 auto; }
+    .pe-stage { position: relative; width: min(960px, 100%); border-radius: 8px; margin: 0 auto; --pe-loader-bg: #07090f; background: #07090f; }
+    .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
   </style>
 </head>
 <body>
-  <canvas id="stage" width="1280" height="720"></canvas>
+  <div class="pe-stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
 
   <script type="application/json" id="piece-meta">{ "title": "A Flight Through the Solar System", "subtitle": "An educational camera flight from the Sun to Neptune: orbits, facts and a recap", "tags": ["2.5D", "camera", "orbit", "education", "data"], "width": 1280, "height": 720, "duration": 14, "model": "opus" }</script>
 

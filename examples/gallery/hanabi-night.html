@@ -4,28 +4,28 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>hanabi-night — pixi-effects gallery</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
   <style>
     body { background: #0d1220; margin: 0; padding: 16px; display: flex; justify-content: center; }
     .stage { position: relative; width: min(960px, 100%); aspect-ratio: 16 / 9; background: #070b22; border-radius: 8px; overflow: hidden; }
     .stage canvas { display: block; width: 100%; height: 100%; }
 
-    /* The loader. It is plain HTML + CSS that is on screen before any script runs, and it only animates `transform` and `opacity`:
-       the browser runs those on its compositor thread, so it keeps moving smoothly even while the page's main thread is busy building
-       the piece. (A loader driven by JavaScript, requestAnimationFrame or an SVG stroke would freeze together with the page.) */
-    .loader { position: absolute; inset: 0; display: grid; place-items: center; background: #070b22; transition: opacity 0.7s ease; }
-    .loader.done { opacity: 0; pointer-events: none; }
-    .loader .scene { position: relative; width: 140px; height: 150px; }
-    .loader .rocket { position: absolute; left: 50%; bottom: 0; width: 3px; height: 26px; margin-left: -1.5px; border-radius: 2px; background: #fff1c9;
+    /* A loader of its own, on the shared frame (dist/loader.css): `pe-loader--custom` leaves the drawing to this page, while the library
+       still fades the box out when the movie is ready and stops it if init fails. The drawing only animates `transform` and `opacity`,
+       which the browser runs off the main thread, so the rocket keeps flying while the page builds the piece. */
+    .stage { --pe-loader-bg: #070b22; }
+    .pe-loader .scene { position: relative; width: 140px; height: 150px; }
+    .pe-loader .rocket { position: absolute; left: 50%; bottom: 0; width: 3px; height: 26px; margin-left: -1.5px; border-radius: 2px; background: #fff1c9;
       box-shadow: 0 0 10px 2px rgba(242, 196, 109, 0.6); animation: rocket 2.4s cubic-bezier(.2, .7, .3, 1) infinite; }
-    .loader .burst { position: absolute; left: 50%; top: 22px; width: 0; height: 0; }
-    .loader .burst i { position: absolute; left: -2.5px; top: -2.5px; width: 5px; height: 5px; border-radius: 50%; background: #f2c46d; opacity: 0;
+    .pe-loader .burst { position: absolute; left: 50%; top: 22px; width: 0; height: 0; }
+    .pe-loader .burst i { position: absolute; left: -2.5px; top: -2.5px; width: 5px; height: 5px; border-radius: 50%; background: #f2c46d; opacity: 0;
       transform: rotate(var(--a)) translateX(0); animation: spark 2.4s ease-out infinite; }
-    .loader .label { position: absolute; left: 0; right: 0; bottom: -34px; text-align: center; font: 600 11px/1 'Helvetica Neue', Arial, sans-serif; letter-spacing: 0.42em;
+    .pe-loader .label { position: absolute; left: 0; right: 0; bottom: -34px; text-align: center; font: 600 11px/1 'Helvetica Neue', Arial, sans-serif; letter-spacing: 0.42em;
       color: #8d93b8; padding-left: 0.42em; animation: label 2.4s ease-in-out infinite; }
     @keyframes rocket { 0% { transform: translateY(0); opacity: 0; } 8% { opacity: 1; } 45% { transform: translateY(-126px); opacity: 1; } 50%, 100% { transform: translateY(-130px); opacity: 0; } }
     @keyframes spark { 0%, 46% { opacity: 0; transform: rotate(var(--a)) translateX(0) scale(1); } 50% { opacity: 1; } 100% { opacity: 0; transform: rotate(var(--a)) translateX(54px) scale(0.3); } }
     @keyframes label { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
-    @media (prefers-reduced-motion: reduce) { .loader .rocket, .loader .burst i { animation: none; opacity: 0; } }
+    @media (prefers-reduced-motion: reduce) { .pe-loader .rocket, .pe-loader .burst i { animation: none; opacity: 0; } }
   </style>
   <script type="application/json" id="piece-meta">{
     "title": "Hanabi Night",
@@ -37,7 +37,7 @@
 <body>
   <div class="stage">
     <canvas id="stage" width="1280" height="720"></canvas>
-    <div class="loader" id="loader" role="status" aria-label="Loading">
+    <div class="pe-loader pe-loader--custom" role="status" aria-label="Loading">
       <div class="scene">
         <div class="burst">
           <i style="--a:0deg"></i><i style="--a:36deg"></i><i style="--a:72deg"></i><i style="--a:108deg"></i><i style="--a:144deg"></i>
@@ -186,13 +186,9 @@
         background: NIGHT,
         composition: { sequences: [...night, ...fire, ...title, ...copy, ...seal, ...sounds] },
       });
-      window.__ready = true;
-      const loader = document.getElementById('loader');      // the poster is on the canvas: fade the loader out, then take it away
-      loader.classList.add('done');
-      setTimeout(() => loader.remove(), 900);
+      window.__ready = true;                                 // (init has already faded the loader out)
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));
-      document.querySelector('#loader .label').textContent = 'COULD NOT LOAD';
     }
   </script>
 </body>

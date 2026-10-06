@@ -4,14 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>NORTH 24 — news package</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
   <style>
     html, body { background: #0b0d12; margin: 0; }
     body { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
-    canvas { width: min(960px, 100%); display: block; border-radius: 6px; }
+    .pe-stage { position: relative; width: min(960px, 100%); border-radius: 6px; --pe-loader-bg: #0b0d12; background: #0b0d12; }
+    .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
   </style>
 </head>
 <body>
-  <canvas id="stage" width="1280" height="720"></canvas>
+  <div class="pe-stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
 
   <script type="application/json" id="piece-meta">{ "title": "NORTH 24 — Breaking", "subtitle": "A broadcast news package: channel stinger, BREAKING flash, wipe-masked lower third, live ticker and running clock", "tags": ["broadcast", "lower third", "ticker", "masks", "counter", "typography"], "width": 1280, "height": 720, "duration": 12, "model": "opus" }</script>
 

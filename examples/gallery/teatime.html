@@ -4,15 +4,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Teatime — a cabinet of teapots</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
   <script type="application/json" id="piece-meta">{ "title": "Teatime", "subtitle": "Four museum teapots as transparent WebP cutouts (about 80 KB each instead of 700 KB as PNG) pop in over a giant TEA, with feathered PNG shadows and steam that draws itself", "tags": ["transparent-webp", "transparent-png", "cutout", "typography", "draw-on", "audio"], "width": 1280, "height": 720, "duration": 12, "model": "sonnet" }</script>
   <style>
     html, body { margin: 0; background: #1c1612; color: #ddd; font-family: system-ui, sans-serif; }
     body { min-height: 100vh; display: grid; place-items: center; }
-    #stage { width: min(960px, 100%); height: auto; border-radius: 6px; display: block; }
+    .pe-stage { position: relative; width: min(960px, 100%); height: auto; border-radius: 6px; --pe-loader-bg: #1c1612; background: #1c1612; }
+    .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
   </style>
 </head>
 <body>
-  <canvas id="stage" width="1280" height="720"></canvas>
+  <div class="pe-stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
 
   <script>
     window.__logs = [];

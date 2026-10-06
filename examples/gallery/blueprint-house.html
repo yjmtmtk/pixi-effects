@@ -4,15 +4,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>The Corner House — blueprint</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
   <script type="application/json" id="piece-meta">{ "title": "The Corner House", "subtitle": "A blueprint that draws itself: walls, doors and furniture stroked on, dimensions typed out, a title block whose status changes from DRAFT to APPROVED", "tags": ["blueprint", "draw-on", "architecture", "typewriter", "diagram", "audio"], "width": 1280, "height": 720, "duration": 12, "model": "sonnet" }</script>
   <style>
     html, body { margin: 0; background: #07101c; color: #cfe8ff; font-family: system-ui, sans-serif; }
     body { min-height: 100vh; display: grid; place-items: center; }
-    #stage { width: min(960px, 100%); height: auto; border-radius: 6px; display: block; }
+    .pe-stage { position: relative; width: min(960px, 100%); height: auto; border-radius: 6px; --pe-loader-bg: #07101c; background: #07101c; }
+    .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
   </style>
 </head>
 <body>
-  <canvas id="stage" width="1280" height="720"></canvas>
+  <div class="pe-stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
 
   <script>
     window.__logs = [];

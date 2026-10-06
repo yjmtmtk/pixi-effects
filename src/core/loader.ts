@@ -1,0 +1,40 @@
+/**
+ * The page's loader (see `src/loader.css`): a `.pe-loader` element that is on screen before any script runs. `movie.init()` finds it,
+ * fades it out when the movie is ready and, if init fails, stops it and says so.
+ */
+export type LoaderOption = HTMLElement | string | false;
+
+const FADE_FALLBACK_MS = 900;
+
+/** The loader element for a canvas: the one named (element or selector), none (`false`), or a `.pe-loader` near the canvas (its box or a few levels up). */
+export function resolveLoader(option: LoaderOption | undefined, canvas: HTMLCanvasElement | null): HTMLElement | null {
+  if (option === false) return null;
+  if (option instanceof HTMLElement) return option;
+  if (typeof option === 'string') return document.querySelector<HTMLElement>(option);
+  let box: Element | null = canvas?.parentElement ?? null;
+  for (let level = 0; box && level < 4; level++, box = box.parentElement) {
+    if (level > 0 && (box === document.body || box === document.documentElement)) break;     // never the whole page: that could be another movie's loader
+    const found = box.querySelector<HTMLElement>('.pe-loader');
+    if (found) return found;
+  }
+  return null;
+}
+
+/** Fade the loader out (a class, so the CSS transition runs) and take it away. Safe to call twice, or with null. */
+export function dismissLoader(loader: HTMLElement | null): void {
+  if (!loader || loader.classList.contains('pe-loader--done')) return;
+  loader.classList.add('pe-loader--done');
+  loader.setAttribute('aria-hidden', 'true');
+  let removed = false;
+  const remove = () => { if (!removed) { removed = true; loader.remove(); } };
+  loader.addEventListener('transitionend', remove, { once: true });
+  setTimeout(remove, FADE_FALLBACK_MS);                       // no transition (display: none, reduced styles): still gone
+}
+
+/** init failed: stop the animation and say so, and leave the box on screen so the page does not look merely stuck. */
+export function failLoader(loader: HTMLElement | null, message: string): void {
+  if (!loader) return;
+  loader.setAttribute('data-state', 'error');
+  if (loader.hasAttribute('data-label')) loader.setAttribute('data-label', message);
+  loader.setAttribute('aria-busy', 'false');
+}

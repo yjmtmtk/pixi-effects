@@ -45,6 +45,7 @@ interface MovieOptions {
   composition?: CompositionSpec;    // root composition (see DSL reference)
   poster?:     number;              // seconds: the frame shown before play (negative: from the end), see movie.poster
   motionBlur?: boolean | number | { samples?: number; shutter?: number };   // blur for render() / snapshot() / contactSheet(), not live playback; see Motion blur
+  loader?:     HTMLElement | string | false;   // the page's loader (see pixi-effects/loader.css): faded out when ready, stopped if init fails; default: a .pe-loader next to the canvas
 }
 ```
 

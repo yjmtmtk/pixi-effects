@@ -4,18 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>pixi-effects video</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.10.0/dist/loader.css" />   <!-- the loader: HTML + CSS only, so it is on screen at once and keeps moving while the page builds the video -->
   <style>
     body { background: #0d1220; margin: 0; padding: 16px; }
     .stage { position: relative; width: min(960px, 100%); }                 /* the player and the loader both sit inside this box */
     .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
-    /* The loader is plain HTML + CSS, on screen before any script runs, and animates ONLY `transform` / `opacity`: the browser runs those on
-       its compositor thread, so it keeps spinning while the page's main thread is busy building the video (a loader driven by JavaScript,
-       requestAnimationFrame or an SVG stroke would freeze with the page). It fades out when the movie is ready (see the end of the script). */
-    .loader { position: absolute; inset: 0; display: grid; place-items: center; border-radius: 8px; background: #0d1220; transition: opacity 0.5s ease; }
-    .loader.done { opacity: 0; pointer-events: none; }
-    .loader i { width: 34px; height: 34px; border: 2px solid rgba(255, 255, 255, 0.15); border-top-color: #ffffff; border-radius: 50%; animation: spin 1s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    @media (prefers-reduced-motion: reduce) { .loader i { animation-duration: 3s; } }
+    /* the loader (pixi-effects/loader.css, linked above): movie.init() fades it out when the movie is ready */
     /* Screenshots: the player bar overlays the bottom ~60px of the canvas (it is NOT part of the exported video).
        Uncomment to hide it while you check the layout:  .movie-controller { display: none !important; } */
   </style>
@@ -23,7 +17,7 @@
 <body>
   <div class="stage">
     <canvas id="stage" width="1280" height="720"></canvas>
-    <div class="loader" id="loader" role="status" aria-label="Loading"><i></i></div>
+    <div class="pe-loader" data-label="LOADING"></div>   <!-- shared loader: .pe-loader--pulse / --bar for other looks, --custom for your own -->
   </div>
 
   <script>
@@ -88,12 +82,8 @@
         composition: { sequences },
       });
       window.__ready = true;
-      const loader = document.getElementById('loader');             // the poster is on the canvas: fade the loader out, then take it away
-      loader.classList.add('done');
-      setTimeout(() => loader.remove(), 700);
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
-      document.getElementById('loader').classList.add('done');
     }
   </script>
 </body>

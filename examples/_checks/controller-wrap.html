@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><title>check · the player wraps a bare canvas</title>
+  <style> body { margin: 0; padding: 16px; background: #0d1220; display: grid; place-items: center; min-height: 100vh; box-sizing: border-box; } canvas { width: min(960px, 100%); border-radius: 6px; display: block; } </style>
+</head>
+<body>
+  <!-- Acceptance check (not an example): a canvas sized by the page ("min(960px, 100%)") with NO positioned parent, so the Controller wraps it itself. -->
+  <canvas id="stage" width="1280" height="720"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+  </script>
+  <script type="importmap">
+  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "gsap": "https://esm.sh/gsap@3.12.5", "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin", "mediabunny": "https://esm.sh/mediabunny" } }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    import { Controller } from '../../dist/Controller.js';
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 2, frameRate: 30, background: '#102040',
+        composition: { sequences: [{ type: 'shape', shape: 'rect', width: 200, height: 200, initial: { x: 640, y: 360, fillColor: '#ffffff' } }] } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+  </script>
+</body>
+</html>

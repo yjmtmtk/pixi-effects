@@ -12,6 +12,7 @@
       "import": { "types": "./dist/Controller.d.ts", "default": "./dist/Controller.js" },
       "require": { "types": "./dist/Controller.d.cts", "default": "./dist/Controller.cjs" }
     },
+    "./loader.css": "./dist/loader.css",
     "./three": {
       "import": { "types": "./dist/three.d.ts", "default": "./dist/three.js" },
       "require": { "types": "./dist/three.d.cts", "default": "./dist/three.cjs" }
@@ -32,7 +33,9 @@
   "repository": { "type": "git", "url": "git+https://github.com/yjmtmtk/pixi-effects.git" },
   "homepage": "https://github.com/yjmtmtk/pixi-effects#readme",
   "bugs": { "url": "https://github.com/yjmtmtk/pixi-effects/issues" },
-  "sideEffects": false,
+  "sideEffects": [
+    "./dist/loader.css"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",

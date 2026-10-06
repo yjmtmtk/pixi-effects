@@ -4,14 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Loader Gallery</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
   <style>
     html, body { height: 100%; }
     body { background: #0b0c10; margin: 0; padding: 16px; box-sizing: border-box; display: flex; justify-content: center; align-items: flex-start; }
-    canvas { display: block; width: min(860px, 100%, calc(100vh - 40px)); border-radius: 10px; }
+    .pe-stage { position: relative; width: min(860px, 100%, calc(100vh - 40px)); border-radius: 10px; --pe-loader-bg: #0b0c10; background: #0b0c10; }
+    .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
   </style>
 </head>
 <body>
-  <canvas id="stage" width="1080" height="1080"></canvas>
+  <div class="pe-stage"><canvas id="stage" width="1080" height="1080"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
 
   <script type="application/json" id="piece-meta">{ "title": "Loader Gallery", "subtitle": "Nine hypnotic loading loops on one dark board, each a different idea.", "tags": ["loops", "ui-motion", "generative", "square"], "width": 1080, "height": 1080, "duration": 10, "model": "sonnet" }</script>
 

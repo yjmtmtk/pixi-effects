@@ -4,14 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Lemon Pasta Recipe Card</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
   <style>
     html, body { height: 100%; }
     body { background: #1b1411; margin: 0; padding: 16px; box-sizing: border-box; display: flex; justify-content: center; align-items: flex-start; }
-    canvas { height: min(calc(100vh - 32px), 1350px); width: auto; aspect-ratio: 4 / 5; max-width: 100%; border-radius: 12px; }
+    .pe-stage { position: relative; width: min(100%, calc((min(calc(100vh - 32px), 1350px)) * 1080 / 1350)); height: auto; aspect-ratio: 1080 / 1350; border-radius: 12px; --pe-loader-bg: #1b1411; background: #1b1411; }
+    .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
   </style>
 </head>
 <body>
-  <canvas id="stage" width="1080" height="1350"></canvas>
+  <div class="pe-stage"><canvas id="stage" width="1080" height="1350"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
 
   <script type="application/json" id="piece-meta">{ "title": "Lemon Pasta Recipe Card", "subtitle": "A 4:5 animated recipe card: ingredients that check themselves off, three timed steps with countdowns, and a plated dish that assembles from circles.", "tags": ["portrait", "illustration", "food", "counters", "shapes"], "width": 1080, "height": 1350, "duration": 12, "model": "sonnet" }</script>
 

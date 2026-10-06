@@ -19,7 +19,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('Controller
       await cdp.send('Runtime.enable');
       await cdp.send('Page.enable');
       await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1600, height: 900, deviceScaleFactor: 1, mobile: false });
-      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/gallery/blueprint-house.html` });
+      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/_checks/controller-wrap.html` });
       let ready = false;
       for (let i = 0; i < 100 && !ready; i++) { await check.sleep(300); ready = await cdp.eval('window.__ready === true').catch(() => false); }
       expect(ready).toBe(true);

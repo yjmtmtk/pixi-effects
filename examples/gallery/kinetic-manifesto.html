@@ -4,15 +4,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kinetic Manifesto — pixi-effects gallery</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
   <style>
     html, body { height: 100%; }
     body { background: #141414; margin: 0; padding: 24px; box-sizing: border-box; display: grid; place-items: center; }
     #frame { width: min(960px, 100%); }
-    canvas { width: 100%; display: block; border-radius: 6px; }
+    .pe-stage { position: relative; width: 100%; border-radius: 6px; --pe-loader-bg: #141414; background: #141414; }
+    .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
   </style>
 </head>
 <body>
-  <div id="frame"><canvas id="stage" width="1280" height="720"></canvas></div>
+  <div id="frame"><div class="pe-stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div></div>
 
   <script type="application/json" id="piece-meta">
   {

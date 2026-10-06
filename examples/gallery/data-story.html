@@ -4,14 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Cities at night — a data story (pixi-effects)</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
   <style>
     body { background: #0d1220; margin: 0; padding: 16px; min-height: 100vh; box-sizing: border-box;
            display: flex; align-items: center; justify-content: center; }
-    canvas { width: min(960px, 100%); border-radius: 8px; display: block; }
+    .pe-stage { position: relative; width: min(960px, 100%); border-radius: 8px; --pe-loader-bg: #0d1220; background: #0d1220; }
+    .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
   </style>
 </head>
 <body>
-  <canvas id="stage" width="1280" height="720"></canvas>
+  <div class="pe-stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
 
   <script type="application/json" id="piece-meta">{
     "title": "Cities at night",

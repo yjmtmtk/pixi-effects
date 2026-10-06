@@ -4,14 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Orbits — generative</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
   <style>
     html, body { background: #08080c; margin: 0; }
     body { padding: 16px; box-sizing: border-box; display: flex; justify-content: center; }
-    canvas { width: min(84vh, 100%); height: auto; aspect-ratio: 1 / 1; border-radius: 8px; display: block; }
+    .pe-stage { position: relative; width: min(84vh, 100%); height: auto; aspect-ratio: 1 / 1; border-radius: 8px; --pe-loader-bg: #030209; background: #030209; }
+    .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
   </style>
 </head>
 <body>
-  <canvas id="stage" width="1080" height="1080"></canvas>
+  <div class="pe-stage"><canvas id="stage" width="1080" height="1080"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
 
   <script type="application/json" id="piece-meta">{ "title": "Orbits", "subtitle": "A seeded loop of pendulum-wave rings, epicycle rosettes and Lissajous comets", "tags": ["generative", "loop", "orbit", "lissajous", "epicycles"], "width": 1080, "height": 1080, "duration": 14, "model": "opus" }</script>
 

@@ -5,7 +5,7 @@
 **Performance**
 
 - **A piece with many layers builds in a fraction of the time.** Every layer now builds its animation in a small timeline of its own, which is added to its parent once finished. Adding thousands of tweens one by one to a single GSAP timeline made GSAP re-measure the whole timeline at every add, so the cost grew with the square of the count: the 700-layer `hanabi-night` took 3.2 s to build with two 1.3–1.6 s freezes of the page, and now takes 0.5 s with none above 170 ms. Positions stay absolute, so every frame is the same.
-- `ai/template.html` has a CSS-only loader (it animates only `transform` / `opacity`, which the browser runs off the main thread, so it keeps moving while the page builds the video) that fades out when the movie is ready; `hanabi-night` has its own. The guide's player page says how to build one.
+- **A shared loader.** `pixi-effects/loader.css` (shipped as `dist/loader.css`) and one line of HTML, `<div class="pe-loader" data-label="LOADING"></div>` next to the canvas: a ring, `--pulse` (a breathing dot) or `--bar` (a sweeping line), or `--custom` for a drawing of your own, restyled with `--pe-loader-color` / `-bg` / `-track` / `-size`. It is HTML and CSS, so it is on screen before any script runs, and it animates only `transform` and `opacity`, which the browser runs off the main thread, so it keeps moving while the page builds the piece. `movie.init()` finds it, fades it out when the movie is ready and, if init fails, stops it and says so (`init({ loader })` names another element or turns it off). Every gallery piece has one (`hanabi-night` has a rocket of its own on the shared frame), `ai/template.html` has one, and the guide's player page says how to use it.
 
 **Changed**
 

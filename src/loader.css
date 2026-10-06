@@ -1,0 +1,110 @@
+/*
+ * pixi-effects loader: one line of HTML on the page, a few lines of CSS, no JavaScript of your own.
+ *
+ *   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.10.0/dist/loader.css">
+ *   <div class="stage" style="position: relative">                      <!-- any box the canvas sits in, with position: relative -->
+ *     <canvas id="stage" width="1280" height="720"></canvas>
+ *     <div class="pe-loader" data-label="LOADING"></div>                <!-- or class="pe-loader pe-loader--bar" -->
+ *   </div>
+ *
+ * movie.init() finds the .pe-loader next to the canvas and fades it out once the movie is ready (the poster is on the canvas);
+ * if init fails it stops the animation and says so. It is HTML and CSS, so it is on screen before any script has run, and it
+ * animates ONLY `transform` and `opacity`: the browser runs those on its compositor thread, so it keeps moving smoothly even while
+ * the page's main thread is busy (downloading is not blocking, but building a big piece is). A loader driven by JavaScript,
+ * requestAnimationFrame, an SVG stroke or the canvas itself freezes together with the page.
+ *
+ * Looks:   .pe-loader (a ring)  ·  .pe-loader--pulse (a breathing dot)  ·  .pe-loader--bar (a sweeping line along the bottom)
+ *          .pe-loader--custom: no built-in drawing; put your own markup inside (animate only transform / opacity there too).
+ * Restyle: --pe-loader-color, --pe-loader-bg, --pe-loader-track, --pe-loader-size (set them on the element or on any ancestor).
+ */
+.pe-loader {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: inherit;
+  background: var(--pe-loader-bg, #0d1220);
+  color: var(--pe-loader-color, #ffffff);
+  transition: opacity 0.6s ease;
+}
+.pe-loader--done { opacity: 0; pointer-events: none; }
+
+/* the ring */
+.pe-loader::before {
+  content: '';
+  box-sizing: border-box;
+  width: var(--pe-loader-size, 34px);
+  height: var(--pe-loader-size, 34px);
+  border: 2px solid var(--pe-loader-track, rgba(255, 255, 255, 0.16));
+  border-top-color: var(--pe-loader-color, #ffffff);
+  border-radius: 50%;
+  animation: pe-loader-spin 1s linear infinite;
+}
+/* the label under it (data-label="LOADING"; nothing if there is none) */
+.pe-loader[data-label]::after {
+  content: attr(data-label);
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(50% + var(--pe-loader-size, 34px) / 2 + 18px);
+  padding-left: 0.4em;
+  text-align: center;
+  font: 600 11px/1 system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  letter-spacing: 0.4em;
+  opacity: 0.6;
+  animation: pe-loader-label 2.4s ease-in-out infinite;
+}
+
+/* a breathing dot */
+.pe-loader--pulse::before {
+  border: 0;
+  background: var(--pe-loader-color, #ffffff);
+  animation: pe-loader-pulse 1.4s ease-in-out infinite;
+}
+
+/* a line sweeping along the bottom edge */
+.pe-loader--bar::before {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  height: 3px;
+  border: 0;
+  border-radius: 0;
+  background: var(--pe-loader-color, #ffffff);
+  transform-origin: 0 50%;
+  animation: pe-loader-bar 1.6s cubic-bezier(0.65, 0.05, 0.36, 1) infinite;
+}
+.pe-loader--bar[data-label]::after { top: calc(50% - 6px); }
+
+/* your own drawing inside the box */
+.pe-loader--custom::before,
+.pe-loader--custom::after { content: none; display: none; }
+
+/* init failed: stop moving, keep the box (and its words) on screen */
+.pe-loader[data-state="error"]::before { animation: none; opacity: 0.35; }
+.pe-loader[data-state="error"]::after { animation: none; opacity: 1; }
+
+@keyframes pe-loader-spin { to { transform: rotate(360deg); } }
+@keyframes pe-loader-pulse {
+  0%, 100% { transform: scale(0.3); opacity: 0.3; }
+  50% { transform: scale(1); opacity: 1; }
+}
+@keyframes pe-loader-bar {
+  0% { transform: translateX(-100%) scaleX(0.3); }
+  50% { transform: translateX(10%) scaleX(0.6); }
+  100% { transform: translateX(100%) scaleX(0.3); }
+}
+@keyframes pe-loader-label {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.8; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pe-loader::before { animation-duration: 3s; }
+  .pe-loader--pulse::before, .pe-loader--bar::before { animation-duration: 3.2s; }
+  .pe-loader[data-label]::after { animation: none; opacity: 0.6; }
+}

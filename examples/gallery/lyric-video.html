@@ -4,14 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Paper Planes — lyric video</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
   <style>
     body { background: #0d0f16; margin: 0; padding: 16px; display: flex; flex-direction: column; align-items: center; }
-    canvas { width: min(960px, 100%); height: auto; border-radius: 8px; }
+    .pe-stage { position: relative; width: min(960px, 100%); height: auto; border-radius: 8px; --pe-loader-bg: #0d0f16; background: #0d0f16; }
+    .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
   </style>
   <script type="application/json" id="piece-meta">{ "title": "Paper Planes", "subtitle": "A karaoke lyric video for an invented song: words light up on a 120 BPM grid under a bouncing ball, each verse shifts the sky, the chorus hits big.", "tags": ["karaoke", "lyrics", "typography", "music", "beat-sync"], "width": 1280, "height": 720, "duration": 12.5, "model": "opus" }</script>
 </head>
 <body>
-  <canvas id="stage" width="1280" height="720"></canvas>
+  <div class="pe-stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
 
   <script>
     // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.

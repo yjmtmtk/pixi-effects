@@ -14,6 +14,7 @@ import { pickFrames, sheetLayout } from './frames';
 import { warnUnknownOptions } from './options';
 import { startWhenRunning } from './startWhenRunning';
 import { normalizePoster } from './poster';
+import { resolveLoader, dismissLoader, failLoader, type LoaderOption } from './loader';
 import { resolveMotionBlur, blurTimes, type MotionBlurSpec, type MotionBlurOptions, type ResolvedMotionBlur } from './motionBlur';
 import { ensureFilterLibrary } from '../filters/named';
 import type { Sequence } from '../sequences/Base';
@@ -47,6 +48,11 @@ export interface MovieOptions {
    * a number is the sample count, `{ samples, shutter }` sets both. Default: off. Each of those calls can override it (`false` turns it off).
    */
   motionBlur?: MotionBlurSpec;
+  /**
+   * The page's loader (see `pixi-effects/loader.css`): an element, a selector, or `false` for none. By default a `.pe-loader` next to
+   * the canvas is used. It is faded out once the movie is ready (the poster is on the canvas) and, if `init()` fails, it stops and says so.
+   */
+  loader?: LoaderOption;
 }
 
 export type { MotionBlurSpec, MotionBlurOptions };
@@ -209,7 +215,7 @@ export class Movie {
   }
 
   async init(options: MovieOptions = {}): Promise<void> {
-    warnUnknownOptions('movie.init()', options, ['width', 'height', 'duration', 'frameRate', 'background', 'canvas', 'assets', 'composition', 'poster', 'motionBlur']);
+    warnUnknownOptions('movie.init()', options, ['width', 'height', 'duration', 'frameRate', 'background', 'canvas', 'assets', 'composition', 'poster', 'motionBlur', 'loader']);
     this._initState = 'pending';
     try {
       this.width = options.width ?? 1920;
@@ -306,7 +312,9 @@ export class Movie {
       this._initState = 'ready';
       if (this._posterFrame !== null) await this._showPoster();     // the canvas shows the poster until the first seek or play
       this.emit('ready');
+      dismissLoader(resolveLoader(options.loader, options.canvas ?? (this.app?.canvas as HTMLCanvasElement | undefined) ?? null));
     } catch (err) {
+      failLoader(resolveLoader(options.loader, options.canvas ?? null), 'COULD NOT LOAD');
       try { await this.destroy(); } catch (cleanupErr) {
         console.warn('pixi-effects: cleanup after init failure also threw:', cleanupErr);
       }
