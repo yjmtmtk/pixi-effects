@@ -71,7 +71,7 @@ A layer is **not removed** when its lifespan `[at, at + duration)` ends: it is o
 
 ### `text`
 
-Renders a [PIXI.Text](https://pixijs.com/8.x/guides/components/scene-objects/text/text). Animatable position, rotation, scale, opacity and `fill`. `style` accepts any PixiJS `TextStyle` field and is applied once at build time — notably `fontSize fontFamily fontWeight fill letterSpacing lineHeight align wordWrap wordWrapWidth stroke dropShadow padding` (numbers may be expressions). A `dropShadow` glow is clipped unless `padding` is at least twice its `blur`. Text content cannot change over time (for a count-up, show one text layer per value). In expressions `w` / `h` are the size of the styled text, so `x: '-w'` places it just off the left edge.
+Renders a [PIXI.Text](https://pixijs.com/8.x/guides/components/scene-objects/text/text). Animatable position, rotation, scale, opacity and `fill`. `style` accepts any PixiJS `TextStyle` field and is applied once at build time — notably `fontSize fontFamily fontWeight fill letterSpacing lineHeight align wordWrap wordWrapWidth stroke dropShadow padding` (numbers may be expressions). A `dropShadow` glow is clipped unless `padding` is at least twice its `blur`. Text content cannot change over time, with one exception: a `{value}` placeholder in `text` prints an animatable number (`text: '{value} users'`, `initial: { value: 0 }`, a keyframe `to: { value: 2480 }`; `format: { decimals, grouping }`) — that is how counters work. Any other change of wording is a second layer (stack layers with `at` / `duration`). Multi-line text is centre-aligned unless `style.align` says otherwise. In expressions `w` / `h` are the size of the styled text, so `x: '-w'` places it just off the left edge.
 
 ```ts
 {
