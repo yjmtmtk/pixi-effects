@@ -7,6 +7,8 @@ import { CompositionSequence } from '../sequences/Composition';
 import { mixdown } from './AudioMixer';
 import { exportFrames } from './Renderer';
 import { expandTransitions } from './Transitions';
+import { inspectScene, type InspectReport } from './inspect';
+import { pickFrames, sheetLayout } from './frames';
 import type { Sequence } from '../sequences/Base';
 import type {
   AssetSpec, CompositionSpec, CompositionShape, AudioDescriptor,
@@ -32,6 +34,29 @@ export interface RenderOptions {
   format?: 'mp4' | 'mov' | 'webm' | 'mkv';
   video?: { codec?: string; bitrate?: 'very-low' | 'low' | 'medium' | 'high' | 'very-high' };
   audio?: { codec?: string; bitrate?: 'very-low' | 'low' | 'medium' | 'high' | 'very-high' };
+}
+
+export interface SnapshotOptions {
+  /** Output size relative to the canvas (default 1). */
+  scale?: number;
+  /** `'image/png'` (default) or `'image/jpeg'`. */
+  type?: 'image/png' | 'image/jpeg';
+  /** Return a `data:` URL string instead of a Blob (handy for scripts that can only return text). */
+  as?: 'blob' | 'dataURL';
+}
+
+export interface ContactSheetOptions {
+  /** Frames to show. Default: `count` frames spread evenly over the movie. */
+  frames?: number[];
+  /** Times in seconds to show (used when `frames` is not given). */
+  times?: number[];
+  /** How many frames when neither `frames` nor `times` is given. Default 6. */
+  count?: number;
+  /** Columns in the grid. Default 3. */
+  columns?: number;
+  /** Width of each picture in pixels. Default 480. */
+  cellWidth?: number;
+  as?: 'blob' | 'dataURL';
 }
 
 export interface FrameEvent { frame: number; totalFrames: number }
@@ -214,6 +239,77 @@ export class Movie {
     }));
   }
 
+  /**
+   * A picture of one frame (the canvas only: the player bar is not included). Seeks there first and
+   * stays there. Use it to LOOK at your composition.
+   */
+  async snapshot(frame?: number, opts?: SnapshotOptions & { as?: 'blob' }): Promise<Blob>;
+  async snapshot(frame: number | undefined, opts: SnapshotOptions & { as: 'dataURL' }): Promise<string>;
+  async snapshot(frame: number = this.currentFrame, opts: SnapshotOptions = {}): Promise<Blob | string> {
+    this._requireReady('snapshot');
+    await this.gotoFrame(clampFrame(frame, this.totalFrames), true);
+    const scale = opts.scale ?? 1;
+    const out = document.createElement('canvas');
+    out.width = Math.max(1, Math.round(this.width * scale));
+    out.height = Math.max(1, Math.round(this.height * scale));
+    out.getContext('2d')!.drawImage(this.app!.canvas as HTMLCanvasElement, 0, 0, out.width, out.height);
+    return encodeCanvas(out, opts.type ?? 'image/png', opts.as ?? 'blob');
+  }
+
+  /**
+   * Several frames on ONE image, each labelled with its frame number and time — the cheapest way to
+   * check a whole animation by eye. Restores the current frame afterwards.
+   */
+  async contactSheet(opts?: ContactSheetOptions & { as?: 'blob' }): Promise<Blob>;
+  async contactSheet(opts: ContactSheetOptions & { as: 'dataURL' }): Promise<string>;
+  async contactSheet(opts: ContactSheetOptions = {}): Promise<Blob | string> {
+    this._requireReady('contactSheet');
+    const frames = (opts.frames
+      ?? opts.times?.map(t => Math.round(t * this.frameRate))
+      ?? pickFrames(this.totalFrames, opts.count ?? 6)).map(f => clampFrame(f, this.totalFrames));
+    const LABEL_H = 26;
+    const L = sheetLayout(frames.length, opts.columns ?? 3, opts.cellWidth ?? 480, this.width, this.height, LABEL_H);
+    const sheet = document.createElement('canvas');
+    sheet.width = L.width;
+    sheet.height = L.height;
+    const g = sheet.getContext('2d')!;
+    g.fillStyle = '#10131c';
+    g.fillRect(0, 0, L.width, L.height);
+    const back = this.currentFrame;
+    try {
+      for (let i = 0; i < frames.length; i++) {
+        const f = frames[i]!;
+        await this.gotoFrame(f, true);
+        const { x, y } = L.positions[i]!;
+        g.drawImage(this.app!.canvas as HTMLCanvasElement, x, y + LABEL_H, L.cellW, L.cellH);
+        g.fillStyle = '#e8ecf8';
+        g.font = '600 15px system-ui, sans-serif';
+        g.textBaseline = 'middle';
+        g.fillText(`frame ${f}  ·  ${(f / this.frameRate).toFixed(2)}s`, x + 8, y + LABEL_H / 2);
+      }
+    } finally {
+      await this.gotoFrame(back, true);
+    }
+    return encodeCanvas(sheet, 'image/png', opts.as ?? 'blob');
+  }
+
+  /**
+   * Where every layer is drawn at `frame` (canvas pixels, visibility) plus `issues` — text that is off
+   * the canvas, cut by an edge, empty, or overlapping other text. Seeks there and stays there.
+   */
+  async inspect(frame: number = this.currentFrame): Promise<InspectReport> {
+    this._requireReady('inspect');
+    const f = clampFrame(frame, this.totalFrames);
+    await this.gotoFrame(f, true);
+    return inspectScene(this._rootSequence as CompositionSequence, f, f / this.frameRate, { width: this.width, height: this.height });
+  }
+
+  private _requireReady(what: string): void {
+    if (this._initState !== 'ready' || !this._rootSequence || !this.app) {
+      throw new Error(`pixi-effects: movie.${what}() needs a ready movie — await movie.init(...) first`);
+    }
+  }
+
   /** Projects every `threeD` layer for the current frame (see src/space). */
   private _updateSpace(): void {
     if (!this._rootSequence || !this.app) return;
@@ -309,6 +405,13 @@ export class Movie {
     this._audioContext = null;
     this._initState = 'destroyed';
   }
+}
+
+const clampFrame = (f: number, last: number): number => Math.max(0, Math.min(Math.round(f), last));
+
+function encodeCanvas(canvas: HTMLCanvasElement, type: string, as: 'blob' | 'dataURL'): Promise<Blob | string> {
+  if (as === 'dataURL') return Promise.resolve(canvas.toDataURL(type));
+  return new Promise((resolve, reject) => canvas.toBlob(b => (b ? resolve(b) : reject(new Error('pixi-effects: could not encode the image'))), type));
 }
 
 interface VideoLike {

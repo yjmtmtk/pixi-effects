@@ -27,6 +27,8 @@ export function createPixiMock() {
     addChild(c: Container) { this.children.push(c); return c; }
     setMask(opts: { mask: Container | null }) { this.mask = opts.mask; }
     getLocalBounds() { return new Rectangle(0, 0, 200, 100); }
+    // global bounds: a 200x100 box at the container's position (tests place layers with x / y)
+    getBounds() { return new Rectangle(this.x, this.y, 200, 100); }
     destroy() { this.destroyed = true; }
   }
   class Texture {

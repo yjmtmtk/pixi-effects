@@ -142,6 +142,15 @@ export class CompositionSequence extends Sequence {
     }
   }
 
+  /** Drawn children in stack order, with the display object that stands in for each (the mesh for a threeD layer). */
+  layers(): Array<{ seq: Sequence; display: Container; threeD: boolean }> {
+    return this._visual.map(v => ({
+      seq: v.seq,
+      display: (v.layer?.display ?? v.seq.target!) as unknown as Container,
+      threeD: v.layer !== null,
+    }));
+  }
+
   override updateSpace(t: number, host: SpaceHost): void {
     // Inner compositions first: a threeD composition is rendered into its own
     // texture by this level, so its content must already be projected.

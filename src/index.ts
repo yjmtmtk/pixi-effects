@@ -1,10 +1,14 @@
 export { Movie } from './core/Movie';
 export type {
+  SnapshotOptions,
+  ContactSheetOptions,
   MovieOptions,
   RenderOptions,
   FrameEvent,
   ProgressEvent,
 } from './core/Movie';
+
+export type { InspectReport, LayerInfo } from './core/inspect';
 
 export { registerSequenceType } from './core/Composition';
 export type { SequenceCtor } from './core/Composition';
