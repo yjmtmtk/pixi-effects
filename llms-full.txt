@@ -19,6 +19,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
    - `await movie.contactSheet({ count: 6, as: 'dataURL' })` → ONE image of several labelled frames (pass `frames: [...]` / `times: [...]` to choose; include the middle of every transition and the last second). Save it and view it.
    - `await movie.inspect(frame)` → every layer's canvas bounds and visibility, plus `issues` (text off the canvas, cut off by an edge, empty, or overlapping other text). Run it at several frames; fix every issue it names.
    - `await movie.snapshot(frame, { as: 'dataURL' })` → one frame, canvas only (no player bar).
+   - `movie.inspectAudio()` → **hear with numbers**: for every sound its `start`, `sound.length`, `sound.peakDb`, `sound.loudestAt` (line this up with the picture) and `sound.brightnessHz` (< 500 dark, > 8000 airy), plus `issues` (limited mix, inaudible or cut-off sounds). Check it whenever the movie has audio; `render()` exports exactly this mix.
    From a browser tool the result is a `data:` URL string: `agent-browser eval "movie.contactSheet({ count: 6, as: 'dataURL' })" | python3 ai/tools/save-image.py /absolute/sheet.png`, then open the PNG. Sheet tiles are small (~480 px): use `snapshot` for detail. `inspect` output is long on busy scenes: pass `{ layers: 'none' }` and read `issues` first. Give layers a `name` so inspect paths are readable. A moving ticker is not flagged as cut off.
 5. **Iterate** on what you saw (clipped text, collisions, wrong timing). Then export: `const blob = await movie.render({ format: 'mp4' })` (about real time; `movie.on('progress', …)` reports 0–100).
 
@@ -28,7 +29,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
 - **Layers are hidden, not removed, after their lifespan; z-order is array order.** Switch scenes by stacking layers with `at`/`duration` over an opaque background rect.
 - **Angles are degrees. `+z` is toward the viewer. Numbers can be expressions** (`'GW/2 - w/2'`; no `pi`; no per-frame variable).
 - **Anchors**: rect/circle/ellipse are centred on `x,y`; text and image are top-left (use `anchorX/anchorY: 0.5`); compositions use `pivotX/pivotY`. A bar that grows from its base needs `anchorY: 1`.
-- **`audio` shorter than its layer goes silent** — add `loop: true`.
+- **Sound effects need no files:** `{ type: 'audio', sfx: 'swoosh', at: 2 }` — presets `click pop swoosh swipe hit riser chime beep coin glitch typewriter`; knobs `pitch`, `brightness`, `seed`. The layer lasts as long as the sound (`duration` stretches it); a `riser` is loudest at its end (`at = hit − duration`), a `swoosh` 0.16 s in. A music file shorter than its layer goes silent — `loop: true`.
 - **Masks live in the parent's coordinates and don't follow the masked layer.** **`filterArea` is in the layer's own coordinates.**
 - **2.5D needs `threeD: true`** on each layer plus a `{ type: 'camera' }` layer; camera props go in `initial`/keyframes; keep every `z` below the camera distance (≈ 989 at 720p, fov 40); under a dolly zoom only `z = 0` stays fixed.
 - **Built in:** `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`. **Not in the DSL (hand-roll, recipes exist or loops are easy):** arc / progress-ring and stroke draw-on, text that changes over time (other than `{value}`), other per-frame curves and jitter, per-letter text animators (one layer per letter), particle emitters, group/parent layers.
@@ -107,7 +108,8 @@ Keyframe kinds: `set` (jump at `at`; undone when you seek back), `to` (animate t
 
 **video** — `asset`, `loop`, `audio`, `volume`; `initial: { scale: 'cover' }`.
 
-**audio** — `asset`, `loop`, `volume`; fade with volume keyframes (`{ at: -2, to: { volume: 0 }, duration: 2 }` fades the last 2 s). **Omit `duration` for a one-shot sound effect: it lasts exactly as long as its clip.** With `loop: true` and no `duration` it lasts until the composition ends. An explicit `duration` longer than the clip goes silent after the clip unless `loop: true`.
+**audio** — a file: `asset`, `loop`, `volume`; fade with volume keyframes (`{ at: -2, to: { volume: 0 }, duration: 2 }` fades the last 2 s). Omit `duration` for a one-shot clip: it lasts exactly as long as the clip. With `loop: true` and no `duration` it lasts until the composition ends. An explicit `duration` longer than the clip goes silent after the clip unless `loop: true`.
+**Or a sound effect with no file — `sfx`:** `{ type: 'audio', sfx: 'swoosh', at: 2 }` is the whole thing. Presets, default length in s: `click` 0.04 · `pop` 0.12 · `swoosh` 0.5 (loudest 0.16 s in, moves left → right) · `swipe` 0.22 · `hit` 0.7 · `riser` 1 (loudest at its END: `at = hit − duration`) · `chime` 1.4 · `beep` 0.16 · `coin` 0.4 · `glitch` 0.35 · `typewriter` 0.06. Knobs: `sfx: { preset, pitch /* semitones ±24 */, brightness /* −1 dark … 1 bright */, seed /* another take */ }`. **The layer's `duration` IS the sound's length** (omit it; set it to stretch, e.g. a riser); `volume` is its level (1 peaks at −12 dBFS, louder than the sample mp3s). No `loop`: one layer per hit (a JS loop). Custom sound: `sfx: { voices: [{ wave: 'noise' | 'sine' | 'square' | 'saw' | 'triangle', freq: 440 | [from, to], filter: { type: 'lowpass' | 'highpass' | 'bandpass', freq: [from, to] }, envelope: 'fall' | 'bell' | 'swell' | 'hold', pan: [-1, 1] }] }`. The export (mp4 / webm / mov) contains exactly this mix.
 
 **shape** — `shape: 'rect' | 'circle' | 'ellipse' | 'line' | 'polygon' | 'path'`:
 
@@ -170,6 +172,7 @@ movie.audioBuffer                                // mixed audio (after init), if
 await movie.contactSheet({ count: 6, as: 'dataURL' })   // ONE image of several labelled frames — look at it. Options: frames | times | count, columns, cellWidth, as
 await movie.snapshot(60, { as: 'dataURL' })             // one frame, canvas only (no player bar) — use it for detail; sheet tiles are small
 await movie.inspect(60, { layers: 'none' })             // issues only (default lists the visible layers); text off-canvas / cut off / empty / overlapping text. Name your layers so paths are readable
+movie.inspectAudio()                             // the soundtrack as numbers — you cannot listen: sources[i] = { layer, start, end, peakDb, sound: { length, peakDb, loudestAt, brightnessHz } }, windows (rms / peak / brightness per 0.1 s), issues (limited mix, inaudible / cut-off sounds)
 new Controller(movie, { canvas })                // optional player bar (overlays the canvas bottom ~60px; not in the export)
 ```
 
@@ -188,7 +191,7 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 2. **A layer's own `at` and a transition's `at` are composition time** (seconds from the parent composition's start). Only keyframes are layer-local.
 3. **Layers are hidden, not removed, after `[at, at+duration)`** and keep their last values. Z-order is array order (later = on top). To switch scenes, stack scenes with `at`/`duration`, each starting with an opaque full-screen rect. *(docs)*
 4. **Transitions need overlapping lifespans.** Both layers must be alive for the whole window: scene `i` starts at `i·(L−T)`, the transition's `at` is the next scene's start, total = `n·(L−T)+T`. A scene that ends while the transition is still running leaves a gap. *(docs)*
-5. **Audio length.** Omit `duration` on a one-shot sound effect: the layer lasts exactly as long as its clip (pop 0.13 s, click 0.1 s, chime 0.6 s, swoosh 0.55 s; nothing to measure). `loop: true` with no `duration` lasts until the composition ends. An explicit `duration` longer than the clip goes silent after the clip unless `loop: true` (`bgm.mp3` is 6 s) and warns. Volume fades work like any keyframe: `volume: 0` + `{ at: 0, to: { volume: v }, duration: 2 }` + `{ at: -2, to: { volume: 0 }, duration: 2 }` (the last 2 s only; `set` is a jump). *(fixed: volume keyframes used to ramp from the previous keyframe's end, so the music faded across the whole piece)*
+5. **Sound effects need no file at all:** `{ type: 'audio', sfx: 'pop', at }` — the layer lasts exactly as long as the sound. **Audio length of a file.** Omit `duration` on a one-shot sound effect: the layer lasts exactly as long as its clip (pop 0.13 s, click 0.1 s, chime 0.6 s, swoosh 0.55 s; nothing to measure). `loop: true` with no `duration` lasts until the composition ends. An explicit `duration` longer than the clip goes silent after the clip unless `loop: true` (`bgm.mp3` is 6 s) and warns. Volume fades work like any keyframe: `volume: 0` + `{ at: 0, to: { volume: v }, duration: 2 }` + `{ at: -2, to: { volume: 0 }, duration: 2 }` (the last 2 s only; `set` is a jump). *(fixed: volume keyframes used to ramp from the previous keyframe's end, so the music faded across the whole piece)*
 6. **Snap times to the frame grid (`Math.round(t*30)/30`) when two things must stay locked** (a bar and its label). Drive both from one JS easing function with per-frame `set` keyframes rather than mixing a tween with computed positions. *(docs)*
 7. **Pick eases on purpose.** `expo.in` stays tiny until the very end (a "flood" circle never reaches the corners — use a bigger radius and `power2.in`). A zoom transition with `power2.out` looks like a cut because the incoming scene is nearly opaque after 40 %. Default is linear. *(docs)*
 8. **`render()` runs in roughly real time** (6 s of 720p ≈ 6 s). Listen to `movie.on('progress', e => e.progress)` (0–100). *(docs)*
@@ -229,7 +232,7 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 30. **A scene change must keep the outgoing scene alive until the covering flood / wipe has finished**, and the next scene starts when it is complete; the flood circle must reach the corners (radius ≥ half the diagonal) and use `power2.in`, not `expo.in`. *(docs)*
 30b. **Unknown option names now warn** (`contactSheet({ cols: 2 })` → did you mean `columns`; `init({ fps })` → `frameRate`). Layer names show up in `inspect` paths, so give layers a `name`. `inspect` ignores faint (alpha < 0.3) layers and text whose x / y is animated (tickers), so a scrolling marquee is not reported as cut off. Pixi may print `[BindGroup] … destroyed while still bound` warnings at `movie.destroy()`: harmless (playback and seeking never warn). *(docs)*
 30c. **Look with the built-in tools, not OS screenshots**: `await movie.contactSheet({ count: 6, as: 'dataURL' })` returns one labelled image of the whole animation; `await movie.inspect(frame)` returns every layer's canvas bounds and `issues`. If you do use a browser tool, `screenshot` needs an **absolute path**, macOS `sed -i` needs `''`, and a static server may redirect `/x.html` → `/x` and drop `?query`. Keep the template's `try/catch` around `init` so failures land in `window.__logs`. Check ≥ 5 timestamps including mid-transition. *(fixed: tools built in)*
-31. **Check audio without rendering by decoding the render**: `const b = await movie.render({format:'mp4'})` then `new OfflineAudioContext(...).decodeAudioData(await b.arrayBuffer())` and measure RMS over time. `movie.audioBuffer` holds the mix. *(docs)*
+31. **Check audio with `movie.inspectAudio()`**: every sound measured on its own (`sound.length`, `peakDb`, `loudestAt`, `brightnessHz`), when it plays, loudness and brightness per 0.1 s window, and `issues` (the mix was limited, a layer is inaudible, an sfx is cut off by the end). Decoding a render by hand is no longer needed: `render()` encodes the same mix, on time in mp4 / mov / webm / mkv. *(fixed)*
 
 ## Round 2 — found by building 16 portfolio pieces (examples/gallery)
 
@@ -251,6 +254,7 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 46b. **Blend modes exist now** (`blendMode: 'add' | 'screen' | 'multiply'` on any layer, threeD layers and compositions included; a composition's children inherit it). Additive white cores no longer read grey on a coloured background. *(fixed)*
 47. **Browser tooling:** the `agent-browser` daemon is shared, so a `contactSheet` can come back from another session: after saving an image, look at it and confirm it is YOUR piece. In zsh a variable holding `agent-browser --session x` is not split into words (use a small wrapper script). `inspect` now clips overlaps to the visible area and ignores the two scenes of a running transition; it still does not compare text with picture content or shapes.
 48. **A composition's `alpha` is applied to each child separately, not to the flattened group** (measured: two overlapping opaque circles in a composition at `alpha: 0.5` show the lower one through the upper one in the overlap). Fading a group that has overlapping children therefore shows the overlap; fade the children themselves, or keep overlapping parts out of the group. Expressions have no way to read a sibling's size: measure text with `canvas.measureText` (the font string Pixi uses) and compute pill widths in JS. *(docs)*
+49. **sfx timing and level.** An sfx layer's `duration` is the sound's length (it stretches, it does not trim). Align the loud point: a `riser` peaks at its end, a `swoosh` 0.16 s in. Many sounds at the same instant add up: above 0.9 the mix is limited and a warning names the layers to turn down. Preset names, knobs and voice fields are closed lists — a guess (`whoosh`, `ding`, `impact`, `sawtooth`, `lp`, `decay`) warns with the right word. *(fixed: warns)*
 
 
 <!-- ===== ai/reference/recipes.md ===== -->
@@ -529,10 +533,79 @@ photos.forEach((_, i) => sequences.push(withFade({
 }, { in: 0.4, out: 0.4 })));
 sequences.push({ type: 'audio', asset: 'bgm', loop: true, volume: 0, duration: total,
   keyframes: [{ at: 0, to: { volume: 0.8 }, duration: 2 }, { at: -2, to: { volume: 0 }, duration: 2 }] });
+transitions.forEach(tr => sequences.push({ type: 'audio', sfx: 'swoosh', at: tr.at + tr.duration / 2 - 0.16 }));   // a swoosh is loudest 0.16 s in: centre it on the transition
 return { sequences, transitions, duration: total };
 ```
 
 Source images should be at least canvas-sized (`kenBurns` zooms in): draw generated images at 1920×1080 for a 1280×720 movie.
+
+---
+
+## Sound effects without files
+
+No `assets`, no files: a sound effect is one audio layer with `sfx`. It lasts as long as the sound.
+
+```js
+// @recipe sfx-minimal
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0f1424' } },
+  { type: 'text', name: 'word', text: 'HELLO', at: 2, duration: 3,
+    style: { fontSize: 120, fontWeight: '900', fill: '#ffffff' },
+    initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+    keyframes: [{ at: 0, from: { x: -400 }, to: { x: 'GW/2' }, duration: 0.4, ease: 'power3.out' }] },
+  { type: 'audio', sfx: 'swoosh', at: 2 },             // flies in with a swoosh…
+  { type: 'audio', sfx: 'hit', at: 2.4 },              // …and lands (0.4 s later) with a hit
+];
+```
+
+Check it without listening, then export — the file contains exactly this mix (mp4 / mov: AAC, webm / mkv: Opus):
+
+```js
+// @docs-only render-and-verify
+await movie.init({ canvas, width: 1280, height: 720, duration: 5, composition: { sequences } });
+const a = movie.inspectAudio();
+console.log(a.issues);                                    // must be []
+console.log(a.sources.map(s => [s.layer, s.start, s.sound.loudestAt, s.sound.brightnessHz]));
+const blob = await movie.render({ format: 'mp4' });
+```
+
+---
+
+## Sound effects in sync with the picture
+
+Line up the LOUD point, not the start: a `riser` is loudest at its end (`at = hit − duration`), a `swoosh` 0.16 s in, everything else at its start (`inspectAudio().sources[i].sound.loudestAt` tells you). Vary `pitch` for a series (a rising pitch reads as progress) and `seed` for repeats (no two typewriter keys alike).
+
+```js
+// @recipe sfx-cues
+const BG = { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0f1424' } };
+const HIT = 1.5, RISE = 1.2;                         // the title slams in at 1.5 s; the riser leads into it
+const sequences = [BG,
+  { type: 'audio', name: 'riser', sfx: 'riser', at: HIT - RISE, duration: RISE, volume: 0.7 },   // a riser is loudest at its END
+  { type: 'audio', name: 'hit', sfx: 'hit', at: HIT },
+  { type: 'text', name: 'title', text: 'LAUNCH', at: HIT, duration: 8 - HIT,
+    style: { fontSize: 140, fontWeight: '900', fill: '#ffffff', fontFamily: 'Arial Black, Arial, sans-serif' },
+    initial: { x: 'GW/2', y: 260, anchorX: 0.5, anchorY: 0.5 },
+    keyframes: [{ at: 0, from: { scale: 2.4, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.18, ease: 'expo.out' }] },
+];
+['PLAN', 'BUILD', 'SHIP'].forEach((label, i) => {   // each item pops in with a pop; pitch climbs a step per item
+  const at = 2.4 + i * 0.5;
+  sequences.push({ type: 'text', name: 'item' + i, text: label, at, duration: 8 - at,
+    style: { fontSize: 44, fontWeight: 'bold', fill: '#ffd166' },
+    initial: { x: 360 + i * 280, y: 430, anchorX: 0.5, anchorY: 0.5 },
+    keyframes: [{ at: 0, from: { scale: 0, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.25, ease: 'back.out(2)' }] });
+  sequences.push({ type: 'audio', name: 'pop' + i, sfx: { preset: 'pop', pitch: i * 2 }, at });
+});
+const CAPTION = 'ships friday', T0 = 4.4, STEP = 0.07;   // typed caption: one letter + one key per step
+[...CAPTION].forEach((ch, i) => {
+  const at = T0 + i * STEP;
+  sequences.push({ type: 'text', name: 'cap' + i, text: ch, at, duration: 8 - at,
+    style: { fontSize: 36, fill: '#9fb3d9', fontFamily: 'ui-monospace, Menlo, monospace' },
+    initial: { x: 640 - (CAPTION.length * 22) / 2 + i * 22, y: 540, anchorY: 0.5 } });
+  if (ch !== ' ') sequences.push({ type: 'audio', sfx: { preset: 'typewriter', seed: i }, at, volume: 0.6 });   // seed: every key sounds a little different
+});
+sequences.push({ type: 'audio', name: 'done', sfx: 'chime', at: T0 + CAPTION.length * STEP + 0.3 });
+return sequences;
+```
 
 ---
 
@@ -814,6 +887,34 @@ Audio-only sequence. No visual. Volume is animatable via keyframes.
 ```
 
 Audio is mixed during `Movie.init()` and during `Movie.render()`. Volume keyframes interpolate linearly.
+
+#### Sound effects without files: `sfx`
+
+```ts
+{ type: 'audio', sfx: 'swoosh', at: 2 }                                          // a preset at its own length
+{ type: 'audio', sfx: { preset: 'hit', pitch: -3, brightness: -0.5 }, at: 4 }    // lower and darker
+{ type: 'audio', sfx: 'riser', at: 3, duration: 1.5, volume: 0.7 }              // duration IS the sound's length (stretched)
+{ type: 'audio', at: 6, duration: 0.3,                                          // a custom sound
+  sfx: { voices: [{ wave: 'square', freq: [1600, 200], filter: { type: 'lowpass', freq: 3000 }, envelope: 'fall' }] } }
+```
+
+The sound is synthesised from data at init (no asset, no network), deterministic, and identical in playback and in the exported file. `at` is where it starts; `volume` and volume keyframes work as for files; `loop` is not available (one layer per hit). Knobs: `pitch` (semitones, ±24), `brightness` (−1 dark … 1 bright), `seed` (another take of the random parts). `volume: 1` peaks at −12 dBFS; the finished mix is soft-limited above 0.9 with a warning naming the layers. A custom sound has up to 16 `voices`: `wave` (`sine` `triangle` `square` `saw` `noise`), `freq` (Hz or `[from, to]`), `filter` (`{ type: 'lowpass' | 'highpass' | 'bandpass', freq, q }`), `envelope` (`fall` `bell` `swell` `hold`), `pan`, `from` / `to` (part of the sound, 0–1), `gain`; its default length is 0.5 s.
+
+| Preset | Default length | Loudest at | Brightness | Use for |
+|---|---|---|---|---|
+| `click` | 0.04 s | start | ≈ 12780 Hz | UI click, tick |
+| `pop` | 0.12 s | start | ≈ 390 Hz | an element appearing |
+| `swoosh` | 0.5 s | 0.16 s | ≈ 3070 Hz | transitions, fly-pasts (moves left → right) |
+| `swipe` | 0.22 s | start | ≈ 13190 Hz | quick UI swipe |
+| `hit` | 0.7 s | start | ≈ 150 Hz | impact, slam |
+| `riser` | 1 s | its end | ≈ 11850 Hz | build-up into a hit |
+| `chime` | 1.4 s | start | ≈ 1400 Hz | success, reveal |
+| `beep` | 0.16 s | flat | ≈ 1030 Hz | countdown, alert |
+| `coin` | 0.4 s | 0.07 s | ≈ 1870 Hz | reward, collect |
+| `glitch` | 0.35 s | start | ≈ 3970 Hz | digital error |
+| `typewriter` | 0.06 s | start | ≈ 3260 Hz | one key (vary `seed` per key) |
+
+Brightness is the spectral centroid that `movie.inspectAudio()` reports (`sound.brightnessHz`), at 48 kHz with no knobs.
 
 ### `composition`
 
@@ -1776,6 +1877,27 @@ interface InspectReport {
   }>;
 }
 ```
+
+### `movie.inspectAudio(options?): AudioReport`
+
+The soundtrack as numbers — for checking sound without listening. Every sound is also measured on its own, so overlaps do not blur it. `options.window`: seconds per row of `windows` (default 0.1).
+
+```ts
+interface AudioReport {
+  duration: number; sampleRate: number;
+  peakDb: number; peakAt: number;          // the mix before limiting; > 0 dBFS means it was limited
+  sources: Array<{
+    layer: string; source: string;         // 'layer "hit"', 'sfx "hit"' | 'asset "bgm"' | 'video "clip"'
+    start: number; end: number;            // movie time
+    peakDb: number;                        // the MIX while it plays
+    sound: { length: number; peakDb: number; loudestAt: number; brightnessHz: number };   // the sound alone
+  }>;
+  windows: Array<{ t: number; rmsDb: number; peakDb: number; brightnessHz: number }>;
+  issues: string[];                        // limited mix, inaudible layer, sfx cut off by the end, no audio — read first
+}
+```
+
+`render()` encodes this same mix: AAC in mp4 / mov (the encoder delay is trimmed with an edit list), Opus in webm / mkv.
 
 ### `movie.render(options?): Promise<Blob>`
 

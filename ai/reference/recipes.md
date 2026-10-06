@@ -272,10 +272,79 @@ photos.forEach((_, i) => sequences.push(withFade({
 }, { in: 0.4, out: 0.4 })));
 sequences.push({ type: 'audio', asset: 'bgm', loop: true, volume: 0, duration: total,
   keyframes: [{ at: 0, to: { volume: 0.8 }, duration: 2 }, { at: -2, to: { volume: 0 }, duration: 2 }] });
+transitions.forEach(tr => sequences.push({ type: 'audio', sfx: 'swoosh', at: tr.at + tr.duration / 2 - 0.16 }));   // a swoosh is loudest 0.16 s in: centre it on the transition
 return { sequences, transitions, duration: total };
 ```
 
 Source images should be at least canvas-sized (`kenBurns` zooms in): draw generated images at 1920×1080 for a 1280×720 movie.
+
+---
+
+## Sound effects without files
+
+No `assets`, no files: a sound effect is one audio layer with `sfx`. It lasts as long as the sound.
+
+```js
+// @recipe sfx-minimal
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0f1424' } },
+  { type: 'text', name: 'word', text: 'HELLO', at: 2, duration: 3,
+    style: { fontSize: 120, fontWeight: '900', fill: '#ffffff' },
+    initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+    keyframes: [{ at: 0, from: { x: -400 }, to: { x: 'GW/2' }, duration: 0.4, ease: 'power3.out' }] },
+  { type: 'audio', sfx: 'swoosh', at: 2 },             // flies in with a swoosh…
+  { type: 'audio', sfx: 'hit', at: 2.4 },              // …and lands (0.4 s later) with a hit
+];
+```
+
+Check it without listening, then export — the file contains exactly this mix (mp4 / mov: AAC, webm / mkv: Opus):
+
+```js
+// @docs-only render-and-verify
+await movie.init({ canvas, width: 1280, height: 720, duration: 5, composition: { sequences } });
+const a = movie.inspectAudio();
+console.log(a.issues);                                    // must be []
+console.log(a.sources.map(s => [s.layer, s.start, s.sound.loudestAt, s.sound.brightnessHz]));
+const blob = await movie.render({ format: 'mp4' });
+```
+
+---
+
+## Sound effects in sync with the picture
+
+Line up the LOUD point, not the start: a `riser` is loudest at its end (`at = hit − duration`), a `swoosh` 0.16 s in, everything else at its start (`inspectAudio().sources[i].sound.loudestAt` tells you). Vary `pitch` for a series (a rising pitch reads as progress) and `seed` for repeats (no two typewriter keys alike).
+
+```js
+// @recipe sfx-cues
+const BG = { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0f1424' } };
+const HIT = 1.5, RISE = 1.2;                         // the title slams in at 1.5 s; the riser leads into it
+const sequences = [BG,
+  { type: 'audio', name: 'riser', sfx: 'riser', at: HIT - RISE, duration: RISE, volume: 0.7 },   // a riser is loudest at its END
+  { type: 'audio', name: 'hit', sfx: 'hit', at: HIT },
+  { type: 'text', name: 'title', text: 'LAUNCH', at: HIT, duration: 8 - HIT,
+    style: { fontSize: 140, fontWeight: '900', fill: '#ffffff', fontFamily: 'Arial Black, Arial, sans-serif' },
+    initial: { x: 'GW/2', y: 260, anchorX: 0.5, anchorY: 0.5 },
+    keyframes: [{ at: 0, from: { scale: 2.4, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.18, ease: 'expo.out' }] },
+];
+['PLAN', 'BUILD', 'SHIP'].forEach((label, i) => {   // each item pops in with a pop; pitch climbs a step per item
+  const at = 2.4 + i * 0.5;
+  sequences.push({ type: 'text', name: 'item' + i, text: label, at, duration: 8 - at,
+    style: { fontSize: 44, fontWeight: 'bold', fill: '#ffd166' },
+    initial: { x: 360 + i * 280, y: 430, anchorX: 0.5, anchorY: 0.5 },
+    keyframes: [{ at: 0, from: { scale: 0, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.25, ease: 'back.out(2)' }] });
+  sequences.push({ type: 'audio', name: 'pop' + i, sfx: { preset: 'pop', pitch: i * 2 }, at });
+});
+const CAPTION = 'ships friday', T0 = 4.4, STEP = 0.07;   // typed caption: one letter + one key per step
+[...CAPTION].forEach((ch, i) => {
+  const at = T0 + i * STEP;
+  sequences.push({ type: 'text', name: 'cap' + i, text: ch, at, duration: 8 - at,
+    style: { fontSize: 36, fill: '#9fb3d9', fontFamily: 'ui-monospace, Menlo, monospace' },
+    initial: { x: 640 - (CAPTION.length * 22) / 2 + i * 22, y: 540, anchorY: 0.5 } });
+  if (ch !== ' ') sequences.push({ type: 'audio', sfx: { preset: 'typewriter', seed: i }, at, volume: 0.6 });   // seed: every key sounds a little different
+});
+sequences.push({ type: 'audio', name: 'done', sfx: 'chime', at: T0 + CAPTION.length * STEP + 0.3 });
+return sequences;
+```
 
 ---
 

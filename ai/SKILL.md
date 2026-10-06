@@ -1,6 +1,6 @@
 ---
 name: pixi-effects
-description: Make motion graphics and videos as code with the pixi-effects JS library — titles, lower-thirds, kinetic typography, slideshows with transitions, 2.5D / depth scenes, three.js titles, data-driven charts. A video is a plain-object composition (text, shape, image, video, audio, camera layers with keyframes and expressions) that plays in the browser and exports MP4/WebM. Use when asked to create, animate, preview, or export a video / title / promo / animated chart in JavaScript or HTML.
+description: Make motion graphics and videos as code with the pixi-effects JS library — titles, lower-thirds, kinetic typography, slideshows with transitions, 2.5D / depth scenes, three.js titles, data-driven charts. A video is a plain-object composition (text, shape, image, video, audio and file-free sound-effect, camera layers with keyframes and expressions) that plays in the browser and exports MP4/WebM. Use when asked to create, animate, preview, or export a video / title / promo / animated chart in JavaScript or HTML.
 ---
 
 # pixi-effects — write a video as data
@@ -16,6 +16,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
    - `await movie.contactSheet({ count: 6, as: 'dataURL' })` → ONE image of several labelled frames (pass `frames: [...]` / `times: [...]` to choose; include the middle of every transition and the last second). Save it and view it.
    - `await movie.inspect(frame)` → every layer's canvas bounds and visibility, plus `issues` (text off the canvas, cut off by an edge, empty, or overlapping other text). Run it at several frames; fix every issue it names.
    - `await movie.snapshot(frame, { as: 'dataURL' })` → one frame, canvas only (no player bar).
+   - `movie.inspectAudio()` → **hear with numbers**: for every sound its `start`, `sound.length`, `sound.peakDb`, `sound.loudestAt` (line this up with the picture) and `sound.brightnessHz` (< 500 dark, > 8000 airy), plus `issues` (limited mix, inaudible or cut-off sounds). Check it whenever the movie has audio; `render()` exports exactly this mix.
    From a browser tool the result is a `data:` URL string: `agent-browser eval "movie.contactSheet({ count: 6, as: 'dataURL' })" | python3 ai/tools/save-image.py /absolute/sheet.png`, then open the PNG. Sheet tiles are small (~480 px): use `snapshot` for detail. `inspect` output is long on busy scenes: pass `{ layers: 'none' }` and read `issues` first. Give layers a `name` so inspect paths are readable. A moving ticker is not flagged as cut off.
 5. **Iterate** on what you saw (clipped text, collisions, wrong timing). Then export: `const blob = await movie.render({ format: 'mp4' })` (about real time; `movie.on('progress', …)` reports 0–100).
 
@@ -25,7 +26,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
 - **Layers are hidden, not removed, after their lifespan; z-order is array order.** Switch scenes by stacking layers with `at`/`duration` over an opaque background rect.
 - **Angles are degrees. `+z` is toward the viewer. Numbers can be expressions** (`'GW/2 - w/2'`; no `pi`; no per-frame variable).
 - **Anchors**: rect/circle/ellipse are centred on `x,y`; text and image are top-left (use `anchorX/anchorY: 0.5`); compositions use `pivotX/pivotY`. A bar that grows from its base needs `anchorY: 1`.
-- **`audio` shorter than its layer goes silent** — add `loop: true`.
+- **Sound effects need no files:** `{ type: 'audio', sfx: 'swoosh', at: 2 }` — presets `click pop swoosh swipe hit riser chime beep coin glitch typewriter`; knobs `pitch`, `brightness`, `seed`. The layer lasts as long as the sound (`duration` stretches it); a `riser` is loudest at its end (`at = hit − duration`), a `swoosh` 0.16 s in. A music file shorter than its layer goes silent — `loop: true`.
 - **Masks live in the parent's coordinates and don't follow the masked layer.** **`filterArea` is in the layer's own coordinates.**
 - **2.5D needs `threeD: true`** on each layer plus a `{ type: 'camera' }` layer; camera props go in `initial`/keyframes; keep every `z` below the camera distance (≈ 989 at 720p, fov 40); under a dolly zoom only `z = 0` stays fixed.
 - **Built in:** `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`. **Not in the DSL (hand-roll, recipes exist or loops are easy):** arc / progress-ring and stroke draw-on, text that changes over time (other than `{value}`), other per-frame curves and jitter, per-letter text animators (one layer per letter), particle emitters, group/parent layers.

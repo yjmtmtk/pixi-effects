@@ -109,6 +109,27 @@ interface InspectReport {
 }
 ```
 
+### `movie.inspectAudio(options?): AudioReport`
+
+The soundtrack as numbers — for checking sound without listening. Every sound is also measured on its own, so overlaps do not blur it. `options.window`: seconds per row of `windows` (default 0.1).
+
+```ts
+interface AudioReport {
+  duration: number; sampleRate: number;
+  peakDb: number; peakAt: number;          // the mix before limiting; > 0 dBFS means it was limited
+  sources: Array<{
+    layer: string; source: string;         // 'layer "hit"', 'sfx "hit"' | 'asset "bgm"' | 'video "clip"'
+    start: number; end: number;            // movie time
+    peakDb: number;                        // the MIX while it plays
+    sound: { length: number; peakDb: number; loudestAt: number; brightnessHz: number };   // the sound alone
+  }>;
+  windows: Array<{ t: number; rmsDb: number; peakDb: number; brightnessHz: number }>;
+  issues: string[];                        // limited mix, inaudible layer, sfx cut off by the end, no audio — read first
+}
+```
+
+`render()` encodes this same mix: AAC in mp4 / mov (the encoder delay is trimmed with an edit list), Opus in webm / mkv.
+
 ### `movie.render(options?): Promise<Blob>`
 
 Renders the entire timeline to a single video file. Pauses playback first.

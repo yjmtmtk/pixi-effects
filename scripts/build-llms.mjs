@@ -27,7 +27,7 @@ Rules that cause most failures (details in the skill and pitfalls):
 
 - [Skill: workflow and rules](${RAW}/ai/SKILL.md): how to build, check and export a video; read first
 - [Cheatsheet](${RAW}/ai/reference/cheatsheet.md): every layer type, prop, default and convention on one page
-- [Recipes](${RAW}/ai/reference/recipes.md): tested building blocks (kinetic type, lower-third, count-up, bar chart, 2.5D title, camera orbit, slideshow with transitions, three.js)
+- [Recipes](${RAW}/ai/reference/recipes.md): tested building blocks (kinetic type, lower-third, count-up, bar chart, 2.5D title, camera orbit, slideshow with transitions, sound effects without files, three.js)
 - [Pitfalls](${RAW}/ai/reference/pitfalls.md): real mistakes made by AI authors, with fixes
 - [Starter template](${RAW}/ai/template.html): copy this file to begin
 

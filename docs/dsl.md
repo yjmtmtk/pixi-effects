@@ -179,6 +179,34 @@ Audio-only sequence. No visual. Volume is animatable via keyframes.
 
 Audio is mixed during `Movie.init()` and during `Movie.render()`. Volume keyframes interpolate linearly.
 
+#### Sound effects without files: `sfx`
+
+```ts
+{ type: 'audio', sfx: 'swoosh', at: 2 }                                          // a preset at its own length
+{ type: 'audio', sfx: { preset: 'hit', pitch: -3, brightness: -0.5 }, at: 4 }    // lower and darker
+{ type: 'audio', sfx: 'riser', at: 3, duration: 1.5, volume: 0.7 }              // duration IS the sound's length (stretched)
+{ type: 'audio', at: 6, duration: 0.3,                                          // a custom sound
+  sfx: { voices: [{ wave: 'square', freq: [1600, 200], filter: { type: 'lowpass', freq: 3000 }, envelope: 'fall' }] } }
+```
+
+The sound is synthesised from data at init (no asset, no network), deterministic, and identical in playback and in the exported file. `at` is where it starts; `volume` and volume keyframes work as for files; `loop` is not available (one layer per hit). Knobs: `pitch` (semitones, ±24), `brightness` (−1 dark … 1 bright), `seed` (another take of the random parts). `volume: 1` peaks at −12 dBFS; the finished mix is soft-limited above 0.9 with a warning naming the layers. A custom sound has up to 16 `voices`: `wave` (`sine` `triangle` `square` `saw` `noise`), `freq` (Hz or `[from, to]`), `filter` (`{ type: 'lowpass' | 'highpass' | 'bandpass', freq, q }`), `envelope` (`fall` `bell` `swell` `hold`), `pan`, `from` / `to` (part of the sound, 0–1), `gain`; its default length is 0.5 s.
+
+| Preset | Default length | Loudest at | Brightness | Use for |
+|---|---|---|---|---|
+| `click` | 0.04 s | start | ≈ 12780 Hz | UI click, tick |
+| `pop` | 0.12 s | start | ≈ 390 Hz | an element appearing |
+| `swoosh` | 0.5 s | 0.16 s | ≈ 3070 Hz | transitions, fly-pasts (moves left → right) |
+| `swipe` | 0.22 s | start | ≈ 13190 Hz | quick UI swipe |
+| `hit` | 0.7 s | start | ≈ 150 Hz | impact, slam |
+| `riser` | 1 s | its end | ≈ 11850 Hz | build-up into a hit |
+| `chime` | 1.4 s | start | ≈ 1400 Hz | success, reveal |
+| `beep` | 0.16 s | flat | ≈ 1030 Hz | countdown, alert |
+| `coin` | 0.4 s | 0.07 s | ≈ 1870 Hz | reward, collect |
+| `glitch` | 0.35 s | start | ≈ 3970 Hz | digital error |
+| `typewriter` | 0.06 s | start | ≈ 3260 Hz | one key (vary `seed` per key) |
+
+Brightness is the spectral centroid that `movie.inspectAudio()` reports (`sound.brightnessHz`), at 48 kHz with no knobs.
+
 ### `composition`
 
 Nested composition. Same shape as the root spec but with `type: 'composition'` and an explicit `width`/`height`. Children animate within the local coordinate system; the composition itself can be positioned, scaled, and rotated as a unit.

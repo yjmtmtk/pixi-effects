@@ -7,6 +7,7 @@
 Declarative composition and video rendering for the web. After Effects-style timelines on top of [PixiJS v8](https://pixijs.com/) and [GSAP](https://gsap.com/), with strict TypeScript types. Render to MP4 / WebM / MOV via [mediabunny](https://mediabunny.dev/).
 
 - **Declarative DSL** — describe your composition as a tree of typed sequences (text, image, video, audio, shapes, nested compositions). No imperative tween code.
+- **Sound effects without files** — `{ type: 'audio', sfx: 'swoosh', at: 2 }`: 11 synthesised presets (click, pop, swoosh, riser, hit, chime …) with `pitch` / `brightness` / `seed`, or your own `voices`; deterministic and in the exported file exactly as in the browser; `movie.inspectAudio()` checks them as numbers.
 - **Expression language** — sprinkle `'GW * 0.5'` or `'min(W, H) / 2'` anywhere a number goes. Resolved at runtime against a sequence-relative scope.
 - **Filters, masks, transitions** — chroma key, blur, color matrix (or any PixiJS filter); inline masks; seven scene transitions (`crossfade`, `wipe`, `iris`, `slide`, `dip`, `zoom`, `dissolve`).
 - **Presets** — `kenBurns` for stills, `withFade` for fade-in/out.
@@ -179,6 +180,7 @@ They ship in the npm package (`node_modules/pixi-effects/ai/`).
   - `10-three.html` — a three.js scene as a layer (`pixi-effects/three`)
   - `11-depth.html` — 2.5D layers and camera: parallax, spin, dolly zoom
   - `12-title-motion.html` — a staggered 2.5D title: letters fly in from depth, particles, orbiting camera
+  - `13-sfx.html` — synthesised sound effects (no audio files), a riser into a hit, a custom voice
   - `playground.html` — in-browser editor with preset dropdown
 
 ## Browser support

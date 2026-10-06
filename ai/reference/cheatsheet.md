@@ -54,7 +54,8 @@ Keyframe kinds: `set` (jump at `at`; undone when you seek back), `to` (animate t
 
 **video** — `asset`, `loop`, `audio`, `volume`; `initial: { scale: 'cover' }`.
 
-**audio** — `asset`, `loop`, `volume`; fade with volume keyframes (`{ at: -2, to: { volume: 0 }, duration: 2 }` fades the last 2 s). **Omit `duration` for a one-shot sound effect: it lasts exactly as long as its clip.** With `loop: true` and no `duration` it lasts until the composition ends. An explicit `duration` longer than the clip goes silent after the clip unless `loop: true`.
+**audio** — a file: `asset`, `loop`, `volume`; fade with volume keyframes (`{ at: -2, to: { volume: 0 }, duration: 2 }` fades the last 2 s). Omit `duration` for a one-shot clip: it lasts exactly as long as the clip. With `loop: true` and no `duration` it lasts until the composition ends. An explicit `duration` longer than the clip goes silent after the clip unless `loop: true`.
+**Or a sound effect with no file — `sfx`:** `{ type: 'audio', sfx: 'swoosh', at: 2 }` is the whole thing. Presets, default length in s: `click` 0.04 · `pop` 0.12 · `swoosh` 0.5 (loudest 0.16 s in, moves left → right) · `swipe` 0.22 · `hit` 0.7 · `riser` 1 (loudest at its END: `at = hit − duration`) · `chime` 1.4 · `beep` 0.16 · `coin` 0.4 · `glitch` 0.35 · `typewriter` 0.06. Knobs: `sfx: { preset, pitch /* semitones ±24 */, brightness /* −1 dark … 1 bright */, seed /* another take */ }`. **The layer's `duration` IS the sound's length** (omit it; set it to stretch, e.g. a riser); `volume` is its level (1 peaks at −12 dBFS, louder than the sample mp3s). No `loop`: one layer per hit (a JS loop). Custom sound: `sfx: { voices: [{ wave: 'noise' | 'sine' | 'square' | 'saw' | 'triangle', freq: 440 | [from, to], filter: { type: 'lowpass' | 'highpass' | 'bandpass', freq: [from, to] }, envelope: 'fall' | 'bell' | 'swell' | 'hold', pan: [-1, 1] }] }`. The export (mp4 / webm / mov) contains exactly this mix.
 
 **shape** — `shape: 'rect' | 'circle' | 'ellipse' | 'line' | 'polygon' | 'path'`:
 
@@ -117,5 +118,6 @@ movie.audioBuffer                                // mixed audio (after init), if
 await movie.contactSheet({ count: 6, as: 'dataURL' })   // ONE image of several labelled frames — look at it. Options: frames | times | count, columns, cellWidth, as
 await movie.snapshot(60, { as: 'dataURL' })             // one frame, canvas only (no player bar) — use it for detail; sheet tiles are small
 await movie.inspect(60, { layers: 'none' })             // issues only (default lists the visible layers); text off-canvas / cut off / empty / overlapping text. Name your layers so paths are readable
+movie.inspectAudio()                             // the soundtrack as numbers — you cannot listen: sources[i] = { layer, start, end, peakDb, sound: { length, peakDb, loudestAt, brightnessHz } }, windows (rms / peak / brightness per 0.1 s), issues (limited mix, inaudible / cut-off sounds)
 new Controller(movie, { canvas })                // optional player bar (overlays the canvas bottom ~60px; not in the export)
 ```
