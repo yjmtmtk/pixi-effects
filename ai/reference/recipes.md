@@ -458,6 +458,26 @@ return [...letters, ...tiles];
 
 ---
 
+## Per-letter text in one call (`animateText`)
+
+`animateText(text, style, options)` returns one text layer per character / word / line, laid out like the whole text, each arriving (and leaving) in a wave. `duration` is required: seconds from `at` until the last piece is gone (it throws if the wave does not fit). Letters turn and scale about their own centre.
+
+```js
+// @recipe animate-text
+const style = { fontFamily: 'Arial, sans-serif', fontSize: 110, fontWeight: 'bold', fill: '#ffffff' };
+return [
+  ...animateText('Kinetic type', style, { x: 640, y: 230, align: 'center', at: 0.3, duration: 5,
+    in: 'rise', out: 'fade', stagger: { each: 0.05, from: 'center' }, idle: { y: 5, rotation: 1 },
+    styleFor: p => (p.index === 0 ? { fill: '#ffd166' } : {}) }),
+  ...animateText('one word at a time', { fontFamily: 'Arial, sans-serif', fontSize: 44, fill: '#8fa0bf' },
+    { by: 'words', x: 640, y: 420, align: 'center', at: 1.6, duration: 3.7, in: 'pop', stagger: { each: 0.25 } }),
+];
+```
+
+Presets for `in` / `out`: `rise` (default) `drop` `fade` `pop` `zoom` `slide` `spin`; or `{ from: { x: -30, scale: 0.5, rotation: 20 }, duration: 0.8, ease: 'power3.out' }` (`x` / `y` in `from` are offsets from the resting place, the rest are absolute values). `idle` drifts each piece between the entrance and the exit.
+
+---
+
 ## Looping motion
 
 `repeat` (a finite count) and `yoyo` go on any keyframe. Total time = `duration × (repeat + 1)`.

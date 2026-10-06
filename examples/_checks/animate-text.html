@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>check · animateText</title></head>
+<body>
+  <!--
+    Acceptance check (not an example): the same sentence as ONE text layer (top) and as animateText() pieces (bottom). Once the pieces have
+    arrived the two must look the same (same place, same kerning), and while they are arriving only some letters are there.
+  -->
+  <canvas id="stage" width="1280" height="720" style="width:640px"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+  </script>
+  <script type="importmap">
+  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "gsap": "https://esm.sh/gsap@3.12.5", "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin", "mediabunny": "https://esm.sh/mediabunny" } }
+  </script>
+  <script type="module">
+    import { Movie, animateText } from '../../dist/index.js';
+    const style = { fontFamily: 'Arial, sans-serif', fontSize: 90, fontWeight: 'bold', fill: '#ffffff' };
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 4, frameRate: 30, background: '#000000',
+        composition: { sequences: [
+          { type: 'text', name: 'whole', text: 'Hello, World', style, initial: { x: 640, y: 100, anchorX: 0.5, anchorY: 0 } },
+          ...animateText('Hello, World', style, { x: 640, y: 400, align: 'center', duration: 4, in: 'rise', stagger: { each: 0.1 }, name: 'letters' }),
+        ] },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+  </script>
+</body>
+</html>

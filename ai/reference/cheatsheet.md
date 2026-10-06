@@ -124,12 +124,12 @@ const r = random(7); r(); r();      // a repeatable stream in 0…1 for JS loops
 `kenBurns` covers the canvas, so source images should be at least canvas-sized (1920×1080 for 1280×720).
 
 ```js
-import { measureText, splitText } from 'pixi-effects';   // text layout helpers (measured with the renderer's own fonts)
+import { measureText, splitText, animateText } from 'pixi-effects';   // text layout helpers (measured with the renderer's own fonts)
 measureText('Hello', style)                              // → { width, height, lines }
 splitText('Hello world', style, { by: 'chars' | 'words' | 'lines', x, y, align: 'left' | 'center' | 'right' })
                                                          // → [{ text, x, y, width, index, line }] — one text layer per piece, same style, anchor top-left
 ```
-Per-letter / per-word animation = `splitText(...)` + one layer per piece (recipe `split-text`). A web font must be loaded before measuring.
+Per-letter / per-word / per-line animation in one call: `...animateText(text, style, { x, y, align, by: 'chars'|'words'|'lines', at, duration /* required: until the last piece is gone */, in: 'rise'|'drop'|'fade'|'pop'|'zoom'|'slide'|'spin'|{ from, to, duration, ease }|false, out: <same, runs in the same wave>, stagger: { each, from, … }, idle: { y: 4, rotation: 1 }, styleFor: p => ({ fill }) })` → text layers `<name>-0…` (anchor centre; `x`/`y` in `from` are offsets) to spread into `sequences` (recipe `animate-text`). By hand: `splitText(...)` + one layer per piece (recipe `split-text`). A web font must be loaded before measuring.
 
 ## Assets
 

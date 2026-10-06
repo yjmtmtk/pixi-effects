@@ -2,7 +2,7 @@
 title: Text
 section: Guides
 order: 1
-summary: Styled text, counters, a typewriter, changing words, and per-letter animation.
+summary: Styled text, counters, a typewriter, changing words, and per-letter animation in one call.
 ---
 
 A text layer is `type: 'text'` with a `text` and a `style`. `style` takes the PixiJS text style fields you would expect: `fontSize`, `fontFamily`, `fontWeight`, `fill`, `letterSpacing`, `lineHeight`, `align`, `wordWrap` with `wordWrapWidth`, `stroke`, `dropShadow`.
@@ -52,7 +52,31 @@ Anchor a typewriter on its **left** edge, or each new letter re-centres the line
 
 ## Per-letter and per-word animation
 
-For letters that fly in one by one, cut the text into pieces with `splitText`, which measures with the renderer's own fonts so the pieces line up exactly like the whole text, and make one text layer per piece:
+`animateText()` does it in one call: one text layer per character, word or line, laid out exactly like the whole text, arriving (and leaving) in a wave. Letters turn and scale about their own centre. The result is plain layers: spread it into `sequences`.
+
+```js
+// @recipe animate-text
+const style = { fontFamily: 'Arial, sans-serif', fontSize: 110, fontWeight: 'bold', fill: '#ffffff' };
+return [
+  ...animateText('Kinetic type', style, { x: 640, y: 230, align: 'center', at: 0.3, duration: 5,
+    in: 'rise', out: 'fade', stagger: { each: 0.05, from: 'center' }, idle: { y: 5, rotation: 1 },
+    styleFor: p => (p.index === 0 ? { fill: '#ffd166' } : {}) }),
+  ...animateText('one word at a time', { fontFamily: 'Arial, sans-serif', fontSize: 44, fill: '#8fa0bf' },
+    { by: 'words', x: 640, y: 420, align: 'center', at: 1.6, duration: 3.7, in: 'pop', stagger: { each: 0.25 } }),
+];
+```
+
+| Option | Notes |
+| ------ | ----- |
+| `duration` | **required**: seconds from `at` until every piece is gone, the last one included (an error says how long the wave needs) |
+| `in` | how a piece arrives: `'rise'` (default), `'drop'`, `'fade'`, `'pop'`, `'zoom'`, `'slide'`, `'spin'`, your own `{ from, to, duration, ease }` (`x` / `y` in `from` are offsets from the resting place), a preset with changes `{ preset: 'rise', duration: 0.9 }`, or `false` |
+| `out` | how it leaves, in the same wave: the same choices; a preset runs backwards. Default none |
+| `stagger` | the wave: `{ each, amount, from, grid, ease, seed }`, see [Motion](motion.html#waves-stagger). Default `{ each: 0.04 }` |
+| `idle` | a seeded drift between the entrance and the exit, each piece its own: `{ y: 4, rotation: 1, freq: 1 }` |
+| `styleFor` | `piece => ({ fill: … })`: a different style for some pieces |
+| `by`, `x`, `y`, `align`, `name`, `at` | as for `splitText`; layers are named `<name>-0`, `<name>-1`, … |
+
+If you want full control, cut the text yourself with `splitText` (it measures with the renderer's own fonts, so the pieces line up exactly like the whole text) and make one text layer per piece:
 
 ```js
 // @recipe split-letters

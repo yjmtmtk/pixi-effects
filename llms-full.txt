@@ -35,7 +35,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
 - **Masks live in the parent's coordinates and don't follow the masked layer.** **`filterArea` is in the layer's own coordinates.**
 - **2.5D needs `threeD: true`** on each layer plus a `{ type: 'camera' }` layer; camera props go in `initial`/keyframes; keep every `z` below the camera distance (≈ 989 at 720p, fov 40); under a dolly zoom only `z = 0` stays fixed.
 - **Group / parent layers = `{ type: 'null', name: 'rig' }`** (draws nothing, only moves) + `parent: 'rig'` on the layers that should follow it: their `x`/`y` are then measured from the null's origin, and the null's position / rotation / scale / alpha carry them (orbits, clock hands, grouped fades). Nulls chain. Only `null` layers can be parents; not for `threeD` layers.
-- **Built in:** `splitText()` / `measureText()` (per-letter / per-word layers, exact positions), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) `wiggle()` (a seeded shake as keyframes) and `stagger()` (delays for a wave of layers: `stagger(letters, { each: 0.05, from: 'center' })`, or `stagger(n, …)` for numbers; GSAP-style `each` / `amount` / `from` / `grid` / `ease`). **Not in the DSL (hand-roll, recipes exist or loops are easy):** stroke draw-on (trim path), text that changes over time (other than `{value}`), other per-frame curves, per-letter text animators (one layer per letter), particle emitters.
+- **Built in:** `animateText()` (per-letter / per-word / per-line entrances and exits in one call: `...animateText('Title', style, { x, y, align: 'center', at: 0.5, duration: 5, in: 'rise', out: 'fade', stagger: { each: 0.05 } })`), `splitText()` / `measureText()` (per-letter / per-word layers, exact positions, by hand), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) `wiggle()` (a seeded shake as keyframes) and `stagger()` (delays for a wave of layers: `stagger(letters, { each: 0.05, from: 'center' })`, or `stagger(n, …)` for numbers; GSAP-style `each` / `amount` / `from` / `grid` / `ease`). **Not in the DSL (hand-roll, recipes exist or loops are easy):** stroke draw-on (trim path), text that changes over time (other than `{value}`), other per-frame curves, particle emitters.
 - **Blend modes:** `blendMode: 'add' | 'screen' | 'multiply'` on any layer (glows, light leaks).
 - **One `Movie` per page.** A sound effect needs no `duration` (it lasts as long as its clip). Seeking is safe: counters, colours and growing shapes are right after any jump.
 
@@ -182,12 +182,12 @@ const r = random(7); r(); r();      // a repeatable stream in 0…1 for JS loops
 `kenBurns` covers the canvas, so source images should be at least canvas-sized (1920×1080 for 1280×720).
 
 ```js
-import { measureText, splitText } from 'pixi-effects';   // text layout helpers (measured with the renderer's own fonts)
+import { measureText, splitText, animateText } from 'pixi-effects';   // text layout helpers (measured with the renderer's own fonts)
 measureText('Hello', style)                              // → { width, height, lines }
 splitText('Hello world', style, { by: 'chars' | 'words' | 'lines', x, y, align: 'left' | 'center' | 'right' })
                                                          // → [{ text, x, y, width, index, line }] — one text layer per piece, same style, anchor top-left
 ```
-Per-letter / per-word animation = `splitText(...)` + one layer per piece (recipe `split-text`). A web font must be loaded before measuring.
+Per-letter / per-word / per-line animation in one call: `...animateText(text, style, { x, y, align, by: 'chars'|'words'|'lines', at, duration /* required: until the last piece is gone */, in: 'rise'|'drop'|'fade'|'pop'|'zoom'|'slide'|'spin'|{ from, to, duration, ease }|false, out: <same, runs in the same wave>, stagger: { each, from, … }, idle: { y: 4, rotation: 1 }, styleFor: p => ({ fill }) })` → text layers `<name>-0…` (anchor centre; `x`/`y` in `from` are offsets) to spread into `sequences` (recipe `animate-text`). By hand: `splitText(...)` + one layer per piece (recipe `split-text`). A web font must be loaded before measuring.
 
 ## Assets
 
@@ -248,7 +248,7 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 18. **Counters**: `text: '{value}'` + animate `value` (with `format`). Other text content cannot change over time. Earlier sessions generated one text layer per number (40+ per bar). *(fixed)*
 19. **Loops**: `repeat` (finite) / `yoyo` / `repeatDelay` on any keyframe; infinite repeats are rejected with a warning. *(fixed)*
 20. **No per-frame expression time.** Expressions are evaluated once at build. A camera orbit is `orbit()`; a shake or drift is `wiggle()`, and any other curve (waves, spirals) must be sampled into short linear keyframes (~0.1 s) in a JS loop. **Randomness must be seeded** (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS): `Math.random()` makes playback and the exported file disagree. *(partly fixed)*
-21. **Per-letter / per-word text is `splitText()` (one layer per piece, positions measured for you); a group / parent is a `{ type: 'null' }` layer + `parent: 'name'`, no particle emitter, no caption-linked-to-slide.** One layer per letter; many layers; seeded random loops (`random(seed)`). *(hand-roll)*
+21. **Per-letter / per-word text is `animateText()` (one call: a layer per piece, a wave in and out) or `splitText()` by hand (one layer per piece, positions measured for you); a group / parent is a `{ type: 'null' }` layer + `parent: 'name'`, no particle emitter, no caption-linked-to-slide.** One layer per letter; many layers; seeded random loops (`random(seed)`). *(hand-roll)*
 22. **Colour tweens look muddy in RGB** (red→green passes through brown). Use `colorSpace: 'oklab'` or `'oklch'` on the layer. In `oklch`, a nearly grey end (chroma < ~0.08, e.g. `#9a9ab4`) borrows the other end's hue, so grey → yellow no longer flashes through pink. *(docs / fixed)*
 23. **Generated images**: `canvas.toDataURL()` as an asset `src` works. Make them ≥ canvas size or `kenBurns` zooms look soft. *(docs)*
 
@@ -754,6 +754,26 @@ const tiles = delays.map((d, i) => ({
 }));
 return [...letters, ...tiles];
 ```
+
+---
+
+## Per-letter text in one call (`animateText`)
+
+`animateText(text, style, options)` returns one text layer per character / word / line, laid out like the whole text, each arriving (and leaving) in a wave. `duration` is required: seconds from `at` until the last piece is gone (it throws if the wave does not fit). Letters turn and scale about their own centre.
+
+```js
+// @recipe animate-text
+const style = { fontFamily: 'Arial, sans-serif', fontSize: 110, fontWeight: 'bold', fill: '#ffffff' };
+return [
+  ...animateText('Kinetic type', style, { x: 640, y: 230, align: 'center', at: 0.3, duration: 5,
+    in: 'rise', out: 'fade', stagger: { each: 0.05, from: 'center' }, idle: { y: 5, rotation: 1 },
+    styleFor: p => (p.index === 0 ? { fill: '#ffd166' } : {}) }),
+  ...animateText('one word at a time', { fontFamily: 'Arial, sans-serif', fontSize: 44, fill: '#8fa0bf' },
+    { by: 'words', x: 640, y: 420, align: 'center', at: 1.6, duration: 3.7, in: 'pop', stagger: { each: 0.25 } }),
+];
+```
+
+Presets for `in` / `out`: `rise` (default) `drop` `fade` `pop` `zoom` `slide` `spin`; or `{ from: { x: -30, scale: 0.5, rotation: 20 }, duration: 0.8, ease: 'power3.out' }` (`x` / `y` in `from` are offsets from the resting place, the rest are absolute values). `idle` drifts each piece between the entrance and the exit.
 
 ---
 
