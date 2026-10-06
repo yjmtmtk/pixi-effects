@@ -549,6 +549,27 @@
       "notes": "_notes/paper-cutout-forest.md"
     },
     {
+      "id": "still-water",
+      "title": "Still Water",
+      "subtitle": "Three lakes, three real photographs: slow Ken Burns moves, a viewfinder that draws itself on, and a caption that re-types for each photo",
+      "tags": [
+        "photo",
+        "ken-burns",
+        "transitions",
+        "typewriter",
+        "viewfinder",
+        "audio"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 12,
+      "posterFrame": 270,
+      "model": "sonnet",
+      "page": "still-water.html",
+      "poster": "posters/still-water.jpg",
+      "notes": "_notes/still-water.md"
+    },
+    {
       "id": "blueprint-house",
       "title": "The Corner House",
       "subtitle": "A blueprint that draws itself: walls, doors and furniture stroked on, dimensions typed out, a title block whose status changes from DRAFT to APPROVED",

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Still Water — three lakes</title>
+  <script type="application/json" id="piece-meta">{ "title": "Still Water", "subtitle": "Three lakes, three real photographs: slow Ken Burns moves, a viewfinder that draws itself on, and a caption that re-types for each photo", "tags": ["photo", "ken-burns", "transitions", "typewriter", "viewfinder", "audio"], "width": 1280, "height": 720, "duration": 12, "posterFrame": 270, "model": "sonnet" }</script>
+  <style>
+    html, body { margin: 0; background: #08090b; color: #ddd; font-family: system-ui, sans-serif; }
+    body { min-height: 100vh; display: grid; place-items: center; }
+    #stage { width: min(960px, 100%); height: auto; border-radius: 6px; display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie, kenBurns } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 12, POSTER_FRAME = 270;
+
+    // ── three photographs (public domain, see examples/_assets/LICENSES.md) ─────────────────
+    const SCENES = [
+      { asset: 'lake0', src: '../_assets/photos/lake-lookout.jpg', numeral: 'I',   title: 'Lookout', caption: 'a lake between the ridges',        motion: { motion: 'scale', zoom: 1.14, origin: [0.55, 0.62] } },
+      { asset: 'lake1', src: '../_assets/photos/lake-dusk.jpg',    numeral: 'II',  title: 'Dusk',    caption: 'a snow peak, doubled in the water', motion: { motion: 'position', from: [0.4, 0.5], to: [0.62, 0.5], zoom: 1.12 } },
+      { asset: 'lake2', src: '../_assets/photos/lake-autumn.jpg',  numeral: 'III', title: 'Autumn',  caption: 'larches turning gold on the shore', motion: { motion: 'scale', zoom: 1.16, origin: [0.5, 0.45] } },
+    ];
+    const T = 1.5, STEP = 3.5, L = STEP + T;               // 5 s per photo, each overlapping the next by the 1.5 s transition
+    const startOf = i => i * STEP;
+    const SWAP = i => startOf(i) + T / 2;                  // the middle of the transition into photo i: the text changes here
+    const WHITE = '#f5f0e6', GOLD = '#ffd9a0', DIM = 'rgba(245,240,230,0.7)';
+    const SERIF = 'Georgia, "Times New Roman", serif', MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+
+    // A text layer that is typed again for every photo: set the string, restart the count, type it.
+    const retype = (text, at, cps) => [
+      { at, set: { text } }, { at, set: { visibleChars: 0 } },
+      { at, to: { visibleChars: text.length }, duration: text.length / cps, ease: 'none' },
+    ];
+    // ...and dips out before the swap so the old line does not just vanish
+    const dipOut = at => ({ at: at - 0.3, to: { alpha: 0 }, duration: 0.3 });
+    const back = at => ({ at, set: { alpha: 1 } });
+
+    const caption = (field, style, at0, cps, y, fill) => ({
+      type: 'text', name: 'type-' + field, text: SCENES[0][field], duration: DURATION - at0, at: at0,
+      style: { ...style, fill },
+      initial: { x: 100, y, anchorX: 0, anchorY: 0.5, visibleChars: 0 },
+      keyframes: [
+        ...retype(SCENES[0][field], 0, cps),
+        ...SCENES.slice(1).flatMap((s, k) => [dipOut(SWAP(k + 1) - at0), back(SWAP(k + 1) - at0), ...retype(s[field], SWAP(k + 1) - at0, cps)]),
+      ],
+    });
+
+    const sequences = [
+      { type: 'shape', shape: 'rect', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: '#000000' } },
+      ...SCENES.map((s, i) => kenBurns({ asset: s.asset, name: 'photo' + i, at: startOf(i), duration: L, ...s.motion, ease: 'sine.inOut' })),
+
+      // the shade under the type: transparent at the top, 65 % black at the bottom
+      { type: 'shape', shape: 'rect', name: 'shade', width: W, height: H,
+        fillGradient: { type: 'linear', angle: 90, stops: [[0, 'rgba(0,0,0,0.25)'], [0.45, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.7)']] },
+        initial: { x: W / 2, y: H / 2 } },
+
+      // ── the viewfinder: four corners and a timeline, all drawn on (trimEnd 0 → 1) ──────────
+      ...['M 40 84 L 40 40 L 84 40', 'M 1196 40 L 1240 40 L 1240 84', 'M 40 636 L 40 680 L 84 680', 'M 1240 636 L 1240 680 L 1196 680'].map((d, i) => ({
+        type: 'shape', shape: 'path', name: 'corner-' + i, d, trimEnd: 0, strokeCap: 'square', strokeJoin: 'miter',
+        initial: { strokeColor: WHITE, strokeAlpha: 0.9, strokeWidth: 3 }, keyframes: [{ at: 0.5 + i * 0.12, to: { trimEnd: 1 }, duration: 0.7, ease: 'power2.out' }] })),
+      { type: 'shape', shape: 'line', name: 'timeline-track', from: [110, 40], to: [1170, 40], trimEnd: 0, strokeCap: 'round',
+        initial: { strokeColor: WHITE, strokeAlpha: 0.25, strokeWidth: 2 }, keyframes: [{ at: 0.8, to: { trimEnd: 1 }, duration: 0.8, ease: 'power2.out' }] },
+      // the playhead: the same line stroked over the whole film (linear, so it reads as a clock)
+      { type: 'shape', shape: 'line', name: 'timeline', from: [110, 40], to: [1170, 40], trimEnd: 0, strokeCap: 'round',
+        initial: { strokeColor: GOLD, strokeWidth: 3 }, at: 1.6, duration: DURATION - 1.6,
+        keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: DURATION - 1.6, ease: 'none' }] },
+
+      // ── the type: numeral and counter swap, title and caption are typed again for each photo ──
+      { type: 'text', name: 'numeral', text: 'I', at: 0.9, duration: DURATION - 0.9,
+        style: { fontSize: 104, fontStyle: 'italic', fill: GOLD, fontFamily: SERIF },
+        initial: { x: 100, y: 512, anchorX: 0, anchorY: 0.5, alpha: 0 },
+        keyframes: [
+          { at: 0, to: { alpha: 1 }, duration: 0.6 },
+          ...SCENES.slice(1).flatMap((s, k) => [{ at: SWAP(k + 1) - 0.9 - 0.3, to: { alpha: 0 }, duration: 0.3 }, { at: SWAP(k + 1) - 0.9, set: { text: s.numeral } },
+            { at: SWAP(k + 1) - 0.9, to: { alpha: 1 }, duration: 0.5 }]),
+        ] },
+      caption('title', { fontSize: 46, fontFamily: SERIF }, 1.2, 9, 598, WHITE),
+      caption('caption', { fontSize: 20, fontFamily: MONO, letterSpacing: 1 }, 1.8, 34, 646, DIM),
+      { type: 'text', name: 'counter', text: '01 / 03', at: 1.0, duration: DURATION - 1.0,
+        style: { fontSize: 18, fontFamily: MONO, fill: DIM, letterSpacing: 2 },
+        initial: { x: 1180, y: 80, anchorX: 1, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.5 },
+          ...SCENES.slice(1).map((s, k) => ({ at: SWAP(k + 1) - 1.0, set: { text: '0' + (k + 2) + ' / 03' } }))] },
+
+      // fade up from black, and down to black
+      { type: 'shape', shape: 'rect', name: 'fade', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: '#000000', alpha: 1 },
+        keyframes: [{ at: 0, to: { alpha: 0 }, duration: 1.2, ease: 'sine.out' }, { at: -1.4, to: { alpha: 1 }, duration: 1.4, ease: 'sine.in' }] },
+
+      // ── sound: music under it, a soft swoosh in the middle of each transition ────────────────
+      { type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0, duration: DURATION,
+        keyframes: [{ at: 0, to: { volume: 0.3 }, duration: 1.5 }, { at: -2, to: { volume: 0 }, duration: 2 }] },
+      ...[1, 2].map(i => ({ type: 'audio', name: 'sfx-swoosh-' + i, sfx: 'swoosh', at: startOf(i) + T / 2 - 0.16, volume: 0.22 })),
+    ];
+
+    const transitions = [
+      { kind: 'dip', from: 'photo0', to: 'photo1', at: startOf(1), duration: T },
+      { kind: 'crossfade', from: 'photo1', to: 'photo2', at: startOf(2), duration: T },
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        background: '#000000',
+        assets: [...SCENES.map(s => ({ name: s.asset, src: s.src })), { name: 'bgm', src: '../_assets/bgm.mp3' }],
+        composition: { sequences, transitions },
+      });
+      // opens at 0:00; add ?poster to the URL to park on the poster frame
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>
