@@ -226,6 +226,11 @@
     .th-box iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; opacity: 0; transition: opacity .5s ease; }
     .th-box.ready iframe { opacity: 1; }
     .th-box.ready img { visibility: hidden; transition: visibility 0s .5s; }
+    .th-play { position: absolute; inset: 0; z-index: 2; display: none; place-items: center; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; color: #fff; cursor: pointer; }
+    .th-play svg { width: 72px; height: 72px; padding: 22px 18px 22px 26px; box-sizing: border-box; border-radius: 50%; background: rgba(8, 8, 10, .62); border: 1px solid rgba(255, 255, 255, .35); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); transition: transform .25s ease, background .25s ease; }
+    .th-play:hover svg, .th-play:focus-visible svg { transform: scale(1.08); background: rgba(8, 8, 10, .8); }
+    .th-play:focus-visible { outline: 2px solid #fff; outline-offset: -6px; }
+    .th-box.armed .th-play { display: grid; }
     .th-cap { flex: none; padding: 18px 0 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 24px; align-items: start; }
     .th-cap h2 { margin: 0; font-size: 20px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.3; }
     .th-cap .sub { margin: 3px 0 0; color: var(--mute); font-size: 14px; line-height: 1.45; max-width: 70ch; }
@@ -529,38 +534,33 @@
 
     function mountPiece(p, { autoplay }) {
       clearInterval(readyTimer);
-      box.classList.remove('ready');
-      box.innerHTML = `<img src="${esc(p.poster)}" alt="" /><iframe title="${esc(p.title)} — ${esc(p.subtitle)}" allow="autoplay; fullscreen" src="${esc(p.page)}"></iframe>`;
+      box.classList.remove('ready', 'armed');
+      box.innerHTML = `<img src="${esc(p.poster)}" alt="" /><iframe title="${esc(p.title)} — ${esc(p.subtitle)}" allow="autoplay; fullscreen" src="${esc(p.page)}"></iframe>` +
+        `<button class="th-play" type="button" aria-label="Play ${esc(p.title)}"><svg viewBox="0 0 16 16" width="28" height="28" aria-hidden="true"><path d="M4 2 L13 8 L4 14 Z" fill="currentColor"/></svg></button>`;
       const iframe = $('iframe', box);
       const started = performance.now();
-      let readyAt = 0, revealed = false, nudged = false;
-      const reveal = () => { if (revealed) return; revealed = true; clearInterval(readyTimer); box.classList.add('ready'); };
-      // The poster stays up until the live piece shows the same frame (pieces seek to their poster frame right
-      // after init, which can take a moment; if one does not, we seek it there ourselves after a second).
-      // On a click we then rewind to 0 and play; on a deep link we just reveal.
+      let movie = null;
+      const reveal = () => { clearInterval(readyTimer); box.classList.remove('armed'); box.classList.add('ready'); };
+      // Every piece opens at 0:00. A click on a card (or an arrow) plays it from the start at once; a deep link or a
+      // reload keeps the poster up with a play button, because a browser would not let the sound start without a click.
+      const start = () => {
+        if (!movie || current !== p) return reveal();
+        Promise.resolve(typeof movie.gotoFrame === 'function' ? movie.gotoFrame(0, true) : null)
+          .then(() => { if (current === p) movie.play(); })
+          .catch(() => { /* the player bar still works */ })
+          .finally(() => { if (current === p) reveal(); });
+      };
+      $('.th-play', box).addEventListener('click', start);
       readyTimer = setInterval(() => {
         let win = null;
         try { win = iframe.contentWindow; } catch { /* cross-origin: never on this site */ }
-        const now = performance.now();
-        if (!win || win.__ready !== true) { if (now - started > 20000) reveal(); return; }
-        if (!readyAt) { readyAt = now; try { win.addEventListener('keydown', onKey); } catch { /* ignore */ } }
-        const m = win.movie;
-        const frame = m && typeof m.currentFrame === 'number' ? m.currentFrame : null;
-        const settled = frame === null || Math.abs(frame - p.posterFrame) <= 1 || (m && m.isPlaying) || now - readyAt > 3000;
-        if (!settled) {
-          if (!nudged && now - readyAt > 1200 && typeof m.gotoFrame === 'function') {
-            nudged = true;
-            Promise.resolve(m.gotoFrame(p.posterFrame, true)).catch(() => { /* fall through to the grace period */ });
-          }
-          return;
-        }
+        if (!win || win.__ready !== true) { if (performance.now() - started > 20000) reveal(); return; }
         clearInterval(readyTimer);
-        if (autoplay && !reduceMotion && m && typeof m.play === 'function') {
-          Promise.resolve(typeof m.gotoFrame === 'function' ? m.gotoFrame(0, true) : null)
-            .then(() => { if (current === p) m.play(); })
-            .catch(() => { /* the player bar still works */ })
-            .finally(() => { if (current === p) reveal(); });
-        } else reveal();
+        try { win.addEventListener('keydown', onKey); } catch { /* ignore */ }
+        movie = win.movie && typeof win.movie.play === 'function' ? win.movie : null;
+        if (!movie) return reveal();
+        if (autoplay && !reduceMotion) start();
+        else box.classList.add('armed');
       }, 80);
     }
 
@@ -602,7 +602,7 @@
     function closeTheatre({ viaHistory = false } = {}) {
       clearInterval(readyTimer);
       box.innerHTML = '';                      // drop the iframe so audio stops
-      box.classList.remove('ready');
+      box.classList.remove('ready', 'armed');
       current = null;
       if (dialog.open) dialog.close();
       document.documentElement.classList.remove('theatre-open');
