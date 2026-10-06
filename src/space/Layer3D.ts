@@ -1,7 +1,7 @@
 import { Container, Matrix, PerspectiveMesh, RenderTexture, Texture } from 'pixi.js';
 import type { Sequence } from '../sequences/Base';
 import { describeLayer } from '../core/lint';
-import { DEG, projectLayer, type CameraBasis, type LayerTransform, type Rect } from './math';
+import { DEG, NEAR, projectLayer, type CameraBasis, type LayerTransform, type Rect } from './math';
 
 /** Render textures are capped at this many pixels on the long side; larger layers are downscaled. */
 export const MAX_TEXTURE_SIZE = 4096;
@@ -112,10 +112,19 @@ export class Layer3D {
     if (!projected.visible) {
       if (!this.warnedBehind) {
         this.warnedBehind = true;
-        console.warn(
-          `pixi-effects: ${describeLayer(this.seq.spec)} is at or behind the camera plane (z = ${(target.z ?? 0).toFixed(0)}) and is hidden. ` +
-          `If that is unintended, lower its z or move the camera back (the default camera sits at z = (height/2)/tan(fov/2), about 989 for 720p at fov 40).`,
-        );
+        if (projected.depth > NEAR) {
+          // the layer's own origin is in front of the camera: a tilt or a large size swings a CORNER past the camera plane
+          console.warn(
+            `pixi-effects: ${describeLayer(this.seq.spec)}: part of it (a corner) reaches the camera plane (z = ${(target.z ?? 0).toFixed(0)}, rotationX ${(target.rotationX ?? 0).toFixed(0)}°, rotationY ${(target.rotationY ?? 0).toFixed(0)}°), ` +
+            `and a layer is hidden whole when any corner is at or behind it. Tilt it less (rotationX / rotationY), make it smaller, or keep the camera further away from it ` +
+            `(the default camera sits at z = (height/2)/tan(fov/2), about 989 for 720p at fov 40).`,
+          );
+        } else {
+          console.warn(
+            `pixi-effects: ${describeLayer(this.seq.spec)} is at or behind the camera plane (z = ${(target.z ?? 0).toFixed(0)}) and is hidden. ` +
+            `If that is unintended, lower its z or move the camera back (the default camera sits at z = (height/2)/tan(fov/2), about 989 for 720p at fov 40).`,
+          );
+        }
       }
       return this.hide();
     }

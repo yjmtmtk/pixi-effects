@@ -128,6 +128,20 @@ describe('Layer3D', () => {
     expect(msg).toMatch(/behind the camera/);
   });
 
+  it('a big layer tilted so that only a CORNER passes the camera plane warns about the corner, not about z', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { target, layer, render, host } = setup({ x: -200, y: -2000, width: 400, height: 4000 });
+    (target as unknown as { rotationX: number }).rotationX = 80;              // the far corner swings behind the camera (z ≈ 1970 > 989)
+    layer.update(host, basis());
+    expect(render).not.toHaveBeenCalled();                                     // the whole layer is hidden for the frame
+    expect(warn).toHaveBeenCalledTimes(1);
+    const msg = String(warn.mock.calls[0]![0]);
+    expect(msg).toContain('layer "card"');
+    expect(msg).toMatch(/part of it|a corner/);
+    expect(msg).toMatch(/tilt|rotation/i);
+    expect(msg).not.toMatch(/is at or behind the camera plane/);              // z is 0 here: blaming z would send the author the wrong way
+  });
+
   it('REVIEW: empty or non-finite bounds hide the layer instead of creating a 0x0 texture', () => {
     const create = vi.spyOn(RenderTexture, 'create');
     for (const frame of [
