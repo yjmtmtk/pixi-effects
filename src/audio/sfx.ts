@@ -126,7 +126,7 @@ function resolveVoice(raw: unknown, where: string, warn: Warn): Voice | null {
  * Check an author's `sfx` value and the layer's `duration`, warn about anything that will not do what
  * they meant, and return the sound to render — or null (the layer stays silent) when nothing usable is left.
  */
-export function resolveSfx(sfx: unknown, duration: number | undefined, who: string, warn: Warn = defaultWarn): ResolvedSfx | null {
+export function resolveSfx(sfx: unknown, duration: unknown, who: string, warn: Warn = defaultWarn): ResolvedSfx | null {
   const opts = (typeof sfx === 'string' ? { preset: sfx } : sfx) as Record<string, unknown> | null;
   if (!opts || typeof opts !== 'object' || Array.isArray(opts)) {
     warn(`pixi-effects: ${who}: sfx must be a preset name, { preset, pitch, brightness, seed } or { voices: [...] } (got ${JSON.stringify(sfx)}). The layer is silent.`);
@@ -178,7 +178,12 @@ export function resolveSfx(sfx: unknown, duration: number | undefined, who: stri
   const seed = Number.isFinite(rawSeed) ? Math.trunc(rawSeed) : 0;
 
   const natural = preset ? PRESETS[preset].length : CUSTOM_LENGTH;
-  let length = duration ?? natural;
+  let given: number | undefined;
+  if (duration !== undefined) {
+    if (typeof duration === 'number' && Number.isFinite(duration)) given = duration;
+    else warn(`pixi-effects: ${who}: duration must be a number of seconds (got ${JSON.stringify(duration)}); using the sound's own length, ${natural}s`);
+  }
+  let length = given ?? natural;
   if (!(length >= MIN_LENGTH && length <= MAX_LENGTH)) {
     const clamped = Number.isFinite(length) ? clamp(length, MIN_LENGTH, MAX_LENGTH) : natural;
     warn(`pixi-effects: ${who}: an sfx lasts ${MIN_LENGTH}–${MAX_LENGTH}s (got duration ${length}); using ${clamped}`);

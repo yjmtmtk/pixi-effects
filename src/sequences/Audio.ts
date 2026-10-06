@@ -49,6 +49,8 @@ export class AudioSequence extends Sequence {
     (spec.keyframes ?? []).forEach((kf, i) => {
       if ((kf.at ?? 0) >= sfx.length) {
         console.warn(`pixi-effects: ${who}: keyframes[${i}] starts at ${kf.at}s, after the sound ends (${sfx.length}s), so it never plays`);
+      } else if ((kf.at ?? 0) < 0 && sfx.length + (kf.at ?? 0) < 0) {
+        console.warn(`pixi-effects: ${who}: keyframes[${i}] starts ${-(kf.at as number)}s before the END of a ${sfx.length}s sound, which is before the sound begins (a negative \`at\` counts back from the end of the layer). Use a shorter \`at\`, or stretch the sound with \`duration\`.`);
       }
     });
   }

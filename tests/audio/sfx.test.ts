@@ -180,6 +180,17 @@ describe('resolveSfx', () => {
     expect(resolveSfx({ voices: [] }, undefined, 'layer "b"', warn)).toBeNull();
   });
 
+  it('a duration that is not a number (a string, NaN, 0, negative) falls back to the preset length with a warning', () => {
+    const warn = vi.fn();
+    for (const bad of ['0.3', Number.NaN, 0, -1, null, {}]) {
+      const r = resolveSfx('pop', bad as never, 'layer "a"', warn)!;
+      expect(typeof r.length).toBe('number');
+      expect(Number.isFinite(r.length)).toBe(true);
+    }
+    expect(resolveSfx('pop', '0.3' as never, 'layer "a"', warn)!.length).toBe(sfxDefaultLength('pop'));
+    expect(warn.mock.calls.some(c => /duration/.test(String(c[0])))).toBe(true);
+  });
+
   it('sfxKey is equal exactly when the sounds are equal', () => {
     expect(sfxKey(S('pop'))).toBe(sfxKey(S('pop')));
     expect(sfxKey(S('pop'))).not.toBe(sfxKey(S('pop', { seed: 1 })));

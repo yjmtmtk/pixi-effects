@@ -62,3 +62,27 @@ describe('limitMix', () => {
     expect(msg).toContain('Lower their volume');
   });
 });
+
+describe('mixdown — a time before the movie starts (a negative `at`, or an end-relative keyframe on a short sound)', () => {
+  const ramp = (key: string, seconds: number): AudioDescriptor['synth'] =>
+    ({ key, render: (sr: number) => { const n = Math.round(sr * seconds); const ch = () => Float32Array.from({ length: n }, (_, i) => (i + 1) / n); return [ch(), ch()]; } });
+
+  it('a sound that starts at −0.1 s is mixed from 0, with its first 0.1 s cut off (no throw)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const out = (await mixdown([synthAt(ramp('r', 0.5), -0.1, 0.4, 'layer "early"')], 1, SR))!;
+    const d = out.getChannelData(0);
+    expect(d[0]).toBeCloseTo((0.1 * SR + 1) / (0.5 * SR), 3);        // what the sound has 0.1 s in
+    expect(d[Math.round(0.3 * SR)]).toBeCloseTo((0.4 * SR + 1) / (0.5 * SR), 2);
+    expect(d[Math.round(0.45 * SR)]).toBe(0);                          // it ends where it said it would
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]![0])).toContain('layer "early"');
+    expect(String(warn.mock.calls[0]![0])).toMatch(/starts at -0\.10s, before the movie.*first 0\.10s/);
+  });
+
+  it('volume points before 0 are clamped to 0 instead of throwing', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const a: AudioDescriptor = { ...synthAt(constant('k', 0.5, 1), 0, 1), volumeKeyframes: [{ time: -0.5, value: 1 }, { time: 0.5, value: 0 }] };
+    const out = (await mixdown([a], 1, SR))!;
+    expect(out.getChannelData(0)[10]).toBeGreaterThan(0.4);
+  });
+});

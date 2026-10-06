@@ -297,7 +297,7 @@ return [
 ];
 ```
 
-Check it without listening, then export — the file contains exactly this mix (mp4 / mov: AAC, webm / mkv: Opus):
+Check it without listening, then export — the file encodes this same mix (mp4 / mov: AAC, webm / mkv: Opus; lossy):
 
 ```js
 // @docs-only render-and-verify

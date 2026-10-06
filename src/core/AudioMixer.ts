@@ -26,17 +26,28 @@ export async function mixdown(
   for (const a of audios) {
     const buffer = bufferOf(a);
     if (!buffer) continue;
+    // Web Audio throws on a negative time. A sound that starts before the movie (a negative `at`, e.g.
+    // `at = hit - duration` near 0) is mixed from 0 with its first seconds cut off, and its volume points
+    // are clamped to 0.
+    const begin = Math.max(0, a.start);
+    const skipped = begin - a.start;
+    if (skipped > 0) {
+      console.warn(
+        `pixi-effects: ${a.layer ?? 'an audio layer'} starts at ${a.start.toFixed(2)}s, before the movie starts, so its first ${skipped.toFixed(2)}s are cut off. ` +
+        `Start it at 0 or later.`,
+      );
+    }
     const src = ctx.createBufferSource();
     src.buffer = buffer;
     src.loop = !!a.loop;
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(a.initialVolume ?? 1, a.start);
+    gain.gain.setValueAtTime(a.initialVolume ?? 1, begin);
     for (const kf of a.volumeKeyframes ?? []) {
-      gain.gain.linearRampToValueAtTime(kf.value, kf.time);
+      gain.gain.linearRampToValueAtTime(kf.value, Math.max(0, kf.time));
     }
     src.connect(gain).connect(ctx.destination);
-    src.start(a.start);
-    src.stop(a.end);
+    src.start(begin, skipped);
+    src.stop(Math.max(begin, a.end));
   }
   return await ctx.startRendering();
 }

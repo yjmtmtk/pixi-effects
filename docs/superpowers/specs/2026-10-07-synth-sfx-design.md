@@ -112,7 +112,7 @@ Why it is shaped this way, for an AI author:
 | `chime` | 1.4 s | start | ≈ 1.4 kHz | success, reveal | new |
 | `beep` | 0.16 s | flat | ≈ 1.0 kHz | countdown, alert | new |
 | `coin` | 0.4 s | 0.07 s | ≈ 1.9 kHz | reward, collect | new |
-| `glitch` | 0.35 s | start | ≈ 4.0 kHz | digital error | new |
+| `glitch` | 0.35 s | 0.22 s | ≈ 4.0 kHz | digital error | new |
 | `typewriter` | 0.06 s | start | ≈ 3.3 kHz | one key; vary `seed` | new |
 
 The DSL reference carries this table; a docs test fails if a name, a length or a documented brightness (±25 %) drifts from the code.

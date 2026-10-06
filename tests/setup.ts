@@ -11,6 +11,11 @@ interface ParamEvent {
   time: number;
 }
 
+/** The real API throws a RangeError for a negative or non-finite time; so does the mock. */
+function checkTime(what: string, t: number): void {
+  if (!Number.isFinite(t) || t < 0) throw new RangeError(`${what}: time must be a finite non-negative number, got ${t}`);
+}
+
 class MockAudioParam {
   _events: ParamEvent[] = [];
   _default: number;
@@ -22,10 +27,12 @@ class MockAudioParam {
   }
 
   setValueAtTime(value: number, time: number): this {
+    checkTime('setValueAtTime', time);
     this._events.push({ type: 'set', value, time });
     return this;
   }
   linearRampToValueAtTime(value: number, time: number): this {
+    checkTime('linearRampToValueAtTime', time);
     this._events.push({ type: 'ramp', value, time });
     return this;
   }
@@ -76,11 +83,12 @@ class MockBufferSourceNode {
   loop = false;
   _gainNode: MockGainNode | null = null;
   _startTime = 0;
+  _offset = 0;
   _stopTime = Infinity;
   constructor(ctx: MockOfflineAudioContext) { this._ctx = ctx; }
   connect(node: MockGainNode) { this._gainNode = node; return node; }
-  start(when = 0) { this._startTime = when; }
-  stop(when = Infinity) { this._stopTime = when; }
+  start(when = 0, offset = 0) { checkTime('start', when); checkTime('start offset', offset); this._startTime = when; this._offset = offset; }
+  stop(when = Infinity) { if (when !== Infinity) checkTime('stop', when); this._stopTime = when; }
 }
 
 class MockGainNode {
@@ -122,6 +130,7 @@ class MockOfflineAudioContext {
       const gain = src._gainNode;
       if (!gain) continue;
       const startSample = Math.round(src._startTime * this.sampleRate);
+      const offsetSamples = Math.round(src._offset * this.sampleRate);
       const stopSample = isFinite(src._stopTime)
         ? Math.round(src._stopTime * this.sampleRate)
         : this.length;
@@ -132,7 +141,7 @@ class MockOfflineAudioContext {
         for (let s = startSample; s < Math.min(stopSample, this.length); s++) {
           const t = s / this.sampleRate;
           const g = gain.gain._valueAt(t);
-          const srcIdx = src.loop ? (s - startSample) % buf.length : s - startSample;
+          const srcIdx = src.loop ? (s - startSample + offsetSamples) % buf.length : s - startSample + offsetSamples;
           const sample = srcIdx < buf.length ? inData[srcIdx]! : 0;
           outData[s] += sample * g;
         }

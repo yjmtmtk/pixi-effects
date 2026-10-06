@@ -83,3 +83,21 @@ describe('audio layer with sfx', () => {
     expect(audios.map(a => a.layer)).toEqual(['layer "a"', 'layer "b"', 'layer "d"']);   // "c" is silent
   });
 });
+
+describe('audio layer with sfx — keyframes that land outside the sound', () => {
+  it('an end-relative keyframe longer than the sound (the cheatsheet fade on a 1 s riser) warns and cannot crash the mix', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const audios = await build([{ type: 'audio', name: 'fade', sfx: 'riser', at: 0.5, keyframes: [{ at: -2, to: { volume: 0 }, duration: 2 }] }]);
+    expect(warn.mock.calls.map(c => String(c[0])).some(m => m.includes('layer "fade"') && m.includes('before the sound begins'))).toBe(true);
+    const out = await mixdown(audios, 3, 8000);          // must not throw (the strict mock rejects negative times like a browser)
+    expect(out).not.toBeNull();
+  });
+
+  it('a negative `at` mixes without throwing and warns', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const audios = await build([{ type: 'audio', name: 'early', sfx: 'pop', at: -0.06 }]);
+    const out = await mixdown(audios, 3, 8000);
+    expect(out).not.toBeNull();
+    expect(warn.mock.calls.map(c => String(c[0])).some(m => m.includes('layer "early"') && m.includes('before the movie'))).toBe(true);
+  });
+});
