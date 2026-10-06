@@ -69,8 +69,10 @@ export function inspectScene(
   const seen = new Map<LayerInfo, Rect | null>();
   // Scenes that a running transition is blending: they overlap and move off the canvas by design.
   const scene = new Map<LayerInfo, string>();
+  // Layers whose own or an ancestor's scale is 0: no size is expected (a pop-in starting from nothing).
+  const scaledToNothing = new Set<LayerInfo>();
 
-  const walk = (comp: CompositionSequence, prefix: string, insideThreeD: boolean, parentVisible: boolean, parentScene?: string): void => {
+  const walk = (comp: CompositionSequence, prefix: string, insideThreeD: boolean, parentVisible: boolean, parentScene?: string, parentMoving = false, parentZero = false): void => {
     const blending = new Set<string>();
     for (const w of transitionWindowsOf(comp.spec)) {
       const start = (comp.absoluteStart ?? 0) + w.start, end = (comp.absoluteStart ?? 0) + w.end;
@@ -96,7 +98,10 @@ export function inspectScene(
         if (area === 0) onCanvas = 'none';
       }
       const keys = collectPropKeys(seq.spec);
-      const moving = (seq.spec.keyframes ?? []).length > 0 && (keys.has('x') || keys.has('y'));
+      // moved by its own keyframes, or carried along by a parent that is (a panned timeline)
+      const moving = parentMoving || ((seq.spec.keyframes ?? []).length > 0 && (keys.has('x') || keys.has('y')));
+      const scale = (t as unknown as { scale?: { x: number; y: number } } | null)?.scale;
+      const zero = parentZero || (!!scale && (scale.x === 0 || scale.y === 0));
       const info: LayerInfo = { path: prefix + label, name, type: seq.spec.type, threeD, visible, alpha, moving, bounds, onCanvas };
       layers.push(info);
       let shown = bounds ? clip(bounds, view) : null;
@@ -108,7 +113,8 @@ export function inspectScene(
       seen.set(info, shown);
       const group = parentScene ?? (name !== undefined && blending.has(name) ? name : undefined);
       if (group) scene.set(info, group);
-      if (seq instanceof CompositionSequence) walk(seq, prefix + label + '/', insideThreeD || threeD, visible, group);
+      if (zero) scaledToNothing.add(info);
+      if (seq instanceof CompositionSequence) walk(seq, prefix + label + '/', insideThreeD || threeD, visible, group, moving, zero);
     });
   };
   walk(root, '', false, true);
@@ -120,6 +126,7 @@ export function inspectScene(
     const b = l.bounds!;
     const who = `text layer "${l.path}"`;
     if (b.width < 1 || b.height < 1) {
+      if (scaledToNothing.has(l)) continue;
       issues.push(`${who} has no size (empty text, or not drawn yet)`);
     } else if (l.moving || scene.has(l)) {
       // on purpose crossing the canvas edge (marquee, slide-in, a slide / zoom transition): not a layout problem

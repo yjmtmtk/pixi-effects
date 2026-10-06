@@ -208,3 +208,37 @@ describe('inspectScene during a transition', () => {
     expect(transitionWindowsOf({})).toEqual([]);
   });
 });
+
+describe('inspectScene — scaled to nothing, and moved by a parent', () => {
+  const emptyBounds = (seq: { target: unknown }) => {
+    (seq.target as { getBounds: () => unknown }).getBounds = () => ({ x: 640, y: 360, width: 0, height: 0 });
+  };
+
+  it('text scaled to 0 on purpose (a pop-in starting from nothing) is not reported as "no size"', async () => {
+    const comp = await scene([
+      { type: 'text', name: 'pop', text: 'a', initial: { x: 640, y: 360, scale: 0 } },
+      { type: 'text', name: 'empty', text: 'b', initial: { x: 100, y: 100 } },
+    ]);
+    const [pop, empty] = comp.layers();
+    (pop!.seq.target as { scale: { x: number; y: number } }).scale = { x: 0, y: 0 };
+    emptyBounds(pop!.seq);
+    emptyBounds(empty!.seq);                                   // zero size WITHOUT a zero scale: a real problem
+    const r = inspectScene(comp, 0, 0, { width: 1280, height: 720 });
+    expect(r.issues.some(i => i.includes('"pop"') && /no size/.test(i))).toBe(false);
+    expect(r.issues.some(i => i.includes('"empty"') && /no size/.test(i))).toBe(true);
+  });
+
+  it('text inside a composition that is moved by keyframes counts as moving (a panned timeline is not "cut off")', async () => {
+    const comp = await scene([
+      { type: 'composition', name: 'timeline', width: 4000, height: 720,
+        keyframes: [{ at: 0, to: { x: -2000 }, duration: 5 }],
+        sequences: [{ type: 'text', name: 'far', text: 'x', initial: { x: 3000, y: 100 } }] },
+      { type: 'text', name: 'still', text: 'y', initial: { x: 3000, y: 300 } },        // static and off canvas: a real problem
+    ]);
+    const r = inspectScene(comp, 0, 0, { width: 1280, height: 720 });
+    expect(r.layers.find(l => l.path === 'timeline/far')!.moving).toBe(true);
+    expect(r.issues.some(i => i.includes('timeline/far'))).toBe(false);
+    expect(r.issues.some(i => i.includes('"still"'))).toBe(true);
+  });
+});
+
