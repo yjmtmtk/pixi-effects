@@ -1,6 +1,6 @@
 # pixi-effects
 
-> **Status**: experimental — current release `0.2.0`. The API may still change between minor versions.
+> **Status**: experimental — current release `0.3.0`. The API may still change between minor versions (see [CHANGELOG](./CHANGELOG.md): `0.3.0` changed keyframe `at` to be relative to the layer).
 
 **[Live demos →](https://yjmtmtk.github.io/pixi-effects/)** · 12 numbered examples + an in-browser playground.
 
@@ -35,8 +35,8 @@ Drop the imports into an [importmap](https://developer.mozilla.org/docs/Web/HTML
     "gsap":                    "https://esm.sh/gsap@3.12.5",
     "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
     "mediabunny":              "https://esm.sh/mediabunny",
-    "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@0.2.0/dist/index.js",
-    "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.2.0/dist/Controller.js"
+    "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@0.3.0/dist/index.js",
+    "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.3.0/dist/Controller.js"
   }
 }
 </script>
@@ -47,7 +47,7 @@ Drop the imports into an [importmap](https://developer.mozilla.org/docs/Web/HTML
 </script>
 ```
 
-Load the `dist/` files **as they are** (jsDelivr's `/npm/…/dist/…`, or unpkg's `https://unpkg.com/pixi-effects@0.2.0/dist/index.js`) rather than a CDN-rebundled build such as `esm.sh/pixi-effects` or jsDelivr's `+esm`: the entries (`pixi-effects`, `…/controller`, `…/three`) share internal chunks, which only works when each file is served untouched.
+Load the `dist/` files **as they are** (jsDelivr's `/npm/…/dist/…`, or unpkg's `https://unpkg.com/pixi-effects@0.3.0/dist/index.js`) rather than a CDN-rebundled build such as `esm.sh/pixi-effects` or jsDelivr's `+esm`: the entries (`pixi-effects`, `…/controller`, `…/three`) share internal chunks, which only works when each file is served untouched.
 
 > **Using three.js?** Add two more entries (`three` and `pixi-effects/three`) to this importmap — see [Adding three.js](#adding-threejs-optional) below.
 >
@@ -63,7 +63,7 @@ Add two more entries to the importmap above: three.js itself, and the `pixi-effe
   "imports": {
     "...":                     "(everything from the importmap above)",
     "three":                   "https://esm.sh/three@0.178.0",
-    "pixi-effects/three":      "https://cdn.jsdelivr.net/npm/pixi-effects@0.2.0/dist/three.js"
+    "pixi-effects/three":      "https://cdn.jsdelivr.net/npm/pixi-effects@0.3.0/dist/three.js"
   }
 }
 </script>
@@ -151,6 +151,16 @@ sequences: [
 ```
 
 `+z` is toward the viewer, rotations are degrees (CSS signs), and with `z = 0` and the default camera a `threeD` layer looks identical to a 2D one. See [DSL reference § 3D layers & camera](./docs/dsl.md#3d-layers--camera) and [`examples/11-depth.html`](./examples/11-depth.html).
+
+## For AI agents
+
+This library is designed to be written by AI: a video is plain data, and every mistake we found while having AI sessions build test animations is either warned about at runtime or written down.
+
+- [`llms.txt`](./llms.txt) / [`llms-full.txt`](./llms-full.txt) — index and full text for LLM tooling (generated from the files below).
+- [`ai/SKILL.md`](./ai/SKILL.md) — a [skill](https://docs.claude.com/en/docs/claude-code/skills) (workflow, rules, verification loop). Copy the `ai/` folder to `~/.claude/skills/pixi-effects/` (or your project's `.claude/skills/`) to have Claude load it automatically when you ask for a video.
+- [`ai/reference/cheatsheet.md`](./ai/reference/cheatsheet.md), [`recipes.md`](./ai/reference/recipes.md) (tested), [`pitfalls.md`](./ai/reference/pitfalls.md), and a starter [`ai/template.html`](./ai/template.html).
+
+They ship in the npm package (`node_modules/pixi-effects/ai/`).
 
 ## Documentation
 

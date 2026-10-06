@@ -1,6 +1,6 @@
 {
   "name": "pixi-effects",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Declarative composition and video rendering for the web. Built on PixiJS v8.",
   "type": "module",
   "exports": {
@@ -20,7 +20,7 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": ["dist", "ai", "docs/dsl.md", "docs/api.md", "llms.txt", "llms-full.txt", "CHANGELOG.md", "README.md", "LICENSE"],
   "keywords": [
     "pixi", "pixijs", "video", "composition", "compositing", "rendering",
     "after-effects", "motion-graphics", "timeline", "webgl", "gsap", "keyframe", "typescript",
@@ -38,7 +38,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+    "build:ai": "node scripts/build-llms.mjs",
+    "prepublishOnly": "npm run build:ai && npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
     "mediabunny": "^1.61.3"

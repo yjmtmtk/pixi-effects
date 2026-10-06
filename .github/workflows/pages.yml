@@ -28,7 +28,9 @@ jobs:
       - name: Stage Pages artifact
         run: |
           mkdir -p _site
-          cp -r dist examples _site/
+          cp -r dist examples ai _site/
+          mkdir -p _site/docs && cp docs/dsl.md docs/api.md _site/docs/
+          cp llms.txt llms-full.txt _site/
           cat > _site/index.html <<'EOF'
           <!DOCTYPE html>
           <html lang="en">

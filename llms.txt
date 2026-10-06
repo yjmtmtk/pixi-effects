@@ -1,0 +1,30 @@
+# pixi-effects
+
+> Declarative motion graphics and video for the web. Describe a video as plain objects (text, shapes, images, video, audio, nested compositions, a 2.5D camera, optional three.js), play it in a canvas, export MP4 / WebM / MOV. Built on PixiJS v8, GSAP and mediabunny. Written to be authored by AI: no per-frame code.
+
+Rules that cause most failures (details in the skill and pitfalls):
+
+- Keyframe `at` is measured from the start of its own layer (negative = back from the layer's end). A layer's `at` and a transition's `at` are composition time.
+- Layers are hidden, not removed, after their lifespan; z-order is array order (later = on top).
+- Angles are degrees; +z is toward the viewer; any number can be an expression such as 'GW/2 - w/2'.
+- Anchors: rect/circle/ellipse are centred, text and image are top-left, compositions use pivotX/pivotY.
+- Verify by looking: seek with `await movie.gotoFrame(n, true)`, check at least 5 timestamps, and read `window.__logs` (library warnings are instructions).
+
+## Start here
+
+- [Skill: workflow and rules](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/SKILL.md): how to build, check and export a video; read first
+- [Cheatsheet](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/reference/cheatsheet.md): every layer type, prop, default and convention on one page
+- [Recipes](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/reference/recipes.md): tested building blocks (kinetic type, lower-third, count-up, bar chart, 2.5D title, camera orbit, slideshow with transitions, three.js)
+- [Pitfalls](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/reference/pitfalls.md): real mistakes made by AI authors, with fixes
+- [Starter template](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/template.html): copy this file to begin
+
+## Reference
+
+- [DSL reference](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/docs/dsl.md): composition, sequences, 3D layers and camera, keyframes, expressions, filters, transitions, presets
+- [API reference](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/docs/api.md): Movie, Controller, events, render options, pixi-effects/three
+- [README](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/README.md): install, CDN import map, quickstart
+
+## Optional
+
+- [Everything above in one file](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/llms-full.txt)
+- [Live demos and playground](https://yjmtmtk.github.io/pixi-effects/)
