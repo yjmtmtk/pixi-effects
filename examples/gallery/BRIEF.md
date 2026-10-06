@@ -25,7 +25,7 @@ You are also a usability tester: record honestly everything that made you retry 
    `<script type="application/json" id="piece-meta">{ "title": "...", "subtitle": "one line", "tags": ["..."], "width": 1280, "height": 720, "duration": 10, "posterFrame": 120, "model": "<your model name>" }</script>`
    (`width`/`height`/`duration` must match what you pass to `movie.init`).
 5. Self-contained: no network except the importmap CDNs. No external images/fonts/video. Generate any imagery procedurally (shapes, gradients,
-   canvas-drawn data-URL images). Sound effects are synthesised presets, no files: `{ type: 'audio', sfx: 'swoosh', at }` (see ai/reference/cheatsheet.md); music only from `examples/_assets/bgm.mp3` (6 s — loop it). Fonts: system stacks only
+   canvas-drawn data-URL images). Sound effects are synthesised presets, no files: `{ type: 'audio', sfx: 'swoosh', at }` (see ai/reference/cheatsheet.md); music only from `examples/_assets/bgm.mp3` (16 s loop, CC0 — loop it). Fonts: system stacks only
    (`system-ui`, `ui-monospace`, `Georgia`, `Arial Black`...). Japanese text is fine where it fits the concept (system CJK fonts).
 6. Duration 8–14 s, 30 fps. Pick the canvas size your brief says.
 
