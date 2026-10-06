@@ -200,7 +200,7 @@ describe('expandTransitions — crossfade', () => {
       transitions: [{ kind: 'crossfade', from: 'A', to: 'B', at: 4, duration: 1 }],
     }));
     expect(findSeqInitial(out, 'B').alpha).toBe(0);
-    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 4, to: { alpha: 1 }, duration: 1, ease: 'none' });
+    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 0, to: { alpha: 1 }, duration: 1, ease: 'none' });
   });
 
   it('honors the `ease` field on both keyframes', () => {
@@ -239,8 +239,8 @@ describe('expandTransitions — crossfade', () => {
         { kind: 'crossfade', from: 'B', to: 'C', at: 6, duration: 1 },
       ],
     }));
-    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 3, to: { alpha: 1 }, duration: 1, ease: 'none' });
-    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 6, to: { alpha: 0 }, duration: 1, ease: 'none' });
+    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 0, to: { alpha: 1 }, duration: 1, ease: 'none' });
+    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 3, to: { alpha: 0 }, duration: 1, ease: 'none' });
     expect(findSeqInitial(out, 'B').alpha).toBe(0);
   });
 
@@ -277,7 +277,7 @@ describe('expandTransitions — wipe', () => {
     }));
     const kfs = findSeqKfs(out, 'B');
     expect(kfs).toContainEqual({
-      at: 4,
+      at: 0,
       to: { 'filters._pe-transition-0.uProgress': 1 },
       duration: 1,
       ease: 'sine.in',
@@ -363,7 +363,7 @@ describe('expandTransitions — iris', () => {
     }));
     const kfs = findSeqKfs(out, 'B');
     expect(kfs).toContainEqual({
-      at: 4,
+      at: 0,
       to: { 'filters._pe-transition-0.uProgress': 1 },
       duration: 1,
       ease: 'power2.out',
@@ -378,7 +378,7 @@ describe('expandTransitions — slide', () => {
     }));
     expect(findSeqKfs(out, 'A')).toContainEqual({ at: 4, to: { x: '-W' }, duration: 1, ease: 'none' });
     expect(findSeqInitial(out, 'B').x).toBe('W');
-    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 4, to: { x: 0 }, duration: 1, ease: 'none' });
+    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 0, to: { x: 0 }, duration: 1, ease: 'none' });
   });
 
   it('right: A.x → W and B.x: -W → 0', () => {
@@ -387,7 +387,7 @@ describe('expandTransitions — slide', () => {
     }));
     expect(findSeqKfs(out, 'A')).toContainEqual({ at: 4, to: { x: 'W' }, duration: 1, ease: 'none' });
     expect(findSeqInitial(out, 'B').x).toBe('-W');
-    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 4, to: { x: 0 }, duration: 1, ease: 'none' });
+    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 0, to: { x: 0 }, duration: 1, ease: 'none' });
   });
 
   it('up: A.y → -H and B.y: H → 0', () => {
@@ -396,7 +396,7 @@ describe('expandTransitions — slide', () => {
     }));
     expect(findSeqKfs(out, 'A')).toContainEqual({ at: 4, to: { y: '-H' }, duration: 1, ease: 'none' });
     expect(findSeqInitial(out, 'B').y).toBe('H');
-    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 4, to: { y: 0 }, duration: 1, ease: 'none' });
+    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 0, to: { y: 0 }, duration: 1, ease: 'none' });
   });
 
   it('down: A.y → H and B.y: -H → 0', () => {
@@ -405,7 +405,7 @@ describe('expandTransitions — slide', () => {
     }));
     expect(findSeqKfs(out, 'A')).toContainEqual({ at: 4, to: { y: 'H' }, duration: 1, ease: 'none' });
     expect(findSeqInitial(out, 'B').y).toBe('-H');
-    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 4, to: { y: 0 }, duration: 1, ease: 'none' });
+    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 0, to: { y: 0 }, duration: 1, ease: 'none' });
   });
 
   it('honors ease', () => {
@@ -428,7 +428,7 @@ describe('expandTransitions — slide', () => {
     });
     expect(findSeqKfs(out, 'A')).toContainEqual({ at: 4, to: { x: '(GW/2) - W' }, duration: 1, ease: 'none' });
     expect(findSeqInitial(out, 'B').x).toBe('(GW/2) + W');
-    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 4, to: { x: 'GW/2' }, duration: 1, ease: 'none' });
+    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 0, to: { x: 'GW/2' }, duration: 1, ease: 'none' });
   });
 
   it('preserves a numeric natural position', () => {
@@ -439,7 +439,7 @@ describe('expandTransitions — slide', () => {
       transitions: [{ kind: 'slide', from: 'A', to: 'B', at: 4, duration: 1, direction: 'right' }],
     });
     expect(findSeqInitial(out, 'B').x).toBe('200 - W');
-    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 4, to: { x: 200 }, duration: 1, ease: 'none' });
+    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 0, to: { x: 200 }, duration: 1, ease: 'none' });
   });
 });
 
@@ -452,7 +452,7 @@ describe('expandTransitions — dip', () => {
     expect(findSeqKfs(out, 'A')).toContainEqual({ at: 4, to: { alpha: 0 }, duration: 0.5, ease: 'sine.inOut' });
     // B: starts invisible, fades in over the second half [4.5, 5]
     expect(findSeqInitial(out, 'B').alpha).toBe(0);
-    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 4.5, to: { alpha: 1 }, duration: 0.5, ease: 'sine.inOut' });
+    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 0.5, to: { alpha: 1 }, duration: 0.5, ease: 'sine.inOut' });
   });
 
   it('throws if `to` already has a non-zero initial.alpha', () => {
@@ -474,7 +474,7 @@ describe('expandTransitions — zoom', () => {
     const bInit = findSeqInitial(out, 'B');
     expect(bInit.alpha).toBe(0);
     expect(bInit.scale).toBe(3);
-    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 4, to: { alpha: 1, scale: 1 }, duration: 1, ease: 'none' });
+    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 0, to: { alpha: 1, scale: 1 }, duration: 1, ease: 'none' });
   });
 
   it('mode=out: A zooms to fromScale and fades, B simply fades in', () => {
@@ -483,7 +483,7 @@ describe('expandTransitions — zoom', () => {
     }));
     expect(findSeqKfs(out, 'A')).toContainEqual({ at: 4, to: { alpha: 0, scale: 2 }, duration: 1, ease: 'none' });
     expect(findSeqInitial(out, 'B').alpha).toBe(0);
-    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 4, to: { alpha: 1 }, duration: 1, ease: 'none' });
+    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 0, to: { alpha: 1 }, duration: 1, ease: 'none' });
   });
 
   it('default fromScale is 4', () => {
@@ -551,3 +551,42 @@ describe('expandTransitions — threeD participants', () => {
     warn.mockRestore();
   });
 });
+
+describe('expandTransitions — keyframe `at` is sequence-local', () => {
+  it('a negative transition `at` is resolved against the parent end, then rebased per participant', () => {
+    // parent duration 10; `at: -1` => parent time 9. A starts at 0, B at 4.
+    const out = expandTransitions(spec({
+      sequences: [
+        { type: 'text', name: 'A', text: 'a', at: 0, duration: 10 },
+        { type: 'text', name: 'B', text: 'b', at: 4,  duration: 6 },
+      ],
+      transitions: [{ kind: 'crossfade', from: 'A', to: 'B', at: -1, duration: 1 }],
+    }));
+    expect(findSeqKfs(out, 'A')).toContainEqual({ at: 9, to: { alpha: 0 }, duration: 1, ease: 'none' });
+    expect(findSeqKfs(out, 'B')).toContainEqual({ at: 5, to: { alpha: 1 }, duration: 1, ease: 'none' });
+  });
+
+  it('wrapped participants (wipe) get their keyframes relative to the wrapper, which keeps the participant\'s `at`', () => {
+    const out = expandTransitions(spec({
+      transitions: [{ kind: 'wipe', from: 'A', to: 'B', at: 4, duration: 1, direction: 'left' }],
+    }));
+    const wrapperB = out.sequences!.find((x) => x.name === 'B') as { type: string; at?: number; keyframes?: Keyframe[] };
+    expect(wrapperB.type).toBe('composition');
+    expect(wrapperB.at).toBe(4);
+    expect(wrapperB.keyframes).toContainEqual(expect.objectContaining({ at: 0, duration: 1 }));
+  });
+
+  it('user keyframes that were already on the participant are left untouched', () => {
+    const out = expandTransitions(spec({
+      sequences: [
+        { type: 'text', name: 'A', text: 'a', at: 0, duration: 5 },
+        { type: 'text', name: 'B', text: 'b', at: 4, duration: 5, keyframes: [{ at: 2, to: { x: 10 }, duration: 1 }] },
+      ],
+      transitions: [{ kind: 'crossfade', from: 'A', to: 'B', at: 4, duration: 1 }],
+    }));
+    const kfs = findSeqKfs(out, 'B');
+    expect(kfs[0]).toEqual({ at: 2, to: { x: 10 }, duration: 1 });          // user's, not rebased
+    expect(kfs).toContainEqual({ at: 0, to: { alpha: 1 }, duration: 1, ease: 'none' });
+  });
+});
+

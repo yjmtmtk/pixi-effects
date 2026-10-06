@@ -4,7 +4,7 @@ import type { TextSequenceSpec, ImageSequenceSpec } from '../../src/types';
 
 describe('withFade()', () => {
   describe('in', () => {
-    it('sets initial.alpha = 0 and appends a keyframe at spec.at', () => {
+    it('sets initial.alpha = 0 and appends a keyframe at 0 (sequence-local, whatever spec.at is)', () => {
       const spec: TextSequenceSpec = {
         type: 'text',
         text: 'hello',
@@ -16,7 +16,7 @@ describe('withFade()', () => {
       expect(spec.initial?.alpha).toBe(0);
       expect(spec.initial?.x).toBe('GW/2');
       expect(spec.keyframes).toEqual([
-        { at: 5, to: { alpha: 1 }, duration: 0.6 },
+        { at: 0, to: { alpha: 1 }, duration: 0.6 },
       ]);
     });
 
@@ -50,13 +50,13 @@ describe('withFade()', () => {
   });
 
   describe('out', () => {
-    it('appends an alpha→0 keyframe anchored to (at + duration - out)', () => {
+    it('appends an alpha→0 keyframe at (duration - out), sequence-local', () => {
       const spec: ImageSequenceSpec = {
         type: 'image', asset: 'p', at: 10, duration: 6,
       };
       withFade(spec, { out: 0.5 });
       expect(spec.keyframes).toEqual([
-        { at: 15.5, to: { alpha: 0 }, duration: 0.5 },
+        { at: 5.5, to: { alpha: 0 }, duration: 0.5 },
       ]);
     });
 
@@ -75,8 +75,8 @@ describe('withFade()', () => {
       expect(result).toBe(spec);
       expect(spec.initial?.alpha).toBe(0);
       expect(spec.keyframes).toEqual([
-        { at: 2,   to: { alpha: 1 }, duration: 0.4 },
-        { at: 6.4, to: { alpha: 0 }, duration: 0.6 },
+        { at: 0,   to: { alpha: 1 }, duration: 0.4 },
+        { at: 4.4, to: { alpha: 0 }, duration: 0.6 },
       ]);
     });
   });

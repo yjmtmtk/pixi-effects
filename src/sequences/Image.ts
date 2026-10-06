@@ -38,12 +38,13 @@ export class ImageSequence extends Sequence {
     // and route it through tweenColor() so the interpolator runs in OKLab
     // / OKLCH instead of linear sRGB.
     const scope = this.scope();
+    const startTime = offset + this.at;   // keyframe `at` is sequence-local
     const initial = stripKeys(this.spec.initial, ['tint']);
     const keyframes = this.spec.keyframes
       ? this.spec.keyframes.map(kf => stripKeysInKeyframe(kf, ['tint']))
       : undefined;
     applyInitial(this.target, initial as Record<string, unknown> | undefined, scope as unknown as Record<string, number>);
-    applyKeyframes(timeline, this.target, keyframes, this.duration!, scope as unknown as Record<string, number>, [], offset);
+    applyKeyframes(timeline, this.target, keyframes, this.duration!, scope as unknown as Record<string, number>, [], startTime);
 
     // Seed tint from initial.
     const initTint = (this.spec.initial as Record<string, unknown> | undefined)?.tint as ColorInput | undefined;
@@ -51,7 +52,7 @@ export class ImageSequence extends Sequence {
 
     // Walk keyframes and emit a perceptual colour tween for any `tint` key.
     for (const kf of this.spec.keyframes ?? []) {
-      const at = offset + resolveAt(kf.at, this.duration!);
+      const at = startTime + resolveAt(kf.at, this.duration!);
       const duration = kf.duration ?? 0;
       const ease = kf.ease ?? 'none';
       const fromTint = (kf.from as Record<string, unknown> | undefined)?.tint as ColorInput | undefined;
@@ -72,7 +73,6 @@ export class ImageSequence extends Sequence {
       }
     }
 
-    const startTime = offset + this.at;
     this.absoluteStart = startTime;
     const endTime = startTime + this.duration!;
     this.target.renderable = startTime <= 0;

@@ -88,10 +88,7 @@ export function kenBurns(opts: KenBurnsOptions): ImageSequenceSpec {
     ease = 'sine.inOut',
   } = opts;
   const baseScale = fit;  // expression: 'cover' | 'contain' (scope variables)
-  // Keyframe `at` is interpreted PARENT-relative by the runtime (the same
-  // convention transitions use). So every keyframe time we emit must be
-  // offset by the sequence's own `at` to land within its lifespan.
-  const baseAt = at ?? 0;
+  // Keyframe `at` is sequence-local, so the motion simply starts at 0 whatever `at` is.
 
   let initial: Props;
   let keyframes: ImageSequenceSpec['keyframes'];
@@ -134,7 +131,7 @@ export function kenBurns(opts: KenBurnsOptions): ImageSequenceSpec {
       scale: initialScale,
     };
     keyframes = [
-      { at: baseAt, to: { scale: `${baseScale} * ${toZ}` }, duration, ease },
+      { at: 0, to: { scale: `${baseScale} * ${toZ}` }, duration, ease },
     ];
   } else if (opts.motion === 'rotation') {
     const angle = clamp(opts.angle ?? 8, 0, 30);
@@ -182,7 +179,7 @@ export function kenBurns(opts: KenBurnsOptions): ImageSequenceSpec {
       // segment goes from previous time to this time
       const tPrev = duration * ((i - 1) / (sampleCount - 1));
       keyframes.push({
-        at: baseAt + tPrev,
+        at: tPrev,
         to: { rotation: angleHere, scale: scaleAt(angleHere) },
         duration: tHere - tPrev,
         ease: i === 1 ? ease : 'none',
@@ -205,7 +202,7 @@ export function kenBurns(opts: KenBurnsOptions): ImageSequenceSpec {
       scale: scaleExpr,
     };
     keyframes = [
-      { at: baseAt, to: { x: xExpr(to[0]), y: yExpr(to[1]) }, duration, ease },
+      { at: 0, to: { x: xExpr(to[0]), y: yExpr(to[1]) }, duration, ease },
     ];
   }
 

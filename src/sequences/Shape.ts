@@ -135,6 +135,7 @@ export class ShapeSequence extends Sequence {
   override bindTimeline(timeline: Timeline, offset = 0): void {
     if (!this.target) return;
     const scope = this.scope();
+    const startTime = offset + this.at;   // keyframe `at` is sequence-local
     // Non-live props go through the standard pipeline (transform, alpha,
     // filter uniforms, …).
     const initial = stripLive(this.spec.initial, this._liveKeys);
@@ -142,7 +143,7 @@ export class ShapeSequence extends Sequence {
       ? this.spec.keyframes.map(kf => stripLiveKeyframe(kf, this._liveKeys))
       : undefined;
     applyInitial(this.target, initial as Record<string, unknown> | undefined, scope as unknown as Record<string, number>);
-    applyKeyframes(timeline, this.target, keyframes, this.duration!, scope as unknown as Record<string, number>, [], offset);
+    applyKeyframes(timeline, this.target, keyframes, this.duration!, scope as unknown as Record<string, number>, [], startTime);
 
     // Live props (style + scalar geometry) get a parallel set of tweens
     // targeting `_state`. Colour keys (fillColor / strokeColor) interpolate
@@ -150,9 +151,8 @@ export class ShapeSequence extends Sequence {
     // set on the spec); geometry / alpha / width tween linearly through
     // GSAP's standard numeric interpolation.
     const colorSpace: ColorSpace = (this.spec as { colorSpace?: ColorSpace }).colorSpace ?? 'rgb';
-    bindLiveKeyframes(timeline, this._state, this._liveKeys, this.spec.keyframes ?? [], this.duration!, scope, offset, colorSpace);
+    bindLiveKeyframes(timeline, this._state, this._liveKeys, this.spec.keyframes ?? [], this.duration!, scope, startTime, colorSpace);
 
-    const startTime = offset + this.at;
     this.absoluteStart = startTime;
     const endTime = startTime + this.duration!;
     this.target.renderable = startTime <= 0;

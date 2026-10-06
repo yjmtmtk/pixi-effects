@@ -37,13 +37,24 @@ Every sequence shares this base shape:
 ```ts
 interface SequenceCommon {
   name?: string;            // optional id, used for cross-references and debugging
-  at?: number;              // start time in seconds (default 0)
-  duration?: number;        // seconds; defaults to parent duration
+  at?: number;              // start time in seconds, measured from the start of the PARENT composition (default 0)
+  duration?: number;        // seconds; defaults to the parent's duration
   initial?: Props;          // properties applied before any keyframes evaluate
   keyframes?: Keyframe[];
   filters?: FilterSpec[];
 }
 ```
+
+### Timing at a glance
+
+| What | Measured from |
+|---|---|
+| a sequence's `at` | the start of its **parent composition** (the root composition starts at 0) |
+| a **keyframe's** `at` | the start of **its own sequence** (After Effects style): `at: 0` = the moment the layer appears. **Negative = back from the sequence's end** (`-0.5` = 0.5 s before it ends) |
+| a transition's `at` | the start of the **parent composition** (like a sequence's `at`) |
+| `audio` volume keyframes | the start of their own sequence (same rule as every other keyframe) |
+
+A layer is **not removed** when its lifespan `[at, at + duration)` ends: it is only hidden, and it keeps its last animated values. Outside the lifespan it is invisible. **z-order is array order** (later = on top). Build scenes by giving layers `at` / `duration` and stacking them; a full-screen background rect in each scene hides what is below it.
 
 `Props` is `Record<string, number | string>`. String values are evaluated as [expressions](#expressions) unless the prop is a textual one (e.g. `fill`, `fontFamily`).
 
@@ -152,7 +163,7 @@ Nested composition. Same shape as the root spec but with `type: 'composition'` a
   width: 600, height: 120,
   initial: { x: 'GW/2 - 300', y: 'GH * 0.86' },
   keyframes: [
-    { at: 2.4, from: { alpha: 0, rotation: -0.2 },
+    { at: 2.4, from: { alpha: 0, rotation: -12 },
                to:   { alpha: 1, rotation: 0 },
                duration: 0.7, ease: 'elastic.out(1, 0.5)' },
   ],
@@ -514,7 +525,7 @@ Supported formats are whatever PixiJS Assets and the browser's audio/video decod
 
 ```ts
 interface Keyframe {
-  at?: number;       // start time in seconds; negative values are relative to the end (-0.5 = duration - 0.5)
+  at?: number;       // start, in seconds from the start of THIS sequence; negative = back from the sequence's end (-0.5 = 0.5 s before it ends)
   duration?: number; // seconds (default 0 — instantaneous)
   ease?: string;     // GSAP easing name (default 'none')
   set?:  Props;      // jump to these values at `at`
@@ -533,10 +544,11 @@ The four kinds are mutually exclusive per keyframe:
 
 ### Negative `at`
 
-If `at < 0`, it's interpreted as `duration + at` (i.e. measured from the end of the parent). Useful for fade-outs:
+If `at < 0`, it's interpreted as `duration + at` — measured back from the end of **the sequence the keyframe belongs to**. Useful for fade-outs:
 
 ```ts
-{ at: -0.5, to: { alpha: 0 }, duration: 0.5 }   // last 500ms of the parent
+{ type: 'text', text: 'bye', at: 2, duration: 3,
+  keyframes: [{ at: -0.5, to: { alpha: 0 }, duration: 0.5 }] }   // fades during the last 500 ms of this text (global 4.5 s – 5 s)
 ```
 
 ### Easing
@@ -561,7 +573,7 @@ blur, blurX, blurY, blurPadding
 lineColor, lineAlpha, fillColor, fillAlpha
 ```
 
-(In addition to plain DisplayObject props like `x`, `y`, `rotation`, `alpha`, `width`, `height`, `visible`.)
+(In addition to plain DisplayObject props like `x`, `y`, `rotation`, `alpha`, `width`, `height`, `visible`.) **Angles are in degrees**: `rotation`, `skew` / `skewX` / `skewY` (PixiPlugin converts them), and `rotationX` / `rotationY` for 3D layers.
 
 ### Filter keyframe paths
 
@@ -672,7 +684,7 @@ Common fields (`TransitionCommon`):
 | ---------- | ------- | -------------------------------------------------------------------------------------- |
 | `from`     | string  | sibling sequence's `name`. Must exist in the same composition.                         |
 | `to`       | string  | sibling sequence's `name`. Must be declared **after** `from` in `sequences[]`.         |
-| `at`       | number  | start of the transition (parent-relative seconds). Same `at` semantics as `Keyframe`.  |
+| `at`       | number  | start of the transition, in the **parent composition's** time (like a sequence's `at`, not sequence-local); negative = back from the parent's end. |
 | `duration` | number  | seconds, must be > 0.                                                                  |
 | `ease`     | string? | GSAP easing name. Default `'none'` (linear).                                           |
 
@@ -917,7 +929,7 @@ sequences: [
 
 | Option | Type   | Notes                                                                                         |
 | ------ | ------ | --------------------------------------------------------------------------------------------- |
-| `in?`  | number | fade-in length in seconds, anchored to the sequence's `at`. Sets `initial.alpha = 0`.         |
+| `in?`  | number | fade-in length in seconds, at the start of the sequence. Sets `initial.alpha = 0`.            |
 | `out?` | number | fade-out length in seconds, anchored to `at + duration`. **Requires `duration` on the spec** (throws otherwise). |
 
 The added keyframes are layered on top of any keyframes the spec already has. `withFade` is available since `0.2.0`.

@@ -17,6 +17,12 @@ export type Props = Record<string, PropValue>;
 
 /** A single keyframe entry. Either `set`, `to`, `from`, or `from`+`to` is meaningful per kind. */
 export interface Keyframe {
+  /**
+   * Start time in seconds, measured from the start of the sequence this
+   * keyframe belongs to (After Effects style): `0` = the moment the layer
+   * appears. Negative values count back from the sequence's end
+   * (`-0.5` = 0.5 s before it ends).
+   */
   at?: number;
   duration?: number;
   ease?: string;
@@ -76,7 +82,7 @@ export interface TransitionCommon {
   from: string;
   /** Sibling sequence's `name` — the incoming scene. Must be declared after `from` in the parent's `sequences[]`. */
   to: string;
-  /** Start time (parent-relative seconds). Same `at` semantics as Keyframe. */
+  /** Start time in the PARENT composition's time (like a sequence's `at`, not sequence-local). Negative = back from the parent's end. */
   at: number;
   /** Length of the transition in seconds. Must be > 0. */
   duration: number;
@@ -158,10 +164,11 @@ export interface SequenceCommon {
   filters?: FilterSpec[];
   /**
    * Override PIXI's auto-computed filter region. By default, filters apply
-   * only inside the target's bounding box. Setting this to a parent-relative
-   * rectangle lets a filter (e.g. a wipe / iris transition) draw across an
-   * area larger than the sprite — useful when the sprite content is small
-   * but the visual effect should cover the whole composition.
+   * only inside the target's bounding box. This rectangle is in the layer's
+   * OWN coordinate space (origin = the layer's local origin, before its
+   * x/y/scale/rotation — e.g. a circle's centre), not the parent's. Use it to
+   * let a filter (blur, glow, a wipe / iris transition) draw beyond the
+   * layer's own bounds; without it a blur is clipped to the bounding box.
    */
   filterArea?: { x: number; y: number; width: number; height: number };
   /**

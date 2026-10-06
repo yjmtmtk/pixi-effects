@@ -74,13 +74,15 @@ export abstract class Sequence {
     if (!this.target) return;
     const scope = this.scope();
     const routers = this.pathRouters();
+    // Keyframe `at` is measured from THIS sequence's start (After Effects style),
+    // and negative `at` back from its end — so the origin is offset + this.at.
+    const startTime = offset + this.at;
     applyInitial(this.target, this.spec.initial as Record<string, unknown> | undefined, scope as unknown as Record<string, number>, [], routers);
-    applyKeyframes(timeline, this.target, this.spec.keyframes, this.duration!, scope as unknown as Record<string, number>, [], offset, routers);
+    applyKeyframes(timeline, this.target, this.spec.keyframes, this.duration!, scope as unknown as Record<string, number>, [], startTime, routers);
     // Hide before lifespan starts. GSAP's `set` only fires when the playhead
     // crosses its time, so without this baseline a sequence with at>0 (or any
     // non-zero offset from a nested composition) would render at t<startTime
     // on PIXI's default `renderable: true`.
-    const startTime = offset + this.at;
     const endTime = startTime + this.duration!;
     this.absoluteStart = startTime;
     this.target.renderable = startTime <= 0;

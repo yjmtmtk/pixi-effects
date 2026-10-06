@@ -57,7 +57,7 @@ export class TextSequence extends Sequence {
     // interpolation.
     const stripped = stripFill(this.spec);
     runSuperWithStrippedSpec(this, stripped, timeline, offset);
-    bindFillKeyframes(timeline, this.target as Text, this.spec.keyframes ?? [], this.duration!, offset, colorSpace);
+    bindFillKeyframes(timeline, this.target as Text, this.spec.keyframes ?? [], this.duration!, offset + this.at, colorSpace);
   }
 }
 

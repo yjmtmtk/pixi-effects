@@ -69,8 +69,8 @@ export class VideoSequence extends Sequence {
     this.buildFilters();
   }
 
-  override bindTimeline(timeline: Timeline): void {
-    super.bindTimeline(timeline);
+  override bindTimeline(timeline: Timeline, offset = 0): void {
+    super.bindTimeline(timeline, offset);
     const playDuration = this.spec.loop
       ? this.duration!
       : Math.min(this.duration!, this._sourceDuration);
@@ -78,7 +78,7 @@ export class VideoSequence extends Sequence {
       this.target!,
       { currentTime: 0 },
       { currentTime: playDuration, duration: playDuration, ease: 'none' },
-      this.at,
+      offset + this.at,   // offset = start of the enclosing composition(s); dropping it misplaced videos inside nested compositions
     );
   }
 

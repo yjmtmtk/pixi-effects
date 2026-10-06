@@ -168,29 +168,40 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
       throw new Error(`pixi-effects: ${tag} window [${tStart}, ${tEnd}] is not covered by \`to\` "${t.to}" (lives [${toStart}, ${toEnd}], so it starts at ${toStart})`);
     }
     // Validation passed; expand this transition into existing primitives.
-    switch (t.kind) {
+    //
+    // The expanders think in parent-composition time, so they get the
+    // transition with its `at` already resolved to an absolute (non-negative)
+    // time. Keyframe `at` is sequence-local, so whatever keyframes an expander
+    // appends to a participant are rebased afterwards by that participant's
+    // own start time.
+    const abs = { ...t, at: tStart } as typeof t;
+    const nFrom = keyframeCount(fromEntry.seq);
+    const nTo = keyframeCount(toEntry.seq);
+    switch (abs.kind) {
       case 'crossfade':
-        expandCrossfade(out, t, fromEntry.seq, toEntry.seq);
+        expandCrossfade(out, abs, fromEntry.seq, toEntry.seq);
         break;
       case 'wipe':
-        expandMask(out, t, fromEntry.seq, toEntry.seq, i, wipeMode(t.direction), t.smoothing);
+        expandMask(out, abs, fromEntry.seq, toEntry.seq, i, wipeMode(abs.direction), abs.smoothing);
         break;
       case 'iris':
-        expandMask(out, t, fromEntry.seq, toEntry.seq, i, t.mode === 'out' ? 'iris-out' : 'iris-in', t.smoothing);
+        expandMask(out, abs, fromEntry.seq, toEntry.seq, i, abs.mode === 'out' ? 'iris-out' : 'iris-in', abs.smoothing);
         break;
       case 'slide':
-        expandSlide(out, t, fromEntry.seq, toEntry.seq);
+        expandSlide(out, abs, fromEntry.seq, toEntry.seq);
         break;
       case 'dip':
-        expandDip(out, t, fromEntry.seq, toEntry.seq);
+        expandDip(out, abs, fromEntry.seq, toEntry.seq);
         break;
       case 'zoom':
-        expandZoom(out, t, fromEntry.seq, toEntry.seq);
+        expandZoom(out, abs, fromEntry.seq, toEntry.seq);
         break;
       case 'dissolve':
-        expandDissolve(out, t, fromEntry.seq, toEntry.seq, i);
+        expandDissolve(out, abs, fromEntry.seq, toEntry.seq, i);
         break;
     }
+    rebaseNewKeyframes(fromEntry.seq, nFrom, fromStart);
+    rebaseNewKeyframes(toEntry.seq, nTo, toStart);
   }
 
   delete (out as { transitions?: unknown }).transitions;
@@ -245,6 +256,20 @@ function wrapAsFullComposition(seq: SequenceSpec, compW: number, compH: number):
     initial: centring,
     sequences: [inner],
   } as SequenceSpec;
+}
+
+function keyframeCount(seq: SequenceSpec): number {
+  return (seq as { keyframes?: Keyframe[] }).keyframes?.length ?? 0;
+}
+
+/** Keyframes the expanders appended (index >= `from`) carry parent-time `at`; make them sequence-local. */
+function rebaseNewKeyframes(seq: SequenceSpec, from: number, seqStart: number): void {
+  const kfs = (seq as { keyframes?: Keyframe[] }).keyframes;
+  if (!kfs) return;
+  for (let i = from; i < kfs.length; i++) {
+    const kf = kfs[i]!;
+    if (typeof kf.at === 'number') kfs[i] = { ...kf, at: kf.at - seqStart };
+  }
 }
 
 function ensureKeyframes(seq: SequenceSpec): Keyframe[] {
