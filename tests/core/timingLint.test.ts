@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { lintTiming } from '../../src/core/lint';
+import { lintTiming, summarizeWarnings } from '../../src/core/lint';
 import type { SequenceSpec } from '../../src/types';
 
 function run(spec: unknown, parentDuration = 10): string[] {
@@ -35,5 +35,28 @@ describe('lintTiming', () => {
 
   it('does not warn for a layer that starts exactly inside the composition', () => {
     expect(run({ type: 'shape', shape: 'rect', width: 1, height: 1, at: 9.9, duration: 2 }, 10)).toEqual([]);
+  });
+});
+
+describe('summarizeWarnings', () => {
+  const many = (n: number) => Array.from({ length: n }, (_, i) => `pixi-effects: layer "bar${i}": keyframes[360] starts at 12s, after the layer ends (duration 12s), so it never plays.`);
+
+  it('prints a few of the same kind in full, then says how many more there are', () => {
+    const out = summarizeWarnings(many(145));
+    expect(out).toHaveLength(4);
+    expect(out.slice(0, 3)).toEqual(many(3));
+    expect(out[3]).toMatch(/142 more layers/);
+    expect(out[3]).toMatch(/same problem/);
+  });
+
+  it('prints everything when there are only a few', () => {
+    expect(summarizeWarnings(many(3))).toEqual(many(3));
+    expect(summarizeWarnings([])).toEqual([]);
+  });
+
+  it('lintTiming tags the late-keyframe warning so a caller can group it', () => {
+    const kinds: Array<string | undefined> = [];
+    lintTiming({ type: 'text', text: 'a', duration: 3, keyframes: [{ at: 4, to: { alpha: 0 } }] } as unknown as SequenceSpec, 10, (_m, kind) => kinds.push(kind));
+    expect(kinds).toEqual(['late-keyframe']);
   });
 });

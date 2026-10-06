@@ -1,7 +1,7 @@
 import type { SequenceSpec } from '../types';
 import { collectPropKeys } from '../space/specKeys';
 
-type Warn = (message: string) => void;
+type Warn = (message: string, kind?: 'late-keyframe') => void;
 const defaultWarn: Warn = m => console.warn(m);
 
 /** "layer "name"" or "unnamed text layer" — how warnings refer to a sequence. */
@@ -28,9 +28,19 @@ export function lintTiming(spec: SequenceSpec, parentDuration: number, warn: War
       warn(
         `pixi-effects: ${who}: keyframes[${i}] starts at ${kat}s, after the layer ends (duration ${duration}s), so it never plays. ` +
         `Keyframe \`at\` is measured from the start of this layer, not from the start of the composition.`,
+        'late-keyframe',
       );
     }
   });
+}
+
+/**
+ * A loop that builds a hundred layers makes the same mistake a hundred times. Print the first few in full and
+ * say how many more there are: the rest are the same loop.
+ */
+export function summarizeWarnings(messages: string[], shown = 3): string[] {
+  if (messages.length <= shown) return messages;
+  return [...messages.slice(0, shown), `pixi-effects: ${messages.length - shown} more layers with the same problem (the same loop or helper is probably building them): fix the ones above and these go away.`];
 }
 
 /** A text layer that animates `value` but has nowhere to print it. */
