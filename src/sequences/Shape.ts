@@ -3,6 +3,7 @@ import { gsap } from 'gsap';
 import { Sequence } from './Base';
 import { evaluateExpr, isExpr } from '../expr/Parser';
 import { applyKeyframes, applyInitial, resolveAt, loopVars } from '../core/Timeline';
+import { revertibleSet } from '../core/revertibleSet';
 import { type ColorSpace, type ColorInput } from '../expr/colorInterp';
 import { tweenColor } from '../expr/colorTween';
 import type { Scope } from '../expr/Scope';
@@ -136,12 +137,32 @@ export class ShapeSequence extends Sequence {
     // .fill()/.stroke() as a separate instruction — without clear() the
     // instruction list grows unbounded.
     graphics.onRender = () => {
-      graphics.clear();
-      this._drawGeometry(graphics);
-      applyState(graphics, this._state);
+      if (this._fresh) { this._fresh = false; return; }   // syncFrame() already drew this frame
+      this._redraw();
     };
 
     this.buildFilters();
+  }
+
+  private _fresh = false;
+
+  private _redraw(): void {
+    const graphics = this.target as Graphics;
+    graphics.clear();
+    this._drawGeometry(graphics);
+    applyState(graphics, this._state);
+  }
+
+  /**
+   * Draw from the tweened `_state` before the culler runs. The culler measures the geometry as last
+   * drawn; a layer drawn only inside `onRender` is culled on stale bounds (a rect growing from
+   * `width: 0` at the left edge was skipped after a jump seek, and one frame late in playback).
+   */
+  override syncFrame(): void {
+    super.syncFrame();
+    if (!this.target?.renderable) return;
+    this._redraw();
+    this._fresh = true;
   }
 
   override bindTimeline(timeline: Timeline, offset = 0): void {
@@ -351,7 +372,8 @@ function bindLiveKeyframes(
       if (live) {
         for (const [k, v] of Object.entries(live)) {
           const resolved = resolveLiveValue(k as LiveKey, v, scope);
-          timeline.call(() => { (state as unknown as Record<string, unknown>)[k] = resolved; }, [], at);
+          const live = state as unknown as Record<string, unknown>;
+          revertibleSet(timeline, at, () => live[k], v2 => { live[k] = v2; }, resolved);
         }
       }
     }

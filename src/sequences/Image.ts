@@ -2,6 +2,7 @@ import { Sprite, Assets, type Texture } from 'pixi.js';
 import { gsap } from 'gsap';
 import { Sequence } from './Base';
 import { applyKeyframes, applyInitial, resolveAt, loopVars } from '../core/Timeline';
+import { revertibleSet } from '../core/revertibleSet';
 import { tweenColor } from '../expr/colorTween';
 import type { ColorInput, ColorSpace } from '../expr/colorInterp';
 import type { ImageSequenceSpec, Keyframe, Props } from '../types';
@@ -59,7 +60,8 @@ export class ImageSequence extends Sequence {
       const toTint   = (kf.to   as Record<string, unknown> | undefined)?.tint as ColorInput | undefined;
       const setTint  = (kf.set  as Record<string, unknown> | undefined)?.tint as ColorInput | undefined;
       if (setTint !== undefined) {
-        timeline.call(() => { (this.target as unknown as { tint: ColorInput }).tint = setTint; }, [], at);
+        const sprite = this.target as unknown as { tint: ColorInput };
+        revertibleSet(timeline, at, () => sprite.tint, c => { sprite.tint = c; }, setTint);
       }
       if (toTint !== undefined) {
         tweenColor(

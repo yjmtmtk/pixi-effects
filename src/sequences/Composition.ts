@@ -151,6 +151,11 @@ export class CompositionSequence extends Sequence {
     }));
   }
 
+  override syncFrame(): void {
+    super.syncFrame();
+    for (const child of this._children) child.syncFrame();
+  }
+
   override updateSpace(t: number, host: SpaceHost): void {
     // Inner compositions first: a threeD composition is rendered into its own
     // texture by this level, so its content must already be projected.

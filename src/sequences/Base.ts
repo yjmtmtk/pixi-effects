@@ -103,6 +103,15 @@ export abstract class Sequence {
     // default: nothing to project
   }
 
+  /**
+   * Runs once per rendered frame, after the timeline seek and before the cull. Layers whose drawn
+   * geometry follows tweened state (shapes) redraw here, so the culler measures where the layer is NOW
+   * and not where it was drawn at the previous render.
+   */
+  syncFrame(): void {
+    this.maskSequence?.syncFrame();
+  }
+
   destroy(): void {
     this.maskSequence?.destroy();
     this.maskSequence = null;

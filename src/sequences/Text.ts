@@ -3,6 +3,7 @@ import { gsap } from 'gsap';
 import { Sequence } from './Base';
 import { normalizeProps } from '../expr/normalizeProps';
 import { applyKeyframes, applyInitial, resolveAt, loopVars } from '../core/Timeline';
+import { revertibleSet } from '../core/revertibleSet';
 import { tweenColor } from '../expr/colorTween';
 import type { ColorInput } from '../expr/colorInterp';
 import type { TextSequenceSpec, Keyframe, Props } from '../types';
@@ -165,7 +166,7 @@ function bindValueKeyframes(
     const loop = loopVars(kf);
     if (setV !== undefined) {
       const v = resolveNumber(setV, scope);
-      timeline.call(() => { state.value = v; refresh(); }, [], at);
+      revertibleSet(timeline, at, () => state.value, n => { state.value = n; refresh(); }, v);
     }
     if (toV !== undefined && fromV !== undefined) {
       timeline.fromTo(state, { value: resolveNumber(fromV, scope) },
@@ -203,7 +204,7 @@ function bindFillKeyframes(
     const toFill   = pickFill(kf.to);
 
     if (setFill !== undefined) {
-      timeline.call(() => { state.fill = setFill; writeFill(); }, [], at);
+      revertibleSet(timeline, at, () => state.fill, c => { state.fill = c; writeFill(); }, setFill);
     }
     if (toFill !== undefined) {
       tweenColor(

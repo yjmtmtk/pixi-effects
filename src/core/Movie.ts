@@ -319,6 +319,7 @@ export class Movie {
   private _renderNow(): void {
     const app = this.app;
     if (!app?.renderer) return;
+    this._rootSequence?.syncFrame();
     Culler.shared.cull(app.stage, app.renderer.screen, false);
     app.renderer.render({ container: app.stage });
   }
