@@ -51,6 +51,8 @@ Drop the imports into an [importmap](https://developer.mozilla.org/docs/Web/HTML
 </script>
 ```
 
+> **Using three.js?** Add two more entries (`three` and `pixi-effects/three`) to this importmap — see [Adding three.js](#adding-threejs-optional-main-only) below. They are not part of the published `0.1.0`.
+
 **Published `0.1.0`** (core only — no 2.5D, no three.js, no `withFade`):
 
 ```html
