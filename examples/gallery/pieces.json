@@ -570,6 +570,27 @@
       "notes": "_notes/still-water.md"
     },
     {
+      "id": "teatime",
+      "title": "Teatime",
+      "subtitle": "Four museum teapots as transparent WebP cutouts (about 80 KB each instead of 700 KB as PNG) pop in over a giant TEA, with feathered PNG shadows and steam that draws itself",
+      "tags": [
+        "transparent-webp",
+        "transparent-png",
+        "cutout",
+        "typography",
+        "draw-on",
+        "audio"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 12,
+      "posterFrame": 280,
+      "model": "sonnet",
+      "page": "teatime.html",
+      "poster": "posters/teatime.jpg",
+      "notes": "_notes/teatime.md"
+    },
+    {
       "id": "blueprint-house",
       "title": "The Corner House",
       "subtitle": "A blueprint that draws itself: walls, doors and furniture stroked on, dimensions typed out, a title block whose status changes from DRAFT to APPROVED",

@@ -34,9 +34,10 @@ Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same br
 | sonnet | Lemon Pasta Recipe Card — A 4:5 animated recipe card: ingredients that check themselves off, three timed steps with countdowns, and a plated dish that assembles from circles. | 1080×1350 | recipe-card.html |
 | sonnet | Still Water — Three lakes, three real photographs: slow Ken Burns moves, a viewfinder that draws itself on, and a caption that re-types for each photo | 1280×720 | still-water.html |
 | sonnet | Social Quote Card — A vertical 9:16 quote card: drifting warm blobs, line-by-line masked reveal, animated underline and a swipe cue. | 720×1280 | social-quote-vertical.html |
+| sonnet | Teatime — Four museum teapots as transparent WebP cutouts (about 80 KB each instead of 700 KB as PNG) pop in over a giant TEA, with feathered PNG shadows and steam that draws itself | 1280×720 | teatime.html |
 | sonnet | Four days in Iceland — A fictional travel slideshow: four procedurally painted landscapes, Ken Burns, four different transitions, captions and a day counter. | 1280×720 | travel-slideshow.html |
 | sonnet | Harbor City Forecast — A five-day broadcast forecast: shifting skies, glass cards, animated icons and a self-drawing temperature line. | 1280×720 | weather-report.html |
 
-Counts: fable 11, opus 11, sonnet 10 (32 pieces).
+Counts: fable 11, opus 11, sonnet 11 (33 pieces).
 
 Per-piece stumble notes are in [_notes/](_notes/), named after the piece id (file name without `.html`).

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Teatime — a cabinet of teapots</title>
+  <script type="application/json" id="piece-meta">{ "title": "Teatime", "subtitle": "Four museum teapots as transparent WebP cutouts (about 80 KB each instead of 700 KB as PNG) pop in over a giant TEA, with feathered PNG shadows and steam that draws itself", "tags": ["transparent-webp", "transparent-png", "cutout", "typography", "draw-on", "audio"], "width": 1280, "height": 720, "duration": 12, "posterFrame": 280, "model": "sonnet" }</script>
+  <style>
+    html, body { margin: 0; background: #1c1612; color: #ddd; font-family: system-ui, sans-serif; }
+    body { min-height: 100vh; display: grid; place-items: center; }
+    #stage { width: min(960px, 100%); height: auto; border-radius: 6px; display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 12, POSTER_FRAME = 280;
+
+    // ── palette: warm paper, dark tea, one gold ──────────────────────────────────────────
+    const CREAM = '#f6e9d8', SAND = '#ecd5b6', LETTER = '#e8c9a0', TEA = '#3b2a1e', GOLD = '#b8863b';
+    const SERIF = 'Georgia, "Times New Roman", serif', MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+
+    // ── the cutouts: transparent WebP (lossless alpha) and one feathered PNG (the shadow) ───
+    // `w` is how wide each is drawn; the images are 900 px wide at most, so they stay sharp up to a 1.15 pop.
+    const POTS = [
+      { asset: 'marbled', src: '../_assets/cutouts/teapot-marbled.webp', w: 360, h: 229, x: 215,  name: 'Marbled teapot',  note: 'Staffordshire · about 1760' },
+      { asset: 'green',   src: '../_assets/cutouts/teapot-green.webp',   w: 320, h: 215, x: 560,  name: 'Green teapot',    note: 'British · about 1760' },
+      { asset: 'camel',   src: '../_assets/cutouts/teapot-camel.webp',   w: 280, h: 242, x: 860,  name: 'The camel',       note: 'Staffordshire · about 1745' },
+      { asset: 'silver',  src: '../_assets/cutouts/teapot-silver.webp',  w: 240, h: 278, x: 1115, name: 'Silver teapot',   note: 'New York · 1862–63' },
+    ];
+    const BASE = 468;                                     // the shelf: every pot stands on this line
+    const ENTER = i => 1.2 + i * 1.15;                    // when pot i arrives
+
+    // a steam wisp: a curl above the lid that draws on, then wipes off, again and again (finite repeats)
+    const WISP = 'M 0 0 C 16 -18 -16 -38 0 -58 C 16 -78 -12 -92 2 -112';
+    const steam = (x, y, at, delay) => ({
+      type: 'shape', shape: 'path', name: 'steam-' + at.toFixed(1) + '-' + delay, d: WISP, trimStart: 0, trimEnd: 0, strokeCap: 'round',
+      at: at + delay, duration: DURATION - at - delay,
+      initial: { x, y: y - 60, strokeColor: TEA, strokeAlpha: 0.32, strokeWidth: 5 },
+      keyframes: [
+        { at: 0, to: { trimEnd: 1 }, duration: 1.2, ease: 'sine.inOut', repeat: 3, repeatDelay: 1.6 },
+        { at: 1.0, to: { trimStart: 1 }, duration: 1.2, ease: 'sine.inOut', repeat: 3, repeatDelay: 1.6 },
+      ],
+    });
+
+    const potLayers = POTS.flatMap((p, i) => {
+      const at = ENTER(i), left = DURATION - at;
+      return [
+        // the feathered PNG shadow, under the pot
+        { type: 'image', asset: 'shadow', name: 'shadow-' + i, at, duration: left,
+          initial: { x: p.x, y: BASE - 4, anchorX: 0.5, anchorY: 0.5, scaleX: (p.w * 1.25) / 640, scaleY: 0.55 },
+          keyframes: [{ at: 0, from: { alpha: 0, scaleX: (p.w * 0.6) / 640 }, to: { alpha: 1, scaleX: (p.w * 1.25) / 640 }, duration: 0.7, ease: 'power2.out' }] },
+        // the transparent WebP cutout: pops up from its base, then bobs gently
+        { type: 'image', asset: p.asset, name: 'pot-' + i, at, duration: left,
+          initial: { x: p.x, y: BASE, anchorX: 0.5, anchorY: 1, scale: p.w / 900 },
+          keyframes: [
+            { at: 0, from: { alpha: 0, scale: (p.w / 900) * 0.55, y: BASE + 70 }, to: { alpha: 1, scale: p.w / 900, y: BASE }, duration: 0.75, ease: 'back.out(1.7)' },
+            { at: 1.4 + (i % 2) * 0.3, to: { y: BASE - 7 }, duration: 1.3, ease: 'sine.inOut', repeat: 5, yoyo: true },
+          ] },
+        steam(p.x, BASE - p.h, at, 0.9),
+        steam(p.x + 18, BASE - p.h + 8, at, 1.9),
+        // the label: a name and a place, sliding up under the shelf
+        { type: 'text', text: p.name, name: 'name-' + i, at: at + 0.5, duration: left - 0.5,
+          style: { fontSize: 26, fontStyle: 'italic', fill: TEA, fontFamily: SERIF },
+          initial: { x: p.x, y: BASE + 46, anchorX: 0.5, anchorY: 0.5 },
+          keyframes: [{ at: 0, from: { alpha: 0, y: BASE + 62 }, to: { alpha: 1, y: BASE + 46 }, duration: 0.5, ease: 'power2.out' }] },
+        { type: 'text', text: p.note, name: 'note-' + i, at: at + 0.7, duration: left - 0.7,
+          style: { fontSize: 15, fill: GOLD, fontFamily: MONO, letterSpacing: 1 },
+          initial: { x: p.x, y: BASE + 76, anchorX: 0.5, anchorY: 0.5 },
+          keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.5 }] },
+      ];
+    });
+
+    const sequences = [
+      // paper
+      { type: 'shape', shape: 'rect', width: W, height: H, fillGradient: { type: 'linear', angle: 90, stops: [[0, CREAM], [1, SAND]] }, initial: { x: W / 2, y: H / 2 } },
+      // the giant word behind everything: the pots stand IN FRONT of it, so their transparent edges matter
+      { type: 'text', text: 'TEA', name: 'giant-tea', duration: DURATION,
+        style: { fontSize: 470, fontWeight: '900', fill: LETTER, fontFamily: '"Arial Black", Impact, Arial, sans-serif' },
+        initial: { x: W / 2, y: 320, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0.2, from: { alpha: 0, y: 370 }, to: { alpha: 1, y: 320 }, duration: 1.2, ease: 'power3.out' }] },
+      // the shelf line, drawn on
+      { type: 'shape', shape: 'line', name: 'shelf', from: [90, BASE + 1], to: [1190, BASE + 1], trimEnd: 0, strokeCap: 'round',
+        initial: { strokeColor: TEA, strokeAlpha: 0.55, strokeWidth: 3 }, keyframes: [{ at: 0.6, to: { trimEnd: 1 }, duration: 1.2, ease: 'power2.inOut' }] },
+      ...potLayers,
+      // title and credit, typed
+      { type: 'text', text: 'A CABINET OF TEAPOTS', name: 'title', at: 0.5, duration: DURATION - 0.5,
+        style: { fontSize: 26, fill: TEA, fontFamily: MONO, letterSpacing: 3 },
+        initial: { x: 90, y: 66, anchorX: 0, anchorY: 0.5, visibleChars: 0 },
+        keyframes: [{ at: 0, to: { visibleChars: 20 }, duration: 1.3, ease: 'none' }] },
+      { type: 'text', text: 'The Metropolitan Museum of Art · Open Access (CC0)', name: 'credit', at: 6.2, duration: DURATION - 6.2,
+        style: { fontSize: 15, fill: GOLD, fontFamily: MONO, letterSpacing: 1 },
+        initial: { x: 90, y: 668, anchorX: 0, anchorY: 0.5, visibleChars: 0 },
+        keyframes: [{ at: 0, to: { visibleChars: 50 }, duration: 1.6, ease: 'none' }] },
+      // paper-coloured fade out at the end
+      { type: 'shape', shape: 'rect', name: 'fade', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: CREAM, alpha: 0 },
+        keyframes: [{ at: -1, to: { alpha: 1 }, duration: 1, ease: 'sine.in' }] },
+
+      // ── sound: music, a pop as each pot lands, a chime at the end ───────────────────────────
+      { type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0, duration: DURATION,
+        keyframes: [{ at: 0, to: { volume: 0.3 }, duration: 1.5 }, { at: -2, to: { volume: 0 }, duration: 2 }] },
+      ...POTS.map((p, i) => ({ type: 'audio', name: 'sfx-pop-' + i, sfx: { preset: 'pop', pitch: i * 2 }, at: ENTER(i) + 0.3, volume: 0.45 })),
+      { type: 'audio', name: 'sfx-chime', sfx: 'chime', at: 8.0, volume: 0.14 },
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        background: CREAM,
+        assets: [
+          ...POTS.map(p => ({ name: p.asset, src: p.src })),
+          { name: 'shadow', src: '../_assets/cutouts/shadow.png' },
+          { name: 'bgm', src: '../_assets/bgm.mp3' },
+        ],
+        composition: { sequences },
+      });
+      // opens at 0:00; add ?poster to the URL to park on the poster frame
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>
