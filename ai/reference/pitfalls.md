@@ -24,14 +24,14 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 13. **`w` / `h` in expressions** are the layer's own size. For text they now describe the styled text (`x: '-w'` scrolls a marquee fully out). *(fixed)*
 14. **Masks live in the parent's coordinate space and do not follow the masked layer.** Reveal by growing the mask's `width` from a fixed edge (`anchorX: 0`); exit by tweening `x` and `width` together; slide the content separately. *(docs)*
 15. **`filterArea` is in the layer's own coordinates** (origin = its local origin, e.g. a circle's centre), not the parent's. A blurred shape is clipped to its bounding box without it: `filterArea: { x: -(r+260), y: -(r+260), width: 2*(r+260), height: 2*(r+260) }`. `threeD` layers pad automatically. *(docs)*
-16. **The player bar overlays the bottom ~60 px of the canvas** in screenshots (not in the exported video). Keep captions above it and hide `.movie-controller` when reviewing layout. *(docs)*
+16. **The player bar overlays the bottom ~60 px of the canvas** in browser screenshots (not in the exported video). `movie.snapshot()` / `movie.contactSheet()` never include it; keep captions above it anyway. *(fixed: use the built-in snapshot tools)*
 
 ## Missing features (hand-roll)
 
-17. **No gradient fills / vignettes.** Draw on a canvas, register `canvas.toDataURL()` as an image asset, or stack bands / low-alpha circles (16 circles at alpha 0.013 look smooth; 6 at 0.035 band). *(hand-roll — recipe)*
-18. **Text cannot change content over time** (no count-up). One text layer per value, each alive one frame. *(hand-roll — recipe)*
-19. **No `repeat` / `yoyo`.** Generate the keyframes in a loop. *(hand-roll — recipe)*
-20. **No per-frame expression time.** Expressions are evaluated once at build, so curves (orbits, waves) must be sampled into short linear keyframes (~0.1 s). *(hand-roll — recipe)*
+17. **Gradients / vignettes**: use shape `fillGradient` (linear or radial, stops may have alpha). Earlier sessions hand-rolled canvas images or dozens of stacked bands. *(fixed)*
+18. **Counters**: `text: '{value}'` + animate `value` (with `format`). Other text content cannot change over time. Earlier sessions generated one text layer per number (40+ per bar). *(fixed)*
+19. **Loops**: `repeat` (finite) / `yoyo` / `repeatDelay` on any keyframe; infinite repeats are rejected with a warning. *(fixed)*
+20. **No per-frame expression time.** Expressions are evaluated once at build. A camera orbit is `orbit()`; any other curve (waves, spirals) must be sampled into short linear keyframes (~0.1 s) in a JS loop. *(partly fixed)*
 21. **No text split / per-letter animator, no group/null parent, no particle emitter, no blend modes, no caption-linked-to-slide.** One layer per letter; many layers; seeded random loops; plain alpha. *(hand-roll)*
 22. **Colour tweens look muddy in RGB** (red→green passes through brown). Use `colorSpace: 'oklab'` or `'oklch'` on the layer. *(docs)*
 23. **Generated images**: `canvas.toDataURL()` as an asset `src` works. Make them ≥ canvas size or `kenBurns` zooms look soft. *(docs)*
@@ -41,11 +41,11 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 24. **`threeD` is required** for `z`, `rotationX`, `rotationY` (they warn otherwise). Camera props go in `initial`/keyframes, never on the camera object. `+z` is toward the viewer. *(fixed: warns)*
 25. **A layer at/behind the camera plane is hidden** — the default camera sits at `z = (H/2)/tan(fov/2)` ≈ 989 at 720p, fov 40 (≈ 808 at fov 48, lower at higher fov). Keep every layer's `z` below it. *(fixed: warns once)*
 26. **Under a dolly zoom only the `z = 0` plane stays put**; everything nearer balloons and clips. Headline at `z: 0`, near cards `z ≤ ~70`. *(docs)*
-27. **Combining orbit and dolly zoom** needs `z` set explicitly (auto-`z` only applies when you never specify it): `z = (H/2)/tan(fov/2)`. *(docs)*
+27. **Combining orbit and dolly zoom**: `orbit()` specifies `z`, so it stops following `fov` — write your own `fov` and `z = (H/2)/tan(fov/2)` keyframes for the zoom. *(docs)*
 28. **Nearer `threeD` layers sort on top of text** — lay out around them. A final call-to-action or overlay should be a plain 2D layer (last in the array): it ignores the camera. *(docs)*
 29. **three.js**: the layer clips at its own rectangle — size it to the area you want and pull the camera back (`z ≈ 5.4` for a radius-1 torus knot at fov 50). Metal needs an environment map (`PMREMGenerator(ctx.renderer)`); `three/addons` is not in the importmap. Route `three` through the importmap so there is one copy. Masks/transitions/`filterArea` are not supported on `threeD` layers. *(docs)*
 
 ## Tooling (agent harness)
 
-30. `agent-browser screenshot` needs an **absolute path**; macOS `sed -i` needs `''`; a static server may redirect `/x.html` → `/x` and drop `?query`. Keep the template's `try/catch` around `init` so failures land in `window.__logs`. Seek with `await movie.gotoFrame(n, true)` (30 fps ⇒ `n = t·30`) and check ≥ 5 timestamps including mid-transition. *(docs)*
+30. **Look with the built-in tools, not OS screenshots**: `await movie.contactSheet({ count: 6, as: 'dataURL' })` returns one labelled image of the whole animation; `await movie.inspect(frame)` returns every layer's canvas bounds and `issues`. If you do use a browser tool, `screenshot` needs an **absolute path**, macOS `sed -i` needs `''`, and a static server may redirect `/x.html` → `/x` and drop `?query`. Keep the template's `try/catch` around `init` so failures land in `window.__logs`. Check ≥ 5 timestamps including mid-transition. *(fixed: tools built in)*
 31. **Check audio without rendering by decoding the render**: `const b = await movie.render({format:'mp4'})` then `new OfflineAudioContext(...).decodeAudioData(await b.arrayBuffer())` and measure RMS over time. `movie.audioBuffer` holds the mix. *(docs)*

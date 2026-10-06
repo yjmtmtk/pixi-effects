@@ -2,7 +2,7 @@
 
 Copy, adapt, run. Every block marked `@recipe` is a function body that **returns the composition's `sequences`** (or `{ sequences, transitions, duration }`); the repo's tests build each one and fail on any warning, so they stay correct. Blocks marked `@docs-only` need a browser (canvas / three.js) and are not executed by the tests.
 
-Assumed canvas: 1280×720 @ 30 fps. `kenBurns` and `withFade` come from `pixi-effects`.
+Assumed canvas: 1280×720 @ 30 fps. `kenBurns`, `withFade` and `orbit` come from `pixi-effects`.
 
 ---
 
@@ -85,56 +85,54 @@ return [{
 
 ## Numbers that count up
 
-Text cannot change its content over time. Show one text layer per value, each alive for a single frame; the last one stays.
+A text layer has an animatable number, `value`, printed wherever the text has `{value}`. Animate it with ordinary keyframes (ease, `from`/`to`, `repeat`).
 
 ```js
 // @recipe count-up
-const FPS = 30, FROM = 0, TO = 2480, AT = 1, DUR = 1.2;
-const easeOutCubic = p => 1 - Math.pow(1 - p, 3);
-const frames = Math.round(DUR * FPS);
-const sequences = [];
-for (let f = 0; f <= frames; f++) {
-  const value = Math.round(FROM + (TO - FROM) * easeOutCubic(f / frames));
-  sequences.push({
-    type: 'text', text: value.toLocaleString('en-US'),
-    at: AT + f / FPS,
-    ...(f < frames ? { duration: 1 / FPS } : {}),        // every number lives one frame; the final one stays
-    style: { fontSize: 96, fontWeight: 'bold', fill: '#ffffff' },
-    initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
-  });
-}
-return sequences;
+return [{
+  type: 'text', text: '{value}', format: { grouping: true },            // → "2,480"   (decimals: 0 by default)
+  style: { fontSize: 96, fontWeight: 'bold', fill: '#ffffff' },
+  initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5, value: 0 },
+  keyframes: [{ at: 1, to: { value: 2480 }, duration: 1.2, ease: 'power3.out' }],
+}];
 ```
 
-If a bar must stay locked to a counter, snap every `at` / `duration` to `1/FPS` and derive both from the same JS easing function (per-frame `set` keyframes) instead of mixing a tween with computed positions.
+Prefixes and suffixes go in the text (`'${value}'`, `'{value} users'`, `'{value}%'`). If a bar must stay locked to its counter, give both the same `at`, `duration` and `ease` — see the bar chart below.
 
 ---
 
 ## Data-driven bar chart
 
-Generate the whole spec from the data. Bars grow from the baseline: `anchorY: 1` and a `height` keyframe.
+Generate the whole spec from the data. Bars grow from the baseline (`anchorY: 1` + a `height` keyframe); each value label rides the top of its bar and counts up with the same ease and timing, so they stay locked.
 
 ```js
 // @recipe bar-chart
 const data = [['Mon', 12], ['Tue', 30], ['Wed', 22], ['Thu', 41], ['Fri', 35]];
 const max = Math.max(...data.map(d => d[1]));
-const BASE = 600, CHART_H = 380, BAR_W = 90, GAP = 40;
+const BASE = 600, CHART_H = 380, BAR_W = 90, GAP = 40, DUR = 0.9, EASE = 'power3.out';
 const x0 = (1280 - (data.length * BAR_W + (data.length - 1) * GAP)) / 2;
 const sequences = [];
 data.forEach(([label, value], i) => {
   const x = x0 + i * (BAR_W + GAP) + BAR_W / 2;
   const at = 0.4 + i * 0.12;
+  const h = CHART_H * value / max;
   sequences.push({
     type: 'shape', shape: 'rect', width: BAR_W, height: 0, cornerRadius: 8, anchorY: 1, at,
     initial: { x, y: BASE, fillColor: value === max ? '#ffd166' : '#4f6df5' },
-    keyframes: [{ at: 0, to: { height: CHART_H * value / max }, duration: 0.9, ease: 'power3.out' }],
+    keyframes: [{ at: 0, to: { height: h }, duration: DUR, ease: EASE }],
+  });
+  sequences.push({                                   // value label: counts up while riding the bar's top
+    type: 'text', text: '{value}', at,
+    style: { fontSize: 28, fontWeight: 'bold', fill: '#ffffff' },
+    initial: { x, y: BASE - 14, anchorX: 0.5, anchorY: 1, value: 0 },
+    keyframes: [{ at: 0, to: { value, y: BASE - h - 14 }, duration: DUR, ease: EASE }],
   });
   sequences.push({
     type: 'text', text: label, at, style: { fontSize: 26, fill: '#aab4d4' },
     initial: { x, y: BASE + 16, anchorX: 0.5, anchorY: 0 },
   });
 });
-sequences.push({ type: 'shape', shape: 'rect', width: 1000, height: 2, anchorX: 0.5, anchorY: 0.5, initial: { x: 'GW/2', y: BASE, fillColor: '#445' } });
+sequences.push({ type: 'shape', shape: 'rect', width: 1000, height: 2, initial: { x: 'GW/2', y: BASE, fillColor: '#445566' } });
 return sequences;
 ```
 
@@ -171,23 +169,16 @@ return [
 
 ## Camera orbit (+ optional dolly zoom)
 
-There is no orbit helper: sample a circle into short linear keyframes. Because `z` is specified, it no longer follows `fov` — if you also animate `fov` for a dolly zoom, set `z = (H/2)/tan(fov/2)` yourself in the same keyframes. Under a dolly zoom only the `z = 0` plane stays fixed: keep the hero content at `z = 0` and near content at small `z`.
+`orbit()` returns a camera layer that circles a point (the circle is sampled into short linear keyframes; the ease applies to the angle). Its `z` is specified, so it no longer follows `fov` — if you also want a dolly zoom, write your own `fov` and `z = (H/2)/tan(fov/2)` keyframes. Under a dolly zoom only the `z = 0` plane stays fixed: keep the hero content at `z = 0` and near content at small `z`.
 
 ```js
 // @recipe camera-orbit
-const R = 989, CX = 640, CY = 360, DUR = 6, STEPS = 60, SWEEP = 0.9;       // R ≈ default camera distance at 720p, fov 40
-const angle = i => -SWEEP / 2 + SWEEP * i / STEPS;
-const keyframes = [];
-for (let i = 0; i < STEPS; i++) {
-  const a = angle(i + 1);
-  keyframes.push({ at: DUR * i / STEPS, to: { x: CX + R * Math.sin(a), z: R * Math.cos(a) }, duration: DUR / STEPS, ease: 'none' });
-}
 const card = (x, z, color) => ({
   type: 'shape', shape: 'rect', width: 300, height: 200, cornerRadius: 20, threeD: true,
-  initial: { x, y: CY, z, fillColor: color },
+  initial: { x, y: 360, z, fillColor: color },
 });
 return [
-  { type: 'camera', initial: { x: CX + R * Math.sin(angle(0)), y: CY, z: R * Math.cos(angle(0)), lookAtX: CX, lookAtY: CY, lookAtZ: 0 }, keyframes },
+  orbit({ duration: 6, degrees: 50 }),               // ±25° around the centre; options: radius, center, start, fov, ease
   card(300, -300, '#3a6ea5'), card(640, 0, '#d96a3a'), card(980, 300, '#38a169'),
 ];
 ```
@@ -225,18 +216,17 @@ Source images should be at least canvas-sized (`kenBurns` zooms in): draw genera
 
 ---
 
-## Looping motion (no `repeat`)
+## Looping motion
 
-Generate the keyframes in a loop.
+`repeat` (a finite count) and `yoyo` go on any keyframe. Total time = `duration × (repeat + 1)`.
 
 ```js
 // @recipe pulse
-const keyframes = [];
-for (let i = 0; i < 6; i++) {
-  keyframes.push({ at: i, to: { scale: 1.15 }, duration: 0.5, ease: 'sine.inOut' },
-                 { at: i + 0.5, to: { scale: 1 }, duration: 0.5, ease: 'sine.inOut' });
-}
-return [{ type: 'shape', shape: 'circle', radius: 40, duration: 6, initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ff3b3b' }, keyframes }];
+return [{
+  type: 'shape', shape: 'circle', radius: 40, duration: 6,
+  initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ff3b3b' },
+  keyframes: [{ at: 0, to: { scale: 1.15 }, duration: 0.5, ease: 'sine.inOut', repeat: 11, yoyo: true }],   // 12 plays x 0.5 s = 6 s
+}];
 ```
 
 ---
@@ -259,23 +249,39 @@ return Array.from({ length: 40 }, () => {
 
 ---
 
-## Gradients and vignettes (no gradient fill exists)
+## Gradients and vignettes
 
-Draw one on a canvas and register it as an image asset (`data:` URLs work), or stack bands / low-alpha circles. Make the image canvas-sized.
+`fillGradient` fills a shape with a linear or radial gradient (positions are 0–1 of the shape's own bounds; colours can have alpha). A radial gradient from transparent to dark, on a full-screen rect placed last, is a vignette.
+
+```js
+// @recipe gradient-background
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
+    fillGradient: { stops: [[0, '#1b2a6b'], [0.6, '#7b3fe4'], [1, '#ff6a88']] } },                  // top → bottom
+  { type: 'shape', shape: 'rect', width: 520, height: 200, cornerRadius: 30, initial: { x: 'GW/2', y: 'GH/2' },
+    fillGradient: { angle: 0, stops: [[0, '#00f5a0'], [1, '#00d9f5']] } },                          // left → right
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
+    fillGradient: { type: 'radial', radius: 0.75, stops: [[0.45, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.7)']] } },   // vignette, last = on top
+];
+```
+
+---
+
+## Generated placeholder images (no photos available)
+
+Draw on a canvas and register `canvas.toDataURL()` as an asset (`data:` URLs work). Make the image at least canvas-sized (1920×1080 for a 1280×720 movie) so `kenBurns` zooms stay sharp.
 
 ```js
 // @docs-only
-function radialGradientAsset(name, inner, outer, w = 1280, h = 720) {
+function placeholderPhoto(name, hueA, hueB, w = 1920, h = 1080) {
   const c = Object.assign(document.createElement('canvas'), { width: w, height: h });
   const g = c.getContext('2d');
-  const grad = g.createRadialGradient(w / 2, h / 2, h * 0.2, w / 2, h / 2, h * 0.9);
-  grad.addColorStop(0, inner); grad.addColorStop(1, outer);
+  const grad = g.createLinearGradient(0, 0, w, h);
+  grad.addColorStop(0, `hsl(${hueA} 70% 45%)`); grad.addColorStop(1, `hsl(${hueB} 70% 25%)`);
   g.fillStyle = grad; g.fillRect(0, 0, w, h);
   return { name, src: c.toDataURL() };
 }
-// movie.init({ assets: [radialGradientAsset('vignette', 'rgba(0,0,0,0)', 'rgba(0,0,0,0.65)')], composition: { sequences: [
-//   ...content, { type: 'image', asset: 'vignette', initial: { x: 0, y: 0 } },   // last = on top
-// ] } })
+// await movie.init({ assets: [placeholderPhoto('p1', 210, 280), placeholderPhoto('p2', 10, 60)], composition: { … } })
 ```
 
 ---

@@ -103,6 +103,21 @@ The text's `fill` is also animatable via keyframes (under the `to`/`from`/`set` 
 }
 ```
 
+#### Counters (`{value}`)
+
+A text layer has one animatable number, `value`, printed wherever the text contains `{value}`. Animate it with the normal keyframes (any ease, `from`/`to`/`set`, `repeat`):
+
+```ts
+{
+  type: 'text', text: '{value} users', format: { decimals: 0, grouping: true },   // → "2,480 users"
+  initial: { value: 0 },
+  keyframes: [{ at: 1, to: { value: 2480 }, duration: 1.2, ease: 'power3.out' }],
+  style: { fontSize: 72, fill: '#fff' }, ...
+}
+```
+
+`format`: `decimals` (default 0) and thousands `grouping` (default false). Put prefixes and suffixes in the text (`'${value}'`, `'{value}%'`). If `value` is animated but the text has no `{value}`, a warning says so.
+
 ### `image`
 
 Renders a [PIXI.Sprite](https://pixijs.com/8.x/guides/components/scene-objects/sprite/sprite) from a registered asset. Intrinsic `w`/`h` come from the loaded texture.
@@ -223,6 +238,24 @@ Every primitive draws centred on its local origin (so `anchorX`/`anchorY` and `p
 | `strokeWidth` | Pixels. Default 0 (no stroke).                               |
 
 Colour keys (`fillColor`, `strokeColor`) tween smoothly between hues — no snap at the end. Numeric keys (`fillAlpha` / `strokeAlpha` / `strokeWidth`) animate linearly.
+
+#### `fillGradient`
+
+Fill a shape with a gradient instead of `fillColor` (top level or in `initial`). Positions are in 0–1 of the shape's own bounds, so the gradient follows the shape's size. Colours may carry alpha, so a radial gradient from transparent to dark is a vignette. Not animatable.
+
+```ts
+{ type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
+  fillGradient: { stops: [[0, '#1b2a6b'], [0.6, '#7b3fe4'], [1, '#ff6a88']] } }                // linear, top → bottom
+{ ..., fillGradient: { angle: 0, stops: [[0, '#00f5a0'], [1, '#00d9f5']] } }                    // left → right
+{ ..., fillGradient: { type: 'radial', radius: 0.75, stops: [[0.45, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.7)']] } }   // vignette
+```
+
+| Field | Notes |
+|---|---|
+| `type` | `'linear'` (default) or `'radial'` |
+| `stops` | at least two: `[offset 0–1, colour]` or `{ offset, color }` |
+| `angle` | linear: degrees, `0` = left → right, `90` = top → bottom (default) |
+| `center`, `innerRadius`, `radius` | radial: centre in 0–1 (default `[0.5, 0.5]`), inner radius (default 0), outer radius (default 0.5); an ellipse on a non-square shape |
 
 #### `colorSpace`
 
@@ -554,6 +587,16 @@ The four kinds are mutually exclusive per keyframe:
 - **`to`** — tween from whatever the property is at `at` to the given values, over `duration`.
 - **`from`** — tween from the given values back to the current property, over `duration`.
 - **`from` + `to`** — full fromTo tween, with explicit start and end values.
+
+### Repeating
+
+`repeat` (extra plays, a finite whole number), `yoyo` (every other play runs backwards) and `repeatDelay` (seconds between plays) work on every kind of animation — position, alpha, colour, shape geometry, filters, text `fill`/`value`:
+
+```ts
+{ at: 0, to: { scale: 1.15 }, duration: 0.5, ease: 'sine.inOut', repeat: 5, yoyo: true }   // a heartbeat: 6 plays, 6 s total
+```
+
+Total time = `duration × (repeat + 1)` (+ delays). Endless repeats are not allowed (the timeline needs a fixed length); `repeat: -1` / `Infinity` is ignored with a warning — repeat as many times as the layer lasts.
 
 ### Negative `at`
 
@@ -928,6 +971,30 @@ Pan the image between two points within its over-scaled bounds.
 | `zoom?` | number              | over-scale factor (must be > 1 for any pan to be visible). Default `1.15`.             |
 
 `[0, 0]` looks at the top-left of the image; `[1, 1]` looks at the bottom-right. The default pans diagonally across the upper-left and lower-right quarters of the over-scaled image (matches the Yajima-Motion preset).
+
+### `orbit`
+
+A camera that circles a point. There is no per-frame expression in the DSL, so the circle is sampled into short linear keyframes (one per 0.1 s; the easing is applied to the angle). Returns a `camera` layer for `sequences[]`.
+
+```ts
+import { orbit } from 'pixi-effects';
+
+sequences: [
+  orbit({ duration: 6, degrees: 40 }),                                   // ±20° around the centre of a 1280×720 canvas
+  // …threeD layers…
+]
+```
+
+| Option | Notes |
+|---|---|
+| `duration`, `degrees` | required. `degrees` is the total sweep (negative = the other way) |
+| `start` | start angle in degrees; default `-degrees / 2` (0 = straight in front of the centre) |
+| `radius` | distance from the centre; default = the default camera distance for `height` and `fov`, so `z = 0` is 1:1 at angle 0 |
+| `center` | `[x, y]` to circle and look at; default the canvas centre |
+| `width`, `height` | canvas size for the defaults (1280 × 720) |
+| `fov`, `ease`, `at`, `name`, `stepsPerSecond` | `ease` default `'sine.inOut'` |
+
+`z` is specified, so it stops following `fov`; for an orbit **plus** a dolly zoom write your own `fov` and `z = (H/2) / tan(fov/2)` keyframes.
 
 ### `withFade`
 

@@ -15,7 +15,11 @@ You describe a video as a tree of plain objects; the library plays it in a canva
 1. **Start from `template.html`** (copy it; it loads the library from a CDN, collects every console warning into `window.__logs`, and exposes `window.movie`). One HTML file, plain JS. Default canvas 1280×720 @ 30 fps.
 2. **Write the composition as data.** Anything repeated (letters, bars, particles, scenes) is a JS function or loop that returns specs — never copy-paste objects. Derive coordinates and times from constants/data, not magic numbers.
 3. **Run it and read the logs first.** `window.__ready` must be `true` and `window.__logs` should be `[]`. A pixi-effects warning is an instruction: fix what it names.
-4. **Look at it** — you cannot judge motion from code. Seek with `await movie.gotoFrame(n, true)` (30 fps ⇒ `n = seconds × 30`), screenshot, and check **at least 5 timestamps** spanning the piece, including the middle of every transition and the last second. Combine frames into one contact-sheet image to save effort. The player bar overlays the bottom ~60 px of the canvas in screenshots (not in the video): hide `.movie-controller`.
+4. **Look at it** — you cannot judge motion from code. The library has the tools built in:
+   - `await movie.contactSheet({ count: 6, as: 'dataURL' })` → ONE image of several labelled frames (pass `frames: [...]` / `times: [...]` to choose; include the middle of every transition and the last second). Save it and view it.
+   - `await movie.inspect(frame)` → every layer's canvas bounds and visibility, plus `issues` (text off the canvas, cut off by an edge, empty, or overlapping other text). Run it at several frames; fix every issue it names.
+   - `await movie.snapshot(frame, { as: 'dataURL' })` → one frame, canvas only (no player bar).
+   From a browser tool the result is a `data:` URL string: write its base64 part to a `.png` and open that file.
 5. **Iterate** on what you saw (clipped text, collisions, wrong timing). Then export: `const blob = await movie.render({ format: 'mp4' })` (about real time; `movie.on('progress', …)` reports 0–100).
 
 ## The rules that cause most failures
@@ -27,7 +31,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
 - **`audio` shorter than its layer goes silent** — add `loop: true`.
 - **Masks live in the parent's coordinates and don't follow the masked layer.** **`filterArea` is in the layer's own coordinates.**
 - **2.5D needs `threeD: true`** on each layer plus a `{ type: 'camera' }` layer; camera props go in `initial`/keyframes; keep every `z` below the camera distance (≈ 989 at 720p, fov 40); under a dolly zoom only `z = 0` stays fixed.
-- **Not in the DSL (hand-roll, recipes exist):** gradient fills, changing text (count-up), repeat/yoyo, per-frame curves (orbits), per-letter text animators, blend modes, particle emitters.
+- **Built in:** `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`. **Not in the DSL (hand-roll, recipes exist or loops are easy):** other per-frame curves, per-letter text animators (one layer per letter), blend modes, particle emitters, group/parent layers.
 
 ## Layout sanity (the cheap bugs a screenshot catches)
 
@@ -36,7 +40,7 @@ Centred text must be positioned by `anchorX/anchorY: 0.5`; estimate text width a
 ## Files
 
 - `reference/cheatsheet.md` — every layer type, prop, default and rule on one page.
-- `reference/recipes.md` — tested building blocks: slam type, lower-third, marquee, count-up, bar chart, 2.5D title, camera orbit, slideshow with transitions + music, looping, particles, gradients, three.js metal.
+- `reference/recipes.md` — tested building blocks: slam type, lower-third, marquee, count-up, bar chart, 2.5D title, camera orbit, slideshow with transitions + music, looping, particles, gradients/vignette, three.js metal.
 - `reference/pitfalls.md` — the full list of real mistakes, with status.
 - `template.html` — the starting file.
 - Full reference: `docs/dsl.md` and `docs/api.md` in the repository.
@@ -80,7 +84,7 @@ Operators `+ - * /`, parentheses, unary `-`. Functions `min max abs floor ceil r
 ```
 name, at, duration,
 initial: { ...props applied before any keyframe },
-keyframes: [ { at, duration, ease, set | to | from | (from + to) } ],
+keyframes: [ { at, duration, ease, set | to | from | (from + to), repeat?, yoyo?, repeatDelay? } ],
 filters: [ { type: 'chromaKey', keyColor, threshold, smoothing, spill } | { type: 'custom', name, filter: <Pixi Filter> } ],
 mask: <a layer spec>, maskInverted,
 filterArea: { x, y, width, height }   // in the layer's OWN coordinates; lets blur/glow draw past the layer's bounds
@@ -89,11 +93,11 @@ threeD: true                          // opt into 2.5D (see below)
 
 Animatable props (`initial` / keyframes): `x y alpha rotation scale scaleX scaleY pivotX pivotY anchorX anchorY skewX skewY tint width height visible autoAlpha`, plus for shapes their style/geometry, for text `fill`, for audio `volume`, for 3D `z rotationX rotationY`, filter params as `'filters.<name>.<param>'`, three objects as `'three.<obj>.<path>'`.
 
-Keyframe kinds: `set` (jump), `to` (animate to), `from` (animate from), `from`+`to`. `ease` = any GSAP ease (`'none'`, `'power2.out'`, `'expo.out'`, `'back.out(1.7)'`, `'elastic.out(1,0.5)'`, `'sine.inOut'`, `'bounce.out'`…). Default ease is linear.
+Keyframe kinds: `set` (jump), `to` (animate to), `from` (animate from), `from`+`to`. `repeat` (finite extra plays), `yoyo`, `repeatDelay` loop any of them (endless repeats are not allowed). `ease` = any GSAP ease (`'none'`, `'power2.out'`, `'expo.out'`, `'back.out(1.7)'`, `'elastic.out(1,0.5)'`, `'sine.inOut'`, `'bounce.out'`…). Default ease is linear.
 
 ## Layer types
 
-**text** — `text`, `style` (any PixiJS TextStyle field: `fontSize fontFamily fontWeight fill letterSpacing lineHeight align wordWrap wordWrapWidth stroke dropShadow padding`; expressions OK for numbers), `colorSpace`. Default anchor is **top-left**; use `anchorX/anchorY: 0.5` to centre on `x,y`. Text cannot change its content over time.
+**text** — `text`, `style` (any PixiJS TextStyle field: `fontSize fontFamily fontWeight fill letterSpacing lineHeight align wordWrap wordWrapWidth stroke dropShadow padding`; expressions OK for numbers), `colorSpace`. Default anchor is **top-left**; use `anchorX/anchorY: 0.5` to centre on `x,y`. A text layer has one animatable number, `value`, printed where the text contains `{value}` (`text: '{value} users'`, `initial: { value: 0 }`, keyframe `to: { value: 2480 }`; `format: { decimals, grouping }`) — that is how counters work. Other content cannot change over time.
 
 **image** — `asset`, `tint`, `colorSpace: 'rgb'|'oklab'|'oklch'`. Default anchor top-left; natural size = `w`,`h`.
 
@@ -112,7 +116,7 @@ Keyframe kinds: `set` (jump), `to` (animate to), `from` (animate from), `from`+`
 | polygon | `points: [[x,y],…]  open` |
 | path | `d` (SVG path data) |
 
-Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha strokeWidth`; `colorSpace: 'oklab'|'oklch'` for clean colour tweens. rect/circle/ellipse are **centred on `x,y` by default** (`anchorX/anchorY` default 0.5): for a bar growing from its base use `anchorY: 1` (or `anchorX: 0` for left-to-right). No gradient fills.
+Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha strokeWidth`; `colorSpace: 'oklab'|'oklch'` for clean colour tweens. rect/circle/ellipse are **centred on `x,y` by default** (`anchorX/anchorY` default 0.5): for a bar growing from its base use `anchorY: 1` (or `anchorX: 0` for left-to-right). **`fillGradient`** (top level or `initial`; instead of `fillColor`): `{ type?: 'linear'|'radial', stops: [[0, '#000'], [1, 'rgba(0,0,0,.6)']], angle? /* linear, deg, 90 = top→bottom */, center?, innerRadius?, radius? /* radial, 0–1 of bounds */ }` — stops may have alpha, so a radial transparent→dark is a vignette.
 
 **composition** — `width height duration sequences transitions`. Children use the composition's local coordinates and times. Position/rotate/scale it as a unit; to rotate/scale about its centre set `pivotX/pivotY` to the centre and `x/y` to where that point should sit.
 
@@ -141,6 +145,7 @@ import { kenBurns, withFade } from 'pixi-effects';
 kenBurns({ asset, name, at, duration, motion: 'still'|'scale'|'rotation'|'position',
            fit: 'cover'|'contain', ease, /* scale */ origin, zoom, direction, /* rotation */ angle, /* position */ from, to })
 withFade(spec, { in: 0.5, out: 0.5 })   // alpha fade; `out` needs spec.duration
+orbit({ duration: 6, degrees: 40 /* , radius, center, start, fov, ease, at */ })   // a camera layer that circles a point
 ```
 `kenBurns` covers the canvas, so source images should be at least canvas-sized (1920×1080 for 1280×720).
 
@@ -158,6 +163,9 @@ await movie.gotoFrame(n, true);                 // seek (frames; 30 fps => t = n
 const blob = await movie.render({ format: 'mp4' });   // 'mp4' | 'webm' | 'mov' | 'mkv'; ~real-time
 movie.on('progress', e => e.progress /* 0–100 */);
 movie.audioBuffer                                // mixed audio (after init), if any audio layers
+await movie.contactSheet({ count: 6, as: 'dataURL' })   // ONE image of several labelled frames — look at it
+await movie.snapshot(60, { as: 'dataURL' })             // one frame, canvas only (no player bar)
+await movie.inspect(60)                                 // per-layer canvas bounds + issues (text off-canvas / cut off / overlapping)
 new Controller(movie, { canvas })                // optional player bar (overlays the canvas bottom ~60px; not in the export)
 ```
 
@@ -190,14 +198,14 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 13. **`w` / `h` in expressions** are the layer's own size. For text they now describe the styled text (`x: '-w'` scrolls a marquee fully out). *(fixed)*
 14. **Masks live in the parent's coordinate space and do not follow the masked layer.** Reveal by growing the mask's `width` from a fixed edge (`anchorX: 0`); exit by tweening `x` and `width` together; slide the content separately. *(docs)*
 15. **`filterArea` is in the layer's own coordinates** (origin = its local origin, e.g. a circle's centre), not the parent's. A blurred shape is clipped to its bounding box without it: `filterArea: { x: -(r+260), y: -(r+260), width: 2*(r+260), height: 2*(r+260) }`. `threeD` layers pad automatically. *(docs)*
-16. **The player bar overlays the bottom ~60 px of the canvas** in screenshots (not in the exported video). Keep captions above it and hide `.movie-controller` when reviewing layout. *(docs)*
+16. **The player bar overlays the bottom ~60 px of the canvas** in browser screenshots (not in the exported video). `movie.snapshot()` / `movie.contactSheet()` never include it; keep captions above it anyway. *(fixed: use the built-in snapshot tools)*
 
 ## Missing features (hand-roll)
 
-17. **No gradient fills / vignettes.** Draw on a canvas, register `canvas.toDataURL()` as an image asset, or stack bands / low-alpha circles (16 circles at alpha 0.013 look smooth; 6 at 0.035 band). *(hand-roll — recipe)*
-18. **Text cannot change content over time** (no count-up). One text layer per value, each alive one frame. *(hand-roll — recipe)*
-19. **No `repeat` / `yoyo`.** Generate the keyframes in a loop. *(hand-roll — recipe)*
-20. **No per-frame expression time.** Expressions are evaluated once at build, so curves (orbits, waves) must be sampled into short linear keyframes (~0.1 s). *(hand-roll — recipe)*
+17. **Gradients / vignettes**: use shape `fillGradient` (linear or radial, stops may have alpha). Earlier sessions hand-rolled canvas images or dozens of stacked bands. *(fixed)*
+18. **Counters**: `text: '{value}'` + animate `value` (with `format`). Other text content cannot change over time. Earlier sessions generated one text layer per number (40+ per bar). *(fixed)*
+19. **Loops**: `repeat` (finite) / `yoyo` / `repeatDelay` on any keyframe; infinite repeats are rejected with a warning. *(fixed)*
+20. **No per-frame expression time.** Expressions are evaluated once at build. A camera orbit is `orbit()`; any other curve (waves, spirals) must be sampled into short linear keyframes (~0.1 s) in a JS loop. *(partly fixed)*
 21. **No text split / per-letter animator, no group/null parent, no particle emitter, no blend modes, no caption-linked-to-slide.** One layer per letter; many layers; seeded random loops; plain alpha. *(hand-roll)*
 22. **Colour tweens look muddy in RGB** (red→green passes through brown). Use `colorSpace: 'oklab'` or `'oklch'` on the layer. *(docs)*
 23. **Generated images**: `canvas.toDataURL()` as an asset `src` works. Make them ≥ canvas size or `kenBurns` zooms look soft. *(docs)*
@@ -207,13 +215,13 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 24. **`threeD` is required** for `z`, `rotationX`, `rotationY` (they warn otherwise). Camera props go in `initial`/keyframes, never on the camera object. `+z` is toward the viewer. *(fixed: warns)*
 25. **A layer at/behind the camera plane is hidden** — the default camera sits at `z = (H/2)/tan(fov/2)` ≈ 989 at 720p, fov 40 (≈ 808 at fov 48, lower at higher fov). Keep every layer's `z` below it. *(fixed: warns once)*
 26. **Under a dolly zoom only the `z = 0` plane stays put**; everything nearer balloons and clips. Headline at `z: 0`, near cards `z ≤ ~70`. *(docs)*
-27. **Combining orbit and dolly zoom** needs `z` set explicitly (auto-`z` only applies when you never specify it): `z = (H/2)/tan(fov/2)`. *(docs)*
+27. **Combining orbit and dolly zoom**: `orbit()` specifies `z`, so it stops following `fov` — write your own `fov` and `z = (H/2)/tan(fov/2)` keyframes for the zoom. *(docs)*
 28. **Nearer `threeD` layers sort on top of text** — lay out around them. A final call-to-action or overlay should be a plain 2D layer (last in the array): it ignores the camera. *(docs)*
 29. **three.js**: the layer clips at its own rectangle — size it to the area you want and pull the camera back (`z ≈ 5.4` for a radius-1 torus knot at fov 50). Metal needs an environment map (`PMREMGenerator(ctx.renderer)`); `three/addons` is not in the importmap. Route `three` through the importmap so there is one copy. Masks/transitions/`filterArea` are not supported on `threeD` layers. *(docs)*
 
 ## Tooling (agent harness)
 
-30. `agent-browser screenshot` needs an **absolute path**; macOS `sed -i` needs `''`; a static server may redirect `/x.html` → `/x` and drop `?query`. Keep the template's `try/catch` around `init` so failures land in `window.__logs`. Seek with `await movie.gotoFrame(n, true)` (30 fps ⇒ `n = t·30`) and check ≥ 5 timestamps including mid-transition. *(docs)*
+30. **Look with the built-in tools, not OS screenshots**: `await movie.contactSheet({ count: 6, as: 'dataURL' })` returns one labelled image of the whole animation; `await movie.inspect(frame)` returns every layer's canvas bounds and `issues`. If you do use a browser tool, `screenshot` needs an **absolute path**, macOS `sed -i` needs `''`, and a static server may redirect `/x.html` → `/x` and drop `?query`. Keep the template's `try/catch` around `init` so failures land in `window.__logs`. Check ≥ 5 timestamps including mid-transition. *(fixed: tools built in)*
 31. **Check audio without rendering by decoding the render**: `const b = await movie.render({format:'mp4'})` then `new OfflineAudioContext(...).decodeAudioData(await b.arrayBuffer())` and measure RMS over time. `movie.audioBuffer` holds the mix. *(docs)*
 
 
@@ -223,7 +231,7 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 
 Copy, adapt, run. Every block marked `@recipe` is a function body that **returns the composition's `sequences`** (or `{ sequences, transitions, duration }`); the repo's tests build each one and fail on any warning, so they stay correct. Blocks marked `@docs-only` need a browser (canvas / three.js) and are not executed by the tests.
 
-Assumed canvas: 1280×720 @ 30 fps. `kenBurns` and `withFade` come from `pixi-effects`.
+Assumed canvas: 1280×720 @ 30 fps. `kenBurns`, `withFade` and `orbit` come from `pixi-effects`.
 
 ---
 
@@ -306,56 +314,54 @@ return [{
 
 ## Numbers that count up
 
-Text cannot change its content over time. Show one text layer per value, each alive for a single frame; the last one stays.
+A text layer has an animatable number, `value`, printed wherever the text has `{value}`. Animate it with ordinary keyframes (ease, `from`/`to`, `repeat`).
 
 ```js
 // @recipe count-up
-const FPS = 30, FROM = 0, TO = 2480, AT = 1, DUR = 1.2;
-const easeOutCubic = p => 1 - Math.pow(1 - p, 3);
-const frames = Math.round(DUR * FPS);
-const sequences = [];
-for (let f = 0; f <= frames; f++) {
-  const value = Math.round(FROM + (TO - FROM) * easeOutCubic(f / frames));
-  sequences.push({
-    type: 'text', text: value.toLocaleString('en-US'),
-    at: AT + f / FPS,
-    ...(f < frames ? { duration: 1 / FPS } : {}),        // every number lives one frame; the final one stays
-    style: { fontSize: 96, fontWeight: 'bold', fill: '#ffffff' },
-    initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
-  });
-}
-return sequences;
+return [{
+  type: 'text', text: '{value}', format: { grouping: true },            // → "2,480"   (decimals: 0 by default)
+  style: { fontSize: 96, fontWeight: 'bold', fill: '#ffffff' },
+  initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5, value: 0 },
+  keyframes: [{ at: 1, to: { value: 2480 }, duration: 1.2, ease: 'power3.out' }],
+}];
 ```
 
-If a bar must stay locked to a counter, snap every `at` / `duration` to `1/FPS` and derive both from the same JS easing function (per-frame `set` keyframes) instead of mixing a tween with computed positions.
+Prefixes and suffixes go in the text (`'${value}'`, `'{value} users'`, `'{value}%'`). If a bar must stay locked to its counter, give both the same `at`, `duration` and `ease` — see the bar chart below.
 
 ---
 
 ## Data-driven bar chart
 
-Generate the whole spec from the data. Bars grow from the baseline: `anchorY: 1` and a `height` keyframe.
+Generate the whole spec from the data. Bars grow from the baseline (`anchorY: 1` + a `height` keyframe); each value label rides the top of its bar and counts up with the same ease and timing, so they stay locked.
 
 ```js
 // @recipe bar-chart
 const data = [['Mon', 12], ['Tue', 30], ['Wed', 22], ['Thu', 41], ['Fri', 35]];
 const max = Math.max(...data.map(d => d[1]));
-const BASE = 600, CHART_H = 380, BAR_W = 90, GAP = 40;
+const BASE = 600, CHART_H = 380, BAR_W = 90, GAP = 40, DUR = 0.9, EASE = 'power3.out';
 const x0 = (1280 - (data.length * BAR_W + (data.length - 1) * GAP)) / 2;
 const sequences = [];
 data.forEach(([label, value], i) => {
   const x = x0 + i * (BAR_W + GAP) + BAR_W / 2;
   const at = 0.4 + i * 0.12;
+  const h = CHART_H * value / max;
   sequences.push({
     type: 'shape', shape: 'rect', width: BAR_W, height: 0, cornerRadius: 8, anchorY: 1, at,
     initial: { x, y: BASE, fillColor: value === max ? '#ffd166' : '#4f6df5' },
-    keyframes: [{ at: 0, to: { height: CHART_H * value / max }, duration: 0.9, ease: 'power3.out' }],
+    keyframes: [{ at: 0, to: { height: h }, duration: DUR, ease: EASE }],
+  });
+  sequences.push({                                   // value label: counts up while riding the bar's top
+    type: 'text', text: '{value}', at,
+    style: { fontSize: 28, fontWeight: 'bold', fill: '#ffffff' },
+    initial: { x, y: BASE - 14, anchorX: 0.5, anchorY: 1, value: 0 },
+    keyframes: [{ at: 0, to: { value, y: BASE - h - 14 }, duration: DUR, ease: EASE }],
   });
   sequences.push({
     type: 'text', text: label, at, style: { fontSize: 26, fill: '#aab4d4' },
     initial: { x, y: BASE + 16, anchorX: 0.5, anchorY: 0 },
   });
 });
-sequences.push({ type: 'shape', shape: 'rect', width: 1000, height: 2, anchorX: 0.5, anchorY: 0.5, initial: { x: 'GW/2', y: BASE, fillColor: '#445' } });
+sequences.push({ type: 'shape', shape: 'rect', width: 1000, height: 2, initial: { x: 'GW/2', y: BASE, fillColor: '#445566' } });
 return sequences;
 ```
 
@@ -392,23 +398,16 @@ return [
 
 ## Camera orbit (+ optional dolly zoom)
 
-There is no orbit helper: sample a circle into short linear keyframes. Because `z` is specified, it no longer follows `fov` — if you also animate `fov` for a dolly zoom, set `z = (H/2)/tan(fov/2)` yourself in the same keyframes. Under a dolly zoom only the `z = 0` plane stays fixed: keep the hero content at `z = 0` and near content at small `z`.
+`orbit()` returns a camera layer that circles a point (the circle is sampled into short linear keyframes; the ease applies to the angle). Its `z` is specified, so it no longer follows `fov` — if you also want a dolly zoom, write your own `fov` and `z = (H/2)/tan(fov/2)` keyframes. Under a dolly zoom only the `z = 0` plane stays fixed: keep the hero content at `z = 0` and near content at small `z`.
 
 ```js
 // @recipe camera-orbit
-const R = 989, CX = 640, CY = 360, DUR = 6, STEPS = 60, SWEEP = 0.9;       // R ≈ default camera distance at 720p, fov 40
-const angle = i => -SWEEP / 2 + SWEEP * i / STEPS;
-const keyframes = [];
-for (let i = 0; i < STEPS; i++) {
-  const a = angle(i + 1);
-  keyframes.push({ at: DUR * i / STEPS, to: { x: CX + R * Math.sin(a), z: R * Math.cos(a) }, duration: DUR / STEPS, ease: 'none' });
-}
 const card = (x, z, color) => ({
   type: 'shape', shape: 'rect', width: 300, height: 200, cornerRadius: 20, threeD: true,
-  initial: { x, y: CY, z, fillColor: color },
+  initial: { x, y: 360, z, fillColor: color },
 });
 return [
-  { type: 'camera', initial: { x: CX + R * Math.sin(angle(0)), y: CY, z: R * Math.cos(angle(0)), lookAtX: CX, lookAtY: CY, lookAtZ: 0 }, keyframes },
+  orbit({ duration: 6, degrees: 50 }),               // ±25° around the centre; options: radius, center, start, fov, ease
   card(300, -300, '#3a6ea5'), card(640, 0, '#d96a3a'), card(980, 300, '#38a169'),
 ];
 ```
@@ -446,18 +445,17 @@ Source images should be at least canvas-sized (`kenBurns` zooms in): draw genera
 
 ---
 
-## Looping motion (no `repeat`)
+## Looping motion
 
-Generate the keyframes in a loop.
+`repeat` (a finite count) and `yoyo` go on any keyframe. Total time = `duration × (repeat + 1)`.
 
 ```js
 // @recipe pulse
-const keyframes = [];
-for (let i = 0; i < 6; i++) {
-  keyframes.push({ at: i, to: { scale: 1.15 }, duration: 0.5, ease: 'sine.inOut' },
-                 { at: i + 0.5, to: { scale: 1 }, duration: 0.5, ease: 'sine.inOut' });
-}
-return [{ type: 'shape', shape: 'circle', radius: 40, duration: 6, initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ff3b3b' }, keyframes }];
+return [{
+  type: 'shape', shape: 'circle', radius: 40, duration: 6,
+  initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ff3b3b' },
+  keyframes: [{ at: 0, to: { scale: 1.15 }, duration: 0.5, ease: 'sine.inOut', repeat: 11, yoyo: true }],   // 12 plays x 0.5 s = 6 s
+}];
 ```
 
 ---
@@ -480,23 +478,39 @@ return Array.from({ length: 40 }, () => {
 
 ---
 
-## Gradients and vignettes (no gradient fill exists)
+## Gradients and vignettes
 
-Draw one on a canvas and register it as an image asset (`data:` URLs work), or stack bands / low-alpha circles. Make the image canvas-sized.
+`fillGradient` fills a shape with a linear or radial gradient (positions are 0–1 of the shape's own bounds; colours can have alpha). A radial gradient from transparent to dark, on a full-screen rect placed last, is a vignette.
+
+```js
+// @recipe gradient-background
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
+    fillGradient: { stops: [[0, '#1b2a6b'], [0.6, '#7b3fe4'], [1, '#ff6a88']] } },                  // top → bottom
+  { type: 'shape', shape: 'rect', width: 520, height: 200, cornerRadius: 30, initial: { x: 'GW/2', y: 'GH/2' },
+    fillGradient: { angle: 0, stops: [[0, '#00f5a0'], [1, '#00d9f5']] } },                          // left → right
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
+    fillGradient: { type: 'radial', radius: 0.75, stops: [[0.45, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.7)']] } },   // vignette, last = on top
+];
+```
+
+---
+
+## Generated placeholder images (no photos available)
+
+Draw on a canvas and register `canvas.toDataURL()` as an asset (`data:` URLs work). Make the image at least canvas-sized (1920×1080 for a 1280×720 movie) so `kenBurns` zooms stay sharp.
 
 ```js
 // @docs-only
-function radialGradientAsset(name, inner, outer, w = 1280, h = 720) {
+function placeholderPhoto(name, hueA, hueB, w = 1920, h = 1080) {
   const c = Object.assign(document.createElement('canvas'), { width: w, height: h });
   const g = c.getContext('2d');
-  const grad = g.createRadialGradient(w / 2, h / 2, h * 0.2, w / 2, h / 2, h * 0.9);
-  grad.addColorStop(0, inner); grad.addColorStop(1, outer);
+  const grad = g.createLinearGradient(0, 0, w, h);
+  grad.addColorStop(0, `hsl(${hueA} 70% 45%)`); grad.addColorStop(1, `hsl(${hueB} 70% 25%)`);
   g.fillStyle = grad; g.fillRect(0, 0, w, h);
   return { name, src: c.toDataURL() };
 }
-// movie.init({ assets: [radialGradientAsset('vignette', 'rgba(0,0,0,0)', 'rgba(0,0,0,0.65)')], composition: { sequences: [
-//   ...content, { type: 'image', asset: 'vignette', initial: { x: 0, y: 0 } },   // last = on top
-// ] } })
+// await movie.init({ assets: [placeholderPhoto('p1', 210, 280), placeholderPhoto('p2', 10, 60)], composition: { … } })
 ```
 
 ---
@@ -634,6 +648,21 @@ The text's `fill` is also animatable via keyframes (under the `to`/`from`/`set` 
 }
 ```
 
+#### Counters (`{value}`)
+
+A text layer has one animatable number, `value`, printed wherever the text contains `{value}`. Animate it with the normal keyframes (any ease, `from`/`to`/`set`, `repeat`):
+
+```ts
+{
+  type: 'text', text: '{value} users', format: { decimals: 0, grouping: true },   // → "2,480 users"
+  initial: { value: 0 },
+  keyframes: [{ at: 1, to: { value: 2480 }, duration: 1.2, ease: 'power3.out' }],
+  style: { fontSize: 72, fill: '#fff' }, ...
+}
+```
+
+`format`: `decimals` (default 0) and thousands `grouping` (default false). Put prefixes and suffixes in the text (`'${value}'`, `'{value}%'`). If `value` is animated but the text has no `{value}`, a warning says so.
+
 ### `image`
 
 Renders a [PIXI.Sprite](https://pixijs.com/8.x/guides/components/scene-objects/sprite/sprite) from a registered asset. Intrinsic `w`/`h` come from the loaded texture.
@@ -754,6 +783,24 @@ Every primitive draws centred on its local origin (so `anchorX`/`anchorY` and `p
 | `strokeWidth` | Pixels. Default 0 (no stroke).                               |
 
 Colour keys (`fillColor`, `strokeColor`) tween smoothly between hues — no snap at the end. Numeric keys (`fillAlpha` / `strokeAlpha` / `strokeWidth`) animate linearly.
+
+#### `fillGradient`
+
+Fill a shape with a gradient instead of `fillColor` (top level or in `initial`). Positions are in 0–1 of the shape's own bounds, so the gradient follows the shape's size. Colours may carry alpha, so a radial gradient from transparent to dark is a vignette. Not animatable.
+
+```ts
+{ type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
+  fillGradient: { stops: [[0, '#1b2a6b'], [0.6, '#7b3fe4'], [1, '#ff6a88']] } }                // linear, top → bottom
+{ ..., fillGradient: { angle: 0, stops: [[0, '#00f5a0'], [1, '#00d9f5']] } }                    // left → right
+{ ..., fillGradient: { type: 'radial', radius: 0.75, stops: [[0.45, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.7)']] } }   // vignette
+```
+
+| Field | Notes |
+|---|---|
+| `type` | `'linear'` (default) or `'radial'` |
+| `stops` | at least two: `[offset 0–1, colour]` or `{ offset, color }` |
+| `angle` | linear: degrees, `0` = left → right, `90` = top → bottom (default) |
+| `center`, `innerRadius`, `radius` | radial: centre in 0–1 (default `[0.5, 0.5]`), inner radius (default 0), outer radius (default 0.5); an ellipse on a non-square shape |
 
 #### `colorSpace`
 
@@ -1085,6 +1132,16 @@ The four kinds are mutually exclusive per keyframe:
 - **`to`** — tween from whatever the property is at `at` to the given values, over `duration`.
 - **`from`** — tween from the given values back to the current property, over `duration`.
 - **`from` + `to`** — full fromTo tween, with explicit start and end values.
+
+### Repeating
+
+`repeat` (extra plays, a finite whole number), `yoyo` (every other play runs backwards) and `repeatDelay` (seconds between plays) work on every kind of animation — position, alpha, colour, shape geometry, filters, text `fill`/`value`:
+
+```ts
+{ at: 0, to: { scale: 1.15 }, duration: 0.5, ease: 'sine.inOut', repeat: 5, yoyo: true }   // a heartbeat: 6 plays, 6 s total
+```
+
+Total time = `duration × (repeat + 1)` (+ delays). Endless repeats are not allowed (the timeline needs a fixed length); `repeat: -1` / `Infinity` is ignored with a warning — repeat as many times as the layer lasts.
 
 ### Negative `at`
 
@@ -1460,6 +1517,30 @@ Pan the image between two points within its over-scaled bounds.
 
 `[0, 0]` looks at the top-left of the image; `[1, 1]` looks at the bottom-right. The default pans diagonally across the upper-left and lower-right quarters of the over-scaled image (matches the Yajima-Motion preset).
 
+### `orbit`
+
+A camera that circles a point. There is no per-frame expression in the DSL, so the circle is sampled into short linear keyframes (one per 0.1 s; the easing is applied to the angle). Returns a `camera` layer for `sequences[]`.
+
+```ts
+import { orbit } from 'pixi-effects';
+
+sequences: [
+  orbit({ duration: 6, degrees: 40 }),                                   // ±20° around the centre of a 1280×720 canvas
+  // …threeD layers…
+]
+```
+
+| Option | Notes |
+|---|---|
+| `duration`, `degrees` | required. `degrees` is the total sweep (negative = the other way) |
+| `start` | start angle in degrees; default `-degrees / 2` (0 = straight in front of the centre) |
+| `radius` | distance from the centre; default = the default camera distance for `height` and `fov`, so `z = 0` is 1:1 at angle 0 |
+| `center` | `[x, y]` to circle and look at; default the canvas centre |
+| `width`, `height` | canvas size for the defaults (1280 × 720) |
+| `fov`, `ease`, `at`, `name`, `stepsPerSecond` | `ease` default `'sine.inOut'` |
+
+`z` is specified, so it stops following `fov`; for an orbit **plus** a dolly zoom write your own `fov` and `z = (H/2) / tan(fov/2)` keyframes.
+
 ### `withFade`
 
 Spec helper that adds alpha fade-in / fade-out to **any** sequence spec. Mutates and returns the spec, so it composes with other presets (`kenBurns`, …) and drops straight into `sequences[]`.
@@ -1552,6 +1633,46 @@ gotoFrame(frame: number, force?: boolean): Promise<void>
 Seeks to a specific frame. Pauses if currently playing? **No** — does not change `isPlaying`. Updates `timeline.time()`, awaits any video frame readiness, renders, and emits `'frame'`.
 
 `force=true` skips the early-return when the requested frame equals `currentFrame`. Use it after a composition rebuild.
+
+### `movie.snapshot(frame?, options?): Promise<Blob | string>`
+
+```ts
+snapshot(frame?: number, options?: { scale?: number; type?: 'image/png' | 'image/jpeg'; as?: 'blob' | 'dataURL' }): Promise<Blob | string>
+```
+
+A picture of one frame: **the canvas only** (the player bar is not in it). Seeks to `frame` (default: the current frame) and stays there. `as: 'dataURL'` returns a `data:` URL string, handy when a script can only return text. Use it to look at what you built.
+
+### `movie.contactSheet(options?): Promise<Blob | string>`
+
+```ts
+contactSheet(options?: {
+  frames?: number[]; times?: number[]; count?: number;   // which frames: explicit, in seconds, or `count` evenly spread (default 6)
+  columns?: number;                                       // default 3
+  cellWidth?: number;                                     // picture width in px, default 480
+  as?: 'blob' | 'dataURL';
+}): Promise<Blob | string>
+```
+
+Many frames on **one** PNG, each labelled `frame N · T s`. The cheapest way to check a whole animation by eye (include the middle of every transition and the last second). Restores the current frame afterwards.
+
+### `movie.inspect(frame?): Promise<InspectReport>`
+
+Where every layer is drawn at `frame`, as JSON — for checking layout without eyes. Seeks there and stays there.
+
+```ts
+interface InspectReport {
+  frame: number; time: number; canvas: { width: number; height: number };
+  layers: Array<{
+    path: string;                // names (or type#index) from the root, joined by '/'
+    name?: string; type: string; threeD: boolean;
+    visible: boolean;            // alive at this frame, not hidden by an ancestor, alpha > 0
+    alpha: number;
+    bounds: { x: number; y: number; width: number; height: number } | null;   // canvas pixels; null inside a threeD layer
+    onCanvas: 'full' | 'partial' | 'none' | null;
+  }>;
+  issues: string[];              // text off the canvas / cut by an edge / empty / overlapping other text
+}
+```
 
 ### `movie.render(options?): Promise<Blob>`
 

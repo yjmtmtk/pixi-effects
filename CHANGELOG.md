@@ -16,6 +16,11 @@
 **Added**
 
 - Warnings for the silent failures AI authors hit: keyframe or layer starting after its layer / composition ends, audio shorter than its layer without `loop`, a `threeD` layer hidden behind the camera, transitions on `threeD` layers, `lookAt` equal to the camera position, and more.
+- Keyframes: `repeat` / `yoyo` / `repeatDelay` on every kind of animation (finite repeats only).
+- Text counters: `text: '{value} users'` + animate `value`; `format: { decimals, grouping }`.
+- Shapes: `fillGradient` — linear and radial gradients with alpha stops (vignettes).
+- `orbit()` preset: a camera that circles a point.
+- `movie.snapshot()`, `movie.contactSheet()`, `movie.inspect()`: look at the result — one frame, many labelled frames on one image, or per-layer bounds plus layout issues (text off the canvas, cut off, overlapping).
 - `ai/` (skill, cheatsheet, tested recipes, pitfalls, starter template), `llms.txt`, `llms-full.txt`.
 
 ## 0.2.0

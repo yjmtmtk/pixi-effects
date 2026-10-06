@@ -68,6 +68,46 @@ Seeks to a specific frame. Pauses if currently playing? **No** — does not chan
 
 `force=true` skips the early-return when the requested frame equals `currentFrame`. Use it after a composition rebuild.
 
+### `movie.snapshot(frame?, options?): Promise<Blob | string>`
+
+```ts
+snapshot(frame?: number, options?: { scale?: number; type?: 'image/png' | 'image/jpeg'; as?: 'blob' | 'dataURL' }): Promise<Blob | string>
+```
+
+A picture of one frame: **the canvas only** (the player bar is not in it). Seeks to `frame` (default: the current frame) and stays there. `as: 'dataURL'` returns a `data:` URL string, handy when a script can only return text. Use it to look at what you built.
+
+### `movie.contactSheet(options?): Promise<Blob | string>`
+
+```ts
+contactSheet(options?: {
+  frames?: number[]; times?: number[]; count?: number;   // which frames: explicit, in seconds, or `count` evenly spread (default 6)
+  columns?: number;                                       // default 3
+  cellWidth?: number;                                     // picture width in px, default 480
+  as?: 'blob' | 'dataURL';
+}): Promise<Blob | string>
+```
+
+Many frames on **one** PNG, each labelled `frame N · T s`. The cheapest way to check a whole animation by eye (include the middle of every transition and the last second). Restores the current frame afterwards.
+
+### `movie.inspect(frame?): Promise<InspectReport>`
+
+Where every layer is drawn at `frame`, as JSON — for checking layout without eyes. Seeks there and stays there.
+
+```ts
+interface InspectReport {
+  frame: number; time: number; canvas: { width: number; height: number };
+  layers: Array<{
+    path: string;                // names (or type#index) from the root, joined by '/'
+    name?: string; type: string; threeD: boolean;
+    visible: boolean;            // alive at this frame, not hidden by an ancestor, alpha > 0
+    alpha: number;
+    bounds: { x: number; y: number; width: number; height: number } | null;   // canvas pixels; null inside a threeD layer
+    onCanvas: 'full' | 'partial' | 'none' | null;
+  }>;
+  issues: string[];              // text off the canvas / cut by an edge / empty / overlapping other text
+}
+```
+
 ### `movie.render(options?): Promise<Blob>`
 
 Renders the entire timeline to a single video file. Pauses playback first.
