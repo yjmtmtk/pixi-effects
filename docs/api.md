@@ -163,6 +163,8 @@ interface RenderOptions {
 }
 ```
 
+**Audio codec fallback:** unless you name `audio.codec`, the first codec this browser can actually encode is used (mp4: `aac`, then `opus`, `mp3`, `flac`; webm: `opus`, `vorbis`). Chrome on Linux has no AAC encoder, so there an mp4 with sound carries Opus and a warning says so (before, the export failed with a message about encoder configurations). A codec you name is never swapped: if it cannot be encoded the error says which one would work.
+
 Returns a `Blob` whose `type` is the container's MIME (e.g. `video/mp4`). Emits `'progress'` repeatedly during the render.
 
 The renderer also forces a keyframe every ~2 seconds so the resulting file scrubs efficiently in standard players.

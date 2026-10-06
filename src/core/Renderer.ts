@@ -1,6 +1,6 @@
 import {
   Output, Mp4OutputFormat, MovOutputFormat, WebMOutputFormat, MkvOutputFormat,
-  BufferTarget, CanvasSource, AudioBufferSource,
+  BufferTarget, CanvasSource, AudioBufferSource, getFirstEncodableAudioCodec,
   QUALITY_VERY_LOW, QUALITY_LOW, QUALITY_MEDIUM, QUALITY_HIGH, QUALITY_VERY_HIGH,
   Quality,
 } from 'mediabunny';
@@ -19,6 +19,40 @@ const AUDIO_CODEC_BY_FORMAT = {
   webm: 'opus',
   mkv: 'opus',
 } as const;
+
+/** Audio codecs to try for each container, best first (the first one the browser can encode wins). */
+const AUDIO_PREFERENCE = {
+  mp4: ['aac', 'opus', 'mp3', 'flac'],
+  mov: ['aac', 'mp3'],
+  webm: ['opus', 'vorbis'],
+  mkv: ['opus', 'vorbis', 'aac', 'flac', 'mp3'],
+} as const;
+
+/**
+ * The audio codec to write. Not every browser can encode every codec: Chrome on Linux has no AAC encoder, which used to make every
+ * mp4 / mov with sound fail with a message about encoder configurations. Unless the caller named a codec, use the first one in
+ * `AUDIO_PREFERENCE` that this browser can encode (and say so); a codec the caller named is never swapped, but a failure says which would work.
+ */
+async function chooseAudioCodec(
+  fmt: 'mp4' | 'mov' | 'webm' | 'mkv', requested: string | undefined, container: unknown, audio: AudioBuffer, bitrate: Quality,
+): Promise<string> {
+  const supported = (container as { getSupportedAudioCodecs?: () => string[] }).getSupportedAudioCodecs?.();
+  const preferred = AUDIO_PREFERENCE[fmt].filter(c => !supported || supported.includes(c));
+  const canEncode = (list: readonly string[]): Promise<string | null> =>
+    getFirstEncodableAudioCodec(list as never, { numberOfChannels: audio.numberOfChannels ?? 2, sampleRate: audio.sampleRate, bitrate }) as Promise<string | null>;
+  if (requested) {
+    if (await canEncode([requested])) return requested;
+    const alt = await canEncode(preferred.filter(c => c !== requested));
+    throw new Error(`pixi-effects: this browser cannot encode "${requested}" audio for ${fmt}` +
+      (alt ? `; "${alt}" would work: render({ format: '${fmt}', audio: { codec: '${alt}' } }), or leave audio.codec out and the best one is chosen.` : '; it has no audio encoder for this format at all (try another browser, or a movie without sound).'));
+  }
+  const chosen = await canEncode(preferred);
+  if (!chosen) throw new Error(`pixi-effects: this browser has no audio encoder for ${fmt} (it tried ${preferred.join(', ')}): try another browser, or render a movie without sound.`);
+  if (chosen !== preferred[0]) {
+    console.warn(`pixi-effects: this browser cannot encode ${preferred[0]!.toUpperCase()} audio (Chrome on Linux has no AAC encoder), so the ${fmt} carries ${chosen} instead; current players play it. A webm export needs no AAC.`);
+  }
+  return chosen;
+}
 
 /** Samples of silence an AAC encoder puts in front of the audio (its priming / encoder delay). */
 const AAC_PRIMING_SAMPLES = 2112;
@@ -54,8 +88,10 @@ export async function exportFrames(movie: Movie, options: RenderOptions = {}): P
     },
   };
 
+  const container = makeOutputFormat(opts.format);
+  if (movie.audioBuffer) opts.audio.codec = await chooseAudioCodec(fmt, options.audio?.codec, container, movie.audioBuffer, opts.audio.bitrate) as never;
   const output = new Output({
-    format: makeOutputFormat(opts.format),
+    format: container,
     target: new BufferTarget(),
   });
   const canvasSource = new CanvasSource(movie.app!.canvas as HTMLCanvasElement, {

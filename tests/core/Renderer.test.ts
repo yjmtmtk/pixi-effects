@@ -23,12 +23,13 @@ vi.mock('mediabunny', () => {
     audioSourceCloses: 0,
     starts: 0,
     finalizes: 0,
+    encodable: { audio: ['aac', 'opus', 'mp3', 'flac', 'vorbis'] as string[] },
   };
 
-  class Mp4OutputFormat { mimeType = 'video/mp4'; constructor(public opts?: unknown) { calls.Mp4OutputFormat.push(opts); } }
-  class MovOutputFormat { mimeType = 'video/quicktime'; constructor(public opts?: unknown) { calls.MovOutputFormat.push(opts); } }
-  class WebMOutputFormat { mimeType = 'video/webm'; constructor(public opts?: unknown) { calls.WebMOutputFormat.push(opts); } }
-  class MkvOutputFormat { mimeType = 'video/x-matroska'; constructor(public opts?: unknown) { calls.MkvOutputFormat.push(opts); } }
+  class Mp4OutputFormat { mimeType = 'video/mp4'; getSupportedAudioCodecs() { return ['aac', 'mp3', 'opus', 'flac']; } constructor(public opts?: unknown) { calls.Mp4OutputFormat.push(opts); } }
+  class MovOutputFormat { mimeType = 'video/quicktime'; getSupportedAudioCodecs() { return ['aac', 'mp3']; } constructor(public opts?: unknown) { calls.MovOutputFormat.push(opts); } }
+  class WebMOutputFormat { mimeType = 'video/webm'; getSupportedAudioCodecs() { return ['opus', 'vorbis']; } constructor(public opts?: unknown) { calls.WebMOutputFormat.push(opts); } }
+  class MkvOutputFormat { mimeType = 'video/x-matroska'; getSupportedAudioCodecs() { return ['aac', 'mp3', 'opus', 'vorbis', 'flac']; } constructor(public opts?: unknown) { calls.MkvOutputFormat.push(opts); } }
 
   class BufferTarget {
     buffer = new ArrayBuffer(0);
@@ -75,6 +76,7 @@ vi.mock('mediabunny', () => {
     CanvasSource,
     AudioBufferSource,
     Output,
+    getFirstEncodableAudioCodec: async (checked: string[]) => checked.find(c => calls.encodable.audio.includes(c)) ?? null,
     __calls: calls,
   };
 });
@@ -102,10 +104,12 @@ function bag() {
     audioSourceCloses: 0,
     starts: 0,
     finalizes: 0,
+    encodable: { audio: [] as string[] },
   };
 }
 
 beforeEach(() => {
+  (calls as unknown as { encodable: { audio: string[] } }).encodable.audio = ['aac', 'opus', 'mp3', 'flac', 'vorbis'];
   for (const key of Object.keys(calls)) {
     const val = (calls as Record<string, unknown>)[key];
     if (Array.isArray(val)) val.length = 0;
@@ -367,5 +371,46 @@ describe('Renderer — the audio lines up with the picture', () => {
       await exportFrames(asMovie(movie), { format });
     }
     expect(calls.audioSourceOptions).toEqual([{ startTimestamp: 0 }, { startTimestamp: 0 }]);
+  });
+});
+
+describe('Renderer — the audio codec the browser can actually encode', () => {
+  const setEncodable = (codecs: string[]) => { (calls as unknown as { encodable: { audio: string[] } }).encodable.audio = codecs; };
+  const audioMovie = () => fakeMovie({ audioBuffer: { sampleRate: 48000, numberOfChannels: 2 } as AudioBuffer }).movie;
+
+  it('a browser without an AAC encoder (Chrome on Linux) gets Opus in the mp4, a warning, and no AAC priming offset', async () => {
+    setEncodable(['opus', 'flac']);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await exportFrames(asMovie(audioMovie()), { format: 'mp4' });
+    expect((calls.AudioBufferSource[0] as { codec: string }).codec).toBe('opus');
+    expect(calls.audioSourceOptions[0]).toEqual({ startTimestamp: 0 });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]![0])).toMatch(/AAC.*opus.*webm/s);
+    warn.mockRestore();
+  });
+
+  it('with an AAC encoder nothing changes: aac, the priming offset, no warning', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await exportFrames(asMovie(audioMovie()), { format: 'mp4' });
+    expect((calls.AudioBufferSource[0] as { codec: string }).codec).toBe('aac');
+    expect((calls.audioSourceOptions[0] as { startTimestamp: number }).startTimestamp).toBeLessThan(0);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('a codec you ask for is never swapped silently: if it cannot be encoded the error says which ones can', async () => {
+    setEncodable(['opus']);
+    await expect(exportFrames(asMovie(audioMovie()), { format: 'mp4', audio: { codec: 'aac' } }))
+      .rejects.toThrow(/cannot encode.*aac.*opus/s);
+  });
+
+  it('no usable audio encoder at all: one clear error, not a browser internals message', async () => {
+    setEncodable([]);
+    await expect(exportFrames(asMovie(audioMovie()), { format: 'webm' })).rejects.toThrow(/no audio encoder/i);
+  });
+
+  it('a movie without audio never asks the browser about audio encoders', async () => {
+    setEncodable([]);
+    await expect(exportFrames(asMovie(fakeMovie().movie), { format: 'mp4' })).resolves.toBeInstanceOf(Blob);
   });
 });
