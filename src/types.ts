@@ -293,12 +293,31 @@ export type SfxOptions =
   | (SfxKnobs & { preset: SfxPreset; voices?: never })
   | (SfxKnobs & { voices: SfxVoice[]; preset?: never });
 
-export interface AudioSequenceSpec extends SequenceCommon {
+interface AudioBase extends SequenceCommon {
   type: 'audio';
-  asset: string;
-  loop?: boolean;
+  /** Level. 1 = the file as recorded, or the sfx preset's standard level (peaks at −12 dBFS). Animatable. */
   volume?: number;
 }
+
+/** Plays an audio file from `assets`. `duration` defaults to the file's length (with `loop`: to the composition's end). */
+export interface AudioAssetSpec extends AudioBase {
+  asset: string;
+  sfx?: never;
+  /** Repeat the file for the whole `duration`. Without it the layer goes silent when the file ends. */
+  loop?: boolean;
+}
+
+/**
+ * Plays a synthesised sound effect. `duration` IS the sound's length: omitted, it is the preset's own
+ * length; given, the sound is stretched or shortened to it. `at` is where the sound starts.
+ */
+export interface AudioSfxSpec extends AudioBase {
+  sfx: SfxPreset | SfxOptions;
+  asset?: never;
+  loop?: never;
+}
+
+export type AudioSequenceSpec = AudioAssetSpec | AudioSfxSpec;
 export interface CompositionSequenceSpec extends SequenceCommon {
   type: 'composition';
   width?: number;
