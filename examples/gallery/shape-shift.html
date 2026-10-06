@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>shape-shift — pixi-effects gallery</title>
+  <style>
+    body { background: #0d1220; margin: 0; padding: 16px; display: flex; justify-content: center; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+  </style>
+  <script type="application/json" id="piece-meta">{
+    "title": "Shape Shift",
+    "subtitle": "One outline becomes another and another (path morphing), a comet with a trail rides a loop and faces the way it goes (followPath), and the title and words arrive letter by letter (animateText)",
+    "tags": ["morph", "follow-path", "animate-text", "stagger", "typography", "sfx"],
+    "width": 1280, "height": 720, "duration": 12, "model": "sonnet"
+  }</script>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie, animateText, followPath, stagger } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 12;
+    const INK = '#e8eefc', DIM = '#8fa0bf', SUN = '#ffd166', ROSE = '#ff6b9d', ICE = '#4cc9f0';
+    const SANS = "'Arial Black', Arial, system-ui, sans-serif";
+
+    // three outlines, written as plain SVG path data in canvas coordinates (all around the point 640, 385)
+    const BLOB = 'M 640 205 C 760 205 830 285 830 385 C 830 485 760 565 640 565 C 520 565 450 485 450 385 C 450 285 520 205 640 205 Z';
+    const STAR = 'M 640 195 L 700 335 L 850 345 L 735 440 L 775 585 L 640 505 L 505 585 L 545 440 L 430 345 L 580 335 Z';
+    const HEART = 'M 640 565 C 540 490 440 430 440 330 C 440 250 500 215 560 215 C 600 215 630 240 640 275 C 650 240 680 215 720 215 C 780 215 840 250 840 330 C 840 430 740 490 640 565 Z';
+
+    // one layer can morph from its `d` to its `morphTo`, so the chain is three layers that hand over: each starts as the shape
+    // the one before ended as (same outline, same colour), so nothing jumps
+    const STROKE = { strokeColor: '#ffffff', strokeWidth: 5, strokeJoin: 'round' };
+    const morphing = (name, at, duration, d, morphTo, from, to, extra = {}) => ({
+      type: 'shape', shape: 'path', name, d, morphTo, at, duration,
+      initial: { fillColor: from, ...STROKE, ...extra.initial },
+      keyframes: [
+        ...(extra.keyframes ?? []),
+        { at: 0.3, to: { morph: 1 }, duration: 1.8, ease: 'power2.inOut' },
+        { at: 0.3, to: { fillColor: to }, duration: 1.8, ease: 'power2.inOut' },
+      ],
+    });
+    const shapes = [
+      morphing('blob-to-star', 1.2, 3.8, BLOB, STAR, SUN, SUN, { initial: { scale: 0 }, keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.7, ease: 'back.out(1.8)' }] }),
+      morphing('star-to-heart', 5.0, 3.2, STAR, HEART, SUN, ROSE),
+      morphing('heart-to-blob', 8.2, DURATION - 8.2, HEART, BLOB, ROSE, ICE),
+    ];
+
+    // the loop the comet rides: an ellipse round the shapes, drawn on first
+    const LOOP = 'M 280 385 C 280 266 441 170 640 170 C 839 170 1000 266 1000 385 C 1000 504 839 600 640 600 C 441 600 280 504 280 385 Z';
+    const route = {
+      type: 'shape', shape: 'path', name: 'loop', d: LOOP, at: 0.2, duration: DURATION - 0.2, trimEnd: 0,
+      initial: { strokeColor: INK, strokeWidth: 2, strokeAlpha: 0.22 },
+      keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 1.2, ease: 'power2.inOut' }],
+    };
+
+    // a comet: a pointer that faces the way it goes, then five dots behind it. Every layer rides the same trip; stagger starts each
+    // a little later, which is what makes the trail
+    const TRIP_AT = 1.6, TRIP = 9;
+    const trip = followPath({ d: LOOP, duration: TRIP, orient: true, frameRate: FPS });
+    const radii = [15, 12.5, 10, 8, 6], alphas = [0.75, 0.55, 0.4, 0.27, 0.15];
+    const comet = stagger([
+      { type: 'shape', shape: 'polygon', name: 'comet', points: [[-24, -16], [24, 0], [-24, 16]], at: TRIP_AT, initial: { fillColor: '#ffffff' }, keyframes: trip },
+      ...radii.map((r, i) => ({
+        type: 'shape', shape: 'circle', name: 'trail-' + i, radius: r, at: TRIP_AT, initial: { fillColor: '#ffffff', fillAlpha: alphas[i] },
+        keyframes: trip.map(k => { const { rotation, ...rest } = (k.set ?? k.to) ?? {}; return k.set ? { ...k, set: rest } : { ...k, to: rest }; }),
+      })),
+    ], { each: 0.1 }).map(l => ({ ...l, duration: DURATION - l.at }));
+
+    const title = animateText('SHAPE SHIFT', { fontFamily: SANS, fontSize: 92, fill: INK }, {
+      x: W / 2, y: 36, align: 'center', name: 'title', at: 0.4, duration: DURATION - 0.4, in: 'rise',
+      stagger: { each: 0.06, from: 'center' }, idle: { y: 3, freq: 0.7, seed: 4 },
+      styleFor: p => (p.index >= 5 ? { fill: SUN } : {}),
+    });
+    const words = animateText('one outline becomes another', { fontFamily: 'system-ui, Arial, sans-serif', fontSize: 34, fill: DIM, letterSpacing: 2 }, {
+      by: 'words', x: W / 2, y: 640, align: 'center', name: 'words', at: 2.8, duration: DURATION - 2.8, in: 'pop', stagger: { each: 0.3 },
+    });
+
+    const sounds = [
+      { type: 'audio', sfx: 'chime', at: 0.4, volume: 0.4 },
+      { type: 'audio', sfx: 'swoosh', at: 1.2, volume: 0.5 },
+      { type: 'audio', sfx: 'swipe', at: 5.3, volume: 0.45 },
+      { type: 'audio', sfx: 'swipe', at: 8.5, volume: 0.45, pitch: 3 },
+    ];
+
+    const sequences = [
+      { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
+        fillGradient: { type: 'radial', radius: 0.75, stops: [[0, '#16203d'], [1, '#080c18']] } },
+      route, ...shapes, ...comet, ...title, ...words, ...sounds,
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 6.6,
+        background: '#080c18',
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

@@ -32,6 +32,7 @@ Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same br
 | sonnet | Loader Gallery — Nine hypnotic loading loops on one dark board, each a different idea. | 1080×1080 | loader-gallery.html |
 | sonnet | Night Drive — A neon music visualizer: seeded pseudo-spectrum bars, a beat-locked radial pulse and a progress ring over the sample bgm. | 1280×720 | music-visualizer.html |
 | sonnet | Orbit Rig — A whole scene on one hand-held null layer: a sun, planet and moon that orbit through nested nulls, letters and tiles that ripple out with stagger, stars and shake from seeded randomness | 1280×720 | orbit-rig.html |
+| sonnet | Shape Shift — One outline becomes another and another (path morphing), a comet with a trail rides a loop and faces the way it goes (followPath), and the title and words arrive letter by letter (animateText) | 1280×720 | shape-shift.html |
 | sonnet | Lemon Pasta Recipe Card — A 4:5 animated recipe card: ingredients that check themselves off, three timed steps with countdowns, and a plated dish that assembles from circles. | 1080×1350 | recipe-card.html |
 | sonnet | Still Water — Three lakes, three real photographs: slow Ken Burns moves, a viewfinder that draws itself on, and a caption that re-types for each photo | 1280×720 | still-water.html |
 | sonnet | Social Quote Card — A vertical 9:16 quote card: drifting warm blobs, line-by-line masked reveal, animated underline and a swipe cue. | 720×1280 | social-quote-vertical.html |
@@ -39,6 +40,6 @@ Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same br
 | sonnet | Four days in Iceland — A fictional travel slideshow: four procedurally painted landscapes, Ken Burns, four different transitions, captions and a day counter. | 1280×720 | travel-slideshow.html |
 | sonnet | Harbor City Forecast — A five-day broadcast forecast: shifting skies, glass cards, animated icons and a self-drawing temperature line. | 1280×720 | weather-report.html |
 
-Counts: fable 11, opus 11, sonnet 12 (34 pieces).
+Counts: fable 11, opus 11, sonnet 13 (35 pieces).
 
 Per-piece stumble notes are in [_notes/](_notes/), named after the piece id (file name without `.html`).

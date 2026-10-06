@@ -108,3 +108,7 @@ return [...letters, ...tiles];
 One hand-held null layer carries the whole scene. A sun, a planet and a moon orbit through nested nulls. The title and the tile grid ripple in with `stagger`, and the sounds follow the same wave. The stars and the colours come from seeds.
 
 {{demo examples/gallery/orbit-rig.html}}
+
+And a second piece for the path tools: three outlines that morph into each other, a comet with a trail that rides a loop (`followPath` + `stagger`), and a title that arrives letter by letter (`animateText`).
+
+{{demo examples/gallery/shape-shift.html}}

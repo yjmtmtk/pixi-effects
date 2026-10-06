@@ -571,6 +571,27 @@
       "notes": "_notes/paper-cutout-forest.md"
     },
     {
+      "id": "shape-shift",
+      "title": "Shape Shift",
+      "subtitle": "One outline becomes another and another (path morphing), a comet with a trail rides a loop and faces the way it goes (followPath), and the title and words arrive letter by letter (animateText)",
+      "tags": [
+        "morph",
+        "follow-path",
+        "animate-text",
+        "stagger",
+        "typography",
+        "sfx"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 12,
+      "posterFrame": 198,
+      "model": "sonnet",
+      "page": "shape-shift.html",
+      "poster": "posters/shape-shift.jpg",
+      "notes": "_notes/shape-shift.md"
+    },
+    {
       "id": "still-water",
       "title": "Still Water",
       "subtitle": "Three lakes, three real photographs: slow Ken Burns moves, a viewfinder that draws itself on, and a caption that re-types for each photo",

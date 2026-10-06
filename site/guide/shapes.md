@@ -58,6 +58,8 @@ return [{
 }];
 ```
 
+{{demo examples/gallery/shape-shift.html}}
+
 `morphPoints` (8 to 2048, default 128) is how finely the in-between shapes are sampled. If one outline has more sub-paths than the other, the extra one grows out of (or shrinks into) its own centre.
 
 ## Lines, polygons and paths are placed by their points
