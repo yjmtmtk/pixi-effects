@@ -43,6 +43,9 @@ export class TextSequence extends Sequence {
       for (const k of Object.keys(resolved)) {
         (text.style as unknown as Record<string, unknown>)[k] = (resolved as Record<string, unknown>)[k];
       }
+      // Re-measure: `w` / `h` in expressions must describe the STYLED text.
+      this.intrinsicWidth = text.width;
+      this.intrinsicHeight = text.height;
     }
     this.buildFilters();
   }

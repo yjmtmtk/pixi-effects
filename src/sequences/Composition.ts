@@ -6,6 +6,7 @@ import { findOverlap, pickActiveCamera } from '../space/camera';
 import { assignDepthOrder } from '../space/depth';
 import { Layer3D, type SpaceHost } from '../space/Layer3D';
 import { lintSequence } from '../space/lint';
+import { describeLayer, lintTiming } from '../core/lint';
 import { cameraBasis, homeCamera } from '../space/math';
 import type { CompositionSequenceSpec, AudioDescriptor, CompositionShape, SequenceSpec } from '../types';
 
@@ -44,7 +45,10 @@ export class CompositionSequence extends Sequence {
     this._innerContainer = inner;
     this._compositionShape = { width, height, duration: this.duration };
 
-    for (const s of this.spec.sequences ?? []) lintSequence(s);
+    for (const s of this.spec.sequences ?? []) {
+      lintSequence(s);
+      lintTiming(s, this.duration);
+    }
 
     this._children = await buildSequenceTree(
       this.spec.sequences ?? [],
@@ -69,8 +73,7 @@ export class CompositionSequence extends Sequence {
         this._layers3d.push(layer);
         this._visual.push({ seq: child, layer });
         if (maskSpec) {
-          const who = child.spec.name ? `layer "${child.spec.name}"` : `unnamed ${child.spec.type} layer`;
-          console.warn(`pixi-effects: ${who}: mask is not supported on threeD layers yet; ignored`);
+          console.warn(`pixi-effects: ${describeLayer(child.spec)}: mask is not supported on threeD layers yet; ignored`);
         }
         continue;
       }

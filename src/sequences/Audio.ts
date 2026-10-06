@@ -1,6 +1,7 @@
 import { Assets } from 'pixi.js';
 import { Sequence } from './Base';
 import { normalizeKeyframe } from '../core/Timeline';
+import { describeLayer } from '../core/lint';
 import type { AudioSequenceSpec, AudioDescriptor } from '../types';
 import type { AudioAssetData } from '../core/AssetLoader';
 
@@ -13,6 +14,13 @@ export class AudioSequence extends Sequence {
     this._audioBuffer = data.audioBuffer;
     if (this.duration === undefined) {
       this.duration = this.spec.duration ?? data.duration ?? this.root.duration;
+    }
+    // Without `loop` the sound simply stops when the file ends — silently.
+    if (!this.spec.loop && data.duration !== undefined && this.duration > data.duration + 0.05) {
+      console.warn(
+        `pixi-effects: ${describeLayer(this.spec)}: audio asset "${this.spec.asset}" is ${data.duration.toFixed(1)}s but the layer lasts ` +
+        `${this.duration.toFixed(1)}s, so it goes silent after ${data.duration.toFixed(1)}s. Add loop: true, or shorten the layer's duration.`,
+      );
     }
     this.target = null;
   }

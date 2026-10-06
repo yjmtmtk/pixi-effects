@@ -97,6 +97,18 @@ describe('Layer3D', () => {
     expect(layer.display.visible).toBe(false);
   });
 
+  it('FIX: warns once, naming the layer, when it is hidden for being at/behind the camera plane', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { target, layer, host } = setup();
+    target.z = homeDistance(H, 40) + 10;
+    layer.update(host, basis());
+    layer.update(host, basis());
+    expect(warn).toHaveBeenCalledTimes(1);
+    const msg = String(warn.mock.calls[0]![0]);
+    expect(msg).toContain('layer "card"');
+    expect(msg).toMatch(/behind the camera/);
+  });
+
   it('REVIEW: empty or non-finite bounds hide the layer instead of creating a 0x0 texture', () => {
     const create = vi.spyOn(RenderTexture, 'create');
     for (const frame of [

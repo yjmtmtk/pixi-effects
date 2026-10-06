@@ -165,8 +165,11 @@ export class ShapeSequence extends Sequence {
 
 function seedGeometry(state: ShapeState, spec: ShapeSequenceSpec, scope: Scope): void {
   const keys = GEOMETRY_KEYS_BY_SHAPE[spec.shape];
+  const initial = (spec.initial ?? {}) as Record<string, PropValue | undefined>;
   for (const k of keys) {
-    const v = (spec as unknown as Record<string, PropValue | undefined>)[k];
+    // Same vocabulary as every other layer: geometry may be written at the top
+    // level (next to `shape`) or in `initial`; the top level wins.
+    const v = (spec as unknown as Record<string, PropValue | undefined>)[k] ?? initial[k];
     if (v !== undefined) (state as unknown as Record<string, unknown>)[k] = num(v, scope);
   }
 }

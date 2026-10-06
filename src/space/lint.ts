@@ -1,4 +1,5 @@
 import { collectPropKeys } from './specKeys';
+import { describeLayer } from '../core/lint';
 import type { SequenceSpec } from '../types';
 
 type Warn = (message: string) => void;
@@ -29,16 +30,12 @@ const CAMERA_PROPS = ['x', 'y', 'z', 'fov', 'lookAtX', 'lookAtY', 'lookAtZ'];
 const NEEDS_THREE_D = ['z', 'rotationX', 'rotationY'];
 const SKEW_KEYS = ['skew', 'skewX', 'skewY'];
 
-function label(spec: SequenceSpec): string {
-  return spec.name ? `layer "${spec.name}"` : `unnamed ${spec.type} layer`;
-}
-
 /**
  * Warn (never throw) about the inputs an AI author is most likely to get wrong,
  * with a message that says what to change. One call per layer, at build time.
  */
 export function lintSequence(spec: SequenceSpec, warn: Warn = defaultWarn): void {
-  const who = label(spec);
+  const who = describeLayer(spec);
   const keys = collectPropKeys(spec);
   const explained = new Set<string>();
 

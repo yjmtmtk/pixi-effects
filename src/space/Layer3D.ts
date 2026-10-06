@@ -1,5 +1,6 @@
 import { Container, Matrix, PerspectiveMesh, RenderTexture, Texture } from 'pixi.js';
 import type { Sequence } from '../sequences/Base';
+import { describeLayer } from '../core/lint';
 import { DEG, projectLayer, type CameraBasis, type LayerTransform, type Rect } from './math';
 
 /** Render textures are capped at this many pixels on the long side; larger layers are downscaled. */
@@ -69,6 +70,7 @@ export class Layer3D {
   depth = 0;
   private rt: RenderTexture | null = null;
   private size: TextureSize | null = null;
+  private warnedBehind = false;
 
   constructor(
     private readonly seq: Sequence,
@@ -100,7 +102,16 @@ export class Layer3D {
     const frame: Rect = { x: bounds.x - pad, y: bounds.y - pad, width: size.w, height: size.h };
     const projected = projectLayer(readLayerTransform(target), frame, basis);
     this.depth = projected.depth;
-    if (!projected.visible) return this.hide();
+    if (!projected.visible) {
+      if (!this.warnedBehind) {
+        this.warnedBehind = true;
+        console.warn(
+          `pixi-effects: ${describeLayer(this.seq.spec)} is at or behind the camera plane (z = ${(target.z ?? 0).toFixed(0)}) and is hidden. ` +
+          `If that is unintended, lower its z or move the camera back (the default camera sits at z = (height/2)/tan(fov/2), about 989 for 720p at fov 40).`,
+        );
+      }
+      return this.hide();
+    }
 
     this.ensureTexture(size);
     // `transform` replaces the container's own local transform for this render
