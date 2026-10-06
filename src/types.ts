@@ -187,6 +187,13 @@ export interface SequenceCommon {
    * Routed through PIXI's native `setMask({ inverse: true })`.
    */
   maskInverted?: boolean;
+  /**
+   * Opt this layer into 2.5D: it can then use `z`, `rotationX`, `rotationY`
+   * (in `initial` / keyframes) and is projected through the composition's
+   * `camera` layer. Default false. With z = 0, no 3D rotation and the default
+   * camera, a threeD layer renders exactly like a 2D one.
+   */
+  threeD?: boolean;
 }
 
 export interface VideoSequenceSpec extends SequenceCommon {
@@ -232,6 +239,16 @@ export interface CompositionSequenceSpec extends SequenceCommon {
   height?: number;
   sequences?: SequenceSpec[];
   transitions?: TransitionSpec[];
+}
+
+/**
+ * A camera layer. Put its props in `initial` / `keyframes`:
+ * `x`, `y`, `z`, `lookAtX`, `lookAtY`, `lookAtZ`, `fov` (vertical degrees, default 40).
+ * Unset `z` follows `fov` so the z = 0 plane stays 1:1. Affects only `threeD`
+ * siblings in the same composition. +z points toward the viewer.
+ */
+export interface CameraSequenceSpec extends SequenceCommon {
+  type: 'camera';
 }
 
 // ─── Shape sequence ──────────────────────────────────────────────────────
@@ -331,6 +348,7 @@ export type SequenceSpec =
   | TextSequenceSpec
   | AudioSequenceSpec
   | CompositionSequenceSpec
+  | CameraSequenceSpec
   | ShapeSequenceSpec;
 
 /** Top-level composition (root node) — same as `CompositionSequenceSpec` minus the discriminant. */
