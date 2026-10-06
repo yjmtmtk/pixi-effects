@@ -10,7 +10,12 @@ import type { TextSequenceSpec, Keyframe, Props } from '../types';
 
 type Timeline = ReturnType<typeof gsap.timeline>;
 
-const STYLE_OPAQUE_KEYS = ['fontFamily', 'fill', 'align', 'fontStyle', 'fontWeight'];
+// TextStyle fields whose string values are words or colours, never expressions. `join` / `cap` / `color`
+// also live inside `stroke` and `dropShadow`, `stroke` itself may be a colour name.
+const STYLE_OPAQUE_KEYS = [
+  'fontFamily', 'fill', 'align', 'fontStyle', 'fontWeight', 'fontVariant', 'textBaseline', 'whiteSpace',
+  'lineJoin', 'join', 'cap', 'color', 'stroke',
+];
 
 type ValueState = { value: number };
 
