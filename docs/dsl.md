@@ -211,6 +211,8 @@ Brightness is the spectral centroid that `movie.inspectAudio()` reports (`sound.
 
 Nested composition. Same shape as the root spec but with `type: 'composition'` and an explicit `width`/`height`. Children animate within the local coordinate system; the composition itself can be positioned, scaled, and rotated as a unit.
 
+**Size, clipping and culling** (measured): a 2D composition does **not** clip its children — a child far outside `width × height` is still drawn. But the rectangle `width × height` is what the renderer uses to decide the group is on screen: when that whole rectangle is off the canvas the group is skipped even if a child is placed back on screen. So keep the rectangle around what it draws (or make it canvas-sized). A `threeD: true` composition (a card) is rendered into a texture of exactly `width × height`, so it **does** clip its children there; size it for soft shadows too.
+
 ```ts
 {
   type: 'composition',
