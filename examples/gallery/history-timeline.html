@@ -17,7 +17,7 @@
     "title": "A short history of computing",
     "subtitle": "An editorial timeline, 1936 to 2023: a line draws while the camera pans past eight drawn milestones",
     "tags": ["infographic", "timeline", "editorial", "counter", "parallax", "icons"],
-    "width": 1280, "height": 720, "duration": 14, "posterFrame": 405, "model": "opus"
+    "width": 1280, "height": 720, "duration": 14, "model": "opus"
   }</script>
 
   <script>
@@ -388,7 +388,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'),
-        width: W, height: H, duration: DURATION, frameRate: FPS,
+        width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: PAPER,
         assets: [
           { name: 'bgm', src: '../_assets/bgm.mp3' },
@@ -396,8 +396,6 @@
         composition: { sequences },
       });
       window.__ready = true;
-      // opens at 0:00; add ?poster to the URL to park on the poster frame
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
     }

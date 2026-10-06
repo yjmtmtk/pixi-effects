@@ -12,7 +12,7 @@
     "title": "Typewriter Terminal",
     "subtitle": "A dev-tool launch film typed out in a CRT terminal; the window steps back in depth for the title card",
     "tags": ["typewriter", "terminal", "2.5D", "mask", "counter", "sfx"],
-    "width": 1280, "height": 720, "duration": 12, "posterFrame": 345, "model": "fable"
+    "width": 1280, "height": 720, "duration": 12, "model": "fable"
   }</script>
 </head>
 <body>
@@ -317,7 +317,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'),
-        width: W, height: H, duration: DURATION, frameRate: FPS,
+        width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: PAGE,
         assets: [
           { name: 'scanlines', src: scanlines(WIN_W, WIN_H - TITLE_H) },
@@ -326,7 +326,6 @@
         composition: { sequences },
       });
       window.__ready = true;
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));
     }

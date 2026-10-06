@@ -13,7 +13,7 @@
 <body>
   <canvas id="stage" width="1280" height="720"></canvas>
 
-  <script type="application/json" id="piece-meta">{ "title": "Transitions Reel", "subtitle": "Seven cuts, seven colours: every transition kind in one tight typographic reel", "tags": ["transitions", "kinetic type", "flat colour", "reel"], "width": 1280, "height": 720, "duration": 14, "posterFrame": 138, "model": "opus" }</script>
+  <script type="application/json" id="piece-meta">{ "title": "Transitions Reel", "subtitle": "Seven cuts, seven colours: every transition kind in one tight typographic reel", "tags": ["transitions", "kinetic type", "flat colour", "reel"], "width": 1280, "height": 720, "duration": 14, "model": "opus" }</script>
 
   <script>
     window.__logs = [];
@@ -45,7 +45,7 @@
     import { Controller } from 'pixi-effects/controller';
 
     const W = 1280, H = 720, FPS = 30, DURATION = 14;
-    const POSTER_FRAME = JSON.parse(document.getElementById('piece-meta').textContent).posterFrame;
+    const POSTER_FRAME = 138;
     const snap = t => Math.round(t * FPS) / FPS;
 
     // ---- design tokens -------------------------------------------------------------------------
@@ -271,15 +271,13 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'),
-        width: W, height: H, duration: DURATION, frameRate: FPS,
+        width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: C.ink,
         assets: [
           { name: 'bgm', src: '../_assets/bgm.mp3' },
         ],
         composition: { sequences, transitions },
       });
-      // opens at 0:00; add ?poster to the URL to park on the poster frame
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
       window.__ready = true;
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));

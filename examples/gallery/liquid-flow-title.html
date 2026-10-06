@@ -16,7 +16,7 @@
   { "title": "Flow",
     "subtitle": "Blurred colour blobs drift and saturate on a pale field, then the field drains into the wordmark",
     "tags": ["title", "gradient", "liquid", "oklch", "alpha-handoff", "blur", "blendMode"],
-    "width": 1280, "height": 720, "duration": 10, "posterFrame": 213, "model": "fable" }
+    "width": 1280, "height": 720, "duration": 10, "model": "fable" }
   </script>
 </head>
 <body>
@@ -200,13 +200,12 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'),
-        width: W, height: H, duration: DURATION, frameRate: FPS,
+        width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: PALE,
         assets: [coverAsset()],
         composition: { sequences },
       });
       window.__ready = true;
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));
     }

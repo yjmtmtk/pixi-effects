@@ -13,8 +13,7 @@
     "title": "AURA ONE",
     "subtitle": "2.5D launch teaser for imaginary wireless headphones — a headline from depth, floating feature cards, an orbit with a dolly zoom",
     "tags": ["2.5D", "camera", "dolly-zoom", "product", "typography", "particles"],
-    "width": 1280, "height": 720, "duration": 12, "posterFrame": 190,
-    "model": "fable"
+    "width": 1280, "height": 720, "duration": 12, "model": "fable"
   }</script>
 </head>
 <body>
@@ -335,15 +334,13 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'),
-        width: W, height: H, duration: DURATION, frameRate: FPS,
+        width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: BG,
         assets: [
           { name: 'bgm', src: '../_assets/bgm.mp3' },
         ],
         composition: { sequences },
       });
-      // opens at 0:00; add ?poster to the URL to park on the poster frame
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);  // opening still = the poster frame
       window.__ready = true;
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible

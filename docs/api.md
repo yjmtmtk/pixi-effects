@@ -169,6 +169,22 @@ Returns a `Blob` whose `type` is the container's MIME (e.g. `video/mp4`). Emits 
 
 The renderer also forces a keyframe every ~2 seconds so the resulting file scrubs efficiently in standard players.
 
+### Poster time: `movie.init({ poster })`, `movie.poster`, `movie.posterImage()`
+
+A movie can say which moment stands for it before it plays, the way `<video poster>` names a picture, except that here it is a **time**, so the picture comes from the same data and needs no separate image file:
+
+```js
+await movie.init({ /* … */ poster: 9.5 });          // seconds; a negative value counts back from the end (-2 = two seconds before the end)
+movie.poster;                                       // 9.5, or null
+movie.posterFrame;                                  // 285 at 30 fps, or null
+const blob = await movie.posterImage();             // the picture at that time (frame 0 if there is no poster); { as: 'dataURL', type: 'image/jpeg', scale: 0.5 } like snapshot()
+```
+
+- Once the movie is ready the **canvas shows the poster frame**, while the playhead stays at frame 0 (`currentFrame` is 0, the player shows 0:00). The first `play()` or `gotoFrame()` replaces it, and **play starts from 0**.
+- `posterImage()` leaves the movie as it was: still showing the poster, or back at the frame it was at. `contactSheet()` does the same.
+- A time past the end is clamped to the last frame, and something that is not a number is ignored; both warn.
+- `pixi-effects-check` writes the poster as `poster.jpg`.
+
 ### `movie.timelineData(): TimelineData` and `movie.timelineChart(options?): string`
 
 The whole movie as rows on a time axis, for a person to read at a glance. `timelineData()` is the data: `{ duration, rows, transitions }`, a row per layer with `name`, `type`, `depth` (1 inside a composition), absolute `start` / `end` in seconds, `keys` (when each keyframe starts) and, for a family of generated layers, `parts` (one span per layer). Layers of one type whose names differ only by numbers (`ring10-0`, `ring9-1`, `pop-3` …), four or more, become ONE row (`ring#-# ×19`), so a movie with 700 generated layers is a screenful. `timelineChart({ title })` returns one self-contained HTML page (an inline SVG, no scripts): bars coloured by type, ◆ at each keyframe start, a shaded band per transition, a tooltip per bar. `pixi-effects-check` writes it next to the contact sheet as `timeline.html`.

@@ -4,6 +4,7 @@
 
 **Added**
 
+- **Poster time.** `movie.init({ poster: 9.5 })` names the moment that stands for the movie (a negative value counts back from the end). Once the movie is ready the canvas shows that frame while the playhead stays at 0, and play still starts from 0, like `<video poster>` but derived from the same data, with no separate image file. `movie.poster`, `movie.posterFrame` and `movie.posterImage()` (a `snapshot()` at the poster time that leaves the movie as it was); `pixi-effects-check` writes `poster.jpg`. The gallery uses it: every piece declares `poster` once (the `?poster` handling copied into all 33 pieces and `posterFrame` in their meta are gone), `node scripts/make-posters.mjs` takes the posters and writes `posters/manifest.json` (with a hash of each page, so a poster that is out of date fails a test).
 - A guide for people, as a standalone site on GitHub Pages (`/guide/`, next to the gallery and the live demos): your first video, how it works, guides for text, shapes, images and video, audio, filters, transitions, 2.5D, exporting, the player and reviewing, a cookbook of tested recipes with live demos, a page on working with an AI, and a FAQ. It puts the AI-development tools up front: `check`, the contact sheet, the timeline and viewer, `inspect`, `inspectAudio` and `render`. Pages are markdown in `site/guide/`, built to HTML by `scripts/build-guide.mjs` (`npm run guide` previews it in `guide-preview/`); the recipes in them are built and linted by the tests, and the first-video page is a real file checked in Chrome.
 
 ## 0.8.0

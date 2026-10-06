@@ -13,6 +13,7 @@ import { collectTimeline, timelineHtml, timelineSvg, type TimelineData, type Tim
 import { pickFrames, sheetLayout } from './frames';
 import { warnUnknownOptions } from './options';
 import { startWhenRunning } from './startWhenRunning';
+import { normalizePoster } from './poster';
 import { ensureFilterLibrary } from '../filters/named';
 import type { Sequence } from '../sequences/Base';
 import type {
@@ -33,6 +34,12 @@ export interface MovieOptions {
   canvas?: HTMLCanvasElement;
   assets?: AssetSpec[];
   composition?: CompositionSpec;
+  /**
+   * The poster time in seconds: the moment that stands for the movie before it plays. The canvas shows that frame once the movie is
+   * ready, the playhead stays at 0 and play starts from 0 (like `<video poster>`); `movie.posterImage()` is that picture. A negative
+   * value counts back from the end. Default: none (the first frame).
+   */
+  poster?: number;
 }
 
 export interface RenderOptions {
@@ -82,6 +89,11 @@ export class Movie {
   audioSource: AudioBufferSourceNode | null = null;
   gainNode: GainNode | null = null;
   private _cancelAudioStart: (() => void) | null = null;
+  /** The poster time in seconds (`movie.init({ poster })`), or null. */
+  poster: number | null = null;
+  private _posterFrame: number | null = null;
+  /** The canvas shows the poster picture while the playhead is still at frame 0 (like `<video poster>`): the first seek or play replaces it. */
+  private _atPoster = false;
   /** > 0 while the movie moves its own playhead (playback, render, snapshot, contactSheet): those are not the seeks `seeking` / `seeked` report. */
   private _quiet = 0;
   private _volume = 1;
@@ -133,6 +145,43 @@ export class Movie {
 
   get isReady(): boolean { return this._initState === 'ready'; }
 
+  /** The poster time as a frame number, or null. */
+  get posterFrame(): number | null { return this._posterFrame; }
+
+  /** Draw the poster frame on the canvas and leave the playhead where it is (frame 0): the picture before the movie plays. */
+  private async _showPoster(): Promise<void> {
+    if (this._posterFrame === null || !this.timeline) return;
+    const back = this.currentFrame;
+    this.currentFrame = this._posterFrame;                 // the drawing steps read the playhead
+    try {
+      this.timeline.time(this._posterFrame / this.frameRate);
+      await this._awaitVideoFrames();
+      this._updateSpace();
+      this._renderNow();
+    } finally {
+      this.currentFrame = back;
+    }
+    this._atPoster = true;
+  }
+
+  /**
+   * The picture at the poster time (frame 0 if the movie has none), as `snapshot()` returns it, and the movie is left as it was:
+   * still showing the poster, or back at the frame it was at.
+   */
+  async posterImage(opts?: SnapshotOptions & { as?: 'blob' }): Promise<Blob>;
+  async posterImage(opts: SnapshotOptions & { as: 'dataURL' }): Promise<string>;
+  async posterImage(opts: SnapshotOptions = {}): Promise<Blob | string> {
+    this._requireReady('posterImage');
+    const back = this.currentFrame, wasAtPoster = this._atPoster;
+    try {
+      return await (this.snapshot as (f: number, o: SnapshotOptions) => Promise<Blob | string>)(this._posterFrame ?? 0, opts);
+    } finally {
+      this.currentFrame = back;                      // snapshot() moved the playhead to the poster: put it back before restoring the display
+      if (wasAtPoster) await this._showPoster();
+      else await this._quietly(() => this.gotoFrame(back, true));
+    }
+  }
+
   private _ensureAudioContext(): AudioContext {
     if (!this._audioContext) {
       const Ctx = (window as unknown as { AudioContext: typeof AudioContext; webkitAudioContext?: typeof AudioContext })
@@ -143,7 +192,7 @@ export class Movie {
   }
 
   async init(options: MovieOptions = {}): Promise<void> {
-    warnUnknownOptions('movie.init()', options, ['width', 'height', 'duration', 'frameRate', 'background', 'canvas', 'assets', 'composition']);
+    warnUnknownOptions('movie.init()', options, ['width', 'height', 'duration', 'frameRate', 'background', 'canvas', 'assets', 'composition', 'poster']);
     this._initState = 'pending';
     try {
       this.width = options.width ?? 1920;
@@ -151,6 +200,9 @@ export class Movie {
       this.duration = options.duration ?? 10;
       this.frameRate = options.frameRate ?? 30;
       this.totalFrames = Math.round(this.duration * this.frameRate);
+      const poster = normalizePoster(options.poster, this.duration, this.frameRate);
+      this.poster = poster.seconds;
+      this._posterFrame = poster.frame;
       this.background = options.background ?? '#000000';
 
       this.timeline = gsap.timeline({ paused: true, defaults: { ease: 'none' } });
@@ -234,6 +286,7 @@ export class Movie {
       this._renderNow();
 
       this._initState = 'ready';
+      if (this._posterFrame !== null) await this._showPoster();     // the canvas shows the poster until the first seek or play
       this.emit('ready');
     } catch (err) {
       try { await this.destroy(); } catch (cleanupErr) {
@@ -246,7 +299,7 @@ export class Movie {
 
   async gotoFrame(frame: number, force = false): Promise<void> {
     if (this._initState !== 'ready') return;
-    if (!force && this.currentFrame === frame) return;
+    if (!force && !this._atPoster && this.currentFrame === frame) return;      // (at the poster the canvas shows another frame)
     if (this._quiet > 0) return this._goto(frame);
     const target = Math.max(0, Math.min(frame, this.totalFrames));
     this.emit('seeking', { frame: target, totalFrames: this.totalFrames } satisfies FrameEvent);
@@ -265,6 +318,7 @@ export class Movie {
   }
 
   private async _goto(frame: number): Promise<void> {
+    this._atPoster = false;
     this.currentFrame = Math.max(0, Math.min(frame, this.totalFrames));
     this.timeline!.time(this.currentFrame / this.frameRate);
     await this._awaitVideoFrames();
@@ -323,7 +377,7 @@ export class Movie {
     const g = sheet.getContext('2d')!;
     g.fillStyle = '#10131c';
     g.fillRect(0, 0, L.width, L.height);
-    const back = this.currentFrame;
+    const back = this.currentFrame, wasAtPoster = this._atPoster;
     try {
       for (let i = 0; i < frames.length; i++) {
         const f = frames[i]!;
@@ -336,7 +390,8 @@ export class Movie {
         g.fillText(`frame ${f}  ·  ${(f / this.frameRate).toFixed(2)}s`, x + 8, y + LABEL_H / 2);
       }
     } finally {
-      await this._quietly(() => this.gotoFrame(back, true));
+      if (wasAtPoster) await this._showPoster();                     // the movie is left as it was: still showing its poster
+      else await this._quietly(() => this.gotoFrame(back, true));
     }
     return encodeCanvas(sheet, 'image/png', opts.as ?? 'blob');
   }

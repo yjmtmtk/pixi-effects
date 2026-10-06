@@ -8,7 +8,7 @@
     body { background: #0d0f16; margin: 0; padding: 16px; display: flex; flex-direction: column; align-items: center; }
     canvas { width: min(960px, 100%); height: auto; border-radius: 8px; }
   </style>
-  <script type="application/json" id="piece-meta">{ "title": "Paper Planes", "subtitle": "A karaoke lyric video for an invented song: words light up on a 120 BPM grid under a bouncing ball, each verse shifts the sky, the chorus hits big.", "tags": ["karaoke", "lyrics", "typography", "music", "beat-sync"], "width": 1280, "height": 720, "duration": 12.5, "posterFrame": 340, "model": "opus" }</script>
+  <script type="application/json" id="piece-meta">{ "title": "Paper Planes", "subtitle": "A karaoke lyric video for an invented song: words light up on a 120 BPM grid under a bouncing ball, each verse shifts the sky, the chorus hits big.", "tags": ["karaoke", "lyrics", "typography", "music", "beat-sync"], "width": 1280, "height": 720, "duration": 12.5, "model": "opus" }</script>
 </head>
 <body>
   <canvas id="stage" width="1280" height="720"></canvas>
@@ -295,15 +295,13 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'),
-        width: W, height: H, duration: DURATION, frameRate: FPS,
+        width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: COUPLETS[0].bg,
         assets: [
           { name: 'bgm', src: '../_assets/bgm.mp3' },
         ],
         composition: { sequences },
       });
-      // opens at 0:00; add ?poster to the URL to park on the poster frame
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
       window.__ready = true;
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));

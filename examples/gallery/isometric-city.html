@@ -13,7 +13,7 @@
   { "title": "Kōbe, 2040",
     "subtitle": "A seeded isometric city builds itself from dawn to dusk — three polygon faces per block, oklab light, windows that wake up",
     "tags": ["procedural", "isometric", "oklab", "masks", "audio"],
-    "width": 1280, "height": 720, "duration": 12, "posterFrame": 335, "model": "fable" }
+    "width": 1280, "height": 720, "duration": 12, "model": "fable" }
   </script>
 </head>
 <body>
@@ -385,19 +385,17 @@
 
     const movie = new Movie();
     window.movie = movie;
-    window.POSTER_FRAME = POSTER_FRAME;
     new Controller(movie, { canvas: document.getElementById('stage') });
 
     try {
       await movie.init({
         canvas: document.getElementById('stage'),
-        width: W, height: H, duration: DURATION, frameRate: FPS,
+        width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: '#1b1834',
         assets,
         composition: { sequences },
       });
       window.__ready = true;
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
     }

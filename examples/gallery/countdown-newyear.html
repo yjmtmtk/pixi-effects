@@ -13,7 +13,7 @@
   <canvas id="stage" width="1280" height="720"></canvas>
 
   <script type="application/json" id="piece-meta">
-  { "title": "Countdown to 2027", "subtitle": "10 to 1 with ring pulses, then a seeded fireworks finale", "tags": ["countdown", "fireworks", "particles", "typography", "audio"], "width": 1280, "height": 720, "duration": 12, "posterFrame": 288, "model": "sonnet" }
+  { "title": "Countdown to 2027", "subtitle": "10 to 1 with ring pulses, then a seeded fireworks finale", "tags": ["countdown", "fireworks", "particles", "typography", "audio"], "width": 1280, "height": 720, "duration": 12, "model": "sonnet" }
   </script>
 
   <script>
@@ -328,15 +328,13 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'),
-        width: W, height: H, duration: DURATION, frameRate: FPS,
+        width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: NAVY,
         assets: [
           { name: 'bgm', src: '../_assets/bgm.mp3' },
         ],
         composition: { sequences },
       });
-      // opens at 0:00; add ?poster to the URL to park on the poster frame
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
       window.__ready = true;
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));

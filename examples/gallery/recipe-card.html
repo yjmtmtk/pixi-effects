@@ -13,7 +13,7 @@
 <body>
   <canvas id="stage" width="1080" height="1350"></canvas>
 
-  <script type="application/json" id="piece-meta">{ "title": "Lemon Pasta Recipe Card", "subtitle": "A 4:5 animated recipe card: ingredients that check themselves off, three timed steps with countdowns, and a plated dish that assembles from circles.", "tags": ["portrait", "illustration", "food", "counters", "shapes"], "width": 1080, "height": 1350, "duration": 12, "posterFrame": 345, "model": "sonnet" }</script>
+  <script type="application/json" id="piece-meta">{ "title": "Lemon Pasta Recipe Card", "subtitle": "A 4:5 animated recipe card: ingredients that check themselves off, three timed steps with countdowns, and a plated dish that assembles from circles.", "tags": ["portrait", "illustration", "food", "counters", "shapes"], "width": 1080, "height": 1350, "duration": 12, "model": "sonnet" }</script>
 
   <script>
     window.__logs = [];
@@ -342,15 +342,13 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'),
-        width: W, height: H, duration: DURATION, frameRate: FPS,
+        width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: CREAM,
         assets: [
           { name: 'bgm', src: '../_assets/bgm.mp3' },
         ],
         composition: { sequences },
       });
-      // opens at 0:00; add ?poster to the URL to park on the poster frame
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
       window.__ready = true;
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));

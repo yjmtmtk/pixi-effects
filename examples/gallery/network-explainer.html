@@ -13,7 +13,7 @@
 <body>
   <canvas id="stage" width="1280" height="720"></canvas>
 
-  <script type="application/json" id="piece-meta">{ "title": "What happens when you open a page", "subtitle": "A flat explainer: client, CDN, server and database, one packet and 130 ms at a time", "tags": ["explainer", "infographic", "diagram", "counter", "paths"], "width": 1280, "height": 720, "duration": 14, "posterFrame": 229, "model": "opus" }</script>
+  <script type="application/json" id="piece-meta">{ "title": "What happens when you open a page", "subtitle": "A flat explainer: client, CDN, server and database, one packet and 130 ms at a time", "tags": ["explainer", "infographic", "diagram", "counter", "paths"], "width": 1280, "height": 720, "duration": 14, "model": "opus" }</script>
 
   <script>
     window.__logs = [];
@@ -359,7 +359,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'),
-        width: W, height: H, duration: DURATION, frameRate: FPS,
+        width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: PAPER,
         assets: [
           { name: 'grid', src: dotGrid() },
@@ -367,8 +367,6 @@
         ],
         composition: { sequences: S },
       });
-      // opens at 0:00; add ?poster to the URL to park on the poster frame
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
       window.__ready = true;
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));

@@ -13,7 +13,7 @@
 <body>
   <canvas id="stage" width="720" height="1280"></canvas>
 
-  <script type="application/json" id="piece-meta">{ "title": "Social Quote Card", "subtitle": "A vertical 9:16 quote card: drifting warm blobs, line-by-line masked reveal, animated underline and a swipe cue.", "tags": ["vertical", "social", "typography", "masks", "gradient"], "width": 720, "height": 1280, "duration": 10, "posterFrame": 200, "model": "sonnet" }</script>
+  <script type="application/json" id="piece-meta">{ "title": "Social Quote Card", "subtitle": "A vertical 9:16 quote card: drifting warm blobs, line-by-line masked reveal, animated underline and a swipe cue.", "tags": ["vertical", "social", "typography", "masks", "gradient"], "width": 720, "height": 1280, "duration": 10, "model": "sonnet" }</script>
 
   <script>
     window.__logs = [];
@@ -168,12 +168,10 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'),
-        width: W, height: H, duration: DURATION, frameRate: FPS,
+        width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: CREAM,
         composition: { sequences },
       });
-      // opens at 0:00; add ?poster to the URL to park on the poster frame
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
       window.__ready = true;
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));

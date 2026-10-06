@@ -8,7 +8,7 @@
     body { background: #111214; margin: 0; padding: 16px; display: flex; justify-content: center; }
     canvas { width: min(960px, 100%); border-radius: 6px; display: block; }
   </style>
-  <script type="application/json" id="piece-meta">{ "title": "ORRI ONE", "subtitle": "A glossy three.js product turntable with spec callouts and a brand lock-up, studio white to graphite", "tags": ["three.js", "product", "PBR", "callouts", "lock-up"], "width": 1280, "height": 720, "duration": 12, "posterFrame": 246, "model": "opus" }</script>
+  <script type="application/json" id="piece-meta">{ "title": "ORRI ONE", "subtitle": "A glossy three.js product turntable with spec callouts and a brand lock-up, studio white to graphite", "tags": ["three.js", "product", "PBR", "callouts", "lock-up"], "width": 1280, "height": 720, "duration": 12, "model": "opus" }</script>
 </head>
 <body>
   <canvas id="stage" width="1280" height="720"></canvas>
@@ -388,7 +388,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'),
-        width: W, height: H, duration: DURATION, frameRate: FPS,
+        width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: C.studio,
         assets: [
           { name: 'bgm', src: '../_assets/bgm.mp3' },
@@ -396,7 +396,6 @@
         composition: { sequences },
       });
       window.__ready = true;
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));
     }

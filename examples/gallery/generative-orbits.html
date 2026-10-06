@@ -13,7 +13,7 @@
 <body>
   <canvas id="stage" width="1080" height="1080"></canvas>
 
-  <script type="application/json" id="piece-meta">{ "title": "Orbits", "subtitle": "A seeded loop of pendulum-wave rings, epicycle rosettes and Lissajous comets", "tags": ["generative", "loop", "orbit", "lissajous", "epicycles"], "width": 1080, "height": 1080, "duration": 14, "posterFrame": 180, "model": "opus" }</script>
+  <script type="application/json" id="piece-meta">{ "title": "Orbits", "subtitle": "A seeded loop of pendulum-wave rings, epicycle rosettes and Lissajous comets", "tags": ["generative", "loop", "orbit", "lissajous", "epicycles"], "width": 1080, "height": 1080, "duration": 14, "model": "opus" }</script>
 
   <script>
     // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
@@ -242,14 +242,12 @@
       const t0 = performance.now();
       await movie.init({
         canvas: document.getElementById('stage'),
-        width: S, height: S, duration: T, frameRate: FPS,
+        width: S, height: S, duration: T, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: '#030209',
         assets: [{ name: 'glow', src: glowSprite(SPRITE) }],
         composition: { sequences },
       });
       window.__buildMs = Math.round(performance.now() - t0);
-      // opens at 0:00; add ?poster to the URL to park on the poster frame
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
       window.__ready = true;
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));

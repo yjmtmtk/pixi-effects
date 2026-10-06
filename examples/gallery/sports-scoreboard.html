@@ -13,7 +13,7 @@
 <body>
   <canvas id="stage" width="1280" height="720"></canvas>
 
-  <script type="application/json" id="piece-meta">{ "title": "Matchday Graphics", "subtitle": "Broadcast football package: crests, count-up score, stat bars, momentum graph and a GOAL stinger", "tags": ["sports", "broadcast", "data", "stinger", "diagonal"], "width": 1280, "height": 720, "duration": 12, "posterFrame": 285, "model": "opus" }</script>
+  <script type="application/json" id="piece-meta">{ "title": "Matchday Graphics", "subtitle": "Broadcast football package: crests, count-up score, stat bars, momentum graph and a GOAL stinger", "tags": ["sports", "broadcast", "data", "stinger", "diagonal"], "width": 1280, "height": 720, "duration": 12, "model": "opus" }</script>
 
   <script>
     window.__logs = [];
@@ -414,13 +414,11 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'),
-        width: W, height: H, duration: DURATION, frameRate: FPS,
+        width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: C.night,
         assets: [{ name: 'bgm', src: '../_assets/bgm.mp3' }],
         composition: { sequences },
       });
-      // opens at 0:00; add ?poster to the URL to park on the poster frame
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
       window.__ready = true;
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));

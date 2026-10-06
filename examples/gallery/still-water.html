@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Still Water — three lakes</title>
-  <script type="application/json" id="piece-meta">{ "title": "Still Water", "subtitle": "Three lakes, three real photographs: slow Ken Burns moves, a viewfinder that draws itself on, and a caption that re-types for each photo", "tags": ["photo", "ken-burns", "transitions", "typewriter", "viewfinder", "audio"], "width": 1280, "height": 720, "duration": 12, "posterFrame": 270, "model": "sonnet" }</script>
+  <script type="application/json" id="piece-meta">{ "title": "Still Water", "subtitle": "Three lakes, three real photographs: slow Ken Burns moves, a viewfinder that draws itself on, and a caption that re-types for each photo", "tags": ["photo", "ken-burns", "transitions", "typewriter", "viewfinder", "audio"], "width": 1280, "height": 720, "duration": 12, "model": "sonnet" }</script>
   <style>
     html, body { margin: 0; background: #08090b; color: #ddd; font-family: system-ui, sans-serif; }
     body { min-height: 100vh; display: grid; place-items: center; }
@@ -135,13 +135,11 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'),
-        width: W, height: H, duration: DURATION, frameRate: FPS,
+        width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: '#000000',
         assets: [...SCENES.map(s => ({ name: s.asset, src: s.src })), { name: 'bgm', src: '../_assets/bgm.mp3' }],
         composition: { sequences, transitions },
       });
-      // opens at 0:00; add ?poster to the URL to park on the poster frame
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
       window.__ready = true;
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));

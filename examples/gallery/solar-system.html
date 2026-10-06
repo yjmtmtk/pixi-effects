@@ -12,7 +12,7 @@
 <body>
   <canvas id="stage" width="1280" height="720"></canvas>
 
-  <script type="application/json" id="piece-meta">{ "title": "A Flight Through the Solar System", "subtitle": "An educational camera flight from the Sun to Neptune: orbits, facts and a recap", "tags": ["2.5D", "camera", "orbit", "education", "data"], "width": 1280, "height": 720, "duration": 14, "posterFrame": 300, "model": "opus" }</script>
+  <script type="application/json" id="piece-meta">{ "title": "A Flight Through the Solar System", "subtitle": "An educational camera flight from the Sun to Neptune: orbits, facts and a recap", "tags": ["2.5D", "camera", "orbit", "education", "data"], "width": 1280, "height": 720, "duration": 14, "model": "opus" }</script>
 
   <script>
     window.__logs = [];
@@ -367,11 +367,10 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'),
-        width: W, height: H, duration: DURATION, frameRate: FPS, background: C.bg,
+        width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS, background: C.bg,
         assets: [starfield(), { name: 'bgm', src: '../_assets/bgm.mp3' }],
         composition: { sequences: seqs },
       });
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
       window.__ready = true;
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));

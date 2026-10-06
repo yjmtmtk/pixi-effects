@@ -9,7 +9,7 @@
     body { background: #0e0f12; margin: 0; padding: 16px; display: grid; place-items: center; box-sizing: border-box; }
     canvas { width: min(960px, 100%); aspect-ratio: 16 / 9; border-radius: 6px; display: block; }
   </style>
-  <script type="application/json" id="piece-meta">{ "title": "AURORA", "subtitle": "A restrained logo reveal: a horizon line, a light that rises through it, a letter-spaced lock-up", "tags": ["logo", "reveal", "gradient", "mask", "typography"], "width": 1280, "height": 720, "duration": 8, "posterFrame": 210, "model": "fable" }</script>
+  <script type="application/json" id="piece-meta">{ "title": "AURORA", "subtitle": "A restrained logo reveal: a horizon line, a light that rises through it, a letter-spaced lock-up", "tags": ["logo", "reveal", "gradient", "mask", "typography"], "width": 1280, "height": 720, "duration": 8, "model": "fable" }</script>
 </head>
 <body>
   <canvas id="stage" width="1280" height="720"></canvas>
@@ -178,13 +178,11 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'),
-        width: W, height: H, duration: DURATION, frameRate: FPS,
+        width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: BG,
         composition: { sequences },
       });
       window.__ready = true;
-      // opens at 0:00; add ?poster to the URL to park on the poster frame
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
     }

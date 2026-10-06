@@ -17,7 +17,7 @@
     "title": "UI motion kit",
     "subtitle": "Six microinteractions on a 3×2 board — toggle, ripple + check, like burst, loader, download, bell — played as a cascade, then all at once",
     "tags": ["ui", "microinteractions", "motion kit", "easing", "light", "audio"],
-    "width": 1280, "height": 720, "duration": 12, "posterFrame": 260, "model": "opus"
+    "width": 1280, "height": 720, "duration": 12, "model": "opus"
   }</script>
 
   <script>
@@ -346,14 +346,12 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'),
-        width: W, height: H, duration: DURATION, frameRate: FPS,
+        width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: C.bg,
         assets: [{ name: 'bgm', src: '../_assets/bgm.mp3' }],
         composition: { sequences },
       });
       window.__ready = true;
-      // opens at 0:00; add ?poster to the URL to park on the poster frame
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));
     }

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>check · the poster time</title></head>
+<body>
+  <!--
+    Acceptance check (not an example): a square crosses the canvas from x = 100 (0 s) to x = 1100 (4 s). The poster time is 3 s,
+    where the square is at x = 850. Before play the canvas must show THAT, the playhead must be at 0, and play must start from 0.
+  -->
+  <canvas id="stage" width="1280" height="720" style="width:640px"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+  </script>
+  <script type="importmap">
+  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "gsap": "https://esm.sh/gsap@3.12.5", "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin", "mediabunny": "https://esm.sh/mediabunny" } }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 4, frameRate: 30, background: '#000000',
+        poster: new URLSearchParams(location.search).has('noposter') ? undefined : 3,
+        composition: { sequences: [
+          { type: 'shape', shape: 'rect', width: 80, height: 80, initial: { x: 100, y: 360, fillColor: '#ffffff' },
+            keyframes: [{ at: 0, to: { x: 1100 }, duration: 4, ease: 'none' }] },
+        ] },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+  </script>
+</body>
+</html>

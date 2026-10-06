@@ -12,7 +12,7 @@
   { "title": "Quiet Woods",
     "subtitle": "A cut-paper diorama in 2.5D: layered hills and pines under a paper moon, a fox crossing the mid-ground, fireflies, and a hand-lettered label that unfolds",
     "tags": ["2.5D", "paper-craft", "parallax", "character", "procedural", "title"],
-    "width": 1280, "height": 720, "duration": 12, "posterFrame": 168, "model": "fable" }
+    "width": 1280, "height": 720, "duration": 12, "model": "fable" }
   </script>
 </head>
 <body>
@@ -393,15 +393,13 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'),
-        width: W, height: H, duration: DURATION, frameRate: FPS,
+        width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: P.skyTop,
         assets: [...assets,
           { name: 'bgm', src: '../_assets/bgm.mp3' }],
         composition: { sequences },
       });
       window.__ready = true;
-      // opens at 0:00; add ?poster to the URL to park on the poster frame
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
     }

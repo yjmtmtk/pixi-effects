@@ -13,7 +13,7 @@
 <body>
   <canvas id="stage" width="1080" height="1080"></canvas>
 
-  <script type="application/json" id="piece-meta">{ "title": "Loader Gallery", "subtitle": "Nine hypnotic loading loops on one dark board, each a different idea.", "tags": ["loops", "ui-motion", "generative", "square"], "width": 1080, "height": 1080, "duration": 10, "posterFrame": 262, "model": "sonnet" }</script>
+  <script type="application/json" id="piece-meta">{ "title": "Loader Gallery", "subtitle": "Nine hypnotic loading loops on one dark board, each a different idea.", "tags": ["loops", "ui-motion", "generative", "square"], "width": 1080, "height": 1080, "duration": 10, "model": "sonnet" }</script>
 
   <script>
     window.__logs = [];
@@ -288,12 +288,11 @@
       const t0 = performance.now();
       await movie.init({
         canvas: document.getElementById('stage'),
-        width: S, height: S, duration: T, frameRate: FPS,
+        width: S, height: S, duration: T, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: BOARD,
         composition: { sequences },
       });
       window.__buildMs = Math.round(performance.now() - t0);
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
       window.__ready = true;
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));

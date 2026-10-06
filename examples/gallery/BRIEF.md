@@ -20,9 +20,9 @@ You are also a usability tester: record honestly everything that made you retry 
 1. Keep the template's `window.__logs` harness, `window.__ready`, `window.movie`, and the `try/catch` around `init`.
 2. Use `Controller` (play / scrub / export button) so the piece is playable. Style the page minimally: dark neutral background, the canvas centred and
    responsive (`width: min(960px, 100%)` for 16:9; scale vertical / square pieces so they fit a laptop screen). The piece itself carries the design.
-3. After `init`, open at 0:00 (do NOT seek to the poster frame by default: Play would then start mid-piece). Park on it only with `?poster` in the URL: `if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);`.
+3. Give the movie a **poster time** in `movie.init`: `poster: 9.5` (seconds; the most striking moment). The canvas shows that frame before play, play still starts from 0:00, and `movie.posterImage()` is the picture. Do not seek anywhere yourself.
 4. Embed metadata (an index page is generated from it):
-   `<script type="application/json" id="piece-meta">{ "title": "...", "subtitle": "one line", "tags": ["..."], "width": 1280, "height": 720, "duration": 10, "posterFrame": 120, "model": "<your model name>" }</script>`
+   `<script type="application/json" id="piece-meta">{ "title": "...", "subtitle": "one line", "tags": ["..."], "width": 1280, "height": 720, "duration": 10, "model": "<your model name>" }</script>`
    (`width`/`height`/`duration` must match what you pass to `movie.init`).
 5. Self-contained: no network except the importmap CDNs. No external images/fonts/video. Generate any imagery procedurally (shapes, gradients,
    canvas-drawn data-URL images). Sound effects are synthesised presets, no files: `{ type: 'audio', sfx: 'swoosh', at }` (see ai/reference/cheatsheet.md); music only from `examples/_assets/bgm.mp3` (16 s loop, CC0 — loop it). Fonts: system stacks only
@@ -43,8 +43,9 @@ You are also a usability tester: record honestly everything that made you retry 
   Your page: `http://localhost:5190/examples/gallery/<id>.html`. Close your session when done.
 
 ## Poster
-Pick the most striking frame. Save it: `eval "movie.snapshot(POSTER_FRAME, { type: 'image/jpeg', scale: 0.5, as: 'dataURL' })"` piped to
-`python3 ai/tools/save-image.py /ABSOLUTE/examples/gallery/posters/<id>.jpg`.
+Pick the most striking moment and give it as `poster` (seconds) in `movie.init`. You do not make the poster picture: `node scripts/make-posters.mjs --only <id>`
+opens your piece, takes `movie.posterImage()` and writes `posters/<id>.jpg` and its entry in `posters/manifest.json` (a test fails when a piece was edited after
+its poster was made, so run it again after your last edit).
 
 ## Stumble notes (`examples/gallery/_notes/<id>.md`) — this is half of your job
 Write it as you go. Format, one entry per stumble (even small ones; also things that were *easy* thanks to the docs are worth one line at the top):
@@ -83,7 +84,7 @@ The library was fixed after round one, and `dist/` already contains the fixes. S
 - **A mask now starts and ends with the layer it masks** when the mask has no `at` of its own: its keyframes are measured from the layer's start (an explicit mask `at` is still composition time).
 - **Sound effects need no files any more** (this supersedes the sfx mp3s and their clip lengths, which no longer exist): `{ type: 'audio', sfx: 'pop' | 'click' | 'swoosh' | 'chime' | 'hit' | 'riser' | 'swipe' | 'beep' | 'coin' | 'glitch' | 'typewriter', at, volume }`; omit `duration` (the layer lasts as long as the sound). Check them with `movie.inspectAudio()` (or `node ai/tools/check.mjs`). With `loop: true` and no `duration` a music file lasts until the composition ends. `bgm.mp3` is 6 s.
 - **`movie.inspect`** judges overlaps on what is visible (cut to the canvas and to the layer's mask) and does not report the two scenes of a running transition; repeated "keyframe starts after the layer ends" warnings are summarised.
-- **Open at 0:00.** Do NOT seek to the poster frame on load (Play would start mid-piece). Only with `?poster` in the URL: `if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);` (the poster JPG is still made with `movie.snapshot(POSTER_FRAME, …)`).
+- **Poster time.** Declare it once in `movie.init({ poster: <seconds> })`; the page opens showing that picture and play starts from 0:00. No `?poster` handling, no seeking on load.
 - `from` / `from+to` keyframes hold their start value from the LAYER's start (not from the keyframe's `at`): a delayed fade-in `{ at: 2, from: { alpha: 0 }, to: { alpha: 1 } }` needs no `initial.alpha`; to keep the old value until `at`, use `set` or put it in `initial`.
 - Still missing (you will hit these; hand-roll and WRITE THEM DOWN in your notes): arc / trim-path / stroke draw-on, blend modes (add / screen), text content that changes over time (only `{value}` counters), per-frame jitter, particle emitters. A round-one note already covers most workarounds in `examples/gallery/_notes/*.md` — skim two or three for ideas before inventing.
 

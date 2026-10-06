@@ -83,6 +83,10 @@ Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha stro
 
 Add `threeD: true` to any visual layer, then use `z`, `rotationX`, `rotationY` (centre rotation with `anchorX/Y: 0.5` or `pivotX/Y`). Add a `{ type: 'camera' }` layer for a view. A `threeD` layer at `z: 0` with the default camera looks identical to a 2D one. Consecutive `threeD` layers are drawn farthest-first (equal `z` keeps array order); non-`threeD` layers ignore the camera and keep array order. Layers at/behind the camera plane are hidden. Not supported on `threeD` layers: masks, transitions, `filterArea`.
 
+## Poster
+
+`movie.init({ …, poster: 9.5 })` names the moment (seconds; negative = from the end) that stands for the movie: the canvas shows it before play (the playhead stays at 0, play starts from 0), `movie.poster` / `movie.posterFrame` read it, `await movie.posterImage({ as: 'dataURL', type: 'image/jpeg', scale: 0.5 })` is the picture. Pick the most striking moment, not frame 0 (which is often black).
+
 ## Player
 
 `new Controller(movie, { canvas, theme: { accent: '#ff4d6d' } })` (import from `pixi-effects/controller`; theme keys `accent foreground track barBackground trackHeight font`, or CSS `--mc-accent` …; `controller.setTheme(…)`). Your own player: `movie.play() pause() gotoFrame(f) volume muted toggleMute()`, state `currentFrame totalFrames frameRate duration isPlaying`, events `ready frame play pause ended seeking seeked volumechange error progress` (`<video>` names). `examples/15-custom-player.html` is a complete one.

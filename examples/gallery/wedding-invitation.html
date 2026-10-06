@@ -13,7 +13,7 @@
 <body>
   <canvas id="stage" width="1080" height="1350"></canvas>
 
-  <script type="application/json" id="piece-meta">{ "title": "Wedding Invitation", "subtitle": "A 4:5 cream card: a double gold border traces itself, seeded botanical sprigs unfurl in the corners, serif names and details arrive line by line, a gold rule and two rings close.", "tags": ["portrait", "invitation", "typography", "botanical", "draw-on", "elegant"], "width": 1080, "height": 1350, "duration": 12, "posterFrame": 320, "model": "fable" }</script>
+  <script type="application/json" id="piece-meta">{ "title": "Wedding Invitation", "subtitle": "A 4:5 cream card: a double gold border traces itself, seeded botanical sprigs unfurl in the corners, serif names and details arrive line by line, a gold rule and two rings close.", "tags": ["portrait", "invitation", "typography", "botanical", "draw-on", "elegant"], "width": 1080, "height": 1350, "duration": 12, "model": "fable" }</script>
 
   <script>
     // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
@@ -245,7 +245,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'),
-        width: W, height: H, duration: DURATION, frameRate: FPS,
+        width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: LINEN,
         assets: [
           paperTexture('paper', CARD_W, CARD_H, 4242),
@@ -253,7 +253,6 @@
         composition: { sequences },
       });
       window.__ready = true;
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
     }

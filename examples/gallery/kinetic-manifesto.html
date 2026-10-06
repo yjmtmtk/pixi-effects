@@ -19,8 +19,7 @@
     "title": "Kinetic Manifesto",
     "subtitle": "Five bilingual statements on making things, slammed onto a 100 BPM grid",
     "tags": ["kinetic-typography", "bilingual", "beat-driven", "typography"],
-    "width": 1280, "height": 720, "duration": 12, "posterFrame": 42,
-    "model": "fable"
+    "width": 1280, "height": 720, "duration": 12, "model": "fable"
   }
   </script>
 
@@ -258,11 +257,9 @@
 
     try {
       await movie.init({
-        canvas, width: W, height: H, duration: DURATION, frameRate: FPS, background: INK,
+        canvas, width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS, background: INK,
         composition: { sequences: seq },
       });
-      // opens at 0:00; add ?poster to the URL to park on the poster frame
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
       window.__ready = true;
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));

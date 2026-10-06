@@ -8,7 +8,7 @@
     body { background: #0b0d0e; margin: 0; padding: 16px; display: flex; justify-content: center; }
     canvas { width: min(960px, 100%); border-radius: 6px; display: block; }
   </style>
-  <script type="application/json" id="piece-meta">{ "title": "The Long Night", "subtitle": "Main-title sequence for an imaginary thriller: a three.js shard in fog, letterboxed credits, film grain", "tags": ["three.js", "title sequence", "typography", "film grain", "letterbox"], "width": 1280, "height": 720, "duration": 14, "posterFrame": 405, "model": "opus" }</script>
+  <script type="application/json" id="piece-meta">{ "title": "The Long Night", "subtitle": "Main-title sequence for an imaginary thriller: a three.js shard in fog, letterboxed credits, film grain", "tags": ["three.js", "title sequence", "typography", "film grain", "letterbox"], "width": 1280, "height": 720, "duration": 14, "model": "opus" }</script>
 </head>
 <body>
   <canvas id="stage" width="1280" height="720"></canvas>
@@ -318,14 +318,12 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'),
-        width: W, height: H, duration: DURATION, frameRate: FPS,
+        width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: C.night,
         assets: [grainAsset('grainA', 101, 26000), grainAsset('grainB', 202, 14000)],
         composition: { sequences },
       });
       window.__ready = true;
-      // opens at 0:00; add ?poster to the URL to park on the poster frame
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));
     }

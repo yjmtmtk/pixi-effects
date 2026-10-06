@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 // @ts-expect-error plain ESM script without types
-import { buildGallery, readPiece, MODELS, FEATURED } from '../../scripts/build-gallery.mjs';
+import { buildGallery, readPiece, posterHash, MODELS, FEATURED } from '../../scripts/build-gallery.mjs';
 
 const root = resolve(__dirname, '../..');
 const gallery = resolve(root, 'examples/gallery');
@@ -25,16 +25,27 @@ describe('examples/gallery pieces', () => {
     const html = readFileSync(resolve(gallery, `${id}.html`), 'utf8');
 
     it('has a valid #piece-meta block', () => {
-      const r = readPiece(id, html, { posterExists: true, notesExists: true }) as { piece?: Piece; errors?: string[] };
+      const r = readPiece(id, html, { posterExists: true, notesExists: true, poster: { posterFrame: 12, hash: posterHash(html) } }) as { piece?: Piece; errors?: string[] };
       expect(r.errors, r.errors?.join('\n')).toBeUndefined();
       const p = r.piece!;
       expect(p.title.length).toBeGreaterThan(0);
       expect(p.width).toBeGreaterThan(0);
       expect(p.height).toBeGreaterThan(0);
       expect(p.duration).toBeGreaterThan(0);
-      expect(p.posterFrame).toBeGreaterThanOrEqual(0);
+      expect(p.posterFrame).toBe(12);                            // the poster frame comes from the posters manifest, not from the meta
       expect(MODELS).toContain(p.model);
-      expect(p.posterFrame).toBeLessThan(p.duration * 30 + 1);     // 30 fps pieces: the poster frame is inside the piece
+    });
+
+    it('declares its poster time in movie.init({ poster }) and has no ?poster handling of its own', () => {
+      expect(html).toMatch(/movie\.init\([\s\S]*?\bposter:/);
+      expect(html).not.toContain('?poster');
+      expect(html).not.toContain("has('poster')");
+    });
+
+    it('its poster picture is up to date with the page (run `node scripts/make-posters.mjs` after editing a piece)', () => {
+      const manifest = JSON.parse(readFileSync(resolve(gallery, 'posters', 'manifest.json'), 'utf8')) as Record<string, { posterFrame: number; hash: string }>;
+      expect(manifest[id], `no poster entry for ${id}: run node scripts/make-posters.mjs`).toBeDefined();
+      expect(manifest[id]!.hash, `the poster of ${id} is out of date: run node scripts/make-posters.mjs --only ${id}`).toBe(posterHash(html));
     });
 
     it('has a poster at posters/<id>.jpg', () => {
@@ -52,6 +63,24 @@ describe('examples/gallery pieces', () => {
       const meta = JSON.parse(html.match(/id="piece-meta"[^>]*>([\s\S]*?)<\/script>/)![1]!);
       expect(row!.split('|').map((c) => c.trim())[1]).toBe(meta.model);
     });
+  });
+});
+
+describe('the posters manifest', () => {
+  it('has an entry for every piece and for nothing else', () => {
+    const manifest = JSON.parse(readFileSync(resolve(gallery, 'posters', 'manifest.json'), 'utf8')) as Record<string, unknown>;
+    expect(Object.keys(manifest).sort()).toEqual([...ids].sort());
+  });
+
+  it('readPiece says what to run when a piece has no manifest entry, and reports a poster that is out of date', () => {
+    const html = readFileSync(resolve(gallery, `${ids[0]}.html`), 'utf8');
+    const none = readPiece(ids[0], html, { posterExists: true, notesExists: true, poster: undefined }) as { errors?: string[] };
+    expect(none.errors!.join('\n')).toMatch(/make-posters/);
+    const stale = readPiece(ids[0], html, { posterExists: true, notesExists: true, poster: { posterFrame: 5, hash: 'old' } }) as { piece?: Piece; stale?: boolean };
+    expect(stale.stale).toBe(true);
+    expect(stale.piece!.posterFrame).toBe(5);
+    const fresh = readPiece(ids[0], html, { posterExists: true, notesExists: true, poster: { posterFrame: 5, hash: posterHash(html) } }) as { stale?: boolean };
+    expect(fresh.stale).toBeFalsy();
   });
 });
 

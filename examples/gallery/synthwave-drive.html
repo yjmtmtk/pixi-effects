@@ -11,7 +11,7 @@
   <script type="application/json" id="piece-meta">
   { "title": "Synthwave Drive", "subtitle": "A retro night-drive loop: striped sun, neon grid floor racing in, a title that flickers on",
     "tags": ["synthwave", "2.5D", "camera", "loop", "neon", "procedural"],
-    "width": 1280, "height": 720, "duration": 12, "posterFrame": 168, "model": "fable" }
+    "width": 1280, "height": 720, "duration": 12, "model": "fable" }
   </script>
 </head>
 <body>
@@ -319,7 +319,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'),
-        width: W, height: H, duration: DURATION, frameRate: FPS,
+        width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: C.skyTop,
         assets: [
           { name: 'sun', src: sunImage() },
@@ -328,8 +328,6 @@
         ],
         composition: { sequences },
       });
-      // opens at 0:00; add ?poster to the URL to park on the poster frame
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
       window.__ready = true;
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible

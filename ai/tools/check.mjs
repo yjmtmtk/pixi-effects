@@ -279,6 +279,14 @@ export async function runCheck(opts, log = console.log) {
     fs.writeFileSync(sheetFile, Buffer.from(sheet.slice(sheet.indexOf(',') + 1), 'base64'));
     report.files.sheet = shown(sheetFile);
 
+    // the poster: the picture that stands for the movie (its poster time, or the first frame)
+    const poster = await cdp.eval(`movie.posterImage({ as: 'dataURL', type: 'image/jpeg', scale: 0.5 })`).catch(() => null);
+    if (poster) {
+      const posterFile = path.join(outDir, 'poster.jpg');
+      fs.writeFileSync(posterFile, Buffer.from(poster.slice(poster.indexOf(',') + 1), 'base64'));
+      report.files.poster = shown(posterFile);
+    }
+
     // the timeline: every layer as a bar on a time axis (for a human to open in a browser)
     const timeline = await cdp.eval(`movie.timelineChart({ title: ${JSON.stringify(name)} })`).catch(() => null);
     if (timeline) {

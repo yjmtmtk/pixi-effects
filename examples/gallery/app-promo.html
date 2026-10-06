@@ -18,7 +18,7 @@
     "title": "Tidy — app promo",
     "subtitle": "A habit-tracker promo: 2.5D phone mock-up, sliding UI cards, a progress ring and streak that count up, swapping captions, logo + Download",
     "tags": ["app promo", "2.5D", "ui", "count-up", "square", "audio"],
-    "width": 1080, "height": 1080, "duration": 12, "posterFrame": 182, "model": "fable"
+    "width": 1080, "height": 1080, "duration": 12, "model": "fable"
   }</script>
 
   <script>
@@ -324,7 +324,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'),
-        width: W, height: H, duration: DURATION, frameRate: FPS,
+        width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: C.bg,
         assets: [
           ...ring1.assets, ...ring2.assets,
@@ -332,8 +332,6 @@
         ],
         composition: { sequences },
       });
-      // opens at 0:00; add ?poster to the URL to park on the poster frame
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
       window.__ready = true;
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible

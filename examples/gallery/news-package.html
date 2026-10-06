@@ -13,7 +13,7 @@
 <body>
   <canvas id="stage" width="1280" height="720"></canvas>
 
-  <script type="application/json" id="piece-meta">{ "title": "NORTH 24 — Breaking", "subtitle": "A broadcast news package: channel stinger, BREAKING flash, wipe-masked lower third, live ticker and running clock", "tags": ["broadcast", "lower third", "ticker", "masks", "counter", "typography"], "width": 1280, "height": 720, "duration": 12, "posterFrame": 222, "model": "opus" }</script>
+  <script type="application/json" id="piece-meta">{ "title": "NORTH 24 — Breaking", "subtitle": "A broadcast news package: channel stinger, BREAKING flash, wipe-masked lower third, live ticker and running clock", "tags": ["broadcast", "lower third", "ticker", "masks", "counter", "typography"], "width": 1280, "height": 720, "duration": 12, "model": "opus" }</script>
 
   <script>
     window.__logs = [];
@@ -45,7 +45,7 @@
     import { Controller } from 'pixi-effects/controller';
 
     const W = 1280, H = 720, FPS = 30, DUR = 12;
-    const POSTER_FRAME = JSON.parse(document.getElementById('piece-meta').textContent).posterFrame;
+    const POSTER_FRAME = 222;
 
     // ── palette & type ────────────────────────────────────────────────────────────
     const C = {
@@ -445,7 +445,7 @@
     try {
       await movie.init({
         canvas: document.getElementById('stage'),
-        width: W, height: H, duration: DUR, frameRate: FPS,
+        width: W, height: H, duration: DUR, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: C.ink,
         assets: [
           { name: 'bgm', src: '../_assets/bgm.mp3' },
@@ -454,8 +454,6 @@
           { kind: 'wipe', from: 'stinger', to: 'program', at: T.wipe, duration: T.wipeD, direction: 'right', ease: INOUT, smoothing: 0.01 },
         ] },
       });
-      // opens at 0:00; add ?poster to the URL to park on the poster frame
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
       window.__ready = true;
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));

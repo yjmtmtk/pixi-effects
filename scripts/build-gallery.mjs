@@ -1,9 +1,12 @@
 // Generates examples/gallery/pieces.json from the `#piece-meta` block embedded in every
 // examples/gallery/<id>.html. Run: node scripts/build-gallery.mjs   (a test fails when the committed file is stale)
 //
-// A piece is valid when its meta parses, has the fields below, and posters/<id>.jpg exists.
+// A piece is valid when its meta parses, has the fields below, and posters/<id>.jpg exists with an entry in posters/manifest.json.
+// The poster TIME is the piece's own (`movie.init({ poster })`); `node scripts/make-posters.mjs` opens every piece, takes that picture and
+// writes the manifest (poster frame + a hash of the page, so a poster that is out of date is noticed).
 // Pieces are ordered by FEATURED (hand-picked rhythm for the top of the reel), then by title.
 import { readFileSync, readdirSync, existsSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
 
@@ -38,8 +41,13 @@ const META_RE = /<script[^>]*\bid=["']piece-meta["'][^>]*>([\s\S]*?)<\/script>/i
 const isPosInt = (v) => Number.isInteger(v) && v > 0;
 const isPosNum = (v) => typeof v === 'number' && Number.isFinite(v) && v > 0;
 
-/** Parse one piece. Returns { piece } or { errors: string[] }. */
-export function readPiece(id, html, { posterExists, notesExists }) {
+/** The fingerprint of a piece's page: its poster is out of date when this differs from the one recorded in the manifest. */
+export function posterHash(html) {
+  return createHash('sha1').update(html).digest('hex');
+}
+
+/** Parse one piece. Returns { piece, stale? } or { errors: string[] }. `poster` is the piece's entry in posters/manifest.json. */
+export function readPiece(id, html, { posterExists, notesExists, poster }) {
   const errors = [];
   const m = html.match(META_RE);
   if (!m) return { errors: [`${id}.html: no <script type="application/json" id="piece-meta"> block`] };
@@ -59,9 +67,9 @@ export function readPiece(id, html, { posterExists, notesExists }) {
   if (!isPosInt(meta.width)) errors.push(`${id}.html: meta.width must be a positive integer (got ${JSON.stringify(meta.width)})`);
   if (!isPosInt(meta.height)) errors.push(`${id}.html: meta.height must be a positive integer (got ${JSON.stringify(meta.height)})`);
   if (!isPosNum(meta.duration)) errors.push(`${id}.html: meta.duration must be a positive number of seconds (got ${JSON.stringify(meta.duration)})`);
-  if (!(Number.isInteger(meta.posterFrame) && meta.posterFrame >= 0)) errors.push(`${id}.html: meta.posterFrame must be a non-negative integer (got ${JSON.stringify(meta.posterFrame)})`);
   if (!MODELS.includes(meta.model)) errors.push(`${id}.html: meta.model must be one of ${MODELS.join(' | ')} (got ${JSON.stringify(meta.model)})`);
-  if (!posterExists) errors.push(`${id}.html: poster missing — expected ${GALLERY_DIR}/posters/${id}.jpg`);
+  if (!posterExists) errors.push(`${id}.html: poster missing — expected ${GALLERY_DIR}/posters/${id}.jpg (run node scripts/make-posters.mjs)`);
+  if (!poster) errors.push(`${id}.html: no entry in ${GALLERY_DIR}/posters/manifest.json (run node scripts/make-posters.mjs --only ${id})`);
 
   if (errors.length) return { errors };
 
@@ -74,12 +82,13 @@ export function readPiece(id, html, { posterExists, notesExists }) {
       width: meta.width,
       height: meta.height,
       duration: meta.duration,
-      posterFrame: meta.posterFrame,
+      posterFrame: poster.posterFrame,
       model: meta.model,
       page: `${id}.html`,
       poster: `posters/${id}.jpg`,
       notes: notesExists ? `_notes/${id}.md` : null,
     },
+    stale: poster.hash !== posterHash(html),
   };
 }
 
@@ -102,6 +111,8 @@ export function buildGallery(root = DEFAULT_ROOT) {
   const files = readdirSync(dir).filter((f) => f.endsWith('.html') && f !== 'index.html').sort();
   if (files.length === 0) throw new Error(`build-gallery: no pieces found in ${dir}`);
 
+  const manifestFile = join(dir, 'posters', 'manifest.json');
+  const manifest = existsSync(manifestFile) ? JSON.parse(readFileSync(manifestFile, 'utf8')) : {};
   const pieces = [];
   const errors = [];
   const warnings = [];
@@ -110,10 +121,11 @@ export function buildGallery(root = DEFAULT_ROOT) {
     const html = readFileSync(join(dir, file), 'utf8');
     const posterExists = existsSync(join(dir, 'posters', `${id}.jpg`));
     const notesExists = existsSync(join(dir, '_notes', `${id}.md`));
-    const r = readPiece(id, html, { posterExists, notesExists });
+    const r = readPiece(id, html, { posterExists, notesExists, poster: manifest[id] });
     if (r.errors) errors.push(...r.errors);
     else {
       pieces.push(r.piece);
+      if (r.stale) warnings.push(`${id}.html: its poster is out of date (run node scripts/make-posters.mjs --only ${id})`);
       if (!notesExists) warnings.push(`${id}.html: no stumble notes at ${GALLERY_DIR}/_notes/${id}.md`);
     }
   }

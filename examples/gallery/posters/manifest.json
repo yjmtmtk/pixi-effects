@@ -1,0 +1,167 @@
+{
+  "app-promo": {
+    "poster": 6.066666666666666,
+    "posterFrame": 182,
+    "hash": "cdcb2dbb886f1271b680e56a081ec5c7a6546b62"
+  },
+  "aura-launch": {
+    "poster": 6.333333333333333,
+    "posterFrame": 190,
+    "hash": "7de8a548a123a36c854fe8a87690e08a5a6986e0"
+  },
+  "aurora-logo": {
+    "poster": 7,
+    "posterFrame": 210,
+    "hash": "8c8ea24c00503fd16b3ea23f5a686288fa8b2c59"
+  },
+  "birthday-card": {
+    "poster": 9.5,
+    "posterFrame": 285,
+    "hash": "39150e25bf75cae4ca4e12c5f34f17c63476bdd4"
+  },
+  "blueprint-house": {
+    "poster": 10.8,
+    "posterFrame": 324,
+    "hash": "478ad134d08bd2d3f4852b5a609235a4cbd78672"
+  },
+  "countdown-newyear": {
+    "poster": 9.6,
+    "posterFrame": 288,
+    "hash": "71535dc86bd986045cee258449d35a31f0ce22d9"
+  },
+  "data-story": {
+    "poster": 11.666666666666666,
+    "posterFrame": 350,
+    "hash": "d85986d49f8cfb93a7f8408de1a82727e7ab8d9d"
+  },
+  "film-titles": {
+    "poster": 13.5,
+    "posterFrame": 405,
+    "hash": "489dd7d3793876a8dae8263435d9fce366d77e35"
+  },
+  "generative-orbits": {
+    "poster": 6,
+    "posterFrame": 180,
+    "hash": "408723ba8ae36fa0bea2e2a8e17ed13dba17715c"
+  },
+  "history-timeline": {
+    "poster": 13.5,
+    "posterFrame": 405,
+    "hash": "e94c3769dea1c9cd85c9fa751fc38a18cad7f03e"
+  },
+  "isometric-city": {
+    "poster": 11.166666666666666,
+    "posterFrame": 335,
+    "hash": "a5f123ff5b48ade5ac63a05d4122ae3bc864d902"
+  },
+  "kinetic-manifesto": {
+    "poster": 1.4,
+    "posterFrame": 42,
+    "hash": "919752ea9472d26961265b8e0de229bb49452ed7"
+  },
+  "liquid-flow-title": {
+    "poster": 7.1,
+    "posterFrame": 213,
+    "hash": "b058f1fe0a7f491ba5177eb42e89bf8c09dab840"
+  },
+  "loader-gallery": {
+    "poster": 8.733333333333333,
+    "posterFrame": 262,
+    "hash": "b3cf29d6b75039edbe24b52eb9e94b68cfefa35d"
+  },
+  "lyric-video": {
+    "poster": 11.333333333333334,
+    "posterFrame": 340,
+    "hash": "381b1e2e295af80343746b088e838224e3e328ad"
+  },
+  "music-visualizer": {
+    "poster": 6.5,
+    "posterFrame": 195,
+    "hash": "a6b54252fd3ce5246283c5c11b5a66dccc58ad2f"
+  },
+  "network-explainer": {
+    "poster": 7.633333333333334,
+    "posterFrame": 229,
+    "hash": "a4ab6c6ffe456287d4d57f84cc7fb084e9e2801f"
+  },
+  "news-package": {
+    "poster": 7.4,
+    "posterFrame": 222,
+    "hash": "c08c22c3d60fd7ac087ba76d46660fbca786382a"
+  },
+  "paper-cutout-forest": {
+    "poster": 5.6,
+    "posterFrame": 168,
+    "hash": "896495f88cd01fcd97199e242dcbc0ad316d3da1"
+  },
+  "recipe-card": {
+    "poster": 11.5,
+    "posterFrame": 345,
+    "hash": "2d94f6db72185f669f8a26f1cc07d410e1ad60eb"
+  },
+  "social-quote-vertical": {
+    "poster": 6.666666666666667,
+    "posterFrame": 200,
+    "hash": "bac11abd257aa7bf2a93a77e3d8857e1be349d4b"
+  },
+  "solar-system": {
+    "poster": 10,
+    "posterFrame": 300,
+    "hash": "c81117e9ad6b442d082874e6f9d3052f11475a2f"
+  },
+  "sports-scoreboard": {
+    "poster": 9.5,
+    "posterFrame": 285,
+    "hash": "31ab3d4aee90181428e68c66adcf44b5e69d3d60"
+  },
+  "still-water": {
+    "poster": 9,
+    "posterFrame": 270,
+    "hash": "b606fe9fb8efeb5dd2a6c62dd0eb9b5f1bc865a7"
+  },
+  "synthwave-drive": {
+    "poster": 5.6,
+    "posterFrame": 168,
+    "hash": "f0a5ac094095c8d1e3935d784c873c1501a93430"
+  },
+  "teatime": {
+    "poster": 9.333333333333334,
+    "posterFrame": 280,
+    "hash": "67adaaa0e8066002fdb65b4eb41a3b8f70e7515d"
+  },
+  "three-product-spin": {
+    "poster": 8.2,
+    "posterFrame": 246,
+    "hash": "ab3ca143dfc1490a4fe897b90cfef45a34293036"
+  },
+  "transitions-reel": {
+    "poster": 4.6,
+    "posterFrame": 138,
+    "hash": "99057993c7b09b9bf58628f02d73e72a46f4cf07"
+  },
+  "travel-slideshow": {
+    "poster": 13.333333333333334,
+    "posterFrame": 400,
+    "hash": "459fe76ca5d83f2b6d292450ed32e537d8356f83"
+  },
+  "typewriter-terminal": {
+    "poster": 11.5,
+    "posterFrame": 345,
+    "hash": "fb7c18fe2bdfd18f1690e134e560379d06ee04ee"
+  },
+  "ui-microinteractions": {
+    "poster": 8.666666666666666,
+    "posterFrame": 260,
+    "hash": "35fbfa11c87fc3fa38a54f83bf104f433e4e5217"
+  },
+  "weather-report": {
+    "poster": 10,
+    "posterFrame": 300,
+    "hash": "8987e112eb1083bf3de72322fd76dadf881189fd"
+  },
+  "wedding-invitation": {
+    "poster": 10.666666666666666,
+    "posterFrame": 320,
+    "hash": "1fbe3ccb183365374e4c43f9c899ff7bb7535f25"
+  }
+}

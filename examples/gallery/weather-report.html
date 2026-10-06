@@ -12,7 +12,7 @@
 <body>
   <canvas id="stage" width="1280" height="720"></canvas>
 
-  <script type="application/json" id="piece-meta">{ "title": "Harbor City Forecast", "subtitle": "A five-day broadcast forecast: shifting skies, glass cards, animated icons and a self-drawing temperature line.", "tags": ["weather", "broadcast", "data", "icons", "glass"], "width": 1280, "height": 720, "duration": 12, "posterFrame": 300, "model": "sonnet" }</script>
+  <script type="application/json" id="piece-meta">{ "title": "Harbor City Forecast", "subtitle": "A five-day broadcast forecast: shifting skies, glass cards, animated icons and a self-drawing temperature line.", "tags": ["weather", "broadcast", "data", "icons", "glass"], "width": 1280, "height": 720, "duration": 12, "model": "sonnet" }</script>
 
   <script>
     window.__logs = [];
@@ -293,14 +293,13 @@
 
     try {
       await movie.init({
-        canvas: document.getElementById('stage'), width: W, height: H, duration: DURATION, frameRate: FPS, background: '#1f7fe0',
+        canvas: document.getElementById('stage'), width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS, background: '#1f7fe0',
         assets: [
           { name: 'bgm', src: '../_assets/bgm.mp3' },
         ],
         composition: { sequences },
       });
       window.__ready = true;
-      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
     } catch (e) {
       window.__logs.push('init failed: ' + (e && e.message || e));
     }

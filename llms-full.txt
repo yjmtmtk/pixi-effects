@@ -139,6 +139,10 @@ Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha stro
 
 Add `threeD: true` to any visual layer, then use `z`, `rotationX`, `rotationY` (centre rotation with `anchorX/Y: 0.5` or `pivotX/Y`). Add a `{ type: 'camera' }` layer for a view. A `threeD` layer at `z: 0` with the default camera looks identical to a 2D one. Consecutive `threeD` layers are drawn farthest-first (equal `z` keeps array order); non-`threeD` layers ignore the camera and keep array order. Layers at/behind the camera plane are hidden. Not supported on `threeD` layers: masks, transitions, `filterArea`.
 
+## Poster
+
+`movie.init({ …, poster: 9.5 })` names the moment (seconds; negative = from the end) that stands for the movie: the canvas shows it before play (the playhead stays at 0, play starts from 0), `movie.poster` / `movie.posterFrame` read it, `await movie.posterImage({ as: 'dataURL', type: 'image/jpeg', scale: 0.5 })` is the picture. Pick the most striking moment, not frame 0 (which is often black).
+
 ## Player
 
 `new Controller(movie, { canvas, theme: { accent: '#ff4d6d' } })` (import from `pixi-effects/controller`; theme keys `accent foreground track barBackground trackHeight font`, or CSS `--mc-accent` …; `controller.setTheme(…)`). Your own player: `movie.play() pause() gotoFrame(f) volume muted toggleMute()`, state `currentFrame totalFrames frameRate duration isPlaying`, events `ready frame play pause ended seeking seeked volumechange error progress` (`<video>` names). `examples/15-custom-player.html` is a complete one.
@@ -2136,6 +2140,22 @@ interface RenderOptions {
 Returns a `Blob` whose `type` is the container's MIME (e.g. `video/mp4`). Emits `'progress'` repeatedly during the render.
 
 The renderer also forces a keyframe every ~2 seconds so the resulting file scrubs efficiently in standard players.
+
+### Poster time: `movie.init({ poster })`, `movie.poster`, `movie.posterImage()`
+
+A movie can say which moment stands for it before it plays, the way `<video poster>` names a picture, except that here it is a **time**, so the picture comes from the same data and needs no separate image file:
+
+```js
+await movie.init({ /* … */ poster: 9.5 });          // seconds; a negative value counts back from the end (-2 = two seconds before the end)
+movie.poster;                                       // 9.5, or null
+movie.posterFrame;                                  // 285 at 30 fps, or null
+const blob = await movie.posterImage();             // the picture at that time (frame 0 if there is no poster); { as: 'dataURL', type: 'image/jpeg', scale: 0.5 } like snapshot()
+```
+
+- Once the movie is ready the **canvas shows the poster frame**, while the playhead stays at frame 0 (`currentFrame` is 0, the player shows 0:00). The first `play()` or `gotoFrame()` replaces it, and **play starts from 0**.
+- `posterImage()` leaves the movie as it was: still showing the poster, or back at the frame it was at. `contactSheet()` does the same.
+- A time past the end is clamped to the last frame, and something that is not a number is ignored; both warn.
+- `pixi-effects-check` writes the poster as `poster.jpg`.
 
 ### `movie.timelineData(): TimelineData` and `movie.timelineChart(options?): string`
 
