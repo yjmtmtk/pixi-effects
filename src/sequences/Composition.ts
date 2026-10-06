@@ -6,7 +6,7 @@ import { findOverlap, pickActiveCamera } from '../space/camera';
 import { assignDepthOrder } from '../space/depth';
 import { Layer3D, type SpaceHost } from '../space/Layer3D';
 import { lintSequence } from '../space/lint';
-import { describeLayer, lintTiming } from '../core/lint';
+import { describeLayer, lintText, lintTiming } from '../core/lint';
 import { cameraBasis, homeCamera } from '../space/math';
 import type { CompositionSequenceSpec, AudioDescriptor, CompositionShape, SequenceSpec } from '../types';
 
@@ -48,6 +48,7 @@ export class CompositionSequence extends Sequence {
     for (const s of this.spec.sequences ?? []) {
       lintSequence(s);
       lintTiming(s, this.duration);
+      lintText(s);
     }
 
     this._children = await buildSequenceTree(

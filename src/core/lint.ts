@@ -1,4 +1,5 @@
 import type { SequenceSpec } from '../types';
+import { collectPropKeys } from '../space/specKeys';
 
 type Warn = (message: string) => void;
 const defaultWarn: Warn = m => console.warn(m);
@@ -30,4 +31,12 @@ export function lintTiming(spec: SequenceSpec, parentDuration: number, warn: War
       );
     }
   });
+}
+
+/** A text layer that animates `value` but has nowhere to print it. */
+export function lintText(spec: SequenceSpec, warn: Warn = defaultWarn): void {
+  if (spec.type !== 'text') return;
+  if (collectPropKeys(spec).has('value') && !(spec.text ?? '').includes('{value}')) {
+    warn(`pixi-effects: ${describeLayer(spec)}: \`value\` is set or animated but the text has no {value} placeholder, so nothing shows it. Use text: '{value}' (or e.g. '{value} users').`);
+  }
 }

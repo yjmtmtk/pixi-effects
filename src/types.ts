@@ -229,7 +229,14 @@ export interface ImageSequenceSpec extends SequenceCommon {
 }
 export interface TextSequenceSpec extends SequenceCommon {
   type: 'text';
+  /**
+   * The text. May contain `{value}`, replaced by the layer's animatable number
+   * `value` (a counter): `text: '{value} users'`, `initial: { value: 0 }`,
+   * keyframe `to: { value: 2480 }`. Format it with `format`.
+   */
   text?: string;
+  /** How `{value}` is printed: `decimals` (default 0) and thousands `grouping` (default false). */
+  format?: { decimals?: number; grouping?: boolean };
   /** Subset of PIXI v8 TextStyleOptions. String values may be exprs (e.g. fontSize: 'GW * 0.05'). */
   style?: Record<string, PropValue | { color?: PropValue; width?: PropValue }>;
   /**

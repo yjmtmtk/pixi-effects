@@ -11,8 +11,30 @@ type Timeline = ReturnType<typeof gsap.timeline>;
 
 const STYLE_OPAQUE_KEYS = ['fontFamily', 'fill', 'align', 'fontStyle', 'fontWeight'];
 
+type ValueState = { value: number };
+
+function formatValue(v: number, f: TextSequenceSpec['format']): string {
+  const fixed = v.toFixed(Math.max(0, Math.floor(f?.decimals ?? 0)));
+  if (!f?.grouping) return fixed;
+  const [int, frac] = fixed.split('.') as [string, string | undefined];
+  return int.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (frac !== undefined ? '.' + frac : '');
+}
+
 export class TextSequence extends Sequence {
   declare spec: TextSequenceSpec;
+  /** Current number for the `{value}` placeholder (tweened by `value` keyframes). */
+  private _value: ValueState = { value: 0 };
+  private _lastText = '';
+
+  /** Rewrite the displayed string from the template and the current `value`. */
+  private _refreshText(): void {
+    const template = this.spec.text ?? '';
+    if (!template.includes('{value}')) return;
+    const next = template.split('{value}').join(formatValue(this._value.value, this.spec.format));
+    if (next === this._lastText) return;
+    this._lastText = next;
+    (this.target as Text).text = next;
+  }
 
   async build(): Promise<void> {
     const baseStyle = {
@@ -47,6 +69,14 @@ export class TextSequence extends Sequence {
       this.intrinsicWidth = text.width;
       this.intrinsicHeight = text.height;
     }
+    // `{value}` counter: seed the number from initial.value and print it.
+    const initialValue = (this.spec.initial as Record<string, unknown> | undefined)?.value;
+    if (initialValue !== undefined) this._value.value = resolveNumber(initialValue, this.scope());
+    this._refreshText();
+    if (this._lastText !== '') {
+      this.intrinsicWidth = text.width;
+      this.intrinsicHeight = text.height;
+    }
     this.buildFilters();
   }
 
@@ -58,9 +88,11 @@ export class TextSequence extends Sequence {
     // would make GSAP warn about an unknown prop. Then route fill through
     // our per-frame text.style.fill update, with optional perceptual
     // interpolation.
-    const stripped = stripFill(this.spec);
+    // `value` (the counter) is likewise not a property of the Text object.
+    const stripped = stripKeys(this.spec, ['fill', 'value']);
     runSuperWithStrippedSpec(this, stripped, timeline, offset);
     bindFillKeyframes(timeline, this.target as Text, this.spec.keyframes ?? [], this.duration!, offset + this.at, colorSpace);
+    bindValueKeyframes(timeline, this._value, () => this._refreshText(), this.spec.keyframes ?? [], this.duration!, offset + this.at, this.scope());
   }
 }
 
@@ -82,27 +114,68 @@ function runSuperWithStrippedSpec(
   }
 }
 
-function stripFill(spec: TextSequenceSpec): TextSequenceSpec {
+function stripKeys(spec: TextSequenceSpec, keys: string[]): TextSequenceSpec {
   return {
     ...spec,
-    initial: stripKey(spec.initial, 'fill'),
+    initial: stripProps(spec.initial, keys),
     keyframes: spec.keyframes
       ? spec.keyframes.map(kf => ({
           ...kf,
-          set: stripKey(kf.set, 'fill'),
-          to: stripKey(kf.to, 'fill'),
-          from: stripKey(kf.from, 'fill'),
+          set: stripProps(kf.set, keys),
+          to: stripProps(kf.to, keys),
+          from: stripProps(kf.from, keys),
         }))
       : undefined,
   };
 }
 
-function stripKey(props: Props | undefined, key: string): Props | undefined {
+function stripProps(props: Props | undefined, keys: string[]): Props | undefined {
   if (!props) return props;
-  if (!(key in props)) return props;
+  if (!keys.some(k => k in props)) return props;
   const out: Record<string, unknown> = {};
-  for (const k of Object.keys(props)) if (k !== key) out[k] = (props as Record<string, unknown>)[k];
+  for (const k of Object.keys(props)) if (!keys.includes(k)) out[k] = (props as Record<string, unknown>)[k];
   return out as unknown as Props;
+}
+
+function resolveNumber(v: unknown, scope: unknown): number {
+  if (typeof v === 'number') return v;
+  const out = normalizeProps({ v }, scope as unknown as Record<string, number>).v;
+  return typeof out === 'number' ? out : Number(out) || 0;
+}
+
+// Tween the `{value}` counter. Mirrors the other keyframe kinds (set / to / from / from+to),
+// honours ease and repeat/yoyo, and calls `refresh` after every update so the text re-renders.
+function bindValueKeyframes(
+  timeline: Timeline,
+  state: ValueState,
+  refresh: () => void,
+  keyframes: Keyframe[],
+  parentDuration: number,
+  origin: number,
+  scope: unknown,
+): void {
+  for (const kf of keyframes) {
+    const setV = kf.set?.value;
+    const fromV = kf.from?.value;
+    const toV = kf.to?.value;
+    if (setV === undefined && fromV === undefined && toV === undefined) continue;
+    const at = origin + resolveAt(kf.at, parentDuration);
+    const duration = kf.duration ?? 0;
+    const ease = kf.ease ?? 'none';
+    const loop = loopVars(kf);
+    if (setV !== undefined) {
+      const v = resolveNumber(setV, scope);
+      timeline.call(() => { state.value = v; refresh(); }, [], at);
+    }
+    if (toV !== undefined && fromV !== undefined) {
+      timeline.fromTo(state, { value: resolveNumber(fromV, scope) },
+        { value: resolveNumber(toV, scope), duration, ease, ...loop, onUpdate: refresh }, at);
+    } else if (toV !== undefined) {
+      timeline.to(state, { value: resolveNumber(toV, scope), duration, ease, ...loop, onUpdate: refresh }, at);
+    } else if (fromV !== undefined) {
+      timeline.from(state, { value: resolveNumber(fromV, scope), duration, ease, ...loop, onUpdate: refresh }, at);
+    }
+  }
 }
 
 // Walk the keyframes and emit colour tweens for any `fill` mutation.
