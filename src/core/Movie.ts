@@ -6,7 +6,7 @@ import { loadAssetBundle } from './AssetLoader';
 import { CompositionSequence } from '../sequences/Composition';
 import { mixdown } from './AudioMixer';
 import { exportFrames } from './Renderer';
-import { expandTransitions } from './Transitions';
+import { expandTransitions, carryTransitionWindows } from './Transitions';
 import { inspectScene, type InspectReport, type InspectOptions } from './inspect';
 import { pickFrames, sheetLayout } from './frames';
 import { warnUnknownOptions } from './options';
@@ -191,6 +191,7 @@ export class Movie {
         duration: this.duration,
         ...userComposition,
       };
+      if (userComposition) carryTransitionWindows(userComposition, rootSeqSpec);
       const composition = new CompositionSequence(rootSeqSpec, null, rootShape);
       await composition.build();
       this._rootSequence = composition;

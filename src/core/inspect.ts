@@ -2,6 +2,7 @@ import type { Container } from 'pixi.js';
 import type { Sequence } from '../sequences/Base';
 import { CompositionSequence } from '../sequences/Composition';
 import { collectPropKeys } from '../space/specKeys';
+import { transitionWindowsOf } from './Transitions';
 
 export interface Rect { x: number; y: number; width: number; height: number }
 
@@ -46,6 +47,12 @@ const intersection = (a: Rect, b: Rect): number => {
   return w > 0 && h > 0 ? w * h : 0;
 };
 
+const clip = (a: Rect, b: Rect): Rect | null => {
+  const x = Math.max(a.x, b.x), y = Math.max(a.y, b.y);
+  const w = Math.min(a.x + a.width, b.x + b.width) - x, h = Math.min(a.y + a.height, b.y + b.height) - y;
+  return w > 0 && h > 0 ? { x, y, width: w, height: h } : null;
+};
+
 /**
  * Describe where every layer is drawn at the CURRENT timeline position, and flag layout problems an AI
  * cannot see without looking: text that is off the canvas or cut by an edge, empty text, and text layers
@@ -57,7 +64,18 @@ export function inspectScene(
   const layers: LayerInfo[] = [];
   const view: Rect = { x: 0, y: 0, width: canvas.width, height: canvas.height };
 
-  const walk = (comp: CompositionSequence, prefix: string, insideThreeD: boolean, parentVisible: boolean): void => {
+  // What can actually be seen of a layer: its bounds cut to the canvas and to its mask (an inverted mask
+  // cuts a hole instead, so it does not clip). Overlaps are judged on this, not on raw bounds.
+  const seen = new Map<LayerInfo, Rect | null>();
+  // Scenes that a running transition is blending: they overlap and move off the canvas by design.
+  const scene = new Map<LayerInfo, string>();
+
+  const walk = (comp: CompositionSequence, prefix: string, insideThreeD: boolean, parentVisible: boolean, parentScene?: string): void => {
+    const blending = new Set<string>();
+    for (const w of transitionWindowsOf(comp.spec)) {
+      const start = (comp.absoluteStart ?? 0) + w.start, end = (comp.absoluteStart ?? 0) + w.end;
+      if (time >= start - 1e-9 && time <= end + 1e-9) { blending.add(w.from); blending.add(w.to); }
+    }
     comp.layers().forEach(({ seq, display, threeD }, i) => {
       const t = seq.target as (Container & { renderable: boolean; alpha: number }) | null;
       const name = seq.spec.name;
@@ -79,8 +97,18 @@ export function inspectScene(
       }
       const keys = collectPropKeys(seq.spec);
       const moving = (seq.spec.keyframes ?? []).length > 0 && (keys.has('x') || keys.has('y'));
-      layers.push({ path: prefix + label, name, type: seq.spec.type, threeD, visible, alpha, moving, bounds, onCanvas });
-      if (seq instanceof CompositionSequence) walk(seq, prefix + label + '/', insideThreeD || threeD, visible);
+      const info: LayerInfo = { path: prefix + label, name, type: seq.spec.type, threeD, visible, alpha, moving, bounds, onCanvas };
+      layers.push(info);
+      let shown = bounds ? clip(bounds, view) : null;
+      const maskTarget = seq.maskSequence?.target as Container | null | undefined;
+      if (shown && maskTarget && !(seq.spec as { maskInverted?: boolean }).maskInverted) {
+        const m = maskTarget.getBounds();
+        shown = clip(shown, { x: m.x, y: m.y, width: m.width, height: m.height });
+      }
+      seen.set(info, shown);
+      const group = parentScene ?? (name !== undefined && blending.has(name) ? name : undefined);
+      if (group) scene.set(info, group);
+      if (seq instanceof CompositionSequence) walk(seq, prefix + label + '/', insideThreeD || threeD, visible, group);
     });
   };
   walk(root, '', false, true);
@@ -93,8 +121,8 @@ export function inspectScene(
     const who = `text layer "${l.path}"`;
     if (b.width < 1 || b.height < 1) {
       issues.push(`${who} has no size (empty text, or not drawn yet)`);
-    } else if (l.moving) {
-      // on purpose crossing the canvas edge (marquee, slide-in): not a layout problem
+    } else if (l.moving || scene.has(l)) {
+      // on purpose crossing the canvas edge (marquee, slide-in, a slide / zoom transition): not a layout problem
     } else if (l.onCanvas === 'none') {
       issues.push(`${who} is entirely outside the canvas (at ${Math.round(b.x)},${Math.round(b.y)}, ${Math.round(b.width)}×${Math.round(b.height)})`);
     } else if (l.onCanvas === 'partial') {
@@ -108,7 +136,10 @@ export function inspectScene(
   }
   for (let i = 0; i < texts.length; i++) {
     for (let j = i + 1; j < texts.length; j++) {
-      const a = texts[i]!.bounds!, b = texts[j]!.bounds!;
+      const a = seen.get(texts[i]!), b = seen.get(texts[j]!);
+      if (!a || !b) continue;                                            // nothing of one of them is on screen
+      const sa = scene.get(texts[i]!), sb = scene.get(texts[j]!);
+      if (sa && sb && sa !== sb) continue;                               // the two scenes of a running transition
       const smaller = Math.min(a.width * a.height, b.width * b.height);
       if (smaller <= 0) continue;
       const share = intersection(a, b) / smaller;

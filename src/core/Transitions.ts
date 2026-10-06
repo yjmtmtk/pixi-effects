@@ -7,6 +7,26 @@ import type {
 import { resolveAt } from './Timeline';
 import { TransitionMaskFilter, type TransitionMode } from '../filters/TransitionMask';
 
+export interface TransitionWindow { from: string; to: string; start: number; end: number }
+
+const windows = new WeakMap<object, TransitionWindow[]>();
+
+/**
+ * The time windows (in the composition's own time) of the transitions that were expanded into `spec`.
+ * Expansion removes `transitions` from the spec, so `inspect` reads them from here to know when two
+ * scenes are blended on purpose.
+ */
+export function transitionWindowsOf(spec: object): readonly TransitionWindow[] {
+  return windows.get(spec) ?? [];
+}
+
+/** Keep the windows when a spec is copied (a spread creates a new object, which the WeakMap does not know). */
+export function carryTransitionWindows<T extends object>(from: object, to: T): T {
+  const w = windows.get(from);
+  if (w) windows.set(to, w);
+  return to;
+}
+
 /**
  * Pure function: validate the composition's `transitions[]` and rewrite the
  * spec by macro-expanding each transition into existing primitives (extra
@@ -167,6 +187,9 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
     if (tStart < toStart || tEnd > toEnd) {
       throw new Error(`pixi-effects: ${tag} window [${tStart}, ${tEnd}] is not covered by \`to\` "${t.to}" (lives [${toStart}, ${toEnd}], so it starts at ${toStart})`);
     }
+    const record = windows.get(out) ?? [];
+    record.push({ from: t.from, to: t.to, start: tStart, end: tEnd });
+    windows.set(out, record);
     // Validation passed; expand this transition into existing primitives.
     //
     // The expanders think in parent-composition time, so they get the

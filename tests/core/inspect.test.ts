@@ -6,6 +6,7 @@ import { Sequence } from '../../src/sequences/Base';
 import { Container } from 'pixi.js';
 import { registerSequenceType } from '../../src/core/Composition';
 import { inspectScene } from '../../src/core/inspect';
+import { expandTransitions, transitionWindowsOf, carryTransitionWindows } from '../../src/core/Transitions';
 import type { CompositionSequenceSpec, CompositionShape } from '../../src/types';
 
 class Box extends Sequence {
@@ -118,5 +119,92 @@ describe('inspectScene', () => {
     expect(r.layers.find(l => l.name === 'ticker')!.moving).toBe(true);
     expect(r.layers.find(l => l.name === 'still')!.moving).toBe(false);
   });
+
+  it('judges overlaps on what is visible: text parked off the canvas, or hidden by its mask, does not overlap anything', async () => {
+    const offscreen = await scene([
+      { type: 'text', name: 'p1', text: 'a', initial: { x: 5000, y: 100 } },
+      { type: 'text', name: 'p2', text: 'b', initial: { x: 5050, y: 100 } },       // 75% of each other, but nobody can see either
+    ]);
+    expect(inspectScene(offscreen, 0, 0, { width: 1280, height: 720 }).issues.filter(i => /overlap/.test(i))).toEqual([]);
+
+    const masked = await scene([
+      { type: 'text', name: 'under', text: 'a', initial: { x: 100, y: 100 },
+        mask: { type: '__box', initial: { x: 0, y: 100 } } },                          // only x 0–200 of it shows
+      { type: 'text', name: 'beside', text: 'b', initial: { x: 200, y: 100 } },       // raw bounds overlap 50%, visible parts do not
+    ]);
+    expect(inspectScene(masked, 0, 0, { width: 1280, height: 720 }).issues.filter(i => /overlap/.test(i))).toEqual([]);
+  });
+
+  it('an inverted mask is not used to clip (the layer shows everywhere outside the hole)', async () => {
+    const comp = await scene([
+      { type: 'text', name: 'under', text: 'a', initial: { x: 100, y: 100 }, maskInverted: true,
+        mask: { type: '__box', initial: { x: 0, y: 100 } } },
+      { type: 'text', name: 'beside', text: 'b', initial: { x: 200, y: 100 } },
+    ]);
+    expect(inspectScene(comp, 0, 0, { width: 1280, height: 720 }).issues.filter(i => /overlap/.test(i))).toHaveLength(1);
+  });
+
+  it('a composition that has not started yet is not inspected', async () => {
+    const comp = await scene([
+      { type: 'composition', name: 'later', at: 6, width: 1280, height: 720, sequences: [
+        { type: 'text', name: 'one', text: 'a', initial: { x: 100, y: 100 } },
+        { type: 'text', name: 'two', text: 'b', initial: { x: 100, y: 100 } },
+      ] },
+    ]);
+    const r = inspectScene(comp, 0, 0, { width: 1280, height: 720 });
+    expect(r.issues).toEqual([]);
+    expect(r.layers.filter(l => l.visible)).toHaveLength(0);
+  });
 });
 
+describe('inspectScene during a transition', () => {
+  async function twoScenes(slideText: boolean) {
+    const scene2 = (name: string, at: number, x: number) => ({
+      type: 'composition', name, at, duration: 3, width: 1280, height: 720,
+      sequences: [{ type: 'text', name: name + '-title', text: name, initial: { x, y: 100 } }],
+    });
+    // Through the same expansion Movie.init runs: it consumes `transitions` (they are gone from the built spec).
+    const spec = expandTransitions({
+      type: 'composition', width: 1280, height: 720, duration: 10,
+      sequences: [scene2('a', 0, 100), scene2('b', 2, slideText ? 1250 : 100)],
+      transitions: [{ kind: 'crossfade', from: 'a', to: 'b', at: 2, duration: 1 }],
+    } as unknown as CompositionSequenceSpec);
+    const comp = new CompositionSequence(spec, root, root);
+    await comp.build();
+    const tl = gsap.timeline({ paused: true });
+    comp.bindTimeline(tl);
+    return { comp, tl };
+  }
+
+  it('the two scenes overlap by design while the transition runs: no overlap issue between them', async () => {
+    const { comp, tl } = await twoScenes(false);
+    tl.time(2.5);
+    const mid = inspectScene(comp, 75, 2.5, { width: 1280, height: 720 });
+    expect(mid.layers.filter(l => l.type === 'text' && l.visible)).toHaveLength(2);   // both scenes are alive
+    expect(mid.issues.filter(i => /overlap/.test(i))).toEqual([]);
+  });
+
+  it('text pushed off the canvas by a slide / zoom inside the window is not "cut off"', async () => {
+    const { comp, tl } = await twoScenes(true);
+    tl.time(2.5);
+    expect(inspectScene(comp, 75, 2.5, { width: 1280, height: 720 }).issues).toEqual([]);
+  });
+
+  it('outside the window the same layout is still checked', async () => {
+    const { comp, tl } = await twoScenes(true);
+    tl.time(3.5);                                   // scene b only, its title cut by the right edge, transition over
+    const after = inspectScene(comp, 105, 3.5, { width: 1280, height: 720 });
+    expect(after.issues.some(i => i.includes('b/b-title') && /cut off/.test(i))).toBe(true);
+  });
+
+  it('the windows survive the spread Movie.init makes of the expanded spec', () => {
+    const expanded = expandTransitions({
+      type: 'composition', width: 1280, height: 720, duration: 10,
+      sequences: [{ type: 'text', name: 'a', text: 'a', duration: 3 }, { type: 'text', name: 'b', text: 'b', at: 2, duration: 3 }],
+      transitions: [{ kind: 'crossfade', from: 'a', to: 'b', at: 2, duration: 1 }],
+    } as unknown as CompositionSequenceSpec);
+    const copy = carryTransitionWindows(expanded, { ...expanded });
+    expect(transitionWindowsOf(copy)).toEqual([{ from: 'a', to: 'b', start: 2, end: 3 }]);
+    expect(transitionWindowsOf({})).toEqual([]);
+  });
+});
