@@ -109,6 +109,17 @@ function colorMatrix(params: Record<string, unknown>): Filter {
   return f as unknown as Filter;
 }
 
+const GRADIENT_TYPES = ['linear', 'radial', 'conic'];
+
+/** `colorGradient`: the filter's own option is called `type`, which the DSL already uses, so it is written `gradientType`. */
+function colorGradientParams(params: Record<string, unknown>): Record<string, unknown> {
+  const { gradientType, ...rest } = params;
+  if (gradientType === undefined) return rest;
+  const i = GRADIENT_TYPES.indexOf(String(gradientType));
+  if (i < 0) throw new Error(`pixi-effects: colorGradient gradientType "${gradientType}" is not one of linear, radial or conic`);
+  return { ...rest, type: i };
+}
+
 /** Build the filter a `{ type: 'glow', … }` spec names. */
 export function createNamedFilter(type: string, params: Record<string, unknown>): Filter {
   if (lower(type) === 'colormatrix') return colorMatrix(params);
@@ -118,5 +129,6 @@ export function createNamedFilter(type: string, params: Record<string, unknown>)
   const Ctor = library?.get(lower(type));
   if (!Ctor) throw MISSING(type, library ? 'not found in the loaded package' : 'not loaded yet');
   const single = SINGLE_VALUE[Object.keys(SINGLE_VALUE).find(k => lower(k) === lower(type)) ?? ''];
-  return single ? new (Ctor as unknown as new (v?: unknown) => Filter)(params[single]) : new Ctor(params);
+  if (single) return new (Ctor as unknown as new (v?: unknown) => Filter)(params[single]);
+  return new Ctor(lower(type) === 'colorgradient' ? colorGradientParams(params) : params);
 }

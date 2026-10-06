@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>check · declarative filters, the second half</title>
+</head>
+<body>
+  <!--
+    Acceptance check (not an example): every tile is the same test card (a circle, text, a gradient bar and a hard-edged
+    square) behind ONE declarative filter, `{ type: 'glow', … }`. The contact sheet / export must show each one working.
+    Run: node ai/tools/check.mjs examples/_checks/named-filters.html
+  -->
+  <canvas id="stage" width="1280" height="720"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":            "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":      "https://esm.sh/mediabunny",
+      "pixi-filters":    "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+
+    const FILTERS = [
+      { type: 'radialBlur', angle: 40, kernelSize: 15, radius: 120, at: 'centre' }, { type: 'motionBlur', velocity: { x: 24, y: 0 }, kernelSize: 9 },
+      { type: 'advancedBloom', threshold: 0.4, bloomScale: 1.4, brightness: 1, blur: 8 }, { type: 'bloom', strength: 8 },
+      { type: 'bevel', thickness: 4, lightColor: '#ffffff', shadowColor: '#000000' }, { type: 'dot', scale: 0.8, angle: 5 },
+      { type: 'crossHatch' }, { type: 'tiltShift', blur: 60, gradientBlur: 400, start: { x: 0, y: 90 }, end: { x: 190, y: 90 } },
+      { type: 'reflection', alpha: [0.6, 0], amplitude: [0, 10], waveLength: [30, 60], mirror: true, boundary: 0.5 },
+      { type: 'shockwave', amplitude: 30, wavelength: 80, brightness: 1.3, speed: 500, radius: -1, time: 0.18, at: 'centre' },
+      { type: 'godray', angle: 25, gain: 0.6, lacunarity: 2.5, alpha: 0.7 }, { type: 'simplexNoise', strength: 0.5, scale: 12 },
+      { type: 'colorGradient', gradientType: 'linear', stops: [{ offset: 0, color: '#ff4d9d', alpha: 0.7 }, { offset: 1, color: '#00c2ff', alpha: 0.7 }], angle: 90 },
+      { type: 'colorReplace', originalColor: '#ffd166', targetColor: '#ff3366', tolerance: 0.4 },
+      { type: 'multiColorReplace', replacements: [['#ffd166', '#00e5a0'], ['#ffffff', '#ff3366']], tolerance: 0.4 },
+      { type: 'convolution', matrix: [0, -1, 0, -1, 5, -1, 0, -1, 0], width: 196, height: 140 },
+      { type: 'backdropBlur', strength: 6 }, { type: 'tiltShiftAxis', blur: 40, gradientBlur: 300, start: { x: 0, y: 90 }, end: { x: 190, y: 90 } },
+    ];
+    const PADDED = new Set(['glow', 'dropShadow', 'outline', 'blur', 'kawaseBlur']);   // draw outside the layer: give them room
+    const COLS = 6, TW = 196, TH = 140, GX = 17, GY = 36, X0 = 20, Y0 = 16;
+
+    const card = () => [
+      { type: 'shape', shape: 'rect', width: TW, height: TH, anchorX: 0, anchorY: 0, initial: { fillColor: '#243b63' } },
+      { type: 'shape', shape: 'rect', width: TW, height: 26, anchorX: 0, anchorY: 0, fillGradient: { type: 'linear', angle: 0, stops: [[0, '#ff4d6d'], [0.5, '#ffd166'], [1, '#4cc9f0']] }, initial: { y: TH - 36, x: 0 } },
+      { type: 'shape', shape: 'circle', radius: 34, initial: { x: 56, y: 52, fillColor: '#ffd166' } },
+      { type: 'shape', shape: 'rect', width: 44, height: 44, initial: { x: 140, y: 52, fillColor: '#ffffff' } },
+      { type: 'text', text: 'Aa 123', style: { fontSize: 26, fontWeight: 'bold', fill: '#ffffff' }, initial: { x: TW / 2, y: 100, anchorX: 0.5, anchorY: 0.5 } },
+    ];
+    const tiles = FILTERS.flatMap((f, i) => {
+      const x = X0 + (i % COLS) * (TW + GX), y = Y0 + Math.floor(i / COLS) * (TH + GY);
+      const label = f.type + (f.preset ? ' · ' + f.preset : '');
+      // a twist / zoom centre is in CANVAS pixels (not the layer's), so put it on this tile's middle
+      const { at, animate, ...rest } = f;
+      const filter = at === 'centre' ? { ...rest, ...(f.type === 'twist' ? { offset: { x: x + TW / 2, y: y + TH / 2 } } : { center: { x: x + TW / 2, y: y + TH / 2 } }) } : f;
+      return [
+        { type: 'composition', name: 'tile-' + i, width: TW, height: TH, initial: { x, y }, sequences: card(),
+          keyframes: animate ? [{ at: 0, to: { ['filters.' + f.name + '.' + animate[0]]: animate[1] }, duration: 2, ease: 'none' }] : undefined,
+          filters: [filter], ...(PADDED.has(f.type) ? { filterArea: { x: -24, y: -24, width: TW + 48, height: TH + 48 } } : {}) },
+        { type: 'text', text: label, style: { fontSize: 14, fill: '#9fb3d9', fontFamily: 'ui-monospace, Menlo, monospace' }, initial: { x: x + TW / 2, y: y + TH + 16, anchorX: 0.5, anchorY: 0.5 } },
+      ];
+    });
+
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 2, frameRate: 30, background: '#0b1220',
+        composition: { sequences: tiles },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

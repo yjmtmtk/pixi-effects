@@ -141,7 +141,7 @@ Add `threeD: true` to any visual layer, then use `z`, `rotationX`, `rotationY` (
 
 ## Filters by name (no import)
 
-`filters: [{ type: 'glow', name: 'halo', outerStrength: 3, color: '#ffd166' }]` — `type` = the pixi / pixi-filters class name without `Filter`, camelCase (`glow dropShadow outline blur noise alpha adjustment hslAdjustment grayscale pixelate crt rgbSplit oldFilm glitch bulgePinch twist zoomBlur kawaseBlur radialBlur motionBlur emboss ascii colorOverlay advancedBloom bevel dot crossHatch tiltShift …`), the other keys are its options. `colorMatrix` takes `preset: 'sepia'|'grayscale'|'negative'|'polaroid'|'technicolor'|'vintage'|'kodachrome'|'browni'`. Name it to animate: `'filters.halo.outerStrength'` (scalars only; `pixelate` via `sizeX`/`sizeY`). Options: `glow` distance outerStrength innerStrength color alpha · `dropShadow` offset{x,y} blur alpha color · `outline` thickness color · `blur` strength · `adjustment` gamma contrast saturation brightness · `hslAdjustment` hue lightness saturation · `pixelate` size · `crt` curvature lineWidth noise vignetting · `rgbSplit` red/green/blue {x,y} · `oldFilm` sepia noise scratch vignetting · `glitch` slices offset · `twist` radius angle offset · `bulgePinch` center radius strength · `zoomBlur` strength center innerRadius · `colorOverlay` color alpha. **Centres/offsets are CANVAS pixels** (default top-left corner): put them on the layer. Glow / shadow / blur draw outside the layer: widen `filterArea` (not for `grayscale` / `oldFilm`, which fill the margin black). Full table: `docs/dsl.md` → Named filters.
+`filters: [{ type: 'glow', name: 'halo', outerStrength: 3, color: '#ffd166' }]` — `type` = the pixi / pixi-filters class name without `Filter`, camelCase (`glow dropShadow outline blur noise alpha adjustment hslAdjustment grayscale pixelate crt rgbSplit oldFilm glitch bulgePinch twist zoomBlur kawaseBlur radialBlur motionBlur emboss ascii colorOverlay advancedBloom bevel dot crossHatch tiltShift …`), the other keys are its options. `colorMatrix` takes `preset: 'sepia'|'grayscale'|'negative'|'polaroid'|'technicolor'|'vintage'|'kodachrome'|'browni'`. Name it to animate: `'filters.halo.outerStrength'` (scalars only; `pixelate` via `sizeX`/`sizeY`). Options: `glow` distance outerStrength innerStrength color alpha · `dropShadow` offset{x,y} blur alpha color · `outline` thickness color · `blur` strength · `adjustment` gamma contrast saturation brightness · `hslAdjustment` hue lightness saturation · `pixelate` size · `crt` curvature lineWidth noise vignetting · `rgbSplit` red/green/blue {x,y} · `oldFilm` sepia noise scratch vignetting · `glitch` slices offset · `twist` radius angle offset · `bulgePinch` center radius strength · `zoomBlur` strength center innerRadius · `colorOverlay` color alpha · `colorGradient` gradientType('linear'|'radial'|'conic') stops[{offset,color,alpha}] angle · `colorReplace` originalColor targetColor tolerance · `convolution` matrix(9) · `shockwave` / `godray` are driven by `time` (animate it) · `colorMap` / `simpleLightmap` need a texture (use `custom`). **Centres/offsets are CANVAS pixels** (default top-left corner): put them on the layer. Glow / shadow / blur draw outside the layer: widen `filterArea` (not for `grayscale` / `oldFilm`, which fill the margin black). Full table: `docs/dsl.md` → Named filters.
 
 ## Transitions (on the parent composition)
 
@@ -1757,7 +1757,7 @@ A filter by name, as plain data. `type` is the filter's class name without `Filt
   keyframes: [{ at: 0, to: { 'filters.halo.outerStrength': 6 }, duration: 1 }] }       // animate any scalar option by name
 ```
 
-Name a filter (`name: 'halo'`) to animate it with `'filters.halo.<option>'`. `blur`, `noise`, `alpha` and `colorMatrix` come from pixi.js. All the others come from the **`pixi-filters`** package, which is loaded the first time a layer uses one (add `"pixi-filters": "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"` to the import map, or `npm i pixi-filters`; `ai/template.html` already has it). A misspelt type says what you probably meant. Verified rendering and exporting in a real browser (`examples/_checks/named-filters.html`, 24 filters):
+Name a filter (`name: 'halo'`) to animate it with `'filters.halo.<option>'`. `blur`, `noise`, `alpha` and `colorMatrix` come from pixi.js. All the others come from the **`pixi-filters`** package, which is loaded the first time a layer uses one (add `"pixi-filters": "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"` to the import map, or `npm i pixi-filters`; `ai/template.html` already has it). A misspelt type says what you probably meant. Rendering and exporting were verified in a real browser for 40 of them (`examples/_checks/named-filters.html` and `named-filters-2.html`); `colorMap` and `simpleLightmap` need a texture, which JSON cannot hold, so use `custom` for those two:
 
 | `type` | Options (the useful ones) | What it does |
 |---|---|---|
@@ -1785,13 +1785,25 @@ Name a filter (`name: 'halo'`) to animate it with `'filters.halo.<option>'`. `bl
 | `ascii` | `size color replaceColor` | Text-art |
 | `colorOverlay` | `color alpha` | Tint over everything |
 | `advancedBloom` / `bloom` | `threshold bloomScale brightness blur` | Bloom |
-| `bevel`, `dot`, `crossHatch`, `tiltShift`, `reflection`, `shockwave`, `godray`, `simplexNoise`, `colorGradient`, `colorMap`, `colorReplace`, `multiColorReplace`, `convolution`, `backdropBlur`, `simpleLightmap`, `tiltShiftAxis` | see the [pixi-filters docs](https://pixijs.io/filters/docs/) | Other pixi-filters |
+| `bevel` | `thickness rotation lightColor lightAlpha shadowColor shadowAlpha` | Raised edge |
+| `dot` / `crossHatch` | `scale angle grayscale` / – | Halftone / hatching |
+| `godray` | `angle gain lacunarity alpha parallel time` | Light shafts (animate `time`) |
+| `reflection` | `mirror boundary amplitude waveLength alpha time` (ranges are `[start, end]`) | Water reflection |
+| `simplexNoise` | `strength scale offset` | Cloudy noise over the layer |
+| `colorGradient` | `gradientType: 'linear' 'radial' 'conic'` (the filter's own option is `type`, which the DSL uses), `stops: [{ offset, color, alpha }]`, `angle` | A gradient laid over the layer |
+| `colorReplace` / `multiColorReplace` | `originalColor targetColor tolerance` / `replacements: [[from, to], …] tolerance` | Swap colours |
+| `convolution` | `matrix` (9 numbers), `width height` | Sharpen, edge detect |
+| `tiltShift` / `tiltShiftAxis` | `blur gradientBlur start end` (canvas pixels) | Miniature blur |
+| `shockwave` | `center amplitude wavelength brightness speed radius time` (animate `time` 0 → 1) | A ripple from a point |
+| `backdropBlur` | `strength` | Blurs what is BEHIND the layer, so alone it shows nothing |
+| the rest of pixi-filters (`colorMap`, `simpleLightmap`) | need a texture: `{ type: 'custom' }` | see the [pixi-filters docs](https://pixijs.io/filters/docs/) |
 
 Gotchas, all measured:
 
 - **Centres and offsets are in canvas pixels, not the layer's:** `twist.offset`, `bulgePinch.center`, `zoomBlur.center`, `radialBlur.center`, `shockwave.center` default to the canvas's top-left corner, so a layer in the middle looks unaffected. Put the centre on the layer: `{ type: 'twist', offset: { x: 640, y: 360 } }` for a layer centred on a 1280×720 canvas.
 - **A filter works inside the layer's bounds.** Glow, dropShadow, outline and blur draw outside it and are clipped unless you widen the area (`filterArea: { x: -24, y: -24, width: w + 48, height: h + 48 }`, in the layer's own coordinates). Do not widen it for `grayscale`, `oldFilm` or other filters that paint the whole area: they fill the extra margin with black.
 - **Animate scalars by name** (`'filters.halo.outerStrength'`). Options that are points (`rgbSplit.red`, `dropShadow.offset`) do not tween as a whole; animate `'filters.<name>.red.x'` if the filter exposes it, or swap the filter. `pixelate` animates through `sizeX` / `sizeY`, not `size`.
+- `shockwave` and `godray` are driven by `time` (a still frame at `time: 0` looks like nothing): animate it. `radialBlur`, `shockwave` and `tiltShift` positions are canvas pixels too.
 - Some filters take their value as one argument; the DSL hides that (`{ type: 'pixelate', size: 8 }`, `{ type: 'emboss', strength: 6 }`).
 
 ### `custom`

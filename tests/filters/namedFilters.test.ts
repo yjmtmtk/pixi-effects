@@ -56,6 +56,16 @@ describe('declarative filters: { type: "glow", … }', () => {
     expect((createFilter(spec({ type: 'pixelate' })) as unknown as PixelateFilter).size).toBeUndefined();
   });
 
+  it('colorGradient: the filter\'s own `type` option would clash with the DSL\'s `type`, so it is called gradientType', () => {
+    registerFilterLibrary({ ColorGradientFilter: class extends FakeFilter {} });
+    const f = createFilter(spec({ type: 'colorGradient', gradientType: 'radial', stops: [{ offset: 0, color: '#fff' }, { offset: 1, color: '#000' }] })) as unknown as { opts: Record<string, unknown> };
+    expect(f.opts.type).toBe(1);                                    // RADIAL
+    expect('gradientType' in f.opts).toBe(false);
+    expect((createFilter(spec({ type: 'colorGradient', gradientType: 'conic' })) as unknown as { opts: Record<string, unknown> }).opts.type).toBe(2);
+    expect((createFilter(spec({ type: 'colorGradient' })) as unknown as { opts: Record<string, unknown> }).opts.type).toBeUndefined();   // the filter's own default: linear
+    expect(() => createFilter(spec({ type: 'colorGradient', gradientType: 'spiral' }))).toThrow(/gradientType "spiral".*linear, radial or conic/s);
+  });
+
   it('pixi.js\'s own filters need no extra package: blur, noise, alpha', () => {
     expect((createFilter(spec({ type: 'blur', strength: 8 })) as unknown as { opts: unknown }).opts).toEqual({ strength: 8 });
     expect((createFilter(spec({ type: 'noise', noise: 0.3, seed: 2 })) as unknown as { opts: unknown }).opts).toEqual({ noise: 0.3, seed: 2 });

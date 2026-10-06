@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: typecheck, build, unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22          # the command-line tools use Node's built-in WebSocket (Node >= 22)
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Unit tests (the real-browser tests are skipped here, see the next job)
+        run: npm test
+        env:
+          SKIP_BROWSER_TESTS: '1'
+
+  browser:
+    name: real-browser tests (Chrome)
+    runs-on: ubuntu-latest
+    continue-on-error: true        # these load pages from esm.sh / jsDelivr: report, but do not block
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Tests that run the command-line tools in headless Chrome
+        run: npx vitest run tests/tools
+        env:
+          CHROME: /usr/bin/google-chrome
