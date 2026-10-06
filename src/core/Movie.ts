@@ -1,5 +1,5 @@
 import * as PIXI from 'pixi.js';
-import { Application, Container, Rectangle, extensions, CullerPlugin } from 'pixi.js';
+import { Application, Container, Culler, Rectangle, extensions, CullerPlugin } from 'pixi.js';
 import { gsap } from 'gsap';
 import { PixiPlugin } from 'gsap/PixiPlugin';
 import { loadAssetBundle } from './AssetLoader';
@@ -204,7 +204,7 @@ export class Movie {
       this.timeline.progress(1).progress(0);
       await this._awaitVideoFrames();
       this._updateSpace();
-      this.app.renderer.render({ container: this.app.stage });
+      this._renderNow();
 
       this._initState = 'ready';
       this.emit('ready');
@@ -223,7 +223,7 @@ export class Movie {
     this.timeline!.time(this.currentFrame / this.frameRate);
     await this._awaitVideoFrames();
     this._updateSpace();
-    this.app?.renderer?.render({ container: this.app.stage });
+    this._renderNow();
     this.emit('frame', { frame: this.currentFrame, totalFrames: this.totalFrames } satisfies FrameEvent);
   }
 
@@ -302,6 +302,20 @@ export class Movie {
     const f = clampFrame(frame, this.totalFrames);
     await this.gotoFrame(f, true);
     return inspectScene(this._rootSequence as CompositionSequence, f, f / this.frameRate, { width: this.width, height: this.height }, opts);
+  }
+
+  /**
+   * Draw the stage now. PixiJS's CullerPlugin only culls inside `app.render()` (the ticker), and we render
+   * by hand — while seeking and especially during `render()`, which stops the ticker — so without this the
+   * `culled` flags are whatever the last tick left: a layer that is now on screen can stay culled and be
+   * missing from the frame or from the exported video. Cull again (updating transforms: the timeline just
+   * moved things) right before drawing.
+   */
+  private _renderNow(): void {
+    const app = this.app;
+    if (!app?.renderer) return;
+    Culler.shared.cull(app.stage, app.renderer.screen, false);
+    app.renderer.render({ container: app.stage });
   }
 
   private _requireReady(what: string): void {
