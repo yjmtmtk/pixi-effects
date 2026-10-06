@@ -253,9 +253,20 @@ Every primitive draws centred on its local origin (so `anchorX`/`anchorY` and `p
 | `rect`    | `width`, `height`                        | `cornerRadius`         |
 | `circle`  | `radius`                                 | —                      |
 | `ellipse` | `radiusX`, `radiusY`                     | —                      |
+| `arc`     | `radius`                                 | `innerRadius`, `startAngle` (0), `endAngle` (360) |
 | `line`    | `from: [x,y]`, `to: [x,y]` (canvas coordinates; stroke in `initial`) | — |
 | `polygon` | `points: [[x,y], …]`                     | `open` (default false) |
 | `path`    | `d` (SVG path data)                      | —                      |
+
+**`arc`** is an arc around its local origin (the centre). Angles are in **degrees: 0° is 3 o'clock and positive is clockwise**, so a progress ring starts at `startAngle: -90` (12 o'clock) and animates `endAngle` from `-90` to `270`. With a stroke and no fill it is an open arc line (`strokeCap: 'round'` for rounded ends); with a fill it is a sector (a pie slice), and with `innerRadius` a ring segment (a donut slice). A sweep of 360° or more is a full circle; `endAngle < startAngle` sweeps counter-clockwise. `radius`, `innerRadius`, `startAngle` and `endAngle` are all animatable.
+
+```ts
+{ type: 'shape', shape: 'arc', radius: 120, startAngle: -90, endAngle: -90, strokeCap: 'round',
+  initial: { x: 'GW/2', y: 'GH/2', strokeColor: '#ffd166', strokeWidth: 24 },
+  keyframes: [{ at: 0, to: { endAngle: 270 }, duration: 2, ease: 'power3.out' }] }   // a progress ring filling clockwise from the top
+```
+
+`strokeCap` (`'butt'`, `'round'`, `'square'`) and `strokeJoin` (`'miter'`, `'round'`, `'bevel'`) work on every shape, at the top level or in `initial`; they are not animated. Sharp corners (the apex of an M in outlined text, a thin polygon) poke out with the default `miter` join: use `'round'`.
 
 **Style** is set on `initial` and animatable via keyframes:
 

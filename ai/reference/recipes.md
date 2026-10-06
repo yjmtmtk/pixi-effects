@@ -348,6 +348,30 @@ return sequences;
 
 ---
 
+## Progress ring (an arc) with a counter
+
+`shape: 'arc'` is a ring when it has only a stroke: animate `endAngle` from the start angle (−90 = 12 o'clock) round to +270 for a full circle. A second arc under it is the track; `{value}` in the middle counts in step with the same ease.
+
+```js
+// @recipe progress-ring
+const CX = 640, CY = 360, R = 120, TO = 0.82;            // 82 % filled
+const ease = 'power3.out', AT = 0.3, DUR = 2;
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0f1424' } },
+  { type: 'shape', shape: 'arc', name: 'track', radius: R, startAngle: 0, endAngle: 360,
+    initial: { x: CX, y: CY, strokeColor: '#27304d', strokeWidth: 24 } },
+  { type: 'shape', shape: 'arc', name: 'progress', radius: R, startAngle: -90, endAngle: -90, strokeCap: 'round',
+    initial: { x: CX, y: CY, strokeColor: '#ffd166', strokeWidth: 24 },
+    keyframes: [{ at: AT, to: { endAngle: -90 + 360 * TO }, duration: DUR, ease }] },
+  { type: 'text', name: 'percent', text: '{value}%', format: { decimals: 0 },
+    style: { fontSize: 72, fontWeight: 'bold', fill: '#ffffff' },
+    initial: { x: CX, y: CY, anchorX: 0.5, anchorY: 0.5, value: 0 },
+    keyframes: [{ at: AT, to: { value: TO * 100 }, duration: DUR, ease }] },
+];
+```
+
+---
+
 ## Looping motion
 
 `repeat` (a finite count) and `yoyo` go on any keyframe. Total time = `duration × (repeat + 1)`.

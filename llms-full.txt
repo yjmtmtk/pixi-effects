@@ -32,7 +32,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
 - **Sound effects need no files:** `{ type: 'audio', sfx: 'swoosh', at: 2 }` — presets `click pop swoosh swipe hit riser chime beep coin glitch typewriter`; knobs `pitch`, `brightness`, `seed`. The layer lasts as long as the sound (`duration` stretches it); a `riser` is loudest at its end (`at = hit − duration`), a `swoosh` 0.16 s in. A music file shorter than its layer goes silent — `loop: true`.
 - **Masks live in the parent's coordinates and don't follow the masked layer.** **`filterArea` is in the layer's own coordinates.**
 - **2.5D needs `threeD: true`** on each layer plus a `{ type: 'camera' }` layer; camera props go in `initial`/keyframes; keep every `z` below the camera distance (≈ 989 at 720p, fov 40); under a dolly zoom only `z = 0` stays fixed.
-- **Built in:** `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`. **Not in the DSL (hand-roll, recipes exist or loops are easy):** arc / progress-ring and stroke draw-on, text that changes over time (other than `{value}`), other per-frame curves and jitter, per-letter text animators (one layer per letter), particle emitters, group/parent layers.
+- **Built in:** `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`. **Not in the DSL (hand-roll, recipes exist or loops are easy):** stroke draw-on (trim path), text that changes over time (other than `{value}`), other per-frame curves and jitter, per-letter text animators (one layer per letter), particle emitters, group/parent layers.
 - **Blend modes:** `blendMode: 'add' | 'screen' | 'multiply'` on any layer (glows, light leaks).
 - **One `Movie` per page.** A sound effect needs no `duration` (it lasts as long as its clip). Seeking is safe: counters, colours and growing shapes are right after any jump.
 
@@ -111,18 +111,19 @@ Keyframe kinds: `set` (jump at `at`; undone when you seek back), `to` (animate t
 **audio** — a file: `asset`, `loop`, `volume`; fade with volume keyframes (`{ at: -2, to: { volume: 0 }, duration: 2 }` fades the last 2 s). Omit `duration` for a one-shot clip: it lasts exactly as long as the clip. With `loop: true` and no `duration` it lasts until the composition ends. An explicit `duration` longer than the clip goes silent after the clip unless `loop: true`.
 **Or a sound effect with no file — `sfx`:** `{ type: 'audio', sfx: 'swoosh', at: 2 }` is the whole thing. Presets, default length in s: `click` 0.04 · `pop` 0.12 · `swoosh` 0.5 (loudest 0.16 s in, moves left → right) · `swipe` 0.22 · `hit` 0.7 · `riser` 1 (loudest at its END: `at = hit − duration`) · `chime` 1.4 · `beep` 0.16 · `coin` 0.4 · `glitch` 0.35 · `typewriter` 0.06. Knobs: `sfx: { preset, pitch /* semitones ±24 */, brightness /* −1 dark … 1 bright */, seed /* another take */ }`. **The layer's `duration` IS the sound's length** (omit it; set it to stretch, e.g. a riser); `volume` is its level (1 = the preset's standard level, peaking at −12 … −18 dBFS by preset; louder than the sample mp3s). No `loop`: one layer per hit (a JS loop). Custom sound: `sfx: { voices: [{ wave: 'noise' | 'sine' | 'square' | 'saw' | 'triangle', freq: 440 | [from, to], filter: { type: 'lowpass' | 'highpass' | 'bandpass', freq: [from, to] }, envelope: 'fall' | 'bell' | 'swell' | 'hold', pan: [-1, 1] }] }`. The export (mp4 / webm / mov) encodes this same mix (lossy AAC / Opus), on time within a few ms.
 
-**shape** — `shape: 'rect' | 'circle' | 'ellipse' | 'line' | 'polygon' | 'path'`:
+**shape** — `shape: 'rect' | 'circle' | 'ellipse' | 'arc' | 'line' | 'polygon' | 'path'`:
 
 | shape | geometry (top level **or** in `initial`) |
 |---|---|
 | rect | `width height cornerRadius anchorX anchorY` |
 | circle | `radius anchorX anchorY` |
 | ellipse | `radiusX radiusY anchorX anchorY` |
+| arc | `radius innerRadius startAngle endAngle` — degrees, **0° = 3 o'clock, clockwise**; centred on `x, y`; stroke only = an open arc line (`strokeCap: 'round'`), with a fill = a sector, with `innerRadius` = a donut slice; a sweep ≥ 360° = a full circle. A progress ring: `startAngle: -90` and animate `endAngle` from −90 to 270 |
 | line | `from: [x,y]  to: [x,y]` — plain canvas coordinates (omit `x,y`; if you give them they place the line's midpoint). Stroke in `initial`: `strokeColor`, `strokeWidth` |
 | polygon | `points: [[x,y],…]  open` — canvas coordinates like `line` |
 | path | `d` (SVG path data) — canvas coordinates like `line` |
 
-Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha strokeWidth`; `colorSpace: 'oklab'|'oklch'` for clean colour tweens. rect/circle/ellipse are **centred on `x,y` by default** (`anchorX/anchorY` default 0.5): for a bar growing from its base use `anchorY: 1` (or `anchorX: 0` for left-to-right). **`fillGradient`** (top level or `initial`; instead of `fillColor`): `{ type?: 'linear'|'radial', stops: [[0, '#000'], [1, 'rgba(0,0,0,.6)']], angle? /* linear, deg, 90 = top→bottom */, center?, innerRadius?, radius? /* radial, 0–1 of bounds */ }` — stops may have alpha, so a radial transparent→dark is a vignette.
+Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha strokeWidth`; `colorSpace: 'oklab'|'oklch'` for clean colour tweens. rect/circle/ellipse are **centred on `x,y` by default** (`anchorX/anchorY` default 0.5): for a bar growing from its base use `anchorY: 1` (or `anchorX: 0` for left-to-right). **`fillGradient`** (top level or `initial`; instead of `fillColor`): `{ type?: 'linear'|'radial', stops: [[0, '#000'], [1, 'rgba(0,0,0,.6)']], angle? /* linear, deg, 90 = top→bottom */, center?, innerRadius?, radius? /* radial, 0–1 of bounds */ }` — stops may have alpha, so a radial transparent→dark is a vignette. Stroke ends and corners: `strokeCap: 'butt'|'round'|'square'`, `strokeJoin: 'miter'|'round'|'bevel'` (top level or in `initial`; not animated — `round` keeps sharp corners like an M from poking out).
 
 **composition** — `width height duration sequences transitions`. With `threeD: true` it is a **card**: its children are drawn into one texture (content outside its `width × height` is clipped: size it for a soft shadow too; a plain 2D composition does not clip, but is skipped when its whole rectangle is off screen) and move / rotate in depth together. Children use the composition's local coordinates and times. Position/rotate/scale it as a unit; to rotate/scale about its centre set `pivotX/pivotY` to the centre and `x/y` to where that point should sit.
 
@@ -250,12 +251,13 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 43. **Layers built in a loop need their z-order planned**: anything pushed to the array after the loop is drawn over what the loop made (rings crossed over a header). Keyframes on different properties of one layer may overlap in time. Keep a subject in the upper ~60 % of a source image if a caption will sit under it (`inspect` does not look at picture content). *(docs)*
 44. **Zero-pad a counter with `format: { pad: 2 }`** (`18:42:{value}` shows `18:42:05`). A `{value}` placeholder that nothing sets or animates prints 0 and now warns: `{value}` is reserved, there is no way to print it literally. *(fixed)*
 45. **The same mistake in a loop warns once**: the warning "keyframe starts after the layer ends" is summarised after three layers. The usual cause is an off-by-one (`f <= frames` instead of `f < frames`) that puts the last sample exactly at the layer's end. *(fixed)*
-46. **Still not in the DSL (hand-roll; round-two notes have workarounds):** arc / progress-ring primitive and stroke draw-on / trim path (use a growing rect mask for a one-direction reveal, tick marks, or pre-drawn arcs shown one per frame), text content that changes over time (only `{value}`), per-frame jitter (film grain = seeded `set` keyframes on an oversized image), particle emitters, per-letter / per-line text split (measure with `canvas.measureText` using Pixi's font string), shared masks, `zIndex`.
+46. **Still not in the DSL (hand-roll; round-two notes have workarounds):** stroke draw-on / trim path on a line, polygon or path (use a growing rect mask for a one-direction reveal; a circular progress ring is `shape: 'arc'`), text content that changes over time (only `{value}`), per-frame jitter (film grain = seeded `set` keyframes on an oversized image), particle emitters, per-letter / per-line text split (measure with `canvas.measureText` using Pixi's font string), shared masks, `zIndex`.
 46b. **Blend modes exist now** (`blendMode: 'add' | 'screen' | 'multiply'` on any layer, threeD layers and compositions included; a composition's children inherit it). Additive white cores no longer read grey on a coloured background. It also works on a layer with `filters` (a blurred glow with `add` / `multiply`): the mode is applied by the last filter, because a container's blend inside a filter pass multiplied against nothing and rendered black. With `add`, use dim saturated colours: overlaps sum, and near-white sums to pure white. *(fixed)*
 47. **Browser tooling:** the `agent-browser` daemon is shared, so a `contactSheet` can come back from another session: after saving an image, look at it and confirm it is YOUR piece. In zsh a variable holding `agent-browser --session x` is not split into words (use a small wrapper script). `inspect` now clips overlaps to the visible area, ignores the two scenes of a running transition, treats text inside a moving (panned) composition as moving, and does not report text scaled to 0 as "no size"; it still does not compare text with picture content or shapes.
 48. **A composition's `alpha` is applied to each child separately, not to the flattened group** (measured: two overlapping opaque circles in a composition at `alpha: 0.5` show the lower one through the upper one in the overlap). Fading a group that has overlapping children therefore shows the overlap; fade the children themselves, or keep overlapping parts out of the group. Expressions have no way to read a sibling's size: measure text with `canvas.measureText` (the font string Pixi uses) and compute pill widths in JS. *(docs)*
 49. **sfx timing and level.** An sfx layer's `duration` is the sound's length (it stretches, it does not trim). Align the loud point: a `riser` peaks at its end, a `swoosh` 0.16 s in. Many sounds at the same instant add up: above 0.9 the mix is limited and a warning names the layers to turn down. Preset names, knobs and voice fields are closed lists — a guess (`whoosh`, `ding`, `impact`, `sawtooth`, `lp`, `decay`) warns with the right word. *(fixed: warns)*
 50. **An image (or video) works as a mask, `maskInverted` included** *(fixed)*: PIXI hides a sprite mask with `renderable = false` and the lifespan toggles used to switch it back on, so the mask picture was drawn over the layer (a white disc) and `maskInverted` looked ignored. Use the picture's alpha (or red channel) as the shape: an opaque word or logo on a transparent canvas image is a text-shaped mask with real glyph edges. A `text` layer also works as a mask (cut to its glyphs; measured with a heavy sans `I`). *(docs / fixed)*
+51. **Arcs and rings are `shape: 'arc'`** (`radius`, `innerRadius`, `startAngle`, `endAngle`, degrees; 0° = 3 o'clock, clockwise). A progress ring is an arc with `startAngle: -90` and an animated `endAngle` (−90 → 270); `strokeCap: 'round'` rounds BOTH ends. Fill it for a pie slice, add `innerRadius` for a donut slice (a 120-polygon donut is no longer needed). Style (`strokeColor`, `strokeWidth`, `fillColor`) goes in `initial`; `strokeCap` / `strokeJoin` may be top level. *(fixed)*
 
 
 <!-- ===== ai/reference/recipes.md ===== -->
@@ -606,6 +608,30 @@ const CAPTION = 'ships friday', T0 = 4.4, STEP = 0.07;   // typed caption: one l
 });
 sequences.push({ type: 'audio', name: 'done', sfx: 'chime', at: T0 + CAPTION.length * STEP + 0.3 });
 return sequences;
+```
+
+---
+
+## Progress ring (an arc) with a counter
+
+`shape: 'arc'` is a ring when it has only a stroke: animate `endAngle` from the start angle (−90 = 12 o'clock) round to +270 for a full circle. A second arc under it is the track; `{value}` in the middle counts in step with the same ease.
+
+```js
+// @recipe progress-ring
+const CX = 640, CY = 360, R = 120, TO = 0.82;            // 82 % filled
+const ease = 'power3.out', AT = 0.3, DUR = 2;
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0f1424' } },
+  { type: 'shape', shape: 'arc', name: 'track', radius: R, startAngle: 0, endAngle: 360,
+    initial: { x: CX, y: CY, strokeColor: '#27304d', strokeWidth: 24 } },
+  { type: 'shape', shape: 'arc', name: 'progress', radius: R, startAngle: -90, endAngle: -90, strokeCap: 'round',
+    initial: { x: CX, y: CY, strokeColor: '#ffd166', strokeWidth: 24 },
+    keyframes: [{ at: AT, to: { endAngle: -90 + 360 * TO }, duration: DUR, ease }] },
+  { type: 'text', name: 'percent', text: '{value}%', format: { decimals: 0 },
+    style: { fontSize: 72, fontWeight: 'bold', fill: '#ffffff' },
+    initial: { x: CX, y: CY, anchorX: 0.5, anchorY: 0.5, value: 0 },
+    keyframes: [{ at: AT, to: { value: TO * 100 }, duration: DUR, ease }] },
+];
 ```
 
 ---
@@ -963,9 +989,20 @@ Every primitive draws centred on its local origin (so `anchorX`/`anchorY` and `p
 | `rect`    | `width`, `height`                        | `cornerRadius`         |
 | `circle`  | `radius`                                 | —                      |
 | `ellipse` | `radiusX`, `radiusY`                     | —                      |
+| `arc`     | `radius`                                 | `innerRadius`, `startAngle` (0), `endAngle` (360) |
 | `line`    | `from: [x,y]`, `to: [x,y]` (canvas coordinates; stroke in `initial`) | — |
 | `polygon` | `points: [[x,y], …]`                     | `open` (default false) |
 | `path`    | `d` (SVG path data)                      | —                      |
+
+**`arc`** is an arc around its local origin (the centre). Angles are in **degrees: 0° is 3 o'clock and positive is clockwise**, so a progress ring starts at `startAngle: -90` (12 o'clock) and animates `endAngle` from `-90` to `270`. With a stroke and no fill it is an open arc line (`strokeCap: 'round'` for rounded ends); with a fill it is a sector (a pie slice), and with `innerRadius` a ring segment (a donut slice). A sweep of 360° or more is a full circle; `endAngle < startAngle` sweeps counter-clockwise. `radius`, `innerRadius`, `startAngle` and `endAngle` are all animatable.
+
+```ts
+{ type: 'shape', shape: 'arc', radius: 120, startAngle: -90, endAngle: -90, strokeCap: 'round',
+  initial: { x: 'GW/2', y: 'GH/2', strokeColor: '#ffd166', strokeWidth: 24 },
+  keyframes: [{ at: 0, to: { endAngle: 270 }, duration: 2, ease: 'power3.out' }] }   // a progress ring filling clockwise from the top
+```
+
+`strokeCap` (`'butt'`, `'round'`, `'square'`) and `strokeJoin` (`'miter'`, `'round'`, `'bevel'`) work on every shape, at the top level or in `initial`; they are not animated. Sharp corners (the apex of an M in outlined text, a thin polygon) poke out with the default `miter` join: use `'round'`.
 
 **Style** is set on `initial` and animatable via keyframes:
 

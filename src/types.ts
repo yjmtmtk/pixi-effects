@@ -385,6 +385,10 @@ interface ShapeBase extends SequenceCommon {
    *   sweeps; `oklab` is straight-line in the chromaticity plane.
    */
   colorSpace?: 'rgb' | 'oklab' | 'oklch';
+  /** How an open stroke ends: `'butt'` (default), `'round'` (a friendly progress-ring end) or `'square'`. Top level or in `initial`. */
+  strokeCap?: 'butt' | 'round' | 'square';
+  /** How stroke corners join: `'miter'` (default; sharp points can poke out), `'round'` or `'bevel'`. Top level or in `initial`. */
+  strokeJoin?: 'miter' | 'round' | 'bevel';
 }
 
 export interface RectShapeSpec extends ShapeBase {
@@ -420,6 +424,23 @@ export interface EllipseShapeSpec extends ShapeBase {
   anchorY?: PropValue;
 }
 
+/**
+ * An arc around the local origin (its centre). Angles are in degrees: 0 = 3 o'clock, positive = clockwise,
+ * so a progress ring starts at `startAngle: -90` (12 o'clock) and animates `endAngle` from -90 to 270.
+ * With a stroke and no fill it is an open arc line (`strokeCap: 'round'` for rounded ends); with a fill it is a
+ * sector (a pie slice), and with `innerRadius` a ring segment (a donut slice). A sweep of 360° or more is a full circle.
+ */
+export interface ArcShapeSpec extends ShapeBase {
+  shape: 'arc';
+  radius: PropValue;
+  /** Hole radius of a filled ring segment. Default 0 (a pie slice to the centre). Animatable. */
+  innerRadius?: PropValue;
+  /** Degrees. Default 0. Animatable. */
+  startAngle?: PropValue;
+  /** Degrees. Default 360. Animatable. */
+  endAngle?: PropValue;
+}
+
 export interface LineShapeSpec extends ShapeBase {
   shape: 'line';
   /** Line endpoints relative to the shape's local origin. */
@@ -445,6 +466,7 @@ export type ShapeSequenceSpec =
   | RectShapeSpec
   | CircleShapeSpec
   | EllipseShapeSpec
+  | ArcShapeSpec
   | LineShapeSpec
   | PolygonShapeSpec
   | PathShapeSpec;

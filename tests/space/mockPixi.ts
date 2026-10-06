@@ -67,7 +67,7 @@ export function createPixiMock() {
     getLocalBounds() { return new Rectangle(0, 0, 0, 0); }
   }
   // Drawing calls are chainable no-ops (tests only care about timing / scene wiring).
-  for (const m of ['rect', 'roundRect', 'circle', 'ellipse', 'moveTo', 'lineTo', 'poly', 'path', 'closePath', 'fill', 'stroke', 'svg']) {
+  for (const m of ['rect', 'roundRect', 'circle', 'ellipse', 'moveTo', 'lineTo', 'arc', 'poly', 'path', 'closePath', 'fill', 'stroke', 'svg']) {
     (Graphics.prototype as unknown as Record<string, unknown>)[m] = function (this: unknown) { return this; };
   }
   class GraphicsPath { constructor(public svgD: string) {} }

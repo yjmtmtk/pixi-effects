@@ -4,6 +4,7 @@ import { Sequence } from './Base';
 import { evaluateExpr, isExpr } from '../expr/Parser';
 import { applyKeyframes, applyInitial, resolveAt, loopVars } from '../core/Timeline';
 import { revertibleSet } from '../core/revertibleSet';
+import { describeLayer } from '../core/lint';
 import { type ColorSpace, type ColorInput } from '../expr/colorInterp';
 import { tweenColor } from '../expr/colorTween';
 import type { Scope } from '../expr/Scope';
@@ -24,7 +25,7 @@ type Timeline = ReturnType<typeof gsap.timeline>;
 // `LIVE_KEYS` is the union — any key in this set is stripped from the
 // standard transform/keyframe pipeline and routed through `_state` instead.
 type StyleKey = 'fillColor' | 'fillAlpha' | 'strokeColor' | 'strokeAlpha' | 'strokeWidth';
-type GeometryKey = 'width' | 'height' | 'cornerRadius' | 'radius' | 'radiusX' | 'radiusY' | 'anchorX' | 'anchorY';
+type GeometryKey = 'width' | 'height' | 'cornerRadius' | 'radius' | 'radiusX' | 'radiusY' | 'anchorX' | 'anchorY' | 'innerRadius' | 'startAngle' | 'endAngle';
 type LiveKey = StyleKey | GeometryKey;
 
 const STYLE_KEYS = ['fillColor', 'fillAlpha', 'strokeColor', 'strokeAlpha', 'strokeWidth'] as const;
@@ -38,6 +39,7 @@ const GEOMETRY_KEYS_BY_SHAPE: Record<ShapeSequenceSpec['shape'], readonly Geomet
   rect:    ['width', 'height', 'cornerRadius', 'anchorX', 'anchorY'],
   circle:  ['radius', 'anchorX', 'anchorY'],
   ellipse: ['radiusX', 'radiusY', 'anchorX', 'anchorY'],
+  arc:     ['radius', 'innerRadius', 'startAngle', 'endAngle'],
   line:    [],
   polygon: [],
   path:    [],
@@ -46,7 +48,7 @@ const GEOMETRY_KEYS_BY_SHAPE: Record<ShapeSequenceSpec['shape'], readonly Geomet
 // Shape kinds whose geometry is drawn relative to a configurable anchor —
 // they don't need the build-time auto-pivot that user-coord shapes
 // (line / polygon / path) rely on for visual centring.
-const ANCHORED_SHAPES = new Set<ShapeSequenceSpec['shape']>(['rect', 'circle', 'ellipse']);
+const ANCHORED_SHAPES = new Set<ShapeSequenceSpec['shape']>(['rect', 'circle', 'ellipse', 'arc']);
 
 interface ShapeState {
   // style
@@ -65,6 +67,12 @@ interface ShapeState {
   radiusY?: number;
   anchorX?: number;
   anchorY?: number;
+  innerRadius?: number;
+  startAngle?: number;
+  endAngle?: number;
+  // stroke style that is not animated
+  strokeCap?: string;
+  strokeJoin?: string;
 }
 
 export class ShapeSequence extends Sequence {
@@ -98,6 +106,11 @@ export class ShapeSequence extends Sequence {
     // for expression support like `width: 'W * 0.5'`) and the initial style.
     seedGeometry(this._state, this.spec, scope);
     seedStyle(this._state, this.spec.initial ?? {}, scope);
+    seedStrokeStyle(this._state, this.spec, this.spec.initial ?? {}, describeLayer(this.spec));
+    if (this.spec.shape === 'arc') {
+      this._state.startAngle ??= 0;
+      this._state.endAngle ??= 360;
+    }
     const gradientSpec = this.spec.fillGradient ?? (this.spec.initial as { fillGradient?: GradientSpec } | undefined)?.fillGradient;
     if (gradientSpec) this._state.fillStyle = makeGradientFill(gradientSpec);
 
@@ -207,6 +220,24 @@ function seedGeometry(state: ShapeState, spec: ShapeSequenceSpec, scope: Scope):
   }
 }
 
+const STROKE_CAPS = ['butt', 'round', 'square'];
+const STROKE_JOINS = ['miter', 'round', 'bevel'];
+
+/** `strokeCap` / `strokeJoin` (top level or in `initial`): words, not animatable. */
+function seedStrokeStyle(state: ShapeState, spec: object, initial: Props, who: string): void {
+  const top = spec as Record<string, unknown>;
+  const ini = initial as Record<string, unknown>;
+  const pick = (key: string, valid: string[]): string | undefined => {
+    const v = top[key] ?? ini[key];
+    if (v === undefined) return undefined;
+    if (valid.includes(String(v))) return String(v);
+    console.warn(`pixi-effects: ${who}: ${key} "${v}" is not one of ${valid.join(', ')}; ignored`);
+    return undefined;
+  };
+  state.strokeCap = pick('strokeCap', STROKE_CAPS);
+  state.strokeJoin = pick('strokeJoin', STROKE_JOINS);
+}
+
 function seedStyle(state: ShapeState, initial: Props, scope: Scope): void {
   for (const k of STYLE_KEYS) {
     const v = (initial as Record<string, unknown>)[k];
@@ -218,8 +249,8 @@ function seedStyle(state: ShapeState, initial: Props, scope: Scope): void {
 // ─── Strip live keys from the spec.initial / spec.keyframes that go to PixiPlugin ──
 
 function stripGradient(props: Props | undefined): Props | undefined {
-  if (!props || !('fillGradient' in props)) return props;
-  const { fillGradient: _drop, ...rest } = props as Record<string, unknown>;
+  if (!props || !('fillGradient' in props || 'strokeCap' in props || 'strokeJoin' in props)) return props;
+  const { fillGradient: _drop, strokeCap: _cap, strokeJoin: _join, ...rest } = props as Record<string, unknown>;
   return rest as unknown as Props;
 }
 
@@ -270,7 +301,11 @@ function applyState(g: Graphics, s: ShapeState): void {
     g.fill({ color: s.fillColor, alpha: s.fillAlpha });
   }
   if (s.strokeColor !== undefined && s.strokeWidth > 0) {
-    g.stroke({ color: s.strokeColor, alpha: s.strokeAlpha, width: s.strokeWidth });
+    g.stroke({
+      color: s.strokeColor, alpha: s.strokeAlpha, width: s.strokeWidth,
+      ...(s.strokeCap ? { cap: s.strokeCap as 'butt' | 'round' | 'square' } : {}),
+      ...(s.strokeJoin ? { join: s.strokeJoin as 'miter' | 'round' | 'bevel' } : {}),
+    });
   }
 }
 
@@ -312,6 +347,32 @@ function drawEllipseFromState(g: Graphics, s: ShapeState): void {
   const ay = s.anchorY ?? 0.5;
   g.ellipse((0.5 - ax) * 2 * rx, (0.5 - ay) * 2 * ry, rx, ry);
 }
+const DEG = Math.PI / 180;
+
+function drawArcFromState(g: Graphics, s: ShapeState): void {
+  const r = s.radius ?? 0;
+  const ri = Math.max(0, Math.min(s.innerRadius ?? 0, r));
+  const startDeg = s.startAngle ?? 0;
+  let endDeg = s.endAngle ?? 360;
+  if (!(r > 0) || endDeg === startDeg) return;                           // nothing to draw
+  const filled = !!s.fillStyle || s.fillColor !== undefined;
+  if (Math.abs(endDeg - startDeg) >= 360) {
+    if (!filled) { g.circle(0, 0, r); return; }                          // a full stroke ring
+    endDeg = startDeg + Math.sign(endDeg - startDeg) * 359.999;          // a filled full ring: a sliver short of closing (no hole trick needed)
+  }
+  const a0 = startDeg * DEG, a1 = endDeg * DEG;
+  const ccw = a1 < a0;
+  if (filled) g.moveTo(r * Math.cos(a0), r * Math.sin(a0));            // a sector starts its outline at the arc's start point
+  g.arc(0, 0, r, a0, a1, ccw);                                           // an open arc starts where the arc starts: a moveTo first left a flat start cap
+  if (!filled) return;                                                   // an open arc line: the stroke follows
+  if (ri > 0) {
+    g.lineTo(ri * Math.cos(a1), ri * Math.sin(a1));
+    g.arc(0, 0, ri, a1, a0, !ccw);                                       // back along the inner edge
+  } else {
+    g.lineTo(0, 0);
+  }
+  g.closePath();
+}
 function makeLineDraw(spec: LineShapeSpec, scope: Scope): (g: Graphics) => void {
   const fx = num(spec.from[0], scope);
   const fy = num(spec.from[1], scope);
@@ -336,6 +397,7 @@ const STATE_DRAWERS: Partial<Record<ShapeSequenceSpec['shape'], (g: Graphics, s:
   rect:    drawRectFromState,
   circle:  drawCircleFromState,
   ellipse: drawEllipseFromState,
+  arc:     drawArcFromState,
 };
 
 function makeDrawGeometry(spec: ShapeSequenceSpec, scope: Scope, state: ShapeState): (g: Graphics) => void {
