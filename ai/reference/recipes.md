@@ -522,19 +522,28 @@ return [{
 
 ---
 
-## Particles (seeded, so every run and export is identical)
+## Particles (`particles()`: seeded, so every run and export is identical)
+
+`particles()` returns one layer per particle: seeded start, launch angle and speed, size, colour and life, with gravity / wind / drag / sway baked into the keyframes. `count` and `life` are required, and so is the emitter `area` (its centre; add `width` / `height` to spread over a box). `emit: 0` is a burst, `emit: 3` spreads the births over 3 s. `angle`: 0 right, 90 down, −90 up. `blendMode: 'add'` makes overlaps glow. It throws (with the fix) if it would bake too many keyframes: lower `count`, `life` or `sampleRate`.
 
 ```js
 // @recipe particles
-const rnd = random(7);                    // seeded: the same stream every run (never Math.random())
-return Array.from({ length: 40 }, () => {
-  const x = rnd() * 1280, y = 100 + rnd() * 620;
-  return {
-    type: 'shape', shape: 'circle', radius: 2 + rnd() * 4, duration: 6,
-    initial: { x, y, fillColor: '#ffffff', fillAlpha: 0.3 + rnd() * 0.5 },
-    keyframes: [{ at: 0, to: { y: y - 80 }, duration: 6, ease: 'none' }],
-  };
-});
+const colors = ['#ffd166', '#ff6b9d', '#4cc9f0', '#ffffff'];
+const burst = (at, x, y, seed) => particles({ count: 240, at, life: [1.2, 2], area: { x, y }, speed: [40, 520], gravity: 220, drag: 1.1,
+  size: [4, 8], scale: [1, 0.3], colors, fade: { out: 0.7 }, blendMode: 'add', seed, name: 'burst' + seed });   // bursts of sparks
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0a0f1f' } },
+  ...burst(0.5, 400, 260, 1), ...burst(1.6, 880, 200, 2), ...burst(2.8, 640, 330, 3),
+];
+```
+
+```js
+// @recipe particles-snow
+return { duration: 10, sequences: [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#16203d' } },
+  ...particles({ count: 120, emit: 4, life: [4, 6], area: { x: 640, y: -20, width: 1400 }, angle: 90, speed: [40, 90],
+    size: [2, 5], sway: { amp: 30, freq: 0.6 }, fade: { in: 0.5, out: 0.5 }, name: 'snow', seed: 4 }),     // drifting down, swaying
+] };
 ```
 
 ---

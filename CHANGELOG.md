@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+**Added**
+
+- **`particles()`**: bursts, fountains, snow, confetti and sparks as plain layers. Every particle has its own seeded start, launch angle and speed, size, colour and life, and a path baked into keyframes (gravity, wind, drag, sway), so playback, seeking and export agree. `emit` spreads births over time, `fade` / `scale` shape the life, `shape` is `circle` / `rect` / `star` or any `template` layer, `blendMode: 'add'` makes overlaps glow.
+
 ## 0.10.0
 
 **Added**

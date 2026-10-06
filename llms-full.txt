@@ -35,7 +35,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
 - **Masks live in the parent's coordinates and don't follow the masked layer.** **`filterArea` is in the layer's own coordinates.**
 - **2.5D needs `threeD: true`** on each layer plus a `{ type: 'camera' }` layer; camera props go in `initial`/keyframes; keep every `z` below the camera distance (≈ 989 at 720p, fov 40); under a dolly zoom only `z = 0` stays fixed.
 - **Group / parent layers = `{ type: 'null', name: 'rig' }`** (draws nothing, only moves) + `parent: 'rig'` on the layers that should follow it: their `x`/`y` are then measured from the null's origin, and the null's position / rotation / scale / alpha carry them (orbits, clock hands, grouped fades). Nulls chain. Only `null` layers can be parents; not for `threeD` layers.
-- **Built in:** `animateText()` (per-letter / per-word / per-line entrances and exits in one call: `...animateText('Title', style, { x, y, align: 'center', at: 0.5, duration: 5, in: 'rise', out: 'fade', stagger: { each: 0.05 } })`), `splitText()` / `measureText()` (per-letter / per-word layers, exact positions, by hand), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) `wiggle()` (a seeded shake as keyframes) `followPath()` (a layer along an SVG path: `keyframes: followPath({ d, duration, orient: true })`), path morphing (`{ shape: 'path', d, morphTo, initial/keyframes: morph 0 → 1 }`) and `stagger()` (delays for a wave of layers: `stagger(letters, { each: 0.05, from: 'center' })`, or `stagger(n, …)` for numbers; GSAP-style `each` / `amount` / `from` / `grid` / `ease`). **Not in the DSL (hand-roll, recipes exist or loops are easy):** stroke draw-on (trim path), text that changes over time (other than `{value}`), other per-frame curves, particle emitters.
+- **Built in:** `animateText()` (per-letter / per-word / per-line entrances and exits in one call: `...animateText('Title', style, { x, y, align: 'center', at: 0.5, duration: 5, in: 'rise', out: 'fade', stagger: { each: 0.05 } })`), `splitText()` / `measureText()` (per-letter / per-word layers, exact positions, by hand), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) `wiggle()` (a seeded shake as keyframes) `particles()` (bursts, snow, confetti, sparks as seeded layers: `...particles({ count: 90, at: 2, life: [1, 1.8], area: { x: 640, y: 330 }, speed: [120, 420], gravity: 240, fade: { out: 0.6 } })`), `followPath()` (a layer along an SVG path: `keyframes: followPath({ d, duration, orient: true })`), path morphing (`{ shape: 'path', d, morphTo, initial/keyframes: morph 0 → 1 }`) and `stagger()` (delays for a wave of layers: `stagger(letters, { each: 0.05, from: 'center' })`, or `stagger(n, …)` for numbers; GSAP-style `each` / `amount` / `from` / `grid` / `ease`). **Not in the DSL (hand-roll with a JS loop):** other per-frame curves (waves, spirals: sample them into short linear keyframes), shared masks. (Draw-on strokes `trimEnd`, text that changes over time `set: { text }` / `visibleChars`, shake `wiggle()` and particles are built in.)
 - **Blend modes:** `blendMode: 'add' | 'screen' | 'multiply'` on any layer (glows, light leaks).
 - **One `Movie` per page.** A sound effect needs no `duration` (it lasts as long as its clip). Seeking is safe: counters, colours and growing shapes are right after any jump.
 
@@ -168,7 +168,7 @@ transitions: [{ kind: 'crossfade' | 'wipe' | 'iris' | 'slide' | 'dip' | 'zoom' |
 ## Presets
 
 ```js
-import { kenBurns, withFade, wiggle, stagger, followPath, random } from 'pixi-effects';
+import { kenBurns, withFade, wiggle, stagger, followPath, particles, random } from 'pixi-effects';
 kenBurns({ asset, name, at, duration, motion: 'still'|'scale'|'rotation'|'position',
            fit: 'cover'|'contain', ease, /* scale */ origin, zoom, direction, /* rotation */ angle, /* position */ from, to })
 withFade(spec, { in: 0.5, out: 0.5 })   // alpha fade; `out` needs spec.duration
@@ -178,6 +178,9 @@ keyframes: [...wiggle({ duration: 6, freq: 4, seed: 3, props: { x: { around: 'GW
 stagger(8, { each: 0.08 /* or amount: total s */, from: 'start'|'end'|'center'|'edges'|'random'|index, grid: [cols, rows], ease, seed })   // → delays [0, 0.08, …]: `at: 1 + d[i]`
 stagger(layers, { each: 0.05, from: 'center' })   // → the same layers with `at` pushed back (originals untouched)
 keyframes: followPath({ d: 'M 120 560 C 360 120 920 120 1160 560', duration: 4, ease, orient: true /* faces the way it goes; rotate: -90 for an up-pointing image */, from: 0, to: 1, frameRate: 30 /* = the movie's */ })   // x / y (and rotation) along an SVG path; give the layer its own `at`
+...particles({ count: 90, at: 2, emit: 0 /* 0 = burst; or seconds to spread births */, life: [1, 1.8], area: { x: 640, y: 330 /*, width, height */ }, angle: [0, 360] /* 0 right, 90 down, −90 up */,
+               speed: [120, 420], gravity: 240, wind: 0, drag: 1.2, sway: { amp: 30, freq: 0.6 }, size: [2, 4.5], scale: [1, 0], fade: { in: 0.2, out: 0.6 },
+               colors: ['#ffd166', '#ff6b9d'], shape: 'circle'|'rect'|'star', spin: [-200, 200], blendMode: 'add', seed: 1, name: 'burst', template: { type: 'image', asset } })   // seeded layers, paths baked into keyframes
 const r = random(7); r(); r();      // a repeatable stream in 0…1 for JS loops (never Math.random())
 ```
 `kenBurns` covers the canvas, so source images should be at least canvas-sized (1920×1080 for 1280×720).
@@ -249,7 +252,7 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 18. **Counters**: `text: '{value}'` + animate `value` (with `format`). Other text content cannot change over time. Earlier sessions generated one text layer per number (40+ per bar). *(fixed)*
 19. **Loops**: `repeat` (finite) / `yoyo` / `repeatDelay` on any keyframe; infinite repeats are rejected with a warning. *(fixed)*
 20. **No per-frame expression time.** Expressions are evaluated once at build. A camera orbit is `orbit()`; a shake or drift is `wiggle()`, travel along a path is `followPath()`, and any other curve (waves, spirals) must be sampled into short linear keyframes (~0.1 s) in a JS loop. **Randomness must be seeded** (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS): `Math.random()` makes playback and the exported file disagree. *(partly fixed)*
-21. **Per-letter / per-word text is `animateText()` (one call: a layer per piece, a wave in and out) or `splitText()` by hand (one layer per piece, positions measured for you); a group / parent is a `{ type: 'null' }` layer + `parent: 'name'`, no particle emitter, no caption-linked-to-slide.** One layer per letter; many layers; seeded random loops (`random(seed)`). *(hand-roll)*
+21. **Per-letter / per-word text is `animateText()` (one call: a layer per piece, a wave in and out) or `splitText()` by hand (one layer per piece, positions measured for you); a group / parent is a `{ type: 'null' }` layer + `parent: 'name'`, no caption-linked-to-slide.** One layer per letter; many layers; seeded random loops (`random(seed)`). *(hand-roll)*
 22. **Colour tweens look muddy in RGB** (red→green passes through brown). Use `colorSpace: 'oklab'` or `'oklch'` on the layer. In `oklch`, a nearly grey end (chroma < ~0.08, e.g. `#9a9ab4`) borrows the other end's hue, so grey → yellow no longer flashes through pink. *(docs / fixed)*
 23. **Generated images**: `canvas.toDataURL()` as an asset `src` works. Make them ≥ canvas size or `kenBurns` zooms look soft. *(docs)*
 
@@ -285,7 +288,7 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 43. **Layers built in a loop need their z-order planned**: anything pushed to the array after the loop is drawn over what the loop made (rings crossed over a header). Keyframes on different properties of one layer may overlap in time. Keep a subject in the upper ~60 % of a source image if a caption will sit under it (`inspect` does not look at picture content). *(docs)*
 44. **Zero-pad a counter with `format: { pad: 2 }`** (`18:42:{value}` shows `18:42:05`). A `{value}` placeholder that nothing sets or animates prints 0 and now warns: `{value}` is reserved, there is no way to print it literally. *(fixed)*
 45. **The same mistake in a loop warns once**: the warning "keyframe starts after the layer ends" is summarised after three layers. The usual cause is an off-by-one (`f <= frames` instead of `f < frames`) that puts the last sample exactly at the layer's end. *(fixed)*
-46. **Still not in the DSL (hand-roll; round-two notes have workarounds):** stroke draw-on / trim path on a line, polygon or path (use a growing rect mask for a one-direction reveal; a circular progress ring is `shape: 'arc'`), text content that changes over time (only `{value}`), per-frame jitter (film grain = seeded `set` keyframes on an oversized image), particle emitters, shared masks, `zIndex`.
+46. **Still not in the DSL (hand-roll):** shared masks (one mask for several layers), `zIndex` (stack order is list order). *(Earlier round-two notes listed draw-on strokes, changing text, jitter and particle emitters here: they are built in now: `trimEnd`, `set: { text }` / `visibleChars`, `wiggle()`, `particles()`.)*
 46b. **Blend modes exist now** (`blendMode: 'add' | 'screen' | 'multiply'` on any layer, threeD layers and compositions included; a composition's children inherit it). Additive white cores no longer read grey on a coloured background. It also works on a layer with `filters` (a blurred glow with `add` / `multiply`): the mode is applied by the last filter, because a container's blend inside a filter pass multiplied against nothing and rendered black. With `add`, use dim saturated colours: overlaps sum, and near-white sums to pure white. *(fixed)*
 47. **Browser tooling: prefer `node ai/tools/check.mjs page.html`** — it runs its own private Chrome, so none of the following can bite. If you drive a browser by hand instead: the `agent-browser` daemon is shared, so a `contactSheet` can come back from another session: after saving an image, look at it and confirm it is YOUR piece. In zsh a variable holding `agent-browser --session x` is not split into words (use a small wrapper script). `inspect` now clips overlaps to the visible area, ignores the two scenes of a running transition, treats text inside a moving (panned) composition as moving, and does not report text scaled to 0 as "no size"; it still does not compare text with picture content or shapes.
 48. **A composition's `alpha` is applied to each child separately, not to the flattened group** (measured: two overlapping opaque circles in a composition at `alpha: 0.5` show the lower one through the upper one in the overlap). Fading a group that has overlapping children therefore shows the overlap; fade the children themselves, or keep overlapping parts out of the group. Expressions have no way to read a sibling's size: measure text with `canvas.measureText` (the font string Pixi uses) and compute pill widths in JS. *(docs)*
@@ -822,19 +825,28 @@ return [{
 
 ---
 
-## Particles (seeded, so every run and export is identical)
+## Particles (`particles()`: seeded, so every run and export is identical)
+
+`particles()` returns one layer per particle: seeded start, launch angle and speed, size, colour and life, with gravity / wind / drag / sway baked into the keyframes. `count` and `life` are required, and so is the emitter `area` (its centre; add `width` / `height` to spread over a box). `emit: 0` is a burst, `emit: 3` spreads the births over 3 s. `angle`: 0 right, 90 down, −90 up. `blendMode: 'add'` makes overlaps glow. It throws (with the fix) if it would bake too many keyframes: lower `count`, `life` or `sampleRate`.
 
 ```js
 // @recipe particles
-const rnd = random(7);                    // seeded: the same stream every run (never Math.random())
-return Array.from({ length: 40 }, () => {
-  const x = rnd() * 1280, y = 100 + rnd() * 620;
-  return {
-    type: 'shape', shape: 'circle', radius: 2 + rnd() * 4, duration: 6,
-    initial: { x, y, fillColor: '#ffffff', fillAlpha: 0.3 + rnd() * 0.5 },
-    keyframes: [{ at: 0, to: { y: y - 80 }, duration: 6, ease: 'none' }],
-  };
-});
+const colors = ['#ffd166', '#ff6b9d', '#4cc9f0', '#ffffff'];
+const burst = (at, x, y, seed) => particles({ count: 240, at, life: [1.2, 2], area: { x, y }, speed: [40, 520], gravity: 220, drag: 1.1,
+  size: [4, 8], scale: [1, 0.3], colors, fade: { out: 0.7 }, blendMode: 'add', seed, name: 'burst' + seed });   // bursts of sparks
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0a0f1f' } },
+  ...burst(0.5, 400, 260, 1), ...burst(1.6, 880, 200, 2), ...burst(2.8, 640, 330, 3),
+];
+```
+
+```js
+// @recipe particles-snow
+return { duration: 10, sequences: [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#16203d' } },
+  ...particles({ count: 120, emit: 4, life: [4, 6], area: { x: 640, y: -20, width: 1400 }, angle: 90, speed: [40, 90],
+    size: [2, 5], sway: { amp: 30, freq: 0.6 }, fade: { in: 0.5, out: 0.5 }, name: 'snow', seed: 4 }),     // drifting down, swaying
+] };
 ```
 
 ---
@@ -2136,6 +2148,35 @@ import { wiggle } from 'pixi-effects';
 | `ease` | string | between targets (default `'sine.inOut'`; `'none'` gives jittery straight lines) |
 
 It returns `Keyframe[]`: spread it into `keyframes`, next to others. Do not put another keyframe on the same property during the wiggle.
+
+### `particles`
+
+Particles as plain layers: a burst, a fountain, snow, confetti, sparks. Each particle is a layer with its own **seeded** start, launch angle and speed, size, colour and life, and a path baked into keyframes, so playback, seeking and export agree; it exists only while it is alive. Spread the result into `sequences`.
+
+```ts
+import { particles } from 'pixi-effects';
+
+...particles({ count: 240, at: 2, life: [1.2, 2], area: { x: 640, y: 330 }, speed: [40, 520], gravity: 220, drag: 1.1,
+               size: [4, 8], scale: [1, 0.3], colors: ['#ffd166', '#ff6b9d', '#4cc9f0'], fade: { out: 0.7 }, blendMode: 'add' })   // a burst of sparks
+```
+
+| Option | Notes |
+| ------ | ----- |
+| `count`, `life` | required: how many, and how long each lives (a number or `[min, max]` seconds) |
+| `area` | required: `{ x, y }` is the centre they start from; add `width` / `height` to spread over a box (snow: `{ x: 640, y: -20, width: 1400 }`) |
+| `at`, `emit` | the first birth, and the seconds over which births are spread (`0`, the default, is a burst) |
+| `angle`, `speed` | launch direction (degrees: 0 right, 90 down, −90 up; default `[0, 360]`) and speed (px/s; default `[100, 300]`) |
+| `gravity`, `wind`, `drag` | accelerations (px/s², down and sideways) and air drag per second |
+| `sway` | `{ amp, freq }`: a smooth side-to-side wobble (snow, leaves, embers) |
+| `size`, `scale`, `fade` | radius (default `[3, 6]`), scale over the life (`[1, 0]` shrinks away), alpha ramps `{ in, out }` in seconds |
+| `colors`, `shape` | fill colours picked per particle; `'circle'` (default), `'rect'` (square) or `'star'` |
+| `spin` | degrees per second (they also start at a random angle) |
+| `blendMode` | `'add'` makes overlaps glow |
+| `template` | any layer (an image, a text) used for every particle instead of a shape; its keyframes are kept |
+| `seed`, `name` | another seed is another burst; layers are named `<name>-0`, `<name>-1`, … |
+| `sampleRate` | samples per second of a curved path (default 20); a path with no gravity, wind, drag or sway is one straight tween |
+
+It throws, with the fix, when it would bake an absurd number of keyframes: lower `count`, `life` or `sampleRate`. Particles are real layers (names like `burst1-0`), so `inspect` and the timeline list them, grouped as one family.
 
 ### `followPath`
 

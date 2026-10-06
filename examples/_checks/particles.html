@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>check · particles</title></head>
+<body>
+  <!--
+    Acceptance check (not an example): one particle born at 0.5 s at (640, 600), launched straight up at 300 px/s with gravity 600 px/s^2, living 2 s:
+    y(t) = 600 - 300 t + 300 t^2 (t since birth): 525 at the top (t = 0.5, the 1.0 s mark), back at 600 at t = 1 (1.5 s). It is not drawn before it is born or after it dies.
+    A second burst (60 particles) must be identical on every load.
+  -->
+  <canvas id="stage" width="1280" height="720" style="width:640px"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+  </script>
+  <script type="importmap">
+  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "gsap": "https://esm.sh/gsap@3.12.5", "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin", "mediabunny": "https://esm.sh/mediabunny" } }
+  </script>
+  <script type="module">
+    import { Movie, particles } from '../../dist/index.js';
+    const mode = new URLSearchParams(location.search).get('mode') ?? 'one';
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 4, frameRate: 30, background: '#000000',
+        composition: { sequences: mode === 'one'
+          ? particles({ count: 1, at: 0.5, life: 2, area: { x: 640, y: 600 }, angle: -90, speed: 300, gravity: 600, size: 10, sampleRate: 30 })
+          : particles({ count: 60, at: 0.5, emit: 0.5, life: [1, 2], area: { x: 640, y: 500, width: 200 }, angle: [-120, -60], speed: [200, 500], gravity: 500, size: [3, 7], colors: ['#ff0000', '#00ff00', '#ffffff'], spin: [-200, 200], shape: 'star', seed: 5 }) },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+  </script>
+</body>
+</html>

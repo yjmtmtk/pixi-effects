@@ -25,6 +25,9 @@ export type { KenBurnsOptions } from './presets/kenBurns';
 export { orbit } from './presets/orbit';
 export type { OrbitOptions } from './presets/orbit';
 
+export { particles } from './presets/particles';
+export type { ParticlesOptions } from './presets/particles';
+
 export { followPath } from './presets/followPath';
 export type { FollowPathOptions } from './presets/followPath';
 

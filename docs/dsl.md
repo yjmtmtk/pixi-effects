@@ -1185,6 +1185,35 @@ import { wiggle } from 'pixi-effects';
 
 It returns `Keyframe[]`: spread it into `keyframes`, next to others. Do not put another keyframe on the same property during the wiggle.
 
+### `particles`
+
+Particles as plain layers: a burst, a fountain, snow, confetti, sparks. Each particle is a layer with its own **seeded** start, launch angle and speed, size, colour and life, and a path baked into keyframes, so playback, seeking and export agree; it exists only while it is alive. Spread the result into `sequences`.
+
+```ts
+import { particles } from 'pixi-effects';
+
+...particles({ count: 240, at: 2, life: [1.2, 2], area: { x: 640, y: 330 }, speed: [40, 520], gravity: 220, drag: 1.1,
+               size: [4, 8], scale: [1, 0.3], colors: ['#ffd166', '#ff6b9d', '#4cc9f0'], fade: { out: 0.7 }, blendMode: 'add' })   // a burst of sparks
+```
+
+| Option | Notes |
+| ------ | ----- |
+| `count`, `life` | required: how many, and how long each lives (a number or `[min, max]` seconds) |
+| `area` | required: `{ x, y }` is the centre they start from; add `width` / `height` to spread over a box (snow: `{ x: 640, y: -20, width: 1400 }`) |
+| `at`, `emit` | the first birth, and the seconds over which births are spread (`0`, the default, is a burst) |
+| `angle`, `speed` | launch direction (degrees: 0 right, 90 down, −90 up; default `[0, 360]`) and speed (px/s; default `[100, 300]`) |
+| `gravity`, `wind`, `drag` | accelerations (px/s², down and sideways) and air drag per second |
+| `sway` | `{ amp, freq }`: a smooth side-to-side wobble (snow, leaves, embers) |
+| `size`, `scale`, `fade` | radius (default `[3, 6]`), scale over the life (`[1, 0]` shrinks away), alpha ramps `{ in, out }` in seconds |
+| `colors`, `shape` | fill colours picked per particle; `'circle'` (default), `'rect'` (square) or `'star'` |
+| `spin` | degrees per second (they also start at a random angle) |
+| `blendMode` | `'add'` makes overlaps glow |
+| `template` | any layer (an image, a text) used for every particle instead of a shape; its keyframes are kept |
+| `seed`, `name` | another seed is another burst; layers are named `<name>-0`, `<name>-1`, … |
+| `sampleRate` | samples per second of a curved path (default 20); a path with no gravity, wind, drag or sway is one straight tween |
+
+It throws, with the fix, when it would bake an absurd number of keyframes: lower `count`, `life` or `sampleRate`. Particles are real layers (names like `burst1-0`), so `inspect` and the timeline list them, grouped as one family.
+
 ### `followPath`
 
 A layer travelling along an SVG path, as keyframes for `x` and `y` (and `rotation`). The layer's own `x` / `y` are the points of the path (give shapes their centre there, and text `anchorX: 0.5, anchorY: 0.5`). The path is walked by arc length, so the speed is even whatever the curve, and sampled once per frame as short straight steps: set `frameRate` to the movie's and the layer is exactly on the path at every frame.

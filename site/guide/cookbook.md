@@ -131,20 +131,13 @@ return [
 
 ## Confetti, the same every time
 
-Randomness that is **seeded** gives the same video on every run and every export. A tiny generator is enough:
+`particles()` makes one layer per piece with a seeded start, speed, size, colour, spin and life, so the confetti is the same on every run and in every export. Give it a seed and it stays that way; another seed is another take.
 
 ```js
 // @recipe confetti
-let seed = 7;
-const rnd = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
-const colors = ['#ff5c8a', '#ffd166', '#4cc9f0', '#7bd88f', '#c77dff'];
-return Array.from({ length: 80 }, (_, i) => {
-  const x = rnd() * 1280, fall = 500 + rnd() * 400, size = 8 + rnd() * 10;
-  return { type: 'shape', shape: 'rect', width: size, height: size * 0.5, name: 'confetti-' + i, at: rnd() * 1.5, duration: 3,
-    initial: { x, y: -20, rotation: rnd() * 360, fillColor: colors[i % colors.length] },
-    keyframes: [{ at: 0, to: { y: -20 + fall, rotation: 360 * (1 + rnd()), x: x + (rnd() - 0.5) * 200 }, duration: 3, ease: 'power1.in' },
-                { at: -0.6, to: { alpha: 0 }, duration: 0.6 }] };
-});
+return particles({ count: 90, at: 0.2, emit: 1.2, life: [3, 4.5], area: { x: 640, y: -20, width: 1280 }, angle: [80, 100], speed: [150, 350],
+  gravity: 120, size: [5, 9], shape: 'rect', spin: [-300, 300], fade: { out: 0.6 }, name: 'confetti', seed: 7,
+  colors: ['#ff5c8a', '#ffd166', '#4cc9f0', '#7bd88f', '#c77dff'] });
 ```
 
 {{demo examples/gallery/birthday-card.html}}

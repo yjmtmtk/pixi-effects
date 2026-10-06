@@ -110,7 +110,7 @@ transitions: [{ kind: 'crossfade' | 'wipe' | 'iris' | 'slide' | 'dip' | 'zoom' |
 ## Presets
 
 ```js
-import { kenBurns, withFade, wiggle, stagger, followPath, random } from 'pixi-effects';
+import { kenBurns, withFade, wiggle, stagger, followPath, particles, random } from 'pixi-effects';
 kenBurns({ asset, name, at, duration, motion: 'still'|'scale'|'rotation'|'position',
            fit: 'cover'|'contain', ease, /* scale */ origin, zoom, direction, /* rotation */ angle, /* position */ from, to })
 withFade(spec, { in: 0.5, out: 0.5 })   // alpha fade; `out` needs spec.duration
@@ -120,6 +120,9 @@ keyframes: [...wiggle({ duration: 6, freq: 4, seed: 3, props: { x: { around: 'GW
 stagger(8, { each: 0.08 /* or amount: total s */, from: 'start'|'end'|'center'|'edges'|'random'|index, grid: [cols, rows], ease, seed })   // → delays [0, 0.08, …]: `at: 1 + d[i]`
 stagger(layers, { each: 0.05, from: 'center' })   // → the same layers with `at` pushed back (originals untouched)
 keyframes: followPath({ d: 'M 120 560 C 360 120 920 120 1160 560', duration: 4, ease, orient: true /* faces the way it goes; rotate: -90 for an up-pointing image */, from: 0, to: 1, frameRate: 30 /* = the movie's */ })   // x / y (and rotation) along an SVG path; give the layer its own `at`
+...particles({ count: 90, at: 2, emit: 0 /* 0 = burst; or seconds to spread births */, life: [1, 1.8], area: { x: 640, y: 330 /*, width, height */ }, angle: [0, 360] /* 0 right, 90 down, −90 up */,
+               speed: [120, 420], gravity: 240, wind: 0, drag: 1.2, sway: { amp: 30, freq: 0.6 }, size: [2, 4.5], scale: [1, 0], fade: { in: 0.2, out: 0.6 },
+               colors: ['#ffd166', '#ff6b9d'], shape: 'circle'|'rect'|'star', spin: [-200, 200], blendMode: 'add', seed: 1, name: 'burst', template: { type: 'image', asset } })   // seeded layers, paths baked into keyframes
 const r = random(7); r(); r();      // a repeatable stream in 0…1 for JS loops (never Math.random())
 ```
 `kenBurns` covers the canvas, so source images should be at least canvas-sized (1920×1080 for 1280×720).
