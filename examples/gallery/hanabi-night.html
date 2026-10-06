@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>hanabi-night — pixi-effects gallery</title>
+  <style>
+    body { background: #0d1220; margin: 0; padding: 16px; display: flex; justify-content: center; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+  </style>
+  <script type="application/json" id="piece-meta">{
+    "title": "Hanabi Night",
+    "subtitle": "A summer fireworks festival title card in indigo, gold and vermilion: rockets streak up, a gold peony opens over the skyline, the vertical title rises and a red seal stamps in",
+    "tags": ["particles", "motion-blur", "typography", "japanese", "poster", "sfx"],
+    "width": 1280, "height": 720, "duration": 12, "model": "sonnet"
+  }</script>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie, particles, animateText, wiggle, rand } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 12;
+    // three colours and a paper white: indigo night, gold fire, a vermilion seal
+    const NIGHT = '#070b22', DEEP = '#0b1030', DUSK = '#1d1a45', GOLD = '#f2c46d', PALE = '#fff1c9', VERMILION = '#d94a38', PAPER = '#f3ead8', DIM = '#8d93b8';
+    const MINCHO = "'Hiragino Mincho ProN', 'Yu Mincho', 'Noto Serif JP', 'Songti SC', serif";
+    const SANS = "'Helvetica Neue', Arial, system-ui, sans-serif";
+
+    // ── the night: a deep gradient, a few stars, a skyline that is low under the title and tall on the right ──
+    const sky = { type: 'shape', shape: 'rect', name: 'sky', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
+      fillGradient: { stops: [[0, NIGHT], [0.62, DEEP], [1, DUSK]] } };
+    const stars = Array.from({ length: 46 }, (_, i) => ({
+      type: 'shape', shape: 'circle', name: 'star-' + i, radius: 0.8 + rand(i * 3 + 2) * 1.2, duration: DURATION,
+      initial: { x: rand(i * 3) * W, y: rand(i * 3 + 1) * 430, fillColor: PAPER },
+      keyframes: wiggle({ duration: DURATION, freq: 0.5 + rand(i + 300), seed: i, props: { alpha: { around: 0.45, amp: 0.3 } } }),
+    }));
+    const BASE = 690;
+    const skyline = Array.from({ length: 34 }, (_, i) => {
+      const x = i * 40 + rand(i + 700) * 14, w = 30 + rand(i + 800) * 22;
+      const tall = x > 430 ? 70 + rand(i + 900) * 110 : 18 + rand(i + 900) * 36;       // keep the left, under the title, low and quiet
+      return { type: 'shape', shape: 'rect', name: 'building-' + i, width: w, height: tall, anchorX: 0, anchorY: 1, duration: DURATION, initial: { x, y: BASE, fillColor: '#050816' } };
+    });
+    const windows = Array.from({ length: 40 }, (_, i) => {
+      const x = 440 + rand(i + 1000) * 820, y = BASE - 12 - rand(i + 1100) * 90;
+      return { type: 'shape', shape: 'rect', name: 'window-' + i, width: 3, height: 4, duration: DURATION, initial: { x, y, fillColor: GOLD, alpha: 0.5 }, 
+        keyframes: wiggle({ duration: DURATION, freq: 0.3, seed: 90 + i, props: { alpha: { around: 0.4, amp: 0.3 } } }) };
+    });
+    const water = { type: 'shape', shape: 'rect', name: 'water', width: 'GW', height: H - BASE, anchorX: 0.5, anchorY: 0, duration: DURATION,
+      initial: { x: 'GW/2', y: BASE }, fillGradient: { stops: [[0, '#0a0e28'], [1, '#05071a']] } };
+    const night = [sky, ...stars, ...skyline, ...windows, water];
+    const nightFade = { alpha: 0 };                                     // (the skyline arrives with the first rocket)
+
+    // ── fireworks ──
+    const CLIMB = 0.9;
+    const rocket = (name, at, x, top, drift) => [
+      { type: 'shape', shape: 'rect', name, width: 3.5, height: 44, cornerRadius: 2, at, duration: CLIMB, initial: { x, y: BASE - 20, fillColor: PALE },
+        keyframes: [{ at: 0, to: { y: top }, duration: CLIMB, ease: 'power2.out' }, { at: 0, to: { x: x + drift }, duration: CLIMB, ease: 'none' }] },
+    ];
+    const flash = (name, at, x, y, size) => ({
+      type: 'shape', shape: 'circle', name, radius: size, blendMode: 'add', at, duration: 0.7,
+      fillGradient: { type: 'radial', radius: 0.5, stops: [[0, 'rgba(255,236,190,0.7)'], [1, 'rgba(255,236,190,0)']] },
+      initial: { x, y, scale: 0.15 }, keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.7, ease: 'power3.out' }, { at: 0, from: { alpha: 1 }, to: { alpha: 0 }, duration: 0.7 }],
+    });
+    // a peony: a shell of sparks that opens, hangs, and falls as gold rain; a second, quieter layer of glitter inside it
+    const halo = (name, at, x, y, size) => ({
+      type: 'shape', shape: 'circle', name, radius: size, blendMode: 'add', at, duration: 3.2,
+      fillGradient: { type: 'radial', radius: 0.5, stops: [[0, 'rgba(242,196,109,0.34)'], [0.55, 'rgba(242,196,109,0.1)'], [1, 'rgba(242,196,109,0)']] },
+      initial: { x, y, scale: 0.5 }, keyframes: [{ at: 0, to: { scale: 1.15 }, duration: 3.2, ease: 'power2.out' }, { at: 0, from: { alpha: 1 }, to: { alpha: 0 }, duration: 3.2, ease: 'power1.in' }],
+    });
+    const peony = (name, at, x, y, count, colors, seed, scale = 1) => [
+      flash(name + '-flash', at, x, y, 200 * scale),
+      halo(name + '-halo', at, x, y, 330 * scale),
+      ...particles({ count, at, life: [2.6, 3.6], area: { x, y }, speed: [250 * scale, 430 * scale], gravity: 110, drag: 1.5, size: [3, 6.5], scale: [1, 0.35],
+        colors, fade: { out: 1.1 }, blendMode: 'add', name: name + '-shell', seed, sampleRate: 10 }),
+      ...particles({ count: Math.round(count / 4), at: at + 0.05, life: [1.8, 2.8], area: { x, y }, speed: [20, 170 * scale], gravity: 70, drag: 1.2, size: [2, 4],
+        colors: [PALE, PAPER], fade: { out: 0.9 }, blendMode: 'add', name: name + '-glitter', seed: seed + 100, sampleRate: 10 }),
+    ];
+    const GOLDS = [GOLD, '#f6d27a', PALE, '#e8a94d'];
+    const fire = [
+      ...rocket('rocket-1', 1.0, 886, 270, 14), ...peony('peony-1', 1.0 + CLIMB, 900, 270, 300, GOLDS, 11),
+      ...rocket('rocket-2', 4.8, 1070, 380, -10), ...peony('peony-2', 4.8 + CLIMB, 1060, 380, 180, ['#ff8a5c', VERMILION, PALE, GOLD], 23, 0.8),
+      ...rocket('rocket-3', 7.0, 850, 270, 10), ...peony('peony-3', 7.0 + CLIMB, 860, 270, 340, [PALE, GOLD, '#f6d27a', PAPER], 37, 1.1),
+    ];
+
+    // ── typography: a vertical title, one small line of English, the details, and a seal ──
+    const title = animateText('花\n火\n大\n会', { fontFamily: MINCHO, fontSize: 118, fill: PAPER }, {
+      by: 'lines', x: 172, y: 62, align: 'center', name: 'title', at: 2.5, duration: DURATION - 2.5,
+      in: { from: { y: 46, alpha: 0 }, duration: 1.1, ease: 'power3.out' }, stagger: { each: 0.24 },
+    });
+    const small = (name, text, size, fill, spacing, x, y, at, extra = {}) => ({
+      type: 'text', name, text, at, duration: DURATION - at, style: { fontFamily: SANS, fontSize: size, fill, letterSpacing: spacing, ...extra },
+      initial: { x, y, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.9, ease: 'power2.out' }, { at: 0, from: { x: x - 14 }, to: { x }, duration: 0.9, ease: 'power3.out' }],
+    });
+    const copy = [
+      small('kicker', 'SUMMER FIREWORKS FESTIVAL', 17, GOLD, 6, 300, 92, 3.6),
+      { type: 'shape', shape: 'rect', name: 'rule', width: 250, height: 2, anchorX: 0, duration: DURATION - 4.0, at: 4.0, initial: { x: 300, y: 122, fillColor: GOLD, scaleX: 0 },
+        keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.9, ease: 'power3.inOut' }] },
+      small('date', 'AUG 15  ·  19:30', 30, PAPER, 3, 300, 520, 4.4, { fontWeight: '300' }),
+      small('place', 'RIVERSIDE PARK', 16, DIM, 6, 300, 562, 4.7),
+    ];
+    // the seal is a null layer with a square and a character on it, so it stamps down as one thing
+    const seal = [
+      { type: 'null', name: 'seal', at: 9.0, duration: DURATION - 9.0, initial: { x: 1176, y: 96, rotation: -4 },
+        keyframes: [{ at: 0, from: { scale: 1.9, alpha: 0, rotation: -14 }, to: { scale: 1, alpha: 1, rotation: -4 }, duration: 0.22, ease: 'power4.in' }] },
+      { type: 'shape', shape: 'rect', name: 'seal-square', parent: 'seal', width: 74, height: 74, cornerRadius: 7, initial: { x: 0, y: 0, fillColor: VERMILION } },
+      { type: 'text', name: 'seal-mark', parent: 'seal', text: '夏', style: { fontFamily: MINCHO, fontSize: 50, fill: PAPER }, initial: { x: 0, y: 2, anchorX: 0.5, anchorY: 0.5 } },
+    ];
+
+    const sounds = [
+      { type: 'audio', sfx: 'swoosh', at: 1.0, volume: 0.35 }, { type: 'audio', sfx: 'hit', at: 1.0 + CLIMB, volume: 0.5 },
+      { type: 'audio', sfx: 'chime', at: 2.6, volume: 0.3 },
+      { type: 'audio', sfx: 'swoosh', at: 4.8, volume: 0.35 }, { type: 'audio', sfx: 'hit', at: 4.8 + CLIMB, volume: 0.4 },
+      { type: 'audio', sfx: 'riser', at: 6.4, volume: 0.25 },
+      { type: 'audio', sfx: 'swoosh', at: 7.0, volume: 0.35 }, { type: 'audio', sfx: 'hit', at: 7.0 + CLIMB, volume: 0.55 },
+      { type: 'audio', sfx: 'hit', at: 9.0, volume: 0.45, pitch: -6 },
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 9.4,
+        motionBlur: { samples: 8, shutter: 0.55 },      // the rockets and the falling sparks streak; live playback is not blurred
+        background: NIGHT,
+        composition: { sequences: [...night, ...fire, ...title, ...copy, ...seal, ...sounds] },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

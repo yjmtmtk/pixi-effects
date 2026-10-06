@@ -388,6 +388,27 @@
       "notes": "_notes/liquid-flow-title.md"
     },
     {
+      "id": "hanabi-night",
+      "title": "Hanabi Night",
+      "subtitle": "A summer fireworks festival title card in indigo, gold and vermilion: rockets streak up, a gold peony opens over the skyline, the vertical title rises and a red seal stamps in",
+      "tags": [
+        "particles",
+        "motion-blur",
+        "typography",
+        "japanese",
+        "poster",
+        "sfx"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 12,
+      "posterFrame": 282,
+      "model": "sonnet",
+      "page": "hanabi-night.html",
+      "poster": "posters/hanabi-night.jpg",
+      "notes": "_notes/hanabi-night.md"
+    },
+    {
       "id": "birthday-card",
       "title": "Happy Birthday, Mika!",
       "subtitle": "Balloons, a layered cake, flickering candles, a blow-out and a confetti burst",

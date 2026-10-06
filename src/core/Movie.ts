@@ -171,7 +171,7 @@ export class Movie {
     const back = this.currentFrame;
     this.currentFrame = this._posterFrame;                 // the drawing steps read the playhead
     try {
-      this.timeline.time(this._posterFrame / this.frameRate);
+      this.timeline.time(this._timeOf(this._posterFrame));
       await this._awaitVideoFrames();
       this._updateSpace();
       this._renderNow();
@@ -338,14 +338,23 @@ export class Movie {
   private async _goto(frame: number): Promise<void> {
     this._atPoster = false;
     this.currentFrame = Math.max(0, Math.min(frame, this.totalFrames));
-    this.timeline!.time(this.currentFrame / this.frameRate);
+    this.timeline!.time(this._timeOf(this.currentFrame));
     await this._awaitVideoFrames();
     this._updateSpace();
     this._renderNow();
     this.emit('frame', { frame: this.currentFrame, totalFrames: this.totalFrames } satisfies FrameEvent);
   }
 
-  private async _awaitVideoFrames(t: number = this.currentFrame / this.frameRate): Promise<void> {
+  /**
+   * The moment frame `frame` shows. The very last frame (`totalFrames`) is at the end of the movie, where every layer's lifespan
+   * has just closed: it is drawn a hair before, so a layer that lasts to the end is still on screen in the final frame
+   * (it used to be an empty one, the last frame of every export).
+   */
+  private _timeOf(frame: number): number {
+    return Math.min(frame / this.frameRate, Math.max(0, this.duration - END_MARGIN));
+  }
+
+  private async _awaitVideoFrames(t: number = this._timeOf(this.currentFrame)): Promise<void> {
     if (!this._rootSequence) return;
     const collected: VideoLike[] = [];
     collectVideoSequences(this._rootSequence, collected);
@@ -485,7 +494,7 @@ export class Movie {
   }
 
   /** Projects every `threeD` layer for the current frame (see src/space). */
-  private _updateSpace(t: number = this.currentFrame / this.frameRate): void {
+  private _updateSpace(t: number = this._timeOf(this.currentFrame)): void {
     if (!this._rootSequence || !this.app) return;
     this._rootSequence.updateSpace(t, this.app.renderer);
   }
@@ -503,7 +512,7 @@ export class Movie {
     const g = target.getContext('2d')!;
     const stage = this.app!.canvas as HTMLCanvasElement;
     this._atPoster = false;
-    const times = blurTimes(frame, this.frameRate, mb, this.duration);
+    const times = blurTimes(frame, this.frameRate, mb, Math.max(0, this.duration - END_MARGIN));
     for (let k = 0; k < times.length; k++) {
       const t = times[k]!;
       this.timeline!.time(t);
@@ -645,6 +654,9 @@ export class Movie {
     this._initState = 'destroyed';
   }
 }
+
+/** How far before the end of the movie its last frame is drawn (seconds): inside every layer's lifespan, far below a frame. */
+const END_MARGIN = 1e-4;
 
 const clampFrame = (f: number, last: number): number => Math.max(0, Math.min(Math.round(f), last));
 

@@ -4,8 +4,13 @@
 
 **Added**
 
+- A gallery piece that uses particles and motion blur (`hanabi-night`: a fireworks festival title card, 36 pieces now), with its demo in the guide.
 - **Motion blur.** `movie.init({ motionBlur: true })` (or a sample count, or `{ samples, shutter }`, or the same option on one `render()`, `snapshot()` or `contactSheet()`) exposes every frame over a shutter interval: the frame is drawn several times at moments around its time and averaged, so fast motion smears like on film. It applies to what is made (the export, snapshots, contact sheets, so `pixi-effects-check` shows what the file will have), not to live playback. `pixi-effects-render --motion-blur 8 --shutter 0.5` sets it for one file.
 - **`particles()`**: bursts, fountains, snow, confetti and sparks as plain layers. Every particle has its own seeded start, launch angle and speed, size, colour and life, and a path baked into keyframes (gravity, wind, drag, sway), so playback, seeking and export agree. `emit` spreads births over time, `fade` / `scale` shape the life, `shape` is `circle` / `rect` / `star` or any `template` layer, `blendMode: 'add'` makes overlaps glow.
+
+**Fixed**
+
+- **The last frame of an export was empty.** The final frame sits at the exact end of the movie, where every layer's lifespan has just closed, so a layer that lasts to the end vanished in it (the exported video, and the last cell of a contact sheet, ended on a blank frame). That frame is now drawn a hair before the end, so the final composition stays on screen.
 
 ## 0.10.0
 
