@@ -87,7 +87,13 @@ export class CompositionSequence extends Sequence {
       // mask channel. PIXI v8 renders mask containers into the stencil /
       // alpha buffer; they don't render as normal children.
       if (maskSpec) {
-        const built = await buildSequenceTree([maskSpec], this._compositionShape, this.root);
+        // The mask lives and animates with the layer it masks: with no `at` of its own its `at` and
+        // `duration` are the layer's, so its keyframes are measured from the layer's start too. An
+        // explicit `at` is composition time, exactly like a layer's.
+        const lifetime = maskSpec.at === undefined
+          ? { at: child.at, duration: maskSpec.duration ?? child.duration }
+          : {};
+        const built = await buildSequenceTree([{ ...maskSpec, ...lifetime } as SequenceSpec], this._compositionShape, this.root);
         const maskSeq = built[0];
         if (maskSeq?.target) {
           inner.addChild(maskSeq.target);

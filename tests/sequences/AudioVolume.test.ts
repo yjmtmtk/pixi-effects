@@ -74,3 +74,27 @@ describe('audio volume keyframes follow the same rules as every other keyframe',
     expect(after).toBeCloseTo(1, 2);
   });
 });
+
+describe('audio layer default duration', () => {
+  async function durationOf(spec: Record<string, unknown>): Promise<number> {
+    const probe = new OfflineAudioContext(1, SR, SR);
+    const buffer = probe.createBuffer(1, SR * 0.6, SR);
+    (Assets as unknown as { get: unknown }).get = async () => ({ audioBuffer: buffer, duration: 0.6 });
+    const seq = new AudioSequence({ type: 'audio', asset: 'a', ...spec } as unknown as SequenceSpec, comp, comp);
+    await seq.build();
+    return seq.duration!;
+  }
+
+  it('a one-shot (no duration, no loop) lasts exactly as long as its clip', async () => {
+    expect(await durationOf({ at: 2 })).toBeCloseTo(0.6, 3);
+  });
+
+  it('a looping layer with no duration lasts until the composition ends, not one clip length', async () => {
+    expect(await durationOf({ at: 2, loop: true })).toBe(8);
+    expect(await durationOf({ loop: true })).toBe(10);
+  });
+
+  it('an explicit duration always wins', async () => {
+    expect(await durationOf({ loop: true, duration: 3 })).toBe(3);
+  });
+});

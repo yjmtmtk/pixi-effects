@@ -13,7 +13,10 @@ export class AudioSequence extends Sequence {
     const data = await Assets.get<AudioAssetData>(this.spec.asset);
     this._audioBuffer = data.audioBuffer;
     if (this.duration === undefined) {
-      this.duration = this.spec.duration ?? data.duration ?? this.root.duration;
+      // One-shot: exactly as long as the clip. Looping: until the composition ends (a loop that stopped
+      // after one clip length would not be a loop).
+      const rest = Math.max(0, (this.parent?.duration ?? this.root.duration) - this.at);
+      this.duration = this.spec.duration ?? (this.spec.loop ? rest : data.duration) ?? this.root.duration;
     }
     // Without `loop` the sound simply stops when the file ends — silently.
     if (!this.spec.loop && data.duration !== undefined && this.duration > data.duration + 0.05) {
