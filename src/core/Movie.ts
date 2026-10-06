@@ -95,6 +95,7 @@ export class Movie {
   on(event: 'ready', fn: () => void): this;
   on(event: 'frame', fn: (e: FrameEvent) => void): this;
   on(event: 'progress', fn: (e: ProgressEvent) => void): this;
+  on(event: 'play', fn: () => void): this;
   on(event: 'pause', fn: () => void): this;
   on(event: string, fn: Listener): this {
     (this._events[event] ??= []).push(fn);
@@ -356,6 +357,7 @@ export class Movie {
   play(): void {
     if (this._initState !== 'ready') return;
     if (this.currentFrame >= this.totalFrames) this.currentFrame = 0;
+    const wasPlaying = this.isPlaying;
     this.isPlaying = true;
     const startTime = performance.now() - (this.currentFrame / this.frameRate * 1000);
     let inFlight = false;
@@ -392,6 +394,7 @@ export class Movie {
       this.audioSource.connect(this.gainNode).connect(ctx.destination);
       this.audioSource.start(0, this.currentFrame / this.frameRate);
     }
+    if (!wasPlaying) this.emit('play');
   }
 
   pause(): void {

@@ -335,6 +335,7 @@ export class Controller {
   private settingsOutsideHandler: ((e: PointerEvent) => void) | null = null;
   private onReady: (() => void) | null = null;
   private onFrame: ((e: { frame: number; totalFrames: number }) => void) | null = null;
+  private onPlay: (() => void) | null = null;
   private onPause: (() => void) | null = null;
   private onProgress: ((e: { progress: number; frame: number; totalFrames: number }) => void) | null = null;
   private onWrapPointerMove: (() => void) | null = null;
@@ -488,6 +489,11 @@ export class Controller {
       }
       this.refreshTime(frame);
     };
+    // `movie.play()` may be called by the host page, not only by this bar's button.
+    this.onPlay = () => {
+      this.refreshPlayIcon();
+      this.kickIdleTimer();
+    };
     this.onPause = () => {
       this.refreshPlayIcon();
       // YouTube-style: pause shows the bar momentarily, then auto-hides on idle.
@@ -500,6 +506,7 @@ export class Controller {
     };
     this.movie.on('ready', this.onReady);
     this.movie.on('frame', this.onFrame);
+    this.movie.on('play', this.onPlay);
     this.movie.on('pause', this.onPause);
     this.movie.on('progress', this.onProgress);
   }
@@ -512,8 +519,7 @@ export class Controller {
         // refreshPlayIcon + kickIdleTimer, so no extra work here.
       } else {
         this.movie.play();
-        this.refreshPlayIcon();
-        this.kickIdleTimer();
+        // movie.play() emits 'play' (the onPlay handler refreshes the icon), same as 'pause' above.
       }
     });
   }
@@ -937,6 +943,7 @@ export class Controller {
     this.destroyed = true;
     if (this.onReady) { this.movie.off('ready', this.onReady); this.onReady = null; }
     if (this.onFrame) { this.movie.off('frame', this.onFrame); this.onFrame = null; }
+    if (this.onPlay) { this.movie.off('play', this.onPlay); this.onPlay = null; }
     if (this.onPause) { this.movie.off('pause', this.onPause); this.onPause = null; }
     if (this.onProgress) { this.movie.off('progress', this.onProgress); this.onProgress = null; }
     if (this.onWrapPointerMove) {

@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+**Added**
+
+- `movie.on('play', fn)`: emitted when `play()` starts a paused movie.
+
+**Fixed**
+
+- The player bar showed the ▶ icon while a host page's `movie.play()` was running (it only updated for its own button): it follows the movie's `'play'` / `'pause'` events now.
+
 ## 0.5.0
 
 **Added**

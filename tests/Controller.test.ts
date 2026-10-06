@@ -19,7 +19,14 @@ function makeFakeMovie(overrides: Partial<Movie> = {}): Movie {
     set volume(v: number) { this._volume = v; },
     get muted() { return this._muted; },
     set muted(v: boolean) { this._muted = v; },
-    play() { this.isPlaying = true; },
+    play() {
+      const was = this.isPlaying;
+      this.isPlaying = true;
+      // Mirror real Movie.play(): emits only on a true paused→playing transition.
+      if (!was) {
+        for (const fn of listeners.play ?? []) fn();
+      }
+    },
     pause() {
       const was = this.isPlaying;
       this.isPlaying = false;
@@ -313,6 +320,19 @@ describe('Controller — playback', () => {
     playBtn.click();
     expect(movie.isPlaying).toBe(false);
     expect(playBtn.innerHTML).toContain('M3 2 L13 8 L3 14 Z');
+    ctrl.destroy();
+  });
+
+  it('movie.play() called from outside (not the button) swaps the icon to pause', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    const playBtn = canvas.parentElement!.querySelector('.mc-play') as HTMLButtonElement;
+    expect(playBtn.innerHTML).toContain('M3 2 L13 8 L3 14 Z');
+    movie.play();   // e.g. a host page that autoplays
+    expect(playBtn.innerHTML).toContain('<rect');
+    expect(playBtn.getAttribute('aria-label')).toBe('Pause');
     ctrl.destroy();
   });
 

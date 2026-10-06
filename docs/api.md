@@ -182,6 +182,7 @@ movie.off(event, fn): this
 | ----------- | ------------------------------------------------- | ----------------------------------------------------- |
 | `'ready'`   | none                                              | once, after `init()` resolves                         |
 | `'frame'`   | `{ frame: number; totalFrames: number }`          | every `gotoFrame` (so once per playback frame too)    |
+| `'play'`    | none                                              | when `play()` actually transitions from paused        |
 | `'pause'`   | none                                              | when `pause()` actually transitions from playing      |
 | `'progress'`| `{ progress: number; frame: number; totalFrames: number }` | during `render()`, once per encoded frame    |
 
