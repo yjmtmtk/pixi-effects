@@ -6,7 +6,7 @@ import { Sequence } from '../../src/sequences/Base';
 import { Container } from 'pixi.js';
 import { registerSequenceType } from '../../src/core/Composition';
 import { expandTransitions } from '../../src/core/Transitions';
-import { collectTimeline, timelineHtml } from '../../src/core/timelineChart';
+import { collectTimeline, timelineHtml, timelineSvg } from '../../src/core/timelineChart';
 import type { CompositionSequenceSpec, CompositionShape } from '../../src/types';
 
 class Box extends Sequence {
@@ -117,5 +117,34 @@ describe('timelineHtml', () => {
     const html = timelineHtml(data);
     expect(html).not.toContain('<img src=x');
     expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;&amp;');
+  });
+});
+
+describe('timelineSvg — the chart a viewer can put a playhead on', () => {
+  it('carries the geometry as data attributes, so a script can turn a click into a time and a time into an x', async () => {
+    const data = collectTimeline(await scene([{ type: '__box', name: 'a' }, { type: '__box', name: 'b', at: 6, duration: 3 }]), 12);
+    const svg = timelineSvg(data);
+    expect(svg.startsWith('<svg')).toBe(true);
+    expect(svg).not.toContain('<!doctype');
+    const attr = (name: string): number => Number(new RegExp(`data-${name}="([^"]+)"`).exec(svg)![1]);
+    expect(attr('duration')).toBe(12);
+    expect(attr('x1')).toBeGreaterThan(attr('x0'));
+    expect(attr('top')).toBeGreaterThan(0);
+    expect(attr('bottom')).toBeGreaterThan(attr('top'));
+    expect(attr('row')).toBeGreaterThan(0);
+    expect(/viewBox="0 0 (\d+) (\d+)"/.test(svg)).toBe(true);
+  });
+
+  it('a bar starting at 6 of 12 s is drawn at the middle of the x range', async () => {
+    const data = collectTimeline(await scene([{ type: '__box', name: 'b', at: 6, duration: 3 }]), 12);
+    const svg = timelineSvg(data);
+    const attr = (name: string): number => Number(new RegExp(`data-${name}="([^"]+)"`).exec(svg)![1]);
+    const bar = /<rect class="bar" x="([\d.]+)"/.exec(svg)![1]!;
+    expect(Number(bar)).toBeCloseTo((attr('x0') + attr('x1')) / 2, 1);
+  });
+
+  it('every row has its start as a data attribute, so a click on a row can seek there', async () => {
+    const data = collectTimeline(await scene([{ type: '__box', name: 'b', at: 6, duration: 3 }]), 12);
+    expect(timelineSvg(data)).toMatch(/<g class="row" data-start="6"/);
   });
 });

@@ -171,6 +171,8 @@ The renderer also forces a keyframe every ~2 seconds so the resulting file scrub
 
 The whole movie as rows on a time axis, for a person to read at a glance. `timelineData()` is the data: `{ duration, rows, transitions }`, a row per layer with `name`, `type`, `depth` (1 inside a composition), absolute `start` / `end` in seconds, `keys` (when each keyframe starts) and, for a family of generated layers, `parts` (one span per layer). Layers of one type whose names differ only by numbers (`ring10-0`, `ring9-1`, `pop-3` …), four or more, become ONE row (`ring#-# ×19`), so a movie with 700 generated layers is a screenful. `timelineChart({ title })` returns one self-contained HTML page (an inline SVG, no scripts): bars coloured by type, ◆ at each keyframe start, a shaded band per transition, a tooltip per bar. `pixi-effects-check` writes it next to the contact sheet as `timeline.html`.
 
+`movie.timelineSvg()` is the chart alone (one `<svg>`, geometry in `data-*` attributes, each row `<g class="row" data-start>`): `pixi-effects-view` puts a playhead on it and turns a click into a seek.
+
 ### `movie.destroy(): Promise<void>`
 
 Pauses playback, destroys the underlying PIXI Application, releases audio buffers and AudioContext, and marks the instance unusable.

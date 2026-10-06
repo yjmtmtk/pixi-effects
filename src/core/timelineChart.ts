@@ -124,8 +124,12 @@ function tickStep(duration: number): number {
 
 export interface TimelineHtmlOptions { title?: string }
 
-/** One self-contained HTML page (an inline SVG, no scripts): the layers as bars on a time axis. */
-export function timelineHtml(data: TimelineData, opts: TimelineHtmlOptions = {}): string {
+/**
+ * The chart alone: one `<svg>` (inline, no scripts). Its geometry is in data attributes (`data-duration`, `data-x0` / `data-x1`:
+ * where 0 s and the end are in the viewBox, `data-top` / `data-bottom`, `data-row`), and every row is `<g class="row" data-start>`,
+ * so a viewer can turn a click into a time, draw a playhead, and seek to a row.
+ */
+export function timelineSvg(data: TimelineData): string {
   const LABEL = 250, CHART = 950, ROW = 22, TOP = 34, PAD = 16;
   const W = LABEL + CHART + PAD * 2, H = TOP + data.rows.length * ROW + PAD;
   const x = (t: number): number => PAD + LABEL + (Math.max(0, Math.min(data.duration, t)) / data.duration) * CHART;
@@ -148,7 +152,7 @@ export function timelineHtml(data: TimelineData, opts: TimelineHtmlOptions = {})
     const y = TOP + i * ROW;
     const color = COLORS[r.type] ?? '#9aa7b8';
     const tip = `${r.path} · ${r.type} · ${num(r.start)}–${num(r.end)} s (${num(r.end - r.start)} s)${r.keys.length ? ` · ${r.keys.length} keyframe${r.keys.length > 1 ? 's' : ''}` : ''}${r.detail ? ` · ${r.detail}` : ''}`;
-    out.push(`<g class="row"><title>${esc(tip)}</title>`);
+    out.push(`<g class="row" data-start="${num(r.start)}"><title>${esc(tip)}</title>`);
     out.push(`<rect class="band" x="${PAD}" y="${y}" width="${LABEL + CHART}" height="${ROW}" ${i % 2 ? 'fill-opacity=".05"' : 'fill-opacity="0"'}/>`);
     out.push(`<text class="label" x="${PAD + 6 + r.depth * 14}" y="${y + 15}">${esc(r.name)}</text>`);
     for (const p of r.parts ?? [{ start: r.start, end: r.end }]) {
@@ -159,6 +163,15 @@ export function timelineHtml(data: TimelineData, opts: TimelineHtmlOptions = {})
   });
 
   const legend = Object.entries(COLORS).map(([type, c], i) => `<g transform="translate(${PAD + i * 108},${H + 10})"><rect width="12" height="12" rx="3" fill="${c}"/><text x="18" y="10" class="tick">${type}</text></g>`).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H + 32}" viewBox="0 0 ${W} ${H + 32}" role="img" aria-label="Timeline of ${data.rows.length} rows" data-duration="${num(data.duration)}" data-x0="${num(x(0))}" data-x1="${num(x(data.duration))}" data-top="${TOP - 6}" data-bottom="${H - PAD}" data-row="${ROW}">
+${out.join('\n')}
+${legend}
+</svg>`;
+}
+
+/** One self-contained HTML page (an inline SVG, no scripts): the layers as bars on a time axis. */
+export function timelineHtml(data: TimelineData, opts: TimelineHtmlOptions = {}): string {
+  const W = 250 + 950 + 32;
   const title = esc(opts.title ?? 'Timeline');
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title} — timeline</title>
@@ -182,10 +195,7 @@ export function timelineHtml(data: TimelineData, opts: TimelineHtmlOptions = {})
 <body><main>
 <h1>${title}</h1>
 <p>${data.rows.length} row${data.rows.length === 1 ? '' : 's'} · ${num(data.duration)} s · ◆ keyframe start · shaded band: a transition · hover a bar for details</p>
-<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H + 32}" viewBox="0 0 ${W} ${H + 32}" role="img" aria-label="Timeline of ${data.rows.length} rows">
-${out.join('\n')}
-${legend}
-</svg>
+${timelineSvg(data)}
 </main></body></html>
 `;
 }

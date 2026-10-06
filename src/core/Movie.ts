@@ -9,7 +9,7 @@ import { analyzeAudio, type AudioReport, type AudioInspectOptions } from './insp
 import { exportFrames } from './Renderer';
 import { expandTransitions, carryTransitionWindows } from './Transitions';
 import { inspectScene, type InspectReport, type InspectOptions } from './inspect';
-import { collectTimeline, timelineHtml, type TimelineData, type TimelineHtmlOptions } from './timelineChart';
+import { collectTimeline, timelineHtml, timelineSvg, type TimelineData, type TimelineHtmlOptions } from './timelineChart';
 import { pickFrames, sheetLayout } from './frames';
 import { warnUnknownOptions } from './options';
 import { startWhenRunning } from './startWhenRunning';
@@ -335,6 +335,11 @@ export class Movie {
   timelineChart(opts: TimelineHtmlOptions = {}): string {
     warnUnknownOptions('movie.timelineChart()', opts, ['title']);
     return timelineHtml(this.timelineData(), opts);
+  }
+
+  /** Just the chart: one `<svg>` whose geometry is in `data-*` attributes (a viewer puts a playhead on it: `pixi-effects-view`). */
+  timelineSvg(): string {
+    return timelineSvg(this.timelineData());
   }
 
   /**

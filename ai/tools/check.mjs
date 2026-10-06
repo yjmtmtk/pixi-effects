@@ -85,7 +85,7 @@ export function splitIssues(groups, strict = false) {
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.mp4': 'video/mp4', '.webm': 'video/webm', '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf', '.wasm': 'application/wasm', '.map': 'application/json', '.md': 'text/plain; charset=utf-8', '.txt': 'text/plain; charset=utf-8' };
 
 /** A plain static server for `root` (no redirects, so `?query` survives). Resolves { server, port }. */
-export function serve(root, onRequest = null) {
+export function serve(root, onRequest = null, port = 0) {
   const server = http.createServer((req, res) => {
     try {
       if (onRequest && onRequest(req, res)) return;               // a hook (the render tool receives its file this way)
@@ -98,7 +98,7 @@ export function serve(root, onRequest = null) {
       fs.createReadStream(file).pipe(res);
     } catch { res.writeHead(500).end(); }
   });
-  return new Promise(resolve => server.listen(0, '127.0.0.1', () => resolve({ server, port: server.address().port })));
+  return new Promise(resolve => server.listen(port, '127.0.0.1', () => resolve({ server, port: server.address().port })));
 }
 
 /** The nearest folder at or above `dir` that contains dist/index.js (the library build), else `dir`. */
