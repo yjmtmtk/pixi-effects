@@ -1,6 +1,6 @@
 # pixi-effects
 
-> **Status**: experimental. npm has `0.1.0` (core: text / image / video / audio, shapes, masks, transitions, `kenBurns`, filters, export). `main` adds **2.5D layers & camera**, the optional **`pixi-effects/three`** entry and `withFade` — not on npm yet, see [Install](#install). The API may still change.
+> **Status**: experimental — current release `0.2.0`. The API may still change between minor versions.
 
 **[Live demos →](https://yjmtmtk.github.io/pixi-effects/)** · 12 numbered examples + an in-browser playground.
 
@@ -9,9 +9,9 @@ Declarative composition and video rendering for the web. After Effects-style tim
 - **Declarative DSL** — describe your composition as a tree of typed sequences (text, image, video, audio, shapes, nested compositions). No imperative tween code.
 - **Expression language** — sprinkle `'GW * 0.5'` or `'min(W, H) / 2'` anywhere a number goes. Resolved at runtime against a sequence-relative scope.
 - **Filters, masks, transitions** — chroma key, blur, color matrix (or any PixiJS filter); inline masks; seven scene transitions (`crossfade`, `wipe`, `iris`, `slide`, `dip`, `zoom`, `dissolve`).
-- **Presets** — `kenBurns` for stills, `withFade` for fade-in/out (`withFade` is on `main` only).
-- **2.5D layers & camera** *(main only)* — add `threeD: true`, `z`, `rotationX/Y` and a `{ type: 'camera' }` layer for parallax, flips and dolly zooms; no three.js needed.
-- **three.js layer** *(main only, optional)* — drop a real three.js scene in as a layer via `pixi-effects/three`; keyframes drive its objects (`three.cube.rotation.y`).
+- **Presets** — `kenBurns` for stills, `withFade` for fade-in/out.
+- **2.5D layers & camera** — add `threeD: true`, `z`, `rotationX/Y` and a `{ type: 'camera' }` layer for parallax, flips and dolly zooms; no three.js needed.
+- **three.js layer** *(optional)* — drop a real three.js scene in as a layer via `pixi-effects/three`; keyframes drive its objects (`three.cube.rotation.y`).
 - **Built-in player UI** — drop-in HTML5-`<video>`-style overlay controller (play, scrub, mute, volume, fullscreen, export-to-file).
 - **MP4 / WebM / MOV export** — pick container and quality from the controller, or call `movie.render()` from code.
 - **Tiny dependency surface** — only `mediabunny` (runtime) plus PixiJS and GSAP (peer deps). three.js is an *optional* peer, needed only if you import `pixi-effects/three`.
@@ -23,13 +23,9 @@ npm install pixi-effects pixi.js gsap
 npm install three        # optional — only if you import `pixi-effects/three`
 ```
 
-> `npm install pixi-effects` currently gives you `0.1.0`. 2.5D layers & camera, `pixi-effects/three` and `withFade` are on `main` and ship with the next release; until then use the browser/CDN route below, which serves the latest build of `main`.
-
 ### Browser via CDN (no bundler)
 
 Drop the imports into an [importmap](https://developer.mozilla.org/docs/Web/HTML/Element/script/type/importmap) and you're done — see [`examples/`](./examples/) for full files.
-
-**Latest `main`** (everything documented here; built and hosted by GitHub Pages):
 
 ```html
 <script type="importmap">
@@ -39,8 +35,8 @@ Drop the imports into an [importmap](https://developer.mozilla.org/docs/Web/HTML
     "gsap":                    "https://esm.sh/gsap@3.12.5",
     "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
     "mediabunny":              "https://esm.sh/mediabunny",
-    "pixi-effects":            "https://yjmtmtk.github.io/pixi-effects/dist/index.js",
-    "pixi-effects/controller": "https://yjmtmtk.github.io/pixi-effects/dist/Controller.js"
+    "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@0.2.0/dist/index.js",
+    "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.2.0/dist/Controller.js"
   }
 }
 </script>
@@ -51,38 +47,23 @@ Drop the imports into an [importmap](https://developer.mozilla.org/docs/Web/HTML
 </script>
 ```
 
-> **Using three.js?** Add two more entries (`three` and `pixi-effects/three`) to this importmap — see [Adding three.js](#adding-threejs-optional-main-only) below. They are not part of the published `0.1.0`.
+Load the `dist/` files **as they are** (jsDelivr's `/npm/…/dist/…`, or unpkg's `https://unpkg.com/pixi-effects@0.2.0/dist/index.js`) rather than a CDN-rebundled build such as `esm.sh/pixi-effects` or jsDelivr's `+esm`: the entries (`pixi-effects`, `…/controller`, `…/three`) share internal chunks, which only works when each file is served untouched.
 
-**Published `0.1.0`** (core only — no 2.5D, no three.js, no `withFade`):
+> **Using three.js?** Add two more entries (`three` and `pixi-effects/three`) to this importmap — see [Adding three.js](#adding-threejs-optional) below.
+>
+> **Want the unreleased `main`?** Point the `pixi-effects*` entries at the GitHub Pages build instead: `https://yjmtmtk.github.io/pixi-effects/dist/index.js` (and `Controller.js`, `three.js`).
 
-```html
-<script type="importmap">
-{
-  "imports": {
-    "pixi.js":                 "https://esm.sh/pixi.js@8.10.0?bundle-deps",
-    "gsap":                    "https://esm.sh/gsap@3.12.5",
-    "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
-    "mediabunny":              "https://esm.sh/mediabunny",
-    "pixi-effects":            "https://esm.sh/pixi-effects@0.1.0",
-    "pixi-effects/controller": "https://esm.sh/pixi-effects@0.1.0/controller"
-  }
-}
-</script>
-```
+#### Adding three.js (optional)
 
-jsDelivr (`https://cdn.jsdelivr.net/npm/pixi-effects@0.1.0/+esm`) and unpkg (`https://unpkg.com/pixi-effects@0.1.0`) work too for the published version — pick whichever CDN you trust.
-
-#### Adding three.js (optional, `main` only)
-
-Add two more entries to the importmap of the **Latest `main`** block above: three.js itself, and the `pixi-effects/three` entry.
+Add two more entries to the importmap above: three.js itself, and the `pixi-effects/three` entry.
 
 ```html
 <script type="importmap">
 {
   "imports": {
-    "...":                     "(everything from the Latest main block above)",
+    "...":                     "(everything from the importmap above)",
     "three":                   "https://esm.sh/three@0.178.0",
-    "pixi-effects/three":      "https://yjmtmtk.github.io/pixi-effects/dist/three.js"
+    "pixi-effects/three":      "https://cdn.jsdelivr.net/npm/pixi-effects@0.2.0/dist/three.js"
   }
 }
 </script>
@@ -157,7 +138,7 @@ await movie.init({
 const blob = await movie.render({ format: 'mp4' });
 ```
 
-## 2.5D layers & camera (`main`)
+## 2.5D layers & camera
 
 Any layer can be placed in depth and viewed through a camera — no three.js involved:
 

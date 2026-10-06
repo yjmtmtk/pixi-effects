@@ -920,4 +920,4 @@ sequences: [
 | `in?`  | number | fade-in length in seconds, anchored to the sequence's `at`. Sets `initial.alpha = 0`.         |
 | `out?` | number | fade-out length in seconds, anchored to `at + duration`. **Requires `duration` on the spec** (throws otherwise). |
 
-The added keyframes are layered on top of any keyframes the spec already has. `withFade` is available on `main`; it is not in the published `0.1.0`.
+The added keyframes are layered on top of any keyframes the spec already has. `withFade` is available since `0.2.0`.
