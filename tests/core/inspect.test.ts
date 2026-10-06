@@ -85,4 +85,24 @@ describe('inspectScene', () => {
     expect(byName.card!.threeD).toBe(true);
     expect(byName.inCard!.bounds).toBeNull();        // rendered into the card's texture: no canvas-space bounds
   });
+
+  it('layers option: "visible" (only layers drawn at this frame) or "none" (just issues + summary); issues come before layers', async () => {
+    const comp = await scene([
+      { type: '__box', name: 'now', initial: { x: 10, y: 10 } },
+      { type: '__box', name: 'later', at: 5 },
+    ]);
+    const all = inspectScene(comp, 0, 0, { width: 1280, height: 720 });
+    expect(all.layers).toHaveLength(2);
+    expect(all.summary).toEqual({ layers: 2, visible: 1 });
+    expect(Object.keys(all).indexOf('issues')).toBeLessThan(Object.keys(all).indexOf('layers'));
+
+    const vis = inspectScene(comp, 0, 0, { width: 1280, height: 720 }, { layers: 'visible' });
+    expect(vis.layers.map(l => l.name)).toEqual(['now']);
+    expect(vis.summary).toEqual({ layers: 2, visible: 1 });
+
+    const none = inspectScene(comp, 0, 0, { width: 1280, height: 720 }, { layers: 'none' });
+    expect(none.layers).toEqual([]);
+    expect(none.summary.visible).toBe(1);
+  });
 });
+

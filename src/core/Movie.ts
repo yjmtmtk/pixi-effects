@@ -7,7 +7,7 @@ import { CompositionSequence } from '../sequences/Composition';
 import { mixdown } from './AudioMixer';
 import { exportFrames } from './Renderer';
 import { expandTransitions } from './Transitions';
-import { inspectScene, type InspectReport } from './inspect';
+import { inspectScene, type InspectReport, type InspectOptions } from './inspect';
 import { pickFrames, sheetLayout } from './frames';
 import type { Sequence } from '../sequences/Base';
 import type {
@@ -297,11 +297,11 @@ export class Movie {
    * Where every layer is drawn at `frame` (canvas pixels, visibility) plus `issues` — text that is off
    * the canvas, cut by an edge, empty, or overlapping other text. Seeks there and stays there.
    */
-  async inspect(frame: number = this.currentFrame): Promise<InspectReport> {
+  async inspect(frame: number = this.currentFrame, opts: InspectOptions = { layers: 'visible' }): Promise<InspectReport> {
     this._requireReady('inspect');
     const f = clampFrame(frame, this.totalFrames);
     await this.gotoFrame(f, true);
-    return inspectScene(this._rootSequence as CompositionSequence, f, f / this.frameRate, { width: this.width, height: this.height });
+    return inspectScene(this._rootSequence as CompositionSequence, f, f / this.frameRate, { width: this.width, height: this.height }, opts);
   }
 
   private _requireReady(what: string): void {

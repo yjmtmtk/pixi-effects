@@ -8,7 +8,7 @@ export type {
   ProgressEvent,
 } from './core/Movie';
 
-export type { InspectReport, LayerInfo } from './core/inspect';
+export type { InspectReport, InspectOptions, LayerInfo } from './core/inspect';
 
 export { registerSequenceType } from './core/Composition';
 export type { SequenceCtor } from './core/Composition';

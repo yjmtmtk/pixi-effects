@@ -22,9 +22,16 @@ export interface InspectReport {
   frame: number;
   time: number;
   canvas: { width: number; height: number };
-  layers: LayerInfo[];
-  /** Human-readable problems worth a look: text off-canvas / cut off / empty / overlapping text. */
+  /** Layer counts (of the whole tree) — present even when `layers` is filtered out. */
+  summary: { layers: number; visible: number };
+  /** Human-readable problems worth a look: text off-canvas / cut off / empty / overlapping text. Read this first. */
   issues: string[];
+  layers: LayerInfo[];
+}
+
+export interface InspectOptions {
+  /** Which layers to list: every layer, only those drawn at this frame, or none (just `issues` + `summary`). Default `'all'`. */
+  layers?: 'all' | 'visible' | 'none';
 }
 
 const intersection = (a: Rect, b: Rect): number => {
@@ -38,7 +45,9 @@ const intersection = (a: Rect, b: Rect): number => {
  * cannot see without looking: text that is off the canvas or cut by an edge, empty text, and text layers
  * that overlap each other. Call after seeking (Movie.inspect does).
  */
-export function inspectScene(root: CompositionSequence, frame: number, time: number, canvas: { width: number; height: number }): InspectReport {
+export function inspectScene(
+  root: CompositionSequence, frame: number, time: number, canvas: { width: number; height: number }, opts: InspectOptions = {},
+): InspectReport {
   const layers: LayerInfo[] = [];
   const view: Rect = { x: 0, y: 0, width: canvas.width, height: canvas.height };
 
@@ -95,5 +104,7 @@ export function inspectScene(root: CompositionSequence, frame: number, time: num
       if (share > 0.25) issues.push(`text layers "${texts[i]!.path}" and "${texts[j]!.path}" overlap by ${Math.round(share * 100)}% of the smaller one`);
     }
   }
-  return { frame, time, canvas, layers, issues };
+  const mode = opts.layers ?? 'all';
+  const listed = mode === 'none' ? [] : mode === 'visible' ? layers.filter(l => l.visible) : layers;
+  return { frame, time, canvas, summary: { layers: layers.length, visible: layers.filter(l => l.visible).length }, issues, layers: listed };
 }

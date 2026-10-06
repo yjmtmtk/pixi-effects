@@ -119,7 +119,15 @@ export class ShapeSequence extends Sequence {
     // and surprise the user.
     // A user-supplied initial.pivotX / pivotY overrides this in bindTimeline.
     if (!ANCHORED_SHAPES.has(this.spec.shape)) {
-      graphics.pivot.set(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+      const cx = bounds.x + bounds.width / 2;
+      const cy = bounds.y + bounds.height / 2;
+      graphics.pivot.set(cx, cy);
+      // Pivot at the centre means x,y places the centre. When the author gives no x / y the points
+      // are meant as plain coordinates, so default the position to that centre (the shape then
+      // appears exactly where its points say). An explicit initial x / y still wins, per axis.
+      const init = (this.spec.initial ?? {}) as Record<string, unknown>;
+      if (init.x === undefined) graphics.x = cx;
+      if (init.y === undefined) graphics.y = cy;
     }
 
     // Per-frame redraw: PIXI v8 `Container.onRender` fires during render, so
