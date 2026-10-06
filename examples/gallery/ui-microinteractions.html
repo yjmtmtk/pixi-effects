@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UI motion kit · pixi-effects gallery</title>
+  <style>
+    html, body { height: 100%; }
+    body { background: #15161b; margin: 0; padding: 16px; box-sizing: border-box; min-height: 100vh; display: grid; place-items: center; }
+    canvas { width: min(960px, 100%); height: auto; display: block; border-radius: 10px; }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script type="application/json" id="piece-meta">{
+    "title": "UI motion kit",
+    "subtitle": "Six microinteractions on a 3×2 board — toggle, ripple + check, like burst, loader, download, bell — played as a cascade, then all at once",
+    "tags": ["ui", "microinteractions", "motion kit", "easing", "light", "audio"],
+    "width": 1280, "height": 720, "duration": 12, "posterFrame": 260, "model": "opus"
+  }</script>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 12;
+    const POSTER_FRAME = 260;
+    const SANS = "-apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif";
+    const MONO = "ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
+
+    // ---------- palette: cool paper, one ink, two greys, ONE brand colour (+ one pale tint of it) ----------
+    const C = { bg: '#F3F4F8', card: '#FFFFFF', ink: '#1E2233', muted: '#8A90A6', line: '#ECEEF4', off: '#DCDFE8',
+                brand: '#5B4BF5', tint: '#C9C3FF' };
+    const SHADOW = a => ({ type: 'radial', radius: 0.5, stops: [[0, `rgba(30,34,70,${a})`], [0.6, `rgba(30,34,70,${a * 0.4})`], [1, 'rgba(30,34,70,0)']] });
+
+    // ---------- timeline ----------
+    const ENTER = 0.35;                                   // first card lands
+    const CASCADE = [1.5, 2.45, 3.4, 4.35, 5.3, 6.25];    // one interaction after another
+    const RESET = 7.55;                                   // everything springs back to its idle state
+    const TOGETHER = 8.45;                                // all six at once
+    const DONE = 9.75;                                    // status pill: complete; hold to the end
+
+    const kf = (at, to, duration = 0, ease = 'none') => ({ at, to, duration, ease });
+    const set = (at, values) => ({ at, set: values });
+    const sfx = [];                                       // collected sound effects (composition time)
+    const hit = (asset, at, volume = 0.55) => sfx.push({ type: 'audio', name: `sfx-${asset}-${at.toFixed(2)}`, asset, at, volume });
+
+    // ---------- the board: 3 × 2 cards. Each card is a composition 400×290 (card 360×240 + room for its shadow) ----------
+    const CW = 360, CH = 240, GAP_X = 32, GAP_Y = 28, X0 = (W - (3 * CW + 2 * GAP_X)) / 2, Y0 = 142;
+    const PAD = 20, COMP_W = CW + 2 * PAD, COMP_H = CH + 50;          // local card rect: x 20..380, y 25..265
+    const LX = COMP_W / 2, LY = 25 + CH / 2;                         // card centre in local coordinates
+    const CX = LX, CY = 119;                                         // centre of the widget area (above the caption)
+
+    // ---------- the six widgets. Each returns its layers; every widget is driven by the same two plays + one reset ----------
+    const PLAYS = i => [CASCADE[i], TOGETHER];
+
+    function toggle(i) {
+      const track = { type: 'shape', shape: 'rect', name: 'toggle-track', width: 132, height: 70, cornerRadius: 35, colorSpace: 'oklab',
+                      initial: { x: CX, y: CY, fillColor: C.off }, keyframes: [] };
+      const knobX = (t, ks) => { ks.push(kf(t, { x: CX + 31 }, 0.6, 'back.out(2.6)')); };
+      const knob = { type: 'shape', shape: 'circle', name: 'toggle-knob', radius: 28, initial: { x: CX - 31, y: CY, fillColor: C.card }, keyframes: [] };
+      const knobShadow = { type: 'shape', shape: 'circle', name: 'toggle-knob-shadow', radius: 29, initial: { x: CX - 31, y: CY + 3, fillColor: '#1E2233', alpha: 0.13 }, keyframes: [] };
+      for (const t of PLAYS(i)) {
+        track.keyframes.push(kf(t + 0.04, { fillColor: C.brand }, 0.28, 'power2.out'));
+        knobX(t, knob.keyframes); knobX(t, knobShadow.keyframes);
+        knob.keyframes.push(kf(t, { scaleX: 1.24, scaleY: 0.9 }, 0.12, 'power2.out'), kf(t + 0.12, { scaleX: 1, scaleY: 1 }, 0.55, 'elastic.out(1, 0.4)'));
+        hit('click', t);
+      }
+      track.keyframes.push(kf(RESET, { fillColor: C.off }, 0.35, 'power2.inOut'));
+      for (const l of [knob, knobShadow]) l.keyframes.push(kf(RESET, { x: CX - 31 }, 0.42, 'power3.inOut'));
+      return [track, knobShadow, knob];
+    }
+
+    function button(i) {
+      const BW = 214, BH = 62, BY = CY + 2;
+      const shapeKeys = () => {
+        const ks = [];
+        for (const t of PLAYS(i)) ks.push(
+          kf(t, { scale: 0.93 }, 0.09, 'power2.out'), kf(t + 0.09, { scale: 1 }, 0.45, 'back.out(3)'),
+          kf(t + 0.3, { width: BH }, 0.42, 'power3.inOut'));
+        ks.push(kf(RESET + 0.1, { width: BW }, 0.45, 'power3.inOut'));
+        return ks;
+      };
+      const btn = { type: 'shape', shape: 'rect', name: 'button', width: BW, height: BH, cornerRadius: BH / 2,
+                    initial: { x: CX, y: BY, fillColor: C.brand }, keyframes: shapeKeys() };
+      const label = { type: 'text', text: 'Submit', name: 'button-label', style: { fontFamily: SANS, fontSize: 21, fontWeight: '600', fill: '#FFFFFF' },
+                      initial: { x: CX, y: BY, anchorX: 0.5, anchorY: 0.5 }, keyframes: [] };
+      const ripple = { type: 'shape', shape: 'circle', name: 'button-ripple', radius: 4, initial: { x: CX - 30, y: BY + 6, fillColor: '#FFFFFF', alpha: 0 }, keyframes: [],
+                       mask: { type: 'shape', shape: 'rect', width: BW, height: BH, cornerRadius: BH / 2, initial: { x: CX, y: BY, fillColor: '#FFFFFF' }, keyframes: shapeKeys() } };
+      const check = { type: 'shape', shape: 'polygon', name: 'button-check', open: true, points: [[CX - 13, BY + 1], [CX - 3, BY + 11], [CX + 15, BY - 10]],
+                      initial: { strokeColor: '#FFFFFF', strokeWidth: 5 }, keyframes: [],
+                      // draw-on: the check only moves rightwards, so a mask growing from its left edge reads as the stroke being drawn
+                      mask: { type: 'shape', shape: 'rect', width: 0, height: 44, anchorX: 0, initial: { x: CX - 17, y: BY, fillColor: '#FFFFFF' }, keyframes: [] } };
+      for (const t of PLAYS(i)) {
+        ripple.keyframes.push(set(t, { radius: 4, alpha: 0.42 }), kf(t, { radius: 150, alpha: 0 }, 0.6, 'power2.out'));
+        label.keyframes.push(kf(t + 0.2, { alpha: 0, scale: 0.85 }, 0.14, 'power2.in'));
+        check.mask.keyframes.push(kf(t + 0.66, { width: 36 }, 0.26, 'power2.out'));
+        hit('click', t); hit('pop', t + 0.7, 0.5);
+      }
+      check.keyframes.push(kf(RESET, { alpha: 0 }, 0.15), set(RESET + 0.4, { alpha: 1 }));
+      check.mask.keyframes.push(set(RESET + 0.2, { width: 0 }));
+      label.keyframes.push(kf(RESET + 0.35, { alpha: 1, scale: 1 }, 0.3, 'back.out(2)'));
+      return [btn, ripple, label, check];
+    }
+
+    function heart(i) {
+      const D = 'M 0 -20 C -30 -50 -70 -10 0 30 C 70 -10 30 -50 0 -20 Z', S = 0.86, HX = CX - 26, HY = CY + 2;
+      const outline = { type: 'shape', shape: 'path', name: 'heart-outline', d: D, initial: { x: HX, y: HY, scale: S, strokeColor: '#B4B9CA', strokeWidth: 4.5 }, keyframes: [] };
+      const fill = { type: 'shape', shape: 'path', name: 'heart-fill', d: D, initial: { x: HX, y: HY, scale: 0, fillColor: C.brand }, keyframes: [] };
+      const ring = { type: 'shape', shape: 'circle', name: 'heart-ring', radius: 16, initial: { x: HX, y: HY, strokeColor: C.tint, strokeWidth: 0 }, keyframes: [] };
+      const count = { type: 'text', text: '{value}', name: 'heart-count', style: { fontFamily: SANS, fontSize: 24, fontWeight: '700', fill: C.ink },
+                      initial: { x: HX + 50, y: HY, anchorX: 0, anchorY: 0.5, value: 128 }, keyframes: [] };
+      const sparks = Array.from({ length: 8 }, (_, k) => ({
+        type: 'shape', shape: 'circle', name: `heart-spark-${k}`, radius: k % 2 ? 3.5 : 5,
+        initial: { x: HX, y: HY, fillColor: k % 2 ? C.tint : C.brand, alpha: 0 }, keyframes: [], _a: (k / 8) * 2 * Math.PI - Math.PI / 2 + (k % 2 ? 0.2 : 0),
+      }));
+      for (const t of PLAYS(i)) {
+        outline.keyframes.push(kf(t, { scale: S * 0.78 }, 0.1, 'power2.out'), kf(t + 0.1, { scale: S }, 0.5, 'elastic.out(1.1, 0.4)'), kf(t + 0.12, { alpha: 0 }, 0.1));
+        fill.keyframes.push(kf(t + 0.08, { scale: S }, 0.6, 'elastic.out(1.15, 0.38)'));
+        ring.keyframes.push(set(t + 0.08, { radius: 14, strokeWidth: 12 }), kf(t + 0.08, { radius: 62, strokeWidth: 0 }, 0.42, 'power2.out'));
+        for (const s of sparks) {
+          const r0 = 26, r1 = s.radius > 4 ? 66 : 54;
+          s.keyframes.push(set(t + 0.14, { x: HX + Math.cos(s._a) * r0, y: HY + Math.sin(s._a) * r0, alpha: 1, scale: 1 }),
+                           kf(t + 0.14, { x: HX + Math.cos(s._a) * r1, y: HY + Math.sin(s._a) * r1, alpha: 0, scale: 0.3 }, 0.5, 'power3.out'));
+        }
+        count.keyframes.push(set(t + 0.1, { value: 129 }), kf(t + 0.1, { y: HY - 5 }, 0.1, 'power2.out'), kf(t + 0.2, { y: HY }, 0.35, 'back.out(3)'));
+        hit('pop', t + 0.08, 0.6);
+      }
+      fill.keyframes.push(kf(RESET, { scale: 0 }, 0.28, 'back.in(2)'));
+      outline.keyframes.push(kf(RESET + 0.15, { alpha: 1 }, 0.2));
+      count.keyframes.push(set(RESET + 0.15, { value: 128 }));
+      sparks.forEach(s => delete s._a);
+      return [ring, ...sparks, outline, fill, count];
+    }
+
+    function loader(i) {
+      const dots = [-1, 0, 1].map(j => ({ type: 'shape', shape: 'circle', name: `loader-dot-${j + 1}`, radius: 11, colorSpace: 'oklab',
+                                          initial: { x: CX + j * 36, y: CY + 8, fillColor: C.off }, keyframes: [] }));
+      dots.forEach((d, j) => {
+        for (const t of PLAYS(i)) {
+          d.keyframes.push(kf(t + j * 0.11, { fillColor: C.brand }, 0.2, 'power2.out'),
+                           kf(t + j * 0.11, { y: CY - 18 }, 0.24, 'sine.inOut', ));
+          d.keyframes[d.keyframes.length - 1].repeat = 3; d.keyframes[d.keyframes.length - 1].yoyo = true;   // up, down, up, down
+          d.keyframes.push(kf(t + j * 0.11 + 0.96, { scale: 1.25 }, 0.08, 'power2.out'), kf(t + j * 0.11 + 1.04, { scale: 1 }, 0.3, 'back.out(3)'));
+          if (j === 0) hit('click', t);
+        }
+        d.keyframes.push(kf(RESET + j * 0.05, { fillColor: C.off }, 0.3, 'power2.inOut'));
+      });
+      return dots;
+    }
+
+    function download(i) {
+      const L = CX - 120, TW = 240, TY = CY + 22;
+      const file = { type: 'text', text: 'motion-kit.zip', name: 'download-file', style: { fontFamily: MONO, fontSize: 14, fill: C.muted },
+                     initial: { x: L, y: CY - 14, anchorX: 0, anchorY: 0.5 } };
+      const count = { type: 'text', text: '{value}%', name: 'download-count', style: { fontFamily: SANS, fontSize: 24, fontWeight: '700', fill: C.ink },
+                      initial: { x: L + TW, y: CY - 14, anchorX: 1, anchorY: 0.5, value: 0 }, keyframes: [] };
+      const track = { type: 'shape', shape: 'rect', name: 'download-track', width: TW, height: 12, cornerRadius: 6, initial: { x: CX, y: TY, fillColor: C.line } };
+      const bar = { type: 'shape', shape: 'rect', name: 'download-bar', width: 0, height: 12, cornerRadius: 6, anchorX: 0,
+                    initial: { x: L, y: TY, fillColor: C.brand }, keyframes: [] };
+      for (const t of PLAYS(i)) {
+        bar.keyframes.push(kf(t, { width: TW }, 1.1, 'power2.inOut'));
+        count.keyframes.push(kf(t, { value: 100 }, 1.1, 'power2.inOut'), kf(t + 1.1, { scale: 1.16 }, 0.08, 'power2.out'), kf(t + 1.18, { scale: 1 }, 0.35, 'back.out(3)'));
+        bar.keyframes.push(kf(t + 1.1, { scaleY: 1.5 }, 0.08, 'power2.out'), kf(t + 1.18, { scaleY: 1 }, 0.3, 'back.out(3)'));
+        hit('click', t); hit('pop', t + 1.1, 0.5);
+      }
+      bar.keyframes.push(kf(RESET, { width: 0 }, 0.4, 'power3.inOut'));
+      count.keyframes.push(kf(RESET, { value: 0 }, 0.4, 'power3.inOut'));
+      return [file, count, track, bar];
+    }
+
+    function bell(i) {
+      // the bell is its own composition so it swings about its hook (pivot), not about its bounds centre
+      const BX = CX - 6, BY = CY - 40;                                // where the hook sits in the card
+      const swing = [16, -14, 10, -7, 4, -2, 0], STEP = 0.075;
+      const bellComp = { type: 'composition', name: 'bell', width: 120, height: 120, initial: { x: BX, y: BY, pivotX: 60, pivotY: 20 }, keyframes: [],
+        sequences: [
+          { type: 'shape', shape: 'circle', name: 'bell-hook', radius: 6, initial: { x: 60, y: 20, fillColor: C.ink } },
+          { type: 'shape', shape: 'circle', name: 'bell-clapper', radius: 8.5, initial: { x: 60, y: 90, fillColor: C.ink } },
+          { type: 'shape', shape: 'path', name: 'bell-body', d: 'M 60 24 C 40 24 32 40 32 58 L 32 72 L 22 84 L 98 84 L 88 72 L 88 58 C 88 40 80 24 60 24 Z',
+            initial: { fillColor: C.ink } },
+        ] };
+      const BADGE_X = BX + 26, BADGE_Y = BY + 12;
+      const badge = { type: 'shape', shape: 'circle', name: 'bell-badge', radius: 15, initial: { x: BADGE_X, y: BADGE_Y, fillColor: C.brand, strokeColor: C.card, strokeWidth: 3.5, scale: 0, alpha: 0 }, keyframes: [] };
+      const num = { type: 'text', text: '3', name: 'bell-badge-num', style: { fontFamily: SANS, fontSize: 16, fontWeight: '700', fill: '#FFFFFF' },
+                    initial: { x: BADGE_X, y: BADGE_Y, anchorX: 0.5, anchorY: 0.5, scale: 0, alpha: 0 }, keyframes: [] };
+      for (const t of PLAYS(i)) {
+        swing.forEach((deg, k) => bellComp.keyframes.push(kf(t + k * STEP, { rotation: deg }, STEP, 'sine.inOut')));
+        for (const l of [badge, num]) l.keyframes.push(set(t + 0.32, { alpha: 1 }), kf(t + 0.32, { scale: 1 }, 0.42, 'back.out(3.5)'));
+        hit('chime', t, 0.35); hit('pop', t + 0.32, 0.5);
+      }
+      for (const l of [badge, num]) l.keyframes.push(kf(RESET, { scale: 0 }, 0.25, 'back.in(2)'), set(RESET + 0.25, { alpha: 0 }));
+      return [bellComp, badge, num];
+    }
+
+    const WIDGETS = [
+      ['Toggle', 'back.out(2.6) spring', toggle],
+      ['Button', 'ripple · draw-on check', button],
+      ['Like', 'elastic.out · burst', heart],
+      ['Loader', 'sine.inOut · yoyo ×4', loader],
+      ['Download', 'power2.inOut · counter', download],
+      ['Notify', 'shake · back.out(3.5)', bell],
+    ];
+
+    function card(i) {
+      const [title, note, widget] = WIDGETS[i];
+      const col = i % 3, row = Math.floor(i / 3);
+      const cx = X0 + CW / 2 + col * (CW + GAP_X), cy = Y0 + CH / 2 + row * (CH + GAP_Y);
+      const enter = ENTER + i * 0.08, play = CASCADE[i];
+      const liftShadow = { type: 'shape', shape: 'rect', name: 'lift-shadow', width: CW + 40, height: CH + 44, initial: { x: LX, y: LY + 16, alpha: 0 },
+                           fillGradient: SHADOW(0.2), keyframes: [kf(play - 0.12, { alpha: 1 }, 0.25, 'power2.out'), kf(play + 0.95, { alpha: 0 }, 0.4, 'power2.inOut'),
+                                                                  kf(TOGETHER - 0.12, { alpha: 1 }, 0.25, 'power2.out'), kf(TOGETHER + 1.2, { alpha: 0 }, 0.5, 'power2.inOut')] };
+      return {
+        type: 'composition', name: `card-${title.toLowerCase()}`, width: COMP_W, height: COMP_H,
+        initial: { x: cx, y: cy + 4, pivotX: LX, pivotY: LY },
+        keyframes: [
+          { at: enter, from: { alpha: 0, y: cy + 30, scale: 0.94 }, to: { alpha: 1, y: cy + 4, scale: 1 }, duration: 0.7, ease: 'back.out(1.5)' },
+          kf(play - 0.12, { y: cy - 4 }, 0.25, 'power2.out'), kf(play + 0.95, { y: cy + 4 }, 0.4, 'power2.inOut'),
+          kf(TOGETHER - 0.12, { y: cy - 4 }, 0.25, 'power2.out'), kf(TOGETHER + 1.2, { y: cy + 4 }, 0.5, 'power2.inOut'),
+        ],
+        sequences: [
+          { type: 'shape', shape: 'rect', name: 'shadow', width: CW + 24, height: CH + 26, initial: { x: LX, y: LY + 8 }, fillGradient: SHADOW(0.11) },
+          liftShadow,
+          { type: 'shape', shape: 'rect', name: 'card', width: CW, height: CH, cornerRadius: 22, initial: { x: LX, y: LY, fillColor: C.card, strokeColor: '#E6E8F0', strokeWidth: 1 } },
+          { type: 'shape', shape: 'line', name: 'divider', from: [PAD + 22, 213], to: [PAD + CW - 22, 213], initial: { strokeColor: C.line, strokeWidth: 1.5 } },
+          { type: 'text', text: String(i + 1).padStart(2, '0'), name: 'caption-num', style: { fontFamily: MONO, fontSize: 13, fontWeight: '700', fill: C.brand },
+            initial: { x: PAD + 24, y: 240, anchorY: 0.5 } },
+          { type: 'text', text: title, name: 'caption-title', style: { fontFamily: SANS, fontSize: 16, fontWeight: '700', fill: C.ink },
+            initial: { x: PAD + 52, y: 240, anchorY: 0.5 } },
+          { type: 'text', text: note, name: 'caption-note', style: { fontFamily: MONO, fontSize: 12, fill: C.muted },
+            initial: { x: PAD + CW - 24, y: 240, anchorX: 1, anchorY: 0.5 } },
+          ...widget(i),
+        ],
+      };
+    }
+
+    // ---------- header: mark + title + subtitle on the left, a status pill on the right ----------
+    const HY = 74;
+    const fadeIn = (at, dx = -14) => (x) => ({ at, from: { alpha: 0, x: x + dx }, to: { alpha: 1, x }, duration: 0.6, ease: 'power3.out' });
+    const header = [
+      { type: 'shape', shape: 'rect', name: 'mark', width: 34, height: 34, cornerRadius: 10, initial: { x: X0 + 17, y: HY, fillColor: C.brand },
+        keyframes: [{ at: 0.1, from: { scale: 0, rotation: -90 }, to: { scale: 1, rotation: 0 }, duration: 0.6, ease: 'back.out(2.2)' }] },
+      { type: 'shape', shape: 'circle', name: 'mark-dot', radius: 6, initial: { x: X0 + 17, y: HY, fillColor: C.card },
+        keyframes: [{ at: 0.25, from: { scale: 0 }, to: { scale: 1 }, duration: 0.5, ease: 'back.out(3)' }] },
+      { type: 'text', text: 'Motion Kit', name: 'title', style: { fontFamily: SANS, fontSize: 28, fontWeight: '800', fill: C.ink, letterSpacing: -0.5 },
+        initial: { x: X0 + 50, y: HY - 9, anchorY: 0.5 }, keyframes: [fadeIn(0.2)(X0 + 50)] },
+      { type: 'text', text: 'MICROINTERACTIONS  ·  6 COMPONENTS  ·  1 BRAND COLOUR', name: 'subtitle', style: { fontFamily: MONO, fontSize: 11, fill: C.muted, letterSpacing: 1.2 },
+        initial: { x: X0 + 51, y: HY + 15, anchorY: 0.5 }, keyframes: [fadeIn(0.32)(X0 + 51)] },
+    ];
+    const PILL_W = 214, PILL_X = X0 + 3 * CW + 2 * GAP_X - PILL_W / 2;
+    const statusPill = [
+      { type: 'shape', shape: 'rect', name: 'pill', width: PILL_W, height: 38, cornerRadius: 19, initial: { x: PILL_X, y: HY, fillColor: C.card, strokeColor: '#E2E5EE', strokeWidth: 1 },
+        keyframes: [{ at: 0.3, from: { alpha: 0, scale: 0.9 }, to: { alpha: 1, scale: 1 }, duration: 0.5, ease: 'back.out(2)' }] },
+      { type: 'shape', shape: 'circle', name: 'pill-dot', radius: 5, colorSpace: 'oklab', initial: { x: PILL_X - PILL_W / 2 + 22, y: HY, fillColor: C.brand },
+        keyframes: [{ at: 0.4, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.3 },
+                    { at: 1.2, to: { scale: 1.5 }, duration: 0.45, ease: 'sine.inOut', repeat: 9, yoyo: true },
+                    kf(DONE, { scale: 1.9 }, 0.12, 'power2.out'), kf(DONE + 0.12, { scale: 1 }, 0.4, 'back.out(3)')] },
+    ];
+    const pillLabel = (text, name, at, end) => ({
+      type: 'text', text, name, at, duration: end - at,
+      style: { fontFamily: MONO, fontSize: 12.5, fontWeight: '600', fill: C.ink, letterSpacing: 1.4 },
+      initial: { x: PILL_X - PILL_W / 2 + 38, y: HY, anchorY: 0.5 },
+      keyframes: [{ at: 0, from: { alpha: 0, y: HY + 8 }, to: { alpha: 1, y: HY }, duration: 0.3, ease: 'power3.out' },
+                  ...(end < DURATION ? [kf(-0.2, { alpha: 0, y: HY - 8 }, 0.2, 'power2.in')] : [])],
+    });
+    statusPill.push(
+      pillLabel('PLAYING 01 → 06', 'status-cascade', 0.45, RESET + 0.2),
+      pillLabel('ALL TOGETHER', 'status-together', RESET + 0.2, DONE),
+      pillLabel('LOOP COMPLETE', 'status-done', DONE, DURATION),
+    );
+
+    // ---------- the cursor: tours the board during the cascade and clicks each widget; leaves before they all play by themselves ----------
+    const ARROW = [[0, 0], [0, 27], [7, 21], [12, 32], [17, 30], [12, 19], [21, 19]];   // tip at (0,0); bounds centre (10.5, 16)
+    const TIP = [10.5, 16];
+    const cardCentre = i => [X0 + CW / 2 + (i % 3) * (CW + GAP_X), Y0 + CH / 2 + Math.floor(i / 3) * (CH + GAP_Y) - 4 - (LY - CY)];   // widget centre while lifted
+    const TARGET = [[-31, 0], [-34, 6], [-26, 2], [0, 6], [58, 22], [-8, -22]];       // where the click lands, relative to each widget centre
+    const tips = TARGET.map(([dx, dy], i) => { const [x, y] = cardCentre(i); return [x + dx, y + dy]; });
+    const cursorKeys = (ox, oy) => {
+      const at = ([x, y]) => ({ x: x + TIP[0] + ox, y: y + TIP[1] + oy });
+      const ks = [];
+      tips.forEach((p, i) => {
+        const t = CASCADE[i];
+        ks.push(i === 0 ? kf(t - 0.8, at(p), 0.7, 'power3.out') : kf(t - 0.52, at(p), 0.46, 'power3.inOut'));
+        ks.push(kf(t - 0.07, { scale: 0.82 }, 0.07, 'power2.out'), kf(t, { scale: 1 }, 0.3, 'back.out(3)'));
+      });
+      ks.push(kf(RESET - 0.6, at([W + 40, H + 30]), 0.7, 'power3.in'));
+      return ks;
+    };
+    const cursorStart = (ox, oy) => ({ x: W - 120 + TIP[0] + ox, y: H + 40 + TIP[1] + oy });
+    const cursor = [
+      { type: 'shape', shape: 'polygon', name: 'cursor-shadow', points: ARROW, duration: RESET + 0.1,
+        initial: { ...cursorStart(2, 4), fillColor: '#1E2233', alpha: 0.18 }, keyframes: cursorKeys(2, 4) },
+      { type: 'shape', shape: 'polygon', name: 'cursor', points: ARROW, duration: RESET + 0.1,
+        initial: { ...cursorStart(0, 0), fillColor: C.ink, strokeColor: '#FFFFFF', strokeWidth: 2 }, keyframes: cursorKeys(0, 0) },
+    ];
+    // a click ring under the cursor tip on every press
+    cursor.unshift(...tips.map(([x, y], i) => ({ type: 'shape', shape: 'circle', name: `click-ring-${i + 1}`, radius: 5, at: CASCADE[i] - 0.04, duration: 0.5,
+      initial: { x, y, strokeColor: C.brand, strokeWidth: 3 },
+      keyframes: [kf(0, { radius: 26, strokeWidth: 0 }, 0.45, 'power2.out')] })));
+
+    // ---------- audio: soft bed + interaction sfx; whooshes on the board's entrance and on the reset ----------
+    hit('swoosh', 0.25, 0.4); hit('swoosh', RESET - 0.05, 0.3); hit('chime', DONE, 0.3);
+    const bgm = { type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0,
+                  keyframes: [kf(0, { volume: 0.45 }, 1.2), kf(-1.6, { volume: 0 }, 1.6)] };
+
+    const sequences = [
+      { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
+        fillGradient: { stops: [[0, '#F6F7FB'], [1, '#ECEEF4']] } },
+      ...header, ...statusPill,
+      ...WIDGETS.map((_, i) => card(i)),
+      ...cursor,
+      bgm, ...sfx,
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        background: C.bg,
+        assets: ['pop', 'click', 'chime', 'swoosh'].map(n => ({ name: n, src: `../_assets/sfx-${n}.mp3` }))
+          .concat([{ name: 'bgm', src: '../_assets/bgm.mp3' }]),
+        composition: { sequences },
+      });
+      window.__ready = true;
+      // opens at 0:00; add ?poster to the URL to park on the poster frame
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

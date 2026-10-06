@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>The Long Night — title sequence</title>
+  <style>
+    body { background: #0b0d0e; margin: 0; padding: 16px; display: flex; justify-content: center; }
+    canvas { width: min(960px, 100%); border-radius: 6px; display: block; }
+  </style>
+  <script type="application/json" id="piece-meta">{ "title": "The Long Night", "subtitle": "Main-title sequence for an imaginary thriller: a three.js shard in fog, letterboxed credits, film grain", "tags": ["three.js", "title sequence", "typography", "film grain", "letterbox"], "width": 1280, "height": 720, "duration": 14, "posterFrame": 405, "model": "opus" }</script>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+    import { registerThree, three } from 'pixi-effects/three';
+    import { BlurFilter } from 'pixi.js';
+    import * as THREE from 'three';
+
+    registerThree();
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 14;
+    const POSTER_FRAME = 405;
+
+    // ---------- palette (desaturated teal / amber) ----------
+    const C = {
+      night:  '#070b0c',
+      fog:    0x0a1315,
+      teal:   '#6f9497',
+      amber:  '#c4975c',
+      paper:  '#e4ddcf',
+      dim:    '#8f8a80',
+    };
+    const SERIF = 'Georgia, "Times New Roman", serif';
+    const BAR = Math.round((H - W / 2.39) / 2);       // 2.39:1 letterbox -> 92 px bars
+    const EASE_IN = 'power2.out', EASE_OUT = 'power2.in', EASE_MOVE = 'sine.inOut';
+
+    // seeded RNG (Park–Miller) so playback, scrubbing and export are identical
+    const rng = (seed) => () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+    const blur = (name, strength) => ({ type: 'custom', name, filter: new BlurFilter({ strength, quality: 3 }) });
+
+    // ---------- 3D: a faceted shard in fog, amber key, teal rim, a passing light ----------
+    const shard = three({
+      type: 'three', name: 'shard', width: 'GW', height: 'GH',
+      initial: { x: 0, y: 0 },
+      setup: (ctx) => {
+        const { scene, camera } = ctx;
+        // no scene.background: the 2D haze behind shows through (renderer is transparent?)
+        scene.fog = new THREE.FogExp2(C.fog, 0.075);
+
+        const geo = new THREE.IcosahedronGeometry(1.22, 1);
+        // pull vertices a little so it reads as a cut stone, not a ball (seeded)
+        const r = rng(11), pos = geo.attributes.position, v = new THREE.Vector3();
+        const moved = new Map();
+        for (let i = 0; i < pos.count; i++) {
+          v.fromBufferAttribute(pos, i);
+          const key = v.toArray().map(n => n.toFixed(3)).join(',');
+          if (!moved.has(key)) moved.set(key, 0.82 + r() * 0.3);
+          v.multiplyScalar(moved.get(key));
+          pos.setXYZ(i, v.x, v.y * 1.25, v.z);
+        }
+        geo.computeVertexNormals();
+        const stone = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+          color: 0x1b2427, roughness: 0.42, metalness: 0.35, flatShading: true,
+        }));
+        const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 1),
+          new THREE.LineBasicMaterial({ color: 0x7fa6a8, transparent: true, opacity: 0.18 }));
+        stone.add(edges);
+        const pivot = new THREE.Group();
+        pivot.add(stone);
+        pivot.position.set(0, 0.62, 0);
+        pivot.rotation.z = 0.12;
+        scene.add(pivot);
+
+        // a thin orbit ring, barely there
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(2.25, 0.006, 6, 220),
+          new THREE.MeshBasicMaterial({ color: 0xc4975c, transparent: true, opacity: 0.35 }));
+        ring.rotation.set(1.32, 0.18, 0);
+        pivot.add(ring);
+
+        // dust in the fog (seeded, drifted purely from t in update)
+        const dr = rng(5), N = 160, pts = new Float32Array(N * 3);
+        for (let i = 0; i < N; i++) {
+          pts[i * 3] = (dr() - 0.5) * 12; pts[i * 3 + 1] = (dr() - 0.5) * 7; pts[i * 3 + 2] = (dr() - 0.5) * 8;
+        }
+        const dustGeo = new THREE.BufferGeometry();
+        dustGeo.setAttribute('position', new THREE.BufferAttribute(pts, 3));
+        const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({
+          color: 0x9fb6b4, size: 0.03, transparent: true, opacity: 0.35, sizeAttenuation: true,
+        }));
+        scene.add(dust);
+
+        scene.add(new THREE.HemisphereLight(0x2c4a4d, 0x050607, 0.9));
+        const key = new THREE.DirectionalLight(0xd29a58, 3.4);
+        key.position.set(-4, 3, 3);
+        scene.add(key);
+        const rim = new THREE.DirectionalLight(0x6f9a9a, 2.2);
+        rim.position.set(3.5, 1.5, -4);
+        scene.add(rim);
+        const sweep = new THREE.PointLight(0xe0a865, 0, 14, 1.2);   // headlights passing, driven by keyframes
+        sweep.position.set(-7, -0.6, 3.2);
+        scene.add(sweep);
+
+        camera.position.set(0, 0.15, 8.2);
+        camera.lookAt(0, 0.2, 0);
+        return { objects: { stone, pivot, key, sweep, dust } };
+      },
+      update: (t, ctx) => {
+        const dust = ctx.scene.children.find(o => o.isPoints);
+        if (dust) { dust.rotation.y = t * 0.018; dust.position.y = t * 0.025; }
+      },
+      keyframes: [
+        { at: 0, to: { 'three.pivot.rotation.y': Math.PI * 0.85 }, duration: DURATION, ease: 'none' },
+        { at: 0, to: { 'three.stone.rotation.x': 0.35 }, duration: DURATION, ease: EASE_MOVE },
+        // the slow push-in
+        { at: 0, to: { 'three.camera.position.z': 5.9 }, duration: DURATION, ease: 'power1.inOut' },
+        // a light passes left -> right, like a car outside
+        { at: 4.6, to: { 'three.sweep.intensity': 38 }, duration: 1.6, ease: 'sine.in' },
+        { at: 4.6, to: { 'three.sweep.position.x': 7 }, duration: 5.2, ease: EASE_MOVE },
+        { at: 8.2, to: { 'three.sweep.intensity': 0 }, duration: 1.6, ease: 'sine.out' },
+        // the key light drops when the title arrives: the night closes in
+        { at: 9.6, to: { 'three.key.intensity': 1.5 }, duration: 2.4, ease: EASE_MOVE },
+      ],
+    });
+
+    // vignette over the 3D, under the type
+    const vignette = {
+      type: 'shape', shape: 'rect', name: 'vignette', width: W, height: H,
+      initial: { x: W / 2, y: H / 2, fillGradient: { type: 'radial', stops: [[0, 'rgba(4,7,8,0)'], [0.55, 'rgba(4,7,8,0.15)'], [1, 'rgba(4,7,8,0.85)']] } },
+    };
+
+    // ---------- credits ----------
+    // a credit = small italic role line + tracked caps name; fade/drift in, hold, fade out
+    function credit({ name, at, dur, role, names, x, y, align = 'left' }) {
+      const ax = align === 'left' ? 0 : align === 'right' ? 1 : 0.5;
+      const drift = (k) => [
+        { at: 0, from: { alpha: 0 }, duration: 1.0, ease: EASE_IN },
+        { at: 0, from: { y: y + k + 10 }, to: { y: y + k - 4 }, duration: dur, ease: 'none' },
+        { at: -0.8, to: { alpha: 0 }, duration: 0.8, ease: EASE_OUT },
+      ];
+      const layers = [{
+        type: 'text', name: `${name}-role`, text: role, at, duration: dur,
+        style: { fontFamily: SERIF, fontStyle: 'italic', fontSize: 19, fill: C.amber, letterSpacing: 1 },
+        initial: { x, y, anchorX: ax, anchorY: 0.5 },
+        keyframes: drift(0),
+      }];
+      names.forEach((n, i) => layers.push({
+        type: 'text', name: `${name}-name${i}`, text: n, at: at + 0.25 + i * 0.35, duration: dur - 0.25 - i * 0.35,
+        style: { fontFamily: SERIF, fontSize: 30, fill: C.paper, letterSpacing: 7 },
+        filters: [blur('soft', 4)],
+        initial: { x, y, anchorX: ax, anchorY: 0.5 },
+        keyframes: [
+          ...drift(38 + i * 46).map(k => ({ ...k })),
+          { at: 0, to: { 'filters.soft.strength': 0 }, duration: 1.1, ease: EASE_IN },
+        ],
+      }));
+      return layers;
+    }
+
+    const credits = [
+      ...credit({ name: 'c1', at: 2.3, dur: 2.7, role: 'Northlight Pictures presents', names: ['A NOCTURNE PRODUCTION'], x: 128, y: 470 }),
+      ...credit({ name: 'c2', at: 5.2, dur: 2.7, role: 'a film by', names: ['MIRA HALVERSEN'], x: W - 128, y: 172, align: 'right' }),
+      ...credit({ name: 'c3', at: 8.0, dur: 2.3, role: 'starring', names: ['ELIAS MARCH', 'JUNE TAVERNER'], x: 128, y: 424 }),
+    ];
+
+    // ---------- main title, one layer per letter (Georgia is proportional: measure it) ----------
+    const TITLE = 'THE LONG NIGHT', T_SIZE = 66, T_TRACK = 0.34 * T_SIZE, T_Y = 494, T_AT = 10.4;
+    const meas = document.createElement('canvas').getContext('2d');
+    meas.font = `400 ${T_SIZE}px ${SERIF}`;
+    const adv = [...TITLE].map(ch => meas.measureText(ch).width);
+    const total = adv.reduce((s, a) => s + a, 0) + T_TRACK * (TITLE.length - 1);
+    let cursor = W / 2 - total / 2;
+    const centers = adv.map(a => { const c = cursor + a / 2; cursor += a + T_TRACK; return c; });
+    const order = centers.map((c, i) => [Math.abs(c - W / 2), i]).sort((a, b) => a[0] - b[0]).map(p => p[1]);
+    const titleLetters = [...TITLE].flatMap((ch, i) => {
+      if (ch === ' ') return [];
+      const rank = order.indexOf(i), cx = centers[i];
+      const start = T_AT + rank * 0.075;
+      const creep = (cx - W / 2) * 0.045;               // the title slowly breathes outward while it holds
+      return [{
+        type: 'text', name: `title-${i}-${ch}`, text: ch, at: start, duration: DURATION - start,
+        style: { fontFamily: SERIF, fontSize: T_SIZE, fill: C.paper, padding: 24 },
+        filters: [blur('soft', 10)],
+        initial: { x: cx, y: T_Y, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [
+          { at: 0, to: { alpha: 1 }, duration: 1.3, ease: EASE_IN },
+          { at: 0, to: { 'filters.soft.strength': 0 }, duration: 1.4, ease: EASE_IN },
+          { at: 0, to: { x: cx + creep }, duration: DURATION - start, ease: 'none' },
+        ],
+      }];
+    });
+
+    const RULE_AT = 11.7, TAG_AT = 12.2;
+    const titleExtras = [
+      {
+        type: 'shape', shape: 'rect', name: 'title-rule', at: RULE_AT, duration: DURATION - RULE_AT,
+        width: 1, height: 1,
+        initial: { x: W / 2, y: T_Y + 58, width: 0, height: 1, fillColor: C.amber, alpha: 0.9 },
+        keyframes: [{ at: 0, to: { width: 220 }, duration: 1.4, ease: 'expo.out' }],
+      },
+      {
+        type: 'text', name: 'tagline', text: 'some doors only open after dark', at: TAG_AT, duration: DURATION - TAG_AT,
+        style: { fontFamily: SERIF, fontStyle: 'italic', fontSize: 20, fill: C.dim, letterSpacing: 2 },
+        initial: { x: W / 2, y: T_Y + 92, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 1.2, ease: EASE_IN }],
+      },
+    ];
+
+    // ---------- film grain: a seeded dot texture that jumps every 2 frames ----------
+    function grainAsset(name, seed, count) {
+      const gw = W + 200, gh = H + 200;
+      const c = Object.assign(document.createElement('canvas'), { width: gw, height: gh });
+      const g = c.getContext('2d'), r = rng(seed);
+      for (let i = 0; i < count; i++) {
+        const light = r() < 0.4, a = 0.04 + r() * 0.16, s = r() < 0.9 ? 1 : 2;
+        g.fillStyle = light ? `rgba(230,222,205,${a})` : `rgba(0,0,0,${a * 1.6})`;
+        g.fillRect(Math.floor(r() * gw), Math.floor(r() * gh), s, s);
+      }
+      return { name, src: c.toDataURL() };
+    }
+    function grainLayer(name, asset, seed) {
+      const r = rng(seed), keys = [];
+      for (let f = 0; f < DURATION * FPS; f += 2) {
+        keys.push({ at: f / FPS, set: { x: -Math.round(r() * 200), y: -Math.round(r() * 200) } });
+      }
+      return { type: 'image', name, asset, initial: { x: 0, y: 0, alpha: 0.55 }, keyframes: keys };
+    }
+    // dust specks / hairs that pop for one or two frames
+    function specks() {
+      const r = rng(23), out = [];
+      for (let i = 0; i < 26; i++) {
+        const t = Math.round((0.6 + r() * (DURATION - 1.2)) * FPS) / FPS;
+        const x = 80 + r() * (W - 160), y = BAR + 20 + r() * (H - 2 * BAR - 40);
+        const hair = r() < 0.25;
+        out.push(hair ? {
+          type: 'shape', shape: 'path', name: `hair-${i}`, at: t, duration: 2 / FPS,
+          d: `M ${x} ${y} q ${8 + r() * 10} ${-6 - r() * 8} ${16 + r() * 18} ${2 + r() * 6}`,
+          initial: { strokeColor: '#d8d0bf', strokeWidth: 1, strokeAlpha: 0.35 },
+        } : {
+          type: 'shape', shape: 'circle', name: `speck-${i}`, at: t, duration: (r() < 0.5 ? 1 : 2) / FPS,
+          radius: 0.8 + r() * 1.6,
+          initial: { x, y, fillColor: r() < 0.6 ? '#e6dccb' : '#000000', fillAlpha: 0.45 },
+        });
+      }
+      return out;
+    }
+    // projector flicker: a black veil whose alpha jitters every 2 frames
+    function flicker() {
+      const r = rng(31), keys = [];
+      for (let f = 0; f < DURATION * FPS; f += 2) keys.push({ at: f / FPS, set: { alpha: r() * 0.06 } });
+      return { type: 'shape', shape: 'rect', name: 'flicker', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: '#000000', alpha: 0 }, keyframes: keys };
+    }
+
+    // ---------- letterbox + fade from black ----------
+    const bars = [
+      { type: 'shape', shape: 'rect', name: 'bar-top', width: W, height: BAR + 2,
+        initial: { x: W / 2, y: 0, anchorY: 1, fillColor: '#000000' },
+        keyframes: [{ at: 0.6, to: { y: BAR + 2 }, duration: 2.0, ease: 'power3.inOut' }] },
+      { type: 'shape', shape: 'rect', name: 'bar-bottom', width: W, height: BAR + 2,
+        initial: { x: W / 2, y: H, anchorY: 0, fillColor: '#000000' },
+        keyframes: [{ at: 0.6, to: { y: H - BAR - 2 }, duration: 2.0, ease: 'power3.inOut' }] },
+    ];
+    const fadeIn = {
+      type: 'shape', shape: 'rect', name: 'from-black', width: W, height: H, duration: 2.4,
+      initial: { x: W / 2, y: H / 2, fillColor: '#000000' },
+      keyframes: [{ at: 0.2, to: { alpha: 0 }, duration: 2.2, ease: EASE_MOVE }],
+    };
+
+    const sequences = [
+      { type: 'shape', shape: 'rect', name: 'bg', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: C.night } },
+      { type: 'shape', shape: 'rect', name: 'haze', width: W, height: H, initial: { x: W / 2, y: H / 2, fillGradient: { type: 'radial', center: [0.5, 0.36], radius: 0.75, stops: [[0, 'rgba(46,72,74,0.85)'], [0.45, 'rgba(22,36,38,0.6)'], [1, 'rgba(7,11,12,0)']] } } },
+      shard,
+      vignette,
+      ...credits,
+      ...titleLetters,
+      ...titleExtras,
+      grainLayer('grain-a', 'grainA', 3),
+      grainLayer('grain-b', 'grainB', 9),
+      ...specks(),
+      flicker(),
+      ...bars,
+      fadeIn,
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        background: C.night,
+        assets: [grainAsset('grainA', 101, 26000), grainAsset('grainB', 202, 14000)],
+        composition: { sequences },
+      });
+      window.__ready = true;
+      // opens at 0:00; add ?poster to the URL to park on the poster frame
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AURA ONE — launch teaser · pixi-effects</title>
+  <style>
+    html, body { height: 100%; }
+    body { background: #0b0b10; margin: 0; padding: 16px; box-sizing: border-box; display: grid; place-items: center; }
+    canvas { width: min(960px, 100%); border-radius: 8px; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
+  </style>
+  <script type="application/json" id="piece-meta">{
+    "title": "AURA ONE",
+    "subtitle": "2.5D launch teaser for imaginary wireless headphones — a headline from depth, floating feature cards, an orbit with a dolly zoom",
+    "tags": ["2.5D", "camera", "dolly-zoom", "product", "typography", "particles"],
+    "width": 1280, "height": 720, "duration": 12, "posterFrame": 190,
+    "model": "fable"
+  }</script>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie, orbit, withFade } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+    import { BlurFilter } from 'pixi.js';
+
+    // ───────────────────────────── constants ─────────────────────────────
+    const W = 1280, H = 720, FPS = 30, DURATION = 12;
+    const POSTER_FRAME = 190;
+
+    // Palette: premium dark, one glowing amber accent.
+    const BG = '#08080d', INK = '#f3efe6', MUTED = '#8d8a99';
+    const ACCENT = '#ffb454', ACCENT_DEEP = '#ff7a18';
+    const GLASS = '#13121b', EDGE = '#2b2936', BAND = '#302e3a', SEAM = '#5a5766';
+    const SANS = "system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif";
+
+    // Timeline (seconds, composition time)
+    const T = {
+      headline: 0.9,                 // first letter leaves depth
+      hairline: 1.9, tagline: 2.0,   // under the headline
+      introEnd: 3.45,                // eyebrow / hairline / tagline gone
+      shrink: 3.1,                   // headline → wordmark at the top
+      product: 3.5,                  // the product emerges from depth
+      orbit: 3.8, orbitLen: 5.6,     // camera orbit + dolly zoom (3.8 → 9.4)
+      cards: 4.7, cardStep: 0.35,    // feature cards fly in
+      sceneEnd: 9.3,                 // the whole 3D scene is gone
+      cta: 9.35,                     // call-to-action (2D overlay)
+    };
+
+    // Seeded random: every run and export is identical.
+    let seed = 2024;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+    // Text measurement with the same font string Pixi will use, so per-letter layout is exact.
+    const mctx = document.createElement('canvas').getContext('2d');
+    const textWidth = (text, font) => { mctx.font = font; return mctx.measureText(text).width; };
+
+    // ───────────────────────────── background ─────────────────────────────
+    const bg = { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: BG } };
+
+    // warm floor light, mostly below the frame
+    const ambient = {
+      type: 'shape', shape: 'circle', name: 'ambient', radius: 760,
+      initial: { x: W / 2, y: H + 190, alpha: 0 },
+      fillGradient: { type: 'radial', stops: [[0, 'rgba(255,122,24,0.28)'], [0.5, 'rgba(255,122,24,0.08)'], [1, 'rgba(255,122,24,0)']] },
+      keyframes: [
+        { at: 0.3, to: { alpha: 1 }, duration: 2.2, ease: 'sine.out' },
+        { at: T.sceneEnd - 0.6, to: { alpha: 0.55 }, duration: 0.8 },
+      ],
+    };
+
+    // ───────────────────────────── intro typography ─────────────────────────────
+    const eyebrow = withFade({
+      type: 'text', text: 'INTRODUCING', name: 'eyebrow', at: 0.45, duration: T.introEnd - 0.45,
+      style: { fontSize: 19, fontWeight: '600', fill: MUTED, letterSpacing: 9, fontFamily: SANS },
+      initial: { x: W / 2, y: 236, anchorX: 0.5, anchorY: 0.5 },
+    }, { in: 0.6, out: 0.3 });
+
+    const hairline = {
+      type: 'shape', shape: 'rect', name: 'hairline', width: 0, height: 2, at: T.hairline, duration: T.introEnd - T.hairline,
+      initial: { x: W / 2, y: 440, fillColor: ACCENT, fillAlpha: 0.85 },
+      keyframes: [
+        { at: 0, to: { width: 420 }, duration: 0.9, ease: 'expo.out' },
+        { at: -0.35, to: { width: 0, fillAlpha: 0 }, duration: 0.35, ease: 'power2.in' },
+      ],
+    };
+
+    const tagline = {
+      type: 'text', text: 'Wireless. Weightless. Yours.', name: 'tagline', threeD: true, at: T.tagline, duration: T.introEnd - T.tagline,
+      style: { fontSize: 27, fontWeight: '500', fill: INK, letterSpacing: 3, fontFamily: SANS },
+      initial: { x: W / 2, y: 480, anchorX: 0.5, anchorY: 0.5, rotationX: -80, alpha: 0, z: 30 },
+      keyframes: [
+        { at: 0, to: { rotationX: 0, alpha: 0.9 }, duration: 0.8, ease: 'expo.out' },
+        { at: -0.35, to: { alpha: 0, y: 496 }, duration: 0.35, ease: 'power2.in' },
+      ],
+    };
+
+    // Headline: one threeD text layer per letter, flying in from depth; later it shrinks into a wordmark at the top.
+    const TITLE = 'AURA ONE', SIZE = 150, TRACK = 10, SHRINK = 0.5, HEAD_Y = 350, WORD_Y = 118;
+    const titleFont = `800 ${SIZE}px ${SANS}`;
+    const widths = [...TITLE].map(ch => textWidth(ch, titleFont));
+    const titleWidth = widths.reduce((a, b) => a + b, 0) + TRACK * (TITLE.length - 1);
+    let cursor = W / 2 - titleWidth / 2;
+    const letters = [...TITLE].flatMap((ch, i) => {
+      const x = cursor + widths[i] / 2;
+      cursor += widths[i] + TRACK;
+      if (ch === ' ') return [];
+      const t = T.headline + i * 0.08;
+      return [{
+        type: 'text', text: ch, name: 'L' + i + ch, threeD: true, colorSpace: 'oklch', duration: T.sceneEnd,
+        style: {
+          fontSize: SIZE, fontWeight: '800', fill: ACCENT, fontFamily: SANS,
+          dropShadow: { color: ACCENT_DEEP, blur: 22, distance: 0, alpha: 0.75 }, padding: 48,
+        },
+        initial: { x, y: HEAD_Y, anchorX: 0.5, anchorY: 0.5, z: 560, rotationY: 70, rotationX: -40, alpha: 0 },
+        keyframes: [
+          { at: t, to: { z: 0, rotationY: 0, rotationX: 0 }, duration: 1.0, ease: 'expo.out' },
+          { at: t, to: { alpha: 1 }, duration: 0.3, ease: 'none' },
+          { at: t + 0.2, to: { fill: INK }, duration: 0.8, ease: 'sine.out' },                              // landing flash amber → ink
+          { at: T.shrink, to: { x: W / 2 + (x - W / 2) * SHRINK, y: WORD_Y, scale: SHRINK }, duration: 0.9, ease: 'power3.inOut' },
+          { at: T.sceneEnd - 0.55, to: { alpha: 0, y: WORD_Y - 24 }, duration: 0.45, ease: 'power2.in' },
+        ],
+      }];
+    });
+
+    // ───────────────────────────── particles in depth ─────────────────────────────
+    // Near particles balloon under the dolly zoom (scale = D / (D − z)): cap z at +150 and draw the near ones smaller,
+    // and dim them under the call-to-action so none of them lands next to the type like a stray full stop.
+    const particles = Array.from({ length: 44 }, (_, i) => {
+      const z = -700 + rnd() * 850;                     // -700 … +150, all well below the closest camera distance (≈ 706 at fov 54)
+      const r = z > 0 ? 1 + rnd() * 1.6 : 1.5 + rnd() * 3.5;
+      const x = -120 + rnd() * (W + 240), y = -40 + rnd() * (H + 80);
+      const accent = rnd() < 0.3;
+      return {
+        type: 'shape', shape: 'circle', name: 'p' + i, radius: r, threeD: true,
+        initial: { x, y, z, alpha: 0, fillColor: accent ? ACCENT : INK, fillAlpha: accent ? 0.5 + rnd() * 0.4 : 0.18 + rnd() * 0.4 },
+        keyframes: [
+          { at: 0.2 + rnd() * 1.2, to: { alpha: 1 }, duration: 1.4 },
+          { at: 0, to: { y: y - 60 - rnd() * 90 }, duration: DURATION, ease: 'none' },
+          ...(z > 0 ? [{ at: T.sceneEnd - 0.4, to: { alpha: 0.35 }, duration: 0.6 }] : []),
+        ],
+      };
+    });
+
+    // ───────────────────────────── the product (abstract headphones) ─────────────────────────────
+    const PW = 600, PH = 440, PX = W / 2, PY = 412;
+    const CUP_Y = 296, CUP_L = 182, CUP_R = 418;        // band: a semicircle of radius 118 about (300, 236)
+    const cup = (cx, side) => [
+      { type: 'shape', shape: 'rect', name: 'cup-' + side, width: 94, height: 136, cornerRadius: 47, initial: { x: cx, y: CUP_Y },
+        fillGradient: { angle: 90, stops: [[0, '#3f3d4a'], [0.5, '#22212b'], [1, '#111016']] } },
+      { type: 'shape', shape: 'ellipse', name: 'cushion-' + side, radiusX: 30, radiusY: 50, initial: { x: cx, y: CUP_Y, fillColor: '#09090d' } },
+      { type: 'shape', shape: 'circle', name: 'ring-' + side, radius: 34, initial: { x: cx, y: CUP_Y, fillAlpha: 0, strokeColor: ACCENT, strokeWidth: 2, strokeAlpha: 0.9 } },
+    ];
+    const product = {
+      type: 'composition', name: 'product', threeD: true, at: T.product, duration: T.sceneEnd - T.product, width: PW, height: PH,
+      initial: { x: PX, y: PY, z: 0, pivotX: PW / 2, pivotY: PH / 2 },
+      sequences: [
+        // soft inner aura
+        { type: 'shape', shape: 'circle', name: 'aura', radius: 190, initial: { x: PW / 2, y: 226, alpha: 0 },
+          fillGradient: { type: 'radial', stops: [[0, 'rgba(255,122,24,0.22)'], [0.7, 'rgba(255,122,24,0.05)'], [1, 'rgba(255,122,24,0)']] },
+          keyframes: [{ at: 0.3, to: { alpha: 1 }, duration: 1.2, ease: 'sine.out' }] },
+        // the glowing halo ring — the product's "aura"
+        { type: 'shape', shape: 'circle', name: 'halo', radius: 208, initial: { x: PW / 2, y: 226, alpha: 0, scale: 0.72 },
+          fillGradient: { type: 'radial', stops: [
+            [0, 'rgba(255,122,24,0)'], [0.62, 'rgba(255,122,24,0)'], [0.8, 'rgba(255,160,70,0.42)'],
+            [0.865, 'rgba(255,214,150,0.95)'], [0.92, 'rgba(255,140,50,0.4)'], [1, 'rgba(255,122,24,0)']] },
+          keyframes: [
+            { at: 0.25, to: { alpha: 1, scale: 1 }, duration: 1.2, ease: 'expo.out' },
+            { at: 1.5, to: { scale: 1.035 }, duration: 1.2, ease: 'sine.inOut', repeat: 2, yoyo: true },
+          ] },
+        // headband + inner seam
+        { type: 'shape', shape: 'path', name: 'band', d: `M ${CUP_L} 236 A 118 118 0 0 1 ${CUP_R} 236`, initial: { strokeColor: BAND, strokeWidth: 26 } },
+        { type: 'shape', shape: 'path', name: 'seam', d: `M ${CUP_L + 10} 236 A 108 108 0 0 1 ${CUP_R - 10} 236`, initial: { strokeColor: SEAM, strokeWidth: 2, strokeAlpha: 0.7 } },
+        ...cup(CUP_L, 'l'), ...cup(CUP_R, 'r'),
+      ],
+      keyframes: [
+        { at: 0, from: { alpha: 0, z: -520, rotationY: -22 }, to: { alpha: 1, z: 0, rotationY: 0 }, duration: 1.1, ease: 'expo.out' },
+        { at: 1.2, to: { y: PY - 10 }, duration: 1.6, ease: 'sine.inOut', repeat: 1, yoyo: true },
+        { at: -0.7, to: { alpha: 0, z: -420, scale: 0.92 }, duration: 0.7, ease: 'power2.in' },
+      ],
+    };
+
+    // ───────────────────────────── feature cards at different depths ─────────────────────────────
+    const CW = 250, CH = 148;
+    const card = (name, value, label, x, y, z, i) => {
+      const at = T.cards + i * T.cardStep;
+      return {
+        type: 'composition', name, threeD: true, at, duration: T.sceneEnd - at, width: CW, height: CH,
+        initial: { x, y, z, pivotX: CW / 2, pivotY: CH / 2 },
+        sequences: [
+          { type: 'shape', shape: 'rect', name: 'glass', width: CW, height: CH, cornerRadius: 22,
+            initial: { x: CW / 2, y: CH / 2, fillColor: GLASS, fillAlpha: 0.94, strokeColor: EDGE, strokeWidth: 1.5 } },
+          { type: 'shape', shape: 'circle', name: 'led', radius: 4, initial: { x: CW - 26, y: 28, fillColor: ACCENT } },
+          // text is sized for depth: a far card at z = −240 is drawn at ≈ 0.82×, so the label stays legible
+          { type: 'text', text: value, name: 'value', style: { fontSize: 46, fontWeight: '700', fill: INK, fontFamily: SANS, letterSpacing: -1 }, initial: { x: 26, y: 36 } },
+          { type: 'text', text: label, name: 'label', style: { fontSize: 15, fontWeight: '600', fill: MUTED, letterSpacing: 3, fontFamily: SANS }, initial: { x: 26, y: 102 } },
+        ],
+        keyframes: [
+          { at: 0, from: { alpha: 0, z: z - 420, rotationY: x < W / 2 ? -55 : 55 }, to: { alpha: 1, z, rotationY: 0 }, duration: 0.9, ease: 'expo.out' },
+          { at: 1.0, to: { y: y - 12 }, duration: 1.2, ease: 'sine.inOut', repeat: 1, yoyo: true },
+          { at: -0.7, to: { alpha: 0, z: z >= 0 ? z + 480 : z - 700 }, duration: 0.7, ease: 'power3.in' },   // near cards whoosh past, far ones recede
+        ],
+      };
+    };
+    const cards = [
+      // The orbit sweeps the camera to the right (+30°) while the fov widens: the near-right side grows and moves outward
+      // the most, so that card sits furthest inward and lowest in z.
+      card('c-battery', '40 h',   'BATTERY LIFE',  205,  300, -240, 0),   // far cards at the outer x
+      card('c-anc',     '−42 dB', 'ADAPTIVE ANC',  1000, 285, -200, 1),   // at 30° this "far" card is nearer than the camera distance → inward
+      card('c-spatial', '360°',   'SPATIAL AUDIO', 290,  530,   60, 2),   // near cards inward, small z
+      card('c-weight',  '230 g',  'FEATHERLIGHT',  985,  500,   20, 3),   // z 20: at 30° it would otherwise cover the halo ring
+    ];
+
+    // ───────────────────────────── cameras: straight → orbit + dolly zoom → hold ─────────────────────────────
+    const camIntro = { type: 'camera', name: 'cam-intro', duration: T.orbit, initial: { fov: 36 } };
+    const camOrbit = orbit({ name: 'cam-orbit', at: T.orbit, duration: T.orbitLen, degrees: 30, start: 0, dollyZoom: { from: 36, to: 54 }, ease: 'sine.inOut' });
+    const lastKf = camOrbit.keyframes[camOrbit.keyframes.length - 1];
+    const endPose = Object.assign({}, camOrbit.initial, lastKf.set, lastKf.to);        // hold the orbit's final pose until the end
+    const camEnd = { type: 'camera', name: 'cam-end', at: T.orbit + T.orbitLen, duration: DURATION - (T.orbit + T.orbitLen), initial: endPose };
+
+    // ───────────────────────────── light streak across the landed headline (2D, above the depth block) ─────────────────────────────
+    const streak = {
+      type: 'shape', shape: 'rect', name: 'streak', width: 60, height: 1200, at: 2.05, duration: 1.2,
+      filters: [{ type: 'custom', name: 'blur', filter: new BlurFilter({ strength: 18 }) }],
+      filterArea: { x: -110, y: -670, width: 220, height: 1340 },                        // own coordinates: room for the blur
+      initial: { x: -260, y: H / 2, rotation: 18, fillColor: '#ffffff', fillAlpha: 0.13 },
+      keyframes: [{ at: 0, to: { x: W + 260 }, duration: 1.05, ease: 'power2.inOut' }],
+    };
+
+    // ───────────────────────────── vignette ─────────────────────────────
+    const vignette = {
+      type: 'shape', shape: 'rect', name: 'vignette', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
+      fillGradient: { type: 'radial', radius: 0.78, stops: [[0.45, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.72)']] },
+    };
+
+    // ───────────────────────────── call to action (2D overlay, last) ─────────────────────────────
+    const DATE_FONT_SIZE = 168, dateFont = `800 ${DATE_FONT_SIZE}px ${SANS}`;
+    const DATE_Y = 352, DOT_GAP = 46;
+    const w10 = textWidth('10', dateFont), w24 = textWidth('24', dateFont);
+    const dateWidth = w10 + DOT_GAP + w24;
+    const x10 = W / 2 - dateWidth / 2 + w10 / 2, xDot = W / 2 - dateWidth / 2 + w10 + DOT_GAP / 2, x24 = W / 2 + dateWidth / 2 - w24 / 2;
+    const dateIn = (at) => [{ at: 0, from: { alpha: 0, scale: 1.22 }, to: { alpha: 1, scale: 1 }, duration: 0.9, ease: 'expo.out' }];
+    const PILL_W = 304, PILL_H = 62, PILL_Y = 478;
+    const cta = [
+      { type: 'text', text: 'AURA ONE   ·   PRE-ORDER OPENS', name: 'cta-eyebrow', at: T.cta, duration: DURATION - T.cta,
+        style: { fontSize: 18, fontWeight: '600', fill: MUTED, letterSpacing: 8, fontFamily: SANS },
+        initial: { x: W / 2, y: 258, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, from: { y: 270 }, to: { alpha: 1, y: 258 }, duration: 0.7, ease: 'power2.out' }] },
+      { type: 'text', text: '10', name: 'cta-10', at: T.cta + 0.1, duration: DURATION - T.cta - 0.1,
+        style: { fontSize: DATE_FONT_SIZE, fontWeight: '800', fill: INK, letterSpacing: -4, fontFamily: SANS },
+        initial: { x: x10, y: DATE_Y, anchorX: 0.5, anchorY: 0.5 }, keyframes: dateIn() },
+      { type: 'shape', shape: 'circle', name: 'cta-dot-glow', radius: 44, at: T.cta + 0.25, duration: DURATION - T.cta - 0.25,
+        initial: { x: xDot, y: DATE_Y + 56, alpha: 0 },
+        fillGradient: { type: 'radial', stops: [[0, 'rgba(255,122,24,0.55)'], [1, 'rgba(255,122,24,0)']] },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6 }, { at: 0.6, to: { scale: 1.3 }, duration: 0.9, ease: 'sine.inOut', repeat: 1, yoyo: true }] },
+      { type: 'shape', shape: 'circle', name: 'cta-dot', radius: 10, at: T.cta + 0.25, duration: DURATION - T.cta - 0.25,
+        initial: { x: xDot, y: DATE_Y + 56, fillColor: ACCENT, scale: 0 },
+        keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.6, ease: 'back.out(2)' }] },
+      { type: 'text', text: '24', name: 'cta-24', at: T.cta + 0.18, duration: DURATION - T.cta - 0.18,
+        style: { fontSize: DATE_FONT_SIZE, fontWeight: '800', fill: INK, letterSpacing: -4, fontFamily: SANS },
+        initial: { x: x24, y: DATE_Y, anchorX: 0.5, anchorY: 0.5 }, keyframes: dateIn() },
+      // pill button with a breathing glow behind it
+      { type: 'shape', shape: 'rect', name: 'pill-glow', width: PILL_W, height: PILL_H, cornerRadius: PILL_H / 2, at: T.cta + 0.5, duration: DURATION - T.cta - 0.5,
+        filters: [{ type: 'custom', name: 'blur', filter: new BlurFilter({ strength: 26 }) }],
+        filterArea: { x: -(PILL_W / 2 + 120), y: -(PILL_H / 2 + 120), width: PILL_W + 240, height: PILL_H + 240 },
+        initial: { x: W / 2, y: PILL_Y, fillColor: ACCENT_DEEP, fillAlpha: 0.55, alpha: 0, scale: 0.9 },
+        keyframes: [
+          { at: 0, to: { alpha: 1, scale: 1 }, duration: 0.7, ease: 'back.out(1.6)' },
+          { at: 0.9, to: { scale: 1.08 }, duration: 0.7, ease: 'sine.inOut', repeat: 1, yoyo: true },
+        ] },
+      { type: 'shape', shape: 'rect', name: 'pill', width: PILL_W, height: PILL_H, cornerRadius: PILL_H / 2, at: T.cta + 0.5, duration: DURATION - T.cta - 0.5,
+        initial: { x: W / 2, y: PILL_Y, alpha: 0, scale: 0.8 },
+        fillGradient: { angle: 0, stops: [[0, '#ffc872'], [1, '#ff9a3c']] },
+        keyframes: [{ at: 0, to: { alpha: 1, scale: 1 }, duration: 0.7, ease: 'back.out(1.6)' }] },
+      { type: 'text', text: 'Reserve yours  →', name: 'pill-label', at: T.cta + 0.6, duration: DURATION - T.cta - 0.6,
+        style: { fontSize: 22, fontWeight: '700', fill: '#1a1206', letterSpacing: 1, fontFamily: SANS },
+        initial: { x: W / 2, y: PILL_Y, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.4 }] },
+      { type: 'text', text: 'aura.one', name: 'cta-footer', at: T.cta + 0.8, duration: DURATION - T.cta - 0.8,
+        style: { fontSize: 15, fontWeight: '500', fill: MUTED, letterSpacing: 5, fontFamily: SANS },
+        initial: { x: W / 2, y: 600, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 0.75 }, duration: 0.6 }] },
+    ];
+
+    // ───────────────────────────── audio ─────────────────────────────
+    const audio = [
+      { type: 'audio', asset: 'bgm', name: 'bgm', loop: true, volume: 0, duration: DURATION,
+        keyframes: [{ at: 0, to: { volume: 0.7 }, duration: 1.5 }, { at: -2, to: { volume: 0 }, duration: 2 }] },
+      { type: 'audio', asset: 'swoosh', name: 'sfx-swoosh', at: T.headline, volume: 0.6 },
+      { type: 'audio', asset: 'chime', name: 'sfx-chime', at: T.cta + 0.1, duration: 0.6, volume: 0.7 },
+    ];
+
+    // Z-order is array order. One consecutive threeD block so all depth layers sort together; 2D overlays after it ignore the camera.
+    const sequences = [
+      bg, ambient, eyebrow, hairline,
+      camIntro, camOrbit, camEnd,
+      ...particles, product, ...letters, tagline, ...cards,
+      streak, vignette,
+      ...cta,
+      ...audio,
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;                         // so a script can seek / screenshot / render
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        background: BG,
+        assets: [
+          { name: 'bgm', src: '../_assets/bgm.mp3' },
+          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
+          { name: 'chime', src: '../_assets/sfx-chime.mp3' },
+        ],
+        composition: { sequences },
+      });
+      // opens at 0:00; add ?poster to the URL to park on the poster frame
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);  // opening still = the poster frame
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
+    }
+  </script>
+</body>
+</html>

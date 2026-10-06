@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Four days in Iceland — travel slideshow</title>
+  <style>
+    html, body { background: #0b0a0d; margin: 0; }
+    body { padding: 16px; display: flex; justify-content: center; }
+    canvas { width: min(960px, 100%); border-radius: 8px; display: block; }
+    /* .movie-controller { display: none !important; }   <- uncomment to hide the player bar while checking the layout */
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script type="application/json" id="piece-meta">{ "title": "Four days in Iceland", "subtitle": "A fictional travel slideshow: four procedurally painted landscapes, Ken Burns, four different transitions, captions and a day counter.", "tags": ["slideshow", "ken burns", "transitions", "procedural images", "audio", "captions"], "width": 1280, "height": 720, "duration": 14, "posterFrame": 400, "model": "sonnet" }</script>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie, kenBurns } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 14, POSTER_FRAME = 400;
+
+    // ───────────────────────── procedural "photographs" (1920×1080) ─────────────────────────
+    const PW = 1920, PH = 1080;
+    const mulberry = (a) => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    const newCanvas = (w = PW, h = PH) => { const c = Object.assign(document.createElement('canvas'), { width: w, height: h }); return [c, c.getContext('2d')]; };
+
+    // midpoint displacement → n+1 values, roughly -1..1
+    function ridgeArray(rnd, n, rough) {
+      const p = new Array(n + 1).fill(0); p[0] = rnd() - 0.5; p[n] = rnd() - 0.5;
+      let step = n, amp = 1;
+      while (step > 1) { const half = step / 2; for (let i = half; i < n; i += step) p[i] = (p[i - half] + p[i + half]) / 2 + (rnd() - 0.5) * amp; amp *= rough; step = half; }
+      return p;
+    }
+    // filled mountain / dune layer. returns the y of the silhouette per sample (for placing things on it)
+    function ridge(g, { seed, y, amp, rough = 0.55, slope = 0, top, bottom, rim, n = 512, power = 1 }) {
+      const p = ridgeArray(mulberry(seed), n, rough);
+      const ys = p.map((v, i) => y - Math.sign(v) * Math.pow(Math.abs(v), power) * amp + slope * (i / n));
+      const lo = Math.max(...ys);
+      const grad = g.createLinearGradient(0, Math.min(...ys), 0, lo + 40);
+      grad.addColorStop(0, top); grad.addColorStop(1, bottom);
+      g.beginPath(); g.moveTo(0, PH);
+      ys.forEach((yy, i) => g.lineTo(i / n * PW, yy));
+      g.lineTo(PW, PH); g.closePath(); g.fillStyle = grad; g.fill();
+      if (rim) { g.beginPath(); ys.forEach((yy, i) => (i ? g.lineTo(i / n * PW, yy) : g.moveTo(0, yy))); g.strokeStyle = rim; g.lineWidth = 2; g.stroke(); }
+      return ys;
+    }
+    const vgrad = (g, y0, y1, stops) => { const gr = g.createLinearGradient(0, y0, 0, y1); stops.forEach(([o, c]) => gr.addColorStop(o, c)); return gr; };
+    function glow(g, x, y, r, color, alpha = 1) {
+      const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, color); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      g.save(); g.globalAlpha = alpha; g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); g.restore();
+    }
+    // soft horizontal cloud streaks
+    function clouds(g, rnd, { y0, y1, count, color, alpha, w = [260, 700], h = [14, 40] }) {
+      for (let i = 0; i < count; i++) {
+        const cx = rnd() * PW, cy = y0 + rnd() * (y1 - y0), cw = w[0] + rnd() * (w[1] - w[0]), ch = h[0] + rnd() * (h[1] - h[0]);
+        g.save(); g.translate(cx, cy); g.scale(cw / ch, 1);
+        const gr = g.createRadialGradient(0, 0, 0, 0, 0, ch); gr.addColorStop(0, color); gr.addColorStop(1, 'rgba(255,255,255,0)');
+        g.globalAlpha = alpha * (0.4 + rnd() * 0.6); g.fillStyle = gr; g.fillRect(-ch, -ch, ch * 2, ch * 2); g.restore();
+      }
+    }
+    function grain(g, seed, amount = 0.05) {
+      const r = mulberry(seed);
+      for (let i = 0; i < 70000; i++) { g.fillStyle = r() > 0.5 ? `rgba(255,255,255,${amount * r()})` : `rgba(0,0,0,${amount * r()})`; g.fillRect(r() * PW, r() * PH, 1.6, 1.6); }
+    }
+    let SH = 0;                                          // the painting is drawn shifted up by SH so the horizon clears the caption zone
+    const start = (g, shift, bottomColor) => { SH = shift; g.fillStyle = bottomColor; g.fillRect(0, 0, PW, PH); g.translate(0, -shift); };
+    const finish = (g, seed, amount) => { g.setTransform(1, 0, 0, 1, 0, 0); grain(g, seed, amount); };
+    function flipReflection(c, g, y, alpha) {          // mirror everything above y into the water below it (y in scene coordinates)
+      const yy = y - SH; g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.beginPath(); g.rect(0, yy, PW, PH - yy); g.clip(); g.translate(0, 2 * yy); g.scale(1, -1); g.globalAlpha = alpha; g.drawImage(c, 0, 0); g.restore();
+    }
+    function ripples(g, rnd, { y0, y1, count, color, alpha }) {
+      for (let i = 0; i < count; i++) {
+        const t = rnd(), y = y0 + (y1 - y0) * t * t, x = rnd() * PW, w = 40 + rnd() * 260 * (0.3 + t);
+        g.fillStyle = color; g.globalAlpha = alpha * (0.3 + rnd() * 0.7) * (0.4 + t); g.fillRect(x, y, w, 1.5 + t * 2.5); g.globalAlpha = 1;
+      }
+    }
+
+    // 1 · Reykjavík, golden hour
+    function paintHarbour() {
+      const [c, g] = newCanvas(), rnd = mulberry(11), HZ = 740; start(g, 150, '#14132a');
+      g.fillStyle = vgrad(g, 0, HZ, [[0, '#1d3560'], [0.34, '#5a6c9a'], [0.58, '#d98a78'], [0.78, '#ffbe78'], [1, '#ffe5ac']]); g.fillRect(0, 0, PW, PH);
+      glow(g, 640, 700, 900, 'rgba(255,196,120,0.75)'); glow(g, 640, 700, 300, 'rgba(255,240,200,0.9)');
+      clouds(g, rnd, { y0: 170, y1: 520, count: 26, color: 'rgba(255,160,130,1)', alpha: 0.38 });
+      clouds(g, rnd, { y0: 60, y1: 330, count: 14, color: 'rgba(110,120,180,1)', alpha: 0.28, w: [400, 900] });
+      g.fillStyle = '#fff6d8'; g.beginPath(); g.arc(640, 704, 52, 0, 7); g.fill();
+      ridge(g, { seed: 3, y: 720, amp: 190, rough: 0.52, top: '#9c819e', bottom: '#d49a82', rim: 'rgba(255,214,170,0.35)' });
+      ridge(g, { seed: 8, y: 760, amp: 120, rough: 0.5, top: '#6b5a80', bottom: '#b27d80' });
+      g.fillStyle = vgrad(g, 770, PH, [[0, '#e8a870'], [0.18, '#a8707e'], [1, '#262c52']]); g.fillRect(0, 770, PW, PH - 770);
+      for (let y = 774; y < PH; y += 5) {                                 // sun glitter on the water
+        const t = (y - 774) / (PH - 774), w = 40 + t * 520 * (0.5 + rnd() * 0.7), x = 640 + (rnd() - 0.5) * (120 + t * 420);
+        g.globalAlpha = (0.65 - t * 0.5) * (0.4 + rnd() * 0.6); g.fillStyle = '#fff0c4'; g.fillRect(x - w / 2, y, w, 2 + t * 2);
+      }
+      g.globalAlpha = 1; ripples(g, rnd, { y0: 780, y1: PH, count: 160, color: '#1c2146', alpha: 0.35 });
+      const ys = ridge(g, { seed: 21, y: 1140, amp: 60, rough: 0.5, slope: -340, top: '#2a2442', bottom: '#14132a', rim: 'rgba(255,190,130,0.45)', n: 512 });
+      const cols = ['#d8483c', '#e7b04a', '#3d78a8', '#e8e0cc', '#c8663c', '#5a8c6a'];
+      for (let i = 0, x = 1080; x < 1830; i++, x += 34 + rnd() * 36) {          // little coloured houses on the headland
+        const w = 36 + rnd() * 26, hh = 28 + rnd() * 22, gy = ys[Math.round(x / PW * 512)] + 6, col = cols[i % cols.length];
+        g.fillStyle = col; g.globalAlpha = 0.9; g.fillRect(x, gy - hh, w, hh);
+        g.fillStyle = '#2a1c2c'; g.globalAlpha = 1; g.beginPath(); g.moveTo(x - 4, gy - hh); g.lineTo(x + w / 2, gy - hh - 20); g.lineTo(x + w + 4, gy - hh); g.fill();
+        g.fillStyle = '#ffd890'; g.fillRect(x + w * 0.2, gy - hh * 0.62, 7, 9); g.fillRect(x + w * 0.62, gy - hh * 0.62, 7, 9);
+      }
+      finish(g, 5, 0.05); return c.toDataURL('image/jpeg', 0.92);
+    }
+
+    // 2 · Reynisfjara, black sand at dusk
+    function paintBlackBeach() {
+      const [c, g] = newCanvas(), rnd = mulberry(23), HZ = 600; start(g, 90, '#050709');
+      g.fillStyle = vgrad(g, 0, HZ, [[0, '#14283f'], [0.4, '#48677f'], [0.75, '#e0968c'], [1, '#f8cfa4']]); g.fillRect(0, 0, PW, PH);
+      glow(g, 760, 590, 800, 'rgba(255,190,150,0.55)');
+      clouds(g, rnd, { y0: 120, y1: 470, count: 30, color: 'rgba(250,170,150,1)', alpha: 0.34, w: [320, 900] });
+      clouds(g, rnd, { y0: 40, y1: 250, count: 14, color: 'rgba(60,80,120,1)', alpha: 0.3, w: [500, 1000] });
+      g.fillStyle = vgrad(g, HZ, 800, [[0, '#8aa0aa'], [0.2, '#3c5a6c'], [1, '#162a38']]); g.fillRect(0, HZ, PW, 220);
+      ripples(g, rnd, { y0: HZ + 6, y1: 800, count: 120, color: '#fbd5bd', alpha: 0.3 });
+      // sea stacks
+      const stack = (x, base, hgt, wid, seed) => {
+        const r = mulberry(seed); g.beginPath(); g.moveTo(x - wid / 2, base);
+        const pts = 9; for (let i = 1; i <= pts; i++) { const t = i / pts; g.lineTo(x - wid / 2 + wid * 0.12 * t + (r() - 0.5) * 8, base - hgt * Math.pow(t, 0.7) * (0.92 + r() * 0.08)); }
+        g.lineTo(x + (r() - 0.5) * 6, base - hgt - 8);
+        for (let i = pts; i >= 0; i--) { const t = i / pts; g.lineTo(x + wid / 2 - wid * 0.1 * t + (r() - 0.5) * 8, base - hgt * Math.pow(t, 0.75) * (0.9 + r() * 0.1)); }
+        g.lineTo(x + wid / 2, base); g.closePath(); g.fillStyle = vgrad(g, base - hgt, base, [[0, '#2a3037'], [1, '#12171c']]); g.fill();
+      };
+      stack(1420, 640, 190, 80, 1); stack(1530, 640, 120, 60, 2); stack(1250, 636, 70, 44, 3);
+      glow(g, 1420, 640, 420, 'rgba(240,200,190,1)', 0.35);            // sea mist at the base
+      // wet black sand with sky reflection
+      g.fillStyle = vgrad(g, 790, PH, [[0, '#2f3d46'], [0.15, '#1a2229'], [1, '#080b0e']]); g.fillRect(0, 790, PW, PH - 790);
+      g.fillStyle = vgrad(g, 790, 960, [[0, 'rgba(245,170,150,0.55)'], [1, 'rgba(245,170,150,0)']]); g.fillRect(0, 790, PW, 170);
+      for (let k = 0; k < 7; k++) {                                    // foam wash lines
+        const y0 = 780 + k * 38 + rnd() * 10; g.beginPath();
+        for (let x = 0; x <= PW; x += 12) { const y = y0 + Math.sin(x * 0.008 + k * 1.7) * (8 + k * 2) + Math.sin(x * 0.021 + k) * 4; x ? g.lineTo(x, y) : g.moveTo(x, y); }
+        g.strokeStyle = `rgba(255,236,226,${0.5 - k * 0.05})`; g.lineWidth = 3 + k * 1.1; g.stroke();
+      }
+      ridge(g, { seed: 31, y: 1020, amp: 60, rough: 0.5, slope: -40, top: '#161b20', bottom: '#050709', rim: 'rgba(255,190,160,0.28)', power: 0.9 });
+      for (let i = 0; i < 9; i++) {                                    // basalt columns, bottom left
+        const x = 40 + i * 52, hh = 200 + Math.sin(i * 1.7) * 60 - i * 14;
+        g.fillStyle = '#0d1115'; g.fillRect(x, PH - hh, 50, hh);
+        g.fillStyle = '#2a343c'; g.fillRect(x, PH - hh, 50, 10); g.fillStyle = 'rgba(255,180,150,0.18)'; g.fillRect(x + 46, PH - hh, 4, hh);
+      }
+      finish(g, 6, 0.05); return c.toDataURL('image/jpeg', 0.92);
+    }
+
+    // 3 · Jökulsárlón, glacier lagoon
+    function paintLagoon() {
+      const [c, g] = newCanvas(), rnd = mulberry(37), HZ = 600; start(g, 140, '#17364f');
+      g.fillStyle = vgrad(g, 0, HZ, [[0, '#7c9bc6'], [0.5, '#c4d1e4'], [0.85, '#f4dcc2'], [1, '#ffeacb']]); g.fillRect(0, 0, PW, PH);
+      glow(g, 520, 560, 800, 'rgba(255,214,160,0.7)'); glow(g, 520, 560, 220, 'rgba(255,246,224,0.9)');
+      clouds(g, rnd, { y0: 80, y1: 420, count: 18, color: 'rgba(255,235,220,1)', alpha: 0.5, w: [300, 800] });
+      ridge(g, { seed: 41, y: 610, amp: 270, rough: 0.55, top: '#f2f5fb', bottom: '#9db4d2', rim: 'rgba(255,255,255,0.7)' });
+      ridge(g, { seed: 44, y: 640, amp: 150, rough: 0.5, top: '#c9d6ea', bottom: '#7c97bd' });
+      ridge(g, { seed: 47, y: 650, amp: 30, rough: 0.5, top: '#e6f0f8', bottom: '#96b9d6' });     // glacier tongue
+      g.fillStyle = vgrad(g, 668, PH, [[0, '#a4bdd2'], [0.25, '#4a7694'], [1, '#17364f']]); g.fillRect(0, 668, PW, PH - 668);
+      flipReflection(c, g, 668, 0.42);
+      g.fillStyle = vgrad(g, 668, PH, [[0, 'rgba(255,220,180,0.0)'], [1, 'rgba(10,40,64,0.65)']]); g.fillRect(0, 668, PW, PH - 668);
+      ripples(g, rnd, { y0: 680, y1: PH, count: 220, color: '#e8f4ff', alpha: 0.3 });
+      glow(g, 520, 700, 700, 'rgba(255,220,170,1)', 0.22);
+      const berg = (x, y, w, h, seed) => {
+        const r = mulberry(seed), n = 9, top = [];
+        for (let i = 0; i <= n; i++) { const t = i / n, env = Math.sin(t * Math.PI); top.push([x + (t - 0.5) * w, y - h * Math.pow(env, 0.8) * (0.55 + r() * 0.55)]); }
+        // underwater body, turquoise
+        g.beginPath(); g.moveTo(x - w / 2, y); top.forEach(() => 0); g.lineTo(x + w / 2, y);
+        g.lineTo(x + w * 0.38, y + h * 0.5); g.lineTo(x + w * 0.05, y + h * 0.75); g.lineTo(x - w * 0.34, y + h * 0.5); g.closePath();
+        g.fillStyle = vgrad(g, y, y + h * 0.75, [[0, 'rgba(110,225,240,0.75)'], [1, 'rgba(20,90,130,0)']]); g.fill();
+        // above water
+        g.beginPath(); g.moveTo(x - w / 2, y); top.forEach(([px, py]) => g.lineTo(px, py)); g.lineTo(x + w / 2, y); g.closePath();
+        g.fillStyle = vgrad(g, y - h, y, [[0, '#ffffff'], [0.6, '#dcebf6'], [1, '#9cc4e0']]); g.fill();
+        g.beginPath(); g.moveTo(x + w * 0.05, y); const peak = top.reduce((a, b) => (b[1] < a[1] ? b : a));
+        g.lineTo(peak[0], peak[1]); top.filter(p => p[0] > peak[0]).forEach(([px, py]) => g.lineTo(px, py)); g.lineTo(x + w / 2, y); g.closePath();
+        g.fillStyle = 'rgba(90,130,190,0.35)'; g.fill();
+        g.strokeStyle = 'rgba(255,240,220,0.5)'; g.lineWidth = 1.5; g.beginPath(); top.forEach(([px, py], i) => (i ? g.lineTo(px, py) : g.moveTo(px, py))); g.stroke();
+      };
+      berg(1500, 720, 190, 86, 1); berg(1180, 740, 120, 52, 2); berg(820, 730, 230, 90, 3); berg(300, 760, 150, 62, 4);
+      berg(1560, 860, 360, 210, 5); berg(560, 900, 480, 260, 6); berg(1050, 980, 300, 150, 7);
+      finish(g, 7, 0.045); return c.toDataURL('image/jpeg', 0.92);
+    }
+
+    // 4 · Kirkjufell under the northern lights
+    function paintAurora() {
+      const [c, g] = newCanvas(), rnd = mulberry(53), HZ = 800; start(g, 120, '#020306');
+      g.fillStyle = vgrad(g, 0, HZ, [[0, '#02040c'], [0.55, '#0b1630'], [0.9, '#1a2b4c'], [1, '#3b3450']]); g.fillRect(0, 0, PW, PH);
+      for (let i = 0; i < 26; i++) glow(g, 200 + i * 62 + rnd() * 80, 100 + i * 24 + rnd() * 80, 170 + rnd() * 120, 'rgba(170,185,255,1)', 0.05);   // milky way
+      for (let i = 0; i < 900; i++) { const y = Math.pow(rnd(), 1.4) * HZ * 0.95, a = 0.25 + rnd() * 0.75; g.fillStyle = `rgba(255,${235 + rnd() * 20 | 0},${210 + rnd() * 45 | 0},${a})`; const s = rnd() < 0.04 ? 2.4 : 0.8 + rnd() * 1.1; g.fillRect(rnd() * PW, y, s, s); }
+      // aurora ribbons on an offscreen canvas, softened with blur, then added on top
+      const [ac, ag] = newCanvas(); ag.globalCompositeOperation = 'lighter';
+      const ribbons = [{ base: 500, a1: 90, f1: 0.0032, p1: 0.6, hmax: 400, hue: [90, 255, 170] }, { base: 440, a1: 70, f1: 0.0045, p1: 2.2, hmax: 340, hue: [60, 230, 200] }, { base: 560, a1: 60, f1: 0.0028, p1: 4.1, hmax: 260, hue: [120, 255, 150] }];
+      ribbons.forEach((r, k) => {
+        for (let x = -10; x < PW + 10; x += 3) {
+          const yb = r.base + Math.sin(x * r.f1 + r.p1) * r.a1 + Math.sin(x * r.f1 * 2.7 + r.p1 * 1.7) * r.a1 * 0.35;
+          const hh = r.hmax * (0.35 + 0.65 * Math.abs(Math.sin(x * 0.0021 + r.p1 + k))) * (0.7 + 0.3 * Math.sin(x * 0.043 + k * 3));
+          const rayA = 0.45 + 0.55 * Math.abs(Math.sin(x * 0.05 + r.p1) * Math.sin(x * 0.013 + k));
+          const gr = ag.createLinearGradient(0, yb - hh, 0, yb);
+          gr.addColorStop(0, 'rgba(200,70,200,0)'); gr.addColorStop(0.35, `rgba(70,${r.hue[1] * 0.8 | 0},210,${0.16 * rayA})`); gr.addColorStop(0.85, `rgba(${r.hue.join(',')},${0.5 * rayA})`); gr.addColorStop(1, `rgba(${r.hue.join(',')},0)`);
+          ag.fillStyle = gr; ag.fillRect(x, yb - hh, 3.2, hh);
+        }
+      });
+      g.save(); g.filter = 'blur(10px)'; g.globalCompositeOperation = 'lighter'; g.drawImage(ac, 0, 0); g.filter = 'blur(2px)'; g.globalAlpha = 0.55; g.drawImage(ac, 0, 0); g.restore();
+      glow(g, 960, 840, 900, 'rgba(180,90,70,1)', 0.16);                                   // faint warm horizon glow
+      ridge(g, { seed: 61, y: 800, amp: 70, rough: 0.5, top: '#0e1626', bottom: '#070b15' });
+      // Kirkjufell: steep, asymmetric, with a shoulder on the left (profile points + noise)
+      const pk = ridgeArray(mulberry(67), 512, 0.5), px = 1300, hw = 520, base = 826, Hh = 470;
+      const PROFILE = [[-1, 0], [-0.72, 0.07], [-0.5, 0.2], [-0.34, 0.3], [-0.22, 0.52], [-0.1, 0.8], [-0.03, 0.96], [0, 1], [0.05, 0.9], [0.13, 0.7], [0.24, 0.5], [0.38, 0.33], [0.55, 0.18], [0.78, 0.07], [1, 0]];
+      const prof = (u) => { for (let i = 1; i < PROFILE.length; i++) if (u <= PROFILE[i][0]) { const [u0, h0] = PROFILE[i - 1], [u1, h1] = PROFILE[i]; return h0 + (h1 - h0) * (u - u0) / (u1 - u0); } return 0; };
+      const pts = []; for (let i = 0; i <= 200; i++) { const u = -1 + i / 100, h = prof(u); pts.push([px + u * hw, base - Hh * h - pk[i] * 16 * Math.min(1, h * 3)]); }
+      g.beginPath(); g.moveTo(px - hw, base + 40); pts.forEach(([x, y]) => g.lineTo(x, y)); g.lineTo(px + hw, base + 40); g.closePath();
+      g.fillStyle = vgrad(g, base - Hh, base, [[0, '#121c30'], [1, '#060a14']]); g.fill();
+      g.beginPath(); pts.filter(p => p[0] > px - 20).forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.strokeStyle = 'rgba(110,255,200,0.22)'; g.lineWidth = 2.5; g.stroke();
+      g.fillStyle = vgrad(g, HZ, PH, [[0, '#0b1426'], [1, '#030509']]); g.fillRect(0, HZ + 24, PW, PH);     // water
+      flipReflection(c, g, HZ + 24, 0.55);
+      g.fillStyle = vgrad(g, HZ + 24, PH, [[0, 'rgba(6,12,26,0.15)'], [1, 'rgba(3,5,9,0.82)']]); g.fillRect(0, HZ + 24, PW, PH);
+      ripples(g, rnd, { y0: HZ + 30, y1: PH, count: 190, color: '#9fffd0', alpha: 0.12 });
+      ridge(g, { seed: 71, y: 1040, amp: 50, rough: 0.5, slope: -30, top: '#0a0f18', bottom: '#020306', power: 0.9 });
+      for (const [rx, ry, rw] of [[80, 1020, 220], [1700, 1040, 260], [1450, 1070, 180]]) {     // foreground rocks
+        g.beginPath(); g.moveTo(rx - rw / 2, PH); g.lineTo(rx - rw * 0.3, ry); g.lineTo(rx, ry - 50); g.lineTo(rx + rw * 0.35, ry - 16); g.lineTo(rx + rw / 2, PH); g.closePath(); g.fillStyle = '#04070c'; g.fill();
+      }
+      // a glowing tent, the one warm point
+      glow(g, 1060, 940, 300, 'rgba(255,170,80,1)', 0.55);
+      g.beginPath(); g.moveTo(1010, 972); g.lineTo(1060, 902); g.lineTo(1110, 972); g.closePath(); g.fillStyle = vgrad(g, 902, 972, [[0, '#ffbe6a'], [1, '#d86a2c']]); g.fill();
+      g.beginPath(); g.moveTo(1044, 972); g.lineTo(1060, 932); g.lineTo(1076, 972); g.closePath(); g.fillStyle = '#7a3412'; g.fill();
+      finish(g, 8, 0.05); return c.toDataURL('image/jpeg', 0.92);
+    }
+
+    const PHOTOS = [
+      { name: 'p-harbour', src: paintHarbour() }, { name: 'p-beach', src: paintBlackBeach() },
+      { name: 'p-lagoon', src: paintLagoon() },   { name: 'p-aurora', src: paintAurora() },
+    ];
+
+    // ───────────────────────── timeline ─────────────────────────
+    const TR = 1.0;                                         // transition length
+    const S = [0, 4.4, 7.6, 10.8];                          // scene starts; scene i is alive until S[i+1] + TR
+    const SCENE_DUR = S.map((s, i) => (i < 3 ? S[i + 1] + TR : DURATION) - s);
+    const DAY_IN = [2.9, S[1] + 0.5, S[2] + 0.5, S[3] + 0.5];                // caption / counter appear
+    const DAY_OUT = [S[1] + 0.2, S[2] + 0.2, S[3] + 0.2, null];             // …and fade out as the next picture arrives
+    const PLACES = [
+      { name: 'Reykjavík', sub: 'DAY 01  ·  GOLDEN HOUR  ·  64.15° N' },
+      { name: 'Reynisfjara', sub: 'DAY 02  ·  BLACK SAND  ·  63.40° N' },
+      { name: 'Jökulsárlón', sub: 'DAY 03  ·  GLACIER LAGOON  ·  64.05° N' },
+      { name: 'Kirkjufell', sub: 'DAY 04  ·  NORTHERN LIGHTS  ·  64.93° N' },
+    ];
+    const KINDS = [{ kind: 'wipe', direction: 'left', smoothing: 0.08 }, { kind: 'zoom', mode: 'in' }, { kind: 'dissolve', scale: 90, smoothing: 0.5, seed: 4 }];
+    const MOTIONS = [
+      { motion: 'scale', origin: [0.45, 0.62], zoom: 1.2 },
+      { motion: 'position', from: [0.15, 0.55], to: [0.85, 0.45], zoom: 1.18 },
+      { motion: 'scale', origin: [0.3, 0.6], zoom: 1.2, direction: 'out' },
+      { motion: 'position', from: [0.55, 0.85], to: [0.55, 0.25], zoom: 1.22 },
+    ];
+
+    const WARM = '#ffb86b', CREAM = '#fff1dc';
+    const SERIF = "Georgia, 'Times New Roman', serif", MONO = "ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
+    const rect = (o) => ({ type: 'shape', shape: 'rect', ...o });
+
+    // fade in/out helper for a label: rises 14px while fading in; out = absolute time or null (hold)
+    const appear = (spec, y, inAt, outAt, inDur = 0.7) => ({
+      ...spec, at: inAt, duration: (outAt ?? DURATION) - inAt + (outAt == null ? 0 : 0.4),
+      initial: { ...spec.initial, y, alpha: 0 },
+      keyframes: [
+        { at: 0, from: { alpha: 0, y: y + 14 }, to: { alpha: 1, y }, duration: inDur, ease: 'power3.out' },
+        ...(outAt == null ? [] : [{ at: -0.4, to: { alpha: 0 }, duration: 0.4, ease: 'sine.in' }]),
+      ],
+    });
+
+    const sequences = [];
+    // 1) the four photographs, Ken Burns each
+    PHOTOS.forEach((p, i) => sequences.push(kenBurns({ asset: p.name, name: 'scene' + i, at: S[i], duration: SCENE_DUR[i], ease: 'none', ...MOTIONS[i] })));
+
+    // 2) warm cinematic grade, all plain overlay shapes
+    sequences.push(rect({ name: 'grade-warm', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ff8c3a', fillAlpha: 0.08 } }));
+    sequences.push(rect({ name: 'grade-top', width: 'GW', height: 220, initial: { x: 'GW/2', y: 110 }, fillGradient: { angle: 90, stops: [[0, 'rgba(14,6,2,0.55)'], [1, 'rgba(14,6,2,0)']] } }));
+    sequences.push(rect({ name: 'grade-bottom', width: 'GW', height: 380, initial: { x: 'GW/2', y: 'GH - 190' }, fillGradient: { angle: 90, stops: [[0, 'rgba(14,6,2,0)'], [1, 'rgba(14,6,2,0.72)']] } }));
+    sequences.push(rect({ name: 'vignette', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' }, fillGradient: { type: 'radial', radius: 0.78, stops: [[0.5, 'rgba(10,4,0,0)'], [1, 'rgba(10,4,0,0.55)']] } }));
+    // intro dimmer: the title sits on a darker picture
+    sequences.push(rect({ name: 'intro-dim', width: 'GW', height: 'GH', duration: 3.2, initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0c0604', fillAlpha: 0.5 },
+      keyframes: [{ at: 2.2, to: { fillAlpha: 0 }, duration: 0.9, ease: 'sine.inOut' }] }));
+    // light leaks that flare at every transition
+    [[1180, 80], [90, 640], [640, 40]].forEach(([cx, cy], i) => sequences.push(rect({
+      name: 'leak' + (i + 1), width: 'GW', height: 'GH', at: S[i + 1] - 0.15, duration: TR + 0.5,
+      initial: { x: 'GW/2', y: 'GH/2', alpha: 0 },
+      fillGradient: { type: 'radial', center: [cx / W, cy / H], radius: 0.7, stops: [[0, 'rgba(255,150,60,0.85)'], [1, 'rgba(255,120,40,0)']] },
+      keyframes: [{ at: 0, to: { alpha: 0.75 }, duration: 0.5, ease: 'sine.out' }, { at: 0.5, to: { alpha: 0 }, duration: 1.0, ease: 'sine.in' }],
+    })));
+
+    // 3) drifting dust motes (seeded)
+    let seed = 9; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 26; i++) {
+      const x = rnd() * W, y = 120 + rnd() * 520, rise = 50 + rnd() * 90;
+      sequences.push({ type: 'shape', shape: 'circle', name: 'dust' + i, radius: 1.5 + rnd() * 2.6, duration: DURATION,
+        initial: { x, y, fillColor: '#ffe8c4', fillAlpha: 0.12 + rnd() * 0.3 },
+        keyframes: [{ at: 0, to: { y: y - rise, x: x + (rnd() - 0.5) * 60 }, duration: DURATION, ease: 'none' }] });
+    }
+
+    // 4) frame, intro title, series label, day counter, captions
+    sequences.push(rect({ name: 'frame', width: W - 72, height: H - 72, initial: { x: 'GW/2', y: 'GH/2', fillAlpha: 0, strokeColor: CREAM, strokeAlpha: 0, strokeWidth: 1.5 },
+      keyframes: [{ at: 2.6, to: { strokeAlpha: 0.38 }, duration: 0.8, ease: 'sine.out' }] }));
+
+    sequences.push({ type: 'text', name: 'intro-kicker', text: 'A  TRAVEL  DIARY', at: 0.4, duration: 2.9, style: { fontSize: 20, fontFamily: MONO, fill: WARM, letterSpacing: 8 },
+      initial: { x: 'GW/2', y: 292, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+      keyframes: [{ at: 0, from: { alpha: 0, y: 306 }, to: { alpha: 1, y: 292 }, duration: 0.9, ease: 'power3.out' }, { at: -0.5, to: { alpha: 0 }, duration: 0.5, ease: 'sine.in' }] });
+    sequences.push({ type: 'text', name: 'intro-title', text: 'Four days in Iceland', at: 0.6, duration: 2.7, style: { fontSize: 104, fontFamily: SERIF, fontStyle: 'italic', fill: CREAM, dropShadow: { color: '#1a0a02', blur: 10, distance: 3, alpha: 0.55 }, padding: 30 },
+      initial: { x: 'GW/2', y: 360, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+      keyframes: [{ at: 0, from: { alpha: 0, y: 378, scale: 0.97 }, to: { alpha: 1, y: 360, scale: 1 }, duration: 1.1, ease: 'power3.out' }, { at: -0.5, to: { alpha: 0, scale: 1.03 }, duration: 0.5, ease: 'sine.in' }] });
+    sequences.push(rect({ name: 'intro-rule', width: 0, height: 2, anchorX: 0.5, at: 1.0, duration: 2.3, initial: { x: 'GW/2', y: 436, fillColor: WARM },
+      keyframes: [{ at: 0, to: { width: 220 }, duration: 0.9, ease: 'power3.out' }, { at: -0.4, to: { alpha: 0 }, duration: 0.4 }] }));
+
+    sequences.push({ type: 'text', name: 'series-label', text: 'FOUR DAYS IN ICELAND', at: DAY_IN[0], style: { fontSize: 17, fontFamily: MONO, fill: CREAM, letterSpacing: 5 },
+      initial: { x: 80, y: 66, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.85 }, duration: 0.8 }] });
+    sequences.push({ type: 'text', name: 'day-label', text: 'DAY', at: DAY_IN[0], style: { fontSize: 17, fontFamily: MONO, fill: WARM, letterSpacing: 5 },
+      initial: { x: 1200, y: 66, anchorX: 1, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8 }] });
+    PLACES.forEach((pl, i) => {
+      sequences.push(appear({ type: 'text', name: 'day-num-' + (i + 1), text: '0' + (i + 1), style: { fontSize: 64, fontFamily: SERIF, fontStyle: 'italic', fill: CREAM, dropShadow: { color: '#1a0a02', blur: 6, distance: 2, alpha: 0.5 }, padding: 20 },
+        initial: { x: 1200, anchorX: 1, anchorY: 0.5 } }, 112, DAY_IN[i], DAY_OUT[i], 0.6));
+      sequences.push(appear({ type: 'text', name: 'place-' + (i + 1), text: pl.name, style: { fontSize: 78, fontFamily: SERIF, fontStyle: 'italic', fill: CREAM, dropShadow: { color: '#1a0a02', blur: 10, distance: 3, alpha: 0.55 }, padding: 30 },
+        initial: { x: 80, anchorX: 0, anchorY: 1 } }, 618, DAY_IN[i], DAY_OUT[i]));
+      sequences.push(appear({ type: 'text', name: 'sub-' + (i + 1), text: pl.sub, style: { fontSize: 17, fontFamily: MONO, fill: WARM, letterSpacing: 4 },
+        initial: { x: 84, anchorX: 0, anchorY: 0.5 } }, 652, DAY_IN[i] + 0.15, DAY_OUT[i], 0.6));
+      sequences.push(rect({ name: 'rule-' + (i + 1), width: 0, height: 2, anchorX: 0, at: DAY_IN[i], duration: (DAY_OUT[i] ?? DURATION) - DAY_IN[i] + 0.4, initial: { x: 84, y: 520, fillColor: WARM },
+        keyframes: [{ at: 0, to: { width: 64 }, duration: 0.7, ease: 'power3.out' }, ...(DAY_OUT[i] == null ? [] : [{ at: -0.4, to: { alpha: 0 }, duration: 0.4 }])] }));
+    });
+    for (let i = 0; i < 4; i++) {                                 // four ticks under the day number
+      const lit = { fillColor: WARM, fillAlpha: 1 };
+      sequences.push(rect({ name: 'tick-' + (i + 1), width: 30, height: 3, at: DAY_IN[0], initial: { x: 1200 - 15 - (3 - i) * 38, y: 160, fillColor: CREAM, fillAlpha: 0.0, ...(i === 0 ? {} : {}) },
+        keyframes: [{ at: 0, to: i === 0 ? lit : { fillAlpha: 0.28 }, duration: 0.7 }, ...(i === 0 ? [] : [{ at: DAY_IN[i] - DAY_IN[0], to: lit, duration: 0.5 }])] }));
+    }
+
+    // closing beat on the last picture (Icelandic: "thank you")
+    sequences.push(appear({ type: 'text', name: 'outro', text: 'TAKK FYRIR', style: { fontSize: 17, fontFamily: MONO, fill: CREAM, letterSpacing: 7 },
+      initial: { x: 1200, anchorX: 1, anchorY: 0.5 } }, 652, 12.5, null, 0.9));
+    sequences.push(rect({ name: 'outro-rule', width: 0, height: 2, anchorX: 1, at: 12.4, initial: { x: 1200, y: 626, fillColor: WARM },
+      keyframes: [{ at: 0, to: { width: 64 }, duration: 0.8, ease: 'power3.out' }] }));
+
+    // 5) sound: looped bgm faded in/out, a chime on the title, a swoosh on every transition
+    sequences.push({ type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0, duration: DURATION,
+      keyframes: [{ at: 0, to: { volume: 0.75 }, duration: 1.6, ease: 'sine.out' }, { at: -2.4, to: { volume: 0 }, duration: 2.4, ease: 'sine.in' }] });
+    sequences.push({ type: 'audio', name: 'sfx-chime', asset: 'chime', at: 0.7, duration: 0.6, volume: 0.35 });
+    [1, 2, 3].forEach(i => sequences.push({ type: 'audio', name: 'sfx-swoosh-' + i, asset: 'swoosh', at: S[i], volume: 0.3 }));
+
+    const transitions = KINDS.map((k, i) => ({ ...k, from: 'scene' + i, to: 'scene' + (i + 1), at: S[i + 1], duration: TR, ease: 'sine.inOut' }));
+
+    // ───────────────────────── run ─────────────────────────
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        background: '#0b0a0d',
+        assets: [...PHOTOS, { name: 'bgm', src: '../_assets/bgm.mp3' }, { name: 'chime', src: '../_assets/sfx-chime.mp3' }, { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' }],
+        composition: { sequences, transitions },
+      });
+      // opens at 0:00; add ?poster to the URL to park on the poster frame
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

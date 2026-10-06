@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Orbits — generative</title>
+  <style>
+    html, body { background: #08080c; margin: 0; }
+    body { padding: 16px; box-sizing: border-box; display: flex; justify-content: center; }
+    canvas { width: min(84vh, 100%); height: auto; aspect-ratio: 1 / 1; border-radius: 8px; display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1080" height="1080"></canvas>
+
+  <script type="application/json" id="piece-meta">{ "title": "Orbits", "subtitle": "A seeded loop of pendulum-wave rings, epicycle rosettes and Lissajous comets", "tags": ["generative", "loop", "orbit", "lissajous", "epicycles"], "width": 1080, "height": 1080, "duration": 14, "posterFrame": 180, "model": "opus" }</script>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    // ───────────────────────────── constants ─────────────────────────────
+    const S = 1080, C = S / 2, FPS = 30, T = 14;          // square canvas, one seamless 14 s loop
+    const POSTER_FRAME = 180;
+    const SEED = 427;
+    const TAU = Math.PI * 2;
+
+    // seeded PRNG (mulberry32) — every run and every export is identical
+    function mulberry32(a) {
+      return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    }
+    const rnd = mulberry32(SEED);
+
+    // ───────────────────────────── palette ─────────────────────────────
+    // one gradient, inside → outside: ice cyan → violet → rose → amber
+    const PAL = [[0, '#7cf4ff'], [0.36, '#8f82ff'], [0.7, '#ff72b6'], [1, '#ffc683']];
+    const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+    function pal(u) {
+      u = Math.min(1, Math.max(0, u));
+      let i = 0; while (i < PAL.length - 2 && u > PAL[i + 1][0]) i++;
+      const [u0, c0] = PAL[i], [u1, c1] = PAL[i + 1];
+      const k = (u - u0) / (u1 - u0), a = hex(c0), b = hex(c1);
+      return '#' + a.map((v, j) => Math.round(v + (b[j] - v) * k).toString(16).padStart(2, '0')).join('');
+    }
+
+    // ───────────────────────────── glow sprite ─────────────────────────────
+    // white soft dot (hot core + wide halo); every dot is this image tinted
+    function glowSprite(size = 128) {
+      const c = Object.assign(document.createElement('canvas'), { width: size, height: size });
+      const g = c.getContext('2d'), r = size / 2;
+      const grad = g.createRadialGradient(r, r, 0, r, r, r);
+      grad.addColorStop(0, 'rgba(255,255,255,1)');
+      grad.addColorStop(0.09, 'rgba(255,255,255,0.95)');
+      grad.addColorStop(0.16, 'rgba(255,255,255,0.45)');
+      grad.addColorStop(0.38, 'rgba(255,255,255,0.12)');
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = grad; g.fillRect(0, 0, size, size);
+      return c.toDataURL();
+    }
+    const SPRITE = 128;
+    const dot = (name, x, y, px, tint, alpha = 1, extra = {}) => ({
+      type: 'image', asset: 'glow', name,
+      initial: { x, y, anchorX: 0.5, anchorY: 0.5, scale: px / SPRITE, tint, alpha },
+      ...extra,
+    });
+
+    // a full-canvas group that turns about a point: compositions use pivotX/pivotY
+    const rotor = (name, cx, cy, from, to, sequences, extra = {}) => ({
+      type: 'composition', name, width: S, height: S,
+      initial: { x: cx, y: cy, pivotX: C, pivotY: C, rotation: from },
+      keyframes: [{ at: 0, to: { rotation: to }, duration: T, ease: 'none' }],
+      sequences, ...extra,
+    });
+
+    // an envelope that is 0 at both ends of the loop and `peak` in the middle (seamless)
+    const envelope = (peak, inAt, inDur, outAt, outDur, base = 0) => [
+      { at: inAt, to: { alpha: peak }, duration: inDur, ease: 'sine.inOut' },
+      { at: outAt, to: { alpha: base }, duration: outDur, ease: 'sine.inOut' },
+    ];
+
+    const sequences = [];
+
+    // ───────────────────────────── background ─────────────────────────────
+    sequences.push({ type: 'shape', shape: 'rect', name: 'bg', width: S, height: S, initial: { x: C, y: C },
+      fillGradient: { type: 'radial', radius: 0.72, stops: [[0, '#181038'], [0.55, '#0b0820'], [1, '#030209']] } });
+
+    // ───────────────────────────── 1. pendulum-wave rings ─────────────────────────────
+    // Every ring has the same number of dots. Ring i turns (i+1) × STEP × MULT degrees per loop, so the
+    // rings drift against each other: radial spokes → spirals → k-fold beat patterns → spokes again.
+    const RINGS = 10, PER_RING = 36, STEP = 360 / PER_RING, MULT = 2;
+    const R_IN = 62, R_OUT = 438;
+    const ringPhase = rnd() * STEP;                   // seeded starting twist (same at both loop ends)
+    for (let i = 0; i < RINGS; i++) {
+      const u = i / (RINGS - 1);
+      const r = R_IN + (R_OUT - R_IN) * u;
+      const px = 20 + 22 * u;                         // dots grow a little toward the rim
+      const dots = [];
+      for (let j = 0; j < PER_RING; j++) {
+        const a = j / PER_RING * TAU;
+        dots.push(dot(`ring${i}-dot${j}`, C + r * Math.cos(a), C + r * Math.sin(a), px, pal(u), 0.9));
+      }
+      const turn = (i + 1) * STEP * MULT;
+      sequences.push(rotor(`ring${i}`, C, C, ringPhase, ringPhase + turn, dots, {
+        // breathe: dim at the loop seam, full in the middle
+        keyframes: [
+          { at: 0, to: { rotation: ringPhase + turn }, duration: T, ease: 'none' },
+          { at: 0, to: { alpha: 1 }, duration: T / 2, ease: 'sine.inOut' },
+          { at: T / 2, to: { alpha: 0.42 }, duration: T / 2, ease: 'sine.inOut' },
+        ],
+      }));
+      sequences[sequences.length - 1].initial.alpha = 0.42;
+    }
+
+    // ───────────────────────────── 2. epicycle rosette ─────────────────────────────
+    // p(t) = C + a·e^{i·ωa·t} + b·e^{i·ωb·t} — two nested rotors, both making whole turns per loop,
+    // so the rosette is drawn exactly with two linear rotation tweens per dot (no sampling).
+    // equal counter-rotating arms = a rose curve r = 2R·cos(k·θ); turns (-1, 4) give five broad petals
+    const [TA, TB] = [-1, 4];
+    const RA = 196, RB = 196;                                           // petals reach 392 px from the centre
+    const roseRot0 = rnd() * 360;
+    const rosePoint = (s) => {                                          // s = time in seconds
+      const aa = (roseRot0 + TA * 360 * s / T) * Math.PI / 180, bb = (roseRot0 + TB * 360 * s / T) * Math.PI / 180;
+      return [C + RA * Math.cos(aa) + RB * Math.cos(bb), C + RA * Math.sin(aa) + RB * Math.sin(bb)];
+    };
+    // the faint full curve
+    const rosePts = Array.from({ length: 720 }, (_, k) => rosePoint(k / 720 * T));
+    sequences.push({ type: 'shape', shape: 'polygon', name: 'rose-curve', points: rosePts,
+      initial: { strokeColor: '#b9a6ff', strokeWidth: 1.4, strokeAlpha: 0.5, alpha: 0 },
+      keyframes: envelope(0.75, 1.6, 3.2, 8.6, 3.4) });
+
+    const COMETS = Math.abs(TB - TA), TRAIL = 20, LAG = 1 / 26;         // one comet per lobe
+    for (let c = 0; c < COMETS; c++) {
+      for (let j = 0; j < TRAIL; j++) {
+        const s0 = c * T / COMETS - j * LAG;                             // this dot's time offset
+        const k = j / TRAIL;
+        const aStart = roseRot0 + TA * 360 * s0 / T, bStart = roseRot0 + TB * 360 * s0 / T;
+        const peak = (1 - k) ** 1.6;
+        const tint = pal(0.28 + 0.5 * k);
+        // arm b: a rotor about the tip of arm a (in arm a's frame the tip sits at C + RA on the x axis)
+        const armB = {
+          type: 'composition', name: `rose${c}-t${j}-b`, width: S, height: S,
+          initial: { x: C + RA, y: C, pivotX: C, pivotY: C, rotation: bStart - aStart },
+          keyframes: [{ at: 0, to: { rotation: bStart - aStart + (TB - TA) * 360 }, duration: T, ease: 'none' }],
+          sequences: [
+            ...(j === 0 ? [dot(`rose${c}-halo`, C + RB, C, 170, '#8f82ff', 0, { keyframes: envelope(0.4, 2.2 + c * 0.25, 2.6, 9.0 + c * 0.2, 2.8) })] : []),
+            dot(`rose${c}-t${j}`, C + RB, C, 52 - 34 * k, tint, 0, {
+              keyframes: envelope(peak, 2.2 + c * 0.25, 2.6, 9.0 + c * 0.2, 2.8),
+            })],
+        };
+        sequences.push(rotor(`rose${c}-t${j}-a`, C, C, aStart, aStart + TA * 360, [armB]));
+      }
+    }
+
+    // ───────────────────────────── 3. Lissajous comets ─────────────────────────────
+    // x = A sin(fx·φ + δ), y = A sin(fy·φ): sampled into short linear keyframes (expressions have no time variable)
+    const [FX, FY] = [3, 2], LA = 396, DELTA = Math.PI * (0.08 + 0.04 * rnd());   // δ near 0.1π: an open, woven figure (δ = π/4 collapses it)
+    const lisPoint = (s) => {
+      const ph = s / T * TAU;
+      return [C + LA * Math.sin(FX * ph + DELTA), C + LA * Math.sin(FY * ph)];
+    };
+    const lisPts = Array.from({ length: 900 }, (_, k) => lisPoint(k / 900 * T));
+    sequences.push({ type: 'shape', shape: 'polygon', name: 'lissajous-curve', points: lisPts,
+      initial: { strokeColor: '#ff9fcb', strokeWidth: 1.1, strokeAlpha: 0.45, alpha: 0 },
+      keyframes: envelope(0.6, 4.2, 2.6, 8.4, 2.8) });
+
+    const DT = 1 / 10;                                   // sample every 3 frames
+    const LCOMETS = 2, LTRAIL = 30, LLAG = 1 / 32;
+    for (let c = 0; c < LCOMETS; c++) {
+      for (let j = 0; j < LTRAIL; j++) {
+        const off = c * T / LCOMETS - j * LLAG;
+        const k = j / LTRAIL;
+        const [x0, y0] = lisPoint(off);
+        const kfs = [];
+        for (let s = DT; s <= T + 1e-9; s += DT) {
+          const [x, y] = lisPoint(s + off);
+          kfs.push({ at: +(s - DT).toFixed(4), to: { x, y }, duration: DT, ease: 'none' });
+        }
+        kfs.push(...envelope((1 - k) ** 1.4, 4.8, 2.0, 8.6 + c * 0.3, 2.4));
+        if (j === 0) sequences.push(dot(`lis${c}-halo`, x0, y0, 190, '#ff72b6', 0,      // wide soft halo under the head
+          { keyframes: [...kfs.slice(0, -2), ...envelope(0.35, 4.8, 2.0, 8.6 + c * 0.3, 2.4)] }));
+        sequences.push(dot(`lis${c}-t${j}`, x0, y0, 58 - 40 * k, pal(0.62 + 0.38 * k), 0, { keyframes: kfs }));
+      }
+    }
+
+    // ───────────────────────────── 4. core + vignette + title ─────────────────────────────
+    sequences.push(dot('core-halo', C, C, 300, '#9b8cff', 0.35, {
+      keyframes: [{ at: 0, to: { scale: 380 / SPRITE, alpha: 0.6 }, duration: T / 8, ease: 'sine.inOut', repeat: 7, yoyo: true }],
+    }));
+    sequences.push(dot('core', C, C, 70, '#e9f7ff', 0.9));
+
+    sequences.push({ type: 'shape', shape: 'rect', name: 'vignette', width: S, height: S, initial: { x: C, y: C },
+      fillGradient: { type: 'radial', radius: 0.72, stops: [[0.62, 'rgba(3,2,9,0)'], [1, 'rgba(3,2,9,0.85)']] } });
+
+    const TITLE_AT = 10.2, TITLE_DUR = 3.0;
+    const title = (name, text, y, style) => ({
+      type: 'text', name, text, at: TITLE_AT, duration: TITLE_DUR,
+      style: { fill: '#e8e4ff', ...style },
+      initial: { x: 74, y, anchorX: 0, anchorY: 0.5, alpha: 0 },             // bottom-left plate caption: the corners are empty
+      keyframes: [
+        { at: 0, to: { alpha: 1 }, duration: 0.9, ease: 'sine.inOut' },
+        { at: -0.9, to: { alpha: 0 }, duration: 0.9, ease: 'sine.inOut' },
+      ],
+    });
+    sequences.push(title('title', 'O R B I T S', 962,
+      { fontSize: 26, fontWeight: '300', letterSpacing: 6, fontFamily: 'system-ui, -apple-system, Helvetica, Arial, sans-serif' }));
+    sequences.push(title('seed', `seed ${String(SEED).padStart(4, '0')} · ${TB - TA} lobes · ${FX}:${FY}`, 996,
+      { fontSize: 15, letterSpacing: 2, fill: '#8e88b8', fontFamily: "ui-monospace, 'SF Mono', Menlo, monospace" }));
+
+    // ───────────────────────────── init ─────────────────────────────
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      const t0 = performance.now();
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: S, height: S, duration: T, frameRate: FPS,
+        background: '#030209',
+        assets: [{ name: 'glow', src: glowSprite(SPRITE) }],
+        composition: { sequences },
+      });
+      window.__buildMs = Math.round(performance.now() - t0);
+      // opens at 0:00; add ?poster to the URL to park on the poster frame
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

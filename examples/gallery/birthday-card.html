@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Happy Birthday, Mika!</title>
+  <style>
+    body { background: #14131a; margin: 0; padding: 16px; display: flex; justify-content: center; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script type="application/json" id="piece-meta">
+  { "title": "Happy Birthday, Mika!", "subtitle": "Balloons, a layered cake, flickering candles, a blow-out and a confetti burst", "tags": ["birthday", "celebration", "confetti", "cake", "typography", "audio"], "width": 1280, "height": 720, "duration": 12, "posterFrame": 285, "model": "sonnet" }
+  </script>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 12, POSTER_FRAME = 285;
+
+    // ---------------------------------------------------------------- helpers
+    let seed = 20260;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
+    const between = (a, b) => a + rnd() * (b - a);
+    const r2 = (n) => Math.round(n * 100) / 100;
+    const loops = (total, period) => Math.max(1, Math.ceil(total / period)) - 1;   // `repeat` count that covers `total` s
+
+    const FONT = "'Arial Rounded MT Bold', 'Hiragino Maru Gothic ProN', ui-rounded, system-ui, sans-serif";
+    const BALLOON = ['#ff7aa2', '#ffd166', '#6fd8f0', '#b79cff', '#ff9f68', '#6ee0b0', '#ff8fd0'];
+    const LETTER = ['#ff5d8f', '#ff9f1c', '#2ec4b6', '#7c5cff', '#ff6b6b', '#3a86ff'];
+    const CONFETTI = ['#ff5d8f', '#ffc233', '#2ec4b6', '#7c5cff', '#ff9f1c', '#3a86ff', '#ff7ac8', '#7ddc6a'];
+
+    // key moments (seconds)
+    const TIER_AT = [1.6, 2.2, 2.8];
+    const CANDLE_IN = 3.5;
+    const LIT_AT = (i) => 4.0 + i * 0.5;        // candles are lit one at a time
+    const BLOW = 7.0;                            // the beat: blow-out, flash, confetti
+    const TITLE_AT = 7.8;
+
+    const rect = (o) => ({ type: 'shape', shape: 'rect', ...o });
+    const full = (fill, extra = {}) => rect({ width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', ...fill }, ...extra });
+
+    // ---------------------------------------------------------------- background
+    const background = [
+      rect({ width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' }, name: 'bg',
+        fillGradient: { stops: [[0, '#fff3f8'], [0.55, '#ffe4f0'], [1, '#ffd0e6']] } }),
+      { type: 'shape', shape: 'circle', radius: 360, name: 'spotlight', initial: { x: 640, y: 520 },
+        fillGradient: { type: 'radial', stops: [[0, 'rgba(255,255,255,0.9)'], [1, 'rgba(255,255,255,0)']] } },
+    ];
+    for (let i = 0; i < 14; i++) {              // soft bokeh dots drifting
+      const r = between(28, 100), x = between(0, W), y = between(0, 600), p = between(2.4, 4.2);
+      background.push({
+        type: 'shape', shape: 'circle', radius: r, name: 'bokeh' + i,
+        initial: { x, y, fillColor: pick(['#ffffff', '#ffe8a8', '#d9c9ff', '#c9f0ff']), fillAlpha: between(0.22, 0.4) },
+        keyframes: [{ at: 0, to: { y: y - between(25, 50) }, duration: p, ease: 'sine.inOut', repeat: loops(DURATION, p), yoyo: true }],
+      });
+    }
+
+    // ---------------------------------------------------------------- balloons
+    // A balloon is a small composition: string + knot + body. Its pivot is the END of the string, so a rotation
+    // sways the whole balloon like a tethered one.
+    function balloon({ name, x, yEnd, s, L, color, at, rise, far = false }) {
+      const cw = 220, ch = 200 + L, py = 190 + L;
+      const p1 = between(1.7, 2.6), p2 = between(2.3, 3.4);
+      const sway = far ? 3 : 5;
+      const kf = far
+        ? [{ at: 0, to: { y: -(py + 80) * s }, duration: rise, ease: 'none' }]
+        : [{ at: 0, to: { y: yEnd }, duration: rise, ease: 'power2.out' },
+           { at: rise, to: { y: yEnd - 16 }, duration: p2, ease: 'sine.inOut', repeat: loops(DURATION - at - rise, p2), yoyo: true }];
+      kf.push({ at: 0, to: { rotation: sway }, duration: p1, ease: 'sine.inOut', repeat: loops(DURATION - at, p1), yoyo: true });
+      kf.push({ at: 0, to: { x: x + 14 }, duration: p2 * 1.3, ease: 'sine.inOut', repeat: loops(DURATION - at, p2 * 1.3), yoyo: true });
+      return {
+        type: 'composition', name, at, width: cw, height: ch,
+        initial: { x: x - 14, y: far ? H + (py + 80) * s : yEnd + 640, pivotX: 110, pivotY: py, scale: s, rotation: -sway, alpha: far ? 0.55 : 1 },
+        keyframes: kf,
+        sequences: [
+          { type: 'shape', shape: 'path', d: `M110 192 Q96 ${190 + L * 0.35} 110 ${190 + L * 0.6} T110 ${py}`, initial: { strokeColor: '#9a8cc0', strokeWidth: 2.5, fillAlpha: 0 } },
+          { type: 'shape', shape: 'polygon', points: [[103, 199], [117, 199], [110, 184]], initial: { fillColor: color } },
+          { type: 'shape', shape: 'ellipse', radiusX: 62, radiusY: 76, initial: { x: 110, y: 110, fillColor: color } },
+          { type: 'shape', shape: 'ellipse', radiusX: 11, radiusY: 21, initial: { x: 84, y: 76, rotation: 25, fillColor: '#ffffff', fillAlpha: 0.5 } },
+        ],
+      };
+    }
+    const farBalloons = [[330, 0.4], [470, 1.5], [790, 0.9], [930, 2.2], [1010, 3.0], [215, 2.6]].map(([x, at], i) =>
+      balloon({ name: 'far-balloon' + i, x, yEnd: 0, s: 0.46, L: 150, color: BALLOON[(i * 3 + 1) % BALLOON.length], at, rise: 9.2, far: true }));
+    const nearBalloons = [
+      // x, string-end y, scale, string length, start, rise
+      [78, 700, 1.1, 360, 0.05, 3.1], [196, 742, 0.92, 410, 0.45, 3.4], [292, 705, 0.64, 300, 0.85, 3.0],
+      [1204, 705, 1.05, 380, 0.2, 3.2], [1090, 745, 0.95, 400, 0.6, 3.5], [988, 700, 0.62, 300, 1.0, 3.0],
+    ].map(([x, yEnd, s, L, at, rise], i) => balloon({ name: 'balloon' + i, x, yEnd, s, L, color: BALLOON[i % BALLOON.length], at, rise }));
+
+    // ---------------------------------------------------------------- table + cake
+    const table = [
+      { type: 'shape', shape: 'ellipse', radiusX: 305, radiusY: 16, name: 'plate-shadow', initial: { x: 640, y: 662, fillColor: '#7d63c9', fillAlpha: 0.35 } },
+      rect({ width: 'GW', height: 90, name: 'table', initial: { x: 'GW/2', y: 700, fillColor: '#c9b6f2' } }),
+      rect({ width: 'GW', height: 7, name: 'table-edge', initial: { x: 'GW/2', y: 655.5, fillColor: '#ddd0f8' } }),
+      { type: 'shape', shape: 'ellipse', radiusX: 285, radiusY: 22, name: 'plate', initial: { x: 640, y: 646, fillColor: '#ffffff' },
+        keyframes: [{ at: 0, from: { scaleX: 0, scaleY: 0 }, to: { scaleX: 1, scaleY: 1 }, duration: 0.5, ease: 'back.out(2)' }], at: 1.2 },
+    ];
+    // y of each tier's centre, widths, heights (bottom → top)
+    const TIERS = [
+      { name: 'tier-bottom', w: 440, h: 84, cy: 600, color: '#ff9ec0' },
+      { name: 'tier-middle', w: 320, h: 74, cy: 521, color: '#9ad9ff' },
+      { name: 'tier-top',    w: 220, h: 66, cy: 449, color: '#ffe08a' },
+    ];
+    function tier({ name, w, h, cy, color }, at) {
+      const cw = w + 16;
+      const kids = [rect({ width: w, height: h, cornerRadius: 16, name: name + '-body', initial: { x: cw / 2, y: h / 2, fillColor: color } })];
+      for (let x = 24; x < cw - 14; x += 34) {   // drips under the frosting
+        kids.push({ type: 'shape', shape: 'ellipse', radiusX: 9, radiusY: between(10, 22), initial: { x: x + between(-4, 4), y: 14, anchorY: 0, fillColor: '#fffaf5' } });
+      }
+      kids.push(rect({ width: w + 12, height: 24, cornerRadius: 12, initial: { x: cw / 2, y: 12, fillColor: '#fffaf5' } }));
+      for (let x = 30; x < cw - 20; x += 26) {   // row of dots
+        kids.push({ type: 'shape', shape: 'circle', radius: 4, initial: { x, y: h * 0.8, fillColor: '#ffffff', fillAlpha: 0.6 } });
+      }
+      for (let i = 0; i < Math.round(w / 30); i++) {   // sprinkles
+        kids.push(rect({ width: 10, height: 4, cornerRadius: 2, initial: { x: between(22, cw - 22), y: between(h * 0.42, h * 0.68), rotation: between(0, 180), fillColor: pick(CONFETTI) } }));
+      }
+      return {
+        type: 'composition', name, at, width: cw, height: h,
+        initial: { x: 640, y: cy, pivotX: cw / 2, pivotY: h / 2 },
+        keyframes: [{ at: 0, from: { y: cy - 540 }, to: { y: cy }, duration: 0.85, ease: 'bounce.out' }],
+        sequences: kids,
+      };
+    }
+    const tiers = TIERS.map((t, i) => tier(t, TIER_AT[i]));
+
+    // ---------------------------------------------------------------- candles + flames
+    const CX = [-76, -38, 0, 38, 76].map((d) => 640 + d);
+    const CANDLE_COLORS = ['#ff7aa2', '#6fd8f0', '#ffffff', '#b79cff', '#ff9f68'];
+    const CANDLE_BASE = 420, FLAME_Y = 358;
+    const candles = CX.map((x, i) => ({
+      type: 'composition', name: 'candle' + i, at: CANDLE_IN + i * 0.1, width: 14, height: 64,
+      initial: { x, y: CANDLE_BASE, pivotX: 7, pivotY: 64, scaleY: 0 },
+      keyframes: [{ at: 0, to: { scaleY: 1 }, duration: 0.4, ease: 'back.out(2.2)' }],
+      sequences: [
+        rect({ width: 12, height: 54, cornerRadius: 3, initial: { x: 7, y: 37, fillColor: CANDLE_COLORS[i] } }),
+        ...[22, 36, 50].map((y) => rect({ width: 12, height: 5, initial: { x: 7, y, fillColor: i === 2 ? '#ff9ec0' : '#ffffff', fillAlpha: 0.65 } })),
+        rect({ width: 3, height: 9, cornerRadius: 1.5, initial: { x: 7, y: 5.5, fillColor: '#4b3a66' } }),
+      ],
+    }));
+
+    const dim = rect({ width: 'GW', height: 'GH', name: 'dim', at: 3.9, duration: BLOW - 3.9 + 0.3,
+      initial: { x: 'GW/2', y: 'GH/2', fillColor: '#3b2a7a', alpha: 0 },
+      keyframes: [{ at: 0, to: { alpha: 0.32 }, duration: 3.0, ease: 'sine.in' }, { at: BLOW - 3.9, to: { alpha: 0 }, duration: 0.15 }] });
+
+    const flames = [];
+    const smoke = [];
+    CX.forEach((x, i) => {
+      const at = LIT_AT(i), stag = i * 0.04;
+      const blowLocal = BLOW + stag - at;
+      const life = blowLocal + 0.2;
+      const n = Math.floor((blowLocal - 0.3) / 0.09);
+      const flick = (fn) => Array.from({ length: n }, (_, k) => ({ at: r2(0.3 + k * 0.09), to: fn(k), duration: 0.09, ease: 'sine.inOut' }));
+      const out = { at: r2(blowLocal), to: { scaleY: 0.05, scaleX: 1.7, rotation: 28, alpha: 0 }, duration: 0.14, ease: 'power2.in' };
+      flames.push({   // glow
+        type: 'shape', shape: 'circle', radius: 55, name: 'glow' + i, at, duration: life, blendMode: 'add',
+        initial: { x, y: FLAME_Y - 16, alpha: 0 },
+        fillGradient: { type: 'radial', stops: [[0, 'rgba(255,205,90,0.6)'], [1, 'rgba(255,205,90,0)']] },
+        keyframes: [{ at: 0, to: { alpha: 0.9 }, duration: 0.3 }, ...flick(() => ({ alpha: r2(between(0.6, 1)), scale: r2(between(0.9, 1.12)) })), { at: r2(blowLocal), to: { alpha: 0 }, duration: 0.12 }],
+      });
+      flames.push({   // outer flame
+        type: 'shape', shape: 'ellipse', radiusX: 10, radiusY: 20, name: 'flame' + i, at, duration: life,
+        initial: { x, y: FLAME_Y, anchorY: 1, fillColor: '#ffab2e', scaleX: 0, scaleY: 0 },
+        keyframes: [{ at: 0, to: { scaleX: 1, scaleY: 1 }, duration: 0.28, ease: 'back.out(3)' },
+          ...flick(() => ({ scaleX: r2(between(0.82, 1.08)), scaleY: r2(between(0.85, 1.25)), rotation: r2(between(-7, 7)) })), out],
+      });
+      flames.push({   // inner flame
+        type: 'shape', shape: 'ellipse', radiusX: 5, radiusY: 11, name: 'core' + i, at, duration: life,
+        initial: { x, y: FLAME_Y - 1, anchorY: 1, fillColor: '#fff3a6', scaleX: 0, scaleY: 0 },
+        keyframes: [{ at: 0, to: { scaleX: 1, scaleY: 1 }, duration: 0.28, ease: 'back.out(3)' },
+          ...flick(() => ({ scaleX: r2(between(0.8, 1.1)), scaleY: r2(between(0.85, 1.2)), rotation: r2(between(-6, 6)) })), out],
+      });
+      for (let k = 0; k < 2; k++) {
+        smoke.push({
+          type: 'shape', shape: 'circle', radius: 6, name: `smoke${i}-${k}`, at: BLOW + stag + k * 0.12, duration: 1.3,
+          initial: { x, y: FLAME_Y - 10, fillColor: '#a698c0', alpha: 0.65 },
+          keyframes: [{ at: 0, to: { y: FLAME_Y - 90 - k * 20, x: x + between(-18, 18), alpha: 0, scale: 2.6 }, duration: 1.25, ease: 'power1.out' }],
+        });
+      }
+    });
+
+    // ---------------------------------------------------------------- stars (after the title lands)
+    const stars = [[250, 150, 34], [1030, 150, 34], [335, 250, 22], [945, 252, 22], [470, 385, 18], [810, 388, 18]].map(([x, y, R], i) => {
+      const pts = Array.from({ length: 8 }, (_, k) => { const a = (k * Math.PI) / 4 - Math.PI / 2, rr = k % 2 ? R * 0.34 : R; return [r2(Math.cos(a) * rr), r2(Math.sin(a) * rr)]; });
+      const at = 8.6 + i * 0.25, per = 0.9;
+      return {
+        type: 'shape', shape: 'polygon', points: pts, name: 'star' + i, at,
+        initial: { x, y, fillColor: ['#ffc233', '#ff7ac8', '#4cc9f0'][i % 3], scale: 0 },
+        keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.4, ease: 'back.out(3)' },
+          { at: 0.4, to: { scale: 0.6, rotation: 45 }, duration: per, ease: 'sine.inOut', repeat: loops(DURATION - at, per), yoyo: true }],
+      };
+    });
+
+    // ---------------------------------------------------------------- text
+    const wish = {
+      type: 'text', text: 'make a wish...', name: 'wish', at: 4.2, duration: BLOW - 4.2 + 0.1,
+      style: { fontFamily: FONT, fontSize: 64, fontWeight: 'bold', fill: '#ffffff', stroke: { color: '#7c5cff', width: 9 }, padding: 16 },
+      initial: { x: 640, y: 175, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+      keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.5 }, { at: 0, to: { y: 165 }, duration: 1.4, ease: 'sine.inOut', repeat: 3, yoyo: true },
+        { at: -0.15, to: { alpha: 0, scale: 0.8 }, duration: 0.15 }],
+    };
+
+    // Letter positions come from the real font metrics (prefix widths, so kerning is honoured).
+    const measure = document.createElement('canvas').getContext('2d');
+    const letters = [];
+    const audio = [];
+    let colorIdx = 0;
+    function titleLine(str, size, y, startAt, step) {
+      measure.font = `bold ${size}px ${FONT}`;
+      const sp = size * 0.035, total = measure.measureText(str).width + sp * (str.length - 1), x0 = 640 - total / 2;
+      [...str].forEach((ch, i) => {
+        if (ch === ' ') return;
+        const pre = measure.measureText(str.slice(0, i)).width, cw = measure.measureText(ch).width;
+        const x = r2(x0 + pre + sp * i + cw / 2), at = r2(startAt + i * step), color = LETTER[colorIdx++ % LETTER.length];
+        const bob = 0.55, left = DURATION - at - 1.0;
+        letters.push({
+          type: 'text', text: ch, name: 'L-' + ch + i + '-' + y, at,
+          style: { fontFamily: FONT, fontSize: size, fontWeight: 'bold', fill: color, stroke: { color: '#ffffff', width: size * 0.13 },
+                   dropShadow: { color: '#6a45c9', alpha: 0.35, blur: 5, distance: 6, angle: 1.3 }, padding: 24 },
+          initial: { x, y, anchorX: 0.5, anchorY: 0.5, scale: 0.3, alpha: 0, rotation: r2(between(-18, 18)) },
+          keyframes: [
+            { at: 0, to: { alpha: 1 }, duration: 0.12 },
+            { at: 0, to: { scale: 1, rotation: 0 }, duration: 0.5, ease: 'back.out(2.6)' },
+            { at: 0, from: { y: y - 110 }, to: { y }, duration: 0.65, ease: 'bounce.out' },
+            { at: 0.95, to: { y: y - 7 }, duration: bob, ease: 'sine.inOut', repeat: loops(left, bob), yoyo: true },
+          ],
+        });
+        if (ch === 'H' || ch === 'B' || ch === 'M') audio.push({ type: 'audio', asset: 'pop', at, volume: 0.8 });
+        if (ch === '!') audio.push({ type: 'audio', asset: 'chime', at, volume: 0.9 });
+      });
+    }
+    titleLine('Happy Birthday,', 98, 98, TITLE_AT, 0.07);
+    titleLine('Mika!', 150, 212, TITLE_AT + 15 * 0.07 + 0.1, 0.1);
+
+    // ---------------------------------------------------------------- confetti
+    function piece(at, dur, init, kf, total) {
+      const t = rnd(), c = pick(CONFETTI);
+      const flutter = between(0.2, 0.45);
+      const shape = t < 0.55 ? { shape: 'rect', width: r2(between(9, 15)), height: r2(between(5, 9)), cornerRadius: 1 }
+        : t < 0.8 ? { shape: 'rect', width: 4, height: r2(between(13, 19)), cornerRadius: 2 }
+        : { shape: 'circle', radius: r2(between(3.5, 5.5)) };
+      return {
+        type: 'shape', ...shape, at, duration: dur, name: 'confetti',
+        initial: { ...init, fillColor: c, rotation: r2(between(0, 360)) },
+        keyframes: [...kf,
+          { at: 0, to: { rotation: r2(between(-1, 1) * 360 * between(1.5, 4)) }, duration: total, ease: 'none' },
+          { at: 0, to: { scaleY: -1 }, duration: r2(flutter), ease: 'sine.inOut', repeat: loops(total, flutter), yoyo: true }],
+      };
+    }
+    const burst = [];
+    for (let i = 0; i < 120; i++) {
+      const a = ((-165 + rnd() * 150) * Math.PI) / 180, r = between(140, 480);
+      const ox = 640, oy = 335, ax = r2(ox + Math.cos(a) * r * 1.2), ay = r2(oy + Math.sin(a) * r * 0.85);
+      const t1 = r2(between(0.5, 0.85)), t2 = r2((800 - ay) / between(170, 290));
+      const drift = between(-90, 90), at = BLOW + 0.05;
+      burst.push(piece(at, Math.min(t1 + t2, DURATION - at), { x: ox, y: oy }, [
+        { at: 0, to: { x: ax, y: ay }, duration: t1, ease: 'power2.out' },
+        { at: t1, to: { x: r2(ax + drift), y: 800 }, duration: t2, ease: 'power1.in' },
+      ], t1 + t2));
+    }
+    const rain = [];
+    for (let i = 0; i < 50; i++) {
+      const at = r2(between(8.0, 10.2)), x = between(30, W - 30), sp = between(120, 190), total = 830 / sp, p = between(0.9, 1.5);
+      rain.push(piece(at, Math.min(total, DURATION - at), { x: x - 26, y: -30 }, [
+        { at: 0, to: { y: 800 }, duration: r2(total), ease: 'none' },
+        { at: 0, to: { x: x + 26 }, duration: r2(p), ease: 'sine.inOut', repeat: loops(total, p), yoyo: true },
+      ], total));
+    }
+
+    const flash = full({ fillColor: '#ffffff', alpha: 0.85 }, { name: 'flash', at: BLOW, duration: 0.4,
+      keyframes: [{ at: 0, to: { alpha: 0 }, duration: 0.36, ease: 'power2.out' }] });
+
+    // ---------------------------------------------------------------- audio
+    const sfx = (asset, at, volume = 0.85) => ({ type: 'audio', asset, at, volume });
+    audio.push(
+      { type: 'audio', asset: 'bgm', loop: true, volume: 0, initial: {}, name: 'bgm',
+        keyframes: [{ at: 0, to: { volume: 0.4 }, duration: 1.5 }, { at: -1.6, to: { volume: 0 }, duration: 1.6 }] },
+      sfx('swoosh', 0.1), sfx('pop', 1.9), sfx('pop', 2.5), sfx('pop', 3.1), sfx('pop', CANDLE_IN + 0.05, 0.6),
+      ...[0, 1, 2, 3, 4].map((i) => sfx('chime', LIT_AT(i), 0.7)),
+      sfx('swoosh', BLOW - 0.15), sfx('pop', BLOW + 0.02, 1), sfx('swoosh', TITLE_AT - 0.05, 0.7),
+    );
+
+    const sequences = [
+      ...background, ...farBalloons, ...nearBalloons, ...table, ...tiers, ...candles, dim, ...flames, ...smoke,
+      ...stars, wish, ...letters, ...burst, ...rain, flash, ...audio,
+    ];
+
+    // ---------------------------------------------------------------- run
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        background: '#ffe4f0',
+        assets: [
+          { name: 'bgm', src: '../_assets/bgm.mp3' },
+          { name: 'pop', src: '../_assets/sfx-pop.mp3' },
+          { name: 'chime', src: '../_assets/sfx-chime.mp3' },
+          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
+        ],
+        composition: { sequences },
+      });
+      window.__ready = true;
+      // opens at 0:00; add ?poster to the URL to park on the poster frame
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

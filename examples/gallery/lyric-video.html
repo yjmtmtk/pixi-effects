@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Paper Planes — lyric video</title>
+  <style>
+    body { background: #0d0f16; margin: 0; padding: 16px; display: flex; flex-direction: column; align-items: center; }
+    canvas { width: min(960px, 100%); height: auto; border-radius: 8px; }
+  </style>
+  <script type="application/json" id="piece-meta">{ "title": "Paper Planes", "subtitle": "A karaoke lyric video for an invented song: words light up on a 120 BPM grid under a bouncing ball, each verse shifts the sky, the chorus hits big.", "tags": ["karaoke", "lyrics", "typography", "music", "beat-sync"], "width": 1280, "height": 720, "duration": 12.5, "posterFrame": 340, "model": "opus" }</script>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 12.5, POSTER_FRAME = 340;
+
+    // ── time grid: 120 BPM, a beat = 0.5 s, a sixteenth = 0.125 s (snapped to frames) ──
+    const BEAT = 0.5, SIX = BEAT / 4;
+    const snap = t => Math.round(t * FPS) / FPS;
+    const INTRO = 2 * BEAT;                 // title card
+    const COUPLET = 6 * BEAT;               // two lines per screen
+    const CHORUS_AT = INTRO + 3 * COUPLET;  // 10.0 s
+
+    // ── type ──
+    const FAMILY = '"Avenir Next", "Helvetica Neue", Arial, sans-serif';
+    const WEIGHT = '800';
+    const mctx = document.createElement('canvas').getContext('2d');
+    const measure = (str, size, weight = WEIGHT) => { mctx.font = `${weight} ${size}px ${FAMILY}`; return mctx.measureText(str).width; };
+
+    // ── palette ──
+    const WHITE = '#ffffff', INK = '#1d1440';
+    const mix = (a, b, t) => {                 // '#rrggbb' lerp in sRGB (static colours only)
+      const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+      const [A, B] = [p(a), p(b)];
+      return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join('');
+    };
+
+    // ── the song: [word, length in sixteenths]; every line is 10 sixteenths (1.25 s) ──
+    const COUPLETS = [
+      { label: 'VERSE 1', bg: '#16205a', accent: '#ffd23f', lines: [
+        [['fold', 2], ['the', 2], ['morning', 2], ['into', 2], ['wings', 2]],
+        [['write', 2], ['your', 1], ['name', 3], ['across', 2], ['the', 1], ['side', 1]] ] },
+      { label: 'VERSE 2', bg: '#5b1b5f', accent: '#72f2c6', lines: [
+        [['throw', 2], ['it', 1], ['out', 1], ['the', 2], ['window', 4]],
+        [['watch', 2], ['the', 1], ['whole', 1], ['street', 2], ['turn', 2], ['gold', 2]] ] },
+      { label: 'BRIDGE', bg: '#0e4d5c', accent: '#ffa36e', lines: [
+        [['if', 1], ['it', 1], ['falls,', 2], ['we', 2], ['fold', 2], ['another', 2]],
+        [['if', 1], ['it', 1], ['flies,', 2], ['we', 2], ['follow', 4]] ] },
+    ];
+    const CHORUS = { label: 'CHORUS', bg: '#ffd23f', lit: INK, unlit: mix(INK, '#ffd23f', 0.62) };
+
+    // ── seeded random ──
+    let seed = 11;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const between = (a, b) => a + rnd() * (b - a);
+
+    // A sung line: one text layer per word (laid out from measured widths), a progress bar, a bouncing ball.
+    // Times are ABSOLUTE in the parent; `layerAt` converts them to layer-local keyframe times.
+    function lineLayers(id, words, o) {
+      const { size, cy, unlit, lit, layerAt, layerDur, enterAt, singAt, exitAt, ball = true, shadow = 0.28, track = WHITE } = o;
+      const L = t => snap(t - layerAt);
+      const space = measure(' ', size) * 1.25;
+      const widths = words.map(([w]) => measure(w, size));
+      const lineW = widths.reduce((a, b) => a + b, 0) + space * (words.length - 1);
+      const left = W / 2 - lineW / 2;
+      // word timing + centres
+      let x = left, t = singAt;
+      const ws = words.map(([text, n], i) => { const c = { text, cx: x + widths[i] / 2, t, dur: n * SIX }; x += widths[i] + space; t += n * SIX; return c; });
+      const singEnd = t;
+      const enter = (y0, extra = {}) => ({ at: L(enterAt), from: { alpha: 0, y: y0 + 36, ...extra.from }, to: { alpha: 1, y: y0, ...extra.to }, duration: 0.4, ease: 'back.out(1.6)' });
+      const exit = y0 => exitAt == null ? [] : [{ at: L(exitAt), to: { alpha: 0, y: y0 - 44 }, duration: 0.25, ease: 'power2.in' }];
+      const out = [];
+      ws.forEach((w, i) => out.push({
+        type: 'text', name: `${id}-w${i}-${w.text.replace(/\W/g, '')}`, text: w.text, at: layerAt, duration: layerDur, colorSpace: 'oklab',
+        style: { fontFamily: FAMILY, fontWeight: WEIGHT, fontSize: size, fill: unlit, padding: 18,
+                 dropShadow: { color: '#000000', alpha: shadow, blur: 8, distance: 4, angle: Math.PI / 2 } },
+        initial: { x: w.cx, y: cy, anchorX: 0.5, anchorY: 0.5 },
+        keyframes: [
+          enter(cy),
+          { at: L(w.t), to: { fill: lit }, duration: 0.1, ease: 'power1.out' },
+          { at: L(w.t), to: { scale: 1 + 0.08 * Math.min(1, 68 / size) }, duration: 0.07, ease: 'power2.out' },
+          { at: L(w.t + 0.07), to: { scale: 1 }, duration: 0.3, ease: 'back.out(3)' },
+          ...exit(cy),
+        ],
+      }));
+      // progress bar: a faint track and a fill growing left → right over the sung time
+      const by = cy + size * 0.62;
+      out.push({
+        type: 'shape', shape: 'rect', name: `${id}-track`, width: lineW, height: 8, cornerRadius: 4, at: layerAt, duration: layerDur,
+        initial: { x: W / 2, y: by, fillColor: track, fillAlpha: 0.22 },
+        keyframes: [enter(by), ...exit(by)],
+      });
+      out.push({
+        type: 'shape', shape: 'rect', name: `${id}-bar`, width: 0, height: 8, cornerRadius: 4, anchorX: 0, at: layerAt, duration: layerDur,
+        initial: { x: left, y: by, fillColor: lit },
+        keyframes: [enter(by), { at: L(singAt), to: { width: lineW }, duration: snap(singEnd - singAt), ease: 'none' }, ...exit(by)],
+      });
+      // bouncing ball: lands on each word as it lights
+      if (ball) {
+        const r = 9, low = cy - size * 0.5 - 12 - r;
+        const at = snap(singAt - 2 * SIX), end = snap(singEnd + 0.25);
+        const B = tt => snap(tt - at);
+        const kf = [{ at: 0, to: { alpha: 1 }, duration: 0.08 }];
+        let px = ws[0].cx - 60, pt = at;
+        ws.forEach(w => {
+          const dt = w.t - pt, peak = low - Math.min(46, 16 + dt * 90);
+          kf.push({ at: B(pt), to: { x: w.cx }, duration: snap(dt), ease: 'none' });
+          kf.push({ at: B(pt), to: { y: peak }, duration: snap(dt / 2), ease: 'power2.out' });
+          kf.push({ at: B(pt + dt / 2), to: { y: low }, duration: snap(dt / 2), ease: 'power2.in' });
+          kf.push({ at: B(w.t), to: { scaleY: 0.7, scaleX: 1.25 }, duration: 0.05, ease: 'power2.out' });
+          kf.push({ at: B(w.t + 0.05), to: { scaleY: 1, scaleX: 1 }, duration: 0.15, ease: 'back.out(3)' });
+          px = w.cx; pt = w.t;
+        });
+        kf.push({ at: B(singEnd), to: { alpha: 0, y: low - 30 }, duration: 0.22, ease: 'power2.in' });
+        out.push({
+          type: 'shape', shape: 'circle', name: `${id}-ball`, radius: r, at: layerAt + at - layerAt, duration: snap(end - at),
+          initial: { x: ws[0].cx - 60, y: low, fillColor: lit, alpha: 0 },
+          keyframes: kf,
+        });
+      }
+      return { layers: out, lineW, singEnd };
+    }
+
+    // Paper plane silhouette, centred on (0,0), nose pointing right
+    const planePts = s => [[s, 0], [-s, -0.62 * s], [-0.42 * s, 0.02 * s], [-0.8 * s, 0.42 * s]];
+    const keelPts = s => [[s, 0], [-0.42 * s, 0.02 * s], [-0.8 * s, 0.42 * s]];
+
+    const sequences = [];
+
+    // ── background: a solid sky whose colour shifts per section ──
+    const bgKf = [];
+    COUPLETS.forEach((c, k) => {
+      if (k === 0) return;
+      const at = INTRO + k * COUPLET;
+      bgKf.push({ at: snap(at - 0.25), to: { fillColor: c.bg }, duration: 0.5, ease: 'sine.inOut' });
+    });
+    bgKf.push({ at: snap(CHORUS_AT - 0.05), to: { fillColor: CHORUS.bg }, duration: 0.15, ease: 'power2.out' });
+    sequences.push({ type: 'shape', shape: 'rect', name: 'sky', width: W, height: H, colorSpace: 'oklch',
+      initial: { x: W / 2, y: H / 2, fillColor: COUPLETS[0].bg }, keyframes: bgKf });
+    // a soft light from above
+    sequences.push({ type: 'shape', shape: 'rect', name: 'skylight', width: W, height: H, initial: { x: W / 2, y: H / 2 },
+      fillGradient: { type: 'radial', center: [0.5, 0.0], radius: 0.9, stops: [[0, 'rgba(255,255,255,0.16)'], [1, 'rgba(255,255,255,0)']] } });
+
+    // ── drifting soft blobs ──
+    for (let i = 0; i < 4; i++) {
+      const r = between(220, 360), x = between(100, 1180), y = between(120, 620);
+      sequences.push({ type: 'shape', shape: 'circle', name: `blob${i}`, radius: r,
+        fillGradient: { type: 'radial', stops: [[0, 'rgba(255,255,255,0.10)'], [1, 'rgba(255,255,255,0)']] },
+        initial: { x, y },
+        keyframes: [{ at: 0, to: { x: x + between(-120, 120), y: y + between(-60, 60) }, duration: DURATION, ease: 'sine.inOut' }] });
+    }
+
+    // ── drifting paper planes (white, faint; they turn ink on the yellow chorus) ──
+    for (let i = 0; i < 12; i++) {
+      const s = between(16, 46), x = between(-60, 1240), y = between(70, 680), a = between(0.10, 0.22);
+      const rot = between(-14, -4), period = between(1.4, 2.4), reps = Math.floor(DURATION / period) - 1;
+      const drift = { at: 0, to: { x: x + between(140, 300), y: y - between(30, 90) }, duration: DURATION, ease: 'none' };
+      const bob = { at: 0, to: { rotation: rot + 7 }, duration: period, ease: 'sine.inOut', repeat: reps, yoyo: true };
+      const ink = { at: snap(CHORUS_AT - 0.05), to: { fillColor: INK }, duration: 0.15 };
+      sequences.push({ type: 'shape', shape: 'polygon', name: `plane${i}`, points: planePts(s),
+        initial: { x, y, rotation: rot, fillColor: WHITE, fillAlpha: a }, keyframes: [drift, bob, ink] });
+      sequences.push({ type: 'shape', shape: 'polygon', name: `plane${i}-keel`, points: keelPts(s),
+        initial: { x, y, rotation: rot, fillColor: WHITE, fillAlpha: a * 0.9 }, keyframes: [drift, bob, ink] });
+    }
+
+    // ── hero planes: one under the title, one into the chorus ──
+    const hero = (id, at, dur, from, to, s, rot) => {
+      const kf = [{ at: 0, to: { x: to[0], y: to[1] }, duration: dur, ease: 'power1.inOut' },
+                  { at: 0, to: { rotation: rot + 10 }, duration: dur, ease: 'sine.inOut' }];
+      return [
+        { type: 'shape', shape: 'polygon', name: id, points: planePts(s), at, duration: dur,
+          initial: { x: from[0], y: from[1], rotation: rot, fillColor: WHITE, fillAlpha: 0.95 }, keyframes: kf },
+        { type: 'shape', shape: 'polygon', name: id + '-keel', points: keelPts(s), at, duration: dur,
+          initial: { x: from[0], y: from[1], rotation: rot, fillColor: '#c9d2ff', fillAlpha: 0.95 }, keyframes: kf },
+      ];
+    };
+    sequences.push(...hero('hero-intro', 0, 1.3, [-140, 660], [1420, 450], 54, -16));
+    sequences.push(...hero('hero-chorus', snap(CHORUS_AT - 0.45), 1.1, [-160, 640], [1440, 120], 90, -30));
+
+    // vignette
+    sequences.push({ type: 'shape', shape: 'rect', name: 'vignette', width: W, height: H, initial: { x: W / 2, y: H / 2 },
+      fillGradient: { type: 'radial', radius: 0.8, stops: [[0.5, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.28)']] } });
+
+    // ── intro: the title, which then shrinks into the header ──
+    const TITLE = 'Paper Planes', TS = 116, HS = 26;
+    const titleW = measure(TITLE, TS);
+    sequences.push({ type: 'text', name: 'title', text: TITLE, colorSpace: 'oklch',
+      style: { fontFamily: FAMILY, fontWeight: WEIGHT, fontSize: TS, fill: WHITE, padding: 20,
+               dropShadow: { color: '#000000', alpha: 0.3, blur: 10, distance: 5, angle: Math.PI / 2 } },
+      initial: { x: W / 2 - titleW / 2, y: 330, anchorX: 0, anchorY: 0.5 },
+      keyframes: [
+        { at: 0, from: { alpha: 0, y: 366 }, to: { alpha: 1, y: 330 }, duration: 0.4, ease: 'back.out(1.6)' },
+        { at: snap(0.55), to: { x: 80, y: 66, scale: HS / TS }, duration: 0.45, ease: 'power3.inOut' },
+        { at: snap(CHORUS_AT - 0.05), to: { fill: INK }, duration: 0.15 },
+      ] });
+    sequences.push({ type: 'text', name: 'title-sub', text: 'AN ORIGINAL SONG  ·  SING ALONG', duration: 0.75,
+      style: { fontFamily: FAMILY, fontWeight: '600', fontSize: 22, fill: COUPLETS[0].accent, letterSpacing: 6 },
+      initial: { x: W / 2, y: 420, anchorX: 0.5, anchorY: 0.5 },
+      keyframes: [{ at: 0.1, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.3 }, { at: 0.5, to: { alpha: 0, y: 400 }, duration: 0.25, ease: 'power2.in' }] });
+
+    // section labels (top right)
+    const label = (id, text, at, dur, fill) => ({ type: 'text', name: id, text, at, duration: dur,
+      style: { fontFamily: FAMILY, fontWeight: '700', fontSize: 20, fill, letterSpacing: 5 },
+      initial: { x: W - 80, y: 66, anchorX: 1, anchorY: 0.5 },
+      keyframes: [{ at: 0, from: { alpha: 0, y: 80 }, to: { alpha: 1, y: 66 }, duration: 0.4, ease: 'back.out(1.6)' },
+                  ...(at + dur < DURATION ? [{ at: -0.25, to: { alpha: 0, y: 52 }, duration: 0.25, ease: 'power2.in' }] : [])] });
+
+    // ── verses: two lines per screen ──
+    const LINE_Y = [292, 446];
+    COUPLETS.forEach((c, k) => {
+      const s = INTRO + k * COUPLET;
+      const unlit = mix(WHITE, c.bg, 0.5);
+      const raw = Math.max(...c.lines.map(l => measure(l.map(w => w[0]).join(' '), 68)));
+      const size = Math.min(68, Math.floor(68 * 1040 / raw));
+      c.lines.forEach((words, j) => {
+        const { layers } = lineLayers(`v${k + 1}l${j + 1}`, words, {
+          size, cy: LINE_Y[j], unlit, lit: c.accent,
+          layerAt: s, layerDur: COUPLET,
+          enterAt: s + j * BEAT,                         // line A on the downbeat, line B one beat later
+          singAt: s + 2 * SIX + j * 10 * SIX,            // A sings 0.25–1.5, B 1.5–2.75
+          exitAt: s + COUPLET - 0.25,
+        });
+        sequences.push(...layers);
+      });
+      sequences.push(label(`label-v${k + 1}`, c.label, s, COUPLET, WHITE));
+    });
+
+    // ── chorus: a composition so the whole block can slam in about the centre ──
+    const chorusSeq = [];
+    const CH_DUR = DURATION - CHORUS_AT;
+    const L1 = [['PAPER', 4], ['PLANES,', 4]], L2 = [['carry', 2], ['me', 2], ['home', 4]];
+    const s1 = Math.floor(132 * 1060 / measure('PAPER PLANES,', 132));
+    const c1 = lineLayers('ch-l1', L1, { size: Math.min(132, s1), cy: 268, unlit: CHORUS.unlit, lit: CHORUS.lit, track: INK, shadow: 0.12,
+      layerAt: 0, layerDur: CH_DUR, enterAt: 0, singAt: 0, ball: false });
+    const c2 = lineLayers('ch-l2', L2, { size: 84, cy: 492, unlit: CHORUS.unlit, lit: '#e3264f', track: INK, shadow: 0.12,
+      layerAt: 0, layerDur: CH_DUR, enterAt: BEAT, singAt: 2 * BEAT });
+    chorusSeq.push(...c1.layers, ...c2.layers);
+    sequences.push({ type: 'composition', name: 'chorus', at: CHORUS_AT, duration: CH_DUR, width: W, height: H,
+      sequences: chorusSeq,
+      initial: { pivotX: W / 2, pivotY: H / 2, x: W / 2, y: H / 2 },
+      keyframes: [
+        { at: 0, from: { scale: 1.45, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.3, ease: 'expo.out' },
+        { at: 2 * BEAT, to: { scale: 1.03 }, duration: 0.06, ease: 'power2.out' },
+        { at: 2 * BEAT + 0.06, to: { scale: 1 }, duration: 0.3, ease: 'back.out(3)' },
+      ] });
+    sequences.push(label('label-chorus', CHORUS.label, CHORUS_AT, CH_DUR, INK));
+    // the hit: a white flash
+    sequences.push({ type: 'shape', shape: 'rect', name: 'flash', width: W, height: H, at: CHORUS_AT, duration: 0.4,
+      initial: { x: W / 2, y: H / 2, fillColor: WHITE, alpha: 0.75 },
+      keyframes: [{ at: 0, to: { alpha: 0 }, duration: 0.38, ease: 'power2.out' }] });
+
+    // ── audio ──
+    sequences.push({ type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0,
+      keyframes: [{ at: 0, to: { volume: 0.85 }, duration: 0.6 }, { at: -1.2, to: { volume: 0 }, duration: 1.2 }] });
+    sequences.push({ type: 'audio', name: 'sfx-intro', asset: 'swoosh', at: 0.1, volume: 0.5 });
+    COUPLETS.forEach((c, k) => sequences.push({ type: 'audio', name: `sfx-pop${k}`, asset: 'pop', at: INTRO + k * COUPLET, volume: 0.45 }));
+    sequences.push({ type: 'audio', name: 'sfx-chorus', asset: 'swoosh', at: snap(CHORUS_AT - 0.4), volume: 0.8 });
+    sequences.push({ type: 'audio', name: 'sfx-home', asset: 'chime', at: CHORUS_AT + 3 * BEAT, volume: 0.6 });
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        background: COUPLETS[0].bg,
+        assets: [
+          { name: 'bgm', src: '../_assets/bgm.mp3' },
+          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
+          { name: 'pop', src: '../_assets/sfx-pop.mp3' },
+          { name: 'chime', src: '../_assets/sfx-chime.mp3' },
+        ],
+        composition: { sequences },
+      });
+      // opens at 0:00; add ?poster to the URL to park on the poster frame
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

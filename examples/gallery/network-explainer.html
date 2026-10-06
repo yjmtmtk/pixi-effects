@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>What happens when you open a page — pixi-effects</title>
+  <style>
+    html, body { background: #15171c; margin: 0; }
+    body { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
+    canvas { width: min(960px, 100%); height: auto; aspect-ratio: 16 / 9; border-radius: 8px; display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script type="application/json" id="piece-meta">{ "title": "What happens when you open a page", "subtitle": "A flat explainer: client, CDN, server and database, one packet and 130 ms at a time", "tags": ["explainer", "infographic", "diagram", "counter", "paths"], "width": 1280, "height": 720, "duration": 14, "posterFrame": 229, "model": "opus" }</script>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 14, POSTER_FRAME = 229;
+
+    // ---------- palette: paper + three inks ----------
+    const PAPER = '#f3efe6', INK = '#1d2440', CORAL = '#f0533f', TEAL = '#12a39a', TEAL_TEXT = '#0d857d';
+    const SANS = "system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif";
+    const MONO = "ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
+    const EASE_IN = 'power3.out', EASE_OUT = 'power2.in';
+    const snap = t => Math.round(t * FPS) / FPS;
+
+    // ---------- layout ----------
+    const CY = 340, R = 58;                               // node row
+    const NX = [190, 490, 790, 1090];
+    const EDX = Math.round(R * Math.cos(Math.PI / 6)), EDY = Math.round(R * Math.sin(Math.PI / 6));   // arcs leave at ±30°
+    const BULGE = 70;
+    const NODES = [
+      { name: 'Your browser', sub: 'the client', icon: 'browser' },
+      { name: 'CDN edge', sub: 'nearby cache', icon: 'globe' },
+      { name: 'App server', sub: 'the origin', icon: 'server' },
+      { name: 'Database', sub: 'your data', icon: 'db' },
+    ];
+
+    // ---------- the story, as data ----------
+    // hop: a packet travels a →  b; proc: work done inside a node (adds ms, shows a badge)
+    const EVENTS = [
+      { kind: 'hop', a: 0, b: 1, at: 1.7, dur: 0.8, ms: 12, label: 'GET /' },
+      { kind: 'proc', node: 1, at: 2.55, dur: 0.5, ms: 0, badge: 'MISS', color: CORAL },
+      { kind: 'hop', a: 1, b: 2, at: 3.2, dur: 1.0, ms: 38, label: 'forward' },
+      { kind: 'hop', a: 2, b: 3, at: 4.35, dur: 0.6, ms: 3, label: 'SELECT' },
+      { kind: 'proc', node: 3, at: 5.0, dur: 0.6, ms: 9, badge: 'query 9 ms', color: INK },
+      { kind: 'hop', a: 3, b: 2, at: 5.75, dur: 0.6, ms: 3, label: 'rows' },
+      { kind: 'proc', node: 2, at: 6.4, dur: 0.6, ms: 15, badge: 'render 15 ms', color: INK },
+      { kind: 'hop', a: 2, b: 1, at: 7.15, dur: 1.0, ms: 38, label: 'HTML' },
+      { kind: 'proc', node: 1, at: 8.2, dur: 0.3, ms: 0, badge: 'CACHED', color: TEAL },
+      { kind: 'hop', a: 1, b: 0, at: 8.55, dur: 0.8, ms: 12, label: 'HTML' },
+      { kind: 'proc', node: 0, at: 9.4, dur: 0.3, ms: 0, badge: 'PAGE READY', color: TEAL },
+    ];
+    const CAPTIONS = [
+      [1.4, 'Your browser asks the nearest CDN edge for the page.'],
+      [3.1, 'Cache miss: the edge forwards it to the origin server.'],
+      [4.25, 'The server asks the database for your data.'],
+      [5.65, 'Rows come back, and the server renders the HTML.'],
+      [7.05, 'The page travels back, and the CDN keeps a copy.'],
+      [9.25, 'Done: the page is on your screen.'],
+    ];
+    const RECAP_AT = 10.5, DIM_AT = 11.75, HIT_AT = 11.95, HIT_HOP = 0.4;
+    const TOTAL_MS = EVENTS.reduce((s, e) => s + e.ms, 0);
+    const NET_MS = EVENTS.filter(e => e.kind === 'hop').reduce((s, e) => s + e.ms, 0);
+    const HIT_MS = EVENTS[0].ms + EVENTS[EVENTS.length - 2].ms;           // client <-> CDN only
+    EVENTS.push({ kind: 'proc', node: 1, at: HIT_AT + HIT_HOP, dur: 0.3, ms: 0, badge: 'HIT', color: TEAL });
+
+    // ---------- helpers ----------
+    const easeIO = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;   // = gsap power2.inOut
+    const clamp01 = v => Math.max(0, Math.min(1, v));
+    const lifeLeft = at => DURATION - at;
+    const dimKf = (layerAt, to = 0.22) => ({ at: snap(DIM_AT - layerAt), to: { alpha: to }, duration: 0.45, ease: 'power2.inOut' });
+
+    // quadratic arc between two nodes: request arcs bulge up, response arcs bulge down
+    function arc(a, b) {
+      const up = b > a, dir = Math.sign(b - a), sy = up ? -1 : 1;
+      const p0 = [NX[a] + dir * EDX, CY + sy * EDY], p2 = [NX[b] - dir * EDX, CY + sy * EDY];
+      const c = [(p0[0] + p2[0]) / 2, CY + sy * (EDY + BULGE)];
+      const at = u => [(1 - u) ** 2 * p0[0] + 2 * (1 - u) * u * c[0] + u * u * p2[0],
+                       (1 - u) ** 2 * p0[1] + 2 * (1 - u) * u * c[1] + u * u * p2[1]];
+      const peakY = (p0[1] + c[1]) / 2;
+      return { a, b, p0, p2, c, at, up, dir, peakY, color: up ? CORAL : TEAL, textColor: up ? CORAL : TEAL_TEXT };
+    }
+
+    // per-frame sampled keyframes: fn(u) -> props, u = eased progress (0..1) with an optional time lag
+    function sampled(dur, fn, lag = 0) {
+      const n = Math.round((dur + lag) * FPS), step = 1 / FPS;
+      const kfs = [{ at: 0, set: fn(0) }];
+      for (let i = 1; i <= n; i++) kfs.push({ at: snap((i - 1) * step), to: fn(easeIO(clamp01((i * step - lag) / dur))), duration: step, ease: 'none' });
+      return kfs;
+    }
+
+    const pill = (name, text, x, y, color, at, fs = 15, extra = []) => {
+      const w = Math.round(text.length * fs * 0.62 + 26);
+      return [
+        { type: 'shape', shape: 'rect', name: name + '-pill', at, duration: lifeLeft(at), width: w, height: fs + 16, cornerRadius: (fs + 16) / 2,
+          initial: { x, y, fillColor: color, alpha: 0, scale: 0.6 },
+          keyframes: [{ at: 0, to: { alpha: 1, scale: 1 }, duration: 0.35, ease: 'back.out(2)' }, ...extra] },
+        { type: 'text', name: name + '-text', text, at, duration: lifeLeft(at),
+          style: { fontFamily: MONO, fontSize: fs, fontWeight: '700', fill: '#ffffff', letterSpacing: 0.5 },
+          initial: { x, y, anchorX: 0.5, anchorY: 0.5, alpha: 0, scale: 0.6 },
+          keyframes: [{ at: 0, to: { alpha: 1, scale: 1 }, duration: 0.35, ease: 'back.out(2)' }, ...extra] },
+      ];
+    };
+
+    // ---------- node icons (composition-local, centre = 80,80) ----------
+    const C = 80;
+    const icon = {
+      browser: () => [
+        { type: 'shape', shape: 'rect', width: 64, height: 48, cornerRadius: 7, initial: { x: C, y: C, fillColor: INK } },
+        { type: 'shape', shape: 'rect', width: 56, height: 31, cornerRadius: 3, initial: { x: C, y: C + 5.5, fillColor: '#ffffff' } },
+        ...[0, 1, 2].map(i => ({ type: 'shape', shape: 'circle', radius: 2.4, initial: { x: C - 24 + i * 7, y: C - 16.5, fillColor: '#ffffff' } })),
+        { type: 'shape', shape: 'rect', width: 30, height: 4, cornerRadius: 2, initial: { x: C - 5, y: C - 1, fillColor: CORAL } },
+        { type: 'shape', shape: 'rect', width: 40, height: 3, cornerRadius: 1.5, initial: { x: C, y: C + 8, fillColor: INK, alpha: 0.35 } },
+        { type: 'shape', shape: 'rect', width: 40, height: 3, cornerRadius: 1.5, initial: { x: C, y: C + 15, fillColor: INK, alpha: 0.35 } },
+      ],
+      globe: () => [
+        { type: 'shape', shape: 'circle', radius: 27, initial: { x: C, y: C, strokeColor: INK, strokeWidth: 4.5 } },
+        { type: 'shape', shape: 'ellipse', radiusX: 11, radiusY: 27, initial: { x: C, y: C, strokeColor: INK, strokeWidth: 3.5 } },
+        { type: 'shape', shape: 'line', from: [C - 27, C], to: [C + 27, C], initial: { strokeColor: INK, strokeWidth: 3.5 } },
+        { type: 'shape', shape: 'line', from: [C - 22, C - 13], to: [C + 22, C - 13], initial: { strokeColor: INK, strokeWidth: 3 } },
+        { type: 'shape', shape: 'line', from: [C - 22, C + 13], to: [C + 22, C + 13], initial: { strokeColor: INK, strokeWidth: 3 } },
+      ],
+      server: () => [-18, 0, 18].flatMap(dy => [
+        { type: 'shape', shape: 'rect', width: 60, height: 15, cornerRadius: 4, initial: { x: C, y: C + dy, fillColor: INK } },
+        { type: 'shape', shape: 'circle', radius: 2.6, initial: { x: C - 21, y: C + dy, fillColor: TEAL } },
+        { type: 'shape', shape: 'rect', width: 20, height: 3, cornerRadius: 1.5, initial: { x: C + 14, y: C + dy, fillColor: '#ffffff', alpha: 0.8 } },
+      ]),
+      db: () => [
+        { type: 'shape', shape: 'ellipse', radiusX: 26, radiusY: 9, initial: { x: C, y: C + 19, fillColor: INK } },
+        { type: 'shape', shape: 'rect', width: 52, height: 38, initial: { x: C, y: C, fillColor: INK } },
+        { type: 'shape', shape: 'path', d: `M ${C - 26} ${C - 4} Q ${C} ${C + 14} ${C + 26} ${C - 4}`, initial: { strokeColor: '#ffffff', strokeWidth: 2.5 } },
+        { type: 'shape', shape: 'path', d: `M ${C - 26} ${C + 8} Q ${C} ${C + 26} ${C + 26} ${C + 8}`, initial: { strokeColor: '#ffffff', strokeWidth: 2.5 } },
+        { type: 'shape', shape: 'ellipse', radiusX: 26, radiusY: 9, initial: { x: C, y: C - 19, fillColor: '#ffffff', strokeColor: INK, strokeWidth: 3.5 } },
+      ],
+    };
+
+    // ---------- build ----------
+    const S = [];
+    const dimmed = new Set([2, 3]);                      // nodes that fade back when the recap shows the cache hit
+    const hopDim = e => e.kind === 'hop' && (dimmed.has(e.a) || dimmed.has(e.b));
+
+    // background + procedural dot grid
+    S.push({ type: 'shape', shape: 'rect', name: 'paper', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: PAPER } });
+    S.push({ type: 'image', name: 'dot-grid', asset: 'grid', initial: { x: 0, y: 0, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8 }] });
+
+    // title block
+    S.push({ type: 'text', name: 'eyebrow', text: 'HOW THE WEB WORKS', at: 0.15,
+      style: { fontFamily: MONO, fontSize: 15, fontWeight: '700', fill: CORAL, letterSpacing: 3 },
+      initial: { x: 80, y: 56, alpha: 0 }, keyframes: [{ at: 0, from: { x: 60 }, to: { x: 80, alpha: 1 }, duration: 0.6, ease: EASE_IN }] });
+    S.push({ type: 'text', name: 'title', text: 'What happens when you open a page', at: 0.25,
+      style: { fontFamily: SANS, fontSize: 40, fontWeight: '800', fill: INK },
+      initial: { x: 80, y: 80, alpha: 0 }, keyframes: [{ at: 0, from: { x: 56 }, to: { x: 80, alpha: 1 }, duration: 0.7, ease: EASE_IN }] });
+    S.push({ type: 'shape', shape: 'rect', name: 'title-rule', at: 0.5, width: 0, height: 4, anchorX: 0,
+      initial: { x: 80, y: 142, fillColor: INK },
+      keyframes: [{ at: 0, to: { width: 56 }, duration: 0.5, ease: EASE_IN }] });
+
+    // latency counter (top right)
+    S.push({ type: 'text', name: 'counter-label', text: 'TIME ELAPSED', at: 0.6,
+      style: { fontFamily: MONO, fontSize: 15, fontWeight: '700', fill: INK, letterSpacing: 3 },
+      initial: { x: 1200, y: 56, anchorX: 1, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.55 }, duration: 0.5 }] });
+    const counterKfs = [{ at: 0, to: { alpha: 1 }, duration: 0.5 }];
+    let cum = 0;
+    for (const e of EVENTS) {
+      if (!e.ms) continue;
+      cum += e.ms;
+      const t0 = e.kind === 'hop' ? e.at : e.at + 0.05;
+      counterKfs.push({ at: snap(t0 - 0.6), to: { value: cum }, duration: e.dur, ease: e.kind === 'hop' ? 'power2.inOut' : 'none' });
+    }
+    counterKfs.push({ at: snap(9.4 - 0.6), to: { fill: TEAL_TEXT }, duration: 0.4 });
+    S.push({ type: 'text', name: 'counter', text: '{value} ms', at: 0.6,
+      style: { fontFamily: MONO, fontSize: 58, fontWeight: '800', fill: INK },
+      initial: { x: 1200, y: 78, anchorX: 1, value: 0, alpha: 0 }, keyframes: counterKfs });
+
+    // arcs (drawn on behind the packet), arrowheads, hop labels
+    const hops = EVENTS.filter(e => e.kind === 'hop');
+    for (const [i, e] of hops.entries()) {
+      const A = arc(e.a, e.b), life = lifeLeft(e.at), dim = hopDim(e) ? [dimKf(e.at)] : [];
+      const maskX = A.p0[0] - A.dir * 8;
+      S.push({
+        type: 'shape', shape: 'path', name: `arc-${i}`, at: e.at, duration: life,
+        d: `M ${A.p0[0]} ${A.p0[1]} Q ${A.c[0]} ${A.c[1]} ${A.p2[0]} ${A.p2[1]}`,
+        initial: { strokeColor: A.color, strokeWidth: 3.5 }, keyframes: dim,
+        mask: {
+          type: 'shape', shape: 'rect', width: 0, height: 160, anchorX: A.up ? 0 : 1,
+          initial: { x: maskX, y: CY, fillColor: '#ffffff' },
+          keyframes: sampled(e.dur, u => ({ width: Math.abs(A.at(u)[0] - maskX) })),
+        },
+      });
+      // arrowhead at the arrival end, pointing along the tangent
+      const tx = A.p2[0] - A.c[0], ty = A.p2[1] - A.c[1], tl = Math.hypot(tx, ty), ux = tx / tl, uy = ty / tl;
+      const tip = [A.p2[0] + ux * 2, A.p2[1] + uy * 2], L = 13, Wd = 7.5;
+      const pts = [tip, [tip[0] - ux * L - uy * Wd, tip[1] - uy * L + ux * Wd], [tip[0] - ux * L + uy * Wd, tip[1] - uy * L - ux * Wd]];
+      S.push({ type: 'shape', shape: 'polygon', name: `arrow-${i}`, at: snap(e.at + e.dur - 0.05), duration: lifeLeft(snap(e.at + e.dur - 0.05)),
+        points: pts.map(p => p.map(v => Math.round(v * 10) / 10)), initial: { fillColor: A.color, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.15 }, ...(hopDim(e) ? [dimKf(snap(e.at + e.dur - 0.05))] : [])] });
+      // label above / below the arc
+      const ly = A.up ? A.peakY - 24 : A.peakY + 24, lx = (A.p0[0] + A.p2[0]) / 2;
+      S.push({ type: 'text', name: `hop-label-${i}`, text: `${e.label}  +${e.ms} ms`, at: snap(e.at + 0.15), duration: lifeLeft(snap(e.at + 0.15)),
+        style: { fontFamily: MONO, fontSize: 15, fontWeight: '700', fill: A.textColor },
+        initial: { x: lx, y: ly, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, from: { y: ly + (A.up ? 8 : -8) }, to: { y: ly, alpha: 1 }, duration: 0.45, ease: EASE_IN },
+                    ...(hopDim(e) ? [dimKf(snap(e.at + 0.15))] : [])] });
+    }
+
+    // nodes (a composition each: circle + icon scale together), labels under them
+    NODES.forEach((n, i) => {
+      const at = snap(0.45 + i * 0.13), dim = dimmed.has(i) ? [dimKf(at)] : [];
+      S.push({
+        type: 'composition', name: `node-${n.icon}`, at, duration: lifeLeft(at), width: 160, height: 160,
+        initial: { x: NX[i], y: CY, pivotX: C, pivotY: C, alpha: 0, scale: 0.6 },
+        keyframes: [{ at: 0, to: { alpha: 1, scale: 1 }, duration: 0.55, ease: 'back.out(1.7)' }, ...dim],
+        sequences: [
+          { type: 'shape', shape: 'circle', radius: R, initial: { x: C, y: C, fillColor: '#ffffff', strokeColor: INK, strokeWidth: 3.5 } },
+          ...icon[n.icon](),
+        ],
+      });
+      const lat = snap(at + 0.15);
+      S.push({ type: 'text', name: `node-name-${i}`, text: n.name, at: lat, duration: lifeLeft(lat),
+        style: { fontFamily: SANS, fontSize: 22, fontWeight: '700', fill: INK },
+        initial: { x: NX[i], y: CY + R + 34, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, from: { y: CY + R + 46 }, to: { y: CY + R + 34, alpha: 1 }, duration: 0.5, ease: EASE_IN }, ...(dimmed.has(i) ? [dimKf(lat)] : [])] });
+      S.push({ type: 'text', name: `node-sub-${i}`, text: n.sub, at: lat, duration: lifeLeft(lat),
+        style: { fontFamily: MONO, fontSize: 15, fill: INK },
+        initial: { x: NX[i], y: CY + R + 60, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, from: { y: CY + R + 72 }, to: { y: CY + R + 60, alpha: 0.55 }, duration: 0.5, ease: EASE_IN }, ...(dimmed.has(i) ? [dimKf(lat, 0.15)] : [])] });
+    });
+
+    // packets: a dot with a short comet tail, sampled along the arc; a ring pulse on arrival
+    function packet(prefix, A, at, dur, extraDim = false) {
+      const TAIL = [[0, 9, 1], [0.07, 6, 0.45], [0.14, 4, 0.22]];
+      const out = [];
+      TAIL.slice().reverse().forEach(([lag, r, a], k) => {
+        out.push({ type: 'shape', shape: 'circle', name: `${prefix}-dot${k}`, radius: r, at, duration: snap(dur + 0.2),
+          initial: { x: A.p0[0], y: A.p0[1], fillColor: A.color, alpha: a },
+          keyframes: [...sampled(dur, u => { const [x, y] = A.at(u); return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 }; }, lag),
+                      { at: snap(dur + lag), to: { alpha: 0 }, duration: 0.06 }] });
+      });
+      out.push({ type: 'shape', shape: 'circle', name: `${prefix}-ring`, radius: R, at: snap(at + dur), duration: 0.7,
+        initial: { x: NX[A.b], y: CY, strokeColor: A.color, strokeWidth: 4 },
+        keyframes: [{ at: 0, to: { radius: R + 30, strokeAlpha: 0, strokeWidth: 1 }, duration: 0.65, ease: 'power2.out' }] });
+      return out;
+    }
+    hops.forEach((e, i) => S.push(...packet(`packet-${i}`, arc(e.a, e.b), e.at, e.dur)));
+
+    // work inside a node: a breathing halo + a badge above the node
+    for (const [i, e] of EVENTS.filter(e => e.kind === 'proc').entries()) {
+      const bx = NX[e.node], by = CY + R + 100, dim = dimmed.has(e.node) ? [dimKf(e.at)] : [];
+      if (e.ms) S.push({ type: 'shape', shape: 'circle', name: `work-${i}`, radius: R + 9, at: e.at, duration: e.dur + 0.2,
+        initial: { x: bx, y: CY, strokeColor: INK, strokeWidth: 3, strokeAlpha: 0 },
+        keyframes: [{ at: 0, to: { strokeAlpha: 0.5 }, duration: 0.15 },
+                    { at: 0.15, to: { scale: 1.06 }, duration: e.dur / 4, ease: 'sine.inOut', repeat: 3, yoyo: true },
+                    { at: -0.2, to: { strokeAlpha: 0 }, duration: 0.2 }] });
+      // the CDN's MISS badge is replaced by CACHED later
+      const next = EVENTS.find(o => o !== e && o.kind === 'proc' && o.node === e.node && o.at > e.at);
+      const exit = next ? [{ at: snap(next.at - e.at - 0.2), to: { alpha: 0, scale: 0.8 }, duration: 0.2, ease: EASE_OUT }] : dim;
+      S.push(...pill(`badge-${i}`, e.badge, bx, by, e.color, e.at, 15, exit));
+    }
+
+    // captions: a numbered dot + one line; each swaps out just before the next comes in
+    const CAP_Y = 588;
+    CAPTIONS.forEach(([at, text], i) => {
+      const end = i + 1 < CAPTIONS.length ? CAPTIONS[i + 1][0] : RECAP_AT;
+      S.push({
+        type: 'composition', name: `caption-${i + 1}`, at, duration: snap(end - at), width: 1120, height: 60,
+        initial: { x: 80, y: CAP_Y - 30, alpha: 0 },
+        keyframes: [{ at: 0, from: { y: CAP_Y - 30 + 16 }, to: { y: CAP_Y - 30, alpha: 1 }, duration: 0.45, ease: EASE_IN },
+                    { at: -0.25, to: { y: CAP_Y - 30 - 10, alpha: 0 }, duration: 0.25, ease: EASE_OUT }],
+        sequences: [
+          { type: 'shape', shape: 'circle', radius: 19, initial: { x: 19, y: 30, fillColor: i === CAPTIONS.length - 1 ? TEAL : CORAL } },
+          { type: 'text', text: String(i + 1), style: { fontFamily: SANS, fontSize: 20, fontWeight: '800', fill: '#ffffff' }, initial: { x: 19, y: 30, anchorX: 0.5, anchorY: 0.5 } },
+          { type: 'text', text, style: { fontFamily: SANS, fontSize: 29, fontWeight: '600', fill: INK }, initial: { x: 56, y: 30, anchorY: 0.5 } },
+        ],
+      });
+    });
+    // caption track rule
+    S.push({ type: 'shape', shape: 'rect', name: 'caption-rule', at: 1.2, width: 0, height: 2, anchorX: 0,
+      initial: { x: 80, y: 540, fillColor: INK, alpha: 0.15 }, keyframes: [{ at: 0, to: { width: 1120 }, duration: 0.8, ease: EASE_IN }] });
+
+    // ---------- recap: where the time went + the next visit ----------
+    const BX = 80, BW = 1120, BH = 34, B1Y = 592, B2Y = 640;
+    S.push({ type: 'text', name: 'recap-heading', text: `WHERE THE ${TOTAL_MS} MS WENT`, at: RECAP_AT,
+      style: { fontFamily: MONO, fontSize: 15, fontWeight: '700', fill: CORAL, letterSpacing: 3 },
+      initial: { x: BX, y: 556, alpha: 0 }, keyframes: [{ at: 0, from: { x: BX - 16 }, to: { x: BX, alpha: 1 }, duration: 0.5, ease: EASE_IN }] });
+    const SEGS = [['Network', NET_MS, CORAL, 0.75], ['Server', EVENTS[6].ms, INK, 0.3], ['DB', EVENTS[4].ms, TEAL, 0.3]];
+    let sx = BX, st = RECAP_AT + 0.15;
+    for (const [label, ms, color, d] of SEGS) {
+      const w = Math.round(BW * ms / TOTAL_MS) - 3;
+      S.push({ type: 'shape', shape: 'rect', name: `seg-${label}`, at: snap(st), width: 0, height: BH, cornerRadius: 5, anchorX: 0,
+        initial: { x: sx, y: B1Y, fillColor: color }, keyframes: [{ at: 0, to: { width: w }, duration: d, ease: label === 'Network' ? 'power2.inOut' : EASE_IN }] });
+      S.push({ type: 'text', name: `seg-label-${label}`, text: label === 'Network' ? `${label} · ${ms} ms` : `${label} ${ms}`, at: snap(st + d * 0.7),
+        style: { fontFamily: MONO, fontSize: 16, fontWeight: '700', fill: '#ffffff' },
+        initial: { x: sx + 12, y: B1Y, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.25 }] });
+      sx += w + 3; st += d;
+    }
+    // the next visit: a cache hit, client <-> CDN only; the bar grows while the packet makes the round trip
+    const hitW = Math.round(BW * HIT_MS / TOTAL_MS);
+    S.push({ type: 'shape', shape: 'rect', name: 'seg-next', at: HIT_AT, width: 0, height: BH, cornerRadius: 5, anchorX: 0,
+      initial: { x: BX, y: B2Y, fillColor: TEAL },
+      keyframes: sampled(2 * HIT_HOP + 0.05, u => ({ width: Math.round(hitW * u) })) });
+    S.push({ type: 'text', name: 'seg-next-ms', text: `${HIT_MS} ms`, at: snap(HIT_AT + 0.75),
+      style: { fontFamily: MONO, fontSize: 16, fontWeight: '700', fill: '#ffffff' },
+      initial: { x: BX + 12, y: B2Y, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.25 }] });
+    S.push({ type: 'text', name: 'seg-next-label', text: 'Next visit: the CDN answers from its copy.', at: snap(HIT_AT + 0.85),
+      style: { fontFamily: SANS, fontSize: 22, fontWeight: '600', fill: INK },
+      initial: { x: BX + hitW + 18, y: B2Y, anchorY: 0.5, alpha: 0 },
+      keyframes: [{ at: 0, from: { x: BX + hitW + 2 }, to: { x: BX + hitW + 18, alpha: 1 }, duration: 0.5, ease: EASE_IN }] });
+    S.push(...packet('hit-out', arc(0, 1), HIT_AT, HIT_HOP), ...packet('hit-back', arc(1, 0), snap(HIT_AT + HIT_HOP + 0.05), HIT_HOP));
+
+    // ---------- sound ----------
+    S.push({ type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0,
+      keyframes: [{ at: 0, to: { volume: 0.35 }, duration: 1.5 }, { at: -1.5, to: { volume: 0 }, duration: 1.5 }] });
+    hops.forEach((e, i) => S.push({ type: 'audio', name: `pop-${i}`, asset: 'pop', at: snap(e.at + e.dur), duration: 0.1, volume: 0.35 }));
+    S.push({ type: 'audio', name: 'chime', asset: 'chime', at: 9.4, duration: 0.6, volume: 0.45 });
+    S.push({ type: 'audio', name: 'swoosh', asset: 'swoosh', at: RECAP_AT, volume: 0.3 });
+
+    // ---------- procedural dot grid ----------
+    function dotGrid() {
+      const c = Object.assign(document.createElement('canvas'), { width: W, height: H });
+      const g = c.getContext('2d');
+      g.fillStyle = 'rgba(29,36,64,0.09)';
+      for (let y = 20; y < H; y += 28) for (let x = 20; x < W; x += 28) { g.beginPath(); g.arc(x, y, 1.4, 0, Math.PI * 2); g.fill(); }
+      return c.toDataURL();
+    }
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        background: PAPER,
+        assets: [
+          { name: 'grid', src: dotGrid() },
+          { name: 'bgm', src: '../_assets/bgm.mp3' },
+          { name: 'pop', src: '../_assets/sfx-pop.mp3' },
+          { name: 'chime', src: '../_assets/sfx-chime.mp3' },
+          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
+        ],
+        composition: { sequences: S },
+      });
+      // opens at 0:00; add ?poster to the URL to park on the poster frame
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

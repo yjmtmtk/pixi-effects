@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>pixi-effects reel</title>
+  <meta name="description" content="Sixteen motion-graphics pieces, each written as plain data by an AI model and rendered live in the browser by pixi-effects." />
+  <meta name="color-scheme" content="dark" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #070708;            /* projection-room black */
+      --well: #121214;          /* poster well while an image loads */
+      --ink: #f3efe7;           /* warm projector white */
+      --mute: #9c978d;
+      --dim: #6d685f;
+      --line: rgba(243, 239, 231, 0.11);
+      --line-strong: rgba(243, 239, 231, 0.28);
+      --fable: #e7c07a;
+      --opus: #b9a8f3;
+      --sonnet: #86cdb9;
+      --sans: "Archivo", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+      --gutter: clamp(16px, 3vw, 44px);
+      --gap: 28px;
+      --ease: cubic-bezier(0.215, 0.61, 0.355, 1);   /* power3.out */
+      --cols: 3;
+    }
+    @media (min-width: 1800px) { :root { --cols: 4; } }
+    @media (max-width: 1099px) { :root { --cols: 2; } }
+    @media (max-width: 639px)  { :root { --cols: 1; --gap: 32px; } }
+
+    * { box-sizing: border-box; }
+    html { background: var(--bg); color-scheme: dark; }
+    html.theatre-open { overflow: hidden; }
+    body {
+      margin: 0; background: var(--bg); color: var(--ink);
+      font: 400 15px/1.5 var(--sans); font-stretch: 100%;
+      -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+      overflow-x: hidden;
+    }
+    a { color: inherit; }
+    button { font: inherit; color: inherit; }
+    :focus { outline: none; }
+    :focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; border-radius: 2px; }
+    ::selection { background: var(--ink); color: var(--bg); }
+    .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+    .wrap { max-width: 1560px; margin: 0 auto; padding-left: var(--gutter); padding-right: var(--gutter); }
+
+    /* ---------- top bar ---------- */
+    .bar {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 24px;
+      padding-top: 22px; padding-bottom: 22px;
+    }
+    .wordmark { text-decoration: none; font-weight: 500; letter-spacing: -0.01em; font-size: 16px; }
+    .bar nav { display: flex; gap: 22px; font-size: 14px; color: var(--mute); }
+    .bar nav a { text-decoration: none; transition: color .25s; }
+    .bar nav a:hover { color: var(--ink); }
+
+    /* ---------- hero ---------- */
+    .hero {
+      display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 32px var(--gap);
+      align-items: end; padding-top: clamp(24px, 4.5vw, 64px); padding-bottom: clamp(36px, 4.5vw, 64px);
+      border-bottom: 1px solid var(--line);
+    }
+    .hero h1 {
+      margin: 0 0 -0.08em -0.04em; font-weight: 600; font-stretch: 125%; letter-spacing: -0.035em;
+      font-size: clamp(88px, 19.5vw, 300px); line-height: 0.86; color: var(--ink);
+      font-variation-settings: "wdth" 125, "wght" 600;
+    }
+    .hero .intro { max-width: 46ch; padding-bottom: 0.3em; }
+    .hero .intro p { margin: 0 0 14px; font-size: clamp(16px, 1.35vw, 19px); line-height: 1.45; color: var(--ink); }
+    .hero .intro p.sub { color: var(--mute); font-size: 15px; }
+    .hero pre {
+      margin: 22px 0 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: 6px;
+      font: 11.5px/1.55 var(--mono); color: var(--dim); white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 2;
+    }
+    .hero pre b { font-weight: 400; color: var(--mute); }
+    @media (max-width: 899px) {
+      .hero { grid-template-columns: 1fr; align-items: start; }
+      .hero .intro { padding-bottom: 0; }
+    }
+
+    /* one orchestrated entrance: the headline lands like a layer keyframe; the grid follows */
+    @media (prefers-reduced-motion: no-preference) {
+      .hero h1 { opacity: 0; transform: translateY(24px); animation: land .9s var(--ease) .05s forwards; }
+      .hero .intro { opacity: 0; animation: fade .7s ease .45s forwards; }
+      .piece { opacity: 0; animation: fade .6s ease calc(.55s + var(--i, 0) * 28ms) forwards; }
+      @keyframes land { to { opacity: 1; transform: none; } }
+      @keyframes fade { to { opacity: 1; } }
+    }
+
+    /* ---------- filters ---------- */
+    .filters {
+      position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 86%, transparent);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--line);
+      padding-top: 14px; padding-bottom: 14px;
+      display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px;
+    }
+    .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; }
+    .seg button {
+      border: 0; background: transparent; border-radius: 999px; padding: 6px 13px; cursor: pointer;
+      font-size: 13.5px; color: var(--mute); display: inline-flex; align-items: center; gap: 7px;
+      transition: color .25s, background-color .25s;
+    }
+    .seg button small { font: 11px/1 var(--mono); color: var(--dim); }
+    .seg button:hover { color: var(--ink); }
+    .seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+    .seg button[aria-pressed="true"] small { color: var(--bg); opacity: .7; }
+    .seg button[aria-pressed="true"] .dot { box-shadow: 0 0 0 1px var(--bg); }
+    .seg button:focus-visible { outline-offset: 0; }
+    .tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex: 1 1 340px; min-width: 0; }
+    .tags button {
+      border: 1px solid transparent; background: transparent; border-radius: 999px; padding: 5px 11px; cursor: pointer;
+      font-size: 13px; color: var(--mute); transition: color .25s, border-color .25s, background-color .25s;
+    }
+    .tags button:hover { color: var(--ink); border-color: var(--line-strong); }
+    .tags button[aria-pressed="true"] { color: var(--ink); border-color: var(--ink); }
+    .tags button.more { color: var(--dim); }
+    .tags button.more:hover { color: var(--ink); }
+    .tags[data-expanded="false"] button.extra { display: none; }
+    .count { margin-left: auto; font-size: 13px; color: var(--mute); white-space: nowrap; display: flex; gap: 14px; align-items: baseline; }
+    .count .tc { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+    .count button { border: 0; background: none; padding: 0; cursor: pointer; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+    .count button[hidden] { display: none; }
+    @media (max-width: 899px) { .filters { position: static; } }   /* three rows tall here: not worth pinning */
+    @media (max-width: 639px) {
+      .filters { gap: 10px 16px; }
+      .count { margin-left: 0; width: 100%; }
+    }
+
+    .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex: none; }
+    .dot[data-model="fable"] { background: var(--fable); }
+    .dot[data-model="opus"] { background: var(--opus); }
+    .dot[data-model="sonnet"] { background: var(--sonnet); }
+
+    /* ---------- grid ---------- */
+    .reel { padding-top: 44px; padding-bottom: 72px; }
+    .grid {
+      list-style: none; margin: 0; padding: 0;
+      display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+      grid-auto-rows: 1px; column-gap: var(--gap); align-items: start;
+    }
+    .piece[hidden] { display: none; }
+    .card { display: block; text-decoration: none; color: inherit; border-radius: 6px; }
+    .frame {
+      position: relative; margin: 0; overflow: hidden; border-radius: 6px; background: var(--well);
+      box-shadow: 0 0 0 1px rgba(243, 239, 231, 0.06) inset;
+      transition: box-shadow .4s var(--ease), transform .4s var(--ease);
+    }
+    .frame img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .7s var(--ease); }
+    .frame .play {
+      position: absolute; inset: 0; display: grid; place-items: center; opacity: 0;
+      background: linear-gradient(to top, rgba(7,7,8,.45), rgba(7,7,8,0) 45%);
+      transition: opacity .35s var(--ease);
+    }
+    .frame .play span {
+      width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center;
+      background: rgba(7, 7, 8, .55); border: 1px solid rgba(243,239,231,.55); backdrop-filter: blur(6px);
+      transform: scale(.9); transition: transform .35s var(--ease);
+    }
+    .frame .play svg { width: 18px; height: 18px; fill: var(--ink); margin-left: 3px; }
+    .frame .tc {
+      position: absolute; right: 10px; bottom: 10px; padding: 3px 7px; border-radius: 4px;
+      font: 11px/1 var(--mono); color: var(--ink); background: rgba(7,7,8,.6); backdrop-filter: blur(4px);
+    }
+    .card:hover .frame, .card:focus-visible .frame { box-shadow: 0 0 0 1px var(--line-strong) inset, 0 24px 48px -20px rgba(0,0,0,.8); }
+    .card:hover .frame img, .card:focus-visible .frame img { transform: scale(1.025); }
+    .card:hover .play, .card:focus-visible .play { opacity: 1; }
+    .card:hover .play span, .card:focus-visible .play span { transform: none; }
+    .card:focus-visible { outline-offset: 6px; }
+    .cap { padding: 14px 2px 0; }
+    .cap .row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+    .cap h3 { margin: 0; font-size: 17px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.3; }
+    .cap .sub {
+      margin: 4px 0 0; color: var(--mute); font-size: 13.5px; line-height: 1.45;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .cap .meta { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; color: var(--dim); }
+    .cap .meta .dim { font-family: var(--mono); font-size: 11.5px; }
+    .model {
+      display: inline-flex; align-items: center; gap: 6px; flex: none;
+      font-size: 12px; color: var(--mute); padding: 2px 9px 2px 7px; border: 1px solid var(--line); border-radius: 999px;
+    }
+    .model .dot { width: 6px; height: 6px; }
+
+    .empty { padding: 48px 0 24px; color: var(--mute); font-size: 15px; }
+    .empty button { border: 0; background: none; padding: 0; cursor: pointer; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+    .error {
+      margin: 48px 0; padding: 20px 22px; border: 1px solid var(--line-strong); border-radius: 6px; max-width: 64ch; color: var(--ink); line-height: 1.55;
+    }
+    .error code { font-family: var(--mono); font-size: 13px; color: var(--mute); }
+
+    /* ---------- about ---------- */
+    .about { border-top: 1px solid var(--line); padding-top: 56px; padding-bottom: 72px; }
+    .about .cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 24px var(--gap); max-width: 1180px; }
+    .about h2 { margin: 0; font-size: 22px; font-weight: 500; letter-spacing: -0.015em; }
+    .about p { margin: 0 0 18px; max-width: 64ch; color: var(--mute); font-size: 15.5px; line-height: 1.6; }
+    .about p:last-child { margin-bottom: 0; }
+    .about a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-strong); transition: text-decoration-color .25s; }
+    .about a:hover { text-decoration-color: var(--ink); }
+    .about code { font-family: var(--mono); font-size: 13px; }
+    @media (max-width: 899px) { .about .cols { grid-template-columns: 1fr; } }
+
+    footer { border-top: 1px solid var(--line); padding-top: 24px; padding-bottom: 40px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px 24px; font-size: 13px; color: var(--dim); }
+    footer nav { display: flex; gap: 20px; }
+    footer a { text-decoration: none; color: var(--mute); transition: color .25s; }
+    footer a:hover { color: var(--ink); }
+
+    /* ---------- theatre ---------- */
+    dialog.theatre {
+      position: fixed; inset: 0; width: 100vw; width: 100dvw; height: 100vh; height: 100dvh; max-width: none; max-height: none;
+      margin: 0; padding: 0; border: 0; background: transparent; color: var(--ink);
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      overflow: hidden;
+    }
+    dialog.theatre[open] { display: flex; }
+    dialog.theatre::backdrop { background: rgba(4, 4, 5, .9); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+    .th-stage { position: relative; flex: none; display: grid; place-items: center; }
+    .th-box { position: relative; background: #000; border-radius: 6px; overflow: hidden; box-shadow: 0 40px 120px -20px rgba(0,0,0,.9); }
+    .th-box img { position: absolute; left: 16px; top: 16px; width: calc(100% - 32px); height: calc(100% - 32px); object-fit: cover; }
+    .th-box iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; opacity: 0; transition: opacity .5s ease; }
+    .th-box.ready iframe { opacity: 1; }
+    .th-box.ready img { visibility: hidden; transition: visibility 0s .5s; }
+    .th-cap { flex: none; padding: 18px 0 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 24px; align-items: start; }
+    .th-cap h2 { margin: 0; font-size: 20px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.3; }
+    .th-cap .sub { margin: 3px 0 0; color: var(--mute); font-size: 14px; line-height: 1.45; max-width: 70ch; }
+    .th-cap .meta { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; font-size: 12.5px; color: var(--dim); }
+    .th-cap .meta .dim, .th-cap .meta .tc { font-family: var(--mono); font-size: 11.5px; }
+    .th-cap .meta .tags { gap: 0 8px; flex: none; color: var(--mute); }
+    .th-side { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+    .th-count { font: 12px/1 var(--mono); color: var(--dim); letter-spacing: .04em; }
+    .th-links { display: flex; gap: 16px; font-size: 13px; white-space: nowrap; }
+    .th-links a { color: var(--mute); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-strong); transition: color .25s, text-decoration-color .25s; }
+    .th-links a:hover { color: var(--ink); text-decoration-color: var(--ink); }
+    .th-btn {
+      border: 1px solid var(--line-strong); background: rgba(7,7,8,.6); cursor: pointer; border-radius: 50%;
+      width: 44px; height: 44px; display: grid; place-items: center; color: var(--ink);
+      transition: background-color .25s, border-color .25s, transform .25s var(--ease);
+    }
+    .th-btn:hover { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+    .th-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+    .th-close { position: fixed; top: 18px; right: 18px; z-index: 2; }
+    .th-nav { position: fixed; top: 50%; transform: translateY(-50%); z-index: 2; }
+    .th-nav.prev { left: 22px; }
+    .th-nav.next { right: 22px; }
+    .th-nav:hover { transform: translateY(-50%); }
+    .th-mobile-nav { display: none; }
+    @media (max-width: 899px) {
+      dialog.theatre { justify-content: flex-start; padding-top: 64px; }   /* below the close button */
+      .th-nav { display: none; }
+      .th-mobile-nav { display: flex; gap: 8px; }
+      .th-mobile-nav .th-btn { width: 40px; height: 40px; }
+      .th-cap { grid-template-columns: 1fr; gap: 10px; padding-top: 14px; }
+      .th-side { flex-direction: row; align-items: center; justify-content: space-between; width: 100%; }
+      .th-close { top: 12px; right: 12px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-delay: 0s !important; scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="wrap">
+    <div class="bar">
+      <a class="wordmark" href="https://github.com/yjmtmtk/pixi-effects">pixi-effects</a>
+      <nav aria-label="Site">
+        <a href="../playground.html">Playground</a>
+        <a href="../../docs/dsl.md">DSL reference</a>
+        <a href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
+      </nav>
+    </div>
+    <div class="hero">
+      <h1>Reel</h1>
+      <div class="intro">
+        <p>Every piece here is plain JSON-like data — layers, keyframes, masks, a camera — written by an AI model from one brief and rendered live in your browser by pixi-effects. Nothing is a video file.</p>
+        <p class="sub" id="hero-sub">Sixteen pieces by three models. Click any poster to play it.</p>
+        <pre aria-hidden="true">{ <b>"type"</b>: "text", <b>"text"</b>: "Reel",
+  <b>"style"</b>: { "fontSize": 160, "fontWeight": 600 },
+  <b>"initial"</b>: { "y": 24, "alpha": 0 },
+  <b>"keyframes"</b>: [{ "at": 0, "duration": 0.9,
+    "ease": "power3.out",
+    "to": { "y": 0, "alpha": 1 } }] }</pre>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap filters" id="filters" hidden>
+      <div class="seg" role="group" aria-label="Filter by model" id="model-seg"></div>
+      <div class="tags" role="group" aria-label="Filter by tag" id="tag-chips" data-expanded="false"></div>
+      <p class="count" id="count" aria-live="polite"></p>
+    </div>
+
+    <section class="wrap reel" aria-labelledby="reel-title">
+      <h2 id="reel-title" class="sr">Pieces</h2>
+      <ul class="grid" id="grid"></ul>
+      <p class="empty" id="empty" hidden></p>
+      <div class="error" id="error" hidden></div>
+    </section>
+
+    <section class="wrap about" aria-labelledby="about-title">
+      <div class="cols">
+        <h2 id="about-title">About this reel</h2>
+        <div>
+          <p>Sixteen pieces, three models, one brief. Each piece was made in its own session by a Claude model (fable, opus or sonnet) that read the <a href="BRIEF.md">same brief</a> and the same docs, then wrote a single HTML file: a composition of text, shapes, images, audio and a 2.5D camera, described as data and played back by pixi-effects. Which model made which piece is in <a href="MODELS.md">MODELS.md</a>.</p>
+          <p>What we learned. Every author kept stumble notes while working: where the docs were unclear, where the library surprised them, what they wished existed. Those notes live in the <a href="https://github.com/yjmtmtk/pixi-effects/tree/main/examples/gallery/_notes">_notes</a> folder, one file per piece, and are reachable from each piece in the theatre. The stumbles became library fixes, warnings and documentation, so the next author does not trip over the same thing.</p>
+        </div>
+      </div>
+    </section>
+
+    <footer class="wrap">
+      <span>pixi-effects — declarative motion graphics for the web</span>
+      <nav aria-label="Footer">
+        <a href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
+        <a href="../playground.html">Playground</a>
+        <a href="../../docs/api.md">API reference</a>
+      </nav>
+    </footer>
+  </main>
+
+  <dialog class="theatre" id="theatre" aria-labelledby="th-title">
+    <button class="th-btn th-close" type="button" aria-label="Close theatre (Esc)" data-close>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <button class="th-btn th-nav prev" type="button" aria-label="Previous piece (←)" data-prev>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <button class="th-btn th-nav next" type="button" aria-label="Next piece (→)" data-next>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+    </button>
+    <div class="th-stage" id="th-stage">
+      <div class="th-box" id="th-box"></div>
+    </div>
+    <div class="th-cap" id="th-cap">
+      <div>
+        <h2 id="th-title"></h2>
+        <p class="sub" id="th-sub"></p>
+        <div class="meta" id="th-meta"></div>
+      </div>
+      <div class="th-side">
+        <span class="th-count" id="th-count"></span>
+        <nav class="th-links" aria-label="Piece links">
+          <a id="th-open" target="_blank" rel="noopener">Open full page</a>
+          <a id="th-notes" target="_blank" rel="noopener">Stumble notes</a>
+        </nav>
+        <div class="th-mobile-nav">
+          <button class="th-btn" type="button" aria-label="Previous piece" data-prev>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+          </button>
+          <button class="th-btn" type="button" aria-label="Next piece" data-next>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <script>
+  (async () => {
+    const $ = (sel, root = document) => root.querySelector(sel);
+    const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+    const MODELS = ['fable', 'opus', 'sonnet'];
+    const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const tc = (s) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+    const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    // ------------------------------------------------------------ data
+    let pieces;
+    try {
+      let res = await fetch('pieces.json', { cache: 'no-cache' });
+      // Served as "/examples/gallery" (no trailing slash, as some dev servers do for index.html)?
+      // Then relative URLs point one directory up; a <base> on the directory fixes every poster, iframe and link.
+      if (res.status === 404 && !location.pathname.endsWith('/')) {
+        const seg = location.pathname.split('/').pop();
+        if (seg && !seg.includes('.')) {
+          const alt = await fetch(`${seg}/pieces.json`, { cache: 'no-cache' });
+          if (alt.ok) { const b = document.createElement('base'); b.href = `${seg}/`; document.head.prepend(b); res = alt; }
+        }
+      }
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      pieces = (await res.json()).pieces;
+      if (!Array.isArray(pieces) || !pieces.length) throw new Error('pieces.json has no pieces');
+    } catch (e) {
+      const el = $('#error');
+      el.hidden = false;
+      el.innerHTML = `<p style="margin:0 0 8px"><strong>Couldn't load the list of pieces.</strong></p>
+        <p style="margin:0 0 8px">This page reads <code>pieces.json</code> over HTTP, so it needs a web server.
+        ${location.protocol === 'file:' ? 'It was opened from <code>file://</code>, where browsers block that request.' : ''}
+        From the repo root run <code>npx serve .</code> (or any static server) and open <code>/examples/gallery/</code>.</p>
+        <p style="margin:0;color:var(--mute)">Regenerate the list with <code>node scripts/build-gallery.mjs</code>. (${esc(e.message)})</p>`;
+      return;
+    }
+
+    const byId = new Map(pieces.map((p) => [p.id, p]));
+    const total = pieces.reduce((a, p) => a + p.duration, 0);
+    const modelCount = Object.fromEntries(MODELS.map((m) => [m, pieces.filter((p) => p.model === m).length]));
+    $('#hero-sub').textContent = `Sixteen pieces by three models, ${Math.floor(total / 60)} min ${total % 60} s in all. Click any poster to play it.`;
+
+    // ------------------------------------------------------------ grid
+    const grid = $('#grid');
+    const modelBadge = (m) => `<span class="model"><i class="dot" data-model="${m}"></i>${m}</span>`;
+    grid.innerHTML = pieces.map((p, i) => `
+      <li class="piece" data-id="${esc(p.id)}" style="--i:${i}">
+        <a class="card" href="#${esc(p.id)}" aria-label="${esc(p.title)} — play in the theatre">
+          <figure class="frame" style="aspect-ratio:${p.width}/${p.height}">
+            <img src="${esc(p.poster)}" alt="" width="${p.width}" height="${p.height}" ${i < 6 ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async" />
+            <span class="tc">${tc(p.duration)}</span>
+            <span class="play" aria-hidden="true"><span><svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg></span></span>
+          </figure>
+          <div class="cap">
+            <div class="row"><h3>${esc(p.title)}</h3>${modelBadge(p.model)}</div>
+            <p class="sub">${esc(p.subtitle)}</p>
+            <div class="meta"><span class="dim">${p.width}×${p.height}</span><span class="tagline">${p.tags.map(esc).join(', ')}</span></div>
+          </div>
+        </a>
+      </li>`).join('');
+    const items = $$('.piece', grid);
+    const itemById = new Map(items.map((li) => [li.dataset.id, li]));
+
+    // masonry: 1px implicit rows, each item spans its own height plus the row gap
+    const ROW_GAP = 36;
+    const span = (li) => {
+      const card = li.firstElementChild;
+      if (li.hidden) return;
+      const h = card.getBoundingClientRect().height;
+      li.style.gridRowEnd = `span ${Math.ceil(h) + ROW_GAP}`;
+    };
+    const relayout = () => items.forEach(span);
+    const ro = new ResizeObserver((entries) => { for (const en of entries) span(en.target.parentElement); });
+    items.forEach((li) => ro.observe(li.firstElementChild));
+    addEventListener('resize', relayout);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(relayout);
+    relayout();
+
+    // ------------------------------------------------------------ filters
+    const state = { model: 'all', tag: null };
+    const filtersEl = $('#filters');
+    const seg = $('#model-seg');
+    seg.innerHTML = [['all', 'All', pieces.length], ...MODELS.map((m) => [m, m, modelCount[m]])]
+      .map(([v, label, n]) => `<button type="button" data-model="${v}" aria-pressed="${v === 'all'}">${v !== 'all' ? `<i class="dot" data-model="${v}"></i>` : ''}${label}<small>${n}</small></button>`).join('');
+
+    const tagCount = new Map();
+    for (const p of pieces) for (const t of p.tags) tagCount.set(t, (tagCount.get(t) || 0) + 1);
+    const tagsSorted = [...tagCount.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    const common = tagsSorted.filter(([, n]) => n >= 2);
+    const rare = tagsSorted.filter(([, n]) => n < 2);
+    const chips = $('#tag-chips');
+    chips.innerHTML = [...common.map(([t]) => `<button type="button" data-tag="${esc(t)}" aria-pressed="false">${esc(t)}</button>`),
+      ...rare.map(([t]) => `<button type="button" class="extra" data-tag="${esc(t)}" aria-pressed="false">${esc(t)}</button>`),
+      rare.length ? `<button type="button" class="more" aria-expanded="false">${rare.length} more tags</button>` : ''].join('');
+    filtersEl.hidden = false;
+
+    const countEl = $('#count');
+    const emptyEl = $('#empty');
+    let visible = pieces;
+
+    function applyFilters() {
+      visible = pieces.filter((p) => (state.model === 'all' || p.model === state.model) && (!state.tag || p.tags.includes(state.tag)));
+      const show = new Set(visible.map((p) => p.id));
+      for (const li of items) li.hidden = !show.has(li.dataset.id);
+      $$('button[data-model]', seg).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.model === state.model)));
+      $$('button[data-tag]', chips).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tag === state.tag)));
+      const active = state.model !== 'all' || state.tag;
+      const what = [state.model !== 'all' ? state.model : null, state.tag ? `“${state.tag}”` : null].filter(Boolean).join(' and ');
+      countEl.innerHTML = `<span>${visible.length === pieces.length ? `All ${pieces.length} pieces` : `${visible.length} of ${pieces.length} pieces`}</span>` +
+        `<span class="tc">${tc(visible.reduce((a, p) => a + p.duration, 0))}</span>` +
+        `<button type="button" data-clear ${active ? '' : 'hidden'}>Clear</button>`;
+      emptyEl.hidden = visible.length > 0;
+      if (!visible.length) emptyEl.innerHTML = `Nothing is tagged ${esc(what)}. <button type="button" data-clear>Show every piece</button>`;
+      relayout();
+    }
+    seg.addEventListener('click', (e) => { const b = e.target.closest('button[data-model]'); if (!b) return; state.model = b.dataset.model; applyFilters(); });
+    chips.addEventListener('click', (e) => {
+      const more = e.target.closest('button.more');
+      if (more) {
+        const open = chips.dataset.expanded !== 'true';
+        chips.dataset.expanded = String(open);
+        more.setAttribute('aria-expanded', String(open));
+        more.textContent = open ? 'Fewer tags' : `${rare.length} more tags`;
+        return;
+      }
+      const b = e.target.closest('button[data-tag]'); if (!b) return;
+      state.tag = state.tag === b.dataset.tag ? null : b.dataset.tag;
+      applyFilters();
+    });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('[data-clear]')) return;
+      state.model = 'all'; state.tag = null; applyFilters();
+    });
+    applyFilters();
+
+    // ------------------------------------------------------------ theatre
+    const dialog = $('#theatre');
+    const box = $('#th-box');
+    const cap = $('#th-cap');
+    const stage = $('#th-stage');
+    let current = null;          // piece shown now
+    let pushed = false;          // we added a history entry for the open theatre
+    let opener = null;           // element to return focus to
+    let readyTimer = 0;
+
+    const list = () => (current && !visible.includes(current) ? pieces : visible);
+
+    function layoutTheatre() {
+      if (!current) return;
+      const vw = innerWidth, vh = innerHeight;
+      const wide = vw >= 900;
+      const side = wide ? 100 : 16;
+      const top = wide ? 36 : 68;          // phones: leave room for the close button above the stage
+      const capH = cap.getBoundingClientRect().height;
+      const asp = current.width / current.height;
+      // every piece gives itself 16px of body padding and caps its own canvas width (960 landscape, 720 square)
+      const PAD = 32;
+      const capW = asp > 1 ? 960 : asp === 1 ? 720 : 1280;
+      const aw = Math.max(200, vw - side * 2 - PAD);
+      const ah = Math.max(200, vh - top - capH - 24 - PAD);
+      let bw = Math.min(aw, capW, ah * asp);
+      let bh = bw / asp;
+      if (bh > ah) { bh = ah; bw = bh * asp; }
+      box.style.width = `${Math.round(bw + PAD)}px`;
+      box.style.height = `${Math.round(bh + PAD)}px`;
+      cap.style.width = `${Math.round(Math.max(bw + PAD, Math.min(vw - 32, 560)))}px`;
+    }
+
+    function mountPiece(p, { autoplay }) {
+      clearInterval(readyTimer);
+      box.classList.remove('ready');
+      box.innerHTML = `<img src="${esc(p.poster)}" alt="" /><iframe title="${esc(p.title)} — ${esc(p.subtitle)}" allow="autoplay; fullscreen" src="${esc(p.page)}"></iframe>`;
+      const iframe = $('iframe', box);
+      const started = performance.now();
+      let readyAt = 0, revealed = false, nudged = false;
+      const reveal = () => { if (revealed) return; revealed = true; clearInterval(readyTimer); box.classList.add('ready'); };
+      // The poster stays up until the live piece shows the same frame (pieces seek to their poster frame right
+      // after init, which can take a moment; if one does not, we seek it there ourselves after a second).
+      // On a click we then rewind to 0 and play; on a deep link we just reveal.
+      readyTimer = setInterval(() => {
+        let win = null;
+        try { win = iframe.contentWindow; } catch { /* cross-origin: never on this site */ }
+        const now = performance.now();
+        if (!win || win.__ready !== true) { if (now - started > 20000) reveal(); return; }
+        if (!readyAt) { readyAt = now; try { win.addEventListener('keydown', onKey); } catch { /* ignore */ } }
+        const m = win.movie;
+        const frame = m && typeof m.currentFrame === 'number' ? m.currentFrame : null;
+        const settled = frame === null || Math.abs(frame - p.posterFrame) <= 1 || (m && m.isPlaying) || now - readyAt > 3000;
+        if (!settled) {
+          if (!nudged && now - readyAt > 1200 && typeof m.gotoFrame === 'function') {
+            nudged = true;
+            Promise.resolve(m.gotoFrame(p.posterFrame, true)).catch(() => { /* fall through to the grace period */ });
+          }
+          return;
+        }
+        clearInterval(readyTimer);
+        if (autoplay && !reduceMotion && m && typeof m.play === 'function') {
+          Promise.resolve(typeof m.gotoFrame === 'function' ? m.gotoFrame(0, true) : null)
+            .then(() => { if (current === p) m.play(); })
+            .catch(() => { /* the player bar still works */ })
+            .finally(() => { if (current === p) reveal(); });
+        } else reveal();
+      }, 80);
+    }
+
+    function fillCaption(p) {
+      const arr = list();
+      $('#th-title').textContent = p.title;
+      $('#th-sub').textContent = p.subtitle;
+      $('#th-meta').innerHTML = `${modelBadge(p.model)}<span class="tc">${tc(p.duration)}</span><span class="dim">${p.width}×${p.height}</span>` +
+        `<span class="tags">${p.tags.map((t) => `<span>${esc(t)}</span>`).join('')}</span>`;
+      $('#th-count').textContent = `${String(arr.indexOf(p) + 1).padStart(2, '0')} / ${String(arr.length).padStart(2, '0')}`;
+      $('#th-open').href = p.page;
+      const notes = $('#th-notes');
+      notes.hidden = !p.notes;
+      if (p.notes) notes.href = p.notes;
+      const many = arr.length > 1;
+      $$('[data-prev],[data-next]', dialog).forEach((b) => { b.disabled = !many; b.style.visibility = many ? '' : 'hidden'; });
+    }
+
+    function openPiece(p, { autoplay = false, history: hist = 'push' } = {}) {
+      const same = current === p;
+      current = p;
+      fillCaption(p);
+      layoutTheatre();
+      if (!same) mountPiece(p, { autoplay });
+      if (!dialog.open) {
+        document.documentElement.classList.add('theatre-open');
+        dialog.showModal();
+        $('.th-close', dialog).focus({ preventScroll: true });
+      }
+      if (hist === 'push') {
+        if (pushed) history.replaceState({ theatre: p.id }, '', `#${p.id}`);
+        else { history.pushState({ theatre: p.id }, '', `#${p.id}`); pushed = true; }
+      } else if (hist === 'replace') {
+        history.replaceState({ theatre: p.id }, '', `#${p.id}`);
+      }
+      layoutTheatre();
+    }
+
+    function closeTheatre({ viaHistory = false } = {}) {
+      clearInterval(readyTimer);
+      box.innerHTML = '';                      // drop the iframe so audio stops
+      box.classList.remove('ready');
+      current = null;
+      if (dialog.open) dialog.close();
+      document.documentElement.classList.remove('theatre-open');
+      if (!viaHistory) {
+        if (pushed) { pushed = false; history.back(); }
+        else if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+      }
+      pushed = false;
+      if (opener && opener.isConnected && !opener.closest('[hidden]')) opener.focus({ preventScroll: true });
+      opener = null;
+    }
+
+    function step(dir) {
+      if (!current) return;
+      const arr = list();
+      if (arr.length < 2) return;
+      const i = arr.indexOf(current);
+      openPiece(arr[(i + dir + arr.length) % arr.length], { autoplay: true, history: pushed ? 'push' : 'replace' });
+    }
+
+    function onKey(e) {
+      if (!dialog.open) return;
+      if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
+      else if (e.key === 'Escape') { e.preventDefault(); closeTheatre(); }
+    }
+
+    grid.addEventListener('click', (e) => {
+      const a = e.target.closest('a.card');
+      if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+      const p = byId.get(a.parentElement.dataset.id);
+      if (!p) return;
+      e.preventDefault();
+      opener = a;
+      openPiece(p, { autoplay: true });
+    });
+    dialog.addEventListener('click', (e) => {
+      if (e.target.closest('[data-close]')) return closeTheatre();
+      if (e.target.closest('[data-prev]')) return step(-1);
+      if (e.target.closest('[data-next]')) return step(1);
+      if (!e.target.closest('.th-box, .th-cap, .th-btn')) closeTheatre();   // backdrop
+    });
+    dialog.addEventListener('cancel', (e) => { e.preventDefault(); closeTheatre(); });
+    document.addEventListener('keydown', onKey);
+    addEventListener('resize', layoutTheatre);
+
+    // deep links: #id opens that piece; back/forward follow the hash
+    const fromHash = () => byId.get(decodeURIComponent(location.hash.slice(1)));
+    addEventListener('popstate', () => {
+      const p = fromHash();
+      if (p) { pushed = dialog.open ? pushed : true; openPiece(p, { autoplay: false, history: 'none' }); }
+      else if (dialog.open) closeTheatre({ viaHistory: true });
+    });
+    const initial = fromHash();
+    if (initial) openPiece(initial, { autoplay: false, history: 'none' });
+    else if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Loader Gallery</title>
+  <style>
+    html, body { height: 100%; }
+    body { background: #0b0c10; margin: 0; padding: 16px; box-sizing: border-box; display: flex; justify-content: center; align-items: flex-start; }
+    canvas { display: block; width: min(860px, 100%, calc(100vh - 40px)); border-radius: 10px; }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1080" height="1080"></canvas>
+
+  <script type="application/json" id="piece-meta">{ "title": "Loader Gallery", "subtitle": "Nine hypnotic loading loops on one dark board, each a different idea.", "tags": ["loops", "ui-motion", "generative", "square"], "width": 1080, "height": 1080, "duration": 10, "posterFrame": 262, "model": "sonnet" }</script>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const S = 1080, FPS = 30, T = 10, POSTER_FRAME = 262;
+    const TAU = Math.PI * 2;
+
+    // ---- palette: charcoal, off-white, three neon families -------------------------------------------------
+    const CYAN = '#35f2e0', PINK = '#ff4f9a', LIME = '#c8ff3c';
+    const OFF = '#ece9e1', BOARD = '#101116', TILE = '#1a1c23', DIM = '#2c2f39';
+    const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+
+    // ---- helpers ----------------------------------------------------------------------------------------------
+    const frac = v => v - Math.floor(v);
+    const clamp01 = v => Math.min(1, Math.max(0, v));
+    const inOut = v => (v < 0.5 ? 4 * v * v * v : 1 - Math.pow(-2 * v + 2, 3) / 2);
+    const hex = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
+    const mix = (a, b, k) => {
+      const A = hex(a), B = hex(b);
+      return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * k).toString(16).padStart(2, '0')).join('');
+    };
+
+    // One periodic function of time -> props, sampled into back-to-back linear keyframes. Every function used
+    // below has a period that divides T = 10 s, so every layer ends exactly where it started (seamless loop).
+    function sampled(fn, dt = 1 / 15) {
+      const keyframes = [], n = Math.round(T / dt);
+      for (let i = 0; i < n; i++) keyframes.push({ at: i * dt, to: fn((i + 1) * dt), duration: dt, ease: 'none' });
+      return { initial: fn(0), keyframes };
+    }
+    const layer = (spec, fn, dt) => {
+      const s = sampled(fn, dt);
+      return { ...spec, initial: { ...spec.initial, ...s.initial }, keyframes: s.keyframes };
+    };
+    // A full-canvas group turning about (px, py): children are written in canvas coordinates.
+    const rotor = (name, px, py, turns, sequences, startDeg = 0) => ({
+      type: 'composition', name, width: S, height: S,
+      initial: { x: px, y: py, pivotX: px, pivotY: py, rotation: startDeg },
+      keyframes: [{ at: 0, to: { rotation: startDeg + 360 * turns }, duration: T, ease: 'none' }],
+      sequences,
+    });
+    const disc = (name, x, y, r, color, extra = {}) =>
+      ({ type: 'shape', shape: 'circle', name, initial: { x, y, radius: r, fillColor: color, ...extra } });
+    const text = (name, str, x, y, style, initial = {}, extra = {}) =>
+      ({ type: 'text', name, text: str, style: { fontFamily: MONO, fill: OFF, ...style }, initial: { x, y, anchorX: 0.5, anchorY: 0.5, ...initial }, ...extra });
+
+    // ---- the nine loaders (each returns layers in canvas coordinates around its tile centre) -----------------------
+
+    // 1. ORBIT: three concentric orbits turning at 1 s, 2 s and 2.5 s per revolution (whole turns in 10 s)
+    function orbit(cx, cy, accent) {
+      const rings = [[34, 2, accent, 5.5, 10], [62, 3, OFF, 6.5, -5], [92, 4, accent, 7.5, 4]];
+      const out = [disc('orbit-core', cx, cy, 6, OFF)];
+      rings.forEach(([r, n, col, dr, turns], ri) => {
+        out.push({ type: 'shape', shape: 'circle', name: 'orbit-ring' + ri, initial: { x: cx, y: cy, radius: r, fillAlpha: 0, strokeColor: OFF, strokeAlpha: 0.13, strokeWidth: 1.5 } });
+        const dots = Array.from({ length: n }, (_, k) => {
+          const a = (k / n) * TAU + ri;
+          return disc('orbit-dot' + ri + '-' + k, cx + r * Math.cos(a), cy + r * Math.sin(a), dr, col);
+        });
+        out.push(rotor('orbit-rotor' + ri, cx, cy, turns, dots));
+      });
+      return out;
+    }
+
+    // 2. BOUNCE: a travelling wave of seven balls (1.25 s bounce, squash on the ground, shadow follows height)
+    function bounce(cx, cy, accent) {
+      const N = 7, P = 1.25, H = 92, gy = cy + 56, r = 11, out = [];
+      out.push({ type: 'shape', shape: 'rect', name: 'bounce-floor', initial: { x: cx, y: gy + 5, width: 196, height: 2, cornerRadius: 1, fillColor: OFF, fillAlpha: 0.2 } });
+      for (let k = 0; k < N; k++) {
+        const x = cx + (k - (N - 1) / 2) * 30;
+        const u = t => frac(t / P - k * 0.085);
+        out.push(layer({ type: 'shape', shape: 'ellipse', name: 'bounce-shadow' + k, initial: { x, y: gy + 5, radiusX: r, radiusY: 3, fillColor: '#000000' } },
+          t => { const v = u(t), h = 4 * v * (1 - v); return { scaleX: 1 - 0.5 * h, scaleY: 1 - 0.5 * h, fillAlpha: 0.55 - 0.3 * h }; }));
+      }
+      for (let k = 0; k < N; k++) {
+        const x = cx + (k - (N - 1) / 2) * 30;
+        const u = t => frac(t / P - k * 0.085);
+        out.push(layer({ type: 'shape', shape: 'circle', name: 'bounce-ball' + k, initial: { x, radius: r, anchorY: 1, fillColor: mix(accent, '#ffffff', k / (N - 1) * 0.55) } },
+          t => {
+            const v = u(t), h = 4 * v * (1 - v), d = Math.min(v, 1 - v), sq = Math.max(0, 1 - d / 0.07);
+            return { y: gy - H * h, scaleY: 1 - 0.32 * sq, scaleX: 1 + 0.28 * sq };
+          }, 1 / FPS));
+      }
+      return out;
+    }
+
+    // 3. MORPH: a square that melts into a circle and back, turning a quarter per 2.5 s; two echoes lag behind
+    function morph(cx, cy, accent) {
+      const P = 2.5, size = 104, out = [];
+      const state = (t, lag) => { const p = (t - lag) / P, m = 0.5 - 0.5 * Math.cos(TAU * p); return { m, rot: 90 * (p - Math.sin(TAU * p) / TAU) }; };
+      [[1.9, 0.2, 0.2], [1.45, 0.1, 0.4]].forEach(([f, lag, al], i) => {
+        const w = size * f;
+        out.push(layer({ type: 'shape', shape: 'rect', name: 'morph-echo' + i, initial: { x: cx, y: cy - 6, width: w, height: w, fillAlpha: 0, strokeColor: accent, strokeAlpha: al, strokeWidth: 2.5 } },
+          t => { const s = state(t, lag); return { cornerRadius: (w / 2) * s.m, rotation: s.rot }; }));
+      });
+      out.push(layer({ type: 'shape', shape: 'rect', name: 'morph-main', initial: { x: cx, y: cy - 6, width: size, height: size, fillColor: accent } },
+        t => { const s = state(t, 0); return { cornerRadius: (size / 2) * s.m, rotation: s.rot, scale: 1 - 0.1 * s.m }; }));
+      out.push(disc('morph-core', cx, cy - 6, 6, BOARD));
+      return out;
+    }
+
+    // 4. STRETCH: three worms that stretch ahead, then catch up, and ping-pong along their tracks (2.5 s)
+    function stretch(cx, cy, accent) {
+      const P = 2.5, len = 190, h = 20, x0 = cx - len / 2, out = [];
+      const rows = [[-44, accent, 0], [0, OFF, 0.07], [44, accent, 0.14]];
+      rows.forEach(([dy, col, lag], i) => {
+        out.push({ type: 'shape', shape: 'rect', name: 'stretch-track' + i, initial: { x: cx, y: cy - 6 + dy, width: len, height: h, cornerRadius: h / 2, fillColor: OFF, fillAlpha: 0.06 } });
+        out.push(layer({ type: 'shape', shape: 'rect', name: 'stretch-bar' + i, initial: { y: cy - 6 + dy, height: h, cornerRadius: h / 2, anchorX: 0, fillColor: col } },
+          t => {
+            const p = frac((t - lag * P) / P), fwd = p < 0.5, q = (fwd ? p : p - 0.5) / 0.5;
+            const lead = inOut(clamp01(q / 0.7)), tail = inOut(clamp01((q - 0.3) / 0.7));
+            const R = fwd ? lead : 1 - tail, L = fwd ? tail : 1 - lead;       // R = right edge, L = left edge (0..1)
+            const xl = x0 + L * (len - h), xr = x0 + h + R * (len - h);
+            return { x: xl, width: xr - xl };
+          }, 1 / FPS));
+      });
+      return out;
+    }
+
+    // 5. RING: twelve dots with a bright head and a fading tail (1.25 s per turn) + an inner ring turning back
+    function ring(cx, cy, accent) {
+      const out = [];
+      const make = (n, R, r, P, dir, col, tag) => {
+        for (let k = 0; k < n; k++) {
+          const a = (-90 + dir * k * (360 / n)) * TAU / 360;
+          out.push(layer({ type: 'shape', shape: 'circle', blendMode: 'add', name: 'ring-' + tag + k, initial: { x: cx + R * Math.cos(a), y: cy - 6 + R * Math.sin(a), radius: r, fillColor: col } },
+            t => { const v = 1 - frac(t / P - k / n); return { alpha: 0.1 + 0.9 * Math.pow(v, 1.6), scale: 0.5 + 0.65 * v }; }));
+        }
+      };
+      make(12, 84, 9.5, 1.25, 1, accent, 'o');
+      make(8, 46, 6.5, 2, -1, OFF, 'i');
+      return out;
+    }
+
+    // 6. PULSE: a 5x5 grid breathing as a wave that radiates from the centre (2 s)
+    function pulse(cx, cy, accent) {
+      const out = [], P = 2, pitch = 38;
+      for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) {
+        const d = Math.hypot(i, j);
+        out.push(layer({ type: 'shape', shape: 'rect', name: 'pulse-' + i + '_' + j, initial: { x: cx + i * pitch, y: cy - 6 + j * pitch, width: 26, height: 26, cornerRadius: 7, fillColor: mix(accent, OFF, d / 2.83 * 0.8) } },
+          t => { const m = 0.5 + 0.5 * Math.cos(TAU * (t / P - d * 0.13)); return { scale: 0.22 + 0.88 * m, alpha: 0.2 + 0.8 * m, rotation: (1 - m) * 45 }; }));
+      }
+      return out;
+    }
+
+    // 7. PENDULUM: a Newton's cradle, the end balls trade the swing (2.5 s per round trip, real pendulum easing)
+    function pendulum(cx, cy, accent) {
+      const A = 25, P = 2.5, q = P / 4, ay = cy - 84, L = 118, r = 15, n = T / P, out = [];
+      out.push({ type: 'shape', shape: 'rect', name: 'pend-frame', initial: { x: cx, y: ay - 3, width: 200, height: 6, cornerRadius: 3, fillColor: OFF, fillAlpha: 0.55 } });
+      for (let k = 0; k < 5; k++) {
+        const bx = cx + (k - 2) * 2 * r, swing = k === 0 || k === 4;
+        const kids = [
+          { type: 'shape', shape: 'rect', name: 'pend-string' + k, initial: { x: bx, y: ay, width: 2, height: L, anchorX: 0.5, anchorY: 0, fillColor: OFF, fillAlpha: 0.4 } },
+          disc('pend-ball' + k, bx, ay + L + r, r, swing ? accent : OFF, swing ? {} : { fillAlpha: 0.85 }),
+        ];
+        let keyframes = [], startDeg = 0;
+        if (swing) {
+          const left = k === 0;
+          startDeg = left ? A : 0;
+          for (let c = 0; c < n; c++) {
+            const c0 = c * P;
+            if (left) keyframes.push({ at: c0, to: { rotation: 0 }, duration: q, ease: 'sine.in' }, { at: c0 + 3 * q, to: { rotation: A }, duration: q, ease: 'sine.out' });
+            else keyframes.push({ at: c0 + q, to: { rotation: -A }, duration: q, ease: 'sine.out' }, { at: c0 + 2 * q, to: { rotation: 0 }, duration: q, ease: 'sine.in' });
+          }
+        }
+        out.push({ type: 'composition', name: 'pend-rotor' + k, width: S, height: S, initial: { x: bx, y: ay, pivotX: bx, pivotY: ay, rotation: startDeg }, keyframes, sequences: kids });
+      }
+      return out;
+    }
+
+    // 8. COMET: a head that surges and eases round a circle (2 s per turn), dragging 18 trail dots through time
+    function comet(cx, cy, accent) {
+      const R = 82, P = 2, N = 18, a = 0.65, lag = 0.02, out = [];
+      const ang = t => { const s = t / P; return (-90 + 360 * (s + (a / TAU) * Math.sin(TAU * s))) * TAU / 360; };
+      const pos = (t, j) => { const th = ang(t - j * lag); return { x: cx + R * Math.cos(th), y: cy - 6 + R * Math.sin(th) }; };
+      out.push({ type: 'shape', shape: 'circle', name: 'comet-track', initial: { x: cx, y: cy - 6, radius: R, fillAlpha: 0, strokeColor: OFF, strokeAlpha: 0.1, strokeWidth: 3 } });
+      out.push(layer({ ...disc('comet-halo', 0, 0, 22, accent, { fillAlpha: 0.16 }), blendMode: 'add' }, t => pos(t, 0), 1 / FPS));
+      for (let j = N; j >= 0; j--) {
+        const f = j / N;
+        out.push(layer({ ...disc('comet-' + j, 0, 0, 9.5 * (1 - 0.72 * f), j === 0 ? '#e8fffc' : accent, { alpha: j === 0 ? 1 : 0.7 * Math.pow(1 - f, 1.25) }), blendMode: 'add' }, t => pos(t, j), 1 / FPS));
+      }
+      return out;
+    }
+
+    // 9. FLIP: a 4x4 checkerboard flipping in a diagonal wave, two flips per 2.5 s so the pattern returns
+    function flip(cx, cy, accent) {
+      const out = [], pitch = 48, size = 41, P = 1.25, cyy = cy - 6;
+      for (let j = 0; j < 4; j++) for (let i = 0; i < 4; i++) {
+        const x = cx + (i - 1.5) * pitch, y = cyy + (j - 1.5) * pitch, par = (i + j) % 2, delay = (i + j) * 0.085;
+        const angle = t => { const s = (t - delay) / P, f = frac(s); return 180 * (Math.floor(s) + inOut(clamp01(f / 0.62)) + par); };
+        const base = (col, nm) => ({ type: 'shape', shape: 'rect', name: 'flip-' + nm + i + '_' + j, initial: { x, y, width: size, height: size, cornerRadius: 8, fillColor: col } });
+        out.push(layer(base(accent, 'a'), t => ({ scaleX: Math.max(0, Math.cos(angle(t) * Math.PI / 180)) }), 1 / FPS));
+        out.push(layer(base('#d8d5cd', 'b'), t => ({ scaleX: Math.max(0, -Math.cos(angle(t) * Math.PI / 180)) }), 1 / FPS));
+      }
+      return out;
+    }
+
+    // ---- the board -----------------------------------------------------------------------------------------
+    const TS = 280, GAP = 16, X0 = (S - (3 * TS + 2 * GAP)) / 2, Y0 = 58;
+    const tiles = [
+      ['ORBIT', orbit, CYAN], ['BOUNCE', bounce, PINK], ['MORPH', morph, LIME],
+      ['STRETCH', stretch, PINK], ['RING', ring, LIME], ['PULSE', pulse, CYAN],
+      ['PENDULUM', pendulum, LIME], ['COMET', comet, CYAN], ['FLIP', flip, PINK],
+    ];
+
+    const sequences = [
+      { type: 'shape', shape: 'rect', name: 'board', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: BOARD } },
+      { type: 'shape', shape: 'rect', name: 'board-glow', width: 'GW', height: 'GH',
+        fillGradient: { type: 'radial', center: [0.5, 0.45], radius: 0.75, stops: [[0, 'rgba(60,70,95,0.28)'], [1, 'rgba(16,17,22,0)']] },
+        initial: { x: 'GW/2', y: 'GH/2' } },
+    ];
+
+    tiles.forEach(([label, build, accent], n) => {
+      const col = n % 3, row = Math.floor(n / 3);
+      const cx = X0 + col * (TS + GAP) + TS / 2, cy = Y0 + row * (TS + GAP) + TS / 2;
+      const d = (col + row) * 0.13 + 0.15;                          // diagonal stagger of the pop-in
+      sequences.push({
+        type: 'composition', name: 'tile-' + label.toLowerCase(), width: S, height: S,
+        initial: { x: cx, y: cy, pivotX: cx, pivotY: cy },
+        keyframes: [
+          { at: d, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.5, ease: 'power2.out' },
+          { at: d, from: { scale: 0.86 }, to: { scale: 1 }, duration: 0.7, ease: 'back.out(1.8)' },
+        ],
+        sequences: [
+          { type: 'shape', shape: 'rect', name: 'tile-bg-' + n, initial: { x: cx, y: cy, width: TS, height: TS, cornerRadius: 30, fillColor: TILE, strokeColor: accent, strokeAlpha: 0.22, strokeWidth: 1.5 } },
+          text('tile-no-' + n, '0' + (n + 1), cx - TS / 2 + 22, cy - TS / 2 + 26, { fontSize: 13, letterSpacing: 2, fill: accent }, { anchorX: 0, alpha: 0.85 }),
+          text('tile-label-' + n, label, cx + TS / 2 - 22, cy + TS / 2 - 24, { fontSize: 12, letterSpacing: 3 }, { anchorX: 1, alpha: 0.4 }),
+          ...build(cx, cy, accent),
+        ],
+      });
+    });
+
+    // title, at the end
+    sequences.push(
+      text('title', 'NINE WAYS TO WAIT', S / 2, 984, { fontSize: 28, fontWeight: 'bold', letterSpacing: 9, fontFamily: 'system-ui, -apple-system, Helvetica, Arial, sans-serif' }, {}, {
+        at: 7.3, duration: T - 7.3,
+        keyframes: [{ at: 0, from: { alpha: 0, y: 996 }, to: { alpha: 1, y: 984 }, duration: 0.8, ease: 'power3.out' }] }),
+      text('subtitle', 'LOADER GALLERY  ·  NINE SEAMLESS LOOPS', S / 2, 1016, { fontSize: 13, letterSpacing: 4, fill: CYAN }, {}, {
+        at: 7.6, duration: T - 7.6,
+        keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 0.75 }, duration: 0.8, ease: 'power2.out' }] }),
+    );
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      const t0 = performance.now();
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: S, height: S, duration: T, frameRate: FPS,
+        background: BOARD,
+        composition: { sequences },
+      });
+      window.__buildMs = Math.round(performance.now() - t0);
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

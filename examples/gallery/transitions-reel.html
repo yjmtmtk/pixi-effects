@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Transitions Reel — pixi-effects</title>
+  <style>
+    html, body { background: #111214; margin: 0; }
+    body { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
+    canvas { width: min(960px, 100%); height: auto; display: block; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script type="application/json" id="piece-meta">{ "title": "Transitions Reel", "subtitle": "Seven cuts, seven colours: every transition kind in one tight typographic reel", "tags": ["transitions", "kinetic type", "flat colour", "reel"], "width": 1280, "height": 720, "duration": 14, "posterFrame": 138, "model": "opus" }</script>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 14;
+    const POSTER_FRAME = JSON.parse(document.getElementById('piece-meta').textContent).posterFrame;
+    const snap = t => Math.round(t * FPS) / FPS;
+
+    // ---- design tokens -------------------------------------------------------------------------
+    const C = {
+      ink: '#151515', paper: '#F3EEE3', red: '#FF4A2E', blue: '#2448E8',
+      yellow: '#FFCC1A', pink: '#FF9EC4', green: '#12B886',
+    };
+    const HEAVY = '"Arial Black", "Arial Bold", Arial, sans-serif';
+    const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+    const EASE_IN = 'expo.out';        // every entrance
+    const EASE_LOOP = 'sine.inOut';    // every idle / looping motion
+    const M = 64;                      // outer margin (5 % of the width)
+
+    // ---- the seven cuts, in order ---------------------------------------------------------------
+    // `note` is the tiny caption that names the transition on the scene it brings in.
+    const CUTS = [
+      { kind: 'crossfade', duration: 0.6, ease: 'sine.inOut',                         note: "ease 'sine.inOut'" },
+      { kind: 'wipe',      duration: 0.5, ease: 'power2.inOut', direction: 'left', smoothing: 0.01, note: "direction 'left'" },
+      { kind: 'iris',      duration: 0.6, ease: 'power2.inOut', mode: 'in', smoothing: 0.004,          note: "mode 'in'" },
+      { kind: 'slide',     duration: 0.5, ease: 'expo.inOut',   direction: 'left',    note: "direction 'left'" },
+      { kind: 'dip',       duration: 0.6, ease: 'sine.inOut',                         note: 'through ink' },
+      { kind: 'zoom',      duration: 0.5, ease: 'power1.inOut', mode: 'in', fromScale: 3, note: 'fromScale 3' },
+      { kind: 'dissolve',  duration: 0.8, ease: 'none',         scale: 14, seed: 3,   note: 'scale 14 · seed 3' },
+    ];
+    const FIRST_HOLD = 1.2, HOLD = 1.0;          // seconds a scene sits still between cuts
+    const S = [];                                // S[i] = start of cut i (= start of scene i+1)
+    { let t = FIRST_HOLD; for (const c of CUTS) { S.push(snap(t)); t += c.duration + HOLD; } }
+    // scene k (0 = intro … 7 = title) lives from its cut's start until the NEXT cut has finished
+    const sceneAt = k => (k === 0 ? 0 : S[k - 1]);
+    const sceneEnd = k => (k < CUTS.length ? snap(S[k] + CUTS[k].duration) : DURATION);
+
+    // ---- text measuring (for per-letter layout) -----------------------------------------------
+    const mctx = document.createElement('canvas').getContext('2d');
+    const measure = (str, size, family = HEAVY, weight = '900') => {
+      mctx.font = `${weight} ${size}px ${family}`;
+      return mctx.measureText(str).width;
+    };
+
+    // ---- building blocks ------------------------------------------------------------------------
+    const rect = (name, x, y, w, h, fill, extra = {}) => ({
+      type: 'shape', shape: 'rect', name, width: w, height: h,
+      ...extra, initial: { x, y, fillColor: fill, ...(extra.initial || {}) },
+    });
+    const bigWord = (name, text, size, fill, x = W / 2, y = H / 2, extra = {}) => ({
+      type: 'text', name, text,
+      style: { fontFamily: HEAVY, fontWeight: '900', fontSize: size, fill, letterSpacing: -size * 0.02 },
+      ...extra,
+      initial: { x, y, anchorX: 0.5, anchorY: 0.5, ...(extra.initial || {}) },
+    });
+    const mono = (name, text, size, fill, x, y, extra = {}) => ({
+      type: 'text', name, text,
+      style: { fontFamily: MONO, fontSize: size, fill, letterSpacing: 2, fontWeight: extra.weight || '500' },
+      keyframes: extra.keyframes,
+      initial: { x, y, anchorX: extra.anchorX ?? 0, anchorY: 0.5, alpha: extra.alpha ?? 1 },
+    });
+
+    // corner chrome shared by every scene: piece label, index, and the caption naming the cut
+    function chrome(k, fg) {
+      const out = [
+        mono(`s${k}-label`, 'TRANSITIONS REEL', 15, fg, M, 56, { weight: '700', alpha: 0.85 }),
+        mono(`s${k}-index`, `0${k} / 07`, 15, fg, W - M, 56, { weight: '700', anchorX: 1, alpha: 0.85 }),
+      ];
+      const cut = CUTS[k - 1];
+      const capY = 640;
+      const delay = cut ? cut.duration : 0.3;
+      out.push(rect(`s${k}-chip`, M + 7, capY, 14, 14, fg, {
+        keyframes: [{ at: delay, from: { scale: 0 }, duration: 0.35, ease: 'back.out(3)' }],
+      }));
+      out.push(mono(`s${k}-caption`, cut ? `${cut.kind}  ·  ${cut.duration}s  ·  ${cut.note}` : 'seven kinds of cut, one composition',
+        18, fg, M + 28, capY, {
+          weight: '600',
+          keyframes: [{ at: delay + 0.05, from: { alpha: 0, x: M + 8 }, duration: 0.45, ease: EASE_IN }],
+        }));
+      return out;
+    }
+
+    function scene(k, bg, fg, content) {
+      const at = sceneAt(k), len = snap(sceneEnd(k) - at);
+      return {
+        type: 'composition', name: `scene${k}`, at, duration: len, width: W, height: H,
+        sequences: [rect(`s${k}-bg`, W / 2, H / 2, W, H, bg), ...content(len), ...chrome(k, fg)],
+      };
+    }
+
+    // ---- 0 · intro: SEVEN / CUTS ----------------------------------------------------------------
+    const intro = scene(0, C.paper, C.ink, () => [
+      bigWord('s0-seven', 'SEVEN', 190, C.ink, W / 2, 262, {
+        keyframes: [{ at: 0.05, from: { y: 322, alpha: 0 }, duration: 0.6, ease: EASE_IN }],
+      }),
+      rect('s0-block', W / 2, 452, 0, 176, C.red, {
+        keyframes: [{ at: 0.2, to: { width: 860 }, duration: 0.55, ease: EASE_IN }],
+      }),
+      bigWord('s0-cuts', 'CUTS', 190, C.paper, W / 2, 448, {
+        keyframes: [{ at: 0.32, from: { y: 508, alpha: 0 }, duration: 0.6, ease: EASE_IN }],
+      }),
+    ]);
+
+    // ---- 1 · CROSSFADE: two discs drift through each other ------------------------------------
+    const s1 = scene(1, C.yellow, C.ink, len => [
+      { type: 'shape', shape: 'circle', name: 's1-disc-a', radius: 230, initial: { x: 470, y: 360, fillColor: C.red },
+        keyframes: [{ at: 0, to: { x: 590 }, duration: len, ease: EASE_LOOP }] },
+      { type: 'shape', shape: 'circle', name: 's1-disc-b', radius: 160, initial: { x: 880, y: 360, fillColor: C.pink },
+        keyframes: [{ at: 0, to: { x: 760 }, duration: len, ease: EASE_LOOP }] },
+      bigWord('s1-word', 'CROSSFADE', 138, C.ink, W / 2, H / 2, {
+        keyframes: [{ at: 0, from: { scale: 0.94 }, duration: len, ease: 'power1.out' }],
+      }),
+    ]);
+
+    // ---- 2 · WIPE: three stripes wipe in under the word ---------------------------------------
+    const s2 = scene(2, C.blue, C.paper, () => [
+      ...[C.yellow, C.red, C.pink].map((fill, i) => rect(`s2-stripe${i}`, 0, 486 + i * 34, 0.01, 22, fill, {
+        initial: { anchorX: 0 },
+        keyframes: [{ at: 0.25 + i * 0.09, to: { width: W }, duration: 0.7, ease: EASE_IN }],
+      })),
+      bigWord('s2-word', 'WIPE', 300, C.paper, W / 2, 322, {
+        keyframes: [{ at: 0.1, from: { x: W / 2 + 90 }, duration: 0.9, ease: EASE_IN }],
+      }),
+    ]);
+
+    // ---- 3 · IRIS: rings open out from the centre ---------------------------------------------
+    const s3 = scene(3, C.red, C.paper, len => [
+      ...[0, 1, 2].map(i => ({
+        type: 'shape', shape: 'circle', name: `s3-ring${i}`, radius: 250,
+        initial: { x: W / 2, y: H / 2, fillAlpha: 0, strokeColor: C.paper, strokeWidth: 5, scale: 0.2, alpha: 0 },
+        keyframes: [{ at: 0.15 + i * 0.35, from: { scale: 0.2, alpha: 1 }, to: { scale: 1.7, alpha: 0 }, duration: 1.3, ease: 'power2.out' }],
+      })),
+      { type: 'shape', shape: 'circle', name: 's3-pupil', radius: 190, initial: { x: W / 2, y: H / 2, fillColor: C.ink, scale: 0 },
+        keyframes: [{ at: 0.1, to: { scale: 1 }, duration: 0.7, ease: EASE_IN }] },
+      bigWord('s3-word', 'IRIS', 300, C.paper, W / 2, H / 2),
+    ]);
+
+    // ---- 4 · SLIDE: the word drifts, a conveyor of blocks runs beneath ------------------------
+    const s4 = scene(4, C.green, C.ink, len => [
+      ...Array.from({ length: 11 }, (_, i) => rect(`s4-block${i}`, -40 + i * 140, 520, 56, 56, i % 3 === 1 ? C.paper : C.ink, {
+        keyframes: [{ at: 0, to: { x: -40 + i * 140 - 280 }, duration: len, ease: 'none' }],
+      })),
+      bigWord('s4-word', 'SLIDE', 250, C.ink, W / 2 + 50, 300, {
+        keyframes: [{ at: 0, to: { x: W / 2 - 50 }, duration: len, ease: 'none' }],
+      }),
+    ]);
+
+    // ---- 5 · DIP: each letter dips like a bob on water ------------------------------------------
+    const DIP = 'DIP', DIP_SIZE = 330, DIP_Y = 300;
+    const dipWidths = [...DIP].map(ch => measure(ch, DIP_SIZE));
+    const dipTotal = dipWidths.reduce((a, b) => a + b, 0);
+    const s5 = scene(5, C.pink, C.ink, len => {
+      let x = W / 2 - dipTotal / 2;
+      const letters = [...DIP].map((ch, i) => {
+        const cx = x + dipWidths[i] / 2; x += dipWidths[i];
+        return bigWord(`s5-letter-${ch}`, ch, DIP_SIZE, C.ink, cx, DIP_Y, {
+          keyframes: [{ at: 0.2 + i * 0.12, to: { y: DIP_Y + 46 }, duration: 0.42, ease: EASE_LOOP, repeat: 1, yoyo: true }],
+        });
+      });
+      return [
+        rect('s5-water', W / 2, 520, 0, 10, C.ink, { keyframes: [{ at: 0.1, to: { width: dipTotal + 120 }, duration: 0.8, ease: EASE_IN }] }),
+        ...letters,
+      ];
+    });
+
+    // ---- 6 · ZOOM: a dot field pops from the centre while the word pushes in ------------------
+    const s6 = scene(6, C.ink, C.yellow, len => {
+      const dots = [];
+      const COLS = 15, ROWS = 7, GAP = 80;
+      for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+        const x = W / 2 + (c - (COLS - 1) / 2) * GAP, y = H / 2 + (r - (ROWS - 1) / 2) * GAP;
+        const d = Math.hypot(x - W / 2, y - H / 2);
+        dots.push({ type: 'shape', shape: 'circle', name: `s6-dot${r}-${c}`, radius: 5,
+          initial: { x, y, fillColor: C.paper, alpha: 0.35, scale: 0 },
+          keyframes: [{ at: 0.1 + d * 0.0011, to: { scale: 1 }, duration: 0.4, ease: 'back.out(3)' }] });
+      }
+      return [...dots, bigWord('s6-word', 'ZOOM', 280, C.yellow, W / 2, H / 2, {
+        keyframes: [{ at: 0, from: { scale: 0.92 }, to: { scale: 1.06 }, duration: len, ease: 'power1.in' }],
+      })];
+    });
+
+    // ---- 7 · title card -------------------------------------------------------------------------
+    const SWATCH = [C.yellow, C.blue, C.red, C.green, C.pink, C.ink, null];   // the colour each cut brought in
+    const SQ = 64, SQ_GAP = 40, SQ_Y = 176;
+    const s7 = scene(7, C.paper, C.ink, () => {
+      const start = CUTS[6].duration + 0.05;
+      const span = SWATCH.length * SQ + (SWATCH.length - 1) * SQ_GAP;
+      const out = [];
+      SWATCH.forEach((fill, i) => {
+        const x = W / 2 - span / 2 + SQ / 2 + i * (SQ + SQ_GAP);
+        const kf = [{ at: start + i * 0.07, from: { scale: 0, rotation: -45 }, duration: 0.5, ease: 'back.out(2.2)' }];
+        out.push({ type: 'shape', shape: 'rect', name: `s7-swatch${i}`, width: SQ, height: SQ,
+          initial: fill ? { x, y: SQ_Y, fillColor: fill } : { x, y: SQ_Y, fillAlpha: 0, strokeColor: C.ink, strokeWidth: 4 },
+          keyframes: kf });
+        out.push(mono(`s7-swatch-label${i}`, CUTS[i].kind, 14, C.ink, x, SQ_Y + 56, {
+          anchorX: 0.5, alpha: 0.75,
+          keyframes: [{ at: start + 0.15 + i * 0.07, from: { alpha: 0 }, duration: 0.4, ease: EASE_IN }],
+        }));
+      });
+      out.push(bigWord('s7-title', 'TRANSITIONS', 112, C.ink, W / 2, 364));
+      out.push(rect('s7-reel-block', W / 2, 496, 0, 122, C.red, {
+        keyframes: [{ at: start + 0.35, to: { width: 470 }, duration: 0.6, ease: EASE_IN }],
+      }));
+      out.push(bigWord('s7-reel', 'REEL', 112, C.paper, W / 2, 492, {
+        keyframes: [{ at: start + 0.5, from: { alpha: 0, y: 532 }, duration: 0.55, ease: EASE_IN }],
+      }));
+      return out;
+    });
+
+    // ---- audio ----------------------------------------------------------------------------------
+    const audio = [
+      { type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0, duration: DURATION,
+        keyframes: [{ at: 0, to: { volume: 0.9 }, duration: 0.8 }, { at: -1.6, to: { volume: 0 }, duration: 1.6 }] },
+      ...S.map((t, i) => ({ type: 'audio', name: `swoosh${i}`, asset: 'swoosh', at: snap(t - 0.05), volume: 0.7 })),
+      { type: 'audio', name: 'chime', asset: 'chime', at: snap(S[6] + CUTS[6].duration + 0.5), duration: 0.6, volume: 0.7 },
+    ];
+
+    const sequences = [
+      rect('dip-ink', W / 2, H / 2, W, H, C.ink),       // what the dip passes through
+      intro, s1, s2, s3, s4, s5, s6, s7,
+      ...audio,
+    ];
+    const transitions = CUTS.map(({ note, ...c }, i) => ({ ...c, from: `scene${i}`, to: `scene${i + 1}`, at: S[i] }));
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        background: C.ink,
+        assets: [
+          { name: 'bgm', src: '../_assets/bgm.mp3' },
+          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
+          { name: 'chime', src: '../_assets/sfx-chime.mp3' },
+        ],
+        composition: { sequences, transitions },
+      });
+      // opens at 0:00; add ?poster to the URL to park on the poster frame
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

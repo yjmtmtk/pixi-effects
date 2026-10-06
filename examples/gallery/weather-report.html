@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Harbor City Forecast</title>
+  <style>
+    body { background: #0d1220; margin: 0; padding: 16px; }
+    canvas { display: block; margin: 0 auto; width: min(960px, 100%); border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script type="application/json" id="piece-meta">{ "title": "Harbor City Forecast", "subtitle": "A five-day broadcast forecast: shifting skies, glass cards, animated icons and a self-drawing temperature line.", "tags": ["weather", "broadcast", "data", "icons", "glass"], "width": 1280, "height": 720, "duration": 12, "posterFrame": 300, "model": "sonnet" }</script>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 12, POSTER_FRAME = 300;
+    const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+    const snap = t => Math.round(t * FPS) / FPS;
+    function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+    const measure = (() => { const c = document.createElement('canvas').getContext('2d'); return (text, size, weight = 'bold') => { c.font = `${weight} ${size}px ${FONT}`; return c.measureText(text).width; }; })();
+
+    // ---------- palette ----------
+    const GOLD = '#ffd45c', INK = '#10213a', WHITE = '#ffffff';
+    const GLASS = { fillColor: '#0c1a30', fillAlpha: 0.30, strokeColor: '#ffffff', strokeAlpha: 0.34, strokeWidth: 1.5 };
+
+    // ---------- data ----------
+    const DAYS = [
+      { d: 'MON', cond: 'Sunny',         hi: 24, lo: 17, icon: 'sun',   sky: ['#1f7fe0', '#5fb4f2', '#bfe3fb'] },
+      { d: 'TUE', cond: 'Partly Cloudy', hi: 21, lo: 15, icon: 'part',  sky: ['#3a82c4', '#7fb0d6', '#c3d8e8'] },
+      { d: 'WED', cond: 'Rain',          hi: 16, lo: 12, icon: 'rain',  sky: ['#3b4a63', '#5d6f89', '#8fa0b5'] },
+      { d: 'THU', cond: 'Thunderstorm',  hi: 13, lo: 9,  icon: 'storm', sky: ['#171d38', '#2f3560', '#55527d'] },
+      { d: 'FRI', cond: 'Snow',          hi: 3,  lo: -2, icon: 'snow',  sky: ['#587497', '#8aa5c4', '#c3d3e6'] },
+    ];
+    const CARD_W = 210, CARD_H = 300, GAP = 20, X0 = (W - (5 * CARD_W + 4 * GAP)) / 2, CARD_Y = 125;
+    const T_FIRST = 1.0, T_STEP = 1.2;
+    const cardAt = i => snap(T_FIRST + i * T_STEP);
+
+    // ---------- small helpers ----------
+    const rect = (o) => ({ type: 'shape', shape: 'rect', ...o });
+    const circ = (o) => ({ type: 'shape', shape: 'circle', ...o });
+    const txt = (text, size, o = {}) => ({ type: 'text', text, ...o, style: { fontFamily: FONT, fontSize: size, fill: WHITE, ...(o.style || {}) } });
+
+    // ---------- icons (card-local coordinates, local time starts at 0) ----------
+    function sun(cx, cy, s = 1) {
+      const rays = [];
+      for (let k = 0; k < 12; k++) {
+        const a = k * 30, r = 50 * s, long = k % 2 === 0, rad = a * Math.PI / 180;
+        rays.push(rect({ width: 6 * s, height: (long ? 24 : 14) * s, cornerRadius: 3, initial: { x: 80 + r * Math.sin(rad), y: 80 - r * Math.cos(rad), rotation: a, fillColor: GOLD } }));
+      }
+      return [
+        circ({ name: 'sun-glow', blendMode: 'add', radius: 78 * s, fillGradient: { type: 'radial', stops: [[0, 'rgba(255,214,92,0.55)'], [1, 'rgba(255,214,92,0)']] },
+          initial: { x: cx, y: cy }, keyframes: [{ at: 0, from: { scale: 0.9 }, to: { scale: 1.15 }, duration: 1.3, ease: 'sine.inOut', repeat: 9, yoyo: true }] }),
+        { type: 'composition', name: 'sun-rays', width: 160, height: 160, initial: { x: cx, y: cy, pivotX: 80, pivotY: 80 }, sequences: rays,
+          keyframes: [{ at: 0, from: { rotation: 0, scale: 0.6, alpha: 0 }, to: { rotation: 0, scale: 1, alpha: 1 }, duration: 0.5, ease: 'back.out(1.6)' },
+                      { at: 0.5, to: { rotation: 120 }, duration: 12, ease: 'none' }] },
+        circ({ name: 'sun-core', radius: 27 * s, initial: { x: cx, y: cy, fillColor: GOLD, strokeColor: '#fff3c4', strokeWidth: 3 },
+          keyframes: [{ at: 0, from: { scale: 0 }, to: { scale: 1 }, duration: 0.5, ease: 'back.out(2)' }] }),
+      ];
+    }
+    function cloud(name, cx, cy, s, color, drift, period, o = {}) {
+      const c = { fillColor: color };
+      return {
+        type: 'composition', name, width: 140, height: 80, at: o.at || 0,
+        initial: { x: cx - drift, y: cy, pivotX: 70, pivotY: 40, scale: s, alpha: o.alpha ?? 1 },
+        sequences: [
+          rect({ width: 98, height: 34, cornerRadius: 17, initial: { x: 70, y: 56, ...c } }),
+          circ({ radius: 20, initial: { x: 48, y: 44, ...c } }),
+          circ({ radius: 27, initial: { x: 74, y: 34, ...c } }),
+          circ({ radius: 16, initial: { x: 97, y: 47, ...c } }),
+        ],
+        keyframes: [{ at: 0, from: { x: cx - drift }, to: { x: cx + drift }, duration: period, ease: 'sine.inOut', repeat: Math.ceil(DURATION / period) + 1, yoyo: true }],
+      };
+    }
+    function rain(x0, y0, n, spacing, len = 34, speed = 0.75, color = '#a8d6ff') {
+      const out = [];
+      for (let i = 0; i < n; i++) {
+        const x = x0 + i * spacing + (i % 2) * 5, yy = y0 + (i % 2) * 8;
+        out.push(rect({ name: 'drop-' + i, width: 3.5, height: 15, cornerRadius: 2, at: snap(i * 0.13), initial: { x, y: yy, rotation: 14, fillColor: color },
+          keyframes: [{ at: 0, from: { y: yy, x, alpha: 1 }, to: { y: yy + len, x: x - 8, alpha: 0 }, duration: speed, ease: 'power1.in', repeat: Math.ceil(DURATION / speed) }] }));
+      }
+      return out;
+    }
+    function snow(x0, n, spacing) {
+      const out = [], R = rng(7);
+      for (let i = 0; i < n; i++) {
+        const x = x0 + i * spacing, y0 = 132 + (i % 3) * 4, dur = 1.5 + R() * 0.6, r = 2.6 + R() * 1.6;
+        out.push(circ({ name: 'flake-' + i, radius: r, at: snap(i * 0.21), initial: { x, y: y0, fillColor: WHITE },
+          keyframes: [{ at: 0, from: { y: y0, x: x - 4, alpha: 1 }, to: { y: y0 + 46, x: x + 6, alpha: 0 }, duration: dur, ease: 'sine.in', repeat: Math.ceil(DURATION / dur) }] }));
+      }
+      return out;
+    }
+    function bolt(cx, cy, flashes) {
+      const pts = [[0, -26], [-16, 6], [-3, 6], [-12, 30], [14, -4], [1, -4], [10, -26]].map(([x, y]) => [cx + x, cy + y]);
+      const kfs = [];
+      for (const f of flashes) { kfs.push({ at: f, set: { alpha: 1 } }, { at: f + 0.04, to: { alpha: 0.22 }, duration: 0.3, ease: 'power2.out' }); }
+      const gl = [];
+      for (const f of flashes) { gl.push({ at: f, set: { alpha: 0.9 } }, { at: f + 0.04, to: { alpha: 0 }, duration: 0.4, ease: 'power2.out' }); }
+      return [
+        circ({ name: 'bolt-glow', blendMode: 'add', radius: 70, fillGradient: { type: 'radial', stops: [[0, 'rgba(255,240,150,0.8)'], [1, 'rgba(255,240,150,0)']] }, initial: { x: cx, y: cy, alpha: 0 }, keyframes: gl }),
+        { type: 'shape', shape: 'polygon', name: 'bolt', points: pts, initial: { fillColor: '#ffe566', alpha: 0.22, strokeColor: '#fff6b0', strokeWidth: 1.5 }, keyframes: kfs },
+      ];
+    }
+    function icon(kind) {
+      const IC = { x: CARD_W / 2, y: 106 };
+      switch (kind) {
+        case 'sun': return sun(IC.x, IC.y, 1);
+        case 'part': return [
+          ...sun(IC.x - 18, IC.y - 14, 0.72),
+          cloud('cloud-back', IC.x + 30, IC.y - 4, 0.62, '#dbe8f5', 8, 3.2, { at: 0.15 }),
+          cloud('cloud-front', IC.x + 4, IC.y + 14, 0.98, WHITE, 12, 2.6, { at: 0.1 }),
+        ];
+        case 'rain': return [cloud('cloud', IC.x, IC.y - 14, 1.05, '#c9d4e3', 6, 2.8), ...rain(IC.x - 36, IC.y + 18, 5, 18)];
+        case 'storm': return [
+          cloud('cloud', IC.x, IC.y - 18, 1.08, '#8f97b6', 6, 2.8),
+          ...bolt(IC.x + 2, IC.y + 28, [0.55, 0.75, 2.5, 2.65, 5.1, 5.25, 6.9]),
+          ...rain(IC.x - 52, IC.y + 14, 2, 12, 36, 0.7), ...rain(IC.x + 38, IC.y + 14, 2, 12, 36, 0.7),
+        ];
+        case 'snow': return [cloud('cloud', IC.x, IC.y - 14, 1.05, '#f3f7fc', 6, 3.0), ...snow(IC.x - 42, 8, 12)];
+      }
+    }
+
+    function card(i) {
+      const day = DAYS[i], at = cardAt(i), cx = CARD_W / 2;
+      return {
+        type: 'composition', name: 'card-' + day.d, width: CARD_W, height: CARD_H, at, duration: DURATION - at,
+        initial: { x: X0 + i * (CARD_W + GAP), y: CARD_Y },
+        keyframes: [{ at: 0, from: { y: CARD_Y + 54, alpha: 0 }, to: { y: CARD_Y, alpha: 1 }, duration: 0.8, ease: 'power3.out' }],
+        sequences: [
+          rect({ name: 'glass', width: CARD_W, height: CARD_H, cornerRadius: 26, initial: { x: cx, y: CARD_H / 2, ...GLASS } }),
+          rect({ name: 'sheen', width: CARD_W - 4, height: 130, cornerRadius: 24, fillGradient: { type: 'linear', angle: 90, stops: [[0, 'rgba(255,255,255,0.22)'], [1, 'rgba(255,255,255,0)']] }, initial: { x: cx, y: 67 } }),
+          txt(day.d, 22, { name: 'day', style: { fontWeight: 'bold', letterSpacing: 5, fill: '#ffffff' }, initial: { x: cx, y: 30, anchorX: 0.5, anchorY: 0.5, alpha: 0.9 } }),
+          ...icon(day.icon),
+          txt('{value}°', 66, { name: 'temp', at: 0.35, style: { fontWeight: 'bold', dropShadow: { alpha: 0.35, blur: 6, distance: 3, angle: 1.5, color: '#000000' }, padding: 14 },
+            initial: { x: cx, y: 200, anchorX: 0.5, anchorY: 0.5, value: 0 },
+            keyframes: [{ at: 0, to: { value: day.hi }, duration: 1.1, ease: 'power2.out' }] }),
+          txt(day.cond, 21, { name: 'cond', at: 0.5, style: { fontWeight: '600' }, initial: { x: cx, y: 246, anchorX: 0.5, anchorY: 0.5 },
+            keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.4 }] }),
+          txt('Low ' + day.lo + '°', 17, { name: 'low', at: 0.6, style: { fontWeight: '500' }, initial: { x: cx, y: 275, anchorX: 0.5, anchorY: 0.5 },
+            keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 0.82 }, duration: 0.4 }] }),
+        ],
+      };
+    }
+
+    // ---------- sky ----------
+    function skies() {
+      return DAYS.map((d, i) => rect({
+        name: 'sky-' + d.d, width: 'GW', height: 'GH', fillGradient: { type: 'linear', angle: 90, stops: [[0, d.sky[0]], [0.55, d.sky[1]], [1, d.sky[2]]] },
+        initial: { x: 'GW/2', y: 'GH/2', alpha: 0 },
+        keyframes: [i === 0 ? { at: 0, to: { alpha: 1 }, duration: 0.8 } : { at: cardAt(i) - 0.2, to: { alpha: 1 }, duration: 1.0, ease: 'sine.inOut' }],
+      }));
+    }
+    function ambient() {
+      const out = [], R = rng(21);
+      [[200, 150, 340, 90, 0.16, 70], [820, 90, 420, 110, 0.14, -80], [1100, 360, 300, 80, 0.12, 60]].forEach(([x, y, rx, ry, a, dx], i) => {
+        out.push({ type: 'shape', shape: 'ellipse', name: 'bg-cloud-' + i, radiusX: rx, radiusY: ry, fillGradient: { type: 'radial', stops: [[0, `rgba(255,255,255,${a})`], [1, 'rgba(255,255,255,0)']] },
+          initial: { x: x - dx / 2, y }, keyframes: [{ at: 0, to: { x: x + dx / 2 }, duration: DURATION, ease: 'none' }] });
+      });
+      out.push(circ({ name: 'bg-sun-glow', blendMode: 'add', radius: 320, fillGradient: { type: 'radial', stops: [[0, 'rgba(255,224,130,0.55)'], [1, 'rgba(255,224,130,0)']] },
+        initial: { x: 1060, y: 90, alpha: 0 }, keyframes: [{ at: 0.1, to: { alpha: 1 }, duration: 1.0 }, { at: 2.7, to: { alpha: 0 }, duration: 1.0 }] }));
+      // background rain (Wed + Thu) and snow (Fri)
+      const r = rng(5), rainAt = cardAt(2) - 0.2, rainDur = cardAt(4) - rainAt + 0.8;
+      for (let i = 0; i < 30; i++) {
+        const x = r() * (W + 100) - 20, dur = 0.7 + r() * 0.3, delay = snap(r() * 0.8);
+        out.push(rect({ name: 'bg-rain-' + i, width: 2, height: 26, at: rainAt + delay, duration: rainDur - delay, initial: { x, y: -30, rotation: 12, fillColor: '#d8ecff', alpha: 0 },
+          keyframes: [{ at: 0, to: { alpha: 0.3 }, duration: 0.4 }, { at: 0, from: { y: -30, x }, to: { y: H + 30, x: x - 150 }, duration: dur, ease: 'none', repeat: Math.ceil(rainDur / dur) }, { at: -0.7, to: { alpha: 0 }, duration: 0.7 }] }));
+      }
+      const snowAt = cardAt(4) - 0.1;
+      for (let i = 0; i < 34; i++) {
+        const x = r() * W, dur = 4 + r() * 3, rr = 2 + r() * 3, delay = snap(r() * 1.5), sway = (r() - 0.5) * 120;
+        out.push(circ({ name: 'bg-snow-' + i, radius: rr, at: snowAt + delay, duration: DURATION - snowAt - delay, initial: { x, y: -10, fillColor: WHITE, alpha: 0 },
+          keyframes: [{ at: 0, to: { alpha: 0.65 }, duration: 0.5 }, { at: 0, from: { y: -10, x }, to: { y: H + 10, x: x + sway }, duration: dur, ease: 'none', repeat: Math.ceil(DURATION / dur) }] }));
+      }
+      return out;
+    }
+
+    // ---------- header ----------
+    function header() {
+      const sh = { dropShadow: { alpha: 0.35, blur: 6, distance: 2, angle: 1.5, color: '#000000' }, padding: 12 };
+      return [
+        rect({ name: 'accent-bar', width: 6, height: 52, cornerRadius: 3, anchorX: 0, at: 0.2, initial: { x: X0, y: 70, fillColor: GOLD },
+          keyframes: [{ at: 0, from: { height: 0, alpha: 0 }, to: { height: 52, alpha: 1 }, duration: 0.5, ease: 'power3.out' }] }),
+        txt('HARBOR CITY', 40, { name: 'title', at: 0.3, style: { fontWeight: 'bold', letterSpacing: 7, ...sh }, initial: { x: X0 + 24, y: 55, anchorX: 0, anchorY: 0.5 },
+          keyframes: [{ at: 0, from: { x: X0 + 4, alpha: 0 }, to: { x: X0 + 24, alpha: 1 }, duration: 0.7, ease: 'power3.out' }] }),
+        txt('5-DAY FORECAST', 17, { name: 'subtitle', at: 0.5, style: { fontWeight: '600', letterSpacing: 6, ...sh }, initial: { x: X0 + 25, y: 91, anchorX: 0, anchorY: 0.5, alpha: 0.85 },
+          keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 0.85 }, duration: 0.6 }] }),
+        txt('UPDATED 06:00', 15, { name: 'updated', at: 0.7, style: { fontWeight: '600', letterSpacing: 3, ...sh }, initial: { x: W - X0, y: 70, anchorX: 1, anchorY: 0.5 },
+          keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 0.8 }, duration: 0.6 }] }),
+      ];
+    }
+
+    // ---------- chart ----------
+    function chart() {
+      const T = 0.6, DRAW = 2.2, PX0 = X0, PW = W - 2 * X0, PY = 445, PH = 165, BASE = 590, SPAN = 105, TMAX = 26;
+      const xs = DAYS.map((_, i) => X0 + CARD_W / 2 + i * (CARD_W + GAP));
+      const ys = DAYS.map(d => BASE - d.hi * SPAN / TMAX);
+      const P = xs.map((x, i) => [x, ys[i]]);
+      const seg = [], samples = [P[0]];
+      for (let i = 0; i < P.length - 1; i++) {
+        const p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(P.length - 1, i + 2)];
+        const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6], c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+        seg.push(`C ${c1[0].toFixed(1)} ${c1[1].toFixed(1)} ${c2[0].toFixed(1)} ${c2[1].toFixed(1)} ${p2[0]} ${p2[1].toFixed(1)}`);
+        for (let k = 1; k <= 16; k++) { const u = k / 16, v = 1 - u; samples.push([v*v*v*p1[0] + 3*v*v*u*c1[0] + 3*v*u*u*c2[0] + u*u*u*p2[0], v*v*v*p1[1] + 3*v*v*u*c1[1] + 3*v*u*u*c2[1] + u*u*u*p2[1]]); }
+      }
+      const d = `M ${P[0][0]} ${P[0][1].toFixed(1)} ` + seg.join(' ');
+      const mX0 = P[0][0] - 12, mW = P[4][0] + 14 - mX0;
+      const wipe = () => ({ type: 'shape', shape: 'rect', width: 0, height: 220, anchorX: 0, initial: { x: mX0, y: 520, fillColor: '#ffffff' }, keyframes: [{ at: 0, to: { width: mW }, duration: DRAW, ease: 'none' }] });
+      const out = [
+        rect({ name: 'panel', width: PW, height: PH, cornerRadius: 24, initial: { x: W / 2, y: PY + PH / 2, ...GLASS } }),
+        rect({ name: 'panel-sheen', width: PW - 4, height: 60, cornerRadius: 22, fillGradient: { type: 'linear', angle: 90, stops: [[0, 'rgba(255,255,255,0.18)'], [1, 'rgba(255,255,255,0)']] }, initial: { x: W / 2, y: PY + 32 } }),
+        txt('DAILY HIGH  °C', 14, { name: 'panel-title', style: { fontWeight: 'bold', letterSpacing: 4 }, initial: { x: PX0 + PW - 24, y: PY + 24, anchorX: 1, anchorY: 0.5, alpha: 0.8 } }),
+      ];
+      [0, 10, 20].forEach((v, k) => {
+        const y = BASE - v * SPAN / TMAX;
+        out.push({ type: 'shape', shape: 'line', name: 'grid-' + v, from: [PX0 + 46, y], to: [PX0 + PW - 24, y], initial: { strokeColor: '#ffffff', strokeAlpha: 0.16, strokeWidth: 1 } });
+        out.push(txt(v + '°', 14, { name: 'tick-' + v, style: { fontWeight: '500' }, initial: { x: PX0 + 38, y, anchorX: 1, anchorY: 0.5, alpha: 0.65 } }));
+      });
+      out.push({ type: 'shape', shape: 'polygon', name: 'area', at: T, points: [...samples, [P[4][0], BASE], [P[0][0], BASE]],
+        initial: { fillGradient: { type: 'linear', angle: 90, stops: [[0, 'rgba(255,212,92,0.38)'], [1, 'rgba(255,212,92,0)']] } }, mask: wipe() });
+      out.push({ type: 'shape', shape: 'path', name: 'line', d, at: T, initial: { strokeColor: GOLD, strokeWidth: 5 }, mask: wipe() });
+      DAYS.forEach((day, i) => {
+        const tDot = snap(T + DRAW * (xs[i] - mX0) / mW);
+        out.push(circ({ name: 'dot-' + day.d, radius: 8.5, at: tDot, initial: { x: xs[i], y: ys[i], fillColor: GOLD, strokeColor: '#ffffff', strokeWidth: 3, scale: 0 },
+          keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.35, ease: 'back.out(2.5)' }] }));
+        out.push(txt(day.hi + '°', 20, { name: 'pt-' + day.d, at: tDot, style: { fontWeight: 'bold', dropShadow: { alpha: 0.35, blur: 4, distance: 2, angle: 1.5, color: '#000000' }, padding: 10 },
+          initial: { x: xs[i], y: ys[i] - 14, anchorX: 0.5, anchorY: 1 }, keyframes: [{ at: 0, from: { alpha: 0, y: ys[i] - 4 }, to: { alpha: 1, y: ys[i] - 20 }, duration: 0.4, ease: 'power2.out' }] }));
+      });
+      return { type: 'composition', name: 'chart', width: W, height: H, at: 6.5, duration: DURATION - 6.5, sequences: out,
+        initial: { x: 0, y: 0 }, keyframes: [{ at: 0, from: { y: 36, alpha: 0 }, to: { y: 0, alpha: 1 }, duration: 0.8, ease: 'power3.out' }] };
+    }
+
+    // ---------- summary ----------
+    function summary() {
+      const msg = 'Bright start, snowy finish — pack a scarf by Friday.', FS = 24, pw = measure(msg, FS) + 64, ph = 46, cy = 654, at = 9.6;
+      return [
+        rect({ name: 'summary-pill', width: pw, height: ph, cornerRadius: ph / 2, at, initial: { x: W / 2, y: cy, fillColor: GOLD },
+          keyframes: [{ at: 0, from: { scale: 0.6, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.55, ease: 'back.out(1.8)' }] }),
+        txt(msg, FS, { name: 'summary', at: at + 0.12, style: { fontWeight: 'bold', fill: INK }, initial: { x: W / 2, y: cy, anchorX: 0.5, anchorY: 0.5 },
+          keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.4 }] }),
+      ];
+    }
+
+    // ---------- audio ----------
+    const audio = [{ type: 'audio', name: 'bgm', asset: 'bgm', loop: true, initial: { volume: 0 },
+      keyframes: [{ at: 0, to: { volume: 0.32 }, duration: 1.2 }, { at: -1.4, to: { volume: 0 }, duration: 1.4 }] }];
+    DAYS.forEach((d, i) => audio.push({ type: 'audio', name: 'whoosh-' + d.d, asset: 'swoosh', at: cardAt(i), initial: { volume: 0.4 } }));
+    audio.push({ type: 'audio', name: 'chime', asset: 'chime', at: 9.6, initial: { volume: 0.5 } });
+
+    const sequences = [
+      ...skies(),
+      ...ambient(),
+      rect({ name: 'vignette', width: 'GW', height: 'GH', fillGradient: { type: 'linear', angle: 90, stops: [[0, 'rgba(6,14,30,0.10)'], [0.4, 'rgba(6,14,30,0)'], [1, 'rgba(6,14,30,0.42)']] }, initial: { x: 'GW/2', y: 'GH/2' } }),
+      ...header(),
+      ...DAYS.map((_, i) => card(i)),
+      ...[cardAt(3) + 0.55, cardAt(3) + 0.75].map((t, k) => rect({ name: 'lightning-flash-' + k, blendMode: 'add', width: 'GW', height: 'GH', at: snap(t), duration: 0.5, initial: { x: 'GW/2', y: 'GH/2', fillColor: '#fff6d0', alpha: 0.35 }, keyframes: [{ at: 0, to: { alpha: 0 }, duration: 0.3, ease: 'power2.out' }] })),
+      chart(),
+      ...summary(),
+      ...audio,
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: W, height: H, duration: DURATION, frameRate: FPS, background: '#1f7fe0',
+        assets: [
+          { name: 'bgm', src: '../_assets/bgm.mp3' }, { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' }, { name: 'chime', src: '../_assets/sfx-chime.mp3' },
+        ],
+        composition: { sequences },
+      });
+      window.__ready = true;
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

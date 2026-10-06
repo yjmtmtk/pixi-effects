@@ -56,19 +56,33 @@ describe('examples/gallery pieces', () => {
 });
 
 describe('examples/gallery/pieces.json', () => {
-  const { pieces, json } = buildGallery(root) as { pieces: Piece[]; json: string };
+  // The generator refuses to run while any piece is incomplete (no meta / no poster). Keep that failure to one
+  // test with the script's own message, so the per-piece checks above still say exactly which piece is at fault.
+  let built: { pieces: Piece[]; json: string } | null = null;
+  let buildError: unknown = null;
+  try {
+    built = buildGallery(root) as { pieces: Piece[]; json: string };
+  } catch (e) {
+    buildError = e;
+  }
+  const pieces = built?.pieces ?? [];
+  const json = built?.json ?? '';
 
-  it('is committed and up to date (run `node scripts/build-gallery.mjs` after adding or editing a piece)', () => {
+  it('the generator accepts every piece', () => {
+    if (buildError) throw buildError;
+  });
+
+  it.skipIf(!built)('is committed and up to date (run `node scripts/build-gallery.mjs` after adding or editing a piece)', () => {
     const file = resolve(gallery, 'pieces.json');
     expect(existsSync(file)).toBe(true);
     expect(readFileSync(file, 'utf8')).toBe(json);
   });
 
-  it('contains every piece exactly once', () => {
+  it.skipIf(!built)('contains every piece exactly once', () => {
     expect(pieces.map((p) => p.id).sort()).toEqual(ids);
   });
 
-  it('is ordered: featured pieces first in FEATURED order, then by title', () => {
+  it.skipIf(!built)('is ordered: featured pieces first in FEATURED order, then by title', () => {
     const rank = new Map<string, number>((FEATURED as string[]).map((id, i) => [id, i]));
     const featured = pieces.filter((p) => rank.has(p.id)).map((p) => rank.get(p.id)!);
     expect(featured).toEqual([...featured].sort((a, b) => a - b));
@@ -81,7 +95,7 @@ describe('examples/gallery/pieces.json', () => {
     for (const id of FEATURED as string[]) expect(ids, `FEATURED lists ${id}, which has no ${id}.html`).toContain(id);
   });
 
-  it('every path it points to exists', () => {
+  it.skipIf(!built)('every path it points to exists', () => {
     for (const p of pieces) {
       expect(existsSync(resolve(gallery, p.page)), p.page).toBe(true);
       expect(existsSync(resolve(gallery, p.poster)), p.poster).toBe(true);

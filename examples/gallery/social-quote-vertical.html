@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Social Quote Card (9:16)</title>
+  <style>
+    html, body { height: 100%; }
+    body { background: #14110f; margin: 0; padding: 16px; box-sizing: border-box; display: flex; justify-content: center; align-items: flex-start; }
+    canvas { height: min(calc(100vh - 32px), 1280px); width: auto; aspect-ratio: 9 / 16; max-width: 100%; border-radius: 10px; }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="720" height="1280"></canvas>
+
+  <script type="application/json" id="piece-meta">{ "title": "Social Quote Card", "subtitle": "A vertical 9:16 quote card: drifting warm blobs, line-by-line masked reveal, animated underline and a swipe cue.", "tags": ["vertical", "social", "typography", "masks", "gradient"], "width": 720, "height": 1280, "duration": 10, "posterFrame": 200, "model": "sonnet" }</script>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 720, H = 1280, FPS = 30, DURATION = 10, POSTER_FRAME = 200;
+
+    // ---- palette: warm editorial ------------------------------------------------------------
+    const CREAM = '#f7e9d7', INK = '#2a1712', TERRA = '#c4452d', ROSE = '#e8786f', APRICOT = '#ffb27a', AMBER = '#ffd27a';
+    const SERIF = 'Georgia, "Times New Roman", serif';
+    const SANS = 'system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif';
+
+    // ---- layout (phone safe zones: keep text inside y 154 .. 1050) -------------------------
+    const LEFT = 76, SIZE = 96, LINE_H = 108, FIRST_Y = 360;
+    const LINES = [['The details', INK], ['are not the', INK], ['details.', INK], ['They make', INK], ['the design.', TERRA]];
+    const LINES_AT = 1.25, LINES_STEP = 0.42;
+    const lineY = i => FIRST_Y + i * LINE_H;
+    const UNDER_Y = lineY(4) + 86, AUTHOR_Y = UNDER_Y + 54, CUE_Y = 1026;
+
+    // ---- background: gradient + three slowly drifting radial blobs ---------------------------
+    const blob = (name, color, x, y, r, dx, dy, dur) => ({
+      type: 'shape', shape: 'circle', name, radius: r,
+      initial: { x, y },
+      fillGradient: { type: 'radial', radius: 0.5, stops: [[0, color], [1, color.replace(/[\d.]+\)$/, '0)')]] },
+      keyframes: [{ at: 0, to: { x: x + dx, y: y + dy }, duration: dur, ease: 'sine.inOut', repeat: 1, yoyo: true }],
+    });
+
+    const sequences = [
+      { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
+        fillGradient: { stops: [[0, '#fbf0e2'], [0.55, CREAM], [1, '#f2c9a4']] } },
+      blob('blob-apricot', 'rgba(255,170,110,0.85)', 120, 360, 430, 220, 160, 5),
+      blob('blob-rose', 'rgba(232,110,120,0.65)', 640, 980, 470, -240, -170, 5),
+      blob('blob-amber', 'rgba(255,205,110,0.8)', 560, 200, 330, -190, 260, 5),
+      // soft warm vignette keeps the edges grounded
+      { type: 'shape', shape: 'rect', name: 'vignette', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
+        fillGradient: { type: 'radial', radius: 0.8, stops: [[0.5, 'rgba(120,50,30,0)'], [1, 'rgba(120,50,30,0.22)']] } },
+
+      // ---- editorial kicker, right of the quote mark ----
+      { type: 'text', name: 'kicker', text: 'N° 07  ·  ON DESIGN', at: 0.9,
+        style: { fontSize: 20, fontWeight: '700', fill: INK, letterSpacing: 5, fontFamily: SANS },
+        initial: { x: W - LEFT, y: 232, anchorX: 1, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 0.62 }, duration: 0.8, ease: 'sine.out' }, { at: 0, from: { y: 246 }, to: { y: 232 }, duration: 0.9, ease: 'power3.out' }] },
+
+      // ---- big opening quote mark ----
+      { type: 'text', name: 'quote-mark', text: '“', at: 0.35,
+        style: { fontSize: 340, fontWeight: '700', fill: TERRA, fontFamily: SERIF },
+        initial: { x: LEFT + 52, y: 280, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [
+          { at: 0, from: { scale: 0.55, rotation: -10 }, to: { scale: 1, rotation: 0 }, duration: 1.1, ease: 'back.out(1.8)' },
+          { at: 0, to: { alpha: 1 }, duration: 0.5, ease: 'sine.out' },
+          { at: 1.4, to: { y: 292 }, duration: 3.6, ease: 'sine.inOut', repeat: 1, yoyo: true },   // slow float
+        ] },
+    ];
+
+    // ---- the quote, line by line: each line rises behind its own mask band ---------------------
+    LINES.forEach(([text, fill], i) => {
+      const y = lineY(i), at = LINES_AT + i * LINES_STEP;
+      sequences.push({
+        type: 'text', name: 'line-' + (i + 1), text, at,
+        style: { fontSize: SIZE, fontWeight: '400', fill, fontFamily: SERIF, fontStyle: i === 4 ? 'italic' : 'normal', letterSpacing: -1.5 },
+        initial: { x: LEFT, y: y + 96, anchorX: 0, anchorY: 0.5 },
+        mask: { type: 'shape', shape: 'rect', width: W, height: LINE_H + 8, initial: { x: W / 2, y, fillColor: '#ffffff' } },
+        keyframes: [{ at: 0, to: { y }, duration: 0.95, ease: 'expo.out' }],
+      });
+    });
+
+    // ---- animated underline + small terracotta dot ---------------------------------------------
+    const UL_AT = LINES_AT + 4 * LINES_STEP + 0.85;
+    sequences.push(
+      { type: 'shape', shape: 'rect', name: 'underline', width: 0, height: 7, cornerRadius: 3.5, anchorX: 0, at: UL_AT,
+        initial: { x: LEFT, y: UNDER_Y, fillColor: TERRA },
+        keyframes: [{ at: 0, to: { width: 330 }, duration: 1.0, ease: 'expo.out' }] },
+      { type: 'shape', shape: 'circle', name: 'underline-dot', radius: 7, at: UL_AT + 0.35,
+        initial: { x: LEFT + 330 + 28, y: UNDER_Y, fillColor: INK, scale: 0 },
+        keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.5, ease: 'back.out(3)' }] },
+      { type: 'text', name: 'author', text: 'CHARLES EAMES', at: UL_AT + 0.4,
+        style: { fontSize: 30, fontWeight: '700', fill: INK, letterSpacing: 7, fontFamily: SANS },
+        initial: { x: LEFT, y: AUTHOR_Y + 14, anchorX: 0, anchorY: 0.5, alpha: 0 },
+        mask: { type: 'shape', shape: 'rect', width: W, height: 56, initial: { x: W / 2, y: AUTHOR_Y, fillColor: '#ffffff' } },
+        keyframes: [{ at: 0, to: { y: AUTHOR_Y, alpha: 1 }, duration: 0.8, ease: 'power3.out' }] },
+      { type: 'text', name: 'author-role', text: 'Designer, 1907–1978', at: UL_AT + 0.7,
+        style: { fontSize: 26, fontStyle: 'italic', fill: INK, fontFamily: SERIF },
+        initial: { x: LEFT, y: AUTHOR_Y + 40, anchorX: 0, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 0.6 }, duration: 0.8, ease: 'sine.out' }] },
+    );
+
+    // ---- swipe cue (pager pill + "SWIPE" + nudging arrow) ----------------------------------------
+    const CUE_AT = 6.0, PILL_X = LEFT + 10;
+    sequences.push(
+      { type: 'shape', shape: 'circle', name: 'pager-dot-1', radius: 6, at: CUE_AT,
+        initial: { x: PILL_X, y: CUE_Y, fillColor: INK, alpha: 0 },
+        keyframes: [{ at: 2.5, to: { alpha: 0.28 }, duration: 0.4 }] },
+      { type: 'shape', shape: 'circle', name: 'pager-dot-2', radius: 6, at: CUE_AT,
+        initial: { x: PILL_X + 34, y: CUE_Y, fillColor: INK, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 0.28 }, duration: 0.7 }] },
+      { type: 'shape', shape: 'circle', name: 'pager-dot-3', radius: 6, at: CUE_AT,
+        initial: { x: PILL_X + 62, y: CUE_Y, fillColor: INK, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 0.28 }, duration: 0.7 }] },
+      { type: 'shape', shape: 'rect', name: 'pager-pill', width: 30, height: 12, cornerRadius: 6, at: CUE_AT,
+        initial: { x: PILL_X, y: CUE_Y, fillColor: INK, alpha: 0 },
+        keyframes: [
+          { at: 0, to: { alpha: 1 }, duration: 0.7 },
+          { at: 2.4, to: { x: PILL_X + 34, width: 12 }, duration: 0.5, ease: 'power3.inOut' },   // the pill "advances"
+        ] },
+      { type: 'text', name: 'swipe-label', text: 'SWIPE', at: CUE_AT + 0.2,
+        style: { fontSize: 20, fontWeight: '700', fill: INK, letterSpacing: 6, fontFamily: SANS },
+        initial: { x: W - LEFT - 64, y: CUE_Y, anchorX: 1, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 0.75 }, duration: 0.7 }] },
+      { type: 'shape', shape: 'path', name: 'swipe-arrow', d: 'M -22 0 L 22 0 M 10 -12 L 22 0 L 10 12', at: CUE_AT + 0.2,
+        initial: { x: W - LEFT - 30, y: CUE_Y, strokeColor: TERRA, strokeWidth: 4, alpha: 0 },
+        keyframes: [
+          { at: 0, to: { alpha: 1 }, duration: 0.7 },
+          { at: 0.7, from: { x: W - LEFT - 30 }, to: { x: W - LEFT - 14 }, duration: 0.55, ease: 'power2.out', repeat: 5, yoyo: true },
+        ] },
+    );
+
+    // ---- final soft breath on the underline dot so the end frame is alive but composed ------------------
+    sequences.push({ type: 'shape', shape: 'circle', name: 'end-glow', radius: 90, at: 8.4,
+      initial: { x: LEFT + 330 + 28, y: UNDER_Y, alpha: 0 },
+      fillGradient: { type: 'radial', radius: 0.5, stops: [[0, 'rgba(196,69,45,0.35)'], [1, 'rgba(196,69,45,0)']] },
+      keyframes: [{ at: 0, to: { alpha: 1, scale: 1.25 }, duration: 0.7, ease: 'sine.out' }] });
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        background: CREAM,
+        composition: { sequences },
+      });
+      // opens at 0:00; add ?poster to the URL to park on the poster frame
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

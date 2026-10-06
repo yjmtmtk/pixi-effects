@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Night Drive — music visualizer</title>
+  <style>
+    body { background: #0b0b10; margin: 0; padding: 16px; display: flex; flex-direction: column; align-items: center; }
+    canvas { width: min(960px, 100%); height: auto; border-radius: 8px; }
+  </style>
+  <script type="application/json" id="piece-meta">{ "title": "Night Drive", "subtitle": "A neon music visualizer: seeded pseudo-spectrum bars, a beat-locked radial pulse and a progress ring over the sample bgm.", "tags": ["music", "audio", "spectrum", "glow", "loop"], "width": 1280, "height": 720, "duration": 12, "posterFrame": 195, "model": "sonnet" }</script>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+    import { BlurFilter } from 'pixi.js';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 12, POSTER_FRAME = 195;
+
+    // ── time grid ────────────────────────────────────────────────────────────────
+    // 112.5 BPM -> a beat is exactly 16 frames, a 16th note exactly 4 frames: every sample sits on a frame.
+    const BPM = 112.5, BEAT = 60 / BPM, STEP = BEAT / 4;
+    const STEPS = Math.round(DURATION / STEP);             // 90 samples per bar
+    const DROP = 14 * BEAT;                                 // the "drop" (about 7.5 s)
+
+    // ── palette ──────────────────────────────────────────────────────────────────
+    const INK = '#f6f1ff', MAGENTA = '#ff2d95', VIOLET = '#8a4dff', CYAN = '#22e0ff', BG_TOP = '#05040d', BG_BOT = '#1a0a30';
+    const hex = (h, s, l) => {                              // hsl -> '#rrggbb'
+      s /= 100; l /= 100;
+      const k = n => (n + h / 30) % 12, a = s * Math.min(l, 1 - l);
+      const f = n => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)))));
+      return '#' + [f(0), f(8), f(4)].map(v => v.toString(16).padStart(2, '0')).join('');
+    };
+
+    // ── the pseudo-spectrum ──────────────────────────────────────────────────────
+    // NOT audio analysis: seeded noise + a kick/snare/hat envelope on the beat grid, sampled into keyframes.
+    let seed = 20240607;
+    const rnd = () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    const smooth = (a, b, x) => { const u = Math.min(1, Math.max(0, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
+    const gain = t => smooth(0.7, 3.4, t) * (1 - 0.86 * smooth(9.9, 10.9, t)) * (t < DROP ? 0.82 : 1);   // song energy: intro / body / outro
+
+    const N = 48, PITCH = 20, BAR_W = 12, X0 = W / 2 - (N - 1) * PITCH / 2;
+    const BASE = 585, UP = 260, DOWN = 80;
+    const CORE = { x: W / 2, y: 345 };
+
+    // one value 0..1 per bar per 16th-note step
+    const bassW = f => Math.exp(-f * 4.2), midW = f => Math.exp(-(((f - 0.45) / 0.25) ** 2)), highW = f => Math.pow(f, 1.4);
+    const spectrum = Array.from({ length: N }, () => new Array(STEPS + 1).fill(0));
+    const energy = new Array(STEPS + 1).fill(0);           // overall level, drives the pulse
+    for (let s = 0; s <= STEPS; s++) {
+      const b = s / 4;                                      // beats
+      const ph = b % 1, kick = Math.exp(-4.5 * ph), snare = Math.floor(b) % 2 === 1 ? Math.exp(-6 * ph) : 0;
+      const hat = Math.exp(-9 * ((b + 0.5) % 1)), pad = 0.5 + 0.5 * Math.sin(b * 0.9);
+      energy[s] = Math.min(1, kick * 0.9 + snare * 0.35 + 0.15);
+      for (let i = 0; i < N; i++) {
+        const f = Math.abs(i - (N - 1) / 2) / ((N - 1) / 2);
+        const target = kick * bassW(f) * 1.05 + snare * midW(f) * 0.85 + hat * highW(f) * 0.75 + pad * midW(f) * 0.22
+          + (rnd() - 0.4) * 0.3 * (0.35 + highW(f)) + 0.06;
+        const prev = s ? spectrum[i][s - 1] : 0;
+        spectrum[i][s] = Math.max(0.03, Math.tanh(target * 1.05), prev * 0.7);   // soft clip: no flat-topped bars
+      }
+    }
+
+    // ── bars ─────────────────────────────────────────────────────────────────────
+    const barColors = i => {
+      const f = Math.abs(i - (N - 1) / 2) / ((N - 1) / 2);   // 0 centre … 1 edge
+      return [hex(330 - f * 140, 100, 62), hex(280 - f * 60, 95, 45)];   // top (bright) , bottom
+    };
+    const bar = (i, mirror) => {
+      const x = X0 + i * PITCH, [top, bot] = barColors(i);
+      const kf = [];
+      for (let s = 0; s < STEPS; s++) {            // the last sample would start at 12 s = after the layer ends
+        const t = s * STEP, v = spectrum[i][s] * gain(t);
+        kf.push({ at: t, to: { height: 4 + v * (mirror ? DOWN : UP) }, duration: STEP, ease: 'power2.out' });
+      }
+      return {
+        type: 'shape', shape: 'rect', name: (mirror ? 'mir' : 'bar') + i, width: BAR_W, height: 4, cornerRadius: 4, anchorY: mirror ? 0 : 1,
+        fillGradient: { angle: 90, stops: mirror ? [[0, bot], [1, top]] : [[0, top], [1, bot]] },
+        initial: { x, y: mirror ? BASE + 6 : BASE, alpha: mirror ? 0.22 : 1 },
+        keyframes: kf,
+      };
+    };
+    const topBars = Array.from({ length: N }, (_, i) => bar(i, false));
+    const mirrorBars = Array.from({ length: N }, (_, i) => bar(i, true));
+
+    // ── radial pulse: core orb + a ring per beat ────────────────────────────────
+    const coreKf = [];
+    for (let s = 0; s < STEPS; s++) {
+      const t = s * STEP;
+      coreKf.push({ at: t, to: { scale: 0.55 + gain(t) * (0.15 + energy[s] * 0.62) }, duration: STEP, ease: 'power2.out' });
+    }
+    const orb = (r, colors, alpha, blur) => ({
+      type: 'shape', shape: 'circle', radius: r, name: 'orb',
+      fillGradient: { type: 'radial', radius: 0.5, stops: [[0, colors[0]], [0.55, colors[1]], [1, colors[2]]] },
+      initial: { ...CORE, alpha },
+      keyframes: coreKf,
+    });
+    const rings = [];
+    for (let k = 0; k * BEAT < DURATION - 1.4; k++) {
+      const at = k * BEAT, g = gain(at + 0.1);
+      if (g < 0.08) continue;
+      const big = Math.abs(at - DROP) < 0.01;
+      const col = k % 2 ? CYAN : MAGENTA;
+      rings.push({
+        type: 'shape', shape: 'circle', radius: 100, name: 'ring' + k, at, duration: big ? 1.5 : 1.15,
+        initial: { ...CORE, fillAlpha: 0, strokeColor: big ? '#ffffff' : col, strokeWidth: big ? 5 : 3, strokeAlpha: 0 },
+        keyframes: [
+          { at: 0, to: { scale: big ? 4.6 : 3.2 }, duration: big ? 1.5 : 1.15, ease: 'expo.out' },
+          { at: 0, from: { strokeAlpha: (big ? 0.95 : 0.55) * Math.min(1, g * 1.1) }, to: { strokeAlpha: 0 }, duration: big ? 1.5 : 1.15, ease: 'power2.out' },
+        ],
+      });
+    }
+
+    // ── floating dust ────────────────────────────────────────────────────────────
+    const dust = Array.from({ length: 34 }, (_, i) => {
+      const x = 60 + rnd() * (W - 120), y = 120 + rnd() * 520, r = 1.2 + rnd() * 2.6, a = 0.15 + rnd() * 0.35;
+      const col = [CYAN, MAGENTA, '#ffffff'][i % 3];
+      return {
+        type: 'shape', shape: 'circle', radius: r, name: 'dust' + i,
+        initial: { x, y, fillColor: col, fillAlpha: a },
+        keyframes: [{ at: 0, to: { y: y - 60 - rnd() * 80, x: x + (rnd() - 0.5) * 60 }, duration: DURATION, ease: 'none' }],
+      };
+    });
+
+    // ── progress ring (top right): 60 ticks that light up one by one ────────────
+    const RING = { x: 1128, y: 112, r: 46 }, TICKS = 60;
+    const tick = (i, lit) => {
+      const a = (i / TICKS) * 2 * Math.PI - Math.PI / 2, c = Math.cos(a), s = Math.sin(a);
+      const r0 = RING.r - (i % 5 === 0 ? 12 : 8), r1 = RING.r;
+      const base = {
+        type: 'shape', shape: 'line', name: (lit ? 'lit' : 'tick') + i,
+        from: [RING.x + c * r0, RING.y + s * r0], to: [RING.x + c * r1, RING.y + s * r1],
+      };
+      if (!lit) return { ...base, initial: { strokeColor: '#ffffff', strokeWidth: 3, strokeAlpha: 0.16 } };
+      const at = 0.3 + (i / TICKS) * (DURATION - 0.6);
+      return { ...base, at, duration: DURATION - at, initial: { strokeColor: hex(330 - (i / TICKS) * 140, 100, 64), strokeWidth: 3, strokeAlpha: 0 },
+               keyframes: [{ at: 0, to: { strokeAlpha: 1 }, duration: 0.12 }] };
+    };
+    const ringLayers = [
+      ...Array.from({ length: TICKS }, (_, i) => tick(i, false)),
+      ...Array.from({ length: TICKS }, (_, i) => tick(i, true)),
+      { type: 'text', text: '{value}s', name: 'clock', format: { decimals: 0 }, style: { fontSize: 22, fontWeight: '700', fill: INK, fontFamily: "ui-monospace, 'SF Mono', Menlo, Consolas, monospace" },
+        initial: { x: RING.x, y: RING.y, anchorX: 0.5, anchorY: 0.5, value: 0 },
+        keyframes: [{ at: 0.3, to: { value: DURATION - 0.6 }, duration: DURATION - 0.6, ease: 'none' }] },
+    ];
+
+    // ── title card: centre -> top-left -> back to centre for the end ────────────
+    const MONO = "ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
+    const title = {
+      type: 'text', text: 'NIGHT DRIVE', name: 'title',
+      style: { fontSize: 96, fontWeight: '900', fontFamily: "'Arial Black', Arial, sans-serif", fill: INK, letterSpacing: 6,
+               dropShadow: { color: MAGENTA, blur: 18, distance: 0, alpha: 0.85 }, padding: 50 },
+      initial: { x: 'GW/2 - w/2', y: 300, anchorX: 0, anchorY: 0.5, alpha: 0 },
+      keyframes: [
+        { at: 0.25, to: { alpha: 1 }, duration: 0.7, ease: 'power2.out' },
+        { at: 0.25, from: { y: 330, scale: 0.94 }, to: { y: 300, scale: 1 }, duration: 1.2, ease: 'expo.out' },
+        { at: 3.0, to: { x: 80, y: 84, scale: 0.5 }, duration: 0.9, ease: 'power3.inOut' },
+        { at: 10.0, to: { x: 'GW/2 - w/2', y: 300, scale: 1 }, duration: 0.95, ease: 'power3.inOut' },
+      ],
+    };
+    const subtitle = {
+      type: 'text', text: '— demo mix', name: 'subtitle',
+      style: { fontSize: 30, fontWeight: '600', fontFamily: MONO, fill: CYAN, letterSpacing: 5, dropShadow: { color: CYAN, blur: 10, distance: 0, alpha: 0.7 }, padding: 24 },
+      initial: { x: 'GW/2 - w/2', y: 372, anchorX: 0, anchorY: 0.5, alpha: 0 },
+      keyframes: [
+        { at: 0.8, to: { alpha: 1 }, duration: 0.7, ease: 'power2.out' },
+        { at: 3.0, to: { x: 84, y: 132, scale: 0.7 }, duration: 0.9, ease: 'power3.inOut' },
+        { at: 10.0, to: { x: 'GW/2 - w/2', y: 372, scale: 1 }, duration: 0.95, ease: 'power3.inOut' },
+      ],
+    };
+
+    // ── assemble ─────────────────────────────────────────────────────────────────
+    const blur = (strength) => ({ type: 'custom', name: 'b', filter: new BlurFilter({ strength }) });
+    const sequences = [
+      { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
+        fillGradient: { angle: 90, stops: [[0, BG_TOP], [1, BG_BOT]] } },
+      { type: 'shape', shape: 'ellipse', name: 'horizon-glow', radiusX: 820, radiusY: 300, initial: { x: W / 2, y: BASE + 20 },
+        fillGradient: { type: 'radial', radius: 0.5, stops: [[0, 'rgba(255,45,149,0.30)'], [1, 'rgba(255,45,149,0)']] } },
+      ...dust,
+      // radial pulse (behind the bars)
+      orb(240, ['rgba(138,77,255,0.35)', 'rgba(138,77,255,0.12)', 'rgba(138,77,255,0)'], 1),
+      orb(150, ['rgba(255,255,255,0.95)', 'rgba(255,45,149,0.55)', 'rgba(255,45,149,0)'], 0.9),
+      ...rings,
+      // baseline
+      { type: 'shape', shape: 'line', name: 'baseline', from: [X0 - 30, BASE + 3], to: [X0 + (N - 1) * PITCH + 30, BASE + 3], initial: { strokeColor: MAGENTA, strokeWidth: 2, strokeAlpha: 0.5 } },
+      ...mirrorBars,
+      // glow copy of the bars: the same spec in a composition with a blur
+      { type: 'composition', name: 'bars-glow', width: W, height: H, filters: [blur(16)], filterArea: { x: -60, y: -60, width: W + 120, height: H + 120 },
+        initial: { alpha: 0.85 }, sequences: topBars.map(b => ({ ...b, name: 'g' + b.name })) },
+      ...topBars,
+      // vignette
+      { type: 'shape', shape: 'rect', name: 'vignette', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
+        fillGradient: { type: 'radial', radius: 0.78, stops: [[0.5, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.6)']] } },
+      // beat-drop flash
+      { type: 'shape', shape: 'rect', name: 'drop-flash', width: 'GW', height: 'GH', at: DROP, duration: 0.5, initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ffffff', alpha: 0.28 },
+        keyframes: [{ at: 0, to: { alpha: 0 }, duration: 0.45, ease: 'power2.out' }] },
+      ...ringLayers,
+      title, subtitle,
+      // music: the 6 s bgm looped, faded in and out
+      { type: 'audio', asset: 'bgm', name: 'bgm', loop: true, volume: 0, duration: DURATION,
+        keyframes: [{ at: 0, to: { volume: 0.9 }, duration: 2 }, { at: -2, to: { volume: 0 }, duration: 2 }] },
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        background: BG_TOP,
+        assets: [{ name: 'bgm', src: '../_assets/bgm.mp3' }],
+        composition: { sequences },
+      });
+      // opens at 0:00; add ?poster to the URL to park on the poster frame
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

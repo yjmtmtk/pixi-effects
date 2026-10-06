@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Countdown to 2027</title>
+  <style>
+    body { background: #07080f; margin: 0; padding: 16px; display: flex; justify-content: center; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script type="application/json" id="piece-meta">
+  { "title": "Countdown to 2027", "subtitle": "10 to 1 with ring pulses, then a seeded fireworks finale", "tags": ["countdown", "fireworks", "particles", "typography", "audio"], "width": 1280, "height": 720, "duration": 12, "posterFrame": 288, "model": "sonnet" }
+  </script>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 12, POSTER_FRAME = 288;
+    const CX = W / 2, CY = 370;
+
+    // palette: night-sky navy, gold, magenta
+    const NAVY = '#070b24', GOLD = '#ffd45c', AMBER = '#ffb347', MAGENTA = '#ff3fb4', PINK = '#ff9ad5', WHITE = '#ffffff';
+    const HEAVY = 'Arial Black, Arial, sans-serif';
+
+    let seed = 2027;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const snap = t => Math.round(t * FPS) / FPS;
+
+    // ---- timeline ---------------------------------------------------------------------------
+    const START = 1.0;                       // first number
+    const slots = [];                        // [number, at, length]
+    let tt = START;
+    for (let n = 10; n >= 1; n--) {
+      const len = n > 5 ? 0.75 : 0.65;       // the pace picks up for the last five
+      slots.push([n, snap(tt), len]);
+      tt += len;
+    }
+    const GO = snap(tt);                     // 8.0 s: the finale begins
+
+    const numColor = n => n >= 7 ? GOLD : n >= 4 ? AMBER : n >= 2 ? '#ff6fb5' : WHITE;
+    const progress = n => (10 - n) / 9;      // 0 (10) .. 1 (1)
+
+    const sequences = [];
+
+    // ---- background: navy gradient, magenta heat that builds, stars --------------------------
+    sequences.push({
+      type: 'shape', shape: 'rect', name: 'sky', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
+      fillGradient: { angle: 90, stops: [[0, '#04061a'], [0.65, '#0c1138'], [1, '#2a0f45']] },
+    });
+    for (let i = 0; i < 70; i++) {
+      const r = 0.8 + rnd() * 1.9, x = rnd() * W, y = rnd() * H * 0.92, lo = 0.12 + rnd() * 0.2, hi = 0.5 + rnd() * 0.5;
+      sequences.push({
+        type: 'shape', shape: 'circle', name: 'star' + i, radius: r, duration: DURATION,
+        initial: { x, y, fillColor: i % 9 === 0 ? PINK : WHITE, alpha: lo },
+        keyframes: [{ at: rnd() * 1.5, to: { alpha: hi }, duration: 0.6 + rnd() * 1.1, ease: 'sine.inOut', repeat: 6, yoyo: true }],
+      });
+    }
+    sequences.push({                          // magenta heat behind the digits: grows with the countdown
+      type: 'shape', shape: 'rect', name: 'heat', width: 'GW', height: 'GH', duration: GO + 0.3, initial: { x: 'GW/2', y: 'GH/2', alpha: 0.05 },
+      fillGradient: { type: 'radial', radius: 0.7, stops: [[0, 'rgba(255,63,180,0.75)'], [0.55, 'rgba(120,30,170,0.28)'], [1, 'rgba(255,63,180,0)']] },
+      keyframes: [{ at: 0, to: { alpha: 0.9 }, duration: GO, ease: 'power2.in' }],
+    });
+
+    // ---- intro (0 – 1 s) ---------------------------------------------------------------------
+    sequences.push({
+      type: 'text', name: 'get-ready', text: 'GET READY', duration: START, at: 0,
+      style: { fontSize: 54, fontWeight: '900', fontFamily: HEAVY, fill: GOLD, letterSpacing: 18 },
+      initial: { x: CX, y: CY, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+      keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3, ease: 'power2.out' }, { at: -0.22, to: { alpha: 0, scale: 1.12 }, duration: 0.22, ease: 'power2.in' }],
+    });
+
+    // ---- the countdown ------------------------------------------------------------------------
+    slots.forEach(([n, at, len]) => {
+      const p = progress(n);
+      const col = numColor(n);
+      const base = 1 + p * 0.22;                                   // digits get bigger as it nears zero
+      const FS = 360;
+      // beat flash (stronger towards the end)
+      sequences.push({
+        type: 'shape', shape: 'rect', name: 'flash' + n, width: 'GW', height: 'GH', at, duration: 0.32,
+        initial: { x: 'GW/2', y: 'GH/2', fillColor: n <= 3 ? PINK : WHITE, alpha: 0.06 + p * 0.2 },
+        keyframes: [{ at: 0, to: { alpha: 0 }, duration: 0.3, ease: 'power2.out' }],
+      });
+      // ring pulses: one at first, up to three at the end
+      const rings = 1 + (n <= 6) + (n <= 3);
+      for (let k = 0; k < rings; k++) {
+        const R = 330 + p * 260 + k * 70;
+        sequences.push({
+          type: 'shape', shape: 'circle', name: `ring${n}-${k}`, radius: 90, at: snap(at + k * 0.07), duration: 0.8,
+          initial: { x: CX, y: CY, fillAlpha: 0, strokeColor: k === 1 ? MAGENTA : col, strokeWidth: 16 - k * 3, strokeAlpha: 0.95 - k * 0.1 },
+          keyframes: [
+            { at: 0, to: { radius: R }, duration: 0.75, ease: 'expo.out' },
+            { at: 0, to: { strokeWidth: 1.5 }, duration: 0.75, ease: 'power2.out' },
+            { at: 0.1, to: { strokeAlpha: 0 }, duration: 0.65, ease: 'power1.in' },
+          ],
+        });
+      }
+      // glow layer (soft halo) + sharp digit
+      const style = {
+        fontSize: FS, fontWeight: '900', fontFamily: HEAVY, fill: col,
+        dropShadow: { color: n <= 3 ? MAGENTA : col, blur: 36, distance: 0, alpha: 0.85 }, padding: 90,
+      };
+      sequences.push({
+        type: 'text', name: 'num' + n, text: String(n), at, duration: len,
+        style,
+        initial: { x: CX, y: CY, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [
+          { at: 0, from: { scale: base * 2.5, rotation: n % 2 ? -4 : 4, alpha: 0 }, to: { scale: base, rotation: 0, alpha: 1 }, duration: 0.17, ease: 'expo.out' },
+          { at: 0.17, to: { scale: base * 1.05 }, duration: len - 0.17 - 0.1, ease: 'sine.out' },
+          { at: len - 0.1, to: { alpha: 0, scale: base * 0.82 }, duration: 0.1, ease: 'power2.in' },
+        ],
+      });
+    });
+
+    // header + progress pips: live through the countdown
+    sequences.push({
+      type: 'text', name: 'header', text: 'NEW YEAR COUNTDOWN', at: 0.2, duration: GO - 0.2 + 0.1,
+      style: { fontSize: 30, fontWeight: 'bold', fontFamily: 'system-ui, Arial, sans-serif', fill: '#aab4ff', letterSpacing: 12 },
+      initial: { x: CX, y: 66, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+      keyframes: [{ at: 0, to: { alpha: 0.9 }, duration: 0.5 }, { at: -0.2, to: { alpha: 0 }, duration: 0.2 }],
+    });
+    slots.forEach(([n, at], i) => {
+      const x = CX + (i - 4.5) * 40;
+      sequences.push({
+        type: 'shape', shape: 'circle', name: 'pip' + n, radius: 7, at: 0.3, duration: GO - 0.3 + 0.1,
+        initial: { x, y: 652, fillColor: '#3a4280', alpha: 0.7 },
+        keyframes: [
+          { at: at - 0.3, to: { fillColor: numColor(n), scale: 1.5 }, duration: 0.1, ease: 'power2.out' },
+          { at: at - 0.2, to: { scale: 1 }, duration: 0.3, ease: 'sine.out' },
+          { at: -0.2, to: { alpha: 0 }, duration: 0.2 },
+        ],
+        colorSpace: 'oklab',
+      });
+    });
+
+    // ---- sfx ---------------------------------------------------------------------------------
+    slots.forEach(([n, at]) => {
+      sequences.push({ type: 'audio', asset: 'pop', name: 'sfx-pop' + n, at, duration: 0.15, volume: 0.45 + progress(n) * 0.5 });
+    });
+    sequences.push({ type: 'audio', asset: 'bgm', name: 'bgm', loop: true, duration: DURATION, volume: 0,
+      keyframes: [{ at: 0, to: { volume: 0.32 }, duration: 1.5 }, { at: -1.8, to: { volume: 0 }, duration: 1.8 }] });
+
+    // ---- fireworks ----------------------------------------------------------------------------
+    function burst({ x, y, at, c1, c2, n = 30, R = 300, name }) {
+      at = snap(at);
+      const out = [];
+      // rising spark
+      const rise = 0.45;
+      out.push({
+        type: 'shape', shape: 'circle', name: name + '-rise', radius: 4.5, at: snap(at - rise), duration: rise,
+        initial: { x: x + (rnd() - 0.5) * 60, y: H + 10, fillColor: GOLD },
+        keyframes: [{ at: 0, to: { x, y }, duration: rise, ease: 'power2.out' }],
+      });
+      out.push({ type: 'audio', asset: 'swoosh', name: name + '-sfx', at: snap(at - rise), volume: 0.35 });
+      // core flash
+      out.push({
+        type: 'shape', shape: 'circle', name: name + '-core', radius: 6, at, duration: 0.3,
+        initial: { x, y, fillColor: WHITE, alpha: 0.95 },
+        keyframes: [{ at: 0, to: { radius: 62 }, duration: 0.28, ease: 'power2.out' }, { at: 0, to: { alpha: 0 }, duration: 0.28, ease: 'power3.out' }],
+      });
+      // shock ring
+      out.push({
+        type: 'shape', shape: 'circle', name: name + '-ring', radius: 10, at, duration: 0.8,
+        initial: { x, y, fillAlpha: 0, strokeColor: c1, strokeWidth: 7, strokeAlpha: 0.85 },
+        keyframes: [
+          { at: 0, to: { radius: R * 0.8 }, duration: 0.75, ease: 'expo.out' },
+          { at: 0, to: { strokeWidth: 1, strokeAlpha: 0 }, duration: 0.75, ease: 'power2.out' },
+        ],
+      });
+      // particles: outer ring + smaller inner ring
+      const spawn = (count, reach, size, colors, lifeBase, tag, trail) => {
+        const off = rnd() * 6.28;
+        for (let k = 0; k < count; k++) {
+          const a = off + (k / count) * 6.2832 + (rnd() - 0.5) * 0.12;
+          const d = reach * (0.3 + 0.7 * Math.pow(rnd(), 0.6));
+          const life = lifeBase + rnd() * 0.5;
+          const tx = x + Math.cos(a) * d, ty = y + Math.sin(a) * d, drop = 60 + rnd() * 60;
+          const r0 = size * (0.75 + rnd() * 0.5), col = colors[k % colors.length];
+          for (let g = 0; g < (trail && k % 2 === 0 ? 2 : 1); g++) {       // g = 1 is a dimmer ghost that lags behind: a short trail
+            const lag = g * 0.07, L = life - lag;
+            out.push({
+              type: 'shape', shape: 'circle', name: `${name}-${tag}${k}${g ? 't' : ''}`, radius: g ? r0 * 0.6 : r0, at: snap(at + lag), duration: L,
+              initial: { x, y, fillColor: g ? c2 : col, alpha: g ? 0.55 : 1 },
+              keyframes: [
+                { at: 0, to: { x: tx }, duration: L, ease: 'power3.out' },
+                { at: 0, to: { y: ty }, duration: L * 0.5, ease: 'power3.out' },
+                { at: L * 0.5, to: { y: ty + drop }, duration: L * 0.5, ease: 'power1.in' },
+                { at: L * 0.4, to: { alpha: 0 }, duration: L * 0.6, ease: 'power1.in' },
+                { at: 0, to: { radius: 1.2 }, duration: L, ease: 'power1.in' },
+              ],
+            });
+          }
+        }
+      };
+      spawn(Math.round(n * 1.5), R, 8, [c1, c1, WHITE, c2], 1.5, 'p', true);
+      spawn(Math.round(n * 0.6), R * 0.55, 5, [c2, WHITE], 1.2, 'q', false);
+      spawn(Math.round(n * 0.6), R * 0.9, 3.2, [GOLD, WHITE], 2.1, 'g', false);     // slow glitter that lingers and falls
+      return out;
+    }
+
+    // screen flash on the stroke of zero
+    sequences.push({
+      type: 'shape', shape: 'rect', name: 'zero-flash', width: 'GW', height: 'GH', at: GO, duration: 0.45,
+      initial: { x: 'GW/2', y: 'GH/2', fillColor: WHITE, alpha: 0.85 },
+      keyframes: [{ at: 0, to: { alpha: 0 }, duration: 0.4, ease: 'power4.out' }],
+    });
+    sequences.push({ type: 'audio', asset: 'chime', name: 'sfx-chime', at: GO, duration: 0.6, volume: 0.9 });
+
+    // warm gold glow behind the finale text
+    sequences.push({
+      type: 'shape', shape: 'rect', name: 'finale-glow', width: 'GW', height: 'GH', at: GO, duration: DURATION - GO,
+      initial: { x: 'GW/2', y: 'GH/2', alpha: 0 },
+      fillGradient: { type: 'radial', radius: 0.7, stops: [[0, 'rgba(255,190,70,0.55)'], [0.5, 'rgba(255,63,180,0.2)'], [1, 'rgba(255,63,180,0)']] },
+      keyframes: [{ at: 0.1, to: { alpha: 1 }, duration: 0.7, ease: 'power2.out' }],
+    });
+
+    const SHOWS = [
+      // [t offset after GO, x, y, c1, c2, n, R]
+      [0.00, 640, 330, GOLD, MAGENTA, 36, 340],
+      [0.50, 230, 250, MAGENTA, PINK, 30, 250],
+      [0.80, 1050, 230, GOLD, AMBER, 30, 260],
+      [1.30, 420, 150, PINK, GOLD, 28, 230],
+      [1.55, 880, 140, MAGENTA, WHITE, 28, 240],
+      [2.00, 140, 460, GOLD, MAGENTA, 26, 200],
+      [2.15, 1140, 450, MAGENTA, GOLD, 26, 200],
+      [2.60, 640, 200, GOLD, PINK, 34, 320],
+      [3.00, 330, 420, AMBER, MAGENTA, 24, 190],
+    ];
+    SHOWS.forEach(([dt, x, y, c1, c2, n, R], i) => {
+      sequences.push(...burst({ x, y, at: GO + dt, c1, c2, n, R, name: 'fw' + i }));
+    });
+
+    // sparks thrown off the digit on each of the last five beats (tension builds)
+    slots.filter(([n]) => n <= 5).forEach(([n, at]) => {
+      const cnt = 10 + (6 - n) * 3, reach = 330 + (6 - n) * 40;
+      for (let k = 0; k < cnt; k++) {
+        const a = (k / cnt) * 6.2832 + rnd() * 0.3, d = reach * (0.6 + rnd() * 0.4), life = 0.55 + rnd() * 0.25;
+        sequences.push({
+          type: 'shape', shape: 'circle', name: `spark${n}-${k}`, radius: 4 + rnd() * 3, at, duration: life,
+          initial: { x: CX + Math.cos(a) * 140, y: CY + Math.sin(a) * 140, fillColor: k % 3 ? numColor(n) : WHITE },
+          keyframes: [
+            { at: 0, to: { x: CX + Math.cos(a) * d, y: CY + Math.sin(a) * d }, duration: life, ease: 'expo.out' },
+            { at: life * 0.2, to: { alpha: 0, radius: 1 }, duration: life * 0.8, ease: 'power1.in' },
+          ],
+        });
+      }
+    });
+
+    // ---- finale type ---------------------------------------------------------------------------
+    const T1 = snap(GO + 0.3), T2 = snap(GO + 0.8);
+    const finaleStyle = (size, fill, glow, blur) => ({
+      fontSize: size, fontWeight: '900', fontFamily: HEAVY, fill, letterSpacing: size > 150 ? 6 : 8,
+      dropShadow: { color: glow, blur, distance: 0, alpha: 0.95 }, padding: blur * 2 + 20,
+    });
+    sequences.push({
+      type: 'text', name: 'happy-new-year', text: 'HAPPY NEW YEAR', at: T1, duration: DURATION - T1,
+      style: finaleStyle(84, WHITE, GOLD, 24),
+      initial: { x: CX, y: 238, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+      keyframes: [{ at: 0, from: { scale: 1.7, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.45, ease: 'expo.out' }],
+    });
+    sequences.push({                                            // pulsing magenta halo behind 2027
+      type: 'text', name: '2027-glow', text: '2027', at: T2, duration: DURATION - T2,
+      style: finaleStyle(250, MAGENTA, MAGENTA, 60),
+      initial: { x: CX, y: 440, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+      keyframes: [
+        { at: 0, from: { scale: 2.2 }, to: { scale: 1 }, duration: 0.55, ease: 'expo.out' },
+        { at: 0, to: { alpha: 0.9 }, duration: 0.3 },
+        { at: 0.5, to: { alpha: 0.35 }, duration: 0.9, ease: 'sine.inOut', repeat: 4, yoyo: true },
+      ],
+    });
+    sequences.push({
+      type: 'text', name: '2027', text: '2027', at: T2, duration: DURATION - T2,
+      style: finaleStyle(250, GOLD, '#ff9a2e', 34),
+      initial: { x: CX, y: 440, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+      keyframes: [
+        { at: 0, from: { scale: 2.2, rotation: -3 }, to: { scale: 1, rotation: 0 }, duration: 0.55, ease: 'expo.out' },
+        { at: 0, to: { alpha: 1 }, duration: 0.2 },
+        { at: 0.55, to: { scale: 1.035 }, duration: 1.3, ease: 'sine.inOut', repeat: 4, yoyo: true },
+      ],
+    });
+    sequences.push({
+      type: 'shape', shape: 'rect', name: 'underline', width: 0, height: 5, cornerRadius: 2.5, at: snap(GO + 1.2), duration: DURATION - GO - 1.2,
+      initial: { x: CX, y: 604, fillColor: GOLD },
+      keyframes: [{ at: 0, to: { width: 560 }, duration: 0.6, ease: 'expo.out' }],
+    });
+
+    // vignette
+    sequences.push({
+      type: 'shape', shape: 'rect', name: 'vignette', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
+      fillGradient: { type: 'radial', radius: 0.78, stops: [[0.5, 'rgba(0,0,10,0)'], [1, 'rgba(0,0,10,0.65)']] },
+    });
+
+    // ---- boot ----------------------------------------------------------------------------------
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        background: NAVY,
+        assets: [
+          { name: 'bgm', src: '../_assets/bgm.mp3' },
+          { name: 'pop', src: '../_assets/sfx-pop.mp3' },
+          { name: 'chime', src: '../_assets/sfx-chime.mp3' },
+          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
+        ],
+        composition: { sequences },
+      });
+      // opens at 0:00; add ?poster to the URL to park on the poster frame
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

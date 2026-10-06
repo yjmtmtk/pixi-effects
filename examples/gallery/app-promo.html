@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tidy — app promo · pixi-effects gallery</title>
+  <style>
+    html, body { height: 100%; }
+    body { background: #12111a; margin: 0; padding: 16px; box-sizing: border-box; min-height: 100vh; display: grid; place-items: center; }
+    /* square piece: fit a laptop screen */
+    canvas { width: min(720px, 100%, calc(100vh - 32px)); height: auto; display: block; border-radius: 14px; }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1080" height="1080"></canvas>
+
+  <script type="application/json" id="piece-meta">{
+    "title": "Tidy — app promo",
+    "subtitle": "A habit-tracker promo: 2.5D phone mock-up, sliding UI cards, a progress ring and streak that count up, swapping captions, logo + Download",
+    "tags": ["app promo", "2.5D", "ui", "count-up", "square", "audio"],
+    "width": 1080, "height": 1080, "duration": 12, "posterFrame": 182, "model": "fable"
+  }</script>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1080, H = 1080, FPS = 30, DURATION = 12;
+    const POSTER_FRAME = 182;
+    const FONT = "-apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif";
+
+    // ---------- palette: warm paper, one ink, one muted, ONE brand gradient (indigo → pink) and two tints of it ----------
+    const C = { bg: '#FAF7F2', ink: '#1F1B3A', muted: '#8B86A6', card: '#FFFFFF', screen: '#F5F3FA', track: '#ECE8F6',
+                a: '#5E5CE6', b: '#F25CA2', tintA: '#E6E5FB', tintB: '#FCE3EF' };
+    const BRAND = { angle: 25, stops: [[0, C.a], [1, C.b]] };
+    const rgba = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
+
+    // ---------- timeline (seconds, composition time) ----------
+    const T = {
+      phoneIn: 0.2, ringCard: 0.75, rows: 0.9, streakCard: 1.3, ring1: 1.5,
+      cap1: 0.9, cap2: 3.9, cap3: 6.6, capEnd: 9.35,
+      check: 4.3, streak: 2.2, chart: 6.95, rowsOut: 7.0,
+      phoneOut: 9.15, phoneEnd: 9.85, logo: 9.7, word: 9.9, tag: 10.1, cta: 10.4, note: 10.7,
+    };
+
+    // ---------- small builders ----------
+    const txt = (name, str, x, y, size, weight, fill, initial = {}, style = {}) => ({
+      type: 'text', name, text: str,
+      style: { fontFamily: FONT, fontSize: size, fontWeight: String(weight), fill, ...style },
+      initial: { x, y, anchorX: 0, anchorY: 0.5, ...initial },
+    });
+    const rect = (name, x, y, w, h, r, fill, extra = {}) => ({
+      type: 'shape', shape: 'rect', name, width: w, height: h, cornerRadius: r, initial: { x, y, fillColor: fill }, ...extra,
+    });
+    const gradRect = (name, x, y, w, h, r, extra = {}) => ({
+      type: 'shape', shape: 'rect', name, width: w, height: h, cornerRadius: r, initial: { x, y }, fillGradient: BRAND, ...extra,
+    });
+    // Soft shadow without filters: a radial ink→transparent blob, centred a little below the thing that casts it.
+    const shadow = (name, cx, cy, w, h, alpha) => ({
+      type: 'shape', shape: 'rect', name, width: w, height: h, initial: { x: cx, y: cy },
+      fillGradient: { type: 'radial', radius: 0.5, stops: [[0, rgba(C.ink, alpha)], [0.55, rgba(C.ink, alpha * 0.45)], [1, rgba(C.ink, 0)]] },
+    });
+    // A check mark from two rounded bars (round ends without stroke caps). (cx, cy) = visual centre, s = size.
+    const check = (name, cx, cy, s, color, extra = {}) => {
+      const vx = cx - 0.16 * s, vy = cy + 0.355 * s;            // the vertex
+      const t = 0.26 * s, L1 = 0.55 * s, L2 = 1.0 * s, d = Math.SQRT1_2;
+      const bar = (i, L, dirX, rot) => ({
+        type: 'shape', shape: 'rect', name: `${name}-${i}`, width: t, height: L, cornerRadius: t / 2,
+        initial: { x: vx + dirX * d * (L / 2 - t / 2), y: vy - d * (L / 2 - t / 2), rotation: rot, fillColor: color }, ...extra,
+      });
+      return [bar('short', L1, -1, -45), bar('long', L2, 1, 45)];
+    };
+    // Same lifespan + entrance (and optional exit) for a set of layers; each slides from/to its own x,y.
+    function group(layers, { at, until, slide = [0, 36], dur = 0.6, stagger = 0, exit }) {
+      return layers.map((l, i) => {
+        const { x, y } = l.initial, alpha = l.initial.alpha ?? 1, delay = i * stagger;
+        const kf = [{ at: delay, to: { alpha, x, y }, duration: dur, ease: 'power3.out' }];
+        if (exit) kf.push({ at: -exit.dur, to: { alpha: 0, x: x + exit.slide[0], y: y + exit.slide[1] }, duration: exit.dur, ease: 'power2.in' });
+        return { ...l, at, duration: until - at, initial: { ...l.initial, alpha: 0, x: x + slide[0], y: y + slide[1] }, keyframes: [...kf, ...(l.keyframes ?? [])] };
+      });
+    }
+
+    // ---------- the progress ring: no arc shape in the DSL, so bake eased arc states as images, one per frame ----------
+    function ringImage(frac, size = 260, stroke = 24) {
+      const c = Object.assign(document.createElement('canvas'), { width: size, height: size });
+      const g = c.getContext('2d');
+      const grad = g.createLinearGradient(0, 0, size, size);
+      grad.addColorStop(0, C.a); grad.addColorStop(1, C.b);
+      g.lineWidth = stroke; g.lineCap = 'round'; g.strokeStyle = grad;
+      const r = size / 2 - stroke / 2 - 2, s0 = -Math.PI / 2;
+      g.beginPath();
+      if (frac > 0.003) g.arc(size / 2, size / 2, r, s0, s0 + frac * Math.PI * 2);
+      else g.arc(size / 2, size / 2 - r, 0.01, 0, Math.PI * 2);       // the first frame is a dot at 12 o'clock
+      g.stroke();
+      return c.toDataURL('image/png');
+    }
+    const easeOutCubic = t => 1 - (1 - t) ** 3;                          // = GSAP power3.out, so the count-up matches the arc
+    const RING = { x: 216, y: 366 };                                      // phone-local
+    function ringSteps(name, startFrame, frames, from, to, holdUntil) {
+      const assets = [], layers = [];
+      for (let k = 1; k <= frames; k++) {
+        const id = `${name}-${k}`;
+        assets.push({ name: id, src: ringImage(from + (to - from) * easeOutCubic(k / frames)) });
+        const at = (startFrame + k - 1 - 0.5) / FPS;                       // half a frame early: no float gap between neighbours
+        layers.push({ type: 'image', asset: id, name: id, at, duration: k === frames ? holdUntil - at : 2 / FPS,
+                      initial: { x: RING.x, y: RING.y, anchorX: 0.5, anchorY: 0.5, scale: 0.5 } });
+      }
+      return { assets, layers };
+    }
+    const ring1 = ringSteps('ring1', Math.round(T.ring1 * FPS), 24, 0, 0.5, T.check + 0.1);
+    const ring2 = ringSteps('ring2', Math.round(T.check * FPS), 18, 0.5, 0.75, T.phoneEnd);
+
+    // ---------- the phone (a 2.5D card: everything inside moves and tilts together) ----------
+    const PH = { w: 600, h: 1040, cx: 300, cy: 520 };                      // card size; body centred in it
+    const screenUI = [];
+    // body + screen
+    screenUI.push(shadow('phone-shadow', PH.cx + 16, PH.cy + 40, 500, 940, 0.42));
+    screenUI.push(rect('body', PH.cx, PH.cy, 400, 820, 58, C.ink));
+    screenUI.push(rect('screen', PH.cx, PH.cy, 372, 792, 46, C.screen));
+    screenUI.push(rect('island', PH.cx, 150, 110, 32, 16, C.ink));
+    // header
+    screenUI.push(...group([
+      txt('date', 'TUESDAY, OCT 6', 136, 198, 12, 600, C.muted, {}, { letterSpacing: 1.5 }),
+      txt('today', 'Today', 136, 230, 34, 800, C.ink),
+      { type: 'shape', shape: 'circle', name: 'avatar', radius: 20, initial: { x: 444, y: 222 }, fillGradient: BRAND },
+    ], { at: 0.6, until: T.phoneEnd, slide: [0, 24] }));
+    // ring card
+    const RC = { x: 300, y: 366, w: 328, h: 176 }, rcAt = T.ringCard;
+    screenUI.push(...group([
+      shadow('ring-shadow', RC.x, RC.y + 14, RC.w * 1.12, RC.h * 1.3, 0.13),
+      rect('ring-card', RC.x, RC.y, RC.w, RC.h, 28, C.card),
+      { type: 'shape', shape: 'circle', name: 'ring-track', radius: 58, initial: { x: RING.x, y: RING.y, strokeColor: C.track, strokeWidth: 12 } },
+      { ...txt('ring-pct', '{value}%', RING.x, RING.y, 30, 800, C.ink, { anchorX: 0.5, value: 0 }), format: { decimals: 0 },
+        keyframes: [{ at: T.ring1 - rcAt, to: { value: 50 }, duration: 0.8, ease: 'power3.out' },
+                    { at: T.check - rcAt, to: { value: 75 }, duration: 0.6, ease: 'power3.out' }] },
+      txt('goal-label', 'Daily goal', 296, 336, 14, 600, C.muted),
+      { ...txt('goal-count', '{value} of 4 done', 296, 366, 22, 800, C.ink, { value: 2 }), format: { decimals: 0 },
+        // NOTE: a `set` keyframe here was applied at build time (showed "3" from frame 0) — a 1-frame `to` behaves
+        keyframes: [{ at: T.check - rcAt, to: { value: 3 }, duration: 1 / FPS }] },
+      txt('goal-hint', 'One left — easy.', 296, 396, 14, 600, C.a),
+    ], { at: rcAt, until: T.phoneEnd }));
+    screenUI.push(...ring1.layers, ...ring2.layers);
+    // habit rows (4): two done, the third gets checked at T.check, the fourth stays open
+    const HABITS = [['Drink water', '2 L · morning', C.tintA], ['Read 20 min', 'Before bed', C.tintB], ['Morning run', '5 km · 3 left this week', C.tintA], ['Meditate', '10 min · evening', C.tintB]];
+    const rowY = i => 518 + i * 76, rowExit = { dur: 0.4, slide: [-140, 0] };
+    HABITS.forEach(([name, sub, tint], i) => {
+      const y = rowY(i), at = T.rows + i * 0.08, done = i < 2;
+      const layers = [
+        shadow(`row${i}-shadow`, 300, y + 8, 370, 96, 0.10),
+        rect(`row${i}-card`, 300, y, 328, 64, 20, C.card),
+        { type: 'shape', shape: 'circle', name: `row${i}-icon`, radius: 18, initial: { x: 170, y, fillColor: tint } },
+        { type: 'shape', shape: 'circle', name: `row${i}-dot`, radius: 6, initial: { x: 170, y }, fillGradient: BRAND },
+        txt(`row${i}-name`, name, 202, y - 10, 17, 700, C.ink),
+        txt(`row${i}-sub`, sub, 202, y + 12, 12, 500, C.muted),
+      ];
+      if (done) layers.push({ type: 'shape', shape: 'circle', name: `row${i}-check-bg`, radius: 14, initial: { x: 420, y }, fillGradient: BRAND }, ...check(`row${i}-check`, 420, y, 15, '#ffffff'));
+      screenUI.push(...group(layers, { at, until: T.rowsOut, exit: rowExit }));
+      if (!done) {   // the open circle; row 2's disappears when its check pops
+        screenUI.push(...group([{ type: 'shape', shape: 'circle', name: `row${i}-open`, radius: 13, initial: { x: 420, y, strokeColor: '#D9D4EA', strokeWidth: 2 } }],
+          { at, until: i === 2 ? T.check : T.rowsOut, exit: i === 2 ? undefined : rowExit }));
+      }
+    });
+    // the tap: row 2's check pops in
+    screenUI.push(...group([
+      { type: 'shape', shape: 'circle', name: 'row2-check-bg', radius: 14, initial: { x: 420, y: rowY(2) }, fillGradient: BRAND,
+        keyframes: [{ at: 0, from: { scale: 0 }, to: { scale: 1 }, duration: 0.5, ease: 'back.out(2.2)' }] },
+      ...check('row2-check', 420, rowY(2), 15, '#ffffff'),
+    ], { at: T.check, until: T.rowsOut, slide: [0, 0], dur: 0.25, exit: rowExit }));
+    // streak card (brand gradient) with a count-up
+    const SC = { x: 300, y: 846, w: 328, h: 96 }, scAt = T.streakCard;
+    screenUI.push(...group([
+      shadow('streak-shadow', SC.x, SC.y + 12, SC.w * 1.12, SC.h * 1.5, 0.16),
+      gradRect('streak-card', SC.x, SC.y, SC.w, SC.h, 28),
+      { ...txt('streak-n', '{value}', 176, SC.y, 44, 800, '#ffffff', { anchorX: 0.5, value: 0 }), format: { decimals: 0 },
+        keyframes: [{ at: T.streak - scAt, to: { value: 12 }, duration: 0.8, ease: 'power3.out' },
+                    { at: T.check + 0.3 - scAt, to: { scale: 1.22 }, duration: 0.16, ease: 'power2.out', repeat: 1, yoyo: true }] },   // the tap celebrates
+      txt('streak-label', 'DAY STREAK', 216, SC.y - 11, 13, 700, '#ffffff', {}, { letterSpacing: 2 }),
+      txt('streak-sub', 'Personal best: 21', 216, SC.y + 12, 13, 500, '#ffffff', { alpha: 0.85 }),
+    ], { at: scAt, until: T.phoneEnd }));
+    // weekly chart card replaces the rows in scene 3
+    const CH = { x: 300, y: 632, w: 328, h: 292, base: 736, maxH: 150, x0: 158, x1: 442 };
+    const WEEK = [0.6, 0.85, 0.45, 1, 0.7, 0.9, 0.75], DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    const pitch = (CH.x1 - CH.x0) / WEEK.length;
+    const chartLayers = [
+      shadow('chart-shadow', CH.x, CH.y + 16, CH.w * 1.12, CH.h * 1.2, 0.13),
+      rect('chart-card', CH.x, CH.y, CH.w, CH.h, 28, C.card),
+      txt('chart-title', 'This week', CH.x0, 516, 18, 800, C.ink),
+      { ...txt('chart-avg', '{value}%', CH.x1, 516, 16, 800, C.a, { anchorX: 1, value: 0 }), format: { decimals: 0 },
+        keyframes: [{ at: 0.15, to: { value: Math.round(WEEK.reduce((a, b) => a + b) / WEEK.length * 100) }, duration: 0.8, ease: 'power3.out' }] },
+    ];
+    WEEK.forEach((v, i) => {
+      const x = CH.x0 + pitch * (i + 0.5), today = i === WEEK.length - 1;
+      chartLayers.push({
+        type: 'shape', shape: 'rect', name: `bar${i}`, width: 24, height: 6, cornerRadius: 8, anchorY: 1,
+        initial: { x, y: CH.base, ...(today ? {} : { fillColor: C.tintA }) }, ...(today ? { fillGradient: BRAND } : {}),
+        keyframes: [{ at: 0.1 + i * 0.06, to: { height: CH.maxH * v }, duration: 0.6, ease: 'power3.out' }],
+      });
+      chartLayers.push(txt(`day${i}`, DAYS[i], x, 758, 12, 600, today ? C.ink : C.muted, { anchorX: 0.5 }));
+    });
+    screenUI.push(...group(chartLayers, { at: T.chart, until: T.phoneEnd, slide: [70, 0] }));
+
+    const phone = {
+      type: 'composition', name: 'phone', threeD: true, width: PH.w, height: PH.h, at: 0, duration: T.phoneEnd,
+      initial: { x: 720, y: 575 + 220, z: -420, rotationY: 42, rotationX: 10, pivotX: PH.cx, pivotY: PH.cy, alpha: 0 },
+      keyframes: [
+        { at: T.phoneIn, to: { y: 575, z: 0, rotationY: 16, rotationX: 5 }, duration: 1.0, ease: 'expo.out' },
+        { at: T.phoneIn, to: { alpha: 1 }, duration: 0.3, ease: 'power2.out' },                                   // fade faster than it moves: no grey ghost
+        { at: T.phoneIn + 1.1, to: { y: 565 }, duration: 1.6, ease: 'sine.inOut', repeat: 4, yoyo: true },        // float: 5 × 1.6 s, ends at 9.3
+        { at: T.phoneOut, to: { y: 860, z: -460, rotationY: 50, alpha: 0 }, duration: 0.65, ease: 'power2.in' },
+      ],
+      sequences: screenUI,
+    };
+
+    // ---------- captions (left of the phone) ----------
+    const CAP = { x: 84, y: 452 };
+    function caption(i, lines, sub, at, until) {
+      const dur = until - at, out = (y) => ({ at: -0.32, to: { alpha: 0, y: y - 16 }, duration: 0.32, ease: 'power2.in' });
+      return [
+        { type: 'shape', shape: 'rect', name: `cap${i}-dash`, width: 2, height: 8, cornerRadius: 4, anchorX: 0, at, duration: dur,
+          initial: { x: CAP.x, y: CAP.y - 40 }, fillGradient: BRAND,
+          keyframes: [{ at: 0, to: { width: 56 }, duration: 0.5, ease: 'power3.out' }, { at: -0.32, to: { alpha: 0 }, duration: 0.3 }] },
+        { ...txt(`cap${i}-index`, `0${i + 1}`, CAP.x + 72, CAP.y - 40, 15, 700, C.a, { alpha: 0 }, { letterSpacing: 2 }), at, duration: dur,
+          keyframes: [{ at: 0.15, to: { alpha: 1 }, duration: 0.4 }, { at: -0.32, to: { alpha: 0 }, duration: 0.3 }] },
+        { type: 'text', name: `cap${i}-head`, text: lines.join('\n'), at, duration: dur,
+          style: { fontFamily: FONT, fontSize: 60, fontWeight: '800', fill: C.ink, lineHeight: 66, letterSpacing: -1, align: 'left' },   // multi-line text centres by default
+          initial: { x: CAP.x, y: CAP.y + 30, alpha: 0 },
+          keyframes: [{ at: 0.05, to: { y: CAP.y, alpha: 1 }, duration: 0.6, ease: 'power3.out' }, out(CAP.y)] },
+        { ...txt(`cap${i}-sub`, sub, CAP.x, CAP.y + 172 + 24, 24, 500, C.muted, { anchorY: 0, alpha: 0 }), at, duration: dur,
+          keyframes: [{ at: 0.18, to: { y: CAP.y + 172, alpha: 1 }, duration: 0.6, ease: 'power3.out' }, out(CAP.y + 172)] },
+      ];
+    }
+
+    // ---------- finale: logo + wordmark + CTA (2D, drawn last, after the phone has left) ----------
+    const LOGO = { x: 540, y: 382, s: 176 }, FY = { word: 546, tag: 618, cta: 742, note: 822 };   // the end block, centred as a whole
+    const logo = {
+      type: 'composition', name: 'logo', width: 260, height: 260, at: T.logo, duration: DURATION - T.logo,
+      initial: { x: LOGO.x, y: LOGO.y, pivotX: 130, pivotY: 130, scale: 0.4, alpha: 0 },
+      keyframes: [{ at: 0, to: { scale: 1, alpha: 1 }, duration: 0.7, ease: 'back.out(1.4)' }],
+      sequences: [
+        shadow('logo-shadow', 130, 130 + 28, 230, 230, 0.22),
+        gradRect('logo-tile', 130, 130, LOGO.s, LOGO.s, 50),
+        ...check('logo-check', 130, 130, 92, '#ffffff'),
+      ],
+    };
+    const finale = [
+      logo,
+      { ...txt('word', 'Tidy', 540, FY.word + 30, 104, 800, C.ink, { anchorX: 0.5, alpha: 0 }, { letterSpacing: -2 }), at: T.word, duration: DURATION - T.word,
+        keyframes: [{ at: 0, to: { y: FY.word, alpha: 1 }, duration: 0.6, ease: 'power3.out' }] },
+      { ...txt('tagline', 'Habits, made simple.', 540, FY.tag + 24, 28, 500, C.muted, { anchorX: 0.5, alpha: 0 }), at: T.tag, duration: DURATION - T.tag,
+        keyframes: [{ at: 0, to: { y: FY.tag, alpha: 1 }, duration: 0.6, ease: 'power3.out' }] },
+      ...group([
+        shadow('cta-shadow', 540, FY.cta + 22, 380, 150, 0.2),
+        gradRect('cta', 540, FY.cta, 320, 88, 44),
+        txt('cta-label', 'Download free', 540, FY.cta, 26, 700, '#ffffff', { anchorX: 0.5 }),
+      ], { at: T.cta, until: DURATION, slide: [0, 40], dur: 0.7 }).map(l => ({ ...l, keyframes: [{ ...l.keyframes[0], ease: 'back.out(1.6)' },
+          { at: 11.3 - T.cta, to: { scale: 1.04 }, duration: 0.22, ease: 'sine.inOut', repeat: 1, yoyo: true }] })),
+      { ...txt('note', 'No account needed', 540, FY.note + 16, 17, 500, C.muted, { anchorX: 0.5, alpha: 0 }), at: T.note, duration: DURATION - T.note,
+        keyframes: [{ at: 0, to: { y: FY.note, alpha: 1 }, duration: 0.5, ease: 'power3.out' }] },
+    ];
+
+    // ---------- the whole composition ----------
+    const sequences = [
+      rect('paper', W / 2, H / 2, W, H, 0, C.bg),
+      { type: 'shape', shape: 'circle', name: 'blob-a', radius: 460, initial: { x: 150, y: 250 },
+        fillGradient: { type: 'radial', stops: [[0, rgba(C.a, 0.20)], [1, rgba(C.a, 0)]] },
+        keyframes: [{ at: 0, to: { x: 280, y: 360 }, duration: DURATION, ease: 'sine.inOut' }] },
+      { type: 'shape', shape: 'circle', name: 'blob-b', radius: 420, initial: { x: 960, y: 920 },
+        fillGradient: { type: 'radial', stops: [[0, rgba(C.b, 0.18)], [1, rgba(C.b, 0)]] },
+        keyframes: [{ at: 0, to: { x: 840, y: 800 }, duration: DURATION, ease: 'sine.inOut' }] },
+      { type: 'camera', name: 'cam', initial: { fov: 40 } },
+      phone,
+      // small wordmark, top-left
+      ...group([
+        gradRect('mark-tile', 106, 100, 44, 44, 13),
+        ...check('mark-check', 106, 100, 23, '#ffffff'),
+        txt('mark-word', 'Tidy', 138, 100, 30, 800, C.ink, {}, { letterSpacing: -0.5 }),
+      ], { at: 0.4, until: T.capEnd + 0.2, slide: [0, 16], dur: 0.5, exit: { dur: 0.35, slide: [0, -10] } }),
+      ...caption(0, ['Build habits', 'that stick.'], 'One tap a day. That’s it.', T.cap1, T.cap2),
+      ...caption(1, ['Keep your', 'streak alive.'], 'Gentle nudges, zero guilt.', T.cap2, T.cap3),
+      ...caption(2, ['See the', 'big picture.'], 'Your week, at a glance.', T.cap3, T.capEnd),
+      ...finale,
+      // audio: 6 s loop under everything, short sfx cut to their file length
+      { type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0, duration: DURATION,
+        keyframes: [{ at: 0, to: { volume: 0.45 }, duration: 1 }, { at: -2, to: { volume: 0 }, duration: 2 }] },
+      { type: 'audio', name: 'sfx-swoosh', asset: 'swoosh', at: T.phoneIn, volume: 0.5 },
+      { type: 'audio', name: 'sfx-click-2', asset: 'click', at: T.cap2, duration: 0.1, volume: 0.5 },
+      { type: 'audio', name: 'sfx-pop', asset: 'pop', at: T.check, duration: 0.15, volume: 0.8 },
+      { type: 'audio', name: 'sfx-click-3', asset: 'click', at: T.cap3, duration: 0.1, volume: 0.5 },
+      { type: 'audio', name: 'sfx-swoosh-2', asset: 'swoosh', at: T.phoneOut, volume: 0.4 },
+      { type: 'audio', name: 'sfx-chime', asset: 'chime', at: T.logo, duration: 0.62, volume: 0.7 },
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        background: C.bg,
+        assets: [
+          ...ring1.assets, ...ring2.assets,
+          { name: 'bgm', src: '../_assets/bgm.mp3' },
+          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
+          { name: 'pop', src: '../_assets/sfx-pop.mp3' },
+          { name: 'click', src: '../_assets/sfx-click.mp3' },
+          { name: 'chime', src: '../_assets/sfx-chime.mp3' },
+        ],
+        composition: { sequences },
+      });
+      // opens at 0:00; add ?poster to the URL to park on the poster frame
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
+    }
+  </script>
+</body>
+</html>

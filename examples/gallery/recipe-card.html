@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lemon Pasta Recipe Card</title>
+  <style>
+    html, body { height: 100%; }
+    body { background: #1b1411; margin: 0; padding: 16px; box-sizing: border-box; display: flex; justify-content: center; align-items: flex-start; }
+    canvas { height: min(calc(100vh - 32px), 1350px); width: auto; aspect-ratio: 4 / 5; max-width: 100%; border-radius: 12px; }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1080" height="1350"></canvas>
+
+  <script type="application/json" id="piece-meta">{ "title": "Lemon Pasta Recipe Card", "subtitle": "A 4:5 animated recipe card: ingredients that check themselves off, three timed steps with countdowns, and a plated dish that assembles from circles.", "tags": ["portrait", "illustration", "food", "counters", "shapes"], "width": 1080, "height": 1350, "duration": 12, "posterFrame": 345, "model": "sonnet" }</script>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1080, H = 1350, FPS = 30, DURATION = 12, POSTER_FRAME = 345;
+
+    // ---- palette: butter, tomato, cream ------------------------------------------------------
+    const CREAM = '#FFF3D6', CARD = '#FFFBEF', BUTTER = '#FFD84D', BUTTER_DK = '#E8A80C', PALE = '#FFE9A0', TOMATO = '#E5472B',
+          INK = '#3A2216', BASIL = '#4F9A3B', MUTED = '#8A6A52', LINE = '#F0DDB0', NOODLE = '#F1B93A';
+    const ROUND = 'ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN", "Arial Rounded MT Bold", system-ui, sans-serif';
+
+    // text measuring (same font stack) so strike-throughs / pills fit their words
+    const mctx = document.createElement('canvas').getContext('2d');
+    const measure = (txt, size, weight = 800, ls = 0) => { mctx.font = `${weight} ${size}px ${ROUND}`; return mctx.measureText(txt).width + ls * txt.length; };
+
+    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+    // ---- tiny layer builders ----------------------------------------------------------------
+    const S = (shape, name, at, initial, keyframes = [], extra = {}) => ({ type: 'shape', shape, name, at, initial, keyframes, ...extra });
+    const T = (name, at, text, style, initial, keyframes = [], extra = {}) =>
+      ({ type: 'text', name, at, text, style: { fontFamily: ROUND, ...style }, initial, keyframes, ...extra });
+    const popK = (d = 0.4, ease = 'back.out(2.2)', delay = 0) => ({ at: delay, from: { scale: 0 }, to: { scale: 1 }, duration: d, ease });
+    const slideK = (init, dx = 90, d = 0.6) => ({ at: 0, from: { x: init.x + dx, alpha: 0 }, to: { x: init.x, alpha: 1 }, duration: d, ease: 'expo.out' });
+    const sfx = (name, at, asset, volume = 0.5) => ({ type: 'audio', name, asset, at, volume });
+
+    // ---- timeline -----------------------------------------------------------------------------
+    const T0 = { lemonDeco: 0.15, lemon: 0.25, pasta: 0.5, pill: 0.95, ingHead: 1.1, ingRows: 1.35, ingGap: 0.2, ring: 1.9,
+                 check0: 2.4, checkGap: 0.6, step0: 4.6, stepGap: 0.85, plate: 8.2, badge: 10.4 };
+
+    // ======== background =========================================================================
+    const sequences = [
+      S('rect', 'bg', 0, { x: W / 2, y: H / 2, width: W, height: H, fillColor: CREAM }),
+      S('circle', 'glow-tl', 0, { x: 120, y: 150, radius: 460 }, [], { fillGradient: { type: 'radial', radius: 0.5, stops: [[0, 'rgba(229,71,43,0.16)'], [1, 'rgba(229,71,43,0)']] } }),
+      S('circle', 'glow-br', 0, { x: 980, y: 1180, radius: 520 }, [], { fillGradient: { type: 'radial', radius: 0.5, stops: [[0, 'rgba(255,216,77,0.55)'], [1, 'rgba(255,216,77,0)']] } }),
+    ];
+    // floating dots (playful confetti, drifting forever-ish)
+    for (let i = 0; i < 9; i++) {
+      const x = 40 + rnd() * (W - 80), y = 320 + rnd() * 900, r = 6 + rnd() * 9, c = i % 3 === 0 ? TOMATO : BUTTER;
+      sequences.push(S('circle', 'dot-' + i, 0.3 + i * 0.12, { x, y, radius: r, fillColor: c, alpha: 0.5 }, [
+        { at: 0, from: { scale: 0 }, to: { scale: 1 }, duration: 0.5, ease: 'back.out(2)' },
+        { at: 0.5, to: { y: y - 26 - rnd() * 20 }, duration: 2.4, ease: 'sine.inOut', repeat: 3, yoyo: true },
+      ]));
+    }
+
+    // ======== lemon decoration (top right) ======================================================
+    {
+      const cx = 905, cy = 165, at = T0.lemonDeco;
+      sequences.push({
+        type: 'composition', name: 'lemon-deco', at, width: 260, height: 220,
+        initial: { x: cx, y: cy, pivotX: 130, pivotY: 110, rotation: 0 },
+        keyframes: [
+          { at: 0, from: { scale: 0, rotation: -60 }, to: { scale: 1, rotation: 0 }, duration: 0.7, ease: 'back.out(1.8)' },
+          { at: 0.9, to: { rotation: 6 }, duration: 1.6, ease: 'sine.inOut', repeat: 5, yoyo: true },
+        ],
+        sequences: [
+          S('ellipse', 'leaf', 0, { x: 118, y: 52, radiusX: 38, radiusY: 15, rotation: -38, fillColor: BASIL }),
+          S('ellipse', 'leaf-vein', 0, { x: 118, y: 52, radiusX: 26, radiusY: 2, rotation: -38, fillColor: '#79B95F' }),
+          S('circle', 'nub-r', 0, { x: 130 + 76, y: 110 - 28, radius: 11, fillColor: BUTTER_DK }),
+          S('circle', 'nub-l', 0, { x: 130 - 76, y: 110 + 28, radius: 11, fillColor: BUTTER_DK }),
+          S('ellipse', 'lemon', 0, { x: 130, y: 110, radiusX: 82, radiusY: 60, rotation: -20, fillColor: BUTTER, strokeColor: BUTTER_DK, strokeWidth: 6 }),
+          S('ellipse', 'lemon-shine', 0, { x: 104, y: 92, radiusX: 30, radiusY: 10, rotation: -20, fillColor: '#FFFFFF', alpha: 0.45 }),
+        ],
+      });
+    }
+
+    // ======== title ============================================================================
+    {
+      const gap = 28, y = 150;
+      const raw = measure('Lemon', 124, 900) + measure('pasta', 124, 900) + gap;
+      const fs = Math.floor(Math.min(124, 124 * 725 / raw));          // fit left of the lemon sticker
+      const w1 = measure('Lemon', fs, 900), w2 = measure('pasta', fs, 900);
+      const x0 = 60;
+      const word = (name, text, at, xl, w, fill) => {
+        const init = { x: xl + w / 2, y, anchorX: 0.5, anchorY: 0.5 };
+        return T(name, at, text, { fontSize: fs, fontWeight: '900', fill, letterSpacing: -2 }, init, [
+          { at: 0, from: { scale: 0.4, y: y + 60, rotation: -7, alpha: 0 }, to: { scale: 1, y, rotation: 0, alpha: 1 }, duration: 0.55, ease: 'back.out(2.4)' },
+        ]);
+      };
+      sequences.push(word('title-lemon', 'Lemon', T0.lemon, x0, w1, INK));
+      sequences.push(word('title-pasta', 'pasta', T0.pasta, x0 + w1 + gap, w2, TOMATO));
+      const label = 'in 15 minutes', lw = measure(label, 34, 800, 1.5), pw = lw + 70, py = 266;
+      sequences.push(S('rect', 'pill-time', T0.pill, { x: 60 + pw / 2, y: py, width: pw, height: 64, cornerRadius: 32, fillColor: TOMATO }, [
+        { at: 0, from: { scaleX: 0, alpha: 0 }, to: { scaleX: 1, alpha: 1 }, duration: 0.5, ease: 'back.out(1.7)' },
+      ]));
+      sequences.push(T('pill-time-text', T0.pill + 0.15, label, { fontSize: 34, fontWeight: '800', fill: '#FFF8E8', letterSpacing: 1.5 },
+        { x: 60 + pw / 2, y: py + 1, anchorX: 0.5, anchorY: 0.5 }, [{ at: 0, from: { alpha: 0, y: py + 16 }, to: { alpha: 1, y: py + 1 }, duration: 0.4, ease: 'power3.out' }]));
+    }
+
+    // ======== ingredients ======================================================================
+    const ICON = 80;
+    const iconComp = (name, at, cx, cy, children) => ({
+      type: 'composition', name, at, width: ICON, height: ICON, sequences: children,
+      initial: { x: cx, y: cy, pivotX: ICON / 2, pivotY: ICON / 2 },
+      keyframes: [popK(0.5, 'back.out(2.6)')],
+    });
+    const c40 = 40;
+    const icons = {
+      lemon: () => [
+        S('ellipse', 'leaf', 0, { x: 52, y: 17, radiusX: 12, radiusY: 5, rotation: -40, fillColor: BASIL }),
+        S('circle', 'nub-a', 0, { x: 62, y: 29, radius: 4.5, fillColor: BUTTER_DK }),
+        S('circle', 'nub-b', 0, { x: 18, y: 51, radius: 4.5, fillColor: BUTTER_DK }),
+        S('ellipse', 'body', 0, { x: c40, y: c40, radiusX: 25, radiusY: 18, rotation: -25, fillColor: BUTTER, strokeColor: BUTTER_DK, strokeWidth: 3 }),
+        S('ellipse', 'shine', 0, { x: 33, y: 33, radiusX: 9, radiusY: 3.5, rotation: -25, fillColor: '#FFFFFF', alpha: 0.5 }),
+      ],
+      nest: () => [
+        S('circle', 'base', 0, { x: c40, y: c40, radius: 26, fillColor: '#FFF1C4' }),
+        S('circle', 'r3', 0, { x: c40 + 1, y: c40, radius: 21, fillAlpha: 0, strokeColor: NOODLE, strokeWidth: 6 }),
+        S('circle', 'r2', 0, { x: c40 - 1, y: c40 + 1, radius: 14, fillAlpha: 0, strokeColor: '#FFC94D', strokeWidth: 6 }),
+        S('circle', 'r1', 0, { x: c40, y: c40 - 1, radius: 7, fillAlpha: 0, strokeColor: NOODLE, strokeWidth: 6 }),
+      ],
+      garlic: () => [
+        S('ellipse', 'tip', 0, { x: c40, y: 21, radiusX: 5, radiusY: 10, fillColor: '#FFFFFF', strokeColor: '#D8C7A0', strokeWidth: 3 }),
+        S('ellipse', 'bulb', 0, { x: c40, y: 46, radiusX: 20, radiusY: 20, fillColor: '#FFFFFF', strokeColor: '#D8C7A0', strokeWidth: 3 }),
+        S('rect', 'clove-l', 0, { x: 32, y: 47, width: 3, height: 26, rotation: 10, fillColor: '#E6D7B5' }),
+        S('rect', 'clove-r', 0, { x: 48, y: 47, width: 3, height: 26, rotation: -10, fillColor: '#E6D7B5' }),
+        S('rect', 'root', 0, { x: c40, y: 67, width: 9, height: 4, cornerRadius: 2, fillColor: '#C9B28A' }),
+      ],
+      pan: () => [
+        S('rect', 'handle', 0, { x: 51, y: 44, width: 30, height: 9, cornerRadius: 4.5, anchorX: 0, rotation: -14, fillColor: INK }),
+        S('circle', 'pan', 0, { x: 33, y: 42, radius: 21, fillColor: INK }),
+        S('circle', 'pan-in', 0, { x: 33, y: 42, radius: 16, fillColor: '#6B4A38' }),
+        S('circle', 'butter', 0, { x: 30, y: 40, radius: 7, fillColor: BUTTER }),
+      ],
+    };
+
+    const ROWS = [
+      ['1 lemon', 'zest + juice', 'lemon'],
+      ['Spaghetti', '200 g', 'nest'],
+      ['Garlic', '2 cloves, sliced', 'garlic'],
+      ['Olive oil', '1 tbsp, in a big pan', 'pan'],
+    ];
+    const ROW_Y0 = 455, ROW_DY = 100, LX = 60, LW = 510;
+    sequences.push(T('ing-head', T0.ingHead, 'INGREDIENTS', { fontSize: 26, fontWeight: '900', fill: TOMATO, letterSpacing: 5 },
+      { x: LX + 6, y: 372, anchorX: 0, anchorY: 0.5 }, [slideK({ x: LX + 6 }, 60, 0.5)]));
+    sequences.push(S('rect', 'ing-head-rule', T0.ingHead + 0.1, { x: LX + 6, y: 396, width: 0, height: 4, cornerRadius: 2, anchorX: 0, fillColor: BUTTER }, [
+      { at: 0, to: { width: 150 }, duration: 0.5, ease: 'expo.out' }]));
+
+    const ringAt = T0.ring, PX = 810, PY = 565;
+    ROWS.forEach(([name, qty, icon], i) => {
+      const y = ROW_Y0 + i * ROW_DY, at = T0.ingRows + i * T0.ingGap, ck = T0.check0 + i * T0.checkGap;
+      const cardInit = { x: LX + LW / 2, y, width: LW, height: 88, cornerRadius: 28, fillColor: CARD, strokeColor: LINE, strokeWidth: 3 };
+      sequences.push(S('rect', `ing-${i}-card`, at, cardInit, [slideK(cardInit, -120, 0.65)]));
+      sequences.push(S('circle', `ing-${i}-iconbg`, at + 0.1, { x: 106, y, radius: 33, fillColor: PALE }, [popK(0.4)]));
+      sequences.push(iconComp(`ing-${i}-icon`, at + 0.15, 106, y, icons[icon]()));
+      const nameInit = { x: 160, y: y - 15, anchorX: 0, anchorY: 0.5 };
+      const qtyInit = { x: 160, y: y + 19, anchorX: 0, anchorY: 0.5 };
+      const dim = { at: ck - at, to: { alpha: 0.5 }, duration: 0.3 };
+      sequences.push(T(`ing-${i}-name`, at + 0.1, name, { fontSize: 33, fontWeight: '800', fill: INK }, nameInit, [slideK(nameInit, -70, 0.6), dim]));
+      sequences.push(T(`ing-${i}-qty`, at + 0.15, qty, { fontSize: 23, fontWeight: '600', fill: MUTED }, qtyInit, [slideK(qtyInit, -70, 0.6), dim]));
+      sequences.push(S('circle', `ing-${i}-box`, at + 0.2, { x: 528, y, radius: 22, fillAlpha: 0, strokeColor: TOMATO, strokeWidth: 4 }, [popK(0.4)]));
+      // check-off: strike-through, filled box, two-stroke tick, click
+      sequences.push(S('rect', `ing-${i}-strike`, ck, { x: 160, y: y - 9, width: 0, height: 4, cornerRadius: 2, anchorX: 0, fillColor: TOMATO },
+        [{ at: 0, to: { width: measure(name, 33, 800) + 6 }, duration: 0.28, ease: 'power3.out' }]));
+      sequences.push(S('circle', `ing-${i}-fill`, ck, { x: 528, y, radius: 22, fillColor: BASIL }, [popK(0.35, 'back.out(3)')]));
+      sequences.push(S('rect', `ing-${i}-tick-a`, ck + 0.08, { x: 528 - 6.5, y: y + 3.5, width: 12, height: 6, cornerRadius: 3, rotation: 45, fillColor: '#FFFFFF' }, [popK(0.25, 'back.out(3)')]));
+      sequences.push(S('rect', `ing-${i}-tick-b`, ck + 0.12, { x: 528 + 3.5, y: y - 0.5, width: 22, height: 6, cornerRadius: 3, rotation: -49, fillColor: '#FFFFFF' }, [popK(0.25, 'back.out(3)')]));
+      sequences.push(sfx(`sfx-check-${i}`, ck, 'click', 0.6));
+    });
+    // empty plate waiting on the right
+    sequences.push(S('circle', 'plate-ghost', ringAt, { x: PX, y: PY, radius: 190, fillAlpha: 0, strokeColor: '#E6CF98', strokeWidth: 6, alpha: 0.9 }, [
+      { at: 0, from: { scale: 0.6, alpha: 0 }, to: { scale: 1, alpha: 0.9 }, duration: 0.7, ease: 'expo.out' },
+      { at: 0.9, to: { scale: 1.03 }, duration: 1.3, ease: 'sine.inOut', repeat: 3, yoyo: true },
+    ]));
+    sequences.push(S('circle', 'plate-ghost-in', ringAt + 0.1, { x: PX, y: PY, radius: 146, fillAlpha: 0, strokeColor: '#EFDDB0', strokeWidth: 4, alpha: 0.8 }, [
+      { at: 0, from: { scale: 0.6, alpha: 0 }, to: { scale: 1, alpha: 0.8 }, duration: 0.7, ease: 'expo.out' }]));
+
+    // ======== steps ============================================================================
+    const STEPS = [
+      ['Boil the spaghetti', 'salted water, until al dente', 8],
+      ['Sizzle the garlic', 'butter + oil, low heat, no browning', 3],
+      ['Toss with lemon', 'zest, juice, splash of pasta water', 2],
+    ];
+    const STEP_Y0 = 905, STEP_DY = 140;
+    STEPS.forEach(([title, desc, mins], i) => {
+      const y = STEP_Y0 + i * STEP_DY, at = T0.step0 + i * T0.stepGap;
+      const cardInit = { x: W / 2, y, width: 960, height: 120, cornerRadius: 34, fillColor: CARD, strokeColor: LINE, strokeWidth: 3 };
+      const dx = i % 2 ? 140 : -140;
+      sequences.push(S('rect', `step-${i}-card`, at, cardInit, [slideK(cardInit, dx, 0.7)]));
+      const badgeInit = { x: 130, y, radius: 40, fillColor: TOMATO };
+      sequences.push(S('circle', `step-${i}-badge`, at + 0.1, badgeInit, [popK(0.5, 'back.out(3)')]));
+      sequences.push(T(`step-${i}-num`, at + 0.1, String(i + 1), { fontSize: 46, fontWeight: '900', fill: '#FFF8E8' }, { x: 130, y: y + 1, anchorX: 0.5, anchorY: 0.5 }, [popK(0.5, 'back.out(3)')]));
+      const tInit = { x: 202, y: y - 17, anchorX: 0, anchorY: 0.5 }, dInit = { x: 202, y: y + 24, anchorX: 0, anchorY: 0.5 };
+      sequences.push(T(`step-${i}-title`, at + 0.1, title, { fontSize: 37, fontWeight: '800', fill: INK }, tInit, [slideK(tInit, 60, 0.6)]));
+      sequences.push(T(`step-${i}-desc`, at + 0.18, desc, { fontSize: 25, fontWeight: '600', fill: MUTED }, dInit, [slideK(dInit, 60, 0.6)]));
+      // timer pill with a counter that runs down to 0:00, then turns green
+      const PXc = 888, tStart = 0.55, tLen = 1.5, tDone = tStart + tLen;
+      const popDone = [{ at: tDone, to: { scale: 1.14 }, duration: 0.12, ease: 'power2.out' }, { at: tDone + 0.12, to: { scale: 1 }, duration: 0.35, ease: 'back.out(3)' }];
+      const pillInit = { x: PXc, y, width: 214, height: 76, cornerRadius: 38, fillColor: BUTTER };
+      sequences.push(S('rect', `step-${i}-pill`, at + 0.15, pillInit, [
+        { at: 0, from: { scale: 0 }, to: { scale: 1 }, duration: 0.5, ease: 'back.out(2.4)' },
+        { at: tDone - 0.15, to: { fillColor: BASIL }, duration: 0.2 }, ...popDone.map(k => ({ ...k, at: k.at - 0.15 })),
+      ], { colorSpace: 'oklab' }));
+      const cx0 = PXc - 70;
+      sequences.push(S('circle', `step-${i}-clock`, at + 0.2, { x: cx0, y, radius: 16, fillAlpha: 0, strokeColor: INK, strokeWidth: 4 }, [
+        popK(0.4), { at: tDone - 0.2, to: { strokeColor: '#FFFFFF' }, duration: 0.2 },
+      ]));
+      sequences.push(S('rect', `step-${i}-hand-a`, at + 0.2, { x: cx0, y: y - 5, width: 3.5, height: 10, cornerRadius: 1.5, fillColor: INK }, [popK(0.4), { at: tDone - 0.2, to: { fillColor: '#FFFFFF' }, duration: 0.2 }]));
+      sequences.push(S('rect', `step-${i}-hand-b`, at + 0.2, { x: cx0 + 4, y, width: 8, height: 3.5, cornerRadius: 1.5, fillColor: INK }, [popK(0.4), { at: tDone - 0.2, to: { fillColor: '#FFFFFF' }, duration: 0.2 }]));
+      sequences.push(T(`step-${i}-timer`, at + 0.2, '{value}:00', { fontSize: 50, fontWeight: '900', fill: INK },
+        { x: PXc + 22, y: y + 1, anchorX: 0.5, anchorY: 0.5, value: mins }, [
+          popK(0.4),
+          { at: tStart - 0.05, to: { value: 0 }, duration: tLen, ease: 'none' },
+          { at: tDone - 0.2, to: { fill: '#FFFFFF' }, duration: 0.2 },
+          ...popDone.map(k => ({ ...k, at: k.at - 0.05 })),
+        ], { format: { decimals: 0 } }));
+      sequences.push(sfx(`sfx-step-${i}`, at, 'swoosh', 0.35));
+      sequences.push(sfx(`sfx-done-${i}`, at + 0.15 + tDone, 'chime', 0.3));
+    });
+
+    // ======== plated dish (assembles) ==========================================================
+    {
+      const t0 = T0.plate;
+      const pop = (d = 0.45, e = 'back.out(2.2)') => [popK(d, e)];
+      sequences.push(S('circle', 'plate-glow', t0 - 0.2, { x: PX, y: PY, radius: 300 }, [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.8 }],
+        { fillGradient: { type: 'radial', radius: 0.5, stops: [[0, 'rgba(255,216,77,0.5)'], [1, 'rgba(255,216,77,0)']] } }));
+      sequences.push(S('circle', 'plate-shadow', t0, { x: PX + 4, y: PY + 16, radius: 190, fillColor: INK, alpha: 0.14 }, pop(0.6, 'back.out(1.6)')));
+      sequences.push(S('circle', 'plate', t0, { x: PX, y: PY, radius: 190, fillColor: '#FFFFFF', strokeColor: '#EADFC8', strokeWidth: 4 }, [
+        { at: 0, from: { scale: 0.25, rotation: -40 }, to: { scale: 1, rotation: 0 }, duration: 0.65, ease: 'back.out(1.6)' }]));
+      sequences.push(S('circle', 'plate-rim', t0 + 0.2, { x: PX, y: PY, radius: 148, fillColor: '#FCF5E6', strokeColor: '#F0E4C8', strokeWidth: 3 }, pop(0.5, 'back.out(1.6)')));
+      sequences.push(sfx('sfx-plate', t0, 'pop', 0.6));
+      // pasta nest: hand-wound concentric rings, inner to outer
+      sequences.push(S('circle', 'nest-base', t0 + 0.5, { x: PX, y: PY, radius: 124, fillColor: '#F8D77A' }, pop(0.5, 'back.out(2)')));
+      [8, 24, 40, 56, 72, 88, 104, 119].forEach((r, i) => {
+        sequences.push(S('circle', 'nest-ring-' + i, t0 + 0.6 + i * 0.07, {
+          x: PX + (rnd() - 0.5) * 12, y: PY + (rnd() - 0.5) * 12, radius: r, fillAlpha: 0,
+          strokeColor: i % 2 ? '#FFDD7D' : '#E9A92A', strokeWidth: 14,
+        }, pop(0.4, 'back.out(1.8)')));
+      });
+      // tomatoes, lemon slices, basil, pepper
+      const tomato = (i, dx, dy, at) => {
+        sequences.push(S('circle', 'tomato-' + i, at, { x: PX + dx, y: PY + dy, radius: 19, fillColor: TOMATO, strokeColor: '#B93315', strokeWidth: 3 }, pop(0.5, 'elastic.out(1,0.5)')));
+        sequences.push(S('circle', 'tomato-shine-' + i, at + 0.05, { x: PX + dx - 6, y: PY + dy - 6, radius: 4.5, fillColor: '#FFFFFF', alpha: 0.7 }, pop(0.3)));
+      };
+      [[-60, -40], [54, 8], [-10, 66], [36, -66]].forEach(([dx, dy], i) => tomato(i, dx, dy, t0 + 1.25 + i * 0.12));
+      const slice = (name, cx, cy, r, at) => ({
+        type: 'composition', name, at, width: 2 * r + 10, height: 2 * r + 10, sequences: [
+          S('circle', 'rind', 0, { x: r + 5, y: r + 5, radius: r, fillColor: BUTTER_DK }),
+          S('circle', 'pith', 0, { x: r + 5, y: r + 5, radius: r - 4, fillColor: '#FFF6C9' }),
+          S('circle', 'flesh', 0, { x: r + 5, y: r + 5, radius: r - 9, fillColor: '#FFE770' }),
+          ...[0, 60, 120].map(a => S('rect', 'seg-' + a, 0, { x: r + 5, y: r + 5, width: 2 * (r - 9), height: 3.5, rotation: a, fillColor: '#FFF6C9' })),
+          S('circle', 'core', 0, { x: r + 5, y: r + 5, radius: 4, fillColor: '#FFF6C9' }),
+        ],
+        initial: { x: cx, y: cy, pivotX: r + 5, pivotY: r + 5, rotation: 0 },
+        keyframes: [{ at: 0, from: { scale: 0, rotation: -120 }, to: { scale: 1, rotation: 0 }, duration: 0.6, ease: 'back.out(2)' }],
+      });
+      sequences.push(slice('lemon-slice-a', PX + 113, PY + 53, 36, t0 + 1.85));
+      sequences.push(slice('lemon-slice-b', PX - 117, PY - 43, 30, t0 + 2.0));
+      for (let i = 0; i < 7; i++) {
+        const a = rnd() * 6.283, d = 28 + rnd() * 78;
+        sequences.push(S('ellipse', 'basil-' + i, t0 + 1.55 + i * 0.07, { x: PX + Math.cos(a) * d, y: PY + Math.sin(a) * d, radiusX: 12, radiusY: 6, rotation: rnd() * 180, fillColor: i % 2 ? BASIL : '#6DB352' }, pop(0.35, 'back.out(3)')));
+      }
+      for (let i = 0; i < 12; i++) {
+        const a = rnd() * 6.283, d = 12 + rnd() * 106;
+        sequences.push(S('circle', 'pepper-' + i, t0 + 1.9 + i * 0.03, { x: PX + Math.cos(a) * d, y: PY + Math.sin(a) * d, radius: 2.6, fillColor: INK }, pop(0.25, 'back.out(3)')));
+      }
+      // sparkles (two crossed bars), twinkle out
+      [[660, 392, 1], [990, 705, 0.8], [640, 745, 0.7]].forEach(([sx, sy, sc], i) => {
+        const at = t0 + 2.25 + i * 0.15;
+        const kf = [{ at: 0, from: { scale: 0, rotation: -45 }, to: { scale: sc, rotation: 0 }, duration: 0.35, ease: 'back.out(2.5)' }, { at: 0.9, to: { scale: 0 }, duration: 0.4, ease: 'power2.in' }];
+        sequences.push({ type: 'composition', name: 'sparkle-' + i, at, width: 60, height: 60, duration: 1.4,
+          initial: { x: sx, y: sy, pivotX: 30, pivotY: 30 }, keyframes: kf,
+          sequences: [S('rect', 'bar-h', 0, { x: 30, y: 30, width: 44, height: 7, cornerRadius: 3.5, fillColor: BUTTER_DK }),
+                      S('rect', 'bar-v', 0, { x: 30, y: 30, width: 7, height: 44, cornerRadius: 3.5, fillColor: BUTTER_DK })] });
+      });
+    }
+
+    // ======== SERVES 2 badge ====================================================================
+    {
+      const bx = 944, by = 418, at = T0.badge, R = 76;
+      sequences.push({
+        type: 'composition', name: 'badge', at, width: 2 * R + 20, height: 2 * R + 20,
+        initial: { x: bx, y: by, pivotX: R + 10, pivotY: R + 10, rotation: -10 },
+        keyframes: [
+          { at: 0, from: { scale: 0, rotation: -80 }, to: { scale: 1, rotation: -10 }, duration: 0.7, ease: 'elastic.out(1,0.45)' },
+          { at: 0.9, to: { rotation: -4 }, duration: 0.9, ease: 'sine.inOut', repeat: 3, yoyo: true },
+        ],
+        sequences: [
+          S('circle', 'shadow', 0, { x: R + 14, y: R + 16, radius: R, fillColor: INK, alpha: 0.18 }),
+          S('circle', 'disc', 0, { x: R + 10, y: R + 10, radius: R, fillColor: TOMATO }),
+          S('circle', 'ring', 0, { x: R + 10, y: R + 10, radius: R - 10, fillAlpha: 0, strokeColor: '#FFF8E8', strokeWidth: 3, strokeAlpha: 0.7 }),
+          T('serves', 0, 'SERVES', { fontSize: 17, fontWeight: '900', fill: '#FFF8E8', letterSpacing: 3 }, { x: R + 11, y: R - 22, anchorX: 0.5, anchorY: 0.5 }),
+          T('two', 0, '2', { fontSize: 76, fontWeight: '900', fill: '#FFF8E8', lineHeight: 60 }, { x: R + 10, y: R + 34, anchorX: 0.5, anchorY: 0.5 }),
+        ],
+      });
+      sequences.push(sfx('sfx-badge', at, 'chime', 0.5));
+      sequences.push(sfx('sfx-badge-pop', at, 'pop', 0.6));
+    }
+
+    // ======== music ============================================================================
+    sequences.push({ type: 'audio', name: 'bgm', asset: 'bgm', loop: true, initial: { volume: 0 }, keyframes: [
+      { at: 0, to: { volume: 0.35 }, duration: 1 }, { at: -1.2, to: { volume: 0 }, duration: 1.2 }] });
+    sequences.push(sfx('sfx-title-1', T0.lemon, 'pop', 0.6));
+    sequences.push(sfx('sfx-title-2', T0.pasta, 'pop', 0.6));
+    sequences.push(sfx('sfx-pill', T0.pill, 'swoosh', 0.35));
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        background: CREAM,
+        assets: [
+          { name: 'bgm', src: '../_assets/bgm.mp3' },
+          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
+          { name: 'pop', src: '../_assets/sfx-pop.mp3' },
+          { name: 'click', src: '../_assets/sfx-click.mp3' },
+          { name: 'chime', src: '../_assets/sfx-chime.mp3' },
+        ],
+        composition: { sequences },
+      });
+      // opens at 0:00; add ?poster to the URL to park on the poster frame
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

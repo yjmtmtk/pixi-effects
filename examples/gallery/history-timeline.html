@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>A short history of computing (pixi-effects)</title>
+  <style>
+    body { background: #16181d; margin: 0; padding: 16px; min-height: 100vh; box-sizing: border-box;
+           display: flex; align-items: center; justify-content: center; }
+    canvas { width: min(960px, 100%); border-radius: 8px; display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script type="application/json" id="piece-meta">{
+    "title": "A short history of computing",
+    "subtitle": "An editorial timeline, 1936 to 2023: a line draws while the camera pans past eight drawn milestones",
+    "tags": ["infographic", "timeline", "editorial", "counter", "parallax", "icons"],
+    "width": 1280, "height": 720, "duration": 14, "posterFrame": 405, "model": "opus"
+  }</script>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 14, POSTER_FRAME = 405;
+    const snap = t => Math.round(t * FPS) / FPS;
+
+    // ---- palette: off-white paper + two inks -------------------------------------------------
+    const PAPER = '#f2ede3', INK = '#1f2a44', ACC = '#d9472b', MUTED = '#6b7080', TINT = '#f4cfc4';
+    const SERIF = "Georgia, 'Times New Roman', serif";
+    const MONO = "ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
+    const SANS = "system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif";
+
+    // ---- data --------------------------------------------------------------------------------
+    const MILESTONES = [
+      { year: 1936, icon: 'tape',       caption: 'Turing describes a universal machine' },
+      { year: 1941, icon: 'relay',      caption: 'Zuse’s Z3 computes with relays' },
+      { year: 1947, icon: 'transistor', caption: 'The transistor, at Bell Labs' },
+      { year: 1968, icon: 'mouse',      caption: 'Engelbart demonstrates the mouse' },
+      { year: 1971, icon: 'chip',       caption: 'A whole processor on one chip' },
+      { year: 1991, icon: 'globe',      caption: 'The World Wide Web goes public' },
+      { year: 2007, icon: 'phone',      caption: 'Touchscreen phones go mainstream' },
+      { year: 2023, icon: 'net',        caption: 'Language models become everyday tools' },
+    ];
+    const N = MILESTONES.length;
+
+    // ---- layout (timeline-composition coordinates) -----------------------------------------
+    const SP = 440, X0 = 840;                         // spacing; milestone 0 sits at x = X0 (screen 840 when the pan is at 0)
+    const mx = i => X0 + i * SP;
+    const LINE_Y = 480, ICON_Y = 292, ICON = 160, ICON_S = 1.35, YEAR_Y = 532, CAP_Y = 584;
+    const STEM = LINE_Y - 12 - (ICON_Y + ICON * ICON_S / 2 + 6);
+    // overview (after the pull-back): icons and years grow so the strip still reads at a third of the size
+    const OV_ICON_S = 2.3, OV_ICON_Y = 250, OV_YEAR_S = 1.9, OV_YEAR_Y = 574, OV_MID = 342;
+    const LINE_END = mx(N - 1) + 250;
+    const CW = LINE_END + 400;
+
+    // ---- timing ------------------------------------------------------------------------------
+    const T0 = 2.1, STEP = 1.2, PAN = 0.8, PAN_EASE = 'power2.inOut';
+    const FADE_LAG = 0.4;                             // a milestone two steps back fades once the pan has carried it near the left edge
+    const T = i => snap(T0 + i * STEP);               // the pen reaches milestone i, it pops
+    const S = i => snap(T(i) - PAN);                  // the pan towards milestone i starts
+    const Z = snap(T(N - 1) + 0.95), ZD = 1.1;        // pull back to the overview
+    const END_AT = snap(Z + ZD - 0.15);
+
+    // overview framing: fit [first icon - 190, arrow tip + 20] into 1150 px, centred
+    const FIT_L = mx(0) - 190, FIT_R = LINE_END + 40;
+    const ZS = 1150 / (FIT_R - FIT_L);
+    const ZX = 640 - ZS * (FIT_L + FIT_R) / 2, ZY = 352 - ZS * OV_MID;
+
+    // ---- small spec helpers --------------------------------------------------------------
+    const style = ({ fill, stroke, sw = 3, fa, sa } = {}) => ({
+      ...(fill != null ? { fillColor: fill } : {}), ...(fa != null ? { fillAlpha: fa } : {}),
+      ...(stroke ? { strokeColor: stroke, strokeWidth: sw } : {}), ...(sa != null ? { strokeAlpha: sa } : {}),
+    });
+    const rect = (name, x, y, w, h, s, o = {}) => ({ type: 'shape', shape: 'rect', name, width: w, height: h,
+      ...(o.r ? { cornerRadius: o.r } : {}), ...(o.ax != null ? { anchorX: o.ax } : {}), ...(o.ay != null ? { anchorY: o.ay } : {}),
+      ...(o.at != null ? { at: o.at, duration: o.duration } : {}),
+      initial: { x, y, ...style(s), ...(o.init || {}) }, keyframes: o.kf || [] });
+    const circle = (name, x, y, r, s, o = {}) => ({ type: 'shape', shape: 'circle', name, radius: r,
+      initial: { x, y, ...style(s), ...(o.init || {}) }, keyframes: o.kf || [] });
+    const ellipse = (name, x, y, rx, ry, s, o = {}) => ({ type: 'shape', shape: 'ellipse', name, radiusX: rx, radiusY: ry,
+      initial: { x, y, ...style(s), ...(o.init || {}) }, keyframes: o.kf || [] });
+    const line = (name, a, b, color = INK, w = 3, o = {}) => ({ type: 'shape', shape: 'line', name, from: a, to: b,
+      initial: { strokeColor: color, strokeWidth: w, ...(o.init || {}) }, keyframes: o.kf || [] });
+    const path = (name, d, s, o = {}) => ({ type: 'shape', shape: 'path', name, d, initial: { ...style(s), ...(o.init || {}) }, keyframes: o.kf || [] });
+    const poly = (name, points, s, o = {}) => ({ type: 'shape', shape: 'polygon', name, points,
+      initial: { ...(o.x != null ? { x: o.x, y: o.y } : {}), ...style(s), ...(o.init || {}) }, keyframes: o.kf || [] });
+    const text = (name, str, x, y, st, o = {}) => ({ type: 'text', name, text: str, ...(o.format ? { format: o.format } : {}),
+      ...(o.at != null ? { at: o.at, duration: o.duration } : {}),
+      style: { padding: 6, ...st }, initial: { x, y, anchorX: o.ax ?? 0.5, anchorY: o.ay ?? 0.5, ...(o.init || {}) }, keyframes: o.kf || [] });
+
+    // pop in from scale 0 (from-values hold from the layer's start, so nothing shows before `at`)
+    const pop = (at, d = 0.45, ease = 'back.out(2.2)') => ({ at, from: { scale: 0 }, to: { scale: 1 }, duration: d, ease });
+    const fadeIn = (at, d = 0.3) => ({ at, from: { alpha: 0 }, to: { alpha: 1 }, duration: d, ease: 'power2.out' });
+
+    // ---- icons (each drawn in a 160 x 160 box, centre 80,80; keyframes are local to the icon's pop) ----
+    const ICONS = {
+      tape() {                                         // 1936: a tape of cells and a read/write head
+        const out = [], bits = '10110';
+        const C = 28, TY = 118, move = { at: 0.45, to: { x: 80 + C }, duration: 0.4, ease: 'power2.inOut' };
+        out.push(line('tape-l1', [0, TY - C / 2], [10, TY - C / 2], MUTED, 2), line('tape-l2', [0, TY + C / 2], [10, TY + C / 2], MUTED, 2),
+                 line('tape-r1', [150, TY - C / 2], [160, TY - C / 2], MUTED, 2), line('tape-r2', [150, TY + C / 2], [160, TY + C / 2], MUTED, 2));
+        for (let k = 0; k < 5; k++) {
+          const cx = 80 + (k - 2) * C;
+          out.push(rect('cell' + k, cx, TY, C, C, { fill: PAPER, stroke: INK, sw: 3 },
+            k === 3 ? { kf: [{ at: 0.85, to: { fillColor: TINT }, duration: 0.2 }] } : {}));
+          out.push(text('bit' + k, bits[k], cx, TY, { fontFamily: MONO, fontSize: 16, fontWeight: '700', fill: INK }));
+        }
+        out.push(rect('state', 80, 40, 40, 28, { fill: INK }, { r: 4, kf: [move] }));
+        out.push(text('state-q', 'q₁', 80, 40, { fontFamily: MONO, fontSize: 15, fontWeight: '700', fill: PAPER }, { kf: [move] }));
+        out.push(rect('head-stem', 80, 64, 3, 20, { fill: ACC }, { kf: [move] }));
+        out.push(poly('head', [[-11, -9], [11, -9], [0, 9]], { fill: ACC }, { x: 80, y: 88, kf: [move] }));
+        return out;
+      },
+      relay() {                                        // 1941: coil, armature that snaps shut, contact that sparks
+        return [
+          rect('base', 80, 134, 124, 6, { fill: INK }),
+          rect('post', 26, 96, 3, 76, { fill: MUTED }),
+          circle('hinge', 26, 57, 5, { fill: INK }),
+          rect('coil', 56, 102, 36, 56, { fill: PAPER, stroke: INK, sw: 3 }),
+          ...[84, 93, 102, 111, 120].map((y, k) => line('wind' + k, [40, y], [72, y], INK, 2)),
+          rect('core', 56, 69, 22, 8, { fill: INK }),
+          rect('contact-post', 114, 99, 5, 68, { fill: INK }),
+          rect('contact', 112, 64, 18, 6, { fill: INK }),
+          rect('armature', 26, 57, 90, 7, { fill: ACC }, { ax: 0, r: 2, init: { rotation: -18 },
+            kf: [{ at: 0.45, to: { rotation: 0 }, duration: 0.17, ease: 'power3.in' }] }),
+          circle('spark', 112, 60, 12, { stroke: ACC, sw: 2.5 }, { init: { alpha: 0 },
+            kf: [{ at: 0.62, set: { alpha: 1, scale: 0.3 } }, { at: 0.62, to: { scale: 1.6, alpha: 0 }, duration: 0.45, ease: 'power2.out' }] }),
+        ];
+      },
+      transistor() {                                   // 1947: the schematic symbol, a pulse on the base
+        const d = [33, 22], len = Math.hypot(...d), u = [d[0] / len, d[1] / len], n = [-u[1], u[0]];
+        const tip = [67 + 0.82 * 33, 92 + 0.82 * 22];
+        const b = k => [tip[0] - 15 * u[0] + k * 7 * n[0], tip[1] - 15 * u[1] + k * 7 * n[1]];
+        return [
+          circle('case', 80, 80, 46, { fill: PAPER, stroke: INK, sw: 3 }),
+          line('base-lead', [12, 80], [64, 80]),
+          rect('base-bar', 65, 80, 6, 46, { fill: INK }),
+          line('collector', [68, 69], [100, 46]), line('collector-lead', [100, 46], [100, 12]),
+          line('emitter', [68, 91], [100, 114]), line('emitter-lead', [100, 114], [100, 148]),
+          poly('arrow', [tip, b(1), b(-1)], { fill: ACC }, { kf: [fadeIn(0.35, 0.2)] }),
+          circle('pulse', 14, 80, 5, { fill: ACC }, { init: { alpha: 0 },
+            kf: [{ at: 0.4, set: { alpha: 1 } }, { at: 0.4, to: { x: 60 }, duration: 0.45, ease: 'power1.in' }, { at: 0.85, to: { alpha: 0 }, duration: 0.15 }] }),
+        ];
+      },
+      mouse() {                                        // 1968: body, two buttons (one clicks), a cord
+        return [
+          path('cord', 'M 80 44 C 80 22 106 30 110 8', { stroke: INK, sw: 3 }),
+          rect('body', 80, 96, 72, 104, { fill: PAPER }, { r: 32 }),
+          path('button', 'M 80 47 L 80 82 L 47 82 L 47 76 Q 47 47 76 47 Z', { fill: ACC }, { init: { alpha: 0 }, kf: [{ at: 0.5, set: { alpha: 1 } }] }),
+          rect('outline', 80, 96, 72, 104, { stroke: INK, sw: 3.5 }, { r: 32 }),
+          line('split', [80, 44], [80, 84], INK, 3), line('button-edge', [44, 84], [116, 84], INK, 3),
+          ...[[-150, 26], [-120, 30], [-90, 26]].map(([a, r0], k) => {
+            const c = [44, 44], rad = a * Math.PI / 180, p = s => [c[0] + Math.cos(rad) * s, c[1] + Math.sin(rad) * s];
+            return line('click' + k, p(r0 - 14), p(r0), ACC, 3, { init: { alpha: 0 }, kf: [{ at: 0.5, set: { alpha: 1 } }, { at: 0.75, to: { alpha: 0 }, duration: 0.3 }] });
+          }),
+        ];
+      },
+      chip() {                                         // 1971: package, pins, the die
+        const out = [];
+        let k = 0;
+        for (let j = 0; j < 4; j++) {
+          const off = (j - 1.5) * 17;
+          for (const [x, y, w, h] of [[80 + off, 32, 7, 14], [80 + off, 128, 7, 14], [32, 80 + off, 14, 7], [128, 80 + off, 14, 7]])
+            out.push(rect('pin' + k, x, y, w, h, { fill: INK }, { kf: [pop(0.2 + (k++) * 0.018, 0.25, 'back.out(3)')] }));
+        }
+        out.push(rect('package', 80, 80, 84, 84, { fill: INK }, { r: 6 }));
+        out.push(circle('notch', 51, 51, 4, { fill: PAPER }));
+        out.push(rect('die', 80, 76, 34, 34, { fill: ACC }, { r: 2,
+          kf: [{ at: 0.6, to: { scale: 1.16 }, duration: 0.16, ease: 'power2.out', repeat: 1, yoyo: true }] }));
+        out.push(text('part', '4004', 80, 108, { fontFamily: MONO, fontSize: 11, fontWeight: '700', fill: PAPER, letterSpacing: 1 }));
+        return out;
+      },
+      globe() {                                        // 1991: a globe that turns, a link across it
+        return [
+          circle('sphere', 80, 80, 52, { fill: PAPER, stroke: INK, sw: 3 }),
+          line('equator', [28, 80], [132, 80], INK, 2), line('lat-n', [35, 54], [125, 54], INK, 2), line('lat-s', [35, 106], [125, 106], INK, 2),
+          line('meridian', [80, 28], [80, 132], INK, 2),
+          ellipse('meridian-a', 80, 80, 26, 52, { stroke: INK, sw: 2 }, { kf: [{ at: 0, from: { radiusX: 4 }, to: { radiusX: 28 }, duration: 0.9, ease: 'power2.out' }] }),
+          ellipse('meridian-b', 80, 80, 44, 52, { stroke: INK, sw: 2 }, { kf: [{ at: 0, from: { radiusX: 18 }, to: { radiusX: 44 }, duration: 0.9, ease: 'power2.out' }] }),
+          path('link', 'M 50 60 Q 100 22 112 102', { stroke: ACC, sw: 3.5 }, { init: { alpha: 0 }, kf: [fadeIn(0.45, 0.25)] }),
+          circle('node-a', 50, 60, 7, { fill: ACC, stroke: PAPER, sw: 2 }, { kf: [pop(0.3)] }),
+          circle('node-b', 112, 102, 7, { fill: ACC, stroke: PAPER, sw: 2 }, { kf: [pop(0.6)] }),
+        ];
+      },
+      phone() {                                        // 2007: a slab of glass that fills with apps
+        const tiles = [];
+        for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++) {
+          const k = r * 3 + c;
+          tiles.push(rect('app' + k, 62 + c * 18, 53 + r * 18, 12, 12, { fill: (k % 4 === 1) ? INK : ACC }, { r: 3, kf: [pop(0.3 + k * 0.035, 0.3, 'back.out(3)')] }));
+        }
+        return [
+          rect('handset', 80, 80, 74, 128, { fill: PAPER, stroke: INK, sw: 3.5 }, { r: 14 }),
+          rect('screen', 80, 80, 60, 86, { stroke: INK, sw: 1.5 }, { r: 2 }),
+          rect('speaker', 80, 28, 20, 4, { fill: INK }, { r: 2 }),
+          circle('home', 80, 133, 6, { stroke: INK, sw: 2 }),
+          ...tiles,
+        ];
+      },
+      net() {                                          // 2023: a small network that lights up layer by layer
+        const L = [[32, [48, 80, 112]], [80, [32, 64, 96, 128]], [128, [64, 96]]];
+        const lit = [[0, 1, 2], [0, 2, 3], [0]];
+        const out = [];
+        for (let a = 0; a < 2; a++) for (const y0 of L[a][1]) for (const y1 of L[a + 1][1])
+          out.push(line(`edge-${a}-${y0}-${y1}`, [L[a][0], y0], [L[a + 1][0], y1], INK, 1.5, { init: { strokeAlpha: 0.5 } }));
+        L.forEach(([x, ys], a) => ys.forEach((y, k) => out.push(circle(`n${a}-${k}`, x, y, 9, { fill: PAPER, stroke: INK, sw: 3 }, {
+          kf: lit[a].includes(k) ? [{ at: 0.35 + a * 0.2, to: { fillColor: ACC }, duration: 0.15 }] : [] }))));
+        return out;
+      },
+    };
+
+    // ---- the timeline: one wide composition that the "camera" pans ----------------------------
+    const tl = [];
+    // future guide: a dashed rule along the whole track
+    let dash = '';
+    for (let x = 40; x < LINE_END; x += 22) dash += `M ${x} ${LINE_Y} L ${x + 11} ${LINE_Y} `;
+    tl.push(path('guide', dash, { stroke: INK, sw: 2, sa: 0.28 }, { init: { alpha: 0 }, kf: [fadeIn(1.1, 0.5)] }));
+
+    // the drawn line and the pen: same keyframes, so the pen always sits on the line's tip
+    const LINE_X0 = 0;
+    const lineKf = [{ at: 1.3, to: { width: mx(0) - LINE_X0 }, duration: snap(T0 - 1.3), ease: 'power2.inOut' }];
+    const penKf = [fadeIn(1.3, 0.2), { at: 1.3, to: { x: mx(0) }, duration: snap(T0 - 1.3), ease: 'power2.inOut' }];
+    for (let i = 1; i < N; i++) {
+      lineKf.push({ at: S(i), to: { width: mx(i) - LINE_X0 }, duration: PAN, ease: PAN_EASE });
+      penKf.push({ at: S(i), to: { x: mx(i) }, duration: PAN, ease: PAN_EASE });
+    }
+    lineKf.push({ at: Z, to: { width: LINE_END - LINE_X0 }, duration: ZD, ease: 'power3.inOut' });
+    penKf.push({ at: Z, to: { x: LINE_END }, duration: ZD, ease: 'power3.inOut' }, { at: Z + ZD - 0.2, to: { alpha: 0 }, duration: 0.2 });
+    tl.push(rect('line', LINE_X0, LINE_Y, 0, 3, { fill: INK }, { ax: 0, kf: lineKf }));
+    tl.push(poly('arrow-tip', [[-8, -9], [10, 0], [-8, 9]], { fill: INK }, { x: LINE_END + 2, y: LINE_Y, kf: [pop(Z + ZD - 0.25, 0.3)] }));
+
+    MILESTONES.forEach((m, i) => {
+      const x = mx(i), at = T(i), dur = DURATION - at, zLocal = Z - at;
+      const captionOut = { at: zLocal, to: { alpha: 0 }, duration: 0.35 };
+      if (i > 0) {                                     // the gap since the previous milestone, written on the track
+        const gat = snap(S(i) + 0.3);
+        tl.push(text(`gap-${m.year}`, `+${m.year - MILESTONES[i - 1].year} yrs`, x - SP / 2, LINE_Y - 22,
+          { fontFamily: MONO, fontSize: 13, fill: MUTED, letterSpacing: 1 },
+          { at: gat, duration: DURATION - gat, kf: [fadeIn(0, 0.35), { at: Z - gat, to: { alpha: 0 }, duration: 0.35 }] }));
+      }
+      const behind = i + 2 < N ? S(i + 2) : null;     // two milestones later this one slides off the left edge
+      tl.push(rect(`stem-${m.year}`, x, LINE_Y - 12, 2, STEM, { fill: MUTED }, { ay: 1, at, duration: dur,
+        kf: [{ at: 0.05, from: { height: 0 }, to: { height: STEM }, duration: 0.4, ease: 'power3.out' },
+             { at: zLocal, to: { alpha: 0 }, duration: 0.3 }] }));
+      tl.push({ ...circle(`ring-${m.year}`, x, LINE_Y, 9, { stroke: ACC, sw: 2 }, { init: { alpha: 0 },
+        kf: [{ at: 0, set: { alpha: 1 } }, { at: 0, to: { scale: 2.8, alpha: 0 }, duration: 0.6, ease: 'power2.out' }] }), at, duration: dur });
+      tl.push({ ...circle(`dot-${m.year}`, x, LINE_Y, 9, { fill: PAPER, stroke: INK, sw: 3 }, { kf: [pop(0, 0.4, 'back.out(3)')] }), at, duration: dur });
+      tl.push({ ...circle(`core-${m.year}`, x, LINE_Y, 4, { fill: ACC }, { kf: [pop(0.1, 0.3)] }), at, duration: dur });
+      tl.push({
+        type: 'composition', name: `icon-${m.icon}`, at, duration: dur, width: ICON, height: ICON,
+        initial: { x, y: ICON_Y, pivotX: ICON / 2, pivotY: ICON / 2 },
+        keyframes: [{ at: 0.08, from: { alpha: 0, scale: 0.7, y: ICON_Y + 26 }, to: { alpha: 1, scale: ICON_S, y: ICON_Y }, duration: 0.55, ease: 'back.out(1.6)' },
+                    ...(behind ? [{ at: behind + FADE_LAG - at, to: { alpha: 0 }, duration: 0.35 }] : []),
+                    { at: zLocal, to: { scale: OV_ICON_S, y: OV_ICON_Y }, duration: ZD, ease: 'power3.inOut' },
+                    ...(behind ? [{ at: zLocal + 0.8, to: { alpha: 1 }, duration: 0.3 }] : [])],     // back once the pull-back brings it on screen
+        sequences: ICONS[m.icon](),
+      });
+      tl.push(text(`year-${m.year}`, '{value}', x, YEAR_Y, { fontFamily: MONO, fontSize: 48, fontWeight: '700', fill: INK, letterSpacing: -1 }, {
+        at, duration: dur, init: { value: i === 0 ? 1900 : MILESTONES[i - 1].year },
+        kf: [{ at: 0, from: { alpha: 0, y: YEAR_Y + 16 }, to: { alpha: 1, y: YEAR_Y }, duration: 0.45, ease: 'power3.out' },
+             { at: 0, to: { value: m.year }, duration: 0.75, ease: 'power2.out' },
+             ...(behind ? [{ at: behind + FADE_LAG - at, to: { alpha: 0 }, duration: 0.35 }] : []),
+             { at: zLocal, to: { scale: OV_YEAR_S, y: OV_YEAR_Y }, duration: ZD, ease: 'power3.inOut' },
+             ...(behind ? [{ at: zLocal + 0.8, to: { alpha: 1 }, duration: 0.3 }] : [])] }));
+      const cat = snap(at + 0.22);
+      tl.push(text(`caption-${m.year}`, m.caption, x, CAP_Y, { fontFamily: SANS, fontSize: 19, fill: MUTED }, {
+        at: cat, duration: DURATION - cat,
+        kf: [{ at: 0, from: { alpha: 0, y: CAP_Y + 10 }, to: { alpha: 1, y: CAP_Y }, duration: 0.4, ease: 'power3.out' },
+             behind ? { at: behind + FADE_LAG - cat, to: { alpha: 0 }, duration: 0.35 } : { ...captionOut, at: Z - cat }] }));
+    });
+    // the pen goes on top of everything on the track
+    tl.push(circle('pen', LINE_X0, LINE_Y + 0.5, 5.5, { fill: ACC }, { init: { alpha: 0 }, kf: penKf }));
+
+    const panKf = [];
+    for (let i = 1; i < N; i++) panKf.push({ at: S(i), to: { x: -(i * SP) }, duration: PAN, ease: PAN_EASE });
+    const timeline = {
+      type: 'composition', name: 'timeline', width: CW, height: H, initial: { x: 0, y: 0 },
+      keyframes: [...panKf, { at: Z, to: { x: ZX, y: ZY, scale: ZS }, duration: ZD, ease: 'power3.inOut' }],
+      sequences: tl,
+    };
+
+    // ---- parallax: faint glyphs on a slower plane --------------------------------------------
+    const PARALLAX = 0.38;
+    let seed = 1936;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const GLYPHS = ['0', '1', '01', '10', '+', '×', 'λ', '∑', '{ }', '</>', '≠', '∞', '#', '&', '%', 'if', '=', '0', '1', '1'];
+    const BGW = 1280 + SP * (N - 1) * PARALLAX + 200;
+    const glyphs = [];
+    for (let k = 0; k < 46; k++) {
+      const big = rnd() < 0.3;
+      glyphs.push(text('glyph' + k, GLYPHS[Math.floor(rnd() * GLYPHS.length)], rnd() * BGW, 150 + rnd() * 540, {
+        fontFamily: rnd() < 0.5 ? SERIF : MONO, fontSize: Math.round(big ? 110 + rnd() * 90 : 34 + rnd() * 40), fill: INK, padding: 10 },
+        { init: { alpha: big ? 0.038 : 0.065, rotation: (rnd() - 0.5) * 18 } }));
+    }
+    for (let k = 0; k < 30; k++) {                    // registration crosses
+      const x = rnd() * BGW, y = 140 + rnd() * 560;
+      glyphs.push(line('cross-h' + k, [x - 6, y], [x + 6, y], INK, 1.5, { init: { strokeAlpha: 0.18 } }),
+                  line('cross-v' + k, [x, y - 6], [x, y + 6], INK, 1.5, { init: { strokeAlpha: 0.18 } }));
+    }
+    const background = {
+      type: 'composition', name: 'parallax', width: BGW, height: H, initial: { x: 0, y: 0, alpha: 0 },
+      keyframes: [fadeIn(0, 1.0),
+        ...panKf.map(k => ({ ...k, to: { x: k.to.x * PARALLAX } })),
+        { at: Z, to: { alpha: 0.45 }, duration: ZD, ease: 'power3.inOut' }],
+      sequences: glyphs,
+    };
+
+    // ---- header, intro, end ---------------------------------------------------------------
+    const TITLE_SIZE = 60, HEAD_SIZE = 30;
+    const header = [
+      { type: 'text', name: 'title', text: 'A short history of computing',
+        style: { fontFamily: SERIF, fontSize: TITLE_SIZE, fill: INK, padding: 6 },
+        initial: { x: 'GW/2 - w/2', y: 286 },
+        keyframes: [
+          { at: 0, from: { alpha: 0, y: 302 }, to: { alpha: 1, y: 286 }, duration: 0.7, ease: 'power3.out' },
+          { at: 1.05, to: { x: 58, y: 38, scale: HEAD_SIZE / TITLE_SIZE }, duration: 0.7, ease: 'power3.inOut' },
+        ] },
+      text('intro-sub', 'EIGHT MILESTONES  ·  1936 – 2023', 640, 392, { fontFamily: MONO, fontSize: 16, fill: ACC, letterSpacing: 3 }, {
+        at: 0, duration: 1.4, kf: [{ at: 0.35, from: { alpha: 0, y: 402 }, to: { alpha: 1, y: 392 }, duration: 0.5, ease: 'power3.out' }, { at: 0.95, to: { alpha: 0 }, duration: 0.25 }] }),
+      text('head-sub', 'EIGHT MILESTONES  ·  1936 – 2023', 64, 86, { fontFamily: MONO, fontSize: 12, fill: ACC, letterSpacing: 2.5 }, {
+        ax: 0, init: { alpha: 0 }, kf: [fadeIn(1.55, 0.4)] }),
+      rect('rule', 64, 112, 1152, 1.5, { fill: INK }, { ax: 0, init: { alpha: 0.35 }, kf: [{ at: 1.3, from: { width: 0 }, to: { width: 1152 }, duration: 0.9, ease: 'power3.inOut' }] }),
+      text('progress', '0{value} / 08', 1216, 62, { fontFamily: MONO, fontSize: 15, fill: MUTED, letterSpacing: 1 }, {
+        ax: 1, init: { alpha: 0, value: 1 },
+        kf: [fadeIn(T(0) - 0.1, 0.3), ...MILESTONES.slice(1).map((_, k) => ({ at: T(k + 1), set: { value: k + 2 } }))] }),
+    ];
+    const ending = [
+      text('end-line', 'Eighty-seven years: from a machine on paper to machines we talk to.', 640, 552,
+        { fontFamily: SERIF, fontStyle: 'italic', fontSize: 28, fill: INK },
+        { at: END_AT, duration: DURATION - END_AT, kf: [{ at: 0, from: { alpha: 0, y: 564 }, to: { alpha: 1, y: 552 }, duration: 0.6, ease: 'power3.out' }] }),
+      rect('end-mark', 640, 602, 48, 3, { fill: ACC }, { at: END_AT, duration: DURATION - END_AT,
+        kf: [{ at: 0.25, from: { width: 0 }, to: { width: 48 }, duration: 0.5, ease: 'power3.out' }] }),
+    ];
+
+    // ---- sound ---------------------------------------------------------------------------
+    const audio = [
+      { type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0,
+        keyframes: [{ at: 0, to: { volume: 0.45 }, duration: 1.2 }, { at: -1.6, to: { volume: 0 }, duration: 1.6 }] },
+      { type: 'audio', name: 'swoosh-title', asset: 'swoosh', at: 1.0, volume: 0.35 },
+      ...MILESTONES.map((m, i) => ({ type: 'audio', name: `pop-${m.year}`, asset: 'pop', at: T(i), volume: 0.55 })),
+      { type: 'audio', name: 'swoosh-zoom', asset: 'swoosh', at: Z, volume: 0.45 },
+      { type: 'audio', name: 'chime-end', asset: 'chime', at: END_AT + 0.1, volume: 0.4 },
+    ];
+
+    const sequences = [
+      rect('paper', W / 2, H / 2, W, H, { fill: PAPER }),
+      background,
+      timeline,
+      { type: 'shape', shape: 'rect', name: 'vignette', width: W, height: H, initial: { x: W / 2, y: H / 2 },
+        fillGradient: { type: 'radial', radius: 0.8, stops: [[0.5, 'rgba(120,96,60,0)'], [1, 'rgba(120,96,60,0.16)']] } },
+      ...header,
+      ...ending,
+      ...audio,
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        background: PAPER,
+        assets: [
+          { name: 'bgm', src: '../_assets/bgm.mp3' },
+          { name: 'pop', src: '../_assets/sfx-pop.mp3' },
+          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
+          { name: 'chime', src: '../_assets/sfx-chime.mp3' },
+        ],
+        composition: { sequences },
+      });
+      window.__ready = true;
+      // opens at 0:00; add ?poster to the URL to park on the poster frame
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
+    }
+  </script>
+</body>
+</html>

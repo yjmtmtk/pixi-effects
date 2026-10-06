@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quiet Woods — paper-cutout forest (pixi-effects gallery)</title>
+  <style>
+    body { background: #0d1220; margin: 0; padding: 16px; display: flex; justify-content: center; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+  </style>
+  <script type="application/json" id="piece-meta">
+  { "title": "Quiet Woods",
+    "subtitle": "A cut-paper diorama in 2.5D: layered hills and pines under a paper moon, a fox crossing the mid-ground, fireflies, and a hand-lettered label that unfolds",
+    "tags": ["2.5D", "paper-craft", "parallax", "character", "procedural", "title"],
+    "width": 1280, "height": 720, "duration": 12, "posterFrame": 168, "model": "fable" }
+  </script>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    // ------------------------------------------------------------------ constants
+    const W = 1280, H = 720, FPS = 30, DURATION = 12, POSTER_FRAME = 168;
+    const FOV = 40, D = (H / 2) / Math.tan((FOV / 2) * Math.PI / 180);      // camera distance ≈ 989
+    const K = z => (D - z) / D;                                               // a layer at z must be K× bigger to APPEAR at design size
+    const place = (sx, sy, z) => ({ x: W / 2 + (sx - W / 2) * K(z), y: H / 2 + (sy - H / 2) * K(z), z });
+    const snap = t => Math.round(t * FPS) / FPS;
+    const rng = seed => () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const TAU = Math.PI * 2;
+
+    // warm night palette
+    const P = {
+      skyTop: '#120b20', skyMid: '#2b1a3a', skyWarm: '#5e3447', skyHorizon: '#8c4e49',
+      star: '#f6e4bf', moon: '#f5e2b2', cloud: '#5d4062',
+      hills: ['#5e3e5a', '#452c45', '#30203a', '#1d1326', '#0f0a14'],   // far → near
+      fox: '#e08a45', foxFar: '#c5733a', cream: '#f5e5c6', firefly: '255,214,122',
+      paper: '#f3e6cb', ink: '#3b2538', accent: '#d9823f', muted: '#b08556',
+    };
+
+    // ------------------------------------------------------------------ canvas helpers (procedural paper)
+    const canvasOf = (w, h) => Object.assign(document.createElement('canvas'), { width: Math.ceil(w), height: Math.ceil(h) });
+    const assets = [];
+
+    // Paper cut: `shape(ctx)` paints a silhouette; we add a soft drop shadow, the paper colour, a top-light gradient and seeded speckles.
+    function paperCut(g, shape, { color, rnd, dy = 12, blur = 10, shadowAlpha = 0.55, speckles = 2000, top, bottom, light = 0.10, dark = 0.16 }) {
+      const T = g.getTransform(), res = T.a, cw = g.canvas.width, ch = g.canvas.height;
+      const x0 = -T.e / res, y0 = -T.f / res, dw = cw / res, dh = ch / res;        // canvas bounds in design coords
+      const sil = canvasOf(cw, ch), s = sil.getContext('2d');
+      s.setTransform(T); s.fillStyle = '#000'; shape(s);
+      const col = canvasOf(cw, ch), c = col.getContext('2d');
+      c.drawImage(sil, 0, 0);
+      c.globalCompositeOperation = 'source-in'; c.fillStyle = color; c.fillRect(0, 0, cw, ch);
+      c.globalCompositeOperation = 'source-atop'; c.setTransform(T);
+      if (top !== undefined) {                                                     // lit from above: lighter at the cut edge
+        const gr = c.createLinearGradient(0, top, 0, bottom);
+        gr.addColorStop(0, `rgba(255,236,210,${light})`); gr.addColorStop(0.45, 'rgba(0,0,0,0)'); gr.addColorStop(1, `rgba(0,0,0,${dark})`);
+        c.fillStyle = gr; c.fillRect(x0, y0, dw, dh);
+      }
+      for (let i = 0; i < speckles; i++) {                                        // paper grain
+        const a = 0.04 + rnd() * 0.10, sz = rnd() < 0.75 ? 1.3 : 2.4;
+        c.fillStyle = rnd() < 0.5 ? `rgba(255,240,220,${a})` : `rgba(0,0,0,${a * 1.4})`;
+        c.fillRect(x0 + rnd() * dw, y0 + rnd() * dh, sz, sz);
+      }
+      g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
+      g.filter = `blur(${blur * res}px)`; g.globalAlpha = shadowAlpha; g.drawImage(sil, 0, dy * res);   // soft shadow
+      g.filter = 'none'; g.globalAlpha = 1; g.drawImage(col, 0, 0);
+      g.restore();
+    }
+
+    // A canvas-drawn image placed in depth so it APPEARS at design coordinates (cx, cy) with design size w × h.
+    function paperLayer({ name, z, cx = W / 2, cy = H / 2, w = 1600, h = 900, draw, at = 0, keyframes = [] }) {
+      const k = K(z), res = Math.min(1.8, Math.max(1, k));
+      const c = canvasOf(w * res, h * res), g = c.getContext('2d');
+      g.setTransform(res, 0, 0, res, (w / 2 - cx) * res, (h / 2 - cy) * res);     // draw in design coords
+      draw(g);
+      assets.push({ name, src: c.toDataURL('image/png') });
+      return { type: 'image', asset: name, name, threeD: true, at, initial: { ...place(cx, cy, z), anchorX: 0.5, anchorY: 0.5, scale: k / res }, keyframes };
+    }
+    // slide up + fade in, offsets in design px
+    const riseIn = (p, k, dur = 0.9, rise = 70) => [{ at: 0, from: { y: p.y + rise * k, alpha: 0 }, to: { y: p.y, alpha: 1 }, duration: dur, ease: 'power3.out' }];
+
+    // ------------------------------------------------------------------ hills
+    function ridgeFn(r, base, a1, a2) {
+      const l1 = 260 + r() * 160, l2 = 90 + r() * 70, l3 = 38 + r() * 20, p1 = r() * TAU, p2 = r() * TAU, p3 = r() * TAU;
+      return x => base + a1 * Math.sin(x / l1 + p1) + a2 * Math.sin(x / l2 + p2) + a2 * 0.3 * Math.sin(x / l3 + p3);
+    }
+    function ridgePath(s, ridge, x0 = -220, x1 = 1500, bottom = 900) {
+      s.beginPath(); s.moveTo(x0, bottom);
+      for (let x = x0; x <= x1; x += 6) s.lineTo(x, ridge(x));
+      s.lineTo(x1, bottom); s.closePath();
+    }
+    function pine(s, x, y, h, r) {
+      const w = h * (0.40 + r() * 0.12), tiers = h > 70 ? 4 : 3;
+      s.fillRect(x - h * 0.028, y - h * 0.22, h * 0.056, h * 0.24);                  // trunk
+      for (let i = 0; i < tiers; i++) {
+        const f = i / tiers, yb = y - h * (0.14 + f * 0.62), yt = yb - h * (0.40 - f * 0.08), hw = w * 0.5 * (1 - f * 0.62);
+        const j = () => (r() - 0.5) * hw * 0.3;
+        s.beginPath(); s.moveTo(x + (r() - 0.5) * hw * 0.1, yt); s.lineTo(x + hw + j(), yb); s.lineTo(x + hw * 0.3, yb + h * 0.025);
+        s.lineTo(x - hw * 0.3, yb + h * 0.025); s.lineTo(x - hw + j(), yb); s.closePath(); s.fill();
+      }
+    }
+    const tuft = (s, x, y, h, r) => { s.beginPath(); s.moveTo(x - 3, y); s.lineTo(x + (r() - 0.5) * 6, y - h); s.lineTo(x + 3, y); s.fill(); };
+
+    const hillSpecs = [   // far → near, designed in screen coords; z spreads them through the diorama
+      { z: -430, base: 402, a1: 22, a2: 11, pines: { h: 34, step: 30 }, tufts: 0,  blur: 9,  dy: 10 },
+      { z: -240, base: 462, a1: 18, a2: 10, pines: { h: 78, step: 64 }, tufts: 0,  blur: 10, dy: 11 },
+      { z: 0,    base: 526, a1: 16, a2: 9,  pines: { h: 105, step: 90, exclude: [330, 1010] }, tufts: 60, blur: 11, dy: 12 },
+      { z: 180,  base: 614, a1: 14, a2: 8,  pines: { h: 96, step: 120, exclude: [300, 1000] }, tufts: 70, blur: 12, dy: 13 },
+      { z: 340,  base: 676, a1: 10, a2: 6,  pines: { h: 290, step: 140, exclude: [250, 1040] }, tufts: 60, blur: 14, dy: 14 },
+    ];
+    const ridges = [];
+    function hill(i, spec) {
+      const r = rng(101 + i * 37), ridge = ridgeFn(r, spec.base, spec.a1, spec.a2);
+      ridges[i] = ridge;
+      const trees = [], tufts = [];
+      for (let x = -200 + r() * spec.pines.step; x < 1480; x += spec.pines.step * (0.7 + r() * 0.6)) {
+        if (spec.pines.exclude && x > spec.pines.exclude[0] && x < spec.pines.exclude[1]) continue;
+        trees.push({ x, y: ridge(x) + 4, h: spec.pines.h * (0.7 + r() * 0.6) });
+      }
+      for (let n = 0; n < spec.tufts; n++) { const x = -200 + r() * 1680; tufts.push({ x, y: ridge(x) + 2, h: 7 + r() * 11 }); }
+      return paperLayer({
+        name: 'hill-' + (i + 1), z: spec.z,
+        draw: g => {
+          paperCut(g, s => { ridgePath(s, ridge); s.fill(); trees.forEach(t => pine(s, t.x, t.y, t.h, r)); tufts.forEach(t => tuft(s, t.x, t.y, t.h, r)); },
+                   { color: P.hills[i], rnd: r, dy: spec.dy, blur: spec.blur, top: spec.base - 30, bottom: spec.base + 300, speckles: 2600 - i * 300 });
+          g.strokeStyle = 'rgba(255,228,200,0.20)'; g.lineWidth = 1.4; g.beginPath();      // the cut edge catches the light
+          for (let x = -220; x <= 1500; x += 8) x === -220 ? g.moveTo(x, ridge(x)) : g.lineTo(x, ridge(x));
+          g.stroke();
+        },
+      });
+    }
+
+    const hillLayers = hillSpecs.map((s, i) => hill(i, s));                     // built first: the fox walks on ridges[2]
+
+    // ------------------------------------------------------------------ sky furniture
+    const stars = paperLayer({
+      name: 'stars', z: -760, cy: 190, h: 560,
+      draw: g => { const r = rng(9);
+        for (let i = 0; i < 90; i++) { const x = -150 + r() * 1580, y = -80 + r() * 470, rad = 0.8 + r() * 1.5;
+          g.fillStyle = `rgba(246,228,191,${0.35 + r() * 0.55})`; g.beginPath(); g.arc(x, y, rad, 0, TAU); g.fill(); } },
+    });
+    const MOON = { x: 1000, y: 170, r: 64, z: -560 };
+    const moon = paperLayer({
+      name: 'moon', z: MOON.z, cx: MOON.x, cy: MOON.y, w: 260, h: 260,
+      draw: g => { const r = rng(21);
+        paperCut(g, s => { s.beginPath(); s.arc(MOON.x, MOON.y, MOON.r, 0, TAU); s.fill(); },
+                 { color: P.moon, rnd: r, dy: 7, blur: 8, shadowAlpha: 0.4, speckles: 500, top: MOON.y - MOON.r, bottom: MOON.y + MOON.r, light: 0.12, dark: 0.10 });
+        g.save(); g.beginPath(); g.arc(MOON.x, MOON.y, MOON.r, 0, TAU); g.clip(); g.fillStyle = 'rgba(120,70,60,0.10)';   // paper "craters"
+        [[-22, -14, 13], [14, 8, 17], [26, -26, 8], [-10, 26, 9]].forEach(([dx, dy, rr]) => { g.beginPath(); g.arc(MOON.x + dx, MOON.y + dy, rr, 0, TAU); g.fill(); });
+        g.restore(); },
+    });
+    const moonGlow = {
+      type: 'shape', shape: 'circle', name: 'moon-glow', radius: 200, threeD: true, blendMode: 'add',
+      fillGradient: { type: 'radial', stops: [[0, 'rgba(255,200,130,0.46)'], [0.3, 'rgba(255,190,120,0.2)'], [1, 'rgba(255,180,110,0)']] },
+      initial: { ...place(MOON.x, MOON.y, MOON.z - 4), scale: K(MOON.z - 4), alpha: 0 },
+      keyframes: [{ at: 0.35, to: { alpha: 1 }, duration: 1.2, ease: 'sine.out' }, { at: 2, to: { alpha: 0.78 }, duration: 2.4, ease: 'sine.inOut', repeat: 3, yoyo: true }],
+    };
+    function cloud(i, { cx, cy, w, z, at, drift }) {
+      const puffs = [[-0.30, 0.00, 0.19], [-0.10, -0.12, 0.26], [0.14, -0.06, 0.22], [0.34, 0.03, 0.16]];
+      const layer = paperLayer({
+        name: 'cloud-' + (i + 1), z, cx, cy, w: w + 160, h: w * 0.7 + 120, at,
+        draw: g => paperCut(g, s => { s.beginPath(); puffs.forEach(([fx, fy, fr]) => { s.moveTo(cx + fx * w, cy + fy * w); s.arc(cx + fx * w, cy + fy * w, fr * w, 0, TAU); });
+                                       s.rect(cx - 0.44 * w, cy - 0.02 * w, 0.88 * w, 0.14 * w); s.fill(); },
+                              { color: P.cloud, rnd: rng(300 + i), dy: 8, blur: 8, shadowAlpha: 0.45, speckles: 350, top: cy - 0.4 * w, bottom: cy + 0.14 * w, light: 0.10, dark: 0.08 }),
+      });
+      const p = layer.initial, k = K(z);
+      layer.initial = { ...p, x: p.x - drift * k / 2, alpha: 0 };
+      layer.keyframes = [{ at: 0, to: { alpha: 1 }, duration: 1.0, ease: 'sine.out' }, { at: 0, to: { x: p.x + drift * k / 2 }, duration: DURATION - at, ease: 'none' }];
+      return layer;
+    }
+
+    // ------------------------------------------------------------------ the fox (a threeD card: legs swing, torso bobs, head looks up)
+    const FOX = { at: 2.0, dur: 7.1, w: 240, h: 170, px: 114, py: 136, scale: 0.92 };
+    const WALK = [[0, 3.0, -190, 560], [4.25, 7.0, 560, 1470]];                 // [t0, t1, x0, x1] in fox-local time, design x
+    const ridge3 = x => ridges[2](x);
+    function foxMotion(withRot) {                                                 // the feet follow the mid ridge, the body tilts with its slope
+      const kf = [];
+      for (const [t0, t1, x0, x1] of WALK)
+        for (let t = t0; t < t1 - 1e-6; t = snap(t + 0.1)) {
+          const t2 = Math.min(t1, snap(t + 0.1)), x = x0 + (x1 - x0) * (t2 - t0) / (t1 - t0), y = ridge3(x) - 1;
+          const rot = Math.atan2(ridge3(x + 24) - ridge3(x - 24), 48) * 180 / Math.PI * 0.75;
+          kf.push({ at: t, to: withRot ? { x, y, rotation: rot } : { x, y: y + 3 }, duration: t2 - t, ease: 'none' });
+        }
+      return kf;
+    }
+    const HALF = 0.25;                                                            // one leg half-swing
+    function legSwing(phase) {
+      const A = 23 * phase, kf = [];
+      for (const [t0, t1] of WALK) {
+        const n = Math.round((t1 - t0 - HALF / 2 - 0.15) / HALF);
+        kf.push({ at: t0, to: { rotation: A }, duration: HALF / 2, ease: 'sine.out' });
+        kf.push({ at: t0 + HALF / 2, to: { rotation: -A }, duration: HALF, ease: 'sine.inOut', repeat: n - 1, yoyo: true });
+        kf.push({ at: t0 + HALF / 2 + n * HALF, to: { rotation: 0 }, duration: 0.15, ease: 'sine.inOut' });
+      }
+      return kf;
+    }
+    function bob(y0, amp = 2.4) {
+      const kf = [];
+      for (const [t0, t1] of WALK) {
+        let plays = Math.floor((t1 - t0 - 0.05) / (HALF / 2)); if (plays % 2) plays--;
+        kf.push({ at: t0, to: { y: y0 - amp }, duration: HALF / 2, ease: 'sine.inOut', repeat: plays - 1, yoyo: true });
+      }
+      return kf;
+    }
+    const leg = (name, hx, phase, color) => ({ type: 'shape', shape: 'rect', name, width: 8, height: 38, cornerRadius: 3, anchorX: 0.5, anchorY: 0,
+      initial: { x: hx, y: 98, fillColor: color }, keyframes: legSwing(phase) });
+    const sub = (name, px, py, sequences, keyframes = []) => ({ type: 'composition', name, width: FOX.w, height: FOX.h, initial: { x: px, y: py, pivotX: px, pivotY: py }, sequences, keyframes });
+    const fox = {
+      type: 'composition', name: 'fox', threeD: true, at: FOX.at, duration: FOX.dur, width: FOX.w, height: FOX.h,
+      initial: { x: WALK[0][2], y: ridge3(WALK[0][2]) - 1, z: 0, pivotX: FOX.px, pivotY: FOX.py, scale: FOX.scale },
+      keyframes: foxMotion(true),
+      sequences: [
+        leg('leg-back-far', 66, 1, P.foxFar), leg('leg-front-far', 144, -1, P.foxFar),
+        leg('leg-back-near', 78, -1, P.fox), leg('leg-front-near', 156, 1, P.fox),
+        sub('torso', 0, 0, [
+          sub('tail', 56, 94, [
+            { type: 'shape', shape: 'path', name: 'tail-fur', d: 'M 56 86 C 34 80 14 84 6 66 C 0 52 12 42 24 48 C 36 56 40 76 58 100 Z', initial: { fillColor: P.fox } },
+            { type: 'shape', shape: 'circle', name: 'tail-tip', radius: 5.5, initial: { x: 14, y: 52, fillColor: P.cream } },
+          ], [{ at: 0, to: { rotation: 9 }, duration: 0.45, ease: 'sine.inOut', repeat: 14, yoyo: true }]),
+          { type: 'shape', shape: 'path', name: 'body', initial: { fillColor: P.fox },
+            d: 'M 50 100 C 46 84 58 70 86 68 C 114 66 140 70 154 78 C 164 84 168 94 164 104 C 156 112 110 114 76 112 C 60 110 52 106 50 100 Z' },
+          sub('head', 154, 80, [
+            { type: 'shape', shape: 'polygon', name: 'ear-far', points: [[154, 64], [156, 38], [168, 62]], initial: { fillColor: P.foxFar } },
+            { type: 'shape', shape: 'polygon', name: 'ear-near', points: [[168, 60], [176, 36], [184, 66]], initial: { fillColor: P.fox } },
+            { type: 'shape', shape: 'circle', name: 'skull', radius: 14, initial: { x: 166, y: 72, fillColor: P.fox } },
+            { type: 'shape', shape: 'polygon', name: 'snout', points: [[174, 62], [204, 80], [176, 86]], initial: { fillColor: P.fox } },
+            { type: 'shape', shape: 'circle', name: 'eye', radius: 2.2, initial: { x: 171, y: 70, fillColor: P.cream } },
+          ], [{ at: 3.2, to: { rotation: -16 }, duration: 0.45, ease: 'power2.inOut' }, { at: 3.95, to: { rotation: 0 }, duration: 0.3, ease: 'power2.inOut' }]),
+        ], bob(0)),
+      ],
+    };
+    const foxShadow = {
+      type: 'shape', shape: 'ellipse', name: 'fox-shadow', radiusX: 60, radiusY: 7, threeD: true, blendMode: 'multiply', at: FOX.at, duration: FOX.dur,
+      fillGradient: { type: 'radial', stops: [[0, 'rgba(30,10,30,0.7)'], [0.6, 'rgba(30,10,30,0.35)'], [1, 'rgba(30,10,30,0)']] },
+      initial: { x: WALK[0][2], y: ridge3(WALK[0][2]) + 2, z: 0 }, keyframes: foxMotion(false),
+    };
+
+    // ------------------------------------------------------------------ fireflies (additive glow, seeded blink + drift)
+    const FIREFLY_FILL = { type: 'radial', stops: [[0, '#fffbe8'], [0.16, `rgba(${P.firefly},1)`], [0.4, `rgba(${P.firefly},0.4)`], [1, `rgba(${P.firefly},0)`]] };
+    // the one the fox stops for: hovers at its nose, rises as the head lifts, then floats off toward the moon
+    const NOSE = { x: WALK[0][3] + 83, y: ridge3(WALK[0][3]) - 54 }, HZ = 12;
+    const pz = (sx, sy) => { const p = place(sx, sy, HZ); return { x: p.x, y: p.y }; };
+    const heroFirefly = {
+      type: 'shape', shape: 'circle', name: 'firefly-hero', radius: 15, threeD: true, blendMode: 'add', at: 4.8, duration: 4.0, fillGradient: FIREFLY_FILL,
+      initial: { ...pz(NOSE.x + 34, NOSE.y + 12), z: HZ, scale: K(HZ), alpha: 0 },
+      keyframes: [
+        { at: 0, to: { alpha: 1 }, duration: 0.35, ease: 'sine.inOut' },
+        { at: 0.35, to: pz(NOSE.x + 48, NOSE.y - 62), duration: 0.65, ease: 'sine.inOut' },
+        { at: 1.0, to: { y: pz(0, NOSE.y - 72).y }, duration: 0.3, ease: 'sine.inOut', repeat: 1, yoyo: true },
+        { at: 0.6, to: { alpha: 0.55 }, duration: 0.25, ease: 'sine.inOut', repeat: 5, yoyo: true },
+        { at: 1.6, to: pz(900, 250), duration: 2.0, ease: 'sine.in' },
+        { at: 2.8, to: { alpha: 0 }, duration: 1.0, ease: 'sine.out' },
+      ],
+    };
+    function firefly(i) {
+      const r = rng(900 + i * 17), z = 40 + r() * 240, k = K(z);
+      const sx = 90 + r() * 1100, sy = 400 + r() * (z >= 190 ? 250 : 180), p = place(sx, sy, z);
+      const at = snap(2.2 + r() * 2.4), dur = DURATION - at;
+      const on = 0.45 + r() * 0.5, gap = 0.5 + r() * 1.4, delay = r() * 0.8;
+      const blinks = Math.max(1, Math.floor((dur - delay - on) / (on + gap)));
+      const dp = 2.6 + r() * 2.2, dreps = Math.max(1, Math.floor(dur / dp) - 1);
+      const xp = 1.8 + r() * 1.6, xreps = Math.max(1, Math.floor(dur / xp) - 1);
+      return {
+        type: 'shape', shape: 'circle', name: 'firefly-' + (i + 1), radius: 15, threeD: true, blendMode: 'add', at, duration: dur, fillGradient: FIREFLY_FILL,
+        initial: { ...p, scale: k, alpha: 0 },
+        keyframes: [
+          { at: delay, from: { alpha: 0 }, to: { alpha: 0.75 + r() * 0.25 }, duration: on, ease: 'sine.inOut', repeat: blinks, yoyo: true, repeatDelay: gap },
+          { at: 0, to: { y: p.y - (16 + r() * 18) * k }, duration: dp, ease: 'sine.inOut', repeat: dreps, yoyo: true },
+          { at: 0, to: { x: p.x + (r() - 0.5) * 40 * k }, duration: xp, ease: 'sine.inOut', repeat: xreps, yoyo: true },
+        ],
+      };
+    }
+
+    // ------------------------------------------------------------------ the hand-lettered label (a hinged paper card that unfolds)
+    const TITLE = 'Quiet Woods', TSIZE = 96, TFONT = '"Bradley Hand", "Noteworthy", "Marker Felt", cursive';
+    const CARD = { at: 8.6, w: 640, h: 240, label: { x: 40, y: 30, w: 560, h: 172 }, lettersAt: 0.35, stagger: 0.08, dashAt: 1.3, subAt: 1.55 };
+    const mctx = canvasOf(8, 8).getContext('2d'); mctx.font = `bold ${TSIZE}px ${TFONT}`;
+    const adv = [...TITLE].map(ch => mctx.measureText(ch).width), tw = adv.reduce((a, b) => a + b, 0);
+    const labelImg = (() => {                                    // cream paper with a hand-cut (wobbly) edge
+      const r = rng(55), L = CARD.label, pts = [];
+      const side = (x0, y0, x1, y1) => { const n = 14; for (let i = 0; i < n; i++) { const f = i / n; pts.push([x0 + (x1 - x0) * f + (r() - 0.5) * 4, y0 + (y1 - y0) * f + (r() - 0.5) * 4]); } };
+      side(L.x, L.y, L.x + L.w, L.y); side(L.x + L.w, L.y, L.x + L.w, L.y + L.h); side(L.x + L.w, L.y + L.h, L.x, L.y + L.h); side(L.x, L.y + L.h, L.x, L.y);
+      const c = canvasOf(CARD.w, CARD.h), g = c.getContext('2d');
+      paperCut(g, s => { s.beginPath(); pts.forEach(([x, y], i) => i ? s.lineTo(x, y) : s.moveTo(x, y)); s.closePath(); s.fill(); },
+               { color: P.paper, rnd: r, dy: 10, blur: 11, shadowAlpha: 0.5, speckles: 900, top: L.y, bottom: L.y + L.h, light: 0.10, dark: 0.08 });
+      assets.push({ name: 'label', src: c.toDataURL('image/png') });
+      return { type: 'image', asset: 'label', name: 'label-paper' };
+    })();
+    const letters = (() => {
+      const r = rng(77), out = []; let cursor = CARD.w / 2 - tw / 2;
+      [...TITLE].forEach((ch, i) => {
+        const cx = cursor + adv[i] / 2; cursor += adv[i];
+        if (ch === ' ') return;
+        out.push({
+          type: 'text', text: ch, name: 'letter-' + ch + i, at: CARD.lettersAt + i * CARD.stagger,
+          style: { fontSize: TSIZE, fontWeight: 'bold', fontFamily: TFONT, fill: P.ink, padding: 12,
+                   dropShadow: { color: '#2a1626', blur: 4, distance: 3, angle: Math.PI / 2.4, alpha: 0.32 } },
+          initial: { x: cx, y: CARD.label.y + 70, anchorX: 0.5, anchorY: 0.5 },
+          keyframes: [{ at: 0, from: { scale: 0.2, alpha: 0, rotation: (r() - 0.5) * 24 }, to: { scale: 1, alpha: 1, rotation: (r() - 0.5) * 5 }, duration: 0.42, ease: 'back.out(2.2)' }],
+        });
+      });
+      return out;
+    })();
+    const titleCard = {
+      type: 'composition', name: 'title-card', threeD: true, at: CARD.at, width: CARD.w, height: CARD.h,
+      initial: { x: W / 2, y: 118, z: 0, pivotX: CARD.w / 2, pivotY: CARD.label.y },           // hinged at the label's top edge
+      keyframes: [{ at: 0, from: { rotationX: 90 }, to: { rotationX: 0 }, duration: 0.85, ease: 'back.out(1.5)' }],
+      sequences: [
+        labelImg,
+        ...letters,
+        { type: 'shape', shape: 'rect', name: 'title-dash', width: 220, height: 5, cornerRadius: 2.5, anchorX: 0, at: CARD.dashAt,
+          initial: { x: CARD.w / 2 - 110, y: CARD.label.y + 128, fillColor: P.accent, scaleX: 0 },
+          keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.45, ease: 'power3.out' }] },
+        { type: 'text', text: 'A  PAPER-CUT  DIORAMA', name: 'subtitle', at: CARD.subAt,
+          style: { fontSize: 17, fontWeight: '600', fontFamily: 'system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif', fill: P.muted, letterSpacing: 4 },
+          initial: { x: CARD.w / 2, y: CARD.label.y + 152, anchorX: 0.5, anchorY: 0.5 },
+          keyframes: [{ at: 0, from: { alpha: 0, y: CARD.label.y + 164 }, to: { alpha: 1, y: CARD.label.y + 152 }, duration: 0.5, ease: 'power2.out' }] },
+      ],
+    };
+
+    // ------------------------------------------------------------------ assemble
+    const HILL_IN = [0.3, 0.5, 0.7, 0.9, 1.1];
+    hillLayers.forEach((l, i) => { l.at = HILL_IN[i]; l.keyframes = riseIn(l.initial, K(hillSpecs[i].z)); });
+    stars.keyframes = [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 1.2, ease: 'sine.out' }];
+    const ms = moon.initial.scale;
+    moon.keyframes = [{ at: 0.3, from: { scale: ms * 0.25, alpha: 0 }, to: { scale: ms, alpha: 1 }, duration: 0.8, ease: 'back.out(1.6)' }];
+    const clouds = [
+      cloud(0, { cx: 215, cy: 240, w: 190, z: -470, at: 0.5, drift: 50 }),
+      cloud(1, { cx: 1165, cy: 305, w: 150, z: -400, at: 0.62, drift: 40 }),
+      cloud(2, { cx: 450, cy: 300, w: 120, z: -350, at: 0.74, drift: 44 }),
+    ];
+    const fireflies = Array.from({ length: 16 }, (_, i) => firefly(i));
+    const sfx = (asset, at, volume, name) => ({ type: 'audio', asset, name, at: snap(at), volume });
+
+    const sequences = [
+      { type: 'shape', shape: 'rect', name: 'sky', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
+        fillGradient: { angle: 90, stops: [[0, P.skyTop], [0.3, P.skyMid], [0.55, P.skyWarm], [0.72, P.skyHorizon], [1, P.skyHorizon]] } },
+      { type: 'camera', name: 'cam', keyframes: [{ at: 0, from: { x: W / 2 - 90, y: H / 2 + 26 }, to: { x: W / 2 + 90, y: H / 2 - 26 }, duration: DURATION, ease: 'sine.inOut' }] },
+      // --- the diorama (all threeD, farthest first in the array; depth sorting does the rest)
+      stars, moonGlow, moon, ...clouds,
+      hillLayers[0], hillLayers[1], hillLayers[2],
+      foxShadow, fox,
+      titleCard,
+      hillLayers[3],
+      heroFirefly, ...fireflies,
+      hillLayers[4],
+      // --- 2D finish
+      { type: 'shape', shape: 'rect', name: 'vignette', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
+        fillGradient: { type: 'radial', radius: 0.8, stops: [[0.45, 'rgba(8,4,14,0)'], [1, 'rgba(8,4,14,0.62)']] } },
+      // --- sound
+      { type: 'audio', asset: 'bgm', name: 'bgm', loop: true, volume: 0,
+        keyframes: [{ at: 0, to: { volume: 0.42 }, duration: 2 }, { at: -2.5, to: { volume: 0 }, duration: 2.5 }] },
+      ...HILL_IN.map((t, i) => sfx('pop', t + 0.3, 0.32, 'sfx-place-' + (i + 1))),
+      sfx('swoosh', CARD.at, 0.7, 'sfx-unfold'),
+      ...letters.map((l, i) => sfx('pop', CARD.at + l.at, 0.18, 'sfx-letter-' + (i + 1))),
+      sfx('chime', CARD.at + CARD.dashAt, 0.5, 'sfx-done'),
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        background: P.skyTop,
+        assets: [...assets,
+          { name: 'bgm', src: '../_assets/bgm.mp3' }, { name: 'pop', src: '../_assets/sfx-pop.mp3' },
+          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' }, { name: 'chime', src: '../_assets/sfx-chime.mp3' }],
+        composition: { sequences },
+      });
+      window.__ready = true;
+      // opens at 0:00; add ?poster to the URL to park on the poster frame
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
+    }
+  </script>
+</body>
+</html>

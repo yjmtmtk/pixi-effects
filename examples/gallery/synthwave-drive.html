@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SYNTHWAVE DRIVE — pixi-effects gallery</title>
+  <style>
+    body { background: #0d1220; margin: 0; padding: 16px; display: flex; justify-content: center; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+  </style>
+  <script type="application/json" id="piece-meta">
+  { "title": "Synthwave Drive", "subtitle": "A retro night-drive loop: striped sun, neon grid floor racing in, a title that flickers on",
+    "tags": ["synthwave", "2.5D", "camera", "loop", "neon", "procedural"],
+    "width": 1280, "height": 720, "duration": 12, "posterFrame": 168, "model": "fable" }
+  </script>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    // ───────────────────────────── constants ─────────────────────────────
+    const W = 1280, H = 720, FPS = 30, DURATION = 12;
+    const POSTER_FRAME = 168;                           // 5.6 s — everything is on, sun half behind the ridge
+
+    const C = {
+      skyTop: '#04010e', skyMid: '#120640', skyLow: '#3a0d6c', skyHot: '#9c1c73',
+      magenta: '#ff2d95', pink: '#ff6cc6', cyan: '#2ff3ff', cyanSoft: '#9be8f2',
+      ink: '#fff4fb', ridgeFar: '#1c0a3f', ridgeNear: '#0b0322', groundTop: '#2a0a4a', groundDeep: '#05010f',
+    };
+
+    // Deterministic pseudo-random: identical stars on every run and in the export.
+    let seed = 1984;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+    // ───────────────────────────── 2.5D helpers ─────────────────────────────
+    // Default camera: fov 40, centred, distance D to the z = 0 plane (which maps 1:1 to pixels).
+    // A layer at depth z is scaled by D/(D - z) and pulled toward the centre, so to make a far layer
+    // APPEAR at screen point (sx, sy) with screen size s, place it at far(sx, sy, z) and multiply s by K(z).
+    const FOV = 40, D = (H / 2) / Math.tan((FOV / 2) * Math.PI / 180);
+    const K = z => (D - z) / D;
+    const far = (sx, sy, z) => ({ x: W / 2 + (sx - W / 2) * K(z), y: H / 2 + (sy - H / 2) * K(z), z });
+
+    const Z_STARS = -820, Z_SUN = -700, Z_FAR = -520, Z_NEAR = -300;
+    const HORIZON = 440;                                 // screen y of the horizon
+    const SUN = { x: 640, y: 300, r: 150 };
+
+    // ───────────────────────────── generated imagery ─────────────────────────────
+    function canvasOf(w, h) { return Object.assign(document.createElement('canvas'), { width: w, height: h }); }
+
+    // The striped sun — drawn at 2x; stripes are transparent gaps that widen toward the bottom.
+    function sunImage() {
+      const S = SUN.r * 4, c = canvasOf(S, S), g = c.getContext('2d');
+      const grad = g.createLinearGradient(0, 0, 0, S);
+      [[0, '#fff6b0'], [0.16, '#ffd23f'], [0.42, '#ff7a45'], [0.68, '#ff2d95'], [1, '#b81b8a']].forEach(([o, col]) => grad.addColorStop(o, col));
+      g.fillStyle = grad; g.beginPath(); g.arc(S / 2, S / 2, S / 2, 0, Math.PI * 2); g.fill();
+      let y = S * 0.42;
+      while (y < S) {
+        const t = (y - S * 0.42) / (S * 0.58);
+        y += lerp(20, 6, t) * 2;                         // solid band
+        const gap = lerp(3, 14, t) * 2;
+        g.clearRect(0, y, S, gap); y += gap;             // transparent stripe
+      }
+      return c.toDataURL();
+    }
+
+    // A static field of small stars, seeded; the bright twinklers are separate layers.
+    function starsImage() {
+      const c = canvasOf(W, H), g = c.getContext('2d');
+      const tints = ['255,255,255', '191,239,255', '255,200,236'];
+      for (let i = 0; i < 170; i++) {
+        const x = rnd() * W, y = Math.pow(rnd(), 1.35) * 400, r = 0.5 + rnd() * 1.1;
+        g.fillStyle = `rgba(${tints[Math.floor(rnd() * 3)]},${0.35 + rnd() * 0.65})`;
+        g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+      }
+      return c.toDataURL();
+    }
+
+    // CRT scanlines: one dark row every three.
+    function scanlinesImage() {
+      const c = canvasOf(W, H), g = c.getContext('2d');
+      g.fillStyle = 'rgba(0,0,0,0.55)';
+      for (let y = 0; y < H; y += 3) g.fillRect(0, y, W, 1);
+      return c.toDataURL();
+    }
+
+    // ───────────────────────────── scene pieces ─────────────────────────────
+    const fullRect = (extra) => ({ type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' }, ...extra });
+
+    // A jagged mountain ridge as a polygon, placed in depth. Points are generated in SCREEN space, then
+    // re-expressed relative to their bounds centre and scaled by K(z); x,y position that centre in the world.
+    function ridge(name, z, baseY, topMin, topMax, step, peaks, fill, stroke, strokeAlpha) {
+      const pts = [];
+      const x0 = -140, x1 = W + 140;
+      for (let x = x0; x <= x1; x += step) {
+        let h = lerp(topMin, topMax, rnd());
+        for (const [px, ph, pw] of peaks) h = Math.max(h, ph * Math.max(0, 1 - Math.abs(x - px) / pw));
+        pts.push([x, baseY - h]);
+      }
+      pts.push([x1, baseY + 50], [x0, baseY + 50]);      // base extends under the ground plane
+      const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+      const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+      const k = K(z);
+      return {
+        type: 'shape', shape: 'polygon', name, threeD: true,
+        points: pts.map(([x, y]) => [(x - cx) * k, (y - cy) * k]),
+        initial: { ...far(cx, cy, z), fillColor: fill, strokeColor: stroke, strokeWidth: 2 * k, strokeAlpha },
+      };
+    }
+
+    // The grid floor: screen y of a ground point at distance u (grid units) is HORIZON + F/u.
+    const F = 300, CYCLE = 0.8, N_LINES = 9;             // one grid unit passes every 0.8 s → 15 cycles in 12 s (seamless loop)
+
+    // Horizontal lines race toward the viewer. y(t) is 1/u — not a tween curve — so it is sampled per frame
+    // as `set` keyframes; every line is identical, so when one leaves the frame it restarts at the horizon.
+    function gridRow(k) {
+      const keyframes = [];
+      const frames = DURATION * FPS;
+      for (let f = 0; f < frames; f++) {               // a set AT the layer's end (12 s) never plays and warns
+        const t = f / FPS, p = (t / CYCLE) % 1, u = k - p;
+        const y = HORIZON + F / Math.max(u, 0.3);
+        // thickness via scaleY, not `height`: changing a threeD layer's geometry re-creates its render texture every frame
+        keyframes.push({ at: Math.round(t * FPS) / FPS, set: {
+          y, scaleY: clamp(1.6 + 4.5 / u, 1.5, 11), alpha: u < 0.3 ? 0 : clamp(1.15 - u / N_LINES, 0, 1) * 0.95,
+        } });
+      }
+      return {
+        type: 'shape', shape: 'rect', name: 'grid-row-' + k, threeD: true, width: 1400, height: 1,
+        initial: { x: 'GW/2', y: HORIZON + F / k, z: 0, fillColor: C.pink },
+        keyframes,
+      };
+    }
+
+    // Converging lines are static: from the vanishing point to past the frame edge.
+    function gridColumn(X) {
+      const uEnd = Math.max(1.0, Math.abs(X) * F / 680);
+      return {
+        type: 'shape', shape: 'line', name: 'grid-col-' + X, threeD: true,
+        from: [W / 2, HORIZON], to: [W / 2 + X * F / uEnd, HORIZON + F / uEnd],
+        initial: { strokeColor: C.magenta, strokeWidth: 2, strokeAlpha: 0.5 },
+      };
+    }
+
+    // Twinkling stars: circles far back with yoyo alpha, each on its own rhythm (repeat count fits the duration).
+    function twinkle(i) {
+      const sx = 60 + rnd() * (W - 120), sy = 30 + Math.pow(rnd(), 1.4) * 330;
+      const dur = 0.45 + rnd() * 0.9, plays = Math.floor((DURATION - 0.2) / dur);
+      const k = K(Z_STARS);
+      return {
+        type: 'shape', shape: 'circle', name: 'star-' + i, threeD: true, radius: (1.6 + rnd() * 1.2) * k,
+        initial: { ...far(sx, sy, Z_STARS), fillColor: rnd() < 0.5 ? '#ffffff' : C.cyanSoft, alpha: 0.35 },
+        keyframes: [{ at: rnd() * 0.5, to: { alpha: 1 }, duration: dur, ease: 'sine.inOut', repeat: plays - 2, yoyo: true }],
+      };
+    }
+
+    // A meteor: a short gradient streak that fades in, slides, fades out.
+    function meteor(name, at, x0, y0, x1, y1, len, alpha) {
+      const angle = Math.atan2(y1 - y0, x1 - x0) * 180 / Math.PI;
+      return {
+        type: 'shape', shape: 'rect', name, at, duration: 0.75, width: len, height: 2,
+        fillGradient: { angle: 0, stops: [[0, 'rgba(255,255,255,0)'], [1, '#ffffff']] },
+        initial: { x: x0, y: y0, rotation: angle, alpha: 0 },
+        keyframes: [
+          { at: 0, to: { x: x1, y: y1 }, duration: 0.7, ease: 'power1.in' },
+          { at: 0, to: { alpha }, duration: 0.12 },
+          { at: 0.42, to: { alpha: 0 }, duration: 0.28 },
+        ],
+      };
+    }
+
+    // ───────────────────────────── title ─────────────────────────────
+    const TITLE_AT = 1.2, TITLE_Y = 512, SUB_AT = 2.0, SUB_Y = 606, SUB_ADV = 76;
+    const titleStyle = {
+      fontSize: 112, fontWeight: '900', fill: C.ink, letterSpacing: 8,
+      fontFamily: "'Arial Black', 'Helvetica Neue', Arial, sans-serif",
+      dropShadow: { color: C.magenta, blur: 26, distance: 0, alpha: 1 }, padding: 60,
+    };
+    const flicker = (pattern) => pattern.map(([t, a]) => ({ at: t, set: { alpha: a } }));
+
+    const title = {
+      type: 'text', text: 'SYNTHWAVE', name: 'title', at: TITLE_AT, duration: DURATION - TITLE_AT, style: titleStyle,
+      initial: { x: 'GW/2', y: TITLE_Y, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+      keyframes: [
+        // neon tube striking: a few hard on/off sets, then on
+        ...flicker([[0, 1], [0.05, 0.1], [0.1, 1], [0.17, 0.35], [0.24, 1], [0.3, 0.6], [0.36, 1]]),
+        // a stutter as the end beat, then hold
+        ...flicker([[10.5 - TITLE_AT, 0.5], [10.54 - TITLE_AT, 1], [10.6 - TITLE_AT, 0.7], [10.66 - TITLE_AT, 1]]),
+      ],
+    };
+    // Chromatic ghosts: cyan and magenta copies that lock into the title while it strikes.
+    const ghost = (name, color, dx) => ({
+      type: 'text', text: 'SYNTHWAVE', name, at: TITLE_AT, duration: 0.6,
+      style: { ...titleStyle, fill: color, dropShadow: { color, blur: 10, distance: 0, alpha: 0.8 } },
+      initial: { x: W / 2 + dx, y: TITLE_Y, anchorX: 0.5, anchorY: 0.5, alpha: 0.9 },
+      keyframes: [{ at: 0, to: { x: W / 2, alpha: 0 }, duration: 0.55, ease: 'power2.in' }],
+    });
+    const halo = {
+      type: 'shape', shape: 'ellipse', name: 'title-halo', radiusX: 520, radiusY: 120, at: TITLE_AT, duration: DURATION - TITLE_AT,
+      fillGradient: { type: 'radial', radius: 0.5, stops: [[0, 'rgba(255,45,149,0.42)'], [0.55, 'rgba(255,45,149,0.14)'], [1, 'rgba(255,45,149,0)']] },
+      initial: { x: 'GW/2', y: TITLE_Y, alpha: 0 },
+      keyframes: [
+        { at: 0, to: { alpha: 1 }, duration: 0.5 },
+        { at: 0.6, to: { alpha: 0.7 }, duration: 1.6, ease: 'sine.inOut', repeat: 5, yoyo: true },
+      ],
+    };
+    // "DRIVE": one layer per letter, tracking out from the centre.
+    const SUB = 'DRIVE';
+    const subLetters = [...SUB].map((ch, i) => ({
+      type: 'text', text: ch, name: 'drive-' + ch, at: SUB_AT, duration: DURATION - SUB_AT,
+      style: { fontSize: 38, fontWeight: '600', fill: C.cyan, fontFamily: 'system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif',
+               dropShadow: { color: C.cyan, blur: 14, distance: 0, alpha: 0.9 }, padding: 36 },
+      initial: { x: W / 2, y: SUB_Y, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+      keyframes: [
+        { at: 0, to: { x: W / 2 + (i - (SUB.length - 1) / 2) * SUB_ADV }, duration: 1.0, ease: 'expo.out' },
+        { at: 0, to: { alpha: 1 }, duration: 0.45 },
+      ],
+    }));
+    const RULE_GAP = (SUB.length - 1) / 2 * SUB_ADV + 60, RULE_W = 130;
+    const rule = (side) => ({
+      type: 'shape', shape: 'rect', name: 'rule-' + (side < 0 ? 'l' : 'r'), width: 0, height: 2, at: SUB_AT + 0.25, duration: DURATION - SUB_AT - 0.25,
+      initial: { x: W / 2 + side * (RULE_GAP + RULE_W / 2), y: SUB_Y, fillColor: C.cyan, fillAlpha: 0.75 },
+      keyframes: [{ at: 0, to: { width: RULE_W }, duration: 0.9, ease: 'expo.out' }],
+    });
+    const caption = (name, text, x, anchorX) => ({
+      type: 'text', text, name, at: 3.2, duration: DURATION - 3.2,
+      style: { fontSize: 17, fill: C.cyanSoft, letterSpacing: 4, fontFamily: "ui-monospace, 'SF Mono', Menlo, Consolas, monospace" },
+      initial: { x, y: 52, anchorX, anchorY: 0.5, alpha: 0 },
+      keyframes: [{ at: 0, to: { alpha: 0.85 }, duration: 0.6 }],
+    });
+
+    // ───────────────────────────── composition ─────────────────────────────
+    const kSun = K(Z_SUN), kStars = K(Z_STARS);
+    const sequences = [
+      // sky (2D, no parallax needed for a gradient)
+      fullRect({ name: 'sky', fillGradient: { angle: 90, stops: [[0, C.skyTop], [0.3, C.skyMid], [0.52, C.skyLow], [0.61, C.skyHot], [1, C.skyHot]] } }),
+
+      // ── one consecutive block of threeD layers: drawn farthest-first, parallax from the camera drift ──
+      { type: 'camera', name: 'cam', initial: { fov: FOV },
+        keyframes: [
+          { at: 0, from: { x: 'GW/2 - 22', lookAtX: 'GW/2 - 22' }, to: { x: 'GW/2 + 22', lookAtX: 'GW/2 + 22' }, duration: 6, ease: 'sine.inOut', repeat: 1, yoyo: true },
+          { at: 0, from: { y: 'GH/2 - 7', lookAtY: 'GH/2 - 7' }, to: { y: 'GH/2 + 7', lookAtY: 'GH/2 + 7' }, duration: 3, ease: 'sine.inOut', repeat: 3, yoyo: true },
+        ] },
+      { type: 'image', asset: 'stars', name: 'stars', threeD: true,
+        initial: { ...far(W / 2, H / 2, Z_STARS), anchorX: 0.5, anchorY: 0.5, scale: kStars * 1.06 } },
+      ...Array.from({ length: 14 }, (_, i) => twinkle(i)),
+      { type: 'shape', shape: 'circle', name: 'sun-glow', threeD: true, radius: SUN.r * 2.1 * kSun,
+        fillGradient: { type: 'radial', radius: 0.5, stops: [[0, 'rgba(255,45,149,0.55)'], [0.45, 'rgba(255,45,149,0.2)'], [1, 'rgba(255,45,149,0)']] },
+        initial: { ...far(SUN.x, SUN.y, Z_SUN) },
+        keyframes: [{ at: 0, to: { alpha: 0.7 }, duration: 2, ease: 'sine.inOut', repeat: 5, yoyo: true }] },
+      { type: 'image', asset: 'sun', name: 'sun', threeD: true,
+        initial: { ...far(SUN.x, SUN.y, Z_SUN), anchorX: 0.5, anchorY: 0.5, scale: kSun / 2 },
+        keyframes: [{ at: 0, to: { y: far(SUN.x, SUN.y + 22, Z_SUN).y }, duration: DURATION, ease: 'none' }] },   // the sun sets, slowly
+      ridge('ridge-far', Z_FAR, 420, 18, 70, 64, [[300, 118, 190], [980, 96, 160], [1180, 52, 120]], C.ridgeFar, C.cyan, 0.28),
+      ridge('ridge-near', Z_NEAR, HORIZON, 6, 46, 48, [[520, 78, 150], [1120, 62, 130], [140, 48, 110]], C.ridgeNear, C.cyan, 0.8),
+      // ground plane and grid at z = 0
+      { type: 'shape', shape: 'rect', name: 'ground', threeD: true, width: 1400, height: 320, anchorY: 0,
+        fillGradient: { angle: 90, stops: [[0, C.groundTop], [0.3, '#0d0426'], [1, C.groundDeep]] },
+        initial: { x: 'GW/2', y: HORIZON, z: 0 } },
+      ...Array.from({ length: N_LINES }, (_, i) => gridRow(i + 1)),
+      ...Array.from({ length: 25 }, (_, i) => gridColumn(i - 12)),
+      { type: 'shape', shape: 'rect', name: 'horizon-haze', threeD: true, width: 1400, height: 96, anchorY: 0,
+        fillGradient: { angle: 90, stops: [[0, 'rgba(255,45,149,0.6)'], [0.35, 'rgba(120,20,110,0.35)'], [1, 'rgba(58,13,108,0)']] },
+        initial: { x: 'GW/2', y: HORIZON, z: 0 } },
+      { type: 'shape', shape: 'rect', name: 'horizon-line', threeD: true, width: 1400, height: 2,
+        initial: { x: 'GW/2', y: HORIZON, z: 0, fillColor: C.pink } },
+
+      // ── 2D overlays: on the glass, so they ignore the camera drift ──
+      meteor('meteor-1', 6.1, 760, 92, 1040, 214, 150, 0.95),
+      meteor('meteor-2', 8.7, 330, 140, 140, 206, 120, 0.85),
+      halo,
+      ghost('ghost-cyan', C.cyan, -12),
+      ghost('ghost-magenta', C.magenta, 12),
+      title,
+      ...subLetters,
+      rule(-1), rule(1),
+      caption('cap-left', 'NIGHT DRIVE  //  VOL. 01', 72, 0),
+      caption('cap-right', 'SIDE A  ·  1984', W - 72, 1),
+      { type: 'image', asset: 'scanlines', name: 'scanlines', initial: { x: 0, y: 0, alpha: 0.3 } },
+      fullRect({ name: 'vignette', fillGradient: { type: 'radial', radius: 0.72, stops: [[0.45, 'rgba(0,0,0,0)'], [1, 'rgba(4,1,14,0.8)']] } }),
+      fullRect({ name: 'fade-in', duration: 0.9, initial: { x: 'GW/2', y: 'GH/2', fillColor: '#000000', alpha: 1 },
+                 keyframes: [{ at: 0, to: { alpha: 0 }, duration: 0.85, ease: 'sine.out' }] }),
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;                         // so a script can seek / screenshot / render
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        background: C.skyTop,
+        assets: [
+          { name: 'sun', src: sunImage() },
+          { name: 'stars', src: starsImage() },
+          { name: 'scanlines', src: scanlinesImage() },
+        ],
+        composition: { sequences },
+      });
+      // opens at 0:00; add ?poster to the URL to park on the poster frame
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
+    }
+  </script>
+</body>
+</html>

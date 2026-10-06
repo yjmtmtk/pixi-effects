@@ -39,6 +39,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "build:ai": "node scripts/build-llms.mjs",
+    "build:gallery": "node scripts/build-gallery.mjs",
     "prepublishOnly": "npm run build:ai && npm run typecheck && npm test && npm run build"
   },
   "dependencies": {

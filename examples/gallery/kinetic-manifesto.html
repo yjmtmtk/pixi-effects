@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kinetic Manifesto — pixi-effects gallery</title>
+  <style>
+    html, body { height: 100%; }
+    body { background: #141414; margin: 0; padding: 24px; box-sizing: border-box; display: grid; place-items: center; }
+    #frame { width: min(960px, 100%); }
+    canvas { width: 100%; display: block; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div id="frame"><canvas id="stage" width="1280" height="720"></canvas></div>
+
+  <script type="application/json" id="piece-meta">
+  {
+    "title": "Kinetic Manifesto",
+    "subtitle": "Five bilingual statements on making things, slammed onto a 100 BPM grid",
+    "tags": ["kinetic-typography", "bilingual", "beat-driven", "typography"],
+    "width": 1280, "height": 720, "duration": 12, "posterFrame": 42,
+    "model": "fable"
+  }
+  </script>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    // ---------------------------------------------------------------- grid
+    const W = 1280, H = 720, FPS = 30, F = 1 / FPS;
+    const BPM = 100, BEAT = 60 / BPM, BAR = BEAT * 4;      // 0.6 s = 18 frames, bar = 2.4 s
+    const BARS = 5, DURATION = BARS * BAR;                  // 12 s
+    const snap = t => Math.round(t * FPS) / FPS;
+    const B = (bar, beat = 0) => snap(bar * BAR + beat * BEAT);
+    const WIPE = BEAT / 2;                                  // every scene change takes an eighth
+    const POSTER_FRAME = 42;
+
+    // ---------------------------------------------------------------- palette / type
+    const INK = '#0b0b0b', PAPER = '#f2efe8', ACCENT = '#ff3b1f', WHITE = '#f6f3ec';
+    const EN   = "'Arial Black', 'Helvetica Neue', Arial, sans-serif";
+    const JP   = "'Hiragino Kaku Gothic StdN', 'Hiragino Sans', 'Yu Gothic', 'Noto Sans JP', sans-serif";
+    const MONO = "ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
+    const LS = -0.025;                                      // em tracking for the heavy English words
+
+    // Measure with the same font the renderer uses, so big words can be justified to a target width.
+    const mctx = document.createElement('canvas').getContext('2d');
+    const measure = (str, family, weight, size, lsEm = 0) => {
+      mctx.font = `${weight} ${size}px ${family}`;
+      return mctx.measureText(str).width + lsEm * size * (str.length - 1);
+    };
+    const fit = (str, family, weight, targetW, lsEm = 0) => Math.floor(targetW / measure(str, family, weight, 100, lsEm) * 100);
+
+    // ---------------------------------------------------------------- spec helpers
+    const life = o => ({ ...(o.at != null ? { at: o.at } : {}), ...(o.duration != null ? { duration: o.duration } : {}) });
+
+    const text = (name, str, o) => ({
+      type: 'text', name, text: str, ...life(o),
+      style: { fontFamily: o.font ?? EN, fontWeight: o.weight ?? '900', fontSize: o.size, fill: o.fill,
+               letterSpacing: Math.round((o.ls ?? LS) * o.size), ...(o.style || {}) },
+      initial: { x: o.x, y: o.y, anchorX: o.ax ?? 0.5, anchorY: o.ay ?? 0.5, ...(o.initial || {}) },
+      keyframes: o.keyframes || [],
+    });
+
+    const rect = (name, o) => ({
+      type: 'shape', shape: 'rect', name, width: o.w, height: o.h, anchorX: o.ax ?? 0.5, anchorY: o.ay ?? 0.5, ...life(o),
+      initial: { x: o.x, y: o.y, fillColor: o.fill, ...(o.initial || {}) },
+      keyframes: o.keyframes || [],
+    });
+
+    // Slam: oversized + a few degrees off, snapping to rest very fast.
+    const slam = (scale = 2.2, rot = -4, dur = 0.16, landRot = 0) =>
+      ({ at: 0, from: { scale, rotation: rot, alpha: 0 }, to: { scale: 1, rotation: landRot, alpha: 1 }, duration: dur, ease: 'expo.out' });
+
+    // Full-frame accent flash on a downbeat (bookends only).
+    const flash = (name, at) => rect(name, { w: W, h: H, x: W / 2, y: H / 2, fill: ACCENT, at, duration: 0.25,
+      initial: { alpha: 0.6 }, keyframes: [{ at: 0, to: { alpha: 0 }, duration: 0.22, ease: 'power2.out' }] });
+
+    // Hard wipe to a new background; an accent band rides the leading edge. The cover lives to the end (later scenes stack on top).
+    // The cover is a full-size rect that SLIDES in (x/y tweens) rather than a rect that grows: a solid colour looks identical,
+    // and a growing `width`/`height` was not redrawn on the frame a layer first appears after a seek (see the notes).
+    function wipe(name, color, at, dir) {
+      const EDGE = 26, ease = 'power3.inOut', dur = DURATION - at;
+      if (dir === 'right') return [
+        rect(name, { w: W, h: H, x: -W / 2, y: H / 2, fill: color, at, duration: dur, keyframes: [{ at: 0, to: { x: W / 2 }, duration: WIPE, ease }] }),
+        rect(name + '-edge', { w: EDGE, h: H, ax: 1, x: 0, y: H / 2, fill: ACCENT, at, duration: WIPE + F, keyframes: [{ at: 0, to: { x: W }, duration: WIPE, ease }] }),
+      ];
+      if (dir === 'left') return [
+        rect(name, { w: W, h: H, x: W * 1.5, y: H / 2, fill: color, at, duration: dur, keyframes: [{ at: 0, to: { x: W / 2 }, duration: WIPE, ease }] }),
+        rect(name + '-edge', { w: EDGE, h: H, ax: 0, x: W, y: H / 2, fill: ACCENT, at, duration: WIPE + F, keyframes: [{ at: 0, to: { x: 0 }, duration: WIPE, ease }] }),
+      ];
+      return [ // down
+        rect(name, { w: W, h: H, x: W / 2, y: -H / 2, fill: color, at, duration: dur, keyframes: [{ at: 0, to: { y: H / 2 }, duration: WIPE, ease }] }),
+        rect(name + '-edge', { w: W, h: EDGE, ay: 1, x: W / 2, y: 0, fill: ACCENT, at, duration: WIPE + F, keyframes: [{ at: 0, to: { y: H }, duration: WIPE, ease }] }),
+      ];
+    }
+
+    // Circle flood from the centre with an accent ring on its rim (radius >= half the diagonal, power2.in).
+    function flood(name, color, at) {
+      const R = 820, ease = 'power2.in';
+      return [
+        { type: 'shape', shape: 'circle', name, radius: 0, at, duration: DURATION - at,
+          initial: { x: W / 2, y: H / 2, fillColor: color }, keyframes: [{ at: 0, to: { radius: R }, duration: WIPE, ease }] },
+        { type: 'shape', shape: 'circle', name: name + '-ring', radius: 0, at, duration: WIPE + F,
+          initial: { x: W / 2, y: H / 2, fillColor: color, fillAlpha: 0, strokeColor: ACCENT, strokeWidth: 26 },
+          keyframes: [{ at: 0, to: { radius: R }, duration: WIPE, ease }] },
+      ];
+    }
+
+    // Vertical Japanese (tategaki): one layer per glyph, cascading in. Punctuation sits top-right of a half-height cell.
+    function column(name, str, o) {
+      const layers = []; let y = o.yTop;
+      [...str].forEach((ch, i) => {
+        const punct = '、。'.includes(ch);
+        const adv = o.size * (punct ? 0.55 : 1.1);
+        const cx = o.x + (punct ? o.size * 0.5 : 0);
+        const cy = punct ? y - o.size * 0.05 : y + adv / 2;
+        const at = snap(o.at + i * o.stagger);
+        layers.push(text(`${name}-${i}`, ch, { font: JP, weight: '800', ls: 0, size: o.size, fill: o.fill, x: cx, y: cy, at, duration: o.duration - (at - o.at),
+          keyframes: [{ at: 0, from: { alpha: 0, y: cy - 18 }, to: { alpha: 1, y: cy }, duration: 0.22, ease: 'power3.out' }] }));
+        y += adv;
+      });
+      return layers;
+    }
+
+    // One-shot sound: the layer is exactly as long as the clip (a longer layer would warn and go silent).
+    const SFX = { pop: 0.1333, click: 0.1, swoosh: 0.55, chime: 0.6 };
+    const sfx = (name, at, volume = 1) => ({ type: 'audio', name: `sfx-${name}-${at}`, asset: name, at, duration: SFX[name], volume });
+
+    // ---------------------------------------------------------------- composition
+    const seq = [];
+    const sounds = [];
+    seq.push(rect('base', { w: W, h: H, x: W / 2, y: H / 2, fill: INK }));
+
+    // BAR 1 (ink) — MAKE / THINGS. slam, then つくる。 crashes in and knocks them out of frame
+    {
+      const t0 = B(0), t1 = B(0, 1), t2 = B(0, 2), t3 = B(0, 3);
+      const knock = t2 + 2 * F, out = knock + 0.3;
+      seq.push(flash('flash-1', t0));
+      seq.push(text('make', 'MAKE', { size: fit('MAKE', EN, '900', 1000, LS), fill: WHITE, x: W / 2, y: 245, at: t0, duration: out - t0,
+        keyframes: [slam(2.8, -6, 0.18), { at: knock - t0, to: { y: -320, rotation: -9 }, duration: 0.3, ease: 'power4.in' }] }));
+      seq.push(text('things', 'THINGS.', { size: fit('THINGS.', EN, '900', 1000, LS), fill: WHITE, x: W / 2, y: 520, at: t1, duration: out - t1,
+        keyframes: [slam(2.2, 4, 0.16), { at: knock - t1, to: { y: H + 320, rotation: 9 }, duration: 0.3, ease: 'power4.in' }] }));
+      seq.push(text('tsukuru', 'つくる。', { font: JP, weight: '800', ls: 0, size: fit('つくる。', JP, '800', 780), fill: ACCENT, x: W / 2, y: 385,
+        at: t2, duration: B(1) + WIPE - t2, initial: { rotation: -7 },
+        keyframes: [
+          { at: 0, from: { scale: 3.2, rotation: -22, alpha: 0 }, to: { scale: 1, rotation: -7, alpha: 1 }, duration: 0.16, ease: 'expo.out' },
+          { at: t3 - t2, to: { rotation: 0 }, duration: BEAT, ease: 'power2.inOut' },     // settles straight on beat 4
+        ] }));
+      sounds.push(sfx('pop', t0), sfx('pop', t1), sfx('pop', t2));
+    }
+
+    // BAR 2 (paper) — START / BEFORE YOU'RE / READY. staggered on eighths, Japanese as a vertical column
+    {
+      const T = B(1), end = B(2) + WIPE;
+      seq.push(...wipe('paper-2', PAPER, T, 'right'));
+      const big = 210, small = 54, X0 = 80;
+      const grow = { at: 0, from: { scale: 1.6, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.15, ease: 'expo.out' };
+      seq.push(text('start', 'START', { size: big, fill: INK, x: X0, y: 230, ax: 0, at: B(1, 0.5), duration: end - B(1, 0.5), keyframes: [grow] }));
+      seq.push(text('before', 'BEFORE', { size: small, ls: 0.1, fill: INK, x: X0, y: 395, ax: 0, at: B(1, 1), duration: end - B(1, 1) }));
+      seq.push(text('youre', "YOU'RE", { size: small, ls: 0.1, fill: INK, x: X0 + measure('BEFORE', EN, '900', small, 0.1) + small * 0.7, y: 395, ax: 0, at: B(1, 1.5), duration: end - B(1, 1.5) }));
+      seq.push(text('ready', 'READY.', { size: big, fill: INK, x: X0, y: 540, ax: 0, at: B(1, 2), duration: end - B(1, 2), keyframes: [grow] }));
+      seq.push(...column('col-2', '準備が整う前に、始めろ。', { x: 1150, yTop: 112, size: 44, fill: ACCENT, at: B(1, 2.5), stagger: 0.05, duration: end - B(1, 2.5) }));
+      sounds.push(sfx('swoosh', T), sfx('pop', B(1, 0.5)), sfx('click', B(1, 1)), sfx('click', B(1, 1.5)), sfx('pop', B(1, 2)));
+    }
+
+    // BAR 3 (ink) — BREAK. FIX. SHIP. rapid-fire on eighths, each justified to the same width; then 壊す。直す。出す。
+    {
+      const T = B(2), end = B(3) + WIPE;
+      seq.push(...wipe('ink-3', INK, T, 'down'));
+      ['BREAK.', 'FIX.', 'SHIP.'].forEach((wd, i) => {
+        const at = B(2, 0.5 + i * 0.5);
+        seq.push(text('w3-' + i, wd, { size: fit(wd, EN, '900', 880, LS), fill: WHITE, x: W / 2, y: 345, at, duration: BEAT / 2,
+          keyframes: [slam(1.9, i % 2 ? 3 : -3, 0.14), { at: 0.14, to: { scale: 1.04 }, duration: BEAT / 2 - 0.14, ease: 'none' }] }));
+        sounds.push(sfx('pop', at));
+      });
+      const jsize = 118, step = jsize * 3.05;
+      ['壊す。', '直す。', '出す。'].forEach((wd, i) => {
+        const at = snap(B(2, 2) + i * 0.1);
+        seq.push(text('jp3-' + i, wd, { font: JP, weight: '800', ls: 0, size: jsize, fill: ACCENT, x: W / 2 + (i - 1) * step, y: 345, at, duration: end - at,
+          keyframes: [slam(2.0, i % 2 ? 4 : -4, 0.16), { at: 0.16, to: { scale: 1.03 }, duration: end - at - 0.16, ease: 'none' }] }));
+        sounds.push(sfx('click', at));
+      });
+      sounds.push(sfx('swoosh', T));
+    }
+
+    // BAR 4 (paper) — DONE / beats / PERFECT. right-aligned; an accent strike crosses PERFECT; 完璧より、完成。 as a left column
+    {
+      const T = B(3), end = B(4);                 // the flood (9.3 → 9.6) covers this scene
+      seq.push(...wipe('paper-4', PAPER, T, 'left'));
+      const RX = 1200;
+      seq.push(text('done', 'DONE', { size: fit('DONE', EN, '900', 860, LS), fill: INK, x: RX, y: 240, ax: 1, at: B(3, 0.5), duration: end - B(3, 0.5),
+        keyframes: [{ at: 0, from: { scale: 1.7, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.16, ease: 'expo.out' }] }));
+      seq.push(text('beats', 'beats', { font: MONO, weight: '500', ls: 0.2, size: 40, fill: INK, x: RX - 6, y: 430, ax: 1, at: B(3, 1), duration: end - B(3, 1), style: { fontStyle: 'italic' } }));
+      const sPerf = 150, wPerf = measure('PERFECT.', EN, '900', sPerf, LS);
+      seq.push(text('perfect', 'PERFECT.', { size: sPerf, fill: INK, x: RX, y: 555, ax: 1, at: B(3, 1.5), duration: end - B(3, 1.5), keyframes: [slam(1.7, 2, 0.16)] }));
+      seq.push(rect('strike', { w: wPerf, h: 20, ax: 0, x: RX - wPerf, y: 555 - 10, fill: ACCENT, at: B(3, 2), duration: end - B(3, 2),
+        initial: { scaleX: 0 }, keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.22, ease: 'power3.inOut' }] }));   // scaleX, not width: survives jump seeks
+      seq.push(...column('col-4', '完璧より、完成。', { x: 128, yTop: 120, size: 52, fill: ACCENT, at: B(3, 2.5), stagger: 0.05, duration: end - B(3, 2.5) }));
+      sounds.push(sfx('swoosh', T), sfx('pop', B(3, 0.5)), sfx('click', B(3, 1)), sfx('pop', B(3, 1.5)), sfx('swoosh', B(3, 2), 0.7));
+    }
+
+    // BAR 5 (ink) — flood on the pickup, then MAKE. / AGAIN. / また、つくる。 and a 1.2 s hold
+    {
+      const T = B(4, -0.5), a = B(4), b = B(4, 1), c = B(4, 2), end = DURATION;
+      seq.push(...flood('ink-5', INK, T));
+      seq.push(flash('flash-5', a));
+      seq.push(text('make2', 'MAKE.', { size: fit('MAKE.', EN, '900', 900, LS), fill: WHITE, x: W / 2, y: 282, at: a, duration: end - a,
+        keyframes: [slam(2.8, -6, 0.18), { at: b - a + 2 * F, to: { y: 262 }, duration: 0.25, ease: 'power3.out' }] }));   // nudged up by AGAIN.
+      seq.push(text('again', 'AGAIN.', { size: 168, fill: WHITE, x: W / 2, y: 505, at: b, duration: end - b, keyframes: [slam(2.4, 5, 0.16)] }));
+      seq.push(text('mata', 'また、つくる。', { font: JP, weight: '800', ls: 0, size: 50, fill: ACCENT, x: W / 2, y: 640, at: c, duration: end - c,
+        keyframes: [{ at: 0, from: { alpha: 0, y: 658 }, to: { alpha: 1, y: 640 }, duration: 0.25, ease: 'power3.out' }] }));
+      sounds.push(sfx('swoosh', T), sfx('pop', a), sfx('pop', b), sfx('chime', c, 0.9));
+    }
+
+    // Header — index counter (one text layer, `{value}` jumps at each wipe midpoint) and a running title. Accent reads on both grounds.
+    // A one-frame `to` instead of `set`: a later `set` keyframe was applied from frame 0 (see the notes).
+    const flips = [B(1), B(2), B(3), B(4, -0.5)].map((t, i) => ({ at: snap(t + WIPE / 2), to: { value: i + 2 }, duration: F }));
+    seq.push({ type: 'text', name: 'index', text: '0{value}', format: { decimals: 0 },
+      style: { fontFamily: MONO, fontWeight: '700', fontSize: 22, fill: ACCENT, letterSpacing: 4 },
+      initial: { x: 72, y: 56, anchorX: 0, anchorY: 0.5, value: 1 }, keyframes: flips });
+    seq.push(text('title', 'MAKING THINGS — A MANIFESTO  /  ものづくり宣言', { font: MONO, weight: '700', ls: 0.12, size: 20, fill: ACCENT, x: W - 72, y: 56, ax: 1 }));
+
+    seq.push(...sounds);
+
+    // ---------------------------------------------------------------- run
+    const canvas = document.getElementById('stage');
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas });
+
+    try {
+      await movie.init({
+        canvas, width: W, height: H, duration: DURATION, frameRate: FPS, background: INK,
+        assets: Object.keys(SFX).map(name => ({ name, src: `../_assets/sfx-${name}.mp3` })),
+        composition: { sequences: seq },
+      });
+      // opens at 0:00; add ?poster to the URL to park on the poster frame
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Solar System Flight</title>
+  <style>
+    body { background: #07090f; margin: 0; padding: 16px; }
+    canvas { width: min(960px, 100%); border-radius: 8px; display: block; margin: 0 auto; }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script type="application/json" id="piece-meta">{ "title": "A Flight Through the Solar System", "subtitle": "An educational camera flight from the Sun to Neptune: orbits, facts and a recap", "tags": ["2.5D", "camera", "orbit", "education", "data"], "width": 1280, "height": 720, "duration": 14, "posterFrame": 300, "model": "opus" }</script>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie, orbit } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 14, POSTER_FRAME = 300;
+    const DEG = Math.PI / 180;
+
+    // ---------- palette / type ----------
+    const C = {
+      ink: '#eef2fb', muted: '#7d8aa8', faint: '#4a5672', ring: '#8ea3c8', amber: '#f2b56b', bg: '#04060c',
+    };
+    const THIN = '"Helvetica Neue", "Avenir Next", "Segoe UI", system-ui, sans-serif';
+    const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+
+    // ---------- easing (the same curves the keyframes use) ----------
+    const E = {
+      p2io: p => p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2,
+      sio: p => -(Math.cos(Math.PI * p) - 1) / 2,
+      p3o: p => 1 - Math.pow(1 - p, 3),
+    };
+    const clamp01 = p => Math.max(0, Math.min(1, p));
+    const lerp = (a, b, u) => a + (b - a) * u;
+
+    // ---------- the system: an ecliptic plane tilted toward the viewer ----------
+    const CX = 640, CY = 360, TILT = 62;            // sun at (CX, CY, 0); plane tilted TILT deg about x
+    const cosT = Math.cos(TILT * DEG), sinT = Math.sin(TILT * DEG);
+    const R_OUT = 630;                               // plate half-size (world px)
+    const PN = 2.4;                                  // plate drawn at 1.5x and scaled down: sharper in close-ups
+    const NR = 128;                                  // every planet disc is drawn at radius 128, then scaled
+    const K = 692;                                   // angular speed = K / r^1.5 (Kepler-ish), rad/s
+
+    // world position of a point on the plane: u right, v toward the viewer (counter-clockwise seen from above)
+    const plane = (r, th) => { const u = r * Math.cos(th), v = -r * Math.sin(th); return [CX + u, CY + v * cosT, v * sinT]; };
+
+    const PLANETS = [
+      { id: 'mercury', name: 'Mercury', orbit: 110, R: 3.5,  th0: 2.1, base: ['#e3ded6', '#8b857d'] },
+      { id: 'venus',   name: 'Venus',   orbit: 150, R: 7, th0: 4.0, base: ['#f7e7bf', '#c7a465'] },
+      { id: 'earth',   name: 'Earth',   orbit: 195, R: 8, visit: { at: 4.85, th: -40 }, base: ['#a8dcff', '#2c6fd0', '#143c80'] },
+      { id: 'mars',    name: 'Mars',    orbit: 240, R: 5.5,  th0: 3.0, base: ['#f4a57c', '#b04e2c'] },
+      { id: 'jupiter', name: 'Jupiter', orbit: 385, R: 21, visit: { at: 7.35, th: -140 }, bands: true },
+      { id: 'saturn',  name: 'Saturn',  orbit: 470, R: 17, visit: { at: 9.65, th: -42 }, ring: true },
+      { id: 'uranus',  name: 'Uranus',  orbit: 545, R: 11, th0: 2.4, base: ['#d6f6f6', '#78c9d1'] },
+      { id: 'neptune', name: 'Neptune', orbit: 610, R: 11, visit: { at: 11.75, th: -74 }, base: ['#9ab9ff', '#2f58d8', '#1a2c86'] },
+    ];
+    for (const p of PLANETS) {
+      p.w = K / Math.pow(p.orbit, 1.5);
+      if (p.visit) p.th0 = p.visit.th * DEG - p.w * p.visit.at;   // phase chosen so it sits front-right when we arrive
+    }
+    const byId = Object.fromEntries(PLANETS.map(p => [p.id, p]));
+    const posAt = (p, t) => plane(p.orbit, p.th0 + p.w * t);
+
+    // ---------- the camera, as a pure function of time ----------
+    // pose = { T: look-at point, yaw (deg), dist, f (focal length px) }; position = T + dist * (sin yaw, 0, cos yaw)
+    const F0 = (H / 2) / Math.tan(20 * DEG);        // 989: focal length at fov 40
+    const WIDE_DIST = 1500, LOOK_Y = CY + 40;
+    const M = 5;                                   // close-up magnification (screen px per world px) — same for every planet, so sizes compare
+    const SCREEN_X = 450, SCREEN_Y = 340;           // where the visited planet sits on screen
+    const wide = yaw => () => ({ T: [CX, LOOK_Y, 0], yaw, dist: WIDE_DIST, f: F0 });
+    const STOPS = [
+      { id: 'earth',   arrive: 4.2,  depart: 5.5,  yaw: -7, num: '03',
+        facts: [['DISTANCE FROM SUN', '{value} AU', 1.0, 2], ['LENGTH OF DAY', '{value} hours', 24.0, 1], ['ONE ORBIT', '{value} days', 365, 0]] },
+      { id: 'jupiter', arrive: 6.7,  depart: 8.0,  yaw: 6,  num: '05',
+        facts: [['DISTANCE FROM SUN', '{value} AU', 5.2, 2], ['LENGTH OF DAY', '{value} hours', 9.9, 1], ['ONE ORBIT', '{value} years', 11.9, 1]] },
+      { id: 'saturn',  arrive: 9.0,  depart: 10.3, yaw: -6, num: '06',
+        facts: [['DISTANCE FROM SUN', '{value} AU', 9.58, 2], ['LENGTH OF DAY', '{value} hours', 10.7, 1], ['ONE ORBIT', '{value} years', 29.5, 1]] },
+      { id: 'neptune', arrive: 11.3, depart: 12.2, yaw: 7,  num: '08',
+        facts: [['DISTANCE FROM SUN', '{value} AU', 30.07, 2], ['LENGTH OF DAY', '{value} hours', 16.1, 1], ['ONE ORBIT', '{value} years', 164.8, 1]] },
+    ];
+    const tracking = stop => t => {
+      const P = posAt(byId[stop.id], t), yaw = stop.yaw + 1.5 * (t - stop.arrive);   // a slow drift while we hold
+      const right = [Math.cos(yaw * DEG), 0, -Math.sin(yaw * DEG)];
+      const ox = (W / 2 - SCREEN_X) / M, oy = (H / 2 - SCREEN_Y) / M;
+      const T = [P[0] + right[0] * ox, P[1] + oy, P[2] + right[2] * ox];
+      const dist = Math.max(300, 700 - T[2]) / Math.cos(yaw * DEG);                    // keep the camera in front of the whole plane
+      return { T, yaw, dist, f: M * dist };
+    };
+    const ORBIT_END = 3.2, END_WIDE = 13.0;
+    // segments: [t0, t1, poseA, poseB, bump]  (bump = how far we pull out mid-flight, in log-focal units)
+    const SEGS = [
+      [ORBIT_END, STOPS[0].arrive, wide(0), tracking(STOPS[0]), 0],
+      ...STOPS.slice(0, -1).map((s, i) => [s.depart, STOPS[i + 1].arrive, tracking(s), tracking(STOPS[i + 1]), 0.85]),
+      [STOPS[3].depart, END_WIDE, tracking(STOPS[3]), wide(12), 0],
+    ];
+    const HOLDS = [...STOPS.map(s => [s.arrive, s.depart, tracking(s)]), [END_WIDE, DURATION, t => ({ ...wide(12)(), yaw: 12 + 3 * (t - END_WIDE) })]];
+    function poseAt(t) {
+      if (t <= ORBIT_END) {                       // the opening is orbit(): replicate its sweep (sine.inOut on the angle)
+        return { T: [CX, LOOK_Y, 0], yaw: -26 + 26 * E.sio(clamp01(t / ORBIT_END)), dist: WIDE_DIST, f: F0 };
+      }
+      for (const [t0, t1, A, B, bump] of SEGS) {
+        if (t >= t0 && t < t1) {
+          const u = E.p2io((t - t0) / (t1 - t0)), a = A(t), b = B(t);
+          return {
+            T: a.T.map((v, k) => lerp(v, b.T[k], u)), yaw: lerp(a.yaw, b.yaw, u), dist: lerp(a.dist, b.dist, u),
+            f: Math.exp(lerp(Math.log(a.f), Math.log(b.f), u) - bump * Math.sin(Math.PI * u)),
+          };
+        }
+      }
+      for (const [t0, t1, A] of HOLDS) if (t >= t0 && t <= t1 + 1e-6) return A(t);
+      return HOLDS[HOLDS.length - 1][2](t);
+    }
+    const camPos = p => [p.T[0] + p.dist * Math.sin(p.yaw * DEG), p.T[1], p.T[2] + p.dist * Math.cos(p.yaw * DEG)];
+    function project(Q, p) {                       // screen position + depth of a world point under pose p
+      const c = camPos(p), d = [Q[0] - c[0], Q[1] - c[1], Q[2] - c[2]];
+      const s = Math.sin(p.yaw * DEG), co = Math.cos(p.yaw * DEG);
+      const xc = d[0] * co - d[2] * s, depth = -(d[0] * s + d[2] * co);
+      return { x: W / 2 + p.f * xc / depth, y: H / 2 + p.f * d[1] / depth, depth };
+    }
+
+    // sample any (t) => props function into linear keyframes on the frame grid (keyframe `at` is layer-local)
+    function sampled(fn, t0, t1, step = 1 / FPS) {
+      const n = Math.round((t1 - t0) / step), keyframes = [];
+      for (let k = 1; k <= n; k++) keyframes.push({ at: Math.round((k - 1) * step * 1e5) / 1e5, to: fn(t0 + k * step), duration: step, ease: 'none' });
+      return { initial: fn(t0), keyframes };
+    }
+    const camProps = t => {
+      const p = poseAt(t), c = camPos(p);
+      return { x: c[0], y: c[1], z: c[2], lookAtX: p.T[0], lookAtY: p.T[1], lookAtZ: p.T[2], fov: 2 * Math.atan((H / 2) / p.f) / DEG };
+    };
+
+    // safety check: every corner of the orbit plate must stay in front of the camera (a plane crossing the camera vanishes)
+    {
+      let minDepth = Infinity;
+      for (let f = 0; f <= DURATION * FPS; f++) for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+        const v = sv * R_OUT; minDepth = Math.min(minDepth, project([CX + su * R_OUT, CY + v * cosT, v * sinT], poseAt(f / FPS)).depth);
+      }
+      window.__plateMinDepth = Math.round(minDepth);
+    }
+    window.__proj = (id, t) => { const pose = poseAt(t), q = project(posAt(byId[id], t), pose); return [Math.round(q.x), Math.round(q.y), Math.round(byId[id].R * pose.f / q.depth)]; };
+    // layout check: no other planet may sit behind a fact card
+    window.__conflicts = [];
+    for (const s of STOPS) for (let t = s.arrive - 0.3; t <= s.depart; t += 0.1) for (const p of PLANETS) {
+      if (p.id === s.id) continue;
+      const pose = poseAt(t), q = project(posAt(p, t), pose), rs = p.R * pose.f / q.depth * (p.ring ? 2.3 : 1);
+      const cut = q.depth > 0 && q.x + rs > 0 && q.x - rs < W && q.y + rs > 0 && q.y - rs < H && (q.x - rs < 0 || q.x + rs > W || q.y - rs < 0 || q.y + rs > H);
+      if (cut) window.__conflicts.push(`${s.id}@${t.toFixed(1)}: ${p.id} cut by the frame`);
+      if (q.depth > 0 && q.x + rs > 700 && q.x - rs < 1120 && q.y + rs > 180 && q.y - rs < 580) window.__conflicts.push(`${s.id}@${t.toFixed(1)}: ${p.id} at ${Math.round(q.x)},${Math.round(q.y)}`);
+    }
+
+    // ---------- procedural images ----------
+    let seed = 11;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    function starfield(w = 3000, h = 1400) {
+      const c = Object.assign(document.createElement('canvas'), { width: w, height: h }), g = c.getContext('2d');
+      const neb = g.createLinearGradient(0, h * 0.9, w, h * 0.1);          // a faint milky band
+      neb.addColorStop(0, 'rgba(60,70,120,0)'); neb.addColorStop(0.5, 'rgba(70,85,140,0.10)'); neb.addColorStop(1, 'rgba(60,70,120,0)');
+      g.fillStyle = neb; g.fillRect(0, 0, w, h);
+      for (let i = 0; i < 1500; i++) {
+        const x = rnd() * w, y = rnd() * h, s = Math.pow(rnd(), 3) * 1.4 + 0.35, a = 0.25 + rnd() * 0.6;
+        const tint = rnd(); g.fillStyle = tint < 0.15 ? `rgba(255,214,170,${a})` : tint < 0.3 ? `rgba(175,200,255,${a})` : `rgba(235,240,255,${a})`;
+        g.beginPath(); g.arc(x, y, s, 0, Math.PI * 2); g.fill();
+      }
+      return { name: 'stars', src: c.toDataURL() };
+    }
+
+    // ---------- layers ----------
+    const seqs = [];
+    const full = (name, extra) => ({ type: 'shape', shape: 'rect', name, width: W, height: H, ...extra });
+
+    seqs.push(full('bg', { initial: { x: W / 2, y: H / 2 }, fillGradient: { type: 'radial', radius: 0.8, stops: [[0, '#0b1124'], [1, C.bg]] } }));
+
+    // stars at infinity: follow the camera's pan and (gently) its zoom
+    {
+      const s = sampled(t => { const p = poseAt(t); return { x: W / 2 + 0.7 * p.f * Math.tan(p.yaw * DEG), scale: Math.pow(p.f / F0, 0.35) }; }, 0, DURATION);
+      seqs.push({ type: 'image', asset: 'stars', name: 'stars', initial: { ...s.initial, y: H / 2, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [...s.keyframes, { at: 0, to: { alpha: 1 }, duration: 1.4, ease: 'sine.inOut' }] });
+    }
+
+    // cameras: orbit() for the opening sweep, then a sampled flight camera (cut on the same pose)
+    seqs.push(orbit({ name: 'cam-orbit', duration: ORBIT_END, degrees: 26, start: -26, radius: WIDE_DIST, center: [CX, LOOK_Y], ease: 'sine.inOut' }));
+    {
+      const s = sampled(camProps, ORBIT_END, DURATION);
+      seqs.push({ type: 'camera', name: 'cam-flight', at: ORBIT_END, duration: DURATION - ORBIT_END, initial: s.initial, keyframes: s.keyframes });
+    }
+
+    // the orbit plate: rings + asteroid belt, one threeD card tilted into the ecliptic
+    {
+      const P = R_OUT * 2 * PN, PC = P / 2, ringSeqs = [];
+      PLANETS.forEach((p, i) => {
+        const stop = STOPS.find(s => s.id === p.id);
+        ringSeqs.push({
+          type: 'shape', shape: 'circle', name: 'ring-' + p.id, radius: p.orbit * PN,
+          initial: { x: PC, y: PC, fillAlpha: 0, strokeColor: C.ring, strokeWidth: 1.4 * PN, strokeAlpha: 0.26, alpha: 0 },
+          keyframes: [
+            { at: 0.25 + i * 0.12, to: { alpha: 1 }, duration: 0.9, ease: 'power3.out' },
+            ...(stop ? [{ at: stop.arrive - 0.6, to: { strokeAlpha: 0.5, strokeColor: '#c7d6f2' }, duration: 0.6, ease: 'power2.inOut' },
+                        { at: stop.depart, to: { strokeAlpha: 0.26, strokeColor: C.ring }, duration: 0.6, ease: 'power2.inOut' }] : []),
+          ],
+        });
+      });
+      // asteroid belt between Mars and Jupiter: seeded dots in an annulus, rotating as one
+      const dots = [];
+      for (let i = 0; i < 420; i++) {
+        const a = rnd() * Math.PI * 2, r = (272 + (rnd() + rnd() + rnd()) / 3 * 60) * PN;
+        dots.push({ type: 'shape', shape: 'circle', radius: (0.7 + Math.pow(rnd(), 2) * 1.9) * PN,
+          initial: { x: PC + r * Math.cos(a), y: PC + r * Math.sin(a), fillColor: rnd() < 0.5 ? '#b8ad9c' : '#8e97ab', fillAlpha: 0.35 + rnd() * 0.5 } });
+      }
+      ringSeqs.push({ type: 'composition', name: 'belt', width: P, height: P,
+        initial: { x: PC, y: PC, pivotX: PC, pivotY: PC, rotation: 0, alpha: 0 },
+        keyframes: [{ at: 0, to: { rotation: -95 }, duration: DURATION, ease: 'none' }, { at: 1.0, to: { alpha: 1 }, duration: 1.2, ease: 'power2.inOut' }],
+        sequences: dots });
+      seqs.push({ type: 'composition', name: 'plate', threeD: true, width: P, height: P,
+        initial: { x: CX, y: CY, z: 0, pivotX: PC, pivotY: PC, rotationX: TILT, scale: 1 / PN }, sequences: ringSeqs });
+    }
+
+    // the Sun: a glow that adds light, and a gradient disc
+    seqs.push({ type: 'shape', shape: 'circle', name: 'sun-glow', radius: 280, threeD: true, blendMode: 'add',
+      initial: { x: CX, y: CY, z: 0, alpha: 0, scale: 0.6, fillGradient: { type: 'radial', stops: [[0, 'rgba(255,176,90,0.55)'], [0.35, 'rgba(255,140,60,0.16)'], [1, 'rgba(255,110,40,0)']] } },
+      keyframes: [{ at: 0.15, to: { alpha: 1, scale: 1 }, duration: 1.4, ease: 'power3.out' }] });
+    seqs.push({ type: 'shape', shape: 'circle', name: 'sun', radius: 52, threeD: true,
+      initial: { x: CX, y: CY, z: 0, alpha: 0, scale: 0.6, fillGradient: { type: 'radial', center: [0.45, 0.45], stops: [[0, '#fffbe8'], [0.55, '#ffd27a'], [1, '#f08a2c']] } },
+      keyframes: [{ at: 0.15, to: { alpha: 1, scale: 1 }, duration: 1.2, ease: 'power3.out' }] });
+
+    // planets: threeD cards (disc + bands + a shade that always turns away from the Sun), positions sampled along the orbit
+    const JUP = [[0, '#ead9bd'], [0.14, '#cfa780'], [0.22, '#f1e4cf'], [0.34, '#b9875f'], [0.42, '#e9d5b8'], [0.5, '#f4e9d6'], [0.6, '#c6976d'], [0.7, '#ecdcc2'], [0.82, '#b98b64'], [1, '#e2cdb0']];
+    const SAT = [[0, '#f2e3bd'], [0.3, '#e0c891'], [0.45, '#f4e7c6'], [0.62, '#d6ba82'], [1, '#efdcae']];
+    PLANETS.forEach((p, i) => {
+      const ringed = !!p.ring, cw = ringed ? NR * 5 : NR * 2 + 8, ch = NR * 2 + 8, cx = cw / 2, cy = ch / 2;
+      const ROT = ringed ? -16 : 0;
+      const fill = p.bands ? { angle: 90, stops: JUP } : p.ring ? { angle: 90, stops: SAT }
+        : { type: 'radial', center: [0.42, 0.4], radius: 0.7, stops: p.base.map((c, k) => [k / (p.base.length - 1), c]) };
+      const shadeRot = t => { const [x, y] = posAt(p, t); return Math.atan2(y - CY, x - CX) / DEG - ROT; };
+      let prev = null;
+      const shade = sampled(t => { let r = shadeRot(t); if (prev !== null) r += 360 * Math.round((prev - r) / 360); prev = r; return { rotation: r }; }, 0, DURATION, 0.1);
+      const kids = [];
+      const ringBand = (half) => [[2.25, 0.5, 0.2, 0.55, '#d9c9a0'], [1.72, 0.38, 0.32, 0.75, '#efe1bd']].map(([a, b, sw, al, col]) => half
+        ? { type: 'shape', shape: 'path', d: `M ${cx - a * NR} ${cy} A ${a * NR} ${b * NR} 0 0 0 ${cx + a * NR} ${cy}`, initial: { fillAlpha: 0, strokeColor: col, strokeWidth: sw * NR, strokeAlpha: al } }
+        : { type: 'shape', shape: 'ellipse', radiusX: a * NR, radiusY: b * NR, initial: { x: cx, y: cy, fillAlpha: 0, strokeColor: col, strokeWidth: sw * NR, strokeAlpha: al * 0.8 } });
+      if (ringed) kids.push(...ringBand(false));
+      kids.push({ type: 'shape', shape: 'circle', radius: NR, initial: { x: cx, y: cy }, fillGradient: fill });
+      if (p.bands) kids.push({ type: 'shape', shape: 'ellipse', radiusX: NR * 0.2, radiusY: NR * 0.11, initial: { x: cx + NR * 0.28, y: cy + NR * 0.3, fillColor: '#c46a46', fillAlpha: 0.85 } });
+      kids.push({ type: 'shape', shape: 'circle', radius: NR + 1, name: p.id + '-shade',
+        initial: { x: cx, y: cy, ...shade.initial }, keyframes: shade.keyframes,
+        fillGradient: { angle: 0, stops: [[0, 'rgba(3,5,12,0)'], [0.42, 'rgba(3,5,12,0.05)'], [0.7, 'rgba(3,5,12,0.75)'], [1, 'rgba(3,5,12,0.92)']] } });
+      if (ringed) kids.push(...ringBand(true));
+      const pos = sampled(t => { const [x, y, z] = posAt(p, t); return { x, y, z }; }, 0, DURATION, 0.1);
+      seqs.push({ type: 'composition', name: 'planet-' + p.id, threeD: true, width: cw, height: ch,
+        initial: { ...pos.initial, pivotX: cx, pivotY: cy, scale: p.R / NR, rotation: ROT, alpha: 0 },
+        keyframes: [...pos.keyframes, { at: 0.8 + i * 0.1, to: { alpha: 1 }, duration: 0.8, ease: 'power2.out' }],
+        sequences: kids });
+    });
+
+    // a soft vignette over the 3D scene, under the type
+    seqs.push(full('vignette', { initial: { x: W / 2, y: H / 2 }, fillGradient: { type: 'radial', radius: 0.78, stops: [[0.55, 'rgba(2,3,8,0)'], [1, 'rgba(2,3,8,0.7)']] } }));
+
+    // ---------- type ----------
+    const text = (name, txt, x, y, style, extra = {}) => ({ type: 'text', name, text: txt, style: { fontFamily: THIN, fill: C.ink, ...style }, ...extra,
+      initial: { x, y, ...(extra.initial || {}) } });
+    // opening title
+    seqs.push(text('open-kicker', 'AN EDUCATIONAL FLIGHT', W / 2, 92, { fontFamily: MONO, fontSize: 13, letterSpacing: 5, fill: C.amber },
+      { at: 0.4, duration: 2.7, initial: { anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6, ease: 'power3.out' }, { at: -0.4, to: { alpha: 0 }, duration: 0.4, ease: 'power2.in' }] }));
+    seqs.push(text('open-title', 'The Solar System', W / 2, 136, { fontSize: 54, fontWeight: '200', letterSpacing: 6 },
+      { at: 0.55, duration: 2.55, initial: { anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, from: { y: 150 }, to: { alpha: 1, y: 136 }, duration: 0.9, ease: 'power3.out' }, { at: -0.4, to: { alpha: 0 }, duration: 0.4, ease: 'power2.in' }] }));
+
+    // a fact card per stop (screen-aligned 2D type to the right of the planet), over a soft scrim that keeps it legible
+    STOPS.forEach(s => seqs.push({ type: 'shape', shape: 'rect', name: s.id + '-scrim', width: 700, height: H, at: s.arrive - 0.6, duration: s.depart - s.arrive + 0.9,
+      initial: { x: W - 350, y: H / 2, alpha: 0 }, fillGradient: { angle: 0, stops: [[0, 'rgba(3,5,11,0)'], [0.35, 'rgba(3,5,11,0.55)'], [1, 'rgba(3,5,11,0.7)']] },
+      keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6, ease: 'power2.out' }, { at: -0.5, to: { alpha: 0 }, duration: 0.5, ease: 'power2.in' }] }));
+    // the fact card per stop (screen-aligned 2D type to the right of the planet)
+    const LX = 740;
+    STOPS.forEach(s => {
+      const p = byId[s.id], at = s.arrive - 0.45, dur = s.depart - at + 0.25;
+      const kf = (delay, y0, y1) => [{ at: delay, from: { alpha: 0, y: y0 }, to: { alpha: 1, y: y1 }, duration: 0.6, ease: 'power3.out' },
+                                     { at: -0.35, to: { alpha: 0 }, duration: 0.3, ease: 'power2.in' }];
+      seqs.push(text(s.id + '-kicker', `PLANET ${s.num} OF 08`, LX, 212, { fontFamily: MONO, fontSize: 13, letterSpacing: 4, fill: C.amber },
+        { at, duration: dur, initial: { anchorY: 0.5, alpha: 0 }, keyframes: kf(0, 224, 212) }));
+      seqs.push(text(s.id + '-name', p.name, LX - 4, 270, { fontSize: 74, fontWeight: '200', letterSpacing: 1 },
+        { at, duration: dur, initial: { anchorY: 0.5, alpha: 0 }, keyframes: kf(0.06, 284, 270) }));
+      seqs.push({ type: 'shape', shape: 'rect', name: s.id + '-rule', width: 300, height: 1, anchorX: 0, at, duration: dur,
+        initial: { x: LX, y: 326, fillColor: C.ring, fillAlpha: 0.7, scaleX: 0 },
+        keyframes: [{ at: 0.15, to: { scaleX: 1 }, duration: 0.7, ease: 'power3.inOut' }, { at: -0.35, to: { alpha: 0 }, duration: 0.3, ease: 'power2.in' }] });
+      s.facts.forEach(([label, fmt, value, decimals], k) => {
+        const y = 356 + k * 64, d = 0.25 + k * 0.1;
+        seqs.push(text(`${s.id}-l${k}`, label, LX, y, { fontFamily: MONO, fontSize: 11, letterSpacing: 2.5, fill: C.muted },
+          { at, duration: dur, initial: { alpha: 0 }, keyframes: kf(d, y + 8, y) }));
+        seqs.push(text(`${s.id}-v${k}`, fmt, LX, y + 18, { fontSize: 30, fontWeight: '300' },
+          { at, duration: dur, format: { decimals }, initial: { alpha: 0, value: 0 },
+            keyframes: [...kf(d, y + 26, y + 18), { at: d, to: { value }, duration: 1.0, ease: 'power3.out' }] }));
+      });
+    });
+
+    // passing the asteroid belt (between Earth and Jupiter)
+    {
+      const at = STOPS[0].depart + 0.35, dur = STOPS[1].arrive - 0.45 - at;
+      seqs.push({ type: 'shape', shape: 'rect', name: 'belt-tick', width: 28, height: 1, anchorX: 0, at, duration: dur,
+        initial: { x: 72, y: 612, fillColor: C.amber, scaleX: 0 },
+        keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.4, ease: 'power3.out' }, { at: -0.3, to: { alpha: 0 }, duration: 0.3, ease: 'power2.in' }] });
+      seqs.push(text('belt-caption', 'CROSSING THE ASTEROID BELT  ·  2.2 – 3.2 AU', 112, 612, { fontFamily: MONO, fontSize: 12, letterSpacing: 3, fill: C.muted },
+        { at, duration: dur, initial: { anchorY: 0.5, alpha: 0 },
+          keyframes: [{ at: 0.1, to: { alpha: 1 }, duration: 0.4, ease: 'power3.out' }, { at: -0.3, to: { alpha: 0 }, duration: 0.3, ease: 'power2.in' }] }));
+    }
+
+    // recap: the wide view again, tags that ride the visited planets, a title
+    {
+      const at = 12.55, dur = DURATION - at;
+      STOPS.forEach((s, k) => {
+        const p = byId[s.id];
+        const tag = sampled(t => { const pose = poseAt(t), q = project(posAt(p, t), pose), rs = p.R * pose.f / q.depth;
+          return { x: q.x + rs * 0.75 + 6, y: q.y - rs * 0.75 - 6 }; }, at, DURATION);
+        seqs.push(text('tag-' + s.id, p.name.toUpperCase(), 0, 0, { fontFamily: MONO, fontSize: 11, letterSpacing: 2.5, fill: '#c9d3e8' },
+          { at, duration: dur, initial: { ...tag.initial, anchorY: 1, alpha: 0 },
+            keyframes: [...tag.keyframes, { at: 0.3 + k * 0.08, to: { alpha: 1 }, duration: 0.5, ease: 'power3.out' }] }));
+      });
+      seqs.push(text('end-kicker', 'RECAP', W / 2, 78, { fontFamily: MONO, fontSize: 13, letterSpacing: 5, fill: C.amber },
+        { at: at + 0.25, initial: { anchorX: 0.5, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6, ease: 'power3.out' }] }));
+      seqs.push(text('end-title', 'The Solar System', W / 2, 120, { fontSize: 54, fontWeight: '200', letterSpacing: 6 },
+        { at: at + 0.3, initial: { anchorX: 0.5, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, from: { y: 134 }, to: { alpha: 1, y: 120 }, duration: 0.9, ease: 'power3.out' }] }));
+      seqs.push(text('end-line', '1 STAR  ·  8 PLANETS  ·  4.6 BILLION YEARS', W / 2, 166, { fontFamily: MONO, fontSize: 13, letterSpacing: 3, fill: C.muted },
+        { at: at + 0.45, initial: { anchorX: 0.5, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6, ease: 'power3.out' }] }));
+      seqs.push(text('end-note', 'SIZES AND DISTANCES NOT TO SCALE', W - 72, 640, { fontFamily: MONO, fontSize: 10, letterSpacing: 2.5, fill: C.faint },
+        { at: at + 0.6, initial: { anchorX: 1, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6, ease: 'power3.out' }] }));
+    }
+
+    // ---------- sound ----------
+    seqs.push({ type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0,
+      keyframes: [{ at: 0, to: { volume: 1 }, duration: 1.5 }, { at: -1.5, to: { volume: 0 }, duration: 1.5 }] });
+    [ORBIT_END + 0.05, ...STOPS.map(s => s.depart)].forEach((t, i) => seqs.push({ type: 'audio', name: 'whoosh-' + i, asset: 'swoosh', at: t, volume: 0.35 }));
+    STOPS.forEach((s, i) => seqs.push({ type: 'audio', name: 'tick-' + i, asset: 'click', at: s.arrive - 0.2, volume: 0.25 }));
+    seqs.push({ type: 'audio', name: 'chime', asset: 'chime', at: 12.9, volume: 0.3 });
+
+    // ---------- run ----------
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS, background: C.bg,
+        assets: [starfield(), { name: 'bgm', src: '../_assets/bgm.mp3' }, { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
+                 { name: 'click', src: '../_assets/sfx-click.mp3' }, { name: 'chime', src: '../_assets/sfx-chime.mp3' }],
+        composition: { sequences: seqs },
+      });
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AURORA — logo reveal (pixi-effects)</title>
+  <style>
+    html, body { height: 100%; }
+    body { background: #0e0f12; margin: 0; padding: 16px; display: grid; place-items: center; box-sizing: border-box; }
+    canvas { width: min(960px, 100%); aspect-ratio: 16 / 9; border-radius: 6px; display: block; }
+  </style>
+  <script type="application/json" id="piece-meta">{ "title": "AURORA", "subtitle": "A restrained logo reveal: a horizon line, a light that rises through it, a letter-spaced lock-up", "tags": ["logo", "reveal", "gradient", "mask", "typography"], "width": 1280, "height": 720, "duration": 8, "posterFrame": 210, "model": "fable" }</script>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    // ---------------------------------------------------------------- concept
+    // AURORA — a design studio. The mark is a sunrise: a horizon hairline opens, a gradient disc (ice above,
+    // champagne below) rises through it, its lower sliver stays as a reflection, a glint sweeps the disc,
+    // one arc of aurora swings in over it. Then the letter-spaced wordmark lands from the centre outwards,
+    // the tagline follows, and the lock-up holds. Three colours, slow eases, lots of air.
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 8, POSTER_FRAME = 210;
+
+    const BG = '#0b0e14', CHAMP = '#e6cfa7', ICE = '#9fd6e6', INK = '#efe6d6';
+    const rgba = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
+
+    // ---------------------------------------------------------------- layout (one grid, derived)
+    const CX = W / 2, CY = 300, R = 84;              // disc
+    const HAIR_Y = CY + 28, GAP = 5;                 // horizon hairline and the dark gap either side of it
+    const ARC_R = 120, ARC_T = 3.5;                  // aurora arc over the disc
+    const WORD = 'AURORA', WORD_SIZE = 58, TRACK = 20, WORD_Y = 456;
+    const TAG = 'DESIGN STUDIO', TAG_SIZE = 16, TAG_Y = 520;
+    const FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif";
+
+    // Letter advances from the same font the renderer will use, so the per-letter layers sit like one word.
+    const g2d = document.createElement('canvas').getContext('2d');
+    g2d.font = `300 ${WORD_SIZE}px ${FONT}`;
+    const adv = [...WORD].map(ch => g2d.measureText(ch).width);
+    const wordW = adv.reduce((a, b) => a + b, 0) + TRACK * (WORD.length - 1);
+    let cursor = CX - wordW / 2;
+    const letterX = adv.map(a => { const x = cursor; cursor += a + TRACK; return x; });
+    const HAIR_W = Math.round(wordW + 2 * 44);       // the horizon is the wordmark width plus a margin
+
+    // ---------------------------------------------------------------- timing (seconds, composition time)
+    const T = { hair: 0.4, rise: 0.9, reflect: 2.4, glint: 2.6, pulse: 3.0, word: 3.4, tag: 4.8, sheen: 5.2 };
+    const EASE = 'power3.out';                       // one easing language for every entrance
+    const life = at => ({ at, duration: DURATION - at });
+    const fullRect = (name, extra) => ({ type: 'shape', shape: 'rect', name, width: W, height: H, initial: { x: W / 2, y: H / 2 }, ...extra });
+
+    const discGradient = { angle: 90, stops: [[0, ICE], [0.3, ICE], [0.8, CHAMP], [1, CHAMP]] };   // sky above, warmth at the horizon
+    // the reflection is warm and fades with distance from the line; positions are of the whole disc's bounds (the sliver is 0.64 → 1)
+    const reflectionGradient = { angle: 90, stops: [[0, rgba(CHAMP, 0.5)], [0.64, rgba(CHAMP, 0.5)], [1, rgba(CHAMP, 0)]] };
+
+    // the upper circular segment of the disc (above the gap) as an SVG path — used to confine the glint
+    const segY = HAIR_Y - GAP, half = Math.sqrt(R * R - (segY - CY) ** 2);
+    const upperSegment = `M ${CX - half} ${segY} A ${R} ${R} 0 1 1 ${CX + half} ${segY} Z`;
+
+    // the aurora arc: an annulus segment, 200° → 340° (over the top), in a 260×260 composition pivoted at its centre
+    const AC = ARC_R + 6, rad = d => d * Math.PI / 180;
+    const arcPoints = [];
+    for (let d = 200; d <= 340; d += 2) arcPoints.push([AC + ARC_R * Math.cos(rad(d)), AC + ARC_R * Math.sin(rad(d))]);
+    for (let d = 340; d >= 200; d -= 2) arcPoints.push([AC + (ARC_R - ARC_T) * Math.cos(rad(d)), AC + (ARC_R - ARC_T) * Math.sin(rad(d))]);
+
+    const sequences = [
+      fullRect('bg', { initial: { x: W / 2, y: H / 2, fillColor: BG } }),
+
+      // a cool glow gathers behind the mark
+      { type: 'shape', shape: 'circle', name: 'glow', radius: 360,
+        fillGradient: { type: 'radial', radius: 0.5, stops: [[0, rgba(ICE, 0.16)], [0.5, rgba(ICE, 0.05)], [1, rgba(ICE, 0)]] },
+        initial: { x: CX, y: CY, alpha: 0 },
+        keyframes: [{ at: T.rise, to: { alpha: 1 }, duration: 2.4, ease: 'sine.out' }] },
+
+      // the disc rises from behind the horizon (only what is above the gap is visible)
+      { type: 'shape', shape: 'circle', name: 'disc', radius: R, ...life(T.rise), fillGradient: discGradient,
+        initial: { x: CX, y: HAIR_Y + R + 8 },
+        keyframes: [{ at: 0, to: { y: CY }, duration: 1.7, ease: EASE }],
+        mask: { type: 'shape', shape: 'rect', name: 'disc-mask', width: 400, height: HAIR_Y - GAP, anchorY: 0,
+                initial: { x: CX, y: 0, fillColor: '#ffffff' } } },
+
+      // its lower sliver stays below the line as a faint reflection
+      { type: 'shape', shape: 'circle', name: 'disc-reflection', radius: R, ...life(T.reflect), fillGradient: reflectionGradient,
+        initial: { x: CX, y: CY, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 1.1, ease: 'sine.inOut' }],
+        mask: { type: 'shape', shape: 'rect', name: 'reflection-mask', width: 400, height: 120, anchorY: 0,
+                initial: { x: CX, y: HAIR_Y + GAP, fillColor: '#ffffff' } } },
+
+      // a soft light sweeps across the disc, confined to the upper segment
+      { type: 'shape', shape: 'rect', name: 'glint', width: 64, height: 300, at: T.glint, duration: 1.3,
+        fillGradient: { angle: 0, stops: [[0, 'rgba(255,255,255,0)'], [0.5, 'rgba(255,255,255,0.55)'], [1, 'rgba(255,255,255,0)']] },
+        initial: { x: CX - 150, y: CY, rotation: 22 },
+        keyframes: [{ at: 0, to: { x: CX + 150 }, duration: 1.2, ease: 'power2.inOut' }],
+        mask: { type: 'shape', shape: 'path', name: 'glint-mask', d: upperSegment, initial: { fillColor: '#ffffff' } } },
+
+      // the horizon hairline opens from the centre
+      { type: 'shape', shape: 'rect', name: 'horizon', width: 0, height: 2, ...life(T.hair),
+        fillGradient: { angle: 0, stops: [[0, rgba(CHAMP, 0)], [0.18, rgba(CHAMP, 1)], [0.82, rgba(CHAMP, 1)], [1, rgba(CHAMP, 0)]] },   // soft ends
+        initial: { x: CX, y: HAIR_Y, alpha: 0.8 },
+        keyframes: [{ at: 0, to: { width: HAIR_W }, duration: 1.2, ease: EASE }] },
+
+      // a single pulse leaves the disc …
+      { type: 'shape', shape: 'circle', name: 'ripple', radius: R, at: T.pulse, duration: 1.3,
+        initial: { x: CX, y: CY, fillColor: BG, fillAlpha: 0, strokeColor: CHAMP, strokeWidth: 1.5, strokeAlpha: 0.5 },
+        keyframes: [{ at: 0, to: { radius: ARC_R + 16, strokeAlpha: 0 }, duration: 1.2, ease: 'power2.out' }] },
+
+      // … and the aurora arc swings into place over it
+      { type: 'composition', name: 'arc', width: 2 * AC, height: 2 * AC, ...life(T.pulse),
+        initial: { x: CX, y: CY, pivotX: AC, pivotY: AC, rotation: -34, alpha: 0 },
+        keyframes: [{ at: 0, to: { rotation: 0, alpha: 1 }, duration: 1.5, ease: EASE }],
+        sequences: [{ type: 'shape', shape: 'polygon', name: 'arc-band', points: arcPoints,
+          fillGradient: { angle: 0, stops: [[0, rgba(ICE, 0)], [0.28, rgba(ICE, 0.95)], [0.72, rgba(CHAMP, 0.95)], [1, rgba(CHAMP, 0)]] } }] },
+
+      // the wordmark lands from the centre outwards: R O, then U R, then A A
+      ...[...WORD].map((ch, i) => {
+        const ring = Math.floor(Math.abs(i - (WORD.length - 1) / 2));
+        return {
+          type: 'text', text: ch, name: `letter-${i}-${ch}`, ...life(T.word + ring * 0.16),
+          style: { fontSize: WORD_SIZE, fontWeight: '300', fontFamily: FONT, fill: INK },
+          initial: { x: letterX[i], y: WORD_Y + 16, anchorX: 0, anchorY: 0.5, alpha: 0 },
+          keyframes: [{ at: 0, to: { y: WORD_Y, alpha: 1 }, duration: 1.3, ease: EASE }],
+        };
+      }),
+
+      // the tagline
+      { type: 'text', text: TAG, name: 'tagline', ...life(T.tag),
+        style: { fontSize: TAG_SIZE, fontWeight: '400', fontFamily: FONT, fill: CHAMP, letterSpacing: 8 },
+        initial: { x: CX, y: TAG_Y + 8, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, to: { y: TAG_Y, alpha: 0.7 }, duration: 1.3, ease: EASE }] },
+
+      // a very faint sheen passes over the finished lock-up, then it holds
+      { type: 'shape', shape: 'rect', name: 'sheen', width: 420, height: 1700, at: T.sheen, duration: 2.6,
+        fillGradient: { angle: 0, stops: [[0, rgba(CHAMP, 0)], [0.5, rgba(CHAMP, 0.07)], [1, rgba(CHAMP, 0)]] },
+        initial: { x: -320, y: H / 2, rotation: 18 },
+        keyframes: [{ at: 0, to: { x: W + 320 }, duration: 2.6, ease: 'sine.inOut' }] },
+
+      fullRect('vignette', { fillGradient: { type: 'radial', radius: 0.78, stops: [[0.35, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.62)']] } }),
+
+      // sound: a breath under the glint, a chime on the pulse (layer length = file length, so nothing goes silent)
+      { type: 'audio', asset: 'swoosh', name: 'sfx-swoosh', at: T.glint, volume: 0.4 },
+      { type: 'audio', asset: 'chime', name: 'sfx-chime', at: T.pulse, duration: 0.62, volume: 0.6 },
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        background: BG,
+        assets: [
+          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
+          { name: 'chime', src: '../_assets/sfx-chime.mp3' },
+        ],
+        composition: { sequences },
+      });
+      window.__ready = true;
+      // opens at 0:00; add ?poster to the URL to park on the poster frame
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
+    }
+  </script>
+</body>
+</html>

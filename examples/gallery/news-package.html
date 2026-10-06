@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NORTH 24 — news package</title>
+  <style>
+    html, body { background: #0b0d12; margin: 0; }
+    body { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
+    canvas { width: min(960px, 100%); display: block; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script type="application/json" id="piece-meta">{ "title": "NORTH 24 — Breaking", "subtitle": "A broadcast news package: channel stinger, BREAKING flash, wipe-masked lower third, live ticker and running clock", "tags": ["broadcast", "lower third", "ticker", "masks", "counter", "typography"], "width": 1280, "height": 720, "duration": 12, "posterFrame": 222, "model": "opus" }</script>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DUR = 12;
+    const POSTER_FRAME = JSON.parse(document.getElementById('piece-meta').textContent).posterFrame;
+
+    // ── palette & type ────────────────────────────────────────────────────────────
+    const C = {
+      ink: '#030a1c', navy: '#061736', navy2: '#0b2350', blue: '#1450c8', blueHi: '#2f6fe0',
+      red: '#d7141e', white: '#ffffff', paper: '#eef2f9', mist: '#a9bde6', sub: '#dbe6ff',
+    };
+    const SANS = '"Helvetica Neue", Helvetica, Arial, sans-serif';
+    const HEAVY = '"Arial Black", "Helvetica Neue", Arial, sans-serif';
+    const MONO = 'ui-monospace, "SF Mono", Menlo, monospace';
+    const OUT = 'power3.out', INOUT = 'power3.inOut';
+    // text width with the same canvas measurer Pixi uses: lets bars and crawl items be sized from their text
+    const measure = (() => {
+      const g = document.createElement('canvas').getContext('2d');
+      return (s, weight, size) => { g.font = `${weight} ${size}px ${SANS}`; return g.measureText(s).width; };
+    })();
+
+    // ── timeline (seconds, global) ────────────────────────────────────────────────
+    const T = {
+      logo: 0.5,           // logo build starts
+      tagline: 1.2,
+      wipe: 2.2, wipeD: 0.65,   // stinger → program
+      ticker: 2.85, live: 3.0,
+      breaking: 3.4,       // flash + band
+      morph: 4.6,          // band collapses into the lower-third tag
+      lt: 4.95,            // headline bar
+      sub: 5.2,
+      swap: 8.35,          // headline 1 → 2
+    };
+
+    let seed = 24;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const r = (a, b) => a + rnd() * (b - a);
+
+    // ── small spec helpers ────────────────────────────────────────────────────────
+    const rect = (name, x, y, w, h, fill, extra = {}) => ({
+      type: 'shape', shape: 'rect', name, width: w, height: h, ...extra,
+      initial: { x, y, fillColor: fill, ...(extra.initial || {}) },
+    });
+    const text = (name, str, x, y, style, extra = {}) => ({
+      type: 'text', name, text: str, style: { fontFamily: SANS, fill: C.white, ...style }, ...extra,
+      initial: { x, y, anchorY: 0.5, ...(extra.initial || {}) },
+    });
+    // a wipe mask: grows from a fixed left edge
+    const wipeMask = (x, y, w, h, at, dur = 0.5, ease = OUT) => ({
+      type: 'shape', shape: 'rect', width: 0, height: h, anchorX: 0,
+      initial: { x, y, fillColor: '#ffffff' },
+      keyframes: [{ at, to: { width: w }, duration: dur, ease }],
+    });
+    const sfx = (asset, at, len, volume = 0.6) => ({ type: 'audio', asset, at, duration: len, volume });
+
+    // =========================================================================================
+    // 1 · STINGER  (0 → 2.85): blue/red slabs open onto a rotating wire globe
+    // =========================================================================================
+    const GR = 260;                    // globe radius
+    const globeSeq = [
+      { type: 'shape', shape: 'circle', name: 'globe-rim', radius: GR,
+        initial: { x: 300, y: 300, strokeColor: C.blueHi, strokeWidth: 2.5, strokeAlpha: 0.7 } },
+    ];
+    for (const lat of [-60, -30, 0, 30, 60]) {
+      const y = 300 + GR * Math.sin(lat * Math.PI / 180), half = GR * Math.cos(lat * Math.PI / 180);
+      globeSeq.push({ type: 'shape', shape: 'line', name: 'lat' + lat, from: [300 - half, y], to: [300 + half, y],
+        initial: { strokeColor: C.blueHi, strokeWidth: 1.5, strokeAlpha: lat === 0 ? 0.6 : 0.3 } });
+    }
+    // meridians: an ellipse whose radiusX = R·|sin(longitude)|, the longitude turning over time
+    const SPIN = 38, STEP = 0.1, STING_END = T.wipe + T.wipeD + 0.1;
+    for (let i = 0; i < 6; i++) {
+      const lon = t => (i * 30 + 8 + SPIN * t) * Math.PI / 180;
+      const kf = [];
+      for (let t = 0; t < STING_END; t += STEP) kf.push({ at: +t.toFixed(2), to: { radiusX: GR * Math.abs(Math.sin(lon(t + STEP))) }, duration: STEP });
+      globeSeq.push({ type: 'shape', shape: 'ellipse', name: 'meridian' + i, radiusX: GR * Math.abs(Math.sin(lon(0))), radiusY: GR,
+        initial: { x: 300, y: 300, strokeColor: C.blueHi, strokeWidth: 1.5, strokeAlpha: 0.35 }, keyframes: kf });
+    }
+    globeSeq.push({ type: 'shape', shape: 'ellipse', name: 'orbit-ring', radiusX: 300, radiusY: 74, at: 0.4,
+      initial: { x: 300, y: 300, rotation: -16, strokeColor: C.red, strokeWidth: 3, scale: 0.6, alpha: 0 },
+      keyframes: [{ at: 0, to: { scale: 1, alpha: 0.9 }, duration: 0.7, ease: 'expo.out' }] });
+
+    const streaks = Array.from({ length: 12 }, (_, i) => {
+      const y = r(90, 630), w = r(160, 520), at = r(0.15, 1.7), d = r(0.5, 0.9);
+      return rect('streak' + i, -w, y, w, i % 4 === 0 ? 3 : 1.5, i % 5 === 0 ? C.red : '#9cc0ff', {
+        at, duration: d, initial: { alpha: r(0.35, 0.8) },
+        keyframes: [{ at: 0, to: { x: W + w }, duration: d, ease: 'power2.inOut' }],
+      });
+    });
+
+    const stinger = {
+      type: 'composition', name: 'stinger', width: W, height: H, duration: STING_END,
+      sequences: [
+        rect('sting-bg', W / 2, H / 2, W, H, undefined, {
+          fillGradient: { type: 'radial', radius: 0.75, stops: [[0, '#164496'], [0.5, '#0a2152'], [1, C.ink]] } }),
+        { type: 'composition', name: 'globe', width: 600, height: 600, sequences: globeSeq,
+          initial: { x: W / 2, y: 340, pivotX: 300, pivotY: 300, scale: 0.75, alpha: 0 },
+          keyframes: [
+            { at: 0.15, to: { scale: 1, alpha: 1 }, duration: 1.0, ease: OUT },
+            { at: 1.15, to: { scale: 1.07 }, duration: STING_END - 1.15, ease: 'none' },
+          ] },
+        ...streaks,
+        // opening slabs: the frame starts covered in channel blue, a red blade leads it off to the right
+        // frame 0 = a channel-blue field with a red blade on its right edge, then both clear off to the right
+        rect('open-blue', 1010 - 70 - 850, H / 2, 1700, 1000, C.blue, { initial: { skewX: -14 },
+          keyframes: [{ at: 0.04, to: { x: 1010 - 70 - 850 + 2700 }, duration: 0.45, ease: 'power2.in' }] }),
+        rect('open-red', 1010, H / 2, 140, 1000, C.red, { initial: { skewX: -14 },
+          keyframes: [{ at: 0.04, to: { x: 1010 + 2700 }, duration: 0.45, ease: 'power2.in' }] }),
+      ],
+    };
+
+    // =========================================================================================
+    // 2 · PROGRAM  (2.2 → 12): night harbour, the closed bridge, storm rain
+    // =========================================================================================
+    const PD = DUR - T.wipe, HORIZON = 440;
+    const prog = [
+      rect('sky', W / 2, HORIZON / 2, W + 80, HORIZON, undefined, {
+        fillGradient: { stops: [[0, '#020818'], [0.55, '#0b275c'], [0.85, '#1b4793'], [1, '#2a5cae']] } }),
+      { type: 'shape', shape: 'ellipse', name: 'horizon-glow', radiusX: 760, radiusY: 120,
+        fillGradient: { type: 'radial', stops: [[0, 'rgba(140,185,255,0.45)'], [1, 'rgba(140,185,255,0)']] },
+        initial: { x: W / 2, y: HORIZON - 10 } },
+    ];
+    for (let i = 0; i < 6; i++) {                                  // storm clouds drifting
+      const x = r(-100, W + 100), y = r(40, 220);
+      prog.push({ type: 'shape', shape: 'ellipse', name: 'cloud' + i, radiusX: r(300, 520), radiusY: r(50, 90),
+        fillGradient: { type: 'radial', stops: [[0, `rgba(2,8,26,${r(0.6, 0.85).toFixed(2)})`], [1, 'rgba(2,8,26,0)']] },
+        initial: { x, y },
+        keyframes: [{ at: 0, to: { x: x + r(40, 90) }, duration: PD, ease: 'none' }] });
+    }
+    const skyline = (name, x0, x1, hMin, hMax, wMin, wMax, color, windows) => {
+      const pts = [[x0, HORIZON + 4]];
+      const boxes = [];
+      for (let x = x0; x < x1;) {
+        const bw = r(wMin, wMax), top = HORIZON - r(hMin, hMax);
+        pts.push([x, top], [x + bw, top]);
+        boxes.push([x, top, bw]);
+        x += bw;
+      }
+      pts.push([pts[pts.length - 1][0], HORIZON + 4]);
+      const out = [{ type: 'shape', shape: 'polygon', name, points: pts, initial: { fillColor: color } }];
+      if (windows) for (const [bx, top, bw] of boxes) {
+        const n = Math.floor((HORIZON - top) / 18);
+        for (let k = 0; k < n; k++) if (rnd() < 0.22) {
+          out.push(rect(name + '-win', bx + r(5, bw - 5), top + 10 + k * 16, 3, 4, '#ffcf7a', { initial: { alpha: r(0.35, 0.85) } }));
+        }
+      }
+      return out;
+    };
+    prog.push(...skyline('far-city', -40, W + 40, 30, 120, 26, 60, '#12336f', false));
+    prog.push(...skyline('city-left', -20, 360, 70, 220, 34, 70, '#081c42', true));
+    prog.push(...skyline('city-right', 930, W + 20, 70, 240, 34, 70, '#081c42', true));
+    prog.push(rect('water', W / 2, (HORIZON + H) / 2, W + 80, H - HORIZON, undefined, {
+      fillGradient: { stops: [[0, '#0f2f66'], [1, '#01050f']] } }));
+    for (let i = 0; i < 34; i++) {                                // reflections shimmer
+      const y = r(HORIZON + 8, 560), w = r(14, 70);
+      prog.push(rect('ripple' + i, r(0, W), y, w, 1.5, i % 7 === 0 ? '#ffcf7a' : '#6f9ae6', {
+        initial: { alpha: 0.08 },
+        keyframes: [{ at: r(0, 0.8), to: { alpha: r(0.25, 0.5) }, duration: r(0.5, 0.9), ease: 'sine.inOut', repeat: 11, yoyo: true }] }));
+    }
+    // suspension bridge (towers at 420 / 860, deck at 428)
+    const TL = 420, TR = 860, TOP = 214, DECK = 428, SAG = 606;
+    const cableY = t => (1 - t) ** 2 * TOP + 2 * t * (1 - t) * SAG + t * t * TOP;   // x = TL + (TR-TL)·t
+    let hangers = '';
+    for (let x = TL + 28; x < TR - 10; x += 28) hangers += `M ${x} ${cableY((x - TL) / (TR - TL)).toFixed(1)} L ${x} ${DECK} `;
+    const sideCable = (tx, ax) => {   // tower top → anchorage, quadratic
+      const cx = tx + (ax - tx) * 0.35, cy = 390;
+      let d = '';
+      for (let t = 0.12; t < 0.95; t += 0.11) {
+        const x = (1 - t) ** 2 * tx + 2 * t * (1 - t) * cx + t * t * ax;
+        const y = (1 - t) ** 2 * TOP + 2 * t * (1 - t) * cy + t * t * (DECK - 6);
+        d += `M ${x.toFixed(1)} ${y.toFixed(1)} L ${x.toFixed(1)} ${DECK} `;
+      }
+      return [`M ${tx} ${TOP} Q ${cx} ${cy} ${ax} ${DECK - 6}`, d];
+    };
+    const [sl, slh] = sideCable(TL, -30), [sr, srh] = sideCable(TR, W + 30);
+    const BR = C.ink;
+    const cable = (name, d, w) => ({ type: 'shape', shape: 'path', name, d, initial: { strokeColor: BR, strokeWidth: w } });
+    prog.push(
+      cable('cable-main', `M ${TL} ${TOP} Q ${W / 2} ${SAG} ${TR} ${TOP}`, 3.5),
+      cable('cable-left', sl, 3.5), cable('cable-right', sr, 3.5),
+      cable('hangers', hangers + slh + srh, 1.2),
+      rect('deck', W / 2, DECK + 4, W + 80, 10, BR),
+      rect('tower-l', TL, 470, 22, 470 - TOP + 12, BR, { anchorY: 1 }),
+      rect('tower-r', TR, 470, 22, 470 - TOP + 12, BR, { anchorY: 1 }),
+      rect('beam-l', TL, 300, 46, 8, BR), rect('beam-r', TR, 300, 46, 8, BR),
+    );
+    for (const [i, x] of [TL, TR].entries()) prog.push({ type: 'shape', shape: 'circle', name: 'beacon' + i, radius: 4,
+      initial: { x, y: TOP - 6, fillColor: '#ff3b3b', alpha: 1 },
+      keyframes: [{ at: i * 0.3, to: { alpha: 0.15 }, duration: 0.6, ease: 'sine.inOut', repeat: 15, yoyo: true }] });
+    for (let i = 0; i < 6; i++) prog.push({ type: 'shape', shape: 'circle', name: 'police' + i, radius: 3.5,   // emergency lights on the closed deck
+      initial: { x: 560 + i * 32, y: DECK - 4, fillColor: i % 2 ? '#ff2a2a' : '#4d8bff', alpha: 0.2 },
+      keyframes: [{ at: (i % 2) * 0.22, to: { alpha: 1 }, duration: 0.22, ease: 'none', repeat: 41, yoyo: true }] });
+    // rain: each drop finishes its first fall, then loops top → bottom
+    const RV = 950, RDX = -0.22;
+    for (let i = 0; i < 90; i++) {
+      const x0 = r(-40, W + 200), y0 = r(-40, H), len = r(18, 36);
+      const d1 = (H + 40 - y0) / RV, d2 = (H + 80) / RV, reps = Math.ceil((PD - d1) / d2);
+      prog.push({ type: 'shape', shape: 'line', name: 'rain' + i, from: [0, 0], to: [len * RDX, len],
+        initial: { x: x0, y: y0, strokeColor: '#a8c6ff', strokeWidth: 1.4, strokeAlpha: r(0.15, 0.4) },
+        keyframes: [
+          { at: 0, to: { y: H + 40, x: x0 + (H + 40 - y0) * RDX }, duration: d1, ease: 'none' },
+          { at: d1, from: { y: -40, x: x0 + 40 * RDX }, to: { y: H + 40, x: x0 + (H + 40) * RDX }, duration: d2, ease: 'none', repeat: reps },
+        ] });
+    }
+    prog.push(rect('vignette', W / 2, H / 2, W + 80, H + 80, undefined, {
+      fillGradient: { type: 'radial', radius: 0.72, stops: [[0.5, 'rgba(1,5,15,0)'], [1, 'rgba(1,5,15,0.75)']] } }));
+
+    const program = {
+      type: 'composition', name: 'program', width: W, height: H, at: T.wipe, duration: PD, sequences: prog,
+      initial: { x: W / 2, y: H / 2, pivotX: W / 2, pivotY: H / 2, scale: 1.0 },
+      keyframes: [{ at: 0, to: { scale: 1.06 }, duration: PD, ease: 'sine.inOut' }],
+    };
+
+    // =========================================================================================
+    // 3 · TRANSITION SLABS riding the wipe edge (navy + red + white blade, skewed)
+    // =========================================================================================
+    const slab = (name, offset, w, color) => rect(name, -260 + offset, H / 2, w, 1000, color, {
+      at: T.wipe - 0.05, duration: T.wipeD + 0.15, initial: { skewX: -14 },
+      keyframes: [{ at: 0, to: { x: -260 + offset + 1900 }, duration: T.wipeD + 0.1, ease: INOUT }],
+    });
+    const slabs = [slab('slab-blue', 0, 420, C.blue), slab('slab-red', 300, 90, C.red), slab('slab-white', 372, 22, C.white)];
+
+    // =========================================================================================
+    // 4 · LOGO  (builds at centre, then flies to the top-left as the channel bug)
+    // =========================================================================================
+    const logo = {
+      type: 'composition', name: 'logo', width: 560, height: 150, at: T.logo, duration: DUR - T.logo,
+      initial: { x: W / 2, y: 340, pivotX: 280, pivotY: 75 },
+      keyframes: [{ at: T.wipe - T.logo, to: { x: 154, y: 72, scale: 0.32 }, duration: T.wipeD, ease: INOUT }],
+      sequences: [
+        text('logo-north', 'NORTH', 770, 77, { fontFamily: HEAVY, fontSize: 88, fontWeight: '900' }, {
+          initial: { anchorX: 1 },
+          mask: rect('north-mask', 0, 75, 398, 150, '#ffffff', { anchorX: 0 }),
+          keyframes: [{ at: 0.3, to: { x: 385 }, duration: 0.6, ease: 'expo.out' }] }),
+        rect('logo-rule', 385, 130, 0, 5, C.red, { anchorX: 1,
+          keyframes: [{ at: 0.65, to: { width: 352 }, duration: 0.55, ease: 'expo.out' }] }),
+        rect('logo-box', 480, 75, 160, 130, undefined, {
+          fillGradient: { stops: [[0, '#ea2430'], [1, '#b30c15']] }, initial: { scale: 0 },
+          keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.45, ease: 'back.out(1.7)' }] }),
+        text('logo-24', '24', 480, 79, { fontFamily: HEAVY, fontSize: 92, fontWeight: '900' }, {
+          initial: { anchorX: 0.5, alpha: 0, scale: 2.2 },
+          keyframes: [{ at: 0.15, to: { alpha: 1, scale: 1 }, duration: 0.35, ease: 'expo.out' }] }),
+        rect('logo-glint', 290, 75, 34, 220, C.white, {
+          initial: { skewX: -20, alpha: 0.35 },
+          mask: rect('glint-mask', 480, 75, 160, 130, '#ffffff'),
+          keyframes: [{ at: 1.05, to: { x: 600 }, duration: 0.45, ease: 'power2.inOut' }] }),
+      ],
+    };
+    const tagline = text('tagline', 'NEWS  ·  24 HOURS  ·  ALWAYS ON', W / 2, 456,
+      { fontSize: 20, fontWeight: '600', letterSpacing: 8, fill: C.mist }, {
+        at: T.tagline, duration: T.wipe + 0.1 - T.tagline, initial: { anchorX: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.4, ease: OUT }, { at: -0.3, to: { alpha: 0 }, duration: 0.25 }] });
+
+    // =========================================================================================
+    // 5 · BREAKING flash → band → morphs into the lower-third tag
+    // =========================================================================================
+    const TAG = { x: 180, y: 548, w: 200, h: 54 };
+    const breaking = [
+      rect('breaking-dim', W / 2, H / 2, W, H, '#020a1e', {
+        at: T.breaking, duration: T.morph - T.breaking + 0.6, initial: { alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 0.6 }, duration: 0.2 }, { at: -0.5, to: { alpha: 0 }, duration: 0.5, ease: 'power2.out' }] }),
+      ...[-1, 1].map(s => rect('band-rule' + (s < 0 ? '-top' : '-bottom'), W / 2, 360 + s * 96, W, 4, C.white, {
+        at: T.breaking, duration: T.morph - T.breaking + 0.05, initial: { scaleX: 0 },
+        keyframes: [{ at: 0.05, to: { scaleX: 1 }, duration: 0.45, ease: 'expo.out' }, { at: -0.2, to: { alpha: 0 }, duration: 0.2 }] })),
+      rect('breaking-band', W / 2, 360, W, 0, undefined, {
+        at: T.breaking, duration: DUR - T.breaking,
+        fillGradient: { stops: [[0, '#e8202a'], [1, '#b30c15']] },
+        keyframes: [
+          { at: 0, to: { height: 170 }, duration: 0.35, ease: 'expo.out' },
+          { at: T.morph - T.breaking, to: { width: TAG.w, height: TAG.h, x: TAG.x, y: TAG.y }, duration: 0.5, ease: INOUT },
+        ] }),
+      text('breaking-title', 'BREAKING NEWS', W / 2, 362, { fontFamily: HEAVY, fontSize: 92, fontWeight: '900', letterSpacing: 4 }, {
+        at: T.breaking + 0.05, duration: T.morph - T.breaking - 0.05 + 0.12, initial: { anchorX: 0.5, alpha: 0, scale: 1.6 },
+        keyframes: [
+          { at: 0, to: { alpha: 1, scale: 1 }, duration: 0.3, ease: 'expo.out' },
+          { at: 0.3, to: { scale: 1.04 }, duration: 0.8, ease: 'none' },
+          { at: -0.15, to: { alpha: 0, scale: 0.94 }, duration: 0.15, ease: 'power2.in' },
+        ] }),
+      text('tag-label', 'BREAKING', TAG.x, TAG.y + 1, { fontSize: 24, fontWeight: '800', letterSpacing: 3 }, {
+        at: T.lt, initial: { anchorX: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.2 }] }),
+    ];
+    const flash = rect('flash', W / 2, H / 2, W, H, C.white, {
+      at: T.breaking, duration: 0.32, initial: { alpha: 0.9 },
+      keyframes: [{ at: 0, to: { alpha: 0 }, duration: 0.3, ease: 'power2.out' }] });
+
+    // =========================================================================================
+    // 6 · LOWER THIRD (wipe masks) + headline swap with a colour sweep
+    // =========================================================================================
+    const HB = { x: TAG.x + TAG.w / 2, y: TAG.y, w: 900, h: 54 };          // headline bar, starts at the tag's right edge
+    const SUBS = ["Crews evacuate 2,400 residents ahead of tonight's high tide", 'Live: city emergency briefing expected at 19:00'];
+    const SB = { x: 80, y: TAG.y + TAG.h / 2 + 20, w: Math.ceil(Math.max(...SUBS.map(s => measure(s, 400, 21)))) + 44, h: 40 };   // sub bar, sized from its text
+    const SWAP_D = 0.35, SUB_SWAP = T.swap + 0.15;
+    const headStyle = { fontSize: 31, fontWeight: '800', fill: C.navy, letterSpacing: 0.5 };
+    const subStyle = { fontSize: 21, fontWeight: '400', fill: C.sub };
+    const sweep = (name, bar, at, color) => ({
+      type: 'shape', shape: 'rect', name, width: 0, height: bar.h, anchorX: 0, at, duration: 2 * SWAP_D + 0.05,
+      initial: { x: bar.x, y: bar.y, fillColor: color },
+      keyframes: [
+        { at: 0, to: { width: bar.w }, duration: SWAP_D, ease: INOUT },
+        { at: SWAP_D, to: { x: bar.x + bar.w, width: 0 }, duration: SWAP_D + 0.05, ease: INOUT },
+      ] });
+    const lower = [
+      rect('head-bar', HB.x, HB.y, HB.w, HB.h, C.white, { anchorX: 0, at: T.lt, mask: wipeMask(HB.x, HB.y, HB.w, HB.h, 0) }),
+      text('headline-1', 'STORM SURGE CLOSES NORTH HARBOR BRIDGE', HB.x + 24, HB.y + 1, headStyle, {
+        at: T.lt + 0.06, duration: T.swap + SWAP_D - T.lt - 0.06, mask: wipeMask(HB.x, HB.y, HB.w, HB.h, 0, 0.55) }),
+      text('headline-2', 'EVACUATION ORDER WIDENS TO 3 DISTRICTS', HB.x + 24, HB.y + 1, headStyle, { at: T.swap + SWAP_D }),
+      sweep('head-sweep', HB, T.swap, C.red),
+      rect('sub-bar', SB.x, SB.y, SB.w, SB.h, C.navy2, { anchorX: 0, at: T.sub, mask: wipeMask(SB.x, SB.y, SB.w, SB.h, 0, 0.45) }),
+      text('sub-1', SUBS[0], SB.x + 20, SB.y, subStyle, {
+        at: T.sub + 0.08, duration: SUB_SWAP + SWAP_D - T.sub - 0.08, mask: wipeMask(SB.x, SB.y, SB.w, SB.h, 0, 0.5) }),
+      text('sub-2', SUBS[1], SB.x + 20, SB.y, subStyle, { at: SUB_SWAP + SWAP_D }),
+      sweep('sub-sweep', SB, SUB_SWAP, C.blue),
+    ];
+
+    // =========================================================================================
+    // 7 · TICKER with running clock (a counter) and a measured, colour-coded crawl
+    // =========================================================================================
+    const TK = { y: 640, h: 40, clockW: 236, speed: 140 };
+    const TFONT = 20;
+    const ITEMS = [
+      ['HARBOR CITY', 'North Harbor Bridge closed in both directions until further notice'],
+      ['WEATHER', 'Gale warning for the northern coast through Thursday morning'],
+      ['MARKETS', 'North 100 index up 1.8% in early trading as energy stocks rally'],
+      ['TRANSIT', 'Ferries suspended; rail services running every 20 minutes'],
+      ['SPORTS', 'Harbor FC advance to the cup final after penalties'],
+    ];
+    const tLocal0 = 0, tDur = DUR - T.ticker - tLocal0, travel = TK.speed * tDur;
+    const crawl = [];
+    let cx = TK.clockW + 34;
+    const mover = (spec, x) => ({ ...spec, at: tLocal0,
+      keyframes: [{ at: 0, to: { x: x - travel }, duration: tDur, ease: 'none' }] });
+    const tickMask = () => ({ type: 'shape', shape: 'rect', width: W - TK.clockW - 8, height: TK.h, anchorX: 0,
+      initial: { x: TK.clockW + 8, y: TK.h / 2, fillColor: '#ffffff' } });
+    ITEMS.forEach(([cat, body], i) => {
+      crawl.push(mover(text('tick-cat' + i, cat, cx, TK.h / 2 + 1, { fontSize: TFONT, fontWeight: '800', fill: C.red, letterSpacing: 0 }, { mask: tickMask() }), cx));
+      cx += measure(cat, 800, TFONT) + 12;
+      crawl.push(mover(text('tick-body' + i, body, cx, TK.h / 2 + 1, { fontSize: TFONT, fontWeight: '600', fill: C.navy }, { mask: tickMask() }), cx));
+      cx += measure(body, 600, TFONT) + 26;
+      crawl.push(mover(rect('tick-sep' + i, cx + 4, TK.h / 2, 8, 8, C.blue, { anchorX: 0, mask: tickMask() }), cx + 4));
+      cx += 8 + 30;
+    });
+    const CLOCK0 = 30;   // seconds shown = CLOCK0 + floor(global time)
+    const clockKeys = [];
+    for (let s = Math.ceil(T.ticker); s < DUR; s++) clockKeys.push({ at: +(s - T.ticker).toFixed(3), set: { value: CLOCK0 + s } });
+    const ticker = {
+      type: 'composition', name: 'ticker', width: W, height: TK.h, at: T.ticker, duration: DUR - T.ticker,
+      initial: { x: 0, y: H + 4, alpha: 0 },
+      keyframes: [{ at: 0, to: { y: TK.y, alpha: 1 }, duration: 0.5, ease: OUT }],
+      sequences: [
+        rect('tick-bar', W / 2, TK.h / 2, W, TK.h, C.paper),
+        rect('tick-topline', W / 2, 1.5, W, 3, C.red),
+        ...crawl,
+        rect('clock-box', 0, TK.h / 2, TK.clockW, TK.h, C.navy2, { anchorX: 0 }),
+        rect('clock-notch', TK.clockW, TK.h / 2, 8, TK.h, C.red, { anchorX: 0 }),
+        text('clock', '18:42:{value}', 150, TK.h / 2 + 1, { fontFamily: MONO, fontSize: 24, fontWeight: '700' }, {
+          initial: { anchorX: 0.5, value: CLOCK0 + Math.floor(T.ticker) }, keyframes: clockKeys }),
+      ],
+    };
+
+    // =========================================================================================
+    // 8 · LIVE badge (top right) with a pulsing dot
+    // =========================================================================================
+    const LV = { x: 930, y: 54, locW: 174, pillW: 116, h: 36 };
+    const liveDur = DUR - T.live;
+    const live = {
+      type: 'composition', name: 'live', width: LV.locW + LV.pillW, height: LV.h, at: T.live, duration: liveDur,
+      initial: { x: LV.x + 40, y: LV.y, alpha: 0 },
+      keyframes: [{ at: 0, to: { x: LV.x, alpha: 1 }, duration: 0.45, ease: OUT }],
+      sequences: [
+        rect('loc-box', 0, LV.h / 2, LV.locW, LV.h, C.navy2, { anchorX: 0, initial: { alpha: 0.92 } }),
+        text('loc-label', 'HARBOR CITY', LV.locW / 2, LV.h / 2 + 1, { fontSize: 17, fontWeight: '700', letterSpacing: 1.5 }, { initial: { anchorX: 0.5 } }),
+        rect('live-pill', LV.locW, LV.h / 2, LV.pillW, LV.h, C.red, { anchorX: 0 }),
+        { type: 'shape', shape: 'circle', name: 'live-ring', radius: 6,
+          initial: { x: LV.locW + 22, y: LV.h / 2, strokeColor: C.white, strokeWidth: 2, strokeAlpha: 0 },
+          keyframes: [{ at: 0.5, from: { radius: 6, strokeAlpha: 0.9 }, to: { radius: 15, strokeAlpha: 0 }, duration: 1, ease: 'power1.out', repeat: Math.floor(liveDur - 1.5) }] },
+        { type: 'shape', shape: 'circle', name: 'live-dot', radius: 6,
+          initial: { x: LV.locW + 22, y: LV.h / 2, fillColor: C.white },
+          keyframes: [{ at: 0.5, to: { alpha: 0.3 }, duration: 0.5, ease: 'sine.inOut', repeat: Math.floor((liveDur - 0.5) / 0.5) - 1, yoyo: true }] },
+        text('live-label', 'LIVE', LV.locW + 38, LV.h / 2 + 1, { fontSize: 21, fontWeight: '800', letterSpacing: 2 }),
+      ],
+    };
+
+    // =========================================================================================
+    // 9 · SOUND
+    // =========================================================================================
+    const audio = [
+      { type: 'audio', asset: 'bgm', loop: true, volume: 0, duration: DUR,
+        keyframes: [{ at: 0, to: { volume: 0.9 }, duration: 0.4 }, { at: -1.2, from: { volume: 0.9 }, to: { volume: 0 }, duration: 1.2 }] },
+      sfx('swoosh', 0.05, 0.55, 0.7), sfx('pop', T.logo, 0.15, 0.6), sfx('swoosh', T.wipe, 0.55, 0.6),
+      sfx('chime', T.breaking, 0.6, 0.7), sfx('swoosh', T.morph, 0.55, 0.5), sfx('click', T.lt, 0.1, 0.6),
+      sfx('swoosh', T.swap, 0.55, 0.45),
+    ];
+
+    // z-order = array order: the dim sits over the program only; the band (→ tag) sits above the headline bar it hands off to
+    const [dim, ...breakingTop] = breaking;
+    const sequences = [stinger, program, ...slabs, tagline, dim, ticker, ...lower, ...breakingTop, live, logo, flash, ...audio];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DUR, frameRate: FPS,
+        background: C.ink,
+        assets: [
+          { name: 'bgm', src: '../_assets/bgm.mp3' },
+          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
+          { name: 'pop', src: '../_assets/sfx-pop.mp3' },
+          { name: 'chime', src: '../_assets/sfx-chime.mp3' },
+          { name: 'click', src: '../_assets/sfx-click.mp3' },
+        ],
+        composition: { sequences, transitions: [
+          { kind: 'wipe', from: 'stinger', to: 'program', at: T.wipe, duration: T.wipeD, direction: 'right', ease: INOUT, smoothing: 0.01 },
+        ] },
+      });
+      // opens at 0:00; add ?poster to the URL to park on the poster frame
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

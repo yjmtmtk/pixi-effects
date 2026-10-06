@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>typewriter-terminal — pixi-effects gallery</title>
+  <style>
+    body { background: #0d1220; margin: 0; padding: 16px; display: flex; justify-content: center; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+  </style>
+  <script type="application/json" id="piece-meta">{
+    "title": "Typewriter Terminal",
+    "subtitle": "A dev-tool launch film typed out in a CRT terminal; the window steps back in depth for the title card",
+    "tags": ["typewriter", "terminal", "2.5D", "mask", "counter", "sfx"],
+    "width": 1280, "height": 720, "duration": 12, "posterFrame": 345, "model": "fable"
+  }</script>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    // ───────────────────────── constants ─────────────────────────
+    const W = 1280, H = 720, FPS = 30, DURATION = 12;
+    const POSTER_FRAME = 345;
+    const snap = t => Math.round(t * FPS) / FPS;
+    let seed = 11;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+    // palette: one dark neutral, one text white, one dim grey, green (prompt / done), cyan (accent / brand)
+    const PAGE = '#070a0f', BODY = '#0e141b', BAR = '#171f29', BORDER = '#283241', TRACK = '#1f2a37';
+    const TEXT = '#e6edf3', DIM = '#7d8590', GREEN = '#3fb950', CYAN = '#5ac8fa';
+
+    // terminal geometry (inside its own composition, padded so the shadow is not clipped)
+    const WIN_W = 1000, WIN_H = 548, TITLE_H = 40, PAD = 64;
+    const CW = WIN_W + 2 * PAD, CH = WIN_H + 2 * PAD;
+    const FS = 23, ROW = 35, TX = PAD + 24;
+    const rowY = r => PAD + TITLE_H + 22 + r * ROW + ROW / 2;
+    const MONO = "'SF Mono', SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace";
+    const SANS = "system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif";
+
+    // measure with the same font string the renderer uses (canvas 2D === PixiJS text layout)
+    const mctx = document.createElement('canvas').getContext('2d');
+    const measure = (str, font) => { mctx.font = font; return mctx.measureText(str).width; };
+    const ADV = measure('M', `400 ${FS}px ${MONO}`);          // monospace advance per column
+    const colX = c => TX + c * ADV;
+
+    const mono = (fill, glow = false) => ({
+      fontFamily: MONO, fontSize: FS, fontWeight: '400', fill,
+      ...(glow ? { dropShadow: { color: fill, blur: 5, distance: 0, alpha: 0.55 }, padding: 10 } : {}),
+    });
+
+    // ───────────────────────── terminal content ─────────────────────────
+    const term = [];        // children of the terminal composition
+    const audio = [];       // root-level one-shots + music
+    const cursorKeys = [];  // keyframes of the block cursor (layer at 0 → composition time)
+    const T = {};           // the schedule, derived as we go (printed to window.__T for checking)
+
+    const sfx = (asset, at, volume) => audio.push({ type: 'audio', name: `${asset}@${at.toFixed(2)}`, asset, at, volume });
+
+    function printAt(t, row, col, text, fill, { glow = false, slide = false, name } = {}) {
+      const x = colX(col);
+      term.push({
+        type: 'text', name: name ?? `r${row}c${col}`, text, at: t, style: mono(fill, glow),
+        initial: { x, y: rowY(row), anchorX: 0, anchorY: 0.5 },
+        keyframes: slide
+          ? [{ at: 0, from: { alpha: 0, x: x - 12 }, to: { alpha: 1, x }, duration: 0.22, ease: 'power3.out' }]
+          : [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 2 / FPS }],
+      });
+    }
+
+    // one text layer per typed character, placed at its column; the cursor jumps with every keystroke
+    function typeTokens(t0, row, tokens) {
+      let t = t0, col = 2;
+      for (const [str, fill] of tokens) for (const ch of str) {
+        t = snap(t + (ch === ' ' ? 0.1 : 0.045 + rnd() * 0.045));
+        if (ch !== ' ') term.push({
+          type: 'text', name: `r${row}c${col}`, text: ch, at: t, style: mono(fill, true),
+          initial: { x: colX(col), y: rowY(row), anchorX: 0, anchorY: 0.5 },
+        });
+        sfx('click', t, 0.45 + rnd() * 0.3);
+        col++;
+        cursorKeys.push({ at: t, set: { x: colX(col) } });
+      }
+      return t;
+    }
+
+    // cursor idle: off/on every half second from `from`, forced on at `to` (omit `to` to run out the clip)
+    function blink(keys, from, to, period = 0.5, end = DURATION - 1 / FPS) {
+      let on = false;
+      for (let t = snap(from + period); t < (to ?? end); t = snap(t + period), on = !on) keys.push({ at: t, set: { alpha: on ? 1 : 0 } });
+      if (to != null) keys.push({ at: to, set: { alpha: 1 } });
+    }
+
+    const BAR_COL = 28, BAR_W = 300, BAR_H = 10;
+    function progress(t, row, label, dur) {
+      printAt(t, row, 0, label, DIM);
+      const x = colX(BAR_COL), y = rowY(row);
+      term.push({ type: 'shape', shape: 'rect', name: `track-r${row}`, width: BAR_W, height: BAR_H, cornerRadius: BAR_H / 2, anchorX: 0, at: t,
+        initial: { x, y, fillColor: TRACK } });
+      term.push({ type: 'shape', shape: 'rect', name: `fill-r${row}`, width: 0, height: BAR_H, cornerRadius: BAR_H / 2, anchorX: 0, at: t, colorSpace: 'oklab',
+        initial: { x, y, fillColor: CYAN },
+        keyframes: [
+          { at: 2 / FPS, to: { width: BAR_W }, duration: dur, ease: 'power2.inOut' },
+          { at: 2 / FPS + dur, to: { fillColor: GREEN }, duration: 0.2 },
+        ] });
+      term.push({ type: 'text', name: `pct-r${row}`, text: '{value}%', at: t, style: mono(DIM), colorSpace: 'oklab',
+        initial: { x: x + BAR_W + 16, y, anchorX: 0, anchorY: 0.5, value: 0 },
+        keyframes: [
+          { at: 2 / FPS, to: { value: 100 }, duration: dur, ease: 'power2.inOut' },
+          { at: 2 / FPS + dur, to: { fill: GREEN }, duration: 0.2 },
+        ] });
+      return snap(t + 2 / FPS + dur);
+    }
+
+    // ── the session ──
+    T.prompt1 = 0.4;
+    printAt(T.prompt1, 0, 0, '$', GREEN, { glow: true });
+    cursorKeys.push({ at: T.prompt1, set: { alpha: 1, x: colX(2), y: rowY(0) } });
+    T.type1 = snap(T.prompt1 + 0.5);
+    blink(cursorKeys, T.prompt1, T.type1);
+    let t = typeTokens(T.type1, 0, [['npx ', TEXT], ['create-nova ', CYAN], ['app', TEXT]]);
+    T.enter1 = snap(t + 0.22);
+    sfx('click', T.enter1, 0.7);
+    cursorKeys.push({ at: T.enter1, set: { alpha: 0 } });
+
+    T.info = snap(T.enter1 + 0.12);
+    printAt(T.info, 1, 0, '◆  nova v2.0  ·  creating app in ./app', DIM);
+    T.p1 = snap(T.info + 0.25);
+    T.p1end = progress(T.p1, 2, '▸  scaffolding files', 0.45);
+    T.p2 = snap(T.p1end + 0.15);
+    T.p2end = progress(T.p2, 3, '▸  installing dependencies', 0.8);
+
+    T.checks = snap(T.p2end + 0.25);
+    ['typescript', 'tailwind', 'edge runtime', 'git initialised'].forEach((s, i) => {
+      const tt = snap(T.checks + i * 0.15);
+      printAt(tt, 4 + i, 0, '✓', GREEN, { glow: true, slide: true, name: `check-${i}` });
+      printAt(tt, 4 + i, 2, s, TEXT, { slide: true, name: `check-${i}-label` });
+      sfx('pop', tt, 0.6);
+    });
+
+    T.prompt2 = snap(T.checks + 3 * 0.15 + 0.4);
+    printAt(T.prompt2, 9, 0, '$', GREEN, { glow: true });
+    cursorKeys.push({ at: T.prompt2, set: { alpha: 1, x: colX(2), y: rowY(9) } });
+    T.type2 = snap(T.prompt2 + 0.8);
+    blink(cursorKeys, T.prompt2, T.type2, 0.4);
+    t = typeTokens(T.type2, 9, [['nova ', TEXT], ['dev', CYAN]]);
+    T.enter2 = snap(t + 0.22);
+    sfx('click', T.enter2, 0.7);
+    cursorKeys.push({ at: T.enter2, set: { alpha: 0 } });
+
+    T.ready = snap(T.enter2 + 0.15);
+    printAt(T.ready, 10, 0, '→', DIM);
+    term.push({ type: 'text', name: 'ready-ms', text: 'ready in {value} ms', at: T.ready, style: mono(TEXT),
+      initial: { x: colX(3), y: rowY(10), anchorX: 0, anchorY: 0.5, value: 0 },
+      keyframes: [{ at: 0, to: { value: 212 }, duration: 0.45, ease: 'power3.out' }] });
+
+    T.local = snap(T.ready + 0.5);
+    printAt(T.local, 11, 0, '→', DIM);
+    printAt(T.local, 11, 3, 'local', DIM);
+    const URL = 'https://localhost:3000', URL_COL = 11;
+    printAt(T.local, 11, URL_COL, URL, CYAN, { glow: true, name: 'url' });
+    term.push({ type: 'shape', shape: 'rect', name: 'url-underline', width: 0, height: 1.5, anchorX: 0, at: T.local,
+      initial: { x: colX(URL_COL), y: rowY(11) + FS * 0.6, fillColor: CYAN, alpha: 0.75 },
+      keyframes: [{ at: 0, to: { width: URL.length * ADV }, duration: 0.45, ease: 'power3.out' }] });
+    sfx('chime', T.local, 0.75);
+
+    T.idle = snap(T.local + 0.1);
+    cursorKeys.push({ at: T.idle, set: { alpha: 1, x: colX(0), y: rowY(12) } });
+    blink(cursorKeys, T.idle, null);          // keeps blinking inside the receding window until the end
+
+    cursorKeys.sort((a, b) => a.at - b.at);
+    term.push({ type: 'shape', shape: 'rect', name: 'cursor', width: ADV, height: FS * 1.15, anchorX: 0, anchorY: 0.5,
+      initial: { x: colX(2), y: rowY(0), fillColor: TEXT, alpha: 0 }, keyframes: cursorKeys });
+
+    // ───────────────────────── window chrome (around the content) ─────────────────────────
+    function scanlines(w, h) {
+      const c = Object.assign(document.createElement('canvas'), { width: w, height: h });
+      const g = c.getContext('2d');
+      g.fillStyle = 'rgba(0,0,0,0.20)';
+      for (let y = 1; y < h; y += 3) g.fillRect(0, y, w, 1);
+      return c.toDataURL();
+    }
+    const wx = PAD, wy = PAD, wcx = CW / 2, wcy = CH / 2;
+    const chrome = [
+      // soft shadow: a radial ink blob slightly larger than the window, offset downward
+      { type: 'shape', shape: 'rect', name: 'shadow', width: WIN_W + 110, height: WIN_H + 110, initial: { x: wcx, y: wcy + 26 },
+        fillGradient: { type: 'radial', radius: 0.5, stops: [[0, 'rgba(0,0,0,0.85)'], [0.7, 'rgba(0,0,0,0.5)'], [1, 'rgba(0,0,0,0)']] } },
+      // window: rounded body with a hairline border; title bar is a rounded rect whose lower corners a square patch hides
+      { type: 'shape', shape: 'rect', name: 'window', width: WIN_W, height: WIN_H, cornerRadius: 12,
+        initial: { x: wcx, y: wcy, fillColor: BODY, strokeColor: BORDER, strokeWidth: 1 } },
+      { type: 'shape', shape: 'rect', name: 'titlebar', width: WIN_W - 2, height: TITLE_H + 12, cornerRadius: 12, anchorY: 0,
+        initial: { x: wcx, y: wy + 1, fillColor: BAR } },
+      { type: 'shape', shape: 'rect', name: 'titlebar-patch', width: WIN_W - 2, height: 12, anchorY: 0,
+        initial: { x: wcx, y: wy + TITLE_H, fillColor: BODY } },
+      { type: 'shape', shape: 'rect', name: 'titlebar-rule', width: WIN_W - 2, height: 1, anchorY: 0,
+        initial: { x: wcx, y: wy + TITLE_H, fillColor: BORDER } },
+      ...['#ff5f57', '#febc2e', '#28c840'].map((c, i) => ({ type: 'shape', shape: 'circle', name: `light-${i}`, radius: 6,
+        initial: { x: wx + 22 + i * 20, y: wy + TITLE_H / 2, fillColor: c } })),
+      { type: 'text', name: 'window-title', text: 'nova — zsh — 80×24', style: { fontFamily: SANS, fontSize: 13, fill: DIM },
+        initial: { x: wcx, y: wy + TITLE_H / 2, anchorX: 0.5, anchorY: 0.5 } },
+    ];
+    const screenFx = [
+      { type: 'image', asset: 'scanlines', name: 'scanlines', initial: { x: wx, y: wy + TITLE_H } },
+      { type: 'shape', shape: 'rect', name: 'crt-vignette', width: WIN_W, height: WIN_H - TITLE_H, anchorY: 0, initial: { x: wcx, y: wy + TITLE_H },
+        fillGradient: { type: 'radial', radius: 0.78, stops: [[0.5, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.38)']] } },
+    ];
+
+    // ───────────────────────── the 2.5D window ─────────────────────────
+    T.zoom = snap(T.idle + 0.9);              // the terminal steps back and turns toward the title
+    const terminal = {
+      type: 'composition', name: 'terminal', threeD: true, width: CW, height: CH,
+      initial: { x: W / 2, y: H / 2, pivotX: CW / 2, pivotY: CH / 2, z: -260, alpha: 0 },
+      keyframes: [
+        { at: 0, to: { z: 0, alpha: 1 }, duration: 0.6, ease: 'expo.out' },
+        { at: T.zoom, to: { z: -800, x: 188, rotationY: 18 }, duration: 1.0, ease: 'power3.inOut' },
+        { at: T.zoom + 1.1, to: { y: H / 2 - 10 }, duration: 0.8, ease: 'sine.inOut', repeat: 1, yoyo: true },
+      ],
+      sequences: [...chrome, ...term, ...screenFx],
+    };
+    sfx('swoosh', snap(T.zoom - 0.05), 0.9);
+
+    // ───────────────────────── title card (plain 2D, on top) ─────────────────────────
+    const TITLE_X = 730;
+    const NOVA_FS = 136, NOVA_Y = 294;
+    const TAG = 'ship in seconds.', TAG_FS = 36, TAG_Y = 408;
+    const CTA_Y = 470;
+    T.title = snap(T.zoom + 0.55);
+    T.rule = snap(T.title + 0.3);
+    T.tag = snap(T.title + 0.5);
+    const TAG_STEP = 0.05;
+    T.tagEnd = snap(T.tag + TAG.length * TAG_STEP);
+    T.cta = snap(T.tagEnd + 0.15);
+
+    const tagFont = `400 ${TAG_FS}px ${SANS}`;
+    const prefix = Array.from({ length: TAG.length + 1 }, (_, k) => measure(TAG.slice(0, k), tagFont));
+    const tagKeys = [], tagCursorKeys = [];
+    for (let k = 1; k <= TAG.length; k++) {
+      const at = snap(k * TAG_STEP);
+      tagKeys.push({ at, set: { width: prefix[k] + 2 } });
+      tagCursorKeys.push({ at, set: { x: TITLE_X + prefix[k] + 3 } });
+      if (TAG[k - 1] !== ' ') sfx('click', snap(T.tag + at), 0.3);
+    }
+    blink(tagCursorKeys, TAG.length * TAG_STEP + 0.3, null, 0.5, DURATION - T.tag - 1 / FPS);
+
+    const title = [
+      { type: 'text', name: 'nova', text: 'nova', at: T.title,
+        style: { fontFamily: SANS, fontSize: NOVA_FS, fontWeight: '800', fill: TEXT, letterSpacing: -5 },
+        initial: { x: TITLE_X - 6, y: NOVA_Y, anchorX: 0, anchorY: 0.5 },
+        keyframes: [{ at: 0, from: { alpha: 0, y: NOVA_Y + 34 }, to: { alpha: 1, y: NOVA_Y }, duration: 0.7, ease: 'expo.out' }] },
+      { type: 'shape', shape: 'rect', name: 'nova-rule', width: 0, height: 4, anchorX: 0, at: T.rule,
+        initial: { x: TITLE_X, y: NOVA_Y + NOVA_FS * 0.5, fillColor: CYAN },
+        keyframes: [{ at: 0, to: { width: 72 }, duration: 0.5, ease: 'power3.out' }] },
+      // the tagline is typed by a stepped mask: its width jumps to the measured prefix width at every character
+      { type: 'text', name: 'tagline', text: TAG, at: T.tag,
+        style: { fontFamily: SANS, fontSize: TAG_FS, fontWeight: '400', fill: TEXT },
+        initial: { x: TITLE_X, y: TAG_Y, anchorX: 0, anchorY: 0.5 },
+        mask: { type: 'shape', shape: 'rect', width: 0, height: TAG_FS * 1.5, anchorX: 0, anchorY: 0.5,
+          initial: { x: TITLE_X - 2, y: TAG_Y, fillColor: '#ffffff' }, keyframes: tagKeys } },
+      { type: 'shape', shape: 'rect', name: 'tag-cursor', width: 17, height: TAG_FS * 1.15, anchorX: 0, anchorY: 0.5, at: T.tag,
+        initial: { x: TITLE_X + 3, y: TAG_Y, fillColor: CYAN }, keyframes: tagCursorKeys },
+      { type: 'text', name: 'cta', text: '$ npx create-nova app', at: T.cta,
+        style: { fontFamily: MONO, fontSize: 20, fontWeight: '400', fill: DIM },
+        initial: { x: TITLE_X, y: CTA_Y, anchorX: 0, anchorY: 0.5 },
+        keyframes: [{ at: 0, from: { alpha: 0, y: CTA_Y + 10 }, to: { alpha: 1, y: CTA_Y }, duration: 0.4, ease: 'power3.out' }] },
+    ];
+    sfx('pop', T.title, 0.6);
+    sfx('pop', T.cta, 0.45);
+
+    // ───────────────────────── root ─────────────────────────
+    const sequences = [
+      { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: PAGE } },
+      { type: 'shape', shape: 'rect', name: 'ambient-glow', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
+        fillGradient: { type: 'radial', radius: 0.62, stops: [[0, 'rgba(90,200,250,0.10)'], [0.55, 'rgba(90,200,250,0.03)'], [1, 'rgba(90,200,250,0)']] } },
+      terminal,
+      ...title,
+      { type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0,
+        keyframes: [{ at: 0, to: { volume: 0.45 }, duration: 1.5 }, { at: -2.5, to: { volume: 0 }, duration: 2.5 }] },
+      ...audio,
+    ];
+    window.__T = T;
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        background: PAGE,
+        assets: [
+          { name: 'scanlines', src: scanlines(WIN_W, WIN_H - TITLE_H) },
+          { name: 'bgm', src: '../_assets/bgm.mp3' },
+          { name: 'click', src: '../_assets/sfx-click.mp3' },
+          { name: 'pop', src: '../_assets/sfx-pop.mp3' },
+          { name: 'chime', src: '../_assets/sfx-chime.mp3' },
+          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
+        ],
+        composition: { sequences },
+      });
+      window.__ready = true;
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

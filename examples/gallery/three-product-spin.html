@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ORRI ONE — product turntable</title>
+  <style>
+    body { background: #111214; margin: 0; padding: 16px; display: flex; justify-content: center; }
+    canvas { width: min(960px, 100%); border-radius: 6px; display: block; }
+  </style>
+  <script type="application/json" id="piece-meta">{ "title": "ORRI ONE", "subtitle": "A glossy three.js product turntable with spec callouts and a brand lock-up, studio white to graphite", "tags": ["three.js", "product", "PBR", "callouts", "lock-up"], "width": 1280, "height": 720, "duration": 12, "posterFrame": 246, "model": "opus" }</script>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+    import { registerThree, three } from 'pixi-effects/three';
+    import * as THREE from 'three';
+
+    registerThree();
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 12;
+    const POSTER_FRAME = 246;
+
+    // ───────────── palette & type ─────────────
+    const C = {
+      studio: '#f7f7f5', studioEdge: '#d8d9dc',
+      graphite: '#3a3d43', graphiteEdge: '#121316',
+      ink: '#1b1d21', mute: '#7d8088', accent: '#ff5a1f', accentInk: '#e04e17',
+      paper: '#f4f2ee', floorLight: '#d9dadd', floorDark: '#131416',
+    };
+    const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+    const SANS = 'system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif';
+    const SERIF = 'Georgia, "Times New Roman", serif';
+    const IN = 'expo.out', OUT = 'power2.in', MOVE = 'power3.inOut';
+
+    // ───────────── timing (composition seconds) ─────────────
+    const T = {
+      revealEnd: 3.2,                 // camera pull-back from the cap to the full product
+      ledOn: 1.0,
+      callouts: [3.3, 4.4, 5.5, 6.6],
+      calloutsOut: 8.5,
+      toGraphite: 8.8,                // background + floor go dark, camera trucks right
+      lockup: 9.8,
+    };
+
+    // ───────────── camera poses (rig = a group at the look-at point; camera = its child on +z) ─────────────
+    const FOV = 30;
+    const POSE = {
+      open:   { x: 0,    y: 2.05, rx: -0.30, z: 5.0 },
+      spec:   { x: 0,    y: 1.35, rx: -0.16, z: 9.2 },
+      lockup: { x: 1.55, y: 1.30, rx: -0.13, z: 9.8 },
+    };
+    // project a world point to canvas px for a pose (used to pin the 2D callouts onto the product)
+    function project([px, py, pz], pose) {
+      const rig = new THREE.Group(); rig.position.set(pose.x, pose.y, 0); rig.rotation.x = pose.rx;
+      const cam = new THREE.PerspectiveCamera(FOV, W / H, 0.1, 100); cam.position.z = pose.z; rig.add(cam);
+      rig.updateMatrixWorld(true);
+      const v = new THREE.Vector3(px, py, pz).project(cam);
+      return [Math.round((v.x + 1) / 2 * W), Math.round((1 - v.y) / 2 * H)];
+    }
+
+    // ───────────── procedural textures ─────────────
+    function canvasTex(w, h, draw, srgb = true) {
+      const c = Object.assign(document.createElement('canvas'), { width: w, height: h });
+      draw(c.getContext('2d'), w, h);
+      const t = new THREE.CanvasTexture(c);
+      if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = 8;
+      return t;
+    }
+    const grilleTex = () => canvasTex(2048, 512, (g, w, h) => {
+      g.fillStyle = '#383a3f'; g.fillRect(0, 0, w, h);
+      const step = 16;
+      for (let row = 0, y = step / 2; y < h; row++, y += step * 0.866) {
+        for (let x = (row % 2) * step / 2; x < w + step; x += step) {
+          g.fillStyle = '#121316'; g.beginPath(); g.arc(x, y, 4.2, 0, Math.PI * 2); g.fill();
+        }
+      }
+    });
+    const discTex = () => canvasTex(1024, 1024, (g, w) => {
+      const c = w / 2;
+      g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, w);
+      g.strokeStyle = 'rgba(0,0,0,0.07)'; g.lineWidth = 2;
+      for (const r of [0.30, 0.55, 0.80, 0.985]) { g.beginPath(); g.arc(c, c, r * c, 0, Math.PI * 2); g.stroke(); }
+      for (let i = 0; i < 120; i++) {
+        const a = i / 120 * Math.PI * 2, long = i % 10 === 0;
+        g.strokeStyle = long ? 'rgba(0,0,0,0.30)' : 'rgba(0,0,0,0.14)'; g.lineWidth = long ? 3 : 2;
+        g.beginPath(); g.moveTo(c + Math.cos(a) * c * (long ? 0.88 : 0.91), c + Math.sin(a) * c * (long ? 0.88 : 0.91));
+        g.lineTo(c + Math.cos(a) * c * 0.955, c + Math.sin(a) * c * 0.955); g.stroke();
+      }
+      g.strokeStyle = C.accent; g.lineWidth = 9;      // one accent tick: makes the turn readable
+      g.beginPath(); g.moveTo(c, c + c * 0.84); g.lineTo(c, c + c * 0.955); g.stroke();
+    });
+    const shadowTex = () => canvasTex(256, 256, (g, w) => {
+      const gr = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2);
+      gr.addColorStop(0, 'rgba(0,0,0,0.62)'); gr.addColorStop(0.42, 'rgba(0,0,0,0.30)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, w, w);
+    });
+
+    // environment: a gradient dome + HDR softboxes (RoomEnvironment-like; three/addons is not in the importmap)
+    function studioEnvironment(renderer) {
+      const env = new THREE.Scene();
+      const dome = new THREE.SphereGeometry(30, 48, 24);
+      const col = [], pos = dome.attributes.position;
+      const top = new THREE.Color('#f2f2f0'), bottom = new THREE.Color('#1a1b1e'), c = new THREE.Color();
+      for (let i = 0; i < pos.count; i++) {
+        const k = THREE.MathUtils.smoothstep(pos.getY(i) / 30, -0.35, 0.55);
+        c.copy(bottom).lerp(top, k); col.push(c.r * 0.9, c.g * 0.9, c.b * 0.9);
+      }
+      dome.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+      env.add(new THREE.Mesh(dome, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
+      const box = (w, h, x, y, z, k) => {
+        const m = new THREE.MeshBasicMaterial({ color: new THREE.Color(k, k, k), side: THREE.DoubleSide });
+        const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m); p.position.set(x, y, z); p.lookAt(0, 1.2, 0); env.add(p);
+      };
+      box(7, 5, -8, 7, 7, 7);        // key, high left front
+      box(1.4, 9, 9, 3, 2, 9);       // tall strip, right
+      box(1.2, 9, -7, 3, -7, 6);     // rim strip, back left
+      box(6, 6, 0, 13, 0, 3);        // overhead
+      box(3, 1.5, 4, 0.8, 9, 2.5);   // low front fill
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      const tex = pmrem.fromScene(env, 0.035).texture;
+      pmrem.dispose();
+      return tex;
+    }
+
+    // reflection copy: same meshes mirrored below the floor, alpha fading with depth
+    const FADE_DEPTH = 0.62;
+    function mirrorMaterial(mat) {
+      const m = mat.clone();
+      m.transparent = true;
+      m.onBeforeCompile = (s) => {
+        s.vertexShader = 'varying float vMirY;\n' + s.vertexShader.replace('#include <begin_vertex>',
+          '#include <begin_vertex>\n  vMirY = (modelMatrix * vec4(transformed, 1.0)).y;');
+        s.fragmentShader = 'varying float vMirY;\n' + s.fragmentShader.replace('#include <dithering_fragment>',
+          `#include <dithering_fragment>\n  gl_FragColor.a *= 0.7 * pow(clamp(1.0 + vMirY / ${FADE_DEPTH.toFixed(2)}, 0.0, 1.0), 1.7);`);
+      };
+      m.customProgramCacheKey = () => 'mirror-fade';
+      return m;
+    }
+
+    // ───────────── the product (world units; floor at y = 0) ─────────────
+    const BODY_R = 0.62;
+    const Y = { ring: 2.37, core: 1.72, sound: 0.80, base: 0.17 };
+    function buildProduct() {
+      const mats = {
+        body: new THREE.MeshPhysicalMaterial({ color: '#f1f0ec', roughness: 0.34, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.06 }),
+        alu: new THREE.MeshStandardMaterial({ color: '#c8cbd0', metalness: 1, roughness: 0.26 }),
+        grille: new THREE.MeshStandardMaterial({ map: grilleTex(), roughness: 0.82, metalness: 0 }),
+        rubber: new THREE.MeshStandardMaterial({ color: '#25272b', roughness: 0.55, metalness: 0 }),
+        ring: new THREE.MeshStandardMaterial({ color: '#202124', emissive: C.accent, emissiveIntensity: 0, roughness: 0.3 }),
+      };
+      const g = new THREE.Group();
+      const add = (geo, mat, setup) => { const m = new THREE.Mesh(geo, mat); setup?.(m); g.add(m); return m; };
+      const profile = [[0, 0], [0.50, 0], [0.57, 0.012], [0.605, 0.04], [0.62, 0.09], [0.62, 2.20], [0.612, 2.28], [0.59, 2.33], [0.555, 2.36], [0, 2.36]]
+        .map(([x, y]) => new THREE.Vector2(x, y));
+      add(new THREE.LatheGeometry(profile, 128), mats.body);
+      add(new THREE.CylinderGeometry(0.627, 0.627, 0.95, 160, 1, true), mats.grille, m => { m.position.y = Y.sound; });
+      for (const y of [Y.sound - 0.485, Y.sound + 0.485])                        // thin aluminium trims at the grille edges
+        add(new THREE.TorusGeometry(0.628, 0.008, 8, 160), mats.alu, m => { m.position.y = y; m.rotation.x = Math.PI / 2; });
+      add(new THREE.TorusGeometry(0.565, 0.026, 8, 64), mats.rubber, m => { m.position.y = 0.03; m.rotation.x = Math.PI / 2; });
+      add(new THREE.TorusGeometry(0.566, 0.022, 16, 160), mats.ring, m => { m.position.y = Y.ring; m.rotation.x = Math.PI / 2; });
+      add(new THREE.CylinderGeometry(0.53, 0.55, 0.14, 128), mats.alu, m => { m.position.y = 2.43; });
+      add(new THREE.SphereGeometry(0.53, 96, 24, 0, Math.PI * 2, 0, Math.PI / 2), mats.alu, m => { m.position.y = 2.5; m.scale.y = 0.16; });
+      add(new THREE.TorusGeometry(0.3, 0.048, 24, 80, Math.PI), mats.rubber, m => { m.position.y = 2.53; });   // carry loop
+      add(new THREE.SphereGeometry(0.085, 32, 16), mats.alu, m => { m.position.set(0, Y.core + 0.02, BODY_R - 0.012); m.scale.z = 0.35; });  // button
+      add(new THREE.SphereGeometry(0.018, 16, 8), mats.ring, m => { m.position.set(0, Y.core + 0.15, BODY_R - 0.004); m.scale.z = 0.4; });  // status pip
+      return { group: g, mats };
+    }
+
+    // ───────────── the three.js layer ─────────────
+    const linear = (hex) => { const c = new THREE.Color(hex); return { r: c.r, g: c.g, b: c.b }; };
+    const floorDark = linear(C.floorDark);
+    const product3d = three({
+      type: 'three', name: 'product', width: W, height: H, resolution: 1.5,
+      initial: { x: W / 2, y: H / 2, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+      setup: (ctx) => {
+        const { scene, renderer } = ctx;
+        renderer.toneMapping = THREE.NeutralToneMapping;
+        renderer.toneMappingExposure = 1.12;
+        scene.environment = studioEnvironment(renderer);
+
+        const turntable = new THREE.Group(); turntable.rotation.y = 0.55; scene.add(turntable);
+        const { group, mats } = buildProduct();
+        turntable.add(group);
+
+        // reflection
+        const mirror = group.clone(true);
+        mirror.scale.y = -1;
+        const mirrored = new Map();
+        mirror.traverse(o => { if (o.isMesh) { if (!mirrored.has(o.material)) mirrored.set(o.material, mirrorMaterial(o.material)); o.material = mirrored.get(o.material); o.renderOrder = 1; } });
+        turntable.add(mirror);
+
+        // floor disc (glossy, translucent so the reflection reads through it)
+        const discMat = new THREE.MeshPhysicalMaterial({ color: C.floorLight, map: discTex(), roughness: 0.2, clearcoat: 1, clearcoatRoughness: 0.04,
+          transparent: true, opacity: 0.6 });
+        const disc = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.0, 0.07, 192), discMat);
+        disc.position.y = -0.035; disc.renderOrder = 2; turntable.add(disc);
+        const shadow = new THREE.Mesh(new THREE.PlaneGeometry(1.95, 1.95),
+          new THREE.MeshBasicMaterial({ map: shadowTex(), transparent: true, depthWrite: false, toneMapped: false }));
+        shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.003; shadow.renderOrder = 3; turntable.add(shadow);
+
+        // camera rig
+        const rig = new THREE.Group();
+        rig.position.set(POSE.open.x, POSE.open.y, 0); rig.rotation.x = POSE.open.rx;
+        const camera = new THREE.PerspectiveCamera(FOV, ctx.width / ctx.height, 0.1, 100);
+        camera.position.z = POSE.open.z;
+        rig.add(camera); scene.add(rig);
+
+        return { camera, objects: { camera, rig, turntable, ringMat: mats.ring, ringMatM: mirrored.get(mats.ring), discMat } };
+      },
+      keyframes: [
+        { at: 0, to: { alpha: 1 }, duration: 0.9, ease: 'power2.out' },
+        { at: 0, to: { 'three.turntable.rotation.y': 0.55 + Math.PI * 2 }, duration: DURATION, ease: 'none' },
+        // reveal: from a close look at the cap, pull back to the whole product
+        { at: 0, to: { 'three.camera.position.z': POSE.spec.z, 'three.rig.position.y': POSE.spec.y, 'three.rig.rotation.x': POSE.spec.rx }, duration: T.revealEnd, ease: MOVE },
+        { at: T.ledOn, to: { 'three.ringMat.emissiveIntensity': 1.25, 'three.ringMatM.emissiveIntensity': 1.25 }, duration: 0.9, ease: 'power2.out' },
+        // lock-up: truck right (product moves left), floor darkens with the background
+        { at: T.toGraphite, to: { 'three.rig.position.x': POSE.lockup.x, 'three.rig.position.y': POSE.lockup.y, 'three.rig.rotation.x': POSE.lockup.rx, 'three.camera.position.z': POSE.lockup.z }, duration: 1.6, ease: MOVE },
+        { at: T.toGraphite, to: { 'three.discMat.color.r': floorDark.r, 'three.discMat.color.g': floorDark.g, 'three.discMat.color.b': floorDark.b, 'three.discMat.envMapIntensity': 0.5, 'three.discMat.clearcoat': 0.1 }, duration: 1.1, ease: 'power2.inOut' },
+      ],
+    });
+
+    // ───────────── 2D helpers ─────────────
+    const rect = (name, x, y, w, h, fill, extra = {}) => ({ type: 'shape', shape: 'rect', name, width: w, height: h, ...extra, initial: { x, y, fillColor: fill, ...(extra.initial || {}) } });
+    const text = (name, str, style, initial, extra = {}) => ({ type: 'text', name, text: str, style, initial, ...extra });
+
+    // a text that rises out of (or drops from) a line: masked slide
+    function revealText(name, str, style, x, y, anchorX, anchorY, at, until, dir, box, extra = {}) {
+      const { initial: xInit = {}, keyframes: xKeys = [], exit = true, ...rest } = extra;
+      return text(name, str, style, { x, y: y + dir * box.h, anchorX, anchorY, ...xInit }, {
+        at, duration: until - at, ...rest,
+        mask: { type: 'shape', shape: 'rect', name: name + '-mask', width: box.w, height: box.h, initial: { x: box.cx, y: box.cy, fillColor: '#ffffff' } },
+        keyframes: [
+          { at: 0, to: { y }, duration: 0.7, ease: IN },
+          ...(exit ? [{ at: -0.3, to: { alpha: 0 }, duration: 0.3, ease: OUT }] : []),
+          ...xKeys,
+        ],
+      });
+    }
+
+    // ───────────── spec callouts ─────────────
+    const SPECS = [
+      { key: 'ring',  side: +1, y: Y.ring,  r: 0.566, eyebrow: '01 · HALO RING',    value: '16M-colour light' },
+      { key: 'core',  side: -1, y: Y.core,  r: BODY_R, eyebrow: '02 · THERMAL CORE', value: '24 h cold · 12 h hot' },
+      { key: 'sound', side: +1, y: Y.sound, r: 0.627, eyebrow: '03 · 360° SOUND',   value: '12 W omni driver' },
+      { key: 'base',  side: -1, y: Y.base,  r: BODY_R, eyebrow: '04 · BATTERY',      value: '{value} h playback', count: 30 },
+    ];
+    const COL_IN = 248, COL_OUT = 548;          // text column: inner edge / line end, measured from the canvas centre
+    const EYEBROW = { fontFamily: MONO, fontSize: 13, fontWeight: '600', letterSpacing: 2.5, fill: C.accentInk };
+    const VALUE = { fontFamily: SANS, fontSize: 27, fontWeight: '600', fill: C.ink, letterSpacing: -0.3 };
+
+    function callout(s, i) {
+      const at = T.callouts[i], until = T.calloutsOut + 0.35 + i * 0.06;   // texts fade with the line retraction
+      const surf = [s.side * s.r * 0.72, s.y, s.r * 0.69];             // a point on the front surface
+      const [dx, dy] = project(surf, POSE.spec);
+      const lineEnd = W / 2 + s.side * COL_OUT, textX = W / 2 + s.side * COL_IN;
+      const len = Math.abs(lineEnd - dx);
+      const ax = s.side > 0 ? 0 : 1;                                 // text aligned to the inner column edge
+      const name = `callout-${s.key}`;
+      const exitAt = T.calloutsOut + i * 0.06 - at;
+      const boxW = COL_OUT - COL_IN + 30, boxCx = W / 2 + s.side * (COL_IN + COL_OUT) / 2;
+      const layers = [
+        // leader line grows out of the dot, retracts into it
+        rect(`${name}-line`, dx, dy, 0, 1.5, C.ink, { anchorX: s.side > 0 ? 0 : 1, at, duration: until - at,
+          initial: { fillAlpha: 0.85 },
+          keyframes: [{ at: 0.1, to: { width: len }, duration: 0.6, ease: IN }, { at: exitAt, to: { width: 0 }, duration: 0.35, ease: OUT }] }),
+        { type: 'shape', shape: 'circle', name: `${name}-end`, radius: 3, at: at + 0.5, duration: until - at - 0.5,
+          initial: { x: lineEnd, y: dy, fillColor: C.ink, scale: 0 },
+          keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.3, ease: 'back.out(3)' }, { at: exitAt - 0.5, to: { scale: 0 }, duration: 0.2, ease: OUT }] },
+        // hotspot on the product: dot + a halo that breathes
+        { type: 'shape', shape: 'circle', name: `${name}-halo`, radius: 13, at, duration: until - at,
+          initial: { x: dx, y: dy, fillAlpha: 0, strokeColor: C.accent, strokeWidth: 1.5, strokeAlpha: 0.9, scale: 0 },
+          keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.45, ease: 'back.out(2.2)' },
+                      { at: 0.6, to: { scale: 1.35, strokeAlpha: 0.25 }, duration: 0.8, ease: 'sine.inOut', repeat: 3, yoyo: true },
+                      { at: exitAt, to: { scale: 0 }, duration: 0.3, ease: OUT }] },
+        { type: 'shape', shape: 'circle', name: `${name}-dot`, radius: 4.5, at, duration: until - at,
+          initial: { x: dx, y: dy, fillColor: C.accent, strokeColor: '#ffffff', strokeWidth: 1.5, scale: 0 },
+          keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.4, ease: 'back.out(3)' }, { at: exitAt, to: { scale: 0 }, duration: 0.3, ease: OUT }] },
+        revealText(`${name}-eyebrow`, s.eyebrow, EYEBROW, textX, dy - 10, ax, 1, at + 0.3, until, +1,
+          { w: boxW, h: 24, cx: boxCx, cy: dy - 10 - 12 }),
+        revealText(`${name}-value`, s.value, VALUE, textX, dy + 9, ax, 0, at + 0.38, until, -1,
+          { w: boxW, h: 40, cx: boxCx, cy: dy + 9 + 20 },
+          s.count ? { initial: { value: 0 }, format: { decimals: 0 }, keyframes: [{ at: 0.1, to: { value: s.count }, duration: 1.1, ease: 'power2.out' }] } : {}),
+      ];
+      return layers;
+    }
+    const callouts = SPECS.flatMap(callout);
+
+    // ───────────── chrome (white phase) ─────────────
+    // keyframe `at` is layer-local: give the layer's own start so the exit lands at the same composition time
+    const chromeOut = (start = 0) => ({ at: T.toGraphite - 0.3 - start, to: { alpha: 0 }, duration: 0.5, ease: OUT });
+    const chromeIn = (d = 0.5) => ({ at: d, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.8, ease: 'power2.out' });
+    const chrome = [
+      text('mark-brand', 'ORRI', { fontFamily: MONO, fontSize: 15, fontWeight: '800', letterSpacing: 6, fill: C.ink }, { x: 72, y: 48 },
+        { duration: T.toGraphite + 0.4, keyframes: [chromeIn(0.4), chromeOut()] }),
+      text('mark-model', 'ONE', { fontFamily: MONO, fontSize: 15, fontWeight: '800', letterSpacing: 6, fill: C.accentInk }, { x: 142, y: 48 },
+        { duration: T.toGraphite + 0.4, keyframes: [chromeIn(0.5), chromeOut()] }),
+      text('mark-film', 'PRODUCT FILM  /  2026', { fontFamily: MONO, fontSize: 12, fontWeight: '500', letterSpacing: 3, fill: C.mute }, { x: W - 72, y: 50, anchorX: 1 },
+        { duration: T.toGraphite + 0.4, keyframes: [chromeIn(0.6), chromeOut()] }),
+      text('spec-label', 'SPEC', { fontFamily: MONO, fontSize: 12, fontWeight: '600', letterSpacing: 3, fill: C.mute }, { x: 72, y: 652 },
+        { at: T.callouts[0], duration: T.toGraphite + 0.4 - T.callouts[0], keyframes: [chromeIn(0), chromeOut(T.callouts[0])] }),
+      text('spec-index', '0{value} / 04', { fontFamily: MONO, fontSize: 12, fontWeight: '700', letterSpacing: 3, fill: C.ink }, { x: 124, y: 652, value: 1 },
+        { at: T.callouts[0], duration: T.toGraphite + 0.4 - T.callouts[0], format: { decimals: 0 },
+          keyframes: [chromeIn(0), ...T.callouts.slice(1).map((t, i) => ({ at: t - T.callouts[0], set: { value: i + 2 } })), chromeOut(T.callouts[0])] }),
+      ...T.callouts.flatMap((t, i) => {
+        const x = 236 + i * 36;
+        return [
+          rect(`spec-seg-${i}`, x, 659, 28, 3, C.studioEdge, { anchorX: 0, at: T.callouts[0], duration: T.toGraphite + 0.4 - T.callouts[0],
+            keyframes: [chromeIn(0), chromeOut(T.callouts[0])] }),
+          rect(`spec-seg-on-${i}`, x, 659, 0, 3, C.accent, { anchorX: 0, at: t, duration: T.toGraphite + 0.4 - t,
+            keyframes: [{ at: 0.05, to: { width: 28 }, duration: 0.5, ease: IN }, chromeOut(t)] }),
+        ];
+      }),
+    ];
+
+    // ───────────── lock-up (graphite phase) ─────────────
+    const LX = 736;
+    const lockup = [
+      rect('lockup-rule', LX, 438, 0, 3, C.accent, { anchorX: 0, at: T.lockup, duration: DURATION - T.lockup,
+        keyframes: [{ at: 0.3, to: { width: 40 }, duration: 0.6, ease: IN }] }),
+      revealText('lockup-wordmark', 'ORRI', { fontFamily: SANS, fontSize: 132, fontWeight: '700', letterSpacing: 16, fill: C.paper },
+        LX - 6, 268, 0, 0, T.lockup + 0.1, DURATION, +1, { w: 560, h: 150, cx: LX + 270, cy: 268 + 75 }, { exit: false }),
+      revealText('lockup-model', 'ONE · SMART BOTTLE SPEAKER', { fontFamily: MONO, fontSize: 15, fontWeight: '600', letterSpacing: 4, fill: C.accent },
+        LX + 56, 428, 0, 0, T.lockup + 0.35, DURATION, -1, { w: 520, h: 24, cx: LX + 56 + 250, cy: 428 + 12 }, { exit: false }),
+      revealText('lockup-tagline', 'Carry the sound.', { fontFamily: SERIF, fontSize: 34, fontStyle: 'italic', fill: '#c9cbd0' },
+        LX, 466, 0, 0, T.lockup + 0.55, DURATION, -1, { w: 560, h: 50, cx: LX + 270, cy: 466 + 25 }, { exit: false }),
+    ];
+
+    // ───────────── backgrounds ─────────────
+    const backgrounds = [
+      rect('bg-studio', W / 2, H / 2, W, H, undefined, { fillGradient: { type: 'radial', center: [0.5, 0.45], radius: 0.8, stops: [[0, C.studio], [0.55, '#ececea'], [1, C.studioEdge]] } }),
+      text('ghost-one', 'ONE', { fontFamily: '"Arial Black", "Helvetica Neue", Arial, sans-serif', fontSize: 400, fontWeight: '900', fill: '#e8e8e5', letterSpacing: 10 },
+        { x: W / 2 + 30, y: H / 2 - 20, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        { duration: T.callouts[0] + 0.4, keyframes: [
+          { at: 0.6, to: { alpha: 1 }, duration: 1.6, ease: 'power2.out' },
+          { at: 0, to: { x: W / 2 - 20 }, duration: T.callouts[0] + 0.4, ease: 'none' },
+          { at: -0.7, to: { alpha: 0 }, duration: 0.7, ease: 'power1.in' }] }),
+      rect('bg-graphite', W / 2, H / 2, W, H, undefined, { at: T.toGraphite, duration: DURATION - T.toGraphite,
+        initial: { alpha: 0 },
+        fillGradient: { type: 'radial', center: [0.33, 0.52], radius: 0.85, stops: [[0, C.graphite], [0.5, '#24262a'], [1, C.graphiteEdge]] },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 1.1, ease: 'power2.inOut' }] }),
+    ];
+
+    // ───────────── audio ─────────────
+    const audio = [
+      { type: 'audio', name: 'bgm', asset: 'bgm', loop: true, initial: { volume: 0 },
+        keyframes: [{ at: 0, to: { volume: 0.55 }, duration: 1.2 }, { at: -1.6, to: { volume: 0 }, duration: 1.6 }] },
+      ...T.callouts.map((t, i) => ({ type: 'audio', name: `sfx-pop-${i}`, asset: 'pop', at: t, volume: 0.45 })),
+      { type: 'audio', name: 'sfx-swoosh', asset: 'swoosh', at: T.toGraphite - 0.05, volume: 0.6 },
+      { type: 'audio', name: 'sfx-chime', asset: 'chime', at: T.lockup + 0.1, volume: 0.5 },
+    ];
+
+    const sequences = [...backgrounds, product3d, ...callouts, ...chrome, ...lockup, ...audio];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        background: C.studio,
+        assets: [
+          { name: 'bgm', src: '../_assets/bgm.mp3' },
+          { name: 'pop', src: '../_assets/sfx-pop.mp3' },
+          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
+          { name: 'chime', src: '../_assets/sfx-chime.mp3' },
+        ],
+        composition: { sequences },
+      });
+      window.__ready = true;
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>
