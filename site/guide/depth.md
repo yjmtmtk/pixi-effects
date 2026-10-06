@@ -1,7 +1,7 @@
 ---
 title: 2.5D and camera
 section: Guides
-order: 7
+order: 8
 summary: Depth, perspective and a camera for parallax, flips and dolly zooms, with no 3D engine.
 ---
 

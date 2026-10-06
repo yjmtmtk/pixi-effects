@@ -488,6 +488,28 @@
       "notes": "_notes/loader-gallery.md"
     },
     {
+      "id": "orbit-rig",
+      "title": "Orbit Rig",
+      "subtitle": "A whole scene on one hand-held null layer: a sun, planet and moon that orbit through nested nulls, letters and tiles that ripple out with stagger, stars and shake from seeded randomness",
+      "tags": [
+        "null-parent",
+        "orbit",
+        "wiggle",
+        "stagger",
+        "seeded-random",
+        "typography",
+        "sfx"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 10,
+      "posterFrame": 150,
+      "model": "sonnet",
+      "page": "orbit-rig.html",
+      "poster": "posters/orbit-rig.jpg",
+      "notes": "_notes/orbit-rig.md"
+    },
+    {
       "id": "three-product-spin",
       "title": "ORRI ONE",
       "subtitle": "A glossy three.js product turntable with spec callouts and a brand lock-up, studio white to graphite",

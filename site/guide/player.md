@@ -1,7 +1,7 @@
 ---
 title: The player
 section: Guides
-order: 9
+order: 10
 summary: Use the built-in player bar, change its colours, or build a player of your own.
 ---
 

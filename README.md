@@ -2,7 +2,7 @@
 
 > **Status**: experimental — current release `0.9.0`. The API may still change between minor versions (see [CHANGELOG](./CHANGELOG.md): `0.9.0` adds a poster time (`movie.init({ poster })`) and a guide site, `0.8.0` adds events and a theme for building your own player, `0.7.0` adds filters by name, the `pixi-effects-render` and `pixi-effects-view` commands and the timeline chart, `0.6.0` adds draw-on strokes (`trimEnd`) and text that changes over time, `0.5.0` adds synthesised sound effects (`sfx`, no files) and the `check` tool, `0.4.0` makes a mask share its layer's lifetime, `0.3.0` made keyframe `at` relative to the layer).
 
-**[Guide →](https://yjmtmtk.github.io/pixi-effects/guide/)** · **[Gallery →](https://yjmtmtk.github.io/pixi-effects/examples/gallery/)** · 33 portfolio pieces written as plain data by AI models · **[Live demos →](https://yjmtmtk.github.io/pixi-effects/)** · 12 numbered examples + an in-browser playground.
+**[Guide →](https://yjmtmtk.github.io/pixi-effects/guide/)** · **[Gallery →](https://yjmtmtk.github.io/pixi-effects/examples/gallery/)** · 34 portfolio pieces written as plain data by AI models · **[Live demos →](https://yjmtmtk.github.io/pixi-effects/)** · 12 numbered examples + an in-browser playground.
 
 Declarative composition and video rendering for the web. After Effects-style timelines on top of [PixiJS v8](https://pixijs.com/) and [GSAP](https://gsap.com/), with strict TypeScript types. Render to MP4 / WebM / MOV via [mediabunny](https://mediabunny.dev/).
 

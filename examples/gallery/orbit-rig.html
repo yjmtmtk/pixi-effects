@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>orbit-rig — pixi-effects gallery</title>
+  <style>
+    body { background: #0d1220; margin: 0; padding: 16px; display: flex; justify-content: center; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+  </style>
+  <script type="application/json" id="piece-meta">{
+    "title": "Orbit Rig",
+    "subtitle": "A whole scene on one hand-held null layer: a sun, planet and moon that orbit through nested nulls, letters and tiles that ripple out with stagger, stars and shake from seeded randomness",
+    "tags": ["null-parent", "orbit", "wiggle", "stagger", "seeded-random", "typography", "sfx"],
+    "width": 1280, "height": 720, "duration": 10, "model": "sonnet"
+  }</script>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie, wiggle, stagger, rand, splitText } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 10;
+    const INK = '#e8eefc', DIM = '#8fa0bf', SUN = '#ffd166', ICE = '#4cc9f0', ROSE = '#ff6b9d';
+    const TILE_COLORS = [ICE, SUN, ROSE];
+    const SANS = "'Arial Black', Arial, system-ui, sans-serif";
+    const life = (at, extra = {}) => ({ at, duration: DURATION - at, ...extra });   // alive from `at` to the end
+
+    // Everything below hangs off ONE null layer, "handheld": it sits at the centre of the canvas, so every child is placed
+    // as an offset from the centre, and the camera shake and the slow push-in are two keyframe lists on that one layer.
+    const rig = [
+      {
+        type: 'null', name: 'handheld', initial: { x: W / 2, y: H / 2 },
+        keyframes: [
+          ...wiggle({ duration: DURATION, freq: 2.2, seed: 7, props: { x: { around: W / 2, amp: 6 }, y: { around: H / 2, amp: 4 }, rotation: { around: 0, amp: 0.4 } } }),
+          { at: 7, to: { scale: 1.06 }, duration: 3, ease: 'sine.inOut' },
+        ],
+      },
+    ];
+    const inRig = spec => ({ parent: 'handheld', ...spec });
+
+    // stars: every one has its own seed, so the field is the same on every run and in the export
+    const stars = Array.from({ length: 64 }, (_, i) => inRig({
+      type: 'shape', shape: 'circle', name: 'star-' + i, radius: 1 + rand(i * 3 + 2) * 2.2, ...life(0),
+      initial: { x: (rand(i * 3) - 0.5) * 1500, y: (rand(i * 3 + 1) - 0.5) * 900, fillColor: INK },
+      keyframes: wiggle({ duration: DURATION, freq: 0.8 + rand(i + 500) * 1.6, seed: i, props: { alpha: { around: 0.5, amp: 0.4 } } }),
+    }));
+
+    // a sun, a planet on a null that turns, a moon on a null that turns on the planet's null
+    const SYS_AT = 0.3, SYS_LEN = DURATION - SYS_AT;
+    const system = [
+      inRig({
+        type: 'null', name: 'system', ...life(SYS_AT), initial: { x: -330, y: 10, scale: 0 },
+        keyframes: [{ at: 0, to: { scale: 1 }, duration: 1.1, ease: 'back.out(1.6)' }],
+      }),
+      { type: 'shape', shape: 'circle', name: 'halo', radius: 100, parent: 'system', blendMode: 'add', ...life(SYS_AT),
+        fillGradient: { type: 'radial', radius: 0.5, stops: [[0, 'rgba(255,209,102,0.45)'], [1, 'rgba(255,209,102,0)']] },
+        initial: { x: 0, y: 0 },
+        keyframes: wiggle({ duration: SYS_LEN, freq: 2.5, seed: 11, props: { alpha: { around: 0.8, amp: 0.2 } } }) },
+      { type: 'shape', shape: 'circle', name: 'sun', radius: 44, parent: 'system', ...life(SYS_AT), initial: { x: 0, y: 0, fillColor: SUN } },
+      { type: 'shape', shape: 'circle', name: 'planet-ring', radius: 135, parent: 'system', ...life(SYS_AT),
+        initial: { x: 0, y: 0, fillAlpha: 0, strokeColor: INK, strokeWidth: 2, strokeAlpha: 0.2 } },
+      { type: 'null', name: 'planet-orbit', parent: 'system', ...life(SYS_AT), initial: { rotation: -30 },
+        keyframes: [{ at: 0, to: { rotation: -30 + 720 }, duration: SYS_LEN, ease: 'none' }] },
+      { type: 'shape', shape: 'circle', name: 'planet', radius: 15, parent: 'planet-orbit', ...life(SYS_AT), initial: { x: 135, y: 0, fillColor: ICE } },
+      { type: 'null', name: 'moon-orbit', parent: 'planet-orbit', ...life(SYS_AT), initial: { x: 135, y: 0 },
+        keyframes: [{ at: 0, to: { rotation: 2880 }, duration: SYS_LEN, ease: 'none' }] },
+      { type: 'shape', shape: 'circle', name: 'moon', radius: 6, parent: 'moon-orbit', ...life(SYS_AT), initial: { x: 36, y: 0, fillColor: ROSE } },
+    ];
+
+    // the title: the letters rise from the middle outwards (stagger shifts each layer's `at`, the sound follows the same wave)
+    const TITLE_AT = 1.4, WAVE = { each: 0.09, from: 'center' };
+    const titleStyle = { fontFamily: SANS, fontSize: 120, fill: INK };
+    const letters = stagger(
+      splitText('ORBIT', titleStyle, { x: 230, y: -118, align: 'center' }).map(p => inRig({
+        type: 'text', name: 'letter-' + p.index, text: p.text, at: TITLE_AT,
+        style: p.index === 0 ? { ...titleStyle, fill: SUN } : titleStyle,
+        initial: { x: p.x, y: p.y, alpha: 0 },
+        keyframes: [{ at: 0, from: { y: p.y + 50, alpha: 0 }, to: { y: p.y, alpha: 1 }, duration: 0.5, ease: 'back.out(2)' }],
+      })),
+      WAVE).map(l => ({ ...l, duration: DURATION - l.at }));
+    const letterSounds = stagger(
+      Array.from({ length: 5 }, (_, i) => ({ type: 'audio', sfx: 'pop', at: TITLE_AT, volume: 0.45, pitch: -4 + i * 2 })),
+      WAVE);
+
+    const subtitle = [
+      inRig({ type: 'shape', shape: 'rect', name: 'rule', width: 420, height: 3, ...life(2.2), initial: { x: 230, y: 28, fillColor: SUN, scaleX: 0 },
+        keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.7, ease: 'power3.out' }] }),
+      inRig({ type: 'text', name: 'subtitle', text: 'SEEDED  ·  PARENTED  ·  STAGGERED', ...life(2.6),
+        style: { fontFamily: 'ui-monospace, Menlo, Consolas, monospace', fontSize: 21, fill: DIM, letterSpacing: 4 },
+        initial: { x: 230, y: 62, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6 }] }),
+    ];
+
+    // a 6 x 2 grid of tiles that pops in as a ripple from the middle; colours and shimmer come from seeds
+    const COLS = 6, ROWS = 2, GRID_AT = 3.4;
+    const tiles = stagger(
+      Array.from({ length: COLS * ROWS }, (_, i) => {
+        const col = i % COLS, row = Math.floor(i / COLS);
+        return inRig({
+          type: 'shape', shape: 'rect', name: 'tile-' + i, width: 56, height: 56, cornerRadius: 12, at: GRID_AT,
+          initial: { x: 230 + (col - (COLS - 1) / 2) * 68, y: 112 + row * 68, fillColor: TILE_COLORS[Math.floor(rand(i + 40) * 3)], scale: 0 },
+          keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.4, ease: 'back.out(2.2)' }],
+          i,
+        });
+      }),
+      { each: 0.07, grid: [COLS, ROWS], from: 'center', ease: 'sine.out' }
+    ).map(({ i, ...l }) => {
+      const len = DURATION - l.at;
+      return { ...l, duration: len, keyframes: [...l.keyframes, ...wiggle({ at: 0.6, duration: len - 0.6, freq: 1.2, seed: i, props: { alpha: { around: 0.85, amp: 0.15 } } })] };
+    });
+
+    const sounds = [
+      { type: 'audio', sfx: 'swoosh', at: SYS_AT, volume: 0.5 },
+      ...letterSounds,
+      { type: 'audio', sfx: 'chime', at: GRID_AT, volume: 0.4 },
+    ];
+
+    const sequences = [
+      // the page's own background and vignette stay still while the rig shakes
+      { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
+        fillGradient: { type: 'radial', radius: 0.75, stops: [[0, '#16203d'], [1, '#080c18']] } },
+      ...rig, ...stars, ...system, ...letters, ...subtitle, ...tiles,
+      ...sounds,
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 5,
+        background: '#080c18',
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

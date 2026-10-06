@@ -1,7 +1,7 @@
 ---
 title: Reviewing your video
 section: Guides
-order: 10
+order: 11
 summary: See what you made without playing it, scrub it against a timeline, and check the sound you cannot hear.
 ---
 
