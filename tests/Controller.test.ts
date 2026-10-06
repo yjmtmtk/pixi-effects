@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { Movie } from '../src/core/Movie';
-import { Controller } from '../src/Controller';
+import { Controller, CONTROLLER_CSS } from '../src/Controller';
 import { formatTime, frameToPercent, pxToFrame, pxToFraction, extensionForMimeType } from '../src/Controller';
 
 type Listener = (...args: unknown[]) => void;
@@ -1296,6 +1296,65 @@ describe('Controller — a scrub whose pointerup never arrives (released outside
     progress.dispatchEvent(new PointerEvent('lostpointercapture', { pointerId: 1 }));   // the browser follows with this
     expect(seeks.at(-1)).toBe(100);
     expect(movie.isPlaying).toBe(true);
+    ctrl.destroy();
+  });
+});
+
+describe('Controller — theme (the colours of the bar are yours to change)', () => {
+  afterEach(() => { document.body.innerHTML = ''; document.head.querySelectorAll('style[data-movie-controller]').forEach(n => n.remove()); });
+  const rootOf = (canvas: HTMLCanvasElement) => canvas.parentElement!.querySelector('.movie-controller') as HTMLElement;
+
+  it('the options set CSS custom properties on the bar: accent, foreground, track, bar background, track height (a number is px), font', () => {
+    const canvas = makeCanvas();
+    const ctrl = new Controller(makeFakeMovie(), { canvas, theme: { accent: '#ff4d6d', foreground: '#ffe9a8', track: 'rgba(255,255,255,.4)', barBackground: 'rgba(0,0,0,.6)', trackHeight: 5, font: 'Georgia, serif' } });
+    const st = rootOf(canvas).style;
+    expect(st.getPropertyValue('--mc-accent')).toBe('#ff4d6d');
+    expect(st.getPropertyValue('--mc-fg')).toBe('#ffe9a8');
+    expect(st.getPropertyValue('--mc-track')).toBe('rgba(255,255,255,.4)');
+    expect(st.getPropertyValue('--mc-bar-bg')).toBe('rgba(0,0,0,.6)');
+    expect(st.getPropertyValue('--mc-track-height')).toBe('5px');
+    expect(st.getPropertyValue('--mc-font')).toBe('Georgia, serif');
+    ctrl.destroy();
+  });
+
+  it('with no theme nothing is set, so the defaults (and a page-level --mc-accent) apply', () => {
+    const canvas = makeCanvas();
+    const ctrl = new Controller(makeFakeMovie(), { canvas });
+    expect(rootOf(canvas).style.getPropertyValue('--mc-accent')).toBe('');
+    ctrl.destroy();
+  });
+
+  it('setTheme changes it live and null puts a value back to the default', () => {
+    const canvas = makeCanvas();
+    const ctrl = new Controller(makeFakeMovie(), { canvas, theme: { accent: 'red' } });
+    ctrl.setTheme({ accent: 'blue', trackHeight: 4 });
+    expect(rootOf(canvas).style.getPropertyValue('--mc-accent')).toBe('blue');
+    expect(rootOf(canvas).style.getPropertyValue('--mc-track-height')).toBe('4px');
+    ctrl.setTheme({ accent: null });
+    expect(rootOf(canvas).style.getPropertyValue('--mc-accent')).toBe('');
+    expect(rootOf(canvas).style.getPropertyValue('--mc-track-height')).toBe('4px');      // untouched
+    ctrl.destroy();
+  });
+
+  it('an unknown theme key says what the valid ones are', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const canvas = makeCanvas();
+    const ctrl = new Controller(makeFakeMovie(), { canvas, theme: { acent: 'red' } as never });
+    expect(warn.mock.calls.some(c => String(c[0]).includes('"acent"') && String(c[0]).includes('accent'))).toBe(true);
+    warn.mockRestore();
+    ctrl.destroy();
+  });
+
+  it('the stylesheet reads its colours from the properties (with the old values as defaults)', () => {
+    const canvas = makeCanvas();
+    const ctrl = new Controller(makeFakeMovie(), { canvas });
+    const css = CONTROLLER_CSS;
+    expect(css).toContain('var(--mc-accent, #007AFF)');
+    expect(css).toContain('var(--mc-fg, #fff)');
+    expect(css).toContain('var(--mc-track,');
+    expect(css).toContain('var(--mc-bar-bg,');
+    expect(css).toContain('var(--mc-track-height, 3px)');
+    expect(css).not.toMatch(/background: #007AFF/);
     ctrl.destroy();
   });
 });

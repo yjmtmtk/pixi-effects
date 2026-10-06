@@ -193,6 +193,12 @@ movie.off(event, fn): this
 | `'play'`    | none                                              | when `play()` actually transitions from paused        |
 | `'pause'`   | none                                              | when `pause()` actually transitions from playing      |
 | `'progress'`| `{ progress: number; frame: number; totalFrames: number }` | during `render()`, once per encoded frame    |
+| `'seeking'` / `'seeked'` | `{ frame, totalFrames }` (the frame it lands on) | a `gotoFrame()` to another frame starts / has finished. NOT emitted for playback ticks, `render()`, `snapshot()` or `contactSheet()` |
+| `'ended'`   | none                                              | playback ran off the end (after `'pause'`); pausing by hand does not emit it |
+| `'volumechange'` | `{ volume: number; muted: boolean }`         | `volume` or `muted` really changed (clamping counts) |
+| `'error'`   | `{ where: 'init' \| 'render' \| 'playback'; message: string; error: unknown }` | `init()` / `render()` failed (the call still rejects), or a frame failed during playback |
+
+The names are the ones an HTML5 `<video>` uses, so a player written for `<video>` ports over.
 
 `progress` is `0..100` (rounded integer percent).
 
@@ -217,6 +223,24 @@ movie.off(event, fn): this
 Flips `muted` and returns the new value.
 
 ---
+
+## Building your own player
+
+`Controller` is one optional player; everything it does is public on the movie, so a player of your own is plain HTML + CSS + a few handlers (`examples/15-custom-player.html` is a complete one):
+
+```js
+const el = id => document.getElementById(id);
+movie.on('ready', () => { el('seek').max = movie.totalFrames; });
+movie.on('frame', ({ frame }) => { el('seek').value = frame; el('time').textContent = (frame / movie.frameRate).toFixed(1) + ' s'; });
+movie.on('play',  () => { el('play').textContent = '❚❚'; });
+movie.on('pause', () => { el('play').textContent = '▶'; });
+movie.on('ended', () => { el('play').textContent = '↻'; });                 // play() at the end starts again from 0
+movie.on('volumechange', ({ volume, muted }) => { el('vol').value = muted ? 0 : volume; });
+el('play').onclick = () => (movie.isPlaying ? movie.pause() : movie.play());
+el('seek').oninput = e => movie.gotoFrame(+e.target.value);
+```
+
+What you have: `play()`, `pause()`, `gotoFrame(frame)`, `volume`, `muted` / `toggleMute()`; the state `currentFrame`, `totalFrames`, `frameRate`, `duration`, `isPlaying`, `isReady`; the events above; `render()` for a download button; `snapshot()` for a thumbnail; `timelineData()` / `timelineSvg()` for a timeline like `pixi-effects-view`'s. Keep the movie's `canvas` wherever your layout wants it (the page's CSS sizes it). To only change how `Controller` looks, see **Theme** below.
 
 ## `Controller`
 
@@ -249,6 +273,7 @@ interface ControllerOptions {
   showExportButton?: boolean;         // default true; hides ⬇ + popover
   enableKeyboardShortcuts?: boolean;  // default true
   className?: string;                 // default 'movie-controller'
+  theme?: ControllerTheme;            // colours / thickness / font of the bar, see Theme
 }
 ```
 
@@ -256,6 +281,30 @@ Mounting strategy:
 
 - If `canvas.parentElement` already has a non-static `position`, the controller is appended directly into it.
 - Otherwise the canvas is wrapped in a `<div class="movie-controller-wrap">` (with `position: relative`). The wrapper is removed on `destroy()`.
+
+### Theme: change the colours of the bar
+
+The bar is blue by default. Every colour and the track thickness are CSS custom properties with the old values as defaults, so there are two ways to change them:
+
+```js
+new Controller(movie, { canvas, theme: { accent: '#ff4d6d', foreground: '#ffe9a8', trackHeight: 5 } });   // in code
+controller.setTheme({ accent: '#7bd88f' });          // later, live; only the keys you give change
+controller.setTheme({ accent: null });               // null = back to the default
+```
+```css
+:root { --mc-accent: #ff4d6d; }                      /* or in your page CSS: the canvas's parent, or :root */
+```
+
+| `theme` key | CSS property | What | Default |
+|---|---|---|---|
+| `accent` | `--mc-accent` | progress bar, its thumb, focus rings, the export button | `#007AFF` |
+| `foreground` | `--mc-fg` | icons, the time, the volume slider | `#fff` |
+| `track` | `--mc-track` | the unfilled part of the progress / volume bars | `rgba(255,255,255,0.25)` |
+| `barBackground` | `--mc-bar-bg` | the background behind the buttons (any CSS background, e.g. a gradient) | black fading to transparent upward |
+| `trackHeight` | `--mc-track-height` | thickness of the progress bar (a number is px) | `3px` |
+| `font` | `--mc-font` | `font-family` of the bar | system UI font |
+
+A misspelt key warns with the valid ones. The default stylesheet is exported as `CONTROLLER_CSS` (from `pixi-effects/controller`) if you want to copy and restyle more.
 
 ### `controller.destroy(): void`
 

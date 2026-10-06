@@ -80,4 +80,33 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('Controller
       try { rmSync(userDataDir, { recursive: true, force: true }); } catch { /* chrome may still hold files */ }
     }
   }, 90_000);
+
+  it('the bar is blue by default and takes its colour and thickness from --mc-accent / --mc-track-height set in the page CSS', async () => {
+    const { server, port } = await check.serve(root);
+    const userDataDir = mkdtempSync(join(tmpdir(), 'ctl-theme-'));
+    const { proc, cdp } = await check.launchChrome(chrome, userDataDir);
+    try {
+      await cdp.send('Runtime.enable');
+      await cdp.send('Page.enable');
+      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/gallery/blueprint-house.html?theme=1` });
+      let ready = false;
+      for (let i = 0; i < 100 && !ready; i++) { await check.sleep(300); ready = await cdp.eval('window.__ready === true').catch(() => false); }
+      expect(ready).toBe(true);
+      const read = () => cdp.eval(`(() => { const f = document.querySelector('.mc-progress-fill'), t = document.querySelector('.mc-progress-thumb'); const c = getComputedStyle(f); return { fill: c.backgroundColor, height: c.height, thumb: getComputedStyle(t).backgroundColor }; })()`);
+      const before = await read();
+      expect(before.fill).toBe('rgb(0, 122, 255)');                                // #007AFF
+      expect(before.height).toBe('3px');
+      await cdp.eval(`document.head.appendChild(Object.assign(document.createElement('style'), { textContent: ':root { --mc-accent: rgb(255, 0, 128); --mc-track-height: 8px; }' })), 0`);
+      await check.sleep(350);                                                  // the thickness animates (120 ms)
+      const after = await read();
+      expect(after.fill).toBe('rgb(255, 0, 128)');
+      expect(after.thumb).toBe('rgb(255, 0, 128)');
+      expect(after.height).toBe('8px');
+    } finally {
+      try { proc.kill(); } catch { /* gone */ }
+      server.close();
+      await check.sleep(200);
+      try { rmSync(userDataDir, { recursive: true, force: true }); } catch { /* chrome may still hold files */ }
+    }
+  }, 90_000);
 });

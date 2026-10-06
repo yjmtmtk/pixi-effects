@@ -6,6 +6,8 @@ export type {
   RenderOptions,
   FrameEvent,
   ProgressEvent,
+  VolumeEvent,
+  MovieErrorEvent,
 } from './core/Movie';
 
 export type { InspectReport, InspectOptions, LayerInfo } from './core/inspect';

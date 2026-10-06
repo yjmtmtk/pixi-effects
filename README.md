@@ -15,7 +15,7 @@ Declarative composition and video rendering for the web. After Effects-style tim
 - **Presets** — `kenBurns` for stills, `withFade` for fade-in/out.
 - **2.5D layers & camera** — add `threeD: true`, `z`, `rotationX/Y` and a `{ type: 'camera' }` layer for parallax, flips and dolly zooms; no three.js needed.
 - **three.js layer** *(optional)* — drop a real three.js scene in as a layer via `pixi-effects/three`; keyframes drive its objects (`three.cube.rotation.y`).
-- **Built-in player UI** — drop-in HTML5-`<video>`-style overlay controller (play, scrub, mute, volume, fullscreen, export-to-file).
+- **Built-in player UI — or your own** — a drop-in HTML5-`<video>`-style overlay controller (play, scrub, mute, volume, fullscreen, export-to-file) whose colours are one option (`theme: { accent: '#ff4d6d' }`); or build a player yourself on the movie's `<video>`-named events (`play pause ended seeking seeked volumechange error`).
 - **MP4 / WebM / MOV export** — pick container and quality from the controller, call `movie.render()` from code, or render headless from the command line (`pixi-effects-render`).
 - **A timeline you can read and scrub** — `movie.timelineChart()` draws every layer as a bar on a time axis; `pixi-effects-view` opens the page with that timeline under it, zoomable, with a playhead you can drag.
 - **Tiny dependency surface** — only `mediabunny` (runtime) plus PixiJS and GSAP (peer deps). three.js is an *optional* peer, needed only if you import `pixi-effects/three`.
@@ -189,6 +189,7 @@ They ship in the npm package (`node_modules/pixi-effects/ai/`).
   - `11-depth.html` — 2.5D layers and camera: parallax, spin, dolly zoom
   - `12-title-motion.html` — a staggered 2.5D title: letters fly in from depth, particles, orbiting camera
   - `13-sfx.html` — synthesised sound effects (no audio files), a riser into a hit, a custom voice
+  - `15-custom-player.html` — a complete player of your own in about 40 lines (play, seek, volume, replay) using the movie's events
   - `14-draw-on.html` — draw-on strokes (`trimStart` / `trimEnd`) and text that changes over time (`visibleChars`, `set: { text }`)
   - `playground.html` — in-browser editor with preset dropdown
 

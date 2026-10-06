@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>pixi-effects — 15 · your own player</title>
+  <style>
+    body { background: #12101c; margin: 0; padding: 16px; font-family: system-ui, sans-serif; color: #e9e4ff; }
+    h1 { font-weight: 500; margin: 0 0 4px; }
+    p { font-size: 13px; color: #9a93c4; margin: 0 0 16px; max-width: 900px; }
+    p code { background: #1f1b33; padding: 1px 6px; border-radius: 3px; color: #c9bfff; }
+    #stage { display: block; width: min(960px, 100%); height: auto; border-radius: 12px 12px 0 0; }
+    /* the player: plain HTML + CSS, nothing from pixi-effects but the movie's methods and events */
+    #player { width: min(960px, 100%); box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+              background: #1f1b33; border-radius: 0 0 12px 12px; }
+    #player button { width: 38px; height: 38px; border-radius: 50%; border: 0; background: #ff5c8a; color: #fff; font-size: 16px; cursor: pointer; }
+    #player button.ghost { background: transparent; border: 1px solid #3a3360; width: 32px; height: 32px; font-size: 13px; }
+    #seek { flex: 1; accent-color: #ff5c8a; }
+    #vol { width: 80px; accent-color: #ff5c8a; }
+    #time { font: 12px ui-monospace, Menlo, monospace; color: #9a93c4; min-width: 92px; }
+    #busy { width: 8px; height: 8px; border-radius: 50%; background: #ffd166; opacity: 0; transition: opacity .15s; }
+    #err { color: #ff8a8a; font-size: 13px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h1>15 · your own player</h1>
+  <p>
+    <code>Controller</code> is optional. Everything it does is public on the movie: <code>play()</code>, <code>pause()</code>,
+    <code>gotoFrame()</code>, <code>currentFrame</code>, <code>volume</code>, and the events <code>frame play pause ended seeking seeked volumechange error</code>
+    (the names an HTML5 <code>&lt;video&gt;</code> uses). This page is a complete player in about 40 lines of script.
+  </p>
+  <canvas id="stage" width="1280" height="720"></canvas>
+  <div id="player">
+    <button id="play" aria-label="Play">▶</button>
+    <input id="seek" type="range" min="0" value="0" step="1" aria-label="Seek" />
+    <span id="time">0:00 / 0:00</span>
+    <span id="busy" title="seeking"></span>
+    <button id="mute" class="ghost" aria-label="Mute">🔊</button>
+    <input id="vol" type="range" min="0" max="1" step="0.05" value="1" aria-label="Volume" />
+  </div>
+  <div id="err"></div>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":            "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":      "https://esm.sh/mediabunny"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../dist/index.js';
+
+    const movie = new Movie();
+    window.movie = movie;
+    const $ = id => document.getElementById(id);
+    const clock = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+
+    // ── the player: events in, methods out ──────────────────────────────────────────────
+    const show = () => {
+      const f = movie.currentFrame, fps = movie.frameRate;
+      $('seek').value = f;
+      $('time').textContent = clock(f / fps) + ' / ' + clock(movie.duration);
+    };
+    movie.on('ready', () => { $('seek').max = movie.totalFrames; show(); });
+    movie.on('frame', show);                                          // every frame, playing or seeking
+    movie.on('play', () => { $('play').textContent = '❚❚'; });
+    movie.on('pause', () => { $('play').textContent = '▶'; });
+    movie.on('ended', () => { $('play').textContent = '↻'; });        // ran off the end: the button replays
+    movie.on('seeking', () => { $('busy').style.opacity = 1; });
+    movie.on('seeked', () => { $('busy').style.opacity = 0; });
+    movie.on('volumechange', ({ volume, muted }) => { $('vol').value = volume; $('mute').textContent = muted || volume === 0 ? '🔇' : '🔊'; });
+    movie.on('error', e => { $('err').textContent = e.where + ': ' + e.message; });
+
+    $('play').onclick = () => (movie.isPlaying ? movie.pause() : movie.play());   // play() at the end starts again from 0
+    $('seek').oninput = e => movie.gotoFrame(Number(e.target.value));
+    $('vol').oninput = e => { movie.volume = Number(e.target.value); };
+    $('mute').onclick = () => movie.toggleMute();
+
+    // ── something to play: a few shapes and a title ─────────────────────────────────────
+    const bar = (i, color) => ({
+      type: 'shape', shape: 'rect', width: 120, height: 400, anchorX: 0.5, anchorY: 1,
+      initial: { x: 280 + i * 180, y: 560, fillColor: color, scaleY: 0.05 },
+      keyframes: [{ at: 0.3 + i * 0.35, to: { scaleY: 1 }, duration: 0.9, ease: 'back.out(1.6)' }, { at: 4, to: { scaleY: 0.4 + (i % 3) * 0.25 }, duration: 1.2, ease: 'sine.inOut' }],
+    });
+    try {
+      await movie.init({
+        canvas: $('stage'), width: 1280, height: 720, duration: 6, frameRate: 30, background: '#1b1730',
+        composition: { sequences: [
+          ...['#ff5c8a', '#ffd166', '#4cc9f0', '#7bd88f', '#c77dff'].map((c, i) => bar(i, c)),
+          { type: 'text', text: 'my own player', style: { fontSize: 72, fontWeight: 'bold', fill: '#ffffff' },
+            initial: { x: 640, y: 120, anchorX: 0.5, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0.2, to: { alpha: 1 }, duration: 0.8 }] },
+        ] },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

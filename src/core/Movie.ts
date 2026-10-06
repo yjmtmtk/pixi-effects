@@ -66,6 +66,10 @@ export interface ContactSheetOptions {
 
 export interface FrameEvent { frame: number; totalFrames: number }
 export interface ProgressEvent { progress: number; frame: number; totalFrames: number }
+/** `volumechange`: the values after the change. */
+export interface VolumeEvent { volume: number; muted: boolean }
+/** `error`: something failed in `init()`, `render()` or during playback. The call that failed still rejects / warns as before. */
+export interface MovieErrorEvent { where: 'init' | 'render' | 'playback'; message: string; error: unknown }
 
 type Listener = (...args: any[]) => void;
 
@@ -78,6 +82,8 @@ export class Movie {
   audioSource: AudioBufferSourceNode | null = null;
   gainNode: GainNode | null = null;
   private _cancelAudioStart: (() => void) | null = null;
+  /** > 0 while the movie moves its own playhead (playback, render, snapshot, contactSheet): those are not the seeks `seeking` / `seeked` report. */
+  private _quiet = 0;
   private _volume = 1;
   private _muted = false;
   isPlaying = false;
@@ -98,6 +104,12 @@ export class Movie {
 
   on(event: 'ready', fn: () => void): this;
   on(event: 'frame', fn: (e: FrameEvent) => void): this;
+  /** A jump to another frame (`gotoFrame`, a seek bar) starts / finishes. Not emitted for playback ticks, `render()`, `snapshot()` or `contactSheet()`. */
+  on(event: 'seeking' | 'seeked', fn: (e: FrameEvent) => void): this;
+  /** Playback ran off the end (after `pause`). Pausing by hand does not emit it. */
+  on(event: 'ended', fn: () => void): this;
+  on(event: 'volumechange', fn: (e: VolumeEvent) => void): this;
+  on(event: 'error', fn: (e: MovieErrorEvent) => void): this;
   on(event: 'progress', fn: (e: ProgressEvent) => void): this;
   on(event: 'play', fn: () => void): this;
   on(event: 'pause', fn: () => void): this;
@@ -227,6 +239,7 @@ export class Movie {
       try { await this.destroy(); } catch (cleanupErr) {
         console.warn('pixi-effects: cleanup after init failure also threw:', cleanupErr);
       }
+      this._emitError('init', err);
       throw err;
     }
   }
@@ -234,6 +247,24 @@ export class Movie {
   async gotoFrame(frame: number, force = false): Promise<void> {
     if (this._initState !== 'ready') return;
     if (!force && this.currentFrame === frame) return;
+    if (this._quiet > 0) return this._goto(frame);
+    const target = Math.max(0, Math.min(frame, this.totalFrames));
+    this.emit('seeking', { frame: target, totalFrames: this.totalFrames } satisfies FrameEvent);
+    await this._goto(frame);
+    this.emit('seeked', { frame: this.currentFrame, totalFrames: this.totalFrames } satisfies FrameEvent);
+  }
+
+  /** Run `fn` with `seeking` / `seeked` silenced: the movie is moving its own playhead, not answering a seek. */
+  private async _quietly<T>(fn: () => Promise<T>): Promise<T> {
+    this._quiet++;
+    try { return await fn(); } finally { this._quiet--; }
+  }
+
+  private _emitError(where: MovieErrorEvent['where'], error: unknown): void {
+    this.emit('error', { where, message: error instanceof Error ? error.message : String(error), error } satisfies MovieErrorEvent);
+  }
+
+  private async _goto(frame: number): Promise<void> {
     this.currentFrame = Math.max(0, Math.min(frame, this.totalFrames));
     this.timeline!.time(this.currentFrame / this.frameRate);
     await this._awaitVideoFrames();
@@ -263,7 +294,7 @@ export class Movie {
   async snapshot(frame: number = this.currentFrame, opts: SnapshotOptions = {}): Promise<Blob | string> {
     warnUnknownOptions('movie.snapshot()', opts, ['scale', 'type', 'as']);
     this._requireReady('snapshot');
-    await this.gotoFrame(clampFrame(frame, this.totalFrames), true);
+    await this._quietly(() => this.gotoFrame(clampFrame(frame, this.totalFrames), true));
     const scale = opts.scale ?? 1;
     const out = document.createElement('canvas');
     out.width = Math.max(1, Math.round(this.width * scale));
@@ -296,7 +327,7 @@ export class Movie {
     try {
       for (let i = 0; i < frames.length; i++) {
         const f = frames[i]!;
-        await this.gotoFrame(f, true);
+        await this._quietly(() => this.gotoFrame(f, true));
         const { x, y } = L.positions[i]!;
         g.drawImage(this.app!.canvas as HTMLCanvasElement, x, y + LABEL_H, L.cellW, L.cellH);
         g.fillStyle = '#e8ecf8';
@@ -305,7 +336,7 @@ export class Movie {
         g.fillText(`frame ${f}  ·  ${(f / this.frameRate).toFixed(2)}s`, x + 8, y + LABEL_H / 2);
       }
     } finally {
-      await this.gotoFrame(back, true);
+      await this._quietly(() => this.gotoFrame(back, true));
     }
     return encodeCanvas(sheet, 'image/png', opts.as ?? 'blob');
   }
@@ -397,16 +428,18 @@ export class Movie {
       const frame = Math.floor(elapsed * this.frameRate);
       if (frame <= this.totalFrames) {
         inFlight = true;
-        this.gotoFrame(frame)
-          .catch((err) => { console.warn('pixi-effects: gotoFrame failed during playback:', err); })
+        this._goto(frame)
+          .catch((err) => { console.warn('pixi-effects: gotoFrame failed during playback:', err); this._emitError('playback', err); })
           .finally(() => { inFlight = false; });
         this._raf = requestAnimationFrame(tick);
       } else {
         this.pause();
         // Final frame — also catch so the play loop never leaves an unhandled rejection.
-        this.gotoFrame(this.totalFrames).catch((err) => {
+        this._goto(this.totalFrames).catch((err) => {
           console.warn('pixi-effects: final gotoFrame failed:', err);
+          this._emitError('playback', err);
         });
+        this.emit('ended');
       }
     };
     this._raf = requestAnimationFrame(tick);
@@ -452,20 +485,30 @@ export class Movie {
   }
 
   set volume(v: number) {
-    this._volume = Math.max(0, Math.min(1, v));
+    const next = Math.max(0, Math.min(1, v));
+    const changed = next !== this._volume;
+    this._volume = next;
     if (this.gainNode) this.gainNode.gain.value = this._muted ? 0 : this._volume;
+    if (changed) this.emit('volumechange', { volume: this._volume, muted: this._muted } satisfies VolumeEvent);
   }
   get volume(): number { return this._volume; }
   set muted(v: boolean) {
+    const changed = !!v !== this._muted;
     this._muted = !!v;
     if (this.gainNode) this.gainNode.gain.value = this._muted ? 0 : this._volume;
+    if (changed) this.emit('volumechange', { volume: this._volume, muted: this._muted } satisfies VolumeEvent);
   }
   get muted(): boolean { return this._muted; }
   toggleMute(): boolean { this.muted = !this.muted; return this.muted; }
 
   async render(options?: RenderOptions): Promise<Blob> {
     warnUnknownOptions('movie.render()', options, ['format', 'video', 'audio']);
-    return await exportFrames(this, options);
+    try {
+      return await this._quietly(() => exportFrames(this, options));
+    } catch (err) {
+      this._emitError('render', err);
+      throw err;
+    }
   }
 
   async destroy(): Promise<void> {

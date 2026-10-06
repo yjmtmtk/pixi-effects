@@ -1,4 +1,5 @@
 import type { Movie } from './core/Movie';
+import { warnUnknownOptions } from './core/options';
 
 const ICONS = {
   play: '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M3 2 L13 8 L3 14 Z"/></svg>',
@@ -12,12 +13,13 @@ const ICONS = {
 
 const STYLE_ATTR = 'data-movie-controller';
 
-const STYLE_CSS = `
+/** The bar's default stylesheet. Its colours and sizes are CSS custom properties (`--mc-accent`, `--mc-fg`, `--mc-track`, `--mc-bar-bg`, `--mc-track-height`, `--mc-font`): set them in your page CSS, or with the `theme` option. */
+export const CONTROLLER_CSS = `
 .movie-controller-wrap { position: relative; display: inline-block; line-height: 0; }
 .movie-controller {
   position: absolute;
   pointer-events: none;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--mc-font, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -37,31 +39,31 @@ const STYLE_CSS = `
   outline: none;
 }
 .mc-progress:focus-visible {
-  outline: 2px solid #007AFF;
+  outline: 2px solid var(--mc-accent, #007AFF);
   outline-offset: 2px;
 }
 .mc-progress::before {
   content: ""; position: absolute; left: 12px; right: 12px;
-  height: 3px; background: rgba(255,255,255,0.25);
+  height: var(--mc-track-height, 3px); background: var(--mc-track, rgba(255,255,255,0.25));
   transition: height 120ms ease;
 }
-.mc-progress:hover::before, .mc-progress.mc-scrubbing::before { height: 5px; }
+.mc-progress:hover::before, .mc-progress.mc-scrubbing::before { height: calc(var(--mc-track-height, 3px) + 2px); }
 .mc-progress-fill {
   position: absolute; left: 12px; top: 50%;
-  height: 3px;
+  height: var(--mc-track-height, 3px);
   width: calc((100% - 24px) * var(--mc-fill, 0));
-  background: #007AFF;
+  background: var(--mc-accent, #007AFF);
   transform: translateY(-50%);
   transition: height 120ms ease;
   pointer-events: none;
 }
 .mc-progress:hover .mc-progress-fill,
-.mc-progress.mc-scrubbing .mc-progress-fill { height: 5px; }
+.mc-progress.mc-scrubbing .mc-progress-fill { height: calc(var(--mc-track-height, 3px) + 2px); }
 .mc-progress-thumb {
   position: absolute; top: 50%;
   left: calc(12px + (100% - 24px) * var(--mc-fill, 0));
   width: 12px; height: 12px; border-radius: 50%;
-  background: #007AFF;
+  background: var(--mc-accent, #007AFF);
   transform: translate(-50%, -50%) scale(0);
   transition: transform 120ms ease;
   pointer-events: none;
@@ -75,22 +77,22 @@ const STYLE_CSS = `
   align-items: center;
   gap: 12px;
   padding: 6px 12px 8px 12px;
-  background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0) 100%);
-  color: #fff;
+  background: var(--mc-bar-bg, linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0) 100%));
+  color: var(--mc-fg, #fff);
   line-height: 1;
 }
 .mc-btn {
   background: none; border: 0; padding: 0; margin: 0;
   width: 28px; height: 28px;
   display: inline-flex; align-items: center; justify-content: center;
-  color: #fff; opacity: 0.85; cursor: pointer;
+  color: var(--mc-fg, #fff); opacity: 0.85; cursor: pointer;
   transition: opacity 120ms ease;
 }
 .mc-btn:hover { opacity: 1; }
 .mc-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .mc-time {
   font-size: 12px; font-family: Menlo, Monaco, monospace;
-  color: #fff; opacity: 0.85;
+  color: var(--mc-fg, #fff); opacity: 0.85;
   min-width: 90px;
 }
 .mc-spacer { flex: 1; }
@@ -114,16 +116,16 @@ const STYLE_CSS = `
   width: 70px;
   margin-left: 6px;
 }
-.mc-vol-slider:focus-visible { outline: 2px solid #007AFF; outline-offset: 2px; }
+.mc-vol-slider:focus-visible { outline: 2px solid var(--mc-accent, #007AFF); outline-offset: 2px; }
 .mc-vol-slider::before {
   content: ""; position: absolute; left: 4px; right: 4px;
-  height: 3px; background: rgba(255,255,255,0.25); border-radius: 2px;
+  height: 3px; background: var(--mc-track, rgba(255,255,255,0.25)); border-radius: 2px;
 }
 .mc-vol-fill {
   position: absolute; left: 4px; top: 50%;
   height: 3px;
   width: calc((100% - 8px) * var(--mc-volume, 1));
-  background: #fff;
+  background: var(--mc-fg, #fff);
   transform: translateY(-50%);
   border-radius: 2px;
   pointer-events: none;
@@ -132,7 +134,7 @@ const STYLE_CSS = `
   position: absolute; top: 50%;
   left: calc(4px + (100% - 8px) * var(--mc-volume, 1));
   width: 10px; height: 10px; border-radius: 50%;
-  background: #fff;
+  background: var(--mc-fg, #fff);
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
@@ -186,7 +188,7 @@ const STYLE_CSS = `
 .mc-export-confirm {
   margin-top: 4px;
   width: 100%;
-  background: #007AFF;
+  background: var(--mc-accent, #007AFF);
   color: #fff;
   border: 0;
   border-radius: 4px;
@@ -219,7 +221,7 @@ const STYLE_CSS = `
 }
 .mc-export-fill {
   height: 100%; width: 0%;
-  background: linear-gradient(90deg, #007AFF, #0056CC);
+  background: linear-gradient(90deg, var(--mc-accent, #007AFF), var(--mc-accent, #0056CC));
   transition: width 0.3s ease; border-radius: 3px;
 }
 .mc-export-text {
@@ -234,7 +236,7 @@ function installStyles(): void {
   if (styleRefCount === 0) {
     const el = document.createElement('style');
     el.setAttribute(STYLE_ATTR, '');
-    el.textContent = STYLE_CSS;
+    el.textContent = CONTROLLER_CSS;
     document.head.appendChild(el);
   }
   styleRefCount++;
@@ -283,8 +285,33 @@ export function extensionForMimeType(mime: string): string {
   return 'mp4';
 }
 
+/**
+ * The look of the bar. Each key sets a CSS custom property on the bar (so you can also set `--mc-accent` … in your own CSS, on the
+ * canvas's parent or on `:root`). `null` puts a value back to the default.
+ */
+export interface ControllerTheme {
+  /** The colour of the progress bar, its thumb and the focus rings. Default `#007AFF` (blue). */
+  accent?: string | null;
+  /** Icons, the time and the volume slider. Default `#fff`. */
+  foreground?: string | null;
+  /** The unfilled part of the progress and volume bars. Default `rgba(255,255,255,0.25)`. */
+  track?: string | null;
+  /** The background behind the buttons: any CSS background, e.g. a gradient. Default: black fading to transparent upward. */
+  barBackground?: string | null;
+  /** Thickness of the progress bar in px (a number) or any CSS length. Default 3. */
+  trackHeight?: number | string | null;
+  /** `font-family` of the bar. */
+  font?: string | null;
+}
+
+const THEME_PROPERTIES: Record<keyof ControllerTheme, string> = {
+  accent: '--mc-accent', foreground: '--mc-fg', track: '--mc-track', barBackground: '--mc-bar-bg', trackHeight: '--mc-track-height', font: '--mc-font',
+};
+
 export interface ControllerOptions {
   canvas: HTMLCanvasElement;
+  /** Colours and sizes of the bar, see {@link ControllerTheme}. Can be changed later with `controller.setTheme()`. */
+  theme?: ControllerTheme;
   showExportButton?: boolean;
   enableKeyboardShortcuts?: boolean;
   className?: string;
@@ -373,6 +400,7 @@ export class Controller {
     this.root.className = this.options.className;
     this.wrapper.appendChild(this.root);
     this.buildBar();
+    this.setTheme(options.theme ?? {});
     this.bindFitWrap();
     this.syncRootToCanvas();
     if (typeof ResizeObserver !== 'undefined') {
@@ -455,6 +483,18 @@ export class Controller {
     this.fullscreenBtn = this.root.querySelector('.mc-fullscreen') as HTMLButtonElement | null;
     if (this.settingsFormatSelect) this.settingsFormatSelect.value = this.exportFormat;
     if (this.settingsQualitySelect) this.settingsQualitySelect.value = this.exportQuality;
+  }
+
+  /** Change the look of the bar (see {@link ControllerTheme}): only the keys you give change, `null` restores the default. */
+  setTheme(theme: ControllerTheme): void {
+    warnUnknownOptions('Controller theme', theme as Record<string, unknown>, Object.keys(THEME_PROPERTIES));
+    for (const key of Object.keys(THEME_PROPERTIES) as Array<keyof ControllerTheme>) {
+      if (!(key in theme)) continue;
+      const value = theme[key];
+      const prop = THEME_PROPERTIES[key];
+      if (value === null || value === undefined || value === '') this.root.style.removeProperty(prop);
+      else this.root.style.setProperty(prop, typeof value === 'number' ? `${value}px` : String(value));
+    }
   }
 
   private ensurePositioningContext(canvas: HTMLCanvasElement): HTMLDivElement {
