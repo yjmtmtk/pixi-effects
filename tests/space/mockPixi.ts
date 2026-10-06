@@ -45,6 +45,11 @@ export function createPixiMock() {
       rt.resolution = o.resolution ?? 1;
       return rt;
     }
+    resize(width: number, height: number, resolution?: number) {
+      this.width = width; this.height = height;
+      if (resolution !== undefined) this.resolution = resolution;
+      return this;
+    }
   }
   class PerspectiveMesh extends Container {
     texture: Texture;

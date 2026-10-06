@@ -69,6 +69,12 @@ export class Layer3D {
   /** Camera-space depth from the last update (larger = farther). */
   depth = 0;
   private rt: RenderTexture | null = null;
+  /**
+   * Textures replaced by a bigger / smaller one. Destroying one right away warns "destroyed while still
+   * bound": the mesh's bind group still points at it until the next render. They go at the next update,
+   * by which time a frame has been drawn with the new texture.
+   */
+  private retired: RenderTexture[] = [];
   private size: TextureSize | null = null;
   private warnedBehind = false;
 
@@ -86,6 +92,7 @@ export class Layer3D {
   }
 
   update(host: SpaceHost, basis: CameraBasis): void {
+    this.flushRetired();
     const target = this.seq.target as Carrier | null;
     // Pixi skips rendering (and clearing) a container that is not `visible`
     // (e.g. PixiPlugin autoAlpha at alpha 0), which would leave a stale texture.
@@ -132,6 +139,12 @@ export class Layer3D {
     this.display.destroy();
     this.rt?.destroy(true);
     this.rt = null;
+    this.flushRetired();
+  }
+
+  private flushRetired(): void {
+    for (const t of this.retired) t.destroy(true);
+    this.retired = [];
   }
 
   private hide(): void {
@@ -157,11 +170,18 @@ export class Layer3D {
 
   private ensureTexture(size: TextureSize): void {
     if (this.rt && this.size === size) return;
+    // Same sampling: resize the texture where it is. Replacing it makes Pixi warn that the old one was
+    // destroyed while still bound, because the mesh keeps pointing at it until the next render.
+    if (this.rt && this.size && this.size.antialias === size.antialias) {
+      this.rt.resize(size.w, size.h, size.resolution);
+      this.size = size;
+      return;
+    }
     const next = RenderTexture.create({
       width: size.w, height: size.h, resolution: size.resolution, antialias: size.antialias,
     });
     this.display.texture = next;
-    this.rt?.destroy(true);
+    if (this.rt) this.retired.push(this.rt);
     this.rt = next;
     this.size = size;
   }

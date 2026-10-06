@@ -69,16 +69,35 @@ describe('Layer3D', () => {
     expect(c[2]! - c[0]!).toBeCloseTo((200 * D) / (D - 300), 6);
   });
 
-  it('reuses the render texture while the size is unchanged and recreates it when it changes', () => {
+  it('reuses the render texture while the size is unchanged and resizes the same one in place when it changes', () => {
     const create = vi.spyOn(RenderTexture, 'create');
+    const resize = vi.spyOn(RenderTexture.prototype, 'resize');
     const frame = { x: 0, y: 0, width: 200, height: 100 };
     const { layer, host } = setup(frame);
     layer.update(host, basis());
     layer.update(host, basis());
     expect(create).toHaveBeenCalledTimes(1);
+    expect(resize).not.toHaveBeenCalled();
+    const texture = (layer.display as unknown as { texture: unknown }).texture;
     frame.width = 300;
     layer.update(host, basis());
+    expect(create).toHaveBeenCalledTimes(1);              // not replaced: Pixi warns when a still-bound texture is destroyed
+    expect(resize).toHaveBeenCalledTimes(1);
+    expect((layer.display as unknown as { texture: unknown }).texture).toBe(texture);
+  });
+
+  it('a replaced texture (sampling changed) is destroyed one update later, not while the mesh may still be bound to it', () => {
+    const create = vi.spyOn(RenderTexture, 'create');
+    const frame = { x: 0, y: 0, width: 200, height: 100 };
+    const { layer, host } = setup(frame);
+    layer.update(host, basis());
+    const first = create.mock.results[0]!.value as { destroyed: boolean };
+    frame.width = 1200; frame.height = 1200;               // too big to antialias: a new texture is needed
+    layer.update(host, basis());
     expect(create).toHaveBeenCalledTimes(2);
+    expect(first.destroyed).toBe(false);
+    layer.update(host, basis());
+    expect(first.destroyed).toBe(true);
   });
 
   it('hides without rendering when the target is not renderable (outside its lifespan)', () => {
@@ -187,9 +206,11 @@ describe('Layer3D', () => {
     expect(create).toHaveBeenCalledTimes(1);
     const c = (layer.display as unknown as { corners: number[] }).corners;
     expect(c[2]! - c[0]!).toBeCloseTo(200, 6);   // still the 200x100 texture
-    frame.width = 60;                            // below half: right-size it
+    frame.width = 60;                            // below half: right-size it (in place)
+    const resize = vi.spyOn(RenderTexture.prototype, 'resize');
     layer.update(host, basis());
-    expect(create).toHaveBeenCalledTimes(2);
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(resize).toHaveBeenCalledTimes(1);
   });
 
   it('leaves mesh alpha at 1 (the render texture already carries the layer alpha)', () => {
