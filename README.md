@@ -1,6 +1,6 @@
 # pixi-effects
 
-> **Status**: experimental — current release `0.4.0`. The API may still change between minor versions (see [CHANGELOG](./CHANGELOG.md): `0.4.0` makes a mask share its layer's lifetime, `0.3.0` made keyframe `at` relative to the layer).
+> **Status**: experimental — current release `0.5.0`. The API may still change between minor versions (see [CHANGELOG](./CHANGELOG.md): `0.5.0` adds synthesised sound effects (`sfx`, no files) and the `check` tool, `0.4.0` makes a mask share its layer's lifetime, `0.3.0` made keyframe `at` relative to the layer).
 
 **[Gallery →](https://yjmtmtk.github.io/pixi-effects/examples/gallery/)** · 30 portfolio pieces written as plain data by AI models · **[Live demos →](https://yjmtmtk.github.io/pixi-effects/)** · 12 numbered examples + an in-browser playground.
 
@@ -36,8 +36,8 @@ Drop the imports into an [importmap](https://developer.mozilla.org/docs/Web/HTML
     "gsap":                    "https://esm.sh/gsap@3.12.5",
     "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
     "mediabunny":              "https://esm.sh/mediabunny",
-    "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@0.4.0/dist/index.js",
-    "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.4.0/dist/Controller.js"
+    "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@0.5.0/dist/index.js",
+    "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.5.0/dist/Controller.js"
   }
 }
 </script>
@@ -48,7 +48,7 @@ Drop the imports into an [importmap](https://developer.mozilla.org/docs/Web/HTML
 </script>
 ```
 
-Load the `dist/` files **as they are** (jsDelivr's `/npm/…/dist/…`, or unpkg's `https://unpkg.com/pixi-effects@0.4.0/dist/index.js`) rather than a CDN-rebundled build such as `esm.sh/pixi-effects` or jsDelivr's `+esm`: the entries (`pixi-effects`, `…/controller`, `…/three`) share internal chunks, which only works when each file is served untouched.
+Load the `dist/` files **as they are** (jsDelivr's `/npm/…/dist/…`, or unpkg's `https://unpkg.com/pixi-effects@0.5.0/dist/index.js`) rather than a CDN-rebundled build such as `esm.sh/pixi-effects` or jsDelivr's `+esm`: the entries (`pixi-effects`, `…/controller`, `…/three`) share internal chunks, which only works when each file is served untouched.
 
 > **Using three.js?** Add two more entries (`three` and `pixi-effects/three`) to this importmap — see [Adding three.js](#adding-threejs-optional) below.
 >
@@ -64,7 +64,7 @@ Add two more entries to the importmap above: three.js itself, and the `pixi-effe
   "imports": {
     "...":                     "(everything from the importmap above)",
     "three":                   "https://esm.sh/three@0.178.0",
-    "pixi-effects/three":      "https://cdn.jsdelivr.net/npm/pixi-effects@0.4.0/dist/three.js"
+    "pixi-effects/three":      "https://cdn.jsdelivr.net/npm/pixi-effects@0.5.0/dist/three.js"
   }
 }
 </script>
