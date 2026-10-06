@@ -34,21 +34,36 @@ export class AudioSequence extends Sequence {
     const initialVolume = this.spec.volume ?? 1;
     const volumeKeyframes: { time: number; value: number }[] = [];
     const dur = this.duration!;
-    for (const raw of this.spec.keyframes ?? []) {
-      const kf = normalizeKeyframe(raw, dur);
-      const set = kf.set as Record<string, number> | undefined;
-      const to = kf.to as Record<string, number> | undefined;
-      const from = kf.from as Record<string, number> | undefined;
-      if (kf.kind === 'set' && set && 'volume' in set) {
-        volumeKeyframes.push({ time: baseTime + this.at + kf.at, value: set.volume! });
-      } else if (kf.kind === 'to' && to && 'volume' in to) {
-        volumeKeyframes.push({ time: baseTime + this.at + kf.at + kf.duration, value: to.volume! });
-      } else if (kf.kind === 'fromTo' && to && 'volume' in to) {
-        volumeKeyframes.push({ time: baseTime + this.at + kf.at, value: from?.volume ?? initialVolume });
-        volumeKeyframes.push({ time: baseTime + this.at + kf.at + kf.duration, value: to.volume! });
-      } else if (kf.kind === 'from' && from && 'volume' in from) {
-        volumeKeyframes.push({ time: baseTime + this.at + kf.at, value: from.volume! });
-        volumeKeyframes.push({ time: baseTime + this.at + kf.at + kf.duration, value: initialVolume });
+    const t0 = baseTime + this.at;
+    // The mixer ramps linearly from the PREVIOUS event to each point. So, like every other keyframe, a
+    // volume change must (1) hold the value it has until its own start (a point at `start` with the
+    // current value) and (2) jump with two points at the same time. Keyframes are applied in time order.
+    const keyframes = (this.spec.keyframes ?? [])
+      .map(raw => normalizeKeyframe(raw, dur))
+      .filter(kf => [kf.set, kf.to, kf.from].some(p => p && 'volume' in p))
+      .sort((x, y) => x.at - y.at);
+    let current = initialVolume;
+    const point = (time: number, value: number): void => { volumeKeyframes.push({ time, value }); };
+    for (const kf of keyframes) {
+      const start = t0 + kf.at;
+      const end = start + kf.duration;
+      const set = (kf.set as Record<string, number> | undefined)?.volume;
+      const to = (kf.to as Record<string, number> | undefined)?.volume;
+      const from = (kf.from as Record<string, number> | undefined)?.volume;
+      point(start, current);                               // hold until the keyframe starts
+      if (kf.kind === 'set' && set !== undefined) {
+        point(start, set);
+        current = set;
+      } else if (kf.kind === 'to' && to !== undefined) {
+        point(end, to);
+        current = to;
+      } else if (kf.kind === 'fromTo' && to !== undefined) {
+        point(start, from ?? current);
+        point(end, to);
+        current = to;
+      } else if (kf.kind === 'from' && from !== undefined) {
+        point(start, from);
+        point(end, current);                               // back to the value it had
       }
     }
     out.push({
