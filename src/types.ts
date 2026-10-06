@@ -201,6 +201,12 @@ export interface SequenceCommon {
    */
   maskInverted?: boolean;
   /**
+   * How this layer blends with what is behind it. `'add'` and `'screen'` brighten (glows, light leaks,
+   * overlapping halos add up instead of covering each other), `'multiply'` darkens. Default `'normal'`.
+   * On a composition the mode is inherited by its children: each one blends with what is behind it.
+   */
+  blendMode?: 'normal' | 'add' | 'screen' | 'multiply';
+  /**
    * Opt this layer into 2.5D: it can then use `z`, `rotationX`, `rotationY`
    * (in `initial` / keyframes) and is projected through the composition's
    * `camera` layer. Default false. With z = 0, no 3D rotation and the default

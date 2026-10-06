@@ -39,6 +39,7 @@ filters: [ { type: 'chromaKey', keyColor, threshold, smoothing, spill } | { type
 mask: <a layer spec>, maskInverted,   // a mask with no `at` of its own starts and ends with the layer it masks (its keyframes count from that layer's start); an explicit mask `at` is composition time
 filterArea: { x, y, width, height }   // in the layer's OWN coordinates; lets blur/glow draw past the layer's bounds
 threeD: true                          // opt into 2.5D (see below)
+blendMode: 'normal' | 'add' | 'screen' | 'multiply'   // add / screen brighten (glows, light leaks: overlapping halos add up); on a composition its children inherit the mode
 ```
 
 Animatable props (`initial` / keyframes): `x y alpha rotation scale scaleX scaleY pivotX pivotY anchorX anchorY skewX skewY tint width height visible autoAlpha`, plus for shapes their style/geometry, for text `fill`, for audio `volume`, for 3D `z rotationX rotationY`, filter params as `'filters.<name>.<param>'`, three objects as `'three.<obj>.<path>'`.

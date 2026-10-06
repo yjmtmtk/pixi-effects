@@ -546,6 +546,17 @@ When `true`, flip the mask sense: pixels INSIDE the mask shape become transparen
 
 Routed through PIXI v8's native `setMask({ inverse: true })`.
 
+#### `blendMode`
+
+How a layer blends with what is behind it: `'normal'` (default), `'add'`, `'screen'` or `'multiply'`. `add` and `screen` brighten, so overlapping glows, halos and light leaks add up instead of covering each other; `multiply` darkens. It works on every layer type, on `threeD` layers, and on a composition (its children inherit the mode, each blending with what is behind it). Any other value warns and is ignored.
+
+```ts
+// A soft white glow that brightens whatever it overlaps
+{ type: 'shape', shape: 'circle', radius: 120, blendMode: 'add',
+  fillGradient: { type: 'radial', stops: [[0, 'rgba(255,255,255,0.9)'], [1, 'rgba(255,255,255,0)']] },
+  initial: { x: 'W/2', y: 'H/2' } }
+```
+
 ---
 
 ## Assets

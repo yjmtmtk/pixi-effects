@@ -28,7 +28,8 @@ You describe a video as a tree of plain objects; the library plays it in a canva
 - **`audio` shorter than its layer goes silent** — add `loop: true`.
 - **Masks live in the parent's coordinates and don't follow the masked layer.** **`filterArea` is in the layer's own coordinates.**
 - **2.5D needs `threeD: true`** on each layer plus a `{ type: 'camera' }` layer; camera props go in `initial`/keyframes; keep every `z` below the camera distance (≈ 989 at 720p, fov 40); under a dolly zoom only `z = 0` stays fixed.
-- **Built in:** `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`. **Not in the DSL (hand-roll, recipes exist or loops are easy):** arc / progress-ring and stroke draw-on, blend modes (add / screen), text that changes over time (other than `{value}`), other per-frame curves and jitter, per-letter text animators (one layer per letter), particle emitters, group/parent layers.
+- **Built in:** `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`. **Not in the DSL (hand-roll, recipes exist or loops are easy):** arc / progress-ring and stroke draw-on, text that changes over time (other than `{value}`), other per-frame curves and jitter, per-letter text animators (one layer per letter), particle emitters, group/parent layers.
+- **Blend modes:** `blendMode: 'add' | 'screen' | 'multiply'` on any layer (glows, light leaks).
 - **One `Movie` per page.** A sound effect needs no `duration` (it lasts as long as its clip). Seeking is safe: counters, colours and growing shapes are right after any jump.
 
 ## Layout sanity (the cheap bugs a screenshot catches)

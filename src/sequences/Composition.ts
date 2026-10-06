@@ -7,6 +7,7 @@ import { assignDepthOrder } from '../space/depth';
 import { Layer3D, type SpaceHost } from '../space/Layer3D';
 import { lintSequence } from '../space/lint';
 import { describeLayer, lintText, lintTiming, summarizeWarnings } from '../core/lint';
+import { applyBlendMode } from '../core/blend';
 import { cameraBasis, homeCamera } from '../space/math';
 import type { CompositionSequenceSpec, AudioDescriptor, CompositionShape, SequenceSpec } from '../types';
 
@@ -75,6 +76,7 @@ export class CompositionSequence extends Sequence {
         inner.addChild(layer.display);
         this._layers3d.push(layer);
         this._visual.push({ seq: child, layer });
+        applyBlendMode(child.spec, layer.display);
         if (maskSpec) {
           console.warn(`pixi-effects: ${describeLayer(child.spec)}: mask is not supported on threeD layers yet; ignored`);
         }
@@ -83,6 +85,7 @@ export class CompositionSequence extends Sequence {
 
       inner.addChild(child.target);
       this._visual.push({ seq: child, layer: null });
+      applyBlendMode(child.spec, child.target);
       // If this child has a `mask` spec, build the mask sequence in the same
       // composition shape, add its target to the same parent (so its
       // transforms resolve in the same coord space), and wire PIXI's

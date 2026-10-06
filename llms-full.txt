@@ -31,7 +31,8 @@ You describe a video as a tree of plain objects; the library plays it in a canva
 - **`audio` shorter than its layer goes silent** — add `loop: true`.
 - **Masks live in the parent's coordinates and don't follow the masked layer.** **`filterArea` is in the layer's own coordinates.**
 - **2.5D needs `threeD: true`** on each layer plus a `{ type: 'camera' }` layer; camera props go in `initial`/keyframes; keep every `z` below the camera distance (≈ 989 at 720p, fov 40); under a dolly zoom only `z = 0` stays fixed.
-- **Built in:** `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`. **Not in the DSL (hand-roll, recipes exist or loops are easy):** arc / progress-ring and stroke draw-on, blend modes (add / screen), text that changes over time (other than `{value}`), other per-frame curves and jitter, per-letter text animators (one layer per letter), particle emitters, group/parent layers.
+- **Built in:** `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`. **Not in the DSL (hand-roll, recipes exist or loops are easy):** arc / progress-ring and stroke draw-on, text that changes over time (other than `{value}`), other per-frame curves and jitter, per-letter text animators (one layer per letter), particle emitters, group/parent layers.
+- **Blend modes:** `blendMode: 'add' | 'screen' | 'multiply'` on any layer (glows, light leaks).
 - **One `Movie` per page.** A sound effect needs no `duration` (it lasts as long as its clip). Seeking is safe: counters, colours and growing shapes are right after any jump.
 
 ## Layout sanity (the cheap bugs a screenshot catches)
@@ -91,6 +92,7 @@ filters: [ { type: 'chromaKey', keyColor, threshold, smoothing, spill } | { type
 mask: <a layer spec>, maskInverted,   // a mask with no `at` of its own starts and ends with the layer it masks (its keyframes count from that layer's start); an explicit mask `at` is composition time
 filterArea: { x, y, width, height }   // in the layer's OWN coordinates; lets blur/glow draw past the layer's bounds
 threeD: true                          // opt into 2.5D (see below)
+blendMode: 'normal' | 'add' | 'screen' | 'multiply'   // add / screen brighten (glows, light leaks: overlapping halos add up); on a composition its children inherit the mode
 ```
 
 Animatable props (`initial` / keyframes): `x y alpha rotation scale scaleX scaleY pivotX pivotY anchorX anchorY skewX skewY tint width height visible autoAlpha`, plus for shapes their style/geometry, for text `fill`, for audio `volume`, for 3D `z rotationX rotationY`, filter params as `'filters.<name>.<param>'`, three objects as `'three.<obj>.<path>'`.
@@ -245,7 +247,8 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 43. **Layers built in a loop need their z-order planned**: anything pushed to the array after the loop is drawn over what the loop made (rings crossed over a header). Keyframes on different properties of one layer may overlap in time. Keep a subject in the upper ~60 % of a source image if a caption will sit under it (`inspect` does not look at picture content). *(docs)*
 44. **`{value}` has no number padding**: a clock or timecode cannot show `:05`. Keep the value in a range that always has the same digit count, or split digits into two counters. *(hand-roll)*
 45. **The same mistake in a loop warns once**: the warning "keyframe starts after the layer ends" is summarised after three layers. The usual cause is an off-by-one (`f <= frames` instead of `f < frames`) that puts the last sample exactly at the layer's end. *(fixed)*
-46. **Still not in the DSL (hand-roll; round-two notes have workarounds):** arc / progress-ring primitive and stroke draw-on / trim path (use a growing rect mask for a one-direction reveal, tick marks, or pre-drawn arcs shown one per frame), blend modes (add / screen: halos cover instead of adding), text content that changes over time (only `{value}`), per-frame jitter (film grain = seeded `set` keyframes on an oversized image), particle emitters, per-letter / per-line text split (measure with `canvas.measureText` using Pixi's font string), shared masks, `zIndex`.
+46. **Still not in the DSL (hand-roll; round-two notes have workarounds):** arc / progress-ring primitive and stroke draw-on / trim path (use a growing rect mask for a one-direction reveal, tick marks, or pre-drawn arcs shown one per frame), text content that changes over time (only `{value}`), per-frame jitter (film grain = seeded `set` keyframes on an oversized image), particle emitters, per-letter / per-line text split (measure with `canvas.measureText` using Pixi's font string), shared masks, `zIndex`.
+46b. **Blend modes exist now** (`blendMode: 'add' | 'screen' | 'multiply'` on any layer, threeD layers and compositions included; a composition's children inherit it). Additive white cores no longer read grey on a coloured background. *(fixed)*
 47. **Browser tooling:** the `agent-browser` daemon is shared, so a `contactSheet` can come back from another session: after saving an image, look at it and confirm it is YOUR piece. In zsh a variable holding `agent-browser --session x` is not split into words (use a small wrapper script). `inspect` now clips overlaps to the visible area and ignores the two scenes of a running transition; it still does not compare text with picture content or shapes.
 
 
@@ -1177,6 +1180,17 @@ When `true`, flip the mask sense: pixels INSIDE the mask shape become transparen
 ```
 
 Routed through PIXI v8's native `setMask({ inverse: true })`.
+
+#### `blendMode`
+
+How a layer blends with what is behind it: `'normal'` (default), `'add'`, `'screen'` or `'multiply'`. `add` and `screen` brighten, so overlapping glows, halos and light leaks add up instead of covering each other; `multiply` darkens. It works on every layer type, on `threeD` layers, and on a composition (its children inherit the mode, each blending with what is behind it). Any other value warns and is ignored.
+
+```ts
+// A soft white glow that brightens whatever it overlaps
+{ type: 'shape', shape: 'circle', radius: 120, blendMode: 'add',
+  fillGradient: { type: 'radial', stops: [[0, 'rgba(255,255,255,0.9)'], [1, 'rgba(255,255,255,0)']] },
+  initial: { x: 'W/2', y: 'H/2' } }
+```
 
 ---
 
