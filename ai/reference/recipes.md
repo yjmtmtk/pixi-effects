@@ -372,6 +372,41 @@ return [
 
 ---
 
+## Draw a line, border or check mark on, and type text out
+
+`trimEnd` 0 → 1 strokes a shape's outline on (`trimStart` 0 → 1 afterwards wipes it off); the fill is NOT trimmed, so fade `fillAlpha` in once the outline is done. A rect's outline starts top-left and goes clockwise, a circle's at 12 o'clock. `strokeCap: 'round'` rounds the ends. For text, `visibleChars` types it out and `set: { text }` swaps the string at a time.
+
+```js
+// @recipe draw-on-and-type
+const ACCENT = '#ffd166', TEAL = '#4cc9f0', GREEN = '#7bd88f';
+const drawOn = (at, duration = 1.2) => ({ at, to: { trimEnd: 1 }, duration, ease: 'power2.inOut' });
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0a0e1a' } },
+  // an underline that draws itself
+  { type: 'shape', shape: 'line', from: [340, 120], to: [940, 120], trimEnd: 0, strokeCap: 'round',
+    initial: { strokeColor: ACCENT, strokeWidth: 6 }, keyframes: [drawOn(0.2, 1)] },
+  // a card border (clockwise from the top-left), then its fill fades in
+  { type: 'shape', shape: 'rect', width: 360, height: 200, cornerRadius: 28, trimEnd: 0, strokeJoin: 'round',
+    initial: { x: 400, y: 360, strokeColor: TEAL, strokeWidth: 8, fillColor: TEAL, fillAlpha: 0 },
+    keyframes: [drawOn(0.6, 1.4), { at: 2, to: { fillAlpha: 0.2 }, duration: 0.6 }] },
+  // an SVG check mark
+  { type: 'shape', shape: 'path', d: 'M 0 50 L 45 95 L 130 0', trimEnd: 0, strokeCap: 'round', strokeJoin: 'round',
+    initial: { x: 880, y: 360, strokeColor: GREEN, strokeWidth: 16 }, keyframes: [drawOn(1.8, 0.9)] },
+  // a typewriter: left-aligned so it grows rightward; 30 characters over 2.4 s
+  { type: 'text', text: 'No mask, no per-letter layers.', at: 3, duration: 5,
+    style: { fontSize: 40, fill: '#e8eefc', fontFamily: 'ui-monospace, Menlo, monospace' },
+    initial: { x: 120, y: 560, anchorX: 0, anchorY: 0.5, visibleChars: 0 },
+    keyframes: [{ at: 0, to: { visibleChars: 30 }, duration: 2.4, ease: 'none' }] },
+  // a countdown: one layer whose string changes
+  { type: 'text', text: '3', at: 3, duration: 5,
+    style: { fontSize: 150, fontWeight: '900', fill: ACCENT },
+    initial: { x: 1060, y: 540, anchorX: 0.5, anchorY: 0.5 },
+    keyframes: [{ at: 1, set: { text: '2' } }, { at: 2, set: { text: '1' } }, { at: 3, set: { text: 'Go!' } }] },
+];
+```
+
+---
+
 ## Letters and words that animate one by one (`splitText`)
 
 Text content cannot change, so a per-letter or per-word effect is one text layer per piece. `splitText(text, style, { by: 'chars' | 'words' | 'lines', x, y, align })` measures the text with the renderer's own font metrics (kerning kept) and returns each piece's `text`, `x`, `y`, `width`, `index` and `line`: put them straight into the layers. Use the same `style` for the whole text and each piece, and a web font must be loaded first. `measureText(text, style)` gives `{ width, height, lines }` for sizing pills and underlines.

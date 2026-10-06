@@ -61,16 +61,19 @@ export function createPixiMock() {
     }
   }
   class Sprite extends Container {}
-  class Text extends Container { width = 0; height = 0; style: Record<string, unknown> = {}; }
+  class Text extends Container {
+    width = 0; height = 0; style: Record<string, unknown> = {}; text = '';
+    constructor(opts: Record<string, unknown> = {}) { super(); this.text = String(opts.text ?? ''); }
+  }
   class Graphics extends Container {
     clear() { return this; }
     getLocalBounds() { return new Rectangle(0, 0, 0, 0); }
   }
   // Drawing calls are chainable no-ops (tests only care about timing / scene wiring).
-  for (const m of ['rect', 'roundRect', 'circle', 'ellipse', 'moveTo', 'lineTo', 'arc', 'poly', 'path', 'closePath', 'fill', 'stroke', 'svg']) {
+  for (const m of ['rect', 'roundRect', 'circle', 'ellipse', 'moveTo', 'lineTo', 'arc', 'poly', 'path', 'closePath', 'beginPath', 'fill', 'stroke', 'svg']) {
     (Graphics.prototype as unknown as Record<string, unknown>)[m] = function (this: unknown) { return this; };
   }
-  class GraphicsPath { constructor(public svgD: string) {} }
+  class GraphicsPath { shapePath = { shapePrimitives: [] as unknown[] }; constructor(public svgD: string) {} }
   /** Text measuring: every character is `fontSize / 2 + letterSpacing` wide, a line is `fontSize * 1.2` tall. */
   class TextStyle { constructor(public options: Record<string, unknown> = {}) {} }
   const CanvasTextMetrics = {

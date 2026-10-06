@@ -48,7 +48,7 @@ Keyframe kinds: `set` (jump at `at`; undone when you seek back), `to` (animate t
 
 ## Layer types
 
-**text** — `text`, `style` (any PixiJS TextStyle field: `fontSize fontFamily fontWeight fill letterSpacing lineHeight align wordWrap wordWrapWidth stroke dropShadow padding`; expressions OK for numbers), `colorSpace`. Default anchor is **top-left**; use `anchorX/anchorY: 0.5` to centre on `x,y`. A text layer has one animatable number, `value`, printed where the text contains `{value}` (`text: '{value} users'`, `initial: { value: 0 }`, keyframe `to: { value: 2480 }`; `format: { decimals, grouping, pad /* zero-pad the whole part: pad 2 → 05 */ }`) — that is how counters work. Other content cannot change over time. Multi-line text is centre-aligned by default (`style.align: 'left'` to change).
+**text** — `text`, `style` (any PixiJS TextStyle field: `fontSize fontFamily fontWeight fill letterSpacing lineHeight align wordWrap wordWrapWidth stroke dropShadow padding`; expressions OK for numbers), `colorSpace`. Default anchor is **top-left**; use `anchorX/anchorY: 0.5` to centre on `x,y`. A text layer has one animatable number, `value`, printed where the text contains `{value}` (`text: '{value} users'`, `initial: { value: 0 }`, keyframe `to: { value: 2480 }`; `format: { decimals, grouping, pad /* zero-pad the whole part: pad 2 → 05 */ }`) — that is how counters work. **Changing text:** a keyframe `set: { text: 'Two' }` swaps the string at that time (undone on seek back; `to` / `from` cannot tween a string); `visibleChars` (number, first N characters; starts at 0 once animated) is a typewriter: `to: { visibleChars: 30 }, duration: 2.4, ease: 'none'` — use `anchorX: 0` + `style.align: 'left'` so it grows rightward. Multi-line text is centre-aligned by default (`style.align: 'left'` to change).
 
 **image** — `asset`, `tint`, `colorSpace: 'rgb'|'oklab'|'oklch'`. Default anchor top-left; natural size = `w`,`h`.
 
@@ -68,6 +68,8 @@ Keyframe kinds: `set` (jump at `at`; undone when you seek back), `to` (animate t
 | line | `from: [x,y]  to: [x,y]` — plain canvas coordinates (omit `x,y`; if you give them they place the line's midpoint). Stroke in `initial`: `strokeColor`, `strokeWidth` |
 | polygon | `points: [[x,y],…]  open` — canvas coordinates like `line` |
 | path | `d` (SVG path data) — canvas coordinates like `line` |
+
+**Draw-on:** every shape but `arc` has `trimStart` / `trimEnd` (0–1 of the outline, default 0 / 1, animatable): `trimEnd: 0` + keyframe `to: { trimEnd: 1 }` draws a line / border / path on; `trimStart` 0 → 1 after it wipes it off; both = a travelling dash. The fill is NOT trimmed. Rect outline starts top-left, circle / ellipse at 12 o'clock, both clockwise. Use `strokeCap: 'round'`.
 
 Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha strokeWidth`; `colorSpace: 'oklab'|'oklch'` for clean colour tweens. rect/circle/ellipse are **centred on `x,y` by default** (`anchorX/anchorY` default 0.5): for a bar growing from its base use `anchorY: 1` (or `anchorX: 0` for left-to-right). **`fillGradient`** (top level or `initial`; instead of `fillColor`): `{ type?: 'linear'|'radial', stops: [[0, '#000'], [1, 'rgba(0,0,0,.6)']], angle? /* linear, deg, 90 = top→bottom */, center?, innerRadius?, radius? /* radial, 0–1 of bounds */ }` — stops may have alpha, so a radial transparent→dark is a vignette. Stroke ends and corners: `strokeCap: 'butt'|'round'|'square'`, `strokeJoin: 'miter'|'round'|'bevel'` (top level or in `initial`; not animated — `round` keeps sharp corners like an M from poking out).
 

@@ -60,12 +60,15 @@ describe('text `value` counter', () => {
   });
 
   it('plain text without {value} is untouched', async () => {
-    expect(textOf((await bound({ text: 'hello' })).s)).toBeUndefined();   // never rewritten (the mock has no initial text)
+    expect(textOf((await bound({ text: 'hello' })).s)).toBe('hello');
   });
 });
 
 describe('lintText', () => {
   const run = (spec: unknown) => { const o: string[] = []; lintText(spec as SequenceSpec, m => o.push(m)); return o; };
+  it('a {value} that only a swapped string (set: { text }) has is a placeholder too', () => {
+    expect(run({ type: 'text', name: 'n', text: 'x', keyframes: [{ at: 1, set: { text: 'N: {value}', value: 0 } }, { at: 1, to: { value: 5 }, duration: 1 }] })).toEqual([]);
+  });
   it('warns when value is animated but the text has no {value} placeholder', () => {
     const w = run({ type: 'text', name: 'n', text: 'hello', keyframes: [{ at: 0, to: { value: 10 }, duration: 1 }] });
     expect(w).toHaveLength(1);

@@ -104,7 +104,7 @@ Keyframe kinds: `set` (jump at `at`; undone when you seek back), `to` (animate t
 
 ## Layer types
 
-**text** — `text`, `style` (any PixiJS TextStyle field: `fontSize fontFamily fontWeight fill letterSpacing lineHeight align wordWrap wordWrapWidth stroke dropShadow padding`; expressions OK for numbers), `colorSpace`. Default anchor is **top-left**; use `anchorX/anchorY: 0.5` to centre on `x,y`. A text layer has one animatable number, `value`, printed where the text contains `{value}` (`text: '{value} users'`, `initial: { value: 0 }`, keyframe `to: { value: 2480 }`; `format: { decimals, grouping, pad /* zero-pad the whole part: pad 2 → 05 */ }`) — that is how counters work. Other content cannot change over time. Multi-line text is centre-aligned by default (`style.align: 'left'` to change).
+**text** — `text`, `style` (any PixiJS TextStyle field: `fontSize fontFamily fontWeight fill letterSpacing lineHeight align wordWrap wordWrapWidth stroke dropShadow padding`; expressions OK for numbers), `colorSpace`. Default anchor is **top-left**; use `anchorX/anchorY: 0.5` to centre on `x,y`. A text layer has one animatable number, `value`, printed where the text contains `{value}` (`text: '{value} users'`, `initial: { value: 0 }`, keyframe `to: { value: 2480 }`; `format: { decimals, grouping, pad /* zero-pad the whole part: pad 2 → 05 */ }`) — that is how counters work. **Changing text:** a keyframe `set: { text: 'Two' }` swaps the string at that time (undone on seek back; `to` / `from` cannot tween a string); `visibleChars` (number, first N characters; starts at 0 once animated) is a typewriter: `to: { visibleChars: 30 }, duration: 2.4, ease: 'none'` — use `anchorX: 0` + `style.align: 'left'` so it grows rightward. Multi-line text is centre-aligned by default (`style.align: 'left'` to change).
 
 **image** — `asset`, `tint`, `colorSpace: 'rgb'|'oklab'|'oklch'`. Default anchor top-left; natural size = `w`,`h`.
 
@@ -124,6 +124,8 @@ Keyframe kinds: `set` (jump at `at`; undone when you seek back), `to` (animate t
 | line | `from: [x,y]  to: [x,y]` — plain canvas coordinates (omit `x,y`; if you give them they place the line's midpoint). Stroke in `initial`: `strokeColor`, `strokeWidth` |
 | polygon | `points: [[x,y],…]  open` — canvas coordinates like `line` |
 | path | `d` (SVG path data) — canvas coordinates like `line` |
+
+**Draw-on:** every shape but `arc` has `trimStart` / `trimEnd` (0–1 of the outline, default 0 / 1, animatable): `trimEnd: 0` + keyframe `to: { trimEnd: 1 }` draws a line / border / path on; `trimStart` 0 → 1 after it wipes it off; both = a travelling dash. The fill is NOT trimmed. Rect outline starts top-left, circle / ellipse at 12 o'clock, both clockwise. Use `strokeCap: 'round'`.
 
 Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha strokeWidth`; `colorSpace: 'oklab'|'oklch'` for clean colour tweens. rect/circle/ellipse are **centred on `x,y` by default** (`anchorX/anchorY` default 0.5): for a bar growing from its base use `anchorY: 1` (or `anchorX: 0` for left-to-right). **`fillGradient`** (top level or `initial`; instead of `fillColor`): `{ type?: 'linear'|'radial', stops: [[0, '#000'], [1, 'rgba(0,0,0,.6)']], angle? /* linear, deg, 90 = top→bottom */, center?, innerRadius?, radius? /* radial, 0–1 of bounds */ }` — stops may have alpha, so a radial transparent→dark is a vignette. Stroke ends and corners: `strokeCap: 'butt'|'round'|'square'`, `strokeJoin: 'miter'|'round'|'bevel'` (top level or in `initial`; not animated — `round` keeps sharp corners like an M from poking out).
 
@@ -269,6 +271,7 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 50. **An image (or video) works as a mask, `maskInverted` included** *(fixed)*: PIXI hides a sprite mask with `renderable = false` and the lifespan toggles used to switch it back on, so the mask picture was drawn over the layer (a white disc) and `maskInverted` looked ignored. Use the picture's alpha (or red channel) as the shape: an opaque word or logo on a transparent canvas image is a text-shaped mask with real glyph edges. A `text` layer also works as a mask (cut to its glyphs; measured with a heavy sans `I`). *(docs / fixed)*
 51. **Arcs and rings are `shape: 'arc'`** (`radius`, `innerRadius`, `startAngle`, `endAngle`, degrees; 0° = 3 o'clock, clockwise). A progress ring is an arc with `startAngle: -90` and an animated `endAngle` (−90 → 270); `strokeCap: 'round'` rounds BOTH ends. Fill it for a pie slice, add `innerRadius` for a donut slice (a 120-polygon donut is no longer needed). Style (`strokeColor`, `strokeWidth`, `fillColor`) goes in `initial`; `strokeCap` / `strokeJoin` may be top level. *(fixed)*
 52. **Measure and split text with `measureText` / `splitText`, not by hand.** `splitText(text, style, { by, x, y, align })` returns each piece's x / y / width in the renderer's own font metrics (kerning kept; verified: a whole line vs the same line in per-letter layers differs only by anti-aliasing). The pieces are for text layers with the default top-left anchor and the same `style`. Load a web font before measuring (`await document.fonts.load('24px "Name"')`) or the fallback font's widths are used. Size a pill from `measureText(...).width + padding` instead of `0.58 × fontSize × length`. *(fixed)*
+53. **Draw-on and typewriter need no masks or per-letter layers.** `trimStart` / `trimEnd` (0–1 of the outline, animatable, every shape but `arc`) draw a stroke on: `trimEnd: 0` plus a keyframe `to: { trimEnd: 1 }`. The fill is not trimmed, so fade `fillAlpha` in afterwards; use `strokeCap: 'round'`. Text changes over time with `set: { text }` (swap at a time) and `visibleChars` (typewriter; left-align it so it grows rightward). A `to: { text }` cannot tween a string and warns. *(fixed)*
 
 
 <!-- ===== ai/reference/recipes.md ===== -->
@@ -647,6 +650,41 @@ return [
 
 ---
 
+## Draw a line, border or check mark on, and type text out
+
+`trimEnd` 0 → 1 strokes a shape's outline on (`trimStart` 0 → 1 afterwards wipes it off); the fill is NOT trimmed, so fade `fillAlpha` in once the outline is done. A rect's outline starts top-left and goes clockwise, a circle's at 12 o'clock. `strokeCap: 'round'` rounds the ends. For text, `visibleChars` types it out and `set: { text }` swaps the string at a time.
+
+```js
+// @recipe draw-on-and-type
+const ACCENT = '#ffd166', TEAL = '#4cc9f0', GREEN = '#7bd88f';
+const drawOn = (at, duration = 1.2) => ({ at, to: { trimEnd: 1 }, duration, ease: 'power2.inOut' });
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0a0e1a' } },
+  // an underline that draws itself
+  { type: 'shape', shape: 'line', from: [340, 120], to: [940, 120], trimEnd: 0, strokeCap: 'round',
+    initial: { strokeColor: ACCENT, strokeWidth: 6 }, keyframes: [drawOn(0.2, 1)] },
+  // a card border (clockwise from the top-left), then its fill fades in
+  { type: 'shape', shape: 'rect', width: 360, height: 200, cornerRadius: 28, trimEnd: 0, strokeJoin: 'round',
+    initial: { x: 400, y: 360, strokeColor: TEAL, strokeWidth: 8, fillColor: TEAL, fillAlpha: 0 },
+    keyframes: [drawOn(0.6, 1.4), { at: 2, to: { fillAlpha: 0.2 }, duration: 0.6 }] },
+  // an SVG check mark
+  { type: 'shape', shape: 'path', d: 'M 0 50 L 45 95 L 130 0', trimEnd: 0, strokeCap: 'round', strokeJoin: 'round',
+    initial: { x: 880, y: 360, strokeColor: GREEN, strokeWidth: 16 }, keyframes: [drawOn(1.8, 0.9)] },
+  // a typewriter: left-aligned so it grows rightward; 30 characters over 2.4 s
+  { type: 'text', text: 'No mask, no per-letter layers.', at: 3, duration: 5,
+    style: { fontSize: 40, fill: '#e8eefc', fontFamily: 'ui-monospace, Menlo, monospace' },
+    initial: { x: 120, y: 560, anchorX: 0, anchorY: 0.5, visibleChars: 0 },
+    keyframes: [{ at: 0, to: { visibleChars: 30 }, duration: 2.4, ease: 'none' }] },
+  // a countdown: one layer whose string changes
+  { type: 'text', text: '3', at: 3, duration: 5,
+    style: { fontSize: 150, fontWeight: '900', fill: ACCENT },
+    initial: { x: 1060, y: 540, anchorX: 0.5, anchorY: 0.5 },
+    keyframes: [{ at: 1, set: { text: '2' } }, { at: 2, set: { text: '1' } }, { at: 3, set: { text: 'Go!' } }] },
+];
+```
+
+---
+
 ## Letters and words that animate one by one (`splitText`)
 
 Text content cannot change, so a per-letter or per-word effect is one text layer per piece. `splitText(text, style, { by: 'chars' | 'words' | 'lines', x, y, align })` measures the text with the renderer's own font metrics (kerning kept) and returns each piece's `text`, `x`, `y`, `width`, `index` and `line`: put them straight into the layers. Use the same `style` for the whole text and each piece, and a web font must be loaded first. `measureText(text, style)` gives `{ width, height, lines }` for sizing pills and underlines.
@@ -842,7 +880,7 @@ A layer is **not removed** when its lifespan `[at, at + duration)` ends: it is o
 
 ### `text`
 
-Renders a [PIXI.Text](https://pixijs.com/8.x/guides/components/scene-objects/text/text). Animatable position, rotation, scale, opacity and `fill`. `style` accepts any PixiJS `TextStyle` field and is applied once at build time — notably `fontSize fontFamily fontWeight fill letterSpacing lineHeight align wordWrap wordWrapWidth stroke dropShadow padding` (numbers may be expressions). A `dropShadow` glow is clipped unless `padding` is at least twice its `blur`. Text content cannot change over time, with one exception: a `{value}` placeholder in `text` prints an animatable number (`text: '{value} users'`, `initial: { value: 0 }`, a keyframe `to: { value: 2480 }`; `format: { decimals, grouping }`) — that is how counters work. Any other change of wording is a second layer (stack layers with `at` / `duration`). Multi-line text is centre-aligned unless `style.align` says otherwise. In expressions `w` / `h` are the size of the styled text, so `x: '-w'` places it just off the left edge.
+Renders a [PIXI.Text](https://pixijs.com/8.x/guides/components/scene-objects/text/text). Animatable position, rotation, scale, opacity and `fill`. `style` accepts any PixiJS `TextStyle` field and is applied once at build time — notably `fontSize fontFamily fontWeight fill letterSpacing lineHeight align wordWrap wordWrapWidth stroke dropShadow padding` (numbers may be expressions). A `dropShadow` glow is clipped unless `padding` is at least twice its `blur`. Text content can change over time (see *Changing text* below): a `{value}` placeholder prints an animatable number (counters), a keyframe `set: { text: '…' }` swaps the string, and `visibleChars` types it out. Multi-line text is centre-aligned unless `style.align` says otherwise. In expressions `w` / `h` are the size of the styled text, so `x: '-w'` places it just off the left edge.
 
 ```ts
 {
@@ -873,6 +911,17 @@ The text's `fill` is also animatable via keyframes (under the `to`/`from`/`set` 
   ],
 }
 ```
+
+#### Changing text: `set: { text }` and `visibleChars`
+
+A keyframe `set: { text: 'Two' }` swaps the string at that time (layer-local `at`, undone when you seek back; a string cannot be tweened, so `to` / `from` with `text` warn). A countdown is one layer:
+
+```ts
+{ type: 'text', text: '3', duration: 4, style: { fontSize: 150 }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+  keyframes: [{ at: 1, set: { text: '2' } }, { at: 2, set: { text: '1' } }, { at: 3, set: { text: 'Go!' } }] }
+```
+
+`visibleChars` is a number that shows only the first N characters (counted as you see them: an emoji is one): a typewriter. `initial: { visibleChars: 0 }` and a keyframe `to: { visibleChars: 30 }, duration: 2.4, ease: 'none'` types 30 characters over 2.4 s (it starts at 0 as soon as it is animated). Use a left-aligned layer (`anchorX: 0`, `style.align: 'left'`) so the text grows to the right instead of re-centring each letter; the layer's `w` / `h` are those of the whole text. `set: { text }` and `visibleChars` combine (swap the string, `set: { visibleChars: 0 }`, type it again), and so does a `{value}` placeholder in the string.
 
 #### Counters (`{value}`)
 
@@ -1021,13 +1070,13 @@ Every primitive draws centred on its local origin (so `anchorX`/`anchorY` and `p
 
 | `shape`   | Required props                           | Optional               |
 |-----------|------------------------------------------|------------------------|
-| `rect`    | `width`, `height`                        | `cornerRadius`         |
-| `circle`  | `radius`                                 | —                      |
-| `ellipse` | `radiusX`, `radiusY`                     | —                      |
+| `rect`    | `width`, `height`                        | `cornerRadius`, `trimStart`, `trimEnd` |
+| `circle`  | `radius`                                 | `trimStart`, `trimEnd` |
+| `ellipse` | `radiusX`, `radiusY`                     | `trimStart`, `trimEnd` |
 | `arc`     | `radius`                                 | `innerRadius`, `startAngle` (0), `endAngle` (360) |
-| `line`    | `from: [x,y]`, `to: [x,y]` (canvas coordinates; stroke in `initial`) | — |
-| `polygon` | `points: [[x,y], …]`                     | `open` (default false) |
-| `path`    | `d` (SVG path data)                      | —                      |
+| `line`    | `from: [x,y]`, `to: [x,y]` (canvas coordinates; stroke in `initial`) | `trimStart`, `trimEnd` |
+| `polygon` | `points: [[x,y], …]`                     | `open` (default false), `trimStart`, `trimEnd` |
+| `path`    | `d` (SVG path data)                      | `trimStart`, `trimEnd` |
 
 **`arc`** is an arc around its local origin (the centre). Angles are in **degrees: 0° is 3 o'clock and positive is clockwise**, so a progress ring starts at `startAngle: -90` (12 o'clock) and animates `endAngle` from `-90` to `270`. With a stroke and no fill it is an open arc line (`strokeCap: 'round'` for rounded ends); with a fill it is a sector (a pie slice), and with `innerRadius` a ring segment (a donut slice). A sweep of 360° or more is a full circle; `endAngle < startAngle` sweeps counter-clockwise. `radius`, `innerRadius`, `startAngle` and `endAngle` are all animatable.
 
@@ -1035,6 +1084,14 @@ Every primitive draws centred on its local origin (so `anchorX`/`anchorY` and `p
 { type: 'shape', shape: 'arc', radius: 120, startAngle: -90, endAngle: -90, strokeCap: 'round',
   initial: { x: 'GW/2', y: 'GH/2', strokeColor: '#ffd166', strokeWidth: 24 },
   keyframes: [{ at: 0, to: { endAngle: 270 }, duration: 2, ease: 'power3.out' }] }   // a progress ring filling clockwise from the top
+```
+
+**Draw-on (`trimStart` / `trimEnd`).** On every shape except `arc`, `trimStart` and `trimEnd` (0–1, default 0 and 1, both animatable) are the part of the outline that is stroked, as fractions of its length. Animate `trimEnd` from 0 to 1 to draw a line, border or SVG path on; animate `trimStart` after it to wipe it off the same way; animate both for a travelling dash. A rect's outline starts at its top-left and goes clockwise, a circle / ellipse's at 12 o'clock and goes clockwise, a polygon's includes its closing edge, and a path's several sub-paths count as one length in order. **The fill is not trimmed** (the whole shape stays filled): fade `fillAlpha` in after the draw-on. Use `strokeCap: 'round'` for a friendly end. For `arc`, animate `endAngle` instead (a `trim…` on an arc warns).
+
+```ts
+{ type: 'shape', shape: 'path', d: 'M 0 50 L 45 95 L 130 0', trimEnd: 0, strokeCap: 'round', strokeJoin: 'round',
+  initial: { x: 1040, y: 270, strokeColor: '#7bd88f', strokeWidth: 16 },
+  keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 1, ease: 'power2.inOut' }] }   // a check mark drawing itself
 ```
 
 `strokeCap` (`'butt'`, `'round'`, `'square'`) and `strokeJoin` (`'miter'`, `'round'`, `'bevel'`) work on every shape, at the top level or in `initial`; they are not animated. Sharp corners (the apex of an M in outlined text, a thin polygon) poke out with the default `miter` join: use `'round'`.

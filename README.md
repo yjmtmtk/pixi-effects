@@ -183,6 +183,7 @@ They ship in the npm package (`node_modules/pixi-effects/ai/`).
   - `11-depth.html` — 2.5D layers and camera: parallax, spin, dolly zoom
   - `12-title-motion.html` — a staggered 2.5D title: letters fly in from depth, particles, orbiting camera
   - `13-sfx.html` — synthesised sound effects (no audio files), a riser into a hit, a custom voice
+  - `14-draw-on.html` — draw-on strokes (`trimStart` / `trimEnd`) and text that changes over time (`visibleChars`, `set: { text }`)
   - `playground.html` — in-browser editor with preset dropdown
 
 ## Browser support

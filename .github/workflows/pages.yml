@@ -77,6 +77,7 @@ jobs:
               <li><a href="examples/11-depth.html"><small>11</small>depth &amp; camera (2.5D)</a></li>
               <li><a href="examples/12-title-motion.html"><small>12</small>title motion (2.5D)</a></li>
               <li><a href="examples/13-sfx.html"><small>13</small>sound effects (no files)</a></li>
+              <li><a href="examples/14-draw-on.html"><small>14</small>draw-on strokes, changing text</a></li>
             </ol>
             <a class="playground" href="examples/playground.html">▶ open playground</a>
           </body>

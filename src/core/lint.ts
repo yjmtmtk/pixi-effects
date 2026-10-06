@@ -48,10 +48,13 @@ export function summarizeWarnings(messages: string[], shown = 3): string[] {
 /** A text layer that animates `value` but has nowhere to print it. */
 export function lintText(spec: SequenceSpec, warn: Warn = defaultWarn): void {
   if (spec.type !== 'text') return;
-  if ((spec.text ?? '').includes('{value}') && !collectPropKeys(spec).has('value')) {
+  // Every string the layer ever shows: its `text` and any `set: { text }` swap.
+  const strings = [spec.text ?? '', ...(spec.keyframes ?? []).map(kf => String((kf.set as Record<string, unknown> | undefined)?.text ?? ''))];
+  const hasPlaceholder = strings.some(t => t.includes('{value}'));
+  if (hasPlaceholder && !collectPropKeys(spec).has('value')) {
     warn(`pixi-effects: ${describeLayer(spec)}: the text has a {value} placeholder but nothing sets or animates \`value\`, so it prints 0. Set initial: { value: … } or animate it; {value} is reserved for counters (there is no way to print a literal "{value}").`);
   }
-  if (collectPropKeys(spec).has('value') && !(spec.text ?? '').includes('{value}')) {
+  if (collectPropKeys(spec).has('value') && !hasPlaceholder) {
     warn(`pixi-effects: ${describeLayer(spec)}: \`value\` is set or animated but the text has no {value} placeholder, so nothing shows it. Use text: '{value}' (or e.g. '{value} users').`);
   }
 }

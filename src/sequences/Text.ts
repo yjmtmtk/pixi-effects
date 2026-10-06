@@ -5,6 +5,7 @@ import { normalizeProps } from '../expr/normalizeProps';
 import { applyKeyframes, applyInitial, resolveAt, loopVars } from '../core/Timeline';
 import { revertibleSet } from '../core/revertibleSet';
 import { tweenColor } from '../expr/colorTween';
+import { describeLayer } from '../core/lint';
 import type { ColorInput } from '../expr/colorInterp';
 import type { TextSequenceSpec, Keyframe, Props } from '../types';
 
@@ -17,7 +18,7 @@ const STYLE_OPAQUE_KEYS = [
   'lineJoin', 'join', 'cap', 'color', 'stroke',
 ];
 
-type ValueState = { value: number };
+type CounterState = { value: number; visibleChars: number };
 
 function formatValue(v: number, f: TextSequenceSpec['format']): string {
   const fixed = v.toFixed(Math.max(0, Math.floor(f?.decimals ?? 0)));
@@ -33,15 +34,20 @@ function formatValue(v: number, f: TextSequenceSpec['format']): string {
 
 export class TextSequence extends Sequence {
   declare spec: TextSequenceSpec;
-  /** Current number for the `{value}` placeholder (tweened by `value` keyframes). */
-  private _value: ValueState = { value: 0 };
+  /** `value`: the number for the `{value}` placeholder; `visibleChars`: how many characters show (typewriter). Both tweened by keyframes. */
+  private _counters: CounterState = { value: 0, visibleChars: 0 };
+  /** The string now on the layer (before `{value}` / `visibleChars`): `text`, or the last `set: { text }`. */
+  private _template = '';
+  /** `visibleChars` is in play (initial or animated): otherwise the whole text shows. */
+  private _typed = false;
   private _lastText = '';
 
-  /** Rewrite the displayed string from the template and the current `value`. */
+  /** Rewrite the displayed string from the template, the current `value` and `visibleChars`. */
   private _refreshText(): void {
-    const template = this.spec.text ?? '';
-    if (!template.includes('{value}')) return;
-    const next = template.split('{value}').join(formatValue(this._value.value, this.spec.format));
+    let next = this._template.includes('{value}')
+      ? this._template.split('{value}').join(formatValue(this._counters.value, this.spec.format))
+      : this._template;
+    if (this._typed) next = Array.from(next).slice(0, Math.max(0, Math.floor(this._counters.visibleChars))).join('');
     if (next === this._lastText) return;
     this._lastText = next;
     (this.target as Text).text = next;
@@ -54,8 +60,10 @@ export class TextSequence extends Sequence {
       fill: '#ffffff',
       align: 'center' as const,
     };
+    const initialProps = (this.spec.initial ?? {}) as Record<string, unknown>;
+    this._template = String(initialProps.text ?? this.spec.text ?? '');
     const text = new Text({
-      text: this.spec.text ?? '',
+      text: this._template,
       style: baseStyle,
       label: this.spec.name,
     });
@@ -80,14 +88,21 @@ export class TextSequence extends Sequence {
       this.intrinsicWidth = text.width;
       this.intrinsicHeight = text.height;
     }
-    // `{value}` counter: seed the number from initial.value and print it.
-    const initialValue = (this.spec.initial as Record<string, unknown> | undefined)?.value;
-    if (initialValue !== undefined) this._value.value = resolveNumber(initialValue, this.scope());
+    // `{value}` counter / `visibleChars`: seed the numbers from initial and print.
+    const scope = this.scope();
+    if (initialProps.value !== undefined) this._counters.value = resolveNumber(initialProps.value, scope);
+    this._typed = initialProps.visibleChars !== undefined || animates(this.spec.keyframes, 'visibleChars');
+    if (initialProps.visibleChars !== undefined) this._counters.visibleChars = resolveNumber(initialProps.visibleChars, scope);
+    // `w` / `h` describe the whole text, not the part typed so far: measure before slicing.
+    const typed = this._typed;
+    this._typed = false;
     this._refreshText();
     if (this._lastText !== '') {
       this.intrinsicWidth = text.width;
       this.intrinsicHeight = text.height;
     }
+    this._typed = typed;
+    this._refreshText();
     this.buildFilters();
   }
 
@@ -100,10 +115,16 @@ export class TextSequence extends Sequence {
     // our per-frame text.style.fill update, with optional perceptual
     // interpolation.
     // `value` (the counter) is likewise not a property of the Text object.
-    const stripped = stripKeys(this.spec, ['fill', 'value']);
+    // `text` (a string swap) and `visibleChars` (the typewriter count) are likewise ours, not the Text object's.
+    const stripped = stripKeys(this.spec, ['fill', 'value', 'text', 'visibleChars']);
     runSuperWithStrippedSpec(this, stripped, timeline, offset);
-    bindFillKeyframes(timeline, this.target as Text, this.spec.keyframes ?? [], this.duration!, offset + this.at, colorSpace);
-    bindValueKeyframes(timeline, this._value, () => this._refreshText(), this.spec.keyframes ?? [], this.duration!, offset + this.at, this.scope());
+    const keyframes = this.spec.keyframes ?? [];
+    const origin = offset + this.at;
+    bindFillKeyframes(timeline, this.target as Text, keyframes, this.duration!, origin, colorSpace);
+    const refresh = (): void => this._refreshText();
+    bindCounterKeyframes(timeline, this._counters, 'value', refresh, keyframes, this.duration!, origin, this.scope());
+    bindCounterKeyframes(timeline, this._counters, 'visibleChars', refresh, keyframes, this.duration!, origin, this.scope());
+    bindTextKeyframes(timeline, keyframes, this.duration!, origin, () => this._template, t => { this._template = t; refresh(); }, describeLayer(this.spec));
   }
 }
 
@@ -154,11 +175,12 @@ function resolveNumber(v: unknown, scope: unknown): number {
   return typeof out === 'number' ? out : Number(out) || 0;
 }
 
-// Tween the `{value}` counter. Mirrors the other keyframe kinds (set / to / from / from+to),
-// honours ease and repeat/yoyo, and calls `refresh` after every update so the text re-renders.
-function bindValueKeyframes(
+// Tween a number on the layer (`value` for the `{value}` counter, `visibleChars` for the typewriter). Mirrors the other
+// keyframe kinds (set / to / from / from+to), honours ease and repeat/yoyo, and calls `refresh` after every update.
+function bindCounterKeyframes(
   timeline: Timeline,
-  state: ValueState,
+  state: CounterState,
+  key: keyof CounterState,
   refresh: () => void,
   keyframes: Keyframe[],
   parentDuration: number,
@@ -166,9 +188,9 @@ function bindValueKeyframes(
   scope: unknown,
 ): void {
   for (const kf of keyframes) {
-    const setV = kf.set?.value;
-    const fromV = kf.from?.value;
-    const toV = kf.to?.value;
+    const setV = kf.set?.[key];
+    const fromV = kf.from?.[key];
+    const toV = kf.to?.[key];
     if (setV === undefined && fromV === undefined && toV === undefined) continue;
     const at = origin + resolveAt(kf.at, parentDuration);
     const duration = kf.duration ?? 0;
@@ -176,17 +198,43 @@ function bindValueKeyframes(
     const loop = loopVars(kf);
     if (setV !== undefined) {
       const v = resolveNumber(setV, scope);
-      revertibleSet(timeline, at, () => state.value, n => { state.value = n; refresh(); }, v);
+      revertibleSet(timeline, at, () => state[key], n => { state[key] = n; refresh(); }, v);
     }
     if (toV !== undefined && fromV !== undefined) {
-      timeline.fromTo(state, { value: resolveNumber(fromV, scope) },
-        { value: resolveNumber(toV, scope), duration, ease, ...loop, onUpdate: refresh }, at);
+      timeline.fromTo(state, { [key]: resolveNumber(fromV, scope) },
+        { [key]: resolveNumber(toV, scope), duration, ease, ...loop, onUpdate: refresh }, at);
     } else if (toV !== undefined) {
-      timeline.to(state, { value: resolveNumber(toV, scope), duration, ease, ...loop, onUpdate: refresh }, at);
+      timeline.to(state, { [key]: resolveNumber(toV, scope), duration, ease, ...loop, onUpdate: refresh }, at);
     } else if (fromV !== undefined) {
-      timeline.from(state, { value: resolveNumber(fromV, scope), duration, ease, ...loop, onUpdate: refresh }, at);
+      timeline.from(state, { [key]: resolveNumber(fromV, scope), duration, ease, ...loop, onUpdate: refresh }, at);
     }
   }
+}
+
+/** `set: { text }` swaps the string at that time (and back when you seek back). A string cannot be tweened. */
+function bindTextKeyframes(
+  timeline: Timeline,
+  keyframes: Keyframe[],
+  parentDuration: number,
+  origin: number,
+  read: () => string,
+  write: (t: string) => void,
+  who: string,
+): void {
+  for (const kf of keyframes) {
+    for (const [what, props] of [['to', kf.to], ['from', kf.from]] as const) {
+      if (props && (props as Record<string, unknown>).text !== undefined) {
+        console.warn(`pixi-effects: ${who}: a keyframe's ${what}: { text } cannot tween a string: use set: { text: '…' } at the time it should change`);
+      }
+    }
+    const t = (kf.set as Record<string, unknown> | undefined)?.text;
+    if (t === undefined) continue;
+    revertibleSet(timeline, origin + resolveAt(kf.at, parentDuration), read, write, String(t));
+  }
+}
+
+function animates(keyframes: Keyframe[] | undefined, key: string): boolean {
+  return (keyframes ?? []).some(kf => [kf.set, kf.to, kf.from].some(p => p && (p as Record<string, unknown>)[key] !== undefined));
 }
 
 // Walk the keyframes and emit colour tweens for any `fill` mutation.

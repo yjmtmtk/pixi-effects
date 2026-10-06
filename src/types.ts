@@ -239,6 +239,10 @@ export interface TextSequenceSpec extends SequenceCommon {
    * The text. May contain `{value}`, replaced by the layer's animatable number
    * `value` (a counter): `text: '{value} users'`, `initial: { value: 0 }`,
    * keyframe `to: { value: 2480 }`. Format it with `format`.
+   *
+   * The text can change over time: a keyframe `set: { text: 'Two' }` swaps the string at that time (and back when
+   * you seek back; a string cannot be tweened). `visibleChars` is a number that shows only the first N characters
+   * (a typewriter): `initial: { visibleChars: 0 }`, keyframe `to: { visibleChars: 20 }`. It starts at 0 once it is animated.
    */
   text?: string;
   /** How `{value}` is printed: `decimals` (default 0) and thousands `grouping` (default false). */
@@ -368,6 +372,19 @@ export interface GradientSpec {
   radius?: number;
 }
 
+/**
+ * Stroke trim (draw-on): the part of the outline that is stroked, as fractions 0–1 of its length. Animate `trimEnd`
+ * from 0 to 1 to draw a line / path / outline on; animate both for a travelling dash. The outline of a rect starts at
+ * its top-left and goes clockwise, of a circle / ellipse at 12 o'clock and goes clockwise; a polygon's closing edge counts.
+ * The fill is not trimmed. Not for `arc` (animate its `endAngle`).
+ */
+export interface Trimmable {
+  /** Where the stroke starts, 0–1 of the outline. Default 0. Animatable. */
+  trimStart?: PropValue;
+  /** Where the stroke ends, 0–1 of the outline. Default 1. Animatable. */
+  trimEnd?: PropValue;
+}
+
 interface ShapeBase extends SequenceCommon {
   type: 'shape';
   /** Fill with a gradient instead of `fillColor` (top level or in `initial`). */
@@ -391,7 +408,7 @@ interface ShapeBase extends SequenceCommon {
   strokeJoin?: 'miter' | 'round' | 'bevel';
 }
 
-export interface RectShapeSpec extends ShapeBase {
+export interface RectShapeSpec extends ShapeBase, Trimmable {
   shape: 'rect';
   width: PropValue;
   height: PropValue;
@@ -407,7 +424,7 @@ export interface RectShapeSpec extends ShapeBase {
   anchorY?: PropValue;
 }
 
-export interface CircleShapeSpec extends ShapeBase {
+export interface CircleShapeSpec extends ShapeBase, Trimmable {
   shape: 'circle';
   radius: PropValue;
   /** See RectShapeSpec.anchorX. Default 0.5 (centre). */
@@ -415,7 +432,7 @@ export interface CircleShapeSpec extends ShapeBase {
   anchorY?: PropValue;
 }
 
-export interface EllipseShapeSpec extends ShapeBase {
+export interface EllipseShapeSpec extends ShapeBase, Trimmable {
   shape: 'ellipse';
   radiusX: PropValue;
   radiusY: PropValue;
@@ -441,14 +458,14 @@ export interface ArcShapeSpec extends ShapeBase {
   endAngle?: PropValue;
 }
 
-export interface LineShapeSpec extends ShapeBase {
+export interface LineShapeSpec extends ShapeBase, Trimmable {
   shape: 'line';
   /** Line endpoints relative to the shape's local origin. */
   from: [PropValue, PropValue];
   to: [PropValue, PropValue];
 }
 
-export interface PolygonShapeSpec extends ShapeBase {
+export interface PolygonShapeSpec extends ShapeBase, Trimmable {
   shape: 'polygon';
   /** Vertices in local space. The path is auto-closed. */
   points: Array<[PropValue, PropValue]>;
@@ -456,7 +473,7 @@ export interface PolygonShapeSpec extends ShapeBase {
   open?: boolean;
 }
 
-export interface PathShapeSpec extends ShapeBase {
+export interface PathShapeSpec extends ShapeBase, Trimmable {
   shape: 'path';
   /** SVG path data (`d` attribute). Goes through PIXI's GraphicsContext.svg(). */
   d: string;

@@ -9,6 +9,7 @@ import { type ColorSpace, type ColorInput } from '../expr/colorInterp';
 import { tweenColor } from '../expr/colorTween';
 import type { Scope } from '../expr/Scope';
 import { makeGradientFill } from './gradientFill';
+import { trimPolylines, rectOutline, ellipseOutline, flattenSvgPath, type Polyline } from './trimPath';
 import type {
   ShapeSequenceSpec, GradientSpec,
   LineShapeSpec, PolygonShapeSpec, PathShapeSpec,
@@ -25,7 +26,7 @@ type Timeline = ReturnType<typeof gsap.timeline>;
 // `LIVE_KEYS` is the union — any key in this set is stripped from the
 // standard transform/keyframe pipeline and routed through `_state` instead.
 type StyleKey = 'fillColor' | 'fillAlpha' | 'strokeColor' | 'strokeAlpha' | 'strokeWidth';
-type GeometryKey = 'width' | 'height' | 'cornerRadius' | 'radius' | 'radiusX' | 'radiusY' | 'anchorX' | 'anchorY' | 'innerRadius' | 'startAngle' | 'endAngle';
+type GeometryKey = 'width' | 'height' | 'cornerRadius' | 'radius' | 'radiusX' | 'radiusY' | 'anchorX' | 'anchorY' | 'innerRadius' | 'startAngle' | 'endAngle' | 'trimStart' | 'trimEnd';
 type LiveKey = StyleKey | GeometryKey;
 
 const STYLE_KEYS = ['fillColor', 'fillAlpha', 'strokeColor', 'strokeAlpha', 'strokeWidth'] as const;
@@ -35,14 +36,15 @@ const COLOR_KEYS = new Set<LiveKey>(['fillColor', 'strokeColor']);
 // (polygon points, line endpoints, path `d`) isn't animated in v1 — those
 // are baked once at build. `anchorX` / `anchorY` are also animatable —
 // useful for "morph from left-anchored to centred" tricks.
+const TRIM_KEYS = ['trimStart', 'trimEnd'] as const;
 const GEOMETRY_KEYS_BY_SHAPE: Record<ShapeSequenceSpec['shape'], readonly GeometryKey[]> = {
-  rect:    ['width', 'height', 'cornerRadius', 'anchorX', 'anchorY'],
-  circle:  ['radius', 'anchorX', 'anchorY'],
-  ellipse: ['radiusX', 'radiusY', 'anchorX', 'anchorY'],
+  rect:    ['width', 'height', 'cornerRadius', 'anchorX', 'anchorY', ...TRIM_KEYS],
+  circle:  ['radius', 'anchorX', 'anchorY', ...TRIM_KEYS],
+  ellipse: ['radiusX', 'radiusY', 'anchorX', 'anchorY', ...TRIM_KEYS],
   arc:     ['radius', 'innerRadius', 'startAngle', 'endAngle'],
-  line:    [],
-  polygon: [],
-  path:    [],
+  line:    [...TRIM_KEYS],
+  polygon: [...TRIM_KEYS],
+  path:    [...TRIM_KEYS],
 };
 
 // Shape kinds whose geometry is drawn relative to a configurable anchor —
@@ -70,6 +72,9 @@ interface ShapeState {
   innerRadius?: number;
   startAngle?: number;
   endAngle?: number;
+  /** Stroke trim: the part of the outline drawn, as fractions 0–1 of its length. */
+  trimStart?: number;
+  trimEnd?: number;
   // stroke style that is not animated
   strokeCap?: string;
   strokeJoin?: string;
@@ -110,6 +115,13 @@ export class ShapeSequence extends Sequence {
     if (this.spec.shape === 'arc') {
       this._state.startAngle ??= 0;
       this._state.endAngle ??= 360;
+      const top = this.spec as unknown as Record<string, unknown>, ini = (this.spec.initial ?? {}) as Record<string, unknown>;
+      if ('trimStart' in top || 'trimEnd' in top || 'trimStart' in ini || 'trimEnd' in ini) {
+        console.warn(`pixi-effects: ${describeLayer(this.spec)}: trimStart / trimEnd do not apply to an arc: animate its endAngle (and startAngle) instead`);
+      }
+    } else {
+      this._state.trimStart ??= 0;
+      this._state.trimEnd ??= 1;
     }
     const gradientSpec = this.spec.fillGradient ?? (this.spec.initial as { fillGradient?: GradientSpec } | undefined)?.fillGradient;
     if (gradientSpec) this._state.fillStyle = makeGradientFill(gradientSpec);
@@ -119,11 +131,16 @@ export class ShapeSequence extends Sequence {
     // user-coord shapes (line / polygon / path) the geometry is immutable
     // and resolved once here.
     this._drawGeometry = makeDrawGeometry(this.spec, scope, this._state);
+    this._outline = makeOutline(this.spec, scope, this._state);
 
+    // Measure the WHOLE shape (a layer that starts fully trimmed still has its size and centre).
+    const { trimStart, trimEnd } = this._state;
+    this._state.trimStart = 0; this._state.trimEnd = 1;
     this._drawGeometry(graphics);
     applyState(graphics, this._state);
 
     const bounds = graphics.getLocalBounds();
+    this._state.trimStart = trimStart; this._state.trimEnd = trimEnd;
     this.intrinsicWidth = bounds.width;
     this.intrinsicHeight = bounds.height;
     // Auto-pivot only for user-coord shapes (line / polygon / path) — they
@@ -154,16 +171,38 @@ export class ShapeSequence extends Sequence {
       this._redraw();
     };
 
+    this._redraw();
     this.buildFilters();
   }
 
   private _fresh = false;
+  private _outline: (() => Polyline[]) | null = null;
 
   private _redraw(): void {
     const graphics = this.target as Graphics;
+    const s = this._state;
     graphics.clear();
-    this._drawGeometry(graphics);
-    applyState(graphics, this._state);
+    const trimmed = (s.trimStart ?? 0) > 0 || (s.trimEnd ?? 1) < 1;
+    if (!trimmed || !this._outline || !(s.strokeColor !== undefined && s.strokeWidth > 0)) {
+      this._drawGeometry(graphics);
+      applyState(graphics, s);
+      return;
+    }
+    // A trim is for the stroke (like After Effects): the fill, if any, is the whole shape; then only the part of
+    // the outline between trimStart and trimEnd is stroked.
+    if (s.fillStyle || s.fillColor !== undefined) {
+      this._drawGeometry(graphics);
+      applyFill(graphics, s);
+      graphics.beginPath();
+    }
+    const parts = trimPolylines(this._outline(), s.trimStart ?? 0, s.trimEnd ?? 1);
+    if (parts.length === 0) return;                           // nothing drawn on yet (trimEnd 0)
+    for (const part of parts) {
+      if (part.closed) { graphics.poly(part.pts, true); continue; }
+      graphics.moveTo(part.pts[0]!, part.pts[1]!);
+      for (let i = 2; i < part.pts.length; i += 2) graphics.lineTo(part.pts[i]!, part.pts[i + 1]!);
+    }
+    applyStroke(graphics, s);
   }
 
   /**
@@ -295,11 +334,17 @@ function resolveLiveValue(key: LiveKey, value: unknown, scope: Scope): unknown {
 // ─── Per-frame redraw ────────────────────────────────────────────────────
 
 function applyState(g: Graphics, s: ShapeState): void {
+  applyFill(g, s);
+  applyStroke(g, s);
+}
+function applyFill(g: Graphics, s: ShapeState): void {
   if (s.fillStyle) {
     g.fill(s.fillStyle as never);
   } else if (s.fillColor !== undefined) {
     g.fill({ color: s.fillColor, alpha: s.fillAlpha });
   }
+}
+function applyStroke(g: Graphics, s: ShapeState): void {
   if (s.strokeColor !== undefined && s.strokeWidth > 0) {
     g.stroke({
       color: s.strokeColor, alpha: s.strokeAlpha, width: s.strokeWidth,
@@ -409,6 +454,39 @@ function makeDrawGeometry(spec: ShapeSequenceSpec, scope: Scope, state: ShapeSta
     case 'path':    return makePathDraw(spec);
   }
   return () => {};
+}
+
+/** The outline a stroke trim walks along: the same geometry as the drawer, as polylines (null: no trim for this kind). */
+function makeOutline(spec: ShapeSequenceSpec, scope: Scope, s: ShapeState): (() => Polyline[]) | null {
+  switch (spec.shape) {
+    case 'rect': return () => {
+      const w = s.width ?? 0, h = s.height ?? 0;
+      return [rectOutline(0 - (s.anchorX ?? 0.5) * w, 0 - (s.anchorY ?? 0.5) * h, w, h, s.cornerRadius ?? 0)];
+    };
+    case 'circle': return () => {
+      const r = s.radius ?? 0;
+      return [ellipseOutline((0.5 - (s.anchorX ?? 0.5)) * 2 * r, (0.5 - (s.anchorY ?? 0.5)) * 2 * r, r, r)];
+    };
+    case 'ellipse': return () => {
+      const rx = s.radiusX ?? 0, ry = s.radiusY ?? 0;
+      return [ellipseOutline((0.5 - (s.anchorX ?? 0.5)) * 2 * rx, (0.5 - (s.anchorY ?? 0.5)) * 2 * ry, rx, ry)];
+    };
+    case 'line': {
+      const lines: Polyline[] = [{ pts: [num(spec.from[0], scope), num(spec.from[1], scope), num(spec.to[0], scope), num(spec.to[1], scope)], closed: false }];
+      return () => lines;
+    }
+    case 'polygon': {
+      const pts: number[] = [];
+      for (const [x, y] of spec.points) pts.push(num(x, scope), num(y, scope));
+      const lines: Polyline[] = pts.length >= 4 ? [{ pts, closed: !spec.open }] : [];
+      return () => lines;
+    }
+    case 'path': {
+      let lines: Polyline[] | null = null;                    // flattened on first use: only a trimmed path needs it
+      return () => (lines ??= flattenSvgPath(spec.d));
+    }
+    default: return null;
+  }
 }
 
 // ─── Bind keyframes onto _state ──────────────────────────────────────────
