@@ -549,6 +549,27 @@
       "notes": "_notes/paper-cutout-forest.md"
     },
     {
+      "id": "blueprint-house",
+      "title": "The Corner House",
+      "subtitle": "A blueprint that draws itself: walls, doors and furniture stroked on, dimensions typed out, a title block whose status changes from DRAFT to APPROVED",
+      "tags": [
+        "blueprint",
+        "draw-on",
+        "architecture",
+        "typewriter",
+        "diagram",
+        "audio"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 12,
+      "posterFrame": 324,
+      "model": "sonnet",
+      "page": "blueprint-house.html",
+      "poster": "posters/blueprint-house.jpg",
+      "notes": "_notes/blueprint-house.md"
+    },
+    {
       "id": "typewriter-terminal",
       "title": "Typewriter Terminal",
       "subtitle": "A dev-tool launch film typed out in a CRT terminal; the window steps back in depth for the title card",

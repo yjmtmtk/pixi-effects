@@ -214,6 +214,19 @@ describe('inspectScene — scaled to nothing, and moved by a parent', () => {
     (seq.target as { getBounds: () => unknown }).getBounds = () => ({ x: 640, y: 360, width: 0, height: 0 });
   };
 
+  it('a typewriter that has not typed anything yet (visibleChars 0) is not reported as "no size"', async () => {
+    const comp = await scene([
+      { type: 'text', name: 'typing', text: 'hello', initial: { x: 100, y: 100, visibleChars: 0 } },
+      { type: 'text', name: 'empty', text: 'b', initial: { x: 100, y: 100 } },
+    ]);
+    const [typing, empty] = comp.layers();
+    emptyBounds(typing!.seq);
+    emptyBounds(empty!.seq);
+    const r = inspectScene(comp, 0, 0, { width: 1280, height: 720 });
+    expect(r.issues.some(i => i.includes('"typing"') && /no size/.test(i))).toBe(false);
+    expect(r.issues.some(i => i.includes('"empty"') && /no size/.test(i))).toBe(true);
+  });
+
   it('text scaled to 0 on purpose (a pop-in starting from nothing) is not reported as "no size"', async () => {
     const comp = await scene([
       { type: 'text', name: 'pop', text: 'a', initial: { x: 640, y: 360, scale: 0 } },

@@ -27,6 +27,7 @@ Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same br
 | opus | Transitions Reel — Seven cuts, seven colours: every transition kind in one tight typographic reel | 1280×720 | transitions-reel.html |
 | opus | UI motion kit — Six microinteractions on a 3×2 board — toggle, ripple + check, like burst, loader, download, bell — played as a cascade, then all at once | 1280×720 | ui-microinteractions.html |
 | sonnet | Happy Birthday, Mika! — Balloons, a layered cake, flickering candles, a blow-out and a confetti burst | 1280×720 | birthday-card.html |
+| sonnet | The Corner House — A blueprint that draws itself: walls, doors and furniture stroked on, dimensions typed out, a title block whose status changes from DRAFT to APPROVED | 1280×720 | blueprint-house.html |
 | sonnet | Countdown to 2027 — 10 to 1 with ring pulses, then a seeded fireworks finale | 1280×720 | countdown-newyear.html |
 | sonnet | Loader Gallery — Nine hypnotic loading loops on one dark board, each a different idea. | 1080×1080 | loader-gallery.html |
 | sonnet | Night Drive — A neon music visualizer: seeded pseudo-spectrum bars, a beat-locked radial pulse and a progress ring over the sample bgm. | 1280×720 | music-visualizer.html |
@@ -35,6 +36,6 @@ Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same br
 | sonnet | Four days in Iceland — A fictional travel slideshow: four procedurally painted landscapes, Ken Burns, four different transitions, captions and a day counter. | 1280×720 | travel-slideshow.html |
 | sonnet | Harbor City Forecast — A five-day broadcast forecast: shifting skies, glass cards, animated icons and a self-drawing temperature line. | 1280×720 | weather-report.html |
 
-Counts: fable 11, opus 11, sonnet 8 (30 pieces).
+Counts: fable 11, opus 11, sonnet 9 (31 pieces).
 
 Per-piece stumble notes are in [_notes/](_notes/), named after the piece id (file name without `.html`).

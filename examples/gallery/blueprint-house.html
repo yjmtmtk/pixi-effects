@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>The Corner House — blueprint</title>
+  <script type="application/json" id="piece-meta">{ "title": "The Corner House", "subtitle": "A blueprint that draws itself: walls, doors and furniture stroked on, dimensions typed out, a title block whose status changes from DRAFT to APPROVED", "tags": ["blueprint", "draw-on", "architecture", "typewriter", "diagram", "audio"], "width": 1280, "height": 720, "duration": 12, "posterFrame": 324, "model": "sonnet" }</script>
+  <style>
+    html, body { margin: 0; background: #07101c; color: #cfe8ff; font-family: system-ui, sans-serif; }
+    body { min-height: 100vh; display: grid; place-items: center; }
+    #stage { width: min(960px, 100%); height: auto; border-radius: 6px; display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 12, POSTER_FRAME = 324;
+
+    // ── palette: a cyanotype sheet ─────────────────────────────────────────────
+    const BG = '#0b2a4a', INK = '#d6ecff', DIM = '#7fa6cf', WIN = '#7fd0ff', GOLD = '#ffd166', OK = '#7bd88f';
+    const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+    const CHAR = 0.6;                                   // monospace advance, in em: left-anchored typing keeps its x
+
+    // ── the two moves everything is built from ─────────────────────────────────
+    // draw-on: trimEnd 0 → 1 strokes an outline on (the fill, if any, is not trimmed)
+    const drawOn = (at, duration = 1, ease = 'power2.inOut') => ({ at, to: { trimEnd: 1 }, duration, ease });
+    // typewriter: visibleChars counts up linearly, `cps` characters per second
+    const typed = (text, x, y, at, o = {}) => {
+      const size = o.size ?? 20, cps = o.cps ?? 16;
+      return { type: 'text', text, at, duration: DURATION - at, name: 'type-' + text.slice(0, 12),
+        style: { fontSize: size, fontWeight: o.weight ?? 'normal', fill: o.fill ?? INK, fontFamily: MONO, letterSpacing: o.spacing ?? 0 },
+        initial: { x, y, anchorX: 0, anchorY: 0.5, visibleChars: 0, ...(o.rotation ? { rotation: o.rotation } : {}) },
+        keyframes: [{ at: 0, to: { visibleChars: text.length }, duration: text.length / cps, ease: 'none' }] };
+    };
+    const centered = (text, cx, y, at, o = {}) => typed(text, cx - (text.length * (o.size ?? 20) * CHAR) / 2, y, at, o);
+
+    const wall = (from, to, at, d = 0.7, w = 10) => ({ type: 'shape', shape: 'line', from, to, trimEnd: 0, strokeCap: 'square',
+      initial: { strokeColor: INK, strokeWidth: w }, keyframes: [drawOn(at, d)] });
+    const thin = (shape, props, x, y, at, d = 0.9, color = DIM) => ({ type: 'shape', shape, ...props, trimEnd: 0, strokeCap: 'round', strokeJoin: 'round',
+      initial: { x, y, strokeColor: color, strokeWidth: 3 }, keyframes: [drawOn(at, d)] });
+
+    // ── the blueprint grid: one path, scanned on ────────────────────────────────
+    let grid = '';
+    for (let x = 0; x <= W; x += 40) grid += `M ${x} 0 L ${x} ${H} `;
+    for (let y = 0; y <= H; y += 40) grid += `M 0 ${y} L ${W} ${y} `;
+
+    const sequences = [
+      { type: 'shape', shape: 'rect', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: BG } },
+      { type: 'shape', shape: 'path', name: 'grid', d: grid, trimEnd: 0, initial: { strokeColor: '#5b8fc0', strokeAlpha: 0.22, strokeWidth: 1 },
+        keyframes: [drawOn(0, 1.6, 'power1.inOut')] },
+
+      // ── title block (bottom right) ─────────────────────────────────────────────
+      { type: 'shape', shape: 'rect', name: 'title-block', width: 330, height: 210, anchorX: 0, anchorY: 0, trimEnd: 0, strokeJoin: 'miter',
+        initial: { x: 880, y: 430, strokeColor: INK, strokeWidth: 3 }, keyframes: [drawOn(0.5, 1.2)] },
+      { type: 'shape', shape: 'line', from: [880, 540], to: [1210, 540], trimEnd: 0, initial: { strokeColor: INK, strokeWidth: 2 }, keyframes: [drawOn(1.6, 0.6)] },
+      typed('THE CORNER HOUSE', 900, 466, 1.5, { size: 28, weight: 'bold', cps: 14 }),
+      typed('GROUND FLOOR PLAN', 900, 508, 2.9, { size: 16, fill: DIM }),
+      typed('SHEET A-01    SCALE 1:50', 900, 568, 3.6, { size: 16, fill: DIM }),
+      typed('STATUS', 900, 610, 4.2, { size: 16, fill: DIM }),
+      // the status line: ONE text layer whose string changes (set: { text }); the last change also turns it green
+      { type: 'text', name: 'status', text: 'DRAFT', at: 4.6, duration: DURATION - 4.6,
+        style: { fontSize: 22, fontWeight: 'bold', fill: GOLD, fontFamily: MONO },
+        initial: { x: 990, y: 610, anchorX: 0, anchorY: 0.5, alpha: 0 },
+        keyframes: [
+          { at: 0, to: { alpha: 1 }, duration: 0.3 },
+          { at: 2.6, set: { text: 'REV A' } },
+          { at: 5.9, set: { text: 'APPROVED' } }, { at: 5.9, to: { fill: OK }, duration: 0.4 },
+        ] },
+
+      // ── outer walls: a rect's outline starts top-left and goes clockwise ────────
+      { type: 'shape', shape: 'rect', name: 'outer-walls', width: 640, height: 400, anchorX: 0, anchorY: 0, trimEnd: 0, strokeJoin: 'miter',
+        initial: { x: 180, y: 140, strokeColor: INK, strokeWidth: 12 }, keyframes: [drawOn(1.4, 2.2, 'power1.inOut')] },
+      // interior walls (gaps are the doors and the opening)
+      wall([500, 140], [500, 260], 3.7), wall([500, 340], [500, 400], 4.0),
+      wall([180, 400], [330, 400], 3.8), wall([410, 400], [700, 400], 4.0), wall([770, 400], [820, 400], 4.2),
+      wall([620, 400], [620, 540], 4.4),
+
+      // ── doors: a leaf (line) and its swing (an arc: endAngle animates) ──────────
+      thin('line', { from: [330, 400], to: [330, 322] }, 0, 0, 5.0, 0.5, INK),
+      { type: 'shape', shape: 'arc', name: 'swing-bedroom', radius: 78, startAngle: 0, endAngle: 0, strokeCap: 'round',
+        initial: { x: 330, y: 400, strokeColor: DIM, strokeWidth: 2 }, keyframes: [{ at: 5.0, to: { endAngle: -90 }, duration: 0.7, ease: 'power2.out' }] },
+      thin('line', { from: [770, 400], to: [770, 330] }, 0, 0, 5.3, 0.5, INK),
+      { type: 'shape', shape: 'arc', name: 'swing-bath', radius: 70, startAngle: 180, endAngle: 180, strokeCap: 'round',
+        initial: { x: 770, y: 400, strokeColor: DIM, strokeWidth: 2 }, keyframes: [{ at: 5.3, to: { endAngle: 270 }, duration: 0.7, ease: 'power2.out' }] },
+
+      // ── windows: a hole cut in the wall (filled with the sheet colour), outlined on ──
+      ...[[330, 140, 140, 14], [400, 540, 160, 14], [820, 270, 14, 140]].map(([x, y, w, h], i) => ({
+        type: 'shape', shape: 'rect', name: 'window-' + i, width: w, height: h, trimEnd: 0, strokeJoin: 'miter',
+        initial: { x, y, fillColor: BG, strokeColor: WIN, strokeWidth: 2 }, keyframes: [drawOn(5.4 + i * 0.25, 0.8)] })),
+
+      // ── furniture: thin outlines ────────────────────────────────────────────────
+      thin('rect', { width: 170, height: 56, cornerRadius: 14 }, 270, 230, 6.0),                  // sofa
+      thin('circle', { radius: 30 }, 440, 250, 6.2),                                              // coffee table
+      thin('rect', { width: 150, height: 52, cornerRadius: 6 }, 660, 300, 6.3),                   // kitchen island
+      thin('circle', { radius: 38 }, 710, 228, 6.5),                                              // dining table
+      thin('rect', { width: 150, height: 96, cornerRadius: 8 }, 280, 470, 6.6),                   // bed
+      thin('rect', { width: 36, height: 100 }, 575, 470, 6.8),                                    // wardrobe
+      thin('rect', { width: 120, height: 50, cornerRadius: 22 }, 700, 505, 7.0),                  // bath tub
+      thin('circle', { radius: 15 }, 790, 440, 7.1),                                              // toilet
+
+      // ── dimension lines (gold): a line, two ticks, a typed value ────────────────
+      { type: 'shape', shape: 'line', from: [180, 96], to: [820, 96], trimEnd: 0, strokeCap: 'round', initial: { strokeColor: GOLD, strokeWidth: 2 }, keyframes: [drawOn(7.2, 1)] },
+      ...[180, 820].map((x, i) => ({ type: 'shape', shape: 'line', from: [x, 84], to: [x, 108], trimEnd: 0, initial: { strokeColor: GOLD, strokeWidth: 2 }, keyframes: [drawOn(7.2 + i * 0.8, 0.2)] })),
+      centered('12.80 m', 500, 72, 8.0, { fill: GOLD, size: 20 }),
+      { type: 'shape', shape: 'line', from: [130, 140], to: [130, 540], trimEnd: 0, strokeCap: 'round', initial: { strokeColor: GOLD, strokeWidth: 2 }, keyframes: [drawOn(7.6, 1)] },
+      ...[140, 540].map((y, i) => ({ type: 'shape', shape: 'line', from: [118, y], to: [142, y], trimEnd: 0, initial: { strokeColor: GOLD, strokeWidth: 2 }, keyframes: [drawOn(7.6 + i * 0.8, 0.2)] })),
+      typed('8.00 m', 104, 376, 8.4, { fill: GOLD, size: 20, rotation: -90 }),
+
+      // ── room labels, typed ─────────────────────────────────────────────────────────
+      centered('LIVING', 340, 166, 8.6, { size: 18, spacing: 2 }),
+      centered('KITCHEN', 660, 166, 8.8, { size: 18, spacing: 2 }),
+      centered('BEDROOM', 400, 430, 9.0, { size: 18, spacing: 2 }),
+      centered('BATH', 720, 432, 9.2, { size: 18, spacing: 2 }),
+
+      // ── the finish: a dash runs once round the outer walls (trimStart and trimEnd travel together) ──
+      { type: 'shape', shape: 'rect', name: 'scan', width: 640, height: 400, anchorX: 0, anchorY: 0, strokeJoin: 'miter', trimStart: 0, trimEnd: 0.1,
+        initial: { x: 180, y: 140, strokeColor: GOLD, strokeWidth: 12 }, at: 9.4, duration: DURATION - 9.4,
+        keyframes: [{ at: 0, from: { trimStart: 0, trimEnd: 0.1 }, to: { trimStart: 0.9, trimEnd: 1 }, duration: 2, ease: 'power1.inOut' }] },
+
+      // ── sound: a soft swoosh as the walls start, typing ticks, a chime at APPROVED, music under it all ──
+      { type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0, duration: DURATION,
+        keyframes: [{ at: 0, to: { volume: 0.3 }, duration: 1.5 }, { at: -2, to: { volume: 0 }, duration: 2 }] },
+      { type: 'audio', name: 'sfx-swoosh', sfx: 'swoosh', at: 1.4, volume: 0.3 },
+      // one tick per character of the title as it is typed (16 characters at 14 per second)
+      ...Array.from({ length: 16 }, (_, i) => ({ type: 'audio', name: 'tick-' + i, sfx: 'typewriter', at: 1.5 + i / 14, volume: 0.14 })),
+      { type: 'audio', name: 'sfx-chime', sfx: 'chime', at: 10.5, volume: 0.16 },
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        background: BG,
+        assets: [{ name: 'bgm', src: '../_assets/bgm.mp3' }],
+        composition: { sequences },
+      });
+      // opens at 0:00; add ?poster to the URL to park on the poster frame
+      if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

@@ -42,6 +42,9 @@ export class TextSequence extends Sequence {
   private _typed = false;
   private _lastText = '';
 
+  /** A typewriter that has typed nothing yet: the layer is empty on purpose (inspect must not call that "no size"). */
+  get showsNothingYet(): boolean { return this._typed && this._lastText === '' && this._template !== ''; }
+
   /** Rewrite the displayed string from the template, the current `value` and `visibleChars`. */
   private _refreshText(): void {
     let next = this._template.includes('{value}')

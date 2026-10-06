@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>pixi-effects reel</title>
-  <meta name="description" content="Sixteen motion-graphics pieces, each written as plain data by an AI model and rendered live in the browser by pixi-effects." />
+  <meta name="description" content="Motion-graphics pieces, each written as plain data by an AI model and rendered live in the browser by pixi-effects." />
   <meta name="color-scheme" content="dark" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -283,7 +283,7 @@
       <h1>Reel</h1>
       <div class="intro">
         <p>Every piece here is plain JSON-like data — layers, keyframes, masks, a camera — written by an AI model from one brief and rendered live in your browser by pixi-effects. Nothing is a video file.</p>
-        <p class="sub" id="hero-sub">Sixteen pieces by three models. Click any poster to play it.</p>
+        <p class="sub" id="hero-sub">Pieces by three models. Click any poster to play it.</p>
         <pre aria-hidden="true">{ <b>"type"</b>: "text", <b>"text"</b>: "Reel",
   <b>"style"</b>: { "fontSize": 160, "fontWeight": 600 },
   <b>"initial"</b>: { "y": 24, "alpha": 0 },
@@ -312,7 +312,7 @@
       <div class="cols">
         <h2 id="about-title">About this reel</h2>
         <div>
-          <p>Sixteen pieces, three models, one brief. Each piece was made in its own session by a Claude model (fable, opus or sonnet) that read the <a href="BRIEF.md">same brief</a> and the same docs, then wrote a single HTML file: a composition of text, shapes, images, audio and a 2.5D camera, described as data and played back by pixi-effects. Which model made which piece is in <a href="MODELS.md">MODELS.md</a>.</p>
+          <p>Many pieces, three models, one brief. Each piece was made in its own session by a Claude model (fable, opus or sonnet) that read the <a href="BRIEF.md">same brief</a> and the same docs, then wrote a single HTML file: a composition of text, shapes, images, audio and a 2.5D camera, described as data and played back by pixi-effects. Which model made which piece is in <a href="MODELS.md">MODELS.md</a>.</p>
           <p>What we learned. Every author kept stumble notes while working: where the docs were unclear, where the library surprised them, what they wished existed. Those notes live in the <a href="https://github.com/yjmtmtk/pixi-effects/tree/main/examples/gallery/_notes">_notes</a> folder, one file per piece, and are reachable from each piece in the theatre. The stumbles became library fixes, warnings and documentation, so the next author does not trip over the same thing.</p>
         </div>
       </div>
@@ -404,7 +404,7 @@
     const byId = new Map(pieces.map((p) => [p.id, p]));
     const total = pieces.reduce((a, p) => a + p.duration, 0);
     const modelCount = Object.fromEntries(MODELS.map((m) => [m, pieces.filter((p) => p.model === m).length]));
-    $('#hero-sub').textContent = `Sixteen pieces by three models, ${Math.floor(total / 60)} min ${total % 60} s in all. Click any poster to play it.`;
+    $('#hero-sub').textContent = `${pieces.length} pieces by three models, ${Math.floor(total / 60)} min ${total % 60} s in all. Click any poster to play it.`;
 
     // ------------------------------------------------------------ grid
     const grid = $('#grid');

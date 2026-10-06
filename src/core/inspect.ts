@@ -69,7 +69,7 @@ export function inspectScene(
   const seen = new Map<LayerInfo, Rect | null>();
   // Scenes that a running transition is blending: they overlap and move off the canvas by design.
   const scene = new Map<LayerInfo, string>();
-  // Layers whose own or an ancestor's scale is 0: no size is expected (a pop-in starting from nothing).
+  // Layers whose own or an ancestor's scale is 0, or a typewriter that has not typed yet: no size is expected.
   const scaledToNothing = new Set<LayerInfo>();
 
   const walk = (comp: CompositionSequence, prefix: string, insideThreeD: boolean, parentVisible: boolean, parentScene?: string, parentMoving = false, parentZero = false): void => {
@@ -113,7 +113,7 @@ export function inspectScene(
       seen.set(info, shown);
       const group = parentScene ?? (name !== undefined && blending.has(name) ? name : undefined);
       if (group) scene.set(info, group);
-      if (zero) scaledToNothing.add(info);
+      if (zero || (seq as { showsNothingYet?: boolean }).showsNothingYet) scaledToNothing.add(info);
       if (seq instanceof CompositionSequence) walk(seq, prefix + label + '/', insideThreeD || threeD, visible, group, moving, zero);
     });
   };
