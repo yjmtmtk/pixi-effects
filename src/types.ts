@@ -253,6 +253,46 @@ export interface TextSequenceSpec extends SequenceCommon {
    */
   colorSpace?: 'rgb' | 'oklab' | 'oklch';
 }
+export type SfxPreset =
+  | 'click' | 'pop' | 'swoosh' | 'swipe' | 'hit' | 'riser' | 'chime' | 'beep' | 'coin' | 'glitch' | 'typewriter';
+
+/** The intent-level knobs shared by presets and custom sounds. */
+export interface SfxKnobs {
+  /** Semitones up (+) or down (−); 12 = one octave. Default 0, range ±24. */
+  pitch?: number;
+  /** −1 = dark / muffled … 0 = as designed … 1 = bright / crisp. Default 0. */
+  brightness?: number;
+  /** Another take of the random parts (noise grain, glitch pattern, typewriter key). Same seed ⇒ same sound. Default 0. */
+  seed?: number;
+}
+
+/**
+ * One layer of a custom sound. Most sounds are one or two voices: noise through a moving band-pass
+ * (whooshes, air, impacts) or a tone with a pitch sweep (blips, zaps, drops).
+ */
+export interface SfxVoice {
+  /** `'noise'` for air, hiss and impacts; a waveform for tones. */
+  wave: 'sine' | 'triangle' | 'square' | 'saw' | 'noise';
+  /** Tone frequency in Hz, or `[from, to]` to sweep (exponentially). Ignored for noise. Default 440. */
+  freq?: number | [number, number];
+  /** Keeps part of the spectrum; `freq` may sweep: `{ type: 'bandpass', freq: [500, 5000] }` = a band of noise rising. `q` default 0.7 (≥ 0.7). */
+  filter?: { type: 'lowpass' | 'highpass' | 'bandpass'; freq: number | [number, number]; q?: number };
+  /** Level over the voice: `'fall'` (default) hit then decay · `'bell'` swell then fade · `'swell'` grow to the end · `'hold'` steady. */
+  envelope?: 'fall' | 'bell' | 'swell' | 'hold';
+  /** −1 left … 1 right, or `[from, to]` to move. Default 0. */
+  pan?: number | [number, number];
+  /** The part of the sound this voice plays, as fractions 0–1 of its length. Default 0 and 1. */
+  from?: number;
+  to?: number;
+  /** Level relative to the other voices. Default 1. */
+  gain?: number;
+}
+
+/** A preset with knobs, or a custom sound made of `voices` (length = the layer's duration, default 0.5 s). */
+export type SfxOptions =
+  | (SfxKnobs & { preset: SfxPreset; voices?: never })
+  | (SfxKnobs & { voices: SfxVoice[]; preset?: never });
+
 export interface AudioSequenceSpec extends SequenceCommon {
   type: 'audio';
   asset: string;
