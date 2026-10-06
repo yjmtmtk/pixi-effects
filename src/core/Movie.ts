@@ -11,6 +11,7 @@ import { expandTransitions, carryTransitionWindows } from './Transitions';
 import { inspectScene, type InspectReport, type InspectOptions } from './inspect';
 import { pickFrames, sheetLayout } from './frames';
 import { warnUnknownOptions } from './options';
+import { startWhenRunning } from './startWhenRunning';
 import type { Sequence } from '../sequences/Base';
 import type {
   AssetSpec, CompositionSpec, CompositionShape, AudioDescriptor,
@@ -74,6 +75,7 @@ export class Movie {
   audioBuffer: AudioBuffer | null = null;
   audioSource: AudioBufferSourceNode | null = null;
   gainNode: GainNode | null = null;
+  private _cancelAudioStart: (() => void) | null = null;
   private _volume = 1;
   private _muted = false;
   isPlaying = false;
@@ -387,12 +389,19 @@ export class Movie {
 
     if (this.audioBuffer) {
       const ctx = this._ensureAudioContext();
-      this.audioSource = ctx.createBufferSource();
-      this.audioSource.buffer = this.audioBuffer;
-      this.gainNode = ctx.createGain();
-      this.gainNode.gain.value = this._muted ? 0 : this._volume;
-      this.audioSource.connect(this.gainNode).connect(ctx.destination);
-      this.audioSource.start(0, this.currentFrame / this.frameRate);
+      const buffer = this.audioBuffer;
+      this._cancelAudioStart?.();
+      // A browser keeps the context suspended until the user has interacted with the page: start the sound when it
+      // runs, from the position the movie has reached by then, instead of at a stale offset.
+      this._cancelAudioStart = startWhenRunning(ctx, () => {
+        if (!this.isPlaying) return;
+        this.audioSource = ctx.createBufferSource();
+        this.audioSource.buffer = buffer;
+        this.gainNode = ctx.createGain();
+        this.gainNode.gain.value = this._muted ? 0 : this._volume;
+        this.audioSource.connect(this.gainNode).connect(ctx.destination);
+        this.audioSource.start(0, Math.min(this.currentFrame / this.frameRate, buffer.duration));
+      }, typeof window !== 'undefined' ? window : undefined);
     }
     if (!wasPlaying) this.emit('play');
   }
@@ -400,6 +409,8 @@ export class Movie {
   pause(): void {
     const wasPlaying = this.isPlaying;
     this.isPlaying = false;
+    this._cancelAudioStart?.();
+    this._cancelAudioStart = null;
     if (this._raf) {
       cancelAnimationFrame(this._raf);
       this._raf = null;
