@@ -13,6 +13,8 @@
  *
  * Parsed ASTs are cached per source string. CSP-safe: no Function constructor.
  */
+import { rand, noise } from './random';
+
 const FUNCS: Record<string, (...args: number[]) => number> = {
   min: Math.min,
   max: Math.max,
@@ -25,7 +27,15 @@ const FUNCS: Record<string, (...args: number[]) => number> = {
   sin: Math.sin,
   cos: Math.cos,
   tan: Math.tan,
+  rand: seed => rand(seed),
+  noise: (x, seed = 0) => noise(x, seed),
+  lerp: (a, b, t) => a + (b - a) * t,
+  clamp: (x, lo, hi) => Math.min(Math.max(x, lo), hi),
+  smoothstep: (a, b, x) => { const u = Math.min(Math.max((x - a) / (b - a), 0), 1); return u * u * (3 - 2 * u); },
+  mod: (a, b) => ((a % b) + b) % b,
+  step: (edge, x) => (x >= edge ? 1 : 0),
 };
+const CONSTS: Record<string, number> = { PI: Math.PI };
 
 type BinOp = '+' | '-' | '*' | '/';
 type Token =
@@ -159,6 +169,7 @@ function evalNode(node: Node, scope: Record<string, number>): number {
   switch (node.kind) {
     case 'num': return node.value;
     case 'var': {
+      if (node.name in CONSTS) return CONSTS[node.name]!;
       const v = scope[node.name];
       if (typeof v !== 'number') throw new Error(`undefined variable: ${node.name}`);
       return v;

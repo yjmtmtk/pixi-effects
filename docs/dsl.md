@@ -747,8 +747,18 @@ The expression parser is in-tree (no eval, CSP-safe). See [`src/expr/Parser.ts`]
 | `sqrt(x)`               |                                                      |
 | `pow(a, b)`             | power                                                |
 | `sin(x)`, `cos(x)`, `tan(x)` | radians                                         |
+| `lerp(a, b, t)`         | `a + (b - a) * t`                                    |
+| `clamp(x, lo, hi)`      |                                                      |
+| `smoothstep(a, b, x)`   | 0 below `a`, 1 above `b`, smooth in between          |
+| `mod(a, b)`             | never negative (`mod(-1, 3)` is 2)                   |
+| `step(edge, x)`         | 0 below `edge`, 1 from `edge` on: the way to write an "if" |
+| `rand(seed)`            | a number in 0…1; the same seed always gives the same number |
+| `noise(x, seed)`        | smooth noise in −1…1, continuous in `x`; `seed` is optional |
+| `PI`                    | a constant                                           |
 
-No comparison, conditional, bitwise, or string operators — keep it numeric.
+No comparison, conditional, bitwise, or string operators — keep it numeric (`step()` and `clamp()` cover most "if"s).
+
+**Randomness is seeded.** `rand(seed)` and `noise(x, seed)` depend only on their arguments, so playback, seeking and export agree; never use `Math.random()` for anything that ends up in the picture. Expressions are still evaluated once, when the layer is built, so give each layer its own seed (in a JS loop: `x: `W/2 + rand(${i}) * 200``). For randomness in plain JS use `random(seed)` (`const r = random(7); r(); r()`), exported by the library. For a shake that changes over time use [`wiggle()`](#wiggle).
 
 ### Scope variables
 
@@ -1125,6 +1135,30 @@ sequences: [
 | `fov`, `ease`, `at`, `name`, `stepsPerSecond` | `ease` default `'sine.inOut'` |
 
 `z` is specified, so it stops following `fov`; for an orbit **plus** a dolly zoom write your own `fov` and `z = (H/2) / tan(fov/2)` keyframes.
+
+### `wiggle`
+
+A seeded shake as keyframes (an expression cannot change over time, so it is baked into ordinary keyframes): drift, hand-held camera, a flickering light.
+
+```ts
+import { wiggle } from 'pixi-effects';
+
+{ type: 'text', text: 'hi', at: 0, duration: 6, initial: { x: 'GW/2', y: 'GH/2' },
+  keyframes: [
+    ...wiggle({ duration: 6, freq: 4, seed: 3, props: { x: { around: 'GW/2', amp: 6 }, rotation: { around: 0, amp: 1.5 } } }),
+  ] }
+```
+
+| Option | Type | Notes |
+| ------ | ---- | ----- |
+| `duration` | number | seconds; required |
+| `props` | `{ [prop]: { around, amp } }` | each property moves on its own (x and y are not in lockstep). `around` is the resting value: a number or an expression; the shake starts and ends there. `amp` is how far it strays. Any animatable name works (`rotation`, `scale`, `alpha`, `'filters.blur.blur'`). |
+| `at` | number | start, seconds from the start of the layer (default 0) |
+| `freq` | number | new random targets per second (default 3 drifts; 8 and up shakes) |
+| `seed` | number | another seed is another take (default 0) |
+| `ease` | string | between targets (default `'sine.inOut'`; `'none'` gives jittery straight lines) |
+
+It returns `Keyframe[]`: spread it into `keyframes`, next to others. Do not put another keyframe on the same property during the wiggle.
 
 ### `withFade`
 

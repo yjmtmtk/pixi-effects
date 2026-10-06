@@ -34,7 +34,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
 - **Sound effects need no files:** `{ type: 'audio', sfx: 'swoosh', at: 2 }` — presets `click pop swoosh swipe hit riser chime beep coin glitch typewriter`; knobs `pitch`, `brightness`, `seed`. The layer lasts as long as the sound (`duration` stretches it); a `riser` is loudest at its end (`at = hit − duration`), a `swoosh` 0.16 s in. A music file shorter than its layer goes silent — `loop: true`.
 - **Masks live in the parent's coordinates and don't follow the masked layer.** **`filterArea` is in the layer's own coordinates.**
 - **2.5D needs `threeD: true`** on each layer plus a `{ type: 'camera' }` layer; camera props go in `initial`/keyframes; keep every `z` below the camera distance (≈ 989 at 720p, fov 40); under a dolly zoom only `z = 0` stays fixed.
-- **Built in:** `splitText()` / `measureText()` (per-letter / per-word layers, exact positions), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`. **Not in the DSL (hand-roll, recipes exist or loops are easy):** stroke draw-on (trim path), text that changes over time (other than `{value}`), other per-frame curves and jitter, per-letter text animators (one layer per letter), particle emitters, group/parent layers.
+- **Built in:** `splitText()` / `measureText()` (per-letter / per-word layers, exact positions), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) and `wiggle()` (a seeded shake as keyframes). **Not in the DSL (hand-roll, recipes exist or loops are easy):** stroke draw-on (trim path), text that changes over time (other than `{value}`), other per-frame curves, per-letter text animators (one layer per letter), particle emitters, group/parent layers.
 - **Blend modes:** `blendMode: 'add' | 'screen' | 'multiply'` on any layer (glows, light leaks).
 - **One `Movie` per page.** A sound effect needs no `duration` (it lasts as long as its clip). Seeking is safe: counters, colours and growing shapes are right after any jump.
 
@@ -66,7 +66,7 @@ A video is **data**: a tree of plain objects. Everything below is a JS object yo
 | Canvas | pixels, origin top-left, `+x` right, `+y` down. Typical: 1280×720 @ 30 fps |
 | Angles | **degrees**: `rotation`, `skew*`, `rotationX`, `rotationY` |
 | Depth (`z`) | `+z` toward the viewer (bigger, nearer) |
-| Numbers | any number may be an **expression string**: `'GW/2 - w/2'`, `'min(W,H)*0.4'` (build-time only; no per-frame time variable) |
+| Numbers | any number may be an **expression string**: `'GW/2 - w/2'`, `'min(W,H)*0.4'` (build-time only; no per-frame time variable). Functions: `min max abs floor ceil round sqrt pow sin cos tan lerp clamp smoothstep mod step`, `PI`, and **seeded** `rand(seed)` (0…1) / `noise(x, seed)` (−1…1): give each layer its own seed, never `Math.random()` |
 | Colours | `'#rrggbb'` strings or numbers; text colour is `style.fill`, shape colour is `fillColor`/`strokeColor`, image colour is `tint` |
 | Z-order | **array order**, later = on top. A layer is hidden (not removed) outside `[at, at+duration)` and keeps its last values |
 | Time of a sequence's `at` | seconds from the start of its **parent composition** (default 0) |
@@ -165,11 +165,14 @@ transitions: [{ kind: 'crossfade' | 'wipe' | 'iris' | 'slide' | 'dip' | 'zoom' |
 ## Presets
 
 ```js
-import { kenBurns, withFade } from 'pixi-effects';
+import { kenBurns, withFade, wiggle, random } from 'pixi-effects';
 kenBurns({ asset, name, at, duration, motion: 'still'|'scale'|'rotation'|'position',
            fit: 'cover'|'contain', ease, /* scale */ origin, zoom, direction, /* rotation */ angle, /* position */ from, to })
 withFade(spec, { in: 0.5, out: 0.5 })   // alpha fade; `out` needs spec.duration
 orbit({ duration: 6, degrees: 40 /* , radius, center, start, fov, ease, at */ })   // a camera layer that circles a point
+// a seeded shake as keyframes (spread into a layer's keyframes); each prop moves on its own; ends back at `around`
+keyframes: [...wiggle({ duration: 6, freq: 4, seed: 3, props: { x: { around: 'GW/2', amp: 6 }, rotation: { around: 0, amp: 1.5 } } })]
+const r = random(7); r(); r();      // a repeatable stream in 0…1 for JS loops (never Math.random())
 ```
 `kenBurns` covers the canvas, so source images should be at least canvas-sized (1920×1080 for 1280×720).
 
@@ -239,8 +242,8 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 17. **Gradients / vignettes**: use shape `fillGradient` (linear or radial, stops may have alpha). Earlier sessions hand-rolled canvas images or dozens of stacked bands. *(fixed)*
 18. **Counters**: `text: '{value}'` + animate `value` (with `format`). Other text content cannot change over time. Earlier sessions generated one text layer per number (40+ per bar). *(fixed)*
 19. **Loops**: `repeat` (finite) / `yoyo` / `repeatDelay` on any keyframe; infinite repeats are rejected with a warning. *(fixed)*
-20. **No per-frame expression time.** Expressions are evaluated once at build. A camera orbit is `orbit()`; any other curve (waves, spirals) must be sampled into short linear keyframes (~0.1 s) in a JS loop. *(partly fixed)*
-21. **Per-letter / per-word text is `splitText()` (one layer per piece, positions measured for you); no group/null parent, no particle emitter, no blend modes, no caption-linked-to-slide.** One layer per letter; many layers; seeded random loops; plain alpha. *(hand-roll)*
+20. **No per-frame expression time.** Expressions are evaluated once at build. A camera orbit is `orbit()`; a shake or drift is `wiggle()`, and any other curve (waves, spirals) must be sampled into short linear keyframes (~0.1 s) in a JS loop. **Randomness must be seeded** (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS): `Math.random()` makes playback and the exported file disagree. *(partly fixed)*
+21. **Per-letter / per-word text is `splitText()` (one layer per piece, positions measured for you); no group/null parent, no particle emitter, no caption-linked-to-slide.** One layer per letter; many layers; seeded random loops (`random(seed)`). *(hand-roll)*
 22. **Colour tweens look muddy in RGB** (red→green passes through brown). Use `colorSpace: 'oklab'` or `'oklch'` on the layer. In `oklch`, a nearly grey end (chroma < ~0.08, e.g. `#9a9ab4`) borrows the other end's hue, so grey → yellow no longer flashes through pink. *(docs / fixed)*
 23. **Generated images**: `canvas.toDataURL()` as an asset `src` works. Make them ≥ canvas size or `kenBurns` zooms look soft. *(docs)*
 
@@ -741,8 +744,7 @@ return [{
 
 ```js
 // @recipe particles
-let seed = 7;
-const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const rnd = random(7);                    // seeded: the same stream every run (never Math.random())
 return Array.from({ length: 40 }, () => {
   const x = rnd() * 1280, y = 100 + rnd() * 620;
   return {
@@ -751,6 +753,33 @@ return Array.from({ length: 40 }, () => {
     keyframes: [{ at: 0, to: { y: y - 80 }, duration: 6, ease: 'none' }],
   };
 });
+```
+
+---
+
+## A hand-held shake and a flickering light (`wiggle`, seeded)
+
+`wiggle()` returns keyframes (spread it into `keyframes`): each property drifts between seeded random targets and ends back at `around`. Use `freq` ~3 for a slow float, 8+ for a shake, `ease: 'none'` for a jittery flicker. Per-layer variety: give each its own `seed`.
+
+```js
+// @recipe wiggle
+return [
+  // a title that floats and tilts a little, like a hand-held camera
+  { type: 'text', text: 'NIGHT SHIFT', duration: 6,
+    style: { fontSize: 120, fill: '#ffffff', fontWeight: '800' },
+    initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+    keyframes: wiggle({ duration: 6, freq: 3, seed: 1, props: { x: { around: 'GW/2', amp: 8 }, y: { around: 'GH/2', amp: 6 }, rotation: { around: 0, amp: 1.2 } } }) },
+  // a neon sign whose light stutters (fast, straight-line steps)
+  { type: 'shape', shape: 'rect', width: 520, height: 8, duration: 6,
+    initial: { x: 'GW/2', y: 'GH/2 + 90', fillColor: '#ff4d6d' },
+    keyframes: wiggle({ duration: 6, freq: 12, seed: 5, ease: 'none', props: { alpha: { around: 0.8, amp: 0.2 } } }) },
+  // dust: every speck has its own seed, so its drift is its own and never changes between runs
+  ...Array.from({ length: 24 }, (_, i) => ({
+    type: 'shape', shape: 'circle', radius: 2 + rand(i) * 3, duration: 6,
+    initial: { x: 40 + rand(i + 100) * 1200, y: 40 + rand(i + 200) * 640, fillColor: '#ffffff', fillAlpha: 0.25 + rand(i + 300) * 0.4 },
+    keyframes: [...wiggle({ duration: 6, freq: 0.6, seed: i, props: { y: { around: 40 + rand(i + 200) * 640, amp: 30 } } })],
+  })),
+];
 ```
 
 ---
@@ -1569,8 +1598,18 @@ The expression parser is in-tree (no eval, CSP-safe). See [`src/expr/Parser.ts`]
 | `sqrt(x)`               |                                                      |
 | `pow(a, b)`             | power                                                |
 | `sin(x)`, `cos(x)`, `tan(x)` | radians                                         |
+| `lerp(a, b, t)`         | `a + (b - a) * t`                                    |
+| `clamp(x, lo, hi)`      |                                                      |
+| `smoothstep(a, b, x)`   | 0 below `a`, 1 above `b`, smooth in between          |
+| `mod(a, b)`             | never negative (`mod(-1, 3)` is 2)                   |
+| `step(edge, x)`         | 0 below `edge`, 1 from `edge` on: the way to write an "if" |
+| `rand(seed)`            | a number in 0…1; the same seed always gives the same number |
+| `noise(x, seed)`        | smooth noise in −1…1, continuous in `x`; `seed` is optional |
+| `PI`                    | a constant                                           |
 
-No comparison, conditional, bitwise, or string operators — keep it numeric.
+No comparison, conditional, bitwise, or string operators — keep it numeric (`step()` and `clamp()` cover most "if"s).
+
+**Randomness is seeded.** `rand(seed)` and `noise(x, seed)` depend only on their arguments, so playback, seeking and export agree; never use `Math.random()` for anything that ends up in the picture. Expressions are still evaluated once, when the layer is built, so give each layer its own seed (in a JS loop: `x: `W/2 + rand(${i}) * 200``). For randomness in plain JS use `random(seed)` (`const r = random(7); r(); r()`), exported by the library. For a shake that changes over time use [`wiggle()`](#wiggle).
 
 ### Scope variables
 
@@ -1947,6 +1986,30 @@ sequences: [
 | `fov`, `ease`, `at`, `name`, `stepsPerSecond` | `ease` default `'sine.inOut'` |
 
 `z` is specified, so it stops following `fov`; for an orbit **plus** a dolly zoom write your own `fov` and `z = (H/2) / tan(fov/2)` keyframes.
+
+### `wiggle`
+
+A seeded shake as keyframes (an expression cannot change over time, so it is baked into ordinary keyframes): drift, hand-held camera, a flickering light.
+
+```ts
+import { wiggle } from 'pixi-effects';
+
+{ type: 'text', text: 'hi', at: 0, duration: 6, initial: { x: 'GW/2', y: 'GH/2' },
+  keyframes: [
+    ...wiggle({ duration: 6, freq: 4, seed: 3, props: { x: { around: 'GW/2', amp: 6 }, rotation: { around: 0, amp: 1.5 } } }),
+  ] }
+```
+
+| Option | Type | Notes |
+| ------ | ---- | ----- |
+| `duration` | number | seconds; required |
+| `props` | `{ [prop]: { around, amp } }` | each property moves on its own (x and y are not in lockstep). `around` is the resting value: a number or an expression; the shake starts and ends there. `amp` is how far it strays. Any animatable name works (`rotation`, `scale`, `alpha`, `'filters.blur.blur'`). |
+| `at` | number | start, seconds from the start of the layer (default 0) |
+| `freq` | number | new random targets per second (default 3 drifts; 8 and up shakes) |
+| `seed` | number | another seed is another take (default 0) |
+| `ease` | string | between targets (default `'sine.inOut'`; `'none'` gives jittery straight lines) |
+
+It returns `Keyframe[]`: spread it into `keyframes`, next to others. Do not put another keyframe on the same property during the wiggle.
 
 ### `withFade`
 

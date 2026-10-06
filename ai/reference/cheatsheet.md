@@ -9,7 +9,7 @@ A video is **data**: a tree of plain objects. Everything below is a JS object yo
 | Canvas | pixels, origin top-left, `+x` right, `+y` down. Typical: 1280×720 @ 30 fps |
 | Angles | **degrees**: `rotation`, `skew*`, `rotationX`, `rotationY` |
 | Depth (`z`) | `+z` toward the viewer (bigger, nearer) |
-| Numbers | any number may be an **expression string**: `'GW/2 - w/2'`, `'min(W,H)*0.4'` (build-time only; no per-frame time variable) |
+| Numbers | any number may be an **expression string**: `'GW/2 - w/2'`, `'min(W,H)*0.4'` (build-time only; no per-frame time variable). Functions: `min max abs floor ceil round sqrt pow sin cos tan lerp clamp smoothstep mod step`, `PI`, and **seeded** `rand(seed)` (0…1) / `noise(x, seed)` (−1…1): give each layer its own seed, never `Math.random()` |
 | Colours | `'#rrggbb'` strings or numbers; text colour is `style.fill`, shape colour is `fillColor`/`strokeColor`, image colour is `tint` |
 | Z-order | **array order**, later = on top. A layer is hidden (not removed) outside `[at, at+duration)` and keeps its last values |
 | Time of a sequence's `at` | seconds from the start of its **parent composition** (default 0) |
@@ -108,11 +108,14 @@ transitions: [{ kind: 'crossfade' | 'wipe' | 'iris' | 'slide' | 'dip' | 'zoom' |
 ## Presets
 
 ```js
-import { kenBurns, withFade } from 'pixi-effects';
+import { kenBurns, withFade, wiggle, random } from 'pixi-effects';
 kenBurns({ asset, name, at, duration, motion: 'still'|'scale'|'rotation'|'position',
            fit: 'cover'|'contain', ease, /* scale */ origin, zoom, direction, /* rotation */ angle, /* position */ from, to })
 withFade(spec, { in: 0.5, out: 0.5 })   // alpha fade; `out` needs spec.duration
 orbit({ duration: 6, degrees: 40 /* , radius, center, start, fov, ease, at */ })   // a camera layer that circles a point
+// a seeded shake as keyframes (spread into a layer's keyframes); each prop moves on its own; ends back at `around`
+keyframes: [...wiggle({ duration: 6, freq: 4, seed: 3, props: { x: { around: 'GW/2', amp: 6 }, rotation: { around: 0, amp: 1.5 } } })]
+const r = random(7); r(); r();      // a repeatable stream in 0…1 for JS loops (never Math.random())
 ```
 `kenBurns` covers the canvas, so source images should be at least canvas-sized (1920×1080 for 1280×720).
 

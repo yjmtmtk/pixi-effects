@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>check · seeded randomness</title></head>
+<body>
+  <!--
+    Acceptance check (not an example): shapes placed with rand() in expressions and shaken with wiggle(). The same seed must give the same
+    picture on every load and after any order of seeking; another seed must give another picture (?seed=N).
+  -->
+  <canvas id="stage" width="640" height="360" style="width:640px"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+  </script>
+  <script type="importmap">
+  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "gsap": "https://esm.sh/gsap@3.12.5", "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin", "mediabunny": "https://esm.sh/mediabunny" } }
+  </script>
+  <script type="module">
+    import { Movie, wiggle, rand } from '../../dist/index.js';
+    const seed = Number(new URLSearchParams(location.search).get('seed') ?? 1);
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 640, height: 360, duration: 3, frameRate: 30, background: '#000000',
+        composition: { sequences: Array.from({ length: 8 }, (_, i) => ({
+          type: 'shape', shape: 'rect', width: 40, height: 40, name: 'box' + i,
+          initial: { x: `40 + rand(${seed * 100 + i}) * 560`, y: `40 + rand(${seed * 100 + i + 50}) * 280`, fillColor: '#ffffff' },
+          keyframes: wiggle({ duration: 3, freq: 4, seed: seed * 100 + i, props: { x: { around: 320, amp: 200 }, rotation: { around: 0, amp: 30 } } }),
+        })) },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+  </script>
+</body>
+</html>

@@ -25,6 +25,11 @@ export type { KenBurnsOptions } from './presets/kenBurns';
 export { orbit } from './presets/orbit';
 export type { OrbitOptions } from './presets/orbit';
 
+export { wiggle } from './presets/wiggle';
+export type { WiggleOptions, WiggleProp } from './presets/wiggle';
+
+export { random, rand, noise } from './expr/random';
+
 export { withFade } from './transforms/withFade';
 export type { WithFadeOptions } from './transforms/withFade';
 

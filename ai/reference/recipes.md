@@ -450,8 +450,7 @@ return [{
 
 ```js
 // @recipe particles
-let seed = 7;
-const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const rnd = random(7);                    // seeded: the same stream every run (never Math.random())
 return Array.from({ length: 40 }, () => {
   const x = rnd() * 1280, y = 100 + rnd() * 620;
   return {
@@ -460,6 +459,33 @@ return Array.from({ length: 40 }, () => {
     keyframes: [{ at: 0, to: { y: y - 80 }, duration: 6, ease: 'none' }],
   };
 });
+```
+
+---
+
+## A hand-held shake and a flickering light (`wiggle`, seeded)
+
+`wiggle()` returns keyframes (spread it into `keyframes`): each property drifts between seeded random targets and ends back at `around`. Use `freq` ~3 for a slow float, 8+ for a shake, `ease: 'none'` for a jittery flicker. Per-layer variety: give each its own `seed`.
+
+```js
+// @recipe wiggle
+return [
+  // a title that floats and tilts a little, like a hand-held camera
+  { type: 'text', text: 'NIGHT SHIFT', duration: 6,
+    style: { fontSize: 120, fill: '#ffffff', fontWeight: '800' },
+    initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+    keyframes: wiggle({ duration: 6, freq: 3, seed: 1, props: { x: { around: 'GW/2', amp: 8 }, y: { around: 'GH/2', amp: 6 }, rotation: { around: 0, amp: 1.2 } } }) },
+  // a neon sign whose light stutters (fast, straight-line steps)
+  { type: 'shape', shape: 'rect', width: 520, height: 8, duration: 6,
+    initial: { x: 'GW/2', y: 'GH/2 + 90', fillColor: '#ff4d6d' },
+    keyframes: wiggle({ duration: 6, freq: 12, seed: 5, ease: 'none', props: { alpha: { around: 0.8, amp: 0.2 } } }) },
+  // dust: every speck has its own seed, so its drift is its own and never changes between runs
+  ...Array.from({ length: 24 }, (_, i) => ({
+    type: 'shape', shape: 'circle', radius: 2 + rand(i) * 3, duration: 6,
+    initial: { x: 40 + rand(i + 100) * 1200, y: 40 + rand(i + 200) * 640, fillColor: '#ffffff', fillAlpha: 0.25 + rand(i + 300) * 0.4 },
+    keyframes: [...wiggle({ duration: 6, freq: 0.6, seed: i, props: { y: { around: 40 + rand(i + 200) * 640, amp: 30 } } })],
+  })),
+];
 ```
 
 ---
