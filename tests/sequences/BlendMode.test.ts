@@ -49,4 +49,17 @@ describe('blendMode on a layer', () => {
     expect(msg).toContain('"overlay"');
     expect(msg).toMatch(/add.*screen.*multiply/);
   });
+
+  it('a layer with filters blends through its LAST filter, not the container (a container blend applies inside the filter pass: multiply rendered black)', async () => {
+    const f1: Record<string, unknown> = { apply() {} }, f2: Record<string, unknown> = { apply() {} };
+    const comp = await build([
+      { type: 'shape', shape: 'circle', radius: 10, blendMode: 'multiply',
+        filters: [{ type: 'custom', name: 'a', filter: f1 }, { type: 'custom', name: 'b', filter: f2 }] },
+      { type: 'shape', shape: 'circle', radius: 10, blendMode: 'add' },
+    ]);
+    expect(blendOf(comp, 0)).toBeUndefined();            // the container stays normal
+    expect(f1.blendMode).toBeUndefined();                // intermediate passes stay normal
+    expect(f2.blendMode).toBe('multiply');               // only the pass that draws onto the backdrop blends
+    expect(blendOf(comp, 1)).toBe('add');                // layers without filters are unchanged
+  });
 });
