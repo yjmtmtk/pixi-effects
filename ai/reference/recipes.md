@@ -463,6 +463,25 @@ return Array.from({ length: 40 }, () => {
 
 ---
 
+## Group and orbit with a null layer (`parent`)
+
+A `null` layer draws nothing and only moves; layers with `parent: 'name'` are drawn inside it. Their `x` / `y` are measured from the null's origin, so turning the null makes them circle it. Nulls chain (a moon on a null that is itself on the planet's null).
+
+```js
+// @recipe null-orbit
+return [
+  { type: 'shape', shape: 'circle', radius: 50, duration: 8, initial: { x: 640, y: 360, fillColor: '#ffd166' } },            // the sun
+  { type: 'null', name: 'earth-orbit', initial: { x: 640, y: 360 },                                                         // pivot at the sun
+    keyframes: [{ at: 0, to: { rotation: 360 }, duration: 8, ease: 'none' }] },
+  { type: 'shape', shape: 'circle', radius: 20, parent: 'earth-orbit', initial: { x: 240, y: 0, fillColor: '#4cc9f0' } },     // 240 px from the sun
+  { type: 'null', name: 'moon-orbit', parent: 'earth-orbit', initial: { x: 240, y: 0 },                                      // pivot at the earth
+    keyframes: [{ at: 0, to: { rotation: 1440 }, duration: 8, ease: 'none' }] },
+  { type: 'shape', shape: 'circle', radius: 7, parent: 'moon-orbit', initial: { x: 55, y: 0, fillColor: '#e8eefc' } },        // 55 px from the earth
+];
+```
+
+---
+
 ## A hand-held shake and a flickering light (`wiggle`, seeded)
 
 `wiggle()` returns keyframes (spread it into `keyframes`): each property drifts between seeded random targets and ends back at `around`. Use `freq` ~3 for a slow float, 8+ for a shake, `ease: 'none'` for a jittery flicker. Per-layer variety: give each its own `seed`.

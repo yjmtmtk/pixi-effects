@@ -3,6 +3,7 @@ import { TextSequence } from '../sequences/Text';
 import { AudioSequence } from '../sequences/Audio';
 import { VideoSequence } from '../sequences/Video';
 import { ShapeSequence } from '../sequences/Shape';
+import { NullSequence } from '../sequences/Null';
 import { CameraSequence } from '../space/CameraSequence';
 import type { Sequence } from '../sequences/Base';
 import type { SequenceSpec, CompositionShape } from '../types';
@@ -24,6 +25,7 @@ const staticTypes: Partial<Record<SequenceSpec['type'], SequenceCtor>> = {
   video: VideoSequence as unknown as SequenceCtor,
   shape: ShapeSequence as unknown as SequenceCtor,
   camera: CameraSequence as unknown as SequenceCtor,
+  null: NullSequence as unknown as SequenceCtor,
 };
 
 // Externally-registered sequence types (e.g. `pixi-effects/three`).

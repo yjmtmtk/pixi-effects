@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>check · null layers and parent</title></head>
+<body>
+  <!--
+    Acceptance check (not an example): a null layer at the centre (640, 360) turns 0 -> 90 degrees over 2 s while its child, a white dot at x = 200 from
+    the null's origin, rides along. At 0 s the dot is at (840, 360); at 2 s it is at (640, 560). A second null (a chain) scales and the dot on it follows.
+  -->
+  <canvas id="stage" width="1280" height="720" style="width:640px"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+  </script>
+  <script type="importmap">
+  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "gsap": "https://esm.sh/gsap@3.12.5", "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin", "mediabunny": "https://esm.sh/mediabunny" } }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 4, frameRate: 30, background: '#000000',
+        composition: { sequences: [
+          { type: 'null', name: 'rig', initial: { x: 640, y: 360 }, keyframes: [{ at: 0, to: { rotation: 90 }, duration: 2, ease: 'none' }] },
+          { type: 'shape', shape: 'circle', radius: 20, name: 'dot', parent: 'rig', initial: { x: 200, y: 0, fillColor: '#ffffff' } },
+          // a chain: the arm doubles in size at 2 s, its dot (red) sits 100 px out
+          { type: 'null', name: 'arm', parent: 'rig', initial: { x: 0, y: 0 }, keyframes: [{ at: 2, to: { scale: 2 }, duration: 1, ease: 'none' }] },
+          { type: 'shape', shape: 'circle', radius: 10, name: 'tip', parent: 'arm', initial: { x: 0, y: -100, fillColor: '#ff0000' } },
+        ] },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+  </script>
+</body>
+</html>

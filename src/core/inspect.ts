@@ -78,12 +78,13 @@ export function inspectScene(
       const start = (comp.absoluteStart ?? 0) + w.start, end = (comp.absoluteStart ?? 0) + w.end;
       if (time >= start - 1e-9 && time <= end + 1e-9) { blending.add(w.from); blending.add(w.to); }
     }
-    comp.layers().forEach(({ seq, display, threeD }, i) => {
+    comp.layers().forEach(({ seq, display, threeD, carriers }, i) => {
       const t = seq.target as (Container & { renderable: boolean; alpha: number }) | null;
       const name = seq.spec.name;
       const label = name ?? `${seq.spec.type}#${i}`;
-      const alpha = t?.alpha ?? 1;
-      const alive = threeD ? display.visible : (t?.renderable ?? true);
+      // a null layer that carries this layer hides it, fades it and moves it too
+      const alpha = (t?.alpha ?? 1) * carriers.reduce((a, c) => a * ((c.target as { alpha?: number } | null)?.alpha ?? 1), 1);
+      const alive = (threeD ? display.visible : (t?.renderable ?? true)) && carriers.every(c => c.target?.renderable ?? true);
       const visible = parentVisible && alive && alpha > 0;
       let bounds: Rect | null = null;
       if (!insideThreeD) {
@@ -99,9 +100,10 @@ export function inspectScene(
       }
       const keys = collectPropKeys(seq.spec);
       // moved by its own keyframes, or carried along by a parent that is (a panned timeline)
-      const moving = parentMoving || ((seq.spec.keyframes ?? []).length > 0 && (keys.has('x') || keys.has('y')));
-      const scale = (t as unknown as { scale?: { x: number; y: number } } | null)?.scale;
-      const zero = parentZero || (!!scale && (scale.x === 0 || scale.y === 0));
+      const carried = carriers.some(c => { const k = collectPropKeys(c.spec); return (c.spec.keyframes ?? []).length > 0 && (k.has('x') || k.has('y') || k.has('rotation') || k.has('scale')); });
+      const moving = parentMoving || carried || ((seq.spec.keyframes ?? []).length > 0 && (keys.has('x') || keys.has('y')));
+      const zeroScale = (o: unknown): boolean => { const s = (o as { scale?: { x: number; y: number } } | null)?.scale; return !!s && (s.x === 0 || s.y === 0); };
+      const zero = parentZero || zeroScale(t) || carriers.some(c => zeroScale(c.target));
       const info: LayerInfo = { path: prefix + label, name, type: seq.spec.type, threeD, visible, alpha, moving, bounds, onCanvas };
       layers.push(info);
       let shown = bounds ? clip(bounds, view) : null;

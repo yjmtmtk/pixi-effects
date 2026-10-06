@@ -183,6 +183,12 @@ export type TransitionSpec =
 
 export interface SequenceCommon {
   name?: string;
+  /**
+   * Attach this layer to a `{ type: 'null' }` layer (by its `name`): it is drawn inside that layer, so its `x` / `y`
+   * are measured from the null's origin and the null's position, rotation, scale and alpha carry it along. The layer is
+   * drawn where the null is in the stack, not where it is listed. Only `null` layers can be parents (they chain); not for `threeD` layers.
+   */
+  parent?: string;
   at?: number;
   duration?: number;
   initial?: Props;
@@ -508,7 +514,16 @@ export type ShapeSequenceSpec =
   | PolygonShapeSpec
   | PathShapeSpec;
 
+/**
+ * A layer that draws nothing, only moves: the parent of other layers (`parent: 'name'`). Animate `x y rotation scale
+ * scaleX scaleY skewX skewY alpha pivotX pivotY` in `initial` / `keyframes` like any layer; its children follow.
+ */
+export interface NullSequenceSpec extends SequenceCommon {
+  type: 'null';
+}
+
 export type SequenceSpec =
+  | NullSequenceSpec
   | VideoSequenceSpec
   | ImageSequenceSpec
   | TextSequenceSpec

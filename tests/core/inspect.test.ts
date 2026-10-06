@@ -255,3 +255,28 @@ describe('inspectScene — scaled to nothing, and moved by a parent', () => {
   });
 });
 
+describe('inspectScene — layers inside a null layer', () => {
+  it('lists the children and not the null; a null that is moving makes its children count as moving', async () => {
+    const comp = await scene([
+      { type: 'null', name: 'rig', keyframes: [{ at: 0, to: { x: 400 }, duration: 2 }] },
+      { type: 'text', name: 'caption', text: 'hi', parent: 'rig', initial: { x: 1200, y: 10 } },
+    ]);
+    const r = inspectScene(comp, 0, 0, { width: 1280, height: 720 });
+    expect(r.layers.map(l => l.name)).toEqual(['caption']);
+    expect(r.layers[0]!.moving).toBe(true);
+    expect(r.issues.some(i => /cut off|outside/.test(i))).toBe(false);      // crossing the edge on purpose, like a marquee
+  });
+
+  it('a null that has ended hides its children; a null at alpha 0.5 halves theirs', async () => {
+    const comp = await scene([
+      { type: 'null', name: 'gone', at: 0, duration: 1 },
+      { type: '__box', name: 'a', parent: 'gone' },
+      { type: 'null', name: 'dim', initial: { alpha: 0.5 } },
+      { type: '__box', name: 'b', parent: 'dim', initial: { alpha: 0.5 } },
+    ]);
+    comp._children.find(c => c.spec.name === 'gone')!.target!.renderable = false;
+    const r = inspectScene(comp, 0, 0, { width: 1280, height: 720 });
+    expect(r.layers.find(l => l.name === 'a')!.visible).toBe(false);
+    expect(r.layers.find(l => l.name === 'b')!.alpha).toBeCloseTo(0.25, 9);
+  });
+});

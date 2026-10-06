@@ -34,7 +34,8 @@ You describe a video as a tree of plain objects; the library plays it in a canva
 - **Sound effects need no files:** `{ type: 'audio', sfx: 'swoosh', at: 2 }` — presets `click pop swoosh swipe hit riser chime beep coin glitch typewriter`; knobs `pitch`, `brightness`, `seed`. The layer lasts as long as the sound (`duration` stretches it); a `riser` is loudest at its end (`at = hit − duration`), a `swoosh` 0.16 s in. A music file shorter than its layer goes silent — `loop: true`.
 - **Masks live in the parent's coordinates and don't follow the masked layer.** **`filterArea` is in the layer's own coordinates.**
 - **2.5D needs `threeD: true`** on each layer plus a `{ type: 'camera' }` layer; camera props go in `initial`/keyframes; keep every `z` below the camera distance (≈ 989 at 720p, fov 40); under a dolly zoom only `z = 0` stays fixed.
-- **Built in:** `splitText()` / `measureText()` (per-letter / per-word layers, exact positions), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) and `wiggle()` (a seeded shake as keyframes). **Not in the DSL (hand-roll, recipes exist or loops are easy):** stroke draw-on (trim path), text that changes over time (other than `{value}`), other per-frame curves, per-letter text animators (one layer per letter), particle emitters, group/parent layers.
+- **Group / parent layers = `{ type: 'null', name: 'rig' }`** (draws nothing, only moves) + `parent: 'rig'` on the layers that should follow it: their `x`/`y` are then measured from the null's origin, and the null's position / rotation / scale / alpha carry them (orbits, clock hands, grouped fades). Nulls chain. Only `null` layers can be parents; not for `threeD` layers.
+- **Built in:** `splitText()` / `measureText()` (per-letter / per-word layers, exact positions), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) and `wiggle()` (a seeded shake as keyframes). **Not in the DSL (hand-roll, recipes exist or loops are easy):** stroke draw-on (trim path), text that changes over time (other than `{value}`), other per-frame curves, per-letter text animators (one layer per letter), particle emitters.
 - **Blend modes:** `blendMode: 'add' | 'screen' | 'multiply'` on any layer (glows, light leaks).
 - **One `Movie` per page.** A sound effect needs no `duration` (it lasts as long as its clip). Seeking is safe: counters, colours and growing shapes are right after any jump.
 
@@ -131,6 +132,8 @@ Keyframe kinds: `set` (jump at `at`; undone when you seek back), `to` (animate t
 Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha strokeWidth`; `colorSpace: 'oklab'|'oklch'` for clean colour tweens. rect/circle/ellipse are **centred on `x,y` by default** (`anchorX/anchorY` default 0.5): for a bar growing from its base use `anchorY: 1` (or `anchorX: 0` for left-to-right). **`fillGradient`** (top level or `initial`; instead of `fillColor`): `{ type?: 'linear'|'radial', stops: [[0, '#000'], [1, 'rgba(0,0,0,.6)']], angle? /* linear, deg, 90 = top→bottom */, center?, innerRadius?, radius? /* radial, 0–1 of bounds */ }` — stops may have alpha, so a radial transparent→dark is a vignette. Stroke ends and corners: `strokeCap: 'butt'|'round'|'square'`, `strokeJoin: 'miter'|'round'|'bevel'` (top level or in `initial`; not animated — `round` keeps sharp corners like an M from poking out).
 
 **composition** — `width height duration sequences transitions`. With `threeD: true` it is a **card**: its children are drawn into one texture (content outside its `width × height` is clipped: size it for a soft shadow too; a plain 2D composition does not clip, but is skipped when its whole rectangle is off screen) and move / rotate in depth together. Children use the composition's local coordinates and times. Position/rotate/scale it as a unit; to rotate/scale about its centre set `pivotX/pivotY` to the centre and `x/y` to where that point should sit.
+
+**null + `parent`** — `{ type: 'null', name: 'rig', initial: { x, y }, keyframes: [...] }` draws nothing; layers with `parent: 'rig'` are drawn inside it and follow its `x y rotation scale skew alpha pivotX pivotY`. Their `x / y` are measured **from the null's origin** (null at (640,360), child `x: 200` → drawn at 840), so rotating the null makes the child circle it. Nulls chain (`parent` on a null). Children are drawn at the null's place in the stack, together. Only `null` layers can be parents; not for `threeD` layers; a mask follows its layer.
 
 **camera** (2.5D) — props in `initial`/keyframes: `x y z lookAtX lookAtY lookAtZ fov` (defaults: centred, looking at the z = 0 plane, `fov` 40, `z` auto = `(H/2)/tan(fov/2)` ≈ 989 at 720p). Never on the camera object itself. An orbit is `orbit()`; by hand: `x = cx + R·sin θ`, `z = R·cos θ`, `R = (H/2)/tan(fov/2)`, `lookAt` = the centre at `z = 0`.
 
@@ -243,7 +246,7 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 18. **Counters**: `text: '{value}'` + animate `value` (with `format`). Other text content cannot change over time. Earlier sessions generated one text layer per number (40+ per bar). *(fixed)*
 19. **Loops**: `repeat` (finite) / `yoyo` / `repeatDelay` on any keyframe; infinite repeats are rejected with a warning. *(fixed)*
 20. **No per-frame expression time.** Expressions are evaluated once at build. A camera orbit is `orbit()`; a shake or drift is `wiggle()`, and any other curve (waves, spirals) must be sampled into short linear keyframes (~0.1 s) in a JS loop. **Randomness must be seeded** (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS): `Math.random()` makes playback and the exported file disagree. *(partly fixed)*
-21. **Per-letter / per-word text is `splitText()` (one layer per piece, positions measured for you); no group/null parent, no particle emitter, no caption-linked-to-slide.** One layer per letter; many layers; seeded random loops (`random(seed)`). *(hand-roll)*
+21. **Per-letter / per-word text is `splitText()` (one layer per piece, positions measured for you); a group / parent is a `{ type: 'null' }` layer + `parent: 'name'`, no particle emitter, no caption-linked-to-slide.** One layer per letter; many layers; seeded random loops (`random(seed)`). *(hand-roll)*
 22. **Colour tweens look muddy in RGB** (red→green passes through brown). Use `colorSpace: 'oklab'` or `'oklch'` on the layer. In `oklch`, a nearly grey end (chroma < ~0.08, e.g. `#9a9ab4`) borrows the other end's hue, so grey → yellow no longer flashes through pink. *(docs / fixed)*
 23. **Generated images**: `canvas.toDataURL()` as an asset `src` works. Make them ≥ canvas size or `kenBurns` zooms look soft. *(docs)*
 
@@ -757,6 +760,25 @@ return Array.from({ length: 40 }, () => {
 
 ---
 
+## Group and orbit with a null layer (`parent`)
+
+A `null` layer draws nothing and only moves; layers with `parent: 'name'` are drawn inside it. Their `x` / `y` are measured from the null's origin, so turning the null makes them circle it. Nulls chain (a moon on a null that is itself on the planet's null).
+
+```js
+// @recipe null-orbit
+return [
+  { type: 'shape', shape: 'circle', radius: 50, duration: 8, initial: { x: 640, y: 360, fillColor: '#ffd166' } },            // the sun
+  { type: 'null', name: 'earth-orbit', initial: { x: 640, y: 360 },                                                         // pivot at the sun
+    keyframes: [{ at: 0, to: { rotation: 360 }, duration: 8, ease: 'none' }] },
+  { type: 'shape', shape: 'circle', radius: 20, parent: 'earth-orbit', initial: { x: 240, y: 0, fillColor: '#4cc9f0' } },     // 240 px from the sun
+  { type: 'null', name: 'moon-orbit', parent: 'earth-orbit', initial: { x: 240, y: 0 },                                      // pivot at the earth
+    keyframes: [{ at: 0, to: { rotation: 1440 }, duration: 8, ease: 'none' }] },
+  { type: 'shape', shape: 'circle', radius: 7, parent: 'moon-orbit', initial: { x: 55, y: 0, fillColor: '#e8eefc' } },        // 55 px from the earth
+];
+```
+
+---
+
 ## A hand-held shake and a flickering light (`wiggle`, seeded)
 
 `wiggle()` returns keyframes (spread it into `keyframes`): each property drifts between seeded random targets and ends back at `around`. Use `freq` ~3 for a slow float, 8+ for a shake, `ease: 'none'` for a jittery flicker. Per-layer variety: give each its own `seed`.
@@ -1021,6 +1043,23 @@ Renders a video. Intrinsic `w`/`h` come from the video's natural size. `currentT
 ```
 
 Use `scale: 'cover'` or `scale: 'contain'` (these resolve via the [scope](#expressions)) to fit the video to the parent composition.
+
+### `null` and `parent`
+
+A `null` layer draws nothing; it only moves. Any layer can name it as its `parent`, and is then drawn **inside** it: the null's position, rotation, scale, skew and alpha carry the layer along. Use it to move, turn, scale or fade a group at once, to turn something about a point (a planet and its moon, a clock hand, a hinged arm), or to build a rig.
+
+```js
+{ type: 'null', name: 'planet', initial: { x: 640, y: 360 },
+  keyframes: [{ at: 0, to: { rotation: 360 }, duration: 8, ease: 'none' }] },
+{ type: 'shape', shape: 'circle', radius: 20, parent: 'planet', initial: { x: 200, y: 0, fillColor: '#ffffff' } },   // circles the point (640, 360)
+```
+
+- A child's `x` / `y` are measured **from the null's origin** (not from the composition's corner): with the null at (640, 360), a child at `x: 200` is drawn at 840. Rotation turns the child about the null's origin; give the null `pivotX` / `pivotY` to turn about another point.
+- Nulls **chain**: a null may have a null as its `parent` (shoulder → elbow → hand). A cycle is reported and broken.
+- The children are **drawn where the null stands in the list** (stack order), together, not where each is listed: to put another layer between two children, split them across two nulls. A child's own `at` / `duration` still apply, in composition time.
+- The null lives for the whole composition unless it has `at` / `duration`; when it is not alive its children are not drawn.
+- A **mask** on a child shares the child's space, so it follows the null as well.
+- Only `null` layers can be parents (not shapes, text or images), and a `threeD` layer or a camera cannot have a parent. These cases, an unknown name and a cycle are each warned about, and the layer is drawn without a parent.
 
 ### `audio`
 

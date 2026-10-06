@@ -111,7 +111,7 @@ export function collectTimeline(root: CompositionSequence, duration: number): Ti
 
 const COLORS: Record<string, string> = {
   text: '#4cc9f0', shape: '#ffd166', image: '#7bd88f', video: '#c77dff', audio: '#ff7aa8',
-  composition: '#8ea4c8', three: '#ff9f68', camera: '#b0b0b0',
+  composition: '#8ea4c8', three: '#ff9f68', camera: '#b0b0b0', null: '#b0b0b0',
 };
 const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const num = (n: number): string => String(Math.round(n * 100) / 100);

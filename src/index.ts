@@ -64,6 +64,7 @@ export type {
   SfxOptions,
   CompositionSequenceSpec,
   CameraSequenceSpec,
+  NullSequenceSpec,
   ShapeSequenceSpec,
   RectShapeSpec,
   CircleShapeSpec,

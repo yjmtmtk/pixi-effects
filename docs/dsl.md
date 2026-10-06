@@ -171,6 +171,23 @@ Renders a video. Intrinsic `w`/`h` come from the video's natural size. `currentT
 
 Use `scale: 'cover'` or `scale: 'contain'` (these resolve via the [scope](#expressions)) to fit the video to the parent composition.
 
+### `null` and `parent`
+
+A `null` layer draws nothing; it only moves. Any layer can name it as its `parent`, and is then drawn **inside** it: the null's position, rotation, scale, skew and alpha carry the layer along. Use it to move, turn, scale or fade a group at once, to turn something about a point (a planet and its moon, a clock hand, a hinged arm), or to build a rig.
+
+```js
+{ type: 'null', name: 'planet', initial: { x: 640, y: 360 },
+  keyframes: [{ at: 0, to: { rotation: 360 }, duration: 8, ease: 'none' }] },
+{ type: 'shape', shape: 'circle', radius: 20, parent: 'planet', initial: { x: 200, y: 0, fillColor: '#ffffff' } },   // circles the point (640, 360)
+```
+
+- A child's `x` / `y` are measured **from the null's origin** (not from the composition's corner): with the null at (640, 360), a child at `x: 200` is drawn at 840. Rotation turns the child about the null's origin; give the null `pivotX` / `pivotY` to turn about another point.
+- Nulls **chain**: a null may have a null as its `parent` (shoulder → elbow → hand). A cycle is reported and broken.
+- The children are **drawn where the null stands in the list** (stack order), together, not where each is listed: to put another layer between two children, split them across two nulls. A child's own `at` / `duration` still apply, in composition time.
+- The null lives for the whole composition unless it has `at` / `duration`; when it is not alive its children are not drawn.
+- A **mask** on a child shares the child's space, so it follows the null as well.
+- Only `null` layers can be parents (not shapes, text or images), and a `threeD` layer or a camera cannot have a parent. These cases, an unknown name and a cycle are each warned about, and the layer is drawn without a parent.
+
 ### `audio`
 
 Audio-only sequence. No visual. Volume is animatable via keyframes.
