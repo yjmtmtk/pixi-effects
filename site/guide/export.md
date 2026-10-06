@@ -50,4 +50,6 @@ Exit code 0 means the file was written; 1 means the page or the render failed (n
 
 ## Pictures
 
+`movie.init({ poster: 9.5 })` names the moment that stands for your video (seconds; a negative value counts back from the end). The canvas shows it before play, and `await movie.posterImage({ as: 'dataURL', type: 'image/jpeg', scale: 0.5 })` returns it as a picture: a thumbnail, a card, a share image, with no separate file to keep in step with the video.
+
 `await movie.snapshot(frame, { as: 'dataURL' })` returns one frame as an image, and `movie.contactSheet({ count: 12, as: 'dataURL' })` returns many frames on one labelled sheet. They are for [looking at your video](review.html) as much as for thumbnails.

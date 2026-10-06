@@ -10,6 +10,11 @@ const root = resolve(__dirname, '../..');
 // loaded by URL: the tool is a plain .mjs script outside src/
 const tool: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
 
+// the guide's first-video page pins pixi-effects@<this version> on the CDN; just before a release it is not published yet
+const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
+const onCdn = await fetch(`https://cdn.jsdelivr.net/npm/pixi-effects@${version}/dist/index.js`, { method: 'HEAD' })
+  .then((r) => r.ok, () => false);
+
 describe('check.mjs — pure helpers', () => {
   it('parseArgs: a page, options with values, and a clear error for a typo', () => {
     const o = tool.parseArgs(['my.html', '--frames', '6', '--formats', 'mp4,webm', '--no-export', '--timeout', '90', '--out', 'o']);
@@ -91,7 +96,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     expect(existsSync(join(out, 'sfx-export.mp4'))).toBe(true);
   }, 190_000);
 
-  it('the guide\'s first-video page (loaded from the CDN, as a reader would) passes the check, sound included', async () => {
+  it.skipIf(!onCdn)('the guide\'s first-video page (loaded from the CDN, as a reader would) passes the check, sound included', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-test-'));
     const { stdout } = await promisify(execFile)('node', [
       join(root, 'ai/tools/check.mjs'), join(root, 'examples/_guide/first-video.html'), '--out', out, '--frames', '4', '--timeout', '150',

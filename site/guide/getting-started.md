@@ -20,6 +20,7 @@ Save the following as `video.html` and open it in Chrome, Edge, Safari or Firefo
 - **`<canvas>`** is where the video is drawn. Its `width` and `height` attributes are the video's size (1280×720 here); your CSS can scale it on the page without changing the video.
 - **The import map** tells the browser where to load `pixi-effects` and its three companions from. `pixi.js` and `gsap` are not bundled into pixi-effects on purpose: your page and the library must share one copy of each.
 - **`new Movie()`** is the video. **`new Controller(movie, { canvas })`** adds the player bar. Both are separate: you can use the movie without the bar, or build your own bar ([Your own player](player.html)).
+- **`poster: 2.5`** names the moment that stands for the video: the canvas shows it before you press play (the frame at 0 s is empty here), and play still starts from 0. It is the same idea as `<video poster>`, derived from the data, with no image file. Leave it out and the first frame is shown.
 - **`movie.init({ … composition })`** is where the video is described. `composition.sequences` is the list of **layers**, drawn in order (later ones on top).
 
 Each layer is a plain object with a `type` (`text`, `shape`, `image`, `video`, `audio`, `composition`…), the things that belong to that type, and optionally `initial` values and `keyframes`:

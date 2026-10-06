@@ -19,7 +19,7 @@ It opens your page in a private headless Chrome and reports, in one go:
 - **layout** problems found by `movie.inspect` over the whole timeline: text off the canvas, cut by an edge, empty, or overlapping other text (overlaps are listed for you to look at, since they are often on purpose);
 - **sound**: `movie.inspectAudio()`, the loudness of the mix and a list of problems;
 - **a real export**, decoded again: its size, length and loudness per second;
-- a **contact sheet** (`sheet.png`, twelve labelled frames) and a **timeline** (`timeline.html`) to open.
+- a **contact sheet** (`sheet.png`, twelve labelled frames), the video's **poster** (`poster.jpg`) and a **timeline** (`timeline.html`) to open.
 
 The exit code is 0 when there is nothing to fix and 1 otherwise, so it also works in CI. This is its real output for the piece in the demo further down:
 

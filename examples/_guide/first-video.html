@@ -20,8 +20,8 @@
       "gsap":                    "https://esm.sh/gsap@3.12.5",
       "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
       "mediabunny":              "https://esm.sh/mediabunny",
-      "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@0.8.0/dist/index.js",
-      "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.8.0/dist/Controller.js"
+      "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@0.9.0/dist/index.js",
+      "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.9.0/dist/Controller.js"
     }
   }
   </script>
@@ -36,6 +36,7 @@
 
     await movie.init({
       canvas, width: 1280, height: 720, duration: 6, frameRate: 30, background: '#0d1220',
+      poster: 2.5,                                    // the picture shown before play: the title and the line, fully in
       composition: {
         sequences: [
           // a title that rises and fades in; `at` inside keyframes counts from the start of THIS layer

@@ -28,7 +28,7 @@ A prompt that works is specific about what you see and hear, and says what to re
 
 > Read `ai/SKILL.md` and follow it. Make a 12-second, 1280×720 title sequence for a bakery called "Rye & Sons": a warm cream background, the name typed out, a line that draws itself under it, a soft chime at the end. Save it as `bakery.html`. Run the check and fix everything it reports, then show me the contact sheet.
 
-Useful things to say: the **size and duration**, the **palette** (two or three colours), what appears **when**, what you **hear**, and *"use only system fonts and generated shapes"* if you have no assets.
+Useful things to say: the **size and duration**, the **moment that should be the poster** (the picture before play), the **palette** (two or three colours), what appears **when**, what you **hear**, and *"use only system fonts and generated shapes"* if you have no assets.
 
 ## 3. The AI checks its own work
 

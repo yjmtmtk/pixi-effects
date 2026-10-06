@@ -14,6 +14,8 @@ const controller = new Controller(movie, { canvas });
 
 It adds play and pause, a seek bar, mute and volume, fullscreen and an export button over the canvas, and the keyboard shortcuts you expect (Space, arrows, F for fullscreen, M for mute). Options: `showExportButton` (default `true`), `enableKeyboardShortcuts` (default `true`).
 
+Before play the canvas shows the movie's **poster frame** if you gave one with `poster` in `movie.init` (see [Exporting video](export.html#pictures)); the bar shows 0:00 and play starts from the beginning.
+
 On browsers that cannot fullscreen an element (iPhone Safari), the fullscreen button is not shown.
 
 ## Change the colours

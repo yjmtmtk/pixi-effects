@@ -47,7 +47,7 @@ Yes. Images and video are `assets` (a URL, a `data:` URL or a `blob:` URL). Font
 
 ## How stable is the API?
 
-It is **pre-1.0**. Minor versions can change the API; the [changelog](https://github.com/yjmtmtk/pixi-effects/blob/main/CHANGELOG.md) lists every change. Pin the version in your import map (`pixi-effects@0.8.0`).
+It is **pre-1.0**. Minor versions can change the API; the [changelog](https://github.com/yjmtmtk/pixi-effects/blob/main/CHANGELOG.md) lists every change. Pin the version in your import map (`pixi-effects@0.9.0`).
 
 ## Where do I report a problem or ask something?
 
