@@ -9,6 +9,7 @@ export type {
 } from './core/Movie';
 
 export type { InspectReport, InspectOptions, LayerInfo } from './core/inspect';
+export type { TimelineData, TimelineRow, TimelineTransition, TimelineHtmlOptions } from './core/timelineChart';
 export type { AudioReport, AudioSourceReport, SoundMeasure, AudioInspectOptions } from './core/inspectAudio';
 export { measureText, splitText } from './text/measure';
 export type { MeasureStyle, TextSize, SplitOptions, TextPiece } from './text/measure';

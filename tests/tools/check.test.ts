@@ -79,6 +79,9 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     expect(report.logs).toEqual([]);
     expect(report.hasAudio).toBe(true);
     expect(readFileSync(join(out, 'sheet.png')).subarray(1, 4).toString()).toBe('PNG');
+    const timeline = readFileSync(join(out, 'timeline.html'), 'utf8');         // every layer as a bar on a time axis, for a human to open
+    expect(timeline).toContain('<svg');
+    expect(report.files.timeline).toMatch(/timeline\.html$/);
     const ex = report.exports[0];
     expect(ex.format).toBe('mp4');
     expect(ex.video.duration).toBeGreaterThan(3.3);

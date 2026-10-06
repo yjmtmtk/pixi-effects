@@ -279,6 +279,14 @@ export async function runCheck(opts, log = console.log) {
     fs.writeFileSync(sheetFile, Buffer.from(sheet.slice(sheet.indexOf(',') + 1), 'base64'));
     report.files.sheet = shown(sheetFile);
 
+    // the timeline: every layer as a bar on a time axis (for a human to open in a browser)
+    const timeline = await cdp.eval(`movie.timelineChart({ title: ${JSON.stringify(name)} })`).catch(() => null);
+    if (timeline) {
+      const timelineFile = path.join(outDir, 'timeline.html');
+      fs.writeFileSync(timelineFile, timeline);
+      report.files.timeline = shown(timelineFile);
+    }
+
     // audio
     report.audio = info.hasAudio ? await cdp.eval('movie.inspectAudio()') : null;
     if (report.audio?.issues?.length) report.problems.push(`${report.audio.issues.length} audio issue(s) from movie.inspectAudio`);

@@ -9,6 +9,7 @@ import { analyzeAudio, type AudioReport, type AudioInspectOptions } from './insp
 import { exportFrames } from './Renderer';
 import { expandTransitions, carryTransitionWindows } from './Transitions';
 import { inspectScene, type InspectReport, type InspectOptions } from './inspect';
+import { collectTimeline, timelineHtml, type TimelineData, type TimelineHtmlOptions } from './timelineChart';
 import { pickFrames, sheetLayout } from './frames';
 import { warnUnknownOptions } from './options';
 import { startWhenRunning } from './startWhenRunning';
@@ -319,6 +320,21 @@ export class Movie {
     const f = clampFrame(frame, this.totalFrames);
     await this.gotoFrame(f, true);
     return inspectScene(this._rootSequence as CompositionSequence, f, f / this.frameRate, { width: this.width, height: this.height }, opts);
+  }
+
+  /**
+   * Every layer as a row with absolute start / end / keyframe times (seconds), plus the transition windows. Runs of
+   * similar layers (`pop-1` … `pop-12`) are one row with a `parts` span each. Read it, or draw it with `timelineChart()`.
+   */
+  timelineData(): TimelineData {
+    this._requireReady('timelineData');
+    return collectTimeline(this._rootSequence as CompositionSequence, this.duration);
+  }
+
+  /** The timeline as one self-contained HTML page (an inline SVG, no scripts): layers as bars on a time axis, ◆ keyframes, transition bands. Open it in a browser. */
+  timelineChart(opts: TimelineHtmlOptions = {}): string {
+    warnUnknownOptions('movie.timelineChart()', opts, ['title']);
+    return timelineHtml(this.timelineData(), opts);
   }
 
   /**
