@@ -1358,3 +1358,82 @@ describe('Controller — theme (the colours of the bar are yours to change)', ()
     ctrl.destroy();
   });
 });
+
+describe('Controller — click the picture to play / pause', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    document.head.querySelectorAll('style[data-movie-controller]').forEach((n) => n.remove());
+  });
+
+  it('a click on the canvas plays, the next one pauses, and the bar icon follows', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    const playBtn = canvas.parentElement!.querySelector('.mc-play') as HTMLButtonElement;
+    canvas.click();
+    expect(movie.isPlaying).toBe(true);
+    expect(playBtn.getAttribute('aria-label')).toBe('Pause');
+    canvas.click();
+    expect(movie.isPlaying).toBe(false);
+    expect(playBtn.getAttribute('aria-label')).toBe('Play');
+    ctrl.destroy();
+  });
+
+  it('the canvas shows a pointer cursor while it does that, and gets its own cursor back on destroy', () => {
+    const canvas = makeCanvas();
+    canvas.style.cursor = 'crosshair';
+    const ctrl = new Controller(makeFakeMovie(), { canvas });
+    expect(canvas.style.cursor).toBe('pointer');
+    ctrl.destroy();
+    expect(canvas.style.cursor).toBe('crosshair');
+  });
+
+  it('clickToPlay: false leaves the canvas alone', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas, clickToPlay: false });
+    canvas.click();
+    expect(movie.isPlaying).toBe(false);
+    expect(canvas.style.cursor).toBe('');
+    ctrl.destroy();
+  });
+
+  it('clicking a button on the bar does not also toggle through the canvas (one click, one toggle)', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    (canvas.parentElement!.querySelector('.mc-play') as HTMLButtonElement).click();
+    expect(movie.isPlaying).toBe(true);
+    (canvas.parentElement!.querySelector('.mc-mute') as HTMLButtonElement).click();
+    expect(movie.isPlaying).toBe(true);
+    ctrl.destroy();
+  });
+
+  it('with the export popover open, a tap on the picture only closes it', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    const wrap = canvas.parentElement!;
+    (wrap.querySelector('.mc-export') as HTMLButtonElement).click();
+    const popover = wrap.querySelector('.mc-settings-popover') as HTMLDivElement;
+    expect(popover.getAttribute('data-open')).toBe('true');
+    canvas.dispatchEvent(new Event('pointerdown', { bubbles: true }));      // a real tap is pointerdown, then click
+    canvas.click();
+    expect(popover.getAttribute('data-open')).toBe('false');
+    expect(movie.isPlaying).toBe(false);
+    canvas.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    canvas.click();                                                          // the next tap plays
+    expect(movie.isPlaying).toBe(true);
+    ctrl.destroy();
+  });
+
+  it('after destroy the canvas no longer reacts', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    ctrl.destroy();
+    canvas.click();
+    expect(movie.isPlaying).toBe(false);
+  });
+});

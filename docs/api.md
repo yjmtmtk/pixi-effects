@@ -288,6 +288,7 @@ interface ControllerOptions {
   canvas: HTMLCanvasElement;          // required
   showExportButton?: boolean;         // default true; hides ⬇ + popover
   enableKeyboardShortcuts?: boolean;  // default true
+  clickToPlay?: boolean;              // default true: a click / tap on the picture plays / pauses (like <video>); false leaves the canvas alone
   className?: string;                 // default 'movie-controller'
   theme?: ControllerTheme;            // colours / thickness / font of the bar, see Theme
 }

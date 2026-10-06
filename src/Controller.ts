@@ -314,6 +314,8 @@ export interface ControllerOptions {
   theme?: ControllerTheme;
   showExportButton?: boolean;
   enableKeyboardShortcuts?: boolean;
+  /** A click (or tap) on the picture plays / pauses, like a `<video>` element. Default true; `false` leaves the canvas alone. */
+  clickToPlay?: boolean;
   className?: string;
 }
 
@@ -321,6 +323,7 @@ interface ResolvedOptions {
   canvas: HTMLCanvasElement;
   showExportButton: boolean;
   enableKeyboardShortcuts: boolean;
+  clickToPlay: boolean;
   className: string;
 }
 
@@ -377,6 +380,11 @@ export class Controller {
   private volumeContainerEl: HTMLDivElement | null = null;
   private fullscreenBtn: HTMLButtonElement | null = null;
   private isVolumeScrubbing = false;
+  private canvasClickHandler: (() => void) | null = null;
+  private canvasPointerDownHandler: (() => void) | null = null;
+  private canvasCursor = '';
+  /** Set when a pointerdown on the canvas closed the export popover: the click that follows must not play / pause. */
+  private swallowCanvasClick = false;
   private fullscreenChangeHandler: (() => void) | null = null;
   private wheelHandler: ((e: WheelEvent) => void) | null = null;
   /** Ends a drag the pointerup of which never arrives (see bindScrubbing). */
@@ -391,6 +399,7 @@ export class Controller {
       canvas: options.canvas,
       showExportButton: options.showExportButton ?? true,
       enableKeyboardShortcuts: options.enableKeyboardShortcuts ?? true,
+      clickToPlay: options.clickToPlay ?? true,
       className: options.className ?? 'movie-controller',
     };
 
@@ -414,6 +423,7 @@ export class Controller {
     this.root.setAttribute('data-state', 'visible');
     this.bindMovieEvents();
     this.bindPlayButton();
+    if (this.options.clickToPlay) this.bindCanvasClick();
     this.bindScrubbing();
     this.bindMuteButton();
     this.bindVolumeSlider();
@@ -611,6 +621,21 @@ export class Controller {
         // movie.play() emits 'play' (the onPlay handler refreshes the icon), same as 'pause' above.
       }
     });
+  }
+
+  /** Clicking the picture plays / pauses (a tap on a phone too). */
+  private bindCanvasClick(): void {
+    const canvas = this.options.canvas;
+    this.canvasCursor = canvas.style.cursor;
+    canvas.style.cursor = 'pointer';
+    this.canvasPointerDownHandler = () => { this.swallowCanvasClick = false; };
+    this.canvasClickHandler = () => {
+      // the tap that closed the export popover (see bindExportPopover) is not also a play / pause
+      if (this.swallowCanvasClick) { this.swallowCanvasClick = false; return; }
+      if (this.movie.isPlaying) this.movie.pause(); else this.movie.play();
+    };
+    canvas.addEventListener('pointerdown', this.canvasPointerDownHandler);
+    canvas.addEventListener('click', this.canvasClickHandler);
   }
 
   private refreshPlayIcon(): void {
@@ -842,6 +867,7 @@ export class Controller {
       if (!target) return;
       if (this.settingsPopoverEl?.contains(target)) return;
       if (this.exportBtn?.contains(target)) return;
+      if (this.options.canvas.contains(target)) this.swallowCanvasClick = true;     // closing the popover is all this tap does
       this.toggleSettings(false);
     };
     document.addEventListener('pointerdown', this.settingsOutsideHandler);
@@ -1060,6 +1086,12 @@ export class Controller {
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
       this.resizeObserver = null;
+    }
+    if (this.canvasClickHandler) {
+      this.options.canvas.removeEventListener('click', this.canvasClickHandler);
+      this.options.canvas.removeEventListener('pointerdown', this.canvasPointerDownHandler!);
+      this.options.canvas.style.cursor = this.canvasCursor;
+      this.canvasClickHandler = null; this.canvasPointerDownHandler = null;
     }
     if (this.fitObserver) { this.fitObserver.disconnect(); this.fitObserver = null; }
     if (this.fitWrapHandler) { window.removeEventListener('resize', this.fitWrapHandler); this.fitWrapHandler = null; }

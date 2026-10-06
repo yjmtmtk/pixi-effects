@@ -109,4 +109,43 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('Controller
       try { rmSync(userDataDir, { recursive: true, force: true }); } catch { /* chrome may still hold files */ }
     }
   }, 90_000);
+  it('a real click on the picture plays and pauses it; a click on the bar button is still one toggle', async () => {
+    const { server, port } = await check.serve(root);
+    const userDataDir = mkdtempSync(join(tmpdir(), 'ctl-click-'));
+    const { proc, cdp } = await check.launchChrome(chrome, userDataDir);
+    try {
+      await cdp.send('Runtime.enable');
+      await cdp.send('Page.enable');
+      await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1400, height: 900, deviceScaleFactor: 1, mobile: false });
+      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/gallery/blueprint-house.html` });
+      let ready = false;
+      for (let i = 0; i < 100 && !ready; i++) { await check.sleep(300); ready = await cdp.eval('window.__ready === true').catch(() => false); }
+      expect(ready).toBe(true);
+      const click = async (x: number, y: number) => {
+        await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+        await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+        await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+        await check.sleep(150);
+      };
+      const centreOf = (sel: string) => cdp.eval(`(() => { const r = document.querySelector('${sel}').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+
+      const c = await centreOf('#stage');
+      expect(await cdp.eval('movie.isPlaying')).toBe(false);
+      await click(c.x, c.y);                                                   // the middle of the picture
+      expect(await cdp.eval('movie.isPlaying')).toBe(true);
+      await click(c.x, c.y);
+      expect(await cdp.eval('movie.isPlaying')).toBe(false);
+
+      const b = await centreOf('.mc-play');                                    // the bar's own button: one click, one toggle
+      await click(b.x, b.y);
+      expect(await cdp.eval('movie.isPlaying')).toBe(true);
+      await click(b.x, b.y);
+      expect(await cdp.eval('movie.isPlaying')).toBe(false);
+    } finally {
+      try { proc.kill(); } catch { /* gone */ }
+      server.close();
+      await check.sleep(200);
+      try { rmSync(userDataDir, { recursive: true, force: true }); } catch { /* chrome may still hold files */ }
+    }
+  }, 60_000);
 });

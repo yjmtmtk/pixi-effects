@@ -8,6 +8,7 @@
 - **Null layers and `parent`.** `{ type: 'null', name: 'rig' }` draws nothing and only moves; layers with `parent: 'rig'` are drawn inside it and follow its position, rotation, scale and alpha (orbits, clock hands, a whole group fading). Nulls chain; a child's `x` / `y` are measured from the null's origin. A wrong parent (unknown name, not a null, a cycle, a `threeD` layer) warns and the layer is drawn without one.
 - **`stagger()`**: delays for a wave of items, GSAP style (`each` or `amount`, `from: 'start' | 'end' | 'center' | 'edges' | 'random' | index`, `grid: [cols, rows]`, `ease`, seeded `random`). `stagger(8, { each: 0.08 })` returns the delays; `stagger(layers, …)` returns the layers with `at` pushed back.
 - A guide page on these four (`Motion: groups, waves and randomness`, with tested recipes) and a gallery piece that uses all of them (`orbit-rig`, 34 pieces now).
+- **Click the picture to play / pause** in the `Controller` (a tap on a phone too), like a `<video>`; the pointer cursor shows it. A tap that only closes the export popover does not also toggle. `new Controller(movie, { canvas, clickToPlay: false })` turns it off.
 - **`wiggle()`**: a seeded shake or drift as keyframes (`keyframes: [...wiggle({ duration: 6, props: { x: { around: 'GW/2', amp: 6 } } })]`); every property moves on its own and ends back at its resting value.
 
 ## 0.9.0
