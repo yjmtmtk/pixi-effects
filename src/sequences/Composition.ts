@@ -117,6 +117,7 @@ export class CompositionSequence extends Sequence {
             t.mask = maskSeq.target;
           }
           child.maskSequence = maskSeq;
+          maskSeq.keepHidden = maskSpec.type === 'image' || maskSpec.type === 'video';   // PIXI: a Sprite mask is hidden by renderable = false
         }
       }
     }

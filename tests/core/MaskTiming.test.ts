@@ -62,3 +62,33 @@ describe('a mask shares the lifetime of the layer it masks', () => {
     expect(maskSeq.duration).toBe(10);
   });
 });
+
+describe('an image used as a mask stays hidden (PIXI hides a sprite mask with renderable = false)', () => {
+  async function maskOf(mask: Record<string, unknown>) {
+    const spec = {
+      type: 'composition', width: 1280, height: 720, duration: 10,
+      sequences: [{ type: 'shape', shape: 'rect', width: 100, height: 100, at: 2, duration: 3, mask }],
+    } as unknown as SequenceSpec;
+    const comp = new CompositionSequence(spec as never, shape, shape);
+    await comp.build();
+    const target = (comp as unknown as { _children: Array<{ maskSequence: { target: { renderable: boolean } } | null }> })._children[0].maskSequence!.target;
+    target.renderable = false;                                     // what PIXI's AlphaMask does to a sprite mask
+    const tl = gsap.timeline({ paused: true });
+    comp.bindTimeline(tl, 0);
+    const toggles = tl.getChildren(false, true, true).filter((c: any) => c.targets?.().includes(target) && c.vars && 'renderable' in c.vars);
+    return { target, tl, toggles };
+  }
+
+  it('the lifespan toggles never switch an image mask\'s renderable back on (it was drawn as a normal white picture)', async () => {
+    const { target, tl, toggles } = await maskOf({ type: 'image', asset: 'disc' });
+    expect(target.renderable).toBe(false);
+    expect(toggles).toHaveLength(0);
+    tl.time(3);
+    expect(target.renderable).toBe(false);
+  });
+
+  it('a shape mask keeps its lifespan toggles (its own at / duration still switch it on and off)', async () => {
+    const { toggles } = await maskOf({ type: 'shape', shape: 'circle', radius: 40 });
+    expect(toggles.length).toBeGreaterThan(0);
+  });
+});

@@ -26,6 +26,11 @@ export abstract class Sequence {
    */
   maskSequence: Sequence | null = null;
   /**
+   * Set by the parent composition on a sprite-based (image / video) mask. PIXI hides such a mask with
+   * `renderable = false`; the lifespan toggles must not switch it back on, or the mask is drawn as a picture.
+   */
+  keepHidden = false;
+  /**
    * Absolute start time on the global timeline (offset + at), recorded by
    * bindTimeline. Movie._awaitVideoFrames uses it to determine the correct
    * time to pass to awaitFrameAt. Subclasses that override bindTimeline
@@ -85,6 +90,7 @@ export abstract class Sequence {
     // on PIXI's default `renderable: true`.
     const endTime = startTime + this.duration!;
     this.absoluteStart = startTime;
+    if (this.keepHidden) return;                    // a sprite mask: PIXI keeps it hidden (see keepHidden)
     this.target.renderable = startTime <= 0;
     timeline.set(this.target, { renderable: true }, startTime);
     timeline.set(this.target, { renderable: false }, endTime);

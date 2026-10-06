@@ -77,6 +77,7 @@ export class ImageSequence extends Sequence {
 
     this.absoluteStart = startTime;
     const endTime = startTime + this.duration!;
+    if (this.keepHidden) return;                    // a sprite mask: PIXI keeps it hidden (see Sequence.keepHidden)
     this.target.renderable = startTime <= 0;
     timeline.set(this.target, { renderable: true }, startTime);
     timeline.set(this.target, { renderable: false }, endTime);
