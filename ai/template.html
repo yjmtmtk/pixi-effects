@@ -7,6 +7,9 @@
   <style>
     body { background: #0d1220; margin: 0; padding: 16px; }
     canvas { width: min(960px, 100%); border-radius: 8px; }
+    /* the player wraps the canvas: size the wrapper, so the bar is as wide as the picture */
+    .movie-controller-wrap { width: min(960px, 100%); }
+    .movie-controller-wrap canvas { width: 100%; height: auto; }
     /* Screenshots: the player bar overlays the bottom ~60px of the canvas (it is NOT part of the exported video).
        Uncomment to hide it while you check the layout:  .movie-controller { display: none !important; } */
   </style>
