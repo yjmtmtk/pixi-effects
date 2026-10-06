@@ -1,19 +1,19 @@
 # orbit-rig — stumble notes
-Model: sonnet   Cycles: 2 (1 write, 1 look-and-adjust)   Result: works
+Model: sonnet   Cycles: 3 (1 write, 2 look-and-adjust); redesigned after the first version   Result: works
 Note: written by the library's author to put null layers, wiggle, stagger and seeded randomness through one real piece; not a fresh-session trial.
 
 ## Went smoothly
-- One `null` layer ("handheld") at the canvas centre carries the whole scene: every other layer says `parent: 'handheld'`, so the camera shake (`wiggle` on x / y / rotation) and the slow push-in (`scale` keyframe) are two lists on one layer instead of a keyframe per element.
-- Nested nulls make the orbit: `system` → `planet-orbit` (rotation 0 → 720°) → planet; `moon-orbit` sits on the planet-orbit at the planet's position and turns four times as fast. No trigonometry.
-- `stagger(layers, { each: 0.09, from: 'center' })` shifted the letters' `at`; the same call on five `pop` sound layers put the sounds on the same wave. `stagger(layers, { grid: [6, 2], from: 'center', ease: 'sine.out' })` made the tile ripple.
-- `rand(i)` placed the 64 stars and picked the tile colours; `wiggle` with a per-star seed twinkles each one. Every run and every export is the same picture.
+- The whole diagram hangs off ONE `null` layer ("rig") at the sun: the slow push-in is a `scale` keyframe on it, and the hand-held breathing is `wiggle` on its x / y / rotation (2 px, 0.12°: you feel it more than you see it). Every ring, planet and star says `parent: 'rig'`, so none of them needs a keyframe for that.
+- Each planet is a circle on a `null` that turns (`orbit-0` … `orbit-4`, turns over the whole movie 3.2 / 2.1 / 1.5 / 1.0 / 0.45) with the circle at `x: radius`; the Earth's moon is a null on the Earth's null. No trigonometry anywhere.
+- `stagger(5, { each: 0.42 })` gives the five start times: the rings draw on one after the other (`trimEnd`, starting at 12 o'clock), the planets fade in with them, and the five `click` sounds use the same numbers.
+- The legend is five rows, each a `null` with a swatch and a line of text as children, staggered with `stagger(layers)`: one `at` per row moves all three parts.
 
 ## Stumbles
-### 1. Children are measured from the null's origin   [WORTH KNOWING]
-- The null sits at (640, 360), so a child at `x: 230` is drawn at 870. Everything inside the rig is written as an offset from the centre (`splitText` takes the same offsets). Easy once known, a surprise if you expect composition coordinates.
+### 1. The first version was a feature demo, not a piece   [DESIGN, the big one]
+- It had a sun, a planet and a moon, letters and tiles rippling in, and a shaking title, all on one canvas; the owner called it plain bad. The redesign is a museum plate: ivory and brass on a blue-black ground, a hairline frame, one large serif title (Didot / Bodoni / Georgia), small letter-spaced captions, a legend, "NOT TO SCALE". Nothing moves that does not belong to an orrery.
 
-### 2. `stagger` shifts `at` but not `duration`   [BY DESIGN]
-- Layers that should live to the end of the movie need `duration: DURATION - at` after the stagger, or the last ones end a moment early. The piece maps that on after calling `stagger`.
+### 2. Children are measured from the null's origin   [WORTH KNOWING]
+- The rig sits on the sun, so the sun is `(0, 0)` and Jupiter's ring is a circle of radius 284 centred there. The title and legend are outside the rig, in canvas coordinates.
 
-### 3. Keyframes on a null's children count from the child's own start   [BY DESIGN]
-- The system appears at 0.3 s, so each of its layers has `at: 0.3` and its keyframes start at 0 from there; the planet's 720° turn lasts `DURATION - 0.3`.
+### 3. The outer ring ran off the frame   [MY-MISTAKE]
+- With a radius of 318 and the push-in, Jupiter's ring crossed the frame line. The radii are 68 / 112 / 162 / 218 / 284 and the sun sits a little above the middle.

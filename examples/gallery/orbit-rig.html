@@ -9,10 +9,10 @@
     canvas { width: min(960px, 100%); border-radius: 8px; }
   </style>
   <script type="application/json" id="piece-meta">{
-    "title": "Orbit Rig",
-    "subtitle": "A whole scene on one hand-held null layer: a sun, planet and moon that orbit through nested nulls, letters and tiles that ripple out with stagger, stars and shake from seeded randomness",
-    "tags": ["null-parent", "orbit", "wiggle", "stagger", "seeded-random", "typography", "sfx"],
-    "width": 1280, "height": 720, "duration": 10, "model": "sonnet"
+    "title": "Orrery",
+    "subtitle": "A museum plate of the solar system in ivory and brass: orbit rings draw on one by one, planets ride nested rotating layers (a moon on the Earth's), a legend and a serif title arrive in quiet waves, the whole plate breathes by hand",
+    "tags": ["orbit", "null-parent", "wiggle", "stagger", "typography", "diagram", "sfx"],
+    "width": 1280, "height": 720, "duration": 12, "model": "sonnet"
   }</script>
 </head>
 <body>
@@ -44,111 +44,97 @@
   </script>
 
   <script type="module">
-    import { Movie, wiggle, stagger, rand, splitText } from 'pixi-effects';
+    import { Movie, wiggle, stagger, animateText, rand } from 'pixi-effects';
     import { Controller } from 'pixi-effects/controller';
 
-    const W = 1280, H = 720, FPS = 30, DURATION = 10;
-    const INK = '#e8eefc', DIM = '#8fa0bf', SUN = '#ffd166', ICE = '#4cc9f0', ROSE = '#ff6b9d';
-    const TILE_COLORS = [ICE, SUN, ROSE];
-    const SANS = "'Arial Black', Arial, system-ui, sans-serif";
-    const life = (at, extra = {}) => ({ at, duration: DURATION - at, ...extra });   // alive from `at` to the end
+    const W = 1280, H = 720, FPS = 30, DURATION = 12;
+    // ivory and brass on a blue-black plate, three muted planet colours: nothing else
+    const INK = '#0b0f1c', PLATE = '#10162a', IVORY = '#efe6d2', BRASS = '#c9a45c', DIM = '#8a8fa6';
+    const SERIF = "'Didot', 'Bodoni 72', 'Playfair Display', Georgia, 'Times New Roman', serif";
+    const SANS = "'Helvetica Neue', Arial, system-ui, sans-serif";
+    const CX = 850, CY = 362;                                           // the sun; everything in the diagram is measured from here
 
-    // Everything below hangs off ONE null layer, "handheld": it sits at the centre of the canvas, so every child is placed
-    // as an offset from the centre, and the camera shake and the slow push-in are two keyframe lists on that one layer.
-    const rig = [
-      {
-        type: 'null', name: 'handheld', initial: { x: W / 2, y: H / 2 },
-        keyframes: [
-          ...wiggle({ duration: DURATION, freq: 2.2, seed: 7, props: { x: { around: W / 2, amp: 6 }, y: { around: H / 2, amp: 4 }, rotation: { around: 0, amp: 0.4 } } }),
-          { at: 7, to: { scale: 1.06 }, duration: 3, ease: 'sine.inOut' },
-        ],
-      },
+    // the plate: a faint panel and a hairline frame
+    const plate = [
+      { type: 'shape', shape: 'rect', name: 'ground', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' }, fillGradient: { type: 'radial', radius: 0.8, center: [0.66, 0.5], stops: [[0, '#182040'], [1, INK]] } },
+      { type: 'shape', shape: 'rect', name: 'frame', width: W - 56, height: H - 56, initial: { x: W / 2, y: H / 2, fillAlpha: 0, strokeColor: BRASS, strokeWidth: 1, strokeAlpha: 0.35 } },
     ];
-    const inRig = spec => ({ parent: 'handheld', ...spec });
 
-    // stars: every one has its own seed, so the field is the same on every run and in the export
+    // ONE null layer carries the whole diagram: it breathes (a tiny seeded hand-held drift) and pushes in very slowly
+    const rig = { type: 'null', name: 'rig', initial: { x: CX, y: CY },
+      keyframes: [
+        ...wiggle({ duration: DURATION, freq: 1.2, seed: 5, props: { x: { around: CX, amp: 2.5 }, y: { around: CY, amp: 2 }, rotation: { around: 0, amp: 0.12 } } }),
+        { at: 0, to: { scale: 1.05 }, duration: DURATION, ease: 'sine.inOut' },
+      ] };
+    const inRig = spec => ({ parent: 'rig', ...spec });
+
+    // a faint field of stars, each its own seed
     const stars = Array.from({ length: 64 }, (_, i) => inRig({
-      type: 'shape', shape: 'circle', name: 'star-' + i, radius: 1 + rand(i * 3 + 2) * 2.2, ...life(0),
-      initial: { x: (rand(i * 3) - 0.5) * 1500, y: (rand(i * 3 + 1) - 0.5) * 900, fillColor: INK },
-      keyframes: wiggle({ duration: DURATION, freq: 0.8 + rand(i + 500) * 1.6, seed: i, props: { alpha: { around: 0.5, amp: 0.4 } } }),
+      type: 'shape', shape: 'circle', name: 'star-' + i, radius: 0.5 + rand(i * 3 + 2) * 0.9, duration: DURATION,
+      initial: { x: (rand(i * 3) - 0.5) * 1200, y: (rand(i * 3 + 1) - 0.5) * 640, fillColor: IVORY },
+      keyframes: wiggle({ duration: DURATION, freq: 0.4 + rand(i + 400) * 0.6, seed: i, props: { alpha: { around: 0.35, amp: 0.25 } } }),
     }));
 
-    // a sun, a planet on a null that turns, a moon on a null that turns on the planet's null
-    const SYS_AT = 0.3, SYS_LEN = DURATION - SYS_AT;
-    const system = [
-      inRig({
-        type: 'null', name: 'system', ...life(SYS_AT), initial: { x: -330, y: 10, scale: 0 },
-        keyframes: [{ at: 0, to: { scale: 1 }, duration: 1.1, ease: 'back.out(1.6)' }],
-      }),
-      { type: 'shape', shape: 'circle', name: 'halo', radius: 100, parent: 'system', blendMode: 'add', ...life(SYS_AT),
-        fillGradient: { type: 'radial', radius: 0.5, stops: [[0, 'rgba(255,209,102,0.45)'], [1, 'rgba(255,209,102,0)']] },
-        initial: { x: 0, y: 0 },
-        keyframes: wiggle({ duration: SYS_LEN, freq: 2.5, seed: 11, props: { alpha: { around: 0.8, amp: 0.2 } } }) },
-      { type: 'shape', shape: 'circle', name: 'sun', radius: 44, parent: 'system', ...life(SYS_AT), initial: { x: 0, y: 0, fillColor: SUN } },
-      { type: 'shape', shape: 'circle', name: 'planet-ring', radius: 135, parent: 'system', ...life(SYS_AT),
-        initial: { x: 0, y: 0, fillAlpha: 0, strokeColor: INK, strokeWidth: 2, strokeAlpha: 0.2 } },
-      { type: 'null', name: 'planet-orbit', parent: 'system', ...life(SYS_AT), initial: { rotation: -30 },
-        keyframes: [{ at: 0, to: { rotation: -30 + 720 }, duration: SYS_LEN, ease: 'none' }] },
-      { type: 'shape', shape: 'circle', name: 'planet', radius: 15, parent: 'planet-orbit', ...life(SYS_AT), initial: { x: 135, y: 0, fillColor: ICE } },
-      { type: 'null', name: 'moon-orbit', parent: 'planet-orbit', ...life(SYS_AT), initial: { x: 135, y: 0 },
-        keyframes: [{ at: 0, to: { rotation: 2880 }, duration: SYS_LEN, ease: 'none' }] },
-      { type: 'shape', shape: 'circle', name: 'moon', radius: 6, parent: 'moon-orbit', ...life(SYS_AT), initial: { x: 36, y: 0, fillColor: ROSE } },
+    // the sun, then five orbits; each ring draws on, and its planet rides a rotating layer of its own
+    const R = [68, 112, 162, 218, 284];
+    const SIZE = [4.5, 7.5, 8.5, 6, 15];
+    const COLOR = ['#b8ab95', '#d9b27c', '#8fb7c9', '#c8785a', BRASS];
+    const NAMES = ['MERCURY', 'VENUS', 'EARTH', 'MARS', 'JUPITER'];
+    const TURNS = [3.2, 2.1, 1.5, 1.0, 0.45];                          // turns over the whole movie
+    const T0 = 0.9;
+    const timing = stagger(5, { each: 0.42 }).map(d => T0 + d);        // when each orbit starts
+    const sun = [
+      inRig({ type: 'shape', shape: 'circle', name: 'sun-halo', radius: 70, blendMode: 'add', at: 0.3, duration: DURATION - 0.3,
+        fillGradient: { type: 'radial', radius: 0.5, stops: [[0, 'rgba(201,164,92,0.45)'], [1, 'rgba(201,164,92,0)']] }, initial: { x: 0, y: 0, scale: 0 },
+        keyframes: [{ at: 0, to: { scale: 1 }, duration: 1.4, ease: 'power3.out' }, ...wiggle({ at: 1.4, duration: DURATION - 1.7, freq: 0.5, seed: 8, props: { alpha: { around: 0.85, amp: 0.15 } } })] }),
+      inRig({ type: 'shape', shape: 'circle', name: 'sun', radius: 15, at: 0.3, duration: DURATION - 0.3, initial: { x: 0, y: 0, fillColor: '#f1d9a0', scale: 0 },
+        keyframes: [{ at: 0, to: { scale: 1 }, duration: 1.0, ease: 'back.out(1.6)' }] }),
     ];
-
-    // the title: the letters rise from the middle outwards (stagger shifts each layer's `at`, the sound follows the same wave)
-    const TITLE_AT = 1.4, WAVE = { each: 0.09, from: 'center' };
-    const titleStyle = { fontFamily: SANS, fontSize: 120, fill: INK };
-    const letters = stagger(
-      splitText('ORBIT', titleStyle, { x: 230, y: -118, align: 'center' }).map(p => inRig({
-        type: 'text', name: 'letter-' + p.index, text: p.text, at: TITLE_AT,
-        style: p.index === 0 ? { ...titleStyle, fill: SUN } : titleStyle,
-        initial: { x: p.x, y: p.y, alpha: 0 },
-        keyframes: [{ at: 0, from: { y: p.y + 50, alpha: 0 }, to: { y: p.y, alpha: 1 }, duration: 0.5, ease: 'back.out(2)' }],
-      })),
-      WAVE).map(l => ({ ...l, duration: DURATION - l.at }));
-    const letterSounds = stagger(
-      Array.from({ length: 5 }, (_, i) => ({ type: 'audio', sfx: 'pop', at: TITLE_AT, volume: 0.45, pitch: -4 + i * 2 })),
-      WAVE);
-
-    const subtitle = [
-      inRig({ type: 'shape', shape: 'rect', name: 'rule', width: 420, height: 3, ...life(2.2), initial: { x: 230, y: 28, fillColor: SUN, scaleX: 0 },
-        keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.7, ease: 'power3.out' }] }),
-      inRig({ type: 'text', name: 'subtitle', text: 'SEEDED  ·  PARENTED  ·  STAGGERED', ...life(2.6),
-        style: { fontFamily: 'ui-monospace, Menlo, Consolas, monospace', fontSize: 21, fill: DIM, letterSpacing: 4 },
-        initial: { x: 230, y: 62, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
-        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6 }] }),
-    ];
-
-    // a 6 x 2 grid of tiles that pops in as a ripple from the middle; colours and shimmer come from seeds
-    const COLS = 6, ROWS = 2, GRID_AT = 3.4;
-    const tiles = stagger(
-      Array.from({ length: COLS * ROWS }, (_, i) => {
-        const col = i % COLS, row = Math.floor(i / COLS);
-        return inRig({
-          type: 'shape', shape: 'rect', name: 'tile-' + i, width: 56, height: 56, cornerRadius: 12, at: GRID_AT,
-          initial: { x: 230 + (col - (COLS - 1) / 2) * 68, y: 112 + row * 68, fillColor: TILE_COLORS[Math.floor(rand(i + 40) * 3)], scale: 0 },
-          keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.4, ease: 'back.out(2.2)' }],
-          i,
-        });
-      }),
-      { each: 0.07, grid: [COLS, ROWS], from: 'center', ease: 'sine.out' }
-    ).map(({ i, ...l }) => {
-      const len = DURATION - l.at;
-      return { ...l, duration: len, keyframes: [...l.keyframes, ...wiggle({ at: 0.6, duration: len - 0.6, freq: 1.2, seed: i, props: { alpha: { around: 0.85, amp: 0.15 } } })] };
+    const orbits = R.flatMap((r, i) => {
+      const at = timing[i], life = DURATION - at, a0 = rand(i + 60) * 360;
+      return [
+        inRig({ type: 'shape', shape: 'circle', name: 'ring-' + i, radius: r, at, duration: life, trimEnd: 0,
+          initial: { x: 0, y: 0, fillAlpha: 0, strokeColor: IVORY, strokeWidth: 1.2, strokeAlpha: 0.3, rotation: -90 },
+          keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 1.5, ease: 'power2.inOut' }] }),
+        inRig({ type: 'null', name: 'orbit-' + i, at, duration: life, initial: { rotation: a0 },
+          keyframes: [{ at: 0, to: { rotation: a0 + 360 * TURNS[i] }, duration: life, ease: 'none' }] }),
+        { type: 'shape', shape: 'circle', name: 'planet-' + i, parent: 'orbit-' + i, radius: SIZE[i], at, duration: life, initial: { x: r, y: 0, fillColor: COLOR[i], alpha: 0 },
+          keyframes: [{ at: 0.9, to: { alpha: 1 }, duration: 0.6 }] },
+      ];
     });
+    // the Earth carries a moon: a null on its null, turning fast
+    const moon = [
+      { type: 'null', name: 'moon-orbit', parent: 'orbit-2', at: timing[2], duration: DURATION - timing[2], initial: { x: R[2] },
+        keyframes: [{ at: 0, to: { rotation: 360 * 9 }, duration: DURATION - timing[2], ease: 'none' }] },
+      { type: 'shape', shape: 'circle', name: 'moon', parent: 'moon-orbit', radius: 2.4, at: timing[2], duration: DURATION - timing[2], initial: { x: 19, y: 0, fillColor: IVORY, alpha: 0 },
+        keyframes: [{ at: 1.2, to: { alpha: 0.9 }, duration: 0.6 }] },
+    ];
+
+    // typography: a small brass kicker, a large serif title, a rule, a legend that arrives in a wave, a footnote
+    const kicker = { type: 'text', name: 'kicker', text: 'PLATE  III', at: 0.8, duration: DURATION - 0.8, style: { fontFamily: SANS, fontSize: 13, fill: BRASS, letterSpacing: 7 },
+      initial: { x: 96, y: 104, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.9 }] };
+    const title = animateText('Orrery', { fontFamily: SERIF, fontSize: 128, fill: IVORY }, {
+      x: 96, y: 150, align: 'left', name: 'title', at: 1.1, duration: DURATION - 1.1, in: { from: { y: 36, alpha: 0 }, duration: 1.1, ease: 'power3.out' }, stagger: { each: 0.09 },
+    });
+    const sub = { type: 'text', name: 'subtitle', text: 'A MODEL OF THE SOLAR SYSTEM', at: 2.6, duration: DURATION - 2.6, style: { fontFamily: SANS, fontSize: 13, fill: IVORY, letterSpacing: 6 },
+      initial: { x: 100, y: 322, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.85 }, duration: 0.9 }, { at: 0, from: { x: 86 }, to: { x: 100 }, duration: 0.9, ease: 'power3.out' }] };
+    const rule = { type: 'shape', shape: 'rect', name: 'rule', width: 64, height: 1.5, anchorX: 0, at: 3.0, duration: DURATION - 3.0, initial: { x: 100, y: 350, fillColor: BRASS, scaleX: 0 },
+      keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.8, ease: 'power3.inOut' }] };
+    const legend = stagger(NAMES.map((name, i) => ({
+      type: 'null', name: 'legend-' + i, at: 3.4, duration: DURATION - 3.4, initial: { x: 100, y: 410 + i * 38 }, _i: i,
+    })), { each: 0.2 }).flatMap(({ _i: i, ...row }) => [
+      row,
+      { type: 'shape', shape: 'circle', name: 'swatch-' + i, parent: 'legend-' + i, radius: Math.max(3, SIZE[i] * 0.55), at: row.at, duration: row.duration, initial: { x: 4, y: 0, fillColor: COLOR[i], alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.7 }] },
+      { type: 'text', name: 'legend-name-' + i, parent: 'legend-' + i, text: ['I', 'II', 'III', 'IV', 'V'][i] + '     ' + NAMES[i], at: row.at, duration: row.duration, style: { fontFamily: SANS, fontSize: 14, fill: IVORY, letterSpacing: 5 },
+        initial: { x: 26, y: 0, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.8 }, duration: 0.7 }, { at: 0, from: { x: 14 }, to: { x: 26 }, duration: 0.7, ease: 'power3.out' }] },
+    ]);
+    const note = { type: 'text', name: 'note', text: 'NOT TO SCALE', at: 5.6, duration: DURATION - 5.6, style: { fontFamily: SANS, fontSize: 11, fill: DIM, letterSpacing: 6 },
+      initial: { x: 100, y: 652, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 1 }] };
 
     const sounds = [
-      { type: 'audio', sfx: 'swoosh', at: SYS_AT, volume: 0.5 },
-      ...letterSounds,
-      { type: 'audio', sfx: 'chime', at: GRID_AT, volume: 0.4 },
-    ];
-
-    const sequences = [
-      // the page's own background and vignette stay still while the rig shakes
-      { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
-        fillGradient: { type: 'radial', radius: 0.75, stops: [[0, '#16203d'], [1, '#080c18']] } },
-      ...rig, ...stars, ...system, ...letters, ...subtitle, ...tiles,
-      ...sounds,
+      ...stagger(5, { each: 0.42 }).map(d => ({ type: 'audio', sfx: 'click', at: T0 + d, volume: 0.2, pitch: d * 6 })),
+      { type: 'audio', sfx: 'chime', at: 1.3, volume: 0.28, pitch: -5 },
     ];
 
     const movie = new Movie();
@@ -159,9 +145,9 @@
       await movie.init({
         canvas: document.getElementById('stage'),
         width: W, height: H, duration: DURATION, frameRate: FPS,
-        poster: 5,
-        background: '#080c18',
-        composition: { sequences },
+        poster: 8,
+        background: INK,
+        composition: { sequences: [...plate, rig, ...stars, ...sun, ...orbits, ...moon, kicker, ...title, sub, rule, ...legend, note, ...sounds] },
       });
       window.__ready = true;
     } catch (e) {

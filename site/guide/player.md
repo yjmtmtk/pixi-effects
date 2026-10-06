@@ -40,6 +40,15 @@ controller.setTheme({ accent: '#7bd88f' });          // later, live; null puts a
 | `trackHeight` | `--mc-track-height` | the thickness of the progress bar (a number is pixels) |
 | `font` | `--mc-font` | the bar's font |
 
+## While it loads
+
+A piece with many layers can keep the page busy for a moment while it is built, and a first visit also downloads the libraries. Nothing in the page moves during that time unless you plan for it. Two rules:
+
+- **Put a loader in the HTML, and animate it with CSS `transform` and `opacity` only.** The browser runs those animations on its compositor thread, so the loader keeps moving smoothly even while the main thread is busy building your piece. A loader driven by JavaScript, `requestAnimationFrame`, `setInterval`, an SVG stroke or the canvas itself freezes together with the page. It should be on screen before any script runs (plain HTML and CSS), and you remove it when `await movie.init(...)` is done: by then the poster is on the canvas.
+- **Keep the build light.** Hundreds of particle layers are fine; thousands cost time. (The library adds each layer's animation to the timeline in one piece, so the cost grows with the number of layers, not with the square of the number of keyframes.)
+
+`ai/template.html` and the gallery's [hanabi-night](../examples/gallery/hanabi-night.html) are examples (a spinning ring, and a tiny rocket that bursts).
+
 ## Build your own
 
 The bar is optional: everything it does is public on the movie, and the events use the names an HTML5 `<video>` does. A complete player is about forty lines:

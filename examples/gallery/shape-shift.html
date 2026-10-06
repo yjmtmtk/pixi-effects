@@ -9,9 +9,9 @@
     canvas { width: min(960px, 100%); border-radius: 8px; }
   </style>
   <script type="application/json" id="piece-meta">{
-    "title": "Shape Shift",
-    "subtitle": "One outline becomes another and another (path morphing), a comet with a trail rides a loop and faces the way it goes (followPath), and the title and words arrive letter by letter (animateText)",
-    "tags": ["morph", "follow-path", "animate-text", "stagger", "typography", "sfx"],
+    "title": "Form Follows",
+    "subtitle": "A Bauhaus-style poster in motion: a red square becomes a yellow circle becomes a blue triangle, a small black dot circles it, and the line of type changes to FUNCTION, FEELING and FUTURE with each shape",
+    "tags": ["morph", "follow-path", "animate-text", "typography", "poster", "bauhaus", "sfx"],
     "width": 1280, "height": 720, "duration": 12, "model": "sonnet"
   }</script>
 </head>
@@ -44,77 +44,66 @@
   </script>
 
   <script type="module">
-    import { Movie, animateText, followPath, stagger } from 'pixi-effects';
+    import { Movie, followPath, animateText } from 'pixi-effects';
     import { Controller } from 'pixi-effects/controller';
 
     const W = 1280, H = 720, FPS = 30, DURATION = 12;
-    const INK = '#e8eefc', DIM = '#8fa0bf', SUN = '#ffd166', ROSE = '#ff6b9d', ICE = '#4cc9f0';
-    const SANS = "'Arial Black', Arial, system-ui, sans-serif";
+    // the Bauhaus set: paper, ink, and the three primaries
+    const PAPER = '#f0e8d6', INK = '#15120f', RED = '#d8402c', YELLOW = '#f2b632', BLUE = '#2a4f9e';
+    const GROTESK = "'Helvetica Neue', Helvetica, Arial, 'Arial Black', sans-serif";
+    const CX = 982, CY = 352;                                           // the centre of the shapes
+    const S = 132;                                                      // half the side of the square, the radius of the circle
 
-    // three outlines, written as plain SVG path data in canvas coordinates (all around the point 640, 385)
-    const BLOB = 'M 640 205 C 760 205 830 285 830 385 C 830 485 760 565 640 565 C 520 565 450 485 450 385 C 450 285 520 205 640 205 Z';
-    const STAR = 'M 640 195 L 700 335 L 850 345 L 735 440 L 775 585 L 640 505 L 505 585 L 545 440 L 430 345 L 580 335 Z';
-    const HEART = 'M 640 565 C 540 490 440 430 440 330 C 440 250 500 215 560 215 C 600 215 630 240 640 275 C 650 240 680 215 720 215 C 780 215 840 250 840 330 C 840 430 740 490 640 565 Z';
+    // three outlines drawn around (CX, CY): a square, a circle (four cubic arcs) and a triangle
+    const K = 0.5523 * S;
+    const SQUARE = `M ${CX - S} ${CY - S} L ${CX + S} ${CY - S} L ${CX + S} ${CY + S} L ${CX - S} ${CY + S} Z`;
+    const CIRCLE = `M ${CX} ${CY - S} C ${CX + K} ${CY - S} ${CX + S} ${CY - K} ${CX + S} ${CY} C ${CX + S} ${CY + K} ${CX + K} ${CY + S} ${CX} ${CY + S} C ${CX - K} ${CY + S} ${CX - S} ${CY + K} ${CX - S} ${CY} C ${CX - S} ${CY - K} ${CX - K} ${CY - S} ${CX} ${CY - S} Z`;
+    const TRIANGLE = `M ${CX} ${CY - S} L ${CX + S * 1.1} ${CY + S * 0.85} L ${CX - S * 1.1} ${CY + S * 0.85} Z`;
 
-    // one layer can morph from its `d` to its `morphTo`, so the chain is three layers that hand over: each starts as the shape
-    // the one before ended as (same outline, same colour), so nothing jumps
-    const STROKE = { strokeColor: '#ffffff', strokeWidth: 5, strokeJoin: 'round' };
-    const morphing = (name, at, duration, d, morphTo, from, to, extra = {}) => ({
-      type: 'shape', shape: 'path', name, d, morphTo, at, duration,
-      initial: { fillColor: from, ...STROKE, ...extra.initial },
+    // one layer morphs from its `d` to its `morphTo`, so the three shapes are three layers that hand over (same outline, same colour)
+    // each act holds its shape while its word is on screen and morphs just as the word is replaced (the 6th number: seconds into the act the morph starts)
+    const ACTS = [[1.0, 5.9, SQUARE, CIRCLE, RED, YELLOW, 3.6], [5.9, 9.7, CIRCLE, TRIANGLE, YELLOW, BLUE, 2.5], [9.7, DURATION, TRIANGLE, null, BLUE, BLUE, 0]];
+    const shapes = ACTS.map(([from, to, d, morphTo, a, b, start], i) => ({
+      type: 'shape', shape: 'path', name: 'form-' + i, d, ...(morphTo ? { morphTo } : {}), at: from, duration: to - from,
+      initial: { fillColor: a, ...(i === 0 ? { scale: 0 } : {}) },
       keyframes: [
-        ...(extra.keyframes ?? []),
-        { at: 0.3, to: { morph: 1 }, duration: 1.8, ease: 'power2.inOut' },
-        { at: 0.3, to: { fillColor: to }, duration: 1.8, ease: 'power2.inOut' },
+        ...(i === 0 ? [{ at: 0, to: { scale: 1 }, duration: 0.6, ease: 'power4.out' }] : []),
+        ...(morphTo ? [{ at: start, to: { morph: 1 }, duration: 1.3, ease: 'power3.inOut' }, { at: start, to: { fillColor: b }, duration: 1.3, ease: 'power3.inOut' }] : []),
       ],
-    });
-    const shapes = [
-      morphing('blob-to-star', 1.2, 3.8, BLOB, STAR, SUN, SUN, { initial: { scale: 0 }, keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.7, ease: 'back.out(1.8)' }] }),
-      morphing('star-to-heart', 5.0, 3.2, STAR, HEART, SUN, ROSE),
-      morphing('heart-to-blob', 8.2, DURATION - 8.2, HEART, BLOB, ROSE, ICE),
+    }));
+
+    // a thin ring and the small black dot that rides it once round (the same circle path the dot follows is the ring)
+    const R = 206;
+    const RING = `M ${CX} ${CY - R} C ${CX + 0.5523 * R} ${CY - R} ${CX + R} ${CY - 0.5523 * R} ${CX + R} ${CY} C ${CX + R} ${CY + 0.5523 * R} ${CX + 0.5523 * R} ${CY + R} ${CX} ${CY + R} C ${CX - 0.5523 * R} ${CY + R} ${CX - R} ${CY + 0.5523 * R} ${CX - R} ${CY} C ${CX - R} ${CY - 0.5523 * R} ${CX - 0.5523 * R} ${CY - R} ${CX} ${CY - R} Z`;
+    const ring = { type: 'shape', shape: 'path', name: 'ring', d: RING, at: 0.4, duration: DURATION - 0.4, trimEnd: 0, strokeCap: 'round',
+      initial: { strokeColor: INK, strokeWidth: 1.5 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 1.4, ease: 'power2.inOut' }] };
+    const dot = { type: 'shape', shape: 'circle', name: 'dot', radius: 9, at: 1.8, duration: DURATION - 1.8, initial: { fillColor: INK },
+      keyframes: followPath({ d: RING, duration: DURATION - 1.8, ease: 'none', frameRate: FPS }) };
+
+    // type: two big lines, one word that changes with the shape, a few small lines of fine print
+    const BIG = { fontFamily: GROTESK, fontSize: 132, fontWeight: '900', fill: INK, letterSpacing: -3 };
+    const lines = [
+      ...animateText('FORM', BIG, { x: 84, y: 76, align: 'left', name: 'form', at: 0.5, duration: DURATION - 0.5, in: { from: { x: -70, alpha: 0 }, duration: 0.7, ease: 'power4.out' }, stagger: { each: 0.05 } }),
+      ...animateText('FOLLOWS', BIG, { x: 84, y: 204, align: 'left', name: 'follows', at: 0.8, duration: DURATION - 0.8, in: { from: { x: -70, alpha: 0 }, duration: 0.7, ease: 'power4.out' }, stagger: { each: 0.045 } }),
     ];
-
-    // the loop the comet rides: an ellipse round the shapes, drawn on first
-    const LOOP = 'M 280 385 C 280 266 441 170 640 170 C 839 170 1000 266 1000 385 C 1000 504 839 600 640 600 C 441 600 280 504 280 385 Z';
-    const route = {
-      type: 'shape', shape: 'path', name: 'loop', d: LOOP, at: 0.2, duration: DURATION - 0.2, trimEnd: 0,
-      initial: { strokeColor: INK, strokeWidth: 2, strokeAlpha: 0.22 },
-      keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 1.2, ease: 'power2.inOut' }],
-    };
-
-    // a comet: a pointer that faces the way it goes, then five dots behind it. Every layer rides the same trip; stagger starts each
-    // a little later, which is what makes the trail
-    const TRIP_AT = 1.6, TRIP = 9;
-    const trip = followPath({ d: LOOP, duration: TRIP, orient: true, frameRate: FPS });
-    const radii = [15, 12.5, 10, 8, 6], alphas = [0.75, 0.55, 0.4, 0.27, 0.15];
-    const comet = stagger([
-      { type: 'shape', shape: 'polygon', name: 'comet', points: [[-24, -16], [24, 0], [-24, 16]], at: TRIP_AT, initial: { fillColor: '#ffffff' }, keyframes: trip },
-      ...radii.map((r, i) => ({
-        type: 'shape', shape: 'circle', name: 'trail-' + i, radius: r, at: TRIP_AT, initial: { fillColor: '#ffffff', fillAlpha: alphas[i] },
-        keyframes: trip.map(k => { const { rotation, ...rest } = (k.set ?? k.to) ?? {}; return k.set ? { ...k, set: rest } : { ...k, to: rest }; }),
-      })),
-    ], { each: 0.1 }).map(l => ({ ...l, duration: DURATION - l.at }));
-
-    const title = animateText('SHAPE SHIFT', { fontFamily: SANS, fontSize: 92, fill: INK }, {
-      x: W / 2, y: 36, align: 'center', name: 'title', at: 0.4, duration: DURATION - 0.4, in: 'rise',
-      stagger: { each: 0.06, from: 'center' }, idle: { y: 3, freq: 0.7, seed: 4 },
-      styleFor: p => (p.index >= 5 ? { fill: SUN } : {}),
+    const WORDS = [['FUNCTION', 1.6, 4.5, RED], ['FEELING', 4.9, 8.3, YELLOW], ['FUTURE', 8.7, DURATION, BLUE]];
+    const words = WORDS.flatMap(([word, from, to, color]) => animateText(word, { ...BIG, fontSize: 92, letterSpacing: -2, fill: color === YELLOW ? '#c98a00' : color }, {
+      x: 84, y: 372, align: 'left', name: 'word-' + word.toLowerCase(), at: from, duration: to - from,
+      in: { from: { y: 60, alpha: 0 }, duration: 0.5, ease: 'power4.out' }, out: to < DURATION ? { from: { y: -60, alpha: 0 }, duration: 0.4, ease: 'power3.in' } : false, stagger: { each: 0.03 },
+    }));
+    const small = (name, text, x, y, at, align = 'left') => ({
+      type: 'text', name, text, at, duration: DURATION - at, style: { fontFamily: GROTESK, fontSize: 15, fontWeight: '700', fill: INK, letterSpacing: 5 },
+      initial: { x, y, anchorX: align === 'right' ? 1 : 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6 }],
     });
-    const words = animateText('one outline becomes another', { fontFamily: 'system-ui, Arial, sans-serif', fontSize: 34, fill: DIM, letterSpacing: 2 }, {
-      by: 'words', x: W / 2, y: 640, align: 'center', name: 'words', at: 2.8, duration: DURATION - 2.8, in: 'pop', stagger: { each: 0.3 },
-    });
+    const fine = [
+      small('plate', 'STUDY  NO. 3', 88, 664, 2.2), small('rule-label', 'THREE SHAPES, THREE WORDS', 1196, 664, 2.4, 'right'),
+      { type: 'shape', shape: 'rect', name: 'baseline', width: W - 176, height: 3, anchorX: 0, at: 2.0, duration: DURATION - 2.0, initial: { x: 88, y: 640, fillColor: INK, scaleX: 0 },
+        keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 1.0, ease: 'power4.inOut' }] },
+    ];
 
     const sounds = [
-      { type: 'audio', sfx: 'chime', at: 0.4, volume: 0.4 },
-      { type: 'audio', sfx: 'swoosh', at: 1.2, volume: 0.5 },
-      { type: 'audio', sfx: 'swipe', at: 5.3, volume: 0.45 },
-      { type: 'audio', sfx: 'swipe', at: 8.5, volume: 0.45, pitch: 3 },
-    ];
-
-    const sequences = [
-      { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
-        fillGradient: { type: 'radial', radius: 0.75, stops: [[0, '#16203d'], [1, '#080c18']] } },
-      route, ...shapes, ...comet, ...title, ...words, ...sounds,
+      { type: 'audio', sfx: 'pop', at: 1.0, volume: 0.4, pitch: -3 }, { type: 'audio', sfx: 'swipe', at: 4.6, volume: 0.35 }, { type: 'audio', sfx: 'swipe', at: 8.4, volume: 0.35, pitch: 3 },
+      { type: 'audio', sfx: 'click', at: 1.6, volume: 0.3 }, { type: 'audio', sfx: 'click', at: 4.9, volume: 0.3 }, { type: 'audio', sfx: 'click', at: 8.7, volume: 0.3 },
     ];
 
     const movie = new Movie();
@@ -125,9 +114,12 @@
       await movie.init({
         canvas: document.getElementById('stage'),
         width: W, height: H, duration: DURATION, frameRate: FPS,
-        poster: 6.6,
-        background: '#080c18',
-        composition: { sequences },
+        poster: 7.2,
+        background: PAPER,
+        composition: { sequences: [
+          { type: 'shape', shape: 'rect', name: 'paper', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: PAPER } },
+          ring, ...shapes, dot, ...lines, ...words, ...fine, ...sounds,
+        ] },
       });
       window.__ready = true;
     } catch (e) {

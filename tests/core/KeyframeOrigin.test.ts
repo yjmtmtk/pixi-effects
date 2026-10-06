@@ -16,14 +16,14 @@ const shape: CompositionShape = { width: 1280, height: 720, duration: 10 };
 type Tl = ReturnType<typeof gsap.timeline>;
 /** Start times (global timeline seconds) of every tween whose vars touch `prop` (or its pixi/live wrapper). */
 function startsOf(tl: Tl, prop: string): number[] {
-  return tl.getChildren(false, true, true)
+  return tl.getChildren(true, true, false)
     .filter((c: any) => c.vars && (prop in c.vars || (c.vars.pixi && prop in c.vars.pixi)))
     .map((c: any) => +c.startTime().toFixed(3))
     .sort((a: number, b: number) => a - b);
 }
 /** Start times of tweens that write into a plain state object property (fill / live shape colour). */
 function startsOfState(tl: Tl, key: string): number[] {
-  return tl.getChildren(false, true, true)
+  return tl.getChildren(true, true, false)
     .filter((c: any) => c.vars && (key in c.vars || (c.vars.p !== undefined)))
     .map((c: any) => +c.startTime().toFixed(3))
     .sort((a: number, b: number) => a - b);
@@ -69,7 +69,7 @@ describe('keyframe `at` is sequence-local (After Effects style)', () => {
     const tl = gsap.timeline({ paused: true });
     t.bindTimeline(tl, 0);
     expect(startsOf(tl, 'alpha')).toContain(2.5);
-    const all = tl.getChildren(false, true, true).map((c: any) => +c.startTime().toFixed(3));
+    const all = tl.getChildren(true, true, false).map((c: any) => +c.startTime().toFixed(3));
     expect(all.filter(s => s === 2.5).length).toBeGreaterThanOrEqual(2);   // alpha + the live colour tween
     expect(all).not.toContain(0.5);
   });
@@ -83,7 +83,7 @@ describe('keyframe `at` is sequence-local (After Effects style)', () => {
     await t.build();
     const tl = gsap.timeline({ paused: true });
     t.bindTimeline(tl, 0);
-    const all = tl.getChildren(false, true, true).map((c: any) => +c.startTime().toFixed(3));
+    const all = tl.getChildren(true, true, false).map((c: any) => +c.startTime().toFixed(3));
     expect(all).toContain(2.5);
     expect(all).not.toContain(0.5);
   });

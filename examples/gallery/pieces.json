@@ -388,6 +388,28 @@
       "notes": "_notes/liquid-flow-title.md"
     },
     {
+      "id": "shape-shift",
+      "title": "Form Follows",
+      "subtitle": "A Bauhaus-style poster in motion: a red square becomes a yellow circle becomes a blue triangle, a small black dot circles it, and the line of type changes to FUNCTION, FEELING and FUTURE with each shape",
+      "tags": [
+        "morph",
+        "follow-path",
+        "animate-text",
+        "typography",
+        "poster",
+        "bauhaus",
+        "sfx"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 12,
+      "posterFrame": 216,
+      "model": "sonnet",
+      "page": "shape-shift.html",
+      "poster": "posters/shape-shift.jpg",
+      "notes": "_notes/shape-shift.md"
+    },
+    {
       "id": "hanabi-night",
       "title": "Hanabi Night",
       "subtitle": "A summer fireworks festival title card in indigo, gold and vermilion: rockets streak up, a gold peony opens over the skyline, the vertical title rises and a red seal stamps in",
@@ -510,21 +532,21 @@
     },
     {
       "id": "orbit-rig",
-      "title": "Orbit Rig",
-      "subtitle": "A whole scene on one hand-held null layer: a sun, planet and moon that orbit through nested nulls, letters and tiles that ripple out with stagger, stars and shake from seeded randomness",
+      "title": "Orrery",
+      "subtitle": "A museum plate of the solar system in ivory and brass: orbit rings draw on one by one, planets ride nested rotating layers (a moon on the Earth's), a legend and a serif title arrive in quiet waves, the whole plate breathes by hand",
       "tags": [
-        "null-parent",
         "orbit",
+        "null-parent",
         "wiggle",
         "stagger",
-        "seeded-random",
         "typography",
+        "diagram",
         "sfx"
       ],
       "width": 1280,
       "height": 720,
-      "duration": 10,
-      "posterFrame": 150,
+      "duration": 12,
+      "posterFrame": 240,
       "model": "sonnet",
       "page": "orbit-rig.html",
       "poster": "posters/orbit-rig.jpg",
@@ -590,27 +612,6 @@
       "page": "paper-cutout-forest.html",
       "poster": "posters/paper-cutout-forest.jpg",
       "notes": "_notes/paper-cutout-forest.md"
-    },
-    {
-      "id": "shape-shift",
-      "title": "Shape Shift",
-      "subtitle": "One outline becomes another and another (path morphing), a comet with a trail rides a loop and faces the way it goes (followPath), and the title and words arrive letter by letter (animateText)",
-      "tags": [
-        "morph",
-        "follow-path",
-        "animate-text",
-        "stagger",
-        "typography",
-        "sfx"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 12,
-      "posterFrame": 198,
-      "model": "sonnet",
-      "page": "shape-shift.html",
-      "poster": "posters/shape-shift.jpg",
-      "notes": "_notes/shape-shift.md"
     },
     {
       "id": "still-water",

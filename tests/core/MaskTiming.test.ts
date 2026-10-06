@@ -12,7 +12,7 @@ const shape: CompositionShape = { width: 1280, height: 720, duration: 10 };
 type Tl = ReturnType<typeof gsap.timeline>;
 /** Global start times of every tween that animates `prop` on a layer named `name` (the label sits on the display object). */
 function startsOfLayer(tl: Tl, prop: string): number[] {
-  return tl.getChildren(false, true, true)
+  return tl.getChildren(true, true, false)
     .filter((c: any) => c.vars && (prop in c.vars || c.vars.pixi && prop in c.vars.pixi || c.vars[prop] !== undefined))
     .map((c: any) => +c.startTime().toFixed(3))
     .sort((a: number, b: number) => a - b);
@@ -75,7 +75,7 @@ describe('an image used as a mask stays hidden (PIXI hides a sprite mask with re
     target.renderable = false;                                     // what PIXI's AlphaMask does to a sprite mask
     const tl = gsap.timeline({ paused: true });
     comp.bindTimeline(tl, 0);
-    const toggles = tl.getChildren(false, true, true).filter((c: any) => c.targets?.().includes(target) && c.vars && 'renderable' in c.vars);
+    const toggles = tl.getChildren(true, true, false).filter((c: any) => c.targets?.().includes(target) && c.vars && 'renderable' in c.vars);
     return { target, tl, toggles };
   }
 

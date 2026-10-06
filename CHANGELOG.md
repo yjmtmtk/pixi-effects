@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+**Performance**
+
+- **A piece with many layers builds in a fraction of the time.** Every layer now builds its animation in a small timeline of its own, which is added to its parent once finished. Adding thousands of tweens one by one to a single GSAP timeline made GSAP re-measure the whole timeline at every add, so the cost grew with the square of the count: the 700-layer `hanabi-night` took 3.2 s to build with two 1.3–1.6 s freezes of the page, and now takes 0.5 s with none above 170 ms. Positions stay absolute, so every frame is the same.
+- `ai/template.html` has a CSS-only loader (it animates only `transform` / `opacity`, which the browser runs off the main thread, so it keeps moving while the page builds the video) that fades out when the movie is ready; `hanabi-night` has its own. The guide's player page says how to build one.
+
+**Changed**
+
+- The gallery pieces `orbit-rig` and `shape-shift` were redesigned as pieces first and feature showcases second: an orrery plate in ivory and brass ("Orrery") and a Bauhaus poster in motion ("Form Follows"). Same ids, so existing links keep working.
+
 **Added**
 
 - A gallery piece that uses particles and motion blur (`hanabi-night`: a fireworks festival title card, 36 pieces now), with its demo in the guide.
