@@ -304,6 +304,11 @@ export class Controller {
   private root: HTMLDivElement;
   private wrapper: HTMLDivElement;
   private wrappedHere = false;
+  /** The canvas's own inline width / height, as the page wrote them (we override them while the wrapper is fitted). */
+  private canvasInlineWidth = '';
+  private canvasInlineHeight = '';
+  private fitWrapHandler: (() => void) | null = null;
+  private fitObserver: ResizeObserver | null = null;
   private destroyed = false;
 
   private progressEl!: HTMLDivElement;
@@ -368,6 +373,7 @@ export class Controller {
     this.root.className = this.options.className;
     this.wrapper.appendChild(this.root);
     this.buildBar();
+    this.bindFitWrap();
     this.syncRootToCanvas();
     if (typeof ResizeObserver !== 'undefined') {
       this.resizeObserver = new ResizeObserver(() => this.syncRootToCanvas());
@@ -472,8 +478,51 @@ export class Controller {
     parent.insertBefore(wrap, canvas);
     wrap.appendChild(canvas);
     this.wrappedHere = true;
+    this.canvasInlineWidth = canvas.style.width;
+    this.canvasInlineHeight = canvas.style.height;
 
     return wrap;
+  }
+
+  /**
+   * Make the wrapper exactly as wide as the canvas. A shrink-to-fit wrapper around a canvas that is sized in percent (the usual
+   * `canvas { width: min(960px, 100%) }`) is as wide as the canvas's width ATTRIBUTE (1280), so the picture sat at its left edge
+   * with an empty strip beside it. We measure the canvas as the page styled it (the wrapper made transparent to layout), give
+   * the wrapper that width, and let the canvas fill the wrapper. Re-measured when the window or the page's box changes.
+   */
+  private fitWrap(): void {
+    if (!this.wrappedHere) return;
+    const wrap = this.wrapper, canvas = this.options.canvas;
+    if (document.fullscreenElement === wrap) {                    // the fullscreen CSS owns the size
+      wrap.style.width = '';
+      canvas.style.width = this.canvasInlineWidth; canvas.style.height = this.canvasInlineHeight;
+      return;
+    }
+    canvas.style.width = this.canvasInlineWidth; canvas.style.height = this.canvasInlineHeight;
+    const display = wrap.style.display;
+    wrap.style.display = 'contents'; wrap.style.width = '';
+    const w = canvas.getBoundingClientRect().width;
+    wrap.style.display = display;
+    if (!(w > 0)) return;
+    wrap.style.width = `${w}px`;
+    canvas.style.width = '100%'; canvas.style.height = 'auto';
+  }
+
+  private bindFitWrap(): void {
+    if (!this.wrappedHere) return;
+    this.fitWrap();
+    let queued = false;
+    this.fitWrapHandler = () => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => { queued = false; this.fitWrap(); });
+    };
+    window.addEventListener('resize', this.fitWrapHandler);
+    const parent = this.wrapper.parentElement;
+    if (parent && typeof ResizeObserver !== 'undefined') {
+      this.fitObserver = new ResizeObserver(this.fitWrapHandler);
+      this.fitObserver.observe(parent);
+    }
   }
 
   private bindMovieEvents(): void {
@@ -600,6 +649,7 @@ export class Controller {
       void this.toggleFullscreen();
     });
     this.fullscreenChangeHandler = () => {
+      this.fitWrap();
       this.refreshFullscreenIcon();
       // Fullscreen reflow can shift the canvas without changing its size, which
       // ResizeObserver would miss; resync the overlay explicitly.
@@ -957,6 +1007,12 @@ export class Controller {
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
       this.resizeObserver = null;
+    }
+    if (this.fitObserver) { this.fitObserver.disconnect(); this.fitObserver = null; }
+    if (this.fitWrapHandler) { window.removeEventListener('resize', this.fitWrapHandler); this.fitWrapHandler = null; }
+    if (this.wrappedHere) {                                       // give the canvas its own sizing back
+      this.options.canvas.style.width = this.canvasInlineWidth;
+      this.options.canvas.style.height = this.canvasInlineHeight;
     }
     this.root.remove();
     if (this.wrappedHere) {

@@ -48,14 +48,15 @@ export function viewerHtml({ pageUrl, title }) {
   :root { --bg: #f7f5f1; --ink: #1d2433; --dim: #6b7587; --line: #d9d5cc; --head: #e0245e; }
   @media (prefers-color-scheme: dark) { :root { --bg: #0e1320; --ink: #e8eefc; --dim: #8fa0bf; --line: #26304a; --head: #ff5c8a; } }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 13px system-ui, sans-serif; }
-  body { display: grid; grid-template-rows: auto minmax(180px, 56vh) 1fr; }
+  body { display: flex; flex-direction: column; }
   header { display: flex; align-items: center; gap: 14px; padding: 8px 14px; border-bottom: 1px solid var(--line); }
   header b { font-size: 14px; font-weight: 600; }
   #time { font-family: ui-monospace, Menlo, monospace; color: var(--dim); }
   #status { color: var(--dim); }
   button { font: inherit; background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 3px 12px; cursor: pointer; }
-  iframe { width: 100%; height: 100%; border: 0; background: #000; display: block; }
-  #chart { overflow: auto; border-top: 1px solid var(--line); }
+  #stage { flex: none; overflow: hidden; background: #000; }
+  iframe { border: 0; display: block; transform-origin: 0 0; }
+  #chart { flex: 1 1 0; min-height: 0; overflow: auto; border-top: 1px solid var(--line); }
   #chart svg { display: block; touch-action: none; user-select: none; cursor: col-resize; margin: 0 auto; }
   #chart svg .grid { stroke: var(--line); } #chart svg .tick { fill: var(--dim); font-size: 11px; }
   #chart svg .label { fill: var(--ink); font-size: 12px; font-family: ui-monospace, Menlo, monospace; cursor: pointer; }
@@ -65,12 +66,12 @@ export function viewerHtml({ pageUrl, title }) {
 </style></head>
 <body>
 <header><b>${escHtml(title)}</b><button id="play" type="button" disabled>▶</button><span id="time">0.00 / 0.00 s · frame 0</span><span id="status">loading the page…</span></header>
-<iframe id="page" src="${escHtml(pageUrl)}" allow="autoplay; fullscreen"></iframe>
+<div id="stage"><iframe id="page" src="${escHtml(pageUrl)}" allow="autoplay; fullscreen"></iframe></div>
 <div id="chart"></div>
 <script>
 (() => {
   const NS = 'http://www.w3.org/2000/svg';
-  const frame = document.getElementById('page'), chart = document.getElementById('chart');
+  const frame = document.getElementById('page'), chart = document.getElementById('chart'), stage = document.getElementById('stage');
   const $time = document.getElementById('time'), $status = document.getElementById('status'), $play = document.getElementById('play');
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -83,8 +84,27 @@ export function viewerHtml({ pageUrl, title }) {
     }
     if (!movie) { $status.textContent = 'the page did not become ready (window.__ready === true and window.movie are needed)'; return; }
     if (typeof movie.timelineSvg !== 'function') { $status.textContent = 'this page loads a pixi-effects without movie.timelineSvg() (0.7+ needed)'; return; }
+    layout();
     mount();
   })();
+
+  // The page is shown whole: as tall as its picture, scaled down (never up) so the timeline stays in view under it.
+  function layout() {
+    const stageW = stage.clientWidth || innerWidth, head = document.querySelector('header').offsetHeight;
+    let h = 560;
+    const fit = k => { frame.style.width = (stageW / k) + 'px'; frame.style.transform = 'scale(' + k + ')'; };
+    fit(1);
+    try {
+      const c = frame.contentDocument.querySelector('canvas');
+      if (c) h = Math.round(c.getBoundingClientRect().height + 40);
+    } catch { /* a page we cannot read */ }
+    const k = Math.min(1, Math.max(200, innerHeight - head - 240) / h);
+    fit(k);
+    frame.style.height = h + 'px';
+    stage.style.height = Math.round(h * k) + 'px';
+  }
+  frame.addEventListener('load', layout);
+  addEventListener('resize', layout);
 
   const tToX = t => geom.x0 + (t / geom.dur) * (geom.x1 - geom.x0);
   function clientToTime(clientX) {
