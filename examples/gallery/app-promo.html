@@ -306,15 +306,15 @@
       ...caption(1, ['Keep your', 'streak alive.'], 'Gentle nudges, zero guilt.', T.cap2, T.cap3),
       ...caption(2, ['See the', 'big picture.'], 'Your week, at a glance.', T.cap3, T.capEnd),
       ...finale,
-      // audio: 6 s loop under everything, short sfx cut to their file length
+      // audio: 6 s loop under everything, synthesised sfx on top
       { type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0, duration: DURATION,
         keyframes: [{ at: 0, to: { volume: 0.45 }, duration: 1 }, { at: -2, to: { volume: 0 }, duration: 2 }] },
-      { type: 'audio', name: 'sfx-swoosh', asset: 'swoosh', at: T.phoneIn, volume: 0.5 },
-      { type: 'audio', name: 'sfx-click-2', asset: 'click', at: T.cap2, duration: 0.1, volume: 0.5 },
-      { type: 'audio', name: 'sfx-pop', asset: 'pop', at: T.check, duration: 0.15, volume: 0.8 },
-      { type: 'audio', name: 'sfx-click-3', asset: 'click', at: T.cap3, duration: 0.1, volume: 0.5 },
-      { type: 'audio', name: 'sfx-swoosh-2', asset: 'swoosh', at: T.phoneOut, volume: 0.4 },
-      { type: 'audio', name: 'sfx-chime', asset: 'chime', at: T.logo, duration: 0.62, volume: 0.7 },
+      { type: 'audio', name: 'sfx-swoosh', sfx: 'swoosh', at: T.phoneIn, volume: 0.43 },
+      { type: 'audio', name: 'sfx-click-2', sfx: 'click', at: T.cap2, volume: 0.22 },
+      { type: 'audio', name: 'sfx-pop', sfx: 'pop', at: T.check, volume: 0.72 },
+      { type: 'audio', name: 'sfx-click-3', sfx: 'click', at: T.cap3, volume: 0.17 },
+      { type: 'audio', name: 'sfx-swoosh-2', sfx: 'swoosh', at: T.phoneOut, volume: 0.34 },
+      { type: 'audio', name: 'sfx-chime', sfx: 'chime', at: T.logo, volume: 0.18 },
     ];
 
     const movie = new Movie();
@@ -329,10 +329,6 @@
         assets: [
           ...ring1.assets, ...ring2.assets,
           { name: 'bgm', src: '../_assets/bgm.mp3' },
-          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
-          { name: 'pop', src: '../_assets/sfx-pop.mp3' },
-          { name: 'click', src: '../_assets/sfx-click.mp3' },
-          { name: 'chime', src: '../_assets/sfx-chime.mp3' },
         ],
         composition: { sequences },
       });

@@ -166,9 +166,9 @@
 
       fullRect('vignette', { fillGradient: { type: 'radial', radius: 0.78, stops: [[0.35, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.62)']] } }),
 
-      // sound: a breath under the glint, a chime on the pulse (layer length = file length, so nothing goes silent)
-      { type: 'audio', asset: 'swoosh', name: 'sfx-swoosh', at: T.glint, volume: 0.4 },
-      { type: 'audio', asset: 'chime', name: 'sfx-chime', at: T.pulse, duration: 0.62, volume: 0.6 },
+      // sound: a breath under the glint, a chime on the pulse (synthesised, no files)
+      { type: 'audio', sfx: 'swoosh', name: 'sfx-swoosh', at: T.glint, volume: 0.34 },
+      { type: 'audio', sfx: 'chime', name: 'sfx-chime', at: T.pulse, volume: 0.16 },
     ];
 
     const movie = new Movie();
@@ -180,10 +180,6 @@
         canvas: document.getElementById('stage'),
         width: W, height: H, duration: DURATION, frameRate: FPS,
         background: BG,
-        assets: [
-          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
-          { name: 'chime', src: '../_assets/sfx-chime.mp3' },
-        ],
         composition: { sequences },
       });
       window.__ready = true;

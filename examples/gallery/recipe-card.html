@@ -63,7 +63,7 @@
       ({ type: 'text', name, at, text, style: { fontFamily: ROUND, ...style }, initial, keyframes, ...extra });
     const popK = (d = 0.4, ease = 'back.out(2.2)', delay = 0) => ({ at: delay, from: { scale: 0 }, to: { scale: 1 }, duration: d, ease });
     const slideK = (init, dx = 90, d = 0.6) => ({ at: 0, from: { x: init.x + dx, alpha: 0 }, to: { x: init.x, alpha: 1 }, duration: d, ease: 'expo.out' });
-    const sfx = (name, at, asset, volume = 0.5) => ({ type: 'audio', name, asset, at, volume });
+    const sfx = (name, at, preset, volume = 0.5) => ({ type: 'audio', name, sfx: preset, at, volume });
 
     // ---- timeline -----------------------------------------------------------------------------
     const T0 = { lemonDeco: 0.15, lemon: 0.25, pasta: 0.5, pill: 0.95, ingHead: 1.1, ingRows: 1.35, ingGap: 0.2, ring: 1.9,
@@ -196,7 +196,7 @@
       sequences.push(S('circle', `ing-${i}-fill`, ck, { x: 528, y, radius: 22, fillColor: BASIL }, [popK(0.35, 'back.out(3)')]));
       sequences.push(S('rect', `ing-${i}-tick-a`, ck + 0.08, { x: 528 - 6.5, y: y + 3.5, width: 12, height: 6, cornerRadius: 3, rotation: 45, fillColor: '#FFFFFF' }, [popK(0.25, 'back.out(3)')]));
       sequences.push(S('rect', `ing-${i}-tick-b`, ck + 0.12, { x: 528 + 3.5, y: y - 0.5, width: 22, height: 6, cornerRadius: 3, rotation: -49, fillColor: '#FFFFFF' }, [popK(0.25, 'back.out(3)')]));
-      sequences.push(sfx(`sfx-check-${i}`, ck, 'click', 0.6));
+      sequences.push(sfx(`sfx-check-${i}`, ck, 'click', 0.2));
     });
     // empty plate waiting on the right
     sequences.push(S('circle', 'plate-ghost', ringAt, { x: PX, y: PY, radius: 190, fillAlpha: 0, strokeColor: '#E6CF98', strokeWidth: 6, alpha: 0.9 }, [
@@ -245,8 +245,8 @@
           { at: tDone - 0.2, to: { fill: '#FFFFFF' }, duration: 0.2 },
           ...popDone.map(k => ({ ...k, at: k.at - 0.05 })),
         ], { format: { decimals: 0 } }));
-      sequences.push(sfx(`sfx-step-${i}`, at, 'swoosh', 0.35));
-      sequences.push(sfx(`sfx-done-${i}`, at + 0.15 + tDone, 'chime', 0.3));
+      sequences.push(sfx(`sfx-step-${i}`, at, 'swoosh', 0.3));
+      sequences.push(sfx(`sfx-done-${i}`, at + 0.15 + tDone, 'chime', 0.08));
     });
 
     // ======== plated dish (assembles) ==========================================================
@@ -259,7 +259,7 @@
       sequences.push(S('circle', 'plate', t0, { x: PX, y: PY, radius: 190, fillColor: '#FFFFFF', strokeColor: '#EADFC8', strokeWidth: 4 }, [
         { at: 0, from: { scale: 0.25, rotation: -40 }, to: { scale: 1, rotation: 0 }, duration: 0.65, ease: 'back.out(1.6)' }]));
       sequences.push(S('circle', 'plate-rim', t0 + 0.2, { x: PX, y: PY, radius: 148, fillColor: '#FCF5E6', strokeColor: '#F0E4C8', strokeWidth: 3 }, pop(0.5, 'back.out(1.6)')));
-      sequences.push(sfx('sfx-plate', t0, 'pop', 0.6));
+      sequences.push(sfx('sfx-plate', t0, 'pop', 0.54));
       // pasta nest: hand-wound concentric rings, inner to outer
       sequences.push(S('circle', 'nest-base', t0 + 0.5, { x: PX, y: PY, radius: 124, fillColor: '#F8D77A' }, pop(0.5, 'back.out(2)')));
       [8, 24, 40, 56, 72, 88, 104, 119].forEach((r, i) => {
@@ -324,16 +324,16 @@
           T('two', 0, '2', { fontSize: 76, fontWeight: '900', fill: '#FFF8E8', lineHeight: 60 }, { x: R + 10, y: R + 34, anchorX: 0.5, anchorY: 0.5 }),
         ],
       });
-      sequences.push(sfx('sfx-badge', at, 'chime', 0.5));
-      sequences.push(sfx('sfx-badge-pop', at, 'pop', 0.6));
+      sequences.push(sfx('sfx-badge', at, 'chime', 0.13));
+      sequences.push(sfx('sfx-badge-pop', at, 'pop', 0.54));
     }
 
     // ======== music ============================================================================
     sequences.push({ type: 'audio', name: 'bgm', asset: 'bgm', loop: true, initial: { volume: 0 }, keyframes: [
       { at: 0, to: { volume: 0.35 }, duration: 1 }, { at: -1.2, to: { volume: 0 }, duration: 1.2 }] });
-    sequences.push(sfx('sfx-title-1', T0.lemon, 'pop', 0.6));
-    sequences.push(sfx('sfx-title-2', T0.pasta, 'pop', 0.6));
-    sequences.push(sfx('sfx-pill', T0.pill, 'swoosh', 0.35));
+    sequences.push(sfx('sfx-title-1', T0.lemon, 'pop', 0.54));
+    sequences.push(sfx('sfx-title-2', T0.pasta, 'pop', 0.54));
+    sequences.push(sfx('sfx-pill', T0.pill, 'swoosh', 0.3));
 
     const movie = new Movie();
     window.movie = movie;
@@ -346,10 +346,6 @@
         background: CREAM,
         assets: [
           { name: 'bgm', src: '../_assets/bgm.mp3' },
-          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
-          { name: 'pop', src: '../_assets/sfx-pop.mp3' },
-          { name: 'click', src: '../_assets/sfx-click.mp3' },
-          { name: 'chime', src: '../_assets/sfx-chime.mp3' },
         ],
         composition: { sequences },
       });

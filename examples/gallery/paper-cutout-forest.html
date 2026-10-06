@@ -360,7 +360,7 @@
       cloud(2, { cx: 450, cy: 300, w: 120, z: -350, at: 0.74, drift: 44 }),
     ];
     const fireflies = Array.from({ length: 16 }, (_, i) => firefly(i));
-    const sfx = (asset, at, volume, name) => ({ type: 'audio', asset, name, at: snap(at), volume });
+    const sfx = (preset, at, volume, name) => ({ type: 'audio', sfx: preset, name, at: snap(at), volume });
 
     const sequences = [
       { type: 'shape', shape: 'rect', name: 'sky', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
@@ -380,10 +380,10 @@
       // --- sound
       { type: 'audio', asset: 'bgm', name: 'bgm', loop: true, volume: 0,
         keyframes: [{ at: 0, to: { volume: 0.42 }, duration: 2 }, { at: -2.5, to: { volume: 0 }, duration: 2.5 }] },
-      ...HILL_IN.map((t, i) => sfx('pop', t + 0.3, 0.32, 'sfx-place-' + (i + 1))),
-      sfx('swoosh', CARD.at, 0.7, 'sfx-unfold'),
-      ...letters.map((l, i) => sfx('pop', CARD.at + l.at, 0.18, 'sfx-letter-' + (i + 1))),
-      sfx('chime', CARD.at + CARD.dashAt, 0.5, 'sfx-done'),
+      ...HILL_IN.map((t, i) => sfx('pop', t + 0.3, 0.29, 'sfx-place-' + (i + 1))),
+      sfx('swoosh', CARD.at, 0.6, 'sfx-unfold'),
+      ...letters.map((l, i) => sfx('pop', CARD.at + l.at, 0.16, 'sfx-letter-' + (i + 1))),
+      sfx('chime', CARD.at + CARD.dashAt, 0.13, 'sfx-done'),
     ];
 
     const movie = new Movie();
@@ -396,8 +396,7 @@
         width: W, height: H, duration: DURATION, frameRate: FPS,
         background: P.skyTop,
         assets: [...assets,
-          { name: 'bgm', src: '../_assets/bgm.mp3' }, { name: 'pop', src: '../_assets/sfx-pop.mp3' },
-          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' }, { name: 'chime', src: '../_assets/sfx-chime.mp3' }],
+          { name: 'bgm', src: '../_assets/bgm.mp3' }],
         composition: { sequences },
       });
       window.__ready = true;

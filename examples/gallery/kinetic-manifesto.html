@@ -150,9 +150,9 @@
       return layers;
     }
 
-    // One-shot sound: the layer is exactly as long as the clip (a longer layer would warn and go silent).
-    const SFX = { pop: 0.1333, click: 0.1, swoosh: 0.55, chime: 0.6 };
-    const sfx = (name, at, volume = 1) => ({ type: 'audio', name: `sfx-${name}-${at}`, asset: name, at, duration: SFX[name], volume });
+    // One-shot synthesised sound; `volume` is relative to the preset's level (GAIN trims the loud presets).
+    const GAIN = { pop: 0.9, click: 0.33, swoosh: 0.85, chime: 0.26 };
+    const sfx = (name, at, volume = 1) => ({ type: 'audio', name: `sfx-${name}-${at}`, sfx: name, at, volume: +(volume * GAIN[name]).toFixed(2) });
 
     // ---------------------------------------------------------------- composition
     const seq = [];
@@ -237,7 +237,7 @@
       seq.push(text('again', 'AGAIN.', { size: 168, fill: WHITE, x: W / 2, y: 505, at: b, duration: end - b, keyframes: [slam(2.4, 5, 0.16)] }));
       seq.push(text('mata', 'また、つくる。', { font: JP, weight: '800', ls: 0, size: 50, fill: ACCENT, x: W / 2, y: 640, at: c, duration: end - c,
         keyframes: [{ at: 0, from: { alpha: 0, y: 658 }, to: { alpha: 1, y: 640 }, duration: 0.25, ease: 'power3.out' }] }));
-      sounds.push(sfx('swoosh', T), sfx('pop', a), sfx('pop', b), sfx('chime', c, 0.9));
+      sounds.push(sfx('swoosh', T), sfx('pop', a), sfx('pop', b), { ...sfx('chime', c, 0.9), duration: 1.2 });   // 1.2 s left before the end; the chime is shortened to fit
     }
 
     // Header — index counter (one text layer, `{value}` jumps at each wipe midpoint) and a running title. Accent reads on both grounds.
@@ -259,7 +259,6 @@
     try {
       await movie.init({
         canvas, width: W, height: H, duration: DURATION, frameRate: FPS, background: INK,
-        assets: Object.keys(SFX).map(name => ({ name, src: `../_assets/sfx-${name}.mp3` })),
         composition: { sequences: seq },
       });
       // opens at 0:00; add ?poster to the URL to park on the poster frame

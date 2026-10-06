@@ -356,9 +356,9 @@
     // ---------- sound ----------
     seqs.push({ type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0,
       keyframes: [{ at: 0, to: { volume: 1 }, duration: 1.5 }, { at: -1.5, to: { volume: 0 }, duration: 1.5 }] });
-    [ORBIT_END + 0.05, ...STOPS.map(s => s.depart)].forEach((t, i) => seqs.push({ type: 'audio', name: 'whoosh-' + i, asset: 'swoosh', at: t, volume: 0.35 }));
-    STOPS.forEach((s, i) => seqs.push({ type: 'audio', name: 'tick-' + i, asset: 'click', at: s.arrive - 0.2, volume: 0.25 }));
-    seqs.push({ type: 'audio', name: 'chime', asset: 'chime', at: 12.9, volume: 0.3 });
+    [ORBIT_END + 0.05, ...STOPS.map(s => s.depart)].forEach((t, i) => seqs.push({ type: 'audio', name: 'whoosh-' + i, sfx: 'swoosh', at: t, volume: 0.3 }));
+    STOPS.forEach((s, i) => seqs.push({ type: 'audio', name: 'tick-' + i, sfx: 'click', at: s.arrive - 0.2, volume: 0.08 }));
+    seqs.push({ type: 'audio', name: 'chime', sfx: 'chime', at: 12.9, duration: 1.1, volume: 0.08 });
 
     // ---------- run ----------
     const movie = new Movie();
@@ -368,8 +368,7 @@
       await movie.init({
         canvas: document.getElementById('stage'),
         width: W, height: H, duration: DURATION, frameRate: FPS, background: C.bg,
-        assets: [starfield(), { name: 'bgm', src: '../_assets/bgm.mp3' }, { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
-                 { name: 'click', src: '../_assets/sfx-click.mp3' }, { name: 'chime', src: '../_assets/sfx-chime.mp3' }],
+        assets: [starfield(), { name: 'bgm', src: '../_assets/bgm.mp3' }],
         composition: { sequences: seqs },
       });
       if (new URLSearchParams(location.search).has('poster')) await movie.gotoFrame(POSTER_FRAME, true);

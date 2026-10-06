@@ -283,10 +283,10 @@
     // ── audio ──
     sequences.push({ type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0,
       keyframes: [{ at: 0, to: { volume: 0.85 }, duration: 0.6 }, { at: -1.2, to: { volume: 0 }, duration: 1.2 }] });
-    sequences.push({ type: 'audio', name: 'sfx-intro', asset: 'swoosh', at: 0.1, volume: 0.5 });
-    COUPLETS.forEach((c, k) => sequences.push({ type: 'audio', name: `sfx-pop${k}`, asset: 'pop', at: INTRO + k * COUPLET, volume: 0.45 }));
-    sequences.push({ type: 'audio', name: 'sfx-chorus', asset: 'swoosh', at: snap(CHORUS_AT - 0.4), volume: 0.8 });
-    sequences.push({ type: 'audio', name: 'sfx-home', asset: 'chime', at: CHORUS_AT + 3 * BEAT, volume: 0.6 });
+    sequences.push({ type: 'audio', name: 'sfx-intro', sfx: 'swoosh', at: 0.1, volume: 0.43 });
+    COUPLETS.forEach((c, k) => sequences.push({ type: 'audio', name: `sfx-pop${k}`, sfx: 'pop', at: INTRO + k * COUPLET, volume: 0.41 }));
+    sequences.push({ type: 'audio', name: 'sfx-chorus', sfx: 'swoosh', at: snap(CHORUS_AT - 0.4), volume: 0.68 });
+    sequences.push({ type: 'audio', name: 'sfx-home', sfx: 'chime', at: CHORUS_AT + 3 * BEAT, duration: 1, volume: 0.2 });
 
     const movie = new Movie();
     window.movie = movie;
@@ -299,9 +299,6 @@
         background: COUPLETS[0].bg,
         assets: [
           { name: 'bgm', src: '../_assets/bgm.mp3' },
-          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
-          { name: 'pop', src: '../_assets/sfx-pop.mp3' },
-          { name: 'chime', src: '../_assets/sfx-chime.mp3' },
         ],
         composition: { sequences },
       });

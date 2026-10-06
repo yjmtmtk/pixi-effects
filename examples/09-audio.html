@@ -24,7 +24,7 @@
     <li><code>volume</code> animatable via keyframes — fades, ducks, cuts</li>
     <li>SFX placement via <code>at</code>, the engine handles per-frame mixing</li>
     <li>Visual cues align to audio events; if you scrub the timeline, the audio scrubs too</li>
-    <li>Re-uses <code>_assets/bgm.mp3</code>; SFX are tiny ffmpeg-synthesised mp3s in <code>_assets/sfx-*.mp3</code></li>
+    <li>Re-uses <code>_assets/bgm.mp3</code>; the sound effects are synthesised presets (<code>sfx: 'pop'</code>), no audio files</li>
   </ul>
   <canvas id="stage" width="1280" height="720"></canvas>
   <script type="importmap">
@@ -44,12 +44,12 @@
     const movie = new Movie();
     new Controller(movie, { canvas: document.getElementById('stage') });
 
-    // Each event = (time, label, sfx asset name).
+    // Each event = (time, label, sfx preset, volume). The sounds are synthesised: no files, no assets.
     const EVENTS = [
-      { at: 0.8, label: 'click',  sfx: 'sfxClick'  },
-      { at: 2.6, label: 'pop',    sfx: 'sfxPop'    },
-      { at: 5.0, label: 'swoosh', sfx: 'sfxSwoosh' },
-      { at: 7.6, label: 'chime',  sfx: 'sfxChime'  },
+      { at: 0.8, label: 'click',  sfx: 'click',  volume: 0.33 },
+      { at: 2.6, label: 'pop',    sfx: 'pop',    volume: 0.9  },
+      { at: 5.0, label: 'swoosh', sfx: 'swoosh', volume: 0.85 },
+      { at: 7.6, label: 'chime',  sfx: 'chime',  volume: 0.26 },
     ];
     const DURATION = 10;
 
@@ -69,10 +69,6 @@
       background: '#0a0a0f',
       assets: [
         { name: 'bgm',       src: '_assets/bgm.mp3'        },
-        { name: 'sfxClick',  src: '_assets/sfx-click.mp3'  },
-        { name: 'sfxPop',    src: '_assets/sfx-pop.mp3'    },
-        { name: 'sfxSwoosh', src: '_assets/sfx-swoosh.mp3' },
-        { name: 'sfxChime',  src: '_assets/sfx-chime.mp3'  },
       ],
       composition: {
         sequences: [
@@ -83,7 +79,7 @@
           },
           // ── Audio: each SFX placed at its event time ──
           ...EVENTS.map(e => ({
-            type: 'audio', asset: e.sfx, at: e.at, volume: 1,
+            type: 'audio', sfx: e.sfx, at: e.at, volume: e.volume,
           })),
 
           // ─── Visuals — one cue per audio event, centred and shown one at a time ───

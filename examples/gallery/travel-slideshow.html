@@ -356,8 +356,8 @@
     // 5) sound: looped bgm faded in/out, a chime on the title, a swoosh on every transition
     sequences.push({ type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0, duration: DURATION,
       keyframes: [{ at: 0, to: { volume: 0.75 }, duration: 1.6, ease: 'sine.out' }, { at: -2.4, to: { volume: 0 }, duration: 2.4, ease: 'sine.in' }] });
-    sequences.push({ type: 'audio', name: 'sfx-chime', asset: 'chime', at: 0.7, duration: 0.6, volume: 0.35 });
-    [1, 2, 3].forEach(i => sequences.push({ type: 'audio', name: 'sfx-swoosh-' + i, asset: 'swoosh', at: S[i], volume: 0.3 }));
+    sequences.push({ type: 'audio', name: 'sfx-chime', sfx: 'chime', at: 0.7, volume: 0.08 });
+    [1, 2, 3].forEach(i => sequences.push({ type: 'audio', name: 'sfx-swoosh-' + i, sfx: 'swoosh', at: S[i], volume: 0.26 }));
 
     const transitions = KINDS.map((k, i) => ({ ...k, from: 'scene' + i, to: 'scene' + (i + 1), at: S[i + 1], duration: TR, ease: 'sine.inOut' }));
 
@@ -371,7 +371,7 @@
         canvas: document.getElementById('stage'),
         width: W, height: H, duration: DURATION, frameRate: FPS,
         background: '#0b0a0d',
-        assets: [...PHOTOS, { name: 'bgm', src: '../_assets/bgm.mp3' }, { name: 'chime', src: '../_assets/sfx-chime.mp3' }, { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' }],
+        assets: [...PHOTOS, { name: 'bgm', src: '../_assets/bgm.mp3' }],
         composition: { sequences, transitions },
       });
       // opens at 0:00; add ?poster to the URL to park on the poster frame

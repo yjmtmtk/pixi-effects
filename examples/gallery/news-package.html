@@ -94,7 +94,7 @@
       initial: { x, y, fillColor: '#ffffff' },
       keyframes: [{ at, to: { width: w }, duration: dur, ease }],
     });
-    const sfx = (asset, at, len, volume = 0.6) => ({ type: 'audio', asset, at, duration: len, volume });
+    const sfx = (name, at, volume) => ({ type: 'audio', sfx: name, at, volume });
 
     // =========================================================================================
     // 1 · STINGER  (0 → 2.85): blue/red slabs open onto a rotating wire globe
@@ -429,9 +429,9 @@
     const audio = [
       { type: 'audio', asset: 'bgm', loop: true, volume: 0, duration: DUR,
         keyframes: [{ at: 0, to: { volume: 0.9 }, duration: 0.4 }, { at: -1.2, from: { volume: 0.9 }, to: { volume: 0 }, duration: 1.2 }] },
-      sfx('swoosh', 0.05, 0.55, 0.7), sfx('pop', T.logo, 0.15, 0.6), sfx('swoosh', T.wipe, 0.55, 0.6),
-      sfx('chime', T.breaking, 0.6, 0.7), sfx('swoosh', T.morph, 0.55, 0.5), sfx('click', T.lt, 0.1, 0.6),
-      sfx('swoosh', T.swap, 0.55, 0.45),
+      sfx('swoosh', 0.05, 0.6), sfx('pop', T.logo, 0.54), sfx('swoosh', T.wipe, 0.51),
+      sfx('chime', T.breaking, 0.11), sfx('swoosh', T.morph, 0.43), sfx('click', T.lt, 0.2),
+      sfx('swoosh', T.swap, 0.38),
     ];
 
     // z-order = array order: the dim sits over the program only; the band (→ tag) sits above the headline bar it hands off to
@@ -449,10 +449,6 @@
         background: C.ink,
         assets: [
           { name: 'bgm', src: '../_assets/bgm.mp3' },
-          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
-          { name: 'pop', src: '../_assets/sfx-pop.mp3' },
-          { name: 'chime', src: '../_assets/sfx-chime.mp3' },
-          { name: 'click', src: '../_assets/sfx-click.mp3' },
         ],
         composition: { sequences, transitions: [
           { kind: 'wipe', from: 'stinger', to: 'program', at: T.wipe, duration: T.wipeD, direction: 'right', ease: INOUT, smoothing: 0.01 },

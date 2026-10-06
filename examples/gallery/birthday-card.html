@@ -256,8 +256,8 @@
             { at: 0.95, to: { y: y - 7 }, duration: bob, ease: 'sine.inOut', repeat: loops(left, bob), yoyo: true },
           ],
         });
-        if (ch === 'H' || ch === 'B' || ch === 'M') audio.push({ type: 'audio', asset: 'pop', at, volume: 0.8 });
-        if (ch === '!') audio.push({ type: 'audio', asset: 'chime', at, volume: 0.9 });
+        if (ch === 'H' || ch === 'B' || ch === 'M') audio.push({ type: 'audio', sfx: 'pop', at, volume: 0.72 });
+        if (ch === '!') audio.push({ type: 'audio', sfx: 'chime', at, volume: 0.23 });
       });
     }
     titleLine('Happy Birthday,', 98, 98, TITLE_AT, 0.07);
@@ -302,13 +302,13 @@
       keyframes: [{ at: 0, to: { alpha: 0 }, duration: 0.36, ease: 'power2.out' }] });
 
     // ---------------------------------------------------------------- audio
-    const sfx = (asset, at, volume = 0.85) => ({ type: 'audio', asset, at, volume });
+    const sfx = (name, at, volume) => ({ type: 'audio', sfx: name, at, volume });
     audio.push(
       { type: 'audio', asset: 'bgm', loop: true, volume: 0, initial: {}, name: 'bgm',
         keyframes: [{ at: 0, to: { volume: 0.4 }, duration: 1.5 }, { at: -1.6, to: { volume: 0 }, duration: 1.6 }] },
-      sfx('swoosh', 0.1), sfx('pop', 1.9), sfx('pop', 2.5), sfx('pop', 3.1), sfx('pop', CANDLE_IN + 0.05, 0.6),
-      ...[0, 1, 2, 3, 4].map((i) => sfx('chime', LIT_AT(i), 0.7)),
-      sfx('swoosh', BLOW - 0.15), sfx('pop', BLOW + 0.02, 1), sfx('swoosh', TITLE_AT - 0.05, 0.7),
+      sfx('swoosh', 0.1, 0.72), sfx('pop', 1.9, 0.77), sfx('pop', 2.5, 0.77), sfx('pop', 3.1, 0.77), sfx('pop', CANDLE_IN + 0.05, 0.54),
+      ...[0, 1, 2, 3, 4].map((i) => sfx('chime', LIT_AT(i), 0.18)),
+      sfx('swoosh', BLOW - 0.15, 0.72), sfx('pop', BLOW + 0.02, 0.9), sfx('swoosh', TITLE_AT - 0.05, 0.6),
     );
 
     const sequences = [
@@ -328,9 +328,6 @@
         background: '#ffe4f0',
         assets: [
           { name: 'bgm', src: '../_assets/bgm.mp3' },
-          { name: 'pop', src: '../_assets/sfx-pop.mp3' },
-          { name: 'chime', src: '../_assets/sfx-chime.mp3' },
-          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
         ],
         composition: { sequences },
       });

@@ -165,7 +165,7 @@
 
     // ---- sfx ---------------------------------------------------------------------------------
     slots.forEach(([n, at]) => {
-      sequences.push({ type: 'audio', asset: 'pop', name: 'sfx-pop' + n, at, duration: 0.15, volume: 0.45 + progress(n) * 0.5 });
+      sequences.push({ type: 'audio', sfx: 'pop', name: 'sfx-pop' + n, at, volume: 0.41 + progress(n) * 0.45 });
     });
     sequences.push({ type: 'audio', asset: 'bgm', name: 'bgm', loop: true, duration: DURATION, volume: 0,
       keyframes: [{ at: 0, to: { volume: 0.32 }, duration: 1.5 }, { at: -1.8, to: { volume: 0 }, duration: 1.8 }] });
@@ -181,7 +181,7 @@
         initial: { x: x + (rnd() - 0.5) * 60, y: H + 10, fillColor: GOLD },
         keyframes: [{ at: 0, to: { x, y }, duration: rise, ease: 'power2.out' }],
       });
-      out.push({ type: 'audio', asset: 'swoosh', name: name + '-sfx', at: snap(at - rise), volume: 0.35 });
+      out.push({ type: 'audio', sfx: 'swoosh', name: name + '-sfx', at: snap(at - rise), volume: 0.3 });
       // core flash
       out.push({
         type: 'shape', shape: 'circle', name: name + '-core', radius: 6, at, duration: 0.3,
@@ -234,7 +234,7 @@
       initial: { x: 'GW/2', y: 'GH/2', fillColor: WHITE, alpha: 0.85 },
       keyframes: [{ at: 0, to: { alpha: 0 }, duration: 0.4, ease: 'power4.out' }],
     });
-    sequences.push({ type: 'audio', asset: 'chime', name: 'sfx-chime', at: GO, duration: 0.6, volume: 0.9 });
+    sequences.push({ type: 'audio', sfx: 'chime', name: 'sfx-chime', at: GO, volume: 0.23 });
 
     // warm gold glow behind the finale text
     sequences.push({
@@ -332,9 +332,6 @@
         background: NAVY,
         assets: [
           { name: 'bgm', src: '../_assets/bgm.mp3' },
-          { name: 'pop', src: '../_assets/sfx-pop.mp3' },
-          { name: 'chime', src: '../_assets/sfx-chime.mp3' },
-          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
         ],
         composition: { sequences },
       });

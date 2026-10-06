@@ -70,7 +70,7 @@
     const kf = (at, to, duration = 0, ease = 'none') => ({ at, to, duration, ease });
     const set = (at, values) => ({ at, set: values });
     const sfx = [];                                       // collected sound effects (composition time)
-    const hit = (asset, at, volume = 0.55) => sfx.push({ type: 'audio', name: `sfx-${asset}-${at.toFixed(2)}`, asset, at, volume });
+    const hit = (name, at, volume = { pop: 0.42, click: 0.2 }[name]) => sfx.push({ type: 'audio', name: `sfx-${name}-${at.toFixed(2)}`, sfx: name, at, volume });
 
     // ---------- the board: 3 × 2 cards. Each card is a composition 400×290 (card 360×240 + room for its shadow) ----------
     const CW = 360, CH = 240, GAP_X = 32, GAP_Y = 28, X0 = (W - (3 * CW + 2 * GAP_X)) / 2, Y0 = 142;
@@ -122,7 +122,7 @@
         ripple.keyframes.push(set(t, { radius: 4, alpha: 0.42 }), kf(t, { radius: 150, alpha: 0 }, 0.6, 'power2.out'));
         label.keyframes.push(kf(t + 0.2, { alpha: 0, scale: 0.85 }, 0.14, 'power2.in'));
         check.mask.keyframes.push(kf(t + 0.66, { width: 36 }, 0.26, 'power2.out'));
-        hit('click', t); hit('pop', t + 0.7, 0.5);
+        hit('click', t); hit('pop', t + 0.7);
       }
       check.keyframes.push(kf(RESET, { alpha: 0 }, 0.15), set(RESET + 0.4, { alpha: 1 }));
       check.mask.keyframes.push(set(RESET + 0.2, { width: 0 }));
@@ -151,7 +151,7 @@
                            kf(t + 0.14, { x: HX + Math.cos(s._a) * r1, y: HY + Math.sin(s._a) * r1, alpha: 0, scale: 0.3 }, 0.5, 'power3.out'));
         }
         count.keyframes.push(set(t + 0.1, { value: 129 }), kf(t + 0.1, { y: HY - 5 }, 0.1, 'power2.out'), kf(t + 0.2, { y: HY }, 0.35, 'back.out(3)'));
-        hit('pop', t + 0.08, 0.6);
+        hit('pop', t + 0.08, 0.54);
       }
       fill.keyframes.push(kf(RESET, { scale: 0 }, 0.28, 'back.in(2)'));
       outline.keyframes.push(kf(RESET + 0.15, { alpha: 1 }, 0.2));
@@ -189,7 +189,7 @@
         bar.keyframes.push(kf(t, { width: TW }, 1.1, 'power2.inOut'));
         count.keyframes.push(kf(t, { value: 100 }, 1.1, 'power2.inOut'), kf(t + 1.1, { scale: 1.16 }, 0.08, 'power2.out'), kf(t + 1.18, { scale: 1 }, 0.35, 'back.out(3)'));
         bar.keyframes.push(kf(t + 1.1, { scaleY: 1.5 }, 0.08, 'power2.out'), kf(t + 1.18, { scaleY: 1 }, 0.3, 'back.out(3)'));
-        hit('click', t); hit('pop', t + 1.1, 0.5);
+        hit('click', t); hit('pop', t + 1.1);
       }
       bar.keyframes.push(kf(RESET, { width: 0 }, 0.4, 'power3.inOut'));
       count.keyframes.push(kf(RESET, { value: 0 }, 0.4, 'power3.inOut'));
@@ -214,7 +214,7 @@
       for (const t of PLAYS(i)) {
         swing.forEach((deg, k) => bellComp.keyframes.push(kf(t + k * STEP, { rotation: deg }, STEP, 'sine.inOut')));
         for (const l of [badge, num]) l.keyframes.push(set(t + 0.32, { alpha: 1 }), kf(t + 0.32, { scale: 1 }, 0.42, 'back.out(3.5)'));
-        hit('chime', t, 0.35); hit('pop', t + 0.32, 0.5);
+        hit('chime', t, 0.09); hit('pop', t + 0.32);
       }
       for (const l of [badge, num]) l.keyframes.push(kf(RESET, { scale: 0 }, 0.25, 'back.in(2)'), set(RESET + 0.25, { alpha: 0 }));
       return [bellComp, badge, num];
@@ -326,7 +326,7 @@
       keyframes: [kf(0, { radius: 26, strokeWidth: 0 }, 0.45, 'power2.out')] })));
 
     // ---------- audio: soft bed + interaction sfx; whooshes on the board's entrance and on the reset ----------
-    hit('swoosh', 0.25, 0.4); hit('swoosh', RESET - 0.05, 0.3); hit('chime', DONE, 0.3);
+    hit('swoosh', 0.25, 0.34); hit('swoosh', RESET - 0.05, 0.26); hit('chime', DONE, 0.08);
     const bgm = { type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0,
                   keyframes: [kf(0, { volume: 0.45 }, 1.2), kf(-1.6, { volume: 0 }, 1.6)] };
 
@@ -348,8 +348,7 @@
         canvas: document.getElementById('stage'),
         width: W, height: H, duration: DURATION, frameRate: FPS,
         background: C.bg,
-        assets: ['pop', 'click', 'chime', 'swoosh'].map(n => ({ name: n, src: `../_assets/sfx-${n}.mp3` }))
-          .concat([{ name: 'bgm', src: '../_assets/bgm.mp3' }]),
+        assets: [{ name: 'bgm', src: '../_assets/bgm.mp3' }],
         composition: { sequences },
       });
       window.__ready = true;

@@ -1,12 +1,12 @@
 // examples/_presets/09-audio.js
 export default `new Controller(movie, { canvas });
 
-// Each event = (time, label, sfx asset name).
+// Each event = (time, label, sfx preset, volume). The sounds are synthesised: no files, no assets.
 const EVENTS = [
-  { at: 0.8, label: 'click',  sfx: 'sfxClick'  },
-  { at: 2.6, label: 'pop',    sfx: 'sfxPop'    },
-  { at: 5.0, label: 'swoosh', sfx: 'sfxSwoosh' },
-  { at: 7.6, label: 'chime',  sfx: 'sfxChime'  },
+  { at: 0.8, label: 'click',  sfx: 'click',  volume: 0.33 },
+  { at: 2.6, label: 'pop',    sfx: 'pop',    volume: 0.9  },
+  { at: 5.0, label: 'swoosh', sfx: 'swoosh', volume: 0.85 },
+  { at: 7.6, label: 'chime',  sfx: 'chime',  volume: 0.26 },
 ];
 const DURATION = 10;
 
@@ -26,10 +26,6 @@ await movie.init({
   background: '#0a0a0f',
   assets: [
     { name: 'bgm',       src: '_assets/bgm.mp3'        },
-    { name: 'sfxClick',  src: '_assets/sfx-click.mp3'  },
-    { name: 'sfxPop',    src: '_assets/sfx-pop.mp3'    },
-    { name: 'sfxSwoosh', src: '_assets/sfx-swoosh.mp3' },
-    { name: 'sfxChime',  src: '_assets/sfx-chime.mp3'  },
   ],
   composition: {
     sequences: [
@@ -40,7 +36,7 @@ await movie.init({
       },
       // ── Audio: each SFX placed at its event time ──
       ...EVENTS.map(e => ({
-        type: 'audio', asset: e.sfx, at: e.at, volume: 1,
+        type: 'audio', sfx: e.sfx, at: e.at, volume: e.volume,
       })),
 
       // Each visual: fades in at its event, holds, fades out before the next event.

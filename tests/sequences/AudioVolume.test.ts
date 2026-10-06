@@ -75,6 +75,22 @@ describe('audio volume keyframes follow the same rules as every other keyframe',
   });
 });
 
+describe('initial volume lives where every layer keeps its starting values', () => {
+  it('initial: { volume } is honoured (it was silently ignored: a 0.4 swoosh played at 1)', async () => {
+    const [a, b] = await levels({ duration: 10, initial: { volume: 0.4 } }, [1, 5]);
+    expect(a).toBeCloseTo(0.4, 2);
+    expect(b).toBeCloseTo(0.4, 2);
+  });
+
+  it('a keyframe fades from the initial volume, and a top-level volume wins over initial', async () => {
+    const [start, mid] = await levels({ duration: 10, initial: { volume: 0.5 }, keyframes: [{ at: 4, to: { volume: 0 }, duration: 2 }] }, [2, 5]);
+    expect(start).toBeCloseTo(0.5, 2);
+    expect(mid).toBeCloseTo(0.25, 1);
+    const [both] = await levels({ duration: 10, volume: 0.8, initial: { volume: 0.2 } }, [1]);
+    expect(both).toBeCloseTo(0.8, 2);
+  });
+});
+
 describe('audio layer default duration', () => {
   async function durationOf(spec: Record<string, unknown>): Promise<number> {
     const probe = new OfflineAudioContext(1, SR, SR);

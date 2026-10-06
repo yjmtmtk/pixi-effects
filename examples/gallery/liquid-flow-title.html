@@ -189,8 +189,8 @@
         initial: { x: W / 2, y: 574, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
         keyframes: [{ at: 0, from: { alpha: 0, y: 586 }, to: { alpha: 0.85, y: 574 }, duration: 0.8, ease: 'sine.out' }] },
 
-      // a soft chime at the resolve (one-shot: no duration, it lasts as long as the clip)
-      { type: 'audio', name: 'chime', asset: 'chime', at: T.chime, volume: 0.6 },
+      // a soft chime at the resolve (a synthesised one-shot: no duration, it lasts as long as the sound)
+      { type: 'audio', name: 'chime', sfx: 'chime', at: T.chime, volume: 0.16 },
     ];
 
     const movie = new Movie();
@@ -202,7 +202,7 @@
         canvas: document.getElementById('stage'),
         width: W, height: H, duration: DURATION, frameRate: FPS,
         background: PALE,
-        assets: [{ name: 'chime', src: '../_assets/sfx-chime.mp3' }, coverAsset()],
+        assets: [coverAsset()],
         composition: { sequences },
       });
       window.__ready = true;

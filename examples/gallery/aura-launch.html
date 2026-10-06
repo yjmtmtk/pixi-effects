@@ -314,8 +314,8 @@
     const audio = [
       { type: 'audio', asset: 'bgm', name: 'bgm', loop: true, volume: 0, duration: DURATION,
         keyframes: [{ at: 0, to: { volume: 0.7 }, duration: 1.5 }, { at: -2, to: { volume: 0 }, duration: 2 }] },
-      { type: 'audio', asset: 'swoosh', name: 'sfx-swoosh', at: T.headline, volume: 0.6 },
-      { type: 'audio', asset: 'chime', name: 'sfx-chime', at: T.cta + 0.1, duration: 0.6, volume: 0.7 },
+      { type: 'audio', sfx: 'swoosh', name: 'sfx-swoosh', at: T.headline, volume: 0.51 },
+      { type: 'audio', sfx: 'chime', name: 'sfx-chime', at: T.cta + 0.1, volume: 0.18 },
     ];
 
     // Z-order is array order. One consecutive threeD block so all depth layers sort together; 2D overlays after it ignore the camera.
@@ -339,8 +339,6 @@
         background: BG,
         assets: [
           { name: 'bgm', src: '../_assets/bgm.mp3' },
-          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
-          { name: 'chime', src: '../_assets/sfx-chime.mp3' },
         ],
         composition: { sequences },
       });

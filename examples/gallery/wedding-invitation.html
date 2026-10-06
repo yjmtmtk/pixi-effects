@@ -234,8 +234,8 @@
 
     // ---- sound: a soft swoosh under the rule, a chime for the rings (one-shots: no duration) -----
     sequences.push(
-      { type: 'audio', name: 'sfx-rule', asset: 'swoosh', at: T.rule, volume: 0.35 },
-      { type: 'audio', name: 'sfx-rings', asset: 'chime', at: T.rings, volume: 0.6 },
+      { type: 'audio', name: 'sfx-rule', sfx: 'swoosh', at: T.rule, volume: 0.3 },
+      { type: 'audio', name: 'sfx-rings', sfx: 'chime', at: T.rings, volume: 0.16 },
     );
 
     const movie = new Movie();
@@ -249,8 +249,6 @@
         background: LINEN,
         assets: [
           paperTexture('paper', CARD_W, CARD_H, 4242),
-          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
-          { name: 'chime', src: '../_assets/sfx-chime.mp3' },
         ],
         composition: { sequences },
       });

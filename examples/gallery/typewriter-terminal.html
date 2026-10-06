@@ -85,7 +85,8 @@
     const cursorKeys = [];  // keyframes of the block cursor (layer at 0 → composition time)
     const T = {};           // the schedule, derived as we go (printed to window.__T for checking)
 
-    const sfx = (asset, at, volume) => audio.push({ type: 'audio', name: `${asset}@${at.toFixed(2)}`, asset, at, volume });
+    const sfx = (preset, at, volume, duration) =>
+      audio.push({ type: 'audio', name: `${preset}@${at.toFixed(2)}`, sfx: preset, at, volume, ...(duration && { duration }) });
 
     function printAt(t, row, col, text, fill, { glow = false, slide = false, name } = {}) {
       const x = colX(col);
@@ -107,7 +108,7 @@
           type: 'text', name: `r${row}c${col}`, text: ch, at: t, style: mono(fill, true),
           initial: { x: colX(col), y: rowY(row), anchorX: 0, anchorY: 0.5 },
         });
-        sfx('click', t, 0.45 + rnd() * 0.3);
+        sfx('click', t, 0.19 + rnd() * 0.13);
         col++;
         cursorKeys.push({ at: t, set: { x: colX(col) } });
       }
@@ -150,7 +151,7 @@
     blink(cursorKeys, T.prompt1, T.type1);
     let t = typeTokens(T.type1, 0, [['npx ', TEXT], ['create-nova ', CYAN], ['app', TEXT]]);
     T.enter1 = snap(t + 0.22);
-    sfx('click', T.enter1, 0.7);
+    sfx('click', T.enter1, 0.3);
     cursorKeys.push({ at: T.enter1, set: { alpha: 0 } });
 
     T.info = snap(T.enter1 + 0.12);
@@ -165,7 +166,7 @@
       const tt = snap(T.checks + i * 0.15);
       printAt(tt, 4 + i, 0, '✓', GREEN, { glow: true, slide: true, name: `check-${i}` });
       printAt(tt, 4 + i, 2, s, TEXT, { slide: true, name: `check-${i}-label` });
-      sfx('pop', tt, 0.6);
+      sfx('pop', tt, 0.54);
     });
 
     T.prompt2 = snap(T.checks + 3 * 0.15 + 0.4);
@@ -175,7 +176,7 @@
     blink(cursorKeys, T.prompt2, T.type2, 0.4);
     t = typeTokens(T.type2, 9, [['nova ', TEXT], ['dev', CYAN]]);
     T.enter2 = snap(t + 0.22);
-    sfx('click', T.enter2, 0.7);
+    sfx('click', T.enter2, 0.3);
     cursorKeys.push({ at: T.enter2, set: { alpha: 0 } });
 
     T.ready = snap(T.enter2 + 0.15);
@@ -192,7 +193,7 @@
     term.push({ type: 'shape', shape: 'rect', name: 'url-underline', width: 0, height: 1.5, anchorX: 0, at: T.local,
       initial: { x: colX(URL_COL), y: rowY(11) + FS * 0.6, fillColor: CYAN, alpha: 0.75 },
       keyframes: [{ at: 0, to: { width: URL.length * ADV }, duration: 0.45, ease: 'power3.out' }] });
-    sfx('chime', T.local, 0.75);
+    sfx('chime', T.local, 0.2, 0.9);   // shortened so it does not ring into the swoosh
 
     T.idle = snap(T.local + 0.1);
     cursorKeys.push({ at: T.idle, set: { alpha: 1, x: colX(0), y: rowY(12) } });
@@ -247,7 +248,7 @@
       ],
       sequences: [...chrome, ...term, ...screenFx],
     };
-    sfx('swoosh', snap(T.zoom - 0.05), 0.9);
+    sfx('swoosh', snap(T.zoom - 0.05), 0.77);
 
     // ───────────────────────── title card (plain 2D, on top) ─────────────────────────
     const TITLE_X = 730;
@@ -268,7 +269,7 @@
       const at = snap(k * TAG_STEP);
       tagKeys.push({ at, set: { width: prefix[k] + 2 } });
       tagCursorKeys.push({ at, set: { x: TITLE_X + prefix[k] + 3 } });
-      if (TAG[k - 1] !== ' ') sfx('click', snap(T.tag + at), 0.3);
+      if (TAG[k - 1] !== ' ') sfx('click', snap(T.tag + at), 0.13);
     }
     blink(tagCursorKeys, TAG.length * TAG_STEP + 0.3, null, 0.5, DURATION - T.tag - 1 / FPS);
 
@@ -293,8 +294,8 @@
         initial: { x: TITLE_X, y: CTA_Y, anchorX: 0, anchorY: 0.5 },
         keyframes: [{ at: 0, from: { alpha: 0, y: CTA_Y + 10 }, to: { alpha: 1, y: CTA_Y }, duration: 0.4, ease: 'power3.out' }] },
     ];
-    sfx('pop', T.title, 0.6);
-    sfx('pop', T.cta, 0.45);
+    sfx('pop', T.title, 0.54);
+    sfx('pop', T.cta, 0.41);
 
     // ───────────────────────── root ─────────────────────────
     const sequences = [
@@ -321,10 +322,6 @@
         assets: [
           { name: 'scanlines', src: scanlines(WIN_W, WIN_H - TITLE_H) },
           { name: 'bgm', src: '../_assets/bgm.mp3' },
-          { name: 'click', src: '../_assets/sfx-click.mp3' },
-          { name: 'pop', src: '../_assets/sfx-pop.mp3' },
-          { name: 'chime', src: '../_assets/sfx-chime.mp3' },
-          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
         ],
         composition: { sequences },
       });

@@ -61,7 +61,8 @@ export class AudioSequence extends Sequence {
 
   override collectAudio(out: AudioDescriptor[], baseTime: number): void {
     if (!this._audioBuffer && !this._synth) return;
-    const initialVolume = this.spec.volume ?? 1;
+    // `volume` at the top level, or `initial: { volume }` like every other layer's starting values (the top level wins)
+    const initialVolume = this.spec.volume ?? (this.spec.initial as { volume?: number } | undefined)?.volume ?? 1;
     const t0 = baseTime + this.at;
     const dur = this.duration!;
     out.push({

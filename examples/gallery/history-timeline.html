@@ -364,10 +364,10 @@
     const audio = [
       { type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0,
         keyframes: [{ at: 0, to: { volume: 0.45 }, duration: 1.2 }, { at: -1.6, to: { volume: 0 }, duration: 1.6 }] },
-      { type: 'audio', name: 'swoosh-title', asset: 'swoosh', at: 1.0, volume: 0.35 },
-      ...MILESTONES.map((m, i) => ({ type: 'audio', name: `pop-${m.year}`, asset: 'pop', at: T(i), volume: 0.55 })),
-      { type: 'audio', name: 'swoosh-zoom', asset: 'swoosh', at: Z, volume: 0.45 },
-      { type: 'audio', name: 'chime-end', asset: 'chime', at: END_AT + 0.1, volume: 0.4 },
+      { type: 'audio', name: 'swoosh-title', sfx: 'swoosh', at: 1.0, volume: 0.3 },
+      ...MILESTONES.map((m, i) => ({ type: 'audio', name: `pop-${m.year}`, sfx: 'pop', at: T(i), volume: 0.5 })),
+      { type: 'audio', name: 'swoosh-zoom', sfx: 'swoosh', at: Z, volume: 0.38 },
+      { type: 'audio', name: 'chime-end', sfx: 'chime', at: END_AT + 0.1, volume: 0.1 },
     ];
 
     const sequences = [
@@ -392,9 +392,6 @@
         background: PAPER,
         assets: [
           { name: 'bgm', src: '../_assets/bgm.mp3' },
-          { name: 'pop', src: '../_assets/sfx-pop.mp3' },
-          { name: 'swoosh', src: '../_assets/sfx-swoosh.mp3' },
-          { name: 'chime', src: '../_assets/sfx-chime.mp3' },
         ],
         composition: { sequences },
       });
