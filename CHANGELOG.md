@@ -8,6 +8,8 @@
 
 **Fixed**
 
+- **A layer could be missing right after a seek, or from an exported video.** PixiJS only culls inside `app.render()` (the ticker), and `Movie` draws by hand (and `render()` stops the ticker), so `culled` flags were stale: a layer that had just come on screen could be skipped. The movie now culls immediately before every draw.
+- `line`, `polygon` and `path` without `x` / `y` were drawn around (0,0): their points are now plain canvas coordinates.
 - Videos inside nested compositions started at the wrong time.
 - Text `w` / `h` in expressions were measured before the style was applied.
 - Shape geometry written in `initial` (`width`, `anchorX`, …) was silently ignored.
@@ -15,11 +17,12 @@
 
 **Added**
 
+- Unknown option names now warn with a suggestion (`contactSheet({ cols })` → `columns`, `init({ fps })` → `frameRate`) instead of being ignored. `inspect(frame, { layers })` can list only the visible layers or none; it ignores faint layers and moving text.
 - Warnings for the silent failures AI authors hit: keyframe or layer starting after its layer / composition ends, audio shorter than its layer without `loop`, a `threeD` layer hidden behind the camera, transitions on `threeD` layers, `lookAt` equal to the camera position, and more.
 - Keyframes: `repeat` / `yoyo` / `repeatDelay` on every kind of animation (finite repeats only).
 - Text counters: `text: '{value} users'` + animate `value`; `format: { decimals, grouping }`.
 - Shapes: `fillGradient` — linear and radial gradients with alpha stops (vignettes).
-- `orbit()` preset: a camera that circles a point.
+- `orbit()` preset: a camera that circles a point (`dollyZoom: { from, to }` animates `fov` while the radius follows it).
 - `movie.snapshot()`, `movie.contactSheet()`, `movie.inspect()`: look at the result — one frame, many labelled frames on one image, or per-layer bounds plus layout issues (text off the canvas, cut off, overlapping).
 - `ai/` (skill, cheatsheet, tested recipes, pitfalls, starter template), `llms.txt`, `llms-full.txt`.
 

@@ -223,7 +223,7 @@ Every primitive draws centred on its local origin (so `anchorX`/`anchorY` and `p
 | `rect`    | `width`, `height`                        | `cornerRadius`         |
 | `circle`  | `radius`                                 | —                      |
 | `ellipse` | `radiusX`, `radiusY`                     | —                      |
-| `line`    | `from: [x,y]`, `to: [x,y]`               | —                      |
+| `line`    | `from: [x,y]`, `to: [x,y]` (canvas coordinates; stroke in `initial`) | — |
 | `polygon` | `points: [[x,y], …]`                     | `open` (default false) |
 | `path`    | `d` (SVG path data)                      | —                      |
 

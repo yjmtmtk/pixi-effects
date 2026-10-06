@@ -62,21 +62,21 @@ Keyframe kinds: `set` (jump), `to` (animate to), `from` (animate from), `from`+`
 | rect | `width height cornerRadius anchorX anchorY` |
 | circle | `radius anchorX anchorY` |
 | ellipse | `radiusX radiusY anchorX anchorY` |
-| line | `from: [x,y]  to: [x,y]` (+ stroke) |
-| polygon | `points: [[x,y],…]  open` |
-| path | `d` (SVG path data) |
+| line | `from: [x,y]  to: [x,y]` — plain canvas coordinates (omit `x,y`; if you give them they place the line's midpoint). Stroke in `initial`: `strokeColor`, `strokeWidth` |
+| polygon | `points: [[x,y],…]  open` — canvas coordinates like `line` |
+| path | `d` (SVG path data) — canvas coordinates like `line` |
 
 Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha strokeWidth`; `colorSpace: 'oklab'|'oklch'` for clean colour tweens. rect/circle/ellipse are **centred on `x,y` by default** (`anchorX/anchorY` default 0.5): for a bar growing from its base use `anchorY: 1` (or `anchorX: 0` for left-to-right). **`fillGradient`** (top level or `initial`; instead of `fillColor`): `{ type?: 'linear'|'radial', stops: [[0, '#000'], [1, 'rgba(0,0,0,.6)']], angle? /* linear, deg, 90 = top→bottom */, center?, innerRadius?, radius? /* radial, 0–1 of bounds */ }` — stops may have alpha, so a radial transparent→dark is a vignette.
 
-**composition** — `width height duration sequences transitions`. Children use the composition's local coordinates and times. Position/rotate/scale it as a unit; to rotate/scale about its centre set `pivotX/pivotY` to the centre and `x/y` to where that point should sit.
+**composition** — `width height duration sequences transitions`. With `threeD: true` it is a **card**: its children are drawn into one texture and move / rotate in depth together. Children use the composition's local coordinates and times. Position/rotate/scale it as a unit; to rotate/scale about its centre set `pivotX/pivotY` to the centre and `x/y` to where that point should sit.
 
-**camera** (2.5D) — props in `initial`/keyframes: `x y z lookAtX lookAtY lookAtZ fov` (defaults: centred, looking at the z = 0 plane, `fov` 40, `z` auto = `(H/2)/tan(fov/2)` ≈ 989 at 720p). Never on the camera object itself.
+**camera** (2.5D) — props in `initial`/keyframes: `x y z lookAtX lookAtY lookAtZ fov` (defaults: centred, looking at the z = 0 plane, `fov` 40, `z` auto = `(H/2)/tan(fov/2)` ≈ 989 at 720p). Never on the camera object itself. An orbit is `orbit()`; by hand: `x = cx + R·sin θ`, `z = R·cos θ`, `R = (H/2)/tan(fov/2)`, `lookAt` = the centre at `z = 0`.
 
 **three** (optional entry `pixi-effects/three`) — `three({ type:'three', width, height, setup(ctx) { …; return { objects: { knot } } }, update?, dispose? })`; drive with `'three.knot.rotation.y'` keyframes. Call `registerThree()` before `init`.
 
 ## 2.5D in one paragraph
 
-Add `threeD: true` to any visual layer, then use `z`, `rotationX`, `rotationY` (centre rotation with `anchorX/Y: 0.5` or `pivotX/Y`). Add a `{ type: 'camera' }` layer for a view. A `threeD` layer at `z: 0` with the default camera looks identical to a 2D one. Consecutive `threeD` layers are drawn farthest-first; non-`threeD` layers ignore the camera and keep array order. Layers at/behind the camera plane are hidden. Not supported on `threeD` layers: masks, transitions, `filterArea`.
+Add `threeD: true` to any visual layer, then use `z`, `rotationX`, `rotationY` (centre rotation with `anchorX/Y: 0.5` or `pivotX/Y`). Add a `{ type: 'camera' }` layer for a view. A `threeD` layer at `z: 0` with the default camera looks identical to a 2D one. Consecutive `threeD` layers are drawn farthest-first (equal `z` keeps array order); non-`threeD` layers ignore the camera and keep array order. Layers at/behind the camera plane are hidden. Not supported on `threeD` layers: masks, transitions, `filterArea`.
 
 ## Transitions (on the parent composition)
 
@@ -113,8 +113,8 @@ await movie.gotoFrame(n, true);                 // seek (frames; 30 fps => t = n
 const blob = await movie.render({ format: 'mp4' });   // 'mp4' | 'webm' | 'mov' | 'mkv'; ~real-time
 movie.on('progress', e => e.progress /* 0–100 */);
 movie.audioBuffer                                // mixed audio (after init), if any audio layers
-await movie.contactSheet({ count: 6, as: 'dataURL' })   // ONE image of several labelled frames — look at it
-await movie.snapshot(60, { as: 'dataURL' })             // one frame, canvas only (no player bar)
-await movie.inspect(60)                                 // per-layer canvas bounds + issues (text off-canvas / cut off / overlapping)
+await movie.contactSheet({ count: 6, as: 'dataURL' })   // ONE image of several labelled frames — look at it. Options: frames | times | count, columns, cellWidth, as
+await movie.snapshot(60, { as: 'dataURL' })             // one frame, canvas only (no player bar) — use it for detail; sheet tiles are small
+await movie.inspect(60, { layers: 'none' })             // issues only (default lists the visible layers); text off-canvas / cut off / empty / overlapping text. Name your layers so paths are readable
 new Controller(movie, { canvas })                // optional player bar (overlays the canvas bottom ~60px; not in the export)
 ```

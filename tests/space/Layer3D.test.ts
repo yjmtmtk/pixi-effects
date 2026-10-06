@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('pixi.js', async () => (await import('./mockPixi')).createPixiMock());
 
-import { Container, Rectangle, RenderTexture, Texture } from 'pixi.js';
+import { Container, Rectangle, RenderTexture } from 'pixi.js';
 import { Layer3D, readLayerTransform, MAX_TEXTURE_SIZE, MAX_TEXTURE_PIXELS, type SpaceHost } from '../../src/space/Layer3D';
 import { cameraBasis, homeCamera, homeDistance, DEG } from '../../src/space/math';
 import type { Sequence } from '../../src/sequences/Base';
@@ -205,22 +205,6 @@ describe('Layer3D', () => {
     expect(Number.isFinite(layer.depth)).toBe(true);
     layer.destroy();
     expect((layer.display as unknown as { destroyed: boolean }).destroyed).toBe(true);
-  });
-
-  it('destroy first points the mesh at a neutral texture, then destroys the render texture (Pixi warns about destroying a bound texture)', () => {
-    const { layer, host } = setup();
-    layer.update(host, basis());
-    const rt = layer.display.texture as unknown as { destroyed: boolean };
-    const order: string[] = [];
-    Object.defineProperty(layer.display, 'texture', {
-      configurable: true,
-      get: () => (order.includes('swapped') ? Texture.WHITE : rt),
-      set: (v: unknown) => { if (v === Texture.WHITE) order.push('swapped'); },
-    });
-    const rtDestroy = (rt as unknown as { destroy: () => void }).destroy.bind(rt);
-    (rt as unknown as { destroy: () => void }).destroy = () => { order.push('rt destroyed'); rtDestroy(); };
-    layer.destroy();
-    expect(order).toEqual(['swapped', 'rt destroyed']);
   });
 
   it('uses Rectangle-like frames (mock sanity)', () => {

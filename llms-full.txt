@@ -19,7 +19,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
    - `await movie.contactSheet({ count: 6, as: 'dataURL' })` → ONE image of several labelled frames (pass `frames: [...]` / `times: [...]` to choose; include the middle of every transition and the last second). Save it and view it.
    - `await movie.inspect(frame)` → every layer's canvas bounds and visibility, plus `issues` (text off the canvas, cut off by an edge, empty, or overlapping other text). Run it at several frames; fix every issue it names.
    - `await movie.snapshot(frame, { as: 'dataURL' })` → one frame, canvas only (no player bar).
-   From a browser tool the result is a `data:` URL string: write its base64 part to a `.png` and open that file.
+   From a browser tool the result is a `data:` URL string: `agent-browser eval "movie.contactSheet({ count: 6, as: 'dataURL' })" | python3 ai/tools/save-image.py /absolute/sheet.png`, then open the PNG. Sheet tiles are small (~480 px): use `snapshot` for detail. `inspect` output is long on busy scenes: pass `{ layers: 'none' }` and read `issues` first. Give layers a `name` so inspect paths are readable. A moving ticker is not flagged as cut off.
 5. **Iterate** on what you saw (clipped text, collisions, wrong timing). Then export: `const blob = await movie.render({ format: 'mp4' })` (about real time; `movie.on('progress', …)` reports 0–100).
 
 ## The rules that cause most failures
@@ -42,7 +42,8 @@ Centred text must be positioned by `anchorX/anchorY: 0.5`; estimate text width a
 - `reference/cheatsheet.md` — every layer type, prop, default and rule on one page.
 - `reference/recipes.md` — tested building blocks: slam type, lower-third, marquee, count-up, bar chart, 2.5D title, camera orbit, slideshow with transitions + music, looping, particles, gradients/vignette, three.js metal.
 - `reference/pitfalls.md` — the full list of real mistakes, with status.
-- `template.html` — the starting file.
+- `template.html` — the starting file. (It loads the library from a CDN; when testing against a local build, point the three `pixi-effects*` importmap entries at `../../dist/…`.)
+- `tools/save-image.py` — save a `dataURL` result (contact sheet / snapshot) to a PNG.
 - Full reference: `docs/dsl.md` and `docs/api.md` in the repository.
 
 
@@ -112,21 +113,21 @@ Keyframe kinds: `set` (jump), `to` (animate to), `from` (animate from), `from`+`
 | rect | `width height cornerRadius anchorX anchorY` |
 | circle | `radius anchorX anchorY` |
 | ellipse | `radiusX radiusY anchorX anchorY` |
-| line | `from: [x,y]  to: [x,y]` (+ stroke) |
-| polygon | `points: [[x,y],…]  open` |
-| path | `d` (SVG path data) |
+| line | `from: [x,y]  to: [x,y]` — plain canvas coordinates (omit `x,y`; if you give them they place the line's midpoint). Stroke in `initial`: `strokeColor`, `strokeWidth` |
+| polygon | `points: [[x,y],…]  open` — canvas coordinates like `line` |
+| path | `d` (SVG path data) — canvas coordinates like `line` |
 
 Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha strokeWidth`; `colorSpace: 'oklab'|'oklch'` for clean colour tweens. rect/circle/ellipse are **centred on `x,y` by default** (`anchorX/anchorY` default 0.5): for a bar growing from its base use `anchorY: 1` (or `anchorX: 0` for left-to-right). **`fillGradient`** (top level or `initial`; instead of `fillColor`): `{ type?: 'linear'|'radial', stops: [[0, '#000'], [1, 'rgba(0,0,0,.6)']], angle? /* linear, deg, 90 = top→bottom */, center?, innerRadius?, radius? /* radial, 0–1 of bounds */ }` — stops may have alpha, so a radial transparent→dark is a vignette.
 
-**composition** — `width height duration sequences transitions`. Children use the composition's local coordinates and times. Position/rotate/scale it as a unit; to rotate/scale about its centre set `pivotX/pivotY` to the centre and `x/y` to where that point should sit.
+**composition** — `width height duration sequences transitions`. With `threeD: true` it is a **card**: its children are drawn into one texture and move / rotate in depth together. Children use the composition's local coordinates and times. Position/rotate/scale it as a unit; to rotate/scale about its centre set `pivotX/pivotY` to the centre and `x/y` to where that point should sit.
 
-**camera** (2.5D) — props in `initial`/keyframes: `x y z lookAtX lookAtY lookAtZ fov` (defaults: centred, looking at the z = 0 plane, `fov` 40, `z` auto = `(H/2)/tan(fov/2)` ≈ 989 at 720p). Never on the camera object itself.
+**camera** (2.5D) — props in `initial`/keyframes: `x y z lookAtX lookAtY lookAtZ fov` (defaults: centred, looking at the z = 0 plane, `fov` 40, `z` auto = `(H/2)/tan(fov/2)` ≈ 989 at 720p). Never on the camera object itself. An orbit is `orbit()`; by hand: `x = cx + R·sin θ`, `z = R·cos θ`, `R = (H/2)/tan(fov/2)`, `lookAt` = the centre at `z = 0`.
 
 **three** (optional entry `pixi-effects/three`) — `three({ type:'three', width, height, setup(ctx) { …; return { objects: { knot } } }, update?, dispose? })`; drive with `'three.knot.rotation.y'` keyframes. Call `registerThree()` before `init`.
 
 ## 2.5D in one paragraph
 
-Add `threeD: true` to any visual layer, then use `z`, `rotationX`, `rotationY` (centre rotation with `anchorX/Y: 0.5` or `pivotX/Y`). Add a `{ type: 'camera' }` layer for a view. A `threeD` layer at `z: 0` with the default camera looks identical to a 2D one. Consecutive `threeD` layers are drawn farthest-first; non-`threeD` layers ignore the camera and keep array order. Layers at/behind the camera plane are hidden. Not supported on `threeD` layers: masks, transitions, `filterArea`.
+Add `threeD: true` to any visual layer, then use `z`, `rotationX`, `rotationY` (centre rotation with `anchorX/Y: 0.5` or `pivotX/Y`). Add a `{ type: 'camera' }` layer for a view. A `threeD` layer at `z: 0` with the default camera looks identical to a 2D one. Consecutive `threeD` layers are drawn farthest-first (equal `z` keeps array order); non-`threeD` layers ignore the camera and keep array order. Layers at/behind the camera plane are hidden. Not supported on `threeD` layers: masks, transitions, `filterArea`.
 
 ## Transitions (on the parent composition)
 
@@ -163,9 +164,9 @@ await movie.gotoFrame(n, true);                 // seek (frames; 30 fps => t = n
 const blob = await movie.render({ format: 'mp4' });   // 'mp4' | 'webm' | 'mov' | 'mkv'; ~real-time
 movie.on('progress', e => e.progress /* 0–100 */);
 movie.audioBuffer                                // mixed audio (after init), if any audio layers
-await movie.contactSheet({ count: 6, as: 'dataURL' })   // ONE image of several labelled frames — look at it
-await movie.snapshot(60, { as: 'dataURL' })             // one frame, canvas only (no player bar)
-await movie.inspect(60)                                 // per-layer canvas bounds + issues (text off-canvas / cut off / overlapping)
+await movie.contactSheet({ count: 6, as: 'dataURL' })   // ONE image of several labelled frames — look at it. Options: frames | times | count, columns, cellWidth, as
+await movie.snapshot(60, { as: 'dataURL' })             // one frame, canvas only (no player bar) — use it for detail; sheet tiles are small
+await movie.inspect(60, { layers: 'none' })             // issues only (default lists the visible layers); text off-canvas / cut off / empty / overlapping text. Name your layers so paths are readable
 new Controller(movie, { canvas })                // optional player bar (overlays the canvas bottom ~60px; not in the export)
 ```
 
@@ -197,7 +198,8 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 12. **Text**: anchor 0.5 centres the line *box*, not the cap height (nudge underlines by ~`0.46·size`). Arial Black is ~0.8·size wide per glyph, monospace ~0.6·size; leave ~7 % for hold-scale. `style` accepts any PixiJS TextStyle field: `letterSpacing`, `wordWrap` + `wordWrapWidth`, `lineHeight`, `stroke`, `dropShadow`, `padding`. A glow (`dropShadow` with `blur`) is clipped unless `padding ≥ 2·blur`. *(docs)*
 13. **`w` / `h` in expressions** are the layer's own size. For text they now describe the styled text (`x: '-w'` scrolls a marquee fully out). *(fixed)*
 14. **Masks live in the parent's coordinate space and do not follow the masked layer.** Reveal by growing the mask's `width` from a fixed edge (`anchorX: 0`); exit by tweening `x` and `width` together; slide the content separately. *(docs)*
-15. **`filterArea` is in the layer's own coordinates** (origin = its local origin, e.g. a circle's centre), not the parent's. A blurred shape is clipped to its bounding box without it: `filterArea: { x: -(r+260), y: -(r+260), width: 2*(r+260), height: 2*(r+260) }`. `threeD` layers pad automatically. *(docs)*
+15. **`line` / `polygon` / `path` use plain canvas coordinates** when you give no `x,y` (they used to be drawn around (0,0)); with `x,y` those place the shape's centre. Stroke colour and width go in `initial`. A background pill must be sized from its text (~0.58 × fontSize per glyph + padding): `inspect` does not check text against shapes. *(fixed)*
+15b. **`filterArea` is in the layer's own coordinates** (origin = its local origin, e.g. a circle's centre), not the parent's. A blurred shape is clipped to its bounding box without it: `filterArea: { x: -(r+260), y: -(r+260), width: 2*(r+260), height: 2*(r+260) }`. `threeD` layers pad automatically. *(docs)*
 16. **The player bar overlays the bottom ~60 px of the canvas** in browser screenshots (not in the exported video). `movie.snapshot()` / `movie.contactSheet()` never include it; keep captions above it anyway. *(fixed: use the built-in snapshot tools)*
 
 ## Missing features (hand-roll)
@@ -214,14 +216,16 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 
 24. **`threeD` is required** for `z`, `rotationX`, `rotationY` (they warn otherwise). Camera props go in `initial`/keyframes, never on the camera object. `+z` is toward the viewer. *(fixed: warns)*
 25. **A layer at/behind the camera plane is hidden** — the default camera sits at `z = (H/2)/tan(fov/2)` ≈ 989 at 720p, fov 40 (≈ 808 at fov 48, lower at higher fov). Keep every layer's `z` below it. *(fixed: warns once)*
-26. **Under a dolly zoom only the `z = 0` plane stays put**; everything nearer balloons and clips. Headline at `z: 0`, near cards `z ≤ ~70`. *(docs)*
+26. **Under a dolly zoom only the `z = 0` plane stays put**; everything nearer balloons and clips. Headline at `z: 0`, near cards `z ≤ ~70`. Perspective also pulls far layers toward the centre: put far cards at the outer x, near cards inward, and keep ~10 % margin for an orbit sweep. `orbit({ dollyZoom: { from, to } })` does both together. *(docs)*
 27. **Combining orbit and dolly zoom**: `orbit()` specifies `z`, so it stops following `fov` — write your own `fov` and `z = (H/2)/tan(fov/2)` keyframes for the zoom. *(docs)*
-28. **Nearer `threeD` layers sort on top of text** — lay out around them. A final call-to-action or overlay should be a plain 2D layer (last in the array): it ignores the camera. *(docs)*
+28. **Nearer `threeD` layers sort on top of text** — lay out around them; equal `z` keeps array order. A card (rect + icon + label that move together) is a `composition` with `threeD: true`. A final call-to-action or overlay should be a plain 2D layer (last in the array): it ignores the camera, and fade the 3D scene and headline out before it appears (a dim rect alone leaves them visible). *(docs)*
 29. **three.js**: the layer clips at its own rectangle — size it to the area you want and pull the camera back (`z ≈ 5.4` for a radius-1 torus knot at fov 50). Metal needs an environment map (`PMREMGenerator(ctx.renderer)`); `three/addons` is not in the importmap. Route `three` through the importmap so there is one copy. Masks/transitions/`filterArea` are not supported on `threeD` layers. *(docs)*
 
 ## Tooling (agent harness)
 
-30. **Look with the built-in tools, not OS screenshots**: `await movie.contactSheet({ count: 6, as: 'dataURL' })` returns one labelled image of the whole animation; `await movie.inspect(frame)` returns every layer's canvas bounds and `issues`. If you do use a browser tool, `screenshot` needs an **absolute path**, macOS `sed -i` needs `''`, and a static server may redirect `/x.html` → `/x` and drop `?query`. Keep the template's `try/catch` around `init` so failures land in `window.__logs`. Check ≥ 5 timestamps including mid-transition. *(fixed: tools built in)*
+30. **A scene change must keep the outgoing scene alive until the covering flood / wipe has finished**, and the next scene starts when it is complete; the flood circle must reach the corners (radius ≥ half the diagonal) and use `power2.in`, not `expo.in`. *(docs)*
+30b. **Unknown option names now warn** (`contactSheet({ cols: 2 })` → did you mean `columns`; `init({ fps })` → `frameRate`). Layer names show up in `inspect` paths, so give layers a `name`. `inspect` ignores faint (alpha < 0.3) layers and text whose x / y is animated (tickers), so a scrolling marquee is not reported as cut off. Pixi may print `[BindGroup] … destroyed while still bound` warnings at `movie.destroy()`: harmless (playback and seeking never warn). *(docs)*
+30c. **Look with the built-in tools, not OS screenshots**: `await movie.contactSheet({ count: 6, as: 'dataURL' })` returns one labelled image of the whole animation; `await movie.inspect(frame)` returns every layer's canvas bounds and `issues`. If you do use a browser tool, `screenshot` needs an **absolute path**, macOS `sed -i` needs `''`, and a static server may redirect `/x.html` → `/x` and drop `?query`. Keep the template's `try/catch` around `init` so failures land in `window.__logs`. Check ≥ 5 timestamps including mid-transition. *(fixed: tools built in)*
 31. **Check audio without rendering by decoding the render**: `const b = await movie.render({format:'mp4'})` then `new OfflineAudioContext(...).decodeAudioData(await b.arrayBuffer())` and measure RMS over time. `movie.audioBuffer` holds the mix. *(docs)*
 
 
@@ -332,36 +336,52 @@ Prefixes and suffixes go in the text (`'${value}'`, `'{value} users'`, `'{value}
 
 ## Data-driven bar chart
 
-Generate the whole spec from the data. Bars grow from the baseline (`anchorY: 1` + a `height` keyframe); each value label rides the top of its bar and counts up with the same ease and timing, so they stay locked.
+Generate the whole spec from the data. Bars grow from the baseline (`anchorY: 1` + a `height` keyframe); each value label rides the top of its bar and counts up with the same ease and timing, so they stay locked. A line's `from` / `to` are plain canvas coordinates (give `x,y` only to move it). A callout pill must be sized from its text.
 
 ```js
 // @recipe bar-chart
 const data = [['Mon', 12], ['Tue', 30], ['Wed', 22], ['Thu', 41], ['Fri', 35]];
 const max = Math.max(...data.map(d => d[1]));
+const step = [1, 2, 2.5, 5, 10].map(m => m * 10 ** Math.floor(Math.log10(max / 4))).find(v => max / v <= 5) ?? 10;
+const NICE = Math.ceil(max / step) * step;                    // axis top, so the chart survives changed data
 const BASE = 600, CHART_H = 380, BAR_W = 90, GAP = 40, DUR = 0.9, EASE = 'power3.out';
-const x0 = (1280 - (data.length * BAR_W + (data.length - 1) * GAP)) / 2;
+const X0 = (1280 - (data.length * BAR_W + (data.length - 1) * GAP)) / 2, X1 = X0 + data.length * BAR_W + (data.length - 1) * GAP;
 const sequences = [];
+for (let v = 0; v <= NICE; v += step) {                       // grid lines + tick labels
+  const y = BASE - CHART_H * v / NICE;
+  sequences.push({ type: 'shape', shape: 'line', from: [X0 - 20, y], to: [X1 + 20, y], initial: { strokeColor: '#33405c', strokeWidth: 1 } });
+  sequences.push({ type: 'text', text: String(v), style: { fontSize: 20, fill: '#7f8bb0' }, initial: { x: X0 - 32, y, anchorX: 1, anchorY: 0.5 } });
+}
+const best = data.findIndex(d => d[1] === max);
 data.forEach(([label, value], i) => {
-  const x = x0 + i * (BAR_W + GAP) + BAR_W / 2;
+  const x = X0 + i * (BAR_W + GAP) + BAR_W / 2;
   const at = 0.4 + i * 0.12;
-  const h = CHART_H * value / max;
+  const h = CHART_H * value / NICE;
   sequences.push({
-    type: 'shape', shape: 'rect', width: BAR_W, height: 0, cornerRadius: 8, anchorY: 1, at,
-    initial: { x, y: BASE, fillColor: value === max ? '#ffd166' : '#4f6df5' },
-    keyframes: [{ at: 0, to: { height: h }, duration: DUR, ease: EASE }],
+    type: 'shape', shape: 'rect', width: BAR_W, height: 0, cornerRadius: 8, anchorY: 1, at, colorSpace: 'oklab',
+    initial: { x, y: BASE, fillColor: '#4f6df5' },
+    keyframes: [
+      { at: 0, to: { height: h }, duration: DUR, ease: EASE },
+      ...(i === best ? [{ at: 4 - at, to: { fillColor: '#ffd166' }, duration: 0.5 }] : [{ at: 4 - at, to: { alpha: 0.45 }, duration: 0.5 }]),   // highlight the maximum at t = 4 s
+    ],
   });
-  sequences.push({                                   // value label: counts up while riding the bar's top
+  sequences.push({                                            // value label: counts up while riding the bar's top
     type: 'text', text: '{value}', at,
     style: { fontSize: 28, fontWeight: 'bold', fill: '#ffffff' },
     initial: { x, y: BASE - 14, anchorX: 0.5, anchorY: 1, value: 0 },
     keyframes: [{ at: 0, to: { value, y: BASE - h - 14 }, duration: DUR, ease: EASE }],
   });
-  sequences.push({
-    type: 'text', text: label, at, style: { fontSize: 26, fill: '#aab4d4' },
-    initial: { x, y: BASE + 16, anchorX: 0.5, anchorY: 0 },
-  });
+  sequences.push({ type: 'text', text: label, at, style: { fontSize: 26, fill: '#aab4d4' }, initial: { x, y: BASE + 16, anchorX: 0.5, anchorY: 0 } });
 });
-sequences.push({ type: 'shape', shape: 'rect', width: 1000, height: 2, initial: { x: 'GW/2', y: BASE, fillColor: '#445566' } });
+// callout: a pill sized from its text (~0.58 x fontSize per glyph + padding), a pointer triangle, clamped inside the plot
+const text = 'Peak: ' + data[best][0] + ' ' + max, FS = 26;
+const PW = text.length * FS * 0.58 + 44, cx = Math.min(Math.max(X0 + best * (BAR_W + GAP) + BAR_W / 2, X0 + PW / 2), X1 - PW / 2), cy = BASE - CHART_H - 70;
+sequences.push({ type: 'shape', shape: 'rect', width: PW, height: 52, cornerRadius: 26, at: 4.2, initial: { x: cx, y: cy, fillColor: '#ffd166', alpha: 0 },
+                 keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] });
+sequences.push({ type: 'shape', shape: 'polygon', points: [[-10, 0], [10, 0], [0, 12]], at: 4.2, initial: { x: cx, y: cy + 32, fillColor: '#ffd166', alpha: 0 },
+                 keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] });
+sequences.push({ type: 'text', text, at: 4.2, style: { fontSize: FS, fontWeight: 'bold', fill: '#1b1b2f' }, initial: { x: cx, y: cy, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+                 keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] });
 return sequences;
 ```
 
@@ -398,7 +418,7 @@ return [
 
 ## Camera orbit (+ optional dolly zoom)
 
-`orbit()` returns a camera layer that circles a point (the circle is sampled into short linear keyframes; the ease applies to the angle). Its `z` is specified, so it no longer follows `fov` — if you also want a dolly zoom, write your own `fov` and `z = (H/2)/tan(fov/2)` keyframes. Under a dolly zoom only the `z = 0` plane stays fixed: keep the hero content at `z = 0` and near content at small `z`.
+`orbit()` returns a camera layer that circles a point (the circle is sampled into short linear keyframes; the ease applies to the angle). Add `dollyZoom: { from, to }` and `fov` animates while the radius follows it, so the `z = 0` plane keeps its size and only the perspective changes. Under a dolly zoom everything with `z > 0` balloons toward the viewer: keep the hero content at `z = 0` and near content at small `z`; far layers are pulled toward the centre, so spread far cards to the outer x positions and near cards inward, and leave ~10 % margin for the orbit sweep.
 
 ```js
 // @recipe camera-orbit
@@ -407,12 +427,59 @@ const card = (x, z, color) => ({
   initial: { x, y: 360, z, fillColor: color },
 });
 return [
-  orbit({ duration: 6, degrees: 50 }),               // ±25° around the centre; options: radius, center, start, fov, ease
-  card(300, -300, '#3a6ea5'), card(640, 0, '#d96a3a'), card(980, 300, '#38a169'),
+  orbit({ duration: 6, degrees: 50, dollyZoom: { from: 38, to: 62 } }),    // options: radius (not with dollyZoom), center, start, fov, ease
+  card(240, -300, '#3a6ea5'), card(640, 0, '#d96a3a'), card(990, 60, '#38a169'),     // near cards stay at small z
 ];
 ```
 
-A call-to-action or any overlay that must stay screen-aligned should be a plain 2D layer (no `threeD`) placed last: it ignores the camera and stays on top.
+A call-to-action or any overlay that must stay screen-aligned should be a plain 2D layer (no `threeD`) placed last: it ignores the camera and stays on top. Fade the 3D scene and headline out before it appears; a dim rect alone leaves them visible.
+
+---
+
+## A card in depth (a composition with `threeD: true`)
+
+A `composition` with `threeD: true` is a card: its children are drawn into one texture that is then moved in depth, so a rect, an icon and a label rotate and scale together. `threeD` layers at the same `z` keep array order. Entrance from depth, then a gentle bob with `repeat` / `yoyo`.
+
+```js
+// @recipe depth-cards
+const card = (title, color, x, y, z, at) => ({
+  type: 'composition', name: title, at, width: 300, height: 190, threeD: true,
+  initial: { x, y, z, pivotX: 150, pivotY: 95 },                       // pivot = the centre, so x,y is where the centre sits
+  sequences: [
+    { type: 'shape', shape: 'rect', width: 300, height: 190, cornerRadius: 24, initial: { x: 150, y: 95, fillColor: color } },
+    { type: 'text', text: title, style: { fontSize: 34, fontWeight: 'bold', fill: '#ffffff' }, initial: { x: 150, y: 95, anchorX: 0.5, anchorY: 0.5 } },
+  ],
+  keyframes: [
+    { at: 0, from: { alpha: 0, z: z - 400, rotationY: 55 }, to: { alpha: 1, z, rotationY: 0 }, duration: 0.9, ease: 'expo.out' },
+    { at: 1, to: { y: y - 14 }, duration: 1.2, ease: 'sine.inOut', repeat: 3, yoyo: true },
+  ],
+});
+return [
+  { type: 'camera', initial: { fov: 42 } },
+  card('Battery', '#3a6ea5', 220, 300, -280, 0.2),         // far cards at the outer x
+  card('Sound', '#d96a3a', 1060, 260, -200, 0.4),
+  card('Comfort', '#38a169', 640, 380, 0, 0.6),
+];
+```
+
+---
+
+## Cut to the next scene with an expanding circle
+
+The outgoing scene must stay alive until the covering shape has finished; the next scene starts when the flood is complete. Reach the far corners: radius ≥ half the diagonal (734 px at 720p). `expo.in` stays tiny until the very end — use `power2.in`.
+
+```js
+// @recipe scene-flood
+const FLOOD_AT = 3, FLOOD = 0.6, END = 6;
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', duration: FLOOD_AT + FLOOD, initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1d2b53' } },
+  { type: 'text', text: 'BEFORE', duration: FLOOD_AT + FLOOD, style: { fontSize: 160, fontWeight: '900', fill: '#ffffff' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 } },
+  { type: 'shape', shape: 'circle', radius: 0, at: FLOOD_AT, duration: END - FLOOD_AT, initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ffd166' },
+    keyframes: [{ at: 0, to: { radius: 820 }, duration: FLOOD, ease: 'power2.in' }] },
+  { type: 'text', text: 'AFTER', at: FLOOD_AT + FLOOD, duration: END - FLOOD_AT - FLOOD, style: { fontSize: 160, fontWeight: '900', fill: '#1d2b53' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+    keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.25 }] },
+];
+```
 
 ---
 
@@ -768,7 +835,7 @@ Every primitive draws centred on its local origin (so `anchorX`/`anchorY` and `p
 | `rect`    | `width`, `height`                        | `cornerRadius`         |
 | `circle`  | `radius`                                 | —                      |
 | `ellipse` | `radiusX`, `radiusY`                     | —                      |
-| `line`    | `from: [x,y]`, `to: [x,y]`               | —                      |
+| `line`    | `from: [x,y]`, `to: [x,y]` (canvas coordinates; stroke in `initial`) | — |
 | `polygon` | `points: [[x,y], …]`                     | `open` (default false) |
 | `path`    | `d` (SVG path data)                      | —                      |
 
@@ -1655,13 +1722,15 @@ contactSheet(options?: {
 
 Many frames on **one** PNG, each labelled `frame N · T s`. The cheapest way to check a whole animation by eye (include the middle of every transition and the last second). Restores the current frame afterwards.
 
-### `movie.inspect(frame?): Promise<InspectReport>`
+### `movie.inspect(frame?, options?): Promise<InspectReport>`
 
-Where every layer is drawn at `frame`, as JSON — for checking layout without eyes. Seeks there and stays there.
+Where every layer is drawn at `frame`, as JSON — for checking layout without eyes. Seeks there and stays there. `options.layers`: `'visible'` (default, only layers drawn at this frame), `'all'`, or `'none'` (just `summary` and `issues`). Faint layers (alpha < 0.3) and text whose x / y is animated (tickers) are not reported.
 
 ```ts
 interface InspectReport {
   frame: number; time: number; canvas: { width: number; height: number };
+  summary: { layers: number; visible: number };
+  issues: string[];              // text off the canvas / cut by an edge / empty / overlapping other text — read this first
   layers: Array<{
     path: string;                // names (or type#index) from the root, joined by '/'
     name?: string; type: string; threeD: boolean;
@@ -1670,7 +1739,6 @@ interface InspectReport {
     bounds: { x: number; y: number; width: number; height: number } | null;   // canvas pixels; null inside a threeD layer
     onCanvas: 'full' | 'partial' | 'none' | null;
   }>;
-  issues: string[];              // text off the canvas / cut by an edge / empty / overlapping other text
 }
 ```
 

@@ -414,15 +414,12 @@ export class Movie {
 
   async destroy(): Promise<void> {
     safeRun(() => this.pause());
+    safeRun(() => this._rootSequence?.destroy());
+    this._rootSequence = null;
     safeRun(() => this.timeline?.kill());
     this.timeline = null;
-    // Tear the renderer down FIRST. Destroying a layer's texture while the renderer still has it bound
-    // makes Pixi print two warnings per text layer; once the app is gone there is nothing bound.
-    const root = this._rootSequence;
-    this._rootSequence = null;
     safeRun(() => this.app?.destroy(true, { children: true, texture: true }));
     this.app = null;
-    safeRun(() => root?.destroy());
     this.audioBuffer = null;
     safeRun(() => this._audioContext?.close().catch(() => {}));
     this._audioContext = null;

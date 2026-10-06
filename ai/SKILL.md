@@ -16,7 +16,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
    - `await movie.contactSheet({ count: 6, as: 'dataURL' })` → ONE image of several labelled frames (pass `frames: [...]` / `times: [...]` to choose; include the middle of every transition and the last second). Save it and view it.
    - `await movie.inspect(frame)` → every layer's canvas bounds and visibility, plus `issues` (text off the canvas, cut off by an edge, empty, or overlapping other text). Run it at several frames; fix every issue it names.
    - `await movie.snapshot(frame, { as: 'dataURL' })` → one frame, canvas only (no player bar).
-   From a browser tool the result is a `data:` URL string: write its base64 part to a `.png` and open that file.
+   From a browser tool the result is a `data:` URL string: `agent-browser eval "movie.contactSheet({ count: 6, as: 'dataURL' })" | python3 ai/tools/save-image.py /absolute/sheet.png`, then open the PNG. Sheet tiles are small (~480 px): use `snapshot` for detail. `inspect` output is long on busy scenes: pass `{ layers: 'none' }` and read `issues` first. Give layers a `name` so inspect paths are readable. A moving ticker is not flagged as cut off.
 5. **Iterate** on what you saw (clipped text, collisions, wrong timing). Then export: `const blob = await movie.render({ format: 'mp4' })` (about real time; `movie.on('progress', …)` reports 0–100).
 
 ## The rules that cause most failures
@@ -39,5 +39,6 @@ Centred text must be positioned by `anchorX/anchorY: 0.5`; estimate text width a
 - `reference/cheatsheet.md` — every layer type, prop, default and rule on one page.
 - `reference/recipes.md` — tested building blocks: slam type, lower-third, marquee, count-up, bar chart, 2.5D title, camera orbit, slideshow with transitions + music, looping, particles, gradients/vignette, three.js metal.
 - `reference/pitfalls.md` — the full list of real mistakes, with status.
-- `template.html` — the starting file.
+- `template.html` — the starting file. (It loads the library from a CDN; when testing against a local build, point the three `pixi-effects*` importmap entries at `../../dist/…`.)
+- `tools/save-image.py` — save a `dataURL` result (contact sheet / snapshot) to a PNG.
 - Full reference: `docs/dsl.md` and `docs/api.md` in the repository.

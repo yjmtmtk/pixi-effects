@@ -195,7 +195,7 @@ const card = (x, z, color) => ({
 });
 return [
   orbit({ duration: 6, degrees: 50, dollyZoom: { from: 38, to: 62 } }),    // options: radius (not with dollyZoom), center, start, fov, ease
-  card(240, -300, '#3a6ea5'), card(640, 0, '#d96a3a'), card(1040, 250, '#38a169'),
+  card(240, -300, '#3a6ea5'), card(640, 0, '#d96a3a'), card(990, 60, '#38a169'),     // near cards stay at small z
 ];
 ```
 

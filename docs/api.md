@@ -89,13 +89,15 @@ contactSheet(options?: {
 
 Many frames on **one** PNG, each labelled `frame N · T s`. The cheapest way to check a whole animation by eye (include the middle of every transition and the last second). Restores the current frame afterwards.
 
-### `movie.inspect(frame?): Promise<InspectReport>`
+### `movie.inspect(frame?, options?): Promise<InspectReport>`
 
-Where every layer is drawn at `frame`, as JSON — for checking layout without eyes. Seeks there and stays there.
+Where every layer is drawn at `frame`, as JSON — for checking layout without eyes. Seeks there and stays there. `options.layers`: `'visible'` (default, only layers drawn at this frame), `'all'`, or `'none'` (just `summary` and `issues`). Faint layers (alpha < 0.3) and text whose x / y is animated (tickers) are not reported.
 
 ```ts
 interface InspectReport {
   frame: number; time: number; canvas: { width: number; height: number };
+  summary: { layers: number; visible: number };
+  issues: string[];              // text off the canvas / cut by an edge / empty / overlapping other text — read this first
   layers: Array<{
     path: string;                // names (or type#index) from the root, joined by '/'
     name?: string; type: string; threeD: boolean;
@@ -104,7 +106,6 @@ interface InspectReport {
     bounds: { x: number; y: number; width: number; height: number } | null;   // canvas pixels; null inside a threeD layer
     onCanvas: 'full' | 'partial' | 'none' | null;
   }>;
-  issues: string[];              // text off the canvas / cut by an edge / empty / overlapping other text
 }
 ```
 

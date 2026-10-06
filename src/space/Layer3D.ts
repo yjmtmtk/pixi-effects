@@ -129,9 +129,6 @@ export class Layer3D {
   }
 
   destroy(): void {
-    // Point the mesh at a neutral texture first: destroying a render texture that is still bound to a
-    // shader makes Pixi print a warning per layer.
-    this.display.texture = Texture.WHITE;
     this.display.destroy();
     this.rt?.destroy(true);
     this.rt = null;
