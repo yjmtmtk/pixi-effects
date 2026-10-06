@@ -161,6 +161,8 @@ This library is designed to be written by AI: a video is plain data, and every m
 - [`ai/SKILL.md`](./ai/SKILL.md) — a [skill](https://docs.claude.com/en/docs/claude-code/skills) (workflow, rules, verification loop). Copy the `ai/` folder to `~/.claude/skills/pixi-effects/` (or your project's `.claude/skills/`) to have Claude load it automatically when you ask for a video.
 - [`ai/reference/cheatsheet.md`](./ai/reference/cheatsheet.md), [`recipes.md`](./ai/reference/recipes.md) (tested), [`pitfalls.md`](./ai/reference/pitfalls.md), and a starter [`ai/template.html`](./ai/template.html).
 
+- **One-command review for the AI that wrote the page:** `npx pixi-effects-check my-video.html` (or `node ai/tools/check.mjs my-video.html`; Node ≥ 22 and Chrome installed, no dependencies). It opens the page in its own headless Chrome and reports warnings, layout (`movie.inspect` over the whole timeline), the soundtrack (`movie.inspectAudio`) and a real export decoded again, and writes a contact sheet PNG to look at. Exit code 0 / 1.
+
 They ship in the npm package (`node_modules/pixi-effects/ai/`).
 
 ## Documentation
