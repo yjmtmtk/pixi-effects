@@ -2,10 +2,10 @@
 title: Motion: groups, waves and randomness
 section: Guides
 order: 7
-summary: Move a whole group with a null layer, ripple things in with stagger, and add shake and variety that comes out the same on every run.
+summary: Move a whole group with a null layer, send a layer along a path, ripple things in with stagger, and add shake and variety that comes out the same on every run.
 ---
 
-Four small tools make motion feel designed instead of mechanical. They fit together: the piece at the bottom of this page uses all of them.
+Small tools that make motion feel designed instead of mechanical. They fit together: the piece at the bottom of this page uses all of them.
 
 ## Randomness that does not change
 
@@ -61,6 +61,22 @@ return [
 Two things to know. The children of a null are drawn together, at the null's place in the layer list. And only `null` layers can be parents (not shapes, text or images); a wrong name or a cycle gets a warning and the layer is drawn without a parent.
 
 A null at the middle of the canvas that carries *everything* is also the easiest way to make a camera shake or a slow push-in: put the `wiggle()` and a `scale` keyframe on that one layer.
+
+## Travel along a path
+
+`followPath()` turns an SVG path into keyframes for `x` and `y`: a layer rides a curve at an even speed, and with `orient: true` it also turns to face the way it is going. Set `frameRate` to the movie's so the layer is exactly on the path at every frame.
+
+```js
+// @recipe path-ride
+const ROUTE = 'M 120 560 C 360 120 920 120 1160 560';
+return [
+  { type: 'shape', shape: 'path', d: ROUTE, duration: 5, initial: { strokeColor: '#ffffff', strokeWidth: 3, strokeAlpha: 0.25 } },
+  { type: 'shape', shape: 'polygon', points: [[-18, -12], [18, 0], [-18, 12]], at: 0.5, duration: 4.5, initial: { fillColor: '#ffd166' },
+    keyframes: followPath({ d: ROUTE, duration: 4, ease: 'power2.inOut', orient: true, frameRate: 30 }) },
+];
+```
+
+The layer's own `x` and `y` are the points of the path, so give circles and shapes their centre there and text `anchorX: 0.5, anchorY: 0.5`. Give the layer its own `at` (as above) so it is not drawn at the origin before the trip begins. `from` and `to` (fractions of the path) travel only part of the way, or backwards; `rotate: -90` fixes an image that points up. To turn one outline into another, see [Shapes](shapes.html#morph-one-outline-into-another).
 
 ## Waves: `stagger`
 

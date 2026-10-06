@@ -10,6 +10,8 @@
 - A guide page on these four (`Motion: groups, waves and randomness`, with tested recipes) and a gallery piece that uses all of them (`orbit-rig`, 34 pieces now).
 - **Click the picture to play / pause** in the `Controller` (a tap on a phone too), like a `<video>`; the pointer cursor shows it. A tap that only closes the export popover does not also toggle. `new Controller(movie, { canvas, clickToPlay: false })` turns it off.
 - **`animateText()`**: per-character, per-word or per-line text animation in one call (`...animateText('Hello', style, { x, y, align, at, duration, in: 'rise', out: 'fade', stagger: { each: 0.05, from: 'center' }, idle: { y: 4 } })`). One text layer per piece laid out like the whole text, entering and leaving in a wave; presets `rise drop fade pop zoom slide spin` or your own `from` / `to`; an optional seeded idle drift; a clear error when `duration` is too short for the wave.
+- **`followPath()`**: a layer travelling along an SVG path as keyframes (`keyframes: followPath({ d, duration, ease, orient: true, frameRate: 30 })`), by arc length so the speed is even, one sample per frame, with optional heading (`orient` / `rotate`) that never jumps by a turn, and `from` / `to` fractions.
+- **Path morphing.** A `shape: 'path'` with `morphTo` (another SVG path) and an animatable `morph` (0 → 1) turns into the other outline: closed outlines are lined up so they do not twist, sub-paths are paired in order, fill, stroke and a trim follow, and the ends are drawn exactly as the paths.
 - **`wiggle()`**: a seeded shake or drift as keyframes (`keyframes: [...wiggle({ duration: 6, props: { x: { around: 'GW/2', amp: 6 } } })]`); every property moves on its own and ends back at its resting value.
 
 ## 0.9.0

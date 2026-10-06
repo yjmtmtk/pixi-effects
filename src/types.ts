@@ -503,6 +503,17 @@ export interface PathShapeSpec extends ShapeBase, Trimmable {
   shape: 'path';
   /** SVG path data (`d` attribute). Goes through PIXI's GraphicsContext.svg(). */
   d: string;
+  /**
+   * A second outline (SVG path data, in the same canvas coordinates as `d`) to morph into. Animate `morph` from 0 (the
+   * `d` outline) to 1 (this one); in between the layer is drawn as a polygon of points half way from one to the other.
+   * Sub-paths are paired in order (an extra one grows from / shrinks to its centre), and closed outlines are lined up so
+   * they do not twist.
+   */
+  morphTo?: string;
+  /** How far the morph has gone, 0–1 (animatable, top level or in `initial`). Needs `morphTo`. Default 0. */
+  morph?: number;
+  /** Points per sub-path the outlines are sampled at for the in-between shapes (8–2048, default 128). */
+  morphPoints?: number;
 }
 
 export type ShapeSequenceSpec =

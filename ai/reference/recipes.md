@@ -478,6 +478,35 @@ Presets for `in` / `out`: `rise` (default) `drop` `fade` `pop` `zoom` `slide` `s
 
 ---
 
+## Travel along a path, and morph one shape into another
+
+`followPath()` gives a layer's `x` / `y` (and `rotation` with `orient`) along an SVG path at an even speed. `morphTo` + `morph` turn one path outline into another.
+
+```js
+// @recipe follow-path
+const ROUTE = 'M 120 560 C 360 120 920 120 1160 560';
+return [
+  { type: 'shape', shape: 'path', d: ROUTE, duration: 5, initial: { strokeColor: '#ffffff', strokeWidth: 3, strokeAlpha: 0.25 } },     // the route, faint
+  { type: 'shape', shape: 'polygon', points: [[-18, -12], [18, 0], [-18, 12]], at: 0.5, duration: 4.5, initial: { fillColor: '#ffd166' },
+    keyframes: followPath({ d: ROUTE, duration: 4, ease: 'power2.inOut', orient: true, frameRate: 30 }) },                               // a pointer that faces the way it goes
+];
+```
+
+```js
+// @recipe morph
+const BLOB = 'M 640 160 C 780 160 860 260 860 360 C 860 470 770 560 640 560 C 510 560 420 470 420 360 C 420 250 500 160 640 160 Z';
+const STAR = 'M 640 130 L 700 300 L 880 300 L 735 410 L 790 590 L 640 480 L 490 590 L 545 410 L 400 300 L 580 300 Z';
+return [{
+  type: 'shape', shape: 'path', d: BLOB, morphTo: STAR, duration: 4,
+  initial: { fillColor: '#ffd166', strokeColor: '#ffffff', strokeWidth: 6, strokeJoin: 'round' },
+  keyframes: [{ at: 0.5, to: { morph: 1 }, duration: 1.5, ease: 'power2.inOut', repeat: 1, yoyo: true }],                                // there and back
+}];
+```
+
+Both outlines are in canvas coordinates. Closed outlines are lined up so they do not twist.
+
+---
+
 ## Looping motion
 
 `repeat` (a finite count) and `yoyo` go on any keyframe. Total time = `duration × (repeat + 1)`.

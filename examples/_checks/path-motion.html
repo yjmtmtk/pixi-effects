@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>check · followPath and path morph</title></head>
+<body>
+  <!--
+    Acceptance check (not an example): a red dot follows the route (100,600) -> (1100,600) -> (1100,100) over 3 s at constant speed (1500 px: it is at
+    (600,600) at 1 s, (1100,600) at 2 s, (1100,350) at 2.5 s), and a white square (400..600 x 200..400) morphs into the square 700..900 x 200..400 over 2 s.
+  -->
+  <canvas id="stage" width="1280" height="720" style="width:640px"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+  </script>
+  <script type="importmap">
+  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "gsap": "https://esm.sh/gsap@3.12.5", "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin", "mediabunny": "https://esm.sh/mediabunny" } }
+  </script>
+  <script type="module">
+    import { Movie, followPath } from '../../dist/index.js';
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 4, frameRate: 30, background: '#000000',
+        composition: { sequences: [
+          { type: 'shape', shape: 'path', d: 'M 400 200 L 600 200 L 600 400 L 400 400 Z', morphTo: 'M 700 200 L 900 200 L 900 400 L 700 400 Z',
+            initial: { fillColor: '#ffffff' }, keyframes: [{ at: 0, to: { morph: 1 }, duration: 2, ease: 'none' }] },
+          { type: 'shape', shape: 'circle', radius: 14, initial: { fillColor: '#ff0000' },
+            keyframes: followPath({ d: 'M 100 600 L 1100 600 L 1100 100', duration: 3, frameRate: 30 }) },
+        ] },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+  </script>
+</body>
+</html>

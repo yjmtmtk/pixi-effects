@@ -73,7 +73,41 @@ export function createPixiMock() {
   for (const m of ['rect', 'roundRect', 'circle', 'ellipse', 'moveTo', 'lineTo', 'arc', 'poly', 'path', 'closePath', 'beginPath', 'fill', 'stroke', 'svg']) {
     (Graphics.prototype as unknown as Record<string, unknown>)[m] = function (this: unknown) { return this; };
   }
-  class GraphicsPath { shapePath = { shapePrimitives: [] as unknown[] }; constructor(public svgD: string) {} }
+  /** Reads absolute M L H V C Q Z (curves sampled in 12 steps) into the sub-paths Pixi's own flattening gives. */
+  class GraphicsPath {
+    shapePath = { shapePrimitives: [] as Array<{ shape: { points: number[]; closePath: boolean } }> };
+    constructor(public svgD: string) {
+      const toks = svgD.match(/[MLHVCQZ]|-?\d*\.?\d+/g) ?? [];
+      let cur: number[] = [];
+      let i = 0;
+      const num = () => Number(toks[i++]);
+      const flush = (closed: boolean) => {
+        if (cur.length >= 4) this.shapePath.shapePrimitives.push({ shape: { points: cur, closePath: closed } });
+        cur = [];
+      };
+      const curve = (pts: number[][]) => {
+        const [x0, y0] = [cur[cur.length - 2]!, cur[cur.length - 1]!];
+        const all = [[x0, y0], ...pts];
+        for (let s = 1; s <= 12; s++) {
+          const u = s / 12;
+          let level = all;
+          while (level.length > 1) level = level.slice(1).map((q, k) => [level[k]![0]! + (q[0]! - level[k]![0]!) * u, level[k]![1]! + (q[1]! - level[k]![1]!) * u]);
+          cur.push(level[0]![0]!, level[0]![1]!);
+        }
+      };
+      while (i < toks.length) {
+        const c = toks[i++]!;
+        if (c === 'M') { flush(false); cur.push(num(), num()); }
+        else if (c === 'L') cur.push(num(), num());
+        else if (c === 'H') cur.push(num(), cur[cur.length - 1]!);
+        else if (c === 'V') cur.push(cur[cur.length - 2]!, num());
+        else if (c === 'C') curve([[num(), num()], [num(), num()], [num(), num()]]);
+        else if (c === 'Q') curve([[num(), num()], [num(), num()]]);
+        else if (c === 'Z') flush(true);
+      }
+      flush(false);
+    }
+  }
   /** Text measuring: every character is `fontSize / 2 + letterSpacing` wide, a line is `fontSize * 1.2` tall. */
   class TextStyle { constructor(public options: Record<string, unknown> = {}) {} }
   const CanvasTextMetrics = {

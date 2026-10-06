@@ -284,7 +284,7 @@ Every primitive draws centred on its local origin (so `anchorX`/`anchorY` and `p
 | `arc`     | `radius`                                 | `innerRadius`, `startAngle` (0), `endAngle` (360) |
 | `line`    | `from: [x,y]`, `to: [x,y]` (canvas coordinates; stroke in `initial`) | `trimStart`, `trimEnd` |
 | `polygon` | `points: [[x,y], …]`                     | `open` (default false), `trimStart`, `trimEnd` |
-| `path`    | `d` (SVG path data)                      | `trimStart`, `trimEnd` |
+| `path`    | `d` (SVG path data)                      | `trimStart`, `trimEnd`, `morphTo`, `morph`, `morphPoints` |
 
 **`arc`** is an arc around its local origin (the centre). Angles are in **degrees: 0° is 3 o'clock and positive is clockwise**, so a progress ring starts at `startAngle: -90` (12 o'clock) and animates `endAngle` from `-90` to `270`. With a stroke and no fill it is an open arc line (`strokeCap: 'round'` for rounded ends); with a fill it is a sector (a pie slice), and with `innerRadius` a ring segment (a donut slice). A sweep of 360° or more is a full circle; `endAngle < startAngle` sweeps counter-clockwise. `radius`, `innerRadius`, `startAngle` and `endAngle` are all animatable.
 
@@ -300,6 +300,14 @@ Every primitive draws centred on its local origin (so `anchorX`/`anchorY` and `p
 { type: 'shape', shape: 'path', d: 'M 0 50 L 45 95 L 130 0', trimEnd: 0, strokeCap: 'round', strokeJoin: 'round',
   initial: { x: 1040, y: 270, strokeColor: '#7bd88f', strokeWidth: 16 },
   keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 1, ease: 'power2.inOut' }] }   // a check mark drawing itself
+```
+
+**Morph (`morphTo` / `morph`).** A `path` can turn into another outline: give `morphTo` (SVG path data in the same canvas coordinates as `d`) and animate `morph` from 0 (the `d` outline) to 1 (the `morphTo` outline). In between it is drawn as a polygon of points half way from one to the other (`morphPoints`: 8–2048, default 128). Closed outlines are lined up (start point and direction) so they do not twist; sub-paths are paired in order, and an extra one grows from (or shrinks into) its own centre. Fill and stroke both follow, and `trimStart` / `trimEnd` walk the morphing outline. Write both outlines as `M … L … C … Z` in absolute coordinates (arcs and holes work too, but keep the same number of sub-paths on both sides).
+
+```ts
+{ type: 'shape', shape: 'path', d: 'M 640 160 C 780 160 860 260 860 360 C 860 470 770 560 640 560 C 510 560 420 470 420 360 C 420 250 500 160 640 160 Z',
+  morphTo: 'M 640 130 L 700 300 L 880 300 L 735 410 L 790 590 L 640 480 L 490 590 L 545 410 L 400 300 L 580 300 Z',
+  initial: { fillColor: '#ffd166' }, keyframes: [{ at: 0.5, to: { morph: 1 }, duration: 1.5, ease: 'power2.inOut' }] }   // a blob turns into a star
 ```
 
 `strokeCap` (`'butt'`, `'round'`, `'square'`) and `strokeJoin` (`'miter'`, `'round'`, `'bevel'`) work on every shape, at the top level or in `initial`; they are not animated. Sharp corners (the apex of an M in outlined text, a thin polygon) poke out with the default `miter` join: use `'round'`.
@@ -1176,6 +1184,30 @@ import { wiggle } from 'pixi-effects';
 | `ease` | string | between targets (default `'sine.inOut'`; `'none'` gives jittery straight lines) |
 
 It returns `Keyframe[]`: spread it into `keyframes`, next to others. Do not put another keyframe on the same property during the wiggle.
+
+### `followPath`
+
+A layer travelling along an SVG path, as keyframes for `x` and `y` (and `rotation`). The layer's own `x` / `y` are the points of the path (give shapes their centre there, and text `anchorX: 0.5, anchorY: 0.5`). The path is walked by arc length, so the speed is even whatever the curve, and sampled once per frame as short straight steps: set `frameRate` to the movie's and the layer is exactly on the path at every frame.
+
+```ts
+import { followPath } from 'pixi-effects';
+
+{ type: 'shape', shape: 'polygon', points: [[-18, -12], [18, 0], [-18, 12]], at: 0.5, duration: 4,
+  initial: { fillColor: '#ffd166' },
+  keyframes: followPath({ d: 'M 120 560 C 360 120 920 120 1160 560', duration: 4, ease: 'power2.inOut', orient: true, frameRate: 30 }) }
+```
+
+| Option | Notes |
+| ------ | ----- |
+| `d` | the route: SVG path data in canvas coordinates; several sub-paths are walked in order; a closed one comes back to its start |
+| `duration` | seconds; required |
+| `at` | start, seconds from the start of the layer (default 0): give the layer its own `at` so it is not drawn at the origin before the trip |
+| `ease` | GSAP ease for the progress along the path (default `'none'`: constant speed) |
+| `from` / `to` | fractions 0–1 of the path to start and stop at (default 0 → 1; `from: 1, to: 0` goes backwards) |
+| `orient` / `rotate` | `orient: true` also keyframes `rotation` (degrees) to face the way it is going, without ever jumping by a turn; `rotate` adds an offset (`-90` for an image that points up) |
+| `frameRate` | samples per second (default 30) |
+
+It returns `Keyframe[]`: spread it next to other keyframes, but not another `x`, `y` or `rotation` during the trip.
 
 ### `stagger`
 

@@ -10,6 +10,8 @@ import { tweenColor } from '../expr/colorTween';
 import type { Scope } from '../expr/Scope';
 import { makeGradientFill } from './gradientFill';
 import { trimPolylines, rectOutline, ellipseOutline, flattenSvgPath, type Polyline } from './trimPath';
+import { buildMorph, morphAt, type MorphPair } from './morphPath';
+import { collectPropKeys } from '../space/specKeys';
 import type {
   ShapeSequenceSpec, GradientSpec,
   LineShapeSpec, PolygonShapeSpec, PathShapeSpec,
@@ -26,7 +28,7 @@ type Timeline = ReturnType<typeof gsap.timeline>;
 // `LIVE_KEYS` is the union — any key in this set is stripped from the
 // standard transform/keyframe pipeline and routed through `_state` instead.
 type StyleKey = 'fillColor' | 'fillAlpha' | 'strokeColor' | 'strokeAlpha' | 'strokeWidth';
-type GeometryKey = 'width' | 'height' | 'cornerRadius' | 'radius' | 'radiusX' | 'radiusY' | 'anchorX' | 'anchorY' | 'innerRadius' | 'startAngle' | 'endAngle' | 'trimStart' | 'trimEnd';
+type GeometryKey = 'width' | 'height' | 'cornerRadius' | 'radius' | 'radiusX' | 'radiusY' | 'anchorX' | 'anchorY' | 'innerRadius' | 'startAngle' | 'endAngle' | 'trimStart' | 'trimEnd' | 'morph';
 type LiveKey = StyleKey | GeometryKey;
 
 const STYLE_KEYS = ['fillColor', 'fillAlpha', 'strokeColor', 'strokeAlpha', 'strokeWidth'] as const;
@@ -44,7 +46,7 @@ const GEOMETRY_KEYS_BY_SHAPE: Record<ShapeSequenceSpec['shape'], readonly Geomet
   arc:     ['radius', 'innerRadius', 'startAngle', 'endAngle'],
   line:    [...TRIM_KEYS],
   polygon: [...TRIM_KEYS],
-  path:    [...TRIM_KEYS],
+  path:    [...TRIM_KEYS, 'morph'],
 };
 
 // Shape kinds whose geometry is drawn relative to a configurable anchor —
@@ -75,6 +77,8 @@ interface ShapeState {
   /** Stroke trim: the part of the outline drawn, as fractions 0–1 of its length. */
   trimStart?: number;
   trimEnd?: number;
+  /** Path morph: how far from `d` (0) to `morphTo` (1). */
+  morph?: number;
   // stroke style that is not animated
   strokeCap?: string;
   strokeJoin?: string;
@@ -130,8 +134,9 @@ export class ShapeSequence extends Sequence {
     // ellipse) it pulls from _state so geometry tweens take effect; for
     // user-coord shapes (line / polygon / path) the geometry is immutable
     // and resolved once here.
-    this._drawGeometry = makeDrawGeometry(this.spec, scope, this._state);
-    this._outline = makeOutline(this.spec, scope, this._state);
+    const morph = this._setupMorph();
+    this._drawGeometry = makeDrawGeometry(this.spec, scope, this._state, morph);
+    this._outline = makeOutline(this.spec, scope, this._state, morph);
 
     // Measure the WHOLE shape (a layer that starts fully trimmed still has its size and centre).
     const { trimStart, trimEnd } = this._state;
@@ -173,6 +178,34 @@ export class ShapeSequence extends Sequence {
 
     this._redraw();
     this.buildFilters();
+  }
+
+  /** The prepared morph between `d` and `morphTo`, or null (and a warning when the spec asked for one that cannot work). */
+  private _setupMorph(): { pairs: MorphPair[]; to: string } | null {
+    const who = describeLayer(this.spec);
+    const top = this.spec as unknown as Record<string, unknown>;
+    const wanted = this.spec.shape === 'path' && (this._state.morph !== undefined || collectPropKeys(this.spec).has('morph'));
+    if (this.spec.shape !== 'path') {
+      if ('morphTo' in top) console.warn(`pixi-effects: ${who}: morphTo only works on a path shape (shape: 'path'); ignored`);
+      return null;
+    }
+    if (top.morphTo === undefined) {
+      if (wanted) console.warn(`pixi-effects: ${who}: morph needs morphTo (the outline to morph into); ignored`);
+      return null;
+    }
+    let points = 128;
+    if (top.morphPoints !== undefined) {
+      const n = Number(top.morphPoints);
+      if (Number.isInteger(n) && n >= 8 && n <= 2048) points = n;
+      else console.warn(`pixi-effects: ${who}: morphPoints must be a whole number from 8 to 2048, got ${String(top.morphPoints)}; using 128`);
+    }
+    const pairs = buildMorph(flattenSvgPath(this.spec.d), flattenSvgPath(String(top.morphTo)), points);
+    if (pairs.length === 0) {
+      console.warn(`pixi-effects: ${who}: morphTo "${String(top.morphTo)}" (or d) draws nothing, so there is nothing to morph; ignored`);
+      return null;
+    }
+    this._state.morph ??= 0;
+    return { pairs, to: String(top.morphTo) };
   }
 
   private _fresh = false;
@@ -445,19 +478,35 @@ const STATE_DRAWERS: Partial<Record<ShapeSequenceSpec['shape'], (g: Graphics, s:
   arc:     drawArcFromState,
 };
 
-function makeDrawGeometry(spec: ShapeSequenceSpec, scope: Scope, state: ShapeState): (g: Graphics) => void {
+function makeDrawGeometry(spec: ShapeSequenceSpec, scope: Scope, state: ShapeState, morph: { pairs: MorphPair[]; to: string } | null): (g: Graphics) => void {
   const stateDrawer = STATE_DRAWERS[spec.shape];
   if (stateDrawer) return (g: Graphics) => stateDrawer(g, state);
   switch (spec.shape) {
     case 'line':    return makeLineDraw(spec, scope);
     case 'polygon': return makePolygonDraw(spec, scope);
-    case 'path':    return makePathDraw(spec);
+    case 'path': {
+      const plain = makePathDraw(spec);
+      if (!morph) return plain;
+      const last = makePathDraw({ ...spec, d: morph.to });
+      return (g: Graphics) => {
+        const t = state.morph ?? 0;
+        if (t <= 0) plain(g);
+        else if (t >= 1) last(g);                                    // the ends are the paths themselves, curves and all
+        else for (const part of morphAt(morph.pairs, t)) drawPolyline(g, part);
+      };
+    }
   }
   return () => {};
 }
 
+function drawPolyline(g: Graphics, part: Polyline): void {
+  if (part.closed) { g.poly(part.pts, true); return; }
+  g.moveTo(part.pts[0]!, part.pts[1]!);
+  for (let i = 2; i < part.pts.length; i += 2) g.lineTo(part.pts[i]!, part.pts[i + 1]!);
+}
+
 /** The outline a stroke trim walks along: the same geometry as the drawer, as polylines (null: no trim for this kind). */
-function makeOutline(spec: ShapeSequenceSpec, scope: Scope, s: ShapeState): (() => Polyline[]) | null {
+function makeOutline(spec: ShapeSequenceSpec, scope: Scope, s: ShapeState, morph: { pairs: MorphPair[]; to: string } | null): (() => Polyline[]) | null {
   switch (spec.shape) {
     case 'rect': return () => {
       const w = s.width ?? 0, h = s.height ?? 0;
@@ -482,6 +531,7 @@ function makeOutline(spec: ShapeSequenceSpec, scope: Scope, s: ShapeState): (() 
       return () => lines;
     }
     case 'path': {
+      if (morph) return () => morphAt(morph.pairs, s.morph ?? 0);
       let lines: Polyline[] | null = null;                    // flattened on first use: only a trimmed path needs it
       return () => (lines ??= flattenSvgPath(spec.d));
     }

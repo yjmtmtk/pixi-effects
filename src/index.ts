@@ -25,6 +25,9 @@ export type { KenBurnsOptions } from './presets/kenBurns';
 export { orbit } from './presets/orbit';
 export type { OrbitOptions } from './presets/orbit';
 
+export { followPath } from './presets/followPath';
+export type { FollowPathOptions } from './presets/followPath';
+
 export { animateText } from './presets/animateText';
 export type { AnimateTextOptions, AnimateTextTween, TextPreset } from './presets/animateText';
 
