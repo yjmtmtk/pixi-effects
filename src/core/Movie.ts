@@ -5,6 +5,7 @@ import { PixiPlugin } from 'gsap/PixiPlugin';
 import { loadAssetBundle } from './AssetLoader';
 import { CompositionSequence } from '../sequences/Composition';
 import { mixdown, limitMix, type MixStats } from './AudioMixer';
+import { analyzeAudio, type AudioReport, type AudioInspectOptions } from './inspectAudio';
 import { exportFrames } from './Renderer';
 import { expandTransitions, carryTransitionWindows } from './Transitions';
 import { inspectScene, type InspectReport, type InspectOptions } from './inspect';
@@ -313,6 +314,16 @@ export class Movie {
     const f = clampFrame(frame, this.totalFrames);
     await this.gotoFrame(f, true);
     return inspectScene(this._rootSequence as CompositionSequence, f, f / this.frameRate, { width: this.width, height: this.height }, opts);
+  }
+
+  /**
+   * The soundtrack, measured: when every audio layer plays, how loud the mix is over time, and `issues`
+   * (limiting, inaudible layers, sounds cut off by the end). Use it to CHECK sound you cannot hear.
+   */
+  inspectAudio(opts: AudioInspectOptions = {}): AudioReport {
+    warnUnknownOptions('movie.inspectAudio()', opts, ['window']);
+    this._requireReady('inspectAudio');
+    return analyzeAudio(this.audioBuffer, this._audioSources, this._mixStats, this.duration, opts);
   }
 
   /**

@@ -9,6 +9,7 @@ export type {
 } from './core/Movie';
 
 export type { InspectReport, InspectOptions, LayerInfo } from './core/inspect';
+export type { AudioReport, AudioSourceReport, SoundMeasure, AudioInspectOptions } from './core/inspectAudio';
 
 export { registerSequenceType } from './core/Composition';
 export type { SequenceCtor } from './core/Composition';
