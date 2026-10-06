@@ -178,6 +178,7 @@ export class Movie {
 
       this.timeline.progress(1).progress(0);
       await this._awaitVideoFrames();
+      this._updateSpace();
       this.app.renderer.render({ container: this.app.stage });
 
       this._initState = 'ready';
@@ -196,6 +197,7 @@ export class Movie {
     this.currentFrame = Math.max(0, Math.min(frame, this.totalFrames));
     this.timeline!.time(this.currentFrame / this.frameRate);
     await this._awaitVideoFrames();
+    this._updateSpace();
     this.app?.renderer?.render({ container: this.app.stage });
     this.emit('frame', { frame: this.currentFrame, totalFrames: this.totalFrames } satisfies FrameEvent);
   }
@@ -210,6 +212,12 @@ export class Movie {
       if (local < 0 || local > (v.duration ?? 0)) return Promise.resolve();
       return v.awaitFrameAt(local);
     }));
+  }
+
+  /** Projects every `threeD` layer for the current frame (see src/space). */
+  private _updateSpace(): void {
+    if (!this._rootSequence || !this.app) return;
+    this._rootSequence.updateSpace(this.currentFrame / this.frameRate, this.app.renderer);
   }
 
   play(): void {

@@ -4,6 +4,7 @@ import { applyKeyframes, applyInitial, type PathRouters } from '../core/Timeline
 import { buildScope, type Scope } from '../expr/Scope';
 import { createFilter, type NamedFilter } from '../filters';
 import type { CompositionShape, SequenceSpec, AudioDescriptor } from '../types';
+import type { SpaceHost } from '../space/Layer3D';
 
 import type { gsap } from 'gsap';
 type Timeline = ReturnType<typeof gsap.timeline>;
@@ -89,6 +90,15 @@ export abstract class Sequence {
 
   collectAudio(_out: AudioDescriptor[], _baseTime: number): void {
     // default: no audio
+  }
+
+  /**
+   * 2.5D hook. Runs once per rendered frame, after the timeline seek and the
+   * per-frame media sync, before the render. Compositions override it to
+   * project their `threeD` layers; everything else has nothing to do.
+   */
+  updateSpace(_t: number, _host: SpaceHost): void {
+    // default: nothing to project
   }
 
   destroy(): void {

@@ -39,6 +39,7 @@ export type {
   TextSequenceSpec,
   AudioSequenceSpec,
   CompositionSequenceSpec,
+  CameraSequenceSpec,
   ShapeSequenceSpec,
   RectShapeSpec,
   CircleShapeSpec,
