@@ -17,6 +17,14 @@
  * Color() parser handles natively.
  */
 
+/**
+ * A colour with little chroma has no reliable hue (a "grey" like #9a9ab4 has C = 0.038 and a hue of 285° by accident).
+ * Below CHROMA_FLOOR its hue is fully replaced by the other endpoint's, above CHROMA_FULL it is used as it is, and in between
+ * the two blend smoothly. Vivid colours are C ≥ 0.1, pastels ≈ 0.05–0.08.
+ */
+const CHROMA_FLOOR = 0.03;
+const CHROMA_FULL = 0.08;
+
 export type ColorSpace = 'rgb' | 'oklab' | 'oklch';
 
 export type ColorInput = string | number;
@@ -45,11 +53,11 @@ export function buildColorInterp(
   // OKLCH: convert to polar and interpolate hue along the shorter arc.
   const fromLCH = oklabToOklch(fromOk);
   const toLCH   = oklabToOklch(toOk);
-  // If either endpoint is achromatic (C ≈ 0), its hue is undefined; carry
-  // the other endpoint's hue across so the ramp doesn't sweep through
-  // arbitrary colours on the way to / from grey.
-  if (fromLCH.C < 1e-4) fromLCH.h = toLCH.h;
-  if (toLCH.C < 1e-4)   toLCH.h   = fromLCH.h;
+  // A (nearly) grey endpoint has an accidental hue, often about opposite the colour it moves to, and the ramp
+  // then swept round the wheel through pink. Let it borrow the other endpoint's hue, the more so the greyer it is.
+  const fromHue = fromLCH.h, toHue = toLCH.h;
+  fromLCH.h = borrowHue(fromHue, fromLCH.C, toHue);
+  toLCH.h   = borrowHue(toHue, toLCH.C, fromHue);
   const hueDelta = shortestHueDelta(fromLCH.h, toLCH.h);
 
   return (t: number): string => {
@@ -60,6 +68,13 @@ export function buildColorInterp(
     const ab = oklchToOklab({ L, C, h });
     return rgbaString(oklabToRgb(ab), alpha);
   };
+}
+
+/** `own`, pulled toward `other` along the shorter arc by how little chroma it has. */
+function borrowHue(own: number, chroma: number, other: number): number {
+  const u = Math.min(1, Math.max(0, (chroma - CHROMA_FLOOR) / (CHROMA_FULL - CHROMA_FLOOR)));
+  const keep = u * u * (3 - 2 * u);
+  return own + shortestHueDelta(own, other) * (1 - keep);
 }
 
 // ─── Parsers / formatters ────────────────────────────────────────────────

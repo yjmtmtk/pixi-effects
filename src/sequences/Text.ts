@@ -21,9 +21,14 @@ type ValueState = { value: number };
 
 function formatValue(v: number, f: TextSequenceSpec['format']): string {
   const fixed = v.toFixed(Math.max(0, Math.floor(f?.decimals ?? 0)));
-  if (!f?.grouping) return fixed;
-  const [int, frac] = fixed.split('.') as [string, string | undefined];
-  return int.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (frac !== undefined ? '.' + frac : '');
+  const pad = Math.max(0, Math.floor(f?.pad ?? 0));
+  if (!f?.grouping && !pad) return fixed;
+  const [signed, frac] = fixed.split('.') as [string, string | undefined];
+  const sign = signed.startsWith('-') ? '-' : '';
+  let int = sign ? signed.slice(1) : signed;
+  if (pad) int = int.padStart(pad, '0');
+  if (f?.grouping) int = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return sign + int + (frac !== undefined ? '.' + frac : '');
 }
 
 export class TextSequence extends Sequence {

@@ -116,7 +116,7 @@ A text layer has one animatable number, `value`, printed wherever the text conta
 }
 ```
 
-`format`: `decimals` (default 0) and thousands `grouping` (default false). Put prefixes and suffixes in the text (`'${value}'`, `'{value}%'`). If `value` is animated but the text has no `{value}`, a warning says so.
+`format`: `decimals` (default 0), thousands `grouping` (default false) and `pad` (zero-pad the whole part to that many digits: `pad: 2` gives `05`, so a clock is `text: '18:42:{value}'` with `format: { pad: 2 }`). Put prefixes and suffixes in the text (`'${value}'`, `'{value}%'`). If `value` is animated but the text has no `{value}`, a warning says so.
 
 ### `image`
 

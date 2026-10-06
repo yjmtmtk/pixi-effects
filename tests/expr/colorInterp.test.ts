@@ -80,3 +80,31 @@ describe('buildColorInterp — OKLCH hue path', () => {
     expect(mid.b).toBeLessThan(40);       // never crossed into the cool side
   });
 });
+
+/** Hue in degrees (HSL) of an 'rgba(r,g,b,a)' string. */
+function hueOf(rgba: string): number {
+  const [r, g, b] = (rgba.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number).map(v => v / 255) as [number, number, number];
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  if (d < 1e-6) return NaN;
+  let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h *= 60;
+  return h < 0 ? h + 360 : h;
+}
+
+describe('oklch tween from a nearly-grey colour', () => {
+  it('a bluish grey → yellow stays on the yellow side of the wheel (no flash through pink / red)', () => {
+    const f = buildColorInterp('#9a9ab4', '#ffd60a', 'oklch');
+    for (const t of [0.3, 0.5, 0.7, 0.9]) {
+      const h = hueOf(f(t));
+      expect(h, `t=${t}`).toBeGreaterThan(30);
+      expect(h, `t=${t}`).toBeLessThan(90);                  // yellow is ~50°; pink / red would be > 300° or < 20°
+    }
+  });
+  it('also when the grey is the END of the tween, and a genuinely chromatic pair still takes the shorter hue arc', () => {
+    const f = buildColorInterp('#ffd60a', '#9a9ab4', 'oklch');
+    for (const t of [0.1, 0.3, 0.5, 0.7]) { const h = hueOf(f(t)); expect(h).toBeGreaterThan(30); expect(h).toBeLessThan(90); }
+    const rg = buildColorInterp('#ff0000', '#00ff00', 'oklch');
+    const mid = hueOf(rg(0.5));
+    expect(mid).toBeGreaterThan(20); expect(mid).toBeLessThan(110);   // red → green through orange / yellow, unchanged (measured 36°)
+  });
+});

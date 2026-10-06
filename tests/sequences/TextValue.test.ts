@@ -78,3 +78,31 @@ describe('lintText', () => {
     expect(run({ type: 'shape', shape: 'rect', width: 1, height: 1, initial: { value: 1 } })).toEqual([]);
   });
 });
+
+describe('text `{value}` — lint and zero-padding', () => {
+  it('a {value} placeholder that nothing sets or animates warns that it will print 0', () => {
+    const out: string[] = [];
+    lintText({ type: 'text', text: 'power2.inOut · {value}%' } as never, m => out.push(m));
+    expect(out).toHaveLength(1);
+    expect(out[0]).toContain('{value}');
+    expect(out[0]).toMatch(/prints 0|shows 0/);
+    // set in initial, or animated: no warning
+    const none: string[] = [];
+    lintText({ type: 'text', text: '{value}', initial: { value: 3 } } as never, m => none.push(m));
+    lintText({ type: 'text', text: '{value}', keyframes: [{ at: 0, to: { value: 9 }, duration: 1 }] } as never, m => none.push(m));
+    lintText({ type: 'text', text: 'plain' } as never, m => none.push(m));
+    expect(none).toEqual([]);
+  });
+
+  it('format.pad zero-pads the whole part to that many digits (a clock needs :05)', async () => {
+    const { s, tl } = await bound({ text: '18:42:{value}', format: { pad: 2 }, initial: { value: 5 }, keyframes: [{ at: 0, to: { value: 12 }, duration: 1 }] });
+    expect(textOf(s)).toBe('18:42:05');
+    tl.time(1);   expect(textOf(s)).toBe('18:42:12');
+    const d = await bound({ text: '{value}', format: { pad: 3, decimals: 1 }, initial: { value: 4.25 } });
+    expect(textOf(d.s)).toBe('004.3');            // pads the integer part only
+    const neg = await bound({ text: '{value}', format: { pad: 2 }, initial: { value: -3 } });
+    expect(textOf(neg.s)).toBe('-03');
+    const grouped = await bound({ text: '{value}', format: { pad: 6, grouping: true }, initial: { value: 1234 } });
+    expect(textOf(grouped.s)).toBe('001,234');
+  });
+});

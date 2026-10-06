@@ -242,7 +242,7 @@ export interface TextSequenceSpec extends SequenceCommon {
    */
   text?: string;
   /** How `{value}` is printed: `decimals` (default 0) and thousands `grouping` (default false). */
-  format?: { decimals?: number; grouping?: boolean };
+  format?: { decimals?: number; grouping?: boolean; /** Zero-pad the whole part to this many digits (`pad: 2` → `05`; a clock `18:42:05`). */ pad?: number };
   /** Subset of PIXI v8 TextStyleOptions. String values may be exprs (e.g. fontSize: 'GW * 0.05'). */
   style?: Record<string, PropValue | { color?: PropValue; width?: PropValue }>;
   /**
