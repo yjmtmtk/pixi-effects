@@ -103,36 +103,52 @@ Prefixes and suffixes go in the text (`'${value}'`, `'{value} users'`, `'{value}
 
 ## Data-driven bar chart
 
-Generate the whole spec from the data. Bars grow from the baseline (`anchorY: 1` + a `height` keyframe); each value label rides the top of its bar and counts up with the same ease and timing, so they stay locked.
+Generate the whole spec from the data. Bars grow from the baseline (`anchorY: 1` + a `height` keyframe); each value label rides the top of its bar and counts up with the same ease and timing, so they stay locked. A line's `from` / `to` are plain canvas coordinates (give `x,y` only to move it). A callout pill must be sized from its text.
 
 ```js
 // @recipe bar-chart
 const data = [['Mon', 12], ['Tue', 30], ['Wed', 22], ['Thu', 41], ['Fri', 35]];
 const max = Math.max(...data.map(d => d[1]));
+const step = [1, 2, 2.5, 5, 10].map(m => m * 10 ** Math.floor(Math.log10(max / 4))).find(v => max / v <= 5) ?? 10;
+const NICE = Math.ceil(max / step) * step;                    // axis top, so the chart survives changed data
 const BASE = 600, CHART_H = 380, BAR_W = 90, GAP = 40, DUR = 0.9, EASE = 'power3.out';
-const x0 = (1280 - (data.length * BAR_W + (data.length - 1) * GAP)) / 2;
+const X0 = (1280 - (data.length * BAR_W + (data.length - 1) * GAP)) / 2, X1 = X0 + data.length * BAR_W + (data.length - 1) * GAP;
 const sequences = [];
+for (let v = 0; v <= NICE; v += step) {                       // grid lines + tick labels
+  const y = BASE - CHART_H * v / NICE;
+  sequences.push({ type: 'shape', shape: 'line', from: [X0 - 20, y], to: [X1 + 20, y], initial: { strokeColor: '#33405c', strokeWidth: 1 } });
+  sequences.push({ type: 'text', text: String(v), style: { fontSize: 20, fill: '#7f8bb0' }, initial: { x: X0 - 32, y, anchorX: 1, anchorY: 0.5 } });
+}
+const best = data.findIndex(d => d[1] === max);
 data.forEach(([label, value], i) => {
-  const x = x0 + i * (BAR_W + GAP) + BAR_W / 2;
+  const x = X0 + i * (BAR_W + GAP) + BAR_W / 2;
   const at = 0.4 + i * 0.12;
-  const h = CHART_H * value / max;
+  const h = CHART_H * value / NICE;
   sequences.push({
-    type: 'shape', shape: 'rect', width: BAR_W, height: 0, cornerRadius: 8, anchorY: 1, at,
-    initial: { x, y: BASE, fillColor: value === max ? '#ffd166' : '#4f6df5' },
-    keyframes: [{ at: 0, to: { height: h }, duration: DUR, ease: EASE }],
+    type: 'shape', shape: 'rect', width: BAR_W, height: 0, cornerRadius: 8, anchorY: 1, at, colorSpace: 'oklab',
+    initial: { x, y: BASE, fillColor: '#4f6df5' },
+    keyframes: [
+      { at: 0, to: { height: h }, duration: DUR, ease: EASE },
+      ...(i === best ? [{ at: 4 - at, to: { fillColor: '#ffd166' }, duration: 0.5 }] : [{ at: 4 - at, to: { alpha: 0.45 }, duration: 0.5 }]),   // highlight the maximum at t = 4 s
+    ],
   });
-  sequences.push({                                   // value label: counts up while riding the bar's top
+  sequences.push({                                            // value label: counts up while riding the bar's top
     type: 'text', text: '{value}', at,
     style: { fontSize: 28, fontWeight: 'bold', fill: '#ffffff' },
     initial: { x, y: BASE - 14, anchorX: 0.5, anchorY: 1, value: 0 },
     keyframes: [{ at: 0, to: { value, y: BASE - h - 14 }, duration: DUR, ease: EASE }],
   });
-  sequences.push({
-    type: 'text', text: label, at, style: { fontSize: 26, fill: '#aab4d4' },
-    initial: { x, y: BASE + 16, anchorX: 0.5, anchorY: 0 },
-  });
+  sequences.push({ type: 'text', text: label, at, style: { fontSize: 26, fill: '#aab4d4' }, initial: { x, y: BASE + 16, anchorX: 0.5, anchorY: 0 } });
 });
-sequences.push({ type: 'shape', shape: 'rect', width: 1000, height: 2, initial: { x: 'GW/2', y: BASE, fillColor: '#445566' } });
+// callout: a pill sized from its text (~0.58 x fontSize per glyph + padding), a pointer triangle, clamped inside the plot
+const text = 'Peak: ' + data[best][0] + ' ' + max, FS = 26;
+const PW = text.length * FS * 0.58 + 44, cx = Math.min(Math.max(X0 + best * (BAR_W + GAP) + BAR_W / 2, X0 + PW / 2), X1 - PW / 2), cy = BASE - CHART_H - 70;
+sequences.push({ type: 'shape', shape: 'rect', width: PW, height: 52, cornerRadius: 26, at: 4.2, initial: { x: cx, y: cy, fillColor: '#ffd166', alpha: 0 },
+                 keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] });
+sequences.push({ type: 'shape', shape: 'polygon', points: [[-10, 0], [10, 0], [0, 12]], at: 4.2, initial: { x: cx, y: cy + 32, fillColor: '#ffd166', alpha: 0 },
+                 keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] });
+sequences.push({ type: 'text', text, at: 4.2, style: { fontSize: FS, fontWeight: 'bold', fill: '#1b1b2f' }, initial: { x: cx, y: cy, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+                 keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] });
 return sequences;
 ```
 
@@ -169,7 +185,7 @@ return [
 
 ## Camera orbit (+ optional dolly zoom)
 
-`orbit()` returns a camera layer that circles a point (the circle is sampled into short linear keyframes; the ease applies to the angle). Its `z` is specified, so it no longer follows `fov` — if you also want a dolly zoom, write your own `fov` and `z = (H/2)/tan(fov/2)` keyframes. Under a dolly zoom only the `z = 0` plane stays fixed: keep the hero content at `z = 0` and near content at small `z`.
+`orbit()` returns a camera layer that circles a point (the circle is sampled into short linear keyframes; the ease applies to the angle). Add `dollyZoom: { from, to }` and `fov` animates while the radius follows it, so the `z = 0` plane keeps its size and only the perspective changes. Under a dolly zoom everything with `z > 0` balloons toward the viewer: keep the hero content at `z = 0` and near content at small `z`; far layers are pulled toward the centre, so spread far cards to the outer x positions and near cards inward, and leave ~10 % margin for the orbit sweep.
 
 ```js
 // @recipe camera-orbit
@@ -178,12 +194,59 @@ const card = (x, z, color) => ({
   initial: { x, y: 360, z, fillColor: color },
 });
 return [
-  orbit({ duration: 6, degrees: 50 }),               // ±25° around the centre; options: radius, center, start, fov, ease
-  card(300, -300, '#3a6ea5'), card(640, 0, '#d96a3a'), card(980, 300, '#38a169'),
+  orbit({ duration: 6, degrees: 50, dollyZoom: { from: 38, to: 62 } }),    // options: radius (not with dollyZoom), center, start, fov, ease
+  card(240, -300, '#3a6ea5'), card(640, 0, '#d96a3a'), card(1040, 250, '#38a169'),
 ];
 ```
 
-A call-to-action or any overlay that must stay screen-aligned should be a plain 2D layer (no `threeD`) placed last: it ignores the camera and stays on top.
+A call-to-action or any overlay that must stay screen-aligned should be a plain 2D layer (no `threeD`) placed last: it ignores the camera and stays on top. Fade the 3D scene and headline out before it appears; a dim rect alone leaves them visible.
+
+---
+
+## A card in depth (a composition with `threeD: true`)
+
+A `composition` with `threeD: true` is a card: its children are drawn into one texture that is then moved in depth, so a rect, an icon and a label rotate and scale together. `threeD` layers at the same `z` keep array order. Entrance from depth, then a gentle bob with `repeat` / `yoyo`.
+
+```js
+// @recipe depth-cards
+const card = (title, color, x, y, z, at) => ({
+  type: 'composition', name: title, at, width: 300, height: 190, threeD: true,
+  initial: { x, y, z, pivotX: 150, pivotY: 95 },                       // pivot = the centre, so x,y is where the centre sits
+  sequences: [
+    { type: 'shape', shape: 'rect', width: 300, height: 190, cornerRadius: 24, initial: { x: 150, y: 95, fillColor: color } },
+    { type: 'text', text: title, style: { fontSize: 34, fontWeight: 'bold', fill: '#ffffff' }, initial: { x: 150, y: 95, anchorX: 0.5, anchorY: 0.5 } },
+  ],
+  keyframes: [
+    { at: 0, from: { alpha: 0, z: z - 400, rotationY: 55 }, to: { alpha: 1, z, rotationY: 0 }, duration: 0.9, ease: 'expo.out' },
+    { at: 1, to: { y: y - 14 }, duration: 1.2, ease: 'sine.inOut', repeat: 3, yoyo: true },
+  ],
+});
+return [
+  { type: 'camera', initial: { fov: 42 } },
+  card('Battery', '#3a6ea5', 220, 300, -280, 0.2),         // far cards at the outer x
+  card('Sound', '#d96a3a', 1060, 260, -200, 0.4),
+  card('Comfort', '#38a169', 640, 380, 0, 0.6),
+];
+```
+
+---
+
+## Cut to the next scene with an expanding circle
+
+The outgoing scene must stay alive until the covering shape has finished; the next scene starts when the flood is complete. Reach the far corners: radius ≥ half the diagonal (734 px at 720p). `expo.in` stays tiny until the very end — use `power2.in`.
+
+```js
+// @recipe scene-flood
+const FLOOD_AT = 3, FLOOD = 0.6, END = 6;
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', duration: FLOOD_AT + FLOOD, initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1d2b53' } },
+  { type: 'text', text: 'BEFORE', duration: FLOOD_AT + FLOOD, style: { fontSize: 160, fontWeight: '900', fill: '#ffffff' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 } },
+  { type: 'shape', shape: 'circle', radius: 0, at: FLOOD_AT, duration: END - FLOOD_AT, initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ffd166' },
+    keyframes: [{ at: 0, to: { radius: 820 }, duration: FLOOD, ease: 'power2.in' }] },
+  { type: 'text', text: 'AFTER', at: FLOOD_AT + FLOOD, duration: END - FLOOD_AT - FLOOD, style: { fontSize: 160, fontWeight: '900', fill: '#1d2b53' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+    keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.25 }] },
+];
+```
 
 ---
 
