@@ -76,6 +76,7 @@ jobs:
               <li><a href="examples/10-three.html"><small>10</small>three.js layer</a></li>
               <li><a href="examples/11-depth.html"><small>11</small>depth &amp; camera (2.5D)</a></li>
               <li><a href="examples/12-title-motion.html"><small>12</small>title motion (2.5D)</a></li>
+              <li><a href="examples/13-sfx.html"><small>13</small>sound effects (no files)</a></li>
             </ol>
             <a class="playground" href="examples/playground.html">▶ open playground</a>
           </body>

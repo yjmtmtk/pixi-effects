@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>pixi-effects — 13 · sound effects</title>
+  <style>
+    body { background: #0d1220; margin: 0; font-family: sans-serif; color: #ccc; padding: 16px; }
+    h1 { font-weight: 500; margin: 0 0 4px 0; }
+    p { font-size: 13px; color: #888; margin: 0 0 16px 0; max-width: 960px; }
+    p code, ul code { background: #1a1a22; padding: 1px 6px; border-radius: 3px; color: #b5d3ff; }
+    ul { font-size: 13px; color: #888; margin: 0 0 16px 0; padding-left: 20px; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1>13 · sound effects</h1>
+  <p>
+    Every sound in this movie is synthesised from data — no audio files. An audio layer with
+    <code>sfx: 'pop'</code> (or <code>sfx: { preset: 'pop', pitch: 5, seed: 2 }</code>) plays a preset at its <code>at</code>.
+  </p>
+  <ul>
+    <li>0.5–10.5 s: the eleven presets, one per second; each tile lights up when its sound starts.</li>
+    <li>11.5 s: a riser leads into a hit (<code>at = hit − duration</code>: a riser is loudest at its end), then three pops climb in pitch.</li>
+    <li>The layer's <code>duration</code> is the sound's length: omit it for the preset's own length.</li>
+    <li>14 s: a custom sound from <code>sfx: { voices: [...] }</code> — one falling square wave.</li>
+  </ul>
+  <canvas id="stage" width="1280" height="720"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":            "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":      "https://esm.sh/mediabunny"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../dist/index.js';
+    import { Controller } from '../dist/Controller.js';
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    const PRESETS = ['click', 'pop', 'swoosh', 'swipe', 'hit', 'riser', 'chime', 'beep', 'coin', 'glitch', 'typewriter'];
+    const START = 0.5, EVERY = 1, DURATION = 15;
+    const COLS = 6, TW = 170, TH = 110, GAP = 20;
+    const X0 = (1280 - (COLS * TW + (COLS - 1) * GAP)) / 2 + TW / 2;
+
+    const tile = (preset, i) => {
+      const at = START + i * EVERY;
+      const x = X0 + (i % COLS) * (TW + GAP);
+      const y = 300 + Math.floor(i / COLS) * (TH + GAP);
+      return [
+        { type: 'shape', shape: 'rect', name: 'tile-' + preset, width: TW, height: TH, cornerRadius: 16,
+          initial: { x, y, fillColor: '#1b2440' },
+          keyframes: [
+            { at, set: { fillColor: '#ffd166' } },
+            { at: at + 0.05, to: { fillColor: '#2a3a66' }, duration: 0.6, ease: 'power2.out' },
+          ] },
+        { type: 'text', name: 'label-' + preset, text: preset,
+          style: { fontSize: 26, fontWeight: 'bold', fill: '#ffffff', fontFamily: 'system-ui, sans-serif' },
+          initial: { x, y, anchorX: 0.5, anchorY: 0.5 } },
+        { type: 'audio', name: 'sfx-' + preset, sfx: preset, at },
+      ];
+    };
+
+    const HIT = 12.5, RISE = 1;
+    const finale = [
+      { type: 'audio', name: 'riser', sfx: 'riser', at: HIT - RISE, duration: RISE, volume: 0.7 },
+      { type: 'audio', name: 'hit', sfx: 'hit', at: HIT },
+      { type: 'text', name: 'title', text: 'NO FILES', at: HIT, duration: DURATION - HIT,
+        style: { fontSize: 96, fontWeight: '900', fill: '#ffffff', fontFamily: 'Arial Black, Arial, sans-serif' },
+        initial: { x: 'GW/2', y: 120, anchorX: 0.5, anchorY: 0.5 },
+        keyframes: [{ at: 0, from: { scale: 2.2, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.18, ease: 'expo.out' }] },
+      ...[0, 1, 2].map(i => ({ type: 'audio', name: 'pop' + i, sfx: { preset: 'pop', pitch: i * 3 }, at: HIT + 0.6 + i * 0.25 })),
+      // a custom sound: a falling, filtered square "zap", made of one voice
+      { type: 'audio', name: 'zap', at: HIT + 1.5, duration: 0.3, volume: 0.8,
+        sfx: { voices: [{ wave: 'square', freq: [1600, 200], filter: { type: 'lowpass', freq: 3000 }, envelope: 'fall' }], brightness: -0.3 } },
+    ];
+
+    await movie.init({
+      canvas: document.getElementById('stage'),
+      width: 1280, height: 720, duration: DURATION, frameRate: 30,
+      background: '#0a0e1a',
+      composition: {
+        sequences: [
+          { type: 'text', name: 'heading', text: 'sound effects, synthesised',
+            style: { fontSize: 34, fill: '#9fb3d9', fontFamily: 'system-ui, sans-serif' },
+            initial: { x: 'GW/2', y: 120, anchorX: 0.5, anchorY: 0.5 },
+            duration: HIT },
+          ...PRESETS.flatMap(tile),
+          ...finale,
+        ],
+      },
+    });
+    window.__ready = true;
+  </script>
+</body>
+</html>

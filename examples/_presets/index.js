@@ -9,6 +9,7 @@ import transitions from './07-transitions.js';
 import presetsExport from './08-presets-export.js';
 import audio from './09-audio.js';
 import depth from './11-depth.js';
+import sfx from './13-sfx.js';
 
 export default [
   { id: '01-hello',       label: '01 · hello',              code: hello },
@@ -21,4 +22,5 @@ export default [
   { id: '08-presets',     label: '08 · presets + export',   code: presetsExport },
   { id: '09-audio',       label: '09 · audio',              code: audio },
   { id: '11-depth',       label: '11 · depth + camera',     code: depth },
+  { id: '13-sfx',         label: '13 · sound effects',      code: sfx },
 ];
