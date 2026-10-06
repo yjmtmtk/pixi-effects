@@ -10,7 +10,7 @@ export default defineConfig({
   dts: true,
   clean: true,
   sourcemap: true,
-  splitting: false,
+  splitting: true,
   treeshake: true,
   target: 'es2022',
   external: ['pixi.js', 'gsap', 'gsap/PixiPlugin', 'mediabunny', 'three'],

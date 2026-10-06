@@ -25,22 +25,13 @@ const staticTypes: Partial<Record<SequenceSpec['type'], SequenceCtor>> = {
 };
 
 // Externally-registered sequence types (e.g. `pixi-effects/three`).
-//
-// Stored on globalThis via Symbol.for rather than in a module-local map:
-// tsup bundles each entry point with `splitting: false`, so the three entry
-// carries its own copy of this module. A module-local map would fork per
-// bundle and registrations from `pixi-effects/three` would be invisible to
-// the copy the Movie uses. Symbol.for guarantees one shared registry.
-const REGISTRY_KEY = Symbol.for('pixi-effects.sequenceTypes');
-
-function getRegistry(): Record<string, SequenceCtor> {
-  const g = globalThis as unknown as Record<symbol, Record<string, SequenceCtor> | undefined>;
-  return (g[REGISTRY_KEY] ??= {});
-}
+// tsup splits shared code into common chunks, so every entry point sees this
+// single module instance.
+const registry: Record<string, SequenceCtor> = {};
 
 /** Register an external sequence type. Later registrations overwrite earlier ones. */
 export function registerSequenceType(type: string, ctor: SequenceCtor): void {
-  getRegistry()[type] = ctor;
+  registry[type] = ctor;
 }
 
 export async function buildSequenceTree(
@@ -50,7 +41,7 @@ export async function buildSequenceTree(
 ): Promise<Sequence[]> {
   const out: Sequence[] = [];
   for (const spec of specs) {
-    let Cls: SequenceCtor | undefined = staticTypes[spec.type] ?? getRegistry()[spec.type];
+    let Cls: SequenceCtor | undefined = staticTypes[spec.type] ?? registry[spec.type];
     if (!Cls && spec.type === 'composition') {
       Cls = (await getCompositionSequence()) as unknown as SequenceCtor;
     }

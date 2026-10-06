@@ -35,14 +35,6 @@ describe('registerSequenceType', () => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('__test-unregistered'));
   });
 
-  it('stores the registry on globalThis via Symbol.for so duplicate bundled copies share it', () => {
-    registerSequenceType('__test-global', FakeSequence as never);
-    const reg = (globalThis as Record<symbol, unknown>)[
-      Symbol.for('pixi-effects.sequenceTypes')
-    ] as Record<string, unknown>;
-    expect(reg['__test-global']).toBe(FakeSequence);
-  });
-
   it('overwrites on re-registration (idempotent double-register is safe)', async () => {
     registerSequenceType('__test-idem', FakeSequence as never);
     registerSequenceType('__test-idem', FakeSequence as never);
