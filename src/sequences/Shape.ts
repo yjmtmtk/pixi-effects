@@ -2,7 +2,7 @@ import { Graphics, GraphicsPath } from 'pixi.js';
 import { gsap } from 'gsap';
 import { Sequence } from './Base';
 import { evaluateExpr, isExpr } from '../expr/Parser';
-import { applyKeyframes, applyInitial, resolveAt } from '../core/Timeline';
+import { applyKeyframes, applyInitial, resolveAt, loopVars } from '../core/Timeline';
 import { type ColorSpace, type ColorInput } from '../expr/colorInterp';
 import { tweenColor } from '../expr/colorTween';
 import type { Scope } from '../expr/Scope';
@@ -324,6 +324,7 @@ function bindLiveKeyframes(
     const at = offset + resolveAt(kf.at, parentDuration);
     const duration = kf.duration ?? 0;
     const ease = kf.ease ?? 'none';
+    const loop = loopVars(kf);
 
     if (kf.set) {
       const live = pickLive(kf.set, liveKeys);
@@ -351,7 +352,7 @@ function bindLiveKeyframes(
       // chained keyframe back to the initial value — masking later changes).
       const fromValue = fromRaw !== undefined ? resolveLiveValue(key, fromRaw, scope) : undefined;
       const toValue   = toRaw   !== undefined ? resolveLiveValue(key, toRaw,   scope) : undefined;
-      tweenLiveKey(timeline, state, key, fromValue, toValue, duration, ease, at, colorSpace);
+      tweenLiveKey(timeline, state, key, fromValue, toValue, duration, ease, at, colorSpace, loop);
     }
   }
 }
@@ -366,6 +367,7 @@ function tweenLiveKey(
   ease: string,
   at: number,
   colorSpace: ColorSpace,
+  loop: Record<string, number | boolean>,
 ): void {
   if (COLOR_KEYS.has(key) && toValue !== undefined) {
     tweenColor(
@@ -374,17 +376,17 @@ function tweenLiveKey(
       key,
       fromValue as ColorInput | undefined,
       toValue as ColorInput,
-      duration, ease, at, colorSpace,
+      duration, ease, at, colorSpace, undefined, loop,
     );
   } else if (toValue !== undefined) {
     // Numeric keys (alpha, width, geometry).
     if (fromValue !== undefined) {
       // Only force a starting value when `from` was explicit on the keyframe.
-      timeline.fromTo(state, { [key]: fromValue }, { [key]: toValue, duration, ease }, at);
+      timeline.fromTo(state, { [key]: fromValue }, { [key]: toValue, duration, ease, ...loop }, at);
     } else {
       // Standard `.to()` picks up the live state value at tween start —
       // chains correctly through prior keyframes.
-      timeline.to(state, { [key]: toValue, duration, ease }, at);
+      timeline.to(state, { [key]: toValue, duration, ease, ...loop }, at);
     }
   }
 }

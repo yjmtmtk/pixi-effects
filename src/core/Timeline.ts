@@ -9,10 +9,34 @@ export interface NormalizedKeyframe {
   at: number;
   duration: number;
   ease: string;
+  loop: Record<string, number | boolean>;
   kind: Kind;
   set?: Record<string, unknown>;
   to?: Record<string, unknown>;
   from?: Record<string, unknown>;
+}
+
+/**
+ * GSAP loop vars (`repeat`, `yoyo`, `repeatDelay`) for a keyframe. Only a finite,
+ * non-negative repeat count is allowed: an infinite repeat would give the
+ * timeline an infinite length and break seeking / export.
+ */
+export function loopVars(kf: { repeat?: number; yoyo?: boolean; repeatDelay?: number }): Record<string, number | boolean> {
+  const out: Record<string, number | boolean> = {};
+  let repeat = 0;
+  if (kf.repeat !== undefined) {
+    if (Number.isFinite(kf.repeat) && kf.repeat >= 0) {
+      repeat = Math.floor(kf.repeat);
+      out.repeat = repeat;
+    } else {
+      console.warn(`pixi-effects: keyframe repeat ${String(kf.repeat)} ignored — repeat must be a finite count >= 0 (the timeline needs a fixed length; for endless motion repeat many times).`);
+    }
+  }
+  if (repeat > 0) {
+    if (kf.yoyo !== undefined) out.yoyo = kf.yoyo;
+    if (kf.repeatDelay !== undefined && kf.repeatDelay > 0) out.repeatDelay = kf.repeatDelay;
+  }
+  return out;
 }
 
 export function resolveAt(at: number | undefined | null, duration: number): number {
@@ -33,7 +57,7 @@ export function normalizeKeyframe(kf: Keyframe, parentDuration: number): Normali
   else if (hasFrom) kind = 'from';
   else if (hasTo) kind = 'to';
   else kind = 'to';
-  return { at, duration, ease, kind, set: kf.set, from: kf.from, to: kf.to };
+  return { at, duration, ease, loop: loopVars(kf), kind, set: kf.set, from: kf.from, to: kf.to };
 }
 
 export interface Partitioned {
@@ -163,27 +187,27 @@ export function applyKeyframes(
       const resolved = normalizeProps(kf.to!, scope, { skipKeys });
       const { rest, routed } = splitRouted(resolved, routers);
       for (const r of routed)
-        timeline.to(r.target, { [r.prop]: r.value, duration: kf.duration, ease: kf.ease }, at);
+        timeline.to(r.target, { [r.prop]: r.value, duration: kf.duration, ease: kf.ease, ...kf.loop }, at);
       const { ownProps, filterProps } = partitionProps(rest);
       if (Object.keys(ownProps).length > 0)
-        timeline.to(target, { ...pixiwrap(ownProps), duration: kf.duration, ease: kf.ease }, at);
+        timeline.to(target, { ...pixiwrap(ownProps), duration: kf.duration, ease: kf.ease, ...kf.loop }, at);
       for (const [name, props] of Object.entries(filterProps)) {
         const f = findFilter(target as FilterTarget, name);
         if (!f) continue;
-        timeline.to(f, { ...props, duration: kf.duration, ease: kf.ease }, at);
+        timeline.to(f, { ...props, duration: kf.duration, ease: kf.ease, ...kf.loop }, at);
       }
     } else if (kf.kind === 'from') {
       const resolved = normalizeProps(kf.from!, scope, { skipKeys });
       const { rest, routed } = splitRouted(resolved, routers);
       for (const r of routed)
-        timeline.from(r.target, { [r.prop]: r.value, duration: kf.duration, ease: kf.ease }, at);
+        timeline.from(r.target, { [r.prop]: r.value, duration: kf.duration, ease: kf.ease, ...kf.loop }, at);
       const { ownProps, filterProps } = partitionProps(rest);
       if (Object.keys(ownProps).length > 0)
-        timeline.from(target, { ...pixiwrap(ownProps), duration: kf.duration, ease: kf.ease }, at);
+        timeline.from(target, { ...pixiwrap(ownProps), duration: kf.duration, ease: kf.ease, ...kf.loop }, at);
       for (const [name, props] of Object.entries(filterProps)) {
         const f = findFilter(target as FilterTarget, name);
         if (!f) continue;
-        timeline.from(f, { ...props, duration: kf.duration, ease: kf.ease }, at);
+        timeline.from(f, { ...props, duration: kf.duration, ease: kf.ease, ...kf.loop }, at);
       }
     } else {
       const fromResolved = normalizeProps(kf.from!, scope, { skipKeys });
@@ -197,13 +221,13 @@ export function applyKeyframes(
         fromByKey.delete(r.key);
         if (f) {
           timeline.fromTo(r.target, { [r.prop]: f.value },
-            { [r.prop]: r.value, duration: kf.duration, ease: kf.ease }, at);
+            { [r.prop]: r.value, duration: kf.duration, ease: kf.ease, ...kf.loop }, at);
         } else {
-          timeline.to(r.target, { [r.prop]: r.value, duration: kf.duration, ease: kf.ease }, at);
+          timeline.to(r.target, { [r.prop]: r.value, duration: kf.duration, ease: kf.ease, ...kf.loop }, at);
         }
       }
       for (const f of fromByKey.values())
-        timeline.from(f.target, { [f.prop]: f.value, duration: kf.duration, ease: kf.ease }, at);
+        timeline.from(f.target, { [f.prop]: f.value, duration: kf.duration, ease: kf.ease, ...kf.loop }, at);
       const fromSplit = partitionProps(fromRouted.rest);
       const toSplit = partitionProps(toRouted.rest);
       const ownKeys = new Set([...Object.keys(fromSplit.ownProps), ...Object.keys(toSplit.ownProps)]);
@@ -211,7 +235,7 @@ export function applyKeyframes(
         timeline.fromTo(
           target,
           { ...pixiwrap(fromSplit.ownProps) },
-          { ...pixiwrap(toSplit.ownProps), duration: kf.duration, ease: kf.ease },
+          { ...pixiwrap(toSplit.ownProps), duration: kf.duration, ease: kf.ease, ...kf.loop },
           at,
         );
       }
@@ -225,7 +249,7 @@ export function applyKeyframes(
         timeline.fromTo(
           f,
           { ...(fromSplit.filterProps[name] ?? {}) },
-          { ...(toSplit.filterProps[name] ?? {}), duration: kf.duration, ease: kf.ease },
+          { ...(toSplit.filterProps[name] ?? {}), duration: kf.duration, ease: kf.ease, ...kf.loop },
           at,
         );
       }

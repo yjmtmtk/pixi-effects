@@ -2,7 +2,7 @@ import { Text } from 'pixi.js';
 import { gsap } from 'gsap';
 import { Sequence } from './Base';
 import { normalizeProps } from '../expr/normalizeProps';
-import { applyKeyframes, applyInitial, resolveAt } from '../core/Timeline';
+import { applyKeyframes, applyInitial, resolveAt, loopVars } from '../core/Timeline';
 import { tweenColor } from '../expr/colorTween';
 import type { ColorInput } from '../expr/colorInterp';
 import type { TextSequenceSpec, Keyframe, Props } from '../types';
@@ -140,7 +140,7 @@ function bindFillKeyframes(
         fromFill,
         toFill,
         duration, ease, at, colorSpace,
-        writeFill,
+        writeFill, loopVars(kf),
       );
     }
   }

@@ -1,7 +1,7 @@
 import { Sprite, Assets, type Texture } from 'pixi.js';
 import { gsap } from 'gsap';
 import { Sequence } from './Base';
-import { applyKeyframes, applyInitial, resolveAt } from '../core/Timeline';
+import { applyKeyframes, applyInitial, resolveAt, loopVars } from '../core/Timeline';
 import { tweenColor } from '../expr/colorTween';
 import type { ColorInput, ColorSpace } from '../expr/colorInterp';
 import type { ImageSequenceSpec, Keyframe, Props } from '../types';
@@ -68,7 +68,7 @@ export class ImageSequence extends Sequence {
           'tint',
           fromTint,
           toTint,
-          duration, ease, at, colorSpace,
+          duration, ease, at, colorSpace, undefined, loopVars(kf),
         );
       }
     }

@@ -26,6 +26,12 @@ export interface Keyframe {
   at?: number;
   duration?: number;
   ease?: string;
+  /** Extra plays of this tween after the first (a finite count; infinite repeats are not allowed — the timeline needs a fixed length). Total time = duration × (repeat + 1) plus delays. */
+  repeat?: number;
+  /** With `repeat`: every other play runs backwards (there-and-back). */
+  yoyo?: boolean;
+  /** With `repeat`: seconds to wait between plays. */
+  repeatDelay?: number;
   set?: Props;
   to?: Props;
   from?: Props;

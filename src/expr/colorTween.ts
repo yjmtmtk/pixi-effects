@@ -29,6 +29,7 @@ export function tweenColor(
   at: number,
   colorSpace: ColorSpace,
   onUpdate?: () => void,
+  loop: Record<string, number | boolean> = {},
 ): void {
   let interp: ((p: number) => unknown) | null = null;
   const proxy = { p: 0 };
@@ -36,7 +37,7 @@ export function tweenColor(
     proxy,
     { p: 0 },
     {
-      p: 1, duration, ease,
+      p: 1, duration, ease, ...loop,
       onStart: () => {
         const start = (fromValue !== undefined ? fromValue : target[key]) as ColorInput | undefined;
         if (start === undefined) return;
