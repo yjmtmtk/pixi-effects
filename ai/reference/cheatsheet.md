@@ -110,13 +110,15 @@ transitions: [{ kind: 'crossfade' | 'wipe' | 'iris' | 'slide' | 'dip' | 'zoom' |
 ## Presets
 
 ```js
-import { kenBurns, withFade, wiggle, random } from 'pixi-effects';
+import { kenBurns, withFade, wiggle, stagger, random } from 'pixi-effects';
 kenBurns({ asset, name, at, duration, motion: 'still'|'scale'|'rotation'|'position',
            fit: 'cover'|'contain', ease, /* scale */ origin, zoom, direction, /* rotation */ angle, /* position */ from, to })
 withFade(spec, { in: 0.5, out: 0.5 })   // alpha fade; `out` needs spec.duration
 orbit({ duration: 6, degrees: 40 /* , radius, center, start, fov, ease, at */ })   // a camera layer that circles a point
 // a seeded shake as keyframes (spread into a layer's keyframes); each prop moves on its own; ends back at `around`
 keyframes: [...wiggle({ duration: 6, freq: 4, seed: 3, props: { x: { around: 'GW/2', amp: 6 }, rotation: { around: 0, amp: 1.5 } } })]
+stagger(8, { each: 0.08 /* or amount: total s */, from: 'start'|'end'|'center'|'edges'|'random'|index, grid: [cols, rows], ease, seed })   // → delays [0, 0.08, …]: `at: 1 + d[i]`
+stagger(layers, { each: 0.05, from: 'center' })   // → the same layers with `at` pushed back (originals untouched)
 const r = random(7); r(); r();      // a repeatable stream in 0…1 for JS loops (never Math.random())
 ```
 `kenBurns` covers the canvas, so source images should be at least canvas-sized (1920×1080 for 1280×720).

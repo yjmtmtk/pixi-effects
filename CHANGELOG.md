@@ -6,6 +6,7 @@
 
 - **Seeded randomness.** Expressions gain `rand(seed)` (0…1) and `noise(x, seed)` (smooth, −1…1), plus `lerp`, `clamp`, `smoothstep`, `mod`, `step` (the way to write an "if") and `PI`. For plain JS, `random(seed)` returns a repeatable stream. The same seed always gives the same picture, in playback, seeking and export.
 - **Null layers and `parent`.** `{ type: 'null', name: 'rig' }` draws nothing and only moves; layers with `parent: 'rig'` are drawn inside it and follow its position, rotation, scale and alpha (orbits, clock hands, a whole group fading). Nulls chain; a child's `x` / `y` are measured from the null's origin. A wrong parent (unknown name, not a null, a cycle, a `threeD` layer) warns and the layer is drawn without one.
+- **`stagger()`**: delays for a wave of items, GSAP style (`each` or `amount`, `from: 'start' | 'end' | 'center' | 'edges' | 'random' | index`, `grid: [cols, rows]`, `ease`, seeded `random`). `stagger(8, { each: 0.08 })` returns the delays; `stagger(layers, …)` returns the layers with `at` pushed back.
 - **`wiggle()`**: a seeded shake or drift as keyframes (`keyframes: [...wiggle({ duration: 6, props: { x: { around: 'GW/2', amp: 6 } } })]`); every property moves on its own and ends back at its resting value.
 
 ## 0.9.0

@@ -25,6 +25,9 @@ export type { KenBurnsOptions } from './presets/kenBurns';
 export { orbit } from './presets/orbit';
 export type { OrbitOptions } from './presets/orbit';
 
+export { stagger } from './presets/stagger';
+export type { StaggerOptions } from './presets/stagger';
+
 export { wiggle } from './presets/wiggle';
 export type { WiggleOptions, WiggleProp } from './presets/wiggle';
 

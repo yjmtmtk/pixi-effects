@@ -431,6 +431,33 @@ return sequences;
 
 ---
 
+## A wave of delays (`stagger`)
+
+`stagger()` gives the delays for a wave of items, GSAP style: `each` (gap between neighbours) or `amount` (total), `from` (`'start'` `'end'` `'center'` `'edges'` `'random'` or an index), `grid: [cols, rows]`, `ease`, `seed`. Give it a count and it returns numbers; give it layers and it returns them with `at` pushed back.
+
+```js
+// @recipe stagger
+const style = { fontFamily: 'Arial, sans-serif', fontSize: 96, fontWeight: 'bold', fill: '#ffffff' };
+// letters rising from the middle outwards: the same layers, each starting a little later
+const letters = stagger(
+  splitText('RIPPLE', style, { x: 640, y: 120, align: 'center' }).map(p => ({
+    type: 'text', name: 'letter-' + p.index, text: p.text, style, at: 0.2, duration: 4,
+    initial: { x: p.x, y: p.y, alpha: 0 },
+    keyframes: [{ at: 0, from: { y: p.y + 40, alpha: 0 }, to: { y: p.y, alpha: 1 }, duration: 0.4, ease: 'back.out(2)' }],
+  })),
+  { each: 0.07, from: 'center' });
+// a 6 x 3 grid of tiles that pop in as a ripple from the middle (numbers: use them in `at`)
+const COLS = 6, ROWS = 3, delays = stagger(COLS * ROWS, { each: 0.12, grid: [COLS, ROWS], from: 'center', ease: 'sine.out' });
+const tiles = delays.map((d, i) => ({
+  type: 'shape', shape: 'rect', width: 120, height: 120, cornerRadius: 18, name: 'tile-' + i, at: 1 + d, duration: 3 - d,
+  initial: { x: 190 + (i % COLS) * 180, y: 330 + Math.floor(i / COLS) * 150, fillColor: '#4cc9f0', scale: 0 },
+  keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.4, ease: 'back.out(2)' }],
+}));
+return [...letters, ...tiles];
+```
+
+---
+
 ## Looping motion
 
 `repeat` (a finite count) and `yoyo` go on any keyframe. Total time = `duration × (repeat + 1)`.

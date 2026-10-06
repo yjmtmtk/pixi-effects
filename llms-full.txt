@@ -35,7 +35,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
 - **Masks live in the parent's coordinates and don't follow the masked layer.** **`filterArea` is in the layer's own coordinates.**
 - **2.5D needs `threeD: true`** on each layer plus a `{ type: 'camera' }` layer; camera props go in `initial`/keyframes; keep every `z` below the camera distance (≈ 989 at 720p, fov 40); under a dolly zoom only `z = 0` stays fixed.
 - **Group / parent layers = `{ type: 'null', name: 'rig' }`** (draws nothing, only moves) + `parent: 'rig'` on the layers that should follow it: their `x`/`y` are then measured from the null's origin, and the null's position / rotation / scale / alpha carry them (orbits, clock hands, grouped fades). Nulls chain. Only `null` layers can be parents; not for `threeD` layers.
-- **Built in:** `splitText()` / `measureText()` (per-letter / per-word layers, exact positions), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) and `wiggle()` (a seeded shake as keyframes). **Not in the DSL (hand-roll, recipes exist or loops are easy):** stroke draw-on (trim path), text that changes over time (other than `{value}`), other per-frame curves, per-letter text animators (one layer per letter), particle emitters.
+- **Built in:** `splitText()` / `measureText()` (per-letter / per-word layers, exact positions), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) `wiggle()` (a seeded shake as keyframes) and `stagger()` (delays for a wave of layers: `stagger(letters, { each: 0.05, from: 'center' })`, or `stagger(n, …)` for numbers; GSAP-style `each` / `amount` / `from` / `grid` / `ease`). **Not in the DSL (hand-roll, recipes exist or loops are easy):** stroke draw-on (trim path), text that changes over time (other than `{value}`), other per-frame curves, per-letter text animators (one layer per letter), particle emitters.
 - **Blend modes:** `blendMode: 'add' | 'screen' | 'multiply'` on any layer (glows, light leaks).
 - **One `Movie` per page.** A sound effect needs no `duration` (it lasts as long as its clip). Seeking is safe: counters, colours and growing shapes are right after any jump.
 
@@ -168,13 +168,15 @@ transitions: [{ kind: 'crossfade' | 'wipe' | 'iris' | 'slide' | 'dip' | 'zoom' |
 ## Presets
 
 ```js
-import { kenBurns, withFade, wiggle, random } from 'pixi-effects';
+import { kenBurns, withFade, wiggle, stagger, random } from 'pixi-effects';
 kenBurns({ asset, name, at, duration, motion: 'still'|'scale'|'rotation'|'position',
            fit: 'cover'|'contain', ease, /* scale */ origin, zoom, direction, /* rotation */ angle, /* position */ from, to })
 withFade(spec, { in: 0.5, out: 0.5 })   // alpha fade; `out` needs spec.duration
 orbit({ duration: 6, degrees: 40 /* , radius, center, start, fov, ease, at */ })   // a camera layer that circles a point
 // a seeded shake as keyframes (spread into a layer's keyframes); each prop moves on its own; ends back at `around`
 keyframes: [...wiggle({ duration: 6, freq: 4, seed: 3, props: { x: { around: 'GW/2', amp: 6 }, rotation: { around: 0, amp: 1.5 } } })]
+stagger(8, { each: 0.08 /* or amount: total s */, from: 'start'|'end'|'center'|'edges'|'random'|index, grid: [cols, rows], ease, seed })   // → delays [0, 0.08, …]: `at: 1 + d[i]`
+stagger(layers, { each: 0.05, from: 'center' })   // → the same layers with `at` pushed back (originals untouched)
 const r = random(7); r(); r();      // a repeatable stream in 0…1 for JS loops (never Math.random())
 ```
 `kenBurns` covers the canvas, so source images should be at least canvas-sized (1920×1080 for 1280×720).
@@ -724,6 +726,33 @@ splitText('one word at a time', sub, { by: 'words', x: 640, y: 380, align: 'cent
   keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }],
 }));
 return sequences;
+```
+
+---
+
+## A wave of delays (`stagger`)
+
+`stagger()` gives the delays for a wave of items, GSAP style: `each` (gap between neighbours) or `amount` (total), `from` (`'start'` `'end'` `'center'` `'edges'` `'random'` or an index), `grid: [cols, rows]`, `ease`, `seed`. Give it a count and it returns numbers; give it layers and it returns them with `at` pushed back.
+
+```js
+// @recipe stagger
+const style = { fontFamily: 'Arial, sans-serif', fontSize: 96, fontWeight: 'bold', fill: '#ffffff' };
+// letters rising from the middle outwards: the same layers, each starting a little later
+const letters = stagger(
+  splitText('RIPPLE', style, { x: 640, y: 120, align: 'center' }).map(p => ({
+    type: 'text', name: 'letter-' + p.index, text: p.text, style, at: 0.2, duration: 4,
+    initial: { x: p.x, y: p.y, alpha: 0 },
+    keyframes: [{ at: 0, from: { y: p.y + 40, alpha: 0 }, to: { y: p.y, alpha: 1 }, duration: 0.4, ease: 'back.out(2)' }],
+  })),
+  { each: 0.07, from: 'center' });
+// a 6 x 3 grid of tiles that pop in as a ripple from the middle (numbers: use them in `at`)
+const COLS = 6, ROWS = 3, delays = stagger(COLS * ROWS, { each: 0.12, grid: [COLS, ROWS], from: 'center', ease: 'sine.out' });
+const tiles = delays.map((d, i) => ({
+  type: 'shape', shape: 'rect', width: 120, height: 120, cornerRadius: 18, name: 'tile-' + i, at: 1 + d, duration: 3 - d,
+  initial: { x: 190 + (i % COLS) * 180, y: 330 + Math.floor(i / COLS) * 150, fillColor: '#4cc9f0', scale: 0 },
+  keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.4, ease: 'back.out(2)' }],
+}));
+return [...letters, ...tiles];
 ```
 
 ---
@@ -2049,6 +2078,29 @@ import { wiggle } from 'pixi-effects';
 | `ease` | string | between targets (default `'sine.inOut'`; `'none'` gives jittery straight lines) |
 
 It returns `Keyframe[]`: spread it into `keyframes`, next to others. Do not put another keyframe on the same property during the wiggle.
+
+### `stagger`
+
+Delays for a wave of items, in the style of GSAP's `stagger`. Pure and seeded, so playback and export agree.
+
+```ts
+import { stagger } from 'pixi-effects';
+
+const d = stagger(6, { each: 0.08 });                      // [0, 0.08, 0.16, 0.24, 0.32, 0.4]  -> `at: 1 + d[i]`
+const letters = stagger(layers, { each: 0.05, from: 'center' });   // the same layers, `at` pushed back (the originals are not touched)
+const ripple = stagger(18, { each: 0.12, grid: [6, 3], from: 'center', ease: 'sine.out' });
+```
+
+| Option | Notes |
+| ------ | ----- |
+| `each` | seconds between neighbours (the farthest one waits `each` × its distance). Default 0.1. Not together with `amount`. |
+| `amount` | seconds from the first to the last, however many there are |
+| `from` | `'start'` (default), `'end'`, `'center'` (outward), `'edges'` (inward), `'random'` (a seeded shuffle of the same delays) or an item index |
+| `grid` | `[columns, rows]`: items fill the grid row by row, and the wave travels by straight-line distance (a ripple) |
+| `ease` | a GSAP ease that reshapes the spread (default `'none'`); the first stays at 0, the last at the full spread |
+| `seed` | for `from: 'random'`: another seed, another order |
+
+With a layer array each layer's own `at` is kept and the delay is added to it. Keyframes inside the layers stay as they are (they count from the layer's start).
 
 ### `withFade`
 

@@ -14,6 +14,7 @@ import { kenBurns } from '../../src/presets/kenBurns';
 import { withFade } from '../../src/transforms/withFade';
 import { orbit } from '../../src/presets/orbit';
 import { wiggle } from '../../src/presets/wiggle';
+import { stagger } from '../../src/presets/stagger';
 import { random, rand, noise } from '../../src/expr/random';
 import { measureText, splitText } from '../../src/text/measure';
 import { lintSequence } from '../../src/space/lint';
@@ -46,7 +47,7 @@ describe('ai/reference/recipes.md', () => {
   for (const r of recipes) {
     it(`recipe "${r.name}" builds and binds with no warnings`, async () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      const out = new Function('kenBurns', 'withFade', 'orbit', 'splitText', 'measureText', 'wiggle', 'random', 'rand', 'noise', r.code)(kenBurns, withFade, orbit, splitText, measureText, wiggle, random, rand, noise) as
+      const out = new Function('kenBurns', 'withFade', 'orbit', 'splitText', 'measureText', 'wiggle', 'stagger', 'random', 'rand', 'noise', r.code)(kenBurns, withFade, orbit, splitText, measureText, wiggle, stagger, random, rand, noise) as
         SequenceSpec[] | { sequences: SequenceSpec[]; transitions?: unknown[]; duration?: number };
       const sequences = Array.isArray(out) ? out : out.sequences;
       const transitions = Array.isArray(out) ? undefined : out.transitions;

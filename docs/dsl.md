@@ -1177,6 +1177,29 @@ import { wiggle } from 'pixi-effects';
 
 It returns `Keyframe[]`: spread it into `keyframes`, next to others. Do not put another keyframe on the same property during the wiggle.
 
+### `stagger`
+
+Delays for a wave of items, in the style of GSAP's `stagger`. Pure and seeded, so playback and export agree.
+
+```ts
+import { stagger } from 'pixi-effects';
+
+const d = stagger(6, { each: 0.08 });                      // [0, 0.08, 0.16, 0.24, 0.32, 0.4]  -> `at: 1 + d[i]`
+const letters = stagger(layers, { each: 0.05, from: 'center' });   // the same layers, `at` pushed back (the originals are not touched)
+const ripple = stagger(18, { each: 0.12, grid: [6, 3], from: 'center', ease: 'sine.out' });
+```
+
+| Option | Notes |
+| ------ | ----- |
+| `each` | seconds between neighbours (the farthest one waits `each` × its distance). Default 0.1. Not together with `amount`. |
+| `amount` | seconds from the first to the last, however many there are |
+| `from` | `'start'` (default), `'end'`, `'center'` (outward), `'edges'` (inward), `'random'` (a seeded shuffle of the same delays) or an item index |
+| `grid` | `[columns, rows]`: items fill the grid row by row, and the wave travels by straight-line distance (a ripple) |
+| `ease` | a GSAP ease that reshapes the spread (default `'none'`); the first stays at 0, the last at the full spread |
+| `seed` | for `from: 'random'`: another seed, another order |
+
+With a layer array each layer's own `at` is kept and the delay is added to it. Keyframes inside the layers stay as they are (they count from the layer's start).
+
 ### `withFade`
 
 Spec helper that adds alpha fade-in / fade-out to **any** sequence spec. Mutates and returns the spec, so it composes with other presets (`kenBurns`, …) and drops straight into `sequences[]`.
