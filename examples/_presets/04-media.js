@@ -67,7 +67,7 @@ await movie.init({
         type: 'audio', asset: 'bgm',
         volume: 0,
         keyframes: [
-          { at: 0,    to: { volume: 0.6 }, duration: 1   },
+          { at: 0,    to: { volume: 0.3 }, duration: 1   },
           { at: -1,   to: { volume: 0   }, duration: 1   },
         ],
       },

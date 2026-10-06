@@ -271,7 +271,7 @@
 
     // ---------- audio ----------
     const audio = [{ type: 'audio', name: 'bgm', asset: 'bgm', loop: true, initial: { volume: 0 },
-      keyframes: [{ at: 0, to: { volume: 0.32 }, duration: 1.2 }, { at: -1.4, to: { volume: 0 }, duration: 1.4 }] }];
+      keyframes: [{ at: 0, to: { volume: 0.3 }, duration: 1.2 }, { at: -1.4, to: { volume: 0 }, duration: 1.4 }] }];
     DAYS.forEach((d, i) => audio.push({ type: 'audio', name: 'whoosh-' + d.d, sfx: 'swoosh', at: cardAt(i), volume: 0.85 }));
     audio.push({ type: 'audio', name: 'chime', sfx: 'chime', at: 9.6, volume: 0.26 });
 

@@ -372,7 +372,7 @@
     // ---------------------------------------------------------------- sound: a bed, a whoosh for the river, pops for the tallest towers, a chime for the title
     const landmarks = [...buildings].sort((a, b) => b.floors - a.floors).slice(0, 7);
     const audio = [
-      { type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0, keyframes: [{ at: 0, to: { volume: 0.5 }, duration: 1.5 }, { at: -2.5, to: { volume: 0 }, duration: 2.5 }] },
+      { type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0, keyframes: [{ at: 0, to: { volume: 0.3 }, duration: 1.5 }, { at: -2.5, to: { volume: 0 }, duration: 2.5 }] },
       { type: 'audio', name: 'swoosh-river', sfx: 'swoosh', at: 1.0, volume: 0.43 },
       ...landmarks.map((t, k) => ({ type: 'audio', name: `pop-${k}`, sfx: 'pop', at: Math.round(t.t0 * FPS) / FPS, volume: 0.25 })),
       { type: 'audio', name: 'chime-title', sfx: 'chime', at: 10.0, volume: 0.1 },

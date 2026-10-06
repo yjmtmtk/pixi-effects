@@ -355,7 +355,7 @@
 
     // ---------- sound ----------
     seqs.push({ type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0,
-      keyframes: [{ at: 0, to: { volume: 1 }, duration: 1.5 }, { at: -1.5, to: { volume: 0 }, duration: 1.5 }] });
+      keyframes: [{ at: 0, to: { volume: 0.4 }, duration: 1.5 }, { at: -1.5, to: { volume: 0 }, duration: 1.5 }] });
     [ORBIT_END + 0.05, ...STOPS.map(s => s.depart)].forEach((t, i) => seqs.push({ type: 'audio', name: 'whoosh-' + i, sfx: 'swoosh', at: t, volume: 0.3 }));
     STOPS.forEach((s, i) => seqs.push({ type: 'audio', name: 'tick-' + i, sfx: 'click', at: s.arrive - 0.2, volume: 0.08 }));
     seqs.push({ type: 'audio', name: 'chime', sfx: 'chime', at: 12.9, duration: 1.1, volume: 0.08 });

@@ -363,7 +363,7 @@
     // ---- sound ---------------------------------------------------------------------------
     const audio = [
       { type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0,
-        keyframes: [{ at: 0, to: { volume: 0.45 }, duration: 1.2 }, { at: -1.6, to: { volume: 0 }, duration: 1.6 }] },
+        keyframes: [{ at: 0, to: { volume: 0.3 }, duration: 1.2 }, { at: -1.6, to: { volume: 0 }, duration: 1.6 }] },
       { type: 'audio', name: 'swoosh-title', sfx: 'swoosh', at: 1.0, volume: 0.3 },
       ...MILESTONES.map((m, i) => ({ type: 'audio', name: `pop-${m.year}`, sfx: 'pop', at: T(i), volume: 0.5 })),
       { type: 'audio', name: 'swoosh-zoom', sfx: 'swoosh', at: Z, volume: 0.38 },

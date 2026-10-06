@@ -168,7 +168,7 @@
       sequences.push({ type: 'audio', sfx: 'pop', name: 'sfx-pop' + n, at, volume: 0.41 + progress(n) * 0.45 });
     });
     sequences.push({ type: 'audio', asset: 'bgm', name: 'bgm', loop: true, duration: DURATION, volume: 0,
-      keyframes: [{ at: 0, to: { volume: 0.32 }, duration: 1.5 }, { at: -1.8, to: { volume: 0 }, duration: 1.8 }] });
+      keyframes: [{ at: 0, to: { volume: 0.3 }, duration: 1.5 }, { at: -1.8, to: { volume: 0 }, duration: 1.8 }] });
 
     // ---- fireworks ----------------------------------------------------------------------------
     function burst({ x, y, at, c1, c2, n = 30, R = 300, name }) {

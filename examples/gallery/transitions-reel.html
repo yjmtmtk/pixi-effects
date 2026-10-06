@@ -252,7 +252,7 @@
     // ---- audio ----------------------------------------------------------------------------------
     const audio = [
       { type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0, duration: DURATION,
-        keyframes: [{ at: 0, to: { volume: 0.9 }, duration: 0.8 }, { at: -1.6, to: { volume: 0 }, duration: 1.6 }] },
+        keyframes: [{ at: 0, to: { volume: 0.3 }, duration: 0.8 }, { at: -1.6, to: { volume: 0 }, duration: 1.6 }] },
       ...S.map((t, i) => ({ type: 'audio', name: `swoosh${i}`, sfx: 'swoosh', at: snap(t - 0.05), volume: 0.6 })),
       { type: 'audio', name: 'chime', sfx: 'chime', at: snap(S[6] + CUTS[6].duration + 0.5), volume: 0.14 },
     ];

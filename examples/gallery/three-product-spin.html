@@ -373,7 +373,7 @@
     // ───────────── audio ─────────────
     const audio = [
       { type: 'audio', name: 'bgm', asset: 'bgm', loop: true, initial: { volume: 0 },
-        keyframes: [{ at: 0, to: { volume: 0.55 }, duration: 1.2 }, { at: -1.6, to: { volume: 0 }, duration: 1.6 }] },
+        keyframes: [{ at: 0, to: { volume: 0.3 }, duration: 1.2 }, { at: -1.6, to: { volume: 0 }, duration: 1.6 }] },
       ...T.callouts.map((t, i) => ({ type: 'audio', name: `sfx-pop-${i}`, sfx: 'pop', at: t, volume: 0.41 })),
       { type: 'audio', name: 'sfx-swoosh', sfx: 'swoosh', at: T.toGraphite - 0.05, volume: 0.51 },
       { type: 'audio', name: 'sfx-chime', sfx: 'chime', at: T.lockup + 0.1, volume: 0.13 },

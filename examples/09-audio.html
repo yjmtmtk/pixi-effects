@@ -55,11 +55,11 @@
 
     // Build BGM volume keyframes: ducks for ~0.5s after each SFX hit.
     const bgmKeys = [
-      { at: 0,   to: { volume: 0.5 }, duration: 1, ease: 'sine.out' },
+      { at: 0,   to: { volume: 0.3 }, duration: 1, ease: 'sine.out' },
     ];
     for (const e of EVENTS) {
-      bgmKeys.push({ at: e.at, to: { volume: 0.15 }, duration: 0.15, ease: 'sine.out' });
-      bgmKeys.push({ at: e.at + 0.4, to: { volume: 0.5 }, duration: 0.5, ease: 'sine.in' });
+      bgmKeys.push({ at: e.at, to: { volume: 0.09 }, duration: 0.15, ease: 'sine.out' });
+      bgmKeys.push({ at: e.at + 0.4, to: { volume: 0.3 }, duration: 0.5, ease: 'sine.in' });
     }
     bgmKeys.push({ at: -1, to: { volume: 0 }, duration: 1, ease: 'sine.in' });
 

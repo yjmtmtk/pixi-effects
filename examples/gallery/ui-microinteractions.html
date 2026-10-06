@@ -328,7 +328,7 @@
     // ---------- audio: soft bed + interaction sfx; whooshes on the board's entrance and on the reset ----------
     hit('swoosh', 0.25, 0.34); hit('swoosh', RESET - 0.05, 0.26); hit('chime', DONE, 0.08);
     const bgm = { type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0,
-                  keyframes: [kf(0, { volume: 0.45 }, 1.2), kf(-1.6, { volume: 0 }, 1.6)] };
+                  keyframes: [kf(0, { volume: 0.3 }, 1.2), kf(-1.6, { volume: 0 }, 1.6)] };
 
     const sequences = [
       { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },

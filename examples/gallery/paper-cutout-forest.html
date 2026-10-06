@@ -379,7 +379,7 @@
         fillGradient: { type: 'radial', radius: 0.8, stops: [[0.45, 'rgba(8,4,14,0)'], [1, 'rgba(8,4,14,0.62)']] } },
       // --- sound
       { type: 'audio', asset: 'bgm', name: 'bgm', loop: true, volume: 0,
-        keyframes: [{ at: 0, to: { volume: 0.42 }, duration: 2 }, { at: -2.5, to: { volume: 0 }, duration: 2.5 }] },
+        keyframes: [{ at: 0, to: { volume: 0.3 }, duration: 2 }, { at: -2.5, to: { volume: 0 }, duration: 2.5 }] },
       ...HILL_IN.map((t, i) => sfx('pop', t + 0.3, 0.29, 'sfx-place-' + (i + 1))),
       sfx('swoosh', CARD.at, 0.6, 'sfx-unfold'),
       ...letters.map((l, i) => sfx('pop', CARD.at + l.at, 0.16, 'sfx-letter-' + (i + 1))),

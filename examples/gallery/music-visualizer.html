@@ -225,9 +225,9 @@
         keyframes: [{ at: 0, to: { alpha: 0 }, duration: 0.45, ease: 'power2.out' }] },
       ...ringLayers,
       title, subtitle,
-      // music: the 6 s bgm looped, faded in and out
+      // music: the 16 s bgm loop, faded in and out
       { type: 'audio', asset: 'bgm', name: 'bgm', loop: true, volume: 0, duration: DURATION,
-        keyframes: [{ at: 0, to: { volume: 0.9 }, duration: 2 }, { at: -2, to: { volume: 0 }, duration: 2 }] },
+        keyframes: [{ at: 0, to: { volume: 0.55 }, duration: 2 }, { at: -2, to: { volume: 0 }, duration: 2 }] },
     ];
 
     const movie = new Movie();

@@ -306,9 +306,9 @@
       ...caption(1, ['Keep your', 'streak alive.'], 'Gentle nudges, zero guilt.', T.cap2, T.cap3),
       ...caption(2, ['See the', 'big picture.'], 'Your week, at a glance.', T.cap3, T.capEnd),
       ...finale,
-      // audio: 6 s loop under everything, synthesised sfx on top
+      // audio: looped bgm under everything, synthesised sfx on top
       { type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0, duration: DURATION,
-        keyframes: [{ at: 0, to: { volume: 0.45 }, duration: 1 }, { at: -2, to: { volume: 0 }, duration: 2 }] },
+        keyframes: [{ at: 0, to: { volume: 0.3 }, duration: 1 }, { at: -2, to: { volume: 0 }, duration: 2 }] },
       { type: 'audio', name: 'sfx-swoosh', sfx: 'swoosh', at: T.phoneIn, volume: 0.43 },
       { type: 'audio', name: 'sfx-click-2', sfx: 'click', at: T.cap2, volume: 0.22 },
       { type: 'audio', name: 'sfx-pop', sfx: 'pop', at: T.check, volume: 0.72 },
