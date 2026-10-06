@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>pixi-effects — 12 · title motion</title>
+  <style>
+    body { background: #0d1220; margin: 0; font-family: sans-serif; color: #ccc; padding: 16px; }
+    h1 { font-weight: 500; margin: 0 0 4px 0; }
+    p { font-size: 13px; color: #888; margin: 0 0 16px 0; max-width: 960px; }
+    p code { background: #1a1a22; padding: 1px 6px; border-radius: 3px; color: #b5d3ff; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+    button { background: #1a2140; color: #ddd; border: 1px solid #2a3563; border-radius: 4px; padding: 6px 12px; font: inherit; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>12 · title motion</h1>
+  <p>
+    A 2.5D title built only from <code>text</code>, <code>shape</code> and a <code>camera</code> layer: letters fly in from depth with a colour flash,
+    particles drift at different depths, and the camera orbits while <code>fov</code> eases. Press play, or <b>Export mp4</b>.
+  </p>
+  <canvas id="stage" width="1280" height="720"></canvas>
+  <br />
+  <button id="export">Export mp4</button>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":            "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":      "https://esm.sh/mediabunny"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../dist/index.js';
+    import { Controller } from '../dist/Controller.js';
+    import { BlurFilter } from 'pixi.js';
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    const DURATION = 6.5;
+    const INDIGO = '#5b6cff', MAGENTA = '#ff4fa3', CYAN = '#3de0ff', INK = '#f4f6ff';
+
+    // Deterministic pseudo-random so the title is identical on every run / export.
+    let seed = 11;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+    // ── glow blobs: big blurred circles drifting behind everything ─────────────────
+    const blob = (color, x, y, r, dx, dy, alpha) => ({
+      type: 'shape', shape: 'circle', radius: r,
+      filters: [{ type: 'custom', name: 'b', filter: new BlurFilter({ strength: 70 }) }],
+      // filterArea is in the shape's own space (origin = circle centre): leave room for the blur to spread.
+      filterArea: { x: -(r + 260), y: -(r + 260), width: 2 * (r + 260), height: 2 * (r + 260) },
+      initial: { x, y, fillColor: color, fillAlpha: alpha },
+      keyframes: [
+        { at: 0, to: { x: x + dx, y: y + dy }, duration: DURATION, ease: 'sine.inOut' },
+        { at: 0, from: { alpha: 0 }, duration: 1.2 },
+      ],
+    });
+
+    // ── accent lines: grow from the centre, colour sweeps cyan → magenta in OKLCH ─
+    const line = (y, at) => ({
+      type: 'shape', shape: 'rect', width: 0, height: 2, colorSpace: 'oklch',
+      initial: { x: 'GW/2', y, fillColor: CYAN, fillAlpha: 0.75 },
+      keyframes: [
+        { at, to: { width: 760 }, duration: 1.1, ease: 'expo.out' },
+        { at: 1, to: { fillColor: MAGENTA }, duration: 4.5, ease: 'sine.inOut' },
+        { at: -0.7, to: { width: 0, fillAlpha: 0 }, duration: 0.7, ease: 'power2.in' },
+      ],
+    });
+
+    // ── particles: tiny circles scattered through depth (parallax from the camera) ─
+    const PALETTE = ['#ffffff', CYAN, MAGENTA, '#8c9bff'];
+    const particles = Array.from({ length: 34 }, () => {
+      const z = -700 + rnd() * 1250;
+      const r = 2 + rnd() * 4.5;
+      const x = -160 + rnd() * 1600;
+      const y = -60 + rnd() * 840;
+      return {
+        type: 'shape', shape: 'circle', radius: r, threeD: true,
+        initial: { x, y, z, alpha: 0, fillColor: PALETTE[Math.floor(rnd() * PALETTE.length)], fillAlpha: 0.35 + rnd() * 0.5 },
+        keyframes: [
+          { at: 0.1 + rnd() * 0.9, to: { alpha: 1 }, duration: 1.4 },
+          { at: 0, to: { y: y - 50 - rnd() * 70 }, duration: DURATION, ease: 'none' },
+        ],
+      };
+    });
+
+    // ── title letters: each letter is a threeD text layer flying in from depth ──
+    const TITLE = 'PIXI EFFECTS';
+    const SIZE = 118;
+    const ADV = SIZE * 0.602;                       // monospace advance
+    const letters = [...TITLE].flatMap((ch, i) => {
+      if (ch === ' ') return [];
+      const x = 640 + (i - (TITLE.length - 1) / 2) * ADV;
+      const t = 0.55 + i * 0.075;                   // stagger
+      const out = 5.55 + i * 0.03;
+      return [{
+        type: 'text', text: ch, name: 'L' + i, threeD: true, colorSpace: 'oklch',
+        style: {
+          fontSize: SIZE, fontWeight: '800', fill: CYAN,
+          fontFamily: "ui-monospace, 'SF Mono', Menlo, Consolas, monospace",
+          dropShadow: { color: INDIGO, blur: 20, distance: 0, alpha: 0.9 },
+          padding: 48,                                   // room for the glow inside the text texture
+        },
+        initial: { x, y: 330, anchorX: 0.5, anchorY: 0.5, z: 560, rotationY: 75, rotationX: -45, alpha: 0 },
+        keyframes: [
+          { at: t, to: { z: 0, rotationY: 0, rotationX: 0 }, duration: 1.0, ease: 'expo.out' },
+          { at: t, to: { alpha: 1 }, duration: 0.3, ease: 'none' },
+          { at: t + 0.15, to: { fill: INK }, duration: 0.8, ease: 'sine.out' },     // landing flash
+          { at: out, to: { z: 380, alpha: 0 }, duration: 0.75, ease: 'power3.in' },   // whoosh past the camera
+        ],
+      }];
+    });
+
+    // ── subtitle: flips up from below ────────────────────────────────────────────
+    const subtitle = {
+      type: 'text', text: 'DECLARATIVE MOTION FOR THE WEB', name: 'sub', threeD: true,
+      style: { fontSize: 26, fill: '#a9b6ff', letterSpacing: 9, fontFamily: 'system-ui, -apple-system, sans-serif', fontWeight: '600' },
+      initial: { x: 'GW/2', y: 458, anchorX: 0.5, anchorY: 0.5, rotationX: -80, alpha: 0, z: 40 },
+      keyframes: [
+        { at: 2.0, to: { rotationX: 0, alpha: 0.95 }, duration: 0.9, ease: 'expo.out' },
+        { at: 5.6, to: { alpha: 0, y: 480 }, duration: 0.6, ease: 'power2.in' },
+      ],
+    };
+
+    // ── light streak across the finished title ────────────────────────────────────
+    const streak = {
+      type: 'shape', shape: 'rect', width: 70, height: 1200,
+      filters: [{ type: 'custom', name: 'b', filter: new BlurFilter({ strength: 16 }) }],
+      filterArea: { x: -110, y: -670, width: 220, height: 1340 },
+      initial: { x: -250, y: 'GH/2', rotation: 18, fillColor: '#ffffff', fillAlpha: 0.2 },
+      keyframes: [{ at: 2.5, to: { x: 1530 }, duration: 1.0, ease: 'power2.inOut' }],
+    };
+
+    await movie.init({
+      canvas: document.getElementById('stage'),
+      width: 1280, height: 720, duration: DURATION, frameRate: 30,
+      background: '#060914',
+      composition: {
+        sequences: [
+          { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#060914' } },
+          blob(INDIGO, 360, 260, 330, 160, 60, 0.55),
+          blob(MAGENTA, 980, 520, 300, -140, -50, 0.45),
+          blob('#2a62ff', 640, 360, 220, 0, 0, 0.35),
+          line(256, 0.3),
+          line(526, 0.4),
+          // One camera: x orbits while it keeps looking at the centre; only fov
+          // animates otherwise, so the z = 0 plane stays framed while depth flattens.
+          { type: 'camera', name: 'cam',
+            initial: { fov: 48 },
+            keyframes: [
+              { at: 0, from: { x: 'GW/2 - 150', y: 'GH/2 - 30' }, to: { x: 'GW/2 + 150', y: 'GH/2 + 10' }, duration: DURATION, ease: 'sine.inOut' },
+              { at: 0, to: { fov: 34 }, duration: DURATION, ease: 'sine.inOut' },
+            ] },
+          ...particles,
+          ...letters,
+          subtitle,
+          streak,
+        ],
+      },
+    });
+
+    document.getElementById('export').onclick = async () => {
+      const blob = await movie.render({ format: 'mp4' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = '12-title-motion.mp4';
+      a.click();
+    };
+  </script>
+</body>
+</html>

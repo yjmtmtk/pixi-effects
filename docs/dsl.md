@@ -901,3 +901,23 @@ Pan the image between two points within its over-scaled bounds.
 | `zoom?` | number              | over-scale factor (must be > 1 for any pan to be visible). Default `1.15`.             |
 
 `[0, 0]` looks at the top-left of the image; `[1, 1]` looks at the bottom-right. The default pans diagonally across the upper-left and lower-right quarters of the over-scaled image (matches the Yajima-Motion preset).
+
+### `withFade`
+
+Spec helper that adds alpha fade-in / fade-out to **any** sequence spec. Mutates and returns the spec, so it composes with other presets (`kenBurns`, …) and drops straight into `sequences[]`.
+
+```ts
+import { kenBurns, withFade } from 'pixi-effects';
+
+sequences: [
+  withFade(kenBurns({ asset: 'photo', at: 0, duration: 6, motion: 'scale' }), { in: 0.5, out: 0.5 }),
+  withFade({ type: 'text', text: 'hi', at: 5, duration: 3, initial: { x: 'GW/2' } }, { in: 0.4 }),
+]
+```
+
+| Option | Type   | Notes                                                                                         |
+| ------ | ------ | --------------------------------------------------------------------------------------------- |
+| `in?`  | number | fade-in length in seconds, anchored to the sequence's `at`. Sets `initial.alpha = 0`.         |
+| `out?` | number | fade-out length in seconds, anchored to `at + duration`. **Requires `duration` on the spec** (throws otherwise). |
+
+The added keyframes are layered on top of any keyframes the spec already has. `withFade` is available on `main`; it is not in the published `0.1.0`.
