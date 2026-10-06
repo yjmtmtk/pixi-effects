@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { expandTransitions } from '../../src/core/Transitions';
 import type { CompositionSpec, CompositionSequenceSpec, CustomFilterSpec, Keyframe } from '../../src/types';
 
@@ -524,5 +524,30 @@ describe('expandTransitions — dissolve', () => {
     expect(inst.uInvert).toBe(1);
     expect(inst.uScale).toBe(25);
     expect(inst.uSeed).toBe(3);
+  });
+});
+
+describe('expandTransitions — threeD participants', () => {
+  it('FIX: warns once per transition when a participant is threeD (the wrapper would drop the camera)', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expandTransitions(spec({
+      sequences: [
+        { type: 'text', name: 'A', text: 'a', at: 0, duration: 5, threeD: true },
+        { type: 'text', name: 'B', text: 'b', at: 4, duration: 5 },
+      ],
+      transitions: [{ kind: 'wipe', from: 'A', to: 'B', at: 4, duration: 1, direction: 'left' }],
+    }));
+    const msgs = warn.mock.calls.map(c => String(c[0]));
+    expect(msgs.filter(m => m.includes('threeD') && m.includes('transition') && m.includes('"A"'))).toHaveLength(1);
+    warn.mockRestore();
+  });
+
+  it('FIX: no warning when no participant is threeD', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expandTransitions(spec({
+      transitions: [{ kind: 'crossfade', from: 'A', to: 'B', at: 4, duration: 1 }],
+    }));
+    expect(warn.mock.calls.some(c => String(c[0]).includes('threeD'))).toBe(false);
+    warn.mockRestore();
   });
 });

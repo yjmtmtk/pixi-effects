@@ -61,6 +61,18 @@ describe('CameraSequence', () => {
     expect(String(warn.mock.calls[0]![0])).toContain('fov');
   });
 
+  it('FIX: warns once when lookAt equals the camera position, and still returns a state', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const cam = make({ name: 'main', initial: { z: 0 } });   // manual z = 0 = default lookAtZ
+    await cam.build();
+    const c = cam.target as unknown as { x: number; y: number; z: number; lookAtX: number; lookAtY: number };
+    c.x = c.lookAtX = 640; c.y = c.lookAtY = 360; c.z = 0;   // initial.z is applied at bindTimeline; set it directly here
+    cam.state();
+    cam.state();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]![0])).toContain('lookAt');
+  });
+
   it('window() is [absoluteStart, absoluteStart + duration)', async () => {
     const cam = make({ at: 2, duration: 3 });
     await cam.build();

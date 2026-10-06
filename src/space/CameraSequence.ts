@@ -21,6 +21,7 @@ export class CameraSequence extends Sequence {
   autoZ = true;
   private compH = 0;
   private warnedFov = false;
+  private warnedLookAt = false;
 
   async build(): Promise<void> {
     const compW = this.parent?.width ?? this.root.width;
@@ -50,9 +51,14 @@ export class CameraSequence extends Sequence {
       console.warn(`pixi-effects: camera${who}: fov ${c.fov} is outside [${MIN_FOV}, ${MAX_FOV}]; clamped`);
     }
     const fov = clampFov(c.fov);
+    const z = this.autoZ ? homeDistance(this.compH, fov) : c.z;
+    if (!this.warnedLookAt && c.lookAtX === c.x && c.lookAtY === c.y && c.lookAtZ === z) {
+      this.warnedLookAt = true;
+      const who = this.spec.name ? ` "${this.spec.name}"` : '';
+      console.warn(`pixi-effects: camera${who}: lookAt equals the camera position; looking along -z instead`);
+    }
     return {
-      x: c.x, y: c.y,
-      z: this.autoZ ? homeDistance(this.compH, fov) : c.z,
+      x: c.x, y: c.y, z,
       lookAtX: c.lookAtX, lookAtY: c.lookAtY, lookAtZ: c.lookAtZ,
       fov,
     };

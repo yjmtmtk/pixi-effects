@@ -56,4 +56,32 @@ describe('lintSequence', () => {
     const w = run({ type: 'shape', shape: 'rect', width: 1, height: 1, initial: { z: 1 } });
     expect(w[0]).toContain('unnamed shape layer');
   });
+
+  it('FIX: rotationZ is a likely guess — point to `rotation`', () => {
+    const w = run({ type: 'image', asset: 'a', threeD: true, initial: { rotationZ: 10 } });
+    expect(w.some(m => m.includes('"rotationZ"') && m.includes('"rotation"'))).toBe(true);
+  });
+
+  it('FIX: perspective / zoom on any layer point to the camera fov', () => {
+    const w = run({ type: 'composition', initial: { perspective: 800, zoom: 2 } });
+    expect(w.some(m => m.includes('"perspective"') && m.includes('"fov"') && m.includes('camera'))).toBe(true);
+    expect(w.some(m => m.includes('"zoom"') && m.includes('"fov"'))).toBe(true);
+  });
+
+  it('FIX: camera props outside x/y/z/lookAt*/fov are not silently ignored', () => {
+    const w = run({ type: 'camera', initial: { rotation: 10, scale: 2, alpha: 0.5 }, keyframes: [{ at: 0, to: { rotationY: 20 } }] });
+    for (const k of ['rotation', 'scale', 'alpha', 'rotationY']) {
+      expect(w.some(m => m.includes(`"${k}"`) && m.includes('no effect on a camera'))).toBe(true);
+    }
+  });
+
+  it('FIX: skew on a threeD layer warns (it is dropped by the projection)', () => {
+    const w = run({ type: 'image', asset: 'a', threeD: true, initial: { skewX: 0.2 }, keyframes: [{ at: 0, to: { skew: 0.1 } }] });
+    expect(w.some(m => m.includes('"skewX"') && m.includes('threeD'))).toBe(true);
+    expect(w.some(m => m.includes('"skew"') && m.includes('threeD'))).toBe(true);
+  });
+
+  it('FIX: skew on a 2D layer stays silent', () => {
+    expect(run({ type: 'image', asset: 'a', initial: { skewX: 0.2 } })).toEqual([]);
+  });
 });

@@ -4,26 +4,30 @@ import type { SequenceSpec } from '../types';
 type Warn = (message: string) => void;
 const defaultWarn: Warn = m => console.warn(m);
 
-/** Keys that are never valid for any layer, with the property the author probably meant. */
+const FOV_HINT = 'perspective is the camera\'s "fov" — add a { type: "camera" } layer and set fov in its initial / keyframes';
+
+/** Keys that are never valid for any layer, with a hint at what the author probably meant. */
 const LAYER_ALIASES: Record<string, string> = {
-  rotateX: 'rotationX',
-  rotateY: 'rotationY',
-  rotateZ: 'rotation',
-  translateZ: 'z',
-  depth: 'z',
-  posZ: 'z',
+  rotateX: 'did you mean "rotationX"?',
+  rotateY: 'did you mean "rotationY"?',
+  rotateZ: 'did you mean "rotation"?',
+  rotationZ: 'did you mean "rotation" (it is the Z rotation)?',
+  translateZ: 'did you mean "z"?',
+  depth: 'did you mean "z"?',
+  posZ: 'did you mean "z"?',
+  perspective: FOV_HINT,
+  zoom: FOV_HINT,
 };
 
 /** Camera-only mistakes. */
 const CAMERA_ALIASES: Record<string, string> = {
-  perspective: 'fov',
-  zoom: 'fov',
-  pointOfInterest: 'lookAtX / lookAtY / lookAtZ',
-  lookAt: 'lookAtX / lookAtY / lookAtZ',
+  pointOfInterest: 'did you mean "lookAtX / lookAtY / lookAtZ"?',
+  lookAt: 'did you mean "lookAtX / lookAtY / lookAtZ"?',
 };
 
 const CAMERA_PROPS = ['x', 'y', 'z', 'fov', 'lookAtX', 'lookAtY', 'lookAtZ'];
 const NEEDS_THREE_D = ['z', 'rotationX', 'rotationY'];
+const SKEW_KEYS = ['skew', 'skewX', 'skewY'];
 
 function label(spec: SequenceSpec): string {
   return spec.name ? `layer "${spec.name}"` : `unnamed ${spec.type} layer`;
@@ -36,10 +40,14 @@ function label(spec: SequenceSpec): string {
 export function lintSequence(spec: SequenceSpec, warn: Warn = defaultWarn): void {
   const who = label(spec);
   const keys = collectPropKeys(spec);
+  const explained = new Set<string>();
 
   for (const k of keys) {
-    const fix = LAYER_ALIASES[k] ?? (spec.type === 'camera' ? CAMERA_ALIASES[k] : undefined);
-    if (fix) warn(`pixi-effects: ${who}: "${k}" is not a property — did you mean "${fix}"?`);
+    const hint = LAYER_ALIASES[k] ?? (spec.type === 'camera' ? CAMERA_ALIASES[k] : undefined);
+    if (hint) {
+      explained.add(k);
+      warn(`pixi-effects: ${who}: "${k}" is not a property — ${hint}`);
+    }
   }
 
   if (spec.type === 'camera') {
@@ -48,8 +56,13 @@ export function lintSequence(spec: SequenceSpec, warn: Warn = defaultWarn): void
       if (p in raw) warn(`pixi-effects: ${who}: "${p}" must go inside initial / keyframes, not on the camera itself`);
     }
     for (const k of Object.keys(raw)) {
-      const fix = CAMERA_ALIASES[k];
-      if (fix) warn(`pixi-effects: ${who}: "${k}" is not a property — did you mean "${fix}" (inside initial)?`);
+      const hint = CAMERA_ALIASES[k] ?? LAYER_ALIASES[k];
+      if (hint) warn(`pixi-effects: ${who}: "${k}" is not a property — ${hint} (inside initial)`);
+    }
+    for (const k of keys) {
+      if (!explained.has(k) && !CAMERA_PROPS.includes(k)) {
+        warn(`pixi-effects: ${who}: "${k}" has no effect on a camera (use ${CAMERA_PROPS.join(', ')})`);
+      }
     }
     return;
   }
@@ -62,6 +75,10 @@ export function lintSequence(spec: SequenceSpec, warn: Warn = defaultWarn): void
   if (!spec.threeD) {
     for (const k of NEEDS_THREE_D) {
       if (keys.has(k)) warn(`pixi-effects: ${who}: "${k}" needs threeD: true (it is ignored otherwise)`);
+    }
+  } else {
+    for (const k of SKEW_KEYS) {
+      if (keys.has(k)) warn(`pixi-effects: ${who}: "${k}" is ignored on threeD layers`);
     }
   }
 }

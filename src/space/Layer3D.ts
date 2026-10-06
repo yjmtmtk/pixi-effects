@@ -5,11 +5,15 @@ import { DEG, projectLayer, type CameraBasis, type LayerTransform, type Rect } f
 /** Render textures are capped at this many pixels on the long side; larger layers are downscaled. */
 export const MAX_TEXTURE_SIZE = 4096;
 /**
- * Render textures are drawn at this multiple of the layer size (until the cap),
+ * Render textures are drawn at this multiple of the layer size (until the caps),
  * so a layer enlarged by perspective (z > 0) stays sharp instead of showing
  * jagged edges and soft text.
  */
 export const SUPERSAMPLE = 2;
+/** Total texture pixels per layer are capped here (≈ one 2048² target); resolution drops to fit. */
+export const MAX_TEXTURE_PIXELS = 2048 * 2048;
+/** MSAA multiplies target memory ~4x, so only small textures get it (supersampling covers the rest). */
+export const ANTIALIAS_MAX_PIXELS = 1024 * 1024;
 /** Mesh grid per side. 20 keeps steeply tilted planes free of visible affine warping. */
 export const MESH_GRID = 20;
 
@@ -25,6 +29,17 @@ export interface SpaceHost {
 }
 
 type Carrier = Container & { z?: number; rotationX?: number; rotationY?: number };
+
+interface TextureSize { w: number; h: number; resolution: number; antialias: boolean }
+
+/** Sum of the target's filter paddings: the texture must be this much larger on every side or filter output is clipped. */
+function filterPadding(target: Container): number {
+  const filters = (target as unknown as { filters?: ReadonlyArray<{ padding?: number }> | null }).filters;
+  if (!Array.isArray(filters)) return 0;
+  let pad = 0;
+  for (const f of filters) pad += f?.padding ?? 0;
+  return Number.isFinite(pad) && pad > 0 ? Math.ceil(pad) : 0;
+}
 
 export function readLayerTransform(target: Container): LayerTransform {
   const c = target as Carrier;
@@ -53,7 +68,7 @@ export class Layer3D {
   /** Camera-space depth from the last update (larger = farther). */
   depth = 0;
   private rt: RenderTexture | null = null;
-  private rtKey = '';
+  private size: TextureSize | null = null;
 
   constructor(
     private readonly seq: Sequence,
@@ -70,20 +85,24 @@ export class Layer3D {
 
   update(host: SpaceHost, basis: CameraBasis): void {
     const target = this.seq.target as Carrier | null;
-    if (!target || !target.renderable) return this.hide();
+    // Pixi skips rendering (and clearing) a container that is not `visible`
+    // (e.g. PixiPlugin autoAlpha at alpha 0), which would leave a stale texture.
+    if (!target || !target.renderable || !target.visible) return this.hide();
 
     const bounds = this.frameOf();
-    const w = Math.ceil(bounds.width);
-    const h = Math.ceil(bounds.height);
-    if (!(w >= 1 && h >= 1) || !Number.isFinite(bounds.x) || !Number.isFinite(bounds.y)) return this.hide();
+    const pad = filterPadding(target);
+    const needW = Math.ceil(bounds.width + 2 * pad);
+    const needH = Math.ceil(bounds.height + 2 * pad);
+    if (!(needW >= 1 && needH >= 1) || !Number.isFinite(bounds.x) || !Number.isFinite(bounds.y)) return this.hide();
 
+    const size = this.sizeFor(needW, needH);
     // The quad covers exactly the texture's pixel rect in layer space.
-    const frame: Rect = { x: bounds.x, y: bounds.y, width: w, height: h };
+    const frame: Rect = { x: bounds.x - pad, y: bounds.y - pad, width: size.w, height: size.h };
     const projected = projectLayer(readLayerTransform(target), frame, basis);
     this.depth = projected.depth;
     if (!projected.visible) return this.hide();
 
-    this.ensureTexture(w, h);
+    this.ensureTexture(size);
     // `transform` replaces the container's own local transform for this render
     // (Pixi RenderGroupSystem), while `container.alpha` still applies — so the
     // texture carries the layer's alpha and the mesh alpha stays at 1.
@@ -108,14 +127,31 @@ export class Layer3D {
     this.display.visible = false;
   }
 
-  private ensureTexture(w: number, h: number): void {
-    const resolution = Math.min(SUPERSAMPLE, MAX_TEXTURE_SIZE / Math.max(w, h));
-    const key = `${w}x${h}@${resolution}`;
-    if (this.rt && key === this.rtKey) return;
-    const next = RenderTexture.create({ width: w, height: h, resolution, antialias: true });
+  /**
+   * Texture size for content of w×h. An existing texture is kept while it is at
+   * least that big and at most 2x too big, so content whose bounds change every
+   * frame (typewriter text, growing shapes) does not reallocate each frame.
+   */
+  private sizeFor(w: number, h: number): TextureSize {
+    const cur = this.size;
+    if (cur && cur.w >= w && cur.h >= h && cur.w <= 2 * w && cur.h <= 2 * h) return cur;
+    const resolution = Math.min(
+      SUPERSAMPLE,
+      MAX_TEXTURE_SIZE / Math.max(w, h),
+      Math.sqrt(MAX_TEXTURE_PIXELS / (w * h)),
+    );
+    const antialias = w * h * resolution * resolution <= ANTIALIAS_MAX_PIXELS;
+    return { w, h, resolution, antialias };
+  }
+
+  private ensureTexture(size: TextureSize): void {
+    if (this.rt && this.size === size) return;
+    const next = RenderTexture.create({
+      width: size.w, height: size.h, resolution: size.resolution, antialias: size.antialias,
+    });
     this.display.texture = next;
     this.rt?.destroy(true);
     this.rt = next;
-    this.rtKey = key;
+    this.size = size;
   }
 }

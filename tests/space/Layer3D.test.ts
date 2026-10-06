@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('pixi.js', async () => (await import('./mockPixi')).createPixiMock());
 
 import { Container, Rectangle, RenderTexture } from 'pixi.js';
-import { Layer3D, readLayerTransform, MAX_TEXTURE_SIZE, type SpaceHost } from '../../src/space/Layer3D';
+import { Layer3D, readLayerTransform, MAX_TEXTURE_SIZE, MAX_TEXTURE_PIXELS, type SpaceHost } from '../../src/space/Layer3D';
 import { cameraBasis, homeCamera, homeDistance, DEG } from '../../src/space/math';
 import type { Sequence } from '../../src/sequences/Base';
 
@@ -126,6 +126,58 @@ describe('Layer3D', () => {
     const { layer, host } = setup();   // 200x100
     layer.update(host, basis());
     expect(create.mock.calls[0]![0]).toMatchObject({ width: 200, height: 100, resolution: 2, antialias: true });
+  });
+
+  it('FIX: hides without rendering when the target is not visible (autoAlpha fade) — no stale texture', () => {
+    const { target, layer, render, host } = setup();
+    layer.update(host, basis());
+    expect(layer.display.visible).toBe(true);
+    target.visible = false;              // what PixiPlugin autoAlpha does at alpha 0
+    render.mockClear();
+    layer.update(host, basis());
+    expect(render).not.toHaveBeenCalled();
+    expect(layer.display.visible).toBe(false);
+  });
+
+  it('FIX: grows the texture by the filters\' padding so filter output is not clipped at the layer edge', () => {
+    const create = vi.spyOn(RenderTexture, 'create');
+    const { target, layer, render, host } = setup();
+    target.x = 100; target.y = 50;
+    (target as unknown as { filters: Array<{ padding: number }> }).filters = [{ padding: 10 }, { padding: 5 }];
+    layer.update(host, basis());
+    const arg = create.mock.calls[0]![0] as { width: number; height: number };
+    expect(arg.width).toBe(230);   // 200 + 2*15
+    expect(arg.height).toBe(130);  // 100 + 2*15
+    const opts = render.mock.calls[0]![0];
+    expect(opts.transform.tx).toBe(15);
+    expect(opts.transform.ty).toBe(15);
+    const want = [85, 35, 315, 35, 315, 165, 85, 165];
+    (layer.display as unknown as { corners: number[] }).corners.forEach((c, i) => expect(c).toBeCloseTo(want[i]!, 6));
+  });
+
+  it('FIX: a full-frame layer stays within the texture pixel budget and skips MSAA', () => {
+    const create = vi.spyOn(RenderTexture, 'create');
+    const { layer, host } = setup({ x: 0, y: 0, width: 1920, height: 1080 });
+    layer.update(host, basis());
+    const arg = create.mock.calls[0]![0] as { resolution: number; antialias: boolean };
+    expect(arg.resolution).toBeCloseTo(Math.sqrt(MAX_TEXTURE_PIXELS / (1920 * 1080)), 6);
+    expect(arg.antialias).toBe(false);
+  });
+
+  it('FIX: content that shrinks or jitters within 2x reuses the texture, and the quad covers the whole texture', () => {
+    const create = vi.spyOn(RenderTexture, 'create');
+    const frame = { x: 0, y: 0, width: 200, height: 100 };
+    const { target, layer, host } = setup(frame);
+    target.x = 100; target.y = 50;
+    layer.update(host, basis());
+    frame.width = 190; frame.height = 95;
+    layer.update(host, basis());
+    expect(create).toHaveBeenCalledTimes(1);
+    const c = (layer.display as unknown as { corners: number[] }).corners;
+    expect(c[2]! - c[0]!).toBeCloseTo(200, 6);   // still the 200x100 texture
+    frame.width = 60;                            // below half: right-size it
+    layer.update(host, basis());
+    expect(create).toHaveBeenCalledTimes(2);
   });
 
   it('leaves mesh alpha at 1 (the render texture already carries the layer alpha)', () => {

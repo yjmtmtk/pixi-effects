@@ -55,6 +55,17 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
   const compW = out.width;
   const compH = out.height;
 
+  // threeD participants get wrapped in a 2D full-size composition below, which
+  // would silently drop the camera and their depth group — say so.
+  const threeDByName = new Set(sequences.filter(s => s.name && s.threeD).map(s => s.name as string));
+  transitions.forEach((t, i) => {
+    for (const name of [t.from, t.to]) {
+      if (threeDByName.has(name)) {
+        console.warn(`pixi-effects: transitions[${i}]: "${name}" is threeD, but transitions are not supported on threeD layers yet — it will render without the camera`);
+      }
+    }
+  });
+
   // Pre-pass: any sequence participating in a transition that needs
   // composition-relative geometry gets wrapped in a full-composition-sized
   // wrapper Composition.
