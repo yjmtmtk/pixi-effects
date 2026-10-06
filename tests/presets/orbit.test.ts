@@ -72,4 +72,39 @@ describe('orbit()', () => {
     expect(() => orbit({ duration: 0, degrees: 10 })).toThrow(/duration/);
     vi.fn();
   });
+
+  describe('dollyZoom', () => {
+    const R = (fov: number) => 360 / Math.tan((fov * DEG) / 2);
+
+    it('animates fov while the radius follows it, so the z = 0 plane keeps its size', () => {
+      const c = orbit({ duration: 2, degrees: 0, start: 0, ease: 'none', dollyZoom: { from: 40, to: 80 } });
+      const init = c.initial as Record<string, number>;
+      expect(init.fov).toBe(40);
+      expect(init.z).toBeCloseTo(R(40), 6);
+      const kfs = c.keyframes!;
+      const mid = kfs[9]!.to as Record<string, number>;           // 10th of 20 segments => progress 0.5
+      expect(mid.fov).toBeCloseTo(60, 6);
+      expect(mid.z).toBeCloseTo(R(60), 6);
+      const last = kfs[19]!.to as Record<string, number>;
+      expect(last.fov).toBeCloseTo(80, 6);
+      expect(last.z).toBeCloseTo(R(80), 6);
+      expect(last.x).toBeCloseTo(640, 6);                          // no sweep: stays in front of the centre
+    });
+
+    it('combines with the sweep: position = centre + R(fov)·(sin a, cos a)', () => {
+      const c = orbit({ duration: 2, degrees: 60, start: -30, ease: 'none', dollyZoom: { from: 40, to: 70 } });
+      const last = c.keyframes!.slice(-1)[0]!.to as Record<string, number>;
+      expect(last.fov).toBeCloseTo(70, 6);
+      expect(last.x).toBeCloseTo(640 + R(70) * Math.sin(30 * DEG), 6);
+      expect(last.z).toBeCloseTo(R(70) * Math.cos(30 * DEG), 6);
+    });
+
+    it('its own ease can differ from the sweep ease; radius cannot be combined with it', () => {
+      const a = orbit({ duration: 2, degrees: 0, start: 0, ease: 'none', dollyZoom: { from: 40, to: 80, ease: 'power2.in' } });
+      const b = orbit({ duration: 2, degrees: 0, start: 0, ease: 'none', dollyZoom: { from: 40, to: 80 } });
+      expect((a.keyframes![4]!.to as Record<string, number>).fov).toBeLessThan((b.keyframes![4]!.to as Record<string, number>).fov);
+      expect(() => orbit({ duration: 2, degrees: 10, radius: 900, dollyZoom: { from: 40, to: 80 } })).toThrow(/radius/);
+    });
+  });
 });
+

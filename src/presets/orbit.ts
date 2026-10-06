@@ -20,6 +20,12 @@ export interface OrbitOptions {
   fov?: number;
   /** Easing of the sweep as a whole (any GSAP ease). Default `'sine.inOut'`. */
   ease?: string;
+  /**
+   * A dolly zoom while orbiting: `fov` animates from `from` to `to` (degrees) and the radius follows it
+   * (`R = (height/2) / tan(fov/2)`), so the `z = 0` plane keeps its size while the perspective changes.
+   * Cannot be combined with `radius`. `ease` defaults to the sweep's ease.
+   */
+  dollyZoom?: { from: number; to: number; ease?: string };
   /** Start time in seconds (composition time, like any layer). */
   at?: number;
   name?: string;
@@ -37,22 +43,32 @@ export interface OrbitOptions {
  * orbit({ duration: 4, degrees: 90, start: 0, radius: 900 })
  * ```
  *
- * `z` is specified, so it no longer follows `fov`; to add a dolly zoom on top of an orbit, write your
- * own `fov` and `z = (H/2) / tan(fov/2)` keyframes.
+ * `z` is specified, so it no longer follows `fov`. For a dolly zoom WHILE orbiting pass
+ * `dollyZoom: { from: 38, to: 64 }`: `fov` animates and the radius follows it (`z = (H/2) / tan(fov/2)`),
+ * keeping the `z = 0` plane the same size.
  */
 export function orbit(opts: OrbitOptions): CameraSequenceSpec {
   const {
     duration, degrees, width = 1280, height = 720, fov, ease = 'sine.inOut', stepsPerSecond = 10,
   } = opts;
   if (!(duration > 0)) throw new Error(`pixi-effects: orbit duration must be > 0 (got ${duration})`);
+  const dolly = opts.dollyZoom;
+  if (dolly && opts.radius !== undefined) {
+    throw new Error('pixi-effects: orbit() cannot combine `radius` with `dollyZoom` — the radius follows the animated fov');
+  }
   const [cx, cy] = opts.center ?? [width / 2, height / 2];
-  const R = opts.radius ?? homeDistance(height, fov ?? DEFAULT_FOV);
+  const fixedR = opts.radius ?? homeDistance(height, fov ?? DEFAULT_FOV);
   const start = opts.start ?? -degrees / 2;
   const steps = Math.max(1, Math.round(duration * stepsPerSecond));
   const easeFn = parseEase(ease);
-  const pos = (i: number) => {
-    const a = (start + degrees * easeFn(i / steps)) * DEG;
-    return { x: cx + R * Math.sin(a), z: R * Math.cos(a) };
+  const dollyEase = dolly ? parseEase(dolly.ease ?? ease) : null;
+  const pos = (i: number): Record<string, number> => {
+    const p = i / steps;
+    const a = (start + degrees * easeFn(p)) * DEG;
+    if (!dolly) return { x: cx + fixedR * Math.sin(a), z: fixedR * Math.cos(a) };
+    const f = dolly.from + (dolly.to - dolly.from) * dollyEase!(p);
+    const R = homeDistance(height, f);
+    return { x: cx + R * Math.sin(a), z: R * Math.cos(a), fov: f };
   };
 
   const keyframes: Keyframe[] = [];
@@ -63,7 +79,10 @@ export function orbit(opts: OrbitOptions): CameraSequenceSpec {
   const spec: CameraSequenceSpec = {
     type: 'camera',
     duration,
-    initial: { x: p0.x, y: cy, z: p0.z, lookAtX: cx, lookAtY: cy, lookAtZ: 0, ...(fov !== undefined ? { fov } : {}) },
+    initial: {
+      x: p0.x!, y: cy, z: p0.z!, lookAtX: cx, lookAtY: cy, lookAtZ: 0,
+      ...(p0.fov !== undefined ? { fov: p0.fov } : fov !== undefined ? { fov } : {}),
+    },
     keyframes,
   };
   if (opts.at !== undefined) spec.at = opts.at;

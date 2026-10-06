@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KAFFE NORD promo</title>
+  <style>
+    body { background: #0d1220; margin: 0; padding: 16px; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+    /* Screenshots: the player bar overlays the bottom ~60px of the canvas (it is NOT part of the exported video).
+       Uncomment to hide it while you check the layout:  .movie-controller { display: none !important; } */
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie, kenBurns, withFade } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+    // import { registerThree, three } from 'pixi-effects/three';   // only for a three.js layer; call registerThree() before init
+    // import * as THREE from 'three';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 7;
+    const BEAT = 0.5;                                   // 120 bpm
+    const INK = '#15100c', CREAM = '#f3e9d8', COPPER = '#e0813a', MINT = '#59d6b4', CORAL = '#ef5b4d', GOLD = '#ffc24b';
+    const HEAVY = 'Arial Black, Arial, sans-serif';
+    const snap = t => Math.round(t * FPS) / FPS;
+
+    const rect = (o) => ({ type: 'shape', shape: 'rect', ...o });
+    const full = (o, init) => rect({ width: 'GW', height: 'GH', ...o, initial: { x: 'GW/2', y: 'GH/2', ...init } });
+
+    // --- scene 1: four one-word slams, one per beat, each on its own colour flash ---------------
+    const SLAMS = [['BOLD', CORAL], ['DARK', MINT], ['NORDIC', GOLD], ['ROAST.', COPPER]];
+    const slamScene = SLAMS.flatMap(([word, color], i) => {
+      const at = snap(i * BEAT), dur = BEAT;
+      return [
+        { ...full({ at, duration: dur }, { fillColor: color }),
+          keyframes: [{ at: 0.05, to: { fillColor: INK }, duration: 0.3, ease: 'power2.out' }] },
+        { type: 'text', text: word, at, duration: dur,
+          style: { fontSize: 230, fontWeight: '900', fontFamily: HEAVY, fill: CREAM, letterSpacing: 4 },
+          initial: { x: 'GW/2', y: 'GH/2 - 10', anchorX: 0.5, anchorY: 0.5, scale: 1.0 },
+          keyframes: [{ at: 0, from: { scale: 2.4, rotation: i % 2 ? 4 : -4, alpha: 0 }, to: { scale: 1, rotation: 0, alpha: 1 }, duration: 0.14, ease: 'expo.out' }] },
+      ];
+    });
+
+    // --- scene 2: KAFFE / NORD slam stacked, tagline marquee in both directions -----------------
+    const S2 = 4 * BEAT, S2_END = 4.95;
+    const stack = (word, color, y, at) => ({
+      type: 'text', text: word, at, duration: S2_END - at,
+      style: { fontSize: 250, fontWeight: '900', fontFamily: HEAVY, fill: color, letterSpacing: 2 },
+      initial: { x: 'GW/2', y, anchorX: 0.5, anchorY: 0.5 },
+      keyframes: [{ at: 0, from: { scale: 2.6, rotation: -5, alpha: 0 }, to: { scale: 1, rotation: 0, alpha: 1 }, duration: 0.15, ease: 'expo.out' },
+                  { at: 0.3, to: { scale: 1.03 }, duration: S2_END - at - 0.3, ease: 'none' }],
+    });
+    const flash = (at, color, dur = 0.3) => rect({ width: 'GW', height: 'GH', at, duration: dur,
+      initial: { x: 'GW/2', y: 'GH/2', fillColor: color, alpha: 0.85 }, keyframes: [{ at: 0, to: { alpha: 0 }, duration: dur - 0.02 }] });
+    const TAG = 'SMALL BATCH  •  SLOW ROAST  •  COLD NORTH  •  WARM CUP  •  ';
+    const marquee = (y, dir, color, size, at, dur, stroke) => ({
+      type: 'text', text: TAG, at, duration: dur,
+      style: { fontSize: size, fontWeight: '900', fontFamily: HEAVY, fill: stroke ? 'rgba(0,0,0,0)' : color, stroke: stroke ? { color, width: 2 } : undefined, letterSpacing: 6 },
+      initial: { x: dir < 0 ? 'GW' : '-w', y, anchorX: 0, anchorY: 0.5 },
+      keyframes: [{ at: 0, to: { x: dir < 0 ? '-w' : 'GW' }, duration: dur, ease: 'none' }],
+    });
+    const scene2 = [
+      full({ at: S2, duration: S2_END - S2 }, { fillColor: INK }),
+      flash(S2, CREAM), flash(S2 + BEAT, COPPER),
+      marquee(64, -1, COPPER, 44, S2, S2_END - S2, true),
+      marquee(656, +1, COPPER, 44, S2, S2_END - S2, true),
+      stack('KAFFE', CREAM, 'GH/2 - 105', S2),
+      stack('NORD', COPPER, 'GH/2 + 130', S2 + BEAT),
+    ];
+    const FLOOD = 4.35;
+
+    // --- scene 3: flood to cream, then the logo lockup ------------------------------------------
+    const LOGO_AT = 4.95, CX = W / 2;
+    const ring = (r, w, color, y, at, o = {}) => ({ type: 'shape', shape: 'circle', radius: r, at, duration: DURATION - at,
+      initial: { x: CX, y, fillAlpha: 0, strokeColor: color, strokeWidth: w, ...o } });
+    const pop = (at, extra = {}) => ({ at, from: { scale: 0, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.45, ease: 'back.out(1.8)', ...extra });
+    const CUP_Y = 205;
+    const logo = [
+      { ...ring(124, 12, INK, CUP_Y, LOGO_AT), keyframes: [pop(0)] },
+      { ...rect({ width: 150, height: 112, cornerRadius: 18, at: LOGO_AT, duration: DURATION - LOGO_AT,
+          initial: { x: CX, y: CUP_Y + 10, fillColor: INK } }), keyframes: [pop(0.1)] },
+      { ...ring(30, 11, INK, CUP_Y + 6, LOGO_AT, { x: CX + 78 }), keyframes: [pop(0.15)] },
+      { ...rect({ width: 190, height: 11, cornerRadius: 5, at: LOGO_AT, duration: DURATION - LOGO_AT,
+          initial: { x: CX, y: CUP_Y + 80, fillColor: COPPER } }), keyframes: [pop(0.2)] },
+      ...[-28, 0, 28].map((dx, i) => ({
+        type: 'shape', shape: 'line', from: [0, -21], to: [0, 21], at: LOGO_AT, duration: DURATION - LOGO_AT,   // line coords are relative to x,y (its centre)
+        initial: { x: CX + dx, y: CUP_Y - 86, strokeColor: COPPER, strokeWidth: 9, alpha: 0 },
+        keyframes: [{ at: 0.45 + i * 0.1, to: { alpha: 1 }, duration: 0.3 }],
+      })),
+      { type: 'text', text: 'KAFFE NORD', at: LOGO_AT, duration: DURATION - LOGO_AT,
+        style: { fontSize: 128, fontWeight: '900', fontFamily: HEAVY, fill: INK, letterSpacing: 12 },
+        initial: { x: CX, y: 445, anchorX: 0.5, anchorY: 0.5 },
+        keyframes: [{ at: 0.25, from: { scale: 1.8, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.2, ease: 'expo.out' }] },
+      rect({ width: 0, height: 4, at: LOGO_AT, duration: DURATION - LOGO_AT, initial: { x: CX, y: 520, fillColor: COPPER },
+        keyframes: [{ at: 0.6, to: { width: 640 }, duration: 0.5, ease: 'power3.out' }] }),
+      { type: 'text', text: 'NORDIC COFFEE ROASTERS', at: LOGO_AT, duration: DURATION - LOGO_AT,
+        style: { fontSize: 32, fontWeight: 'bold', fontFamily: 'Arial, sans-serif', fill: INK, letterSpacing: 14 },
+        initial: { x: CX, y: 568, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0.9, to: { alpha: 1 }, duration: 0.5 }] },
+      { type: 'text', text: 'EST. 2019  •  OSLO', at: LOGO_AT, duration: DURATION - LOGO_AT,
+        style: { fontSize: 22, fontFamily: 'Arial, sans-serif', fill: COPPER, letterSpacing: 8, fontWeight: 'bold' },
+        initial: { x: CX, y: 612, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 1.1, to: { alpha: 1 }, duration: 0.5 }] },
+    ];
+    const flood = { type: 'shape', shape: 'circle', radius: 0, at: FLOOD, duration: DURATION - FLOOD,
+      initial: { x: CX, y: H / 2, fillColor: CREAM },
+      keyframes: [{ at: 0, to: { radius: 820 }, duration: LOGO_AT - FLOOD, ease: 'power2.in' }] };
+    const vignette = full({ at: 0, duration: DURATION, fillGradient: { type: 'radial', radius: 0.8, stops: [[0.5, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.24)']] } }, {});
+
+    const sequences = [
+      full({}, { fillColor: INK }),
+      ...slamScene,
+      ...scene2,
+      flood,
+      ...logo,
+      vignette,
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;                         // so a script can seek / screenshot / render
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        background: '#0a0a0f',
+        // assets: [{ name: 'photo', src: './photo.jpg' }, { name: 'bgm', src: './bgm.mp3' }],
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
+    }
+  </script>
+</body>
+</html>
