@@ -4,6 +4,12 @@ import { DEG, projectLayer, type CameraBasis, type LayerTransform, type Rect } f
 
 /** Render textures are capped at this many pixels on the long side; larger layers are downscaled. */
 export const MAX_TEXTURE_SIZE = 4096;
+/**
+ * Render textures are drawn at this multiple of the layer size (until the cap),
+ * so a layer enlarged by perspective (z > 0) stays sharp instead of showing
+ * jagged edges and soft text.
+ */
+export const SUPERSAMPLE = 2;
 /** Mesh grid per side. 20 keeps steeply tilted planes free of visible affine warping. */
 export const MESH_GRID = 20;
 
@@ -103,10 +109,10 @@ export class Layer3D {
   }
 
   private ensureTexture(w: number, h: number): void {
-    const resolution = Math.min(1, MAX_TEXTURE_SIZE / Math.max(w, h));
+    const resolution = Math.min(SUPERSAMPLE, MAX_TEXTURE_SIZE / Math.max(w, h));
     const key = `${w}x${h}@${resolution}`;
     if (this.rt && key === this.rtKey) return;
-    const next = RenderTexture.create({ width: w, height: h, resolution });
+    const next = RenderTexture.create({ width: w, height: h, resolution, antialias: true });
     this.display.texture = next;
     this.rt?.destroy(true);
     this.rt = next;

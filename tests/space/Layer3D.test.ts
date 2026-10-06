@@ -121,6 +121,13 @@ describe('Layer3D', () => {
     expect(arg.resolution).toBeCloseTo(MAX_TEXTURE_SIZE / 8192, 9);
   });
 
+  it('supersamples small layers 2x with antialiasing so enlarged (z > 0) layers stay crisp', () => {
+    const create = vi.spyOn(RenderTexture, 'create');
+    const { layer, host } = setup();   // 200x100
+    layer.update(host, basis());
+    expect(create.mock.calls[0]![0]).toMatchObject({ width: 200, height: 100, resolution: 2, antialias: true });
+  });
+
   it('leaves mesh alpha at 1 (the render texture already carries the layer alpha)', () => {
     const { target, layer, host } = setup();
     target.alpha = 0.4;
