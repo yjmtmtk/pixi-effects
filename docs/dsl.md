@@ -59,7 +59,7 @@ interface SequenceCommon {
 | Layer | Where `x, y` land by default | To change it |
 |---|---|---|
 | `shape` rect / circle / ellipse | the **centre** of the shape | `anchorX` / `anchorY` (0–1). A bar growing from its base: `anchorY: 1`; left to right: `anchorX: 0` |
-| `shape` line / polygon / path | the centre of the shape's bounds | — |
+| `shape` line / polygon / path | the centre of the shape's bounds | `pivotX` / `pivotY` (in the shape's own canvas coordinates): the point that sits at `x, y` and that rotation / scale turn about. **`anchorX` / `anchorY` do nothing on these.** |
 | `text`, `image`, `video` | the **top-left** corner | `anchorX` / `anchorY: 0.5` to centre |
 | `composition` | its top-left corner | `pivotX` / `pivotY` = the point that sits at `x, y` and that rotation / scale turn about |
 
@@ -339,7 +339,7 @@ Per-shape choice of how colour keyframes are interpolated. Default `'rgb'` (line
 
 **Scalar geometry is animatable.** `width`, `height`, `cornerRadius` (rect), `radius` (circle), `radiusX` / `radiusY` (ellipse) all flow through the same per-frame redraw and can be tweened via keyframes — useful for progress bars (animate `width`), pulsing icons (animate `radius`), or shape-morph callouts. Array geometry (polygon `points`, line endpoints, path `d`) is baked at build time; use `scale` / `scaleX` / `scaleY` for those.
 
-`anchorX` / `anchorY` (default `0.5` each) control which point on the bbox sits at the local origin — `0` is left/top, `1` is right/bottom. They're animatable too. Critical for "grow from one edge" effects:
+For rect / circle / ellipse, `anchorX` / `anchorY` (default `0.5` each; not available on line / polygon / path, which use `pivotX` / `pivotY`) control which point on the bbox sits at the local origin — `0` is left/top, `1` is right/bottom. They're animatable too. Critical for "grow from one edge" effects:
 
 ```ts
 // Left-anchored progress bar — width animates 0 → W, left edge stays at x
