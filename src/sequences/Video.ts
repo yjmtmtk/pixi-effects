@@ -1,6 +1,7 @@
 import { Sprite, Texture, Assets } from 'pixi.js';
 import { Sequence } from './Base';
 import { FrameCache, type FrameSink } from '../core/FrameCache';
+import { describeLayer } from '../core/lint';
 import type { VideoSequenceSpec, AudioDescriptor } from '../types';
 import type { VideoAssetData } from '../core/AssetLoader';
 
@@ -87,6 +88,8 @@ export class VideoSequence extends Sequence {
     const initialVolume = this.spec.volume ?? 1;
     out.push({
       buffer: this._audioBuffer,
+      layer: describeLayer(this.spec),
+      source: `video "${this.spec.asset}"`,
       loop: !!this.spec.loop,
       start: baseTime + this.at,
       end: baseTime + this.at + this.duration!,

@@ -8,9 +8,26 @@ export async function mixdown(
 ): Promise<AudioBuffer | null> {
   if (audios.length === 0) return null;
   const ctx = new OfflineAudioContext(2, Math.ceil(sampleRate * totalDuration), sampleRate);
+  // A synthesised sound is rendered once per mix, at the mix's own rate, however often it is used.
+  const synthesised = new Map<string, AudioBuffer>();
+  const bufferOf = (a: AudioDescriptor): AudioBuffer | null => {
+    if (a.buffer) return a.buffer;
+    if (!a.synth) return null;
+    let buf = synthesised.get(a.synth.key);
+    if (!buf) {
+      const [left, right] = a.synth.render(sampleRate);
+      buf = ctx.createBuffer(2, left.length, sampleRate);
+      buf.getChannelData(0).set(left);
+      buf.getChannelData(1).set(right);
+      synthesised.set(a.synth.key, buf);
+    }
+    return buf;
+  };
   for (const a of audios) {
+    const buffer = bufferOf(a);
+    if (!buffer) continue;
     const src = ctx.createBufferSource();
-    src.buffer = a.buffer;
+    src.buffer = buffer;
     src.loop = !!a.loop;
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(a.initialVolume ?? 1, a.start);
@@ -22,4 +39,40 @@ export async function mixdown(
     src.stop(a.end);
   }
   return await ctx.startRendering();
+}
+
+/** Peak of the mix before limiting, and where it is. `peak > 1` means the mix had to be limited. */
+export interface MixStats {
+  peak: number;
+  peakAt: number;
+}
+
+/** Above this the mix is bent smoothly toward 1 instead of clipping. */
+const KNEE = 0.9;
+
+/**
+ * Keep the finished mix inside [-1, 1]: samples above KNEE are soft-limited (tanh), so overlapping sounds
+ * never wrap or crackle in the encoder. Pure and deterministic; a mix that never exceeds KNEE is untouched.
+ * Warns once, naming the layers that play at the loudest moment, when the mix went over 1.
+ */
+export function limitMix(buffer: AudioBuffer, audios: AudioDescriptor[]): MixStats {
+  let peak = 0;
+  let peakIndex = 0;
+  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+    const d = buffer.getChannelData(ch);
+    for (let i = 0; i < d.length; i++) {
+      const x = Math.abs(d[i]!);
+      if (x > peak) { peak = x; peakIndex = i; }
+      if (x > KNEE) d[i] = Math.sign(d[i]!) * (KNEE + (1 - KNEE) * Math.tanh((x - KNEE) / (1 - KNEE)));
+    }
+  }
+  const peakAt = peakIndex / buffer.sampleRate;
+  if (peak > 1) {
+    const playing = audios.filter(a => a.start <= peakAt && peakAt < a.end).map(a => a.layer ?? 'an audio layer');
+    console.warn(
+      `pixi-effects: the audio mix peaks at ${peak.toFixed(2)} (${(20 * Math.log10(peak)).toFixed(1)} dBFS) at ${peakAt.toFixed(2)}s, so it was limited ` +
+      `(it would distort). Playing there: ${[...new Set(playing)].join(', ')}. Lower their volume.`,
+    );
+  }
+  return { peak, peakAt };
 }

@@ -458,7 +458,14 @@ export interface CompositionShape {
 
 /** Audio descriptor pushed to the mixdown queue by AudioSequence/VideoSequence. */
 export interface AudioDescriptor {
-  buffer: AudioBuffer;
+  /** Decoded audio (a file or a video's soundtrack). Exactly one of `buffer` / `synth` is set. */
+  buffer?: AudioBuffer;
+  /** Stereo samples (left, right) made on demand at the mix's sample rate (a synthesised sfx). Equal keys render equal samples. */
+  synth?: { key: string; render: (sampleRate: number) => [Float32Array, Float32Array] };
+  /** Who made it, for warnings and inspectAudio: `layer "pop-1"`. */
+  layer?: string;
+  /** What it plays: `sfx "pop"`, `asset "bgm"`, `video "green"`. */
+  source?: string;
   loop: boolean;
   start: number;
   end: number;

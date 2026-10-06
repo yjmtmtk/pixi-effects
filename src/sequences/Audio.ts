@@ -71,6 +71,8 @@ export class AudioSequence extends Sequence {
     }
     out.push({
       buffer: this._audioBuffer,
+      layer: describeLayer(this.spec),
+      source: `asset "${this.spec.asset}"`,
       loop: !!this.spec.loop,
       start: baseTime + this.at,
       end: baseTime + this.at + dur,

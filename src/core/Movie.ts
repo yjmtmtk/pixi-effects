@@ -4,7 +4,7 @@ import { gsap } from 'gsap';
 import { PixiPlugin } from 'gsap/PixiPlugin';
 import { loadAssetBundle } from './AssetLoader';
 import { CompositionSequence } from '../sequences/Composition';
-import { mixdown } from './AudioMixer';
+import { mixdown, limitMix, type MixStats } from './AudioMixer';
 import { exportFrames } from './Renderer';
 import { expandTransitions, carryTransitionWindows } from './Transitions';
 import { inspectScene, type InspectReport, type InspectOptions } from './inspect';
@@ -87,6 +87,9 @@ export class Movie {
   private _rootSequence: Sequence | null = null;
   private _rootContainer: Container | null = null;
   private _raf: number | null = null;
+  /** What went into the mix, and its peak before limiting — kept for inspectAudio(). */
+  private _audioSources: AudioDescriptor[] = [];
+  private _mixStats: MixStats | null = null;
 
   on(event: 'ready', fn: () => void): this;
   on(event: 'frame', fn: (e: FrameEvent) => void): this;
@@ -202,7 +205,9 @@ export class Movie {
       composition.collectAudio(audios, 0);
       if (audios.length > 0) {
         this.audioBuffer = await mixdown(audios, this.duration, audioContext.sampleRate);
+        if (this.audioBuffer) this._mixStats = limitMix(this.audioBuffer, audios);
       }
+      this._audioSources = audios;
 
       this.timeline.progress(1).progress(0);
       await this._awaitVideoFrames();
@@ -423,6 +428,8 @@ export class Movie {
     safeRun(() => this.app?.destroy(true, { children: true, texture: true }));
     this.app = null;
     this.audioBuffer = null;
+    this._audioSources = [];
+    this._mixStats = null;
     safeRun(() => this._audioContext?.close().catch(() => {}));
     this._audioContext = null;
     this._initState = 'destroyed';
