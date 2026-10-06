@@ -2,13 +2,14 @@
 
 > **Status**: v0.1.0. API stable; semver from here.
 
-**[Live demos →](https://yjmtmtk.github.io/pixi-effects/)** · 8 numbered examples + an in-browser playground.
+**[Live demos →](https://yjmtmtk.github.io/pixi-effects/)** · 11 numbered examples + an in-browser playground.
 
 Declarative composition and video rendering for the web. After Effects-style timelines on top of [PixiJS v8](https://pixijs.com/) and [GSAP](https://gsap.com/), with strict TypeScript types. Render to MP4 / WebM / MOV via [mediabunny](https://mediabunny.dev/).
 
 - **Declarative DSL** — describe your composition as a tree of typed sequences (text, image, video, audio, nested compositions). No imperative tween code.
 - **Expression language** — sprinkle `'GW * 0.5'` or `'min(W, H) / 2'` anywhere a number goes. Resolved at runtime against a sequence-relative scope.
 - **Filters** — chroma key, blur, color matrix. Animatable per-keyframe.
+- **2.5D layers & camera** — add `threeD: true`, `z`, `rotationX/Y` and a `{ type: 'camera' }` layer; no three.js needed.
 - **Built-in player UI** — drop-in HTML5-`<video>`-style overlay controller (play, scrub, mute, volume, fullscreen, export-to-file).
 - **MP4 / WebM / MOV export** — pick container and quality from the controller, or call `movie.render()` from code.
 - **Tiny dependency surface** — only `mediabunny` (runtime) plus PixiJS and GSAP (peer deps).
@@ -95,6 +96,7 @@ const blob = await movie.render({ format: 'mp4' });
   - `07-transitions.html` — all seven transition kinds in one timeline
   - `08-presets-export.html` — `kenBurns` preset and `movie.render()` from code
   - `09-audio.html` — multi-track audio mixing with BGM ducking and SFX cues
+  - `11-depth.html` — 2.5D layers and camera: parallax, spin, dolly zoom
   - `playground.html` — in-browser editor with preset dropdown
 
 ## Browser support

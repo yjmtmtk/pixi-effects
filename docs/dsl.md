@@ -4,6 +4,7 @@ This document describes the declarative composition spec that you pass to `Movie
 
 - [Composition](#composition)
 - [Sequences](#sequences)
+- [3D layers & camera](#3d-layers--camera)
 - [Assets](#assets)
 - [Keyframes](#keyframes)
 - [Expressions](#expressions)
@@ -266,6 +267,92 @@ Per-shape choice of how colour keyframes are interpolated. Default `'rgb'` (line
   ],
 }
 ```
+
+---
+
+## 3D layers & camera
+
+Place any 2D layer in depth and view it through a camera — After Effects style, no three.js. Everything uses the normal `initial` / `keyframes` / expression vocabulary.
+
+### Conventions (read this first)
+
+| Thing | Convention |
+|---|---|
+| Axes | `+x` right, `+y` down, **`+z` toward the viewer** (like CSS `translateZ`). Bigger `z` = nearer = larger on screen. |
+| Units | Positions in composition pixels. **Rotations in degrees.** |
+| Rotation signs | Same as CSS: `rotationY: 30` swings the right edge away; `rotationX: 30` brings the bottom edge toward you; `rotation` is the Z axis. |
+| Rotation centre | The same point 2D `rotation` uses: `anchorX/anchorY` (sprites, text, shapes) or `pivotX/pivotY` (compositions). Set `anchorX: 0.5, anchorY: 0.5` to spin about the centre. |
+| Default camera | Centred, looking straight at the `z = 0` plane, which maps 1:1 to pixels. A `threeD` layer at `z = 0` looks identical to a 2D layer. |
+| Camera props | `x`, `y`, `z`, `lookAtX`, `lookAtY`, `lookAtZ`, `fov` — all in `initial` / `keyframes`, never on the camera itself. |
+
+### `threeD` layers
+
+Add `threeD: true` to any visual layer, then use `z`, `rotationX`, `rotationY`:
+
+```json
+{
+  "sequences": [
+    { "type": "text", "text": "tilted", "threeD": true,
+      "style": { "fontSize": 64, "fill": "#ffffff" },
+      "initial": { "x": "GW/2", "y": "GH/2", "anchorX": 0.5, "anchorY": 0.5, "rotationY": -35 },
+      "keyframes": [{ "at": 0, "to": { "rotationY": 0 }, "duration": 1, "ease": "power2.out" }] }
+  ]
+}
+```
+
+`z`, `rotationX` and `rotationY` are ignored on a layer without `threeD: true` (a warning tells you). `threeD: false` layers ignore the camera and keep stack order.
+
+### Camera
+
+The camera is a layer: `{ "type": "camera" }`. It has no visuals. With nothing set it is the default camera.
+
+| Prop | Meaning | Default |
+|---|---|---|
+| `x`, `y` | camera position | `W/2`, `H/2` |
+| `z` | camera depth. **Auto:** if you never set it, it follows `fov` so the `z = 0` plane stays 1:1 | `(H/2) / tan(fov/2)` |
+| `lookAtX`, `lookAtY`, `lookAtZ` | the point it looks at | `W/2`, `H/2`, `0` |
+| `fov` | vertical field of view, degrees (clamped to 1–179) | 40 |
+
+```json
+{
+  "sequences": [
+    { "type": "camera", "name": "cam",
+      "keyframes": [
+        { "at": 0, "from": { "x": "GW/2 - 260", "lookAtX": "GW/2 - 260" },
+                   "to":   { "x": "GW/2 + 260", "lookAtX": "GW/2 + 260" },
+          "duration": 4, "ease": "sine.inOut" }
+      ] },
+    { "type": "shape", "shape": "rect", "width": 300, "height": 200, "threeD": true,
+      "initial": { "x": "GW/2", "y": "GH/2", "z": -400, "fillColor": "#3a6ea5" } },
+    { "type": "shape", "shape": "rect", "width": 300, "height": 200, "threeD": true,
+      "initial": { "x": "GW/2", "y": "GH/2", "z": 250, "fillColor": "#d96a3a" } }
+  ]
+}
+```
+
+Moving the camera sideways makes the near rectangle slide faster than the far one (parallax). Animating only `fov` keeps the `z = 0` plane fixed and changes how strong the perspective is (a dolly zoom):
+
+```json
+{
+  "sequences": [
+    { "type": "camera",
+      "keyframes": [{ "at": 0, "to": { "fov": 70 }, "duration": 3, "ease": "sine.inOut" }] },
+    { "type": "shape", "shape": "circle", "radius": 120, "threeD": true,
+      "initial": { "x": "GW/2", "y": "GH/2", "z": 300, "fillColor": "#38a169" } }
+  ]
+}
+```
+
+- A camera affects the `threeD` layers that are its **siblings** (same composition). A nested composition has its own camera for its children, and is itself a layer in its parent's space when it has `threeD: true`.
+- Several cameras may exist if their lifespans (`at` / `duration`) do not overlap — each is a camera cut. Overlapping cameras warn; the last-listed one wins.
+- With no camera layer the default camera is used.
+
+### Depth order and limits
+
+- Consecutive `threeD` layers are drawn farthest-first. A non-`threeD` layer between them splits the group (like After Effects).
+- A layer at or behind the camera is hidden for that frame.
+- v1 limits: planes do not intersect (whole layers are sorted); masks, transitions and `filterArea` are not supported on `threeD` layers (a mask is ignored with a warning); each `threeD` layer costs one extra render pass per frame.
+- Wrong-but-likely names (`rotateY`, `translateZ`, `depth`, `perspective`, `zoom`) are not accepted; the console tells you the right name.
 
 ---
 
