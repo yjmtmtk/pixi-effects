@@ -283,8 +283,30 @@ export interface CameraSequenceSpec extends SequenceCommon {
 // animate via the standard pipeline — every frame the shape redraws itself
 // from its current style state, so colour/width tweens "just work".
 
+/**
+ * A gradient fill for a shape (replaces `fillColor`). Positions are relative to the shape's own
+ * bounds (0–1), so it follows the shape's size. Colours may have alpha (`'rgba(0,0,0,0.6)'`), so a
+ * radial gradient from transparent to dark is a vignette. Not animatable.
+ */
+export interface GradientSpec {
+  /** Default `'linear'`. */
+  type?: 'linear' | 'radial';
+  /** Colour stops, `[offset 0–1, colour]` or `{ offset, color }`. At least two. */
+  stops: Array<[number, string | number] | { offset: number; color: string | number }>;
+  /** linear: direction in degrees — 0 = left → right, 90 = top → bottom (default). */
+  angle?: number;
+  /** radial: centre in 0–1 of the bounds. Default `[0.5, 0.5]`. */
+  center?: [number, number];
+  /** radial: inner radius where the first stop applies, 0–1. Default 0. */
+  innerRadius?: number;
+  /** radial: outer radius where the last stop applies, 0–1. Default 0.5. */
+  radius?: number;
+}
+
 interface ShapeBase extends SequenceCommon {
   type: 'shape';
+  /** Fill with a gradient instead of `fillColor` (top level or in `initial`). */
+  fillGradient?: GradientSpec;
   /**
    * Colour space used to interpolate `fillColor` / `strokeColor` keyframes.
    *

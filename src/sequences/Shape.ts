@@ -6,8 +6,9 @@ import { applyKeyframes, applyInitial, resolveAt, loopVars } from '../core/Timel
 import { type ColorSpace, type ColorInput } from '../expr/colorInterp';
 import { tweenColor } from '../expr/colorTween';
 import type { Scope } from '../expr/Scope';
+import { makeGradientFill } from './gradientFill';
 import type {
-  ShapeSequenceSpec,
+  ShapeSequenceSpec, GradientSpec,
   LineShapeSpec, PolygonShapeSpec, PathShapeSpec,
   Props, Keyframe, PropValue,
 } from '../types';
@@ -48,6 +49,7 @@ const ANCHORED_SHAPES = new Set<ShapeSequenceSpec['shape']>(['rect', 'circle', '
 
 interface ShapeState {
   // style
+  fillStyle?: unknown;   // gradient fill argument for Graphics.fill, built once at build; wins over fillColor
   fillColor: string | number | undefined;
   fillAlpha: number;
   strokeColor: string | number | undefined;
@@ -95,6 +97,8 @@ export class ShapeSequence extends Sequence {
     // for expression support like `width: 'W * 0.5'`) and the initial style.
     seedGeometry(this._state, this.spec, scope);
     seedStyle(this._state, this.spec.initial ?? {}, scope);
+    const gradientSpec = this.spec.fillGradient ?? (this.spec.initial as { fillGradient?: GradientSpec } | undefined)?.fillGradient;
+    if (gradientSpec) this._state.fillStyle = makeGradientFill(gradientSpec);
 
     // Build the per-frame draw closure. For symmetric shapes (rect / circle /
     // ellipse) it pulls from _state so geometry tweens take effect; for
@@ -138,7 +142,7 @@ export class ShapeSequence extends Sequence {
     const startTime = offset + this.at;   // keyframe `at` is sequence-local
     // Non-live props go through the standard pipeline (transform, alpha,
     // filter uniforms, …).
-    const initial = stripLive(this.spec.initial, this._liveKeys);
+    const initial = stripLive(stripGradient(this.spec.initial), this._liveKeys);
     const keyframes = this.spec.keyframes
       ? this.spec.keyframes.map(kf => stripLiveKeyframe(kf, this._liveKeys))
       : undefined;
@@ -184,6 +188,12 @@ function seedStyle(state: ShapeState, initial: Props, scope: Scope): void {
 
 // ─── Strip live keys from the spec.initial / spec.keyframes that go to PixiPlugin ──
 
+function stripGradient(props: Props | undefined): Props | undefined {
+  if (!props || !('fillGradient' in props)) return props;
+  const { fillGradient: _drop, ...rest } = props as Record<string, unknown>;
+  return rest as unknown as Props;
+}
+
 function stripLive(props: Props | undefined, liveKeys: Set<LiveKey>): Props | undefined {
   if (!props) return props;
   const out: Record<string, unknown> = {};
@@ -225,7 +235,9 @@ function resolveLiveValue(key: LiveKey, value: unknown, scope: Scope): unknown {
 // ─── Per-frame redraw ────────────────────────────────────────────────────
 
 function applyState(g: Graphics, s: ShapeState): void {
-  if (s.fillColor !== undefined) {
+  if (s.fillStyle) {
+    g.fill(s.fillStyle as never);
+  } else if (s.fillColor !== undefined) {
     g.fill({ color: s.fillColor, alpha: s.fillAlpha });
   }
   if (s.strokeColor !== undefined && s.strokeWidth > 0) {

@@ -50,6 +50,7 @@ export type {
   LineShapeSpec,
   PolygonShapeSpec,
   PathShapeSpec,
+  GradientSpec,
   SequenceSpec,
   CompositionSpec,
 } from './types';
