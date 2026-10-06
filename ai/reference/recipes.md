@@ -252,7 +252,7 @@ return [
 
 ## Slideshow with transitions and background music
 
-Scene `i` starts at `i × (L − T)` and overlaps the next by the transition length `T`; the transition's `at` is the next scene's start; total = `n × (L − T) + T`. Transitions and `kenBurns` combine freely. Captions are top-level layers (transitions never touch layers they do not name); keep them above the bottom ~60 px. `bgm.mp3` is only 6 s: **`loop: true`** or it falls silent.
+Scene `i` starts at `i × (L − T)` and overlaps the next by the transition length `T`; the transition's `at` is the next scene's start; total = `n × (L − T) + T`. Transitions and `kenBurns` combine freely. Captions are top-level layers (transitions never touch layers they do not name); keep them above the bottom ~60 px. A music file shorter than the movie (`bgm.mp3` is a 16 s loop) needs **`loop: true`** or it falls silent.
 
 ```js
 // @recipe slideshow
