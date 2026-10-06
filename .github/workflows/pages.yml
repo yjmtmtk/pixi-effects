@@ -50,11 +50,19 @@ jobs:
               .playground { display: inline-block; margin-top: 8px; padding: 10px 18px; background: #1a2140; color: #ddd; border-radius: 6px; text-decoration: none; }
               .playground:hover { background: #243069; color: #fff; }
               a.repo { color: #88ccff; font-size: 12px; }
+              a.gallery { display: block; margin: 0 0 28px 0; padding: 22px 24px; background: linear-gradient(120deg, #1b2347, #2a1f4a); color: #fff; border-radius: 10px; text-decoration: none; }
+              a.gallery strong { display: block; font-size: 22px; font-weight: 600; letter-spacing: .01em; }
+              a.gallery span { color: #b9c3ee; font-size: 14px; }
+              a.gallery:hover { background: linear-gradient(120deg, #243069, #38286a); }
+              .ai { font-size: 13px; color: #888; margin: 0 0 24px 0; }
+              .ai a { color: #88ccff; margin-right: 12px; }
             </style>
           </head>
           <body>
             <h1>pixi-effects · examples</h1>
             <p>Declarative composition + video rendering for the web. Read in order — each example focuses on one feature area. <a class="repo" href="https://github.com/yjmtmtk/pixi-effects">github.com/yjmtmtk/pixi-effects</a></p>
+            <a class="gallery" href="examples/gallery/"><strong>▶ Gallery — 30 motion-graphics pieces</strong><span>Logo reveals, kinetic type, data stories, 2.5D, three.js and more — each one plain data written by an AI (fable, opus or sonnet).</span></a>
+            <p class="ai">For AI agents: <a href="ai/SKILL.md">SKILL.md</a><a href="llms.txt">llms.txt</a><a href="llms-full.txt">llms-full.txt</a><a href="ai/template.html">template.html</a></p>
             <ol>
               <li><a href="examples/01-hello.html"><small>01</small>hello — minimum viable composition</a></li>
               <li><a href="examples/02-keyframes.html"><small>02</small>keyframes &amp; expressions</a></li>

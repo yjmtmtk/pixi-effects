@@ -2,7 +2,7 @@
 
 > **Status**: experimental — current release `0.3.0`. The API may still change between minor versions (see [CHANGELOG](./CHANGELOG.md): `0.3.0` changed keyframe `at` to be relative to the layer).
 
-**[Live demos →](https://yjmtmtk.github.io/pixi-effects/)** · 12 numbered examples + an in-browser playground.
+**[Gallery →](https://yjmtmtk.github.io/pixi-effects/examples/gallery/)** · 30 portfolio pieces written as plain data by AI models · **[Live demos →](https://yjmtmtk.github.io/pixi-effects/)** · 12 numbered examples + an in-browser playground.
 
 Declarative composition and video rendering for the web. After Effects-style timelines on top of [PixiJS v8](https://pixijs.com/) and [GSAP](https://gsap.com/), with strict TypeScript types. Render to MP4 / WebM / MOV via [mediabunny](https://mediabunny.dev/).
 
