@@ -1,0 +1,92 @@
+import { describe, it, expect } from 'vitest';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+const root = resolve(__dirname, '../..');
+const tool: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/render.mjs')).href);
+const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
+
+describe('render.mjs — pure helpers', () => {
+  it('formatFromPath: the container follows the output file extension', () => {
+    expect(tool.formatFromPath('out.mp4')).toBe('mp4');
+    expect(tool.formatFromPath('/a/b/clip.WEBM')).toBe('webm');
+    expect(tool.formatFromPath('x.mov')).toBe('mov');
+    expect(tool.formatFromPath('x.mkv')).toBe('mkv');
+    expect(tool.formatFromPath('x')).toBeNull();
+    expect(() => tool.formatFromPath('x.gif')).toThrow(/mp4, webm, mov or mkv/);
+  });
+
+  it('parseRenderArgs: a page, -o, and options; the format comes from -o unless --format says otherwise', () => {
+    const o = tool.parseRenderArgs(['my.html', '-o', 'out/video.webm', '--quality', 'medium', '--timeout', '900', '--query', 'lang=ja', '--quiet']);
+    expect(o).toMatchObject({ page: 'my.html', out: 'out/video.webm', format: 'webm', quality: 'medium', timeout: 900, query: 'lang=ja', quiet: true });
+    const d = tool.parseRenderArgs(['my.html']);
+    expect(d.format).toBe('mp4');
+    expect(d.out).toBeNull();                                   // the default name comes from the page
+    expect(d.quality).toBe('high');
+    expect(tool.parseRenderArgs(['p.html', '-o', 'x.mp4', '--format', 'mov']).format).toBe('mov');
+    expect(tool.parseRenderArgs(['p.html', '--fail-on-warn']).failOnWarn).toBe(true);
+  });
+
+  it('parseRenderArgs: clear errors for a typo, a bad value, or a missing value', () => {
+    expect(() => tool.parseRenderArgs(['p.html', '--fast'])).toThrow(/unknown option --fast/);
+    expect(() => tool.parseRenderArgs(['p.html', '--quality', 'ultra'])).toThrow(/very-low, low, medium, high or very-high/);
+    expect(() => tool.parseRenderArgs(['p.html', '-o'])).toThrow(/needs a value/);
+    expect(() => tool.parseRenderArgs(['a.html', 'b.html'])).toThrow(/unexpected argument/);
+  });
+
+  it('defaultOutput: next to where you run it, named after the page, with the format\'s extension', () => {
+    expect(tool.defaultOutput('/x/my-video.html', 'webm')).toMatch(/my-video\.webm$/);
+  });
+});
+
+const chrome = check.findChrome();
+const built = existsSync(join(root, 'dist/index.js'));
+describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('render.mjs — the command, run for real in Chrome', () => {
+  it('renders a page to an mp4 file (a real file, with the page\'s duration and size) and exits 0', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'render-test-'));
+    const out = join(dir, 'clip.mp4');
+    const { stdout } = await promisify(execFile)('node', [
+      join(root, 'ai/tools/render.mjs'), join(root, 'examples/_checks/sfx-export.html'), '-o', out, '--quiet', '--timeout', '150',
+    ], { timeout: 170_000 });
+    expect(existsSync(out)).toBe(true);
+    expect(statSync(out).size).toBeGreaterThan(2000);
+    expect(readFileSync(out).subarray(4, 8).toString()).toBe('ftyp');      // an MP4 starts with an ftyp box
+    expect(stdout).toMatch(/clip\.mp4/);
+    expect(stdout).toMatch(/3\.5 s/);
+  }, 190_000);
+
+  it('picks the container from the extension (webm)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'render-test-'));
+    const out = join(dir, 'clip.webm');
+    await promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), join(root, 'examples/_checks/sfx-export.html'), '-o', out, '--quiet', '--timeout', '150'], { timeout: 170_000 });
+    expect(readFileSync(out).subarray(0, 4).toString('hex')).toBe('1a45dfa3');     // the EBML header of Matroska / WebM
+  }, 190_000);
+
+  it('exits 1 with the page\'s own message when it never becomes ready, and writes no file', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'render-test-'));
+    const out = join(dir, 'nope.mp4');
+    const bad = join(root, 'examples/_checks/__bad-render-fixture.html');
+    writeFileSync(bad, readFileSync(join(root, 'examples/_checks/sfx-export.html'), 'utf8').replace('await movie.init({', "throw new Error('boom'); await movie.init({"));
+    try {
+      await expect(promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), bad, '-o', out, '--timeout', '60', '--quiet'], { timeout: 90_000 }))
+        .rejects.toMatchObject({ code: 1 });
+      expect(existsSync(out)).toBe(false);
+    } finally { rmSync(bad, { force: true }); }
+  }, 90_000);
+
+  it('--fail-on-warn: a page warning still writes the file, but the exit code is 1', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'render-test-'));
+    const out = join(dir, 'warned.mp4');
+    const warn = join(root, 'examples/_checks/__warn-render-fixture.html');
+    writeFileSync(warn, readFileSync(join(root, 'examples/_checks/sfx-export.html'), 'utf8').replace("['click', 0.5]", "['whoosh', 0.5]"));
+    try {
+      await expect(promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), warn, '-o', out, '--fail-on-warn', '--timeout', '120', '--quiet'], { timeout: 150_000 }))
+        .rejects.toMatchObject({ code: 1 });
+      expect(statSync(out).size).toBeGreaterThan(2000);
+    } finally { rmSync(warn, { force: true }); }
+  }, 160_000);
+});

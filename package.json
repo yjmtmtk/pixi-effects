@@ -20,7 +20,7 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "bin": { "pixi-effects-check": "ai/tools/check.mjs" },
+  "bin": { "pixi-effects-check": "ai/tools/check.mjs", "pixi-effects-render": "ai/tools/render.mjs" },
   "files": ["dist", "ai", "docs/dsl.md", "docs/api.md", "llms.txt", "llms-full.txt", "CHANGELOG.md", "README.md", "LICENSE"],
   "keywords": [
     "pixi", "pixijs", "video", "composition", "compositing", "rendering",

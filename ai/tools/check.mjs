@@ -85,9 +85,10 @@ export function splitIssues(groups, strict = false) {
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.mp4': 'video/mp4', '.webm': 'video/webm', '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf', '.wasm': 'application/wasm', '.map': 'application/json', '.md': 'text/plain; charset=utf-8', '.txt': 'text/plain; charset=utf-8' };
 
 /** A plain static server for `root` (no redirects, so `?query` survives). Resolves { server, port }. */
-export function serve(root) {
+export function serve(root, onRequest = null) {
   const server = http.createServer((req, res) => {
     try {
+      if (onRequest && onRequest(req, res)) return;               // a hook (the render tool receives its file this way)
       let rel = decodeURIComponent(new URL(req.url, 'http://x').pathname);
       let file = path.join(root, rel);
       if (!file.startsWith(root)) { res.writeHead(403).end(); return; }
@@ -110,7 +111,7 @@ export function findRoot(dir, exists = fs.existsSync) {
 
 // ───────────────────────────── Chrome DevTools Protocol, minimal ─────────────────────────────
 
-class Cdp {
+export class Cdp {
   constructor(ws) {
     this.ws = ws; this.id = 0; this.pending = new Map(); this.listeners = [];
     ws.onmessage = ev => {
@@ -136,7 +137,7 @@ class Cdp {
   }
 }
 
-async function launchChrome(chrome, userDataDir) {
+export async function launchChrome(chrome, userDataDir) {
   const proc = spawn(chrome, [
     '--headless=new', '--remote-debugging-port=0', `--user-data-dir=${userDataDir}`, '--no-first-run', '--no-default-browser-check',
     '--autoplay-policy=no-user-gesture-required', '--ignore-gpu-blocklist', '--enable-unsafe-swiftshader', '--window-size=1400,900', 'about:blank',
@@ -206,7 +207,7 @@ const exportScript = format => `(() => {
 
 // ───────────────────────────── the check ─────────────────────────────
 
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+export const sleep = ms => new Promise(r => setTimeout(r, ms));
 /** A path for display: relative to the cwd when it is inside it, absolute otherwise. */
 export const shown = f => { const r = path.relative(process.cwd(), f); return r.startsWith('..') || path.isAbsolute(r) ? f : r; };
 const kb = n => (n >= 1048576 ? `${(n / 1048576).toFixed(2)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
