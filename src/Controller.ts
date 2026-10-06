@@ -643,8 +643,21 @@ export class Controller {
     container.addEventListener('wheel', this.wheelHandler, { passive: false });
   }
 
+  /**
+   * Does this browser have the Fullscreen API for an element? iPhone Safari does not (it can only put a <video> in fullscreen),
+   * and a button that does nothing is worse than none.
+   */
+  private supportsFullscreen(): boolean {
+    return typeof (this.wrapper as { requestFullscreen?: unknown }).requestFullscreen === 'function' && document.fullscreenEnabled !== false;
+  }
+
   private bindFullscreen(): void {
     if (!this.fullscreenBtn) return;
+    if (!this.supportsFullscreen()) {
+      this.fullscreenBtn.remove();
+      this.fullscreenBtn = null;                                   // the F key checks this too
+      return;
+    }
     this.fullscreenBtn.addEventListener('click', () => {
       void this.toggleFullscreen();
     });

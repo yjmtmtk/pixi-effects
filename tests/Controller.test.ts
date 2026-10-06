@@ -999,7 +999,21 @@ describe('Controller — fullscreen', () => {
     return state;
   }
 
+  // A browser with the Fullscreen API has `requestFullscreen` on every element; the tests below replace it on the wrapper.
+  beforeEach(() => { (Element.prototype as any).requestFullscreen = () => Promise.resolve(); });
+
+  it('a browser without the Fullscreen API (iPhone Safari) gets no fullscreen button, and F does nothing', () => {
+    delete (Element.prototype as any).requestFullscreen;
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    const ctrl = new Controller(movie, { canvas });
+    expect(canvas.parentElement!.querySelector('.mc-fullscreen')).toBeNull();
+    expect(() => document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyF', bubbles: true }))).not.toThrow();
+    ctrl.destroy();
+  });
+
   afterEach(() => {
+    delete (Element.prototype as any).requestFullscreen;
     delete (document as any).exitFullscreen;
     try { delete (document as any).fullscreenElement; } catch { /* property may be defined as accessor */ }
     document.body.innerHTML = '';

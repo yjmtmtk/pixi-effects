@@ -51,4 +51,33 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('Controller
       try { rmSync(userDataDir, { recursive: true, force: true }); } catch { /* chrome may still hold files */ }
     }
   }, 60_000);
+
+  it('a browser without element fullscreen (iPhone Safari) shows no fullscreen button; a desktop browser does', async () => {
+    const { server, port } = await check.serve(root);
+    const userDataDir = mkdtempSync(join(tmpdir(), 'ctl-fs-'));
+    const { proc, cdp } = await check.launchChrome(chrome, userDataDir);
+    try {
+      await cdp.send('Runtime.enable');
+      await cdp.send('Page.enable');
+      const open = async (without: boolean) => {
+        await cdp.send('Page.navigate', { url: 'about:blank' });
+        if (without) {
+          await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: 'delete Element.prototype.requestFullscreen; delete Element.prototype.webkitRequestFullscreen;' });
+          await cdp.send('Emulation.setUserAgentOverride', { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' });
+        }
+        await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/gallery/blueprint-house.html?fs=${without ? 'no' : 'yes'}` });
+        let ready = false;
+        for (let i = 0; i < 100 && !ready; i++) { await check.sleep(300); ready = await cdp.eval('window.__ready === true').catch(() => false); }
+        expect(ready).toBe(true);
+        return cdp.eval("document.querySelectorAll('.mc-fullscreen').length");
+      };
+      expect(await open(false)).toBe(1);
+      expect(await open(true)).toBe(0);
+    } finally {
+      try { proc.kill(); } catch { /* gone */ }
+      server.close();
+      await check.sleep(200);
+      try { rmSync(userDataDir, { recursive: true, force: true }); } catch { /* chrome may still hold files */ }
+    }
+  }, 90_000);
 });
