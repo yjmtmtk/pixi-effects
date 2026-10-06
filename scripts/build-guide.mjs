@@ -43,6 +43,15 @@ function fileOf(root, rel, what) {
   return p;
 }
 
+/** The gallery's entry for `examples/gallery/<page>.html` when it has a poster image, else null. */
+function galleryPiece(root, path) {
+  const m = /^examples\/gallery\/([^/]+\.html)$/.exec(path);
+  const file = join(root, 'examples/gallery/pieces.json');
+  if (!m || !existsSync(file)) return null;
+  const piece = JSON.parse(readFileSync(file, 'utf8')).pieces.find(p => p.page === m[1]);
+  return piece && piece.poster && existsSync(join(root, 'examples/gallery', piece.poster)) ? piece : null;
+}
+
 /** Markdown → { html, headings } with the two directives resolved. */
 export function renderMarkdown(markdown, { root = DEFAULT_ROOT, demoBase = '../' } = {}) {
   const headings = [];
@@ -70,7 +79,13 @@ export function renderMarkdown(markdown, { root = DEFAULT_ROOT, demoBase = '../'
     .replace(/\{\{demo\s+(\S+)(?:\s+(\d+\s*\/\s*\d+))?\s*\}\}/g, (_, path, ratio) => {
       fileOf(root, path, '{{demo}}');
       const url = demoBase + path;
-      const embed = path.startsWith('examples/gallery/') ? url + '?poster' : url;      // gallery pieces park on their poster frame with ?poster
+      const piece = galleryPiece(root, path);
+      if (piece) {
+        // A gallery piece is shown as its poster with a play button. Clicking loads the piece (no ?poster: it starts at 0:00) and plays it;
+        // an iframe parked on the poster frame would play on from the middle.
+        return `\n<figure class="demo"><div class="frame facade" data-embed="${esc(url)}" style="aspect-ratio:${piece.width}/${piece.height}"><img src="${esc(demoBase + 'examples/gallery/' + piece.poster)}" alt="Poster of ${esc(piece.title)}" loading="lazy"><button class="play" type="button" aria-label="Play the demo">▶</button></div><figcaption>Live demo · click to play · <a href="${esc(url)}">open it on its own page ↗</a></figcaption></figure>\n`;
+      }
+      const embed = url;
       return `\n<figure class="demo"><div class="frame" style="aspect-ratio:${(ratio || '16/9').replace(/\s/g, '')}"><iframe src="${esc(embed)}" loading="lazy" title="Live demo: ${esc(basename(path))}" allow="autoplay; fullscreen"></iframe></div><figcaption>Live demo · <a href="${esc(url)}">open it on its own page ↗</a></figcaption></figure>\n`;
     })
     .replace(/\{\{code\s+(\S+)\s+(\w+)\s*\}\}/g, (_, path, lang) => {
@@ -117,7 +132,14 @@ article blockquote { margin:1.2em 0; padding:.2em 1.1em; border-left:4px solid v
 article img { max-width:100%; height:auto; border-radius:10px; border:1px solid var(--line); }
 article figure.shot { margin:1.6em 0; } article figure.shot figcaption { font-size:13px; color:var(--dim); margin-top:6px; }
 article figure.demo { margin:1.6em 0; }
-article figure.demo .frame { background:var(--demo); border-radius:10px; overflow:hidden; border:1px solid var(--line); }
+article figure.demo .frame { background:var(--demo); border-radius:10px; overflow:hidden; border:1px solid var(--line); position:relative; }
+article .facade { cursor:pointer; }
+article .facade img { width:100%; height:100%; object-fit:cover; display:block; border:0; border-radius:0; }
+article .facade .play { position:absolute; inset:0; margin:auto; width:76px; height:76px; border-radius:50%; border:1px solid rgba(255,255,255,.45); background:rgba(8,8,10,.62); color:#fff; font-size:26px; padding:0 0 0 5px; cursor:pointer; transition:transform .2s ease, background .2s ease; }
+article .facade:hover .play { transform:scale(1.08); background:rgba(8,8,10,.8); }
+article .facade iframe { position:absolute; inset:0; opacity:0; transition:opacity .4s ease; }
+article .facade.loading .play { opacity:.45; }
+article .facade.live iframe { opacity:1; } article .facade.live img, article .facade.live .play { display:none; }
 article figure.demo iframe { width:100%; height:100%; border:0; display:block; }
 article figure.demo figcaption { font-size:13px; color:var(--dim); margin-top:6px; }
 nav.pager { display:flex; justify-content:space-between; gap:16px; margin-top:56px; padding-top:20px; border-top:1px solid var(--line); }
@@ -130,6 +152,23 @@ footer.foot { max-width:1180px; margin:0 auto; padding:0 20px 40px; color:var(--
 @media (max-width: 860px) { .layout { grid-template-columns:1fr; gap:0; } aside.side { display:none; } details.mobile-nav { display:block; margin:0 20px; max-width:780px; } header.top nav.links { display:none; }
   details.mobile-nav { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:8px 14px; margin-top:16px; } details.mobile-nav a { display:block; padding:6px 0; color:var(--ink); text-decoration:none; } }
 `;
+
+const FACADE_JS = `document.querySelectorAll('.facade').forEach(function (f) {
+  f.addEventListener('click', function () {
+    if (f.dataset.loaded) return; f.dataset.loaded = '1'; f.classList.add('loading');
+    var ifr = document.createElement('iframe'); ifr.title = 'Live demo'; ifr.allow = 'autoplay; fullscreen'; ifr.src = f.dataset.embed; f.appendChild(ifr);
+    var tries = 0;
+    (function wait() {                                                    // when the piece is ready: rewind to 0:00 and play (this click allows the sound)
+      var w = null; try { w = ifr.contentWindow; } catch (e) { /* still loading */ }
+      if (w && w.__ready === true && w.movie) {
+        Promise.resolve(w.movie.gotoFrame(0, true)).then(function () { w.movie.play(); f.classList.remove('loading'); f.classList.add('live'); });
+        return;
+      }
+      if (++tries > 200) { f.classList.remove('loading'); f.classList.add('live'); return; }
+      setTimeout(wait, 100);
+    })();
+  });
+});`;
 
 const COPY_JS = `document.querySelectorAll('article pre').forEach(function (pre) { var b = document.createElement('button'); b.className = 'copy'; b.type = 'button'; b.textContent = 'Copy';
   b.onclick = function () { navigator.clipboard.writeText(pre.querySelector('code').textContent).then(function () { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1200); }); }; pre.appendChild(b); });`;
@@ -168,7 +207,8 @@ ${rendered.html}
 <nav class="pager">${prev ? `<a class="prev" href="${prev.file}.html"><small>Previous</small>${esc(prev.meta.title)}</a>` : '<span></span>'}${next ? `<a class="next" href="${next.file}.html"><small>Next</small>${esc(next.meta.title)}</a>` : '<span></span>'}</nav>
 </article></div>
 <footer class="foot">pixi-effects is MIT licensed · <a href="${REPO}">source</a> · <a href="https://www.npmjs.com/package/pixi-effects">npm</a> · <a href="../examples/gallery/">gallery</a></footer>
-<script>${COPY_JS}</script>
+<script>${COPY_JS}
+${FACADE_JS}</script>
 </body></html>
 `;
 }

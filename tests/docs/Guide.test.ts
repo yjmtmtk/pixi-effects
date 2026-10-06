@@ -34,13 +34,32 @@ describe('build-guide: markdown with a few directives', () => {
     expect(headings).toEqual([{ level: 2, id: 'two-words', text: 'Two words' }]);
   });
 
-  it('{{demo path}} is a lazy iframe of a page of this repo with an open link; a missing page is an error', () => {
+  it('{{demo}} of a gallery piece is its poster with a play button, not the piece: it loads and plays from 0:00 when clicked', () => {
     const { html } = renderMarkdown('{{demo examples/gallery/blueprint-house.html}}', { root, demoBase: '../' });
+    expect(html).toContain('class="frame facade"');
+    expect(html).toContain('src="../examples/gallery/posters/blueprint-house.jpg"');           // the poster, shown first
+    expect(html).toContain('data-embed="../examples/gallery/blueprint-house.html"');            // what is loaded on click: no ?poster, so it starts at the beginning
+    expect(html).not.toContain('?poster');
+    expect(html).toContain('<button class="play"');
+    expect(html).toContain('aspect-ratio:1280/720');                                            // from the piece's own size (pieces.json)
+    expect(html).not.toContain('<iframe');                                                      // nothing heavy until the reader asks
+    expect(html).toContain('href="../examples/gallery/blueprint-house.html"');                  // and a link to open it on its own
+  });
+
+  it('a gallery piece that is not 16:9 gets its own aspect ratio', () => {
+    const { pieces } = JSON.parse(readFileSync(join(root, 'examples/gallery/pieces.json'), 'utf8')) as { pieces: Array<{ width: number; height: number; page: string }> };
+    const odd = pieces.find(p => p.width !== 1280 || p.height !== 720);
+    expect(odd).toBeTruthy();
+    const { html } = renderMarkdown(`{{demo examples/gallery/${odd!.page}}}`, { root, demoBase: '../' });
+    expect(html).toContain(`aspect-ratio:${odd!.width}/${odd!.height}`);
+  });
+
+  it('{{demo}} of any other page is a lazy iframe (those pages start at 0:00 on their own); a missing page is an error', () => {
+    const { html } = renderMarkdown('{{demo examples/03-shapes.html}}', { root, demoBase: '../' });
     expect(html).toContain('<iframe');
-    expect(html).toContain('src="../examples/gallery/blueprint-house.html?poster"');       // a gallery piece parks on its poster frame, so the embed is not a blank first frame
+    expect(html).toContain('src="../examples/03-shapes.html"');
     expect(html).toContain('loading="lazy"');
-    expect(html).toContain('href="../examples/gallery/blueprint-house.html"');                // the link opens it at 0:00
-    expect(renderMarkdown('{{demo examples/03-shapes.html}}', { root, demoBase: '../' }).html).toContain('src="../examples/03-shapes.html"');
+    expect(html).toContain('href="../examples/03-shapes.html"');
     expect(() => renderMarkdown('{{demo examples/gallery/nope.html}}', { root, demoBase: '../' })).toThrow(/nope\.html/);
   });
 
@@ -95,8 +114,8 @@ describe('the guide (site/guide)', () => {
     for (const p of pages) idsOf.set(p.file, new Set([...readFileSync(join(out, `${p.file}.html`), 'utf8').matchAll(/ id="([^"]+)"/g)].map(m => m[1]!)));
     for (const p of pages) {
       const html = readFileSync(join(out, `${p.file}.html`), 'utf8');
-      for (const m of html.matchAll(/(?:href|src)="([^"]+)"/g)) {
-        const url = m[1]!.replace(/\?poster$/, '');
+      for (const m of html.matchAll(/(?:href|src|data-embed)="([^"]+)"/g)) {
+        const url = m[1]!;
         if (/^(https?:|mailto:|data:|#$)/.test(url)) continue;
         const [pathPart, hash] = url.split('#');
         if (pathPart === '') { if (!idsOf.get(p.file)!.has(hash!)) missing.push(`${p.file}: #${hash}`); continue; }
