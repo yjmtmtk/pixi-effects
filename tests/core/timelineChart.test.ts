@@ -148,3 +148,31 @@ describe('timelineSvg — the chart a viewer can put a playhead on', () => {
     expect(timelineSvg(data)).toMatch(/<g class="row" data-start="6"/);
   });
 });
+
+describe('timelineSvg options — a chart of any width, with or without the name column (for a zoomable viewer)', () => {
+  const attr = (svg: string, name: string): number => Number(new RegExp(`data-${name}="([^"]+)"`).exec(svg)![1]);
+
+  it('chartWidth sets how many pixels the whole duration takes: x1 - x0 equals it', async () => {
+    const data = collectTimeline(await scene([{ type: '__box', name: 'a' }]), 12);
+    for (const w of [400, 950, 4000]) {
+      const svg = timelineSvg(data, { chartWidth: w });
+      expect(attr(svg, 'x1') - attr(svg, 'x0')).toBe(w);
+    }
+  });
+
+  it('labels: false drops the name column (x0 is then the left padding) and the names', async () => {
+    const data = collectTimeline(await scene([{ type: '__box', name: 'secret-name' }]), 12);
+    const plain = timelineSvg(data, { chartWidth: 800, labels: false });
+    expect(attr(plain, 'x0')).toBeLessThan(40);
+    expect(plain).not.toContain('class="label"');            // the tooltip still names the layer
+    expect(timelineSvg(data)).toContain('class="label"');
+  });
+
+  it('a wider chart has finer ticks (a tick about every 70+ px, never hundreds of them)', async () => {
+    const data = collectTimeline(await scene([{ type: '__box', name: 'a' }]), 600);
+    const ticks = (w: number): number => (timelineSvg(data, { chartWidth: w }).match(/class="grid"/g) ?? []).length;
+    expect(ticks(900)).toBeLessThanOrEqual(16);
+    expect(ticks(30000)).toBeGreaterThan(ticks(900));
+    expect(ticks(30000)).toBeLessThan(900);
+  });
+});

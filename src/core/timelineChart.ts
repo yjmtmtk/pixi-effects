@@ -116,24 +116,31 @@ const COLORS: Record<string, string> = {
 const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const num = (n: number): string => String(Math.round(n * 100) / 100);
 
-/** A tick spacing that gives about 10–24 ticks. */
-function tickStep(duration: number): number {
-  for (const s of [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300]) if (duration / s <= 24) return s;
-  return 600;
+/** The smallest tick spacing (seconds) that is at least ~70 px apart on a chart `chartWidth` px wide. */
+function tickStep(duration: number, chartWidth: number): number {
+  for (const s of [0.04, 0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1200, 3600]) if ((s / duration) * chartWidth >= 70) return s;
+  return 7200;
 }
 
 export interface TimelineHtmlOptions { title?: string }
+export interface TimelineSvgOptions {
+  /** How many pixels the whole duration takes (default 950). A viewer re-draws at a wider width to zoom; the ticks get finer with it. */
+  chartWidth?: number;
+  /** Draw the layer names in a column on the left (default true). A viewer that scrolls sideways keeps its own, fixed column. */
+  labels?: boolean;
+}
 
 /**
  * The chart alone: one `<svg>` (inline, no scripts). Its geometry is in data attributes (`data-duration`, `data-x0` / `data-x1`:
  * where 0 s and the end are in the viewBox, `data-top` / `data-bottom`, `data-row`), and every row is `<g class="row" data-start>`,
  * so a viewer can turn a click into a time, draw a playhead, and seek to a row.
  */
-export function timelineSvg(data: TimelineData): string {
-  const LABEL = 250, CHART = 950, ROW = 22, TOP = 34, PAD = 16;
+export function timelineSvg(data: TimelineData, opts: TimelineSvgOptions = {}): string {
+  const CHART = Math.max(100, opts.chartWidth ?? 950), withLabels = opts.labels !== false;
+  const LABEL = withLabels ? 250 : 0, ROW = 22, TOP = 34, PAD = 16;
   const W = LABEL + CHART + PAD * 2, H = TOP + data.rows.length * ROW + PAD;
   const x = (t: number): number => PAD + LABEL + (Math.max(0, Math.min(data.duration, t)) / data.duration) * CHART;
-  const step = tickStep(data.duration);
+  const step = tickStep(data.duration, CHART);
   const out: string[] = [];
 
   // ruler and grid
@@ -154,7 +161,7 @@ export function timelineSvg(data: TimelineData): string {
     const tip = `${r.path} · ${r.type} · ${num(r.start)}–${num(r.end)} s (${num(r.end - r.start)} s)${r.keys.length ? ` · ${r.keys.length} keyframe${r.keys.length > 1 ? 's' : ''}` : ''}${r.detail ? ` · ${r.detail}` : ''}`;
     out.push(`<g class="row" data-start="${num(r.start)}"><title>${esc(tip)}</title>`);
     out.push(`<rect class="band" x="${PAD}" y="${y}" width="${LABEL + CHART}" height="${ROW}" ${i % 2 ? 'fill-opacity=".05"' : 'fill-opacity="0"'}/>`);
-    out.push(`<text class="label" x="${PAD + 6 + r.depth * 14}" y="${y + 15}">${esc(r.name)}</text>`);
+    if (withLabels) out.push(`<text class="label" x="${PAD + 6 + r.depth * 14}" y="${y + 15}">${esc(r.name)}</text>`);
     for (const p of r.parts ?? [{ start: r.start, end: r.end }]) {
       out.push(`<rect class="bar" x="${num(x(p.start))}" y="${y + 4}" width="${num(Math.max(2, x(p.end) - x(p.start)))}" height="${ROW - 8}" rx="3" fill="${color}"/>`);
     }

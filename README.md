@@ -9,12 +9,15 @@ Declarative composition and video rendering for the web. After Effects-style tim
 - **Declarative DSL** — describe your composition as a tree of typed sequences (text, image, video, audio, shapes, nested compositions). No imperative tween code.
 - **Sound effects without files** — `{ type: 'audio', sfx: 'swoosh', at: 2 }`: 11 synthesised presets (click, pop, swoosh, riser, hit, chime …) with `pitch` / `brightness` / `seed`, or your own `voices`; deterministic and in the exported file at the same moments as in the browser; `movie.inspectAudio()` checks them as numbers.
 - **Expression language** — sprinkle `'GW * 0.5'` or `'min(W, H) / 2'` anywhere a number goes. Resolved at runtime against a sequence-relative scope.
-- **Filters, masks, transitions** — chroma key, blur, color matrix (or any PixiJS filter); inline masks; seven scene transitions (`crossfade`, `wipe`, `iris`, `slide`, `dip`, `zoom`, `dissolve`).
+- **Filters by name** — `filters: [{ type: 'glow', outerStrength: 3 }]`, no import: `blur noise alpha colorMatrix` (pixi.js) and the 38 filters of [`pixi-filters`](https://github.com/pixijs/filters) (`dropShadow crt rgbSplit oldFilm glitch pixelate twist …`), animated with `'filters.<name>.<option>'`. Any other PixiJS `Filter` goes in as `{ type: 'custom' }`.
+- **Draw-on strokes and changing text** — `trimEnd` 0 → 1 draws a line, border or SVG path on; a keyframe `set: { text }` swaps a string and `visibleChars` is a typewriter.
+- **Masks, transitions, chroma key** — inline masks; chroma key; seven scene transitions (`crossfade`, `wipe`, `iris`, `slide`, `dip`, `zoom`, `dissolve`).
 - **Presets** — `kenBurns` for stills, `withFade` for fade-in/out.
 - **2.5D layers & camera** — add `threeD: true`, `z`, `rotationX/Y` and a `{ type: 'camera' }` layer for parallax, flips and dolly zooms; no three.js needed.
 - **three.js layer** *(optional)* — drop a real three.js scene in as a layer via `pixi-effects/three`; keyframes drive its objects (`three.cube.rotation.y`).
 - **Built-in player UI** — drop-in HTML5-`<video>`-style overlay controller (play, scrub, mute, volume, fullscreen, export-to-file).
-- **MP4 / WebM / MOV export** — pick container and quality from the controller, or call `movie.render()` from code.
+- **MP4 / WebM / MOV export** — pick container and quality from the controller, call `movie.render()` from code, or render headless from the command line (`pixi-effects-render`).
+- **A timeline you can read and scrub** — `movie.timelineChart()` draws every layer as a bar on a time axis; `pixi-effects-view` opens the page with that timeline under it, zoomable, with a playhead you can drag.
 - **Tiny dependency surface** — only `mediabunny` (runtime) plus PixiJS and GSAP (peer deps). three.js is an *optional* peer, needed only if you import `pixi-effects/three`.
 
 ## Install
@@ -22,6 +25,7 @@ Declarative composition and video rendering for the web. After Effects-style tim
 ```bash
 npm install pixi-effects pixi.js gsap
 npm install three        # optional — only if you import `pixi-effects/three`
+npm install pixi-filters # optional — only if a layer uses a named filter other than blur / noise / alpha / colorMatrix
 ```
 
 ### Browser via CDN (no bundler)
@@ -161,7 +165,7 @@ This library is designed to be written by AI: a video is plain data, and every m
 - [`ai/SKILL.md`](./ai/SKILL.md) — a [skill](https://docs.claude.com/en/docs/claude-code/skills) (workflow, rules, verification loop). Copy the `ai/` folder to `~/.claude/skills/pixi-effects/` (or your project's `.claude/skills/`) to have Claude load it automatically when you ask for a video.
 - [`ai/reference/cheatsheet.md`](./ai/reference/cheatsheet.md), [`recipes.md`](./ai/reference/recipes.md) (tested), [`pitfalls.md`](./ai/reference/pitfalls.md), and a starter [`ai/template.html`](./ai/template.html).
 
-- **Look at a page with its timeline, and scrub one with the other:** `npx pixi-effects-view my-video.html` (or `node ai/tools/view.mjs …`) opens your browser on a viewer: the page on top, the timeline of every layer under it with a playhead that follows the movie. Click or drag the timeline to seek, click a layer's name to jump to where it starts, Space plays, ← / → step a frame. For the human who wants to see what the AI made.
+- **Look at a page with its timeline, and scrub one with the other:** `npx pixi-effects-view my-video.html` (or `node ai/tools/view.mjs …`) opens your browser on a viewer: the page on top, the timeline of every layer under it with a playhead that follows the movie. Click or drag the timeline to seek, click a layer's name to jump to where it starts, Space plays, ← / → step a frame, + / − (or Ctrl/⌘ + wheel) zoom, the names stay in place. For the human who wants to see what the AI made.
 - **Render a page to a video file, headless:** `npx pixi-effects-render my-video.html -o my-video.mp4` (or `node ai/tools/render.mjs …`; Node ≥ 22 and Chrome installed, no dependencies). The container follows the extension (`mp4 webm mov mkv`); `--quality very-low…very-high`, `--query lang=ja` (added to the page URL), `--fail-on-warn` (exit 1 when the page logged a warning), `--quiet`. It waits for `window.__ready`, runs `movie.render()` and streams the file to disk; exit 0 = written, 1 = the page or the render failed (no file). For scripts, CI and batches; `pixi-effects-check` below is the review.
 - **One-command review for the AI that wrote the page:** `npx pixi-effects-check my-video.html` (or `node ai/tools/check.mjs my-video.html`; Node ≥ 22 and Chrome installed, no dependencies). It opens the page in its own headless Chrome and reports warnings, layout (`movie.inspect` over the whole timeline), the soundtrack (`movie.inspectAudio`) and a real export decoded again, and writes a contact sheet PNG and a `timeline.html` (every layer as a bar on a time axis) to look at. Exit code 0 / 1.
 
@@ -177,7 +181,7 @@ They ship in the npm package (`node_modules/pixi-effects/ai/`).
   - `03-shapes.html` — every shape primitive
   - `04-media.html` — image / video / audio
   - `05-composition-mask.html` — nested compositions and masks
-  - `06-filters.html` — built-in and pixi-filters via `{ type: 'custom' }`
+  - `06-filters.html` — built-in and pixi-filters (as `{ type: 'custom' }`; most can now be written by name, see `docs/dsl.md` → Named filters)
   - `07-transitions.html` — all seven transition kinds in one timeline
   - `08-presets-export.html` — `kenBurns` preset and `movie.render()` from code
   - `09-audio.html` — multi-track audio mixing with BGM ducking and SFX cues
