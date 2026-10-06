@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>check · synthesised sfx reach the exported file</title>
+</head>
+<body>
+  <!--
+    Acceptance check (not an example): a movie made ONLY of synthesised sfx at known times is rendered,
+    the file's audio is decoded, and every sound must be in the file where it is in the browser.
+    ?rate=44100 | 48000 forces the AudioContext rate (default: the device's).
+    window.startCheck('mp4' | 'webm' | 'mov' | 'mkv') starts a render; poll window.__check until state !== 'running'.
+  -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":            "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":      "https://esm.sh/mediabunny@1.61.3"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+
+    const SOUNDS = [['click', 0.5], ['pop', 1.25], ['hit', 2.0], ['typewriter', 2.75]];
+    const DURATION = 3.5;
+    const RATE = Number(new URLSearchParams(location.search).get('rate') || 0);
+
+    const movie = new Movie();
+    window.movie = movie;
+    if (RATE) movie._audioContext = new AudioContext({ sampleRate: RATE });   // test hook: force the device rate
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 320, height: 180, duration: DURATION, frameRate: 30,
+        composition: { sequences: SOUNDS.map(([sfx, at]) => ({ type: 'audio', name: sfx, sfx, at })) },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+
+    window.startCheck = (format) => {
+      window.__check = { state: 'running', format };
+      (async () => {
+        const blob = await movie.render({ format });
+        const file = await new OfflineAudioContext(2, 1, 48000).decodeAudioData(await blob.arrayBuffer());
+        const sr = file.sampleRate;
+        const L = file.getChannelData(0), R = file.getChannelData(file.numberOfChannels > 1 ? 1 : 0);
+        const peakDb = (t0, t1) => {
+          let p = 0;
+          for (let i = Math.max(0, Math.floor(t0 * sr)); i < Math.min(L.length, Math.floor(t1 * sr)); i++) p = Math.max(p, Math.abs(L[i]), Math.abs(R[i]));
+          return Math.round(10 * 20 * Math.log10(Math.max(p, 1e-6))) / 10;
+        };
+        const onsetMs = (t) => {
+          let i = Math.floor((t - 0.1) * sr);
+          while (i < L.length && Math.abs(L[i]) < 0.01 && Math.abs(R[i]) < 0.01) i++;
+          return Math.round((i / sr - t) * 1000);
+        };
+        const onsets = SOUNDS.map(([, at]) => onsetMs(at));
+        const peaks = SOUNDS.map(([, at]) => peakDb(at, at + 0.2));
+        const gaps = [peakDb(0, 0.45), peakDb(0.65, 1.2), peakDb(3.45, DURATION)];
+        const pass = onsets.every(ms => Math.abs(ms) <= 5) && peaks.every(db => db > -20) && gaps.every(db => db < -60)
+          && Math.abs(file.duration - DURATION) <= 0.05 && window.__logs.length === 0;
+        window.__check = {
+          state: 'done', pass, format, bytes: blob.size, mixRate: movie.audioBuffer.sampleRate,
+          duration: Math.round(file.duration * 1000) / 1000, onsetMs: onsets, peakDb: peaks, silenceDb: gaps,
+        };
+      })().catch(e => { window.__check = { state: 'error', pass: false, message: String((e && e.message) || e) }; });
+    };
+  </script>
+</body>
+</html>

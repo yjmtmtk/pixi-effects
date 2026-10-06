@@ -20,6 +20,9 @@ const AUDIO_CODEC_BY_FORMAT = {
   mkv: 'opus',
 } as const;
 
+/** Samples of silence an AAC encoder puts in front of the audio (its priming / encoder delay). */
+const AAC_PRIMING_SAMPLES = 2112;
+
 const qualityMap: Record<string, Quality> = {
   'very-low': QUALITY_VERY_LOW,
   'low': QUALITY_LOW,
@@ -62,10 +65,13 @@ export async function exportFrames(movie: Movie, options: RenderOptions = {}): P
   output.addVideoTrack(canvasSource, { frameRate: movie.frameRate });
 
   if (movie.audioBuffer) {
+    // AAC encoders emit AAC_PRIMING_SAMPLES of silence first. Starting the track that much earlier makes
+    // mediabunny write an edit list that trims them, so the file's audio starts where the browser's does
+    // (without it every sound in an MP4 / MOV was ~45 ms late). Opus signals its own pre-skip.
     const audioSource = new AudioBufferSource({
       codec: opts.audio.codec as any,
       bitrate: opts.audio.bitrate,
-    });
+    }, { startTimestamp: opts.audio.codec === 'aac' ? -AAC_PRIMING_SAMPLES / movie.audioBuffer.sampleRate : 0 });
     output.addAudioTrack(audioSource);
     await output.start();
     await audioSource.add(movie.audioBuffer);

@@ -18,6 +18,7 @@ vi.mock('mediabunny', () => {
     addAudioTrack: [] as unknown[],
     canvasSourceAdds: [] as Array<{ t: number; dt: number; opts: unknown }>,
     audioSourceAdds: [] as unknown[],
+    audioSourceOptions: [] as unknown[],
     canvasSourceCloses: 0,
     audioSourceCloses: 0,
     starts: 0,
@@ -41,7 +42,7 @@ vi.mock('mediabunny', () => {
   }
 
   class AudioBufferSource {
-    constructor(public opts: unknown) { calls.AudioBufferSource.push(opts); }
+    constructor(public opts: unknown, options?: unknown) { calls.AudioBufferSource.push(opts); calls.audioSourceOptions.push(options); }
     async add(buf: unknown) { calls.audioSourceAdds.push(buf); }
     async close() { calls.audioSourceCloses++; }
   }
@@ -96,6 +97,7 @@ function bag() {
     addAudioTrack: [] as unknown[],
     canvasSourceAdds: [] as Array<{ t: number; dt: number; opts: { keyFrame?: true } | undefined }>,
     audioSourceAdds: [] as unknown[],
+    audioSourceOptions: [] as unknown[],
     canvasSourceCloses: 0,
     audioSourceCloses: 0,
     starts: 0,
@@ -347,5 +349,23 @@ describe('Renderer — ticker, blob, error handling', () => {
     await exportFrames(asMovie(movie));
     expect(calls.CanvasSource[0]!.canvas).toBe(movie.app.canvas);
     expect(calls.addVideoTrack[0]!.trackOpts).toEqual({ frameRate: 24 });
+  });
+});
+
+describe('Renderer — the audio lines up with the picture', () => {
+  it('AAC (mp4 / mov): the track starts 2112 samples early, so the encoder delay is cut off by an edit list', async () => {
+    for (const format of ['mp4', 'mov'] as const) {
+      const { movie } = fakeMovie({ audioBuffer: { sampleRate: 48000 } as AudioBuffer });
+      await exportFrames(asMovie(movie), { format });
+    }
+    expect(calls.audioSourceOptions).toEqual([{ startTimestamp: -2112 / 48000 }, { startTimestamp: -2112 / 48000 }]);
+  });
+
+  it('Opus (webm / mkv) starts at 0: the container carries its own pre-skip', async () => {
+    for (const format of ['webm', 'mkv'] as const) {
+      const { movie } = fakeMovie({ audioBuffer: { sampleRate: 44100 } as AudioBuffer });
+      await exportFrames(asMovie(movie), { format });
+    }
+    expect(calls.audioSourceOptions).toEqual([{ startTimestamp: 0 }, { startTimestamp: 0 }]);
   });
 });
