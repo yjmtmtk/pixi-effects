@@ -10,6 +10,8 @@ export type {
 
 export type { InspectReport, InspectOptions, LayerInfo } from './core/inspect';
 export type { AudioReport, AudioSourceReport, SoundMeasure, AudioInspectOptions } from './core/inspectAudio';
+export { measureText, splitText } from './text/measure';
+export type { MeasureStyle, TextSize, SplitOptions, TextPiece } from './text/measure';
 
 export { registerSequenceType } from './core/Composition';
 export type { SequenceCtor } from './core/Composition';
@@ -58,6 +60,7 @@ export type {
   RectShapeSpec,
   CircleShapeSpec,
   EllipseShapeSpec,
+  ArcShapeSpec,
   LineShapeSpec,
   PolygonShapeSpec,
   PathShapeSpec,

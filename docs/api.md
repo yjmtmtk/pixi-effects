@@ -89,6 +89,21 @@ contactSheet(options?: {
 
 Many frames on **one** PNG, each labelled `frame N · T s`. The cheapest way to check a whole animation by eye (include the middle of every transition and the last second). Restores the current frame afterwards.
 
+### `measureText(text, style?): { width, height, lines }` and `splitText(text, style?, options?): TextPiece[]`
+
+Text layout helpers, exported from `pixi-effects`. They measure with the renderer's own font metrics (the same numbers a text layer with that `style` has), so a layout built from them matches what is drawn. `style` is a text layer's `style` with numbers (no expressions). A web font must be loaded first.
+
+```ts
+measureText('Hello', { fontSize: 72 });                       // { width: 187.4, height: 81.3, lines: 1 }
+
+interface SplitOptions { by?: 'chars' | 'words' | 'lines'; x?: number; y?: number; align?: 'left' | 'center' | 'right' }
+interface TextPiece { text: string; x: number; y: number; width: number; index: number; line: number }
+splitText('Hello world', style, { by: 'words', x: 640, y: 300, align: 'center' });
+// → [{ text: 'Hello', x, y, width, index: 0, line: 0 }, { text: 'world', ... }]
+```
+
+`x` is the line's left edge, or its centre / right edge with `align` (each line of a `\n` text is aligned on its own width); `y` is the top of the first line, and further lines go down by the line height. Whitespace takes its room but is not returned as a piece. Use one text layer per piece with the same `style` and the default top-left anchor: `{ type: 'text', text: p.text, style, initial: { x: p.x, y: p.y } }`. Kerning is kept (a piece's x is the measured width of everything before it).
+
 ### `movie.inspect(frame?, options?): Promise<InspectReport>`
 
 Where every layer is drawn at `frame`, as JSON — for checking layout without eyes. Seeks there and stays there. `options.layers`: `'visible'` (default, only layers drawn at this frame), `'all'`, or `'none'` (just `summary` and `issues`). Faint layers (alpha < 0.3) and text whose x / y is animated (tickers) are not reported.

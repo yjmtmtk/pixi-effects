@@ -71,6 +71,15 @@ export function createPixiMock() {
     (Graphics.prototype as unknown as Record<string, unknown>)[m] = function (this: unknown) { return this; };
   }
   class GraphicsPath { constructor(public svgD: string) {} }
+  /** Text measuring: every character is `fontSize / 2 + letterSpacing` wide, a line is `fontSize * 1.2` tall. */
+  class TextStyle { constructor(public options: Record<string, unknown> = {}) {} }
+  const CanvasTextMetrics = {
+    measureText(text: string, style: TextStyle) {
+      const fs = Number(style.options.fontSize ?? 26), ls = Number(style.options.letterSpacing ?? 0);
+      const lines = text.split('\n');
+      return { width: Math.max(...lines.map(l => l.length * (fs / 2 + ls))), height: lines.length * fs * 1.2, lines, lineHeight: fs * 1.2 };
+    },
+  };
   class FillGradient { constructor(public options: Record<string, unknown>) {} }
   class Filter { resources: Record<string, unknown> = {}; constructor(_opts?: unknown) {} apply() {} }
   class GlProgram { constructor(_o: unknown) {} static from(o: unknown) { return new GlProgram(o); } }
@@ -83,7 +92,7 @@ export function createPixiMock() {
   }
   return {
     Container, Rectangle, Matrix, Texture, RenderTexture, PerspectiveMesh,
-    Sprite, Text, Graphics, GraphicsPath, FillGradient,
+    Sprite, Text, Graphics, GraphicsPath, FillGradient, TextStyle, CanvasTextMetrics,
     Filter, GlProgram, GpuProgram, UniformGroup, defaultFilterVert: '',
     Assets: { get: async () => null },
   };

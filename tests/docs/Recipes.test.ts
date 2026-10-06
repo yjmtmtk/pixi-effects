@@ -13,6 +13,7 @@ import { expandTransitions } from '../../src/core/Transitions';
 import { kenBurns } from '../../src/presets/kenBurns';
 import { withFade } from '../../src/transforms/withFade';
 import { orbit } from '../../src/presets/orbit';
+import { measureText, splitText } from '../../src/text/measure';
 import { lintSequence } from '../../src/space/lint';
 import { lintTiming } from '../../src/core/lint';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
@@ -41,7 +42,7 @@ describe('ai/reference/recipes.md', () => {
   for (const r of recipes) {
     it(`recipe "${r.name}" builds and binds with no warnings`, async () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      const out = new Function('kenBurns', 'withFade', 'orbit', r.code)(kenBurns, withFade, orbit) as
+      const out = new Function('kenBurns', 'withFade', 'orbit', 'splitText', 'measureText', r.code)(kenBurns, withFade, orbit, splitText, measureText) as
         SequenceSpec[] | { sequences: SequenceSpec[]; transitions?: unknown[]; duration?: number };
       const sequences = Array.isArray(out) ? out : out.sequences;
       const transitions = Array.isArray(out) ? undefined : out.transitions;

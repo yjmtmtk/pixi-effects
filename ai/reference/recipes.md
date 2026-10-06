@@ -372,6 +372,30 @@ return [
 
 ---
 
+## Letters and words that animate one by one (`splitText`)
+
+Text content cannot change, so a per-letter or per-word effect is one text layer per piece. `splitText(text, style, { by: 'chars' | 'words' | 'lines', x, y, align })` measures the text with the renderer's own font metrics (kerning kept) and returns each piece's `text`, `x`, `y`, `width`, `index` and `line`: put them straight into the layers. Use the same `style` for the whole text and each piece, and a web font must be loaded first. `measureText(text, style)` gives `{ width, height, lines }` for sizing pills and underlines.
+
+```js
+// @recipe split-text
+const style = { fontFamily: 'Arial, sans-serif', fontSize: 110, fontWeight: 'bold', fill: '#ffffff' };
+const sub = { fontFamily: 'Arial, sans-serif', fontSize: 44, fill: '#ffd166' };
+const sequences = [{ type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0f1424' } }];
+splitText('MAKE THINGS', style, { x: 640, y: 200, align: 'center' }).forEach(p => sequences.push({
+  type: 'text', name: 'letter-' + p.index, text: p.text, style, at: 0.3 + p.index * 0.06,
+  initial: { x: p.x, y: p.y, alpha: 0 },                                   // x / y are the top-left of the letter: anchorX / anchorY stay 0
+  keyframes: [{ at: 0, from: { y: p.y + 40, alpha: 0 }, to: { y: p.y, alpha: 1 }, duration: 0.35, ease: 'back.out(2)' }],
+}));
+splitText('one word at a time', sub, { by: 'words', x: 640, y: 380, align: 'center' }).forEach(p => sequences.push({
+  type: 'text', name: 'word-' + p.index, text: p.text, style: sub, at: 1.4 + p.index * 0.25,
+  initial: { x: p.x, y: p.y, alpha: 0 },
+  keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }],
+}));
+return sequences;
+```
+
+---
+
 ## Looping motion
 
 `repeat` (a finite count) and `yoyo` go on any keyframe. Total time = `duration × (repeat + 1)`.
