@@ -41,7 +41,8 @@ Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same br
 | sonnet | Teatime — Four museum teapots as transparent WebP cutouts (about 80 KB each instead of 700 KB as PNG) pop in over a giant TEA, with feathered PNG shadows and steam that draws itself | 1280×720 | teatime.html |
 | sonnet | Four days in Iceland — A fictional travel slideshow: four procedurally painted landscapes, Ken Burns, four different transitions, captions and a day counter. | 1280×720 | travel-slideshow.html |
 | sonnet | Harbor City Forecast — A five-day broadcast forecast: shifting skies, glass cards, animated icons and a self-drawing temperature line. | 1280×720 | weather-report.html |
+| sonnet | Christmas Eve — A snowy night at a lit cottage and a small tree, with a slow music-box lullaby written as text: there is no audio file in this piece | 1280×720 | christmas-eve.html |
 
-Counts: fable 11, opus 11, sonnet 15 (37 pieces).
+Counts: fable 11, opus 11, sonnet 16 (38 pieces).
 
 Per-piece stumble notes are in [_notes/](_notes/), named after the piece id (file name without `.html`).

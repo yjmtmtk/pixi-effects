@@ -59,6 +59,8 @@ return [
 - **Instruments:** `keys` (electric piano), `pluck` (guitar or harp), `pad` (slow synth pad), `bass`, `sub` (pure sine bass), `lead`, `bell`, `musicbox`. **Drums:** `kick snare hat openhat clap rim tom crash shaker sleigh`, each a string of steps (`x` hit, `o` soft hit, `.` nothing) that repeats. Put `from: 8` on a drum object to bring the groove in later, or give a list of them for sections.
 - **Shape the music:** `swing` (a lilt on the off-beats), `reverb`, per-track `vol` (a list like `[[0, 0], [8, 0.7]]` fades it in over 8 beats), `pan`, `tone` (darker when lower), `transpose`, and a tempo that slows: `bpm: [[0, 96], [28, 96], [32, 60]]`.
 - **Length and loop:** the layer lasts the music plus its reverb tail, and ends with the movie; `loop: true` repeats it until the layer ends. At `volume: 1` it peaks at −6 dBFS, so use 0.5 to 0.8 under speech or effects.
+{{demo examples/gallery/christmas-eve.html}}
+
 - **It is an AI's friend:** a score is text, so an AI can write a Christmas waltz, a lo-fi loop or a thriller opening and check it with `movie.inspectAudio()`. Mistakes (an instrument or drum name that does not exist, a note it cannot read) print a warning that names the track and the token. The complete reference is the [DSL reference](https://github.com/yjmtmtk/pixi-effects/blob/main/docs/dsl.md#music-written-as-text-music).
 
 ## Visuals that follow the music

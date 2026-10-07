@@ -367,6 +367,28 @@
       "notes": "_notes/history-timeline.md"
     },
     {
+      "id": "christmas-eve",
+      "title": "Christmas Eve",
+      "subtitle": "A snowy night at a lit cottage and a small tree, with a slow music-box lullaby written as text: there is no audio file in this piece",
+      "tags": [
+        "christmas",
+        "winter",
+        "snow",
+        "night",
+        "music",
+        "typography",
+        "particles"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 22,
+      "posterFrame": 330,
+      "model": "sonnet",
+      "page": "christmas-eve.html",
+      "poster": "posters/christmas-eve.jpg",
+      "notes": "_notes/christmas-eve.md"
+    },
+    {
       "id": "liquid-flow-title",
       "title": "Flow",
       "subtitle": "Blurred colour blobs drift and saturate on a pale field, then the field drains into the wordmark",

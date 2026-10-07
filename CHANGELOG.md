@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+**Added**
+
+- **Music written as text.** `{ type: 'audio', music: { bpm, tracks, drums } }` plays a tune with no audio file: notes (`c4:2`), chords by name (`Am7`, `Cmaj7`, `G7sus4`, `Bm7b5`, `C@4`, `Am7/e`), rests, holds and accents as strings, counted in beats, played by a small built-in synthesiser. Eight instruments (`keys` electric piano, `pluck`, `pad`, `bass`, `sub`, `lead`, `bell`, `musicbox`) and ten drums (`kick snare hat openhat clap rim tom crash shaker sleigh`) as step patterns, with `swing`, `reverb`, a `grid` for 6/8 and triplet feels, `humanize`, `transpose`, per-track `vol` points (a fade or a swell), `pan`, `tone`, `reverb` send, `attack` / `release` / `ring`, drum sections (`from` / `to`), and a tempo that changes (`bpm: [[0, 96], [28, 96], [32, 60]]`, a ritardando). Deterministic, in the exported file at the same moment, its own chunk (movies without music never load it). It lasts its notes plus a tail and ends with the movie; `loop: true` repeats it; at `volume: 1` it peaks at −6 dBFS. Mistakes warn with "did you mean" (an instrument, a drum, an option, a note it cannot read names the track and the token). The sound was approved by ear from a spike: eight tunes written by AI sessions from the notation alone (lo-fi, a heroic build, a jingle, a dark opening, three Christmas pieces).
+- **`musicEnvelope(music, { frameRate })`**: the envelope of that music for `react()`: `level` / `bass` / `mid` / `treble` from analysing the very sound the layer plays, exact beats (the kick hits, or every beat) and the starting tempo.
+- A gallery piece with a score and no audio file, `christmas-eve` (38 pieces), guide section "Music written as text" in Audio, a recipe, `ai/CHAT.md` section with a tested example, and DSL / API / cheatsheet / pitfalls entries.
+
 ## 0.15.0
 
 **Added**

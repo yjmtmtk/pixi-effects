@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Christmas Eve</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+  <style>
+    body { background: #060b1c; margin: 0; padding: 16px; display: flex; justify-content: center; }
+    .pe-stage { position: relative; width: min(960px, 100%); border-radius: 8px; --pe-loader-bg: #0a1330; --pe-loader-color: #ffe2a6; --pe-loader-track: rgba(255, 226, 166, 0.16); background: #0a1330; }
+    .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
+  </style>
+</head>
+<body>
+  <div class="pe-stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
+
+  <script type="application/json" id="piece-meta">
+  { "title": "Christmas Eve", "subtitle": "A snowy night at a lit cottage and a small tree, with a slow music-box lullaby written as text: there is no audio file in this piece", "tags": ["christmas", "winter", "snow", "night", "music", "typography", "particles"], "width": 1280, "height": 720, "duration": 22, "model": "sonnet" }
+  </script>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie, particles, animateText } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 22, POSTER = 11;
+
+    // ---------------------------------------------------------------- helpers
+    let seed = 24121;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const between = (a, b) => a + rnd() * (b - a);
+    const r2 = (n) => Math.round(n * 100) / 100;
+    const loops = (total, period) => Math.max(1, Math.ceil(total / period)) - 1;       // `repeat` count that covers `total` s
+
+    const SERIF = "Georgia, 'Times New Roman', serif";
+    const WARM = '#ffd27a', CREAM = '#fff3d6';
+
+    const poly = (name, points, fillColor, extra = {}) => ({ type: 'shape', shape: 'polygon', name, points, initial: { fillColor, ...(extra.initial || {}) }, ...(extra.top || {}) });
+    const rect = (name, x, y, width, height, fillColor, extra = {}) => ({ type: 'shape', shape: 'rect', name, width, height, initial: { x, y, fillColor, ...extra } });
+    const glow = (name, x, y, radius, rgb, alpha, at, extra = {}) => ({
+      type: 'shape', shape: 'circle', name, radius, blendMode: 'add', at, ...extra,
+      fillGradient: { type: 'radial', stops: [[0, `rgba(${rgb},${alpha})`], [1, `rgba(${rgb},0)`]] },
+      initial: { x, y },
+    });
+
+    // ---------------------------------------------------------------- the night: sky, moon, stars, hills
+    const sky = { type: 'shape', shape: 'rect', name: 'sky', width: 'GW', height: 'GH', fillGradient: { type: 'linear', angle: 90, stops: [[0, '#040918'], [0.55, '#102249'], [0.78, '#2a4784']] }, initial: { x: 'GW/2', y: 'GH/2' } };
+
+    const moon = [
+      glow('moon-halo', 1020, 150, 190, '255,240,205', 0.32, 0),
+      { type: 'shape', shape: 'circle', name: 'moon', radius: 50, initial: { x: 1020, y: 150, fillColor: '#fff4d8' } },
+      ...[[1003, 138, 11], [1037, 160, 8], [1018, 176, 6]].map(([x, y, r], i) => ({ type: 'shape', shape: 'circle', name: 'crater-' + i, radius: r, initial: { x, y, fillColor: '#ecdcb4', fillAlpha: 0.55 } })),
+    ];
+
+    const stars = [];
+    for (let i = 0; i < 70; i++) {
+      const x = r2(between(20, W - 20)), y = r2(between(16, 340));
+      if (Math.hypot(x - 1020, y - 150) < 120) continue;
+      const period = between(1.2, 2.6), low = between(0.12, 0.4);
+      stars.push({
+        type: 'shape', shape: 'circle', name: 'star-' + i, radius: r2(between(0.8, 2.2)), initial: { x, y, fillColor: '#fff6e0', alpha: r2(between(0.5, 1)) },
+        keyframes: [{ at: r2(rnd() * 2), to: { alpha: r2(low) }, duration: r2(period), ease: 'sine.inOut', repeat: loops(DURATION, period) * 1 + 1, yoyo: true }],
+      });
+    }
+
+    const hills = poly('far-hills', [[0, 470], [150, 432], [350, 462], [610, 424], [880, 458], [1120, 424], [1280, 448], [1280, 580], [0, 580]], '#121f46');
+    const snowGround = {
+      type: 'shape', shape: 'polygon', name: 'snow-ground', points: [[0, 570], [190, 528], [470, 548], [800, 512], [1100, 538], [1280, 520], [1280, 720], [0, 720]],
+      fillGradient: { type: 'linear', angle: 90, stops: [[0, '#dfeaff'], [1, '#7d95c4']] }, initial: {},
+    };
+
+    // ---------------------------------------------------------------- pines (a dark silhouette in the far field)
+    const pine = (name, x, base, h, color) => {
+      const tiers = 4, step = (h * 0.9) / tiers, w = h * 0.34, out = [];
+      for (let t = 0; t < tiers; t++) {
+        const apex = base - h + t * step * 0.72, bottom = apex + step * 1.45, half = (w * (t + 1.3)) / (tiers + 0.3);
+        out.push(poly(`${name}-${t}`, [[x, apex], [x + half, bottom], [x - half, bottom]], color));
+      }
+      out.push(rect(`${name}-trunk`, x, base - h * 0.05, h * 0.07, h * 0.12, '#1c1620'));
+      return out;
+    };
+    const pines = [
+      ...pine('pine-a', 74, 560, 230, '#0b1f2a'), ...pine('pine-b', 168, 548, 170, '#0e2733'),
+      ...pine('pine-c', 1130, 556, 210, '#0b1f2a'), ...pine('pine-d', 1222, 548, 250, '#0e2733'), ...pine('pine-e', 1040, 534, 140, '#102c39'),
+    ];
+
+    // ---------------------------------------------------------------- the cottage
+    const LIT = (i) => 2.0 + i * 0.7;                                                  // when each window lights
+    const house = [
+      rect('walls', 475, 470, 290, 140, '#3d2733'),
+      poly('roof', [[296, 408], [475, 318], [654, 408]], '#2b3446'),
+      poly('roof-snow', [[288, 414], [475, 308], [662, 414], [646, 414], [475, 336], [304, 414]], '#f1f6ff'),
+      rect('chimney', 574, 358, 30, 64, '#35212c'),
+      rect('chimney-snow', 574, 326, 40, 10, '#f1f6ff'),
+      rect('door', 475, 500, 50, 80, '#24151d'),
+      rect('step', 475, 546, 74, 8, '#e3ecfb'),
+    ];
+    const windows = [];
+    [[408, 462], [542, 462]].forEach(([x, y], i) => {
+      const at = LIT(i);
+      windows.push(
+        glow('window-glow-' + i, x, y, 120, '255,190,100', 0.55, at, { keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 1.4 }] }),
+        glow('window-spill-' + i, x, 556, 90, '255,190,100', 0.2, at, { initial: { x, y: 556, scaleY: 0.28 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 1.6 }] }),
+        { type: 'shape', shape: 'rect', name: 'window-' + i, width: 56, height: 64, at, initial: { x, y, fillColor: WARM },
+          keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 1.0 }, { at: 1.6, to: { alpha: 0.82 }, duration: 1.7, ease: 'sine.inOut', repeat: 40, yoyo: true }] },
+        { type: 'shape', shape: 'rect', name: 'mullion-v-' + i, width: 4, height: 64, at, initial: { x, y, fillColor: '#3d2733' } },
+        { type: 'shape', shape: 'rect', name: 'mullion-h-' + i, width: 56, height: 4, at, initial: { x, y, fillColor: '#3d2733' } },
+      );
+    });
+    const doorLight = glow('door-light', 475, 470, 46, '255,190,100', 0.5, LIT(2), { keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 1.2 }] });
+
+    // a string of lights along the roof edge
+    const BULBS = ['#ff5a5f', '#ffd166', '#5ad1ff', '#7dff9b'];
+    const garland = [];
+    const edge = (a, b, n, tag) => {
+      for (let i = 0; i < n; i++) {
+        const k = (i + 0.5) / n, x = a[0] + (b[0] - a[0]) * k, y = a[1] + (b[1] - a[1]) * k + 7;
+        const c = BULBS[(i + tag) % 4], period = between(0.8, 1.5), at = 3.2 + k * 1.4 + tag * 0.05;
+        garland.push(
+          glow(`bulb-glow-${tag}-${i}`, r2(x), r2(y), 16, '255,220,160', 0.5, at, { keyframes: [{ at: 0, from: { alpha: 0.3 }, to: { alpha: 1 }, duration: period, ease: 'sine.inOut', repeat: 80, yoyo: true }] }),
+          { type: 'shape', shape: 'circle', name: `bulb-${tag}-${i}`, radius: 4.2, at, initial: { x: r2(x), y: r2(y), fillColor: c },
+            keyframes: [{ at: 0, from: { alpha: 0.4 }, to: { alpha: 1 }, duration: period, ease: 'sine.inOut', repeat: 80, yoyo: true }] },
+        );
+      }
+    };
+    edge([298, 412], [475, 320], 9, 0);
+    edge([475, 320], [652, 412], 9, 1);
+
+    // chimney smoke: slow puffs that rise and fade
+    const smoke = [];
+    for (let i = 0; i < 7; i++) {
+      const life = between(5, 7), at = 1 + i * 0.95;
+      smoke.push({
+        type: 'shape', shape: 'circle', name: 'smoke-' + i, radius: 12, at, duration: DURATION - at, initial: { x: 574, y: 330, fillColor: '#c6d3ee', alpha: 0, scale: 0.6 },
+        keyframes: [
+          { at: 0, to: { y: 330 - 120, x: 574 + between(-8, 36), scale: 1.9 }, duration: life, ease: 'sine.out', repeat: loops(DURATION - at, life), repeatDelay: 0 },
+          { at: 0, to: { alpha: 0.2 }, duration: life * 0.25, ease: 'sine.out', repeat: loops(DURATION - at, life), repeatDelay: life * 0.75 },
+          { at: life * 0.25, to: { alpha: 0 }, duration: life * 0.75, ease: 'sine.in', repeat: loops(DURATION - at, life), repeatDelay: life * 0.25 },
+        ],
+      });
+    }
+
+    // ---------------------------------------------------------------- the little tree
+    const TX = 905, TB = 548;
+    const treeTiers = [[TX, 392, 70, 458], [TX, 420, 94, 488], [TX, 452, 118, 524]].map(([x, top, half, bottom], i) =>
+      poly('tree-' + i, [[x, top], [x + half, bottom], [x - half, bottom]], i % 2 ? '#14513f' : '#176247'));
+    const star = (cx, cy, R, r) => Array.from({ length: 10 }, (_, i) => { const a = -Math.PI / 2 + (i * Math.PI) / 5, rad = i % 2 ? r : R; return [r2(cx + Math.cos(a) * rad), r2(cy + Math.sin(a) * rad)]; });
+    const treeStar = [
+      glow('tree-star-glow', TX, 384, 70, '255,225,150', 0.7, 3.6, { keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 1.2 }, { at: 1.4, to: { alpha: 0.7 }, duration: 1.4, ease: 'sine.inOut', repeat: 40, yoyo: true }] }),
+      { ...poly('tree-star', star(TX, 384, 15, 6.5), '#ffe28a'), at: 3.6, keyframes: [{ at: 0, from: { alpha: 0, scale: 0.4 }, to: { alpha: 1, scale: 1 }, duration: 0.9, ease: 'back.out(2.2)' }] },
+    ];
+    // tree lights: spirals of bulbs down the three tiers
+    const treeLights = [];
+    const rows = [[420, 38], [446, 58], [472, 76], [498, 92], [522, 108]];
+    rows.forEach(([y, half], ri) => {
+      const n = 3 + ri;
+      for (let i = 0; i < n; i++) {
+        const k = n === 1 ? 0.5 : i / (n - 1), x = TX - half * 0.8 + 2 * half * 0.8 * k + (ri % 2 ? 6 : -6), at = 4 + ri * 0.35 + i * 0.1, period = between(0.7, 1.4);
+        const c = BULBS[(ri + i) % 4];
+        treeLights.push(
+          glow(`tl-glow-${ri}-${i}`, r2(x), y, 15, '255,225,170', 0.5, at, { keyframes: [{ at: 0, from: { alpha: 0.25 }, to: { alpha: 1 }, duration: period, ease: 'sine.inOut', repeat: 80, yoyo: true }] }),
+          { type: 'shape', shape: 'circle', name: `tl-${ri}-${i}`, radius: 3.8, at, initial: { x: r2(x), y, fillColor: c }, keyframes: [{ at: 0, from: { alpha: 0.35 }, to: { alpha: 1 }, duration: period, ease: 'sine.inOut', repeat: 80, yoyo: true }] },
+        );
+      }
+    });
+    const treeSnow = glow('tree-spill', TX, 556, 140, '255,210,140', 0.16, 4.2, { initial: { x: TX, y: 556, scaleY: 0.25 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 2 }] });
+    const gifts = [[TX - 44, 538, 26, 20, '#c0392b'], [TX + 38, 540, 22, 18, '#e8c15a'], [TX - 8, 543, 18, 14, '#4aa3d8']].map(([x, y, w, h, c], i) => rect('gift-' + i, x, y, w, h, c));
+    const giftRibbons = gifts.map((g, i) => rect('ribbon-' + i, g.initial.x, g.initial.y, 3, g.height, i === 1 ? '#c0392b' : '#fff3d6'));
+
+    // the whole night drifts closer, very slowly
+    const scene = {
+      type: 'composition', name: 'scene', width: W, height: H, duration: DURATION,
+      initial: { x: 640, y: 360, pivotX: 640, pivotY: 360 },
+      keyframes: [{ at: 0, from: { scale: 1 }, to: { scale: 1.06 }, duration: DURATION, ease: 'none' }],
+      sequences: [sky, ...moon, ...stars, hills, ...pines, snowGround, ...smoke, ...house, ...windows, doorLight, ...garland, treeSnow, ...treeTiers, ...treeLights, ...treeStar, ...gifts, ...giftRibbons],
+    };
+
+    // ---------------------------------------------------------------- snow in front of everything
+    const snow = [
+      ...particles({ count: 130, emit: 20, life: [6, 9], area: { x: 640, y: -20, width: 1500 }, angle: 90, speed: [26, 50], size: [1.2, 2.6], sway: { amp: 22, freq: 0.45 }, fade: { in: 0.6, out: 0.8 }, colors: ['#e8f1ff'], name: 'snow-far', seed: 11 }),
+      ...particles({ count: 60, emit: 20, life: [4.5, 6.5], area: { x: 640, y: -20, width: 1500 }, angle: 90, speed: [80, 130], size: [2.8, 5], sway: { amp: 38, freq: 0.6 }, fade: { in: 0.4, out: 0.6 }, colors: ['#ffffff'], name: 'snow-near', seed: 12 }),
+    ];
+
+    // ---------------------------------------------------------------- the words
+    const rise = (extra = {}) => ({ from: { y: 40, alpha: 0 }, duration: 1.1, ease: 'power3.out', ...extra });
+    const TITLE_AT = 8.2;
+    const title = animateText('Merry Christmas', { fontFamily: SERIF, fontStyle: 'italic', fontSize: 104, fill: CREAM, letterSpacing: 1, dropShadow: { color: '#000000', alpha: 0.45, blur: 8, distance: 4, angle: 1.2 } },
+      { by: 'chars', x: 96, y: 62, align: 'left', name: 'title', at: TITLE_AT, duration: DURATION - TITLE_AT, in: rise(), stagger: { each: 0.07 } });
+    const sub = {
+      type: 'text', name: 'sub', text: 'FROM OUR WINDOW TO YOURS', at: TITLE_AT + 1.6, duration: DURATION - TITLE_AT - 1.6,
+      style: { fontFamily: SERIF, fontSize: 22, fill: '#a9bde6', letterSpacing: 8 },
+      initial: { x: 100, y: 222, anchorX: 0, anchorY: 0.5, alpha: 0 },
+      keyframes: [{ at: 0, to: { alpha: 1 }, duration: 1.4 }, { at: 0, from: { x: 84 }, to: { x: 100 }, duration: 1.4, ease: 'power3.out' }],
+    };
+
+    // ---------------------------------------------------------------- the light comes up from black; the music starts with it
+    const black = rect('fade-in', 'GW/2', 'GH/2', 'GW', 'GH', '#02040c', { alpha: 1 });
+    black.keyframes = [{ at: 0.2, to: { alpha: 0 }, duration: 2.2, ease: 'power2.out' }];
+    const outro = rect('fade-out', 'GW/2', 'GH/2', 'GW', 'GH', '#02040c', { alpha: 0 });
+    outro.keyframes = [{ at: -2.2, to: { alpha: 1 }, duration: 2.2, ease: 'power2.in' }];
+
+    // a slow 6/8 lullaby in F major written as text: a music box on the tune, a harp-like arpeggio, a pad that swells in
+    const music = {
+      bpm: 72, grid: 2, reverb: 0.32, seed: 5, tail: 1.5,
+      tracks: [
+        { inst: 'musicbox', vol: 0.8, ring: 1.6, notes: '_:3 | a5:1.5 c6:1.5 | a5:1 g5:0.5 f5:1.5 | d6:1.5 a5:1.5 | bb5:1 a5:0.5 g5:1.5 | g5:1.5 d6:1.5 | e6:1 d6:0.5 c6:1.5 | a5:1 c6:0.5 f6:1.5 | f6:3' },
+        { inst: 'pluck', vol: [[0, 0], [6, 0.5]], pan: -0.2, step: 0.5, notes: '_:3 | f3 a3 c4 a3 c4 a3 | f3 a3 c4 a3 c4 a3 | d3 f3 a3 f3 a3 f3 | bb2 d3 f3 d3 f3 d3 | g3 bb3 d4 bb3 d4 bb3 | c3 e3 g3 e3 g3 e3 | f3 a3 c4 a3 c4 a3 | f3 a3 c4 g4 c4 a3' },
+        { inst: 'pad', vol: [[0, 0], [9, 0.5]], attack: 1.6, notes: '[f3 a3 c4]:9 [d3 f3 a3 c4]:3 [bb2 d3 f3 a3]:3 [g2 bb2 d3 f3]:3 [c3 e3 g3 bb3]:3 [f3 a3 c4]:3 [f3 g3 a3 c4]:3' },
+        { inst: 'sub', vol: [[0, 0], [9, 0.55]], attack: 0.3, notes: '_:3 | f2:6 | d2:3 | bb1:3 | g1:3 | c2:3 | f1:6' },
+      ],
+    };
+    const audio = [
+      { type: 'audio', name: 'lullaby', at: 0, volume: 0.85, music },
+      { type: 'audio', sfx: 'chime', at: TITLE_AT - 0.1, volume: 0.16 },
+      ...[0, 1].map((i) => ({ type: 'audio', sfx: 'pop', at: LIT(i) - 0.05, volume: 0.1 })),
+    ];
+
+    const sequences = [scene, ...snow, ...title, sub, black, outro, ...audio];
+
+    // ---------------------------------------------------------------- run
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER,
+        background: '#060b1c',
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>
