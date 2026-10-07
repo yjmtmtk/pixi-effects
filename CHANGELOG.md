@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+**Changed**
+
+- **The browser tools no longer make a sound.** `pixi-effects-check`, `pixi-effects-render` and the test suite start their private Chrome with `--mute-audio`, so a piece with sound no longer plays through the speakers while it is checked or exported (the audio is still analysed and encoded as before).
+- **The release check runs once.** `npm run release:check` builds, type-checks and runs every test, then stamps the exact committed tree. `npm publish` (`prepublishOnly`) sees the stamp and only rebuilds instead of running the whole suite a second time; with no stamp, or with uncommitted changes, it runs everything as before. `npm run test:fast` runs the suite without the real-browser tests (about 10 s).
+
 **Site**
 
 - **The numbered examples have a page again.** When the landing page became the Pages root, the old list of the 15 numbered examples, the music lab and the playground went with it, and the README's "Live demos" link pointed at the landing page. They are now at `examples/` (`examples/index.html`), and the README and `llms.txt` link there.

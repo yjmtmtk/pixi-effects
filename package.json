@@ -44,6 +44,8 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "test": "vitest run",
+    "test:fast": "SKIP_BROWSER_TESTS=1 vitest run",
+    "release:check": "node scripts/release-check.mjs",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "build:ai": "node scripts/build-llms.mjs",
@@ -51,7 +53,7 @@
     "posters": "node scripts/make-posters.mjs",
     "landing": "node scripts/preview-landing.mjs",
     "guide": "node scripts/build-guide.mjs guide-preview",
-    "prepublishOnly": "npm run build:ai && npm run typecheck && npm test && npm run build"
+    "prepublishOnly": "node scripts/release-check.mjs --gate"
   },
   "dependencies": {
     "mediabunny": "^1.61.3"
