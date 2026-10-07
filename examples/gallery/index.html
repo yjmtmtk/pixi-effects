@@ -546,7 +546,7 @@
       const start = () => {
         if (!movie || current !== p) return reveal();
         Promise.resolve(typeof movie.gotoFrame === 'function' ? movie.gotoFrame(0, true) : null)
-          .then(() => { if (current === p) movie.play(); })
+          .then(() => { if (current === p) { if (movie.stops && movie.stops.length) movie.next(); else movie.play(); } })
           .catch(() => { /* the player bar still works */ })
           .finally(() => { if (current === p) reveal(); });
       };

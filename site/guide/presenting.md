@@ -29,7 +29,7 @@ composition: {
 
 A stop with `page` begins a page; the others are **steps** of it (a bullet appears, a chart grows). With no `page` anywhere, every stop is a page. A negative time counts back from the end.
 
-**A step is just a layer that starts at the previous stop and ends at this one.** Press next, the movie plays that animation and pauses on its last frame. The `Controller` (the player bar) does the same: its play button, Space and a click on the picture play to the next stop and pause there, and every stop is a mark on the seek bar (a page start is a taller mark with a dot). To play straight through instead, `new Controller(movie, { pauseAtStops: false })`; a bare `movie.play()` always plays through.
+**A step is just a layer that starts at the previous stop and ends at this one.** Press next, the movie plays that animation and pauses on its last frame. The `Controller` (the player bar) does the same: its play button, Space and a click on the picture play to the next stop and pause there, and every stop is a mark on the seek bar (a small dot for a step, a larger ringed dot where a page starts). To play straight through instead, `new Controller(movie, { pauseAtStops: false })`; a bare `movie.play()` always plays through.
 
 ## The Presenter
 

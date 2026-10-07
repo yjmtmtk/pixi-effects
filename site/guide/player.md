@@ -70,7 +70,7 @@ Restyle it with variables on the element or any ancestor: `--pe-loader-color`, `
 
 ## For a talk: stops and the Presenter
 
-A movie with `stops` in its composition shows a mark on the seek bar for each one (a page start is taller, with a dot), and **play moves from stop to stop**: the play button, Space and a click on the picture play to the next stop and pause there (`pauseAtStops: false` plays straight through). It also gets a **Present** button that hands the page to a `Presenter` (the arrow keys, Space, a click or a swipe move through the stops; Esc gives the bar back). See [Presenting](presenting.html).
+A movie with `stops` in its composition shows a mark on the seek bar for each one (a small dot for a step, a larger ringed dot where a page starts), and **play moves from stop to stop**: the play button, Space and a click on the picture play to the next stop and pause there (`pauseAtStops: false` plays straight through). It also gets a **Present** button that hands the page to a `Presenter` (the arrow keys, Space, a click or a swipe move through the stops; Esc gives the bar back). See [Presenting](presenting.html).
 
 ## Build your own
 

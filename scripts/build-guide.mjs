@@ -158,10 +158,10 @@ const FACADE_JS = `document.querySelectorAll('.facade').forEach(function (f) {
     if (f.dataset.loaded) return; f.dataset.loaded = '1'; f.classList.add('loading');
     var ifr = document.createElement('iframe'); ifr.title = 'Live demo'; ifr.allow = 'autoplay; fullscreen'; ifr.src = f.dataset.embed; f.appendChild(ifr);
     var tries = 0;
-    (function wait() {                                                    // when the piece is ready: rewind to 0:00 and play (this click allows the sound)
+    (function wait() {                                                    // when the piece is ready: rewind to 0:00 and play (this click allows the sound); a deck plays to its first stop
       var w = null; try { w = ifr.contentWindow; } catch (e) { /* still loading */ }
       if (w && w.__ready === true && w.movie) {
-        Promise.resolve(w.movie.gotoFrame(0, true)).then(function () { w.movie.play(); f.classList.remove('loading'); f.classList.add('live'); });
+        Promise.resolve(w.movie.gotoFrame(0, true)).then(function () { if (w.movie.stops && w.movie.stops.length) w.movie.next(); else w.movie.play(); f.classList.remove('loading'); f.classList.add('live'); });
         return;
       }
       if (++tries > 200) { f.classList.remove('loading'); f.classList.add('live'); return; }

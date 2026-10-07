@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+**Fixed**
+
+- **A deck's first click played through the stops.** The guide's live demos and the gallery started a piece with `movie.play()`, which ignores stops; for a movie with stops they now call `movie.next()` and stop at the first stop.
+
+**Changed**
+
+- **The stop marks are dots on the seek bar** (they were thin bars): a small white dot with a dark ring for a step, a larger dot with an accent ring where a page starts.
+
 ## 0.13.0
 
 **Changed**

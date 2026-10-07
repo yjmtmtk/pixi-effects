@@ -1588,7 +1588,7 @@ describe('Controller — a movie with stops (a presentation)', () => {
     });
   });
 
-  it('a page start is a taller, accent-coloured mark than a step, and every mark names its page', () => {
+  it('a page start is marked differently from a step (a larger ringed dot), and every mark names its page', () => {
     const canvas = makeCanvas();
     const ctrl = new Controller(withStops(), { canvas });
     const ticks = [...canvas.parentElement!.querySelectorAll('.mc-stop-tick')] as HTMLElement[];

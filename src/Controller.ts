@@ -50,9 +50,8 @@ export const CONTROLLER_CSS = `
 }
 .mc-progress:hover::before, .mc-progress.mc-scrubbing::before { height: calc(var(--mc-track-height, 3px) + 2px); }
 .mc-stops { position: absolute; left: 12px; right: 12px; top: 0; bottom: 0; pointer-events: none; }
-.mc-stop-tick { position: absolute; top: 50%; width: 2px; height: calc(var(--mc-track-height, 3px) + 10px); transform: translate(-50%, -50%); background: var(--mc-fg, #fff); opacity: 0.9; border-radius: 1px; box-shadow: 0 0 0 1px rgba(0,0,0,0.55); }
-.mc-stop-page { width: 4px; height: calc(var(--mc-track-height, 3px) + 20px); opacity: 1; }
-.mc-stop-page::before { content: ''; position: absolute; left: 50%; top: -3px; width: 8px; height: 8px; transform: translateX(-50%); border-radius: 50%; background: var(--mc-fg, #fff); box-shadow: 0 0 0 1px rgba(0,0,0,0.55); }
+.mc-stop-tick { position: absolute; top: 50%; width: 7px; height: 7px; transform: translate(-50%, -50%); border-radius: 50%; background: var(--mc-fg, #fff); box-shadow: 0 0 0 1.5px rgba(0,0,0,0.5); }
+.mc-stop-page { width: 11px; height: 11px; box-shadow: 0 0 0 2.5px var(--mc-accent, #007AFF), 0 0 0 4px rgba(0,0,0,0.35); }
 .mc-progress-fill {
   position: absolute; left: 12px; top: 50%;
   height: var(--mc-track-height, 3px);

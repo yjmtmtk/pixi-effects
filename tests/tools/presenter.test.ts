@@ -168,9 +168,9 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('Presenter,
       const marks = await cdp.eval(`[...document.querySelectorAll('.mc-stop-tick')].map(t => { const r = t.getBoundingClientRect(); return { page: t.classList.contains('mc-stop-page'), w: Math.round(r.width), h: Math.round(r.height) }; })`);
       expect(marks).toHaveLength(4);
       const page = marks.find((m: any) => m.page), step = marks.find((m: any) => !m.page);
-      expect(page.h).toBeGreaterThan(step.h);
-      expect(page.w).toBeGreaterThan(step.w);
-      expect(step.h).toBeGreaterThanOrEqual(12);
+      expect(page.h).toBeGreaterThan(step.h);                                                            // a page start is the larger dot
+      expect(page.w).toBe(page.h);                                                                       // round
+      expect(step.h).toBeGreaterThanOrEqual(6);
     });
   }, 60_000);
 
