@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+**Fixed**
+
+- **A `threeD` card showed the previous frame after a seek.** A card (a `threeD` composition) is drawn into its own texture before the stage is drawn, but the shapes inside it were only brought up to the playhead after that, so after a jump seek, `snapshot()`, `contactSheet()` and the paused canvas showed a card whose children had animated (a `trimEnd` draw-on, a growing box) as it was one seek earlier: lines half drawn or missing. Seeking the same frame twice hid it; playing forward and the export were one frame late. The layers are now synced first. (Found by the Opus showpiece `ma`, whose gate lines were missing in review pictures.)
+
 **Added**
 
 - **A showpiece in the gallery: `ma`** (「間 MA — the space between」, 48 s, 1920×1080, by Opus): a kinetic essay about one word, with a corridor of 2.5D gates, a beat of true silence and a score written as text. 39 pieces. Its notes list the library gaps it ran into (a seek redraw bug for 3D cards, `trimEnd` across subpaths, camera paths, a shared mask, grain, an animatable gradient).

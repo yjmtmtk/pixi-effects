@@ -627,7 +627,8 @@ export class Movie {
   private _renderNow(): void {
     const app = this.app;
     if (!app?.renderer) return;
-    this._rootSequence?.syncFrame();
+    if (!this._synced) this._rootSequence?.syncFrame();           // normally _updateSpace() has already done it (see there)
+    this._synced = false;
     Culler.shared.cull(app.stage, app.renderer.screen, false);
     app.renderer.render({ container: app.stage });
   }
@@ -638,9 +639,18 @@ export class Movie {
     }
   }
 
-  /** Projects every `threeD` layer for the current frame (see src/space). */
+  /** True when the layers were already synced to the playhead for the frame about to be drawn (so `_renderNow` need not do it again). */
+  private _synced = false;
+
+  /**
+   * Projects every `threeD` layer for the current frame (see src/space). A threeD card is drawn into its own texture HERE, before the stage is
+   * drawn, so the shapes inside it must be brought up to the playhead first: syncing only in `_renderNow` left every card showing the state of
+   * the frame before (after a jump seek, a card whose children were animated showed a stale picture).
+   */
   private _updateSpace(t: number = this._timeOf(this.currentFrame)): void {
     if (!this._rootSequence || !this.app) return;
+    this._rootSequence.syncFrame();
+    this._synced = true;
     this._rootSequence.updateSpace(t, this.app.renderer);
   }
 

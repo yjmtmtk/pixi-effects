@@ -9,7 +9,7 @@ Model: opus   Cycles: 7 look-and-fix rounds   Result: works. Written in one sess
 - Type with system fonts only (Hiragino Mincho, Georgia italic, Helvetica Neue caps, monospace): weight, scale, tracking and one accent colour do all the work.
 
 ## Stumbles (library gaps this piece ran into)
-1. **Seek bug in 3D cards [BUG].** After a jump-seek (`gotoFrame`, `snapshot`, `contactSheet`), a 3D card whose children's `trimEnd` changed is not redrawn, so a review picture can show a gate half drawn or missing. Playing forward and the export are right.
+1. **Seek bug in 3D cards [BUG, fixed after this piece was written].** After a jump-seek (`gotoFrame`, `snapshot`, `contactSheet`), a 3D card whose children's `trimEnd` changed is not redrawn, so a review picture can show a gate half drawn or missing. Playing forward and the export were right. Cause: a card is drawn into its texture before the stage is, but the shapes inside it were only brought up to the playhead after that, so every card showed the previous frame (the piece's gate lines were missing in the review pictures). Fixed in `Movie._updateSpace`.
 2. **`trimEnd` across subpaths [GAP].** One `path` with several subpaths stops short of the later ones: each subpath needed its own layer.
 3. **Stretched glows in 3D [GAP].** A radial gradient on a very elongated ellipse in a 3D layer gives a hard-edged band; a stretched circle works.
 4. **One mask per layer, none shared [GAP].** Cutting the 日 out of the glyph needed polygon masks measured by rendering the glyph and reading pixels. A way to colour part of a glyph, or a glyph-component mask, would help.
