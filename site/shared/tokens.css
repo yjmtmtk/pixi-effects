@@ -1,0 +1,36 @@
+/* pixi-effects site tokens. One definition for every page; the landing page's palette is the reference. */
+:root{
+  --bg:#0b0d12; --bg-2:#11141b; --bg-3:#171b24;
+  --line:rgba(255,255,255,.11); --line-2:rgba(255,255,255,.2);
+  --ink:#eceef2; --ink-2:#a3a9b5; --ink-3:#7f8694;
+  --accent:#ff5a3c; --on-accent:#0b0d12; --amber:#f2c14e;
+  --model-fable:#e7c07a; --model-opus:#b9a8f3; --model-sonnet:#86cdb9;
+  --code-bg:#0e1118; --code-ink:#d7dbe3; --code-key:#7fb4ff; --code-str:#f2c14e; --code-num:#ff7a62; --code-com:#7f8694;
+  --shadow:0 30px 80px -30px rgba(0,0,0,.8);
+  --sans:"Helvetica Neue",Helvetica,"Inter","Segoe UI",Roboto,system-ui,-apple-system,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --gutter:16px; --max:1240px;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:light){
+  :root:not([data-theme="dark"]){
+    --bg:#f4f1ea; --bg-2:#fbfaf6; --bg-3:#ebe7dd;
+    --line:rgba(20,18,14,.13); --line-2:rgba(20,18,14,.26);
+    --ink:#16150f; --ink-2:#5c5a52; --ink-3:#706d64;
+    --accent:#c43316; --on-accent:#ffffff; --amber:#e0a526;
+    --model-fable:#8a5f0a; --model-opus:#5b46c4; --model-sonnet:#1f7a62;
+    --shadow:0 30px 80px -30px rgba(40,30,10,.35);
+    color-scheme:light;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f4f1ea; --bg-2:#fbfaf6; --bg-3:#ebe7dd;
+  --line:rgba(20,18,14,.13); --line-2:rgba(20,18,14,.26);
+  --ink:#16150f; --ink-2:#5c5a52; --ink-3:#706d64;
+  --accent:#c43316; --on-accent:#ffffff; --amber:#e0a526;
+  --model-fable:#8a5f0a; --model-opus:#5b46c4; --model-sonnet:#1f7a62;
+  --shadow:0 30px 80px -30px rgba(40,30,10,.35);
+  color-scheme:light;
+}
+@media (min-width:600px){ :root{--gutter:28px} }
+@media (min-width:900px){ :root{--gutter:48px} }

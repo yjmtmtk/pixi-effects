@@ -46,6 +46,7 @@
     "test": "vitest run",
     "test:fast": "SKIP_BROWSER_TESTS=1 vitest run",
     "release:check": "node scripts/release-check.mjs",
+    "site:sync": "node scripts/sync-site.mjs",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "build:ai": "node scripts/build-llms.mjs",

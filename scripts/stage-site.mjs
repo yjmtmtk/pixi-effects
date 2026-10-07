@@ -18,6 +18,7 @@ export async function stageSite(outDir, { root = ROOT } = {}) {
   for (const dir of ['dist', 'examples', 'ai']) copy(dir);
   for (const f of ['docs/dsl.md', 'docs/api.md', 'llms.txt', 'llms-full.txt']) copy(f);
   copy('site/landing/index.html', 'index.html');
+  copy('site/shared');
   await buildGuide({ srcDir: join(root, 'site/guide'), outDir: join(outDir, 'guide'), root });
   return outDir;
 }
