@@ -132,3 +132,15 @@ export function pictureStops(stops: readonly Stop[], opts: { which?: 'pages' | '
   }
   return picks;
 }
+
+/** The share (0–1) of pixels that differ by more than `threshold` (0–255) in any colour channel between two RGBA pixel arrays of the same size. */
+export function changedFraction(a: Uint8ClampedArray, b: Uint8ClampedArray, threshold = 12): number {
+  const n = Math.min(a.length, b.length) >> 2;
+  if (n === 0) return 0;
+  let changed = 0;
+  for (let i = 0; i < n; i++) {
+    const k = i << 2;
+    if (Math.abs(a[k]! - b[k]!) > threshold || Math.abs(a[k + 1]! - b[k + 1]!) > threshold || Math.abs(a[k + 2]! - b[k + 2]!) > threshold) changed++;
+  }
+  return changed / n;
+}

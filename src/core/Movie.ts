@@ -15,7 +15,7 @@ import { warnUnknownOptions } from './options';
 import { startWhenRunning } from './startWhenRunning';
 import { normalizePoster } from './poster';
 import { buildPdf } from './pdf';
-import { normalizeStops, nextStopAfter, previousStopBefore, stopAtOrBefore, pageStarts, pictureStops, type Stop } from './stops';
+import { normalizeStops, nextStopAfter, previousStopBefore, stopAtOrBefore, pageStarts, pictureStops, changedFraction, type Stop } from './stops';
 import { resolveLoader, dismissLoader, failLoader, type LoaderOption } from './loader';
 import { resolveMotionBlur, blurTimes, type MotionBlurSpec, type MotionBlurOptions, type ResolvedMotionBlur } from './motionBlur';
 import { ensureFilterLibrary } from '../filters/named';
@@ -423,16 +423,28 @@ export class Movie {
     return this._captureFrame(clampFrame(frame, this.totalFrames), { scale: opts.scale ?? 1, type: opts.type ?? 'image/png', as: opts.as ?? 'blob', motionBlur: opts.motionBlur });
   }
 
-  /** Seek to `frame` (quietly, and stay there) and encode the canvas as a picture. */
-  private async _captureFrame(frame: number, o: { scale: number; type: string; quality?: number; as: 'blob' | 'dataURL'; motionBlur?: MotionBlurSpec }): Promise<Blob | string> {
-    const mb = this._blurFor(o.motionBlur, 'a picture');          // undefined: the movie's own setting; false: none
+  /** Seek to `frame` (quietly, and stay there) and draw the canvas on a new canvas of `scale` times its size. */
+  private async _frameCanvas(frame: number, scale: number, motionBlur?: MotionBlurSpec): Promise<HTMLCanvasElement> {
+    const mb = this._blurFor(motionBlur, 'a picture');            // undefined: the movie's own setting; false: none
     let source = this.app!.canvas as HTMLCanvasElement;
     if (mb) { source = this._blurCanvas(); await this._quietly(() => this._exposeFrame(frame, mb, source, true)); }
     else await this._quietly(() => this.gotoFrame(frame, true));
     const out = document.createElement('canvas');
-    out.width = Math.max(1, Math.round(this.width * o.scale));
-    out.height = Math.max(1, Math.round(this.height * o.scale));
+    out.width = Math.max(1, Math.round(this.width * scale));
+    out.height = Math.max(1, Math.round(this.height * scale));
     out.getContext('2d')!.drawImage(source, 0, 0, out.width, out.height);
+    return out;
+  }
+
+  /** The pixels of `frame`, small (about 320 px wide) and without motion blur, to compare pictures. */
+  private async _framePixels(frame: number): Promise<Uint8ClampedArray> {
+    const c = await this._frameCanvas(frame, Math.min(1, 320 / Math.max(1, this.width)), false);
+    return c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+  }
+
+  /** Seek to `frame` (quietly, and stay there) and encode the canvas as a picture. */
+  private async _captureFrame(frame: number, o: { scale: number; type: string; quality?: number; as: 'blob' | 'dataURL'; motionBlur?: MotionBlurSpec }): Promise<Blob | string> {
+    const out = await this._frameCanvas(frame, o.scale, o.motionBlur);
     return encodeCanvas(out, o.type, o.as, o.quality);
   }
 
@@ -458,6 +470,41 @@ export class Movie {
         const item: StopImage = { stop, page: stop.pageIndex, image };
         out.push(item);
         opts.onImage?.(item);
+      }
+    } finally {
+      if (wasAtPoster) await this._showPoster();
+      else await this._quietly(() => this.gotoFrame(back, true));
+    }
+    return out;
+  }
+
+  /**
+   * Look at every stop: is the picture there still changing? A stop is compared with the picture `lookback` frames before it (default 3):
+   * when more than `tolerance` (default 0.4 %) of the picture differs, the audience, a page overview and a PDF all see a half-finished
+   * animation. `issues` says which stop, which page and what to do; leaves the playhead where it was.
+   */
+  async inspectStops(opts: { lookback?: number; tolerance?: number } = {}): Promise<{ stops: Array<{ index: number; page: string | null; at: number; frame: number; moving: number; settled: boolean }>; issues: string[] }> {
+    warnUnknownOptions('movie.inspectStops()', opts, ['lookback', 'tolerance']);
+    this._requireReady('inspectStops');
+    const out: { stops: Array<{ index: number; page: string | null; at: number; frame: number; moving: number; settled: boolean }>; issues: string[] } = { stops: [], issues: [] };
+    if (this.stops.length === 0) return out;
+    const lookback = Math.max(1, Math.round(opts.lookback ?? 3));
+    const tolerance = opts.tolerance ?? 0.004;
+    this.pause();
+    const back = this.currentFrame, wasAtPoster = this._atPoster;
+    try {
+      for (const stop of this.stops) {
+        const before = Math.max(0, stop.frame - lookback);
+        let moving = 0;
+        if (before < stop.frame) {
+          const now = await this._framePixels(stop.frame);
+          moving = changedFraction(now, await this._framePixels(before));
+        }
+        const settled = moving <= tolerance;
+        out.stops.push({ index: stop.index, page: stop.page, at: stop.at, frame: stop.frame, moving, settled });
+        if (!settled) {
+          out.issues.push(`stop ${stop.index + 1}${stop.page ? ` (page "${stop.page}")` : ''} at ${stop.at.toFixed(1)} s: the picture is still changing there (${moving < 0.1 ? (moving * 100).toFixed(1) : Math.round(moving * 100)}% of it changed in the last ${stop.frame - before} frames), so the audience, the page overview and a PDF see it mid-animation. Move the stop to after the animation has finished, or flag a settled stop of the page with \`pdf: true\`.`);
+        }
       }
     } finally {
       if (wasAtPoster) await this._showPoster();

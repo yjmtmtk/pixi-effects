@@ -289,6 +289,10 @@ const presenter = new Presenter(movie, { canvas });     // instead of Controller
 
 `presenter.start()`, `presenter.openPresenterView()`, `presenter.closePresenterView()`, `presenter.next()`, `presenter.prev()`, `presenter.setCover('black' \| 'white' \| 'off')`, `presenter.exit()`, `presenter.destroy()`. It uses the canvas's positioned parent, or wraps the canvas like `Controller` does. A movie with stops shown through a **`Controller`** gets a mark per stop on the seek bar and a Present button (`present: false` leaves the marks only) that hands the page to a `Presenter` (fullscreen, keys, click and swipe move through the stops; Esc gives the bar back).
 
+### `movie.inspectStops(options?)`
+
+Is the picture at each stop still changing? Each stop is compared with the picture `lookback` frames before it (default 3); when more than `tolerance` (default 0.004, a share of the pixels) differs, the audience, the page overview and a PDF would see a half-finished animation. Returns `{ stops: [{ index, page, at, frame, moving, settled }], issues: string[] }`; each issue names the stop and the page and says what to do (move the stop to after the animation has ended, or flag a settled stop of the page `pdf: true`). Leaves the playhead where it was. `pixi-effects-check` runs it for any page with `stops`.
+
 ### Pictures of the stops and the deck as a PDF: `movie.stopImages()`, `movie.exportPDF()`
 
 ```ts

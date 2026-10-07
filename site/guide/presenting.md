@@ -112,7 +112,7 @@ The player bar's download panel has the same choice: for a deck its format list 
 
 ## Reviewing a deck
 
-`await movie.contactSheet({ frames: movie.stops.map(s => s.frame), as: 'dataURL' })` is one picture of every stop: the whole talk at a glance. Check it as you would any piece.
+`await movie.contactSheet({ frames: movie.stops.map(s => s.frame), as: 'dataURL' })` is one picture of every stop: the whole talk at a glance. Check it as you would any piece. `await movie.inspectStops()` checks for you whether the picture at each stop has stopped moving: a stop that lands a few frames before an animation ends (a line still growing, a word still fading in) is listed with its page and time, and `pixi-effects-check` prints the same list. A stop where something moves on purpose is fine; otherwise move the stop later, or flag a settled stop of the page `pdf: true` for the PDF.
 
 ## Also useful
 

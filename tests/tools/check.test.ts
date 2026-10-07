@@ -107,6 +107,18 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     expect(report.hasAudio).toBe(true);
   }, 190_000);
 
+  it('a movie with no sound says "no audio track", not a decoding error', async () => {
+    const out = mkdtempSync(join(tmpdir(), 'check-test-'));
+    const { stdout } = await promisify(execFile)('node', [
+      join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/poster.html'), '--out', out, '--frames', '4', '--timeout', '150',
+    ], { timeout: 170_000 });
+    expect(stdout).toContain('RESULT: OK');
+    expect(stdout).toContain('no audio track');
+    expect(stdout).not.toContain('Unable to decode');
+    const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));
+    expect(report.exports[0].audio).toBeNull();
+  }, 190_000);
+
   it('a presentation (quiet-hours) gets stops.png and a stops section in the report', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-test-'));
     const { stdout } = await promisify(execFile)('node', [
@@ -118,7 +130,19 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     expect(report.stops.count).toBe(report.stops.items.length);
     expect(report.stops.items[0].pageStart).toBe(true);
     expect(readFileSync(join(out, 'stops.png')).subarray(1, 4).toString()).toBe('PNG');
+    expect(stdout).toContain('every stop is a settled picture');
+    expect(report.stops.review).toEqual([]);
   }, 190_000);
+
+  it('a deck with a stop that lands mid-animation is listed for review, and fails with --strict', async () => {
+    const dir = join(root, 'examples/_checks');
+    const out = mkdtempSync(join(tmpdir(), 'check-test-'));
+    const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(dir, 'presenter.html'), '--out', out, '--no-export', '--timeout', '120', ...args], { timeout: 150_000 });
+    const { stdout } = await run([]);                                           // the white square slides all the time: its stops are never still
+    expect(stdout).toMatch(/review\s+\d+ stop\(s\) where the picture is still changing/);
+    expect(stdout).toContain('RESULT: OK');
+    await expect(run(['--strict'])).rejects.toMatchObject({ code: 1 });
+  }, 300_000);
 
   it('exits 1 and names the problem when the page has one', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-test-'));

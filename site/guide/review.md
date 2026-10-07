@@ -20,7 +20,7 @@ It opens your page in a private headless Chrome and reports, in one go:
 - **sound**: `movie.inspectAudio()`, the loudness of the mix and a list of problems;
 - **a real export**, decoded again: its size, length and loudness per second;
 - a **contact sheet** (`sheet.png`, twelve labelled frames), the video's **poster** (`poster.jpg`) and a **timeline** (`timeline.html`) to open;
-- for a presentation (a movie with `stops`): **`stops.png`**, one picture for every stop in order, and the number of stops and pages. The picture at a stop is what the audience looks at while it waits, so check each one.
+- for a presentation (a movie with `stops`): **`stops.png`**, one picture for every stop in order, and the number of stops and pages. The picture at a stop is what the audience looks at while it waits, so check each one. The check also lists any stop where the picture is **still changing** (a stop that lands before its animation has ended); `--strict` makes that a failure.
 
 The exit code is 0 when there is nothing to fix and 1 otherwise, so it also works in CI. This is its real output for the piece in the demo further down:
 

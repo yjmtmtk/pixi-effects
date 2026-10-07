@@ -130,6 +130,7 @@ new Presenter(movie, { canvas });         // import { Presenter } from 'pixi-eff
 movie.next() / prev() / goToStop(i) / goToPage(n) / movie.stops / movie.on('stop', …)   // Controller: marks on the seek bar, play / Space / click = play to the next stop (pauseAtStops: false = straight through), a Present button, PDF in the download panel
 // Presenter extras: G = page overview (pictures), P = presenter view (a second window: live picture, next picture, notes, timer); start() makes the pictures before the audience sees anything
 await movie.stopImages({ as: 'dataURL', scale: 0.25 }) // [{ stop, page, image }] one per page (its last stop); { which: 'stops' } one per stop (a page's picture honours `pdf` flags)
+await movie.inspectStops()                             // { stops, issues }: stops whose picture is still changing (a stop landing before its animation ends); the check lists them
 await movie.exportPDF({ title })                       // Blob: a PDF page per page of the deck; CLI: pixi-effects-render talk.html -o talk.pdf (--all-stops)
 const env = await audioEnvelope('music.mp3', { frameRate: 30 })   // BEFORE movie.init: .series.level|bass|mid|treble (0–1 per frame), .beats [s], .bpm, .at(t, band); bands: { name: [Hz, Hz] }
 const env = bpmEnvelope(120, { duration: 12 })                     // no audio file: kick / snare / hats exactly on a tempo

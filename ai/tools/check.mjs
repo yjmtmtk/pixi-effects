@@ -13,7 +13,7 @@
  * Needs: Node >= 22 (built-in WebSocket), Chrome / Chromium installed (or --chrome PATH / CHROME=PATH). No npm dependencies.
  * The page must follow ai/template.html: it exposes `window.movie` and sets `window.__ready = true` (and `window.__logs`).
  *
- * Options: --strict (text overlaps fail the check; by default they are only listed for review) · --out DIR · --frames N (contact sheet tiles, default 12) · --formats mp4,webm (default mp4) · --no-export ·
+ * Options: --strict (text overlaps and stops where the picture is still changing fail the check; by default they are only listed for review) · --out DIR · --frames N (contact sheet tiles, default 12) · --formats mp4,webm (default mp4) · --no-export ·
  *          --timeout SECONDS (default 240) · --root DIR (static server root; default: the nearest folder above the page with dist/) · --chrome PATH
  */
 import { spawn } from 'node:child_process';
@@ -187,6 +187,7 @@ const exportScript = format => `(() => {
         info.video = { duration: v.duration, width: v.videoWidth, height: v.videoHeight };
       } catch (e) { info.video = { error: String(e.message || e) }; }
       try {
+        if (!movie.audioBuffer) throw null;                          // a movie with no sound has no audio track to decode: not an error
         const buf = await new OfflineAudioContext(2, 1, 48000).decodeAudioData(await blob.arrayBuffer());
         const L = buf.getChannelData(0), R = buf.getChannelData(buf.numberOfChannels > 1 ? 1 : 0), sr = buf.sampleRate;
         const rmsDb = [];
@@ -197,7 +198,7 @@ const exportScript = format => `(() => {
           rmsDb.push(Math.round(20 * Math.log10(Math.max(Math.sqrt(sum / Math.max(1, n)), 1e-6)) * 10) / 10);
         }
         info.audio = { duration: Math.round(buf.duration * 1000) / 1000, sampleRate: sr, peakDb: Math.round(20 * Math.log10(Math.max(peak, 1e-6)) * 10) / 10, rmsDbPerSecond: rmsDb };
-      } catch (e) { info.audio = { error: String(e.message || e) }; }
+      } catch (e) { info.audio = e === null ? null : { error: String(e.message || e) }; }
       info.dataUrl = await new Promise(r => { const f = new FileReader(); f.onload = () => r(f.result); f.readAsDataURL(blob); });
       window.__x = { state: 'done', info };
     } catch (e) { window.__x = { state: 'error', message: String((e && e.message) || e) }; }
@@ -283,6 +284,13 @@ export async function runCheck(opts, log = console.log) {
     const stops = await cdp.eval(`(() => { const s = movie.stops || []; return s.length ? { count: s.length, pages: movie.pageCount, items: s.map(x => ({ at: Math.round(x.at * 100) / 100, frame: x.frame, page: x.page, pageStart: x.pageStart, notes: !!x.notes, pdf: x.pdf })) } : null; })()`).catch(() => null);
     if (stops) {
       report.stops = stops;
+      // is the picture at each stop still changing? (the audience, the page overview and a PDF would see a half-finished animation)
+      const settled = await cdp.eval('movie.inspectStops()').catch(() => null);
+      if (settled) {
+        report.stops.review = settled.issues;
+        report.stops.moving = settled.stops.map(s => Math.round(s.moving * 10000) / 10000);
+        if (opts.strict && settled.issues.length) report.problems.push(`${settled.issues.length} stop(s) where the picture is still changing (movie.inspectStops)`);
+      }
       const stopsSheet = await cdp.eval(`movie.contactSheet({ frames: movie.stops.map(s => s.frame), as: 'dataURL' })`).catch(() => null);
       if (stopsSheet) {
         const stopsFile = path.join(outDir, 'stops.png');
@@ -382,6 +390,11 @@ function finish(report, outDir, log) {
   if (report.stops) {
     const s = report.stops;
     L.push(`  stops     ${s.count} stop(s) on ${s.pages} page(s) — stops.png shows each one in order; the picture at a stop is what the audience sees while it waits`);
+    if (s.review?.length) {
+      L.push(`  review    ${s.review.length} stop(s) where the picture is still changing (may be on purpose, e.g. something always moving; use --strict to fail on them):`);
+      for (const r of s.review.slice(0, 4)) L.push(`            - ${r}`);
+      if (s.review.length > 4) L.push(`            … ${s.review.length - 4} more (report.json)`);
+    } else if (s.review) L.push('  settled   every stop is a settled picture (movie.inspectStops)');
   }
   if (report.audio !== undefined) {
     const a = report.audio;

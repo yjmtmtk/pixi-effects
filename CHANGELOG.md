@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+**Added**
+
+- **`movie.inspectStops({ lookback?, tolerance? })`**: is the picture at each stop still changing? It compares each stop with the picture 3 frames before it and reports the stops where more than 0.4 % of the pixels differ (a stop that lands before its animation ends, so the audience, the page overview and a PDF see it half-finished), naming the stop, its page and what to do. `pixi-effects-check` runs it for a deck and lists the result as a review (`--strict` fails on it). It found a real fault in `quiet-hours` (page four's first stop was a few frames early), now fixed.
+
+**Fixed**
+
+- `pixi-effects-check` no longer prints "audio: Unable to decode audio data" for a movie with no sound: it says "no audio track".
+
 ## 0.13.1
 
 **Fixed**
