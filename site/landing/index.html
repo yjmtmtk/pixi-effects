@@ -878,8 +878,18 @@ movie.play();
   // a real piece, live (a video facade for the published gallery page)
   var km=document.getElementById('kmBtn'), kmFacade=document.getElementById('kmFacade');
   if(km) km.addEventListener('click',function(){
-    var f=document.createElement('iframe'); f.src='https://yjmtmtk.github.io/pixi-effects/examples/gallery/kinetic-manifesto.html'; f.title='Kinetic Manifesto, playing live from the pixi-effects gallery'; f.allow='autoplay; fullscreen'; f.loading='eager';
+    var base=window.__GALLERY_BASE||'https://yjmtmtk.github.io/pixi-effects/examples/gallery/';     // (a test points it at a local server)
+    var f=document.createElement('iframe'); f.src=base+'kinetic-manifesto.html'; f.title='Kinetic Manifesto, playing live from the pixi-effects gallery'; f.allow='autoplay; fullscreen'; f.loading='eager';
     kmFacade.appendChild(f); km.remove();
+    // The piece opens at its poster and waits for its own play button. This click is the gesture that lets the sound start, so when the
+    // frame is on this page's own origin (the published site) play it from here once it is ready, as the guide's demos do. From another
+    // origin (a local preview) the frame cannot be reached: press play in it.
+    var tries=0;
+    (function wait(){
+      var w=null;
+      try{ w=f.contentWindow; if(w && w.__ready===true && w.movie){ Promise.resolve(w.movie.gotoFrame(0,true)).then(function(){ if(w.movie.stops && w.movie.stops.length) w.movie.next(); else w.movie.play(); }); return; } }catch(e){ return; }
+      if(++tries<250) setTimeout(wait,100);
+    })();
   });
 
   // the one sentence: swap the ending, copy the whole line
