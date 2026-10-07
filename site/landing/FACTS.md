@@ -1,0 +1,53 @@
+# Fact sheet for the pixi-effects landing page (checked 2026-10-07)
+
+Use ONLY these facts. Do not invent numbers, benchmarks, users, quotes, awards, or features. If a claim is not here, leave it out.
+
+## pixi-effects (this project)
+- Name: **pixi-effects**. Tagline source (repo): "Declarative composition and video rendering for the web. Built on PixiJS v8." North star: "An AI writes a video as data; the same data renders to a file and plays on the web."
+- Version 0.16.1, **experimental / pre-1.0** (the API can still change between minor versions). MIT licence, no company licence. npm package `pixi-effects`. Repo: https://github.com/yjmtmtk/pixi-effects
+- Built on PixiJS v8 (WebGL drawing), GSAP (timeline), mediabunny (WebCodecs encoding). Runtime dependency: only `mediabunny` (PixiJS and GSAP are peer dependencies; three.js and pixi-filters optional).
+- **A video is plain data**: a tree of plain objects (text, shapes, images, video, audio, nested compositions) with `at` / `duration` / `initial` / `keyframes` / `filters` / `mask`. Repeated structure is a JS loop that returns objects. Numbers can be expression strings like `'GW/2'`, `'min(W,H)*0.4'`. Same data => same video (deterministic, seeded; no wall clock). Playback, scrubbing and export all use the same frame path: the preview equals the export.
+- **Runs entirely in the browser**: play, scrub and export MP4 / WebM / MOV with no server (WebCodecs via mediabunny). A starter is ONE HTML file with an import map (no bundler needed); npm install also works. Headless render from a script: `npx pixi-effects-render page.html -o out.mp4` (needs Node 22 and Chrome).
+- Browser support as documented in the README: Chrome 94+, Edge 94+, Safari 16.4+, Firefox 130+ (playback and MP4/WebM/MOV). The author has verified it in Chrome; Safari and Firefox are documented but not independently verified.
+- Look and feel, After Effects model: layers, keyframes, expressions, masks, blend modes, nested compositions, a 2.5D camera (`threeD`, `z`, `rotationX/Y`, a `camera` layer, dolly zoom, orbit, `cameraPath()` flights), optional real three.js layer.
+- Motion helpers (all seeded, baked into keyframes): `wiggle`, `stagger`, `animateText` (per letter / word / line), `followPath`, path morphing, draw-on strokes (`trimEnd`), `particles()`, `deck()` and a `Presenter` (slides that move: stops, arrow keys / click / swipe, page overview, presenter view with notes, PDF export), true motion blur at export (sub-frame averaging).
+- Filters by name with no import: `blur noise alpha colorMatrix` (pixi.js) and the 38 filters of `pixi-filters` (`glow dropShadow crt rgbSplit oldFilm glitch pixelate twist …`); seven scene transitions (`crossfade wipe iris slide dip zoom dissolve`); chroma key.
+- **Sound with no audio files**: `sfx` (11 synthesised presets: click, pop, swoosh, riser, hit, chime…, or your own voices) and **`music` written as text** (notes, chords and drum patterns as strings; 8 instruments, 10 drums, swing, fades, tempo changes, loop). Deterministic and in the exported file at the same moment. Audio-reactive visuals: `audioEnvelope()`, `musicEnvelope()`, `react()`. A music lab page plays eight tunes written as text: https://yjmtmtk.github.io/pixi-effects/examples/music-lab.html
+- **Built to be written by AI, and checked by AI**: `pixi-effects-check page.html` opens the page in headless Chrome and reports library warnings (written as instructions with "did you mean"), layout problems (text cut off / off-canvas), sound problems (`movie.inspectAudio()`), a contact sheet PNG, a timeline, and a real export decoded again; exit code 0 / 1. `movie.inspect(frame)`, `contactSheet()`, `snapshot()`. `pixi-effects-view` opens the page with a zoomable timeline under it. An AI skill (`ai/SKILL.md`), cheatsheet, tested recipes, pitfalls, `llms.txt` / `llms-full.txt`. A short chat-only entry (`ai/CHAT.md` + `ai/chat-template.html`) for ChatGPT / Claude in a browser with no shell: one HTML file that loads from one CDN and shows warnings in a red box to paste back. The recipes in the docs are executed by the test suite.
+- Player UI: a drop-in video-style controller (play, scrub, volume, fullscreen, download button); theme with one accent colour; or build your own player on the movie's events.
+- Gallery: 39 complete pieces, each ONE HTML file of data, many written by AI models (fable 11, opus 12, sonnet 16), from kinetic type to data stories, 2.5D, a 48 s showpiece "間 MA". Live gallery: https://yjmtmtk.github.io/pixi-effects/examples/gallery/ (posters are in ./assets/posters/<id>.jpg; the pieces are playable on that page). Guide for people (18 pages, English): https://yjmtmtk.github.io/pixi-effects/guide/ . 15 numbered examples + a playground. Piece ids and titles are in PIECES.txt next to this file.
+- Images you may use: ./assets/contact-sheet.jpg (a contact sheet written by the check tool), ./assets/timeline-view.jpg and ./assets/timeline-collapsed.jpg (the timeline viewer), ./assets/posters/*.jpg (gallery posters, 1280x720 or the piece's own ratio).
+- Honest limits (say them plainly, a trusted LP does): pre-1.0 and experimental; **no GUI editor** (there is a timeline viewer, not an editor); smaller ecosystem than the established tools; export needs a WebCodecs browser; it draws with WebGL in a browser, so it is not a native GPU renderer and the author has made no benchmark against others (export of a typical 12 s gallery piece takes about 10 s on the author's laptop; with 16-sample motion blur a 48 s 1080p film took 99 s). Not a replacement for editing existing footage (a `video` layer plays a clip inside a composition).
+- A real minimal composition (use this style for any code shown):
+```js
+import { Movie, kenBurns } from 'pixi-effects';
+const movie = new Movie();
+await movie.init({
+  canvas, width: 1280, height: 720, duration: 6, frameRate: 30, background: '#0a0a0f',
+  composition: { sequences: [
+    { type: 'text', text: 'Hello', at: 0.5, style: { fontSize: 120, fontWeight: 'bold', fill: '#fff' },
+      initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+      keyframes: [{ at: 0, from: { alpha: 0, y: 'GH/2 + 40' }, to: { alpha: 1, y: 'GH/2' }, duration: 0.6, ease: 'power2.out' }] },
+    { type: 'audio', sfx: 'chime', at: 1.1 },
+  ] },
+});
+movie.play();            // or: const mp4 = await movie.render({ format: 'mp4' })
+```
+- Starter page (one HTML file, loads the library from a CDN): https://cdn.jsdelivr.net/npm/pixi-effects@0.16.1/dist/index.js ; the repo's `ai/template.html` is the full starter.
+- Install: `npm install pixi-effects pixi.js gsap` (optional: `three`, `pixi-filters`).
+
+## The other two projects (compare fairly; facts as stated on their own pages, read 2026-10-07)
+### Remotion (https://www.remotion.dev/)
+- Tagline: "Create videos and motion graphics with React." Three ways to work: agentically (AI coding agents), interactively (drag-and-drop in **Remotion Studio**), or programmatically (code / API).
+- Rendering: server-side and client-side rendering, batch rendering, and **Remotion Lambda** (cloud rendering). Also a Player component (interactive playback in your app), Editor Starter, Recorder.
+- Licence: free for individuals, non-profits and organisations of up to 3 people ("All features included, Unlimited commercial use" per its pricing page); a paid **Company licence** for larger for-profit organisations (from $100 / month, usage-based) and an Enterprise tier (from $500 / month). Source-available, not MIT (its licence text: free for individuals, non-profits, organisations up to 3 employees, and evaluation; larger for-profit organisations need a Company licence).
+- AI: a collection of agent skills (11) installed with `npx skills add remotion-dev/skills`; agents preview their work in Remotion Studio. No MCP is mentioned on the page.
+- Maturity: about 62,000 GitHub stars (stated on its page). Large ecosystem; React components.
+### fframes (https://fframes.studio/ , repo https://github.com/dmtrKovalenko/fframes)
+- Tagline: "video vibe coding framework that is actually fast." You write video in **Rust and SVG** and it renders on the **GPU** (Skia on Metal or Vulkan), with no headless browser; ffmpeg libraries are linked in for encoding. MIT licence.
+- Its page shows "built by Codex with fframes: 36 minutes to build, 24 seconds to render"; its README says GPU rendering is "about 10x faster" than its own CPU backend and mentions a 128-second video rendered in 36 seconds.
+- Tools: a real-time GPU preview window, a browser-based editor (WebAssembly) with a timeline, `inspect` (reports missing fonts and text cutoff), `audio analyze` (loudness LUFS, true peak, clipping), a skill for coding agents (`npx skills add`). Prebuilt binaries for macOS and Linux (arm64, x86_64); building needs Rust and ffmpeg libraries; Windows needs separate FFmpeg setup.
+- Its README does not say whether the API is stable (it says the project "stayed unreleased for years" before this release).
+
+## How to compare (be fair, concrete, and useful; no strawmen)
+Suggested table rows: how a video is written; where it runs / what you install; preview & editing; rendering approach; sound; AI-agent workflow; licence; maturity; best for. Then a short "Choose X when…" for each of the three, including when NOT to choose pixi-effects (e.g. you want a mature React ecosystem, a GUI editor, cloud rendering at scale, or the fastest native GPU renders). Put "checked 2026-10-07, from their own pages" next to the table and link their pages. Do not use their logos; text names only.

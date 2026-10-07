@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pixi-effects — video, written as data</title>
+<meta name="description" content="pixi-effects is an open-source (MIT) library that turns a tree of plain objects into motion-graphics video: it plays in the browser, scrubs frame-accurately and exports MP4 with no server. Built on PixiJS v8, for people and for AI.">
+<meta name="color-scheme" content="dark light">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b0d12'/%3E%3Crect x='9' y='9' width='14' height='14' transform='rotate(45 16 16)' fill='%23ff5a3c'/%3E%3C/svg%3E">
+<style>
+/* ---------- tokens ---------- */
+:root{
+  --bg:#0b0d12; --bg-2:#11141b; --bg-3:#171b24;
+  --line:rgba(255,255,255,.11); --line-2:rgba(255,255,255,.2);
+  --ink:#eceef2; --ink-2:#a3a9b5; --ink-3:#7f8694;
+  --accent:#ff5a3c; --on-accent:#0b0d12; --amber:#f2c14e;
+  --code-bg:#0e1118; --code-ink:#d7dbe3; --code-key:#7fb4ff; --code-str:#f2c14e; --code-num:#ff7a62; --code-com:#7f8694;
+  --shadow:0 30px 80px -30px rgba(0,0,0,.8);
+  --sans:"Helvetica Neue",Helvetica,"Inter","Segoe UI",Roboto,system-ui,-apple-system,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --gutter:16px; --max:1240px;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:light){
+  :root:not([data-theme="dark"]){
+    --bg:#f4f1ea; --bg-2:#fbfaf6; --bg-3:#ebe7dd;
+    --line:rgba(20,18,14,.13); --line-2:rgba(20,18,14,.26);
+    --ink:#16150f; --ink-2:#5c5a52; --ink-3:#706d64;
+    --accent:#c43316; --on-accent:#ffffff; --amber:#e0a526;
+    --shadow:0 30px 80px -30px rgba(40,30,10,.35);
+    color-scheme:light;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f4f1ea; --bg-2:#fbfaf6; --bg-3:#ebe7dd;
+  --line:rgba(20,18,14,.13); --line-2:rgba(20,18,14,.26);
+  --ink:#16150f; --ink-2:#5c5a52; --ink-3:#706d64;
+  --accent:#c43316; --on-accent:#ffffff; --amber:#e0a526;
+  --shadow:0 30px 80px -30px rgba(40,30,10,.35);
+  color-scheme:light;
+}
+
+/* ---------- base ---------- */
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.55;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+img{max-width:100%;height:auto;display:block}
+a{color:inherit;text-decoration-color:var(--line-2);text-underline-offset:.18em}
+a:hover{text-decoration-color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
+h1,h2,h3,h4{margin:0;font-weight:700;letter-spacing:-.02em;line-height:1.05}
+p{margin:0}
+code,pre,kbd{font-family:var(--mono)}
+code{font-size:.92em;background:var(--bg-3);padding:.1em .35em;border-radius:4px}
+pre code{background:none;padding:0;font-size:inherit}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 var(--gutter)}
+.mono{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.skip{position:absolute;left:16px;top:-60px;z-index:60;background:var(--accent);color:var(--on-accent);padding:8px 12px;border-radius:6px;font-weight:600;text-decoration:none}
+.skip:focus{top:8px}
+.btn{display:inline-flex;align-items:center;gap:.5em;padding:.78em 1.15em;border-radius:6px;font-weight:600;font-size:15px;text-decoration:none;border:1px solid var(--line-2);background:transparent;color:var(--ink);cursor:pointer;font-family:var(--sans);line-height:1}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn svg{width:14px;height:14px;flex:none}
+
+/* ---------- keyframe diamond ---------- */
+.dia{display:inline-block;width:8px;height:8px;background:var(--accent);transform:rotate(45deg);flex:none}
+
+/* ---------- top bar + playhead ---------- */
+#playhead{position:fixed;top:0;left:0;height:2px;width:100%;background:var(--accent);transform-origin:0 50%;transform:scaleX(0);z-index:50;pointer-events:none}
+.top{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;justify-content:space-between;height:56px;gap:12px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.01em;text-decoration:none;font-size:16px;white-space:nowrap;min-width:0}
+.brand .ver{display:none;font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--ink-3);font-weight:400;padding:3px 7px;border:1px solid var(--line);border-radius:999px;white-space:nowrap}
+.top nav{display:flex;gap:14px;align-items:center;font-size:14px;flex:none}
+.top nav a{text-decoration:none;color:var(--ink-2)}
+.top nav a:hover{color:var(--ink)}
+.tc{font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:var(--ink-3);font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:8px}
+.tc b{color:var(--ink);font-weight:500}
+.theme{font:inherit;font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;background:none;border:1px solid var(--line);color:var(--ink-3);border-radius:999px;padding:4px 9px;cursor:pointer}
+.theme:hover{color:var(--ink);border-color:var(--line-2)}
+.only-wide{display:none}
+
+/* ---------- hero ---------- */
+.hero{padding:56px 0 48px;position:relative}
+.hero .eyebrow{display:flex;align-items:center;gap:10px;margin-bottom:22px}
+.hero h1{font-size:clamp(50px,14.5vw,128px);letter-spacing:-.045em;line-height:.95;max-width:11ch}
+@media (min-width:600px){.hero h1{font-size:clamp(56px,9.6vw,128px)}}
+.hero h1 .w{display:inline-block}
+.hero h1 em{font-style:normal;color:var(--accent)}
+.hero .lede{margin-top:26px;font-size:clamp(17px,1.5vw,21px);line-height:1.5;color:var(--ink-2);max-width:56ch}
+.hero .lede strong{color:var(--ink);font-weight:600}
+.hero .cta{display:flex;flex-wrap:wrap;gap:10px;margin-top:28px}
+.hero-grid{display:grid;grid-template-columns:1fr;gap:28px 56px;align-items:start}
+.slate{margin:0;border-top:1px solid var(--line-2);font-size:14px;line-height:1.45}
+.slate div{display:grid;grid-template-columns:92px 1fr;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)}
+.slate dt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);padding-top:3px}
+.slate dd{margin:0;color:var(--ink-2)}
+.slate code{font-size:.86em;color:var(--ink)}
+
+/* composition panel */
+.comp{margin-top:48px;border:1px solid var(--line-2);border-radius:12px;overflow:hidden;background:var(--code-bg);color:var(--code-ink);box-shadow:var(--shadow)}
+.comp-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.1);font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;color:#7f8694;text-transform:uppercase}
+.comp-bar .dots{display:flex;gap:5px}
+.comp-bar .dots i{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.15)}
+.comp-bar .in{color:#d7dbe3}
+.comp-bar .arrow{color:#ff5a3c}
+.comp-bar .out{margin-left:auto;color:#d7dbe3}
+.comp-body{display:grid;grid-template-columns:minmax(0,1fr)}
+.comp-body>*{min-width:0}
+.comp-code{padding:18px 16px 14px;overflow-x:auto;border-bottom:1px solid rgba(255,255,255,.1)}
+.comp-code pre{margin:0;font-size:11.5px;line-height:1.62;tab-size:2}
+.comp-code .k{color:var(--code-key)} .comp-code .s{color:var(--code-str)} .comp-code .n{color:var(--code-num)} .comp-code .c{color:var(--code-com);font-style:italic} .comp-code .p{color:#9aa3b2}
+.comp-code .hl{background:rgba(255,90,60,.12);box-shadow:-16px 0 0 rgba(255,90,60,.12),16px 0 0 rgba(255,90,60,.12)}
+.comp-video{position:relative;background:#000;display:flex;flex-direction:column}
+.facade{position:relative;aspect-ratio:16/9;background:#000;overflow:hidden}
+.facade img{width:100%;height:100%;object-fit:cover}
+.facade iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
+.facade button{position:absolute;inset:0;width:100%;height:100%;background:rgba(0,0,0,.08);border:0;cursor:pointer;display:block;padding:0;color:#fff;font-family:var(--sans)}
+.facade button:hover{background:rgba(0,0,0,.22)}
+.facade button:hover .play{transform:translate(-50%,-50%) scale(1.06)}
+.facade .play{width:60px;height:60px;border-radius:50%;background:#ff5a3c;display:grid;place-items:center;transition:transform .2s;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);box-shadow:0 8px 30px rgba(0,0,0,.45)}
+.facade .play svg{width:22px;height:22px;margin-left:4px;fill:#0b0d12}
+.facade .hint{position:absolute;right:12px;bottom:10px;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:#fff;background:rgba(0,0,0,.55);padding:4px 8px;border-radius:4px}
+.vinfo{padding:16px 16px 14px;flex:1;display:flex;flex-direction:column;gap:8px;border-top:1px solid rgba(255,255,255,.1)}
+.vtitle{font-weight:700;font-size:17px;letter-spacing:-.01em;color:#eceef2}
+.vsub{font-size:13.5px;line-height:1.5;color:#a3a9b5;max-width:48ch}
+.vmeta{display:flex;flex-wrap:wrap;gap:6px 14px;font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#7f8694;margin-top:auto;padding-top:6px}
+.vmeta span::before{content:"";display:inline-block;width:5px;height:5px;background:#f2c14e;transform:rotate(45deg);margin-right:7px;vertical-align:1px}
+.comp-foot{padding:10px 14px;font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:#7f8694;border-top:1px solid rgba(255,255,255,.1);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.comp-foot a{color:#a3a9b5}
+
+/* mini timeline: the snippet, plotted */
+.tl{padding:14px 16px 16px;border-top:1px solid rgba(255,255,255,.1);font-family:var(--mono);font-size:11px;color:#7f8694;position:relative}
+.tl-head{display:flex;justify-content:space-between;margin-bottom:8px;letter-spacing:.06em;text-transform:uppercase}
+.tl-grid{display:grid;grid-template-columns:96px 1fr;row-gap:8px;align-items:center}
+.tl-ruler{grid-column:2;position:relative;height:14px;border-bottom:1px solid rgba(255,255,255,.18)}
+.tl-ruler span{position:absolute;top:0;transform:translateX(-50%);font-size:10px;color:#7f8694}
+.tl-ruler span::after{content:"";position:absolute;left:50%;top:13px;width:1px;height:4px;background:rgba(255,255,255,.3)}
+.tl-name{color:#a3a9b5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-track{position:relative;height:16px}
+.tl-bar{position:absolute;top:2px;height:12px;border-radius:3px;background:#f2c14e;transform-origin:0 50%}
+.tl-bar.text{left:8.333%;width:91.667%}
+.tl-bar .tween{position:absolute;left:0;top:0;height:100%;width:10.9%;background:rgba(0,0,0,.28);border-radius:3px 0 0 3px}
+.tl-key{position:absolute;top:4px;width:8px;height:8px;background:#fff;transform:translate(-50%,0) rotate(45deg);box-shadow:0 0 0 1px rgba(0,0,0,.4)}
+.tl-key.audio{background:#ff5a3c}
+.tl-play{position:absolute;top:28px;bottom:14px;left:calc(96px + 16px);width:1px;background:#ff5a3c;pointer-events:none}
+.tl-play::before{content:"";position:absolute;top:-5px;left:-4px;border:4.5px solid transparent;border-top:7px solid #ff5a3c}
+@keyframes sweep{from{left:calc(96px + 16px)}to{left:calc(100% - 16px)}}
+.tl-play{animation:sweep 6s linear infinite}
+@keyframes drawon{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.tl-bar{animation:drawon 1.2s cubic-bezier(.2,.7,.2,1) both}
+.tl-bar.text{animation-delay:.6s}
+
+/* hero word reveal */
+@keyframes rise{from{opacity:0;transform:translateY(.35em)}to{opacity:1;transform:none}}
+.hero h1 .w{animation:rise .7s cubic-bezier(.2,.7,.2,1) both}
+.hero h1 .w:nth-child(2){animation-delay:.08s}.hero h1 .w:nth-child(3){animation-delay:.16s}.hero h1 .w:nth-child(4){animation-delay:.24s}
+
+/* ---------- chapter header (a track) ---------- */
+section{padding:72px 0 0}
+.ch{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:16px}
+.ch .n{font-family:var(--mono);font-size:12px;letter-spacing:.1em;color:var(--ink-3)}
+.ch h2{font-size:clamp(30px,4vw,48px);letter-spacing:-.03em;flex-basis:100%;order:3}
+.ch .rule{flex:1;height:1px;background:var(--line);min-width:24px}
+.deck{font-size:clamp(17px,1.4vw,20px);color:var(--ink-2);max-width:62ch;line-height:1.5}
+.deck strong{color:var(--ink);font-weight:600}
+.deck a{color:var(--ink)}
+.deck code{background:none;padding:0;color:var(--ink);font-size:.88em}
+
+/* ---------- 01 what you get ---------- */
+.cards{display:grid;grid-template-columns:1fr;gap:0 40px;margin-top:36px;border-bottom:1px solid var(--line)}
+.card{border-top:1px solid var(--line);padding:22px 0 30px;position:relative}
+.card .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);display:flex;gap:10px;align-items:center;margin-bottom:14px}
+.card .lbl::before{content:"";width:36px;height:5px;border-radius:2px;background:var(--amber)}
+.card.audio .lbl::before{background:var(--accent)}
+.card h3{font-size:21px;letter-spacing:-.02em;margin-bottom:10px}
+.card p{color:var(--ink-2);font-size:15.5px;line-height:1.55}
+.card p+p{margin-top:8px}
+.card code{font-size:.86em}
+.card ul{margin:10px 0 0;padding:0;list-style:none;color:var(--ink-2);font-size:15px}
+.card li{padding:6px 0;border-top:1px solid var(--line)}
+.card li b{color:var(--ink);font-weight:600}
+
+/* ---------- 02 built for AI ---------- */
+.loop{display:grid;grid-template-columns:1fr;gap:0;margin-top:36px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.step{padding:22px 20px;background:var(--bg-2);border-top:1px solid var(--line)}
+.step:first-child{border-top:0}
+.step .n{font-family:var(--mono);font-size:12px;letter-spacing:.1em;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.step h3{font-size:19px;margin-bottom:8px}
+.step p{color:var(--ink-2);font-size:15.5px}
+.step code{font-size:.86em}
+.step ul{margin:10px 0 0;padding-left:18px;color:var(--ink-2);font-size:15px}
+.step li{margin:4px 0}
+.shots{display:grid;grid-template-columns:1fr;gap:18px;margin-top:28px;align-items:start}
+.shot{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#0d1220;margin:0}
+.shot img{width:100%}
+.shot img+img{border-top:1px solid rgba(255,255,255,.12)}
+.shot figcaption{padding:12px 14px;font-size:14px;color:var(--ink-2);background:var(--bg-2);border-top:1px solid var(--line)}
+.shot figcaption b{color:var(--ink);font-weight:600}
+.shot figcaption code{font-size:.86em}
+.chat{margin-top:28px;border:1px solid var(--line);border-radius:10px;padding:20px;background:var(--bg-2);display:grid;gap:14px}
+.chat h3{font-size:19px}
+.chat p{color:var(--ink-2);font-size:15.5px}
+.quote{background:var(--code-bg);color:var(--code-ink);border-radius:8px;padding:14px 76px 14px 16px;font-family:var(--mono);font-size:12.5px;line-height:1.6;position:relative;overflow-wrap:anywhere;border:1px solid rgba(255,255,255,.06)}
+.quote .k{color:var(--code-key)} .quote .s{color:var(--code-str)}
+.copy{position:absolute;top:8px;right:8px;font:inherit;font-size:11px;letter-spacing:.06em;text-transform:uppercase;background:rgba(255,255,255,.08);color:#d7dbe3;border:1px solid rgba(255,255,255,.14);border-radius:5px;padding:4px 8px;cursor:pointer}
+.copy:hover{background:rgba(255,255,255,.14)}
+
+/* ---------- 03 gallery ---------- */
+.masonry{columns:2;column-gap:12px;margin-top:32px}
+.piece{break-inside:avoid;margin:0 0 12px;display:block;text-decoration:none;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--bg-2);position:relative}
+.piece img{width:100%;transition:transform .5s cubic-bezier(.2,.7,.2,1)}
+.piece:hover img{transform:scale(1.03)}
+.piece figcaption{padding:10px 12px 11px;font-size:13.5px;line-height:1.35}
+.piece figcaption b{display:block;font-weight:600;color:var(--ink)}
+.piece figcaption span{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--ink-3)}
+.gal-foot{margin-top:18px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.gal-foot p{color:var(--ink-2);font-size:15px}
+.tally{display:flex;gap:14px;font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:var(--ink-3);flex-wrap:wrap}
+.tally b{color:var(--ink);font-weight:500}
+
+/* ---------- 04 compare ---------- */
+.cmp-note{margin-top:14px;font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--ink-3)}
+.cmp-note a{color:var(--ink-2)}
+.cmp{width:100%;border-collapse:collapse;margin-top:28px;font-size:14.5px;line-height:1.5}
+.cmp th,.cmp td{text-align:left;vertical-align:top;padding:14px 14px 14px 0;border-top:1px solid var(--line)}
+.cmp thead th{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);border-top:0;padding-bottom:10px;font-weight:500}
+.cmp thead th.me{color:var(--accent)}
+.cmp tbody th{font-weight:600;color:var(--ink);width:17%;padding-right:18px}
+.cmp td{color:var(--ink-2)}
+.cmp td.me{color:var(--ink)}
+.cmp td b{color:var(--ink);font-weight:600}
+.cmp td code{font-size:.85em}
+.cmp td.na{color:var(--ink-3);font-style:italic}
+.choose{display:grid;grid-template-columns:1fr;gap:14px;margin-top:36px}
+.choose article{border:1px solid var(--line);border-radius:10px;padding:20px;background:var(--bg-2)}
+.choose article.me{border-color:var(--accent)}
+.choose h3{font-size:18px;margin-bottom:8px}
+.choose p{color:var(--ink-2);font-size:15.5px}
+.choose p+p{margin-top:10px}
+.choose .not{border-style:dashed}
+.choose .not h3{color:var(--ink)}
+
+/* ---------- 05 start ---------- */
+.ways{display:grid;grid-template-columns:1fr;gap:0 40px;margin-top:36px;border-bottom:1px solid var(--line)}
+.way{border-top:1px solid var(--line);padding:22px 0 30px;display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+.way .n{font-family:var(--mono);font-size:12px;letter-spacing:.1em;color:var(--accent)}
+.way .quote{align-self:stretch}
+.way h3{font-size:19px}
+.way p{color:var(--ink-2);font-size:15px}
+.way .quote{font-size:12.5px}
+.way a.more{font-size:14px;color:var(--ink)}
+.status{margin-top:28px;border:1px dashed var(--line-2);border-radius:10px;padding:18px 20px;display:grid;gap:8px;color:var(--ink-2);font-size:15px}
+.status b{color:var(--ink);font-weight:600}
+.status .row{display:flex;flex-wrap:wrap;gap:8px 18px;font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:var(--ink-3)}
+
+/* ---------- footer ---------- */
+footer{margin-top:80px;border-top:1px solid var(--line);padding:36px 0 48px;font-size:14.5px;color:var(--ink-2)}
+footer .wrap{display:grid;gap:22px}
+footer .links{display:flex;flex-wrap:wrap;gap:8px 20px}
+footer .links a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--line-2)}
+footer .links a:hover{border-color:var(--accent)}
+footer .end{font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:var(--ink-3);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+/* ---------- responsive ---------- */
+@media (min-width:600px){
+  :root{--gutter:28px}
+  .brand .ver{display:inline-block}
+  .top nav{gap:18px}
+  .masonry{columns:3}
+  .cards{grid-template-columns:1fr 1fr}
+  .ways{grid-template-columns:1fr 1fr 1fr}
+  .choose{grid-template-columns:1fr 1fr}
+  .shots{grid-template-columns:1fr 1fr}
+}
+@media (min-width:900px){
+  :root{--gutter:48px}
+  .only-wide{display:inline-flex}
+  .hero{padding:80px 0 64px}
+  .hero-grid{grid-template-columns:minmax(0,1fr) 380px;margin-top:4px}
+  .hero .lede{margin-top:22px}
+  .slate{margin-top:34px}
+  .comp-body{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)}
+  .comp-code{border-bottom:0;border-right:1px solid rgba(255,255,255,.1);padding:22px 22px 18px}
+  .comp-code pre{font-size:13.25px}
+  .cards{grid-template-columns:1fr 1fr 1fr}
+  .loop{grid-template-columns:1fr 1fr 1fr 1fr}
+  .step{border-top:0;border-left:1px solid var(--line)}
+  .step:first-child{border-left:0}
+  .masonry{columns:4;column-gap:14px}
+  .piece{margin-bottom:14px}
+  .choose{grid-template-columns:1fr 1fr 1fr 1fr}
+  .chat{grid-template-columns:1fr 1.4fr;align-items:start}
+  .chat .quote{margin-top:0}
+  section{padding-top:112px}
+  .ch{gap:18px;margin-bottom:20px;flex-wrap:nowrap}
+  .ch h2{flex-basis:auto;order:0}
+}
+@media (max-width:819px){
+  .cmp,.cmp thead,.cmp tbody,.cmp tr,.cmp th,.cmp td{display:block}
+  .cmp thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .cmp tr{border:1px solid var(--line);border-radius:10px;margin-top:12px;background:var(--bg-2);overflow:hidden}
+  .cmp tbody th{width:auto;border-top:0;padding:14px 16px 6px;font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:500}
+  .cmp td{padding:10px 16px 12px;border-top:1px solid var(--line)}
+  .cmp td::before{content:attr(data-col);display:block;font-weight:600;color:var(--ink);font-size:13.5px;margin-bottom:2px}
+  .cmp td.me::before{color:var(--accent)}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .tl-play,.tl-bar,.hero h1 .w{animation:none}
+  .piece img,.facade .play{transition:none}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#top">Skip to content</a>
+<div id="playhead" aria-hidden="true"></div>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="pixi-effects, top of page"><span class="dia" aria-hidden="true"></span>pixi-effects <span class="ver">v0.16.1 · experimental</span></a>
+    <nav aria-label="Page">
+      <a href="#get" class="only-wide">What you get</a>
+      <a href="#ai" class="only-wide">For AI</a>
+      <a href="#gallery">Gallery</a>
+      <a href="#compare">Compare</a>
+      <a href="#start" class="only-wide">Start</a>
+      <a href="https://github.com/yjmtmtk/pixi-effects" class="only-wide">GitHub</a>
+      <span class="tc only-wide" title="Scroll position, shown as a timecode: this page is 12 seconds long at 30 fps" aria-hidden="true"><b id="tc">00:00:00</b><span>/ 00:12:00</span></span>
+      <button class="theme" type="button" id="themeBtn" aria-label="Colour theme: auto. Click to change">auto</button>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+<!-- ================= HERO ================= -->
+<section class="hero" aria-labelledby="h1" style="padding-top:56px">
+  <div class="wrap">
+    <p class="eyebrow mono"><span class="dia" aria-hidden="true"></span> 00 &nbsp;·&nbsp; Open source · MIT · built on PixiJS v8</p>
+    <h1 id="h1"><span class="w">Video,</span> <span class="w">written</span> <span class="w">as</span> <span class="w"><em>data.</em></span></h1>
+    <div class="hero-grid">
+      <div>
+        <p class="lede">pixi-effects turns a tree of plain objects — text, shapes, images, keyframes, a camera, sound — into motion graphics. <strong>The same data plays in the browser, scrubs frame by frame, and exports MP4 with no server.</strong> Written by you, or by an AI that can check its own work.</p>
+        <div class="cta">
+          <a class="btn primary" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/">Watch the gallery <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2l10 6-10 6z" fill="currentColor"/></svg></a>
+          <a class="btn" href="https://yjmtmtk.github.io/pixi-effects/guide/">Read the guide</a>
+          <a class="btn" href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
+        </div>
+      </div>
+      <dl class="slate" aria-label="Key facts">
+        <div><dt>Output</dt><dd>MP4 · WebM · MOV, encoded in the browser (WebCodecs)</dd></div>
+        <div><dt>Runs</dt><dd>Entirely in the browser, no server; headless with Node 22 + Chrome</dd></div>
+        <div><dt>Install</dt><dd><code>npm install pixi-effects pixi.js gsap</code> — or one HTML file, no bundler</dd></div>
+        <div><dt>Depends on</dt><dd>mediabunny only; PixiJS v8 and GSAP as peers</dd></div>
+        <div><dt>Licence</dt><dd>MIT · v0.16.1 · experimental, pre-1.0</dd></div>
+      </dl>
+    </div>
+
+    <!-- the composition panel: data in, video out -->
+    <div class="comp" id="demo">
+      <div class="comp-bar" aria-hidden="true">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="in">composition.js</span>
+        <span class="arrow">→</span>
+        <span>movie.render()</span>
+        <span class="out">out.mp4 · 1280×720 · 30 fps</span>
+      </div>
+      <div class="comp-body">
+        <div class="comp-code">
+          <p class="sr">The complete minimal composition, as JavaScript:</p>
+<pre><code><span class="k">import</span> { Movie, kenBurns } <span class="k">from</span> <span class="s">'pixi-effects'</span>;
+<span class="k">const</span> movie = <span class="k">new</span> Movie();
+<span class="k">await</span> movie.init({
+  canvas, width: <span class="n">1280</span>, height: <span class="n">720</span>, duration: <span class="n">6</span>, frameRate: <span class="n">30</span>,
+  background: <span class="s">'#0a0a0f'</span>,
+  composition: { sequences: [
+    <span class="hl">{ type: <span class="s">'text'</span>, text: <span class="s">'Hello'</span>, at: <span class="n">0.5</span>,</span>
+      style: { fontSize: <span class="n">120</span>, fontWeight: <span class="s">'bold'</span>, fill: <span class="s">'#fff'</span> },
+      initial: { x: <span class="s">'GW/2'</span>, y: <span class="s">'GH/2'</span>, anchorX: <span class="n">0.5</span>, anchorY: <span class="n">0.5</span> },
+      keyframes: [{ at: <span class="n">0</span>, from: { alpha: <span class="n">0</span>, y: <span class="s">'GH/2 + 40'</span> },
+                    to: { alpha: <span class="n">1</span>, y: <span class="s">'GH/2'</span> },
+                    duration: <span class="n">0.6</span>, ease: <span class="s">'power2.out'</span> }] },
+    <span class="hl">{ type: <span class="s">'audio'</span>, sfx: <span class="s">'chime'</span>, at: <span class="n">1.1</span> },</span>
+  ] },
+});
+movie.play();
+<span class="c">// or: const mp4 = await movie.render({ format: 'mp4' })</span></code></pre>
+          <!-- the two layers above, plotted as a timeline -->
+          <div class="tl" aria-label="The two layers of the snippet plotted on a six-second timeline" role="img">
+            <div class="tl-head"><span>timeline · 6 s</span><span>◆ keyframe</span></div>
+            <div class="tl-grid">
+              <div class="tl-ruler" aria-hidden="true"><span style="left:0">0 s</span><span style="left:16.667%">1</span><span style="left:33.333%">2</span><span style="left:50%">3</span><span style="left:66.667%">4</span><span style="left:83.333%">5</span><span style="left:100%">6</span></div>
+              <div class="tl-name">text “Hello”</div>
+              <div class="tl-track"><div class="tl-bar text"><div class="tween"></div></div><div class="tl-key" style="left:8.333%" title="keyframe at 0.5 s: alpha 0→1, y +40→0, 0.6 s, power2.out"></div></div>
+              <div class="tl-name">audio chime</div>
+              <div class="tl-track"><div class="tl-key audio" style="left:18.333%" title="sfx chime at 1.1 s"></div></div>
+            </div>
+            <div class="tl-play" aria-hidden="true"></div>
+          </div>
+        </div>
+        <div class="comp-video">
+          <div class="facade" id="facade">
+            <img src="examples/gallery/posters/kinetic-manifesto.jpg" width="640" height="360" alt="Poster of the gallery piece Kinetic Manifesto: the words MAKE THINGS in huge white type on black, with つくる in red across the middle" fetchpriority="high">
+            <button type="button" id="playBtn" aria-label="Play Kinetic Manifesto live: loads the piece from yjmtmtk.github.io">
+              <span class="play" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3 1.5l11 6.5-11 6.5z"/></svg></span>
+              <span class="hint" aria-hidden="true">click to play live</span>
+            </button>
+          </div>
+          <div class="vinfo">
+            <p class="vtitle">Kinetic Manifesto</p>
+            <p class="vsub">Five bilingual statements on making things, slammed onto a 100 BPM grid. A gallery piece: one HTML file of data, written by an AI model (fable).</p>
+            <p class="vmeta"><span>1280×720</span><span>12 s</span><span>30 fps</span><span>sfx · no audio files</span></p>
+          </div>
+          <div class="comp-foot">
+            <span>same frame path for play · scrub · export</span>
+            <span><a href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/">39 pieces in the gallery →</a></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 01 WHAT YOU GET ================= -->
+<section id="get" aria-labelledby="h-get">
+  <div class="wrap">
+    <header class="ch"><span class="n">01</span><span class="dia" aria-hidden="true"></span><h2 id="h-get">What you get</h2><span class="rule" aria-hidden="true"></span></header>
+    <p class="deck">One vocabulary for every layer: <code>at</code> / <code>duration</code> / <code>initial</code> / <code>keyframes</code> / <code>filters</code> / <code>mask</code>. Repeated structure is a JS loop that returns objects. Any number can be an expression string like <code>'GW/2'</code>. <strong>Same data, same video</strong> — seeded, no wall clock, and the preview equals the export.</p>
+
+    <div class="cards">
+      <article class="card">
+        <p class="lbl">composition</p>
+        <h3>Write it as data</h3>
+        <p>A tree of plain objects: text, shapes, images, video, audio and nested compositions, each with <code>at</code>, <code>duration</code>, <code>initial</code>, <code>keyframes</code>, <code>filters</code>, <code>mask</code>. Numbers may be expressions (<code>'min(W,H)*0.4'</code>). Deterministic and seeded, so the file you export is the frame you saw.</p>
+      </article>
+      <article class="card">
+        <p class="lbl">export</p>
+        <h3>Runs in the browser, exports MP4</h3>
+        <p>Play, scrub and export MP4 / WebM / MOV with no server — WebCodecs via mediabunny. A starter is <b>one HTML file</b> with an import map; <code>npm install</code> works too. Headless from a script: <code>npx pixi-effects-render page.html -o out.mp4</code> (Node 22 and Chrome).</p>
+        <ul><li>Documented: Chrome 94+, Edge 94+, Safari 16.4+, Firefox 130+. <b>Verified by the author in Chrome</b>; Safari and Firefox are documented, not independently verified.</li></ul>
+      </article>
+      <article class="card">
+        <p class="lbl">camera</p>
+        <h3>2.5D camera, After Effects layers</h3>
+        <p>Layers, keyframes, expressions, masks, blend modes, nested compositions. Add <code>threeD</code>, <code>z</code>, <code>rotationX/Y</code> and a <code>camera</code> layer for parallax, dolly zooms, orbits and <code>cameraPath()</code> flights. An optional real three.js layer when you need it.</p>
+      </article>
+      <article class="card">
+        <p class="lbl">motion</p>
+        <h3>Text, particles, morphing, motion blur</h3>
+        <p><code>animateText</code> per letter, word or line; <code>wiggle</code>, <code>stagger</code>, <code>followPath</code>, path morphing, draw-on strokes (<code>trimEnd</code>), <code>particles()</code> — all seeded and baked into keyframes. True motion blur at export by sub-frame averaging.</p>
+        <ul><li>Filters by name, no import: <code>blur noise alpha colorMatrix</code> plus the 38 filters of pixi-filters (<code>glow dropShadow crt rgbSplit oldFilm glitch pixelate twist …</code>). Seven transitions, chroma key.</li></ul>
+      </article>
+      <article class="card audio">
+        <p class="lbl">audio</p>
+        <h3>Sound with no audio files</h3>
+        <p><code>sfx</code>: 11 synthesised presets (click, pop, swoosh, riser, hit, chime …) or your own voices. <b>Music written as text</b>: notes, chords and drum patterns as strings — 8 instruments, 10 drums, swing, fades, tempo changes, loop. Deterministic, and in the exported file at the same moment.</p>
+        <ul><li>Audio-reactive visuals: <code>audioEnvelope()</code>, <code>musicEnvelope()</code>, <code>react()</code>. Hear eight tunes written as text in the <a href="https://yjmtmtk.github.io/pixi-effects/examples/music-lab.html">music lab</a>.</li></ul>
+      </article>
+      <article class="card">
+        <p class="lbl">presenter</p>
+        <h3>Presentations, PDF, a player</h3>
+        <p><code>deck()</code> and a <code>Presenter</code>: slides that move, with stops, arrow keys / click / swipe, a page overview, a presenter view with notes, and PDF export.</p>
+        <ul><li>A drop-in video-style player (play, scrub, volume, fullscreen, download), themed with one accent colour — or build your own on the movie's events.</li></ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 02 BUILT FOR AI ================= -->
+<section id="ai" aria-labelledby="h-ai">
+  <div class="wrap">
+    <header class="ch"><span class="n">02</span><span class="dia" aria-hidden="true"></span><h2 id="h-ai">Written by AI, checked by AI</h2><span class="rule" aria-hidden="true"></span></header>
+    <p class="deck">A model cannot watch its own video. So the library reports back in text it can act on: <strong>warnings written as instructions</strong>, a contact sheet, a timeline, and a real export decoded again. Most of the gallery was made this way.</p>
+
+    <div class="loop">
+      <div class="step">
+        <p class="n"><span class="dia" aria-hidden="true"></span>1 · write</p>
+        <h3>One HTML file of data</h3>
+        <p>The agent follows the skill (<code>ai/SKILL.md</code>) with a cheatsheet, tested recipes, a pitfalls list and <code>llms.txt</code> / <code>llms-full.txt</code>. The recipes in the docs are executed by the test suite, so they stay true.</p>
+      </div>
+      <div class="step">
+        <p class="n"><span class="dia" aria-hidden="true"></span>2 · check</p>
+        <h3><code>pixi-effects-check page.html</code></h3>
+        <p>Opens the page in headless Chrome and reports, with exit code 0 or 1:</p>
+        <ul>
+          <li>library warnings, written as instructions with “did you mean”</li>
+          <li>layout problems: text cut off or off-canvas</li>
+          <li>sound problems, via <code>movie.inspectAudio()</code></li>
+          <li>a contact sheet PNG and a timeline</li>
+          <li>a real export, decoded again</li>
+        </ul>
+      </div>
+      <div class="step">
+        <p class="n"><span class="dia" aria-hidden="true"></span>3 · look</p>
+        <h3>Frames and a timeline, as data</h3>
+        <p><code>movie.inspect(frame)</code>, <code>contactSheet()</code> and <code>snapshot()</code> from code; <code>pixi-effects-view page.html</code> opens the page with a zoomable timeline under it, every layer a bar, every keyframe a mark.</p>
+      </div>
+      <div class="step">
+        <p class="n"><span class="dia" aria-hidden="true"></span>4 · fix</p>
+        <h3>Warnings are instructions</h3>
+        <p>Each message names what to change. The agent edits the data, runs the check again, and stops when it exits 0. No GUI in the loop — which is the point when the author is a model.</p>
+      </div>
+    </div>
+
+    <div class="shots">
+      <figure class="shot">
+        <img src="guide/assets/contact-sheet.jpg" width="1440" height="1184" loading="lazy" alt="A contact sheet written by the check tool: twelve frames of the piece Still Water laid out in a grid, each labelled with its frame number and time, from frame 0 at 0.00 s to frame 360 at 12.00 s">
+        <figcaption><b>The contact sheet</b> that <code>pixi-effects-check</code> writes: twelve frames of <i>Still Water</i> with frame numbers and times. A model reads it like a storyboard.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="guide/assets/timeline-view.jpg" width="1280" height="633" loading="lazy" alt="The timeline viewer: the piece Still Water paused at 9.00 s above a track view in which every layer is a horizontal bar on a time axis, with keyframe diamonds and a pink playhead">
+        <img src="guide/assets/timeline-collapsed.jpg" width="1280" height="633" loading="lazy" alt="The timeline chart of Countdown to 2027: 28 rows over 12 seconds, each layer a bar, keyframe starts as diamonds, shaded bands for transitions, groups of layers such as star# ×70 collapsed into one row">
+        <figcaption><b>The timeline</b>: <code>pixi-effects-view</code> opens the movie with every layer as a bar, keyframes as diamonds and a playhead you can drag (top); the chart of <i>Countdown to 2027</i>, 28 rows over 12 s, with repeated layers collapsed into one row (bottom).</figcaption>
+      </figure>
+    </div>
+
+    <div class="chat">
+      <div>
+        <h3>No shell? A chat is enough.</h3>
+        <p style="margin-top:8px">The chat-only entry (<code>ai/CHAT.md</code> + <code>ai/chat-template.html</code>) is for ChatGPT or Claude in a browser: the model returns one HTML file that loads the library from one CDN, and the page shows any warnings in a red box for you to paste back. The download button in the player gives you the MP4.</p>
+      </div>
+      <div class="quote" id="prompt">Read <span class="k">https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/CHAT.md</span> and follow it. Make a 10-second 1280×720 title video for <span class="s">… (what you see, the colours, what you hear)</span>. Give me the whole HTML file.<button class="copy" type="button" data-copy="prompt" aria-label="Copy this prompt">Copy</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 03 GALLERY ================= -->
+<section id="gallery" aria-labelledby="h-gal">
+  <div class="wrap">
+    <header class="ch"><span class="n">03</span><span class="dia" aria-hidden="true"></span><h2 id="h-gal">39 pieces, each one file of data</h2><span class="rule" aria-hidden="true"></span></header>
+    <p class="deck">Kinetic type, data stories, broadcast packages, 2.5D dioramas, a 48-second showpiece. <strong>Every piece is one HTML file</strong>, and AI models wrote most of them. Every poster below opens the <a href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/">live gallery</a>, where they play.</p>
+
+    <div class="masonry">
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/ma.jpg" width="960" height="540" loading="lazy" alt="間 MA: a large black 間 character with its lower strokes in red, beside the word MA and the line “the space between things”, on warm paper"><figcaption><b>間 MA — the space between</b><span>1920×1080 · 48 s · opus</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/social-quote-vertical.jpg" width="360" height="640" loading="lazy" alt="A vertical quote card on warm blurred colour: “The details are not the details. They make the design.” Charles Eames"><figcaption><b>Social Quote Card</b><span>720×1280 · 10 s · sonnet</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/hanabi-night.jpg" width="640" height="360" loading="lazy" alt="Hanabi Night: a gold firework opens over a city skyline under indigo, with the vertical title 花火大会"><figcaption><b>Hanabi Night</b><span>1280×720 · 12 s · sonnet</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/generative-orbits.jpg" width="540" height="540" loading="lazy" alt="Orbits: glowing dots in rosette and Lissajous patterns with comet trails on deep violet"><figcaption><b>Orbits</b><span>1080×1080 · 14 s · opus</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/isometric-city.jpg" width="640" height="360" loading="lazy" alt="Kōbe, 2040: an isometric city of lit blocks at dusk"><figcaption><b>Kōbe, 2040</b><span>1280×720 · 12 s · fable</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/recipe-card.jpg" width="540" height="675" loading="lazy" alt="Lemon Pasta Recipe Card: ingredients checked off, three timed steps, a plated dish, in warm yellow and red"><figcaption><b>Lemon Pasta Recipe Card</b><span>1080×1350 · 12 s · sonnet</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/orbit-rig.jpg" width="640" height="360" loading="lazy" alt="Orrery: a museum plate of the solar system in ivory and brass on navy, with a legend of the planets"><figcaption><b>Orrery</b><span>1280×720 · 12 s · sonnet</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/synthwave-drive.jpg" width="640" height="360" loading="lazy" alt="Synthwave Drive: a striped sun over a neon grid and the glowing title SYNTHWAVE DRIVE"><figcaption><b>Synthwave Drive</b><span>1280×720 · 12 s · fable</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/loader-gallery.jpg" width="540" height="540" loading="lazy" alt="Loader Gallery: nine loading loops on one dark board, titled NINE WAYS TO WAIT"><figcaption><b>Loader Gallery</b><span>1080×1080 · 10 s · sonnet</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/film-titles.jpg" width="640" height="360" loading="lazy" alt="The Long Night: a dark faceted shard in fog with a ring around it, over the title in spaced serif capitals"><figcaption><b>The Long Night</b><span>1280×720 · 14 s · opus</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/wedding-invitation.jpg" width="540" height="675" loading="lazy" alt="Wedding Invitation: a cream card with a double gold border, botanical sprigs, and the names Aiko and Daniel in serif"><figcaption><b>Wedding Invitation</b><span>1080×1350 · 12 s · fable</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/shape-shift.jpg" width="640" height="360" loading="lazy" alt="Form Follows: FORM FOLLOWS FEELING in black and ochre type beside a yellow circle, Bauhaus style on cream"><figcaption><b>Form Follows</b><span>1280×720 · 12 s · sonnet</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/paper-cutout-forest.jpg" width="640" height="360" loading="lazy" alt="Quiet Woods: a cut-paper night forest with a fox, fireflies and a paper moon"><figcaption><b>Quiet Woods</b><span>1280×720 · 12 s · fable</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/app-promo.jpg" width="540" height="540" loading="lazy" alt="Tidy app promo: a tilted phone mock-up with a habit tracker and the line Keep your streak alive"><figcaption><b>Tidy — app promo</b><span>1080×1080 · 12 s · fable</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/news-package.jpg" width="640" height="360" loading="lazy" alt="NORTH 24 Breaking: a rainy harbour bridge at night with a BREAKING lower third and a news ticker"><figcaption><b>NORTH 24 — Breaking</b><span>1280×720 · 12 s · opus</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/blueprint-house.jpg" width="640" height="360" loading="lazy" alt="The Corner House: a floor plan drawn in white on blueprint blue with dimensions and a title block reading APPROVED"><figcaption><b>The Corner House</b><span>1280×720 · 12 s · sonnet</span></figcaption></figure></a>
+    </div>
+
+    <div class="gal-foot">
+      <p class="tally"><span>39 pieces</span><span>written by <b>fable 11</b> · <b>opus 12</b> · <b>sonnet 16</b></span><span>+ 15 numbered examples and a playground</span></p>
+      <a class="btn" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/">Open the live gallery <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2l10 6-10 6z" fill="currentColor"/></svg></a>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 04 COMPARE ================= -->
+<section id="compare" aria-labelledby="h-cmp">
+  <div class="wrap">
+    <header class="ch"><span class="n">04</span><span class="dia" aria-hidden="true"></span><h2 id="h-cmp">Next to Remotion and fframes</h2><span class="rule" aria-hidden="true"></span></header>
+    <p class="deck">Three different answers to “video from code”. Remotion is the mature one, fframes is the fast native one, pixi-effects is the one where the video is data and a model can check it. <strong>None of them is better overall</strong>; pick by what you are making and who is writing it.</p>
+    <p class="cmp-note">Checked 2026-10-07, from their own pages: <a href="https://www.remotion.dev/">remotion.dev</a> · <a href="https://fframes.studio/">fframes.studio</a> and its <a href="https://github.com/dmtrKovalenko/fframes">repository</a>. No benchmark of pixi-effects against either has been made.</p>
+
+    <table class="cmp">
+      <thead><tr><th scope="col">&nbsp;</th><th scope="col" class="me">pixi-effects</th><th scope="col">Remotion</th><th scope="col">fframes</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">How a video is written</th>
+          <td class="me" data-col="pixi-effects"><b>A tree of plain objects</b> (JSON-shaped) with keyframes and expression strings; JS loops for repetition. No per-frame code.</td>
+          <td data-col="Remotion">React components. Three ways to work: agentically, interactively (drag-and-drop in Remotion Studio), or programmatically.</td>
+          <td data-col="fframes">Rust and SVG.</td></tr>
+        <tr><th scope="row">Where it runs, what you install</th>
+          <td class="me" data-col="pixi-effects">Entirely in the browser: one HTML file with an import map, or <code>npm install pixi-effects pixi.js gsap</code>. Headless render needs Node 22 and Chrome.</td>
+          <td data-col="Remotion">A React / npm project. Server-side and client-side rendering; Remotion Lambda for cloud rendering.</td>
+          <td data-col="fframes">Prebuilt binaries for macOS and Linux (arm64, x86_64); building needs Rust and ffmpeg libraries; Windows needs a separate FFmpeg setup.</td></tr>
+        <tr><th scope="row">Preview and editing</th>
+          <td class="me" data-col="pixi-effects">A video-style player (play, scrub, export) and a zoomable timeline viewer. <b>No GUI editor.</b></td>
+          <td data-col="Remotion">Remotion Studio (interactive, drag-and-drop), a Player component for your own app, an Editor Starter.</td>
+          <td data-col="fframes">A real-time GPU preview window and a browser-based editor (WebAssembly) with a timeline.</td></tr>
+        <tr><th scope="row">Rendering</th>
+          <td class="me" data-col="pixi-effects">WebGL in the browser, encoded with WebCodecs (mediabunny) to MP4 / WebM / MOV; needs a WebCodecs browser. Preview equals export. Not a native GPU renderer; no benchmark made. On the author's laptop a typical 12 s piece exports in about 10 s.</td>
+          <td data-col="Remotion">Server-side, client-side and batch rendering, plus Remotion Lambda in the cloud.</td>
+          <td data-col="fframes">GPU (Skia on Metal or Vulkan), no headless browser, ffmpeg linked in for encoding. Its README says about 10× faster than its own CPU backend and mentions a 128 s video rendered in 36 s.</td></tr>
+        <tr><th scope="row">Sound</th>
+          <td class="me" data-col="pixi-effects">Synthesised <code>sfx</code> (11 presets) and <b>music written as text</b>, with no audio files; audio-reactive helpers. Checked as numbers by <code>inspectAudio()</code>.</td>
+          <td data-col="Remotion" class="na">Not covered by the pages checked for this comparison.</td>
+          <td data-col="fframes"><code>audio analyze</code>: loudness (LUFS), true peak, clipping.</td></tr>
+        <tr><th scope="row">AI-agent workflow</th>
+          <td class="me" data-col="pixi-effects">A check tool that reports warnings as instructions, layout and sound problems, a contact sheet, a timeline and a decoded export; a skill, <code>llms.txt</code>, and a chat-only entry that needs no shell.</td>
+          <td data-col="Remotion">11 agent skills, installed with <code>npx skills add remotion-dev/skills</code>; agents preview their work in Remotion Studio.</td>
+          <td data-col="fframes"><code>inspect</code> (missing fonts, text cutoff), <code>audio analyze</code>, and a skill for coding agents via <code>npx skills add</code>.</td></tr>
+        <tr><th scope="row">Licence</th>
+          <td class="me" data-col="pixi-effects"><b>MIT.</b></td>
+          <td data-col="Remotion">Source-available. Free for individuals, non-profits and organisations of up to 3 people; larger for-profit organisations need a Company licence (from $100 / month, usage-based); Enterprise from $500 / month.</td>
+          <td data-col="fframes"><b>MIT.</b></td></tr>
+        <tr><th scope="row">Maturity</th>
+          <td class="me" data-col="pixi-effects">0.16.1, experimental, pre-1.0: the API can still change between minor versions. Small ecosystem.</td>
+          <td data-col="Remotion">About 62,000 GitHub stars (stated on its page). Large ecosystem of React components.</td>
+          <td data-col="fframes">Its README says it “stayed unreleased for years” before this release and does not say whether the API is stable.</td></tr>
+        <tr><th scope="row">Best for</th>
+          <td class="me" data-col="pixi-effects">Motion graphics described as data, written by an AI or by hand, that must play and export in a browser with no server.</td>
+          <td data-col="Remotion">Teams working in React who want a studio, a player for their app, a large ecosystem and cloud rendering at scale.</td>
+          <td data-col="fframes">The fastest native GPU renders, for people at home in Rust and SVG on macOS or Linux.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="choose">
+      <article class="me">
+        <h3>Choose pixi-effects when…</h3>
+        <p>the video should be <b>data</b> so an AI can write it and a tool can check it; it must play, scrub and export in the browser with no server; you want sound and music with no audio files; you want MIT and a starter that is one HTML file.</p>
+      </article>
+      <article>
+        <h3>Choose Remotion when…</h3>
+        <p>you live in React and want the mature ecosystem: Remotion Studio, a Player component in your product, batch and cloud rendering with Lambda, and a large community. Budget for the Company licence if your for-profit organisation has more than three people.</p>
+      </article>
+      <article>
+        <h3>Choose fframes when…</h3>
+        <p>raw render speed is what matters and you are comfortable in Rust and SVG on macOS or Linux: a native GPU pipeline (Skia on Metal or Vulkan) with no browser in the loop, ffmpeg built in, MIT.</p>
+      </article>
+      <article class="not">
+        <h3>Not pixi-effects when…</h3>
+        <p>you want a GUI editor; you need the React ecosystem or cloud rendering at scale; you need the fastest native GPU renders; you need to edit existing footage (a <code>video</code> layer plays a clip inside a composition, nothing more); or you need an API that will not change before 1.0.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 05 START ================= -->
+<section id="start" aria-labelledby="h-start">
+  <div class="wrap">
+    <header class="ch"><span class="n">05</span><span class="dia" aria-hidden="true"></span><h2 id="h-start">Start in one minute</h2><span class="rule" aria-hidden="true"></span></header>
+    <p class="deck">Three doors, same library. The snippet at the top of this page is a complete movie; paste it into any of these and press play.</p>
+
+    <div class="ways">
+      <div class="way">
+        <p class="n">A · ONE FILE</p>
+        <h3>One HTML file, no bundler</h3>
+        <p>The starter page loads the library from a CDN through an import map and runs in the browser as is: play, scrub, download MP4.</p>
+        <div class="quote" id="cdn">https://cdn.jsdelivr.net/npm/pixi-effects@0.16.1/dist/index.js<button class="copy" type="button" data-copy="cdn" aria-label="Copy the CDN address">Copy</button></div>
+        <a class="more" href="https://github.com/yjmtmtk/pixi-effects/blob/main/ai/template.html">The full starter: ai/template.html on GitHub →</a>
+      </div>
+      <div class="way">
+        <p class="n">B · NPM</p>
+        <h3>Install into a project</h3>
+        <p>PixiJS and GSAP are peer dependencies; three.js and pixi-filters are optional and only needed if you use them.</p>
+        <div class="quote" id="npm">npm install pixi-effects pixi.js gsap<button class="copy" type="button" data-copy="npm" aria-label="Copy the install command">Copy</button></div>
+        <div class="quote" id="render">npx pixi-effects-render page.html -o out.mp4<button class="copy" type="button" data-copy="render" aria-label="Copy the headless render command">Copy</button></div>
+        <a class="more" href="https://yjmtmtk.github.io/pixi-effects/guide/">The guide: 18 pages →</a>
+      </div>
+      <div class="way">
+        <p class="n">C · CHAT</p>
+        <h3>Let a model write it</h3>
+        <p>With a shell: point your agent at <code>ai/SKILL.md</code> and let it run <code>pixi-effects-check</code>. Without one: paste the prompt from <a href="#prompt">section 02</a> into ChatGPT or Claude and open the file it returns.</p>
+        <a class="more" href="https://github.com/yjmtmtk/pixi-effects/blob/main/ai/SKILL.md">ai/SKILL.md on GitHub →</a>
+        <a class="more" href="https://github.com/yjmtmtk/pixi-effects/blob/main/ai/CHAT.md">ai/CHAT.md on GitHub →</a>
+      </div>
+    </div>
+
+    <div class="status">
+      <p class="row"><span>status</span><span>v0.16.1</span><span>experimental · pre-1.0</span><span>MIT</span></p>
+      <p><b>Honest status.</b> pixi-effects is experimental and pre-1.0: the API can still change between minor versions. There is a timeline viewer but no GUI editor; the ecosystem is small; export needs a WebCodecs browser; it draws with WebGL in a browser rather than a native GPU renderer, and no benchmark against other tools has been made (a 48 s 1080p film with 16-sample motion blur took 99 s to export on the author's laptop). It is not a tool for editing existing footage.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="links">
+      <a href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
+      <a href="https://www.npmjs.com/package/pixi-effects">npm: pixi-effects</a>
+      <a href="https://yjmtmtk.github.io/pixi-effects/guide/">Guide</a>
+      <a href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/">Gallery</a>
+      <a href="https://yjmtmtk.github.io/pixi-effects/examples/music-lab.html">Music lab</a>
+      <a href="https://github.com/yjmtmtk/pixi-effects/blob/main/ai/SKILL.md">AI skill</a>
+    </p>
+    <p>pixi-effects is an open-source library for writing motion-graphics video as plain data, playing it in the browser and exporting MP4, WebM or MOV. Built on PixiJS v8, GSAP and mediabunny. MIT licence; no company licence.</p>
+    <p class="end"><span class="dia" aria-hidden="true"></span><span>v0.16.1 · experimental · MIT · comparison facts checked 2026-10-07</span></p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  // theme toggle: auto -> light -> dark -> auto (persisted)
+  var root=document.documentElement, btn=document.getElementById('themeBtn'), order=['auto','light','dark'], cur='auto';
+  try{ cur=localStorage.getItem('pe-theme')||'auto'; }catch(e){}
+  if(!root.hasAttribute('data-theme')) apply(cur);
+  function label(t){ btn.textContent=t; btn.setAttribute('aria-label','Colour theme: '+t+'. Click to change'); }
+  function apply(t){ cur=t; if(t==='auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme',t); label(t); try{localStorage.setItem('pe-theme',t);}catch(e){} }
+  label(root.getAttribute('data-theme')||cur);
+  btn.addEventListener('click',function(){ apply(order[(order.indexOf(cur)+1)%order.length]); });
+
+  // scroll = scrub: a 12 s page at 30 fps
+  var ph=document.getElementById('playhead'), tc=document.getElementById('tc'), raf=0;
+  function tick(){ raf=0; var max=document.documentElement.scrollHeight-window.innerHeight; var p=max>0?Math.min(1,Math.max(0,window.scrollY/max)):0;
+    ph.style.transform='scaleX('+p+')'; var f=Math.round(p*360), s=Math.floor(f/30), fr=f%30; if(tc) tc.textContent='00:'+String(s).padStart(2,'0')+':'+String(fr).padStart(2,'0'); }
+  window.addEventListener('scroll',function(){ if(!raf) raf=requestAnimationFrame(tick); },{passive:true}); tick();
+
+  // click-to-load live demo (a video facade)
+  var play=document.getElementById('playBtn'), facade=document.getElementById('facade');
+  if(play) play.addEventListener('click',function(){
+    var f=document.createElement('iframe'); f.src='https://yjmtmtk.github.io/pixi-effects/examples/gallery/kinetic-manifesto.html'; f.title='Kinetic Manifesto, playing live from the pixi-effects gallery'; f.allow='autoplay; fullscreen'; f.loading='eager';
+    facade.appendChild(f); play.remove();
+  });
+
+  // copy buttons
+  document.querySelectorAll('.copy').forEach(function(b){ b.addEventListener('click',function(){
+    var el=document.getElementById(b.getAttribute('data-copy')); var t=el.cloneNode(true); t.querySelectorAll('button').forEach(function(x){x.remove();});
+    var text=t.textContent.trim(); var done=function(){ b.textContent='Copied'; setTimeout(function(){b.textContent='Copy';},1400); };
+    if(navigator.clipboard) navigator.clipboard.writeText(text).then(done,done); else done();
+  });});
+})();
+</script>
+</body>
+</html>

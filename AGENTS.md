@@ -1,0 +1,21 @@
+# AGENTS.md — if you were asked to make a video with this repository
+
+The person said something like "Use https://github.com/yjmtmtk/pixi-effects to make a video: …". Do NOT read the whole repository. Follow the path that matches what you can do.
+
+## You can run commands (a shell, Node 22, Chrome): Claude Code, Codex, Cursor, …
+1. Read `ai/SKILL.md` (the workflow and the rules that cause most failures), then `ai/reference/cheatsheet.md`. Copy a block from `ai/reference/recipes.md` when one fits; `ai/reference/pitfalls.md` lists real mistakes.
+2. Start from `ai/template.html`: copy it next to the person's work and edit the composition. It loads the released library from a CDN, so the file works from any folder (no install needed).
+3. A video is plain data: a tree of plain objects (`text`, `shape`, `image`, `audio` with `sfx` or `music`, nested `composition`s, a `camera`) with `at` / `duration` / `initial` / `keyframes`. You never write per-frame code. Sound needs no files: `sfx` for effects, `music` for a tune written as text.
+4. Check your work like a reviewer, in a loop: `npx pixi-effects-check your-video.html` (or `node ai/tools/check.mjs your-video.html` inside this repository). It reports library warnings (each says what to change), layout problems, sound problems and a real export; it writes a contact sheet PNG: LOOK at it (open the image) before you say you are done.
+5. Export: `npx pixi-effects-render your-video.html -o your-video.mp4`, or the download button in the player bar.
+
+## You can only write text (a browser chat with no shell, no files)
+Fetch https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/CHAT.md and follow it. It tells you to copy `ai/chat-template.html` (one self-contained page that runs in a preview and shows every warning in a red box for the person to paste back), gives a worked example and the rules, and explains how the person gets the MP4.
+
+## Always
+- Look before you claim: a contact sheet, `movie.inspect(frame)` and `movie.inspectAudio()` are built in; the library cannot tell you the video is good, only that nothing is broken.
+- Ask the person only for what you cannot decide (what to show, the mood, the length); pick sizes, colours, timing and sound yourself.
+- Full docs for an AI in one file: https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/llms-full.txt (the index is `llms.txt`).
+
+## If you are changing the library itself
+`npm install`, `npm run build`, `npx vitest run` (real-browser tests need Chrome and a built `dist/`). Read `docs/philosophy.md` first: a composition is data; every layer shares one vocabulary; time is deterministic. Docs are generated: `npm run build:ai`, `npm run guide`.

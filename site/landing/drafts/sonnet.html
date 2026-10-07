@@ -1,0 +1,968 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pixi-effects — video, written as data</title>
+<meta name="description" content="pixi-effects turns plain data into motion-graphics video. It plays in the browser and exports MP4, with tools that let an AI check what it wrote. Experimental, MIT.">
+<meta name="color-scheme" content="dark light">
+<style>
+/* ───────────── tokens ───────────── */
+:root{
+  --bg:#0b0c10; --bg2:#12141a; --bg3:#1a1d26;
+  --ink:#eeebe3; --mute:#8f929c; --line:#272b35;
+  --acc:#ff5a36; --acc-ink:#0b0c10;
+  --pacc:#ff5a36; --panel:#101218; --panel-ink:#e9e6de; --panel-mute:#8b8e98; --panel-str:#ff7f61; --panel-line:#262a34;
+  --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --gut:16px;
+  --max:1280px;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:light){
+  :root:not([data-theme="dark"]){
+    --bg:#f3f0e8; --bg2:#faf8f3; --bg3:#e9e5d9;
+    --ink:#14151a; --mute:#5b5d66; --line:#d6d0c1;
+    --acc:#c82f0a; --acc-ink:#ffffff;
+    --panel:#15171d; color-scheme:light;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f3f0e8; --bg2:#faf8f3; --bg3:#e9e5d9;
+  --ink:#14151a; --mute:#5b5d66; --line:#d6d0c1;
+  --acc:#c82f0a; --acc-ink:#ffffff;
+  --panel:#15171d; color-scheme:light;
+}
+@media (min-width:700px){:root{--gut:32px}}
+@media (min-width:1100px){:root{--gut:48px}}
+
+/* ───────────── base ───────────── */
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:84px;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.55;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+img{display:block;max-width:100%;height:auto}
+a{color:inherit;text-decoration-color:color-mix(in srgb,var(--ink) 35%,transparent);text-underline-offset:.2em;text-decoration-thickness:1px}
+a:hover{text-decoration-color:var(--acc)}
+:focus-visible{outline:2px solid var(--acc);outline-offset:3px;border-radius:2px}
+code,kbd,pre{font-family:var(--mono)}
+h1,h2,h3,p,ul,ol,figure,blockquote,dl,dd{margin:0}
+ul,ol{padding:0;list-style:none}
+.wrap{width:100%;max-width:calc(var(--max) + var(--gut)*2);margin:0 auto;padding-inline:var(--gut)}
+.stage>*,.start-grid>*,.ai-block>*,.head2>*,.gal-top>*,.trow>*,.choose>*,.f-grid>*{min-width:0}
+.stage,.start-grid,.ai-block,.head2,.gal-top,.choose,.f-grid,.trow{grid-template-columns:minmax(0,1fr)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.skip{position:absolute;left:var(--gut);top:-60px;background:var(--acc);color:var(--acc-ink);padding:8px 14px;z-index:100;font-weight:600}
+.skip:focus{top:8px}
+.mono{font-family:var(--mono)}
+em.it{font-family:var(--serif);font-style:italic;font-weight:400;letter-spacing:-.02em;color:var(--acc)}
+
+/* ───────────── top bar = a ruler with a playhead ───────────── */
+.top{position:sticky;top:0;z-index:50;background:var(--bg)}
+.bar{display:flex;align-items:center;gap:16px;height:48px}
+.brand{font-family:var(--mono);font-weight:700;font-size:14px;letter-spacing:-.01em;text-decoration:none;display:flex;align-items:center;gap:9px;margin-right:auto}
+.brand i{display:block;width:9px;height:9px;background:var(--acc);transform:rotate(45deg)}
+.cur{display:none;font-family:var(--mono);font-size:12px;color:var(--mute);letter-spacing:.04em;text-transform:uppercase}
+.cur b{color:var(--ink);font-weight:600}
+.nav{display:flex;align-items:center;gap:6px}
+.nav a,.nav button{font:inherit;font-family:var(--mono);font-size:12px;letter-spacing:.04em;text-transform:uppercase;text-decoration:none;color:var(--mute);background:none;border:0;padding:8px 8px;cursor:pointer;min-height:36px;display:inline-flex;align-items:center}
+.nav a:hover,.nav button:hover{color:var(--ink)}
+.nav .hide-s{display:none}
+.nav button{border:1px solid var(--line);border-radius:3px;margin-left:4px;padding:4px 10px;min-height:30px}
+.ruler{position:relative;overflow:hidden;height:22px;border-bottom:1px solid var(--line)}
+.ruler::before{content:"";position:absolute;inset:auto 0 0 0;height:6px;
+  background:repeating-linear-gradient(90deg,var(--mute) 0 1px,transparent 1px 8px);opacity:.45}
+.ruler::after{content:"";position:absolute;inset:auto 0 0 0;height:11px;
+  background:repeating-linear-gradient(90deg,var(--mute) 0 1px,transparent 1px 40px);opacity:.55}
+.mk{position:absolute;top:0;width:26px;height:22px;margin-left:-13px;display:flex;align-items:center;justify-content:center;z-index:2}
+.mk i{display:block;width:8px;height:8px;background:var(--bg);border:1.5px solid var(--ink);transform:rotate(45deg);transition:background .2s,border-color .2s,transform .2s}
+.mk:hover i,.mk.on i{background:var(--acc);border-color:var(--acc);transform:rotate(45deg) scale(1.25)}
+.ph{position:absolute;top:0;bottom:-1px;left:0;width:0;z-index:3;pointer-events:none;will-change:transform}
+.ph::before{content:"";position:absolute;left:-.5px;top:0;bottom:0;width:1px;background:var(--acc)}
+.ph::after{content:"";position:absolute;left:-5px;top:0;border:5px solid transparent;border-top:7px solid var(--acc);border-bottom:0}
+
+/* ───────────── buttons ───────────── */
+.btn{display:inline-flex;align-items:center;gap:10px;min-height:52px;padding:0 22px;font-weight:650;font-size:16px;text-decoration:none;border:1.5px solid var(--ink);border-radius:2px;transition:transform .15s,background .15s,color .15s;cursor:pointer;font-family:var(--sans)}
+.btn:hover{transform:translateY(-2px)}
+.btn.pri{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+.btn.pri:hover{filter:brightness(1.08)}
+.btn svg{width:14px;height:14px;flex:none}
+.cmd{display:flex;align-items:center;gap:10px;min-height:52px;padding:0 6px 0 16px;border:1px solid var(--line);background:var(--bg2);border-radius:2px;font-family:var(--mono);font-size:13px;max-width:100%}
+.cmd code{overflow-x:auto;white-space:nowrap;scrollbar-width:none;padding:4px 0}
+.cmd code::-webkit-scrollbar{display:none}
+.cmd .pr{color:var(--acc);user-select:none}
+.copy{flex:none;font:inherit;font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:0 12px;min-height:40px;border-radius:2px;cursor:pointer}
+.copy:hover{border-color:var(--acc)}
+.copy.ok{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+
+/* ───────────── section scaffolding ───────────── */
+section{position:relative}
+.pad{padding-block:clamp(64px,9vw,128px)}
+.sec-h{display:flex;align-items:center;gap:12px;font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);margin-bottom:clamp(28px,4vw,52px)}
+.sec-h .d{width:9px;height:9px;border:1.5px solid var(--acc);background:var(--acc);transform:rotate(45deg);flex:none}
+.sec-h b{color:var(--ink);font-weight:600}
+.sec-h .trk{flex:1;height:9px;border-top:1px solid var(--line);background:repeating-linear-gradient(90deg,var(--line) 0 1px,transparent 1px 12px) 0 0/100% 5px no-repeat}
+h2{font-size:clamp(2.2rem,6.2vw,5rem);line-height:.98;letter-spacing:-.04em;word-spacing:.05em;font-weight:800;max-width:18ch;text-wrap:balance}
+.lede{font-size:clamp(1.05rem,1.6vw,1.3rem);line-height:1.5;color:var(--mute);max-width:56ch;margin-top:22px}
+.lede strong{color:var(--ink);font-weight:600}
+.k{font-family:var(--mono);font-size:.86em;background:var(--bg3);padding:.08em .38em;border-radius:3px;overflow-wrap:anywhere}
+[data-r]{transition:opacity .8s cubic-bezier(.2,.7,.2,1),transform .8s cubic-bezier(.2,.7,.2,1)}
+.js [data-r]{opacity:0;transform:translateY(22px)}
+.js [data-r].in{opacity:1;transform:none}
+
+/* ───────────── hero ───────────── */
+.hero{padding-top:clamp(40px,7vw,96px);padding-bottom:clamp(24px,4vw,56px);overflow:hidden}
+.hero::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(90deg,var(--line) 1px,transparent 1px) 0 0/calc(100%/12) 100%;opacity:.45;
+  -webkit-mask-image:linear-gradient(#000,transparent 85%);mask-image:linear-gradient(#000,transparent 85%)}
+.hero .wrap{position:relative}
+.eyebrow{display:flex;flex-wrap:wrap;gap:6px 14px;font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin-bottom:clamp(20px,3vw,34px)}
+.eyebrow span+span::before{content:"/";margin-right:14px;color:var(--line)}
+.eyebrow b{color:var(--acc);font-weight:600}
+h1{font-size:clamp(3.5rem,11.4vw,10.6rem);line-height:.86;letter-spacing:-.05em;word-spacing:.06em;font-weight:800;margin-left:-.04em}
+h1 em.it{letter-spacing:-.04em;padding-right:.04em}
+.hero-lede{font-size:clamp(1.15rem,1.9vw,1.5rem);line-height:1.42;max-width:50ch;margin-top:clamp(22px,3vw,36px)}
+.hero-lede .mute{color:var(--mute)}
+.ctas{display:flex;flex-wrap:wrap;gap:12px;margin-top:clamp(26px,3vw,38px)}
+.stage{display:grid;gap:20px;margin-top:clamp(44px,6vw,84px)}
+@media (min-width:980px){.stage{grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:28px;align-items:start}}
+
+/* code panel */
+.panel{background:var(--panel);color:var(--panel-ink);border:1px solid var(--panel-line);border-radius:4px;overflow:hidden}
+.panel-h{display:flex;justify-content:space-between;gap:12px;padding:10px 16px;border-bottom:1px solid var(--panel-line);font-family:var(--mono);font-size:11.5px;color:var(--panel-mute);letter-spacing:.04em}
+.panel-h b{color:var(--panel-ink);font-weight:500}
+pre.code{margin:0;padding:14px 0;font-size:12.5px;line-height:1.62;overflow-x:auto;tab-size:2;scrollbar-width:thin}
+.code .l{display:block;padding:0 16px 0 13px;border-left:3px solid transparent;white-space:pre;transition:background .25s,border-color .25s}
+.code .l.on{background:color-mix(in srgb,var(--pacc) 16%,transparent);border-left-color:var(--pacc)}
+.code .c{color:var(--panel-mute)} .code .s{color:var(--panel-str)} .code .w{color:#8f9cc4}
+@media (min-width:700px){pre.code{font-size:13.5px}}
+@media (min-width:980px){pre.code{font-size:12.5px}}
+@media (min-width:1200px){pre.code{font-size:13.5px}}
+
+/* mini timeline under the code */
+.tlbox{display:grid;gap:18px;padding:16px}
+@media (min-width:900px){.tlbox{grid-template-columns:230px minmax(0,1fr);gap:32px;align-items:center;padding:22px 24px}.mini{grid-template-columns:1fr!important}.mini .fr span{font-size:38px!important}.mini .fr::after{width:130px!important;height:130px!important}.tl{font-size:12px}.tl .nm,.tl .lane{height:26px}.tl .rl{height:20px}}
+.stage .tlp{margin-top:0}
+@media (min-width:980px){.stage .tlp{grid-column:1/-1}}
+.mini{display:grid;grid-template-columns:132px 1fr;gap:14px;align-items:center}
+.mini .fr{position:relative;aspect-ratio:16/9;background:#0a0a0f;overflow:hidden;border:1px solid var(--panel-line);display:grid;place-items:center}
+.mini .fr span{font-weight:800;font-size:27px;color:#fff;letter-spacing:-.02em;opacity:0}
+.mini .fr::after{content:"";position:absolute;width:90px;height:90px;border:1px solid var(--pacc);border-radius:50%;opacity:0;transform:scale(.2)}
+.mini .fr.ping::after{animation:ping .9s ease-out}
+@keyframes ping{0%{opacity:.9;transform:scale(.2)}100%{opacity:0;transform:scale(1)}}
+.read{font-family:var(--mono);font-size:11.5px;color:var(--panel-mute);line-height:1.6}
+.read b{color:var(--panel-ink);font-weight:500;font-variant-numeric:tabular-nums}
+.tl{position:relative;display:grid;grid-template-columns:104px 1fr;row-gap:6px;font-family:var(--mono);font-size:11px;color:var(--panel-mute)}
+.tl .rl{position:relative;height:16px;border-bottom:1px solid var(--panel-line)}
+.tl .rl span{position:absolute;top:0;transform:translateX(-50%);font-size:10px}
+.tl .rl span:first-child{transform:none}
+.tl .rl span:last-child{transform:translateX(-100%)}
+.tl .lane{position:relative;height:20px;background:repeating-linear-gradient(90deg,var(--panel-line) 0 1px,transparent 1px calc(100%/6))}
+.tl .nm{display:flex;align-items:center;height:20px;white-space:nowrap;overflow:hidden}
+.bar1,.bar1 i{position:absolute;top:3px;bottom:3px}
+.bar1{left:calc(.5/6*100%);right:0;background:color-mix(in srgb,var(--pacc) 30%,transparent);border-radius:1px}
+.bar1 i{left:0;width:calc(.6/5.5*100%);background:var(--pacc);border-radius:1px}
+.bar0{position:absolute;left:0;right:0;top:8px;bottom:8px;background:color-mix(in srgb,var(--panel-ink) 22%,transparent);border-radius:1px}
+.dia{position:absolute;top:50%;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;background:var(--panel-ink);transform:rotate(45deg)}
+.chime{position:absolute;left:calc(1.1/6*100%);top:3px;bottom:3px;width:6px;margin-left:-3px;background:#e46b8a;border-radius:1px;transition:transform .2s}
+.chime.hit{transform:scaleX(2.2)}
+.tl .head{position:absolute;top:0;bottom:0;left:104px;right:0;pointer-events:none}
+.tl .pp{position:absolute;top:0;bottom:-2px;left:0;width:1px;background:var(--pacc)}
+.tl .pp::before{content:"";position:absolute;left:-4px;top:0;border:4px solid transparent;border-top:6px solid var(--pacc);border-bottom:0}
+
+/* monitor (poster / live) */
+.mon{position:relative}
+.screen{position:relative;aspect-ratio:16/9;background:#000;border-radius:3px;overflow:hidden;width:100%;color:#fff}
+.facade img{width:100%;height:100%;object-fit:cover;transition:transform 1.2s cubic-bezier(.2,.7,.2,1)}
+.facade:hover img{transform:scale(1.025)}
+.facade{position:absolute;inset:0;width:100%;height:100%;border:0;padding:0;margin:0;background:none;cursor:pointer;color:#fff;display:block}
+.screen iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
+.facade .go{position:absolute;left:16px;bottom:16px;display:flex;align-items:center;gap:12px;background:rgba(10,10,15,.82);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);padding:8px 16px 8px 8px;border-radius:999px;font-family:var(--mono);font-size:12px;letter-spacing:.03em}
+.facade .go i{width:36px;height:36px;border-radius:50%;background:var(--acc);display:grid;place-items:center;flex:none}
+.facade .go svg{width:12px;height:12px;margin-left:2px;fill:var(--acc-ink)}
+.corner{position:absolute;width:18px;height:18px;border:2px solid #fff;opacity:.85;pointer-events:none;z-index:2}
+.corner.a{left:10px;top:10px;border-right:0;border-bottom:0}.corner.b{right:10px;top:10px;border-left:0;border-bottom:0}
+.corner.c{left:10px;bottom:10px;border-right:0;border-top:0;display:none}.corner.d{right:10px;bottom:10px;border-left:0;border-top:0}
+.mon-cap{display:flex;flex-wrap:wrap;gap:4px 18px;justify-content:space-between;align-items:baseline;margin-top:12px;font-size:14.5px}
+.mon-cap strong{font-weight:650}
+.mon-cap .meta{font-family:var(--mono);font-size:12px;color:var(--mute);letter-spacing:.03em}
+.picks{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:12px}
+.picks button{padding:0;border:0;background:none;cursor:pointer;position:relative;border-radius:2px;overflow:hidden;aspect-ratio:16/9;opacity:.55;transition:opacity .2s;outline-offset:2px}
+.picks button img{width:100%;height:100%;object-fit:cover}
+.picks button:hover,.picks button[aria-pressed="true"]{opacity:1}
+.picks button[aria-pressed="true"]::after{content:"";position:absolute;inset:0;border:2px solid var(--acc)}
+.arrowlbl{display:none}
+.flow{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11.5px;color:var(--mute);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px}
+.flow::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--mute),transparent)}
+
+/* ───────────── what you get ───────────── */
+.head2{display:grid;gap:36px}
+@media (min-width:900px){.head2{grid-template-columns:1.4fr 1fr;align-items:end}}
+.ease{position:relative;width:100%;max-width:300px;aspect-ratio:1.5;justify-self:start;border-left:1px solid var(--mute);border-bottom:1px solid var(--mute);margin:8px 0 0}
+@media (min-width:900px){.ease{justify-self:end}}
+.ease svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.ease path{fill:none;stroke:var(--acc);stroke-width:2;vector-effect:non-scaling-stroke}
+.ease .grid path{stroke:var(--line);stroke-width:1}
+.ease .dot{position:absolute;left:0;bottom:0;width:100%;height:100%}
+.ease .dot::after{content:"";position:absolute;left:0;bottom:0;width:12px;height:12px;margin:0 -6px -6px 0;background:var(--acc);border-radius:50%;animation:ey 3.2s cubic-bezier(.5,1,.89,1) infinite,ex 3.2s linear infinite}
+.ease .dot{animation:none}
+@keyframes ex{0%{left:0}70%,100%{left:100%}}
+@keyframes ey{0%{bottom:0}70%,100%{bottom:100%}}
+.ease .dot::after{animation:ey 3.2s cubic-bezier(.5,1,.89,1) infinite,ex 3.2s linear infinite}
+.ease .lb{position:absolute;font-family:var(--mono);font-size:11px;color:var(--mute);letter-spacing:.04em}
+.ease .l1{left:0;top:-22px;color:var(--ink)} .ease .l2{right:0;bottom:-26px} .ease .l3{left:8px;top:8px}
+.tracks{margin-top:clamp(40px,6vw,76px);border-bottom:1px solid var(--line)}
+.trow{display:grid;gap:14px 40px;padding:30px 0;border-top:1px solid var(--line)}
+@media (min-width:900px){.trow{grid-template-columns:200px minmax(0,1fr) minmax(0,1.25fr);padding:38px 0}}
+.trow .lab{align-self:start;align-items:center!important;font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);display:flex;gap:12px;align-items:baseline}
+.tkb{position:relative;display:block;flex:1;height:10px;max-width:96px;align-self:center;margin-left:8px;border-bottom:1px solid var(--line);background:repeating-linear-gradient(90deg,var(--line) 0 1px,transparent 1px 12px)}
+.tkb i{position:absolute;top:1px;bottom:1px;background:color-mix(in srgb,var(--acc) 55%,transparent);transform-origin:left;transition:transform 1s cubic-bezier(.2,.7,.2,1) .2s}
+.tkb u{position:absolute;top:50%;width:7px;height:7px;margin:-3.5px 0 0 -3.5px;background:var(--ink);transform:rotate(45deg)}
+.js .trow:not(.in) .tkb i{transform:scaleX(0)}
+.trow .lab b{color:var(--acc);font-weight:600}
+.trow h3{font-size:clamp(1.3rem,2.3vw,1.85rem);line-height:1.12;letter-spacing:-.025em;font-weight:700;text-wrap:balance}
+.trow p{color:var(--mute);font-size:16px;line-height:1.55}
+.trow p+p{margin-top:10px}
+.trow p strong{color:var(--ink);font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+.chips code{font-size:12px;border:1px solid var(--line);padding:2px 8px;border-radius:2px;color:var(--ink);background:var(--bg2)}
+.chips.sm code{font-size:11.5px;padding:1px 7px;color:var(--mute)}
+
+/* ───────────── built for AI ───────────── */
+.ai{background:var(--bg2);border-block:1px solid var(--line)}
+.loop{display:grid;gap:0;margin-top:clamp(36px,5vw,64px);counter-reset:st;grid-template-columns:1fr 1fr}
+@media (min-width:900px){.loop{grid-template-columns:repeat(4,1fr)}}
+.loop li{position:relative;padding:18px 16px 20px 0;border-top:2px solid var(--ink);counter-increment:st}
+.loop li::before{content:"0" counter(st);display:block;font-family:var(--mono);font-size:12px;color:var(--acc);margin-bottom:8px}
+.loop li b{display:block;font-size:1.3rem;letter-spacing:-.02em;font-weight:750}
+.loop li span{display:block;color:var(--mute);font-size:14.5px;line-height:1.45;margin-top:4px}
+.loop li:last-child{border-top-color:var(--acc)}
+.loop-note{font-family:var(--mono);font-size:12px;color:var(--mute);margin-top:12px;letter-spacing:.03em}
+.ai-block{display:grid;gap:28px;margin-top:clamp(56px,8vw,110px);align-items:center}
+@media (min-width:980px){
+  .ai-block{grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:64px}
+  .ai-block.rev{grid-template-columns:minmax(0,7fr) minmax(0,5fr)}
+  .ai-block.rev .ai-txt{order:2}
+}
+@media (min-width:980px){.ai-block{align-items:start}.ai-txt{position:sticky;top:110px}}
+.ai-txt h3{font-size:clamp(1.6rem,3vw,2.5rem);line-height:1.05;letter-spacing:-.035em;font-weight:800;text-wrap:balance}
+.ai-txt p{color:var(--mute);margin-top:14px;max-width:50ch}
+.ai-txt p strong{color:var(--ink);font-weight:600}
+.ai-txt .cmd{margin-top:18px;font-size:12.5px}
+ul.ticks{margin-top:18px;display:grid;gap:8px;font-size:15.5px}
+ul.ticks li{position:relative;padding-left:24px;color:var(--ink)}
+ul.ticks li::before{content:"";position:absolute;left:3px;top:.62em;width:7px;height:7px;background:var(--acc);transform:rotate(45deg)}
+ul.ticks li small{color:var(--mute);font-size:inherit}
+.shot{border:1px solid var(--line);border-radius:3px;overflow:hidden;background:#000}
+.shot img{width:100%}
+figcaption{font-family:var(--mono);font-size:11.5px;color:var(--mute);margin-top:10px;letter-spacing:.02em;line-height:1.5}
+.shots2{display:grid;gap:14px}
+.quote{margin-top:22px;border-left:3px solid var(--acc);padding:4px 0 4px 18px;font-size:15px;color:var(--ink);line-height:1.55}
+.quote .mono{font-size:13px;overflow-wrap:anywhere}
+.redbox{display:inline-block;margin-top:14px;font-family:var(--mono);font-size:12px;color:#fff;background:#b3261e;padding:6px 12px;border-radius:2px}
+.bigcard{background:var(--bg);border:1px solid var(--line);padding:clamp(22px,3vw,40px);border-radius:3px}
+
+/* ───────────── gallery ───────────── */
+.gal-top{display:grid;gap:36px;align-items:end}
+@media (min-width:900px){.gal-top{grid-template-columns:1.3fr 1fr}}
+.count{display:flex;flex-direction:column;gap:12px}
+.ticks39{display:grid;grid-template-columns:repeat(39,1fr);gap:2px;height:44px;align-items:end}
+.ticks39 i{display:block;background:var(--ink);height:100%;opacity:.9;transform-origin:bottom}
+.ticks39 i.f{height:100%} .ticks39 i.o{height:62%} .ticks39 i.s{height:32%}
+.js .ticks39 i{transform:scaleY(0)} .js .in .ticks39 i{transform:none;transition:transform .5s cubic-bezier(.2,.7,.2,1);transition-delay:calc(var(--i)*18ms)}
+.cnt-l{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11.5px;color:var(--mute);letter-spacing:.03em;flex-wrap:wrap;gap:4px 14px}
+.cnt-l b{color:var(--ink);font-weight:600}
+.feat{display:block;position:relative;margin-top:clamp(36px,5vw,64px);text-decoration:none}
+.feat .shot{position:relative}
+.feat .shot img{aspect-ratio:16/9;object-fit:cover}
+.feat-cap{display:flex;flex-wrap:wrap;gap:6px 24px;justify-content:space-between;align-items:baseline;margin-top:14px}
+.feat-cap strong{font-size:clamp(1.2rem,2.4vw,1.8rem);letter-spacing:-.02em;font-weight:750}
+.feat-cap span{color:var(--mute);font-size:15px;max-width:60ch}
+.masonry{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 14px;margin-top:clamp(28px,4vw,48px)}
+.mcol{display:flex;flex-direction:column;gap:22px;min-width:0}
+@media (min-width:700px){.masonry{gap:30px 18px}}
+@media (min-width:1100px){.masonry{grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}}
+.masonry a{display:block;text-decoration:none;position:relative}
+.masonry .shot{position:relative;transition:transform .35s cubic-bezier(.2,.7,.2,1)}
+.masonry a:hover .shot{transform:translateY(-4px)}
+.masonry a::after{content:"";display:none}
+.masonry strong{display:block;margin-top:9px;font-size:15px;font-weight:650;letter-spacing:-.01em;line-height:1.25}
+.masonry small{display:block;font-family:var(--mono);font-size:11px;color:var(--mute);margin-top:2px;letter-spacing:.02em}
+.gal-cta{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:clamp(20px,3vw,36px)}
+
+/* ───────────── compare ───────────── */
+.cmp-note{font-family:var(--mono);font-size:12px;color:var(--mute);margin-top:22px;letter-spacing:.02em;line-height:1.7}
+.cmp-note a{color:var(--ink)}
+.tbl{margin-top:clamp(28px,4vw,52px);width:100%;border-collapse:collapse;font-size:14.5px;line-height:1.5}
+.tbl th,.tbl td{text-align:left;vertical-align:top;padding:16px 18px 16px 0}
+.tbl thead th{font-size:clamp(1.1rem,2vw,1.5rem);letter-spacing:-.025em;font-weight:800;padding-bottom:16px;border-bottom:2px solid var(--ink)}
+.tbl thead th a{text-decoration:none}
+.tbl thead th small{display:block;font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:.02em;color:var(--mute);margin-top:2px}
+.tbl thead th.me{border-bottom-color:var(--acc)}
+.tbl tbody th{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);font-weight:500;width:15%;padding-right:14px}
+.tbl tbody tr{border-bottom:1px solid var(--line)}
+.tbl td{color:var(--ink);color:color-mix(in srgb,var(--ink) 88%,var(--mute))}
+.tbl td.me{background:color-mix(in srgb,var(--acc) 6%,transparent);padding-left:14px}
+.tbl thead th.me{padding-left:14px}
+.tbl td em{font-style:normal;color:var(--mute)}
+.tbl td b{font-weight:650;color:var(--ink)}
+@media (max-width:899px){
+  .tbl,.tbl tbody,.tbl tr,.tbl th,.tbl td{display:block;width:auto}
+  .tbl thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .tbl tbody tr{padding:22px 0;border-bottom:1px solid var(--line)}
+  .tbl tbody th{padding:0 0 12px;font-size:12px;color:var(--acc);width:auto}
+  .tbl td{padding:10px 0 10px 14px;border-left:2px solid var(--line);margin-bottom:8px}
+  .tbl td::before{content:attr(data-l);display:block;font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin-bottom:2px}
+  .tbl td.me{border-left-color:var(--acc);padding-left:14px}
+}
+.choose{display:grid;gap:18px;margin-top:clamp(56px,8vw,100px)}
+@media (min-width:900px){.choose{grid-template-columns:repeat(3,1fr);gap:24px}}
+.ch{border-top:2px solid var(--ink);padding-top:18px}
+.ch.me{border-top-color:var(--acc)}
+.ch h3{font-size:clamp(1.4rem,2.4vw,1.9rem);letter-spacing:-.03em;font-weight:800;line-height:1.05}
+.ch h3 span{font-family:var(--serif);font-style:italic;font-weight:400;color:var(--mute)}
+.ch h4{font-family:var(--mono);font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;font-weight:600;margin:22px 0 4px;color:var(--ink)}
+.ch h4.no{color:var(--acc)}
+.ch ul{display:grid;gap:8px;margin-top:8px;font-size:15.5px;line-height:1.5}
+.ch li{position:relative;padding-left:20px}
+.ch li::before{content:"";position:absolute;left:2px;top:.62em;width:6px;height:6px;background:var(--mute);transform:rotate(45deg)}
+.ch.me li::before{background:var(--acc)}
+.fair{margin-top:clamp(36px,5vw,60px);padding:20px 22px;border:1px dashed var(--mute);font-size:15px;color:var(--mute);max-width:78ch;border-radius:2px}
+.fair strong{color:var(--ink)}
+
+/* ───────────── start ───────────── */
+.start-grid{display:grid;gap:36px;margin-top:clamp(32px,4vw,56px)}
+@media (min-width:980px){.start-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;align-items:start}}
+.steps{display:grid;gap:30px}
+.step{display:grid;grid-template-columns:36px minmax(0,1fr);gap:4px 14px}
+.step .n{font-family:var(--mono);font-size:12px;color:var(--acc);padding-top:4px}
+.step h3{font-size:1.25rem;letter-spacing:-.02em;font-weight:750;line-height:1.2}
+.step p{color:var(--mute);font-size:15.5px;margin-top:6px;max-width:52ch}
+.step .cmd{margin-top:12px;max-width:520px;font-size:12.5px}
+.step > div > .cmd{margin-top:12px}
+.step .chips{margin-top:12px}
+.status{border:1px solid var(--line);background:var(--bg2);padding:22px 24px;border-radius:3px;margin-top:0}
+.status h3{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--acc);font-weight:600}
+.status ul{display:grid;gap:10px;margin-top:14px;font-size:15.5px}
+.status li{position:relative;padding-left:20px}
+.status li::before{content:"";position:absolute;left:2px;top:.62em;width:6px;height:6px;background:var(--acc);transform:rotate(45deg)}
+.panel.imp pre.code{font-size:12px}
+@media (min-width:700px){.panel.imp pre.code{font-size:13px}}
+.panel.imp .l{white-space:pre}
+
+/* ───────────── footer ───────────── */
+footer{border-top:1px solid var(--line);padding-block:clamp(48px,7vw,88px) 40px}
+.f-big{font-size:clamp(2rem,5.4vw,4.4rem);line-height:.98;letter-spacing:-.045em;font-weight:800;max-width:20ch}
+.f-grid{display:grid;gap:36px;margin-top:clamp(36px,5vw,64px)}
+@media (min-width:800px){.f-grid{grid-template-columns:1.4fr 1fr 1fr}}
+.f-grid h2{font:600 11.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mute);margin-bottom:12px;max-width:none}
+.f-grid ul{display:grid;gap:4px}
+.f-grid li a{display:inline-block;padding:4px 0;font-size:16px}
+.f-grid p{color:var(--mute);font-size:15px;max-width:44ch}
+.legal{margin-top:48px;padding-top:20px;border-top:1px solid var(--line);font-family:var(--mono);font-size:11.5px;color:var(--mute);display:flex;flex-wrap:wrap;gap:6px 24px;justify-content:space-between;line-height:1.6}
+
+/* ───────────── small screens ───────────── */
+@media (min-width:700px){.cur{display:block}.nav .hide-s{display:inline-flex}.mini{grid-template-columns:160px 1fr}.mini .fr span{font-size:33px}.mini .fr::after{width:110px;height:110px}}
+@media (min-width:700px){.facade .go{left:20px;bottom:20px}.corner.c{display:block}}
+@media (max-width:420px){.mini{grid-template-columns:112px 1fr}.mini .fr span{font-size:23px}.mini .fr::after{width:78px;height:78px}.btn{padding:0 18px}}
+
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .js [data-r]{opacity:1;transform:none}
+  .js .ticks39 i{transform:none}
+  .ease .dot::after{left:100%;bottom:100%}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+  <div class="wrap bar">
+    <a class="brand" href="#top" aria-label="pixi-effects, back to top"><i></i>pixi-effects</a>
+    <span class="cur" id="cur" aria-hidden="true"><b>01</b> Hero</span>
+    <nav class="nav" aria-label="External links">
+      <a class="hide-s" href="https://yjmtmtk.github.io/pixi-effects/guide/">Guide</a>
+      <a class="hide-s" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/">Gallery</a>
+      <a href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
+      <button type="button" id="theme" aria-label="Switch colour theme">Theme</button>
+    </nav>
+  </div>
+  <nav class="ruler" id="ruler" aria-label="Sections of this page">
+    <a class="mk" href="#top" style="left:0%" data-s="top" aria-label="Hero"><i></i></a>
+    <a class="mk" href="#get" style="left:16%" data-s="get" aria-label="What you get"><i></i></a>
+    <a class="mk" href="#ai" style="left:34%" data-s="ai" aria-label="Built for AI"><i></i></a>
+    <a class="mk" href="#gallery" style="left:52%" data-s="gallery" aria-label="Gallery"><i></i></a>
+    <a class="mk" href="#compare" style="left:68%" data-s="compare" aria-label="Comparison with Remotion and fframes"><i></i></a>
+    <a class="mk" href="#start" style="left:88%" data-s="start" aria-label="Get started"><i></i></a>
+    <div class="ph" id="ph"></div>
+  </nav>
+</header>
+
+<main id="main">
+
+<!-- ═════════════ 01 HERO ═════════════ -->
+<section class="hero" id="top" aria-labelledby="h1">
+  <div class="wrap">
+    <p class="eyebrow"><span>pixi-effects <b>0.16.1</b></span><span>experimental, pre-1.0</span><span>MIT</span></p>
+    <h1 id="h1">Video, written<br>as <em class="it">data.</em></h1>
+    <p class="hero-lede">A tree of plain objects goes in. Motion-graphics video comes out. <span class="mute">It plays in the browser, scrubs, and exports MP4, WebM or MOV with no server. Same data, same video, every time.</span></p>
+    <div class="ctas">
+      <a class="btn pri" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/">Open the gallery
+        <svg viewBox="0 0 14 14" aria-hidden="true"><path d="M1 7h11M7.5 2.5 12 7l-4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a>
+      <a class="btn" href="https://yjmtmtk.github.io/pixi-effects/guide/">Read the guide</a>
+      <div class="cmd"><span class="pr" aria-hidden="true">$</span><code id="i1">npm install pixi-effects pixi.js gsap</code><button class="copy" type="button" data-copy="i1" aria-label="Copy the install command">Copy</button></div>
+    </div>
+
+    <div class="stage">
+      <!-- data in -->
+      <div data-r>
+        <div class="flow">Data in</div>
+        <div class="panel">
+          <div class="panel-h"><b>hello.js</b><span>6 s · 1280×720 · 30 fps</span></div>
+<pre class="code" id="code" tabindex="0" aria-label="A complete minimal pixi-effects composition"><span class="l"><span class="w">import</span> { Movie } <span class="w">from</span> <span class="s">'pixi-effects'</span>;</span><span class="l"><span class="w">const</span> movie = <span class="w">new</span> Movie();</span><span class="l"><span class="w">await</span> movie.init({</span><span class="l">  canvas, width: 1280, height: 720,</span><span class="l">  duration: 6, frameRate: 30,</span><span class="l">  background: <span class="s">'#0a0a0f'</span>,</span><span class="l">  composition: { sequences: [</span><span class="l" data-t="a">    { type: <span class="s">'text'</span>, text: <span class="s">'Hello'</span>, at: 0.5,</span><span class="l" data-t="a">      style: { fontSize: 120, fill: <span class="s">'#fff'</span>,</span><span class="l" data-t="a">               fontWeight: <span class="s">'bold'</span> },</span><span class="l" data-t="a">      initial: { x: <span class="s">'GW/2'</span>, y: <span class="s">'GH/2'</span>,</span><span class="l" data-t="a">                 anchorX: 0.5, anchorY: 0.5 },</span><span class="l" data-t="a">      keyframes: [{</span><span class="l" data-t="a">        at: 0, duration: 0.6, ease: <span class="s">'power2.out'</span>,</span><span class="l" data-t="a">        from: { alpha: 0, y: <span class="s">'GH/2 + 40'</span> },</span><span class="l" data-t="a">        to:   { alpha: 1, y: <span class="s">'GH/2'</span> },</span><span class="l" data-t="a">      }] },</span><span class="l" data-t="b">    { type: <span class="s">'audio'</span>, sfx: <span class="s">'chime'</span>, at: 1.1 },</span><span class="l">  ] },</span><span class="l">});</span><span class="l">movie.play();</span><span class="l"><span class="c">// or: await movie.render({ format: 'mp4' })</span></span></pre>
+        </div>
+        <p class="mon-cap" style="margin-top:10px"><span class="meta">Reformatted to short lines. The data is the same as in the guide.</span></p>
+      </div>
+
+      <!-- video out -->
+      <div class="mon" data-r>
+        <div class="flow">Video out: a real piece, live</div>
+        <div class="screen" id="screen">
+          <button class="facade" id="facade" type="button" aria-label="Play the piece Kinetic Manifesto live in this page">
+            <img id="poster" src="examples/gallery/posters/kinetic-manifesto.jpg" width="640" height="360" alt="Poster of Kinetic Manifesto: huge white type reading MAKE THINGS with a red Japanese word slammed across it, on black.">
+            <span class="go"><i><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M0 0l12 6-12 6z"/></svg></i><span id="gotxt">Play live, 12 s</span></span>
+          </button>
+          <span class="corner a"></span><span class="corner b"></span><span class="corner c"></span><span class="corner d"></span>
+        </div>
+        <div class="mon-cap"><span><strong id="mt">Kinetic Manifesto</strong> <span style="color:var(--mute)" id="ms">· five bilingual statements slammed onto a 100 BPM grid</span></span><span class="meta" id="mm">1280×720 · 12 s · written by fable</span></div>
+        <div class="picks" role="group" aria-label="Choose a piece to preview">
+          <button type="button" data-id="kinetic-manifesto" aria-pressed="true" aria-label="Kinetic Manifesto"><img src="examples/gallery/posters/kinetic-manifesto.jpg" width="640" height="360" alt=""></button>
+          <button type="button" data-id="hanabi-night" aria-pressed="false" aria-label="Hanabi Night"><img src="examples/gallery/posters/hanabi-night.jpg" width="640" height="360" alt="" loading="lazy"></button>
+          <button type="button" data-id="orbit-rig" aria-pressed="false" aria-label="Orrery"><img src="examples/gallery/posters/orbit-rig.jpg" width="640" height="360" alt="" loading="lazy"></button>
+          <button type="button" data-id="shape-shift" aria-pressed="false" aria-label="Form Follows"><img src="examples/gallery/posters/shape-shift.jpg" width="640" height="360" alt="" loading="lazy"></button>
+          <button type="button" data-id="blueprint-house" aria-pressed="false" aria-label="The Corner House"><img src="examples/gallery/posters/blueprint-house.jpg" width="640" height="360" alt="" loading="lazy"></button>
+          <button type="button" data-id="quiet-hours" aria-pressed="false" aria-label="The Quiet Hours"><img src="examples/gallery/posters/quiet-hours.jpg" width="640" height="360" alt="" loading="lazy"></button>
+        </div>
+        <p class="mon-cap"><span class="meta">Each one is a single HTML file of data. The page loads only after you click.</span><a class="meta" id="open" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/kinetic-manifesto.html">Open in its own page</a></p>
+      </div>
+
+      <!-- the same data, on a timeline -->
+      <div class="panel tlp" data-r>
+        <div class="panel-h"><b>the same data, on a timeline</b><span>the playhead runs the 6 seconds in a loop</span></div>
+        <div class="tlbox" aria-hidden="true">
+          <div class="mini">
+            <div class="fr" id="fr"><span id="hello">Hello</span></div>
+            <div class="read">frame <b id="rfr">0</b><br><b id="rt">0.00</b> s / 6.00 s<br><span id="rst">waiting</span></div>
+        </div>
+          <div class="tl">
+            <span></span>
+            <div class="rl"><span style="left:0">0s</span><span style="left:16.66%">1</span><span style="left:33.33%">2</span><span style="left:50%">3</span><span style="left:66.66%">4</span><span style="left:83.33%">5</span><span style="left:100%">6s</span></div>
+            <span class="nm">movie · 6 s</span>
+            <div class="lane"><div class="bar0"></div></div>
+            <span class="nm">text · Hello</span>
+            <div class="lane"><div class="bar1"><i></i><b class="dia" style="left:0"></b></div></div>
+            <span class="nm">audio · chime</span>
+            <div class="lane"><span class="chime" id="chime"></span></div>
+            <div class="head"><div class="pp" id="pp"></div></div>
+        </div>
+          </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════════ 02 WHAT YOU GET ═════════════ -->
+<section class="pad" id="get" aria-labelledby="h-get">
+  <div class="wrap">
+    <div class="sec-h"><span class="d"></span><b>02</b><span>What you get</span><span class="trk"></span></div>
+    <div class="head2">
+      <div data-r>
+        <h2 id="h-get">A small vocabulary for a <em class="it">whole</em> film.</h2>
+        <p class="lede">A video is layers, keyframes and expressions, the way After Effects thinks, but written down as data. Six things come in the box.</p>
+      </div>
+      <div class="ease" data-r aria-hidden="true">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none"><g class="grid"><path d="M25 0V100M50 0V100M75 0V100M0 25H100M0 50H100M0 75H100"/></g><path d="M0 100Q50 0 100 0"/></svg>
+        <span class="dot"></span>
+        <span class="lb l1">ease: 'power2.out'</span><span class="lb l2">time</span><span class="lb l3">value</span>
+      </div>
+    </div>
+
+    <div class="tracks">
+      <article class="trow" data-r>
+        <div class="lab"><b>T1</b> Write<span class="tkb" aria-hidden="true"><i style="left:4%;width:70%"></i><u style="left:4%"></u></span></div>
+        <div><h3>A video is a tree of plain objects.</h3></div>
+        <div>
+          <p>Text, shapes, images, video, audio and nested compositions, each with <span class="k">at</span> <span class="k">duration</span> <span class="k">initial</span> <span class="k">keyframes</span> <span class="k">filters</span> <span class="k">mask</span>. Repeated structure is a JavaScript loop that returns objects.</p>
+          <p>Numbers can be expression strings. <strong>Same data, same video:</strong> it is seeded and never reads the wall clock.</p>
+          <div class="chips"><code>'GW/2'</code><code>'min(W,H)*0.4'</code><code>seeded</code><code>deterministic</code></div>
+        </div>
+      </article>
+      <article class="trow" data-r>
+        <div class="lab"><b>T2</b> Run<span class="tkb" aria-hidden="true"><i style="left:0%;width:100%"></i><u style="left:0%"></u></span></div>
+        <div><h3>The browser is the renderer.</h3></div>
+        <div>
+          <p>Play, scrub and export <strong>MP4, WebM or MOV with no server</strong>, using WebCodecs through mediabunny. Playback, scrubbing and export share one frame path, so the preview equals the export.</p>
+          <p>A starter is one HTML file with an import map, no bundler. From a script: <span class="k">npx pixi-effects-render page.html -o out.mp4</span> (Node 22 and Chrome).</p>
+        </div>
+      </article>
+      <article class="trow" data-r>
+        <div class="lab"><b>T3</b> Look<span class="tkb" aria-hidden="true"><i style="left:18%;width:62%"></i><u style="left:18%"></u></span></div>
+        <div><h3>After Effects' model, with a 2.5D camera.</h3></div>
+        <div>
+          <p>Layers, keyframes, expressions, masks, blend modes and nested compositions. Depth with <span class="k">threeD</span> <span class="k">z</span> <span class="k">rotationX/Y</span> and a <span class="k">camera</span> layer: dolly zoom, orbit and <span class="k">cameraPath()</span> flights. A real three.js layer is optional.</p>
+          <div class="chips"><code>blur</code><code>noise</code><code>colorMatrix</code><code>glow</code><code>dropShadow</code><code>crt</code><code>rgbSplit</code><code>oldFilm</code><code>glitch</code><code>pixelate</code><code>twist</code><code>+ 30 more by name</code></div>
+          <div class="chips sm"><code>crossfade</code><code>wipe</code><code>iris</code><code>slide</code><code>dip</code><code>zoom</code><code>dissolve</code><code>chroma key</code></div>
+        </div>
+      </article>
+      <article class="trow" data-r>
+        <div class="lab"><b>T4</b> Move<span class="tkb" aria-hidden="true"><i style="left:30%;width:50%"></i><u style="left:30%"></u></span></div>
+        <div><h3>Text, particles, morphing, motion blur.</h3></div>
+        <div>
+          <p>Helpers that are seeded and baked into keyframes: <span class="k">wiggle</span> <span class="k">stagger</span> <span class="k">animateText</span> (per letter, word or line), <span class="k">followPath</span>, path morphing, draw-on strokes with <span class="k">trimEnd</span> and <span class="k">particles()</span>.</p>
+          <p>True motion blur at export, by averaging sub-frames. Filters are used by name with no import: four from pixi.js and the 38 of pixi-filters.</p>
+        </div>
+      </article>
+      <article class="trow" data-r>
+        <div class="lab"><b>T5</b> Sound<span class="tkb" aria-hidden="true"><i style="left:8%;width:34%"></i><u style="left:8%"></u></span></div>
+        <div><h3>No audio files. Music written as text.</h3></div>
+        <div>
+          <p><span class="k">sfx</span>: 11 synthesised presets (click, pop, swoosh, riser, hit, chime and more), or your own voices. <span class="k">music</span>: notes, chords and drum patterns as strings, with 8 instruments, 10 drums, swing, fades, tempo changes and loops.</p>
+          <p>Deterministic, and in the exported file at the same moment it plays. Visuals can listen: <span class="k">audioEnvelope()</span> <span class="k">musicEnvelope()</span> <span class="k">react()</span>. <a href="https://yjmtmtk.github.io/pixi-effects/examples/music-lab.html">Hear eight tunes written as text in the music lab</a>.</p>
+        </div>
+      </article>
+      <article class="trow" data-r>
+        <div class="lab"><b>T6</b> Present<span class="tkb" aria-hidden="true"><i style="left:52%;width:40%"></i><u style="left:52%"></u></span></div>
+        <div><h3>Slides that move, and a player you can drop in.</h3></div>
+        <div>
+          <p><span class="k">deck()</span> and a <span class="k">Presenter</span> turn a movie into a talk: stops, arrow keys, click or swipe, a page overview, a presenter view with notes, and PDF export.</p>
+          <p>The player UI is a drop-in video-style controller (play, scrub, volume, fullscreen, download) with one accent colour, or build your own on the movie's events.</p>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════════ 03 BUILT FOR AI ═════════════ -->
+<section class="pad ai" id="ai" aria-labelledby="h-ai">
+  <div class="wrap">
+    <div class="sec-h"><span class="d"></span><b>03</b><span>Built for AI</span><span class="trk"></span></div>
+    <div data-r>
+      <h2 id="h-ai">Written by a model. <em class="it">Checked</em> by one.</h2>
+      <p class="lede">Writing the data is the easy half. The tools in the package are for the second half: <strong>looking at what was made and fixing it</strong>, without a person watching every render.</p>
+    </div>
+    <ol class="loop" data-r>
+      <li><b>Write</b><span>The model reads a skill, a cheatsheet and tested recipes.</span></li>
+      <li><b>Check</b><span>One command opens the page in headless Chrome and reports.</span></li>
+      <li><b>Look</b><span>A contact sheet and a timeline show the film as images.</span></li>
+      <li><b>Fix</b><span>Warnings are phrased as instructions. Exit code 0 or 1.</span></li>
+    </ol>
+    <p class="loop-note">write &rarr; check &rarr; look &rarr; fix &rarr; check again</p>
+
+    <div class="ai-block" data-r>
+      <div class="ai-txt">
+        <h3>One command that reads the page like a reviewer.</h3>
+        <p><span class="k">pixi-effects-check</span> opens the page in headless Chrome and reports what a human would catch by eye.</p>
+        <ul class="ticks">
+          <li>library warnings, written as instructions with a "did you mean"</li>
+          <li>layout problems: text cut off, things off the canvas</li>
+          <li>sound problems, from <span class="k">movie.inspectAudio()</span></li>
+          <li>a <strong>contact sheet</strong> PNG and a timeline</li>
+          <li>a real export, decoded again to prove it works</li>
+        </ul>
+        <div class="cmd"><span class="pr" aria-hidden="true">$</span><code id="i2">pixi-effects-check page.html</code><button class="copy" type="button" data-copy="i2" aria-label="Copy the check command">Copy</button></div>
+      </div>
+      <figure>
+        <div class="shot"><img src="guide/assets/contact-sheet.jpg" width="1440" height="1184" loading="lazy" alt="A contact sheet written by the check tool: twelve numbered frames of a still-water piece, from black through three lake photographs with captions, each labelled with its frame number and time."></div>
+        <figcaption>The contact sheet the check tool writes: frames at their times, so a model sees the whole piece at once. Piece: still-water.</figcaption>
+      </figure>
+    </div>
+
+    <div class="ai-block rev" data-r>
+      <div class="ai-txt">
+        <h3>A timeline you can read, and so can a model.</h3>
+        <p><span class="k">pixi-effects-view</span> opens the page with a zoomable timeline under it: one row per layer, keyframes as diamonds, transitions as shaded bands. Click a layer name to jump to its start.</p>
+        <p><strong>It is a viewer, not an editor.</strong> There is no GUI editor, and that is on the honest list below.</p>
+        <div class="cmd"><span class="pr" aria-hidden="true">$</span><code id="i3">pixi-effects-view page.html</code><button class="copy" type="button" data-copy="i3" aria-label="Copy the view command">Copy</button></div>
+      </div>
+      <div class="shots2">
+        <figure>
+          <div class="shot"><img src="guide/assets/timeline-view.jpg" width="1280" height="633" loading="lazy" alt="The timeline viewer: the still-water piece playing above, and under it a timeline with a pink playhead at 9 seconds, coloured bars for each layer and diamonds at keyframes."></div>
+          <figcaption>The viewer: playhead, layers, keyframes.</figcaption>
+        </figure>
+        <figure>
+          <div class="shot"><img src="guide/assets/timeline-collapsed.jpg" width="1280" height="633" loading="lazy" alt="A collapsed timeline chart of the countdown-newyear piece: 28 rows, with repeated layers grouped as star#, flash#, ring#, and pink sound rows."></div>
+          <figcaption>Collapsed: 28 rows for a piece with hundreds of layers (countdown-newyear).</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <div class="ai-block" data-r>
+      <div class="ai-txt">
+        <h3>For an AI with a shell: a skill. For one without: a link.</h3>
+        <p>An agent with a shell and a browser, such as Claude Code, reads <a href="https://github.com/yjmtmtk/pixi-effects/blob/main/ai/SKILL.md"><span class="k">ai/SKILL.md</span></a>. There is also a cheatsheet, tested recipes, a list of pitfalls, and <span class="k">llms.txt</span> / <span class="k">llms-full.txt</span>. <strong>The recipes in the docs are executed by the test suite.</strong></p>
+      </div>
+      <div class="bigcard">
+        <h3 style="font-size:1.35rem;letter-spacing:-.025em;font-weight:800;line-height:1.15">Chat-only entry: nothing to install</h3>
+        <p style="color:var(--mute);margin-top:10px;font-size:15.5px">In ChatGPT or Claude in a browser with no shell, paste this. The model returns one HTML file that loads from one CDN and shows warnings in a red box you can paste back. Use the download button in the player bar for the MP4.</p>
+        <blockquote class="quote"><span class="mono" id="chatp">Read https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/CHAT.md and follow it. Make a 10-second 1280×720 title video for … (what you see, the colours, what you hear). Give me the whole HTML file.</span></blockquote>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px"><button class="copy" type="button" data-copy="chatp" aria-label="Copy the prompt for a chat assistant">Copy prompt</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════════ 04 GALLERY ═════════════ -->
+<section class="pad" id="gallery" aria-labelledby="h-gal">
+  <div class="wrap">
+    <div class="sec-h"><span class="d"></span><b>04</b><span>Gallery</span><span class="trk"></span></div>
+    <div class="gal-top">
+      <div data-r>
+        <h2 id="h-gal">Thirty-nine films, each one <em class="it">file.</em></h2>
+        <p class="lede">Every piece is a single HTML file of data, from kinetic type to data stories and 2.5D. <strong>AI models wrote them</strong>, and you can play each one on the live gallery.</p>
+      </div>
+      <div class="count" data-r>
+        <div class="ticks39" role="img" aria-label="39 pieces: 11 written by fable, 12 by opus, 16 by sonnet">
+          <i class="f" style="--i:0"></i><i class="f" style="--i:1"></i><i class="f" style="--i:2"></i><i class="f" style="--i:3"></i><i class="f" style="--i:4"></i><i class="f" style="--i:5"></i><i class="f" style="--i:6"></i><i class="f" style="--i:7"></i><i class="f" style="--i:8"></i><i class="f" style="--i:9"></i><i class="f" style="--i:10"></i>
+          <i class="o" style="--i:11"></i><i class="o" style="--i:12"></i><i class="o" style="--i:13"></i><i class="o" style="--i:14"></i><i class="o" style="--i:15"></i><i class="o" style="--i:16"></i><i class="o" style="--i:17"></i><i class="o" style="--i:18"></i><i class="o" style="--i:19"></i><i class="o" style="--i:20"></i><i class="o" style="--i:21"></i><i class="o" style="--i:22"></i>
+          <i class="s" style="--i:23"></i><i class="s" style="--i:24"></i><i class="s" style="--i:25"></i><i class="s" style="--i:26"></i><i class="s" style="--i:27"></i><i class="s" style="--i:28"></i><i class="s" style="--i:29"></i><i class="s" style="--i:30"></i><i class="s" style="--i:31"></i><i class="s" style="--i:32"></i><i class="s" style="--i:33"></i><i class="s" style="--i:34"></i><i class="s" style="--i:35"></i><i class="s" style="--i:36"></i><i class="s" style="--i:37"></i><i class="s" style="--i:38"></i>
+        </div>
+        <div class="cnt-l"><span><b>11</b> by fable</span><span><b>12</b> by opus</span><span><b>16</b> by sonnet</span></div>
+      </div>
+    </div>
+
+    <a class="feat" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/" data-r>
+      <div class="shot"><img src="examples/gallery/posters/ma.jpg" width="960" height="540" loading="lazy" alt="Poster of MA: a large black kanji 間 beside the word MA, with the line 'the space between things' and a small red seal, on warm paper."></div>
+      <div class="feat-cap"><strong>間 MA, the space between</strong><span>A 48-second 1080p kinetic essay about one word, cut to a score written as text. Written by opus.</span></div>
+    </a>
+
+    <div class="masonry" data-r>
+      <div class="mcol">
+        <a href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><div class="shot"><img src="examples/gallery/posters/social-quote-vertical.jpg" width="360" height="640" loading="lazy" alt="Poster of Social Quote Card: a vertical 9:16 card with a large quotation mark and a quote about details in a warm blush palette."></div><strong>Social Quote Card</strong><small>720×1280 · 10 s · sonnet</small></a>
+        <a href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><div class="shot"><img src="examples/gallery/posters/shape-shift.jpg" width="640" height="360" loading="lazy" alt="Poster of Form Follows: a Bauhaus-style poster with a yellow circle, the words FORM FOLLOWS and FEELING."></div><strong>Form Follows</strong><small>1280×720 · 12 s · sonnet</small></a>
+        <a href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><div class="shot"><img src="examples/gallery/posters/hanabi-night.jpg" width="640" height="360" loading="lazy" alt="Poster of Hanabi Night: gold fireworks over a night skyline, with vertical Japanese title text and a red seal."></div><strong>Hanabi Night</strong><small>1280×720 · 12 s · sonnet</small></a>
+      </div>
+      <div class="mcol">
+        <a href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><div class="shot"><img src="examples/gallery/posters/recipe-card.jpg" width="540" height="675" loading="lazy" alt="Poster of Lemon Pasta Recipe Card: a 4:5 card with a checklist of ingredients, three timed steps and a plate of pasta."></div><strong>Lemon Pasta Recipe Card</strong><small>1080×1350 · 12 s · sonnet</small></a>
+        <a href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><div class="shot"><img src="examples/gallery/posters/sports-scoreboard.jpg" width="640" height="360" loading="lazy" alt="Poster of Matchday Graphics: a red broadcast frame with the word GOAL! in italic white and a score bar."></div><strong>Matchday Graphics</strong><small>1280×720 · 12 s · opus</small></a>
+        <a href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><div class="shot"><img src="examples/gallery/posters/blueprint-house.jpg" width="640" height="360" loading="lazy" alt="Poster of The Corner House: a blue blueprint of a floor plan with a title block reading APPROVED."></div><strong>The Corner House</strong><small>1280×720 · 12 s · sonnet</small></a>
+        <a href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><div class="shot"><img src="examples/gallery/posters/aura-launch.jpg" width="640" height="360" loading="lazy" alt="Poster of AURA ONE: black headphones inside a glowing orange ring with floating spec cards."></div><strong>AURA ONE</strong><small>1280×720 · 12 s · fable</small></a>
+      </div>
+      <div class="mcol">
+        <a href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><div class="shot"><img src="examples/gallery/posters/loader-gallery.jpg" width="540" height="540" loading="lazy" alt="Poster of Loader Gallery: nine small loading animations on one dark square board."></div><strong>Loader Gallery</strong><small>1080×1080 · 10 s · sonnet</small></a>
+        <a href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><div class="shot"><img src="examples/gallery/posters/orbit-rig.jpg" width="640" height="360" loading="lazy" alt="Poster of Orrery: a museum plate of the solar system, thin orbit rings and small planets on dark navy with a serif title."></div><strong>Orrery</strong><small>1280×720 · 12 s · sonnet</small></a>
+        <a href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><div class="shot"><img src="examples/gallery/posters/isometric-city.jpg" width="640" height="360" loading="lazy" alt="Poster of Kobe 2040: an isometric city of lit blocks at dusk over a pink and orange sky."></div><strong>Kōbe, 2040</strong><small>1280×720 · 12 s · fable</small></a>
+        <a href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><div class="shot"><img src="examples/gallery/posters/synthwave-drive.jpg" width="640" height="360" loading="lazy" alt="Poster of Synthwave Drive: a striped sunset over a neon grid with the word SYNTHWAVE."></div><strong>Synthwave Drive</strong><small>1280×720 · 12 s · fable</small></a>
+      </div>
+      <div class="mcol">
+        <a href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><div class="shot"><img src="examples/gallery/posters/wedding-invitation.jpg" width="540" height="675" loading="lazy" alt="Poster of Wedding Invitation: a cream 4:5 card with a gold border, two names and botanical sprigs."></div><strong>Wedding Invitation</strong><small>1080×1350 · 12 s · fable</small></a>
+        <a href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><div class="shot"><img src="examples/gallery/posters/data-story.jpg" width="640" height="360" loading="lazy" alt="Poster of Cities at night: a pale editorial chart frame with a ring chart showing 41 percent in amber."></div><strong>Cities at night</strong><small>1280×720 · 14 s · fable</small></a>
+        <a href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><div class="shot"><img src="examples/gallery/posters/paper-cutout-forest.jpg" width="640" height="360" loading="lazy" alt="Poster of Quiet Woods: layered paper hills and pine trees under a paper moon with a small orange fox."></div><strong>Quiet Woods</strong><small>1280×720 · 12 s · fable</small></a>
+        <a href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><div class="shot"><img src="examples/gallery/posters/news-package.jpg" width="640" height="360" loading="lazy" alt="Poster of NORTH 24 Breaking: a broadcast news frame with a bridge at night and a red BREAKING lower third."></div><strong>NORTH 24, Breaking</strong><small>1280×720 · 12 s · opus</small></a>
+      </div>
+    </div>
+    <div class="gal-cta" data-r>
+      <a class="btn pri" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/">Play all 39 on the live gallery
+        <svg viewBox="0 0 14 14" aria-hidden="true"><path d="M1 7h11M7.5 2.5 12 7l-4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a>
+      <a class="btn" href="https://yjmtmtk.github.io/pixi-effects/examples/music-lab.html">Music lab</a>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════════ 05 COMPARISON ═════════════ -->
+<section class="pad ai" id="compare" aria-labelledby="h-cmp">
+  <div class="wrap">
+    <div class="sec-h"><span class="d"></span><b>05</b><span>Comparison</span><span class="trk"></span></div>
+    <div data-r>
+      <h2 id="h-cmp">Remotion, fframes, and where we <em class="it">fit.</em></h2>
+      <p class="lede">All three write video as code. They make different bets. This is a fair side-by-side, including the places pixi-effects is the wrong choice. <strong>It does not claim to be faster or better overall.</strong></p>
+      <p class="cmp-note">Checked 2026-10-07, from their own pages: <a href="https://www.remotion.dev/">remotion.dev</a> · <a href="https://fframes.studio/">fframes.studio</a> · <a href="https://github.com/dmtrKovalenko/fframes">fframes on GitHub</a>. Anything their pages do not say is marked "not stated".</p>
+    </div>
+
+    <table class="tbl" data-r>
+      <caption class="sr">Comparison of pixi-effects, Remotion and fframes</caption>
+      <thead><tr><th scope="col"><span class="sr">Aspect</span></th>
+        <th scope="col" class="me">pixi-effects<small>0.16.1, MIT</small></th>
+        <th scope="col"><a href="https://www.remotion.dev/">Remotion</a><small>remotion.dev</small></th>
+        <th scope="col"><a href="https://fframes.studio/">fframes</a><small>fframes.studio</small></th></tr></thead>
+      <tbody>
+        <tr><th scope="row">How a video is written</th>
+          <td class="me" data-l="pixi-effects">Plain data: a tree of text, shape, image, video, audio and nested-composition objects. Repetition is a JS loop.</td>
+          <td data-l="Remotion">React: "Create videos and motion graphics with React."</td>
+          <td data-l="fframes">Rust and SVG.</td></tr>
+        <tr><th scope="row">Where it runs, what you install</th>
+          <td class="me" data-l="pixi-effects">In the browser. One HTML file with an import map, or <span class="k">npm install</span>. Headless render needs Node 22 and Chrome.</td>
+          <td data-l="Remotion">Server-side and client-side rendering, batch rendering, and Remotion Lambda for cloud rendering. A Player component plays in your own app.</td>
+          <td data-l="fframes">Native, with no headless browser. Prebuilt binaries for macOS and Linux (arm64, x86_64). Building needs Rust and ffmpeg libraries. Windows needs a separate FFmpeg setup.</td></tr>
+        <tr><th scope="row">Preview and editing</th>
+          <td class="me" data-l="pixi-effects"><b>No GUI editor.</b> Play and scrub in the page; a zoomable timeline <em>viewer</em>. Preview equals export.</td>
+          <td data-l="Remotion">Remotion Studio, interactive with drag-and-drop. Also Editor Starter and Recorder.</td>
+          <td data-l="fframes">A real-time GPU preview window, and a browser-based editor (WebAssembly) with a timeline.</td></tr>
+        <tr><th scope="row">Rendering approach</th>
+          <td class="me" data-l="pixi-effects">WebGL in a browser (PixiJS v8), encoded with WebCodecs; MP4, WebM, MOV. <b>Not a native GPU renderer.</b> Needs a WebCodecs browser.</td>
+          <td data-l="Remotion">As above: server, client, batch and Lambda.</td>
+          <td data-l="fframes">GPU (Skia on Metal or Vulkan), ffmpeg libraries linked in for encoding. Its README says "about 10x faster" than its own CPU backend.</td></tr>
+        <tr><th scope="row">Speed figures</th>
+          <td class="me" data-l="pixi-effects"><b>No benchmark against others.</b> On the author's laptop a typical 12 s gallery piece exports in about 10 s; a 48 s 1080p film with 16-sample motion blur took 99 s.</td>
+          <td data-l="Remotion"><em>Not stated.</em></td>
+          <td data-l="fframes">Its page: built by Codex, "36 minutes to build, 24 seconds to render". Its README mentions a 128-second video rendered in 36 seconds.</td></tr>
+        <tr><th scope="row">Sound</th>
+          <td class="me" data-l="pixi-effects">Synthesised <span class="k">sfx</span> (11 presets) and <span class="k">music</span> written as text, no audio files. Audio-reactive visuals.</td>
+          <td data-l="Remotion"><em>Not compared here.</em></td>
+          <td data-l="fframes">An <span class="k">audio analyze</span> command: loudness (LUFS), true peak, clipping.</td></tr>
+        <tr><th scope="row">AI-agent workflow</th>
+          <td class="me" data-l="pixi-effects"><span class="k">check</span> (warnings, layout, sound, contact sheet, timeline, real export decoded), <span class="k">view</span>, a skill, <span class="k">llms.txt</span>, and a chat-only entry.</td>
+          <td data-l="Remotion">11 agent skills via <span class="k">npx skills add remotion-dev/skills</span>; agents preview in Remotion Studio. No MCP is mentioned on its page.</td>
+          <td data-l="fframes">A skill for coding agents (<span class="k">npx skills add</span>), and <span class="k">inspect</span> for missing fonts and text cutoff.</td></tr>
+        <tr><th scope="row">Licence</th>
+          <td class="me" data-l="pixi-effects"><b>MIT.</b> No company licence.</td>
+          <td data-l="Remotion">Source-available, not MIT. Free for individuals, non-profits and organisations of up to 3 people. Larger for-profit organisations need a Company licence, from $100 / month (usage-based); Enterprise from $500 / month.</td>
+          <td data-l="fframes"><b>MIT.</b></td></tr>
+        <tr><th scope="row">Maturity</th>
+          <td class="me" data-l="pixi-effects"><b>Experimental, pre-1.0.</b> The API can change between minor versions. Smaller ecosystem. Verified in Chrome by the author; Safari and Firefox are documented, not independently verified.</td>
+          <td data-l="Remotion">About 62,000 GitHub stars, as its page states. Large ecosystem of React components.</td>
+          <td data-l="fframes">Its README does not say whether the API is stable, and says the project "stayed unreleased for years" before this release.</td></tr>
+        <tr><th scope="row">Best for</th>
+          <td class="me" data-l="pixi-effects">Data-driven or AI-written motion graphics that must play on the web <em>and</em> export to a file, with no server.</td>
+          <td data-l="Remotion">React teams that want a visual studio and cloud rendering at scale.</td>
+          <td data-l="fframes">Rust developers who want native GPU rendering where speed is the point.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="choose">
+      <article class="ch" data-r>
+        <h3>Choose Remotion <span>when</span></h3>
+        <ul>
+          <li>Your team already writes React and wants videos built from components.</li>
+          <li>You want to scrub and tweak in a visual studio (Remotion Studio, drag-and-drop).</li>
+          <li>You need cloud rendering at scale (Remotion Lambda), or a Player inside your product.</li>
+          <li>You want a large ecosystem, about 62,000 GitHub stars on its page.</li>
+        </ul>
+        <h4>Check first</h4>
+        <ul><li>The licence is source-available: free up to 3 people, a paid Company licence above that for for-profit organisations.</li></ul>
+      </article>
+      <article class="ch" data-r>
+        <h3>Choose fframes <span>when</span></h3>
+        <ul>
+          <li>Render speed is the point, and Rust and SVG are home for you.</li>
+          <li>You want native GPU rendering (Skia on Metal or Vulkan) with no headless browser.</li>
+          <li>You are on macOS or Linux and happy with prebuilt binaries, or with building from Rust.</li>
+          <li>You want MIT licensing and a real-time preview window or a browser editor with a timeline.</li>
+        </ul>
+        <h4>Check first</h4>
+        <ul><li>Its README does not say whether the API is stable. Windows needs a separate FFmpeg setup.</li></ul>
+      </article>
+      <article class="ch me" data-r>
+        <h3>Choose pixi-effects <span>when</span></h3>
+        <ul>
+          <li>The same data should play on the web and export to MP4, with no server.</li>
+          <li>An AI model writes the video and you want tools that check it: warnings, a contact sheet, a timeline.</li>
+          <li>You want sound with no audio files, and music written as text.</li>
+          <li>You want MIT and a single HTML file as a starter.</li>
+        </ul>
+        <h4 class="no">Do not choose it when</h4>
+        <ul>
+          <li>You need a GUI editor. There is a timeline viewer, not an editor.</li>
+          <li>You want a mature React ecosystem, or an API that is settled and past 1.0.</li>
+          <li>You need cloud rendering at scale.</li>
+          <li>You need the fastest native GPU renders. This draws with WebGL in a browser.</li>
+          <li>You want to edit existing footage. A <span class="k">video</span> layer plays a clip inside a composition, nothing more.</li>
+          <li>Your export browser has no WebCodecs.</li>
+        </ul>
+      </article>
+    </div>
+    <p class="fair" data-r><strong>A note on trust.</strong> Facts about Remotion and fframes are what their own pages say on 2026-10-07 and may have changed. Their logos are not used. Speed figures in the table come from different machines and different pieces, so they are not comparable with each other.</p>
+  </div>
+</section>
+
+<!-- ═════════════ 06 START ═════════════ -->
+<section class="pad" id="start" aria-labelledby="h-start">
+  <div class="wrap">
+    <div class="sec-h"><span class="d"></span><b>06</b><span>Get started</span><span class="trk"></span></div>
+    <div data-r>
+      <h2 id="h-start">One minute, <em class="it">three</em> ways in.</h2>
+      <p class="lede">Pick the one that matches how you work. Each ends with a video you can play, and the player bar has a download button.</p>
+    </div>
+    <div class="start-grid">
+      <div class="steps">
+        <div class="step" data-r><span class="n">01</span><div>
+          <h3>With a bundler or Node</h3>
+          <p>Install it, copy the snippet from the top of this page, and run <span class="k">movie.play()</span> or <span class="k">movie.render({ format: 'mp4' })</span>. PixiJS and GSAP are peer dependencies; <span class="k">three</span> and <span class="k">pixi-filters</span> are optional.</p>
+          <div class="cmd"><span class="pr" aria-hidden="true">$</span><code id="i4">npm install pixi-effects pixi.js gsap</code><button class="copy" type="button" data-copy="i4" aria-label="Copy the install command">Copy</button></div>
+        </div></div>
+        <div class="step" data-r><span class="n">02</span><div>
+          <h3>One HTML file, no build step</h3>
+          <p>An import map loads the library from a CDN. The repo's <a href="https://github.com/yjmtmtk/pixi-effects/blob/main/ai/template.html"><span class="k">ai/template.html</span></a> is the full starter, with the player and a loader. Load the <span class="k">dist/</span> files as they are, not a re-bundled build.</p>
+        </div></div>
+        <div class="step" data-r><span class="n">03</span><div>
+          <h3>Ask a chat assistant</h3>
+          <p>No install at all: paste the prompt from the <a href="#ai">Built for AI</a> section into ChatGPT or Claude in a browser.</p>
+          <div class="chips"><code>guide: 18 pages</code><code>15 numbered examples</code><code>a playground</code></div>
+          <p style="margin-top:12px"><a href="https://yjmtmtk.github.io/pixi-effects/guide/getting-started.html">Open the getting-started guide</a></p>
+        </div></div>
+      </div>
+
+      <div data-r>
+        <div class="panel imp">
+          <div class="panel-h"><b>starter.html</b><span>import map, trimmed</span></div>
+<pre class="code" tabindex="0" aria-label="The core of the starter page's import map"><span class="l"><span class="c">&lt;script type="importmap"&gt;</span></span><span class="l">{ "imports": {</span><span class="l">  "pixi.js":      <span class="s">"https://esm.sh/pixi.js@8.22.0?bundle-deps"</span>,</span><span class="l">  "gsap":         <span class="s">"https://esm.sh/gsap@3.12.5"</span>,</span><span class="l">  "gsap/PixiPlugin":</span><span class="l">                 <span class="s">"https://esm.sh/gsap@3.12.5/PixiPlugin"</span>,</span><span class="l">  "mediabunny":   <span class="s">"https://esm.sh/mediabunny"</span>,</span><span class="l">  "pixi-effects":</span><span class="l">    <span class="s">"https://cdn.jsdelivr.net/npm/pixi-effects@0.16.1/dist/index.js"</span></span><span class="l">} }</span><span class="l"><span class="c">&lt;/script&gt;</span></span></pre>
+        </div>
+        <div class="status" style="margin-top:20px">
+          <h3>Honest status</h3>
+          <ul>
+            <li><strong>Experimental and pre-1.0.</strong> Version 0.16.1. The API can still change between minor versions.</li>
+            <li><strong>MIT licence.</strong> No company licence.</li>
+            <li>Browsers documented: Chrome 94+, Edge 94+, Safari 16.4+, Firefox 130+. The author has verified Chrome; Safari and Firefox are not independently verified.</li>
+            <li>Built on PixiJS v8, GSAP and mediabunny. The only runtime dependency is <span class="k">mediabunny</span>.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="f-big">Write the video. <em class="it">Play</em> it. Export it.</p>
+    <div class="f-grid">
+      <div>
+        <h2>What it is</h2>
+        <p>pixi-effects is declarative composition and video rendering for the web, built on PixiJS v8. An AI writes a video as data; the same data renders to a file and plays on the web.</p>
+      </div>
+      <div>
+        <h2>Read and play</h2>
+        <ul>
+          <li><a href="https://yjmtmtk.github.io/pixi-effects/guide/">Guide (18 pages)</a></li>
+          <li><a href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/">Gallery (39 pieces)</a></li>
+          <li><a href="https://yjmtmtk.github.io/pixi-effects/examples/music-lab.html">Music lab</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Get it</h2>
+        <ul>
+          <li><a href="https://github.com/yjmtmtk/pixi-effects">GitHub: yjmtmtk/pixi-effects</a></li>
+          <li><a href="https://www.npmjs.com/package/pixi-effects">npm: pixi-effects</a></li>
+          <li><a href="https://github.com/yjmtmtk/pixi-effects/blob/main/ai/SKILL.md">AI skill (SKILL.md)</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="legal"><span>MIT licence · experimental, pre-1.0 · version 0.16.1</span><span>Comparison facts checked 2026-10-07 from the Remotion and fframes pages.</span></div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var d=document, root=d.documentElement, $=function(s,c){return (c||d).querySelector(s)}, $$=function(s,c){return [].slice.call((c||d).querySelectorAll(s))};
+  var RM=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  root.classList.add('js');
+
+  /* theme toggle (per-visit, optional) */
+  var tb=$('#theme');
+  function dark(){var t=root.getAttribute('data-theme');return t?t==='dark':!(window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches)}
+  try{var sv=localStorage.getItem('pe-theme');if(sv)root.setAttribute('data-theme',sv)}catch(e){}
+  tb.addEventListener('click',function(){var n=dark()?'light':'dark';root.setAttribute('data-theme',n);try{localStorage.setItem('pe-theme',n)}catch(e){}});
+
+  /* copy buttons */
+  $$('.copy').forEach(function(b){b.addEventListener('click',function(){
+    var el=d.getElementById(b.getAttribute('data-copy')),txt=el.textContent.trim(),old=b.textContent;
+    var done=function(){b.classList.add('ok');b.textContent='Copied';setTimeout(function(){b.classList.remove('ok');b.textContent=old},1400)};
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(done,function(){})}
+    else{var r=d.createRange();r.selectNodeContents(el);var s=getSelection();s.removeAllRanges();s.addRange(r);try{d.execCommand('copy');done()}catch(e){}}
+  })});
+
+  /* reveal on scroll */
+  var rv=$$('[data-r]');
+  if('IntersectionObserver' in window){
+    var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}})},{rootMargin:'0px 0px -8% 0px',threshold:.06});
+    rv.forEach(function(n){io.observe(n)});
+  }else rv.forEach(function(n){n.classList.add('in')});
+
+  /* ruler: the page is a timeline, scroll is the playhead */
+  var secs=['top','get','ai','gallery','compare','start'],names=['Hero','What you get','Built for AI','Gallery','Comparison','Get started'];
+  var ruler=$('#ruler'),ph=$('#ph'),mks=$$('.mk',ruler),cur=$('#cur');
+  var pos=[],maxS=1,rw=1;
+  function measure(){
+    rw=ruler.clientWidth;maxS=Math.max(1,d.documentElement.scrollHeight-innerHeight);
+    pos=secs.map(function(id){var e=d.getElementById(id);return e.getBoundingClientRect().top+scrollY});
+    mks.forEach(function(m,i){m.style.left=Math.min(96,Math.max(2.5,pos[i]/maxS*100))+'%'});
+  }
+  var tick=false,idx=-1;
+  function onScroll(){
+    var p=Math.min(1,Math.max(0,scrollY/maxS));
+    ph.style.transform='translateX('+(p*rw)+'px)';
+    var y=scrollY+innerHeight*.35,k=0;for(var i=0;i<pos.length;i++)if(y>=pos[i])k=i;
+    if(k!==idx){idx=k;mks.forEach(function(m,i){m.classList.toggle('on',i===k)});cur.innerHTML='<b>0'+(k+1)+'</b> '+names[k]}
+    tick=false;
+  }
+  addEventListener('scroll',function(){if(!tick){tick=true;requestAnimationFrame(onScroll)}},{passive:true});
+  addEventListener('resize',function(){measure();onScroll()});
+  addEventListener('load',function(){measure();onScroll()});
+  measure();onScroll();
+  if('ResizeObserver' in window)new ResizeObserver(function(){measure();onScroll()}).observe(d.body);
+
+  /* hero: the snippet plays itself (same numbers as the data above) */
+  var T=6,lines=$$('#code .l'),ta=lines.filter(function(l){return l.getAttribute('data-t')==='a'}),tbb=lines.filter(function(l){return l.getAttribute('data-t')==='b'});
+  var pp=$('#pp'),hello=$('#hello'),fr=$('#fr'),chime=$('#chime'),rt=$('#rt'),rfr=$('#rfr'),rst=$('#rst'),lastPing=-1;
+  function setT(t){
+    pp.style.left=(t/T*100)+'%';
+    rt.textContent=t.toFixed(2);rfr.textContent=Math.round(t*30);
+    var p=Math.min(1,Math.max(0,(t-.5)/.6)),e=1-(1-p)*(1-p);
+    hello.style.opacity=t<.5?0:e;hello.style.transform='translateY('+((1-e)*(RM?0:5))+'px)';
+    var aOn=t>=.5&&t<1.5,bOn=t>=1.1&&t<2;
+    ta.forEach(function(l){l.classList.toggle('on',aOn)});tbb.forEach(function(l){l.classList.toggle('on',bOn)});
+    chime.classList.toggle('hit',bOn);
+    rst.textContent=t<.5?'before the text layer':t<1.1?'keyframe: alpha 0 → 1':t<2?'sfx: chime':'holding';
+    if(t>=1.1&&t<1.25&&lastPing!==1){lastPing=1;fr.classList.remove('ping');void fr.offsetWidth;fr.classList.add('ping')}
+    if(t<1)lastPing=-1;
+  }
+  setT(1.5);
+  if(!RM){
+    var t0=null,vis=false,running=false,hero=$('.tlbox');
+    var loop=function(ts){
+      if(!vis){running=false;return}
+      if(t0===null)t0=ts;
+      setT(Math.min(T,((ts-t0)/1000)%(T+1.2)));
+      requestAnimationFrame(loop);
+    };
+    var start=function(){if(running)return;running=true;t0=null;requestAnimationFrame(loop)};
+    if('IntersectionObserver' in window)new IntersectionObserver(function(es){vis=es[0].isIntersecting;if(vis)start()}).observe(hero);
+    else{vis=true;start()}
+  }
+
+  /* video facade: the iframe is created only after a click */
+  var pieces={
+    'kinetic-manifesto':['Kinetic Manifesto','five bilingual statements slammed onto a 100 BPM grid','1280×720 · 12 s · written by fable','Poster of Kinetic Manifesto: huge white type reading MAKE THINGS with a red Japanese word slammed across it, on black.','12 s'],
+    'hanabi-night':['Hanabi Night','a summer fireworks title card in indigo, gold and vermilion','1280×720 · 12 s · written by sonnet','Poster of Hanabi Night: gold fireworks over a night skyline with vertical Japanese title text and a red seal.','12 s'],
+    'orbit-rig':['Orrery','a museum plate of the solar system in ivory and brass','1280×720 · 12 s · written by sonnet','Poster of Orrery: thin orbit rings and small planets on dark navy with a serif title.','12 s'],
+    'shape-shift':['Form Follows','a Bauhaus poster in motion: square, circle, triangle','1280×720 · 12 s · written by sonnet','Poster of Form Follows: a yellow circle and the words FORM FOLLOWS and FEELING on cream.','12 s'],
+    'blueprint-house':['The Corner House','a blueprint that draws itself, from DRAFT to APPROVED','1280×720 · 12 s · written by sonnet','Poster of The Corner House: a blue blueprint floor plan with a title block reading APPROVED.','12 s'],
+    'quiet-hours':['The Quiet Hours','a five-page talk as one movie: press Present and use the arrow keys','1280×720 · 19.2 s · written by sonnet','Poster of The Quiet Hours: a warm editorial slide with a bar chart and the figure 3.6.','19.2 s']
+  };
+  var screen=$('#screen'),poster=$('#poster'),current='kinetic-manifesto',facade=$('#facade');
+  function show(id){
+    current=id;var p=pieces[id];
+    var f=$('iframe',screen);if(f)f.remove();
+    if(!$('#facade')){screen.insertBefore(facade,screen.firstChild)}
+    facade.style.display='';
+    poster.src='examples/gallery/posters/'+id+'.jpg';poster.alt=p[3];
+    facade.setAttribute('aria-label','Play the piece '+p[0]+' live in this page');
+    $('#gotxt').textContent='Play live, '+p[4];
+    $('#mt').textContent=p[0];$('#ms').textContent='· '+p[1];$('#mm').textContent=p[2];
+    $('#open').href='https://yjmtmtk.github.io/pixi-effects/examples/gallery/'+id+'.html';
+    $$('.picks button').forEach(function(b){b.setAttribute('aria-pressed',b.getAttribute('data-id')===id?'true':'false')});
+  }
+  $$('.picks button').forEach(function(b){b.addEventListener('click',function(){show(b.getAttribute('data-id'))})});
+  facade.addEventListener('click',function(){
+    var f=d.createElement('iframe');
+    f.src='https://yjmtmtk.github.io/pixi-effects/examples/gallery/'+current+'.html';
+    f.title=pieces[current][0]+', playing live from the pixi-effects gallery';
+    f.allow='autoplay; fullscreen';f.setAttribute('allowfullscreen','');
+    facade.style.display='none';screen.insertBefore(f,screen.firstChild);f.focus();
+  });
+})();
+</script>
+</body>
+</html>
