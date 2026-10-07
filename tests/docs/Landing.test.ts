@@ -60,4 +60,37 @@ describe('the landing page (site/landing/index.html, deployed as the site root)'
     expect(read('README.md')).toContain('Chrome 94+');
     expect(read('site/landing/FACTS.md')).toContain('Chrome 94+');
   });
+
+  describe('how it looks when it is found or shared (description, Open Graph, Twitter card)', () => {
+    const meta = (key: string, attr = 'name') => new RegExp(`<meta ${attr}="${key}" content="([^"]*)"`).exec(html)?.[1];
+    const SITE = 'https://yjmtmtk.github.io/pixi-effects/';
+
+    it('has a search description of a sensible length that says what it is', () => {
+      const d = meta('description')!;
+      expect(d.length).toBeGreaterThanOrEqual(80);
+      expect(d.length).toBeLessThanOrEqual(165);                         // search results cut at about 160
+      expect(d).toMatch(/plain objects|plain data/i);
+      expect(d).toMatch(/MP4/);
+    });
+
+    it('has Open Graph and Twitter tags: title, description, url, an absolute image that exists, and its alt text', () => {
+      expect(meta('og:title', 'property')).toBeTruthy();
+      expect(meta('og:description', 'property')!.length).toBeGreaterThan(60);
+      expect(meta('og:type', 'property')).toBe('website');
+      expect(meta('og:url', 'property')).toBe(SITE);
+      const image = meta('og:image', 'property')!;
+      expect(image.startsWith(SITE)).toBe(true);
+      expect(existsSync(resolve(root, image.slice(SITE.length)))).toBe(true);
+      expect(meta('og:image:alt', 'property')!.length).toBeGreaterThan(20);
+      expect(meta('twitter:card')).toBe('summary_large_image');
+      expect(meta('twitter:image')).toBe(image);
+    });
+
+    it('has a canonical link and a theme colour for each scheme', () => {
+      expect(html).toContain(`<link rel="canonical" href="${SITE}">`);
+      expect(html).toMatch(/<meta name="theme-color" content="#[0-9a-f]{6}" media="\(prefers-color-scheme: dark\)">/i);
+      expect(html).toMatch(/<meta name="theme-color" content="#[0-9a-f]{6}" media="\(prefers-color-scheme: light\)">/i);
+    });
+  });
 });
+
