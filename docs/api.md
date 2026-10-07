@@ -276,7 +276,7 @@ const presenter = new Presenter(movie, { canvas });     // instead of Controller
 | Option | Default | Notes |
 | ------ | ------- | ----- |
 | `canvas` | required | |
-| `keyboard` | `true` | **next**: → ↓ Space Enter PageDown · **back**: ← ↑ Backspace PageUp · Home (first page) · End (last stop) · a page number then Enter · B or `.` black screen · W or `,` white screen · F fullscreen · `?` / H the list of keys · Esc closes / leaves |
+| `keyboard` | `true` | **next**: → ↓ Space Enter PageDown · **back**: ← ↑ Backspace PageUp · Home (first page) · End (last stop) · a page number then Enter · **G** the page overview · **P** the presenter view · B or `.` black screen · W or `,` white screen · F fullscreen · `?` / H the list of keys · Esc closes / leaves |
 | `clickToAdvance` | `true` | a click or tap on the picture is next |
 | `swipe` | `true` | a swipe to the left is next, to the right is back |
 | `indicator` | `true` | a page counter (`3 / 8`), the page name and a progress line along the bottom; they fade out when nothing happens, and the pointer hides with them |
@@ -285,7 +285,19 @@ const presenter = new Presenter(movie, { canvas });     // instead of Controller
 | `accent` | white | the progress line's colour |
 | `onExit` | none | Escape with nothing left to close, or fullscreen left |
 
-`presenter.start()`, `presenter.next()`, `presenter.prev()`, `presenter.setCover('black' \| 'white' \| 'off')`, `presenter.exit()`, `presenter.destroy()`. It uses the canvas's positioned parent, or wraps the canvas like `Controller` does. A movie with stops shown through a **`Controller`** gets a mark per stop on the seek bar and a Present button (`present: false` leaves the marks only) that hands the page to a `Presenter` (fullscreen, keys, click and swipe move through the stops; Esc gives the bar back).
+**The page overview (`G`)** is a grid of every page with its picture, the current page marked: arrows choose, Enter or a click goes there, `G` or Esc closes. **The presenter view (`P`)** opens a second window for the speaker: the picture that is on screen (live), the picture of the next stop, the notes of the page, a timer (with reset), the page counter and Back / Next buttons; the keys work there too. Both use a picture of every stop that `start()` makes **before** the audience sees anything (behind a "Preparing…" cover; taking them moves the playhead through the stops and back, so it must not happen on screen); `presenter.ensureThumbs()` makes them on demand (an overview opened before that does it on the spot, with a flicker). A browser needs a click or key press to open a popup: `P` is one; if it is blocked a warning says so.
+
+`presenter.start()`, `presenter.openPresenterView()`, `presenter.closePresenterView()`, `presenter.next()`, `presenter.prev()`, `presenter.setCover('black' \| 'white' \| 'off')`, `presenter.exit()`, `presenter.destroy()`. It uses the canvas's positioned parent, or wraps the canvas like `Controller` does. A movie with stops shown through a **`Controller`** gets a mark per stop on the seek bar and a Present button (`present: false` leaves the marks only) that hands the page to a `Presenter` (fullscreen, keys, click and swipe move through the stops; Esc gives the bar back).
+
+### Pictures of the stops and the deck as a PDF: `movie.stopImages()`, `movie.exportPDF()`
+
+```ts
+const pages = await movie.stopImages({ as: 'dataURL', type: 'image/jpeg', scale: 0.25 });   // one picture per PAGE: its last stop, fully built
+// [{ stop, page, image }, …]; { which: 'stops' } is one per stop, { pick: 'first' } the first stop of each page; onImage(img) is called as each one is ready
+const pdf = await movie.exportPDF({ title: 'My talk' });                                    // a Blob: one PDF page per page of the deck (JPEG at the canvas size)
+```
+
+Both pause the movie and leave the playhead where it was; a movie with no stops returns an empty list / throws (a PDF needs pages). `exportPDF` options: `which`, `pick`, `scale`, `quality` (JPEG, default 0.92), `title`, `motionBlur`, `onImage`. A transparent background comes out black in a JPEG: give the movie a `background`. From a script, `npx pixi-effects-render my-talk.html -o my-talk.pdf` (add `--all-stops` for a page per stop).
 
 ### `movie.toggleMute(): boolean`
 

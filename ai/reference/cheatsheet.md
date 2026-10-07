@@ -128,6 +128,9 @@ await movie.init({ canvas, width, height, frameRate, ...deck({ transition: { kin
   pages: [{ name: 'Hello', duration: 3.2 /* last stop + transition */, stops: [2.6] /* page-local */, notes, sequences: [ /* page-local time; a step = a layer starting at the previous stop */ ] }] }) });
 new Presenter(movie, { canvas });         // import { Presenter } from 'pixi-effects/presenter': → ↓ Space Enter click = next, ← = back, Home / End, number+Enter, B / W, F, ?
 movie.next() / prev() / goToStop(i) / goToPage(n) / movie.stops / movie.on('stop', …)   // Controller shows the stops on the seek bar + a Present button
+// Presenter extras: G = page overview (pictures), P = presenter view (a second window: live picture, next picture, notes, timer); start() makes the pictures before the audience sees anything
+await movie.stopImages({ as: 'dataURL', scale: 0.25 }) // [{ stop, page, image }] one per page (its last stop); { which: 'stops' } one per stop
+await movie.exportPDF({ title })                       // Blob: a PDF page per page of the deck; CLI: pixi-effects-render talk.html -o talk.pdf (--all-stops)
 const r = random(7); r(); r();      // a repeatable stream in 0…1 for JS loops (never Math.random())
 ```
 `kenBurns` covers the canvas, so source images should be at least canvas-sized (1920×1080 for 1280×720).

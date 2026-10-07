@@ -46,6 +46,8 @@ await presenter.start();                                 // from a button: fulls
 | first page / last stop | Home / End |
 | a page | type its number, then Enter |
 | black screen / white screen | B or `.` / W or `,` |
+| the overview: every page as a picture | G (arrows choose, Enter or a click goes there) |
+| the presenter view: a second window with the notes | P |
 | fullscreen | F |
 | the list of keys | `?` or H |
 | close / leave | Esc |
@@ -89,6 +91,20 @@ new Presenter(movie, { canvas });
 - **Make each page last its last stop plus the transition**: after the last stop, the next press plays the rest of the page and the slide into the next one, so extra time is just waiting.
 - `transition` takes any [transition](transitions.html) (`crossfade`, `slide`, `wipe`, `iris`, `dip`, `zoom`, `dissolve`) without `from` / `to` / `at`; the next page starts that many seconds early. It must be shorter than every page.
 - A page may carry `initial` and `keyframes` like any layer, to fade or move the whole page.
+
+## The overview and the presenter view
+
+Press **G** for a grid of every page, each as a picture (its last stop, fully built); choose with the arrows and Enter, or click, to jump. Press **P** for the **presenter view**, a second window for you alone: the picture that is on screen (live), the picture of what comes next, **your notes for the page**, a timer, and Back / Next buttons; the keys work there too. Put the audience's window on the projector and this one on your screen. (A browser needs a click or key press to open a popup; `P` is one. If it is blocked, allow popups for the page.)
+
+Both use a picture of every stop that `presenter.start()` makes **before** the audience sees anything, behind a short "Preparing…" cover, because taking them moves the playhead through the deck and back. Notes are the `notes` on a page's first stop (`deck()` takes `notes` on a page).
+
+## A deck as a PDF
+
+```bash
+npx pixi-effects-render my-talk.html -o my-talk.pdf
+```
+
+One PDF page per page of the deck, each the page fully built, as a picture at the canvas size (`--all-stops` makes a page of every stop). From code, `await movie.exportPDF({ title })` returns the Blob, and `movie.stopImages()` gives you the pictures themselves (for a handout, a thumbnail strip, a page list of your own). Give the movie a `background`: a transparent one comes out black in a JPEG.
 
 ## Reviewing a deck
 

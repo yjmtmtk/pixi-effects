@@ -106,4 +106,52 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('Presenter,
       expect(await cdp.eval(`getComputedStyle(document.querySelector('.movie-controller')).display`)).not.toBe('none');
     });
   }, 60_000);
+  it('the overview (G): one picture per page, made before the talk by start(); a click on a page jumps to it', async () => {
+    await withPage('', async (cdp) => {
+      await cdp.eval('window.started = presenter.start()');
+      expect(await waitFor(cdp, 'movie.currentFrame === 30 && !movie.isPlaying', 120)).toBe(true);          // it prepared the pictures, then played to the first stop
+      await press(cdp, 'g', 'KeyG', 71);
+      expect(await cdp.eval(`document.querySelector('.mp-overview').getAttribute('data-open')`)).toBe('true');
+      const imgs = await cdp.eval(`[...document.querySelectorAll('.mp-cell img')].map(i => i.src.slice(0, 22))`);
+      expect(imgs).toEqual(['data:image/jpeg;base64', 'data:image/jpeg;base64', 'data:image/jpeg;base64']);   // already there: nothing is made in front of the audience
+      expect(await cdp.eval(`[...document.querySelectorAll('.mp-cell-name')].map(c => c.textContent)`)).toEqual(['A', 'B', 'C']);
+      await cdp.eval(`document.querySelectorAll('.mp-cell')[2].click()`);
+      expect(await waitFor(cdp, 'movie.currentFrame === 150 && movie.pageIndex === 2')).toBe(true);
+      expect(await cdp.eval(`document.querySelector('.mp-overview').getAttribute('data-open')`)).toBe('false');
+    });
+  }, 90_000);
+
+  it('the presenter view (P): a second window with the page, the notes, the next picture and next / back buttons that drive the talk', async () => {
+    await withPage('', async (cdp) => {
+      await cdp.eval('window.presenter.ensureThumbs()');
+      expect(await waitFor(cdp, `window.presenter.thumbs.size === 4`, 120)).toBe(true);
+      await press(cdp, 'p', 'KeyP', 80);
+      expect(await waitFor(cdp, `window.__opened.length === 1 && !!window.__opened[0]`)).toBe(true);
+      const view = (expr: string) => cdp.eval(`(() => { const d = window.__opened[0].document; return ${expr}; })()`);
+      expect(await view(`d.querySelector('.pv-count').textContent`)).toBe('– / 3');
+      expect(await view(`d.querySelector('.pv-notes').textContent`)).toBe('Note for page A');
+      await press(cdp, 'ArrowRight', 'ArrowRight', 39);
+      expect(await waitFor(cdp, 'movie.currentFrame === 30 && !movie.isPlaying')).toBe(true);
+      expect(await view(`d.querySelector('.pv-count').textContent`)).toBe('1 / 3');
+      expect(await view(`d.querySelector('.pv-title').textContent`)).toBe('A');
+      expect(await view(`d.querySelector('.pv-next').src.slice(0, 22)`)).toBe('data:image/jpeg;base64');
+      await view(`d.querySelector('.pv-nextbtn').click()`);                                               // the button in the speaker's window moves the talk
+      expect(await waitFor(cdp, 'movie.currentFrame === 60 && !movie.isPlaying')).toBe(true);
+      expect(await view(`d.querySelector('.pv-count').textContent`)).toBe('1 / 3');
+      await view(`d.querySelector('.pv-prev').click()`);
+      expect(await waitFor(cdp, 'movie.currentFrame === 30')).toBe(true);
+      expect(await cdp.eval(`window.__opened[0].closed`)).toBe(false);
+      await press(cdp, 'p', 'KeyP', 80);                                                                   // P again closes it
+      expect(await waitFor(cdp, `window.__opened[0].closed === true`)).toBe(true);
+    });
+  }, 90_000);
+
+  it('exportPDF: one PDF page per page of the deck', async () => {
+    await withPage('', async (cdp) => {
+      const r = await cdp.eval(`(async () => { const b = await movie.exportPDF({ title: 'check' }); const bytes = new Uint8Array(await b.arrayBuffer()); const s = new TextDecoder('latin1').decode(bytes);
+        return { type: b.type, size: b.size, head: s.slice(0, 8), pages: (s.match(/\\/Type \\/Page\\b(?!s)/g) || []).length, frame: movie.currentFrame }; })()`);
+      expect(r).toMatchObject({ type: 'application/pdf', head: '%PDF-1.4', pages: 3, frame: 0 });
+      expect(r.size).toBeGreaterThan(3000);
+    });
+  }, 90_000);
 });

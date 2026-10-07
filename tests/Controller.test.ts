@@ -1450,7 +1450,7 @@ describe('Controller — a movie with stops (a presentation)', () => {
   ];
   const withStops = () => makeFakeMovie({
     stops: STOPS, stopIndex: -1, pageIndex: -1, pageCount: 2, currentStop: null,
-    async next() {}, async prev() {}, async goToPage() {}, async goToStop() {}, async gotoFrame() {},
+    async next() {}, async prev() {}, async goToPage() {}, async goToStop() {}, async gotoFrame() {}, async stopImages() { return []; },
   } as never);
 
   it('shows the stops as marks on the seek bar, at their place along it', () => {
@@ -1493,7 +1493,7 @@ describe('Controller — a movie with stops (a presentation)', () => {
     const canvas = makeCanvas();
     const movie = withStops();
     const calls: string[] = [];
-    Object.assign(movie, { async next() { calls.push('next'); }, async prev() { calls.push('prev'); } });
+    Object.assign(movie, { async next() { calls.push('next'); }, async prev() { calls.push('prev'); }, async stopImages() { return []; } });
     const ctrl = new Controller(movie, { canvas });
     const wrap = canvas.parentElement!;
     (wrap.querySelector('.mc-present') as HTMLButtonElement).click();

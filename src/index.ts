@@ -13,6 +13,8 @@ export type {
   VolumeEvent,
   MovieErrorEvent,
   StopEvent,
+  StopImage,
+  StopImagesOptions,
   MotionBlurSpec,
   MotionBlurOptions,
 } from './core/Movie';

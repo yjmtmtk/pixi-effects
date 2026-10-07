@@ -14,6 +14,7 @@ import { pickFrames, sheetLayout } from './frames';
 import { warnUnknownOptions } from './options';
 import { startWhenRunning } from './startWhenRunning';
 import { normalizePoster } from './poster';
+import { buildPdf } from './pdf';
 import { normalizeStops, nextStopAfter, previousStopBefore, stopAtOrBefore, pageStarts, type Stop } from './stops';
 import { resolveLoader, dismissLoader, failLoader, type LoaderOption } from './loader';
 import { resolveMotionBlur, blurTimes, type MotionBlurSpec, type MotionBlurOptions, type ResolvedMotionBlur } from './motionBlur';
@@ -75,6 +76,28 @@ export interface SnapshotOptions {
   type?: 'image/png' | 'image/jpeg';
   /** Return a `data:` URL string instead of a Blob (handy for scripts that can only return text). */
   as?: 'blob' | 'dataURL';
+}
+
+/** One picture of a stop (see `movie.stopImages()`). */
+export interface StopImage { stop: Stop; /** The page it belongs to (0-based). */ page: number; image: Blob | string }
+
+export interface StopImagesOptions {
+  /** One picture per page (default) or one per stop. */
+  which?: 'pages' | 'stops';
+  /** With `which: 'pages'`: the page's last stop (default: the page fully built) or its first. */
+  pick?: 'last' | 'first';
+  /** Output size relative to the canvas. Default 1. */
+  scale?: number;
+  /** `'image/png'` (default) or `'image/jpeg'`. */
+  type?: 'image/png' | 'image/jpeg';
+  /** JPEG quality, 0–1. */
+  quality?: number;
+  /** Return `data:` URLs instead of Blobs. */
+  as?: 'blob' | 'dataURL';
+  /** Motion blur for the pictures (off unless you ask: they are usually for looking at). */
+  motionBlur?: MotionBlurSpec;
+  /** Called as each picture is ready, in order. */
+  onImage?: (image: StopImage) => void;
 }
 
 export interface ContactSheetOptions {
@@ -395,17 +418,74 @@ export class Movie {
   async snapshot(frame: number = this.currentFrame, opts: SnapshotOptions = {}): Promise<Blob | string> {
     warnUnknownOptions('movie.snapshot()', opts, ['scale', 'type', 'as', 'motionBlur']);
     this._requireReady('snapshot');
-    const mb = this._blurFor(opts.motionBlur, 'movie.snapshot()');
-    const f = clampFrame(frame, this.totalFrames);
+    return this._captureFrame(clampFrame(frame, this.totalFrames), { scale: opts.scale ?? 1, type: opts.type ?? 'image/png', as: opts.as ?? 'blob', motionBlur: opts.motionBlur });
+  }
+
+  /** Seek to `frame` (quietly, and stay there) and encode the canvas as a picture. */
+  private async _captureFrame(frame: number, o: { scale: number; type: string; quality?: number; as: 'blob' | 'dataURL'; motionBlur?: MotionBlurSpec }): Promise<Blob | string> {
+    const mb = this._blurFor(o.motionBlur, 'a picture');          // undefined: the movie's own setting; false: none
     let source = this.app!.canvas as HTMLCanvasElement;
-    if (mb) { source = this._blurCanvas(); await this._quietly(() => this._exposeFrame(f, mb, source, true)); }
-    else await this._quietly(() => this.gotoFrame(f, true));
-    const scale = opts.scale ?? 1;
+    if (mb) { source = this._blurCanvas(); await this._quietly(() => this._exposeFrame(frame, mb, source, true)); }
+    else await this._quietly(() => this.gotoFrame(frame, true));
     const out = document.createElement('canvas');
-    out.width = Math.max(1, Math.round(this.width * scale));
-    out.height = Math.max(1, Math.round(this.height * scale));
+    out.width = Math.max(1, Math.round(this.width * o.scale));
+    out.height = Math.max(1, Math.round(this.height * o.scale));
     out.getContext('2d')!.drawImage(source, 0, 0, out.width, out.height);
-    return encodeCanvas(out, opts.type ?? 'image/png', opts.as ?? 'blob');
+    return encodeCanvas(out, o.type, o.as, o.quality);
+  }
+
+  /**
+   * A picture of the settled state of each page (default: the page's last stop, fully built) or of every stop, for a page list, an
+   * overview, an export. Pauses the movie, and leaves the playhead where it was. `onImage` is called as each picture is ready.
+   */
+  async stopImages(opts: StopImagesOptions & { as: 'dataURL' }): Promise<Array<StopImage & { image: string }>>;
+  async stopImages(opts?: StopImagesOptions): Promise<StopImage[]>;
+  async stopImages(opts: StopImagesOptions = {}): Promise<StopImage[]> {
+    warnUnknownOptions('movie.stopImages()', opts, ['which', 'pick', 'scale', 'type', 'quality', 'as', 'motionBlur', 'onImage']);
+    this._requireReady('stopImages');
+    if (this.stops.length === 0) return [];
+    let picks: Stop[];
+    if (opts.which === 'stops') picks = this.stops;
+    else {
+      const byPage = new Map<number, Stop[]>();
+      for (const s of this.stops) byPage.set(s.pageIndex, [...(byPage.get(s.pageIndex) ?? []), s]);
+      picks = [...byPage.values()].map(list => (opts.pick === 'first' ? list[0]! : list[list.length - 1]!));
+    }
+    this.pause();
+    const back = this.currentFrame, wasAtPoster = this._atPoster;
+    const out: StopImage[] = [];
+    try {
+      for (const stop of picks) {
+        const image = await this._captureFrame(stop.frame, {
+          scale: opts.scale ?? 1, type: opts.type ?? 'image/png', quality: opts.quality, as: opts.as ?? 'blob', motionBlur: opts.motionBlur === undefined ? false : opts.motionBlur,
+        });
+        const item: StopImage = { stop, page: stop.pageIndex, image };
+        out.push(item);
+        opts.onImage?.(item);
+      }
+    } finally {
+      if (wasAtPoster) await this._showPoster();
+      else await this._quietly(() => this.gotoFrame(back, true));
+    }
+    return out;
+  }
+
+  /**
+   * The deck as a PDF: one page per page of the talk (the page's last stop, fully built; `which: 'stops'` makes a page of every stop), each a
+   * JPEG at the canvas size. Needs `composition.stops`. A transparent background comes out black: give the movie a `background`.
+   */
+  async exportPDF(opts: { which?: 'pages' | 'stops'; pick?: 'last' | 'first'; scale?: number; quality?: number; title?: string; motionBlur?: MotionBlurSpec; onImage?: (image: StopImage) => void } = {}): Promise<Blob> {
+    warnUnknownOptions('movie.exportPDF()', opts, ['which', 'pick', 'scale', 'quality', 'title', 'motionBlur', 'onImage']);
+    this._requireReady('exportPDF');
+    if (this.stops.length === 0) throw new Error('pixi-effects: movie.exportPDF(): this movie has no stops, so there are no pages; add `stops` to the composition (or build it with deck())');
+    const scale = opts.scale ?? 1;
+    const images = await this.stopImages({
+      which: opts.which, pick: opts.pick, scale, type: 'image/jpeg', quality: opts.quality ?? 0.92, as: 'blob', motionBlur: opts.motionBlur, onImage: opts.onImage,
+    });
+    const pages = await Promise.all(images.map(async i => ({
+      jpeg: new Uint8Array(await (i.image as Blob).arrayBuffer()), width: Math.max(1, Math.round(this.width * scale)), height: Math.max(1, Math.round(this.height * scale)),
+    })));
+    return new Blob([buildPdf(pages, { title: opts.title }) as unknown as BlobPart], { type: 'application/pdf' });
   }
 
   /**
@@ -763,9 +843,9 @@ const END_MARGIN = 1e-4;
 
 const clampFrame = (f: number, last: number): number => Math.max(0, Math.min(Math.round(f), last));
 
-function encodeCanvas(canvas: HTMLCanvasElement, type: string, as: 'blob' | 'dataURL'): Promise<Blob | string> {
-  if (as === 'dataURL') return Promise.resolve(canvas.toDataURL(type));
-  return new Promise((resolve, reject) => canvas.toBlob(b => (b ? resolve(b) : reject(new Error('pixi-effects: could not encode the image'))), type));
+function encodeCanvas(canvas: HTMLCanvasElement, type: string, as: 'blob' | 'dataURL', quality?: number): Promise<Blob | string> {
+  if (as === 'dataURL') return Promise.resolve(canvas.toDataURL(type, quality));
+  return new Promise((resolve, reject) => canvas.toBlob(b => (b ? resolve(b) : reject(new Error('pixi-effects: could not encode the image'))), type, quality));
 }
 
 interface VideoLike {

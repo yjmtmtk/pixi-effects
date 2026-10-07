@@ -25,6 +25,9 @@
     import { Presenter } from '../../dist/Presenter.js';
     import { Controller } from '../../dist/Controller.js';
     const q = new URLSearchParams(location.search);
+    const realOpen = window.open.bind(window);                        // remember the windows the presenter opens, for the test
+    window.__opened = [];
+    window.open = (...a) => { const w = realOpen(...a); window.__opened.push(w); return w; };
     const movie = new Movie();
     window.movie = movie;
     window.__stops = [];
@@ -34,7 +37,7 @@
       await movie.init({
         canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 6, frameRate: 30, background: '#000000',
         composition: {
-          stops: [{ at: 1, page: 'A' }, 2, { at: 3.5, page: 'B' }, { at: 5, page: 'C' }],
+          stops: [{ at: 1, page: 'A', notes: 'Note for page A' }, 2, { at: 3.5, page: 'B' }, { at: 5, page: 'C', notes: 'Note for page C' }],
           sequences: [{ type: 'shape', shape: 'rect', width: 100, height: 100, initial: { x: 100, y: 360, fillColor: '#ffffff' }, keyframes: [{ at: 0, to: { x: 1100 }, duration: 6, ease: 'none' }] }],
         },
       });
