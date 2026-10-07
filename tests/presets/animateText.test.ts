@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('pixi.js', async () => (await import('../space/mockPixi')).createPixiMock());
 import { animateText } from '../../src/presets/animateText';
+import { measureText } from '../../src/text/measure';
 
 const style = { fontSize: 20 };               // the mock: 10 px per character, 24 px per line
 let warn: ReturnType<typeof vi.spyOn>;
@@ -148,3 +149,19 @@ describe('animateText(): mistakes are said out loud', () => {
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/staggr.*stagger/s));
   });
 });
+
+describe('animateText(): x and y are pixel numbers (no expression strings), and y is the top of the line', () => {
+  it("x: 'GW/2' is an error that says what to write instead (it used to draw nothing)", () => {
+    expect(() => animateText('Hello', { fontSize: 40 } as never, { x: 'GW/2' as never, y: 100, duration: 3 })).toThrow(/animateText\(\): x must be a number of pixels.*640.*expression/s);
+    expect(() => animateText('Hello', { fontSize: 40 } as never, { x: 100, y: 'GH/2' as never, duration: 3 })).toThrow(/animateText\(\): y must be a number of pixels/);
+    expect(() => animateText('Hello', { fontSize: 40 } as never, { x: NaN, y: 0, duration: 3 })).toThrow(/x must be a number of pixels/);
+  });
+
+  it('y is the TOP of the line box: the pieces are centred half a line below it', () => {
+    const style = { fontSize: 40, fontFamily: 'sans-serif' } as never;     // (shadows the module's style on purpose: any style works)
+    const [first] = animateText('M', style, { x: 100, y: 200, duration: 3, in: false });
+    const lineHeight = measureText('M', style).height;
+    expect((first!.initial as { y: number }).y).toBeCloseTo(200 + lineHeight / 2, 6);
+  });
+});
+

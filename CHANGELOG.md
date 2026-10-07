@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+**Changed**
+
+- **`animateText()` and `splitText()` reject an expression string for `x` / `y`** with an error that says what to write (`x: 640`): `animateText({ x: 'GW/2' })` used to draw nothing, silently, because the letters are measured at build time. The docs now say that `y` is the top of the line. (Found by a fresh AI session given only the repository URL.)
+
 **Fixed**
 
 - **A `threeD` card showed the previous frame after a seek.** A card (a `threeD` composition) is drawn into its own texture before the stage is drawn, but the shapes inside it were only brought up to the playhead after that, so after a jump seek, `snapshot()`, `contactSheet()` and the paused canvas showed a card whose children had animated (a `trimEnd` draw-on, a growing box) as it was one seek earlier: lines half drawn or missing. Seeking the same frame twice hid it; playing forward and the export were one frame late. The layers are now synced first. (Found by the Opus showpiece `ma`, whose gate lines were missing in review pictures.)

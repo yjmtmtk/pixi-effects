@@ -75,6 +75,11 @@ interface Resolved { from: Record<string, number>; to: Record<string, number>; d
 export function animateText(text: string, style: MeasureStyle, options: AnimateTextOptions): TextSequenceSpec[] {
   warnUnknownOptions('animateText()', options, KEYS);
   const { by = 'chars', x = 0, y = 0, align = 'left', name = 'text', at = 0, duration, idle, styleFor } = options;
+  for (const [n, v] of [['x', x], ['y', y]] as const) {
+    if (typeof v !== 'number' || !Number.isFinite(v)) {
+      throw new Error(`animateText(): ${n} must be a number of pixels (e.g. ${n}: 640), got ${JSON.stringify(v)}. The letters are measured once, when the layers are made, so an expression such as 'GW/2' cannot be used here: compute the number (W / 2) yourself. \`y\` is the TOP of the line.`);
+    }
+  }
   if (!(Number.isFinite(duration) && duration > 0)) throw new Error(`animateText(): duration must be a positive number of seconds (how long until the last piece is gone), got ${duration}`);
   const pieces = splitText(text, style, { by, x, y, align });
   if (pieces.length === 0) return [];

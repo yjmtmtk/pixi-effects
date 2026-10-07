@@ -76,6 +76,9 @@ export function splitText(text: string, style: MeasureStyle = {}, opts: SplitOpt
     align = 'left';
   }
   const x0 = opts.x ?? 0, y0 = opts.y ?? 0;
+  for (const [n, v] of [['x', x0], ['y', y0]] as const) {
+    if (typeof v !== 'number' || !Number.isFinite(v)) throw new Error(`splitText(): ${n} must be a number of pixels (e.g. ${n}: 640), got ${JSON.stringify(v)}: the pieces are placed by measuring, so an expression such as 'GW/2' cannot be used here. \`y\` is the top of the line.`);
+  }
   if (text === '') return [];
 
   const ts = new TextStyle(style as never);

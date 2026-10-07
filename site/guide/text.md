@@ -52,7 +52,7 @@ Anchor a typewriter on its **left** edge, or each new letter re-centres the line
 
 ## Per-letter and per-word animation
 
-`animateText()` does it in one call: one text layer per character, word or line, laid out exactly like the whole text, arriving (and leaving) in a wave. Letters turn and scale about their own centre. The result is plain layers: spread it into `sequences`.
+`animateText()` does it in one call (`x` and `y` are pixel numbers, not expressions, and `y` is the top of the line): one text layer per character, word or line, laid out exactly like the whole text, arriving (and leaving) in a wave. Letters turn and scale about their own centre. The result is plain layers: spread it into `sequences`.
 
 ```js
 // @recipe animate-text

@@ -195,6 +195,45 @@ pre.code{margin:0;padding:14px 0;font-size:12.5px;line-height:1.62;overflow-x:au
 .flow{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11.5px;color:var(--mute);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px}
 .flow::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--mute),transparent)}
 
+
+/* ───────────── one sentence ───────────── */
+.hint{margin-top:20px;font-size:16px;font-weight:600}
+.hint a{color:var(--ink);text-decoration-color:var(--acc);text-decoration-thickness:2px}.hint a:hover{color:var(--acc)}
+.ask-top{display:grid;gap:22px}
+.ask{margin-top:clamp(32px,5vw,60px);background:var(--panel);color:var(--panel-ink);border:1px solid var(--panel-line);border-radius:4px;overflow:hidden;box-shadow:0 0 0 1px color-mix(in srgb,var(--pacc) 35%,transparent),0 30px 80px -40px color-mix(in srgb,var(--pacc) 45%,transparent)}
+.ask-h{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px 16px;padding:12px 16px 12px 20px;border-bottom:1px solid var(--panel-line);font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--panel-mute)}
+.ask-h b{color:var(--panel-ink);font-weight:500}
+.ask .copy.big{min-height:44px;padding:0 20px;background:var(--pacc);border-color:var(--pacc);color:#0b0c10;font-weight:700;font-size:12px}
+.ask .copy.big.ok{background:#fff;border-color:#fff}
+.sentence{margin:0;padding:clamp(22px,4vw,48px) clamp(18px,4vw,48px) clamp(20px,3vw,34px);font-size:clamp(1.3rem,3.1vw,2.6rem);line-height:1.3;letter-spacing:-.025em;font-weight:600;overflow-wrap:anywhere}
+.sentence .fixed{color:var(--panel-ink)}
+.sentence .fixed u{text-decoration:none;color:var(--panel-mute);font-weight:500}
+.sentence .blank{color:var(--pacc);font-family:var(--serif);font-style:italic;font-weight:400;letter-spacing:-.015em;outline:0;border-bottom:2px dashed color-mix(in srgb,var(--pacc) 55%,transparent);padding-bottom:1px;cursor:text;caret-color:var(--pacc)}
+.sentence .blank:focus{border-bottom-style:solid;box-shadow:0 8px 0 -6px var(--pacc)}
+.ex{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:0 clamp(18px,4vw,48px) clamp(22px,3vw,34px)}
+.ex>span{font-family:var(--mono);font-size:11.5px;color:var(--panel-mute);letter-spacing:.04em;margin-right:6px;flex-basis:100%}
+@media (min-width:700px){.ex>span{flex-basis:auto}}
+.ex button{font:inherit;font-size:13.5px;color:var(--panel-ink);background:transparent;border:1px solid var(--panel-line);padding:8px 14px;border-radius:999px;cursor:pointer;min-height:40px;text-align:left;line-height:1.25}
+.ex button:hover{border-color:var(--pacc)}
+.ex button[aria-pressed="true"]{background:color-mix(in srgb,var(--pacc) 18%,transparent);border-color:var(--pacc)}
+.works{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-top:20px;font-family:var(--mono);font-size:12px;color:var(--mute);letter-spacing:.03em}
+.works code{font-size:12px;border:1px solid var(--line);padding:2px 9px;border-radius:2px;color:var(--ink);background:var(--bg2)}
+.nx{display:grid;gap:0;margin-top:clamp(44px,6vw,84px);counter-reset:nx}
+@media (min-width:900px){.nx{grid-template-columns:repeat(3,minmax(0,1fr));gap:36px}}
+.nx li{counter-increment:nx;border-top:2px solid var(--ink);padding:18px 0 28px;min-width:0}
+.nx li::before{content:counter(nx);display:block;font-family:var(--serif);font-style:italic;font-size:clamp(3rem,6vw,4.6rem);line-height:.9;color:var(--acc);margin-bottom:10px}
+.nx h3{font-size:clamp(1.25rem,2vw,1.6rem);letter-spacing:-.025em;line-height:1.12;font-weight:750;text-wrap:balance}
+.nx p{color:var(--mute);font-size:16px;margin-top:10px}
+.nx p strong{color:var(--ink);font-weight:600}
+.nx .quote{margin-top:14px;font-size:14px}
+.nx .chips{margin-top:12px}
+.truth{display:grid;gap:10px;margin-top:clamp(20px,3vw,36px);padding:22px 24px;border:1px dashed var(--mute);border-radius:2px;max-width:86ch}
+.truth h3{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;color:var(--acc)}
+.truth ul{display:grid;gap:8px;font-size:15.5px}
+.truth li{position:relative;padding-left:20px}
+.truth li::before{content:"";position:absolute;left:2px;top:.62em;width:6px;height:6px;background:var(--acc);transform:rotate(45deg)}
+@media (prefers-reduced-motion:no-preference){.sentence .blank::after{content:"";display:inline-block;width:2px;height:1em;margin-left:3px;vertical-align:-.12em;background:var(--pacc);animation:caret 1.1s steps(1) infinite}.sentence .blank:focus::after{display:none}}
+@keyframes caret{50%{opacity:0}}
 /* ───────────── what you get ───────────── */
 .head2{display:grid;gap:36px}
 @media (min-width:900px){.head2{grid-template-columns:1.4fr 1fr;align-items:end}}
@@ -391,7 +430,8 @@ footer{border-top:1px solid var(--line);padding-block:clamp(48px,7vw,88px) 40px}
   </div>
   <nav class="ruler" id="ruler" aria-label="Sections of this page">
     <a class="mk" href="#top" style="left:0%" data-s="top" aria-label="Hero"><i></i></a>
-    <a class="mk" href="#get" style="left:16%" data-s="get" aria-label="What you get"><i></i></a>
+    <a class="mk" href="#ask" style="left:13%" data-s="ask" aria-label="Start with one sentence"><i></i></a>
+    <a class="mk" href="#get" style="left:22%" data-s="get" aria-label="What you get"><i></i></a>
     <a class="mk" href="#ai" style="left:34%" data-s="ai" aria-label="Built for AI"><i></i></a>
     <a class="mk" href="#gallery" style="left:52%" data-s="gallery" aria-label="Gallery"><i></i></a>
     <a class="mk" href="#compare" style="left:68%" data-s="compare" aria-label="Comparison with Remotion and fframes"><i></i></a>
@@ -414,6 +454,8 @@ footer{border-top:1px solid var(--line);padding-block:clamp(48px,7vw,88px) 40px}
       <a class="btn" href="https://yjmtmtk.github.io/pixi-effects/guide/">Read the guide</a>
       <div class="cmd"><span class="pr" aria-hidden="true">$</span><code id="i1">npm install pixi-effects pixi.js gsap</code><button class="copy" type="button" data-copy="i1" aria-label="Copy the install command">Copy</button></div>
     </div>
+
+    <p class="hint"><a href="#ask">Or skip the code: tell any AI one sentence, and it makes the video <span aria-hidden="true">&darr;</span></a></p>
 
     <div class="stage">
       <!-- data in -->
@@ -473,10 +515,59 @@ footer{border-top:1px solid var(--line);padding-block:clamp(48px,7vw,88px) 40px}
   </div>
 </section>
 
-<!-- ═════════════ 02 WHAT YOU GET ═════════════ -->
+<!-- ═════════════ 02 ONE SENTENCE ═════════════ -->
+<section class="pad" id="ask" aria-labelledby="h-ask">
+  <div class="wrap">
+    <div class="sec-h"><span class="d"></span><b>02</b><span>Start with one sentence</span><span class="trk"></span></div>
+    <div class="ask-top" data-r>
+      <div>
+        <h2 id="h-ask">You do not have to learn it. <em class="it">Just ask.</em></h2>
+        <p class="lede">Tell any AI this one sentence. It opens the repository, <strong>understands what to do</strong>, and gets to work. Change the ending to what you want to see and hear.</p>
+      </div>
+    </div>
+
+    <div class="ask" data-r>
+      <div class="ask-h"><b>Paste this into any AI</b><button class="copy big" type="button" data-copy="sent" aria-label="Copy the sentence">Copy sentence</button></div>
+      <p class="sentence" id="sent"><span class="fixed">Use https://github.com/yjmtmtk/pixi-effects to make a video: </span><span class="blank" id="blank" contenteditable="true" role="textbox" aria-label="What you want to see and hear. You can edit this." spellcheck="false">a 10-second title for a bakery, warm cream colours, a soft chime at the end</span></p>
+      <div class="ex" role="group" aria-label="Example endings">
+        <span>Try another ending, or click the orange text and write your own:</span>
+        <button type="button" aria-pressed="true">A bakery title with a chime</button>
+        <button type="button" aria-pressed="false">A lo-fi countdown to midnight</button>
+        <button type="button" aria-pressed="false">A 2.5D headphone teaser</button>
+      </div>
+    </div>
+    <p class="works" data-r><span>Works with</span><code>ChatGPT</code><code>Claude</code><code>Codex</code><code>Cursor</code><code>Claude Code</code><span>and any AI that can open a link.</span></p>
+
+    <ol class="nx" data-r>
+      <li>
+        <h3>The AI opens the repository, and its first screen tells it where to go.</h3>
+        <p>The README top says it plainly: <strong>"do not read the whole repository"</strong>. An AI that can run commands is sent to <span class="k">AGENTS.md</span> and <span class="k">ai/SKILL.md</span>. One that can only write text, such as a browser chat, is sent to <span class="k">ai/CHAT.md</span>.</p>
+      </li>
+      <li>
+        <h3>It writes the video as plain data in one HTML file, and checks it.</h3>
+        <p>With a shell it runs the check tool, which writes a <strong>contact sheet</strong> the AI looks at before it says it is done. Warnings are written as instructions, with a "did you mean". In a chat, the page shows them in a red box instead.</p>
+      </li>
+      <li>
+        <h3>You open the file, watch it, and press download.</h3>
+        <p>The player bar has a download button for the MP4. An AI with a shell can also render it with one command: <span class="k">npx pixi-effects-render your-video.html -o your-video.mp4</span>.</p>
+      </li>
+    </ol>
+
+    <div class="truth" data-r>
+      <h3>Honestly</h3>
+      <ul>
+        <li>The AI has to be able to read a web page, to open that link.</li>
+        <li>In a chat with no preview window, save the file it gives you and open it in a browser.</li>
+        <li>This is a young, experimental library. The first try may need a couple of rounds: <strong>paste back what the red box says</strong> and the AI fixes exactly that.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════════ 03 WHAT YOU GET ═════════════ -->
 <section class="pad" id="get" aria-labelledby="h-get">
   <div class="wrap">
-    <div class="sec-h"><span class="d"></span><b>02</b><span>What you get</span><span class="trk"></span></div>
+    <div class="sec-h"><span class="d"></span><b>03</b><span>What you get</span><span class="trk"></span></div>
     <div class="head2">
       <div data-r>
         <h2 id="h-get">A small vocabulary for a <em class="it">whole</em> film.</h2>
@@ -547,10 +638,10 @@ footer{border-top:1px solid var(--line);padding-block:clamp(48px,7vw,88px) 40px}
 <!-- ═════════════ 03 BUILT FOR AI ═════════════ -->
 <section class="pad ai" id="ai" aria-labelledby="h-ai">
   <div class="wrap">
-    <div class="sec-h"><span class="d"></span><b>03</b><span>Built for AI</span><span class="trk"></span></div>
+    <div class="sec-h"><span class="d"></span><b>04</b><span>Built for AI</span><span class="trk"></span></div>
     <div data-r>
       <h2 id="h-ai">Written by a model. <em class="it">Checked</em> by one.</h2>
-      <p class="lede">Writing the data is the easy half. The tools in the package are for the second half: <strong>looking at what was made and fixing it</strong>, without a person watching every render.</p>
+      <p class="lede">Writing the data is the easy half. The tools in the package are for the second half: <strong>looking at what was made and fixing it</strong>, without a person watching every render. The way in is one sentence: <a href="#ask">Start with one sentence</a>.</p>
     </div>
     <ol class="loop" data-r>
       <li><b>Write</b><span>The model reads a skill, a cheatsheet and tested recipes.</span></li>
@@ -605,7 +696,7 @@ footer{border-top:1px solid var(--line);padding-block:clamp(48px,7vw,88px) 40px}
       </div>
       <div class="bigcard">
         <h3 style="font-size:1.35rem;letter-spacing:-.025em;font-weight:800;line-height:1.15">Chat-only entry: nothing to install</h3>
-        <p style="color:var(--mute);margin-top:10px;font-size:15.5px">In ChatGPT or Claude in a browser with no shell, paste this. The model returns one HTML file that loads from one CDN and shows warnings in a red box you can paste back. Use the download button in the player bar for the MP4.</p>
+        <p style="color:var(--mute);margin-top:10px;font-size:15.5px">In ChatGPT or Claude in a browser with no shell, paste this (or the <a href="#ask">one sentence</a> above, which sends the AI here). The model returns one HTML file that loads from one CDN and shows warnings in a red box you can paste back. Use the download button in the player bar for the MP4.</p>
         <blockquote class="quote"><span class="mono" id="chatp">Read https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/CHAT.md and follow it. Make a 10-second 1280×720 title video for … (what you see, the colours, what you hear). Give me the whole HTML file.</span></blockquote>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px"><button class="copy" type="button" data-copy="chatp" aria-label="Copy the prompt for a chat assistant">Copy prompt</button></div>
       </div>
@@ -616,7 +707,7 @@ footer{border-top:1px solid var(--line);padding-block:clamp(48px,7vw,88px) 40px}
 <!-- ═════════════ 04 GALLERY ═════════════ -->
 <section class="pad" id="gallery" aria-labelledby="h-gal">
   <div class="wrap">
-    <div class="sec-h"><span class="d"></span><b>04</b><span>Gallery</span><span class="trk"></span></div>
+    <div class="sec-h"><span class="d"></span><b>05</b><span>Gallery</span><span class="trk"></span></div>
     <div class="gal-top">
       <div data-r>
         <h2 id="h-gal">Thirty-nine films, each one <em class="it">file.</em></h2>
@@ -673,7 +764,7 @@ footer{border-top:1px solid var(--line);padding-block:clamp(48px,7vw,88px) 40px}
 <!-- ═════════════ 05 COMPARISON ═════════════ -->
 <section class="pad ai" id="compare" aria-labelledby="h-cmp">
   <div class="wrap">
-    <div class="sec-h"><span class="d"></span><b>05</b><span>Comparison</span><span class="trk"></span></div>
+    <div class="sec-h"><span class="d"></span><b>06</b><span>Comparison</span><span class="trk"></span></div>
     <div data-r>
       <h2 id="h-cmp">Remotion, fframes, and where we <em class="it">fit.</em></h2>
       <p class="lede">All three write video as code. They make different bets. This is a fair side-by-side, including the places pixi-effects is the wrong choice. <strong>It does not claim to be faster or better overall.</strong></p>
@@ -779,10 +870,10 @@ footer{border-top:1px solid var(--line);padding-block:clamp(48px,7vw,88px) 40px}
 <!-- ═════════════ 06 START ═════════════ -->
 <section class="pad" id="start" aria-labelledby="h-start">
   <div class="wrap">
-    <div class="sec-h"><span class="d"></span><b>06</b><span>Get started</span><span class="trk"></span></div>
+    <div class="sec-h"><span class="d"></span><b>07</b><span>Get started</span><span class="trk"></span></div>
     <div data-r>
       <h2 id="h-start">One minute, <em class="it">three</em> ways in.</h2>
-      <p class="lede">Pick the one that matches how you work. Each ends with a video you can play, and the player bar has a download button.</p>
+      <p class="lede">Or <a href="#ask">just ask an AI with one sentence</a>. Otherwise pick the way that matches how you work. Each ends with a video you can play, and the player bar has a download button.</p>
     </div>
     <div class="start-grid">
       <div class="steps">
@@ -797,7 +888,7 @@ footer{border-top:1px solid var(--line);padding-block:clamp(48px,7vw,88px) 40px}
         </div></div>
         <div class="step" data-r><span class="n">03</span><div>
           <h3>Ask a chat assistant</h3>
-          <p>No install at all: paste the prompt from the <a href="#ai">Built for AI</a> section into ChatGPT or Claude in a browser.</p>
+          <p>No install at all: tell any AI <a href="#ask">the one sentence</a> (or paste the chat-only prompt from <a href="#ai">Built for AI</a>) in ChatGPT or Claude in a browser.</p>
           <div class="chips"><code>guide: 18 pages</code><code>15 numbered examples</code><code>a playground</code></div>
           <p style="margin-top:12px"><a href="https://yjmtmtk.github.io/pixi-effects/guide/getting-started.html">Open the getting-started guide</a></p>
         </div></div>
@@ -873,6 +964,15 @@ footer{border-top:1px solid var(--line);padding-block:clamp(48px,7vw,88px) 40px}
     else{var r=d.createRange();r.selectNodeContents(el);var s=getSelection();s.removeAllRanges();s.addRange(r);try{d.execCommand('copy');done()}catch(e){}}
   })});
 
+
+  /* one sentence: swappable endings + copy */
+  var endings=['a 10-second title for a bakery, warm cream colours, a soft chime at the end','a lo-fi loop with a clock counting down to midnight','a 20-second launch teaser for headphones, dark, 2.5D'],
+      blank=$('#blank'),exb=$$('.ex button');
+  exb.forEach(function(b,i){b.addEventListener('click',function(){blank.textContent=endings[i];exb.forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false')})})});
+  blank.addEventListener('input',function(){exb.forEach(function(x){x.setAttribute('aria-pressed','false')})});
+  blank.addEventListener('keydown',function(e){if(e.key==='Enter')e.preventDefault()});
+  blank.addEventListener('paste',function(e){e.preventDefault();var t=((e.clipboardData||window.clipboardData).getData('text')||'').replace(/\s+/g,' ');d.execCommand('insertText',false,t)});
+
   /* reveal on scroll */
   var rv=$$('[data-r]');
   if('IntersectionObserver' in window){
@@ -881,7 +981,7 @@ footer{border-top:1px solid var(--line);padding-block:clamp(48px,7vw,88px) 40px}
   }else rv.forEach(function(n){n.classList.add('in')});
 
   /* ruler: the page is a timeline, scroll is the playhead */
-  var secs=['top','get','ai','gallery','compare','start'],names=['Hero','What you get','Built for AI','Gallery','Comparison','Get started'];
+  var secs=['top','ask','get','ai','gallery','compare','start'],names=['Hero','One sentence','What you get','Built for AI','Gallery','Comparison','Get started'];
   var ruler=$('#ruler'),ph=$('#ph'),mks=$$('.mk',ruler),cur=$('#cur');
   var pos=[],maxS=1,rw=1;
   function measure(){

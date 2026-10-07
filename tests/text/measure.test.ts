@@ -53,3 +53,11 @@ describe('splitText', () => {
     expect(msgs.some(m => m.includes('alignment') && m.includes('align'))).toBe(true);
   });
 });
+
+describe('splitText(): x and y are pixel numbers', () => {
+  it("an expression string is an error that says what to write instead (the pieces are placed by measuring)", () => {
+    expect(() => splitText('Hello', { fontSize: 20 }, { x: 'GW/2' as never })).toThrow(/splitText\(\): x must be a number of pixels.*expression/s);
+    expect(() => splitText('Hello', { fontSize: 20 }, { y: 'GH/2' as never })).toThrow(/y must be a number of pixels/);
+  });
+});
+
