@@ -41,7 +41,7 @@ Rules that cause most failures (details in the skill and pitfalls):
 ## Optional
 
 - [Everything above in one file](${RAW}/llms-full.txt)
-- [Live demos and playground](https://yjmtmtk.github.io/pixi-effects/)
+- [Examples and playground](https://yjmtmtk.github.io/pixi-effects/examples/)
 `;
 
   const parts = [

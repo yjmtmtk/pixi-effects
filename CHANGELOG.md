@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+**Site**
+
+- **The numbered examples have a page again.** When the landing page became the Pages root, the old list of the 15 numbered examples, the music lab and the playground went with it, and the README's "Live demos" link pointed at the landing page. They are now at `examples/` (`examples/index.html`), and the README and `llms.txt` link there.
+
 ## 0.16.3
 
 **Site**
