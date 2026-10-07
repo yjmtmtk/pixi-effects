@@ -6,6 +6,15 @@
 <title>pixi-effects — video, written as data</title>
 <meta name="description" content="pixi-effects is an open-source (MIT) library that turns a tree of plain objects into motion-graphics video: it plays in the browser, scrubs frame-accurately and exports MP4 with no server. Built on PixiJS v8, for people and for AI.">
 <meta name="color-scheme" content="dark light">
+<script type="importmap">
+{ "imports": {
+  "pixi.js":      "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+  "gsap":         "https://esm.sh/gsap@3.12.5",
+  "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+  "mediabunny":   "https://esm.sh/mediabunny",
+  "pixi-effects": "https://cdn.jsdelivr.net/npm/pixi-effects@0.16.1/dist/index.js"
+} }
+</script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b0d12'/%3E%3Crect x='9' y='9' width='14' height='14' transform='rotate(45 16 16)' fill='%23ff5a3c'/%3E%3C/svg%3E">
 <style>
 /* ---------- tokens ---------- */
@@ -114,13 +123,21 @@ pre code{background:none;padding:0;font-size:inherit}
 .comp-code .k{color:var(--code-key)} .comp-code .s{color:var(--code-str)} .comp-code .n{color:var(--code-num)} .comp-code .c{color:var(--code-com);font-style:italic} .comp-code .p{color:#9aa3b2}
 .comp-code .hl{background:rgba(255,90,60,.12);box-shadow:-16px 0 0 rgba(255,90,60,.12),16px 0 0 rgba(255,90,60,.12)}
 .comp-video{position:relative;background:#000;display:flex;flex-direction:column}
+[hidden]{display:none!important}
 .facade{position:relative;aspect-ratio:16/9;background:#000;overflow:hidden}
-.facade img{width:100%;height:100%;object-fit:cover}
+.facade img{width:100%;height:100%;object-fit:cover;position:relative;z-index:1}
 .facade iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
-.facade button{position:absolute;inset:0;width:100%;height:100%;background:rgba(0,0,0,.08);border:0;cursor:pointer;display:block;padding:0;color:#fff;font-family:var(--sans)}
+.facade canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background:#0a0a0f}
+.facade button{position:absolute;inset:0;width:100%;height:100%;background:rgba(0,0,0,.08);border:0;cursor:pointer;display:block;padding:0;color:#fff;font-family:var(--sans);z-index:2}
+.facade button:disabled{cursor:progress}
+.vbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 14px;border-top:1px solid rgba(255,255,255,.1);font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:#a3a9b5}
+.replay{font:inherit;font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;background:rgba(255,255,255,.08);color:#eceef2;border:1px solid rgba(255,255,255,.18);border-radius:5px;padding:5px 9px;cursor:pointer;flex:none}
+.replay:hover{background:rgba(255,255,255,.16)}
+.vsub code{background:rgba(255,255,255,.08);color:#eceef2}
 .facade button:hover{background:rgba(0,0,0,.22)}
 .facade button:hover .play{transform:translate(-50%,-50%) scale(1.06)}
 .facade .play{width:60px;height:60px;border-radius:50%;background:#ff5a3c;display:grid;place-items:center;transition:transform .2s;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);box-shadow:0 8px 30px rgba(0,0,0,.45)}
+#facade .play{top:76%}
 .facade .play svg{width:22px;height:22px;margin-left:4px;fill:#0b0d12}
 .facade .hint{position:absolute;right:12px;bottom:10px;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:#fff;background:rgba(0,0,0,.55);padding:4px 8px;border-radius:4px}
 .vinfo{padding:16px 16px 14px;flex:1;display:flex;flex-direction:column;gap:8px;border-top:1px solid rgba(255,255,255,.1)}
@@ -223,11 +240,12 @@ section{padding:72px 0 0}
 .step code{font-size:.86em}
 .step ul{margin:10px 0 0;padding-left:18px;color:var(--ink-2);font-size:15px}
 .step li{margin:4px 0}
-.shots{display:grid;grid-template-columns:1fr;gap:18px;margin-top:28px;align-items:start}
-.shot{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#0d1220;margin:0}
-.shot img{width:100%}
-.shot img+img{border-top:1px solid rgba(255,255,255,.12)}
-.shot figcaption{padding:12px 14px;font-size:14px;color:var(--ink-2);background:var(--bg-2);border-top:1px solid var(--line)}
+.shots{display:grid;grid-template-columns:1fr;gap:24px;margin-top:28px;align-items:start}
+.shot{margin:0}
+.frame{border:1px solid var(--line-2);border-radius:10px;overflow:hidden;background:#0d1220;line-height:0}
+.frame img{width:100%;height:auto;display:block}
+.frame+.frame{margin-top:12px}
+.shot figcaption{padding:12px 2px 0;font-size:14px;line-height:1.5;color:var(--ink-2)}
 .shot figcaption b{color:var(--ink);font-weight:600}
 .shot figcaption code{font-size:.86em}
 .chat{margin-top:28px;border:1px solid var(--line);border-radius:10px;padding:20px;background:var(--bg-2);display:grid;gap:14px}
@@ -238,12 +256,23 @@ section{padding:72px 0 0}
 .copy{position:absolute;top:8px;right:8px;font:inherit;font-size:11px;letter-spacing:.06em;text-transform:uppercase;background:rgba(255,255,255,.08);color:#d7dbe3;border:1px solid rgba(255,255,255,.14);border-radius:5px;padding:4px 8px;cursor:pointer}
 .copy:hover{background:rgba(255,255,255,.14)}
 
-/* ---------- 03 gallery ---------- */
+/* ---------- 04 gallery: a real piece, live ---------- */
+.feature{display:grid;grid-template-columns:1fr;margin-top:32px;border:1px solid var(--line-2);border-radius:12px;overflow:hidden;background:var(--bg-2);box-shadow:var(--shadow)}
+.feature-info{padding:18px 20px 22px;display:flex;flex-direction:column;gap:8px}
+.feature-info .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);display:flex;align-items:center;gap:8px}
+.feature-info h3{font-size:22px;letter-spacing:-.02em}
+.feature-info p{color:var(--ink-2);font-size:15px;line-height:1.5}
+.feature-info p.fmeta{display:flex;flex-wrap:wrap;gap:6px 14px;font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-top:auto;padding-top:8px}
+.fmeta span::before{content:"";display:inline-block;width:5px;height:5px;background:var(--amber);transform:rotate(45deg);margin-right:7px;vertical-align:1px}
+
+/* ---------- 04 gallery ---------- */
 .masonry{columns:2;column-gap:12px;margin-top:32px}
-.piece{break-inside:avoid;margin:0 0 12px;display:block;text-decoration:none;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--bg-2);position:relative}
+.piece{break-inside:avoid;margin:0 0 16px;display:block;text-decoration:none;position:relative}
+.piece .frame{border-radius:8px;background:var(--bg-2)}
 .piece img{width:100%;transition:transform .5s cubic-bezier(.2,.7,.2,1)}
 .piece:hover img{transform:scale(1.03)}
-.piece figcaption{padding:10px 12px 11px;font-size:13.5px;line-height:1.35}
+.piece:hover .frame{border-color:var(--ink-3)}
+.piece figcaption{padding:8px 2px 0;font-size:13.5px;line-height:1.35}
 .piece figcaption b{display:block;font-weight:600;color:var(--ink)}
 .piece figcaption span{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--ink-3)}
 .gal-foot{margin-top:18px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
@@ -322,6 +351,8 @@ footer .end{font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:va
   .steps{grid-template-columns:1fr 1fr 1fr;gap:0 40px}
   .stp{border-top:0}
   .works{grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);align-items:start}
+  .feature{grid-template-columns:minmax(0,1.55fr) minmax(0,1fr)}
+  .feature-info{padding:22px 24px 24px}
   .masonry{columns:4;column-gap:14px}
   .piece{margin-bottom:14px}
   .choose{grid-template-columns:1fr 1fr 1fr 1fr}
@@ -400,13 +431,13 @@ footer .end{font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:va
         <span class="dots"><i></i><i></i><i></i></span>
         <span class="in">composition.js</span>
         <span class="arrow">→</span>
-        <span>movie.render()</span>
-        <span class="out">out.mp4 · 1280×720 · 30 fps</span>
+        <span>movie.play()</span>
+        <span class="out">live · 1280×720 · 6 s · 30 fps</span>
       </div>
       <div class="comp-body">
         <div class="comp-code">
-          <p class="sr">The complete minimal composition, as JavaScript:</p>
-<pre><code><span class="k">import</span> { Movie, kenBurns } <span class="k">from</span> <span class="s">'pixi-effects'</span>;
+          <p class="sr">The complete minimal composition, as JavaScript. The play button on the right runs this very text in your browser:</p>
+<pre><code id="heroCode"><span class="k">import</span> { Movie, kenBurns } <span class="k">from</span> <span class="s">'pixi-effects'</span>;
 <span class="k">const</span> movie = <span class="k">new</span> Movie();
 <span class="k">await</span> movie.init({
   canvas, width: <span class="n">1280</span>, height: <span class="n">720</span>, duration: <span class="n">6</span>, frameRate: <span class="n">30</span>,
@@ -438,20 +469,24 @@ movie.play();
         </div>
         <div class="comp-video">
           <div class="facade" id="facade">
-            <img src="examples/gallery/posters/kinetic-manifesto.jpg" width="640" height="360" alt="Poster of the gallery piece Kinetic Manifesto: the words MAKE THINGS in huge white type on black, with つくる in red across the middle" fetchpriority="high">
-            <button type="button" id="playBtn" aria-label="Play Kinetic Manifesto live: loads the piece from yjmtmtk.github.io">
+            <img id="heroStill" src="data:image/jpeg;base64,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ifX4FuKp8vMR56p83HFNEoKA1JgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//Z" width="640" height="360" alt="The real frame at 1.2 seconds of the composition on the left: the word Hello in white bold type, centred on near-black">
+            <button type="button" id="playBtn" aria-label="Run this data live: imports pixi-effects from a CDN and plays the composition on the left in a canvas, with sound">
               <span class="play" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3 1.5l11 6.5-11 6.5z"/></svg></span>
-              <span class="hint" aria-hidden="true">click to play live</span>
+              <span class="hint" aria-hidden="true">run this data live</span>
             </button>
           </div>
+          <div class="vbar" id="vbar" hidden>
+            <span id="vstatus" role="status">loading pixi-effects from the CDN…</span>
+            <button type="button" class="replay" id="replayBtn" hidden>Replay</button>
+          </div>
           <div class="vinfo">
-            <p class="vtitle">Kinetic Manifesto</p>
-            <p class="vsub">Five bilingual statements on making things, slammed onto a 100 BPM grid. A gallery piece: one HTML file of data, written by an AI model (fable).</p>
-            <p class="vmeta"><span>1280×720</span><span>12 s</span><span>30 fps</span><span>sfx · no audio files</span></p>
+            <p class="vtitle">This exact data, running live in your browser</p>
+            <p class="vsub">Press play: the page imports pixi-effects from a CDN, gives the code on the left a <code>canvas</code>, runs it as written and plays the result — the word rising in 0.6 s, the chime at 1.1 s, six seconds in all. Nothing is pre-rendered; the still is the real frame at 1.2 s.</p>
+            <p class="vmeta"><span>1280×720</span><span>6 s</span><span>30 fps</span><span>sfx chime · no audio file</span></p>
           </div>
           <div class="comp-foot">
             <span>same frame path for play · scrub · export</span>
-            <span><a href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/">39 pieces in the gallery →</a></span>
+            <span><a href="#gallery">a real, bigger piece, live ↓</a></span>
           </div>
         </div>
       </div>
@@ -592,12 +627,12 @@ movie.play();
 
     <div class="shots">
       <figure class="shot">
-        <img src="guide/assets/contact-sheet.jpg" width="1440" height="1184" loading="lazy" alt="A contact sheet written by the check tool: twelve frames of the piece Still Water laid out in a grid, each labelled with its frame number and time, from frame 0 at 0.00 s to frame 360 at 12.00 s">
+        <div class="frame"><img src="guide/assets/contact-sheet.jpg" width="1440" height="1184" loading="lazy" alt="A contact sheet written by the check tool: twelve frames of the piece Still Water laid out in a grid, each labelled with its frame number and time, from frame 0 at 0.00 s to frame 360 at 12.00 s"></div>
         <figcaption><b>The contact sheet</b> that <code>pixi-effects-check</code> writes: twelve frames of <i>Still Water</i> with frame numbers and times. A model reads it like a storyboard.</figcaption>
       </figure>
       <figure class="shot">
-        <img src="guide/assets/timeline-view.jpg" width="1280" height="633" loading="lazy" alt="The timeline viewer: the piece Still Water paused at 9.00 s above a track view in which every layer is a horizontal bar on a time axis, with keyframe diamonds and a pink playhead">
-        <img src="guide/assets/timeline-collapsed.jpg" width="1280" height="633" loading="lazy" alt="The timeline chart of Countdown to 2027: 28 rows over 12 seconds, each layer a bar, keyframe starts as diamonds, shaded bands for transitions, groups of layers such as star# ×70 collapsed into one row">
+        <div class="frame"><img src="guide/assets/timeline-view.jpg" width="1280" height="633" loading="lazy" alt="The timeline viewer: the piece Still Water paused at 9.00 s above a track view in which every layer is a horizontal bar on a time axis, with keyframe diamonds and a pink playhead"></div>
+        <div class="frame"><img src="guide/assets/timeline-collapsed.jpg" width="1280" height="633" loading="lazy" alt="The timeline chart of Countdown to 2027: 28 rows over 12 seconds, each layer a bar, keyframe starts as diamonds, shaded bands for transitions, groups of layers such as star# ×70 collapsed into one row"></div>
         <figcaption><b>The timeline</b>: <code>pixi-effects-view</code> opens the movie with every layer as a bar, keyframes as diamonds and a playhead you can drag (top); the chart of <i>Countdown to 2027</i>, 28 rows over 12 s, with repeated layers collapsed into one row (bottom).</figcaption>
       </figure>
     </div>
@@ -618,23 +653,39 @@ movie.play();
     <header class="ch"><span class="n">04</span><span class="dia" aria-hidden="true"></span><h2 id="h-gal">39 pieces, each one file of data</h2><span class="rule" aria-hidden="true"></span></header>
     <p class="deck">Kinetic type, data stories, broadcast packages, 2.5D dioramas, a 48-second showpiece. <strong>Every piece is one HTML file</strong>, and AI models wrote most of them. Every poster below opens the <a href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/">live gallery</a>, where they play.</p>
 
+    <div class="feature">
+      <div class="facade" id="kmFacade">
+        <img src="examples/gallery/posters/kinetic-manifesto.jpg" width="640" height="360" loading="lazy" alt="Poster of the gallery piece Kinetic Manifesto: the words MAKE THINGS in huge white type on black, with つくる in red across the middle">
+        <button type="button" id="kmBtn" aria-label="Play Kinetic Manifesto live: loads the piece from yjmtmtk.github.io">
+          <span class="play" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3 1.5l11 6.5-11 6.5z"/></svg></span>
+          <span class="hint" aria-hidden="true">click to play live</span>
+        </button>
+      </div>
+      <div class="feature-info">
+        <p class="lbl"><span class="dia" aria-hidden="true"></span>A real piece, live</p>
+        <h3>Kinetic Manifesto</h3>
+        <p>One HTML file of data, written by an AI model (fable): five bilingual statements on making things, slammed onto a 100 BPM grid. Made the same way as the snippet at the top — just more of it. Click to load the published gallery page and play it here.</p>
+        <p class="fmeta"><span>1280×720</span><span>12 s</span><span>sfx · no audio files</span><span>loads from yjmtmtk.github.io</span></p>
+      </div>
+    </div>
+
     <div class="masonry">
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/ma.jpg" width="960" height="540" loading="lazy" alt="間 MA: a large black 間 character with its lower strokes in red, beside the word MA and the line “the space between things”, on warm paper"><figcaption><b>間 MA — the space between</b><span>1920×1080 · 48 s · opus</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/social-quote-vertical.jpg" width="360" height="640" loading="lazy" alt="A vertical quote card on warm blurred colour: “The details are not the details. They make the design.” Charles Eames"><figcaption><b>Social Quote Card</b><span>720×1280 · 10 s · sonnet</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/hanabi-night.jpg" width="640" height="360" loading="lazy" alt="Hanabi Night: a gold firework opens over a city skyline under indigo, with the vertical title 花火大会"><figcaption><b>Hanabi Night</b><span>1280×720 · 12 s · sonnet</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/generative-orbits.jpg" width="540" height="540" loading="lazy" alt="Orbits: glowing dots in rosette and Lissajous patterns with comet trails on deep violet"><figcaption><b>Orbits</b><span>1080×1080 · 14 s · opus</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/isometric-city.jpg" width="640" height="360" loading="lazy" alt="Kōbe, 2040: an isometric city of lit blocks at dusk"><figcaption><b>Kōbe, 2040</b><span>1280×720 · 12 s · fable</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/recipe-card.jpg" width="540" height="675" loading="lazy" alt="Lemon Pasta Recipe Card: ingredients checked off, three timed steps, a plated dish, in warm yellow and red"><figcaption><b>Lemon Pasta Recipe Card</b><span>1080×1350 · 12 s · sonnet</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/orbit-rig.jpg" width="640" height="360" loading="lazy" alt="Orrery: a museum plate of the solar system in ivory and brass on navy, with a legend of the planets"><figcaption><b>Orrery</b><span>1280×720 · 12 s · sonnet</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/synthwave-drive.jpg" width="640" height="360" loading="lazy" alt="Synthwave Drive: a striped sun over a neon grid and the glowing title SYNTHWAVE DRIVE"><figcaption><b>Synthwave Drive</b><span>1280×720 · 12 s · fable</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/loader-gallery.jpg" width="540" height="540" loading="lazy" alt="Loader Gallery: nine loading loops on one dark board, titled NINE WAYS TO WAIT"><figcaption><b>Loader Gallery</b><span>1080×1080 · 10 s · sonnet</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/film-titles.jpg" width="640" height="360" loading="lazy" alt="The Long Night: a dark faceted shard in fog with a ring around it, over the title in spaced serif capitals"><figcaption><b>The Long Night</b><span>1280×720 · 14 s · opus</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/wedding-invitation.jpg" width="540" height="675" loading="lazy" alt="Wedding Invitation: a cream card with a double gold border, botanical sprigs, and the names Aiko and Daniel in serif"><figcaption><b>Wedding Invitation</b><span>1080×1350 · 12 s · fable</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/shape-shift.jpg" width="640" height="360" loading="lazy" alt="Form Follows: FORM FOLLOWS FEELING in black and ochre type beside a yellow circle, Bauhaus style on cream"><figcaption><b>Form Follows</b><span>1280×720 · 12 s · sonnet</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/paper-cutout-forest.jpg" width="640" height="360" loading="lazy" alt="Quiet Woods: a cut-paper night forest with a fox, fireflies and a paper moon"><figcaption><b>Quiet Woods</b><span>1280×720 · 12 s · fable</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/app-promo.jpg" width="540" height="540" loading="lazy" alt="Tidy app promo: a tilted phone mock-up with a habit tracker and the line Keep your streak alive"><figcaption><b>Tidy — app promo</b><span>1080×1080 · 12 s · fable</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/news-package.jpg" width="640" height="360" loading="lazy" alt="NORTH 24 Breaking: a rainy harbour bridge at night with a BREAKING lower third and a news ticker"><figcaption><b>NORTH 24 — Breaking</b><span>1280×720 · 12 s · opus</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><img src="examples/gallery/posters/blueprint-house.jpg" width="640" height="360" loading="lazy" alt="The Corner House: a floor plan drawn in white on blueprint blue with dimensions and a title block reading APPROVED"><figcaption><b>The Corner House</b><span>1280×720 · 12 s · sonnet</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/ma.jpg" width="960" height="540" loading="lazy" alt="間 MA: a large black 間 character with its lower strokes in red, beside the word MA and the line “the space between things”, on warm paper"></div><figcaption><b>間 MA — the space between</b><span>1920×1080 · 48 s · opus</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/social-quote-vertical.jpg" width="360" height="640" loading="lazy" alt="A vertical quote card on warm blurred colour: “The details are not the details. They make the design.” Charles Eames"></div><figcaption><b>Social Quote Card</b><span>720×1280 · 10 s · sonnet</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/hanabi-night.jpg" width="640" height="360" loading="lazy" alt="Hanabi Night: a gold firework opens over a city skyline under indigo, with the vertical title 花火大会"></div><figcaption><b>Hanabi Night</b><span>1280×720 · 12 s · sonnet</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/generative-orbits.jpg" width="540" height="540" loading="lazy" alt="Orbits: glowing dots in rosette and Lissajous patterns with comet trails on deep violet"></div><figcaption><b>Orbits</b><span>1080×1080 · 14 s · opus</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/isometric-city.jpg" width="640" height="360" loading="lazy" alt="Kōbe, 2040: an isometric city of lit blocks at dusk"></div><figcaption><b>Kōbe, 2040</b><span>1280×720 · 12 s · fable</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/recipe-card.jpg" width="540" height="675" loading="lazy" alt="Lemon Pasta Recipe Card: ingredients checked off, three timed steps, a plated dish, in warm yellow and red"></div><figcaption><b>Lemon Pasta Recipe Card</b><span>1080×1350 · 12 s · sonnet</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/orbit-rig.jpg" width="640" height="360" loading="lazy" alt="Orrery: a museum plate of the solar system in ivory and brass on navy, with a legend of the planets"></div><figcaption><b>Orrery</b><span>1280×720 · 12 s · sonnet</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/synthwave-drive.jpg" width="640" height="360" loading="lazy" alt="Synthwave Drive: a striped sun over a neon grid and the glowing title SYNTHWAVE DRIVE"></div><figcaption><b>Synthwave Drive</b><span>1280×720 · 12 s · fable</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/loader-gallery.jpg" width="540" height="540" loading="lazy" alt="Loader Gallery: nine loading loops on one dark board, titled NINE WAYS TO WAIT"></div><figcaption><b>Loader Gallery</b><span>1080×1080 · 10 s · sonnet</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/film-titles.jpg" width="640" height="360" loading="lazy" alt="The Long Night: a dark faceted shard in fog with a ring around it, over the title in spaced serif capitals"></div><figcaption><b>The Long Night</b><span>1280×720 · 14 s · opus</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/wedding-invitation.jpg" width="540" height="675" loading="lazy" alt="Wedding Invitation: a cream card with a double gold border, botanical sprigs, and the names Aiko and Daniel in serif"></div><figcaption><b>Wedding Invitation</b><span>1080×1350 · 12 s · fable</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/shape-shift.jpg" width="640" height="360" loading="lazy" alt="Form Follows: FORM FOLLOWS FEELING in black and ochre type beside a yellow circle, Bauhaus style on cream"></div><figcaption><b>Form Follows</b><span>1280×720 · 12 s · sonnet</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/paper-cutout-forest.jpg" width="640" height="360" loading="lazy" alt="Quiet Woods: a cut-paper night forest with a fox, fireflies and a paper moon"></div><figcaption><b>Quiet Woods</b><span>1280×720 · 12 s · fable</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/app-promo.jpg" width="540" height="540" loading="lazy" alt="Tidy app promo: a tilted phone mock-up with a habit tracker and the line Keep your streak alive"></div><figcaption><b>Tidy — app promo</b><span>1080×1080 · 12 s · fable</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/news-package.jpg" width="640" height="360" loading="lazy" alt="NORTH 24 Breaking: a rainy harbour bridge at night with a BREAKING lower third and a news ticker"></div><figcaption><b>NORTH 24 — Breaking</b><span>1280×720 · 12 s · opus</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/blueprint-house.jpg" width="640" height="360" loading="lazy" alt="The Corner House: a floor plan drawn in white on blueprint blue with dimensions and a title block reading APPROVED"></div><figcaption><b>The Corner House</b><span>1280×720 · 12 s · sonnet</span></figcaption></figure></a>
     </div>
 
     <div class="gal-foot">
@@ -763,6 +814,9 @@ movie.play();
       <a href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/">Gallery</a>
       <a href="https://yjmtmtk.github.io/pixi-effects/examples/music-lab.html">Music lab</a>
       <a href="https://github.com/yjmtmtk/pixi-effects/blob/main/ai/SKILL.md">AI skill</a>
+      <a href="https://yjmtmtk.github.io/pixi-effects/llms.txt">llms.txt</a>
+      <a href="https://yjmtmtk.github.io/pixi-effects/examples/01-hello.html">Examples</a>
+      <a href="https://yjmtmtk.github.io/pixi-effects/examples/playground.html">Playground</a>
     </p>
     <p>pixi-effects is an open-source library for writing motion-graphics video as plain data, playing it in the browser and exporting MP4, WebM or MOV. Built on PixiJS v8, GSAP and mediabunny. MIT licence; no company licence.</p>
     <p class="end"><span class="dia" aria-hidden="true"></span><span>v0.16.1 · experimental · MIT · comparison facts checked 2026-10-07</span></p>
@@ -786,11 +840,30 @@ movie.play();
     ph.style.transform='scaleX('+p+')'; var f=Math.round(p*360), s=Math.floor(f/30), fr=f%30; if(tc) tc.textContent='00:'+String(s).padStart(2,'0')+':'+String(fr).padStart(2,'0'); }
   window.addEventListener('scroll',function(){ if(!raf) raf=requestAnimationFrame(tick); },{passive:true}); tick();
 
-  // click-to-load live demo (a video facade)
-  var play=document.getElementById('playBtn'), facade=document.getElementById('facade');
+  // the hero: run the code panel's own text, live. The import map above resolves 'pixi-effects' (and its peers) from CDNs; nothing loads until this click.
+  var play=document.getElementById('playBtn'), facade=document.getElementById('facade'), vbar=document.getElementById('vbar'), vstatus=document.getElementById('vstatus'), replay=document.getElementById('replayBtn');
   if(play) play.addEventListener('click',function(){
+    play.disabled=true; vbar.hidden=false; vstatus.textContent='loading pixi-effects from the CDN…';
+    var src=document.getElementById('heroCode').textContent;
+    var text="const canvas = document.getElementById('heroCanvas');\n"+src+"\nexport default movie;\n";
+    var canvas=document.createElement('canvas'); canvas.id='heroCanvas'; canvas.width=1280; canvas.height=720; facade.insertBefore(canvas, facade.firstChild);
+    var url=URL.createObjectURL(new Blob([text],{type:'text/javascript'}));
+    import(url).then(function(m){
+      var movie=m.default; window.heroMovie=movie; play.remove(); document.getElementById('heroStill').remove();
+      vstatus.textContent='playing: the data on the left, drawn by pixi-effects in this canvas';
+      movie.on('ended',function(){ vstatus.textContent='ended at 6 s'; replay.hidden=false; });
+      replay.addEventListener('click',function(){ replay.hidden=true; vstatus.textContent='playing again'; movie.gotoFrame(0).then(function(){ movie.play(); }); });
+    }).catch(function(e){
+      canvas.remove(); play.disabled=false;
+      vstatus.textContent='Could not load the library (it needs the network): '+((e&&e.message)||e)+'. The still is the real frame at 1.2 s; the code is unchanged.';
+    });
+  });
+
+  // a real piece, live (a video facade for the published gallery page)
+  var km=document.getElementById('kmBtn'), kmFacade=document.getElementById('kmFacade');
+  if(km) km.addEventListener('click',function(){
     var f=document.createElement('iframe'); f.src='https://yjmtmtk.github.io/pixi-effects/examples/gallery/kinetic-manifesto.html'; f.title='Kinetic Manifesto, playing live from the pixi-effects gallery'; f.allow='autoplay; fullscreen'; f.loading='eager';
-    facade.appendChild(f); play.remove();
+    kmFacade.appendChild(f); km.remove();
   });
 
   // the one sentence: swap the ending, copy the whole line

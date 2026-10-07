@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+**Site**
+
+- **A landing page** at the root of the GitHub Pages site (`site/landing/index.html`, replacing the plain list of examples): a hero whose video is the exact snippet shown beside it, running live in the browser after a click; "Start with one sentence" (`Use https://github.com/yjmtmtk/pixi-effects to make a video: …`); what you get; how an AI writes and checks it (contact sheet, timeline); a gallery strip; and an honest comparison with Remotion and fframes (facts read from their own pages on 2026-10-07, with when NOT to choose pixi-effects). `npm run landing` builds a local preview. Written by Fable from a fact sheet (`site/landing/FACTS.md`); tests keep it honest (the release it names, the links, its size, no third-party loads).
+- **`AGENTS.md`** (and `CLAUDE.md`, which imports it) and a one-sentence start at the top of the README: an AI that is told only "Use https://github.com/yjmtmtk/pixi-effects to make a video" is sent to the right file for what it can do (a shell, or a chat with no shell). Tried with a fresh session given only that sentence: it found its way and made a video.
+
 **Changed**
 
 - **`animateText()` and `splitText()` reject an expression string for `x` / `y`** with an error that says what to write (`x: 640`): `animateText({ x: 'GW/2' })` used to draw nothing, silently, because the letters are measured at build time. The docs now say that `y` is the top of the line. (Found by a fresh AI session given only the repository URL.)
