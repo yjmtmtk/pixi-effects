@@ -36,7 +36,7 @@ Style: `fillColor`, `fillAlpha`, `strokeColor`, `strokeAlpha`, `strokeWidth`, pl
   keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 1, ease: 'power2.inOut' }] }              // a check mark drawing itself
 ```
 
-- A rectangle's outline starts at its top-left and goes clockwise; a circle or ellipse starts at 12 o'clock; a polygon's closing edge counts; a path's pieces count as one length, in order.
+- A rectangle's outline starts at its top-left and goes clockwise; a circle or ellipse starts at 12 o'clock; a polygon's closing edge counts; a path's pieces count as one length, in order (add `trimEach: true` to draw every piece on at the same time).
 - Animate `trimStart` afterwards to wipe it off the same way, or both for a travelling dash.
 - **The fill is not trimmed.** Fade `fillAlpha` in once the outline is drawn.
 - On an `arc`, animate `endAngle` instead (a progress ring is an arc with `startAngle: -90`).

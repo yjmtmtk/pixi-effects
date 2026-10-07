@@ -49,12 +49,23 @@ export function ellipseOutline(cx: number, cy: number, rx: number, ry: number): 
 }
 
 /**
- * The part of the outline between `start` and `end` (fractions 0–1 of the TOTAL length of all the sub-paths, in order).
+ * The part of the outline between `start` and `end` (fractions 0–1 of the TOTAL length of all the sub-paths, in order; with `each`, of
+ * every sub-path's own length, so they all draw on at the same time).
  * Returns open polylines, except a closed sub-path that is kept whole, which stays closed (so its join is drawn).
  */
-export function trimPolylines(lines: Polyline[], start: number, end: number): Polyline[] {
+export function trimPolylines(lines: Polyline[], start: number, end: number, each = false): Polyline[] {
   const s = Math.max(0, Math.min(1, start)), e = Math.max(0, Math.min(1, end));
   if (!(e > s)) return [];
+  if (each) {
+    const out: Polyline[] = [];
+    for (const line of lines) {
+      const len = polylineLength(line);
+      if (!(len > 0)) continue;
+      if (line.closed && s <= 0 && e >= 1) out.push({ pts: line.pts.slice(), closed: true });
+      else out.push({ pts: slice(line, s * len, e * len), closed: false });
+    }
+    return out;
+  }
   const lengths = lines.map(polylineLength);
   const total = lengths.reduce((a, b) => a + b, 0);
   if (!(total > 0)) return [];

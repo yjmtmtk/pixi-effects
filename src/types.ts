@@ -483,6 +483,8 @@ export interface Trimmable {
   trimStart?: PropValue;
   /** Where the stroke ends, 0–1 of the outline. Default 1. Animatable. */
   trimEnd?: PropValue;
+  /** A path with several sub-paths: `true` trims each sub-path on its own, so they all draw on at the same time (default: the trim walks them in order, as one outline). */
+  trimEach?: boolean;
 }
 
 interface ShapeBase extends SequenceCommon {

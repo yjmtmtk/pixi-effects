@@ -82,6 +82,8 @@ interface ShapeState {
   // stroke style that is not animated
   strokeCap?: string;
   strokeJoin?: string;
+  /** Trim every sub-path on its own (they all draw on at the same time) instead of walking the whole outline in order. */
+  trimEach?: boolean;
 }
 
 export class ShapeSequence extends Sequence {
@@ -228,7 +230,7 @@ export class ShapeSequence extends Sequence {
       applyFill(graphics, s);
       graphics.beginPath();
     }
-    const parts = trimPolylines(this._outline(), s.trimStart ?? 0, s.trimEnd ?? 1);
+    const parts = trimPolylines(this._outline(), s.trimStart ?? 0, s.trimEnd ?? 1, s.trimEach === true);
     if (parts.length === 0) return;                           // nothing drawn on yet (trimEnd 0)
     for (const part of parts) {
       if (part.closed) { graphics.poly(part.pts, true); continue; }
@@ -308,6 +310,11 @@ function seedStrokeStyle(state: ShapeState, spec: object, initial: Props, who: s
   };
   state.strokeCap = pick('strokeCap', STROKE_CAPS);
   state.strokeJoin = pick('strokeJoin', STROKE_JOINS);
+  const each = top.trimEach ?? ini.trimEach;
+  if (each !== undefined) {
+    if (typeof each === 'boolean') state.trimEach = each;
+    else console.warn(`pixi-effects: ${who}: trimEach must be true or false (got ${JSON.stringify(each)}); ignored`);
+  }
 }
 
 function seedStyle(state: ShapeState, initial: Props, scope: Scope): void {
@@ -321,8 +328,8 @@ function seedStyle(state: ShapeState, initial: Props, scope: Scope): void {
 // ─── Strip live keys from the spec.initial / spec.keyframes that go to PixiPlugin ──
 
 function stripGradient(props: Props | undefined): Props | undefined {
-  if (!props || !('fillGradient' in props || 'strokeCap' in props || 'strokeJoin' in props)) return props;
-  const { fillGradient: _drop, strokeCap: _cap, strokeJoin: _join, ...rest } = props as Record<string, unknown>;
+  if (!props || !('fillGradient' in props || 'strokeCap' in props || 'strokeJoin' in props || 'trimEach' in props)) return props;
+  const { fillGradient: _drop, strokeCap: _cap, strokeJoin: _join, trimEach: _each, ...rest } = props as Record<string, unknown>;
   return rest as unknown as Props;
 }
 

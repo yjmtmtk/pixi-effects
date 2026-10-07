@@ -100,3 +100,42 @@ describe('stroke trim: trimStart / trimEnd on a shape', () => {
     warn.mockRestore();
   });
 });
+
+describe('trimEach: every sub-path of a path draws on at the same time', () => {
+  const D = 'M0 0 L100 0 M0 50 L400 50';                                   // two sub-paths, 100 and 400 long
+  const strokedTo = (calls: Call[]) => calls.filter(c => c[0] === 'lineTo').map(c => c[1] as number);
+
+  it('by default the trim walks the whole outline in order: a half is the first sub-path whole and a quarter of the second', async () => {
+    const { draw } = await shape({ shape: 'path', d: D, trimEnd: 0.5, initial: STROKE });
+    const calls = draw();
+    expect(calls.filter(c => c[0] === 'moveTo').length).toBe(2);
+    expect(strokedTo(calls)[0]).toBeCloseTo(100, 6);                         // the first, whole
+    expect(strokedTo(calls)[1]).toBeCloseTo(150, 6);                         // the second, 150 of its 400
+  });
+
+  it('with trimEach: true every sub-path is trimmed on its own: half of each', async () => {
+    const { draw } = await shape({ shape: 'path', d: D, trimEach: true, trimEnd: 0.5, initial: STROKE });
+    expect(strokedTo(draw())).toEqual([50, 200]);
+  });
+
+  it('trimEach also works from `initial`, with trimStart, and animated: both lines reach their ends together', async () => {
+    const { tl, draw } = await shape({ shape: 'path', d: D, initial: { ...STROKE, trimEach: true, trimEnd: 0 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 2 }] });
+    tl.time(1);
+    expect(strokedTo(draw())).toEqual([50, 200]);
+    tl.time(2);
+    expect(draw().some(c => c[0] === 'stroke')).toBe(true);                  // trimEnd 1: no longer trimmed, the whole path is drawn as it is
+    const dash = await shape({ shape: 'path', d: D, trimEach: true, trimStart: 0.25, trimEnd: 0.75, initial: STROKE });
+    const calls = dash.draw();
+    expect(calls.filter(c => c[0] === 'moveTo').map(c => c[1])).toEqual([25, 100]);
+    expect(strokedTo(calls)).toEqual([75, 300]);
+  });
+
+  it('a value that is not true / false is ignored with a warning', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { draw } = await shape({ shape: 'path', d: D, trimEach: 'yes', trimEnd: 0.5, initial: STROKE });
+    expect(warn.mock.calls.join('\n')).toMatch(/trimEach.*true or false/);
+    expect(strokedTo(draw())[0]).toBeCloseTo(100, 6);                        // together, as without it
+    warn.mockRestore();
+  });
+});
+
