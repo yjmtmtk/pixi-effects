@@ -826,7 +826,7 @@ initial: { x: 'GW/2', y: 'GH * 0.96', anchorX: 0.5, anchorY: 1 }
 
 ## Stops (presentations)
 
-`composition.stops` says where a presentation pauses: seconds, or `{ at, page?, notes?, advance? }` (see [Presentations in the API reference](api.md#presentations-stops-next-prev-presenter)). A stop with `page` begins a page (a name, or `true`), the others are steps of it; with no `page` anywhere each stop is a page. A plain player ignores them (`Controller` shows marks on the seek bar); `movie.next()` and `Presenter` pause on them. [`deck()`](#deck) builds the whole thing from pages.
+`composition.stops` says where a presentation pauses: seconds, or `{ at, page?, notes?, advance?, pdf? }` (see [Presentations in the API reference](api.md#presentations-stops-next-prev-presenter)). A stop with `page` begins a page (a name, or `true`), the others are steps of it; with no `page` anywhere each stop is a page. `movie.play()` ignores them; the `Controller` shows marks on the seek bar and its play button plays to the next stop (`pauseAtStops: false` plays through), and `movie.next()` and `Presenter` pause on them. **`pdf: true` / `pdf: false`** on a stop chooses which moment stands for a page in a PDF: `true` = this stop is the page's picture, `false` = never use it (default: the page's last stop). Use it when the last stop is mid-exit. [`deck()`](#deck) builds the whole thing from pages.
 
 ## Transitions
 
@@ -1279,7 +1279,7 @@ await movie.init({ canvas, width: 1280, height: 720, frameRate: 30, ...deck({
 | ------ | ----- |
 | `pages[]` | required: `{ name?, duration, sequences, stops?, notes?, advance?, initial?, keyframes?, filters?, … }` |
 | `page.duration` | seconds; **a page should last its last stop plus the transition** (after the last stop the next press plays the rest of the page and the slide) |
-| `page.stops` | page-local times: the first is the page settled, the others are steps (a bullet, a growing chart: **a step is a layer that starts at the previous stop and ends at this one**). Default: where the transition begins (the end for the last page) |
+| `page.stops` | page-local times, or `{ at, pdf? }`: the first is the page settled, the others are steps (a bullet, a growing chart: **a step is a layer that starts at the previous stop and ends at this one**). Default: where the transition begins (the end for the last page) |
 | `page.notes`, `page.advance` | notes stay on the page's first stop; `advance` (seconds) on its last |
 | `transition` | `{ kind, duration, … }`: any [transition](#transitions) without `from` / `to` / `at`; the next page starts `duration` seconds early and the transition plays across the overlap. It must be shorter than every page |
 | movie options | `width`, `height`, `frameRate`, `background`, `canvas`, `assets`, `poster`, `motionBlur`, `loader` pass through |

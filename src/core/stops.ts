@@ -10,6 +10,11 @@ export interface StopSpec {
   notes?: string;
   /** Move on by itself after this many seconds (a kiosk, a looping demo). */
   advance?: number;
+  /**
+   * Which picture stands for a page in a PDF (and in the page overview). `true`: this stop's picture IS the page's picture (use it when the
+   * last stop is mid-exit or a step you do not want on paper). `false`: never use this stop's picture for the PDF. Default: the page's last stop.
+   */
+  pdf?: boolean;
 }
 
 /** A stop, normalised: its frame, and which page it belongs to. */
@@ -25,9 +30,10 @@ export interface Stop {
   pageStart: boolean;
   notes?: string;
   advance?: number;
+  pdf?: boolean;
 }
 
-const KEYS = ['at', 'page', 'notes', 'advance'] as const;
+const KEYS = ['at', 'page', 'notes', 'advance', 'pdf'] as const;
 
 /**
  * The stops of a composition, checked and in order. Numbers are stops; with no `page` anywhere every stop is a page of its
@@ -41,7 +47,7 @@ export function normalizeStops(raw: ReadonlyArray<number | StopSpec> | undefined
   raw.forEach((r, i) => {
     const spec: StopSpec | null = typeof r === 'number' ? { at: r } : (r && typeof r === 'object' ? r : null);
     if (!spec || typeof spec.at !== 'number' || !Number.isFinite(spec.at)) {
-      console.warn(`pixi-effects: stops[${i}] ${JSON.stringify(r)} is not a time in seconds (or { at, page?, notes?, advance? }); ignored`);
+      console.warn(`pixi-effects: stops[${i}] ${JSON.stringify(r)} is not a time in seconds (or { at, page?, notes?, advance?, pdf? }); ignored`);
       return;
     }
     if (typeof r === 'object') warnUnknownOptions(`stops[${i}]`, r, KEYS);
@@ -76,6 +82,10 @@ export function normalizeStops(raw: ReadonlyArray<number | StopSpec> | undefined
       if (typeof s.advance === 'number' && Number.isFinite(s.advance) && s.advance >= 0) stop.advance = s.advance;
       else console.warn(`pixi-effects: stops[${index}] advance must be a number of seconds >= 0, got ${JSON.stringify(s.advance)}; ignored`);
     }
+    if (s.pdf !== undefined) {
+      if (typeof s.pdf === 'boolean') stop.pdf = s.pdf;
+      else console.warn(`pixi-effects: stops[${index}] pdf must be true or false, got ${JSON.stringify(s.pdf)}; ignored`);
+    }
     return stop;
   });
 }
@@ -100,4 +110,25 @@ export function stopAtOrBefore(stops: readonly Stop[], frame: number): Stop | nu
 /** The stop that begins each page. */
 export function pageStarts(stops: readonly Stop[]): Stop[] {
   return stops.filter(s => s.pageStart);
+}
+
+/**
+ * The stops whose pictures stand for the pages (`which: 'pages'`, default) or for every stop. A page's picture is, in order: the stop flagged
+ * `pdf: true` (the last such one, or the first with `pick: 'first'`), else the last (or first) stop not flagged `pdf: false`, else, for a page
+ * list, its last (or first) stop, and for a PDF (`pdf: true` here) nothing: the page is left out. With `which: 'stops'` a PDF leaves out the
+ * stops flagged `pdf: false`.
+ */
+export function pictureStops(stops: readonly Stop[], opts: { which?: 'pages' | 'stops'; pick?: 'last' | 'first'; pdf?: boolean } = {}): Stop[] {
+  if (opts.which === 'stops') return opts.pdf ? stops.filter(s => s.pdf !== false) : [...stops];
+  const byPage = new Map<number, Stop[]>();
+  for (const s of stops) byPage.set(s.pageIndex, [...(byPage.get(s.pageIndex) ?? []), s]);
+  const take = (list: Stop[]): Stop | undefined => (opts.pick === 'first' ? list[0] : list[list.length - 1]);
+  const picks: Stop[] = [];
+  for (const list of byPage.values()) {
+    const flagged = list.filter(s => s.pdf === true);
+    const usable = list.filter(s => s.pdf !== false);
+    const one = take(flagged.length ? flagged : usable.length ? usable : (opts.pdf ? [] : list));
+    if (one) picks.push(one);
+  }
+  return picks;
 }

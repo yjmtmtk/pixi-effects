@@ -29,7 +29,7 @@ composition: {
 
 A stop with `page` begins a page; the others are **steps** of it (a bullet appears, a chart grows). With no `page` anywhere, every stop is a page. A negative time counts back from the end.
 
-**A step is just a layer that starts at the previous stop and ends at this one.** Press next, the movie plays that animation and pauses on its last frame. A plain player (a `Controller`, a `<video>`-style page) ignores the stops and plays straight through, with a mark on the seek bar at every stop.
+**A step is just a layer that starts at the previous stop and ends at this one.** Press next, the movie plays that animation and pauses on its last frame. The `Controller` (the player bar) does the same: its play button, Space and a click on the picture play to the next stop and pause there, and every stop is a mark on the seek bar (a page start is a taller mark with a dot). To play straight through instead, `new Controller(movie, { pauseAtStops: false })`; a bare `movie.play()` always plays through.
 
 ## The Presenter
 
@@ -105,6 +105,10 @@ npx pixi-effects-render my-talk.html -o my-talk.pdf
 ```
 
 One PDF page per page of the deck, each the page fully built, as a picture at the canvas size (`--all-stops` makes a page of every stop). From code, `await movie.exportPDF({ title })` returns the Blob, and `movie.stopImages()` gives you the pictures themselves (for a handout, a thumbnail strip, a page list of your own). Give the movie a `background`: a transparent one comes out black in a JPEG.
+
+**Choosing the picture of a page.** Normally a page is pictured by its last stop. If that moment is wrong on paper (the page is already leaving, or the last step is a transition), say so in the stops: `{ at: 4, pdf: true }` makes this stop the page's picture, `{ at: 5, pdf: false }` keeps a stop out of the PDF. In `deck()` write the page's stops as `stops: [1.2, { at: 3, pdf: true }, { at: 4.2, pdf: false }]`. The page overview shows the same pictures.
+
+The player bar's download panel has the same choice: for a deck its format list also offers **PDF (pages)** and **PDF (every step)**.
 
 ## Reviewing a deck
 

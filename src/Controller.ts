@@ -50,7 +50,9 @@ export const CONTROLLER_CSS = `
 }
 .mc-progress:hover::before, .mc-progress.mc-scrubbing::before { height: calc(var(--mc-track-height, 3px) + 2px); }
 .mc-stops { position: absolute; left: 12px; right: 12px; top: 0; bottom: 0; pointer-events: none; }
-.mc-stop-tick { position: absolute; top: 50%; width: 2px; height: calc(var(--mc-track-height, 3px) + 6px); transform: translate(-50%, -50%); background: var(--mc-fg, #fff); opacity: 0.6; border-radius: 1px; }
+.mc-stop-tick { position: absolute; top: 50%; width: 2px; height: calc(var(--mc-track-height, 3px) + 10px); transform: translate(-50%, -50%); background: var(--mc-fg, #fff); opacity: 0.9; border-radius: 1px; box-shadow: 0 0 0 1px rgba(0,0,0,0.55); }
+.mc-stop-page { width: 4px; height: calc(var(--mc-track-height, 3px) + 20px); opacity: 1; }
+.mc-stop-page::before { content: ''; position: absolute; left: 50%; top: -3px; width: 8px; height: 8px; transform: translateX(-50%); border-radius: 50%; background: var(--mc-fg, #fff); box-shadow: 0 0 0 1px rgba(0,0,0,0.55); }
 .mc-progress-fill {
   position: absolute; left: 12px; top: 50%;
   height: var(--mc-track-height, 3px);
@@ -280,8 +282,12 @@ export function pxToFraction(clientX: number, rect: { left: number; width: numbe
   return Math.min(Math.max(ratio, 0), 1);
 }
 
+/** The JPEG quality of a PDF page for each quality choice of the panel. */
+const PDF_QUALITY = { 'low': 0.6, 'medium': 0.75, 'high': 0.88, 'very-high': 0.95 } as const;
+
 export function extensionForMimeType(mime: string): string {
   const t = (mime || '').toLowerCase();
+  if (t.includes('pdf')) return 'pdf';
   if (t.includes('webm')) return 'webm';
   if (t.includes('quicktime') || t.includes('mov')) return 'mov';
   if (t.includes('matroska') || t.includes('mkv')) return 'mkv';
@@ -321,6 +327,8 @@ export interface ControllerOptions {
   clickToPlay?: boolean;
   /** A movie with `stops` gets a Present button that starts a {@link Presenter} (keys, click and swipe move through the stops). Default true; `false` keeps only the marks on the seek bar. */
   present?: boolean;
+  /** A movie with `stops`: the play button (and a click on the picture, and Space) plays to the next stop and pauses there, like a slide. Default true; `false` plays straight through to the end. */
+  pauseAtStops?: boolean;
   className?: string;
 }
 
@@ -330,6 +338,7 @@ interface ResolvedOptions {
   enableKeyboardShortcuts: boolean;
   clickToPlay: boolean;
   present: boolean;
+  pauseAtStops: boolean;
   className: string;
 }
 
@@ -358,7 +367,7 @@ export class Controller {
   private settingsFormatSelect: HTMLSelectElement | null = null;
   private settingsQualitySelect: HTMLSelectElement | null = null;
   private exportConfirmBtn: HTMLButtonElement | null = null;
-  private exportFormat: 'mp4' | 'webm' | 'mov' = 'mp4';
+  private exportFormat: 'mp4' | 'webm' | 'mov' | 'pdf' | 'pdf-steps' = 'mp4';
   private exportQuality: 'low' | 'medium' | 'high' | 'very-high' = 'high';
   private settingsOpen = false;
   private hideTimer: ReturnType<typeof setTimeout> | null = null;
@@ -368,6 +377,7 @@ export class Controller {
   private wasPlayingBeforeScrub = false;
   private activePointerId: number | null = null;
   private isExporting = false;
+  private exportPages: { done: number; total: number } | null = null;
   private exportOverlay: HTMLDivElement | null = null;
   private exportFillEl: HTMLDivElement | null = null;
   private exportTextEl: HTMLDivElement | null = null;
@@ -409,6 +419,7 @@ export class Controller {
       enableKeyboardShortcuts: options.enableKeyboardShortcuts ?? true,
       clickToPlay: options.clickToPlay ?? true,
       present: options.present ?? true,
+      pauseAtStops: options.pauseAtStops ?? true,
       className: options.className ?? 'movie-controller',
     };
 
@@ -625,6 +636,7 @@ export class Controller {
   private refreshStops(): void {
     this.progressEl.querySelector('.mc-stops')?.remove();
     const stops = this.movie.stops ?? [];
+    this.refreshPdfChoices(stops.length > 0);
     if (stops.length === 0) {
       this.presentBtn?.remove(); this.presentBtn = null;
       return;
@@ -634,7 +646,7 @@ export class Controller {
     holder.className = 'mc-stops';
     for (const s of stops) {
       const tick = document.createElement('div');
-      tick.className = 'mc-stop-tick';
+      tick.className = s.pageStart ? 'mc-stop-tick mc-stop-page' : 'mc-stop-tick';
       tick.style.left = `${(s.frame / total) * 100}%`;
       if (s.page) tick.title = s.page;
       holder.appendChild(tick);
@@ -650,6 +662,37 @@ export class Controller {
       this.fullscreenBtn.parentElement?.insertBefore(btn, this.fullscreenBtn);
       this.presentBtn = btn;
     }
+  }
+
+  /** A deck can be downloaded as a PDF: the format list gets "PDF" choices while the movie has stops. */
+  private refreshPdfChoices(has: boolean): void {
+    const select = this.settingsFormatSelect;
+    if (!select) return;
+    const present = !!select.querySelector('option[value="pdf"]');
+    if (has && !present) {
+      for (const [value, label] of [['pdf', 'PDF (pages)'], ['pdf-steps', 'PDF (every step)']] as const) {
+        const o = document.createElement('option');
+        o.value = value; o.textContent = label;
+        select.appendChild(o);
+      }
+    } else if (!has && present) {
+      select.querySelectorAll('option[value="pdf"], option[value="pdf-steps"]').forEach((o) => o.remove());
+      if (this.exportFormat === 'pdf' || this.exportFormat === 'pdf-steps') { this.exportFormat = 'mp4'; select.value = 'mp4'; }
+    }
+  }
+
+  /** Play, or pause: a movie with stops plays to the next stop (and from the end, again from the start). */
+  private async togglePlay(): Promise<void> {
+    if (this.movie.isPlaying) { this.movie.pause(); return; }
+    await this.startPlaying();
+  }
+
+  /** Start playing: to the next stop for a movie with stops, to the end for any other (or with `pauseAtStops: false`). */
+  private async startPlaying(): Promise<void> {
+    if (this.options.pauseAtStops && (this.movie.stops?.length ?? 0) > 0) {
+      if (this.movie.currentFrame >= this.movie.totalFrames) await this.movie.gotoFrame(0, true);
+      await this.movie.next();
+    } else this.movie.play();
   }
 
   /** Hand the page over to a Presenter (fullscreen, keys, click and swipe move through the stops); Escape gives it back. */
@@ -669,16 +712,8 @@ export class Controller {
   }
 
   private bindPlayButton(): void {
-    this.playBtn.addEventListener('click', () => {
-      if (this.movie.isPlaying) {
-        this.movie.pause();
-        // movie.pause() emits 'pause' which the onPause handler turns into
-        // refreshPlayIcon + kickIdleTimer, so no extra work here.
-      } else {
-        this.movie.play();
-        // movie.play() emits 'play' (the onPlay handler refreshes the icon), same as 'pause' above.
-      }
-    });
+    // pause / play emit 'pause' / 'play' events, which the handlers turn into refreshPlayIcon + kickIdleTimer
+    this.playBtn.addEventListener('click', () => { void this.togglePlay(); });
   }
 
   /** Clicking the picture plays / pauses (a tap on a phone too). */
@@ -691,7 +726,7 @@ export class Controller {
       if (this.presenter) return;                                             // a presentation: the Presenter owns clicks
       // the tap that closed the export popover (see bindExportPopover) is not also a play / pause
       if (this.swallowCanvasClick) { this.swallowCanvasClick = false; return; }
-      if (this.movie.isPlaying) this.movie.pause(); else this.movie.play();
+      void this.togglePlay();
     };
     canvas.addEventListener('pointerdown', this.canvasPointerDownHandler);
     canvas.addEventListener('click', this.canvasClickHandler);
@@ -853,7 +888,7 @@ export class Controller {
       this.progressEl.classList.remove('mc-scrubbing');
       try { if (pointerId !== undefined) this.progressEl.releasePointerCapture(pointerId); } catch { /* unsupported */ }
       if (this.wasPlayingBeforeScrub) {
-        this.movie.play();
+        void this.startPlaying();
         this.refreshPlayIcon();
       }
     };
@@ -902,7 +937,7 @@ export class Controller {
     if (this.settingsFormatSelect) {
       this.settingsFormatSelect.addEventListener('change', (e) => {
         const v = (e.target as HTMLSelectElement).value;
-        if (v === 'mp4' || v === 'webm' || v === 'mov') this.exportFormat = v;
+        if (v === 'mp4' || v === 'webm' || v === 'mov' || v === 'pdf' || v === 'pdf-steps') this.exportFormat = v;
       });
     }
     if (this.settingsQualitySelect) {
@@ -955,13 +990,25 @@ export class Controller {
       this.movie.pause();
       this.refreshPlayIcon();
     }
-    this.showExportOverlay();
+    const pdf = this.exportFormat === 'pdf' || this.exportFormat === 'pdf-steps';
+    if (pdf) {
+      const stops = this.movie.stops ?? [];
+      const total = this.exportFormat === 'pdf-steps' ? stops.filter((s) => s.pdf !== false).length : new Set(stops.map((s) => s.pageIndex)).size;
+      this.showExportOverlay('Exporting PDF...', `0% (0 / ${total} pages)`);
+      this.exportPages = { done: 0, total };
+    } else this.showExportOverlay();
     try {
-      const blob = await this.movie.render({
-        format: this.exportFormat,
-        video: { bitrate: this.exportQuality },
-        audio: { bitrate: this.exportQuality },
-      });
+      const blob = pdf
+        ? await this.movie.exportPDF({
+          which: this.exportFormat === 'pdf-steps' ? 'stops' : 'pages',
+          quality: PDF_QUALITY[this.exportQuality],
+          onImage: () => this.pdfPageDone(),
+        })
+        : await this.movie.render({
+          format: this.exportFormat as 'mp4' | 'webm' | 'mov',
+          video: { bitrate: this.exportQuality },
+          audio: { bitrate: this.exportQuality },
+        });
       if (this.exportFillEl) this.exportFillEl.style.width = '100%';
       if (this.exportTextEl) this.exportTextEl.textContent = 'Preparing download...';
       this.triggerDownload(blob);
@@ -973,7 +1020,7 @@ export class Controller {
       this.hideExportOverlay();
       this.isExporting = false;
       if (wasPlaying) {
-        this.movie.play();
+        void this.startPlaying();
         this.refreshPlayIcon();
       }
     }
@@ -999,16 +1046,28 @@ export class Controller {
     return `movie-${ts}.${ext}`;
   }
 
-  private showExportOverlay(): void {
+  /** One more PDF page is ready: move the bar. */
+  private pdfPageDone(): void {
+    const p = this.exportPages;
+    if (!p || !this.exportFillEl || !this.exportTextEl) return;
+    p.done++;
+    const percent = p.total ? Math.min(100, Math.round((p.done / p.total) * 100)) : 100;
+    this.exportFillEl.style.width = `${percent}%`;
+    this.exportTextEl.textContent = `${percent}% (${p.done} / ${p.total} pages)`;
+  }
+
+  private showExportOverlay(title = 'Exporting video...', text = '0% (0 / 0 frames)'): void {
     const overlay = document.createElement('div');
     overlay.className = 'mc-export-overlay';
     overlay.innerHTML = `
       <div class="mc-export-panel">
-        <div class="mc-export-title">Exporting video...</div>
+        <div class="mc-export-title"></div>
         <div class="mc-export-track"><div class="mc-export-fill"></div></div>
-        <div class="mc-export-text">0% (0 / 0 frames)</div>
+        <div class="mc-export-text"></div>
       </div>
     `;
+    overlay.querySelector('.mc-export-title')!.textContent = title;
+    overlay.querySelector('.mc-export-text')!.textContent = text;
     this.root.appendChild(overlay);
     this.exportOverlay = overlay;
     this.exportFillEl = overlay.querySelector('.mc-export-fill') as HTMLDivElement;
@@ -1022,6 +1081,7 @@ export class Controller {
       this.exportFillEl = null;
       this.exportTextEl = null;
     }
+    this.exportPages = null;
   }
 
   private bindVisibility(): void {

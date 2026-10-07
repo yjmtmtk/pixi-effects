@@ -41,6 +41,19 @@ describe('deck(): pages laid out one after the other', () => {
     expect(r.composition.stops).toEqual([{ at: 1, page: 'A', notes: 'say hi' }, { at: 2.5, advance: 3 }]);
   });
 
+  it('a stop can be written as { at, pdf }: which moment stands for the page in a PDF (true) or is left out of it (false)', () => {
+    const r = deck({ pages: [{ name: 'A', duration: 4, stops: [1, { at: 2, pdf: true }, { at: 3, pdf: false }], sequences: [] }] });
+    expect(r.composition.stops).toEqual([{ at: 1, page: 'A' }, { at: 2, pdf: true }, { at: 3, pdf: false }]);
+  });
+
+  it('a page stop object with a misspelt key says so, and a bad time is still an error', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    deck({ pages: [{ name: 'A', duration: 4, stops: [{ at: 1, pdff: true } as never], sequences: [] }] });
+    expect(warn.mock.calls.join('\n')).toMatch(/pdff.*pdf/s);
+    expect(() => deck({ pages: [{ name: 'A', duration: 4, stops: [{ at: 9 }], sequences: [] }] })).toThrow(/outside the page/);
+    warn.mockRestore();
+  });
+
   it('a page without a name is still a page', () => {
     const r = deck({ pages: [{ duration: 2, sequences: [] }, { duration: 2, sequences: [] }] });
     expect(r.composition.stops).toEqual([{ at: 2, page: true }, { at: 4, page: true }]);

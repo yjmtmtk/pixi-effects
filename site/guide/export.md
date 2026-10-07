@@ -66,7 +66,7 @@ Exit code 0 means the file was written; 1 means the page or the render failed (n
 
 ## Pictures
 
-A deck (a movie with `stops`) can also be exported as a **PDF**, one page per page of the talk: `npx pixi-effects-render my-talk.html -o my-talk.pdf` or `await movie.exportPDF()`. See [Presenting](presenting.html#a-deck-as-a-pdf).
+A deck (a movie with `stops`) can also be exported as a **PDF** (the player bar's download panel offers it too: PDF (pages) or PDF (every step)), one page per page of the talk: `npx pixi-effects-render my-talk.html -o my-talk.pdf` or `await movie.exportPDF()`. See [Presenting](presenting.html#a-deck-as-a-pdf).
 
 `movie.init({ poster: 9.5 })` names the moment that stands for your video (seconds; a negative value counts back from the end). The canvas shows it before play, and `await movie.posterImage({ as: 'dataURL', type: 'image/jpeg', scale: 0.5 })` returns it as a picture: a thumbnail, a card, a share image, with no separate file to keep in step with the video.
 

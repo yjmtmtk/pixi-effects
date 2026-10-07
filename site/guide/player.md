@@ -12,7 +12,7 @@ import { Controller } from 'pixi-effects/controller';
 const controller = new Controller(movie, { canvas });
 ```
 
-It adds play and pause, a seek bar, mute and volume, fullscreen and an export button over the canvas, and the keyboard shortcuts you expect (Space, arrows, F for fullscreen, M for mute). **Clicking or tapping the picture plays and pauses**, like a `<video>`. Options: `showExportButton` (default `true`), `enableKeyboardShortcuts` (default `true`), `clickToPlay` (default `true`; `false` leaves the canvas alone, for a page that has its own click handler).
+It adds play and pause, a seek bar, mute and volume, fullscreen and an export button over the canvas, and the keyboard shortcuts you expect (Space, arrows, F for fullscreen, M for mute). **Clicking or tapping the picture plays and pauses**, like a `<video>`. Options: `showExportButton` (default `true`), `enableKeyboardShortcuts` (default `true`), `pauseAtStops` (default `true`; with `stops`, play pauses at each stop), `clickToPlay` (default `true`; `false` leaves the canvas alone, for a page that has its own click handler).
 
 Before play the canvas shows the movie's **poster frame** if you gave one with `poster` in `movie.init` (see [Exporting video](export.html#pictures)); the bar shows 0:00 and play starts from the beginning.
 
@@ -70,7 +70,7 @@ Restyle it with variables on the element or any ancestor: `--pe-loader-color`, `
 
 ## For a talk: stops and the Presenter
 
-A movie with `stops` in its composition shows a mark on the seek bar for each one, and a **Present** button that hands the page to a `Presenter` (the arrow keys, Space, a click or a swipe move through the stops; Esc gives the bar back). See [Presenting](presenting.html).
+A movie with `stops` in its composition shows a mark on the seek bar for each one (a page start is taller, with a dot), and **play moves from stop to stop**: the play button, Space and a click on the picture play to the next stop and pause there (`pauseAtStops: false` plays straight through). It also gets a **Present** button that hands the page to a `Presenter` (the arrow keys, Space, a click or a swipe move through the stops; Esc gives the bar back). See [Presenting](presenting.html).
 
 ## Build your own
 

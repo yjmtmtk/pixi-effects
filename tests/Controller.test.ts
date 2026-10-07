@@ -1510,8 +1510,165 @@ describe('Controller — a movie with stops (a presentation)', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
     await vi.waitFor(() => expect(wrap.querySelector('.movie-presenter')).toBeNull());
     canvas.click();
-    expect(movie.isPlaying).toBe(true);                                             // the bar is the player again: click = play
+    expect(calls).toEqual(['next', 'next', 'next', 'next']);                        // the bar is the player again: click = play to the next stop
     ctrl.destroy();
+  });
+
+  describe('play stops at the stops', () => {
+    const playingFake = () => {
+      const calls: string[] = [];
+      const movie = withStops();
+      Object.assign(movie, {
+        async next() { calls.push('next'); (movie as { isPlaying: boolean }).isPlaying = true; (movie as unknown as { emit(e: string): void }).emit('play'); },
+        async gotoFrame(f: number) { calls.push(`goto ${f}`); (movie as { currentFrame: number }).currentFrame = f; },
+      });
+      const origPlay = movie.play.bind(movie);
+      movie.play = () => { calls.push('play'); origPlay(); };
+      return { movie, calls };
+    };
+
+    it('the play button plays to the next stop (movie.next), not to the end', () => {
+      const canvas = makeCanvas();
+      const { movie, calls } = playingFake();
+      const ctrl = new Controller(movie, { canvas });
+      (canvas.parentElement!.querySelector('.mc-play') as HTMLButtonElement).click();
+      expect(calls).toEqual(['next']);
+      ctrl.destroy();
+    });
+
+    it('while it is playing toward a stop the same button pauses', () => {
+      const canvas = makeCanvas();
+      const { movie, calls } = playingFake();
+      const ctrl = new Controller(movie, { canvas });
+      const btn = canvas.parentElement!.querySelector('.mc-play') as HTMLButtonElement;
+      btn.click();
+      btn.click();
+      expect(calls).toEqual(['next']);
+      expect(movie.isPlaying).toBe(false);
+      ctrl.destroy();
+    });
+
+    it('a click on the picture and the Space key do the same', () => {
+      const canvas = makeCanvas();
+      const { movie, calls } = playingFake();
+      const ctrl = new Controller(movie, { canvas });
+      canvas.click();
+      movie.pause();
+      document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', bubbles: true, cancelable: true }));
+      expect(calls).toEqual(['next', 'next']);
+      ctrl.destroy();
+    });
+
+    it('after the end it starts again from the beginning, to the first stop', async () => {
+      const canvas = makeCanvas();
+      const { movie, calls } = playingFake();
+      (movie as { currentFrame: number }).currentFrame = 240;
+      const ctrl = new Controller(movie, { canvas });
+      (canvas.parentElement!.querySelector('.mc-play') as HTMLButtonElement).click();
+      await vi.waitFor(() => expect(calls).toEqual(['goto 0', 'next']));
+      ctrl.destroy();
+    });
+
+    it('pauseAtStops: false keeps the old behaviour: play runs to the end', () => {
+      const canvas = makeCanvas();
+      const { movie, calls } = playingFake();
+      const ctrl = new Controller(movie, { canvas, pauseAtStops: false });
+      (canvas.parentElement!.querySelector('.mc-play') as HTMLButtonElement).click();
+      expect(calls).toEqual(['play']);
+      ctrl.destroy();
+    });
+
+    it('a movie without stops plays as before', () => {
+      const canvas = makeCanvas();
+      const movie = makeFakeMovie();
+      const ctrl = new Controller(movie, { canvas });
+      (canvas.parentElement!.querySelector('.mc-play') as HTMLButtonElement).click();
+      expect(movie.isPlaying).toBe(true);
+      ctrl.destroy();
+    });
+  });
+
+  it('a page start is a taller, accent-coloured mark than a step, and every mark names its page', () => {
+    const canvas = makeCanvas();
+    const ctrl = new Controller(withStops(), { canvas });
+    const ticks = [...canvas.parentElement!.querySelectorAll('.mc-stop-tick')] as HTMLElement[];
+    expect(ticks.map(t => t.classList.contains('mc-stop-page'))).toEqual([true, false, true]);
+    expect(ticks.map(t => t.title)).toEqual(['A', 'A', 'B']);
+    ctrl.destroy();
+  });
+
+  describe('PDF in the download panel', () => {
+    const optionValues = (canvas: HTMLCanvasElement) =>
+      [...canvas.parentElement!.querySelectorAll('.mc-settings-format option')].map(o => (o as HTMLOptionElement).value);
+    const pdfBlob = () => new Blob(['%PDF'], { type: 'application/pdf' });
+    const openPopoverAndConfirm = (canvas: HTMLCanvasElement) => {
+      (canvas.parentElement!.querySelector('.mc-export') as HTMLButtonElement).click();
+      (canvas.parentElement!.querySelector('.mc-export-confirm') as HTMLButtonElement).click();
+    };
+
+    it('a deck can be downloaded as a PDF; an ordinary movie has no such choice', () => {
+      const c1 = makeCanvas();
+      const a = new Controller(withStops(), { canvas: c1 });
+      expect(optionValues(c1)).toEqual(['mp4', 'webm', 'mov', 'pdf', 'pdf-steps']);
+      a.destroy();
+      const c2 = makeCanvas();
+      const b = new Controller(makeFakeMovie(), { canvas: c2 });
+      expect(optionValues(c2)).toEqual(['mp4', 'webm', 'mov']);
+      b.destroy();
+    });
+
+    it('the choice appears when the movie becomes ready (stops arrive with init)', () => {
+      const canvas = makeCanvas();
+      const movie = makeFakeMovie({ stops: [] } as never);
+      const ctrl = new Controller(movie, { canvas });
+      (movie as unknown as { stops: unknown[] }).stops = STOPS;
+      (movie as unknown as { emit(e: string): void }).emit('ready');
+      expect(optionValues(canvas)).toContain('pdf');
+      ctrl.destroy();
+    });
+
+    it('PDF (pages) calls movie.exportPDF for the pages, with the quality as JPEG quality, and downloads a .pdf', async () => {
+      const canvas = makeCanvas();
+      const movie = withStops();
+      let args: Record<string, unknown> | null = null;
+      let renders = 0;
+      (movie as unknown as { exportPDF: unknown }).exportPDF = async (o: Record<string, unknown>) => { args = o; return pdfBlob(); };
+      movie.render = async () => { renders++; return new Blob(); };
+      const ctrl = new Controller(movie, { canvas });
+      const fmt = canvas.parentElement!.querySelector('.mc-settings-format') as HTMLSelectElement;
+      fmt.value = 'pdf';
+      fmt.dispatchEvent(new Event('change', { bubbles: true }));
+      let clicked: HTMLAnchorElement | null = null;
+      const origCreate = document.createElement.bind(document);
+      document.createElement = ((tag: string) => {
+        const el = origCreate(tag);
+        if (tag === 'a') el.click = () => { clicked = el as HTMLAnchorElement; };
+        return el;
+      }) as typeof document.createElement;
+      openPopoverAndConfirm(canvas);
+      await new Promise((r) => setTimeout(r, 600));
+      document.createElement = origCreate;
+      expect(renders).toBe(0);
+      expect(args).toMatchObject({ which: 'pages', quality: 0.88 });
+      expect(clicked!.download).toMatch(/^movie-\d{8}-\d{6}\.pdf$/);
+      ctrl.destroy();
+    });
+
+    it('PDF (every step) asks for a page per stop, and the overlay says it is a PDF', async () => {
+      const canvas = makeCanvas();
+      const movie = withStops();
+      let args: Record<string, unknown> | null = null;
+      (movie as unknown as { exportPDF: unknown }).exportPDF = async (o: Record<string, unknown>) => { args = o; return pdfBlob(); };
+      const ctrl = new Controller(movie, { canvas });
+      const fmt = canvas.parentElement!.querySelector('.mc-settings-format') as HTMLSelectElement;
+      fmt.value = 'pdf-steps';
+      fmt.dispatchEvent(new Event('change', { bubbles: true }));
+      openPopoverAndConfirm(canvas);
+      expect(document.querySelector('.mc-export-title')!.textContent).toBe('Exporting PDF...');
+      await new Promise((r) => setTimeout(r, 600));
+      expect(args).toMatchObject({ which: 'stops' });
+      ctrl.destroy();
+    });
   });
 
   it('destroying the controller while presenting takes the presenter down too', async () => {

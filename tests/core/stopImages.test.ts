@@ -115,6 +115,25 @@ describe('movie.exportPDF()', () => {
     expect(s).toMatch(/\/Count 6/);
   });
 
+  it('a stop flagged pdf: true is the page\'s picture, and pdf: false stops stay out of "every step"', async () => {
+    const raw = [{ at: 2, page: 'A' }, { at: 3, pdf: true }, { at: 4 }, { at: 5, page: 'B' }, { at: 6, pdf: false }, { at: 8, page: 'C', pdf: false }];     // frames 60 90 120 150 180 240
+    const mk = () => {
+      const r = movieWith(raw);
+      Object.assign(r.a, { width: 1280, height: 720 });
+      r.a._captureFrame = async (frame: number, o: any) => { r.asked.push([frame, o]); return new Blob([JPEG], { type: 'image/jpeg' }); };
+      return r;
+    };
+    const one = mk();
+    await one.m.exportPDF();
+    expect(one.asked.map(x => x[0])).toEqual([90, 150]);                      // A: the flagged one; B: its last stop that is not false; C: nothing to show, left out
+    const every = mk();
+    await every.m.exportPDF({ which: 'stops' });
+    expect(every.asked.map(x => x[0])).toEqual([60, 90, 120, 150]);
+    const thumbs = mk();
+    await thumbs.m.stopImages({ as: 'dataURL' });
+    expect(thumbs.asked.map(x => x[0])).toEqual([90, 150, 240]);              // a page list still shows every page
+  });
+
   it('a movie with no stops has nothing to put in a PDF, and says how to fix that', async () => {
     const { m } = movieWith([]);
     await expect(m.exportPDF()).rejects.toThrow(/no stops.*composition/s);

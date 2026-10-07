@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+**Changed**
+
+- **The `Controller` plays a deck stop by stop.** For a movie with `stops`, the play button, Space and a click on the picture now play to the next stop and pause there (a second press while playing pauses; after the end, play starts again from the first page). `new Controller(movie, { pauseAtStops: false })` plays straight through as before; `movie.play()` itself still ignores stops. Scrubbing and the export resume use the same rule.
+- **The stop marks are easier to see**: a taller white mark with a dark outline on the seek bar, and a page start is taller still, with a dot on top.
+
+**Added**
+
+- **`pdf` on a stop** chooses which moment stands for a page in a PDF and in the page overview: `{ at: 4, pdf: true }` is the page's picture, `{ at: 5, pdf: false }` keeps the stop out (default: the page's last stop). With `which: 'stops'` a PDF leaves out the stops flagged `false`; a page whose stops are all `false` is left out of the PDF. `deck()` takes `stops: [1.2, { at: 3, pdf: true }]`, and `pictureStops()` is the helper behind it. `movie.stopImages({ pdf: true })` applies the same rule for your own PDFs.
+- **PDF in the player bar's download panel.** For a movie with stops the format list also offers PDF (pages) and PDF (every step); the quality choice becomes the JPEG quality, and the progress bar counts pages.
+
 ## 0.12.0
 
 **Added**

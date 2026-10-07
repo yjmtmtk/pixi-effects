@@ -154,4 +154,37 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('Presenter,
       expect(r.size).toBeGreaterThan(3000);
     });
   }, 90_000);
+  it('with the Controller alone: the play button plays to each stop and stops there, and the marks are easy to see', async () => {
+    await withPage('?controller=1', async (cdp) => {
+      await cdp.eval(`document.querySelector('.mc-play').click()`);
+      expect(await waitFor(cdp, 'movie.currentFrame === 30 && !movie.isPlaying')).toBe(true);          // the first stop (1 s), not the end
+      expect(await cdp.eval('movie.stopIndex')).toBe(0);
+      await cdp.eval(`document.querySelector('.mc-play').click()`);
+      expect(await waitFor(cdp, 'movie.currentFrame === 60 && !movie.isPlaying')).toBe(true);          // the step (2 s)
+      await cdp.eval(`document.querySelector('.mc-play').click()`);
+      await check.sleep(200);
+      await cdp.eval(`document.querySelector('.mc-play').click()`);                                       // while playing toward 3.5 s: pause
+      expect(await cdp.eval('movie.isPlaying')).toBe(false);
+      const marks = await cdp.eval(`[...document.querySelectorAll('.mc-stop-tick')].map(t => { const r = t.getBoundingClientRect(); return { page: t.classList.contains('mc-stop-page'), w: Math.round(r.width), h: Math.round(r.height) }; })`);
+      expect(marks).toHaveLength(4);
+      const page = marks.find((m: any) => m.page), step = marks.find((m: any) => !m.page);
+      expect(page.h).toBeGreaterThan(step.h);
+      expect(page.w).toBeGreaterThan(step.w);
+      expect(step.h).toBeGreaterThanOrEqual(12);
+    });
+  }, 60_000);
+
+  it('with the Controller: the download panel offers PDF, and downloads a real PDF with the deck\'s pages', async () => {
+    await withPage('?controller=1', async (cdp) => {
+      await cdp.eval(`window.__dl = null; const make = URL.createObjectURL.bind(URL); URL.createObjectURL = b => { window.__dl = { type: b.type, size: b.size, name: null }; window.__blob = b; return make(b); };
+        HTMLAnchorElement.prototype.click = function () { if (window.__dl) window.__dl.name = this.download; };`);
+      const options = await cdp.eval(`[...document.querySelectorAll('.mc-settings-format option')].map(o => o.value)`);
+      expect(options).toEqual(['mp4', 'webm', 'mov', 'pdf', 'pdf-steps']);
+      await cdp.eval(`document.querySelector('.mc-export').click(); const f = document.querySelector('.mc-settings-format'); f.value = 'pdf'; f.dispatchEvent(new Event('change', { bubbles: true })); document.querySelector('.mc-export-confirm').click();`);
+      expect(await waitFor(cdp, `window.__dl && window.__dl.name`, 120)).toBe(true);
+      const r = await cdp.eval(`(async () => { const s = new TextDecoder('latin1').decode(new Uint8Array(await window.__blob.arrayBuffer())); return { ...window.__dl, head: s.slice(0, 8), pages: (s.match(/\\/Type \\/Page\\b(?!s)/g) || []).length }; })()`);
+      expect(r).toMatchObject({ type: 'application/pdf', head: '%PDF-1.4', pages: 3 });
+      expect(r.name).toMatch(/\.pdf$/);
+    });
+  }, 90_000);
 });

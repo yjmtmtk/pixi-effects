@@ -13,7 +13,7 @@ export interface DeckPage {
   /** The page's layers, written in the page's own time (`at: 0` is the start of the page). */
   sequences: SequenceSpec[];
   /** Where the page stops, in the page's own time: the first is the page settled, the rest are steps (a bullet appears, a chart grows). Default: where the transition into the next page begins (the end for the last page). */
-  stops?: number[];
+  stops?: Array<number | { at: number; pdf?: boolean }>;
   /** Speaker notes (kept on the page's first stop). */
   notes?: string;
   /** Move on by itself this many seconds after the page's last stop (kiosk mode). */
@@ -84,7 +84,11 @@ export function deck(options: DeckOptions): DeckResult {
     const id = `page-${i + 1}`;
     const label = page.name ? `"${page.name}"` : `pages[${i}]`;
     const isLast = i === pages.length - 1;
-    const local = page.stops ?? [isLast ? page.duration : page.duration - overlap];
+    const entries = (page.stops ?? [isLast ? page.duration : page.duration - overlap]).map((e, k) => {
+      if (e && typeof e === 'object') warnUnknownOptions(`deck() page ${label} stops[${k}]`, e, ['at', 'pdf']);
+      return typeof e === 'object' && e !== null ? e : { at: e as number };
+    });
+    const local = entries.map(e => e.at);
     local.forEach((s, k) => {
       if (!(typeof s === 'number' && Number.isFinite(s) && s > 0 && s <= page.duration + 1e-9)) throw new Error(`deck(): page ${label} has stop ${String(s)}, outside the page (0 to ${page.duration} s)`);
       if (k > 0 && s <= local[k - 1]!) throw new Error(`deck(): page ${label} stops must be in order, earliest first (got ${local.join(', ')})`);
@@ -95,6 +99,7 @@ export function deck(options: DeckOptions): DeckResult {
       const stop: StopSpec = { at: round(start + s) };
       if (k === 0) { stop.page = page.name ?? true; if (page.notes !== undefined) stop.notes = page.notes; }
       if (k === local.length - 1 && page.advance !== undefined) stop.advance = page.advance;
+      if (entries[k]!.pdf !== undefined) stop.pdf = entries[k]!.pdf;
       stops.push(stop);
     });
     if (transition && !isLast) {

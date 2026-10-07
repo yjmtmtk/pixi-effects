@@ -1,5 +1,5 @@
 export { Movie } from './core/Movie';
-export { normalizeStops } from './core/stops';
+export { normalizeStops, pictureStops } from './core/stops';
 export type { Stop, StopSpec } from './core/stops';
 export { resolveLoader, dismissLoader, failLoader } from './core/loader';
 export type { LoaderOption } from './core/loader';

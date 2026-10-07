@@ -15,7 +15,7 @@ import { warnUnknownOptions } from './options';
 import { startWhenRunning } from './startWhenRunning';
 import { normalizePoster } from './poster';
 import { buildPdf } from './pdf';
-import { normalizeStops, nextStopAfter, previousStopBefore, stopAtOrBefore, pageStarts, type Stop } from './stops';
+import { normalizeStops, nextStopAfter, previousStopBefore, stopAtOrBefore, pageStarts, pictureStops, type Stop } from './stops';
 import { resolveLoader, dismissLoader, failLoader, type LoaderOption } from './loader';
 import { resolveMotionBlur, blurTimes, type MotionBlurSpec, type MotionBlurOptions, type ResolvedMotionBlur } from './motionBlur';
 import { ensureFilterLibrary } from '../filters/named';
@@ -96,6 +96,8 @@ export interface StopImagesOptions {
   as?: 'blob' | 'dataURL';
   /** Motion blur for the pictures (off unless you ask: they are usually for looking at). */
   motionBlur?: MotionBlurSpec;
+  /** Pictures for a PDF: stops flagged `pdf: false` are left out (a page whose stops are all flagged has no picture). `exportPDF` sets it. */
+  pdf?: boolean;
   /** Called as each picture is ready, in order. */
   onImage?: (image: StopImage) => void;
 }
@@ -441,16 +443,10 @@ export class Movie {
   async stopImages(opts: StopImagesOptions & { as: 'dataURL' }): Promise<Array<StopImage & { image: string }>>;
   async stopImages(opts?: StopImagesOptions): Promise<StopImage[]>;
   async stopImages(opts: StopImagesOptions = {}): Promise<StopImage[]> {
-    warnUnknownOptions('movie.stopImages()', opts, ['which', 'pick', 'scale', 'type', 'quality', 'as', 'motionBlur', 'onImage']);
+    warnUnknownOptions('movie.stopImages()', opts, ['which', 'pick', 'scale', 'type', 'quality', 'as', 'motionBlur', 'pdf', 'onImage']);
     this._requireReady('stopImages');
     if (this.stops.length === 0) return [];
-    let picks: Stop[];
-    if (opts.which === 'stops') picks = this.stops;
-    else {
-      const byPage = new Map<number, Stop[]>();
-      for (const s of this.stops) byPage.set(s.pageIndex, [...(byPage.get(s.pageIndex) ?? []), s]);
-      picks = [...byPage.values()].map(list => (opts.pick === 'first' ? list[0]! : list[list.length - 1]!));
-    }
+    const picks = pictureStops(this.stops, { which: opts.which, pick: opts.pick, pdf: opts.pdf });
     this.pause();
     const back = this.currentFrame, wasAtPoster = this._atPoster;
     const out: StopImage[] = [];
@@ -471,7 +467,8 @@ export class Movie {
   }
 
   /**
-   * The deck as a PDF: one page per page of the talk (the page's last stop, fully built; `which: 'stops'` makes a page of every stop), each a
+   * The deck as a PDF: one page per page of the talk (the page's last stop, fully built, unless a stop says `pdf: true` or `pdf: false`;
+   * `which: 'stops'` makes a page of every stop that is not `pdf: false`), each a
    * JPEG at the canvas size. Needs `composition.stops`. A transparent background comes out black: give the movie a `background`.
    */
   async exportPDF(opts: { which?: 'pages' | 'stops'; pick?: 'last' | 'first'; scale?: number; quality?: number; title?: string; motionBlur?: MotionBlurSpec; onImage?: (image: StopImage) => void } = {}): Promise<Blob> {
@@ -480,7 +477,7 @@ export class Movie {
     if (this.stops.length === 0) throw new Error('pixi-effects: movie.exportPDF(): this movie has no stops, so there are no pages; add `stops` to the composition (or build it with deck())');
     const scale = opts.scale ?? 1;
     const images = await this.stopImages({
-      which: opts.which, pick: opts.pick, scale, type: 'image/jpeg', quality: opts.quality ?? 0.92, as: 'blob', motionBlur: opts.motionBlur, onImage: opts.onImage,
+      which: opts.which, pick: opts.pick, scale, type: 'image/jpeg', quality: opts.quality ?? 0.92, as: 'blob', motionBlur: opts.motionBlur, pdf: true, onImage: opts.onImage,
     });
     const pages = await Promise.all(images.map(async i => ({
       jpeg: new Uint8Array(await (i.image as Blob).arrayBuffer()), width: Math.max(1, Math.round(this.width * scale)), height: Math.max(1, Math.round(this.height * scale)),

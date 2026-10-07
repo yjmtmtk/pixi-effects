@@ -253,10 +253,10 @@ The names are the ones an HTML5 `<video>` uses, so a player written for `<video>
 
 ### Presentations: `stops`, `next()`, `prev()`, `Presenter`
 
-A composition can say where a presentation pauses: `composition: { stops: [...] }`. A stop is a time in seconds or `{ at, page?, notes?, advance? }`; a stop with `page` (a name, or `true`) begins a page, the others are steps of it; with no `page` anywhere each stop is a page; the first stop always begins one. A negative `at` counts back from the end; two stops on one frame are one; a stop outside the movie is ignored with a warning. Nothing changes for an ordinary player: playing a movie with stops just plays it.
+A composition can say where a presentation pauses: `composition: { stops: [...] }`. A stop is a time in seconds or `{ at, page?, notes?, advance?, pdf? }`; a stop with `page` (a name, or `true`) begins a page, the others are steps of it; with no `page` anywhere each stop is a page; the first stop always begins one. A negative `at` counts back from the end; two stops on one frame are one; a stop outside the movie is ignored with a warning. `movie.play()` ignores the stops and plays to the end; the `Controller`'s play button, Space and a click on the picture play to the next stop and pause there (see `pauseAtStops`). `pdf: true` marks the stop whose picture stands for its page in a PDF (and in the page overview); `pdf: false` keeps a stop's picture out of the PDF (a last stop that is mid-exit, a step you do not want on paper). Without flags a page is pictured by its last stop.
 
 ```ts
-movie.stops                    // Stop[]: { index, at, frame, page: string | null, pageIndex, pageStart, notes?, advance? }
+movie.stops                    // Stop[]: { index, at, frame, page: string | null, pageIndex, pageStart, notes?, advance?, pdf? }
 await movie.next();            // play to the next stop and pause exactly on its frame; pressed again while playing, skip to that stop at once;
                                // after the last stop play to the end. Resolves when it has landed (or stopped for another reason).
 await movie.prev();            // jump back to the previous stop at once (no reverse playback); from the first stop, to the start
@@ -297,7 +297,7 @@ const pages = await movie.stopImages({ as: 'dataURL', type: 'image/jpeg', scale:
 const pdf = await movie.exportPDF({ title: 'My talk' });                                    // a Blob: one PDF page per page of the deck (JPEG at the canvas size)
 ```
 
-Both pause the movie and leave the playhead where it was; a movie with no stops returns an empty list / throws (a PDF needs pages). `exportPDF` options: `which`, `pick`, `scale`, `quality` (JPEG, default 0.92), `title`, `motionBlur`, `onImage`. A transparent background comes out black in a JPEG: give the movie a `background`. From a script, `npx pixi-effects-render my-talk.html -o my-talk.pdf` (add `--all-stops` for a page per stop).
+Both pause the movie and leave the playhead where it was; a movie with no stops returns an empty list / throws (a PDF needs pages). The picture of a page is, in order: its last stop flagged `pdf: true`, else its last (with `pick: 'first'`, first) stop that is not `pdf: false`; a page whose stops are all `pdf: false` is left out of a PDF (a page list still shows it by its last stop); `which: 'stops'` makes a page of every stop that is not `pdf: false`. `exportPDF` options: `which`, `pick`, `scale`, `quality` (JPEG, default 0.92), `title`, `motionBlur`, `onImage`. A transparent background comes out black in a JPEG: give the movie a `background`. From a script, `npx pixi-effects-render my-talk.html -o my-talk.pdf` (add `--all-stops` for a page per stop).
 
 ### Audio-reactive: `audioEnvelope()`, `react()`, `bpmEnvelope()`
 
@@ -381,6 +381,7 @@ interface ControllerOptions {
   showExportButton?: boolean;         // default true; hides ⬇ + popover
   enableKeyboardShortcuts?: boolean;  // default true
   present?: boolean;                  // default true: a movie with stops gets a Present button (marks on the seek bar are always shown)
+  pauseAtStops?: boolean;             // default true: with stops, play / Space / click on the picture play to the next stop and pause; false plays straight through
   clickToPlay?: boolean;              // default true: a click / tap on the picture plays / pauses (like <video>); false leaves the canvas alone
   className?: string;                 // default 'movie-controller'
   theme?: ControllerTheme;            // colours / thickness / font of the bar, see Theme
