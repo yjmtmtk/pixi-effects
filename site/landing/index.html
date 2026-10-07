@@ -900,11 +900,25 @@ movie.play();
     var tries=0;
     (function wait(){
       var w=null;
-      try{ w=f.contentWindow; if(w && w.__ready===true && w.movie){ Promise.resolve(w.movie.gotoFrame(0,true)).then(function(){ if(w.movie.stops && w.movie.stops.length) w.movie.next(); else w.movie.play(); }); return; } }catch(e){ return; }
+      try{ w=f.contentWindow; if(w && w.__ready===true && w.movie){ fitFrame(f); Promise.resolve(w.movie.gotoFrame(0,true)).then(function(){ if(w.movie.stops && w.movie.stops.length) w.movie.next(); else w.movie.play(); }); return; } }catch(e){ return; }
       if(++tries<250 && f.isConnected) setTimeout(wait,100);
     })();
     return f;
   }
+  // A piece's page has its own margin around the picture, sizes the picture by its own rules and scrolls when the frame is a little small
+  // for it. Show only the picture: the page is laid out in a big, fixed viewport (so it is at its natural size), the scrollbars are hidden,
+  // and the page is scaled and moved so that its canvas sits exactly on the frame.
+  function fitFrame(f){
+    try{
+      var d=f.contentDocument, c=d.querySelector('#stage')||d.querySelector('canvas'), box=f.parentNode;
+      if(!c) return;
+      d.documentElement.style.overflow='hidden'; d.body.style.overflow='hidden';
+      f.style.cssText='position:absolute;inset:auto;left:0;top:0;width:1400px;height:1400px;max-width:none;transform-origin:0 0';
+      var r=c.getBoundingClientRect(), k=box.clientWidth/r.width;
+      f.style.transform='scale('+k+') translate('+(-r.left)+'px,'+(-r.top)+'px)';
+    }catch(e){ /* another origin: leave the frame as it is */ }
+  }
+  var fitting=0; window.addEventListener('resize',function(){ clearTimeout(fitting); fitting=setTimeout(function(){ document.querySelectorAll('#player iframe, #kmFacade iframe').forEach(fitFrame); },120); });
 
   // a real piece, live (a video facade for the published gallery page)
   var km=document.getElementById('kmBtn'), kmFacade=document.getElementById('kmFacade');

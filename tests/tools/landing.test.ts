@@ -83,6 +83,13 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the landin
       expect(state?.playing).toBe(true);
       expect(state?.title).toContain('Synthwave');
       expect(state?.open_link).toBe('https://yjmtmtk.github.io/pixi-effects/examples/gallery/#synthwave-drive');
+      // the frame shows the piece's picture and nothing else: no scrollbars in the frame, the canvas fills it exactly
+      const fit = await cdp.eval(`(() => { const f = document.querySelector('#player iframe'); const d = f.contentDocument; const c = d.querySelector('canvas'); const fr = document.getElementById('pframe').getBoundingClientRect(); const cr = c.getBoundingClientRect(), ir = f.getBoundingClientRect(), k = ir.width / f.clientWidth;      // the page is scaled to fit
+        return { scrollsY: d.documentElement.scrollHeight > d.documentElement.clientHeight + 1, scrollsX: d.documentElement.scrollWidth > d.documentElement.clientWidth + 1,
+                 dLeft: Math.round(ir.left + cr.left * k - fr.left), dTop: Math.round(ir.top + cr.top * k - fr.top), dW: Math.round(cr.width * k - fr.width), dH: Math.round(cr.height * k - fr.height) }; })()`);
+      expect(fit.scrollsY).toBe(false);
+      expect(fit.scrollsX).toBe(false);
+      expect([fit.dLeft, fit.dTop, fit.dW, fit.dH].map(Math.abs).every(v => v <= 1), JSON.stringify(fit)).toBe(true);
       await cdp.eval(`document.getElementById('pclose').click()`);
       await check.sleep(300);
       expect(await cdp.eval(`({ open: document.getElementById('player').open, frames: document.querySelectorAll('#player iframe').length })`)).toEqual({ open: false, frames: 0 });
