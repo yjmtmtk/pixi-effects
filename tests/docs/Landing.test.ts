@@ -8,8 +8,9 @@ const html = read('site/landing/index.html');
 const version: string = JSON.parse(read('package.json')).version;
 
 describe('the landing page (site/landing/index.html, deployed as the site root)', () => {
-  it('is staged as the Pages site root by the workflow', () => {
-    expect(read('.github/workflows/pages.yml')).toContain('cp site/landing/index.html _site/index.html');
+  it('is staged as the Pages site root by the stage script, which the workflow runs', () => {
+    expect(read('.github/workflows/pages.yml')).toContain('node scripts/stage-site.mjs _site');
+    expect(read('scripts/stage-site.mjs')).toContain("copy('site/landing/index.html', 'index.html')");
   });
 
   it('every picture it links to exists, from the repository (symlinks to examples/ and the guide) and so in the deployed layout', () => {

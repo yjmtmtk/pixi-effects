@@ -26,13 +26,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - name: Stage Pages artifact
-        run: |
-          mkdir -p _site
-          cp -r dist examples ai _site/
-          mkdir -p _site/docs && cp docs/dsl.md docs/api.md _site/docs/
-          cp llms.txt llms-full.txt _site/
-          node scripts/build-guide.mjs _site/guide
-          cp site/landing/index.html _site/index.html
+        run: node scripts/stage-site.mjs _site
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
