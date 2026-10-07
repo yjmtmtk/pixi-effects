@@ -51,6 +51,8 @@ Most of the video is meant to be written by an AI, so the tools around it are pa
 | understand how the pieces fit | [How it works](concepts.html) |
 | see a thing done, with a live demo | [Cookbook](cookbook.html) |
 | have an AI write the video | [Working with an AI](with-ai.html) |
+| give a talk with slides that move | [Presenting](presenting.html) |
+| make the picture follow the music | [Audio](audio.html#visuals-that-follow-the-music) |
 | look something up | the [DSL reference](https://github.com/yjmtmtk/pixi-effects/blob/main/docs/dsl.md) and the [API reference](https://github.com/yjmtmtk/pixi-effects/blob/main/docs/api.md) |
 
 ## What it is not

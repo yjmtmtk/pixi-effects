@@ -12,7 +12,9 @@ Declarative composition and video rendering for the web. After Effects-style tim
 - **Filters by name** — `filters: [{ type: 'glow', outerStrength: 3 }]`, no import: `blur noise alpha colorMatrix` (pixi.js) and the 38 filters of [`pixi-filters`](https://github.com/pixijs/filters) (`dropShadow crt rgbSplit oldFilm glitch pixelate twist …`), animated with `'filters.<name>.<option>'`. Any other PixiJS `Filter` goes in as `{ type: 'custom' }`.
 - **Draw-on strokes and changing text** — `trimEnd` 0 → 1 draws a line, border or SVG path on; a keyframe `set: { text }` swaps a string and `visibleChars` is a typewriter.
 - **Masks, transitions, chroma key** — inline masks; chroma key; seven scene transitions (`crossfade`, `wipe`, `iris`, `slide`, `dip`, `zoom`, `dissolve`).
-- **Presets** — `kenBurns` for stills, `withFade` for fade-in/out.
+- **Presets** — `kenBurns` for stills, `withFade` for fade-in/out; `wiggle`, `stagger`, `animateText`, `followPath`, `particles` and `react` return keyframes or layers (seeded, so every render is the same).
+- **Presentations** — `stops` in the composition pause the movie where you say; `Presenter` (`pixi-effects/presenter`) moves on with arrow keys, a click or a swipe, with a page overview (G), a presenter view with notes and a timer (P), and `deck()` to lay out pages and steps. Export a deck as PDF (`movie.exportPDF()`, `pixi-effects-render talk.html -o talk.pdf`). See the [Presenting guide](https://yjmtmtk.github.io/pixi-effects/guide/presenting.html).
+- **Audio-reactive visuals** — `audioEnvelope('music.mp3')` analyses loudness, bass / mid / treble and the beats per frame; `react()` turns them into keyframes, so the picture follows the music and still renders identically.
 - **2.5D layers & camera** — add `threeD: true`, `z`, `rotationX/Y` and a `{ type: 'camera' }` layer for parallax, flips and dolly zooms; no three.js needed.
 - **three.js layer** *(optional)* — drop a real three.js scene in as a layer via `pixi-effects/three`; keyframes drive its objects (`three.cube.rotation.y`).
 - **Built-in player UI — or your own** — a drop-in HTML5-`<video>`-style overlay controller (play, scrub, mute, volume, fullscreen, export-to-file) whose colours are one option (`theme: { accent: '#ff4d6d' }`); or build a player yourself on the movie's `<video>`-named events (`play pause ended seeking seeked volumechange error`).
@@ -167,6 +169,7 @@ This library is designed to be written by AI: a video is plain data, and every m
 
 - **Look at a page with its timeline, and scrub one with the other:** `npx pixi-effects-view my-video.html` (or `node ai/tools/view.mjs …`) opens your browser on a viewer: the page on top, the timeline of every layer under it with a playhead that follows the movie. Click or drag the timeline to seek, click a layer's name to jump to where it starts, Space plays, ← / → step a frame, + / − (or Ctrl/⌘ + wheel) zoom, the names stay in place. For the human who wants to see what the AI made.
 - **Render a page to a video file, headless:** `npx pixi-effects-render my-video.html -o my-video.mp4` (or `node ai/tools/render.mjs …`; Node ≥ 22 and Chrome installed, no dependencies). The container follows the extension (`mp4 webm mov mkv`); `--quality very-low…very-high`, `--query lang=ja` (added to the page URL), `--fail-on-warn` (exit 1 when the page logged a warning), `--quiet`. It waits for `window.__ready`, runs `movie.render()` and streams the file to disk; exit 0 = written, 1 = the page or the render failed (no file). For scripts, CI and batches; `pixi-effects-check` below is the review.
+- **A talk as a PDF:** `npx pixi-effects-render my-talk.html -o my-talk.pdf` (one page per page of a `deck()` / `stops` movie; `--all-stops` makes a page of every step). The review tool writes `stops.png` for such a page, one picture per stop.
 - **One-command review for the AI that wrote the page:** `npx pixi-effects-check my-video.html` (or `node ai/tools/check.mjs my-video.html`; Node ≥ 22 and Chrome installed, no dependencies). It opens the page in its own headless Chrome and reports warnings, layout (`movie.inspect` over the whole timeline), the soundtrack (`movie.inspectAudio`) and a real export decoded again, and writes a contact sheet PNG and a `timeline.html` (every layer as a bar on a time axis) to look at. Exit code 0 / 1.
 
 They ship in the npm package (`node_modules/pixi-effects/ai/`).
@@ -174,7 +177,7 @@ They ship in the npm package (`node_modules/pixi-effects/ai/`).
 ## Documentation
 
 - [**DSL reference**](./docs/dsl.md) — composition, sequences, 3D layers & camera, three.js layer, keyframes, expressions, filters
-- [**API reference**](./docs/api.md) — `Movie`, `Controller`, `pixi-effects/three`, events, render options
+- [**API reference**](./docs/api.md) — `Movie`, `Controller`, `pixi-effects/presenter`, `pixi-effects/three`, events, render options
 - [**Examples**](./examples/) — runnable HTML files (read in order):
   - `01-hello.html` — minimum viable composition
   - `02-keyframes.html` — keyframes, easings, expressions

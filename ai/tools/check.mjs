@@ -8,7 +8,7 @@
  * waits for `window.__ready === true`, then checks: console warnings / errors, `movie.inspect` over the whole timeline
  * (grouped), `movie.inspectAudio()`, a contact sheet (a PNG you can look at), and a real export (`movie.render`) that it
  * decodes again: video size / length, audio length, loudness per second, silence. Output goes to `check-out/<name>/`
- * (`sheet.png`, `<name>.<format>`, `report.json`) and a short summary is printed. Exit code 0 = nothing to fix, 1 = problems.
+ * (`sheet.png`, `<name>.<format>`, `report.json`; a presentation with `stops` also gets `stops.png`, one picture per stop) and a short summary is printed. Exit code 0 = nothing to fix, 1 = problems.
  *
  * Needs: Node >= 22 (built-in WebSocket), Chrome / Chromium installed (or --chrome PATH / CHROME=PATH). No npm dependencies.
  * The page must follow ai/template.html: it exposes `window.movie` and sets `window.__ready = true` (and `window.__logs`).
@@ -279,6 +279,18 @@ export async function runCheck(opts, log = console.log) {
     fs.writeFileSync(sheetFile, Buffer.from(sheet.slice(sheet.indexOf(',') + 1), 'base64'));
     report.files.sheet = shown(sheetFile);
 
+    // a presentation (composition.stops): one picture of every stop, in order, so the pages and steps can be read at a glance
+    const stops = await cdp.eval(`(() => { const s = movie.stops || []; return s.length ? { count: s.length, pages: movie.pageCount, items: s.map(x => ({ at: Math.round(x.at * 100) / 100, frame: x.frame, page: x.page, pageStart: x.pageStart, notes: !!x.notes })) } : null; })()`).catch(() => null);
+    if (stops) {
+      report.stops = stops;
+      const stopsSheet = await cdp.eval(`movie.contactSheet({ frames: movie.stops.map(s => s.frame), as: 'dataURL' })`).catch(() => null);
+      if (stopsSheet) {
+        const stopsFile = path.join(outDir, 'stops.png');
+        fs.writeFileSync(stopsFile, Buffer.from(stopsSheet.slice(stopsSheet.indexOf(',') + 1), 'base64'));
+        report.files.stops = shown(stopsFile);
+      }
+    }
+
     // the poster: the picture that stands for the movie (its poster time, or the first frame)
     const poster = await cdp.eval(`movie.posterImage({ as: 'dataURL', type: 'image/jpeg', scale: 0.5 })`).catch(() => null);
     if (poster) {
@@ -366,6 +378,10 @@ function finish(report, outDir, log) {
       for (const i of rv.slice(0, 4)) L.push(line(i));
       if (rv.length > 4) L.push(`            … ${rv.length - 4} more (report.json)`);
     }
+  }
+  if (report.stops) {
+    const s = report.stops;
+    L.push(`  stops     ${s.count} stop(s) on ${s.pages} page(s) — stops.png shows each one in order; the picture at a stop is what the audience sees while it waits`);
   }
   if (report.audio !== undefined) {
     const a = report.audio;

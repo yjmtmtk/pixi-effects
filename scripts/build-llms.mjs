@@ -27,14 +27,14 @@ Rules that cause most failures (details in the skill and pitfalls):
 
 - [Skill: workflow and rules](${RAW}/ai/SKILL.md): how to build, check and export a video; read first
 - [Cheatsheet](${RAW}/ai/reference/cheatsheet.md): every layer type, prop, default and convention on one page
-- [Recipes](${RAW}/ai/reference/recipes.md): tested building blocks (kinetic type, lower-third, count-up, bar chart, 2.5D title, camera orbit, slideshow with transitions, sound effects without files, three.js)
+- [Recipes](${RAW}/ai/reference/recipes.md): tested building blocks (kinetic type, lower-third, count-up, bar chart, 2.5D title, camera orbit, slideshow with transitions, sound effects without files, three.js, a presentation deck, visuals that follow music)
 - [Pitfalls](${RAW}/ai/reference/pitfalls.md): real mistakes made by AI authors, with fixes
 - [Starter template](${RAW}/ai/template.html): copy this file to begin
 
 ## Reference
 
-- [DSL reference](${RAW}/docs/dsl.md): composition, sequences, 3D layers and camera, keyframes, expressions, filters, transitions, presets
-- [API reference](${RAW}/docs/api.md): Movie, Controller, events, render options, pixi-effects/three
+- [DSL reference](${RAW}/docs/dsl.md): composition, sequences, 3D layers and camera, keyframes, expressions, filters, transitions, presets (wiggle, stagger, animateText, followPath, particles, react, deck), stops for presentations
+- [API reference](${RAW}/docs/api.md): Movie, Controller, Presenter (presentations, PDF export), audio analysis (audioEnvelope), events, render options, pixi-effects/three
 - [README](${RAW}/README.md): install, CDN import map, quickstart
 
 ## Optional

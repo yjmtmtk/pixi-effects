@@ -49,6 +49,14 @@ Yes. Images and video are `assets` (a URL, a `data:` URL or a `blob:` URL). Font
 
 It is **pre-1.0**. Minor versions can change the API; the [changelog](https://github.com/yjmtmtk/pixi-effects/blob/main/CHANGELOG.md) lists every change. Pin the version in your import map (`pixi-effects@0.9.0`).
 
+## Can I make slides with it?
+
+Yes. Put `stops` in the composition (or lay out pages with `deck()`) and the movie pauses where you say; a `Presenter` moves through them with the arrow keys, a click or a swipe, with a page overview (G) and a presenter view with notes (P). A deck exports to PDF too. See [Presenting](presenting.html).
+
+## Can the picture react to music?
+
+Yes, and it stays deterministic: `audioEnvelope()` analyses the file before `init`, and `react()` turns loudness, bass / mid / treble and the beats into ordinary keyframes, so a render looks exactly like the preview. See [Audio](audio.html#visuals-that-follow-the-music).
+
 ## Where do I report a problem or ask something?
 
 [GitHub issues](https://github.com/yjmtmtk/pixi-effects/issues). Include the page (or a small piece of it), the browser and its version, and the warnings from the console.

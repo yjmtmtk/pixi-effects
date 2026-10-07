@@ -96,4 +96,4 @@ Give layers a `name` when you will refer to them later (transitions find layers 
 
 ## Next
 
-Pick the guide for what you are making: [Text](text.html), [Shapes](shapes.html), [Images and video](images-video.html), [Audio](audio.html), [Filters](filters.html), [Transitions](transitions.html) or [2.5D and camera](depth.html).
+Pick the guide for what you are making: [Text](text.html), [Shapes](shapes.html), [Images and video](images-video.html), [Audio](audio.html), [Filters](filters.html), [Transitions](transitions.html), [2.5D and camera](depth.html), [Motion](motion.html) or [Presenting](presenting.html) (a talk as one movie, with stops).

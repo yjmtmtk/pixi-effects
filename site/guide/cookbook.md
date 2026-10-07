@@ -156,4 +156,4 @@ return splitText('Make it move', style, { by: 'words', x: 640, y: 330, align: 'c
 
 ## More
 
-The [gallery](../examples/gallery/) has thirty-three complete pieces, each one a single HTML file you can open and read, and the [DSL reference](https://github.com/yjmtmtk/pixi-effects/blob/main/docs/dsl.md) lists every property.
+The [gallery](../examples/gallery/) has thirty-seven complete pieces, each one a single HTML file you can open and read, (`quiet-hours` is a five-page talk: press Present), [Presenting](presenting.html) shows how to build one, and the [DSL reference](https://github.com/yjmtmtk/pixi-effects/blob/main/docs/dsl.md) lists every property.

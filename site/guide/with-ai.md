@@ -28,6 +28,8 @@ A prompt that works is specific about what you see and hear, and says what to re
 
 > Read `ai/SKILL.md` and follow it. Make a 12-second, 1280×720 title sequence for a bakery called "Rye & Sons": a warm cream background, the name typed out, a line that draws itself under it, a soft chime at the end. Save it as `bakery.html`. Run the check and fix everything it reports, then show me the contact sheet.
 
+For a talk, ask for pages: *"Make a five-page deck with `deck()`, one idea per page, bullets that appear one step at a time as stops, a slide transition between pages, and speaker notes. Then run the check and look at `stops.png`."* For visuals that follow music, ask for `audioEnvelope()` and `react()` (the AI analyses the file before `init`). See [Presenting](presenting.html) and [Audio](audio.html).
+
 Useful things to say: the **size and duration**, the **moment that should be the poster** (the picture before play), the **palette** (two or three colours), what appears **when**, what you **hear**, and *"use only system fonts and generated shapes"* if you have no assets.
 
 ## 3. The AI checks its own work
@@ -72,4 +74,5 @@ npx pixi-effects-render bakery.html -o bakery.mp4
 - Ask for **named layers** (`name: 'title'`) and **a short comment per scene**: it makes both the timeline and the AI's next edit easier.
 - Ask the AI to **keep sizes and times in constants** at the top of the file (`const DURATION = 12`).
 - If a result is off, send the AI **the contact sheet and the check output**, not a description.
+- For a deck, ask the AI to send **`stops.png`** (the check writes it: one picture per stop, in order) rather than the contact sheet: it shows what the audience sees at every pause.
 - One piece, one HTML file: small enough to read in one go, and to version.

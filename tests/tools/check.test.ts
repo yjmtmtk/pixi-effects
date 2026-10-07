@@ -107,6 +107,19 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     expect(report.hasAudio).toBe(true);
   }, 190_000);
 
+  it('a presentation (quiet-hours) gets stops.png and a stops section in the report', async () => {
+    const out = mkdtempSync(join(tmpdir(), 'check-test-'));
+    const { stdout } = await promisify(execFile)('node', [
+      join(root, 'ai/tools/check.mjs'), join(root, 'examples/gallery/quiet-hours.html'), '--out', out, '--frames', '4', '--no-export', '--timeout', '150',
+    ], { timeout: 170_000 });
+    expect(stdout).toMatch(/stops\s+\d+ stop\(s\) on 5 page\(s\)/);
+    const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));
+    expect(report.stops.pages).toBe(5);
+    expect(report.stops.count).toBe(report.stops.items.length);
+    expect(report.stops.items[0].pageStart).toBe(true);
+    expect(readFileSync(join(out, 'stops.png')).subarray(1, 4).toString()).toBe('PNG');
+  }, 190_000);
+
   it('exits 1 and names the problem when the page has one', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-test-'));
     const dir = join(root, 'examples/_checks');

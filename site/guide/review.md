@@ -19,7 +19,8 @@ It opens your page in a private headless Chrome and reports, in one go:
 - **layout** problems found by `movie.inspect` over the whole timeline: text off the canvas, cut by an edge, empty, or overlapping other text (overlaps are listed for you to look at, since they are often on purpose);
 - **sound**: `movie.inspectAudio()`, the loudness of the mix and a list of problems;
 - **a real export**, decoded again: its size, length and loudness per second;
-- a **contact sheet** (`sheet.png`, twelve labelled frames), the video's **poster** (`poster.jpg`) and a **timeline** (`timeline.html`) to open.
+- a **contact sheet** (`sheet.png`, twelve labelled frames), the video's **poster** (`poster.jpg`) and a **timeline** (`timeline.html`) to open;
+- for a presentation (a movie with `stops`): **`stops.png`**, one picture for every stop in order, and the number of stops and pages. The picture at a stop is what the audience looks at while it waits, so check each one.
 
 The exit code is 0 when there is nothing to fix and 1 otherwise, so it also works in CI. This is its real output for the piece in the demo further down:
 
@@ -68,6 +69,8 @@ The same chart is available in code: `movie.timelineChart()` returns an HTML pag
 | `movie.inspectAudio()` | each sound's time, loudness and pitch, and the problems |
 | `await movie.contactSheet({ count: 12, as: 'dataURL' })` | many frames on one labelled image |
 | `await movie.snapshot(frame, { as: 'dataURL' })` | one frame as an image |
+| `await movie.contactSheet({ frames: movie.stops.map(s => s.frame), as: 'dataURL' })` | one picture of every stop of a deck |
+| `await movie.stopImages({ which: 'pages' })` | every page of a deck as its own image (see [Presenting](presenting.html)) |
 
 ## The warnings are instructions
 

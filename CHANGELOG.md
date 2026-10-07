@@ -10,6 +10,7 @@
 - **The page overview and the presenter view.** In a `Presenter`, **G** shows every page as a picture (arrows and Enter, or a click, to jump) and **P** opens a second window for the speaker: the picture on screen (live), the next picture, the notes of the page, a timer, and Back / Next buttons. The pictures are made once, before the audience sees anything (`start()`, behind a "Preparing…" cover), with the new `movie.stopImages()` (a picture per page, or per stop, leaving the playhead where it was).
 - **A deck as a PDF.** `movie.exportPDF()` (one PDF page per page of the deck, JPEG at the canvas size, no dependencies) and `npx pixi-effects-render talk.html -o talk.pdf` (`--all-stops` for a page per stop).
 - **`deck({ pages, transition })`**: a talk as one movie. Each page is a nested composition laid out after the one before (its layers use the page's own time), the stops come from the pages, and the transition joins them with the existing crossfade / slide / wipe / … transitions. A gallery piece, `The Quiet Hours`, is a five-page deck (37 pieces now); a new guide page explains presenting.
+- **`pixi-effects-check` knows decks.** For a page with `stops` it writes `stops.png` (one labelled picture of every stop, in order), prints the number of stops and pages, and puts them in `report.json` (`stops`).
 
 **Fixed**
 
