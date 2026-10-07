@@ -71,3 +71,7 @@ A deck (a movie with `stops`) can also be exported as a **PDF** (the player bar'
 `movie.init({ poster: 9.5 })` names the moment that stands for your video (seconds; a negative value counts back from the end). The canvas shows it before play, and `await movie.posterImage({ as: 'dataURL', type: 'image/jpeg', scale: 0.5 })` returns it as a picture: a thumbnail, a card, a share image, with no separate file to keep in step with the video.
 
 `await movie.snapshot(frame, { as: 'dataURL' })` returns one frame as an image, and `movie.contactSheet({ count: 12, as: 'dataURL' })` returns many frames on one labelled sheet. They are for [looking at your video](review.html) as much as for thumbnails.
+
+## How fast is it?
+
+Export runs in your browser, drawing with WebGL and encoding with WebCodecs through [mediabunny](https://mediabunny.dev/). On the author's M1 Pro most gallery pieces export at 105 to 115 frames per second, about 3.5 times real time at 30 fps: a 12 s piece in about 3 s, the 48 s 1080p film [MA](../examples/gallery/ma.html) in about 14 s. A piece with thousands of particle layers is slower (hanabi-night: 21 fps). Motion blur costs a render per sample: the same 48 s film with 16 samples took 99 s. From the command line add about 7 s for starting headless Chrome and loading the page. These are one laptop's numbers, not a comparison with other tools; for one, [mediabunny's author benchmarked that encoder path against fframes](https://github.com/Vanilagy/fframes-mediabunny-benchmark) on a different scene.

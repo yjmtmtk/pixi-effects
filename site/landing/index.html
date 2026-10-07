@@ -726,7 +726,7 @@ movie.play();
 <section id="compare" aria-labelledby="h-cmp">
   <div class="wrap">
     <header class="ch"><span class="n">05</span><span class="dia" aria-hidden="true"></span><h2 id="h-cmp">Next to Remotion and fframes</h2><span class="rule" aria-hidden="true"></span></header>
-    <p class="deck">Three different answers to “video from code”. Remotion is the mature one, fframes is the fast native one, pixi-effects is the one where the video is data and a model can check it. <strong>None of them is better overall</strong>; pick by what you are making and who is writing it.</p>
+    <p class="deck">Three different answers to “video from code”. Remotion is the mature one, fframes is the native GPU one, pixi-effects is the one where the video is data and a model can check it. <strong>None of them is better overall</strong>; pick by what you are making and who is writing it.</p>
     <p class="cmp-note">Checked 2026-10-07, from their own pages: <a href="https://www.remotion.dev/">remotion.dev</a> · <a href="https://fframes.studio/">fframes.studio</a> and its <a href="https://github.com/dmtrKovalenko/fframes">repository</a>. No benchmark of pixi-effects against either has been made.</p>
 
     <table class="cmp">
@@ -745,7 +745,7 @@ movie.play();
           <td data-col="Remotion">Remotion Studio (interactive, drag-and-drop), a Player component for your own app, an Editor Starter.</td>
           <td data-col="fframes">A real-time GPU preview window and a browser-based editor (WebAssembly) with a timeline.</td></tr>
         <tr><th scope="row">Rendering</th>
-          <td class="me" data-col="pixi-effects">WebGL in the browser, encoded with WebCodecs (mediabunny) to MP4 / WebM / MOV; needs a WebCodecs browser. Preview equals export. Not a native GPU renderer; no benchmark made. On the author's laptop a typical 12 s piece exports in about 10 s.</td>
+          <td class="me" data-col="pixi-effects">WebGL in the browser (PixiJS), encoded with WebCodecs through mediabunny to MP4 / WebM / MOV; needs a WebCodecs browser. Preview equals export. It is quick: on the author's M1 Pro most gallery pieces export at 105–115 frames per second, 3.5 to 3.8 times real time (a 48 s 1080p film included); a piece with thousands of particle layers is slower (21 fps). <a href="https://github.com/Vanilagy/fframes-mediabunny-benchmark">mediabunny's author benchmarked</a> that same encoder path against fframes on one scene (an M4: 13.8 s against 17.7 s); that is a mediabunny measurement, not a pixi-effects one, and pixi-effects itself has not been benchmarked against either tool.</td>
           <td data-col="Remotion">Server-side, client-side and batch rendering, plus Remotion Lambda in the cloud.</td>
           <td data-col="fframes">GPU (Skia on Metal or Vulkan), no headless browser, ffmpeg linked in for encoding. Its README says about 10× faster than its own CPU backend and mentions a 128 s video rendered in 36 s.</td></tr>
         <tr><th scope="row">Sound</th>
@@ -767,7 +767,7 @@ movie.play();
         <tr><th scope="row">Best for</th>
           <td class="me" data-col="pixi-effects">Motion graphics described as data, written by an AI or by hand, that must play and export in a browser with no server.</td>
           <td data-col="Remotion">Teams working in React who want a studio, a player for their app, a large ecosystem and cloud rendering at scale.</td>
-          <td data-col="fframes">The fastest native GPU renders, for people at home in Rust and SVG on macOS or Linux.</td></tr>
+          <td data-col="fframes">A native GPU pipeline with no browser, for people at home in Rust and SVG on macOS or Linux.</td></tr>
       </tbody>
     </table>
 
@@ -782,11 +782,11 @@ movie.play();
       </article>
       <article>
         <h3>Choose fframes when…</h3>
-        <p>raw render speed is what matters and you are comfortable in Rust and SVG on macOS or Linux: a native GPU pipeline (Skia on Metal or Vulkan) with no browser in the loop, ffmpeg built in, MIT.</p>
+        <p>you want a native GPU pipeline with no browser in the loop (Skia on Metal or Vulkan, ffmpeg built in, MIT) and you are comfortable in Rust and SVG on macOS or Linux.</p>
       </article>
       <article class="not">
         <h3>Not pixi-effects when…</h3>
-        <p>you want a GUI editor; you need the React ecosystem or cloud rendering at scale; you need the fastest native GPU renders; you need to edit existing footage (a <code>video</code> layer plays a clip inside a composition, nothing more); or you need an API that will not change before 1.0.</p>
+        <p>you want a GUI editor; you need the React ecosystem or cloud rendering at scale; you need a native pipeline with no browser in the loop; you need to edit existing footage (a <code>video</code> layer plays a clip inside a composition, nothing more); or you need an API that will not change before 1.0.</p>
       </article>
     </div>
   </div>
@@ -825,7 +825,7 @@ movie.play();
 
     <div class="status">
       <p class="row"><span>status</span><span>v0.16.2</span><span>experimental · pre-1.0</span><span>MIT</span></p>
-      <p><b>Honest status.</b> pixi-effects is experimental and pre-1.0: the API can still change between minor versions. There is a timeline viewer but no GUI editor; the ecosystem is small; export needs a WebCodecs browser; it draws with WebGL in a browser rather than a native GPU renderer, and no benchmark against other tools has been made (a 48 s 1080p film with 16-sample motion blur took 99 s to export on the author's laptop). It is not a tool for editing existing footage.</p>
+      <p><b>Honest status.</b> pixi-effects is experimental and pre-1.0: the API can still change between minor versions. There is a timeline viewer but no GUI editor; the ecosystem is small; export needs a WebCodecs browser; it draws with WebGL in a browser rather than in a native pipeline, and it has not been benchmarked against other tools. On the author's M1 Pro most gallery pieces export at 105–115 frames per second (the 48 s 1080p film in about 14 s; with 16-sample motion blur it took 99 s), and a piece with thousands of particle layers exports at 21 fps. It is not a tool for editing existing footage.</p>
     </div>
   </div>
 </section>

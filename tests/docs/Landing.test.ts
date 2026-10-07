@@ -38,8 +38,16 @@ describe('the landing page (site/landing/index.html, deployed as the site root)'
     expect(html).toContain('https://fframes.studio/');
     expect(html).toMatch(/checked 2026-10-07/i);
     expect(html).toMatch(/Not pixi-effects when/i);
-    expect(html).toMatch(/No benchmark/i);
+    expect(html).toMatch(/not been benchmarked against either tool/i);
+    expect(html).not.toMatch(/\b(fastest|raw render speed)\b/i);               // no ranking of speed without a measurement of our own
     expect(html).not.toMatch(/\b(faster|fastest) than (remotion|fframes)\b/i);
+  });
+
+  it('credits the mediabunny benchmark with its real numbers and says what it is (and is not)', () => {
+    expect(html).toContain('https://github.com/Vanilagy/fframes-mediabunny-benchmark');
+    expect(html).toContain('13.8 s against 17.7 s');
+    expect(html).toMatch(/not a pixi-effects one/i);
+    expect(html).toMatch(/105–115 frames per second/);                       // measured on the author's M1 Pro (see FACTS.md)
   });
 
   it('runs its hero demo from the snippet it shows: one source, shown and executed (no second copy of the data)', () => {

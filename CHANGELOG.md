@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+**Site**
+
+- The landing page no longer undersells speed: it says what was measured (on the author's M1 Pro most gallery pieces export at 105–115 frames per second, 3.5 to 3.8 times real time, the 48 s 1080p film in about 14 s; one heavy particle piece at 21 fps), credits mediabunny's own benchmark against fframes (13.8 s against 17.7 s on one scene, an M4) with what it is and is not, and stops calling fframes "the fast one". The export guide has the same numbers.
+
 **Fixed**
 
 - **The export progress (the "Exporting video…" bar) disappeared when the mouse stood still.** It lives inside the player bar, which fades after 2.5 s of an idle mouse, so a long export looked like it had stopped unless the mouse kept moving. The bar now stays on screen for the whole export (a video or a PDF, also with the Shift+E shortcut), and fades again as usual when the export ends or fails.
