@@ -15,14 +15,14 @@ const built = existsSync(join(root, 'dist/index.js'));
 
 describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the landing page in a real browser', () => {
   it('a click on "A real piece, live" loads the gallery piece AND plays it (same origin, as on the published site); the hero plays its own snippet', async () => {
-    const { server, port } = await check.serve(root);                       // the repository root: /site/landing/index.html and /examples/gallery/…
+    const { server, port } = await check.serve(root);                       // the repository root: /index.html and /examples/gallery/…
     const userDataDir = mkdtempSync(join(tmpdir(), 'landing-'));
     const { proc, cdp } = await check.launchChrome(chrome, userDataDir);
     try {
       await cdp.send('Runtime.enable');
       await cdp.send('Page.enable');
       await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__GALLERY_BASE = '/examples/gallery/';` });
-      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/site/landing/index.html` });
+      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/index.html` });
       await check.sleep(1500);
       expect(await cdp.eval(`!!document.getElementById('kmBtn')`)).toBe(true);
       await cdp.eval(`document.getElementById('kmBtn').click()`);
@@ -65,12 +65,12 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the landin
       await cdp.send('Runtime.enable');
       await cdp.send('Page.enable');
       await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__GALLERY_BASE = '/examples/gallery/';` });
-      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/site/landing/index.html` });
+      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/index.html` });
       await check.sleep(1500);
       // every tile links to its own piece (the fallback without JavaScript, and what "open in a new tab" does)
       const links = await cdp.eval(`[...document.querySelectorAll('a.piece')].map(a => [a.querySelector('img').getAttribute('src').split('/').pop().replace('.jpg', ''), a.getAttribute('href')])`);
       expect(links.length).toBe(16);
-      for (const [id, href] of links) expect(href, id).toBe(`https://yjmtmtk.github.io/pixi-effects/examples/gallery/#${id}`);
+      for (const [id, href] of links) expect(href, id).toBe(`examples/gallery/#${id}`);
       await cdp.eval(`document.querySelector('a.piece[data-piece="synthwave-drive"]').click()`);
       let state: any = null;
       for (let i = 0; i < 120; i++) {
@@ -82,7 +82,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the landin
       expect(state?.src).toBe('/examples/gallery/synthwave-drive.html');
       expect(state?.playing).toBe(true);
       expect(state?.title).toContain('Synthwave');
-      expect(state?.open_link).toBe('https://yjmtmtk.github.io/pixi-effects/examples/gallery/#synthwave-drive');
+      expect(state?.open_link).toBe('examples/gallery/#synthwave-drive');
       // the frame shows the piece's picture and nothing else: no scrollbars in the frame, the canvas fills it exactly
       const fit = await cdp.eval(`(() => { const f = document.querySelector('#player iframe'); const d = f.contentDocument; const c = d.querySelector('canvas'); const fr = document.getElementById('pframe').getBoundingClientRect(); const cr = c.getBoundingClientRect(), ir = f.getBoundingClientRect(), k = ir.width / f.clientWidth;      // the page is scaled to fit
         return { scrollsY: d.documentElement.scrollHeight > d.documentElement.clientHeight + 1, scrollsX: d.documentElement.scrollWidth > d.documentElement.clientWidth + 1,

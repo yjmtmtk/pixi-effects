@@ -52,7 +52,6 @@
     "build:ai": "node scripts/build-llms.mjs",
     "build:gallery": "node scripts/build-gallery.mjs",
     "posters": "node scripts/make-posters.mjs",
-    "landing": "node scripts/preview-landing.mjs",
     "guide": "node scripts/build-guide.mjs guide-preview",
     "prepublishOnly": "node scripts/release-check.mjs --gate"
   },

@@ -53,7 +53,7 @@ describe('sync-site: the pages carry the shared parts, up to date', () => {
 
   it('every page lists the three markers and a <main id="main">', () => {
     const pages = JSON.parse(readFileSync(resolve(root, 'site/pages.json'), 'utf8')).pages as Array<{ file: string }>;
-    if (pages.length === 0) return;                                  // Task 3 registers the first page
+    expect(pages.length).toBeGreaterThan(0);
     for (const p of pages) {
       const html = readFileSync(resolve(root, p.file), 'utf8');
       for (const name of ['head', 'header', 'footer']) expect(html, `${p.file} ${name}`).toMatch(new RegExp(`<!--site:${name}-->[\\s\\S]*<!--/site:${name}-->`));

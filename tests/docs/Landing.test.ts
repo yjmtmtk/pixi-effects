@@ -4,20 +4,20 @@ import { resolve, dirname } from 'node:path';
 
 const root = resolve(__dirname, '../..');
 const read = (p: string) => readFileSync(resolve(root, p), 'utf8');
-const html = read('site/landing/index.html');
+const html = read('index.html');
 const version: string = JSON.parse(read('package.json')).version;
 
-describe('the landing page (site/landing/index.html, deployed as the site root)', () => {
+describe('the landing page (index.html at the repository root, deployed as the site root)', () => {
   it('is staged as the Pages site root by the stage script, which the workflow runs', () => {
     expect(read('.github/workflows/pages.yml')).toContain('node scripts/stage-site.mjs _site');
-    expect(read('scripts/stage-site.mjs')).toContain("copy('site/landing/index.html', 'index.html')");
+    expect(read('scripts/stage-site.mjs')).toContain("copy('index.html')");
   });
 
-  it('every picture it links to exists, from the repository (symlinks to examples/ and the guide) and so in the deployed layout', () => {
+  it('every picture it links to exists, from the repository root (which is the site root)', () => {
     const srcs = [...html.matchAll(/(?:src|data-src|srcset)="((?:examples|guide)\/[^"]+\.(?:jpg|png|webp))"/g)].map(m => m[1]!);
     expect(srcs.length).toBeGreaterThan(15);
-    for (const s of new Set(srcs)) expect(existsSync(resolve(root, 'site/landing', s)), s).toBe(true);
-    expect(statSync(resolve(root, 'site/landing/examples')).isDirectory()).toBe(true);
+    const missing = [...new Set(srcs)].filter(s => !existsSync(resolve(root, s.startsWith('guide/') ? `site/${s}` : s)));
+    expect(missing).toEqual([]);
   });
 
   it('says the current release (bump it with the other pins when you release)', () => {
@@ -58,14 +58,15 @@ describe('the landing page (site/landing/index.html, deployed as the site root)'
   });
 
   it('stays small and loads nothing from third parties at page load (fonts, trackers, libraries): only on a click', () => {
-    expect(statSync(resolve(root, 'site/landing/index.html')).size).toBeLessThan(130 * 1024);
-    expect(html).not.toMatch(/<link[^>]+rel="stylesheet"/i);
-    expect(html).not.toMatch(/<script[^>]+src=/i);
+    const css = readFileSync(resolve(root, 'site/landing/landing.css'), 'utf8');
+    expect(statSync(resolve(root, 'index.html')).size + css.length).toBeLessThan(130 * 1024);
+    for (const m of html.matchAll(/<link[^>]+rel="stylesheet"[^>]*>/gi)) expect(m[0], 'same-site stylesheets only').toMatch(/href="(?!https?:|\/\/)[^"]+"/);
+    for (const m of html.matchAll(/<script[^>]+src="([^"]+)"/gi)) expect(m[1], 'same-site scripts only').not.toMatch(/^(https?:)?\/\//);
     expect(html).not.toMatch(/fonts\.googleapis|google-analytics|googletagmanager/i);
   });
 
   it('keeps its source facts next to it, and they match the repository: the browser table in FACTS.md is the README\'s', () => {
-    expect(existsSync(resolve(dirname(resolve(root, 'site/landing/index.html')), 'FACTS.md'))).toBe(true);
+    expect(existsSync(resolve(root, 'site/landing/FACTS.md'))).toBe(true);
     expect(read('README.md')).toContain('Chrome 94+');
     expect(read('site/landing/FACTS.md')).toContain('Chrome 94+');
   });

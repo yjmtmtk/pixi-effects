@@ -1,1 +1,8 @@
-{ "pages": [] }
+{
+  "pages": [
+    {
+      "file": "index.html",
+      "current": "home"
+    }
+  ]
+}

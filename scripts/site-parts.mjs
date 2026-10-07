@@ -29,7 +29,7 @@ export function renderHeader({ root, current = '' }) {
   return `<a class="skip" href="#main">Skip to content</a>
 <header class="top">
   <div class="wrap">
-    <a class="brand" href="${root}"${cur('home')}><span class="dia" aria-hidden="true"></span>pixi-effects</a>
+    <a class="brand" href="${root || './'}"${cur('home')}><span class="dia" aria-hidden="true"></span>pixi-effects</a>
     <nav aria-label="Site">
       ${links}
       <a class="only-wide" href="${REPO}">GitHub</a>
