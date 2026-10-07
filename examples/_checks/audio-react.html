@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>check · audio-reactive</title></head>
+<body>
+  <!--
+    Acceptance check (not an example): the CC0 loop examples/_assets/bgm.mp3 is analysed (audioEnvelope), and a white circle's scale follows its bass (react).
+    window.env is the envelope; the circle is bigger on a beat than between beats.
+  -->
+  <canvas id="stage" width="640" height="360" style="width:640px"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+  </script>
+  <script type="importmap">
+  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "gsap": "https://esm.sh/gsap@3.12.5", "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin", "mediabunny": "https://esm.sh/mediabunny" } }
+  </script>
+  <script type="module">
+    import { Movie, audioEnvelope, react } from '../../dist/index.js';
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      const env = await audioEnvelope('../_assets/bgm.mp3', { frameRate: 30 });
+      window.env = { frames: env.frames, duration: env.duration, bpm: env.bpm, beats: env.beats, level: Array.from(env.series.level), bass: Array.from(env.series.bass) };
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 640, height: 360, duration: 8, frameRate: 30, background: '#000000',
+        composition: { sequences: [{ type: 'shape', shape: 'circle', radius: 40, initial: { x: 320, y: 180, fillColor: '#ffffff' },
+          keyframes: react(env, { duration: 8, props: { scale: { base: 1, amount: 2, beats: true, decay: 0.12 } } }) }] },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+  </script>
+</body>
+</html>

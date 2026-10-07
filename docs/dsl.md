@@ -1242,6 +1242,23 @@ import { followPath } from 'pixi-effects';
 
 It returns `Keyframe[]`: spread it next to other keyframes, but not another `x`, `y` or `rotation` during the trip.
 
+### `react`
+
+Keyframes that follow a sound: `base + amount × level`, sampled once per frame from an envelope. Analyse the sound first (`await audioEnvelope(url)`, or `bpmEnvelope(bpm, { duration })` with no file), then:
+
+```ts
+import { audioEnvelope, react } from 'pixi-effects';
+
+const env = await audioEnvelope('music.mp3', { frameRate: 30 });
+{ type: 'shape', shape: 'circle', radius: 120, initial: { x: 640, y: 360 },
+  keyframes: react(env, { duration: 12, props: {
+    scale: { base: 1, amount: 0.4, band: 'bass', attack: 0.02, release: 0.2 },     // swells with the low end, falls back slowly
+    alpha: { base: 0.5, amount: 0.5, beats: true, decay: 0.15 },                    // flashes on every beat
+  } }) }
+```
+
+See [the API reference](api.md#audio-reactive-audioenvelope-react-bpmenvelope) for the options. A bar equaliser is one layer per band with `height: { base: 6, amount: 220, band: 'b7' }`.
+
 ### `deck`
 
 A deck of pages as one movie, for a `Presenter`. Each page is a nested composition laid out after the one before (so its layers are written in the page's own time), the stops come from the pages, and an optional `transition` joins them with the existing transitions.

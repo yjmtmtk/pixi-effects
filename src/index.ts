@@ -43,6 +43,11 @@ export type { FollowPathOptions } from './presets/followPath';
 export { animateText } from './presets/animateText';
 export type { AnimateTextOptions, AnimateTextTween, TextPreset } from './presets/animateText';
 
+export { react } from './presets/react';
+export type { ReactOptions, ReactProp } from './presets/react';
+export { audioEnvelope, computeEnvelope, bpmEnvelope } from './audio/envelope';
+export type { AudioEnvelope, EnvelopeOptions, AudioEnvelopeSource } from './audio/envelope';
+
 export { deck } from './presets/deck';
 export type { DeckOptions, DeckPage, DeckResult, DeckTransition } from './presets/deck';
 

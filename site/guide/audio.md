@@ -34,6 +34,30 @@ The presets: `click`, `pop`, `swoosh`, `swipe`, `hit`, `riser`, `chime`, `beep`,
 
 {{demo examples/13-sfx.html}}
 
+## Visuals that follow the music
+
+Make things move with the sound, and the video is the same every time you play or export it. Analyse the music **before** `movie.init`, then `react()` turns what it does into keyframes.
+
+```js
+// @recipe audio-react-guide
+const env = bpmEnvelope(120, { duration: 8, frameRate: 30 });      // with a real file: const env = await audioEnvelope('music.mp3', { frameRate: 30 })
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#07060f' } },
+  { type: 'shape', shape: 'circle', radius: 110, duration: 8, initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ff2d95' },
+    keyframes: react(env, { duration: 8, props: {
+      scale: { base: 1, amount: 0.45, band: 'bass', attack: 0.02, release: 0.2 },        // swells with the low end, falls back slowly
+      alpha: { base: 0.5, amount: 0.5, beats: true, decay: 0.15 },                      // flashes on every beat
+    } }) },
+];
+```
+
+- `audioEnvelope(url)` gives, per video frame, the loudness (`level`) and the energy in `bass`, `mid` and `treble` (or bands you name, in Hz) as numbers from 0 to 1 on a perceptual scale, the times of the beats (`env.beats`) and the tempo (`env.bpm`). A quiet file gives the same shape as a loud one.
+- `react(env, { duration, props })` returns keyframes: each property is `base + amount × level`. Use `band` to pick the low, middle or high end, `beats: true` for a pulse that jumps on each beat and fades (`decay`), `attack` / `release` (seconds) to smooth the rise and fall like a level meter, and `audioOffset` / `loop` to line it up with a music layer that starts late or repeats.
+- Many bands make an equaliser: `bands: { b0: [50, 80], b1: [80, 130], … }`, one bar per band with `height: { base: 6, amount: 220, band: 'b7' }`. The gallery's [Night Drive](../examples/gallery/music-visualizer.html) is exactly that: a 24-band analysis of the sample loop, mirrored into 48 bars.
+- No audio file? `bpmEnvelope(120, { duration })` is a kick, a snare and hats exactly on a tempo.
+
+{{demo examples/gallery/music-visualizer.html}}
+
 ## Mixing
 
 Every audio layer is mixed down into one soundtrack. The mix is soft-limited above 0.9 (a quieter mix is untouched) and a warning names the layers if it would have clipped, so a pile of loud layers cannot ruin the file. Typical levels: music at 0.25 to 0.4 under effects.

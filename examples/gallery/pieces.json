@@ -307,10 +307,11 @@
     {
       "id": "music-visualizer",
       "title": "Night Drive",
-      "subtitle": "A neon music visualizer: seeded pseudo-spectrum bars, a beat-locked radial pulse and a progress ring over the sample bgm.",
+      "subtitle": "A neon music visualizer that really listens: 48 bars from a 24-band analysis of the sample music, a radial pulse and rings on its actual kicks, and a progress ring.",
       "tags": [
         "music",
         "audio",
+        "audio-reactive",
         "spectrum",
         "glow",
         "loop"

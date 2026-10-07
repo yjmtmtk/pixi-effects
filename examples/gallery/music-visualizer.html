@@ -10,7 +10,7 @@
     .pe-stage { position: relative; width: min(960px, 100%); height: auto; border-radius: 8px; --pe-loader-bg: #0b0b10; background: #0b0b10; }
     .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
   </style>
-  <script type="application/json" id="piece-meta">{ "title": "Night Drive", "subtitle": "A neon music visualizer: seeded pseudo-spectrum bars, a beat-locked radial pulse and a progress ring over the sample bgm.", "tags": ["music", "audio", "spectrum", "glow", "loop"], "width": 1280, "height": 720, "duration": 12, "model": "sonnet" }</script>
+  <script type="application/json" id="piece-meta">{ "title": "Night Drive", "subtitle": "A neon music visualizer that really listens: 48 bars from a 24-band analysis of the sample music, a radial pulse and rings on its actual kicks, and a progress ring.", "tags": ["music", "audio", "audio-reactive", "spectrum", "glow", "loop"], "width": 1280, "height": 720, "duration": 12, "model": "sonnet" }</script>
 </head>
 <body>
   <div class="pe-stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
@@ -42,17 +42,20 @@
   </script>
 
   <script type="module">
-    import { Movie } from 'pixi-effects';
+    import { Movie, audioEnvelope } from 'pixi-effects';
     import { Controller } from 'pixi-effects/controller';
     import { BlurFilter } from 'pixi.js';
 
     const W = 1280, H = 720, FPS = 30, DURATION = 12, POSTER_FRAME = 195;
 
-    // ── time grid ────────────────────────────────────────────────────────────────
-    // 112.5 BPM -> a beat is exactly 16 frames, a 16th note exactly 4 frames: every sample sits on a frame.
-    const BPM = 112.5, BEAT = 60 / BPM, STEP = BEAT / 4;
-    const STEPS = Math.round(DURATION / STEP);             // 90 samples per bar
-    const DROP = 14 * BEAT;                                 // the "drop" (about 7.5 s)
+    // ── the music, analysed ──────────────────────────────────────────────────────
+    // The sample loop is analysed for real: its level, 24 frequency bands (log-spaced, 50 Hz to 12 kHz) and its beats, one value per frame.
+    // Everything that moves below follows those numbers, sampled every 4 frames.
+    const NB = 24, EDGES = Array.from({ length: NB + 1 }, (_, k) => 50 * Math.pow(12000 / 50, k / NB));
+    const bands = { bass: [40, 160], ...Object.fromEntries(Array.from({ length: NB }, (_, k) => ['b' + k, [EDGES[k], EDGES[k + 1]]])) };   // + one wide band for the kick
+    const env = await audioEnvelope('../_assets/bgm.mp3', { frameRate: FPS, bands });
+    const STEP = 4 / FPS;                                   // a sample every 4 frames
+    const STEPS = Math.floor(DURATION / STEP);              // the movie is 12 s of the 16 s loop
 
     // ── palette ──────────────────────────────────────────────────────────────────
     const INK = '#f6f1ff', MAGENTA = '#ff2d95', VIOLET = '#8a4dff', CYAN = '#22e0ff', BG_TOP = '#05040d', BG_BOT = '#1a0a30';
@@ -63,34 +66,30 @@
       return '#' + [f(0), f(8), f(4)].map(v => v.toString(16).padStart(2, '0')).join('');
     };
 
-    // ── the pseudo-spectrum ──────────────────────────────────────────────────────
-    // NOT audio analysis: seeded noise + a kick/snare/hat envelope on the beat grid, sampled into keyframes.
-    let seed = 20240607;
+    let seed = 20240607;                                    // (the dust is seeded; the spectrum is not)
     const rnd = () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
     const smooth = (a, b, x) => { const u = Math.min(1, Math.max(0, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
-    const gain = t => smooth(0.7, 3.4, t) * (1 - 0.86 * smooth(9.9, 10.9, t)) * (t < DROP ? 0.82 : 1);   // song energy: intro / body / outro
+    // what you SEE follows what you HEAR: the music layer fades in over 2 s and out over the last 2 s
+    const gain = t => smooth(0, 2, t) * (1 - smooth(DURATION - 2, DURATION, t));
 
+    const DROP = env.beats.filter(b => b > 6 && b < 9).sort((a, b) => env.at(b, 'bass') - env.at(a, 'bass')).at(-1) ?? 7.5;   // the biggest kick in the middle
     const N = 48, PITCH = 20, BAR_W = 12, X0 = W / 2 - (N - 1) * PITCH / 2;
     const BASE = 585, UP = 260, DOWN = 80;
     const CORE = { x: W / 2, y: 345 };
 
-    // one value 0..1 per bar per 16th-note step
-    const bassW = f => Math.exp(-f * 4.2), midW = f => Math.exp(-(((f - 0.45) / 0.25) ** 2)), highW = f => Math.pow(f, 1.4);
-    const spectrum = Array.from({ length: N }, () => new Array(STEPS + 1).fill(0));
-    const energy = new Array(STEPS + 1).fill(0);           // overall level, drives the pulse
-    for (let s = 0; s <= STEPS; s++) {
-      const b = s / 4;                                      // beats
-      const ph = b % 1, kick = Math.exp(-4.5 * ph), snare = Math.floor(b) % 2 === 1 ? Math.exp(-6 * ph) : 0;
-      const hat = Math.exp(-9 * ((b + 0.5) % 1)), pad = 0.5 + 0.5 * Math.sin(b * 0.9);
-      energy[s] = Math.min(1, kick * 0.9 + snare * 0.35 + 0.15);
-      for (let i = 0; i < N; i++) {
-        const f = Math.abs(i - (N - 1) / 2) / ((N - 1) / 2);
-        const target = kick * bassW(f) * 1.05 + snare * midW(f) * 0.85 + hat * highW(f) * 0.75 + pad * midW(f) * 0.22
-          + (rnd() - 0.4) * 0.3 * (0.35 + highW(f)) + 0.06;
-        const prev = s ? spectrum[i][s - 1] : 0;
-        spectrum[i][s] = Math.max(0.03, Math.tanh(target * 1.05), prev * 0.7);   // soft clip: no flat-topped bars
-      }
-    }
+    // one value 0..1 per bar per step: the middle bars are the lows, the edges the highs. Each band is stretched to use its own range (the highs are
+    // quiet in music) and blended 1-2-1 with its neighbours, so the bars read as a spectrum and not as isolated spikes.
+    const peak = Array.from({ length: NB }, (_, k) => { const s = Array.from(env.series['b' + k]).sort((a, b) => a - b); return Math.max(0.3, s[Math.floor(s.length * 0.95)]); });
+    const bandAt = (k, time) => Math.min(1, env.at(time, 'b' + Math.min(NB - 1, Math.max(0, k))) / peak[Math.min(NB - 1, Math.max(0, k))]);
+    const spectrum = Array.from({ length: N }, (_, i) => {
+      const f = Math.abs(i - (N - 1) / 2) / ((N - 1) / 2), k = Math.round(f * (NB - 1));
+      return Array.from({ length: STEPS + 1 }, (_, s) => {
+        const time = s * STEP;
+        const v = (bandAt(k - 1, time) + 2 * bandAt(k, time) + bandAt(k + 1, time)) / 4;
+        return Math.max(0.03, Math.pow(v, 1.15));
+      });
+    });
+    const energy = Array.from({ length: STEPS + 1 }, (_, s) => Math.min(1, env.at(s * STEP, 'bass') * 0.9 + 0.1));      // the kick, drives the pulse
 
     // ── bars ─────────────────────────────────────────────────────────────────────
     const barColors = i => {
@@ -127,10 +126,11 @@
       keyframes: coreKf,
     });
     const rings = [];
-    for (let k = 0; k * BEAT < DURATION - 1.4; k++) {
-      const at = k * BEAT, g = gain(at + 0.1);
-      if (g < 0.08) continue;
-      const big = Math.abs(at - DROP) < 0.01;
+    let lastRing = -1;
+    env.beats.filter(b => b < DURATION - 1.4).forEach((at, k) => {
+      const g = gain(at + 0.1), big = Math.abs(at - DROP) < 0.01;
+      if (g < 0.08 || (!big && (env.at(at, 'bass') < 0.78 || at - lastRing < 0.45))) return;      // only the strong kicks make a ring
+      lastRing = at;
       const col = k % 2 ? CYAN : MAGENTA;
       rings.push({
         type: 'shape', shape: 'circle', radius: 100, name: 'ring' + k, at, duration: big ? 1.5 : 1.15,
@@ -140,7 +140,7 @@
           { at: 0, from: { strokeAlpha: (big ? 0.95 : 0.55) * Math.min(1, g * 1.1) }, to: { strokeAlpha: 0 }, duration: big ? 1.5 : 1.15, ease: 'power2.out' },
         ],
       });
-    }
+    });
 
     // ── floating dust ────────────────────────────────────────────────────────────
     const dust = Array.from({ length: 34 }, (_, i) => {

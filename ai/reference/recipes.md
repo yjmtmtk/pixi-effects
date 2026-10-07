@@ -507,6 +507,29 @@ Both outlines are in canvas coordinates. Closed outlines are lined up so they do
 
 ---
 
+## Visuals that follow the music (`audioEnvelope`, `react`)
+
+Analyse the sound **before** `movie.init` (`const env = await audioEnvelope('music.mp3', { frameRate: 30 })`: levels per band per frame and the beats), then `react()` bakes it into keyframes, so playback and export agree. With no audio file at hand, `bpmEnvelope(120, { duration })` is a drum pattern on a tempo (kick = `bass`, snare = `mid`, hats = `treble`), exactly on the beat; it is also how to match sound effects you place on that tempo.
+
+```js
+// @recipe audio-react
+const env = bpmEnvelope(120, { duration: 8, frameRate: 30 });      // with a file: `const env = await audioEnvelope(url, { frameRate: 30 })`
+const bands = ['bass', 'bass', 'bass', 'mid', 'mid', 'mid', 'treble', 'treble'];
+const bars = bands.map((band, i) => ({
+  type: 'shape', shape: 'rect', name: 'bar-' + i, width: 60, height: 10, cornerRadius: 6, anchorY: 1, duration: 8,
+  initial: { x: 330 + i * 86, y: 600, fillColor: ['#ff2d95', '#8a4dff', '#22e0ff'][['bass', 'mid', 'treble'].indexOf(band)] },
+  keyframes: react(env, { duration: 8, props: { height: { base: 10, amount: 260, band, release: 0.12 } } }),       // an equaliser bar: up fast, down slowly
+}));
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#07060f' } },
+  { type: 'shape', shape: 'circle', name: 'orb', radius: 90, duration: 8, initial: { x: 640, y: 260, fillColor: '#ffffff' },
+    keyframes: react(env, { duration: 8, props: { scale: { base: 1, amount: 0.5, beats: true, decay: 0.16 }, alpha: { base: 0.55, amount: 0.45, band: 'bass', attack: 0.02, release: 0.15 } } }) },   // a flash on every kick
+  ...bars,
+];
+```
+
+---
+
 ## A deck: pages and steps for a presenter (`deck`, `Presenter`)
 
 `deck({ pages, transition })` lays pages out one after the other (each page's layers are written in the page's own time) and turns their `stops` into where a `Presenter` pauses. A **step** is a layer that starts at the previous stop and ends at this one: "press next" plays exactly that animation and stops. A page should last its last stop plus the transition.

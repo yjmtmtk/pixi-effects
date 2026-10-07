@@ -110,7 +110,7 @@ transitions: [{ kind: 'crossfade' | 'wipe' | 'iris' | 'slide' | 'dip' | 'zoom' |
 ## Presets
 
 ```js
-import { kenBurns, withFade, wiggle, stagger, followPath, particles, deck, random } from 'pixi-effects';
+import { kenBurns, withFade, wiggle, stagger, followPath, particles, deck, audioEnvelope, bpmEnvelope, react, random } from 'pixi-effects';
 kenBurns({ asset, name, at, duration, motion: 'still'|'scale'|'rotation'|'position',
            fit: 'cover'|'contain', ease, /* scale */ origin, zoom, direction, /* rotation */ angle, /* position */ from, to })
 withFade(spec, { in: 0.5, out: 0.5 })   // alpha fade; `out` needs spec.duration
@@ -131,6 +131,9 @@ movie.next() / prev() / goToStop(i) / goToPage(n) / movie.stops / movie.on('stop
 // Presenter extras: G = page overview (pictures), P = presenter view (a second window: live picture, next picture, notes, timer); start() makes the pictures before the audience sees anything
 await movie.stopImages({ as: 'dataURL', scale: 0.25 }) // [{ stop, page, image }] one per page (its last stop); { which: 'stops' } one per stop
 await movie.exportPDF({ title })                       // Blob: a PDF page per page of the deck; CLI: pixi-effects-render talk.html -o talk.pdf (--all-stops)
+const env = await audioEnvelope('music.mp3', { frameRate: 30 })   // BEFORE movie.init: .series.level|bass|mid|treble (0–1 per frame), .beats [s], .bpm, .at(t, band); bands: { name: [Hz, Hz] }
+const env = bpmEnvelope(120, { duration: 12 })                     // no audio file: kick / snare / hats exactly on a tempo
+keyframes: react(env, { duration: 12, props: { scale: { base: 1, amount: 0.4, band: 'bass', attack: 0.02, release: 0.2 }, alpha: { base: 0.4, amount: 0.6, beats: true, decay: 0.15 } }, audioOffset: 0, loop: false })
 const r = random(7); r(); r();      // a repeatable stream in 0…1 for JS loops (never Math.random())
 ```
 `kenBurns` covers the canvas, so source images should be at least canvas-sized (1920×1080 for 1280×720).

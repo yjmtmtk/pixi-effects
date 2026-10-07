@@ -35,7 +35,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
 - **Masks live in the parent's coordinates and don't follow the masked layer.** **`filterArea` is in the layer's own coordinates.**
 - **2.5D needs `threeD: true`** on each layer plus a `{ type: 'camera' }` layer; camera props go in `initial`/keyframes; keep every `z` below the camera distance (≈ 989 at 720p, fov 40); under a dolly zoom only `z = 0` stays fixed.
 - **Group / parent layers = `{ type: 'null', name: 'rig' }`** (draws nothing, only moves) + `parent: 'rig'` on the layers that should follow it: their `x`/`y` are then measured from the null's origin, and the null's position / rotation / scale / alpha carry them (orbits, clock hands, grouped fades). Nulls chain. Only `null` layers can be parents; not for `threeD` layers.
-- **Built in:** `animateText()` (per-letter / per-word / per-line entrances and exits in one call: `...animateText('Title', style, { x, y, align: 'center', at: 0.5, duration: 5, in: 'rise', out: 'fade', stagger: { each: 0.05 } })`), `splitText()` / `measureText()` (per-letter / per-word layers, exact positions, by hand), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) `wiggle()` (a seeded shake as keyframes) `deck()` + `Presenter` (a talk as one movie: pages, steps, stops that pause playback, arrow keys / click / swipe to move on: `...deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops, sequences }] })`, `new Presenter(movie, { canvas })` from `pixi-effects/presenter`; G = page overview, P = presenter view with notes and a timer; `pixi-effects-render talk.html -o talk.pdf` = a PDF of the pages), `particles()` (bursts, snow, confetti, sparks as seeded layers: `...particles({ count: 90, at: 2, life: [1, 1.8], area: { x: 640, y: 330 }, speed: [120, 420], gravity: 240, fade: { out: 0.6 } })`), `followPath()` (a layer along an SVG path: `keyframes: followPath({ d, duration, orient: true })`), path morphing (`{ shape: 'path', d, morphTo, initial/keyframes: morph 0 → 1 }`) and `stagger()` (delays for a wave of layers: `stagger(letters, { each: 0.05, from: 'center' })`, or `stagger(n, …)` for numbers; GSAP-style `each` / `amount` / `from` / `grid` / `ease`). **Not in the DSL (hand-roll with a JS loop):** other per-frame curves (waves, spirals: sample them into short linear keyframes), shared masks. (Draw-on strokes `trimEnd`, text that changes over time `set: { text }` / `visibleChars`, shake `wiggle()` and particles are built in.)
+- **Built in:** `animateText()` (per-letter / per-word / per-line entrances and exits in one call: `...animateText('Title', style, { x, y, align: 'center', at: 0.5, duration: 5, in: 'rise', out: 'fade', stagger: { each: 0.05 } })`), `splitText()` / `measureText()` (per-letter / per-word layers, exact positions, by hand), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) `wiggle()` (a seeded shake as keyframes) `audioEnvelope()` / `bpmEnvelope()` + `react()` (visuals that follow music: `const env = await audioEnvelope('music.mp3', { frameRate })` before `movie.init`, then `keyframes: react(env, { duration, props: { scale: { base: 1, amount: 0.4, band: 'bass', release: 0.2 } } })`; `beats: true` pulses on the beats; `bpmEnvelope(120, …)` when there is no file), `deck()` + `Presenter` (a talk as one movie: pages, steps, stops that pause playback, arrow keys / click / swipe to move on: `...deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops, sequences }] })`, `new Presenter(movie, { canvas })` from `pixi-effects/presenter`; G = page overview, P = presenter view with notes and a timer; `pixi-effects-render talk.html -o talk.pdf` = a PDF of the pages), `particles()` (bursts, snow, confetti, sparks as seeded layers: `...particles({ count: 90, at: 2, life: [1, 1.8], area: { x: 640, y: 330 }, speed: [120, 420], gravity: 240, fade: { out: 0.6 } })`), `followPath()` (a layer along an SVG path: `keyframes: followPath({ d, duration, orient: true })`), path morphing (`{ shape: 'path', d, morphTo, initial/keyframes: morph 0 → 1 }`) and `stagger()` (delays for a wave of layers: `stagger(letters, { each: 0.05, from: 'center' })`, or `stagger(n, …)` for numbers; GSAP-style `each` / `amount` / `from` / `grid` / `ease`). **Not in the DSL (hand-roll with a JS loop):** other per-frame curves (waves, spirals: sample them into short linear keyframes), shared masks. (Draw-on strokes `trimEnd`, text that changes over time `set: { text }` / `visibleChars`, shake `wiggle()` and particles are built in.)
 - **Blend modes:** `blendMode: 'add' | 'screen' | 'multiply'` on any layer (glows, light leaks).
 - **One `Movie` per page.** A sound effect needs no `duration` (it lasts as long as its clip). Seeking is safe: counters, colours and growing shapes are right after any jump.
 
@@ -168,7 +168,7 @@ transitions: [{ kind: 'crossfade' | 'wipe' | 'iris' | 'slide' | 'dip' | 'zoom' |
 ## Presets
 
 ```js
-import { kenBurns, withFade, wiggle, stagger, followPath, particles, deck, random } from 'pixi-effects';
+import { kenBurns, withFade, wiggle, stagger, followPath, particles, deck, audioEnvelope, bpmEnvelope, react, random } from 'pixi-effects';
 kenBurns({ asset, name, at, duration, motion: 'still'|'scale'|'rotation'|'position',
            fit: 'cover'|'contain', ease, /* scale */ origin, zoom, direction, /* rotation */ angle, /* position */ from, to })
 withFade(spec, { in: 0.5, out: 0.5 })   // alpha fade; `out` needs spec.duration
@@ -189,6 +189,9 @@ movie.next() / prev() / goToStop(i) / goToPage(n) / movie.stops / movie.on('stop
 // Presenter extras: G = page overview (pictures), P = presenter view (a second window: live picture, next picture, notes, timer); start() makes the pictures before the audience sees anything
 await movie.stopImages({ as: 'dataURL', scale: 0.25 }) // [{ stop, page, image }] one per page (its last stop); { which: 'stops' } one per stop
 await movie.exportPDF({ title })                       // Blob: a PDF page per page of the deck; CLI: pixi-effects-render talk.html -o talk.pdf (--all-stops)
+const env = await audioEnvelope('music.mp3', { frameRate: 30 })   // BEFORE movie.init: .series.level|bass|mid|treble (0–1 per frame), .beats [s], .bpm, .at(t, band); bands: { name: [Hz, Hz] }
+const env = bpmEnvelope(120, { duration: 12 })                     // no audio file: kick / snare / hats exactly on a tempo
+keyframes: react(env, { duration: 12, props: { scale: { base: 1, amount: 0.4, band: 'bass', attack: 0.02, release: 0.2 }, alpha: { base: 0.4, amount: 0.6, beats: true, decay: 0.15 } }, audioOffset: 0, loop: false })
 const r = random(7); r(); r();      // a repeatable stream in 0…1 for JS loops (never Math.random())
 ```
 `kenBurns` covers the canvas, so source images should be at least canvas-sized (1920×1080 for 1280×720).
@@ -815,6 +818,29 @@ return [{
 ```
 
 Both outlines are in canvas coordinates. Closed outlines are lined up so they do not twist.
+
+---
+
+## Visuals that follow the music (`audioEnvelope`, `react`)
+
+Analyse the sound **before** `movie.init` (`const env = await audioEnvelope('music.mp3', { frameRate: 30 })`: levels per band per frame and the beats), then `react()` bakes it into keyframes, so playback and export agree. With no audio file at hand, `bpmEnvelope(120, { duration })` is a drum pattern on a tempo (kick = `bass`, snare = `mid`, hats = `treble`), exactly on the beat; it is also how to match sound effects you place on that tempo.
+
+```js
+// @recipe audio-react
+const env = bpmEnvelope(120, { duration: 8, frameRate: 30 });      // with a file: `const env = await audioEnvelope(url, { frameRate: 30 })`
+const bands = ['bass', 'bass', 'bass', 'mid', 'mid', 'mid', 'treble', 'treble'];
+const bars = bands.map((band, i) => ({
+  type: 'shape', shape: 'rect', name: 'bar-' + i, width: 60, height: 10, cornerRadius: 6, anchorY: 1, duration: 8,
+  initial: { x: 330 + i * 86, y: 600, fillColor: ['#ff2d95', '#8a4dff', '#22e0ff'][['bass', 'mid', 'treble'].indexOf(band)] },
+  keyframes: react(env, { duration: 8, props: { height: { base: 10, amount: 260, band, release: 0.12 } } }),       // an equaliser bar: up fast, down slowly
+}));
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#07060f' } },
+  { type: 'shape', shape: 'circle', name: 'orb', radius: 90, duration: 8, initial: { x: 640, y: 260, fillColor: '#ffffff' },
+    keyframes: react(env, { duration: 8, props: { scale: { base: 1, amount: 0.5, beats: true, decay: 0.16 }, alpha: { base: 0.55, amount: 0.45, band: 'bass', attack: 0.02, release: 0.15 } } }) },   // a flash on every kick
+  ...bars,
+];
+```
 
 ---
 
@@ -2248,6 +2274,23 @@ import { followPath } from 'pixi-effects';
 
 It returns `Keyframe[]`: spread it next to other keyframes, but not another `x`, `y` or `rotation` during the trip.
 
+### `react`
+
+Keyframes that follow a sound: `base + amount × level`, sampled once per frame from an envelope. Analyse the sound first (`await audioEnvelope(url)`, or `bpmEnvelope(bpm, { duration })` with no file), then:
+
+```ts
+import { audioEnvelope, react } from 'pixi-effects';
+
+const env = await audioEnvelope('music.mp3', { frameRate: 30 });
+{ type: 'shape', shape: 'circle', radius: 120, initial: { x: 640, y: 360 },
+  keyframes: react(env, { duration: 12, props: {
+    scale: { base: 1, amount: 0.4, band: 'bass', attack: 0.02, release: 0.2 },     // swells with the low end, falls back slowly
+    alpha: { base: 0.5, amount: 0.5, beats: true, decay: 0.15 },                    // flashes on every beat
+  } }) }
+```
+
+See [the API reference](api.md#audio-reactive-audioenvelope-react-bpmenvelope) for the options. A bar equaliser is one layer per band with `height: { base: 6, amount: 220, band: 'b7' }`.
+
 ### `deck`
 
 A deck of pages as one movie, for a `Presenter`. Each page is a nested composition laid out after the one before (so its layers are written in the page's own time), the stops come from the pages, and an optional `transition` joins them with the existing transitions.
@@ -2621,6 +2664,33 @@ const pdf = await movie.exportPDF({ title: 'My talk' });                        
 ```
 
 Both pause the movie and leave the playhead where it was; a movie with no stops returns an empty list / throws (a PDF needs pages). `exportPDF` options: `which`, `pick`, `scale`, `quality` (JPEG, default 0.92), `title`, `motionBlur`, `onImage`. A transparent background comes out black in a JPEG: give the movie a `background`. From a script, `npx pixi-effects-render my-talk.html -o my-talk.pdf` (add `--all-stops` for a page per stop).
+
+### Audio-reactive: `audioEnvelope()`, `react()`, `bpmEnvelope()`
+
+Make things follow the sound, deterministically (playback, seeking and export agree): analyse the sound **before** `movie.init`, then bake what it does into keyframes.
+
+```ts
+import { audioEnvelope, bpmEnvelope, react } from 'pixi-effects';
+
+const env = await audioEnvelope('music.mp3', { frameRate: 30 });      // a URL, Blob / File, ArrayBuffer or AudioBuffer
+// env.series.level / bass / mid / treble: one value per frame, 0–1 on a log (perceptual) scale, measured against the loudest of them
+// env.beats: times of the beats (seconds); env.bpm: the tempo (null with too few beats); env.at(time, 'bass')
+await movie.init({ /* … */ composition: { sequences: [
+  { type: 'shape', shape: 'circle', radius: 120, initial: { x: 640, y: 360 },
+    keyframes: react(env, { duration: 12, props: { scale: { base: 1, amount: 0.4, band: 'bass', attack: 0.02, release: 0.2 } } }) },
+  { type: 'audio', asset: 'music', loop: true },
+] } });
+```
+
+| `audioEnvelope(source, options)` | |
+| --- | --- |
+| `frameRate` | one value per video frame: use the movie's (default 30) |
+| `bands` | `{ name: [fromHz, toHz] }`. Default `{ bass: [20, 150], mid: [150, 2000], treble: [2000, 10000] }`; give your own for a spectrum (24 log-spaced bands) and the beat detector looks in `bass` (set `beatBand` if you have no such band) |
+| `beatSensitivity` | above 1 finds more beats, below 1 fewer |
+
+`react(env, options)` returns keyframes (one linear step per frame): `{ at?, duration, props, audioOffset?, loop?, frameRate? }`. Each prop is `{ base, amount, band?, beats?, decay?, attack?, release?, invert?, curve? }`: the value is `base + amount × level`. `band` picks a series (default `level`); `beats: true` follows the beats instead (a jump to full on each, falling off with `decay` seconds); `attack` / `release` smooth the rise and fall in seconds like a level meter (a quick rise and a slow fall bounces); `curve` above 1 lets only the loud parts move it. `audioOffset` is where in the sound the layer's start is (a layer that begins 2 s after the music: `audioOffset: 2`); `loop: true` for a looping music layer. It refuses to bake more than 4000 steps (lower `frameRate`).
+
+`bpmEnvelope(120, { duration, frameRate })` is a stand-in with no audio file: a kick on every beat (`bass`), a snare on 2 and 4 (`mid`), hats on the eighths (`treble`), exactly on the tempo. Use it to try an idea, or to make visuals that match sound effects you place on the same tempo. The analysis is the same code the check tool trusts: pure and deterministic.
 
 ### `movie.toggleMute(): boolean`
 

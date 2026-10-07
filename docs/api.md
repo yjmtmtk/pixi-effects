@@ -299,6 +299,33 @@ const pdf = await movie.exportPDF({ title: 'My talk' });                        
 
 Both pause the movie and leave the playhead where it was; a movie with no stops returns an empty list / throws (a PDF needs pages). `exportPDF` options: `which`, `pick`, `scale`, `quality` (JPEG, default 0.92), `title`, `motionBlur`, `onImage`. A transparent background comes out black in a JPEG: give the movie a `background`. From a script, `npx pixi-effects-render my-talk.html -o my-talk.pdf` (add `--all-stops` for a page per stop).
 
+### Audio-reactive: `audioEnvelope()`, `react()`, `bpmEnvelope()`
+
+Make things follow the sound, deterministically (playback, seeking and export agree): analyse the sound **before** `movie.init`, then bake what it does into keyframes.
+
+```ts
+import { audioEnvelope, bpmEnvelope, react } from 'pixi-effects';
+
+const env = await audioEnvelope('music.mp3', { frameRate: 30 });      // a URL, Blob / File, ArrayBuffer or AudioBuffer
+// env.series.level / bass / mid / treble: one value per frame, 0–1 on a log (perceptual) scale, measured against the loudest of them
+// env.beats: times of the beats (seconds); env.bpm: the tempo (null with too few beats); env.at(time, 'bass')
+await movie.init({ /* … */ composition: { sequences: [
+  { type: 'shape', shape: 'circle', radius: 120, initial: { x: 640, y: 360 },
+    keyframes: react(env, { duration: 12, props: { scale: { base: 1, amount: 0.4, band: 'bass', attack: 0.02, release: 0.2 } } }) },
+  { type: 'audio', asset: 'music', loop: true },
+] } });
+```
+
+| `audioEnvelope(source, options)` | |
+| --- | --- |
+| `frameRate` | one value per video frame: use the movie's (default 30) |
+| `bands` | `{ name: [fromHz, toHz] }`. Default `{ bass: [20, 150], mid: [150, 2000], treble: [2000, 10000] }`; give your own for a spectrum (24 log-spaced bands) and the beat detector looks in `bass` (set `beatBand` if you have no such band) |
+| `beatSensitivity` | above 1 finds more beats, below 1 fewer |
+
+`react(env, options)` returns keyframes (one linear step per frame): `{ at?, duration, props, audioOffset?, loop?, frameRate? }`. Each prop is `{ base, amount, band?, beats?, decay?, attack?, release?, invert?, curve? }`: the value is `base + amount × level`. `band` picks a series (default `level`); `beats: true` follows the beats instead (a jump to full on each, falling off with `decay` seconds); `attack` / `release` smooth the rise and fall in seconds like a level meter (a quick rise and a slow fall bounces); `curve` above 1 lets only the loud parts move it. `audioOffset` is where in the sound the layer's start is (a layer that begins 2 s after the music: `audioOffset: 2`); `loop: true` for a looping music layer. It refuses to bake more than 4000 steps (lower `frameRate`).
+
+`bpmEnvelope(120, { duration, frameRate })` is a stand-in with no audio file: a kick on every beat (`bass`), a snare on 2 and 4 (`mid`), hats on the eighths (`treble`), exactly on the tempo. Use it to try an idea, or to make visuals that match sound effects you place on the same tempo. The analysis is the same code the check tool trusts: pure and deterministic.
+
 ### `movie.toggleMute(): boolean`
 
 Flips `muted` and returns the new value.

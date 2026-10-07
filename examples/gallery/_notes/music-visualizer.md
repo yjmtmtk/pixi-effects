@@ -50,3 +50,11 @@ const bars = Array.from({ length: N }, (_, i) => ({
 }));
 // level(i,s): kick*bassWeight + hat*highWeight + noise, soft-clipped with tanh and given a release `max(target, prev*0.7)`.
 ```
+
+
+## Update: it listens now (0.12)
+The bars, the pulse and the rings used to come from a seeded pseudo-spectrum on an invented 112.5 bpm grid: the sample loop is really 120 bpm, so the picture never matched the sound. The page now analyses `bgm.mp3` with `audioEnvelope()` (24 log-spaced bands from 50 Hz to 12 kHz, a wide bass band for the kick, one value per frame) and samples it every 4 frames: the 48 bars are the 24 bands mirrored (lows in the middle), each stretched to its own range and blended 1-2-1 with its neighbours so they read as a spectrum; the orb follows the kick; a ring is born on the strong detected kicks (not on a grid); the flash is the biggest kick between 6 s and 9 s. What you see follows what you hear: the visuals fade with the music layer's volume.
+
+### Stumbles
+- A raw 24-band analysis looked like isolated spikes (most narrow bands are quiet at any moment). Stretching each band to its own 95th percentile and a 1-2-1 blend across bands fixed it.
+- The first run threw "this envelope has no series bass": a custom `bands` list replaces the defaults, so a band named `bass` has to be listed (the beat detector looks in it by default).
