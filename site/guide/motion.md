@@ -112,3 +112,5 @@ A museum plate of the solar system. One null layer carries the whole diagram (an
 And a poster for the path and text tools: a square turns into a circle turns into a triangle (path morphing), a small dot rides the ring round them (`followPath`), and the big lines and the changing word arrive letter by letter (`animateText`).
 
 {{demo examples/gallery/shape-shift.html}}
+
+To make motion follow a sound instead of a seed, see [Audio](audio.html#visuals-that-follow-the-music): `audioEnvelope()` analyses the music and `react()` turns it into keyframes the same way. For slides that move, see [Presenting](presenting.html).
