@@ -387,6 +387,17 @@ footer .end{font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:va
   .cmp td::before{content:attr(data-col);display:block;font-weight:600;color:var(--ink);font-size:13.5px;margin-bottom:2px}
   .cmp td.me::before{color:var(--accent)}
 }
+
+/* the player: a poster click plays that piece here */
+#player{padding:0;border:1px solid var(--line,#272b35);border-radius:12px;background:var(--bg-2);color:var(--ink);width:min(960px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:hidden}
+#player::backdrop{background:rgba(5,6,9,.78)}
+#player .pbar{display:flex;align-items:center;gap:14px;padding:10px 14px;border-bottom:1px solid var(--line,#272b35);font-size:14px}
+#player .pbar b{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#player .pbar a{color:var(--ink-2,var(--ink));font-size:13px;white-space:nowrap}
+#player .pbar button{font:inherit;font-size:13px;background:var(--bg-3);color:var(--ink);border:1px solid var(--line,#272b35);border-radius:6px;padding:5px 10px;cursor:pointer}
+#player .pbar button:focus-visible,#player .pbar a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#player .pframe{--r:1.7778;position:relative;background:#000;margin:12px auto;border-radius:6px;overflow:hidden;aspect-ratio:var(--r);width:min(calc(100% - 24px),calc((100vh - 110px) * var(--r)))}
+#player .pframe iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
 @media (prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}
   .tl-play,.tl-bar,.hero h1 .w{animation:none}
@@ -686,22 +697,22 @@ movie.play();
     </div>
 
     <div class="masonry">
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/ma.jpg" width="960" height="540" loading="lazy" alt="間 MA: a large black 間 character with its lower strokes in red, beside the word MA and the line “the space between things”, on warm paper"></div><figcaption><b>間 MA — the space between</b><span>1920×1080 · 48 s · opus</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/social-quote-vertical.jpg" width="360" height="640" loading="lazy" alt="A vertical quote card on warm blurred colour: “The details are not the details. They make the design.” Charles Eames"></div><figcaption><b>Social Quote Card</b><span>720×1280 · 10 s · sonnet</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/hanabi-night.jpg" width="640" height="360" loading="lazy" alt="Hanabi Night: a gold firework opens over a city skyline under indigo, with the vertical title 花火大会"></div><figcaption><b>Hanabi Night</b><span>1280×720 · 12 s · sonnet</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/generative-orbits.jpg" width="540" height="540" loading="lazy" alt="Orbits: glowing dots in rosette and Lissajous patterns with comet trails on deep violet"></div><figcaption><b>Orbits</b><span>1080×1080 · 14 s · opus</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/isometric-city.jpg" width="640" height="360" loading="lazy" alt="Kōbe, 2040: an isometric city of lit blocks at dusk"></div><figcaption><b>Kōbe, 2040</b><span>1280×720 · 12 s · fable</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/recipe-card.jpg" width="540" height="675" loading="lazy" alt="Lemon Pasta Recipe Card: ingredients checked off, three timed steps, a plated dish, in warm yellow and red"></div><figcaption><b>Lemon Pasta Recipe Card</b><span>1080×1350 · 12 s · sonnet</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/orbit-rig.jpg" width="640" height="360" loading="lazy" alt="Orrery: a museum plate of the solar system in ivory and brass on navy, with a legend of the planets"></div><figcaption><b>Orrery</b><span>1280×720 · 12 s · sonnet</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/synthwave-drive.jpg" width="640" height="360" loading="lazy" alt="Synthwave Drive: a striped sun over a neon grid and the glowing title SYNTHWAVE DRIVE"></div><figcaption><b>Synthwave Drive</b><span>1280×720 · 12 s · fable</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/loader-gallery.jpg" width="540" height="540" loading="lazy" alt="Loader Gallery: nine loading loops on one dark board, titled NINE WAYS TO WAIT"></div><figcaption><b>Loader Gallery</b><span>1080×1080 · 10 s · sonnet</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/film-titles.jpg" width="640" height="360" loading="lazy" alt="The Long Night: a dark faceted shard in fog with a ring around it, over the title in spaced serif capitals"></div><figcaption><b>The Long Night</b><span>1280×720 · 14 s · opus</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/wedding-invitation.jpg" width="540" height="675" loading="lazy" alt="Wedding Invitation: a cream card with a double gold border, botanical sprigs, and the names Aiko and Daniel in serif"></div><figcaption><b>Wedding Invitation</b><span>1080×1350 · 12 s · fable</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/shape-shift.jpg" width="640" height="360" loading="lazy" alt="Form Follows: FORM FOLLOWS FEELING in black and ochre type beside a yellow circle, Bauhaus style on cream"></div><figcaption><b>Form Follows</b><span>1280×720 · 12 s · sonnet</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/paper-cutout-forest.jpg" width="640" height="360" loading="lazy" alt="Quiet Woods: a cut-paper night forest with a fox, fireflies and a paper moon"></div><figcaption><b>Quiet Woods</b><span>1280×720 · 12 s · fable</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/app-promo.jpg" width="540" height="540" loading="lazy" alt="Tidy app promo: a tilted phone mock-up with a habit tracker and the line Keep your streak alive"></div><figcaption><b>Tidy — app promo</b><span>1080×1080 · 12 s · fable</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/news-package.jpg" width="640" height="360" loading="lazy" alt="NORTH 24 Breaking: a rainy harbour bridge at night with a BREAKING lower third and a news ticker"></div><figcaption><b>NORTH 24 — Breaking</b><span>1280×720 · 12 s · opus</span></figcaption></figure></a>
-      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/blueprint-house.jpg" width="640" height="360" loading="lazy" alt="The Corner House: a floor plan drawn in white on blueprint blue with dimensions and a title block reading APPROVED"></div><figcaption><b>The Corner House</b><span>1280×720 · 12 s · sonnet</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/#ma" data-piece="ma"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/ma.jpg" width="960" height="540" loading="lazy" alt="間 MA: a large black 間 character with its lower strokes in red, beside the word MA and the line “the space between things”, on warm paper"></div><figcaption><b>間 MA — the space between</b><span>1920×1080 · 48 s · opus</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/#social-quote-vertical" data-piece="social-quote-vertical"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/social-quote-vertical.jpg" width="360" height="640" loading="lazy" alt="A vertical quote card on warm blurred colour: “The details are not the details. They make the design.” Charles Eames"></div><figcaption><b>Social Quote Card</b><span>720×1280 · 10 s · sonnet</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/#hanabi-night" data-piece="hanabi-night"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/hanabi-night.jpg" width="640" height="360" loading="lazy" alt="Hanabi Night: a gold firework opens over a city skyline under indigo, with the vertical title 花火大会"></div><figcaption><b>Hanabi Night</b><span>1280×720 · 12 s · sonnet</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/#generative-orbits" data-piece="generative-orbits"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/generative-orbits.jpg" width="540" height="540" loading="lazy" alt="Orbits: glowing dots in rosette and Lissajous patterns with comet trails on deep violet"></div><figcaption><b>Orbits</b><span>1080×1080 · 14 s · opus</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/#isometric-city" data-piece="isometric-city"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/isometric-city.jpg" width="640" height="360" loading="lazy" alt="Kōbe, 2040: an isometric city of lit blocks at dusk"></div><figcaption><b>Kōbe, 2040</b><span>1280×720 · 12 s · fable</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/#recipe-card" data-piece="recipe-card"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/recipe-card.jpg" width="540" height="675" loading="lazy" alt="Lemon Pasta Recipe Card: ingredients checked off, three timed steps, a plated dish, in warm yellow and red"></div><figcaption><b>Lemon Pasta Recipe Card</b><span>1080×1350 · 12 s · sonnet</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/#orbit-rig" data-piece="orbit-rig"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/orbit-rig.jpg" width="640" height="360" loading="lazy" alt="Orrery: a museum plate of the solar system in ivory and brass on navy, with a legend of the planets"></div><figcaption><b>Orrery</b><span>1280×720 · 12 s · sonnet</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/#synthwave-drive" data-piece="synthwave-drive"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/synthwave-drive.jpg" width="640" height="360" loading="lazy" alt="Synthwave Drive: a striped sun over a neon grid and the glowing title SYNTHWAVE DRIVE"></div><figcaption><b>Synthwave Drive</b><span>1280×720 · 12 s · fable</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/#loader-gallery" data-piece="loader-gallery"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/loader-gallery.jpg" width="540" height="540" loading="lazy" alt="Loader Gallery: nine loading loops on one dark board, titled NINE WAYS TO WAIT"></div><figcaption><b>Loader Gallery</b><span>1080×1080 · 10 s · sonnet</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/#film-titles" data-piece="film-titles"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/film-titles.jpg" width="640" height="360" loading="lazy" alt="The Long Night: a dark faceted shard in fog with a ring around it, over the title in spaced serif capitals"></div><figcaption><b>The Long Night</b><span>1280×720 · 14 s · opus</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/#wedding-invitation" data-piece="wedding-invitation"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/wedding-invitation.jpg" width="540" height="675" loading="lazy" alt="Wedding Invitation: a cream card with a double gold border, botanical sprigs, and the names Aiko and Daniel in serif"></div><figcaption><b>Wedding Invitation</b><span>1080×1350 · 12 s · fable</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/#shape-shift" data-piece="shape-shift"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/shape-shift.jpg" width="640" height="360" loading="lazy" alt="Form Follows: FORM FOLLOWS FEELING in black and ochre type beside a yellow circle, Bauhaus style on cream"></div><figcaption><b>Form Follows</b><span>1280×720 · 12 s · sonnet</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/#paper-cutout-forest" data-piece="paper-cutout-forest"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/paper-cutout-forest.jpg" width="640" height="360" loading="lazy" alt="Quiet Woods: a cut-paper night forest with a fox, fireflies and a paper moon"></div><figcaption><b>Quiet Woods</b><span>1280×720 · 12 s · fable</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/#app-promo" data-piece="app-promo"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/app-promo.jpg" width="540" height="540" loading="lazy" alt="Tidy app promo: a tilted phone mock-up with a habit tracker and the line Keep your streak alive"></div><figcaption><b>Tidy — app promo</b><span>1080×1080 · 12 s · fable</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/#news-package" data-piece="news-package"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/news-package.jpg" width="640" height="360" loading="lazy" alt="NORTH 24 Breaking: a rainy harbour bridge at night with a BREAKING lower third and a news ticker"></div><figcaption><b>NORTH 24 — Breaking</b><span>1280×720 · 12 s · opus</span></figcaption></figure></a>
+      <a class="piece" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/#blueprint-house" data-piece="blueprint-house"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/blueprint-house.jpg" width="640" height="360" loading="lazy" alt="The Corner House: a floor plan drawn in white on blueprint blue with dimensions and a title block reading APPROVED"></div><figcaption><b>The Corner House</b><span>1280×720 · 12 s · sonnet</span></figcaption></figure></a>
     </div>
 
     <div class="gal-foot">
@@ -821,6 +832,11 @@ movie.play();
 
 </main>
 
+<dialog id="player" aria-label="A piece from the gallery, playing live">
+  <div class="pbar"><b id="ptitle"></b><a id="popen" href="https://yjmtmtk.github.io/pixi-effects/examples/gallery/">Open in the gallery</a><button type="button" id="pclose">Close</button></div>
+  <div class="pframe" id="pframe"></div>
+</dialog>
+
 <footer>
   <div class="wrap">
     <p class="links">
@@ -875,22 +891,47 @@ movie.play();
     });
   });
 
-  // a real piece, live (a video facade for the published gallery page)
-  var km=document.getElementById('kmBtn'), kmFacade=document.getElementById('kmFacade');
-  if(km) km.addEventListener('click',function(){
-    var base=window.__GALLERY_BASE||'https://yjmtmtk.github.io/pixi-effects/examples/gallery/';     // (a test points it at a local server)
-    var f=document.createElement('iframe'); f.src=base+'kinetic-manifesto.html'; f.title='Kinetic Manifesto, playing live from the pixi-effects gallery'; f.allow='autoplay; fullscreen'; f.loading='eager';
-    kmFacade.appendChild(f); km.remove();
-    // The piece opens at its poster and waits for its own play button. This click is the gesture that lets the sound start, so when the
-    // frame is on this page's own origin (the published site) play it from here once it is ready, as the guide's demos do. From another
-    // origin (a local preview) the frame cannot be reached: press play in it.
+  // Playing a gallery piece here. A piece opens at its poster and waits for its own play button. The click that opened it is the gesture that
+  // lets the sound start, so when the frame is on this page's own origin (the published site) play it from here once it is ready, as the
+  // guide's demos do (a deck plays to its first stop). From another origin (a local preview) the frame cannot be reached: press play in it.
+  var GALLERY=window.__GALLERY_BASE||'https://yjmtmtk.github.io/pixi-effects/examples/gallery/';
+  function openPiece(id,host){
+    var f=document.createElement('iframe'); f.src=GALLERY+id+'.html'; f.allow='autoplay; fullscreen'; f.loading='eager'; host.appendChild(f);
     var tries=0;
     (function wait(){
       var w=null;
       try{ w=f.contentWindow; if(w && w.__ready===true && w.movie){ Promise.resolve(w.movie.gotoFrame(0,true)).then(function(){ if(w.movie.stops && w.movie.stops.length) w.movie.next(); else w.movie.play(); }); return; } }catch(e){ return; }
-      if(++tries<250) setTimeout(wait,100);
+      if(++tries<250 && f.isConnected) setTimeout(wait,100);
     })();
+    return f;
+  }
+
+  // a real piece, live (a video facade for the published gallery page)
+  var km=document.getElementById('kmBtn'), kmFacade=document.getElementById('kmFacade');
+  if(km) km.addEventListener('click',function(){
+    var f=openPiece('kinetic-manifesto',kmFacade); f.title='Kinetic Manifesto, playing live from the pixi-effects gallery'; km.remove();
   });
+
+  // a poster in the gallery strip plays that piece in a player; the link itself (a new tab, no JavaScript) goes to the piece in the gallery
+  var player=document.getElementById('player'), pframe=document.getElementById('pframe');
+  function closePlayer(){ if(player.open && player.close) player.close(); pframe.textContent=''; }
+  if(player && player.showModal){
+    document.querySelectorAll('a.piece[data-piece]').forEach(function(a){
+      a.addEventListener('click',function(e){
+        if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||e.button!==0) return;
+        e.preventDefault();
+        var img=a.querySelector('img'), id=a.getAttribute('data-piece');
+        document.getElementById('ptitle').textContent=a.querySelector('figcaption b').textContent;
+        document.getElementById('popen').setAttribute('href',a.getAttribute('href'));
+        pframe.textContent=''; pframe.style.setProperty('--r',String(img.getAttribute('width')/img.getAttribute('height')));
+        player.showModal();
+        var f=openPiece(id,pframe); f.title=a.querySelector('figcaption b').textContent+', playing live from the pixi-effects gallery';
+      });
+    });
+    document.getElementById('pclose').addEventListener('click',closePlayer);
+    player.addEventListener('close',function(){ pframe.textContent=''; });
+    player.addEventListener('click',function(e){ if(e.target===player) closePlayer(); });
+  }
 
   // the one sentence: swap the ending, copy the whole line
   var ending=document.getElementById('ending'), chips=document.querySelectorAll('.chip'), cp=document.getElementById('copyPrompt');
