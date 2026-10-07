@@ -5,6 +5,9 @@ import type {
   Keyframe, FilterSpec,
 } from '../types';
 import { resolveAt } from './Timeline';
+
+/** Sums of decimal seconds (6 + 0.7 against 6.699999999999999) must not fail a coverage check. */
+const EPS = 1e-6;
 import { TransitionMaskFilter, type TransitionMode } from '../filters/TransitionMask';
 
 export interface TransitionWindow { from: string; to: string; start: number; end: number }
@@ -178,13 +181,13 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
     const fromSeq = fromEntry.seq;
     const fromStart = resolveAt(fromSeq.at, parentDuration);
     const fromEnd = fromStart + (fromSeq.duration ?? parentDuration);
-    if (tStart < fromStart || tEnd > fromEnd) {
+    if (tStart < fromStart - EPS || tEnd > fromEnd + EPS) {
       throw new Error(`pixi-effects: ${tag} window [${tStart}, ${tEnd}] is not covered by \`from\` "${t.from}" (lives [${fromStart}, ${fromEnd}], so it ends at ${fromEnd})`);
     }
     const toSeq = toEntry.seq;
     const toStart = resolveAt(toSeq.at, parentDuration);
     const toEnd = toStart + (toSeq.duration ?? parentDuration);
-    if (tStart < toStart || tEnd > toEnd) {
+    if (tStart < toStart - EPS || tEnd > toEnd + EPS) {
       throw new Error(`pixi-effects: ${tag} window [${tStart}, ${tEnd}] is not covered by \`to\` "${t.to}" (lives [${toStart}, ${toEnd}], so it starts at ${toStart})`);
     }
     const record = windows.get(out) ?? [];

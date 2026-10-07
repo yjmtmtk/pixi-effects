@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>quiet-hours — pixi-effects gallery</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+  <style>
+    body { background: #0d1220; margin: 0; padding: 16px; display: flex; justify-content: center; }
+    .pe-stage { position: relative; width: min(960px, 100%); border-radius: 8px; --pe-loader-bg: #f4efe6; --pe-loader-color: #1c1a17; --pe-loader-track: rgba(28, 26, 23, 0.14); background: #f4efe6; }
+    .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
+  </style>
+  <script type="application/json" id="piece-meta">{
+    "title": "The Quiet Hours",
+    "subtitle": "A five-page talk as one movie: press Present and the arrow keys, Space, a click or a swipe move through the pages and the steps inside them (bullets, a growing chart), stopping exactly where the stops are; or just press play and watch it",
+    "tags": ["presentation", "deck", "stops", "typography", "chart", "editorial", "sfx"],
+    "width": 1280, "height": 720, "duration": 19.2, "model": "sonnet"
+  }</script>
+</head>
+<body>
+  <div class="pe-stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie, deck, animateText, stagger } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30;
+    // an editorial palette: warm paper, ink, terracotta, a little sage
+    const PAPER = '#f4efe6', INK = '#1c1a17', MUTED = '#d8d0c0', DIM = '#8a8476', TERRA = '#c8553d', SAGE = '#7f9c8b';
+    const SERIF = "'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif";
+    const SANS = "'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif";
+    const MX = 96;                                  // the page margin
+    const T = 0.7;                                  // the slide between pages
+    const rise = (extra = {}) => ({ from: { y: 46, alpha: 0 }, duration: 1.0, ease: 'power3.out', ...extra });
+
+    const paper = { type: 'shape', shape: 'rect', name: 'paper', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: PAPER } };
+    const small = (name, text, x, y, at, dur, color = DIM, extra = {}) => ({
+      type: 'text', name, text, at, duration: dur - at, style: { fontFamily: SANS, fontSize: 15, fontWeight: '600', fill: color, letterSpacing: 6, ...extra },
+      initial: { x, y, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8 }, { at: 0, from: { x: x - 14 }, to: { x }, duration: 0.8, ease: 'power3.out' }],
+    });
+    const rule = (name, x, y, w, at, dur, color = INK, h = 2) => ({
+      type: 'shape', shape: 'rect', name, width: w, height: h, anchorX: 0, at, duration: dur - at, initial: { x, y, fillColor: color, scaleX: 0 },
+      keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.9, ease: 'power3.inOut' }],
+    });
+    // the footer every page shares: the talk's name on the left, "2 / 5" on the right
+    const footer = (n, dur) => [
+      small('foot-title', 'THE QUIET HOURS', MX, H - 44, 0.3, dur, DIM, { fontSize: 12, letterSpacing: 5 }),
+      { type: 'text', name: 'foot-number', text: `${String(n).padStart(2, '0')} / 05`, at: 0.3, duration: dur - 0.3, style: { fontFamily: SANS, fontSize: 12, fontWeight: '600', fill: DIM, letterSpacing: 4 },
+        initial: { x: W - MX, y: H - 44, anchorX: 1, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8 }] },
+    ];
+    const click = (at) => ({ type: 'audio', sfx: 'click', at, volume: 0.22 });
+
+    // ── page 1: the title ──
+    const P1 = 2.4, D1 = P1 + T;
+    const page1 = [
+      paper,
+      { type: 'shape', shape: 'circle', name: 'sun', radius: 185, initial: { x: 1085, y: 370, fillColor: TERRA, scale: 0 }, keyframes: [{ at: 0.2, to: { scale: 1 }, duration: 1.4, ease: 'expo.out' }] },
+      { type: 'shape', shape: 'circle', name: 'ring', radius: 185, trimEnd: 0, initial: { x: 1118, y: 346, fillAlpha: 0, strokeColor: INK, strokeWidth: 2, rotation: -90 }, keyframes: [{ at: 0.6, to: { trimEnd: 1 }, duration: 1.6, ease: 'power2.inOut' }] },
+      small('kicker', 'A SHORT TALK ON WORKING SLOWLY', MX, 118, 0.3, D1, TERRA),
+      ...animateText('The Quiet\nHours', { fontFamily: SERIF, fontSize: 160, fill: INK, letterSpacing: -3 }, { by: 'lines', x: MX, y: 180, align: 'left', name: 'title', at: 0.5, duration: D1 - 0.5, in: rise(), stagger: { each: 0.22 } }),
+      rule('rule', MX, 604, 520, 1.5, D1),
+      small('author', 'MIRA OKAFOR  ·  2026', MX, 636, 1.8, D1, INK, { fontSize: 13 }),
+      click(0.5),
+    ];
+
+    // ── page 2: a statement, in two steps ──
+    const P2a = 1.7, P2b = 3.6, D2 = P2b + T;
+    const page2 = [
+      paper, rule('side-rule', MX, 130, 56, 0.2, D2, TERRA, 4),
+      small('kicker', 'ONE OBSERVATION', MX, 112, 0.3, D2, TERRA),
+      ...animateText('We measure speed.', { fontFamily: SERIF, fontSize: 104, fill: INK, letterSpacing: -2 }, { by: 'words', x: MX, y: 250, align: 'left', name: 'l1', at: 0.5, duration: D2 - 0.5, in: rise({ duration: 0.9 }), stagger: { each: 0.14 } }),
+      ...animateText('We rarely measure', { fontFamily: SERIF, fontSize: 104, fill: INK, letterSpacing: -2 }, { by: 'words', x: MX, y: 382, align: 'left', name: 'l2', at: P2a, duration: D2 - P2a, in: rise({ duration: 0.9 }), stagger: { each: 0.12 } }),
+      ...animateText('attention.', { fontFamily: SERIF, fontSize: 104, fontStyle: 'italic', fill: TERRA, letterSpacing: -2 }, { by: 'words', x: MX, y: 514, align: 'left', name: 'l3', at: P2a + 0.5, duration: D2 - P2a - 0.5, in: rise({ duration: 1.0 }), stagger: { each: 0.1 } }),
+      ...footer(2, D2), click(0.5), click(P2a),
+    ];
+
+    // ── page 3: a chart, in two steps ──
+    const P3a = 1.9, P3b = 3.8, D3 = P3b + T;
+    const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], HOURS = [1.1, 2.4, 3.1, 2.2, 3.6, 0.8, 0.4];
+    const BASE = 570, BAR_W = 70, GAP = 38, X0 = MX + 8, SCALE = 82;        // 82 px per hour
+    const barX = i => X0 + i * (BAR_W + GAP) + BAR_W / 2;
+    const bars = stagger(HOURS.map((h, i) => ({ i, h })), { each: 0.1 }).flatMap(({ i, h, at }) => [
+      { type: 'shape', shape: 'rect', name: 'bar-' + i, width: BAR_W, height: 0, anchorY: 1, at: 0.5 + at, duration: D3 - 0.5 - at, initial: { x: barX(i), y: BASE, fillColor: i === 4 ? MUTED : MUTED },
+        keyframes: [{ at: 0, to: { height: h * SCALE }, duration: 1.0, ease: 'power3.out' },
+                    ...(i === 4 ? [{ at: P3a - 0.5 - at, to: { fillColor: TERRA }, duration: 0.7, ease: 'power2.inOut' }] : [])] },
+      { type: 'text', name: 'day-' + i, text: DAYS[i].toUpperCase(), at: 0.9 + at, duration: D3 - 0.9 - at, style: { fontFamily: SANS, fontSize: 13, fontWeight: '600', fill: i === 4 ? TERRA : DIM, letterSpacing: 4 },
+        initial: { x: barX(i), y: BASE + 28, anchorX: 0.5, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6 }] },
+    ]);
+    const page3 = [
+      paper,
+      small('kicker', 'DEEP FOCUS, HOURS PER DAY', MX, 112, 0.3, D3, TERRA),
+      ...animateText('A week, measured.', { fontFamily: SERIF, fontSize: 64, fill: INK, letterSpacing: -1 }, { by: 'words', x: MX, y: 136, align: 'left', name: 'h', at: 0.4, duration: D3 - 0.4, in: rise({ duration: 0.8 }), stagger: { each: 0.1 } }),
+      { type: 'shape', shape: 'rect', name: 'axis', width: 7 * BAR_W + 6 * GAP + 16, height: 2, anchorX: 0, at: 0.4, duration: D3 - 0.4, initial: { x: X0 - 8, y: BASE + 1, fillColor: INK, scaleX: 0 }, keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.9, ease: 'power3.inOut' }] },
+      ...bars,
+      // step 2: the best day gets a number and a sentence
+      { type: 'text', name: 'big-number', text: '{value}', format: { decimals: 1 }, at: P3a, duration: D3 - P3a, style: { fontFamily: SERIF, fontSize: 210, fill: TERRA, letterSpacing: -6 },
+        initial: { x: 850, y: 250, anchorX: 0, anchorY: 0.5, alpha: 0, value: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.5 }, { at: 0, to: { value: 3.6 }, duration: 1.4, ease: 'power3.out' }] },
+      small('big-unit', 'HOURS', 854, 372, P3a + 0.4, D3, INK, { fontSize: 16 }),
+      ...animateText('On Friday, with the notifications off.', { fontFamily: SERIF, fontSize: 30, fontStyle: 'italic', fill: INK }, { by: 'words', x: 850, y: 430, align: 'left', name: 'cap', at: P3a + 0.7, duration: D3 - P3a - 0.7, in: rise({ duration: 0.6 }), stagger: { each: 0.05 } }),
+      ...footer(3, D3), click(0.5), click(P3a),
+    ];
+
+    // ── page 4: three principles, one step each ──
+    const S4 = [1.5, 3.0, 4.5], D4 = S4[2] + T;
+    const RULES = [['01', 'Protect the first hour.'], ['02', 'Make one thing finish.'], ['03', 'Leave the day unfinished.']];
+    const page4 = [
+      paper, small('kicker', 'THREE HABITS', MX, 112, 0.3, D4, TERRA),
+      ...animateText('Small rules.', { fontFamily: SERIF, fontSize: 64, fill: INK, letterSpacing: -1 }, { by: 'words', x: MX, y: 150, align: 'left', name: 'h', at: 0.4, duration: D4 - 0.4, in: rise({ duration: 0.8 }), stagger: { each: 0.1 } }),
+      ...RULES.flatMap(([n, text], i) => {
+        const at = i === 0 ? 0.7 : S4[i - 1], y = 330 + i * 110;
+        return [
+          rule('hair-' + i, MX, y - 52, W - 2 * MX, at, D4, MUTED, 1.5),
+          small('num-' + i, n, MX, y, at + 0.2, D4, TERRA, { fontSize: 20 }),
+          ...animateText(text, { fontFamily: SERIF, fontSize: 54, fill: INK, letterSpacing: -1 }, { by: 'words', x: MX + 110, y: y - 36, align: 'left', name: 'rule-' + i, at: at + 0.2, duration: D4 - at - 0.2, in: rise({ duration: 0.7 }), stagger: { each: 0.08 } }),
+          click(at + 0.2),
+        ];
+      }),
+      ...footer(4, D4),
+    ];
+
+    // ── page 5: the close ──
+    const P5 = 2.4, D5 = P5 + 2.5;
+    const page5 = [
+      paper,
+      { type: 'shape', shape: 'circle', name: 'sun', radius: 150, initial: { x: 1050, y: 300, fillColor: TERRA, scale: 0 }, keyframes: [{ at: 0.6, to: { scale: 1 }, duration: 1.3, ease: 'expo.out' }] },
+      small('kicker', 'THANK YOU', MX, 118, 0.4, D5, TERRA),
+      ...animateText('Go slowly.', { fontFamily: SERIF, fontSize: 168, fill: INK, letterSpacing: -4 }, { by: 'words', x: MX, y: 200, align: 'left', name: 'close', at: 0.6, duration: D5 - 0.6, in: rise({ duration: 1.1 }), stagger: { each: 0.18 } }),
+      rule('rule', MX, 520, 320, 1.6, D5),
+      small('contact', 'MIRA@QUIETHOURS.EXAMPLE', MX, 556, 1.9, D5, INK, { fontSize: 13 }),
+      ...footer(5, D5), click(0.6),
+    ];
+
+    const result = deck({
+      transition: { kind: 'slide', direction: 'left', duration: T, ease: 'power3.inOut' },
+      pages: [
+        { name: 'The Quiet Hours', duration: D1, stops: [P1], notes: 'Welcome. Ten minutes on attention.', sequences: page1 },
+        { name: 'One observation', duration: D2, stops: [P2a, P2b], sequences: page2 },
+        { name: 'A week, measured', duration: D3, stops: [P3a, P3b], notes: 'The best day had the fewest interruptions, not the most hours.', sequences: page3 },
+        { name: 'Three habits', duration: D4, stops: S4, sequences: page4 },
+        { name: 'Thank you', duration: D5, stops: [P5], sequences: page5 },
+      ],
+    });
+    const posterAt = result.composition.stops[4].at;           // page 3 at its second stop: the best day lit up, the number counted up
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: W, height: H, frameRate: FPS, poster: posterAt, background: PAPER, ...result,
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

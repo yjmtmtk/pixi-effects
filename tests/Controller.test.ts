@@ -1437,3 +1437,89 @@ describe('Controller — click the picture to play / pause', () => {
     expect(movie.isPlaying).toBe(false);
   });
 });
+
+describe('Controller — a movie with stops (a presentation)', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    document.head.querySelectorAll('style[data-movie-controller], style[data-movie-presenter]').forEach((n) => n.remove());
+  });
+  const STOPS = [
+    { index: 0, at: 2, frame: 60, page: 'A', pageIndex: 0, pageStart: true },
+    { index: 1, at: 4, frame: 120, page: 'A', pageIndex: 0, pageStart: false },
+    { index: 2, at: 6, frame: 180, page: 'B', pageIndex: 1, pageStart: true },
+  ];
+  const withStops = () => makeFakeMovie({
+    stops: STOPS, stopIndex: -1, pageIndex: -1, pageCount: 2, currentStop: null,
+    async next() {}, async prev() {}, async goToPage() {}, async goToStop() {}, async gotoFrame() {},
+  } as never);
+
+  it('shows the stops as marks on the seek bar, at their place along it', () => {
+    const canvas = makeCanvas();
+    const ctrl = new Controller(withStops(), { canvas });
+    const ticks = [...canvas.parentElement!.querySelectorAll('.mc-stop-tick')] as HTMLElement[];
+    expect(ticks).toHaveLength(3);
+    expect(ticks.map(t => t.style.left)).toEqual(['25%', '50%', '75%']);              // 60, 120, 180 of 240 frames
+    ctrl.destroy();
+  });
+
+  it('the marks appear when the movie becomes ready too (the bar is usually built before init)', () => {
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie({ stops: [] } as never);
+    const ctrl = new Controller(movie, { canvas });
+    expect(canvas.parentElement!.querySelectorAll('.mc-stop-tick')).toHaveLength(0);
+    (movie as unknown as { stops: unknown[] }).stops = STOPS;
+    (movie as unknown as { emit(e: string): void }).emit('ready');
+    expect(canvas.parentElement!.querySelectorAll('.mc-stop-tick')).toHaveLength(3);
+    ctrl.destroy();
+  });
+
+  it('an ordinary movie has no marks and no Present button', () => {
+    const canvas = makeCanvas();
+    const ctrl = new Controller(makeFakeMovie(), { canvas });
+    expect(canvas.parentElement!.querySelector('.mc-stop-tick')).toBeNull();
+    expect(canvas.parentElement!.querySelector('.mc-present')).toBeNull();
+    ctrl.destroy();
+  });
+
+  it('present: false keeps the marks but not the button', () => {
+    const canvas = makeCanvas();
+    const ctrl = new Controller(withStops(), { canvas, present: false });
+    expect(canvas.parentElement!.querySelectorAll('.mc-stop-tick')).toHaveLength(3);
+    expect(canvas.parentElement!.querySelector('.mc-present')).toBeNull();
+    ctrl.destroy();
+  });
+
+  it('the Present button starts a Presenter: keys and clicks now mean next / back, not play / step; Escape brings the bar back', async () => {
+    const canvas = makeCanvas();
+    const movie = withStops();
+    const calls: string[] = [];
+    Object.assign(movie, { async next() { calls.push('next'); }, async prev() { calls.push('prev'); } });
+    const ctrl = new Controller(movie, { canvas });
+    const wrap = canvas.parentElement!;
+    (wrap.querySelector('.mc-present') as HTMLButtonElement).click();
+    await vi.waitFor(() => expect(wrap.querySelector('.movie-presenter')).not.toBeNull());
+    expect(calls).toEqual(['next']);                                                // start() plays to the first stop
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', code: 'ArrowRight', bubbles: true, cancelable: true }));
+    expect(calls).toEqual(['next', 'next']);
+    expect(movie.isPlaying).toBe(false);                                            // the bar's Space / arrows did not also play or step
+    canvas.click();
+    expect(calls).toEqual(['next', 'next', 'next']);
+    expect(movie.isPlaying).toBe(false);
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
+    await vi.waitFor(() => expect(wrap.querySelector('.movie-presenter')).toBeNull());
+    canvas.click();
+    expect(movie.isPlaying).toBe(true);                                             // the bar is the player again: click = play
+    ctrl.destroy();
+  });
+
+  it('destroying the controller while presenting takes the presenter down too', async () => {
+    const canvas = makeCanvas();
+    const ctrl = new Controller(withStops(), { canvas });
+    (canvas.parentElement!.querySelector('.mc-present') as HTMLButtonElement).click();
+    await vi.waitFor(() => expect(document.querySelector('.movie-presenter')).not.toBeNull());
+    ctrl.destroy();
+    expect(document.querySelector('.movie-presenter')).toBeNull();
+  });
+});

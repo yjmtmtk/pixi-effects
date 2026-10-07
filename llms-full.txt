@@ -35,7 +35,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
 - **Masks live in the parent's coordinates and don't follow the masked layer.** **`filterArea` is in the layer's own coordinates.**
 - **2.5D needs `threeD: true`** on each layer plus a `{ type: 'camera' }` layer; camera props go in `initial`/keyframes; keep every `z` below the camera distance (≈ 989 at 720p, fov 40); under a dolly zoom only `z = 0` stays fixed.
 - **Group / parent layers = `{ type: 'null', name: 'rig' }`** (draws nothing, only moves) + `parent: 'rig'` on the layers that should follow it: their `x`/`y` are then measured from the null's origin, and the null's position / rotation / scale / alpha carry them (orbits, clock hands, grouped fades). Nulls chain. Only `null` layers can be parents; not for `threeD` layers.
-- **Built in:** `animateText()` (per-letter / per-word / per-line entrances and exits in one call: `...animateText('Title', style, { x, y, align: 'center', at: 0.5, duration: 5, in: 'rise', out: 'fade', stagger: { each: 0.05 } })`), `splitText()` / `measureText()` (per-letter / per-word layers, exact positions, by hand), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) `wiggle()` (a seeded shake as keyframes) `particles()` (bursts, snow, confetti, sparks as seeded layers: `...particles({ count: 90, at: 2, life: [1, 1.8], area: { x: 640, y: 330 }, speed: [120, 420], gravity: 240, fade: { out: 0.6 } })`), `followPath()` (a layer along an SVG path: `keyframes: followPath({ d, duration, orient: true })`), path morphing (`{ shape: 'path', d, morphTo, initial/keyframes: morph 0 → 1 }`) and `stagger()` (delays for a wave of layers: `stagger(letters, { each: 0.05, from: 'center' })`, or `stagger(n, …)` for numbers; GSAP-style `each` / `amount` / `from` / `grid` / `ease`). **Not in the DSL (hand-roll with a JS loop):** other per-frame curves (waves, spirals: sample them into short linear keyframes), shared masks. (Draw-on strokes `trimEnd`, text that changes over time `set: { text }` / `visibleChars`, shake `wiggle()` and particles are built in.)
+- **Built in:** `animateText()` (per-letter / per-word / per-line entrances and exits in one call: `...animateText('Title', style, { x, y, align: 'center', at: 0.5, duration: 5, in: 'rise', out: 'fade', stagger: { each: 0.05 } })`), `splitText()` / `measureText()` (per-letter / per-word layers, exact positions, by hand), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) `wiggle()` (a seeded shake as keyframes) `deck()` + `Presenter` (a talk as one movie: pages, steps, stops that pause playback, arrow keys / click / swipe to move on: `...deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops, sequences }] })`, `new Presenter(movie, { canvas })` from `pixi-effects/presenter`), `particles()` (bursts, snow, confetti, sparks as seeded layers: `...particles({ count: 90, at: 2, life: [1, 1.8], area: { x: 640, y: 330 }, speed: [120, 420], gravity: 240, fade: { out: 0.6 } })`), `followPath()` (a layer along an SVG path: `keyframes: followPath({ d, duration, orient: true })`), path morphing (`{ shape: 'path', d, morphTo, initial/keyframes: morph 0 → 1 }`) and `stagger()` (delays for a wave of layers: `stagger(letters, { each: 0.05, from: 'center' })`, or `stagger(n, …)` for numbers; GSAP-style `each` / `amount` / `from` / `grid` / `ease`). **Not in the DSL (hand-roll with a JS loop):** other per-frame curves (waves, spirals: sample them into short linear keyframes), shared masks. (Draw-on strokes `trimEnd`, text that changes over time `set: { text }` / `visibleChars`, shake `wiggle()` and particles are built in.)
 - **Blend modes:** `blendMode: 'add' | 'screen' | 'multiply'` on any layer (glows, light leaks).
 - **One `Movie` per page.** A sound effect needs no `duration` (it lasts as long as its clip). Seeking is safe: counters, colours and growing shapes are right after any jump.
 
@@ -168,7 +168,7 @@ transitions: [{ kind: 'crossfade' | 'wipe' | 'iris' | 'slide' | 'dip' | 'zoom' |
 ## Presets
 
 ```js
-import { kenBurns, withFade, wiggle, stagger, followPath, particles, random } from 'pixi-effects';
+import { kenBurns, withFade, wiggle, stagger, followPath, particles, deck, random } from 'pixi-effects';
 kenBurns({ asset, name, at, duration, motion: 'still'|'scale'|'rotation'|'position',
            fit: 'cover'|'contain', ease, /* scale */ origin, zoom, direction, /* rotation */ angle, /* position */ from, to })
 withFade(spec, { in: 0.5, out: 0.5 })   // alpha fade; `out` needs spec.duration
@@ -181,6 +181,11 @@ keyframes: followPath({ d: 'M 120 560 C 360 120 920 120 1160 560', duration: 4, 
 ...particles({ count: 90, at: 2, emit: 0 /* 0 = burst; or seconds to spread births */, life: [1, 1.8], area: { x: 640, y: 330 /*, width, height */ }, angle: [0, 360] /* 0 right, 90 down, −90 up */,
                speed: [120, 420], gravity: 240, wind: 0, drag: 1.2, sway: { amp: 30, freq: 0.6 }, size: [2, 4.5], scale: [1, 0], fade: { in: 0.2, out: 0.6 },
                colors: ['#ffd166', '#ff6b9d'], shape: 'circle'|'rect'|'star', spin: [-200, 200], blendMode: 'add', seed: 1, name: 'burst', template: { type: 'image', asset } })   // seeded layers, paths baked into keyframes
+// a presentation: stops pause playback (`composition.stops: [2, { at: 5, page: 'Name', notes, advance }]`; a `page` stop begins a page, the others are steps); deck() lays pages out
+await movie.init({ canvas, width, height, frameRate, ...deck({ transition: { kind: 'slide', direction: 'left', duration: 0.6 },
+  pages: [{ name: 'Hello', duration: 3.2 /* last stop + transition */, stops: [2.6] /* page-local */, notes, sequences: [ /* page-local time; a step = a layer starting at the previous stop */ ] }] }) });
+new Presenter(movie, { canvas });         // import { Presenter } from 'pixi-effects/presenter': → ↓ Space Enter click = next, ← = back, Home / End, number+Enter, B / W, F, ?
+movie.next() / prev() / goToStop(i) / goToPage(n) / movie.stops / movie.on('stop', …)   // Controller shows the stops on the seek bar + a Present button
 const r = random(7); r(); r();      // a repeatable stream in 0…1 for JS loops (never Math.random())
 ```
 `kenBurns` covers the canvas, so source images should be at least canvas-sized (1920×1080 for 1280×720).
@@ -807,6 +812,40 @@ return [{
 ```
 
 Both outlines are in canvas coordinates. Closed outlines are lined up so they do not twist.
+
+---
+
+## A deck: pages and steps for a presenter (`deck`, `Presenter`)
+
+`deck({ pages, transition })` lays pages out one after the other (each page's layers are written in the page's own time) and turns their `stops` into where a `Presenter` pauses. A **step** is a layer that starts at the previous stop and ends at this one: "press next" plays exactly that animation and stops. A page should last its last stop plus the transition.
+
+```js
+// @recipe deck
+const paper = { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#f4efe6' } };
+const style = { fontFamily: 'Georgia, serif', fontSize: 96, fill: '#1c1a17' };
+const line = (text, y, at, dur) => animateText(text, style, { by: 'words', x: 96, y, align: 'left', name: 'l' + y, at, duration: dur - at, in: { from: { y: 40, alpha: 0 }, duration: 0.8, ease: 'power3.out' }, stagger: { each: 0.1 } });
+const T = 0.6;
+const d = deck({
+  transition: { kind: 'slide', direction: 'left', duration: T, ease: 'power3.inOut' },
+  pages: [
+    { name: 'Hello', duration: 2 + T, stops: [2], sequences: [paper, ...line('The Quiet Hours', 260, 0.4, 2 + T)] },
+    { name: 'Two steps', duration: 3.4 + T, stops: [1.6, 3.4], notes: 'pause after the first line',
+      sequences: [paper, ...line('We measure speed.', 200, 0.4, 3.4 + T), ...line('We rarely measure attention.', 340, 1.6, 3.4 + T)] },
+    { name: 'Thanks', duration: 3, stops: [2], sequences: [paper, ...line('Go slowly.', 260, 0.4, 3)] },
+  ],
+});
+return { duration: d.duration, sequences: d.composition.sequences, transitions: d.composition.transitions };
+```
+
+```js
+// @docs-only
+// in the page: the deck is spread into init; the Presenter (or the Controller, which then shows the stops and a Present button) plays it
+import { Movie, deck } from 'pixi-effects';
+import { Presenter } from 'pixi-effects/presenter';
+const movie = new Movie();
+await movie.init({ canvas, width: 1280, height: 720, frameRate: 30, ...deck({ /* as above */ }) });
+new Presenter(movie, { canvas });     // arrows / Space / Enter / click / swipe = next, ← = back, B = black screen, F = fullscreen, ? = keys
+```
 
 ---
 
@@ -1788,6 +1827,10 @@ initial: { x: 'GW/2', y: 'GH * 0.96', anchorX: 0.5, anchorY: 1 }
 
 ---
 
+## Stops (presentations)
+
+`composition.stops` says where a presentation pauses: seconds, or `{ at, page?, notes?, advance? }` (see [Presentations in the API reference](api.md#presentations-stops-next-prev-presenter)). A stop with `page` begins a page (a name, or `true`), the others are steps of it; with no `page` anywhere each stop is a page. A plain player ignores them (`Controller` shows marks on the seek bar); `movie.next()` and `Presenter` pause on them. [`deck()`](#deck) builds the whole thing from pages.
+
 ## Transitions
 
 A composition can declare scene-to-scene `transitions` that compress paired keyframes into a single line and add visual effects (mask wipes, iris reveals) that aren't expressible at the keyframe level.
@@ -2202,6 +2245,33 @@ import { followPath } from 'pixi-effects';
 
 It returns `Keyframe[]`: spread it next to other keyframes, but not another `x`, `y` or `rotation` during the trip.
 
+### `deck`
+
+A deck of pages as one movie, for a `Presenter`. Each page is a nested composition laid out after the one before (so its layers are written in the page's own time), the stops come from the pages, and an optional `transition` joins them with the existing transitions.
+
+```ts
+import { deck } from 'pixi-effects';
+
+await movie.init({ canvas, width: 1280, height: 720, frameRate: 30, ...deck({
+  transition: { kind: 'slide', direction: 'left', duration: 0.6, ease: 'power3.inOut' },
+  pages: [
+    { name: 'Hello', duration: 3.2, stops: [2.6], sequences: [ /* the title, at: 0 = the start of the page */ ] },
+    { name: 'Why',   duration: 5.2, stops: [1.5, 3.0, 4.6], sequences: [ /* three bullets, each starting at the previous stop */ ] },
+  ],
+}) });
+```
+
+| Option | Notes |
+| ------ | ----- |
+| `pages[]` | required: `{ name?, duration, sequences, stops?, notes?, advance?, initial?, keyframes?, filters?, … }` |
+| `page.duration` | seconds; **a page should last its last stop plus the transition** (after the last stop the next press plays the rest of the page and the slide) |
+| `page.stops` | page-local times: the first is the page settled, the others are steps (a bullet, a growing chart: **a step is a layer that starts at the previous stop and ends at this one**). Default: where the transition begins (the end for the last page) |
+| `page.notes`, `page.advance` | notes stay on the page's first stop; `advance` (seconds) on its last |
+| `transition` | `{ kind, duration, … }`: any [transition](#transitions) without `from` / `to` / `at`; the next page starts `duration` seconds early and the transition plays across the overlap. It must be shorter than every page |
+| movie options | `width`, `height`, `frameRate`, `background`, `canvas`, `assets`, `poster`, `motionBlur`, `loader` pass through |
+
+It returns `{ duration, composition: { sequences, transitions?, stops }, …your movie options }`, ready to spread into `movie.init`. The page layers are named `page-1`, `page-2`, …
+
 ### `stagger`
 
 Delays for a wave of items, in the style of GSAP's `stagger`. Pure and seeded, so playback and export agree.
@@ -2474,6 +2544,7 @@ movie.off(event, fn): this
 | `'pause'`   | none                                              | when `pause()` actually transitions from playing      |
 | `'progress'`| `{ progress: number; frame: number; totalFrames: number }` | during `render()`, once per encoded frame    |
 | `'seeking'` / `'seeked'` | `{ frame, totalFrames }` (the frame it lands on) | a `gotoFrame()` to another frame starts / has finished. NOT emitted for playback ticks, `render()`, `snapshot()` or `contactSheet()` |
+| `'stop'`    | `{ index: number; stop: Stop; pageIndex: number }` | a presentation is on a stop: `next()` played to it, or `prev()` / `goToStop()` / `goToPage()` jumped to it |
 | `'ended'`   | none                                              | playback ran off the end (after `'pause'`); pausing by hand does not emit it |
 | `'volumechange'` | `{ volume: number; muted: boolean }`         | `volume` or `muted` really changed (clamping counts) |
 | `'error'`   | `{ where: 'init' \| 'render' \| 'playback'; message: string; error: unknown }` | `init()` / `render()` failed (the call still rejects), or a frame failed during playback |
@@ -2497,6 +2568,44 @@ The names are the ones an HTML5 `<video>` uses, so a player written for `<video>
 | `muted`          | boolean   | getter/setter; immediate                                |
 | `app`            | `pixi.js Application \| null` | PIXI Application instance (advanced/escape hatch) |
 | `timeline`       | GSAP Timeline `\| null`         | underlying GSAP timeline (advanced)              |
+| `stops`          | `Stop[]`  | the composition's stops (see Presentations); empty for an ordinary movie |
+| `stopIndex`, `pageIndex`, `pageCount`, `currentStop` | number, number, number, `Stop \| null` | where the playhead is among the stops and pages (`-1` / `null` before the first stop) |
+
+### Presentations: `stops`, `next()`, `prev()`, `Presenter`
+
+A composition can say where a presentation pauses: `composition: { stops: [...] }`. A stop is a time in seconds or `{ at, page?, notes?, advance? }`; a stop with `page` (a name, or `true`) begins a page, the others are steps of it; with no `page` anywhere each stop is a page; the first stop always begins one. A negative `at` counts back from the end; two stops on one frame are one; a stop outside the movie is ignored with a warning. Nothing changes for an ordinary player: playing a movie with stops just plays it.
+
+```ts
+movie.stops                    // Stop[]: { index, at, frame, page: string | null, pageIndex, pageStart, notes?, advance? }
+await movie.next();            // play to the next stop and pause exactly on its frame; pressed again while playing, skip to that stop at once;
+                               // after the last stop play to the end. Resolves when it has landed (or stopped for another reason).
+await movie.prev();            // jump back to the previous stop at once (no reverse playback); from the first stop, to the start
+await movie.goToStop(i);       // 0-based
+await movie.goToPage(n);       // 0-based: the first stop of page n
+movie.stopIndex / movie.pageIndex / movie.pageCount / movie.currentStop
+movie.on('stop', ({ index, stop, pageIndex }) => …)
+```
+
+`deck({ pages, transition? })` builds such a movie from pages (see the DSL reference). **`Presenter`** (`pixi-effects/presenter`) is the player for it:
+
+```ts
+import { Presenter } from 'pixi-effects/presenter';
+const presenter = new Presenter(movie, { canvas });     // instead of Controller; await presenter.start() to go fullscreen and play to the first stop
+```
+
+| Option | Default | Notes |
+| ------ | ------- | ----- |
+| `canvas` | required | |
+| `keyboard` | `true` | **next**: → ↓ Space Enter PageDown · **back**: ← ↑ Backspace PageUp · Home (first page) · End (last stop) · a page number then Enter · B or `.` black screen · W or `,` white screen · F fullscreen · `?` / H the list of keys · Esc closes / leaves |
+| `clickToAdvance` | `true` | a click or tap on the picture is next |
+| `swipe` | `true` | a swipe to the left is next, to the right is back |
+| `indicator` | `true` | a page counter (`3 / 8`), the page name and a progress line along the bottom; they fade out when nothing happens, and the pointer hides with them |
+| `autoAdvance` | `true` | a stop with `advance: seconds` moves on by itself |
+| `loop` | `false` | run off the end: go back to the start and play again |
+| `accent` | white | the progress line's colour |
+| `onExit` | none | Escape with nothing left to close, or fullscreen left |
+
+`presenter.start()`, `presenter.next()`, `presenter.prev()`, `presenter.setCover('black' \| 'white' \| 'off')`, `presenter.exit()`, `presenter.destroy()`. It uses the canvas's positioned parent, or wraps the canvas like `Controller` does. A movie with stops shown through a **`Controller`** gets a mark per stop on the seek bar and a Present button (`present: false` leaves the marks only) that hands the page to a `Presenter` (fullscreen, keys, click and swipe move through the stops; Esc gives the bar back).
 
 ### `movie.toggleMute(): boolean`
 
@@ -2552,6 +2661,7 @@ interface ControllerOptions {
   canvas: HTMLCanvasElement;          // required
   showExportButton?: boolean;         // default true; hides ⬇ + popover
   enableKeyboardShortcuts?: boolean;  // default true
+  present?: boolean;                  // default true: a movie with stops gets a Present button (marks on the seek bar are always shown)
   clickToPlay?: boolean;              // default true: a click / tap on the picture plays / pauses (like <video>); false leaves the canvas alone
   className?: string;                 // default 'movie-controller'
   theme?: ControllerTheme;            // colours / thickness / font of the bar, see Theme

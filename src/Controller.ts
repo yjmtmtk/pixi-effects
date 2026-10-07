@@ -8,6 +8,7 @@ const ICONS = {
   volumeOff: '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M2 6 H5 L9 2 V14 L5 10 H2 Z"/><path d="M11 5 L15 11 M15 5 L11 11" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>',
   download: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2 V11 M4 7 L8 11 L12 7 M3 13 H13"/></svg>',
   fullscreenEnter: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6 V2 H6 M14 6 V2 H10 M2 10 V14 H6 M14 10 V14 H10"/></svg>',
+  present: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2.5 H14 V10.5 H2 Z M8 10.5 V13.5 M5 13.5 H11"/></svg>',
   fullscreenExit: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 V6 H2 M10 2 V6 H14 M6 14 V10 H2 M10 14 V10 H14"/></svg>',
 } as const;
 
@@ -48,6 +49,8 @@ export const CONTROLLER_CSS = `
   transition: height 120ms ease;
 }
 .mc-progress:hover::before, .mc-progress.mc-scrubbing::before { height: calc(var(--mc-track-height, 3px) + 2px); }
+.mc-stops { position: absolute; left: 12px; right: 12px; top: 0; bottom: 0; pointer-events: none; }
+.mc-stop-tick { position: absolute; top: 50%; width: 2px; height: calc(var(--mc-track-height, 3px) + 6px); transform: translate(-50%, -50%); background: var(--mc-fg, #fff); opacity: 0.6; border-radius: 1px; }
 .mc-progress-fill {
   position: absolute; left: 12px; top: 50%;
   height: var(--mc-track-height, 3px);
@@ -316,6 +319,8 @@ export interface ControllerOptions {
   enableKeyboardShortcuts?: boolean;
   /** A click (or tap) on the picture plays / pauses, like a `<video>` element. Default true; `false` leaves the canvas alone. */
   clickToPlay?: boolean;
+  /** A movie with `stops` gets a Present button that starts a {@link Presenter} (keys, click and swipe move through the stops). Default true; `false` keeps only the marks on the seek bar. */
+  present?: boolean;
   className?: string;
 }
 
@@ -324,6 +329,7 @@ interface ResolvedOptions {
   showExportButton: boolean;
   enableKeyboardShortcuts: boolean;
   clickToPlay: boolean;
+  present: boolean;
   className: string;
 }
 
@@ -369,6 +375,8 @@ export class Controller {
   private settingsKeyHandler: ((e: KeyboardEvent) => void) | null = null;
   private settingsOutsideHandler: ((e: PointerEvent) => void) | null = null;
   private onReady: (() => void) | null = null;
+  private presenter: { destroy(): void } | null = null;
+  private presentBtn: HTMLButtonElement | null = null;
   private onFrame: ((e: { frame: number; totalFrames: number }) => void) | null = null;
   private onPlay: (() => void) | null = null;
   private onPause: (() => void) | null = null;
@@ -400,6 +408,7 @@ export class Controller {
       showExportButton: options.showExportButton ?? true,
       enableKeyboardShortcuts: options.enableKeyboardShortcuts ?? true,
       clickToPlay: options.clickToPlay ?? true,
+      present: options.present ?? true,
       className: options.className ?? 'movie-controller',
     };
 
@@ -422,6 +431,7 @@ export class Controller {
     }
     this.root.setAttribute('data-state', 'visible');
     this.bindMovieEvents();
+    this.refreshStops();
     this.bindPlayButton();
     if (this.options.clickToPlay) this.bindCanvasClick();
     this.bindScrubbing();
@@ -581,6 +591,7 @@ export class Controller {
       this.refreshTime(0);
       this.refreshProgress(0);
       this.refreshVolumeUI();
+      this.refreshStops();
     };
     this.onFrame = ({ frame, totalFrames }) => {
       if (!this.isScrubbing) {
@@ -610,6 +621,53 @@ export class Controller {
     this.movie.on('progress', this.onProgress);
   }
 
+  /** The stops of a presentation as marks on the seek bar, and the Present button. */
+  private refreshStops(): void {
+    this.progressEl.querySelector('.mc-stops')?.remove();
+    const stops = this.movie.stops ?? [];
+    if (stops.length === 0) {
+      this.presentBtn?.remove(); this.presentBtn = null;
+      return;
+    }
+    const total = this.movie.totalFrames || 1;
+    const holder = document.createElement('div');
+    holder.className = 'mc-stops';
+    for (const s of stops) {
+      const tick = document.createElement('div');
+      tick.className = 'mc-stop-tick';
+      tick.style.left = `${(s.frame / total) * 100}%`;
+      if (s.page) tick.title = s.page;
+      holder.appendChild(tick);
+    }
+    this.progressEl.appendChild(holder);
+    if (this.options.present && !this.presentBtn && this.fullscreenBtn) {
+      const btn = document.createElement('button');
+      btn.className = 'mc-btn mc-present';
+      btn.setAttribute('aria-label', 'Present');
+      btn.title = 'Present';
+      btn.innerHTML = ICONS.present;
+      btn.addEventListener('click', () => { void this.startPresenting(); });
+      this.fullscreenBtn.parentElement?.insertBefore(btn, this.fullscreenBtn);
+      this.presentBtn = btn;
+    }
+  }
+
+  /** Hand the page over to a Presenter (fullscreen, keys, click and swipe move through the stops); Escape gives it back. */
+  private async startPresenting(): Promise<void> {
+    if (this.presenter || this.destroyed) return;
+    const { Presenter } = await import('./Presenter');
+    if (this.presenter || this.destroyed) return;
+    const p = new Presenter(this.movie, { canvas: this.options.canvas, onExit: () => this.stopPresenting() });
+    this.presenter = p;
+    await p.start();
+  }
+
+  private stopPresenting(): void {
+    const p = this.presenter;
+    this.presenter = null;
+    p?.destroy();
+  }
+
   private bindPlayButton(): void {
     this.playBtn.addEventListener('click', () => {
       if (this.movie.isPlaying) {
@@ -630,6 +688,7 @@ export class Controller {
     canvas.style.cursor = 'pointer';
     this.canvasPointerDownHandler = () => { this.swallowCanvasClick = false; };
     this.canvasClickHandler = () => {
+      if (this.presenter) return;                                             // a presentation: the Presenter owns clicks
       // the tap that closed the export popover (see bindExportPopover) is not also a play / pause
       if (this.swallowCanvasClick) { this.swallowCanvasClick = false; return; }
       if (this.movie.isPlaying) this.movie.pause(); else this.movie.play();
@@ -1004,6 +1063,7 @@ export class Controller {
 
   private bindKeyboard(): void {
     this.keyHandler = (e: KeyboardEvent) => {
+      if (this.presenter) return;                                             // a presentation: the Presenter owns the keys
       const target = e.target as HTMLElement | null;
       if (target) {
         const tag = target.tagName;
@@ -1070,6 +1130,7 @@ export class Controller {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.stopPresenting();
     if (this.onReady) { this.movie.off('ready', this.onReady); this.onReady = null; }
     if (this.onFrame) { this.movie.off('frame', this.onFrame); this.onFrame = null; }
     if (this.onPlay) { this.movie.off('play', this.onPlay); this.onPlay = null; }

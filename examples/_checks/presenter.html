@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><title>check · the presenter</title>
+  <style> body { margin: 0; padding: 16px; background: #0d1220; } .stage { position: relative; width: 640px; } .stage canvas { display: block; width: 100%; height: auto; } </style>
+</head>
+<body>
+  <!--
+    Acceptance check (not an example): a deck. A white square slides across a 6 s movie; the stops (page "A" at 1 s, a step at 2 s, page "B" at 3.5 s, page "C" at 5 s)
+    are where the Presenter stops. ?controller=1 uses the Controller (marks on the seek bar and a Present button) instead of starting a Presenter.
+  -->
+  <div class="stage"><canvas id="stage" width="1280" height="720"></canvas></div>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+  </script>
+  <script type="importmap">
+  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "gsap": "https://esm.sh/gsap@3.12.5", "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin", "mediabunny": "https://esm.sh/mediabunny" } }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    import { Presenter } from '../../dist/Presenter.js';
+    import { Controller } from '../../dist/Controller.js';
+    const q = new URLSearchParams(location.search);
+    const movie = new Movie();
+    window.movie = movie;
+    window.__stops = [];
+    movie.on('stop', e => window.__stops.push(e.index));
+    if (q.has('controller')) new Controller(movie, { canvas: document.getElementById('stage') });
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 6, frameRate: 30, background: '#000000',
+        composition: {
+          stops: [{ at: 1, page: 'A' }, 2, { at: 3.5, page: 'B' }, { at: 5, page: 'C' }],
+          sequences: [{ type: 'shape', shape: 'rect', width: 100, height: 100, initial: { x: 100, y: 360, fillColor: '#ffffff' }, keyframes: [{ at: 0, to: { x: 1100 }, duration: 6, ease: 'none' }] }],
+        },
+      });
+      if (!q.has('controller')) window.presenter = new Presenter(movie, { canvas: document.getElementById('stage') });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+  </script>
+</body>
+</html>

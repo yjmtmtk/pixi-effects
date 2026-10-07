@@ -14,6 +14,7 @@ import { pickFrames, sheetLayout } from './frames';
 import { warnUnknownOptions } from './options';
 import { startWhenRunning } from './startWhenRunning';
 import { normalizePoster } from './poster';
+import { normalizeStops, nextStopAfter, previousStopBefore, stopAtOrBefore, pageStarts, type Stop } from './stops';
 import { resolveLoader, dismissLoader, failLoader, type LoaderOption } from './loader';
 import { resolveMotionBlur, blurTimes, type MotionBlurSpec, type MotionBlurOptions, type ResolvedMotionBlur } from './motionBlur';
 import { ensureFilterLibrary } from '../filters/named';
@@ -93,6 +94,8 @@ export interface ContactSheetOptions {
 }
 
 export interface FrameEvent { frame: number; totalFrames: number }
+/** A presentation reached a stop (`movie.next()` played to it, or `prev()` / `goToStop()` / `goToPage()` jumped to it). */
+export interface StopEvent { index: number; stop: Stop; pageIndex: number }
 export interface ProgressEvent { progress: number; frame: number; totalFrames: number }
 /** `volumechange`: the values after the change. */
 export interface VolumeEvent { volume: number; muted: boolean }
@@ -112,6 +115,12 @@ export class Movie {
   private _cancelAudioStart: (() => void) | null = null;
   /** The poster time in seconds (`movie.init({ poster })`), or null. */
   poster: number | null = null;
+  /** The stops of the composition (`composition.stops`), checked and in order: where `next()` pauses. Empty for an ordinary movie. */
+  stops: Stop[] = [];
+  /** The frame `next()` is playing toward, or null. */
+  private _stopAt: number | null = null;
+  private _stopWaiters: Array<() => void> = [];
+  private _arriving = false;
   /** The motion blur `render()`, `snapshot()` and `contactSheet()` apply unless told otherwise (`movie.init({ motionBlur })`), or null. */
   motionBlur: ResolvedMotionBlur | null = null;
   private _posterFrame: number | null = null;
@@ -138,6 +147,8 @@ export class Movie {
   private _mixStats: MixStats | null = null;
 
   on(event: 'ready', fn: () => void): this;
+  /** A presentation is now on a stop (see `stops` in the composition, `next()`, `prev()`). */
+  on(event: 'stop', fn: (e: StopEvent) => void): this;
   on(event: 'frame', fn: (e: FrameEvent) => void): this;
   /** A jump to another frame (`gotoFrame`, a seek bar) starts / finishes. Not emitted for playback ticks, `render()`, `snapshot()` or `contactSheet()`. */
   on(event: 'seeking' | 'seeked', fn: (e: FrameEvent) => void): this;
@@ -226,6 +237,7 @@ export class Movie {
       const poster = normalizePoster(options.poster, this.duration, this.frameRate);
       this.poster = poster.seconds;
       this.motionBlur = resolveMotionBlur(options.motionBlur, 'movie.init()');
+      this.stops = normalizeStops(options.composition?.stops, this.duration, this.frameRate);
       this._posterFrame = poster.frame;
       this.background = options.background ?? '#000000';
 
@@ -325,6 +337,7 @@ export class Movie {
 
   async gotoFrame(frame: number, force = false): Promise<void> {
     if (this._initState !== 'ready') return;
+    if (!this._arriving) this._cancelStop();                                      // a seek by someone else ends "play to the next stop"
     if (!force && !this._atPoster && this.currentFrame === frame) return;      // (at the poster the canvas shows another frame)
     if (this._quiet > 0) return this._goto(frame);
     const target = Math.max(0, Math.min(frame, this.totalFrames));
@@ -546,6 +559,85 @@ export class Movie {
     return c;
   }
 
+  /** Which stop the playhead is on or has passed (-1 before the first). */
+  get stopIndex(): number { return stopAtOrBefore(this.stops, this.currentFrame)?.index ?? -1; }
+  /** The stop the playhead is on or has passed, or null. */
+  get currentStop(): Stop | null { return stopAtOrBefore(this.stops, this.currentFrame); }
+  /** Which page the playhead is in (0-based), -1 before the first stop. */
+  get pageIndex(): number { return this.currentStop?.pageIndex ?? -1; }
+  /** How many pages the stops make. */
+  get pageCount(): number { return pageStarts(this.stops).length; }
+
+  private _cancelStop(): void {
+    this._stopAt = null;
+    this._settleStopWaiters();
+  }
+  private _settleStopWaiters(): void {
+    const waiters = this._stopWaiters; this._stopWaiters = [];
+    waiters.forEach(w => w());
+  }
+  private _emitStop(stop: Stop): void {
+    this.emit('stop', { index: stop.index, stop, pageIndex: stop.pageIndex } satisfies StopEvent);
+  }
+  /** Land exactly on a stop's frame, pause, and say so. */
+  private async _arriveAtStop(frame: number): Promise<void> {
+    this._arriving = true;
+    this._stopAt = null;
+    try {
+      this.pause();
+      await this._goto(frame);
+    } catch (err) {
+      console.warn('pixi-effects: could not land on a stop:', err);
+      this._emitError('playback', err);
+    } finally { this._arriving = false; }
+    const stop = this.stops.find(s => s.frame === frame);
+    if (stop) this._emitStop(stop);
+    this._settleStopWaiters();
+  }
+
+  /**
+   * Play to the next stop and pause exactly there (a presentation's "next"). Pressed again while it is playing toward a stop, it skips the
+   * rest of the animation and lands on that stop at once. After the last stop it plays to the end. Resolves when it has landed (or
+   * stopped for another reason). An ordinary `play()` ignores the stops.
+   */
+  async next(): Promise<void> {
+    if (this._initState !== 'ready') return;
+    if (this._stopAt !== null) { await this._arriveAtStop(this._stopAt); return; }
+    if (this.currentFrame >= this.totalFrames) return;
+    const target = nextStopAfter(this.stops, this.currentFrame);
+    this._stopAt = target ? target.frame : null;
+    const landed = new Promise<void>(resolve => this._stopWaiters.push(resolve));
+    this.play();
+    await landed;
+  }
+
+  /** Jump back to the previous stop at once (no reverse playback); from the first stop, to the start. */
+  async prev(): Promise<void> {
+    if (this._initState !== 'ready') return;
+    this.pause();
+    const target = previousStopBefore(this.stops, this.currentFrame);
+    await this.gotoFrame(target ? target.frame : 0, true);
+    if (target) this._emitStop(target);
+  }
+
+  /** Jump to stop `index` (0-based). */
+  async goToStop(index: number): Promise<void> {
+    if (this._initState !== 'ready') return;
+    const stop = this.stops[index];
+    if (!stop) { console.warn(`pixi-effects: movie.goToStop(${index}): there are ${this.stops.length} stops (0 to ${this.stops.length - 1})`); return; }
+    this.pause();
+    await this.gotoFrame(stop.frame, true);
+    this._emitStop(stop);
+  }
+
+  /** Jump to the first stop of page `page` (0-based). */
+  async goToPage(page: number): Promise<void> {
+    const starts = pageStarts(this.stops);
+    const stop = starts[page];
+    if (!stop) { console.warn(`pixi-effects: movie.goToPage(${page}): there are ${starts.length} pages (0 to ${starts.length - 1})`); return; }
+    await this.goToStop(stop.index);
+  }
+
   play(): void {
     if (this._initState !== 'ready') return;
     if (this.currentFrame >= this.totalFrames) this.currentFrame = 0;
@@ -561,6 +653,7 @@ export class Movie {
       }
       const elapsed = (time - startTime) / 1000;
       const frame = Math.floor(elapsed * this.frameRate);
+      if (this._stopAt !== null && frame >= this._stopAt) { void this._arriveAtStop(this._stopAt); return; }
       if (frame <= this.totalFrames) {
         inFlight = true;
         this._goto(frame)
@@ -575,6 +668,7 @@ export class Movie {
           this._emitError('playback', err);
         });
         this.emit('ended');
+        this._settleStopWaiters();
       }
     };
     this._raf = requestAnimationFrame(tick);
@@ -617,6 +711,7 @@ export class Movie {
       this.gainNode = null;
     }
     if (wasPlaying) this.emit('pause');
+    if (!this._arriving) this._cancelStop();
   }
 
   set volume(v: number) {

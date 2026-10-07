@@ -33,6 +33,7 @@ Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same br
 | sonnet | Night Drive — A neon music visualizer: seeded pseudo-spectrum bars, a beat-locked radial pulse and a progress ring over the sample bgm. | 1280×720 | music-visualizer.html |
 | sonnet | Orrery — A museum plate of the solar system in ivory and brass: orbit rings draw on one by one, planets ride nested rotating layers (a moon on the Earth's), a legend and a serif title arrive in quiet waves, the whole plate breathes by hand | 1280×720 | orbit-rig.html |
 | sonnet | Form Follows — A Bauhaus-style poster in motion: a red square becomes a yellow circle becomes a blue triangle, a small black dot circles it, and the line of type changes to FUNCTION, FEELING and FUTURE with each shape | 1280×720 | shape-shift.html |
+| sonnet | The Quiet Hours — A five-page talk as one movie: press Present and the arrow keys, Space, a click or a swipe move through the pages and the steps inside them (bullets, a growing chart), stopping exactly where the stops are; or just press play and watch it | 1280×720 | quiet-hours.html |
 | sonnet | Hanabi Night — A summer fireworks festival title card in indigo, gold and vermilion: rockets streak up, a gold peony opens over the skyline, the vertical title rises and a red seal stamps in | 1280×720 | hanabi-night.html |
 | sonnet | Lemon Pasta Recipe Card — A 4:5 animated recipe card: ingredients that check themselves off, three timed steps with countdowns, and a plated dish that assembles from circles. | 1080×1350 | recipe-card.html |
 | sonnet | Still Water — Three lakes, three real photographs: slow Ken Burns moves, a viewfinder that draws itself on, and a caption that re-types for each photo | 1280×720 | still-water.html |
@@ -41,6 +42,6 @@ Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same br
 | sonnet | Four days in Iceland — A fictional travel slideshow: four procedurally painted landscapes, Ken Burns, four different transitions, captions and a day counter. | 1280×720 | travel-slideshow.html |
 | sonnet | Harbor City Forecast — A five-day broadcast forecast: shifting skies, glass cards, animated icons and a self-drawing temperature line. | 1280×720 | weather-report.html |
 
-Counts: fable 11, opus 11, sonnet 14 (36 pieces).
+Counts: fable 11, opus 11, sonnet 15 (37 pieces).
 
 Per-piece stumble notes are in [_notes/](_notes/), named after the piece id (file name without `.html`).

@@ -1,4 +1,6 @@
 export { Movie } from './core/Movie';
+export { normalizeStops } from './core/stops';
+export type { Stop, StopSpec } from './core/stops';
 export { resolveLoader, dismissLoader, failLoader } from './core/loader';
 export type { LoaderOption } from './core/loader';
 export type {
@@ -10,6 +12,7 @@ export type {
   ProgressEvent,
   VolumeEvent,
   MovieErrorEvent,
+  StopEvent,
   MotionBlurSpec,
   MotionBlurOptions,
 } from './core/Movie';
@@ -37,6 +40,9 @@ export type { FollowPathOptions } from './presets/followPath';
 
 export { animateText } from './presets/animateText';
 export type { AnimateTextOptions, AnimateTextTween, TextPreset } from './presets/animateText';
+
+export { deck } from './presets/deck';
+export type { DeckOptions, DeckPage, DeckResult, DeckTransition } from './presets/deck';
 
 export { stagger } from './presets/stagger';
 export type { StaggerOptions } from './presets/stagger';

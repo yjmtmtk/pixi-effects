@@ -677,6 +677,28 @@
       "notes": "_notes/blueprint-house.md"
     },
     {
+      "id": "quiet-hours",
+      "title": "The Quiet Hours",
+      "subtitle": "A five-page talk as one movie: press Present and the arrow keys, Space, a click or a swipe move through the pages and the steps inside them (bullets, a growing chart), stopping exactly where the stops are; or just press play and watch it",
+      "tags": [
+        "presentation",
+        "deck",
+        "stops",
+        "typography",
+        "chart",
+        "editorial",
+        "sfx"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 19.2,
+      "posterFrame": 294,
+      "model": "sonnet",
+      "page": "quiet-hours.html",
+      "poster": "posters/quiet-hours.jpg",
+      "notes": "_notes/quiet-hours.md"
+    },
+    {
       "id": "typewriter-terminal",
       "title": "Typewriter Terminal",
       "subtitle": "A dev-tool launch film typed out in a CRT terminal; the window steps back in depth for the title card",

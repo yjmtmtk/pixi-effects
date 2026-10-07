@@ -824,6 +824,10 @@ initial: { x: 'GW/2', y: 'GH * 0.96', anchorX: 0.5, anchorY: 1 }
 
 ---
 
+## Stops (presentations)
+
+`composition.stops` says where a presentation pauses: seconds, or `{ at, page?, notes?, advance? }` (see [Presentations in the API reference](api.md#presentations-stops-next-prev-presenter)). A stop with `page` begins a page (a name, or `true`), the others are steps of it; with no `page` anywhere each stop is a page. A plain player ignores them (`Controller` shows marks on the seek bar); `movie.next()` and `Presenter` pause on them. [`deck()`](#deck) builds the whole thing from pages.
+
 ## Transitions
 
 A composition can declare scene-to-scene `transitions` that compress paired keyframes into a single line and add visual effects (mask wipes, iris reveals) that aren't expressible at the keyframe level.
@@ -1237,6 +1241,33 @@ import { followPath } from 'pixi-effects';
 | `frameRate` | samples per second (default 30) |
 
 It returns `Keyframe[]`: spread it next to other keyframes, but not another `x`, `y` or `rotation` during the trip.
+
+### `deck`
+
+A deck of pages as one movie, for a `Presenter`. Each page is a nested composition laid out after the one before (so its layers are written in the page's own time), the stops come from the pages, and an optional `transition` joins them with the existing transitions.
+
+```ts
+import { deck } from 'pixi-effects';
+
+await movie.init({ canvas, width: 1280, height: 720, frameRate: 30, ...deck({
+  transition: { kind: 'slide', direction: 'left', duration: 0.6, ease: 'power3.inOut' },
+  pages: [
+    { name: 'Hello', duration: 3.2, stops: [2.6], sequences: [ /* the title, at: 0 = the start of the page */ ] },
+    { name: 'Why',   duration: 5.2, stops: [1.5, 3.0, 4.6], sequences: [ /* three bullets, each starting at the previous stop */ ] },
+  ],
+}) });
+```
+
+| Option | Notes |
+| ------ | ----- |
+| `pages[]` | required: `{ name?, duration, sequences, stops?, notes?, advance?, initial?, keyframes?, filters?, … }` |
+| `page.duration` | seconds; **a page should last its last stop plus the transition** (after the last stop the next press plays the rest of the page and the slide) |
+| `page.stops` | page-local times: the first is the page settled, the others are steps (a bullet, a growing chart: **a step is a layer that starts at the previous stop and ends at this one**). Default: where the transition begins (the end for the last page) |
+| `page.notes`, `page.advance` | notes stay on the page's first stop; `advance` (seconds) on its last |
+| `transition` | `{ kind, duration, … }`: any [transition](#transitions) without `from` / `to` / `at`; the next page starts `duration` seconds early and the transition plays across the overlap. It must be shorter than every page |
+| movie options | `width`, `height`, `frameRate`, `background`, `canvas`, `assets`, `poster`, `motionBlur`, `loader` pass through |
+
+It returns `{ duration, composition: { sequences, transitions?, stops }, …your movie options }`, ready to spread into `movie.init`. The page layers are named `page-1`, `page-2`, …
 
 ### `stagger`
 

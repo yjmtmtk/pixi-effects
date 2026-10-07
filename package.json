@@ -13,6 +13,10 @@
       "require": { "types": "./dist/Controller.d.cts", "default": "./dist/Controller.cjs" }
     },
     "./loader.css": "./dist/loader.css",
+    "./presenter": {
+      "import": { "types": "./dist/Presenter.d.ts", "default": "./dist/Presenter.js" },
+      "require": { "types": "./dist/Presenter.d.cts", "default": "./dist/Presenter.cjs" }
+    },
     "./three": {
       "import": { "types": "./dist/three.d.ts", "default": "./dist/three.js" },
       "require": { "types": "./dist/three.d.cts", "default": "./dist/three.cjs" }

@@ -68,6 +68,10 @@ Restyle it with variables on the element or any ancestor: `--pe-loader-color`, `
 
 **Keep the build light, too.** Hundreds of particle layers are fine; thousands cost time. The gallery's [hanabi-night](../examples/gallery/hanabi-night.html) has a loader of its own (a tiny rocket that bursts) on the shared frame.
 
+## For a talk: stops and the Presenter
+
+A movie with `stops` in its composition shows a mark on the seek bar for each one, and a **Present** button that hands the page to a `Presenter` (the arrow keys, Space, a click or a swipe move through the stops; Esc gives the bar back). See [Presenting](presenting.html).
+
 ## Build your own
 
 The bar is optional: everything it does is public on the movie, and the events use the names an HTML5 `<video>` does. A complete player is about forty lines:

@@ -18,6 +18,7 @@ import { stagger } from '../../src/presets/stagger';
 import { animateText } from '../../src/presets/animateText';
 import { followPath } from '../../src/presets/followPath';
 import { particles } from '../../src/presets/particles';
+import { deck } from '../../src/presets/deck';
 import { random, rand, noise } from '../../src/expr/random';
 import { measureText, splitText } from '../../src/text/measure';
 import { lintSequence } from '../../src/space/lint';
@@ -25,7 +26,7 @@ import { lintTiming } from '../../src/core/lint';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
 
 // the AI recipes, and the human cookbook (site/guide): every `// @recipe` block in either is built and linted
-const md = ['ai/reference/recipes.md', 'site/guide/cookbook.md', 'site/guide/text.md', 'site/guide/shapes.md', 'site/guide/transitions.md', 'site/guide/motion.md']
+const md = ['ai/reference/recipes.md', 'site/guide/cookbook.md', 'site/guide/text.md', 'site/guide/shapes.md', 'site/guide/transitions.md', 'site/guide/motion.md', 'site/guide/presenting.md']
   .map(f => readFileSync(resolve(__dirname, '../..', f), 'utf8')).join('\n');
 const blocks = [...md.matchAll(/```js\n\/\/ @(recipe|docs-only)([^\n]*)\n([\s\S]*?)```/g)]
   .map(m => ({ kind: m[1]!, name: m[2]!.trim(), code: m[3]! }));
@@ -50,7 +51,7 @@ describe('ai/reference/recipes.md', () => {
   for (const r of recipes) {
     it(`recipe "${r.name}" builds and binds with no warnings`, async () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      const out = new Function('kenBurns', 'withFade', 'orbit', 'splitText', 'measureText', 'wiggle', 'stagger', 'animateText', 'followPath', 'particles', 'random', 'rand', 'noise', r.code)(kenBurns, withFade, orbit, splitText, measureText, wiggle, stagger, animateText, followPath, particles, random, rand, noise) as
+      const out = new Function('kenBurns', 'withFade', 'orbit', 'splitText', 'measureText', 'wiggle', 'stagger', 'animateText', 'followPath', 'particles', 'deck', 'random', 'rand', 'noise', r.code)(kenBurns, withFade, orbit, splitText, measureText, wiggle, stagger, animateText, followPath, particles, deck, random, rand, noise) as
         SequenceSpec[] | { sequences: SequenceSpec[]; transitions?: unknown[]; duration?: number };
       const sequences = Array.isArray(out) ? out : out.sequences;
       const transitions = Array.isArray(out) ? undefined : out.transitions;

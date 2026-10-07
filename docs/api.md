@@ -224,6 +224,7 @@ movie.off(event, fn): this
 | `'pause'`   | none                                              | when `pause()` actually transitions from playing      |
 | `'progress'`| `{ progress: number; frame: number; totalFrames: number }` | during `render()`, once per encoded frame    |
 | `'seeking'` / `'seeked'` | `{ frame, totalFrames }` (the frame it lands on) | a `gotoFrame()` to another frame starts / has finished. NOT emitted for playback ticks, `render()`, `snapshot()` or `contactSheet()` |
+| `'stop'`    | `{ index: number; stop: Stop; pageIndex: number }` | a presentation is on a stop: `next()` played to it, or `prev()` / `goToStop()` / `goToPage()` jumped to it |
 | `'ended'`   | none                                              | playback ran off the end (after `'pause'`); pausing by hand does not emit it |
 | `'volumechange'` | `{ volume: number; muted: boolean }`         | `volume` or `muted` really changed (clamping counts) |
 | `'error'`   | `{ where: 'init' \| 'render' \| 'playback'; message: string; error: unknown }` | `init()` / `render()` failed (the call still rejects), or a frame failed during playback |
@@ -247,6 +248,44 @@ The names are the ones an HTML5 `<video>` uses, so a player written for `<video>
 | `muted`          | boolean   | getter/setter; immediate                                |
 | `app`            | `pixi.js Application \| null` | PIXI Application instance (advanced/escape hatch) |
 | `timeline`       | GSAP Timeline `\| null`         | underlying GSAP timeline (advanced)              |
+| `stops`          | `Stop[]`  | the composition's stops (see Presentations); empty for an ordinary movie |
+| `stopIndex`, `pageIndex`, `pageCount`, `currentStop` | number, number, number, `Stop \| null` | where the playhead is among the stops and pages (`-1` / `null` before the first stop) |
+
+### Presentations: `stops`, `next()`, `prev()`, `Presenter`
+
+A composition can say where a presentation pauses: `composition: { stops: [...] }`. A stop is a time in seconds or `{ at, page?, notes?, advance? }`; a stop with `page` (a name, or `true`) begins a page, the others are steps of it; with no `page` anywhere each stop is a page; the first stop always begins one. A negative `at` counts back from the end; two stops on one frame are one; a stop outside the movie is ignored with a warning. Nothing changes for an ordinary player: playing a movie with stops just plays it.
+
+```ts
+movie.stops                    // Stop[]: { index, at, frame, page: string | null, pageIndex, pageStart, notes?, advance? }
+await movie.next();            // play to the next stop and pause exactly on its frame; pressed again while playing, skip to that stop at once;
+                               // after the last stop play to the end. Resolves when it has landed (or stopped for another reason).
+await movie.prev();            // jump back to the previous stop at once (no reverse playback); from the first stop, to the start
+await movie.goToStop(i);       // 0-based
+await movie.goToPage(n);       // 0-based: the first stop of page n
+movie.stopIndex / movie.pageIndex / movie.pageCount / movie.currentStop
+movie.on('stop', ({ index, stop, pageIndex }) => …)
+```
+
+`deck({ pages, transition? })` builds such a movie from pages (see the DSL reference). **`Presenter`** (`pixi-effects/presenter`) is the player for it:
+
+```ts
+import { Presenter } from 'pixi-effects/presenter';
+const presenter = new Presenter(movie, { canvas });     // instead of Controller; await presenter.start() to go fullscreen and play to the first stop
+```
+
+| Option | Default | Notes |
+| ------ | ------- | ----- |
+| `canvas` | required | |
+| `keyboard` | `true` | **next**: → ↓ Space Enter PageDown · **back**: ← ↑ Backspace PageUp · Home (first page) · End (last stop) · a page number then Enter · B or `.` black screen · W or `,` white screen · F fullscreen · `?` / H the list of keys · Esc closes / leaves |
+| `clickToAdvance` | `true` | a click or tap on the picture is next |
+| `swipe` | `true` | a swipe to the left is next, to the right is back |
+| `indicator` | `true` | a page counter (`3 / 8`), the page name and a progress line along the bottom; they fade out when nothing happens, and the pointer hides with them |
+| `autoAdvance` | `true` | a stop with `advance: seconds` moves on by itself |
+| `loop` | `false` | run off the end: go back to the start and play again |
+| `accent` | white | the progress line's colour |
+| `onExit` | none | Escape with nothing left to close, or fullscreen left |
+
+`presenter.start()`, `presenter.next()`, `presenter.prev()`, `presenter.setCover('black' \| 'white' \| 'off')`, `presenter.exit()`, `presenter.destroy()`. It uses the canvas's positioned parent, or wraps the canvas like `Controller` does. A movie with stops shown through a **`Controller`** gets a mark per stop on the seek bar and a Present button (`present: false` leaves the marks only) that hands the page to a `Presenter` (fullscreen, keys, click and swipe move through the stops; Esc gives the bar back).
 
 ### `movie.toggleMute(): boolean`
 
@@ -302,6 +341,7 @@ interface ControllerOptions {
   canvas: HTMLCanvasElement;          // required
   showExportButton?: boolean;         // default true; hides ⬇ + popover
   enableKeyboardShortcuts?: boolean;  // default true
+  present?: boolean;                  // default true: a movie with stops gets a Present button (marks on the seek bar are always shown)
   clickToPlay?: boolean;              // default true: a click / tap on the picture plays / pauses (like <video>); false leaves the canvas alone
   className?: string;                 // default 'movie-controller'
   theme?: ControllerTheme;            // colours / thickness / font of the bar, see Theme

@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+**Added**
+
+- **Presentations.** A composition can say where a presentation pauses: `composition: { stops: [2, { at: 5, page: 'The problem', notes, advance }] }` (a stop with `page` begins a page, the others are steps of it). `movie.next()` plays to the next stop and pauses exactly on its frame (pressed again while playing it skips to that stop), `prev()` jumps back to the previous one, `goToStop(i)` / `goToPage(n)` jump, `movie.on('stop')` says where it landed, and `movie.stops` / `stopIndex` / `pageIndex` / `pageCount` / `currentStop` tell where the playhead is. An ordinary `play()` ignores the stops.
+- **`Presenter`** (`pixi-effects/presenter`): the player for it. Arrows, Space, Enter, PageDown, a click, a tap or a swipe move on; back, Home / End, a page number then Enter, B / W for a black or white screen, F for fullscreen, `?` for the list of keys; a page counter, the page name and a progress line that fade out when idle; `advance` for kiosks and `loop`. A movie with stops shown through the **`Controller`** gets a mark per stop on its seek bar and a Present button that hands the page to a Presenter (Esc gives the bar back).
+- **`deck({ pages, transition })`**: a talk as one movie. Each page is a nested composition laid out after the one before (its layers use the page's own time), the stops come from the pages, and the transition joins them with the existing crossfade / slide / wipe / … transitions. A gallery piece, `The Quiet Hours`, is a five-page deck (37 pieces now); a new guide page explains presenting.
+
+**Fixed**
+
+- A transition that ends exactly where its layer ends could fail with "not covered by `from`" because of floating-point sums (2.4 + 4.3 is 6.699999999999999): the coverage check now allows 1e-6 s.
+
 ## 0.11.0
 
 **Performance**

@@ -507,6 +507,40 @@ Both outlines are in canvas coordinates. Closed outlines are lined up so they do
 
 ---
 
+## A deck: pages and steps for a presenter (`deck`, `Presenter`)
+
+`deck({ pages, transition })` lays pages out one after the other (each page's layers are written in the page's own time) and turns their `stops` into where a `Presenter` pauses. A **step** is a layer that starts at the previous stop and ends at this one: "press next" plays exactly that animation and stops. A page should last its last stop plus the transition.
+
+```js
+// @recipe deck
+const paper = { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#f4efe6' } };
+const style = { fontFamily: 'Georgia, serif', fontSize: 96, fill: '#1c1a17' };
+const line = (text, y, at, dur) => animateText(text, style, { by: 'words', x: 96, y, align: 'left', name: 'l' + y, at, duration: dur - at, in: { from: { y: 40, alpha: 0 }, duration: 0.8, ease: 'power3.out' }, stagger: { each: 0.1 } });
+const T = 0.6;
+const d = deck({
+  transition: { kind: 'slide', direction: 'left', duration: T, ease: 'power3.inOut' },
+  pages: [
+    { name: 'Hello', duration: 2 + T, stops: [2], sequences: [paper, ...line('The Quiet Hours', 260, 0.4, 2 + T)] },
+    { name: 'Two steps', duration: 3.4 + T, stops: [1.6, 3.4], notes: 'pause after the first line',
+      sequences: [paper, ...line('We measure speed.', 200, 0.4, 3.4 + T), ...line('We rarely measure attention.', 340, 1.6, 3.4 + T)] },
+    { name: 'Thanks', duration: 3, stops: [2], sequences: [paper, ...line('Go slowly.', 260, 0.4, 3)] },
+  ],
+});
+return { duration: d.duration, sequences: d.composition.sequences, transitions: d.composition.transitions };
+```
+
+```js
+// @docs-only
+// in the page: the deck is spread into init; the Presenter (or the Controller, which then shows the stops and a Present button) plays it
+import { Movie, deck } from 'pixi-effects';
+import { Presenter } from 'pixi-effects/presenter';
+const movie = new Movie();
+await movie.init({ canvas, width: 1280, height: 720, frameRate: 30, ...deck({ /* as above */ }) });
+new Presenter(movie, { canvas });     // arrows / Space / Enter / click / swipe = next, ← = back, B = black screen, F = fullscreen, ? = keys
+```
+
+---
+
 ## Looping motion
 
 `repeat` (a finite count) and `yoyo` go on any keyframe. Total time = `duration × (repeat + 1)`.

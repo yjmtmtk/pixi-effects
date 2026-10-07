@@ -590,3 +590,18 @@ describe('expandTransitions — keyframe `at` is sequence-local', () => {
   });
 });
 
+
+describe('expandTransitions — floating-point sums at the edge of a layer', () => {
+  it('a transition that ends where its layer ends (6 + 0.7 against 2.4 + 4.3) is covered, not an error from the 15th decimal', () => {
+    const spec = {
+      width: 100, height: 100, duration: 20,
+      sequences: [
+        { type: 'composition', name: 'a', at: 0, duration: 6.7, sequences: [] },
+        { type: 'composition', name: 'b', at: 6, duration: 4, sequences: [] },
+      ],
+      transitions: [{ kind: 'crossfade', from: 'a', to: 'b', at: 6, duration: 0.7 }],
+    } as never;
+    (spec as { sequences: Array<{ at: number; duration: number }> }).sequences[0]!.duration = 2.4 + 4.3 - 0.0000000000001;     // 6.6999999999999
+    expect(() => expandTransitions(spec)).not.toThrow();
+  });
+});
