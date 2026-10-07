@@ -46,6 +46,7 @@ Centred text must be positioned by `anchorX/anchorY: 0.5`; estimate text width a
 
 ## Files
 
+- `CHAT.md` and `chat-template.html` — the short version for an AI in a chat with no shell: one self-contained page that loads from a single CDN, shows warnings in a red box, and a worked example.
 - `reference/cheatsheet.md` — every layer type, prop, default and rule on one page.
 - `reference/recipes.md` — tested building blocks: slam type, lower-third, marquee, count-up, bar chart, 2.5D title, camera orbit, slideshow with transitions + music, looping, particles, gradients/vignette, three.js metal.
 - `reference/pitfalls.md` — the full list of real mistakes, with status.

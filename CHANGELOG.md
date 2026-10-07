@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+**Added**
+
+- **A way in for an AI in a browser chat (ChatGPT, Claude) with no shell and no files.** `ai/CHAT.md` is a short guide (the rules that prevent most failures and a worked example) and `ai/chat-template.html` a self-contained starter page that loads only from `cdn.jsdelivr.net` (so it also runs in a sandboxed preview), shows every warning in a red box with a Copy button to paste back to the chat, and has the player bar's download button for the MP4. Tested in a real Chrome under a strict content security policy: no warnings, ready, an MP4 exported, and the worked example runs. The README, `llms.txt`, SKILL and the guide's "Working with an AI" page point to it with a one-paragraph prompt to paste.
+
 ## 0.14.0
 
 **Added**

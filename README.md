@@ -4,6 +4,12 @@
 
 **[Guide →](https://yjmtmtk.github.io/pixi-effects/guide/)** · **[Gallery →](https://yjmtmtk.github.io/pixi-effects/examples/gallery/)** · 37 portfolio pieces written as plain data by AI models · **[Live demos →](https://yjmtmtk.github.io/pixi-effects/)** · 12 numbered examples + an in-browser playground.
 
+**Make a video with an AI chat** (no install): paste this to ChatGPT or Claude in the browser, then open the file it gives you and use the download button in the player bar for the MP4:
+
+> Read https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/CHAT.md and follow it. Make a 10-second 1280×720 title video for … (what you see, the colours, what you hear). Give me the whole HTML file.
+
+(For an AI that has a shell and a browser, such as Claude Code: [`ai/SKILL.md`](./ai/SKILL.md).)
+
 Declarative composition and video rendering for the web. After Effects-style timelines on top of [PixiJS v8](https://pixijs.com/) and [GSAP](https://gsap.com/), with strict TypeScript types. Render to MP4 / WebM / MOV via [mediabunny](https://mediabunny.dev/).
 
 - **Declarative DSL** — describe your composition as a tree of typed sequences (text, image, video, audio, shapes, nested compositions). No imperative tween code.

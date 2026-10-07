@@ -22,6 +22,14 @@ An AI does best when it reads a short, exact description of the format before it
 
 If the package is installed, they are in `node_modules/pixi-effects/ai/`.
 
+## No shell? A chat is enough
+
+If you only have a chat in the browser (ChatGPT, Claude), paste this and open the file it gives you:
+
+> Read https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/CHAT.md and follow it. Make a 10-second 1280×720 title video for … Give me the whole HTML file.
+
+The starter page loads everything from one CDN, shows any warning in a **red box** with a Copy button (paste it back to the chat and it fixes it), and has the download button for the MP4. If the chat's preview stays blank, save the file as `video.html` and open it in a browser. The checks below need a shell, so a chat skips them.
+
 ## 2. Ask for a video, not for code
 
 A prompt that works is specific about what you see and hear, and says what to read:

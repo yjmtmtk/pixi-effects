@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<!--
+  pixi-effects starter for an AI that works in a CHAT (no shell, no files, a preview window or a file the person opens).
+  - Everything loads from cdn.jsdelivr.net only (no esm.sh, no extra stylesheet), so it also runs in sandboxed previews.
+  - Edit ONLY the block between "EDIT FROM HERE" and "EDIT UNTIL HERE". Keep everything else.
+  - Problems appear in a red box under the picture, with a Copy button: ask the person to paste that text back to you.
+  - The player bar's download button (bottom right of the picture) saves the finished MP4. Sound starts after the first click.
+  - Named filters other than blur / noise / alpha / colorMatrix need pixi-filters, which this page does not load.
+  Reference: https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/CHAT.md
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>pixi-effects video</title>
+  <style>
+    body { background: #0d1220; margin: 0; padding: 16px; font-family: system-ui, sans-serif; color: #e8ecf4; }
+    .stage { position: relative; width: min(960px, 100%); }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+    .loading { position: absolute; inset: 0; display: grid; place-items: center; letter-spacing: 0.3em; font-size: 12px; opacity: 0.6; pointer-events: none; }
+    #problems { display: none; max-width: 960px; margin-top: 12px; padding: 10px 12px; border: 1px solid #ff6b6b; border-radius: 8px; background: #2a1216; font: 12px/1.5 ui-monospace, monospace; white-space: pre-wrap; }
+    #problems button { float: right; margin-left: 8px; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="loading" id="loading">LOADING</div>
+  </div>
+  <div id="problems"><button id="copy" type="button">Copy</button><b>Paste this back to the AI:</b>
+<span id="problems-text"></span></div>
+
+  <script>
+    // Every warning and error is collected in window.__logs and shown in the red box. pixi-effects warnings are INSTRUCTIONS: they say what to change.
+    window.__logs = [];
+    const show = () => {
+      const box = document.getElementById('problems');
+      box.style.display = 'block';
+      document.getElementById('problems-text').textContent = '\n' + window.__logs.join('\n');
+    };
+    const add = (line) => { window.__logs.push(line); show(); };
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { add(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => add('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => add('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+    document.getElementById('copy').onclick = () => {
+      const text = window.__logs.join('\n');
+      (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).catch(() => {
+        const r = document.createRange(); r.selectNodeContents(document.getElementById('problems-text')); getSelection().removeAllRanges(); getSelection().addRange(r);
+      });
+    };
+    window.__add = add;
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://cdn.jsdelivr.net/npm/pixi.js@8.22.0/dist/pixi.min.mjs",
+      "gsap":                    "https://cdn.jsdelivr.net/npm/gsap@3.12.5/+esm",
+      "gsap/PixiPlugin":         "https://cdn.jsdelivr.net/npm/gsap@3.12.5/PixiPlugin/+esm",
+      "mediabunny":              "https://cdn.jsdelivr.net/npm/mediabunny@1.61.3/+esm",
+      "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@0.14.0/dist/index.js",
+      "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.14.0/dist/Controller.js",
+      "pixi-effects/presenter":  "https://cdn.jsdelivr.net/npm/pixi-effects@0.14.0/dist/Presenter.js"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie, kenBurns, withFade, wiggle, stagger, animateText, followPath, particles, deck } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+    // A talk instead of a video: import { Presenter } from 'pixi-effects/presenter'; use deck({ pages: [...] }) and new Presenter(movie, { canvas }) instead of the Controller.
+
+    // ===================== EDIT FROM HERE =====================
+    const W = 1280, H = 720, FPS = 30, DURATION = 6;
+    const BACKGROUND = '#0a0a0f';
+
+    // The video is DATA: a list of layers. Repeated structure = a JS loop or function that returns layers.
+    // Keyframe `at` counts from the START OF ITS OWN LAYER. Angles are degrees. Numbers can be expressions: 'GW/2', 'GH - 80'.
+    const sequences = [
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: BACKGROUND } },
+      {
+        type: 'text', text: 'Hello', at: 0.5, duration: DURATION - 0.5,
+        style: { fontSize: 120, fontWeight: 'bold', fill: '#ffffff' },
+        initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6, ease: 'power2.out' }],
+      },
+    ];
+    const POSTER = DURATION * 0.75;                  // the moment that stands for the video before it plays: pick the most striking one
+    // ===================== EDIT UNTIL HERE =====================
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: POSTER,
+        background: BACKGROUND,
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__add('init failed: ' + (e && e.message || e));
+    }
+    document.getElementById('loading').remove();
+  </script>
+</body>
+</html>
