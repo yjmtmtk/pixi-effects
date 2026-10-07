@@ -21,8 +21,8 @@ export function lintTiming(spec: SequenceSpec, parentDuration: number, warn: War
   if (at >= parentDuration) {
     warn(`pixi-effects: ${who} starts at ${at}s, after its composition ends (${parentDuration}s), so it is never visible`);
   }
-  // An sfx without a duration is as long as its sound, which only the audio layer knows (it checks its own keyframes).
-  if (spec.type === 'audio' && (spec as { sfx?: unknown }).sfx !== undefined && spec.duration === undefined) return;
+  // An sfx or a piece of music without a duration is as long as its sound, which only the audio layer knows (it checks its own keyframes).
+  if (spec.type === 'audio' && ((spec as { sfx?: unknown }).sfx !== undefined || (spec as { music?: unknown }).music !== undefined) && spec.duration === undefined) return;
   const duration = spec.duration ?? parentDuration;
   (spec.keyframes ?? []).forEach((kf, i) => {
     const kat = kf.at ?? 0;

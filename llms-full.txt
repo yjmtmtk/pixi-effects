@@ -36,7 +36,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
 - **Masks live in the parent's coordinates and don't follow the masked layer.** **`filterArea` is in the layer's own coordinates.**
 - **2.5D needs `threeD: true`** on each layer plus a `{ type: 'camera' }` layer; camera props go in `initial`/keyframes; keep every `z` below the camera distance (≈ 989 at 720p, fov 40); under a dolly zoom only `z = 0` stays fixed.
 - **Group / parent layers = `{ type: 'null', name: 'rig' }`** (draws nothing, only moves) + `parent: 'rig'` on the layers that should follow it: their `x`/`y` are then measured from the null's origin, and the null's position / rotation / scale / alpha carry them (orbits, clock hands, grouped fades). Nulls chain. Only `null` layers can be parents; not for `threeD` layers.
-- **Built in:** `animateText()` (per-letter / per-word / per-line entrances and exits in one call: `...animateText('Title', style, { x, y, align: 'center', at: 0.5, duration: 5, in: 'rise', out: 'fade', stagger: { each: 0.05 } })`), `splitText()` / `measureText()` (per-letter / per-word layers, exact positions, by hand), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) `wiggle()` (a seeded shake as keyframes) `audioEnvelope()` / `bpmEnvelope()` + `react()` (visuals that follow music: `const env = await audioEnvelope('music.mp3', { frameRate })` before `movie.init`, then `keyframes: react(env, { duration, props: { scale: { base: 1, amount: 0.4, band: 'bass', release: 0.2 } } })`; `beats: true` pulses on the beats; `bpmEnvelope(120, …)` when there is no file), `deck()` + `Presenter` (a talk as one movie: pages, steps, stops that pause playback, arrow keys / click / swipe to move on: `...deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops, sequences }] })`, `new Presenter(movie, { canvas })` from `pixi-effects/presenter`; G = page overview, P = presenter view with notes and a timer; `pixi-effects-render talk.html -o talk.pdf` = a PDF of the pages), `particles()` (bursts, snow, confetti, sparks as seeded layers: `...particles({ count: 90, at: 2, life: [1, 1.8], area: { x: 640, y: 330 }, speed: [120, 420], gravity: 240, fade: { out: 0.6 } })`), `followPath()` (a layer along an SVG path: `keyframes: followPath({ d, duration, orient: true })`), path morphing (`{ shape: 'path', d, morphTo, initial/keyframes: morph 0 → 1 }`) and `stagger()` (delays for a wave of layers: `stagger(letters, { each: 0.05, from: 'center' })`, or `stagger(n, …)` for numbers; GSAP-style `each` / `amount` / `from` / `grid` / `ease`). **Not in the DSL (hand-roll with a JS loop):** other per-frame curves (waves, spirals: sample them into short linear keyframes), shared masks. (Draw-on strokes `trimEnd`, text that changes over time `set: { text }` / `visibleChars`, shake `wiggle()` and particles are built in.)
+- **Built in:** `animateText()` (per-letter / per-word / per-line entrances and exits in one call: `...animateText('Title', style, { x, y, align: 'center', at: 0.5, duration: 5, in: 'rise', out: 'fade', stagger: { each: 0.05 } })`), `splitText()` / `measureText()` (per-letter / per-word layers, exact positions, by hand), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) `wiggle()` (a seeded shake as keyframes) `music` (a tune with no file: `{ type: 'audio', music: { bpm, tracks: [{ inst: 'keys', notes: 'Cmaj7:4 Am7:4' }, { inst: 'bass', notes: 'c2:2 g1:2' }], drums: { from: 8, kick: 'x...x...' } } }`: notes and chords as text, counted in beats; instruments `keys pluck pad bass sub lead bell musicbox`; `musicEnvelope(music)` feeds `react()`), `audioEnvelope()` / `bpmEnvelope()` + `react()` (visuals that follow music: `const env = await audioEnvelope('music.mp3', { frameRate })` before `movie.init`, then `keyframes: react(env, { duration, props: { scale: { base: 1, amount: 0.4, band: 'bass', release: 0.2 } } })`; `beats: true` pulses on the beats; `bpmEnvelope(120, …)` when there is no file), `deck()` + `Presenter` (a talk as one movie: pages, steps, stops that pause playback, arrow keys / click / swipe to move on: `...deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops, sequences }] })`, `new Presenter(movie, { canvas })` from `pixi-effects/presenter`; G = page overview, P = presenter view with notes and a timer; `pixi-effects-render talk.html -o talk.pdf` = a PDF of the pages), `particles()` (bursts, snow, confetti, sparks as seeded layers: `...particles({ count: 90, at: 2, life: [1, 1.8], area: { x: 640, y: 330 }, speed: [120, 420], gravity: 240, fade: { out: 0.6 } })`), `followPath()` (a layer along an SVG path: `keyframes: followPath({ d, duration, orient: true })`), path morphing (`{ shape: 'path', d, morphTo, initial/keyframes: morph 0 → 1 }`) and `stagger()` (delays for a wave of layers: `stagger(letters, { each: 0.05, from: 'center' })`, or `stagger(n, …)` for numbers; GSAP-style `each` / `amount` / `from` / `grid` / `ease`). **Not in the DSL (hand-roll with a JS loop):** other per-frame curves (waves, spirals: sample them into short linear keyframes), shared masks. (Draw-on strokes `trimEnd`, text that changes over time `set: { text }` / `visibleChars`, shake `wiggle()` and particles are built in.)
 - **Blend modes:** `blendMode: 'add' | 'screen' | 'multiply'` on any layer (glows, light leaks).
 - **One `Movie` per page.** A sound effect needs no `duration` (it lasts as long as its clip). Seeking is safe: counters, colours and growing shapes are right after any jump.
 
@@ -116,6 +116,7 @@ Keyframe kinds: `set` (jump at `at`; undone when you seek back), `to` (animate t
 
 **audio** — a file: `asset`, `loop`, `volume`; `volume` (top level, or in `initial` like every other layer's starting values); fade with volume keyframes (`{ at: -2, to: { volume: 0 }, duration: 2 }` fades the last 2 s). Omit `duration` for a one-shot clip: it lasts exactly as long as the clip. With `loop: true` and no `duration` it lasts until the composition ends. An explicit `duration` longer than the clip goes silent after the clip unless `loop: true`.
 **Or a sound effect with no file — `sfx`:** `{ type: 'audio', sfx: 'swoosh', at: 2 }` is the whole thing. Presets, default length in s: `click` 0.04 · `pop` 0.12 · `swoosh` 0.5 (loudest 0.16 s in, moves left → right) · `swipe` 0.22 · `hit` 0.7 · `riser` 1 (loudest at its END: `at = hit − duration`) · `chime` 1.4 · `beep` 0.16 · `coin` 0.4 · `glitch` 0.35 · `typewriter` 0.06. Knobs: `sfx: { preset, pitch /* semitones ±24 */, brightness /* −1 dark … 1 bright */, seed /* another take */ }`. **The layer's `duration` IS the sound's length** (omit it; set it to stretch, e.g. a riser); `volume` is its level (1 = the preset's standard level, peaking at −12 … −18 dBFS by preset). No `loop`: one layer per hit (a JS loop). Custom sound: `sfx: { voices: [{ wave: 'noise' | 'sine' | 'square' | 'saw' | 'triangle', freq: 440 | [from, to], filter: { type: 'lowpass' | 'highpass' | 'bandpass', freq: [from, to] }, envelope: 'fall' | 'bell' | 'swell' | 'hold', pan: [-1, 1] }] }`. The export (mp4 / webm / mov) encodes this same mix (lossy AAC / Opus), on time within a few ms.
+**Or music with no file — `music`:** `{ type: 'audio', music: { bpm: 96, tracks: [{ inst: 'keys', notes: 'Cmaj7:4 Am7:4 Dm7:4 G7:4' }, { inst: 'bass', notes: 'c2:2 g1:2 …' }], drums: { kick: 'x...x...', snare: '....x...', hat: 'x.x.x.x.' } } }` — a tune written as text (notes `c4:2` in beats, chords `Am7` `C@4` `Am7/e`, `[c4 e4 g4]`, rest `_`, hold `~`, `!` accent; `|` ignored). Instruments `keys pluck pad bass sub lead bell musicbox`; drums `kick snare hat openhat clap rim tom crash shaker sleigh` as 16th-note step strings (`x` hit, `o` soft, `.` none; a list of `{ from, to, … }` for sections). Score options `bpm` (or `[[beat, bpm], …]` for a ritardando) `swing reverb humanize drumVol grid transpose tail seed`; track options `vol` (or `[[beat, level], …]` for a fade) `pan step strum legato tone reverb attack release ring transpose`. Lasts its notes + tail, ends with the movie, `loop: true` repeats; peaks −6 dBFS at `volume: 1`. `await musicEnvelope(music, { frameRate })` → an envelope for `react()`.
 
 **shape** — `shape: 'rect' | 'circle' | 'ellipse' | 'arc' | 'line' | 'polygon' | 'path'`:
 
@@ -170,7 +171,7 @@ transitions: [{ kind: 'crossfade' | 'wipe' | 'iris' | 'slide' | 'dip' | 'zoom' |
 ## Presets
 
 ```js
-import { kenBurns, withFade, wiggle, stagger, followPath, particles, deck, audioEnvelope, bpmEnvelope, react, random } from 'pixi-effects';
+import { kenBurns, withFade, wiggle, stagger, followPath, particles, deck, audioEnvelope, bpmEnvelope, musicEnvelope, react, random } from 'pixi-effects';
 kenBurns({ asset, name, at, duration, motion: 'still'|'scale'|'rotation'|'position',
            fit: 'cover'|'contain', ease, /* scale */ origin, zoom, direction, /* rotation */ angle, /* position */ from, to })
 withFade(spec, { in: 0.5, out: 0.5 })   // alpha fade; `out` needs spec.duration
@@ -315,6 +316,11 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 55. **Presenter and Controller both listen to click and keys.** Use the `Presenter` for a talk (or let the Controller's Present button start one); do not run both on the same canvas yourself. `movie.play()` ignores stops, but the Controller's play button / Space / click-on-picture play to the next stop and pause (`pauseAtStops: false` plays through); `movie.next()` plays to the next stop (a second press skips to it), `prev()` jumps back (nothing plays in reverse).
 56. **Analyse audio before `init`, and give it the movie's frame rate.** `const env = await audioEnvelope('music.mp3', { frameRate })` is async; `react()` is pure and bakes the keyframes, so there is no per-frame callback. A custom `bands` list replaces the defaults (include `bass` if you want it; beats are picked there). No file yet: `bpmEnvelope(120, { duration })` is a stand-in with a kick on every beat. Offset the music with `audioOffset` when the audio layer does not start at 0.
 57. **Review a deck by its stops, not by its timeline.** `pixi-effects-check` writes `stops.png` (one picture per stop, in order) for a page with `stops`; the picture at a stop is what the audience reads while it waits. A stop that lands a few frames before an animation ends shows it half-finished (also in the PDF): `movie.inspectStops()` / the check's review list names such stops; give an animation a little more time than its step (e.g. the next stop 0.3 s after it ends).
+58. **`music` counts BEATS, and every track has to add up.** A token's `:n` is beats (a quarter note), a 4/4 bar is 4: a bar of `c4:1 e4:1 g4:1` is a beat short and every later bar drifts. Keep all tracks the same length (the music lasts the longest; a track of rests `'_:16'` sets a length) and check the printed length with `movie.inspectAudio()`. 6/8 is a bar of 3 beats (dotted quarter `:1.5`, eighth `:0.5`) with `grid: 2`; `grid: 3` is triplet eighths in 4/4.
+59. **A groove that must enter late needs `from`, not a long string.** `drums: [{ kick: 'x...' }, { from: 8, snare: '....x...' }]`. Patterns repeat; a drum object is a loop of its longest string. A `crash` on the last bar: its own section `{ from: 28, crash: 'x' }`.
+60. **Build-ups are layers and `vol` points, not louder notes.** A track's `vol` can be `[[0, 0], [8, 0.7]]` (a fade over 8 beats); the pad's `attack` can be 2–3 s; enter instruments with rests. Per-note `!` and `,` only accent and soften.
+61. **Music is a bed: `volume` 0.5–0.8 under speech or sfx.** At `volume: 1` it peaks at −6 dBFS (an sfx peaks at −12). A layer shorter than the music cuts it with a fade; longer is silent after it unless `loop: true`. Do not also add an mp3 bed.
+62. **Chord names are voiced close around octave 3**: use `[c3 g3 e4]` for an exact voicing or `Am7/e` for a bass note; `swing` only moves notes that start on an off-beat eighth (`.5`) or sixteenth (`.75`); the bell and music box ring for `ring` seconds whatever the written length (shorten `ring` for fast bell lines); the synth is a handy bed, not an orchestra: keep tracks to 3–6, vary the bars, and end on the tonic.
 
 
 <!-- ===== ai/reference/recipes.md ===== -->
@@ -600,6 +606,31 @@ return { sequences, transitions, duration: total };
 Source images should be at least canvas-sized (`kenBurns` zooms in): draw generated images at 1920×1080 for a 1280×720 movie.
 
 ---
+
+## Music with no file (`music`)
+
+A tune written as text: tracks of notes and chords (`c4:2`, `Am7:4`, `_` rest), drum patterns, a tempo. Count the beats (a 4/4 bar is 4); keep every track the same length; give the drums `from` so they enter after the intro; fade a track in with `vol` points. It lasts its notes plus a reverb tail and ends with the movie; `loop: true` repeats it. The mix sits at −6 dBFS peak at `volume: 1`: use 0.5–0.8 under speech or sound effects.
+
+```js
+// @recipe music-lofi
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1b1a2e' } },
+  { type: 'text', text: 'evening', at: 0.5, style: { fontFamily: 'Georgia, serif', fontSize: 96, fill: '#f3eee4' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+    keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 1.2 }] },
+  { type: 'audio', at: 0, volume: 0.8, music: {
+      bpm: 84, swing: 0.16, reverb: 0.26, seed: 7,
+      tracks: [
+        { inst: 'keys',  vol: 0.7, pan: -0.15, strum: 0.012, notes: 'Cmaj7:4 Am7:4 Dm7:4 G7:4 | Cmaj7:4 Am7:4 Dm7:2 G7:2 Cmaj7:4' },
+        { inst: 'bass',  vol: 0.85, notes: 'c2:1.5 _:0.5 g2:1 c2:1 | a1:1.5 _:0.5 e2:1 a1:1 | d2:1.5 _:0.5 a2:1 d2:1 | g1:1.5 _:0.5 d2:1 g1:1 | c2:1.5 _:0.5 g2:1 c2:1 | a1:1.5 _:0.5 e2:1 a1:1 | d2:2 f2:1 a1:1 | g1:2 b1:1 d2:1 | c2:4' },
+        { inst: 'pluck', vol: [[0, 0], [8, 0.55]], pan: 0.25, step: 0.5, notes: '_:8 | e5:1 d5:0.5 c5:0.5 e5:2 | c5:1 a4:1 e5:2 | f5:1 e5:0.5 d5:0.5 a4:2 | d5:1.5 b4:0.5 g4:2 | e5:1 g5:1 e5:1 d5:1 | c5:1 a4:1 c5:2 | d5:1 f5:1 e5:1 d5:1 | b4:2 d5:2 | c5:4' },
+        { inst: 'pad',   vol: 0.5, notes: '[c3 g3 e4]:8 [a2 e3 c4]:8 [d3 a3 f4]:8 [g2 d3 b3]:8' },
+      ],
+      drums: [{ from: 8, kick: 'x.......x.x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.xo' }],
+  } },
+];
+```
+
+Other feels: a 6/8 lullaby is `bpm: 72`, `grid: 2`, bars of 3 beats (a dotted quarter `:1.5`, an eighth `:0.5`), instruments `musicbox` + `pluck` + `pad`; a build-up is layers entering with rests and `vol` points on the pad, drums from a later `from`; a ritardando is `bpm: [[0, 96], [28, 96], [32, 60]]`; a bright jingle is `lead` + `bell` + `sleigh` / `shaker` over a bouncy `bass`.
 
 ## Sound effects without files
 
@@ -1273,6 +1304,45 @@ The sound is synthesised from data at init (no asset, no network), deterministic
 | `typewriter` | 0.06 s | start | ≈ 3260 Hz | one key (vary `seed` per key) |
 
 Brightness is the spectral centroid that `movie.inspectAudio()` reports (`sound.brightnessHz`), at 48 kHz with no knobs.
+
+#### Music written as text: `music`
+
+A tune with no audio file: notes, chords and drum patterns written as strings, played by a small built-in synthesiser. Deterministic (same score, same sound, in playback and in the exported file); the synthesiser is its own chunk, loaded only when a movie uses it.
+
+```ts
+{ type: 'audio', at: 0.5, volume: 0.8, music: {
+    bpm: 84, swing: 0.16, reverb: 0.26,
+    tracks: [
+      { inst: 'keys',  vol: 0.7, pan: -0.15, strum: 0.012, notes: 'Cmaj7:4 Am7:4 Dm7:4 G7:4' },
+      { inst: 'bass',  vol: 0.85, notes: 'c2:1.5 _:0.5 g2:1 c2:1 | a1:1.5 _:0.5 e2:1 a1:1 | d2:1.5 _:0.5 a2:1 d2:1 | g1:1.5 _:0.5 d2:1 g1:1' },
+      { inst: 'pluck', vol: [[0, 0], [8, 0.55]], step: 0.5, notes: 'e5:1 d5:0.5 c5:0.5 e5:2 | c5:1 a4:1 e5:2 | f5:1 e5:0.5 d5:0.5 a4:2 | d5:1.5 b4:0.5 g4:2' },
+    ],
+    drums: [{ from: 4, kick: 'x.......x.x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.xo' }],
+} }
+```
+
+**Layer.** `at` starts it, `volume` (and volume keyframes) scale it. `duration` defaults to the music's length plus its reverb tail (`tail`, 2.5 s), but never past the end of the composition (the music then ends with the movie, with a short fade). A shorter `duration` cuts it with a fade; a longer one is silent after the music unless **`loop: true`**, which repeats the score until the layer ends (default: the end of the composition). At `volume: 1` the music peaks at −6 dBFS (about −20 dB RMS), a bed that sits under speech and sound effects (an sfx peaks at −12 dBFS).
+
+**Score** (`music`): `bpm` (a number, or `[beat, bpm]` points for a tempo change: `[[0, 96], [28, 96], [32, 60]]` slows down over beats 28–32, a ritardando), `tracks`, `drums`, `swing` (0–0.4: delays the off-beat eighths and sixteenths; 0.16 is a gentle lo-fi lilt), `reverb` (0–0.6, default 0.22), `humanize` (seconds of seeded timing jitter, default 0.012), `drumVol` (default 0.8), `grid` (drum steps per beat, default 4), `transpose` (semitones, all pitched tracks), `tail`, `seed`. Misspelt names warn with "did you mean". The music's length is its longest track (drums repeat up to it), so a track of rests (`'_:16'`) sets a length.
+
+**Tracks.** `inst` is one of `keys` (electric piano), `pluck` (guitar / harp), `pad` (slow warm synth pad), `bass` (synth bass), `sub` (pure sine bass, for a heartbeat), `lead` (soft melodic lead), `bell` (glockenspiel), `musicbox` (a bright tine with a short ring). Options: `vol` (0–1.5, default 0.8, or `[beat, level]` points joined by lines for a fade-in or a swell), `pan` (−1…1), `step` (length of a token without `:`, in beats, default 1), `strum` (seconds between the notes of a chord, 0.01 sounds natural), `legato` (0.1–1, how much of a note's length it sounds), `tone` (0–1, brightness; lower is darker, a lo-fi dulling), `reverb` (0–1, this track's share of the reverb: dry bass, wet bells), `attack` / `release` (seconds; a pad's fade in and out), `ring` (seconds a bell or musicbox rings), `transpose` (semitones for this track). Good ranges: bass c1–c3, keys / pluck c3–c6, pad c2–c5, lead c4–c6, bell c5–c7.
+
+**`notes` string.** Tokens are separated by spaces (`|` is ignored: use it for bars). The unit is the **beat** (a quarter note); count them, a 4/4 bar is 4 beats.
+
+| Token | Meaning |
+|---|---|
+| `c4` `f#3` `Bb2` | a note (c4 = middle C); `:2` after it is its length in beats (`c4:0.5` an eighth), default `step` |
+| `Am7` `F#m` `Bbmaj7` `C@4` `Am7/e` | a chord, voiced close around octave 3 (`@4` puts the root in octave 4; `/e` puts e in the bass). Kinds: none, `m`, `5`, `aug`, `dim`, `sus2`, `sus4`, `6`, `m6`, `add9`, `madd9`, `add11`, `7`, `maj7`, `m7`, `mMaj7`, `dim7`, `m7b5`, `7sus4`, `7b9`, `7#9`, `9`, `maj9`, `m9`, `11`, `m11`, `13`, `maj13`, `m13`, `maj7#11` |
+| `[c4 e4 g4]:2` | a chord written out note by note (exact voicings) |
+| `_` `_:2` | a rest |
+| `~` `~:1` | hold: lengthens the note before |
+| `!` `,` | accent / soft, before or after the length: `c4!:1`, `c4:1,` |
+
+**Drums.** `drums` is an object of patterns, or a list of them with `from` / `to` (beats) so a groove can start late or stop (`[{ kick: 'x...' }, { from: 8, snare: '....x...' }]`). A pattern is a string of steps: `x` hit, `o` soft hit, `.` nothing (`|` and spaces are ignored); one step is 1/`grid` of a beat, so with the default grid 4 a 16-step string is one bar of 4/4, and a longer string (32 steps) is a longer figure that repeats. Drums: `kick snare hat openhat clap rim tom crash shaker sleigh` (`sleigh` is a jingle of small bells).
+
+**Other meters.** The notation counts beats (the quarter note is 1), so 3/4 is bars of 3 beats. 6/8 is bars of 3 beats too: a dotted quarter is `:1.5`, an eighth `:0.5`; set `grid: 2` so a drum step is an eighth note (a 6-step pattern is one bar), and leave `swing` at 0. `grid: 3` is for triplet eighths in 4/4 (a shuffle).
+
+**Seeing the music in the picture.** [`musicEnvelope(music, { frameRate })`](api.md#musicenvelope) analyses the same score into `level` / `bass` / `mid` / `treble` and exact beats for [`react()`](#react), so a title can pulse with the kick of a tune that has no file.
 
 ### `composition`
 
@@ -2702,6 +2772,16 @@ await movie.init({ /* … */ composition: { sequences: [
 `react(env, options)` returns keyframes (one linear step per frame): `{ at?, duration, props, audioOffset?, loop?, frameRate? }`. Each prop is `{ base, amount, band?, beats?, decay?, attack?, release?, invert?, curve? }`: the value is `base + amount × level`. `band` picks a series (default `level`); `beats: true` follows the beats instead (a jump to full on each, falling off with `decay` seconds); `attack` / `release` smooth the rise and fall in seconds like a level meter (a quick rise and a slow fall bounces); `curve` above 1 lets only the loud parts move it. `audioOffset` is where in the sound the layer's start is (a layer that begins 2 s after the music: `audioOffset: 2`); `loop: true` for a looping music layer. It refuses to bake more than 4000 steps (lower `frameRate`).
 
 `bpmEnvelope(120, { duration, frameRate })` is a stand-in with no audio file: a kick on every beat (`bass`), a snare on 2 and 4 (`mid`), hats on the eighths (`treble`), exactly on the tempo. Use it to try an idea, or to make visuals that match sound effects you place on the same tempo. The analysis is the same code the check tool trusts: pure and deterministic.
+
+### `musicEnvelope()`
+
+```ts
+import { musicEnvelope } from 'pixi-effects';
+const music = { bpm: 96, tracks: [{ inst: 'bass', notes: 'c2:2 g1:2' }], drums: { kick: 'x...x...' } };       // the same object the audio layer plays
+const env = await musicEnvelope(music, { frameRate: 30 });                                                     // BEFORE movie.init; async: the synthesiser is its own chunk
+```
+
+The [audio-reactive](#audio-reactive-audioenvelope-react-bpmenvelope) envelope of an audio layer's [`music`](dsl.md#music-written-as-text-music): it renders the score and analyses that very sound, so `env.series` (`level`, `bass`, `mid`, `treble`, or your `bands`) follows the notes. `env.beats` are exact (the kick hits, or every beat when the score has no kick) and `env.bpm` is the starting tempo. Options are `audioEnvelope`'s (`frameRate`, `bands`, `beatBand`, `beatSensitivity`). Throws, saying why, when the score cannot play (for example no `bpm`). The envelope covers the music and its tail; when the layer starts at `at`, pass `at` to `react()`.
 
 ### `movie.toggleMute(): boolean`
 

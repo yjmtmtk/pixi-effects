@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>check · music written as text</title>
+</head>
+<body>
+  <!--
+    Acceptance check (not an example): a movie with one `music` layer (a short lo-fi tune: keys, bass, pluck, pad, drums). It must become ready
+    with no warnings, have sound in the mix (movie.inspectAudio), and export with that sound in the file (node ai/tools/check.mjs this page).
+  -->
+  <canvas id="stage" width="640" height="360"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":            "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":      "https://esm.sh/mediabunny@1.61.3"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 640, height: 360, duration: 10, frameRate: 30, background: '#10131c',
+        composition: { sequences: [
+          { type: 'text', text: 'music, as text', style: { fontSize: 48, fill: '#ffffff' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 } },
+          { type: 'audio', at: 0.5, volume: 0.9, music: {
+            bpm: 88, swing: 0.14, reverb: 0.24, seed: 7,
+            tracks: [
+              { inst: 'keys', vol: 0.7, pan: -0.15, strum: 0.012, notes: 'Cmaj7:4 Am7:4 Dm7:4 G7:4' },
+              { inst: 'bass', vol: 0.85, notes: 'c2:1.5 _:0.5 g2:1 c2:1 | a1:1.5 _:0.5 e2:1 a1:1 | d2:1.5 _:0.5 a2:1 d2:1 | g1:1.5 _:0.5 d2:1 g1:1' },
+              { inst: 'pluck', vol: [[0, 0], [4, 0.55]], pan: 0.25, step: 0.5, notes: 'e5:1 d5:0.5 c5:0.5 e5:2 | c5:1 a4:1 e5:2 | f5:1 e5:0.5 d5:0.5 a4:2 | d5:1.5 b4:0.5 g4:2' },
+              { inst: 'pad', vol: 0.5, notes: '[c3 g3 e4]:4 [a2 e3 c4]:4 [d3 a3 f4]:4 [g2 d3 b3]:4' },
+            ],
+            drums: [{ from: 4, kick: 'x.......x.x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.xo' }],
+          } },
+        ] },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

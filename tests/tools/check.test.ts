@@ -107,6 +107,22 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     expect(report.hasAudio).toBe(true);
   }, 190_000);
 
+  it('a movie whose only sound is `music` (a tune written as text) has that sound in the mix and in the exported file', async () => {
+    const out = mkdtempSync(join(tmpdir(), 'check-test-'));
+    const { stdout } = await promisify(execFile)('node', [
+      join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/music.html'), '--out', out, '--frames', '4', '--timeout', '150',
+    ], { timeout: 170_000 });
+    expect(stdout).toContain('RESULT: OK');
+    const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));
+    expect(report.logs).toEqual([]);
+    expect(report.hasAudio).toBe(true);
+    expect(report.audio.sources.map((s: { source: string }) => s.source)).toEqual(['music']);
+    const ex = report.exports[0];
+    expect(ex.audio.duration).toBeGreaterThan(9.5);
+    expect(Math.max(...ex.audio.rmsDbPerSecond.slice(0, 9))).toBeGreaterThan(-35);      // sound in nearly every second of the file
+    expect(ex.audio.rmsDbPerSecond.slice(0, 9).every((db: number) => db > -60)).toBe(true);
+  }, 190_000);
+
   it('a movie with no sound says "no audio track", not a decoding error', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-test-'));
     const { stdout } = await promisify(execFile)('node', [

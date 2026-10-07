@@ -330,6 +330,16 @@ await movie.init({ /* … */ composition: { sequences: [
 
 `bpmEnvelope(120, { duration, frameRate })` is a stand-in with no audio file: a kick on every beat (`bass`), a snare on 2 and 4 (`mid`), hats on the eighths (`treble`), exactly on the tempo. Use it to try an idea, or to make visuals that match sound effects you place on the same tempo. The analysis is the same code the check tool trusts: pure and deterministic.
 
+### `musicEnvelope()`
+
+```ts
+import { musicEnvelope } from 'pixi-effects';
+const music = { bpm: 96, tracks: [{ inst: 'bass', notes: 'c2:2 g1:2' }], drums: { kick: 'x...x...' } };       // the same object the audio layer plays
+const env = await musicEnvelope(music, { frameRate: 30 });                                                     // BEFORE movie.init; async: the synthesiser is its own chunk
+```
+
+The [audio-reactive](#audio-reactive-audioenvelope-react-bpmenvelope) envelope of an audio layer's [`music`](dsl.md#music-written-as-text-music): it renders the score and analyses that very sound, so `env.series` (`level`, `bass`, `mid`, `treble`, or your `bands`) follows the notes. `env.beats` are exact (the kick hits, or every beat when the score has no kick) and `env.bpm` is the starting tempo. Options are `audioEnvelope`'s (`frameRate`, `bands`, `beatBand`, `beatSensitivity`). Throws, saying why, when the score cannot play (for example no `bpm`). The envelope covers the music and its tail; when the layer starts at `at`, pass `at` to `react()`.
+
 ### `movie.toggleMute(): boolean`
 
 Flips `muted` and returns the new value.

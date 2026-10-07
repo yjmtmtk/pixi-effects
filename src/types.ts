@@ -333,6 +333,7 @@ interface AudioBase extends SequenceCommon {
 export interface AudioAssetSpec extends AudioBase {
   asset: string;
   sfx?: never;
+  music?: never;
   /** Repeat the file for the whole `duration`. Without it the layer goes silent when the file ends. */
   loop?: boolean;
 }
@@ -344,10 +345,83 @@ export interface AudioAssetSpec extends AudioBase {
 export interface AudioSfxSpec extends AudioBase {
   sfx: SfxPreset | SfxOptions;
   asset?: never;
+  music?: never;
   loop?: never;
 }
 
-export type AudioSequenceSpec = AudioAssetSpec | AudioSfxSpec;
+export type MusicInstrument = 'keys' | 'pluck' | 'pad' | 'bass' | 'sub' | 'lead' | 'bell' | 'musicbox';
+export type MusicDrum = 'kick' | 'snare' | 'hat' | 'openhat' | 'clap' | 'rim' | 'tom' | 'crash' | 'shaker' | 'sleigh';
+/** A level that may change over the music: a number, or `[beat, level]` points joined by straight lines (held before the first and after the last). */
+export type MusicLevel = number | Array<[number, number]>;
+
+export interface MusicTrack {
+  inst: MusicInstrument;
+  /** The notes as text: `'c4 e4 g4:2 _ Am7:4 [c4 e4 g4]:2'`. A token is a note (`c4`, `f#3`, `Bb2`) or a chord (`Am7`, `C@4`, `Am7/e`, `[c4 e4]`), `_` a rest, `~` a hold; `:2` is its length in beats; `|` is ignored; `!` accents, `,` softens. */
+  notes: string;
+  /** Level 0–1 (default 0.8), or `[beat, level]` points for a fade or a swell. */
+  vol?: MusicLevel;
+  /** −1 (left) … 1 (right). */
+  pan?: number;
+  /** Length of a token without `:` in beats (default 1). */
+  step?: number;
+  /** Seconds between the notes of a chord (0.01 sounds like a strum). */
+  strum?: number;
+  /** How much of its written length a note sounds, 0.1–1 (default 0.96). */
+  legato?: number;
+  /** Brightness 0–1 (default 1): lower is darker. */
+  tone?: number;
+  /** How much of this track goes to the reverb, 0–1 (default 1). */
+  reverb?: number;
+  /** Seconds a pad / lead / sub takes to fade in. */
+  attack?: number;
+  /** Seconds a note fades out after its written length. */
+  release?: number;
+  /** Seconds a bell / musicbox keeps ringing (default 2.5 / 1.3). */
+  ring?: number;
+  /** Shift every note by this many semitones. */
+  transpose?: number;
+}
+
+/** Drum patterns: a string of steps (`x` hit, `o` soft hit, `.` nothing), one step = 1/`grid` of a beat. The pattern repeats; `from` / `to` (beats) limit where it plays. */
+export type MusicDrums = { [D in MusicDrum]?: string } & { from?: number; to?: number };
+
+export interface MusicOptions {
+  /** Beats per minute, or `[beat, bpm]` points for a tempo change (a ritardando: `[[0, 96], [28, 96], [32, 60]]`). */
+  bpm: number | Array<[number, number]>;
+  tracks?: MusicTrack[];
+  /** Drum patterns that repeat, or a list of them with `from` / `to` (beats) for sections. */
+  drums?: MusicDrums | MusicDrums[];
+  /** Drum steps per beat (default 4: sixteenth notes; 3 for a triplet / 6/8 feel; 2 for eighths). */
+  grid?: number;
+  /** Delays the off-beat eighths and sixteenths by this much of a beat, 0–0.4 (default 0). */
+  swing?: number;
+  /** Reverb amount 0–0.6 (default 0.22). */
+  reverb?: number;
+  /** Seeded timing jitter in seconds (default 0.012; 0 = exact). */
+  humanize?: number;
+  /** Level of the drums 0–1 (default 0.8). */
+  drumVol?: number;
+  /** Shift every pitched track by this many semitones. */
+  transpose?: number;
+  /** Seconds of reverb tail after the last note (default 2.5). */
+  tail?: number;
+  /** Same seed, same music (default 1). */
+  seed?: number;
+}
+
+/**
+ * Plays music written as text, with no audio file. `duration` defaults to the music's length plus its tail; shorter cuts it (with a
+ * short fade), longer is silent after the music unless `loop: true`, which repeats it until the layer ends.
+ */
+export interface AudioMusicSpec extends AudioBase {
+  music: MusicOptions;
+  asset?: never;
+  sfx?: never;
+  /** Repeat the music for the whole `duration` (default: until the composition ends). */
+  loop?: boolean;
+}
+
+export type AudioSequenceSpec = AudioAssetSpec | AudioSfxSpec | AudioMusicSpec;
 export interface CompositionSequenceSpec extends SequenceCommon {
   type: 'composition';
   width?: number;

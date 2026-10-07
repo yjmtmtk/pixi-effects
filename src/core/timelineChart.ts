@@ -35,11 +35,12 @@ const round = (n: number): number => Math.round(n * 1e6) / 1e6;
 const family = (name: string): string => name.replace(/\d+/g, '#');
 
 function detailOf(seq: Sequence): string | undefined {
-  const s = seq.spec as { text?: unknown; asset?: unknown; sfx?: unknown };
+  const s = seq.spec as { text?: unknown; asset?: unknown; sfx?: unknown; music?: unknown };
   if (typeof s.text === 'string') return s.text.length > 60 ? s.text.slice(0, 57) + '…' : s.text;
   if (typeof s.asset === 'string') return `asset “${s.asset}”`;
   if (typeof s.sfx === 'string') return `sfx “${s.sfx}”`;
   if (s.sfx && typeof s.sfx === 'object') return 'sfx (custom)';
+  if (s.music && typeof s.music === 'object') return 'music';
   return undefined;
 }
 

@@ -11,6 +11,8 @@ const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/
 const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
 const template = readFileSync(join(root, 'ai/chat-template.html'), 'utf8');
 const onCdn = await fetch(`https://cdn.jsdelivr.net/npm/pixi-effects@${version}/dist/index.js`, { method: 'HEAD' }).then((r) => r.ok, () => false);
+// the template loads the released library from the CDN: a feature that is not released yet (the music chunk) cannot run in it until it is
+const cdnHasMusic = await fetch(`https://cdn.jsdelivr.net/npm/pixi-effects@${version}/dist/index.js`).then((r) => r.text()).then((t) => /music-[A-Z0-9]+\.js/.test(t), () => false);
 const chrome = check.findChrome();
 
 describe('ai/chat-template.html', () => {
@@ -76,9 +78,9 @@ describe.skipIf(!chrome || !onCdn || process.env.SKIP_BROWSER_TESTS)('ai/chat-te
     expect(r.box.text).toMatch(/fps.*frameRate/s);
   }, 120_000);
 
-  it('the worked example in ai/CHAT.md is a working video when put in the template', async () => {
+  for (const [name, seconds] of [['chat-example', 8], ['chat-music', 22]] as const) it.skipIf(name === 'chat-music' && !cdnHasMusic)(`the worked example "${name}" in ai/CHAT.md is a working video when put in the template`, async () => {
     const md = readFileSync(join(root, 'ai/CHAT.md'), 'utf8');
-    const example = /```js\n\/\/ @chat-example\n([\s\S]*?)```/.exec(md)?.[1];
+    const example = new RegExp('```js\\n// @' + name + '\\n([\\s\\S]*?)```').exec(md)?.[1];
     expect(example).toBeTruthy();
     const start = template.indexOf('===================== EDIT FROM HERE');
     const from = template.indexOf('\n', start) + 1;
@@ -87,6 +89,12 @@ describe.skipIf(!chrome || !onCdn || process.env.SKIP_BROWSER_TESTS)('ai/chat-te
     const r = await inSandbox(page, (cdp) => cdp.eval('movie.duration'));
     expect(r.logs).toBe('[]');
     expect(r.ready).toBe(true);
-    expect(r.extra).toBe(8);
+    expect(r.extra).toBe(seconds);
+    if (name === 'chat-music') {
+      const sound = await inSandbox(page, (cdp) => cdp.eval(`(async () => { const r = movie.inspectAudio(); return { sources: r.sources.map(s => s.source), peak: r.peakDb, issues: r.issues }; })()`));
+      expect(sound.extra.sources).toEqual(['music']);
+      expect(sound.extra.peak).toBeGreaterThan(-20);
+      expect(sound.extra.issues).toEqual([]);
+    }
   }, 120_000);
 });

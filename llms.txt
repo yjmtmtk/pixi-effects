@@ -15,13 +15,13 @@ Rules that cause most failures (details in the skill and pitfalls):
 - **If you are an AI in a chat with no shell and no files** (a browser chat, a preview window): read only [Chat guide](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/CHAT.md) and copy [chat-template.html](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/chat-template.html); everything below is for an AI that can run commands.
 - [Skill: workflow and rules](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/SKILL.md): how to build, check and export a video; read first
 - [Cheatsheet](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/reference/cheatsheet.md): every layer type, prop, default and convention on one page
-- [Recipes](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/reference/recipes.md): tested building blocks (kinetic type, lower-third, count-up, bar chart, 2.5D title, camera orbit, slideshow with transitions, sound effects without files, three.js, a presentation deck, visuals that follow music)
+- [Recipes](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/reference/recipes.md): tested building blocks (kinetic type, lower-third, count-up, bar chart, 2.5D title, camera orbit, slideshow with transitions, sound effects without files, music written as text, three.js, a presentation deck, visuals that follow music)
 - [Pitfalls](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/reference/pitfalls.md): real mistakes made by AI authors, with fixes
 - [Starter template](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/template.html): copy this file to begin
 
 ## Reference
 
-- [DSL reference](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/docs/dsl.md): composition, sequences, 3D layers and camera, keyframes, expressions, filters, transitions, presets (wiggle, stagger, animateText, followPath, particles, react, deck), stops for presentations
+- [DSL reference](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/docs/dsl.md): composition, sequences, 3D layers and camera, keyframes, expressions, filters, transitions, presets (wiggle, stagger, animateText, followPath, particles, react, deck), music written as text, stops for presentations
 - [API reference](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/docs/api.md): Movie, Controller, Presenter (presentations, PDF export), audio analysis (audioEnvelope), events, render options, pixi-effects/three
 - [README](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/README.md): install, CDN import map, quickstart
 

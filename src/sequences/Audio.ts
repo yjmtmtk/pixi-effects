@@ -2,7 +2,7 @@ import { Assets } from 'pixi.js';
 import { Sequence } from './Base';
 import { normalizeKeyframe } from '../core/Timeline';
 import { describeLayer } from '../core/lint';
-import type { AudioSequenceSpec, AudioAssetSpec, AudioSfxSpec, AudioDescriptor } from '../types';
+import type { AudioSequenceSpec, AudioAssetSpec, AudioSfxSpec, AudioMusicSpec, AudioDescriptor } from '../types';
 import type { AudioAssetData } from '../core/AssetLoader';
 
 export class AudioSequence extends Sequence {
@@ -13,6 +13,7 @@ export class AudioSequence extends Sequence {
 
   async build(): Promise<void> {
     this.target = null;
+    if ((this.spec as AudioMusicSpec).music !== undefined) return this._buildMusic(this.spec as AudioMusicSpec);
     if ((this.spec as AudioSfxSpec).sfx !== undefined) return this._buildSfx(this.spec as AudioSfxSpec);
     const spec = this.spec as AudioAssetSpec;
     this._source = `asset "${spec.asset}"`;
@@ -53,6 +54,32 @@ export class AudioSequence extends Sequence {
         console.warn(`pixi-effects: ${who}: keyframes[${i}] starts ${-(kf.at as number)}s before the END of a ${sfx.length}s sound, which is before the sound begins (a negative \`at\` counts back from the end of the layer). Use a shorter \`at\`, or stretch the sound with \`duration\`.`);
       }
     });
+  }
+
+  private async _buildMusic(spec: AudioMusicSpec): Promise<void> {
+    const who = describeLayer(spec);
+    const raw = spec as unknown as Record<string, unknown>;
+    if (raw.asset !== undefined) console.warn(`pixi-effects: ${who}: has both asset and music — the music plays; remove one`);
+    if (raw.sfx !== undefined) console.warn(`pixi-effects: ${who}: has both sfx and music — the music plays; remove one`);
+    // The music synthesiser is its own chunk: movies without music never load it.
+    const { resolveMusic, renderMusic, musicLength, musicKey } = await import('../audio/music');
+    const music = resolveMusic(spec.music, who);
+    if (!music) return;                                   // warned; the layer stays silent
+    const natural = musicLength(music);
+    const rest = Math.max(0, (this.parent?.duration ?? this.root.duration) - this.at);
+    let length = natural;
+    if (spec.duration !== undefined) {
+      if (typeof spec.duration === 'number' && Number.isFinite(spec.duration) && spec.duration > 0) length = spec.duration;
+      else console.warn(`pixi-effects: ${who}: duration must be a positive number of seconds (got ${JSON.stringify(spec.duration)}); using the music's own length, ${natural.toFixed(1)}s`);
+    } else if (spec.loop) length = rest || natural;
+    else if (rest > 0) length = Math.min(natural, rest);        // music that outlasts the movie ends with it (with a short fade), not with a warning
+    if (!spec.loop && spec.duration !== undefined && length > natural + 0.05) {
+      console.warn(`pixi-effects: ${who}: the music is ${natural.toFixed(1)}s (with its tail) but the layer lasts ${length.toFixed(1)}s, so it goes silent after ${natural.toFixed(1)}s. Add loop: true, or shorten the layer's duration.`);
+    }
+    this.duration = length;
+    const loop = !!spec.loop;
+    this._source = 'music';
+    this._synth = { key: musicKey(music, length, loop), render: sr => renderMusic(music, sr, length, loop) };
   }
 
   override bindTimeline(_timeline: unknown): void {

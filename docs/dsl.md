@@ -235,6 +235,45 @@ The sound is synthesised from data at init (no asset, no network), deterministic
 
 Brightness is the spectral centroid that `movie.inspectAudio()` reports (`sound.brightnessHz`), at 48 kHz with no knobs.
 
+#### Music written as text: `music`
+
+A tune with no audio file: notes, chords and drum patterns written as strings, played by a small built-in synthesiser. Deterministic (same score, same sound, in playback and in the exported file); the synthesiser is its own chunk, loaded only when a movie uses it.
+
+```ts
+{ type: 'audio', at: 0.5, volume: 0.8, music: {
+    bpm: 84, swing: 0.16, reverb: 0.26,
+    tracks: [
+      { inst: 'keys',  vol: 0.7, pan: -0.15, strum: 0.012, notes: 'Cmaj7:4 Am7:4 Dm7:4 G7:4' },
+      { inst: 'bass',  vol: 0.85, notes: 'c2:1.5 _:0.5 g2:1 c2:1 | a1:1.5 _:0.5 e2:1 a1:1 | d2:1.5 _:0.5 a2:1 d2:1 | g1:1.5 _:0.5 d2:1 g1:1' },
+      { inst: 'pluck', vol: [[0, 0], [8, 0.55]], step: 0.5, notes: 'e5:1 d5:0.5 c5:0.5 e5:2 | c5:1 a4:1 e5:2 | f5:1 e5:0.5 d5:0.5 a4:2 | d5:1.5 b4:0.5 g4:2' },
+    ],
+    drums: [{ from: 4, kick: 'x.......x.x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.xo' }],
+} }
+```
+
+**Layer.** `at` starts it, `volume` (and volume keyframes) scale it. `duration` defaults to the music's length plus its reverb tail (`tail`, 2.5 s), but never past the end of the composition (the music then ends with the movie, with a short fade). A shorter `duration` cuts it with a fade; a longer one is silent after the music unless **`loop: true`**, which repeats the score until the layer ends (default: the end of the composition). At `volume: 1` the music peaks at −6 dBFS (about −20 dB RMS), a bed that sits under speech and sound effects (an sfx peaks at −12 dBFS).
+
+**Score** (`music`): `bpm` (a number, or `[beat, bpm]` points for a tempo change: `[[0, 96], [28, 96], [32, 60]]` slows down over beats 28–32, a ritardando), `tracks`, `drums`, `swing` (0–0.4: delays the off-beat eighths and sixteenths; 0.16 is a gentle lo-fi lilt), `reverb` (0–0.6, default 0.22), `humanize` (seconds of seeded timing jitter, default 0.012), `drumVol` (default 0.8), `grid` (drum steps per beat, default 4), `transpose` (semitones, all pitched tracks), `tail`, `seed`. Misspelt names warn with "did you mean". The music's length is its longest track (drums repeat up to it), so a track of rests (`'_:16'`) sets a length.
+
+**Tracks.** `inst` is one of `keys` (electric piano), `pluck` (guitar / harp), `pad` (slow warm synth pad), `bass` (synth bass), `sub` (pure sine bass, for a heartbeat), `lead` (soft melodic lead), `bell` (glockenspiel), `musicbox` (a bright tine with a short ring). Options: `vol` (0–1.5, default 0.8, or `[beat, level]` points joined by lines for a fade-in or a swell), `pan` (−1…1), `step` (length of a token without `:`, in beats, default 1), `strum` (seconds between the notes of a chord, 0.01 sounds natural), `legato` (0.1–1, how much of a note's length it sounds), `tone` (0–1, brightness; lower is darker, a lo-fi dulling), `reverb` (0–1, this track's share of the reverb: dry bass, wet bells), `attack` / `release` (seconds; a pad's fade in and out), `ring` (seconds a bell or musicbox rings), `transpose` (semitones for this track). Good ranges: bass c1–c3, keys / pluck c3–c6, pad c2–c5, lead c4–c6, bell c5–c7.
+
+**`notes` string.** Tokens are separated by spaces (`|` is ignored: use it for bars). The unit is the **beat** (a quarter note); count them, a 4/4 bar is 4 beats.
+
+| Token | Meaning |
+|---|---|
+| `c4` `f#3` `Bb2` | a note (c4 = middle C); `:2` after it is its length in beats (`c4:0.5` an eighth), default `step` |
+| `Am7` `F#m` `Bbmaj7` `C@4` `Am7/e` | a chord, voiced close around octave 3 (`@4` puts the root in octave 4; `/e` puts e in the bass). Kinds: none, `m`, `5`, `aug`, `dim`, `sus2`, `sus4`, `6`, `m6`, `add9`, `madd9`, `add11`, `7`, `maj7`, `m7`, `mMaj7`, `dim7`, `m7b5`, `7sus4`, `7b9`, `7#9`, `9`, `maj9`, `m9`, `11`, `m11`, `13`, `maj13`, `m13`, `maj7#11` |
+| `[c4 e4 g4]:2` | a chord written out note by note (exact voicings) |
+| `_` `_:2` | a rest |
+| `~` `~:1` | hold: lengthens the note before |
+| `!` `,` | accent / soft, before or after the length: `c4!:1`, `c4:1,` |
+
+**Drums.** `drums` is an object of patterns, or a list of them with `from` / `to` (beats) so a groove can start late or stop (`[{ kick: 'x...' }, { from: 8, snare: '....x...' }]`). A pattern is a string of steps: `x` hit, `o` soft hit, `.` nothing (`|` and spaces are ignored); one step is 1/`grid` of a beat, so with the default grid 4 a 16-step string is one bar of 4/4, and a longer string (32 steps) is a longer figure that repeats. Drums: `kick snare hat openhat clap rim tom crash shaker sleigh` (`sleigh` is a jingle of small bells).
+
+**Other meters.** The notation counts beats (the quarter note is 1), so 3/4 is bars of 3 beats. 6/8 is bars of 3 beats too: a dotted quarter is `:1.5`, an eighth `:0.5`; set `grid: 2` so a drum step is an eighth note (a 6-step pattern is one bar), and leave `swing` at 0. `grid: 3` is for triplet eighths in 4/4 (a shuffle).
+
+**Seeing the music in the picture.** [`musicEnvelope(music, { frameRate })`](api.md#musicenvelope) analyses the same score into `level` / `bass` / `mid` / `treble` and exact beats for [`react()`](#react), so a title can pulse with the kick of a tune that has no file.
+
 ### `composition`
 
 Nested composition. Same shape as the root spec but with `type: 'composition'` and an explicit `width`/`height`. Children animate within the local coordinate system; the composition itself can be positioned, scaled, and rotated as a unit.

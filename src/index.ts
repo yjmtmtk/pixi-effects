@@ -46,6 +46,7 @@ export type { AnimateTextOptions, AnimateTextTween, TextPreset } from './presets
 export { react } from './presets/react';
 export type { ReactOptions, ReactProp } from './presets/react';
 export { audioEnvelope, computeEnvelope, bpmEnvelope } from './audio/envelope';
+export { musicEnvelope } from './audio/musicEnvelope';
 export type { AudioEnvelope, EnvelopeOptions, AudioEnvelopeSource } from './audio/envelope';
 
 export { deck } from './presets/deck';
@@ -91,6 +92,13 @@ export type {
   SfxKnobs,
   SfxVoice,
   SfxOptions,
+  MusicOptions,
+  MusicTrack,
+  MusicDrums,
+  MusicInstrument,
+  MusicDrum,
+  MusicLevel,
+  AudioMusicSpec,
   CompositionSequenceSpec,
   CameraSequenceSpec,
   NullSequenceSpec,

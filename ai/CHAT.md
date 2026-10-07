@@ -56,10 +56,41 @@ That is a complete, working video (the block between the two markers). Change th
 - **Shapes:** `shape: 'rect' | 'circle' | 'ellipse' | 'arc' | 'line' | 'polygon' | 'path'`. `rect`: `width height cornerRadius`; `circle`: `radius`; `line`: `from: [x, y], to: [x, y]` (canvas coordinates, no `x, y`); `path`: `d` (SVG path data). Style: `fillColor strokeColor strokeWidth fillAlpha`.
 - **Text:** `style` is a PixiJS text style (`fontSize fontFamily fontWeight fill letterSpacing align wordWrap wordWrapWidth lineHeight`). Use fonts that exist everywhere (`Georgia, serif`, `Arial, sans-serif`, `ui-monospace, monospace`); this page loads no web fonts. Estimate a text's width at about 0.6 × `fontSize` per character, keep important text 5 % away from the edges, and keep the bottom 60 px free (the player bar covers it in the preview, not in the file).
 - **Scenes.** Stack layers with `at` / `duration` over an opaque background rect. Do not remove layers.
-- **Sound with no files:** `{ type: 'audio', sfx: 'swoosh', at: 2 }`. Presets: `click pop swoosh swipe hit riser chime beep coin glitch typewriter`; optional `pitch`, `brightness`. A `riser` is loudest at its **end**: start it `duration` seconds before the hit. This page cannot load music or images from your own files; use shapes, text and sfx.
+- **Sound with no files:** `{ type: 'audio', sfx: 'swoosh', at: 2 }`. Presets: `click pop swoosh swipe hit riser chime beep coin glitch typewriter`; optional `pitch`, `brightness`. A `riser` is loudest at its **end**: start it `duration` seconds before the hit. This page cannot load music or images from your own files; use shapes, text, sfx and `music` (below).
 - **Repeat with code, never by copying:** `Array.from({ length: 12 }, (_, i) => ({ type: 'shape', shape: 'circle', radius: 20, at: i * 0.15, duration: DURATION - i * 0.15, initial: { x: 120 + i * 90, y: 360, fillColor: '#ffd166' }, keyframes: [{ at: 0, from: { scale: 0 }, to: { scale: 1 }, duration: 0.4, ease: 'back.out(2)' }] }))` returns twelve layers: spread them into `sequences` with `...`.
 - **Helpers already imported** in the template: `kenBurns` (slow zoom for an image layer), `withFade`, `wiggle` (seeded shake as keyframes), `stagger`, `animateText` (per letter / word entrances), `followPath`, `particles` (seeded confetti / snow / sparks as layers), `deck` (slides). Each returns keyframes or layers: `keyframes: wiggle(...)`, `...particles(...)`. The full signatures are in `https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/reference/cheatsheet.md` (22 KB; read it only if you need a helper).
 - **Not available on this page:** named filters beyond `blur`, `noise`, `alpha`, `colorMatrix` (the other 38 need the `pixi-filters` package), three.js layers, your own image / video / music files. Say so rather than guessing.
+
+## Music with no file
+
+Write the tune as text: an audio layer with `music`. Tracks of notes and chords, optional drums, a tempo. The unit is the **beat** (a quarter note; a 4/4 bar is 4 beats; make every track the same length).
+
+```js
+// @chat-music
+const W = 1280, H = 720, FPS = 30, DURATION = 22;
+const BACKGROUND = '#0e1a2b';
+
+const sequences = [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: BACKGROUND } },
+  {
+    type: 'text', text: 'Snowfall', name: 'title', at: 1, duration: DURATION - 1,
+    style: { fontFamily: 'Georgia, serif', fontSize: 120, fill: '#e8f1ff', letterSpacing: 6 },
+    initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+    keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 2.5 }],
+  },
+  { type: 'audio', volume: 0.8, music: {                 // a slow 6/8 lullaby in F major: 8 bars of 3 beats
+    bpm: 72, grid: 2, reverb: 0.3, seed: 5,
+    tracks: [
+      { inst: 'musicbox', vol: 0.8, notes: 'a5:1.5 c6:1.5 | a5:1 g5:0.5 f5:1.5 | d6:1.5 a5:1.5 | bb5:1 a5:0.5 g5:1.5 | g5:1.5 d6:1.5 | e6:1 d6:0.5 c6:1.5 | a5:1 c6:0.5 f6:1.5 | f6:3' },
+      { inst: 'pluck', vol: 0.45, pan: -0.2, step: 0.5, notes: 'f3 a3 c4 a3 c4 a3 | f3 a3 c4 a3 c4 a3 | d3 f3 a3 f3 a3 f3 | bb2 d3 f3 d3 f3 d3 | g3 bb3 d4 bb3 d4 bb3 | c3 e3 g3 e3 g3 e3 | f3 a3 c4 a3 c4 a3 | f3 a3 c4 g4 c4 a3' },
+      { inst: 'pad', vol: [[0, 0], [6, 0.5]], attack: 1.2, notes: '[f3 a3 c4]:6 [d3 f3 a3 c4]:3 [bb2 d3 f3 a3]:3 [g2 bb2 d3 f3]:3 [c3 e3 g3 bb3]:3 [f3 a3 c4]:3 [f3 g3 a3 c4]:3' },
+    ],
+  } },
+];
+const POSTER = 8;
+```
+
+Every token is a note (`c4`, `f#3`, `Bb2`) with its length in beats after a colon, a chord by name (`Am7`, `Dsus4`, `C@4`, `Am7/e`) or written out (`[c4 e4 g4]:2`), a rest `_`, or a hold `~`; `|` is ignored. Instruments: `keys pluck pad bass sub lead bell musicbox`. Drums: `drums: [{ from: 8, kick: 'x.......x.x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.xo' }]` (16 steps = one 4/4 bar; `from` is a beat; `x` hit, `o` soft, `.` nothing; also `openhat clap rim tom crash shaker sleigh`). Shape it with `swing: 0.16` (a lilt), `reverb`, a track's `vol: [[0, 0], [8, 0.7]]` (a fade-in over 8 beats), `tone` (darker when lower), `transpose`, and a slowing tempo `bpm: [[0, 96], [28, 96], [32, 60]]`. Use `loop: true` on the layer to repeat a short tune under a long video. A mistake prints a warning in the red box that names the track and the token. Keep 3 to 6 tracks, vary the bars, end on the home chord.
 
 ## Check your own work before you answer
 
