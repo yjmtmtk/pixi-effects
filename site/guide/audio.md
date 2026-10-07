@@ -61,6 +61,7 @@ return [
 - **Length and loop:** the layer lasts the music plus its reverb tail, and ends with the movie; `loop: true` repeats it until the layer ends. At `volume: 1` it peaks at −6 dBFS, so use 0.5 to 0.8 under speech or effects.
 {{demo examples/gallery/christmas-eve.html}}
 
+- **Listen first:** the [music lab](../examples/music-lab.html) plays eight tunes (a lo-fi loop, a launch build, a jingle, a thriller opening, three Christmas pieces) and shows each score as source; seven were written by AI sessions from the notation alone. `await musicBuffer(music)` gives you the sound as a Web Audio buffer for a page of your own.
 - **It is an AI's friend:** a score is text, so an AI can write a Christmas waltz, a lo-fi loop or a thriller opening and check it with `movie.inspectAudio()`. Mistakes (an instrument or drum name that does not exist, a note it cannot read) print a warning that names the track and the token. The complete reference is the [DSL reference](https://github.com/yjmtmtk/pixi-effects/blob/main/docs/dsl.md#music-written-as-text-music).
 
 ## Visuals that follow the music

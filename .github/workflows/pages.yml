@@ -67,7 +67,7 @@ jobs:
             <h1>pixi-effects · examples</h1>
             <p>Declarative composition + video rendering for the web. Read in order — each example focuses on one feature area. <a class="repo" href="https://github.com/yjmtmtk/pixi-effects">github.com/yjmtmtk/pixi-effects</a></p>
             <a class="guide" href="guide/"><strong>📖 Guide — learn it, step by step</strong><span>Your first video in ten minutes, how it works, guides for text, shapes, audio, filters and 2.5D, a cookbook with live demos, and the tools that let an AI write and check a video.</span></a>
-            <a class="gallery" href="examples/gallery/"><strong>▶ Gallery — 33 motion-graphics pieces</strong><span>Logo reveals, kinetic type, data stories, 2.5D, three.js and more — each one plain data written by an AI (fable, opus or sonnet).</span></a>
+            <a class="gallery" href="examples/gallery/"><strong>▶ Gallery — 38 motion-graphics pieces</strong><span>Logo reveals, kinetic type, data stories, 2.5D, three.js and more — each one plain data written by an AI (fable, opus or sonnet).</span></a>
             <p class="ai">For AI agents: <a href="ai/SKILL.md">SKILL.md</a><a href="llms.txt">llms.txt</a><a href="llms-full.txt">llms-full.txt</a><a href="ai/template.html">template.html</a></p>
             <ol>
               <li><a href="examples/01-hello.html"><small>01</small>hello — minimum viable composition</a></li>
@@ -85,6 +85,7 @@ jobs:
               <li><a href="examples/13-sfx.html"><small>13</small>sound effects (no files)</a></li>
               <li><a href="examples/14-draw-on.html"><small>14</small>draw-on strokes, changing text</a></li>
               <li><a href="examples/15-custom-player.html"><small>15</small>your own player</a></li>
+              <li><a href="examples/music-lab.html"><small>♪</small>music lab — eight tunes written as text</a></li>
             </ol>
             <a class="playground" href="examples/playground.html">▶ open playground</a>
           </body>

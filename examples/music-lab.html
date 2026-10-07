@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Music written as text</title>
+  <style>
+    :root {
+      --bg: #0e1220; --panel: #151b2e; --line: #232c47; --ink: #e8ecf6; --dim: #9aa5c4; --accent: #ffcf7a; --accent-ink: #2a1c05;
+    }
+    @media (prefers-color-scheme: light) {
+      :root:not([data-theme="dark"]) { --bg: #f4f1ea; --panel: #ffffff; --line: #e1dccf; --ink: #1d2233; --dim: #5c6580; --accent: #c9781a; --accent-ink: #ffffff; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 system-ui, -apple-system, 'Segoe UI', sans-serif; }
+    main { max-width: 860px; margin: 0 auto; padding: 40px 16px 80px; }
+    h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.01em; }
+    .lede { color: var(--dim); margin: 0 0 24px; max-width: 62ch; }
+    .lede a { color: var(--accent); }
+    .tune { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; margin: 0 0 14px; }
+    .tune.playing { border-color: var(--accent); }
+    .head { display: grid; grid-template-columns: 48px 1fr auto; gap: 14px; align-items: center; }
+    .play { width: 48px; height: 48px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink); cursor: pointer; display: grid; place-items: center; }
+    .play:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+    .play svg { width: 20px; height: 20px; fill: currentColor; }
+    .play[disabled] { opacity: 0.6; cursor: progress; }
+    h2 { font-size: 18px; margin: 0; }
+    .by { color: var(--dim); font-size: 13px; }
+    .time { color: var(--dim); font: 13px ui-monospace, Menlo, monospace; }
+    .brief { margin: 12px 0 4px; color: var(--ink); }
+    .brief q { font-style: italic; }
+    .summary { margin: 0 0 10px; color: var(--dim); font-size: 14px; }
+    .bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; margin: 10px 0 4px; }
+    .bar > i { display: block; height: 100%; width: 0; background: var(--accent); }
+    .tools { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+    .tools button, details summary { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+    details { flex-basis: 100%; }
+    details pre { margin: 8px 0 0; padding: 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; max-height: 340px; overflow: auto; font: 12px/1.5 ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-word; }
+    footer { color: var(--dim); font-size: 13px; margin-top: 28px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Music written as text</h1>
+    <p class="lede">Eight tunes, no audio files. Each one is a few lines of text (notes, chords, drum patterns, a tempo) played by the small synthesiser in <a href="../guide/audio.html">pixi-effects</a>. Press play; open <em>Score</em> to read what you hear. Seven were written by fresh Claude sessions that had only the notation guide and a one-line brief, and none of them could hear what it wrote.</p>
+    <div id="tunes"></div>
+    <footer>An audio layer takes the same object: <code>{ type: 'audio', music: { bpm, tracks, drums } }</code>. To play it yourself, <code>await musicBuffer(music)</code> returns a Web Audio buffer. <a href="../guide/audio.html#music-written-as-text" style="color:inherit">How the notation works →</a></footer>
+  </main>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":            "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":      "https://esm.sh/mediabunny",
+      "pixi-effects":    "../dist/index.js"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { musicBuffer } from 'pixi-effects';
+    import { TUNES } from './music-lab/tunes.mjs';
+
+    const PLAY = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 3 L17 10 L5 17 Z"/></svg>';
+    const STOP = '<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="4" width="12" height="12" rx="1.5"/></svg>';
+    const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+    const esc = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    // the score as JavaScript source (unquoted keys, single quotes), the way you would write it in a page
+    const js = (v, depth = 0) => {
+      const pad = '  '.repeat(depth + 1), end = '  '.repeat(depth);
+      if (typeof v === 'string') return `'${v.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+      if (Array.isArray(v)) return v.every((x) => typeof x !== 'object') ? `[${v.map((x) => js(x)).join(', ')}]` : `[\n${v.map((x) => pad + js(x, depth + 1)).join(',\n')}\n${end}]`;
+      if (v && typeof v === 'object') return `{\n${Object.entries(v).map(([k, x]) => `${pad}${/^[A-Za-z_]\w*$/.test(k) ? k : `'${k}'`}: ${js(x, depth + 1)}`).join(',\n')}\n${end}}`;
+      return String(v);
+    };
+    const pretty = (music) => js(music);
+
+    window.__lab = { rendered: {}, playing: null };
+    let ctx = null, current = null;                                    // the audio context (made on the first click) and the tune that sounds
+    const buffers = new Map();
+
+    function wav(buffer) {                                             // 16-bit PCM WAV, to keep a tune
+      const n = buffer.length, ch = buffer.numberOfChannels, out = new DataView(new ArrayBuffer(44 + n * ch * 2));
+      const str = (o, s) => [...s].forEach((c, i) => out.setUint8(o + i, c.charCodeAt(0)));
+      str(0, 'RIFF'); out.setUint32(4, 36 + n * ch * 2, true); str(8, 'WAVEfmt '); out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, ch, true);
+      out.setUint32(24, buffer.sampleRate, true); out.setUint32(28, buffer.sampleRate * ch * 2, true); out.setUint16(32, ch * 2, true); out.setUint16(34, 16, true); str(36, 'data'); out.setUint32(40, n * ch * 2, true);
+      for (let i = 0; i < n; i++) for (let c = 0; c < ch; c++) out.setInt16(44 + (i * ch + c) * 2, Math.max(-1, Math.min(1, buffer.getChannelData(c)[i])) * 32767, true);
+      return new Blob([out], { type: 'audio/wav' });
+    }
+
+    const root = document.getElementById('tunes');
+    const cards = TUNES.map((t) => {
+      const el = document.createElement('section');
+      el.className = 'tune';
+      el.innerHTML = `
+        <div class="head">
+          <button class="play" type="button" aria-label="Play ${esc(t.title)}">${PLAY}</button>
+          <div><h2>${esc(t.title)}</h2><div class="by">${esc(t.by)}</div></div>
+          <div class="time">–:––</div>
+        </div>
+        <p class="brief">The brief: <q>${esc(t.brief)}</q></p>
+        <p class="summary">${esc(t.summary)}</p>
+        <div class="bar" role="progressbar" aria-label="Position"><i></i></div>
+        <div class="tools">
+          <button class="copy" type="button">Copy score</button>
+          <button class="save" type="button" hidden>Save as WAV</button>
+          <details><summary>Score</summary><pre>${esc(pretty(t.music))}</pre></details>
+        </div>`;
+      root.appendChild(el);
+      const q = (s) => el.querySelector(s);
+      const card = { t, el, btn: q('.play'), time: q('.time'), fill: q('.bar > i'), save: q('.save'), src: null, raf: 0, startedAt: 0 };
+      card.btn.addEventListener('click', () => toggle(card));
+      q('.copy').addEventListener('click', async (e) => { try { await navigator.clipboard.writeText(`{ type: 'audio', music: ${pretty(t.music)} }`); e.target.textContent = 'Copied'; setTimeout(() => { e.target.textContent = 'Copy score'; }, 1400); } catch { /* clipboard blocked */ } });
+      card.save.addEventListener('click', () => {
+        const a = document.createElement('a'); a.href = URL.createObjectURL(wav(buffers.get(t.id))); a.download = `${t.id}.wav`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      });
+      return card;
+    });
+
+    function stop(card) {
+      if (!card || !card.src) return;
+      const s = card.src; card.src = null; s.onended = null;
+      try { s.stop(); } catch { /* already stopped */ }
+      cancelAnimationFrame(card.raf);
+      card.btn.innerHTML = PLAY; card.btn.setAttribute('aria-label', `Play ${card.t.title}`);
+      card.el.classList.remove('playing'); card.fill.style.width = '0';
+      if (current === card) { current = null; window.__lab.playing = null; }
+    }
+
+    async function toggle(card) {
+      if (current === card) return stop(card);
+      stop(current);
+      ctx ??= new AudioContext();
+      if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
+      let buffer = buffers.get(card.t.id);
+      if (!buffer) {
+        card.btn.disabled = true; card.time.textContent = 'rendering…';
+        await new Promise((r) => setTimeout(r, 30));                    // let the page show it before the (blocking) render
+        try { buffer = await musicBuffer(card.t.music, { sampleRate: ctx.sampleRate }); }
+        catch (e) { card.time.textContent = 'error'; card.btn.disabled = false; window.__logs.push('render failed: ' + (e && e.message || e)); return; }
+        buffers.set(card.t.id, buffer); window.__lab.rendered[card.t.id] = buffer.duration; card.save.hidden = false; card.btn.disabled = false;
+      }
+      const src = ctx.createBufferSource();
+      src.buffer = buffer; src.connect(ctx.destination);
+      src.onended = () => { if (card.src === src) stop(card); };
+      card.src = src; current = card; window.__lab.playing = card.t.id;
+      card.startedAt = ctx.currentTime;
+      src.start();
+      card.btn.innerHTML = STOP; card.btn.setAttribute('aria-label', `Stop ${card.t.title}`); card.el.classList.add('playing');
+      const tick = () => {
+        if (card.src !== src) return;
+        const t = Math.min(buffer.duration, ctx.currentTime - card.startedAt);
+        card.fill.style.width = `${(t / buffer.duration) * 100}%`; card.time.textContent = `${fmt(t)} / ${fmt(buffer.duration)}`;
+        card.raf = requestAnimationFrame(tick);
+      };
+      tick();
+    }
+    window.__ready = true;
+  </script>
+</body>
+</html>

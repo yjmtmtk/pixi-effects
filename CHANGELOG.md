@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+**Added**
+
+- **`musicBuffer(music, { sampleRate?, duration?, loop? })`**: the sound of `music` as a Web Audio `AudioBuffer`, to play without a movie.
+- **`examples/music-lab.html`**: eight tunes written as text (a lo-fi loop, a launch build, a jingle, a thriller opening, three Christmas pieces, and the first test tune), each with its brief, a play / stop button, its score shown as source, Copy score and Save as WAV. Seven of them were written by fresh Claude sessions from the notation guide and a one-line brief. Linked from the guide's Audio page, the README and the examples page.
+
 ## 0.16.0
 
 **Added**

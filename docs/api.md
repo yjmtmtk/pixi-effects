@@ -340,6 +340,16 @@ const env = await musicEnvelope(music, { frameRate: 30 });                      
 
 The [audio-reactive](#audio-reactive-audioenvelope-react-bpmenvelope) envelope of an audio layer's [`music`](dsl.md#music-written-as-text-music): it renders the score and analyses that very sound, so `env.series` (`level`, `bass`, `mid`, `treble`, or your `bands`) follows the notes. `env.beats` are exact (the kick hits, or every beat when the score has no kick) and `env.bpm` is the starting tempo. Options are `audioEnvelope`'s (`frameRate`, `bands`, `beatBand`, `beatSensitivity`). Throws, saying why, when the score cannot play (for example no `bpm`). The envelope covers the music and its tail; when the layer starts at `at`, pass `at` to `react()`.
 
+### `musicBuffer()`
+
+```ts
+import { musicBuffer } from 'pixi-effects';
+const buffer = await musicBuffer(music, { sampleRate: 44100, duration?, loop? });                    // an AudioBuffer (stereo)
+const src = audioContext.createBufferSource(); src.buffer = buffer; src.connect(audioContext.destination); src.start();
+```
+
+The sound of [`music`](dsl.md#music-written-as-text-music) as a Web Audio buffer, for a page that plays tunes without a movie (a jingle on a button, your own player; [`examples/music-lab.html`](../examples/music-lab.html) is one). `duration` (seconds) cuts it or, with `loop: true`, repeats it up to that length; the default is the music's length plus its tail. Warnings are printed like for an audio layer; it throws, saying why, when the score cannot play. Async: the synthesiser is its own chunk.
+
 ### `movie.toggleMute(): boolean`
 
 Flips `muted` and returns the new value.

@@ -201,6 +201,7 @@ They ship in the npm package (`node_modules/pixi-effects/ai/`).
   - `13-sfx.html` — synthesised sound effects (no audio files), a riser into a hit, a custom voice
   - `15-custom-player.html` — a complete player of your own in about 40 lines (play, seek, volume, replay) using the movie's events
   - `14-draw-on.html` — draw-on strokes (`trimStart` / `trimEnd`) and text that changes over time (`visibleChars`, `set: { text }`)
+  - `music-lab.html` — eight tunes written as text (no audio files): press play, read each score; `musicBuffer()` plays music with no movie
   - `playground.html` — in-browser editor with preset dropdown
 
 ## Browser support

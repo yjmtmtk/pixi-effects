@@ -47,6 +47,7 @@ export { react } from './presets/react';
 export type { ReactOptions, ReactProp } from './presets/react';
 export { audioEnvelope, computeEnvelope, bpmEnvelope } from './audio/envelope';
 export { musicEnvelope } from './audio/musicEnvelope';
+export { musicBuffer } from './audio/musicBuffer';
 export type { AudioEnvelope, EnvelopeOptions, AudioEnvelopeSource } from './audio/envelope';
 
 export { deck } from './presets/deck';

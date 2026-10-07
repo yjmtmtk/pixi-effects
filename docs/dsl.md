@@ -272,6 +272,8 @@ A tune with no audio file: notes, chords and drum patterns written as strings, p
 
 **Other meters.** The notation counts beats (the quarter note is 1), so 3/4 is bars of 3 beats. 6/8 is bars of 3 beats too: a dotted quarter is `:1.5`, an eighth `:0.5`; set `grid: 2` so a drum step is an eighth note (a 6-step pattern is one bar), and leave `swing` at 0. `grid: 3` is for triplet eighths in 4/4 (a shuffle).
 
+**Hear it without a movie.** [`musicBuffer(music)`](api.md#musicbuffer) returns a Web Audio buffer; [`examples/music-lab.html`](../examples/music-lab.html) plays eight finished scores and shows each one as source.
+
 **Seeing the music in the picture.** [`musicEnvelope(music, { frameRate })`](api.md#musicenvelope) analyses the same score into `level` / `bass` / `mid` / `treble` and exact beats for [`react()`](#react), so a title can pulse with the kick of a tune that has no file.
 
 ### `composition`
