@@ -36,7 +36,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
 - **Masks live in the parent's coordinates and don't follow the masked layer.** **`filterArea` is in the layer's own coordinates.**
 - **2.5D needs `threeD: true`** on each layer plus a `{ type: 'camera' }` layer; camera props go in `initial`/keyframes; keep every `z` below the camera distance (≈ 989 at 720p, fov 40); under a dolly zoom only `z = 0` stays fixed.
 - **Group / parent layers = `{ type: 'null', name: 'rig' }`** (draws nothing, only moves) + `parent: 'rig'` on the layers that should follow it: their `x`/`y` are then measured from the null's origin, and the null's position / rotation / scale / alpha carry them (orbits, clock hands, grouped fades). Nulls chain. Only `null` layers can be parents; not for `threeD` layers.
-- **Built in:** `animateText()` (per-letter / per-word / per-line entrances and exits in one call: `...animateText('Title', style, { x, y, align: 'center', at: 0.5, duration: 5, in: 'rise', out: 'fade', stagger: { each: 0.05 } })`), `splitText()` / `measureText()` (per-letter / per-word layers, exact positions, by hand), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) `wiggle()` (a seeded shake as keyframes) `music` (a tune with no file: `{ type: 'audio', music: { bpm, tracks: [{ inst: 'keys', notes: 'Cmaj7:4 Am7:4' }, { inst: 'bass', notes: 'c2:2 g1:2' }], drums: { from: 8, kick: 'x...x...' } } }`: notes and chords as text, counted in beats; instruments `keys pluck pad bass sub lead bell musicbox`; `musicEnvelope(music)` feeds `react()`), `audioEnvelope()` / `bpmEnvelope()` + `react()` (visuals that follow music: `const env = await audioEnvelope('music.mp3', { frameRate })` before `movie.init`, then `keyframes: react(env, { duration, props: { scale: { base: 1, amount: 0.4, band: 'bass', release: 0.2 } } })`; `beats: true` pulses on the beats; `bpmEnvelope(120, …)` when there is no file), `deck()` + `Presenter` (a talk as one movie: pages, steps, stops that pause playback, arrow keys / click / swipe to move on: `...deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops, sequences }] })`, `new Presenter(movie, { canvas })` from `pixi-effects/presenter`; G = page overview, P = presenter view with notes and a timer; `pixi-effects-render talk.html -o talk.pdf` = a PDF of the pages), `particles()` (bursts, snow, confetti, sparks as seeded layers: `...particles({ count: 90, at: 2, life: [1, 1.8], area: { x: 640, y: 330 }, speed: [120, 420], gravity: 240, fade: { out: 0.6 } })`), `followPath()` (a layer along an SVG path: `keyframes: followPath({ d, duration, orient: true })`), path morphing (`{ shape: 'path', d, morphTo, initial/keyframes: morph 0 → 1 }`) and `stagger()` (delays for a wave of layers: `stagger(letters, { each: 0.05, from: 'center' })`, or `stagger(n, …)` for numbers; GSAP-style `each` / `amount` / `from` / `grid` / `ease`). **Not in the DSL (hand-roll with a JS loop):** other per-frame curves (waves, spirals: sample them into short linear keyframes), shared masks. (Draw-on strokes `trimEnd`, text that changes over time `set: { text }` / `visibleChars`, shake `wiggle()` and particles are built in.)
+- **Built in:** `animateText()` (per-letter / per-word / per-line entrances and exits in one call: `...animateText('Title', style, { x, y, align: 'center', at: 0.5, duration: 5, in: 'rise', out: 'fade', stagger: { each: 0.05 } })`), `splitText()` / `measureText()` (per-letter / per-word layers, exact positions, by hand), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) `wiggle()` (a seeded shake as keyframes; on a camera put it on `offsetX` / `offsetY` so it rides on the move) `cameraPath()` (a camera flight through `[x, y, z]` points as keyframes; layers it passes: `hideBehindCamera: true`) `music` (a tune with no file: `{ type: 'audio', music: { bpm, tracks: [{ inst: 'keys', notes: 'Cmaj7:4 Am7:4' }, { inst: 'bass', notes: 'c2:2 g1:2' }], drums: { from: 8, kick: 'x...x...' } } }`: notes and chords as text, counted in beats; instruments `keys pluck pad bass sub lead bell musicbox`; `musicEnvelope(music)` feeds `react()`), `audioEnvelope()` / `bpmEnvelope()` + `react()` (visuals that follow music: `const env = await audioEnvelope('music.mp3', { frameRate })` before `movie.init`, then `keyframes: react(env, { duration, props: { scale: { base: 1, amount: 0.4, band: 'bass', release: 0.2 } } })`; `beats: true` pulses on the beats; `bpmEnvelope(120, …)` when there is no file), `deck()` + `Presenter` (a talk as one movie: pages, steps, stops that pause playback, arrow keys / click / swipe to move on: `...deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops, sequences }] })`, `new Presenter(movie, { canvas })` from `pixi-effects/presenter`; G = page overview, P = presenter view with notes and a timer; `pixi-effects-render talk.html -o talk.pdf` = a PDF of the pages), `particles()` (bursts, snow, confetti, sparks as seeded layers: `...particles({ count: 90, at: 2, life: [1, 1.8], area: { x: 640, y: 330 }, speed: [120, 420], gravity: 240, fade: { out: 0.6 } })`), `followPath()` (a layer along an SVG path: `keyframes: followPath({ d, duration, orient: true })`), path morphing (`{ shape: 'path', d, morphTo, initial/keyframes: morph 0 → 1 }`) and `stagger()` (delays for a wave of layers: `stagger(letters, { each: 0.05, from: 'center' })`, or `stagger(n, …)` for numbers; GSAP-style `each` / `amount` / `from` / `grid` / `ease`). **Not in the DSL (hand-roll with a JS loop):** other per-frame curves (waves, spirals: sample them into short linear keyframes), shared masks. (Draw-on strokes `trimEnd`, text that changes over time `set: { text }` / `visibleChars`, shake `wiggle()` and particles are built in.)
 - **Blend modes:** `blendMode: 'add' | 'screen' | 'multiply'` on any layer (glows, light leaks).
 - **One `Movie` per page.** A sound effect needs no `duration` (it lasts as long as its clip). Seeking is safe: counters, colours and growing shapes are right after any jump.
 
@@ -130,7 +130,7 @@ Keyframe kinds: `set` (jump at `at`; undone when you seek back), `to` (animate t
 | polygon | `points: [[x,y],…]  open` — canvas coordinates like `line` |
 | path | `d` (SVG path data) — canvas coordinates like `line`. **Morph:** `morphTo: 'M…Z'` + animate `morph` 0 → 1 (points half way between, closed outlines lined up so they do not twist; `morphPoints` 8–2048) |
 
-**Draw-on:** every shape but `arc` has `trimStart` / `trimEnd` (0–1 of the outline, default 0 / 1, animatable): `trimEnd: 0` + keyframe `to: { trimEnd: 1 }` draws a line / border / path on; `trimStart` 0 → 1 after it wipes it off; both = a travelling dash. The fill is NOT trimmed. Rect outline starts top-left, circle / ellipse at 12 o'clock, both clockwise. Use `strokeCap: 'round'`.
+**Draw-on:** every shape but `arc` has `trimStart` / `trimEnd` (0–1 of the outline, default 0 / 1, animatable): `trimEnd: 0` + keyframe `to: { trimEnd: 1 }` draws a line / border / path on; `trimStart` 0 → 1 after it wipes it off; both = a travelling dash. The fill is NOT trimmed. Rect outline starts top-left, circle / ellipse at 12 o'clock, both clockwise. A `path` with several sub-paths walks them in order as one length; `trimEach: true` trims each on its own (all draw on together). Use `strokeCap: 'round'`.
 
 Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha strokeWidth`; `colorSpace: 'oklab'|'oklch'` for clean colour tweens. rect/circle/ellipse are **centred on `x,y` by default** (`anchorX/anchorY` default 0.5): for a bar growing from its base use `anchorY: 1` (or `anchorX: 0` for left-to-right). **`fillGradient`** (top level or `initial`; instead of `fillColor`): `{ type?: 'linear'|'radial', stops: [[0, '#000'], [1, 'rgba(0,0,0,.6)']], angle? /* linear, deg, 90 = top→bottom */, center?, innerRadius?, radius? /* radial, 0–1 of bounds */ }` — stops may have alpha, so a radial transparent→dark is a vignette. Stroke ends and corners: `strokeCap: 'butt'|'round'|'square'`, `strokeJoin: 'miter'|'round'|'bevel'` (top level or in `initial`; not animated — `round` keeps sharp corners like an M from poking out).
 
@@ -141,6 +141,10 @@ Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha stro
 **camera** (2.5D) — props in `initial`/keyframes: `x y z lookAtX lookAtY lookAtZ fov` (defaults: centred, looking at the z = 0 plane, `fov` 40, `z` auto = `(H/2)/tan(fov/2)` ≈ 989 at 720p). Never on the camera object itself. An orbit is `orbit()`; by hand: `x = cx + R·sin θ`, `z = R·cos θ`, `R = (H/2)/tan(fov/2)`, `lookAt` = the centre at `z = 0`.
 
 **three** (optional entry `pixi-effects/three`) — `three({ type:'three', width, height, setup(ctx) { …; return { objects: { knot } } }, update?, dispose? })`; drive with `'three.knot.rotation.y'` keyframes. Call `registerThree()` before `init`.
+
+## Camera flight and a camera shake
+
+`...cameraPath({ points: [[x, y, z], …], duration, ease, look: 'ahead' | [x, y, z], lookAhead: 0.08, smooth: true, from, to, frameRate })` → camera keyframes (`x y z lookAtX lookAtY lookAtZ`) along a smooth curve at even speed (`ease: 'power2.in'` accelerates). A handheld shake goes on the camera's **offsets** so it never collides with the move: `...wiggle({ duration, props: { offsetX: { around: 0, amp: 5 }, offsetY: {…} } })` (`offsetX/Y/Z`, `lookOffsetX/Y/Z` are added to the position and the look-at point). A threeD layer the camera passes on purpose: `hideBehindCamera: true` (hidden quietly behind the camera, no warning). Recipe `camera-fly-through`.
 
 ## 2.5D in one paragraph
 
@@ -171,7 +175,7 @@ transitions: [{ kind: 'crossfade' | 'wipe' | 'iris' | 'slide' | 'dip' | 'zoom' |
 ## Presets
 
 ```js
-import { kenBurns, withFade, wiggle, stagger, followPath, particles, deck, audioEnvelope, bpmEnvelope, musicEnvelope, react, random } from 'pixi-effects';
+import { kenBurns, withFade, wiggle, stagger, followPath, cameraPath, particles, deck, audioEnvelope, bpmEnvelope, musicEnvelope, react, random } from 'pixi-effects';
 kenBurns({ asset, name, at, duration, motion: 'still'|'scale'|'rotation'|'position',
            fit: 'cover'|'contain', ease, /* scale */ origin, zoom, direction, /* rotation */ angle, /* position */ from, to })
 withFade(spec, { in: 0.5, out: 0.5 })   // alpha fade; `out` needs spec.duration
@@ -916,6 +920,29 @@ new Presenter(movie, { canvas });     // arrows / Space / Enter / click / swipe 
 
 ---
 
+## A camera flight through a corridor (`cameraPath`, `hideBehindCamera`, a handheld shake)
+
+`cameraPath({ points, duration, ease })` is the camera's route as keyframes: a smooth curve through `[x, y, z]` points at an even speed (an `ease` shapes it; `'power2.in'` is an accelerating rush), facing where it flies (`look: 'ahead'`, the default) or at a fixed `look: [x, y, z]`. Layers the camera passes get `hideBehindCamera: true` (hidden quietly instead of a warning). A handheld shake goes on the camera's **offsets** (`offsetX`, `offsetY`, `offsetZ`, `lookOffsetX`…): they are added to the move, so a `wiggle()` never collides with the dolly.
+
+```js
+// @recipe camera-fly-through
+const gate = (i, z) => ({
+  type: 'composition', name: 'gate-' + i, threeD: true, hideBehindCamera: true, width: 360, height: 480,
+  initial: { x: 640, y: 360, z, pivotX: 180, pivotY: 240 },
+  sequences: [{ type: 'shape', shape: 'rect', width: 330, height: 450, cornerRadius: 6, initial: { x: 180, y: 240, strokeColor: '#ffe9c4', strokeWidth: 6 } }],
+});
+return { duration: 8, sequences: [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0b0a10' } },
+  ...Array.from({ length: 9 }, (_, i) => gate(i, -i * 380)),
+  { type: 'camera', keyframes: [
+    ...cameraPath({ points: [[640, 360, 2200], [690, 330, 900], [640, 360, -3000]], duration: 7, ease: 'power2.in', frameRate: 30 }),
+    ...wiggle({ duration: 7, freq: 9, seed: 2, props: { offsetX: { around: 0, amp: 5 }, offsetY: { around: 0, amp: 3 } } }),
+  ] },
+] };
+```
+
+---
+
 ## Looping motion
 
 `repeat` (a finite count) and `yoyo` go on any keyframe. Total time = `duration × (repeat + 1)`.
@@ -1405,7 +1432,7 @@ Every primitive draws centred on its local origin (so `anchorX`/`anchorY` and `p
   keyframes: [{ at: 0, to: { endAngle: 270 }, duration: 2, ease: 'power3.out' }] }   // a progress ring filling clockwise from the top
 ```
 
-**Draw-on (`trimStart` / `trimEnd`).** On every shape except `arc`, `trimStart` and `trimEnd` (0–1, default 0 and 1, both animatable) are the part of the outline that is stroked, as fractions of its length. Animate `trimEnd` from 0 to 1 to draw a line, border or SVG path on; animate `trimStart` after it to wipe it off the same way; animate both for a travelling dash. A rect's outline starts at its top-left and goes clockwise, a circle / ellipse's at 12 o'clock and goes clockwise, a polygon's includes its closing edge, and a path's several sub-paths count as one length in order. **The fill is not trimmed** (the whole shape stays filled): fade `fillAlpha` in after the draw-on. Use `strokeCap: 'round'` for a friendly end. For `arc`, animate `endAngle` instead (a `trim…` on an arc warns).
+**Draw-on (`trimStart` / `trimEnd`).** On every shape except `arc`, `trimStart` and `trimEnd` (0–1, default 0 and 1, both animatable) are the part of the outline that is stroked, as fractions of its length. Animate `trimEnd` from 0 to 1 to draw a line, border or SVG path on; animate `trimStart` after it to wipe it off the same way; animate both for a travelling dash. A rect's outline starts at its top-left and goes clockwise, a circle / ellipse's at 12 o'clock and goes clockwise, a polygon's includes its closing edge, and a path's several sub-paths count as one length in order (add **`trimEach: true`** to trim every sub-path on its own, so they all draw on at the same time: a glyph or a logo made of several strokes). **The fill is not trimmed** (the whole shape stays filled): fade `fillAlpha` in after the draw-on. Use `strokeCap: 'round'` for a friendly end. For `arc`, animate `endAngle` instead (a `trim…` on an arc warns).
 
 ```ts
 { type: 'shape', shape: 'path', d: 'M 0 50 L 45 95 L 130 0', trimEnd: 0, strokeCap: 'round', strokeJoin: 'round',
@@ -1563,6 +1590,9 @@ The camera is a layer: `{ "type": "camera" }`. It has no visuals. With nothing s
 | `z` | camera depth. **Auto:** if you never set it, it follows `fov` so the `z = 0` plane stays 1:1 | `(H/2) / tan(fov/2)` |
 | `lookAtX`, `lookAtY`, `lookAtZ` | the point it looks at | `W/2`, `H/2`, `0` |
 | `fov` | vertical field of view, degrees (clamped to 1–179) | 40 |
+| `offsetX`, `offsetY`, `offsetZ`, `lookOffsetX`, `lookOffsetY`, `lookOffsetZ` | **added** to the position and to the look-at point, on top of the camera's own move. Put a handheld shake (`wiggle()`) here and it never collides with a dolly or an orbit (two tweens on the same prop overwrite each other; these are separate props) | 0 |
+
+A flight through the scene is [`cameraPath()`](#camerapath) (a route as keyframes); a threeD layer the camera passes on purpose takes `hideBehindCamera: true` (hidden quietly when it is at or behind the camera, instead of a warning).
 
 ```json
 {
@@ -2328,6 +2358,33 @@ import { particles } from 'pixi-effects';
 | `sampleRate` | samples per second of a curved path (default 20); a path with no gravity, wind, drag or sway is one straight tween |
 
 It throws, with the fix, when it would bake an absurd number of keyframes: lower `count`, `life` or `sampleRate`. Particles are real layers (names like `burst1-0`), so `inspect` and the timeline list them, grouped as one family.
+
+### `cameraPath`
+
+A camera flight as keyframes for `x`, `y`, `z`, `lookAtX`, `lookAtY` and `lookAtZ`: a route through `[x, y, z]` points, walked by arc length (an even speed whatever the curve) and sampled once per frame.
+
+```ts
+import { cameraPath, wiggle } from 'pixi-effects';
+
+{ type: 'camera', keyframes: [
+  ...cameraPath({ points: [[640, 360, 2200], [690, 330, 900], [640, 360, -3000]], duration: 7, ease: 'power2.in', frameRate: 30 }),
+  ...wiggle({ duration: 7, freq: 9, props: { offsetX: { around: 0, amp: 5 }, offsetY: { around: 0, amp: 3 } } }),      // a handheld shake on the offsets
+] }
+```
+
+| Option | Notes |
+| ------ | ----- |
+| `points` | `[[x, y, z], …]`, at least two, the route in order |
+| `duration` | seconds; required |
+| `at` | start, seconds from the start of the camera layer (default 0) |
+| `ease` | GSAP ease for the progress along the route (default `'none'`: constant speed; `'power2.in'` an accelerating rush) |
+| `look` | `'ahead'` (default: face where it flies) or a fixed `[x, y, z]` |
+| `lookAhead` | with `'ahead'`: how far ahead, as a fraction 0–1 of the route (default 0.08); past the end it continues along the last direction |
+| `smooth` | `true` (default): a smooth curve through the points (Catmull-Rom); `false`: straight lines |
+| `from` / `to` | fractions 0–1 of the route to start and stop at (default 0 → 1; `from: 1, to: 0` flies it backwards) |
+| `frameRate` | samples per second: your movie's `frameRate` (default 30) |
+
+Layers the camera passes take `hideBehindCamera: true`. The recipe `camera-fly-through` in `ai/reference/recipes.md` is a whole corridor.
 
 ### `followPath`
 

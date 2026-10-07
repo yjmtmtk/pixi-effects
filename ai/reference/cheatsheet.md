@@ -82,6 +82,10 @@ Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha stro
 
 **three** (optional entry `pixi-effects/three`) — `three({ type:'three', width, height, setup(ctx) { …; return { objects: { knot } } }, update?, dispose? })`; drive with `'three.knot.rotation.y'` keyframes. Call `registerThree()` before `init`.
 
+## Camera flight and a camera shake
+
+`...cameraPath({ points: [[x, y, z], …], duration, ease, look: 'ahead' | [x, y, z], lookAhead: 0.08, smooth: true, from, to, frameRate })` → camera keyframes (`x y z lookAtX lookAtY lookAtZ`) along a smooth curve at even speed (`ease: 'power2.in'` accelerates). A handheld shake goes on the camera's **offsets** so it never collides with the move: `...wiggle({ duration, props: { offsetX: { around: 0, amp: 5 }, offsetY: {…} } })` (`offsetX/Y/Z`, `lookOffsetX/Y/Z` are added to the position and the look-at point). A threeD layer the camera passes on purpose: `hideBehindCamera: true` (hidden quietly behind the camera, no warning). Recipe `camera-fly-through`.
+
 ## 2.5D in one paragraph
 
 Add `threeD: true` to any visual layer, then use `z`, `rotationX`, `rotationY` (centre rotation with `anchorX/Y: 0.5` or `pivotX/Y`). Add a `{ type: 'camera' }` layer for a view. A `threeD` layer at `z: 0` with the default camera looks identical to a 2D one. Consecutive `threeD` layers are drawn farthest-first (equal `z` keeps array order); non-`threeD` layers ignore the camera and keep array order. Layers at/behind the camera plane are hidden. Not supported on `threeD` layers: masks, transitions, `filterArea`.
@@ -111,7 +115,7 @@ transitions: [{ kind: 'crossfade' | 'wipe' | 'iris' | 'slide' | 'dip' | 'zoom' |
 ## Presets
 
 ```js
-import { kenBurns, withFade, wiggle, stagger, followPath, particles, deck, audioEnvelope, bpmEnvelope, musicEnvelope, react, random } from 'pixi-effects';
+import { kenBurns, withFade, wiggle, stagger, followPath, cameraPath, particles, deck, audioEnvelope, bpmEnvelope, musicEnvelope, react, random } from 'pixi-effects';
 kenBurns({ asset, name, at, duration, motion: 'still'|'scale'|'rotation'|'position',
            fit: 'cover'|'contain', ease, /* scale */ origin, zoom, direction, /* rotation */ angle, /* position */ from, to })
 withFade(spec, { in: 0.5, out: 0.5 })   // alpha fade; `out` needs spec.duration

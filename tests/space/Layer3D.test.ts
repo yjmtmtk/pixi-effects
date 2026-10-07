@@ -12,9 +12,9 @@ const basis = () => cameraBasis(homeCamera(W, H), W, H);
 
 type Carrier = Container & { z: number; rotationX: number; rotationY: number };
 
-function setup(frame = { x: 0, y: 0, width: 200, height: 100 }) {
+function setup(frame = { x: 0, y: 0, width: 200, height: 100 }, spec: Record<string, unknown> = {}) {
   const target = new Container() as unknown as Carrier;
-  const seq = { target, spec: { name: 'card' } } as unknown as Sequence;
+  const seq = { target, spec: { name: 'card', ...spec } } as unknown as Sequence;
   const layer = new Layer3D(seq, () => frame);
   const render = vi.fn();
   const host: SpaceHost = { render };
@@ -126,6 +126,19 @@ describe('Layer3D', () => {
     const msg = String(warn.mock.calls[0]![0]);
     expect(msg).toContain('layer "card"');
     expect(msg).toMatch(/behind the camera/);
+  });
+
+  it('hideBehindCamera: true hides it behind the camera quietly (a fly-through passes layers on purpose), and it comes back', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { target, layer, render, host } = setup(undefined, { hideBehindCamera: true });
+    target.z = homeDistance(H, 40) + 10;
+    layer.update(host, basis());
+    expect(layer.display.visible).toBe(false);
+    expect(render).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalled();
+    target.z = 0;
+    layer.update(host, basis());
+    expect(layer.display.visible).toBe(true);
   });
 
   it('a big layer tilted so that only a CORNER passes the camera plane warns about the corner, not about z', () => {

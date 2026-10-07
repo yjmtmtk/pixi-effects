@@ -493,6 +493,9 @@ The camera is a layer: `{ "type": "camera" }`. It has no visuals. With nothing s
 | `z` | camera depth. **Auto:** if you never set it, it follows `fov` so the `z = 0` plane stays 1:1 | `(H/2) / tan(fov/2)` |
 | `lookAtX`, `lookAtY`, `lookAtZ` | the point it looks at | `W/2`, `H/2`, `0` |
 | `fov` | vertical field of view, degrees (clamped to 1–179) | 40 |
+| `offsetX`, `offsetY`, `offsetZ`, `lookOffsetX`, `lookOffsetY`, `lookOffsetZ` | **added** to the position and to the look-at point, on top of the camera's own move. Put a handheld shake (`wiggle()`) here and it never collides with a dolly or an orbit (two tweens on the same prop overwrite each other; these are separate props) | 0 |
+
+A flight through the scene is [`cameraPath()`](#camerapath) (a route as keyframes); a threeD layer the camera passes on purpose takes `hideBehindCamera: true` (hidden quietly when it is at or behind the camera, instead of a warning).
 
 ```json
 {
@@ -1258,6 +1261,33 @@ import { particles } from 'pixi-effects';
 | `sampleRate` | samples per second of a curved path (default 20); a path with no gravity, wind, drag or sway is one straight tween |
 
 It throws, with the fix, when it would bake an absurd number of keyframes: lower `count`, `life` or `sampleRate`. Particles are real layers (names like `burst1-0`), so `inspect` and the timeline list them, grouped as one family.
+
+### `cameraPath`
+
+A camera flight as keyframes for `x`, `y`, `z`, `lookAtX`, `lookAtY` and `lookAtZ`: a route through `[x, y, z]` points, walked by arc length (an even speed whatever the curve) and sampled once per frame.
+
+```ts
+import { cameraPath, wiggle } from 'pixi-effects';
+
+{ type: 'camera', keyframes: [
+  ...cameraPath({ points: [[640, 360, 2200], [690, 330, 900], [640, 360, -3000]], duration: 7, ease: 'power2.in', frameRate: 30 }),
+  ...wiggle({ duration: 7, freq: 9, props: { offsetX: { around: 0, amp: 5 }, offsetY: { around: 0, amp: 3 } } }),      // a handheld shake on the offsets
+] }
+```
+
+| Option | Notes |
+| ------ | ----- |
+| `points` | `[[x, y, z], …]`, at least two, the route in order |
+| `duration` | seconds; required |
+| `at` | start, seconds from the start of the camera layer (default 0) |
+| `ease` | GSAP ease for the progress along the route (default `'none'`: constant speed; `'power2.in'` an accelerating rush) |
+| `look` | `'ahead'` (default: face where it flies) or a fixed `[x, y, z]` |
+| `lookAhead` | with `'ahead'`: how far ahead, as a fraction 0–1 of the route (default 0.08); past the end it continues along the last direction |
+| `smooth` | `true` (default): a smooth curve through the points (Catmull-Rom); `false`: straight lines |
+| `from` / `to` | fractions 0–1 of the route to start and stop at (default 0 → 1; `from: 1, to: 0` flies it backwards) |
+| `frameRate` | samples per second: your movie's `frameRate` (default 30) |
+
+Layers the camera passes take `hideBehindCamera: true`. The recipe `camera-fly-through` in `ai/reference/recipes.md` is a whole corridor.
 
 ### `followPath`
 

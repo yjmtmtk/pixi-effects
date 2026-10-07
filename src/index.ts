@@ -38,6 +38,8 @@ export { particles } from './presets/particles';
 export type { ParticlesOptions } from './presets/particles';
 
 export { followPath } from './presets/followPath';
+export { cameraPath } from './presets/cameraPath';
+export type { CameraPathOptions } from './presets/cameraPath';
 export type { FollowPathOptions } from './presets/followPath';
 
 export { animateText } from './presets/animateText';

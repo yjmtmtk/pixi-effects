@@ -7,6 +7,7 @@ import type { CameraSequenceSpec } from '../types';
 
 type Carrier = Container & {
   z: number; lookAtX: number; lookAtY: number; lookAtZ: number; fov: number;
+  offsetX: number; offsetY: number; offsetZ: number; lookOffsetX: number; lookOffsetY: number; lookOffsetZ: number;
 };
 
 /**
@@ -38,6 +39,9 @@ export class CameraSequence extends Sequence {
     carrier.lookAtY = home.lookAtY;
     carrier.lookAtZ = home.lookAtZ;
     carrier.fov = home.fov;
+    // added on top of the camera's own move: put a handheld shake (wiggle) here and it never collides with a dolly or an orbit
+    carrier.offsetX = carrier.offsetY = carrier.offsetZ = 0;
+    carrier.lookOffsetX = carrier.lookOffsetY = carrier.lookOffsetZ = 0;
     this.target = carrier as unknown as Container;
     this.autoZ = !collectPropKeys(this.spec).has('z');
   }
@@ -58,8 +62,8 @@ export class CameraSequence extends Sequence {
       console.warn(`pixi-effects: camera${who}: lookAt equals the camera position; looking along -z instead`);
     }
     return {
-      x: c.x, y: c.y, z,
-      lookAtX: c.lookAtX, lookAtY: c.lookAtY, lookAtZ: c.lookAtZ,
+      x: c.x + c.offsetX, y: c.y + c.offsetY, z: z + c.offsetZ,
+      lookAtX: c.lookAtX + c.lookOffsetX, lookAtY: c.lookAtY + c.lookOffsetY, lookAtZ: c.lookAtZ + c.lookOffsetZ,
       fov,
     };
   }

@@ -38,6 +38,19 @@ An orbit makes the side the camera swings toward the *near* side: a card that is
 
 {{demo examples/12-title-motion.html}}
 
+## A flight, and a handheld shake
+
+`cameraPath()` writes a camera flight as keyframes: a smooth curve through `[x, y, z]` points at an even speed, facing where it flies. An `ease` of `'power2.in'` makes it an accelerating rush. A handheld shake goes on the camera's **offsets** (`offsetX`, `offsetY`, `offsetZ`), which are added to the move, so a `wiggle()` never fights the flight. Layers the camera flies past on purpose take `hideBehindCamera: true`, so they are hidden quietly behind it instead of printing a warning.
+
+```js
+{ type: 'camera', keyframes: [
+  ...cameraPath({ points: [[640, 360, 2200], [690, 330, 900], [640, 360, -3000]], duration: 7, ease: 'power2.in', frameRate: 30 }),
+  ...wiggle({ duration: 7, freq: 9, props: { offsetX: { around: 0, amp: 5 }, offsetY: { around: 0, amp: 3 } } }),
+] }
+```
+
+The whole corridor of gates is the `camera-fly-through` recipe.
+
 ## Groups in depth: a composition as a card
 
 A `composition` with `threeD: true` is a **card**: its children are drawn into one texture that moves, spins and tilts as a unit. Give it `width` and `height`; content outside that rectangle is clipped, so size it for a soft shadow too.

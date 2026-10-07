@@ -17,6 +17,7 @@ import { wiggle } from '../../src/presets/wiggle';
 import { stagger } from '../../src/presets/stagger';
 import { animateText } from '../../src/presets/animateText';
 import { followPath } from '../../src/presets/followPath';
+import { cameraPath } from '../../src/presets/cameraPath';
 import { particles } from '../../src/presets/particles';
 import { deck } from '../../src/presets/deck';
 import { react } from '../../src/presets/react';
@@ -53,7 +54,7 @@ describe('ai/reference/recipes.md', () => {
   for (const r of recipes) {
     it(`recipe "${r.name}" builds and binds with no warnings`, async () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      const out = new Function('kenBurns', 'withFade', 'orbit', 'splitText', 'measureText', 'wiggle', 'stagger', 'animateText', 'followPath', 'particles', 'deck', 'react', 'bpmEnvelope', 'random', 'rand', 'noise', r.code)(kenBurns, withFade, orbit, splitText, measureText, wiggle, stagger, animateText, followPath, particles, deck, react, bpmEnvelope, random, rand, noise) as
+      const out = new Function('kenBurns', 'withFade', 'orbit', 'splitText', 'measureText', 'wiggle', 'stagger', 'animateText', 'followPath', 'cameraPath', 'particles', 'deck', 'react', 'bpmEnvelope', 'random', 'rand', 'noise', r.code)(kenBurns, withFade, orbit, splitText, measureText, wiggle, stagger, animateText, followPath, cameraPath, particles, deck, react, bpmEnvelope, random, rand, noise) as
         SequenceSpec[] | { sequences: SequenceSpec[]; transitions?: unknown[]; duration?: number };
       const sequences = Array.isArray(out) ? out : out.sequences;
       const transitions = Array.isArray(out) ? undefined : out.transitions;

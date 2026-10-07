@@ -112,6 +112,7 @@ export class Layer3D {
     if (!projected.visible) {
       if (!this.warnedBehind) {
         this.warnedBehind = true;
+        if ((this.seq.spec as { hideBehindCamera?: boolean }).hideBehindCamera) return this.hide();     // on purpose: say nothing
         if (projected.depth > NEAR) {
           // the layer's own origin is in front of the camera: a tilt or a large size swings a CORNER past the camera plane
           console.warn(

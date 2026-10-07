@@ -239,6 +239,8 @@ export interface SequenceCommon {
    * camera, a threeD layer renders exactly like a 2D one.
    */
   threeD?: boolean;
+  /** A threeD layer the camera passes (a fly-through): hide it quietly when it is at or behind the camera instead of warning. Default false. */
+  hideBehindCamera?: boolean;
 }
 
 export interface VideoSequenceSpec extends SequenceCommon {
@@ -432,7 +434,9 @@ export interface CompositionSequenceSpec extends SequenceCommon {
 
 /**
  * A camera layer. Put its props in `initial` / `keyframes`:
- * `x`, `y`, `z`, `lookAtX`, `lookAtY`, `lookAtZ`, `fov` (vertical degrees, default 40).
+ * `x`, `y`, `z`, `lookAtX`, `lookAtY`, `lookAtZ`, `fov` (vertical degrees, default 40), and `offsetX` / `offsetY` / `offsetZ` /
+ * `lookOffsetX` / `lookOffsetY` / `lookOffsetZ` (default 0): added to the position and to the look-at point, so a shake (`wiggle`) on them
+ * never collides with the camera's own moves.
  * Unset `z` follows `fov` so the z = 0 plane stays 1:1. Affects only `threeD`
  * siblings in the same composition. +z points toward the viewer.
  */

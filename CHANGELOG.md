@@ -8,6 +8,9 @@
 
 **Added**
 
+- **`cameraPath({ points, duration, ease, look, … })`**: a camera flight through `[x, y, z]` points as keyframes (a smooth curve at an even speed; an `ease` such as `'power2.in'` accelerates; it faces where it flies, or a fixed `look`). With the recipe `camera-fly-through`.
+- **Camera `offsetX` / `offsetY` / `offsetZ` and `lookOffsetX` / `lookOffsetY` / `lookOffsetZ`**: added to the camera's position and look-at point, so a handheld shake (`wiggle()`) on them never collides with a dolly or an orbit (two tweens on one property overwrite each other).
+- **`hideBehindCamera: true`** on a threeD layer the camera passes on purpose: it is hidden quietly behind the camera instead of warning.
 - **`trimEach: true`** on a `path` with several sub-paths: every sub-path is trimmed on its own, so they all draw on at the same time (a glyph or logo made of several strokes). The default is unchanged: the trim walks the sub-paths in order as one outline. (From the Opus showpiece's list: it had given every sub-path its own layer.)
 - **A showpiece in the gallery: `ma`** (「間 MA — the space between」, 48 s, 1920×1080, by Opus): a kinetic essay about one word, with a corridor of 2.5D gates, a beat of true silence and a score written as text. 39 pieces. Its notes list the library gaps it ran into (a seek redraw bug for 3D cards, `trimEnd` across subpaths, camera paths, a shared mask, grain, an animatable gradient).
 

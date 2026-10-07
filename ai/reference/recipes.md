@@ -589,6 +589,29 @@ new Presenter(movie, { canvas });     // arrows / Space / Enter / click / swipe 
 
 ---
 
+## A camera flight through a corridor (`cameraPath`, `hideBehindCamera`, a handheld shake)
+
+`cameraPath({ points, duration, ease })` is the camera's route as keyframes: a smooth curve through `[x, y, z]` points at an even speed (an `ease` shapes it; `'power2.in'` is an accelerating rush), facing where it flies (`look: 'ahead'`, the default) or at a fixed `look: [x, y, z]`. Layers the camera passes get `hideBehindCamera: true` (hidden quietly instead of a warning). A handheld shake goes on the camera's **offsets** (`offsetX`, `offsetY`, `offsetZ`, `lookOffsetX`…): they are added to the move, so a `wiggle()` never collides with the dolly.
+
+```js
+// @recipe camera-fly-through
+const gate = (i, z) => ({
+  type: 'composition', name: 'gate-' + i, threeD: true, hideBehindCamera: true, width: 360, height: 480,
+  initial: { x: 640, y: 360, z, pivotX: 180, pivotY: 240 },
+  sequences: [{ type: 'shape', shape: 'rect', width: 330, height: 450, cornerRadius: 6, initial: { x: 180, y: 240, strokeColor: '#ffe9c4', strokeWidth: 6 } }],
+});
+return { duration: 8, sequences: [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0b0a10' } },
+  ...Array.from({ length: 9 }, (_, i) => gate(i, -i * 380)),
+  { type: 'camera', keyframes: [
+    ...cameraPath({ points: [[640, 360, 2200], [690, 330, 900], [640, 360, -3000]], duration: 7, ease: 'power2.in', frameRate: 30 }),
+    ...wiggle({ duration: 7, freq: 9, seed: 2, props: { offsetX: { around: 0, amp: 5 }, offsetY: { around: 0, amp: 3 } } }),
+  ] },
+] };
+```
+
+---
+
 ## Looping motion
 
 `repeat` (a finite count) and `yoyo` go on any keyframe. Total time = `duration × (repeat + 1)`.
