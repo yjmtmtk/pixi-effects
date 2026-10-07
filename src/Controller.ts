@@ -984,6 +984,8 @@ export class Controller {
   private async handleExport(): Promise<void> {
     if (this.isExporting) return;
     this.isExporting = true;
+    this.setVisible(true);                                                    // the progress is in the bar: keep it on screen until the export ends
+    if (this.hideTimer) { clearTimeout(this.hideTimer); this.hideTimer = null; }
     const wasPlaying = this.movie.isPlaying;
     if (wasPlaying) {
       this.movie.pause();
@@ -1018,6 +1020,7 @@ export class Controller {
     } finally {
       this.hideExportOverlay();
       this.isExporting = false;
+      this.kickIdleTimer();                                                   // the normal idle behaviour again: the bar fades after a pause
       if (wasPlaying) {
         void this.startPlaying();
         this.refreshPlayIcon();
@@ -1087,7 +1090,7 @@ export class Controller {
     const wrap = this.wrapper;
     this.onWrapPointerMove = () => this.kickIdleTimer();
     this.onWrapMouseLeave = () => {
-      if (!this.settingsOpen && !this.isScrubbing && !this.isVolumeScrubbing) this.setVisible(false);
+      if (!this.settingsOpen && !this.isScrubbing && !this.isVolumeScrubbing && !this.isExporting) this.setVisible(false);
     };
     wrap.addEventListener('pointermove', this.onWrapPointerMove);
     wrap.addEventListener('mouseleave', this.onWrapMouseLeave);
@@ -1100,9 +1103,9 @@ export class Controller {
   private kickIdleTimer(): void {
     this.setVisible(true);
     if (this.hideTimer) { clearTimeout(this.hideTimer); this.hideTimer = null; }
-    if (this.settingsOpen) return;
+    if (this.settingsOpen || this.isExporting) return;                       // the export progress lives in the bar: it stays until the export is done
     this.hideTimer = setTimeout(() => {
-      if (!this.isScrubbing && !this.isVolumeScrubbing && !this.settingsOpen) this.setVisible(false);
+      if (!this.isScrubbing && !this.isVolumeScrubbing && !this.settingsOpen && !this.isExporting) this.setVisible(false);
     }, Controller.HIDE_DELAY_MS);
   }
 

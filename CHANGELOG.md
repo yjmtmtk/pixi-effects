@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+**Fixed**
+
+- **The export progress (the "Exporting video…" bar) disappeared when the mouse stood still.** It lives inside the player bar, which fades after 2.5 s of an idle mouse, so a long export looked like it had stopped unless the mouse kept moving. The bar now stays on screen for the whole export (a video or a PDF, also with the Shift+E shortcut), and fades again as usual when the export ends or fails.
+
 ## 0.16.2
 
 **Site**

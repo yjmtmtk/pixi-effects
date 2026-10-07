@@ -1680,3 +1680,56 @@ describe('Controller — a movie with stops (a presentation)', () => {
     expect(document.querySelector('.movie-presenter')).toBeNull();
   });
 });
+
+describe('Controller — the export progress stays on screen for the whole export', () => {
+  afterEach(() => { vi.useRealTimers(); document.body.innerHTML = ''; });
+  const state = (canvas: HTMLCanvasElement) => canvas.parentElement!.querySelector('.movie-controller')!.getAttribute('data-state');
+
+  it('the bar fades after a pause of the mouse, but not while a download is being made; it fades again once the download is done', async () => {
+    vi.useFakeTimers();
+    const canvas = makeCanvas();
+    let finish!: (b: Blob) => void;
+    const movie = makeFakeMovie();
+    movie.render = () => new Promise<Blob>((res) => { finish = res; });
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    canvas.parentElement!.dispatchEvent(new Event('pointermove', { bubbles: true }));
+    expect(state(canvas)).toBe('visible');
+
+    (canvas.parentElement!.querySelector('.mc-export') as HTMLButtonElement).click();
+    (canvas.parentElement!.querySelector('.mc-export-confirm') as HTMLButtonElement).click();
+    expect(canvas.parentElement!.querySelector('.mc-export-overlay')).not.toBeNull();
+
+    await vi.advanceTimersByTimeAsync(10_000);                          // the mouse has been still for 10 s
+    expect(state(canvas)).toBe('visible');                               // the progress is still there
+    canvas.parentElement!.dispatchEvent(new Event('mouseleave'));       // and leaving the picture does not hide it either
+    expect(state(canvas)).toBe('visible');
+
+    finish(new Blob(['x'], { type: 'video/mp4' }));
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(canvas.parentElement!.querySelector('.mc-export-overlay')).toBeNull();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(state(canvas)).toBe('hidden');                                // back to the normal idle behaviour
+    ctrl.destroy();
+  });
+
+  it('a failed download ends the same way: the overlay goes and the bar can fade again', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.stubGlobal('alert', () => {});
+    const canvas = makeCanvas();
+    const movie = makeFakeMovie();
+    movie.render = async () => { throw new Error('no encoder'); };
+    const ctrl = new Controller(movie, { canvas });
+    movie.emit('ready');
+    (canvas.parentElement!.querySelector('.mc-export') as HTMLButtonElement).click();
+    (canvas.parentElement!.querySelector('.mc-export-confirm') as HTMLButtonElement).click();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(canvas.parentElement!.querySelector('.mc-export-overlay')).toBeNull();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(state(canvas)).toBe('hidden');
+    ctrl.destroy();
+    vi.unstubAllGlobals();
+  });
+});
+
