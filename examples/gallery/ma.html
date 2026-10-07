@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>間 MA — the space between</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+  <style>
+    body { background: #0e0d0b; margin: 0; padding: 16px; display: flex; justify-content: center; }
+    .pe-stage { position: relative; width: min(960px, 100%); border-radius: 8px; --pe-loader-bg: #0e0d0b; --pe-loader-color: #efe8da; --pe-loader-track: rgba(239, 232, 218, 0.16); background: #0e0d0b; }
+    .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
+  </style>
+</head>
+<body>
+  <div class="pe-stage"><canvas id="stage" width="1920" height="1080"></canvas><div class="pe-loader" data-label="間"></div></div>
+
+  <script type="application/json" id="piece-meta">
+  { "title": "間 MA — the space between", "subtitle": "A 48-second kinetic essay about one word: a hairline of light becomes a gate, a corridor, a silence, a sun and a seal, cut to a score written as text", "tags": ["kinetic-typography", "2.5d", "japanese", "essay", "music", "silence", "title-sequence"], "width": 1920, "height": 1080, "duration": 48, "model": "opus" }
+  </script>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/presenter":  "../../dist/Presenter.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie, animateText, measureText, wiggle, random, musicEnvelope, react, particles } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    // ─────────────────────────── frame, time, palette, type ───────────────────────────
+    const W = 1920, H = 1080, FPS = 30, DURATION = 48;
+    const BPM = 80, BEAT = 60 / BPM, BAR = 4 * BEAT;          // 0.75 s, 3 s
+    const beat = n => n * BEAT;                                 // beat n from the top
+    const F = (H / 2) / Math.tan(20 * Math.PI / 180);           // camera distance for 1:1 at fov 40 (1483.8)
+
+    const INK = '#0e0d0b', DOOR = '#1c1a17', PAPER = '#efe8da', STONE = '#8c857a', VERMILION = '#e2432a', LIGHT = '#ffe9c4';
+    const LIGHT_A = a => `rgba(255,233,196,${a})`;
+    const VERM_A = a => `rgba(226,67,42,${a})`;
+
+    const SERIF = { fontFamily: 'Georgia, serif', fontStyle: 'italic', fontSize: 54, fill: PAPER };
+    const CAPS = { fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: 15, fontWeight: '500', letterSpacing: 5, fill: STONE };
+    const NUMERAL = { fontFamily: 'Georgia, serif', fontStyle: 'italic', fontSize: 24, fill: STONE };
+    const KANJI = { fontFamily: "'Hiragino Mincho ProN', 'Yu Mincho', serif", fontWeight: '600', fontSize: 760 };
+    const MARGIN = 120;
+
+    // ─────────────────────────── the score (80 bpm, D minor → D major) ───────────────────────────
+    const x8 = (n, k) => Array(k).fill(n + ':0.5').join(' ');
+    const arp = (notes, k) => Array(k).fill(notes.map(n => n + ':0.25').join(' ')).join(' ');
+    // A: bars 1–10 (0 – 29.25 s). The last beat of bar 10 is silence: the layer is cut there.
+    const MUSIC_A = {
+      bpm: BPM, reverb: 0.32, seed: 11,
+      tracks: [
+        { inst: 'pluck', vol: [[0, 1.1], [8, 0.62], [24, 0.7], [39, 1.0]], pan: -0.12, reverb: 0.55, tone: 0.62, notes:
+          '_:1 d5:1.5 a4:0.5 bb4:1 | a4:2 g4:1 a4:1 | ' +
+          'd4:0.5 a4:0.5 e5:1 _:0.5 a4:0.5 d5:1 | eb4:0.5 bb4:0.5 g5:1 _:0.5 bb4:0.5 d5:1 | ' +
+          'g3:0.5 d4:0.5 a4:1 _:0.5 d4:0.5 bb4:1 | a3:0.5 e4:0.5 d5:1 _:0.5 e4:0.5 g4:1 | ' +
+          'd4:0.5 a4:0.5 d5:0.5 f5:0.5 a4:0.5 d5:0.5 f5:0.5 a5:0.5 | eb4:0.5 bb4:0.5 eb5:0.5 g5:0.5 bb4:0.5 eb5:0.5 g5:0.5 bb5:0.5 | ' +
+          arp(['g4', 'bb4', 'd5', 'g5'], 4) + ' | ' + arp(['a4', 'c#5', 'e5', 'a5'], 3) + ' _:1' },
+        { inst: 'pad', attack: 1.6, release: 1.2, tone: 0.5, vol: [[0, 0], [4, 0.18], [8, 0.28], [24, 0.36], [39, 0.85]], notes:
+          '_:4 | [d3 a3]:4 | [d3 a3 e4]:4 | [eb3 bb3 d4 g4]:4 | [g2 d3 bb3 f4 a4]:4 | [a2 e3 g3 d4]:4 | ' +
+          '[d3 a3 f4]:4 | [eb3 bb3 g4]:4 | [g2 d3 bb3 g4]:4 | [a2 e3 g3 c#4]:3 _:1' },
+        { inst: 'sub', vol: 0.3, notes: '_:8 | d2:4 | eb2:4 | g1:4 | a1:4 | _:16' },
+        { inst: 'bass', vol: [[24, 0.6], [39, 1.05]], reverb: 0.05, notes: '_:24 | ' + x8('d2', 8) + ' | ' + x8('eb2', 8) + ' | ' + x8('g1', 8) + ' | ' + x8('a1', 6) + ' _:1' },
+        { inst: 'bell', vol: 0.42, ring: 2.4, reverb: 0.7, notes: '_:10 a5:2 _:2 bb5:2 _:2 d6:2 _:20' },
+      ],
+      drumVol: 0.72,
+      drums: [
+        { from: 24, to: 32, kick: 'x.......x.......', rim: '............x...', shaker: 'o.o.o.o.o.o.o.o.' },
+        { from: 32, to: 36, kick: 'x.....x.x.......', rim: '....x.......x...', hat: 'x.x.x.x.x.x.x.x.', shaker: 'o.o.o.o.o.o.o.o.' },
+        { from: 36, to: 39, kick: 'x...x...x...', snare: 'o.o.oxoxxxxx', hat: 'xxxxxxxxxxxx' },
+      ],
+    };
+    // B: bars 11–16 (30 – 48 s): the hit, the groove, the Picardy D major, the tail.
+    const MUSIC_B = {
+      bpm: BPM, reverb: 0.3, seed: 12,
+      tracks: [
+        { inst: 'pad', attack: 0.08, release: 2.5, tone: 0.55, vol: [[0, 0.66], [12, 0.6], [16, 0.42], [24, 0.28]], notes:
+          '[d3 a3 e4 f4]:4 | [bb2 f3 a3 d4]:4 | [g2 d3 bb3 f4]:2 [a2 e3 g3 c#4]:2 | [eb3 bb3 d4 g4]:4 | [d3 a3 f#4 a4]:8' },
+        { inst: 'lead', vol: 0.5, reverb: 0.45, notes:
+          'd5:1.5 e5:0.5 f5:1 a5:1 | g5:0.5 f5:0.5 e5:1 d5:1 a4:1 | bb4:1 d5:1 c#5:1 e5:1 | d5:4 | _:8' },
+        { inst: 'pluck', vol: 0.62, pan: 0.15, reverb: 0.4, notes:
+          'd4:0.5 a4:0.5 e5:0.5 a4:0.5 f5:0.5 a4:0.5 e5:0.5 a4:0.5 | bb3:0.5 f4:0.5 a4:0.5 f4:0.5 d5:0.5 f4:0.5 a4:0.5 f4:0.5 | ' +
+          'g3:0.5 d4:0.5 bb4:0.5 d4:0.5 a3:0.5 e4:0.5 c#5:0.5 e4:0.5 | eb4:1 bb4:1 d5:1 g5:1 | [d4 a4 d5 f#5]:4 | _:4' },
+        { inst: 'bass', vol: 0.85, reverb: 0.05, notes: 'd2:1.5 d2:0.5 a1:1 d2:1 | bb1:1.5 bb1:0.5 f2:1 bb1:1 | g1:2 a1:2 | eb2:4 | d2:4 | _:4' },
+        { inst: 'sub', vol: 0.9, notes: 'd2:3 _:21' },
+        { inst: 'bell', vol: 0.5, ring: 2.8, reverb: 0.75, notes: '_:16 f#5:1 a5:1 d6:2 _:2 d6:2' },
+      ],
+      drums: [
+        { from: 0, to: 4, crash: 'x...............' },
+        { from: 0, to: 12, kick: 'x.........x.....', clap: '........x.......', hat: 'x.xox.xox.xox.xo', shaker: '.o.o.o.o.o.o.o.o' },
+        { from: 11, to: 12, tom: 'x.xx' },
+        { from: 12, to: 16, kick: 'x...............', shaker: 'o.o.o.o.o.o.o.o.' },
+      ],
+    };
+    const B_AT = 30;                     // bar 11
+    const SILENCE = beat(39);            // 29.25: the last beat of bar 10
+
+    // ─────────────────────────── small builders ───────────────────────────
+    const R = random(2026);
+    const rect = (o) => ({ type: 'shape', shape: 'rect', ...o });
+    const full = (fill, o = {}) => rect({ width: W, height: H, ...o, initial: { x: W / 2, y: H / 2, fillColor: fill, ...(o.initial || {}) } });
+    const fullGrad = (name, fillGradient, o = {}) => rect({ name, width: W, height: H, ...o, initial: { x: W / 2, y: H / 2, ...(o.initial || {}) }, fillGradient });
+    const P = pts => pts.map((p, i) => (i ? 'L ' : 'M ') + p[0] + ' ' + p[1]).join(' ');
+    const circleD = (cx, cy, r) => {
+      const k = 0.5523 * r;
+      return `M ${cx} ${cy - r} C ${cx + k} ${cy - r} ${cx + r} ${cy - k} ${cx + r} ${cy} C ${cx + r} ${cy + k} ${cx + k} ${cy + r} ${cx} ${cy + r} ` +
+             `C ${cx - k} ${cy + r} ${cx - r} ${cy + k} ${cx - r} ${cy} C ${cx - r} ${cy - k} ${cx - k} ${cy - r} ${cx} ${cy - r} Z`;
+    };
+    const fadeKF = (inAt, inDur, outAt, outDur, ease = 'sine.inOut') => [
+      { at: inAt, from: { alpha: 0 }, to: { alpha: 1 }, duration: inDur, ease },
+      ...(outAt != null ? [{ at: outAt, to: { alpha: 0 }, duration: outDur, ease }] : []),
+    ];
+
+    // an essay line: words rise out of a soft blur of time, then leave in the same wave
+    const essay = (text, at, until, o = {}) => animateText(text, { ...SERIF, ...(o.style || {}) }, {
+      by: 'words', x: o.x ?? MARGIN, y: o.y ?? 842, align: o.align ?? 'left', name: o.name ?? 'essay-' + Math.round(at * 100), at, duration: until - at,
+      in: { from: { y: 26, alpha: 0 }, duration: 1.0, ease: 'power3.out' },
+      out: { from: { y: -14, alpha: 0 }, duration: 0.6, ease: 'power2.in' },
+      stagger: { each: 0.085 }, styleFor: o.styleFor,
+    });
+
+    // a chapter label: italic numeral, a hairline that draws, tracked caps
+    const label = (num, word, at, until, color = STONE) => {
+      const nw = measureText(num, NUMERAL).width;
+      const x1 = MARGIN + nw + 16, x2 = x1 + 34, y = 104;
+      const k = fadeKF(0, 0.6, until - at - 0.5, 0.5);
+      return [
+        { type: 'text', name: 'label-num-' + num, text: num, at, duration: until - at, style: { ...NUMERAL, fill: color },
+          initial: { x: MARGIN, y, anchorY: 0.5 }, keyframes: [...k, { at: 0, from: { x: MARGIN - 12 }, to: { x: MARGIN }, duration: 0.8, ease: 'power3.out' }] },
+        { type: 'shape', shape: 'line', name: 'label-rule-' + num, from: [x1, y + 1], to: [x2, y + 1], at: at + 0.15, duration: until - at - 0.15, trimEnd: 0,
+          initial: { strokeColor: color, strokeWidth: 1.5 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.7, ease: 'power3.inOut' }, { at: -0.5, to: { alpha: 0 }, duration: 0.5 }] },
+        { type: 'text', name: 'label-word-' + num, text: word, at: at + 0.3, duration: until - at - 0.3, style: { ...CAPS, fill: color },
+          initial: { x: x2 + 16, y: y + 1, anchorY: 0.5 }, keyframes: [...fadeKF(0, 0.6, until - at - 0.8, 0.5), { at: 0, from: { x: x2 + 30 }, to: { x: x2 + 16 }, duration: 0.9, ease: 'power3.out' }] },
+      ];
+    };
+
+    // ─────────────────────────── the gate (a monoline 門, world units on the z = 0 plane) ───────────────────────────
+    const G = { L: -60, R: 1980, T: -700, M: -430, BB: -160, IL: 860, IR: 1060, FOOT: 1160 };
+    // one subpath per layer: a draw-on (trimEnd) over several subpaths in one path stops short of the later ones
+    const GATE_PARTS = [
+      P([[G.L, G.FOOT], [G.L, G.T], [G.IL, G.T], [G.IL, G.BB], [G.L, G.BB]]), P([[G.L, G.M], [G.IL, G.M]]),
+      P([[1885, 1085], [G.R, G.FOOT], [G.R, G.T], [G.IR, G.T], [G.IR, G.BB], [G.R, G.BB]]), P([[G.R, G.M], [G.IR, G.M]]),
+    ];
+    const GOX = 230, GOY = 860, GW_ = 2500, GH_ = 2150;     // the card's local origin offset and size (margin for the glow)
+    const shift = d => d.replace(/(-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)/g, (_, a, b) => `${+a + GOX} ${+b + GOY}`);
+    const gateStrokes = (draw, cardAt, cardEnd) => {
+      const layers = [];
+      for (const [w, a] of [[46, 0.05], [18, 0.14], [5, 1]]) {
+        for (const [j, d] of GATE_PARTS.entries()) {
+          const dr = draw && (j % 2 ? { at: draw.at + draw.duration * 0.45, duration: draw.duration * 0.55 } : draw);
+          layers.push({ type: 'shape', shape: 'path', name: 'stroke', d: shift(d), strokeCap: w > 5 ? 'round' : 'square', strokeJoin: w > 5 ? 'round' : 'miter',
+            ...(draw ? { trimEnd: 0 } : {}),
+            initial: { strokeColor: LIGHT, strokeWidth: w, strokeAlpha: a },
+            keyframes: [...(dr ? [{ at: dr.at, to: { trimEnd: 1 }, duration: dr.duration, ease: 'power2.inOut' }] : []),
+              ...(w > 5 ? react(envA, { at: 18 - cardAt, duration: cardEnd - 18 - 0.05, audioOffset: 18, props: { alpha: { base: 0.55, amount: 0.9, beats: true, decay: 0.32 } } }) : [])] });
+        }
+      }
+      return layers;
+    };
+    const gateCard = (name, z, at, duration, keyframes, draw) => ({
+      type: 'composition', name, threeD: true, at, duration, width: GW_, height: GH_,
+      initial: { x: -GOX + GW_ / 2, y: -GOY + GH_ / 2, z, pivotX: GW_ / 2, pivotY: GH_ / 2 },
+      keyframes, sequences: gateStrokes(draw, at, at + duration),
+    });
+
+    // a door: a dark fusuma slab with a frame, a round finger-pull and a lit inner edge (a threeD card, hinged on its outer edge)
+    const DOOR_W = 958, DOOR_H = 1240;
+    const doorCard = (name, side, z, at, duration, keyframes = []) => {
+      const left = side === 'left';
+      const edge = left ? DOOR_W - 1 : 1;
+      return {
+        type: 'composition', name, threeD: true, at, duration, width: DOOR_W, height: DOOR_H,
+        initial: { x: left ? 0 : W, y: H / 2, z, pivotX: left ? 0 : DOOR_W, pivotY: DOOR_H / 2 },
+        keyframes,
+        sequences: [
+          rect({ name: 'slab', width: DOOR_W, height: DOOR_H, initial: { x: DOOR_W / 2, y: DOOR_H / 2 },
+            fillGradient: { angle: 0, stops: left ? [[0, '#121110'], [0.8, DOOR], [1, '#26231f']] : [[0, '#26231f'], [0.2, DOOR], [1, '#121110']] } }),
+          rect({ name: 'frame', width: DOOR_W - 240, height: DOOR_H - 240, initial: { x: DOOR_W / 2, y: DOOR_H / 2, strokeColor: STONE, strokeWidth: 2, strokeAlpha: 0.1 } }),
+          rect({ name: 'rail', width: DOOR_W - 240, height: 2, initial: { x: DOOR_W / 2, y: DOOR_H * 0.3, fillColor: STONE, fillAlpha: 0.07 } }),
+          { type: 'shape', shape: 'circle', name: 'pull', radius: 17, initial: { x: left ? DOOR_W - 110 : 110, y: DOOR_H / 2 + 40, strokeColor: STONE, strokeWidth: 2, strokeAlpha: 0.22, fillColor: '#0c0b0a', fillAlpha: 0.6 } },
+          rect({ name: 'rim', width: 2, height: DOOR_H, initial: { x: edge, y: DOOR_H / 2, fillColor: LIGHT, fillAlpha: 0.38 } }),
+        ],
+      };
+    };
+    // the light in the gap (behind the doors) and its glow (in front of them)
+    const gapLight = (name, z, at, duration, keyframes = []) => [
+      rect({ name: name + '-line', threeD: true, at, duration, width: 4, height: DOOR_H, initial: { x: W / 2, y: H / 2, z: z - 2, fillColor: LIGHT }, keyframes }),
+      { type: 'shape', shape: 'circle', name: name + '-glow', threeD: true, blendMode: 'add', at, duration, radius: 100,
+        initial: { x: W / 2, y: H / 2, z: z + 2, scaleX: 0.9, scaleY: 7 }, fillGradient: { type: 'radial', stops: [[0, LIGHT_A(0.5)], [0.22, LIGHT_A(0.16)], [0.6, LIGHT_A(0.04)], [1, LIGHT_A(0)]] }, keyframes },
+    ];
+
+    // ─────────────────────────── the camera path (scene II pull-back, scene III rush) ───────────────────────────
+    const ZC_BACK = 3600, Y_BACK = 230, X_BACK = W / 2 - 900;
+    const PASS = [21, 24, 25.5, 27, 27.75, 28.5];                     // gate k leaves the frame on these beats
+    const SPACING = 3000, PASS_DIST = 1700;
+    const knots = [[18, ZC_BACK], ...PASS.map((t, k) => [t, -k * SPACING + PASS_DIST]), [SILENCE, -(PASS.length - 1) * SPACING + PASS_DIST - 1500]];
+    const Z_STOP = knots[knots.length - 1][1], Z_DOORS = Z_STOP - F;
+    // monotone cubic (Fritsch–Carlson) through the knots, flat at both ends
+    const tangents = (() => {
+      const n = knots.length, s = [], m = new Array(n).fill(0);
+      for (let i = 0; i < n - 1; i++) s.push((knots[i + 1][1] - knots[i][1]) / (knots[i + 1][0] - knots[i][0]));
+      for (let i = 1; i < n - 1; i++) m[i] = s[i - 1] * s[i] <= 0 ? 0 : (s[i - 1] + s[i]) / 2;
+      for (let i = 0; i < n - 1; i++) {
+        if (s[i] === 0) { m[i] = m[i + 1] = 0; continue; }
+        const a = m[i] / s[i], b = m[i + 1] / s[i], h = a * a + b * b;
+        if (h > 9) { const t = 3 / Math.sqrt(h); m[i] = t * a * s[i]; m[i + 1] = t * b * s[i]; }
+      }
+      return m;
+    })();
+    const rush = t => {
+      let i = 0;
+      while (i < knots.length - 2 && t > knots[i + 1][0]) i++;
+      const [t0, z0] = knots[i], [t1, z1] = knots[i + 1], h = t1 - t0, u = Math.min(1, Math.max(0, (t - t0) / h));
+      const h00 = 2 * u ** 3 - 3 * u ** 2 + 1, h10 = u ** 3 - 2 * u ** 2 + u, h01 = -2 * u ** 3 + 3 * u ** 2, h11 = u ** 3 - u ** 2;
+      return h00 * z0 + h10 * h * tangents[i] + h01 * z1 + h11 * h * tangents[i + 1];
+    };
+    const inout2 = u => (u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2);
+    const camZ = t => (t <= 17 ? F + (ZC_BACK - F) * inout2(Math.min(1, Math.max(0, (t - 6) / 11))) : t <= 18 ? ZC_BACK : rush(t));
+
+    const CAM_A_AT = 6, CAM_A_END = SILENCE;
+    const camKeys = [
+      { at: 0, to: { z: ZC_BACK, lookAtZ: ZC_BACK - F, y: Y_BACK, lookAtY: Y_BACK, x: X_BACK, lookAtX: X_BACK }, duration: 11, ease: 'power2.inOut' },
+      { at: 11.4, to: { y: 380, lookAtY: 380, x: W / 2, lookAtX: W / 2 }, duration: 3.2, ease: 'sine.inOut' },
+      { at: 21.4, to: { y: H / 2, lookAtY: H / 2 }, duration: SILENCE - 27.4, ease: 'power2.inOut' },
+      ...wiggle({ at: 0.5, duration: 11, freq: 0.5, seed: 4, props: { fov: { around: 40, amp: 0.35 } } }),
+    ];
+    for (let f = Math.round(18 * FPS); f < Math.round(CAM_A_END * FPS); f++) {
+      const t = (f + 1) / FPS;
+      camKeys.push({ at: f / FPS - CAM_A_AT, to: { z: camZ(t), lookAtZ: camZ(t) - F }, duration: 1 / FPS, ease: 'none' });
+    }
+    // depth fog for a far gate: alpha from its distance to the camera, sampled
+    const fog = (z, at, until) => {
+      const k = [];
+      const a = t => Math.max(0, Math.min(1, (14000 - (camZ(t) - z)) / 7000)) * Math.max(0, Math.min(1, (t - 18) / 1.6));
+      for (let t = at; t < until - 1e-6; t += 0.2) k.push({ at: t - at, to: { alpha: a(Math.min(until, t + 0.2)) }, duration: 0.2, ease: 'none' });
+      return [{ at: 0, set: { alpha: a(at) } }, ...k];
+    };
+
+    // a gate leaves the stack just before the camera reaches its plane (its strokes are long off screen by then)
+    const gone = z => { let t = 18; while (t < CAM_A_END && camZ(t) - z > 250) t += 1 / FPS; return Math.floor(t * FPS) / FPS; };
+
+    // ─────────────────────────── audio envelopes (for react) ───────────────────────────
+    const envA = await musicEnvelope(MUSIC_A, { frameRate: FPS });
+    const envB = await musicEnvelope(MUSIC_B, { frameRate: FPS });
+
+    // ═══════════════════════════ the film ═══════════════════════════
+    const S = [];
+    S.push(full(INK, { name: 'ink', duration: 31 }));
+
+    // ── I · THE LINE (0 – 6) ─────────────────────────────────────────
+    const LINE_AT = beat(1);
+    S.push({ type: 'shape', shape: 'ellipse', name: 'line-ambient', blendMode: 'add', at: LINE_AT, duration: 6.6 - LINE_AT, radiusX: 560, radiusY: 560,
+      initial: { x: W / 2, y: H / 2 }, fillGradient: { type: 'radial', stops: [[0, LIGHT_A(0.07)], [1, LIGHT_A(0)]] },
+      keyframes: [...fadeKF(0, 2.5, 6.0 - LINE_AT, 0.6)] });
+    S.push({ type: 'shape', shape: 'ellipse', name: 'line-glow', blendMode: 'add', at: LINE_AT, duration: 6.6 - LINE_AT, radiusX: 60, radiusY: 420,
+      initial: { x: W / 2, y: H / 2, scaleY: 0 }, fillGradient: { type: 'radial', stops: [[0, LIGHT_A(0.55)], [0.3, LIGHT_A(0.14)], [1, LIGHT_A(0)]] },
+      keyframes: [{ at: 0, to: { scaleY: 1 }, duration: 1.8, ease: 'expo.out' }, { at: 6.0 - LINE_AT - 1.5, to: { scaleY: 1.45 }, duration: 1.5, ease: 'power2.inOut' }, { at: 6.0 - LINE_AT, to: { alpha: 0 }, duration: 0.6 }] });
+    S.push(rect({ name: 'line', at: LINE_AT, duration: 6.6 - LINE_AT, width: 3, height: 760, initial: { x: W / 2, y: H / 2, fillColor: LIGHT, scaleY: 0 },
+      keyframes: [{ at: 0, to: { scaleY: 1 }, duration: 1.8, ease: 'expo.out' }, { at: 6.0 - LINE_AT - 1.5, to: { scaleY: 1.64 }, duration: 1.5, ease: 'power2.inOut' }, { at: 6.0 - LINE_AT, to: { alpha: 0 }, duration: 0.6 }] }));
+    S.push(...label('i', 'THE LINE', beat(2), 5.6));
+    S.push(...essay('Between two things,', beat(3), 6.0, { x: W / 2 + 52, y: 468, style: { fill: STONE } }));
+    S.push(...essay('there is a third.', beat(5), 6.0, { x: W / 2 + 52, y: 536 }));
+
+    // ── II · THE GATE (6 – 18) and III · BETWEEN (18 – 29.25): one 2.5D world ──
+    S.push({ type: 'camera', name: 'cam-a', at: CAM_A_AT, duration: CAM_A_END - CAM_A_AT, initial: { fov: 40, z: F, lookAtZ: 0 }, keyframes: camKeys });
+    // the floor spill: light from the gap lying on the ground toward us
+    S.push({ type: 'shape', shape: 'polygon', name: 'spill', threeD: true, blendMode: 'add', at: 6, duration: 14.5,
+      points: [[956, G.FOOT], [964, G.FOOT], [1110, G.FOOT + 1200], [810, G.FOOT + 1200]],
+      fillGradient: { angle: 90, stops: [[0, LIGHT_A(0.42)], [0.25, LIGHT_A(0.1)], [1, LIGHT_A(0)]] },
+      initial: { pivotX: 960, pivotY: G.FOOT, x: 960, y: G.FOOT, rotationX: 90 },
+      keyframes: [...fadeKF(0.4, 2.5, 12.6, 1.6)] });
+    S.push(rect({ name: 'floor-line', threeD: true, at: 6, duration: 15, width: 5200, height: 2, initial: { x: W / 2, y: G.FOOT, fillColor: STONE, fillAlpha: 0.22 },
+      keyframes: [...fadeKF(3, 3, 12.5, 2)] }));
+    // the doors and gate 0
+    S.push(...gapLight('gap0', 0, 6, 13.6, [{ at: 12.2, to: { alpha: 0 }, duration: 1.4, ease: 'sine.in' }]));
+    S.push(doorCard('door0-l', 'left', 0, 6, 13.6, [...fadeKF(0, 0.8, 12, 1.6, 'sine.inOut')]));
+    S.push(doorCard('door0-r', 'right', 0, 6, 13.6, [...fadeKF(0, 0.8, 12, 1.6, 'sine.inOut')]));
+    S.push(gateCard('gate0', 0, 6, gone(0) - 6, [], { at: 3.0, duration: 4.4 }));
+    // dust in the light (seeded), drifting with the camera's parallax
+    for (let i = 0; i < 34; i++) {
+      const gx = W / 2 + (R() - 0.5) * (R() < 0.6 ? 260 : 900), gy = 40 + R() * 1060, gz = -120 + R() * 560;
+      S.push({ type: 'shape', shape: 'circle', name: 'mote-' + i, threeD: true, blendMode: 'add', at: 6, duration: 13.5, radius: 1.4 + R() * 2.4,
+        initial: { x: gx, y: gy, z: gz, fillColor: LIGHT, alpha: 0 },
+        keyframes: [{ at: 1 + R() * 2, to: { alpha: 0.25 + R() * 0.45 }, duration: 2, ease: 'sine.inOut' }, { at: 11.6 + R(), to: { alpha: 0 }, duration: 1.2 },
+          ...wiggle({ duration: 13.5, freq: 0.22, seed: 100 + i, props: { x: { around: gx, amp: 22 }, y: { around: gy, amp: 34 } } })] });
+    }
+    // the corridor
+    PASS.slice(1).forEach((t, k) => {
+      const z = -(k + 1) * SPACING, at = 18, end = gone(z);
+      S.push(gateCard('gate' + (k + 1), z, at, end - at, fog(z, at, end)));
+    });
+    // dust along the corridor: it rushes past the camera (each speck leaves before the camera reaches it)
+    for (let i = 0; i < 70; i++) {
+      const a = R() * Math.PI * 2, rr = 380 + R() * 1100, z = 900 - R() * 16500;
+      const end = gone(z);
+      if (end - 18 < 0.5) continue;
+      S.push({ type: 'shape', shape: 'circle', name: 'rush-' + i, threeD: true, blendMode: 'add', at: 18, duration: end - 18, radius: 2 + R() * 3,
+        initial: { x: W / 2 + Math.cos(a) * rr * 1.5, y: H / 2 + Math.sin(a) * rr, z, fillColor: LIGHT }, keyframes: fog(z, 18, end).map(k => (k.to ? { ...k, to: { alpha: k.to.alpha * 0.55 } } : { ...k, set: { alpha: k.set.alpha * 0.55 } })) });
+    }
+    // the last pair of doors, where the camera stops
+    S.push(...gapLight('gapD', Z_DOORS, 18, SILENCE - 18, fog(Z_DOORS, 18, SILENCE)));
+    S.push(doorCard('doorD-l', 'left', Z_DOORS, 18, SILENCE - 18, fog(Z_DOORS, 18, SILENCE)));
+    S.push(doorCard('doorD-r', 'right', Z_DOORS, 18, SILENCE - 18, fog(Z_DOORS, 18, SILENCE)));
+
+    // a soft ink floor under the type while the gates sweep past it
+    S.push(rect({ name: 'type-floor', at: 17.6, duration: SILENCE - 17.6 - 0.1, width: W, height: 420, initial: { x: W / 2, y: H - 210 },
+      fillGradient: { angle: 90, stops: [[0, 'rgba(14,13,11,0)'], [0.45, 'rgba(14,13,11,0.82)'], [1, 'rgba(14,13,11,0.95)']] }, keyframes: fadeKF(0, 1.0, -1.2, 1.0) }));
+    S.push(...label('ii', 'THE GATE', beat(9), 17.4));
+    S.push(...essay('It is not an absence.', beat(10), 10.1));
+    S.push(...essay('It is where the light\ncomes through.', beat(14), 16.9, { y: 800, styleFor: p => (p.text === 'light' ? { fill: LIGHT } : { fill: PAPER }) }));
+    S.push(...label('iii', 'BETWEEN', beat(25), 28.8));
+    const keyWord = p => (p.index === 1 ? { fill: PAPER } : { fill: STONE });
+    S.push(...essay('the rest between two notes', beat(25), 20.7, { styleFor: keyWord }));
+    S.push(...essay('the breath between two words', beat(29), 23.7, { styleFor: keyWord }));
+    S.push(...essay('the distance between two people', beat(33), 26.8, { styleFor: keyWord }));
+
+    // ── IV · THE SUN (30 – 39) and V · MA (39 – 48): paper ──────────────
+    const KS = 0.9;                                                   // the glyph's scale in IV
+    const k2 = (x, y, s = KS, cx = W / 2) => [cx + (x - W / 2) * s, H / 2 + (y - H / 2) * s];
+    const HOLE = [[798, 486], [1144, 486], [1144, 806], [1113, 806], [1113, 848], [798, 848]];
+    const SUN_C = [966, 655], SUN_R = 165;
+    const SUN_SQ = 'M 807 493 L 1126 493 L 1126 818 L 807 818 Z';
+    const kanji = {
+      type: 'composition', name: 'kanji', at: 0, duration: 18, width: W, height: H,
+      initial: { x: W / 2, y: H / 2, pivotX: W / 2, pivotY: H / 2, scale: 0.97 },
+      keyframes: [
+        { at: 0, to: { scale: KS }, duration: 2.6, ease: 'power2.out' },
+        ...wiggle({ at: 0, duration: 0.55, freq: 16, seed: 8, ease: 'none', props: { x: { around: W / 2, amp: 9 }, y: { around: H / 2, amp: 7 } } }),
+        { at: 9.0, to: { x: 600, scale: 0.74 }, duration: 1.3, ease: 'power3.inOut' },
+      ],
+      sequences: [
+        { type: 'shape', shape: 'circle', name: 'sun-glow', radius: 520, initial: { x: SUN_C[0], y: SUN_C[1] + 640 },
+          fillGradient: { type: 'radial', stops: [[0, VERM_A(0.2)], [0.45, VERM_A(0.07)], [1, VERM_A(0)]] },
+          keyframes: [{ at: 0.3, to: { y: SUN_C[1] }, duration: 2.4, ease: 'power3.out' },
+            ...react(envB, { at: 3, duration: 6, audioOffset: 3, props: { scale: { base: 1, amount: 0.07, beats: true, decay: 0.35 } } })] },
+        { type: 'null', name: 'sun-rig', initial: { x: 0, y: 640 }, keyframes: [{ at: 0.3, to: { y: 0 }, duration: 2.4, ease: 'power3.out' }] },
+        { type: 'shape', shape: 'path', name: 'sun', parent: 'sun-rig', d: circleD(SUN_C[0], SUN_C[1], SUN_R), morphTo: SUN_SQ,
+          initial: { fillColor: VERMILION, morph: 0 }, keyframes: [{ at: 2.3, to: { morph: 1 }, duration: 0.7, ease: 'power3.inOut' }, { at: 3.0, to: { alpha: 0 }, duration: 0.16, ease: 'power1.in' }] },
+        rect({ name: 'snap-ring', at: 3.0, duration: 0.8, width: 319, height: 325, initial: { x: 966.5, y: 655.5, strokeColor: VERMILION, strokeWidth: 3, alpha: 0.7 },
+          keyframes: [{ at: 0, to: { scale: 1.32, alpha: 0, strokeWidth: 1 }, duration: 0.8, ease: 'expo.out' }] }),
+        { type: 'text', name: 'gate-glyph', text: '間', style: { ...KANJI, fill: INK }, initial: { x: W / 2, y: H / 2, anchorX: 0.5, anchorY: 0.5 },
+          maskInverted: true, mask: { type: 'shape', shape: 'polygon', points: HOLE, initial: { fillColor: '#ffffff' } } },
+        { type: 'text', name: 'sun-glyph', text: '間', style: { ...KANJI, fill: VERMILION }, initial: { x: W / 2, y: H / 2, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+          keyframes: [{ at: 3.0, to: { alpha: 1 }, duration: 0.1 }],
+          mask: { type: 'shape', shape: 'polygon', points: HOLE, initial: { fillColor: '#ffffff' } } },
+      ],
+    };
+    // annotations (paper-local time; the paper starts at 30)
+    const ann = (name, from, to, at, until, color) => ({ type: 'shape', shape: 'line', name, from, to, at, duration: until - at, trimEnd: 0,
+      initial: { strokeColor: color, strokeWidth: 1.5 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.7, ease: 'power3.out' }, { at: -0.6, to: { trimStart: 1 }, duration: 0.6, ease: 'power3.in' }] });
+    const [lgx, lgy] = k2(640, 330), [rgx, rgy] = k2(1132, SUN_C[1]);
+    const paperSeq = [
+      full(PAPER, { name: 'paper' }),
+      fullGrad('paper-shade', { type: 'radial', radius: 0.78, stops: [[0.4, 'rgba(120,108,92,0)'], [1, 'rgba(120,108,92,0.13)']] }),
+      full('#ffffff', { name: 'flash', duration: 1.6, initial: { alpha: 1 }, keyframes: [{ at: 0.15, to: { alpha: 0 }, duration: 1.45, ease: 'power2.out' }] }),
+      ...particles({ count: 46, at: 0.02, life: [0.9, 1.7], area: { x: W / 2, y: H / 2, width: 30, height: 760 }, angle: [-20, 20], speed: [500, 1500], drag: 2.6,
+        size: [1.2, 3.2], scale: [1, 0.4], colors: [STONE, '#b5ab9b'], fade: { in: 0.05, out: 0.7 }, seed: 31, name: 'dust-r' }),
+      ...particles({ count: 46, at: 0.02, life: [0.9, 1.7], area: { x: W / 2, y: H / 2, width: 30, height: 760 }, angle: [160, 200], speed: [500, 1500], drag: 2.6,
+        size: [1.2, 3.2], scale: [1, 0.4], colors: [STONE, '#b5ab9b'], fade: { in: 0.05, out: 0.7 }, seed: 32, name: 'dust-l' }),
+      kanji,
+      ann('ann-l', [lgx - 18, lgy], [430, lgy], 3.0, 8.8, INK),
+      { type: 'shape', shape: 'circle', name: 'ann-l-dot', radius: 4, at: 3.0, duration: 5.8, initial: { x: lgx - 18, y: lgy, fillColor: INK }, keyframes: fadeKF(0, 0.2, 5.2, 0.4) },
+      { type: 'text', name: 'ann-l-kanji', text: '門', at: 3.35, duration: 5.35, style: { ...KANJI, fontSize: 44, fill: INK }, initial: { x: 410, y: lgy - 14, anchorX: 1, anchorY: 0.5 }, keyframes: fadeKF(0, 0.5, 4.8, 0.4) },
+      { type: 'text', name: 'ann-l-word', text: 'GATE', at: 3.5, duration: 5.2, style: { ...CAPS }, initial: { x: 410 + 5, y: lgy + 26, anchorX: 1, anchorY: 0.5 }, keyframes: fadeKF(0, 0.5, 4.6, 0.4) },
+      ann('ann-r', [rgx + 14, rgy], [1500, rgy], 3.25, 8.8, VERMILION),
+      { type: 'shape', shape: 'circle', name: 'ann-r-dot', radius: 4, at: 3.25, duration: 5.55, initial: { x: rgx + 14, y: rgy, fillColor: VERMILION }, keyframes: fadeKF(0, 0.2, 4.95, 0.4) },
+      { type: 'text', name: 'ann-r-kanji', text: '日', at: 3.6, duration: 5.1, style: { ...KANJI, fontSize: 44, fill: VERMILION }, initial: { x: 1520, y: rgy - 14, anchorY: 0.5 }, keyframes: fadeKF(0, 0.5, 4.6, 0.4) },
+      { type: 'text', name: 'ann-r-word', text: 'SUN', at: 3.75, duration: 4.95, style: { ...CAPS }, initial: { x: 1520, y: rgy + 26, anchorY: 0.5 }, keyframes: fadeKF(0, 0.5, 4.4, 0.4) },
+      ...essay('the sun, seen through a gap in a gate.', 4.5, 8.7, { x: W / 2, y: 914, align: 'center', name: 'caption', style: { fill: INK, fontSize: 40 } }),
+    ];
+    // V · the lockup (paper-local)
+    const MA = { fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontWeight: '200', fontSize: 250, letterSpacing: 40, fill: INK };
+    const COL = 1004;
+    paperSeq.push(...animateText('MA', MA, { x: COL - 8, y: 248, align: 'left', name: 'ma', at: 9.75, duration: 7, in: { from: { y: 60, alpha: 0 }, duration: 1.3, ease: 'expo.out' }, stagger: { each: 0.35 } }));
+    paperSeq.push({ type: 'shape', shape: 'line', name: 'rule', from: [COL, 548], to: [1640, 548], at: 10.6, duration: 6.4, trimEnd: 0,
+      initial: { strokeColor: INK, strokeWidth: 2 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 1.0, ease: 'power3.inOut' }] });
+    paperSeq.push(...animateText('the space between things', { ...SERIF, fill: INK, fontSize: 52 }, { by: 'words', x: COL, y: 572, align: 'left', name: 'tagline', at: 11.0, duration: 6,
+      in: { from: { y: 22, alpha: 0 }, duration: 1.0, ease: 'power3.out' }, stagger: { each: 0.09 } }));
+    const DEF = { fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: 18, fill: STONE, lineHeight: 30, letterSpacing: 0.4, align: 'left' };
+    paperSeq.push({ type: 'text', name: 'definition', text: 'ma (間)   noun\nan interval in space or time; a pause;\nthe gap that gives things their shape.', at: 11.6, duration: 5.4, style: DEF,
+      initial: { x: COL + 2, y: 668 }, keyframes: fadeKF(0, 0.9) });
+    // the seal, stamped on the D major downbeat (42 s = paper 12)
+    const SEAL_X = 1576, SEAL_Y = 744;
+    paperSeq.push(rect({ name: 'seal-ink', at: 12, duration: 5, width: 128, height: 128, cornerRadius: 10, initial: { x: SEAL_X, y: SEAL_Y, rotation: -3, fillColor: VERMILION, alpha: 0.18, scale: 1 },
+      keyframes: [{ at: 0.05, to: { scale: 1.12, alpha: 0 }, duration: 0.7, ease: 'power2.out' }] }));
+    paperSeq.push({ type: 'composition', name: 'seal', at: 12 - 0.12, duration: 5.12, width: 128, height: 128,
+      initial: { x: SEAL_X, y: SEAL_Y, pivotX: 64, pivotY: 64, rotation: -3 },
+      keyframes: [{ at: 0, from: { scale: 1.6, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.12, ease: 'power2.in' }],
+      sequences: [
+        rect({ name: 'seal-body', width: 128, height: 128, cornerRadius: 10, initial: { x: 64, y: 64, fillColor: VERMILION } }),
+        { type: 'text', name: 'seal-char', text: '間', style: { ...KANJI, fontSize: 84, fill: PAPER }, initial: { x: 64, y: 66, anchorX: 0.5, anchorY: 0.5 } },
+      ] });
+    const MONO = { fontFamily: "ui-monospace, 'SF Mono', Menlo, monospace", fontSize: 13, letterSpacing: 2, fill: STONE };
+    paperSeq.push({ type: 'text', name: 'colophon-l', text: 'A FILM IN FIVE INTERVALS', at: 12.4, duration: 4.6, style: MONO, initial: { x: MARGIN, y: 978, anchorY: 0.5 }, keyframes: fadeKF(0, 0.8) });
+    paperSeq.push({ type: 'text', name: 'colophon-r', text: '80 BPM · D MINOR → D MAJOR', at: 12.6, duration: 4.4, style: MONO, initial: { x: W - MARGIN, y: 978, anchorX: 1, anchorY: 0.5 }, keyframes: fadeKF(0, 0.8) });
+
+    S.push({ type: 'composition', name: 'paper-world', at: B_AT, duration: 16.6, width: W, height: H, sequences: paperSeq });
+
+    // the doors that burst open on the hit (camera B is the default camera, so z = 0 matches the stop frame exactly)
+    S.push({ type: 'camera', name: 'cam-b', at: SILENCE, duration: DURATION - SILENCE, initial: { fov: 40 } });
+    const OPEN = B_AT - SILENCE;          // 0.75 s into these layers
+    S.push(...gapLight('gap2', 0, SILENCE, 2.5, [{ at: OPEN, to: { alpha: 0 }, duration: 0.25 }]));
+    S.push(doorCard('door2-l', 'left', 0, SILENCE, 2.5, [{ at: OPEN, to: { rotationY: 96 }, duration: 1.4, ease: 'power4.out' }]));
+    S.push(doorCard('door2-r', 'right', 0, SILENCE, 2.5, [{ at: OPEN, to: { rotationY: -96 }, duration: 1.4, ease: 'power4.out' }]));
+
+    S.push(...label('iv', 'THE SUN', B_AT + 1.5, 38.6));
+    S.push(...label('v', 'MA', 39.6, 44.8));
+
+    // ── the doors close: the hairline we began with ─────────────────────
+    const CLOSE = 45, MEET = beat(62);              // 46.5
+    const slideDoor = (side) => rect({ name: 'close-' + side, at: CLOSE, duration: DURATION - CLOSE, width: 960, height: H + 20, anchorX: side === 'l' ? 1 : 0,
+      initial: { x: side === 'l' ? 0 : W, y: H / 2 }, fillGradient: { angle: 0, stops: side === 'l' ? [[0, '#121110'], [0.8, DOOR], [1, '#26231f']] : [[0, '#26231f'], [0.2, DOOR], [1, '#121110']] },
+      keyframes: [{ at: 0, to: { x: side === 'l' ? W / 2 - 2 : W / 2 + 2 }, duration: MEET - CLOSE, ease: 'power3.inOut' }, { at: -0.9, to: { alpha: 0 }, duration: 0.7, ease: 'sine.inOut' }] });
+    S.push(slideDoor('l'), slideDoor('r'));
+    S.push(rect({ name: 'end-line', at: MEET - 0.1, duration: DURATION - MEET + 0.1, width: 4, height: H, initial: { x: W / 2, y: H / 2, fillColor: LIGHT },
+      keyframes: [{ at: 0.3, to: { scaleY: 0 }, duration: 0.95, ease: 'power3.in' }] }));
+    S.push({ type: 'shape', shape: 'ellipse', name: 'end-glow', blendMode: 'add', at: MEET - 0.1, duration: DURATION - MEET + 0.1, radiusX: 70, radiusY: 620,
+      initial: { x: W / 2, y: H / 2 }, fillGradient: { type: 'radial', stops: [[0, LIGHT_A(0.45)], [0.3, LIGHT_A(0.12)], [1, LIGHT_A(0)]] },
+      keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.25 }, { at: 0.3, to: { scaleY: 0, alpha: 0 }, duration: 0.95, ease: 'power3.in' }] });
+
+    // ── vignette over everything ─────────────────────────────────────
+    S.push(fullGrad('vignette', { type: 'radial', radius: 0.8, stops: [[0.45, 'rgba(14,13,11,0)'], [1, 'rgba(14,13,11,0.55)']] }, { duration: 30.4, keyframes: [{ at: -0.4, to: { alpha: 0 }, duration: 0.4 }] }));
+
+    // ─────────────────────────── sound ───────────────────────────
+    S.push({ type: 'audio', name: 'music-a', at: 0, duration: SILENCE, volume: 0.78, music: MUSIC_A });
+    S.push({ type: 'audio', name: 'music-b', at: B_AT, duration: DURATION - B_AT, volume: 1.15, music: MUSIC_B, keyframes: [{ at: 8.6, to: { volume: 0.95 }, duration: 1.4, ease: 'sine.inOut' }, { at: -1.3, to: { volume: 0 }, duration: 1.3, ease: 'sine.in' }] });
+    S.push({ type: 'audio', name: 'air-pullback', at: 6, duration: 4, volume: 0.35,
+      sfx: { voices: [{ wave: 'noise', filter: { type: 'lowpass', freq: [300, 1400] }, envelope: 'bell' }] } });
+    PASS.forEach((t, k) => S.push({ type: 'audio', name: 'pass-' + k, at: t - 0.16, volume: 0.45 + k * 0.05, sfx: { preset: 'swoosh', pitch: -4 + k * 2, brightness: -0.2 + k * 0.08, seed: k } }));
+    S.push({ type: 'audio', name: 'riser', at: SILENCE - 5, duration: 5, volume: 0.55, sfx: 'riser' });
+    S.push({ type: 'audio', name: 'hit', at: B_AT, volume: 0.95, sfx: { preset: 'hit', pitch: -3 } });
+    S.push({ type: 'audio', name: 'doors-open', at: B_AT, volume: 0.55, sfx: { preset: 'swoosh', pitch: -7, brightness: -0.3, seed: 9 } });
+    S.push({ type: 'audio', name: 'flood', at: B_AT, duration: 1.6, volume: 0.4,
+      sfx: { voices: [{ wave: 'noise', filter: { type: 'bandpass', freq: [7000, 900] }, envelope: 'fall' }] } });
+    S.push({ type: 'audio', name: 'ann-tick-l', at: B_AT + 3.0, volume: 0.4, sfx: 'click' });
+    S.push({ type: 'audio', name: 'ann-tick-r', at: B_AT + 3.25, volume: 0.4, sfx: { preset: 'click', seed: 2 } });
+    S.push({ type: 'audio', name: 'glide', at: 39.0, volume: 0.3, sfx: { preset: 'swoosh', pitch: -9, brightness: -0.6, seed: 4 } });
+    S.push({ type: 'audio', name: 'seal-hit', at: 42, volume: 0.6, sfx: { preset: 'hit', pitch: -7, brightness: -0.5 } });
+    S.push({ type: 'audio', name: 'seal-pop', at: 42, volume: 0.5, sfx: { preset: 'pop', pitch: -5 } });
+    S.push({ type: 'audio', name: 'doors-close', at: CLOSE + 0.55, volume: 0.42, sfx: { preset: 'swoosh', pitch: -8, brightness: -0.5, seed: 6 } });
+    S.push({ type: 'audio', name: 'doors-meet', at: MEET, volume: 0.45, sfx: { preset: 'hit', pitch: -9, brightness: -0.8 } });
+
+    const GRAIN_W = 2112, GRAIN_H = 1272;
+    const grainSrc = (() => {
+      const c = Object.assign(document.createElement('canvas'), { width: GRAIN_W, height: GRAIN_H });
+      const g = c.getContext('2d'), img = g.createImageData(GRAIN_W, GRAIN_H), d = img.data, r = random(77);
+      for (let i = 0; i < d.length; i += 4) { const v = 128 + (r() + r() + r() - 1.5) * 120; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; }
+      g.putImageData(img, 0, 0);
+      return c.toDataURL('image/jpeg', 0.9);
+    })();
+    const grain = (name, mode, alpha, at, until) => {
+      const r = random(name.length * 13), k = [];
+      for (let f = 0; f < Math.round((until - at) * FPS); f += 2) k.push({ at: f / FPS, set: { x: -48 - r() * 96, y: -48 - r() * 96 } });
+      return { type: 'image', name, asset: 'grain', blendMode: mode, at, duration: until - at, initial: { x: -96, y: -96, alpha }, keyframes: k };
+    };
+    S.splice(S.findIndex(l => l.name === 'vignette'), 0, grain('grain-dark', 'screen', 0.045, 0, 30.4), grain('grain-paper', 'multiply', 0.065, 30, 46.6));
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage'), theme: { accent: VERMILION } });
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 43.5, background: INK, assets: [{ name: 'grain', src: grainSrc }],
+        composition: { sequences: S },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

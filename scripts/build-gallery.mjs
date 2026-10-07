@@ -19,6 +19,7 @@ export const MODELS = ['fable', 'opus', 'sonnet'];
 // masonry has rhythm. Anything not listed follows, sorted by title.
 export const FEATURED = [
   'synthwave-drive',
+  'ma',
   'aurora-logo',
   'social-quote-vertical',
   'kinetic-manifesto',

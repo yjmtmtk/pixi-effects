@@ -42,7 +42,8 @@ Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same br
 | sonnet | Four days in Iceland — A fictional travel slideshow: four procedurally painted landscapes, Ken Burns, four different transitions, captions and a day counter. | 1280×720 | travel-slideshow.html |
 | sonnet | Harbor City Forecast — A five-day broadcast forecast: shifting skies, glass cards, animated icons and a self-drawing temperature line. | 1280×720 | weather-report.html |
 | sonnet | Christmas Eve — A snowy night at a lit cottage and a small tree, with a slow music-box lullaby written as text: there is no audio file in this piece | 1280×720 | christmas-eve.html |
+| opus | 間 MA — the space between — A 48-second kinetic essay about one word: a hairline of light becomes a gate, a corridor, a silence, a sun and a seal, cut to a score written as text | 1920×1080 | ma.html |
 
-Counts: fable 11, opus 11, sonnet 16 (38 pieces).
+Counts: fable 11, opus 12, sonnet 16 (39 pieces).
 
 Per-piece stumble notes are in [_notes/](_notes/), named after the piece id (file name without `.html`).

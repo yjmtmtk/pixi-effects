@@ -22,6 +22,28 @@
       "notes": "_notes/synthwave-drive.md"
     },
     {
+      "id": "ma",
+      "title": "間 MA — the space between",
+      "subtitle": "A 48-second kinetic essay about one word: a hairline of light becomes a gate, a corridor, a silence, a sun and a seal, cut to a score written as text",
+      "tags": [
+        "kinetic-typography",
+        "2.5d",
+        "japanese",
+        "essay",
+        "music",
+        "silence",
+        "title-sequence"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "duration": 48,
+      "posterFrame": 1305,
+      "model": "opus",
+      "page": "ma.html",
+      "poster": "posters/ma.jpg",
+      "notes": "_notes/ma.md"
+    },
+    {
       "id": "aurora-logo",
       "title": "AURORA",
       "subtitle": "A restrained logo reveal: a horizon line, a light that rises through it, a letter-spaced lock-up",

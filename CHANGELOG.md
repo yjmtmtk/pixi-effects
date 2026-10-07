@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+**Added**
+
+- **A showpiece in the gallery: `ma`** (「間 MA — the space between」, 48 s, 1920×1080, by Opus): a kinetic essay about one word, with a corridor of 2.5D gates, a beat of true silence and a score written as text. 39 pieces. Its notes list the library gaps it ran into (a seek redraw bug for 3D cards, `trimEnd` across subpaths, camera paths, a shared mask, grain, an animatable gradient).
+
 ## 0.16.1
 
 **Added**
