@@ -24,6 +24,7 @@ export const AREAS = [
   { name: 'text, motion, seeking', paths: ['src/text/', 'src/presets/animateText.ts', 'src/presets/wiggle.ts', 'src/presets/followPath.ts', 'src/presets/cameraPath.ts', 'src/presets/orbit.ts'], tests: ['tests/tools/animateText.test.ts', 'tests/tools/pathMotion.test.ts', 'tests/tools/seeded.test.ts'] },
   { name: 'particles', paths: ['src/presets/particles.ts'], tests: ['tests/tools/particles.test.ts'] },
   { name: '2.5D and cards', paths: ['src/space/', 'src/three/'], tests: ['tests/tools/cardSeek.test.ts', 'tests/tools/parent.test.ts'] },
+  { name: 'depth of field', paths: ['src/space/', 'src/filters/DiscBlur.ts', 'src/core/inspect.ts', 'src/sequences/Composition.ts', 'examples/_checks/depth-of-field.html'], tests: ['tests/tools/depthOfField.test.ts'] },
   { name: 'audio', paths: ['src/audio/', 'src/core/AudioMixer.ts', 'src/core/inspectAudio.ts'], tests: ['tests/tools/audioReact.test.ts', 'tests/tools/musicLab.test.ts'] },
   { name: 'playground', paths: ['examples/playground', 'examples/_checks/sandbox-runner.html'], tests: ['tests/tools/playground.test.ts', 'tests/tools/playgroundSandbox.test.ts', 'tests/tools/playgroundMcp.test.ts'] },
   { name: 'chat template', paths: ['ai/chat-template.html', 'ai/CHAT.md'], tests: ['tests/tools/chatTemplate.test.ts', 'tests/tools/playground.test.ts'] },
