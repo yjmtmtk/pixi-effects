@@ -96,6 +96,10 @@ Every token is a note (`c4`, `f#3`, `Bb2`) with its length in beats after a colo
 
 Read your file once for these: every layer has a `type`; every keyframe `at` is inside its layer's lifetime; text is anchored where you meant; layer `duration`s reach the end of their scene; colours have enough contrast; nothing important sits near the edges. A mistake in the data prints a warning in the red box; the person's paste is your test run.
 
+## Useful, if the person can open the browser console
+
+`movie.inspectAudio()` has `notes` (is the mix quiet or loud for web video, silent stretches) and `loudness.integratedLufs` (typical web video: −14 to −16); `await movie.onionSkin({ from: 1, to: 3, as: 'dataURL' })` is one picture of a movement. A mistyped `ease` prints a warning in the red box.
+
 ## If the preview is blank
 
 A blank preview with no red box usually means the chat's preview window blocks external scripts or does not allow `eval`. Tell the person to **save the file as `video.html` and open it in a browser** (Chrome, Edge or Firefox on a computer); that always works.

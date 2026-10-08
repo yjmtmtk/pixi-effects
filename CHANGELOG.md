@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+**Added**
+
+- **Part of the movie, and drafts.** `movie.render({ range: [10, 15] })` (seconds) or `range: 'title'` (a top-level layer's span) exports only that part, picture and sound (the file starts at 0; a cut edge of the sound fades over 10 ms). `scale` (above 0, at most 1) and `draft: true` (half size, low quality, no motion blur) make the picture smaller. `pixi-effects-render` takes `--range 10:15`, `--scene title`, `--scale 0.5` and `--draft`. Measured with the 48 s 1080p film on an M1 Pro (whole command, about 7 s of it the browser's start-up): the whole film 20.8 s, `--range 10:15` 10.4 s, `--draft` 20.6 s with a file 7 times smaller (12.0 MB to 1.7 MB), `--scale 0.5` 19.0 s. **A range saves time; a draft or a scale saves file size** (each frame is still drawn at full size, then copied smaller).
+- **`pixi-effects-check` looks harder, and shows a moment or a movement.** It inspects the first and last frame of every scene (a named top-level layer of a second or more) and a frame every 0.25 s, up to 240 frames (a gallery piece went from 59 to 86 inspected frames in the same 3 s). `--at 3.5,title@end,50%,f120` writes the pictures at those moments (`frames/*.png`, `at.png`); `--onion 1:3` writes `onion.png` (below); `--draft` makes the export a draft; `--query "name=Aiko"` adds to the page address (for a page that reads it, such as a batch of videos). A web font whose file did not load fails the check, and a text layer none of whose fonts is installed is listed for review (`movie.inspectFonts()`).
+- **`movie.onionSkin({ from, to, count, scale, as })`**: frames laid over one another into one picture of a movement, the later the stronger. A thing that moves leaves a trail (its path and its easing); what stays still stays itself.
+- **Loudness.** `movie.inspectAudio()` also returns `loudness` (`integratedLufs`, `truePeakDb`, `clippedSamples`, `silences`; ITU-R BS.1770, no dependency), `scenes` (the same per named top-level layer), `cues` (when each sound starts) and `notes` (advice that does not fail the check: quiet below −24 or loud above −9 LUFS, a true peak above −1 dBTP, silent stretches of a second or more; web video is typically −14 to −16 LUFS). Clipping, or a true peak above 0 dBTP, is an issue and fails the check. `pixi-effects-check` prints it and writes `waveform.png` (the mix as bars and a peak line, scene edges, numbered ticks where each sound starts). The default level of `music` measures about −19 to −20 LUFS (`christmas-eve` −18.8, a lone tune −19.9), inside that range.
+- **Two recipes in the cookbook:** subtitles from an SRT file, and a batch of videos from a table (a page that reads its address plus a shell loop over `pixi-effects-render --query`); both are tested.
+
 **Site**
 
 - **One look for the whole site.** The landing page, Guide, Gallery, Examples and Playground share one set of colours, fonts, header and footer (`site/shared/`), with the landing page's palette as the reference and both the dark and the light theme everywhere. The navigation is the same five entrances on every page (Home, Guide, Gallery, Examples, Playground); on a phone the header is two rows so nothing falls off the screen. `site/README.md` says where everything is and how to change it.
@@ -12,6 +20,7 @@
 
 **Changed**
 
+- **A mistyped `ease` warns once, with a guess** (`power3.outt`: did you mean `power3.out`). GSAP used to run an unknown ease as its default (`power1.out`): the motion changed and nothing said so.
 - **The browser tools no longer make a sound.** `pixi-effects-check`, `pixi-effects-render` and the test suite start their private Chrome with `--mute-audio`, so a piece with sound no longer plays through the speakers while it is checked or exported (the audio is still analysed and encoded as before).
 - **The release check runs once.** `npm run release:check` builds, type-checks and runs every test, then stamps the exact committed tree. `npm publish` (`prepublishOnly`) sees the stamp and only rebuilds instead of running the whole suite a second time; with no stamp, or with uncommitted changes, it runs everything as before. `npm run test:fast` runs the suite without the real-browser tests (about 10 s).
 

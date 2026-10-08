@@ -163,12 +163,14 @@ const movie = new Movie();
 await movie.init({ canvas, width, height, duration, frameRate, background, assets, composition });
 movie.play(); movie.pause();
 await movie.gotoFrame(n, true);                 // seek (frames; 30 fps => t = n/30)
-const blob = await movie.render({ format: 'mp4' });   // 'mp4' | 'webm' | 'mov' | 'mkv'; ~real-time. Fast motion: `movie.init({ motionBlur: true })` (8 samples, 180° shutter; or a number / { samples: 2–64, shutter: 0–1 }) blurs render / snapshot / contactSheet, not live playback; a render takes `samples`× as long
+const blob = await movie.render({ format: 'mp4' });   // 'mp4' | 'webm' | 'mov' | 'mkv'; ~real-time. Part of it: `range: [2, 5]` (seconds) or `range: 'title'` (a top-level layer's span; picture and sound); `scale: 0.5` / `draft: true` (half size, low quality, no motion blur: a smaller file, not a faster drawing). Fast motion: `movie.init({ motionBlur: true })` (8 samples, 180° shutter; or a number / { samples: 2–64, shutter: 0–1 }) blurs render / snapshot / contactSheet, not live playback; a render takes `samples`× as long
 movie.on('progress', e => e.progress /* 0–100 */);
 movie.audioBuffer                                // mixed audio (after init), if any audio layers
 await movie.contactSheet({ count: 6, as: 'dataURL' })   // ONE image of several labelled frames — look at it. Options: frames | times | count, columns, cellWidth, as
 await movie.snapshot(60, { as: 'dataURL' })             // one frame, canvas only (no player bar) — use it for detail; sheet tiles are small
 await movie.inspect(60, { layers: 'none' })             // issues only (default lists the visible layers); text off-canvas / cut off / empty / overlapping text. Name your layers so paths are readable
-movie.inspectAudio()                             // the soundtrack as numbers — you cannot listen: sources[i] = { layer, start, end, peakDb, sound: { length, peakDb, loudestAt, brightnessHz } }, windows (rms / peak / brightness per 0.1 s), issues (limited mix, inaudible / cut-off sounds)
+await movie.onionSkin({ from: 1, to: 3, count: 8, as: 'dataURL' })  // frames overlaid into ONE picture of a movement (later = stronger): path and easing at a glance
+movie.inspectFonts()                             // { missing: [{ layer, family }] (no font of the list is installed), failed: [web fonts whose file did not load] }
+movie.inspectAudio()                             // the soundtrack as numbers; also loudness { integratedLufs, truePeakDb, clippedSamples, silences }, scenes, cues, notes (advice: -14 to -16 LUFS is typical for web video) — — you cannot listen: sources[i] = { layer, start, end, peakDb, sound: { length, peakDb, loudestAt, brightnessHz } }, windows (rms / peak / brightness per 0.1 s), issues (limited mix, inaudible / cut-off sounds)
 new Controller(movie, { canvas })                // optional player bar (overlays the canvas bottom ~60px; not in the export)
 ```

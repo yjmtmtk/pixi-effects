@@ -23,6 +23,10 @@ a.click();
 | `video.bitrate`, `audio.bitrate` | `'very-low' 'low' 'medium' 'high' 'very-high'` | `'high'` |
 | `video.codec`, `audio.codec` | a codec name | mp4 / mov: H.264 + AAC, webm / mkv: VP9 + Opus |
 
+| `range` | `[from, to]` in seconds, or the name of a top-level layer | the whole movie |
+| `scale` | above 0 and at most 1 | 1 |
+| `draft` | `true`: `scale: 0.5`, `video.bitrate: 'low'`, no motion blur (what you set yourself wins) | `false` |
+
 Listen to `movie.on('progress', ({ progress }) => …)` for a percentage and `movie.on('error', …)` for a failure.
 
 - **Audio codec fallback.** Not every browser can encode every codec; Chrome on Linux has no AAC encoder. Unless you name a codec, the first one the browser can encode is used (for an MP4: AAC, then Opus), with a warning. A codec you name is never swapped: if it cannot be encoded the error says which one would.
@@ -30,6 +34,18 @@ Listen to `movie.on('progress', ({ progress }) => …)` for a percentage and `mo
 - Rendering steps through the frames one by one, so the result does not depend on how fast your computer is.
 
 {{demo examples/08-presets-export.html}}
+
+## Part of the movie, and drafts
+
+```js
+await movie.render({ range: [10, 15] });       // seconds 10 to 15: picture and sound, the file starts at 0
+await movie.render({ range: 'title' });        // a top-level layer's span (its `name`)
+await movie.render({ draft: true });           // half size, low quality, no motion blur
+```
+
+From a script: `pixi-effects-render page.html --range 10:15`, `--scene title`, `--scale 0.5`, `--draft`. A cut edge of the sound fades over 10 ms, so there is no click; a range that is backwards, past the end, or names no layer is an error that says so.
+
+What each one saves, measured on the author's M1 Pro with the 48 s 1080p film (`ma`), the whole command including the browser's start-up (about 7 s): the whole film 20.8 s; `--range 10:15` 10.4 s; `--draft` 20.6 s but a file 7 times smaller (12.0 MB → 1.7 MB); `--scale 0.5` 19.0 s. So **a range saves time; a draft or a scale saves file size**: each frame is still drawn at full size and then copied smaller. A draft also turns motion blur off, which is the one thing that makes a draft much faster, because a render with motion blur draws every frame several times.
 
 ## Motion blur
 

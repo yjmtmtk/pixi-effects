@@ -17,10 +17,23 @@ It opens your page in a private headless Chrome and reports, in one go:
 
 - **warnings** the library printed (every one says what to change);
 - **layout** problems found by `movie.inspect` over the whole timeline: text off the canvas, cut by an edge, empty, or overlapping other text (overlaps are listed for you to look at, since they are often on purpose);
-- **sound**: `movie.inspectAudio()`, the loudness of the mix and a list of problems;
+- **sound**: `movie.inspectAudio()`: the loudness of the mix (LUFS, true peak, clipping, silence, scene by scene), advice and a list of problems; `waveform.png` draws the mix with the scene edges and when each sound starts;
+- **fonts**: a web font whose file did not load fails the check; a text layer none of whose fonts is installed is listed for review (it is drawn in a fallback font);
 - **a real export**, decoded again: its size, length and loudness per second;
 - a **contact sheet** (`sheet.png`, twelve labelled frames), the video's **poster** (`poster.jpg`) and a **timeline** (`timeline.html`) to open;
 - for a presentation (a movie with `stops`): **`stops.png`**, one picture for every stop in order, and the number of stops and pages. The picture at a stop is what the audience looks at while it waits, so check each one. The check also lists any stop where the picture is **still changing** (a stop that lands before its animation has ended); `--strict` makes that a failure.
+
+Options worth knowing while you work:
+
+| Option | What it does |
+|---|---|
+| `--no-export` | skips the real export: a check takes a few seconds instead of the length of the video |
+| `--at 3.5,title@end,50%,f120` | writes the pictures at those moments (`frames/*.png`) and one sheet (`at.png`); `name@start`, `name@mid` and `name@end` are a named layer's start, middle and last frame |
+| `--onion 1:3` | `onion.png`: eight frames of seconds 1 to 3 laid over one another, the later the stronger, so a movement leaves a trail (its path and its easing) |
+| `--draft` | the export is half size, low quality, no motion blur: a much smaller file (the drawing is not faster) |
+| `--query "name=Aiko"` | adds to the page address, for a page that reads it (see the cookbook's batch recipe) |
+
+`check` looks at the first and last frame of every scene (a named top-level layer of a second or more) and a frame every 0.25 s, up to 240 frames, so a title cut off at the edge of a scene is not missed. The mix is judged by ITU-R BS.1770 loudness: web video is typically −14 to −16 LUFS; quieter or louder than −24 or −9 LUFS, little headroom (true peak above −1 dBTP) and silent stretches are listed as `notes`, not failures; clipping, or a true peak above 0 dBTP (the file will distort), fails.
 
 The exit code is 0 when there is nothing to fix and 1 otherwise, so it also works in CI. This is its real output for the piece in the demo further down:
 
@@ -60,6 +73,10 @@ The same chart is available in code: `movie.timelineChart()` returns an HTML pag
 *The timeline of the countdown piece: 706 layers become 28 rows, because layers named `ring10-0`, `ring9-1`… share a row.*
 
 {{demo examples/gallery/countdown-newyear.html}}
+
+## One movement in one picture
+
+`await movie.onionSkin({ from: 1, to: 3, count: 8, as: 'dataURL' })` returns one image of the frames between two moments, laid over one another with the later ones stronger. A thing that moves leaves a trail: even steps mean constant speed, steps that bunch up mean slow, and what stays still stays itself. It is the quickest way to judge an easing.
 
 ## In code
 

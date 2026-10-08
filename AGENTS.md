@@ -14,6 +14,7 @@ Fetch https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/CHAT.md and
 
 ## Always
 - Look before you claim: a contact sheet, `movie.inspect(frame)` and `movie.inspectAudio()` are built in; the library cannot tell you the video is good, only that nothing is broken.
+- While you iterate, do not export the whole movie: `check --no-export --at <the moment you changed>` (seconds), `render --range 10:15` or `--scene name` for a part; one full `check` at the end.
 - Ask the person only for what you cannot decide (what to show, the mood, the length); pick sizes, colours, timing and sound yourself.
 - Full docs for an AI in one file: https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/llms-full.txt (the index is `llms.txt`).
 

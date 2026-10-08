@@ -13,7 +13,7 @@
  * Needs: Node >= 22 (built-in WebSocket), Chrome / Chromium installed (or --chrome PATH / CHROME=PATH). No npm dependencies.
  * The page must follow ai/template.html: it exposes `window.movie` and sets `window.__ready = true` (and `window.__logs`).
  *
- * Options: --draft (the export is a draft: half size, low quality, no motion blur; much faster, for iterating) · --at LIST (pictures at moments you name: 3.5, 50%, f120, title@end → frames/*.png and at.png) ·
+ * Options: --draft (the export is a draft: half size, low quality, no motion blur: a much smaller file; the drawing itself is not faster) · --at LIST (pictures at moments you name: 3.5, 50%, f120, title@end → frames/*.png and at.png) ·
  *          --query "a=1&b=2" (added to the page address: for a page that reads it, such as one video of a batch) ·
  *          --onion A:B (one picture of the movement between A and B seconds, frames overlaid: onion.png) ·
  *          --strict (text overlaps and stops where the picture is still changing fail the check; by default they are only listed for review) · --out DIR · --frames N (contact sheet tiles, default 12) · --formats mp4,webm (default mp4) · --no-export ·
