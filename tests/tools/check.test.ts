@@ -96,6 +96,29 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     expect(existsSync(join(out, 'sfx-export.mp4'))).toBe(true);
   }, 190_000);
 
+  it('--at writes the pictures you name (and a sheet); --draft makes the export a half-size draft; a bad --at exits 2 naming the layers', async () => {
+    const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/render-range.html'), ...args, '--timeout', '150'], { timeout: 170_000 });
+    const out = mkdtempSync(join(tmpdir(), 'check-at-'));
+    await run(['--out', out, '--no-export', '--at', '1,50%,f12,title@end']);
+    for (const f of ['frames/1.00s.png', 'frames/50pct.png', 'frames/f12.png', 'frames/title-end.png', 'at.png']) {
+      expect(readFileSync(join(out, f)).subarray(1, 4).toString(), f).toBe('PNG');
+    }
+    const r1 = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));
+    expect(r1.at.map((x: any) => x.frame)).toEqual([30, 60, 12, 89]);
+    expect(r1.inspect.checkedFrames).toBeGreaterThan(14);                     // the 0.25 s grid (4 s), not the old ~60-frame stride
+
+    const out2 = mkdtempSync(join(tmpdir(), 'check-draft-'));
+    await run(['--out', out2, '--draft', '--frames', '4']);
+    const r2 = JSON.parse(readFileSync(join(out2, 'report.json'), 'utf8'));
+    expect(r2.exports[0].draft).toBe(true);
+    expect([r2.exports[0].video.width, r2.exports[0].video.height]).toEqual([160, 90]);
+    expect(r2.exports[0].video.duration).toBeGreaterThan(3.8);                 // a draft is smaller, not shorter
+
+    const bad = await run(['--out', mkdtempSync(join(tmpdir(), 'check-bad-')), '--no-export', '--at', 'nope@end']).then(() => null, (e: any) => e);
+    expect(bad?.code).toBe(2);
+    expect(String(bad?.stderr)).toMatch(/no layer named "nope".*title/s);
+  }, 400_000);
+
   it.skipIf(!onCdn)('the guide\'s first-video page (loaded from the CDN, as a reader would) passes the check, sound included', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-test-'));
     const { stdout } = await promisify(execFile)('node', [

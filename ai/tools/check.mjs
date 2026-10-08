@@ -13,7 +13,9 @@
  * Needs: Node >= 22 (built-in WebSocket), Chrome / Chromium installed (or --chrome PATH / CHROME=PATH). No npm dependencies.
  * The page must follow ai/template.html: it exposes `window.movie` and sets `window.__ready = true` (and `window.__logs`).
  *
- * Options: --strict (text overlaps and stops where the picture is still changing fail the check; by default they are only listed for review) · --out DIR · --frames N (contact sheet tiles, default 12) · --formats mp4,webm (default mp4) · --no-export ·
+ * Options: --draft (the export is a draft: half size, low quality, no motion blur; much faster, for iterating) · --at LIST (pictures at moments you name: 3.5, 50%, f120, title@end → frames/*.png and at.png) ·
+ *          --onion A:B (one picture of the movement between A and B seconds, frames overlaid: onion.png) ·
+ *          --strict (text overlaps and stops where the picture is still changing fail the check; by default they are only listed for review) · --out DIR · --frames N (contact sheet tiles, default 12) · --formats mp4,webm (default mp4) · --no-export ·
  *          --timeout SECONDS (default 240) · --root DIR (static server root; default: the nearest folder above the page with dist/) · --chrome PATH
  */
 import { spawn } from 'node:child_process';
@@ -37,7 +39,7 @@ export function findChrome(env = process.env, exists = fs.existsSync, platform =
 }
 
 export function parseArgs(argv) {
-  const o = { page: null, out: null, frames: 12, formats: ['mp4'], export: true, timeout: 240, root: null, chrome: null, strict: false };
+  const o = { page: null, out: null, frames: 12, formats: ['mp4'], export: true, timeout: 240, root: null, chrome: null, strict: false, at: null, draft: false, onion: null };
   const need = (i, name) => { if (i + 1 >= argv.length) throw new Error(`${name} needs a value`); return argv[i + 1]; };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -46,6 +48,13 @@ export function parseArgs(argv) {
     else if (a === '--formats') o.formats = need(i++, a).split(',').map(s => s.trim()).filter(Boolean);
     else if (a === '--no-export') o.export = false;
     else if (a === '--strict') o.strict = true;
+    else if (a === '--draft') o.draft = true;
+    else if (a === '--at') o.at = need(i++, a);
+    else if (a === '--onion') {
+      const m = need(i++, a).match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/);
+      if (!m || !(Number(m[1]) < Number(m[2]))) throw new Error(`--onion must look like 1:3 (seconds, from before to), got "${argv[i]}"`);
+      o.onion = [Number(m[1]), Number(m[2])];
+    }
     else if (a === '--timeout') o.timeout = Math.max(10, Number(need(i++, a)) || 240);
     else if (a === '--root') o.root = need(i++, a);
     else if (a === '--chrome') o.chrome = need(i++, a);
@@ -54,6 +63,50 @@ export function parseArgs(argv) {
     else throw new Error(`unexpected argument ${a}`);
   }
   return o;
+}
+
+/**
+ * The frames movie.inspect looks at: the first and last frame, every scene's first and last frame (where a title is cut off or a
+ * wipe leaves an overlap), and one every `step` seconds. At most `cap`: past that the even grid is widened, the scene edges stay.
+ */
+export function sampleFrames({ totalFrames, frameRate, scenes = [], step = 0.25, cap = 240 }) {
+  const last = totalFrames;
+  const clamp = f => Math.max(0, Math.min(last, Math.round(f)));
+  const edges = new Set([0, last]);
+  for (const s of scenes) { edges.add(clamp(s.start * frameRate)); edges.add(clamp(s.end * frameRate - 1)); }
+  const room = Math.max(0, cap - edges.size);
+  const seconds = totalFrames / frameRate;
+  const wanted = Math.floor(seconds / step) + 1;
+  const stride = wanted <= room ? step : seconds / Math.max(1, room);
+  const frames = new Set(edges);
+  for (let t = stride; frames.size < cap && t < seconds; t += stride) frames.add(clamp(t * frameRate));
+  return [...frames].sort((a, b) => a - b);
+}
+
+const AT_HELP = "use seconds (3.5), a percentage (50%), a frame (f120) or a layer's start / mid / end (name@end)";
+
+/** `--at` list → frames, each with a label for its file name. */
+export function resolveAtList(list, ctx) {
+  const { frameRate: fps, totalFrames, duration, rows } = ctx;
+  const out = [], used = new Set();
+  for (const raw of String(list).split(',').map(s => s.trim()).filter(Boolean)) {
+    let frame, label, m;
+    if ((m = raw.match(/^(.+)@(start|mid|end)$/))) {
+      const row = rows.find(r => r.name === m[1]);
+      if (!row) throw new Error(`--at "${raw}": no layer named "${m[1]}" (names: ${rows.map(r => r.name).join(', ')})`);
+      const t = m[2] === 'start' ? row.start : m[2] === 'mid' ? (row.start + row.end) / 2 : row.end - 1 / fps;
+      frame = Math.round(t * fps); label = `${m[1]}-${m[2]}`;
+    } else if ((m = raw.match(/^(\d+(?:\.\d+)?)%$/))) { frame = Math.round(Number(m[1]) / 100 * totalFrames); label = `${m[1]}pct`; }
+    else if ((m = raw.match(/^f(\d+)$/i))) { frame = Number(m[1]); label = `f${m[1]}`; }
+    else if (/^\d+(\.\d+)?$/.test(raw)) { frame = Math.round(Number(raw) * fps); label = `${Number(raw).toFixed(2)}s`; }
+    else throw new Error(`--at: cannot read "${raw}": ${AT_HELP}`);
+    if (frame > totalFrames || frame < 0) throw new Error(`--at "${raw}" is past the end: the movie is ${duration} s (${totalFrames} frames)`);
+    let unique = label, n = 2;
+    while (used.has(unique)) unique = `${label}-${n++}`;
+    used.add(unique);
+    out.push({ label: unique, frame });
+  }
+  return out;
 }
 
 /** [{ frame, issues[] }] → [{ message, count, firstFrame, lastFrame }]: issues that differ only by numbers are one. */
@@ -161,11 +214,11 @@ export async function launchChrome(chrome, userDataDir) {
 const INFO = `(() => { const m = window.movie; if (!m) return { hasMovie: false, logs: window.__logs || [] };
   const c = document.querySelector('canvas');
   return { hasMovie: true, logs: window.__logs || [], totalFrames: m.totalFrames, frameRate: m.frameRate, duration: m.duration,
-           width: m.width ?? (c && c.width), height: m.height ?? (c && c.height), hasAudio: !!m.audioBuffer }; })()`;
+           width: m.width ?? (c && c.width), height: m.height ?? (c && c.height), hasAudio: !!m.audioBuffer,
+           rows: (() => { try { return m.timelineData().rows.map(r => ({ name: r.name, start: r.start, end: r.end, depth: r.depth })); } catch { return []; } })() }; })()`;
 
-const sweepScript = stride => `(async () => {
-  const total = movie.totalFrames, frames = new Set([0, total]);
-  for (let f = 0; f <= total; f += ${stride}) frames.add(Math.min(f, total));
+const sweepScript = list => `(async () => {
+  const frames = new Set(${JSON.stringify(list)});
   const perFrame = [];
   for (const f of [...frames].sort((a, b) => a - b)) {
     const r = await movie.inspect(f, { layers: 'none' });
@@ -174,11 +227,11 @@ const sweepScript = stride => `(async () => {
   return { checked: frames.size, perFrame };
 })()`;
 
-const exportScript = format => `(() => {
+const exportScript = (format, draft = false) => `(() => {
   window.__x = { state: 'running' };
   (async () => {
     try {
-      const blob = await movie.render({ format: ${JSON.stringify(format)} });
+      const blob = await movie.render({ format: ${JSON.stringify(format)}${draft ? ', draft: true' : ''} });
       const info = { bytes: blob.size, type: blob.type };
       const url = URL.createObjectURL(blob);
       const v = document.createElement('video'); v.muted = true; v.preload = 'metadata'; v.src = url;
@@ -267,8 +320,8 @@ export async function runCheck(opts, log = console.log) {
     if (report.logs.length) report.problems.push(`${report.logs.length} console warning(s) / error(s) — each says what to change`);
 
     // layout: inspect over the whole timeline
-    const stride = Math.max(1, Math.round(info.totalFrames / 60));
-    const sweep = await cdp.eval(sweepScript(stride));
+    const scenes = (info.rows ?? []).filter(r => r.depth === 0 && !/#\d+$/.test(r.name) && r.end - r.start >= 1);
+    const sweep = await cdp.eval(sweepScript(sampleFrames({ totalFrames: info.totalFrames, frameRate: info.frameRate, scenes })));
     const grouped = splitIssues(groupIssues(sweep.perFrame), opts.strict);
     report.inspect = { checkedFrames: sweep.checked, issues: grouped.problems, review: grouped.review };
     if (grouped.problems.length) report.problems.push(`${grouped.problems.length} kind(s) of layout issue from movie.inspect`);
@@ -279,6 +332,23 @@ export async function runCheck(opts, log = console.log) {
     const sheetFile = path.join(outDir, 'sheet.png');
     fs.writeFileSync(sheetFile, Buffer.from(sheet.slice(sheet.indexOf(',') + 1), 'base64'));
     report.files.sheet = shown(sheetFile);
+
+    // --at: the pictures at moments you name (seconds, 50%, f120, title@end), one file each and one sheet
+    if (opts.at) {
+      const wanted = resolveAtList(opts.at, { frameRate: info.frameRate, totalFrames: info.totalFrames, duration: info.duration, rows: info.rows ?? [] });
+      const framesDir = path.join(outDir, 'frames');
+      fs.mkdirSync(framesDir, { recursive: true });
+      for (const w of wanted) {
+        const png = await cdp.eval(`movie.snapshot(${w.frame}, { as: 'dataURL' })`);
+        fs.writeFileSync(path.join(framesDir, `${w.label}.png`), Buffer.from(png.slice(png.indexOf(',') + 1), 'base64'));
+      }
+      const atSheet = await cdp.eval(`movie.contactSheet({ frames: ${JSON.stringify(wanted.map(w => w.frame))}, as: 'dataURL' })`);
+      const atFile = path.join(outDir, 'at.png');
+      fs.writeFileSync(atFile, Buffer.from(atSheet.slice(atSheet.indexOf(',') + 1), 'base64'));
+      report.files.at = shown(atFile);
+      report.files.frames = shown(framesDir);
+      report.at = wanted;
+    }
 
     // a presentation (composition.stops): one picture of every stop, in order, so the pages and steps can be read at a glance
     const stops = await cdp.eval(`(() => { const s = movie.stops || []; return s.length ? { count: s.length, pages: movie.pageCount, items: s.map(x => ({ at: Math.round(x.at * 100) / 100, frame: x.frame, page: x.page, pageStart: x.pageStart, notes: !!x.notes, pdf: x.pdf })) } : null; })()`).catch(() => null);
@@ -324,7 +394,7 @@ export async function runCheck(opts, log = console.log) {
     if (opts.export) {
       for (const format of opts.formats) {
         left();
-        await cdp.eval(exportScript(format));
+        await cdp.eval(exportScript(format, opts.draft));
         let state;
         for (;;) {
           left();
@@ -332,7 +402,7 @@ export async function runCheck(opts, log = console.log) {
           state = await cdp.eval('window.__x && window.__x.state');
           if (state && state !== 'running') break;
         }
-        const ex = { format };
+        const ex = { format, draft: !!opts.draft };
         if (state === 'error') {
           ex.error = await cdp.eval('window.__x.message');
           report.problems.push(`export ${format} failed: ${ex.error}`);
@@ -404,7 +474,7 @@ function finish(report, outDir, log) {
     if (ex.error) { L.push(`  export    ${ex.format}: FAILED — ${ex.error}`); continue; }
     const v = ex.video?.error ? `video: ${ex.video.error}` : `video ${ex.video.duration.toFixed(2)} s ${ex.video.width}×${ex.video.height}`;
     const au = ex.audio ? (ex.audio.error ? `audio: ${ex.audio.error}` : `audio ${ex.audio.duration} s, peak ${ex.audio.peakDb} dBFS, rms/s [${ex.audio.rmsDbPerSecond.join(' ')}]`) : 'no audio track';
-    L.push(`  export    ${ex.format} ok · ${kb(ex.bytes)} · ${v} · ${au}`);
+    L.push(`  export    ${ex.format}${ex.draft ? ' (draft)' : ''} ok · ${kb(ex.bytes)} · ${v} · ${au}`);
   }
   L.push(`  files     ${Object.values(report.files).join('  ')}`);
   L.push(report.problems.length ? `RESULT: ${report.problems.length} PROBLEM(S)\n  - ${report.problems.join('\n  - ')}` : 'RESULT: OK — nothing to fix. Look at the contact sheet before you call it done.');
@@ -419,7 +489,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     if (typeof WebSocket === 'undefined') throw new Error('Node >= 22 is needed (built-in WebSocket)');
     const opts = parseArgs(process.argv.slice(2));
     if (!opts.page) {
-      console.error('usage: node ai/tools/check.mjs <page.html> [--out DIR] [--frames N] [--formats mp4,webm] [--no-export] [--timeout S] [--root DIR] [--chrome PATH]');
+      console.error('usage: node ai/tools/check.mjs <page.html> [--out DIR] [--frames N] [--formats mp4,webm] [--no-export] [--draft] [--at 3.5,title@end] [--onion 1:3] [--timeout S] [--root DIR] [--chrome PATH]');
       process.exit(2);
     }
     const report = await runCheck(opts);
