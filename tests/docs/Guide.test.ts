@@ -84,6 +84,23 @@ describe('build-guide: assets', () => {
   });
 });
 
+describe('build-guide: the shared shell', () => {
+  it('every page carries the shared head, header and footer, the guide styles, and the guide entrance is current', async () => {
+    const out = mkdtempSync(join(tmpdir(), 'guide-'));
+    const { pages } = await buildGuide({ srcDir: guideDir, outDir: out });
+    expect(existsSync(join(out, 'guide.css'))).toBe(true);
+    for (const p of pages as Array<{ file: string }>) {
+      const html = readFileSync(join(out, `${p.file}.html`), 'utf8');
+      expect(html, p.file).toContain('href="../site/shared/tokens.css"');
+      expect(html, p.file).toContain('href="guide.css"');
+      expect(html, p.file).toContain('<main id="main"');
+      expect(html, p.file).toMatch(/<a href="\.\.\/guide\/" aria-current="page">Guide<\/a>/);
+      expect(html, p.file).toContain('class="site-foot"');
+      expect(html, p.file).not.toContain('<style>');
+    }
+  });
+});
+
 describe('the guide (site/guide)', () => {
   let out = '';
   let pages: Array<{ file: string; meta: { title: string; section: string; order: number } }> = [];
@@ -119,6 +136,7 @@ describe('the guide (site/guide)', () => {
         if (/^(https?:|mailto:|data:|#$)/.test(url)) continue;
         const [pathPart, hash] = url.split('#');
         if (pathPart === '') { if (!idsOf.get(p.file)!.has(hash!)) missing.push(`${p.file}: #${hash}`); continue; }
+        if (pathPart === '../guide/') continue;                                  // the guide itself, built into <site>/guide/ (the staged-site link check covers it)
         if (pathPart!.startsWith('../')) {                                      // the rest of the site: examples / dist / ai / docs, which are the repo's folders
           if (!existsSync(join(root, pathPart!.slice(3)))) missing.push(`${p.file}: ${url}`);
         } else if (pathPart!.endsWith('.html')) {

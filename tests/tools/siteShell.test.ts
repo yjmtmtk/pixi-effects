@@ -1,9 +1,11 @@
 // @vitest-environment node
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+// @ts-expect-error plain ESM script without types
+import { buildGuide } from '../../scripts/build-guide.mjs';
 
 const root = resolve(__dirname, '../..');
 const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
@@ -11,7 +13,7 @@ const chrome = check.findChrome();
 const built = existsSync(join(root, 'dist/index.js'));
 
 /** Pages that carry the shared header (each task that moves a page onto the shared shell adds it here). */
-const PAGES: Array<[string]> = [['index.html']];
+const PAGES: Array<[string]> = [['index.html'], ['guide-preview/getting-started.html']];
 
 async function withPage<T>(path: string, width: number, fn: (cdp: any) => Promise<T>): Promise<T> {
   const { server, port } = await check.serve(root);
@@ -27,6 +29,7 @@ async function withPage<T>(path: string, width: number, fn: (cdp: any) => Promis
 }
 
 describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the shared header, in a real browser', () => {
+  beforeAll(async () => { await buildGuide({ srcDir: join(root, 'site/guide'), outDir: join(root, 'guide-preview'), root }); });   // the guide is built, not stored
   for (const width of [390, 1440]) {
     it.each(PAGES)(`%s at ${width}px: the four entrances are all on screen, nothing scrolls sideways`, async (path) => {
       await withPage(path, width, async (cdp) => {
@@ -37,12 +40,16 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the shared
             names: links.map(a => a.textContent.trim()),
             inside: links.every(a => { const b = a.getBoundingClientRect(); return b.left >= 0 && b.right <= innerWidth && b.height > 0; }),
             main: !!document.getElementById('main'),
+            // the body hides sideways overflow, so scrollWidth alone cannot see a column that is wider than the screen
+            mainRight: document.getElementById('main')?.getBoundingClientRect().right ?? 0,
+            width: innerWidth,
           };
         })()`);
         expect(r.overflow).toBeLessThanOrEqual(0);
         expect(r.names).toEqual(expect.arrayContaining(['Guide', 'Gallery', 'Examples', 'Playground']));
         expect(r.inside).toBe(true);
         expect(r.main).toBe(true);
+        expect(r.mainRight).toBeLessThanOrEqual(r.width + 1);
       });
     }, 30000);
   }
