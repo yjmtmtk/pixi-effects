@@ -3,6 +3,7 @@ import { Sequence } from './Base';
 import { FrameCache, type FrameSink } from '../core/FrameCache';
 import { sourceLookup } from '../core/sourceTime';
 import { describeLayer } from '../core/lint';
+import { remapOf, bindClock, clockTable, type TimeRemap } from '../core/remap';
 import type { VideoSequenceSpec, AudioDescriptor } from '../types';
 import type { VideoAssetData } from '../core/AssetLoader';
 
@@ -17,10 +18,16 @@ export class VideoSequence extends Sequence {
   private _canvas: HTMLCanvasElement | null = null;
   private _ctx: CanvasRenderingContext2D | null = null;
   private _drawSeq = 0;
+  /** The playhead value (seconds in the file) the timeline last wrote: already remapped, and local inside a remapped composition. */
+  private _cur = 0;
+  private _remap: TimeRemap | null = null;
+  /** Movie asks this layer to draw the frame its own timeline is at, not the one for a time it computed. */
+  readonly selfTimed = true;
 
   async build(): Promise<void> {
     const data = await Assets.get<VideoAssetData>(this.spec.asset);
     this._sourceDuration = data.duration;
+    this._remap = remapOf(this.spec as never, 'currentTime', this._sourceDuration);
     this._audioBuffer = (this.spec.audio !== false) ? data.audioBuffer : null;
     this._cache = new FrameCache(data.sink as unknown as FrameSink, { capacity: 30 });
 
@@ -43,7 +50,9 @@ export class VideoSequence extends Sequence {
     this.intrinsicHeight = h;
 
     if (this.duration === undefined) {
-      this.duration = this.spec.duration ?? data.duration ?? this.root.duration;
+      // As long as the file; played at a constant speed it lasts the file's length divided by |speed|.
+      const constant = this._remap && this._remap.timeKfs.length === 0 ? Math.abs(this._remap.speed ?? 1) : 1;
+      this.duration = this.spec.duration ?? (data.duration ?? this.root.duration * constant) / constant;
     }
 
     let currentTime = 0;
@@ -52,6 +61,7 @@ export class VideoSequence extends Sequence {
       get(): number { return currentTime; },
       set(v: number) {
         currentTime = v;
+        seq._cur = v;
         const mySeq = ++seq._drawSeq;
         const lookup = sourceLookup(v, seq._sourceDuration, !!seq.spec.loop);
         seq._cache!.getFrameAt(lookup).then(frame => {
@@ -71,8 +81,19 @@ export class VideoSequence extends Sequence {
     this.buildFilters();
   }
 
+  protected override displayProps(): { initial: VideoSequenceSpec['initial']; keyframes: VideoSequenceSpec['keyframes'] } {
+    const r = this._remap;
+    return r ? { initial: r.restInitial as VideoSequenceSpec['initial'], keyframes: r.restKfs } : super.displayProps();
+  }
+
   override bindTimeline(timeline: Timeline, offset = 0): void {
     super.bindTimeline(timeline, offset);
+    const at = offset + this.at;
+    if (this._remap) {
+      // The playhead is a clock the `time` keyframes (or `speed`) run, instead of one straight tween.
+      bindClock(timeline, this.target!, 'currentTime', this._remap, this.duration!, at, this.scope() as unknown as Record<string, number>);
+      return;
+    }
     const playDuration = this.spec.loop
       ? this.duration!
       : Math.min(this.duration!, this._sourceDuration);
@@ -80,14 +101,19 @@ export class VideoSequence extends Sequence {
       this.target!,
       { currentTime: 0 },
       { currentTime: playDuration, duration: playDuration, ease: 'none' },
-      offset + this.at,   // offset = start of the enclosing composition(s); dropping it misplaced videos inside nested compositions
+      at,   // offset = start of the enclosing composition(s); dropping it misplaced videos inside nested compositions
     );
   }
 
   override collectAudio(out: AudioDescriptor[], baseTime: number): void {
     if (!this._audioBuffer) return;
     const initialVolume = this.spec.volume ?? 1;
+    const t0 = baseTime + this.at;
+    const sourceMap = this._remap
+      ? clockTable(this._remap, 'currentTime', this.duration!, t0, this.scope() as unknown as Record<string, number>, t0 + this.duration!).at
+      : undefined;
     out.push({
+      ...(sourceMap ? { sourceMap } : {}),
       buffer: this._audioBuffer,
       layer: describeLayer(this.spec),
       source: `video "${this.spec.asset}"`,
@@ -99,7 +125,10 @@ export class VideoSequence extends Sequence {
     });
   }
 
-  async awaitFrameAt(time: number): Promise<void> {
+  /** Draw the frame the playhead is at NOW (`_cur`). The argument (a time Movie worked out for layers that need it) is not used. */
+  async awaitFrameAt(_time?: number): Promise<void> {
+    const time = this._cur;
+    if (!this.keepHidden && !this.target?.renderable) return;          // not on screen (a video used as a mask is kept hidden by Pixi and must still draw)
     const mySeq = ++this._drawSeq;
     const lookup = sourceLookup(time, this._sourceDuration, !!this.spec.loop);
     let frame: VideoFrame | null = null;

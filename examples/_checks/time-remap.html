@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>check · time remap</title></head>
+<body>
+  <!--
+    Acceptance check (not an example): tests/tools/timeRemap.test.ts and tests/tools/timeRemapAudio.test.ts. The page makes its own clip in
+    which every frame shows its own number (8 squares along the top = the frame index in binary, white = 1), so the frame a remapped video
+    picks can be READ from the picture. Helpers: mk(opts) rebuilds the movie under test; frameAt(f) -> the clip frame index shown at output
+    frame f; orders(frames) snapshots a list in four seek orders and returns the largest differences; diff(a, b) is the largest pixel
+    difference of two data URLs; exportFrames(frames) renders to mp4, plays it back and reads the same numbers.
+  -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">
+  { "imports": {
+      "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap": "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }
+  </script>
+  <script type="module">
+    import { Movie, particles } from '../../dist/index.js';
+    window.particles = particles;
+    const FPS = 30, CLIP_FRAMES = 90, SQUARE = 16, STEP = 19;      // a 3 s clip, 160 x 90
+
+    async function makeClip() {
+      const bits = Array.from({ length: 8 }, (_, i) => {
+        const keyframes = [];
+        let prev = 0;
+        for (let f = 1; f < CLIP_FRAMES; f++) {
+          const on = (f >> i) & 1;
+          if (on !== prev) keyframes.push({ at: f / FPS - 1 / (2 * FPS), set: { fillColor: on ? '#ffffff' : '#000000' } });   // half a frame early: frame f shows state f
+          prev = on;
+        }
+        return { type: 'shape', shape: 'rect', width: SQUARE, height: SQUARE, anchorX: 0, anchorY: 0, initial: { x: 4 + i * STEP, y: 4, fillColor: '#000000' }, keyframes };
+      });
+      const canvas = document.createElement('canvas');
+      const m = new Movie();
+      await m.init({ canvas, width: 160, height: 90, duration: CLIP_FRAMES / FPS, frameRate: FPS, background: '#202020', composition: { sequences: bits } });
+      const blob = await m.render({ format: 'mp4' });
+      await m.destroy();
+      return URL.createObjectURL(blob) + '#clip.mp4';        // the loader recognises a video by the END of the url; fetch ignores the fragment
+    }
+    window.clipUrl = await makeClip();
+
+    window.mk = async (opts) => {
+      if (window.movie) { await window.movie.destroy(); window.movie = null; }
+      window.__logs.length = 0;
+      const movie = new Movie(); window.movie = movie;
+      await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: opts.duration ?? 4, frameRate: FPS, background: '#000000',
+        ...opts, assets: [{ name: 'clip', src: window.clipUrl }, ...(opts.assets ?? [])] });
+      return true;
+    };
+    const toImg = (url) => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = url; });
+    const pixels = async (url) => { const i = await toImg(url); const c = document.createElement('canvas'); c.width = i.width; c.height = i.height; const g = c.getContext('2d'); g.drawImage(i, 0, 0); return g.getImageData(0, 0, i.width, i.height).data; };
+    window.snap = (f) => window.movie.snapshot(f, { as: 'dataURL' });
+    window.diff = async (a, b) => { if (a === b) return 0; const A = await pixels(a), B = await pixels(b); let m = 0; for (let i = 0; i < A.length; i++) m = Math.max(m, Math.abs(A[i] - B[i])); return m; };
+    // the clip is drawn at scale 2 from the top-left corner of the canvas: square i is centred at (8 + 16 + 38 i, 8 + 16)
+    const bitsOf = (A) => { let n = 0; for (let i = 0; i < 8; i++) { const x = 24 + 38 * i, y = 24; if (A[(y * 320 + x) * 4] > 128) n |= 1 << i; } return n; };
+    window.indexOf = async (url) => bitsOf(await pixels(url));
+    // the export path: render the movie to an mp4, play it back in a <video>, and read the frame number at the middle of each output frame
+    window.exportFrames = async (frames) => {
+      const blob = await window.movie.render({ format: 'mp4' });
+      const url = URL.createObjectURL(blob);
+      const v = document.createElement('video'); v.muted = true; v.src = url;
+      await new Promise((res, rej) => { v.onloadeddata = res; v.onerror = () => rej(new Error('the browser cannot play the export')); });
+      const out = {};
+      for (const f of frames) {
+        v.currentTime = (f + 0.5) / 30;
+        await new Promise(r => { v.onseeked = r; });
+        const c = document.createElement('canvas'); c.width = 320; c.height = 180;
+        const g = c.getContext('2d'); g.drawImage(v, 0, 0);
+        out[f] = bitsOf(g.getImageData(0, 0, 320, 180).data);
+      }
+      URL.revokeObjectURL(url);
+      return out;
+    };
+    window.frameAt = async (f) => window.indexOf(await window.snap(f));
+    window.shuffle = (arr, seed = 1) => { const a = arr.slice(); let s = seed; const r = () => (s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    window.orders = async (frames) => {
+      const take = async (order) => { const m = {}; for (const f of order) m[f] = await window.snap(f); return m; };
+      const fwd = await take(frames), bwd = await take(frames.slice().reverse()), jmp = await take(window.shuffle(frames, 7)), jmp2 = await take(window.shuffle(frames, 99));
+      const out = { bwdMax: 0, jmpMax: 0, jmp2Max: 0 };
+      for (const f of frames) {
+        out.bwdMax = Math.max(out.bwdMax, await window.diff(fwd[f], bwd[f]));
+        out.jmpMax = Math.max(out.jmpMax, await window.diff(fwd[f], jmp[f]));
+        out.jmp2Max = Math.max(out.jmp2Max, await window.diff(fwd[f], jmp2[f]));
+      }
+      return out;
+    };
+    window.__ready = true;
+  </script>
+</body></html>

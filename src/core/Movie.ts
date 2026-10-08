@@ -443,6 +443,7 @@ export class Movie {
     const collected: VideoLike[] = [];
     collectVideoSequences(this._rootSequence, collected);
     await Promise.all(collected.map(v => {
+      if (v.selfTimed) return v.awaitFrameAt(t);                          // a video knows the playhead its own timeline wrote (remapped, local inside a remapped composition)
       const local = t - (v.absoluteStart ?? v.at);
       if (local < 0 || local > (v.duration ?? 0)) return Promise.resolve();
       return v.awaitFrameAt(local);
@@ -1022,6 +1023,8 @@ interface VideoLike {
   at: number;
   duration: number | undefined;
   absoluteStart?: number | null;
+  /** The layer draws the frame its own timeline is at (a video): Movie does not compute a local time for it. */
+  selfTimed?: boolean;
   awaitFrameAt(t: number): Promise<void>;
 }
 
