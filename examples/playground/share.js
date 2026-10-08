@@ -36,8 +36,10 @@ export async function decode(text) {
 
 export async function shareUrl(code, base) { return `${base}#code=${await encode(code)}`; }
 
-/** The code of a `#code=…` hash, or null for any other hash. */
+/** The code of a `#code=…` hash, or null for any other hash. A `#code=` that is not packed text (a link pasted with a stray character) is an error, not "no code". */
 export async function codeFromHash(hash) {
-  const m = /^#code=([A-Za-z0-9_-]+)$/.exec(hash || '');
-  return m ? decode(m[1]) : null;
+  if (!String(hash || '').startsWith('#code=')) return null;
+  const m = /^#code=([A-Za-z0-9_-]+)$/.exec(hash);
+  if (!m) throw new Error('this link is not valid (it is not a packed pixi-effects code: was a character added or cut off when it was copied?)');
+  return decode(m[1]);
 }

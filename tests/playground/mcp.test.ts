@@ -28,6 +28,11 @@ describe('WebMCP tools', () => {
     for (const n of ['get_code', 'check', 'look', 'onion', 'get_docs', 'list_examples']) expect(tools.find((t: any) => t.name === n).annotations?.readOnlyHint, n).toBe(true);
     for (const n of ['set_code', 'run', 'load_example']) expect(tools.find((t: any) => t.name === n).annotations?.readOnlyHint, n).not.toBe(true);
   });
+  it('what the page\'s own code can write (warnings, the review) reaches the agent marked as untrusted: tools that return it say so', () => {
+    const tools = mcp.defineTools(fakeApi().api);
+    for (const n of ['get_code', 'set_code', 'run', 'check', 'load_example']) expect(tools.find((t: any) => t.name === n).annotations?.untrustedContentHint, n).toBe(true);
+    expect(tools.find((t: any) => t.name === 'check').description).toMatch(/warnings? (and|come|are)[^.]*(page|code)/i);
+  });
   it('set_code replaces the code and runs it (run: true by default), and returns a short summary', async () => {
     const { api, calls } = fakeApi();
     const t = mcp.defineTools(api).find((x: any) => x.name === 'set_code');

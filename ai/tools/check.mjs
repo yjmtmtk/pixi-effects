@@ -282,7 +282,13 @@ export async function runCheck(opts, log = console.log) {
     if (!info.hasReview) throw new Error("this page's pixi-effects is older than the check tool: use 0.18 or newer (the version in the page's import map)");
 
     // a mistake in --at or --onion is a usage error: say so now, not after the slow work
-    const atList = opts.at ? JSON.parse(await cdp.eval(`JSON.stringify(movie.resolveAt(${JSON.stringify(opts.at)}))`)) : null;
+    let atList = null;
+    if (opts.at) {
+      // the page's error is returned as a value: thrown, it would arrive with the page's stack trace
+      const r = JSON.parse(await cdp.eval(`(() => { try { return JSON.stringify({ at: movie.resolveAt(${JSON.stringify(opts.at)}) }); } catch (e) { return JSON.stringify({ error: String(e && e.message || e) }); } })()`));
+      if (r.error) throw new Error(r.error.replace(/^pixi-effects: /, ''));
+      atList = r.at;
+    }
     if (opts.onion && opts.onion[1] > info.duration + 1e-9) throw new Error(`--onion ${opts.onion[0]}:${opts.onion[1]} goes past the end: the movie is ${info.duration} s`);
 
     const rv = await cdp.eval(`movie.review(${JSON.stringify({ strict: !!opts.strict })})`);

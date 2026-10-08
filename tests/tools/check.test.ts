@@ -95,7 +95,10 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     expect(String(bad?.stderr)).toMatch(/no layer named "nope".*title/s);
     // a mistake in --at is reported before any of the slow work: no sheet, no report
     const dir = mkdtempSync(join(tmpdir(), 'check-early-'));
-    await run(['--out', dir, '--no-export', '--at', 'banana']).then(() => null, () => null);
+    const banana = await run(['--out', dir, '--no-export', '--at', 'banana']).then(() => null, (e: any) => e);
+    expect(banana?.code).toBe(2);
+    expect(String(banana?.stderr)).toMatch(/cannot read "banana"/);
+    expect(String(banana?.stderr), 'one clean line, not a stack trace from the page').not.toMatch(/\n\s+at /);
     expect(existsSync(join(dir, 'sheet.png'))).toBe(false);
     expect(existsSync(join(dir, 'report.json'))).toBe(false);
   }, 400_000);

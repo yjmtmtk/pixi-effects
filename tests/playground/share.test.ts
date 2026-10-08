@@ -37,8 +37,11 @@ describe('share links: the code in the address, packed', () => {
     expect(await share.decode(await share.encode(edge))).toBe(edge);
     await expect(share.decode(await share.encode(edge + 'b'))).rejects.toThrow(/too large/i);
   });
-  it('a hash with a #code= that is not address-safe text is not read', async () => {
-    expect(await share.codeFromHash('#code=abc def')).toBeNull();
-    expect(await share.codeFromHash('#code=')).toBeNull();
+  it('a #code= hash that is not packed text (a link pasted with a stray ")" or "." on the end) is an error that says so, not "no code"', async () => {
+    const good = (await share.shareUrl('const a = 1;', 'x')).slice(1);
+    await expect(share.codeFromHash(good + ')')).rejects.toThrow(/link/i);
+    await expect(share.codeFromHash(good + '.')).rejects.toThrow(/link/i);
+    await expect(share.codeFromHash('#code=abc def')).rejects.toThrow(/link/i);
+    await expect(share.codeFromHash('#code=')).rejects.toThrow(/link/i);
   });
 });

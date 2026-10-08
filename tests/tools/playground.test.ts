@@ -181,6 +181,20 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the Playgr
       }, '#code=AAAA');
     }, 120000);
 
+    it('a link pasted with a stray character on the end says so (it is not silently ignored), and the first preset runs', async () => {
+      await withPlayground(1440, async (cdp) => {
+        const s = await cdp.eval(`({ text: document.getElementById('problems').textContent, ready: window.__playground.last.status.ready })`);
+        expect(s.text).toMatch(/this link is not valid/);
+        expect(s.ready).toBe(true);
+        // and pasted into a page that is already open: the editor keeps its code
+        const before = await cdp.eval('window.__playground.editor.get()');
+        await cdp.eval(`location.hash = '#code=AAAA.'`);
+        await check.sleep(600);
+        expect(await cdp.eval('window.__playground.editor.get()')).toBe(before);
+        expect(await cdp.eval(`document.getElementById('problems').textContent`)).toMatch(/this link is not valid/);
+      }, '#code=AAAA)');
+    }, 120000);
+
     it.skipIf(!pinnedOnCdn)('Save HTML makes a page that runs on its own (the library from the CDN, filters from esm.sh, files from the site), for a plain piece and for one with files and pixi-filters', async () => {
       for (const id of ['01-hello', '06-filters']) {
         const file = join(root, 'examples/_checks', `_saved-${id}.html`);

@@ -93,6 +93,36 @@ const W = 640, H = 360, FPS = 30, DURATION = 1, BACKGROUND = '#000000', POSTER =
     });
   }, 120000);
 
+  it('a movie that never becomes ready (an endless loop in its code) is given up on: the run settles with a reason and the frame is gone', async () => {
+    await withRunner(async (cdp) => {
+      const r = await cdp.eval(`(async () => {
+        const rn = runnerWith({ startTimeoutMs: 2500 });
+        const t0 = performance.now();
+        const status = await rn.run("const W = 640, H = 360, FPS = 30, DURATION = 2, BACKGROUND = '#000', POSTER = 1; const sequences = (() => { for (;;) {} })();");
+        const frames = document.querySelectorAll('#host iframe').length;
+        const after = await rn.call('status').then(() => 'answered', (e) => e.message);
+        return { ready: status.ready, failed: status.failed, secs: Math.round((performance.now() - t0) / 100) / 10, frames, after };
+      })()`);
+      expect(r.ready).toBe(false);
+      expect(r.failed).toMatch(/did not become ready/);
+      expect(r.secs).toBeLessThan(8);
+      expect(r.frames).toBe(0);
+      expect(r.after).toMatch(/press Run/);                                       // not stuck on "still starting"
+    });
+  }, 120000);
+
+  it('a command the frame does not answer in time is given up on with a clear message (it must not block an agent\'s queue for ever)', async () => {
+    await withRunner(async (cdp) => {
+      const r = await cdp.eval(`(async () => {
+        const rn = runnerWith({ commandTimeoutMs: 5 });
+        await rn.run(window.defaultCode);
+        const slow = await rn.call('review').then(() => 'answered', (e) => e.message);
+        return slow;
+      })()`);
+      expect(r).toMatch(/did not answer/);
+    });
+  }, 120000);
+
   it('assets resolve from the examples folder, and sound goes through the mix', async () => {
     await withRunner(async (cdp) => {
       const code = `const W = 640, H = 360, FPS = 30, DURATION = 2, BACKGROUND = '#000000', POSTER = 1;
