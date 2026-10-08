@@ -16,6 +16,17 @@ const src = (layer: string, source: string, start: number, end: number, synth = 
 });
 
 describe('analyzeAudio', () => {
+  it('a sound inside a remapped composition is reported when it plays in the MOVIE\'s time, not in the composition\'s local time (no false "after the movie ends")', () => {
+    const mix = pcm(4, t => (t >= 1 && t < 3 ? 0.5 * Math.sin(2 * Math.PI * 1000 * t) : 0));
+    // local time 0..4 of a composition at 0.5x that starts at movie time 1: the sound (local 0..1) plays in movie time 1..3; local 3..4 would be "after the movie" at 1x
+    const warped: AudioDescriptor = { ...src('layer "late"', 'sfx "chime"', 0, 1), start: 3, end: 4, warp: t => (t < 1 ? NaN : 0.5 * (t - 1) + 3) };
+    const r = analyzeAudio(mix, [warped], { peak: 0.5, peakAt: 1 }, 4, { window: 1 });
+    const s = r.sources[0]!;
+    expect(s.start).toBeCloseTo(1 + 0, 1);                                 // local 3 is reached at movie time 1
+    expect(s.end).toBeCloseTo(3, 1);                                       // local 4 at movie time 3
+    expect(r.issues.filter(i => /after the movie ends/.test(i))).toEqual([]);
+  });
+
   it('measures every sound on its own (length, level, loudest moment, brightness) and the mix over time', () => {
     const mix = pcm(2, t => (t >= 0.5 && t < 0.7 ? 0.5 * Math.sin(2 * Math.PI * 1000 * t) : 0));
     const r = analyzeAudio(mix, [src('layer "beep"', 'sfx "beep"', 0.5, 0.7)], { peak: 0.5, peakAt: 0.5 }, 2, { window: 0.5 });

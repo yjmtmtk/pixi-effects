@@ -2,6 +2,7 @@ import { Assets } from 'pixi.js';
 import { Sequence } from './Base';
 import { normalizeKeyframe } from '../core/Timeline';
 import { describeLayer } from '../core/lint';
+import { remapOf, clockTable, type TimeRemap } from '../core/remap';
 import type { AudioSequenceSpec, AudioAssetSpec, AudioSfxSpec, AudioMusicSpec, AudioDescriptor } from '../types';
 import type { AudioAssetData } from '../core/AssetLoader';
 
@@ -10,6 +11,7 @@ export class AudioSequence extends Sequence {
   private _audioBuffer: AudioBuffer | null = null;
   private _synth: AudioDescriptor['synth'] | null = null;
   private _source = '';
+  private _remap: TimeRemap | null = null;
 
   async build(): Promise<void> {
     this.target = null;
@@ -19,17 +21,21 @@ export class AudioSequence extends Sequence {
     this._source = `asset "${spec.asset}"`;
     const data = await Assets.get<AudioAssetData>(spec.asset);
     this._audioBuffer = data.audioBuffer;
+    this._remap = remapOf(spec as never, 'time', data.duration ?? null);
+    // At a constant speed the file lasts its length divided by |speed|; with `time` keyframes it is the keyframes' business.
+    const constant = this._remap && this._remap.timeKfs.length === 0 ? Math.abs(this._remap.speed ?? 1) : 1;
     if (this.duration === undefined) {
       // One-shot: exactly as long as the clip. Looping: until the composition ends (a loop that stopped
       // after one clip length would not be a loop).
       const rest = Math.max(0, (this.parent?.duration ?? this.root.duration) - this.at);
-      this.duration = spec.duration ?? (spec.loop ? rest : data.duration) ?? this.root.duration;
+      this.duration = spec.duration ?? (spec.loop ? rest : data.duration !== undefined ? data.duration / constant : undefined) ?? this.root.duration;
     }
     // Without `loop` the sound simply stops when the file ends — silently.
-    if (!spec.loop && data.duration !== undefined && this.duration > data.duration + 0.05) {
+    const playable = this._remap && this._remap.timeKfs.length > 0 ? Infinity : (data.duration ?? Infinity) / constant;
+    if (!spec.loop && Number.isFinite(playable) && this.duration > playable + 0.05) {
       console.warn(
-        `pixi-effects: ${describeLayer(spec)}: audio asset "${spec.asset}" is ${data.duration.toFixed(1)}s but the layer lasts ` +
-        `${this.duration.toFixed(1)}s, so it goes silent after ${data.duration.toFixed(1)}s. Add loop: true, or shorten the layer's duration.`,
+        `pixi-effects: ${describeLayer(spec)}: audio asset "${spec.asset}" plays for ${playable.toFixed(1)}s (${data.duration!.toFixed(1)}s at speed ${constant}) but the layer lasts ` +
+        `${this.duration.toFixed(1)}s, so it goes silent after ${playable.toFixed(1)}s. Add loop: true, or shorten the layer's duration.`,
       );
     }
   }
@@ -92,7 +98,11 @@ export class AudioSequence extends Sequence {
     const initialVolume = this.spec.volume ?? (this.spec.initial as { volume?: number } | undefined)?.volume ?? 1;
     const t0 = baseTime + this.at;
     const dur = this.duration!;
+    const sourceMap = this._remap
+      ? clockTable(this._remap, 'time', dur, t0, this.scope() as unknown as Record<string, number>, t0 + dur).at
+      : undefined;
     out.push({
+      ...(sourceMap ? { sourceMap } : {}),
       ...(this._audioBuffer ? { buffer: this._audioBuffer } : { synth: this._synth! }),
       layer: describeLayer(this.spec),
       source: this._source,

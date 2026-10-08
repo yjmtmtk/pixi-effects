@@ -1,4 +1,5 @@
 import type { AudioDescriptor } from '../types';
+import { resampleThrough, playSpan } from './audioRemap';
 export type { AudioDescriptor };
 
 export async function mixdown(
@@ -26,6 +27,20 @@ export async function mixdown(
   for (const a of audios) {
     const buffer = bufferOf(a);
     if (!buffer) continue;
+    if (a.warp || a.sourceMap) {
+      // A time remap: resample the sound through the maps into a buffer of its own, then play that one straight. (`start` is in the
+      // sound's own time here, so the "starts before the movie" check below does not apply.)
+      const r = resampleThrough(a, buffer.getChannelData(0), buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : buffer.getChannelData(0), buffer.sampleRate, sampleRate, totalDuration);
+      if (!r) continue;
+      const out = ctx.createBuffer(2, r.L.length, sampleRate);
+      out.getChannelData(0).set(r.L);
+      out.getChannelData(1).set(r.R);
+      const rendered = ctx.createBufferSource();
+      rendered.buffer = out;
+      rendered.connect(ctx.destination);
+      rendered.start(r.at);
+      continue;
+    }
     // Web Audio throws on a negative time. A sound that starts before the movie (a negative `at`, e.g.
     // `at = hit - duration` near 0) is mixed from 0 with its first seconds cut off, and its volume points
     // are clamped to 0.
@@ -79,7 +94,7 @@ export function limitMix(buffer: AudioBuffer, audios: AudioDescriptor[]): MixSta
   }
   const peakAt = peakIndex / buffer.sampleRate;
   if (peak > 1) {
-    const playing = audios.filter(a => a.start <= peakAt && peakAt < a.end).map(a => a.layer ?? 'an audio layer');
+    const playing = audios.map(a => ({ a, ...playSpan(a, buffer.duration) })).filter(s => s.start <= peakAt && peakAt < s.end).map(s => s.a.layer ?? 'an audio layer');
     console.warn(
       `pixi-effects: the audio mix peaks at ${peak.toFixed(2)} (${(20 * Math.log10(peak)).toFixed(1)} dBFS) at ${peakAt.toFixed(2)}s, so it was limited ` +
       `(it would distort). Playing there: ${[...new Set(playing)].join(', ')}. Lower their volume.`,

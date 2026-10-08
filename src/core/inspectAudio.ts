@@ -1,4 +1,5 @@
 import type { AudioDescriptor } from '../types';
+import { playSpan } from './audioRemap';
 import type { MixStats } from './AudioMixer';
 import { spectralCentroid } from './spectrum';
 import { findSilences, LOUDNESS_NOTES, measureLoudness } from '../audio/loudness';
@@ -95,6 +96,8 @@ function measure(chans: Float32Array[], sampleRate: number): SoundMeasure {
 export function analyzeAudio(
   mix: PcmLike | null, sources: AudioDescriptor[], stats: MixStats | null, movieDuration: number, opts: AudioInspectOptions = {},
 ): AudioReport {
+  // A sound inside a remapped composition has `start` / `end` in that composition's local time: report when it plays in the MOVIE's time.
+  sources = sources.map(s => (s.warp ? { ...s, ...playSpan(s, movieDuration) } : s));
   if (!mix) {
     return { duration: movieDuration, sampleRate: 0, peakDb: -120, peakAt: 0, sources: [], windows: [],
       loudness: { integratedLufs: null, truePeakDb: -120, clippedSamples: 0, silences: [] }, scenes: [], cues: [], notes: [], issues: ['no audio: the movie has no audio layers (sound effects need no files: { type: "audio", sfx: "pop", at: 1 })'] };
