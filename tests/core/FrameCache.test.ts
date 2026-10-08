@@ -118,4 +118,12 @@ describe('FrameCache', () => {
     expect(fs[0]!.close).toHaveBeenCalled();
     expect(fs[1]!.close).toHaveBeenCalled();
   });
+
+  it('two requests less than a millisecond apart are two frames, whichever is asked first', async () => {
+    const a = makeFakeFrame(0), b = makeFakeFrame(1);
+    const sink = makeFakeSink([{ timestamp: 0, frame: a }, { timestamp: 0.0004, frame: b }]);
+    const cache = new FrameCache(sink);
+    expect(await cache.getFrameAt(0.0004)).toBe(b);
+    expect(await cache.getFrameAt(0.0001)).toBe(a);     // with the 1 ms key this came back as b: the answer depended on which was asked first
+  });
 });

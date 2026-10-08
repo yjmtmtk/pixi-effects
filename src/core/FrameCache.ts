@@ -26,7 +26,7 @@ export class FrameCache {
   }
 
   private _key(time: number): number {
-    return Math.round(time * 1000);
+    return Math.round(time * 1e6);          // a microsecond: two different times must not share a frame (the answer would depend on which was asked first)
   }
 
   async getFrameAt(time: number): Promise<VideoFrame | null> {

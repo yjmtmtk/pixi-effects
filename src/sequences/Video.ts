@@ -1,6 +1,7 @@
 import { Sprite, Texture, Assets } from 'pixi.js';
 import { Sequence } from './Base';
 import { FrameCache, type FrameSink } from '../core/FrameCache';
+import { sourceLookup } from '../core/sourceTime';
 import { describeLayer } from '../core/lint';
 import type { VideoSequenceSpec, AudioDescriptor } from '../types';
 import type { VideoAssetData } from '../core/AssetLoader';
@@ -52,7 +53,7 @@ export class VideoSequence extends Sequence {
       set(v: number) {
         currentTime = v;
         const mySeq = ++seq._drawSeq;
-        const lookup = seq.spec.loop && seq._sourceDuration > 0 ? v % seq._sourceDuration : v;
+        const lookup = sourceLookup(v, seq._sourceDuration, !!seq.spec.loop);
         seq._cache!.getFrameAt(lookup).then(frame => {
           if (mySeq !== seq._drawSeq) return;
           if (!frame || !seq._ctx) return;
@@ -100,7 +101,7 @@ export class VideoSequence extends Sequence {
 
   async awaitFrameAt(time: number): Promise<void> {
     const mySeq = ++this._drawSeq;
-    const lookup = this.spec.loop && this._sourceDuration > 0 ? time % this._sourceDuration : time;
+    const lookup = sourceLookup(time, this._sourceDuration, !!this.spec.loop);
     let frame: VideoFrame | null = null;
     try {
       frame = await this._cache!.getFrameAt(lookup);
