@@ -6,6 +6,7 @@ export type { LoaderOption } from './core/loader';
 export type {
   SnapshotOptions,
   ContactSheetOptions,
+  OnionSkinOptions,
   MovieOptions,
   RenderOptions,
   FrameEvent,

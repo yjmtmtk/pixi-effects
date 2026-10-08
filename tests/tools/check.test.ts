@@ -139,6 +139,19 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     expect(existsSync(join(quietOut, 'waveform.png'))).toBe(false);
   }, 200_000);
 
+  it('--onion A:B writes onion.png, one picture of the movement; past the end exits 2', async () => {
+    const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/onion.html'), '--no-export', ...args, '--timeout', '150'], { timeout: 170_000 });
+    const out = mkdtempSync(join(tmpdir(), 'check-onion-'));
+    await run(['--out', out, '--onion', '0:2']);
+    const png = readFileSync(join(out, 'onion.png'));
+    expect(png.subarray(1, 4).toString()).toBe('PNG');
+    expect(png.readUInt32BE(16)).toBe(1280);
+    expect(JSON.parse(readFileSync(join(out, 'report.json'), 'utf8')).files.onion).toMatch(/onion\.png$/);
+    const bad = await run(['--out', mkdtempSync(join(tmpdir(), 'check-onion-')), '--onion', '1:9']).then(() => null, (e: any) => e);
+    expect(bad?.code).toBe(2);
+    expect(String(bad?.stderr)).toMatch(/goes past the end: the movie is 2 s/);
+  }, 200_000);
+
   it('fonts: a web font that failed to load fails the check; a layer with no available font is listed for review (and fails with --strict)', async () => {
     const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/fonts.html'), '--no-export', ...args, '--timeout', '150'], { timeout: 170_000 });
     const out = mkdtempSync(join(tmpdir(), 'check-fonts-'));

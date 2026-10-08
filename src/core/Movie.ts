@@ -8,6 +8,7 @@ import { mixdown, limitMix, type MixStats } from './AudioMixer';
 import { analyzeAudio, type AudioReport, type AudioInspectOptions } from './inspectAudio';
 import { inspectFonts, type FontReport } from './inspectFonts';
 import { namedScenes } from './scenes';
+import { onionAlphas, onionTimes } from './onion';
 import { exportFrames } from './Renderer';
 import { expandTransitions, carryTransitionWindows } from './Transitions';
 import { inspectScene, type InspectReport, type InspectOptions } from './inspect';
@@ -126,6 +127,20 @@ export interface ContactSheetOptions {
   columns?: number;
   /** Width of each picture in pixels. Default 480. */
   cellWidth?: number;
+  as?: 'blob' | 'dataURL';
+}
+
+export interface OnionSkinOptions {
+  /** Where the movement starts, in seconds. Default 0. */
+  from?: number;
+  /** Where it ends, in seconds. Default: the end of the movie. */
+  to?: number;
+  /** How many frames are overlaid, 1–64, spread evenly from `from` to `to`. Default 8. */
+  count?: number;
+  /** Output size relative to the canvas, above 0 and at most 4. Default 1. */
+  scale?: number;
+  /** Motion blur for these pictures (see `MovieOptions.motionBlur`); overrides the movie's own setting, `false` turns it off. */
+  motionBlur?: MotionBlurSpec;
   as?: 'blob' | 'dataURL';
 }
 
@@ -541,6 +556,45 @@ export class Movie {
       jpeg: new Uint8Array(await (i.image as Blob).arrayBuffer()), width: Math.max(1, Math.round(this.width * scale)), height: Math.max(1, Math.round(this.height * scale)),
     })));
     return new Blob([buildPdf(pages, { title: opts.title }) as unknown as BlobPart], { type: 'application/pdf' });
+  }
+
+  /**
+   * One picture of a movement: `count` frames from `from` to `to` drawn one over the other, each later one stronger, so a thing that
+   * moves leaves a trail (its path and its easing: even steps = constant speed, bunched = slow) and what stays still stays itself.
+   * The movie is left where it was.
+   */
+  async onionSkin(opts?: OnionSkinOptions & { as?: 'blob' }): Promise<Blob>;
+  async onionSkin(opts: OnionSkinOptions & { as: 'dataURL' }): Promise<string>;
+  async onionSkin(opts: OnionSkinOptions = {}): Promise<Blob | string> {
+    warnUnknownOptions('movie.onionSkin()', opts, ['from', 'to', 'count', 'scale', 'as', 'motionBlur']);
+    this._requireReady('onionSkin');
+    const from = opts.from ?? 0, to = opts.to ?? this.duration, count = opts.count ?? 8, scale = opts.scale ?? 1;
+    if (!(Number.isInteger(count) && count >= 1 && count <= 64)) throw new Error(`pixi-effects: movie.onionSkin(): count must be a whole number from 1 to 64, got ${count}`);
+    if (!(from >= 0 && to <= this.duration + 1e-9 && (count === 1 || from < to))) throw new Error(`pixi-effects: movie.onionSkin(): from must be before to, inside the movie (0 to ${this.duration} s), got ${from} to ${to}`);
+    if (!(scale > 0 && scale <= 4)) throw new Error(`pixi-effects: movie.onionSkin(): scale must be above 0 and at most 4, got ${scale}`);
+    const mb = this._blurFor(opts.motionBlur, 'movie.onionSkin()');
+    const blurred = mb ? this._blurCanvas() : null;
+    const out = document.createElement('canvas');
+    out.width = Math.max(1, Math.round(this.width * scale));
+    out.height = Math.max(1, Math.round(this.height * scale));
+    const g = out.getContext('2d')!;
+    const alphas = onionAlphas(count);
+    const frames = onionTimes(from, to, count).map(t => clampFrame(t * this.frameRate, this.totalFrames));
+    const back = this.currentFrame, wasAtPoster = this._atPoster;
+    try {
+      for (let i = 0; i < frames.length; i++) {
+        const f = frames[i]!;
+        if (mb && blurred) await this._quietly(() => this._exposeFrame(f, mb, blurred, true));
+        else await this._quietly(() => this.gotoFrame(f, true));
+        g.globalAlpha = alphas[i]!;
+        g.drawImage(blurred ?? (this.app!.canvas as HTMLCanvasElement), 0, 0, out.width, out.height);
+      }
+    } finally {
+      g.globalAlpha = 1;
+      if (wasAtPoster) await this._showPoster();                     // the movie is left as it was: still showing its poster
+      else await this._quietly(() => this.gotoFrame(back, true));
+    }
+    return encodeCanvas(out, 'image/png', opts.as ?? 'blob');
   }
 
   /**

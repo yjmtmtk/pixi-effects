@@ -403,6 +403,16 @@ export async function runCheck(opts, log = console.log) {
       report.at = wanted;
     }
 
+    // --onion A:B: one picture of the movement between A and B seconds (8 frames overlaid, the later the stronger)
+    if (opts.onion) {
+      const [from, to] = opts.onion;
+      if (to > info.duration + 1e-9) throw new Error(`--onion ${from}:${to} goes past the end: the movie is ${info.duration} s`);
+      const onion = await cdp.eval(`movie.onionSkin({ from: ${from}, to: ${to}, count: 8, as: 'dataURL' })`);
+      const onionFile = path.join(outDir, 'onion.png');
+      fs.writeFileSync(onionFile, Buffer.from(onion.slice(onion.indexOf(',') + 1), 'base64'));
+      report.files.onion = shown(onionFile);
+    }
+
     // a presentation (composition.stops): one picture of every stop, in order, so the pages and steps can be read at a glance
     const stops = await cdp.eval(`(() => { const s = movie.stops || []; return s.length ? { count: s.length, pages: movie.pageCount, items: s.map(x => ({ at: Math.round(x.at * 100) / 100, frame: x.frame, page: x.page, pageStart: x.pageStart, notes: !!x.notes, pdf: x.pdf })) } : null; })()`).catch(() => null);
     if (stops) {
