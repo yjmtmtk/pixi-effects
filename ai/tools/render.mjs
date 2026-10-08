@@ -13,6 +13,8 @@
  *
  * Options: -o, --out FILE (default ./<page name>.<format>; the container follows the extension: mp4 webm mov mkv) ·
  *          --format mp4|webm|mov|mkv|pdf (a .pdf is the deck as pages: one picture per page of a movie with `stops`; --all-stops makes a page of every stop) · --quality very-low|low|medium|high|very-high (video and audio bitrate, default high) ·
+ *          --range A:B (only seconds A to B; 2: runs to the end, :5 starts at the beginning) · --scene NAME (the span of a top-level layer: a movie's scene) · --scale S (output size, 0 < S <= 1: smaller picture, smaller file) ·
+ *          --draft (for looking: half size, low quality, no motion blur; a --quality you give still wins) ·
  *          --motion-blur SAMPLES (2-64: each frame is drawn that many times over the shutter and averaged; overrides the page's own motionBlur) ·
  *          --shutter FRACTION (with --motion-blur: how long the shutter is open, 0-1 of a frame, default 0.5) ·
  *          --video-codec C · --audio-codec C · --query "a=1&b=2" (added to the page URL) · --fail-on-warn (exit 1 when the page
@@ -41,7 +43,7 @@ export function defaultOutput(page, format) {
 }
 
 export function parseRenderArgs(argv) {
-  const o = { page: null, out: null, format: null, quality: 'high', videoCodec: null, audioCodec: null, allStops: false, motionBlur: null, shutter: null, query: null, failOnWarn: false, quiet: false, timeout: 900, root: null, chrome: null };
+  const o = { range: null, scene: null, scale: null, draft: false, qualityGiven: false, page: null, out: null, format: null, quality: 'high', videoCodec: null, audioCodec: null, allStops: false, motionBlur: null, shutter: null, query: null, failOnWarn: false, quiet: false, timeout: 900, root: null, chrome: null };
   const need = (i, name) => { if (i + 1 >= argv.length) throw new Error(`${name} needs a value`); return argv[i + 1]; };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -50,6 +52,7 @@ export function parseRenderArgs(argv) {
       o.format = need(i++, a).toLowerCase();
       if (!FORMATS.includes(o.format)) throw new Error(`--format must be mp4, webm, mov, mkv or pdf (got "${o.format}")`);
     } else if (a === '--quality') {
+      o.qualityGiven = true;
       o.quality = need(i++, a);
       if (!QUALITIES.includes(o.quality)) throw new Error(`--quality must be very-low, low, medium, high or very-high (got "${o.quality}")`);
     } else if (a === '--video-codec') o.videoCodec = need(i++, a);
@@ -60,7 +63,16 @@ export function parseRenderArgs(argv) {
     } else if (a === '--shutter') {
       o.shutter = Number(need(i++, a));
       if (!(o.shutter > 0 && o.shutter <= 1)) throw new Error(`--shutter must be above 0 and at most 1 (0.5 is a 180° shutter), got "${argv[i]}"`);
-    } else if (a === '--query') o.query = need(i++, a).replace(/^\?/, '');
+    } else if (a === '--range') {
+      const m = need(i++, a).match(/^(\d+(?:\.\d+)?)?:(\d+(?:\.\d+)?)?$/);
+      if (!m || (m[1] === undefined && m[2] === undefined)) throw new Error(`--range must look like 2:5 (seconds; 2: runs to the end, :5 starts at the beginning), got "${argv[i]}"`);
+      o.range = [m[1] === undefined ? null : Number(m[1]), m[2] === undefined ? null : Number(m[2])];
+    } else if (a === '--scene') o.scene = need(i++, a);
+    else if (a === '--scale') {
+      o.scale = Number(need(i++, a));
+      if (!(o.scale > 0 && o.scale <= 1)) throw new Error(`--scale must be above 0 and at most 1 (0.5 is half size), got "${argv[i]}"`);
+    } else if (a === '--draft') o.draft = true;
+    else if (a === '--query') o.query = need(i++, a).replace(/^\?/, '');
     else if (a === '--all-stops') o.allStops = true;
     else if (a === '--fail-on-warn') o.failOnWarn = true;
     else if (a === '--quiet') o.quiet = true;
@@ -74,6 +86,8 @@ export function parseRenderArgs(argv) {
   if (o.shutter !== null && o.motionBlur === null) throw new Error('--shutter goes with --motion-blur SAMPLES');
   if (o.allStops && o.format !== 'pdf' && !(o.out && formatFromPath(o.out) === 'pdf')) throw new Error('--all-stops goes with a PDF (-o deck.pdf)');
   o.format ??= (o.out ? formatFromPath(o.out) : null) ?? 'mp4';
+  if (o.range && o.scene !== null) throw new Error('--range and --scene cannot be used together: a scene is a range');
+  if (o.format === 'pdf' && (o.range || o.scene !== null || o.scale !== null || o.draft)) throw new Error('--range, --scene, --scale and --draft are not for a PDF (a PDF is the pages of a deck)');
   return o;
 }
 
@@ -81,16 +95,16 @@ const UPLOAD = '/__pixi_effects_out';
 const kb = n => (n >= 1048576 ? `${(n / 1048576).toFixed(2)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 
 /** The page's side: render, and PUT the Blob to our server (so a long video never goes through base64). */
-const renderScript = (format, quality, videoCodec, audioCodec, motionBlur, shutter, allStops) => `(() => {
+const renderScript = (format, quality, videoCodec, audioCodec, motionBlur, shutter, allStops, part = {}) => `(() => {
   window.__r = { state: 'running', progress: 0 };
   movie.on('progress', e => { window.__r.progress = e.progress; });
   (async () => {
     try {
-      const video = { bitrate: ${JSON.stringify(quality)}${videoCodec ? `, codec: ${JSON.stringify(videoCodec)}` : ''} };
+      const video = { ${[part.draft && !part.qualityGiven ? null : `bitrate: ${JSON.stringify(quality)}`, videoCodec ? `codec: ${JSON.stringify(videoCodec)}` : null].filter(Boolean).join(', ')} };
       const audio = { bitrate: ${JSON.stringify(quality)}${audioCodec ? `, codec: ${JSON.stringify(audioCodec)}` : ''} };
       const blob = ${JSON.stringify(format)} === 'pdf'
         ? await movie.exportPDF({ which: ${allStops ? "'stops'" : "'pages'"}, title: document.title })
-        : await movie.render({ format: ${JSON.stringify(format)}, video, audio${motionBlur ? `, motionBlur: { samples: ${motionBlur}${shutter ? `, shutter: ${shutter}` : ''} }` : ''} });
+        : await movie.render({ format: ${JSON.stringify(format)}, video, audio${part.range ? `, range: [${part.range[0] ?? 0}, ${part.range[1] ?? 'movie.duration'}]` : ''}${part.scene ? `, range: ${JSON.stringify(part.scene)}` : ''}${part.scale ? `, scale: ${part.scale}` : ''}${part.draft ? ', draft: true' : ''}${motionBlur ? `, motionBlur: { samples: ${motionBlur}${shutter ? `, shutter: ${shutter}` : ''} }` : ''} });
       const res = await fetch(${JSON.stringify(UPLOAD)}, { method: 'PUT', body: blob });
       if (!res.ok) throw new Error('could not hand the file to the command (' + res.status + ')');
       window.__r = { state: 'done', bytes: blob.size, type: blob.type };
@@ -156,7 +170,7 @@ export async function runRender(opts, log = console.log, progress = () => {}) {
     }
     Object.assign(result, { duration: info.duration, frames: info.totalFrames, width: info.width, height: info.height, frameRate: info.frameRate });
 
-    await cdp.eval(renderScript(opts.format, opts.quality, opts.videoCodec, opts.audioCodec, opts.motionBlur, opts.shutter, opts.allStops));
+    await cdp.eval(renderScript(opts.format, opts.quality, opts.videoCodec, opts.audioCodec, opts.motionBlur, opts.shutter, opts.allStops, { range: opts.range, scene: opts.scene, scale: opts.scale, draft: opts.draft, qualityGiven: opts.qualityGiven }));
     let state;
     for (;;) {
       left();
@@ -190,7 +204,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     if (typeof WebSocket === 'undefined') throw new Error('Node >= 22 is needed (built-in WebSocket)');
     const opts = parseRenderArgs(process.argv.slice(2));
     if (!opts.page) {
-      console.error('usage: node ai/tools/render.mjs <page.html> [-o out.mp4] [--format mp4|webm|mov|mkv|pdf] [--quality very-low|low|medium|high|very-high] [--query a=1] [--fail-on-warn] [--quiet] [--timeout S] [--root DIR] [--chrome PATH]');
+      console.error('usage: node ai/tools/render.mjs <page.html> [-o out.mp4] [--format mp4|webm|mov|mkv|pdf] [--range A:B | --scene NAME] [--scale S] [--draft] [--quality very-low|low|medium|high|very-high] [--query a=1] [--fail-on-warn] [--quiet] [--timeout S] [--root DIR] [--chrome PATH]');
       process.exit(2);
     }
     let last = -1;

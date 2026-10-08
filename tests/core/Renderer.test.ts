@@ -121,6 +121,8 @@ interface MovieStub {
   app: { canvas: HTMLCanvasElement; ticker: { stop(): void; start(): void } };
   frameRate: number;
   totalFrames: number;
+  duration: number;
+  timelineData(): { rows: Array<{ name: string; start: number; end: number; depth: number }> };
   audioBuffer: AudioBuffer | null;
   gotoFrame(frame: number, force?: boolean): Promise<void>;
   emit(event: string, data: unknown): void;
@@ -145,6 +147,8 @@ function fakeMovie(opts: { totalFrames?: number; frameRate?: number; audioBuffer
     },
     frameRate,
     totalFrames,
+    duration: totalFrames / frameRate,
+    timelineData: () => ({ rows: [{ name: 'title', start: 1, end: 2, depth: 0 }] }),
     audioBuffer: opts.audioBuffer ?? null,
     async gotoFrame(frame: number, force?: boolean) { local.gotoFrame.push({ frame, force }); },
     emit(event: string, data: unknown) { local.emit.push({ event, data }); },
@@ -242,6 +246,30 @@ describe('Renderer — encode loop', () => {
     expect(local.gotoFrame.every((c) => c.force === true)).toBe(true);
     expect(calls.canvasSourceAdds.map((c) => c.t)).toEqual([0, 1 / 30, 2 / 30, 3 / 30, 4 / 30, 5 / 30]);
     expect(calls.canvasSourceAdds.every((c) => c.dt === 1 / 30)).toBe(true);
+  });
+
+  it('a range encodes only those frames (the end included), the file starts at 0, and progress counts within the range', async () => {
+    const { movie, local } = fakeMovie({ totalFrames: 300, frameRate: 30 });
+    await exportFrames(asMovie(movie), { range: [2, 3] });
+    expect(local.gotoFrame.map((c) => c.frame)).toEqual(Array.from({ length: 31 }, (_, i) => 60 + i));
+    expect(calls.canvasSourceAdds[0]!.t).toBe(0);
+    expect(calls.canvasSourceAdds[30]!.t).toBeCloseTo(1, 10);
+    const progress = local.emit.filter((e) => e.event === 'progress').map((e) => (e.data as { progress: number }).progress);
+    expect(progress[0]).toBe(0); expect(progress[progress.length - 1]).toBe(100);
+    expect((calls.canvasSourceAdds[0]!.opts as { keyFrame?: true }).keyFrame).toBe(true);        // the first frame of the file is a keyframe
+  });
+
+  it('a layer name is a range', async () => {
+    const { movie, local } = fakeMovie({ totalFrames: 300, frameRate: 30 });
+    await exportFrames(asMovie(movie), { range: 'title' });
+    expect(local.gotoFrame[0]!.frame).toBe(30);
+    expect(local.gotoFrame[local.gotoFrame.length - 1]!.frame).toBe(60);
+  });
+
+  it('a movie that is encoded whole is unchanged: the same frames and timestamps as without any new option', async () => {
+    const { movie, local } = fakeMovie({ totalFrames: 4, frameRate: 30 });
+    await exportFrames(asMovie(movie), { range: [0, 4 / 30] });
+    expect(local.gotoFrame.map((c) => c.frame)).toEqual([0, 1, 2, 3, 4]);
   });
 
   it('forces a keyframe at frame 0 and every ~2 seconds (fps 30 → every 60 frames)', async () => {

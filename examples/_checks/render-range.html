@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>check · render({ range, scale, draft })</title>
+</head>
+<body>
+  <!--
+    Acceptance check (not an example): a 4 s movie with a sustained sound all the way through (so a cut edge is audible) and a named
+    top-level layer ("title", 1 s to 3 s). tests/tools/renderRange.test.ts renders parts of it and decodes the files again.
+  -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":            "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":      "https://esm.sh/mediabunny@1.61.3"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 320, height: 180, duration: 4, frameRate: 30,
+        composition: { sequences: [
+          { type: 'shape', shape: 'rect', name: 'background', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#102040' } },
+          { type: 'text', text: 'hello', name: 'title', at: 1, duration: 2, style: { fontSize: 40, fill: '#ffffff' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+            keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.3 }] },
+          { type: 'audio', name: 'pad', volume: 0.8, music: { bpm: 120, tracks: [{ inst: 'pad', notes: 'c3:8', attack: 0.01 }] } },
+        ] },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+  </script>
+</body>
+</html>

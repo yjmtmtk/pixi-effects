@@ -65,6 +65,15 @@ export interface RenderOptions {
   format?: 'mp4' | 'mov' | 'webm' | 'mkv';
   video?: { codec?: string; bitrate?: 'very-low' | 'low' | 'medium' | 'high' | 'very-high' };
   audio?: { codec?: string; bitrate?: 'very-low' | 'low' | 'medium' | 'high' | 'very-high' };
+  /**
+   * Only part of the movie: `[from, to]` in seconds, or the name of a top-level layer (its start to its end). The file starts at 0
+   * and its sound is cut the same way (with a 10 ms fade on a cut edge). Past the end, backwards or an unknown name is an error.
+   */
+  range?: [number, number] | string;
+  /** Output size relative to the canvas, above 0 and at most 1. Each frame is drawn at full size and copied smaller before it is encoded: the file and the encoding get smaller, the drawing is not faster. */
+  scale?: number;
+  /** For looking, not for delivering: `scale: 0.5`, `video.bitrate: 'low'` and no motion blur. Anything you set yourself wins. */
+  draft?: boolean;
 }
 
 export interface SnapshotOptions {
@@ -866,7 +875,7 @@ export class Movie {
   toggleMute(): boolean { this.muted = !this.muted; return this.muted; }
 
   async render(options?: RenderOptions): Promise<Blob> {
-    warnUnknownOptions('movie.render()', options, ['format', 'video', 'audio', 'motionBlur']);
+    warnUnknownOptions('movie.render()', options, ['format', 'video', 'audio', 'motionBlur', 'range', 'scale', 'draft']);
     try {
       return await this._quietly(() => exportFrames(this, options));
     } catch (err) {

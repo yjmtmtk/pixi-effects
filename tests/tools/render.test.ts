@@ -38,6 +38,29 @@ describe('render.mjs — pure helpers', () => {
     expect(() => tool.parseRenderArgs(['d.html', '-o', 'x.mp4', '--all-stops'])).toThrow(/--all-stops goes with a PDF/);
   });
 
+  it('parseRenderArgs: --range A:B, --scene, --scale and --draft', () => {
+    const d = tool.parseRenderArgs(['p.html']);
+    expect(d).toMatchObject({ range: null, scene: null, scale: null, draft: false });
+    expect(tool.parseRenderArgs(['p.html', '--range', '2:5']).range).toEqual([2, 5]);
+    expect(tool.parseRenderArgs(['p.html', '--range', '1.5:']).range).toEqual([1.5, null]);          // to the end
+    expect(tool.parseRenderArgs(['p.html', '--range', ':4']).range).toEqual([null, 4]);              // from the start
+    expect(tool.parseRenderArgs(['p.html', '--scene', 'title']).scene).toBe('title');
+    expect(tool.parseRenderArgs(['p.html', '--scale', '0.5']).scale).toBe(0.5);
+    expect(tool.parseRenderArgs(['p.html', '--draft']).draft).toBe(true);
+    expect(tool.parseRenderArgs(['p.html', '--draft']).qualityGiven).toBe(false);
+    expect(tool.parseRenderArgs(['p.html', '--draft', '--quality', 'high']).qualityGiven).toBe(true);
+  });
+
+  it('parseRenderArgs: wrong ranges, scales and combinations say what to write', () => {
+    expect(() => tool.parseRenderArgs(['p.html', '--range', '5'])).toThrow(/--range must look like 2:5/);
+    expect(() => tool.parseRenderArgs(['p.html', '--range', '2:x'])).toThrow(/--range must look like 2:5/);
+    expect(() => tool.parseRenderArgs(['p.html', '--scale', '0'])).toThrow(/--scale must be above 0 and at most 1/);
+    expect(() => tool.parseRenderArgs(['p.html', '--scale', '2'])).toThrow(/--scale must be above 0 and at most 1/);
+    expect(() => tool.parseRenderArgs(['p.html', '--range', '1:2', '--scene', 'a'])).toThrow(/--range and --scene cannot be used together/);
+    expect(() => tool.parseRenderArgs(['d.html', '-o', 'x.pdf', '--range', '1:2'])).toThrow(/not for a PDF/);
+    expect(() => tool.parseRenderArgs(['d.html', '--format', 'pdf', '--draft'])).toThrow(/not for a PDF/);
+  });
+
   it('parseRenderArgs: --motion-blur SAMPLES and --shutter', () => {
     expect(tool.parseRenderArgs(['p.html']).motionBlur).toBeNull();
     expect(tool.parseRenderArgs(['p.html', '--motion-blur', '8', '--shutter', '0.25'])).toMatchObject({ motionBlur: 8, shutter: 0.25 });
@@ -62,6 +85,23 @@ describe('render.mjs — pure helpers', () => {
 const chrome = check.findChrome();
 const built = existsSync(join(root, 'dist/index.js'));
 describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('render.mjs — the command, run for real in Chrome', () => {
+  it('--range / --scene / --draft write a smaller file for part of the movie (and --scene with an unknown name exits 1 saying so)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'render-range-'));
+    const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), join(root, 'examples/_checks/render-range.html'), ...args, '--quiet', '--timeout', '150'], { timeout: 170_000 });
+    const full = join(dir, 'full.mp4'), part = join(dir, 'part.mp4'), scene = join(dir, 'scene.mp4');
+    await run(['-o', full]);
+    await run(['-o', part, '--range', '1:2.5', '--draft']);
+    await run(['-o', scene, '--scene', 'title']);
+    expect(statSync(part).size).toBeGreaterThan(1000);
+    expect(statSync(part).size).toBeLessThan(statSync(full).size);
+    expect(statSync(scene).size).toBeGreaterThan(1000);
+    expect(statSync(scene).size).toBeLessThan(statSync(full).size);
+    const bad = await run(['-o', join(dir, 'bad.mp4'), '--scene', 'nope']).then(() => null, (e: any) => e);
+    expect(bad?.code).toBe(1);
+    expect(String(bad?.stderr)).toMatch(/no layer named "nope"/);
+    rmSync(dir, { recursive: true, force: true });
+  }, 400_000);
+
   it('renders a page to an mp4 file (a real file, with the page\'s duration and size) and exits 0', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'render-test-'));
     const out = join(dir, 'clip.mp4');

@@ -6,6 +6,8 @@ import {
 } from 'mediabunny';
 import type { Movie, RenderOptions } from './Movie';
 import { resolveMotionBlur } from './motionBlur';
+import type { MotionBlurSpec } from './motionBlur';
+import { resolveRange, resolveRenderOptions, sliceChannels } from './renderRange';
 
 const VIDEO_CODEC_BY_FORMAT = {
   mp4: 'avc',
@@ -75,13 +77,24 @@ function makeOutputFormat(name: 'mp4' | 'mov' | 'webm' | 'mkv') {
   }
 }
 
+/** The audio of `buffer` between two times as a new buffer (see `sliceChannels`). */
+function sliceAudio(buffer: AudioBuffer, fromSec: number, toSec: number, fadeIn: boolean, fadeOut: boolean): AudioBuffer {
+  const channels = Array.from({ length: buffer.numberOfChannels }, (_, c) => buffer.getChannelData(c));
+  const cut = sliceChannels(channels, buffer.sampleRate, fromSec, toSec, { fadeIn, fadeOut });
+  const out = new AudioBuffer({ length: cut[0]!.length, numberOfChannels: cut.length, sampleRate: buffer.sampleRate });
+  cut.forEach((data, c) => out.copyToChannel(data as Float32Array<ArrayBuffer>, c));
+  return out;
+}
+
 export async function exportFrames(movie: Movie, options: RenderOptions = {}): Promise<Blob> {
   const fmt = options.format ?? 'mp4';
+  const eff = resolveRenderOptions(options);                         // `draft` expanded, `scale` checked
+  const range = resolveRange(options.range, { frameRate: movie.frameRate, totalFrames: movie.totalFrames, duration: movie.duration, rows: typeof options.range === 'string' ? movie.timelineData().rows : undefined });
   const opts = {
     format: fmt,
     video: {
       codec: options.video?.codec ?? VIDEO_CODEC_BY_FORMAT[fmt],
-      bitrate: qualityMap[options.video?.bitrate ?? 'high'] ?? QUALITY_HIGH,
+      bitrate: qualityMap[eff.bitrate ?? 'high'] ?? QUALITY_HIGH,
     },
     audio: {
       codec: options.audio?.codec ?? AUDIO_CODEC_BY_FORMAT[fmt],
@@ -90,32 +103,39 @@ export async function exportFrames(movie: Movie, options: RenderOptions = {}): P
   };
 
   const container = makeOutputFormat(opts.format);
-  if (movie.audioBuffer) opts.audio.codec = await chooseAudioCodec(fmt, options.audio?.codec, container, movie.audioBuffer, opts.audio.bitrate) as never;
+  // a range cuts the audio the same way (with a short fade on a cut edge, not on the movie's own start or end)
+  const audio = movie.audioBuffer && range.partial ? sliceAudio(movie.audioBuffer, range.fromSec, range.toSec, range.fromFrame > 0, range.toFrame < movie.totalFrames) : movie.audioBuffer;
+  if (audio) opts.audio.codec = await chooseAudioCodec(fmt, options.audio?.codec, container, audio, opts.audio.bitrate) as never;
   const output = new Output({
     format: container,
     target: new BufferTarget(),
   });
   // With motion blur every frame is drawn several times and averaged into this canvas, which is what gets encoded.
-  const mb = options.motionBlur !== undefined ? resolveMotionBlur(options.motionBlur, 'movie.render()') : (movie.motionBlur ?? null);
+  const mb = eff.motionBlur !== undefined ? resolveMotionBlur(eff.motionBlur as MotionBlurSpec, 'movie.render()') : (movie.motionBlur ?? null);
   const stage = movie.app!.canvas as HTMLCanvasElement;
   const blurCanvas = mb ? Object.assign(document.createElement('canvas'), { width: stage.width, height: stage.height }) : null;
-  const canvasSource = new CanvasSource(blurCanvas ?? stage, {
+  // `scale` < 1: each frame is copied smaller into this canvas and that is what gets encoded (even sides: H.264 needs them)
+  const small = eff.scale < 1
+    ? Object.assign(document.createElement('canvas'), { width: Math.max(2, Math.round((stage.width * eff.scale) / 2) * 2), height: Math.max(2, Math.round((stage.height * eff.scale) / 2) * 2) })
+    : null;
+  const smallCtx = small?.getContext('2d') ?? null;
+  const canvasSource = new CanvasSource(small ?? blurCanvas ?? stage, {
     codec: opts.video.codec as any,
     bitrate: opts.video.bitrate,
   });
   output.addVideoTrack(canvasSource, { frameRate: movie.frameRate });
 
-  if (movie.audioBuffer) {
+  if (audio) {
     // AAC encoders emit AAC_PRIMING_SAMPLES of silence first. Starting the track that much earlier makes
     // mediabunny write an edit list that trims them, so the file's audio starts where the browser's does
     // (without it every sound in an MP4 / MOV was ~45 ms late). Opus signals its own pre-skip.
     const audioSource = new AudioBufferSource({
       codec: opts.audio.codec as any,
       bitrate: opts.audio.bitrate,
-    }, { startTimestamp: opts.audio.codec === 'aac' ? -AAC_PRIMING_SAMPLES / movie.audioBuffer.sampleRate : 0 });
+    }, { startTimestamp: opts.audio.codec === 'aac' ? -AAC_PRIMING_SAMPLES / audio.sampleRate : 0 });
     output.addAudioTrack(audioSource);
     await output.start();
-    await audioSource.add(movie.audioBuffer);
+    await audioSource.add(audio);
     await audioSource.close();
   } else {
     await output.start();
@@ -126,13 +146,16 @@ export async function exportFrames(movie: Movie, options: RenderOptions = {}): P
   // responsiveness in players without inflating bitrate appreciably.
   const keyframeIntervalFrames = Math.max(1, Math.round(2 * movie.frameRate));
   try {
-    for (let frame = 0; frame <= movie.totalFrames; frame++) {
+    const count = Math.max(1, range.toFrame - range.fromFrame);
+    for (let frame = range.fromFrame; frame <= range.toFrame; frame++) {
       if (mb && blurCanvas) await movie._exposeFrame(frame, mb, blurCanvas, false);
       else await movie.gotoFrame(frame, true);
-      const isKey = frame === 0 || frame % keyframeIntervalFrames === 0;
+      if (small && smallCtx) smallCtx.drawImage(blurCanvas ?? stage, 0, 0, small.width, small.height);
+      const rel = frame - range.fromFrame;
+      const isKey = rel === 0 || rel % keyframeIntervalFrames === 0;
       const addOpts = isKey ? { keyFrame: true } : undefined;
-      await canvasSource.add(frame / movie.frameRate, 1 / movie.frameRate, addOpts);
-      const progress = Math.floor((frame / movie.totalFrames) * 100);
+      await canvasSource.add(rel / movie.frameRate, 1 / movie.frameRate, addOpts);
+      const progress = Math.floor((rel / count) * 100);
       movie.emit('progress', { progress, frame, totalFrames: movie.totalFrames });
     }
     await canvasSource.close();
