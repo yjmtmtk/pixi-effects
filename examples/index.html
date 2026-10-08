@@ -5,55 +5,77 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>pixi-effects · examples</title>
   <meta name="description" content="Fifteen numbered examples, a music lab and an in-browser playground for pixi-effects: each one a single HTML file you can read and copy.">
-  <style>
-    body { background: #0a0a0f; color: #ccc; font-family: system-ui, -apple-system, sans-serif; padding: 40px; max-width: 720px; margin: 0 auto; line-height: 1.5; }
-    h1 { font-weight: 500; margin: 0 0 4px 0; }
-    p { color: #888; font-size: 14px; margin: 0 0 24px 0; }
-    ol { list-style: none; padding: 0; margin: 0 0 24px 0; counter-reset: ex; }
-    ol li { counter-increment: ex; margin: 0; }
-    ol li a { color: #ddd; padding: 10px 0; display: block; text-decoration: none; border-bottom: 1px solid #1a1a22; }
-    ol li a:hover { background: #11162a; color: #fff; padding-left: 8px; }
-    ol li a small { color: #88ccff; font-family: Menlo, monospace; margin-right: 12px; }
-    .playground { display: inline-block; margin-top: 8px; padding: 10px 18px; background: #1a2140; color: #ddd; border-radius: 6px; text-decoration: none; }
-    .playground:hover { background: #243069; color: #fff; }
-    a.repo { color: #88ccff; font-size: 12px; }
-    a.guide { display: block; margin: 0 0 14px 0; padding: 22px 24px; background: linear-gradient(120deg, #14335a, #1b4a5a); color: #fff; border-radius: 10px; text-decoration: none; }
-    a.guide strong { display: block; font-size: 22px; font-weight: 600; letter-spacing: .01em; }
-    a.guide span { color: #b9e3ee; font-size: 14px; }
-    a.guide:hover { background: linear-gradient(120deg, #1a4272, #236070); }
-    a.gallery { display: block; margin: 0 0 28px 0; padding: 22px 24px; background: linear-gradient(120deg, #1b2347, #2a1f4a); color: #fff; border-radius: 10px; text-decoration: none; }
-    a.gallery strong { display: block; font-size: 22px; font-weight: 600; letter-spacing: .01em; }
-    a.gallery span { color: #b9c3ee; font-size: 14px; }
-    a.gallery:hover { background: linear-gradient(120deg, #243069, #38286a); }
-    .ai { font-size: 13px; color: #888; margin: 0 0 24px 0; }
-    .ai a { color: #88ccff; margin-right: 12px; }
-  </style>
+<!--site:head-->
+<link rel="stylesheet" href="../site/shared/tokens.css">
+<link rel="stylesheet" href="../site/shared/site.css">
+<script>try{var t=localStorage.getItem('pe-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+<script src="../site/shared/site.js" defer></script>
+<!--/site:head-->
+  <link rel="stylesheet" href="examples.css">
 </head>
 <body>
-  <h1>pixi-effects · examples</h1>
-  <p class="home"><a class="repo" href="../">← pixi-effects home</a></p>
-  <p>Declarative composition + video rendering for the web. Read in order — each example focuses on one feature area. <a class="repo" href="https://github.com/yjmtmtk/pixi-effects">github.com/yjmtmtk/pixi-effects</a></p>
-  <a class="guide" href="../guide/"><strong>📖 Guide — learn it, step by step</strong><span>Your first video in ten minutes, how it works, guides for text, shapes, audio, filters and 2.5D, a cookbook with live demos, and the tools that let an AI write and check a video.</span></a>
-  <a class="gallery" href="gallery/"><strong>▶ Gallery — 39 motion-graphics pieces</strong><span>Logo reveals, kinetic type, data stories, 2.5D, three.js and more — each one plain data written by an AI (fable, opus or sonnet).</span></a>
-  <p class="ai">For AI agents: <a href="../ai/SKILL.md">SKILL.md</a><a href="../llms.txt">llms.txt</a><a href="../llms-full.txt">llms-full.txt</a><a href="../ai/template.html">template.html</a></p>
-  <ol>
-    <li><a href="01-hello.html"><small>01</small>hello — minimum viable composition</a></li>
-    <li><a href="02-keyframes.html"><small>02</small>keyframes &amp; expressions</a></li>
-    <li><a href="03-shapes.html"><small>03</small>shapes</a></li>
-    <li><a href="04-media.html"><small>04</small>media (image / video / audio)</a></li>
-    <li><a href="05-composition-mask.html"><small>05</small>composition &amp; mask</a></li>
-    <li><a href="06-filters.html"><small>06</small>filters</a></li>
-    <li><a href="07-transitions.html"><small>07</small>transitions</a></li>
-    <li><a href="08-presets-export.html"><small>08</small>presets &amp; export</a></li>
-    <li><a href="09-audio.html"><small>09</small>audio (multi-track + ducking)</a></li>
-    <li><a href="10-three.html"><small>10</small>three.js layer</a></li>
-    <li><a href="11-depth.html"><small>11</small>depth &amp; camera (2.5D)</a></li>
-    <li><a href="12-title-motion.html"><small>12</small>title motion (2.5D)</a></li>
-    <li><a href="13-sfx.html"><small>13</small>sound effects (no files)</a></li>
-    <li><a href="14-draw-on.html"><small>14</small>draw-on strokes, changing text</a></li>
-    <li><a href="15-custom-player.html"><small>15</small>your own player</a></li>
-    <li><a href="music-lab.html"><small>♪</small>music lab — eight tunes written as text</a></li>
-  </ol>
-  <a class="playground" href="playground.html">▶ open playground</a>
+<!--site:header-->
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../"><span class="dia" aria-hidden="true"></span>pixi-effects</a>
+    <nav aria-label="Site">
+      <a href="../guide/">Guide</a>
+      <a href="../examples/gallery/">Gallery</a>
+      <a href="../examples/" aria-current="page">Examples</a>
+      <a href="../examples/playground.html">Playground</a>
+      <a class="only-wide" href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
+    </nav>
+    <button class="theme" type="button" id="themeBtn" aria-label="Colour theme: auto. Click to change">auto</button>
+  </div>
+</header>
+<!--/site:header-->
+<main id="main" class="wrap">
+  <p class="mono"><span class="dia" aria-hidden="true"></span> Examples</p>
+  <h1>Read them in order</h1>
+  <p class="ex-intro">Each example is one HTML file that focuses on one feature area. Open it, read the source, copy what you need. The first one is the smallest composition that plays.</p>
+<!--site:examples-list-->
+<ol class="ex-grid">
+<li><a class="ex" href="01-hello.html"><span class="n">01</span><b>hello</b><span>The smallest useful composition: one text layer that fades in, sits and fades out. Read this first.</span></a></li>
+<li><a class="ex" href="02-keyframes.html"><span class="n">02</span><b>keyframes &amp; expressions</b><span>One text layer moves through every transform property; each keyframe shows what one knob does.</span></a></li>
+<li><a class="ex" href="03-shapes.html"><span class="n">03</span><b>shapes</b><span>Every shape type in one frame, each animating a property particular to it.</span></a></li>
+<li><a class="ex" href="04-media.html"><span class="n">04</span><b>media</b><span>Image, video and audio together; a chroma-keyed video drops its green over a gradient picture.</span></a></li>
+<li><a class="ex" href="05-composition-mask.html"><span class="n">05</span><b>composition &amp; mask</b><span>Nested compositions with their own coordinates, and masks: an avatar crop, an iris reveal, a punched-out hole.</span></a></li>
+<li><a class="ex" href="06-filters.html"><span class="n">06</span><b>filters</b><span>Chroma key, blur, colour matrix and community pixi-filters, every parameter animated by keyframes.</span></a></li>
+<li><a class="ex" href="07-transitions.html"><span class="n">07</span><b>transitions</b><span>Eight named scenes chained by all seven transition kinds.</span></a></li>
+<li><a class="ex" href="08-presets-export.html"><span class="n">08</span><b>presets &amp; export</b><span>Four Ken Burns motions with crossfades, and a button that exports from code with movie.render().</span></a></li>
+<li><a class="ex" href="09-audio.html"><span class="n">09</span><b>audio</b><span>A music track and four short effects synced to the picture; the music ducks while an effect plays.</span></a></li>
+<li><a class="ex" href="10-three.html"><span class="n">10</span><b>three.js layer</b><span>A rotating three.js torus knot composited as an ordinary layer.</span></a></li>
+<li><a class="ex" href="11-depth.html"><span class="n">11</span><b>depth &amp; camera</b><span>2D layers placed in depth and seen through a camera, without three.js.</span></a></li>
+<li><a class="ex" href="12-title-motion.html"><span class="n">12</span><b>title motion</b><span>A 2.5D title from text, shapes and a camera: letters fly in from depth while the camera orbits.</span></a></li>
+<li><a class="ex" href="13-sfx.html"><span class="n">13</span><b>sound effects</b><span>Every sound is synthesised from data: no audio files.</span></a></li>
+<li><a class="ex" href="14-draw-on.html"><span class="n">14</span><b>draw-on strokes, changing text</b><span>Strokes that draw themselves on, and text that types or changes over time.</span></a></li>
+<li><a class="ex" href="15-custom-player.html"><span class="n">15</span><b>your own player</b><span>The Controller is optional: build a player from the movie's public methods and events.</span></a></li>
+</ol>
+<h2 class="ex-more">More</h2>
+<ol class="ex-grid">
+<li><a class="ex" href="music-lab.html"><span class="n">♪</span><b>music lab</b><span>Eight tunes written as text and played by the built-in synthesiser, with their scores.</span></a></li>
+<li><a class="ex" href="playground.html"><span class="n">♪</span><b>playground</b><span>Edit a composition in the page and run it.</span></a></li>
+</ol>
+<!--/site:examples-list-->
+</main>
+<!--site:footer-->
+<footer class="site-foot">
+  <div class="wrap">
+    <p class="links">
+      <a href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
+      <a href="https://www.npmjs.com/package/pixi-effects">npm: pixi-effects</a>
+      <a href="../guide/">Guide</a>
+      <a href="../examples/gallery/">Gallery</a>
+      <a href="../examples/">Examples</a>
+      <a href="../examples/playground.html">Playground</a>
+      <a href="../examples/music-lab.html">Music lab</a>
+      <a href="https://github.com/yjmtmtk/pixi-effects/blob/main/ai/SKILL.md">AI skill</a>
+      <a href="../llms.txt">llms.txt</a>
+    </p>
+    <p class="end"><span class="dia" aria-hidden="true"></span><span>pixi-effects · MIT · built on PixiJS v8, GSAP and mediabunny</span></p>
+  </div>
+</footer>
+<!--/site:footer-->
 </body>
 </html>

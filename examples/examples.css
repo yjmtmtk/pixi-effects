@@ -1,0 +1,13 @@
+/* The Examples entrance only. Colours, fonts, header and footer come from site/shared. */
+main.wrap{padding-top:56px}
+h1{font-size:clamp(36px,6vw,64px);margin-top:14px}
+.ex-intro{color:var(--ink-2);max-width:62ch;margin:16px 0 0;font-size:17px}
+.ex-grid{list-style:none;margin:32px 0 0;padding:0;display:grid;grid-template-columns:1fr;gap:12px}
+.ex{display:grid;align-content:start;gap:4px;padding:16px 18px;border:1px solid var(--line);border-radius:10px;background:var(--bg-2);text-decoration:none;color:var(--ink);height:100%}
+.ex:hover{border-color:var(--accent)}
+.ex .n{font-family:var(--mono);font-size:12px;letter-spacing:.1em;color:var(--accent)}
+.ex b{font-size:18px;letter-spacing:-.01em}
+.ex span:last-child{color:var(--ink-2);font-size:14.5px}
+.ex-more{font-size:22px;margin-top:40px}
+@media (min-width:600px){.ex-grid{grid-template-columns:1fr 1fr}}
+@media (min-width:900px){.ex-grid{grid-template-columns:1fr 1fr 1fr}}

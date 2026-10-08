@@ -12,6 +12,17 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 /** Extra regions a page may ask for in site/pages.json (`regions: ["examples-list"]`): name → (ctx) => html. */
 export const REGIONS = {};
 
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const isNumbered = (e) => /^\d\d$/.test(e.id);
+
+/** The cards of examples/index.html, from examples/examples.json. */
+REGIONS['examples-list'] = ({ root_dir }) => {
+  const { examples } = JSON.parse(readFileSync(join(root_dir, 'examples/examples.json'), 'utf8'));
+  const card = (e) => `<li><a class="ex" href="${esc(e.file)}"><span class="n">${isNumbered(e) ? e.id : '♪'}</span><b>${esc(e.title)}</b><span>${esc(e.blurb)}</span></a></li>`;
+  const list = (items) => `<ol class="ex-grid">\n${items.map(card).join('\n')}\n</ol>`;
+  return `${list(examples.filter(isNumbered))}\n<h2 class="ex-more">More</h2>\n${list(examples.filter((e) => !isNumbered(e)))}`;
+};
+
 export function syncSite({ root = ROOT, check = false } = {}) {
   const { pages } = JSON.parse(readFileSync(join(root, 'site/pages.json'), 'utf8'));
   const stale = [], written = [];

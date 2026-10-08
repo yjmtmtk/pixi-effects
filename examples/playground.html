@@ -4,42 +4,47 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>pixi-effects — playground</title>
+<!--site:head-->
+<link rel="stylesheet" href="../site/shared/tokens.css">
+<link rel="stylesheet" href="../site/shared/site.css">
+<script>try{var t=localStorage.getItem('pe-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+<script src="../site/shared/site.js" defer></script>
+<!--/site:head-->
   <style>
+    /* The playground is an app, not a document: it fills the window under the shared header. */
     html, body { height: 100%; margin: 0; }
-    body {
-      background: #0d1220;
-      color: #ccc;
-      font-family: system-ui, -apple-system, sans-serif;
-      display: grid;
-      grid-template-rows: 36px 1fr auto;
-      grid-template-columns: 1fr 1fr;
-    }
+    body { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; grid-template-columns: 1fr 1fr; }
+    body > .skip, body > .top { grid-column: 1 / -1; }
+    .top { position: static; }
     #toolbar {
       grid-column: 1 / -1;
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 0 12px;
-      background: #11162a;
-      border-bottom: 1px solid #1d2440;
+      padding: 8px var(--gutter);
+      background: var(--bg-2);
+      border-bottom: 1px solid var(--line);
       font-size: 13px;
     }
     #toolbar .spacer { flex: 1; }
-    #toolbar .title  { color: #8899bb; font-size: 12px; }
+    #toolbar .title  { color: var(--ink-3); font-size: 12px; }
     #toolbar select, #toolbar button {
-      background: #1a2140;
-      color: #ddd;
-      border: 1px solid #2a3563;
+      background: var(--bg-3);
+      color: var(--ink);
+      border: 1px solid var(--line-2);
       border-radius: 4px;
       padding: 4px 10px;
       font: inherit;
       cursor: pointer;
+      white-space: nowrap;
     }
-    #toolbar button:hover, #toolbar select:hover { background: #243069; }
+    #toolbar button:hover, #toolbar select:hover { border-color: var(--ink-3); }
+    main#main { display: contents; }
     #editor {
       overflow: auto;
-      border-right: 1px solid #1d2440;
+      border-right: 1px solid var(--line);
       min-width: 0;
+      min-height: 0;
     }
     #editor .cm-editor { height: 100%; }
     #stageWrap {
@@ -50,6 +55,7 @@
       padding: 16px;
       overflow: hidden;
       min-width: 0;
+      min-height: 0;
     }
     #stage {
       max-width: 100%;
@@ -72,22 +78,41 @@
       overflow: auto;
     }
     @media (max-width: 720px) {
-      body { grid-template-columns: 1fr; grid-template-rows: 36px auto auto auto; }
-      #editor { border-right: none; border-bottom: 1px solid #1d2440; min-height: 240px; }
+      body { grid-template-columns: 1fr; grid-template-rows: auto auto auto auto auto; }
+      #editor { border-right: none; border-bottom: 1px solid var(--line); min-height: 240px; }
+      #toolbar .title { display: none; }
     }
   </style>
 </head>
 <body>
+<!--site:header-->
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../"><span class="dia" aria-hidden="true"></span>pixi-effects</a>
+    <nav aria-label="Site">
+      <a href="../guide/">Guide</a>
+      <a href="../examples/gallery/">Gallery</a>
+      <a href="../examples/">Examples</a>
+      <a href="../examples/playground.html" aria-current="page">Playground</a>
+      <a class="only-wide" href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
+    </nav>
+    <button class="theme" type="button" id="themeBtn" aria-label="Colour theme: auto. Click to change">auto</button>
+  </div>
+</header>
+<!--/site:header-->
   <div id="toolbar">
     <select id="preset" aria-label="Preset"></select>
     <button id="run" type="button">▶ Run (⌘↵)</button>
     <span class="spacer"></span>
     <span class="title">pixi-effects · playground</span>
   </div>
+  <main id="main">
   <div id="editor"></div>
   <div id="stageWrap">
     <canvas id="stage" width="1280" height="720"></canvas>
   </div>
+  </main>
   <pre id="err"></pre>
 
   <script type="importmap">

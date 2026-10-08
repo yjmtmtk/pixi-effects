@@ -3,6 +3,25 @@
     {
       "file": "index.html",
       "current": "home"
+    },
+    {
+      "file": "examples/index.html",
+      "current": "examples",
+      "regions": [
+        "examples-list"
+      ]
+    },
+    {
+      "file": "examples/music-lab.html",
+      "current": "examples"
+    },
+    {
+      "file": "examples/playground.html",
+      "current": "playground",
+      "parts": [
+        "head",
+        "header"
+      ]
     }
   ]
 }

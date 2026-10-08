@@ -1,0 +1,19 @@
+{ "examples": [
+  { "id": "01", "file": "01-hello.html", "title": "hello", "blurb": "The smallest useful composition: one text layer that fades in, sits and fades out. Read this first." },
+  { "id": "02", "file": "02-keyframes.html", "title": "keyframes & expressions", "blurb": "One text layer moves through every transform property; each keyframe shows what one knob does." },
+  { "id": "03", "file": "03-shapes.html", "title": "shapes", "blurb": "Every shape type in one frame, each animating a property particular to it." },
+  { "id": "04", "file": "04-media.html", "title": "media", "blurb": "Image, video and audio together; a chroma-keyed video drops its green over a gradient picture." },
+  { "id": "05", "file": "05-composition-mask.html", "title": "composition & mask", "blurb": "Nested compositions with their own coordinates, and masks: an avatar crop, an iris reveal, a punched-out hole." },
+  { "id": "06", "file": "06-filters.html", "title": "filters", "blurb": "Chroma key, blur, colour matrix and community pixi-filters, every parameter animated by keyframes." },
+  { "id": "07", "file": "07-transitions.html", "title": "transitions", "blurb": "Eight named scenes chained by all seven transition kinds." },
+  { "id": "08", "file": "08-presets-export.html", "title": "presets & export", "blurb": "Four Ken Burns motions with crossfades, and a button that exports from code with movie.render()." },
+  { "id": "09", "file": "09-audio.html", "title": "audio", "blurb": "A music track and four short effects synced to the picture; the music ducks while an effect plays." },
+  { "id": "10", "file": "10-three.html", "title": "three.js layer", "blurb": "A rotating three.js torus knot composited as an ordinary layer." },
+  { "id": "11", "file": "11-depth.html", "title": "depth & camera", "blurb": "2D layers placed in depth and seen through a camera, without three.js." },
+  { "id": "12", "file": "12-title-motion.html", "title": "title motion", "blurb": "A 2.5D title from text, shapes and a camera: letters fly in from depth while the camera orbits." },
+  { "id": "13", "file": "13-sfx.html", "title": "sound effects", "blurb": "Every sound is synthesised from data: no audio files." },
+  { "id": "14", "file": "14-draw-on.html", "title": "draw-on strokes, changing text", "blurb": "Strokes that draw themselves on, and text that types or changes over time." },
+  { "id": "15", "file": "15-custom-player.html", "title": "your own player", "blurb": "The Controller is optional: build a player from the movie's public methods and events." },
+  { "id": "music-lab", "file": "music-lab.html", "title": "music lab", "blurb": "Eight tunes written as text and played by the built-in synthesiser, with their scores." },
+  { "id": "playground", "file": "playground.html", "title": "playground", "blurb": "Edit a composition in the page and run it." }
+] }

@@ -5,48 +5,80 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Music written as text</title>
   <meta name="description" content="Eight tunes with no audio files: notes, chords and drum patterns written as text and played by the pixi-effects synthesiser. Press play, read each score, save a WAV.">
+<!--site:head-->
+<link rel="stylesheet" href="../site/shared/tokens.css">
+<link rel="stylesheet" href="../site/shared/site.css">
+<script>try{var t=localStorage.getItem('pe-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+<script src="../site/shared/site.js" defer></script>
+<!--/site:head-->
   <style>
-    :root {
-      --bg: #0e1220; --panel: #151b2e; --line: #232c47; --ink: #e8ecf6; --dim: #9aa5c4; --accent: #ffcf7a; --accent-ink: #2a1c05;
-    }
-    @media (prefers-color-scheme: light) {
-      :root:not([data-theme="dark"]) { --bg: #f4f1ea; --panel: #ffffff; --line: #e1dccf; --ink: #1d2233; --dim: #5c6580; --accent: #c9781a; --accent-ink: #ffffff; }
-    }
-    * { box-sizing: border-box; }
-    body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 system-ui, -apple-system, 'Segoe UI', sans-serif; }
     main { max-width: 860px; margin: 0 auto; padding: 40px 16px 80px; }
     h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.01em; }
-    .lede { color: var(--dim); margin: 0 0 24px; max-width: 62ch; }
+    .lede { color: var(--ink-2); margin: 0 0 24px; max-width: 62ch; }
     .lede a { color: var(--accent); }
-    .tune { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; margin: 0 0 14px; }
+    .tune { background: var(--bg-2); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; margin: 0 0 14px; }
     .tune.playing { border-color: var(--accent); }
     .head { display: grid; grid-template-columns: 48px 1fr auto; gap: 14px; align-items: center; }
-    .play { width: 48px; height: 48px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink); cursor: pointer; display: grid; place-items: center; }
+    .play { width: 48px; height: 48px; border-radius: 50%; border: 0; background: var(--accent); color: var(--on-accent); cursor: pointer; display: grid; place-items: center; }
     .play:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
     .play svg { width: 20px; height: 20px; fill: currentColor; }
     .play[disabled] { opacity: 0.6; cursor: progress; }
     h2 { font-size: 18px; margin: 0; }
-    .by { color: var(--dim); font-size: 13px; }
-    .time { color: var(--dim); font: 13px ui-monospace, Menlo, monospace; }
+    .by { color: var(--ink-2); font-size: 13px; }
+    .time { color: var(--ink-2); font: 13px ui-monospace, Menlo, monospace; }
     .brief { margin: 12px 0 4px; color: var(--ink); }
     .brief q { font-style: italic; }
-    .summary { margin: 0 0 10px; color: var(--dim); font-size: 14px; }
+    .summary { margin: 0 0 10px; color: var(--ink-2); font-size: 14px; }
     .bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; margin: 10px 0 4px; }
     .bar > i { display: block; height: 100%; width: 0; background: var(--accent); }
     .tools { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
     .tools button, details summary { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
     details { flex-basis: 100%; }
-    details pre { margin: 8px 0 0; padding: 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; max-height: 340px; overflow: auto; font: 12px/1.5 ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-word; }
-    footer { color: var(--dim); font-size: 13px; margin-top: 28px; }
+    details pre { margin: 8px 0 0; padding: 12px; background: var(--code-bg); color: var(--code-ink); border: 1px solid var(--line); border-radius: 8px; max-height: 340px; overflow: auto; font: 12px/1.5 ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-word; }
+    .lab-note { color: var(--ink-2); font-size: 13px; margin-top: 28px; }
   </style>
 </head>
 <body>
-  <main>
+<!--site:header-->
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../"><span class="dia" aria-hidden="true"></span>pixi-effects</a>
+    <nav aria-label="Site">
+      <a href="../guide/">Guide</a>
+      <a href="../examples/gallery/">Gallery</a>
+      <a href="../examples/" aria-current="page">Examples</a>
+      <a href="../examples/playground.html">Playground</a>
+      <a class="only-wide" href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
+    </nav>
+    <button class="theme" type="button" id="themeBtn" aria-label="Colour theme: auto. Click to change">auto</button>
+  </div>
+</header>
+<!--/site:header-->
+  <main id="main">
     <h1>Music written as text</h1>
     <p class="lede">Eight tunes, no audio files. Each one is a few lines of text (notes, chords, drum patterns, a tempo) played by the small synthesiser in <a href="../guide/audio.html">pixi-effects</a>. Press play; open <em>Score</em> to read what you hear. Seven were written by fresh Claude sessions that had only the notation guide and a one-line brief, and none of them could hear what it wrote.</p>
     <div id="tunes"></div>
-    <footer>An audio layer takes the same object: <code>{ type: 'audio', music: { bpm, tracks, drums } }</code>. To play it yourself, <code>await musicBuffer(music)</code> returns a Web Audio buffer. <a href="../guide/audio.html#music-written-as-text" style="color:inherit">How the notation works →</a></footer>
+    <div class="lab-note">An audio layer takes the same object: <code>{ type: 'audio', music: { bpm, tracks, drums } }</code>. To play it yourself, <code>await musicBuffer(music)</code> returns a Web Audio buffer. <a href="../guide/audio.html#music-written-as-text" style="color:inherit">How the notation works →</a></div>
   </main>
+<!--site:footer-->
+<footer class="site-foot">
+  <div class="wrap">
+    <p class="links">
+      <a href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
+      <a href="https://www.npmjs.com/package/pixi-effects">npm: pixi-effects</a>
+      <a href="../guide/">Guide</a>
+      <a href="../examples/gallery/">Gallery</a>
+      <a href="../examples/">Examples</a>
+      <a href="../examples/playground.html">Playground</a>
+      <a href="../examples/music-lab.html">Music lab</a>
+      <a href="https://github.com/yjmtmtk/pixi-effects/blob/main/ai/SKILL.md">AI skill</a>
+      <a href="../llms.txt">llms.txt</a>
+    </p>
+    <p class="end"><span class="dia" aria-hidden="true"></span><span>pixi-effects · MIT · built on PixiJS v8, GSAP and mediabunny</span></p>
+  </div>
+</footer>
+<!--/site:footer-->
 
   <script>
     window.__logs = [];

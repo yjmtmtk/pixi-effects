@@ -51,12 +51,12 @@ describe('sync-site: the pages carry the shared parts, up to date', () => {
     expect(stale).toEqual([]);
   });
 
-  it('every page lists the three markers and a <main id="main">', () => {
-    const pages = JSON.parse(readFileSync(resolve(root, 'site/pages.json'), 'utf8')).pages as Array<{ file: string }>;
+  it('every page has its markers (all three unless the page lists `parts`) and a <main id="main">', () => {
+    const pages = JSON.parse(readFileSync(resolve(root, 'site/pages.json'), 'utf8')).pages as Array<{ file: string; parts?: string[] }>;
     expect(pages.length).toBeGreaterThan(0);
     for (const p of pages) {
       const html = readFileSync(resolve(root, p.file), 'utf8');
-      for (const name of ['head', 'header', 'footer']) expect(html, `${p.file} ${name}`).toMatch(new RegExp(`<!--site:${name}-->[\\s\\S]*<!--/site:${name}-->`));
+      for (const name of p.parts ?? ['head', 'header', 'footer']) expect(html, `${p.file} ${name}`).toMatch(new RegExp(`<!--site:${name}-->[\\s\\S]*<!--/site:${name}-->`));
       expect(html, p.file).toContain('<main id="main"');
     }
   });

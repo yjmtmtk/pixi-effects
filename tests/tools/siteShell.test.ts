@@ -13,7 +13,7 @@ const chrome = check.findChrome();
 const built = existsSync(join(root, 'dist/index.js'));
 
 /** Pages that carry the shared header (each task that moves a page onto the shared shell adds it here). */
-const PAGES: Array<[string]> = [['index.html'], ['guide-preview/getting-started.html']];
+const PAGES: Array<[string]> = [['index.html'], ['guide-preview/getting-started.html'], ['examples/index.html'], ['examples/music-lab.html'], ['examples/playground.html']];
 
 async function withPage<T>(path: string, width: number, fn: (cdp: any) => Promise<T>): Promise<T> {
   const { server, port } = await check.serve(root);
