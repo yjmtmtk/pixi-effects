@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+**Site**
+
+- **One look for the whole site.** The landing page, Guide, Gallery, Examples and Playground share one set of colours, fonts, header and footer (`site/shared/`), with the landing page's palette as the reference and both the dark and the light theme everywhere. The navigation is the same five entrances on every page (Home, Guide, Gallery, Examples, Playground); on a phone the header is two rows so nothing falls off the screen. `site/README.md` says where everything is and how to change it.
+- **The Gallery is rebuilt on those parts.** Same behaviour (filters, the theatre with next / previous, `#id` links); it no longer loads a web font, and its theatre stays a dark room in the light theme. The total running time in its intro no longer prints `47.700000000000045 s`.
+- **The Examples entrance is a list of cards** (`examples/examples.json`), including the music lab and the playground; a test fails if a numbered example is missing from it.
+- **The landing page moved to `index.html` at the repository root** (the repository root is the site root), so it opens from any static server without symlinks; the preview script and `npm run landing` are gone.
+- **The deployed layout is code** (`scripts/stage-site.mjs`, which the Pages workflow runs) and a checker (`scripts/site-links.mjs`) fails the tests when any page has a local link that does not resolve. The header, footer and `<head>` links of every page are written from one place (`scripts/site-parts.mjs`, `npm run site:sync`).
+
 **Changed**
 
 - **The browser tools no longer make a sound.** `pixi-effects-check`, `pixi-effects-render` and the test suite start their private Chrome with `--mute-audio`, so a piece with sound no longer plays through the speakers while it is checked or exported (the audio is still analysed and encoded as before).
