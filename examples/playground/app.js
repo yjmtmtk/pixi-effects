@@ -5,6 +5,7 @@ import { createEditor } from './editor.js';
 import { renderProblems } from './problems.js';
 import { shareUrl, codeFromHash } from './share.js';
 import { standalone } from './doc.js';
+import { registerTools } from './mcp.js';
 
 const $ = (id) => document.getElementById(id);
 const toolbar = { preset: $('preset'), run: $('run'), state: $('state') };
@@ -49,8 +50,9 @@ async function run() {
     status = { ready: false, logs: [] }; failed = String((e && e.message) || e);
   }
   if (id !== runId) return null;
-  last = { status, review };
+  last = { status, review, logs: null, failed };
   const logs = [...notices.splice(0), ...(review?.logs ?? status.logs ?? [])];
+  last.logs = logs;
   const count = renderProblems(problemsBox, { logs, review, failed, onSeek: (frame) => runner.call('seek', { frame }).catch(() => {}) });
   if (status.ready) setState(`Ready · ${status.duration} s · ${status.width}×${status.height} · ${status.frameRate} fps${count ? ` · ${count} problem${count === 1 ? '' : 's'}` : ''}`, count ? 'bad' : '');
   else setState('The movie did not start', 'bad');
@@ -118,6 +120,31 @@ if (location.hash.startsWith('#code=')) {
 editor = await createEditor({ parent: $('editor'), doc: shared ?? presets[0].code, onRun: run });
 // what the tests (and, later, the page's tools) use
 window.__playground = { runner, editor, presets, run, load, get last() { return last; } };
+// ── tools for an AI agent in the browser (WebMCP), where the browser has it ──
+const api = {
+  getCode: () => editor.get(),
+  setCode: (code) => editor.set(code),
+  run: async () => {
+    const r = await run();
+    if (!r) return { ready: false, logs: [], failed: 'replaced by a newer run' };
+    return { ...r.status, logs: r.logs, failed: r.failed || r.status.failed };
+  },
+  call: (cmd, args) => runner.call(cmd, args),
+  examples: () => presets.map(({ id, label }) => ({ id, label })),
+  loadExample: async (id) => load(id),
+  docsUrl: (part) => here(`../../ai/reference/${part}.md`),
+  fetchText: async (url) => { const r = await fetch(url); if (!r.ok) throw new Error(`could not read ${url} (${r.status})`); return r.text(); },
+};
+const agentNote = $('agent');
+let tools = { count: 0, abort() {} };
+try {
+  tools = await registerTools(api, document.modelContext);
+  agentNote.textContent = tools.count ? `AI agent tools: ${tools.count} (this page offers them to an AI agent in your browser)` : 'AI agent tools: this browser has no WebMCP';
+} catch (e) {
+  agentNote.textContent = `AI agent tools: could not register (${(e && e.message) || e})`; agentNote.dataset.kind = 'bad';
+}
+addEventListener('pagehide', () => tools.abort());
+
 if (shared !== null) showShared(); else run();
 // a link pasted into this tab later (only the #code= part changes, so the page is not reloaded): same rule, read first
 addEventListener('hashchange', async () => {

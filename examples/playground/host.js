@@ -4,6 +4,7 @@ import { validateCommand } from './bridge.js';
 
 export function createRunner({ container, templateUrl, distBase, assetBase, extraImportsFor = () => ({}), onEvent = () => {} }) {
   let frame = null, template = null, nextId = 1, listener = null, settle = null;
+  let starting = false, loaded = false;                 // a run is under way / the movie has said it is ready or has failed: only then does the bridge answer
   const pending = new Map();
 
   async function getTemplate() { return (template ??= await (await fetch(templateUrl)).text()); }
@@ -13,6 +14,7 @@ export function createRunner({ container, templateUrl, distBase, assetBase, extr
     if (frame) { frame.src = 'about:blank'; frame.remove(); frame = null; }                 // the page and its GL context go with the frame
     for (const [, p] of pending) p.reject(new Error('the movie was replaced'));
     pending.clear();
+    starting = false; loaded = false;
     if (settle) { settle({ ready: false, failed: 'replaced by a newer run', replaced: true }); settle = null; }   // a run() still waiting must not hang
   }
 
@@ -20,14 +22,18 @@ export function createRunner({ container, templateUrl, distBase, assetBase, extr
     const msg = { id: nextId++, cmd, args };
     const v = validateCommand(msg);
     if (!v.ok) return Promise.reject(new Error(v.error));
-    if (!frame) return Promise.reject(new Error('nothing is running: press Run'));
+    if (!frame && !starting) return Promise.reject(new Error('nothing is running: press Run'));
+    if (!loaded) return Promise.reject(new Error('the movie is still starting: wait until it is ready (a command sent now would be lost)'));
     return new Promise((resolve, reject) => { pending.set(msg.id, { resolve, reject }); frame.contentWindow.postMessage(msg, '*'); });
   }
 
   /** Replace the movie with one made from `code`. Resolves with the status when it is ready or has failed. */
   async function run(code) {
-    const templateHtml = await getTemplate();
+    starting = true; loaded = false;
+    let templateHtml;
+    try { templateHtml = await getTemplate(); } catch (e) { starting = false; throw e; }
     destroy();                                                                 // after the await: two quick runs never leave two frames
+    starting = true;
     const html = compose(templateHtml, code, { distBase, assetBase, extraImports: extraImportsFor(code) });
     frame = document.createElement('iframe');
     frame.setAttribute('sandbox', 'allow-scripts allow-downloads');           // no allow-same-origin: no access to this page or this site's data
@@ -40,8 +46,8 @@ export function createRunner({ container, templateUrl, distBase, assetBase, extr
         if (event.source !== mine.contentWindow) return;                      // only our own frame
         const d = event.data;
         if (!d || typeof d !== 'object') return;
-        if (d.event === 'ready') { onEvent(d); settle = null; resolve({ ...d.status, failed: undefined }); return; }
-        if (d.event === 'failed') { onEvent(d); settle = null; resolve({ ...d.status, ready: false, failed: d.error }); return; }
+        if (d.event === 'ready') { onEvent(d); settle = null; loaded = true; starting = false; resolve({ ...d.status, failed: undefined }); return; }
+        if (d.event === 'failed') { onEvent(d); settle = null; loaded = true; starting = false; resolve({ ...d.status, ready: false, failed: d.error }); return; }
         const p = pending.get(d.id);
         if (p) { pending.delete(d.id); d.ok ? p.resolve(d.result) : p.reject(new Error(d.error)); }
       };

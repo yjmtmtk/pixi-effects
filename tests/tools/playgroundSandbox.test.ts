@@ -78,6 +78,21 @@ const W = 640, H = 360, FPS = 30, DURATION = 1, BACKGROUND = '#000000', POSTER =
     });
   }, 120000);
 
+  it('a command sent while the movie is still starting is refused with a clear message, never left hanging', async () => {
+    await withRunner(async (cdp) => {
+      const code = await cdp.eval('window.defaultCode');
+      const r = await cdp.eval(`(async () => {
+        const started = runner.run(${JSON.stringify(code)});
+        const early = await runner.call('review').then(() => 'answered', (e) => e.message);
+        const status = await started;
+        return { early, ready: status.ready, later: await runner.call('status').then((x) => x.ready, (e) => e.message) };
+      })()`);
+      expect(r.early).toMatch(/still starting/);
+      expect(r.ready).toBe(true);
+      expect(r.later).toBe(true);                                               // and once it is ready, commands are answered
+    });
+  }, 120000);
+
   it('assets resolve from the examples folder, and sound goes through the mix', async () => {
     await withRunner(async (cdp) => {
       const code = `const W = 640, H = 360, FPS = 30, DURATION = 2, BACKGROUND = '#000000', POSTER = 1;
