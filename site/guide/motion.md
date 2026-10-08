@@ -78,6 +78,17 @@ return [
 
 The layer's own `x` and `y` are the points of the path, so give circles and shapes their centre there and text `anchorX: 0.5, anchorY: 0.5`. Give the layer its own `at` (as above) so it is not drawn at the origin before the trip begins. `from` and `to` (fractions of the path) travel only part of the way, or backwards; `rotate: -90` fixes an image that points up. To turn one outline into another, see [Shapes](shapes.html#morph-one-outline-into-another).
 
+## Springs
+
+`ease: 'spring.bouncy'` moves a value the way a damped spring does: it overshoots, rings and rests. Name a feel with a preset (`spring.gentle`, `spring.snappy`, `spring.bouncy`, `spring.wobbly`, `spring.slow`) or write the physics, `spring(mass, stiffness, damping)`. `duration: 'auto'` gives the keyframe the time the spring needs to settle, so the numbers are real physics:
+
+```js
+{ at: 0.2, from: { y: -200 }, to: { y: 0 }, duration: 'auto', ease: 'spring.bouncy' }
+{ at: 0,   to: { scale: 1 },  duration: 0.8,   ease: 'spring(1, 170, 12)' }
+```
+
+With a number for `duration`, that number is the settle time and only the damping decides how much it overshoots. A damping ratio of 1 or more never overshoots: `spring(1, 170, 26)` does not bounce, `spring(1, 170, 12)` does. A colour that overshoots is clamped, and `alpha` past 1 shows nothing, so springs are for position, scale and rotation first.
+
 ## Waves: `stagger`
 
 `stagger()` gives the delays for a wave of items, in the style of GSAP: `each` (gap between neighbours) or `amount` (total), `from` (`'start'`, `'end'`, `'center'`, `'edges'`, `'random'` or an index), `grid: [columns, rows]` for a ripple across a grid, and `ease`. Give it a number to get the delays, or give it layers and it returns them with `at` pushed back.

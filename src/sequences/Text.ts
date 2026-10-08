@@ -1,5 +1,6 @@
 import { Text } from 'pixi.js';
 import { gsap } from 'gsap';
+import { kfDuration } from '../core/spring';
 import { Sequence } from './Base';
 import { normalizeProps } from '../expr/normalizeProps';
 import { applyKeyframes, applyInitial, resolveAt, loopVars } from '../core/Timeline';
@@ -196,7 +197,7 @@ function bindCounterKeyframes(
     const toV = kf.to?.[key];
     if (setV === undefined && fromV === undefined && toV === undefined) continue;
     const at = origin + resolveAt(kf.at, parentDuration);
-    const duration = kf.duration ?? 0;
+    const duration = kfDuration(kf);
     const ease = kf.ease ?? 'none';
     const loop = loopVars(kf);
     if (setV !== undefined) {
@@ -258,7 +259,7 @@ function bindFillKeyframes(
 
   for (const kf of keyframes) {
     const at = offset + resolveAt(kf.at, parentDuration);
-    const duration = kf.duration ?? 0;
+    const duration = kfDuration(kf);
     const ease = kf.ease ?? 'none';
     const setFill  = pickFill(kf.set);
     const fromFill = pickFill(kf.from);

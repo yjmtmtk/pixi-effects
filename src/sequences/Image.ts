@@ -1,5 +1,6 @@
 import { Sprite, Assets, type Texture } from 'pixi.js';
 import { gsap } from 'gsap';
+import { kfDuration } from '../core/spring';
 import { Sequence } from './Base';
 import { applyKeyframes, applyInitial, resolveAt, loopVars } from '../core/Timeline';
 import { revertibleSet } from '../core/revertibleSet';
@@ -54,7 +55,7 @@ export class ImageSequence extends Sequence {
     // Walk keyframes and emit a perceptual colour tween for any `tint` key.
     for (const kf of this.spec.keyframes ?? []) {
       const at = startTime + resolveAt(kf.at, this.duration!);
-      const duration = kf.duration ?? 0;
+      const duration = kfDuration(kf);
       const ease = kf.ease ?? 'none';
       const fromTint = (kf.from as Record<string, unknown> | undefined)?.tint as ColorInput | undefined;
       const toTint   = (kf.to   as Record<string, unknown> | undefined)?.tint as ColorInput | undefined;

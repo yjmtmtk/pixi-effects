@@ -67,6 +67,32 @@ return [
 
 ---
 
+## Pop in with a spring: a card that lands, a badge that bounces
+
+A spring overshoots and settles: `duration: 'auto'` lets the physics set the length, a preset names the feel (`spring.gentle`, `snappy`, `bouncy`, `wobbly`, `slow`). Different presets on one layer's properties read as different materials.
+
+```js
+// @recipe spring-pop
+const card = { type: 'shape', shape: 'rect', name: 'card', width: 520, height: 300, cornerRadius: 28, at: 0.3, duration: 3.7,
+  initial: { x: 640, y: 360, fillColor: '#f4f1ea', scale: 0.4, alpha: 0 },
+  keyframes: [
+    { at: 0, to: { scale: 1 }, duration: 'auto', ease: 'spring.snappy' },
+    { at: 0, to: { alpha: 1 }, duration: 0.2 },
+  ] };
+const badge = { type: 'shape', shape: 'circle', name: 'badge', radius: 46, at: 1.0, duration: 3,
+  initial: { x: 860, y: 230, fillColor: '#e63946', scale: 0 },
+  keyframes: [{ at: 0, to: { scale: 1 }, duration: 'auto', ease: 'spring.bouncy' }] };
+const title = { type: 'text', text: 'Hello', name: 'title', at: 0.5, duration: 3.5, style: { fontSize: 88, fontWeight: 'bold', fill: '#1d3557' },
+  initial: { x: 640, y: 380, anchorX: 0.5, anchorY: 0.5 },
+  keyframes: [{ at: 0, from: { y: 440, alpha: 0 }, to: { y: 380, alpha: 1 }, duration: 'auto', ease: 'spring(1, 170, 12)' }] };
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1d3557' } },
+  card, badge, title,
+];
+```
+
+---
+
 ## A ticker that scrolls out completely (`w` = the text's own width)
 
 `'-w'` is the exact x at which the text has left the screen on the left (`w` is measured after the style is applied).

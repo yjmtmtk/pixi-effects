@@ -1,4 +1,5 @@
 import { gsap } from 'gsap';
+import { kfDuration } from './spring';
 import { normalizeProps } from '../expr/normalizeProps';
 import { checkEase } from './ease';
 import type { Keyframe } from '../types';
@@ -47,7 +48,7 @@ export function resolveAt(at: number | undefined | null, duration: number): numb
 
 export function normalizeKeyframe(kf: Keyframe, parentDuration: number): NormalizedKeyframe {
   const at = resolveAt(kf.at, parentDuration);
-  const duration = kf.duration ?? 0;
+  const duration = kfDuration(kf);
   const ease = kf.ease ?? 'none';
   checkEase(ease, 'a keyframe');
   const hasSet = !!kf.set;

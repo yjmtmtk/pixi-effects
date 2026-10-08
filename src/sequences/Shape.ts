@@ -1,5 +1,6 @@
 import { Graphics, GraphicsPath } from 'pixi.js';
 import { gsap } from 'gsap';
+import { kfDuration } from '../core/spring';
 import { Sequence } from './Base';
 import { evaluateExpr, isExpr } from '../expr/Parser';
 import { applyKeyframes, applyInitial, resolveAt, loopVars } from '../core/Timeline';
@@ -560,7 +561,7 @@ function bindLiveKeyframes(
 ): void {
   for (const kf of keyframes) {
     const at = offset + resolveAt(kf.at, parentDuration);
-    const duration = kf.duration ?? 0;
+    const duration = kfDuration(kf);
     const ease = kf.ease ?? 'none';
     const loop = loopVars(kf);
 

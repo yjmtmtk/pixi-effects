@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+**Added**
+
+- **Spring easing.** `ease: 'spring(mass, stiffness, damping)'` (defaults 1, 100, 10) or a preset (`spring.gentle`, `snappy`, `bouncy`, `wobbly`, `slow`), and `duration: 'auto'` = the time the spring takes to settle (within 0.5 %). Closed form (no integration, no dependency), so a seek in either direction gives the same value; checked on a real browser: every frame is identical forwards, by jumps and backwards, and a spring slider overshoots its target and rests on it. The presets settle in 0.72 s, 0.42 s, 1.08 s, 1.61 s and 1.29 s. A malformed spring (`spring(1, 170`, `spring.floppy`) is reported once with what is wrong; `'auto'` without a spring warns once; a `stagger` ease may be a spring (its delays are held inside the spread). `spring(1,170,26)` is critically damped and does not bounce (damping ratio 1): use `spring(1, 170, 12)` or a preset.
+
 **Fixed**
 
 - `animateText()`: a time in `in` / `out` (`out: { preset: 'fade', at: 7.6 }`, also `delay`, `start`) was ignored without a word, so the text stayed until `at + duration` and overlapped what came next (found when an AI wrote it that way). It now warns that the time is ignored and what decides it (an `out` leaves from the END of the layer: set `duration` to the time it must be gone minus `at`); any other unknown key of a tween warns with a did-you-mean. The cheatsheet, the guide and the pitfalls say so.

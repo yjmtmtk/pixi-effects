@@ -1,5 +1,6 @@
 import { gsap } from 'gsap';
 import { suggestName } from './options';
+import { springProblem } from './spring';
 
 const FAMILIES = ['power1', 'power2', 'power3', 'power4', 'back', 'elastic', 'bounce', 'circ', 'expo', 'sine'];
 /** The ease names to suggest from (`steps(n)` and parameters such as `back.out(1.7)` are valid too). */
@@ -14,6 +15,13 @@ export const __resetEaseWarnings = (): void => warned.clear();
  */
 export function checkEase(ease: string, where: string): void {
   if (typeof ease !== 'string') return;
+  if (/^\s*spring/.test(ease)) {                                   // GSAP resolves a registered spring; a malformed one must be said, once
+    const problem = springProblem(ease);
+    if (!problem || warned.has(ease)) return;
+    warned.add(ease);
+    console.warn(`pixi-effects: ${where}: unknown ease "${ease}" — ${problem}. GSAP would run it as its default ease, power1.out.`);
+    return;
+  }
   const found: unknown = gsap.parseEase(ease);
   if (typeof found === 'function') return;                         // `Power2` gives back a family object ({ easeIn, easeOut, easeInOut }): not an ease
   if (warned.has(ease)) return;

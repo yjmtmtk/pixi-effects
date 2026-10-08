@@ -713,8 +713,8 @@ Supported formats are whatever PixiJS Assets and the browser's audio/video decod
 ```ts
 interface Keyframe {
   at?: number;       // start, in seconds from the start of THIS sequence; negative = back from the sequence's end (-0.5 = 0.5 s before it ends)
-  duration?: number; // seconds (default 0 — instantaneous)
-  ease?: string;     // GSAP easing name (default 'none')
+  duration?: number | 'auto'; // seconds (default 0 — instantaneous); 'auto' = the time a spring ease takes to settle
+  ease?: string;     // GSAP easing name (default 'none'), or a spring: 'spring(mass, stiffness, damping)', 'spring.gentle|snappy|bouncy|wobbly|slow'
   set?:  Props;      // jump to these values at `at`
   to?:   Props;      // animate from current to these values over `duration`
   from?: Props;      // animate from these values to current
@@ -728,6 +728,17 @@ The four kinds are mutually exclusive per keyframe:
 - **`to`** — tween from whatever the property is at `at` to the given values, over `duration`.
 - **`from`** — tween from the given values back to the current property, over `duration`.
 - **`from` + `to`** — full fromTo tween, with explicit start and end values.
+
+### Springs
+
+The ease `'spring(mass, stiffness, damping)'` (defaults 1, 100, 10) or a preset (`spring.gentle`, `spring.snappy`, `spring.bouncy`, `spring.wobbly`, `spring.slow`) moves a value as a damped spring would: it overshoots its target and rings, then rests. `duration: 'auto'` gives the keyframe the time the spring needs to settle (within 0.5 %), so mass and stiffness are real physics; with a number, `duration` is that settle time and only the damping ratio `damping / (2 √(stiffness × mass))` shapes the motion (below 1 it overshoots, 1 or more it does not: `spring(1, 170, 26)` does not bounce, `spring(1, 170, 12)` does).
+
+```ts
+{ at: 0.2, from: { y: -200 }, to: { y: 0 }, duration: 'auto', ease: 'spring.bouncy' }
+{ at: 0,   to: { scale: 1 },  duration: 0.8,    ease: 'spring(1, 170, 12)' }
+```
+
+A colour is clamped in its colour space when it overshoots, and `alpha` past 1 is not visible. `'auto'` is for keyframes: `animateText` / `orbit` tweens take a spring name but a number `duration`. A malformed spring (`spring(1, 170`, `spring.floppy`) is reported once, with what is wrong.
 
 ### Repeating
 

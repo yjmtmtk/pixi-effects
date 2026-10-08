@@ -55,7 +55,8 @@ export function stagger<T extends { at?: number }>(items: number | readonly T[],
   const max = dist.reduce((m, d) => Math.max(m, d), 0);
   const total = amount !== undefined ? amount : (each ?? 0.1) * max;
   const shape = parseEase(ease);
-  const delays = dist.map(d => (max === 0 ? 0 : Math.round(total * shape(d / max) * 1e6) / 1e6));
+  const clamp01 = (v: number): number => Math.min(1, Math.max(0, v));                // a spring (or any overshooting ease) must not push a delay past the spread, or below 0
+  const delays = dist.map(d => (max === 0 ? 0 : Math.round(total * clamp01(shape(d / max)) * 1e6) / 1e6));
   if (isCount) return delays;
   return (items as readonly T[]).map((layer, i) => ({ ...layer, at: Math.round(((layer.at ?? 0) + delays[i]!) * 1e6) / 1e6 }));
 }

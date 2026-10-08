@@ -105,7 +105,7 @@ blendMode: 'normal' | 'add' | 'screen' | 'multiply'   // add / screen brighten (
 
 Animatable props (`initial` / keyframes): `x y alpha rotation scale scaleX scaleY pivotX pivotY anchorX anchorY skewX skewY tint width height visible autoAlpha`, plus for shapes their style/geometry, for text `fill`, for audio `volume`, for 3D `z rotationX rotationY`, filter params as `'filters.<name>.<param>'`, three objects as `'three.<obj>.<path>'`.
 
-Keyframe kinds: `set` (jump at `at`; undone when you seek back), `to` (animate to), `from` (animate from), `from`+`to`. `from` / `from+to` show their start value from the layer's start, so a delayed fade-in needs no `initial.alpha`. `repeat` (finite extra plays), `yoyo`, `repeatDelay` loop any of them (endless repeats are not allowed). `ease` = any GSAP ease (`'none'`, `'power2.out'`, `'expo.out'`, `'back.out(1.7)'`, `'elastic.out(1,0.5)'`, `'sine.inOut'`, `'bounce.out'`…). Default ease is linear.
+Keyframe kinds: `set` (jump at `at`; undone when you seek back), `to` (animate to), `from` (animate from), `from`+`to`. `from` / `from+to` show their start value from the layer's start, so a delayed fade-in needs no `initial.alpha`. `repeat` (finite extra plays), `yoyo`, `repeatDelay` loop any of them (endless repeats are not allowed). `ease` = any GSAP ease (`'none'`, `'power2.out'`, `'expo.out'`, `'back.out(1.7)'`, `'elastic.out(1,0.5)'`, `'sine.inOut'`, `'bounce.out'`… and springs: `'spring(mass, stiffness, damping)'` or `'spring.gentle' | 'snappy' | 'bouncy' | 'wobbly' | 'slow'`; **`duration: 'auto'` = the time the spring takes to settle** (real physics; with a number `duration` is the settle time and only the damping ratio shapes it; a damping ratio of 1 or more never overshoots, so `spring(1,170,26)` does not bounce: use damping below 20 at stiffness 170; `'auto'` works on keyframes only, not in `animateText` / `orbit` tweens; a `stagger` ease may be a spring, its delays are held inside the spread). Default ease is linear.
 
 ## Layer types
 
@@ -335,6 +335,7 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 62. **Chord names are voiced close around octave 3**: use `[c3 g3 e4]` for an exact voicing or `Am7/e` for a bass note; `swing` only moves notes that start on an off-beat eighth (`.5`) or sixteenth (`.75`); the bell and music box ring for `ring` seconds whatever the written length (shorten `ring` for fast bell lines); the synth is a handy bed, not an orchestra: keep tracks to 3–6, vary the bars, and end on the tonic.
 63. **`animateText()` / `splitText()`: `x` and `y` are pixel numbers, and `y` is the TOP of the line.** An expression such as `x: 'GW/2'` throws (the letters are measured once, at build time): write `x: W / 2`. The pieces are centred half a line below `y`, so a line drawn under the text goes at `y + lineHeight` (about 1.2 × `fontSize`), not at `y`; look at the contact sheet, the layout check cannot see an underline through a word. (`check` writes into `check-out/` of the current folder unless you pass `--out`.)
 64. **`animateText()`: `out` leaves from the END of the layer and has no `at`.** `out: { preset: 'fade', at: 7.6 }` does not make the text leave at 7.6 s: `at` is ignored (now with a warning) and the text stays until `at + duration`. To be gone at time T, set `duration: T − at` (title at 0.4 s that must be gone by 8.0 s: `duration: 7.6`). The same holds for a hand-written exit keyframe: a negative `at` counts back from the end of its own layer, a positive one from the start of its own layer, never from the movie.
+65. **A spring that does not spring, and `'auto'` that is not a spring.** `spring(1,170,26)` is critically damped (damping ratio 1): it never overshoots; at stiffness 170 use damping below 20 (`spring(1, 170, 12)`), or pick a preset (`spring.bouncy`, `spring.wobbly`). With a number `duration`, that number is the settle time (mass and stiffness only matter with `duration: 'auto'`). `duration: 'auto'` needs a spring ease (otherwise it warns and uses 0.5 s) and is for keyframes, not for `animateText` / `orbit` tweens. A colour that overshoots is clamped in its colour space; `alpha` past 1 shows nothing.
 
 
 <!-- ===== ai/reference/recipes.md ===== -->
@@ -403,6 +404,32 @@ return [
   { type: 'text', text: 'JANE DOE', at: 0.5, duration: 3, style: { fontSize: 34, fontWeight: 'bold', fill: '#ffffff' },
     initial: { x: 100, y: 600, anchorX: 0, anchorY: 0.5, alpha: 0 },
     keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }, { at: -0.4, to: { alpha: 0 }, duration: 0.3 }] },
+];
+```
+
+---
+
+## Pop in with a spring: a card that lands, a badge that bounces
+
+A spring overshoots and settles: `duration: 'auto'` lets the physics set the length, a preset names the feel (`spring.gentle`, `snappy`, `bouncy`, `wobbly`, `slow`). Different presets on one layer's properties read as different materials.
+
+```js
+// @recipe spring-pop
+const card = { type: 'shape', shape: 'rect', name: 'card', width: 520, height: 300, cornerRadius: 28, at: 0.3, duration: 3.7,
+  initial: { x: 640, y: 360, fillColor: '#f4f1ea', scale: 0.4, alpha: 0 },
+  keyframes: [
+    { at: 0, to: { scale: 1 }, duration: 'auto', ease: 'spring.snappy' },
+    { at: 0, to: { alpha: 1 }, duration: 0.2 },
+  ] };
+const badge = { type: 'shape', shape: 'circle', name: 'badge', radius: 46, at: 1.0, duration: 3,
+  initial: { x: 860, y: 230, fillColor: '#e63946', scale: 0 },
+  keyframes: [{ at: 0, to: { scale: 1 }, duration: 'auto', ease: 'spring.bouncy' }] };
+const title = { type: 'text', text: 'Hello', name: 'title', at: 0.5, duration: 3.5, style: { fontSize: 88, fontWeight: 'bold', fill: '#1d3557' },
+  initial: { x: 640, y: 380, anchorX: 0.5, anchorY: 0.5 },
+  keyframes: [{ at: 0, from: { y: 440, alpha: 0 }, to: { y: 380, alpha: 1 }, duration: 'auto', ease: 'spring(1, 170, 12)' }] };
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1d3557' } },
+  card, badge, title,
 ];
 ```
 
@@ -1887,8 +1914,8 @@ Supported formats are whatever PixiJS Assets and the browser's audio/video decod
 ```ts
 interface Keyframe {
   at?: number;       // start, in seconds from the start of THIS sequence; negative = back from the sequence's end (-0.5 = 0.5 s before it ends)
-  duration?: number; // seconds (default 0 — instantaneous)
-  ease?: string;     // GSAP easing name (default 'none')
+  duration?: number | 'auto'; // seconds (default 0 — instantaneous); 'auto' = the time a spring ease takes to settle
+  ease?: string;     // GSAP easing name (default 'none'), or a spring: 'spring(mass, stiffness, damping)', 'spring.gentle|snappy|bouncy|wobbly|slow'
   set?:  Props;      // jump to these values at `at`
   to?:   Props;      // animate from current to these values over `duration`
   from?: Props;      // animate from these values to current
@@ -1902,6 +1929,17 @@ The four kinds are mutually exclusive per keyframe:
 - **`to`** — tween from whatever the property is at `at` to the given values, over `duration`.
 - **`from`** — tween from the given values back to the current property, over `duration`.
 - **`from` + `to`** — full fromTo tween, with explicit start and end values.
+
+### Springs
+
+The ease `'spring(mass, stiffness, damping)'` (defaults 1, 100, 10) or a preset (`spring.gentle`, `spring.snappy`, `spring.bouncy`, `spring.wobbly`, `spring.slow`) moves a value as a damped spring would: it overshoots its target and rings, then rests. `duration: 'auto'` gives the keyframe the time the spring needs to settle (within 0.5 %), so mass and stiffness are real physics; with a number, `duration` is that settle time and only the damping ratio `damping / (2 √(stiffness × mass))` shapes the motion (below 1 it overshoots, 1 or more it does not: `spring(1, 170, 26)` does not bounce, `spring(1, 170, 12)` does).
+
+```ts
+{ at: 0.2, from: { y: -200 }, to: { y: 0 }, duration: 'auto', ease: 'spring.bouncy' }
+{ at: 0,   to: { scale: 1 },  duration: 0.8,    ease: 'spring(1, 170, 12)' }
+```
+
+A colour is clamped in its colour space when it overshoots, and `alpha` past 1 is not visible. `'auto'` is for keyframes: `animateText` / `orbit` tweens take a spring name but a number `duration`. A malformed spring (`spring(1, 170`, `spring.floppy`) is reported once, with what is wrong.
 
 ### Repeating
 

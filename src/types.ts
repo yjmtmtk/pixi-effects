@@ -24,7 +24,8 @@ export interface Keyframe {
    * (`-0.5` = 0.5 s before it ends).
    */
   at?: number;
-  duration?: number;
+  /** Seconds, or 'auto' with a spring ease: the time the spring takes to settle (within 0.5 %). */
+  duration?: number | 'auto';
   ease?: string;
   /** Extra plays of this tween after the first (a finite count; infinite repeats are not allowed — the timeline needs a fixed length). Total time = duration × (repeat + 1) plus delays. */
   repeat?: number;
