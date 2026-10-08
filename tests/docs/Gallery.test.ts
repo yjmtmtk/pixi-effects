@@ -144,8 +144,8 @@ describe('examples/gallery/index.html', () => {
     expect(title.split(/\s+/).length).toBeLessThanOrEqual(4);
   });
 
-  it('only talks to Google Fonts, never to other hosts', () => {
+  it('loads nothing from another host: no web fonts, no libraries (its only absolute links are to GitHub and npm)', () => {
     const hosts = [...html.matchAll(/https?:\/\/([^/"'\s)]+)/g)].map((m) => m[1]!);
-    for (const h of new Set(hosts)) expect(['fonts.googleapis.com', 'fonts.gstatic.com', 'github.com']).toContain(h);
+    for (const h of new Set(hosts)) expect(['github.com', 'www.npmjs.com']).toContain(h);
   });
 });
