@@ -4,6 +4,8 @@ import { measureText, splitText, type MeasureStyle, type TextPiece } from '../te
 import { stagger, type StaggerOptions } from './stagger';
 import { wiggle } from './wiggle';
 
+const TWEEN_KEYS = ['preset', 'from', 'to', 'duration', 'ease'] as const;
+const TIME_KEYS = ['at', 'delay', 'start', 'begin', 'time'];
 const KEYS = ['by', 'x', 'y', 'align', 'name', 'at', 'duration', 'in', 'out', 'stagger', 'idle', 'styleFor'] as const;
 
 /** Where a piece starts (`from`), as offsets in x / y and absolute values for the rest, and how it gets to its resting place. */
@@ -48,7 +50,7 @@ export interface AnimateTextOptions {
   duration: number;
   /** How a piece arrives: a preset (`'rise'` default, `'drop'`, `'fade'`, `'pop'`, `'zoom'`, `'slide'`, `'spin'`), your own tween, or `false` for none. */
   in?: TextPreset | AnimateTextTween | false;
-  /** How a piece leaves, in the same wave (the entrance backwards, eased the other way). Default none. */
+  /** How a piece leaves, in the same wave (the entrance backwards, eased the other way). It leaves from the END of the layer (`at + duration`) and has no `at` of its own: to be gone at time T, set `duration` to T − `at`. Default none. */
   out?: TextPreset | AnimateTextTween | false;
   /** The wave: see {@link stagger}. Default `{ each: 0.04 }`. */
   stagger?: StaggerOptions;
@@ -139,6 +141,15 @@ export function animateText(text: string, style: MeasureStyle, options: AnimateT
 
 function resolveTween(spec: TextPreset | AnimateTextTween, which: 'in' | 'out'): Resolved {
   const t: AnimateTextTween = typeof spec === 'string' ? { preset: spec } : spec;
+  if (typeof spec === 'object' && spec) {
+    for (const key of Object.keys(spec)) {
+      if ((TWEEN_KEYS as readonly string[]).includes(key)) continue;
+      if (TIME_KEYS.includes(key)) {
+        // a time is never read: the piece's own time comes from the options' `at` and `duration`, and an `out` runs backwards from the END of the layer
+        console.warn(`pixi-effects: animateText(): ${which}.${key} ("${key}") is ignored: ${which === 'out' ? 'an out leaves from the END of the layer (at + duration), so to make the text gone at a time T set duration to T − at' : 'the entrance starts when the piece starts (the options\' at, plus the stagger)'}`);
+      } else warnUnknownOptions(`animateText() ${which}`, { [key]: 1 }, TWEEN_KEYS);
+    }
+  }
   if (t.preset !== undefined && !(t.preset in PRESETS)) {
     const guess = suggestName(String(t.preset), PRESET_NAMES);
     throw new Error(`animateText(): ${which} "${t.preset}" is not a preset${guess ? `; did you mean "${guess}"?` : ''} (presets: ${PRESET_NAMES.map(n => `"${n}"`).join(', ')})`);
