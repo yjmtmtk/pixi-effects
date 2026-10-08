@@ -34,11 +34,16 @@
     <button id="run" type="button" class="primary">▶ Run</button>
     <span id="state" role="status" aria-live="polite">Loading the editor…</span>
     <span class="spacer"></span>
+    <span id="flash" role="status" aria-live="polite"></span>
+    <input id="shareOut" type="text" readonly hidden aria-label="Link to copy">
+    <button id="share" type="button" title="Copy a link that carries this code in the address">Share link</button>
+    <button id="save" type="button" title="Download this video as one HTML file that runs on its own">Save HTML</button>
+    <button id="copyAi" type="button" title="Copy this code with a sentence that tells an AI how to change it">Copy for AI</button>
   </div>
   <main id="main">
     <section id="editor" aria-label="Code"></section>
     <section id="preview" aria-label="Preview">
-      <div id="host"></div>
+      <div id="host"><p id="hostNote" hidden></p></div>
     </section>
   </main>
   <section id="problems" aria-label="Problems" data-state="idle"></section>

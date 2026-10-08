@@ -36,6 +36,13 @@ describe('playground doc: the edit block of ai/chat-template.html', () => {
     expect(html).toContain('cdn.jsdelivr.net/npm/pixi-effects@');
     expect(html).not.toContain('__pixiEffectsBridge');
   });
+  it('standalone can carry the extra imports a piece needs and the address its files load from', () => {
+    const html = doc.standalone(template, 'const sequences = [];', { extraImports: { 'pixi-filters': 'https://cdn.example/pf.mjs' }, assetBase: 'https://site.example/pixi-effects/examples/' });
+    expect(html).toContain('"pixi-filters": "https://cdn.example/pf.mjs"');
+    expect(html).toContain('<base href="https://site.example/pixi-effects/examples/">');
+    expect(html).toContain('cdn.jsdelivr.net/npm/pixi-effects@');             // still the released library
+    expect(doc.standalone(template, 'x')).not.toContain('<base ');           // nothing added when not asked
+  });
   it('compose points the library at this site, makes assets resolve from the examples folder, adds the bridge and any extra imports', () => {
     const html = doc.compose(template, 'const sequences = [];', { distBase: 'https://site.example/pixi-effects/dist/', assetBase: 'https://site.example/pixi-effects/examples/', extraImports: { 'pixi-filters': 'https://cdn.example/pf.mjs' } });
     expect(html).toContain('"pixi-effects":            "https://site.example/pixi-effects/dist/index.js"');

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -10,6 +10,9 @@ const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/
 const presetsMod: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'examples/playground/presets/index.js')).href);
 const chrome = check.findChrome();
 const built = existsSync(join(root, 'dist/index.js'));
+// Save HTML keeps the template's pinned release on the CDN: the saved page can only be run when that release is published (and the network is there)
+const pin = /pixi-effects@([\d.]+)\/dist\/index\.js/.exec(readFileSync(join(root, 'ai/chat-template.html'), 'utf8'))![1];
+const pinnedOnCdn = await fetch(`https://cdn.jsdelivr.net/npm/pixi-effects@${pin}/dist/index.js`, { method: 'HEAD' }).then((r) => r.ok, () => false);
 
 /** Opens the Playground at `width`, waits for the first run, and hands over the DevTools client and the console messages seen so far. */
 async function withPlayground<T>(width: number, fn: (cdp: any, console_: string[]) => Promise<T>, hash = ''): Promise<T> {
@@ -25,7 +28,7 @@ async function withPlayground<T>(width: number, fn: (cdp: any, console_: string[
     await cdp.send('Runtime.enable'); await cdp.send('Log.enable'); await cdp.send('Page.enable');
     await cdp.send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: width < 600 });
     await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/playground.html${hash}` });
-    for (let i = 0; i < 150; i++) { if (await cdp.eval('!!(window.__playground && window.__playground.last && window.__playground.last.status)').catch(() => false)) break; await check.sleep(200); }
+    for (let i = 0; i < 150; i++) { if (await cdp.eval('!!(window.__playground && ((window.__playground.last && window.__playground.last.status) || !document.getElementById("hostNote").hidden))').catch(() => false)) break; await check.sleep(200); }
     return await fn(cdp, messages);
   } finally { try { proc.kill(); } catch { /* gone */ } server.close(); await check.sleep(200); try { rmSync(dir, { recursive: true, force: true }); } catch { /* held */ } }
 }
@@ -146,4 +149,76 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the Playgr
       expect((await runPreset(cdp, '01-hello')).ready).toBe(true);
     });
   }, 120000);
+  describe('share, save, copy', () => {
+    it('a share link round-trips: opened in another page it shows the same code, does NOT run, and runs when Run is pressed', async () => {
+      let url = '';
+      await withPlayground(1440, async (cdp) => {
+        await cdp.eval(`(() => { const p = window.__playground; p.editor.set(p.editor.get().replace("text: 'hello'", "text: 'shared hello'")); })()`);
+        await cdp.eval(`document.getElementById('share').click()`);
+        for (let i = 0; i < 50 && !url; i++) { url = await cdp.eval('window.__lastShare || ""'); await check.sleep(100); }
+      });
+      expect(url).toMatch(/\/examples\/playground\.html#code=[A-Za-z0-9_-]+$/);
+      const hash = url.slice(url.indexOf('#'));
+      await withPlayground(1440, async (cdp) => {
+        await check.sleep(1500);                                                 // time enough for an automatic run to show itself, if there were one
+        const s = await cdp.eval(`({ code: window.__playground.editor.get().includes("text: 'shared hello'"), frames: document.querySelectorAll('iframe').length, note: document.getElementById('hostNote').textContent, hidden: document.getElementById('hostNote').hidden })`);
+        expect(s.code).toBe(true);
+        expect(s.frames, 'nothing runs until Run is pressed').toBe(0);
+        expect(s.hidden).toBe(false);
+        expect(s.note).toMatch(/press Run/);
+        const r = await cdp.eval(`window.__playground.run().then(r => ({ ready: r.status.ready, frames: document.querySelectorAll('iframe').length, hidden: document.getElementById('hostNote').hidden }))`);
+        expect(r).toEqual({ ready: true, frames: 1, hidden: true });
+      }, hash).catch((e) => { throw e; });
+    }, 240000);
+
+    it('a broken link says so in the problems panel and the first preset runs', async () => {
+      await withPlayground(1440, async (cdp) => {
+        const s = await cdp.eval(`({ panel: document.getElementById('problems').dataset.state, text: document.getElementById('problems').textContent, ready: window.__playground.last.status.ready, code: window.__playground.editor.get().startsWith('// Edit') })`);
+        expect(s.text).toMatch(/this link is not valid/);
+        expect(s.panel).toBe('problems');
+        expect(s.ready).toBe(true);
+        expect(s.code).toBe(true);
+      }, '#code=AAAA');
+    }, 120000);
+
+    it.skipIf(!pinnedOnCdn)('Save HTML makes a page that runs on its own (the library from the CDN, filters from esm.sh, files from the site), for a plain piece and for one with files and pixi-filters', async () => {
+      for (const id of ['01-hello', '06-filters']) {
+        const file = join(root, 'examples/_checks', `_saved-${id}.html`);
+        try {
+          await withPlayground(1440, async (cdp) => {
+            await cdp.eval(`window.__playground.load(${JSON.stringify(id)})`);
+            await cdp.eval(`document.getElementById('save').click()`);
+            let html = '';
+            for (let i = 0; i < 50 && !html; i++) { html = await cdp.eval('window.__lastSave || ""'); await check.sleep(100); }
+            expect(html, id).toContain('EDIT FROM HERE');
+            expect(html).not.toContain('__pixiEffectsBridge');                   // the bridge is for the sandboxed frame only
+            expect(html.includes('"pixi-filters"'), id).toBe(id === '06-filters');
+            expect(html.includes('<base href='), id).toBe(id === '06-filters');   // only a piece that names the Playground's own files gets an address for them
+            writeFileSync(file, html);
+            const port = await cdp.eval('location.port');
+            await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/_checks/_saved-${id}.html` });
+            let ready = false, logs: string[] = [];
+            for (let i = 0; i < 150 && !ready; i++) {
+              await check.sleep(200);
+              const st = await cdp.eval('({ ready: window.__ready === true, logs: window.__logs || [] })').catch(() => ({ ready: false, logs: [] }));
+              ready = st.ready; logs = st.logs;
+              if (logs.length) break;
+            }
+            expect({ id, ready, logs }).toEqual({ id, ready: true, logs: [] });
+          });
+        } finally { rmSync(file, { force: true }); }
+      }
+    }, 300000);
+
+    it('Copy for AI carries the code and where the template lives', async () => {
+      await withPlayground(1440, async (cdp) => {
+        await cdp.eval(`document.getElementById('copyAi').click()`);
+        let text = '';
+        for (let i = 0; i < 50 && !text; i++) { text = await cdp.eval('window.__lastCopy || ""'); await check.sleep(100); }
+        expect(text).toContain('raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/chat-template.html');
+        expect(text).toContain('const sequences');
+        expect(text).toMatch(/```js\n[\s\S]*\n```$/);
+      });
+    }, 120000);
+  });
 });

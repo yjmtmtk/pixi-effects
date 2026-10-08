@@ -3,15 +3,18 @@ import presets, { extraImportsFor } from './presets/index.js';
 import { createRunner } from './host.js';
 import { createEditor } from './editor.js';
 import { renderProblems } from './problems.js';
+import { shareUrl, codeFromHash } from './share.js';
+import { standalone } from './doc.js';
 
 const $ = (id) => document.getElementById(id);
 const toolbar = { preset: $('preset'), run: $('run'), state: $('state') };
 const problemsBox = $('problems'), host = $('host');
 
 const here = (rel) => new URL(rel, import.meta.url).href;
+const templateUrl = here('../../ai/chat-template.html');
 const runner = createRunner({
   container: host,
-  templateUrl: here('../../ai/chat-template.html'),
+  templateUrl,
   distBase: here('../../dist/'),
   assetBase: here('../'),                                   // examples/: presets name their files as _assets/…
   extraImportsFor,
@@ -23,12 +26,14 @@ for (const p of presets) toolbar.preset.append(Object.assign(document.createElem
 
 function setState(text, kind = '') { toolbar.state.textContent = text; toolbar.state.dataset.kind = kind; }
 
-let editor = null, runId = 0, last = { status: null, review: null };
+const hostNote = $('hostNote');
+let editor = null, runId = 0, last = { status: null, review: null }, notices = [];
 
 async function run() {
   if (!editor) return null;
   const id = ++runId;
   toolbar.run.disabled = true;
+  hostNote.hidden = true;
   setState('Running…');
   renderProblems(problemsBox, { running: true });
   let status, review = null, failed = null;
@@ -45,7 +50,7 @@ async function run() {
   }
   if (id !== runId) return null;
   last = { status, review };
-  const logs = review?.logs ?? status.logs ?? [];
+  const logs = [...notices.splice(0), ...(review?.logs ?? status.logs ?? [])];
   const count = renderProblems(problemsBox, { logs, review, failed, onSeek: (frame) => runner.call('seek', { frame }).catch(() => {}) });
   if (status.ready) setState(`Ready · ${status.duration} s · ${status.width}×${status.height} · ${status.frameRate} fps${count ? ` · ${count} problem${count === 1 ? '' : 's'}` : ''}`, count ? 'bad' : '');
   else setState('The movie did not start', 'bad');
@@ -61,10 +66,62 @@ function load(id) {
   return p;
 }
 
+// ── share, save, copy ──
+let flashTimer = 0;
+function flash(text) {
+  const el = $('flash'); el.textContent = text;
+  clearTimeout(flashTimer); flashTimer = setTimeout(() => { el.textContent = ''; }, 1400);
+}
+/** Puts `text` on the clipboard; where that is not allowed it is shown in a box, selected, to copy by hand. */
+async function copyText(text, what) {
+  const out = $('shareOut');
+  try { await navigator.clipboard.writeText(text); out.hidden = true; flash(`${what} copied`); }
+  catch { out.hidden = false; out.value = text; out.focus(); out.select(); flash('Copy it from the box'); }
+}
+let templateText = null;
+const getTemplate = async () => (templateText ??= await (await fetch(templateUrl)).text());
+
+$('share').addEventListener('click', async () => {
+  const url = await shareUrl(editor.get(), location.origin + location.pathname);
+  window.__lastShare = url;
+  await copyText(url, 'Link');
+});
+$('save').addEventListener('click', async () => {
+  const code = editor.get();
+  const html = standalone(await getTemplate(), code, { extraImports: extraImportsFor(code), assetBase: /\b_assets\//.test(code) ? here('../') : undefined });
+  window.__lastSave = html;
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([html], { type: 'text/html' })), download: 'video.html' });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  flash('Saved video.html');
+});
+$('copyAi').addEventListener('click', async () => {
+  const text = 'Here is a pixi-effects video (the edit block of https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/chat-template.html). Change it as I ask, and keep the block\'s shape.\n\n```js\n' + editor.get() + '\n```';
+  window.__lastCopy = text;
+  await copyText(text, 'Text');
+});
+
 toolbar.run.addEventListener('click', run);
 toolbar.preset.addEventListener('change', () => { if (load(toolbar.preset.value)) run(); });
 
-editor = await createEditor({ parent: $('editor'), doc: presets[0].code, onRun: run });
+// A shared link is opened but never run: someone else's code runs only when the person presses Run.
+function showShared() {
+  hostNote.textContent = 'A shared link was opened: read the code, then press Run.';
+  hostNote.hidden = false;
+  setState('Not running');
+  renderProblems(problemsBox, {});
+}
+let shared = null;
+if (location.hash.startsWith('#code=')) {
+  try { shared = await codeFromHash(location.hash); } catch (e) { notices.push(String((e && e.message) || e)); }
+}
+editor = await createEditor({ parent: $('editor'), doc: shared ?? presets[0].code, onRun: run });
 // what the tests (and, later, the page's tools) use
 window.__playground = { runner, editor, presets, run, load, get last() { return last; } };
-run();
+if (shared !== null) showShared(); else run();
+// a link pasted into this tab later (only the #code= part changes, so the page is not reloaded): same rule, read first
+addEventListener('hashchange', async () => {
+  if (!location.hash.startsWith('#code=')) return;
+  try { editor.set(await codeFromHash(location.hash)); runner.destroy(); showShared(); }
+  catch (e) { renderProblems(problemsBox, { logs: [String((e && e.message) || e)] }); }
+});

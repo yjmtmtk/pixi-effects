@@ -25,18 +25,24 @@ export function withRegion(html, code) {
   return html.slice(0, start) + body + html.slice(end);       // slices, not String.replace: `code` may contain $& and friends
 }
 
-/** For saving: the template with the block replaced, still on the released library from the CDN. */
-export function standalone(html, code) { return withRegion(html, code); }
+const baseTag = (assetBase) => `<head>\n  <base href="${assetBase}">`;
+const addImports = (html, extraImports) => {
+  const extra = Object.entries(extraImports).map(([k, v]) => `      "${k}": "${v}",\n`).join('');
+  return extra ? html.replace('"imports": {\n', () => `"imports": {\n${extra}`) : html;
+};
+
+/** For saving: the template with the block replaced, still on the released library from the CDN. `assetBase`: where `_assets/…` files load from. */
+export function standalone(html, code, { extraImports = {}, assetBase } = {}) {
+  let out = withRegion(html, code);
+  if (assetBase) out = out.replace('<head>', () => baseTag(assetBase));
+  return addImports(out, extraImports);
+}
 
 const PINS = /https:\/\/cdn\.jsdelivr\.net\/npm\/pixi-effects@[\d.]+\/dist\//g;
 
 /** For the sandboxed iframe: this site's library, assets resolved from `assetBase`, the bridge, and extra import-map entries. */
 export function compose(html, code, { distBase, assetBase, extraImports = {} }) {
-  let out = withRegion(html, code);
-  out = out.replace(PINS, () => distBase);
-  out = out.replace('<head>', () => `<head>\n  <base href="${assetBase}">`);
-  const extra = Object.entries(extraImports).map(([k, v]) => `      "${k}": "${v}",\n`).join('');
-  if (extra) out = out.replace('"imports": {\n', () => `"imports": {\n${extra}`);
+  const out = standalone(html, code, { extraImports, assetBase }).replace(PINS, () => distBase);
   const at = out.lastIndexOf('</body>');
   return out.slice(0, at) + `<script>${BRIDGE_SOURCE}</script>\n` + out.slice(at);
 }
