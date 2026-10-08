@@ -75,6 +75,14 @@ export abstract class Sequence {
     return {};
   }
 
+  /**
+   * The `initial` and `keyframes` that go onto the display object. A layer whose `time` runs a clock (video, composition) takes `time`
+   * out of them: it is not a property of the display object.
+   */
+  protected displayProps(): { initial: SequenceSpec['initial']; keyframes: SequenceSpec['keyframes'] } {
+    return { initial: this.spec.initial, keyframes: this.spec.keyframes };
+  }
+
   bindTimeline(timeline: Timeline, offset = 0): void {
     if (!this.target) return;
     const scope = this.scope();
@@ -82,8 +90,9 @@ export abstract class Sequence {
     // Keyframe `at` is measured from THIS sequence's start (After Effects style),
     // and negative `at` back from its end — so the origin is offset + this.at.
     const startTime = offset + this.at;
-    applyInitial(this.target, this.spec.initial as Record<string, unknown> | undefined, scope as unknown as Record<string, number>, [], routers);
-    applyKeyframes(timeline, this.target, this.spec.keyframes, this.duration!, scope as unknown as Record<string, number>, [], startTime, routers);
+    const { initial, keyframes } = this.displayProps();
+    applyInitial(this.target, initial as Record<string, unknown> | undefined, scope as unknown as Record<string, number>, [], routers);
+    applyKeyframes(timeline, this.target, keyframes, this.duration!, scope as unknown as Record<string, number>, [], startTime, routers);
     // Hide before lifespan starts. GSAP's `set` only fires when the playhead
     // crosses its time, so without this baseline a sequence with at>0 (or any
     // non-zero offset from a nested composition) would render at t<startTime

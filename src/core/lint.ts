@@ -61,6 +61,51 @@ export function lintText(spec: SequenceSpec, warn: Warn = defaultWarn): void {
   }
 }
 
+const REMAPPABLE = new Set(['video', 'audio', 'composition']);
+/** Top-level names that mean a time remap and have their own message. */
+const REMAP_NAMES = new Set(['time', 'timeRemap', 'reverse']);
+const TIME_BAGS = ['set', 'to', 'from'] as const;
+
+/** The mistakes a time remap can make (`speed` / `time`), said once when the layer is built. Called from `lintKeys`. */
+function lintRemap(spec: SequenceSpec, warn: Warn): void {
+  const s = spec as unknown as Record<string, any>;
+  const who = describeLayer(spec);
+  const kfs: Array<Record<string, any>> = s.keyframes ?? [];
+  const bags: Array<Record<string, any> | undefined> = [s.initial, ...kfs.flatMap(kf => TIME_BAGS.map(b => kf[b]))];
+  const timeInInitial = !!s.initial && s.initial.time !== undefined;
+  const timeInKeyframes = kfs.some(kf => TIME_BAGS.some(b => kf[b] && kf[b].time !== undefined));
+  const timed = timeInInitial || timeInKeyframes;
+  if (bags.some(bag => bag && bag.speed !== undefined)) {
+    warn(`pixi-effects: ${who}: speed is a fixed setting, not an animatable property: write it on the layer (speed: 2); to change the speed over time, animate time (keyframes: [{ at: 0, from: { time: 0 }, to: { time: 4 }, duration: 2, ease: 'power2.in' }])`);
+  }
+  if (!REMAPPABLE.has(spec.type)) {
+    if (timed) warn(`pixi-effects: ${who}: "time" only works on video, audio and composition layers; put this layer in a composition and remap that (it is ignored here)`);
+    return;                                                       // a top-level speed here is the key warning's business ("not a ... key")
+  }
+  if (s.reverse !== undefined) warn(`pixi-effects: ${who}: "reverse" is not a key: write speed: -1 to play backward`);
+  if (s.timeRemap !== undefined) warn(`pixi-effects: ${who}: "timeRemap" is not a key: animate time in keyframes (from / to / set), or write speed`);
+  if (s.time !== undefined) warn(`pixi-effects: ${who}: "time" belongs in initial or keyframes (initial: { time: 2 }), not on the layer`);
+  if (spec.type === 'audio' && (s.sfx !== undefined || s.music !== undefined) && (s.speed !== undefined || timed)) {
+    warn(`pixi-effects: ${who}: speed and time do not apply to a synthesised sound (sfx, music); change an sfx's pitch with pitch (semitones), or put it in a composition and remap that`);
+    return;
+  }
+  if (s.speed !== undefined && (typeof s.speed !== 'number' || !Number.isFinite(s.speed) || s.speed === 0)) {
+    warn(`pixi-effects: ${who}: speed ${JSON.stringify(s.speed)} cannot be used: write a number other than 0 (negative plays backward); to hold a moment, key time to the same value twice`);
+  }
+  if (s.speed !== undefined && timeInKeyframes) {
+    warn(`pixi-effects: ${who}: speed and keyframed time are both set; time wins and speed is ignored. Use one of them`);
+  }
+  if (timeInInitial && typeof s.initial.time !== 'number') {
+    warn(`pixi-effects: ${who}: initial.time must be a number of seconds, got ${JSON.stringify(s.initial.time)}`);
+  }
+  kfs.forEach((kf, i) => {
+    for (const b of TIME_BAGS) {
+      const v = kf[b]?.time;
+      if (v !== undefined && typeof v !== 'number' && typeof v !== 'string') warn(`pixi-effects: ${who}: keyframes[${i}].${b}.time must be a number of seconds, got ${JSON.stringify(v)}`);
+    }
+  });
+}
+
 /**
  * Keys that do not exist, which the library used to ignore without a word (a typo in a layer key, a mistyped property in a keyframe, a
  * style key Pixi does not know). Said once each, with what was probably meant. A warning, never an error. Not checked here: dotted
@@ -73,6 +118,7 @@ export function lintKeys(spec: SequenceSpec, warn: Warn = defaultWarn): void {
   if (valid) {
     for (const key of Object.keys(spec)) {
       if (valid.includes(key) || (spec as unknown as Record<string, unknown>)[key] === undefined) continue;       // a spread that sets a key only when it applies leaves `undefined`
+      if (REMAPPABLE.has(spec.type) && REMAP_NAMES.has(key)) continue;                                            // lintRemap has its own message for these
       const guess = suggestName(key, valid.filter(k => k !== 'type'));
       const owners = kindsWithKey(key);
       const belongs = owners.length ? ` (it belongs to ${owners.slice(0, 3).join(', ')})` : '';
@@ -80,12 +126,13 @@ export function lintKeys(spec: SequenceSpec, warn: Warn = defaultWarn): void {
       warn(`pixi-effects: ${who}: "${key}" is not a ${kindName(spec as { type: string; shape?: string })} key${hint}. Valid keys: ${valid.join(', ')}`);
     }
   }
+  lintRemap(spec, warn);
   const said = new Set<string>();
   const bags: Array<Record<string, unknown> | undefined> = [spec.initial, ...(spec.keyframes ?? []).flatMap(kf => [kf.set, kf.to, kf.from])] as Array<Record<string, unknown> | undefined>;
   for (const bag of bags) {
     for (const key of Object.keys(bag ?? {})) {
       if (bag![key] === undefined) continue;
-      if (PROP_KEYS.has(key) || key.includes('.') || /^gradient/i.test(key) || said.has(key)) continue;
+      if (PROP_KEYS.has(key) || key.includes('.') || /^gradient/i.test(key) || said.has(key) || key === 'speed') continue;     // (speed: lintRemap says what to write)
       said.add(key);
       const guess = suggestName(key, [...PROP_KEYS]);
       warn(`pixi-effects: ${who}: "${key}" is not an animatable property${guess ? ` — did you mean "${guess}"?` : ''} (in initial, set, to or from). See the cheatsheet for the properties of this kind of layer`);

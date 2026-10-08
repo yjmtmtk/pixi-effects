@@ -15,11 +15,11 @@ type Assert<T extends true> = T;
 
 const COMMON = ['type', 'name', 'parent', 'at', 'duration', 'initial', 'keyframes', 'filters', 'filterArea', 'mask', 'maskInverted', 'blendMode', 'threeD', 'hideBehindCamera'] as const satisfies readonly KeysOfUnion<SequenceCommon | { type: string }>[];
 
-const VIDEO = [...COMMON, 'asset', 'loop', 'audio', 'volume'] as const satisfies readonly KeysOfUnion<VideoSequenceSpec>[];
+const VIDEO = [...COMMON, 'asset', 'loop', 'audio', 'volume', 'speed'] as const satisfies readonly KeysOfUnion<VideoSequenceSpec>[];
 const IMAGE = [...COMMON, 'asset', 'colorSpace'] as const satisfies readonly KeysOfUnion<ImageSequenceSpec>[];
 const TEXT = [...COMMON, 'text', 'format', 'style', 'colorSpace', 'fillGradient'] as const satisfies readonly KeysOfUnion<TextSequenceSpec>[];
-const AUDIO = [...COMMON, 'volume', 'asset', 'loop', 'sfx', 'music'] as const satisfies readonly KeysOfUnion<AudioAssetSpec | AudioSfxSpec | AudioMusicSpec>[];
-const COMPOSITION = [...COMMON, 'width', 'height', 'sequences', 'transitions'] as const satisfies readonly KeysOfUnion<CompositionSequenceSpec>[];
+const AUDIO = [...COMMON, 'volume', 'asset', 'loop', 'sfx', 'music', 'speed'] as const satisfies readonly KeysOfUnion<AudioAssetSpec | AudioSfxSpec | AudioMusicSpec>[];
+const COMPOSITION = [...COMMON, 'width', 'height', 'sequences', 'transitions', 'speed'] as const satisfies readonly KeysOfUnion<CompositionSequenceSpec>[];
 const CAMERA = [...COMMON] as const satisfies readonly KeysOfUnion<CameraSequenceSpec>[];
 const NULL = [...COMMON] as const satisfies readonly KeysOfUnion<NullSequenceSpec>[];
 
@@ -75,7 +75,7 @@ export const PROP_KEYS: ReadonlySet<string> = new Set([
   'fillColor', 'fillAlpha', 'strokeColor', 'strokeAlpha', 'strokeWidth', 'lineColor', 'lineAlpha', 'cornerRadius', 'radius', 'radiusX', 'radiusY',
   'innerRadius', 'startAngle', 'endAngle', 'trimStart', 'trimEnd', 'trimEach', 'morph', 'fillGradient', 'strokeCap', 'strokeJoin',
   // text, audio, video
-  'fill', 'value', 'visibleChars', 'text', 'volume',
+  'fill', 'value', 'visibleChars', 'text', 'volume', 'time',
   // camera
   'lookAtX', 'lookAtY', 'lookAtZ', 'fov', 'offsetX', 'offsetY', 'offsetZ', 'lookOffsetX', 'lookOffsetY', 'lookOffsetZ',
 ]);

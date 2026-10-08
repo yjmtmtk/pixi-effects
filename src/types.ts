@@ -253,6 +253,12 @@ export interface VideoSequenceSpec extends SequenceCommon {
   loop?: boolean;
   audio?: boolean;
   volume?: number;
+  /**
+   * Playback speed: 1 = as recorded, 2 = twice as fast, 0.5 = slow motion, negative = backward (it starts at |speed| × duration, so
+   * `speed: -1` plays the first `duration` seconds in reverse). A fixed setting; to change the speed over time, animate `time`
+   * (seconds in the file) in `initial` / `keyframes`. When `duration` is not given it is the file's length divided by |speed|.
+   */
+  speed?: number;
 }
 export interface ImageSequenceSpec extends SequenceCommon {
   type: 'image';
@@ -338,6 +344,11 @@ interface AudioBase extends SequenceCommon {
   type: 'audio';
   /** Level. 1 = the file as recorded, or the sfx preset's standard level (peaks at −12 dBFS). Animatable. */
   volume?: number;
+  /**
+   * Playback speed of an audio FILE (1 = as recorded; negative = backward; the pitch follows the speed, like a tape). Not for `sfx` /
+   * `music` (change an sfx's `pitch` in semitones). To change the speed over time, animate `time` (seconds in the file).
+   */
+  speed?: number;
 }
 
 /** Plays an audio file from `assets`. `duration` defaults to the file's length (with `loop`: to the composition's end). */
@@ -439,6 +450,12 @@ export interface CompositionSequenceSpec extends SequenceCommon {
   height?: number;
   sequences?: SequenceSpec[];
   transitions?: TransitionSpec[];
+  /**
+   * The speed of this composition's own time: 2 = its content runs twice as fast, 0.5 = slow motion, negative = backward. The layers
+   * inside write `at` / `duration` / `keyframes` in THIS time (the composition's local time); the composition's own `at`, `duration`
+   * and keyframes stay in the outer time. To change the speed over time, animate `time` (the local playhead, in seconds).
+   */
+  speed?: number;
 }
 
 /**
@@ -670,4 +687,11 @@ export interface AudioDescriptor {
   end: number;
   initialVolume: number;
   volumeKeyframes: { time: number; value: number }[];
+  /**
+   * Time remap. `warp` maps the movie's time to the time `start` / `end` / `volumeKeyframes` are measured in (a remapped composition's
+   * local time), NaN where it is silent. `sourceMap` maps that time to a position in the sound (the layer's own speed / `time`); absent:
+   * the sound plays straight from `start`. The mixer resamples through them, so a speed other than 1 changes the pitch.
+   */
+  warp?: (t: number) => number;
+  sourceMap?: (u: number) => number;
 }

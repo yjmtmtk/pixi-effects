@@ -24,6 +24,7 @@ const COMMON_ALIASES: Record<string, string> = {
   bg: 'background', backgroundcolor: 'background', bgcolor: 'background',
   seconds: 'duration', length: 'duration', time: 'duration',
   w: 'width', h: 'height', cols: 'columns', sweep: 'degrees', angle: 'degrees',
+  playbackrate: 'speed', timescale: 'speed', rate: 'speed',
 };
 
 /** The valid name an author most likely meant by `name` (alias, typo, abbreviation or case slip), or null. */
