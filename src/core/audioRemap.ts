@@ -73,3 +73,17 @@ export function playSpan(a: Pick<AudioDescriptor, 'start' | 'end' | 'warp'>, tot
   }
   return first < 0 ? { start: total, end: total } : { start: first * CELL, end: (last + 1) * CELL };
 }
+
+/**
+ * The farthest local time the warp (the clock of the composition the sound sits in) reaches during the movie. A sound whose local `end` is
+ * beyond it is cut short by that clock (it stops or stands still) — a different cause than the end of the movie.
+ */
+export function clockReach(a: Pick<AudioDescriptor, 'warp'>, total: number): number {
+  let reach = -Infinity;
+  const n = Math.ceil(total / CELL) + 1;
+  for (let k = 0; k <= n; k++) {
+    const u = a.warp ? a.warp(k * CELL) : k * CELL;
+    if (Number.isFinite(u) && u > reach) reach = u;
+  }
+  return reach;
+}

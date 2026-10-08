@@ -758,7 +758,7 @@ keyframes: [
 ]
 ```
 
-A negative `time` counts back from the end of the content (`initial: { time: -2 }`, two seconds before the end). `speed` is not animatable (animate `time`); `speed` and keyframed `time` together: `time` wins. **Inside a composition with its own time the children are in that composition's local seconds** (with `speed: 2` the content is twice as long as `duration`, so children default to that length; with `speed: 0.5` a child at `at: 3` of a 4 s composition is never reached, and warns). The composition's own `at`, `duration`, `x` / `alpha` keyframes are outer time. The sound follows (pitch too).
+A negative `time` counts back from the end of the content (`initial: { time: -2 }`, two seconds before the end). `speed` is not animatable (animate `time`); `speed` and keyframed `time` together: `time` wins. **Inside a composition with its own time the children are in that composition's local seconds** (with `speed: 2` the content is twice as long as `duration`, so children default to that length; with `speed: 0.5` a child at `at: 3` of a 4 s composition is never reached, and warns). The composition's own `at`, `duration`, `x` / `alpha` keyframes are outer time. The sound follows (pitch too); a sound inside a composition goes silent while its clock stands still, and an `sfx` longer than the clock's reach is reported ("its composition's clock only reaches …"). The content is as long as the larger of `duration` and the farthest `time` the clock reaches; a child whose life ends exactly where a held `time` stands is hidden during the hold (give it a longer `duration`).
 
 ### Springs
 
@@ -800,7 +800,7 @@ If `at < 0`, it's interpreted as `duration + at` — measured back from the end 
 
 ### Easing
 
-`'cubic-bezier(x1, y1, x2, y2)'` is the CSS curve exactly (x1 and x2 between 0 and 1, y1 and y2 may overshoot): `'cubic-bezier(.4, 0, .2, 1)'` is a gentle in-out, `'cubic-bezier(.2, .8, .2, 1)'` a fast start with a long glide. A malformed one warns once and runs as `'none'`.
+`'cubic-bezier(x1, y1, x2, y2)'` is the CSS curve exactly (x1 and x2 between 0 and 1, y1 and y2 may overshoot): `'cubic-bezier(.4, 0, .2, 1)'` is a gentle in-out, `'cubic-bezier(.2, .8, .2, 1)'` is front-loaded, not slow motion (half of the change in the first 13 % of the time, 99 % by 74 %, then a long settle). GSAP's `power2` is a cubic: `power2.in` has done only 12.5 % at half time. A malformed one warns once and runs as `'none'`.
 
 Standard GSAP easing strings: `'none'`, `'linear'`, `'power1.in'` ... `'power4.inOut'`, `'sine.in/out/inOut'`, `'expo.in/out/inOut'`, `'circ.in/out/inOut'`, `'back.in/out/inOut(overshoot)'`, `'elastic.in/out/inOut(amplitude, period)'`, `'bounce.in/out/inOut'`. See [GSAP easing docs](https://gsap.com/docs/v3/Eases/).
 

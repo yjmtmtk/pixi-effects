@@ -1,5 +1,5 @@
 import type { AudioDescriptor } from '../types';
-import { playSpan } from './audioRemap';
+import { playSpan, clockReach } from './audioRemap';
 import type { MixStats } from './AudioMixer';
 import { spectralCentroid } from './spectrum';
 import { findSilences, LOUDNESS_NOTES, measureLoudness } from '../audio/loudness';
@@ -97,7 +97,13 @@ export function analyzeAudio(
   mix: PcmLike | null, sources: AudioDescriptor[], stats: MixStats | null, movieDuration: number, opts: AudioInspectOptions = {},
 ): AudioReport {
   // A sound inside a remapped composition has `start` / `end` in that composition's local time: report when it plays in the MOVIE's time.
-  sources = sources.map(s => (s.warp ? { ...s, ...playSpan(s, movieDuration) } : s));
+  const warped = new Map<AudioDescriptor, { localEnd: number; reach: number }>();
+  sources = sources.map(s => {
+    if (!s.warp) return s;
+    const moved = { ...s, ...playSpan(s, movieDuration) };
+    warped.set(moved, { localEnd: s.end, reach: clockReach(s, movieDuration) });
+    return moved;
+  });
   if (!mix) {
     return { duration: movieDuration, sampleRate: 0, peakDb: -120, peakAt: 0, sources: [], windows: [],
       loudness: { integratedLufs: null, truePeakDb: -120, clippedSamples: 0, silences: [] }, scenes: [], cues: [], notes: [], issues: ['no audio: the movie has no audio layers (sound effects need no files: { type: "audio", sfx: "pop", at: 1 })'] };
@@ -158,8 +164,16 @@ export function analyzeAudio(
     } else if (ownDb < INAUDIBLE_DB || peakDb < INAUDIBLE_DB) {
       issues.push(`${layer} (${source}) is inaudible from ${s.start.toFixed(2)}s to ${s.end.toFixed(2)}s (its own peak ${ownDb} dBFS at volume ${topVolume}; mix peak there ${peakDb} dBFS) — check its volume`);
     }
-    if (s.synth && s.end > movieDuration + 1e-6 && s.start < movieDuration) {
-      issues.push(`${layer} (${source}) is cut off by the end of the movie at ${movieDuration}s (it runs to ${s.end.toFixed(2)}s)`);
+    const clock = warped.get(s);
+    if (s.synth && s.start < movieDuration) {
+      if (clock) {
+        // inside a remapped composition: it is cut short when the composition's clock never gets to the end of the sound
+        if (clock.reach < clock.localEnd - 1e-3) {
+          issues.push(`${layer} (${source}) is cut off: its composition's clock only reaches ${clock.reach.toFixed(2)}s (the sound is ${clock.localEnd.toFixed(2)}s long), because the clock stops or the movie ends first — give the layer a shorter duration, or let the clock run on`);
+        }
+      } else if (s.end > movieDuration + 1e-6) {
+        issues.push(`${layer} (${source}) is cut off by the end of the movie at ${movieDuration}s (it runs to ${s.end.toFixed(2)}s)`);
+      }
     }
     return { layer, source, start: s.start, end: s.end, peakDb, sound };
   });

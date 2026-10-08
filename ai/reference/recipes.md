@@ -95,13 +95,13 @@ return [
 
 ## Rewind and play again: a composition whose own time you control
 
-Put the part you want to rewind, slow down or freeze **in a composition**, then give that composition `speed` (one straight speed: `0.5` slow motion, `-1` backward) or `time` keyframes (any curve of its own time: play, hold, rewind, play slowly). The layers inside write `at` / `duration` / `keyframes` in the composition's own seconds; the composition's own `at` / `duration` stay in the outer time. A sound or `sfx` inside follows the clock (backward and lower when it rewinds, like a tape). `cubic-bezier(.2, .8, .2, 1)` is a fast start with a long glide: the slow replay that lands.
+Put the part you want to rewind, slow down or freeze **in a composition**, then give that composition `speed` (one straight speed: `0.5` slow motion, `-1` backward) or `time` keyframes (any curve of its own time: play, hold, rewind, play slowly). The layers inside write `at` / `duration` / `keyframes` in the composition's own seconds; the composition's own `at` / `duration` stay in the outer time. A sound or `sfx` inside follows the clock (backward and lower when it rewinds, like a tape). `cubic-bezier(.2, .8, .2, 1)` is front-loaded, not slow motion: half of the replay passes in the first 13 % of its time and 99 % by 74 %, so the replay opens quickly and what sits at the END of the content (the ring, the settle) gets the long glide. GSAP's `power2` is a cubic: `power2.in` has done only 12.5 % at half time, so the dismantling bunches up in the last third of the rewind.
 
 ```js
 // @recipe rewind-and-replay
 const act = {
   type: 'composition', name: 'act', duration: 11,
-  // its own time: play 0 → 2.2 s, hold half a second, rewind to 0 (accelerating), hold, then replay slowly (4.5 s of content over 6 s, a long glide)
+  // its own time: play 0 → 2.2 s, hold half a second, rewind to 0 (accelerating), hold, then replay (4.5 s of content over 6 s: a fast start, a long glide at the end)
   keyframes: [
     { at: 0, from: { time: 0 }, to: { time: 2.2 }, duration: 2.2, ease: 'none' },
     { at: 2.2, to: { time: 2.2 }, duration: 0.5 },

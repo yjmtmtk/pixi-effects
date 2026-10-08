@@ -389,6 +389,28 @@
       "notes": "_notes/history-timeline.md"
     },
     {
+      "id": "rewind-title",
+      "title": "Again.",
+      "subtitle": "A title card is built, rewound like a tape, held, and replayed in slow motion — one composition with its own clock (speed / time), while the movie's own clock keeps running",
+      "tags": [
+        "time remap",
+        "rewind",
+        "slow motion",
+        "typography",
+        "sfx",
+        "cubic-bezier",
+        "vhs"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 11,
+      "posterFrame": 306,
+      "model": "fable",
+      "page": "rewind-title.html",
+      "poster": "posters/rewind-title.jpg",
+      "notes": "_notes/rewind-title.md"
+    },
+    {
       "id": "christmas-eve",
       "title": "Christmas Eve",
       "subtitle": "A snowy night at a lit cottage and a small tree, with a slow music-box lullaby written as text: there is no audio file in this piece",

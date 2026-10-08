@@ -16,6 +16,20 @@ const src = (layer: string, source: string, start: number, end: number, synth = 
 });
 
 describe('analyzeAudio', () => {
+  it('a sound the clock of its composition cuts short is said to be cut by the CLOCK (not by the end of the movie)', () => {
+    const mix = pcm(11, t => (t >= 4 && t < 5.5 ? 0.3 * Math.sin(2 * Math.PI * 1000 * t) : 0));
+    // a 1.4 s sound at local 4.0 .. 5.4 in a composition whose clock runs 0 -> 4.5 and then stands still: the sound stops at 4.5 of its own time
+    const cut: AudioDescriptor = { ...src('layer "sfx-chime"', 'sfx "chime"', 4, 5.4), warp: t => Math.min(t, 4.5) };
+    const r = analyzeAudio(mix, [cut], { peak: 0.3, peakAt: 4.2 }, 11, { window: 1 });
+    expect(r.issues.filter(i => /cut off/.test(i))).toEqual([expect.stringMatching(/layer "sfx-chime".*is cut off: its composition's clock only reaches 4\.50s \(the sound is 5\.40s long\)/)]);
+    expect(r.issues.some(i => /cut off by the end of the movie/.test(i))).toBe(false);
+  });
+  it('a sound the clock lets finish is not cut off, even when it plays to the end of the movie', () => {
+    const mix = pcm(4, t => (t >= 1 ? 0.3 * Math.sin(2 * Math.PI * 1000 * t) : 0));
+    const whole: AudioDescriptor = { ...src('layer "ok"', 'sfx "chime"', 3, 4), warp: t => (t < 1 ? NaN : 0.5 * (t - 1) + 3) };
+    expect(analyzeAudio(mix, [whole], { peak: 0.3, peakAt: 1 }, 4, { window: 1 }).issues.filter(i => /cut off/.test(i))).toEqual([]);
+  });
+
   it('a sound inside a remapped composition is reported when it plays in the MOVIE\'s time, not in the composition\'s local time (no false "after the movie ends")', () => {
     const mix = pcm(4, t => (t >= 1 && t < 3 ? 0.5 * Math.sin(2 * Math.PI * 1000 * t) : 0));
     // local time 0..4 of a composition at 0.5x that starts at movie time 1: the sound (local 0..1) plays in movie time 1..3; local 3..4 would be "after the movie" at 1x
