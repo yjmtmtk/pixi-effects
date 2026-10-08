@@ -18,7 +18,7 @@ async function withPage<T>(fn: (cdp: any) => Promise<T>): Promise<T> {
   try {
     await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
     await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/_checks/time-remap.html` });
-    for (let i = 0; i < 300; i++) { if (await cdp.eval('window.__ready === true').catch(() => false)) break; await check.sleep(200); }
+    for (let i = 0; i < 600; i++) { if (await cdp.eval('window.__ready === true').catch(() => false)) break; await check.sleep(200); }       // up to 2 minutes: the page renders its own clip first
     expect(await cdp.eval('window.__ready === true'), JSON.stringify(await cdp.eval('window.__logs'))).toBe(true);
     return await fn(cdp);
   } finally { try { proc.kill(); } catch { /* gone */ } server.close(); await check.sleep(200); try { rmSync(dir, { recursive: true, force: true }); } catch { /* held */ } }
@@ -113,6 +113,118 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('time remap
       expect(plain).toBeGreaterThan(2.9);
       expect(await lasts('speed: 2,')).toBeCloseTo(plain / 2, 3);                     // duration not given: the file's length divided by |speed|
       expect(await lasts('speed: -0.5,')).toBeCloseTo(plain * 2, 3);
+    });
+  }, 300000);
+});
+
+/** [name, the composition's own keys, the local time at output time t, the content length in seconds] */
+const MAPS: Array<[string, Record<string, unknown>, string, number]> = [
+  ['speed 2', { speed: 2 }, 't => 2 * t', 8],
+  ['reverse', { speed: -1 }, 't => 4 - t', 4],
+  ['slow', { speed: 0.5 }, 't => 0.5 * t', 4],
+  ['loop + hold + backward ramp', { keyframes: [
+    { at: 0, from: { time: 0 }, to: { time: 1 }, duration: 1, repeat: 1 },      // 0..2 s: 0 -> 1 twice
+    { at: 2, to: { time: 1 }, duration: 1 },                                     // 2..3 s: hold at 1
+    { at: 3, to: { time: 0 }, duration: 1 },                                     // 3..4 s: back to 0
+  ] }, 't => (t < 2 ? t % 1 : t < 3 ? 1 : 1 - (t - 3))', 4],
+];
+const OUTER = Array.from({ length: 16 }, (_, i) => i * 7 + 3);                  // output frames 3 .. 108
+
+describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('time remap of a composition, on a real browser', () => {
+  for (const [name, extra, map, content] of MAPS) {
+    it(`${name}: every frame equals the unremapped composition at the mapped time (to, from, set, gradient, spring, a nested video) and every seek order agrees`, async () => {
+      await withPage(async (cdp) => {
+        // The oracle shows whole frames, so compare only where the mapped local time IS a whole frame (speed 0.5 lands between frames on odd ones)
+        const mapped = new Function(`return ${map}`)() as (t: number) => number;
+        const exact = OUTER.filter(f => Math.abs(mapped(f / FPS) * FPS - Math.round(mapped(f / FPS) * FPS)) < 1e-6);
+        expect(exact.length, `${name}: frames compared`).toBeGreaterThanOrEqual(7);
+        const want = await cdp.eval(`plainAt(${map}, ${JSON.stringify(exact)}, ${content})`);
+        await cdp.eval(`mk({ duration: 4, composition: { sequences: [{ ...stage(), ...${JSON.stringify(extra)} }] } })`);
+        let worst = 0;
+        for (const f of exact) worst = Math.max(worst, await cdp.eval(`snap(${f}).then(s => diff(s, ${JSON.stringify(want[f])}))`));
+        expect(worst, `${name}: largest difference from the unremapped composition`).toBeLessThanOrEqual(60);          // antialiased edges only (gsap rounds the clock to ~1e-8 s)
+        expect(await cdp.eval(`orders(${JSON.stringify(OUTER)})`)).toEqual({ bwdMax: 0, jmpMax: 0, jmp2Max: 0 });
+        const logs = (await cdp.eval('window.__logs')).filter((l: string) => !/\[Resolver\]/.test(l));
+        expect(logs, `${name}: ${JSON.stringify(logs)}`).toEqual([]);
+      });
+    }, 600000);
+  }
+
+  it('a negative initial.time counts back from the end of the content: -1 on a 4 s composition starts at local 3 s', async () => {
+    await withPage(async (cdp) => {
+      const frames = [3, 9, 15, 21, 27];
+      const want = await cdp.eval(`plainAt(t => 3 + t, ${JSON.stringify(frames)}, 4)`);
+      await cdp.eval(`mk({ duration: 1, composition: { sequences: [{ ...stage(), initial: { time: -1 } }] } })`);
+      let worst = 0;
+      for (const f of frames) worst = Math.max(worst, await cdp.eval(`snap(${f}).then(s => diff(s, ${JSON.stringify(want[f])}))`));
+      expect(worst).toBeLessThanOrEqual(60);
+    });
+  }, 300000);
+
+  it('a jump BACKWARD first, to a place a from / to tween reaches only going backward, still gives the same picture', async () => {
+    await withPage(async (cdp) => {
+      await cdp.eval(`mk({ duration: 4, composition: { sequences: [{ ...stage(), speed: -1 }] } })`);
+      const first = await cdp.eval('snap(100)');                       // backward-first: the very first render is at the far end of the local timeline
+      await cdp.eval('snap(0)'); await cdp.eval('snap(60)');
+      expect(await cdp.eval(`snap(100).then(s => diff(s, ${JSON.stringify(first)}))`)).toBe(0);
+    });
+  }, 300000);
+
+  it('speed above 1 does not cut the content at the composition length (the local time runs to 8 s)', async () => {
+    await withPage(async (cdp) => {
+      const at = async (f: number) => cdp.eval(`frameAt(${f})`);
+      await cdp.eval(`mk({ duration: 4, composition: { sequences: [{ type: 'composition', duration: 4, speed: 2, sequences: [{ type: 'video', asset: 'clip', audio: false, duration: 3, at: 5, initial: { scale: 2 } }] }] } })`);
+      // local time 5 s starts at output 2.5 s (frame 75); the video has a 3 s clip, so output frame 90 shows clip frame (6 - 5) * 30
+      expect(Math.abs((await at(90)) - 30)).toBeLessThanOrEqual(1);
+    });
+  }, 300000);
+
+  it('particles, grain on a child, a camera with a threeD card stay frame-exact in a reversed and a doubled composition, in every seek order', async () => {
+    await withPage(async (cdp) => {
+      const content = `[
+        { type: 'shape', shape: 'rect', name: 'film', width: 320, height: 180, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#303040' }, filters: [{ type: 'grain', amount: 0.3, fps: 30, seed: 5 }] },
+        ...particles({ count: 40, at: 0.2, life: [1, 1.6], area: { x: 160, y: 90 }, angle: [0, 360], speed: [40, 120], seed: 3, size: [3, 5], colors: ['#ff7a00', '#ffd23f'] }),
+        { type: 'shape', shape: 'rect', name: 'card', threeD: true, width: 80, height: 50, initial: { x: 160, y: 90, z: 0, fillColor: '#2f6bff' }, keyframes: [{ at: 0, to: { rotationY: 60 }, duration: 3 }] },
+        { type: 'camera', name: 'cam', keyframes: [{ at: 0, to: { z: 400 }, duration: 3 }] },
+      ]`;
+      for (const c of [{ speed: -1, map: '(t => 4 - t)', len: 4 }, { speed: 2, map: '(t => 2 * t)', len: 8 }]) {
+        // the oracle: the same content, unremapped (as long as the remapped one's content), at the mapped local time
+        const want = await cdp.eval(`(async () => { await mk({ duration: ${c.len}, composition: { sequences: [{ type: 'composition', duration: ${c.len}, sequences: ${content} }] } }); const out = {}; for (const f of ${JSON.stringify(OUTER)}) out[f] = await snap(Math.round(${c.map}(f / 30) * 30)); return out; })()`);
+        await cdp.eval(`mk({ duration: 4, composition: { sequences: [{ type: 'composition', duration: 4, speed: ${c.speed}, sequences: ${content} }] } })`);
+        let worst = 0;
+        for (const f of OUTER) worst = Math.max(worst, await cdp.eval(`snap(${f}).then(s => diff(s, ${JSON.stringify(want[f])}))`));
+        expect(worst, `speed ${c.speed}`).toBeLessThanOrEqual(60);
+        expect(await cdp.eval(`orders(${JSON.stringify(OUTER)})`), `speed ${c.speed}`).toEqual({ bwdMax: 0, jmpMax: 0, jmp2Max: 0 });
+        const logs = (await cdp.eval('window.__logs')).filter((l: string) => !/\[Resolver\]/.test(l));
+        expect(logs, `speed ${c.speed}: ${JSON.stringify(logs)}`).toEqual([]);
+      }
+    });
+  }, 900000);
+
+  it('motion blur of a reversed composition equals the blur of the plain one at the mapped time (up to the order the samples are summed)', async () => {
+    await withPage(async (cdp) => {
+      const mb = '{ samples: 8, shutter: 0.5 }';
+      const move = `[{ type: 'shape', shape: 'rect', width: 40, height: 40, initial: { x: 40, y: 90, fillColor: '#ffffff' }, keyframes: [{ at: 0, to: { x: 280 }, duration: 4, ease: 'none' }] }]`;
+      await cdp.eval(`mk({ duration: 4, motionBlur: ${mb}, composition: { sequences: [{ type: 'composition', duration: 4, sequences: ${move} }] } })`);
+      const plain: Record<number, string> = {};
+      for (const f of [30, 60, 90]) plain[f] = await cdp.eval(`snap(${f})`);
+      await cdp.eval(`mk({ duration: 4, motionBlur: ${mb}, composition: { sequences: [{ type: 'composition', duration: 4, speed: -1, sequences: ${move} }] } })`);
+      for (const f of [30, 60, 90]) {
+        const d = await cdp.eval(`snap(${f}).then(s => diff(s, ${JSON.stringify(plain[120 - f])}))`);
+        expect(d, `frame ${f} against the plain composition at frame ${120 - f}`).toBeLessThanOrEqual(6);
+      }
+    });
+  }, 300000);
+
+  it('destroy kills the local timeline and the clock: nothing a remapped composition made is left running on the global timeline', async () => {
+    await withPage(async (cdp) => {
+      const count = `import('gsap').then(m => m.gsap.globalTimeline.getChildren(true, true, true).length)`;
+      const before: number = await cdp.eval(count);
+      await cdp.eval(`mk({ duration: 4, composition: { sequences: [{ ...stage(), speed: -1 }, { ...stage(), speed: 2 }] } })`);
+      await cdp.eval('snap(30)');
+      expect(await cdp.eval(count)).toBeGreaterThan(before);                    // the movie and its local timelines exist
+      await cdp.eval('window.movie.destroy().then(() => { window.movie = null; })');
+      expect(await cdp.eval(count), 'timelines left behind by a destroyed movie').toBeLessThanOrEqual(before);
     });
   }, 300000);
 });

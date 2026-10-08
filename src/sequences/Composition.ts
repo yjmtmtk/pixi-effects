@@ -12,6 +12,7 @@ import { lintSequence } from '../space/lint';
 import { describeLayer, lintText, lintTiming, summarizeWarnings, lintKeys } from '../core/lint';
 import { applyBlendMode } from '../core/blend';
 import { cameraBasis, homeCamera } from '../space/math';
+import { timeRemapOf, remapOf, contentLength, bindClock, clockTable, type TimeRemap } from '../core/remap';
 import type { CompositionSequenceSpec, AudioDescriptor, CompositionShape, SequenceSpec } from '../types';
 
 type Timeline = ReturnType<typeof gsap.timeline>;
@@ -29,6 +30,27 @@ export class CompositionSequence extends Sequence {
   private _nested: Sequence[] = [];
   /** The null layer each parented layer is drawn inside. */
   private _parentOf = new Map<Sequence, NullSequence>();
+  /** Set when this composition's own time is remapped: the children live on `_inner` in LOCAL time, driven by `_clock`. */
+  private _inner: Timeline | null = null;
+  private _clock: { time: number } | null = null;
+  private _remap: TimeRemap | null = null;
+  private _childBase = 0;
+  private _contentSpan = 0;
+
+  /** Where the children's time starts: the composition's absolute start, or 0 when their time is local (remapped). */
+  get childBase(): number { return this._childBase; }
+  /** How long the children's time runs: the composition's duration, or its content length when its time is remapped. */
+  get contentSpan(): number { return this._contentSpan; }
+  /** The time the children live in at movie time `t`: the movie's own, or this composition's local clock when it is remapped. */
+  childTime(t: number): number { return this._clock ? this._clock.time : t; }
+  /** The clock reader for filters that want the time (grain), or null when the children run on the movie's time. */
+  localClock(): (() => number) | null { return this._clock ? () => this._clock!.time : null; }
+  /** How the time is remapped, for the timeline chart: `×0.5`, `×-1`, `time keyframes`, or null. */
+  remapLabel(): string | null {
+    const r = this._remap;
+    if (!r) return null;
+    return r.timeKfs.length ? 'time keyframes' : `×${r.speed ?? 1}`;
+  }
 
   async build(): Promise<void> {
     const width = this.spec.width ?? this.parent?.width ?? this.root.width;
@@ -50,12 +72,17 @@ export class CompositionSequence extends Sequence {
     this.intrinsicWidth = width;
     this.intrinsicHeight = height;
     this._innerContainer = inner;
-    this._compositionShape = { width, height, duration: this.duration };
+    // A remapped composition's children live in LOCAL time, which can run past the composition's own duration (speed 2 reads twice as far).
+    const base = timeRemapOf(this.spec as never);
+    const span = base ? contentLength(base, this.duration) : this.duration;
+    this._remap = base ? remapOf(this.spec as never, 'time', span) : null;
+    this._contentSpan = span;
+    this._compositionShape = { width, height, duration: span };
 
     const lateKeyframes: string[] = [];
     for (const s of this.spec.sequences ?? []) {
       lintSequence(s);
-      lintTiming(s, this.duration, (message, kind) => (kind === 'late-keyframe' ? lateKeyframes.push(message) : console.warn(message)));
+      lintTiming(s, span, (message, kind) => (kind === 'late-keyframe' ? lateKeyframes.push(message) : console.warn(message)));
       lintText(s);
       lintKeys(s);
     }
@@ -156,11 +183,19 @@ export class CompositionSequence extends Sequence {
     this.buildFilters();
   }
 
+  protected override displayProps(): { initial: CompositionSequenceSpec['initial']; keyframes: CompositionSequenceSpec['keyframes'] } {
+    const r = this._remap;
+    return r ? { initial: r.restInitial as CompositionSequenceSpec['initial'], keyframes: r.restKfs } : super.displayProps();
+  }
+
   override bindTimeline(timeline: Timeline, offset = 0): void {
     super.bindTimeline(timeline, offset);
-    // Children's `at` is relative to this composition's start, so push them
-    // forward by our absolute start time on the global timeline.
-    const childOffset = offset + this.at;
+    const remap = this._remap;
+    // Children's `at` is relative to this composition's start, so push them forward by our absolute start time on the global
+    // timeline. A remapped composition builds them in LOCAL time (offset 0) on a timeline of its own, which the clock drives.
+    const childOffset = remap ? 0 : offset + this.at;
+    this._childBase = childOffset;
+    const target = remap ? gsap.timeline({ paused: true, defaults: { ease: 'none' } }) : timeline;
     for (const child of this._children) {
       // Each layer builds its tweens in a small timeline of its own, which is added to the parent once, finished. Adding
       // thousands of tweens one by one to a single timeline makes GSAP re-measure the whole timeline at every add (the cost
@@ -172,12 +207,43 @@ export class CompositionSequence extends Sequence {
       // relative to the composition's start, just like the child itself,
       // so a reveal-from-zero animation lines up naturally.
       child.maskSequence?.bindTimeline(own, childOffset);
-      timeline.add(own, 0);
+      target.add(own, 0);
     }
+    if (remap) this._bindClock(timeline, target, remap, offset);
     const overlap = findOverlap(this._cameras.map(c => c.window()));
     if (overlap) {
       console.warn(`pixi-effects: cameras #${overlap[0] + 1} and #${overlap[1] + 1} overlap in time; the top-most one wins`);
     }
+  }
+
+  /** Drive the local timeline `inner` from the clock, and put the clock's tweens on the outer `timeline`. */
+  private _bindClock(timeline: Timeline, inner: Timeline, remap: TimeRemap, offset: number): void {
+    let last = NaN;
+    let cur = 0;
+    const clock = {
+      get time(): number { return cur; },
+      set time(v: number) {
+        cur = v;
+        if (v === last) return;                          // a freeze renders nothing
+        last = v;
+        inner.time(v);
+      },
+    };
+    this._inner = inner;
+    this._clock = clock;
+    const scope = this.scope() as unknown as Record<string, number>;
+    if (remap.start !== undefined && remap.timeKfs.length === 0) clock.time = remap.start;
+    bindClock(timeline, clock, 'time', remap, this.duration!, offset + this.at, scope);
+    // Initialise every tween of the local timeline in order (end, then start), as Movie does for the main one: GSAP captures a `to`
+    // tween's start value the first time it renders, and a remap can reach a stretch of local time for the first time going BACKWARD.
+    inner.time(inner.duration()); inner.time(0);
+    last = NaN;                                          // the inner timeline now sits at 0, whatever the clock last said
+    this._warnUnreachable(clockTable(remap, 'time', this.duration!, offset + this.at, scope, offset + this.at + this.duration!));
+  }
+
+  /** A child whose whole span lies outside the range the clock covers is never visible: said here (Task 7). */
+  private _warnUnreachable(_table: { min: number; max: number }): void {
+    // filled in by the warning step: the clock range is known here
   }
 
   /**
@@ -256,14 +322,15 @@ export class CompositionSequence extends Sequence {
   override updateSpace(t: number, host: SpaceHost): void {
     // Inner compositions first: a threeD composition is rendered into its own
     // texture by this level, so its content must already be projected.
-    for (const child of this._children) child.updateSpace(t, host);
+    const childT = this.childTime(t);
+    for (const child of this._children) child.updateSpace(childT, host);
     if (this._layers3d.length === 0 || !this._compositionShape) return;
 
     const { width, height } = this._compositionShape;
-    const compEnd = (this.absoluteStart ?? 0) + (this.duration ?? 0);
+    const compEnd = this._childBase + (this.duration ?? 0);
     const active = pickActiveCamera(
       this._cameras.map(cam => ({ cam, ...cam.window() })),
-      t,
+      childT,
       compEnd,
     );
     const basis = cameraBasis(active ? active.cam.state() : homeCamera(width, height), width, height);
@@ -280,11 +347,27 @@ export class CompositionSequence extends Sequence {
 
   override collectAudio(out: AudioDescriptor[], baseTime: number): void {
     super.collectAudio(out, baseTime);
-    const childBase = baseTime + this.at;
-    for (const child of this._children) child.collectAudio(out, childBase);
+    const remap = this._remap;
+    if (!remap) {
+      const childBase = baseTime + this.at;
+      for (const child of this._children) child.collectAudio(out, childBase);
+      return;
+    }
+    // The children's sounds are described in local time; each one is given a warp from the movie's time to it.
+    const inner: AudioDescriptor[] = [];
+    for (const child of this._children) child.collectAudio(inner, 0);
+    const lo = baseTime + this.at, hi = lo + this.duration!;
+    const table = clockTable(remap, 'time', this.duration!, lo, this.scope() as unknown as Record<string, number>, hi);
+    for (const d of inner) {
+      const prev = d.warp;
+      out.push({ ...d, warp: (t: number) => (t < lo || t > hi ? NaN : prev ? prev(table.at(t)) : table.at(t)) });
+    }
   }
 
   override destroy(): void {
+    this._inner?.kill();
+    this._inner = null;
+    this._clock = null;
     for (const l of this._layers3d) l.destroy();
     this._layers3d = [];
     for (const c of this._children) c.destroy();

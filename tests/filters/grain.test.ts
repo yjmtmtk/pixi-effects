@@ -50,6 +50,12 @@ describe('the grain filter', () => {
     f.setTime(1); expect(frame()).toBe(24);
     f.fps = 0; f.setTime(5); expect(frame()).toBe(0);
   });
+  it('a time a hair under a frame boundary is that frame (a remapped clock carries ~1e-7 s of float noise), and a time well inside a frame is not moved', () => {
+    const f = new GrainFilter({ fps: 30 }) as unknown as GrainFilter & { resources: { grainUniforms: { uniforms: Record<string, number> } } };
+    const frame = () => f.resources.grainUniforms.uniforms.uFrame;
+    for (let k = 1; k <= 120; k++) { f.setTime(k / 30 - 1e-7); expect(frame(), `frame ${k}`).toBe(k); }
+    for (let k = 0; k < 120; k++) { f.setTime((k + 0.4) / 30); expect(frame(), `inside frame ${k}`).toBe(k); }
+  });
   it('a mistyped option says which one was meant', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     new GrainFilter({ amout: 0.1 } as never);

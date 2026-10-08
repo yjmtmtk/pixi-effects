@@ -74,9 +74,10 @@ export function inspectScene(
 
   const walk = (comp: CompositionSequence, prefix: string, insideThreeD: boolean, parentVisible: boolean, parentScene?: string, parentMoving = false, parentZero = false): void => {
     const blending = new Set<string>();
+    const now = comp.childTime(time);                                   // the time its children live in (local when it is remapped)
     for (const w of transitionWindowsOf(comp.spec)) {
-      const start = (comp.absoluteStart ?? 0) + w.start, end = (comp.absoluteStart ?? 0) + w.end;
-      if (time >= start - 1e-9 && time <= end + 1e-9) { blending.add(w.from); blending.add(w.to); }
+      const start = comp.childBase + w.start, end = comp.childBase + w.end;
+      if (now >= start - 1e-9 && now <= end + 1e-9) { blending.add(w.from); blending.add(w.to); }
     }
     comp.layers().forEach(({ seq, display, threeD, carriers }, i) => {
       const t = seq.target as (Container & { renderable: boolean; alpha: number }) | null;

@@ -222,5 +222,9 @@ export class GrainFilter extends Filter {
   get fps(): number { return this._fps; }
   set fps(v: number) { this._fps = v; }
   /** The movie calls this with the time (s) of the frame it is about to draw: the grain is new every 1/fps s. */
-  setTime(t: number): void { this.u.uFrame = this._fps > 0 ? Math.floor(t * this._fps + 1e-6) : 0; }
+  setTime(t: number): void {
+    // A thousandth of a grain frame of slack: a time that should sit ON a boundary (k / fps) arrives a hair under it when it passes
+    // through a remapped clock (gsap rounds time to ~1e-8 s), and the grain would be the previous frame's, a different picture.
+    this.u.uFrame = this._fps > 0 ? Math.floor(t * this._fps + 1e-3) : 0;
+  }
 }

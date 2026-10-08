@@ -91,6 +91,25 @@
       }
       return out;
     };
+    // the content of the composition under test: features that keep state across a seek. `duration` is the composition's: the
+    // unremapped oracle uses the remapped one's CONTENT length so its children live as long as they do there.
+    window.stage = (extra = {}) => ({
+      type: 'composition', name: 'stage', duration: 4, ...extra, sequences: [
+        { type: 'shape', shape: 'rect', name: 'to', width: 40, height: 40, initial: { x: 20, y: 20, fillColor: '#ff3d81' }, keyframes: [{ at: 0, to: { x: 260 }, duration: 3, ease: 'power1.inOut' }] },
+        { type: 'shape', shape: 'circle', name: 'from', radius: 18, initial: { x: 160, y: 110, fillColor: '#3ddc97' }, keyframes: [{ at: 0.5, from: { alpha: 0, scale: 0.2 }, to: { alpha: 1, scale: 1 }, duration: 1 }] },
+        { type: 'text', name: 'set', text: 'one', initial: { x: 20, y: 150, anchorX: 0, anchorY: 0 }, style: { fontSize: 24, fill: '#ffffff' }, keyframes: [{ at: 1.5, set: { text: 'two' } }, { at: 2.5, set: { text: 'three' } }] },
+        { type: 'shape', shape: 'rect', name: 'gradient', width: 120, height: 14, anchorX: 0, anchorY: 0, initial: { x: 100, y: 4, fillGradient: { stops: [[0, '#00f'], [1, '#f00']] } }, keyframes: [{ at: 0, to: { fillGradient: { stops: [[0, '#0ff'], [1, '#ff0']] } }, duration: 3 }] },
+        { type: 'shape', shape: 'circle', name: 'spring', radius: 10, initial: { x: 300, y: 20, fillColor: '#ffd23f' }, keyframes: [{ at: 0.5, to: { y: 150 }, duration: 1.5, ease: 'spring(1, 170, 12)' }] },
+        { type: 'video', asset: 'clip', name: 'clip', audio: false, duration: 3, initial: { x: 0, y: 0, scale: 0.4 } },
+      ],
+    });
+    // the oracle: the SAME content, unremapped (a composition `content` seconds long), shown at the local time map(f / 30) for each output frame f
+    window.plainAt = async (map, frames, content) => {
+      await window.mk({ duration: content, composition: { sequences: [window.stage({ duration: content })] } });
+      const out = {};
+      for (const f of frames) out[f] = await window.snap(Math.round(map(f / 30) * 30));
+      return out;
+    };
     window.__ready = true;
   </script>
 </body></html>
