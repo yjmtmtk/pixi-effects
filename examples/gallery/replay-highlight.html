@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>REPLAY - pixi-effects gallery</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+  <style>
+    body { background: #0c1020; margin: 0; padding: 16px; }
+    .stage { position: relative; width: min(960px, 100%); }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>
+  </div>
+
+  <script type="application/json" id="piece-meta">
+  { "title": "REPLAY", "subtitle": "One great shot, live, then again in slow motion with the arc drawn on.", "tags": ["sports", "replay", "slow motion", "sound"], "width": 1280, "height": 720, "duration": 12, "model": "haiku" }
+  </script>
+
+  <script>
+    // Harness: every console warning/error is collected.
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/presenter":  "../../dist/Presenter.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 12;
+    const NAVY = '#0c1020', OFF = '#f2efe8', ORANGE = '#ff6a2b';
+    const SANS = "'Arial Black', Impact, system-ui, sans-serif";
+    const MONO = "ui-monospace, Menlo, Consolas, monospace";
+
+    // ---- the geometry of the shot (movie pixels; a composition's local = movie pixels here) ----
+    const FLOOR_Y = 600;
+    const LAUNCH_T = 1.0;             // composition seconds: the ball leaves the hand
+    const APEX_T = 1.9;               // 0.9 s after the launch: the top of the arc
+    const HOOP_T = 2.5;               // 1.5 s after the launch: through the hoop
+    const X0 = 170, Y0 = 578;         // the ball in the hand, resting on the floor
+    const XH = 900, APEX_Y = 150;
+    const FLIGHT = HOOP_T - LAUNCH_T; // 1.5 s
+    const TAU = APEX_T - LAUNCH_T;    // 0.9 s
+    const VX = (XH - X0) / FLIGHT;    // px/s, constant
+    const G = 2 * (Y0 - APEX_Y) / (TAU * TAU);   // px/s^2, so the top of the arc is APEX_Y
+    const VY = G * TAU;               // launch speed upwards
+    const xAt = t => X0 + VX * t;     // t: seconds after the launch
+    const yAt = t => Y0 - VY * t + G * t * t / 2;
+    const HOOP_Y = Math.round(yAt(FLIGHT));
+    const LAUNCH_ANGLE = Math.round(Math.atan2(VY, VX) * 180 / Math.PI);
+
+    // The trajectory as dashes (every other pair of samples is one dash; trimEnd draws them on in order).
+    const trajectoryD = () => {
+      const pts = [];
+      for (let i = 0; i <= 60; i++) { const t = FLIGHT * i / 60; pts.push([xAt(t), yAt(t)]); }
+      let d = '';
+      for (let i = 0; i < pts.length - 1; i += 2) {
+        d += `M ${pts[i][0].toFixed(1)} ${pts[i][1].toFixed(1)} L ${pts[i + 1][0].toFixed(1)} ${pts[i + 1][1].toFixed(1)} `;
+      }
+      return d;
+    };
+
+    // The shot, built fresh every time (a spec object cannot be shared): a composition in ITS OWN seconds 0-3.
+    function shot(name) {
+      const STEP = 0.05;
+      const ballKeys = [];
+      for (let k = 0; k < Math.round(FLIGHT / STEP); k++) {
+        const t1 = (k + 1) * STEP;
+        ballKeys.push({ at: LAUNCH_T + k * STEP, to: { x: xAt(t1), y: yAt(t1) }, duration: STEP, ease: 'none' });
+      }
+      // through the net, then down out of the frame
+      ballKeys.push({ at: HOOP_T, to: { x: XH + 6, y: 480 }, duration: 0.5, ease: 'power2.in' });
+
+      return {
+        type: 'composition', name, width: W, height: H, duration: 3,
+        sequences: [
+          // the ball: a null that carries a body and a seam
+          { type: 'null', name: 'ball', duration: 3, initial: { x: X0, y: Y0 }, keyframes: ballKeys },
+          { type: 'shape', shape: 'circle', name: 'ball-body', parent: 'ball', radius: 22, duration: 3,
+            initial: { x: 0, y: 0, fillColor: ORANGE } },
+          { type: 'shape', shape: 'path', name: 'ball-seam', parent: 'ball', duration: 3,
+            d: 'M -22 0 L 22 0 M 0 -22 L 0 22 M -15 -15 Q 0 0 -15 15 M 15 -15 Q 0 0 15 15',
+            initial: { x: 0, y: 0, strokeColor: NAVY, strokeWidth: 2.5, fillAlpha: 0 } },
+          // the hoop: backboard, rim, net (drawn after the ball so it passes behind the front of the rim)
+          { type: 'shape', shape: 'rect', name: 'backboard', width: 12, height: 150, duration: 3,
+            initial: { x: XH + 46, y: HOOP_Y - 40, fillColor: OFF } },
+          { type: 'shape', shape: 'rect', name: 'rim', width: 76, height: 6, duration: 3,
+            initial: { x: XH + 2, y: HOOP_Y, fillColor: OFF } },
+          { type: 'shape', shape: 'path', name: 'net', duration: 3,
+            d: 'M -34 3 L -25 50 L 25 50 L 34 3 M -17 3 L -12 50 M 0 3 L 0 50 M 17 3 L 12 50 M -28 27 L 28 27',
+            initial: { x: XH + 2, y: HOOP_Y, strokeColor: OFF, strokeWidth: 2, fillAlpha: 0, alpha: 0.7 } },
+          // sound: the launch, the swish
+          { type: 'audio', name: 'launch-swoosh', sfx: 'swoosh', at: LAUNCH_T, volume: 0.9 },
+          { type: 'audio', name: 'swish', sfx: 'pop', at: HOOP_T, volume: 1 },
+        ],
+      };
+    }
+
+    const LIVE_END = 3.0;
+    const REPLAY_AT = 3.8, REPLAY_END = 9.0;
+    const FREEZE_AT = 7.2;            // the replay's freeze, in movie seconds (REPLAY_AT + 3.4)
+
+    const sequences = [
+      { type: 'shape', name: 'background', shape: 'rect', width: 'GW', height: 'GH',
+        initial: { x: 'GW/2', y: 'GH/2', fillColor: NAVY } },
+      // the court: a floor line (the whole piece)
+      { type: 'shape', name: 'floor', shape: 'rect', width: 'GW', height: 4, duration: DURATION,
+        initial: { x: 'GW/2', y: FLOOR_Y, fillColor: OFF, fillAlpha: 0.4 } },
+
+      // 0-3 s: the live play, at speed 1
+      { ...shot('play'), at: 0, duration: LIVE_END },
+
+      // 3.0-3.8 s: the broadcast wipe (a diagonal accent bar, with a thin off-white edge)
+      { type: 'shape', name: 'wipe-edge', shape: 'rect', width: 12, height: 1200, at: LIVE_END, duration: 0.8,
+        initial: { x: -400, y: 360, rotation: 18, fillColor: OFF }, keyframes: [{ at: 0, to: { x: 1600 }, duration: 0.8, ease: 'power2.inOut' }] },
+      { type: 'shape', name: 'wipe-bar', shape: 'rect', width: 240, height: 1200, at: LIVE_END, duration: 0.8,
+        initial: { x: -360, y: 360, rotation: 18, fillColor: ORANGE }, keyframes: [{ at: 0, to: { x: 1640 }, duration: 0.8, ease: 'power2.inOut' }] },
+      { type: 'audio', name: 'wipe-swoosh', sfx: 'swoosh', at: LIVE_END, volume: 0.9 },
+
+      // 3.8-9.0 s: the SAME shot again, its own clock driven by `time`: slow up, a freeze at the top, normal speed through the hoop
+      { ...shot('replay'), at: REPLAY_AT, duration: REPLAY_END - REPLAY_AT,
+        initial: { time: LAUNCH_T - 0.1 },
+        keyframes: [
+          { at: 0, to: { time: APEX_T }, duration: 3.4, ease: 'none' },      // 1.0 s of shot in 3.4 s: about 0.3x
+          { at: 3.4, to: { time: APEX_T }, duration: 0.6, ease: 'none' },    // the freeze at the top of the arc
+          { at: 4.0, to: { time: HOOP_T }, duration: 0.6, ease: 'none' },    // normal speed to the hoop
+          { at: 4.6, to: { time: 3.0 }, duration: 0.5, ease: 'none' },       // and down through the net
+        ] },
+
+      // replay annotations (movie time, not part of the play)
+      { type: 'shape', name: 'trajectory', shape: 'path', d: trajectoryD(), at: FREEZE_AT, duration: 1.8,
+        trimEnd: 0, strokeCap: 'round', strokeJoin: 'round',
+        initial: { strokeColor: ORANGE, strokeWidth: 5, fillAlpha: 0 },
+        keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.6, ease: 'power1.inOut' }] },
+      { type: 'shape', name: 'angle-arc', shape: 'arc', radius: 84, startAngle: -LAUNCH_ANGLE, endAngle: 0, strokeCap: 'round', at: FREEZE_AT, duration: 1.8,
+        initial: { x: X0, y: Y0, fillAlpha: 0, strokeColor: OFF, strokeWidth: 3, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] },
+      { type: 'text', name: 'angle-label', text: `${LAUNCH_ANGLE}°`, at: FREEZE_AT, duration: 1.8,
+        style: { fontFamily: MONO, fontSize: 40, fontWeight: 'bold', fill: ORANGE },
+        initial: { x: X0 - 62, y: Y0 - 150, anchorX: 0, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] },
+
+      // broadcast tags: LIVE (top-left, live play), REPLAY (replay)
+      { type: 'shape', name: 'live-tag', shape: 'rect', width: 132, height: 44, anchorX: 0, anchorY: 0, at: 0, duration: LIVE_END,
+        initial: { x: 64, y: 56, fillColor: ORANGE } },
+      { type: 'text', name: 'live-text', text: 'LIVE', at: 0, duration: LIVE_END,
+        style: { fontFamily: MONO, fontSize: 24, fontWeight: 'bold', fill: NAVY },
+        initial: { x: 130, y: 78, anchorX: 0.5, anchorY: 0.5 } },
+      { type: 'shape', name: 'replay-tag', shape: 'rect', width: 132, height: 44, anchorX: 0, anchorY: 0, at: REPLAY_AT, duration: REPLAY_END - REPLAY_AT,
+        initial: { x: 64, y: 56, fillColor: OFF } },
+      { type: 'text', name: 'replay-text', text: 'REPLAY', at: REPLAY_AT, duration: REPLAY_END - REPLAY_AT,
+        style: { fontFamily: MONO, fontSize: 24, fontWeight: 'bold', fill: NAVY },
+        initial: { x: 130, y: 78, anchorX: 0.5, anchorY: 0.5 } },
+      { type: 'text', name: 'slow-label', text: 'SLOW 0.3x', at: REPLAY_AT, duration: FREEZE_AT - REPLAY_AT,
+        style: { fontFamily: MONO, fontSize: 22, fill: OFF },
+        initial: { x: 64, y: 118, anchorX: 0, anchorY: 0, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.25 }, { at: 3.1, to: { alpha: 0 }, duration: 0.3 }] },
+
+      // the score bug (lower-left): the score changes at the end, and bumps
+      { type: 'shape', name: 'bug-bg', shape: 'rect', width: 470, height: 48, anchorX: 0, anchorY: 0, at: 0, duration: DURATION,
+        initial: { x: 72, y: 608, fillColor: OFF } },
+      { type: 'shape', name: 'bug-accent', shape: 'rect', width: 8, height: 48, anchorX: 0, anchorY: 0, at: 0, duration: DURATION,
+        initial: { x: 72, y: 608, fillColor: ORANGE } },
+      { type: 'text', name: 'score', text: 'HOME 54 · AWAY 52 · Q4 0:03', at: 0, duration: DURATION,
+        style: { fontFamily: MONO, fontSize: 24, fontWeight: 'bold', fill: NAVY },
+        initial: { x: 96, y: 632, anchorX: 0, anchorY: 0.5 },
+        keyframes: [
+          { at: 9.0, set: { text: 'HOME 56 · AWAY 52 · FINAL' } },
+          { at: 9.0, set: { scale: 1.2 } },
+          { at: 9.0, to: { scale: 1 }, duration: 0.45, ease: 'back.out(2)' },
+        ] },
+
+      // 9.0-12.0 s: the end card
+      { type: 'audio', name: 'end-chime', sfx: 'chime', at: 9.2, volume: 0.8 },
+      { type: 'text', name: 'end-title', text: 'WHAT A SHOT.', at: 9.2, duration: DURATION - 9.2,
+        style: { fontFamily: SANS, fontSize: 104, fontWeight: '900', fill: OFF },
+        initial: { x: 640, y: 300, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, from: { y: 340, alpha: 0 }, to: { y: 300, alpha: 1 }, duration: 0.7, ease: 'expo.out' }] },
+      { type: 'shape', name: 'end-rule', shape: 'rect', width: 520, height: 8, at: 9.6, duration: DURATION - 9.6,
+        initial: { x: 640, y: 362, fillColor: ORANGE, scaleX: 0 },
+        keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.5, ease: 'expo.out' }] },
+      { type: 'text', name: 'end-line', text: '+2  ·  Q4 0:03', at: 10.0, duration: DURATION - 10.0,
+        style: { fontFamily: MONO, fontSize: 30, fill: OFF },
+        initial: { x: 640, y: 420, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 0.8 }, duration: 0.6 }] },
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 7.7,                  // the freeze, the arc drawn on, the angle on screen
+        background: NAVY,
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

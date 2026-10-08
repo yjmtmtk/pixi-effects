@@ -13,7 +13,7 @@ import { dirname, resolve, join } from 'node:path';
 const here = dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_ROOT = resolve(here, '..');
 export const GALLERY_DIR = 'examples/gallery';
-export const MODELS = ['fable', 'opus', 'sonnet'];
+export const MODELS = ['fable', 'opus', 'sonnet', 'haiku'];
 
 // Hand-picked opening order: strong, varied posters first, aspect ratios interleaved so the
 // masonry has rhythm. Anything not listed follows, sorted by title.

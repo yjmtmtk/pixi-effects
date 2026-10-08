@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+**Added**
+
+- **Three gallery pieces made by Claude Haiku 5.5** (45 now; the model name is the authors' own report): `replay-highlight` (a sports replay: live, a wipe, then the same shot in slow motion with a freeze and a drawn-on arc, one composition with its own clock), `piano-roll` (a four-bar tune written as text and falling down a piano roll, the bars and the score built from one array) and `departure-board` (a vertical split-flap station board in Japanese and English). They were made from the docs alone and left as the authors made them; their stumble notes are in `examples/gallery/_notes/`. The gallery lists `haiku` as a fourth model.
+
+**Docs** (from those stumble notes, each checked before it was written): where the animatable props go (`initial` / keyframes, not the top level of a shape), what `duration` means on a composition with its own time (with an example), dashes (alternating sub-paths and `trimEnd`), `volume` above 1 for an sfx, the keys of `inspectAudio().windows`, how to find the onsets of a `music` score, `grid: 2` for 3/4, and a measured loudness of a music bed.
+
 ## 0.20.0
 
 **Added**

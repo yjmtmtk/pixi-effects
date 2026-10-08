@@ -39,6 +39,11 @@
     "posterFrame": 350,
     "hash": "485b9a8bd632d35eb5738d65275400f4dce198e7"
   },
+  "departure-board": {
+    "poster": 10,
+    "posterFrame": 300,
+    "hash": "35be7fc8b49761ced46702323f61cdf4db3f703b"
+  },
   "film-titles": {
     "poster": 13.5,
     "posterFrame": 405,
@@ -119,6 +124,11 @@
     "posterFrame": 168,
     "hash": "4f84ec8c71390fc1562eb7d80b367dc0c4db3bff"
   },
+  "piano-roll": {
+    "poster": 9,
+    "posterFrame": 270,
+    "hash": "cb123d43a50d21a95cd7657367fc6737326b807b"
+  },
   "quiet-hours": {
     "poster": 9.8,
     "posterFrame": 294,
@@ -128,6 +138,11 @@
     "poster": 11.5,
     "posterFrame": 345,
     "hash": "cab585877008798fe53a235f4ba37b42f324a27b"
+  },
+  "replay-highlight": {
+    "poster": 7.7,
+    "posterFrame": 231,
+    "hash": "407079880f8a9ba5ec2c7d34950a6467c0418d9c"
   },
   "rewind-title": {
     "poster": 10.2,

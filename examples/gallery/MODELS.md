@@ -46,7 +46,12 @@ Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same br
 | opus | 間 MA — the space between — A 48-second kinetic essay about one word: a hairline of light becomes a gate, a corridor, a silence, a sun and a seal, cut to a score written as text | 1920×1080 | ma.html |
 | fable | Again. — A title card is built, rewound like a tape, held, and replayed in slow motion: one composition with its own clock, its sounds running backward with it | 1280×720 | rewind-title.html |
 | opus | Now Showing — A vintage cinema marquee at night: bulbs snap on, letters bounce onto the rail, a ticket stub wobbles in, all under one film grain | 1280×720 | spring-marquee.html |
+| haiku | REPLAY — One great shot, live, then again in slow motion with the arc drawn on: a composition whose own clock slows, freezes and resumes | 1280×720 | replay-highlight.html |
+| haiku | Eight Bars — A four-bar tune written as text, falling down a piano roll: each bar flashes and rings the moment its note sounds | 1080×1080 | piano-roll.html |
+| haiku | Last Train — A split-flap station board at night, in Japanese and English: the cascade, one status change, and the last train of the night | 720×1280 | departure-board.html |
 
-Counts: fable 13, opus 13, sonnet 16 (42 pieces).
+Counts: fable 13, opus 13, sonnet 16, haiku 3 (45 pieces).
 
 Per-piece stumble notes are in [_notes/](_notes/), named after the piece id (file name without `.html`).
+
+`haiku`: the three Haiku pieces were made on 2026-10-09 by parallel subagents, one piece each, from the same brief and the docs of 0.20.0. The model name is what each author wrote at the top of its stumble notes (`claude-haiku-5-5`, Claude Haiku 5.5): a self-report; the session could only ask for the model by its short name `haiku`. They were left as the author made them (one author fixed one frame that `check` reported, nothing else was polished), so that the label tells how far a small model gets from the docs alone.

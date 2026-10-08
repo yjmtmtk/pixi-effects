@@ -78,6 +78,7 @@ button { font: inherit; color: inherit; }
 .dot[data-model="fable"] { background: var(--model-fable); }
 .dot[data-model="opus"] { background: var(--model-opus); }
 .dot[data-model="sonnet"] { background: var(--model-sonnet); }
+.dot[data-model="haiku"] { background: var(--model-haiku); }
 
 /* ---------- grid ---------- */
 .reel { padding-top: 44px; padding-bottom: 72px; }

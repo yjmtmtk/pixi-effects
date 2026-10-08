@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Last train</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+  <style>
+    html, body { background: #101014; margin: 0; }
+    body { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
+    .pe-stage { position: relative; width: min(400px, 100%); height: auto; border-radius: 10px; --pe-loader-bg: #0b0b0e; background: #0b0b0e; }
+    .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
+  </style>
+</head>
+<body>
+  <div class="pe-stage"><canvas id="stage" width="720" height="1280"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
+
+  <script type="application/json" id="piece-meta">{ "title": "Last Train", "subtitle": "A split-flap station board at night: the cascade, one status change, and the last train of the night", "tags": ["typography", "split-flap", "japanese", "vertical", "sound"], "width": 720, "height": 1280, "duration": 12, "model": "haiku" }</script>
+
+  <script>
+    // Harness: every console warning/error is collected.
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie, random } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 720, H = 1280, FPS = 30, DUR = 12;
+    const AMBER = '#ffb000', OFF = '#f2efe8', TILE = '#1a1a1f', BLACK = '#0b0b0e';
+    const MONO = 'Menlo, Consolas, "Courier New", "Hiragino Sans", "Noto Sans CJK JP", monospace';
+    const DISPLAY = '"Arial Black", Impact, "Hiragino Sans", sans-serif';
+    const BLANK = ' ';
+    const DIGITS = '0123456789', EN_POOL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const JA_POOL = 'あいうえおかきくけこさしすせそたちつてとなにぬねの';
+
+    // One flap = close (scale Y 1 -> 0), swap the character at the midpoint, open (0 -> 1).
+    const STEP = 0.11, CLOSE = 0.05, OPEN = 0.06;
+    const rnd = random(42);                               // seeded: the same board every run
+    const pick = pool => pool[Math.floor(rnd() * pool.length)];
+
+    // Rows of the board (the last one is the hero: it becomes the last train at 6 s).
+    const ROWS = [
+      { t: '22:52', ja: '渋谷', en: 'SHIBUYA',    jaS: '定刻', enS: 'ON TIME',   p: '3' },
+      { t: '23:04', ja: '品川', en: 'SHINAGAWA',  jaS: '遅延', enS: 'DELAYED',   p: '1', change: { at: 4.2, jaS: '定刻', enS: 'ON TIME' } },
+      { t: '23:11', ja: '東京', en: 'TOKYO',      jaS: '定刻', enS: 'ON TIME',   p: '5' },
+      { t: '23:17', ja: '池袋', en: 'IKEBUKURO',  jaS: '運休', enS: 'CANCELLED', p: '2' },
+      { t: '23:26', ja: '新宿', en: 'SHINJUKU',   jaS: '定刻', enS: 'ON TIME',   p: '8' },
+      { t: '23:33', ja: '大宮', en: 'OMIYA',      jaS: '定刻', enS: 'ON TIME',   p: '4' },
+      { t: '23:59', ja: '大崎', en: 'OSAKI',      jaS: '定刻', enS: 'ON TIME',   p: '4',
+        hero: { at: 6.0, ja: '最終', en: 'LAST', jaS: '終電', enS: 'TRAIN', p: '9' } },
+    ];
+    const ROW0 = 290, ROWH = 112, LA = 30, LB = 84;        // row 0 top, row pitch, line A / line B centres
+    const HERO = ROWS.length - 1;
+    const HOLD_DIM = 6.0, PULSE_AT = 4.2, RULE_AT = 6.6, TITLE_AT = 9.0, BLANK_AT = 11.4;
+
+    const CLOCK_TICKS = [[3.9, '23:42'], [4.7, '23:43'], [5.5, '23:44'], [6.8, '23:50'], [7.8, '23:55'], [8.8, '23:58'], [9.9, '23:59']];
+    const HERO_AT = 6.0;
+    const cells = [];
+    const early = [];                                      // housing, labels, nulls (parents go before children)
+    const late = [];                                       // pulse, rule, vignette, title (drawn on top of the board)
+
+    function makeCell(o) {
+      const c = { keys: [], cur: BLANK, ...o };
+      cells.push(c);
+      return c;
+    }
+    // A flip: close, swap at the midpoint, open. Every keyframe is absolute (the layers start at 0).
+    function flip(c, start, steps) {
+      steps.forEach((ch, i) => {
+        const t = start + i * STEP;
+        c.keys.push({ at: t, to: { scaleY: 0.2 }, duration: CLOSE, ease: 'power1.in' });   // closes to a sliver, not 0: inspect reads a near-zero-height text as having no size
+        c.keys.push({ at: t + CLOSE, set: { text: ch } });
+        c.keys.push({ at: t + CLOSE, to: { scaleY: 1 }, duration: OPEN, ease: 'power1.out' });
+      });
+      c.cur = steps[steps.length - 1];
+    }
+    // Flip the cells whose character changes, left to right. pre = random letters before the final one.
+    function show(list, charOf, start, { gap = 0.012, pre = 2, force = false } = {}) {
+      list.forEach((c, i) => {
+        const ch = charOf(c);
+        if (!force && ch === c.cur) return;
+        const steps = [];
+        for (let k = 0; k < pre; k++) steps.push(pick(c.pool));
+        steps.push(ch);
+        flip(c, start + i * gap, steps);
+      });
+    }
+    const pad = (s, n) => { const a = [...s]; while (a.length < n) a.push(BLANK); return a.slice(0, n); };
+    const fieldsOf = r => ({ time: pad(r.t, 5), ja: pad(r.ja, 4), jaS: pad(r.jaS, 2), p: pad(r.p, 1), en: pad(r.en, 11), enS: pad(r.enS, 9) });
+
+    // ---- the board: 7 rows, each a time, a JA + EN destination, a JA + EN status and a platform
+    const rowCells = [];
+    const TILE_GRAD = { angle: 90, stops: [[0, TILE], [0.47, TILE], [0.5, BLACK], [0.53, TILE], [1, TILE]] };
+    const COLS = [
+      // field, count, x0, tile w, pitch, line, font size, pool
+      ['time', 5, 40, 36, 40, 'A', 40, DIGITS],
+      ['ja', 4, 262, 34, 38, 'A', 26, JA_POOL],
+      ['jaS', 2, 424, 34, 38, 'A', 26, JA_POOL],
+      ['p', 1, 600, 40, 40, 'A', 40, DIGITS],
+      ['en', 11, 40, 22, 25, 'B', 24, EN_POOL],
+      ['enS', 9, 424, 22, 25, 'B', 24, EN_POOL],
+    ];
+    ROWS.forEach((row, r) => {
+      const top = ROW0 + r * ROWH;
+      const isHero = r === HERO;
+      if (isHero) {
+        // the platform digit is a null: it grows to 1.7 when it shows the 9
+        early.push({ type: 'null', name: 'plat-hero', at: 0, duration: DUR,
+          initial: { x: 620, y: top + LA },
+          keyframes: [{ at: 6.2, to: { scale: 1.7 }, duration: 0.5, ease: 'back.out(1.6)' }] });
+      }
+      const list = [];
+      for (const [field, n, x0, w, pitch, line, fs, pool] of COLS) {
+        for (let i = 0; i < n; i++) {
+          const isPlat = field === 'p' && isHero;
+          const x = isPlat ? 0 : x0 + i * pitch + w / 2;
+          const y = isPlat ? 0 : top + (line === 'A' ? LA : LB);
+          const c = makeCell({ id: `r${r}-${field}${i}`, field, index: i, x, y, w, h: line === 'A' ? 46 : 32, fs, pool,
+            ...(isPlat ? { parent: 'plat-hero' } : {}), sortX: x0 + i * pitch });
+          list.push(c);
+          rowCells.push(c);
+        }
+      }
+      // left to right across the row, both lines together
+      list.sort((a, b) => (a.sortX - b.sortX) || (a.y - b.y));
+      row.cells = list;
+      row.fields = fieldsOf(row);
+      const charOf = fields => c => fields[c.field][c.index];
+      row.charOf = charOf;
+      // the cascade: rows top to bottom, 0.3 s apart; a click per row
+      show(list, charOf(row.fields), 0.3 + r * 0.3, { gap: 0.012, pre: 2, force: true });
+    });
+    // blank the platform cell's parent-relative geometry is handled above; now the hero's change at 6 s
+    const hero = ROWS[HERO];
+    const heroNext = fieldsOf({ ...hero, ...hero.hero });
+    show(hero.cells, c => heroNext[c.field][c.index], hero.hero.at, { gap: 0.012, pre: 1 });
+    // one status flips DELAYED -> ON TIME with a pulse
+    const r1 = ROWS[1];
+    const r1Next = fieldsOf({ ...r1, ...r1.change });
+    show(r1.cells, c => r1Next[c.field][c.index], PULSE_AT, { gap: 0.02, pre: 1 });
+    // the other rows dim
+    ROWS.forEach((row, r) => {
+      if (r === HERO) return;
+      for (const c of row.cells) c.keys.push({ at: HOLD_DIM, to: { alpha: 0.35 }, duration: 0.6, ease: 'power2.out' });
+    });
+    // the end frame: every other row goes blank, the hero stays
+    ROWS.forEach((row, r) => {
+      if (r === HERO) return;
+      show(row.cells, () => BLANK, BLANK_AT + r * 0.015, { gap: 0.008, pre: 0 });
+    });
+
+    // ---- the clock: five flap cells, minutes tick with a flip
+    const CLOCK_Y = 150;
+    const clock = [0, 1, 2, 3, 4].map(i => makeCell({ id: `clock-${i}`, field: 'clock', index: i, x: 180 + i * 90, y: CLOCK_Y,
+      w: 84, h: 120, fs: 110, pool: DIGITS, sortX: 180 + i * 90 }));
+    const clockChars = s => [...s];
+    const clockAt = s => c => clockChars(s)[c.index];
+    show(clock, clockAt('23:41'), 0.1, { gap: 0.08, pre: 2, force: true });
+    CLOCK_TICKS.forEach(([t, s]) => show(clock, clockAt(s), t, { gap: 0.03, pre: 0 }));
+
+    // ---- layers
+    early.unshift(
+      { type: 'shape', shape: 'rect', name: 'housing', at: 0, duration: DUR,
+        width: 680, height: 1200,
+        initial: { x: 360, y: 640, fillColor: BLACK, strokeColor: TILE, strokeWidth: 3, cornerRadius: 28 } },
+      { type: 'text', name: 'label-top', text: 'DEPARTURES  出発案内', at: 0, duration: DUR,
+        style: { fontFamily: MONO, fontSize: 20, fill: OFF, letterSpacing: 3 },
+        initial: { x: 40, y: 60 } },
+      ...[['TIME', 40], ['DEST 行先', 262], ['STATUS 状況', 424], ['PLAT', 600]].map(([s, x], i) => ({
+        type: 'text', name: 'label-col-' + i, text: s, at: 0, duration: DUR,
+        style: { fontFamily: MONO, fontSize: 16, fill: OFF, letterSpacing: 1 },
+        initial: { x, y: 262 } })),
+    );
+    const cellLayers = [];
+    for (const c of cells) {
+      const keys = c.keys.slice().sort((a, b) => a.at - b.at);
+      const base = { at: 0, duration: DUR, ...(c.parent ? { parent: c.parent } : {}) };
+      cellLayers.push({ type: 'shape', shape: 'rect', name: 'tile-' + c.id, ...base, width: c.w, height: c.h,
+        initial: { x: c.x, y: c.y, fillGradient: TILE_GRAD, scaleY: 1 },
+        keyframes: keys.filter(k => !('set' in k)) });
+      cellLayers.push({ type: 'text', name: 'char-' + c.id, ...base, text: BLANK,
+        style: { fontFamily: MONO, fontSize: c.fs, fontWeight: 'bold', fill: AMBER },
+        initial: { x: c.x, y: c.y, anchorX: 0.5, anchorY: 0.5, scaleY: 1 },
+        keyframes: keys });
+    }
+
+    const top1 = ROW0 + ROWH;
+    late.push(
+      // the status pulse: an amber frame round row 1
+      { type: 'shape', shape: 'rect', name: 'pulse-row1', at: 0, duration: DUR, width: 648, height: 108,
+        initial: { x: 360, y: top1 + 54, fillAlpha: 0, strokeColor: AMBER, strokeWidth: 2, alpha: 0 },
+        keyframes: [{ at: PULSE_AT, to: { alpha: 1 }, duration: 0.15, ease: 'power2.out' },
+                    { at: PULSE_AT + 0.6, to: { alpha: 0 }, duration: 0.4, ease: 'power1.in' }] },
+      // the thin amber rule under the hero row
+      { type: 'shape', shape: 'line', name: 'hero-rule', at: 0, duration: DUR,
+        from: [40, ROW0 + HERO * ROWH + 106], to: [680, ROW0 + HERO * ROWH + 106],
+        initial: { strokeColor: AMBER, strokeWidth: 3, strokeCap: 'round', trimEnd: 0 },
+        keyframes: [{ at: RULE_AT, to: { trimEnd: 1 }, duration: 0.7, ease: 'power2.out' }] },
+      // soft vignette into the end frame
+      { type: 'shape', shape: 'rect', name: 'vignette', at: 0, duration: DUR, width: W, height: H,
+        initial: { x: 360, y: 640, alpha: 0,
+          fillGradient: { type: 'radial', stops: [[0, 'rgba(0,0,0,0)'], [0.55, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.55)']] } },
+        keyframes: [{ at: TITLE_AT, to: { alpha: 1 }, duration: 1.5, ease: 'sine.inOut' }] },
+      // the lock-up
+      { type: 'text', name: 'title', text: 'LAST TRAIN', at: TITLE_AT, duration: DUR - TITLE_AT,
+        style: { fontFamily: DISPLAY, fontSize: 64, fill: OFF, letterSpacing: 2 },
+        initial: { x: 360, y: 1120, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6, ease: 'power2.out' }] },
+      { type: 'text', name: 'subtitle', text: '終電 · NIGHT SERVICE', at: TITLE_AT, duration: DUR - TITLE_AT,
+        style: { fontFamily: MONO, fontSize: 20, fill: OFF, letterSpacing: 2 },
+        initial: { x: 360, y: 1178, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0.3, to: { alpha: 1 }, duration: 0.6, ease: 'power2.out' }] },
+    );
+
+    // ---- sound: a click per row, a chime on the status change, a low riser into the hero
+    const sound = [
+      ...ROWS.map((_, r) => ({ type: 'audio', name: 'click-r' + r, sfx: 'click', at: 0.3 + r * 0.3, volume: 2 })),
+      // a click on each clock tick (the minutes flip)
+      ...CLOCK_TICKS.map(([t]) => ({ type: 'audio', name: 'tick-' + t, sfx: 'click', at: t, volume: 1.2 })),
+      { type: 'audio', name: 'chime', sfx: 'chime', at: PULSE_AT, volume: 1.4 },
+      { type: 'audio', name: 'riser', sfx: { preset: 'riser', pitch: -5 }, at: 5.0, duration: 1.0, volume: 1.2 },
+      { type: 'audio', name: 'hit', sfx: 'hit', at: HERO_AT, volume: 1.0 },
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DUR, frameRate: FPS,
+        poster: 10,
+        background: BLACK,
+        composition: { sequences: [...early, ...cellLayers, ...late, ...sound] },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

@@ -66,7 +66,7 @@
       <div class="cols">
         <h2 id="about-title">About this reel</h2>
         <div>
-          <p>Many pieces, three models, one brief. Each piece was made in its own session by a Claude model (fable, opus or sonnet) that read the <a href="BRIEF.md">same brief</a> and the same docs, then wrote a single HTML file: a composition of text, shapes, images, audio and a 2.5D camera, described as data and played back by pixi-effects. Which model made which piece is in <a href="MODELS.md">MODELS.md</a>.</p>
+          <p>Many pieces, four models, one brief. Each piece was made in its own session by a Claude model (fable, opus, sonnet or haiku) that read the <a href="BRIEF.md">same brief</a> and the same docs, then wrote a single HTML file: a composition of text, shapes, images, audio and a 2.5D camera, described as data and played back by pixi-effects. Which model made which piece is in <a href="MODELS.md">MODELS.md</a>.</p>
           <p>What we learned. Every author kept stumble notes while working: where the docs were unclear, where the library surprised them, what they wished existed. Those notes live in the <a href="https://github.com/yjmtmtk/pixi-effects/tree/main/examples/gallery/_notes">_notes</a> folder, one file per piece, and are reachable from each piece in the theatre. The stumbles became library fixes, warnings and documentation, so the next author does not trip over the same thing.</p>
         </div>
       </div>
@@ -133,7 +133,7 @@
   (async () => {
     const $ = (sel, root = document) => root.querySelector(sel);
     const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
-    const MODELS = ['fable', 'opus', 'sonnet'];
+    const MODELS = ['fable', 'opus', 'sonnet', 'haiku'];
     const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const tc = (s) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
     const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

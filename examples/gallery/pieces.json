@@ -433,6 +433,27 @@
       "notes": "_notes/christmas-eve.md"
     },
     {
+      "id": "piano-roll",
+      "title": "Eight Bars",
+      "subtitle": "A four-bar tune written as text, falling down a piano roll: each bar flashes and rings the moment its note sounds",
+      "tags": [
+        "music",
+        "piano roll",
+        "sound from text",
+        "rhythm",
+        "minimal",
+        "typography"
+      ],
+      "width": 1080,
+      "height": 1080,
+      "duration": 14,
+      "posterFrame": 270,
+      "model": "haiku",
+      "page": "piano-roll.html",
+      "poster": "posters/piano-roll.jpg",
+      "notes": "_notes/piano-roll.md"
+    },
+    {
       "id": "liquid-flow-title",
       "title": "Flow",
       "subtitle": "Blurred colour blobs drift and saturate on a pale field, then the field drains into the wordmark",
@@ -557,6 +578,26 @@
       "page": "isometric-city.html",
       "poster": "posters/isometric-city.jpg",
       "notes": "_notes/isometric-city.md"
+    },
+    {
+      "id": "departure-board",
+      "title": "Last Train",
+      "subtitle": "A split-flap station board at night: the cascade, one status change, and the last train of the night",
+      "tags": [
+        "typography",
+        "split-flap",
+        "japanese",
+        "vertical",
+        "sound"
+      ],
+      "width": 720,
+      "height": 1280,
+      "duration": 12,
+      "posterFrame": 300,
+      "model": "haiku",
+      "page": "departure-board.html",
+      "poster": "posters/departure-board.jpg",
+      "notes": "_notes/departure-board.md"
     },
     {
       "id": "recipe-card",
@@ -699,6 +740,25 @@
       "page": "paper-cutout-forest.html",
       "poster": "posters/paper-cutout-forest.jpg",
       "notes": "_notes/paper-cutout-forest.md"
+    },
+    {
+      "id": "replay-highlight",
+      "title": "REPLAY",
+      "subtitle": "One great shot, live, then again in slow motion with the arc drawn on.",
+      "tags": [
+        "sports",
+        "replay",
+        "slow motion",
+        "sound"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 12,
+      "posterFrame": 231,
+      "model": "haiku",
+      "page": "replay-highlight.html",
+      "poster": "posters/replay-highlight.jpg",
+      "notes": "_notes/replay-highlight.md"
     },
     {
       "id": "gradient-type",

@@ -21,9 +21,9 @@ const contrast = (a: string, b: string) => { const [x, y] = [lum(a), lum(b)].sor
 describe('tokens.css', () => {
   const dark = block(':root{');
   const light = block(':root[data-theme="light"]');
-  it.each([['dark', dark], ['light', light]] as const)('%s theme: ink, accent and the three model colours read on the background (>= 4.5:1)', (_n, t) => {
+  it.each([['dark', dark], ['light', light]] as const)('%s theme: ink, accent and the four model colours read on the background (>= 4.5:1)', (_n, t) => {
     const bg = (t['--bg'] ?? dark['--bg'])!;
-    for (const name of ['--ink', '--ink-2', '--accent', '--model-fable', '--model-opus', '--model-sonnet']) {
+    for (const name of ['--ink', '--ink-2', '--accent', '--model-fable', '--model-opus', '--model-sonnet', '--model-haiku']) {
       const value = t[name] ?? dark[name];
       expect(value, name).toMatch(/^#[0-9a-f]{6}$/i);
       expect(contrast(value!, bg), `${name} on ${bg}`).toBeGreaterThanOrEqual(4.5);
