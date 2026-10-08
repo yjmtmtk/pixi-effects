@@ -1,0 +1,133 @@
+diff --git a/src/sequences/Shape.ts b/src/sequences/Shape.ts
+index 8fccca3..16cf688 100644
+--- a/src/sequences/Shape.ts
++++ b/src/sequences/Shape.ts
+@@ -9,6 +9,7 @@ import { type ColorSpace, type ColorInput } from '../expr/colorInterp';
+ import { tweenColor } from '../expr/colorTween';
+ import type { Scope } from '../expr/Scope';
+ import { makeGradientFill } from './gradientFill';
++import { GradientPainter, gradStateFrom, bindGradientKeyframes, hasGradientKeys, type GradState } from './gradientAnim';
+ import { trimPolylines, rectOutline, ellipseOutline, flattenSvgPath, type Polyline } from './trimPath';
+ import { buildMorph, morphAt, type MorphPair } from './morphPath';
+ import { collectPropKeys } from '../space/specKeys';
+@@ -29,7 +30,7 @@ type Timeline = ReturnType<typeof gsap.timeline>;
+ // standard transform/keyframe pipeline and routed through `_state` instead.
+ type StyleKey = 'fillColor' | 'fillAlpha' | 'strokeColor' | 'strokeAlpha' | 'strokeWidth';
+ type GeometryKey = 'width' | 'height' | 'cornerRadius' | 'radius' | 'radiusX' | 'radiusY' | 'anchorX' | 'anchorY' | 'innerRadius' | 'startAngle' | 'endAngle' | 'trimStart' | 'trimEnd' | 'morph';
+-type LiveKey = StyleKey | GeometryKey;
++type LiveKey = StyleKey | GeometryKey | 'fillGradient';
+ 
+ const STYLE_KEYS = ['fillColor', 'fillAlpha', 'strokeColor', 'strokeAlpha', 'strokeWidth'] as const;
+ const COLOR_KEYS = new Set<LiveKey>(['fillColor', 'strokeColor']);
+@@ -130,7 +131,18 @@ export class ShapeSequence extends Sequence {
+       this._state.trimEnd ??= 1;
+     }
+     const gradientSpec = this.spec.fillGradient ?? (this.spec.initial as { fillGradient?: GradientSpec } | undefined)?.fillGradient;
+-    if (gradientSpec) this._state.fillStyle = makeGradientFill(gradientSpec);
++    if (gradientSpec) {
++      const keyed = hasGradientKeys(this.spec.keyframes);
++      if (keyed) {
++        // animated: one canvas + one texture repainted in place when the gradient changes
++        this._grad = { grad: gradStateFrom(gradientSpec) };
++        this._painter = new GradientPainter();
++        this._gradDirty = true;
++        this._liveKeys.add('fillGradient');
++      } else this._state.fillStyle = makeGradientFill(gradientSpec);
++    } else if (hasGradientKeys(this.spec.keyframes)) {
++      console.warn(`pixi-effects: ${describeLayer(this.spec)}: a keyframe animates fillGradient but the layer has none to start from; give it a fillGradient (top level or in initial) first`);
++    }
+ 
+     // Build the per-frame draw closure. For symmetric shapes (rect / circle /
+     // ellipse) it pulls from _state so geometry tweens take effect; for
+@@ -211,11 +223,15 @@ export class ShapeSequence extends Sequence {
+   }
+ 
+   private _fresh = false;
++  private _grad: { grad: GradState } | null = null;
++  private _painter: GradientPainter | null = null;
++  private _gradDirty = false;
+   private _outline: (() => Polyline[]) | null = null;
+ 
+   private _redraw(): void {
+     const graphics = this.target as Graphics;
+     const s = this._state;
++    if (this._grad && this._gradDirty) { s.fillStyle = this._painter!.paint(this._grad.grad); this._gradDirty = false; }
+     graphics.clear();
+     const trimmed = (s.trimStart ?? 0) > 0 || (s.trimEnd ?? 1) < 1;
+     if (!trimmed || !this._outline || !(s.strokeColor !== undefined && s.strokeWidth > 0)) {
+@@ -272,6 +288,7 @@ export class ShapeSequence extends Sequence {
+     // GSAP's standard numeric interpolation.
+     const colorSpace: ColorSpace = (this.spec as { colorSpace?: ColorSpace }).colorSpace ?? 'rgb';
+     bindLiveKeyframes(timeline, this._state, this._liveKeys, this.spec.keyframes ?? [], this.duration!, scope, startTime, colorSpace);
++    if (this._grad) bindGradientKeyframes(timeline, this._grad, this.spec.keyframes ?? [], this.duration!, startTime, colorSpace, describeLayer(this.spec), () => { this._gradDirty = true; });
+ 
+     this.absoluteStart = startTime;
+     const endTime = startTime + this.duration!;
+@@ -568,6 +585,7 @@ function bindLiveKeyframes(
+       const live = pickLive(kf.set, liveKeys);
+       if (live) {
+         for (const [k, v] of Object.entries(live)) {
++          if (k === 'fillGradient') continue;   // animated by _bindGradient
+           const resolved = resolveLiveValue(k as LiveKey, v, scope);
+           const live = state as unknown as Record<string, unknown>;
+           revertibleSet(timeline, at, () => live[k], v2 => { live[k] = v2; }, resolved);
+@@ -582,6 +600,7 @@ function bindLiveKeyframes(
+       ...(toLive   ? Object.keys(toLive)   : []),
+     ]);
+     for (const k of allKeys) {
++      if (k === 'fillGradient') continue;       // animated by _bindGradient
+       const key = k as LiveKey;
+       const fromRaw = fromLive?.[key];
+       const toRaw   = toLive?.[key];
+diff --git a/src/sequences/Text.ts b/src/sequences/Text.ts
+index f827988..1c7de1b 100644
+--- a/src/sequences/Text.ts
++++ b/src/sequences/Text.ts
+@@ -1,4 +1,6 @@
+-import { Text } from 'pixi.js';
++import { Text, FillGradient } from 'pixi.js';
++import { gradStateFrom, bindGradientKeyframes, type GradState } from './gradientAnim';
++import { gradientOptions } from './gradient';
+ import { gsap } from 'gsap';
+ import { Sequence } from './Base';
+ import { normalizeProps } from '../expr/normalizeProps';
+@@ -41,6 +43,16 @@ export class TextSequence extends Sequence {
+   /** `visibleChars` is in play (initial or animated): otherwise the whole text shows. */
+   private _typed = false;
+   private _lastText = '';
++  /** SPIKE: an animated gradient fill for the text (rebuilt as a FillGradient on each change; the text is re-rasterised). */
++  private _grad: { grad: GradState } | null = null;
++  private _fg: FillGradient | null = null;
++  private _applyGrad(): void {
++    const g = this._grad!.grad;
++    const next = new FillGradient(gradientOptions({ angle: g.angle, stops: g.stops.map(s => [s.offset, s.color] as [number, string]) }) as never);
++    (this.target as Text).style.fill = next as never;
++    this._fg?.destroy();
++    this._fg = next;
++  }
+ 
+   /** A typewriter that has typed nothing yet: the layer is empty on purpose (inspect must not call that "no size"). */
+   get showsNothingYet(): boolean { return this._typed && this._lastText === '' && this._template !== ''; }
+@@ -91,6 +103,8 @@ export class TextSequence extends Sequence {
+       this.intrinsicWidth = text.width;
+       this.intrinsicHeight = text.height;
+     }
++    const gs = (this.spec as unknown as { fillGradient?: Parameters<typeof gradStateFrom>[0] }).fillGradient ?? (initialProps.fillGradient as Parameters<typeof gradStateFrom>[0] | undefined);
++    if (gs) { this._grad = { grad: gradStateFrom(gs) }; this._applyGrad(); }
+     // `{value}` counter / `visibleChars`: seed the numbers from initial and print.
+     const scope = this.scope();
+     if (initialProps.value !== undefined) this._counters.value = resolveNumber(initialProps.value, scope);
+@@ -119,11 +133,12 @@ export class TextSequence extends Sequence {
+     // interpolation.
+     // `value` (the counter) is likewise not a property of the Text object.
+     // `text` (a string swap) and `visibleChars` (the typewriter count) are likewise ours, not the Text object's.
+-    const stripped = stripKeys(this.spec, ['fill', 'value', 'text', 'visibleChars']);
++    const stripped = stripKeys(this.spec, ['fill', 'value', 'text', 'visibleChars', 'fillGradient']);
+     runSuperWithStrippedSpec(this, stripped, timeline, offset);
+     const keyframes = this.spec.keyframes ?? [];
+     const origin = offset + this.at;
+     bindFillKeyframes(timeline, this.target as Text, keyframes, this.duration!, origin, colorSpace);
++    if (this._grad) bindGradientKeyframes(timeline, this._grad, keyframes, this.duration!, origin, colorSpace, describeLayer(this.spec), () => this._applyGrad());
+     const refresh = (): void => this._refreshText();
+     bindCounterKeyframes(timeline, this._counters, 'value', refresh, keyframes, this.duration!, origin, this.scope());
+     bindCounterKeyframes(timeline, this._counters, 'visibleChars', refresh, keyframes, this.duration!, origin, this.scope());

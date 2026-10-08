@@ -1,0 +1,65 @@
+diff --git a/src/core/Movie.ts b/src/core/Movie.ts
+index 3730354..109d574 100644
+--- a/src/core/Movie.ts
++++ b/src/core/Movie.ts
+@@ -629,10 +629,18 @@ export class Movie {
+     if (!app?.renderer) return;
+     if (!this._synced) this._rootSequence?.syncFrame();           // normally _updateSpace() has already done it (see there)
+     this._synced = false;
++    this._feedTime(app.stage, this._timeOf(this.currentFrame));
+     Culler.shared.cull(app.stage, app.renderer.screen, false);
+     app.renderer.render({ container: app.stage });
+   }
+ 
++  /** Tell time-driven filters (`grain`) which moment is about to be drawn. */
++  private _feedTime(node: Container, t: number): void {
++    const fl = node.filters as unknown as Array<{ setTime?: (t: number) => void }> | null;
++    if (Array.isArray(fl)) for (const f of fl) if (typeof f.setTime === 'function') f.setTime(t);
++    for (const c of node.children) this._feedTime(c as Container, t);
++  }
++
+   private _requireReady(what: string): void {
+     if (this._initState !== 'ready' || !this._rootSequence || !this.app) {
+       throw new Error(`pixi-effects: movie.${what}() needs a ready movie — await movie.init(...) first`);
+diff --git a/src/filters/named.ts b/src/filters/named.ts
+index 356bdbf..d1e8bf7 100644
+--- a/src/filters/named.ts
++++ b/src/filters/named.ts
+@@ -1,6 +1,7 @@
+ import * as PIXI from 'pixi.js';
+ import type { Filter } from 'pixi.js';
+ import { suggestName } from '../core/options';
++import { GrainFilter } from './Grain';
+ 
+ /**
+  * Declarative filters: `{ type: 'glow', outerStrength: 3 }` instead of `{ type: 'custom', filter: new GlowFilter(...) }`.
+@@ -13,7 +14,7 @@ type FilterCtor = new (options?: Record<string, unknown>) => Filter;
+ 
+ /** pixi.js's own filters: no extra package. Looked up when used (a test may mock pixi.js without them). */
+ const CORE: Record<string, string> = { blur: 'BlurFilter', noise: 'NoiseFilter', alpha: 'AlphaFilter' };
+-const CORE_TYPES = [...Object.keys(CORE), 'colorMatrix'];
++const CORE_TYPES = [...Object.keys(CORE), 'colorMatrix', 'grain'];
+ 
+ /** The filters of pixi-filters v6, by type name. */
+ const LIBRARY_TYPES = [
+@@ -123,6 +124,7 @@ function colorGradientParams(params: Record<string, unknown>): Record<string, un
+ /** Build the filter a `{ type: 'glow', … }` spec names. */
+ export function createNamedFilter(type: string, params: Record<string, unknown>): Filter {
+   if (lower(type) === 'colormatrix') return colorMatrix(params);
++  if (lower(type) === 'grain') return new GrainFilter(params) as unknown as Filter;
+   const core = Object.entries(CORE).find(([k]) => lower(k) === lower(type));
+   if (core) return new ((PIXI as unknown as Record<string, FilterCtor>)[core[1]]!)(params);
+   if (!isLibraryType(type)) throw unknownType(type);
+diff --git a/src/types.ts b/src/types.ts
+index 1fc674d..82e5635 100644
+--- a/src/types.ts
++++ b/src/types.ts
+@@ -92,7 +92,7 @@ export interface NamedFilterSpec {
+   [option: string]: unknown;
+ }
+ export type NamedFilterType =
+-  | 'blur' | 'noise' | 'alpha' | 'colorMatrix'
++  | 'blur' | 'noise' | 'alpha' | 'colorMatrix' | 'grain'
+   | 'adjustment' | 'advancedBloom' | 'ascii' | 'backdropBlur' | 'bevel' | 'bloom' | 'bulgePinch' | 'colorGradient' | 'colorMap'
+   | 'colorOverlay' | 'colorReplace' | 'convolution' | 'crossHatch' | 'crt' | 'dot' | 'dropShadow' | 'emboss' | 'glitch' | 'glow'
+   | 'godray' | 'grayscale' | 'hslAdjustment' | 'kawaseBlur' | 'motionBlur' | 'multiColorReplace' | 'oldFilm' | 'outline'

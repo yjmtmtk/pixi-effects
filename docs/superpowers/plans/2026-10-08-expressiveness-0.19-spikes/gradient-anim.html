@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>spike · animated fillGradient</title>
+</head>
+<body style="margin:0;background:#000">
+  <canvas id="stage"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":            "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":      "https://esm.sh/mediabunny@1.61.3"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const q = new URLSearchParams(location.search);
+    const mode = q.get('mode') || 'demo';           // demo | many | bad
+    const N = Number(q.get('n') || 50);
+    if (q.get('naive')) globalThis.__naive = true;
+    const W = 1920, H = 1080;
+    const canvas = document.getElementById('stage');
+    const movie = new Movie();
+    window.movie = movie;
+
+    const demo = [
+      // linear: the angle turns a full circle, the stops cross-fade red/blue -> cyan/yellow
+      { type: 'shape', shape: 'rect', name: 'spin', width: 560, height: 420, cornerRadius: 36, initial: { x: 520, y: 540 },
+        fillGradient: { angle: 0, stops: [[0, '#ff2d55'], [0.5, '#7c3aed'], [1, '#0ea5e9']] },
+        keyframes: [{ at: 0, duration: 2, ease: 'none', to: { fillGradient: { angle: 360, stops: [[0, '#00e5ff'], [0.5, '#22c55e'], [1, '#ffd60a']] } } }] },
+      // radial: the centre drifts, the radius grows and the colours cross-fade (OKLCH)
+      { type: 'shape', shape: 'circle', name: 'glow', radius: 230, colorSpace: 'oklch', initial: { x: 1360, y: 540 },
+        fillGradient: { type: 'radial', center: [0.2, 0.2], radius: 0.25, stops: [[0, '#ffffff'], [1, '#ff2d55']] },
+        keyframes: [{ at: 0, duration: 2, ease: 'sine.inOut', to: { fillGradient: { center: [0.8, 0.8], radius: 0.6, stops: [[0, '#fff3b0'], [1, '#2563eb']] } } }] },
+      { type: 'text', name: 'headline', text: 'GRADIENT', style: { fontFamily: 'Arial', fontSize: 200, fontWeight: '900' }, anchorX: 0.5, anchorY: 0.5, initial: { x: 960, y: 900 },
+        fillGradient: { angle: 0, stops: [[0, '#ff2d55'], [1, '#0ea5e9']] },
+        keyframes: [{ at: 0, duration: 2, ease: 'none', to: { fillGradient: { angle: 180, stops: [[0, '#ffd60a'], [1, '#22c55e']] } } }] },
+    ];
+    const texts = [];
+    for (let i = 0; i < N; i++) texts.push({ type: 'text', name: 't' + i, text: 'GRADIENT ' + i, style: { fontFamily: 'Arial', fontSize: 90, fontWeight: '900' }, anchorX: 0.5, anchorY: 0.5, initial: { x: 480 + (i % 2) * 960, y: 80 + Math.floor(i / 2) * 100 },
+      fillGradient: { angle: 0, stops: [[0, '#ff2d55'], [1, '#0ea5e9']] },
+      keyframes: [{ at: 0, duration: 2, ease: 'none', to: { fillGradient: { angle: 180, stops: [[0, '#ffd60a'], [1, '#22c55e']] } } }] });
+    const textsSolid = texts.map(t => { const { fillGradient, ...r } = t; return { ...r, style: { ...r.style, fill: '#ff2d55' }, keyframes: [{ at: 0, duration: 2, ease: 'none', to: { fill: '#0ea5e9' } }] }; });
+
+    const many = [];
+    const cols = 10;
+    for (let i = 0; i < N; i++) {
+      const hue = (i * 37) % 360;
+      many.push({ type: 'shape', shape: 'rect', name: 'g' + i, width: 150, height: 150, initial: { x: 120 + (i % cols) * 180, y: 100 + Math.floor(i / cols) * 180 },
+        fillGradient: { angle: i * 7, stops: [[0, `hsl(${hue},90%,55%)`], [1, `hsl(${(hue + 120) % 360},90%,55%)`]] },
+        keyframes: [{ at: 0, duration: 2, ease: 'none', to: { fillGradient: { angle: i * 7 + 360, stops: [[0, `hsl(${(hue + 180) % 360},90%,55%)`], [1, `hsl(${(hue + 300) % 360},90%,55%)`]] } } }] });
+    }
+
+    const manyStatic = many.map(l => ({ ...l, keyframes: [{ at: 0, duration: 2, ease: 'none', to: { rotation: 0.001 } }] }));   // static gradient (the shipped path), a trivial tween
+    const manyColor = many.map(l => { const { fillGradient, ...rest } = l; return { ...rest, initial: { ...l.initial, fillColor: '#ff0000' }, keyframes: [{ at: 0, duration: 2, ease: 'none', to: { fillColor: '#0000ff' } }] }; });
+    // what an AI might get wrong
+    const bad = [
+      { type: 'shape', shape: 'rect', name: 'wrongStops', width: 300, height: 300, initial: { x: 300, y: 300 },
+        fillGradient: { angle: 0, stops: [[0, '#f00'], [1, '#00f']] },
+        keyframes: [{ at: 0, duration: 1, to: { fillGradient: { stops: [[0, '#0f0'], [0.5, '#ff0'], [1, '#000']] } } }] },
+      { type: 'shape', shape: 'rect', name: 'typoKey', width: 300, height: 300, initial: { x: 900, y: 300 },
+        fillGradient: { angle: 0, stops: [[0, '#f00'], [1, '#00f']] },
+        keyframes: [{ at: 0, duration: 1, to: { fillGradient: { angel: 90 } } }] },
+      { type: 'shape', shape: 'rect', name: 'noStart', width: 300, height: 300, initial: { x: 1500, y: 300, fillColor: '#888' },
+        keyframes: [{ at: 0, duration: 1, to: { fillGradient: { angle: 90 } } }] },
+      { type: 'shape', shape: 'rect', name: 'dotted', width: 300, height: 300, initial: { x: 300, y: 800 },
+        fillGradient: { angle: 0, stops: [[0, '#f00'], [1, '#00f']] },
+        keyframes: [{ at: 0, duration: 1, to: { 'fillGradient.angle': 90 } }] },
+      { type: 'shape', shape: 'rect', name: 'flat', width: 300, height: 300, initial: { x: 900, y: 800 },
+        fillGradient: { angle: 0, stops: [[0, '#f00'], [1, '#00f']] },
+        keyframes: [{ at: 0, duration: 1, to: { gradientAngle: 90 } }] },
+    ];
+
+    try {
+      await movie.init({
+        canvas, width: W, height: H, duration: 2, frameRate: 30, background: '#101018',
+        composition: { sequences: mode === 'many' ? many : mode === 'texts' ? texts : mode === 'textsSolid' ? textsSolid : mode === 'static' ? manyStatic : mode === 'color' ? manyColor : mode === 'bad' ? bad : demo },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); window.__ready = 'failed'; }
+  </script>
+</body>
+</html>

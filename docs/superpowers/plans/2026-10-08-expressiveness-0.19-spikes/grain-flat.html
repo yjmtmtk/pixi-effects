@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8" /><title>spike · grain on a flat colour</title></head>
+<body style="margin:0;background:#222">
+  <canvas id="stage" width="1920" height="1080"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">
+  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "gsap": "https://esm.sh/gsap@3.12.5", "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin", "mediabunny": "https://esm.sh/mediabunny" } }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const Q = new URLSearchParams(location.search);
+    if (Q.has('gl')) Object.defineProperty(navigator, 'gpu', { value: undefined });   // force the WebGL path
+    const W = Number(Q.get('w') ?? 1920), H = Number(Q.get('h') ?? 1080);
+    const c = '#' + (Q.get('c') ?? '808080');
+    const G = Q.has('grain') ? { type: 'grain', name: 'g', ...Object.fromEntries([...Q].filter(([k]) => !['grain', 'c', 'w', 'h', 'mode', 'noise', 'gl'].includes(k)).map(([k, v]) => [k, Number(v)])) } : null;
+    const N = Q.has('noise') ? { type: 'noise', noise: Number(Q.get('noise')), seed: 1 } : null;
+    const F = G || N;
+    const movie = new Movie();
+    window.movie = movie;
+    const inner = [{ type: 'shape', shape: 'rect', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: c } }];
+    const composition = Q.get('mode') === 'layer'
+      ? { sequences: [{ type: 'composition', width: W, height: H, sequences: inner, filters: F ? [F] : [] }] }
+      : { sequences: inner, ...(F ? { filters: [F] } : {}) };
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: W, height: H, duration: 4, frameRate: 30, background: '#000000', composition });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+  </script>
+</body></html>
