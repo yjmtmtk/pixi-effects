@@ -20,6 +20,8 @@ export interface LayerInfo {
   /** Where it is drawn, in canvas pixels. `null` inside a `threeD` layer (it is rendered into that layer's texture). */
   bounds: Rect | null;
   onCanvas: 'full' | 'partial' | 'none' | null;
+  /** Depth of field (threeD layers only): the blur radius in canvas pixels this frame, from the layer's depth and the camera's focus; 0 = sharp. */
+  depthBlur?: number;
 }
 
 export interface InspectReport {
@@ -79,7 +81,7 @@ export function inspectScene(
       const start = comp.childBase + w.start, end = comp.childBase + w.end;
       if (now >= start - 1e-9 && now <= end + 1e-9) { blending.add(w.from); blending.add(w.to); }
     }
-    comp.layers().forEach(({ seq, display, threeD, carriers }, i) => {
+    comp.layers().forEach(({ seq, display, threeD, carriers, depthBlur }, i) => {
       const t = seq.target as (Container & { renderable: boolean; alpha: number }) | null;
       const name = seq.spec.name;
       const label = name ?? `${seq.spec.type}#${i}`;
@@ -106,6 +108,7 @@ export function inspectScene(
       const zeroScale = (o: unknown): boolean => { const s = (o as { scale?: { x: number; y: number } } | null)?.scale; return !!s && (s.x === 0 || s.y === 0); };
       const zero = parentZero || zeroScale(t) || carriers.some(c => zeroScale(c.target));
       const info: LayerInfo = { path: prefix + label, name, type: seq.spec.type, threeD, visible, alpha, moving, bounds, onCanvas };
+      if (threeD) info.depthBlur = Number(depthBlur.toFixed(2));
       layers.push(info);
       let shown = bounds ? clip(bounds, view) : null;
       const maskTarget = seq.maskSequence?.target as Container | null | undefined;

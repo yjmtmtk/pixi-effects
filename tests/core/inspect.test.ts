@@ -300,3 +300,20 @@ describe('inspectScene — layers inside a null layer', () => {
     expect(r.layers.find(l => l.name === 'b')!.alpha).toBeCloseTo(0.25, 9);
   });
 });
+
+describe('inspectScene — depth of field', () => {
+  it('reports the blur of each threeD layer (0 on the focal layer, more behind it) and nothing for a 2D layer', async () => {
+    const comp = await scene([
+      { type: 'camera', initial: { focus: 'front', aperture: 60 } },
+      { type: '__box', name: 'front', threeD: true, initial: { z: 0 } },
+      { type: '__box', name: 'back', threeD: true, initial: { z: -400 } },
+      { type: '__box', name: 'flat' },
+    ]);
+    comp.updateSpace(0, { render: () => {} } as never);
+    const r = inspectScene(comp, 0, 0, { width: 1280, height: 720 });
+    const by = Object.fromEntries(r.layers.map(l => [l.name, l.depthBlur]));
+    expect(by.front).toBe(0);
+    expect(by.back).toBeCloseTo(8.64, 1);
+    expect(by.flat).toBeUndefined();
+  });
+});
