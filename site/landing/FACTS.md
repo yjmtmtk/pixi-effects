@@ -4,7 +4,7 @@ Use ONLY these facts. Do not invent numbers, benchmarks, users, quotes, awards, 
 
 ## pixi-effects (this project)
 - Name: **pixi-effects**. Tagline source (repo): "Declarative composition and video rendering for the web. Built on PixiJS v8." North star: "An AI writes a video as data; the same data renders to a file and plays on the web."
-- Version 0.16.3, **experimental / pre-1.0** (the API can still change between minor versions). MIT licence, no company licence. npm package `pixi-effects`. Repo: https://github.com/yjmtmtk/pixi-effects
+- Version 0.17.0, **experimental / pre-1.0** (the API can still change between minor versions). MIT licence, no company licence. npm package `pixi-effects`. Repo: https://github.com/yjmtmtk/pixi-effects
 - Built on PixiJS v8 (WebGL drawing), GSAP (timeline), mediabunny (WebCodecs encoding). Runtime dependency: only `mediabunny` (PixiJS and GSAP are peer dependencies; three.js and pixi-filters optional).
 - **A video is plain data**: a tree of plain objects (text, shapes, images, video, audio, nested compositions) with `at` / `duration` / `initial` / `keyframes` / `filters` / `mask`. Repeated structure is a JS loop that returns objects. Numbers can be expression strings like `'GW/2'`, `'min(W,H)*0.4'`. Same data => same video (deterministic, seeded; no wall clock). Playback, scrubbing and export all use the same frame path: the preview equals the export.
 - **Runs entirely in the browser**: play, scrub and export MP4 / WebM / MOV with no server (WebCodecs via mediabunny). A starter is ONE HTML file with an import map (no bundler needed); npm install also works. Headless render from a script: `npx pixi-effects-render page.html -o out.mp4` (needs Node 22 and Chrome).
@@ -35,7 +35,7 @@ await movie.init({
 });
 movie.play();            // or: const mp4 = await movie.render({ format: 'mp4' })
 ```
-- Starter page (one HTML file, loads the library from a CDN): https://cdn.jsdelivr.net/npm/pixi-effects@0.16.3/dist/index.js ; the repo's `ai/template.html` is the full starter.
+- Starter page (one HTML file, loads the library from a CDN): https://cdn.jsdelivr.net/npm/pixi-effects@0.17.0/dist/index.js ; the repo's `ai/template.html` is the full starter.
 - Install: `npm install pixi-effects pixi.js gsap` (optional: `three`, `pixi-filters`).
 
 ## The other two projects (compare fairly; facts as stated on their own pages, read 2026-10-07)
