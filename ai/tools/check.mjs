@@ -264,6 +264,43 @@ const exportScript = (format, draft = false) => `(() => {
   return 0;
 })()`;
 
+/** The mix as a picture (in the page, no dependency): loudness per window as bars, the peak as a line, scene edges and the start of every sound. */
+const waveformScript = (audio, duration) => `(() => {
+  const a = ${JSON.stringify({ windows: audio.windows, scenes: audio.scenes, cues: audio.cues })}, D = ${duration};
+  const W = 1200, H = 300, L = 44, R = 12, T = 22, B = 58;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  g.fillStyle = '#10131c'; g.fillRect(0, 0, W, H);
+  const x = t => L + (t / D) * (W - L - R);
+  const y = db => T + (1 - (Math.max(-60, Math.min(0, db)) + 60) / 60) * (H - T - B);
+  g.font = '11px system-ui, sans-serif'; g.textBaseline = 'middle';
+  for (const db of [0, -12, -24, -36, -48, -60]) {
+    g.strokeStyle = 'rgba(255,255,255,.12)'; g.beginPath(); g.moveTo(L, y(db)); g.lineTo(W - R, y(db)); g.stroke();
+    g.fillStyle = '#9aa5c4'; g.fillText(String(db), 8, y(db));
+  }
+  const bw = Math.max(1, (W - L - R) / Math.max(1, a.windows.length));
+  g.fillStyle = '#7fb4ff';
+  for (const w of a.windows) { const top = y(w.rmsDb); g.fillRect(x(w.t), top, Math.max(1, bw - 0.5), (H - B) - top); }
+  g.strokeStyle = '#f2c14e'; g.lineWidth = 1; g.beginPath();
+  a.windows.forEach((w, i) => { const px = x(w.t) + bw / 2, py = y(w.peakDb); if (i) g.lineTo(px, py); else g.moveTo(px, py); });
+  g.stroke();
+  if (a.scenes.length > 1 && a.scenes.length <= 16) {
+    let lastLabel = -1e9;
+    a.scenes.forEach(s => {
+      g.strokeStyle = 'rgba(255,255,255,.35)'; g.beginPath(); g.moveTo(x(s.from), T - 8); g.lineTo(x(s.from), H - B); g.stroke();
+      if (x(s.from) - lastLabel < 70) return;                                    // scenes that start together share one label
+      lastLabel = x(s.from);
+      g.fillStyle = '#e8ecf8'; g.fillText(s.name.slice(0, 18), x(s.from) + 3, T - 10, Math.max(20, x(s.to) - x(s.from) - 6));
+    });
+  }
+  a.cues.forEach((q, i) => { g.fillStyle = '#ff5a3c'; g.fillRect(x(q.t) - 1, H - B + 2, 2, 8); if (a.cues.length <= 40) g.fillText(String(i + 1), x(q.t) - 3, H - B + 20); });
+  g.fillStyle = '#9aa5c4';
+  const step = D > 120 ? 30 : D > 40 ? 10 : D > 12 ? 5 : 1;
+  for (let t = 0; t <= D + 1e-9; t += step) { g.fillText(t + ' s', x(t) - 8, H - 22); }
+  g.fillText('mix level (dBFS): bars = RMS, line = peak; red ticks = when a sound starts', L, H - 7);
+  return c.toDataURL('image/png');
+})()`;
+
 // ───────────────────────────── the check ─────────────────────────────
 
 export const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -403,6 +440,14 @@ export async function runCheck(opts, log = console.log) {
 
     // audio
     report.audio = info.hasAudio ? await cdp.eval('movie.inspectAudio()') : null;
+    if (report.audio) {
+      const wave = await cdp.eval(waveformScript(report.audio, info.duration)).catch(() => null);
+      if (wave) {
+        const waveFile = path.join(outDir, 'waveform.png');
+        fs.writeFileSync(waveFile, Buffer.from(wave.slice(wave.indexOf(',') + 1), 'base64'));
+        report.files.waveform = shown(waveFile);
+      }
+    }
     if (report.audio?.issues?.length) report.problems.push(`${report.audio.issues.length} audio issue(s) from movie.inspectAudio`);
 
     // export, decoded again
@@ -484,7 +529,8 @@ function finish(report, outDir, log) {
   }
   if (report.audio !== undefined) {
     const a = report.audio;
-    L.push(a ? `  audio     ${a.sources.length} source(s) · mix peak ${a.peakDb} dBFS · ${a.issues.length ? a.issues.join(' | ') : 'no issues (movie.inspectAudio)'}` : '  audio     none');
+    L.push(a ? `  audio     ${a.sources.length} source(s) · mix peak ${a.peakDb} dBFS · ${a.loudness?.integratedLufs ?? 'n/a'} LUFS · true peak ${a.loudness?.truePeakDb ?? 'n/a'} dBTP · ${a.issues.length ? a.issues.join(' | ') : 'no issues (movie.inspectAudio)'}` : '  audio     none');
+    for (const n of a?.notes ?? []) L.push(`  note      ${n}`);
   }
   for (const ex of report.exports ?? []) {
     if (ex.error) { L.push(`  export    ${ex.format}: FAILED — ${ex.error}`); continue; }

@@ -119,6 +119,26 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     expect(String(bad?.stderr)).toMatch(/no layer named "nope".*title/s);
   }, 400_000);
 
+  it('audio: the report gives loudness, scenes and cues, the printout says LUFS and dBTP, waveform.png is a real picture; a silent movie has no waveform', async () => {
+    const run = (page: string, out: string) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, page), '--no-export', '--out', out, '--timeout', '150'], { timeout: 170_000 });
+    const out = mkdtempSync(join(tmpdir(), 'check-wave-'));
+    const { stdout } = await run('examples/_checks/render-range.html', out);
+    expect(stdout).toMatch(/LUFS/);
+    expect(stdout).toMatch(/dBTP/);
+    const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));
+    expect(typeof report.audio.loudness.truePeakDb).toBe('number');
+    expect(report.audio.scenes.length).toBeGreaterThan(0);
+    expect(report.audio.cues.length).toBeGreaterThan(0);
+    const png = readFileSync(join(out, 'waveform.png'));
+    expect(png.subarray(1, 4).toString()).toBe('PNG');
+    expect(png.readUInt32BE(16)).toBeGreaterThanOrEqual(600);                         // the PNG header's width
+    expect(report.files.waveform).toMatch(/waveform\.png$/);
+
+    const quietOut = mkdtempSync(join(tmpdir(), 'check-nowave-'));
+    await run('examples/_checks/poster.html', quietOut);
+    expect(existsSync(join(quietOut, 'waveform.png'))).toBe(false);
+  }, 200_000);
+
   it('fonts: a web font that failed to load fails the check; a layer with no available font is listed for review (and fails with --strict)', async () => {
     const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/fonts.html'), '--no-export', ...args, '--timeout', '150'], { timeout: 170_000 });
     const out = mkdtempSync(join(tmpdir(), 'check-fonts-'));
