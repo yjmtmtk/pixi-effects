@@ -55,7 +55,7 @@ Anchor a typewriter on its **left** edge, or each new letter re-centres the line
 A text layer takes a `fillGradient` for its letters, and a keyframe can move it (the same partial gradient as on a shape):
 
 ```js
-{ type: 'text', text: 'GRADIENT', style: { fontSize: 200, fontWeight: '900' }, anchorX: 0.5, anchorY: 0.5, initial: { x: 640, y: 360 },
+{ type: 'text', text: 'GRADIENT', style: { fontSize: 200, fontWeight: '900' }, initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5 },
   colorSpace: 'oklch', fillGradient: { angle: 0, stops: [[0, '#ff2d55'], [1, '#0ea5e9']] },
   keyframes: [{ at: 0, duration: 2, to: { fillGradient: { angle: 180, stops: [[0, '#ffd60a'], [1, '#22c55e']] } } }] }
 ```

@@ -1,5 +1,7 @@
 import type { SequenceSpec } from '../types';
 import { collectPropKeys } from '../space/specKeys';
+import { suggestName } from './options';
+import { layerKeys, kindName, kindsWithKey, PROP_KEYS, STYLE_KEYS } from './layerKeys';
 
 type Warn = (message: string, kind?: 'late-keyframe') => void;
 const defaultWarn: Warn = m => console.warn(m);
@@ -56,5 +58,43 @@ export function lintText(spec: SequenceSpec, warn: Warn = defaultWarn): void {
   }
   if (collectPropKeys(spec).has('value') && !hasPlaceholder) {
     warn(`pixi-effects: ${describeLayer(spec)}: \`value\` is set or animated but the text has no {value} placeholder, so nothing shows it. Use text: '{value}' (or e.g. '{value} users').`);
+  }
+}
+
+/**
+ * Keys that do not exist, which the library used to ignore without a word (a typo in a layer key, a mistyped property in a keyframe, a
+ * style key Pixi does not know). Said once each, with what was probably meant. A warning, never an error. Not checked here: dotted
+ * paths (`filters.g.amount`, `three.box.x`: their routers say what is wrong), the names `fillGradient` says itself (`gradientAngle`),
+ * and a kind of layer registered elsewhere (`three`).
+ */
+export function lintKeys(spec: SequenceSpec, warn: Warn = defaultWarn): void {
+  const who = describeLayer(spec);
+  const valid = layerKeys(spec as { type: string; shape?: string });
+  if (valid) {
+    for (const key of Object.keys(spec)) {
+      if (valid.includes(key)) continue;
+      const guess = suggestName(key, valid.filter(k => k !== 'type'));
+      const owners = kindsWithKey(key);
+      const belongs = owners.length ? ` (it belongs to ${owners.slice(0, 3).join(', ')})` : '';
+      const hint = guess ? ` — did you mean "${guess}"?${belongs}` : belongs;
+      warn(`pixi-effects: ${who}: "${key}" is not a ${kindName(spec as { type: string; shape?: string })} key${hint}. Valid keys: ${valid.join(', ')}`);
+    }
+  }
+  const said = new Set<string>();
+  const bags: Array<Record<string, unknown> | undefined> = [spec.initial, ...(spec.keyframes ?? []).flatMap(kf => [kf.set, kf.to, kf.from])] as Array<Record<string, unknown> | undefined>;
+  for (const bag of bags) {
+    for (const key of Object.keys(bag ?? {})) {
+      if (PROP_KEYS.has(key) || key.includes('.') || /^gradient/i.test(key) || said.has(key)) continue;
+      said.add(key);
+      const guess = suggestName(key, [...PROP_KEYS]);
+      warn(`pixi-effects: ${who}: "${key}" is not an animatable property${guess ? ` — did you mean "${guess}"?` : ''} (in initial, set, to or from). See the cheatsheet for the properties of this kind of layer`);
+    }
+  }
+  if (spec.type === 'text' && spec.style && typeof spec.style === 'object') {
+    for (const key of Object.keys(spec.style)) {
+      if (STYLE_KEYS.includes(key)) continue;
+      const guess = suggestName(key, STYLE_KEYS);
+      warn(`pixi-effects: ${who}: style.${key} is not a text style key${guess ? ` — did you mean "${guess}"?` : ''} (it is ignored). Keys: ${STYLE_KEYS.join(', ')}`);
+    }
   }
 }

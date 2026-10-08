@@ -48,12 +48,12 @@
       { type: 'shape', shape: 'circle', name: 'glow', radius: 230, colorSpace: 'oklch', initial: { x: 1360, y: 540 },
         fillGradient: { type: 'radial', center: [0.2, 0.2], radius: 0.25, stops: [[0, '#ffffff'], [1, '#ff2d55']] },
         keyframes: [{ at: 0, duration: 2, ease: 'sine.inOut', to: { fillGradient: { center: [0.8, 0.8], radius: 0.6, stops: [[0, '#fff3b0'], [1, '#2563eb']] } } }] },
-      { type: 'text', name: 'headline', text: 'GRADIENT', style: { fontFamily: 'Arial', fontSize: 200, fontWeight: '900' }, anchorX: 0.5, anchorY: 0.5, initial: { x: 960, y: 900 },
+      { type: 'text', name: 'headline', text: 'GRADIENT', style: { fontFamily: 'Arial', fontSize: 200, fontWeight: '900' }, initial: { x: 960, y: 900, anchorX: 0.5, anchorY: 0.5 },
         fillGradient: { angle: 0, stops: [[0, '#ff2d55'], [1, '#0ea5e9']] },
         keyframes: [{ at: 0, duration: 2, ease: 'none', to: { fillGradient: { angle: 180, stops: [[0, '#ffd60a'], [1, '#22c55e']] } } }] },
     ];
     const texts = [];
-    for (let i = 0; i < N; i++) texts.push({ type: 'text', name: 't' + i, text: 'GRADIENT ' + i, style: { fontFamily: 'Arial', fontSize: 90, fontWeight: '900' }, anchorX: 0.5, anchorY: 0.5, initial: { x: 480 + (i % 2) * 960, y: 80 + Math.floor(i / 2) * 100 },
+    for (let i = 0; i < N; i++) texts.push({ type: 'text', name: 't' + i, text: 'GRADIENT ' + i, style: { fontFamily: 'Arial', fontSize: 90, fontWeight: '900' }, initial: { x: 480 + (i % 2) * 960, y: 80 + Math.floor(i / 2) * 100, anchorX: 0.5, anchorY: 0.5 },
       fillGradient: { angle: 0, stops: [[0, '#ff2d55'], [1, '#0ea5e9']] },
       keyframes: [{ at: 0, duration: 2, ease: 'none', to: { fillGradient: { angle: 180, stops: [[0, '#ffd60a'], [1, '#22c55e']] } } }] });
     const textsSolid = texts.map(t => { const { fillGradient, ...r } = t; return { ...r, style: { ...r.style, fill: '#ff2d55' }, keyframes: [{ at: 0, duration: 2, ease: 'none', to: { fill: '#0ea5e9' } }] }; });

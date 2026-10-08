@@ -382,7 +382,7 @@ Fill a shape with a gradient instead of `fillColor` (top level or in `initial`).
 { type: 'shape', shape: 'rect', width: 560, height: 420, initial: { x: 520, y: 540 }, colorSpace: 'oklch',
   fillGradient: { angle: 0, stops: [[0, '#ff2d55'], [1, '#0ea5e9']] },
   keyframes: [{ at: 0, duration: 2, to: { fillGradient: { angle: 360, stops: [[0, '#00e5ff'], [1, '#ffd60a']] } } }] }
-{ type: 'text', text: 'GRADIENT', style: { fontSize: 200, fontWeight: '900' }, anchorX: 0.5, anchorY: 0.5, initial: { x: 640, y: 360 },
+{ type: 'text', text: 'GRADIENT', style: { fontSize: 200, fontWeight: '900' }, initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5 },
   fillGradient: { angle: 0, stops: [[0, '#ff2d55'], [1, '#0ea5e9']] },
   keyframes: [{ at: 0, duration: 2, to: { fillGradient: { angle: 180 } } }] }
 ```

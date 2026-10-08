@@ -756,8 +756,8 @@ return [
   { type: 'shape', shape: 'circle', radius: 260, initial: { x: 'GW/2', y: 'GH/2' },
     fillGradient: { type: 'radial', center: [0.2, 0.2], radius: 0.3, stops: [[0, 'rgba(255,255,255,0.9)'], [1, 'rgba(255,255,255,0)']] },
     keyframes: [{ at: 0, duration: 4, ease: 'sine.inOut', to: { fillGradient: { center: [0.8, 0.8], radius: 0.6 } } }] },
-  { type: 'text', text: 'SHIFT', name: 'title', style: { fontSize: 220, fontWeight: '900' }, anchorX: 0.5, anchorY: 0.5, colorSpace: 'oklch',
-    initial: { x: 'GW/2', y: 'GH/2' },
+  { type: 'text', text: 'SHIFT', name: 'title', style: { fontSize: 220, fontWeight: '900' }, colorSpace: 'oklch',
+    initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
     fillGradient: { angle: 0, stops: [[0, '#ffd60a'], [1, '#22c55e']] },
     keyframes: [{ at: 0, duration: 4, to: { fillGradient: { angle: 180, stops: [[0, '#00e5ff'], [1, '#ff2d55']] } } }] },
 ];

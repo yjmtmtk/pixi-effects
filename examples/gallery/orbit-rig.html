@@ -135,8 +135,8 @@
       initial: { x: 100, y: 652, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 1 }] };
 
     const sounds = [
-      ...stagger(5, { each: 0.42 }).map(d => ({ type: 'audio', sfx: 'click', at: T0 + d, volume: 0.2, pitch: d * 6 })),
-      { type: 'audio', sfx: 'chime', at: 1.3, volume: 0.28, pitch: -5 },
+      ...stagger(5, { each: 0.42 }).map(d => ({ type: 'audio', sfx: { preset: 'click', pitch: d * 6 }, at: T0 + d, volume: 0.2 })),
+      { type: 'audio', sfx: { preset: 'chime', pitch: -5 }, at: 1.3, volume: 0.28 },
     ];
 
     const movie = new Movie();

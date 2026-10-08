@@ -170,7 +170,7 @@
       { type: 'audio', sfx: 'swoosh', at: 4.8, volume: 0.35 }, { type: 'audio', sfx: 'hit', at: 4.8 + CLIMB, volume: 0.4 },
       { type: 'audio', sfx: 'riser', at: 6.4, volume: 0.25 },
       { type: 'audio', sfx: 'swoosh', at: 7.0, volume: 0.35 }, { type: 'audio', sfx: 'hit', at: 7.0 + CLIMB, volume: 0.55 },
-      { type: 'audio', sfx: 'hit', at: 9.0, volume: 0.45, pitch: -6 },
+      { type: 'audio', sfx: { preset: 'hit', pitch: -6 }, at: 9.0, volume: 0.45 },
     ];
 
     const movie = new Movie();
