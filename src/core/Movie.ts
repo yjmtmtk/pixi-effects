@@ -8,6 +8,7 @@ import { mixdown, limitMix, type MixStats } from './AudioMixer';
 import { analyzeAudio, type AudioReport, type AudioInspectOptions } from './inspectAudio';
 import { inspectFonts, type FontReport } from './inspectFonts';
 import { namedScenes } from './scenes';
+import { collectTimeFilters, type TimeFilter } from './timeFilters';
 import { resolveAtList, reviewMovie, type ReviewOptions, type ReviewReport } from './review';
 import { onionAlphas, onionTimes } from './onion';
 import { exportFrames } from './Renderer';
@@ -192,6 +193,8 @@ export class Movie {
   background = '#000000';
   private _audioContext: AudioContext | null = null;
   private _rootSequence: Sequence | null = null;
+  /** The filters that take the time of the frame they draw (`grain`), collected once after the build. */
+  private _timeFilters: TimeFilter[] = [];
   private _rootContainer: Container | null = null;
   private _raf: number | null = null;
   /** What went into the mix, and its peak before limiting — kept for inspectAudio(). */
@@ -359,6 +362,7 @@ export class Movie {
       this._rootSequence = composition;
       if (composition.target) root.addChild(composition.target);
       composition.bindTimeline(this.timeline);
+      this._timeFilters = collectTimeFilters(composition);
 
       const audios: AudioDescriptor[] = [];
       composition.collectAudio(audios, 0);
@@ -728,6 +732,7 @@ export class Movie {
     if (!app?.renderer) return;
     if (!this._synced) this._rootSequence?.syncFrame();           // normally _updateSpace() has already done it (see there)
     this._synced = false;
+    if (this._timeFilters.length) { const t = this._timeOf(this.currentFrame); for (const f of this._timeFilters) f.setTime(t); }
     Culler.shared.cull(app.stage, app.renderer.screen, false);
     app.renderer.render({ container: app.stage });
   }
@@ -976,6 +981,7 @@ export class Movie {
 
   async destroy(): Promise<void> {
     safeRun(() => this.pause());
+    this._timeFilters = [];
     safeRun(() => this._rootSequence?.destroy());
     this._rootSequence = null;
     safeRun(() => this.timeline?.kill());

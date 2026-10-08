@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>check · grain on a flat colour</title>
+</head>
+<body style="margin:0;background:#222">
+  <!--
+    Acceptance check (not an example): the `grain` filter on a flat colour, so the grain is the only thing in the picture and it can be
+    measured. tests/tools/grain.test.ts reads it. Query: w, h (size, default 640x360), c (colour, hex, default 808080), grain=1 with
+    amount / size / seed / fps / color, mode=root|layer (where the filter sits), amountTo (a keyframe on filters.g.amount, layer mode),
+    noise (the old `noise` filter instead, for the cost comparison), gl (force the WebGL path by hiding navigator.gpu), mb (motion blur samples for the page's own snapshots).
+  -->
+  <canvas id="stage"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">
+  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "gsap": "https://esm.sh/gsap@3.12.5", "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin", "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const Q = new URLSearchParams(location.search);
+    if (Q.has('gl')) Object.defineProperty(navigator, 'gpu', { value: undefined });   // the WebGL path
+    const W = Number(Q.get('w') ?? 640), H = Number(Q.get('h') ?? 360);
+    const colour = '#' + (Q.get('c') ?? '808080');
+    const KNOWN = ['amount', 'size', 'seed', 'fps', 'color'];
+    const grain = Q.has('grain') ? { type: 'grain', name: 'g', ...Object.fromEntries(KNOWN.filter(k => Q.has(k)).map(k => [k, Number(Q.get(k))])) } : null;
+    const noise = Q.has('noise') ? { type: 'noise', noise: Number(Q.get('noise')), seed: 1 } : null;       // the existing filter, for the cost comparison
+    const inner = [{ type: 'shape', shape: 'rect', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: colour } }];
+    const keyframes = Q.has('amountTo') ? [{ at: 0, duration: 4, to: { 'filters.g.amount': Number(Q.get('amountTo')) } }] : [];
+    const composition = Q.get('mode') === 'layer'
+      ? { sequences: [{ type: 'composition', name: 'inner', width: W, height: H, sequences: inner, filters: grain || noise ? [grain || noise] : [], keyframes }] }
+      : { sequences: inner, ...(grain || noise ? { filters: [grain || noise] } : {}) };
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: W, height: H, duration: 4, frameRate: 30, background: '#000000', composition });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+
+    // measuring helpers (the test calls these)
+    window.grab = async (frame, opts = {}) => {
+      const img = new Image(); img.src = await movie.snapshot(frame, { as: 'dataURL', ...opts }); await img.decode();
+      const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+      const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0);
+      window.__last = g.getImageData(0, 0, c.width, c.height).data;
+      return { w: c.width, h: c.height };
+    };
+    // standard deviation and mean of (channel - base) over the last grab, optionally of a region [x, y, w, h]
+    window.stat = (channel = 0, base = 128, region = null, from = window.__last, width = W) => {
+      const [rx, ry, rw, rh] = region ?? [0, 0, W, H];
+      let s = 0, s2 = 0, n = 0;
+      for (let y = ry; y < ry + rh; y++) for (let x = rx; x < rx + rw; x++) { const d = from[(y * width + x) * 4 + channel] - base; s += d; s2 += d * d; n++; }
+      const m = s / n; return { mean: m, std: Math.sqrt(s2 / n - m * m) };
+    };
+    window.keep = (name) => { (window.__kept ??= {})[name] = new Uint8ClampedArray(window.__last); };
+    window.same = (a, b) => { const x = window.__kept[a], y = window.__kept[b]; let d = 0; for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) d++; return d; };
+    window.corr = (a, b, base = 128) => { const x = window.__kept[a], y = window.__kept[b]; let sxy = 0, sxx = 0, syy = 0; for (let i = 0; i < x.length; i += 4) { const u = x[i] - base, v = y[i] - base; sxy += u * v; sxx += u * u; syy += v * v; } return sxy / Math.sqrt(sxx * syy); };
+  </script>
+</body>
+</html>

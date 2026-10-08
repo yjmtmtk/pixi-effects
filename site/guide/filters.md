@@ -30,11 +30,25 @@ A filter changes how a layer looks after it is drawn. Name it in `filters` and g
 | `rgbSplit` | `red green blue` (each `{ x, y }`) | chromatic aberration |
 | `glitch` | `slices offset` | digital glitch |
 | `twist`, `bulgePinch`, `zoomBlur` | `radius`, `strength` and a **centre** | distortions |
-| `oldFilm`, `noise` | `noise sepia scratch` | film grain |
+| `grain` | `amount size seed fps color` | film grain done properly (below) |
+| `oldFilm`, `noise` | `noise sepia scratch` | a rougher grain and an aged-film look |
 
-`blur`, `noise`, `alpha` and `colorMatrix` come with PixiJS. The rest come from the `pixi-filters` package, which is loaded the first time a layer uses one: add it to your import map (`"pixi-filters": "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"`) or `npm install pixi-filters`. The [DSL reference](https://github.com/yjmtmtk/pixi-effects/blob/main/docs/dsl.md) has the whole table. Anything else that is a PixiJS `Filter` goes in as `{ type: 'custom', filter: new MyFilter() }`.
+`blur`, `noise`, `alpha`, `colorMatrix` and `grain` need nothing extra (the first four come with PixiJS, `grain` with this library). The rest come from the `pixi-filters` package, which is loaded the first time a layer uses one: add it to your import map (`"pixi-filters": "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"`) or `npm install pixi-filters`. The [DSL reference](https://github.com/yjmtmtk/pixi-effects/blob/main/docs/dsl.md) has the whole table. Anything else that is a PixiJS `Filter` goes in as `{ type: 'custom', filter: new MyFilter() }`.
 
 {{demo examples/06-filters.html}}
+
+## Film grain
+
+`{ type: 'grain' }` is the one-line film look: `composition: { sequences, filters: [{ type: 'grain' }] }`. It is **seeded and new every 1/`fps` second** (24 by default, so it changes at the rhythm of film, whatever your frame rate), it is **weighted to the mid-tones** (it fades out toward pure black and white, so blacks are not lifted and the average brightness does not move) and it is the **same picture on every GPU** (an integer hash, no `Math.random()`). `amount` is the standard deviation at mid-grey as a fraction of full scale: `0.08` is a clear grain, `0.02` a hint. `size` is the grain in pixels, `color: 1` makes each channel grain on its own, `fps: 0` is a still pattern.
+
+```js
+composition: { sequences, filters: [{ type: 'grain', amount: 0.06, size: 2, color: 0.3 }] }                         // the whole film
+{ type: 'image', asset: 'photo', filters: [{ type: 'grain', name: 'g' }], keyframes: [{ at: 3, to: { 'filters.g.amount': 0.2 }, duration: 2 }] }   // one layer, growing
+```
+
+The old `noise` filter is a different thing: one frozen pattern (its seed is random unless you give one), the same strength at every tone, and it lifts blacks (a pure black layer reads about 5/255 brighter). Use `grain` for film.
+
+**Grain costs bitrate.** Every frame has new noise, which video encoders cannot predict. Measured with the default export settings, 3 s of flat 1280×720: 6.9 KB without grain, 9.3 MB with `amount: 0.03` and 22.3 MB with `0.08`. A real picture already costs bytes, so the growth is smaller, but plan for a bigger file (and a higher bitrate if you set one). On the screen it costs about 0.6 ms a frame (mono) or 2.3 ms (`color: 1`) at 1080p on a GPU, against 0.3 ms for `noise`.
 
 ## Gotchas, all measured
 

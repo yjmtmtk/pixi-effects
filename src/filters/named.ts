@@ -1,6 +1,7 @@
 import * as PIXI from 'pixi.js';
 import type { Filter } from 'pixi.js';
 import { suggestName } from '../core/options';
+import { GrainFilter } from './Grain';
 
 /**
  * Declarative filters: `{ type: 'glow', outerStrength: 3 }` instead of `{ type: 'custom', filter: new GlowFilter(...) }`.
@@ -13,7 +14,7 @@ type FilterCtor = new (options?: Record<string, unknown>) => Filter;
 
 /** pixi.js's own filters: no extra package. Looked up when used (a test may mock pixi.js without them). */
 const CORE: Record<string, string> = { blur: 'BlurFilter', noise: 'NoiseFilter', alpha: 'AlphaFilter' };
-const CORE_TYPES = [...Object.keys(CORE), 'colorMatrix'];
+const CORE_TYPES = [...Object.keys(CORE), 'colorMatrix', 'grain'];
 
 /** The filters of pixi-filters v6, by type name. */
 const LIBRARY_TYPES = [
@@ -123,6 +124,7 @@ function colorGradientParams(params: Record<string, unknown>): Record<string, un
 /** Build the filter a `{ type: 'glow', … }` spec names. */
 export function createNamedFilter(type: string, params: Record<string, unknown>): Filter {
   if (lower(type) === 'colormatrix') return colorMatrix(params);
+  if (lower(type) === 'grain') return new GrainFilter(params) as unknown as Filter;
   const core = Object.entries(CORE).find(([k]) => lower(k) === lower(type));
   if (core) return new ((PIXI as unknown as Record<string, FilterCtor>)[core[1]]!)(params);
   if (!isLibraryType(type)) throw unknownType(type);

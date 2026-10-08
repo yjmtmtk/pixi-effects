@@ -161,7 +161,7 @@ Add `threeD: true` to any visual layer, then use `z`, `rotationX`, `rotationY` (
 
 ## Filters by name (no import)
 
-`filters: [{ type: 'glow', name: 'halo', outerStrength: 3, color: '#ffd166' }]` — `type` = the pixi / pixi-filters class name without `Filter`, camelCase (`glow dropShadow outline blur noise alpha adjustment hslAdjustment grayscale pixelate crt rgbSplit oldFilm glitch bulgePinch twist zoomBlur kawaseBlur radialBlur motionBlur emboss ascii colorOverlay advancedBloom bevel dot crossHatch tiltShift …`), the other keys are its options. `colorMatrix` takes `preset: 'sepia'|'grayscale'|'negative'|'polaroid'|'technicolor'|'vintage'|'kodachrome'|'browni'`. Name it to animate: `'filters.halo.outerStrength'` (scalars only; `pixelate` via `sizeX`/`sizeY`). Options: `glow` distance outerStrength innerStrength color alpha · `dropShadow` offset{x,y} blur alpha color · `outline` thickness color · `blur` strength · `adjustment` gamma contrast saturation brightness · `hslAdjustment` hue lightness saturation · `pixelate` size · `crt` curvature lineWidth noise vignetting · `rgbSplit` red/green/blue {x,y} · `oldFilm` sepia noise scratch vignetting · `glitch` slices offset · `twist` radius angle offset · `bulgePinch` center radius strength · `zoomBlur` strength center innerRadius · `colorOverlay` color alpha · `colorGradient` gradientType('linear'|'radial'|'conic') stops[{offset,color,alpha}] angle · `colorReplace` originalColor targetColor tolerance · `convolution` matrix(9) · `shockwave` / `godray` are driven by `time` (animate it) · `colorMap` / `simpleLightmap` need a texture (use `custom`). **Centres/offsets are CANVAS pixels** (default top-left corner): put them on the layer. Glow / shadow / blur draw outside the layer: widen `filterArea` (not for `grayscale` / `oldFilm`, which fill the margin black). Full table: `docs/dsl.md` → Named filters.
+`filters: [{ type: 'glow', name: 'halo', outerStrength: 3, color: '#ffd166' }]` — `type` = the pixi / pixi-filters class name without `Filter`, camelCase, or this library's own **`grain`** (film grain: `{ type: 'grain', amount: 0.08, size: 1.5, seed: 0, fps: 24, color: 0 }`, seeded, new every 1/fps s, mid-tone weighted, same picture on every GPU, no pixi-filters needed; on a layer or on `composition.filters`; it costs video bitrate; `noise` is NOT film grain: it is frozen and lifts blacks) (`glow dropShadow outline blur noise alpha adjustment hslAdjustment grayscale pixelate crt rgbSplit oldFilm glitch bulgePinch twist zoomBlur kawaseBlur radialBlur motionBlur emboss ascii colorOverlay advancedBloom bevel dot crossHatch tiltShift …`), the other keys are its options. `colorMatrix` takes `preset: 'sepia'|'grayscale'|'negative'|'polaroid'|'technicolor'|'vintage'|'kodachrome'|'browni'`. Name it to animate: `'filters.halo.outerStrength'` (scalars only; `pixelate` via `sizeX`/`sizeY`). Options: `glow` distance outerStrength innerStrength color alpha · `dropShadow` offset{x,y} blur alpha color · `outline` thickness color · `blur` strength · `adjustment` gamma contrast saturation brightness · `hslAdjustment` hue lightness saturation · `pixelate` size · `crt` curvature lineWidth noise vignetting · `rgbSplit` red/green/blue {x,y} · `oldFilm` sepia noise scratch vignetting · `glitch` slices offset · `twist` radius angle offset · `bulgePinch` center radius strength · `zoomBlur` strength center innerRadius · `colorOverlay` color alpha · `colorGradient` gradientType('linear'|'radial'|'conic') stops[{offset,color,alpha}] angle · `colorReplace` originalColor targetColor tolerance · `convolution` matrix(9) · `shockwave` / `godray` are driven by `time` (animate it) · `colorMap` / `simpleLightmap` need a texture (use `custom`). **Centres/offsets are CANVAS pixels** (default top-left corner): put them on the layer. Glow / shadow / blur draw outside the layer: widen `filterArea` (not for `grayscale` / `oldFilm`, which fill the margin black). Full table: `docs/dsl.md` → Named filters.
 
 ## Transitions (on the parent composition)
 
@@ -1104,6 +1104,23 @@ return [
     fillGradient: { angle: 0, stops: [[0, '#ffd60a'], [1, '#22c55e']] },
     keyframes: [{ at: 0, duration: 4, to: { fillGradient: { angle: 180, stops: [[0, '#00e5ff'], [1, '#ff2d55']] } } }] },
 ];
+```
+
+---
+
+## Film grain over the whole picture
+
+`grain` is seeded, new every 1/`fps` s (24 by default), mid-tone weighted and the same on every GPU. Put it on the root `filters` for the film look, or on one layer. (`noise` is not grain: it is frozen and lifts blacks.) It costs video bitrate.
+
+```js
+// @recipe film-grain
+// the scene is wrapped in a composition layer that carries the filter (on a whole movie, put the same filter in `composition: { filters: [...] }`)
+const scene = [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#3a4a6b' } },
+  { type: 'text', text: 'FILM', name: 'title', at: 0.3, duration: 3.7, style: { fontSize: 200, fontWeight: '900', fill: '#f4f1ea' },
+    initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8 }] },
+];
+return [{ type: 'composition', name: 'film', width: 'GW', height: 'GH', sequences: scene, filters: [{ type: 'grain', name: 'g', amount: 0.06, size: 2, color: 0.2 }] }];
 ```
 
 ---
@@ -2274,12 +2291,13 @@ A filter by name, as plain data. `type` is the filter's class name without `Filt
   keyframes: [{ at: 0, to: { 'filters.halo.outerStrength': 6 }, duration: 1 }] }       // animate any scalar option by name
 ```
 
-Name a filter (`name: 'halo'`) to animate it with `'filters.halo.<option>'`. `blur`, `noise`, `alpha` and `colorMatrix` come from pixi.js. All the others come from the **`pixi-filters`** package, which is loaded the first time a layer uses one (add `"pixi-filters": "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"` to the import map, or `npm i pixi-filters`; `ai/template.html` already has it). A misspelt type says what you probably meant. Rendering and exporting were verified in a real browser for 40 of them (`examples/_checks/named-filters.html` and `named-filters-2.html`); `colorMap` and `simpleLightmap` need a texture, which JSON cannot hold, so use `custom` for those two:
+Name a filter (`name: 'halo'`) to animate it with `'filters.halo.<option>'`. `blur`, `noise`, `alpha`, `colorMatrix` and `grain` need no extra package (`grain` is this library's own). All the others come from the **`pixi-filters`** package, which is loaded the first time a layer uses one (add `"pixi-filters": "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"` to the import map, or `npm i pixi-filters`; `ai/template.html` already has it). A misspelt type says what you probably meant. Rendering and exporting were verified in a real browser for 40 of them (`examples/_checks/named-filters.html` and `named-filters-2.html`); `colorMap` and `simpleLightmap` need a texture, which JSON cannot hold, so use `custom` for those two:
 
 | `type` | Options (the useful ones) | What it does |
 |---|---|---|
 | `blur` | `strength`, `quality` | Gaussian blur (pixi.js) |
-| `noise` | `noise` (0–1), `seed` | Film grain (pixi.js) |
+| `noise` | `noise` (0–1), `seed` | Uniform noise (pixi.js): one frozen pattern (the seed is random unless you give it), the same strength at every tone, it lifts blacks. For film grain use `grain` |
+| `grain` | `amount` (0.08: the standard deviation at mid-grey, of full scale), `size` (px, 1.5), `seed` (0), `fps` (24: new grain this many times a second, 0 = still), `color` (0 = luminance only, 1 = per channel) | Film grain: seeded, new every 1/`fps` s, weighted to the mid-tones (it fades out toward black and white: blacks are not lifted, the mean brightness does not move), an integer hash so every GPU draws the same picture. On a layer or on the root `composition.filters`. A static pattern is `fps: 0`. Keyframe it by name: `'filters.g.amount'`. Grain eats video bitrate (see the guide) |
 | `alpha` | `alpha` | Whole-layer opacity (pixi.js) |
 | `colorMatrix` | `preset`: `'sepia' 'grayscale' 'negative' 'polaroid' 'technicolor' 'vintage' 'kodachrome' 'browni'`, or `matrix` (20 numbers) | Colour grade (pixi.js) |
 | `adjustment` | `gamma contrast saturation brightness red green blue alpha` (1 = unchanged) | Colour grading |

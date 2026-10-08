@@ -765,6 +765,23 @@ return [
 
 ---
 
+## Film grain over the whole picture
+
+`grain` is seeded, new every 1/`fps` s (24 by default), mid-tone weighted and the same on every GPU. Put it on the root `filters` for the film look, or on one layer. (`noise` is not grain: it is frozen and lifts blacks.) It costs video bitrate.
+
+```js
+// @recipe film-grain
+// the scene is wrapped in a composition layer that carries the filter (on a whole movie, put the same filter in `composition: { filters: [...] }`)
+const scene = [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#3a4a6b' } },
+  { type: 'text', text: 'FILM', name: 'title', at: 0.3, duration: 3.7, style: { fontSize: 200, fontWeight: '900', fill: '#f4f1ea' },
+    initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8 }] },
+];
+return [{ type: 'composition', name: 'film', width: 'GW', height: 'GH', sequences: scene, filters: [{ type: 'grain', name: 'g', amount: 0.06, size: 2, color: 0.2 }] }];
+```
+
+---
+
 ## Generated placeholder images (no photos available)
 
 Draw on a canvas and register `canvas.toDataURL()` as an asset (`data:` URLs work). Make the image at least canvas-sized (1920×1080 for a 1280×720 movie) so `kenBurns` zooms stay sharp.

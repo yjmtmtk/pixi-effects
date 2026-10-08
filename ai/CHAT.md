@@ -62,7 +62,7 @@ That is a complete, working video (the block between the two markers). Change th
 - **Repeat with code, never by copying:** `Array.from({ length: 12 }, (_, i) => ({ type: 'shape', shape: 'circle', radius: 20, at: i * 0.15, duration: DURATION - i * 0.15, initial: { x: 120 + i * 90, y: 360, fillColor: '#ffd166' }, keyframes: [{ at: 0, from: { scale: 0 }, to: { scale: 1 }, duration: 0.4, ease: 'back.out(2)' }] }))` returns twelve layers: spread them into `sequences` with `...`.
 - **Helpers already imported** in the template: `kenBurns` (slow zoom for an image layer), `withFade`, `wiggle` (seeded shake as keyframes), `stagger`, `animateText` (per letter / word entrances), `followPath`, `particles` (seeded confetti / snow / sparks as layers), `deck` (slides). Each returns keyframes or layers: `keyframes: wiggle(...)`, `...particles(...)`. The full signatures are in `https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/reference/cheatsheet.md` (22 KB; read it only if you need a helper).
 - **Advanced:** `const INIT = { assets: [...], composition: { transitions: [...] } }` in the edit block adds `movie.init` options (the page merges it); most videos need nothing here.
-- **Not available on this page:** named filters beyond `blur`, `noise`, `alpha`, `colorMatrix` (the other 38 need the `pixi-filters` package), three.js layers, your own image / video / music files. Say so rather than guessing.
+- **Not available on this page:** named filters beyond `blur`, `noise`, `alpha`, `colorMatrix`, `grain` (the other 38 need the `pixi-filters` package; film grain is `{ type: 'grain' }`), three.js layers, your own image / video / music files. Say so rather than guessing.
 
 ## Music with no file
 

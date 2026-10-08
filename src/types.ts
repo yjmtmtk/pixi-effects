@@ -96,7 +96,7 @@ export interface NamedFilterSpec {
   [option: string]: unknown;
 }
 export type NamedFilterType =
-  | 'blur' | 'noise' | 'alpha' | 'colorMatrix'
+  | 'blur' | 'noise' | 'alpha' | 'colorMatrix' | 'grain'
   | 'adjustment' | 'advancedBloom' | 'ascii' | 'backdropBlur' | 'bevel' | 'bloom' | 'bulgePinch' | 'colorGradient' | 'colorMap'
   | 'colorOverlay' | 'colorReplace' | 'convolution' | 'crossHatch' | 'crt' | 'dot' | 'dropShadow' | 'emboss' | 'glitch' | 'glow'
   | 'godray' | 'grayscale' | 'hslAdjustment' | 'kawaseBlur' | 'motionBlur' | 'multiColorReplace' | 'oldFilm' | 'outline'
