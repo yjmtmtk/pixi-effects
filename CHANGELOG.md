@@ -1,5 +1,35 @@
 # Changelog
 
+## Unreleased
+
+**Added**
+
+- **Time remap: `speed` and `time` on video, audio-file and composition layers.** `speed` is a fixed multiplier on the layer (`2` twice as fast, `0.5` slow motion, negative backward; with no `duration` a video or audio file lasts its length ÷ |speed|). `time` is the layer's own clock as an ordinary animatable property, in seconds of its content (a file's position, a composition's local playhead), in `initial` and `keyframes` with every keyframe word (`at`, `duration`, `ease`, `repeat`, `yoyo`, `from`, `to`, `set`): a freeze is the same value twice, a loop is `repeat`, a rewind is `to: { time: 0 }`. A negative `time` counts back from the end of the content. **A composition with its own time** plays the layers inside in its local seconds (their `at`, `duration` and keyframes are written in it; the composition's own `at`, `duration` and keyframes stay in the movie's time, as in After Effects' pre-composition time remap); everything inside follows: particles, grain, springs, gradients, cameras, nested compositions and videos, sounds and `sfx`. The sound follows like a tape (the pitch moves with the speed; no time-stretch).
+- **`cubic-bezier(x1, y1, x2, y2)` easing**, the CSS curve exactly, no plugin (`ease: 'cubic-bezier(.2, .8, .2, 1)'`, a fast start with a long glide). A malformed one warns once and runs as `'none'`.
+- **The mistakes of the new keys are warned about, with what to write:** `speed` of 0 or not a number, `speed` together with keyframed `time` (`time` wins), `speed` in `initial` or a keyframe (it is a setting: animate `time`), `speed` / `time` on a layer that cannot have them (a shape, text, an `sfx`: its `pitch` is in semitones), other names (`playbackRate`, `timeScale`, `rate`, `reverse: true`, `timeRemap`), and a layer inside a remapped composition that its clock never reaches (`at: 3` in a 4 s composition at `speed: 0.5`).
+- **The timeline says which times are local.** `movie.timelineData()` rows and transitions inside a remapped composition carry `local` (`stage ×0.5`, `stage time keyframes`) and are in that composition's seconds; the chart's tooltip says so; `--at inner@end` for such a layer says to name the composition; `inspect()` reads a remapped composition's transition windows in its own time; `inspectAudio()` reports a sound inside one when it plays in the movie.
+- Playground preset 15 (rewind and replay a title), the recipe `rewind-and-replay`, pitfalls 69–73, and the guide (Motion: Time; Images and video).
+
+**Fixed**
+
+- A video frame was looked up by a time rounded to a millisecond, so two different times could share one cached frame and the answer depended on which was asked first; it is a microsecond now. A time that is a frame boundary up to float noise (k / 30) could pick the frame before it; it is nudged by 5e-5 s. A looping video wraps a negative time.
+- `grain`: the grain frame of a time exactly on a boundary (k / fps) could be the previous one when the time had passed through a remapped clock (gsap rounds time to about 1e-8 s); the slack is a thousandth of a grain frame.
+
+**Measured (headless Chrome, M1 Pro)**
+
+- A video under `speed` 2, 0.5, 0.37, −1, a ramp, a freeze, `yoyo`, `repeat`, `initial.time`, a negative `time`: the clip frame shown is the one the clock says (within one frame) and every seek order (forward, backward, two shuffles) gives the identical picture; the export, played back, shows the same frames.
+- A composition at `speed` 2, −1, 0.5 and a keyframed loop + hold + backward ramp, holding `to` / `from` / `set` keyframes, a gradient, a spring and a nested video, equals the unremapped composition at the mapped time (largest difference 60/255 allowed, on antialiased edges) and every seek order is identical; the same for particles, grain, a threeD card with a camera, and (up to 6/255) motion blur.
+- Sound, a 440 Hz tone: `speed: 2` → 880 Hz, `speed: 0.5` → 220 Hz; a 200 → 1000 Hz sweep played backward starts at 950 Hz and ends at 250 Hz; a held `time` is silent (RMS 0); an `sfx` inside a composition at `speed: 0.5` is exactly half as high.
+- Cost: a composition of 200 layers takes 0.47 ms a frame plain and 0.46 ms with its own time (0.45–0.48 ms with `speed: 1`, `time` keyframes or two nested remaps; two runs).
+- `cubic-bezier` is within 9.8e-7 of Chrome's own CSS easing (12 curves, 1001 samples each).
+- Sound that is not remapped is unchanged: the mix checksum of a three-sound test mix is pinned; 25 of the example and gallery pages with sound mix to the identical samples before and after (the 10 music pages differ at the 7th–8th digit of the sum, and so does the previous build from one run to the next: Web Audio float noise).
+
+**Known limits**
+
+- A three.js layer (`pixi-effects/three`) inside a remapped composition reads the movie's time, not the composition's.
+- No time-stretch: the pitch follows the speed. Speeds above 2 are not low-pass filtered (aliasing).
+- A composition has no `loop` (an audio or video file does): loop its time with a finite `repeat`.
+
 ## 0.19.0
 
 **Added**

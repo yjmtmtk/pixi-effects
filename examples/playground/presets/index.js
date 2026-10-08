@@ -11,6 +11,7 @@ import audio from './09-audio.js';
 import depth from './11-depth.js';
 import sfx from './13-sfx.js';
 import drawOn from './14-draw-on.js';
+import timeRemap from './15-time-remap.js';
 
 export default [
   { id: '01-hello',       label: '01 · hello',              code: hello },
@@ -25,6 +26,7 @@ export default [
   { id: '11-depth',       label: '11 · depth + camera',     code: depth },
   { id: '13-sfx',         label: '13 · sound effects',      code: sfx },
   { id: '14-draw-on',     label: '14 · draw-on & text',     code: drawOn },
+  { id: '15-time-remap',  label: '15 · time: rewind & slow',  code: timeRemap },
 ];
 
 /** Import-map entries a piece of code needs beyond the template's own (the old Playground's values). */
