@@ -1,9 +1,9 @@
-// examples/_presets/14-draw-on.js
-export default `// Injected: movie (Movie instance), Controller (class), canvas (HTMLCanvasElement).
-// Draw-on strokes (trimStart / trimEnd) and text that changes over time (visibleChars, set: { text }).
-new Controller(movie, { canvas });
+// examples/playground/presets/14-draw-on.js
+export default `// Draw-on strokes (trimStart / trimEnd) and text that changes over time (visibleChars, set: { text }).
 
-const W = 1280, H = 720, DURATION = 12;
+const W = 1280, H = 720, FPS = 30, DURATION = 12;
+const BACKGROUND = '#0a0e1a';
+
 const INK = '#e8eefc', ACCENT = '#ffd166', TEAL = '#4cc9f0', PINK = '#ff7aa8', DIM = '#9fb3d9';
 const stroke = (color, width = 10) => ({ strokeColor: color, strokeWidth: width });
 // A draw-on: trimEnd runs 0 -> 1 (trimStart / trimEnd are fractions of the outline's length; the fill is never trimmed).
@@ -56,10 +56,5 @@ const sequences = [
     keyframes: [{ at: 1, set: { text: '2' } }, { at: 2, set: { text: '1' } }, { at: 3, set: { text: 'Go!' } }] },
 ];
 
-await movie.init({
-  canvas,
-  width: W, height: H, duration: DURATION, frameRate: 30,
-  background: '#0a0e1a',
-  composition: { sequences },
-});
+const POSTER = DURATION * 0.75;
 `;

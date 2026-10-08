@@ -1,7 +1,5 @@
-// examples/_presets/13-sfx.js
-export default `// Injected: movie (Movie instance), Controller (class), canvas (HTMLCanvasElement).
-// Sound effects with no audio files: an audio layer with sfx plays a synthesised preset at its at.
-new Controller(movie, { canvas });
+// examples/playground/presets/13-sfx.js
+export default `// Sound effects with no audio files: an audio layer with sfx plays a synthesised preset at its at.
 
 const PRESETS = ['click', 'pop', 'swoosh', 'swipe', 'hit', 'riser', 'chime', 'beep', 'coin', 'glitch', 'typewriter'];
 const sequences = [];
@@ -21,11 +19,8 @@ sequences.push(
   { type: 'audio', sfx: { preset: 'pop', pitch: 5 }, at: 13.1 },
 );
 
-await movie.init({
-  canvas,
-  width: 1280, height: 720, duration: 14, frameRate: 30,
-  background: '#0a0e1a',
-  composition: { sequences },
-});
-console.log(movie.inspectAudio().issues);
+const W = 1280, H = 720, FPS = 30, DURATION = 14;
+const BACKGROUND = '#0a0e1a';
+
+const POSTER = DURATION * 0.75;
 `;

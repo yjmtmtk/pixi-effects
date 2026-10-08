@@ -685,12 +685,19 @@ export class Movie {
 
   /**
    * One call that looks at everything `pixi-effects-check` looks at inside the page: layout issues over the whole timeline (every
-   * scene's first and last frame and a frame every 0.25 s), fonts and the sound. See `ReviewReport`. Page warnings are in `window.__logs`.
+   * scene's first and last frame and a frame every 0.25 s), fonts and the sound. See `ReviewReport`. Page warnings are in `window.__logs`. The movie is left as it was.
    */
-  review(opts: ReviewOptions = {}): Promise<ReviewReport> {
+  async review(opts: ReviewOptions = {}): Promise<ReviewReport> {
     warnUnknownOptions('movie.review()', opts, ['at', 'strict']);
     this._requireReady('review');
-    return reviewMovie(this, opts);
+    const back = this.currentFrame, wasAtPoster = this._atPoster;
+    try {
+      return await reviewMovie(this, opts);
+    } finally {                                                    // the movie is left as it was: still showing its poster, or back at its frame
+      this.currentFrame = back;
+      if (wasAtPoster) await this._showPoster();
+      else await this._quietly(() => this.gotoFrame(back, true));
+    }
   }
 
   /**

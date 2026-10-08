@@ -10,81 +10,9 @@
 <script>try{var t=localStorage.getItem('pe-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
 <script src="../site/shared/site.js" defer></script>
 <!--/site:head-->
-  <style>
-    /* The playground is an app, not a document: it fills the window under the shared header. */
-    html, body { height: 100%; margin: 0; }
-    body { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; grid-template-columns: 1fr 1fr; }
-    body > .skip, body > .top { grid-column: 1 / -1; }
-    .top { position: static; }
-    #toolbar {
-      grid-column: 1 / -1;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 8px var(--gutter);
-      background: var(--bg-2);
-      border-bottom: 1px solid var(--line);
-      font-size: 13px;
-    }
-    #toolbar .spacer { flex: 1; }
-    #toolbar .title  { color: var(--ink-3); font-size: 12px; }
-    #toolbar select, #toolbar button {
-      background: var(--bg-3);
-      color: var(--ink);
-      border: 1px solid var(--line-2);
-      border-radius: 4px;
-      padding: 4px 10px;
-      font: inherit;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    #toolbar button:hover, #toolbar select:hover { border-color: var(--ink-3); }
-    main#main { display: contents; }
-    #editor {
-      overflow: auto;
-      border-right: 1px solid var(--line);
-      min-width: 0;
-      min-height: 0;
-    }
-    #editor .cm-editor { height: 100%; }
-    #stageWrap {
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-      overflow: hidden;
-      min-width: 0;
-      min-height: 0;
-    }
-    #stage {
-      max-width: 100%;
-      max-height: 100%;
-      width: auto;
-      height: auto;
-      border-radius: 8px;
-      background: #000;
-    }
-    #err {
-      grid-column: 1 / -1;
-      display: none;
-      margin: 0;
-      padding: 8px 12px;
-      background: #3a0d12;
-      color: #ffaaaa;
-      font: 12px/1.4 Menlo, monospace;
-      white-space: pre-wrap;
-      max-height: 30vh;
-      overflow: auto;
-    }
-    @media (max-width: 720px) {
-      body { grid-template-columns: 1fr; grid-template-rows: auto auto auto auto auto; }
-      #editor { border-right: none; border-bottom: 1px solid var(--line); min-height: 240px; }
-      #toolbar .title { display: none; }
-    }
-  </style>
+  <link rel="stylesheet" href="playground/playground.css">
 </head>
-<body>
+<body class="app">
 <!--site:header-->
 <a class="skip" href="#main">Skip to content</a>
 <header class="top">
@@ -101,155 +29,32 @@
   </div>
 </header>
 <!--/site:header-->
-  <div id="toolbar">
+  <div id="toolbar" role="toolbar" aria-label="Playground">
     <select id="preset" aria-label="Preset"></select>
-    <button id="run" type="button">▶ Run (⌘↵)</button>
+    <button id="run" type="button" class="primary">▶ Run</button>
+    <span id="state" role="status" aria-live="polite">Loading the editor…</span>
     <span class="spacer"></span>
-    <span class="title">pixi-effects · playground</span>
   </div>
   <main id="main">
-  <div id="editor"></div>
-  <div id="stageWrap">
-    <canvas id="stage" width="1280" height="720"></canvas>
-  </div>
+    <section id="editor" aria-label="Code"></section>
+    <section id="preview" aria-label="Preview">
+      <div id="host"></div>
+    </section>
   </main>
-  <pre id="err"></pre>
+  <section id="problems" aria-label="Problems" data-state="idle"></section>
 
+  <!-- One copy of @codemirror/state and view for every package (deps=): two copies make "Unrecognized extension value". -->
   <script type="importmap">
   {
     "imports": {
-      "pixi.js":                     "https://esm.sh/pixi.js@8.10.0?bundle-deps",
-      "pixi-filters":                "https://esm.sh/pixi-filters@6.1.4?external=pixi.js",
-      "gsap":                        "https://esm.sh/gsap@3.12.5",
-      "gsap/PixiPlugin":             "https://esm.sh/gsap@3.12.5/PixiPlugin",
-      "mediabunny":                  "https://esm.sh/mediabunny",
-      "sucrase":                     "https://esm.sh/sucrase@3.35.0",
-      "codemirror":                  "https://esm.sh/codemirror@6.0.1",
-      "@codemirror/state":           "https://esm.sh/@codemirror/state@6.4.1",
-      "@codemirror/view":            "https://esm.sh/@codemirror/view@6.26.3",
-      "@codemirror/lang-javascript": "https://esm.sh/@codemirror/lang-javascript@6.2.2",
-      "@codemirror/theme-one-dark":  "https://esm.sh/@codemirror/theme-one-dark@6.1.2"
+      "codemirror":                  "https://esm.sh/codemirror@6.0.2?deps=@codemirror/state@6.7.6,@codemirror/view@6.43.14",
+      "@codemirror/state":           "https://esm.sh/@codemirror/state@6.7.6",
+      "@codemirror/view":            "https://esm.sh/@codemirror/view@6.43.14?deps=@codemirror/state@6.7.6",
+      "@codemirror/lang-javascript": "https://esm.sh/@codemirror/lang-javascript@6.2.5?deps=@codemirror/state@6.7.6,@codemirror/view@6.43.14",
+      "@codemirror/theme-one-dark":  "https://esm.sh/@codemirror/theme-one-dark@6.1.3?deps=@codemirror/state@6.7.6,@codemirror/view@6.43.14"
     }
   }
   </script>
-
-  <script type="module">
-    import { Movie } from '../dist/index.js';
-    import { Controller } from '../dist/Controller.js';
-    import { EditorView, basicSetup } from 'codemirror';
-    import { keymap } from '@codemirror/view';
-    import { javascript } from '@codemirror/lang-javascript';
-    import { oneDark } from '@codemirror/theme-one-dark';
-    import { transform } from 'sucrase';
-    import presets from './_presets/index.js';
-
-    const presetSel = document.getElementById('preset');
-    const runBtn    = document.getElementById('run');
-    const errEl     = document.getElementById('err');
-
-    // Populate preset dropdown.
-    for (const p of presets) {
-      const opt = document.createElement('option');
-      opt.value = p.id;
-      opt.textContent = p.label;
-      presetSel.appendChild(opt);
-    }
-    presetSel.value = presets[0].id;
-
-    // Build the editor with the first preset as initial content.
-    const view = new EditorView({
-      doc: presets[0].code,
-      extensions: [
-        basicSetup,
-        javascript({ typescript: true }),
-        oneDark,
-        keymap.of([
-          { key: 'Mod-Enter', preventDefault: true, run: () => { run(); return true; } },
-        ]),
-        EditorView.theme({ '&': { height: '100%', fontSize: '13px' } }),
-      ],
-      parent: document.getElementById('editor'),
-    });
-
-    let currentMovie = null;
-    let currentController = null;
-    let running = false;
-
-    function showError(err) {
-      console.error(err);
-      errEl.textContent = String(err && (err.stack || err.message) || err);
-      errEl.style.display = 'block';
-    }
-
-    function clearError() {
-      errEl.textContent = '';
-      errEl.style.display = 'none';
-    }
-
-    async function teardown() {
-      try { currentController?.destroy?.(); } catch (e) { console.warn('controller teardown', e); }
-      try { await currentMovie?.destroy?.(); } catch (e) { console.warn('movie teardown', e); }
-      currentController = null;
-      currentMovie = null;
-
-      // Replace the canvas with a fresh clone so any retained Pixi/GL context is dropped.
-      // Pixi's app.destroy(true, ...) removes the canvas from the DOM, so we may need to
-      // re-insert a fresh one into #stageWrap.
-      const wrap = document.getElementById('stageWrap');
-      const old = document.getElementById('stage');
-      const fresh = document.createElement('canvas');
-      fresh.id = 'stage';
-      fresh.width = 1280;
-      fresh.height = 720;
-      if (old && old.parentNode) {
-        old.replaceWith(fresh);
-      } else {
-        wrap.insertBefore(fresh, wrap.firstChild);
-      }
-    }
-
-    async function run() {
-      if (running) return;
-      running = true;
-      clearError();
-      runBtn.disabled = true;
-      try {
-        await teardown();
-        const src = view.state.doc.toString();
-        const out = transform(src, { transforms: ['typescript'] }).code;
-        const canvas = document.getElementById('stage');
-        const movie = new Movie();
-        currentMovie = movie;
-        // Capture the constructed Controller so teardown can find it.
-        // The snippet calls `new Controller(movie, { canvas })`; we pass a wrapper
-        // factory that records the instance, then returns it (so `new` evaluates to it).
-        const TrackedController = function (m, opts) {
-          const c = new Controller(m, opts);
-          currentController = c;
-          return c;
-        };
-        TrackedController.prototype = Controller.prototype;
-        const fn = new (async function(){}).constructor('movie', 'Controller', 'canvas', out);
-        await fn(movie, TrackedController, canvas);
-      } catch (err) {
-        showError(err);
-      } finally {
-        running = false;
-        runBtn.disabled = false;
-      }
-    }
-
-    presetSel.addEventListener('change', () => {
-      const p = presets.find(x => x.id === presetSel.value);
-      if (!p) return;
-      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: p.code } });
-      run();
-    });
-
-    runBtn.addEventListener('click', run);
-
-    // Initial Run so the page isn't blank on load.
-    run();
-  </script>
+  <script type="module" src="playground/app.js"></script>
 </body>
 </html>

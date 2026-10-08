@@ -47,7 +47,7 @@ export const BRIDGE_SOURCE = `
   var ready = function () { return window.__ready === true && window.movie; };
   var status = function () {
     var m = window.movie;
-    return { ready: !!ready(), logs: (window.__logs || []).slice(), duration: m && m.duration, width: m && m.width, height: m && m.height, frameRate: m && m.frameRate, totalFrames: m && m.totalFrames };
+    return { ready: !!ready(), logs: (window.__logs || []).slice(), duration: m && m.duration, width: m && m.width, height: m && m.height, frameRate: m && m.frameRate, totalFrames: m && m.totalFrames, frame: m && m.currentFrame };
   };
   var need = function () { if (!ready()) throw new Error('the movie is not ready yet' + ((window.__logs || []).length ? ': ' + window.__logs[0] : '')); return window.movie; };
   var handlers = {

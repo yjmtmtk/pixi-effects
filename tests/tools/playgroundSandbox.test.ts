@@ -31,8 +31,10 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the Playgr
     await withRunner(async (cdp) => {
       const status = await run(cdp, await cdp.eval('window.defaultCode'));
       expect(status).toMatchObject({ ready: true, duration: 6, width: 1280 });
+      const before = (await call(cdp, 'status')).r.frame;
       const review = await call(cdp, 'review');
       expect(review.ok, review.error).toBe(true);
+      expect((await call(cdp, 'status')).r.frame, 'review leaves the playhead where it was').toBe(before);
       expect(review.r.frames).toBeGreaterThan(10);
       expect(review.r.problems).toEqual([]);
       expect(review.r.audio).toBeNull();

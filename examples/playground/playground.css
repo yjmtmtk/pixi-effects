@@ -1,0 +1,57 @@
+/* The Playground is an app, not a document: on a wide screen it fills the window under the shared header. Tokens only. */
+html, body.app { height: 100%; margin: 0; }
+body.app { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; }
+body.app > .top { position: static; }
+
+#toolbar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 8px var(--gutter);
+  background: var(--bg-2); border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+#toolbar .spacer { flex: 1; }
+#toolbar select, #toolbar button {
+  background: var(--bg-3); color: var(--ink);
+  border: 1px solid var(--line-2); border-radius: 4px;
+  padding: 5px 10px; font: inherit; cursor: pointer; white-space: nowrap;
+}
+#toolbar button:hover, #toolbar select:hover { border-color: var(--ink-3); }
+#toolbar button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+#toolbar button:disabled { opacity: .55; cursor: progress; }
+#toolbar :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#state { color: var(--ink-2); font-size: 12px; font-family: var(--mono); }
+#state[data-kind="bad"] { color: var(--accent); }
+
+#main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 0; }
+#editor { min-width: 0; min-height: 0; overflow: auto; border-right: 1px solid var(--line); background: var(--bg-2); }
+#editor .cm-editor { height: 100%; font-size: 13px; }
+#editor textarea {
+  display: block; box-sizing: border-box; width: 100%; height: 100%; min-height: 240px; resize: none; border: 0; padding: 12px;
+  background: var(--bg-2); color: var(--ink); font: 13px/1.5 var(--mono); tab-size: 2;
+}
+#preview { min-width: 0; min-height: 0; overflow: auto; padding: 16px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; }
+/* The movie's page has 16px of body padding around its picture: the frame is 16px larger on every side, and the host clips it away. */
+#host { position: relative; overflow: hidden; width: 100%; max-width: 960px; aspect-ratio: var(--ar, 16 / 9); background: #000; border-radius: 8px; }
+#host iframe { position: absolute; inset: -16px; width: calc(100% + 32px); height: calc(100% + 32px); border: 0; background: transparent; }
+
+#problems { border-top: 1px solid var(--line); background: var(--bg-2); max-height: 30vh; overflow: auto; padding: 10px var(--gutter) 14px; font-size: 13px; }
+#problems h2 { margin: 0 0 6px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); font-weight: 600; }
+#problems h2 .count { margin-left: 6px; padding: 1px 7px; border-radius: 9px; background: var(--accent); color: var(--on-accent); }
+#problems[data-state="ok"] h2 .count { background: var(--model-sonnet); color: var(--on-accent); }
+#problems h3 { margin: 10px 0 4px; font-size: 12px; color: var(--ink-3); font-weight: 600; }
+#problems ul { margin: 0; padding: 0; list-style: none; }
+#problems li { padding: 3px 0; display: flex; gap: 8px; align-items: baseline; line-height: 1.45; }
+#problems li .msg { flex: 1; min-width: 0; overflow-wrap: anywhere; font-family: var(--mono); font-size: 12px; color: var(--ink); }
+#problems li .where { color: var(--ink-3); font-size: 12px; white-space: nowrap; }
+#problems li button { background: none; border: 1px solid var(--line-2); color: var(--ink-2); border-radius: 4px; padding: 0 6px; font: inherit; font-size: 12px; cursor: pointer; }
+#problems li button:hover { color: var(--ink); border-color: var(--ink-3); }
+#problems .ok { color: var(--ink-2); margin: 0; }
+#problems .note { color: var(--ink-2); }
+
+@media (max-width: 720px) {
+  html, body.app { height: auto; }
+  body.app { display: block; }
+  #main { display: block; }
+  #editor { height: 340px; border-right: 0; border-bottom: 1px solid var(--line); }
+  #problems { max-height: none; }
+}

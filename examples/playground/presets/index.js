@@ -1,4 +1,4 @@
-// examples/_presets/index.js
+// examples/playground/presets/index.js — the Playground's examples, in the form of the chat template's edit block.
 import hello from './01-hello.js';
 import keyframes from './02-keyframes.js';
 import shapes from './03-shapes.js';
@@ -26,3 +26,10 @@ export default [
   { id: '13-sfx',         label: '13 · sound effects',      code: sfx },
   { id: '14-draw-on',     label: '14 · draw-on & text',     code: drawOn },
 ];
+
+/** Import-map entries a piece of code needs beyond the template's own (the old Playground's values). */
+export function extraImportsFor(code) {
+  const extra = {};
+  if (/from\s+['"]pixi-filters['"]|import\(\s*['"]pixi-filters['"]\s*\)/.test(code)) extra['pixi-filters'] = 'https://esm.sh/pixi-filters@6.1.4?external=pixi.js';
+  return extra;
+}

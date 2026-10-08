@@ -3,7 +3,7 @@ import { compose } from './doc.js';
 import { validateCommand } from './bridge.js';
 
 export function createRunner({ container, templateUrl, distBase, assetBase, extraImportsFor = () => ({}), onEvent = () => {} }) {
-  let frame = null, template = null, nextId = 1, listener = null;
+  let frame = null, template = null, nextId = 1, listener = null, settle = null;
   const pending = new Map();
 
   async function getTemplate() { return (template ??= await (await fetch(templateUrl)).text()); }
@@ -13,6 +13,7 @@ export function createRunner({ container, templateUrl, distBase, assetBase, extr
     if (frame) { frame.src = 'about:blank'; frame.remove(); frame = null; }                 // the page and its GL context go with the frame
     for (const [, p] of pending) p.reject(new Error('the movie was replaced'));
     pending.clear();
+    if (settle) { settle({ ready: false, failed: 'replaced by a newer run', replaced: true }); settle = null; }   // a run() still waiting must not hang
   }
 
   function call(cmd, args = {}) {
@@ -25,20 +26,22 @@ export function createRunner({ container, templateUrl, distBase, assetBase, extr
 
   /** Replace the movie with one made from `code`. Resolves with the status when it is ready or has failed. */
   async function run(code) {
-    destroy();
-    const html = compose(await getTemplate(), code, { distBase, assetBase, extraImports: extraImportsFor(code) });
+    const templateHtml = await getTemplate();
+    destroy();                                                                 // after the await: two quick runs never leave two frames
+    const html = compose(templateHtml, code, { distBase, assetBase, extraImports: extraImportsFor(code) });
     frame = document.createElement('iframe');
     frame.setAttribute('sandbox', 'allow-scripts allow-downloads');           // no allow-same-origin: no access to this page or this site's data
     frame.setAttribute('allow', 'autoplay; fullscreen');
     frame.setAttribute('title', 'The video');
     const mine = frame;
     const settled = new Promise((resolve) => {
+      settle = resolve;
       listener = (event) => {
         if (event.source !== mine.contentWindow) return;                      // only our own frame
         const d = event.data;
         if (!d || typeof d !== 'object') return;
-        if (d.event === 'ready') { onEvent(d); resolve({ ...d.status, failed: undefined }); return; }
-        if (d.event === 'failed') { onEvent(d); resolve({ ...d.status, ready: false, failed: d.error }); return; }
+        if (d.event === 'ready') { onEvent(d); settle = null; resolve({ ...d.status, failed: undefined }); return; }
+        if (d.event === 'failed') { onEvent(d); settle = null; resolve({ ...d.status, ready: false, failed: d.error }); return; }
         const p = pending.get(d.id);
         if (p) { pending.delete(d.id); d.ok ? p.resolve(d.result) : p.reject(new Error(d.error)); }
       };
