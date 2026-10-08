@@ -47,6 +47,7 @@
     "test:fast": "SKIP_BROWSER_TESTS=1 vitest run",
     "release:check": "node scripts/release-check.mjs",
     "post-publish:check": "node scripts/post-publish-check.mjs",
+    "test:changed": "node scripts/test-changed.mjs",
     "site": "node scripts/preview-site.mjs",
     "site:sync": "node scripts/sync-site.mjs",
     "test:watch": "vitest",
