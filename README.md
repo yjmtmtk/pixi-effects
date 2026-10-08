@@ -204,7 +204,7 @@ They ship in the npm package (`node_modules/pixi-effects/ai/`).
   - `15-custom-player.html` — a complete player of your own in about 40 lines (play, seek, volume, replay) using the movie's events
   - `14-draw-on.html` — draw-on strokes (`trimStart` / `trimEnd`) and text that changes over time (`visibleChars`, `set: { text }`)
   - `music-lab.html` — eight tunes written as text (no audio files): press play, read each score; `musicBuffer()` plays music with no movie
-  - `playground.html` — in-browser editor with preset dropdown
+  - `playground.html` — in-browser editor on the chat template's edit block: twelve examples, a problems panel from `movie.review()`, share links, save as HTML, and WebMCP tools for an AI agent
 
 ## Browser support
 

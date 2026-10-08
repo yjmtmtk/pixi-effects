@@ -14,6 +14,18 @@
 
 **Checked, nothing to change:** the true peak reads 0.00 dB for a faded 0 dBFS sine from 1 to 18 kHz and +0.06 dB at 20 kHz (a sine switched on abruptly reads up to 0.4 dB higher at 20 kHz: that is real ringing at the switch-on); a test pins it.
 
+**Added**
+
+- **The Playground is rebuilt** ([guide](https://yjmtmtk.github.io/pixi-effects/guide/playground.html)). The editor holds the same block an AI edits in a chat (`ai/chat-template.html` between `EDIT FROM HERE` and `EDIT UNTIL HERE`), so what an AI wrote can be pasted in and what you wrote can be saved as the chat template's page. The movie runs in an `iframe` with no origin (`sandbox="allow-scripts allow-downloads"`: it cannot reach the page or the site's stored data; proved on a real browser) and the page talks to it through eight fixed commands. A problems panel shows what `movie.review()` finds (click to jump to the frame). **Share link** packs the code into the address (`#code=`, deflate + base64url, no server; a link is read, never run, until you press Run; one that unpacks to more than 200 KB is refused). **Save HTML** downloads one page that runs on its own; **Copy for AI** copies the code with a sentence for an AI. Light and dark. The twelve examples are rewritten in the edit-block form and each runs with no warning. Twenty runs in a row leave one frame and raise no WebGL-context warning (a calibration warning raised in the frame proves the test can see it); a run takes 0.2 to 0.3 s for a title and 0.4 to 0.6 s for a piece with a video file (headless Chrome, libraries cached).
+- **Ten WebMCP tools** on the Playground (`get_docs`, `list_examples`, `load_example`, `get_code`, `set_code`, `run`, `check`, `look`, `onion`, `render_draft`), registered with `document.modelContext` where the browser has it, so an AI agent in the browser writes, runs, reads the warnings and looks at the picture without a person pasting a red box back. They run one at a time (Chrome runs calls in parallel), and a mistake in an argument is an error result that says what is wrong. Checked on Chrome 154 with `--enable-features=WebMCP`: results are `{ content: [...] }` (text and image), `executeTool` takes the arguments as a JSON string, a tool that throws reaches the agent with no message, so tools return `isError` results instead.
+- **`movie.review({ at, strict })` and `movie.resolveAt(list)`**: what `pixi-effects-check` looks at, in the library (frames inspected, problems, things to look at, fonts, the sound, the moments of `at`), so the `check` command, the Playground and the WebMCP tools share one judgement. Running it leaves the movie as it was (playhead and poster). The report of `check` is the same before and after the move: no difference in `inspect`, fonts, `at`, problems and audio on six gallery pieces.
+- The chat template accepts an optional `const INIT = { assets: [...], composition: { transitions: [...] } }` in its edit block, merged into `movie.init`.
+
+**Changed**
+
+- `pixi-effects-check` needs a page that loads pixi-effects **0.18 or newer** (it calls `movie.review()`); an older page says so instead of being checked.
+- The old `examples/_presets/` is gone (the presets live in `examples/playground/presets/`, in the edit-block form).
+
 ## 0.17.0
 
 **Fixed**

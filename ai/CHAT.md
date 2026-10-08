@@ -9,6 +9,8 @@ You write ONE HTML file. The person opens it (or your chat previews it), watches
 3. Give the person the whole file. Tell them: open it, press play (sound starts after the first click), use the download button (bottom right of the picture) for the MP4, and **if a red box appears, copy its text back to you**.
 4. When they paste warnings, fix exactly what each one names. The messages say what to change ("did you mean …").
 
+If you are an AI agent in a browser that offers WebMCP tools (`document.modelContext`), you do not need to hand over a file: open `https://yjmtmtk.github.io/pixi-effects/examples/playground.html` and use its tools. `get_docs` (read `cheatsheet` first) → `set_code` (the same edit block as below) → read the warnings it returns → `check` → `look` (a picture: look at it) → fix → `set_code` again. Nobody has to paste a red box back. Tools: `get_docs list_examples load_example get_code set_code run check look onion render_draft`.
+
 ## The idea
 
 A video is **data**: a list of layers in `sequences`. Each layer has `type`, a start `at` and a `duration` (seconds), `initial` values and `keyframes`. Repeated structure is a JS loop or function that returns layers. There is no per-frame code and no `Math.random()`.

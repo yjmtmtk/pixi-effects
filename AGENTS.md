@@ -10,7 +10,7 @@ The person said something like "Use https://github.com/yjmtmtk/pixi-effects to m
 5. Export: `npx pixi-effects-render your-video.html -o your-video.mp4`, or the download button in the player bar.
 
 ## You can only write text (a browser chat with no shell, no files)
-Fetch https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/CHAT.md and follow it. It tells you to copy `ai/chat-template.html` (one self-contained page that runs in a preview and shows every warning in a red box for the person to paste back), gives a worked example and the rules, and explains how the person gets the MP4.
+Fetch https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/CHAT.md and follow it. It tells you to copy `ai/chat-template.html` (one self-contained page that runs in a preview and shows every warning in a red box for the person to paste back), gives a worked example and the rules, and explains how the person gets the MP4. If your browser exposes WebMCP tools, the Playground (https://yjmtmtk.github.io/pixi-effects/examples/playground.html) offers `set_code` / `run` / `check` / `look` so you can verify your own work without a person pasting warnings back.
 
 ## Always
 - Look before you claim: a contact sheet, `movie.inspect(frame)` and `movie.inspectAudio()` are built in; the library cannot tell you the video is good, only that nothing is broken.

@@ -30,6 +30,8 @@ If you only have a chat in the browser (ChatGPT, Claude), paste this and open th
 
 The starter page loads everything from one CDN, shows any warning in a **red box** with a Copy button (paste it back to the chat and it fixes it), and has the download button for the MP4. If the chat's preview stays blank, save the file as `video.html` and open it in a browser. The checks below need a shell, so a chat skips them.
 
+If your browser has an AI agent that can use [WebMCP](playground.html) tools, open the [Playground](../examples/playground.html) instead: the agent writes the video, runs it, reads what is wrong and looks at it by itself, with no red box to paste back.
+
 ## 2. Ask for a video, not for code
 
 A prompt that works is specific about what you see and hear, and says what to read:

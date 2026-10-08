@@ -170,6 +170,8 @@ await movie.contactSheet({ count: 6, as: 'dataURL' })   // ONE image of several 
 await movie.snapshot(60, { as: 'dataURL' })             // one frame, canvas only (no player bar) — use it for detail; sheet tiles are small
 await movie.inspect(60, { layers: 'none' })             // issues only (default lists the visible layers); text off-canvas / cut off / empty / overlapping text. Name your layers so paths are readable
 await movie.onionSkin({ from: 1, to: 3, count: 8, as: 'dataURL' })  // frames overlaid into ONE picture of a movement (later = stronger): path and easing at a glance
+movie.review({ at: 'title@end' })                 // what `pixi-effects-check` looks at, as data: { frames, problems (text cut off, off-canvas, no size), review (text overlaps: look at them), fonts, audio, at }; leaves the movie as it was. `strict: true` makes every issue a problem
+movie.resolveAt('3.5, 50%, f120, title@end')      // moments → [{ label, frame }]; a mistake says what could not be read
 movie.inspectFonts()                             // { missing: [{ layer, family }] (no font of the list is installed), failed: [web fonts whose file did not load] }
 movie.inspectAudio()                             // the soundtrack as numbers; also loudness { integratedLufs, truePeakDb, clippedSamples, silences }, scenes, cues, notes (advice: -14 to -16 LUFS is typical for web video) — — you cannot listen: sources[i] = { layer, start, end, peakDb, sound: { length, peakDb, loudestAt, brightnessHz } }, windows (rms / peak / brightness per 0.1 s), issues (limited mix, inaudible / cut-off sounds)
 new Controller(movie, { canvas })                // optional player bar (overlays the canvas bottom ~60px; not in the export)
