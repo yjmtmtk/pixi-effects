@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+**Fixed**
+
+- **A text layer used as a mask is the letters, not their bounding box.** `mask: { type: 'text', … }` cut out a plain rectangle (a stencil ignores the letters' alpha), although the docs say any layer works as a mask. It is now an alpha mask: drawn into a texture, so the letters (soft, antialiased edges) are what is kept.
+- **`maskInverted` inside a masked group no longer shows the layer outside the outer mask.** PIXI's inverted stencil tests against the empty level, so a layer with an inverted mask inside a masked composition or `null` layer was drawn everywhere the outer mask hides. An inverted mask is now an alpha mask too (inverse = 1 − alpha). Both fixes cost one extra offscreen pass for the masked layer; ordinary shape masks are unchanged (still a stencil), and the two gallery pieces that use `maskInverted` (`ma`, `liquid-flow-title`) render the same before and after in the six frames compared of each (no pixel differs by more than 29 of 255, and almost all by 0).
+
 **Added**
 
 - **Part of the movie, and drafts.** `movie.render({ range: [10, 15] })` (seconds) or `range: 'title'` (a top-level layer's span) exports only that part, picture and sound (the file starts at 0; a cut edge of the sound fades over 10 ms). `scale` (above 0, at most 1) and `draft: true` (half size, low quality, no motion blur) make the picture smaller. `pixi-effects-render` takes `--range 10:15`, `--scene title`, `--scale 0.5` and `--draft`. Measured with the 48 s 1080p film on an M1 Pro (whole command, about 7 s of it the browser's start-up): the whole film 20.8 s, `--range 10:15` 10.4 s, `--draft` 20.6 s with a file 7 times smaller (12.0 MB to 1.7 MB), `--scale 0.5` 19.0 s. **A range saves time; a draft or a scale saves file size** (each frame is still drawn at full size, then copied smaller).

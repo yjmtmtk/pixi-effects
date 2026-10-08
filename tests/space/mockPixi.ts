@@ -25,7 +25,9 @@ export function createPixiMock() {
     pivot = { x: 0, y: 0, set(x: number, y: number) { this.x = x; this.y = y; } };
     constructor(opts?: { label?: string }) { this.label = opts?.label; }
     addChild(c: Container) { this.children.push(c); return c; }
-    setMask(opts: { mask: Container | null }) { this.mask = opts.mask; }
+    setMask(opts: { mask?: Container | null; inverse?: boolean }) { if (opts.mask !== undefined) this.mask = opts.mask; }
+    effects: unknown[] = [];
+    addEffect(effect: unknown) { this.effects.push(effect); }
     getLocalBounds() { return new Rectangle(0, 0, 200, 100); }
     // global bounds: a 200x100 box at the container's position (tests place layers with x / y)
     getBounds() { return new Rectangle(this.x, this.y, 200, 100); }
@@ -117,6 +119,7 @@ export function createPixiMock() {
       return { width: Math.max(...lines.map(l => l.length * (fs / 2 + ls))), height: lines.length * fs * 1.2, lines, lineHeight: fs * 1.2 };
     },
   };
+  class AlphaMask { inverse = false; mask: unknown; constructor(o?: { mask?: unknown }) { this.mask = o?.mask; } }
   class FillGradient { constructor(public options: Record<string, unknown>) {} }
   class Filter { resources: Record<string, unknown> = {}; constructor(_opts?: unknown) {} apply() {} }
   class GlProgram { constructor(_o: unknown) {} static from(o: unknown) { return new GlProgram(o); } }
@@ -128,7 +131,7 @@ export function createPixiMock() {
     }
   }
   return {
-    Container, Rectangle, Matrix, Texture, RenderTexture, PerspectiveMesh,
+    Container, Rectangle, Matrix, Texture, RenderTexture, PerspectiveMesh, AlphaMask,
     Sprite, Text, Graphics, GraphicsPath, FillGradient, TextStyle, CanvasTextMetrics,
     Filter, GlProgram, GpuProgram, UniformGroup, defaultFilterVert: '',
     Assets: { get: async () => null },

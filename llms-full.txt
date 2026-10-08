@@ -1821,11 +1821,12 @@ The mask is itself a sequence, so it can have `keyframes` of its own — useful 
 Notes:
 - The mask sequence is rendered as a mask, not as a normal child — its `fillColor` / `strokeColor` only matter for which pixels are kept, not for the visible colour.
 - Any sequence type works as a mask (shape / image / text / nested composition); shapes are the natural choice for geometric reveals.
+- A **text** mask is the letters, not their bounding box (it is drawn into a texture and its alpha is used, so the edges are soft and antialiased); so is any mask with `maskInverted`. Both cost one extra offscreen pass for the masked layer. An ordinary shape mask is a hard-edged stencil.
 - For a left-to-right wipe, give the mask `anchorX: 0` (rect/circle/ellipse) so `width: 0 → full` grows rightward from the left edge.
 
 #### `maskInverted`
 
-When `true`, flip the mask sense: pixels INSIDE the mask shape become transparent, pixels OUTSIDE stay visible. Useful for knockout / cutout effects (punch a circular hole through a panel, etc.).
+When `true`, flip the mask sense: pixels INSIDE the mask shape become transparent, pixels OUTSIDE stay visible. Useful for knockout / cutout effects (punch a circular hole through a panel, etc.). It works inside a masked group too: the hole is cut out of what the outer mask lets through, and nothing shows outside the outer mask.
 
 ```ts
 // Photo with a circular hole punched through the middle

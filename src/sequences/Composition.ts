@@ -1,4 +1,4 @@
-import { Container, Rectangle } from 'pixi.js';
+import { AlphaMask, Container, Rectangle } from 'pixi.js';
 import { gsap } from 'gsap';
 import { Sequence } from './Base';
 import { NullSequence } from './Null';
@@ -119,9 +119,18 @@ export class CompositionSequence extends Sequence {
           const inverse = (child.spec as { maskInverted?: boolean }).maskInverted ?? false;
           const t = child.target as Container & {
             setMask?: (opts: { mask: Container | null; inverse?: boolean }) => void;
+            addEffect: (effect: AlphaMask) => void;
             mask: Container | null;
           };
-          if (typeof t.setMask === 'function') {
+          if (inverse || maskSpec.type === 'text') {
+            // A stencil mask is the mask's geometry: a text layer's is its whole bounding box (the letters' alpha is ignored), and
+            // PIXI's inverted stencil tests against the empty level, so inside a masked parent it shows what the parent hides.
+            // An alpha mask draws the mask into a texture and uses its alpha: letters stay letters, an inverse is 1 − alpha.
+            const effect = new AlphaMask({ mask: maskSeq.target });
+            effect.inverse = inverse;
+            t.setMask?.({ mask: undefined as never, inverse });     // the alpha pipe reads `inverse` from the maskee's mask options, not from the effect
+            t.addEffect(effect);
+          } else if (typeof t.setMask === 'function') {
             t.setMask({ mask: maskSeq.target, inverse });
           } else {
             t.mask = maskSeq.target;
