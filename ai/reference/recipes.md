@@ -760,3 +760,70 @@ three({
   keyframes: [{ at: 0, to: { 'three.knot.rotation.y': Math.PI * 2 }, duration: 6 }],
 })
 ```
+
+## Subtitles from an SRT file
+
+Subtitles are just text layers. The function reads a `.srt` (numbers, `00:00:01,000 --> 00:00:03,500`, the words) and returns one layer per cue: it appears and disappears over 0.12 s, sits 90 px above the bottom edge, wraps at 1000 px (about 80 % of a 1280 px picture) and has a black outline so it reads on any picture. Two cues that overlap in time are drawn on top of each other: split a long line into two lines in the `.srt` rather than relying on wrapping. Check the result with `pixi-effects-check`; it reports text that is cut off by the edge.
+
+```js
+// @recipe subtitles
+// SRT text -> one text layer per cue. Paste your .srt into SRT; the function does the rest.
+const SRT = `1
+00:00:00,500 --> 00:00:02,800
+Hello, and welcome.
+
+2
+00:00:03,000 --> 00:00:05,500
+Subtitles are just text layers
+that appear and disappear.`;
+
+function srt(text, { bottom = 90, size = 44, color = '#ffffff', width = 1000 } = {}) {
+  const sec = (h, m, s, ms) => +h * 3600 + +m * 60 + +s + +ms / 1000;
+  return text.replace(/\r/g, '').trim().split(/\n\s*\n/).flatMap((block) => {
+    const lines = block.split('\n');
+    const i = lines.findIndex((l) => l.includes('-->'));
+    const t = i < 0 ? null : lines[i].match(/(\d+):(\d+):(\d+)[,.](\d+)\s*-->\s*(\d+):(\d+):(\d+)[,.](\d+)/);
+    if (!t) return [];
+    const at = sec(t[1], t[2], t[3], t[4]), end = sec(t[5], t[6], t[7], t[8]);
+    return [{
+      type: 'text', name: `sub ${at.toFixed(2)}`, text: lines.slice(i + 1).join('\n'), at, duration: end - at,
+      style: { fontFamily: 'Arial, sans-serif', fontSize: size, fontWeight: 'bold', fill: color, align: 'center', wordWrap: true, wordWrapWidth: width, stroke: { color: '#000000', width: 6 } },
+      initial: { x: 'GW/2', y: `GH - ${bottom}`, anchorX: 0.5, anchorY: 1 },
+      keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.12 }, { at: -0.12, to: { alpha: 0 }, duration: 0.12 }],
+    }];
+  });
+}
+
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1d2433' } },
+  ...srt(SRT),
+];
+```
+
+## A batch of videos from a table (one video per row)
+
+A batch of videos is a loop outside the video. The page reads what changes from its address (`new URLSearchParams(location.search)`), and `pixi-effects-render --query "name=Aiko&score=92"` opens it with those values. Names with spaces or non-Latin letters must be URL-encoded (`jq -sRr @uri` as below, or `encodeURIComponent` in Node). Each video starts its own browser, so N videos cost N start-ups: try one with `--draft` (half size, fast), then render the real ones. To make the pieces of one row differ in more than text, use the same values to pick colours or an image name.
+
+```js
+// @docs-only batch-page
+// batch.html: the same video, with the words taken from the address (?name=Aiko&score=92)
+const q = new URLSearchParams(location.search);
+const NAME = q.get('name') ?? 'World';
+const SCORE = q.get('score') ?? '0';
+// ...then use NAME and SCORE in the text layers of your composition:
+const sequences = [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1d2433' } },
+  { type: 'text', text: `Well done, ${NAME}!`, at: 0.3, duration: 3.7, style: { fontSize: 96, fontWeight: 'bold', fill: '#ffffff' },
+    initial: { x: 'GW/2', y: 300, anchorX: 0.5, anchorY: 0.5 }, keyframes: [{ at: 0, from: { alpha: 0, y: 340 }, to: { alpha: 1, y: 300 }, duration: 0.6 }] },
+  { type: 'text', text: `${SCORE} points`, at: 0.9, duration: 3.1, style: { fontSize: 64, fill: '#ffd166' },
+    initial: { x: 'GW/2', y: 420, anchorX: 0.5, anchorY: 0.5 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.6 }] },
+];
+```
+
+```sh
+# batch.sh: one video per row of table.csv (name,score). --draft first, to look; remove it for the real files.
+mkdir -p out
+while IFS=, read -r name score; do
+  npx pixi-effects-render batch.html --query "name=$(printf %s "$name" | jq -sRr @uri)&score=$score" -o "out/$name.mp4" --quiet
+done < table.csv
+```

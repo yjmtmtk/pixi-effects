@@ -54,6 +54,14 @@ describe('scenes: check.mjs and the library agree on what a scene is', () => {
   });
 });
 
+describe('check.parseArgs: --query (a page that reads its address, as in the batch recipe)', () => {
+  it('is added to the page address; a leading ? is allowed; none by default', () => {
+    expect(check.parseArgs(['p.html']).query).toBeNull();
+    expect(check.parseArgs(['p.html', '--query', 'name=Aiko&score=92']).query).toBe('name=Aiko&score=92');
+    expect(check.parseArgs(['p.html', '--query', '?a=1']).query).toBe('a=1');
+  });
+});
+
 describe('check.parseArgs: --at, --draft, --onion', () => {
   it('reads them, with the old defaults when absent', () => {
     expect(check.parseArgs(['p.html'])).toMatchObject({ at: null, draft: false, onion: null });

@@ -14,6 +14,7 @@
  * The page must follow ai/template.html: it exposes `window.movie` and sets `window.__ready = true` (and `window.__logs`).
  *
  * Options: --draft (the export is a draft: half size, low quality, no motion blur; much faster, for iterating) · --at LIST (pictures at moments you name: 3.5, 50%, f120, title@end → frames/*.png and at.png) ·
+ *          --query "a=1&b=2" (added to the page address: for a page that reads it, such as one video of a batch) ·
  *          --onion A:B (one picture of the movement between A and B seconds, frames overlaid: onion.png) ·
  *          --strict (text overlaps and stops where the picture is still changing fail the check; by default they are only listed for review) · --out DIR · --frames N (contact sheet tiles, default 12) · --formats mp4,webm (default mp4) · --no-export ·
  *          --timeout SECONDS (default 240) · --root DIR (static server root; default: the nearest folder above the page with dist/) · --chrome PATH
@@ -39,7 +40,7 @@ export function findChrome(env = process.env, exists = fs.existsSync, platform =
 }
 
 export function parseArgs(argv) {
-  const o = { page: null, out: null, frames: 12, formats: ['mp4'], export: true, timeout: 240, root: null, chrome: null, strict: false, at: null, draft: false, onion: null };
+  const o = { page: null, out: null, frames: 12, formats: ['mp4'], export: true, timeout: 240, root: null, chrome: null, strict: false, at: null, draft: false, onion: null, query: null };
   const need = (i, name) => { if (i + 1 >= argv.length) throw new Error(`${name} needs a value`); return argv[i + 1]; };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -49,6 +50,7 @@ export function parseArgs(argv) {
     else if (a === '--no-export') o.export = false;
     else if (a === '--strict') o.strict = true;
     else if (a === '--draft') o.draft = true;
+    else if (a === '--query') o.query = need(i++, a).replace(/^\?/, '');
     else if (a === '--at') o.at = need(i++, a);
     else if (a === '--onion') {
       const m = need(i++, a).match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/);
@@ -335,7 +337,7 @@ export async function runCheck(opts, log = console.log) {
     await cdp.send('Runtime.enable');
     await cdp.send('Page.enable');
     const t0 = Date.now();
-    await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/${path.relative(root, pagePath).split(path.sep).join('/')}` });
+    await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/${path.relative(root, pagePath).split(path.sep).join('/')}${opts.query ? `?${opts.query}` : ''}` });
 
     // wait for the movie to be ready (or the page to say it failed)
     let info = null;
@@ -561,7 +563,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     if (typeof WebSocket === 'undefined') throw new Error('Node >= 22 is needed (built-in WebSocket)');
     const opts = parseArgs(process.argv.slice(2));
     if (!opts.page) {
-      console.error('usage: node ai/tools/check.mjs <page.html> [--out DIR] [--frames N] [--formats mp4,webm] [--no-export] [--draft] [--at 3.5,title@end] [--onion 1:3] [--timeout S] [--root DIR] [--chrome PATH]');
+      console.error('usage: node ai/tools/check.mjs <page.html> [--out DIR] [--frames N] [--formats mp4,webm] [--no-export] [--draft] [--at 3.5,title@end] [--onion 1:3] [--query a=1&b=2] [--timeout S] [--root DIR] [--chrome PATH]');
       process.exit(2);
     }
     const report = await runCheck(opts);

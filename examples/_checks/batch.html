@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>check · a batch: the same video, words from the address</title>
+</head>
+<body>
+  <!--
+    Acceptance check (not an example): the page of the cookbook's "batch of videos" recipe, small. ?name=Aiko&score=92 changes the words.
+    tests/tools/batchRecipe.test.ts renders it twice with `pixi-effects-render --query` and checks the two files differ.
+  -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":            "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":      "https://esm.sh/mediabunny@1.61.3"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+
+    const q = new URLSearchParams(location.search);
+    const NAME = q.get('name') ?? 'World';
+    const SCORE = q.get('score') ?? '0';
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 320, height: 180, duration: 1, frameRate: 30,
+        composition: { sequences: [
+          { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1d2433' } },
+          { type: 'text', name: 'who', text: `Well done, ${NAME}!`, style: { fontSize: 28, fontWeight: 'bold', fill: '#ffffff' }, initial: { x: 'GW/2', y: 70, anchorX: 0.5, anchorY: 0.5 } },
+          { type: 'text', name: 'points', text: `${SCORE} points`, style: { fontSize: 22, fill: '#ffd166' }, initial: { x: 'GW/2', y: 115, anchorX: 0.5, anchorY: 0.5 } },
+        ] },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+  </script>
+</body>
+</html>
