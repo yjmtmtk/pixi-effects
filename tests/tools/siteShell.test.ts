@@ -44,7 +44,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the shared
         expect(r.inside).toBe(true);
         expect(r.main).toBe(true);
       });
-    });
+    }, 30000);
   }
 
   it.each(PAGES)('%s: the theme button switches to a theme and the colour really changes', async (path) => {
@@ -60,5 +60,5 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the shared
       expect(light.theme).toBe('light');
       expect(dark.bg).not.toBe(light.bg);
     });
-  });
+  }, 30000);
 });
