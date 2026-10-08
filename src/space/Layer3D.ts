@@ -1,5 +1,7 @@
 import { Container, Matrix, PerspectiveMesh, RenderTexture, Texture } from 'pixi.js';
 import type { Sequence } from '../sequences/Base';
+import { DiscBlurFilter } from '../filters/DiscBlur';
+import { MAX_BLUR, MIN_BLUR } from './focus';
 import { describeLayer } from '../core/lint';
 import { DEG, NEAR, projectLayer, type CameraBasis, type LayerTransform, type Rect } from './math';
 
@@ -77,6 +79,10 @@ export class Layer3D {
   private retired: RenderTexture[] = [];
   private size: TextureSize | null = null;
   private warnedBehind = false;
+  /** Depth-of-field blur radius (px) from the last `setBlur`; 0 = no filter. */
+  blur = 0;
+  private blurFilter: DiscBlurFilter | null = null;
+  private blendWas = 'normal';
 
   constructor(
     private readonly seq: Sequence,
@@ -145,7 +151,36 @@ export class Layer3D {
     this.display.visible = true;
   }
 
+  /**
+   * Depth-of-field blur on the projected mesh (screen space), so a tilted or scaled layer blurs by the size it is drawn at.
+   * A radius under MIN_BLUR removes the filter: a sharp layer costs nothing. A blend mode moves to the filter while it is on
+   * (a filtered object blends as a whole), and comes back when it goes.
+   */
+  setBlur(radius: number): void {
+    const d = this.display as unknown as { filters: unknown; blendMode: string };
+    const r = radius > MIN_BLUR ? Math.min(radius, MAX_BLUR) : 0;
+    this.blur = r;
+    if (r === 0) {
+      if (this.blurFilter) {
+        d.filters = null;
+        d.blendMode = this.blendWas;
+        this.blurFilter.destroy();
+        this.blurFilter = null;
+      }
+      return;
+    }
+    if (!this.blurFilter) {
+      this.blurFilter = new DiscBlurFilter(r);
+      this.blendWas = d.blendMode ?? 'normal';
+      // only an explicit mode moves ('inherit' is Pixi's default for a container and 'normal' is the filter's own: nothing to move)
+      if (this.blendWas !== 'normal' && this.blendWas !== 'inherit') { this.blurFilter.blendMode = this.blendWas as never; d.blendMode = 'normal'; }
+      d.filters = [this.blurFilter];
+    }
+    this.blurFilter.radius = r;
+  }
+
   destroy(): void {
+    this.setBlur(0);
     this.display.destroy();
     this.rt?.destroy(true);
     this.rt = null;

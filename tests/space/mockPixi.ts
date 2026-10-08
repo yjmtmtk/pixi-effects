@@ -121,7 +121,7 @@ export function createPixiMock() {
   };
   class AlphaMask { inverse = false; mask: unknown; constructor(o?: { mask?: unknown }) { this.mask = o?.mask; } }
   class FillGradient { destroyed = false; constructor(public options: Record<string, unknown>) {} destroy() { this.destroyed = true; } }
-  class Filter { resources: Record<string, unknown> = {}; constructor(opts?: { resources?: Record<string, unknown> }) { if (opts?.resources) this.resources = opts.resources; } apply() {} }
+  class Filter { resources: Record<string, unknown> = {}; padding = 0; blendMode = 'normal'; constructor(opts?: { resources?: Record<string, unknown> }) { if (opts?.resources) this.resources = opts.resources; } apply() {} destroy() {} }
   class GlProgram { constructor(_o: unknown) {} static from(o: unknown) { return new GlProgram(o); } }
   class GpuProgram { constructor(_o: unknown) {} static from(o: unknown) { return new GpuProgram(o); } }
   class UniformGroup {

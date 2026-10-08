@@ -5,6 +5,7 @@ import { Container, Rectangle, RenderTexture } from 'pixi.js';
 import { Layer3D, readLayerTransform, MAX_TEXTURE_SIZE, MAX_TEXTURE_PIXELS, type SpaceHost } from '../../src/space/Layer3D';
 import { cameraBasis, homeCamera, homeDistance, DEG } from '../../src/space/math';
 import type { Sequence } from '../../src/sequences/Base';
+import { MAX_BLUR } from '../../src/space/focus';
 
 const W = 1280;
 const H = 720;
@@ -257,5 +258,68 @@ describe('Layer3D', () => {
 
   it('uses Rectangle-like frames (mock sanity)', () => {
     expect(new Rectangle(1, 2, 3, 4).width).toBe(3);
+  });
+});
+
+describe('Layer3D.setBlur (depth of field)', () => {
+  const filtersOf = (layer: Layer3D) => (layer.display as unknown as { filters: Array<{ radius: number; padding: number; blendMode?: string }> | null }).filters;
+
+  it('adds one disc blur on the projected mesh, with padding for its reach, and updates it in place', () => {
+    const { layer } = setup();
+    layer.setBlur(6);
+    const f = filtersOf(layer)!;
+    expect(f).toHaveLength(1);
+    expect(f[0]!.radius).toBe(6);
+    expect(f[0]!.padding).toBe(8);                    // ceil(6) + 2
+    expect(layer.blur).toBe(6);
+    layer.setBlur(9);
+    expect(filtersOf(layer)![0]).toBe(f[0]);           // the same filter, not a new one each frame
+    expect(f[0]!.radius).toBe(9);
+  });
+  it('a radius under MIN_BLUR removes the filter and costs nothing', () => {
+    const { layer } = setup();
+    layer.setBlur(6);
+    layer.setBlur(0.04);
+    expect(filtersOf(layer)).toBeNull();
+    expect(layer.blur).toBe(0);
+    layer.setBlur(0);
+    expect(filtersOf(layer)).toBeNull();
+  });
+  it('a layer that was never blurred never gets a filter (no cost for those who do not use it)', () => {
+    const { layer } = setup();
+    layer.setBlur(0);
+    expect(filtersOf(layer)).toBeNull();
+  });
+  it('the radius is capped at MAX_BLUR', () => {
+    const { layer } = setup();
+    layer.setBlur(100000);
+    expect(layer.blur).toBe(MAX_BLUR);
+    expect(filtersOf(layer)![0]!.radius).toBe(MAX_BLUR);
+  });
+  it('a blend mode moves to the filter while it is on and comes back when it goes', () => {
+    const { layer } = setup();
+    const d = layer.display as unknown as { blendMode: string };
+    d.blendMode = 'add';
+    layer.setBlur(5);
+    expect(d.blendMode).toBe('normal');
+    expect(filtersOf(layer)![0]!.blendMode).toBe('add');
+    layer.setBlur(0);
+    expect(d.blendMode).toBe('add');
+  });
+  it('the default blend mode ("inherit" in Pixi) is left alone', () => {
+    const { layer } = setup();
+    const d = layer.display as unknown as { blendMode: string };
+    d.blendMode = 'inherit';
+    layer.setBlur(5);
+    expect(d.blendMode).toBe('inherit');
+    expect(filtersOf(layer)![0]!.blendMode).toBe('normal');
+    layer.setBlur(0);
+    expect(d.blendMode).toBe('inherit');
+  });
+  it('destroy() drops the filter', () => {
+    const { layer } = setup();
+    layer.setBlur(5);
+    layer.destroy();
+    expect(layer.blur).toBe(0);
   });
 });
