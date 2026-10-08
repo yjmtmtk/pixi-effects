@@ -690,6 +690,31 @@ return { duration: 8, sequences: [
 
 ---
 
+## A rack focus (depth of field)
+
+`focus` and `aperture` on the camera blur the `threeD` layers by how far they are from the sharp plane; the layer named in `focus` stays sharp. Writing `focus` alone is enough (`aperture` defaults to 30; 0 turns it off). A rack focus is a normal keyframe on `focus`, and a layer's name works there too (it means that layer's first `z`). Keep `aperture` at 30–60: 100 is extreme.
+
+```js
+// @recipe rack-focus
+const word = (name, text, x, z, fill) => ({
+  type: 'text', name, text, threeD: true, style: { fontSize: 120, fill, fontFamily: 'sans-serif', fontWeight: '700' },
+  initial: { x, y: 360, z, anchorX: 0.5, anchorY: 0.5 },
+});
+return { duration: 5, sequences: [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101626' } },
+  { type: 'camera', initial: { focus: 'near', aperture: 40 },
+    keyframes: [
+      { at: 1, to: { focus: 'far' }, duration: 1, ease: 'power2.inOut' },          // near -> far
+      { at: 3, to: { focus: 'near' }, duration: 1, ease: 'power2.inOut' },         // and back
+    ] },
+  word('far', 'FAR', 960, -600, '#6ec6ff'),
+  word('mid', 'MID', 640, -200, '#ffd166'),
+  word('near', 'NEAR', 320, 200, '#ef476f'),
+] };
+```
+
+---
+
 ## Looping motion
 
 `repeat` (a finite count) and `yoyo` go on any keyframe. Total time = `duration × (repeat + 1)`.

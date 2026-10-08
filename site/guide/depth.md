@@ -51,6 +51,23 @@ An orbit makes the side the camera swings toward the *near* side: a card that is
 
 The whole corridor of gates is the `camera-fly-through` recipe.
 
+## Depth of field
+
+Two more camera properties turn on the blur of a real lens: `focus` (which plane is sharp: a `threeD` layer's name, or a `z`) and `aperture` (how shallow, 30 by default, 0 = off). The other `threeD` layers blur by how far they are from the plane in focus; with neither property written, nothing is blurred and nothing costs anything.
+
+```js
+{ type: 'camera', initial: { focus: 'title' } }                    // the title is sharp, the rest softens with distance
+```
+
+A **rack focus** moves the focus from one layer to another with an ordinary keyframe (a layer's name works there too), and a handheld `wiggle()` or a dolly can run at the same time:
+
+```js
+{ type: 'camera', initial: { focus: 'near', aperture: 40 },
+  keyframes: [{ at: 1, to: { focus: 'far' }, duration: 1, ease: 'power2.inOut' }] }
+```
+
+`aperture` is the lens diameter in pixels: 30 is clearly shallow, 60 is strong, 100 is extreme. A name in `focus` means that layer's first `z`, so to follow a layer that moves, write `focus` as numbers. The blur is the same over the whole layer, and a card (a `threeD` composition) blurs as one layer. The whole example is the `rack-focus` recipe.
+
 ## Groups in depth: a composition as a card
 
 A `composition` with `threeD: true` is a **card**: its children are drawn into one texture that moves, spins and tilts as a unit. Give it `width` and `height`; content outside that rectangle is clipped, so size it for a soft shadow too.

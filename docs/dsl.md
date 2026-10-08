@@ -509,6 +509,8 @@ The camera is a layer: `{ "type": "camera" }`. It has no visuals. With nothing s
 | `z` | camera depth. **Auto:** if you never set it, it follows `fov` so the `z = 0` plane stays 1:1 | `(H/2) / tan(fov/2)` |
 | `lookAtX`, `lookAtY`, `lookAtZ` | the point it looks at | `W/2`, `H/2`, `0` |
 | `fov` | vertical field of view, degrees (clamped to 1–179) | 40 |
+| `focus` | the plane that is **sharp**: a `threeD` layer's name (its first `z`) or a z number. Turns depth of field on (see [Depth of field](#depth-of-field)) | the `z = 0` plane |
+| `aperture` | how shallow: the lens diameter in px. `0` = off. Written alone, or with `focus`, it turns depth of field on | `30` |
 | `offsetX`, `offsetY`, `offsetZ`, `lookOffsetX`, `lookOffsetY`, `lookOffsetZ` | **added** to the position and to the look-at point, on top of the camera's own move. Put a handheld shake (`wiggle()`) here and it never collides with a dolly or an orbit (two tweens on the same prop overwrite each other; these are separate props) | 0 |
 
 A flight through the scene is [`cameraPath()`](#camerapath) (a route as keyframes); a threeD layer the camera passes on purpose takes `hideBehindCamera: true` (hidden quietly when it is at or behind the camera, instead of a warning).
@@ -546,6 +548,41 @@ Moving the camera sideways makes the near rectangle slide faster than the far on
 - A camera affects the `threeD` layers that are its **siblings** (same composition). A nested composition has its own camera for its children, and is itself a layer in its parent's space when it has `threeD: true`.
 - Several cameras may exist if their lifespans (`at` / `duration`) do not overlap — each is a camera cut. Overlapping cameras warn; the last-listed one wins.
 - With no camera layer the default camera is used.
+
+### Depth of field
+
+Write `focus` (and, if you want, `aperture`) on the camera and the `threeD` layers blur by how far they are from the plane in focus; the layer in focus stays sharp. Nothing else changes: without `focus` and `aperture` there is no blur and no cost.
+
+```json
+{
+  "sequences": [
+    { "type": "camera", "initial": { "focus": "title" } },
+    { "type": "text", "name": "title", "text": "Focus", "threeD": true, "style": { "fontSize": 96, "fill": "#ffffff" }, "initial": { "x": "GW/2", "y": "GH/2", "z": 0, "anchorX": 0.5, "anchorY": 0.5 } },
+    { "type": "shape", "shape": "circle", "radius": 140, "threeD": true, "initial": { "x": "GW/2 + 260", "y": "GH/2", "z": -500, "fillColor": "#3a6ea5" } }
+  ]
+}
+```
+
+A focus pull is a normal keyframe on `focus`; a layer name works there too:
+
+```json
+{
+  "sequences": [
+    { "type": "camera", "initial": { "focus": "front", "aperture": 60 },
+      "keyframes": [{ "at": 1, "to": { "focus": "back" }, "duration": 1, "ease": "power2.inOut" }] },
+    { "type": "shape", "shape": "rect", "name": "front", "width": 300, "height": 200, "threeD": true, "initial": { "x": "GW/2 - 200", "y": "GH/2", "z": 100, "fillColor": "#d96a3a" } },
+    { "type": "shape", "shape": "rect", "name": "back", "width": 300, "height": 200, "threeD": true, "initial": { "x": "GW/2 + 200", "y": "GH/2", "z": -400, "fillColor": "#3a6ea5" } }
+  ]
+}
+```
+
+- `aperture` is the lens diameter in pixels; the blur radius of a layer is `aperture × focal × |1/depth − 1/focusDepth| / 2` (focal = `(H/2)/tan(fov/2)`), capped at 32 px. With the default camera at 720p and the focus on `z = 0`, a layer at `z = −400` blurs by: `aperture 10` → 1.4 px (a soft hint), `30` → 4.3 px (clearly shallow), `60` → 8.6 px (strong), `100` → 14.4 px (extreme: small bright objects show a faint speckle). A layer further away blurs more, up to the cap.
+- A layer name in `focus` means **the first `z`** of that layer; if its `z` moves later, animate `focus` itself with numbers (a warning says so). A name that no layer has, or a layer that is not `threeD`, warns and uses the `z = 0` plane.
+- The blur is the same over the whole layer (decided by the layer's origin depth). A tilted floor is one blur: split it into layers.
+- It blurs `threeD` layers only. A nested `threeD` composition is blurred as one layer by its parent's camera; its own camera decides its content.
+- The layer's own `blur` and its `filters` are separate and add to it.
+- Many blurred layers cost one filter pass each (more on WebGPU): 20 or more at once warns.
+- `movie.inspect(frame)` reports each `threeD` layer's blur as `depthBlur` (px, 0 = sharp).
 
 ### Depth order and limits
 
