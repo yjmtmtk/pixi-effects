@@ -63,12 +63,18 @@ export function validateGradientKeyframes(
   spec: { keyframes?: Keyframe[]; fillGradient?: unknown; initial?: Props },
   who: string,
   warn: (message: string) => void = m => console.warn(m),
+  kind: 'shape' | 'text' = 'shape',
 ): void {
   const said = new Set<string>();
   const say = (m: string): void => { if (!said.has(m)) { said.add(m); warn(`pixi-effects: ${who}: ${m}`); } };
   const startSpec = (spec.fillGradient ?? (spec.initial as { fillGradient?: unknown } | undefined)?.fillGradient) as GradientSpec | undefined;
   const start = startSpec && typeof startSpec === 'object' && Array.isArray(startSpec.stops) ? gradStateFrom(startSpec) : null;
   let animated = false;
+  if (kind === 'text') {                                           // letters take a linear gradient only (a shape has the radial one too)
+    const radial = (g: unknown): boolean => !!g && typeof g === 'object' && ['type', 'center', 'innerRadius', 'radius'].some(k => (g as Record<string, unknown>)[k] !== undefined && !(k === 'type' && (g as Record<string, unknown>).type === 'linear'));
+    const asked = radial(startSpec) || (spec.keyframes ?? []).some(kf => [kf.set, kf.to, kf.from].some(b => radial((b as Record<string, unknown> | undefined)?.fillGradient)));
+    if (asked) say('a text gradient is linear: type, center, innerRadius and radius are ignored (only angle and stops apply); use a shape for a radial gradient');
+  }
   for (const kf of spec.keyframes ?? []) {
     for (const bag of [kf.set, kf.to, kf.from] as Array<Record<string, unknown> | undefined>) {
       if (!bag) continue;
@@ -110,6 +116,7 @@ export function tweenGradient(
   loop: Record<string, number | boolean> = {},
 ): void {
   let a: GradState | null = null, b: GradState | null = null;
+  let resting: GradState | null = null;                            // `from` alone runs to the gradient the layer had: kept from the first start, so a seek back and forward again does not take the `from` state for it
   let colors: Array<(p: number) => string> = [];
   const proxy = { p: 0 };
   timeline.fromTo(proxy, { p: 0 }, {
@@ -117,7 +124,8 @@ export function tweenGradient(
     onStart: () => {
       const live = holder.grad;
       a = fromPatch !== undefined ? mergeGrad(live, fromPatch) : live;
-      b = toPatch !== undefined ? mergeGrad(a, toPatch) : a;
+      if (toPatch === undefined) resting ??= live;
+      b = toPatch !== undefined ? mergeGrad(a, toPatch) : resting!;
       colors = a.stops.map((s, i) => (colorSpace === 'rgb'
         ? (gsap.utils.interpolate(s.color, b!.stops[i]!.color) as (p: number) => string)
         : buildColorInterp(s.color, b!.stops[i]!.color, colorSpace)));

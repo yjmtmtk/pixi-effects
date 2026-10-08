@@ -83,7 +83,7 @@ export const PROP_KEYS: ReadonlySet<string> = new Set([
 /** The text `style` keys (PixiJS TextStyle) that this library passes on. */
 export const STYLE_KEYS: readonly string[] = [
   'fontSize', 'fontFamily', 'fontWeight', 'fontStyle', 'fontVariant', 'fill', 'stroke', 'dropShadow', 'letterSpacing', 'lineHeight', 'leading',
-  'align', 'wordWrap', 'wordWrapWidth', 'breakWords', 'whiteSpace', 'padding', 'textBaseline', 'trim', 'lineJoin', 'miterLimit',
+  'align', 'wordWrap', 'wordWrapWidth', 'breakWords', 'whiteSpace', 'padding', 'textBaseline', 'trim', 'lineJoin', 'miterLimit', 'filters', 'tagStyles',
 ];
 
 export type { SequenceSpec };

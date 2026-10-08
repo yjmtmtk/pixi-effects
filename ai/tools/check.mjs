@@ -19,7 +19,7 @@
  *          --strict (text overlaps and stops where the picture is still changing fail the check; by default they are only listed for review) · --out DIR · --frames N (contact sheet tiles, default 12) · --formats mp4,webm (default mp4) · --no-export ·
  *          --timeout SECONDS (default 240) · --root DIR (static server root; default: the nearest folder above the page with dist/) · --chrome PATH
  */
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import http from 'node:http';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -124,10 +124,21 @@ export class Cdp {
 
 /** Start a private headless Chrome. `extraArgs`: more command-line flags (the tests use it for `--enable-features=WebMCP`). */
 export async function launchChrome(chrome, userDataDir, extraArgs = []) {
-  const proc = spawn(chrome, [
+  const args = [
     '--headless=new', '--remote-debugging-port=0', `--user-data-dir=${userDataDir}`, '--no-first-run', '--no-default-browser-check',
     '--autoplay-policy=no-user-gesture-required', '--mute-audio', '--ignore-gpu-blocklist', '--enable-unsafe-swiftshader', '--window-size=1400,900', ...extraArgs, 'about:blank',
-  ], { stdio: ['ignore', 'ignore', 'pipe'] });
+  ];
+  // Chrome and its helpers must not outlive this process. A run that is killed or times out never reaches its own cleanup, and a page stuck
+  // in an endless loop then burns a CPU core (and holds the audio device) for hours. So a small shell keeps watch: when this process (or the
+  // browser) is gone it stops everything that was started with this profile directory. (No shell on Windows: plain spawn there.)
+  const watched = process.platform !== 'win32' && fs.existsSync('/bin/sh');
+  const stopAll = () => { spawnSync('pkill', ['-KILL', '-f', '--', `--user-data-dir=${userDataDir}`], { stdio: 'ignore' }); };
+  const proc = watched
+    ? spawn('/bin/sh', ['-c', '"$@" & chrome=$!; owner=$PPID; ( while kill -0 "$owner" 2>/dev/null && kill -0 "$chrome" 2>/dev/null; do sleep 2; done; pkill -KILL -f -- "--user-data-dir=$PE_PROFILE" ) >/dev/null 2>&1 & wait "$chrome"', 'sh', chrome, ...args],
+      { stdio: ['ignore', 'ignore', 'pipe'], env: { ...process.env, PE_PROFILE: userDataDir } })
+    : spawn(chrome, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+  if (watched) proc.kill = () => { stopAll(); return true; };                // the browser, its helpers and the shell: all of them, at once
+
   const endpoint = await new Promise((resolve, reject) => {
     let buf = '';
     const t = setTimeout(() => reject(new Error('Chrome did not start (no DevTools endpoint within 20 s)')), 20000);

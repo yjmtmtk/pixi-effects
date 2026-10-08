@@ -109,7 +109,7 @@ export class TextSequence extends Sequence {
       this.intrinsicWidth = text.width;
       this.intrinsicHeight = text.height;
     }
-    validateGradientKeyframes(this.spec as never, describeLayer(this.spec));              // once, here: a tween's onStart runs again at every seek
+    validateGradientKeyframes(this.spec as never, describeLayer(this.spec), undefined, 'text');              // once, here: a tween's onStart runs again at every seek
     const gradientSpec = this.spec.fillGradient ?? (initialProps.fillGradient as GradientSpec | undefined);
     if (gradientSpec) { this._grad = { grad: gradStateFrom(gradientSpec) }; this._applyGradient(); }
     // `{value}` counter / `visibleChars`: seed the numbers from initial and print.

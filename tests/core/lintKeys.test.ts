@@ -56,6 +56,16 @@ describe('lintKeys: text style keys', () => {
   });
 });
 
+describe('lintKeys: no warning for what is correct', () => {
+  it('a key whose value is undefined is not there (a spread that sets it only when it applies)', () => {
+    expect(warns({ type: 'text', text: 'a', anchorX: undefined, initial: { x: 1, alhpa: undefined } })).toEqual([]);
+    expect(warns({ type: 'text', text: 'a', bogus: 1 })).toHaveLength(1);                       // a real wrong key still is
+  });
+  it('PixiJS text style keys that work are accepted: filters and tagStyles', () => {
+    expect(warns({ type: 'text', text: 'a', style: { filters: [], tagStyles: {} } })).toEqual([]);
+  });
+});
+
 describe('the tables cover the type (compile time) and what they list is sane', () => {
   it('every kind has keys that include `type`, and a shape has its own', () => {
     for (const spec of [{ type: 'text' }, { type: 'image' }, { type: 'video' }, { type: 'audio' }, { type: 'composition' }, { type: 'camera' }, { type: 'null' }, { type: 'shape', shape: 'path' }]) {

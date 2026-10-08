@@ -142,4 +142,24 @@ run('the grain filter, on a real browser', () => {
       expect(await cdp.eval('window.__logs')).toEqual([]);
     });
   }, 240000);
+
+  it('the grain of a frame does not depend on where the playhead was: a motion-blurred frame is the same after frame 90 as after frame 9', async () => {
+    await withPage('grain=1&seed=2', async (cdp) => {
+      await grab(cdp, 90); await grab(cdp, 10, { motionBlur: 2 }); await cdp.eval(`keep('after90')`);
+      await grab(cdp, 9); await grab(cdp, 10, { motionBlur: 2 }); await cdp.eval(`keep('after9')`);
+      expect(await cdp.eval(`same('after90', 'after9')`)).toBe(0);
+      expect((await stat(cdp)).std).toBeGreaterThan(15);                       // and there is grain in it
+    });
+  }, 240000);
+
+  it('a grain layer inside a threeD card shows the grain of the frame that is drawn, not of the frame before', async () => {
+    await withPage('grain=1&seed=2&mode=card', async (cdp) => {
+      await grab(cdp, 90); await grab(cdp, 10); await cdp.eval(`keep('after90')`);
+      await grab(cdp, 9); await grab(cdp, 10); await cdp.eval(`keep('after9')`);
+      await grab(cdp, 11); await grab(cdp, 10); await cdp.eval(`keep('after11')`);
+      expect(await cdp.eval(`same('after90', 'after9')`)).toBe(0);
+      expect(await cdp.eval(`same('after90', 'after11')`)).toBe(0);
+      expect((await stat(cdp)).std).toBeGreaterThan(15);
+    });
+  }, 240000);
 });

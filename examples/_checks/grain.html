@@ -8,7 +8,7 @@
   <!--
     Acceptance check (not an example): the `grain` filter on a flat colour, so the grain is the only thing in the picture and it can be
     measured. tests/tools/grain.test.ts reads it. Query: w, h (size, default 640x360), c (colour, hex, default 808080), grain=1 with
-    amount / size / seed / fps / color, mode=root|layer (where the filter sits), amountTo (a keyframe on filters.g.amount, layer mode),
+    amount / size / seed / fps / color, mode=root|layer|card (where the filter sits; card = on a layer inside a threeD card), amountTo (a keyframe on filters.g.amount, layer mode),
     noise (the old `noise` filter instead, for the cost comparison), gl (force the WebGL path by hiding navigator.gpu), mb (motion blur samples for the page's own snapshots).
   -->
   <canvas id="stage"></canvas>
@@ -30,7 +30,10 @@
     const noise = Q.has('noise') ? { type: 'noise', noise: Number(Q.get('noise')), seed: 1 } : null;       // the existing filter, for the cost comparison
     const inner = [{ type: 'shape', shape: 'rect', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: colour } }];
     const keyframes = Q.has('amountTo') ? [{ at: 0, duration: 4, to: { 'filters.g.amount': Number(Q.get('amountTo')) } }] : [];
-    const composition = Q.get('mode') === 'layer'
+    const composition = Q.get('mode') === 'card'
+      // a grain layer inside a threeD card: the card is drawn to a texture before the stage is drawn
+      ? { sequences: [{ type: 'composition', name: 'card', threeD: true, width: W, height: H, initial: { x: W / 2, y: H / 2 }, sequences: [{ type: 'composition', name: 'inner', width: W, height: H, sequences: inner, filters: grain ? [grain] : [] }] }] }
+      : Q.get('mode') === 'layer'
       ? { sequences: [{ type: 'composition', name: 'inner', width: W, height: H, sequences: inner, filters: grain || noise ? [grain || noise] : [], keyframes }] }
       : { sequences: inner, ...(grain || noise ? { filters: [grain || noise] } : {}) };
     const movie = new Movie();

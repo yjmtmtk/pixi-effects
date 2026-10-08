@@ -82,6 +82,18 @@ describe('bindGradientKeyframes', () => {
     tl.time(3);   expect(holder.grad.angle).toBeCloseTo(135, 6);       // 90 → 180, half way
     tl.time(0.5); expect(holder.grad.angle).toBe(0);                    // undone
   });
+  it('a keyframe with only `from` runs from that gradient to the one the layer has (like every other property), then holds', () => {
+    const holder = { grad: gradStateFrom({ angle: 90, stops: [[0, '#ff0000'], [1, '#0000ff']] }) };
+    const tl = gsap.timeline({ paused: true });
+    bindGradientKeyframes(tl, holder, [{ at: 0, duration: 2, from: { fillGradient: { angle: 0 } } }] as never, 10, 0, 'rgb', () => {});
+    const at = (t: number) => { tl.time(t); return holder.grad.angle; };
+    expect(at(0.001)).toBeCloseTo(0, 1);
+    expect(at(1)).toBeCloseTo(45, 6);
+    expect(at(2)).toBeCloseTo(90, 6);
+    expect(at(3)).toBeCloseTo(90, 6);
+    expect(at(0.5)).toBeCloseTo(22.5, 6);                          // and back
+    expect(at(1)).toBeCloseTo(45, 6);                              // and forward again: not frozen on the `from` state
+  });
   it('hasGradientKeys sees set, to and from', () => {
     expect(hasGradientKeys([{ at: 0, to: { fillGradient: { angle: 1 } } }] as never)).toBe(true);
     expect(hasGradientKeys([{ at: 0, from: { fillGradient: { angle: 1 } } }] as never)).toBe(true);
@@ -114,6 +126,18 @@ describe('validateGradientKeyframes: said once, at build, with what to write', (
   it('the names an AI guesses (a dotted path, a flat property) say what to write', () => {
     expect(warns(kf({ 'fillGradient.angle': 90 }))[0]).toMatch(/"fillGradient\.angle".*write fillGradient: \{ angle \}/s);
     expect(warns(kf({ gradientAngle: 90 }))[0]).toMatch(/"gradientAngle".*write fillGradient: \{ angle \}/s);
+  });
+  it('a text layer has linear gradients only: a radial type, centre or radius is said once instead of being dropped in silence', () => {
+    const out: string[] = [];
+    validateGradientKeyframes({ fillGradient: { type: 'radial', center: [0.2, 0.2], radius: 0.3, stops: [[0, '#fff'], [1, '#000']] } } as never, 'layer "t"', (m: string) => out.push(m), 'text');
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatch(/layer "t".*a text gradient is linear.*type, center, innerRadius and radius are ignored.*shape/s);
+    const kf: string[] = [];
+    validateGradientKeyframes({ fillGradient: two, keyframes: [{ at: 0, duration: 1, to: { fillGradient: { center: [0.8, 0.8] } } }] } as never, 'layer "t"', (m: string) => kf.push(m), 'text');
+    expect(kf.join('\n')).toMatch(/a text gradient is linear/);
+    const shape: string[] = [];
+    validateGradientKeyframes({ fillGradient: { type: 'radial', stops: [[0, '#fff'], [1, '#000']] } } as never, 'layer "s"', (m: string) => shape.push(m), 'shape');
+    expect(shape).toEqual([]);                                       // a shape has them all
   });
   it('says each thing once per call even if two keyframes make the same mistake', () => {
     const out = warns({ fillGradient: two, keyframes: [{ at: 0, to: { fillGradient: { angel: 1 } } }, { at: 1, to: { fillGradient: { angel: 2 } } }] });

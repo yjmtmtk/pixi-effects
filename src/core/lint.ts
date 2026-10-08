@@ -72,7 +72,7 @@ export function lintKeys(spec: SequenceSpec, warn: Warn = defaultWarn): void {
   const valid = layerKeys(spec as { type: string; shape?: string });
   if (valid) {
     for (const key of Object.keys(spec)) {
-      if (valid.includes(key)) continue;
+      if (valid.includes(key) || (spec as unknown as Record<string, unknown>)[key] === undefined) continue;       // a spread that sets a key only when it applies leaves `undefined`
       const guess = suggestName(key, valid.filter(k => k !== 'type'));
       const owners = kindsWithKey(key);
       const belongs = owners.length ? ` (it belongs to ${owners.slice(0, 3).join(', ')})` : '';
@@ -84,6 +84,7 @@ export function lintKeys(spec: SequenceSpec, warn: Warn = defaultWarn): void {
   const bags: Array<Record<string, unknown> | undefined> = [spec.initial, ...(spec.keyframes ?? []).flatMap(kf => [kf.set, kf.to, kf.from])] as Array<Record<string, unknown> | undefined>;
   for (const bag of bags) {
     for (const key of Object.keys(bag ?? {})) {
+      if (bag![key] === undefined) continue;
       if (PROP_KEYS.has(key) || key.includes('.') || /^gradient/i.test(key) || said.has(key)) continue;
       said.add(key);
       const guess = suggestName(key, [...PROP_KEYS]);
@@ -92,7 +93,7 @@ export function lintKeys(spec: SequenceSpec, warn: Warn = defaultWarn): void {
   }
   if (spec.type === 'text' && spec.style && typeof spec.style === 'object') {
     for (const key of Object.keys(spec.style)) {
-      if (STYLE_KEYS.includes(key)) continue;
+      if (STYLE_KEYS.includes(key) || (spec.style as Record<string, unknown>)[key] === undefined) continue;
       const guess = suggestName(key, STYLE_KEYS);
       warn(`pixi-effects: ${who}: style.${key} is not a text style key${guess ? ` — did you mean "${guess}"?` : ''} (it is ignored). Keys: ${STYLE_KEYS.join(', ')}`);
     }

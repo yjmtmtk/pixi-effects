@@ -195,6 +195,13 @@ export class Movie {
   private _rootSequence: Sequence | null = null;
   /** The filters that take the time of the frame they draw (`grain`), collected once after the build. */
   private _timeFilters: TimeFilter[] = [];
+  /** While a motion-blurred frame is exposed: the frame's own time, so all its sub-frames share one grain frame (and not the playhead's). */
+  private _nominalTime: number | null = null;
+  private _feedTimeFilters(): void {
+    if (!this._timeFilters.length) return;
+    const t = this._nominalTime ?? this._timeOf(this.currentFrame);
+    for (const f of this._timeFilters) f.setTime(t);
+  }
   private _rootContainer: Container | null = null;
   private _raf: number | null = null;
   /** What went into the mix, and its peak before limiting — kept for inspectAudio(). */
@@ -732,7 +739,7 @@ export class Movie {
     if (!app?.renderer) return;
     if (!this._synced) this._rootSequence?.syncFrame();           // normally _updateSpace() has already done it (see there)
     this._synced = false;
-    if (this._timeFilters.length) { const t = this._timeOf(this.currentFrame); for (const f of this._timeFilters) f.setTime(t); }
+    this._feedTimeFilters();                                       // the same time again when nothing called _updateSpace first
     Culler.shared.cull(app.stage, app.renderer.screen, false);
     app.renderer.render({ container: app.stage });
   }
@@ -752,6 +759,7 @@ export class Movie {
    * the frame before (after a jump seek, a card whose children were animated showed a stale picture).
    */
   private _updateSpace(t: number = this._timeOf(this.currentFrame)): void {
+    this._feedTimeFilters();                                       // before anything is drawn: a threeD card is drawn to its texture right here
     if (!this._rootSequence || !this.app) return;
     this._rootSequence.syncFrame();
     this._synced = true;
@@ -772,16 +780,19 @@ export class Movie {
     const stage = this.app!.canvas as HTMLCanvasElement;
     this._atPoster = false;
     const times = blurTimes(frame, this.frameRate, mb, Math.max(0, this.duration - END_MARGIN));
-    for (let k = 0; k < times.length; k++) {
-      const t = times[k]!;
-      this.timeline!.time(t);
-      await this._awaitVideoFrames(t);
-      this._updateSpace(t);
-      this._renderNow();
-      if (k === 0) g.clearRect(0, 0, target.width, target.height);
-      g.globalAlpha = 1 / (k + 1);                                     // a running mean: sample k weighs 1/(k + 1)
-      g.drawImage(stage, 0, 0, target.width, target.height);
-    }
+    this._nominalTime = this._timeOf(Math.max(0, Math.min(frame, this.totalFrames)));
+    try {
+      for (let k = 0; k < times.length; k++) {
+        const t = times[k]!;
+        this.timeline!.time(t);
+        await this._awaitVideoFrames(t);
+        this._updateSpace(t);
+        this._renderNow();
+        if (k === 0) g.clearRect(0, 0, target.width, target.height);
+        g.globalAlpha = 1 / (k + 1);                                     // a running mean: sample k weighs 1/(k + 1)
+        g.drawImage(stage, 0, 0, target.width, target.height);
+      }
+    } finally { this._nominalTime = null; }
     g.globalAlpha = 1;
     if (settle) await this._goto(frame);
     else {
