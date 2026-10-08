@@ -98,7 +98,9 @@ export function findRoot(dir, exists = fs.existsSync) {
 
 export class Cdp {
   constructor(ws) {
-    this.ws = ws; this.id = 0; this.pending = new Map(); this.listeners = [];
+    this.ws = ws; this.id = 0; this.pending = new Map(); this.listeners = []; this.closed = false;
+    /** Opt-in limit (ms) for one call; none by default, because an export or a render legitimately takes minutes. */
+    this.timeout = null;
     ws.onmessage = ev => {
       const msg = JSON.parse(typeof ev.data === 'string' ? ev.data : Buffer.from(ev.data).toString());
       if (msg.id && this.pending.has(msg.id)) {
@@ -107,11 +109,21 @@ export class Cdp {
         msg.error ? reject(new Error(`${msg.error.message}`)) : resolve(msg.result);
       } else if (msg.method) for (const fn of this.listeners) fn(msg);
     };
+    // a browser that is gone (killed, crashed) never answers: end every call that waits for it, instead of waiting for ever
+    ws.onclose = () => {
+      this.closed = true;
+      for (const [, p] of this.pending) p.reject(new Error('connection to Chrome closed'));
+      this.pending.clear();
+    };
   }
   send(method, params = {}) {
+    if (this.closed) return Promise.reject(new Error('connection to Chrome closed'));
     const id = ++this.id;
     this.ws.send(JSON.stringify({ id, method, params }));
-    return new Promise((resolve, reject) => this.pending.set(id, { resolve, reject }));
+    return new Promise((resolve, reject) => {
+      const timer = this.timeout ? setTimeout(() => { this.pending.delete(id); reject(new Error(`Chrome did not answer ${method} in ${this.timeout} ms`)); }, this.timeout) : null;
+      this.pending.set(id, { resolve: v => { clearTimeout(timer); resolve(v); }, reject: e => { clearTimeout(timer); reject(e); } });
+    });
   }
   on(fn) { this.listeners.push(fn); }
   /** Run an expression in the page and return its value (JSON-able). Awaits promises. */

@@ -55,4 +55,20 @@ describe.skipIf(!chrome || process.env.SKIP_BROWSER_TESTS)('launchChrome: stoppi
       rmSync(dir, { recursive: true, force: true });
     }
   }, 90000);
+
+  it('a call that is waiting when the browser is killed ends with an error, it does not hang', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'cleanup-wait-'));
+    const { proc, cdp } = await check.launchChrome(chrome, dir);
+    try {
+      await cdp.send('Runtime.enable');
+      const waiting = cdp.eval('new Promise(() => {})').then(() => 'answered', (e: Error) => e.message);       // a promise that never settles
+      await check.sleep(500);
+      proc.kill();
+      const result = await Promise.race([waiting, check.sleep(8000).then(() => 'still waiting after 8 s')]);
+      expect(result).toMatch(/connection to Chrome closed/);
+    } finally {
+      try { execFileSync('pkill', ['-KILL', '-f', '--', `--user-data-dir=${dir}`]); } catch { /* none left */ }
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 60000);
 });
