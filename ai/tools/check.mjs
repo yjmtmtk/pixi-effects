@@ -87,9 +87,9 @@ export function sampleFrames({ totalFrames, frameRate, scenes = [], step = 0.25,
 
 const AT_HELP = "use seconds (3.5), a percentage (50%), a frame (f120) or a layer's start / mid / end (name@end)";
 
-/** The movie's scenes: top-level layers with a name you gave (not `text#3`) of a second or more. Same rule as `namedScenes` in src/core/scenes.ts (a test keeps them equal). */
+/** The movie's scenes: top-level compositions with a name you gave (not `text#3`) of a second or more. Same rule as `namedScenes` in src/core/scenes.ts (a test keeps them equal). */
 export function scenesOf(rows) {
-  return rows.filter(r => r.depth === 0 && !/[#×]/.test(r.name) && r.end - r.start >= 1).map(r => ({ name: r.name, start: r.start, end: r.end }));
+  return rows.filter(r => r.depth === 0 && r.type === 'composition' && !/[#×]/.test(r.name) && r.end - r.start >= 1).map(r => ({ name: r.name, start: r.start, end: r.end }));
 }
 
 /** `--at` list → frames, each with a label for its file name. */
@@ -222,7 +222,7 @@ const INFO = `(() => { const m = window.movie; if (!m) return { hasMovie: false,
   const c = document.querySelector('canvas');
   return { hasMovie: true, logs: window.__logs || [], totalFrames: m.totalFrames, frameRate: m.frameRate, duration: m.duration,
            width: m.width ?? (c && c.width), height: m.height ?? (c && c.height), hasAudio: !!m.audioBuffer,
-           rows: (() => { try { return m.timelineData().rows.map(r => ({ name: r.name, start: r.start, end: r.end, depth: r.depth })); } catch { return []; } })() }; })()`;
+           rows: (() => { try { return m.timelineData().rows.map(r => ({ name: r.name, type: r.type, start: r.start, end: r.end, depth: r.depth })); } catch { return []; } })() }; })()`;
 
 const sweepScript = list => `(async () => {
   const frames = new Set(${JSON.stringify(list)});

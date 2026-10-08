@@ -42,11 +42,13 @@ describe('check.resolveAtList', () => {
 });
 
 describe('scenes: check.mjs and the library agree on what a scene is', () => {
-  it('named top-level layers of a second or more; not nested ones, automatic names, folded runs of similar layers, or short ones', async () => {
+  it('named top-level COMPOSITIONS of a second or more; not other layers (a 61-layer film has no 61 scenes), nested ones, automatic names, folded runs, or short ones', async () => {
     const { namedScenes } = await import('../../src/core/scenes');
     const rows = [
-      { name: 'intro', start: 0, end: 3, depth: 0 }, { name: 'text#2', start: 0, end: 9, depth: 0 }, { name: 'blip', start: 1, end: 1.5, depth: 0 },
-      { name: 'inner', start: 1, end: 3, depth: 1 }, { name: 'outro', start: 3, end: 9, depth: 0 }, { name: 'snow-# ×130', start: 0, end: 9, depth: 0 },
+      { name: 'intro', type: 'composition', start: 0, end: 3, depth: 0 }, { name: 'text#2', type: 'composition', start: 0, end: 9, depth: 0 },
+      { name: 'blip', type: 'composition', start: 1, end: 1.5, depth: 0 }, { name: 'inner', type: 'composition', start: 1, end: 3, depth: 1 },
+      { name: 'outro', type: 'composition', start: 3, end: 9, depth: 0 }, { name: 'snow-# ×130', type: 'composition', start: 0, end: 9, depth: 0 },
+      { name: 'title', type: 'text', start: 0, end: 9, depth: 0 }, { name: 'bgm', type: 'audio', start: 0, end: 9, depth: 0 }, { name: 'cam', type: 'camera', start: 0, end: 9, depth: 0 },
     ];
     const expected = [{ name: 'intro', start: 0, end: 3 }, { name: 'outro', start: 3, end: 9 }];
     expect(namedScenes(rows)).toEqual(expected);

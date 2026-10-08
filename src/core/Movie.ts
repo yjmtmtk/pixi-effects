@@ -688,7 +688,7 @@ export class Movie {
   inspectAudio(opts: AudioInspectOptions = {}): AudioReport {
     warnUnknownOptions('movie.inspectAudio()', opts, ['window', 'scenes']);
     this._requireReady('inspectAudio');
-    const scenes = opts.scenes ?? namedScenes(this.timelineData().rows);       // the scenes of the movie: named top-level layers of a second or more
+    const scenes = opts.scenes ?? namedScenes(this.timelineData().rows);       // the scenes of the movie: named top-level compositions of a second or more
     return analyzeAudio(this.audioBuffer, this._audioSources, this._mixStats, this.duration, { ...opts, scenes });
   }
 

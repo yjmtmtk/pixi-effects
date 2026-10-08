@@ -1,6 +1,19 @@
 import { describe, it, expect } from 'vitest';
 import { measureLoudness, findSilences } from '../../src/audio/loudness';
 
+/** The straightforward 4x true peak (every sample, every phase, bounds-checked): the reference the fast one must equal. */
+function referenceTruePeak(chans: Float32Array[]): number {
+  const half = 12, phases = [0.25, 0.5, 0.75];
+  const kernel = phases.map(p => Array.from({ length: 2 * half }, (_, j) => { const k = j - half + 1, x = k - p, s = x === 0 ? 1 : Math.sin(Math.PI * x) / (Math.PI * x); return s * (0.5 + 0.5 * Math.cos(Math.PI * x / (half + 1))); }));
+  let peak = 0;
+  for (const c of chans) for (let i = 0; i < c.length; i++) {
+    peak = Math.max(peak, Math.abs(c[i]!));
+    for (let pi = 0; pi < 3; pi++) { let v = 0; for (let j = 0; j < 2 * half; j++) { const idx = i + j - half + 1; if (idx >= 0 && idx < c.length) v += c[idx]! * kernel[pi]![j]!; } peak = Math.max(peak, Math.abs(v)); }
+  }
+  return Math.round(200 * Math.log10(Math.max(peak, 1e-6))) / 10;
+}
+const noise = (n: number, seed: number, amp: number): Float32Array => { let a = seed; return Float32Array.from({ length: n }, () => { a = (a * 1664525 + 1013904223) >>> 0; return amp * (a / 2147483648 - 1); }); };
+
 const sine = (sr: number, seconds: number, hz: number, peak: number, phase = 0): Float32Array =>
   Float32Array.from({ length: Math.round(sr * seconds) }, (_, i) => peak * Math.sin(2 * Math.PI * hz * i / sr + phase));
 const dbfs = (x: number) => 20 * Math.log10(x);
@@ -35,6 +48,22 @@ describe('measureLoudness (ITU-R BS.1770)', () => {
   it('counts clipped samples (at or beyond full scale)', () => {
     const s = new Float32Array(1000).fill(0.5); s[10] = 1; s[11] = -1.2; s[12] = 0.9999;
     expect(measureLoudness([s], 48000).clippedSamples).toBe(2);
+  });
+});
+
+describe('measureLoudness: the options and the speed-ups keep the numbers', () => {
+  it('truePeak: false skips the oversampled peak (null) and changes nothing else', () => {
+    const s = sine(48000, 2, 997, 0.3);
+    const full = measureLoudness([s, s], 48000), lite = measureLoudness([s, s], 48000, { truePeak: false });
+    expect(lite.truePeakDb).toBeNull();
+    expect([lite.integratedLufs, lite.samplePeakDb, lite.clippedSamples]).toEqual([full.integratedLufs, full.samplePeakDb, full.clippedSamples]);
+  });
+  it('the fast true peak equals the straightforward one: noise, a quiet tone with one loud click, a fs/4 sine, silence, a very short signal', () => {
+    const click = sine(48000, 1, 440, 0.05); click[24000] = 0.7; click[24001] = 0.7;
+    const cases: Float32Array[][] = [
+      [noise(48000, 1, 0.5), noise(48000, 2, 0.4)], [click], [sine(48000, 1, 12000, 1, Math.PI / 4)], [new Float32Array(5000)], [Float32Array.from([0.2, 0.9, 0.9, 0.2])], [new Float32Array(0)],
+    ];
+    for (const ch of cases) expect(measureLoudness(ch, 48000).truePeakDb, String(ch[0]?.length)).toBe(referenceTruePeak(ch));
   });
 });
 

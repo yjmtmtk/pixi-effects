@@ -33,7 +33,7 @@ Options worth knowing while you work:
 | `--draft` | the export is half size, low quality, no motion blur: a much smaller file (the drawing is not faster) |
 | `--query "name=Aiko"` | adds to the page address, for a page that reads it (see the cookbook's batch recipe) |
 
-`check` looks at the first and last frame of every scene (a named top-level layer of a second or more) and a frame every 0.25 s, up to 240 frames, so a title cut off at the edge of a scene is not missed. The mix is judged by ITU-R BS.1770 loudness: web video is typically −14 to −16 LUFS; quieter or louder than −24 or −9 LUFS, little headroom (true peak above −1 dBTP) and silent stretches are listed as `notes`, not failures; clipping, or a true peak above 0 dBTP (the file will distort), fails.
+`check` looks at the first and last frame of every scene (a named top-level composition of a second or more) and a frame every 0.25 s, up to 240 frames, so a title cut off at the edge of a scene is not missed. The mix is judged by ITU-R BS.1770 loudness: web video is typically −14 to −16 LUFS; quieter or louder than −24 or −9 LUFS, little headroom (true peak above −1 dBTP) and silent stretches are listed as `notes`, not failures; clipping, or a true peak above 0 dBTP (the file will distort), fails.
 
 The exit code is 0 when there is nothing to fix and 1 otherwise, so it also works in CI. This is its real output for the piece in the demo further down:
 
