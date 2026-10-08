@@ -367,13 +367,24 @@ Colour keys (`fillColor`, `strokeColor`) tween smoothly between hues — no snap
 
 #### `fillGradient`
 
-Fill a shape with a gradient instead of `fillColor` (top level or in `initial`). Positions are in 0–1 of the shape's own bounds, so the gradient follows the shape's size. Colours may carry alpha, so a radial gradient from transparent to dark is a vignette. Not animatable.
+Fill a shape with a gradient instead of `fillColor` (top level or in `initial`). Positions are in 0–1 of the shape's own bounds, so the gradient follows the shape's size. Colours may carry alpha, so a radial gradient from transparent to dark is a vignette. Animatable (below), on shapes and on text.
 
 ```ts
 { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
   fillGradient: { stops: [[0, '#1b2a6b'], [0.6, '#7b3fe4'], [1, '#ff6a88']] } }                // linear, top → bottom
 { ..., fillGradient: { angle: 0, stops: [[0, '#00f5a0'], [1, '#00d9f5']] } }                    // left → right
 { ..., fillGradient: { type: 'radial', radius: 0.75, stops: [[0.45, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.7)']] } }   // vignette
+```
+
+**Animating a gradient.** A keyframe's `set` / `from` / `to` takes a **partial** `fillGradient` (`angle`, `center`, `innerRadius`, `radius`, `stops`); what you leave out stays as it is. Numbers move linearly; the stop colours move through the layer's `colorSpace` (`'oklch'` keeps a fade vivid: in `'rgb'`, green to magenta passes through grey). The layer needs a starting `fillGradient` (top level or in `initial`), `stops` must keep the same count, and `type` cannot change (linear ↔ radial). A mistake (a mistyped key, another number of stops, `'fillGradient.angle'` or `gradientAngle` instead of `fillGradient: { angle }`) is said once, when the layer is built. A text layer takes the same `fillGradient` for its letters (they are re-rasterised on every change).
+
+```ts
+{ type: 'shape', shape: 'rect', width: 560, height: 420, initial: { x: 520, y: 540 }, colorSpace: 'oklch',
+  fillGradient: { angle: 0, stops: [[0, '#ff2d55'], [1, '#0ea5e9']] },
+  keyframes: [{ at: 0, duration: 2, to: { fillGradient: { angle: 360, stops: [[0, '#00e5ff'], [1, '#ffd60a']] } } }] }
+{ type: 'text', text: 'GRADIENT', style: { fontSize: 200, fontWeight: '900' }, anchorX: 0.5, anchorY: 0.5, initial: { x: 640, y: 360 },
+  fillGradient: { angle: 0, stops: [[0, '#ff2d55'], [1, '#0ea5e9']] },
+  keyframes: [{ at: 0, duration: 2, to: { fillGradient: { angle: 180 } } }] }
 ```
 
 | Field | Notes |

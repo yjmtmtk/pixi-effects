@@ -35,7 +35,7 @@ export function createPixiMock() {
   }
   class Texture {
     static WHITE = new Texture(1, 1);
-    static from(source: unknown) { const t = new Texture(1, 1) as Texture & { source?: unknown }; t.source = source; return t; }
+    static from(source: unknown) { const t = new Texture(1, 1) as Texture & { source?: unknown }; t.source = { resource: source, update() {} }; return t; }
     destroyed = false;
     constructor(public width = 1, public height = 1) {}
     destroy() { this.destroyed = true; }
@@ -120,7 +120,7 @@ export function createPixiMock() {
     },
   };
   class AlphaMask { inverse = false; mask: unknown; constructor(o?: { mask?: unknown }) { this.mask = o?.mask; } }
-  class FillGradient { constructor(public options: Record<string, unknown>) {} }
+  class FillGradient { destroyed = false; constructor(public options: Record<string, unknown>) {} destroy() { this.destroyed = true; } }
   class Filter { resources: Record<string, unknown> = {}; constructor(_opts?: unknown) {} apply() {} }
   class GlProgram { constructor(_o: unknown) {} static from(o: unknown) { return new GlProgram(o); } }
   class GpuProgram { constructor(_o: unknown) {} static from(o: unknown) { return new GpuProgram(o); } }

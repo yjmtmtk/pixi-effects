@@ -3,6 +3,9 @@ import { buildColorInterp, type ColorSpace, type ColorInput } from './colorInter
 
 type Timeline = ReturnType<typeof gsap.timeline>;
 
+/** `'#rrggbb'` for a number, a CSS colour string as it is. */
+const css = (c: ColorInput): string => (typeof c === 'number' ? '#' + c.toString(16).padStart(6, '0') : c);
+
 /**
  * Shared colour-tween helper used by every sequence type that wants to
  * interpolate a colour-valued property smoothly through a chosen colour
@@ -42,7 +45,7 @@ export function tweenColor(
         const start = (fromValue !== undefined ? fromValue : target[key]) as ColorInput | undefined;
         if (start === undefined) return;
         interp = colorSpace === 'rgb'
-          ? (gsap.utils.interpolate(start, toValue) as (p: number) => unknown)
+          ? (gsap.utils.interpolate(css(start), css(toValue)) as (p: number) => unknown)   // a number is a colour here: lerping 0xff0000 → 0x00ff00 as a number gives 0x7fff80, not olive
           : buildColorInterp(start, toValue, colorSpace);
       },
       onUpdate: () => {

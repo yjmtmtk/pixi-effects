@@ -133,7 +133,7 @@ Keyframe kinds: `set` (jump at `at`; undone when you seek back), `to` (animate t
 
 **Draw-on:** every shape but `arc` has `trimStart` / `trimEnd` (0–1 of the outline, default 0 / 1, animatable): `trimEnd: 0` + keyframe `to: { trimEnd: 1 }` draws a line / border / path on; `trimStart` 0 → 1 after it wipes it off; both = a travelling dash. The fill is NOT trimmed. Rect outline starts top-left, circle / ellipse at 12 o'clock, both clockwise. A `path` with several sub-paths walks them in order as one length; `trimEach: true` trims each on its own (all draw on together). Use `strokeCap: 'round'`.
 
-Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha strokeWidth`; `colorSpace: 'oklab'|'oklch'` for clean colour tweens. rect/circle/ellipse are **centred on `x,y` by default** (`anchorX/anchorY` default 0.5): for a bar growing from its base use `anchorY: 1` (or `anchorX: 0` for left-to-right). **`fillGradient`** (top level or `initial`; instead of `fillColor`): `{ type?: 'linear'|'radial', stops: [[0, '#000'], [1, 'rgba(0,0,0,.6)']], angle? /* linear, deg, 90 = top→bottom */, center?, innerRadius?, radius? /* radial, 0–1 of bounds */ }` — stops may have alpha, so a radial transparent→dark is a vignette. Stroke ends and corners: `strokeCap: 'butt'|'round'|'square'`, `strokeJoin: 'miter'|'round'|'bevel'` (top level or in `initial`; not animated — `round` keeps sharp corners like an M from poking out).
+Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha strokeWidth`; `colorSpace: 'oklab'|'oklch'` for clean colour tweens. rect/circle/ellipse are **centred on `x,y` by default** (`anchorX/anchorY` default 0.5): for a bar growing from its base use `anchorY: 1` (or `anchorX: 0` for left-to-right). **`fillGradient`** (top level or `initial`; instead of `fillColor`): `{ type?: 'linear'|'radial', stops: [[0, '#000'], [1, 'rgba(0,0,0,.6)']], angle? /* linear, deg, 90 = top→bottom */, center?, innerRadius?, radius? /* radial, 0–1 of bounds */ }` — stops may have alpha, so a radial transparent→dark is a vignette. **Animate it** with a partial gradient in a keyframe (`to: { fillGradient: { angle: 360, stops: [...] } }`: keys you leave out stay; the same number of stops; `type` cannot change; a start gradient is required; use `colorSpace: 'oklch'` for a vivid fade). A text layer takes `fillGradient` too (letters re-rasterised per change). The names `'fillGradient.angle'` / `gradientAngle` are not properties: write `fillGradient: { angle }`. Stroke ends and corners: `strokeCap: 'butt'|'round'|'square'`, `strokeJoin: 'miter'|'round'|'bevel'` (top level or in `initial`; not animated — `round` keeps sharp corners like an M from poking out).
 
 **composition** — `width height duration sequences transitions`. With `threeD: true` it is a **card**: its children are drawn into one texture (content outside its `width × height` is clipped: size it for a soft shadow too; a plain 2D composition does not clip, but is skipped when its whole rectangle is off screen) and move / rotate in depth together. Children use the composition's local coordinates and times. Position/rotate/scale it as a unit; to rotate/scale about its centre set `pivotX/pivotY` to the centre and `x/y` to where that point should sit.
 
@@ -336,6 +336,7 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 63. **`animateText()` / `splitText()`: `x` and `y` are pixel numbers, and `y` is the TOP of the line.** An expression such as `x: 'GW/2'` throws (the letters are measured once, at build time): write `x: W / 2`. The pieces are centred half a line below `y`, so a line drawn under the text goes at `y + lineHeight` (about 1.2 × `fontSize`), not at `y`; look at the contact sheet, the layout check cannot see an underline through a word. (`check` writes into `check-out/` of the current folder unless you pass `--out`.)
 64. **`animateText()`: `out` leaves from the END of the layer and has no `at`.** `out: { preset: 'fade', at: 7.6 }` does not make the text leave at 7.6 s: `at` is ignored (now with a warning) and the text stays until `at + duration`. To be gone at time T, set `duration: T − at` (title at 0.4 s that must be gone by 8.0 s: `duration: 7.6`). The same holds for a hand-written exit keyframe: a negative `at` counts back from the end of its own layer, a positive one from the start of its own layer, never from the movie.
 65. **A spring that does not spring, and `'auto'` that is not a spring.** `spring(1,170,26)` is critically damped (damping ratio 1): it never overshoots; at stiffness 170 use damping below 20 (`spring(1, 170, 12)`), or pick a preset (`spring.bouncy`, `spring.wobbly`). With a number `duration`, that number is the settle time (mass and stiffness only matter with `duration: 'auto'`). `duration: 'auto'` needs a spring ease (otherwise it warns and uses 0.5 s) and is for keyframes, not for `animateText` / `orbit` tweens. A colour that overshoots is clamped in its colour space; `alpha` past 1 shows nothing.
+66. **Animating a gradient: one `fillGradient` object, partial, in the keyframe.** `to: { fillGradient: { angle: 360, stops: [...] } }` (keys you leave out stay). Not `'fillGradient.angle'`, not `gradientAngle`, not `fillGradient: 'red'` (each warns once with what to write). The layer must start with a `fillGradient`; `stops` keep their count; `type` cannot change. A fade between two colours in the default `rgb` passes through grey (green → magenta): set `colorSpace: 'oklch'`. Under a mask the stops still span the whole shape (see 39).
 
 
 <!-- ===== ai/reference/recipes.md ===== -->
@@ -1085,6 +1086,28 @@ return [
 
 ---
 
+## A gradient that moves (a turning fade, a drifting glow, letters that change colour)
+
+A keyframe's `fillGradient` is partial: write only what moves. `colorSpace: 'oklch'` keeps the fade vivid.
+
+```js
+// @recipe gradient-shift
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', colorSpace: 'oklch', initial: { x: 'GW/2', y: 'GH/2' },
+    fillGradient: { angle: 20, stops: [[0, '#1b2a6b'], [1, '#7b3fe4']] },
+    keyframes: [{ at: 0, duration: 4, ease: 'sine.inOut', to: { fillGradient: { angle: 200, stops: [[0, '#7b3fe4'], [1, '#ff6a88']] } } }] },
+  { type: 'shape', shape: 'circle', radius: 260, initial: { x: 'GW/2', y: 'GH/2' },
+    fillGradient: { type: 'radial', center: [0.2, 0.2], radius: 0.3, stops: [[0, 'rgba(255,255,255,0.9)'], [1, 'rgba(255,255,255,0)']] },
+    keyframes: [{ at: 0, duration: 4, ease: 'sine.inOut', to: { fillGradient: { center: [0.8, 0.8], radius: 0.6 } } }] },
+  { type: 'text', text: 'SHIFT', name: 'title', style: { fontSize: 220, fontWeight: '900' }, anchorX: 0.5, anchorY: 0.5, colorSpace: 'oklch',
+    initial: { x: 'GW/2', y: 'GH/2' },
+    fillGradient: { angle: 0, stops: [[0, '#ffd60a'], [1, '#22c55e']] },
+    keyframes: [{ at: 0, duration: 4, to: { fillGradient: { angle: 180, stops: [[0, '#00e5ff'], [1, '#ff2d55']] } } }] },
+];
+```
+
+---
+
 ## Generated placeholder images (no photos available)
 
 Draw on a canvas and register `canvas.toDataURL()` as an asset (`data:` URLs work). Make the image at least canvas-sized (1920×1080 for a 1280×720 movie) so `kenBurns` zooms stay sharp.
@@ -1568,13 +1591,24 @@ Colour keys (`fillColor`, `strokeColor`) tween smoothly between hues — no snap
 
 #### `fillGradient`
 
-Fill a shape with a gradient instead of `fillColor` (top level or in `initial`). Positions are in 0–1 of the shape's own bounds, so the gradient follows the shape's size. Colours may carry alpha, so a radial gradient from transparent to dark is a vignette. Not animatable.
+Fill a shape with a gradient instead of `fillColor` (top level or in `initial`). Positions are in 0–1 of the shape's own bounds, so the gradient follows the shape's size. Colours may carry alpha, so a radial gradient from transparent to dark is a vignette. Animatable (below), on shapes and on text.
 
 ```ts
 { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
   fillGradient: { stops: [[0, '#1b2a6b'], [0.6, '#7b3fe4'], [1, '#ff6a88']] } }                // linear, top → bottom
 { ..., fillGradient: { angle: 0, stops: [[0, '#00f5a0'], [1, '#00d9f5']] } }                    // left → right
 { ..., fillGradient: { type: 'radial', radius: 0.75, stops: [[0.45, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.7)']] } }   // vignette
+```
+
+**Animating a gradient.** A keyframe's `set` / `from` / `to` takes a **partial** `fillGradient` (`angle`, `center`, `innerRadius`, `radius`, `stops`); what you leave out stays as it is. Numbers move linearly; the stop colours move through the layer's `colorSpace` (`'oklch'` keeps a fade vivid: in `'rgb'`, green to magenta passes through grey). The layer needs a starting `fillGradient` (top level or in `initial`), `stops` must keep the same count, and `type` cannot change (linear ↔ radial). A mistake (a mistyped key, another number of stops, `'fillGradient.angle'` or `gradientAngle` instead of `fillGradient: { angle }`) is said once, when the layer is built. A text layer takes the same `fillGradient` for its letters (they are re-rasterised on every change).
+
+```ts
+{ type: 'shape', shape: 'rect', width: 560, height: 420, initial: { x: 520, y: 540 }, colorSpace: 'oklch',
+  fillGradient: { angle: 0, stops: [[0, '#ff2d55'], [1, '#0ea5e9']] },
+  keyframes: [{ at: 0, duration: 2, to: { fillGradient: { angle: 360, stops: [[0, '#00e5ff'], [1, '#ffd60a']] } } }] }
+{ type: 'text', text: 'GRADIENT', style: { fontSize: 200, fontWeight: '900' }, anchorX: 0.5, anchorY: 0.5, initial: { x: 640, y: 360 },
+  fillGradient: { angle: 0, stops: [[0, '#ff2d55'], [1, '#0ea5e9']] },
+  keyframes: [{ at: 0, duration: 2, to: { fillGradient: { angle: 180 } } }] }
 ```
 
 | Field | Notes |

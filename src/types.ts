@@ -15,6 +15,9 @@ export type PropValue = number | string;
 /** Generic prop bag (key → value). */
 export type Props = Record<string, PropValue>;
 
+/** What a keyframe's `set` / `to` / `from` may hold: the usual numbers and strings, and for a layer with a `fillGradient` a partial gradient (`{ angle, center, innerRadius, radius, stops }`; the same number of stops). */
+export type KeyframeProps = Props & { fillGradient?: Partial<GradientSpec> };
+
 /** A single keyframe entry. Either `set`, `to`, `from`, or `from`+`to` is meaningful per kind. */
 export interface Keyframe {
   /**
@@ -33,9 +36,9 @@ export interface Keyframe {
   yoyo?: boolean;
   /** With `repeat`: seconds to wait between plays. */
   repeatDelay?: number;
-  set?: Props;
-  to?: Props;
-  from?: Props;
+  set?: KeyframeProps;
+  to?: KeyframeProps;
+  from?: KeyframeProps;
 }
 
 export interface AssetSpec {
@@ -285,6 +288,11 @@ export interface TextSequenceSpec extends SequenceCommon {
    * every frame the tween is active.
    */
   colorSpace?: 'rgb' | 'oklab' | 'oklch';
+  /**
+   * A gradient fill for the letters (like a shape's `fillGradient`; replaces `style.fill`). Animatable: a keyframe's
+   * `to: { fillGradient: { angle: 200, stops: [...] } }` (the same number of stops). The text is re-rasterised on every change.
+   */
+  fillGradient?: GradientSpec;
 }
 export type SfxPreset =
   | 'click' | 'pop' | 'swoosh' | 'swipe' | 'hit' | 'riser' | 'chime' | 'beep' | 'coin' | 'glitch' | 'typewriter';
@@ -460,7 +468,7 @@ export interface CameraSequenceSpec extends SequenceCommon {
 /**
  * A gradient fill for a shape (replaces `fillColor`). Positions are relative to the shape's own
  * bounds (0–1), so it follows the shape's size. Colours may have alpha (`'rgba(0,0,0,0.6)'`), so a
- * radial gradient from transparent to dark is a vignette. Not animatable.
+ * radial gradient from transparent to dark is a vignette. Animatable on shapes and text: a keyframe's `set` / `from` / `to` carries a partial `fillGradient` (see KeyframeProps).
  */
 export interface GradientSpec {
   /** Default `'linear'`. */

@@ -1,4 +1,6 @@
-import { Text } from 'pixi.js';
+import { Text, FillGradient } from 'pixi.js';
+import { gradStateFrom, bindGradientKeyframes, validateGradientKeyframes, type GradState } from './gradientAnim';
+import { gradientOptions } from './gradient';
 import { gsap } from 'gsap';
 import { kfDuration } from '../core/spring';
 import { Sequence } from './Base';
@@ -8,7 +10,7 @@ import { revertibleSet } from '../core/revertibleSet';
 import { tweenColor } from '../expr/colorTween';
 import { describeLayer } from '../core/lint';
 import type { ColorInput } from '../expr/colorInterp';
-import type { TextSequenceSpec, Keyframe, Props } from '../types';
+import type { TextSequenceSpec, Keyframe, Props, GradientSpec } from '../types';
 
 type Timeline = ReturnType<typeof gsap.timeline>;
 
@@ -42,6 +44,21 @@ export class TextSequence extends Sequence {
   /** `visibleChars` is in play (initial or animated): otherwise the whole text shows. */
   private _typed = false;
   private _lastText = '';
+  /** A gradient fill for the text (`fillGradient`, static or animated): rebuilt as a FillGradient on each change (the text is re-rasterised). */
+  private _grad: { grad: GradState } | null = null;
+  private _fillGradient: FillGradient | null = null;
+  private _applyGradient(): void {
+    const g = this._grad!.grad;
+    const next = new FillGradient(gradientOptions({ angle: g.angle, stops: g.stops.map(s => [s.offset, s.color] as [number, string]) }) as never);
+    (this.target as Text).style.fill = next as never;
+    this._fillGradient?.destroy();
+    this._fillGradient = next;
+  }
+  override destroy(): void {
+    super.destroy();
+    this._fillGradient?.destroy();
+    this._fillGradient = null;
+  }
 
   /** A typewriter that has typed nothing yet: the layer is empty on purpose (inspect must not call that "no size"). */
   get showsNothingYet(): boolean { return this._typed && this._lastText === '' && this._template !== ''; }
@@ -92,6 +109,9 @@ export class TextSequence extends Sequence {
       this.intrinsicWidth = text.width;
       this.intrinsicHeight = text.height;
     }
+    validateGradientKeyframes(this.spec as never, describeLayer(this.spec));              // once, here: a tween's onStart runs again at every seek
+    const gradientSpec = this.spec.fillGradient ?? (initialProps.fillGradient as GradientSpec | undefined);
+    if (gradientSpec) { this._grad = { grad: gradStateFrom(gradientSpec) }; this._applyGradient(); }
     // `{value}` counter / `visibleChars`: seed the numbers from initial and print.
     const scope = this.scope();
     if (initialProps.value !== undefined) this._counters.value = resolveNumber(initialProps.value, scope);
@@ -120,11 +140,12 @@ export class TextSequence extends Sequence {
     // interpolation.
     // `value` (the counter) is likewise not a property of the Text object.
     // `text` (a string swap) and `visibleChars` (the typewriter count) are likewise ours, not the Text object's.
-    const stripped = stripKeys(this.spec, ['fill', 'value', 'text', 'visibleChars']);
+    const stripped = stripKeys(this.spec, ['fill', 'value', 'text', 'visibleChars', 'fillGradient']);
     runSuperWithStrippedSpec(this, stripped, timeline, offset);
     const keyframes = this.spec.keyframes ?? [];
     const origin = offset + this.at;
     bindFillKeyframes(timeline, this.target as Text, keyframes, this.duration!, origin, colorSpace);
+    if (this._grad) bindGradientKeyframes(timeline, this._grad, keyframes, this.duration!, origin, colorSpace, () => this._applyGradient());
     const refresh = (): void => this._refreshText();
     bindCounterKeyframes(timeline, this._counters, 'value', refresh, keyframes, this.duration!, origin, this.scope());
     bindCounterKeyframes(timeline, this._counters, 'visibleChars', refresh, keyframes, this.duration!, origin, this.scope());

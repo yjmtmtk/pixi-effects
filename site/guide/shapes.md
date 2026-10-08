@@ -22,9 +22,24 @@ A shape layer is `type: 'shape'` with a `shape` kind and its geometry. Fill and 
   initial: { x: 640, y: 360, fillColor: '#3b5bdb', strokeColor: '#ffffff', strokeWidth: 4 } }
 ```
 
-Style: `fillColor`, `fillAlpha`, `strokeColor`, `strokeAlpha`, `strokeWidth`, plus `fillGradient` (a linear or radial gradient, which with transparent stops makes a vignette) and `strokeCap` / `strokeJoin` (`'round'` is friendly). Colours can tween in a perceptual colour space with `colorSpace: 'oklab'` or `'oklch'`, which avoids the muddy middle of a red-to-green fade.
+Style: `fillColor`, `fillAlpha`, `strokeColor`, `strokeAlpha`, `strokeWidth`, plus `fillGradient` (a linear or radial gradient, which with transparent stops makes a vignette; a keyframe can animate it, see below) and `strokeCap` / `strokeJoin` (`'round'` is friendly). Colours can tween in a perceptual colour space with `colorSpace: 'oklab'` or `'oklch'`, which avoids the muddy middle of a red-to-green fade.
 
 {{demo examples/03-shapes.html}}
+
+## A gradient that moves
+
+A keyframe can carry a **partial** `fillGradient`: the keys you write change, the others stay. Angles and radii move linearly, the stop colours move through the layer's `colorSpace` (`'oklch'` keeps a fade vivid; `'rgb'` turns green to magenta through grey).
+
+```js
+{ type: 'shape', shape: 'rect', width: 560, height: 420, cornerRadius: 36, colorSpace: 'oklch', initial: { x: 520, y: 540 },
+  fillGradient: { angle: 0, stops: [[0, '#ff2d55'], [1, '#0ea5e9']] },
+  keyframes: [{ at: 0, duration: 2, to: { fillGradient: { angle: 360, stops: [[0, '#00e5ff'], [1, '#ffd60a']] } } }] }
+{ type: 'shape', shape: 'circle', radius: 230, initial: { x: 1360, y: 540 },
+  fillGradient: { type: 'radial', center: [0.2, 0.2], radius: 0.25, stops: [[0, '#ffffff'], [1, '#ff2d55']] },
+  keyframes: [{ at: 0, duration: 2, ease: 'sine.inOut', to: { fillGradient: { center: [0.8, 0.8], radius: 0.6 } } }] }
+```
+
+The layer needs a starting `fillGradient`, the stops keep their count, and a gradient cannot turn from linear to radial. Mistakes are said once, when the layer is built.
 
 ## Draw a stroke on
 

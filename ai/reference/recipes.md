@@ -743,6 +743,28 @@ return [
 
 ---
 
+## A gradient that moves (a turning fade, a drifting glow, letters that change colour)
+
+A keyframe's `fillGradient` is partial: write only what moves. `colorSpace: 'oklch'` keeps the fade vivid.
+
+```js
+// @recipe gradient-shift
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', colorSpace: 'oklch', initial: { x: 'GW/2', y: 'GH/2' },
+    fillGradient: { angle: 20, stops: [[0, '#1b2a6b'], [1, '#7b3fe4']] },
+    keyframes: [{ at: 0, duration: 4, ease: 'sine.inOut', to: { fillGradient: { angle: 200, stops: [[0, '#7b3fe4'], [1, '#ff6a88']] } } }] },
+  { type: 'shape', shape: 'circle', radius: 260, initial: { x: 'GW/2', y: 'GH/2' },
+    fillGradient: { type: 'radial', center: [0.2, 0.2], radius: 0.3, stops: [[0, 'rgba(255,255,255,0.9)'], [1, 'rgba(255,255,255,0)']] },
+    keyframes: [{ at: 0, duration: 4, ease: 'sine.inOut', to: { fillGradient: { center: [0.8, 0.8], radius: 0.6 } } }] },
+  { type: 'text', text: 'SHIFT', name: 'title', style: { fontSize: 220, fontWeight: '900' }, anchorX: 0.5, anchorY: 0.5, colorSpace: 'oklch',
+    initial: { x: 'GW/2', y: 'GH/2' },
+    fillGradient: { angle: 0, stops: [[0, '#ffd60a'], [1, '#22c55e']] },
+    keyframes: [{ at: 0, duration: 4, to: { fillGradient: { angle: 180, stops: [[0, '#00e5ff'], [1, '#ff2d55']] } } }] },
+];
+```
+
+---
+
 ## Generated placeholder images (no photos available)
 
 Draw on a canvas and register `canvas.toDataURL()` as an asset (`data:` URLs work). Make the image at least canvas-sized (1920×1080 for a 1280×720 movie) so `kenBurns` zooms stay sharp.

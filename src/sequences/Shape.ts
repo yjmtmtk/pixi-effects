@@ -10,6 +10,7 @@ import { type ColorSpace, type ColorInput } from '../expr/colorInterp';
 import { tweenColor } from '../expr/colorTween';
 import type { Scope } from '../expr/Scope';
 import { makeGradientFill } from './gradientFill';
+import { GradientPainter, gradStateFrom, bindGradientKeyframes, hasGradientKeys, validateGradientKeyframes, type GradState } from './gradientAnim';
 import { trimPolylines, rectOutline, ellipseOutline, flattenSvgPath, type Polyline } from './trimPath';
 import { buildMorph, morphAt, type MorphPair } from './morphPath';
 import { collectPropKeys } from '../space/specKeys';
@@ -30,7 +31,7 @@ type Timeline = ReturnType<typeof gsap.timeline>;
 // standard transform/keyframe pipeline and routed through `_state` instead.
 type StyleKey = 'fillColor' | 'fillAlpha' | 'strokeColor' | 'strokeAlpha' | 'strokeWidth';
 type GeometryKey = 'width' | 'height' | 'cornerRadius' | 'radius' | 'radiusX' | 'radiusY' | 'anchorX' | 'anchorY' | 'innerRadius' | 'startAngle' | 'endAngle' | 'trimStart' | 'trimEnd' | 'morph';
-type LiveKey = StyleKey | GeometryKey;
+type LiveKey = StyleKey | GeometryKey | 'fillGradient';
 
 const STYLE_KEYS = ['fillColor', 'fillAlpha', 'strokeColor', 'strokeAlpha', 'strokeWidth'] as const;
 const COLOR_KEYS = new Set<LiveKey>(['fillColor', 'strokeColor']);
@@ -131,7 +132,16 @@ export class ShapeSequence extends Sequence {
       this._state.trimEnd ??= 1;
     }
     const gradientSpec = this.spec.fillGradient ?? (this.spec.initial as { fillGradient?: GradientSpec } | undefined)?.fillGradient;
-    if (gradientSpec) this._state.fillStyle = makeGradientFill(gradientSpec);
+    validateGradientKeyframes(this.spec as never, describeLayer(this.spec));          // once, here: a tween's onStart runs again at every seek
+    if (gradientSpec) {
+      if (hasGradientKeys(this.spec.keyframes)) {
+        // animated: one canvas + one texture, repainted in place whenever the gradient changes
+        this._grad = { grad: gradStateFrom(gradientSpec) };
+        this._painter = new GradientPainter();
+        this._gradDirty = true;
+        this._liveKeys.add('fillGradient');
+      } else this._state.fillStyle = makeGradientFill(gradientSpec);
+    }
 
     // Build the per-frame draw closure. For symmetric shapes (rect / circle /
     // ellipse) it pulls from _state so geometry tweens take effect; for
@@ -211,12 +221,22 @@ export class ShapeSequence extends Sequence {
     return { pairs, to: String(top.morphTo) };
   }
 
+  override destroy(): void {
+    super.destroy();
+    this._painter?.destroy();                      // the animated gradient's texture and canvas go with the layer
+    this._painter = null;
+  }
+
   private _fresh = false;
+  private _grad: { grad: GradState } | null = null;
+  private _painter: GradientPainter | null = null;
+  private _gradDirty = false;
   private _outline: (() => Polyline[]) | null = null;
 
   private _redraw(): void {
     const graphics = this.target as Graphics;
     const s = this._state;
+    if (this._grad && this._gradDirty) { s.fillStyle = this._painter!.paint(this._grad.grad); this._gradDirty = false; }
     graphics.clear();
     const trimmed = (s.trimStart ?? 0) > 0 || (s.trimEnd ?? 1) < 1;
     if (!trimmed || !this._outline || !(s.strokeColor !== undefined && s.strokeWidth > 0)) {
@@ -273,6 +293,7 @@ export class ShapeSequence extends Sequence {
     // GSAP's standard numeric interpolation.
     const colorSpace: ColorSpace = (this.spec as { colorSpace?: ColorSpace }).colorSpace ?? 'rgb';
     bindLiveKeyframes(timeline, this._state, this._liveKeys, this.spec.keyframes ?? [], this.duration!, scope, startTime, colorSpace);
+    if (this._grad) bindGradientKeyframes(timeline, this._grad, this.spec.keyframes ?? [], this.duration!, startTime, colorSpace, () => { this._gradDirty = true; });
 
     this.absoluteStart = startTime;
     const endTime = startTime + this.duration!;
@@ -569,6 +590,7 @@ function bindLiveKeyframes(
       const live = pickLive(kf.set, liveKeys);
       if (live) {
         for (const [k, v] of Object.entries(live)) {
+          if (k === 'fillGradient') continue;   // animated by bindGradientKeyframes
           const resolved = resolveLiveValue(k as LiveKey, v, scope);
           const live = state as unknown as Record<string, unknown>;
           revertibleSet(timeline, at, () => live[k], v2 => { live[k] = v2; }, resolved);
@@ -583,6 +605,7 @@ function bindLiveKeyframes(
       ...(toLive   ? Object.keys(toLive)   : []),
     ]);
     for (const k of allKeys) {
+      if (k === 'fillGradient') continue;     // animated by bindGradientKeyframes
       const key = k as LiveKey;
       const fromRaw = fromLive?.[key];
       const toRaw   = toLive?.[key];

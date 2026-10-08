@@ -50,6 +50,18 @@ Anchor a typewriter on its **left** edge, or each new letter re-centres the line
 
 {{demo examples/14-draw-on.html}}
 
+## Gradient letters
+
+A text layer takes a `fillGradient` for its letters, and a keyframe can move it (the same partial gradient as on a shape):
+
+```js
+{ type: 'text', text: 'GRADIENT', style: { fontSize: 200, fontWeight: '900' }, anchorX: 0.5, anchorY: 0.5, initial: { x: 640, y: 360 },
+  colorSpace: 'oklch', fillGradient: { angle: 0, stops: [[0, '#ff2d55'], [1, '#0ea5e9']] },
+  keyframes: [{ at: 0, duration: 2, to: { fillGradient: { angle: 180, stops: [[0, '#ffd60a'], [1, '#22c55e']] } } }] }
+```
+
+The letters are drawn again on every change (about 0.4 ms for a line at 1080p), so a long page of animated gradient text costs more than one headline.
+
 ## Per-letter and per-word animation
 
 `animateText()` does it in one call (`x` and `y` are pixel numbers, not expressions, and `y` is the top of the line): one text layer per character, word or line, laid out exactly like the whole text, arriving (and leaving) in a wave. Letters turn and scale about their own centre. The result is plain layers: spread it into `sequences`. `duration` is how long until every piece is gone, and `out` leaves **from that end** (it has no `at` of its own): to be gone at 8 s, with `at: 0.4`, write `duration: 7.6`.
