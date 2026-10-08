@@ -1,6 +1,7 @@
 import { gsap } from 'gsap';
 import { suggestName } from './options';
 import { springProblem } from './spring';
+import { cubicBezierProblem } from './cubicBezier';
 
 const FAMILIES = ['power1', 'power2', 'power3', 'power4', 'back', 'elastic', 'bounce', 'circ', 'expo', 'sine'];
 /** The ease names to suggest from (`steps(n)` and parameters such as `back.out(1.7)` are valid too). */
@@ -20,6 +21,13 @@ export function checkEase(ease: string, where: string): void {
     if (!problem || warned.has(ease)) return;
     warned.add(ease);
     console.warn(`pixi-effects: ${where}: unknown ease "${ease}" — ${problem}. GSAP would run it as its default ease, power1.out.`);
+    return;
+  }
+  if (/^\s*cubic-bezier/i.test(ease)) {                            // GSAP resolves a registered cubic-bezier; a malformed one is said once, with what it runs as
+    const problem = cubicBezierProblem(ease);
+    if (!problem || warned.has(ease)) return;
+    warned.add(ease);
+    console.warn(`pixi-effects: ${where}: unknown ease "${ease}" — ${problem}. It runs as 'none' (a straight line).`);
     return;
   }
   const found: unknown = gsap.parseEase(ease);

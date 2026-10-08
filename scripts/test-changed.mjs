@@ -14,6 +14,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 /** area → the files that belong to it (prefix match on the path) and the browser tests that watch them. */
 export const AREAS = [
   { name: 'spring easing', paths: ['src/core/spring.ts', 'src/core/ease.ts', 'src/core/Timeline.ts', 'src/presets/stagger.ts', 'src/presets/_ease.ts'], tests: ['tests/tools/springSeek.test.ts', 'tests/tools/animateText.test.ts'] },
+  { name: 'cubic-bezier easing', paths: ['src/core/cubicBezier.ts', 'src/core/ease.ts', 'examples/_checks/cubic-bezier.html'], tests: ['tests/tools/cubicBezier.test.ts'] },
   { name: 'gradients', paths: ['src/sequences/gradient', 'src/sequences/Shape.ts', 'src/sequences/Text.ts', 'src/expr/colorTween.ts', 'src/expr/colorInterp.ts'], tests: ['tests/tools/gradientAnim.test.ts', 'tests/tools/maskBugs.test.ts', 'tests/tools/lastFrame.test.ts'] },
   { name: 'grain and filters', paths: ['src/filters/', 'src/core/timeFilters.ts'], tests: ['tests/tools/grain.test.ts'] },
   { name: 'key warnings', paths: ['src/core/lint.ts', 'src/core/layerKeys.ts', 'src/core/options.ts', 'src/sequences/Composition.ts'], tests: ['tests/tools/noFalseWarnings.test.ts'] },

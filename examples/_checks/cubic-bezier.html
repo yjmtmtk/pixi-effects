@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>check · cubic-bezier</title></head>
+<body>
+  <!-- Acceptance check (not an example): tests/tools/cubicBezier.test.ts compares gsap's cubic-bezier with Chrome's own CSS easing (Web Animations getComputedTiming().progress). -->
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">
+  { "imports": {
+      "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap": "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }
+  </script>
+  <script type="module">
+    import '../../dist/index.js';                       // registers the ease
+    import { gsap } from 'gsap';
+    const el = document.body.appendChild(document.createElement('div'));
+    window.ours = (str, p) => gsap.parseEase(str)(p);
+    window.css = (str, p) => {
+      const a = el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 1000, easing: str, fill: 'both' });
+      a.pause(); a.currentTime = p * 1000;
+      const v = a.effect.getComputedTiming().progress; a.cancel(); return v;
+    };
+    window.__ready = true;
+  </script>
+</body></html>
