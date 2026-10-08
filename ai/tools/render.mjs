@@ -67,6 +67,7 @@ export function parseRenderArgs(argv) {
       const m = need(i++, a).match(/^(\d+(?:\.\d+)?)?:(\d+(?:\.\d+)?)?$/);
       if (!m || (m[1] === undefined && m[2] === undefined)) throw new Error(`--range must look like 2:5 (seconds; 2: runs to the end, :5 starts at the beginning), got "${argv[i]}"`);
       o.range = [m[1] === undefined ? null : Number(m[1]), m[2] === undefined ? null : Number(m[2])];
+      if (o.range[0] !== null && o.range[1] !== null && !(o.range[0] < o.range[1])) throw new Error(`--range ${argv[i]}: it must start before it ends (2:5 is seconds 2 to 5)`);
     } else if (a === '--scene') o.scene = need(i++, a);
     else if (a === '--scale') {
       o.scale = Number(need(i++, a));

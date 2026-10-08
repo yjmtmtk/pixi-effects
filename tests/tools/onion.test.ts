@@ -45,6 +45,9 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('movie.onio
       const half = await cdp.eval(READ({ scale: 0.5, count: 3 }));
       expect([half.width, half.height]).toEqual([640, 360]);
 
+      const blurred = await cdp.eval(`movie.onionSkin({ count: 3, motionBlur: { samples: 2 }, as: 'dataURL' }).then(u => u.slice(0, 22))`);
+      expect(blurred).toBe('data:image/png;base64,');                                // motion blur goes through the same path as the contact sheet
+
       const err = (opts: object) => cdp.eval(`movie.onionSkin(${JSON.stringify(opts)}).then(() => 'ok', e => e.message)`);
       expect(await err({ count: 100 })).toMatch(/count must be a whole number from 1 to 64/);
       expect(await err({ from: 2, to: 1 })).toMatch(/from must be before to/);

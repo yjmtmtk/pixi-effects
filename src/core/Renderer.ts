@@ -160,7 +160,7 @@ export async function exportFrames(movie: Movie, options: RenderOptions = {}): P
     }
     await canvasSource.close();
     await output.finalize();
-    if (mb) await movie.gotoFrame(movie.totalFrames, true);          // the stage shows the last frame itself, not its last sample
+    if (mb) await movie.gotoFrame(range.toFrame, true);              // the stage shows the last exported frame itself, not its last sample
     return new Blob([output.target.buffer as ArrayBuffer], { type: output.format.mimeType });
   } finally {
     movie.app!.ticker.start();

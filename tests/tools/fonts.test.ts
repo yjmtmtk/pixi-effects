@@ -22,7 +22,8 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('movie.insp
       expect(await cdp.eval('window.__ready === true')).toBe(true);
       const r = await cdp.eval('JSON.stringify(movie.inspectFonts())').then(JSON.parse);
       expect(r.missing).toEqual([{ layer: 'missing', family: 'ThisFontDoesNotExist123, NopeNope' }]);        // ok-arial / ok-georgia are not in it
-      expect(r.failed).toEqual(['Broken']);
+      expect(r.failed).toEqual(['Broken']);                                                                  // used by a layer: a problem
+      expect(r.failedUnused).toEqual(['Unused']);                                                            // no layer uses it: only worth a look
     } finally { try { proc.kill(); } catch { /* gone */ } server.close(); await check.sleep(200); try { rmSync(dir, { recursive: true, force: true }); } catch { /* held */ } }
   }, 120000);
 });

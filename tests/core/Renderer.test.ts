@@ -125,6 +125,7 @@ interface MovieStub {
   timelineData(): { rows: Array<{ name: string; start: number; end: number; depth: number }> };
   audioBuffer: AudioBuffer | null;
   gotoFrame(frame: number, force?: boolean): Promise<void>;
+  _exposeFrame(frame: number, mb: unknown, canvas: unknown, force: boolean): Promise<void>;
   emit(event: string, data: unknown): void;
 }
 
@@ -133,6 +134,7 @@ function fakeMovie(opts: { totalFrames?: number; frameRate?: number; audioBuffer
   const frameRate = opts.frameRate ?? 30;
   const local = {
     gotoFrame: [] as Array<{ frame: number; force?: boolean }>,
+    exposed: [] as number[],
     emit: [] as Array<{ event: string; data: unknown }>,
     tickerStops: 0,
     tickerStarts: 0,
@@ -151,6 +153,7 @@ function fakeMovie(opts: { totalFrames?: number; frameRate?: number; audioBuffer
     timelineData: () => ({ rows: [{ name: 'title', start: 1, end: 2, depth: 0 }] }),
     audioBuffer: opts.audioBuffer ?? null,
     async gotoFrame(frame: number, force?: boolean) { local.gotoFrame.push({ frame, force }); },
+    async _exposeFrame(frame: number) { local.exposed.push(frame); },
     emit(event: string, data: unknown) { local.emit.push({ event, data }); },
   };
   return { movie, local };
@@ -257,6 +260,13 @@ describe('Renderer — encode loop', () => {
     const progress = local.emit.filter((e) => e.event === 'progress').map((e) => (e.data as { progress: number }).progress);
     expect(progress[0]).toBe(0); expect(progress[progress.length - 1]).toBe(100);
     expect((calls.canvasSourceAdds[0]!.opts as { keyFrame?: true }).keyFrame).toBe(true);        // the first frame of the file is a keyframe
+  });
+
+  it('a range with motion blur draws each frame of the range blurred, and leaves the stage on the last frame it exported (not the end of the movie)', async () => {
+    const { movie, local } = fakeMovie({ totalFrames: 300, frameRate: 30 });
+    await exportFrames(asMovie(movie), { range: [1, 2], motionBlur: { samples: 2 } });
+    expect(local.exposed).toEqual(Array.from({ length: 31 }, (_, i) => 30 + i));
+    expect(local.gotoFrame.map((c) => c.frame)).toEqual([60]);                  // only the final "show the frame itself, not its last sample"
   });
 
   it('a layer name is a range', async () => {

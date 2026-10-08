@@ -4,7 +4,7 @@ export interface RangeContext {
   totalFrames: number;
   duration: number;
   /** The movie's timeline rows (`movie.timelineData().rows`): a range may name a top-level layer. */
-  rows?: Array<{ name: string; start: number; end: number; depth: number }>;
+  rows?: Array<{ name: string; start: number; end: number; depth: number; parts?: Array<{ start: number; end: number }>; partNames?: string[] }>;
 }
 export interface ResolvedRange { fromFrame: number; toFrame: number; fromSec: number; toSec: number; partial: boolean }
 
@@ -13,9 +13,10 @@ export function resolveRange(range: [number, number] | string | undefined, ctx: 
   if (range === undefined) return { fromFrame: 0, toFrame: totalFrames, fromSec: 0, toSec: duration, partial: false };
   let from: number, to: number;
   if (typeof range === 'string') {
-    const rows = (ctx.rows ?? []).filter((r) => r.depth === 0);
+    // top-level layers by their own names (a family the timeline folds into one row, `pop-# ×4`, gives its members back)
+    const rows = (ctx.rows ?? []).filter((r) => r.depth === 0).flatMap((r) => (r.parts && r.partNames ? r.partNames.map((name, i) => ({ name, start: r.parts![i]!.start, end: r.parts![i]!.end })) : [r]));
     const row = rows.find((r) => r.name === range);
-    if (!row) throw new Error(`pixi-effects: render({ range: "${range}" }): no layer named "${range}" at the top level (names: ${rows.map((r) => r.name).join(', ') || 'none'})`);
+    if (!row) throw new Error(`pixi-effects: render({ range: "${range}" }): no layer named "${range}" at the top level (names: ${rows.slice(0, 40).map((r) => r.name).join(', ') || 'none'}${rows.length > 40 ? ', …' : ''})`);
     from = row.start; to = row.end;
   } else {
     if (!Array.isArray(range) || range.length !== 2 || !range.every((n) => typeof n === 'number' && Number.isFinite(n))) {

@@ -13,9 +13,19 @@ export const __resetEaseWarnings = (): void => warned.clear();
  * Warn once per name, with a guess.
  */
 export function checkEase(ease: string, where: string): void {
-  if (typeof ease !== 'string' || gsap.parseEase(ease)) return;
+  if (typeof ease !== 'string') return;
+  const found: unknown = gsap.parseEase(ease);
+  if (typeof found === 'function') return;                         // `Power2` gives back a family object ({ easeIn, easeOut, easeInOut }): not an ease
   if (warned.has(ease)) return;
   warned.add(ease);
+  if (ease === '') {
+    console.warn(`pixi-effects: ${where}: an empty ease (GSAP would run its default, power1.out): write 'none' for no easing, or a name such as 'power2.out'`);
+    return;
+  }
+  if (found && /^power[1-4]$/i.test(ease)) {
+    console.warn(`pixi-effects: ${where}: "${ease}" is a family, not an ease — write ${ease.toLowerCase()}.out, ${ease.toLowerCase()}.in or ${ease.toLowerCase()}.inOut`);
+    return;
+  }
   const guess = suggestName(ease, EASE_NAMES);
   console.warn(`pixi-effects: ${where}: unknown ease "${ease}"${guess ? ` — did you mean "${guess}"?` : ''} (GSAP would run it as its default ease, power1.out). Examples: ${EASE_NAMES.slice(0, 7).join(', ')}, back.out(1.7), elastic.out(1, 0.3), steps(8)`);
 }

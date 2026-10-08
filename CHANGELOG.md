@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+**Fixed**
+
+- `pixi-effects-render --range 5:2` is a usage error (exit code 2, with what to write), not a failed render (exit code 1).
+- `pixi-effects-check`: a mistake in `--at` or `--onion` is reported before any of the slow work (no sheet or report is written); a `--at` label such as `a/b@end` can no longer make a folder or an illegal file name.
+- A mistyped `ease` that is empty (`ease: ''`) or a family name (`ease: 'Power2'`, which GSAP answers with an object, not an ease) now warns with what to write; before, `Power2` passed silently.
+- `movie.inspectFonts()` and `check`: a web font that failed to load fails the check only when a text layer uses it; an unused broken `@font-face` (`failedUnused`) is listed for review. An offline CI page that links web fonts it never uses no longer fails.
+- After a range export with motion blur the stage is left on the last frame that was exported, not on the end of the movie.
+- A layer the timeline folds into a family row (`pop-1` … `pop-12` → `pop-# ×12`) can be named in `render({ range })`, `--scene` and `--at name@end` (`movie.timelineData()` rows carry `partNames`).
+- The docs' motion-blur claim is now a measurement: 4 s of `hanabi-night` (a piece that asks for motion blur) took 14.0 s and 8.2 s as a draft, about 7 s of each being the browser's start-up.
+
+**Checked, nothing to change:** the true peak reads 0.00 dB for a faded 0 dBFS sine from 1 to 18 kHz and +0.06 dB at 20 kHz (a sine switched on abruptly reads up to 0.4 dB higher at 20 kHz: that is real ringing at the switch-on); a test pins it.
+
 ## 0.17.0
 
 **Fixed**

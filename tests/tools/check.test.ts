@@ -117,6 +117,11 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     const bad = await run(['--out', mkdtempSync(join(tmpdir(), 'check-bad-')), '--no-export', '--at', 'nope@end']).then(() => null, (e: any) => e);
     expect(bad?.code).toBe(2);
     expect(String(bad?.stderr)).toMatch(/no layer named "nope".*title/s);
+    // a mistake in --at is reported before any of the slow work: no sheet, no report
+    const dir = mkdtempSync(join(tmpdir(), 'check-early-'));
+    await run(['--out', dir, '--no-export', '--at', 'banana']).then(() => null, () => null);
+    expect(existsSync(join(dir, 'sheet.png'))).toBe(false);
+    expect(existsSync(join(dir, 'report.json'))).toBe(false);
   }, 400_000);
 
   it('audio: the report gives loudness, scenes and cues, the printout says LUFS and dBTP, waveform.png is a real picture; a silent movie has no waveform', async () => {
@@ -162,6 +167,8 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     expect(report.fonts.missing.map((m: any) => m.layer)).toEqual(['missing']);
     expect(report.inspect.review.map((r: any) => r.message).join('\n')).toMatch(/layer "missing": none of the fonts "ThisFontDoesNotExist123, NopeNope" is available/);
     expect(report.problems.join('\n')).not.toMatch(/layer "missing"/);               // not a failure without --strict
+    expect(report.problems.join('\n')).not.toMatch(/Unused/);                         // a failed font nothing uses is not a failure ...
+    expect(report.inspect.review.map((r: any) => r.message).join('\n')).toMatch(/web font "Unused" failed to load, but no text layer uses it/);   // ... only a note
     const strict = await run(['--out', mkdtempSync(join(tmpdir(), 'check-fonts-')), '--strict']).then(() => null, (e: any) => e);
     expect(strict?.code).toBe(1);
     expect(String(strict?.stdout)).toMatch(/layer "missing": none of its fonts is available/);

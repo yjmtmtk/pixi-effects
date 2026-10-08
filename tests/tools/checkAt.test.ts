@@ -29,10 +29,18 @@ describe('check.resolveAtList', () => {
   it('seconds, percent, frames and layer@start|mid|end', () => {
     expect(check.resolveAtList('3.5, 50%, f120, title@end, logo@mid, title@start', ctx).map((x: any) => x.frame)).toEqual([105, 150, 120, 179, 225, 60]);
   });
+  it('a layer folded into a family row (pop-# ×4) is still addressed by its own name', () => {
+    const rows = [{ name: 'title', start: 0, end: 10 }, { name: 'pop-# ×4', start: 1, end: 6, parts: [{ start: 1, end: 2 }, { start: 2, end: 3 }, { start: 3, end: 4 }, { start: 5, end: 6 }], partNames: ['pop-1', 'pop-2', 'pop-3', 'pop-4'] }];
+    expect(check.resolveAtList('pop-3@end,pop-4@start', { ...ctx, rows }).map((x: any) => x.frame)).toEqual([119, 150]);
+  });
   it('labels are readable and unique (they become file names)', () => {
     const l = check.resolveAtList('3.5,title@end', ctx).map((x: any) => x.label);
     expect(l).toEqual(['3.50s', 'title-end']);
     expect(check.resolveAtList('3.5,3.5', ctx).map((x: any) => x.label)).toEqual(['3.50s', '3.50s-2']);
+  });
+  it('labels are safe as file names: a layer called "a/b" or "x:y" does not make a folder or an illegal name', () => {
+    const ctx2 = { ...ctx, rows: [{ name: 'a/b', start: 1, end: 3 }, { name: 'x:y*z', start: 3, end: 5 }] };
+    expect(check.resolveAtList('a/b@end,x:y*z@start', ctx2).map((x: any) => x.label)).toEqual(['a-b-end', 'x-y-z-start']);
   });
   it('says what it could not read', () => {
     expect(() => check.resolveAtList('nope@end', ctx)).toThrow(/no layer named "nope".*title.*logo/s);

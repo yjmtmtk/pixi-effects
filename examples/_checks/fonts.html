@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <title>check · movie.inspectFonts()</title>
-  <style>@font-face { font-family: Broken; src: url(this-file-does-not-exist.woff2); }</style>
+  <style>@font-face { font-family: Broken; src: url(this-file-does-not-exist.woff2); } @font-face { font-family: Unused; src: url(this-one-is-missing-too.woff2); }</style>
 </head>
 <body>
   <!--
     Acceptance check (not an example): four text layers. "ok-arial" and "ok-georgia" name fonts that exist, "missing" names two that do
-    not, "broken" names a web font whose file cannot be loaded. tests/tools/fonts.test.ts reads movie.inspectFonts().
+    not, "broken" names a web font whose file cannot be loaded. A second web font ("Unused") also fails to load but no layer uses it. tests/tools/fonts.test.ts reads movie.inspectFonts().
   -->
   <canvas id="stage" width="320" height="180"></canvas>
   <script>
@@ -31,7 +31,7 @@
   <script type="module">
     import { Movie } from '../../dist/index.js';
 
-    try { await document.fonts.load('20px Broken'); } catch { /* the file is missing on purpose: the face ends up in the error state */ }
+    try { await Promise.allSettled([document.fonts.load('20px Broken'), document.fonts.load('20px Unused')]); } catch { /* the file is missing on purpose: the face ends up in the error state */ }
     const text = (name, fontFamily, y) => ({ type: 'text', name, text: name, style: { fontFamily, fontSize: 24, fill: '#ffffff' }, initial: { x: 10, y } });
     const movie = new Movie();
     window.movie = movie;

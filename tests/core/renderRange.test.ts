@@ -29,6 +29,20 @@ describe('resolveRange', () => {
   });
 });
 
+describe('resolveRange: a layer the timeline folds into a family row is still addressable by its own name', () => {
+  const folded = { frameRate: 30, totalFrames: 300, duration: 10, rows: [
+    { name: 'title', start: 0, end: 10, depth: 0 },
+    { name: 'pop-# ×4', start: 1, end: 6, depth: 0, parts: [{ start: 1, end: 2 }, { start: 2, end: 3 }, { start: 3, end: 4 }, { start: 5, end: 6 }], partNames: ['pop-1', 'pop-2', 'pop-3', 'pop-4'] },
+  ] };
+  it('pop-3 is its own span, not the whole family', () => {
+    expect(resolveRange('pop-3', folded)).toMatchObject({ fromFrame: 90, toFrame: 120 });
+    expect(resolveRange('pop-4', folded)).toMatchObject({ fromFrame: 150, toFrame: 180 });
+  });
+  it('the error lists the real names, not the folded row', () => {
+    expect(() => resolveRange('pop-9', folded)).toThrow(/names: title, pop-1, pop-2, pop-3, pop-4/);
+  });
+});
+
 describe('sliceChannels', () => {
   const sr = 1000, ch = [Float32Array.from({ length: 4000 }, () => 1)];
   it('cuts exactly from..to seconds', () => {

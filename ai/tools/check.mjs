@@ -96,11 +96,13 @@ export function scenesOf(rows) {
 export function resolveAtList(list, ctx) {
   const { frameRate: fps, totalFrames, duration, rows } = ctx;
   const out = [], used = new Set();
+  // layers by their own names: a family the timeline folds into one row (`pop-# ×4`) gives its members back
+  const named = rows.flatMap(r => (r.parts && r.partNames ? r.partNames.map((name, i) => ({ name, start: r.parts[i].start, end: r.parts[i].end })) : [r]));
   for (const raw of String(list).split(',').map(s => s.trim()).filter(Boolean)) {
     let frame, label, m;
     if ((m = raw.match(/^(.+)@(start|mid|end)$/))) {
-      const row = rows.find(r => r.name === m[1]);
-      if (!row) throw new Error(`--at "${raw}": no layer named "${m[1]}" (names: ${rows.map(r => r.name).join(', ')})`);
+      const row = named.find(r => r.name === m[1]);
+      if (!row) throw new Error(`--at "${raw}": no layer named "${m[1]}" (names: ${named.slice(0, 40).map(r => r.name).join(', ')}${named.length > 40 ? ', …' : ''})`);
       const t = m[2] === 'start' ? row.start : m[2] === 'mid' ? (row.start + row.end) / 2 : row.end - 1 / fps;
       frame = Math.round(t * fps); label = `${m[1]}-${m[2]}`;
     } else if ((m = raw.match(/^(\d+(?:\.\d+)?)%$/))) { frame = Math.round(Number(m[1]) / 100 * totalFrames); label = `${m[1]}pct`; }
@@ -108,6 +110,7 @@ export function resolveAtList(list, ctx) {
     else if (/^\d+(\.\d+)?$/.test(raw)) { frame = Math.round(Number(raw) * fps); label = `${Number(raw).toFixed(2)}s`; }
     else throw new Error(`--at: cannot read "${raw}": ${AT_HELP}`);
     if (frame > totalFrames || frame < 0) throw new Error(`--at "${raw}" is past the end: the movie is ${duration} s (${totalFrames} frames)`);
+    label = label.replace(/[\\/:*?"<>|]+/g, '-');                               // a layer called a/b must not make a folder
     let unique = label, n = 2;
     while (used.has(unique)) unique = `${label}-${n++}`;
     used.add(unique);
@@ -222,7 +225,7 @@ const INFO = `(() => { const m = window.movie; if (!m) return { hasMovie: false,
   const c = document.querySelector('canvas');
   return { hasMovie: true, logs: window.__logs || [], totalFrames: m.totalFrames, frameRate: m.frameRate, duration: m.duration,
            width: m.width ?? (c && c.width), height: m.height ?? (c && c.height), hasAudio: !!m.audioBuffer,
-           rows: (() => { try { return m.timelineData().rows.map(r => ({ name: r.name, type: r.type, start: r.start, end: r.end, depth: r.depth })); } catch { return []; } })() }; })()`;
+           rows: (() => { try { return m.timelineData().rows.map(r => ({ name: r.name, type: r.type, start: r.start, end: r.end, depth: r.depth, parts: r.parts, partNames: r.partNames })); } catch { return []; } })() }; })()`;
 
 const sweepScript = list => `(async () => {
   const frames = new Set(${JSON.stringify(list)});
@@ -363,6 +366,10 @@ export async function runCheck(opts, log = console.log) {
     Object.assign(report, { width: info.width, height: info.height, frameRate: info.frameRate, totalFrames: info.totalFrames, duration: info.duration, hasAudio: info.hasAudio });
     if (report.logs.length) report.problems.push(`${report.logs.length} console warning(s) / error(s) — each says what to change`);
 
+    // a mistake in --at or --onion is a usage error: say so now, not after the slow work
+    const atList = opts.at ? resolveAtList(opts.at, { frameRate: info.frameRate, totalFrames: info.totalFrames, duration: info.duration, rows: info.rows ?? [] }) : null;
+    if (opts.onion && opts.onion[1] > info.duration + 1e-9) throw new Error(`--onion ${opts.onion[0]}:${opts.onion[1]} goes past the end: the movie is ${info.duration} s`);
+
     // layout: inspect over the whole timeline
     const scenes = scenesOf(info.rows ?? []);
     const sweep = await cdp.eval(sweepScript(sampleFrames({ totalFrames: info.totalFrames, frameRate: info.frameRate, scenes })));
@@ -375,6 +382,7 @@ export async function runCheck(opts, log = console.log) {
     if (fonts) {
       report.fonts = fonts;
       if (fonts.failed.length) report.problems.push(`${fonts.failed.length} web font(s) failed to load: ${fonts.failed.join(', ')} (the layers that use them are drawn in a fallback)`);
+      for (const f of fonts.failedUnused ?? []) report.inspect.review.push({ message: `web font "${f}" failed to load, but no text layer uses it (a broken or unused @font-face)`, count: 1, firstFrame: 0, lastFrame: 0 });
       for (const m of fonts.missing) {
         (opts.strict ? report.inspect.issues : report.inspect.review).push({ message: `layer "${m.layer}": none of the fonts "${m.family}" is available here (it is drawn in a fallback font)`, count: 1, firstFrame: 0, lastFrame: 0 });
         if (opts.strict) report.problems.push(`layer "${m.layer}": none of its fonts is available (${m.family})`);
@@ -390,7 +398,7 @@ export async function runCheck(opts, log = console.log) {
 
     // --at: the pictures at moments you name (seconds, 50%, f120, title@end), one file each and one sheet
     if (opts.at) {
-      const wanted = resolveAtList(opts.at, { frameRate: info.frameRate, totalFrames: info.totalFrames, duration: info.duration, rows: info.rows ?? [] });
+      const wanted = atList;
       const framesDir = path.join(outDir, 'frames');
       fs.mkdirSync(framesDir, { recursive: true });
       for (const w of wanted) {
@@ -408,7 +416,6 @@ export async function runCheck(opts, log = console.log) {
     // --onion A:B: one picture of the movement between A and B seconds (8 frames overlaid, the later the stronger)
     if (opts.onion) {
       const [from, to] = opts.onion;
-      if (to > info.duration + 1e-9) throw new Error(`--onion ${from}:${to} goes past the end: the movie is ${info.duration} s`);
       const onion = await cdp.eval(`movie.onionSkin({ from: ${from}, to: ${to}, count: 8, as: 'dataURL' })`);
       const onionFile = path.join(outDir, 'onion.png');
       fs.writeFileSync(onionFile, Buffer.from(onion.slice(onion.indexOf(',') + 1), 'base64'));

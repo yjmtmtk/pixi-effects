@@ -72,6 +72,25 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('render({ r
     });
   }, 180000);
 
+  it('a range, a scale and motion blur together: the blurred frames of the range, half size, the length of the range, and the sound still cut', async () => {
+    await withMovie(async (cdp) => {
+      const r = await cdp.eval(RENDER({ range: [1, 2], scale: 0.5, motionBlur: { samples: 2 } }));
+      expect([r.video.width, r.video.height]).toEqual([160, 90]);
+      expect(Math.abs(r.video.duration - 1)).toBeLessThan(0.2);
+      expect(Math.abs(r.audio.duration - 1)).toBeLessThan(0.2);
+      expect(await cdp.eval('movie.currentFrame')).toBe(60);                       // the stage is left on the last exported frame, not the end of the movie
+    });
+  }, 180000);
+
+  it('a layer folded into a family row on the timeline is still a range by its own name', async () => {
+    await withMovie(async (cdp) => {
+      const rows = await cdp.eval('movie.timelineData().rows.map(r => ({ name: r.name, partNames: r.partNames || null }))');
+      expect(rows.some((r: any) => r.partNames)).toBe(false);                      // this page has no folded family: the lookup is covered by the unit tests; here only that a plain name still works
+      const title = await cdp.eval(RENDER({ range: 'title' }));
+      expect(Math.abs(title.video.duration - 2)).toBeLessThan(0.2);
+    });
+  }, 120000);
+
   it('says what is wrong with a range or a scale', async () => {
     await withMovie(async (cdp) => {
       const err = (opts: object) => cdp.eval(`movie.render(${JSON.stringify(opts)}).then(() => 'rendered', e => e.message)`);

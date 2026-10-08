@@ -17,6 +17,8 @@ export interface TimelineRow {
   keys: number[];
   /** A grouped run: one span per layer it stands for. */
   parts?: Array<{ start: number; end: number }>;
+  /** With `parts`: the name of each layer the row stands for, in the same order (so `render({ range: 'pop-3' })` can find it). */
+  partNames?: string[];
   /** A short text for the tooltip (a text layer's words, an asset name). */
   detail?: string;
 }
@@ -90,6 +92,7 @@ function groupFamilies(entries: Array<{ row: TimelineRow; inner: TimelineRow[]; 
         start: Math.min(...members.map(x => x.start)), end: Math.max(...members.map(x => x.end)),
         keys: members.flatMap(x => x.keys).sort((a, b) => a - b).slice(0, MAX_KEYS),
         parts: members.map(x => ({ start: x.start, end: x.end })),
+        partNames: members.map(x => x.name),
       });
     } else {
       out.push(e.row, ...e.inner);

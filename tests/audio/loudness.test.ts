@@ -67,6 +67,16 @@ describe('measureLoudness: the options and the speed-ups keep the numbers', () =
   });
 });
 
+describe('true peak accuracy across the spectrum', () => {
+  // Measured: 0.00 dB from 1 kHz to 18 kHz (-0.03 at 18 kHz), +0.06 at 20 kHz. A sine switched on abruptly reads higher
+  // (up to +0.4 dB at 20 kHz): that is real ringing at the switch-on, which a DAC would produce too, not a measuring error.
+  it.each([1000, 5000, 10000, 15000, 18000, 20000])('a 0 dBFS sine at %i Hz (faded in and out, so there is no switch-on ringing) reads 0 dBTP, +-0.15', (hz) => {
+    const sr = 48000;
+    const x = Float32Array.from({ length: sr }, (_, i) => Math.sin(2 * Math.PI * hz * i / sr + 0.7) * Math.min(1, i / 4800, (sr - 1 - i) / 4800));
+    expect(Math.abs(measureLoudness([x], sr).truePeakDb!)).toBeLessThanOrEqual(0.15);
+  });
+});
+
 describe('findSilences', () => {
   it('lists runs of at least minLength seconds below the threshold, in seconds', () => {
     const sr = 1000, x = new Float32Array(10 * sr);
