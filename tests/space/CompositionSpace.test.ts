@@ -7,6 +7,8 @@ import { CompositionSequence } from '../../src/sequences/Composition';
 import { Sequence } from '../../src/sequences/Base';
 import { registerSequenceType } from '../../src/core/Composition';
 import type { SpaceHost } from '../../src/space/Layer3D';
+import { blurRadius } from '../../src/space/focus';
+import { homeDistance } from '../../src/space/math';
 import type { CompositionSequenceSpec, CompositionShape } from '../../src/types';
 
 class Box extends Sequence {
@@ -220,5 +222,114 @@ describe('CompositionSequence — focus by layer name', () => {
     expect(said).toHaveLength(1);
     expect(String(said[0]![0])).toContain('did you mean "back"?');
     expect(focusOf(comp)).toBe(0);
+  });
+});
+
+describe('CompositionSequence — depth of field', () => {
+  const filters = (comp: CompositionSequence, i: number) => (meshes(comp)[i] as unknown as { filters: Array<{ radius: number }> | null }).filters;
+  const scene = (cameraInitial: Record<string, unknown> | null, extra: unknown[] = []) => [
+    ...(cameraInitial ? [{ type: 'camera', initial: cameraInitial }] : []),
+    { type: '__box', name: 'front', threeD: true, initial: { z: 0 } },
+    { type: '__box', name: 'back', threeD: true, initial: { z: -400 } },
+    ...extra,
+  ];
+
+  it('blurs by depth: nothing on the focal layer, the closed-form radius behind it', async () => {
+    const comp = await build(scene({ focus: 'front', aperture: 60 }));
+    comp.updateSpace(0, mkHost().host);
+    expect(filters(comp, 0)).toBeNull();
+    expect(filters(comp, 1)).toHaveLength(1);
+    const s = homeDistance(720, 40);
+    expect(filters(comp, 1)![0]!.radius).toBeCloseTo(blurRadius(60, s, s + 400, s), 9);
+    expect(filters(comp, 1)![0]!.radius).toBeCloseTo(8.64, 1);
+  });
+  it('focusing on the back layer swaps which one is sharp', async () => {
+    const comp = await build(scene({ focus: 'back', aperture: 60 }));
+    comp.updateSpace(0, mkHost().host);
+    expect(filters(comp, 1)).toBeNull();
+    expect(filters(comp, 0)).toHaveLength(1);
+  });
+  it('with no focus and no aperture on the camera, or no camera, or aperture 0: no filter anywhere', async () => {
+    for (const cam of [{ fov: 40 }, null, { focus: 'back', aperture: 0 }]) {
+      const comp = await build(scene(cam));
+      comp.updateSpace(0, mkHost().host);
+      expect(filters(comp, 0)).toBeNull();
+      expect(filters(comp, 1)).toBeNull();
+    }
+  });
+  it('a focus pull is a function of the focus: the radius follows the camera, and going back gives the same numbers', async () => {
+    const comp = await build([
+      { type: 'camera', initial: { focus: 'front', aperture: 60 }, keyframes: [{ at: 0, to: { focus: 'back' }, duration: 2, ease: 'none' }] },
+      { type: '__box', name: 'front', threeD: true, initial: { z: 0 } },
+      { type: '__box', name: 'back', threeD: true, initial: { z: -400 } },
+    ]);
+    // drive the focus through the camera's carrier (the tween itself is GSAP's; what is tested here is the radius as a function of the focus)
+    const cam = comp._children[0] as unknown as { target: { focus: number } };
+    const radii = (f: number) => { cam.target.focus = f; comp.updateSpace(0, mkHost().host); return [filters(comp, 0)?.[0]?.radius ?? 0, filters(comp, 1)?.[0]?.radius ?? 0]; };
+    const mid = radii(-200), back = radii(-400), again = radii(-200);
+    expect(back[1]).toBe(0);
+    expect(mid[0]).toBeGreaterThan(0);
+    expect(mid[1]).toBeGreaterThan(0);
+    expect(again).toEqual(mid);
+  });
+  it('a focal plane at or behind the camera warns once and blurs nothing', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const comp = await build(scene({ focus: 5000, aperture: 60 }));
+    const { host } = mkHost();
+    comp.updateSpace(0, host); comp.updateSpace(0.1, host);
+    expect(warn.mock.calls.filter(c => String(c[0]).includes('behind the camera') && String(c[0]).includes('focus'))).toHaveLength(1);
+    expect(filters(comp, 0)).toBeNull();
+    expect(filters(comp, 1)).toBeNull();
+  });
+  it('warns once when 20 or more layers are blurred at once', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const many = Array.from({ length: 22 }, (_, i) => ({ type: '__box', threeD: true, initial: { z: -100 - i * 10 } }));
+    const comp = await build([{ type: 'camera', initial: { focus: 0, aperture: 60 } }, ...many]);
+    const { host } = mkHost();
+    comp.updateSpace(0, host); comp.updateSpace(0.1, host);
+    expect(warn.mock.calls.filter(c => String(c[0]).includes('blurred'))).toHaveLength(1);
+  });
+  it('a layer hidden behind the camera drops its filter, and gets the right radius when it comes back', async () => {
+    const comp = await build(scene({ focus: 'front', aperture: 60 }, [{ type: '__box', name: 'pass', threeD: true, hideBehindCamera: true, initial: { z: -400 } }]));
+    const { host } = mkHost();
+    comp.updateSpace(0, host);
+    const pass = comp._children[3]!.target as unknown as { z: number };
+    const r0 = filters(comp, 2)![0]!.radius;
+    pass.z = 5000;                                   // behind the camera
+    comp.updateSpace(0.1, host);
+    expect(filters(comp, 2)).toBeNull();
+    pass.z = -400;
+    comp.updateSpace(0.2, host);
+    expect(filters(comp, 2)![0]!.radius).toBeCloseTo(r0, 9);
+  });
+  it('when the camera changes at a cut, the filters follow the camera that is active (one has aperture, the next does not)', async () => {
+    const comp = await build([
+      { type: 'camera', at: 0, duration: 1, initial: { focus: 'front', aperture: 60 } },
+      { type: 'camera', at: 1, initial: { fov: 40 } },
+      { type: '__box', name: 'front', threeD: true, initial: { z: 0 } },
+      { type: '__box', name: 'back', threeD: true, initial: { z: -400 } },
+    ]);
+    const { host } = mkHost();
+    comp.updateSpace(0.5, host);
+    expect(filters(comp, 1)).toHaveLength(1);
+    comp.updateSpace(1.5, host);
+    expect(filters(comp, 1)).toBeNull();
+    comp.updateSpace(0.5, host);                      // and back again
+    expect(filters(comp, 1)).toHaveLength(1);
+  });
+  it('layers() reports the blur each threeD layer has now (for inspect)', async () => {
+    const comp = await build(scene({ focus: 'front', aperture: 60 }));
+    comp.updateSpace(0, mkHost().host);
+    const rows = comp.layers();
+    expect(rows.find(r => r.seq.spec.name === 'front')!.depthBlur).toBe(0);
+    expect(rows.find(r => r.seq.spec.name === 'back')!.depthBlur).toBeGreaterThan(8);
+  });
+  it('a nested threeD composition is blurred as one layer by its parent\'s camera', async () => {
+    const comp = await build([
+      { type: 'camera', initial: { focus: 0, aperture: 60 } },
+      { type: 'composition', name: 'card', width: 200, height: 100, duration: 10, threeD: true, initial: { z: -400 }, sequences: [{ type: '__box', threeD: true }] },
+    ]);
+    comp.updateSpace(0, mkHost().host);
+    expect(filters(comp, 0)).toHaveLength(1);
   });
 });

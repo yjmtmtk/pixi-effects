@@ -9,10 +9,10 @@ import { findOverlap, pickActiveCamera } from '../space/camera';
 import { assignDepthOrder } from '../space/depth';
 import { Layer3D, type SpaceHost } from '../space/Layer3D';
 import { lintSequence, lintFocus } from '../space/lint';
-import { layerInitialZ } from '../space/focus';
+import { layerInitialZ, blurRadius, MANY_BLURRED } from '../space/focus';
 import { describeLayer, lintText, lintTiming, summarizeWarnings, lintKeys } from '../core/lint';
 import { applyBlendMode } from '../core/blend';
-import { cameraBasis, homeCamera } from '../space/math';
+import { cameraBasis, homeCamera, projectPoint, NEAR, type CameraBasis, type CameraState } from '../space/math';
 import { timeRemapOf, remapOf, contentLength, bindClock, clockTable, type TimeRemap, type ClockTable } from '../core/remap';
 import type { CompositionSequenceSpec, AudioDescriptor, CompositionShape, SequenceSpec } from '../types';
 
@@ -25,6 +25,7 @@ export class CompositionSequence extends Sequence {
   _children: Sequence[] = [];
   private _cameras: CameraSequence[] = [];
   private _layers3d: Layer3D[] = [];
+  private _dofSaid = { behind: false, many: false };
   /** Drawn children in stack order (cameras and target-less sequences excluded). */
   private _visual: Array<{ seq: Sequence; layer: Layer3D | null }> = [];
   /** Layers drawn inside a null layer (`parent`): they are not in the composition's own stack. */
@@ -281,7 +282,7 @@ export class CompositionSequence extends Sequence {
    * Drawn children in stack order, with the display object that stands in for each (the mesh for a threeD layer).
    * Null layers draw nothing and are left out; the layers inside them follow, with the null layers that carry them.
    */
-  layers(): Array<{ seq: Sequence; display: Container; threeD: boolean; carriers: NullSequence[] }> {
+  layers(): Array<{ seq: Sequence; display: Container; threeD: boolean; carriers: NullSequence[]; depthBlur: number }> {
     const carriersOf = (seq: Sequence): NullSequence[] => {
       const out: NullSequence[] = [];
       for (let p = this._parentOf.get(seq); p; p = this._parentOf.get(p)) out.push(p);
@@ -296,6 +297,7 @@ export class CompositionSequence extends Sequence {
           display: (layer?.display ?? seq.target!) as unknown as Container,
           threeD: layer !== null,
           carriers: carriersOf(seq),
+          depthBlur: layer?.blur ?? 0,
         };
       });
   }
@@ -364,9 +366,11 @@ export class CompositionSequence extends Sequence {
       childT,
       compEnd,
     );
-    const basis = cameraBasis(active ? active.cam.state() : homeCamera(width, height), width, height);
+    const cam = active ? active.cam.state() : homeCamera(width, height);
+    const basis = cameraBasis(cam, width, height);
 
     for (const layer of this._layers3d) layer.update(host, basis);
+    this._applyDepthOfField(cam, basis);
 
     const order = assignDepthOrder(
       this._visual.map((v, i) => ({ stackIndex: i, threeD: v.layer !== null, depth: v.layer?.depth ?? 0 })),
@@ -374,6 +378,30 @@ export class CompositionSequence extends Sequence {
     this._visual.forEach((v, i) => {
       if (v.layer) v.layer.display.zIndex = order[i]!;
     });
+  }
+
+  /** Depth of field: each threeD layer is blurred by how far its depth is from the focal plane (a pure function of the camera and the layers). */
+  private _applyDepthOfField(cam: CameraState, basis: CameraBasis): void {
+    const aperture = cam.aperture ?? 0;
+    if (!(aperture > 0)) { for (const l of this._layers3d) l.setBlur(0); return; }
+    const focusDepth = projectPoint(basis, { x: cam.lookAtX, y: cam.lookAtY, z: cam.focus ?? 0 }).depth;
+    if (!(focusDepth > NEAR)) {
+      if (!this._dofSaid.behind) {
+        this._dofSaid.behind = true;
+        console.warn(`pixi-effects: ${describeLayer(this.spec)}: the camera's focus (z = ${(cam.focus ?? 0).toFixed(0)}) is at or behind the camera, so nothing is blurred. Put focus in front of the camera (a z below the camera's z)`);
+      }
+      for (const l of this._layers3d) l.setBlur(0);
+      return;
+    }
+    let blurred = 0;
+    for (const l of this._layers3d) {
+      l.setBlur(blurRadius(aperture, basis.focal, l.depth, focusDepth));
+      if (l.blur > 0) blurred++;
+    }
+    if (blurred >= MANY_BLURRED && !this._dofSaid.many) {
+      this._dofSaid.many = true;
+      console.warn(`pixi-effects: ${describeLayer(this.spec)}: ${blurred} layers are blurred by depth of field at once; each costs a filter pass per frame (WebGPU more). Merge the far layers or lower aperture`);
+    }
   }
 
   override collectAudio(out: AudioDescriptor[], baseTime: number): void {
