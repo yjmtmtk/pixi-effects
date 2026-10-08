@@ -10,7 +10,9 @@ const root = resolve(__dirname, '../..');
 // loaded by URL: the tool is a plain .mjs script outside src/
 const tool: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
 
-// the guide's first-video page pins pixi-effects@<this version> on the CDN; just before a release it is not published yet
+// the guide's first-video page pins pixi-effects@<this version> on the CDN; just before a release it is not published yet.
+// `check` needs a library with `movie.review()` (0.18+): a page pinned to an older release cannot be checked by this tool.
+const libraryHasReview = Number(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version.split('.')[1]) >= 18;
 const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
 const onCdn = await fetch(`https://cdn.jsdelivr.net/npm/pixi-effects@${version}/dist/index.js`, { method: 'HEAD' })
   .then((r) => r.ok, () => false);
@@ -22,32 +24,6 @@ describe('check.mjs — pure helpers', () => {
     expect(tool.parseArgs(['p.html']).formats).toEqual(['mp4']);
     expect(() => tool.parseArgs(['p.html', '--fast'])).toThrow(/unknown option --fast/);
     expect(() => tool.parseArgs(['p.html', '--frames'])).toThrow(/needs a value/);
-  });
-
-  it('groupIssues: issues that differ only by numbers are one kind, with count and frame range', () => {
-    const g = tool.groupIssues([
-      { frame: 0, issues: ['text layer "a" is cut off: 120px beyond the right edge', 'x overlaps y by 50%'] },
-      { frame: 30, issues: ['text layer "a" is cut off: 80px beyond the right edge'] },
-      { frame: 60, issues: ['text layer "a" is cut off: 20px beyond the right edge'] },
-    ]);
-    expect(g).toEqual([
-      { message: 'text layer "a" is cut off: 120px beyond the right edge', count: 3, firstFrame: 0, lastFrame: 60 },
-      { message: 'x overlaps y by 50%', count: 1, firstFrame: 0, lastFrame: 0 },
-    ]);
-  });
-
-  it('splitIssues: overlaps are for the eyes (often intentional), cut-off / off-canvas / no size are problems; strict makes all problems', () => {
-    const groups = [
-      { message: 'text layer "a" is cut off by the canvas edge: 12px beyond the right edge', count: 2, firstFrame: 0, lastFrame: 30 },
-      { message: 'text layers "g" and "t" overlap by 99% of the smaller one', count: 3, firstFrame: 36, lastFrame: 48 },
-      { message: 'text layer "b" has no size (empty text, or not drawn yet)', count: 1, firstFrame: 0, lastFrame: 0 },
-    ];
-    const loose = tool.splitIssues(groups, false);
-    expect(loose.problems.map((g: any) => g.message)).toEqual([groups[0].message, groups[2].message]);
-    expect(loose.review.map((g: any) => g.message)).toEqual([groups[1].message]);
-    const strict = tool.splitIssues(groups, true);
-    expect(strict.problems).toHaveLength(3);
-    expect(strict.review).toEqual([]);
   });
 
   it('parseArgs: --strict', () => {
@@ -171,10 +147,10 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     expect(report.inspect.review.map((r: any) => r.message).join('\n')).toMatch(/web font "Unused" failed to load, but no text layer uses it/);   // ... only a note
     const strict = await run(['--out', mkdtempSync(join(tmpdir(), 'check-fonts-')), '--strict']).then(() => null, (e: any) => e);
     expect(strict?.code).toBe(1);
-    expect(String(strict?.stdout)).toMatch(/layer "missing": none of its fonts is available/);
+    expect(String(strict?.stdout)).toMatch(/none of the fonts "ThisFontDoesNotExist123, NopeNope" is available/);
   }, 200_000);
 
-  it.skipIf(!onCdn)('the guide\'s first-video page (loaded from the CDN, as a reader would) passes the check, sound included', async () => {
+  it.skipIf(!onCdn || !libraryHasReview)('the guide\'s first-video page (loaded from the CDN, as a reader would) passes the check, sound included', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-test-'));
     const { stdout } = await promisify(execFile)('node', [
       join(root, 'ai/tools/check.mjs'), join(root, 'examples/_guide/first-video.html'), '--out', out, '--frames', '4', '--timeout', '150',

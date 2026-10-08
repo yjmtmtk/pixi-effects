@@ -8,6 +8,7 @@ import { mixdown, limitMix, type MixStats } from './AudioMixer';
 import { analyzeAudio, type AudioReport, type AudioInspectOptions } from './inspectAudio';
 import { inspectFonts, type FontReport } from './inspectFonts';
 import { namedScenes } from './scenes';
+import { resolveAtList, reviewMovie, type ReviewOptions, type ReviewReport } from './review';
 import { onionAlphas, onionTimes } from './onion';
 import { exportFrames } from './Renderer';
 import { expandTransitions, carryTransitionWindows } from './Transitions';
@@ -676,6 +677,22 @@ export class Movie {
    * The soundtrack, measured: when every audio layer plays, how loud the mix is over time, and `issues`
    * (limiting, inaudible layers, sounds cut off by the end). Use it to CHECK sound you cannot hear.
    */
+  /** The pictures to look at for moments such as `3.5`, `50%`, `f120`, `title@end` (comma-separated). A mistake says what could not be read. */
+  resolveAt(list: string): Array<{ label: string; frame: number }> {
+    this._requireReady('resolveAt');
+    return resolveAtList(list, { frameRate: this.frameRate, totalFrames: this.totalFrames, duration: this.duration, rows: this.timelineData().rows });
+  }
+
+  /**
+   * One call that looks at everything `pixi-effects-check` looks at inside the page: layout issues over the whole timeline (every
+   * scene's first and last frame and a frame every 0.25 s), fonts and the sound. See `ReviewReport`. Page warnings are in `window.__logs`.
+   */
+  review(opts: ReviewOptions = {}): Promise<ReviewReport> {
+    warnUnknownOptions('movie.review()', opts, ['at', 'strict']);
+    this._requireReady('review');
+    return reviewMovie(this, opts);
+  }
+
   /**
    * The fonts of the text layers: `missing` lists layers none of whose `fontFamily` entries is available in this browser (they are
    * drawn in a fallback font), `failed` lists web fonts (`@font-face`) whose file could not be loaded.

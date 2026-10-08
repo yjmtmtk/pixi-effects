@@ -67,84 +67,6 @@ export function parseArgs(argv) {
   return o;
 }
 
-/**
- * The frames movie.inspect looks at: the first and last frame, every scene's first and last frame (where a title is cut off or a
- * wipe leaves an overlap), and one every `step` seconds. At most `cap`: past that the even grid is widened, the scene edges stay.
- */
-export function sampleFrames({ totalFrames, frameRate, scenes = [], step = 0.25, cap = 240 }) {
-  const last = totalFrames;
-  const clamp = f => Math.max(0, Math.min(last, Math.round(f)));
-  const edges = new Set([0, last]);
-  for (const s of scenes) { edges.add(clamp(s.start * frameRate)); edges.add(clamp(s.end * frameRate - 1)); }
-  const room = Math.max(0, cap - edges.size);
-  const seconds = totalFrames / frameRate;
-  const wanted = Math.floor(seconds / step) + 1;
-  const stride = wanted <= room ? step : seconds / Math.max(1, room);
-  const frames = new Set(edges);
-  for (let t = stride; frames.size < cap && t < seconds; t += stride) frames.add(clamp(t * frameRate));
-  return [...frames].sort((a, b) => a - b);
-}
-
-const AT_HELP = "use seconds (3.5), a percentage (50%), a frame (f120) or a layer's start / mid / end (name@end)";
-
-/** The movie's scenes: top-level compositions with a name you gave (not `text#3`) of a second or more. Same rule as `namedScenes` in src/core/scenes.ts (a test keeps them equal). */
-export function scenesOf(rows) {
-  return rows.filter(r => r.depth === 0 && r.type === 'composition' && !/[#×]/.test(r.name) && r.end - r.start >= 1).map(r => ({ name: r.name, start: r.start, end: r.end }));
-}
-
-/** `--at` list → frames, each with a label for its file name. */
-export function resolveAtList(list, ctx) {
-  const { frameRate: fps, totalFrames, duration, rows } = ctx;
-  const out = [], used = new Set();
-  // layers by their own names: a family the timeline folds into one row (`pop-# ×4`) gives its members back
-  const named = rows.flatMap(r => (r.parts && r.partNames ? r.partNames.map((name, i) => ({ name, start: r.parts[i].start, end: r.parts[i].end })) : [r]));
-  for (const raw of String(list).split(',').map(s => s.trim()).filter(Boolean)) {
-    let frame, label, m;
-    if ((m = raw.match(/^(.+)@(start|mid|end)$/))) {
-      const row = named.find(r => r.name === m[1]);
-      if (!row) throw new Error(`--at "${raw}": no layer named "${m[1]}" (names: ${named.slice(0, 40).map(r => r.name).join(', ')}${named.length > 40 ? ', …' : ''})`);
-      const t = m[2] === 'start' ? row.start : m[2] === 'mid' ? (row.start + row.end) / 2 : row.end - 1 / fps;
-      frame = Math.round(t * fps); label = `${m[1]}-${m[2]}`;
-    } else if ((m = raw.match(/^(\d+(?:\.\d+)?)%$/))) { frame = Math.round(Number(m[1]) / 100 * totalFrames); label = `${m[1]}pct`; }
-    else if ((m = raw.match(/^f(\d+)$/i))) { frame = Number(m[1]); label = `f${m[1]}`; }
-    else if (/^\d+(\.\d+)?$/.test(raw)) { frame = Math.round(Number(raw) * fps); label = `${Number(raw).toFixed(2)}s`; }
-    else throw new Error(`--at: cannot read "${raw}": ${AT_HELP}`);
-    if (frame > totalFrames || frame < 0) throw new Error(`--at "${raw}" is past the end: the movie is ${duration} s (${totalFrames} frames)`);
-    label = label.replace(/[\\/:*?"<>|]+/g, '-');                               // a layer called a/b must not make a folder
-    let unique = label, n = 2;
-    while (used.has(unique)) unique = `${label}-${n++}`;
-    used.add(unique);
-    out.push({ label: unique, frame });
-  }
-  return out;
-}
-
-/** [{ frame, issues[] }] → [{ message, count, firstFrame, lastFrame }]: issues that differ only by numbers are one. */
-export function groupIssues(perFrame) {
-  const groups = new Map();
-  for (const { frame, issues } of perFrame) {
-    for (const message of issues) {
-      const key = message.replace(/-?\d+(\.\d+)?/g, '#');
-      const g = groups.get(key);
-      if (g) { g.count++; g.lastFrame = frame; }
-      else groups.set(key, { message, count: 1, firstFrame: frame, lastFrame: frame });
-    }
-  }
-  return [...groups.values()];
-}
-
-/**
- * Layout issues → { problems, review }. Cut off by an edge, outside the canvas and "no size" are exact: problems. Text that
- * overlaps text is judged on layout boxes, not ink, so intentional designs trip it (ghost layers, a glow copy under a title,
- * per-letter boxes, a wipe between two scenes: 7 of 30 gallery pieces): those are `review` items to look at on the contact
- * sheet. `strict` makes every issue a problem.
- */
-export function splitIssues(groups, strict = false) {
-  if (strict) return { problems: groups, review: [] };
-  const overlap = g => /\boverlap\b/.test(g.message);
-  return { problems: groups.filter(g => !overlap(g)), review: groups.filter(overlap) };
-}
-
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.mp4': 'video/mp4', '.webm': 'video/webm', '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf', '.wasm': 'application/wasm', '.map': 'application/json', '.md': 'text/plain; charset=utf-8', '.txt': 'text/plain; charset=utf-8' };
 
 /** A plain static server for `root` (no redirects, so `?query` survives). Resolves { server, port }. */
@@ -200,10 +122,11 @@ export class Cdp {
   }
 }
 
-export async function launchChrome(chrome, userDataDir) {
+/** Start a private headless Chrome. `extraArgs`: more command-line flags (the tests use it for `--enable-features=WebMCP`). */
+export async function launchChrome(chrome, userDataDir, extraArgs = []) {
   const proc = spawn(chrome, [
     '--headless=new', '--remote-debugging-port=0', `--user-data-dir=${userDataDir}`, '--no-first-run', '--no-default-browser-check',
-    '--autoplay-policy=no-user-gesture-required', '--mute-audio', '--ignore-gpu-blocklist', '--enable-unsafe-swiftshader', '--window-size=1400,900', 'about:blank',
+    '--autoplay-policy=no-user-gesture-required', '--mute-audio', '--ignore-gpu-blocklist', '--enable-unsafe-swiftshader', '--window-size=1400,900', ...extraArgs, 'about:blank',
   ], { stdio: ['ignore', 'ignore', 'pipe'] });
   const endpoint = await new Promise((resolve, reject) => {
     let buf = '';
@@ -224,18 +147,7 @@ export async function launchChrome(chrome, userDataDir) {
 const INFO = `(() => { const m = window.movie; if (!m) return { hasMovie: false, logs: window.__logs || [] };
   const c = document.querySelector('canvas');
   return { hasMovie: true, logs: window.__logs || [], totalFrames: m.totalFrames, frameRate: m.frameRate, duration: m.duration,
-           width: m.width ?? (c && c.width), height: m.height ?? (c && c.height), hasAudio: !!m.audioBuffer,
-           rows: (() => { try { return m.timelineData().rows.map(r => ({ name: r.name, type: r.type, start: r.start, end: r.end, depth: r.depth, parts: r.parts, partNames: r.partNames })); } catch { return []; } })() }; })()`;
-
-const sweepScript = list => `(async () => {
-  const frames = new Set(${JSON.stringify(list)});
-  const perFrame = [];
-  for (const f of [...frames].sort((a, b) => a - b)) {
-    const r = await movie.inspect(f, { layers: 'none' });
-    if (r.issues.length) perFrame.push({ frame: f, issues: r.issues });
-  }
-  return { checked: frames.size, perFrame };
-})()`;
+           width: m.width ?? (c && c.width), height: m.height ?? (c && c.height), hasAudio: !!m.audioBuffer, hasReview: typeof m.review === 'function' }; })()`;
 
 const exportScript = (format, draft = false) => `(() => {
   window.__x = { state: 'running' };
@@ -366,28 +278,19 @@ export async function runCheck(opts, log = console.log) {
     Object.assign(report, { width: info.width, height: info.height, frameRate: info.frameRate, totalFrames: info.totalFrames, duration: info.duration, hasAudio: info.hasAudio });
     if (report.logs.length) report.problems.push(`${report.logs.length} console warning(s) / error(s) — each says what to change`);
 
+    // the library reviews the movie (layout over the whole timeline, fonts, sound): the same call the Playground and the WebMCP tools make
+    if (!info.hasReview) throw new Error("this page's pixi-effects is older than the check tool: use 0.18 or newer (the version in the page's import map)");
+
     // a mistake in --at or --onion is a usage error: say so now, not after the slow work
-    const atList = opts.at ? resolveAtList(opts.at, { frameRate: info.frameRate, totalFrames: info.totalFrames, duration: info.duration, rows: info.rows ?? [] }) : null;
+    const atList = opts.at ? JSON.parse(await cdp.eval(`JSON.stringify(movie.resolveAt(${JSON.stringify(opts.at)}))`)) : null;
     if (opts.onion && opts.onion[1] > info.duration + 1e-9) throw new Error(`--onion ${opts.onion[0]}:${opts.onion[1]} goes past the end: the movie is ${info.duration} s`);
 
-    // layout: inspect over the whole timeline
-    const scenes = scenesOf(info.rows ?? []);
-    const sweep = await cdp.eval(sweepScript(sampleFrames({ totalFrames: info.totalFrames, frameRate: info.frameRate, scenes })));
-    const grouped = splitIssues(groupIssues(sweep.perFrame), opts.strict);
-    report.inspect = { checkedFrames: sweep.checked, issues: grouped.problems, review: grouped.review };
-    if (grouped.problems.length) report.problems.push(`${grouped.problems.length} kind(s) of layout issue from movie.inspect`);
-
-    // fonts: a web font whose file did not load is a problem; a layer none of whose fonts is available is for review (a fallback is drawn)
-    const fonts = await cdp.eval('movie.inspectFonts()').catch(() => null);
-    if (fonts) {
-      report.fonts = fonts;
-      if (fonts.failed.length) report.problems.push(`${fonts.failed.length} web font(s) failed to load: ${fonts.failed.join(', ')} (the layers that use them are drawn in a fallback)`);
-      for (const f of fonts.failedUnused ?? []) report.inspect.review.push({ message: `web font "${f}" failed to load, but no text layer uses it (a broken or unused @font-face)`, count: 1, firstFrame: 0, lastFrame: 0 });
-      for (const m of fonts.missing) {
-        (opts.strict ? report.inspect.issues : report.inspect.review).push({ message: `layer "${m.layer}": none of the fonts "${m.family}" is available here (it is drawn in a fallback font)`, count: 1, firstFrame: 0, lastFrame: 0 });
-        if (opts.strict) report.problems.push(`layer "${m.layer}": none of its fonts is available (${m.family})`);
-      }
-    }
+    const rv = await cdp.eval(`movie.review(${JSON.stringify({ strict: !!opts.strict })})`);
+    report.inspect = { checkedFrames: rv.frames, issues: rv.problems, review: rv.review };
+    if (rv.problems.length) report.problems.push(`${rv.problems.length} kind(s) of layout issue from movie.inspect`);
+    // fonts: a web font whose file did not load is a problem (the library lists a layer with no available font for review)
+    report.fonts = rv.fonts;
+    if (rv.fonts.failed.length) report.problems.push(`${rv.fonts.failed.length} web font(s) failed to load: ${rv.fonts.failed.join(', ')} (the layers that use them are drawn in a fallback)`);
     left();
 
     // contact sheet
@@ -458,7 +361,7 @@ export async function runCheck(opts, log = console.log) {
     }
 
     // audio
-    report.audio = info.hasAudio ? await cdp.eval('movie.inspectAudio()') : null;
+    report.audio = info.hasAudio ? rv.audio : null;
     if (report.audio) {
       const wave = await cdp.eval(waveformScript(report.audio, info.duration)).catch(() => null);
       if (wave) {
