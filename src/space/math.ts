@@ -30,6 +30,8 @@ export interface CameraState {
   lookAtX: number; lookAtY: number; lookAtZ: number;
   /** Vertical field of view, degrees. */
   fov: number;
+  /** Depth of field: world z of the focal plane (default 0), and the lens diameter in comp px; 0 = off. */
+  focus?: number; aperture?: number;
 }
 
 export interface CameraBasis {

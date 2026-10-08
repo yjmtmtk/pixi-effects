@@ -26,7 +26,7 @@ const CAMERA_ALIASES: Record<string, string> = {
   lookAt: 'did you mean "lookAtX / lookAtY / lookAtZ"?',
 };
 
-const CAMERA_PROPS = ['x', 'y', 'z', 'fov', 'lookAtX', 'lookAtY', 'lookAtZ', 'offsetX', 'offsetY', 'offsetZ', 'lookOffsetX', 'lookOffsetY', 'lookOffsetZ'];
+const CAMERA_PROPS = ['x', 'y', 'z', 'fov', 'focus', 'aperture', 'lookAtX', 'lookAtY', 'lookAtZ', 'offsetX', 'offsetY', 'offsetZ', 'lookOffsetX', 'lookOffsetY', 'lookOffsetZ'];
 const NEEDS_THREE_D = ['z', 'rotationX', 'rotationY'];
 const SKEW_KEYS = ['skew', 'skewX', 'skewY'];
 

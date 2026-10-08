@@ -130,3 +130,46 @@ describe('CameraSequence', () => {
     expect(end.z).toBeCloseTo(600, 6);
   });
 });
+
+describe('CameraSequence — depth of field', () => {
+  it('is off (aperture 0) unless the camera writes focus or aperture', async () => {
+    const cam = make({ initial: { fov: 50 } });
+    await cam.build();
+    expect(cam.state().aperture).toBe(0);
+  });
+  it('focus alone turns it on with the default aperture 30 and the focal plane at z = 0', async () => {
+    const cam = make({ initial: { focus: 250 } });
+    await cam.build();
+    cam.bindTimeline(gsap.timeline({ paused: true }));            // initial is applied when the camera is bound
+    const s = cam.state();
+    expect(s.focus).toBe(250);
+    expect(s.aperture).toBe(30);
+    const bare = make({ initial: { aperture: 60 } });
+    await bare.build();
+    bare.bindTimeline(gsap.timeline({ paused: true }));
+    expect(bare.state().focus).toBe(0);
+    expect(bare.state().aperture).toBe(60);
+  });
+  it('aperture 0 is off even though it is written', async () => {
+    const cam = make({ initial: { focus: 100, aperture: 0 } });
+    await cam.build();
+    cam.bindTimeline(gsap.timeline({ paused: true }));
+    expect(cam.state().aperture).toBe(0);
+  });
+  it('written only in a keyframe, it still turns on (the carrier starts at the defaults)', async () => {
+    const cam = make({ keyframes: [{ at: 1, to: { focus: 400 }, duration: 1 }] });
+    await cam.build();
+    expect(cam.state().aperture).toBe(30);
+  });
+  it('a layer name in focus becomes that layer\'s first z once the composition has given the resolver', async () => {
+    const cam = make({ initial: { focus: 'title' }, keyframes: [{ at: 0, from: { focus: 'title' }, to: { focus: 'back' }, duration: 1 }] });
+    cam.resolveFocusNames(n => ({ title: 0, back: -400 } as Record<string, number>)[n]);
+    await cam.build();
+    const tl = gsap.timeline({ paused: true });
+    cam.bindTimeline(tl);
+    tl.progress(0);
+    expect(cam.state().focus).toBe(0);
+    tl.progress(1);
+    expect(cam.state().focus).toBe(-400);
+  });
+});

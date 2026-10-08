@@ -77,7 +77,7 @@ export const PROP_KEYS: ReadonlySet<string> = new Set([
   // text, audio, video
   'fill', 'value', 'visibleChars', 'text', 'volume', 'time',
   // camera
-  'lookAtX', 'lookAtY', 'lookAtZ', 'fov', 'offsetX', 'offsetY', 'offsetZ', 'lookOffsetX', 'lookOffsetY', 'lookOffsetZ',
+  'lookAtX', 'lookAtY', 'lookAtZ', 'fov', 'focus', 'aperture', 'offsetX', 'offsetY', 'offsetZ', 'lookOffsetX', 'lookOffsetY', 'lookOffsetZ',
 ]);
 
 /** The text `style` keys (PixiJS TextStyle) that this library passes on. */

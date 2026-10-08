@@ -2,11 +2,12 @@ import { Container } from 'pixi.js';
 import { Sequence } from '../sequences/Base';
 import { MAX_FOV, MIN_FOV, clampFov, homeCamera, homeDistance, type CameraState } from './math';
 import { collectPropKeys } from './specKeys';
+import { DEFAULT_APERTURE, withFocusResolved } from './focus';
 import type { CameraWindow } from './camera';
-import type { CameraSequenceSpec } from '../types';
+import type { CameraSequenceSpec, Keyframe } from '../types';
 
 type Carrier = Container & {
-  z: number; lookAtX: number; lookAtY: number; lookAtZ: number; fov: number;
+  z: number; lookAtX: number; lookAtY: number; lookAtZ: number; fov: number; focus: number; aperture: number;
   offsetX: number; offsetY: number; offsetZ: number; lookOffsetX: number; lookOffsetY: number; lookOffsetZ: number;
 };
 
@@ -23,6 +24,9 @@ export class CameraSequence extends Sequence {
   private compH = 0;
   private warnedFov = false;
   private warnedLookAt = false;
+  /** True when the camera writes `focus` or `aperture` anywhere: depth of field is on. */
+  private dof = false;
+  private zOfName: ((name: string) => number | undefined) | null = null;
 
   async build(): Promise<void> {
     const compW = this.parent?.width ?? this.root.width;
@@ -39,11 +43,25 @@ export class CameraSequence extends Sequence {
     carrier.lookAtY = home.lookAtY;
     carrier.lookAtZ = home.lookAtZ;
     carrier.fov = home.fov;
+    carrier.focus = 0;                              // the z = 0 plane, the one the home camera shows 1:1
+    carrier.aperture = DEFAULT_APERTURE;
     // added on top of the camera's own move: put a handheld shake (wiggle) here and it never collides with a dolly or an orbit
     carrier.offsetX = carrier.offsetY = carrier.offsetZ = 0;
     carrier.lookOffsetX = carrier.lookOffsetY = carrier.lookOffsetZ = 0;
     this.target = carrier as unknown as Container;
-    this.autoZ = !collectPropKeys(this.spec).has('z');
+    const keys = collectPropKeys(this.spec);
+    this.autoZ = !keys.has('z');
+    this.dof = keys.has('focus') || keys.has('aperture');
+  }
+
+  /** Called by the composition once its children exist: how a layer name in `focus` becomes the z of that layer. */
+  resolveFocusNames(zOf: (name: string) => number | undefined): void {
+    this.zOfName = zOf;
+  }
+
+  protected override displayProps(): ReturnType<Sequence['displayProps']> {
+    const base = super.displayProps();
+    return this.zOfName ? (withFocusResolved(base as { initial?: Record<string, unknown>; keyframes?: Keyframe[] }, this.zOfName) as typeof base) : base;
   }
 
   /** The camera's state at the current timeline position. */
@@ -64,7 +82,7 @@ export class CameraSequence extends Sequence {
     return {
       x: c.x + c.offsetX, y: c.y + c.offsetY, z: z + c.offsetZ,
       lookAtX: c.lookAtX + c.lookOffsetX, lookAtY: c.lookAtY + c.lookOffsetY, lookAtZ: c.lookAtZ + c.lookOffsetZ,
-      fov,
+      fov, focus: Number.isFinite(c.focus) ? c.focus : 0, aperture: this.dof && c.aperture > 0 ? c.aperture : 0,
     };
   }
 
