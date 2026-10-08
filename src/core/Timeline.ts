@@ -1,5 +1,6 @@
 import { gsap } from 'gsap';
 import { normalizeProps } from '../expr/normalizeProps';
+import { checkEase } from './ease';
 import type { Keyframe } from '../types';
 import type { NamedFilter } from '../filters';
 
@@ -48,6 +49,7 @@ export function normalizeKeyframe(kf: Keyframe, parentDuration: number): Normali
   const at = resolveAt(kf.at, parentDuration);
   const duration = kf.duration ?? 0;
   const ease = kf.ease ?? 'none';
+  checkEase(ease, 'a keyframe');
   const hasSet = !!kf.set;
   const hasFrom = !!kf.from;
   const hasTo = !!kf.to;
