@@ -60,6 +60,17 @@ The first three.js integration (`type: 'three'`) kept the good foundations (one-
 - needs `registerThree()`, a `three()` cast and the user's own `import * as THREE` (works against 5 and 6);
 - explicitly listed "declarative / JSON-serializable 3D scene" as a non-goal, which is the root of the drift.
 
+### Engine names
+
+3D can be drawn by more than one engine (today there is one, three.js, behind an optional entry). The spec language must not depend on which, and the first engine to arrive must not take the names the others will need. Rules:
+
+1. **The spec language owns the neutral names.** Layer types, keys and functions such as `model`, `light`, `camera`, `scene3d`, `threeD` and `register3D()` belong to pixi-effects. No engine takes one of them, and none of them carries an engine's name.
+2. **An engine's name appears only where the code is truly specific to that engine**: an escape hatch that hands the author the engine's own objects (`type: 'three'`, the keyframe paths `three.<name>.<path>`), an adapter, the registration (`registerThree()`), an option only that engine has, and its optional entry (`pixi-effects/three`). Everything such an entry exports says the engine's name, all the way down.
+3. **When there are two engines, one is the default and the other is named.** With nothing said, a neutral layer is drawn by the default (main) engine; the other (sub) engine is asked for by name. The main engine never gets a suffix or a prefix (`Scene3DOther`) to make room for another: the neutral name is its name.
+4. **The library chooses the engine, not the author.** An AI writing a video must not need to know which engine draws it (principles 2 and 5).
+5. **Differences between engines are reported, not named.** An engine that cannot do something in a neutral spec says so with a warning (`this engine ignores X`), as a renderer that cannot do a blend mode does. The spec stays one language.
+6. **It is guarded**: `tests/docs/EngineNames.test.ts` fails when the main entry, the spec types or a package entry (other than `./three`) carries an engine's name.
+
 ## Delivery
 
 - **Render**: `movie.render()` → MP4 / WebM / MOV via WebCodecs.
