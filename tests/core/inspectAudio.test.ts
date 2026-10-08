@@ -37,7 +37,7 @@ describe('analyzeAudio', () => {
   });
 
   it('flags limiting, inaudible sources and an sfx cut off by the end of the movie', () => {
-    const mix = pcm(2, t => (t < 0.3 ? 0.9 : t > 1.9 ? 0.5 : 0));
+    const mix = pcm(2, t => (t < 0.3 ? 0.8 : t > 1.9 ? 0.5 : 0));       // 0.8, not 0.9: a hard step from 0.9 to 0 overshoots past 0 dBTP between samples
     const r = analyzeAudio(mix, [
       src('layer "a"', 'sfx "hit"', 0, 0.3),
       src('layer "quiet"', 'sfx "pop"', 1, 1.1),
@@ -81,5 +81,67 @@ describe('analyzeAudio — a layer made inaudible by its own volume, and a sane 
     const r = analyzeAudio(mix, [], null, 1, { window: 1e-6 });
     expect(r.windows.length).toBeLessThanOrEqual(100);
   });
-});
 
+  describe('loudness, scenes, cues and notes', () => {
+    const SR2 = 8000;
+    const stereo = (seconds: number, fill: (t: number) => number) => {
+      const d = Float32Array.from({ length: Math.round(seconds * SR2) }, (_, i) => fill(i / SR2));
+      return { numberOfChannels: 2, sampleRate: SR2, length: d.length, getChannelData: () => d };
+    };
+    const hum = (amp: number) => (t: number) => amp * Math.sin(2 * Math.PI * 997 * t);
+
+    it('measures the mix: integrated LUFS and true peak, no clipped samples', () => {
+      const r = analyzeAudio(stereo(4, hum(10 ** (-20 / 20))), [], { peak: 0.1, peakAt: 0 }, 4);
+      expect(Math.abs(r.loudness.integratedLufs! + 20)).toBeLessThan(0.2);
+      expect(r.loudness.clippedSamples).toBe(0);
+      expect(r.loudness.truePeakDb).toBeLessThan(-19);
+    });
+
+    it('measures each scene on its own, and marks a silent one', () => {
+      const mix = stereo(4, t => (t < 2 ? hum(10 ** (-20 / 20))(t) : 0));
+      const r = analyzeAudio(mix, [], { peak: 0.1, peakAt: 0 }, 4, { scenes: [{ name: 'intro', start: 0, end: 2 }, { name: 'quiet end', start: 2, end: 4 }] });
+      expect(r.scenes.map(s => s.name)).toEqual(['intro', 'quiet end']);
+      expect(Math.abs(r.scenes[0]!.lufs! + 20)).toBeLessThan(0.3);
+      expect(r.scenes[0]!.silent).toBe(false);
+      expect(r.scenes[1]!.silent).toBe(true);
+      expect(r.scenes[1]!.lufs).toBeNull();
+    });
+
+    it('without scenes the whole movie is one scene', () => {
+      const r = analyzeAudio(stereo(2, hum(0.1)), [], { peak: 0.1, peakAt: 0 }, 2);
+      expect(r.scenes).toHaveLength(1);
+      expect([r.scenes[0]!.from, r.scenes[0]!.to]).toEqual([0, 2]);
+    });
+
+    it('lists when each sound starts (the cues the waveform ticks)', () => {
+      const r = analyzeAudio(pcm(2, () => 0.2), [src('layer "a"', 'sfx "pop"', 0.5, 0.7), src('layer "b"', 'sfx "hit"', 1.25, 1.5)], null, 2);
+      expect(r.cues).toEqual([{ t: 0.5, name: 'layer "a" (sfx "pop")' }, { t: 1.25, name: 'layer "b" (sfx "hit")' }]);
+    });
+
+    it('clipping and a true peak above 0 dBTP are issues (the file would distort); a quiet, loud or silent mix is only a note', () => {
+      const clipped = analyzeAudio(stereo(1, t => (Math.sin(2 * Math.PI * 100 * t) > 0 ? 1 : -1)), [], { peak: 1, peakAt: 0 }, 1);
+      expect(clipped.issues.some(i => i.includes('full scale'))).toBe(true);
+      const quiet = analyzeAudio(stereo(3, hum(10 ** (-45 / 20))), [], { peak: 0.01, peakAt: 0 }, 3);
+      expect(quiet.issues).toEqual([]);
+      expect(quiet.notes.some(n => /quiet/.test(n) && /14/.test(n))).toBe(true);
+      const gap = analyzeAudio(stereo(5, t => (t < 1 ? hum(0.1)(t) : 0)), [], { peak: 0.1, peakAt: 0 }, 5);
+      expect(gap.issues).toEqual([]);
+      expect(gap.notes.some(n => /silent from 1(\.\d+)? s to 5(\.\d+)? s/.test(n))).toBe(true);
+    });
+
+    it('a movie of sparse sound effects does not bury the report in silence notes: three are listed, the rest counted', () => {
+      const mix = stereo(12, t => (Math.floor(t) % 2 === 0 && t % 1 < 0.1 ? hum(0.1)(t) : 0));      // a blip every 2 s: six long silences
+      const r = analyzeAudio(mix, [], { peak: 0.1, peakAt: 0 }, 12);
+      const silent = r.notes.filter(n => /silent from/.test(n));
+      expect(silent).toHaveLength(3);
+      expect(r.notes.some(n => /and 3 more silent stretch/.test(n))).toBe(true);
+      expect(r.loudness.silences.length).toBe(6);                                                      // the data keeps all of them
+    });
+
+    it('no audio: empty values, never undefined (a caller can always read them)', () => {
+      const r = analyzeAudio(null, [], null, 5);
+      expect(r.loudness).toEqual({ integratedLufs: null, truePeakDb: -120, clippedSamples: 0, silences: [] });
+      expect([r.scenes, r.cues, r.notes]).toEqual([[], [], []]);
+    });
+  });
+});

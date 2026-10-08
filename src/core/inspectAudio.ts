@@ -1,10 +1,13 @@
 import type { AudioDescriptor } from '../types';
 import type { MixStats } from './AudioMixer';
 import { spectralCentroid } from './spectrum';
+import { findSilences, LOUDNESS_NOTES, measureLoudness } from '../audio/loudness';
 
 export interface AudioInspectOptions {
   /** Width of each loudness window in seconds. Default 0.1. */
   window?: number;
+  /** The scenes to measure one by one (`movie.inspectAudio()` fills this from the movie's named top-level layers). Default: the whole movie as one. */
+  scenes?: Array<{ name: string; start: number; end: number }>;
 }
 
 /** One sound measured ON ITS OWN (not mixed), so overlapping layers do not blur it. */
@@ -42,8 +45,16 @@ export interface AudioReport {
   sources: AudioSourceReport[];
   /** The mix over time: one row per window, `t` = window start. */
   windows: Array<{ t: number; rmsDb: number; peakDb: number; brightnessHz: number }>;
-  /** Problems worth fixing: limiting, inaudible layers, sounds cut off by the end of the movie. Read this first. */
+  /** Problems worth fixing: limiting, clipping, a true peak above 0 dBTP, inaudible layers, sounds cut off by the end of the movie. Read this first. */
   issues: string[];
+  /** The mix as a whole (ITU-R BS.1770 loudness; `integratedLufs` is null for a mix shorter than 0.4 s or with nothing above −70 LUFS). */
+  loudness: { integratedLufs: number | null; truePeakDb: number; clippedSamples: number; silences: Array<{ from: number; to: number }> };
+  /** The same measure for each scene (`silent`: nothing above −60 dBFS). */
+  scenes: Array<{ name: string; from: number; to: number; lufs: number | null; peakDb: number; silent: boolean }>;
+  /** When each sound starts: what a waveform marks. */
+  cues: Array<{ t: number; name: string }>;
+  /** Advice, not faults: a mix that is quiet or loud for web video, little headroom, silent stretches. */
+  notes: string[];
 }
 
 interface PcmLike {
@@ -85,7 +96,8 @@ export function analyzeAudio(
   mix: PcmLike | null, sources: AudioDescriptor[], stats: MixStats | null, movieDuration: number, opts: AudioInspectOptions = {},
 ): AudioReport {
   if (!mix) {
-    return { duration: movieDuration, sampleRate: 0, peakDb: -120, peakAt: 0, sources: [], windows: [], issues: ['no audio: the movie has no audio layers (sound effects need no files: { type: "audio", sfx: "pop", at: 1 })'] };
+    return { duration: movieDuration, sampleRate: 0, peakDb: -120, peakAt: 0, sources: [], windows: [],
+      loudness: { integratedLufs: null, truePeakDb: -120, clippedSamples: 0, silences: [] }, scenes: [], cues: [], notes: [], issues: ['no audio: the movie has no audio layers (sound effects need no files: { type: "audio", sfx: "pop", at: 1 })'] };
   }
   const sr = mix.sampleRate;
   const chans = Array.from({ length: mix.numberOfChannels }, (_, c) => mix.getChannelData(c));
@@ -149,6 +161,26 @@ export function analyzeAudio(
     return { layer, source, start: s.start, end: s.end, peakDb, sound };
   });
 
+  // the mix as a whole, scene by scene, and the advice
+  const whole = measureLoudness(chans, sr);
+  const silences = findSilences(chans, sr, { minLength: 1 });
+  if (whole.clippedSamples > 0) issues.push(`${whole.clippedSamples} sample(s) of the mix are at full scale (clipped) — lower the volume of the layers that play loudest`);
+  if (whole.truePeakDb > 0) issues.push(`the mix's true peak is ${whole.truePeakDb} dBTP: it will distort when the video is encoded — lower the volume`);
+  const notes: string[] = [];
+  if (whole.integratedLufs !== null) {
+    if (whole.integratedLufs < LOUDNESS_NOTES.quietBelow) notes.push(`the mix is quiet for web video: ${whole.integratedLufs} LUFS (typical −14 to −16); raise the volume if that is not on purpose`);
+    else if (whole.integratedLufs > LOUDNESS_NOTES.loudAbove) notes.push(`the mix is loud: ${whole.integratedLufs} LUFS (typical web video −14 to −16)`);
+  }
+  if (whole.truePeakDb > LOUDNESS_NOTES.headroomDb && whole.truePeakDb <= 0) notes.push(`the true peak is ${whole.truePeakDb} dBTP: little headroom left for encoding (keep it below ${LOUDNESS_NOTES.headroomDb} dBTP)`);
+  for (const q of silences.slice(0, 3)) notes.push(`the mix is silent from ${q.from} s to ${q.to} s (${Math.round((q.to - q.from) * 10) / 10} s)`);
+  if (silences.length > 3) notes.push(`and ${silences.length - 3} more silent stretch(es) (loudness.silences lists them all)`);
+  const sceneList = (opts.scenes && opts.scenes.length ? opts.scenes : [{ name: 'movie', start: 0, end: movieDuration }]).map(sc => {
+    const a = Math.max(0, Math.round(sc.start * sr)), b = Math.min(mix.length, Math.round(sc.end * sr));
+    const part = chans.map(c => c.subarray(a, Math.max(a, b)));
+    const m = measureLoudness(part, sr);
+    return { name: sc.name, from: sc.start, to: sc.end, lufs: m.integratedLufs, peakDb: m.samplePeakDb, silent: m.samplePeakDb < -60 };
+  });
+
   return {
     duration: movieDuration,
     sampleRate: sr,
@@ -157,5 +189,9 @@ export function analyzeAudio(
     sources: list,
     windows,
     issues,
+    loudness: { integratedLufs: whole.integratedLufs, truePeakDb: whole.truePeakDb, clippedSamples: whole.clippedSamples, silences },
+    scenes: sceneList,
+    cues: list.map(s => ({ t: s.start, name: `${s.layer} (${s.source})` })),
+    notes,
   };
 }

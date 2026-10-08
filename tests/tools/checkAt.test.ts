@@ -41,6 +41,19 @@ describe('check.resolveAtList', () => {
   });
 });
 
+describe('scenes: check.mjs and the library agree on what a scene is', () => {
+  it('named top-level layers of a second or more; not nested ones, automatic names, folded runs of similar layers, or short ones', async () => {
+    const { namedScenes } = await import('../../src/core/scenes');
+    const rows = [
+      { name: 'intro', start: 0, end: 3, depth: 0 }, { name: 'text#2', start: 0, end: 9, depth: 0 }, { name: 'blip', start: 1, end: 1.5, depth: 0 },
+      { name: 'inner', start: 1, end: 3, depth: 1 }, { name: 'outro', start: 3, end: 9, depth: 0 }, { name: 'snow-# ×130', start: 0, end: 9, depth: 0 },
+    ];
+    const expected = [{ name: 'intro', start: 0, end: 3 }, { name: 'outro', start: 3, end: 9 }];
+    expect(namedScenes(rows)).toEqual(expected);
+    expect(check.scenesOf(rows)).toEqual(expected);
+  });
+});
+
 describe('check.parseArgs: --at, --draft, --onion', () => {
   it('reads them, with the old defaults when absent', () => {
     expect(check.parseArgs(['p.html'])).toMatchObject({ at: null, draft: false, onion: null });

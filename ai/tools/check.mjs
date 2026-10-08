@@ -85,6 +85,11 @@ export function sampleFrames({ totalFrames, frameRate, scenes = [], step = 0.25,
 
 const AT_HELP = "use seconds (3.5), a percentage (50%), a frame (f120) or a layer's start / mid / end (name@end)";
 
+/** The movie's scenes: top-level layers with a name you gave (not `text#3`) of a second or more. Same rule as `namedScenes` in src/core/scenes.ts (a test keeps them equal). */
+export function scenesOf(rows) {
+  return rows.filter(r => r.depth === 0 && !/[#×]/.test(r.name) && r.end - r.start >= 1).map(r => ({ name: r.name, start: r.start, end: r.end }));
+}
+
 /** `--at` list → frames, each with a label for its file name. */
 export function resolveAtList(list, ctx) {
   const { frameRate: fps, totalFrames, duration, rows } = ctx;
@@ -320,7 +325,7 @@ export async function runCheck(opts, log = console.log) {
     if (report.logs.length) report.problems.push(`${report.logs.length} console warning(s) / error(s) — each says what to change`);
 
     // layout: inspect over the whole timeline
-    const scenes = (info.rows ?? []).filter(r => r.depth === 0 && !/#\d+$/.test(r.name) && r.end - r.start >= 1);
+    const scenes = scenesOf(info.rows ?? []);
     const sweep = await cdp.eval(sweepScript(sampleFrames({ totalFrames: info.totalFrames, frameRate: info.frameRate, scenes })));
     const grouped = splitIssues(groupIssues(sweep.perFrame), opts.strict);
     report.inspect = { checkedFrames: sweep.checked, issues: grouped.problems, review: grouped.review };

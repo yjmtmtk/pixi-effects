@@ -7,6 +7,7 @@ import { CompositionSequence } from '../sequences/Composition';
 import { mixdown, limitMix, type MixStats } from './AudioMixer';
 import { analyzeAudio, type AudioReport, type AudioInspectOptions } from './inspectAudio';
 import { inspectFonts, type FontReport } from './inspectFonts';
+import { namedScenes } from './scenes';
 import { exportFrames } from './Renderer';
 import { expandTransitions, carryTransitionWindows } from './Transitions';
 import { inspectScene, type InspectReport, type InspectOptions } from './inspect';
@@ -631,9 +632,10 @@ export class Movie {
   }
 
   inspectAudio(opts: AudioInspectOptions = {}): AudioReport {
-    warnUnknownOptions('movie.inspectAudio()', opts, ['window']);
+    warnUnknownOptions('movie.inspectAudio()', opts, ['window', 'scenes']);
     this._requireReady('inspectAudio');
-    return analyzeAudio(this.audioBuffer, this._audioSources, this._mixStats, this.duration, opts);
+    const scenes = opts.scenes ?? namedScenes(this.timelineData().rows);       // the scenes of the movie: named top-level layers of a second or more
+    return analyzeAudio(this.audioBuffer, this._audioSources, this._mixStats, this.duration, { ...opts, scenes });
   }
 
   /**
