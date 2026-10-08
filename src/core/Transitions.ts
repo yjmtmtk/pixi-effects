@@ -5,6 +5,7 @@ import type {
   Keyframe, FilterSpec,
 } from '../types';
 import { resolveAt } from './Timeline';
+import { timeRemapOf, contentLength } from './remap';
 
 /** Sums of decimal seconds (6 + 0.7 against 6.699999999999999) must not fail a coverage check. */
 const EPS = 1e-6;
@@ -74,7 +75,10 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
 
   const transitions = out.transitions;
   const sequences = out.sequences ?? [];
-  const parentDuration = out.duration ?? Infinity;
+  // The layers of a composition with its own time (speed / time) live in its LOCAL time, which runs over the content length
+  // (speed 2 reads twice as far as `duration`): measure them, and resolve a negative `at`, against that.
+  const remap = out.duration !== undefined ? timeRemapOf(out as never) : null;
+  const parentDuration = remap ? contentLength(remap, out.duration!) : (out.duration ?? Infinity);
   const compW = out.width;
   const compH = out.height;
 

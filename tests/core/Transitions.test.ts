@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { expandTransitions } from '../../src/core/Transitions';
+import { expandTransitions, transitionWindowsOf } from '../../src/core/Transitions';
 import type { CompositionSpec, CompositionSequenceSpec, CustomFilterSpec, Keyframe } from '../../src/types';
 
 function spec(overrides: Partial<CompositionSpec> = {}): CompositionSpec {
@@ -605,3 +605,29 @@ describe('expandTransitions — floating-point sums at the edge of a layer', () 
     expect(() => expandTransitions(spec)).not.toThrow();
   });
 });
+
+describe('expandTransitions — a composition with its own time (speed / time)', () => {
+  // the layers live in the composition's LOCAL time, which at speed 2 runs to 8 s (twice its duration of 4)
+  const remapped = (at: number, extra: Partial<CompositionSpec> = {}): CompositionSpec => ({
+    width: 100, height: 100, duration: 4, speed: 2,
+    sequences: [{ type: 'text', name: 'a', text: 'a' }, { type: 'text', name: 'b', text: 'b' }],
+    transitions: [{ kind: 'crossfade', from: 'a', to: 'b', at, duration: 1 }],
+    ...extra,
+  } as CompositionSpec);
+
+  it('measures the layers against the content length (8 s), not the composition\'s 4 s: a crossfade at local 5 s is valid', () => {
+    expect(() => expandTransitions(remapped(5))).not.toThrow();
+    expect(transitionWindowsOf(expandTransitions(remapped(5)))).toEqual([{ from: 'a', to: 'b', start: 5, end: 6 }]);
+  });
+  it('a negative `at` counts back from the end of the CONTENT: -1 is local 7 s', () => {
+    expect(transitionWindowsOf(expandTransitions(remapped(-1)))).toEqual([{ from: 'a', to: 'b', start: 7, end: 8 }]);
+  });
+  it('time keyframes lengthen the content the same way', () => {
+    const s = remapped(5, { speed: undefined, keyframes: [{ at: 0, from: { time: 0 }, to: { time: 8 }, duration: 4 }] } as Partial<CompositionSpec>);
+    expect(() => expandTransitions(s)).not.toThrow();
+  });
+  it('an ordinary composition is measured as before (a window past its duration is still refused)', () => {
+    expect(() => expandTransitions(remapped(5, { speed: undefined } as Partial<CompositionSpec>))).toThrow(/not covered/);
+  });
+});
+

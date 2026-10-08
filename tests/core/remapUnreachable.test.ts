@@ -43,4 +43,17 @@ describe('a child the clock never reaches', () => {
     expect(w[0]).toMatch(/layer "before"/);
     expect(w[1]).toMatch(/layer "after"/);
   });
+
+  it('a child that starts exactly where the clock begins to HOLD is on screen for the whole hold: no warning', async () => {
+    const hold = { keyframes: [{ at: 0, from: { time: 0 }, to: { time: 1 }, duration: 1 }, { at: 1, to: { time: 1 }, duration: 3 }] };   // 0 -> 1 in a second, then held at 1 for 3 s
+    expect(await warningsOf(hold, [{ type: '__box', name: 'held', at: 1, duration: 2 }])).toEqual([]);
+    const ramp = { keyframes: [{ at: 0, from: { time: 0 }, to: { time: 2 }, duration: 2, ease: 'power2.out' }, { at: 2, to: { time: 2 }, duration: 2 }] };
+    expect(await warningsOf(ramp, [{ type: '__box', name: 'lands', at: 2, duration: 1 }])).toEqual([]);
+  });
+  it('one mistake, one warning: a child written in the OUTER time (at 5 in a 4 s composition at speed 0.5) is said once', async () => {
+    const w = await warningsOf({ speed: 0.5 }, [{ type: '__box', name: 'late', at: 5, duration: 1 }]);
+    expect(w).toHaveLength(1);
+    expect(w[0]).toMatch(/layer "late" starts at 5s/);
+  });
 });
+

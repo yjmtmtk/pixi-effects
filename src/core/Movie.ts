@@ -441,10 +441,12 @@ export class Movie {
   private async _awaitVideoFrames(t: number = this._timeOf(this.currentFrame)): Promise<void> {
     if (!this._rootSequence) return;
     const collected: VideoLike[] = [];
-    collectVideoSequences(this._rootSequence, collected);
+    const clocks = new Map<VideoLike, () => number>();
+    collectVideoSequences(this._rootSequence, collected, clocks);
     await Promise.all(collected.map(v => {
       if (v.selfTimed) return v.awaitFrameAt(t);                          // a video knows the playhead its own timeline wrote (remapped, local inside a remapped composition)
-      const local = t - (v.absoluteStart ?? v.at);
+      // a layer inside a composition with its own time lives in THAT composition's seconds: its `absoluteStart` is local
+      const local = (clocks.get(v)?.() ?? t) - (v.absoluteStart ?? v.at);
       if (local < 0 || local > (v.duration ?? 0)) return Promise.resolve();
       return v.awaitFrameAt(local);
     }));
@@ -1038,12 +1040,14 @@ function safeRun(fn: () => unknown): void {
  * that exposes `awaitFrameAt`, so Movie can await frame-driven sequences
  * (video, three) wherever they appear, including inside masks.
  */
-export function collectVideoSequences(seq: Sequence, out: VideoLike[]): void {
+export function collectVideoSequences(seq: Sequence, out: VideoLike[], clocks?: Map<VideoLike, () => number>, clock: (() => number) | null = null): void {
   if (typeof (seq as Sequence & Partial<VideoLike>).awaitFrameAt === 'function') {
     out.push(seq as unknown as VideoLike);
+    if (clock && clocks) clocks.set(seq as unknown as VideoLike, clock);       // inside a composition with its own time: that composition's clock
   }
-  if (seq.maskSequence) collectVideoSequences(seq.maskSequence, out);
+  if (seq.maskSequence) collectVideoSequences(seq.maskSequence, out, clocks, clock);
+  const own = (seq as Sequence & { localClock?: () => (() => number) | null }).localClock?.() ?? clock;
   for (const child of (seq as Sequence & { _children?: Sequence[] })._children ?? []) {
-    collectVideoSequences(child, out);
+    collectVideoSequences(child, out, clocks, own);
   }
 }

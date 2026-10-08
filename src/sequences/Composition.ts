@@ -12,7 +12,7 @@ import { lintSequence } from '../space/lint';
 import { describeLayer, lintText, lintTiming, summarizeWarnings, lintKeys } from '../core/lint';
 import { applyBlendMode } from '../core/blend';
 import { cameraBasis, homeCamera } from '../space/math';
-import { timeRemapOf, remapOf, contentLength, bindClock, clockTable, type TimeRemap } from '../core/remap';
+import { timeRemapOf, remapOf, contentLength, bindClock, clockTable, type TimeRemap, type ClockTable } from '../core/remap';
 import type { CompositionSequenceSpec, AudioDescriptor, CompositionShape, SequenceSpec } from '../types';
 
 type Timeline = ReturnType<typeof gsap.timeline>;
@@ -238,23 +238,27 @@ export class CompositionSequence extends Sequence {
     // tween's start value the first time it renders, and a remap can reach a stretch of local time for the first time going BACKWARD.
     inner.time(inner.duration()); inner.time(0);
     last = NaN;                                          // the inner timeline now sits at 0, whatever the clock last said
-    this._warnUnreachable(clockTable(remap, 'time', this.duration!, offset + this.at, scope, offset + this.at + this.duration!));
+    this._warnUnreachable(clockTable(remap, 'time', this.duration!, offset + this.at, scope, offset + this.at + this.duration!), offset + this.at, offset + this.at + this.duration!);
   }
 
   /**
-   * A child whose whole span lies outside the range the clock covers is never visible: say so. Its `at` is in THIS composition's
-   * local time, so the usual mistake is writing it in the outer time (or forgetting that speed 0.5 reaches only half as far).
+   * A child the clock never dwells in is never visible: say so. Its `at` is in THIS composition's local time, so the usual mistake is
+   * writing it in the outer time (or forgetting that speed 0.5 reaches only half as far). Decided by dwell, not by the clock's end
+   * points: a clock that arrives at the child's `at` and HOLDS there shows it for the whole hold; one that only touches it in a single
+   * instant (speed 0.5, a child at exactly the farthest local time) does not.
    */
-  private _warnUnreachable(table: { min: number; max: number }): void {
+  private _warnUnreachable(table: ClockTable, from: number, to: number): void {
     const remap = this._remap!;
     const how = remap.timeKfs.length ? 'time keyframes' : `speed ${remap.speed ?? 1}`;
     const span = this._contentSpan;
+    const EPS = 1e-9;
     for (const child of this._children) {
       const at = child.at;
+      if (at >= span) continue;                                    // already said by lintTiming ("starts after its composition ends")
       const end = Math.min(at + (child.duration ?? span), span);
-      const after = at > table.max + 1e-9 || (at >= table.max - 1e-9 && at > table.min + 1e-9);          // starts where the clock has already stopped
-      const before = end < table.min - 1e-9 || (end <= table.min + 1e-9 && end < table.max - 1e-9);        // ends before the clock begins
-      if (!(after || before)) continue;
+      let dwell = 0;                                               // 1 ms samples of the clock inside [at, end)
+      for (let t = from; t <= to && dwell < 2; t += 0.001) { const v = table.at(t); if (v >= at - EPS && v < end + EPS) dwell++; }
+      if (dwell >= 2) continue;
       console.warn(
         `pixi-effects: ${describeLayer(child.spec)} starts at ${at}s of ${describeLayer(this.spec)}'s own time, but its clock only reaches ` +
         `${Number(table.min.toFixed(3))}–${Number(table.max.toFixed(3))}s (${how}), so it is never visible. ` +

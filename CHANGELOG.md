@@ -8,7 +8,8 @@
 - **`cubic-bezier(x1, y1, x2, y2)` easing**, the CSS curve exactly, no plugin (`ease: 'cubic-bezier(.2, .8, .2, 1)'`, a fast start with a long glide). A malformed one warns once and runs as `'none'`.
 - **The mistakes of the new keys are warned about, with what to write:** `speed` of 0 or not a number, `speed` together with keyframed `time` (`time` wins), `speed` in `initial` or a keyframe (it is a setting: animate `time`), `speed` / `time` on a layer that cannot have them (a shape, text, an `sfx`: its `pitch` is in semitones), other names (`playbackRate`, `timeScale`, `rate`, `reverse: true`, `timeRemap`), and a layer inside a remapped composition that its clock never reaches (`at: 3` in a 4 s composition at `speed: 0.5`).
 - **The timeline says which times are local.** `movie.timelineData()` rows and transitions inside a remapped composition carry `local` (`stage ×0.5`, `stage time keyframes`) and are in that composition's seconds; the chart's tooltip says so; `--at inner@end` for such a layer says to name the composition; `inspect()` reads a remapped composition's transition windows in its own time; `inspectAudio()` reports a sound inside one when it plays in the movie (every pass, forward, backward, replayed), and an `sfx` that its composition's clock never lets finish is reported as cut off by the clock, with how far the clock reaches (it used to be blamed on the end of the movie).
-- Playground preset 15 (rewind and replay a title), the recipe `rewind-and-replay`, pitfalls 69–74, and the guide (Motion: Time; Images and video).
+- `transitions` inside a composition with its own time are measured against its content (in its local seconds; a negative `at` counts back from the end of the content), and a frame-driven layer (`pixi-effects/three`) inside one is asked for the composition's local time.
+- Playground preset 15 (rewind and replay a title), the recipe `rewind-and-replay`, pitfalls 69–73, and the guide (Motion: Time; Images and video).
 - **One gallery piece for the new feature** (42 now): `rewind-title` ("Again.": a title card is built, rewound like a tape with its sounds running backward, held on an empty frame and replayed in slow motion; one composition with its own clock, an on-screen display that keeps real time). Its author worked from the docs alone, and its stumble notes corrected them: `cubic-bezier(.2, .8, .2, 1)` is front-loaded (half of the change in the first 13 % of the time, 99 % by 74 %), GSAP's `power2` is a cubic (`power2.in` has done 12.5 % at half time), what children of a `time`-keyframed composition default to, and what `inspectAudio` reports for a remapped sound.
 
 **Fixed**
@@ -27,7 +28,6 @@
 
 **Known limits**
 
-- A three.js layer (`pixi-effects/three`) inside a remapped composition reads the movie's time, not the composition's.
 - No time-stretch: the pitch follows the speed. Speeds above 2 are not low-pass filtered (aliasing).
 - A composition has no `loop` (an audio or video file does): loop its time with a finite `repeat`.
 

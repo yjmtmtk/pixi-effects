@@ -12,6 +12,7 @@ interface FakeNode {
   awaitFrameAt?: () => Promise<void>;
   maskSequence?: FakeNode | null;
   _children?: FakeNode[];
+  localClock?: () => (() => number) | null;
 }
 
 function node(id: string, opts: Partial<FakeNode> = {}): FakeNode {
@@ -93,4 +94,23 @@ describe('collectVideoSequences', () => {
       'synced-leaf',
     ].sort());
   });
+
+  it('a layer inside a composition with its own time is given that composition\'s clock (its time is local, not the movie\'s); a layer outside is not', () => {
+    const inside = node('inside', { awaitFrameAt: async () => {} });
+    const maskInside = node('mask-inside', { awaitFrameAt: async () => {} });
+    const nested = node('nested', { _children: [node('deep', { awaitFrameAt: async () => {} })], localClock: () => null });
+    const remapped = node('remapped', { _children: [inside, nested], maskSequence: null, localClock: () => () => 2.5 });
+    inside.maskSequence = maskInside;
+    const outside = node('outside', { awaitFrameAt: async () => {} });
+    const root = node('root', { _children: [remapped, outside] });
+    const out: Collected = [];
+    const clocks = new Map<unknown, () => number>();
+    collectVideoSequences(root as unknown as Sequence, out, clocks as never);
+    const byId = (id: string) => (out as unknown as FakeNode[]).find(n => n.id === id)!;
+    expect(clocks.get(byId('inside'))!()).toBe(2.5);
+    expect(clocks.get(byId('mask-inside'))!()).toBe(2.5);          // a mask is bound on the same timeline as the layer it masks
+    expect(clocks.get(byId('deep'))!()).toBe(2.5);                 // a plain composition inside inherits the clock of the one around it
+    expect(clocks.has(byId('outside'))).toBe(false);
+  });
 });
+
