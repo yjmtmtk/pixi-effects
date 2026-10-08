@@ -79,7 +79,7 @@ export function serve(root, onRequest = null, port = 0) {
       if (!file.startsWith(root)) { res.writeHead(403).end(); return; }
       if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'index.html');
       if (!fs.existsSync(file)) { res.writeHead(404).end('not found'); return; }
-      res.writeHead(200, { 'content-type': MIME[path.extname(file).toLowerCase()] ?? 'application/octet-stream', 'cache-control': 'no-store' });
+      res.writeHead(200, { 'content-type': MIME[path.extname(file).toLowerCase()] ?? 'application/octet-stream', 'cache-control': 'no-store', 'access-control-allow-origin': '*' });   // like GitHub Pages: a page with no origin (a sandboxed iframe) may load these files
       fs.createReadStream(file).pipe(res);
     } catch { res.writeHead(500).end(); }
   });

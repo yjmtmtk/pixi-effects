@@ -95,13 +95,17 @@
     window.movie = movie;
     new Controller(movie, { canvas: document.getElementById('stage') });
 
+    // Optional, for advanced pages: const INIT = { assets: [...], composition: { transitions: [...] }, motionBlur: true } adds movie.init options.
+    const EXTRA = typeof INIT === 'object' && INIT ? INIT : {};
+
     try {
       await movie.init({
         canvas: document.getElementById('stage'),
         width: W, height: H, duration: DURATION, frameRate: FPS,
         poster: POSTER,
         background: BACKGROUND,
-        composition: { sequences },
+        ...EXTRA,
+        composition: { sequences, ...(EXTRA.composition || {}) },
       });
       window.__ready = true;
     } catch (e) {

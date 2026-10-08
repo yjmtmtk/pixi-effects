@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>check · the Playground's sandboxed runner</title></head>
+<body>
+  <!--
+    Acceptance check (not an example): exposes window.runner (createRunner of examples/playground/host.js) and window.docOf (the
+    template's default edit block). tests/tools/playgroundSandbox.test.ts runs code in it and talks to the movie through the bridge.
+  -->
+  <div id="host" style="width:640px;height:360px"></div>
+  <script type="module">
+    import { createRunner } from '../playground/host.js';
+    import { editRegion } from '../playground/doc.js';
+    const templateUrl = new URL('../../ai/chat-template.html', location.href).href;
+    window.runner = createRunner({
+      container: document.getElementById('host'), templateUrl,
+      distBase: new URL('../../dist/', location.href).href, assetBase: new URL('../', location.href).href,
+    });
+    window.defaultCode = editRegion(await (await fetch(templateUrl)).text());
+    window.__ready = true;
+  </script>
+</body>
+</html>
