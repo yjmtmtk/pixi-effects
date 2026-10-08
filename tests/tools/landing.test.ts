@@ -4,6 +4,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { launchPage } from '../support/browser';
 
 const root = resolve(__dirname, '../..');
 const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
@@ -17,7 +18,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the landin
   it('a click on "A real piece, live" loads the gallery piece AND plays it (same origin, as on the published site); the hero plays its own snippet', async () => {
     const { server, port } = await check.serve(root);                       // the repository root: /index.html and /examples/gallery/…
     const userDataDir = mkdtempSync(join(tmpdir(), 'landing-'));
-    const { proc, cdp } = await check.launchChrome(chrome, userDataDir);
+    const { proc, cdp } = await launchPage(chrome, userDataDir);
     try {
       await cdp.send('Runtime.enable');
       await cdp.send('Page.enable');
@@ -60,7 +61,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the landin
   it('a poster in the gallery strip opens THAT piece in a player and plays it on the click; its link goes to that piece in the gallery; closing stops it', async () => {
     const { server, port } = await check.serve(root);
     const userDataDir = mkdtempSync(join(tmpdir(), 'landing-'));
-    const { proc, cdp } = await check.launchChrome(chrome, userDataDir);
+    const { proc, cdp } = await launchPage(chrome, userDataDir);
     try {
       await cdp.send('Runtime.enable');
       await cdp.send('Page.enable');

@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { launchPage } from '../support/browser';
 
 const root = resolve(__dirname, '../..');
 const view: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/view.mjs')).href);
@@ -41,7 +42,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('view.mjs â
       proc.stdout!.on('data', d => { buf += d; const m = buf.match(/(http:\/\/127\.0\.0\.1:\d+\/__viewer)/); if (m) { clearTimeout(t); res(m[1]!); } });
     });
     const userDataDir = mkdtempSync(join(tmpdir(), 'view-test-'));
-    const { proc: chromeProc, cdp } = await check.launchChrome(chrome, userDataDir);
+    const { proc: chromeProc, cdp } = await launchPage(chrome, userDataDir);
     try {
       await cdp.send('Runtime.enable');
       await cdp.send('Page.enable');
@@ -87,7 +88,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('view.mjs â
       proc.stdout!.on('data', d => { buf += d; const m = buf.match(/(http:\/\/127\.0\.0\.1:\d+\/__viewer)/); if (m) { clearTimeout(t); res(m[1]!); } });
     });
     const userDataDir = mkdtempSync(join(tmpdir(), 'view-zoom-'));
-    const { proc: chromeProc, cdp } = await check.launchChrome(chrome, userDataDir);
+    const { proc: chromeProc, cdp } = await launchPage(chrome, userDataDir);
     try {
       await cdp.send('Runtime.enable');
       await cdp.send('Page.enable');

@@ -4,6 +4,7 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { launchPage } from '../support/browser';
 
 const root = resolve(__dirname, '../..');
 const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
@@ -15,7 +16,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('followPath
   it('the dot is on the route at every frame it is checked at, and the square is half way when morph is 0.5', async () => {
     const { server, port } = await check.serve(root);
     const userDataDir = mkdtempSync(join(tmpdir(), 'pathmotion-'));
-    const { proc, cdp } = await check.launchChrome(chrome, userDataDir);
+    const { proc, cdp } = await launchPage(chrome, userDataDir);
     try {
       await cdp.send('Runtime.enable');
       await cdp.send('Page.enable');

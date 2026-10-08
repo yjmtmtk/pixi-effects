@@ -162,7 +162,7 @@ export async function launchChrome(chrome, userDataDir, extraArgs = []) {
   const page = targets.find(t => t.type === 'page');
   const ws = new WebSocket(page.webSocketDebuggerUrl);
   await new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = () => reject(new Error('could not connect to Chrome')); });
-  return { proc, cdp: new Cdp(ws) };
+  return { proc, cdp: new Cdp(ws), port: Number(port), endpoint };
 }
 
 // ───────────────────────────── in-page scripts ─────────────────────────────

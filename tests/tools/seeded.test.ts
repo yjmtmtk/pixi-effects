@@ -4,6 +4,7 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { launchPage } from '../support/browser';
 
 const root = resolve(__dirname, '../..');
 const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
@@ -15,7 +16,7 @@ const built = existsSync(join(root, 'dist/index.js'));
 async function frames(seed: number, order: number[]): Promise<Record<number, string>> {
   const { server, port } = await check.serve(root);
   const userDataDir = mkdtempSync(join(tmpdir(), 'seeded-'));
-  const { proc, cdp } = await check.launchChrome(chrome, userDataDir);
+  const { proc, cdp } = await launchPage(chrome, userDataDir);
   try {
     await cdp.send('Runtime.enable');
     await cdp.send('Page.enable');

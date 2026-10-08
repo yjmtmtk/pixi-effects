@@ -9,6 +9,7 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { launchPage } from '../support/browser';
 
 const root = resolve(__dirname, '../..');
 const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
@@ -19,7 +20,7 @@ const FLAGS = ['--enable-features=WebMCP'];
 async function open<T>(fn: (cdp: any) => Promise<T>): Promise<T> {
   const { server, port } = await check.serve(root);
   const dir = mkdtempSync(join(tmpdir(), 'mcp-'));
-  const { proc, cdp } = await check.launchChrome(chrome, dir, FLAGS);
+  const { proc, cdp } = await launchPage(chrome, dir, FLAGS);
   try {
     await cdp.send('Runtime.enable'); await cdp.send('Page.enable');
     await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/playground.html` });
@@ -32,7 +33,7 @@ async function open<T>(fn: (cdp: any) => Promise<T>): Promise<T> {
 const hasWebMcp: boolean = chrome ? await (async () => {
   const { server, port } = await check.serve(root);
   const dir = mkdtempSync(join(tmpdir(), 'mcp-has-'));
-  const { proc, cdp } = await check.launchChrome(chrome, dir, FLAGS);
+  const { proc, cdp } = await launchPage(chrome, dir, FLAGS);
   try {
     await cdp.send('Page.enable');
     await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/ai/chat-template.html` });

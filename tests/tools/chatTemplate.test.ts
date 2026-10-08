@@ -5,6 +5,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { launchPage } from '../support/browser';
 
 const root = resolve(__dirname, '../..');
 const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
@@ -41,7 +42,7 @@ async function inSandbox<T>(html: string, then?: (cdp: any) => Promise<T>) {
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
   const port = (server.address() as { port: number }).port;
   const userDataDir = mkdtempSync(join(tmpdir(), 'chat-template-'));
-  const { proc, cdp } = await check.launchChrome(chrome, userDataDir);
+  const { proc, cdp } = await launchPage(chrome, userDataDir);
   try {
     await cdp.send('Runtime.enable');
     await cdp.send('Page.enable');

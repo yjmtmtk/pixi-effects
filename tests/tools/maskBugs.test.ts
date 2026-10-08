@@ -4,6 +4,7 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { launchPage } from '../support/browser';
 
 const root = resolve(__dirname, '../..');
 const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
@@ -14,7 +15,7 @@ const built = existsSync(join(root, 'dist/index.js'));
 async function picture(query: string): Promise<{ rgba: number[]; backend: string }> {
   const { server, port } = await check.serve(root);
   const dir = mkdtempSync(join(tmpdir(), 'maskbugs-'));
-  const { proc, cdp } = await check.launchChrome(chrome, dir);
+  const { proc, cdp } = await launchPage(chrome, dir);
   try {
     await cdp.send('Runtime.enable'); await cdp.send('Page.enable');
     await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/_checks/mask-bugs.html?${query}` });
@@ -40,7 +41,7 @@ const isBackground = (c: [number, number, number]) => Math.abs(c[0] - 16) < 12 &
 async function seekPair(query: string): Promise<{ fresh: number[]; afterSeek: number[] }> {
   const { server, port } = await check.serve(root);
   const dir = mkdtempSync(join(tmpdir(), 'maskseek-'));
-  const { proc, cdp } = await check.launchChrome(chrome, dir);
+  const { proc, cdp } = await launchPage(chrome, dir);
   try {
     await cdp.send('Runtime.enable'); await cdp.send('Page.enable');
     await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/_checks/mask-bugs.html?${query}` });

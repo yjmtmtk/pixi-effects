@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 // @ts-expect-error plain ESM script without types
 import { buildGuide } from '../../scripts/build-guide.mjs';
+import { launchPage } from '../support/browser';
 
 const root = resolve(__dirname, '../..');
 const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
@@ -18,7 +19,7 @@ const PAGES: Array<[string]> = [['index.html'], ['guide-preview/getting-started.
 async function withPage<T>(path: string, width: number, fn: (cdp: any) => Promise<T>): Promise<T> {
   const { server, port } = await check.serve(root);
   const dir = mkdtempSync(join(tmpdir(), 'shell-'));
-  const { proc, cdp } = await check.launchChrome(chrome, dir);
+  const { proc, cdp } = await launchPage(chrome, dir);
   try {
     await cdp.send('Page.enable');
     await cdp.send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: width < 600 });

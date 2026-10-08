@@ -4,6 +4,7 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { launchPage } from '../support/browser';
 
 const root = resolve(__dirname, '../..');
 const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
@@ -14,7 +15,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('Controller
   it('a canvas sized "min(960px, 100%)" in a window wider than its attribute width: the wrapper is exactly as wide as the canvas and the canvas stays centred', async () => {
     const { server, port } = await check.serve(root);
     const userDataDir = mkdtempSync(join(tmpdir(), 'ctl-layout-'));
-    const { proc, cdp } = await check.launchChrome(chrome, userDataDir);
+    const { proc, cdp } = await launchPage(chrome, userDataDir);
     try {
       await cdp.send('Runtime.enable');
       await cdp.send('Page.enable');
@@ -55,7 +56,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('Controller
   it('a browser without element fullscreen (iPhone Safari) shows no fullscreen button; a desktop browser does', async () => {
     const { server, port } = await check.serve(root);
     const userDataDir = mkdtempSync(join(tmpdir(), 'ctl-fs-'));
-    const { proc, cdp } = await check.launchChrome(chrome, userDataDir);
+    const { proc, cdp } = await launchPage(chrome, userDataDir);
     try {
       await cdp.send('Runtime.enable');
       await cdp.send('Page.enable');
@@ -84,7 +85,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('Controller
   it('the bar is blue by default and takes its colour and thickness from --mc-accent / --mc-track-height set in the page CSS', async () => {
     const { server, port } = await check.serve(root);
     const userDataDir = mkdtempSync(join(tmpdir(), 'ctl-theme-'));
-    const { proc, cdp } = await check.launchChrome(chrome, userDataDir);
+    const { proc, cdp } = await launchPage(chrome, userDataDir);
     try {
       await cdp.send('Runtime.enable');
       await cdp.send('Page.enable');
@@ -112,7 +113,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('Controller
   it('a real click on the picture plays and pauses it; a click on the bar button is still one toggle', async () => {
     const { server, port } = await check.serve(root);
     const userDataDir = mkdtempSync(join(tmpdir(), 'ctl-click-'));
-    const { proc, cdp } = await check.launchChrome(chrome, userDataDir);
+    const { proc, cdp } = await launchPage(chrome, userDataDir);
     try {
       await cdp.send('Runtime.enable');
       await cdp.send('Page.enable');

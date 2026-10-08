@@ -4,6 +4,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { launchPage } from '../support/browser';
 
 const root = resolve(__dirname, '../..');
 const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
@@ -18,7 +19,7 @@ const pinnedOnCdn = await fetch(`https://cdn.jsdelivr.net/npm/pixi-effects@${pin
 async function withPlayground<T>(width: number, fn: (cdp: any, console_: string[]) => Promise<T>, hash = ''): Promise<T> {
   const { server, port } = await check.serve(root);
   const dir = mkdtempSync(join(tmpdir(), 'playground-'));
-  const { proc, cdp } = await check.launchChrome(chrome, dir, ['--disable-features=site-per-process,IsolateOrigins', '--disable-site-isolation-trials']);   // the frame in the page's process: its console is then seen
+  const { proc, cdp } = await launchPage(chrome, dir, ['--disable-features=site-per-process,IsolateOrigins', '--disable-site-isolation-trials']);   // the frame in the page's process: its console is then seen
   const messages: string[] = [];
   try {
     cdp.on((m: any) => {
