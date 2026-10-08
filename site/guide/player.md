@@ -45,7 +45,7 @@ controller.setTheme({ accent: '#7bd88f' });          // later, live; null puts a
 A piece with many layers can keep the page busy for a moment while it is built, and a first visit also downloads the libraries. Nothing in the page moves during that time unless you plan for it: add the shared loader.
 
 ```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.18.0/dist/loader.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.19.0/dist/loader.css">
 
 <div class="stage" style="position: relative; width: min(960px, 100%)">   <!-- any box with position: relative -->
   <canvas id="stage" width="1280" height="720" style="display: block; width: 100%; height: auto"></canvas>
