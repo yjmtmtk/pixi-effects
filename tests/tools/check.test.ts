@@ -119,6 +119,21 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     expect(String(bad?.stderr)).toMatch(/no layer named "nope".*title/s);
   }, 400_000);
 
+  it('fonts: a web font that failed to load fails the check; a layer with no available font is listed for review (and fails with --strict)', async () => {
+    const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/fonts.html'), '--no-export', ...args, '--timeout', '150'], { timeout: 170_000 });
+    const out = mkdtempSync(join(tmpdir(), 'check-fonts-'));
+    const failed = await run(['--out', out]).then(() => null, (e: any) => e);
+    expect(failed?.code).toBe(1);                                                    // the web font that cannot load is a problem
+    expect(String(failed?.stdout)).toMatch(/1 web font\(s\) failed to load: Broken/);
+    const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));
+    expect(report.fonts.missing.map((m: any) => m.layer)).toEqual(['missing']);
+    expect(report.inspect.review.map((r: any) => r.message).join('\n')).toMatch(/layer "missing": none of the fonts "ThisFontDoesNotExist123, NopeNope" is available/);
+    expect(report.problems.join('\n')).not.toMatch(/layer "missing"/);               // not a failure without --strict
+    const strict = await run(['--out', mkdtempSync(join(tmpdir(), 'check-fonts-')), '--strict']).then(() => null, (e: any) => e);
+    expect(strict?.code).toBe(1);
+    expect(String(strict?.stdout)).toMatch(/layer "missing": none of its fonts is available/);
+  }, 200_000);
+
   it.skipIf(!onCdn)('the guide\'s first-video page (loaded from the CDN, as a reader would) passes the check, sound included', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-test-'));
     const { stdout } = await promisify(execFile)('node', [

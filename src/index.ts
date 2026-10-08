@@ -22,6 +22,7 @@ export type {
 export type { InspectReport, InspectOptions, LayerInfo } from './core/inspect';
 export type { TimelineData, TimelineRow, TimelineTransition, TimelineHtmlOptions, TimelineSvgOptions } from './core/timelineChart';
 export type { AudioReport, AudioSourceReport, SoundMeasure, AudioInspectOptions } from './core/inspectAudio';
+export type { FontReport } from './core/inspectFonts';
 export { measureText, splitText } from './text/measure';
 export type { MeasureStyle, TextSize, SplitOptions, TextPiece } from './text/measure';
 

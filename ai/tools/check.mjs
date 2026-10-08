@@ -325,6 +325,17 @@ export async function runCheck(opts, log = console.log) {
     const grouped = splitIssues(groupIssues(sweep.perFrame), opts.strict);
     report.inspect = { checkedFrames: sweep.checked, issues: grouped.problems, review: grouped.review };
     if (grouped.problems.length) report.problems.push(`${grouped.problems.length} kind(s) of layout issue from movie.inspect`);
+
+    // fonts: a web font whose file did not load is a problem; a layer none of whose fonts is available is for review (a fallback is drawn)
+    const fonts = await cdp.eval('movie.inspectFonts()').catch(() => null);
+    if (fonts) {
+      report.fonts = fonts;
+      if (fonts.failed.length) report.problems.push(`${fonts.failed.length} web font(s) failed to load: ${fonts.failed.join(', ')} (the layers that use them are drawn in a fallback)`);
+      for (const m of fonts.missing) {
+        (opts.strict ? report.inspect.issues : report.inspect.review).push({ message: `layer "${m.layer}": none of the fonts "${m.family}" is available here (it is drawn in a fallback font)`, count: 1, firstFrame: 0, lastFrame: 0 });
+        if (opts.strict) report.problems.push(`layer "${m.layer}": none of its fonts is available (${m.family})`);
+      }
+    }
     left();
 
     // contact sheet
@@ -452,7 +463,7 @@ function finish(report, outDir, log) {
     if (g.length > 8) L.push(`            … ${g.length - 8} more (report.json)`);
     const rv = report.inspect.review;
     if (rv.length) {
-      L.push(`  review    ${rv.length} text overlap(s) — often intentional (ghost / glow copies, per-letter boxes, a wipe); check them on the contact sheet, or use --strict to fail on them:`);
+      L.push(`  review    ${rv.length} to look at — text overlaps are often intentional (ghost / glow copies, per-letter boxes, a wipe), and a font that is not available is drawn in a fallback; check them on the contact sheet, or use --strict to fail on them:`);
       for (const i of rv.slice(0, 4)) L.push(line(i));
       if (rv.length > 4) L.push(`            … ${rv.length - 4} more (report.json)`);
     }

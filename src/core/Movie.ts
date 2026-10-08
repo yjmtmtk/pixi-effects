@@ -6,6 +6,7 @@ import { loadAssetBundle } from './AssetLoader';
 import { CompositionSequence } from '../sequences/Composition';
 import { mixdown, limitMix, type MixStats } from './AudioMixer';
 import { analyzeAudio, type AudioReport, type AudioInspectOptions } from './inspectAudio';
+import { inspectFonts, type FontReport } from './inspectFonts';
 import { exportFrames } from './Renderer';
 import { expandTransitions, carryTransitionWindows } from './Transitions';
 import { inspectScene, type InspectReport, type InspectOptions } from './inspect';
@@ -620,6 +621,15 @@ export class Movie {
    * The soundtrack, measured: when every audio layer plays, how loud the mix is over time, and `issues`
    * (limiting, inaudible layers, sounds cut off by the end). Use it to CHECK sound you cannot hear.
    */
+  /**
+   * The fonts of the text layers: `missing` lists layers none of whose `fontFamily` entries is available in this browser (they are
+   * drawn in a fallback font), `failed` lists web fonts (`@font-face`) whose file could not be loaded.
+   */
+  inspectFonts(): FontReport {
+    this._requireReady('inspectFonts');
+    return inspectFonts(this._rootSequence as Sequence);
+  }
+
   inspectAudio(opts: AudioInspectOptions = {}): AudioReport {
     warnUnknownOptions('movie.inspectAudio()', opts, ['window']);
     this._requireReady('inspectAudio');

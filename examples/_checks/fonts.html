@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>check · movie.inspectFonts()</title>
+  <style>@font-face { font-family: Broken; src: url(this-file-does-not-exist.woff2); }</style>
+</head>
+<body>
+  <!--
+    Acceptance check (not an example): four text layers. "ok-arial" and "ok-georgia" name fonts that exist, "missing" names two that do
+    not, "broken" names a web font whose file cannot be loaded. tests/tools/fonts.test.ts reads movie.inspectFonts().
+  -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":            "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":      "https://esm.sh/mediabunny@1.61.3"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+
+    try { await document.fonts.load('20px Broken'); } catch { /* the file is missing on purpose: the face ends up in the error state */ }
+    const text = (name, fontFamily, y) => ({ type: 'text', name, text: name, style: { fontFamily, fontSize: 24, fill: '#ffffff' }, initial: { x: 10, y } });
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 320, height: 180, duration: 2, frameRate: 30,
+        composition: { sequences: [
+          { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#102040' } },
+          text('ok-arial', 'Arial, sans-serif', 10),
+          text('missing', 'ThisFontDoesNotExist123, NopeNope', 50),
+          text('ok-georgia', 'Georgia, serif', 90),
+          text('broken', 'Broken', 130),
+        ] },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+  </script>
+</body>
+</html>
