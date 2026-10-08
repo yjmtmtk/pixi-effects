@@ -241,9 +241,26 @@ export class CompositionSequence extends Sequence {
     this._warnUnreachable(clockTable(remap, 'time', this.duration!, offset + this.at, scope, offset + this.at + this.duration!));
   }
 
-  /** A child whose whole span lies outside the range the clock covers is never visible: said here (Task 7). */
-  private _warnUnreachable(_table: { min: number; max: number }): void {
-    // filled in by the warning step: the clock range is known here
+  /**
+   * A child whose whole span lies outside the range the clock covers is never visible: say so. Its `at` is in THIS composition's
+   * local time, so the usual mistake is writing it in the outer time (or forgetting that speed 0.5 reaches only half as far).
+   */
+  private _warnUnreachable(table: { min: number; max: number }): void {
+    const remap = this._remap!;
+    const how = remap.timeKfs.length ? 'time keyframes' : `speed ${remap.speed ?? 1}`;
+    const span = this._contentSpan;
+    for (const child of this._children) {
+      const at = child.at;
+      const end = Math.min(at + (child.duration ?? span), span);
+      const after = at > table.max + 1e-9 || (at >= table.max - 1e-9 && at > table.min + 1e-9);          // starts where the clock has already stopped
+      const before = end < table.min - 1e-9 || (end <= table.min + 1e-9 && end < table.max - 1e-9);        // ends before the clock begins
+      if (!(after || before)) continue;
+      console.warn(
+        `pixi-effects: ${describeLayer(child.spec)} starts at ${at}s of ${describeLayer(this.spec)}'s own time, but its clock only reaches ` +
+        `${Number(table.min.toFixed(3))}–${Number(table.max.toFixed(3))}s (${how}), so it is never visible. ` +
+        `Layers inside a remapped composition are placed in that composition's local time.`,
+      );
+    }
   }
 
   /**

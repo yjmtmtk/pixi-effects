@@ -197,6 +197,26 @@ describe('inspectScene during a transition', () => {
     expect(after.issues.some(i => i.includes('b/b-title') && /cut off/.test(i))).toBe(true);
   });
 
+  it('inside a remapped composition the window is read in ITS time: outer 5 s at 0.5x is local 2.5 s, inside the 2–3 s window', async () => {
+    const scene2 = (name: string, at: number) => ({
+      type: 'composition', name, at, duration: 3, width: 1280, height: 720,
+      sequences: [{ type: 'text', name: name + '-title', text: name, initial: { x: 100, y: 100 } }],
+    });
+    const spec = expandTransitions({
+      type: 'composition', width: 1280, height: 720, duration: 10, speed: 0.5,
+      sequences: [scene2('a', 0), scene2('b', 2)],
+      transitions: [{ kind: 'crossfade', from: 'a', to: 'b', at: 2, duration: 1 }],
+    } as unknown as CompositionSequenceSpec);
+    const comp = new CompositionSequence(spec, root, root);
+    await comp.build();
+    const tl = gsap.timeline({ paused: true });
+    comp.bindTimeline(tl);
+    tl.time(5);
+    const mid = inspectScene(comp, 150, 5, { width: 1280, height: 720 });
+    expect(mid.layers.filter(l => l.type === 'text' && l.visible)).toHaveLength(2);   // both scenes alive at local 2.5 s
+    expect(mid.issues.filter(i => /overlap/.test(i))).toEqual([]);                    // the two scenes are blending: no overlap issue
+  });
+
   it('the windows survive the spread Movie.init makes of the expanded spec', () => {
     const expanded = expandTransitions({
       type: 'composition', width: 1280, height: 720, duration: 10,

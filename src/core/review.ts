@@ -27,7 +27,7 @@ export interface ReviewReport {
   at: Array<{ label: string; frame: number }>;
 }
 
-interface Row { name: string; start: number; end: number; depth?: number; parts?: Array<{ start: number; end: number }>; partNames?: string[] }
+interface Row { name: string; start: number; end: number; depth?: number; parts?: Array<{ start: number; end: number }>; partNames?: string[]; /** in a remapped composition's LOCAL time (`stage ×0.5`) */ local?: string }
 
 /**
  * The frames movie.inspect looks at: the first and last frame, every scene's first and last frame (where a title is cut off or a
@@ -56,11 +56,13 @@ export function resolveAtList(list: string, ctx: { frameRate: number; totalFrame
   const { frameRate: fps, totalFrames, duration, rows } = ctx;
   const out: Array<{ label: string; frame: number }> = [], used = new Set<string>();
   // layers by their own names: a family the timeline folds into one row (`pop-# ×4`) gives its members back
-  const named = rows.flatMap((r) => (r.parts && r.partNames ? r.partNames.map((name, i) => ({ name, start: r.parts![i]!.start, end: r.parts![i]!.end })) : [r]));
+  const named = rows.filter((r) => !r.local).flatMap((r) => (r.parts && r.partNames ? r.partNames.map((name, i) => ({ name, start: r.parts![i]!.start, end: r.parts![i]!.end })) : [r]));
   for (const raw of String(list).split(',').map((s) => s.trim()).filter(Boolean)) {
     let frame: number, label: string, m: RegExpMatchArray | null;
     if ((m = raw.match(/^(.+)@(start|mid|end)$/))) {
       const row = named.find((r) => r.name === m![1]);
+      const inside = row ? undefined : rows.find((r) => r.local && r.name === m![1]);
+      if (inside) throw new Error(`--at "${raw}": layer "${m[1]}" is inside a time-remapped composition (${inside.local}), so its times are that composition's local seconds, not the movie's; name the composition (${inside.local!.replace(/ (×.*|time keyframes)$/, '')}@${m[2]}) or give seconds`);
       if (!row) throw new Error(`--at "${raw}": no layer named "${m[1]}" (names: ${named.slice(0, 40).map((r) => r.name).join(', ')}${named.length > 40 ? ', …' : ''})`);
       const t = m[2] === 'start' ? row.start : m[2] === 'mid' ? (row.start + row.end) / 2 : row.end - 1 / fps;
       frame = Math.round(t * fps); label = `${m[1]}-${m[2]}`;

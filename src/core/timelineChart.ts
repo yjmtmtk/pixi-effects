@@ -21,8 +21,13 @@ export interface TimelineRow {
   partNames?: string[];
   /** A short text for the tooltip (a text layer's words, an asset name). */
   detail?: string;
+  /**
+   * Set on every row inside a time-remapped composition: where its time comes from (`stage ×0.5`, `stage time keyframes`). Such rows
+   * are in that composition's LOCAL seconds (start, end, keys), not the movie's.
+   */
+  local?: string;
 }
-export interface TimelineTransition { from: string; to: string; start: number; end: number }
+export interface TimelineTransition { from: string; to: string; start: number; end: number; /** as `TimelineRow.local`: the window is in local seconds */ local?: string }
 export interface TimelineData {
   duration: number;
   rows: TimelineRow[];
@@ -46,7 +51,7 @@ function detailOf(seq: Sequence): string | undefined {
   return undefined;
 }
 
-function walk(comp: CompositionSequence, parentStart: number, parentEnd: number, depth: number, prefix: string, rows: TimelineRow[], transitions: TimelineTransition[]): void {
+function walk(comp: CompositionSequence, parentStart: number, parentEnd: number, depth: number, prefix: string, rows: TimelineRow[], transitions: TimelineTransition[], local?: string): void {
   const entries: Array<{ row: TimelineRow; inner: TimelineRow[]; groupable: boolean }> = [];
   comp._children.forEach((seq, i) => {
     const name = seq.spec.name ?? `${seq.spec.type}#${i}`;
@@ -55,15 +60,19 @@ function walk(comp: CompositionSequence, parentStart: number, parentEnd: number,
     const end = Math.min(parentEnd, seq.duration !== undefined ? start + seq.duration : parentEnd);
     const span = end - start;
     const keys = (seq.spec.keyframes ?? []).map(kf => round(start + resolveAt(kf.at, span))).sort((a, b) => a - b).slice(0, MAX_KEYS);
-    const row: TimelineRow = { path: prefix + name, name, type: seq.spec.type, depth, start: round(start), end: round(end), keys, detail: detailOf(seq) };
+    const row: TimelineRow = { path: prefix + name, name, type: seq.spec.type, depth, start: round(start), end: round(end), keys, detail: detailOf(seq), ...(local ? { local } : {}) };
     const inner: TimelineRow[] = [];
     const isComp = seq instanceof CompositionSequence;
-    if (isComp) walk(seq, start, end, depth + 1, prefix + name + '/', inner, transitions);
+    if (isComp) {
+      // A remapped composition's children are in its LOCAL time: from 0, up to its content length.
+      const label = seq.remapLabel();
+      walk(seq, label ? 0 : start, label ? seq.contentSpan : end, depth + 1, prefix + name + '/', inner, transitions, label ? `${name} ${label}` : local);
+    }
     entries.push({ row, inner, groupable: !isComp });
   });
   rows.push(...groupFamilies(entries));
   for (const w of transitionWindowsOf(comp.spec)) {
-    transitions.push({ from: prefix + w.from, to: prefix + w.to, start: round(parentStart + w.start), end: round(parentStart + w.end) });
+    transitions.push({ from: prefix + w.from, to: prefix + w.to, start: round(parentStart + w.start), end: round(parentStart + w.end), ...(local ? { local } : {}) });
   }
 }
 
@@ -107,7 +116,8 @@ function groupFamilies(entries: Array<{ row: TimelineRow; inner: TimelineRow[]; 
 export function collectTimeline(root: CompositionSequence, duration: number): TimelineData {
   const rows: TimelineRow[] = [];
   const transitions: TimelineTransition[] = [];
-  walk(root, 0, duration, 0, '', rows, transitions);
+  const label = root.remapLabel();                       // the root composition can be the remapped one: everything under it is local
+  walk(root, 0, label ? root.contentSpan : duration, 0, '', rows, transitions, label ? `movie ${label}` : undefined);
   return { duration, rows, transitions };
 }
 
@@ -156,13 +166,13 @@ export function timelineSvg(data: TimelineData, opts: TimelineSvgOptions = {}): 
 
   // transitions: a band across every row, drawn under the bars
   for (const t of data.transitions) {
-    out.push(`<g><title>transition ${esc(t.from)} → ${esc(t.to)} (${num(t.start)}–${num(t.end)} s)</title><rect class="transition" x="${num(x(t.start))}" y="${TOP - 4}" width="${num(Math.max(2, x(t.end) - x(t.start)))}" height="${H - TOP - PAD + 4}"/></g>`);
+    out.push(`<g><title>transition ${esc(t.from)} → ${esc(t.to)} (${num(t.start)}–${num(t.end)} s${t.local ? `, local time of ${esc(t.local)}` : ''})</title><rect class="transition" x="${num(x(t.start))}" y="${TOP - 4}" width="${num(Math.max(2, x(t.end) - x(t.start)))}" height="${H - TOP - PAD + 4}"/></g>`);
   }
 
   data.rows.forEach((r, i) => {
     const y = TOP + i * ROW;
     const color = COLORS[r.type] ?? '#9aa7b8';
-    const tip = `${r.path} · ${r.type} · ${num(r.start)}–${num(r.end)} s (${num(r.end - r.start)} s)${r.keys.length ? ` · ${r.keys.length} keyframe${r.keys.length > 1 ? 's' : ''}` : ''}${r.detail ? ` · ${r.detail}` : ''}`;
+    const tip = `${r.path} · ${r.type} · ${num(r.start)}–${num(r.end)} s (${num(r.end - r.start)} s)${r.keys.length ? ` · ${r.keys.length} keyframe${r.keys.length > 1 ? 's' : ''}` : ''}${r.detail ? ` · ${r.detail}` : ''}${r.local ? ` · local time of ${r.local}` : ''}`;
     out.push(`<g class="row" data-start="${num(r.start)}"><title>${esc(tip)}</title>`);
     out.push(`<rect class="band" x="${PAD}" y="${y}" width="${LABEL + CHART}" height="${ROW}" ${i % 2 ? 'fill-opacity=".05"' : 'fill-opacity="0"'}/>`);
     if (withLabels) out.push(`<text class="label" x="${PAD + 6 + r.depth * 14}" y="${y + 15}">${esc(r.name)}</text>`);

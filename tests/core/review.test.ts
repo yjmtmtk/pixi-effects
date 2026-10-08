@@ -29,6 +29,11 @@ describe('resolveAtList', () => {
     const rows = [{ name: 'title', start: 0, end: 10 }, { name: 'pop-# ×4', start: 1, end: 6, parts: [{ start: 1, end: 2 }, { start: 2, end: 3 }, { start: 3, end: 4 }, { start: 5, end: 6 }], partNames: ['pop-1', 'pop-2', 'pop-3', 'pop-4'] }];
     expect(resolveAtList('pop-3@end,pop-4@start', { ...ctx, rows }).map((x: any) => x.frame)).toEqual([119, 150]);
   });
+  it('a layer inside a time-remapped composition has LOCAL times: asking for it by name says so instead of using them as movie time', () => {
+    const rows = [{ name: 'stage', start: 1, end: 3 }, { name: 'inner', start: 0.25, end: 0.75, local: 'stage ×0.5' }];
+    expect(() => resolveAtList('inner@end', { ...ctx, rows })).toThrow(/layer "inner" is inside a time-remapped composition \(stage ×0\.5\).*local seconds.*stage@end/);
+    expect(resolveAtList('stage@end', { ...ctx, rows }).map((x: any) => x.frame)).toEqual([89]);          // the composition itself is in the movie's time
+  });
   it('labels are readable and unique (they become file names)', () => {
     const l = resolveAtList('3.5,title@end', ctx).map((x: any) => x.label);
     expect(l).toEqual(['3.50s', 'title-end']);
@@ -47,6 +52,10 @@ describe('resolveAtList', () => {
 
 
 describe('namedScenes: what a scene is', () => {
+  it('rows in a remapped composition\'s local time are never scenes', () => {
+    const rows = [{ name: 'intro', type: 'composition', start: 0, end: 3, depth: 0 }, { name: 'inner', type: 'composition', start: 0, end: 3, depth: 0, local: 'movie ×0.5' }];
+    expect(namedScenes(rows)).toEqual([{ name: 'intro', start: 0, end: 3 }]);
+  });
   it('named top-level COMPOSITIONS of a second or more; not other layers (a 61-layer film has no 61 scenes), nested ones, automatic names, folded runs, or short ones', () => {
     const rows = [
       { name: 'intro', type: 'composition', start: 0, end: 3, depth: 0 }, { name: 'text#2', type: 'composition', start: 0, end: 9, depth: 0 },

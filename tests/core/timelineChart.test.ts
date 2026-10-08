@@ -176,3 +176,42 @@ describe('timelineSvg options — a chart of any width, with or without the name
     expect(ticks(30000)).toBeLessThan(900);
   });
 });
+
+describe('time remap on the timeline', () => {
+  const stage = (extra: Record<string, unknown> = {}) => ({
+    type: 'composition', name: 'stage', at: 1, duration: 2, width: 100, height: 100, ...extra,
+    sequences: [{ type: '__box', name: 'inner', at: 0.25, duration: 0.5 }],
+  });
+  it('rows inside a remapped composition are marked local, with where the time comes from; the composition\'s own row is in the outer time', async () => {
+    const data = collectTimeline(await scene([stage({ speed: 0.5 })]), 12);
+    const outer = data.rows.find(r => r.name === 'stage')!;
+    const inner = data.rows.find(r => r.path === 'stage/inner')!;
+    expect([outer.start, outer.end]).toEqual([1, 3]);
+    expect(outer.local).toBeUndefined();
+    expect(inner.local).toBe('stage ×0.5');
+    expect([inner.start, inner.end]).toEqual([0.25, 0.75]);          // local seconds, not outer ones
+  });
+  it('time keyframes say so', async () => {
+    const data = collectTimeline(await scene([stage({ keyframes: [{ at: 0, from: { time: 0 }, to: { time: 1 }, duration: 2 }] })]), 12);
+    expect(data.rows.find(r => r.path === 'stage/inner')!.local).toBe('stage time keyframes');
+  });
+  it('nothing changes for a composition without a remap', async () => {
+    const data = collectTimeline(await scene([stage()]), 12);
+    const inner = data.rows.find(r => r.path === 'stage/inner')!;
+    expect(inner.local).toBeUndefined();
+    expect([inner.start, inner.end]).toEqual([1.25, 1.75]);
+  });
+  it('a transition inside a remapped composition is in its local time and marked (here the root composition is the remapped one)', async () => {
+    const data = collectTimeline(await scene(
+      [{ type: '__box', name: 'a', duration: 5 }, { type: '__box', name: 'b', at: 4, duration: 8 }],
+      { speed: 0.5, transitions: [{ kind: 'crossfade', from: 'a', to: 'b', at: 4, duration: 1 }] },
+    ), 12);
+    expect(data.transitions).toEqual([{ from: 'a', to: 'b', start: 4, end: 5, local: 'movie ×0.5' }]);
+    expect(data.rows.find(r => r.name === 'b')!.local).toBe('movie ×0.5');
+  });
+  it('the SVG says it in the tooltip', async () => {
+    const svg = timelineSvg(collectTimeline(await scene([stage({ speed: 0.5 })]), 12));
+    expect(svg).toMatch(/local time of stage ×0\.5/);
+  });
+});
+
