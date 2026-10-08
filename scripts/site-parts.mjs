@@ -40,17 +40,14 @@ export function renderHeader({ root, current = '' }) {
 }
 
 export function renderFooter({ root }) {
-  const ex = (p) => `${root}examples/${p}`;
+  const entrances = NAV.map((n) => `<a href="${root}${n.href}">${n.label}</a>`).join('\n      ');
   return `<footer class="site-foot">
   <div class="wrap">
     <p class="links">
       <a href="${REPO}">GitHub</a>
       <a href="${NPM}">npm: pixi-effects</a>
-      <a href="${root}guide/">Guide</a>
-      <a href="${ex('gallery/')}">Gallery</a>
-      <a href="${ex('')}">Examples</a>
-      <a href="${ex('playground.html')}">Playground</a>
-      <a href="${ex('music-lab.html')}">Music lab</a>
+      ${entrances}
+      <a href="${root}examples/music-lab.html">Music lab</a>
       <a href="${REPO}/blob/main/ai/SKILL.md">AI skill</a>
       <a href="${root}llms.txt">llms.txt</a>
     </p>

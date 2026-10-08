@@ -13,8 +13,8 @@ This folder holds what they share. The rest of each page lives next to its own c
 | Examples | `/examples/` | `examples/index.html`, list in `examples/examples.json`, pages `NN-*.html` | `examples/examples.css` |
 | Playground | `/examples/playground.html` | `examples/playground.html` | inline (an app, not a document) |
 
-The repository root is the site root: open it with any static server (`npx serve .`) and every link works as it does on Pages. The guide is built, not stored: `npm run guide` writes `guide-preview/`.
-`node scripts/stage-site.mjs _site` builds exactly what Pages serves; the workflow runs the same script.
+**Preview the whole site: `npm run site`.** It builds exactly what Pages serves (`scripts/stage-site.mjs`, the same script the workflow runs) into `_site/` and serves it on http://127.0.0.1:8080/. Run it again to pick up changes.
+The repository root is also the site root, so a plain static server over it shows everything *except* the Guide: the guide is built, not stored (`site/guide/*.md` become `guide/*.html`), so `/guide/` does not exist there. `npm run guide` writes just the guide to `guide-preview/`.
 
 ## What is shared (`site/shared/`)
 
@@ -27,7 +27,7 @@ The repository root is the site root: open it with any static server (`npx serve
 
 ## Common jobs
 
-- **Change the navigation, the header or the footer**: edit `scripts/site-parts.mjs`, run `npm run site:sync`. A test fails while any page is out of date (`node scripts/sync-site.mjs --check`).
+- **Change the navigation, the header or the footer**: edit `scripts/site-parts.mjs` (the entrances are `NAV`; the footer is built from it too), run `npm run site:sync`. A test fails while any page is out of date (`node scripts/sync-site.mjs --check`). The guide pages are not synced: they take the new parts the next time the guide is rebuilt (`npm run site`, `npm run guide`, or the Pages deploy), so rebuild `guide-preview/` if you have one.
 - **Add a page**: put the three markers and `<main id="main">` in it, add it to `site/pages.json` (`current` is the nav entry it belongs to; `parts` limits the markers, `regions` asks for generated lists), run `npm run site:sync`, and add it to `PAGES` in `tests/tools/siteShell.test.ts`.
 - **Add an example**: add the file as `examples/NN-name.html` and an entry to `examples/examples.json`, then `npm run site:sync` (a test fails if a numbered file is missing from the list).
 - **Add a gallery piece**: see `examples/gallery/BRIEF.md`; `node scripts/build-gallery.mjs` and `node scripts/make-posters.mjs`.
@@ -35,7 +35,7 @@ The repository root is the site root: open it with any static server (`npx serve
 
 ## Checks
 
-- `npm run test:fast`: includes the shell, the tokens, the examples list and the link check of the staged site (every local link in every page resolves, and no link starts with `/`, which breaks under `/pixi-effects/`).
+- `npm run test:fast`: includes the shell, the tokens, the examples list and the link check of the staged site: in every page, each `href` / `src` / `poster` / `srcset`, each import-map target and each relative `import` in an inline module script must resolve to a file, and none may start with `/` (which breaks under `/pixi-effects/`). It does not follow links inside separate script or style files, and it does not run the pages (the real-browser tests do).
 - `node scripts/site-links.mjs _site`: the same link check on a staged folder.
 - `tests/tools/siteShell.test.ts` and `tests/tools/gallery.test.ts` (real Chrome): the header fits at 390 and 1440 px, the theme switch changes the colours, the gallery filters and theatre still work.
 

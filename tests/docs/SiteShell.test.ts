@@ -36,6 +36,11 @@ describe('site-parts: the header, footer and head every page shares', () => {
     }
   });
 
+  it('the footer follows NAV: an entrance added to NAV shows up in the footer without touching it', () => {
+    NAV.push({ id: 'extra', label: 'Extra', href: 'extra/' });
+    try { expect(hrefs(renderFooter({ root: '../' }))).toContain('../extra/'); } finally { NAV.pop(); }
+  });
+
   it('the head loads the tokens, then the shared styles, then the script; the theme is applied before paint', () => {
     const h = renderHead({ root: '' });
     const order = ['site/shared/tokens.css', 'site/shared/site.css', 'site/shared/site.js'].map((s) => h.indexOf(s));

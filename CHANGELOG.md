@@ -6,18 +6,14 @@
 
 - **One look for the whole site.** The landing page, Guide, Gallery, Examples and Playground share one set of colours, fonts, header and footer (`site/shared/`), with the landing page's palette as the reference and both the dark and the light theme everywhere. The navigation is the same five entrances on every page (Home, Guide, Gallery, Examples, Playground); on a phone the header is two rows so nothing falls off the screen. `site/README.md` says where everything is and how to change it.
 - **The Gallery is rebuilt on those parts.** Same behaviour (filters, the theatre with next / previous, `#id` links); it no longer loads a web font, and its theatre stays a dark room in the light theme. The total running time in its intro no longer prints `47.700000000000045 s`.
-- **The Examples entrance is a list of cards** (`examples/examples.json`), including the music lab and the playground; a test fails if a numbered example is missing from it.
+- **The Examples entrance is back, as a list of cards** (`examples/examples.json`, including the music lab and the playground). When the landing page became the Pages root it replaced the old list of the numbered examples, and the README's "Live demos" link pointed at the landing page; the README and `llms.txt` now link to `examples/`. A test fails if a numbered example is missing from the list.
 - **The landing page moved to `index.html` at the repository root** (the repository root is the site root), so it opens from any static server without symlinks; the preview script and `npm run landing` are gone.
-- **The deployed layout is code** (`scripts/stage-site.mjs`, which the Pages workflow runs) and a checker (`scripts/site-links.mjs`) fails the tests when any page has a local link that does not resolve. The header, footer and `<head>` links of every page are written from one place (`scripts/site-parts.mjs`, `npm run site:sync`).
+- **The deployed layout is code** (`scripts/stage-site.mjs`, which the Pages workflow runs) and a checker (`scripts/site-links.mjs`) fails the tests when a page has an `href` / `src` / `srcset`, an import-map target or an inline-module `import` that does not resolve to a file of the site (it does not follow links inside separate script or style files). `npm run site` builds that layout and serves it locally. The header, footer and `<head>` links of every page are written from one place (`scripts/site-parts.mjs`, `npm run site:sync`).
 
 **Changed**
 
 - **The browser tools no longer make a sound.** `pixi-effects-check`, `pixi-effects-render` and the test suite start their private Chrome with `--mute-audio`, so a piece with sound no longer plays through the speakers while it is checked or exported (the audio is still analysed and encoded as before).
 - **The release check runs once.** `npm run release:check` builds, type-checks and runs every test, then stamps the exact committed tree. `npm publish` (`prepublishOnly`) sees the stamp and only rebuilds instead of running the whole suite a second time; with no stamp, or with uncommitted changes, it runs everything as before. `npm run test:fast` runs the suite without the real-browser tests (about 10 s).
-
-**Site**
-
-- **The numbered examples have a page again.** When the landing page became the Pages root, the old list of the 15 numbered examples, the music lab and the playground went with it, and the README's "Live demos" link pointed at the landing page. They are now at `examples/` (`examples/index.html`), and the README and `llms.txt` link there.
 
 ## 0.16.3
 

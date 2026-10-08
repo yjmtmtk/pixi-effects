@@ -35,6 +35,32 @@ describe('site-links: the checker', () => {
   });
 });
 
+describe('site-links: more than href and src', () => {
+  const make = (files: Record<string, string>) => {
+    const dir = mkdtempSync(join(tmpdir(), 'links2-'));
+    for (const [name, body] of Object.entries(files)) { mkdirSync(join(dir, name, '..'), { recursive: true }); writeFileSync(join(dir, name), body); }
+    return dir;
+  };
+  it('checks import-map targets, static and dynamic module imports, and srcset', () => {
+    const dir = make({
+      'ok.js': '', 'a/ok.png': '',
+      'index.html': [
+        '<script type="importmap">{ "imports": { "good": "./ok.js", "bad": "./gone.js", "cdn": "https://esm.sh/x" } }</script>',
+        '<script type="module">import a from "./ok.js"; import b from "./missing-static.js"; const c = await import("./missing-dynamic.js"); import d from "good";</script>',
+        '<img srcset="a/ok.png 1x, a/missing-2x.png 2x">',
+      ].join('\n'),
+    });
+    try {
+      const got = brokenLinks(dir).map((p: any) => p.ref).sort();
+      expect(got).toEqual(['./gone.js', './missing-dynamic.js', './missing-static.js', 'a/missing-2x.png']);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+  it('still ignores code that only looks like a link: template strings and a script that builds markup', () => {
+    const dir = make({ 'index.html': '<script>const h = `<a href="${x}.html">`; const u = "./not-an-import.js"; fetch(u);</script>' });
+    try { expect(brokenLinks(dir)).toEqual([]); } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 describe('the staged site (what GitHub Pages serves)', () => {
   it('has no broken local link in any page', async () => {
     const out = mkdtempSync(join(tmpdir(), 'site-'));
