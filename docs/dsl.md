@@ -165,6 +165,7 @@ Renders a video. Intrinsic `w`/`h` come from the video's natural size. `currentT
   loop?: false,           // loop back to start when finished (default false)
   audio?: true,           // route audio track into the mix (default true)
   volume?: 1,             // initial volume 0..1 (animatable via volume keyframes)
+  speed?: 1,              // playback speed: 2 = twice as fast, 0.5 = slow motion, negative = backward (see [Time](#time-speed-and-time))
   initial: { x: 0, y: 0, scale: 'cover' },
 }
 ```
@@ -204,6 +205,8 @@ Audio-only sequence. No visual. Volume is animatable via keyframes.
   ],
 }
 ```
+
+`speed` (audio **files** only) plays the file faster, slower or backward; the pitch follows, like a tape. It does not apply to `sfx` / `music` (an sfx has `pitch`, in semitones). To change the speed over time animate `time` (see [Time](#time-speed-and-time)).
 
 Audio is mixed during `Movie.init()` and during `Movie.render()`. Volume keyframes interpolate linearly.
 
@@ -297,6 +300,8 @@ Nested composition. Same shape as the root spec but with `type: 'composition'` a
   ],
 }
 ```
+
+A composition can also have its **own time**: `speed` (2 = its content plays twice as fast, 0.5 = slow motion, negative = backward) and `time` keyframes (see [Time](#time-speed-and-time)). The layers inside then write `at`, `duration` and `keyframes` in the composition's own seconds; the composition's own `at`, `duration` and keyframes stay in the outer time. A sound or `sfx` inside follows the composition's clock.
 
 ### `shape`
 
@@ -740,6 +745,21 @@ The four kinds are mutually exclusive per keyframe:
 - **`from`** — tween from the given values back to the current property, over `duration`.
 - **`from` + `to`** — full fromTo tween, with explicit start and end values.
 
+### Time: `speed` and `time`
+
+Video, audio-file and composition layers have a clock of their own. **`speed`** is a fixed multiplier on the layer (`1` as it is, `2` twice as fast, `0.5` slow motion, negative backward; it starts at |speed| × `duration`, so `speed: -1` plays the first `duration` seconds in reverse; with no `duration` a video or audio file lasts its length ÷ |speed|). **`time`** is the same clock as an ordinary animatable property, in seconds of the layer's own content (a file's position, a composition's local playhead), in `initial` and `keyframes`, with every keyframe word (`at`, `duration`, `ease`, `repeat`, `yoyo`, `from`, `to`, `set`):
+
+```js
+// a freeze (the same value twice), then a ramp
+keyframes: [
+  { at: 0,   from: { time: 0 }, to: { time: 2 }, duration: 1 },        // plays 2 s of the file in 1 s
+  { at: 1,   to: { time: 2 },   duration: 0.5 },                       // holds
+  { at: 1.5, to: { time: 6 },   duration: 3, ease: 'power2.inOut' },   // then accelerates
+]
+```
+
+A negative `time` counts back from the end of the content (`initial: { time: -2 }`, two seconds before the end). `speed` is not animatable (animate `time`); `speed` and keyframed `time` together: `time` wins. **Inside a composition with its own time the children are in that composition's local seconds** (with `speed: 2` the content is twice as long as `duration`, so children default to that length; with `speed: 0.5` a child at `at: 3` of a 4 s composition is never reached, and warns). The composition's own `at`, `duration`, `x` / `alpha` keyframes are outer time. The sound follows (pitch too).
+
 ### Springs
 
 The ease `'spring(mass, stiffness, damping)'` (defaults 1, 100, 10) or a preset (`spring.gentle`, `spring.snappy`, `spring.bouncy`, `spring.wobbly`, `spring.slow`) moves a value as a damped spring would: it overshoots its target and rings, then rests. `duration: 'auto'` gives the keyframe the time the spring needs to settle (within 0.5 %), so mass and stiffness are real physics; with a number, `duration` is that settle time and only the damping ratio `damping / (2 √(stiffness × mass))` shapes the motion (below 1 it overshoots, 1 or more it does not: `spring(1, 170, 26)` does not bounce, `spring(1, 170, 12)` does).
@@ -779,6 +799,8 @@ If `at < 0`, it's interpreted as `duration + at` — measured back from the end 
 ```
 
 ### Easing
+
+`'cubic-bezier(x1, y1, x2, y2)'` is the CSS curve exactly (x1 and x2 between 0 and 1, y1 and y2 may overshoot): `'cubic-bezier(.4, 0, .2, 1)'` is a gentle in-out, `'cubic-bezier(.2, .8, .2, 1)'` a fast start with a long glide. A malformed one warns once and runs as `'none'`.
 
 Standard GSAP easing strings: `'none'`, `'linear'`, `'power1.in'` ... `'power4.inOut'`, `'sine.in/out/inOut'`, `'expo.in/out/inOut'`, `'circ.in/out/inOut'`, `'back.in/out/inOut(overshoot)'`, `'elastic.in/out/inOut(amplitude, period)'`, `'bounce.in/out/inOut'`. See [GSAP easing docs](https://gsap.com/docs/v3/Eases/).
 

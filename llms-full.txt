@@ -37,6 +37,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
 - **Masks live in the parent's coordinates and don't follow the masked layer.** **`filterArea` is in the layer's own coordinates.**
 - **2.5D needs `threeD: true`** on each layer plus a `{ type: 'camera' }` layer; camera props go in `initial`/keyframes; keep every `z` below the camera distance (≈ 989 at 720p, fov 40); under a dolly zoom only `z = 0` stays fixed.
 - **Group / parent layers = `{ type: 'null', name: 'rig' }`** (draws nothing, only moves) + `parent: 'rig'` on the layers that should follow it: their `x`/`y` are then measured from the null's origin, and the null's position / rotation / scale / alpha carry them (orbits, clock hands, grouped fades). Nulls chain. Only `null` layers can be parents; not for `threeD` layers.
+- **Time:** `speed` (slow motion, backward) and `time` (a curve of the layer's own seconds: freeze, rewind, ramp) on video, audio-file and composition layers; put what you want to rewind in a composition. Children of such a composition are in ITS seconds. `ease: 'cubic-bezier(.4, 0, .2, 1)'` is the CSS curve. See the recipe `rewind-and-replay` and pitfalls 69–73.
 - **Built in:** `animateText()` (per-letter / per-word / per-line entrances and exits in one call: `...animateText('Title', style, { x, y, align: 'center', at: 0.5, duration: 5, in: 'rise', out: 'fade', stagger: { each: 0.05 } })`), `splitText()` / `measureText()` (per-letter / per-word layers, exact positions, by hand), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) `wiggle()` (a seeded shake as keyframes; on a camera put it on `offsetX` / `offsetY` so it rides on the move) `cameraPath()` (a camera flight through `[x, y, z]` points as keyframes; layers it passes: `hideBehindCamera: true`) `music` (a tune with no file: `{ type: 'audio', music: { bpm, tracks: [{ inst: 'keys', notes: 'Cmaj7:4 Am7:4' }, { inst: 'bass', notes: 'c2:2 g1:2' }], drums: { from: 8, kick: 'x...x...' } } }`: notes and chords as text, counted in beats; instruments `keys pluck pad bass sub lead bell musicbox`; `musicEnvelope(music)` feeds `react()`), `audioEnvelope()` / `bpmEnvelope()` + `react()` (visuals that follow music: `const env = await audioEnvelope('music.mp3', { frameRate })` before `movie.init`, then `keyframes: react(env, { duration, props: { scale: { base: 1, amount: 0.4, band: 'bass', release: 0.2 } } })`; `beats: true` pulses on the beats; `bpmEnvelope(120, …)` when there is no file), `deck()` + `Presenter` (a talk as one movie: pages, steps, stops that pause playback, arrow keys / click / swipe to move on: `...deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops, sequences }] })`, `new Presenter(movie, { canvas })` from `pixi-effects/presenter`; G = page overview, P = presenter view with notes and a timer; `pixi-effects-render talk.html -o talk.pdf` = a PDF of the pages), `particles()` (bursts, snow, confetti, sparks as seeded layers: `...particles({ count: 90, at: 2, life: [1, 1.8], area: { x: 640, y: 330 }, speed: [120, 420], gravity: 240, fade: { out: 0.6 } })`), `followPath()` (a layer along an SVG path: `keyframes: followPath({ d, duration, orient: true })`), path morphing (`{ shape: 'path', d, morphTo, initial/keyframes: morph 0 → 1 }`) and `stagger()` (delays for a wave of layers: `stagger(letters, { each: 0.05, from: 'center' })`, or `stagger(n, …)` for numbers; GSAP-style `each` / `amount` / `from` / `grid` / `ease`). **Not in the DSL (hand-roll with a JS loop):** other per-frame curves (waves, spirals: sample them into short linear keyframes), shared masks. (Draw-on strokes `trimEnd`, text that changes over time `set: { text }` / `visibleChars`, shake `wiggle()` and particles are built in.)
 - **Blend modes:** `blendMode: 'add' | 'screen' | 'multiply'` on any layer (glows, light leaks).
 - **One `Movie` per page.** A sound effect needs no `duration` (it lasts as long as its clip). Seeking is safe: counters, colours and growing shapes are right after any jump.
@@ -77,6 +78,7 @@ A video is **data**: a tree of plain objects. Everything below is a JS object yo
 | Time of a keyframe's `at` | seconds from the start of **its own layer**; **negative = back from the layer's end** |
 | Time of a transition's `at` | seconds from the start of the **parent composition**; negative = back from its end |
 | `duration` | defaults to the parent composition's duration |
+| Time **inside** a layer | `speed` (a multiplier on the layer: 1 = as is, 2 = twice as fast, 0.5 = slow motion, **negative = backward**) and `time` (seconds of the layer's own content, in `initial` / keyframes: a video's or audio file's position in the file, a composition's local playhead; **negative = back from the end of the content**) on **video, audio file and composition** layers. **The layers inside a composition write `at` / `duration` / `keyframes` in THAT composition's own seconds** (its local time); the composition's own `at`, `duration` and keyframes stay in the outer time. `duration` is always the layer's life in the outer time |
 
 ## Expressions
 
@@ -105,7 +107,7 @@ blendMode: 'normal' | 'add' | 'screen' | 'multiply'   // add / screen brighten (
 
 Animatable props (`initial` / keyframes): `x y alpha rotation scale scaleX scaleY pivotX pivotY anchorX anchorY skewX skewY tint width height visible autoAlpha`, plus for shapes their style/geometry, for text `fill`, for audio `volume`, for 3D `z rotationX rotationY`, filter params as `'filters.<name>.<param>'`, three objects as `'three.<obj>.<path>'`.
 
-Keyframe kinds: `set` (jump at `at`; undone when you seek back), `to` (animate to), `from` (animate from), `from`+`to`. `from` / `from+to` show their start value from the layer's start, so a delayed fade-in needs no `initial.alpha`. `repeat` (finite extra plays), `yoyo`, `repeatDelay` loop any of them (endless repeats are not allowed). `ease` = any GSAP ease (`'none'`, `'power2.out'`, `'expo.out'`, `'back.out(1.7)'`, `'elastic.out(1,0.5)'`, `'sine.inOut'`, `'bounce.out'`… and springs: `'spring(mass, stiffness, damping)'` or `'spring.gentle' | 'snappy' | 'bouncy' | 'wobbly' | 'slow'`; **`duration: 'auto'` = the time the spring takes to settle** (presets, settle time / highest value reached as a multiple of the target: `snappy` 0.42 s / 1.01, `gentle` 0.72 s / 1.02, `bouncy` 1.08 s / 1.28, `slow` 1.29 s / 1.00, `wobbly` 1.61 s / 1.40: time the next beat from these) (real physics; with a number `duration` is the settle time and only the damping ratio shapes it; a damping ratio of 1 or more never overshoots, so `spring(1,170,26)` does not bounce: use damping below 20 at stiffness 170; `'auto'` works on keyframes only, not in `animateText` / `orbit` tweens; a `stagger` ease may be a spring, its delays are held inside the spread). Default ease is linear.
+Keyframe kinds: `set` (jump at `at`; undone when you seek back), `to` (animate to), `from` (animate from), `from`+`to`. `from` / `from+to` show their start value from the layer's start, so a delayed fade-in needs no `initial.alpha`. `repeat` (finite extra plays), `yoyo`, `repeatDelay` loop any of them (endless repeats are not allowed). `ease` = any GSAP ease (`'none'`, `'power2.out'`, `'expo.out'`, `'back.out(1.7)'`, `'elastic.out(1,0.5)'`, `'sine.inOut'`, `'bounce.out'`, **`'cubic-bezier(.4, 0, .2, 1)'`** (CSS syntax, x1 and x2 in 0…1; `'cubic-bezier(.2, .8, .2, 1)'` is a fast start with a long glide)… and springs: `'spring(mass, stiffness, damping)'` or `'spring.gentle' | 'snappy' | 'bouncy' | 'wobbly' | 'slow'`; **`duration: 'auto'` = the time the spring takes to settle** (presets, settle time / highest value reached as a multiple of the target: `snappy` 0.42 s / 1.01, `gentle` 0.72 s / 1.02, `bouncy` 1.08 s / 1.28, `slow` 1.29 s / 1.00, `wobbly` 1.61 s / 1.40: time the next beat from these) (real physics; with a number `duration` is the settle time and only the damping ratio shapes it; a damping ratio of 1 or more never overshoots, so `spring(1,170,26)` does not bounce: use damping below 20 at stiffness 170; `'auto'` works on keyframes only, not in `animateText` / `orbit` tweens; a `stagger` ease may be a spring, its delays are held inside the spread). Default ease is linear.
 
 ## Layer types
 
@@ -113,9 +115,9 @@ Keyframe kinds: `set` (jump at `at`; undone when you seek back), `to` (animate t
 
 **image** — `asset`, `tint`, `colorSpace: 'rgb'|'oklab'|'oklch'`. Default anchor top-left; natural size = `w`,`h`.
 
-**video** — `asset`, `loop`, `audio`, `volume`; `initial: { scale: 'cover' }`.
+**video** — `asset`, `loop`, `audio`, `volume`, **`speed`**; `initial: { scale: 'cover' }`. `speed: 0.5` slow motion, `speed: -1` backward (it starts at |speed| × `duration`, so a 3 s file with no `duration` plays whole, backward); with no `duration` the layer lasts the file's length ÷ |speed|. For anything that is not one straight speed — a freeze, a ramp, a loop — animate **`time`** (seconds in the file) like any property: `keyframes: [{ at: 0, from: { time: 0 }, to: { time: 2 }, duration: 1 }, { at: 1, to: { time: 2 }, duration: 0.5 }, { at: 1.5, to: { time: 6 }, duration: 3, ease: 'power2.inOut' }]` (play 2 s, hold, then accelerate). `repeat` loops it, `yoyo` ping-pongs. `speed` itself is not animatable (it warns): animate `time`. The sound follows (pitch too, like a tape).
 
-**audio** — a file: `asset`, `loop`, `volume`; `volume` (top level, or in `initial` like every other layer's starting values); fade with volume keyframes (`{ at: -2, to: { volume: 0 }, duration: 2 }` fades the last 2 s). Omit `duration` for a one-shot clip: it lasts exactly as long as the clip. With `loop: true` and no `duration` it lasts until the composition ends. An explicit `duration` longer than the clip goes silent after the clip unless `loop: true`.
+**audio** — a file: `asset`, `loop`, `volume`, `speed` (the pitch follows; `time` keyframes work as for video; not for `sfx` / `music`: change an sfx's `pitch` instead, or put it in a composition and remap that); `volume` (top level, or in `initial` like every other layer's starting values); fade with volume keyframes (`{ at: -2, to: { volume: 0 }, duration: 2 }` fades the last 2 s). Omit `duration` for a one-shot clip: it lasts exactly as long as the clip. With `loop: true` and no `duration` it lasts until the composition ends. An explicit `duration` longer than the clip goes silent after the clip unless `loop: true`.
 **Or a sound effect with no file — `sfx`:** `{ type: 'audio', sfx: 'swoosh', at: 2 }` is the whole thing. Presets, default length in s: `click` 0.04 · `pop` 0.12 · `swoosh` 0.5 (loudest 0.16 s in, moves left → right) · `swipe` 0.22 · `hit` 0.7 · `riser` 1 (loudest at its END: `at = hit − duration`) · `chime` 1.4 · `beep` 0.16 · `coin` 0.4 · `glitch` 0.35 · `typewriter` 0.06. Knobs: `sfx: { preset, pitch /* semitones ±24 */, brightness /* −1 dark … 1 bright */, seed /* another take */ }`. **The layer's `duration` IS the sound's length** (omit it; set it to stretch, e.g. a riser); `volume` is its level (1 = the preset's standard level, peaking at −12 … −18 dBFS by preset). No `loop`: one layer per hit (a JS loop). Custom sound: `sfx: { voices: [{ wave: 'noise' | 'sine' | 'square' | 'saw' | 'triangle', freq: 440 | [from, to], filter: { type: 'lowpass' | 'highpass' | 'bandpass', freq: [from, to] }, envelope: 'fall' | 'bell' | 'swell' | 'hold', pan: [-1, 1] }] }`. The export (mp4 / webm / mov) encodes this same mix (lossy AAC / Opus), on time within a few ms.
 **Or music with no file — `music`:** `{ type: 'audio', music: { bpm: 96, tracks: [{ inst: 'keys', notes: 'Cmaj7:4 Am7:4 Dm7:4 G7:4' }, { inst: 'bass', notes: 'c2:2 g1:2 …' }], drums: { kick: 'x...x...', snare: '....x...', hat: 'x.x.x.x.' } } }` — a tune written as text (notes `c4:2` in beats, chords `Am7` `C@4` `Am7/e`, `[c4 e4 g4]`, rest `_`, hold `~`, `!` accent; `|` ignored). Instruments `keys pluck pad bass sub lead bell musicbox`; drums `kick snare hat openhat clap rim tom crash shaker sleigh` as 16th-note step strings (`x` hit, `o` soft, `.` none; a list of `{ from, to, … }` for sections). Score options `bpm` (or `[[beat, bpm], …]` for a ritardando) `swing reverb (0–0.6) humanize drumVol grid transpose tail seed`; track options `vol` (or `[[beat, level], …]` for a fade) `pan step strum legato tone reverb attack release ring transpose`. Lasts its notes + tail, ends with the movie, `loop: true` repeats; peaks −6 dBFS at `volume: 1`. `await musicEnvelope(music, { frameRate })` → an envelope for `react()`; `await musicBuffer(music)` → a Web Audio `AudioBuffer` to play yourself.
 
@@ -135,7 +137,7 @@ Keyframe kinds: `set` (jump at `at`; undone when you seek back), `to` (animate t
 
 Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha strokeWidth`; `colorSpace: 'oklab'|'oklch'` for clean colour tweens. rect/circle/ellipse are **centred on `x,y` by default** (`anchorX/anchorY` default 0.5): for a bar growing from its base use `anchorY: 1` (or `anchorX: 0` for left-to-right). **`fillGradient`** (top level or `initial`; instead of `fillColor`): `{ type?: 'linear'|'radial', stops: [[0, '#000'], [1, 'rgba(0,0,0,.6)']], angle? /* linear, deg, 90 = top→bottom */, center?, innerRadius?, radius? /* radial, 0–1 of the SHAPE's own bounds, not the canvas: a glow on a 1500 px circle is placed with fractions of that circle */ }` — stops may have alpha, so a radial transparent→dark is a vignette. **Animate it** with a partial gradient in a keyframe (`to: { fillGradient: { angle: 360, stops: [...] } }`: keys you leave out stay; the same number of stops; `type` cannot change; a start gradient is required; use `colorSpace: 'oklch'` for a vivid fade). A text layer takes `fillGradient` too (LINEAR only: angle and stops; type / center / radius are ignored with a warning; letters re-rasterised per change). `from` alone runs from that gradient to the layer's own. The names `'fillGradient.angle'` / `gradientAngle` are not properties: write `fillGradient: { angle }`. Stroke ends and corners: `strokeCap: 'butt'|'round'|'square'`, `strokeJoin: 'miter'|'round'|'bevel'` (top level or in `initial`; not animated — `round` keeps sharp corners like an M from poking out).
 
-**composition** — `width height duration sequences transitions`. With `threeD: true` it is a **card**: its children are drawn into one texture (content outside its `width × height` is clipped: size it for a soft shadow too; a plain 2D composition does not clip, but is skipped when its whole rectangle is off screen) and move / rotate in depth together. Children use the composition's local coordinates and times. Position/rotate/scale it as a unit; to rotate/scale about its centre set `pivotX/pivotY` to the centre and `x/y` to where that point should sit.
+**composition** — `width height duration sequences transitions`, **`speed`** (the composition's own time: its content plays backward, in slow motion, … — `time` keyframes give a freeze, a rewind, a ramp; a composition's sound and sfx follow; its own x / alpha keyframes stay in the outer time; **children are placed in the composition's local seconds**, and with `speed: 2` the content is twice as long as `duration`, so children default to that length). With `threeD: true` it is a **card**: its children are drawn into one texture (content outside its `width × height` is clipped: size it for a soft shadow too; a plain 2D composition does not clip, but is skipped when its whole rectangle is off screen) and move / rotate in depth together. Children use the composition's local coordinates and times. Position/rotate/scale it as a unit; to rotate/scale about its centre set `pivotX/pivotY` to the centre and `x/y` to where that point should sit.
 
 **null + `parent`** — `{ type: 'null', name: 'rig', initial: { x, y }, keyframes: [...] }` draws nothing; layers with `parent: 'rig'` are drawn inside it and follow its `x y rotation scale skew alpha pivotX pivotY`. Their `x / y` are measured **from the null's origin** (null at (640,360), child `x: 200` → drawn at 840), so rotating the null makes the child circle it. Nulls chain (`parent` on a null). Children are drawn at the null's place in the stack, together. Only `null` layers can be parents; not for `threeD` layers; a mask follows its layer.
 
@@ -339,6 +341,11 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 66. **Animating a gradient: one `fillGradient` object, partial, in the keyframe.** `to: { fillGradient: { angle: 360, stops: [...] } }` (keys you leave out stay). Not `'fillGradient.angle'`, not `gradientAngle`, not `fillGradient: 'red'` (each warns once with what to write). The layer must start with a `fillGradient`; `stops` keep their count; `type` cannot change. A fade between two colours in the default `rgb` passes through grey (green → magenta): set `colorSpace: 'oklch'`. Under a mask the stops still span the whole shape (see 39).
 67. **A key the layer does not have is warned about now (it used to be ignored in silence).** `{ type: 'text', anchorX: 0.5 }` (anchors go in `initial`), `{ type: 'audio', sfx: 'click', pitch: 3 }` (the knob goes inside: `sfx: { preset: 'click', pitch: 3 }`), `{ type: 'shape', shape: 'rect', radius: 5 }` (that is a circle's key; a rect has `cornerRadius`), a mistyped property in a keyframe (`alhpa`), a mistyped text `style` key. The warning names the key, the kind of layer and what was probably meant; fix the key, do not silence the warning. Three gallery pieces had the `pitch` mistake for months: their sound effects were never pitched.
 68. **A pitched sfx keeps its own length; a radial gradient is placed in the shape's bounds.** `sfx: { preset: 'chime', pitch: -5 }` lasts as long as the sound does, so near the end of the movie give the layer a `duration` that ends with it (`inspectAudio()` reports a sound cut off by the end). A radial `fillGradient`'s `center` / `radius` are fractions of the SHAPE, not the canvas: for a glow on a big circle, convert canvas pixels to fractions of the circle. `music.reverb` is 0–0.6.
+69. **Inside a remapped composition, `at` is in THAT composition's seconds.** With `speed: 0.5` a 4 s composition shows only 2 s of its content; a layer at `at: 3` inside is never seen (warns: "its clock only reaches 0–2s"). With `speed: 2` the content is 8 s long, so children default to 8 s and `at: 5` is fine. The composition's own `at`, `duration`, x / alpha keyframes are outer time. To freeze, hold `time` at one value (`to` the same number); to rewind, `to: { time: 0 }`.
+70. **`speed` is a setting, `time` is the property.** `speed: 2` on the layer; to change the speed over time animate `time` (a curve of seconds in the file), never `keyframes: [{ to: { speed: 3 } }]` (warns). `speed: 0` is not allowed (hold a moment with `time` to the same value twice); `speed` together with keyframed `time`: `time` wins. Other names (`playbackRate`, `timeScale`, `rate`, `reverse: true`, `timeRemap`) are warned about with what to write. `particles({ speed })` is something else: launch speed in px per second.
+71. **Sound follows `speed` like a tape: the pitch moves with it.** An audio file or a video's sound at `speed: 2` is an octave up; backward plays reversed. Not for `sfx` / `music` layers (warns): change an sfx with `pitch` (semitones), or put the sfx **inside a remapped composition** and it follows that clock (slower and lower, or backward).
+72. **A video at `speed: 2` with no `duration` is half as long; with a `duration` longer than the file it holds the last frame** (add `loop: true` to repeat). A negative `time` counts back from the end of the file (`initial: { time: -2 }` = two seconds before the end).
+73. **A three.js layer inside a remapped composition gets the wrong time** (it reads the movie's time); put it outside, or remap a composition that has no three layer.
 
 
 <!-- ===== ai/reference/recipes.md ===== -->
@@ -433,6 +440,58 @@ const title = { type: 'text', text: 'Hello', name: 'title', at: 0.5, duration: 3
 return [
   { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1d3557' } },
   card, badge, title,
+];
+```
+
+---
+
+## Rewind and play again: a composition whose own time you control
+
+Put the part you want to rewind, slow down or freeze **in a composition**, then give that composition `speed` (one straight speed: `0.5` slow motion, `-1` backward) or `time` keyframes (any curve of its own time: play, hold, rewind, play slowly). The layers inside write `at` / `duration` / `keyframes` in the composition's own seconds; the composition's own `at` / `duration` stay in the outer time. A sound or `sfx` inside follows the clock (backward and lower when it rewinds, like a tape). `cubic-bezier(.2, .8, .2, 1)` is a fast start with a long glide: the slow replay that lands.
+
+```js
+// @recipe rewind-and-replay
+const act = {
+  type: 'composition', name: 'act', duration: 11,
+  // its own time: play 0 → 2.2 s, hold half a second, rewind to 0 (accelerating), hold, then replay slowly (4.5 s of content over 6 s, a long glide)
+  keyframes: [
+    { at: 0, from: { time: 0 }, to: { time: 2.2 }, duration: 2.2, ease: 'none' },
+    { at: 2.2, to: { time: 2.2 }, duration: 0.5 },
+    { at: 2.7, to: { time: 0 }, duration: 1.3, ease: 'power2.in' },
+    { at: 4, to: { time: 0 }, duration: 0.4 },
+    { at: 4.4, to: { time: 4.5 }, duration: 6, ease: 'cubic-bezier(.2, .8, .2, 1)' },
+  ],
+  sequences: [
+    // everything in here is in the composition's own seconds: 0 … 4.5
+    { type: 'shape', shape: 'rect', name: 'bar', width: 'GW', height: 16, anchorX: 0, anchorY: 0, at: 0, duration: 4.5,
+      initial: { x: 0, y: 330, fillColor: '#ff4d3d', scaleX: 0 }, keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.8, ease: 'expo.out' }] },
+    { type: 'text', text: 'AGAIN.', name: 'title', at: 0.4, duration: 4.1, style: { fontSize: 150, fontWeight: 'bold', fill: '#f2efe8' },
+      initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+      keyframes: [{ at: 0, from: { y: 430, alpha: 0 }, to: { y: 360, alpha: 1 }, duration: 0.9, ease: 'expo.out' }] },
+    { type: 'audio', sfx: 'hit', at: 0.4 },
+  ],
+};
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0b0b10' } },
+  act,
+  // an overlay in the OUTER time: it shows while the act rewinds (2.7 s … 4 s of the movie)
+  { type: 'text', text: '◀◀ REW', name: 'rew', at: 2.7, duration: 1.3, style: { fontSize: 36, fontWeight: 'bold', fill: '#ff4d3d' }, initial: { x: 60, y: 50 } },
+];
+```
+
+The shortcuts, when one straight speed is enough: `{ type: 'composition', duration: 4, speed: 0.5, sequences: [ … ] }` (slow motion, the content plays half of its length), `speed: -1` (backward). For a **video file** the same words work on the layer itself:
+
+```js
+// @docs-only video-speed
+// needs a real clip: assets: [{ name: 'clip', src: 'clip.mp4' }]
+return [
+  { type: 'video', asset: 'clip', speed: 0.5 },                 // slow motion; with no duration the layer lasts 2x the file
+  { type: 'video', asset: 'clip', speed: -1, at: 4 },           // backward, the whole file
+  { type: 'video', asset: 'clip', duration: 5, keyframes: [     // play 2 s, hold, then accelerate
+    { at: 0, from: { time: 0 }, to: { time: 2 }, duration: 1 },
+    { at: 1, to: { time: 2 }, duration: 0.5 },
+    { at: 1.5, to: { time: 6 }, duration: 3.5, ease: 'power2.inOut' },
+  ] },
 ];
 ```
 
@@ -1408,6 +1467,7 @@ Renders a video. Intrinsic `w`/`h` come from the video's natural size. `currentT
   loop?: false,           // loop back to start when finished (default false)
   audio?: true,           // route audio track into the mix (default true)
   volume?: 1,             // initial volume 0..1 (animatable via volume keyframes)
+  speed?: 1,              // playback speed: 2 = twice as fast, 0.5 = slow motion, negative = backward (see [Time](#time-speed-and-time))
   initial: { x: 0, y: 0, scale: 'cover' },
 }
 ```
@@ -1447,6 +1507,8 @@ Audio-only sequence. No visual. Volume is animatable via keyframes.
   ],
 }
 ```
+
+`speed` (audio **files** only) plays the file faster, slower or backward; the pitch follows, like a tape. It does not apply to `sfx` / `music` (an sfx has `pitch`, in semitones). To change the speed over time animate `time` (see [Time](#time-speed-and-time)).
 
 Audio is mixed during `Movie.init()` and during `Movie.render()`. Volume keyframes interpolate linearly.
 
@@ -1540,6 +1602,8 @@ Nested composition. Same shape as the root spec but with `type: 'composition'` a
   ],
 }
 ```
+
+A composition can also have its **own time**: `speed` (2 = its content plays twice as fast, 0.5 = slow motion, negative = backward) and `time` keyframes (see [Time](#time-speed-and-time)). The layers inside then write `at`, `duration` and `keyframes` in the composition's own seconds; the composition's own `at`, `duration` and keyframes stay in the outer time. A sound or `sfx` inside follows the composition's clock.
 
 ### `shape`
 
@@ -1983,6 +2047,21 @@ The four kinds are mutually exclusive per keyframe:
 - **`from`** — tween from the given values back to the current property, over `duration`.
 - **`from` + `to`** — full fromTo tween, with explicit start and end values.
 
+### Time: `speed` and `time`
+
+Video, audio-file and composition layers have a clock of their own. **`speed`** is a fixed multiplier on the layer (`1` as it is, `2` twice as fast, `0.5` slow motion, negative backward; it starts at |speed| × `duration`, so `speed: -1` plays the first `duration` seconds in reverse; with no `duration` a video or audio file lasts its length ÷ |speed|). **`time`** is the same clock as an ordinary animatable property, in seconds of the layer's own content (a file's position, a composition's local playhead), in `initial` and `keyframes`, with every keyframe word (`at`, `duration`, `ease`, `repeat`, `yoyo`, `from`, `to`, `set`):
+
+```js
+// a freeze (the same value twice), then a ramp
+keyframes: [
+  { at: 0,   from: { time: 0 }, to: { time: 2 }, duration: 1 },        // plays 2 s of the file in 1 s
+  { at: 1,   to: { time: 2 },   duration: 0.5 },                       // holds
+  { at: 1.5, to: { time: 6 },   duration: 3, ease: 'power2.inOut' },   // then accelerates
+]
+```
+
+A negative `time` counts back from the end of the content (`initial: { time: -2 }`, two seconds before the end). `speed` is not animatable (animate `time`); `speed` and keyframed `time` together: `time` wins. **Inside a composition with its own time the children are in that composition's local seconds** (with `speed: 2` the content is twice as long as `duration`, so children default to that length; with `speed: 0.5` a child at `at: 3` of a 4 s composition is never reached, and warns). The composition's own `at`, `duration`, `x` / `alpha` keyframes are outer time. The sound follows (pitch too).
+
 ### Springs
 
 The ease `'spring(mass, stiffness, damping)'` (defaults 1, 100, 10) or a preset (`spring.gentle`, `spring.snappy`, `spring.bouncy`, `spring.wobbly`, `spring.slow`) moves a value as a damped spring would: it overshoots its target and rings, then rests. `duration: 'auto'` gives the keyframe the time the spring needs to settle (within 0.5 %), so mass and stiffness are real physics; with a number, `duration` is that settle time and only the damping ratio `damping / (2 √(stiffness × mass))` shapes the motion (below 1 it overshoots, 1 or more it does not: `spring(1, 170, 26)` does not bounce, `spring(1, 170, 12)` does).
@@ -2022,6 +2101,8 @@ If `at < 0`, it's interpreted as `duration + at` — measured back from the end 
 ```
 
 ### Easing
+
+`'cubic-bezier(x1, y1, x2, y2)'` is the CSS curve exactly (x1 and x2 between 0 and 1, y1 and y2 may overshoot): `'cubic-bezier(.4, 0, .2, 1)'` is a gentle in-out, `'cubic-bezier(.2, .8, .2, 1)'` a fast start with a long glide. A malformed one warns once and runs as `'none'`.
 
 Standard GSAP easing strings: `'none'`, `'linear'`, `'power1.in'` ... `'power4.inOut'`, `'sine.in/out/inOut'`, `'expo.in/out/inOut'`, `'circ.in/out/inOut'`, `'back.in/out/inOut(overshoot)'`, `'elastic.in/out/inOut(amplitude, period)'`, `'bounce.in/out/inOut'`. See [GSAP easing docs](https://gsap.com/docs/v3/Eases/).
 

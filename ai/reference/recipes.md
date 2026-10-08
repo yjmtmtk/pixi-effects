@@ -93,6 +93,58 @@ return [
 
 ---
 
+## Rewind and play again: a composition whose own time you control
+
+Put the part you want to rewind, slow down or freeze **in a composition**, then give that composition `speed` (one straight speed: `0.5` slow motion, `-1` backward) or `time` keyframes (any curve of its own time: play, hold, rewind, play slowly). The layers inside write `at` / `duration` / `keyframes` in the composition's own seconds; the composition's own `at` / `duration` stay in the outer time. A sound or `sfx` inside follows the clock (backward and lower when it rewinds, like a tape). `cubic-bezier(.2, .8, .2, 1)` is a fast start with a long glide: the slow replay that lands.
+
+```js
+// @recipe rewind-and-replay
+const act = {
+  type: 'composition', name: 'act', duration: 11,
+  // its own time: play 0 → 2.2 s, hold half a second, rewind to 0 (accelerating), hold, then replay slowly (4.5 s of content over 6 s, a long glide)
+  keyframes: [
+    { at: 0, from: { time: 0 }, to: { time: 2.2 }, duration: 2.2, ease: 'none' },
+    { at: 2.2, to: { time: 2.2 }, duration: 0.5 },
+    { at: 2.7, to: { time: 0 }, duration: 1.3, ease: 'power2.in' },
+    { at: 4, to: { time: 0 }, duration: 0.4 },
+    { at: 4.4, to: { time: 4.5 }, duration: 6, ease: 'cubic-bezier(.2, .8, .2, 1)' },
+  ],
+  sequences: [
+    // everything in here is in the composition's own seconds: 0 … 4.5
+    { type: 'shape', shape: 'rect', name: 'bar', width: 'GW', height: 16, anchorX: 0, anchorY: 0, at: 0, duration: 4.5,
+      initial: { x: 0, y: 330, fillColor: '#ff4d3d', scaleX: 0 }, keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.8, ease: 'expo.out' }] },
+    { type: 'text', text: 'AGAIN.', name: 'title', at: 0.4, duration: 4.1, style: { fontSize: 150, fontWeight: 'bold', fill: '#f2efe8' },
+      initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+      keyframes: [{ at: 0, from: { y: 430, alpha: 0 }, to: { y: 360, alpha: 1 }, duration: 0.9, ease: 'expo.out' }] },
+    { type: 'audio', sfx: 'hit', at: 0.4 },
+  ],
+};
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0b0b10' } },
+  act,
+  // an overlay in the OUTER time: it shows while the act rewinds (2.7 s … 4 s of the movie)
+  { type: 'text', text: '◀◀ REW', name: 'rew', at: 2.7, duration: 1.3, style: { fontSize: 36, fontWeight: 'bold', fill: '#ff4d3d' }, initial: { x: 60, y: 50 } },
+];
+```
+
+The shortcuts, when one straight speed is enough: `{ type: 'composition', duration: 4, speed: 0.5, sequences: [ … ] }` (slow motion, the content plays half of its length), `speed: -1` (backward). For a **video file** the same words work on the layer itself:
+
+```js
+// @docs-only video-speed
+// needs a real clip: assets: [{ name: 'clip', src: 'clip.mp4' }]
+return [
+  { type: 'video', asset: 'clip', speed: 0.5 },                 // slow motion; with no duration the layer lasts 2x the file
+  { type: 'video', asset: 'clip', speed: -1, at: 4 },           // backward, the whole file
+  { type: 'video', asset: 'clip', duration: 5, keyframes: [     // play 2 s, hold, then accelerate
+    { at: 0, from: { time: 0 }, to: { time: 2 }, duration: 1 },
+    { at: 1, to: { time: 2 }, duration: 0.5 },
+    { at: 1.5, to: { time: 6 }, duration: 3.5, ease: 'power2.inOut' },
+  ] },
+];
+```
+
+---
+
 ## A ticker that scrolls out completely (`w` = the text's own width)
 
 `'-w'` is the exact x at which the text has left the screen on the left (`w` is measured after the style is applied).

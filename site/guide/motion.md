@@ -97,6 +97,24 @@ The layer's own `x` and `y` are the points of the path, so give circles and shap
 
 With a number for `duration`, that number is the settle time and only the damping decides how much it overshoots. A damping ratio of 1 or more never overshoots: `spring(1, 170, 26)` does not bounce, `spring(1, 170, 12)` does. A colour that overshoots is clamped, and `alpha` past 1 shows nothing, so springs are for position, scale and rotation first.
 
+## Time: slow motion, rewind, freeze
+
+Put what you want to slow down, reverse or hold **in a composition**, then give the composition its own time: `speed` for one straight speed, `time` keyframes for any curve.
+
+```js
+{ type: 'composition', duration: 4, speed: 0.5, sequences: [ /* the content plays at half speed */ ] }
+{ type: 'composition', duration: 4, speed: -1,  sequences: [ /* plays backward */ ] }
+// play, hold, rewind (faster and faster), hold, replay slowly
+{ type: 'composition', duration: 11, sequences: [ /* … */ ], keyframes: [
+  { at: 0,   from: { time: 0 }, to: { time: 2.2 }, duration: 2.2, ease: 'none' },
+  { at: 2.2, to: { time: 2.2 }, duration: 0.5 },
+  { at: 2.7, to: { time: 0 },   duration: 1.3, ease: 'power2.in' },
+  { at: 4.4, to: { time: 4.5 }, duration: 6,   ease: 'cubic-bezier(.2, .8, .2, 1)' },
+] }
+```
+
+The layers inside write their `at`, `duration` and keyframes in the composition's own seconds (its local time); the composition's own `at`, `duration` and keyframes stay in the movie's time, so an overlay outside it (a "REW" label) is written in movie seconds. Sounds and sound effects inside follow the clock: a rewinding sfx runs backward and falls in pitch, like a tape. `cubic-bezier(x1, y1, x2, y2)` is the CSS easing curve, usable anywhere an `ease` is.
+
 ## Waves: `stagger`
 
 `stagger()` gives the delays for a wave of items, in the style of GSAP: `each` (gap between neighbours) or `amount` (total), `from` (`'start'`, `'end'`, `'center'`, `'edges'`, `'random'` or an index), `grid: [columns, rows]` for a ripple across a grid, and `ease`. Give it a number to get the delays, or give it layers and it returns them with `at` pushed back.

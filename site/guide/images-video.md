@@ -49,6 +49,8 @@ A PNG or WebP with an alpha channel just works, and **WebP is much smaller**: fo
 
 `audio` and `volume` control the clip's own sound; `loop` repeats it. Video layers are frame-accurate when you scrub and when you export.
 
+Change the speed with `speed`: `{ type: 'video', asset: 'clip', speed: 0.5 }` is slow motion, `speed: -1` plays backward, `speed: 2` is twice as fast (with no `duration` the layer is as long as the clip divided by the speed). For a freeze or a ramp animate `time`, the position in the file in seconds, like any property: `keyframes: [{ at: 0, from: { time: 0 }, to: { time: 2 }, duration: 1 }, { at: 1, to: { time: 2 }, duration: 0.5 }]` plays two seconds, then holds. The sound follows, pitch included. [Motion](motion.html#time-slow-motion-rewind-freeze) has the same idea for any group of layers.
+
 ## Masks
 
 Any layer can be a **mask** for another: only the part under the mask shows. A mask is a layer spec, so it can be a shape, a text, or even an image:
