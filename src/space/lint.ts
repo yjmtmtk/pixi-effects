@@ -1,11 +1,14 @@
 import { collectPropKeys } from './specKeys';
 import { describeLayer } from '../core/lint';
+import { focusProblems } from './focus';
 import type { SequenceSpec } from '../types';
 
 type Warn = (message: string) => void;
 const defaultWarn: Warn = m => console.warn(m);
 
 const FOV_HINT = 'perspective is the camera\'s "fov" — add a { type: "camera" } layer and set fov in its initial / keyframes';
+
+const DOF_HINT = 'depth of field is the camera\'s "focus" (the plane that is sharp: a layer name or a z) and "aperture" (how shallow: 0 = off, 30 = default) — put them in the camera\'s initial / keyframes';
 
 /** Keys that are never valid for any layer, with a hint at what the author probably meant. */
 const LAYER_ALIASES: Record<string, string> = {
@@ -24,6 +27,7 @@ const LAYER_ALIASES: Record<string, string> = {
 const CAMERA_ALIASES: Record<string, string> = {
   pointOfInterest: 'did you mean "lookAtX / lookAtY / lookAtZ"?',
   lookAt: 'did you mean "lookAtX / lookAtY / lookAtZ"?',
+  depthOfField: DOF_HINT, dof: DOF_HINT, focalDistance: DOF_HINT, focusDistance: DOF_HINT, fStop: DOF_HINT, blurAmount: DOF_HINT,
 };
 
 const CAMERA_PROPS = ['x', 'y', 'z', 'fov', 'focus', 'aperture', 'lookAtX', 'lookAtY', 'lookAtZ', 'offsetX', 'offsetY', 'offsetZ', 'lookOffsetX', 'lookOffsetY', 'lookOffsetZ'];
@@ -76,6 +80,21 @@ export function lintSequence(spec: SequenceSpec, warn: Warn = defaultWarn): void
   } else {
     for (const k of SKEW_KEYS) {
       if (keys.has(k)) warn(`pixi-effects: ${who}: "${k}" is ignored on threeD layers`);
+    }
+  }
+}
+
+/** The layer names a camera's `focus` points at: missing, not threeD, or with a z that moves later. One call per camera, at build time. */
+export function lintFocus(camera: SequenceSpec, siblings: readonly SequenceSpec[], warn: Warn = defaultWarn): void {
+  if (camera.type !== 'camera') return;
+  const who = describeLayer(camera);
+  for (const p of focusProblems(camera, siblings)) {
+    if (p.kind === 'missing') {
+      warn(`pixi-effects: ${who}: focus: no layer named "${p.name}"${p.hint ? `; did you mean "${p.hint}"?` : ''} (the z = 0 plane is used). Write a threeD layer's name or a z number`);
+    } else if (p.kind === 'not-threeD') {
+      warn(`pixi-effects: ${who}: focus "${p.name}" is not a threeD layer, so it has no depth (the z = 0 plane is used). Write a threeD layer's name or a z number`);
+    } else {
+      warn(`pixi-effects: ${who}: focus "${p.name}" reads only the first z of that layer; its z moves later and the focus does not follow. Animate focus itself with numbers to follow it`);
     }
   }
 }

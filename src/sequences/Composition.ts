@@ -8,7 +8,8 @@ import { CameraSequence } from '../space/CameraSequence';
 import { findOverlap, pickActiveCamera } from '../space/camera';
 import { assignDepthOrder } from '../space/depth';
 import { Layer3D, type SpaceHost } from '../space/Layer3D';
-import { lintSequence } from '../space/lint';
+import { lintSequence, lintFocus } from '../space/lint';
+import { layerInitialZ } from '../space/focus';
 import { describeLayer, lintText, lintTiming, summarizeWarnings, lintKeys } from '../core/lint';
 import { applyBlendMode } from '../core/blend';
 import { cameraBasis, homeCamera } from '../space/math';
@@ -82,6 +83,7 @@ export class CompositionSequence extends Sequence {
     const lateKeyframes: string[] = [];
     for (const s of this.spec.sequences ?? []) {
       lintSequence(s);
+      lintFocus(s, this.spec.sequences ?? []);
       lintTiming(s, span, (message, kind) => (kind === 'late-keyframe' ? lateKeyframes.push(message) : console.warn(message)));
       lintText(s);
       lintKeys(s);
@@ -94,6 +96,14 @@ export class CompositionSequence extends Sequence {
       this.root,
     );
     this._resolveParents();
+    // A camera's `focus: "title"` becomes that layer's first z, here, where the siblings exist (a camera sees only its parent's shape)
+    for (const cam of this._children) {
+      if (!(cam instanceof CameraSequence)) continue;
+      cam.resolveFocusNames(name => {
+        const hit = this._children.find(c => c.spec.name === name && c.spec.threeD);
+        return hit ? layerInitialZ(hit.spec, hit.scope() as unknown as Record<string, number>) : undefined;
+      });
+    }
     for (const child of this._children) {
       // Cameras are display-less: they only feed the projection pass.
       if (child instanceof CameraSequence) {

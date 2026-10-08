@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { lintSequence } from '../../src/space/lint';
+import { lintSequence, lintFocus } from '../../src/space/lint';
 import type { SequenceSpec } from '../../src/types';
 
 function run(spec: unknown): string[] {
@@ -83,5 +83,52 @@ describe('lintSequence', () => {
 
   it('FIX: skew on a 2D layer stays silent', () => {
     expect(run({ type: 'image', asset: 'a', initial: { skewX: 0.2 } })).toEqual([]);
+  });
+});
+
+function runFocus(camera: unknown, siblings: unknown[]): string[] {
+  const out: string[] = [];
+  lintFocus(camera as SequenceSpec, siblings as SequenceSpec[], m => out.push(m));
+  return out;
+}
+
+describe('lintFocus', () => {
+  const sibs = [
+    { type: 'text', name: 'title', threeD: true, text: 'a' },
+    { type: 'image', name: 'label', asset: 'a' },
+    { type: 'shape', shape: 'rect', name: 'mover', threeD: true, keyframes: [{ at: 0, to: { z: 9 }, duration: 1 }] },
+  ];
+  it('a missing name says what was meant', () => {
+    const w = runFocus({ type: 'camera', initial: { focus: 'tilte' } }, sibs);
+    expect(w).toHaveLength(1);
+    expect(w[0]).toContain('focus');
+    expect(w[0]).toContain('"tilte"');
+    expect(w[0]).toContain('did you mean "title"?');
+  });
+  it('a layer that is not threeD, and a layer whose z moves, are said', () => {
+    expect(runFocus({ type: 'camera', initial: { focus: 'label' } }, sibs)[0]).toMatch(/"label".*not a threeD/);
+    expect(runFocus({ type: 'camera', initial: { focus: 'mover' } }, sibs)[0]).toMatch(/"mover".*first z/);
+  });
+  it('is silent for a good name, a number and a camera without focus', () => {
+    expect(runFocus({ type: 'camera', initial: { focus: 'title' } }, sibs)).toEqual([]);
+    expect(runFocus({ type: 'camera', initial: { focus: 300 } }, sibs)).toEqual([]);
+    expect(runFocus({ type: 'camera' }, sibs)).toEqual([]);
+  });
+  it('other kinds of layer are not looked at', () => {
+    expect(runFocus({ type: 'text', text: 'a', initial: { focus: 'nope' } }, sibs)).toEqual([]);
+  });
+});
+
+describe('lintSequence — depth of field names', () => {
+  it('the likely wrong names point at focus and aperture', () => {
+    const w = run({ type: 'camera', initial: { depthOfField: 1, dof: 1, focalDistance: 1, focusDistance: 1, fStop: 2, blurAmount: 3 } });
+    for (const k of ['depthOfField', 'dof', 'focalDistance', 'focusDistance', 'fStop', 'blurAmount']) {
+      expect(w.some(m => m.includes(`"${k}"`) && m.includes('"focus"') && m.includes('"aperture"'))).toBe(true);
+    }
+  });
+  it('focus and aperture inside initial are fine, and on the camera itself they must go inside initial', () => {
+    expect(run({ type: 'camera', initial: { focus: 100, aperture: 40 } })).toEqual([]);
+    const w = run({ type: 'camera', focus: 100 });
+    expect(w.some(m => m.includes('"focus"') && m.includes('initial'))).toBe(true);
   });
 });

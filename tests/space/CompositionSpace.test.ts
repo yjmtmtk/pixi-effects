@@ -193,3 +193,32 @@ describe('CompositionSequence — AI warnings', () => {
     expect(comp._children[0]!.maskSequence).toBeNull();
   });
 });
+
+describe('CompositionSequence — focus by layer name', () => {
+  const focusOf = (comp: CompositionSequence, i = 0) => (comp._children[i] as unknown as { state(): { focus: number } }).state().focus;
+
+  it('resolves a layer name to that layer\'s first z (a number or an expression) when the movie is built', async () => {
+    const comp = await build([
+      { type: 'camera', initial: { focus: 'back' } },
+      { type: '__box', name: 'front', threeD: true, initial: { z: 0 } },
+      { type: '__box', name: 'back', threeD: true, initial: { z: -400 } },
+    ]);
+    expect(focusOf(comp)).toBe(-400);
+    const comp2 = await build([
+      { type: 'camera', initial: { focus: 'back' } },
+      { type: '__box', name: 'back', threeD: true, initial: { z: '0 - GW / 4' } },
+    ]);
+    expect(focusOf(comp2)).toBe(-320);
+  });
+  it('warns once for a name nobody has, and uses the z = 0 plane', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const comp = await build([
+      { type: 'camera', initial: { focus: 'bak' } },
+      { type: '__box', name: 'back', threeD: true, initial: { z: -400 } },
+    ]);
+    const said = warn.mock.calls.filter(c => String(c[0]).includes('focus'));
+    expect(said).toHaveLength(1);
+    expect(String(said[0]![0])).toContain('did you mean "back"?');
+    expect(focusOf(comp)).toBe(0);
+  });
+});
