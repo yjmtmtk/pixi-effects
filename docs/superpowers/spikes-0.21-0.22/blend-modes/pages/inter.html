@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>spike inter</title></head>
+<body style="margin:0;background:#222">
+<canvas id="stage" width="640" height="360"></canvas>
+<script>
+window.__logs = [];
+for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ').slice(0, 400)); o(...a); }; }
+window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+const q = new URLSearchParams(location.search);
+if (q.get('gpu') === '0') Object.defineProperty(navigator, 'gpu', { value: undefined });
+</script>
+<script type="importmap">
+{ "imports": { "pixi.js": "/node_modules/pixi.js/dist/pixi.mjs", "gsap": "/node_modules/gsap/index.js", "gsap/PixiPlugin": "/node_modules/gsap/PixiPlugin.js", "mediabunny": "/node_modules/mediabunny/dist/bundles/mediabunny.mjs" } }
+</script>
+<script type="module">
+const { Movie } = await import('/dist/index.js');
+const MODE = q.get('mode') ?? 'overlay', CASE = q.get('case') ?? 'plain';
+const base = ['#c83232', '#32a032', '#3250dc', '#808080', '#e6c8a0', '#282828'];
+const strips = base.map((c, i) => ({ type: 'shape', shape: 'rect', anchorX: 0, anchorY: 0, width: 100, height: 360, initial: { x: 20 + i * 100, y: 0, fillColor: c } }));
+const rect = (extra = {}, init = {}) => ({ type: 'shape', shape: 'rect', anchorX: 0, anchorY: 0, width: 640, height: 120, ...extra, initial: { x: 0, y: 0, fillColor: '#ff8c28', ...init } });
+const ID = [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0];
+const cases = {
+  plain: [rect({ blendMode: MODE })],
+  filter: [rect({ blendMode: MODE, filters: [{ type: 'colorMatrix', matrix: ID }] })],
+  filter2: [rect({ blendMode: MODE, filters: [{ type: 'colorMatrix', matrix: ID }, { type: 'alpha', alpha: 1 }] })],
+  blurfilter: [rect({ blendMode: MODE, filters: [{ type: 'blur', strength: 6 }], filterArea: { x: 0, y: -40, width: 640, height: 200 } })],
+  mask: [rect({ blendMode: MODE, mask: { type: 'shape', shape: 'circle', radius: 55, initial: { x: 320, y: 60, fillColor: '#fff' } } })],
+  maskinv: [rect({ blendMode: MODE, maskInverted: true, mask: { type: 'shape', shape: 'circle', radius: 55, initial: { x: 320, y: 60, fillColor: '#fff' } } })],
+  threeD: [rect({ blendMode: MODE, threeD: true }), { type: 'camera' }],
+  threeDrot: [rect({ blendMode: MODE, threeD: true, anchorX: 0.5, anchorY: 0.5 }, { x: 320, y: 60, rotationY: 40 }), { type: 'camera' }],
+  // a nested composition: A (orange) x 0..400, B (blue) x 200..640, overlapping on 200..400
+  group: [{ type: 'composition', width: 640, height: 120, blendMode: MODE, sequences: [rect({}, { x: 0 }) && { ...rect({ width: 400 }) }, { ...rect({ width: 440 }, { x: 200, fillColor: '#4682c8' }) }] }],
+  groupCard: [{ type: 'composition', width: 640, height: 120, threeD: true, blendMode: MODE, sequences: [{ ...rect({ width: 400 }) }, { ...rect({ width: 440 }, { x: 200, fillColor: '#4682c8' }) }] }, { type: 'camera' }],
+  groupFilter: [{ type: 'composition', width: 640, height: 120, blendMode: MODE, filters: [{ type: 'colorMatrix', matrix: ID }], sequences: [{ ...rect({ width: 400 }) }, { ...rect({ width: 440 }, { x: 200, fillColor: '#4682c8' }) }] }],
+  groupA: [{ type: 'composition', width: 640, height: 120, blendMode: MODE, alpha: 1, initial: { alpha: 0.6 }, sequences: [{ ...rect({ width: 400 }) }, { ...rect({ width: 440 }, { x: 200, fillColor: '#4682c8' }) }] }],
+  // children blend inside a composition that has a filter (isolated group: the backdrop is the group's own content)
+  insidefilter: [{ type: 'composition', width: 640, height: 360, filters: [{ type: 'colorMatrix', matrix: ID }], sequences: [...strips.map(s => s), rect({ blendMode: MODE })] }],
+  insideplain: [{ type: 'composition', width: 640, height: 360, sequences: [rect({ blendMode: MODE })] }],
+  text: [{ type: 'text', text: 'WWWWW', blendMode: MODE, style: { fontSize: 120, fontWeight: '900', fill: '#ff8c28' }, initial: { x: 10, y: 0 } }],
+  alphaLayer: [rect({ blendMode: MODE }, { alpha: 0.5 })],
+};
+const top = (q.get('case') === 'insidefilter') ? [] : strips;
+const seqs = [...top, ...(cases[CASE] ?? [])];
+const movie = new Movie(); window.movie = movie;
+try {
+  await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 1, frameRate: 30, background: '#000', composition: { sequences: seqs } });
+  window.__info = { renderer: movie.app.renderer.name, case: CASE, mode: MODE };
+  window.__ready = true;
+} catch (e) { window.__logs.push('init: ' + e.message); }
+</script>
+</body></html>

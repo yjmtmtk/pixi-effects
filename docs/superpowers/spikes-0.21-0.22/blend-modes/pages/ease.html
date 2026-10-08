@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>spike ease</title></head>
+<body>
+<canvas id="stage" width="320" height="180"></canvas>
+<script>
+window.__logs = [];
+for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ').slice(0, 400)); o(...a); }; }
+window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+const q = new URLSearchParams(location.search);
+const cdn = q.get('gsap') === 'cdn';
+const s = document.createElement('script'); s.type = 'importmap';
+s.textContent = JSON.stringify({ imports: {
+  'pixi.js': '/node_modules/pixi.js/dist/pixi.mjs',
+  gsap: cdn ? 'https://esm.sh/gsap@3.12.5' : '/node_modules/gsap/index.js',
+  'gsap/PixiPlugin': cdn ? 'https://esm.sh/gsap@3.12.5/PixiPlugin' : '/node_modules/gsap/PixiPlugin.js',
+  'gsap/CustomEase': cdn ? 'https://esm.sh/gsap@3.12.5/CustomEase' : '/node_modules/gsap/CustomEase.js',
+  mediabunny: '/node_modules/mediabunny/dist/bundles/mediabunny.mjs' } });
+document.head.appendChild(s);
+</script>
+<script type="module">
+const { Movie } = await import('/dist/index.js');
+const { gsap } = await import('gsap');
+window.gsap = gsap;
+const CURVES = [[0.25, 0.1, 0.25, 1], [0.42, 0, 1, 1], [0, 0, 0.58, 1], [0.42, 0, 0.58, 1], [0.4, 0, 0.2, 1], [0.34, 1.56, 0.64, 1], [0.68, -0.55, 0.27, 1.55], [0, 1, 1, 0], [1, 0, 0, 1], [0.1, 0.9, 0.9, 0.1], [0, 0, 1, 1], [0.7, 0, 0.84, 0], [0.16, 1, 0.3, 1], [0.87, 0, 0.13, 1], [1, 1, 0, 0], [0, 0, 0, 0], [1, 1, 1, 1], [0.05, 0.99, 0.95, 0.01], [0.001, 3, 0.999, -2]];
+const N = 1000;
+const el = document.createElement('div'); document.body.appendChild(el);
+const out = [];
+for (const c of CURVES) {
+  const name = `cubic-bezier(${c.join(', ')})`;
+  const mine = gsap.parseEase(name);
+  const anim = el.animate({ opacity: [0, 1] }, { duration: 1000, fill: 'both', easing: name }); anim.pause();
+  let maxd = 0, at = 0;
+  for (let i = 0; i <= N; i++) {
+    const p = i / N;
+    anim.currentTime = p * 1000;
+    const css = anim.effect.getComputedTiming().progress;
+    const d = Math.abs(mine(p) - css);
+    if (d > maxd) { maxd = d; at = p; }
+  }
+  anim.cancel();
+  out.push({ name, maxd, at, isFn: typeof mine === 'function', ends: [mine(0), mine(1)] });
+}
+let t0 = performance.now(), acc = 0; const e = gsap.parseEase('cubic-bezier(0.4,0,0.2,1)');
+for (let i = 0; i < 1e6; i++) acc += e(i / 1e6);
+const ns = (performance.now() - t0) / 1e6 * 1e6;
+// the same through CustomEase when it can be loaded (as the oracle GSAP itself would give)
+let custom = null;
+try {
+  const { CustomEase } = await import('gsap/CustomEase'); gsap.registerPlugin(CustomEase);
+  const ce = CustomEase.create('t', 'M0,0 C0.4,0 0.2,1 1,1'); let m = 0; const mine = gsap.parseEase('cubic-bezier(0.4,0,0.2,1)');
+  for (let i = 0; i <= N; i++) m = Math.max(m, Math.abs(ce(i / N) - mine(i / N)));
+  custom = m;
+} catch (err) { custom = 'unavailable: ' + err.message; }
+// what a spec does with it
+const movie = new Movie(); window.movie = movie;
+await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 1, frameRate: 30, composition: { sequences: [
+  { type: 'shape', shape: 'rect', width: 10, height: 10, initial: { x: 0, y: 90 }, keyframes: [{ at: 0, to: { x: 300 }, duration: 1, ease: 'cubic-bezier(0.4, 0, 0.2, 1)' }] },
+  { type: 'shape', shape: 'rect', width: 10, height: 10, initial: { x: 0, y: 40 }, keyframes: [{ at: 0, to: { x: 300 }, duration: 1, ease: 'cubic-bezier(1.5, 0, 0.2, 1)' }] },
+  { type: 'shape', shape: 'rect', width: 10, height: 10, initial: { x: 0, y: 40 }, keyframes: [{ at: 0, to: { x: 300 }, duration: 1, ease: 'cubic-bezier(0.4, 0, 0.2)' }] },
+] } });
+await movie.gotoFrame(15, true);
+const x15 = movie._rootSequence.layers ? null : null;
+window.__res = { out, nsPerCall: ns, vsCustomEase: custom, gsapVersion: gsap.version, logs: window.__logs };
+window.__ready = true;
+</script>
+</body></html>

@@ -1,0 +1,14 @@
+const out = {};
+const tryit = async (label, layer) => { await mk({ duration: 4, composition: { sequences: [layer] } }); out[label] = window.__logs.filter(l => !l.includes('Resolver')); };
+await tryit('speed 0', { type: 'composition', duration: 4, speed: 0, sequences: [] });
+await tryit('typo spped', { type: 'composition', duration: 4, spped: 2, sequences: [] });
+await tryit('time on a shape', { type: 'shape', shape: 'rect', width: 10, height: 10, keyframes: [{ at: 0, to: { time: 2 }, duration: 1 }] });
+await tryit('speed on a shape', { type: 'shape', shape: 'rect', width: 10, height: 10, speed: 2 });
+await tryit('speed + time', { type: 'composition', duration: 4, speed: 2, keyframes: [{ at: 0, from: { time: 0 }, to: { time: 3 }, duration: 2 }], sequences: [] });
+await tryit('time as string', { type: 'composition', duration: 4, keyframes: [{ at: 0, to: { time: 'abc' }, duration: 2 }], sequences: [] });
+await tryit('ok: speed 2', { type: 'composition', duration: 2, speed: 2, sequences: [{ type: 'shape', shape: 'rect', width: 10, height: 10 }] });
+await tryit('child outlives content (speed .5, child at:3 in 4s comp)', { type: 'composition', duration: 4, speed: 0.5, sequences: [{ type: 'shape', shape: 'rect', width: 10, height: 10, at: 3 }] });
+await mk({ duration: 4, composition: { sequences: [{ type: 'composition', name: 'slow', duration: 4, speed: 0.5, sequences: [{ type: 'shape', shape: 'rect', name: 'r', width: 10, height: 10, at: 1, duration: 1 }] }] } });
+out.timelineRows = movie.timelineData().rows.map(r => ({ ...r, label: undefined })).slice(0, 4);
+out.inspect = JSON.stringify(movie.inspect(30)).slice(0, 300);
+return out;

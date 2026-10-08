@@ -1,0 +1,482 @@
+diff --git a/src/core/AudioMixer.ts b/src/core/AudioMixer.ts
+index 73c3e3b..e3bad50 100644
+--- a/src/core/AudioMixer.ts
++++ b/src/core/AudioMixer.ts
+@@ -37,6 +37,16 @@ export async function mixdown(
+         `Start it at 0 or later.`,
+       );
+     }
++    if (a.warp || a.sourceMap) {
++      // SPIKE: time remap. Resample the sound through the maps into a buffer of its own, then play that one straight.
++      const w = renderRemapped(a, buffer, ctx, sampleRate, totalDuration);
++      if (!w) continue;
++      const wsrc = ctx.createBufferSource();
++      wsrc.buffer = w.buffer;
++      wsrc.connect(ctx.destination);
++      wsrc.start(w.at);
++      continue;
++    }
+     const src = ctx.createBufferSource();
+     src.buffer = buffer;
+     src.loop = !!a.loop;
+@@ -87,3 +97,59 @@ export function limitMix(buffer: AudioBuffer, audios: AudioDescriptor[]): MixSta
+   }
+   return { peak, peakAt };
+ }
++
++
++/** SPIKE: the gain of a sound at its own time `u`: `initialVolume` from `start`, then straight lines to each point (what the Web Audio ramps did). */
++function gainAt(a: AudioDescriptor, u: number): number {
++  let prevT = a.start, prevV = a.initialVolume ?? 1;
++  if (u <= prevT) return prevV;
++  for (const kf of a.volumeKeyframes ?? []) {
++    if (u <= kf.time) return kf.time === prevT ? kf.value : prevV + (kf.value - prevV) * ((u - prevT) / (kf.time - prevT));
++    prevT = kf.time; prevV = kf.value;
++  }
++  return prevV;
++}
++
++/**
++ * SPIKE: render a sound through its time maps. For every output sample T: u = warp(T) (sampled every millisecond, interpolated), the position in the
++ * sound is sourceMap(u) (or u - start), and the sample is read with linear interpolation. Where the position hardly moves (a freeze) it fades to
++ * silence rather than hold one sample as a DC offset. Returns null when it is never audible.
++ */
++function renderRemapped(a: AudioDescriptor, buffer: AudioBuffer, ctx: OfflineAudioContext, sampleRate: number, total: number): { buffer: AudioBuffer; at: number } | null {
++  const h = 1 / 1000;
++  const nCell = Math.ceil(total / h) + 2;
++  const U = new Float64Array(nCell);
++  let first = -1, last = -1;
++  for (let k = 0; k < nCell; k++) {
++    const u = a.warp ? a.warp(k * h) : k * h;
++    U[k] = u;
++    if (Number.isFinite(u) && u >= a.start && u < a.end) { if (first < 0) first = k; last = k; }
++  }
++  if (first < 0) return null;
++  const lo = Math.max(0, (first - 1) * h), hi = Math.min(total, (last + 2) * h);
++  const n = Math.max(1, Math.ceil((hi - lo) * sampleRate));
++  const out = ctx.createBuffer(2, n, sampleRate);
++  const L = out.getChannelData(0), R = out.getChannelData(1);
++  const src0 = buffer.getChannelData(0), src1 = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : src0;
++  const sr = buffer.sampleRate, dur = buffer.duration;
++  let prevPos = NaN;
++  for (let i = 0; i < n; i++) {
++    const T = lo + i / sampleRate;
++    const x = T / h, k = Math.min(Math.floor(x), nCell - 2), f = x - k;
++    const u0 = U[k]!, u1 = U[k + 1]!;
++    if (!(Number.isFinite(u0) && Number.isFinite(u1))) { prevPos = NaN; continue; }
++    const u = u0 * (1 - f) + u1 * f;
++    if (u < a.start || u >= a.end) { prevPos = NaN; continue; }
++    const raw = a.sourceMap ? a.sourceMap(u) : u - a.start;
++    let pos = raw;
++    if (a.loop) pos = ((pos % dur) + dur) % dur;
++    const rate = Number.isNaN(prevPos) ? 1 : Math.abs(raw - prevPos) * sampleRate;
++    prevPos = raw;
++    if (pos < 0 || pos >= dur) continue;
++    const g = gainAt(a, u) * Math.min(1, rate / 0.02);
++    const sp = pos * sr, j = Math.floor(sp), fr = sp - j, j1 = Math.min(j + 1, src0.length - 1);
++    L[i] = (src0[j]! * (1 - fr) + src0[j1]! * fr) * g;
++    R[i] = (src1[j]! * (1 - fr) + src1[j1]! * fr) * g;
++  }
++  return { buffer: out, at: lo };
++}
+diff --git a/src/core/FrameCache.ts b/src/core/FrameCache.ts
+index 780caaf..15eb14a 100644
+--- a/src/core/FrameCache.ts
++++ b/src/core/FrameCache.ts
+@@ -26,7 +26,7 @@ export class FrameCache {
+   }
+ 
+   private _key(time: number): number {
+-    return Math.round(time * 1000);
++    return Math.round(time * 1e6);
+   }
+ 
+   async getFrameAt(time: number): Promise<VideoFrame | null> {
+diff --git a/src/core/Movie.ts b/src/core/Movie.ts
+index 6d688ad..ca35b48 100644
+--- a/src/core/Movie.ts
++++ b/src/core/Movie.ts
+@@ -443,9 +443,7 @@ export class Movie {
+     const collected: VideoLike[] = [];
+     collectVideoSequences(this._rootSequence, collected);
+     await Promise.all(collected.map(v => {
+-      const local = t - (v.absoluteStart ?? v.at);
+-      if (local < 0 || local > (v.duration ?? 0)) return Promise.resolve();
+-      return v.awaitFrameAt(local);
++      return v.awaitFrameAt(t);
+     }));
+   }
+ 
+diff --git a/src/core/layerKeys.ts b/src/core/layerKeys.ts
+index 8d06d2f..c7929cf 100644
+--- a/src/core/layerKeys.ts
++++ b/src/core/layerKeys.ts
+@@ -15,11 +15,11 @@ type Assert<T extends true> = T;
+ 
+ const COMMON = ['type', 'name', 'parent', 'at', 'duration', 'initial', 'keyframes', 'filters', 'filterArea', 'mask', 'maskInverted', 'blendMode', 'threeD', 'hideBehindCamera'] as const satisfies readonly KeysOfUnion<SequenceCommon | { type: string }>[];
+ 
+-const VIDEO = [...COMMON, 'asset', 'loop', 'audio', 'volume'] as const satisfies readonly KeysOfUnion<VideoSequenceSpec>[];
++const VIDEO = [...COMMON, 'asset', 'loop', 'audio', 'volume', 'speed'] as const satisfies readonly KeysOfUnion<VideoSequenceSpec>[];
+ const IMAGE = [...COMMON, 'asset', 'colorSpace'] as const satisfies readonly KeysOfUnion<ImageSequenceSpec>[];
+ const TEXT = [...COMMON, 'text', 'format', 'style', 'colorSpace', 'fillGradient'] as const satisfies readonly KeysOfUnion<TextSequenceSpec>[];
+-const AUDIO = [...COMMON, 'volume', 'asset', 'loop', 'sfx', 'music'] as const satisfies readonly KeysOfUnion<AudioAssetSpec | AudioSfxSpec | AudioMusicSpec>[];
+-const COMPOSITION = [...COMMON, 'width', 'height', 'sequences', 'transitions'] as const satisfies readonly KeysOfUnion<CompositionSequenceSpec>[];
++const AUDIO = [...COMMON, 'volume', 'asset', 'loop', 'sfx', 'music', 'speed'] as const satisfies readonly KeysOfUnion<AudioAssetSpec | AudioSfxSpec | AudioMusicSpec>[];
++const COMPOSITION = [...COMMON, 'width', 'height', 'sequences', 'transitions', 'speed'] as const satisfies readonly KeysOfUnion<CompositionSequenceSpec>[];
+ const CAMERA = [...COMMON] as const satisfies readonly KeysOfUnion<CameraSequenceSpec>[];
+ const NULL = [...COMMON] as const satisfies readonly KeysOfUnion<NullSequenceSpec>[];
+ 
+@@ -75,7 +75,7 @@ export const PROP_KEYS: ReadonlySet<string> = new Set([
+   'fillColor', 'fillAlpha', 'strokeColor', 'strokeAlpha', 'strokeWidth', 'lineColor', 'lineAlpha', 'cornerRadius', 'radius', 'radiusX', 'radiusY',
+   'innerRadius', 'startAngle', 'endAngle', 'trimStart', 'trimEnd', 'trimEach', 'morph', 'fillGradient', 'strokeCap', 'strokeJoin',
+   // text, audio, video
+-  'fill', 'value', 'visibleChars', 'text', 'volume',
++  'fill', 'value', 'visibleChars', 'text', 'volume', 'time',
+   // camera
+   'lookAtX', 'lookAtY', 'lookAtZ', 'fov', 'offsetX', 'offsetY', 'offsetZ', 'lookOffsetX', 'lookOffsetY', 'lookOffsetZ',
+ ]);
+diff --git a/src/core/lint.ts b/src/core/lint.ts
+index 3f5ff10..5218b6e 100644
+--- a/src/core/lint.ts
++++ b/src/core/lint.ts
+@@ -1,6 +1,7 @@
+ import type { SequenceSpec } from '../types';
+ import { collectPropKeys } from '../space/specKeys';
+ import { suggestName } from './options';
++import { lintRemap } from './remap';
+ import { layerKeys, kindName, kindsWithKey, PROP_KEYS, STYLE_KEYS } from './layerKeys';
+ 
+ type Warn = (message: string, kind?: 'late-keyframe') => void;
+@@ -80,6 +81,7 @@ export function lintKeys(spec: SequenceSpec, warn: Warn = defaultWarn): void {
+       warn(`pixi-effects: ${who}: "${key}" is not a ${kindName(spec as { type: string; shape?: string })} key${hint}. Valid keys: ${valid.join(', ')}`);
+     }
+   }
++  lintRemap(spec, warn);
+   const said = new Set<string>();
+   const bags: Array<Record<string, unknown> | undefined> = [spec.initial, ...(spec.keyframes ?? []).flatMap(kf => [kf.set, kf.to, kf.from])] as Array<Record<string, unknown> | undefined>;
+   for (const bag of bags) {
+diff --git a/src/core/timeFilters.ts b/src/core/timeFilters.ts
+index 1b5bced..c3c9860 100644
+--- a/src/core/timeFilters.ts
++++ b/src/core/timeFilters.ts
+@@ -3,10 +3,19 @@ import type { Sequence } from '../sequences/Base';
+ /** A filter that wants to know which moment is drawn (`grain`). */
+ export interface TimeFilter { setTime(t: number): void }
+ 
+-/** Every filter in the layer tree that has `setTime`, found once after the build (the movie feeds them before each draw). */
+-export function collectTimeFilters(seq: Sequence, out: TimeFilter[] = []): TimeFilter[] {
+-  for (const f of seq.filters ?? []) if (typeof (f as unknown as Partial<TimeFilter>).setTime === 'function') out.push(f as unknown as TimeFilter);
+-  if (seq.maskSequence) collectTimeFilters(seq.maskSequence, out);
+-  for (const child of (seq as Sequence & { _children?: Sequence[] })._children ?? []) collectTimeFilters(child, out);
++/**
++ * Every filter in the layer tree that has `setTime`, found once after the build (the movie feeds them before each draw).
++ * SPIKE: inside a time-remapped composition a filter is told the composition's local time, not the movie's.
++ */
++export function collectTimeFilters(seq: Sequence, out: TimeFilter[] = [], clock: (() => number) | null = null): TimeFilter[] {
++  for (const f of seq.filters ?? []) {
++    if (typeof (f as unknown as Partial<TimeFilter>).setTime === 'function') {
++      const tf = f as unknown as TimeFilter;
++      out.push(clock ? { setTime: () => tf.setTime(clock()) } : tf);
++    }
++  }
++  if (seq.maskSequence) collectTimeFilters(seq.maskSequence, out, clock);
++  const own = (seq as Sequence & { localClock?: () => (() => number) | null }).localClock?.() ?? clock;
++  for (const child of (seq as Sequence & { _children?: Sequence[] })._children ?? []) collectTimeFilters(child, out, own);
+   return out;
+ }
+diff --git a/src/sequences/Audio.ts b/src/sequences/Audio.ts
+index 77c4c2d..45f712b 100644
+--- a/src/sequences/Audio.ts
++++ b/src/sequences/Audio.ts
+@@ -1,6 +1,7 @@
+ import { Assets } from 'pixi.js';
+ import { Sequence } from './Base';
+ import { normalizeKeyframe } from '../core/Timeline';
++import { timeRemapOf, clockTable } from '../core/remap';
+ import { describeLayer } from '../core/lint';
+ import type { AudioSequenceSpec, AudioAssetSpec, AudioSfxSpec, AudioMusicSpec, AudioDescriptor } from '../types';
+ import type { AudioAssetData } from '../core/AssetLoader';
+@@ -92,7 +93,9 @@ export class AudioSequence extends Sequence {
+     const initialVolume = this.spec.volume ?? (this.spec.initial as { volume?: number } | undefined)?.volume ?? 1;
+     const t0 = baseTime + this.at;
+     const dur = this.duration!;
++    const remap = timeRemapOf(this.spec as never, 'time');
+     out.push({
++      ...(remap ? { sourceMap: clockTable(remap, 'time', dur, t0, {}, t0 + dur) } : {}),
+       ...(this._audioBuffer ? { buffer: this._audioBuffer } : { synth: this._synth! }),
+       layer: describeLayer(this.spec),
+       source: this._source,
+diff --git a/src/sequences/Composition.ts b/src/sequences/Composition.ts
+index 4a8962b..b495af7 100644
+--- a/src/sequences/Composition.ts
++++ b/src/sequences/Composition.ts
+@@ -12,6 +12,7 @@ import { lintSequence } from '../space/lint';
+ import { describeLayer, lintText, lintTiming, summarizeWarnings, lintKeys } from '../core/lint';
+ import { applyBlendMode } from '../core/blend';
+ import { cameraBasis, homeCamera } from '../space/math';
++import { timeRemapOf, bindClock, contentLength, clockTable } from '../core/remap';
+ import type { CompositionSequenceSpec, AudioDescriptor, CompositionShape, SequenceSpec } from '../types';
+ 
+ type Timeline = ReturnType<typeof gsap.timeline>;
+@@ -29,6 +30,15 @@ export class CompositionSequence extends Sequence {
+   private _nested: Sequence[] = [];
+   /** The null layer each parented layer is drawn inside. */
+   private _parentOf = new Map<Sequence, NullSequence>();
++  /** SPIKE: set when this composition's local time is remapped: the children live on `_inner` in local time, driven by `_clock`. */
++  private _inner: Timeline | null = null;
++  private _clock: { time: number } | null = null;
++  /** Where the children's time starts: the composition's absolute start, or 0 when their time is local (remapped). */
++  private _childBase = 0;
++  /** SPIKE: the children's clock reader (null when their time is the movie's). */
++  localClock(): (() => number) | null { return this._clock ? () => this._clock!.time : null; }
++  /** SPIKE test counter: renders of the inner timeline. */
++  renders = 0;
+ 
+   async build(): Promise<void> {
+     const width = this.spec.width ?? this.parent?.width ?? this.root.width;
+@@ -50,12 +60,13 @@ export class CompositionSequence extends Sequence {
+     this.intrinsicWidth = width;
+     this.intrinsicHeight = height;
+     this._innerContainer = inner;
+-    this._compositionShape = { width, height, duration: this.duration };
++    const remap0 = timeRemapOf(this.spec as never);
++    this._compositionShape = { width, height, duration: remap0 ? contentLength(remap0, this.duration) : this.duration };
+ 
+     const lateKeyframes: string[] = [];
+     for (const s of this.spec.sequences ?? []) {
+       lintSequence(s);
+-      lintTiming(s, this.duration, (message, kind) => (kind === 'late-keyframe' ? lateKeyframes.push(message) : console.warn(message)));
++      lintTiming(s, this._compositionShape.duration, (message, kind) => (kind === 'late-keyframe' ? lateKeyframes.push(message) : console.warn(message)));
+       lintText(s);
+       lintKeys(s);
+     }
+@@ -157,10 +168,17 @@ export class CompositionSequence extends Sequence {
+   }
+ 
+   override bindTimeline(timeline: Timeline, offset = 0): void {
++    const remap = timeRemapOf(this.spec as never);
++    const saved = this.spec;
++    if (remap) this.spec = { ...saved, keyframes: remap.restKfs, initial: remap.restInitial } as CompositionSequenceSpec;
+     super.bindTimeline(timeline, offset);
++    this.spec = saved;
+     // Children's `at` is relative to this composition's start, so push them
+     // forward by our absolute start time on the global timeline.
+-    const childOffset = offset + this.at;
++    // SPIKE: a remapped composition builds them in LOCAL time (offset 0) on a timeline of their own, driven by the clock.
++    const childOffset = remap ? 0 : offset + this.at;
++    this._childBase = childOffset;
++    const target = remap ? gsap.timeline({ paused: true, defaults: { ease: 'none' } }) : timeline;
+     for (const child of this._children) {
+       // Each layer builds its tweens in a small timeline of its own, which is added to the parent once, finished. Adding
+       // thousands of tweens one by one to a single timeline makes GSAP re-measure the whole timeline at every add (the cost
+@@ -172,7 +190,31 @@ export class CompositionSequence extends Sequence {
+       // relative to the composition's start, just like the child itself,
+       // so a reveal-from-zero animation lines up naturally.
+       child.maskSequence?.bindTimeline(own, childOffset);
+-      timeline.add(own, 0);
++      target.add(own, 0);
++    }
++    if (remap) {
++      const inner = target;
++      let last = NaN;
++      let cur = 0;
++      const self = this;
++      const clock = {
++        get time(): number { return cur; },
++        set time(v: number) {
++          cur = v;
++          if (v === last) return;
++          last = v;
++          self.renders++;
++          inner.time(v);
++        },
++      };
++      this._inner = inner;
++      this._clock = clock;
++      if (remap.start !== undefined) clock.time = remap.start;
++      bindClock(timeline, clock, 'time', remap, this.duration!, offset + this.at, this.scope() as unknown as Record<string, number>);
++      // Initialise every tween of the local timeline in order (end, then start), like Movie does for the main one: GSAP captures a `to` tween's
++      // start value the first time it renders, and a remap can reach a stretch of local time for the first time going BACKWARD.
++      inner.time(inner.duration()); inner.time(0);
++      last = NaN;                     // the inner timeline now sits at 0, whatever the clock last said
+     }
+     const overlap = findOverlap(this._cameras.map(c => c.window()));
+     if (overlap) {
+@@ -256,14 +298,15 @@ export class CompositionSequence extends Sequence {
+   override updateSpace(t: number, host: SpaceHost): void {
+     // Inner compositions first: a threeD composition is rendered into its own
+     // texture by this level, so its content must already be projected.
+-    for (const child of this._children) child.updateSpace(t, host);
++    const childT = this._clock ? this._clock.time : t;     // SPIKE: the children's clock
++    for (const child of this._children) child.updateSpace(childT, host);
+     if (this._layers3d.length === 0 || !this._compositionShape) return;
+ 
+     const { width, height } = this._compositionShape;
+-    const compEnd = (this.absoluteStart ?? 0) + (this.duration ?? 0);
++    const compEnd = this._childBase + (this.duration ?? 0);
+     const active = pickActiveCamera(
+       this._cameras.map(cam => ({ cam, ...cam.window() })),
+-      t,
++      childT,
+       compEnd,
+     );
+     const basis = cameraBasis(active ? active.cam.state() : homeCamera(width, height), width, height);
+@@ -280,8 +323,21 @@ export class CompositionSequence extends Sequence {
+ 
+   override collectAudio(out: AudioDescriptor[], baseTime: number): void {
+     super.collectAudio(out, baseTime);
+-    const childBase = baseTime + this.at;
+-    for (const child of this._children) child.collectAudio(out, childBase);
++    const remap = timeRemapOf(this.spec as never);
++    if (!remap) {
++      const childBase = baseTime + this.at;
++      for (const child of this._children) child.collectAudio(out, childBase);
++      return;
++    }
++    // SPIKE: the children's sounds are described in local time; each one is given a warp from this composition's time to it.
++    const inner: AudioDescriptor[] = [];
++    for (const child of this._children) child.collectAudio(inner, 0);
++    const lo = baseTime + this.at, hi = lo + this.duration!;
++    const f = clockTable(remap, 'time', this.duration!, lo, this.scope() as unknown as Record<string, number>, hi);
++    for (const d of inner) {
++      const prev = d.warp;
++      out.push({ ...d, warp: (t: number) => (t < lo || t > hi ? NaN : prev ? prev(f(t)) : f(t)) });
++    }
+   }
+ 
+   override destroy(): void {
+diff --git a/src/sequences/Video.ts b/src/sequences/Video.ts
+index 8b7a383..cb6378e 100644
+--- a/src/sequences/Video.ts
++++ b/src/sequences/Video.ts
+@@ -3,6 +3,7 @@ import { Sequence } from './Base';
+ import { FrameCache, type FrameSink } from '../core/FrameCache';
+ import { describeLayer } from '../core/lint';
+ import type { VideoSequenceSpec, AudioDescriptor } from '../types';
++import { timeRemapOf, bindClock, clockTable } from '../core/remap';
+ import type { VideoAssetData } from '../core/AssetLoader';
+ 
+ import type { gsap } from 'gsap';
+@@ -16,6 +17,16 @@ export class VideoSequence extends Sequence {
+   private _canvas: HTMLCanvasElement | null = null;
+   private _ctx: CanvasRenderingContext2D | null = null;
+   private _drawSeq = 0;
++  private _cur = 0;
++
++  /** Source time to decode for a playhead value `v` (loop wraps, otherwise clamps to the file). */
++  private _lookup(v: number): number {
++    const d = this._sourceDuration;
++    if (!(d > 0)) return Math.max(0, v);
++    const w = v + 5e-5;     // SPIKE: a time that is a frame boundary up to float noise (k / 30) must pick frame k every time
++    if (this.spec.loop) return ((w % d) + d) % d;
++    return Math.min(Math.max(w, 0), d);
++  }
+ 
+   async build(): Promise<void> {
+     const data = await Assets.get<VideoAssetData>(this.spec.asset);
+@@ -51,8 +62,9 @@ export class VideoSequence extends Sequence {
+       get(): number { return currentTime; },
+       set(v: number) {
+         currentTime = v;
++        seq._cur = v;
+         const mySeq = ++seq._drawSeq;
+-        const lookup = seq.spec.loop && seq._sourceDuration > 0 ? v % seq._sourceDuration : v;
++        const lookup = seq._lookup(v);
+         seq._cache!.getFrameAt(lookup).then(frame => {
+           if (mySeq !== seq._drawSeq) return;
+           if (!frame || !seq._ctx) return;
+@@ -71,7 +83,16 @@ export class VideoSequence extends Sequence {
+   }
+ 
+   override bindTimeline(timeline: Timeline, offset = 0): void {
++    const remap = timeRemapOf(this.spec as never, 'currentTime');
++    const saved = this.spec;
++    if (remap) this.spec = { ...saved, keyframes: remap.restKfs, initial: remap.restInitial } as VideoSequenceSpec;
+     super.bindTimeline(timeline, offset);
++    this.spec = saved;
++    const at = offset + this.at;
++    if (remap) {
++      bindClock(timeline, this.target!, 'currentTime', remap, this.duration!, at, this.scope() as unknown as Record<string, number>);
++      return;
++    }
+     const playDuration = this.spec.loop
+       ? this.duration!
+       : Math.min(this.duration!, this._sourceDuration);
+@@ -79,14 +100,18 @@ export class VideoSequence extends Sequence {
+       this.target!,
+       { currentTime: 0 },
+       { currentTime: playDuration, duration: playDuration, ease: 'none' },
+-      offset + this.at,   // offset = start of the enclosing composition(s); dropping it misplaced videos inside nested compositions
++      at,   // offset = start of the enclosing composition(s); dropping it misplaced videos inside nested compositions
+     );
+   }
+ 
+   override collectAudio(out: AudioDescriptor[], baseTime: number): void {
+     if (!this._audioBuffer) return;
+     const initialVolume = this.spec.volume ?? 1;
++    const remap = timeRemapOf(this.spec as never, 'currentTime');
++    const t0 = baseTime + this.at;
++    const sourceMap = remap ? clockTable(remap, 'currentTime', this.duration!, t0, this.scope() as unknown as Record<string, number>, t0 + this.duration!) : undefined;
+     out.push({
++      ...(sourceMap ? { sourceMap } : {}),
+       buffer: this._audioBuffer,
+       layer: describeLayer(this.spec),
+       source: `video "${this.spec.asset}"`,
+@@ -98,9 +123,12 @@ export class VideoSequence extends Sequence {
+     });
+   }
+ 
+-  async awaitFrameAt(time: number): Promise<void> {
++  async awaitFrameAt(_time: number): Promise<void> {
++    // SPIKE: the playhead value the timeline last wrote (already remapped / inside nested remapped compositions), not `t - absoluteStart`
++    const time = this._cur;
++    if (!this.keepHidden && !this.target?.renderable) return;   // (a video used as a mask is kept hidden by PIXI and must still draw)
+     const mySeq = ++this._drawSeq;
+-    const lookup = this.spec.loop && this._sourceDuration > 0 ? time % this._sourceDuration : time;
++    const lookup = this._lookup(time);
+     let frame: VideoFrame | null = null;
+     try {
+       frame = await this._cache!.getFrameAt(lookup);
+diff --git a/src/types.ts b/src/types.ts
+index ec2036a..c889c16 100644
+--- a/src/types.ts
++++ b/src/types.ts
+@@ -253,6 +253,8 @@ export interface VideoSequenceSpec extends SequenceCommon {
+   loop?: boolean;
+   audio?: boolean;
+   volume?: number;
++  /** SPIKE: playback speed (negative plays backward). `time` in initial / keyframes is the source position in seconds. */
++  speed?: number;
+ }
+ export interface ImageSequenceSpec extends SequenceCommon {
+   type: 'image';
+@@ -338,6 +340,8 @@ interface AudioBase extends SequenceCommon {
+   type: 'audio';
+   /** Level. 1 = the file as recorded, or the sfx preset's standard level (peaks at −12 dBFS). Animatable. */
+   volume?: number;
++  /** SPIKE: playback speed (negative plays backward); pitch follows. `time` in keyframes is the position in the sound. */
++  speed?: number;
+ }
+ 
+ /** Plays an audio file from `assets`. `duration` defaults to the file's length (with `loop`: to the composition's end). */
+@@ -439,6 +443,8 @@ export interface CompositionSequenceSpec extends SequenceCommon {
+   height?: number;
+   sequences?: SequenceSpec[];
+   transitions?: TransitionSpec[];
++  /** SPIKE: local time runs at this speed (negative plays backward). `time` in initial / keyframes is the local playhead in seconds. */
++  speed?: number;
+ }
+ 
+ /**
+@@ -670,4 +676,11 @@ export interface AudioDescriptor {
+   end: number;
+   initialVolume: number;
+   volumeKeyframes: { time: number; value: number }[];
++  /**
++   * SPIKE: time remap. `warp` maps the movie's time to the time `start` / `end` / `volumeKeyframes` are measured in (a remapped composition's
++   * local time); NaN where it is silent. `sourceMap` maps that time to a position in the sound (the layer's own speed / `time`); absent: the
++   * sound plays straight from `start`. The mixer resamples through them, so a speed other than 1 changes the pitch.
++   */
++  warp?: (t: number) => number;
++  sourceMap?: (u: number) => number;
+ }

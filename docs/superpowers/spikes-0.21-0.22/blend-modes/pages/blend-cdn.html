@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>spike blend</title></head>
+<body style="margin:0;background:#222">
+<canvas id="stage" width="640" height="360"></canvas>
+<script>
+window.__logs = [];
+for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ').slice(0, 300)); o(...a); }; }
+window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+const q = new URLSearchParams(location.search);
+window.__peBackBuffer = q.get('bb') !== '0';
+if (q.get('gpu') === '0') Object.defineProperty(navigator, 'gpu', { value: undefined });   // force the WebGL fallback
+</script>
+<script>
+{ const v = new URLSearchParams(location.search).get('cdn') ?? 'bd';
+  const pixi = v === 'bd' ? 'https://esm.sh/pixi.js@8.22.0?bundle-deps' : v === 'plain' ? 'https://esm.sh/pixi.js@8.22.0' : 'https://esm.sh/pixi.js@8.22.0?bundle';
+  const adv = v === 'bd' ? 'https://esm.sh/pixi.js@8.22.0/advanced-blend-modes?bundle-deps' : v === 'plain' ? 'https://esm.sh/pixi.js@8.22.0/advanced-blend-modes' : 'https://esm.sh/pixi.js@8.22.0/advanced-blend-modes?bundle';
+  const s = document.createElement('script'); s.type = 'importmap';
+  s.textContent = JSON.stringify({ imports: { 'pixi.js': pixi, 'pixi.js/advanced-blend-modes': adv, gsap: 'https://esm.sh/gsap@3.12.5', 'gsap/PixiPlugin': 'https://esm.sh/gsap@3.12.5/PixiPlugin', mediabunny: 'https://esm.sh/mediabunny' } });
+  document.head.appendChild(s); }
+</script>
+<script type="module">
+await import('pixi.js/advanced-blend-modes');
+const { Movie } = await import('/dist/index.js');
+const MODES = (q.get('modes') ?? 'normal,add,screen,multiply,overlay,soft-light,hard-light,color-dodge,color-burn,darken,lighten,difference,exclusion,luminosity,color,saturation,linear-burn,linear-dodge,linear-light,vivid-light,pin-light,hard-mix,divide,subtract,negation').split(',');
+const SLOT = 0.5;
+const base = q.get('bases') ? q.get('bases').split(',').map(h => '#' + h) : ['#c83232', '#32a032', '#3250dc', '#808080', '#e6c8a0', '#282828'];
+const seqs = base.map((c, i) => ({ type: 'shape', shape: 'rect', anchorX: 0, anchorY: 0, width: 100, height: 360, initial: { x: 20 + i * 100, y: 0, fillColor: c } }));
+const rows = [['#ff8c28', 1], ['#4682c8', 1], ['#ff8c28', 0.5]];
+MODES.forEach((m, k) => rows.forEach(([c, a], r) => seqs.push({ type: 'shape', shape: 'rect', anchorX: 0, anchorY: 0, width: 640, height: 120, at: k * SLOT, duration: SLOT, name: m + r, blendMode: m, initial: { x: 0, y: r * 120, fillColor: c, fillAlpha: a } })));
+const movie = new Movie(); window.movie = movie;
+try {
+  await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: MODES.length * SLOT, frameRate: 30, background: '#000', composition: { sequences: seqs } });
+  window.__info = { renderer: movie.app.renderer.name, type: movie.app.renderer.type, modes: MODES, slot: SLOT, base };
+  window.__ready = true;
+} catch (e) { window.__logs.push('init: ' + e.message); }
+</script>
+</body></html>

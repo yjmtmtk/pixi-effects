@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>spike blend</title></head>
+<body style="margin:0;background:#222">
+<canvas id="stage" width="480" height="270"></canvas>
+<script>
+window.__logs = [];
+for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ').slice(0, 300)); o(...a); }; }
+window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+const q = new URLSearchParams(location.search);
+window.__peBackBuffer = q.get('bb') !== '0';
+if (q.get('gpu') === '0') Object.defineProperty(navigator, 'gpu', { value: undefined });   // force the WebGL fallback
+</script>
+<script type="importmap">
+{ "imports": {
+  "pixi.js": "/node_modules/pixi.js/dist/pixi.mjs",
+  "gsap": "/node_modules/gsap/index.js",
+  "gsap/PixiPlugin": "/node_modules/gsap/PixiPlugin.js",
+  "mediabunny": "/node_modules/mediabunny/dist/bundles/mediabunny.mjs"
+} }
+</script>
+<script type="module">
+import * as PIXI from 'pixi.js';
+window.PIXI = Object.assign({}, PIXI);
+const adv = q.get('adv') ?? 'none';
+if (adv === 'iife') {      // the package's own bundle, a classic script that extends the global PIXI
+  await new Promise((ok, bad) => { const s = document.createElement('script'); s.src = '/node_modules/pixi.js/dist/packages/advanced-blend-modes.js'; s.onload = ok; s.onerror = bad; document.head.appendChild(s); });
+}
+const { Movie } = await import('/dist/index.js');
+const MODES = (q.get('modes') ?? 'normal,add,screen,multiply,overlay,soft-light,hard-light,color-dodge,color-burn,darken,lighten,difference,exclusion,hue,saturation,color,luminosity,linear-burn').split(',');
+const SLOT = 0.5;
+const W = 480, H = 270;
+const seqs = [
+  { type: 'shape', shape: 'rect', anchorX: 0, anchorY: 0, width: W, height: 200, initial: { x: 0, y: 0 }, fillGradient: { type: 'linear', angle: 0, stops: [[0, '#e03030'], [0.2, '#e0c030'], [0.4, '#30c050'], [0.6, '#30b0d0'], [0.8, '#3050e0'], [1, '#c030c0']] } },
+  { type: 'shape', shape: 'rect', anchorX: 0, anchorY: 0, width: W, height: 70, initial: { x: 0, y: 200 }, fillGradient: { type: 'linear', angle: 0, stops: [[0, '#000000'], [1, '#ffffff']] } },
+  { type: 'shape', shape: 'circle', radius: 60, initial: { x: 120, y: 110, fillColor: '#e6b896' } },
+];
+MODES.forEach((m, k) => {
+  const at = k * SLOT, duration = SLOT;
+  seqs.push({ type: 'shape', shape: 'circle', radius: 130, at, duration, name: m + 'glow', blendMode: m, initial: { x: 330, y: 90 }, fillGradient: { type: 'radial', stops: [[0, 'rgba(255,160,40,1)'], [1, 'rgba(255,160,40,0)']] } });
+  seqs.push({ type: 'shape', shape: 'rect', anchorX: 0, anchorY: 0, width: W, height: 90, at, duration, name: m + 'band', blendMode: m, initial: { x: 0, y: 180 }, fillGradient: { type: 'linear', angle: 0, stops: [[0, 'rgba(60,100,255,0.9)'], [1, 'rgba(60,100,255,0.15)']] } });
+});
+const movie = new Movie(); window.movie = movie;
+try {
+  await movie.init({ canvas: document.getElementById('stage'), width: 480, height: 270, duration: MODES.length * SLOT, frameRate: 30, background: '#000', composition: { sequences: seqs } });
+  window.__info = { renderer: movie.app.renderer.name, type: movie.app.renderer.type, modes: MODES, slot: SLOT };
+  window.__ready = true;
+} catch (e) { window.__logs.push('init: ' + e.message); }
+</script>
+</body></html>

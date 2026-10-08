@@ -1,0 +1,163 @@
+diff --git a/src/core/layerKeys.ts b/src/core/layerKeys.ts
+index 8d06d2f..e1ecdfd 100644
+--- a/src/core/layerKeys.ts
++++ b/src/core/layerKeys.ts
+@@ -77,7 +77,7 @@ export const PROP_KEYS: ReadonlySet<string> = new Set([
+   // text, audio, video
+   'fill', 'value', 'visibleChars', 'text', 'volume',
+   // camera
+-  'lookAtX', 'lookAtY', 'lookAtZ', 'fov', 'offsetX', 'offsetY', 'offsetZ', 'lookOffsetX', 'lookOffsetY', 'lookOffsetZ',
++  'lookAtX', 'lookAtY', 'lookAtZ', 'fov', 'focus', 'aperture', 'offsetX', 'offsetY', 'offsetZ', 'lookOffsetX', 'lookOffsetY', 'lookOffsetZ',
+ ]);
+ 
+ /** The text `style` keys (PixiJS TextStyle) that this library passes on. */
+diff --git a/src/sequences/Composition.ts b/src/sequences/Composition.ts
+index 4a8962b..6cdba5b 100644
+--- a/src/sequences/Composition.ts
++++ b/src/sequences/Composition.ts
+@@ -11,7 +11,7 @@ import { Layer3D, type SpaceHost } from '../space/Layer3D';
+ import { lintSequence } from '../space/lint';
+ import { describeLayer, lintText, lintTiming, summarizeWarnings, lintKeys } from '../core/lint';
+ import { applyBlendMode } from '../core/blend';
+-import { cameraBasis, homeCamera } from '../space/math';
++import { cameraBasis, homeCamera, projectPoint } from '../space/math';
+ import type { CompositionSequenceSpec, AudioDescriptor, CompositionShape, SequenceSpec } from '../types';
+ 
+ type Timeline = ReturnType<typeof gsap.timeline>;
+@@ -266,10 +266,25 @@ export class CompositionSequence extends Sequence {
+       t,
+       compEnd,
+     );
+-    const basis = cameraBasis(active ? active.cam.state() : homeCamera(width, height), width, height);
++    const cam = active ? active.cam.state() : homeCamera(width, height);
++    const basis = cameraBasis(cam, width, height);
+ 
+     for (const layer of this._layers3d) layer.update(host, basis);
+ 
++    // PROTOTYPE depth of field: blur diameter (px) = aperture * focal * |1/d - 1/s|; strength = diameter * dof.scale
++    const dof = (globalThis as { __dof?: { scale?: number; quality?: number; kernelSize?: number; resolution?: number | 'inherit'; force?: number; count?: number } }).__dof ?? {};
++    const aperture = cam.aperture ?? 0;
++    if (aperture > 0 || dof.force) {
++      const s = projectPoint(basis, { x: cam.lookAtX, y: cam.lookAtY, z: cam.focus ?? 0 }).depth;
++      this._layers3d.forEach((layer, i) => {
++        const d = layer.depth;
++        let strength = 0;
++        if (dof.force) strength = i < (dof.count ?? Infinity) ? dof.force : 0;
++        else if (d > 0 && s > 0) strength = aperture * basis.focal * Math.abs(1 / d - 1 / s) * (dof.scale ?? 0.25);
++        layer.setBlur(strength, dof.quality ?? 4, dof.kernelSize ?? 5, dof.resolution ?? 'inherit');
++      });
++    } else for (const layer of this._layers3d) layer.setBlur(0);
++
+     const order = assignDepthOrder(
+       this._visual.map((v, i) => ({ stackIndex: i, threeD: v.layer !== null, depth: v.layer?.depth ?? 0 })),
+     );
+diff --git a/src/space/CameraSequence.ts b/src/space/CameraSequence.ts
+index 1736a8c..70c76bd 100644
+--- a/src/space/CameraSequence.ts
++++ b/src/space/CameraSequence.ts
+@@ -6,7 +6,7 @@ import type { CameraWindow } from './camera';
+ import type { CameraSequenceSpec } from '../types';
+ 
+ type Carrier = Container & {
+-  z: number; lookAtX: number; lookAtY: number; lookAtZ: number; fov: number;
++  z: number; lookAtX: number; lookAtY: number; lookAtZ: number; fov: number; focus: number; aperture: number;
+   offsetX: number; offsetY: number; offsetZ: number; lookOffsetX: number; lookOffsetY: number; lookOffsetZ: number;
+ };
+ 
+@@ -39,6 +39,8 @@ export class CameraSequence extends Sequence {
+     carrier.lookAtY = home.lookAtY;
+     carrier.lookAtZ = home.lookAtZ;
+     carrier.fov = home.fov;
++    carrier.focus = 0;
++    carrier.aperture = 0;
+     // added on top of the camera's own move: put a handheld shake (wiggle) here and it never collides with a dolly or an orbit
+     carrier.offsetX = carrier.offsetY = carrier.offsetZ = 0;
+     carrier.lookOffsetX = carrier.lookOffsetY = carrier.lookOffsetZ = 0;
+@@ -64,7 +66,7 @@ export class CameraSequence extends Sequence {
+     return {
+       x: c.x + c.offsetX, y: c.y + c.offsetY, z: z + c.offsetZ,
+       lookAtX: c.lookAtX + c.lookOffsetX, lookAtY: c.lookAtY + c.lookOffsetY, lookAtZ: c.lookAtZ + c.lookOffsetZ,
+-      fov,
++      fov, focus: c.focus, aperture: c.aperture,
+     };
+   }
+ 
+diff --git a/src/space/Layer3D.ts b/src/space/Layer3D.ts
+index 020fb77..3b825cd 100644
+--- a/src/space/Layer3D.ts
++++ b/src/space/Layer3D.ts
+@@ -1,4 +1,5 @@
+-import { Container, Matrix, PerspectiveMesh, RenderTexture, Texture } from 'pixi.js';
++import { BlurFilter, Container, Matrix, PerspectiveMesh, RenderTexture, Texture } from 'pixi.js';
++import { DiscBlurFilter } from './DiscBlur';
+ import type { Sequence } from '../sequences/Base';
+ import { describeLayer } from '../core/lint';
+ import { DEG, NEAR, projectLayer, type CameraBasis, type LayerTransform, type Rect } from './math';
+@@ -77,6 +78,33 @@ export class Layer3D {
+   private retired: RenderTexture[] = [];
+   private size: TextureSize | null = null;
+   private warnedBehind = false;
++  private blurFilter: (BlurFilter & { radius?: number }) | null = null;
++  private blendWas: unknown = 'normal';
++  /** PROTOTYPE: depth-of-field blur on the projected mesh (screen space). strength 0 removes the filter (zero cost). */
++  setBlur(strength: number, quality = 4, kernelSize = 5, resolution: number | 'inherit' = 'inherit'): void {
++    const d = this.display as unknown as { filters: unknown; blendMode: unknown };
++    if (!(strength > 0.05)) {
++      if (this.blurFilter) {
++        d.filters = null;
++        d.blendMode = this.blendWas;
++        this.blurFilter.destroy();
++        this.blurFilter = null;
++      }
++      return;
++    }
++    if (!this.blurFilter) {
++      const kind = (globalThis as { __dof?: { kind?: string } }).__dof?.kind;
++      this.blurFilter = (kind === 'disc' ? new DiscBlurFilter(strength) : new BlurFilter({ strength, quality, kernelSize, resolution })) as unknown as BlurFilter;
++      this.blendWas = d.blendMode;
++      if (d.blendMode !== 'normal') { this.blurFilter.blendMode = d.blendMode as never; d.blendMode = 'normal'; }
++      d.filters = [this.blurFilter];
++    }
++    if ((globalThis as { __dof?: { kind?: string } }).__dof?.kind === 'disc') { (this.blurFilter as unknown as DiscBlurFilter).radius = strength; return; }
++    this.blurFilter.strength = strength;
++    this.blurFilter.quality = quality;
++    // BlurFilter pads by 2x strength; a gaussian reaches ~3.5 sigma, so the default clips the tail into a visible box edge
++    if ((globalThis as { __dof?: { pad?: boolean } }).__dof?.pad !== false) this.blurFilter.padding = Math.ceil(strength * 3.5) + 2;
++  }
+ 
+   constructor(
+     private readonly seq: Sequence,
+@@ -146,6 +174,7 @@ export class Layer3D {
+   }
+ 
+   destroy(): void {
++    this.setBlur(0);
+     this.display.destroy();
+     this.rt?.destroy(true);
+     this.rt = null;
+diff --git a/src/space/lint.ts b/src/space/lint.ts
+index da61eb2..bc2a19e 100644
+--- a/src/space/lint.ts
++++ b/src/space/lint.ts
+@@ -26,7 +26,7 @@ const CAMERA_ALIASES: Record<string, string> = {
+   lookAt: 'did you mean "lookAtX / lookAtY / lookAtZ"?',
+ };
+ 
+-const CAMERA_PROPS = ['x', 'y', 'z', 'fov', 'lookAtX', 'lookAtY', 'lookAtZ', 'offsetX', 'offsetY', 'offsetZ', 'lookOffsetX', 'lookOffsetY', 'lookOffsetZ'];
++const CAMERA_PROPS = ['x', 'y', 'z', 'fov', 'focus', 'aperture', 'lookAtX', 'lookAtY', 'lookAtZ', 'offsetX', 'offsetY', 'offsetZ', 'lookOffsetX', 'lookOffsetY', 'lookOffsetZ'];
+ const NEEDS_THREE_D = ['z', 'rotationX', 'rotationY'];
+ const SKEW_KEYS = ['skew', 'skewX', 'skewY'];
+ 
+diff --git a/src/space/math.ts b/src/space/math.ts
+index 82ae1d9..8872cde 100644
+--- a/src/space/math.ts
++++ b/src/space/math.ts
+@@ -30,6 +30,8 @@ export interface CameraState {
+   lookAtX: number; lookAtY: number; lookAtZ: number;
+   /** Vertical field of view, degrees. */
+   fov: number;
++  /** Depth of field (prototype): world z of the focal plane, and the lens diameter in comp px (0 = off). */
++  focus?: number; aperture?: number;
+ }
+ 
+ export interface CameraBasis {

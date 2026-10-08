@@ -1,0 +1,96 @@
+diff --git a/src/core/Movie.ts b/src/core/Movie.ts
+index 6d688ad..0645a89 100644
+--- a/src/core/Movie.ts
++++ b/src/core/Movie.ts
+@@ -1,4 +1,5 @@
+ import * as PIXI from 'pixi.js';
++import { usesAdvancedBlend } from './blend';
+ import { Application, Container, Culler, Rectangle, extensions, CullerPlugin } from 'pixi.js';
+ import { gsap } from 'gsap';
+ import { PixiPlugin } from 'gsap/PixiPlugin';
+@@ -318,6 +319,7 @@ export class Movie {
+         resolution: 1,
+         autoDensity: false,
+         preserveDrawingBuffer: true,
++        useBackBuffer: false,
+         canvas: options.canvas,
+       };
+       this.app = new Application();
+@@ -331,6 +333,11 @@ export class Movie {
+         await this.app.init({ ...baseAppOptions, preference: 'webgl' });
+       }
+ 
++      if (usesAdvancedBlend(options.composition)) {          // SPIKE
++        (await import('../filters/blendModes')).registerBlendModes();
++        const bb = (this.app.renderer as unknown as { backBuffer?: { useBackBuffer: boolean } }).backBuffer;
++        if (bb) bb.useBackBuffer = true;                       // WebGL only: advanced blends read the backdrop
++      }
+       const root = new Container();
+       root.cullable = true;
+       root.cullableChildren = true;
+diff --git a/src/core/blend.ts b/src/core/blend.ts
+index 5a9d4d4..2df12fc 100644
+--- a/src/core/blend.ts
++++ b/src/core/blend.ts
+@@ -1,6 +1,23 @@
+ import { describeLayer } from './lint';
++import { createBlendFilter } from '../filters/blendModes';
+ 
+-const MODES = ['normal', 'add', 'screen', 'multiply'];
++const BASIC = ['normal', 'add', 'screen', 'multiply'];
++const ADVANCED = ['overlay', 'soft-light', 'hard-light', 'color-dodge', 'color-burn', 'darken', 'lighten', 'difference', 'exclusion', 'hue', 'saturation', 'color', 'luminosity', 'linear-burn'];
++const MODES = [...BASIC, ...ADVANCED];
++
++/** Does any layer of this composition use an advanced blend (one that needs the backdrop)? */
++export function usesAdvancedBlend(spec: unknown): boolean {
++  let yes = false;
++  const visit = (n: unknown): void => {
++    if (yes || !n || typeof n !== 'object') return;
++    if (Array.isArray(n)) { n.forEach(visit); return; }
++    const o = n as Record<string, unknown>;
++    if (typeof o.blendMode === 'string' && ADVANCED.includes(o.blendMode)) { yes = true; return; }
++    visit(o.sequences); visit(o.mask);
++  };
++  visit(spec);
++  return yes;
++}
+ 
+ /** Apply a layer's `blendMode` to its display object; an unknown mode warns and is ignored. */
+ export function applyBlendMode(spec: { blendMode?: string; name?: string; type: string }, display: { blendMode?: unknown; filters?: unknown }): void {
+@@ -15,6 +32,10 @@ export function applyBlendMode(spec: { blendMode?: string; name?: string; type:
+   // filter's, so the mode goes there; the container stays normal.
+   const filters = display.filters;
+   if (Array.isArray(filters) && filters.length > 0) {
++    if (ADVANCED.includes(mode)) {            // SPIKE: the blend filter joins the chain as its last filter
++      const bf = createBlendFilter(mode);
++      if (bf) { (display as { filters: unknown }).filters = [...filters, bf]; return; }
++    }
+     (filters[filters.length - 1] as { blendMode?: unknown }).blendMode = mode;
+     return;
+   }
+diff --git a/src/core/ease.ts b/src/core/ease.ts
+index 05a266f..be6664f 100644
+--- a/src/core/ease.ts
++++ b/src/core/ease.ts
+@@ -1,6 +1,7 @@
+ import { gsap } from 'gsap';
+ import { suggestName } from './options';
+ import { springProblem } from './spring';
++import { cubicBezierProblem } from './cubicBezier';
+ 
+ const FAMILIES = ['power1', 'power2', 'power3', 'power4', 'back', 'elastic', 'bounce', 'circ', 'expo', 'sine'];
+ /** The ease names to suggest from (`steps(n)` and parameters such as `back.out(1.7)` are valid too). */
+@@ -22,6 +23,13 @@ export function checkEase(ease: string, where: string): void {
+     console.warn(`pixi-effects: ${where}: unknown ease "${ease}" — ${problem}. GSAP would run it as its default ease, power1.out.`);
+     return;
+   }
++  if (/^\s*cubic-bezier/i.test(ease)) {                              // SPIKE
++    const problem = cubicBezierProblem(ease);
++    if (!problem || warned.has(ease)) return;
++    warned.add(ease);
++    console.warn(`pixi-effects: ${where}: unknown ease "${ease}" — ${problem}. GSAP would run it as its default ease, power1.out.`);
++    return;
++  }
+   const found: unknown = gsap.parseEase(ease);
+   if (typeof found === 'function') return;                         // `Power2` gives back a family object ({ easeIn, easeOut, easeInOut }): not an ease
+   if (warned.has(ease)) return;

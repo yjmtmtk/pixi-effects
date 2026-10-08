@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>spike blend</title></head>
+<body style="margin:0;background:#222">
+<canvas id="stage" width="1920" height="1080"></canvas>
+<script>
+window.__logs = [];
+for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ').slice(0, 300)); o(...a); }; }
+window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+const q = new URLSearchParams(location.search);
+window.__peBackBuffer = q.get('bb') !== '0';
+if (q.get('gpu') === '0') Object.defineProperty(navigator, 'gpu', { value: undefined });   // force the WebGL fallback
+</script>
+<script type="importmap">
+{ "imports": {
+  "pixi.js": "/node_modules/pixi.js/dist/pixi.mjs",
+  "gsap": "/node_modules/gsap/index.js",
+  "gsap/PixiPlugin": "/node_modules/gsap/PixiPlugin.js",
+  "mediabunny": "/node_modules/mediabunny/dist/bundles/mediabunny.mjs"
+} }
+</script>
+<script type="module">
+import * as PIXI from 'pixi.js';
+window.PIXI = Object.assign({}, PIXI);
+const adv = q.get('adv') ?? 'none';
+if (adv === 'iife') {      // the package's own bundle, a classic script that extends the global PIXI
+  await new Promise((ok, bad) => { const s = document.createElement('script'); s.src = '/node_modules/pixi.js/dist/packages/advanced-blend-modes.js'; s.onload = ok; s.onerror = bad; document.head.appendChild(s); });
+}
+const { Movie } = await import('/dist/index.js');
+const nAdv = parseInt(q.get('n') ?? '0'), mode = q.get('mode') ?? 'overlay', TOTAL = parseInt(q.get('total') ?? '20');
+const W = 1920, H = 1080;
+const seqs = [{ type: 'shape', shape: 'rect', anchorX: 0, anchorY: 0, width: W, height: H, initial: { x: 0, y: 0 }, fillGradient: { type: 'linear', angle: 20, stops: [[0, '#e03030'], [0.3, '#e0c030'], [0.6, '#30b0d0'], [1, '#c030c0']] } }];
+for (let i = 0; i < TOTAL; i++) {
+  const advanced = i < nAdv;
+  seqs.push({ type: 'shape', shape: 'circle', radius: 500, name: 'L' + i, ...(advanced ? { blendMode: mode } : {}),
+    initial: { x: 300 + (i * 97) % 1400, y: 300 + (i * 53) % 500, fillGradient: { type: 'radial', stops: [[0, 'rgba(255,170,60,0.9)'], [1, 'rgba(255,170,60,0)']] } },
+    keyframes: [{ at: 0, to: { x: 400 + (i * 131) % 1200 }, duration: 3, ease: 'none' }] });
+}
+const movie = new Movie(); window.movie = movie;
+try {
+  await movie.init({ canvas: document.getElementById('stage'), width: W, height: H, duration: 3, frameRate: 30, background: '#000', composition: { sequences: seqs } });
+  if (q.get('forcebb')) movie.app.renderer.backBuffer.useBackBuffer = true;
+  window.__info = { renderer: movie.app.renderer.name, type: movie.app.renderer.type, n: nAdv };
+  window.__ready = true;
+} catch (e) { window.__logs.push('init: ' + e.message); }
+</script>
+</body></html>
