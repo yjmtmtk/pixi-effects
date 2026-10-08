@@ -144,6 +144,23 @@ describe('animateText(): mistakes are said out loud', () => {
     expect(() => animateText('A', style, { duration: 3, in: { from: { skewX: 30 }, to: { skewX: 0 } } })).not.toThrow();
   });
 
+  it('a time (`at`, `delay`, `start`) in `in` / `out` is warned about, with what decides the time: out leaves from the END of the layer', () => {
+    animateText('AB', style, { duration: 4, in: 'fade', out: { preset: 'fade', at: 7.6 } as any });
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/out.*"at".*ignored.*duration/s));
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/out leaves from the END of the layer/));
+    warn.mockClear();
+    animateText('AB', style, { duration: 4, in: { preset: 'rise', delay: 1 } as any });
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/in.*"delay".*ignored/s));
+  });
+
+  it('another unknown key of a tween is warned about with a did-you-mean; known keys and a plain preset are quiet', () => {
+    animateText('AB', style, { duration: 4, out: { preset: 'fade', duraton: 1 } as any });
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/out.*"duraton".*duration/s));
+    warn.mockClear();
+    animateText('AB', style, { duration: 4, in: { preset: 'rise', duration: 0.6, ease: 'power2.out' }, out: 'fade' });
+    expect(warn).not.toHaveBeenCalled();
+  });
+
   it('warns about a misspelt option', () => {
     animateText('A', style, { duration: 3, in: false, staggr: { each: 0.1 } } as never);
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/staggr.*stagger/s));

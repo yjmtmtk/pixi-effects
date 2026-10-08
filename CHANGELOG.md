@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+**Fixed**
+
+- `animateText()`: a time in `in` / `out` (`out: { preset: 'fade', at: 7.6 }`, also `delay`, `start`) was ignored without a word, so the text stayed until `at + duration` and overlapped what came next (found when an AI wrote it that way). It now warns that the time is ignored and what decides it (an `out` leaves from the END of the layer: set `duration` to the time it must be gone minus `at`); any other unknown key of a tween warns with a did-you-mean. The cheatsheet, the guide and the pitfalls say so.
+
 ## 0.18.0
 
 **Fixed**
