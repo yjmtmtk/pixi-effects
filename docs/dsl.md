@@ -749,6 +749,14 @@ The ease `'spring(mass, stiffness, damping)'` (defaults 1, 100, 10) or a preset 
 { at: 0,   to: { scale: 1 },  duration: 0.8,    ease: 'spring(1, 170, 12)' }
 ```
 
+| Preset | Settles in | Highest value (target = 1) |
+|---|---|---|
+| `spring.snappy` | 0.42 s | 1.01 |
+| `spring.gentle` | 0.72 s | 1.02 |
+| `spring.bouncy` | 1.08 s | 1.28 |
+| `spring.slow` | 1.29 s | 1.00 (no overshoot) |
+| `spring.wobbly` | 1.61 s | 1.40 |
+
 A colour is clamped in its colour space when it overshoots, and `alpha` past 1 is not visible. `'auto'` is for keyframes: `animateText` / `orbit` tweens take a spring name but a number `duration`. A malformed spring (`spring(1, 170`, `spring.floppy`) is reported once, with what is wrong.
 
 ### Repeating

@@ -49,6 +49,11 @@
     "posterFrame": 180,
     "hash": "2f20b44e626151af99f48b5467993e123f4768ed"
   },
+  "gradient-type": {
+    "poster": 7.8,
+    "posterFrame": 234,
+    "hash": "5156105ee739839839bfa2f00e4fb125ea752356"
+  },
   "hanabi-night": {
     "poster": 9.4,
     "posterFrame": 282,
@@ -143,6 +148,11 @@
     "poster": 9.5,
     "posterFrame": 285,
     "hash": "4c5eaa111ca419c9de9254a3d887b50029ff422b"
+  },
+  "spring-marquee": {
+    "poster": 10.2,
+    "posterFrame": 306,
+    "hash": "14306a54b545383fab2b491f2b88c83be2f93ea3"
   },
   "still-water": {
     "poster": 9,

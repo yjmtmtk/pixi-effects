@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Now Showing — marquee</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+  <style>
+    body { background: #0b0c10; margin: 0; padding: 16px; display: flex; justify-content: center; }
+    .pe-stage { position: relative; width: min(960px, 100%); border-radius: 6px; --pe-loader-bg: #070a14; background: #070a14; }
+    .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
+  </style>
+  <script type="application/json" id="piece-meta">{ "title": "Now Showing", "subtitle": "A vintage cinema marquee at night: bulbs snap on, letters bounce onto the rail, a ticket stub wobbles in, all under one film grain", "tags": ["spring easing", "film grain", "typography", "marquee", "music"], "width": 1280, "height": 720, "duration": 11, "model": "opus" }</script>
+</head>
+<body>
+  <div class="pe-stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie, splitText, measureText } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 11;
+
+    // ---------- palette: three colours + black ----------
+    const INK = '#070a14';     // the night (black)
+    const NAVY = '#17213b';    // deep blue: the sign body, the letters
+    const AMBER = '#f2a93b';   // bulbs, glow, the ticket
+    const CREAM = '#f6e7c8';   // the lit panel, the bulb filaments, small type
+    const amber = a => `rgba(242,169,59,${a})`;
+
+    // ---------- the beat sheet (seconds) ----------
+    const T = {
+      bulbs: 0.5,      // the chase of bulbs popping on, from the top centre down both sides
+      bulbStep: 0.042, // per bulb of distance from the top centre
+      panel: 1.75,     // the backlit panel flickers on
+      header: 2.0,     // NOW SHOWING
+      music: 2.1,      // the band starts; its last chord lands on T.flash
+      letters: 2.35,   // STARDUST, one letter at a time
+      letterStep: 0.09,
+      ticket: 4.4,     // the stub swings in on its string
+      details: 5.2,    // the small print
+      chase: 6.4,      // classic marquee chase
+      chaseStep: 0.2,
+      flash: 9.6,      // every bulb full on: the final picture, held to the end
+    };
+
+    // ---------- the sign ----------
+    const DY = 22;                                                     // the whole layout sits this much lower than the round numbers below
+    const SIGN = { x: 640, y: 230 + DY, w: 980, h: 340 };             // 150..1130 × 82..422
+    const TRACK = { x0: 174, x1: 1106, y0: 84 + DY, y1: 376 + DY, nTop: 26, nSide: 8 };
+    const PANEL = { x: 640, y: 268 + DY, w: 860, h: 176 };             // 210..1070 × 202..378
+
+    // bulb positions, clockwise from the top-left corner (corners included once)
+    const bulbs = [];
+    {
+      const { x0, x1, y0, y1, nTop, nSide } = TRACK;
+      const dx = (x1 - x0) / nTop, dy = (y1 - y0) / nSide;
+      for (let i = 0; i < nTop; i++) bulbs.push([x0 + i * dx, y0]);
+      for (let i = 0; i < nSide; i++) bulbs.push([x1, y0 + i * dy]);
+      for (let i = 0; i < nTop; i++) bulbs.push([x1 - i * dx, y1]);
+      for (let i = 0; i < nSide; i++) bulbs.push([x0, y1 - i * dy]);
+    }
+    const N = bulbs.length;                      // 68
+    const TOP_CENTRE = TRACK.nTop / 2;           // index 13 sits at x = 640
+    const ringDist = i => { const d = Math.abs(i - TOP_CENTRE); return Math.min(d, N - d); };   // 0 … 34
+    const popAt = i => T.bulbs + ringDist(i) * T.bulbStep;
+
+    // a bulb's brightness over the chase: one in three dimmed, the pattern walking clockwise, then all on at the flash
+    function chaseKeys(i, lit, dim) {
+      const keys = [];
+      let prev = lit;
+      const steps = Math.round((T.flash - T.chase) / T.chaseStep);
+      for (let k = 0; k < steps; k++) {
+        const v = (((i - k) % 3) + 3) % 3 === 0 ? dim : lit;
+        if (v !== prev) keys.push({ at: T.chase + k * T.chaseStep, to: { alpha: v }, duration: 0.06, ease: 'power1.out' });
+        prev = v;
+      }
+      if (prev !== lit) keys.push({ at: T.flash, to: { alpha: lit }, duration: 0.05 });
+      return keys;
+    }
+
+    const sockets = bulbs.map(([x, y], i) => ({
+      type: 'shape', shape: 'circle', name: `socket-${i}`, radius: 8,
+      initial: { x, y, fillColor: AMBER, fillAlpha: 0.16, strokeColor: AMBER, strokeAlpha: 0.3, strokeWidth: 1 },
+    }));
+
+    // halo: an additive amber glow; snaps on with the bulb, swells at the final flash
+    const halos = bulbs.map(([x, y], i) => ({
+      type: 'shape', shape: 'circle', name: `halo-${i}`, radius: 30, blendMode: 'add',
+      initial: { x, y, scale: 0, alpha: 0.85,
+        fillGradient: { type: 'radial', stops: [[0, amber(0.75)], [0.3, amber(0.32)], [1, amber(0)]] } },
+      keyframes: [
+        { at: popAt(i), to: { scale: 1 }, duration: 'auto', ease: 'spring.snappy' },
+        ...chaseKeys(i, 0.85, 0.25),
+        { at: T.flash, to: { scale: 1.45 }, duration: 0.08, ease: 'power2.out' },
+        { at: T.flash + 0.08, to: { scale: 1.12 }, duration: 'auto', ease: 'spring.gentle' },
+      ],
+    }));
+
+    // the filament: cream core, pops from nothing with a snappy spring (glass, not rubber)
+    const cores = bulbs.map(([x, y], i) => ({
+      type: 'shape', shape: 'circle', name: `bulb-${i}`, radius: 6.5,
+      initial: { x, y, scale: 0, fillColor: CREAM },
+      keyframes: [
+        { at: popAt(i), to: { scale: 1 }, duration: 'auto', ease: 'spring.snappy' },
+        ...chaseKeys(i, 1, 0.35),
+      ],
+    }));
+
+    // ---------- type ----------
+    const TITLE_STYLE = { fontFamily: '"Arial Black", "Helvetica Neue", Arial, sans-serif', fontWeight: '900', fontSize: 118, letterSpacing: 16, fill: NAVY };
+    while (measureText('STARDUST', TITLE_STYLE).width > 780) TITLE_STYLE.fontSize -= 2;
+    const titleH = measureText('STARDUST', TITLE_STYLE).height;
+    const panelMask = () => ({ type: 'shape', shape: 'rect', width: PANEL.w, height: PANEL.h, initial: { x: PANEL.x, y: PANEL.y, fillColor: '#ffffff' } });
+
+    // letters drop onto the rail with a bouncy spring, a little tilt that settles with the same spring
+    const letters = splitText('STARDUST', TITLE_STYLE, { by: 'chars', x: PANEL.x, y: PANEL.y - titleH / 2, align: 'center' }).map(p => {
+      const cx = p.x + p.width / 2, cy = p.y + titleH / 2;
+      const tilt = [-9, 7, -6, 8, -7, 6, -8, 9][p.index % 8];
+      return {
+        type: 'text', name: `letter-${p.index}`, text: p.text, style: TITLE_STYLE,
+        at: T.letters + p.index * T.letterStep,
+        initial: { x: cx, y: cy, anchorX: 0.5, anchorY: 0.5 },
+        mask: panelMask(),
+        keyframes: [
+          { at: 0, from: { y: cy - 150 }, to: { y: cy }, duration: 'auto', ease: 'spring.bouncy' },
+          { at: 0, from: { rotation: tilt }, to: { rotation: 0 }, duration: 'auto', ease: 'spring.bouncy' },
+        ],
+      };
+    });
+
+    const HEADER_STYLE = { fontFamily: '"Arial Black", Arial, sans-serif', fontWeight: '900', fontSize: 26, letterSpacing: 14, fill: AMBER };
+    const headerW = measureText('NOW SHOWING', HEADER_STYLE).width;
+    const header = {
+      type: 'text', name: 'now-showing', text: 'NOW SHOWING', style: HEADER_STYLE, at: T.header,
+      initial: { x: 640 + 7, y: 132 + DY, anchorX: 0.5, anchorY: 0.5 },   // +7: half the trailing letterSpacing
+      keyframes: [
+        { at: 0, from: { scale: 0.55 }, to: { scale: 1 }, duration: 'auto', ease: 'spring.snappy' },
+        { at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.15 },
+      ],
+    };
+    const ruleGap = 26, ruleLen = 150;
+    const headerRules = [-1, 1].map(side => {
+      const inner = 640 + side * (headerW / 2 + ruleGap), outer = inner + side * ruleLen;
+      return {
+        type: 'shape', shape: 'line', name: `header-rule-${side < 0 ? 'l' : 'r'}`, at: T.header + 0.1,
+        from: [inner, 132 + DY], to: [outer, 132 + DY], strokeCap: 'round',
+        initial: { strokeColor: AMBER, strokeWidth: 2, strokeAlpha: 0.8, trimEnd: 0 },
+        keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.55, ease: 'power3.out' }],
+      };
+    });
+
+    // ---------- the details (left, under the sign): a gentle spring, the softest material ----------
+    const DET_X = TRACK.x0 - 8, DET_Y = 470 + DY;
+    const gentleIn = (i, dy = 22) => [
+      { at: 0, from: { y: dy }, to: { y: 0 }, duration: 'auto', ease: 'spring.gentle' },
+      { at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.45, ease: 'power2.out' },
+    ];
+    // each detail sits in a null so the spring moves an offset and the layout stays in plain numbers
+    const detail = (name, i, layer) => [
+      { type: 'null', name, at: T.details + i * 0.18, initial: { x: DET_X, y: 0 }, keyframes: gentleIn(i) },
+      { ...layer, parent: name, at: T.details + i * 0.18 },
+    ];
+    const details = [
+      ...detail('det-0', 0, { type: 'text', name: 'one-night', text: 'One Night Only', style: { fontFamily: 'Georgia, "Times New Roman", serif', fontStyle: 'italic', fontWeight: 'bold', fontSize: 46, fill: AMBER }, initial: { x: 0, y: DET_Y - 22 } }),
+      ...detail('det-1', 1, { type: 'shape', shape: 'line', name: 'det-rule', from: [2, DET_Y + 54], to: [250, DET_Y + 54], initial: { strokeColor: AMBER, strokeWidth: 2, strokeAlpha: 0.7 } }),
+      ...detail('det-2', 2, { type: 'text', name: 'doors', text: 'DOORS 9:00 PM  ·  SCREEN ONE  ·  35MM', style: { fontFamily: 'ui-monospace, Menlo, Consolas, monospace', fontSize: 21, letterSpacing: 2, fill: CREAM }, initial: { x: 0, y: DET_Y + 74 } }),
+      ...detail('det-3', 3, { type: 'text', name: 'box-office', text: 'TICKETS AT THE BOX OFFICE', style: { fontFamily: 'ui-monospace, Menlo, Consolas, monospace', fontSize: 16, letterSpacing: 3, fill: CREAM }, initial: { x: 0, y: DET_Y + 110, alpha: 0.6 } }),
+    ];
+
+    // ---------- the ticket stub: hangs on a string from the sign, swings in with a wobbly spring ----------
+    const TK = { w: 320, h: 240, px: 160, string: 60, bw: 290, bh: 128 };
+    const tkTop = TK.string, tkCy = TK.string + TK.bh / 2, tkLeft = TK.px - TK.bw / 2;
+    const stubX = tkLeft + 64;
+    const perforation = Array.from({ length: 10 }, (_, k) => ({
+      type: 'shape', shape: 'circle', name: `perf-${k}`, radius: 2.2,
+      initial: { x: stubX, y: tkTop + 12 + k * ((TK.bh - 24) / 9), fillColor: INK, fillAlpha: 0.55 },
+    }));
+    const ticket = {
+      type: 'composition', name: 'ticket', width: TK.w, height: TK.h, at: T.ticket,
+      initial: { x: 990, y: SIGN.y + SIGN.h / 2 + 4, pivotX: TK.px, pivotY: 0, rotation: -78, alpha: 0 },
+      keyframes: [
+        { at: 0, to: { rotation: -3 }, duration: 'auto', ease: 'spring.wobbly' },
+        { at: 0, to: { alpha: 1 }, duration: 0.12 },
+      ],
+      sequences: [
+        { type: 'shape', shape: 'line', name: 'string', from: [TK.px, 0], to: [TK.px, tkTop + 12], initial: { strokeColor: CREAM, strokeWidth: 1.5, strokeAlpha: 0.7 } },
+        { type: 'shape', shape: 'circle', name: 'pin', radius: 4.5, initial: { x: TK.px, y: 0, fillColor: AMBER } },
+        { type: 'shape', shape: 'rect', name: 'stub', width: TK.bw, height: TK.bh, cornerRadius: 8, initial: { x: TK.px, y: tkCy, fillColor: AMBER } },
+        { type: 'shape', shape: 'rect', name: 'stub-border', width: TK.bw - 16, height: TK.bh - 16, cornerRadius: 5,
+          initial: { x: TK.px, y: tkCy, fillAlpha: 0, strokeColor: INK, strokeAlpha: 0.45, strokeWidth: 1.5 } },
+        { type: 'shape', shape: 'circle', name: 'stub-hole', radius: 5, initial: { x: TK.px, y: tkTop + 12, fillColor: INK } },
+        ...perforation,
+        { type: 'text', name: 'stub-side', text: 'SCREEN 1', style: { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 12, letterSpacing: 2, fill: INK },
+          initial: { x: tkLeft + 33, y: tkCy, anchorX: 0.5, anchorY: 0.5, rotation: -90, alpha: 0.8 } },
+        { type: 'text', name: 'admit-one', text: 'ADMIT ONE', style: { fontFamily: '"Arial Black", Arial, sans-serif', fontWeight: '900', fontSize: 24, letterSpacing: 2, fill: INK },
+          initial: { x: (stubX + tkLeft + TK.bw) / 2, y: tkCy - 8, anchorX: 0.5, anchorY: 0.5 } },
+        { type: 'text', name: 'stub-no', text: 'No. 0427  ROW F', style: { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 13, letterSpacing: 2, fill: INK },
+          initial: { x: (stubX + tkLeft + TK.bw) / 2, y: tkCy + 26, anchorX: 0.5, anchorY: 0.5, alpha: 0.75 } },
+      ],
+    };
+
+    // ---------- sound ----------
+    const sound = [];
+    for (let d = 0; d <= 34; d += 2) sound.push({ type: 'audio', name: `click-${d}`, at: T.bulbs + d * T.bulbStep, volume: 0.6,
+      sfx: { preset: 'click', pitch: -6 + d * 0.35, seed: d } });
+    sound.push({ type: 'audio', name: 'breaker', at: T.panel, volume: 0.35, sfx: { preset: 'hit', brightness: -0.6 } });
+    letters.forEach((l, i) => sound.push({ type: 'audio', name: `tock-${i}`, at: l.at + 0.1, volume: 0.55, sfx: { preset: 'pop', pitch: -5 - (i % 3), brightness: -0.4, seed: i } }));
+    sound.push({ type: 'audio', name: 'swing', at: T.ticket - 0.08, volume: 0.6, sfx: { preset: 'swoosh', brightness: -0.3 } });
+    sound.push({ type: 'audio', name: 'flash-chime', at: T.flash, volume: 0.6, sfx: { preset: 'chime', pitch: -5 } });
+    // a small late-night combo: Eb major, swung, ends on the tonic exactly at the flash (beat 12 at 96 bpm = 7.5 s)
+    sound.push({ type: 'audio', name: 'combo', at: T.music, volume: 1.0, music: {
+      bpm: 96, swing: 0.18, reverb: 0.3, drumVol: 0.45,
+      tracks: [
+        { inst: 'keys', vol: 0.6, pan: -0.15, strum: 0.014, tone: 0.55, notes: 'Ebmaj7:4 | Cm7:4 | Fm7:2 Bb7:2 | Ebmaj9:4' },
+        { inst: 'bass', vol: 0.85, tone: 0.5, notes: 'Eb2:1 G2:1 Bb2:1 G2:1 | C2:1 Eb2:1 G2:1 C2:1 | F2:1 Ab2:1 Bb1:1 D2:1 | Eb2:4' },
+        { inst: 'bell', vol: 0.4, pan: 0.2, reverb: 0.6, ring: 1.2, notes: '_:2 Bb5:1 G5:1 | _:2 C6:1 Bb5:1 | Ab5:1 G5:1 F5:1 D5:1 | Eb5:4' },
+      ],
+      drums: [{ to: 12, hat: 'o.x.o.x.o.x.o.x.', rim: '....x.......x...' }],
+    } });
+
+    // ---------- the scene ----------
+    const scene = [
+      { type: 'shape', shape: 'rect', name: 'night', width: W, height: H,
+        initial: { x: W / 2, y: H / 2, fillGradient: { angle: 90, stops: [[0, '#0b1124'], [1, INK]] } } },
+      { type: 'shape', shape: 'rect', name: 'sign-glow', width: W, height: H, blendMode: 'add',
+        initial: { x: W / 2, y: H / 2, alpha: 0, fillGradient: { type: 'radial', center: [0.5, 0.32], radius: 0.62, stops: [[0, amber(0.2)], [0.55, amber(0.06)], [1, amber(0)]] } },
+        keyframes: [{ at: T.bulbs, to: { alpha: 1 }, duration: 1.6, ease: 'power1.inOut' }, { at: T.chase, to: { alpha: 0.8 }, duration: 0.6 }, { at: T.flash, to: { alpha: 1 }, duration: 0.1 }] },
+      { type: 'shape', shape: 'ellipse', name: 'pavement-glow', radiusX: 720, radiusY: 150, blendMode: 'add',
+        initial: { x: W / 2, y: H + 30, alpha: 0, fillGradient: { type: 'radial', stops: [[0, amber(0.16)], [1, amber(0)]] } },
+        keyframes: [{ at: T.panel, to: { alpha: 1 }, duration: 1.2, ease: 'power1.out' }] },
+      { type: 'shape', shape: 'rect', name: 'sign', width: SIGN.w, height: SIGN.h, cornerRadius: 22,
+        initial: { x: SIGN.x, y: SIGN.y, fillColor: NAVY, strokeColor: AMBER, strokeAlpha: 0.25, strokeWidth: 3 },
+        keyframes: [{ at: T.panel, to: { strokeAlpha: 0.75 }, duration: 0.4 }] },
+      { type: 'shape', shape: 'rect', name: 'panel-off', width: PANEL.w, height: PANEL.h, cornerRadius: 6,
+        initial: { x: PANEL.x, y: PANEL.y, fillColor: CREAM, fillAlpha: 0.07 } },
+      // the backlit panel: a breaker thrown, one stutter, then steady
+      { type: 'shape', shape: 'rect', name: 'panel', width: PANEL.w, height: PANEL.h, cornerRadius: 6,
+        initial: { x: PANEL.x, y: PANEL.y, alpha: 0, fillGradient: { angle: 90, stops: [[0, '#fbf0d8'], [1, '#efd7a6']] } },
+        keyframes: [
+          { at: T.panel, set: { alpha: 0.85 } },
+          { at: T.panel + 0.07, set: { alpha: 0.15 } },
+          { at: T.panel + 0.13, set: { alpha: 0.95 } },
+          { at: T.panel + 0.2, set: { alpha: 0.55 } },
+          { at: T.panel + 0.24, to: { alpha: 1 }, duration: 0.18 },
+        ] },
+      header, ...headerRules,
+      ...letters,
+      ...sockets, ...halos, ...cores,
+      ...details,
+      ticket,
+      ...sound,
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage'), theme: { accent: AMBER } });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 10.2,
+        background: INK,
+        // one soft, warm-leaning film grain over everything
+        composition: { sequences: scene, filters: [{ type: 'grain', name: 'grain', amount: 0.045, size: 1.6, color: 0.25, fps: 24, seed: 7 }] },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

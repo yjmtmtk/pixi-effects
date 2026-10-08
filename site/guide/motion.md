@@ -87,6 +87,14 @@ The layer's own `x` and `y` are the points of the path, so give circles and shap
 { at: 0,   to: { scale: 1 },  duration: 0.8,   ease: 'spring(1, 170, 12)' }
 ```
 
+| Preset | Settles in | Highest value (target = 1) |
+|---|---|---|
+| `spring.snappy` | 0.42 s | 1.01 |
+| `spring.gentle` | 0.72 s | 1.02 |
+| `spring.bouncy` | 1.08 s | 1.28 |
+| `spring.slow` | 1.29 s | 1.00 (no overshoot) |
+| `spring.wobbly` | 1.61 s | 1.40 |
+
 With a number for `duration`, that number is the settle time and only the damping decides how much it overshoots. A damping ratio of 1 or more never overshoots: `spring(1, 170, 26)` does not bounce, `spring(1, 170, 12)` does. A colour that overshoots is clamped, and `alpha` past 1 shows nothing, so springs are for position, scale and rotation first.
 
 ## Waves: `stagger`

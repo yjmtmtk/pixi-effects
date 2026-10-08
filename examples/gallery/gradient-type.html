@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spectrum — pixi-effects gallery</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+  <style>
+    html, body { height: 100%; }
+    body { background: #0c0c12; margin: 0; padding: 24px; box-sizing: border-box; display: grid; place-items: center; }
+    #frame { width: min(960px, 100%); }
+    .pe-stage { position: relative; width: 100%; border-radius: 6px; --pe-loader-bg: #07070c; background: #07070c; }
+    .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
+  </style>
+</head>
+<body>
+  <div id="frame"><div class="pe-stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div></div>
+
+  <script type="application/json" id="piece-meta">
+  {
+    "title": "Spectrum",
+    "subtitle": "One heavy word whose gradient turns through four colours while a radial glow drifts behind it",
+    "tags": ["typography", "gradient", "oklch", "spring", "bilingual"],
+    "width": 1280, "height": 720, "duration": 11, "model": "fable"
+  }
+  </script>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie, animateText } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    // ---------------------------------------------------------------- frame / time
+    const W = 1280, H = 720, FPS = 30, DURATION = 11;
+    const snap = t => Math.round(t * FPS) / FPS;
+
+    // ---------------------------------------------------------------- palette (dusk: ultraviolet → cyan → coral → gold; no rainbow)
+    const INK   = '#07070c';
+    const VIOLET = '#5b3cff', CYAN = '#17d4e8', CORAL = '#ff5c7a', GOLD = '#ffc24a';
+    const PALETTE = [VIOLET, CYAN, CORAL, GOLD];
+    const MUTED = '#8f93a8', PALE = '#e3e5ef';
+    const rgba = (hex, a) => `rgba(${parseInt(hex.slice(1, 3), 16)},${parseInt(hex.slice(3, 5), 16)},${parseInt(hex.slice(5, 7), 16)},${a})`;
+    const rot = (arr, k) => arr.map((_, i) => arr[(i + k) % arr.length]);              // the palette, turned by k
+
+    // ---------------------------------------------------------------- type
+    const HEAVY = "'Arial Black', 'Helvetica Neue', Arial, sans-serif";
+    const SANS  = "system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif";
+    const JP    = "'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Noto Sans JP', sans-serif";
+    const MONO  = "ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
+
+    // Measure with the same font the renderer uses so the word can be justified to the text column.
+    const mctx = document.createElement('canvas').getContext('2d');
+    const measure = (str, family, weight, size, lsEm = 0) => {
+      mctx.font = `${weight} ${size}px ${family}`;
+      return mctx.measureText(str).width + lsEm * size * (str.length - 1);
+    };
+    const fit = (str, family, weight, targetW, lsEm = 0) => Math.floor(targetW / measure(str, family, weight, 100, lsEm) * 100);
+
+    // Grid: one left edge for everything, a column 1088 px wide (96 px margins = 7.5 %).
+    const LEFT = 96, RIGHT = W - 96, COL = RIGHT - LEFT;
+    const WORD = 'SPECTRUM', WORD_LS = -0.03;
+    const WORD_SIZE = fit(WORD, HEAVY, '900', COL, WORD_LS);
+    const WORD_Y = 318;                                   // centre of the line box
+    const RULE_Y = WORD_Y + WORD_SIZE * 0.44 + 22;        // a hairline just under the caps
+    const LINE_EN_TOP = RULE_Y + 34;                      // animateText: y is the TOP of the line box
+    const LINE_JP_Y = LINE_EN_TOP + 86;
+    const FOOT_Y = 646;
+
+    // ---------------------------------------------------------------- timing (composition seconds)
+    const T = {
+      glow: 0,
+      word: 0.4,
+      rule: 1.1,
+      over: 1.5,
+      en: 2.3,
+      jp: 3.2,
+      foot: 3.8,
+      // the word's gradient keeps travelling in four legs, then locks
+      legs: [1.4, 3.6, 5.8, 8.0],
+      lock: 9.8,
+    };
+    const LEG = 2.2;                                       // each leg of the gradient's journey
+    const POSTER = 7.8;                                    // the cyan glow sits under the rule, the letters run gold → cyan → coral
+
+    // ---------------------------------------------------------------- the word: a linear gradient that turns and shifts hue
+    // Four stops over the letters; each leg turns the fade 95° further and moves every colour one place along the palette,
+    // so a colour travels across the word while the stripe itself rotates. The last leg lands on the final colours and holds.
+    const wordStops = k => rot(PALETTE, k).map((c, i) => [i / 3, c]);
+    const wordGradient = (k, angle) => ({ angle, stops: wordStops(k) });
+    const L = t => snap(t - T.word);                                              // composition time → this layer's time
+
+    const word = {
+      type: 'text', name: 'word', text: WORD, at: T.word, duration: DURATION - T.word, colorSpace: 'oklch',
+      style: { fontFamily: HEAVY, fontWeight: '900', fontSize: WORD_SIZE, letterSpacing: Math.round(WORD_LS * WORD_SIZE) },
+      fillGradient: wordGradient(0, 0),
+      initial: { x: LEFT, y: WORD_Y, anchorX: 0, anchorY: 0.5, alpha: 0 },
+      keyframes: [
+        { at: 0, from: { y: WORD_Y + 64 }, to: { y: WORD_Y }, duration: 'auto', ease: 'spring.snappy' },
+        { at: 0, to: { alpha: 1 }, duration: 0.32, ease: 'power2.out' },
+        ...T.legs.map((t, i) => ({ at: L(t), duration: LEG, ease: 'sine.inOut', to: { fillGradient: wordGradient(i + 1, 95 * (i + 1)) } })),
+        // the lock: the last leg ends on the final colours; a tiny settle marks it
+        { at: L(T.lock - 0.3), to: { scale: 1.012 }, duration: 0.3, ease: 'sine.in' },
+        { at: L(T.lock), to: { scale: 1 }, duration: 'auto', ease: 'spring.snappy' },
+      ],
+    };
+
+    // ---------------------------------------------------------------- the glows: radial gradients whose centre, radius and colour drift
+    // A circle larger than the frame, centred on it. The gradient's `center` and `radius` are 0–1 of the CIRCLE's bounds
+    // (1520 px square), not canvas pixels: `cen()` / `rad()` convert, so the path below is written in canvas coordinates.
+    const GLOW_R = 760;
+    const cen = (px, py) => [(px - (W / 2 - GLOW_R)) / (2 * GLOW_R), (py - (H / 2 - GLOW_R)) / (2 * GLOW_R)];
+    const rad = px => px / (2 * GLOW_R);
+    const glowStops = (c, a) => [[0, rgba(c, a)], [0.45, rgba(c, a * 0.3)], [1, rgba(c, 0)]];
+    const glow = (name, path, opts) => ({
+      type: 'shape', shape: 'circle', name, radius: GLOW_R, colorSpace: 'oklch', ...opts,
+      fillGradient: { type: 'radial', center: cen(...path[0].at2), radius: rad(path[0].r), stops: glowStops(path[0].color, path[0].alpha) },
+      initial: { x: W / 2, y: H / 2, alpha: 0 },
+      keyframes: [
+        { at: 0, to: { alpha: 1 }, duration: 1.4, ease: 'sine.out' },
+        ...path.slice(1).map(p => ({
+          at: p.at, duration: p.duration, ease: 'sine.inOut',
+          to: { fillGradient: { center: cen(...p.at2), radius: rad(p.r), stops: glowStops(p.color, p.alpha) } },
+        })),
+      ],
+    });
+
+    // The main glow wanders counter to the word's colour: lower-left violet → upper-right coral → lower-middle cyan → behind the word, violet (the lock).
+    const glowA = glow('glow', [
+      { at2: [300, 540], r: 420, color: VIOLET, alpha: 0.85 },
+      { at: 0.6, duration: 3.4, at2: [980, 200], r: 560, color: CORAL, alpha: 0.66 },
+      { at: 4.0, duration: 3.2, at2: [520, 480], r: 500, color: CYAN, alpha: 0.62 },
+      { at: 7.2, duration: 2.6, at2: [700, 330], r: 640, color: VIOLET, alpha: 0.78 },
+    ], { at: T.glow, duration: DURATION });
+
+    // A second, smaller light drifting the other way, added over the first so where they cross the colours sum.
+    const glowB = glow('glow-2', [
+      { at2: [1020, 220], r: 260, color: CYAN, alpha: 0.55 },
+      { at: 0.8, duration: 3.6, at2: [240, 300], r: 360, color: GOLD, alpha: 0.42 },
+      { at: 4.4, duration: 3.4, at2: [920, 560], r: 320, color: CORAL, alpha: 0.42 },
+      { at: 7.8, duration: 2.0, at2: [1120, 420], r: 240, color: GOLD, alpha: 0.3 },
+    ], { at: T.glow + 0.3, duration: DURATION - 0.3, blendMode: 'add' });
+
+    // ---------------------------------------------------------------- the hairline: the same gradient, one leg ahead of the word
+    const rule = {
+      type: 'shape', shape: 'rect', name: 'rule', width: COL, height: 4, anchorX: 0, at: T.rule, duration: DURATION - T.rule, colorSpace: 'oklch',
+      fillGradient: { angle: 0, stops: wordStops(1) },
+      initial: { x: LEFT, y: RULE_Y, scaleX: 0 },
+      keyframes: [
+        { at: 0, to: { scaleX: 1 }, duration: 0.7, ease: 'power3.inOut' },
+        ...T.legs.map((t, i) => ({ at: snap(t - T.rule), duration: LEG, ease: 'sine.inOut', to: { fillGradient: { stops: wordStops(i + 2) } } })),
+      ],
+    };
+
+    // ---------------------------------------------------------------- supporting lines (a clear hierarchy: mono overline, sans line, JP line, mono footer)
+    const small = (name, str, o) => ({
+      type: 'text', name, text: str, at: o.at, duration: DURATION - o.at,
+      style: { fontFamily: o.font, fontWeight: o.weight, fontSize: o.size, fill: o.fill, letterSpacing: o.ls },
+      initial: { x: o.x, y: o.y, anchorX: o.ax ?? 0, anchorY: 0.5, alpha: 0 },
+      keyframes: [{ at: 0, from: { y: o.y + 14 }, to: { y: o.y, alpha: 1 }, duration: 0.7, ease: 'power3.out' }],
+    });
+
+    const overline = small('overline', 'COLOUR IN MOTION  ·  No. 04', { font: MONO, weight: '600', size: 19, fill: MUTED, ls: 5, x: LEFT, y: 78, at: T.over });
+    const overlineRight = small('overline-right', 'OKLCH  ·  4 STOPS  ·  380°', { font: MONO, weight: '600', size: 19, fill: MUTED, ls: 5, x: RIGHT, y: 78, ax: 1, at: T.over + 0.15 });
+
+    const lineEN = animateText('EVERY COLOUR IS A PLACE ON THE WAY TO ANOTHER.',
+      { fontFamily: SANS, fontWeight: '500', fontSize: 26, fill: PALE, letterSpacing: 5 },
+      { x: LEFT, y: LINE_EN_TOP, align: 'left', by: 'words', name: 'line-en', at: T.en, duration: DURATION - T.en, in: 'rise', out: false, stagger: { each: 0.06 } });
+
+    const lineJP = small('line-jp', '色は、移ろいの途中にある。', { font: JP, weight: '300', size: 25, fill: MUTED, ls: 9, x: LEFT, y: LINE_JP_Y, at: T.jp });
+
+    const footL = small('foot-left', 'SPECTRUM  —  A TYPE SPECIMEN', { font: MONO, weight: '600', size: 16, fill: MUTED, ls: 4, x: LEFT, y: FOOT_Y, at: T.foot });
+    const footR = small('foot-right', PALETTE.map(c => c.toUpperCase()).join('   '), { font: MONO, weight: '600', size: 16, fill: MUTED, ls: 2, x: RIGHT, y: FOOT_Y, ax: 1, at: T.foot + 0.1 });
+
+    // Four swatches next to the footer colours would clutter; the hex list is the specimen note.
+
+    // ---------------------------------------------------------------- sound (no files)
+    const sfx = (preset, at, volume, extra = {}) => ({ type: 'audio', name: `sfx-${preset}-${snap(at).toFixed(2)}`, sfx: { preset, ...extra }, at: snap(at), volume });
+    const sounds = [
+      sfx('swoosh', T.word - 0.16, 0.9, { brightness: -0.3 }),           // loudest 0.16 s in = when the word lands
+      sfx('hit', T.word, 0.7, { pitch: -5, brightness: -0.6 }),
+      sfx('swipe', T.rule, 0.5, { pitch: 4 }),
+      sfx('click', T.over, 0.4),
+      sfx('click', T.over + 0.15, 0.4, { pitch: 2 }),
+      sfx('click', T.jp, 0.4, { pitch: -2 }),
+      sfx('click', T.foot, 0.35),
+      { ...sfx('riser', T.lock - 1.2, 0.45, { brightness: -0.4 }), duration: 1.2 },   // peaks at the lock
+      { ...sfx('chime', T.lock, 0.7, { pitch: -3 }), duration: DURATION - T.lock },    // rings out exactly to the end (1.4 s would run past it)
+      // a quiet pad bed: two slow chords, fades under the chime
+      { type: 'audio', name: 'pad', at: 0, duration: DURATION, volume: 0.75,
+        music: { bpm: 60, reverb: 0.5, tracks: [
+          { inst: 'pad', notes: '[d3 a3 c4 e4]:5.5 [bb2 f3 a3 d4]:5.5', attack: 1.6, release: 2.5, vol: 0.7, tone: 0.5 },
+          { inst: 'sub', notes: 'd2:5.5 bb1:5.5', attack: 1.2, release: 2, vol: 0.5 },
+        ] },
+        keyframes: [{ at: -2.2, to: { volume: 0 }, duration: 2.2, ease: 'sine.in' }] },
+    ];
+    // the English words arrive as a soft typewriter wave
+    lineEN.forEach((l, i) => sounds.push(sfx('typewriter', l.at, 0.3, { pitch: (i % 3) * 2 - 2, seed: i })));
+
+    // ---------------------------------------------------------------- composition
+    const sequences = [
+      { type: 'shape', shape: 'rect', name: 'bg', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: INK } },
+      glowA, glowB,
+      // a soft vignette keeps the corners dark however far the glows wander
+      { type: 'shape', shape: 'rect', name: 'vignette', width: W, height: H, initial: { x: W / 2, y: H / 2 },
+        fillGradient: { type: 'radial', radius: 0.78, stops: [[0.45, rgba(INK, 0)], [1, rgba(INK, 0.6)]] } },
+      rule, word,
+      overline, overlineRight, ...lineEN, lineJP, footL, footR,
+      ...sounds,
+    ];
+
+    // ---------------------------------------------------------------- run
+    const canvas = document.getElementById('stage');
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas, theme: { accent: CORAL } });
+
+    try {
+      await movie.init({
+        canvas, width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER, background: INK,
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

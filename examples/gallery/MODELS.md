@@ -1,6 +1,6 @@
 # Gallery — which model made which piece
 
-Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same brief ([BRIEF.md](BRIEF.md)) and the same docs (`ai/SKILL.md` and its references). Round one: 16 pieces. Round two: 14 more, after the library fixes the first round exposed. The model is the one passed when each agent was launched; it also sits in each piece's `#piece-meta` block as `model`.
+Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same brief ([BRIEF.md](BRIEF.md)) and the same docs (`ai/SKILL.md` and its references). Round one: 16 pieces. Round two: 14 more, after the library fixes the first round exposed. 0.19: two more (`spring-marquee`, `gradient-type`) written to show the new spring easing, grain and animated gradients. The model is the one passed when each agent was launched; it also sits in each piece's `#piece-meta` block as `model`.
 
 | Model | Piece | Size | File |
 |---|---|---|---|
@@ -15,6 +15,7 @@ Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same br
 | fable | Synthwave Drive — A retro night-drive loop: striped sun, neon grid floor racing in, a title that flickers on | 1280×720 | synthwave-drive.html |
 | fable | Typewriter Terminal — A dev-tool launch film typed out in a CRT terminal; the window steps back in depth for the title card | 1280×720 | typewriter-terminal.html |
 | fable | Wedding Invitation — A 4:5 cream card: a double gold border traces itself, seeded botanical sprigs unfurl in the corners, serif names and details arrive line by line, a gold rule and two rings close. | 1080×1350 | wedding-invitation.html |
+| fable | Spectrum — One heavy word whose gradient turns through four colours while a radial glow drifts behind it | 1280×720 | gradient-type.html |
 | opus | The Long Night — Main-title sequence for an imaginary thriller: a three.js shard in fog, letterboxed credits, film grain | 1280×720 | film-titles.html |
 | opus | Orbits — A seeded loop of pendulum-wave rings, epicycle rosettes and Lissajous comets | 1080×1080 | generative-orbits.html |
 | opus | A short history of computing — An editorial timeline, 1936 to 2023: a line draws while the camera pans past eight drawn milestones | 1280×720 | history-timeline.html |
@@ -43,6 +44,7 @@ Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same br
 | sonnet | Harbor City Forecast — A five-day broadcast forecast: shifting skies, glass cards, animated icons and a self-drawing temperature line. | 1280×720 | weather-report.html |
 | sonnet | Christmas Eve — A snowy night at a lit cottage and a small tree, with a slow music-box lullaby written as text: there is no audio file in this piece | 1280×720 | christmas-eve.html |
 | opus | 間 MA — the space between — A 48-second kinetic essay about one word: a hairline of light becomes a gate, a corridor, a silence, a sun and a seal, cut to a score written as text | 1920×1080 | ma.html |
+| opus | Now Showing — A vintage cinema marquee at night: bulbs snap on, letters bounce onto the rail, a ticket stub wobbles in, all under one film grain | 1280×720 | spring-marquee.html |
 
 Counts: fable 11, opus 12, sonnet 16 (39 pieces).
 
