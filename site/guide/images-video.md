@@ -61,7 +61,20 @@ Any layer can be a **mask** for another: only the part under the mask shows. A m
           keyframes: [{ at: 0, from: { radius: 0 }, to: { radius: 420 }, duration: 1.2, ease: 'power2.out' }] } }     // an iris that opens
 ```
 
-`maskInverted: true` cuts a hole instead. A mask with no `at` of its own lives exactly as long as the layer it masks, and its keyframes count from that layer's start.
+`maskInverted: true` cuts a hole instead. A mask with no `at` of its own lives exactly as long as the layer it masks, and its keyframes count from that layer's start. Text, image and video masks and inverted masks have soft edges and work together with `blendMode`.
+
+### One mask for several layers
+
+Give the mask layer a `name` and write that name as the `mask` of every layer it should cut. The named layer is the **matte**: it is drawn once per frame and not shown itself, so you can move one shape and have three layers follow it.
+
+```js
+{ type: 'shape', shape: 'rect', name: 'band', anchorX: 0, width: 0, height: 420,
+  initial: { x: 60, y: 300 }, keyframes: [{ at: 0.3, to: { width: 560 }, duration: 1.5 }] },
+{ type: 'text', text: 'SHARED', mask: 'band' },
+{ type: 'image', asset: 'photo', mask: { layer: 'band', invert: true } },    // everywhere but the band
+```
+
+By default a matte works by **opacity** (`channel: 'alpha'`); `channel: 'luma'` works by **brightness**, so a grayscale image or a gradient makes a soft, shaded cut. `invert: true` flips it. A list, `mask: ['panel', { layer: 'hole', invert: true }]`, keeps what every entry lets through, which is also how you subtract. The matte has to be in the same composition and alive whenever the layers it cuts are; a wrong name is warned about with the closest name. Each matte costs a picture the size of the composition, so share one instead of making many.
 
 {{demo examples/05-composition-mask.html}}
 

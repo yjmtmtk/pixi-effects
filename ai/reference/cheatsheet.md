@@ -37,7 +37,7 @@ name, at, duration,
 initial: { ...props applied before any keyframe },
 keyframes: [ { at, duration, ease, set | to | from | (from + to), repeat?, yoyo?, repeatDelay? } ],
 filters: [ { type: 'chromaKey', keyColor, threshold, smoothing, spill } | { type: 'glow', name?, outerStrength: 3, color: '#ffd166' } /* any named filter, see below */ | { type: 'custom', name, filter: <Pixi Filter> } ],
-mask: <a layer spec>, maskInverted,   // a mask with no `at` of its own starts and ends with the layer it masks (its keyframes count from that layer's start); an explicit mask `at` is composition time
+mask: <a layer spec> | 'matteName' | { layer: 'matteName', channel: 'alpha' | 'luma', invert: true } | [ …refs ], maskInverted,   // an inline mask with no `at` of its own starts and ends with the layer it masks (its keyframes count from that layer's start); an explicit mask `at` is composition time. A NAME points at a sibling layer (the matte, shared by any number of layers, NOT drawn itself, alive for its own `at`/`duration`); a list is an intersection; subtract = `invert: true`
 filterArea: { x, y, width, height }   // in the layer's OWN coordinates; lets blur/glow draw past the layer's bounds
 threeD: true                          // opt into 2.5D (see below)
 blendMode: 'normal' | 'add' | 'screen' | 'multiply' | 'overlay' | 'soft-light' | 'hard-light' | 'color-dodge' | 'color-burn' | 'darken' | 'lighten' | 'difference' | 'exclusion' | 'hue' | 'saturation' | 'color' | 'luminosity' | 'linear-burn'   // CSS names (hyphenated); blends with EVERYTHING BELOW the layer; add / screen brighten (glows), multiply darkens, soft-light / overlay for colour casts and contrast, color-dodge for light sources; on a composition the children each blend (to blend it as one picture: threeD: true or a filter); the 14 new ones cost ~2 ms a layer on WebGL (10+ on screen warns)
@@ -106,10 +106,11 @@ Add `threeD: true` to any visual layer, then use `z`, `rotationX`, `rotationY` (
 ## Transitions (on the parent composition)
 
 ```js
-transitions: [{ kind: 'crossfade' | 'wipe' | 'iris' | 'slide' | 'dip' | 'zoom' | 'dissolve',
+transitions: [{ kind: 'crossfade' | 'wipe' | 'iris' | 'slide' | 'dip' | 'zoom' | 'dissolve' | 'luma',
                 from: 'nameA', to: 'nameB', at: 3, duration: 1, ease: 'none',
                 direction: 'left|right|up|down' /* wipe, slide */, mode: 'in|out' /* iris, zoom */,
-                smoothing, fromScale /* zoom */, scale, seed /* dissolve */ }]
+                smoothing, fromScale /* zoom */, scale, seed /* dissolve */,
+                map: 'linear' | 'diagonal' | 'radial' | '<grayscale image asset>', softness, flip /* luma */ }]
 ```
 `from`/`to` are sibling layer `name`s, `to` declared after `from`, and both layers must be alive for the whole window (overlap them by `duration`). Only those two layers are affected; every other layer stays put. Wipe/iris/dissolve/zoom wrap the layers for you.
 

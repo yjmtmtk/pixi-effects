@@ -9,10 +9,10 @@ const presets: Array<{ id: string; label: string; code: string }> = mod.default;
 const AsyncFunction = (async function () {}).constructor as new (...a: string[]) => unknown;
 
 describe('Playground presets: the edit block of the chat template', () => {
-  it('are the twelve of the old Playground plus time remap, depth of field and blend modes, with unique ids', () => {
+  it('are the twelve of the old Playground plus time remap, depth of field, blend modes and mattes, with unique ids', () => {
     expect(presets.map((p) => p.id)).toEqual([
       '01-hello', '02-keyframes', '03-shapes', '04-media', '05-composition', '06-filters',
-      '07-transitions', '08-presets', '09-audio', '11-depth', '13-sfx', '14-draw-on', '15-time-remap', '16-depth-of-field', '17-blend-modes',
+      '07-transitions', '08-presets', '09-audio', '11-depth', '13-sfx', '14-draw-on', '15-time-remap', '16-depth-of-field', '17-blend-modes', '18-mattes',
     ]);
     expect(new Set(presets.map((p) => p.id)).size).toBe(presets.length);
   });

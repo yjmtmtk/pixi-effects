@@ -2,7 +2,7 @@
 title: Transitions
 section: Guides
 order: 6
-summary: Cross-fades, wipes, irises, slides, dips, zooms and dissolves between two layers.
+summary: Cross-fades, wipes, irises, slides, dips, zooms, dissolves and luma wipes between two layers.
 ---
 
 A transition blends **two named layers** over a short window. Declare it on the composition that holds them:
@@ -39,6 +39,15 @@ The rules:
 | `dip` | | through black |
 | `zoom` | `mode`, `fromScale`, `scale` | a push-in |
 | `dissolve` | `seed` | a noisy dissolve |
+| `luma` | `map`, `softness`, `flip` | a wipe that follows a brightness map |
+
+### Luma wipes
+
+A luma wipe changes the dark parts of a **brightness map** first and the light parts last, like After Effects' Gradient Wipe. `map: 'radial'` opens the next scene from the middle (a circle on screen, whatever the shape of the picture), `'linear'` sweeps from left to right, `'diagonal'` from corner to corner. Or give the name of a grayscale image you loaded as an asset: a hand-drawn swirl, a halftone, a paper texture. `softness` is how wide the soft edge is (0 is hard, 0.1 the default) and `flip: true` runs the map the other way round.
+
+```js
+transitions: [{ kind: 'luma', from: 'a', to: 'b', at: 3, duration: 1, map: 'radial', softness: 0.15 }]
+```
 
 {{demo examples/07-transitions.html}}
 

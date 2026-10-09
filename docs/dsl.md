@@ -706,8 +706,8 @@ The mask is itself a sequence, so it can have `keyframes` of its own — useful 
 
 Notes:
 - The mask sequence is rendered as a mask, not as a normal child — its `fillColor` / `strokeColor` only matter for which pixels are kept, not for the visible colour.
-- Any sequence type works as a mask (shape / image / text / nested composition); shapes are the natural choice for geometric reveals.
-- A **text** mask is the letters, not their bounding box (it is drawn into a texture and its alpha is used, so the edges are soft and antialiased); so is any mask with `maskInverted`. Both cost one extra offscreen pass for the masked layer. An ordinary shape mask is a hard-edged stencil.
+- Any sequence type works as a mask (shape / image / text / video / nested composition); shapes are the natural choice for geometric reveals.
+- A plain **shape** mask (not inverted) is a hard-edged stencil, the cheapest way. Every other mask (a text, image or video layer, `maskInverted`, a named matte, a list) is drawn into a texture once per frame and applied as a **matte filter**: its edges are soft and antialiased, it costs one offscreen pass, and `blendMode` works with it (see [Mattes](#named-mattes-and-luma)).
 - For a left-to-right wipe, give the mask `anchorX: 0` (rect/circle/ellipse) so `width: 0 → full` grows rightward from the left edge.
 
 #### `maskInverted`
@@ -731,7 +731,40 @@ When `true`, flip the mask sense: pixels INSIDE the mask shape become transparen
 }
 ```
 
-Routed through PIXI v8's native `setMask({ inverse: true })`.
+An inverted mask goes through the matte filter (the letters of a text mask, or a hole with a soft edge), so it works with every `blendMode` and with a mask that has its own `filters`. `maskInverted` is the same thing as `invert: true` on a named matte; with a named matte, write `invert: true` (below).
+
+#### Named mattes and luma
+
+A layer can be named and used as the mask of **several** layers (After Effects' track matte). Write its name as the `mask`; the matte layer itself is then **not drawn**. It is drawn once per frame into a texture, so three layers sharing one moving matte cost one extra pass, not three.
+
+```ts
+// one moving band cuts three layers; the band itself is not on screen
+{ type: 'shape', shape: 'rect', name: 'wipe', anchorX: 0, width: 0, height: 420,
+  initial: { x: 60, y: 300 }, keyframes: [{ at: 0.3, to: { width: 560 }, duration: 1.5 }] },
+{ type: 'text', text: 'SHARED', mask: 'wipe' },
+{ type: 'text', text: 'MASK', at: 0.2, mask: 'wipe' },
+
+// by brightness instead of opacity (a grayscale image or a gradient layer), inverted, and a list
+{ type: 'image', asset: 'photo', mask: { layer: 'vignette', channel: 'luma' } },
+{ type: 'shape', shape: 'rect', width: 400, height: 300, mask: ['panel', { layer: 'hole', invert: true }] },  // inside `panel`, outside `hole`
+```
+
+| form | meaning |
+|---|---|
+| `mask: 'name'` | the same as `{ layer: 'name' }` |
+| `mask: { layer, channel?, invert? }` | `channel: 'alpha'` (default: how opaque the matte is) or `'luma'` (how bright it is, Rec. 709); `invert: true` flips it (1 − matte) |
+| `mask: [ref, ref, …]` | every one must let the pixel through: the result is the **product** (an intersection). **To subtract a matte, put `invert: true` on it** |
+| `mask: { type: …, … }` | an inline mask layer, as above |
+
+Rules:
+1. **A layer that is used as a matte is not drawn.** It still needs to live long enough: the matte's time is the composition's time (its own `at` and `duration`). Where the matte is missing, the layers it cuts are **invisible**, so a matte whose lifetime does not cover its users warns.
+2. **The name must be in the same composition** as the layer that uses it (a layer inside a nested composition cannot name a matte outside it). A layer that a transition wraps keeps its matte: the transition carries the `mask` to the wrapper.
+3. A matte with a `parent` follows its parents (the null layers) as any layer does. A masked layer with a `parent` warns: the matte is in the composition's space, the layer in the null's space; put the mask on the null instead.
+4. `threeD` layers cannot be mattes and cannot have one (a warning; the matte is drawn as the `threeD` layer it is, the mask is ignored).
+5. **`blendMode` works with every matte**: the layer is cut by the matte and then blended (inside the matte it blends with the backdrop, outside it is the backdrop). A matte on a composition cuts the composition as one picture, as any filter does (its children's blends happen inside that picture).
+6. A matte inside a **rotated or scaled nested composition** differs from the stencil only at the edges (soft instead of hard).
+7. **Cost** (a prototype measurement at 1080p; not yet re-measured on the released code): WebGPU 0.32 ms for one layer, 0.75 ms for three, 2.65 ms for ten (0.67 ms and 1.97 ms when the layers share one matte); WebGL 1.22 / 4.03 / 11.0 ms. One matte is a texture of the composition's size (about 8 MiB at 1080p, more with anti-aliasing): **more than 8 mattes in one composition warns**. Share a matte between layers, or use fewer.
+8. `inspect` does not list a matte layer (it is not drawn), and does not clip a masked layer's box by a named matte.
 
 #### `blendMode`
 
@@ -762,7 +795,7 @@ Rules:
 7. **Together with `filters`, `threeD` and depth of field they all work** (the blend is applied after the layer's own filters, and after the depth-of-field blur).
 8. **Some modes only act on some tones.** `overlay` and `soft-light` change almost nothing over a near-black or a near-white backdrop (their formulas leave 0 and 1 where they are), so a colour cast needs a **mid-tone** picture under it; `color-dodge` over a dark backdrop gives a saturated colour (each channel is lifted separately), over a bright one it burns out to white; `multiply` can only darken and `screen` / `add` only brighten.
 9. **`blendMode` is a setting of the layer, not an animatable property** (`initial` or a keyframe with it warns). To change the mode for a moment, put a second, short-lived layer (`at` / `duration`) on top, or fade a layer's `alpha`.
-10. **With `mask`:** an inverted mask (`maskInverted: true`) works with every mode, a mask with its own `filters` (a blurred, feathered hole) included. A **text, image or video layer as the mask** (not inverted) cannot carry a blend (it warns and draws the layer normal): put it on a layer of its own with the `blendMode`, or use `maskInverted`. A shape as a (not inverted) mask works as it is.
+10. **With `mask`:** every mask works with every mode: the layer is cut by the mask first, then blended. A plain shape mask (not inverted) is a stencil as before; a text, image or video mask, an inverted mask and a named matte go through the matte filter (see [Named mattes and luma](#named-mattes-and-luma)), and the blend is applied after it.
 
 Checked against the W3C formulas on WebGPU and WebGL: every pixel within 2/255 (measured worst: 0.5/255 at alpha 1, 1.5/255 at alpha 0.5; over opaque backdrops and over nothing, as inside a `threeD` composition: a half-transparent layer over a half-transparent backdrop can differ more, because Pixi lays the blended result over the backdrop once more); on the same machine a frame is the same picture however it was reached. Another GPU can differ by a step or two.
 
@@ -1123,6 +1156,22 @@ Pixel-grain noise reveal driven by deterministic 2D Perlin noise. Pixels with a 
   smoothing: 0.05,   // edge softness within each chunk. Default 0.05.
 }
 ```
+
+### `luma`
+
+A wipe that follows a **brightness map** (After Effects' Gradient Wipe): the dark parts of the map change first, the light parts last. `to` appears through a soft edge; `from` holds until `to` has covered it (a hard cutoff, as `wipe` and `iris` do).
+
+```ts
+{
+  kind: 'luma', from: 'A', to: 'B', at: 4, duration: 1,
+  map: 'radial',     // 'linear' (left to right, default), 'diagonal', 'radial' (from the middle, a circle on screen),
+                     // or the name of a grayscale image asset (dark parts change first)
+  softness: 0.1,     // width of the soft band, in brightness units (0..1). Default 0.1.
+  flip: false,       // true = reverse the map (light parts first)
+}
+```
+
+The three built-in maps need no image (they are computed on the GPU from the position on screen). A `map` name that is neither a built-in nor a loaded asset warns once (with the likely name) and wipes as if the map were white. The map covers the whole composition, so give it the composition's aspect ratio.
 
 ---
 

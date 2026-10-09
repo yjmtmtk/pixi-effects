@@ -805,6 +805,52 @@ return { duration: 6, sequences: [
 
 ---
 
+## A matte shared by several layers (`mask: 'name'`)
+
+Name a layer and write its name as the `mask` of the layers it should cut: the matte is drawn once and **not shown itself**. Here one band sweeps across three lines of text; one line is cut by brightness (`luma`) and one by the opposite of the band (`invert`), so it fills in where the others are cut.
+
+```js
+// @recipe shared-matte
+const line = (y, text, mask, extra = {}) => ({
+  type: 'text', text, mask, style: { fontSize: 120, fill: '#ffffff', fontWeight: 'bold' },
+  initial: { x: 640, y, anchorX: 0.5, anchorY: 0.5 }, ...extra,
+});
+return { duration: 5, sequences: [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#101626' } },
+  // the matte: a bright band that grows to the right; it lives as long as the layers it cuts
+  { type: 'shape', shape: 'rect', name: 'band', anchorX: 0, anchorY: 0, width: 0, height: 720,
+    initial: { x: 140, y: 0, fillColor: '#ffffff' },
+    keyframes: [{ at: 0.4, to: { width: 1000 }, duration: 2, ease: 'power2.inOut' }] },
+  line(200, 'ONE MATTE', 'band'),
+  line(360, 'SHARED BY', { layer: 'band', channel: 'luma' }),
+  line(520, 'THREE LAYERS', { layer: 'band', invert: true }, { initial: { x: 640, y: 520, anchorX: 0.5, anchorY: 0.5, fillColor: '#ffd166' } }),
+] };
+```
+
+---
+
+## A luma wipe (a transition that follows a brightness map)
+
+`{ kind: 'luma', map: 'radial' }` opens the next scene from the middle; `'linear'` sweeps left to right, `'diagonal'` corner to corner, or give the name of a grayscale image asset (dark parts change first). `softness` is the width of the soft edge and `flip` reverses the direction.
+
+```js
+// @recipe luma-wipe
+const scene = (name, at, color, label) => ({
+  type: 'composition', name, at, duration: 4, width: 1280, height: 720,
+  sequences: [
+    { type: 'shape', shape: 'rect', width: 1280, height: 720, initial: { x: 640, y: 360, fillColor: color } },
+    { type: 'text', text: label, style: { fontSize: 120, fill: '#ffffff', fontWeight: 'bold' }, initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5 } },
+  ],
+});
+return {
+  sequences: [scene('a', 0, '#3b5bdb', 'One'), scene('b', 3, '#e64980', 'Two')],     // they overlap for 1 s: 3 to 4
+  transitions: [{ kind: 'luma', from: 'a', to: 'b', at: 3, duration: 1, map: 'radial', softness: 0.15 }],
+  duration: 7,
+};
+```
+
+---
+
 ## A hand-held shake and a flickering light (`wiggle`, seeded)
 
 `wiggle()` returns keyframes (spread it into `keyframes`): each property drifts between seeded random targets and ends back at `around`. Use `freq` ~3 for a slow float, 8+ for a shake, `ease: 'none'` for a jittery flicker. Per-layer variety: give each its own `seed`.
