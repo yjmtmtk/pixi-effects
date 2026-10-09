@@ -88,6 +88,7 @@ export type {
   DissolveTransition,
   TransitionSpec,
   SequenceCommon,
+  BlendModeName,
   VideoSequenceSpec,
   ImageSequenceSpec,
   TextSequenceSpec,

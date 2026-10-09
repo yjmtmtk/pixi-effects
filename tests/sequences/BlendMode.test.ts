@@ -40,13 +40,14 @@ describe('blendMode on a layer', () => {
     expect(blendOf(comp, 1)).toBe('screen');
   });
 
-  it('warns about a mode it does not support, naming the choices, and leaves the layer alone', async () => {
+  it('warns about a mode it does not support, with the likely name and the choices, and leaves the layer alone', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const comp = await build([{ type: 'shape', shape: 'circle', radius: 10, name: 'halo', blendMode: 'overlay' }]);
+    const comp = await build([{ type: 'shape', shape: 'circle', radius: 10, name: 'halo', blendMode: 'softlight' }]);
     expect(blendOf(comp, 0)).toBeUndefined();
     const msg = warn.mock.calls.map(c => String(c[0])).find(m => m.includes('blendMode'))!;
     expect(msg).toContain('layer "halo"');
-    expect(msg).toContain('"overlay"');
+    expect(msg).toContain('"softlight"');
+    expect(msg).toContain('did you mean "soft-light"?');
     expect(msg).toMatch(/add.*screen.*multiply/);
   });
 

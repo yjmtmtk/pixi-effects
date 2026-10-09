@@ -185,6 +185,12 @@ export type TransitionSpec =
 
 // ─── Sequence specs ───────────────────────────────────────────────────────
 
+/** How a layer blends with what is behind it: the CSS `mix-blend-mode` names, plus `add` and `linear-burn`. */
+export type BlendModeName =
+  | 'normal' | 'add' | 'screen' | 'multiply'
+  | 'overlay' | 'soft-light' | 'hard-light' | 'color-dodge' | 'color-burn' | 'darken' | 'lighten' | 'difference' | 'exclusion'
+  | 'hue' | 'saturation' | 'color' | 'luminosity' | 'linear-burn';
+
 export interface SequenceCommon {
   name?: string;
   /**
@@ -231,11 +237,12 @@ export interface SequenceCommon {
    */
   maskInverted?: boolean;
   /**
-   * How this layer blends with what is behind it. `'add'` and `'screen'` brighten (glows, light leaks,
-   * overlapping halos add up instead of covering each other), `'multiply'` darkens. Default `'normal'`.
+   * How this layer blends with what is behind it (everything drawn below it). `'add'` and `'screen'` brighten (glows, light
+   * leaks, overlapping halos add up instead of covering each other), `'multiply'` darkens; `'overlay'`, `'soft-light'`,
+   * `'color-dodge'`, `'hue'`, ... are the CSS `mix-blend-mode` modes. Default `'normal'`.
    * On a composition the mode is inherited by its children: each one blends with what is behind it.
    */
-  blendMode?: 'normal' | 'add' | 'screen' | 'multiply';
+  blendMode?: BlendModeName;
   /**
    * Opt this layer into 2.5D: it can then use `z`, `rotationX`, `rotationY`
    * (in `initial` / keyframes) and is projected through the composition's
