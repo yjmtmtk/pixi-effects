@@ -219,6 +219,10 @@ export class WarpFilter extends Filter {
       console.warn(`pixi-effects: warp: strength ${strength} is not a number from 0 to 200: it is the largest shift in pixels (8 is a clear ripple); ${strength > 200 ? '200' : '0'} is used`);
       strength = strength > 200 ? 200 : 0;
     }
+    if (!(seed >= 0)) {
+      console.warn(`pixi-effects: warp: seed ${seed} must be 0 or more (an integer that picks the haze pattern); 0 is used`);
+      seed = 0;
+    }
     if (!(scale > 0)) {
       console.warn(`pixi-effects: warp: scale ${scale} must be above 0: it is the wavelength in pixels (80 is the default); 1 is used`);
       scale = 1;
@@ -248,7 +252,7 @@ export class WarpFilter extends Filter {
   get angle(): number { return this.u.uAngle! / DEG; }
   set angle(v: number) { this.u.uAngle = v * DEG; }
   get seed(): number { return this.u.uSeed!; }
-  set seed(v: number) { this.u.uSeed = Math.floor(v); }
+  set seed(v: number) { this.u.uSeed = v >= 0 ? Math.floor(v) : 0; }
   /** The movie calls this with the time (s) of the frame it is about to draw. */
   setTime(t: number): void { this.u.uTime = t; }
 }

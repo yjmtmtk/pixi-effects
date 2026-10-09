@@ -11,7 +11,15 @@ export const SHADER_MISSING = ['iMouse', 'iChannel0', 'iChannel1', 'iChannel2', 
 
 const IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const HEX = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
-const isIdent = (name: string): boolean => IDENT.test(name) && !name.startsWith('gl_') && !(SHADER_BUILTINS as readonly string[]).includes(name);
+/** GLSL ES 3.00 keywords and the words it reserves: a uniform of this name does not compile. */
+const RESERVED = new Set(`attribute const uniform varying break continue do for while if else in out inout float int void bool true false discard return
+  mat2 mat3 mat4 mat2x2 mat2x3 mat2x4 mat3x2 mat3x3 mat3x4 mat4x2 mat4x3 mat4x4 vec2 vec3 vec4 ivec2 ivec3 ivec4 bvec2 bvec3 bvec4 uvec2 uvec3 uvec4 uint
+  sampler2D sampler3D samplerCube sampler2DShadow samplerCubeShadow sampler2DArray sampler2DArrayShadow isampler2D isampler3D isamplerCube isampler2DArray
+  usampler2D usampler3D usamplerCube usampler2DArray struct layout centroid flat smooth precision invariant highp mediump lowp
+  sample patch subroutine common partition active asm class union enum typedef template this resource goto inline noinline public static extern external
+  interface long short double half fixed unsigned superp input output hvec2 hvec3 hvec4 fvec2 fvec3 fvec4 dvec2 dvec3 dvec4 filter sizeof cast namespace using`.split(/\s+/));
+const isIdent = (name: string): boolean =>
+  IDENT.test(name) && !name.startsWith('gl_') && !name.includes('__') && !RESERVED.has(name) && !(SHADER_BUILTINS as readonly string[]).includes(name);
 
 export type UniformKind = 'float' | 'vec2' | 'vec3' | 'vec4';
 
@@ -43,7 +51,9 @@ export function uniformDecls(uniforms: Record<string, unknown>): string {
   return out;
 }
 
+// the generated parts have line numbers of their own (100001 for the declarations, 200001 for main()), so an error in them is not mistaken for a line of the author's
 const HEAD = `#version 300 es
+#line 100001
 precision highp float;
 precision highp int;
 uniform vec3 iResolution;
@@ -52,6 +62,7 @@ uniform int iFrame;
 out vec4 pe_out;
 `;
 const FOOT = (transparent: boolean): string => `
+#line 200001
 void main() { vec4 c = vec4(0.0, 0.0, 0.0, 1.0); mainImage(c, gl_FragCoord.xy); ${transparent ? 'pe_out = vec4(c.rgb * c.a, c.a);' : 'pe_out = vec4(c.rgb, 1.0);'} }
 `;
 
@@ -73,7 +84,11 @@ export function glslErrors(log: string): string[] {
     const angle = /^ERROR:\s*\d+:(\d+):\s*(.*)$/.exec(line);
     const mesa = /^\d+:(\d+)\(\d+\):\s*(?:error|warning):\s*(.*)$/.exec(line);
     const hit = angle ?? mesa;
-    out.push(hit ? `line ${hit[1]}: ${hit[2]}` : line);
+    if (!hit) { out.push(line); continue; }
+    const n = Number(hit[1]);
+    if (n >= 200001) out.push(`in the main() made for you, which calls mainImage: ${hit[2]} (write void mainImage(out vec4 fragColor, in vec2 fragCoord))`);
+    else if (n >= 100001) out.push(`in the declarations made from your uniforms: ${hit[2]} (a uniform name GLSL does not allow, such as a reserved word?)`);
+    else out.push(`line ${n}: ${hit[2]}`);
   }
   return out;
 }
@@ -91,8 +106,11 @@ export function shaderProblems(spec: SequenceSpec): string[] {
     if (!/\bvoid\s+mainImage\s*\(/.test(code)) {
       out.push('there is no mainImage: write void mainImage(out vec4 fragColor, in vec2 fragCoord) { … } (Shadertoy style; the layer calls it for every pixel)' +
         (/\bvoid\s+main\s*\(/.test(code) ? ' and not main()' : ''));
-    } else if (/\bvoid\s+main\s*\(/.test(code)) {
-      out.push('main() is written for you (it calls your mainImage): remove your main()');
+    } else {
+      if (/\bvoid\s+main\s*\(/.test(code)) out.push('main() is written for you (it calls your mainImage): remove your main()');
+      if (!/\bvoid\s+mainImage\s*\(\s*(?:out|inout)\s+(?:(?:highp|mediump|lowp)\s+)?vec4\s+\w+\s*,\s*(?:in\s+)?(?:(?:highp|mediump|lowp)\s+)?vec2\s+\w+\s*\)/.test(code)) {
+        out.push('the signature of mainImage must be void mainImage(out vec4 fragColor, in vec2 fragCoord): the colour parameter is out (without out the layer draws black and nothing says why) and the position is a vec2');
+      }
     }
     if (/^\s*#version\b/m.test(code)) out.push('#version is added for you (GLSL ES 3.00): remove it');
     if (/\bgl_FragColor\b/.test(code)) out.push('gl_FragColor does not exist here: write the colour into the fragColor parameter of mainImage');
@@ -104,10 +122,17 @@ export function shaderProblems(spec: SequenceSpec): string[] {
     const missing = SHADER_MISSING.filter(n => new RegExp(`\\b${n}\\b`).test(code));
     if (missing.length) out.push(`${missing.join(', ')} ${missing.length > 1 ? 'are' : 'is'} not provided in this version (the shader has iResolution, iTime, iFrame and your uniforms); the shader will not compile`);
     if (/\bwhile\s*\(/.test(code)) out.push('a while loop may never end and a GPU cannot be stopped: use a for loop with a constant bound');
-    const consts = new Set([...code.matchAll(/\bconst\s+(?:int|float)\s+(\w+)/g)].map(m => m[1]!).concat([...code.matchAll(/#define\s+(\w+)/g)].map(m => m[1]!)));
-    for (const m of code.matchAll(/\bfor\s*\(\s*(?:int|float)\s+\w+\s*=\s*[^;]+;\s*\w+\s*(?:<=|>=|<|>|!=)\s*([^;]+?)\s*;/g)) {
+    const consts = new Set([...code.matchAll(/\bconst\s+(?:int|float|uint)\s+(\w+)/g)].map(m => m[1]!).concat([...code.matchAll(/#define\s+(\w+)/g)].map(m => m[1]!)));
+    // a bound is constant when it is made of GLSL number literals (1, 1., .5, 1e2, 10u), consts, #defines and + - * / % ( )
+    const constant = (expr: string): boolean => {
+      const rest = expr.replace(/\d+\.?\d*(?:[eE][-+]?\d+)?[uUfF]?|\.\d+(?:[eE][-+]?\d+)?[fF]?|[A-Za-z_]\w*/g, t => (/^[A-Za-z_]/.test(t) && !consts.has(t) ? '?' : ''));
+      return /^[\s+\-*/%()]*$/.test(rest);
+    };
+    for (const m of code.matchAll(/\bfor\s*\(\s*(?:int|float|uint)\s+\w+\s*=\s*[^;]+;\s*\w+\s*(?:<=|>=|<|>|!=)\s*([^;]+?)\s*;/g)) {
       const bound = m[1]!;
-      if (!(/^[-+]?\d+(?:\.\d+)?$/.test(bound) || consts.has(bound))) {
+      const ands = bound.split('&&'), ors = bound.split('||');
+      const ok = ors.length > 1 ? ors.every(part => constant(part.split('&&')[0]!.replace(/<.*$/, ''))) : ands.length > 1 ? ands.some(constant) || constant(ands[0]!) : constant(bound);
+      if (!ok) {
         out.push(`a for loop with the bound "${bound}" may run for ever: use a constant bound (a number or a const) and break out early`);
         break;
       }
@@ -118,7 +143,7 @@ export function shaderProblems(spec: SequenceSpec): string[] {
       out.push('uniforms is an object of names to values: { speed: 1, tint: \'#ff8040\', pos: [0.5, 0.5] }');
     } else {
       for (const [name, v] of Object.entries(raw.uniforms as Record<string, unknown>)) {
-        if (!isIdent(name)) out.push(`uniform "${name}" is not a name GLSL can use (letters, digits and _, not starting with a digit, not iResolution / iTime / iFrame)`);
+        if (!isIdent(name)) out.push(`uniform "${name}" is not a name GLSL can use (letters, digits and _, not starting with a digit; not a GLSL keyword or reserved word such as sample, smooth, filter, input; not iResolution / iTime / iFrame)`);
         else if (uniformType(v) === null) out.push(`uniform "${name}": ${JSON.stringify(v)} is not a number, 2 to 4 numbers or a '#rrggbb' colour`);
       }
     }

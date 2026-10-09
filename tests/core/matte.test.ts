@@ -54,6 +54,12 @@ describe('refNames', () => {
   });
 });
 
+describe('a shader layer as an inline mask', () => {
+  it('goes through the matte filter: a sprite stencil mask would be drawn on top of the layer (as an image mask once was)', () => {
+    expect(usesMatteRoute({ mask: { type: 'shader', fragment: 'x' } })).toBe(true);
+  });
+});
+
 describe('usesMatteRoute (which inline masks go through the matte filter)', () => {
   it('an inverted mask and a text, image or video mask do; a plain shape mask (the stencil) and no mask do not', () => {
     expect(usesMatteRoute({ mask: { type: 'shape', shape: 'circle' }, maskInverted: true })).toBe(true);

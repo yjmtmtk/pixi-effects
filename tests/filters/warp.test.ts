@@ -92,6 +92,14 @@ describe('WarpFilter', () => {
     expect(said[2]).toContain('strength 500'); expect(c.strength).toBe(200);
     expect(said[3]).toContain('scale 0'); expect(uniforms(d).uScale).toBe(1);
   });
+  it('a negative seed is said once and is 0 (the three code paths would otherwise draw three different pictures)', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const f = new WarpFilter({ kind: 'haze', seed: -3 });
+    expect(uniforms(f).uSeed).toBe(0);
+    expect(warn.mock.calls.map(x => String(x[0])).filter(m => m.includes('seed'))).toHaveLength(1);
+    f.seed = -9;
+    expect(uniforms(f).uSeed).toBe(0);
+  });
   it('an option nobody knows is warned about (a typo)', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     new WarpFilter({ strenght: 5 } as never);

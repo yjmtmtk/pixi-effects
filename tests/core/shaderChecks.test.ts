@@ -85,3 +85,44 @@ describe('shaderProblems', () => {
     expect(shaderProblems(spec({ transparent: 'yes' })).join('\n')).toContain('transparent');
   });
 });
+
+describe('loops that are fine are not warned about (the idioms of Shadertoy)', () => {
+  const loop = (code: string) => shaderProblems(spec({ fragment: OK + ' ' + code })).filter(m => m.includes('loop'));
+  it('a float loop with a literal like 1. or .5, a bound with && (the raymarch idiom), a #define and an expression of constants', () => {
+    expect(loop('void a() { for (float i = 0.; i < 1.; i += .1) { } }')).toEqual([]);
+    expect(loop('void b() { for (float i = 0.0; i < .5; i += .1) { } }')).toEqual([]);
+    expect(loop('void c(float t) { for (int i = 0; i < 100 && t < 20.0; i++) { } }')).toEqual([]);
+    expect(loop('#define STEPS 64\nvoid d() { for (int i = 0; i < STEPS - 1; i++) { } }')).toEqual([]);
+    expect(loop('const int N = 4;\nvoid e() { for (int i = 0; i < 2 * N; i++) { } }')).toEqual([]);
+    expect(loop('void f() { for (int i = 0; i < 1e2; i++) { } }')).toEqual([]);
+  });
+  it('a bound that is a variable still warns, alone or joined with other variables', () => {
+    expect(loop('void g(int n) { for (int i = 0; i < n; i++) { } }')).toHaveLength(1);
+    expect(loop('void h(int n, int m) { for (int i = 0; i < n && i < m; i++) { } }')).toHaveLength(1);
+    expect(loop('void k(int n) { for (int i = 0; i < 8 || i < n; i++) { } }')).toHaveLength(1);
+  });
+});
+
+describe('names, reserved words and the signature', () => {
+  it('a uniform named like a GLSL keyword or reserved word is said, and not declared (the compiler would put the error on a header line)', () => {
+    const p = shaderProblems(spec({ uniforms: { smooth: 0.5, sample: 1, ok: 2 } })).join('\n');
+    expect(p).toContain('"smooth"'); expect(p).toContain('"sample"'); expect(p).toContain('reserved');
+    expect(p).not.toContain('"ok"');
+    expect(uniformDecls({ smooth: 1, ok: 2 })).toBe('uniform float ok;\n');
+  });
+  it('compiler errors in the generated parts are not given the author\'s line numbers', () => {
+    expect(wrapFragment(OK, { ok: 1 }, false).source).toMatch(/#line 100001/);
+    expect(glslErrors("ERROR: 0:100004: 'sample' : syntax error").join('\n')).toMatch(/declarations made from your uniforms/);
+    expect(glslErrors("ERROR: 0:200003: 'mainImage' : no matching overloaded function found").join('\n')).toMatch(/mainImage.*void mainImage\(out vec4 fragColor, in vec2 fragCoord\)/);
+    expect(glslErrors("ERROR: 0:2: 'x' : undeclared identifier")).toEqual(["line 2: 'x' : undeclared identifier"]);
+  });
+  it('mainImage without out on the colour, or with other types, warns (it would draw a silent black layer)', () => {
+    const w = (sig: string) => shaderProblems(spec({ fragment: `void mainImage(${sig}) { }` })).filter(m => m.includes('signature') || m.includes('out vec4'));
+    expect(w('vec4 fragColor, in vec2 fragCoord')).toHaveLength(1);
+    expect(w('out vec4 c, in ivec2 f')).toHaveLength(1);
+    expect(w('out vec4 fragColor, in vec2 fragCoord')).toEqual([]);
+    expect(w('out vec4 O, vec2 U')).toEqual([]);
+    expect(w('inout vec4 c, in vec2 f')).toEqual([]);
+    expect(w('out highp vec4 c, in vec2 f')).toEqual([]);
+  });
+});

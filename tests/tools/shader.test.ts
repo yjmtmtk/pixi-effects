@@ -166,6 +166,19 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
     });
   });
 
+  it('a shader layer as an inline mask cuts the layer by its alpha and is not drawn on top of it', async () => {
+    await withPage(async (cdp) => {
+      const disc = 'void mainImage(out vec4 c, in vec2 f) { c = vec4(1.0, 1.0, 1.0, length(f - vec2(160.0, 90.0)) < 40.0 ? 1.0 : 0.0); }';
+      await mk(cdp, [backdrop('#00ff00'), { type: 'shape', shape: 'rect', name: 'L', width: 320, height: 180, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#ff0000' },
+        mask: { type: 'shader', transparent: true, fragment: disc } }]);
+      const u = await cdp.eval('snap(0)');
+      near(await rgb(cdp, u, 160, 90), [255, 0, 0], 2, 'inside the shader mask: the layer');
+      near(await rgb(cdp, u, 10, 10), [0, 255, 0], 2, 'outside: the backdrop (the mask picture itself is not painted over it)');
+      near(await rgb(cdp, u, 160, 40), [0, 255, 0], 2, 'above the disc: the backdrop, not the white of the shader');
+      expect(mine(await cdp.eval('__logs'))).toEqual([]);
+    });
+  });
+
   it('a shader layer can be threeD (flat at z = 0, tilted with rotationY) and receives the lights of its composition', async () => {
     await withPage(async (cdp) => {
       await mk(cdp, [backdrop('#000000'), solid(1, 0, 0, { threeD: true, initial: { x: 0, y: 0, z: 0 } })]);
