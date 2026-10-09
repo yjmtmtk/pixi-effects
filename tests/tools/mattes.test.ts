@@ -151,6 +151,66 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
     });
   });
 
+  for (const [mode, alpha] of [['multiply', 1], ['screen', 1], ['add', 1], ['overlay', 1], ['soft-light', 1], ['hue', 1], ['overlay', 0.5], ['luminosity', 1]] as const) {
+    it(`a matted layer with blendMode ${mode}${alpha < 1 ? ' at alpha ' + alpha : ''}: the blend inside the matte, the backdrop outside`, async () => {
+      await withPage(async (cdp) => {
+        const url = await frame(cdp, { sequences: [backdrop, disc(), layer({ mask: 'm', blendMode: mode, initial: { x: 0, y: 0, fillColor: LAYER, alpha } })] });
+        const back = hexToRgb(BACK), src = hexToRgb(LAYER);
+        const inside = mode === 'multiply' ? back.map((b, k) => b * src[k]! * alpha + b * (1 - alpha)).map(v => v * 255)
+          : mode === 'screen' ? back.map((b, k) => (b + src[k]! - b * src[k]!) * alpha + b * (1 - alpha)).map(v => v * 255)
+          : mode === 'add' ? back.map((b, k) => Math.min(1, b + src[k]! * alpha)).map(v => v * 255)
+          : blendPixel(mode, back, 1, src, alpha).slice(0, 3);
+        near(await at(cdp, url, 80, 45), inside, `${mode}: inside the matte`);
+        near(await at(cdp, url, 10, 10), back.map(v => v * 255), `${mode}: outside the matte`);
+      });
+    });
+  }
+
+  it('the same matte with a luma channel and a blend: brightness 0.5 half-blends', async () => {
+    await withPage(async (cdp) => {
+      const url = await frame(cdp, { sequences: [backdrop, rect('m', { initial: { x: 0, y: 0, fillColor: '#808080' } }), layer({ mask: [{ layer: 'm', channel: 'luma' }], blendMode: 'multiply' })] });
+      const back = hexToRgb(BACK), src = hexToRgb(LAYER), m = 128 / 255;
+      near(await at(cdp, url, 80, 45), back.map((b, k) => (b * (1 - m) + b * src[k]! * m) * 255), 'luma 0.5 with multiply');
+    });
+  });
+
+  it('a matted layer that has its own filter (an identity colour matrix) is cut by the matte after it', async () => {
+    await withPage(async (cdp) => {
+      const url = await frame(cdp, { sequences: [backdrop, disc(), layer({ mask: 'm', filters: [{ type: 'colorMatrix', matrix: [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0] }] })] });
+      near(await at(cdp, url, 80, 45), mix(1), 'inside');
+      near(await at(cdp, url, 10, 10), mix(0), 'outside');
+    });
+  });
+
+  it('a matte that is a text layer, an image and a video: the matted layer shows through the letters / the disc', async () => {
+    await withPage(async (cdp) => {
+      const discUrl: string = await cdp.eval(`(() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); g.fillStyle = '#ffffff'; g.beginPath(); g.arc(32, 32, 28, 0, 7); g.fill(); return c.toDataURL('image/png'); })()`);
+      const text = { type: 'text', name: 'm', text: 'I', style: { fontSize: 90, fontWeight: '900', fill: '#ffffff', fontFamily: 'sans-serif' }, initial: { x: 80, y: 45, anchorX: 0.5, anchorY: 0.5 } };
+      let url = await frame(cdp, { sequences: [backdrop, text, layer({ mask: 'm' })] });
+      near(await at(cdp, url, 80, 45), mix(1), 'text matte: in the letter');
+      near(await at(cdp, url, 10, 10), mix(0), 'text matte: outside');
+      url = await frame(cdp, { sequences: [backdrop, { type: 'image', name: 'm', asset: 'disc', initial: { x: 80, y: 45, anchorX: 0.5, anchorY: 0.5 } }, layer({ mask: 'm' })] }, 0, { assets: [{ name: 'disc', src: discUrl }] });
+      near(await at(cdp, url, 80, 45), mix(1), 'image matte: in the disc');
+      near(await at(cdp, url, 10, 10), mix(0), 'image matte: outside');
+    });
+  });
+
+  it('every seek order gives the same pictures for a matte that moves, a blend, a filter and a text matte together', async () => {
+    await withPage(async (cdp) => {
+      const move = { keyframes: [{ at: 0, to: { x: 130 }, duration: 1, ease: 'none' }] };
+      const comp = { sequences: [backdrop,
+        disc('m', '#ffffff', { initial: { x: 30, y: 45, fillColor: '#ffffff' }, ...move }),
+        layer({ mask: 'm', blendMode: 'overlay' }),
+        { type: 'text', name: 't', text: 'I', style: { fontSize: 60, fill: '#ffffff' }, initial: { x: 80, y: 45, anchorX: 0.5, anchorY: 0.5 } },
+        rect('L2', { mask: 't', initial: { x: 0, y: 0, fillColor: '#ff3366' } })] };
+      await cdp.eval(`mk(${JSON.stringify({ duration: 1, composition: comp })})`);
+      const o = await cdp.eval('orders([0, 3, 6, 9, 12, 20, 29])');
+      expect(o.bwdMax).toBe(0);
+      expect(o.jmpMax).toBe(0);
+      expect(mine(await cdp.eval('__logs'))).toEqual([]);
+    });
+  });
+
   it('a composition with no mask does not touch the matte machinery: the same pixels, no warning', async () => {
     await withPage(async (cdp) => {
       const url = await frame(cdp, { sequences: [backdrop, layer({ initial: { x: 40, y: 20, fillColor: LAYER }, width: 40, height: 30 })] });
