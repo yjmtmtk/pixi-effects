@@ -37,8 +37,8 @@ describe('FrameCache, sequential reading — one decoder pass for a movie that a
     const pulls = v.log.pulls, singles = v.log.getSampleCalls;
     expect(idOf(await cache.getFrameAt(0.55))).toBe(16);
     expect(idOf(await cache.getFrameAt(0.56))).toBe(16);
-    expect(idOf(await cache.getFrameAt(0.5))).toBe(15);                          // held: the pass moved on, the frame is still here
     expect(v.log.pulls).toBe(pulls);
+    expect(idOf(await cache.getFrameAt(0.5))).toBe(15);                          // held: the pass moved on, the frame is still here (no getSample for it)
     expect(v.log.getSampleCalls).toBe(singles);
   });
 
@@ -51,14 +51,6 @@ describe('FrameCache, sequential reading — one decoder pass for a movie that a
     expect(v.log.getSampleCalls).toBe(2);                                    // the first request and the seek
     expect(v.log.iteratorReturns).toBeGreaterThanOrEqual(1);                 // the pass was closed, not left running
     expect(idOf(await cache.getFrameAt(2))).toBe(60);                        // the same seek again: held
-  });
-
-  it('playing backwards (frame after frame, going down) decodes a window behind the request once, so most steps are answered from what is held', async () => {
-    const v = fakeVideo(300);
-    const cache = new FrameCache(v.sink, { capacity: 30 });
-    for (let i = 200; i >= 100; i--) expect(idOf(await cache.getFrameAt(i / 30 + 0.001))).toBe(i);
-    expect(v.log.getSampleCalls).toBeLessThanOrEqual(2);
-    expect(v.log.samplesCalls.length).toBeLessThanOrEqual(5);                  // not one pass per frame (101)
   });
 
   it('a jump far ahead is one getSample instead of decoding everything in between; frames asked next to it then start a pass', async () => {
@@ -129,4 +121,54 @@ describe('FrameCache, sequential reading — one decoder pass for a movie that a
   });
 });
 
-function i0(t: number) { return t; }
+
+
+async function tick() { for (let i = 0; i < 30; i++) await Promise.resolve(); await new Promise(r => setTimeout(r, 0)); }       // the time between two frames: background reads get to run
+
+describe('FrameCache, reading ahead — the pauses of reverse play and of a loop coming round are read before they are needed', () => {
+  it('playing backwards: a window behind is read in the background before the held frames run out, so no step waits for a decoder pass', async () => {
+    const v = fakeVideo(400);
+    const cache = new FrameCache(v.sink, { capacity: 30 });
+    for (let i = 300; i >= 100; i--) { expect(idOf(await cache.getFrameAt(i / 30 + 0.001))).toBe(i); await tick(); }
+    expect(cache.stats.restarts).toBeLessThanOrEqual(2);                       // the first steps (a pass has to be started, then turned round once)
+    expect(cache.stats.prefetches).toBeGreaterThanOrEqual(5);
+    expect(v.log.getSampleCalls).toBeLessThanOrEqual(2);
+  });
+
+  it('a looping layer reads the start of the file before the end comes, so the wrap needs no seek and no new pass', async () => {
+    const v = fakeVideo(60);
+    const cache = new FrameCache(v.sink, { capacity: 30, duration: 2, loop: true });
+    for (let n = 0; n < 180; n++) { expect(idOf(await cache.getFrameAt((n % 60) / 30 + 0.001))).toBe(n % 60); await tick(); }
+    expect(cache.stats.singles).toBeLessThanOrEqual(1);
+    expect(cache.stats.restarts).toBeLessThanOrEqual(1);
+    expect(cache.stats.prefetches).toBeGreaterThanOrEqual(2);
+  });
+
+  it('a layer that does not loop never reads the start ahead; one read ahead for nothing is closed with the cache', async () => {
+    const v = fakeVideo(60);
+    const cache = new FrameCache(v.sink, { capacity: 30, duration: 2, loop: false });
+    for (let n = 0; n < 60; n++) { await cache.getFrameAt(n / 30 + 0.001); await tick(); }
+    expect(cache.stats.prefetches).toBe(0);
+    const w = fakeVideo(60);
+    const looping = new FrameCache(w.sink, { capacity: 30, duration: 2, loop: true });
+    for (let n = 0; n < 59; n++) { await looping.getFrameAt(n / 30 + 0.001); await tick(); }
+    expect(looping.stats.prefetches).toBe(1);
+    const opened = w.log.samplesCalls.length;
+    looping.dispose();
+    await tick();
+    expect(w.log.iteratorReturns).toBe(opened);                                // every iterator it opened was closed, the read-ahead one included
+  });
+
+  it('what is held is kept in the direction of travel: going backwards the frames already passed are closed first, never the ones about to be asked for', async () => {
+    const v = fakeVideo(400);
+    const cache = new FrameCache(v.sink, { capacity: 10 });
+    for (let i = 300; i >= 200; i--) {
+      expect(idOf(await cache.getFrameAt(i / 30 + 0.001))).toBe(i);
+      for (const next of [i - 1, i - 2, i - 3]) expect(v.frames[next]!.close, `step ${i}: frame ${next} is about to be asked for`).not.toHaveBeenCalled();
+      await tick();
+    }
+    expect(cache.heldFrames).toBeLessThanOrEqual(10);
+    expect(v.frames[290]!.close).toHaveBeenCalled();
+  });
+});
+

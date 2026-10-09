@@ -29,7 +29,7 @@ export class VideoSequence extends Sequence {
     this._sourceDuration = data.duration;
     this._remap = remapOf(this.spec as never, 'currentTime', this._sourceDuration);
     this._audioBuffer = (this.spec.audio !== false) ? data.audioBuffer : null;
-    this._cache = new FrameCache(data.sink as unknown as FrameSink, { capacity: 30 });
+    this._cache = new FrameCache(data.sink as unknown as FrameSink, { capacity: 30, duration: data.duration, loop: !!this.spec.loop });
 
     const probeFrame = await this._cache.getFrameAt(0);
     const w = probeFrame?.displayWidth ?? 1920;
