@@ -620,6 +620,26 @@
       "notes": "_notes/recipe-card.md"
     },
     {
+      "id": "light-leaks",
+      "title": "Light leaks",
+      "subtitle": "A dusk city told only by blend modes: a soft-light colour cast, a colour-dodge light leak, a multiply vignette",
+      "tags": [
+        "blend modes",
+        "gradients",
+        "shapes",
+        "dusk",
+        "audio"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 7.5,
+      "posterFrame": 186,
+      "model": "sonnet",
+      "page": "light-leaks.html",
+      "poster": "posters/light-leaks.jpg",
+      "notes": "_notes/light-leaks.md"
+    },
+    {
       "id": "loader-gallery",
       "title": "Loader Gallery",
       "subtitle": "Nine hypnotic loading loops on one dark board, each a different idea.",

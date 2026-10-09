@@ -760,7 +760,9 @@ Rules:
 5. **On a composition the mode is inherited by its children, each blending with what is behind it** (not as one picture). To blend a composition as a whole, give it `threeD: true` (at `z: 0` with the default camera nothing else changes) or a filter.
 6. **The 14 new modes are heavier** (each is a full-frame pass; about 1.5–2 ms a layer on WebGL at 1080p in the author's measurement, much less on WebGPU). 10 or more on screen at once warns; a glow or a haze should be one layer (a gradient), not a pile.
 7. **Together with `filters`, `threeD` and depth of field they all work** (the blend is applied after the layer's own filters, and after the depth-of-field blur).
-8. **With `mask`:** an inverted mask (`maskInverted: true`) works with every mode. A **text layer as the mask** cannot carry a blend (it warns and draws the layer normal): put the text on a layer of its own with the `blendMode`.
+8. **Some modes only act on some tones.** `overlay` and `soft-light` change almost nothing over a near-black or a near-white backdrop (their formulas leave 0 and 1 where they are), so a colour cast needs a **mid-tone** picture under it; `color-dodge` over a dark backdrop gives a saturated colour (each channel is lifted separately), over a bright one it burns out to white; `multiply` can only darken and `screen` / `add` only brighten.
+9. **`blendMode` is a setting of the layer, not an animatable property** (`initial` or a keyframe with it warns). To change the mode for a moment, put a second, short-lived layer (`at` / `duration`) on top, or fade a layer's `alpha`.
+10. **With `mask`:** an inverted mask (`maskInverted: true`) works with every mode. A **text layer as the mask** cannot carry a blend (it warns and draws the layer normal): put the text on a layer of its own with the `blendMode`.
 
 Checked against the W3C formulas on WebGPU and WebGL: every pixel within 2/255 (measured worst: 0.5/255 at alpha 1, 1.5/255 at alpha 0.5); on the same machine a frame is the same picture however it was reached. Another GPU can differ by a step or two.
 

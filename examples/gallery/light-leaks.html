@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Light leaks — a dusk told in blend modes</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+  <style>
+    html, body { height: 100%; }
+    body { background: #0d1220; margin: 0; padding: 16px; box-sizing: border-box; display: grid; place-items: center; }
+    .pe-stage { position: relative; width: min(960px, 100%); border-radius: 8px; --pe-loader-bg: #8fb4d0; background: #8fb4d0; }
+    .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
+  </style>
+  <script type="application/json" id="piece-meta">
+  { "title": "Light leaks",
+    "subtitle": "A dusk city told only by blend modes: a soft-light colour cast, a colour-dodge light leak, a multiply vignette",
+    "tags": ["blend modes", "gradients", "shapes", "dusk", "audio"],
+    "width": 1280, "height": 720, "duration": 7.5, "model": "sonnet" }
+  </script>
+</head>
+<body>
+  <div class="pe-stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie, animateText } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 7.5;
+
+    // ------------------------------------------------------------------ palette (cool day -> warm dusk), nothing else is used
+    const C = {
+      skyDayTop: '#7fb0d6', skyDayMid: '#b9d6e6', skyDayLow: '#eef2ee',
+      skyDuskTop: '#1f2352', skyDuskMid: '#7b4079', skyDuskLow: '#f2824a', skyDuskHorizon: '#ffc884',
+      far:  ['#a9bed2', '#5f4a7a'],
+      mid:  ['#7d95b3', '#2f2a52'],
+      near: ['#475d80', '#100e26'],
+      window: '#ffd68a',
+      cream: '#fff1dc',
+    };
+
+    // ------------------------------------------------------------------ seeded randomness (every run and export identical)
+    let seed = 1742;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const between = (a, b) => a + (b - a) * rnd();
+
+    // ------------------------------------------------------------------ timeline (seconds) — the whole story in one place
+    const T = {
+      dusk: [1.2, 4.6],         // sky, buildings and the colour temperature turn warm
+      leak: [2.2, 5.8],         // the light leak drifts across
+      leakPeak: 3.9,
+      windows: [3.4, 5.0],
+      vignette: [3.4, 6.0],
+      title: 4.8,
+      sub: 5.7,
+    };
+
+    // ------------------------------------------------------------------ skyline: one silhouette = one path layer
+    function makeRow({ name, x0 = 0, minW, maxW, minTop, maxTop, spikes = 0 }) {
+      const blocks = [];
+      let x = x0 - between(10, 40);
+      while (x < W + 20) {
+        const w = between(minW, maxW), top = between(minTop, maxTop);
+        blocks.push({ x, w, top });
+        x += w;
+      }
+      let d = `M ${blocks[0].x} ${H + 10}`;
+      blocks.forEach((b, i) => {
+        d += ` L ${b.x} ${b.top}`;
+        if (i < spikes) { const cx = b.x + b.w * 0.5; d += ` L ${cx - 3} ${b.top} L ${cx - 3} ${b.top - 46} L ${cx + 3} ${b.top - 46} L ${cx + 3} ${b.top}`; }
+        d += ` L ${b.x + b.w} ${b.top}`;
+      });
+      d += ` L ${blocks[blocks.length - 1].x + blocks[blocks.length - 1].w} ${H + 10} Z`;
+      return { blocks, d, name };
+    }
+    const dayToDusk = (pair) => ({ at: T.dusk[0], to: { fillColor: pair[1] }, duration: T.dusk[1] - T.dusk[0], ease: 'sine.inOut' });
+    const rowLayer = (row, pair) => ({
+      type: 'shape', shape: 'path', name: row.name, d: row.d, colorSpace: 'oklab',
+      initial: { fillColor: pair[0] },
+      keyframes: [dayToDusk(pair)],
+    });
+
+    const farRow  = makeRow({ name: 'skyline-far',  minW: 70, maxW: 140, minTop: 300, maxTop: 440 });
+    const midRow  = makeRow({ name: 'skyline-mid',  minW: 80, maxW: 150, minTop: 370, maxTop: 480, spikes: 1 });
+    const nearRow = makeRow({ name: 'skyline-near', minW: 90, maxW: 160, minTop: 430, maxTop: 540, spikes: 2 });
+
+    // windows: a grid on each near block, a seeded subset lights up in a wave from the right
+    const windows = [];
+    nearRow.blocks.forEach((b, bi) => {
+      const cols = Math.max(2, Math.floor((b.w - 22) / 26));
+      const rows = Math.floor((H - 60 - b.top - 20) / 34);
+      const gx = b.x + (b.w - (cols * 26 - 10)) / 2;
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+        const px = gx + c * 26 + 8, py = b.top + 22 + r * 34;
+        if (px < 40 || px > W - 40 || rnd() > 0.46) continue;
+        windows.push({ x: px, y: py, order: 1 - px / W + rnd() * 0.18 });
+      }
+    });
+    const winLayers = windows.map((w, i) => ({
+      type: 'shape', shape: 'rect', name: 'win-' + i, width: 11, height: 17,
+      at: T.windows[0] + (T.windows[1] - T.windows[0]) * Math.min(1, w.order),
+      initial: { x: w.x, y: w.y, fillColor: C.window },
+      keyframes: [
+        { at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.22, ease: 'power2.out' },
+        { at: 0.22, to: { alpha: 0.82 }, duration: 0.6, ease: 'sine.out' },
+      ],
+    }));
+
+    // a few stars, only in the upper right (the title lives on the left)
+    const stars = Array.from({ length: 16 }, (_, i) => ({
+      type: 'shape', shape: 'circle', name: 'star-' + i, radius: between(1.1, 2), at: 4.0 + rnd() * 1.5,
+      initial: { x: between(660, 1210), y: between(48, 250), fillColor: C.cream },
+      keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: between(0.45, 0.9) }, duration: 0.8 }],
+    }));
+
+    // three thin clouds: pale blue-white by day, they catch the dusk cast
+    const clouds = [[930, 150, 330, 24], [1040, 270, 220, 16], [640, 300, 200, 14]].map(([x, y, rx, ry], i) => ({
+      type: 'shape', shape: 'ellipse', name: 'cloud-' + i, radiusX: rx, radiusY: ry, colorSpace: 'oklab',
+      initial: { x, y, fillColor: '#ffffff', alpha: 0.7 },
+      keyframes: [
+        { at: 0, to: { x: x + 46 }, duration: DURATION, ease: 'none' },
+        { at: T.dusk[0], to: { fillColor: '#ffb79a', alpha: 0.5 }, duration: T.dusk[1] - T.dusk[0], ease: 'sine.inOut' },
+      ],
+    }));
+
+    // title: built by animateText; y is the TOP of the line box
+    const TITLE_STYLE = { fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 92, fontStyle: 'italic', fill: C.cream, letterSpacing: 1 };
+    const TITLE_X = 96, TITLE_Y = 96;
+    const title = animateText('Light leaks', TITLE_STYLE, {
+      name: 'title', x: TITLE_X, y: TITLE_Y, align: 'left', at: T.title, duration: DURATION - T.title,
+      in: 'rise', stagger: { each: 0.045 },
+    });
+
+    const sequences = [
+      // ===== backdrop: day sky, dusk sky on top (fades in), sun, clouds
+      { type: 'shape', shape: 'rect', name: 'sky-day', width: W, height: H, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0 },
+        fillGradient: { stops: [[0, C.skyDayTop], [0.5, C.skyDayMid], [0.8, C.skyDayLow], [1, C.skyDayLow]] } },
+      { type: 'shape', shape: 'rect', name: 'sky-dusk', width: W, height: H, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, alpha: 0 },
+        fillGradient: { stops: [[0, C.skyDuskTop], [0.38, C.skyDuskMid], [0.66, C.skyDuskLow], [0.8, C.skyDuskHorizon], [1, C.skyDuskHorizon]] },
+        keyframes: [{ at: T.dusk[0] + 0.3, to: { alpha: 1 }, duration: T.dusk[1] - T.dusk[0] - 0.3, ease: 'sine.inOut' }] },
+      ...stars,
+      ...clouds,
+      { type: 'null', name: 'sun-rig', initial: { x: 930, y: 190 },
+        keyframes: [{ at: 0.3, to: { y: 500 }, duration: 4.4, ease: 'sine.in' }] },
+      { type: 'shape', shape: 'circle', name: 'sun-halo', parent: 'sun-rig', radius: 230,
+        fillGradient: { type: 'radial', stops: [[0, 'rgba(255,246,220,0.85)'], [0.35, 'rgba(255,230,190,0.35)'], [1, 'rgba(255,220,170,0)']] } },
+      { type: 'shape', shape: 'circle', name: 'sun', parent: 'sun-rig', radius: 44, colorSpace: 'oklab', initial: { fillColor: '#fff7e0' },
+        keyframes: [{ at: 0.5, to: { fillColor: '#ff9a52' }, duration: 4, ease: 'sine.in' }] },
+
+      // ===== the city: three silhouettes (path layers), the haze between the mid and near rows, then the lit windows
+      rowLayer(farRow, C.far),
+      rowLayer(midRow, C.mid),
+      // ===== BLEND 1: screen — a haze band at the horizon that brightens the lower sky and the roofs (one linear gradient)
+      { type: 'shape', shape: 'rect', name: 'haze', width: W, height: 420, anchorX: 0, anchorY: 0, blendMode: 'screen', initial: { x: 0, y: 300, alpha: 0 },
+        fillGradient: { angle: 90, stops: [[0, 'rgba(255,140,70,0)'], [0.6, 'rgba(255,140,70,0.55)'], [1, 'rgba(255,170,90,0.2)']] },
+        keyframes: [{ at: 2.0, to: { alpha: 1 }, duration: 2.4, ease: 'sine.inOut' }, { at: 6.0, to: { alpha: 0.7 }, duration: 1.5 }] },
+
+      rowLayer(nearRow, C.near),
+      ...winLayers,
+
+      // ===== BLEND 2: soft-light — the colour cast over everything below (violet up high, orange at the horizon)
+      { type: 'shape', shape: 'rect', name: 'cast', width: W, height: H, anchorX: 0, anchorY: 0, blendMode: 'soft-light', initial: { x: 0, y: 0, alpha: 0 },
+        fillGradient: { stops: [[0, '#5a46c8'], [0.55, '#ff7a2e'], [1, '#ff9a4a']] },
+        keyframes: [{ at: T.dusk[0], to: { alpha: 1 }, duration: T.dusk[1] - T.dusk[0], ease: 'sine.inOut' }] },
+
+      // ===== BLEND 3: color-dodge — ONE light leak, a radial gradient that drifts across and burns out toward white
+      { type: 'shape', shape: 'circle', name: 'leak', radius: 640, blendMode: 'color-dodge', initial: { x: 1560, y: 250, alpha: 0 },
+        fillGradient: { type: 'radial', stops: [[0, 'rgba(255,175,90,1)'], [0.45, 'rgba(255,120,40,0.75)'], [1, 'rgba(255,90,30,0)']] },
+        keyframes: [
+          { at: T.leak[0], to: { x: 130, y: 330 }, duration: T.leak[1] - T.leak[0], ease: 'sine.inOut' },
+          { at: T.leak[0], to: { alpha: 0.88 }, duration: T.leakPeak - T.leak[0], ease: 'sine.in' },
+          { at: T.leakPeak, to: { alpha: 0 }, duration: T.leak[1] - T.leakPeak, ease: 'sine.out' },
+        ] },
+
+      // ===== BLEND 4: multiply — the vignette closes in (one radial gradient, its radius shrinks)
+      { type: 'shape', shape: 'rect', name: 'vignette', width: W, height: H, anchorX: 0, anchorY: 0, blendMode: 'multiply', initial: { x: 0, y: 0, alpha: 0 },
+        fillGradient: { type: 'radial', radius: 1.05, stops: [[0.42, 'rgb(255,255,255)'], [1, 'rgb(70,56,96)']] },
+        keyframes: [
+          { at: T.vignette[0], to: { alpha: 1 }, duration: 1.2, ease: 'sine.inOut' },
+          { at: T.vignette[0], to: { fillGradient: { radius: 0.78 } }, duration: T.vignette[1] - T.vignette[0], ease: 'sine.inOut' },
+        ] },
+
+      // ===== foreground type (normal blend, above the grading) + temperature readout
+      { type: 'text', text: 'COLOUR TEMPERATURE', name: 'temp-label', style: { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 15, fill: '#fff1dc', letterSpacing: 4 },
+        initial: { x: 1216, y: 52, anchorX: 1, anchorY: 0.5, alpha: 0.7 } },
+      { type: 'text', text: '{value}K', name: 'temp-value', style: { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 34, fontWeight: 'bold', fill: '#fff1dc', letterSpacing: 2 },
+        format: { decimals: 0, grouping: false },
+        initial: { x: 1216, y: 86, anchorX: 1, anchorY: 0.5, value: 6500 },
+        keyframes: [{ at: T.dusk[0], to: { value: 2700 }, duration: T.dusk[1] - T.dusk[0], ease: 'sine.inOut' }] },
+
+      ...title,
+      // BLEND 5: difference — the same title as a photographic negative, for one beat while the leak crosses it (a layer of its own)
+      { type: 'text', text: 'Light leaks', name: 'title-negative', at: T.title - 0.6, duration: 1.1, blendMode: 'difference', style: TITLE_STYLE,
+        initial: { x: TITLE_X, y: TITLE_Y, anchorX: 0, anchorY: 0, fill: '#ffffff' },
+        keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.1 }, { at: 0.35, to: { alpha: 0 }, duration: 0.75, ease: 'power2.out' }] },
+
+      { type: 'shape', shape: 'line', name: 'title-rule', from: [TITLE_X, TITLE_Y + 120], to: [TITLE_X + 150, TITLE_Y + 120], at: T.sub - 0.2,
+        trimEnd: 0, strokeCap: 'round', initial: { strokeColor: '#ffb066', strokeWidth: 3 },
+        keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.7, ease: 'expo.out' }] },
+      { type: 'text', text: 'ONE DUSK, FIVE BLEND MODES', name: 'subtitle', at: T.sub,
+        style: { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 20, fill: C.cream, letterSpacing: 5 },
+        initial: { x: TITLE_X + 2, y: TITLE_Y + 140, anchorX: 0, anchorY: 0 },
+        keyframes: [{ at: 0, from: { alpha: 0, x: TITLE_X - 14 }, to: { alpha: 0.85, x: TITLE_X + 2 }, duration: 0.8, ease: 'power3.out' }] },
+
+      // ===== sound: a warm riser into the leak's peak, a click per wave of windows, a chime for the title
+      { type: 'audio', sfx: 'riser', at: T.leakPeak - 1.5, duration: 1.5, volume: 0.9 },
+      { type: 'audio', sfx: { preset: 'pop', pitch: -9 }, at: T.title - 0.6, volume: 0.9 },
+      { type: 'audio', sfx: { preset: 'swoosh', pitch: -7, brightness: -0.3 }, at: 2.4, volume: 0.8 },
+      { type: 'audio', sfx: { preset: 'click', pitch: 5 }, at: 3.6, volume: 1.2 },
+      { type: 'audio', sfx: { preset: 'click', pitch: 9, seed: 2 }, at: 4.1, volume: 1.1 },
+      { type: 'audio', sfx: { preset: 'chime', pitch: -5 }, at: T.title, volume: 1.1 },
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 6.2,
+        background: '#0a0a0f',
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

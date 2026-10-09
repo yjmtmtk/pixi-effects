@@ -352,7 +352,7 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 77. **A dolly does not need the camera's home distance typed in:** keep `z` automatic and animate `offsetZ` (negative = closer). Writing `z` yourself means typing `H / 2 / tan(fov / 2)` (about 989 at 720p, fov 40; as an expression `H / 2 / tan(20 * PI / 180)`). A bokeh field is a few big cards, not dozens of layers: a card at depth `z` fills the frame at size `(W / s) × (H / s)`, `s = camZ / (camZ − z)`.
 78. **A blend mode mixes the layer with everything BELOW it, in the order of the array.** The backdrop goes first, the blended layer after it; a layer placed before its backdrop blends with nothing. Names are CSS names with the hyphen: `soft-light`, not `softLight` (the warning says which you meant).
 79. **On a plain `composition` a `blendMode` makes each child blend by itself, not the composition as one picture.** To blend the whole group give the composition `threeD: true` (z 0, default camera: nothing else changes) or a filter. A text layer as the `mask` cannot carry a blend (it warns); `maskInverted` works.
-80. **The 14 new modes cost about 2 ms a layer on WebGL; 10 or more on screen at once warns.** A glow, a haze or a colour cast is ONE layer with a gradient (`fillGradient`), not dozens of circles; keep `add` / `screen` / `multiply` for big piles of particles.
+80. **`soft-light` / `overlay` do almost nothing over near-black or near-white; `color-dodge` over dark gives a saturated colour, not white; `blendMode` cannot be keyframed** (use a second short-lived layer). **The 14 new modes cost about 2 ms a layer on WebGL; 10 or more on screen at once warns.** A glow, a haze or a colour cast is ONE layer with a gradient (`fillGradient`), not dozens of circles; keep `add` / `screen` / `multiply` for big piles of particles.
 
 
 <!-- ===== ai/reference/recipes.md ===== -->
@@ -2124,7 +2124,9 @@ Rules:
 5. **On a composition the mode is inherited by its children, each blending with what is behind it** (not as one picture). To blend a composition as a whole, give it `threeD: true` (at `z: 0` with the default camera nothing else changes) or a filter.
 6. **The 14 new modes are heavier** (each is a full-frame pass; about 1.5–2 ms a layer on WebGL at 1080p in the author's measurement, much less on WebGPU). 10 or more on screen at once warns; a glow or a haze should be one layer (a gradient), not a pile.
 7. **Together with `filters`, `threeD` and depth of field they all work** (the blend is applied after the layer's own filters, and after the depth-of-field blur).
-8. **With `mask`:** an inverted mask (`maskInverted: true`) works with every mode. A **text layer as the mask** cannot carry a blend (it warns and draws the layer normal): put the text on a layer of its own with the `blendMode`.
+8. **Some modes only act on some tones.** `overlay` and `soft-light` change almost nothing over a near-black or a near-white backdrop (their formulas leave 0 and 1 where they are), so a colour cast needs a **mid-tone** picture under it; `color-dodge` over a dark backdrop gives a saturated colour (each channel is lifted separately), over a bright one it burns out to white; `multiply` can only darken and `screen` / `add` only brighten.
+9. **`blendMode` is a setting of the layer, not an animatable property** (`initial` or a keyframe with it warns). To change the mode for a moment, put a second, short-lived layer (`at` / `duration`) on top, or fade a layer's `alpha`.
+10. **With `mask`:** an inverted mask (`maskInverted: true`) works with every mode. A **text layer as the mask** cannot carry a blend (it warns and draws the layer normal): put the text on a layer of its own with the `blendMode`.
 
 Checked against the W3C formulas on WebGPU and WebGL: every pixel within 2/255 (measured worst: 0.5/255 at alpha 1, 1.5/255 at alpha 0.5); on the same machine a frame is the same picture however it was reached. Another GPU can differ by a step or two.
 
