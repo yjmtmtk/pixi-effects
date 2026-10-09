@@ -26,7 +26,7 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": { "pixi-effects-check": "ai/tools/check.mjs", "pixi-effects-render": "ai/tools/render.mjs", "pixi-effects-view": "ai/tools/view.mjs" },
-  "files": ["dist", "ai", "docs/dsl.md", "docs/api.md", "llms.txt", "llms-full.txt", "CHANGELOG.md", "README.md", "LICENSE"],
+  "files": ["dist", "ai", "skills", "docs/dsl.md", "docs/api.md", "llms.txt", "llms-full.txt", "CHANGELOG.md", "README.md", "LICENSE"],
   "keywords": [
     "pixi", "pixijs", "video", "composition", "compositing", "rendering",
     "after-effects", "motion-graphics", "timeline", "webgl", "gsap", "keyframe", "typescript",

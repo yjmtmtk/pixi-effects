@@ -1,0 +1,49 @@
+import { describe, it, expect } from 'vitest';
+import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { resolve, join } from 'node:path';
+
+const root = resolve(__dirname, '../..');
+const dir = resolve(root, 'skills/pixi-effects');
+const read = (p: string) => readFileSync(join(dir, p), 'utf8');
+const pkg = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as { version: string; files: string[] };
+const walk = (d: string): string[] => readdirSync(d).flatMap(f => statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : [join(d, f)]);
+const SKIP = /node_modules|\/\.git\/|\/\.claude\/|\/dist\/|\/\.superpowers\/|\/_site\/|\/\.playwright-mcp\/|\/guide-preview\//;
+
+describe('skills/pixi-effects — what an agent installs', () => {
+  const skill = read('SKILL.md');
+  const fm = /^---\nname: ([^\n]+)\ndescription: ([^\n]+)\n---\n/.exec(skill);
+
+  it('is the only SKILL.md in the repository, and ships in the npm package', () => {
+    const found = walk(root).filter(f => f.endsWith('/SKILL.md') && !SKIP.test(f));
+    expect(found.map(f => f.slice(root.length + 1))).toEqual(['skills/pixi-effects/SKILL.md']);
+    expect(pkg.files).toContain('skills');
+  });
+
+  it('has the frontmatter every agent reads: name = folder, a broad description of at most 1000 characters', () => {
+    expect(fm).not.toBeNull();
+    expect(fm![1]).toBe('pixi-effects');
+    expect(fm![2]!.length).toBeLessThanOrEqual(1000);
+    for (const w of ['video', 'motion graphics', 'animated title', 'lower third', 'promo', 'chart', 'slideshow']) expect(fm![2]!.toLowerCase(), w).toContain(w);
+  });
+
+  it('names the library in its second sentence, so a user of another tool can see why it fired', () => {
+    expect(fm![2]!.split(/(?<=\.)\s/)[1]).toContain('pixi-effects');
+  });
+
+  it('says which version it was written for, and the template pins that version', () => {
+    expect(skill).toContain(`Written for pixi-effects ${pkg.version}`);
+    expect(read('template.html')).toContain(`pixi-effects@${pkg.version}/dist/index.js`);
+  });
+
+  it('has no path that only exists inside the repository', () => {
+    for (const f of walk(dir)) {
+      if (!/\.(md|html|py)$/.test(f)) continue;
+      expect(readFileSync(f, 'utf8').replace(/https?:\/\/\S+/g, ''), f).not.toMatch(/node ai\/|ai\/tools\/|ai\/reference\/|ai\/template|\.\.\/\.\.\/dist|docs\/dsl\.md/);
+    }
+  });
+
+  it('every file SKILL.md points to is in the folder, and it stays under 500 lines', () => {
+    expect(skill.split('\n').length).toBeLessThan(500);
+    for (const m of skill.matchAll(/`((?:reference|scripts)\/[\w./-]+|template\.html)`/g)) expect(existsSync(join(dir, m[1]!)), m[1]).toBe(true);
+  });
+});
