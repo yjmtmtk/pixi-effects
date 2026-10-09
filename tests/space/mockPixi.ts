@@ -37,6 +37,7 @@ export function createPixiMock() {
     static WHITE = new Texture(1, 1);
     static from(source: unknown) { const t = new Texture(1, 1) as Texture & { source?: unknown }; t.source = { resource: source, update() {} }; return t; }
     destroyed = false;
+    source: { style: Record<string, unknown> } = { style: {} };
     constructor(public width = 1, public height = 1) {}
     destroy() { this.destroyed = true; }
   }
@@ -62,7 +63,7 @@ export function createPixiMock() {
       this.texture = o.texture;
     }
   }
-  class Sprite extends Container {}
+  class Sprite extends Container { texture: Texture; constructor(t?: Texture) { super(); this.texture = t ?? new Texture(1, 1); } }
   class Text extends Container {
     width = 0; height = 0; style: Record<string, unknown> = {}; text = '';
     constructor(opts: Record<string, unknown> = {}) { super(); this.text = String(opts.text ?? ''); }
