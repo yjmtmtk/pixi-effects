@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+**Fixed**
+
+- Depth of field: a layer that was hidden (its lifespan over, `alpha` 0) kept the depth of the last frame it was drawn, so it was still counted as blurred: the "N layers are blurred" warning could fire for a movie that had only two layers on screen, and `inspect` returned a different `depthBlur` for the same frame depending on how you had got there. And `focus` could not name a layer called `hero card` or `3d-title` (only names shaped like a word): any name a sibling layer has now works.
+
+**Changed**
+
+- Depth of field warns about more mistakes: a negative or non-numeric `aperture` (it was silently off), two layers with the name `focus` points at (the first `threeD` one is used, as before, and now the check and the build agree on it), and `focus` / `aperture` written on a layer that is not a camera.
+- `check.mjs --help` prints the usage (it was rejected as an unknown option), and `--at` prints each threeD layer's blur at every moment you name (`depth  2.40s — title 0 px, badge 10.12 px, …`; all of it is in `report.json` as `at[].depthBlur`).
+- **Docs:** a dolly with no typed home distance (`offsetZ` on an automatic `z`, or the expression `H / 2 / tan(20 * PI / 180)`), how big a bokeh card must be to fill the frame at a depth (`(W / s) × (H / s)`), pitfall 77.
+
 ## 0.21.0
 
 **Added**

@@ -582,7 +582,10 @@ A focus pull is a normal keyframe on `focus`; a layer name works there too:
 - The blur is the same over the whole layer (decided by the depth of the layer's origin along the camera's view direction: with an orbiting camera a layer far off the look-at axis is a little deeper than its `z`). A tilted floor is one blur: split it into layers.
 - It blurs `threeD` layers only. A nested `threeD` composition is blurred as one layer by its parent's camera; its own camera decides its content.
 - The layer's own `blur` and its `filters` are separate and add to it.
-- Many blurred layers cost one filter pass each (more on WebGPU): 20 or more at once warns.
+- Many blurred layers cost one filter pass each (more on WebGPU): 20 or more at once warns. A field of bokeh lights is a few big `threeD` cards (a plain layer or a composition with a few dozen circles in it), not dozens of layers. To make a card at depth `z` fill the frame, size it `(W / s) × (H / s)` with `s = camZ / (camZ − z)` (`camZ` = the camera's z, about 989 at 720p, fov 40): at `z = −720` that is `s = 0.58`, so about 2210 × 1240 for a 1280 × 720 frame.
+- A **dolly** needs no typed distance: leave the camera's `z` alone (it stays automatic) and animate `offsetZ` (negative = closer); the focus plane and the layers keep their meaning. Writing `z` yourself means typing the home distance, `H / 2 / tan(fov / 2)`, which as an expression is `H / 2 / tan(20 * PI / 180)` for the default fov 40.
+- If two layers have the same `name`, `focus` takes the first `threeD` one (and warns that the name is not unique). `focus` and `aperture` are camera properties: on any other layer they only warn.
+- A negative or non-numeric `aperture` warns once and turns depth of field off.
 - `movie.inspect(frame)` reports each `threeD` layer's blur as `depthBlur` (px, 0 = sharp).
 
 ### Depth order and limits
