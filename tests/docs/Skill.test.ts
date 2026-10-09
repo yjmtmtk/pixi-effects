@@ -26,6 +26,11 @@ describe('skills/pixi-effects — what an agent installs', () => {
     for (const w of ['video', 'motion graphics', 'animated title', 'lower third', 'promo', 'chart', 'slideshow']) expect(fm![2]!.toLowerCase(), w).toContain(w);
   });
 
+  it('is a plain YAML scalar: no ": " and no " #" in the description (the skills CLI refuses the whole skill with "Nested mappings are not allowed")', () => {
+    expect(fm![2]).not.toMatch(/: | #/);
+    expect(fm![2]).not.toMatch(/^["'>|\[{&*!%@`-]/);
+  });
+
   it('names the library in its second sentence, so a user of another tool can see why it fired', () => {
     expect(fm![2]!.split(/(?<=\.)\s/)[1]).toContain('pixi-effects');
   });
