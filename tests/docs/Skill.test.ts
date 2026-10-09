@@ -47,3 +47,16 @@ describe('skills/pixi-effects — what an agent installs', () => {
     for (const m of skill.matchAll(/`((?:reference|scripts)\/[\w./-]+|template\.html)`/g)) expect(existsSync(join(dir, m[1]!)), m[1]).toBe(true);
   });
 });
+
+describe('the Claude Code plugin manifest', () => {
+  const plugin = JSON.parse(readFileSync(resolve(root, '.claude-plugin/plugin.json'), 'utf8'));
+  const market = JSON.parse(readFileSync(resolve(root, '.claude-plugin/marketplace.json'), 'utf8'));
+  it('is one plugin under one name, at the package version, whose skills folder exists', () => {
+    expect(plugin.name).toBe('pixi-effects');
+    expect(plugin.version).toBe(pkg.version);
+    expect(market.plugins.map((p: { name: string }) => p.name)).toEqual([plugin.name]);
+    expect(market.plugins[0].source).toBe('./');
+    expect(market.owner?.name).toBeTruthy();
+    expect(existsSync(join(root, 'skills/pixi-effects/SKILL.md'))).toBe(true);
+  });
+});

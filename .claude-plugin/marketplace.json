@@ -1,0 +1,12 @@
+{
+  "name": "pixi-effects",
+  "description": "Write a video as data",
+  "owner": { "name": "yjmtmtk" },
+  "plugins": [
+    {
+      "name": "pixi-effects",
+      "source": "./",
+      "description": "Make a video, motion graphics, an animated title, a lower third, a promo or an animated chart as code: pixi-effects writes a video as plain data, checks it and exports MP4."
+    }
+  ]
+}
