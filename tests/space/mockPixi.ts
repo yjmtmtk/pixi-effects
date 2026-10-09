@@ -66,7 +66,17 @@ export function createPixiMock() {
       this.texture = o.texture;
     }
   }
-  class Sprite extends Container { texture: Texture; constructor(t?: Texture) { super(); this.texture = t ?? new Texture(1, 1); } }
+  class Sprite extends Container {
+    texture: Texture;
+    // Pixi takes a texture or an options object ({ texture, label })
+    constructor(t?: Texture | { texture?: Texture; label?: string }) {
+      super();
+      const tex = t instanceof Texture ? t : (t as { texture?: Texture } | undefined)?.texture;
+      this.texture = tex ?? new Texture(1, 1);
+      const label = t instanceof Texture ? undefined : (t as { label?: string } | undefined)?.label;
+      if (label) this.label = label;
+    }
+  }
   class Text extends Container {
     width = 0; height = 0; style: Record<string, unknown> = {}; text = '';
     constructor(opts: Record<string, unknown> = {}) { super(); this.text = String(opts.text ?? ''); }

@@ -6,6 +6,7 @@ import { ShapeSequence } from '../sequences/Shape';
 import { NullSequence } from '../sequences/Null';
 import { CameraSequence } from '../space/CameraSequence';
 import { LightSequence } from '../space/LightSequence';
+import { ShaderSequence } from '../sequences/Shader';
 import type { Sequence } from '../sequences/Base';
 import type { SequenceSpec, CompositionShape } from '../types';
 
@@ -27,6 +28,7 @@ const staticTypes: Partial<Record<SequenceSpec['type'], SequenceCtor>> = {
   shape: ShapeSequence as unknown as SequenceCtor,
   camera: CameraSequence as unknown as SequenceCtor,
   light: LightSequence as unknown as SequenceCtor,
+  shader: ShaderSequence as unknown as SequenceCtor,
   null: NullSequence as unknown as SequenceCtor,
 };
 

@@ -734,6 +734,8 @@ export interface CompositionShape {
   width: number;
   height: number;
   duration: number;
+  /** The movie's frame rate, on the root shape only (a shader layer's `iFrame` needs it). */
+  frameRate?: number;
 }
 
 /** Audio descriptor pushed to the mixdown queue by AudioSequence/VideoSequence. */

@@ -344,7 +344,7 @@ export class Movie {
       const audioContext = this._ensureAudioContext();
       await loadAssetBundle(options.assets ?? [], audioContext);
 
-      const rootShape: CompositionShape = { width: this.width, height: this.height, duration: this.duration };
+      const rootShape: CompositionShape = { width: this.width, height: this.height, duration: this.duration, frameRate: this.frameRate };
       // Inject root dimensions before expanding transitions: the macro
       // expander reads `width` / `height` to compute filter areas, so the
       // values must be present on the spec it sees rather than being merged
