@@ -2,7 +2,7 @@
 
 > **Status**: experimental — current release `0.22.0`. The API may still change between minor versions; see the [CHANGELOG](./CHANGELOG.md) for what each release changed.
 
-**[Guide →](https://yjmtmtk.github.io/pixi-effects/guide/)** · **[Gallery →](https://yjmtmtk.github.io/pixi-effects/examples/gallery/)** · 49 portfolio pieces written as plain data by AI models · **[Examples →](https://yjmtmtk.github.io/pixi-effects/examples/)** · 15 numbered examples, a music lab + an in-browser playground.
+**[Guide →](https://yjmtmtk.github.io/pixi-effects/guide/)** · **[Gallery →](https://yjmtmtk.github.io/pixi-effects/examples/gallery/)** · 50 portfolio pieces written as plain data by AI models · **[Examples →](https://yjmtmtk.github.io/pixi-effects/examples/)** · 15 numbered examples, a music lab + an in-browser playground.
 
 ## Make a video by asking an AI
 

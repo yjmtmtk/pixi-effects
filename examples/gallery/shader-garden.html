@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shader Garden</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+  <script type="application/json" id="piece-meta">{ "title": "Shader Garden", "subtitle": "Four formulas, no pictures: a flowing field, contour lines through letters, ripples in a disc, drifting pollen.", "tags": ["shader", "warp", "mask", "typography", "generative"], "width": 1280, "height": 720, "duration": 10, "model": "sonnet" }</script>
+  <style>
+    html, body { margin: 0; background: #08090b; color: #ddd; font-family: system-ui, sans-serif; }
+    body { min-height: 100vh; display: grid; place-items: center; }
+    .pe-stage { position: relative; width: min(960px, 100%); height: auto; border-radius: 6px; --pe-loader-bg: #0c1713; background: #0c1713; }
+    .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
+  </style>
+</head>
+<body>
+  <div class="pe-stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 10;
+
+    // Palette: ink, moss, cream, coral (+ a little gold for the pollen).
+    const INK = '#0c1713', MOSS = '#1f4a3a', CREAM = '#f2ead8', CORAL = '#ff6b4a', GOLD = '#f4c15d';
+    const DISPLAY = '"Arial Black", "Helvetica Neue", Arial, sans-serif';
+    const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+
+    // Scene clock (seconds)
+    const INK_IN = 3.4, INK_OUT = 6.5, INK_END = 7.1;   // the ink panel that holds the contour scene
+    const DISC_AT = 7.0;                                // the ripple disc opens
+
+    // ── shader 1: a flowing colour field (domain-warped noise), the background of scenes 1 and 3 ──
+    const FLOW = `
+      float hsh(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float vnz(vec2 p) {
+        vec2 i = floor(p), f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hsh(i), hsh(i + vec2(1.0, 0.0)), f.x), mix(hsh(i + vec2(0.0, 1.0)), hsh(i + vec2(1.0, 1.0)), f.x), f.y);
+      }
+      float fbm(vec2 p) {
+        float s = 0.0, a = 0.5;
+        for (int i = 0; i < 4; i++) { s += a * vnz(p); p = p * 2.0 + vec2(7.3, 1.9); a *= 0.5; }
+        return s;
+      }
+      void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+        vec2 uv = fragCoord / iResolution.y * 1.5;
+        float t = iTime * speed * 0.12;
+        vec2 q = vec2(fbm(uv + t), fbm(uv + vec2(5.2, 1.3) - t));
+        float r = fbm(uv + 3.0 * q + vec2(1.7, 9.2) + t * 0.6);
+        vec3 deep = vec3(0.047, 0.090, 0.075);
+        vec3 moss = vec3(0.122, 0.290, 0.227);
+        vec3 col = mix(deep, moss, smoothstep(0.2, 0.75, r));
+        col = mix(col, tint, smoothstep(0.35, 0.9, q.x * r * 2.2) * glow);
+        col += vec3(0.95, 0.92, 0.85) * pow(r, 6.0) * 0.5;
+        vec2 vv = fragCoord / iResolution.xy - 0.5;
+        col *= 1.0 - dot(vv, vv) * 1.1;
+        fragColor = vec4(col, 1.0);
+      }`;
+
+    // ── shader 2: noise terrain as contour lines (every 5th line is the accent colour) ──
+    const CONTOUR = `
+      float hsh(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float vnz(vec2 p) {
+        vec2 i = floor(p), f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hsh(i), hsh(i + vec2(1.0, 0.0)), f.x), mix(hsh(i + vec2(0.0, 1.0)), hsh(i + vec2(1.0, 1.0)), f.x), f.y);
+      }
+      float fbm(vec2 p) {
+        float s = 0.0, a = 0.5;
+        for (int i = 0; i < 4; i++) { s += a * vnz(p); p = p * 2.0 + vec2(3.1, 8.7); a *= 0.5; }
+        return s;
+      }
+      void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+        vec2 uv = fragCoord / iResolution.y * 3.2 + vec2(iTime * 0.08, iTime * 0.02);
+        float h = fbm(uv) * rise;
+        float x = h * levels;
+        float w = fwidth(x);
+        float dd = 0.5 - abs(fract(x) - 0.5);
+        float line = 1.0 - smoothstep(w * 1.1, w * 2.4, dd);
+        float idx = floor(x);
+        float major = step(mod(idx, 5.0), 0.5);
+        vec3 moss = vec3(0.122, 0.290, 0.227);
+        vec3 col = moss * (0.45 + 1.0 * h);
+        col = mix(col, mix(vec3(0.95, 0.92, 0.85), accent, major), line * 0.96);
+        fragColor = vec4(col, 1.0);
+      }`;
+
+    // ── shader 3: concentric ripples from three drifting sources, two-tone ──
+    const RIPPLE = `
+      void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+        vec2 p = (fragCoord - centre) / iResolution.y;
+        float s = 0.0;
+        for (int i = 0; i < 3; i++) {
+          float fi = float(i);
+          vec2 c = vec2(sin(fi * 2.1 + iTime * 0.35) * 0.26, cos(fi * 1.7 + iTime * 0.28) * 0.2);
+          float d = length(p - c);
+          s += sin(d * freq - iTime * speed - fi * 1.3) * exp(-d * 1.6) / (1.0 + fi * 1.4);
+        }
+        float w = fwidth(s) * 1.1 + 0.002;
+        float tone = smoothstep(-w, w, s);
+        vec3 col = mix(warm, cream, tone);
+        col *= 0.62 + 0.5 * smoothstep(0.0, 0.7, abs(s));
+        fragColor = vec4(col, 1.0);
+      }`;
+
+    // ── shader 4: pollen, drifting soft dots on a TRANSPARENT layer ──
+    const POLLEN = `
+      float hsh(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+        vec2 uv = fragCoord / iResolution.y;
+        float a = 0.0;
+        for (int i = 0; i < 3; i++) {
+          float fi = float(i);
+          vec2 g = uv * (7.0 + fi * 5.0) + vec2(fi * 13.0, -iTime * (0.3 + 0.15 * fi));
+          vec2 id = floor(g);
+          vec2 f = fract(g) - 0.5;
+          float r = hsh(id + fi * 7.0);
+          vec2 off = (vec2(hsh(id + 3.1), hsh(id + 9.7)) - 0.5) * 0.5 + vec2(sin(iTime * 0.8 + r * 6.28) * 0.12, 0.0);
+          float d = length(f - off);
+          float size = 0.05 + 0.07 * r;
+          a += step(0.6, r) * smoothstep(size, 0.0, d) * (0.55 + 0.45 * sin(iTime * 1.6 + r * 20.0));
+        }
+        a = clamp(a, 0.0, 1.0) * density;
+        fragColor = vec4(dust, a);
+      }`;
+
+    const rect = (name, color, extra = {}) => ({
+      type: 'shape', shape: 'rect', name, width: 'GW', height: 'GH', anchorX: 0, anchorY: 0,
+      initial: { x: 0, y: 0, fillColor: color }, ...extra,
+    });
+    // small mono label
+    const tag = (text, at, duration, x, y, hold = false) => ({
+      type: 'text', text, at, duration,
+      style: { fontSize: 20, fontFamily: MONO, fill: CREAM, letterSpacing: 7 },
+      initial: { x, y, anchorX: 0, anchorY: 0.5 },
+      keyframes: [
+        { at: 0, from: { alpha: 0, x: x - 18 }, to: { alpha: 0.85, x }, duration: 0.6, ease: 'power3.out' },
+        ...(hold ? [] : [{ at: -0.35, to: { alpha: 0 }, duration: 0.35, ease: 'power1.in' }]),
+      ],
+    });
+
+    const sequences = [
+      // 0 to 10: the flowing field. Its speed settles while the title appears, then wakes again for the disc.
+      { type: 'shader', name: 'flow', fragment: FLOW, resolution: 0.5,
+        uniforms: { speed: 1.8, tint: '#2e8c6a', glow: 0.7 },
+        keyframes: [
+          { at: 0, to: { 'uniforms.speed': 0.45 }, duration: 3.2, ease: 'power2.out' },
+          { at: 6.8, to: { 'uniforms.speed': 1.5, 'uniforms.tint.0': 0.55, 'uniforms.tint.1': 0.2, 'uniforms.tint.2': 0.13, 'uniforms.glow': 1.0 }, duration: 3.2, ease: 'sine.inOut' },
+        ] },
+      // pollen on its own transparent layer, over the field, under the ink panel
+      { type: 'shader', name: 'pollen', fragment: POLLEN, resolution: 0.5, transparent: true,
+        uniforms: { dust: GOLD, density: 0.0 },
+        keyframes: [
+          { at: 0.8, to: { 'uniforms.density': 0.9 }, duration: 1.6, ease: 'sine.out' },
+        ] },
+
+      // ── scene 1: the title seen through water ──
+      tag('01 / FIELD', 0.4, 2.9, 110, 130),
+      { type: 'text', name: 'title', text: 'SHADER\nGARDEN', at: 0.6, duration: 2.85,
+        style: { fontSize: 168, fontFamily: DISPLAY, fill: CREAM, lineHeight: 160, align: 'left', letterSpacing: 2 },
+        initial: { x: 110, y: 360, anchorX: 0, anchorY: 0.5 },
+        filters: [{ type: 'warp', name: 'water', kind: 'wave', strength: 26, scale: 110, speed: 1.0, angle: 90 }],
+        keyframes: [
+          { at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.9, ease: 'power2.out' },
+          { at: 0, to: { 'filters.water.strength': 3 }, duration: 2.4, ease: 'power2.out' },
+          { at: -0.4, to: { alpha: 0 }, duration: 0.4, ease: 'power1.in' },
+        ] },
+      { type: 'text', text: 'DRAWN BY FORMULA, NOT BY HAND', at: 1.9, duration: 1.55,
+        style: { fontSize: 22, fontFamily: MONO, fill: GOLD, letterSpacing: 6 },
+        initial: { x: 114, y: 568, anchorX: 0, anchorY: 0.5 },
+        keyframes: [
+          { at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.5, ease: 'power2.out' },
+          { at: -0.4, to: { alpha: 0 }, duration: 0.4, ease: 'power1.in' },
+        ] },
+
+      // ── scene 2: contour lines seen only through the letters ──
+      // the ink panel grows in from the left, and later slides off to the right
+      { ...rect('ink', INK, { width: 0, at: INK_IN, duration: INK_END - INK_IN }),
+        keyframes: [
+          { at: 0, to: { width: W }, duration: 0.6, ease: 'expo.inOut' },
+          { at: INK_OUT - INK_IN, to: { x: W }, duration: 0.6, ease: 'expo.inOut' },
+        ] },
+      tag('02 / CONTOUR', 4.0, 2.4, 110, 130),
+      // a coral shadow of the word, a hair off, so the cut-out has depth
+      { type: 'text', text: 'CONTOUR', at: 3.95, duration: 2.45,
+        style: { fontSize: 196, fontFamily: DISPLAY, fill: CORAL, letterSpacing: 2 },
+        initial: { x: W / 2 + 9, y: 365 + 9, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [
+          { at: 0.3, to: { alpha: 1 }, duration: 0.7, ease: 'power2.out' },
+          { at: -0.35, to: { alpha: 0 }, duration: 0.35, ease: 'power1.in' },
+        ] },
+      // the matte: not drawn; the contour shader shows through its letters only
+      { type: 'text', name: 'letters', text: 'CONTOUR', at: 3.95, duration: 2.45,
+        style: { fontSize: 196, fontFamily: DISPLAY, fill: '#ffffff', letterSpacing: 2 },
+        initial: { x: W / 2, y: 365, anchorX: 0.5, anchorY: 0.5 } },
+      { type: 'shader', name: 'contours', fragment: CONTOUR, mask: 'letters', at: 3.95, duration: 2.45,
+        uniforms: { levels: 5, rise: 0.0, ink: INK, accent: CORAL },
+        keyframes: [
+          { at: 0, to: { 'uniforms.rise': 1.0 }, duration: 1.2, ease: 'power2.out' },
+          { at: 0.2, to: { 'uniforms.levels': 22 }, duration: 1.5, ease: 'power2.inOut' },
+          { at: -0.35, to: { alpha: 0 }, duration: 0.35, ease: 'power1.in' },
+        ] },
+      { type: 'text', text: 'LINES OF EQUAL HEIGHT', at: 4.6, duration: 1.8,
+        style: { fontSize: 22, fontFamily: MONO, fill: CREAM, letterSpacing: 6 },
+        initial: { x: W / 2, y: 548, anchorX: 0.5, anchorY: 0.5 },
+        keyframes: [
+          { at: 0, from: { alpha: 0 }, to: { alpha: 0.9 }, duration: 0.5, ease: 'power2.out' },
+          { at: -0.35, to: { alpha: 0 }, duration: 0.35, ease: 'power1.in' },
+        ] },
+
+      // ── scene 3: ripples in a disc, the title's sign-off ──
+      { type: 'shape', shape: 'circle', name: 'disc', radius: 0, at: DISC_AT, duration: DURATION - DISC_AT,
+        initial: { x: 410, y: 360, fillColor: '#ffffff' },
+        keyframes: [{ at: 0, to: { radius: 236 }, duration: 0.9, ease: 'expo.out' }] },
+      { type: 'shader', name: 'ripples', fragment: RIPPLE, mask: 'disc', at: DISC_AT, duration: DURATION - DISC_AT,
+        uniforms: { centre: [410, 360], freq: 75, speed: 4.0, warm: CORAL, cream: CREAM },
+        keyframes: [
+          { at: 0, to: { 'uniforms.freq': 115 }, duration: 2.6, ease: 'sine.inOut' },
+          { at: 0, to: { 'uniforms.speed': 2.4 }, duration: 2.6, ease: 'power2.out' },
+        ] },
+      // a thin ring that draws itself around the disc
+      { type: 'shape', shape: 'circle', name: 'ring', radius: 256, at: DISC_AT + 0.4, duration: DURATION - DISC_AT - 0.4,
+        trimEnd: 0, strokeCap: 'round',
+        initial: { x: 410, y: 360, fillAlpha: 0, strokeColor: CREAM, strokeWidth: 2, strokeAlpha: 0.8 },
+        keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 1.1, ease: 'power2.inOut' }] },
+
+      tag('03 / RIPPLE', 7.5, DURATION - 7.5, 750, 240, true),
+      { type: 'text', name: 'signoff', text: 'SHADER\nGARDEN', at: 7.7, duration: DURATION - 7.7,
+        style: { fontSize: 88, fontFamily: DISPLAY, fill: CREAM, lineHeight: 86, align: 'left', letterSpacing: 2 },
+        initial: { x: 750, y: 360, anchorX: 0, anchorY: 0.5 },
+        keyframes: [{ at: 0, from: { alpha: 0, x: 722 }, to: { alpha: 1, x: 750 }, duration: 0.9, ease: 'power3.out' }] },
+      { ...rect('rule', CORAL, { width: 0, height: 4, at: 8.3, duration: DURATION - 8.3 }),
+        initial: { x: 754, y: 452, fillColor: CORAL },
+        keyframes: [{ at: 0, to: { width: 150 }, duration: 0.6, ease: 'expo.out' }] },
+      { type: 'text', text: '4 FORMULAS · 0 PICTURES', at: 8.5, duration: DURATION - 8.5,
+        style: { fontSize: 19, fontFamily: MONO, fill: GOLD, letterSpacing: 5 },
+        initial: { x: 752, y: 484, anchorX: 0, anchorY: 0.5 },
+        keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.6, ease: 'power2.out' }] },
+
+      // ── sound: a few short sfx ──
+      { type: 'audio', sfx: { preset: 'chime', pitch: -7 }, at: 0.7, volume: 0.9 },
+      { type: 'audio', sfx: 'swoosh', at: INK_IN - 0.1, volume: 1.2 },
+      { type: 'audio', sfx: { preset: 'click', pitch: -4 }, at: 4.0, volume: 1.4 },
+      { type: 'audio', sfx: { preset: 'swoosh', pitch: -3 }, at: INK_OUT - 0.1, volume: 1.2 },
+      { type: 'audio', sfx: { preset: 'pop', pitch: -5 }, at: DISC_AT + 0.05, volume: 1.6 },
+      { type: 'audio', sfx: { preset: 'chime', pitch: 0 }, at: 8.3, volume: 1.0 },
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage'), theme: { accent: CORAL } });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 8.9,
+        background: INK,
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

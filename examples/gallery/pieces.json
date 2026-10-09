@@ -821,6 +821,26 @@
       "notes": "_notes/replay-highlight.md"
     },
     {
+      "id": "shader-garden",
+      "title": "Shader Garden",
+      "subtitle": "Four formulas, no pictures: a flowing field, contour lines through letters, ripples in a disc, drifting pollen.",
+      "tags": [
+        "shader",
+        "warp",
+        "mask",
+        "typography",
+        "generative"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 10,
+      "posterFrame": 267,
+      "model": "sonnet",
+      "page": "shader-garden.html",
+      "poster": "posters/shader-garden.jpg",
+      "notes": "_notes/shader-garden.md"
+    },
+    {
       "id": "gradient-type",
       "title": "Spectrum",
       "subtitle": "One heavy word whose gradient turns through four colours while a radial glow drifts behind it",
