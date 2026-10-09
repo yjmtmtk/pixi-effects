@@ -3,7 +3,7 @@
 The person said something like "Use https://github.com/yjmtmtk/pixi-effects to make a video: …". Do NOT read the whole repository. Follow the path that matches what you can do.
 
 ## You can run commands (a shell, Node 22, Chrome): Claude Code, Codex, Cursor, …
-0. If your agent supports skills, `npx skills add yjmtmtk/pixi-effects` installs this whole workflow (it is `skills/pixi-effects/SKILL.md`; steps 1–5 below are the same). Inside THIS repository the tools run as `node ai/tools/check.mjs`, `render.mjs` and `view.mjs`.
+0. If your agent supports skills, `npx skills add yjmtmtk/pixi-effects` installs this whole workflow (it is `skills/pixi-effects/SKILL.md`; steps 1–5 below are the same). Inside THIS repository (or when `npx` fails: `npm i pixi-effects` and use `node node_modules/pixi-effects/ai/tools/…`) the tools run as `node ai/tools/check.mjs`, `render.mjs` and `view.mjs`.
 1. Read `skills/pixi-effects/SKILL.md` (the workflow and the rules that cause most failures), then `skills/pixi-effects/reference/cheatsheet.md`. Copy a block from `skills/pixi-effects/reference/recipes.md` when one fits; `skills/pixi-effects/reference/pitfalls.md` lists real mistakes.
 2. Start from `skills/pixi-effects/template.html`: copy it next to the person's work and edit the composition. It loads the released library from a CDN, so the file works from any folder (no install needed).
 3. A video is plain data: a tree of plain objects (`text`, `shape`, `image`, `audio` with `sfx` or `music`, nested `composition`s, a `camera`) with `at` / `duration` / `initial` / `keyframes`. You never write per-frame code. Sound needs no files: `sfx` for effects, `music` for a tune written as text.

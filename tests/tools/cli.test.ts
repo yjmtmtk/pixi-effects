@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { resolve, join } from 'node:path';
+import { mkdtempSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 // @ts-expect-error plain ESM script without types
 import { route } from '../../ai/tools/pixi-effects.mjs';
 
@@ -34,5 +36,16 @@ describe('pixi-effects <check|render|view> — one command that is also the pack
     const b = spawnSync('node', [resolve(root, 'ai/tools/pixi-effects.mjs'), 'chek'], { encoding: 'utf8' });
     expect(b.status).toBe(2);
     expect(b.stderr).toMatch(/did you mean "check"/);
+  });
+
+  it('every bin runs through a symlink, which is how npm installs it (it once printed nothing and exited 0)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'bins-'));
+    for (const name of ['pixi-effects', 'check', 'render', 'view']) {
+      const link = join(dir, name);
+      symlinkSync(resolve(root, `ai/tools/${name === 'pixi-effects' ? 'pixi-effects' : name}.mjs`), link);
+      const r = spawnSync(link, [], { encoding: 'utf8' });
+      expect(r.status, `${name} exit`).toBe(2);
+      expect(r.stdout + r.stderr, `${name} output`).toMatch(/usage|pixi-effects/i);
+    }
   });
 });

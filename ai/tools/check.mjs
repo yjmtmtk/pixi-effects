@@ -514,7 +514,7 @@ function finish(report, outDir, log) {
 
 // ───────────────────────────── CLI ─────────────────────────────
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href) {   // the real path: npm starts a bin through a symlink
   try {
     if (typeof WebSocket === 'undefined') throw new Error('Node >= 22 is needed (built-in WebSocket)');
     const opts = parseArgs(process.argv.slice(2));

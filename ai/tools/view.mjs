@@ -252,7 +252,7 @@ export async function startViewer(opts) {
   return { server, url: `http://127.0.0.1:${port}${VIEWER}` };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href) {   // the real path: npm starts a bin through a symlink
   try {
     const opts = parseViewArgs(process.argv.slice(2));
     if (!opts.page) {
