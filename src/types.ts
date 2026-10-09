@@ -513,6 +513,25 @@ export interface LightSequenceSpec extends SequenceCommon {
   falloff?: 'none' | 'smooth' | 'inverseSquare';
 }
 
+/**
+ * A shader layer: a Shadertoy fragment shader drawn into a picture. Everything a layer can do works on it (initial, keyframes, mask, filters,
+ * blendMode, threeD, lights).
+ */
+export interface ShaderSequenceSpec extends SequenceCommon {
+  type: 'shader';
+  /** A Shadertoy fragment shader: write `void mainImage(out vec4 fragColor, in vec2 fragCoord)` (GLSL ES 3.00). `iResolution`, `iTime` (this layer's own seconds) and `iFrame` are declared for you, and so is every name in `uniforms`. */
+  fragment: string;
+  /** Numbers (`float`), arrays of 2–4 numbers (`vec2` … `vec4`) and colours (`'#ff8040'` → `vec3`), animated with keyframes as `'uniforms.speed'` (a component of a vector or a colour: `'uniforms.tint.0'`). */
+  uniforms?: Record<string, number | number[] | string>;
+  /** Layer size in px (expressions allowed). Default: the composition's size. */
+  width?: number | string;
+  height?: number | string;
+  /** Draw at this fraction of the layer size and scale up (0.5 = a quarter of the pixels). Default 1. */
+  resolution?: number;
+  /** `true`: the shader's alpha is used (premultiplied). Default `false`: opaque. */
+  transparent?: boolean;
+}
+
 // ─── Shape sequence ──────────────────────────────────────────────────────
 //
 // `type: 'shape'` renders a parametric primitive (rect / circle / ellipse /
@@ -691,6 +710,7 @@ export type SequenceSpec =
   | CompositionSequenceSpec
   | CameraSequenceSpec
   | LightSequenceSpec
+  | ShaderSequenceSpec
   | ShapeSequenceSpec;
 
 /** Top-level composition (root node) — same as `CompositionSequenceSpec` minus the discriminant. */

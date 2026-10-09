@@ -112,6 +112,7 @@ export type {
   CompositionSequenceSpec,
   CameraSequenceSpec,
   LightSequenceSpec,
+  ShaderSequenceSpec,
   NullSequenceSpec,
   ShapeSequenceSpec,
   RectShapeSpec,
