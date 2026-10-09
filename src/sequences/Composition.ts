@@ -1,4 +1,4 @@
-import { AlphaMask, Container, Rectangle } from 'pixi.js';
+import { AlphaFilter, AlphaMask, Container, Rectangle } from 'pixi.js';
 import { gsap } from 'gsap';
 import { Sequence } from './Base';
 import { NullSequence } from './Null';
@@ -11,7 +11,7 @@ import { Layer3D, type SpaceHost } from '../space/Layer3D';
 import { lintSequence, lintFocus } from '../space/lint';
 import { layerInitialZ, blurRadius, MANY_BLURRED } from '../space/focus';
 import { describeLayer, lintText, lintTiming, summarizeWarnings, lintKeys } from '../core/lint';
-import { applyBlendMode } from '../core/blend';
+import { applyBlendMode, blendFilterFor, blendProblem, isAdvancedBlend, warnBlendUnavailable } from '../core/blend';
 import { cameraBasis, homeCamera, projectPoint, NEAR, type CameraBasis, type CameraState } from '../space/math';
 import { timeRemapOf, remapOf, contentLength, bindClock, clockTable, type TimeRemap, type ClockTable } from '../core/remap';
 import type { CompositionSequenceSpec, AudioDescriptor, CompositionShape, SequenceSpec } from '../types';
@@ -27,7 +27,7 @@ export class CompositionSequence extends Sequence {
   private _layers3d: Layer3D[] = [];
   private _dofSaid = { behind: false, many: false };
   /** Drawn children in stack order (cameras and target-less sequences excluded). */
-  private _visual: Array<{ seq: Sequence; layer: Layer3D | null }> = [];
+  private _visual: Array<{ seq: Sequence; layer: Layer3D | null; wrap?: Container }> = [];
   /** Layers drawn inside a null layer (`parent`): they are not in the composition's own stack. */
   private _nested: Sequence[] = [];
   /** The null layer each parented layer is drawn inside. */
@@ -132,10 +132,34 @@ export class CompositionSequence extends Sequence {
         continue;
       }
 
-      into.addChild(child.target);
+      // An inverted mask is an alpha mask: the layer is rendered into a texture first, and its own blend mode would then apply inside that
+      // texture, against nothing (multiply rendered black); and a filter on a parent is skipped by Pixi when a masked layer sits inside it.
+      // So a layer with both an inverted mask and a blend mode is built another way: a group of its own, whose one filter does the blend as
+      // the pass that draws onto the backdrop, holding the layer and, over it, the mask shape drawn with the `erase` blend (it removes the
+      // layer's alpha where the mask is: the same hole, with no alpha mask).
+      const mode = child.spec.blendMode;
+      const eraseMask = !!maskSpec && (child.spec as { maskInverted?: boolean }).maskInverted === true
+        && mode !== undefined && mode !== 'normal' && blendProblem(mode) === null;
+      // A (not inverted) text mask is an alpha mask too, and there is no way to express it with a blend of its own: the blend is said to be lost
+      // and the layer is drawn normal (the letters can be a layer of their own, which blends fine).
+      const textMaskLosesBlend = !!maskSpec && maskSpec.type === 'text' && !eraseMask
+        && mode !== undefined && mode !== 'normal' && blendProblem(mode) === null;
+      if (textMaskLosesBlend) {
+        console.warn(`pixi-effects: ${describeLayer(child.spec)}: blendMode "${mode}" cannot be used together with a text layer as the mask (the blend is lost); the layer is drawn normal. Put the text on a layer of its own with the blendMode instead of masking with it`);
+      }
+      let wrap: Container | undefined;
+      if (eraseMask) {
+        wrap = new Container();
+        wrap.addChild(child.target);
+        let carrier: unknown = null;
+        if (isAdvancedBlend(mode)) carrier = blendFilterFor(mode);
+        else { const f = new AlphaFilter({ alpha: 1 }); f.blendMode = mode as never; carrier = f; }
+        if (carrier) wrap.filters = [carrier as never]; else warnBlendUnavailable(child.spec, mode);
+        into.addChild(wrap);
+      } else into.addChild(child.target);
       if (holder) this._nested.push(child);
-      else this._visual.push({ seq: child, layer: null });
-      applyBlendMode(child.spec, child.target);
+      else this._visual.push({ seq: child, layer: null, wrap });
+      if (!wrap && !textMaskLosesBlend) applyBlendMode(child.spec, child.target);
       // If this child has a `mask` spec, build the mask sequence in the same
       // composition shape, add its target to the same parent (so its
       // transforms resolve in the same coord space), and wire PIXI's
@@ -151,7 +175,7 @@ export class CompositionSequence extends Sequence {
         const built = await buildSequenceTree([{ ...maskSpec, ...lifetime } as SequenceSpec], this._compositionShape, this.root);
         const maskSeq = built[0];
         if (maskSeq?.target) {
-          into.addChild(maskSeq.target);          // the mask shares the layer's space
+          (wrap ?? into).addChild(maskSeq.target);          // the mask shares the layer's space
           // PIXI v8 `setMask` accepts an `inverse` flag — that's how we
           // expose `maskInverted` from the spec. Falls back to plain
           // `target.mask = …` for runtimes that don't have setMask
@@ -162,7 +186,9 @@ export class CompositionSequence extends Sequence {
             addEffect: (effect: AlphaMask) => void;
             mask: Container | null;
           };
-          if (inverse || maskSpec.type === 'text') {
+          if (wrap) {
+            (maskSeq.target as Container & { blendMode: string }).blendMode = 'erase';     // see above: drawn, not used as a mask
+          } else if (inverse || maskSpec.type === 'text') {
             // A stencil mask is the mask's geometry: a text layer's is its whole bounding box (the letters' alpha is ignored), and
             // PIXI's inverted stencil tests against the empty level, so inside a masked parent it shows what the parent hides.
             // An alpha mask draws the mask into a texture and uses its alpha: letters stay letters, an inverse is 1 − alpha.
@@ -176,7 +202,7 @@ export class CompositionSequence extends Sequence {
             t.mask = maskSeq.target;
           }
           child.maskSequence = maskSeq;
-          maskSeq.keepHidden = maskSpec.type === 'image' || maskSpec.type === 'video';   // PIXI: a Sprite mask is hidden by renderable = false
+          maskSeq.keepHidden = !wrap && (maskSpec.type === 'image' || maskSpec.type === 'video');   // PIXI: a Sprite mask is hidden by renderable = false
         }
       }
     }
@@ -186,7 +212,7 @@ export class CompositionSequence extends Sequence {
       // by depth each frame without reparenting.
       inner.sortableChildren = true;
       this._visual.forEach((v, i) => {
-        (v.layer?.display ?? v.seq.target!).zIndex = i;
+        (v.layer?.display ?? v.wrap ?? v.seq.target!).zIndex = i;
       });
     } else if (this._cameras.length > 0) {
       console.warn('pixi-effects: camera has no effect: this composition has no threeD layers');

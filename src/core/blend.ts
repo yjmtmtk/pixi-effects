@@ -34,6 +34,11 @@ export function usesAdvancedBlend(spec: unknown): boolean {
   return visit(spec);
 }
 
+/** The blend filters of an advanced mode were not registered (a movie registers them in `Movie.init`): the layer is drawn normal. */
+export function warnBlendUnavailable(spec: { name?: string; type: string }, mode: string): void {
+  console.warn(`pixi-effects: ${describeLayer(spec)}: blendMode "${mode}" could not be set up (the blend filters are not registered); the layer is drawn normal`);
+}
+
 /** Apply a layer's `blendMode` to its display object; an unknown mode warns and is ignored. */
 export function applyBlendMode(spec: { blendMode?: string; name?: string; type: string }, display: { blendMode?: unknown; filters?: unknown }): void {
   const mode = spec.blendMode;
@@ -51,10 +56,7 @@ export function applyBlendMode(spec: { blendMode?: string; name?: string; type: 
     if (isAdvancedBlend(mode)) {
       // an advanced mode is a filter of its own (it reads the backdrop): it joins the chain as the last pass
       const blend = blendFilterFor(mode);
-      if (!blend) {
-        console.warn(`pixi-effects: ${describeLayer(spec)}: blendMode "${mode}" could not be set up (the blend filters are not registered); the layer is drawn normal`);
-        return;
-      }
+      if (!blend) { warnBlendUnavailable(spec, mode); return; }
       display.filters = [...filters, blend];
       return;
     }
