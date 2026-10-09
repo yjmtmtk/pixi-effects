@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.26.1
+
+**Fixed**
+
+- The skill's `description` had a colon-space, which the `skills` CLI refuses ("Nested mappings are not allowed": no skill found); fixed, and a test reads the frontmatter as a plain YAML scalar.
 
 **Added**
 
