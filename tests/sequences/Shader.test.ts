@@ -6,7 +6,7 @@ vi.mock('pixi.js', async () => {
 });
 import { CompositionSequence } from '../../src/sequences/Composition';
 import { resetGl } from '../../src/core/glShared';
-import { fakeGl, fake2d, installCanvas } from '../support/fakeGl';
+import { fakeGl, fake2d, installCanvas as installFake, type Fake2d, type FakeGl } from '../support/fakeGl';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
 
 const shape: CompositionShape = { width: 320, height: 180, duration: 4, frameRate: 30 };
@@ -19,6 +19,8 @@ async function build(sequences: unknown[]) {
 }
 const layer = (comp: CompositionSequence, name: string) => (comp as unknown as { _children: Array<{ spec: { name?: string }; awaitFrameAt(t: number): Promise<void>; destroy(): void }> })._children.find(c => c.spec.name === name)!;
 const sh = (o: Record<string, unknown> = {}) => ({ type: 'shader', name: 's', fragment: GOOD, uniforms: { speed: 0.5 }, ...o });
+// these tests look at what a layer asks of its 2D canvas too, so there is always a recording one
+const installCanvas = (gl: FakeGl | null, c2: Fake2d = fake2d()) => installFake(gl, c2);
 beforeEach(() => { vi.restoreAllMocks(); resetGl(); });
 
 describe('the shader layer', () => {

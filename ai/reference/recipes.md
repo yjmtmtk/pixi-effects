@@ -894,6 +894,48 @@ return { duration: 6, sequences: [
 
 ---
 
+## A flowing colour field (a `shader` layer)
+
+A shader is a layer drawn by a formula: write a Shadertoy `mainImage`. `iTime` is the layer's own clock, the `uniforms` are declared for you and keyframes move them (`'uniforms.speed'`, and a component of a colour as `'uniforms.tint.2'`). Opaque by default.
+
+```js
+// @recipe shader-plasma
+return { duration: 6, sequences: [
+  { type: 'shader', name: 'plasma',
+    fragment: `
+      void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+        vec2 uv = fragCoord / iResolution.xy;
+        float v = sin(uv.x * 9.0 + iTime * speed) + sin(uv.y * 7.0 - iTime * speed * 1.3) + sin((uv.x + uv.y) * 5.0 + iTime);
+        vec3 deep = vec3(0.04, 0.02, 0.18);
+        fragColor = vec4(mix(deep, tint, 0.5 + 0.25 * v), 1.0);
+      }`,
+    uniforms: { tint: '#ff7a3d', speed: 0.6 },
+    keyframes: [{ at: 0, to: { 'uniforms.speed': 2, 'uniforms.tint.2': 0.9 }, duration: 6, ease: 'sine.inOut' }] },
+  { type: 'text', text: 'PLASMA', style: { fontSize: 140, fill: '#ffffff', fontWeight: 'bold', letterSpacing: 12 }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 } },
+] };
+```
+
+---
+
+## Text seen through water (the `warp` filter)
+
+`warp` bends a layer's picture: `kind: 'wave'` is a travelling wave (the surface of water, a flag), `kind: 'haze'` is drifting noise (heat shimmer). `strength` is the largest shift in px, `scale` the wavelength in px, `speed` how fast it moves (0 stands still). It follows the frame's time by itself, and its options move with keyframes by the filter's name.
+
+```js
+// @recipe warp-water
+return { duration: 6, sequences: [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', anchorX: 0, anchorY: 0, initial: { x: 0, y: 0 },
+    fillGradient: { stops: [[0, '#0b3a5c'], [1, '#021a2e']] } },
+  { type: 'text', text: 'UNDER WATER', style: { fontSize: 120, fill: '#d8f3ff', fontWeight: 'bold', letterSpacing: 6 },
+    initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+    filters: [{ type: 'warp', name: 'ripple', kind: 'wave', strength: 6, scale: 70, speed: 0.8, angle: 90 },
+              { type: 'warp', kind: 'haze', strength: 3, scale: 30, speed: 0.4 }],
+    keyframes: [{ at: 0, to: { 'filters.ripple.strength': 16 }, duration: 6, ease: 'sine.inOut' }] },
+] };
+```
+
+---
+
 ## A hand-held shake and a flickering light (`wiggle`, seeded)
 
 `wiggle()` returns keyframes (spread it into `keyframes`): each property drifts between seeded random targets and ends back at `around`. Use `freq` ~3 for a slow float, 8+ for a shake, `ease: 'none'` for a jittery flicker. Per-layer variety: give each its own `seed`.

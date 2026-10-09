@@ -467,6 +467,34 @@ For rect / circle / ellipse, `anchorX` / `anchorY` (default `0.5` each; not avai
 
 ---
 
+### `shader`
+
+A fragment shader as a layer: write a Shadertoy `mainImage` and it is drawn into a picture that is a layer like any other (it moves, fades, masks, filters, blends, goes into 2.5D and receives lights). Use it for what is drawn by a formula: flowing colour fields, plasma, noise, waves, patterns.
+
+```ts
+{ type: 'shader', name: 'plasma',
+  fragment: `
+    void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+      vec2 uv = fragCoord / iResolution.xy;
+      float v = sin(uv.x * 10.0 + iTime) + sin(uv.y * 8.0 - iTime * 1.3);
+      fragColor = vec4(mix(tint, vec3(0.1, 0.0, 0.3), 0.5 + 0.25 * v), 1.0);
+    }`,
+  uniforms: { tint: '#ff8040', speed: 1 },                                   // declared for you: `uniform vec3 tint;` and `uniform float speed;`
+  keyframes: [{ at: 0, to: { 'uniforms.speed': 3, 'uniforms.tint.2': 0.8 }, duration: 4 }] }
+```
+
+Fields: `fragment` (the GLSL, required), `uniforms` (below), `width` / `height` (px, expressions allowed; default the composition's size), `resolution` (default 1; `0.5` draws a quarter of the pixels and scales up: the way out for a heavy shader), `transparent` (default `false`), and everything every layer has.
+
+Rules:
+1. **Write `mainImage`** — `void mainImage(out vec4 fragColor, in vec2 fragCoord)`, GLSL ES 3.00. `fragCoord` is in the layer's pixels, origin at the **bottom left** (Shadertoy's convention). `iResolution` (a `vec3`: width, height, 1), **`iTime`** (the layer's own seconds, from 0 at its start; inside a time-remapped composition, that composition's clock) and `iFrame` (an `int`) are declared for you, and so is every name in `uniforms`. Do not write `#version`, `precision`, `main()`, `gl_FragColor` (write the colour into `fragColor`), `texture2D` (it is `texture`), `varying` or `attribute`: each warns with what to write.
+2. **`uniforms`**: a number is a `float`, 2 to 4 numbers are a `vec2` / `vec3` / `vec4`, a colour `'#rrggbb'` is a `vec3` in 0..1. Keyframes move them as `'uniforms.speed'`; a component of a vector or a colour as `'uniforms.tint.0'` (0 = x or red). A name or index that does not exist warns once with the likely name.
+3. **Opaque by default**: the alpha you write is ignored. `transparent: true` uses it (the shader's colour is premultiplied by its alpha, so soft edges blend over what is behind).
+4. **It is a layer, not a filter**: it cannot read what is behind it, and this version has no `iChannel` textures, `iMouse`, `iDate` or `iTimeDelta` (using one warns). One pass only: no buffers or feedback.
+5. **A compile error is said in your own line numbers** (`line 2: 'x' : undeclared identifier`) and the layer is drawn as a magenta checkerboard until it is fixed, so a mistake is never a silent blank layer.
+6. **The GPU cannot be stopped**: a `while` loop, or a `for` whose bound is not a constant, can hang it, so both warn. Give loops a constant bound and `break` early.
+7. **Deterministic, with one caveat**: a frame is a pure function of `iTime`, `iFrame` and the uniforms, so playback, seeking and export agree. Different GPUs can round differently, so an export from another machine can differ in the last bits.
+8. **Cost** (a prototype measurement at 1080p, on one machine, an Apple M1 Pro; the released layer is not re-measured): a 160×90 shader with an 8-step loop, 20 layers, cost 11 ms (WebGPU) to 17 ms (WebGL) a frame more than 20 plain rectangles; one full-size 1920×1080 layer cost about 10 ms more. Every layer pays a fixed cost (about 0.5 to 0.85 ms), so use a few big shaders rather than many small ones, and `resolution` for heavy ones. All shader layers share **one** WebGL2 context (so there is no limit from the browser's number of contexts); a shader layer needs WebGL2 (without it the build warns and draws the checkerboard).
+
 ## 3D layers & camera
 
 Place any 2D layer in depth and view it through a camera — After Effects style, no three.js. Everything uses the normal `initial` / `keyframes` / expression vocabulary.
@@ -1281,6 +1309,7 @@ Name a filter (`name: 'halo'`) to animate it with `'filters.halo.<option>'`. `bl
 | `rgbSplit` | `red green blue` (each `{ x, y }` offset) | Chromatic aberration |
 | `oldFilm` | `sepia noise scratch scratchDensity vignetting seed` | Aged film |
 | `glitch` | `slices offset direction seed average` | Digital glitch |
+| `warp` | `kind: 'wave' \| 'haze'`, `strength` (max shift, px, 6), `scale` (wavelength or cell size, px, 80), `speed` (0.5), `angle` (degrees: the way a wave travels, 0), `seed` (`haze`) | Bends the picture: a travelling wave (flags, water) or drifting noise (heat haze). This library's own, time-driven |
 | `bulgePinch` | `center radius strength` | Bulge (+) / pinch (−) |
 | `twist` | `radius angle offset: { x, y }` | Swirl |
 | `zoomBlur` | `strength center innerRadius radius` | Radial zoom streaks |
@@ -1305,6 +1334,7 @@ Name a filter (`name: 'halo'`) to animate it with `'filters.halo.<option>'`. `bl
 
 Gotchas, all measured:
 
+- **Distortion:** `warp` (`wave`: a flag or the surface of water, `haze`: heat shimmer; moves with the frame's time, no keyframes needed, and pads the layer by `strength` so a shifted edge is not cut), `twist` (a swirl), `bulgePinch` (a lens), `shockwave` (a ring that spreads), `rgbSplit` (colour fringes), `glitch` (slices). `warp`'s time is the time of the frame (inside a time-remapped composition, that composition's clock), `speed: 0` stands still, `strength` is in px and is capped at 200. It bends the layer's picture; to draw something that does not exist yet, use a `shader` layer.
 - **Centres and offsets are in canvas pixels, not the layer's:** `twist.offset`, `bulgePinch.center`, `zoomBlur.center`, `radialBlur.center`, `shockwave.center` default to the canvas's top-left corner, so a layer in the middle looks unaffected. Put the centre on the layer: `{ type: 'twist', offset: { x: 640, y: 360 } }` for a layer centred on a 1280×720 canvas.
 - **A filter works inside the layer's bounds.** Glow, dropShadow, outline and blur draw outside it and are clipped unless you widen the area (`filterArea: { x: -24, y: -24, width: w + 48, height: h + 48 }`, in the layer's own coordinates). Do not widen it for `grayscale`, `oldFilm` or other filters that paint the whole area: they fill the extra margin with black.
 - **Animate scalars by name** (`'filters.halo.outerStrength'`). Options that are points (`rgbSplit.red`, `dropShadow.offset`) do not tween as a whole; animate `'filters.<name>.red.x'` if the filter exposes it, or swap the filter. `pixelate` animates through `sizeX` / `sizeY`, not `size`.

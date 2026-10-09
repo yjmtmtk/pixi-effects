@@ -33,7 +33,15 @@ export function fake2d(): Fake2d {
   return { ctx, calls };
 }
 
-/** Make every canvas hand out `gl` for 'webgl2' (or null) and `ctx2d` for '2d'. Returns the spy so a test can count the asks. */
-export function installCanvas(gl: FakeGl | null, ctx2d: Fake2d = fake2d()) {
-  return vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(((type: string) => (type === 'webgl2' ? (gl ? gl.gl : null) : type === '2d' ? ctx2d.ctx : null)) as never);
+/**
+ * Make every canvas hand out `gl` for 'webgl2' (or null) and `ctx2d` for '2d'. Without `ctx2d` the '2d' context is the environment's own.
+ * Returns the spy so a test can count the asks.
+ */
+export function installCanvas(gl: FakeGl | null, ctx2d?: Fake2d) {
+  const original = HTMLCanvasElement.prototype.getContext;
+  return vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(function (this: HTMLCanvasElement, type: string, ...rest: unknown[]) {
+    if (type === 'webgl2') return gl ? gl.gl : null;
+    if (type === '2d' && ctx2d) return ctx2d.ctx;
+    return (original as (...a: unknown[]) => unknown).call(this, type, ...rest);
+  } as never);
 }

@@ -39,6 +39,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
 - **Group / parent layers = `{ type: 'null', name: 'rig' }`** (draws nothing, only moves) + `parent: 'rig'` on the layers that should follow it: their `x`/`y` are then measured from the null's origin, and the null's position / rotation / scale / alpha carry them (orbits, clock hands, grouped fades). Nulls chain. Only `null` layers can be parents; not for `threeD` layers.
 - **Time:** `speed` (slow motion, backward) and `time` (a curve of the layer's own seconds: freeze, rewind, ramp) on video, audio-file and composition layers; put what you want to rewind in a composition. Children of such a composition are in ITS seconds. `ease: 'cubic-bezier(.4, 0, .2, 1)'` is the CSS curve. See the recipe `rewind-and-replay` and pitfalls 69–73.
 - **Built in:** `animateText()` (per-letter / per-word / per-line entrances and exits in one call: `...animateText('Title', style, { x, y, align: 'center', at: 0.5, duration: 5, in: 'rise', out: 'fade', stagger: { each: 0.05 } })`), `splitText()` / `measureText()` (per-letter / per-word layers, exact positions, by hand), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) `wiggle()` (a seeded shake as keyframes; on a camera put it on `offsetX` / `offsetY` so it rides on the move) `cameraPath()` (a camera flight through `[x, y, z]` points as keyframes; layers it passes: `hideBehindCamera: true`) depth of field (camera `focus` + `aperture`: `{ type: 'camera', initial: { focus: 'title' } }` blurs the other threeD layers by depth; a rack focus is a keyframe on `focus`) `music` (a tune with no file: `{ type: 'audio', music: { bpm, tracks: [{ inst: 'keys', notes: 'Cmaj7:4 Am7:4' }, { inst: 'bass', notes: 'c2:2 g1:2' }], drums: { from: 8, kick: 'x...x...' } } }`: notes and chords as text, counted in beats; instruments `keys pluck pad bass sub lead bell musicbox`; `musicEnvelope(music)` feeds `react()`), `audioEnvelope()` / `bpmEnvelope()` + `react()` (visuals that follow music: `const env = await audioEnvelope('music.mp3', { frameRate })` before `movie.init`, then `keyframes: react(env, { duration, props: { scale: { base: 1, amount: 0.4, band: 'bass', release: 0.2 } } })`; `beats: true` pulses on the beats; `bpmEnvelope(120, …)` when there is no file), `deck()` + `Presenter` (a talk as one movie: pages, steps, stops that pause playback, arrow keys / click / swipe to move on: `...deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops, sequences }] })`, `new Presenter(movie, { canvas })` from `pixi-effects/presenter`; G = page overview, P = presenter view with notes and a timer; `pixi-effects-render talk.html -o talk.pdf` = a PDF of the pages), `particles()` (bursts, snow, confetti, sparks as seeded layers: `...particles({ count: 90, at: 2, life: [1, 1.8], area: { x: 640, y: 330 }, speed: [120, 420], gravity: 240, fade: { out: 0.6 } })`), `followPath()` (a layer along an SVG path: `keyframes: followPath({ d, duration, orient: true })`), path morphing (`{ shape: 'path', d, morphTo, initial/keyframes: morph 0 → 1 }`) and `stagger()` (delays for a wave of layers: `stagger(letters, { each: 0.05, from: 'center' })`, or `stagger(n, …)` for numbers; GSAP-style `each` / `amount` / `from` / `grid` / `ease`). **Not in the DSL (hand-roll with a JS loop):** other per-frame curves (waves, spirals: sample them into short linear keyframes). (Draw-on strokes `trimEnd`, text that changes over time `set: { text }` / `visibleChars`, shake `wiggle()` and particles are built in.)
+- **Shader layer and warp:** `{ type: 'shader', fragment: 'void mainImage(out vec4 fragColor, in vec2 fragCoord) { … }', uniforms: { speed: 1, tint: '#ff8040' } }` draws a Shadertoy-style formula (GLSL ES 3.00; `iTime` `iResolution` `iFrame` are declared; keyframes move `'uniforms.speed'`; opaque by default; it cannot read the layers behind it; a compile error comes back in your own line numbers). `filters: [{ type: 'warp', kind: 'wave' | 'haze', strength: 6 }]` bends a layer's picture like water or heat.
 - **Light, shadow, fog (2.5D):** a `{ type: 'light', kind: 'ambient', initial: { intensity: 0.2 } }` plus a `spot` / `point` / `parallel` light (`castsShadows: true` on the light AND on the `threeD` layers that cast) shades every `threeD` layer by angle and distance; `lit: false` opts a layer out; camera `fogNear` / `fogFar` / `fogColor` fade what is far. What no light reaches is black (add the ambient light); layers are drawn in distance order (no depth buffer). `check --at` prints how lit each layer is.
 - **Blend modes:** `blendMode` takes 18 CSS names (`add` `screen` `multiply` `overlay` `soft-light` `hard-light` `color-dodge` `color-burn` `darken` `lighten` `difference` `exclusion` `hue` `saturation` `color` `luminosity` `linear-burn`, hyphenated) on any layer: glows and light leaks (`add`, `color-dodge`), colour casts and contrast (`soft-light`, `overlay`), vignettes (`multiply`). It blends with everything below the layer; on a composition each child blends (as one picture: `threeD: true` or a filter); 10+ of the new modes on screen at once warn; it works with every mask.
 - **One `Movie` per page.** A sound effect needs no `duration` (it lasts as long as its clip). Seeking is safe: counters, colours and growing shapes are right after any jump.
@@ -140,6 +141,8 @@ Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha stro
 
 **composition** — `width height duration sequences transitions`, **`speed`** (the composition's own time: its content plays backward, in slow motion, … — `time` keyframes give a freeze, a rewind, a ramp; a composition's sound and sfx follow; its own x / alpha keyframes stay in the outer time; **children are placed in the composition's local seconds**; the content is as long as the larger of `duration` and the farthest `time` it reaches (`speed: 2` → twice `duration`; `time` keyframes → their largest number), and children default to that length. A child whose life ends exactly where a held `time` stands is hidden during the hold (a life is [at, at + duration)): give it a `duration` that reaches past. `time` keyframes and ordinary ones (`x`, `alpha`, a `wiggle`) may share one `keyframes` list. A sound inside goes silent while the clock stands still). With `threeD: true` it is a **card**: its children are drawn into one texture (content outside its `width × height` is clipped: size it for a soft shadow too; a plain 2D composition does not clip, but is skipped when its whole rectangle is off screen) and move / rotate in depth together. Children use the composition's local coordinates and times. Position/rotate/scale it as a unit; to rotate/scale about its centre set `pivotX/pivotY` to the centre and `x/y` to where that point should sit.
 
+**shader** — `{ type: 'shader', fragment: 'void mainImage(out vec4 fragColor, in vec2 fragCoord) { … }', uniforms: { speed: 1, tint: '#ff8040', pos: [0.5, 0.5] }, width?, height?, resolution?: 0.5, transparent?: false }` — a Shadertoy fragment shader drawn into a layer (GLSL ES 3.00): `iResolution` `iTime` (the layer's own seconds) `iFrame` and your uniforms are declared for you; keyframes move uniforms as `'uniforms.speed'` and components as `'uniforms.tint.0'`; opaque unless `transparent: true`; it cannot read what is behind it (no `iChannel` / `iMouse` / `iDate`); no `while` or non-constant `for`; a compile error is reported in your own line numbers and the layer is a checkerboard.
+
 **null + `parent`** — `{ type: 'null', name: 'rig', initial: { x, y }, keyframes: [...] }` draws nothing; layers with `parent: 'rig'` are drawn inside it and follow its `x y rotation scale skew alpha pivotX pivotY`. Their `x / y` are measured **from the null's origin** (null at (640,360), child `x: 200` → drawn at 840), so rotating the null makes the child circle it. Nulls chain (`parent` on a null). Children are drawn at the null's place in the stack, together. Only `null` layers can be parents; not for `threeD` layers; a mask follows its layer.
 
 **camera** (2.5D) — props in `initial`/keyframes: `x y z lookAtX lookAtY lookAtZ fov focus aperture` (defaults: centred, looking at the z = 0 plane, `fov` 40, `z` auto = `(H/2)/tan(fov/2)` ≈ 989 at 720p). **Depth of field:** `focus` = the sharp plane (a `threeD` layer's name = its first z, or a z number), `aperture` = the lens diameter in px (30 default, 0 off); writing either blurs the other `threeD` layers by their distance from the focus (a rack focus is a keyframe on `focus`; recipe `rack-focus`; `inspect` reports `depthBlur`, and `check --at 2.4` prints each layer's blur). A dolly with no typed distance: leave `z` automatic and animate `offsetZ`. Never on the camera object itself. An orbit is `orbit()`; by hand: `x = cx + R·sin θ`, `z = R·cos θ`, `R = (H/2)/tan(fov/2)`, `lookAt` = the centre at `z = 0`.
@@ -164,7 +167,7 @@ Add `threeD: true` to any visual layer, then use `z`, `rotationX`, `rotationY` (
 
 ## Filters by name (no import)
 
-`filters: [{ type: 'glow', name: 'halo', outerStrength: 3, color: '#ffd166' }]` — `type` = the pixi / pixi-filters class name without `Filter`, camelCase, or this library's own **`grain`** (film grain: `{ type: 'grain', amount: 0.08, size: 1.5, seed: 0, fps: 24, color: 0 }`, seeded, new every 1/fps s, mid-tone weighted, same grain pattern on every GPU (values within 1/255), anchored to the filter's frame (it moves with a layer), no pixi-filters needed; on a layer or on `composition.filters`; it costs video bitrate; `noise` is NOT film grain: it is frozen and lifts blacks) (`glow dropShadow outline blur noise alpha adjustment hslAdjustment grayscale pixelate crt rgbSplit oldFilm glitch bulgePinch twist zoomBlur kawaseBlur radialBlur motionBlur emboss ascii colorOverlay advancedBloom bevel dot crossHatch tiltShift …`), the other keys are its options. `colorMatrix` takes `preset: 'sepia'|'grayscale'|'negative'|'polaroid'|'technicolor'|'vintage'|'kodachrome'|'browni'`. Name it to animate: `'filters.halo.outerStrength'` (scalars only; `pixelate` via `sizeX`/`sizeY`). Options: `glow` distance outerStrength innerStrength color alpha · `dropShadow` offset{x,y} blur alpha color · `outline` thickness color · `blur` strength · `adjustment` gamma contrast saturation brightness · `hslAdjustment` hue lightness saturation · `pixelate` size · `crt` curvature lineWidth noise vignetting · `rgbSplit` red/green/blue {x,y} · `oldFilm` sepia noise scratch vignetting · `glitch` slices offset · `twist` radius angle offset · `bulgePinch` center radius strength · `zoomBlur` strength center innerRadius · `colorOverlay` color alpha · `colorGradient` gradientType('linear'|'radial'|'conic') stops[{offset,color,alpha}] angle · `colorReplace` originalColor targetColor tolerance · `convolution` matrix(9) · `shockwave` / `godray` are driven by `time` (animate it) · `colorMap` / `simpleLightmap` need a texture (use `custom`). **Centres/offsets are CANVAS pixels** (default top-left corner): put them on the layer. Glow / shadow / blur draw outside the layer: widen `filterArea` (not for `grayscale` / `oldFilm`, which fill the margin black). Full table: `docs/dsl.md` → Named filters.
+`filters: [{ type: 'glow', name: 'halo', outerStrength: 3, color: '#ffd166' }]` — `type` = the pixi / pixi-filters class name without `Filter`, camelCase, or this library's own **`warp`** (bends the picture: `{ type: 'warp', kind: 'wave' | 'haze', strength: 6 (px), scale: 80 (px), speed: 0.5, angle: 0, seed: 0 }`; `wave` = a travelling wave, `haze` = drifting noise; moves with the frame's time by itself; options animate by name) or **`grain`** (film grain: `{ type: 'grain', amount: 0.08, size: 1.5, seed: 0, fps: 24, color: 0 }`, seeded, new every 1/fps s, mid-tone weighted, same grain pattern on every GPU (values within 1/255), anchored to the filter's frame (it moves with a layer), no pixi-filters needed; on a layer or on `composition.filters`; it costs video bitrate; `noise` is NOT film grain: it is frozen and lifts blacks) (`glow dropShadow outline blur noise alpha adjustment hslAdjustment grayscale pixelate crt rgbSplit oldFilm glitch bulgePinch twist zoomBlur kawaseBlur radialBlur motionBlur emboss ascii colorOverlay advancedBloom bevel dot crossHatch tiltShift …`), the other keys are its options. `colorMatrix` takes `preset: 'sepia'|'grayscale'|'negative'|'polaroid'|'technicolor'|'vintage'|'kodachrome'|'browni'`. Name it to animate: `'filters.halo.outerStrength'` (scalars only; `pixelate` via `sizeX`/`sizeY`). Options: `glow` distance outerStrength innerStrength color alpha · `dropShadow` offset{x,y} blur alpha color · `outline` thickness color · `blur` strength · `adjustment` gamma contrast saturation brightness · `hslAdjustment` hue lightness saturation · `pixelate` size · `crt` curvature lineWidth noise vignetting · `rgbSplit` red/green/blue {x,y} · `oldFilm` sepia noise scratch vignetting · `glitch` slices offset · `twist` radius angle offset · `bulgePinch` center radius strength · `zoomBlur` strength center innerRadius · `colorOverlay` color alpha · `colorGradient` gradientType('linear'|'radial'|'conic') stops[{offset,color,alpha}] angle · `colorReplace` originalColor targetColor tolerance · `convolution` matrix(9) · `shockwave` / `godray` are driven by `time` (animate it) · `colorMap` / `simpleLightmap` need a texture (use `custom`). **Centres/offsets are CANVAS pixels** (default top-left corner): put them on the layer. Glow / shadow / blur draw outside the layer: widen `filterArea` (not for `grayscale` / `oldFilm`, which fill the margin black). Full table: `docs/dsl.md` → Named filters.
 
 ## Transitions (on the parent composition)
 
@@ -363,6 +366,10 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 86. **A shadow needs `castsShadows: true` on the light AND on the layer.** Either alone shows nothing (the build says which half is missing). The caster has to be a `threeD` layer in front of the receiver (between it and the light); a receiver takes at most 4 casters. A hard shadow can look like a dark slab: `shadowDiffusion: 10`–`20` softens it, and soft shadows cost the most, so use them on one or two lights. A spot's pool on the wall has radius about `distance × tan(coneAngle / 2)` and can hide behind the card that stands in front of it.
 87. **The light's numbers go in `initial` / `keyframes`; `kind`, `falloff` and `castsShadows` are on the layer.** `{ type: 'light', intensity: 1 }` warns; so do `target` / `pointOfInterest` (use `lookAtX / lookAtY / lookAtZ`), `angle` (`coneAngle`), `castShadows` (`castsShadows`) and `intensity: 80` (it is a multiplier, 1 = full, not a percentage). A spot needs a look-at point (it defaults to the middle of the picture).
 88. **A room is layers in distance order, not geometry.** There is no depth buffer: a floor or wall is a big `threeD` layer whose origin is at its far edge (`anchorY: 0` / a `z` behind what stands on it), and planes that cross cannot be drawn. Each composition has its own lights: a light in a nested composition lights only that composition's layers. Fog is the camera's (`fogNear` / `fogFar` / `fogColor`), fades `threeD` layers only, so draw the background in the fog colour.
+89. **A shader layer is written like Shadertoy, in GLSL ES 3.00: `mainImage` and `fragColor`.** Not `void main()`, `gl_FragColor`, `texture2D`, `varying`, `#version` or a `uniform float iTime;` (each warns with what to write). `iTime` is the layer's own seconds from its start (not the movie's), `fragCoord` starts at the bottom left, the colour is opaque unless `transparent: true`, and the layer cannot read what is behind it (it is a layer, not a filter): there is no `iChannel0`, `iMouse` or `iDate` in this version.
+90. **`uniforms` are declared for you; keyframes name them `'uniforms.speed'`, and vectors and colours by component `'uniforms.tint.0'`.** `uniforms: { tint: '#ff8040' }` is a `vec3` of 0..1, so animate its channels, not the string. Declare every uniform you animate with a starting value (a keyframe on a name that is not there warns with the likely name). Do not write `uniform float speed;` yourself.
+91. **A shader that does not compile is a magenta checkerboard, and the warning has your line numbers.** Fix the line it names. Loops need a constant bound (`for (int i = 0; i < 8; i++)`): a `while`, or a bound that is a variable, can hang the GPU and warns. A heavy shader is cheaper with `resolution: 0.5`; many small shader layers cost more than one big one.
+92. **`warp` is for bending a layer's picture, a `shader` layer is for drawing something new.** `warp` takes `strength` in px (a ripple is 4 to 10, over 200 is refused) and `scale` in px; `speed: 0` stands still. It follows the time of the frame by itself: do not keyframe a time. Its options animate by the filter's name (`'filters.ripple.strength'`). For a swirl or a lens use `twist` or `bulgePinch`.
 
 
 <!-- ===== ai/reference/recipes.md ===== -->
@@ -1263,6 +1270,48 @@ return { duration: 6, sequences: [
 
 ---
 
+## A flowing colour field (a `shader` layer)
+
+A shader is a layer drawn by a formula: write a Shadertoy `mainImage`. `iTime` is the layer's own clock, the `uniforms` are declared for you and keyframes move them (`'uniforms.speed'`, and a component of a colour as `'uniforms.tint.2'`). Opaque by default.
+
+```js
+// @recipe shader-plasma
+return { duration: 6, sequences: [
+  { type: 'shader', name: 'plasma',
+    fragment: `
+      void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+        vec2 uv = fragCoord / iResolution.xy;
+        float v = sin(uv.x * 9.0 + iTime * speed) + sin(uv.y * 7.0 - iTime * speed * 1.3) + sin((uv.x + uv.y) * 5.0 + iTime);
+        vec3 deep = vec3(0.04, 0.02, 0.18);
+        fragColor = vec4(mix(deep, tint, 0.5 + 0.25 * v), 1.0);
+      }`,
+    uniforms: { tint: '#ff7a3d', speed: 0.6 },
+    keyframes: [{ at: 0, to: { 'uniforms.speed': 2, 'uniforms.tint.2': 0.9 }, duration: 6, ease: 'sine.inOut' }] },
+  { type: 'text', text: 'PLASMA', style: { fontSize: 140, fill: '#ffffff', fontWeight: 'bold', letterSpacing: 12 }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 } },
+] };
+```
+
+---
+
+## Text seen through water (the `warp` filter)
+
+`warp` bends a layer's picture: `kind: 'wave'` is a travelling wave (the surface of water, a flag), `kind: 'haze'` is drifting noise (heat shimmer). `strength` is the largest shift in px, `scale` the wavelength in px, `speed` how fast it moves (0 stands still). It follows the frame's time by itself, and its options move with keyframes by the filter's name.
+
+```js
+// @recipe warp-water
+return { duration: 6, sequences: [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', anchorX: 0, anchorY: 0, initial: { x: 0, y: 0 },
+    fillGradient: { stops: [[0, '#0b3a5c'], [1, '#021a2e']] } },
+  { type: 'text', text: 'UNDER WATER', style: { fontSize: 120, fill: '#d8f3ff', fontWeight: 'bold', letterSpacing: 6 },
+    initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+    filters: [{ type: 'warp', name: 'ripple', kind: 'wave', strength: 6, scale: 70, speed: 0.8, angle: 90 },
+              { type: 'warp', kind: 'haze', strength: 3, scale: 30, speed: 0.4 }],
+    keyframes: [{ at: 0, to: { 'filters.ripple.strength': 16 }, duration: 6, ease: 'sine.inOut' }] },
+] };
+```
+
+---
+
 ## A hand-held shake and a flickering light (`wiggle`, seeded)
 
 `wiggle()` returns keyframes (spread it into `keyframes`): each property drifts between seeded random targets and ends back at `around`. Use `freq` ~3 for a slow float, 8+ for a shake, `ease: 'none'` for a jittery flicker. Per-layer variety: give each its own `seed`.
@@ -1929,6 +1978,34 @@ For rect / circle / ellipse, `anchorX` / `anchorY` (default `0.5` each; not avai
 ```
 
 ---
+
+### `shader`
+
+A fragment shader as a layer: write a Shadertoy `mainImage` and it is drawn into a picture that is a layer like any other (it moves, fades, masks, filters, blends, goes into 2.5D and receives lights). Use it for what is drawn by a formula: flowing colour fields, plasma, noise, waves, patterns.
+
+```ts
+{ type: 'shader', name: 'plasma',
+  fragment: `
+    void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+      vec2 uv = fragCoord / iResolution.xy;
+      float v = sin(uv.x * 10.0 + iTime) + sin(uv.y * 8.0 - iTime * 1.3);
+      fragColor = vec4(mix(tint, vec3(0.1, 0.0, 0.3), 0.5 + 0.25 * v), 1.0);
+    }`,
+  uniforms: { tint: '#ff8040', speed: 1 },                                   // declared for you: `uniform vec3 tint;` and `uniform float speed;`
+  keyframes: [{ at: 0, to: { 'uniforms.speed': 3, 'uniforms.tint.2': 0.8 }, duration: 4 }] }
+```
+
+Fields: `fragment` (the GLSL, required), `uniforms` (below), `width` / `height` (px, expressions allowed; default the composition's size), `resolution` (default 1; `0.5` draws a quarter of the pixels and scales up: the way out for a heavy shader), `transparent` (default `false`), and everything every layer has.
+
+Rules:
+1. **Write `mainImage`** — `void mainImage(out vec4 fragColor, in vec2 fragCoord)`, GLSL ES 3.00. `fragCoord` is in the layer's pixels, origin at the **bottom left** (Shadertoy's convention). `iResolution` (a `vec3`: width, height, 1), **`iTime`** (the layer's own seconds, from 0 at its start; inside a time-remapped composition, that composition's clock) and `iFrame` (an `int`) are declared for you, and so is every name in `uniforms`. Do not write `#version`, `precision`, `main()`, `gl_FragColor` (write the colour into `fragColor`), `texture2D` (it is `texture`), `varying` or `attribute`: each warns with what to write.
+2. **`uniforms`**: a number is a `float`, 2 to 4 numbers are a `vec2` / `vec3` / `vec4`, a colour `'#rrggbb'` is a `vec3` in 0..1. Keyframes move them as `'uniforms.speed'`; a component of a vector or a colour as `'uniforms.tint.0'` (0 = x or red). A name or index that does not exist warns once with the likely name.
+3. **Opaque by default**: the alpha you write is ignored. `transparent: true` uses it (the shader's colour is premultiplied by its alpha, so soft edges blend over what is behind).
+4. **It is a layer, not a filter**: it cannot read what is behind it, and this version has no `iChannel` textures, `iMouse`, `iDate` or `iTimeDelta` (using one warns). One pass only: no buffers or feedback.
+5. **A compile error is said in your own line numbers** (`line 2: 'x' : undeclared identifier`) and the layer is drawn as a magenta checkerboard until it is fixed, so a mistake is never a silent blank layer.
+6. **The GPU cannot be stopped**: a `while` loop, or a `for` whose bound is not a constant, can hang it, so both warn. Give loops a constant bound and `break` early.
+7. **Deterministic, with one caveat**: a frame is a pure function of `iTime`, `iFrame` and the uniforms, so playback, seeking and export agree. Different GPUs can round differently, so an export from another machine can differ in the last bits.
+8. **Cost** (a prototype measurement at 1080p, on one machine, an Apple M1 Pro; the released layer is not re-measured): a 160×90 shader with an 8-step loop, 20 layers, cost 11 ms (WebGPU) to 17 ms (WebGL) a frame more than 20 plain rectangles; one full-size 1920×1080 layer cost about 10 ms more. Every layer pays a fixed cost (about 0.5 to 0.85 ms), so use a few big shaders rather than many small ones, and `resolution` for heavy ones. All shader layers share **one** WebGL2 context (so there is no limit from the browser's number of contexts); a shader layer needs WebGL2 (without it the build warns and draws the checkerboard).
 
 ## 3D layers & camera
 
@@ -2744,6 +2821,7 @@ Name a filter (`name: 'halo'`) to animate it with `'filters.halo.<option>'`. `bl
 | `rgbSplit` | `red green blue` (each `{ x, y }` offset) | Chromatic aberration |
 | `oldFilm` | `sepia noise scratch scratchDensity vignetting seed` | Aged film |
 | `glitch` | `slices offset direction seed average` | Digital glitch |
+| `warp` | `kind: 'wave' \| 'haze'`, `strength` (max shift, px, 6), `scale` (wavelength or cell size, px, 80), `speed` (0.5), `angle` (degrees: the way a wave travels, 0), `seed` (`haze`) | Bends the picture: a travelling wave (flags, water) or drifting noise (heat haze). This library's own, time-driven |
 | `bulgePinch` | `center radius strength` | Bulge (+) / pinch (−) |
 | `twist` | `radius angle offset: { x, y }` | Swirl |
 | `zoomBlur` | `strength center innerRadius radius` | Radial zoom streaks |
@@ -2768,6 +2846,7 @@ Name a filter (`name: 'halo'`) to animate it with `'filters.halo.<option>'`. `bl
 
 Gotchas, all measured:
 
+- **Distortion:** `warp` (`wave`: a flag or the surface of water, `haze`: heat shimmer; moves with the frame's time, no keyframes needed, and pads the layer by `strength` so a shifted edge is not cut), `twist` (a swirl), `bulgePinch` (a lens), `shockwave` (a ring that spreads), `rgbSplit` (colour fringes), `glitch` (slices). `warp`'s time is the time of the frame (inside a time-remapped composition, that composition's clock), `speed: 0` stands still, `strength` is in px and is capped at 200. It bends the layer's picture; to draw something that does not exist yet, use a `shader` layer.
 - **Centres and offsets are in canvas pixels, not the layer's:** `twist.offset`, `bulgePinch.center`, `zoomBlur.center`, `radialBlur.center`, `shockwave.center` default to the canvas's top-left corner, so a layer in the middle looks unaffected. Put the centre on the layer: `{ type: 'twist', offset: { x: 640, y: 360 } }` for a layer centred on a 1280×720 canvas.
 - **A filter works inside the layer's bounds.** Glow, dropShadow, outline and blur draw outside it and are clipped unless you widen the area (`filterArea: { x: -24, y: -24, width: w + 48, height: h + 48 }`, in the layer's own coordinates). Do not widen it for `grayscale`, `oldFilm` or other filters that paint the whole area: they fill the extra margin with black.
 - **Animate scalars by name** (`'filters.halo.outerStrength'`). Options that are points (`rgbSplit.red`, `dropShadow.offset`) do not tween as a whole; animate `'filters.<name>.red.x'` if the filter exposes it, or swap the filter. `pixelate` animates through `sizeX` / `sizeY`, not `size`.

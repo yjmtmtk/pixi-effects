@@ -29,6 +29,8 @@ import { random, rand, noise } from '../../src/expr/random';
 import { measureText, splitText } from '../../src/text/measure';
 import { lintSequence } from '../../src/space/lint';
 import { lintTiming } from '../../src/core/lint';
+import { fakeGl, installCanvas } from '../support/fakeGl';
+import { resetGl } from '../../src/core/glShared';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
 
 // the AI recipes, and the human cookbook (site/guide): every `// @recipe` block in either is built and linted
@@ -46,7 +48,8 @@ function walk(seqs: SequenceSpec[], fn: (s: SequenceSpec, parentDuration: number
   }
 }
 
-beforeEach(() => { vi.restoreAllMocks(); });
+// a shader layer draws with a WebGL2 context: a recorded fake stands in for the browser's
+beforeEach(() => { vi.restoreAllMocks(); resetGl(); installCanvas(fakeGl()); });
 
 describe('ai/reference/recipes.md', () => {
   it('contains the recipes (and marks the browser-only ones as docs-only)', () => {
