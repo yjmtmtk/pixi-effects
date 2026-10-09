@@ -243,13 +243,23 @@ movie.play();
       <article class="card">
         <p class="lbl">camera</p>
         <h3>2.5D camera, After Effects layers</h3>
-        <p>Layers, keyframes, expressions, masks, blend modes, nested compositions. Add <code>threeD</code>, <code>z</code>, <code>rotationX/Y</code> and a <code>camera</code> layer for parallax, dolly zooms, orbits and <code>cameraPath()</code> flights. An optional real three.js layer when you need it.</p>
+        <p>Layers, keyframes, expressions, masks, blend modes, nested compositions. Add <code>threeD</code>, <code>z</code>, <code>rotationX/Y</code> and a <code>camera</code> layer for parallax, dolly zooms, orbits and <code>cameraPath()</code> flights. An optional real three.js layer when you need it. Rack focus with depth of field.</p>
+      </article>
+      <article class="card">
+        <p class="lbl">light</p>
+        <h3>Lights, soft shadows, fog</h3>
+        <p><code>ambient</code>, <code>point</code>, <code>spot</code> and <code>parallel</code> lights shade the 2.5D layers per pixel. <code>castsShadows</code> throws soft shadows onto what stands behind; the camera can add depth fog. A spotlight in a dark room is one layer and a few numbers.</p>
+      </article>
+      <article class="card">
+        <p class="lbl">shader</p>
+        <h3>Shaders, warps, mattes, blends</h3>
+        <p>A <code>shader</code> layer draws a Shadertoy-style <code>mainImage</code> (GLSL) with animated uniforms; the <code>warp</code> filter bends a layer's picture like a flag or heat haze. A layer can name a <b>matte</b> that cuts several others, and 18 CSS blend modes mix layers like After Effects.</p>
       </article>
       <article class="card">
         <p class="lbl">motion</p>
         <h3>Text, particles, morphing, motion blur</h3>
         <p><code>animateText</code> per letter, word or line; <code>wiggle</code>, <code>stagger</code>, <code>followPath</code>, path morphing, draw-on strokes (<code>trimEnd</code>), <code>particles()</code> — all seeded and baked into keyframes. True motion blur at export by sub-frame averaging.</p>
-        <ul><li>Filters by name, no import: <code>blur noise alpha colorMatrix</code> plus the 38 filters of pixi-filters (<code>glow dropShadow crt rgbSplit oldFilm glitch pixelate twist …</code>). Seven transitions, chroma key.</li></ul>
+        <ul><li>Filters by name, no import: <code>blur noise alpha colorMatrix</code> plus the 38 filters of pixi-filters (<code>glow dropShadow crt rgbSplit oldFilm glitch pixelate twist …</code>). Eight transitions (<code>crossfade wipe iris slide dip zoom dissolve luma</code>), chroma key, time remapping and springs.</li></ul>
       </article>
       <article class="card audio">
         <p class="lbl">audio</p>
@@ -396,7 +406,7 @@ movie.play();
           <td data-col="Remotion">Remotion Studio (interactive, drag-and-drop), a Player component for your own app, an Editor Starter.</td>
           <td data-col="fframes">A real-time GPU preview window and a browser-based editor (WebAssembly) with a timeline.</td></tr>
         <tr><th scope="row">Rendering</th>
-          <td class="me" data-col="pixi-effects">WebGL in the browser (PixiJS), encoded with WebCodecs through mediabunny to MP4 / WebM / MOV; needs a WebCodecs browser. Preview equals export. It is quick: on the author's M1 Pro most gallery pieces export at 105–115 frames per second, 3.5 to 3.8 times real time (a 48 s 1080p film included); a piece with thousands of particle layers is slower (21 fps). <a href="https://github.com/Vanilagy/fframes-mediabunny-benchmark">mediabunny's author benchmarked</a> that same encoder path against fframes on one scene (an M4: 13.8 s against 17.7 s); that is a mediabunny measurement, not a pixi-effects one, and pixi-effects itself has not been benchmarked against either tool.</td>
+          <td class="me" data-col="pixi-effects">WebGPU where the browser has it and WebGL otherwise (PixiJS, chosen automatically), encoded with WebCodecs through mediabunny to MP4 / WebM / MOV; needs a WebCodecs browser. Preview equals export. It is quick: on the author's M1 Pro most gallery pieces export at 105–115 frames per second, 3.5 to 3.8 times real time (a 48 s 1080p film included); a piece with thousands of particle layers is slower (21 fps). <a href="https://github.com/Vanilagy/fframes-mediabunny-benchmark">mediabunny's author benchmarked</a> that same encoder path against fframes on one scene (an M4: 13.8 s against 17.7 s); that is a mediabunny measurement, not a pixi-effects one, and pixi-effects itself has not been benchmarked against either tool.</td>
           <td data-col="Remotion">Server-side, client-side and batch rendering, plus Remotion Lambda in the cloud.</td>
           <td data-col="fframes">GPU (Skia on Metal or Vulkan), no headless browser, ffmpeg linked in for encoding. Its README says about 10× faster than its own CPU backend and mentions a 128 s video rendered in 36 s.</td></tr>
         <tr><th scope="row">Sound</th>
@@ -476,7 +486,7 @@ movie.play();
 
     <div class="status">
       <p class="row"><span>status</span><span>v0.25.0</span><span>experimental · pre-1.0</span><span>MIT</span></p>
-      <p><b>Honest status.</b> pixi-effects is experimental and pre-1.0: the API can still change between minor versions. There is a timeline viewer but no GUI editor; the ecosystem is small; export needs a WebCodecs browser; it draws with WebGL in a browser rather than in a native pipeline, and it has not been benchmarked against other tools. On the author's M1 Pro most gallery pieces export at 105–115 frames per second (the 48 s 1080p film in about 14 s; with 16-sample motion blur it took 99 s), and a piece with thousands of particle layers exports at 21 fps. It is not a tool for editing existing footage.</p>
+      <p><b>Honest status.</b> pixi-effects is experimental and pre-1.0: the API can still change between minor versions. There is a timeline viewer but no GUI editor; the ecosystem is small; export needs a WebCodecs browser; it draws in a browser (WebGPU where the browser has it, WebGL otherwise) rather than in a native pipeline, and it has not been benchmarked against other tools. On the author's M1 Pro most gallery pieces export at 105–115 frames per second (the 48 s 1080p film in about 14 s; with 16-sample motion blur it took 99 s), and a piece with thousands of particle layers exports at 21 fps. It is not a tool for editing existing footage.</p>
     </div>
   </div>
 </section>
