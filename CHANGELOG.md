@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+**Fixed**
+
+- **`music`: `G7`, `A7`, `E7`, `Bb7`, `C6`, `C5`, `D9` were read as single notes** (`G7` = the note G in octave 7, about 3 kHz) instead of chords, with no warning, and the documented example `G7:4` had the bug. The rule is now one line: **a capital letter starts a chord, a lowercase one is a note** (`G7` the chord, `g7` the note). A bare note in capitals (`Bb2`) is refused with its lowercase spelling (`bb2`), inside brackets any case is a note, and an unknown chord kind suggests the nearest (`Cmin7` → `Cm7`, `Csus` → `Csus4`). Scores that wrote notes in capitals (the gallery's spring-marquee did) need lowercase.
+
 **Changed**
 
 - **Video layers read frames in one decoder pass, not one seek per frame.** A render with a video layer is much faster: 1080p, 8 s, one layer 10.6 s → 6.1 s (the same as no video), four layers of one file 22.5 s → 6.8 s, reverse playback 11 s → 6.7 s (measured on an M1 Pro; a `getSample` per frame cost 19-25 ms, a pass under 1 ms). The pictures are the same (a snapshot of 125 frames in order, out of order, at speed 2 / 0.5 / -1 and looped matched the old reader byte for byte). A video layer now holds decoded frames up to about 96 MB (never fewer than 3) instead of 30 whatever the size, so a 4K layer no longer holds hundreds of MB.

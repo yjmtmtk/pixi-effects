@@ -264,8 +264,8 @@ A tune with no audio file: notes, chords and drum patterns written as strings, p
 
 | Token | Meaning |
 |---|---|
-| `c4` `f#3` `Bb2` | a note (c4 = middle C); `:2` after it is its length in beats (`c4:0.5` an eighth), default `step` |
-| `Am7` `F#m` `Bbmaj7` `C@4` `Am7/e` | a chord, voiced close around octave 3 (`@4` puts the root in octave 4; `/e` puts e in the bass). Kinds: none, `m`, `5`, `aug`, `dim`, `sus2`, `sus4`, `6`, `m6`, `add9`, `madd9`, `add11`, `7`, `maj7`, `m7`, `mMaj7`, `dim7`, `m7b5`, `7sus4`, `7b9`, `7#9`, `9`, `maj9`, `m9`, `11`, `m11`, `13`, `maj13`, `m13`, `maj7#11` |
+| `c4` `f#3` `bb2` | a note, **always lowercase** (c4 = middle C; `bb2` is B flat); `:2` after it is its length in beats (`c4:0.5` an eighth), default `step` |
+| `Am7` `F#m` `Bbmaj7` `G7` `C5` `C@4` `Am7/e` | a chord, **always starting with a capital letter** (`G7` is G dominant seventh, `g7` a very high note); voiced close around octave 3 (`@4` puts the root in octave 4; `/e` puts e in the bass). Kinds: none, `m`, `5`, `aug`, `dim`, `sus2`, `sus4`, `6`, `m6`, `add9`, `madd9`, `add11`, `7`, `maj7`, `m7`, `mMaj7`, `dim7`, `m7b5`, `7sus4`, `7b9`, `7#9`, `9`, `maj9`, `m9`, `11`, `m11`, `13`, `maj13`, `m13`, `maj7#11` |
 | `[c4 e4 g4]:2` | a chord written out note by note (exact voicings) |
 | `_` `_:2` | a rest |
 | `~` `~:1` | hold: lengthens the note before |

@@ -55,7 +55,7 @@ return [
 ];
 ```
 
-- **A note** is its name, octave and length in beats: `c4`, `f#3:0.5`, `Bb2:2` (c4 is middle C; a bar of 4/4 is 4 beats). **A chord** is a name: `Am7`, `Dsus4`, `Gmaj7`, `C@4` (root in octave 4), `Am7/e` (e in the bass), or written out: `[c4 e4 g4]:2`. `_` is a rest, `~` holds the note before, `|` marks a bar and is ignored.
+- **A note** is its name in lowercase, octave and length in beats: `c4`, `f#3:0.5`, `bb2:2` (c4 is middle C; a bar of 4/4 is 4 beats). **A chord** starts with a capital letter (`G7` is a chord, `g7` a very high note): `Am7`, `Dsus4`, `Gmaj7`, `C@4` (root in octave 4), `Am7/e` (e in the bass), or written out: `[c4 e4 g4]:2`. `_` is a rest, `~` holds the note before, `|` marks a bar and is ignored.
 - **Instruments:** `keys` (electric piano), `pluck` (guitar or harp), `pad` (slow synth pad), `bass`, `sub` (pure sine bass), `lead`, `bell`, `musicbox`. **Drums:** `kick snare hat openhat clap rim tom crash shaker sleigh`, each a string of steps (`x` hit, `o` soft hit, `.` nothing) that repeats. Put `from: 8` on a drum object to bring the groove in later, or give a list of them for sections.
 - **Shape the music:** `swing` (a lilt on the off-beats), `reverb`, per-track `vol` (a list like `[[0, 0], [8, 0.7]]` fades it in over 8 beats), `pan`, `tone` (darker when lower), `transpose`, and a tempo that slows: `bpm: [[0, 96], [28, 96], [32, 60]]`.
 - **Length and loop:** the layer lasts the music plus its reverb tail, and ends with the movie; `loop: true` repeats it until the layer ends. At `volume: 1` it peaks at −6 dBFS, so use 0.5 to 0.8 under speech or effects.

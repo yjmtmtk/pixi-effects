@@ -38,6 +38,28 @@ describe('notation', () => {
     expect(parseNotes('c4 d4 | e4 f4', 0.5).events.map(e => e.t)).toEqual([0, 0.5, 1, 1.5]);
   });
 
+  it('a capital letter is a chord and a lowercase one is a note: G7 is G dominant seventh, g7 is a very high note, C5 is a power chord', () => {
+    expect(parseNotes('G7').events[0]!.midi).toEqual([55, 59, 62, 65]);
+    expect(parseNotes('g7').events[0]!.midi).toEqual([103]);
+    expect(parseNotes('C5').events[0]!.midi).toEqual([48, 55]);
+    expect(parseNotes('Bb7:2').events[0]!.midi).toEqual([58, 62, 65, 68]);
+    expect(parseNotes('C6 c6').events.map(e => e.midi.length)).toEqual([4, 1]);
+    expect(parseNotes('[C4 E4 G4]').events[0]!.midi).toEqual([60, 64, 67]);      // inside brackets every name is a note: nothing to mix up there
+  });
+
+  it('a capital letter with an octave that is not a chord says to write the note in lowercase', () => {
+    expect(() => parseNotes('c4 Bb2 e4')).toThrow(/"Bb2".*capital.*chord.*bb2/s);
+    expect(() => parseNotes('A4')).toThrow(/a4/);
+  });
+
+  it('a chord kind that is not known suggests the nearest spelling', () => {
+    expect(() => parseNotes('Cmin7')).toThrow(/did you mean "Cm7"/);
+    expect(() => parseNotes('Cmaj')).toThrow(/did you mean "C"/);
+    expect(() => parseNotes('Csus')).toThrow(/did you mean "Csus4"/);
+    expect(() => parseNotes('CM7')).toThrow(/did you mean "Cmaj7"/);
+    expect(() => parseNotes('Gfoo')).toThrow(/cannot read "Gfoo"/);
+  });
+
   it('a token that cannot be read is named, with what is allowed', () => {
     expect(() => parseNotes('c4 h9 e4')).toThrow(/cannot read "h9".*Am7.*rest/s);
     expect(() => parseNotes('c4:0')).toThrow(/length/);

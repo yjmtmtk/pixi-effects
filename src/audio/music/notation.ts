@@ -17,7 +17,23 @@ export const CHORD_KINDS: Record<string, number[]> = {
   'maj7#11': [0, 4, 7, 11, 18],
 };
 
-export const NOTE_FORMS = 'a note like c4, f#3, Bb2; a chord like Am7, C@4, Am7/e; [c4 e4 g4]; _ for a rest; ~ to hold';
+export const NOTE_FORMS = 'a note in lowercase like c4, f#3, bb2; a chord starting with a capital like Am7, G7, C@4, Am7/e; [c4 e4 g4]; _ for a rest; ~ to hold';
+
+/** Spellings people reach for that are not chord kinds here, and the kind they mean (`Cmin7` → `Cm7`). */
+const KIND_SPELLINGS: Record<string, string> = {
+  maj: '', M: '', major: '', min: 'm', minor: 'm', mi: 'm', '-': 'm', min7: 'm7', mi7: 'm7', '-7': 'm7', minor7: 'm7', min9: 'm9', min6: 'm6', min11: 'm11',
+  M7: 'maj7', Maj7: 'maj7', ma7: 'maj7', major7: 'maj7', M9: 'maj9', Maj9: 'maj9', sus: 'sus4', dom7: '7', dom: '7', '+': 'aug', o: 'dim', o7: 'dim7',
+  'ø': 'm7b5', 'm7-5': 'm7b5', add: 'add9', '7sus': '7sus4', 'sus7': '7sus4', '9sus4': '7sus4', '6/9': '6', '69': '6',
+};
+
+/** Why a bare token that starts with a capital letter is not a chord, as one sentence with the fix (or null when it is something else). */
+function capitalHint(tok: string): string | null {
+  if (/^[A-G][#b]?-?\d$/.test(tok)) return `it starts with a capital letter, so it is read as a chord; write the note in lowercase: ${tok.toLowerCase()}`;
+  const m = /^([A-G][#b]?)([^@/\s]*)((?:@\d)?(?:\/[a-gA-G][#b]?)?)$/.exec(tok);
+  if (!m) return null;
+  const fix = KIND_SPELLINGS[m[2]!];
+  return fix === undefined ? null : `the chord kind "${m[2]}" is not known; did you mean "${m[1]}${fix}${m[3]}"?`;
+}
 
 /** `c4` / `f#3` / `Bb2` → MIDI number (c4 = 60), or null. */
 export function noteToMidi(name: string): number | null {
@@ -64,9 +80,12 @@ export function parseNotes(str: string, step = 1): { events: MusicEvent[]; lengt
     if (tok === '~') { if (events.length) events[events.length - 1]!.dur += dur; t += dur; continue; }
     let midi: Array<number | null> | null;
     if (tok.startsWith('[')) midi = tok.slice(1, -1).trim().split(/\s+/).map(noteToMidi);
-    else if (noteToMidi(tok) !== null) midi = [noteToMidi(tok)];
-    else midi = chordToMidi(tok);
-    if (!midi || midi.length === 0 || midi.some(x => x === null)) throw new Error(`cannot read "${raw}" (${NOTE_FORMS})`);
+    else if (/^[A-G]/.test(tok)) midi = chordToMidi(tok);                 // a capital letter starts a chord (G7, C5, C6), a lowercase one a note (g7, c5, c6): never both
+    else midi = [noteToMidi(tok)];
+    if (!midi || midi.length === 0 || midi.some(x => x === null)) {
+      const hint = /^[A-G]/.test(tok) && !tok.startsWith('[') ? capitalHint(tok) : null;
+      throw new Error(`cannot read "${raw}"${hint ? `: ${hint}` : ''} (${NOTE_FORMS})`);
+    }
     events.push({ t, dur, midi: midi as number[], vel });
     t += dur;
   }
