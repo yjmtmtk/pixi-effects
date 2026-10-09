@@ -8,7 +8,7 @@ Repo: `/Users/tomotakayajima/Desktop/yjm/git/pixi-effects`. The table of chapter
 your `id`, your exact `duration` (seconds) and the `idea`. Read the other rows too, so you know what your neighbours show and do not repeat them.
 
 ## What you may read
-`ai/SKILL.md` first (follow its workflow), then `ai/reference/cheatsheet.md`, `recipes.md`, `pitfalls.md`; `docs/dsl.md`, `README.md`, `examples/*.html`,
+`skills/pixi-effects/SKILL.md` first (follow its workflow), then `skills/pixi-effects/reference/cheatsheet.md`, `recipes.md`, `pitfalls.md`; `docs/dsl.md`, `README.md`, `examples/*.html`,
 `examples/gallery/*.html` (finished pieces: look for ideas, never copy a whole piece), `dist/*.d.ts`. **Do not read** `src/`, `tests/`, `docs/superpowers/`,
 `node_modules/`, `dist/*.js`. No git, no npm. Do not edit anything but your own files (below). Run ONE Chrome at a time (many authors share this machine).
 

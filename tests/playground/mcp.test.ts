@@ -13,7 +13,7 @@ function fakeApi() {
     run: async () => { calls.push('run'); return { ready: true, logs: [], duration: 6, width: 1280, height: 720, frameRate: 30, totalFrames: 180 }; },
     call: async (cmd: string, args: any) => { calls.push(`call:${cmd}`); if (cmd === 'review') return { frames: 30, problems: [], review: [], fonts: { missing: [], failed: [], failedUnused: [] }, audio: null, at: [], logs: [] }; if (cmd === 'look') return { image: 'data:image/png;base64,AAAA' }; if (cmd === 'render') return { bytes: 5000, type: 'video/mp4', seconds: 1.2 }; return {}; },
     examples: () => [{ id: '01-hello', label: '01 · hello' }], loadExample: async (id: string) => { calls.push('load:' + id); return { id }; },
-    docsUrl: (part: string) => `https://x.example/ai/reference/${part}.md`, fetchText: async (u: string) => `DOC ${u}`,
+    docsUrl: (part: string) => `https://x.example/skills/pixi-effects/reference/${part}.md`, fetchText: async (u: string) => `DOC ${u}`,
   } };
 }
 
@@ -63,7 +63,7 @@ describe('WebMCP tools', () => {
   });
   it('get_docs returns the reference text of the same site', async () => {
     const r = await mcp.defineTools(fakeApi().api).find((x: any) => x.name === 'get_docs').execute({ part: 'cheatsheet' });
-    expect(r.content[0].text).toContain('DOC https://x.example/ai/reference/cheatsheet.md');
+    expect(r.content[0].text).toContain('DOC https://x.example/skills/pixi-effects/reference/cheatsheet.md');
   });
   it('tools run one at a time: a second call waits for the first (a run in progress is not replaced under an agent)', async () => {
     const { api } = fakeApi();

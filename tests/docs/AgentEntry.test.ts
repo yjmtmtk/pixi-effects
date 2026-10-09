@@ -13,12 +13,12 @@ describe('"Use https://github.com/yjmtmtk/pixi-effects to make a video" works as
     const top = readme.slice(0, readme.indexOf('Declarative composition and video rendering'));
     expect(top).toContain('Use https://github.com/yjmtmtk/pixi-effects to make a video');
     expect(top).toContain('AGENTS.md');
-    expect(top).toContain('ai/SKILL.md');
+    expect(top).toContain('skills/pixi-effects/SKILL.md');
     expect(top).toContain('https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/CHAT.md');
   });
 
   it('every repository file AGENTS.md sends an agent to exists, and every raw link points at a file that exists', () => {
-    const files = [...agents.matchAll(/`((?:ai|docs)\/[\w./-]+\.(?:md|html|mjs))`/g)].map(m => m[1]!);
+    const files = [...agents.matchAll(/`((?:ai|docs|skills)\/[\w./-]+\.(?:md|html|mjs))`/g)].map(m => m[1]!);
     expect(files.length).toBeGreaterThanOrEqual(6);
     for (const f of files) expect(existsSync(resolve(root, f)), f).toBe(true);
     for (const m of agents.matchAll(/raw\.githubusercontent\.com\/yjmtmtk\/pixi-effects\/main\/([\w./-]+)/g)) expect(existsSync(resolve(root, m[1]!)), m[1]).toBe(true);

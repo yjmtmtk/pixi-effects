@@ -162,7 +162,7 @@ describe('the guide (site/guide)', () => {
     for (const p of pages) expect(readFileSync(join(out, `${p.file}.html`), 'utf8'), p.file).not.toMatch(/\{\{/);
   });
 
-  it('the first-video page pins the current release on the CDN (bump it with README and ai/template.html when you release)', () => {
+  it('the first-video page pins the current release on the CDN (bump it with README and skills/pixi-effects/template.html when you release)', () => {
     const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
     const page = readFileSync(join(root, 'examples/_guide/first-video.html'), 'utf8');
     expect([...page.matchAll(/pixi-effects@([\d.]+)\//g)].map(m => m[1])).toEqual([version, version]);

@@ -1,6 +1,6 @@
 # Gallery — which model made which piece
 
-Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same brief ([BRIEF.md](BRIEF.md)) and the same docs (`ai/SKILL.md` and its references). Round one: 16 pieces. Round two: 14 more, after the library fixes the first round exposed. 0.19: two more (`spring-marquee`, `gradient-type`) written to show the new spring easing, grain and animated gradients. The model is the one passed when each agent was launched; it also sits in each piece's `#piece-meta` block as `model`.
+Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same brief ([BRIEF.md](BRIEF.md)) and the same docs (`skills/pixi-effects/SKILL.md` and its references). Round one: 16 pieces. Round two: 14 more, after the library fixes the first round exposed. 0.19: two more (`spring-marquee`, `gradient-type`) written to show the new spring easing, grain and animated gradients. The model is the one passed when each agent was launched; it also sits in each piece's `#piece-meta` block as `model`.
 
 | Model | Piece | Size | File |
 |---|---|---|---|

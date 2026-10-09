@@ -17,12 +17,12 @@ describe('music is documented as it is built', () => {
   });
 
   it('the cheatsheet, SKILL and the audio guide name every instrument and drum', () => {
-    for (const file of ['ai/reference/cheatsheet.md', 'site/guide/audio.md']) {
+    for (const file of ['skills/pixi-effects/reference/cheatsheet.md', 'site/guide/audio.md']) {
       const text = read(file);
       for (const i of INSTRUMENTS) expect(text, `${file}: ${i}`).toContain(i);
       for (const d of DRUMS) expect(text, `${file}: ${d}`).toContain(d);
     }
-    for (const i of INSTRUMENTS) expect(read('ai/SKILL.md'), `SKILL: ${i}`).toContain(i);
+    for (const i of INSTRUMENTS) expect(read('skills/pixi-effects/SKILL.md'), `SKILL: ${i}`).toContain(i);
   });
 
   it('the CHAT guide, the README and llms.txt point at music', () => {

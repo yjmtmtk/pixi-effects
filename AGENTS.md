@@ -3,8 +3,8 @@
 The person said something like "Use https://github.com/yjmtmtk/pixi-effects to make a video: …". Do NOT read the whole repository. Follow the path that matches what you can do.
 
 ## You can run commands (a shell, Node 22, Chrome): Claude Code, Codex, Cursor, …
-1. Read `ai/SKILL.md` (the workflow and the rules that cause most failures), then `ai/reference/cheatsheet.md`. Copy a block from `ai/reference/recipes.md` when one fits; `ai/reference/pitfalls.md` lists real mistakes.
-2. Start from `ai/template.html`: copy it next to the person's work and edit the composition. It loads the released library from a CDN, so the file works from any folder (no install needed).
+1. Read `skills/pixi-effects/SKILL.md` (the workflow and the rules that cause most failures), then `skills/pixi-effects/reference/cheatsheet.md`. Copy a block from `skills/pixi-effects/reference/recipes.md` when one fits; `skills/pixi-effects/reference/pitfalls.md` lists real mistakes.
+2. Start from `skills/pixi-effects/template.html`: copy it next to the person's work and edit the composition. It loads the released library from a CDN, so the file works from any folder (no install needed).
 3. A video is plain data: a tree of plain objects (`text`, `shape`, `image`, `audio` with `sfx` or `music`, nested `composition`s, a `camera`) with `at` / `duration` / `initial` / `keyframes`. You never write per-frame code. Sound needs no files: `sfx` for effects, `music` for a tune written as text.
 4. Check your work like a reviewer, in a loop: `npx pixi-effects-check your-video.html --out check-out` (or `node ai/tools/check.mjs your-video.html --out <a folder outside the repository>` inside this repository; without `--out` it writes `check-out/` into the current folder). It reports library warnings (each says what to change), layout problems, sound problems and a real export; it writes a contact sheet PNG: LOOK at it (open the image) before you say you are done.
 5. Export: `npx pixi-effects-render your-video.html -o your-video.mp4`, or the download button in the player bar.

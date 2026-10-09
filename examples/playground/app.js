@@ -132,7 +132,7 @@ const api = {
   call: (cmd, args) => runner.call(cmd, args),
   examples: () => presets.map(({ id, label }) => ({ id, label })),
   loadExample: async (id) => load(id),
-  docsUrl: (part) => here(`../../ai/reference/${part}.md`),
+  docsUrl: (part) => here(`../../skills/pixi-effects/reference/${part}.md`),
   fetchText: async (url) => { const r = await fetch(url); if (!r.ok) throw new Error(`could not read ${url} (${r.status})`); return r.text(); },
 };
 const agentNote = $('agent');

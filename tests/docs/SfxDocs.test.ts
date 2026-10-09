@@ -9,7 +9,7 @@ const read = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8')
 const SR = 48000;
 
 describe('every sfx preset is documented with its real length and brightness', () => {
-  const cheat = read('ai/reference/cheatsheet.md');
+  const cheat = read('skills/pixi-effects/reference/cheatsheet.md');
   const rows = new Map([...read('docs/dsl.md').matchAll(/^\| `(\w+)` \| ([\d.]+) s \| [^|]+ \| ≈ (\d+) Hz \|/gm)]
     .map(m => [m[1]!, { length: Number(m[2]), hz: Number(m[3]) }]));
   for (const name of SFX_PRESETS) {
@@ -53,6 +53,6 @@ describe('the documented loudest moment and level are what the presets really do
     expect(Math.max(...peaks)).toBeCloseTo(-12, 0);
     expect(Math.min(...peaks)).toBeGreaterThan(-18.6);
     expect(dsl).toContain('−12 … −18 dBFS');
-    expect(read('ai/reference/cheatsheet.md')).toContain('−12 … −18 dBFS');
+    expect(read('skills/pixi-effects/reference/cheatsheet.md')).toContain('−12 … −18 dBFS');
   });
 });

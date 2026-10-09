@@ -3,7 +3,7 @@
 
 agent-browser prints the eval result as a JSON string; a raw data URL also works:
 
-  agent-browser eval "movie.contactSheet({ count: 6, as: 'dataURL' })" | python3 ai/tools/save-image.py /abs/path/sheet.png
+  agent-browser eval "movie.contactSheet({ count: 6, as: 'dataURL' })" | python3 skills/pixi-effects/scripts/save-image.py /abs/path/sheet.png
 
 Use an ABSOLUTE output path. Prints the path and byte size.
 """

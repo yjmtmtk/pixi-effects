@@ -15,7 +15,7 @@ export async function stageSite(outDir, { root = ROOT } = {}) {
     mkdirSync(dirname(join(outDir, to)), { recursive: true });
     cpSync(join(root, from), join(outDir, to), { recursive: true });
   };
-  for (const dir of ['dist', 'examples', 'ai']) copy(dir);
+  for (const dir of ['dist', 'examples', 'ai', 'skills']) copy(dir);
   for (const f of ['docs/dsl.md', 'docs/api.md', 'llms.txt', 'llms-full.txt']) copy(f);
   copy('index.html');
   copy('site/landing/landing.css');

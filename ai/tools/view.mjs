@@ -10,7 +10,7 @@
  * ← / → step a frame (Shift: a second), Home / End jump to the ends. Stop it with Ctrl-C.
  *
  * Needs: Node >= 18. A browser (the default one is opened; --no-open prints the address instead). The page must follow
- * ai/template.html (`window.movie`, `window.__ready = true`) and use a pixi-effects that has `movie.timelineSvg()` (0.7+).
+ * skills/pixi-effects/template.html (`window.movie`, `window.__ready = true`) and use a pixi-effects that has `movie.timelineSvg()` (0.7+).
  * Options: --port N (default: a free one) · --no-open · --query "a=1" (added to the page URL) · --root DIR (default: the nearest folder above the page with dist/)
  */
 import http from 'node:http';

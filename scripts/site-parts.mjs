@@ -48,7 +48,7 @@ export function renderFooter({ root }) {
       <a href="${NPM}">npm: pixi-effects</a>
       ${entrances}
       <a href="${root}examples/music-lab.html">Music lab</a>
-      <a href="${REPO}/blob/main/ai/SKILL.md">AI skill</a>
+      <a href="${REPO}/blob/main/skills/pixi-effects/SKILL.md">AI skill</a>
       <a href="${root}llms.txt">llms.txt</a>
     </p>
     <p class="end"><span class="dia" aria-hidden="true"></span><span>pixi-effects · MIT · built on PixiJS v8, GSAP and mediabunny</span></p>

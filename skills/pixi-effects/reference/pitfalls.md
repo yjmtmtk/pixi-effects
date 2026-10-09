@@ -2,7 +2,7 @@
 
 Collected by having fresh AI sessions build pieces from the docs alone: first six (kinetic type, news lower-third, slideshow, 2.5D showcase, three.js title, bar chart), then a portfolio of 16 more (items 32 and up), made by three different models. Each entry is a real stumble. **Status**: `fixed` = the library now handles or warns; `docs` = nothing can catch it, so remember it; `hand-roll` = the DSL has no feature, see the workaround.
 
-A good habit that catches most of these: after `init`, read `window.__logs` (see `ai/template.html`) — every pixi-effects warning says what to change.
+A good habit that catches most of these: after `init`, read `window.__logs` (see `skills/pixi-effects/template.html`) — every pixi-effects warning says what to change.
 
 ## Time
 

@@ -6,12 +6,12 @@ a clear concept, a limited palette, typographic hierarchy, considered timing and
 You are also a usability tester: record honestly everything that made you retry or guess (see "Stumble notes").
 
 ## What you may read
-`ai/SKILL.md` first (follow its workflow), then `ai/reference/cheatsheet.md`, `recipes.md`, `pitfalls.md`; `README.md`, `docs/dsl.md`,
+`skills/pixi-effects/SKILL.md` first (follow its workflow), then `skills/pixi-effects/reference/cheatsheet.md`, `recipes.md`, `pitfalls.md`; `README.md`, `docs/dsl.md`,
 `docs/api.md`, `examples/*.html`, `dist/*.d.ts`. **Do not read** `src/`, `tests/`, `docs/superpowers/`, `docs/specs/`, `docs/plans/`,
 `node_modules/`, `dist/*.js`. Do not edit anything outside your own files (below). No git, no npm.
 
 ## Files you create (and only these)
-- `examples/gallery/<id>.html` — the piece (start from `ai/template.html`; in the importmap point the three `pixi-effects*` entries at the
+- `examples/gallery/<id>.html` — the piece (start from `skills/pixi-effects/template.html`; in the importmap point the three `pixi-effects*` entries at the
   local build: `"pixi-effects": "../../dist/index.js"`, `"pixi-effects/controller": "../../dist/Controller.js"`, `"pixi-effects/three": "../../dist/three.js"`).
 - `examples/gallery/posters/<id>.jpg` — a poster still (see below).
 - `examples/gallery/_notes/<id>.md` — your stumble notes.
@@ -25,14 +25,14 @@ You are also a usability tester: record honestly everything that made you retry 
    `<script type="application/json" id="piece-meta">{ "title": "...", "subtitle": "one line", "tags": ["..."], "width": 1280, "height": 720, "duration": 10, "model": "<your model name>" }</script>`
    (`width`/`height`/`duration` must match what you pass to `movie.init`).
 5. Self-contained: no network except the importmap CDNs. No external images/fonts/video. Generate any imagery procedurally (shapes, gradients,
-   canvas-drawn data-URL images). Sound effects are synthesised presets, no files: `{ type: 'audio', sfx: 'swoosh', at }` (see ai/reference/cheatsheet.md); music only from `examples/_assets/bgm.mp3` (16 s loop, CC0 — loop it). Fonts: system stacks only
+   canvas-drawn data-URL images). Sound effects are synthesised presets, no files: `{ type: 'audio', sfx: 'swoosh', at }` (see skills/pixi-effects/reference/cheatsheet.md); music only from `examples/_assets/bgm.mp3` (16 s loop, CC0 — loop it). Fonts: system stacks only
    (`system-ui`, `ui-monospace`, `Georgia`, `Arial Black`...). Japanese text is fine where it fits the concept (system CJK fonts).
 6. Duration 8–14 s, 30 fps. Pick the canvas size your brief says.
 
 ## Quality bar (self-review before you finish)
 - Look with the tools: `await movie.contactSheet({ times: [...], as: 'dataURL' })` (≥ 8 timestamps incl. the first and last second and the middle of every
   transition), `movie.snapshot(frame, { as: 'dataURL' })` for detail. Save images with
-  `agent-browser --session <id> eval "<js>" | python3 ai/tools/save-image.py /ABSOLUTE/path.png`. View them with the Read tool.
+  `agent-browser --session <id> eval "<js>" | python3 skills/pixi-effects/scripts/save-image.py /ABSOLUTE/path.png`. View them with the Read tool.
 - `await movie.inspect(frame, { layers: 'none' })` at several frames: fix every real issue (text cut off / overlapping). Name your layers.
 - `window.__logs` must be `[]`. Fix every library warning.
 - Check at least once that export works: `const b = await movie.render({ format: 'mp4' })` → report the size.
@@ -67,7 +67,7 @@ Model: <model>   Cycles: N   Result: works | partly
 ## Wished the library had
 - ...
 
-## Reusable pattern worth adding to ai/reference/recipes.md (optional; paste the code)
+## Reusable pattern worth adding to skills/pixi-effects/reference/recipes.md (optional; paste the code)
 ```
 
 ## Final message (≤ 30 lines)
@@ -75,7 +75,7 @@ Model: <model>   Cycles: N   Result: works | partly
 
 ---
 
-## Library changes since the first round (read this: where `ai/reference/pitfalls.md` disagrees, THIS wins)
+## Library changes since the first round (read this: where `skills/pixi-effects/reference/pitfalls.md` disagrees, THIS wins)
 
 The library was fixed after round one, and `dist/` already contains the fixes. So:
 

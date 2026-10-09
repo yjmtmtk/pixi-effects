@@ -4,7 +4,7 @@ Concatenation of the skill, cheatsheet, pitfalls, recipes and the DSL / API refe
 
 
 
-<!-- ===== ai/SKILL.md ===== -->
+<!-- ===== skills/pixi-effects/SKILL.md ===== -->
 
 # pixi-effects — write a video as data
 
@@ -24,7 +24,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
    - `movie.inspectAudio()` → **hear with numbers**: for every sound its `start`, `sound.length`, `sound.peakDb`, `sound.loudestAt` (line this up with the picture) and `sound.brightnessHz` (< 500 dark, > 8000 airy), plus `issues` (limited mix, inaudible or cut-off sounds). Check it whenever the movie has audio; `render()` encodes this same mix.
    - **A moment, a movement, the sound (`pixi-effects-check` options):** `--at 3.5,title@end,50%,f120` writes those pictures to `check-out/<name>/frames/*.png` (and `at.png`): the last frame of a layer is `name@end`, the middle `name@mid`. `--onion 1:3` writes `onion.png`, eight frames of seconds 1–3 overlaid (the later the stronger): a trail that shows a movement's path and easing (even steps = constant speed, bunched = slow). `report.audio` now has `loudness` (`integratedLufs`, `truePeakDb`, `clippedSamples`, `silences`), `scenes` (per named top-level composition), `cues` (when each sound starts) and `notes` (advice: quiet or loud for web video, little headroom, silent stretches; web video is typically −14 to −16 LUFS); `waveform.png` draws the mix with the scene edges and the cues. A web font that failed to load fails the check; a text layer none of whose fonts is installed is listed for review.
    - **A deck** (`composition.stops`, `deck()`): `await movie.contactSheet({ frames: movie.stops.map(s => s.frame), as: 'dataURL' })` is one picture of every stop (the check writes it as `stops.png`); what the audience reads while a page waits is that picture, so check every one. `await movie.inspectStops()` lists the stops where the picture is still changing (a stop landing before its animation ends); the check prints it as a review list: move the stop later or flag a settled one `pdf: true`. `await movie.stopImages({ which: 'pages' })` / `movie.exportPDF()` give the pages themselves.
-   From a browser tool the result is a `data:` URL string: `agent-browser eval "movie.contactSheet({ count: 6, as: 'dataURL' })" | python3 ai/tools/save-image.py /absolute/sheet.png`, then open the PNG. Sheet tiles are small (~480 px): use `snapshot` for detail. `inspect` output is long on busy scenes: pass `{ layers: 'none' }` and read `issues` first. Give layers a `name` so inspect paths are readable. A moving ticker is not flagged as cut off.
+   From a browser tool the result is a `data:` URL string: `agent-browser eval "movie.contactSheet({ count: 6, as: 'dataURL' })" | python3 skills/pixi-effects/scripts/save-image.py /absolute/sheet.png`, then open the PNG. Sheet tiles are small (~480 px): use `snapshot` for detail. `inspect` output is long on busy scenes: pass `{ layers: 'none' }` and read `issues` first. Give layers a `name` so inspect paths are readable. A moving ticker is not flagged as cut off.
 6. **Iterate** on what you saw (clipped text, collisions, wrong timing). Fast motion looks choppy: add `motionBlur: true` to `movie.init` (render, snapshot and contact sheet then show a film-style blur; renders take ~8× longer). Then export: `const blob = await movie.render({ format: 'mp4' })` (about real time; `movie.on('progress', …)` reports 0–100). **While you iterate, do not export the whole movie:** `check --no-export --at <the moment you changed>` takes seconds (3 to 10 s on the gallery pieces: most of it is loading the page and measuring the sound); to see motion, `render({ range: [from, to] })` / `pixi-effects-render --range 10:15` / `--scene name` exports only that part (picture and sound); `draft: true` / `--draft` is half size, low quality and no motion blur: a much smaller file (a piece that asks for motion blur renders much faster as a draft: 4 s of `hanabi-night` took 14.0 s, and 8.2 s as a draft, about 7 s of either being the browser's start-up), but the drawing itself is not faster. Export the whole movie once, at the end.
 
 ## The rules that cause most failures
@@ -60,7 +60,7 @@ Centred text must be positioned by `anchorX/anchorY: 0.5`; estimate text width a
 - Full reference: `docs/dsl.md` and `docs/api.md` in the repository.
 
 
-<!-- ===== ai/reference/cheatsheet.md ===== -->
+<!-- ===== skills/pixi-effects/reference/cheatsheet.md ===== -->
 
 # pixi-effects cheatsheet
 
@@ -246,13 +246,13 @@ new Controller(movie, { canvas })                // optional player bar (overlay
 ```
 
 
-<!-- ===== ai/reference/pitfalls.md ===== -->
+<!-- ===== skills/pixi-effects/reference/pitfalls.md ===== -->
 
 # pixi-effects pitfalls — what actually went wrong
 
 Collected by having fresh AI sessions build pieces from the docs alone: first six (kinetic type, news lower-third, slideshow, 2.5D showcase, three.js title, bar chart), then a portfolio of 16 more (items 32 and up), made by three different models. Each entry is a real stumble. **Status**: `fixed` = the library now handles or warns; `docs` = nothing can catch it, so remember it; `hand-roll` = the DSL has no feature, see the workaround.
 
-A good habit that catches most of these: after `init`, read `window.__logs` (see `ai/template.html`) — every pixi-effects warning says what to change.
+A good habit that catches most of these: after `init`, read `window.__logs` (see `skills/pixi-effects/template.html`) — every pixi-effects warning says what to change.
 
 ## Time
 
@@ -377,7 +377,7 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 97. **A deck inside your own composition loses its `transitions` and `stops`** unless you take them across: `const d = deck({ width: 1920, height: 1080, pages })`, then `{ type: 'composition', sequences: d.composition.sequences, transitions: d.composition.transitions }`. Pass `width` / `height` yourself for a page that is not the movie's own size.
 
 
-<!-- ===== ai/reference/recipes.md ===== -->
+<!-- ===== skills/pixi-effects/reference/recipes.md ===== -->
 
 # pixi-effects recipes
 
@@ -2807,7 +2807,7 @@ A filter by name, as plain data. `type` is the filter's class name without `Filt
   keyframes: [{ at: 0, to: { 'filters.halo.outerStrength': 6 }, duration: 1 }] }       // animate any scalar option by name
 ```
 
-Name a filter (`name: 'halo'`) to animate it with `'filters.halo.<option>'`. `blur`, `noise`, `alpha`, `colorMatrix` and `grain` need no extra package (`grain` is this library's own). All the others come from the **`pixi-filters`** package, which is loaded the first time a layer uses one (add `"pixi-filters": "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"` to the import map, or `npm i pixi-filters`; `ai/template.html` already has it). A misspelt type says what you probably meant. Rendering and exporting were verified in a real browser for 40 of them (`examples/_checks/named-filters.html` and `named-filters-2.html`); `colorMap` and `simpleLightmap` need a texture, which JSON cannot hold, so use `custom` for those two:
+Name a filter (`name: 'halo'`) to animate it with `'filters.halo.<option>'`. `blur`, `noise`, `alpha`, `colorMatrix` and `grain` need no extra package (`grain` is this library's own). All the others come from the **`pixi-filters`** package, which is loaded the first time a layer uses one (add `"pixi-filters": "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"` to the import map, or `npm i pixi-filters`; `skills/pixi-effects/template.html` already has it). A misspelt type says what you probably meant. Rendering and exporting were verified in a real browser for 40 of them (`examples/_checks/named-filters.html` and `named-filters-2.html`); `colorMap` and `simpleLightmap` need a texture, which JSON cannot hold, so use `custom` for those two:
 
 | `type` | Options (the useful ones) | What it does |
 |---|---|---|
@@ -3070,7 +3070,7 @@ import { cameraPath, wiggle } from 'pixi-effects';
 | `from` / `to` | fractions 0–1 of the route to start and stop at (default 0 → 1; `from: 1, to: 0` flies it backwards) |
 | `frameRate` | samples per second: your movie's `frameRate` (default 30) |
 
-Layers the camera passes take `hideBehindCamera: true`. The recipe `camera-fly-through` in `ai/reference/recipes.md` is a whole corridor.
+Layers the camera passes take `hideBehindCamera: true`. The recipe `camera-fly-through` in `skills/pixi-effects/reference/recipes.md` is a whole corridor.
 
 ### `followPath`
 

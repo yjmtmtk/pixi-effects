@@ -34,7 +34,7 @@ import { resetGl } from '../../src/core/glShared';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
 
 // the AI recipes, and the human cookbook (site/guide): every `// @recipe` block in either is built and linted
-const md = ['ai/reference/recipes.md', 'site/guide/cookbook.md', 'site/guide/text.md', 'site/guide/shapes.md', 'site/guide/transitions.md', 'site/guide/motion.md', 'site/guide/presenting.md', 'site/guide/audio.md']
+const md = ['skills/pixi-effects/reference/recipes.md', 'site/guide/cookbook.md', 'site/guide/text.md', 'site/guide/shapes.md', 'site/guide/transitions.md', 'site/guide/motion.md', 'site/guide/presenting.md', 'site/guide/audio.md']
   .map(f => readFileSync(resolve(__dirname, '../..', f), 'utf8')).join('\n');
 const blocks = [...md.matchAll(/```js\n\/\/ @(recipe|docs-only)([^\n]*)\n([\s\S]*?)```/g)]
   .map(m => ({ kind: m[1]!, name: m[2]!.trim(), code: m[3]! }));
@@ -51,7 +51,7 @@ function walk(seqs: SequenceSpec[], fn: (s: SequenceSpec, parentDuration: number
 // a shader layer draws with a WebGL2 context: a recorded fake stands in for the browser's
 beforeEach(() => { vi.restoreAllMocks(); resetGl(); installCanvas(fakeGl()); });
 
-describe('ai/reference/recipes.md', () => {
+describe('skills/pixi-effects/reference/recipes.md', () => {
   it('contains the recipes (and marks the browser-only ones as docs-only)', () => {
     expect(recipes.length).toBeGreaterThanOrEqual(10);
     expect(blocks.filter(b => b.kind === 'docs-only').length).toBeGreaterThanOrEqual(2);

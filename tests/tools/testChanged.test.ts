@@ -21,7 +21,7 @@ describe('testsFor: which browser tests a change needs', () => {
     expect(piece).toEqual(expect.arrayContaining(['tests/tools/noFalseWarnings.test.ts', 'tests/tools/gallery.test.ts']));
   });
   it('a change to documents needs no browser test at all', () => {
-    const r = testsFor(['docs/dsl.md', 'ai/reference/cheatsheet.md', 'CHANGELOG.md', 'llms-full.txt']);
+    const r = testsFor(['docs/dsl.md', 'skills/pixi-effects/reference/cheatsheet.md', 'CHANGELOG.md', 'llms-full.txt']);
     expect(r).toEqual({ full: false, files: [] });
   });
   it('the changes of several files add up, without a test twice', () => {

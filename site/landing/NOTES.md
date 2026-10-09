@@ -22,7 +22,7 @@ Code panels stay dark in both themes (they are "monitors"); the page chrome flip
 3. **02 Written by AI, checked by AI**: the differentiator, as a four-step loop (write → check → look → fix), with the real contact sheet and both timeline screenshots, and the chat-only entry with the prompt from the README and a Copy button.
 4. **03 Gallery**: 16 of the 50 posters in a CSS-columns masonry (16:9, 9:16, 1:1, 4:5), each with title, size, duration and model; all link to the live gallery index (per-piece pages are not all published). The tally gives the fable / opus / sonnet counts.
 5. **04 Compare**: a nine-row table (responsive: becomes labelled cards under 820 px) and four "Choose … when" blocks, including "Not pixi-effects when…". "Checked 2026-10-07, from their own pages" with links; where the fact sheet had nothing (Remotion and sound) the cell says so instead of guessing.
-6. **05 Start**: one file (CDN address + link to `ai/template.html`), npm (install and headless render lines), chat/agent; then the honest status block (experimental, pre-1.0, no GUI editor, WebCodecs browser, no benchmark, 99 s export figure).
+6. **05 Start**: one file (CDN address + link to `skills/pixi-effects/template.html`), npm (install and headless render lines), chat/agent; then the honest status block (experimental, pre-1.0, no GUI editor, WebCodecs browser, no benchmark, 99 s export figure).
 7. **Footer**: links (GitHub, npm, guide, gallery, music lab, skill), the plain-sentence description, licence.
 
 ## How it was checked
@@ -36,7 +36,7 @@ Code panels stay dark in both themes (they are "monitors"); the page chrome flip
 
 - The `timeline-collapsed.jpg` caption says repeated layers are "collapsed into one row": inferred from the `×70`, `×10` suffixes visible in the image and the file name, not from the fact sheet.
 - "AI models wrote most of them": the fact sheet says "many"; the per-piece model list in PIECES.txt covers all 50, so "most" is conservative.
-- Links to `ai/template.html`, `ai/SKILL.md`, `ai/CHAT.md` on GitHub `main`: the files exist in the local repo; the public URLs were not fetched.
+- Links to `skills/pixi-effects/template.html`, `skills/pixi-effects/SKILL.md`, `ai/CHAT.md` on GitHub `main`: the files exist in the local repo; the public URLs were not fetched.
 - The live iframe and the external links were not loaded over the network in this environment.
 
 ## With more time

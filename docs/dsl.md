@@ -1290,7 +1290,7 @@ A filter by name, as plain data. `type` is the filter's class name without `Filt
   keyframes: [{ at: 0, to: { 'filters.halo.outerStrength': 6 }, duration: 1 }] }       // animate any scalar option by name
 ```
 
-Name a filter (`name: 'halo'`) to animate it with `'filters.halo.<option>'`. `blur`, `noise`, `alpha`, `colorMatrix` and `grain` need no extra package (`grain` is this library's own). All the others come from the **`pixi-filters`** package, which is loaded the first time a layer uses one (add `"pixi-filters": "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"` to the import map, or `npm i pixi-filters`; `ai/template.html` already has it). A misspelt type says what you probably meant. Rendering and exporting were verified in a real browser for 40 of them (`examples/_checks/named-filters.html` and `named-filters-2.html`); `colorMap` and `simpleLightmap` need a texture, which JSON cannot hold, so use `custom` for those two:
+Name a filter (`name: 'halo'`) to animate it with `'filters.halo.<option>'`. `blur`, `noise`, `alpha`, `colorMatrix` and `grain` need no extra package (`grain` is this library's own). All the others come from the **`pixi-filters`** package, which is loaded the first time a layer uses one (add `"pixi-filters": "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"` to the import map, or `npm i pixi-filters`; `skills/pixi-effects/template.html` already has it). A misspelt type says what you probably meant. Rendering and exporting were verified in a real browser for 40 of them (`examples/_checks/named-filters.html` and `named-filters-2.html`); `colorMap` and `simpleLightmap` need a texture, which JSON cannot hold, so use `custom` for those two:
 
 | `type` | Options (the useful ones) | What it does |
 |---|---|---|
@@ -1553,7 +1553,7 @@ import { cameraPath, wiggle } from 'pixi-effects';
 | `from` / `to` | fractions 0–1 of the route to start and stop at (default 0 → 1; `from: 1, to: 0` flies it backwards) |
 | `frameRate` | samples per second: your movie's `frameRate` (default 30) |
 
-Layers the camera passes take `hideBehindCamera: true`. The recipe `camera-fly-through` in `ai/reference/recipes.md` is a whole corridor.
+Layers the camera passes take `hideBehindCamera: true`. The recipe `camera-fly-through` in `skills/pixi-effects/reference/recipes.md` is a whole corridor.
 
 ### `followPath`
 

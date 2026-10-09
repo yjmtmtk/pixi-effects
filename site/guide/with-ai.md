@@ -13,11 +13,11 @@ An AI does best when it reads a short, exact description of the format before it
 
 | File | What it is |
 |---|---|
-| [`ai/SKILL.md`](https://github.com/yjmtmtk/pixi-effects/blob/main/ai/SKILL.md) | the workflow: write, check, look, fix. Point a coding agent at it first |
-| [`ai/reference/cheatsheet.md`](https://github.com/yjmtmtk/pixi-effects/blob/main/ai/reference/cheatsheet.md) | every layer type, property, unit and rule on a few pages |
-| [`ai/reference/recipes.md`](https://github.com/yjmtmtk/pixi-effects/blob/main/ai/reference/recipes.md) | tested recipes the AI can adapt |
-| [`ai/reference/pitfalls.md`](https://github.com/yjmtmtk/pixi-effects/blob/main/ai/reference/pitfalls.md) | the mistakes that were actually made, so they are not repeated |
-| [`ai/template.html`](../ai/template.html) | a starter page: a harness that collects every warning into `window.__logs`, and `window.movie` / `window.__ready` for tools |
+| [`skills/pixi-effects/SKILL.md`](https://github.com/yjmtmtk/pixi-effects/blob/main/skills/pixi-effects/SKILL.md) | the workflow: write, check, look, fix. Point a coding agent at it first |
+| [`skills/pixi-effects/reference/cheatsheet.md`](https://github.com/yjmtmtk/pixi-effects/blob/main/skills/pixi-effects/reference/cheatsheet.md) | every layer type, property, unit and rule on a few pages |
+| [`skills/pixi-effects/reference/recipes.md`](https://github.com/yjmtmtk/pixi-effects/blob/main/skills/pixi-effects/reference/recipes.md) | tested recipes the AI can adapt |
+| [`skills/pixi-effects/reference/pitfalls.md`](https://github.com/yjmtmtk/pixi-effects/blob/main/skills/pixi-effects/reference/pitfalls.md) | the mistakes that were actually made, so they are not repeated |
+| [`skills/pixi-effects/template.html`](../skills/pixi-effects/template.html) | a starter page: a harness that collects every warning into `window.__logs`, and `window.movie` / `window.__ready` for tools |
 | [`llms.txt`](../llms.txt) and [`llms-full.txt`](../llms-full.txt) | the same material in one file, for a chat window |
 
 If the package is installed, they are in `node_modules/pixi-effects/ai/`.
@@ -36,7 +36,7 @@ If your browser has an AI agent that can use [WebMCP](playground.html) tools, op
 
 A prompt that works is specific about what you see and hear, and says what to read:
 
-> Read `ai/SKILL.md` and follow it. Make a 12-second, 1280×720 title sequence for a bakery called "Rye & Sons": a warm cream background, the name typed out, a line that draws itself under it, a soft chime at the end. Save it as `bakery.html`. Run the check and fix everything it reports, then show me the contact sheet.
+> Read `skills/pixi-effects/SKILL.md` and follow it. Make a 12-second, 1280×720 title sequence for a bakery called "Rye & Sons": a warm cream background, the name typed out, a line that draws itself under it, a soft chime at the end. Save it as `bakery.html`. Run the check and fix everything it reports, then show me the contact sheet.
 
 For a talk, ask for pages: *"Make a five-page deck with `deck()`, one idea per page, bullets that appear one step at a time as stops, a slide transition between pages, and speaker notes. Then run the check and look at `stops.png`."* For visuals that follow music, ask for `audioEnvelope()` and `react()` (the AI analyses the file before `init`). See [Presenting](presenting.html) and [Audio](audio.html).
 

@@ -26,11 +26,11 @@ Rules that cause most failures (details in the skill and pitfalls):
 ## Start here
 
 - **If you are an AI in a chat with no shell and no files** (a browser chat, a preview window): read only [Chat guide](${RAW}/ai/CHAT.md) and copy [chat-template.html](${RAW}/ai/chat-template.html); everything below is for an AI that can run commands.
-- [Skill: workflow and rules](${RAW}/ai/SKILL.md): how to build, check and export a video; read first
-- [Cheatsheet](${RAW}/ai/reference/cheatsheet.md): every layer type, prop, default and convention on one page
-- [Recipes](${RAW}/ai/reference/recipes.md): tested building blocks (kinetic type, lower-third, count-up, bar chart, 2.5D title, camera orbit, slideshow with transitions, sound effects without files, music written as text, three.js, a presentation deck, visuals that follow music)
-- [Pitfalls](${RAW}/ai/reference/pitfalls.md): real mistakes made by AI authors, with fixes
-- [Starter template](${RAW}/ai/template.html): copy this file to begin
+- [Skill: workflow and rules](${RAW}/skills/pixi-effects/SKILL.md): how to build, check and export a video; read first
+- [Cheatsheet](${RAW}/skills/pixi-effects/reference/cheatsheet.md): every layer type, prop, default and convention on one page
+- [Recipes](${RAW}/skills/pixi-effects/reference/recipes.md): tested building blocks (kinetic type, lower-third, count-up, bar chart, 2.5D title, camera orbit, slideshow with transitions, sound effects without files, music written as text, three.js, a presentation deck, visuals that follow music)
+- [Pitfalls](${RAW}/skills/pixi-effects/reference/pitfalls.md): real mistakes made by AI authors, with fixes
+- [Starter template](${RAW}/skills/pixi-effects/template.html): copy this file to begin
 
 ## Reference
 
@@ -45,10 +45,10 @@ Rules that cause most failures (details in the skill and pitfalls):
 `;
 
   const parts = [
-    ['ai/SKILL.md', stripFrontmatter(read('ai/SKILL.md'))],
-    ['ai/reference/cheatsheet.md', read('ai/reference/cheatsheet.md')],
-    ['ai/reference/pitfalls.md', read('ai/reference/pitfalls.md')],
-    ['ai/reference/recipes.md', read('ai/reference/recipes.md')],
+    ['skills/pixi-effects/SKILL.md', stripFrontmatter(read('skills/pixi-effects/SKILL.md'))],
+    ['skills/pixi-effects/reference/cheatsheet.md', read('skills/pixi-effects/reference/cheatsheet.md')],
+    ['skills/pixi-effects/reference/pitfalls.md', read('skills/pixi-effects/reference/pitfalls.md')],
+    ['skills/pixi-effects/reference/recipes.md', read('skills/pixi-effects/reference/recipes.md')],
     ['docs/dsl.md', read('docs/dsl.md')],
     ['docs/api.md', read('docs/api.md')],
   ];
