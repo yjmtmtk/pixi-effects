@@ -89,6 +89,8 @@ export type {
   TransitionSpec,
   SequenceCommon,
   BlendModeName,
+  MatteRefSpec,
+  MaskRefSpec,
   VideoSequenceSpec,
   ImageSequenceSpec,
   TextSequenceSpec,

@@ -191,6 +191,11 @@ export type BlendModeName =
   | 'overlay' | 'soft-light' | 'hard-light' | 'color-dodge' | 'color-burn' | 'darken' | 'lighten' | 'difference' | 'exclusion'
   | 'hue' | 'saturation' | 'color' | 'luminosity' | 'linear-burn';
 
+/** A matte given by name: another layer of the same composition. `channel` is how it is read (`'alpha'` by default, or `'luma'`: its brightness); `invert` uses 1 − matte. */
+export interface MatteRefSpec { layer: string; channel?: 'alpha' | 'luma'; invert?: boolean }
+/** A layer's `mask` can be a layer written in place, the name of another layer, `{ layer, channel, invert }`, or a list of those (intersect). */
+export type MaskRefSpec = string | MatteRefSpec;
+
 export interface SequenceCommon {
   name?: string;
   /**
@@ -226,8 +231,12 @@ export interface SequenceCommon {
    *
    * Any sequence type works as a mask; shapes are the natural choice for
    * geometric reveals.
+   *
+   * Instead of a layer written in place, `mask` can name another layer of the same composition (a matte: it is not drawn, and several
+   * layers can share it), `{ layer, channel, invert }`, or a list of those (all of them must let the layer through: intersect; subtract
+   * with `invert: true`).
    */
-  mask?: SequenceSpec;
+  mask?: SequenceSpec | MaskRefSpec | MaskRefSpec[];
   /**
    * When true, the mask is inverted: pixels inside the mask shape become
    * transparent and pixels outside become visible. Useful for "knockout"
