@@ -119,6 +119,20 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     expect(stdout).toMatch(/depth\s+0\.50s.*badge 0 px/);
   }, 200_000);
 
+  it('--at: a scene with lights gets each moment\'s light level in the printout (the most lit first) and in report.at', async () => {
+    const out = mkdtempSync(join(tmpdir(), 'check-light-'));
+    const { stdout } = await promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/gallery/spotlight-room.html'), '--no-export', '--frames', '2', '--at', '1.5,4.4', '--out', out, '--timeout', '150'], { timeout: 170_000 });
+    const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));
+    const early = report.at[0].light, later = report.at[1].light;
+    const named = (o: Record<string, number>, part: string) => Object.entries(o).find(([k]) => k.includes(part))![1];
+    // the lamp is on the first picture at 1.5 s and on the second at 4.4 s: the lit one is near 1, the others are only ambient
+    expect(named(early, 'dusk-frame')).toBeGreaterThan(0.8);
+    expect(named(early, 'tide-frame')).toBeLessThan(0.3);
+    expect(named(later, 'tide-frame')).toBeGreaterThan(0.8);
+    expect(named(later, 'dusk-frame')).toBeLessThan(0.3);
+    expect(stdout).toMatch(/light\s+1\.50s — dusk-/);              // sorted: the most lit layer is named first
+  }, 200_000);
+
   it('audio: the report gives loudness, scenes and cues, the printout says LUFS and dBTP, waveform.png is a real picture; a silent movie has no waveform', async () => {
     const run = (page: string, out: string) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, page), '--no-export', '--out', out, '--timeout', '150'], { timeout: 170_000 });
     const out = mkdtempSync(join(tmpdir(), 'check-wave-'));

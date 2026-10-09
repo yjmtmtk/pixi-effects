@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spotlight</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.22.0/dist/loader.css" />
+  <style>
+    body { background: #0d1220; margin: 0; padding: 16px; }
+    .stage { position: relative; width: min(960px, 100%); margin: 0 auto; }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>
+  </div>
+
+  <script type="application/json" id="piece-meta">{ "title": "Spotlight", "subtitle": "A dark room, one tight lamp: it picks out three pictures, and they throw their shadows on the wall.", "tags": ["2.5D", "light", "shadows", "fog", "camera", "sfx"], "width": 1280, "height": 720, "duration": 9.5, "model": "sonnet" }</script>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/presenter":  "../../dist/Presenter.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 9.5;
+
+    // Palette: night ink, a cool ambient, one warm lamp, three picture colours.
+    const INK = '#08070c', COOL = '#7d8cc4', LAMP = '#ffe3b8';
+    const CREAM = '#f1e8d4', AMBER_DIM = '#c9a77a';
+    const SERIF = 'Georgia, "Times New Roman", serif';
+    const MONO = 'ui-monospace, Menlo, Consolas, monospace';
+
+    // The room: wall far back, floor laid flat from the wall's foot toward the viewer,
+    // pictures hanging well in front of the wall so their shadows have somewhere to fall.
+    const WALL_Z = -350, ART_Z = -150, FLOOR_Y = 600, LAMP_Z = 650;
+
+    // Three pictures: centre, size, and the words that go with them.
+    const PICS = [
+      { id: 'dusk',  x: 215,  y: 295, w: 210, h: 290, no: '01 / 03', title: 'Dusk, Level Four' },
+      { id: 'tide',  x: 640,  y: 280, w: 330, h: 224, no: '02 / 03', title: 'Low Tide at Nine' },
+      { id: 'ember', x: 1065, y: 295, w: 250, h: 250, no: '03 / 03', title: 'Ember Study' },
+    ];
+    const FR = 18;   // frame width around the picture
+
+    // Where the lamp sits to light a picture: up and to the left, so the shadow drops down-right.
+    const lampAt = (p) => ({ x: p.x - 280, y: p.y - 320, lookAtX: p.x, lookAtY: p.y });
+
+    // The beat sheet (seconds)
+    const ON = 0.5;                       // the lamp comes on picture 1
+    const MOVE1 = 3.0, MOVE2 = 5.6;       // sweeps to picture 2, then 3
+    const MOVE_T = 1.0;
+    const HOUSE = 7.7;                    // the house lights come up, the title lands
+    const HOLD = [[ON + 0.4, MOVE1 - 0.2], [MOVE1 + MOVE_T + 0.1, MOVE2 - 0.2], [MOVE2 + MOVE_T + 0.1, HOUSE - 0.2]];
+
+    const picture = (p, i) => {
+      const art = { x: p.x, y: p.y };
+      const frame = {
+        type: 'shape', shape: 'rect', name: p.id + '-frame', width: p.w + FR * 2, height: p.h + FR * 2,
+        threeD: true, castsShadows: true,
+        initial: { ...art, z: ART_Z, fillColor: '#c8b48a' },
+      };
+      const gradients = [
+        { type: 'linear', angle: 90, stops: [[0, '#2a1a4a'], [0.5, '#d8456b'], [1, '#ffb454']] },
+        { type: 'linear', angle: 90, stops: [[0, '#10243c'], [0.5, '#2aa6a0'], [1, '#0a1c2a']] },
+        { type: 'radial', stops: [[0, '#ffd36e'], [0.45, '#e2552d'], [1, '#3a0f1e']] },
+      ];
+      const canvas = {
+        type: 'shape', shape: 'rect', name: p.id + '-art', width: p.w, height: p.h, threeD: true,
+        fillGradient: gradients[i],
+        initial: { ...art, z: ART_Z + 4 },
+      };
+      const extras = [
+        // a low sun in the dusk picture
+        [{ type: 'shape', shape: 'circle', name: p.id + '-sun', radius: 46, threeD: true, initial: { x: p.x, y: p.y + 50, z: ART_Z + 8, fillColor: '#fff1d0' } }],
+        // the line of the sea and its wake
+        [{ type: 'shape', shape: 'rect', name: p.id + '-horizon', width: p.w, height: 3, threeD: true, initial: { x: p.x, y: p.y + 6, z: ART_Z + 8, fillColor: '#d7f5ec' } },
+         { type: 'shape', shape: 'rect', name: p.id + '-wake', width: p.w * 0.42, height: 3, threeD: true, initial: { x: p.x, y: p.y + 40, z: ART_Z + 8, fillColor: '#d7f5ec', fillAlpha: 0.55 } }],
+        // a small hot core in the ember picture
+        [{ type: 'shape', shape: 'circle', name: p.id + '-core', radius: 14, threeD: true, initial: { x: p.x, y: p.y, z: ART_Z + 8, fillColor: '#fff6dc' } }],
+      ][i];
+      return [frame, canvas, ...extras];
+    };
+
+    // A caption: a small number and a title, bottom left, in and out with the lamp.
+    const caption = (p, [from, to]) => [
+      { type: 'text', name: p.id + '-no', text: p.no, at: from, duration: to - from,
+        style: { fontSize: 15, fontFamily: MONO, fill: AMBER_DIM, letterSpacing: 6 },
+        initial: { x: 84, y: 584, anchorX: 0, anchorY: 0 },
+        keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.5, ease: 'power2.out' }, { at: -0.4, to: { alpha: 0 }, duration: 0.4, ease: 'power2.in' }] },
+      { type: 'text', name: p.id + '-title', text: p.title, at: from, duration: to - from,
+        style: { fontSize: 44, fontFamily: SERIF, fontStyle: 'italic', fill: CREAM },
+        initial: { x: 84, y: 612, anchorX: 0, anchorY: 0 },
+        keyframes: [{ at: 0.1, from: { alpha: 0, y: 622 }, to: { alpha: 1, y: 612 }, duration: 0.7, ease: 'power2.out' }, { at: -0.4, to: { alpha: 0 }, duration: 0.4, ease: 'power2.in' }] },
+    ];
+
+    const sweep = (at, p) => ({ at, to: lampAt(p), duration: MOVE_T, ease: 'cubic-bezier(.5, 0, .2, 1)' });
+    const sfx = (name, at, extra = {}) => ({ type: 'audio', sfx: name, at, ...extra });
+
+    const sequences = [
+      // 2D ground in the fog colour: what is far dissolves into it
+      { type: 'shape', shape: 'rect', name: 'ground', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: INK } },
+
+      // --- lights ---
+      { type: 'light', kind: 'ambient', initial: { intensity: 0.1, color: COOL },
+        keyframes: [{ at: 0, to: { intensity: 0.27 }, duration: 1.4, ease: 'sine.out' }, { at: HOUSE, to: { intensity: 0.42 }, duration: 1.4, ease: 'sine.inOut' }] },
+      { type: 'light', kind: 'spot', castsShadows: true,
+        initial: { ...lampAt(PICS[0]), z: LAMP_Z, lookAtZ: ART_Z, coneAngle: 36, coneFeather: 0.35, intensity: 0, color: LAMP, shadowDarkness: 0.8, shadowDiffusion: 16 },
+        keyframes: [
+          // the lamp stutters on
+          { at: ON, to: { intensity: 0.7 }, duration: 0.06 }, { at: ON + 0.08, to: { intensity: 0.12 }, duration: 0.08 },
+          { at: ON + 0.22, to: { intensity: 1.0 }, duration: 0.18, ease: 'power2.out' },
+          sweep(MOVE1, PICS[1]), sweep(MOVE2, PICS[2]),
+          // the house lights: the lamp opens up and settles on the middle of the room
+          { at: HOUSE, to: { x: 640, y: -60, lookAtX: 640, lookAtY: 330, coneAngle: 66, coneFeather: 0.9, intensity: 0.85 }, duration: 1.4, ease: 'sine.inOut' },
+        ] },
+
+      // --- the camera: a slow dolly in and a drift, fog toward the back ---
+      { type: 'camera', initial: { offsetX: -50, fogNear: 1000, fogFar: 2400, fogColor: INK, fogAmount: 0.8 },
+        keyframes: [
+          { at: 0, to: { offsetZ: -140, offsetX: 45 }, duration: HOUSE, ease: 'sine.inOut' },
+          { at: HOUSE, to: { offsetZ: -30, offsetX: 0 }, duration: DURATION - HOUSE, ease: 'sine.inOut' },
+        ] },
+
+      // --- the room, in distance order ---
+      { type: 'shape', shape: 'rect', name: 'wall', width: 2500, height: 1400, threeD: true,
+        fillGradient: { type: 'linear', angle: 90, stops: [[0, '#6a6275'], [1, '#9a91a2']] },
+        initial: { x: 640, y: 250, z: WALL_Z } },
+      // the floor: origin at the wall's foot (anchorY 0), laid flat, running toward the viewer
+      { type: 'shape', shape: 'rect', name: 'floor', width: 2600, height: 900, anchorX: 0.5, anchorY: 0, threeD: true,
+        fillGradient: { type: 'linear', angle: 90, stops: [[0, '#4a4452'], [1, '#2a2630']] },
+        initial: { x: 640, y: FLOOR_Y, z: WALL_Z, rotationX: 90 } },
+      { type: 'shape', shape: 'rect', name: 'skirting', width: 2500, height: 26, anchorX: 0.5, anchorY: 1, threeD: true,
+        initial: { x: 640, y: FLOOR_Y, z: WALL_Z + 1, fillColor: '#6a6270' } },
+      ...PICS.flatMap(picture),
+
+      // --- a vignette keeps the corners dark, then the type ---
+      { type: 'shape', shape: 'rect', name: 'vignette', width: 'GW', height: 'GH',
+        fillGradient: { type: 'radial', radius: 0.78, stops: [[0, 'rgba(0,0,0,0)'], [0.55, 'rgba(0,0,0,0)'], [1, 'rgba(4,3,8,0.7)']] },
+        initial: { x: 'GW/2', y: 'GH/2' } },
+      ...PICS.flatMap((p, i) => caption(p, HOLD[i])),
+
+      // the end card
+      { type: 'text', name: 'title', text: 'SPOTLIGHT', at: HOUSE + 0.3, duration: DURATION - HOUSE - 0.3,
+        style: { fontSize: 58, fontFamily: SERIF, fill: CREAM, letterSpacing: 22 },
+        initial: { x: 'GW/2 + 11', y: 600, anchorX: 0.5, anchorY: 0.5 },
+        keyframes: [{ at: 0, from: { alpha: 0, y: 612 }, to: { alpha: 1, y: 600 }, duration: 0.9, ease: 'power2.out' }] },
+      { type: 'text', name: 'sub', text: 'THREE PICTURES, ONE LAMP', at: HOUSE + 0.7, duration: DURATION - HOUSE - 0.7,
+        style: { fontSize: 15, fontFamily: MONO, fill: AMBER_DIM, letterSpacing: 6 },
+        initial: { x: 'GW/2 + 3', y: 648, anchorX: 0.5, anchorY: 0.5 },
+        keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.8, ease: 'power2.out' }] },
+
+      // --- sound: short effects only ---
+      sfx('click', ON, { sfx: { preset: 'click', pitch: -7 }, volume: 1.6 }),
+      sfx('swoosh', MOVE1 - 0.05, { volume: 0.7 }),
+      sfx('swoosh', MOVE2 - 0.05, { volume: 0.7 }),
+      sfx('click', MOVE1 + MOVE_T, { sfx: { preset: 'click', pitch: -9 }, volume: 1.0 }),
+      sfx('click', MOVE2 + MOVE_T, { sfx: { preset: 'click', pitch: -9 }, volume: 1.0 }),
+      sfx('chime', HOUSE + 0.3, { sfx: { preset: 'chime', pitch: -5, brightness: -0.3 }, volume: 0.9 }),
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 4.4,
+        background: INK,
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

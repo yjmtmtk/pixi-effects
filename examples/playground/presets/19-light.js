@@ -14,7 +14,7 @@ const card = (name, x, fill) => ({
 const sequences = [
   { type: 'light', kind: 'ambient', initial: { intensity: 0.18 } },
   { type: 'light', kind: 'spot', castsShadows: true,
-    initial: { x: 160, y: -120, z: 700, lookAtX: 260, lookAtY: 330, lookAtZ: 0, coneAngle: 34, coneFeather: 0.7, intensity: 1.1 },
+    initial: { x: 160, y: -120, z: 700, lookAtX: 260, lookAtY: 330, lookAtZ: 0, coneAngle: 34, coneFeather: 0.7, intensity: 1.1, shadowDiffusion: 14 },
     keyframes: [{ at: 0.5, to: { x: 1100, lookAtX: 1020 }, duration: 4.5, ease: 'sine.inOut' }] },
   { type: 'shape', shape: 'rect', name: 'wall', width: 1800, height: 900, anchorX: 0.5, anchorY: 0.5, threeD: true,
     initial: { x: 640, y: 300, z: -260, fillColor: '#6b7280' } },

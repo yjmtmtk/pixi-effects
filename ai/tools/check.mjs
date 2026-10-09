@@ -483,8 +483,8 @@ function finish(report, outDir, log) {
     L.push(`  depth     ${w.label} — ${shown}${Object.keys(w.depthBlur).length > 8 ? ', …' : ''} (blur of each threeD layer at that moment; 0 = sharp)`);
   }
   for (const w of (report.at ?? []).filter(x => x.light)) {
-    const shown = Object.entries(w.light).slice(0, 8).map(([k, v]) => `${k} ${v}`).join(', ');
-    L.push(`  light     ${w.label} — ${shown}${Object.keys(w.light).length > 8 ? ', …' : ''} (how lit each threeD layer is at that moment: 1 = as bright as with no light, 0 = black)`);
+    const shown = Object.entries(w.light).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => `${k} ${v}`).join(', ');   // the most lit first
+    L.push(`  light     ${w.label} — ${shown}${Object.keys(w.light).length > 8 ? ', …' : ''} (the most lit threeD layers first: 1 = as bright as with no light, 0 = black; the number is the layer's middle, not what you can see)`);
   }
   if (report.stops) {
     const s = report.stops;

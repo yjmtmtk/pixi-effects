@@ -841,6 +841,27 @@
       "notes": "_notes/gradient-type.md"
     },
     {
+      "id": "spotlight-room",
+      "title": "Spotlight",
+      "subtitle": "A dark room, one tight lamp: it picks out three pictures, and they throw their shadows on the wall.",
+      "tags": [
+        "2.5D",
+        "light",
+        "shadows",
+        "fog",
+        "camera",
+        "sfx"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 9.5,
+      "posterFrame": 132,
+      "model": "sonnet",
+      "page": "spotlight-room.html",
+      "poster": "posters/spotlight-room.jpg",
+      "notes": "_notes/spotlight-room.md"
+    },
+    {
       "id": "still-water",
       "title": "Still Water",
       "subtitle": "Three lakes, three real photographs: slow Ken Burns moves, a viewfinder that draws itself on, and a caption that re-types for each photo",
