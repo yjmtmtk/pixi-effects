@@ -138,7 +138,7 @@ export class Cdp {
 export async function launchChrome(chrome, userDataDir, extraArgs = []) {
   const args = [
     '--headless=new', '--remote-debugging-port=0', `--user-data-dir=${userDataDir}`, '--no-first-run', '--no-default-browser-check',
-    '--autoplay-policy=no-user-gesture-required', '--mute-audio', '--ignore-gpu-blocklist', '--enable-unsafe-swiftshader', '--window-size=1400,900', ...extraArgs, 'about:blank',
+    '--autoplay-policy=no-user-gesture-required', '--mute-audio', '--disable-audio-output', '--ignore-gpu-blocklist', '--enable-unsafe-swiftshader', '--window-size=1400,900', ...extraArgs, 'about:blank',
   ];
   // Chrome and its helpers must not outlive this process. A run that is killed or times out never reaches its own cleanup, and a page stuck
   // in an endless loop then burns a CPU core (and holds the audio device) for hours. So a small shell keeps watch: when this process (or the
