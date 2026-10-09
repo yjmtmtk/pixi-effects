@@ -151,3 +151,14 @@ export function shadowReference(p: Vec3, light: LightState, caster: PlaneFrame, 
   if (u < 0 || u > 1 || v < 0 || v > 1) return 0;
   return alphaAt(u, v);
 }
+
+/**
+ * How lit a layer is, for `inspect`: the brightness (Rec. 709) of the light multiplier (ambient + every light, no shadows) at the middle of the
+ * layer's plane, seen from `cam`. 1 = as bright as with no light at all; 0 = black.
+ */
+export function lightLevel(frame: PlaneFrame, cam: Vec3, lights: readonly LightState[]): number {
+  const mid = { x: frame.o.x + 0.5 * frame.u.x + 0.5 * frame.v.x, y: frame.o.y + 0.5 * frame.u.y + 0.5 * frame.v.y, z: frame.o.z + 0.5 * frame.u.z + 0.5 * frame.v.z };
+  const n = { x: frame.u.y * frame.v.z - frame.u.z * frame.v.y, y: frame.u.z * frame.v.x - frame.u.x * frame.v.z, z: frame.u.x * frame.v.y - frame.u.y * frame.v.x };
+  const m = shadeReference(mid, n, cam, lights);
+  return 0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2];
+}

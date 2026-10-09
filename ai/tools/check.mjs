@@ -342,6 +342,9 @@ export async function runCheck(opts, log = console.log) {
         // depth of field: the blur (px) each threeD layer has at this moment, so a focus pull can be read as numbers (0 = sharp)
         const rows = await cdp.eval(`movie.inspect(${w.frame}).then(r => r.layers.filter(l => l.depthBlur !== undefined).map(l => [l.path, l.depthBlur]))`).catch(() => []);
         if (rows.some(([, px]) => px > 0)) w.depthBlur = Object.fromEntries(rows);
+        // light: how lit each threeD layer is at this moment (left out when the composition has no light)
+        const lit = await cdp.eval(`movie.inspect(${w.frame}).then(r => r.layers.filter(l => l.light !== undefined).map(l => [l.path, l.light]))`).catch(() => []);
+        if (lit.length) w.light = Object.fromEntries(lit);
       }
       const atSheet = await cdp.eval(`movie.contactSheet({ frames: ${JSON.stringify(wanted.map(w => w.frame))}, as: 'dataURL' })`);
       const atFile = path.join(outDir, 'at.png');
@@ -478,6 +481,10 @@ function finish(report, outDir, log) {
   for (const w of (report.at ?? []).filter(x => x.depthBlur)) {
     const shown = Object.entries(w.depthBlur).slice(0, 8).map(([k, px]) => `${k} ${px} px`).join(', ');
     L.push(`  depth     ${w.label} — ${shown}${Object.keys(w.depthBlur).length > 8 ? ', …' : ''} (blur of each threeD layer at that moment; 0 = sharp)`);
+  }
+  for (const w of (report.at ?? []).filter(x => x.light)) {
+    const shown = Object.entries(w.light).slice(0, 8).map(([k, v]) => `${k} ${v}`).join(', ');
+    L.push(`  light     ${w.label} — ${shown}${Object.keys(w.light).length > 8 ? ', …' : ''} (how lit each threeD layer is at that moment: 1 = as bright as with no light, 0 = black)`);
   }
   if (report.stops) {
     const s = report.stops;

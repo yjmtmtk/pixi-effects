@@ -329,3 +329,26 @@ describe('inspectScene — a layer used as a matte', () => {
     expect(r.issues).toEqual([]);
   });
 });
+
+describe('inspectScene — light', () => {
+  const at0 = (comp: CompositionSequence) => { comp.updateSpace(0, { render: () => {} } as never); return Object.fromEntries(inspectScene(comp, 0, 0, { width: 1280, height: 720 }).layers.map(l => [l.name, l.light])); };
+  it('a composition with no light reports no light level at all', async () => {
+    const comp = await scene([{ type: '__box', name: 'a', threeD: true }]);
+    expect(at0(comp).a).toBeUndefined();
+  });
+  it('a lit threeD layer reports how lit it is; a lit: false layer, a 2D layer and a layer when no light is alive report none', async () => {
+    const comp = await scene([
+      { type: 'light', kind: 'ambient', initial: { intensity: 0.25 } },
+      { type: 'light', kind: 'ambient', initial: { intensity: 0.25 } },
+      { type: '__box', name: 'lit', threeD: true },
+      { type: '__box', name: 'unlit', threeD: true, lit: false },
+      { type: '__box', name: 'flat' },
+    ]);
+    const by = at0(comp);
+    expect(by.lit).toBe(0.5);
+    expect(by.unlit).toBeUndefined();
+    expect(by.flat).toBeUndefined();
+    const late = await scene([{ type: 'light', kind: 'ambient', at: 5 }, { type: '__box', name: 'lit', threeD: true }]);
+    expect(at0(late).lit).toBeUndefined();
+  });
+});

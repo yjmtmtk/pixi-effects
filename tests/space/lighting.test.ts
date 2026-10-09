@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { fogAmount, packLights, shadeReference, shadowReference, smoothstep, coneCos, MAX_LIGHTS, LIGHT_KINDS, FALLOFFS, type LightState } from '../../src/space/lighting';
+import { fogAmount, lightLevel, packLights, shadeReference, shadowReference, smoothstep, coneCos, MAX_LIGHTS, LIGHT_KINDS, FALLOFFS, type LightState } from '../../src/space/lighting';
 
 const base: LightState = {
   kind: 'point', x: 0, y: 0, z: 100, lookAtX: 0, lookAtY: 0, lookAtZ: 0, r: 1, g: 1, b: 1, intensity: 1,
@@ -122,5 +122,17 @@ describe('shadowReference (a hard shadow, worked by hand)', () => {
     expect(at(0, 0, 0, sun)).toBe(1);
     expect(at(49, 0, 0, sun)).toBe(1);
     expect(at(51, 0, 0, sun)).toBe(0);
+  });
+});
+
+describe('lightLevel (how lit a layer is, for inspect)', () => {
+  const frame = { o: { x: -50, y: -50, z: 0 }, u: { x: 100, y: 0, z: 0 }, v: { x: 0, y: 100, z: 0 } };      // a 100 x 100 plane centred on the origin, facing +z
+  const cam = { x: 0, y: 0, z: 500 };
+  it('is the brightness (Rec. 709) of the light multiplier at the layer\'s centre', () => {
+    expect(lightLevel(frame, cam, [L({ kind: 'ambient', intensity: 0.25 }), L({ intensity: 0.5 })])).toBeCloseTo(0.75, 12);
+    expect(lightLevel(frame, cam, [L({ kind: 'ambient', intensity: 0.5, r: 1, g: 0, b: 0 })])).toBeCloseTo(0.2126 * 0.5, 12);
+  });
+  it('a light behind the layer adds nothing (the side the camera sees is lit by what is in front of it)', () => {
+    expect(lightLevel(frame, cam, [L({ kind: 'ambient', intensity: 0.2 }), L({ z: -100 })])).toBeCloseTo(0.2, 12);
   });
 });

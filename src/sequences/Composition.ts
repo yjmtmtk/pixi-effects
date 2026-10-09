@@ -7,7 +7,7 @@ import { buildSequenceTree } from '../core/Composition';
 import { CameraSequence } from '../space/CameraSequence';
 import { LightSequence } from '../space/LightSequence';
 import { lightSetProblems } from '../space/lightChecks';
-import { MAX_CASTERS, packLights } from '../space/lighting';
+import { MAX_CASTERS, lightLevel, packLights, type LightState } from '../space/lighting';
 import type { CasterInput } from '../space/LitMaterial';
 import { findOverlap, pickActiveCamera } from '../space/camera';
 import { assignDepthOrder } from '../space/depth';
@@ -31,6 +31,8 @@ export class CompositionSequence extends Sequence {
   _children: Sequence[] = [];
   private _cameras: CameraSequence[] = [];
   private _lights: LightSequence[] = [];
+  /** The lights alive and the camera position of the last lit frame (what `inspect` reads: a layer's light level is computed from them on demand). */
+  private _lighting: { states: LightState[]; cam: { x: number; y: number; z: number } } | null = null;
   private _layers3d: Layer3D[] = [];
   private _dofSaid = { behind: false, many: false };
   /** What this composition made for blend modes (filters added to layers' chains, groups and their carrier filters): destroyed with it. */
@@ -334,7 +336,7 @@ export class CompositionSequence extends Sequence {
    * Drawn children in stack order, with the display object that stands in for each (the mesh for a threeD layer).
    * Null layers draw nothing and are left out; the layers inside them follow, with the null layers that carry them.
    */
-  layers(): Array<{ seq: Sequence; display: Container; threeD: boolean; carriers: NullSequence[]; depthBlur: number }> {
+  layers(): Array<{ seq: Sequence; display: Container; threeD: boolean; carriers: NullSequence[]; depthBlur: number; light?: number }> {
     const carriersOf = (seq: Sequence): NullSequence[] => {
       const out: NullSequence[] = [];
       for (let p = this._parentOf.get(seq); p; p = this._parentOf.get(p)) out.push(p);
@@ -350,6 +352,8 @@ export class CompositionSequence extends Sequence {
           threeD: layer !== null,
           carriers: carriersOf(seq),
           depthBlur: layer?.blur ?? 0,
+          // how lit it is (threeD layers that receive the lights of the last frame only); computed here, not per frame
+          light: layer && this._lighting && layer.world && layer.spec.lit !== false ? lightLevel(layer.world, this._lighting.cam, this._lighting.states) : undefined,
         };
       });
   }
@@ -446,6 +450,7 @@ export class CompositionSequence extends Sequence {
     const live = this._lights.filter(l => { const w = l.window(); return t >= w.start && (t < w.end || (w.end >= compEnd && t <= w.end)); });
     const states = live.map(l => l.state());
     const packed = states.length > 0 ? packLights(states) : null;
+    this._lighting = states.length > 0 ? { states, cam: { x: basis.cx, y: basis.cy, z: basis.cz } } : null;
     // A shadow needs a light that makes shadows AND layers that cast them: the casters are the visible layers with `castsShadows`, drawn this frame
     // (a layer that is hidden, outside its life or behind the camera has no up-to-date picture and casts nothing)
     const shadowing = states.some(s => s.castsShadows);

@@ -215,3 +215,16 @@ describe('time remap on the timeline', () => {
   });
 });
 
+describe('lights on the timeline', () => {
+  it('a light layer is a row like the camera (it has a lifespan and keyframes), drawn in the camera\'s grey', async () => {
+    const data = collectTimeline(await scene([
+      { type: 'light', name: 'key', kind: 'spot', at: 1, duration: 4, keyframes: [{ at: 0, to: { x: 200 }, duration: 2 }] },
+      { type: '__box', name: 'a' },
+    ]), 12);
+    expect(data.rows.map(r => [r.name, r.type, r.start, r.end])).toEqual([['key', 'light', 1, 5], ['a', '__box', 0, 12]]);
+    // the same row written as a camera is drawn with exactly the same colours (a light is not the unknown-type fallback colour)
+    const asCamera = collectTimeline(await scene([{ type: 'camera', name: 'key', at: 1, duration: 4, keyframes: [{ at: 0, to: { x: 200 }, duration: 2 }] }, { type: '__box', name: 'a' }]), 12);
+    const fills = (svg: string) => [...svg.matchAll(/(?:fill|stroke)="(#[0-9a-f]{6})"/gi)].map(m => m[1]);
+    expect(fills(timelineSvg(data))).toEqual(fills(timelineSvg(asCamera)));
+  });
+});
