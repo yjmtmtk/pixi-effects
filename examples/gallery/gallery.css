@@ -63,7 +63,8 @@ button { font: inherit; color: inherit; }
 .tags button[aria-pressed="true"] { color: var(--ink); border-color: var(--accent); }
 .tags button.more { color: var(--ink-3); }
 .tags button.more:hover { color: var(--ink); }
-.tags[data-expanded="false"] button.extra { display: none; }
+.tags[data-expanded="true"] { max-height: 32vh; overflow-y: auto; align-content: flex-start; }                 /* all 160 chips open: scroll inside, do not cover the pieces under the pinned bar */
+.tags[data-expanded="false"] button.extra:not([aria-pressed="true"]) { display: none; }       /* a chosen tag stays visible when the rest is folded */
 .count { margin-left: auto; font-size: 13px; color: var(--ink-2); white-space: nowrap; display: flex; gap: 14px; align-items: baseline; }
 .count .tc { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
 .count button { border: 0; background: none; padding: 0; cursor: pointer; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }

@@ -217,8 +217,10 @@
     const tagCount = new Map();
     for (const p of pieces) for (const t of p.tags) tagCount.set(t, (tagCount.get(t) || 0) + 1);
     const tagsSorted = [...tagCount.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-    const common = tagsSorted.filter(([, n]) => n >= 2);
-    const rare = tagsSorted.filter(([, n]) => n < 2);
+    // the most used tags show; the rest sit behind "N more tags" (the whole list is 150 tags: all of it open is a wall of chips above the pieces)
+    const SHOWN = 12;
+    const common = tagsSorted.slice(0, SHOWN);
+    const rare = tagsSorted.slice(SHOWN);
     const chips = $('#tag-chips');
     chips.innerHTML = [...common.map(([t]) => `<button type="button" data-tag="${esc(t)}" aria-pressed="false">${esc(t)}</button>`),
       ...rare.map(([t]) => `<button type="button" class="extra" data-tag="${esc(t)}" aria-pressed="false">${esc(t)}</button>`),
