@@ -67,3 +67,15 @@ export function setBlendFilterFactory(f: ((mode: string) => BlendFilterLike | nu
 export function blendFilterFor(mode: string): BlendFilterLike | null {
   return isAdvancedBlend(mode) && factory ? factory(mode) : null;
 }
+
+/**
+ * Called by `Movie.init` when a layer uses an advanced mode, and only then: loads our blend filters (a separate chunk), registers them on
+ * the pixi the movie runs on, and on WebGL turns the back buffer on (an advanced blend reads what is already drawn; WebGPU copies the
+ * backdrop by itself, and has no such switch). A movie that uses none never reaches this, so nothing about it changes.
+ */
+export async function enableAdvancedBlend(renderer: unknown): Promise<void> {
+  const { registerBlendModes } = await import('../filters/blendModes');
+  registerBlendModes();
+  const bb = (renderer as { backBuffer?: { useBackBuffer: boolean } }).backBuffer;
+  if (bb) bb.useBackBuffer = true;
+}

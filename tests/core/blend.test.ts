@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { BASIC_BLEND_MODES, ADVANCED_BLEND_MODES, BLEND_MODES, isAdvancedBlend, blendProblem, usesAdvancedBlend } from '../../src/core/blend';
+import { describe, it, expect, vi } from 'vitest';
+vi.mock('pixi.js', async () => (await import('../space/mockPixi')).createPixiMock());
+import { BASIC_BLEND_MODES, ADVANCED_BLEND_MODES, BLEND_MODES, isAdvancedBlend, blendProblem, usesAdvancedBlend, enableAdvancedBlend, blendFilterFor } from '../../src/core/blend';
 
 describe('the blend mode table', () => {
   it('is 4 basic and 14 advanced modes: the CSS names (add and linear-burn are the two that CSS does not have)', () => {
@@ -57,5 +58,17 @@ describe('usesAdvancedBlend', () => {
     expect(usesAdvancedBlend(comp([{ type: 'shape', shape: 'circle', blendMode: 'softlight' }]))).toBe(false);
     expect(usesAdvancedBlend(undefined)).toBe(false);
     expect(usesAdvancedBlend('soft-light')).toBe(false);
+  });
+});
+
+describe('enableAdvancedBlend', () => {
+  it('registers the blends (blend.ts can then make a filter) and turns the WebGL back buffer on', async () => {
+    const renderer = { backBuffer: { useBackBuffer: false } };
+    await enableAdvancedBlend(renderer);
+    expect(renderer.backBuffer.useBackBuffer).toBe(true);
+    expect(blendFilterFor('overlay')).not.toBeNull();
+  });
+  it('a renderer with no back buffer (WebGPU) is fine', async () => {
+    await expect(enableAdvancedBlend({})).resolves.toBeUndefined();
   });
 });

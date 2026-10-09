@@ -1,4 +1,5 @@
 import * as PIXI from 'pixi.js';
+import { usesAdvancedBlend, enableAdvancedBlend } from './blend';
 import { Application, Container, Culler, Rectangle, extensions, CullerPlugin } from 'pixi.js';
 import { gsap } from 'gsap';
 import { PixiPlugin } from 'gsap/PixiPlugin';
@@ -330,6 +331,8 @@ export class Movie {
         this.app = new Application();
         await this.app.init({ ...baseAppOptions, preference: 'webgl' });
       }
+
+      if (usesAdvancedBlend(options.composition)) await enableAdvancedBlend(this.app.renderer);
 
       const root = new Container();
       root.cullable = true;

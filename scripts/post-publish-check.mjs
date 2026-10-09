@@ -12,7 +12,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { spawnSync, execFileSync } from 'node:child_process';
 
 const version = process.argv[2] ?? JSON.parse(readFileSync('package.json', 'utf8')).version;
-const FILES = ['index.js', 'Controller.js', 'Presenter.js', 'three.js', 'loader.css', ...readdirSync('dist').filter(f => /^music-.*\.js$/.test(f))];
+const FILES = ['index.js', 'Controller.js', 'Presenter.js', 'three.js', 'loader.css', ...readdirSync('dist').filter(f => /^(music|blendModes)-.*\.js$/.test(f))];
 /** The tests that load the released library from the CDN (and the one that checks the Playground's saved page), by file and name. */
 export const CDN_TESTS = [
   ['tests/tools/landing.test.ts'],
