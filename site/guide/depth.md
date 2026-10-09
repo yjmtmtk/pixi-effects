@@ -68,6 +68,22 @@ A **rack focus** moves the focus from one layer to another with an ordinary keyf
 
 `aperture` is the lens diameter in pixels: 30 is clearly shallow, 60 is strong, 100 is extreme. A name in `focus` means that layer's first `z`, so to follow a layer that moves, write `focus` as numbers. The blur is the same over the whole layer, and a card (a `threeD` composition) blurs as one layer. The whole example is the `rack-focus` recipe.
 
+## Light, shadow and fog
+
+Add a `light` layer and every `threeD` layer in the same composition is lit: it gets darker and brighter with its angle to the light and its distance from it, so flat cards start to look like a room. A light is a layer like the camera: it draws nothing, and its numbers go in `initial` and `keyframes`, so a spotlight can cross the picture.
+
+```js
+{ type: 'light', kind: 'ambient', initial: { intensity: 0.2 } },
+{ type: 'light', kind: 'spot', initial: { x: 160, y: -120, z: 700, lookAtX: 260, lookAtY: 330, coneAngle: 34, coneFeather: 0.7 },
+  keyframes: [{ at: 0.5, to: { x: 1100, lookAtX: 1020 }, duration: 4.5, ease: 'sine.inOut' }] },
+```
+
+The kinds are `ambient` (the same colour everywhere), `point`, `spot` (a cone) and `parallel` (the sun). **What no light reaches is black**, so keep a dim ambient light in the scene. A layer you want flat is `lit: false`. A shadow needs `castsShadows: true` on the light **and** on the layer that casts it; `shadowDiffusion` makes the edge soft, wider the farther the shadow falls. A layer takes shadows from up to four casters, and soft shadows are the costly part, so use them on one or two lights.
+
+Fog belongs to the camera: `fogNear`, `fogFar`, `fogColor` (and `fogAmount`) fade `threeD` layers into a colour with distance. Draw the background in the same colour so the far things dissolve into it.
+
+Layers are still drawn in distance order and there is no depth buffer, so a room is built from big layers (a wall behind, a floor whose origin is at its far edge), not from planes that cross. The `spot-room` and `fog-depth` recipes are complete examples.
+
 ## Groups in depth: a composition as a card
 
 A `composition` with `threeD: true` is a **card**: its children are drawn into one texture that moves, spins and tilts as a unit. Give it `width` and `height`; content outside that rectangle is clipped, so size it for a soft shadow too.

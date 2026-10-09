@@ -39,6 +39,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
 - **Group / parent layers = `{ type: 'null', name: 'rig' }`** (draws nothing, only moves) + `parent: 'rig'` on the layers that should follow it: their `x`/`y` are then measured from the null's origin, and the null's position / rotation / scale / alpha carry them (orbits, clock hands, grouped fades). Nulls chain. Only `null` layers can be parents; not for `threeD` layers.
 - **Time:** `speed` (slow motion, backward) and `time` (a curve of the layer's own seconds: freeze, rewind, ramp) on video, audio-file and composition layers; put what you want to rewind in a composition. Children of such a composition are in ITS seconds. `ease: 'cubic-bezier(.4, 0, .2, 1)'` is the CSS curve. See the recipe `rewind-and-replay` and pitfalls 69–73.
 - **Built in:** `animateText()` (per-letter / per-word / per-line entrances and exits in one call: `...animateText('Title', style, { x, y, align: 'center', at: 0.5, duration: 5, in: 'rise', out: 'fade', stagger: { each: 0.05 } })`), `splitText()` / `measureText()` (per-letter / per-word layers, exact positions, by hand), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) `wiggle()` (a seeded shake as keyframes; on a camera put it on `offsetX` / `offsetY` so it rides on the move) `cameraPath()` (a camera flight through `[x, y, z]` points as keyframes; layers it passes: `hideBehindCamera: true`) depth of field (camera `focus` + `aperture`: `{ type: 'camera', initial: { focus: 'title' } }` blurs the other threeD layers by depth; a rack focus is a keyframe on `focus`) `music` (a tune with no file: `{ type: 'audio', music: { bpm, tracks: [{ inst: 'keys', notes: 'Cmaj7:4 Am7:4' }, { inst: 'bass', notes: 'c2:2 g1:2' }], drums: { from: 8, kick: 'x...x...' } } }`: notes and chords as text, counted in beats; instruments `keys pluck pad bass sub lead bell musicbox`; `musicEnvelope(music)` feeds `react()`), `audioEnvelope()` / `bpmEnvelope()` + `react()` (visuals that follow music: `const env = await audioEnvelope('music.mp3', { frameRate })` before `movie.init`, then `keyframes: react(env, { duration, props: { scale: { base: 1, amount: 0.4, band: 'bass', release: 0.2 } } })`; `beats: true` pulses on the beats; `bpmEnvelope(120, …)` when there is no file), `deck()` + `Presenter` (a talk as one movie: pages, steps, stops that pause playback, arrow keys / click / swipe to move on: `...deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops, sequences }] })`, `new Presenter(movie, { canvas })` from `pixi-effects/presenter`; G = page overview, P = presenter view with notes and a timer; `pixi-effects-render talk.html -o talk.pdf` = a PDF of the pages), `particles()` (bursts, snow, confetti, sparks as seeded layers: `...particles({ count: 90, at: 2, life: [1, 1.8], area: { x: 640, y: 330 }, speed: [120, 420], gravity: 240, fade: { out: 0.6 } })`), `followPath()` (a layer along an SVG path: `keyframes: followPath({ d, duration, orient: true })`), path morphing (`{ shape: 'path', d, morphTo, initial/keyframes: morph 0 → 1 }`) and `stagger()` (delays for a wave of layers: `stagger(letters, { each: 0.05, from: 'center' })`, or `stagger(n, …)` for numbers; GSAP-style `each` / `amount` / `from` / `grid` / `ease`). **Not in the DSL (hand-roll with a JS loop):** other per-frame curves (waves, spirals: sample them into short linear keyframes). (Draw-on strokes `trimEnd`, text that changes over time `set: { text }` / `visibleChars`, shake `wiggle()` and particles are built in.)
+- **Light, shadow, fog (2.5D):** a `{ type: 'light', kind: 'ambient', initial: { intensity: 0.2 } }` plus a `spot` / `point` / `parallel` light (`castsShadows: true` on the light AND on the `threeD` layers that cast) shades every `threeD` layer by angle and distance; `lit: false` opts a layer out; camera `fogNear` / `fogFar` / `fogColor` fade what is far. What no light reaches is black (add the ambient light); layers are drawn in distance order (no depth buffer). `check --at` prints how lit each layer is.
 - **Blend modes:** `blendMode` takes 18 CSS names (`add` `screen` `multiply` `overlay` `soft-light` `hard-light` `color-dodge` `color-burn` `darken` `lighten` `difference` `exclusion` `hue` `saturation` `color` `luminosity` `linear-burn`, hyphenated) on any layer: glows and light leaks (`add`, `color-dodge`), colour casts and contrast (`soft-light`, `overlay`), vignettes (`multiply`). It blends with everything below the layer; on a composition each child blends (as one picture: `threeD: true` or a filter); 10+ of the new modes on screen at once warn; it works with every mask.
 - **One `Movie` per page.** A sound effect needs no `duration` (it lasts as long as its clip). Seeking is safe: counters, colours and growing shapes are right after any jump.
 
@@ -151,7 +152,7 @@ Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha stro
 
 ## 2.5D in one paragraph
 
-Add `threeD: true` to any visual layer, then use `z`, `rotationX`, `rotationY` (centre rotation with `anchorX/Y: 0.5` or `pivotX/Y`). Add a `{ type: 'camera' }` layer for a view. A `threeD` layer at `z: 0` with the default camera looks identical to a 2D one. Consecutive `threeD` layers are drawn farthest-first (equal `z` keeps array order); non-`threeD` layers ignore the camera and keep array order. Layers at/behind the camera plane are hidden. Not supported on `threeD` layers: masks, transitions, `filterArea`.
+Add `threeD: true` to any visual layer, then use `z`, `rotationX`, `rotationY` (centre rotation with `anchorX/Y: 0.5` or `pivotX/Y`). Add a `{ type: 'camera' }` layer for a view. A `threeD` layer at `z: 0` with the default camera looks identical to a 2D one. Consecutive `threeD` layers are drawn farthest-first (equal `z` keeps array order); non-`threeD` layers ignore the camera and keep array order. Layers at/behind the camera plane are hidden. Not supported on `threeD` layers: masks, transitions, `filterArea`. **Light:** `{ type: 'light', kind: 'ambient' | 'point' | 'spot' | 'parallel', falloff?: 'none' | 'smooth' | 'inverseSquare', castsShadows?, initial: { x, y, z, lookAtX, lookAtY, lookAtZ, intensity, color, coneAngle, coneFeather, radius, falloffDistance, shadowDarkness, shadowDiffusion } }` lights every `threeD` layer of the composition (`lit: false` opts out; what no light reaches is black, so add `kind: 'ambient'`); a shadow needs `castsShadows: true` on the light AND on the layer (hard by default, `shadowDiffusion` softens; up to 4 casters per receiver). **Fog:** camera `initial: { fogNear, fogFar, fogColor, fogAmount }` (any one turns it on).
 
 ## Poster
 
@@ -358,6 +359,10 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 82. **A `mask` name works inside one composition only.** The matte and the layers that name it are siblings in the same `sequences`. A layer inside a nested composition cannot name a matte outside it (warns, with the closest name if there is one, and the layer is drawn without the matte); a layer that a transition wraps keeps its matte. Put the matte inside the nested composition, or the layer next to it.
 83. **`channel: 'luma'` reads brightness, `'alpha'` (the default) reads opacity.** A white shape is 1 for both, a black shape is 0 for luma and 1 for alpha, a grey `#808080` is 0.5 luma. Outside the matte layer's own shape both are 0, so a wide gradient rectangle slid across the layers is a soft moving reveal. Use `luma` with a grayscale image or a gradient layer; use the default for shapes and text. `luminance`, `brightness` and `grayscale` are not channel names: they warn ("did you mean luma?") and alpha is used.
 84. **Subtract with `invert: true` in a list; a list multiplies.** `mask: ['panel', { layer: 'hole', invert: true }]` is "inside `panel`, outside `hole`". `maskInverted: true` is for an inline mask only: with a named matte it warns and tells you to write `invert: true`. A luma wipe's `map` is a built-in name (`linear` `diagonal` `radial`) or a grayscale image asset; an unknown name warns once and wipes as if the map were white.
+85. **One light layer lights every `threeD` layer, and what no light reaches is black.** Add `{ type: 'light', kind: 'ambient', initial: { intensity: 0.2 } }` (a white ambient light at 1 is the same as no light). A layer you want flat-lit is `lit: false`. Layers without `threeD` are never lit, and a light only counts while it is alive (give it the scene's `at` / `duration`): with no light alive the layers are drawn unlit.
+86. **A shadow needs `castsShadows: true` on the light AND on the layer.** Either alone shows nothing (the build says which half is missing). The caster has to be a `threeD` layer in front of the receiver (between it and the light); a receiver takes at most 4 casters. Soft shadows (`shadowDiffusion`) cost the most: use them on one or two lights.
+87. **The light's numbers go in `initial` / `keyframes`; `kind`, `falloff` and `castsShadows` are on the layer.** `{ type: 'light', intensity: 1 }` warns; so do `target` / `pointOfInterest` (use `lookAtX / lookAtY / lookAtZ`), `angle` (`coneAngle`), `castShadows` (`castsShadows`) and `intensity: 80` (it is a multiplier, 1 = full, not a percentage). A spot needs a look-at point (it defaults to the middle of the picture).
+88. **A room is layers in distance order, not geometry.** There is no depth buffer: a floor or wall is a big `threeD` layer whose origin is at its far edge (`anchorY: 0` / a `z` behind what stands on it), and planes that cross cannot be drawn. Each composition has its own lights: a light in a nested composition lights only that composition's layers. Fog is the camera's (`fogNear` / `fogFar` / `fogColor`), fades `threeD` layers only, so draw the background in the fog colour.
 
 
 <!-- ===== ai/reference/recipes.md ===== -->
@@ -1215,6 +1220,49 @@ return {
 
 ---
 
+## A spotlight across a dark room (light and shadow)
+
+An ambient light keeps the room from going black, a `spot` light sweeps across three cards and they throw shadows on the wall behind them. The shadow needs `castsShadows` on the light **and** on each card; `lookAtX` moves the beam and `x` moves the lamp with it.
+
+```js
+// @recipe spot-room
+const card = (name, x, fill) => ({
+  type: 'shape', shape: 'rect', name, width: 300, height: 200, anchorX: 0.5, anchorY: 0.5, threeD: true, castsShadows: true,
+  initial: { x, y: 300, z: 0, fillColor: fill },
+});
+return { duration: 6, sequences: [
+  { type: 'light', kind: 'ambient', initial: { intensity: 0.18 } },
+  { type: 'light', kind: 'spot', castsShadows: true,
+    initial: { x: 160, y: -120, z: 700, lookAtX: 260, lookAtY: 330, lookAtZ: 0, coneAngle: 34, coneFeather: 0.7, intensity: 1.1 },
+    keyframes: [{ at: 0.5, to: { x: 1100, lookAtX: 1020 }, duration: 4.5, ease: 'sine.inOut' }] },
+  // the wall, big and behind the cards (a room is layers in distance order: no depth buffer)
+  { type: 'shape', shape: 'rect', name: 'wall', width: 1800, height: 900, anchorX: 0.5, anchorY: 0.5, threeD: true, initial: { x: 640, y: 300, z: -260, fillColor: '#6b7280' } },
+  card('a', 300, '#e0a458'), card('b', 640, '#58a4e0'), card('c', 980, '#e05876'),
+] };
+```
+
+---
+
+## Fog that thickens with distance (camera fog)
+
+Fog is the camera's (`fogNear`, `fogFar`, `fogColor`, `fogAmount`): `threeD` layers are mixed toward the fog colour by how far they are. 2D layers are not fogged, so the background is drawn in the fog colour and what is far dissolves into it.
+
+```js
+// @recipe fog-depth
+const posts = Array.from({ length: 10 }, (_, i) => ({
+  type: 'shape', shape: 'rect', name: 'post-' + i, width: 80, height: 420, anchorX: 0.5, anchorY: 1, threeD: true,
+  initial: { x: 200 + (i % 2) * 880, y: 620, z: -i * 220, fillColor: '#1f2a44' },
+}));
+return { duration: 6, sequences: [
+  { type: 'shape', shape: 'rect', name: 'sky', width: 'GW', height: 'GH', anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#9fb4d6' } },
+  { type: 'camera', initial: { fogNear: 900, fogFar: 2600, fogColor: '#9fb4d6', fogAmount: 0.95 },
+    keyframes: [{ at: 0, to: { offsetZ: -700 }, duration: 6, ease: 'sine.inOut' }] },        // dolly in: the nearer posts come out of the mist
+  ...posts,
+] };
+```
+
+---
+
 ## A hand-held shake and a flickering light (`wiggle`, seeded)
 
 `wiggle()` returns keyframes (spread it into `keyframes`): each property drifts between seeded random targets and ends back at `around`. Use `freq` ~3 for a slow float, 8+ for a shake, `ease: 'none'` for a jittery flicker. Per-layer variety: give each its own `seed`.
@@ -2003,11 +2051,62 @@ A focus pull is a normal keyframe on `focus`; a layer name works there too:
 - A negative or non-numeric `aperture` warns once and turns depth of field off.
 - `movie.inspect(frame)` reports each `threeD` layer's blur as `depthBlur` (px, 0 = sharp).
 
+### Lights
+
+A `light` layer lights the `threeD` layers of its composition: they get darker and brighter with their angle and distance, like cards in a dark room. It is a layer like the camera: it draws nothing, and its numbers go in `initial` and `keyframes` (so it moves, springs, takes expressions and `ease`).
+
+```ts
+{ type: 'light', kind: 'ambient', initial: { intensity: 0.2 } },                    // what no other light reaches is this dark, not black
+{ type: 'light', kind: 'spot', castsShadows: true,                                  // a spotlight that crosses the picture
+  initial: { x: 160, y: -120, z: 700, lookAtX: 260, lookAtY: 330, lookAtZ: 0, coneAngle: 34, coneFeather: 0.7, intensity: 1.1 },
+  keyframes: [{ at: 0.5, to: { x: 1100, lookAtX: 1020 }, duration: 4.5, ease: 'sine.inOut' }] },
+{ type: 'shape', shape: 'rect', name: 'card', width: 300, height: 200, threeD: true, castsShadows: true, initial: { x: 300, y: 300, z: 0, fillColor: '#e0a458' } },
+```
+
+`kind` (a fixed setting on the layer): `'ambient'` (the same colour everywhere), `'point'` (from a position in every direction; the default), `'spot'` (a point light inside a cone around the direction to its look-at point), `'parallel'` (a direction only, from the position toward the look-at point: the sun). `falloff` (also fixed): `'none'` (default), `'smooth'` (full inside `radius`, fading to nothing over `falloffDistance` more), `'inverseSquare'` (full at `radius`, a quarter at twice that). Numbers you can animate:
+
+| name | meaning | default |
+|---|---|---|
+| `x` `y` `z` | where the light is (px, like a layer; `z` toward the viewer) | up and to the left of the picture, 0.6 of the camera's distance |
+| `lookAtX` `lookAtY` `lookAtZ` | the point a `spot` or `parallel` light points at | the middle of the picture |
+| `intensity` | a multiplier: 1 = full, 0.25 = a quarter (not a percentage) | 1 |
+| `color` | any colour (`'#ffd9a0'`) | white |
+| `coneAngle` `coneFeather` | a spot's full angle in degrees, and the soft part of its edge as a fraction of the half angle (0 = hard, 1 = soft all the way in) | 90, 0.5 |
+| `radius` `falloffDistance` | where the falloff starts and how far it runs (px) | 500, 500 |
+| `shadowDarkness` `shadowDiffusion` | how dark the shadows of this light are (0..1) and how soft their edge is (px; 0 = hard) | 1, 0 |
+
+Rules:
+1. **A composition with a `light` layer lights every `threeD` layer in it.** To keep one unlit, write `lit: false` on it. Layers without `threeD` are never lit. **A composition with no light and no fog makes nothing new: the shader is not built and the picture and the cost do not change.**
+2. **What no light reaches is black.** Add an ambient light (the build warns when there is none). A white ambient light at intensity 1 is no light at all: the picture is the one you would get without lights. A light behind a layer does not light the side the camera sees.
+3. **A light counts only while it is alive** (its own `at` and `duration`). With no light alive at a moment, the layers are drawn unlit, as in a composition without lights; so give the lights the length of the scene.
+4. **Each composition has its own lights.** A light inside a nested composition lights only that composition's `threeD` layers; an outer light does not reach inside it. A `threeD` composition (a card) is lit as one picture by its parent's lights.
+5. **Layers are drawn in distance order and there is no depth buffer.** Planes that cross each other cannot be shown; for a floor or a wall, put the layer's origin at its far edge so it sorts behind what stands on it.
+6. **Shading works on the sRGB values** (like After Effects): a strong light clips to white. The shading is `colour × (ambient + the lights)`, each light by `N·L`, its falloff and its cone.
+7. **Order:** the layer's own `filters` run first (they draw into the layer's picture), then the shading, the fog, the depth-of-field blur, and last the `blendMode`. All of them work together.
+8. At most 8 lights besides the ambient ones are used (the first 8 in layer order; the build says which are left out). Ambient lights are added up.
+9. `color` keyframes mix in sRGB like other colour keyframes (`'#ff0000'` → `'#0000ff'` passes `#800080`). A light has no `colorSpace`.
+10. `movie.inspect(frame)` gives each lit `threeD` layer a `light`: how lit its middle is (1 = as bright as with no light, 0 = black); `check.mjs --at` prints it. Shadows are not in that number.
+
+Checked against an independent JS reference of the shading (every pixel within 2/255) on WebGPU and WebGL, for ambient, point, spot and parallel lights, the three falloffs, a card turned on two axes, and a card seen from its back. Cost, measured at 1080p on one machine (an Apple M1 Pro, headless Chrome) as the extra time per frame against the same scene without light: lights alone cost about 1 ms on WebGPU (20 layers, 3 lights: 2.6 ms) and about the same on WebGL; shadows are the price (below).
+
+### Shadows
+
+A shadow needs both halves: the **light** has `castsShadows: true` and the **layer** has `castsShadows: true`. Then the layer's outline (its own picture's alpha) darkens the other lit `threeD` layers behind it, on the side away from the light.
+
+- Hard edges by default. `shadowDiffusion` (px, on the light) widens the edge, wider the farther the shadow falls from the caster, so a card near the wall has a sharp shadow and one far from it a soft one. `shadowDarkness` (0..1) sets how dark.
+- A layer receives shadows from at most **4** casters (the first 4 in layer order; the build says which are left out), never from itself, and a caster that is hidden (outside its life, alpha 0, behind the camera) casts nothing. Several shadows join by the strongest, not by adding up, so overlaps are not darker.
+- A shadow is the shadow of a flat picture: a card turned on its axis casts the turned outline; there is no self-shadowing, no shadow on a layer that is not lit (`lit: false`), no coloured or see-through shadow.
+- **Soft shadows are the expensive part** (16 samples per pixel per caster). Measured at 1080p, extra ms per frame (WebGPU / WebGL): 5 layers, 1 light, hard 1.4 / 1.6, soft 4.6 / 6.1; 20 layers, 1 light, hard 0.8 / 0.1, soft 5.3 / 10.4; 20 layers, 3 lights, hard 2.6 / 8.7, **soft 19.8 / 21.6**. Three or more lights with soft shadows warn; give `shadowDiffusion` to one or two lights.
+
+### Fog
+
+The camera takes `fogNear`, `fogFar` (distances along the view direction, px), `fogColor` and `fogAmount` (0..1, how much of the colour the farthest things get). Writing any one of them turns fog on (the others default to: near = the camera's home distance, far = three times that, black, 1). A `threeD` layer is mixed toward the fog colour by its depth, per pixel (so a floor going away gets a true gradient). It comes after the shading and before the depth-of-field blur. 2D layers are not fogged: draw the background in the fog colour so what is far dissolves into it. Without lights, fog alone costs almost nothing. `fogFar` not beyond `fogNear`, or an amount outside 0..1, warns.
+
 ### Depth order and limits
 
 - Consecutive `threeD` layers are drawn farthest-first. A non-`threeD` layer between them splits the group (like After Effects).
 - A layer at or behind the camera is hidden for that frame.
-- v1 limits: planes do not intersect (whole layers are sorted); masks, transitions and `filterArea` are not supported on `threeD` layers (a mask is ignored with a warning); each `threeD` layer costs one extra render pass per frame.
+- v1 limits: planes do not intersect (whole layers are sorted; with lights this shows when you build a room: see [Lights](#lights)); masks, transitions and `filterArea` are not supported on `threeD` layers (a mask is ignored with a warning); each `threeD` layer costs one extra render pass per frame.
 - Wrong-but-likely names (`rotateY`, `translateZ`, `depth`, `perspective`, `zoom`) are not accepted; the console tells you the right name.
 
 ---

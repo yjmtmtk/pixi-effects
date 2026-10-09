@@ -588,11 +588,62 @@ A focus pull is a normal keyframe on `focus`; a layer name works there too:
 - A negative or non-numeric `aperture` warns once and turns depth of field off.
 - `movie.inspect(frame)` reports each `threeD` layer's blur as `depthBlur` (px, 0 = sharp).
 
+### Lights
+
+A `light` layer lights the `threeD` layers of its composition: they get darker and brighter with their angle and distance, like cards in a dark room. It is a layer like the camera: it draws nothing, and its numbers go in `initial` and `keyframes` (so it moves, springs, takes expressions and `ease`).
+
+```ts
+{ type: 'light', kind: 'ambient', initial: { intensity: 0.2 } },                    // what no other light reaches is this dark, not black
+{ type: 'light', kind: 'spot', castsShadows: true,                                  // a spotlight that crosses the picture
+  initial: { x: 160, y: -120, z: 700, lookAtX: 260, lookAtY: 330, lookAtZ: 0, coneAngle: 34, coneFeather: 0.7, intensity: 1.1 },
+  keyframes: [{ at: 0.5, to: { x: 1100, lookAtX: 1020 }, duration: 4.5, ease: 'sine.inOut' }] },
+{ type: 'shape', shape: 'rect', name: 'card', width: 300, height: 200, threeD: true, castsShadows: true, initial: { x: 300, y: 300, z: 0, fillColor: '#e0a458' } },
+```
+
+`kind` (a fixed setting on the layer): `'ambient'` (the same colour everywhere), `'point'` (from a position in every direction; the default), `'spot'` (a point light inside a cone around the direction to its look-at point), `'parallel'` (a direction only, from the position toward the look-at point: the sun). `falloff` (also fixed): `'none'` (default), `'smooth'` (full inside `radius`, fading to nothing over `falloffDistance` more), `'inverseSquare'` (full at `radius`, a quarter at twice that). Numbers you can animate:
+
+| name | meaning | default |
+|---|---|---|
+| `x` `y` `z` | where the light is (px, like a layer; `z` toward the viewer) | up and to the left of the picture, 0.6 of the camera's distance |
+| `lookAtX` `lookAtY` `lookAtZ` | the point a `spot` or `parallel` light points at | the middle of the picture |
+| `intensity` | a multiplier: 1 = full, 0.25 = a quarter (not a percentage) | 1 |
+| `color` | any colour (`'#ffd9a0'`) | white |
+| `coneAngle` `coneFeather` | a spot's full angle in degrees, and the soft part of its edge as a fraction of the half angle (0 = hard, 1 = soft all the way in) | 90, 0.5 |
+| `radius` `falloffDistance` | where the falloff starts and how far it runs (px) | 500, 500 |
+| `shadowDarkness` `shadowDiffusion` | how dark the shadows of this light are (0..1) and how soft their edge is (px; 0 = hard) | 1, 0 |
+
+Rules:
+1. **A composition with a `light` layer lights every `threeD` layer in it.** To keep one unlit, write `lit: false` on it. Layers without `threeD` are never lit. **A composition with no light and no fog makes nothing new: the shader is not built and the picture and the cost do not change.**
+2. **What no light reaches is black.** Add an ambient light (the build warns when there is none). A white ambient light at intensity 1 is no light at all: the picture is the one you would get without lights. A light behind a layer does not light the side the camera sees.
+3. **A light counts only while it is alive** (its own `at` and `duration`). With no light alive at a moment, the layers are drawn unlit, as in a composition without lights; so give the lights the length of the scene.
+4. **Each composition has its own lights.** A light inside a nested composition lights only that composition's `threeD` layers; an outer light does not reach inside it. A `threeD` composition (a card) is lit as one picture by its parent's lights.
+5. **Layers are drawn in distance order and there is no depth buffer.** Planes that cross each other cannot be shown; for a floor or a wall, put the layer's origin at its far edge so it sorts behind what stands on it.
+6. **Shading works on the sRGB values** (like After Effects): a strong light clips to white. The shading is `colour × (ambient + the lights)`, each light by `N·L`, its falloff and its cone.
+7. **Order:** the layer's own `filters` run first (they draw into the layer's picture), then the shading, the fog, the depth-of-field blur, and last the `blendMode`. All of them work together.
+8. At most 8 lights besides the ambient ones are used (the first 8 in layer order; the build says which are left out). Ambient lights are added up.
+9. `color` keyframes mix in sRGB like other colour keyframes (`'#ff0000'` → `'#0000ff'` passes `#800080`). A light has no `colorSpace`.
+10. `movie.inspect(frame)` gives each lit `threeD` layer a `light`: how lit its middle is (1 = as bright as with no light, 0 = black); `check.mjs --at` prints it. Shadows are not in that number.
+
+Checked against an independent JS reference of the shading (every pixel within 2/255) on WebGPU and WebGL, for ambient, point, spot and parallel lights, the three falloffs, a card turned on two axes, and a card seen from its back. Cost, measured at 1080p on one machine (an Apple M1 Pro, headless Chrome) as the extra time per frame against the same scene without light: lights alone cost about 1 ms on WebGPU (20 layers, 3 lights: 2.6 ms) and about the same on WebGL; shadows are the price (below).
+
+### Shadows
+
+A shadow needs both halves: the **light** has `castsShadows: true` and the **layer** has `castsShadows: true`. Then the layer's outline (its own picture's alpha) darkens the other lit `threeD` layers behind it, on the side away from the light.
+
+- Hard edges by default. `shadowDiffusion` (px, on the light) widens the edge, wider the farther the shadow falls from the caster, so a card near the wall has a sharp shadow and one far from it a soft one. `shadowDarkness` (0..1) sets how dark.
+- A layer receives shadows from at most **4** casters (the first 4 in layer order; the build says which are left out), never from itself, and a caster that is hidden (outside its life, alpha 0, behind the camera) casts nothing. Several shadows join by the strongest, not by adding up, so overlaps are not darker.
+- A shadow is the shadow of a flat picture: a card turned on its axis casts the turned outline; there is no self-shadowing, no shadow on a layer that is not lit (`lit: false`), no coloured or see-through shadow.
+- **Soft shadows are the expensive part** (16 samples per pixel per caster). Measured at 1080p, extra ms per frame (WebGPU / WebGL): 5 layers, 1 light, hard 1.4 / 1.6, soft 4.6 / 6.1; 20 layers, 1 light, hard 0.8 / 0.1, soft 5.3 / 10.4; 20 layers, 3 lights, hard 2.6 / 8.7, **soft 19.8 / 21.6**. Three or more lights with soft shadows warn; give `shadowDiffusion` to one or two lights.
+
+### Fog
+
+The camera takes `fogNear`, `fogFar` (distances along the view direction, px), `fogColor` and `fogAmount` (0..1, how much of the colour the farthest things get). Writing any one of them turns fog on (the others default to: near = the camera's home distance, far = three times that, black, 1). A `threeD` layer is mixed toward the fog colour by its depth, per pixel (so a floor going away gets a true gradient). It comes after the shading and before the depth-of-field blur. 2D layers are not fogged: draw the background in the fog colour so what is far dissolves into it. Without lights, fog alone costs almost nothing. `fogFar` not beyond `fogNear`, or an amount outside 0..1, warns.
+
 ### Depth order and limits
 
 - Consecutive `threeD` layers are drawn farthest-first. A non-`threeD` layer between them splits the group (like After Effects).
 - A layer at or behind the camera is hidden for that frame.
-- v1 limits: planes do not intersect (whole layers are sorted); masks, transitions and `filterArea` are not supported on `threeD` layers (a mask is ignored with a warning); each `threeD` layer costs one extra render pass per frame.
+- v1 limits: planes do not intersect (whole layers are sorted; with lights this shows when you build a room: see [Lights](#lights)); masks, transitions and `filterArea` are not supported on `threeD` layers (a mask is ignored with a warning); each `threeD` layer costs one extra render pass per frame.
 - Wrong-but-likely names (`rotateY`, `translateZ`, `depth`, `perspective`, `zoom`) are not accepted; the console tells you the right name.
 
 ---

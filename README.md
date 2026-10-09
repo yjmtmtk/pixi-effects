@@ -166,7 +166,7 @@ sequences: [
 ]
 ```
 
-`+z` is toward the viewer, rotations are degrees (CSS signs), and with `z = 0` and the default camera a `threeD` layer looks identical to a 2D one. See [DSL reference § 3D layers & camera](./docs/dsl.md#3d-layers--camera) and [`examples/11-depth.html`](./examples/11-depth.html).
+`+z` is toward the viewer, rotations are degrees (CSS signs), and with `z = 0` and the default camera a `threeD` layer looks identical to a 2D one. Add `{ type: 'light', kind: 'spot', … }` layers for shading and shadows, and `fogNear` / `fogFar` on the camera for depth fog (nothing changes in a composition with neither). See [DSL reference § 3D layers & camera](./docs/dsl.md#3d-layers--camera) and [`examples/11-depth.html`](./examples/11-depth.html).
 
 ## For AI agents
 

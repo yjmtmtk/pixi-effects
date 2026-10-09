@@ -851,6 +851,49 @@ return {
 
 ---
 
+## A spotlight across a dark room (light and shadow)
+
+An ambient light keeps the room from going black, a `spot` light sweeps across three cards and they throw shadows on the wall behind them. The shadow needs `castsShadows` on the light **and** on each card; `lookAtX` moves the beam and `x` moves the lamp with it.
+
+```js
+// @recipe spot-room
+const card = (name, x, fill) => ({
+  type: 'shape', shape: 'rect', name, width: 300, height: 200, anchorX: 0.5, anchorY: 0.5, threeD: true, castsShadows: true,
+  initial: { x, y: 300, z: 0, fillColor: fill },
+});
+return { duration: 6, sequences: [
+  { type: 'light', kind: 'ambient', initial: { intensity: 0.18 } },
+  { type: 'light', kind: 'spot', castsShadows: true,
+    initial: { x: 160, y: -120, z: 700, lookAtX: 260, lookAtY: 330, lookAtZ: 0, coneAngle: 34, coneFeather: 0.7, intensity: 1.1 },
+    keyframes: [{ at: 0.5, to: { x: 1100, lookAtX: 1020 }, duration: 4.5, ease: 'sine.inOut' }] },
+  // the wall, big and behind the cards (a room is layers in distance order: no depth buffer)
+  { type: 'shape', shape: 'rect', name: 'wall', width: 1800, height: 900, anchorX: 0.5, anchorY: 0.5, threeD: true, initial: { x: 640, y: 300, z: -260, fillColor: '#6b7280' } },
+  card('a', 300, '#e0a458'), card('b', 640, '#58a4e0'), card('c', 980, '#e05876'),
+] };
+```
+
+---
+
+## Fog that thickens with distance (camera fog)
+
+Fog is the camera's (`fogNear`, `fogFar`, `fogColor`, `fogAmount`): `threeD` layers are mixed toward the fog colour by how far they are. 2D layers are not fogged, so the background is drawn in the fog colour and what is far dissolves into it.
+
+```js
+// @recipe fog-depth
+const posts = Array.from({ length: 10 }, (_, i) => ({
+  type: 'shape', shape: 'rect', name: 'post-' + i, width: 80, height: 420, anchorX: 0.5, anchorY: 1, threeD: true,
+  initial: { x: 200 + (i % 2) * 880, y: 620, z: -i * 220, fillColor: '#1f2a44' },
+}));
+return { duration: 6, sequences: [
+  { type: 'shape', shape: 'rect', name: 'sky', width: 'GW', height: 'GH', anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#9fb4d6' } },
+  { type: 'camera', initial: { fogNear: 900, fogFar: 2600, fogColor: '#9fb4d6', fogAmount: 0.95 },
+    keyframes: [{ at: 0, to: { offsetZ: -700 }, duration: 6, ease: 'sine.inOut' }] },        // dolly in: the nearer posts come out of the mist
+  ...posts,
+] };
+```
+
+---
+
 ## A hand-held shake and a flickering light (`wiggle`, seeded)
 
 `wiggle()` returns keyframes (spread it into `keyframes`): each property drifts between seeded random targets and ends back at `around`. Use `freq` ~3 for a slow float, 8+ for a shake, `ease: 'none'` for a jittery flicker. Per-layer variety: give each its own `seed`.
