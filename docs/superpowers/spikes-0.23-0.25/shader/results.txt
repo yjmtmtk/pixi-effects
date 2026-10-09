@@ -1,0 +1,12 @@
+[spike default] f0: got 64,63,128 want 64,63,128
+[spike default] f15: got 64,63,255 want 64,63,255
+[spike default] f45: got 64,63,3 want 64,63,3
+[spike default] error log: "warn: pixi-effects: shader layer: the fragment shader did not compile (line numbers are in your code):\nERROR: 0:2: 'undefinedThing' : undeclared identifier"
+[spike default] red 255,0,0 blue-half over green 0,127,128 backdrop 0,255,0
+[spike default] 20 layers: plain 1.8 ms, shader 12.9 ms; 1080p: plain 9.7 ms, shader 20.0 ms
+[spike webgl] f0: got 64,63,128 want 64,63,128
+[spike webgl] f15: got 64,63,255 want 64,63,255
+[spike webgl] f45: got 64,63,3 want 64,63,3
+[spike webgl] error log: "warn: pixi-effects: shader layer: the fragment shader did not compile (line numbers are in your code):\nERROR: 0:2: 'undefinedThing' : undeclared identifier"
+[spike webgl] red 255,0,0 blue-half over green 0,127,128 backdrop 0,255,0
+[spike webgl] 20 layers: plain 1.8 ms, shader 18.8 ms; 1080p: plain 11.0 ms, shader 21.1 ms
