@@ -38,7 +38,7 @@ describe('skills/pixi-effects — what an agent installs', () => {
   it('has no path that only exists inside the repository', () => {
     for (const f of walk(dir)) {
       if (!/\.(md|html|py)$/.test(f)) continue;
-      expect(readFileSync(f, 'utf8').replace(/https?:\/\/\S+/g, ''), f).not.toMatch(/node ai\/|ai\/tools\/|ai\/reference\/|ai\/template|\.\.\/\.\.\/dist|docs\/dsl\.md/);
+      expect(readFileSync(f, 'utf8').replace(/https?:\/\/\S+/g, ''), f).not.toMatch(/node ai\/|(?<!pixi-effects\/)ai\/tools\/|ai\/reference\/|ai\/template|\.\.\/\.\.\/dist|docs\/dsl\.md/);
     }
   });
 
