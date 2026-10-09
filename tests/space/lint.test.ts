@@ -145,3 +145,20 @@ describe('lintSequence — depth of field names', () => {
     expect(w.some(m => m.includes('"focus"') && m.includes('initial'))).toBe(true);
   });
 });
+
+describe('lintSequence — lights and fog', () => {
+  it('a clean light says nothing; a light with a misplaced key and an alias says each once, with the layer named', () => {
+    expect(run({ type: 'light', kind: 'spot', initial: { x: 1, intensity: 0.8, coneAngle: 40 } })).toEqual([]);
+    const w = run({ type: 'light', name: 'key', kind: 'spot', intensity: 1, initial: { angle: 30 } });
+    expect(w).toHaveLength(2);
+    expect(w.every(m => m.includes('layer "key"'))).toBe(true);
+    expect(w.some(m => m.includes('"intensity" must go inside initial'))).toBe(true);
+    expect(w.some(m => m.includes('"angle"') && m.includes('coneAngle'))).toBe(true);
+  });
+  it('fog written on the camera is fine; a hard fog range warns; fog written on another layer is a camera property', () => {
+    expect(run({ type: 'camera', initial: { fogNear: 600, fogFar: 2400, fogColor: '#141824' } })).toEqual([]);
+    expect(run({ type: 'camera', initial: { fogNear: 600, fogFar: 500 } }).join('\n')).toContain('fogFar');
+    const w = run({ type: 'image', asset: 'a', threeD: true, initial: { fogNear: 100 } });
+    expect(w.some(m => m.includes('"fogNear" is a camera property'))).toBe(true);
+  });
+});

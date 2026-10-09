@@ -1,6 +1,7 @@
 import { collectPropKeys } from './specKeys';
 import { describeLayer } from '../core/lint';
 import { focusProblems } from './focus';
+import { fogProblems, lightLayerProblems } from './lightChecks';
 import type { SequenceSpec } from '../types';
 
 type Warn = (message: string) => void;
@@ -30,10 +31,10 @@ const CAMERA_ALIASES: Record<string, string> = {
   depthOfField: DOF_HINT, dof: DOF_HINT, focalDistance: DOF_HINT, focusDistance: DOF_HINT, fStop: DOF_HINT, blurAmount: DOF_HINT,
 };
 
-const CAMERA_PROPS = ['x', 'y', 'z', 'fov', 'focus', 'aperture', 'lookAtX', 'lookAtY', 'lookAtZ', 'offsetX', 'offsetY', 'offsetZ', 'lookOffsetX', 'lookOffsetY', 'lookOffsetZ'];
+const CAMERA_PROPS = ['x', 'y', 'z', 'fov', 'focus', 'aperture', 'lookAtX', 'lookAtY', 'lookAtZ', 'offsetX', 'offsetY', 'offsetZ', 'lookOffsetX', 'lookOffsetY', 'lookOffsetZ', 'fogNear', 'fogFar', 'fogColor', 'fogAmount'];
 const NEEDS_THREE_D = ['z', 'rotationX', 'rotationY'];
 /** Camera-only names that the animatable-property check lets through on any layer. */
-const CAMERA_ONLY = ['focus', 'aperture'];
+const CAMERA_ONLY = ['focus', 'aperture', 'fogNear', 'fogFar', 'fogColor', 'fogAmount'];
 const SKEW_KEYS = ['skew', 'skewX', 'skewY'];
 
 /**
@@ -53,7 +54,13 @@ export function lintSequence(spec: SequenceSpec, warn: Warn = defaultWarn): void
     }
   }
 
+  if (spec.type === 'light') {
+    for (const m of lightLayerProblems(spec)) warn(`pixi-effects: ${who}: ${m}`);
+    return;
+  }
+
   if (spec.type === 'camera') {
+    for (const m of fogProblems(spec)) warn(`pixi-effects: ${who}: ${m}`);
     const raw = spec as unknown as Record<string, unknown>;
     for (const p of CAMERA_PROPS) {
       if (p in raw) warn(`pixi-effects: ${who}: "${p}" must go inside initial / keyframes, not on the camera itself`);

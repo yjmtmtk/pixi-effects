@@ -36,6 +36,9 @@ export interface LightState {
   shadowDiffusion: number;
 }
 
+/** The numbers a light layer animates (in `initial` / `keyframes`). */
+export const LIGHT_PROPS = ['x', 'y', 'z', 'lookAtX', 'lookAtY', 'lookAtZ', 'intensity', 'color', 'coneAngle', 'coneFeather', 'radius', 'falloffDistance', 'shadowDarkness', 'shadowDiffusion'] as const;
+
 export const MAX_LIGHTS = 8;
 export const MAX_CASTERS = 2;
 export const SHADOW_TAPS = 16;
