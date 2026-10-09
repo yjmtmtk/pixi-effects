@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 vi.mock('pixi.js', async () => (await import('../space/mockPixi')).createPixiMock());
-import { BASIC_BLEND_MODES, ADVANCED_BLEND_MODES, BLEND_MODES, isAdvancedBlend, blendProblem, usesAdvancedBlend, enableAdvancedBlend, blendFilterFor } from '../../src/core/blend';
+import { BASIC_BLEND_MODES, ADVANCED_BLEND_MODES, BLEND_MODES, isAdvancedBlend, blendProblem, usesAdvancedBlend, enableAdvancedBlend, blendFilterFor, maxConcurrentAdvanced, MANY_ADVANCED } from '../../src/core/blend';
 
 describe('the blend mode table', () => {
   it('is 4 basic and 14 advanced modes: the CSS names (add and linear-burn are the two that CSS does not have)', () => {
@@ -70,5 +70,21 @@ describe('enableAdvancedBlend', () => {
   });
   it('a renderer with no back buffer (WebGPU) is fine', async () => {
     await expect(enableAdvancedBlend({})).resolves.toBeUndefined();
+  });
+});
+
+describe('maxConcurrentAdvanced', () => {
+  const L = (at: number, duration: number | undefined, blendMode: unknown = 'overlay') => ({ at, duration, blendMode });
+  it('counts the most layers with an advanced mode that are on screen at one instant (from their at and duration, not the order they were visited)', () => {
+    expect(MANY_ADVANCED).toBe(10);
+    expect(maxConcurrentAdvanced(Array.from({ length: 12 }, () => L(0, undefined)), 10)).toBe(12);
+    expect(maxConcurrentAdvanced(Array.from({ length: 24 }, (_, i) => L(i, 1)), 24)).toBe(1);         // slides one after another
+    expect(maxConcurrentAdvanced([L(0, 5), L(2, 5), L(4, 5)], 10)).toBe(3);                            // 4–5 s: all three
+    expect(maxConcurrentAdvanced([L(0, 2), L(2, 2)], 10)).toBe(1);                                     // [0, 2) and [2, 4) do not overlap
+  });
+  it('does not count the basic modes, normal, or layers with no mode; a layer with no duration lasts to the end of the composition', () => {
+    expect(maxConcurrentAdvanced([L(0, 5, 'add'), L(0, 5, 'normal'), L(0, 5, null), L(0, 5, 'multiply')], 10)).toBe(0);
+    expect(maxConcurrentAdvanced([L(8, undefined), L(9, undefined)], 10)).toBe(2);
+    expect(maxConcurrentAdvanced([], 10)).toBe(0);
   });
 });

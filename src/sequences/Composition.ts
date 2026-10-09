@@ -11,7 +11,7 @@ import { Layer3D, type SpaceHost } from '../space/Layer3D';
 import { lintSequence, lintFocus } from '../space/lint';
 import { layerInitialZ, blurRadius, MANY_BLURRED } from '../space/focus';
 import { describeLayer, lintText, lintTiming, summarizeWarnings, lintKeys } from '../core/lint';
-import { applyBlendMode, blendFilterFor, blendProblem, isAdvancedBlend, warnBlendUnavailable } from '../core/blend';
+import { applyBlendMode, blendFilterFor, blendProblem, isAdvancedBlend, warnBlendUnavailable, maxConcurrentAdvanced, MANY_ADVANCED } from '../core/blend';
 import { cameraBasis, homeCamera, projectPoint, NEAR, type CameraBasis, type CameraState } from '../space/math';
 import { timeRemapOf, remapOf, contentLength, bindClock, clockTable, type TimeRemap, type ClockTable } from '../core/remap';
 import type { CompositionSequenceSpec, AudioDescriptor, CompositionShape, SequenceSpec } from '../types';
@@ -90,6 +90,10 @@ export class CompositionSequence extends Sequence {
       lintKeys(s);
     }
     for (const message of summarizeWarnings(lateKeyframes)) console.warn(message);
+    const crowd = maxConcurrentAdvanced((this.spec.sequences ?? []) as Array<{ at?: number; duration?: number; blendMode?: unknown }>, span);
+    if (crowd >= MANY_ADVANCED) {
+      console.warn(`pixi-effects: ${describeLayer(this.spec)}: ${crowd} layers with an advanced blendMode are on screen at once; each is a full-frame pass (about 2 ms on WebGL). Put fewer layers in the blend (or draw the glow as one layer), or use add / screen / multiply`);
+    }
 
     this._children = await buildSequenceTree(
       this.spec.sequences ?? [],

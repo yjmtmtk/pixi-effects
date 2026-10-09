@@ -182,3 +182,18 @@ describe('blendMode on a layer masked by a text layer', () => {
     expect(warn.mock.calls.map(c => String(c[0])).filter(m => m.includes('text layer as the mask'))).toEqual([]);
   });
 });
+
+describe('many advanced blends at once', () => {
+  it('warns once when 10 or more layers with an advanced mode are on screen together, and not for a slideshow of them', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const pile = Array.from({ length: 12 }, () => ({ type: 'shape', shape: 'circle', radius: 10, blendMode: 'overlay' }));
+    await build(pile);
+    const said = warn.mock.calls.map(c => String(c[0])).filter(m => m.includes('advanced blendMode'));
+    expect(said).toHaveLength(1);
+    expect(said[0]).toMatch(/12 layers/);
+    warn.mockClear();
+    const slides = Array.from({ length: 12 }, (_, i) => ({ type: 'shape', shape: 'circle', radius: 10, blendMode: 'overlay', at: i * 0.5, duration: 0.5 }));
+    await build(slides);
+    expect(warn.mock.calls.map(c => String(c[0])).filter(m => m.includes('advanced blendMode'))).toEqual([]);
+  });
+});

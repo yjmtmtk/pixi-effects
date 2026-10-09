@@ -91,3 +91,21 @@ export async function enableAdvancedBlend(renderer: unknown): Promise<void> {
   const bb = (renderer as { backBuffer?: { useBackBuffer: boolean } }).backBuffer;
   if (bb) bb.useBackBuffer = true;
 }
+
+/** This many layers with an advanced blend on screen at once is slow: each is a full-frame pass (measured on WebGL: about 1.5–2 ms each at 1080p). */
+export const MANY_ADVANCED = 10;
+
+/** The most layers with an advanced mode on screen at one instant, from their `at` and `duration` (a layer with no duration lasts to the end). */
+export function maxConcurrentAdvanced(layers: ReadonlyArray<{ at?: number; duration?: number; blendMode?: unknown }>, span: number): number {
+  const events: Array<[number, number]> = [];
+  for (const l of layers) {
+    if (!isAdvancedBlend(l.blendMode)) continue;
+    const start = Math.max(0, l.at ?? 0);
+    const end = l.duration === undefined ? span : start + l.duration;
+    if (end > start) events.push([start, 1], [end, -1]);
+  }
+  events.sort((a, b) => a[0] - b[0] || a[1] - b[1]);                  // at one instant, the layers that end go before the ones that start
+  let now = 0, most = 0;
+  for (const [, d] of events) { now += d; most = Math.max(most, now); }
+  return most;
+}
