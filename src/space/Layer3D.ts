@@ -4,7 +4,9 @@ import { DiscBlurFilter } from '../filters/DiscBlur';
 import { MAX_BLUR, MIN_BLUR } from './focus';
 import { blendFilterFor, isAdvancedBlend, type BlendFilterLike } from '../core/blend';
 import { describeLayer } from '../core/lint';
-import { DEG, NEAR, projectLayer, type CameraBasis, type LayerTransform, type Rect } from './math';
+import { DEG, NEAR, layerToWorld, projectLayer, type CameraBasis, type LayerTransform, type Rect } from './math';
+import { LitMaterial } from './LitMaterial';
+import type { PlaneFrame } from './lighting';
 
 /** Render textures are capped at this many pixels on the long side; larger layers are downscaled. */
 export const MAX_TEXTURE_SIZE = 4096;
@@ -85,6 +87,15 @@ export class Layer3D {
   private blurFilter: DiscBlurFilter | null = null;
   private blendWas = 'normal';
   private blendFilter: BlendFilterLike | null = null;
+  /** The plane in world space from the last update (a texture uv of 0..1 maps to `o + u·U + v·V`): what shading and shadows need. */
+  world: PlaneFrame | null = null;
+  /** The lit shader: made only when the composition has a light or fog (a composition with neither makes nothing). */
+  material: LitMaterial | null = null;
+  /** This layer's own texture (what a shadow reads), or null before the first draw. */
+  get source() { return this.rt?.source ?? null; }
+  private warnedLit = false;
+  /** The spec of the layer this draws (for `lit`, `castsShadows`). */
+  get spec() { return this.seq.spec; }
 
   constructor(
     private readonly seq: Sequence,
@@ -117,6 +128,13 @@ export class Layer3D {
     const frame: Rect = { x: bounds.x - pad, y: bounds.y - pad, width: size.w, height: size.h };
     const projected = projectLayer(readLayerTransform(target), frame, basis);
     this.depth = projected.depth;
+    {
+      const lt = readLayerTransform(target);
+      const o = layerToWorld(lt, frame.x, frame.y);
+      const pu = layerToWorld(lt, frame.x + frame.width, frame.y);
+      const pv = layerToWorld(lt, frame.x, frame.y + frame.height);
+      this.world = { o, u: { x: pu.x - o.x, y: pu.y - o.y, z: pu.z - o.z }, v: { x: pv.x - o.x, y: pv.y - o.y, z: pv.z - o.z } };
+    }
     if (!projected.visible) {
       if (!this.warnedBehind) {
         this.warnedBehind = true;
@@ -150,6 +168,7 @@ export class Layer3D {
       clearColor: [0, 0, 0, 0],
     });
     this.display.geometry.setCorners(...projected.corners);
+    this.material?.setTexture(this.rt!.source);
     this.display.visible = true;
   }
 
@@ -194,7 +213,33 @@ export class Layer3D {
     this.blurFilter.radius = r;
   }
 
+  /**
+   * Turn the lit shader on (made once) or off. Returns it, or null when it is off or cannot be made on this renderer (said once: the layer
+   * then draws unlit, as it did before there were lights).
+   */
+  setLit(on: boolean): LitMaterial | null {
+    if (on && !this.material) {
+      try {
+        this.material = new LitMaterial();
+      } catch (err) {
+        if (!this.warnedLit) {
+          this.warnedLit = true;
+          console.warn(`pixi-effects: ${describeLayer(this.seq.spec)}: the lighting shader could not be made on this renderer (${(err as Error)?.message ?? err}); the layer is drawn unlit`);
+        }
+        return null;
+      }
+      if (this.rt) this.material.setTexture(this.rt.source);
+      (this.display as unknown as { shader: unknown }).shader = this.material.shader;
+    } else if (!on && this.material) {
+      (this.display as unknown as { shader: unknown }).shader = null;
+      this.material.destroy();
+      this.material = null;
+    }
+    return this.material;
+  }
+
   destroy(): void {
+    this.setLit(false);
     this.setBlur(0);
     this.display.destroy();
     this.rt?.destroy(true);

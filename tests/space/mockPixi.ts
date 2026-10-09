@@ -37,6 +37,7 @@ export function createPixiMock() {
   }
   class Texture {
     static WHITE = new Texture(1, 1);
+    static EMPTY = new Texture(1, 1);
     static from(source: unknown) { const t = new Texture(1, 1) as Texture & { source?: unknown }; t.source = { resource: source, update() {} }; return t; }
     destroyed = false;
     source: { style: Record<string, unknown> } = { style: {} };
@@ -132,8 +133,11 @@ export function createPixiMock() {
   const extensions = { add(c: unknown) { added.push(c); }, __added: added };
   class GlProgram { constructor(_o: unknown) {} static from(o: unknown) { return new GlProgram(o); } }
   class GpuProgram { constructor(_o: unknown) {} static from(o: unknown) { return new GpuProgram(o); } }
+  class Shader { resources: Record<string, unknown>; destroyed = false; constructor(o: { resources?: Record<string, unknown> }) { this.resources = o.resources ?? {}; } destroy() { this.destroyed = true; } }
+  const compileHighShaderGpuProgram = (_o: unknown) => ({});
   class UniformGroup {
     uniforms: Record<string, unknown>;
+    update() {}
     constructor(u: Record<string, { value: unknown }>) {
       this.uniforms = Object.fromEntries(Object.entries(u).map(([k, v]) => [k, v.value]));
     }
@@ -155,7 +159,7 @@ export function createPixiMock() {
   return {
     Container, Rectangle, Matrix, Color, Texture, RenderTexture, PerspectiveMesh, AlphaMask,
     Sprite, Text, Graphics, GraphicsPath, FillGradient, TextStyle, CanvasTextMetrics,
-    Filter, GlProgram, GpuProgram, UniformGroup, BlendModeFilter, AlphaFilter, ExtensionType, extensions, defaultFilterVert: '',
+    Filter, GlProgram, GpuProgram, UniformGroup, Shader, compileHighShaderGpuProgram, BlendModeFilter, AlphaFilter, ExtensionType, extensions, defaultFilterVert: '',
     Assets: { get: async () => null },
   };
 }

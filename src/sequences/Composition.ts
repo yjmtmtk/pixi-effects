@@ -7,6 +7,7 @@ import { buildSequenceTree } from '../core/Composition';
 import { CameraSequence } from '../space/CameraSequence';
 import { LightSequence } from '../space/LightSequence';
 import { lightSetProblems } from '../space/lightChecks';
+import { packLights } from '../space/lighting';
 import { findOverlap, pickActiveCamera } from '../space/camera';
 import { assignDepthOrder } from '../space/depth';
 import { Layer3D, type SpaceHost } from '../space/Layer3D';
@@ -421,6 +422,7 @@ export class CompositionSequence extends Sequence {
     const basis = cameraBasis(cam, width, height);
 
     for (const layer of this._layers3d) layer.update(host, basis);
+    this._applyLighting(childT, compEnd, basis, active?.cam ?? null);
     this._applyDepthOfField(cam, basis);
 
     const order = assignDepthOrder(
@@ -429,6 +431,26 @@ export class CompositionSequence extends Sequence {
     this._visual.forEach((v, i) => {
       if (v.layer) v.layer.display.zIndex = order[i]!;
     });
+  }
+
+  /**
+   * Lights and fog: when the composition has a light layer or the camera writes fog, every threeD layer draws with the lit shader, fed with
+   * the lights alive NOW (a pure function of the lights, the camera and the layers; nothing is remembered between frames). With neither,
+   * nothing is made and nothing is drawn differently. With no light alive at this moment (all outside their `at` / `duration`) a layer is
+   * drawn unlit, as it is in a composition with no light.
+   */
+  private _applyLighting(t: number, compEnd: number, basis: CameraBasis, cam: CameraSequence | null): void {
+    const fog = cam?.fogState() ?? null;
+    if (this._lights.length === 0 && !fog) return;
+    const live = this._lights.filter(l => { const w = l.window(); return t >= w.start && (t < w.end || (w.end >= compEnd && t <= w.end)); });
+    const packed = live.length > 0 ? packLights(live.map(l => l.state())) : null;
+    const camInfo = { x: basis.cx, y: basis.cy, z: basis.cz, fx: basis.fx, fy: basis.fy, fz: basis.fz };
+    for (const l of this._layers3d) {
+      const mat = l.setLit(true);
+      if (!mat || !l.world) continue;
+      const lit = l.spec.lit !== false;
+      mat.update(l.world, camInfo, lit ? packed : null, fog, []);
+    }
   }
 
   /** Depth of field: each threeD layer is blurred by how far its depth is from the focal plane (a pure function of the camera and the layers). */
