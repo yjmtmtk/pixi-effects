@@ -58,13 +58,13 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the Playgr
       expect(s.state).toMatch(/^Ready · 4 s · 1280×720 · 30 fps$/);
       expect(s.panel).toBe('ok');
       expect(s.text).toMatch(/No problems/);
-      expect(s.presets).toBe(16);
+      expect(s.presets).toBe(17);
       expect(s.label).toBe('Preset');
       expect(s.code).toBe(true);
     });
   }, 120000);
 
-  it('runs all sixteen presets clean: ready, no warnings, no layout problems', async () => {
+  it('runs all seventeen presets clean: ready, no warnings, no layout problems', async () => {
     const ids: string[] = presetsMod.default.map((p: any) => p.id);
     await withPlayground(1440, async (cdp) => {
       const bad: string[] = [];

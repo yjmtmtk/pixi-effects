@@ -15,6 +15,7 @@ import timeRemap from './15-time-remap.js';
 import depthOfField from './16-depth-of-field.js';
 import blendModes from './17-blend-modes.js';
 import mattes from './18-mattes.js';
+import light from './19-light.js';
 
 export default [
   { id: '01-hello',       label: '01 · hello',              code: hello },
@@ -33,6 +34,7 @@ export default [
   { id: '16-depth-of-field', label: '16 · depth of field: rack focus', code: depthOfField },
   { id: '17-blend-modes', label: '17 · blend modes: light and colour', code: blendModes },
   { id: '18-mattes', label: '18 · mattes and a luma wipe', code: mattes },
+  { id: '19-light', label: '19 · light and shadow', code: light },
 ];
 
 /** Import-map entries a piece of code needs beyond the template's own (the old Playground's values). */
