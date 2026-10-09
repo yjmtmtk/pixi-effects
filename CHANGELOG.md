@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+**Changed**
+
+- **Video layers read frames in one decoder pass, not one seek per frame.** A render with a video layer is much faster: 1080p, 8 s, one layer 10.6 s → 6.1 s (the same as no video), four layers of one file 22.5 s → 6.8 s, reverse playback 11 s → 6.7 s (measured on an M1 Pro; a `getSample` per frame cost 19-25 ms, a pass under 1 ms). The pictures are the same (a snapshot of 125 frames in order, out of order, at speed 2 / 0.5 / -1 and looped matched the old reader byte for byte). A video layer now holds decoded frames up to about 96 MB (never fewer than 3) instead of 30 whatever the size, so a 4K layer no longer holds hundreds of MB.
+
 ## 0.26.1
 
 **Fixed**
