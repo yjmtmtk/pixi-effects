@@ -39,12 +39,15 @@ export function findChrome(env = process.env, exists = fs.existsSync, platform =
   return candidates.find(c => c && exists(c)) ?? null;
 }
 
+export const USAGE = 'usage: node ai/tools/check.mjs <page.html> [--out DIR] [--frames N] [--formats mp4,webm] [--no-export] [--draft] [--at 3.5,title@end] [--onion 1:3] [--query a=1&b=2] [--timeout S] [--root DIR] [--chrome PATH] [--strict] [--help]\n(the header of ai/tools/check.mjs explains each option)';
+
 export function parseArgs(argv) {
-  const o = { page: null, out: null, frames: 12, formats: ['mp4'], export: true, timeout: 240, root: null, chrome: null, strict: false, at: null, draft: false, onion: null, query: null };
+  const o = { page: null, out: null, frames: 12, formats: ['mp4'], export: true, timeout: 240, root: null, chrome: null, strict: false, at: null, draft: false, onion: null, query: null, help: false };
   const need = (i, name) => { if (i + 1 >= argv.length) throw new Error(`${name} needs a value`); return argv[i + 1]; };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '--out') o.out = need(i++, a);
+    if (a === '--help' || a === '-h') o.help = true;
+    else if (a === '--out') o.out = need(i++, a);
     else if (a === '--frames') o.frames = Math.max(1, Math.round(Number(need(i++, a))) || 12);
     else if (a === '--formats') o.formats = need(i++, a).split(',').map(s => s.trim()).filter(Boolean);
     else if (a === '--no-export') o.export = false;
@@ -336,6 +339,9 @@ export async function runCheck(opts, log = console.log) {
       for (const w of wanted) {
         const png = await cdp.eval(`movie.snapshot(${w.frame}, { as: 'dataURL' })`);
         fs.writeFileSync(path.join(framesDir, `${w.label}.png`), Buffer.from(png.slice(png.indexOf(',') + 1), 'base64'));
+        // depth of field: the blur (px) each threeD layer has at this moment, so a focus pull can be read as numbers (0 = sharp)
+        const rows = await cdp.eval(`movie.inspect(${w.frame}).then(r => r.layers.filter(l => l.depthBlur !== undefined).map(l => [l.path, l.depthBlur]))`).catch(() => []);
+        if (rows.some(([, px]) => px > 0)) w.depthBlur = Object.fromEntries(rows);
       }
       const atSheet = await cdp.eval(`movie.contactSheet({ frames: ${JSON.stringify(wanted.map(w => w.frame))}, as: 'dataURL' })`);
       const atFile = path.join(outDir, 'at.png');
@@ -469,6 +475,10 @@ function finish(report, outDir, log) {
       if (rv.length > 4) L.push(`            … ${rv.length - 4} more (report.json)`);
     }
   }
+  for (const w of (report.at ?? []).filter(x => x.depthBlur)) {
+    const shown = Object.entries(w.depthBlur).slice(0, 8).map(([k, px]) => `${k} ${px} px`).join(', ');
+    L.push(`  depth     ${w.label} — ${shown}${Object.keys(w.depthBlur).length > 8 ? ', …' : ''} (blur of each threeD layer at that moment; 0 = sharp)`);
+  }
   if (report.stops) {
     const s = report.stops;
     L.push(`  stops     ${s.count} stop(s) on ${s.pages} page(s) — stops.png shows each one in order; the picture at a stop is what the audience sees while it waits`);
@@ -501,8 +511,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   try {
     if (typeof WebSocket === 'undefined') throw new Error('Node >= 22 is needed (built-in WebSocket)');
     const opts = parseArgs(process.argv.slice(2));
+    if (opts.help) { console.log(USAGE); process.exit(0); }
     if (!opts.page) {
-      console.error('usage: node ai/tools/check.mjs <page.html> [--out DIR] [--frames N] [--formats mp4,webm] [--no-export] [--draft] [--at 3.5,title@end] [--onion 1:3] [--query a=1&b=2] [--timeout S] [--root DIR] [--chrome PATH]');
+      console.error(USAGE);
       process.exit(2);
     }
     const report = await runCheck(opts);

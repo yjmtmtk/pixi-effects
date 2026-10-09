@@ -103,6 +103,22 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     expect(existsSync(join(dir, 'report.json'))).toBe(false);
   }, 400_000);
 
+  it('--at: a threeD scene with depth of field gets each moment\'s blur in the printout and in report.at (so a focus pull can be read, not only seen)', async () => {
+    const out = mkdtempSync(join(tmpdir(), 'check-dof-'));
+    const { stdout } = await promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/gallery/rack-focus.html'), '--no-export', '--frames', '2', '--at', '0.5,2.4', '--out', out, '--timeout', '150'], { timeout: 170_000 });
+    const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));
+    expect(report.at).toHaveLength(2);
+    const early = report.at[0].depthBlur, later = report.at[1].depthBlur;
+    expect(Object.keys(early).length).toBeGreaterThan(2);
+    // the focus is on the badge at 0.5 s and on the title at 2.4 s: the sharp one is 0 px, the other is not
+    const named = (o: Record<string, number>, part: string) => Object.entries(o).find(([k]) => k.includes(part))![1];
+    expect(named(early, 'badge')).toBe(0);
+    expect(named(early, 'title')).toBeGreaterThan(3);
+    expect(named(later, 'title')).toBe(0);
+    expect(named(later, 'badge')).toBeGreaterThan(3);
+    expect(stdout).toMatch(/depth\s+0\.50s.*badge 0 px/);
+  }, 200_000);
+
   it('audio: the report gives loudness, scenes and cues, the printout says LUFS and dBTP, waveform.png is a real picture; a silent movie has no waveform', async () => {
     const run = (page: string, out: string) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, page), '--no-export', '--out', out, '--timeout', '150'], { timeout: 170_000 });
     const out = mkdtempSync(join(tmpdir(), 'check-wave-'));

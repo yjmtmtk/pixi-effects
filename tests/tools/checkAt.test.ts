@@ -14,6 +14,15 @@ describe('check.parseArgs: --query (a page that reads its address, as in the bat
   });
 });
 
+describe('check.parseArgs: --help', () => {
+  it('--help and -h are read (the page is not needed), and the usage line names the options', () => {
+    expect(check.parseArgs(['--help']).help).toBe(true);
+    expect(check.parseArgs(['-h']).help).toBe(true);
+    expect(check.parseArgs(['p.html']).help).toBe(false);
+    expect(check.USAGE).toMatch(/usage: node ai\/tools\/check\.mjs <page\.html>.*--at/);
+  });
+});
+
 describe('check.parseArgs: --at, --draft, --onion', () => {
   it('reads them, with the old defaults when absent', () => {
     expect(check.parseArgs(['p.html'])).toMatchObject({ at: null, draft: false, onion: null });
