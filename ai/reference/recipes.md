@@ -777,7 +777,7 @@ return [
 
 ## Light leaks and colour casts (blend modes)
 
-`blendMode` mixes a layer with everything **below** it. A colour cast is one `soft-light` gradient over the whole picture, a light leak is a `color-dodge` glow that drifts across it, a vignette is a `multiply` radial gradient that goes from clear to dark. Each is ONE layer (a gradient), not a pile of shapes: the blend modes beyond `add` / `screen` / `multiply` cost a full-frame pass each.
+`blendMode` mixes a layer with everything **below** it. A colour cast is one `soft-light` gradient over the whole picture, a light leak is a `color-dodge` glow that drifts across it, a vignette is a `multiply` radial gradient that goes from clear to dark. Each is ONE layer (a gradient), not a pile of shapes: the blend modes beyond `add` / `screen` / `multiply` cost a full-frame pass each. Over a dark picture a `color-dodge` glow turns the near-black into a muddy red disc: cut it to the bright subject with a matte (`mask: 'letters'`) and put the warm haze in a separate `screen` radial.
 
 ```js
 // @recipe light-leak
