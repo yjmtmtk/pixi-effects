@@ -217,6 +217,8 @@ Rendering uses the [WebCodecs API](https://developer.mozilla.org/docs/Web/API/We
 | WebM (vp9)| ✅          | ✅        | ✅            | ✅            |
 | MOV (avc) | ✅          | ✅        | ✅            | ✅            |
 
+**Renderer:** the movie tries WebGPU first and falls back to WebGL (with a console warning) when WebGPU is missing or its device cannot start, so a page needs no setting. Every filter the library ships has a GLSL and a WGSL version. A frame is the same picture however it was reached **on one renderer**; the two renderers can differ in a few edge pixels, so do not compare an export from a WebGPU machine and one from a WebGL machine byte for byte. Tested on Chrome with an Apple GPU only (WebGPU on Metal, WebGL through ANGLE); other GPUs, Windows and Linux are untested.
+
 Some codecs (notably `aac` audio in older Firefox) may need the [mediabunny polyfill encoders](https://mediabunny.dev/) (`@mediabunny/aac-encoder`, etc.).
 
 ## License

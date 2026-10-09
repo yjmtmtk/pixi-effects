@@ -28,6 +28,7 @@ Everything below follows from that sentence. A composition is a JSON-shaped spec
 ### 4. Time is deterministic and seekable
 - One frame path (`gotoFrame`) serves both playback and export. Preview must equal export.
 - Anything time-varying is a pure function of time. No wall clock, no unseeded randomness.
+- Two renderers, one library: WebGPU first, WebGL as the fallback. A filter the library adds must ship **both** a GLSL and a WGSL program and be tested on both (`?backend=webgl` in a check page hides `navigator.gpu`); a bug that shows on only one is a bug (the wipe / iris / dissolve shaders did not link on WebGL until 0.23). Determinism holds within one renderer; across the two, edge pixels can differ.
 
 ### 5. AI-first authoring
 - The DSL is designed to be *written by AI*: small closed vocabulary, discriminated unions, strict types, predictable defaults, errors that say what to fix.
