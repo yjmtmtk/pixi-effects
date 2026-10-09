@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { startWhenRunning } from '../../src/core/startWhenRunning';
+import { startWhenRunning, audioIsBlocked } from '../../src/core/startWhenRunning';
 
 function fakeCtx(state: string) {
   const target = new EventTarget();
@@ -62,5 +62,15 @@ describe('startWhenRunning — audio that the browser has not allowed yet', () =
     cancel();
     page.dispatchEvent(new Event('pointerdown'));
     expect(ctx.resumeCalls).toBe(1);
+  });
+});
+
+describe('audioIsBlocked — a player can tell the viewer "tap for sound"', () => {
+  it('is true only when the movie has sound and its context is not running', () => {
+    expect(audioIsBlocked(fakeCtx('suspended'), true)).toBe(true);
+    expect(audioIsBlocked(fakeCtx('interrupted'), true)).toBe(true);   // iOS Safari after a call or a lock
+    expect(audioIsBlocked(fakeCtx('running'), true)).toBe(false);
+    expect(audioIsBlocked(fakeCtx('suspended'), false)).toBe(false);   // a silent movie has nothing to wait for
+    expect(audioIsBlocked(null, true)).toBe(false);                    // no context made yet: nothing is waiting
   });
 });

@@ -546,11 +546,29 @@ movie.play();
     var tries=0;
     (function wait(){
       var w=null;
-      try{ w=f.contentWindow; if(w && w.__ready===true && w.movie){ fitFrame(f); Promise.resolve(w.movie.gotoFrame(0,true)).then(function(){ if(w.movie.stops && w.movie.stops.length) w.movie.next(); else w.movie.play(); }); return; } }catch(e){ return; }
+      try{ w=f.contentWindow; if(w && w.__ready===true && w.movie){ fitFrame(f); Promise.resolve(w.movie.gotoFrame(0,true)).then(function(){
+          var go=function(){ if(w.movie.stops && w.movie.stops.length) w.movie.next(); else w.movie.play(); };
+          // The click that opened the frame was made in THIS page. Some browsers (iOS Safari) do not carry it into the frame, so the sound would stay
+          // locked until the viewer pauses and plays again: when the movie says its sound is blocked, ask for one tap INSIDE the frame and start there.
+          if(w.movie.audioBlocked) tapForSound(f,w,go); else go();
+        }); return; } }catch(e){ return; }
       if(++tries<250 && f.isConnected) setTimeout(wait,100);
     })();
     return f;
   }
+  function tapForSound(f,w,go){
+    try{
+      var d=f.contentDocument, c=d.querySelector('#stage')||d.querySelector('canvas'), r=c.getBoundingClientRect(), k=f.parentNode.clientWidth/r.width, b=d.createElement('button');
+      b.type='button'; b.textContent='▶  Tap to play with sound';
+      b.style.cssText='position:absolute;z-index:99999;left:'+(r.left+scrollX(d))+'px;top:'+(r.top+scrollY(d))+'px;width:'+r.width+'px;height:'+r.height+'px;border:0;margin:0;cursor:pointer;'
+        +'background:rgba(11,13,18,.45);color:#fff;font:600 '+Math.round(22/k)+'px/1.2 -apple-system,system-ui,sans-serif;letter-spacing:.02em';
+      b.addEventListener('click',function(e){ e.stopPropagation(); b.remove(); go(); });
+      d.body.appendChild(b);
+    }catch(e){ go(); }
+  }
+  function scrollX(d){ return (d.defaultView&&d.defaultView.pageXOffset)||0; }
+  function scrollY(d){ return (d.defaultView&&d.defaultView.pageYOffset)||0; }
+
   // A piece's page has its own margin around the picture, sizes the picture by its own rules and scrolls when the frame is a little small
   // for it. Show only the picture: the page is laid out in a big, fixed viewport (so it is at its natural size), the scrollbars are hidden,
   // and the page is scaled and moved so that its canvas sits exactly on the frame.

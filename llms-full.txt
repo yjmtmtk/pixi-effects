@@ -3560,7 +3560,7 @@ el('play').onclick = () => (movie.isPlaying ? movie.pause() : movie.play());
 el('seek').oninput = e => movie.gotoFrame(+e.target.value);
 ```
 
-What you have: `play()`, `pause()`, `gotoFrame(frame)`, `volume`, `muted` / `toggleMute()`; the state `currentFrame`, `totalFrames`, `frameRate`, `duration`, `isPlaying`, `isReady`; the events above; `render()` for a download button; `snapshot()` for a thumbnail; `timelineData()` / `timelineSvg()` for a timeline like `pixi-effects-view`'s. Keep the movie's `canvas` wherever your layout wants it (the page's CSS sizes it). To only change how `Controller` looks, see **Theme** below.
+What you have: `play()`, `pause()`, `gotoFrame(frame)`, `volume`, `muted` / `toggleMute()`; the state `currentFrame`, `totalFrames`, `frameRate`, `duration`, `isPlaying`, `isReady`, `audioBlocked` (true while the browser keeps the movie's sound silent until a tap: show "tap for sound"; the next tap or key press in the page starts it); the events above; `render()` for a download button; `snapshot()` for a thumbnail; `timelineData()` / `timelineSvg()` for a timeline like `pixi-effects-view`'s. Keep the movie's `canvas` wherever your layout wants it (the page's CSS sizes it). To only change how `Controller` looks, see **Theme** below.
 
 ## `Controller`
 

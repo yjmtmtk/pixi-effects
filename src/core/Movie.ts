@@ -18,7 +18,7 @@ import { inspectScene, type InspectReport, type InspectOptions } from './inspect
 import { collectTimeline, timelineHtml, timelineSvg, type TimelineData, type TimelineHtmlOptions, type TimelineSvgOptions } from './timelineChart';
 import { pickFrames, sheetLayout } from './frames';
 import { warnUnknownOptions } from './options';
-import { startWhenRunning } from './startWhenRunning';
+import { startWhenRunning, audioIsBlocked } from './startWhenRunning';
 import { normalizePoster } from './poster';
 import { buildPdf } from './pdf';
 import { normalizeStops, nextStopAfter, previousStopBefore, stopAtOrBefore, pageStarts, pictureStops, changedFraction, type Stop } from './stops';
@@ -241,6 +241,9 @@ export class Movie {
   }
 
   get isReady(): boolean { return this._initState === 'ready'; }
+
+  /** True while the movie has sound but the browser keeps it silent until the viewer taps (iOS Safari, a page nobody has touched): a player can show "tap for sound"; the sound starts at the next tap or key press inside the page. */
+  get audioBlocked(): boolean { return audioIsBlocked(this._audioContext, !!this.audioBuffer); }
 
   /** The poster time as a frame number, or null. */
   get posterFrame(): number | null { return this._posterFrame; }

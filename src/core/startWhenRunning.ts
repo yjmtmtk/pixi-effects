@@ -35,3 +35,8 @@ export function startWhenRunning(ctx: ResumableContext, start: () => void, gestu
 }
 
 const GESTURES = ['pointerdown', 'mousedown', 'touchend', 'keydown'];
+
+/** True when the movie has sound and the browser has not let its context run yet (a player can then ask for a tap: the sound starts on the next one). */
+export function audioIsBlocked(ctx: { state: string } | null, hasAudio: boolean): boolean {
+  return !!ctx && hasAudio && ctx.state !== 'running';
+}
