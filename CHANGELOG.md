@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.25.0
+
+One release holds three milestones that were built one after the other: **composition** (named mattes, the luma wipe), **light** (lights, shadows, fog) and **freedom of drawing** (the shader layer, the `warp` filter). Wipe, iris and dissolve transitions now also work on WebGL (they drew nothing there before).
 
 **Added**
 
