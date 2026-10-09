@@ -21,50 +21,54 @@ function fakeVideo(n: number, opts: { bytes?: number; failAt?: number } = {}) {
 const idOf = (f: unknown) => (f as { id: number } | null)?.id ?? null;
 
 describe('FrameCache, sequential reading — one decoder pass for a movie that asks for frame after frame', () => {
-  it('serves 100 frames in order from ONE samples() pass, with no getSample (the 20 ms seek per frame)', async () => {
+  it('serves 100 frames in order from ONE samples() pass (the first request is a getSample: nothing says yet that frames will follow)', async () => {
     const v = fakeVideo(120);
     const cache = new FrameCache(v.sink, { capacity: 8 });
     for (let i = 0; i < 100; i++) expect(idOf(await cache.getFrameAt(i / 30 + 0.001))).toBe(i);
-    expect(v.log.samplesCalls).toEqual([i0(0.001)]);
-    expect(v.log.getSampleCalls).toBe(0);
+    expect(v.log.samplesCalls.length).toBe(1);
+    expect(v.log.getSampleCalls).toBe(1);                                        // not 100: that was the 20 ms seek per frame
   });
 
   it('the same time again, or a time inside the same frame, pulls nothing more', async () => {
     const v = fakeVideo(60);
     const cache = new FrameCache(v.sink, { capacity: 8 });
     await cache.getFrameAt(0.5);
-    const pulls = v.log.pulls;
-    expect(idOf(await cache.getFrameAt(0.5))).toBe(15);
-    expect(idOf(await cache.getFrameAt(0.51))).toBe(15);
+    expect(idOf(await cache.getFrameAt(0.55))).toBe(16);                         // starts the pass
+    const pulls = v.log.pulls, singles = v.log.getSampleCalls;
+    expect(idOf(await cache.getFrameAt(0.55))).toBe(16);
+    expect(idOf(await cache.getFrameAt(0.56))).toBe(16);
+    expect(idOf(await cache.getFrameAt(0.5))).toBe(15);                          // held: the pass moved on, the frame is still here
     expect(v.log.pulls).toBe(pulls);
+    expect(v.log.getSampleCalls).toBe(singles);
   });
 
-  it('a request for an earlier time that is no longer held starts a new pass at that time, and answers right', async () => {
+  it('a request far from the last one (a seek) is one getSample, not a new pass; the running pass is closed', async () => {
     const v = fakeVideo(300);
     const cache = new FrameCache(v.sink, { capacity: 3 });
     for (let i = 100; i < 140; i++) await cache.getFrameAt(i / 30);
     expect(idOf(await cache.getFrameAt(2))).toBe(60);
-    expect(v.log.samplesCalls[0]).toBe(100 / 30);
-    expect(v.log.samplesCalls.length).toBe(2);
-    expect(v.log.samplesCalls[1]).toBeLessThanOrEqual(2);                 // at or a little before it (a window behind, for the steps that follow)
-    expect(v.log.samplesCalls[1]).toBeGreaterThan(1.5);
-    expect(v.log.iteratorReturns).toBeGreaterThanOrEqual(1);                 // the first pass was closed, not left running
+    expect(v.log.samplesCalls.length).toBe(1);
+    expect(v.log.getSampleCalls).toBe(2);                                    // the first request and the seek
+    expect(v.log.iteratorReturns).toBeGreaterThanOrEqual(1);                 // the pass was closed, not left running
+    expect(idOf(await cache.getFrameAt(2))).toBe(60);                        // the same seek again: held
   });
 
   it('playing backwards (frame after frame, going down) decodes a window behind the request once, so most steps are answered from what is held', async () => {
     const v = fakeVideo(300);
     const cache = new FrameCache(v.sink, { capacity: 30 });
     for (let i = 200; i >= 100; i--) expect(idOf(await cache.getFrameAt(i / 30 + 0.001))).toBe(i);
-    expect(v.log.getSampleCalls).toBe(0);
+    expect(v.log.getSampleCalls).toBeLessThanOrEqual(2);
     expect(v.log.samplesCalls.length).toBeLessThanOrEqual(5);                  // not one pass per frame (101)
   });
 
-  it('a jump far ahead starts a new pass instead of decoding everything in between', async () => {
+  it('a jump far ahead is one getSample instead of decoding everything in between; frames asked next to it then start a pass', async () => {
     const v = fakeVideo(900);
     const cache = new FrameCache(v.sink, { capacity: 4 });
     await cache.getFrameAt(0);
     expect(idOf(await cache.getFrameAt(20))).toBe(600);
-    expect(v.log.samplesCalls.length).toBe(2);
+    expect(v.log.samplesCalls.length).toBe(0);
+    expect(idOf(await cache.getFrameAt(20.04))).toBe(601);
+    expect(v.log.samplesCalls.length).toBe(1);
     expect(v.log.pulls).toBeLessThan(10);
   });
 
@@ -113,8 +117,8 @@ describe('FrameCache, sequential reading — one decoder pass for a movie that a
     expect(idOf(await cache.getFrameAt(4 / 30))).toBe(4);
     expect(await cache.getFrameAt(5 / 30)).toBeNull();
     debug.mockRestore();
-    expect(idOf(await cache.getFrameAt(2))).toBe(39);                         // a fresh pass past the failing frame: the last one
-    expect(v.log.samplesCalls.length).toBeGreaterThanOrEqual(2);
+    expect(idOf(await cache.getFrameAt(2))).toBe(39);                         // a seek past the failing frame: the last one
+    expect(v.log.samplesCalls.length).toBeGreaterThanOrEqual(1);
   });
 
   it('a sink without samples() still works the old way (getSample per time)', async () => {

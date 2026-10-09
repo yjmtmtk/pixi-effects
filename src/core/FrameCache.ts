@@ -26,7 +26,8 @@ const MIN_HELD = 3;
 const JUMP_SECONDS = 1;                 // a request further ahead than this restarts the pass (a seek and a GOP) instead of decoding everything in between
 const EPS = 1e-6;
 
-interface Held { ts: number; end: number | null; frame: VideoFrame }
+/** A decoded frame: it starts at `ts` and runs to `end` (null: not known yet; then it answers only the exact time it was asked for, `req`). */
+interface Held { ts: number; end: number | null; frame: VideoFrame; req?: number }
 
 function reportDecodeError(err: unknown, time: number): void {
   // WebCodecs decoders occasionally surface EncodingError / NotSupportedError on certain seeks (rapid scrubbing, malformed packets at chapter
@@ -50,6 +51,7 @@ export class FrameCache {
   private _next: SampleLike | null = null;
   private _held = 0;
   private _lock: Promise<unknown> = Promise.resolve();
+  private _lastTime: number | null = null;
 
   constructor(sink: FrameSink, options: FrameCacheOptions = {}) {
     this.sink = sink;
@@ -127,7 +129,7 @@ export class FrameCache {
 
   private _covering(time: number): Held | null {
     for (const e of this._frames) {
-      if (e.ts <= time + EPS && e.end !== null && time < e.end - EPS) {
+      if (e.end === null ? (e.req !== undefined && Math.abs(e.req - time) < EPS) : (e.ts <= time + EPS && time < e.end - EPS)) {
         this._frames.splice(this._frames.indexOf(e), 1);       // most recently used last
         this._frames.push(e);
         return e;
@@ -138,8 +140,13 @@ export class FrameCache {
 
   private async _sequentialAt(time: number): Promise<VideoFrame | null> {
     try {
+      const last = this._lastTime;
+      this._lastTime = time;
       const hit = this._covering(time);
       if (hit) return hit.frame;
+      // A request far from the last one (a seek, a jump) is answered by one getSample: starting a pass for it would decode ahead for nothing.
+      // A pass starts when the requests are next to each other, which is how playback and a drag ask.
+      if (last === null || Math.abs(time - last) > JUMP_SECONDS) return await this._single(time);
       const cur = this._cur;
       if (this._iter && cur && time >= cur.ts && time - cur.ts <= JUMP_SECONDS) return await this._advance(time);
       const backwards = !!cur && time < cur.ts;
@@ -149,6 +156,18 @@ export class FrameCache {
       await this._closeIter();
       return null;
     }
+  }
+
+  /** One frame by itself (a seek): getSample, kept so that asking again for the same time costs nothing. The running pass, if any, is closed: it no longer follows the playhead. */
+  private async _single(time: number): Promise<VideoFrame | null> {
+    await this._closeIter();
+    this._cur = null;
+    const sample = await this.sink.getSample(time);
+    if (!sample) return null;
+    const frame = sample.toVideoFrame();
+    sample.close?.();
+    this._keep({ ts: sample.timestamp, end: null, frame, req: time }, frame);
+    return frame;
   }
 
   /** Start a pass at `time` (a seek and the frames of one group of pictures), keeping what is still held for a step back. */
@@ -192,14 +211,19 @@ export class FrameCache {
     const frame = sample.toVideoFrame();
     sample.close?.();
     const entry: Held = { ts: sample.timestamp, end: null, frame };
+    this._keep(entry, frame);
+    this._cur = entry;
+  }
+
+  /** Hold a frame (the first one sets how many fit: a byte budget, not a count) and close the oldest beyond that; the frame the pass stands on is never closed. */
+  private _keep(entry: Held, frame: VideoFrame): void {
     if (this._held === 0) {
       const bytes = (frame as unknown as { allocationSize?: () => number }).allocationSize?.() ?? (frame.displayWidth * frame.displayHeight * 1.5);
       this._held = Math.max(MIN_HELD, Math.min(this.capacity, Math.floor(BUDGET_BYTES / Math.max(1, bytes))));
     }
     this._frames.push(entry);
-    this._cur = entry;
     while (this._frames.length > this._held) {
-      const oldest = this._frames.find(e => e !== this._cur);
+      const oldest = this._frames.find(e => e !== this._cur && e !== entry);
       if (!oldest) break;
       this._frames.splice(this._frames.indexOf(oldest), 1);
       oldest.frame.close?.();
