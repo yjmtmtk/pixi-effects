@@ -4,243 +4,154 @@
 
 **Goal:** `npx skills add yjmtmtk/pixi-effects` (and `/plugin install` in Claude Code) registers pixi-effects as a skill that agents use without being told the library's name.
 
-**Architecture:** `ai/` stays the source. `scripts/build-skill.mjs` generates a committed `skills/pixi-effects/` (SKILL.md with repo-only text removed and paths made install-safe, template, references, one script); `npm run build:ai` runs it; a unit test fails when the copy is stale or invalid. A `.claude-plugin/` manifest points the plugin at `./skills`. One-line entry points are added to README, the landing page, AGENTS.md, llms.txt.
+**Architecture:** The skill becomes the ONE copy: `ai/SKILL.md`, `ai/reference/*`, `ai/template.html`, `ai/tools/save-image.py` move to `skills/pixi-effects/` (no generator, no second SKILL.md). Text is path-neutral (`npx pixi-effects-*`). A `.claude-plugin/` manifest points the plugin at `./skills`. One-line entry points go into README, the landing page, AGENTS.md, llms.txt and the guide.
 
-**Tech Stack:** Node ESM scripts, vitest, the `skills` CLI (`npx skills`) and `claude plugin validate` for manual checks.
+**Tech Stack:** git mv + sed, vitest, the `skills` CLI (`npx skills`) and `claude plugin validate` for manual checks.
 
-**Spec:** `docs/superpowers/specs/2026-10-10-agent-skill-design.md`
+**Spec:** `docs/superpowers/specs/2026-10-10-agent-skill-design.md` (revised: single source)
 
 ## Global Constraints
 
-- Breaking changes are fine; no compat shims. All replies to the owner in Japanese; repo text in English.
-- Never `git add -A`; commits end with `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`; do not push until the owner says so.
-- The description is **broad (option A)**: task words first, the library named in the second sentence; ≤ 1000 characters; no engine names of the closed 3D beta anywhere.
-- The skill must work from `~/.claude/skills/pixi-effects/` and `.agents/skills/pixi-effects/`: no `ai/` path, no `node ai/…`, every relative link inside the folder.
-- Speed rule: run only the targeted test file while iterating (`npx vitest run tests/docs/Skill.test.ts`), `npm run test:fast` once per task end.
-- Do not touch the release routine: the pin bump edits `ai/template.html`; `build:ai` regenerates the copy.
+- Breaking changes are fine; no compat shims or redirect stubs. All replies to the owner in Japanese; repo text in English.
+- Never `git add -A` (explicit paths; `git mv` for the move); commits end with `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`; do not push until the owner says so.
+- Description is **broad**: task words first, the library named in the second sentence; ≤ 1000 characters; never name the closed 3D beta's engine.
+- The skill folder must work from `~/.claude/skills/pixi-effects/` and `.agents/skills/pixi-effects/`: no `ai/` path, no `node ai/…`, no `docs/` path, every relative link inside the folder.
+- Historical records keep their old paths: `examples/gallery/_notes/*.md`, `CHANGELOG.md` entries before this change, `docs/superpowers/**`.
+- Speed rule: iterate with the targeted test files; `npm run test:fast` once at the end of each task.
 
 ## Review Focus
 
-- A `<!--repo-->` block that is unbalanced or nested must fail the build (not silently eat the file).
-- The generated SKILL.md must not mention a file that is not in the folder (cheatsheet, pitfalls, recipes, dsl, template, save-image).
-- The skill's `template.html` pin equals `package.json` version (a bump that skips `build:ai` is caught).
-- The manifest `name` equals the marketplace entry `name`; `claude plugin validate .` passes.
-- A second `SKILL.md` anywhere else in the tree (e.g. `ai/SKILL.md` is found by the CLI's recursive fallback) must not confuse `npx skills add --list`: it lists exactly one skill.
+- A moved file that something still reads at the old path (a test, a script, the playground, `stage-site`) fails loudly, not silently: after Task 1 `grep -rn "ai/SKILL.md\|ai/reference/\|ai/template.html" ` outside the historical paths is EMPTY.
+- The release routine bumps the template pin: its file list must name `skills/pixi-effects/template.html`, and the Skill test fails if the pin, the "Written for" line, `plugin.json` and `package.json` disagree.
+- `npx skills add <checkout> --list` shows exactly ONE skill (no `ai/SKILL.md` left behind).
+- The plugin manifest `name` equals the marketplace entry `name`; `claude plugin validate .` passes.
+- Everything SKILL.md tells an agent to run works from an installed folder (read each command once; `python3 scripts/save-image.py`, `npx pixi-effects-check`, the template copy).
 
 ---
 
-### Task 1: The generator, the broad description, the committed copy
+### Task 1: Move the skill and fix every reference
 
 **Files:**
-- Create: `scripts/build-skill.mjs`, `tests/docs/Skill.test.ts`
-- Modify: `ai/SKILL.md` (description; `<!--repo-->` markers), `scripts/build-llms.mjs` is NOT touched; `package.json` (`build:ai`, `files`)
-- Generate + commit: `skills/pixi-effects/**`
+- Move (`git mv`): `ai/SKILL.md` → `skills/pixi-effects/SKILL.md`; `ai/reference/` → `skills/pixi-effects/reference/`; `ai/template.html` → `skills/pixi-effects/template.html`; `ai/tools/save-image.py` → `skills/pixi-effects/scripts/save-image.py`
+- Modify: every non-historical file that names the old paths: `AGENTS.md`, `README.md`, `ai/CHAT.md`, `ai/tools/{check,render,view}.mjs`, `docs/dsl.md`, `examples/gallery/{BRIEF.md,MODELS.md,index.html}`, `examples/{index.html,music-lab.html,playground/app.js}`, `examples/showreel/BRIEF.md`, `index.html`, `scripts/{build-llms.mjs,site-parts.mjs,test-changed.mjs}`, `site/guide/with-ai.md`, `site/landing/{FACTS.md,NOTES.md}`, `skills/pixi-effects/reference/pitfalls.md`, tests `tests/{core/ease,docs/{AgentEntry,Guide,Llms,MusicDocs,Recipes,SfxDocs},playground/mcp,tools/testChanged}.test.ts`; `package.json` (`files` gains `"skills"`)
+- Generated, regenerate: `llms.txt`, `llms-full.txt` (`npm run build:ai`)
 
-**Interfaces:**
-- Produces: `buildSkill(): Record<string, string | Buffer>` — map from path under `skills/pixi-effects/` to file content; `writeSkill()` writes it (CLI: `node scripts/build-skill.mjs`).
+**Interfaces:** Produces the new paths every later task uses: `skills/pixi-effects/{SKILL.md,template.html,reference/{cheatsheet,pitfalls,recipes}.md,scripts/save-image.py}`.
 
-- [ ] **Step 1: Write the failing test** (`tests/docs/Skill.test.ts`)
+- [ ] **Step 1: Capture the reference list** — `grep -rnE "ai/(SKILL\.md|reference/|template\.html|tools/save-image)" . --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist --exclude-dir=superpowers --exclude-dir=.superpowers --exclude-dir=.claude --exclude-dir=_notes --exclude=CHANGELOG.md > /private/tmp/claude-501/refs-before.txt`; note the count (the "red" state: these must all change).
+- [ ] **Step 2: Move** — `mkdir -p skills/pixi-effects/scripts && git mv ai/SKILL.md skills/pixi-effects/SKILL.md && git mv ai/reference skills/pixi-effects/reference && git mv ai/template.html skills/pixi-effects/template.html && git mv ai/tools/save-image.py skills/pixi-effects/scripts/save-image.py`
+- [ ] **Step 3: Rewrite the references** — within the files above, replace `ai/SKILL.md`→`skills/pixi-effects/SKILL.md`, `ai/reference/`→`skills/pixi-effects/reference/`, `ai/template.html`→`skills/pixi-effects/template.html`, `ai/tools/save-image.py`→`skills/pixi-effects/scripts/save-image.py` (BSD sed: `sed -i ''`). Inside the moved SKILL.md and `template.html`, relative links such as `reference/cheatsheet.md` and `template.html` stay as they are (they were relative to `ai/`, and the folder keeps the same shape). Fix `scripts/build-llms.mjs` reads (`ai/SKILL.md` etc.), `scripts/site-parts.mjs`, `scripts/test-changed.mjs` path table, the pin-bump list wherever it is recorded (memory `project_state-*` and any script: `grep -rn "template.html" scripts memory-notes`).
+- [ ] **Step 4: Verify the grep is empty** — rerun Step 1's grep: Expected: no output. Then `npm run build:ai`.
+- [ ] **Step 5: Targeted tests** — `npx vitest run tests/docs tests/tools tests/playground tests/core/ease.test.ts 2>&1 | tail`: Expected: PASS. Fix what fails (a test that hardcodes the old path is part of this task).
+- [ ] **Step 6: `npm run test:fast`** — Expected: all pass. Commit: `git add` explicit paths (`git add -u` is not allowed; list them from `git status --short`), message "refactor: the skill lives in skills/pixi-effects/ (the one place an agent installs it from)".
+
+---
+
+### Task 2: Make the skill install-safe and broad
+
+**Files:**
+- Modify: `skills/pixi-effects/SKILL.md`, `skills/pixi-effects/template.html` (only if it names repo paths)
+- Create: `tests/docs/Skill.test.ts`
+
+- [ ] **Step 1: Failing test** (`tests/docs/Skill.test.ts`):
 
 ```ts
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
-import { resolve, join, relative } from 'node:path';
-// @ts-expect-error plain ESM script without types
-import { buildSkill, stripRepoBlocks } from '../../scripts/build-skill.mjs';
+import { resolve, join } from 'node:path';
 
 const root = resolve(__dirname, '../..');
 const dir = resolve(root, 'skills/pixi-effects');
-const files = buildSkill() as Record<string, string>;
+const read = (p: string) => readFileSync(join(dir, p), 'utf8');
+const pkg = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as { version: string };
+const walk = (d: string): string[] => readdirSync(d).flatMap(f => statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : [join(d, f)]);
 
-function walk(d: string): string[] {
-  return readdirSync(d).flatMap(f => statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : [relative(dir, join(d, f))]);
-}
-
-describe('skills/pixi-effects — the skill an agent installs', () => {
-  it('is committed and up to date (run `npm run build:ai` after editing ai/ or docs/)', () => {
-    expect(walk(dir).sort()).toEqual(Object.keys(files).sort());
-    for (const [p, c] of Object.entries(files)) expect(readFileSync(join(dir, p), 'utf8'), p).toBe(c);
-  });
-
-  const skill = files['SKILL.md']!;
+describe('skills/pixi-effects — what an agent installs', () => {
+  const skill = read('SKILL.md');
   const fm = /^---\nname: ([^\n]+)\ndescription: ([^\n]+)\n---\n/.exec(skill);
+
+  it('is the only SKILL.md in the repository outside node_modules and the historical paths', () => {
+    const found = walk(root).filter(f => f.endsWith('/SKILL.md') && !/node_modules|\/\.git\/|\/\.claude\/|\/dist\//.test(f));
+    expect(found.map(f => f.slice(root.length + 1))).toEqual(['skills/pixi-effects/SKILL.md']);
+  });
 
   it('has the frontmatter every agent reads: name = folder, a broad description of at most 1000 characters', () => {
     expect(fm).not.toBeNull();
     expect(fm![1]).toBe('pixi-effects');
     expect(fm![2]!.length).toBeLessThanOrEqual(1000);
-    for (const w of ['video', 'motion graphics', 'animated title', 'lower third', 'promo', 'chart', 'slideshow', 'pixi-effects']) expect(fm![2]!.toLowerCase(), w).toContain(w);
+    for (const w of ['video', 'motion graphics', 'animated title', 'lower third', 'promo', 'chart', 'slideshow']) expect(fm![2]!.toLowerCase(), w).toContain(w);
   });
 
   it('names the library in its second sentence, so a user of another tool can see why it fired', () => {
-    const sentences = fm![2]!.split(/(?<=\.)\s/);
-    expect(sentences[1]).toContain('pixi-effects');
+    expect(fm![2]!.split(/(?<=\.)\s/)[1]).toContain('pixi-effects');
   });
 
   it('says which version it was written for, and the template pins that version', () => {
-    const v = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).version as string;
-    expect(skill).toContain(`Written for pixi-effects ${v}`);
-    expect(files['template.html']).toContain(`pixi-effects@${v}/dist/index.js`);
+    expect(skill).toContain(`Written for pixi-effects ${pkg.version}`);
+    expect(read('template.html')).toContain(`pixi-effects@${pkg.version}/dist/index.js`);
   });
 
   it('has no path that only exists inside the repository', () => {
-    for (const [p, c] of Object.entries(files)) {
-      if (!/\.(md|html|py)$/.test(p)) continue;
-      expect(c, p).not.toMatch(/node ai\/|ai\/tools\/|ai\/reference\/|\.\.\/\.\.\/dist/);
-      expect(c, p).not.toContain('<!--repo-->');
+    for (const f of walk(dir)) {
+      if (!/\.(md|html|py)$/.test(f)) continue;
+      expect(readFileSync(f, 'utf8'), f).not.toMatch(/node ai\/|ai\/tools\/|ai\/reference\/|ai\/template|\.\.\/\.\.\/dist|docs\/dsl\.md/);
     }
   });
 
   it('every file SKILL.md points to is in the folder, and it stays under 500 lines', () => {
     expect(skill.split('\n').length).toBeLessThan(500);
-    for (const m of skill.matchAll(/`((?:reference|scripts)\/[\w./-]+|template\.html)`/g)) expect(files[m[1]!], m[1]).toBeDefined();
-  });
-
-  it('stripRepoBlocks removes a marked block, and refuses an unbalanced or nested one', () => {
-    expect(stripRepoBlocks('a <!--repo-->x<!--/repo--> b')).toBe('a  b');
-    expect(() => stripRepoBlocks('a <!--repo-->x')).toThrow(/repo/);
-    expect(() => stripRepoBlocks('<!--repo-->a<!--repo-->b<!--/repo--><!--/repo-->')).toThrow(/repo/);
-    expect(() => stripRepoBlocks('x<!--/repo-->')).toThrow(/repo/);
+    for (const m of skill.matchAll(/`((?:reference|scripts)\/[\w./-]+|template\.html)`/g)) expect(existsSync(join(dir, m[1]!)), m[1]).toBe(true);
   });
 });
 ```
+  Run `npx vitest run tests/docs/Skill.test.ts` — Expected: FAIL (description not broad, repo paths, no version line).
 
-- [ ] **Step 2: Run it to see it fail**
-Run: `npx vitest run tests/docs/Skill.test.ts` — Expected: FAIL (`Cannot find module '../../scripts/build-skill.mjs'`).
-
-- [ ] **Step 3: Edit the source `ai/SKILL.md`**
-  1. Replace the `description:` with the broad one (one line, ≤ 1000 chars): first sentence = the tasks (`Use when asked to make, animate, preview or export a video, motion graphics, an animated title, a lower third, kinetic type, a promo, a slideshow with transitions, an animated chart or data story, a social clip, a 2.5D / depth scene, or music and sound for a video, written as code in JavaScript or HTML.`); second sentence = `pixi-effects is a JS library where a video is a plain-object composition (text, shape, image, video, audio and file-free sfx / music, camera, light and shader layers with keyframes) that plays in the browser, is checked by a tool the agent can run, and exports MP4 / WebM / MOV with no server.`
-  2. Make every command path-neutral: write `npx pixi-effects-check my-video.html` / `npx pixi-effects-render …` / `npx pixi-effects-view …` first; put the repository-only forms in `<!--repo-->(inside this repository: `node ai/tools/check.mjs …`)<!--/repo-->` markers; the `save-image.py` command becomes `python3 scripts/save-image.py` with a `<!--repo-->` note that the repository's copy is `ai/tools/save-image.py`; `docs/dsl.md` becomes `reference/dsl.md` (in the source: write `reference/dsl.md`, and let the repo build `ai/reference/dsl.md`? **No**: keep `docs/dsl.md` in the source inside a `<!--repo-->` block and give the skill's reference line separately — see the generator's inject list below).
-  3. `grep -n "node ai/\|ai/tools/\|docs/dsl.md\|\.\./\.\./dist" ai/SKILL.md` must show only text inside `<!--repo-->` blocks.
-
-- [ ] **Step 4: Write `scripts/build-skill.mjs`**
-
-```js
-// Generates skills/pixi-effects/ (what `npx skills add yjmtmtk/pixi-effects` installs) from ai/ and docs/.
-// Run: npm run build:ai   (tests/docs/Skill.test.ts fails when the committed copy is stale)
-import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve, join } from 'node:path';
-
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const read = (p) => readFileSync(resolve(root, p), 'utf8');
-
-/** Removes `<!--repo-->…<!--/repo-->` blocks (text that only makes sense inside this repository); an unbalanced or nested marker throws. */
-export function stripRepoBlocks(s) {
-  let out = '', i = 0;
-  for (;;) {
-    const open = s.indexOf('<!--repo-->', i), close = s.indexOf('<!--/repo-->', i);
-    if (open < 0 && close < 0) return out + s.slice(i);
-    if (close >= 0 && (open < 0 || close < open)) throw new Error('build-skill: a <!--/repo--> without its <!--repo-->');
-    const end = s.indexOf('<!--/repo-->', open);
-    if (end < 0) throw new Error('build-skill: a <!--repo--> that is never closed');
-    if (s.slice(open + 11, end).includes('<!--repo-->')) throw new Error('build-skill: <!--repo--> blocks must not nest');
-    out += s.slice(i, open); i = end + 12;
-  }
-}
-
-export function buildSkill() {
-  const pkg = JSON.parse(read('package.json'));
-  const src = read('ai/SKILL.md');
-  const m = /^(---\n[\s\S]*?\n---\n)([\s\S]*)$/.exec(src);
-  if (!m) throw new Error('build-skill: ai/SKILL.md has no frontmatter');
-  const body = stripRepoBlocks(m[2]);
-  const note = `\n> Written for pixi-effects ${pkg.version}. Update with \`npx skills update\`; the newest docs are at https://yjmtmtk.github.io/pixi-effects/\n`;
-  return {
-    'SKILL.md': m[1] + note + body,
-    'template.html': read('ai/template.html'),
-    'reference/cheatsheet.md': read('ai/reference/cheatsheet.md'),
-    'reference/pitfalls.md': read('ai/reference/pitfalls.md'),
-    'reference/recipes.md': read('ai/reference/recipes.md'),
-    'reference/dsl.md': read('docs/dsl.md'),
-    'scripts/save-image.py': read('ai/tools/save-image.py'),
-  };
-}
-
-export function writeSkill() {
-  const out = resolve(root, 'skills/pixi-effects');
-  rmSync(out, { recursive: true, force: true });
-  const files = buildSkill();
-  for (const [p, c] of Object.entries(files)) { mkdirSync(dirname(join(out, p)), { recursive: true }); writeFileSync(join(out, p), c); }
-  return Object.keys(files);
-}
-
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) console.log(`skills/pixi-effects: ${writeSkill().length} files`);
-```
-  (If `ai/SKILL.md` mentions `docs/dsl.md` outside a repo block, the generated text must say `reference/dsl.md`: do that by writing the sentence in the source as `` `reference/dsl.md` `` inside `<!--skill-->…<!--/skill-->`? **Simpler ruling:** keep one sentence in the source that reads "the full reference: `docs/dsl.md` in the repository, `reference/dsl.md` in an installed skill" and let the test's no-`ai/`-path rule pass because `docs/dsl.md` is allowed. Record this as the ledger ruling when you reach it.)
-
-- [ ] **Step 5: Wire it into `build:ai`** — `package.json`: `"build:ai": "node scripts/build-llms.mjs && node scripts/build-skill.mjs"`; `files`: add `"skills"`.
-
-- [ ] **Step 6: Generate and go green** — Run `npm run build:ai && npx vitest run tests/docs/Skill.test.ts` — Expected: PASS (6 tests). Mutation check: edit one generated file by hand → the staleness test FAILS; restore with `npm run build:ai`.
-
-- [ ] **Step 7: Targeted regression** — Run `npx vitest run tests/docs/Llms.test.ts tests/docs/AgentEntry.test.ts tests/docs/Recipes.test.ts` — Expected: PASS (SKILL.md edits must not break the llms-full or recipe tests).
-
-- [ ] **Step 8: Commit** — `git add scripts/build-skill.mjs tests/docs/Skill.test.ts ai/SKILL.md package.json skills llms-full.txt` then `git commit` ("feat: the skill an agent installs (skills/pixi-effects, generated from ai/), with a broad description").
+- [ ] **Step 2: Edit SKILL.md** — (a) `description:` one line ≤ 1000 chars: sentence 1 = the tasks (`Use when asked to make, animate, preview or export a video, motion graphics, an animated title, a lower third, kinetic type, a promo, a slideshow with transitions, an animated chart or data story, a social clip, a 2.5D / depth scene, or music and sound for a video, written as code in JavaScript or HTML.`); sentence 2 = `pixi-effects is a JS library where a video is a plain-object composition (text, shape, image, video, audio and file-free sfx / music, camera, light and shader layers with keyframes) that plays in the browser, is checked by a tool the agent can run, and exports MP4 / WebM / MOV with no server.` (b) directly after the frontmatter: `> Written for pixi-effects 0.25.0. Update the skill with \`npx skills update\`; the newest docs are at https://yjmtmtk.github.io/pixi-effects/` (c) commands: `npx pixi-effects-check my-video.html`, `npx pixi-effects-render my-video.html -o my-video.mp4`, `npx pixi-effects-view my-video.html`, `python3 scripts/save-image.py`; delete the "or `node ai/tools/…` in this repository" halves (AGENTS.md carries the repo forms); (d) `docs/dsl.md` → `https://yjmtmtk.github.io/pixi-effects/docs/dsl.md` (and in `reference/*.md` the same, if they name it).
+- [ ] **Step 3: Green** — `npx vitest run tests/docs/Skill.test.ts` PASS (6 tests); also `tests/docs/{Llms,Recipes,AgentEntry}.test.ts`. Mutation check: change `"name: pixi-effects"` → `pixi` in the file: the name test FAILS; restore.
+- [ ] **Step 4: Pin bump awareness** — find where the release routine lists the pin files (`git log -p --stat -S"0.22.0" -- ai/template.html | head`, or the memory note) and make sure `skills/pixi-effects/SKILL.md` ("Written for …") and `skills/pixi-effects/template.html` are in it; write the file list into `CHANGELOG`-adjacent notes only if a script owns it (otherwise the Skill test is the guard).
+- [ ] **Step 5: Commit** — explicit paths; "feat: the skill's description is broad (the tasks first), its commands work from an installed folder, a test guards both".
 
 ---
 
-### Task 2: The Claude Code plugin manifest
+### Task 3: The Claude Code plugin manifest
 
-**Files:**
-- Create: `.claude-plugin/marketplace.json`, `.claude-plugin/plugin.json`
-- Modify: `tests/docs/Skill.test.ts` (manifest consistency)
+**Files:** Create `.claude-plugin/marketplace.json`, `.claude-plugin/plugin.json`; modify `tests/docs/Skill.test.ts`.
 
-**Interfaces:** Consumes `skills/pixi-effects/` (Task 1) through the plugin's default `skills/` folder at the plugin root (the repository root).
-
-- [ ] **Step 1: Failing test** — append to `tests/docs/Skill.test.ts`:
+- [ ] **Step 1: Failing test** — append:
 
 ```ts
 describe('the Claude Code plugin manifest', () => {
-  const pkg = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
   const plugin = JSON.parse(readFileSync(resolve(root, '.claude-plugin/plugin.json'), 'utf8'));
   const market = JSON.parse(readFileSync(resolve(root, '.claude-plugin/marketplace.json'), 'utf8'));
-  it('describes the same plugin under the same name, at the package version', () => {
+  it('is one plugin under one name, at the package version, whose skills folder exists', () => {
     expect(plugin.name).toBe('pixi-effects');
     expect(plugin.version).toBe(pkg.version);
     expect(market.plugins.map((p: { name: string }) => p.name)).toEqual([plugin.name]);
     expect(market.plugins[0].source).toBe('./');
     expect(market.owner?.name).toBeTruthy();
+    expect(existsSync(join(root, 'skills/pixi-effects/SKILL.md'))).toBe(true);
   });
 });
 ```
-  Run: `npx vitest run tests/docs/Skill.test.ts` — Expected: FAIL (no such file).
-
-- [ ] **Step 2: Create the manifests** (schema from the plugin docs: marketplace needs `name`, `owner`, `plugins[].name/source`; plugin needs `name`; a plugin's skills are read from `skills/` at its root):
-  `.claude-plugin/plugin.json`: `{ "name": "pixi-effects", "version": "0.25.0", "description": "<the first sentence of the skill description>", "author": { "name": "yjmtmtk" }, "homepage": "https://yjmtmtk.github.io/pixi-effects/", "repository": "https://github.com/yjmtmtk/pixi-effects", "license": "MIT" }`
-  `.claude-plugin/marketplace.json`: `{ "name": "pixi-effects", "description": "Write a video as data", "owner": { "name": "yjmtmtk" }, "plugins": [ { "name": "pixi-effects", "source": "./", "description": "<same>" } ] }`
-  If `claude plugin validate .` (Step 3) rejects `"./"`, ledger a ruling and switch to `"source": { "source": "git-subdir"… }` or move the plugin into `plugins/pixi-effects/` with a symlink-free copy produced by `build-skill` (decide from the validator's message).
-
-- [ ] **Step 3: Validate for real** — Run `claude plugin validate .` — Expected: `✔ Validation passed`. Then in a temp HOME-free way: `claude plugin marketplace add .` and `claude plugin install pixi-effects@pixi-effects`, `claude plugin details pixi-effects` shows `Skills (1)  pixi-effects`; clean up with `claude plugin marketplace remove pixi-effects`.
-
-- [ ] **Step 4: Version in the release routine** — the plugin `version` must move with `package.json`: in `scripts/build-skill.mjs` `writeSkill()` also rewrites `.claude-plugin/plugin.json`'s `version` from `package.json` (and the test above stays green after a bump + `build:ai`). Add this with its own failing assertion first (change the version in a temp copy? simpler: the test already compares `plugin.version` to `pkg.version`).
-
-- [ ] **Step 5: Green + commit** — `npx vitest run tests/docs/Skill.test.ts` PASS; commit ("feat: the Claude Code plugin manifest").
+  Run — Expected: FAIL (files missing).
+- [ ] **Step 2: Create the manifests** — `plugin.json`: `{ "name": "pixi-effects", "version": "0.25.0", "description": "<sentence 1 of the skill description>", "author": { "name": "yjmtmtk" }, "homepage": "https://yjmtmtk.github.io/pixi-effects/", "repository": "https://github.com/yjmtmtk/pixi-effects", "license": "MIT" }`; `marketplace.json`: `{ "name": "pixi-effects", "description": "Write a video as data", "owner": { "name": "yjmtmtk" }, "plugins": [ { "name": "pixi-effects", "source": "./", "description": "<same>" } ] }`.
+- [ ] **Step 3: Validate for real** — `claude plugin validate .` → `✔ Validation passed`. If `"./"` is refused, ledger a ruling and pick the smallest valid form from the validator's message (e.g. a `plugins/pixi-effects/` plugin root whose `skills` is a real folder is NOT allowed: it would duplicate SKILL.md; prefer `git-subdir` or the plugin's `skills` path field pointing to `./skills`). Then `claude plugin marketplace add .`, `claude plugin install pixi-effects@pixi-effects`, `claude plugin details pixi-effects` shows `Skills (1)  pixi-effects`; clean up: `claude plugin uninstall pixi-effects@pixi-effects` and `claude plugin marketplace remove pixi-effects`.
+- [ ] **Step 4: Green + commit** — Skill test PASS; commit "feat: the Claude Code plugin manifest (the repository is the plugin, skills/ is its skill)".
 
 ---
 
-### Task 3: Entry points, the changelog, and the real install check
+### Task 4: Entry points, changelog, and the real install check
 
-**Files:**
-- Modify: `README.md`, `index.html`, `AGENTS.md`, `scripts/build-llms.mjs` (llms.txt "Start here"), `site/guide/ai.md` (the guide's AI page, if the name differs find it with `ls site/guide`), `CHANGELOG.md`, `tests/docs/AgentEntry.test.ts`
+**Files:** Modify `README.md`, `index.html`, `AGENTS.md`, `scripts/build-llms.mjs`, `site/guide/with-ai.md`, `CHANGELOG.md`, `tests/docs/AgentEntry.test.ts`, `tests/docs/Landing.test.ts`; regenerate `llms*.txt`.
 
-- [ ] **Step 1: Failing tests** — in `tests/docs/AgentEntry.test.ts` add: README, AGENTS.md and `llms.txt` each contain `npx skills add yjmtmtk/pixi-effects`; in `tests/docs/Landing.test.ts` add: `index.html` contains it once. Run the two files — Expected: FAIL.
-
-- [ ] **Step 2: Write the lines** (each one line, command first):
-  - README, near the top (after the one-sentence request): "Register it as a skill in your AI agent (Claude Code, Codex, Cursor, Gemini CLI, Copilot, OpenCode, …): `npx skills add yjmtmtk/pixi-effects`. Claude Code also: `/plugin marketplace add yjmtmtk/pixi-effects`, then `/plugin install pixi-effects@pixi-effects`. Update with `npx skills update`."
-  - landing page: after `cta-note` in the hero: `<p class="cta-note">Or give your agent the skill: <code>npx skills add yjmtmtk/pixi-effects</code></p>` (style with the existing `.cta-note`; keep it on one line on a phone: allow wrap).
-  - AGENTS.md: first bullet of "You can run commands": `0. If your agent supports skills: npx skills add yjmtmtk/pixi-effects (the skill is skills/pixi-effects/SKILL.md; the steps below are the same workflow).`
-  - `build-llms.mjs`: one bullet in "Start here" with the command; run `npm run build:ai`.
-  - guide AI page: one paragraph with both commands and what a skill is.
-  - CHANGELOG: `## Unreleased` → **Added**: "Agent skill: `npx skills add yjmtmtk/pixi-effects` registers the skill (generated `skills/pixi-effects/`) in Claude Code, Codex, Cursor and ~70 more; a Claude Code plugin manifest; `movie.audioBlocked`."
-
-- [ ] **Step 3: Green** — `npm run build:ai`, then `npx vitest run tests/docs/AgentEntry.test.ts tests/docs/Landing.test.ts tests/docs/Llms.test.ts tests/docs/Skill.test.ts tests/docs/SiteLinks.test.ts tests/docs/Guide.test.ts` — Expected: PASS. Then `npm run test:fast` — Expected: all pass.
-
-- [ ] **Step 4: The real install check (manual, record the output in the ledger)** — in a temp dir with a temp HOME: `HOME=$(mktemp -d) npx skills add <repo checkout> --list` → lists exactly ONE skill, `pixi-effects`; then `npx skills add <repo checkout> -a claude-code -a codex -a cursor -y` and confirm `.claude/skills/pixi-effects/{SKILL.md,template.html,reference/*,scripts/save-image.py}` and `.agents/skills/pixi-effects/` exist. If `--list` also shows the `ai/SKILL.md`, ledger a ruling: rename it away from the name `SKILL.md` is NOT allowed (it is the source): instead add `metadata:\n  internal: true` to `ai/SKILL.md`'s frontmatter (hidden from discovery) and have `build-skill` drop that key from the copy; add a failing test for the drop first.
-
-- [ ] **Step 5: Commit** — `git add` the explicit paths; commit ("feat: tell agents how to register the skill: README, landing page, AGENTS.md, llms.txt, the guide").
+- [ ] **Step 1: Failing tests** — AgentEntry: README, AGENTS.md and `llms.txt` contain `npx skills add yjmtmtk/pixi-effects`; Landing: `index.html` contains it once. Run both — Expected: FAIL.
+- [ ] **Step 2: The lines** (one line each, the command first): README near the top — "Register it as a skill in your agent (Claude Code, Codex, Cursor, Gemini CLI, Copilot, OpenCode, …): `npx skills add yjmtmtk/pixi-effects`. Claude Code also: `/plugin marketplace add yjmtmtk/pixi-effects` then `/plugin install pixi-effects@pixi-effects`. Update: `npx skills update`." Landing hero, after `cta-note`: `<p class="cta-note">Or give your agent the skill: <code>npx skills add yjmtmtk/pixi-effects</code></p>` (wraps on a phone, check with a screenshot). AGENTS.md first bullet under "You can run commands": "0. If your agent supports skills, `npx skills add yjmtmtk/pixi-effects` installs this workflow (`skills/pixi-effects/SKILL.md`); inside THIS repository run the tools as `node ai/tools/check.mjs …` / `render.mjs` / `view.mjs`." `build-llms.mjs` "Start here": one bullet. Guide `with-ai.md`: a short "Install the skill" paragraph. CHANGELOG `## Unreleased` → **Added**: the skill, the plugin manifest, `movie.audioBlocked`; **Changed**: the skill files moved from `ai/` to `skills/pixi-effects/` (old raw URLs under `ai/SKILL.md` and `ai/reference/` no longer exist).
+- [ ] **Step 3: Green** — `npm run build:ai`; `npx vitest run tests/docs/AgentEntry.test.ts tests/docs/Landing.test.ts tests/docs/Llms.test.ts tests/docs/Skill.test.ts tests/docs/SiteLinks.test.ts tests/docs/Guide.test.ts` PASS; `npm run test:fast` all pass.
+- [ ] **Step 4: The real install check (record the output in the ledger)** — in a temp dir with a temp HOME: `HOME=$(mktemp -d) npx skills add <checkout> --list` → exactly ONE skill `pixi-effects`; `npx skills add <checkout> -a claude-code -a codex -a cursor -y` → `.claude/skills/pixi-effects/{SKILL.md,template.html,reference/*,scripts/save-image.py}` and `.agents/skills/pixi-effects/` exist; open the installed `SKILL.md` and read every command once (all `npx pixi-effects-*`, no repo path). A landing-page screenshot at 390 px width shows the new line wrapping cleanly.
+- [ ] **Step 5: Commit** — explicit paths; "feat: tell agents how to register the skill (README, landing page, AGENTS.md, llms.txt, the guide, the changelog)".
 
 ---
 
 ## Final review
 
-Dispatch one fresh-context reviewer (most capable model) on the whole range with the Review Focus list above; fix Critical/Important in one pass with RED→GREEN; ledger minors. Do NOT push: the owner says when. After the owner's go: `npm run release:check` is not needed for a docs-only push, but run `npm run test:fast` once more; the next release picks the skill up (`build:ai` already runs in the routine).
+One fresh-context reviewer (most capable model) over the whole range, with the Review Focus list; Critical/Important fixed in one pass with RED→GREEN; minors ledgered. Do NOT push: the owner says when.

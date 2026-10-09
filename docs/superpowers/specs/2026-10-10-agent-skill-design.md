@@ -24,38 +24,35 @@ npx skills add yjmtmtk/pixi-effects
 - **The description is broad (option A):** it triggers on the *task* (video, motion graphics, animated title / lower third / chart, promo, slideshow with
   transitions), not only on the library's name. Cost accepted: it may also fire for people who use another tool.
 
-## Design
+## Design (revised the same day: ONE source, no generated copy)
 
-1. **One source, one generated copy.** `ai/` stays the source of truth. `scripts/build-skill.mjs` writes `skills/pixi-effects/` and the copy is committed
-   (GitHub is what `npx skills add` reads, so it must exist in the tree):
-   ```
-   skills/pixi-effects/
-     SKILL.md                 ← ai/SKILL.md, paths rewritten (below)
-     template.html            ← ai/template.html (loads the released library from the CDN, so it works from any folder)
-     reference/cheatsheet.md pitfalls.md recipes.md  ← ai/reference/*
-     reference/dsl.md         ← docs/dsl.md (SKILL.md points to it)
-     scripts/save-image.py    ← ai/tools/save-image.py
-   ```
-   Rewrites: `node ai/tools/check.mjs` → `npx pixi-effects-check`, `render.mjs` → `npx pixi-effects-render`, `view.mjs` → `npx pixi-effects-view`;
-   `ai/tools/save-image.py` → `scripts/save-image.py`; `docs/dsl.md` → `reference/dsl.md`. `build:ai` runs it too, so the existing release routine
-   (bump pins → `build:ai`) keeps the copy current; no new step to remember.
-2. **The description** (≤ 1000 characters, the 1,536-character listing limit of Claude Code leaves room): first the task words a user would say
-   (video, motion graphics, animated title, lower third, kinetic type, promo, slideshow, animated chart, data story, social clip, 2.5D / depth, music or
-   sound for a video), then what the skill does (a video as plain data, JS/HTML, plays in the browser, exports MP4/WebM/MOV, checked by a tool). The
-   same text is the source in `ai/SKILL.md`, so `ai/` and the skill never differ.
-3. **Claude Code plugin manifest** (`.claude-plugin/marketplace.json` + `plugin.json`, skills path `./skills`), so `/plugin marketplace add
-   yjmtmtk/pixi-effects` + `/plugin install` also work. Exact schema: read the plugin docs while planning (not verified yet).
-4. **npm package**: add `skills` to `files`, so an agent that finds `node_modules/pixi-effects/skills/pixi-effects/` can copy or point at it.
-5. **Entry points** (one line each, the command first): README, the landing page (next to "tell any AI one sentence"), `AGENTS.md`, `llms.txt` /
-   `llms-full.txt`, the guide's AI page.
+The first draft generated `skills/pixi-effects/` from `ai/`. That leaves two `SKILL.md` in the tree (an agent reading the repository sees both; the
+`skills` CLI may list both) and a staleness test to keep them equal. The owner's first rule is "clear for the AI, no failure, nothing wasted", so the
+skill itself becomes the only copy:
+
+1. **Move, do not copy.** `ai/SKILL.md`, `ai/reference/*`, `ai/template.html` and `ai/tools/save-image.py` move to `skills/pixi-effects/` (`SKILL.md`,
+   `reference/`, `template.html`, `scripts/save-image.py`). `ai/` keeps what is not part of the skill: `CHAT.md`, `chat-template.html`, `tools/` (the
+   npm bins). Old raw URLs under `ai/SKILL.md` and `ai/reference/` stop working (breaking changes are fine; the in-repo links, `llms.txt` and the
+   guide are updated).
+2. **Path-neutral text.** Commands read `npx pixi-effects-check|render|view` everywhere (in this repository `AGENTS.md` says the local `node
+   ai/tools/*.mjs` forms). The full DSL reference is not copied into the skill: SKILL.md points to the cheatsheet (every layer, prop and default) and to
+   `https://yjmtmtk.github.io/pixi-effects/docs/dsl.md` for the long form.
+3. **The description** (≤ 1000 characters): the task words first (video, motion graphics, animated title, lower third, kinetic type, promo, slideshow
+   with transitions, animated chart or data story, social clip, 2.5D / depth, music or sound for a video), then one sentence that names pixi-effects.
+   First line of the body: `Written for pixi-effects <version>.`; `template.html` pins the same version (a test compares both with `package.json`,
+   so a release that forgets them fails).
+4. **Claude Code plugin manifest** (`.claude-plugin/marketplace.json` + `plugin.json`, the plugin root is the repository, skills are read from `skills/`).
+5. **npm package**: `files` gains `skills`.
+6. **Entry points** (one line each, the command first): README, the landing page (next to "tell any AI one sentence"), `AGENTS.md`, `llms.txt`, the
+   guide's AI page.
 
 ## Tests
 
-- `tests/docs/Skill.test.ts` (units, fast): the committed `skills/pixi-effects/` equals what `build-skill` makes (stale = fail, like the llms test);
-  frontmatter valid for every agent (`name` = folder, lowercase-hyphen; `description` ≤ 1000 chars, contains the task words); no `ai/tools/` or
-  `node ai/` left; every relative path in SKILL.md exists in the folder; SKILL.md under 500 lines; `template.html` pins the package version.
-- A manual check (recorded in the plan, not CI): `npx skills add <local checkout> --list` in a temp HOME finds exactly one skill, and `-a claude-code -a
-  codex -a cursor` installs it with its files into `.claude/skills/` and `.agents/skills/`.
+- `tests/docs/Skill.test.ts`: frontmatter valid for every agent (`name` = folder; `description` ≤ 1000 chars, the task words, the library named in the
+  second sentence); no `ai/` path and no `node ai/` in the skill folder; every relative path in SKILL.md exists; SKILL.md under 500 lines; the version
+  line and the template pin equal `package.json`; the plugin manifests agree with the package.
+- Manual (in the plan): `npx skills add <local checkout> --list` in a temp HOME lists exactly ONE skill; `-a claude-code -a codex -a cursor` installs the
+  folder into `.claude/skills/` and `.agents/skills/`; `claude plugin validate .`.
 
 ## Out of scope
 
@@ -64,8 +61,6 @@ A command of our own that installs the skill (the CLI already does).
 
 ## Risks
 
-- **Over-trigger** (accepted by the owner): mitigated by naming the library in the first line of the description's second sentence, so a user of another
-  tool can see why it fired; the description says "when the user wants a video written as code in JavaScript / HTML", not "any video".
-- **Stale installs**: an installed copy does not follow `main`; `npx skills update` does. The README line says so.
-- **Template pin**: the copy's `template.html` pins the released version; between a release and the next one `main` may document unreleased features. The
-  SKILL.md's first line says which version it was written for.
+- **Over-trigger** (accepted by the owner): the description names the library in its second sentence, so a user of another tool can see why it fired.
+- **Stale installs**: an installed copy does not follow `main`; `npx skills update` does. SKILL.md's first line says which version it was written for.
+- **Path churn**: about 25 non-historical files mention the moved paths; the old notes under `examples/gallery/_notes/` are records and keep the old paths.
