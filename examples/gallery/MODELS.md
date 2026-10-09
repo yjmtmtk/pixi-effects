@@ -51,12 +51,15 @@ Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same br
 | haiku | Last Train — A split-flap station board at night, in Japanese and English: the cascade, one status change, and the last train of the night | 720×1280 | departure-board.html |
 | sonnet | Rack focus — A shallow-depth still life that is about the camera's focus: the lens racks from a coral badge to the title to a small sign that only resolves when the focus lands on it, and back, with a slow dolly and bokeh lamps | 1280×720 | rack-focus.html |
 | sonnet | Light leaks — A dusk city told only by blend modes: a soft-light colour cast, a color-dodge light leak, a multiply vignette, a screen haze and a difference flash on the title | 1280×720 | light-leaks.html |
+| sonnet | Matte reel — One moving matte shared by many layers: a growing disc, an inverted hole, a luma headline, a multiply band and a luma wipe to an end card | 1280×720 | matte-reel.html |
 
-Counts: fable 13, opus 13, sonnet 18, haiku 3 (47 pieces).
+Counts: fable 13, opus 13, sonnet 19, haiku 3 (48 pieces).
 
 `rack-focus` (sonnet): made on 2026-10-09 by one subagent from the brief and the docs of the unreleased 0.21 (depth of field: camera `focus` / `aperture`); the model name is the author's self-report (Claude Sonnet 5.5).
 
 `light-leaks` (sonnet): made on 2026-10-09 by one subagent from the brief and the docs of the unreleased 0.22 (blend modes); the model name is the author's self-report (Claude Sonnet 5.5).
+
+`matte-reel` (sonnet): made on 2026-10-09 by one subagent from the brief and the docs of the unreleased 0.23 (named mattes, luma, luma wipe); the model name is the author's self-report (Claude Sonnet 5.5).
 
 Per-piece stumble notes are in [_notes/](_notes/), named after the piece id (file name without `.html`).
 

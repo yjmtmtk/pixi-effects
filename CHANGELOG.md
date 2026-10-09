@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+**Added**
+
+- **Named mattes.** A layer can be named and used as the `mask` of any number of layers in the same composition: `mask: 'band'` (the matte reads its opacity), `mask: { layer: 'band', channel: 'luma', invert: true }` (its brightness, Rec. 709; the opposite) and a list `mask: ['panel', { layer: 'hole', invert: true }]` (an intersection; subtracting a matte is inverting it). The matte layer itself is not drawn: it is drawn once per frame into a texture (so three layers sharing a moving matte cost one pass for the matte) and a `MatteFilter` cuts each layer that names it. `blendMode` works with every matte. Warnings, said once at build with a fix: a name nobody has (did-you-mean), the same name twice, a matte that is not alive for as long as its users (they would vanish), a `threeD` matte or a masked `threeD` layer, a matte with a mask of its own, `maskInverted` written with a named matte, a `channel` that is not `alpha` / `luma` (`luminance` → `luma`), a masked layer with a `parent`, and more than 8 mattes in one composition (each is a texture the size of the composition: about 8 MiB at 1080p). `inspect` skips matte layers.
+- **Luma wipe.** The transition `{ kind: 'luma', from, to, at, duration, map, softness, flip }` follows a brightness map: dark parts change first. `map` is `'linear'`, `'diagonal'`, `'radial'` (computed on the GPU from the position on screen, a circle whatever the aspect ratio: no image, no canvas) or the name of a grayscale image asset; `softness` is the soft band (0.1), `flip` reverses it. An unknown map name warns once with the closest built-in. A layer a transition wraps keeps its named matte.
+- **A gallery piece for mattes and the luma wipe** (48 now): `matte-reel`, one moving matte shared by gradient "photographs", hairlines and captions, an inverted hole, a headline that blends in through a luma ramp, a multiply band, and a luma wipe (with a venetian-blind map drawn on a canvas) to an end card (made by a Claude Sonnet 5.5 subagent from the docs alone; its stumble notes are in `examples/gallery/_notes/`, and the two gaps it found are fixed in the docs: outside the matte layer's shape the matte is 0 for `luma` too, and a whole composition can be the masked layer).
+- **Docs and examples:** `docs/dsl.md` (Named mattes and luma, `luma` transition, blend rule 10), the cheatsheet, SKILL, recipes `shared-matte` and `luma-wipe`, pitfalls 81–84, the transitions and images guides, and Playground example 18.
+
+**Changed**
+
+- **Inverted masks (`maskInverted`) and text, image and video masks now go through the matte filter** (the same one as a named matte); a plain shape mask that is not inverted stays the stencil (the cheapest, hard-edged). The `AlphaMask` code, the `erase` wrapper group of 0.22 and the warning "a text mask with a blend loses the blend" are gone: **`blendMode` now works with every kind of mask**. Measured before and after on the 16 gallery and example pages that use masks (frames at 0, 25, 50, 75 and 99 %): 14 are pixel-identical (largest difference 0 to 1 of 255), `ma` differs in 10 edge pixels (largest 11 of 255), and the `05-composition-mask` example now draws its `maskInverted` hole correctly inside a nested composition (it was cut off at the bottom, and missing in the last frames).
+
+**Fixed**
+
+- **Wipe, iris and dissolve transitions did nothing on WebGL**: their fragment shader declared the frame uniforms without `highp`, so it did not link ("Precisions of uniform 'uOutputFrame' differ between VERTEX and FRAGMENT shaders") and the transition drew nothing (WebGPU, the default, was fine). The transitions are now tested on both backends.
+
 ## 0.22.0
 
 **Added**

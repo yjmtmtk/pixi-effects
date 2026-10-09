@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Matte reel — one matte, many pictures</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+  <style>
+    html, body { height: 100%; }
+    body { background: #0d1220; margin: 0; padding: 16px; box-sizing: border-box; display: grid; place-items: center; }
+    .pe-stage { position: relative; width: min(960px, 100%); border-radius: 8px; --pe-loader-bg: #0f1115; background: #0f1115; }
+    .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
+  </style>
+  <script type="application/json" id="piece-meta">
+  { "title": "Matte reel",
+    "subtitle": "One moving matte shared by many layers: a growing disc, an inverted hole, a luma headline, a multiply band and a luma wipe",
+    "tags": ["mattes", "luma", "luma wipe", "masks", "blend modes", "audio"],
+    "width": 1280, "height": 720, "duration": 10, "model": "sonnet" }
+  </script>
+</head>
+<body>
+  <div class="pe-stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 10;
+
+    // ---------------------------------------------------------------- palette: ink, bone, vermilion, slate (+ a plum for the gradients)
+    const INK = '#0f1115', BONE = '#efe9dc', VERM = '#ff5a36', SLATE = '#3a4a5e', PLUM = '#5a1f3d', DUSK = '#2d4a66', SAND = '#d9b98a';
+    const MONO = "ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
+    const SERIF = "Georgia, 'Times New Roman', serif";
+
+    // ---------------------------------------------------------------- timeline (seconds)
+    const CX = 640, CY = 345;                         // the matte's centre = the middle photograph
+    const DISC = { at: 0.5, dur: 1.9 };               // 1. a disc grows and opens the triptych
+    const HOLE = { at: 3.0, dur: 1.2 };               // 2. an inverted hole eats the triptych, paper shows through it
+    const FADE = { at: 3.5, dur: 1.5 };               // 3. a brightness ramp lets the headline blend in
+    const BAND = { at: 5.1, dur: 1.2 };               // 4. a soft band sweeps over it and tints it (multiply)
+    const WIPE = { at: 6.8, dur: 1.1 };               // 5. luma wipe to the closing scene
+    const A_END = WIPE.at + WIPE.dur;                 // scene A lives until the wipe is over
+    const B_LEN = DURATION - WIPE.at;
+
+    // The wipe map is a grayscale image drawn here: venetian blinds that open left to right (dark parts change first).
+    const blinds = (() => {
+      const c = document.createElement('canvas'); c.width = W; c.height = H;
+      const g = c.getContext('2d'), img = g.createImageData(W, H);
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const v = Math.round(255 * (0.8 * x / W + 0.2 * ((y % 90) / 90)));
+        const i = (y * W + x) * 4; img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255;
+      }
+      g.putImageData(img, 0, 0);
+      return c.toDataURL('image/png');
+    })();
+
+    const full = (name, c, extra = {}) => ({ type: 'shape', shape: 'rect', name, width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: c }, ...extra });
+
+    // ================================================================ scene A
+    // matte 1: the disc.  Every layer that is "cut" by it also stays outside the hole (matte 2, inverted).
+    const cutBy = ['disc', { layer: 'hole', invert: true }];
+
+    const discKeys = [{ at: DISC.at, to: { radius: 740 }, duration: DISC.dur, ease: 'power2.inOut' }];
+    const holeKeys = [{ at: HOLE.at, to: { radius: 780 }, duration: HOLE.dur, ease: 'power2.inOut' }];
+    const ring = (name, keys, fadeAt, fadeDur, startAt) => ({
+      type: 'shape', shape: 'arc', name, radius: 0, startAngle: 0, endAngle: 360,
+      initial: { x: CX, y: CY, strokeColor: VERM, strokeWidth: 3, alpha: 0 },
+      keyframes: [{ at: startAt, to: { alpha: 1 }, duration: 0.1 }, ...keys, { at: fadeAt, to: { alpha: 0 }, duration: fadeDur }],
+    });
+
+    // three "photographs": a gradient, a sun / moon, a horizon. Each is a small composition cut by the same two mattes.
+    const PHOTOS = [
+      { label: '01  DAWN',  top: VERM, bottom: PLUM, body: { x: 150, y: 235, r: 52, c: BONE }, ground: 0.34 },
+      { label: '02  NIGHT', top: DUSK, bottom: INK,  body: { x: 205, y: 120, r: 30, c: BONE }, ground: 0.28 },
+      { label: '03  DUNE',  top: BONE, bottom: SAND, body: { x: 100, y: 140, r: 62, c: VERM }, ground: 0.42 },
+    ];
+    const PX = [320, 640, 960], PW = 300, PH = 400;
+    const photo = (p, i) => ({
+      type: 'composition', name: 'photo-' + i, width: PW, height: PH, mask: cutBy,
+      initial: { x: PX[i], y: CY, pivotX: PW / 2, pivotY: PH / 2 },
+      keyframes: [{ at: DISC.at, from: { scale: 1.1 }, to: { scale: 1 }, duration: 2.6, ease: 'power2.out' }],
+      sequences: [
+        { type: 'shape', shape: 'rect', width: PW, height: PH, fillGradient: { type: 'linear', angle: 90, stops: [[0, p.top], [1, p.bottom]] }, initial: { x: PW / 2, y: PH / 2 } },
+        { type: 'shape', shape: 'circle', radius: p.body.r, initial: { x: p.body.x, y: p.body.y, fillColor: p.body.c } },
+        { type: 'shape', shape: 'rect', width: PW, height: PH * p.ground, anchorY: 1, initial: { x: PW / 2, y: PH, fillColor: INK, fillAlpha: 0.38 } },
+      ],
+    });
+    const photoLabel = (p, i) => ({
+      type: 'text', name: 'label-' + i, text: p.label, mask: cutBy,
+      style: { fontFamily: MONO, fontSize: 18, letterSpacing: 4, fill: BONE },
+      initial: { x: PX[i] - PW / 2, y: 578, anchorX: 0, anchorY: 0.5, alpha: 0.8 },
+    });
+    const hair = (name, y) => ({ type: 'shape', shape: 'line', name, from: [PX[0] - PW / 2, y], to: [PX[2] + PW / 2, y], mask: cutBy, initial: { strokeColor: BONE, strokeWidth: 1, strokeAlpha: 0.3 } });
+
+    // paper scene (seen through the hole): headline cut by a LIST, the hole AND a brightness ramp
+    const paperCut = ['hole', { layer: 'fade', channel: 'luma' }];
+    const head = (name, text, y, extra) => ({
+      type: 'text', name, text, mask: paperCut,
+      style: { fontFamily: SERIF, fontSize: 124, fill: INK, fontWeight: 'bold', ...extra },
+      initial: { x: 170, y, anchorX: 0, anchorY: 0.5 },
+    });
+
+    const sceneA = {
+      type: 'composition', name: 'a', at: 0, duration: A_END, width: W, height: H,
+      sequences: [
+        full('ink', INK),
+        // ---- the mattes (not drawn)
+        { type: 'shape', shape: 'circle', name: 'disc', radius: 0, initial: { x: CX, y: CY, fillColor: '#ffffff' }, keyframes: discKeys },
+        { type: 'shape', shape: 'circle', name: 'hole', radius: 0, initial: { x: CX, y: CY, fillColor: '#ffffff' }, keyframes: holeKeys },
+        { type: 'shape', shape: 'rect', name: 'fade', width: 3000, height: H, anchorX: 0, anchorY: 0,       // white, then a long ramp to black: it slides right to left
+          fillGradient: { type: 'linear', angle: 0, stops: [[0, '#ffffff'], [0.7, '#ffffff'], [1, '#000000']] },
+          initial: { x: -2940, y: 0 }, keyframes: [{ at: FADE.at, to: { x: -900 }, duration: FADE.dur, ease: 'power2.inOut' }] },
+        { type: 'shape', shape: 'rect', name: 'band', width: 380, height: H, anchorX: 0.5, anchorY: 0,
+          fillGradient: { type: 'linear', angle: 0, stops: [[0, '#000000'], [0.5, '#ffffff'], [1, '#000000']] },
+          initial: { x: -220, y: 0 }, keyframes: [{ at: BAND.at, to: { x: W + 220 }, duration: BAND.dur, ease: 'power1.inOut' }] },
+
+        // ---- paper: shows only INSIDE the hole (the same matte that cuts the photographs, not inverted)
+        full('paper', BONE, { mask: 'hole' }),
+
+        // ---- the triptych: inside the disc, outside the hole
+        ...PHOTOS.map(photo),
+        ...PHOTOS.map(photoLabel),
+        hair('rule-top', 104), hair('rule-bottom', 612),
+        { type: 'text', name: 'cap-left', text: 'MATTE REEL', mask: cutBy, style: { fontFamily: MONO, fontSize: 18, letterSpacing: 5, fill: BONE },
+          initial: { x: PX[0] - PW / 2, y: 78, anchorX: 0, anchorY: 0.5 } },
+        { type: 'text', name: 'cap-right', text: 'ALPHA  /  LUMA  /  INVERT', mask: cutBy, style: { fontFamily: MONO, fontSize: 18, letterSpacing: 5, fill: BONE },
+          initial: { x: PX[2] + PW / 2, y: 78, anchorX: 1, anchorY: 0.5, alpha: 0.6 } },
+
+        // ---- the paper headline, blended in by brightness
+        { type: 'text', name: 'kicker', text: 'ONE LAYER NAMED  ·  MANY LAYERS CUT', mask: paperCut, style: { fontFamily: MONO, fontSize: 20, letterSpacing: 5, fill: SLATE },
+          initial: { x: 170, y: 150, anchorX: 0, anchorY: 0.5 } },
+        head('head-1', 'One matte,', 250),
+        head('head-2', 'many pictures.', 382, { fontWeight: 'normal', fontStyle: 'italic', fill: SLATE }),
+        { type: 'shape', shape: 'line', name: 'head-rule', from: [170, 478], to: [300, 478], mask: paperCut, strokeCap: 'round', initial: { strokeColor: VERM, strokeWidth: 6 } },
+        { type: 'text', name: 'sub', text: 'a brightness map lets it in, an inverted matte opens the hole', mask: paperCut, style: { fontFamily: MONO, fontSize: 22, fill: SLATE },
+          initial: { x: 170, y: 528, anchorX: 0, anchorY: 0.5 } },
+
+        // ---- the band tints what it passes (multiply: bone becomes vermilion, ink stays ink)
+        { type: 'shape', shape: 'rect', name: 'tint', width: W, height: H, at: BAND.at - 0.1, blendMode: 'multiply',
+          initial: { x: W / 2, y: H / 2, fillColor: VERM }, mask: { layer: 'band', channel: 'luma' } },
+
+        // ---- the matte edges, drawn as thin rings so the viewer sees what cuts
+        ring('disc-ring', discKeys, DISC.at + 1.3, 0.5, DISC.at),
+        ring('hole-ring', holeKeys, HOLE.at + 0.75, 0.45, HOLE.at),
+      ],
+    };
+
+    // ================================================================ scene B: the end card, with its own matte
+    const SW = 'sweep';
+    const sweepCut = { layer: SW };
+    const SWEEP_AT = 1.25;
+    const sceneB = {
+      type: 'composition', name: 'b', at: WIPE.at, duration: B_LEN, width: W, height: H,
+      sequences: [
+        full('verm', VERM),
+        { type: 'shape', shape: 'rect', name: SW, width: 0, height: H, anchorX: 0, anchorY: 0, initial: { x: 150, y: 0, fillColor: '#ffffff' },
+          keyframes: [{ at: SWEEP_AT, to: { width: 820 }, duration: 0.9, ease: 'power3.out' }] },
+        { type: 'shape', shape: 'circle', name: 'moon', radius: 170, initial: { x: 960, y: CY, fillColor: BONE, scale: 0 },
+          keyframes: [{ at: SWEEP_AT + 0.5, to: { scale: 1 }, duration: 'auto', ease: 'spring.gentle' }] },
+        { type: 'shape', shape: 'circle', name: 'halo', radius: 205, trimEnd: 0, initial: { x: 960, y: CY, strokeColor: INK, strokeWidth: 2 },
+          keyframes: [{ at: SWEEP_AT + 0.8, to: { trimEnd: 1 }, duration: 1.1, ease: 'power2.inOut' }] },
+        { type: 'text', name: 'title-1', text: 'Matte', mask: sweepCut, style: { fontFamily: SERIF, fontSize: 190, fontWeight: 'bold', fill: INK },
+          initial: { x: 170, y: 270, anchorX: 0, anchorY: 0.5 } },
+        { type: 'text', name: 'title-2', text: 'reel.', mask: sweepCut, style: { fontFamily: SERIF, fontSize: 190, fontStyle: 'italic', fill: BONE },
+          initial: { x: 170, y: 440, anchorX: 0, anchorY: 0.5 } },
+        { type: 'shape', shape: 'line', name: 'rule', from: [170, 548], to: [300, 548], mask: sweepCut, strokeCap: 'round', initial: { strokeColor: INK, strokeWidth: 6 } },
+        { type: 'text', name: 'tag', text: 'alpha · luma · invert · luma wipe', mask: sweepCut, style: { fontFamily: MONO, fontSize: 24, fill: INK },
+          initial: { x: 170, y: 596, anchorX: 0, anchorY: 0.5 } },
+      ],
+    };
+
+    // ================================================================ sound: short effects only, each on a picture event
+    const sfx = (name, preset, at, volume = 0.6) => ({ type: 'audio', name, sfx: preset, at, volume: volume * 2.6 });   // the preset level is quiet for web video
+    const sounds = [
+      sfx('s-disc', 'swoosh', DISC.at - 0.1),                     // loudest 0.16 s in
+      sfx('s-hole', 'swoosh', HOLE.at - 0.1, 0.5),
+      sfx('s-fade', 'swipe', FADE.at + 0.2, 0.4),
+      sfx('s-band', 'swipe', BAND.at + 0.2, 0.5),
+      sfx('s-wipe', 'swoosh', WIPE.at - 0.1, 0.65),
+      sfx('s-title', 'click', WIPE.at + SWEEP_AT, 0.7),
+      sfx('s-moon', 'pop', WIPE.at + SWEEP_AT + 0.5, 0.55),
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 5.7,
+        background: INK,
+        assets: [{ name: 'blinds', src: blinds }],
+        composition: {
+          sequences: [sceneA, sceneB, ...sounds],
+          transitions: [{ kind: 'luma', from: 'a', to: 'b', at: WIPE.at, duration: WIPE.dur, map: 'blinds', softness: 0.14, ease: 'power1.inOut' }],
+        },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

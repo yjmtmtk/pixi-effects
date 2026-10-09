@@ -659,6 +659,27 @@
       "notes": "_notes/loader-gallery.md"
     },
     {
+      "id": "matte-reel",
+      "title": "Matte reel",
+      "subtitle": "One moving matte shared by many layers: a growing disc, an inverted hole, a luma headline, a multiply band and a luma wipe",
+      "tags": [
+        "mattes",
+        "luma",
+        "luma wipe",
+        "masks",
+        "blend modes",
+        "audio"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 10,
+      "posterFrame": 171,
+      "model": "sonnet",
+      "page": "matte-reel.html",
+      "poster": "posters/matte-reel.jpg",
+      "notes": "_notes/matte-reel.md"
+    },
+    {
       "id": "spring-marquee",
       "title": "Now Showing",
       "subtitle": "A vintage cinema marquee at night: bulbs snap on, letters bounce onto the rail, a ticket stub wobbles in, all under one film grain",

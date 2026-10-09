@@ -743,6 +743,7 @@ A layer can be named and used as the mask of **several** layers (After Effects' 
   initial: { x: 60, y: 300 }, keyframes: [{ at: 0.3, to: { width: 560 }, duration: 1.5 }] },
 { type: 'text', text: 'SHARED', mask: 'wipe' },
 { type: 'text', text: 'MASK', at: 0.2, mask: 'wipe' },
+{ type: 'composition', width: 400, height: 300, mask: 'wipe', sequences: [ /* a whole picture, cut as one */ ] },
 
 // by brightness instead of opacity (a grayscale image or a gradient layer), inverted, and a list
 { type: 'image', asset: 'photo', mask: { layer: 'vignette', channel: 'luma' } },
@@ -757,7 +758,7 @@ A layer can be named and used as the mask of **several** layers (After Effects' 
 | `mask: { type: …, … }` | an inline mask layer, as above |
 
 Rules:
-1. **A layer that is used as a matte is not drawn.** It still needs to live long enough: the matte's time is the composition's time (its own `at` and `duration`). Where the matte is missing, the layers it cuts are **invisible**, so a matte whose lifetime does not cover its users warns.
+1. **Outside the matte layer's own shape the matte is 0, for `luma` too** (nothing there is transparent and black), so a matte can be a wide gradient rectangle that you slide across the layers for a soft, moving reveal. **A layer that is used as a matte is not drawn.** It still needs to live long enough: the matte's time is the composition's time (its own `at` and `duration`). Where the matte is missing, the layers it cuts are **invisible**, so a matte whose lifetime does not cover its users warns.
 2. **The name must be in the same composition** as the layer that uses it (a layer inside a nested composition cannot name a matte outside it). A layer that a transition wraps keeps its matte: the transition carries the `mask` to the wrapper.
 3. A matte with a `parent` follows its parents (the null layers) as any layer does. A masked layer with a `parent` warns: the matte is in the composition's space, the layer in the null's space; put the mask on the null instead.
 4. `threeD` layers cannot be mattes and cannot have one (a warning; the matte is drawn as the `threeD` layer it is, the mask is ignored).
