@@ -90,9 +90,9 @@ export class CompositionSequence extends Sequence {
       lintKeys(s);
     }
     for (const message of summarizeWarnings(lateKeyframes)) console.warn(message);
-    const crowd = maxConcurrentAdvanced((this.spec.sequences ?? []) as Array<{ at?: number; duration?: number; blendMode?: unknown }>, span);
+    const crowd = maxConcurrentAdvanced((this.spec.sequences ?? []) as Array<{ at?: number; duration?: number; blendMode?: unknown; type?: string; sequences?: unknown }>, span);
     if (crowd >= MANY_ADVANCED) {
-      console.warn(`pixi-effects: ${describeLayer(this.spec)}: ${crowd} layers with an advanced blendMode are on screen at once; each is a full-frame pass (about 2 ms on WebGL). Put fewer layers in the blend (or draw the glow as one layer), or use add / screen / multiply`);
+      console.warn(`pixi-effects: ${describeLayer(this.spec)}: ${crowd} layers with an advanced blendMode are on screen at once (a composition with one counts each layer inside it, since its children blend one by one); each is a full-frame pass (about 2 ms on WebGL). Put fewer layers in the blend (or draw the glow as one layer), or use add / screen / multiply`);
     }
 
     this._children = await buildSequenceTree(
@@ -191,7 +191,11 @@ export class CompositionSequence extends Sequence {
             mask: Container | null;
           };
           if (wrap) {
-            (maskSeq.target as Container & { blendMode: string }).blendMode = 'erase';     // see above: drawn, not used as a mask
+            // see above: drawn, not used as a mask. A mask with filters of its own erases through its LAST filter (the pass that draws it
+            // onto the layer): a blend on the container would apply inside the filter pass, against nothing, and erase nothing.
+            const mt = maskSeq.target as Container & { blendMode: string };
+            const mf = Array.isArray(mt.filters) && mt.filters.length > 0 ? (mt.filters[mt.filters.length - 1] as unknown as { blendMode?: unknown }) : null;
+            if (mf) mf.blendMode = 'erase'; else mt.blendMode = 'erase';
           } else if (inverse || maskSpec.type === 'text') {
             // A stencil mask is the mask's geometry: a text layer's is its whole bounding box (the letters' alpha is ignored), and
             // PIXI's inverted stencil tests against the empty level, so inside a masked parent it shows what the parent hides.

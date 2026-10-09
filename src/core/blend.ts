@@ -95,14 +95,37 @@ export async function enableAdvancedBlend(renderer: unknown): Promise<void> {
 /** This many layers with an advanced blend on screen at once is slow: each is a full-frame pass (measured on WebGL: about 1.5–2 ms each at 1080p). */
 export const MANY_ADVANCED = 10;
 
-/** The most layers with an advanced mode on screen at one instant, from their `at` and `duration` (a layer with no duration lasts to the end). */
-export function maxConcurrentAdvanced(layers: ReadonlyArray<{ at?: number; duration?: number; blendMode?: unknown }>, span: number): number {
+type Counted = { at?: number; duration?: number; blendMode?: unknown; type?: string; sequences?: unknown };
+
+/** The layers a composition draws (its children each blend one by one when it has a mode): null, camera and audio layers draw nothing; nested compositions are walked. */
+function drawnLeaves(sequences: unknown): number {
+  if (!Array.isArray(sequences)) return 0;
+  let n = 0;
+  for (const s of sequences as Counted[]) {
+    if (!s || s.type === 'null' || s.type === 'camera' || s.type === 'audio') continue;
+    n += s.type === 'composition' ? drawnLeaves(s.sequences) : 1;
+  }
+  return n;
+}
+
+/** The full-frame passes one layer costs: 0 without an advanced mode, 1 for a layer, and one per drawn layer inside a composition (it has at least 1). */
+function passesOf(l: Counted): number {
+  if (!isAdvancedBlend(l.blendMode)) return 0;
+  return l.type === 'composition' ? Math.max(1, drawnLeaves(l.sequences)) : 1;
+}
+
+/**
+ * The most full-frame advanced-blend passes on screen at one instant, from the layers' `at` and `duration` (a layer with no duration lasts to
+ * the end). A composition with an advanced mode counts one for each layer inside it: its children inherit the mode and blend one by one.
+ */
+export function maxConcurrentAdvanced(layers: ReadonlyArray<Counted>, span: number): number {
   const events: Array<[number, number]> = [];
   for (const l of layers) {
-    if (!isAdvancedBlend(l.blendMode)) continue;
+    const w = passesOf(l);
+    if (w === 0) continue;
     const start = Math.max(0, l.at ?? 0);
     const end = l.duration === undefined ? span : start + l.duration;
-    if (end > start) events.push([start, 1], [end, -1]);
+    if (end > start) events.push([start, w], [end, -w]);
   }
   events.sort((a, b) => a[0] - b[0] || a[1] - b[1]);                  // at one instant, the layers that end go before the ones that start
   let now = 0, most = 0;

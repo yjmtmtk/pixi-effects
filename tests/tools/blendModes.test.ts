@@ -213,4 +213,33 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
       expect(mine(await cdp.eval('__logs')).filter((l: string) => l.includes('text layer as the mask'))).toHaveLength(1);
     });
   });
+
+  it('maskInverted with a blendMode and a mask that has a filter of its own (a feathered hole): the middle of the hole is the backdrop, far out is the blend, the edge is in between', async () => {
+    await withPage(async (cdp) => {
+      const hole = { type: 'shape', shape: 'circle', radius: 18, filters: [{ type: 'blur', strength: 5 }], initial: { x: 80, y: 45, fillColor: '#ffffff' } };
+      const back = hexToRgb('#b0703a');
+      for (const mode of ['multiply', 'overlay']) {
+        const comp = { sequences: [
+          { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#b0703a' } },
+          { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, blendMode: mode, mask: hole, maskInverted: true, initial: { x: 0, y: 0, fillColor: '#3dd6c8' } },
+        ] };
+        await cdp.eval(`mk(${JSON.stringify({ composition: comp })})`);
+        const url = await cdp.eval('snap(0)');
+        const at = (x: number, y: number) => cdp.eval(`px(${JSON.stringify(url)}, ${x}, ${y})`) as Promise<number[]>;
+        const centre = await at(80, 45), far = await at(10, 10), edge = await at(98, 45);
+        const blended = mode === 'multiply'
+          ? back.map((b, k) => b * hexToRgb('#3dd6c8')[k]! * 255)
+          : blendPixel('overlay', back, 1, hexToRgb('#3dd6c8'), 1).slice(0, 3);
+        for (let k = 0; k < 3; k++) {
+          expect(Math.abs(centre[k]! - back[k]! * 255), `${mode}: the middle of the hole, channel ${k}: got ${centre}`).toBeLessThanOrEqual(TOLERANCE);
+          expect(Math.abs(far[k]! - blended[k]!), `${mode}: far from the hole, channel ${k}: got ${far}`).toBeLessThanOrEqual(TOLERANCE);
+        }
+        // at the soft edge the hole is only partly open: a value strictly between the backdrop and the blend on a channel where they differ
+        const k = [0, 1, 2].reduce((a, b) => (Math.abs(back[b]! * 255 - blended[b]!) > Math.abs(back[a]! * 255 - blended[a]!) ? b : a));
+        const lo = Math.min(back[k]! * 255, blended[k]!), hi = Math.max(back[k]! * 255, blended[k]!);
+        expect(edge[k]!, `${mode}: the soft edge, channel ${k}: got ${edge}`).toBeGreaterThan(lo + 2);
+        expect(edge[k]!).toBeLessThan(hi - 2);
+      }
+    });
+  });
 });

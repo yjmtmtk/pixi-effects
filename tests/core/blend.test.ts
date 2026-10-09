@@ -82,6 +82,17 @@ describe('maxConcurrentAdvanced', () => {
     expect(maxConcurrentAdvanced([L(0, 5), L(2, 5), L(4, 5)], 10)).toBe(3);                            // 4–5 s: all three
     expect(maxConcurrentAdvanced([L(0, 2), L(2, 2)], 10)).toBe(1);                                     // [0, 2) and [2, 4) do not overlap
   });
+  it('a composition with an advanced mode is one pass for each layer inside it (its children each blend), counted through nested compositions; null, camera and audio layers draw nothing', () => {
+    const shapes = (n: number) => Array.from({ length: n }, () => ({ type: 'shape' }));
+    const comp = (blendMode: unknown, sequences: unknown[], at = 0, duration?: number) => ({ type: 'composition', blendMode, sequences, at, duration });
+    expect(maxConcurrentAdvanced([comp('overlay', shapes(12))], 10)).toBe(12);
+    expect(maxConcurrentAdvanced([comp('overlay', shapes(3))], 10)).toBe(3);
+    expect(maxConcurrentAdvanced([comp('overlay', [...shapes(2), comp(null, shapes(4))])], 10)).toBe(6);
+    expect(maxConcurrentAdvanced([comp('overlay', [{ type: 'null' }, { type: 'camera' }, { type: 'audio' }, ...shapes(2)])], 10)).toBe(2);
+    expect(maxConcurrentAdvanced([comp('overlay', [])], 10)).toBe(1);                                 // an empty one still counts as itself
+    expect(maxConcurrentAdvanced([comp('add', shapes(20))], 10)).toBe(0);                             // a basic mode is not a heavy pass
+    expect(maxConcurrentAdvanced([comp('overlay', shapes(4), 0, 2), comp('overlay', shapes(5), 1, 2)], 10)).toBe(9);   // they overlap during 1–2 s
+  });
   it('does not count the basic modes, normal, or layers with no mode; a layer with no duration lasts to the end of the composition', () => {
     expect(maxConcurrentAdvanced([L(0, 5, 'add'), L(0, 5, 'normal'), L(0, 5, null), L(0, 5, 'multiply')], 10)).toBe(0);
     expect(maxConcurrentAdvanced([L(8, undefined), L(9, undefined)], 10)).toBe(2);

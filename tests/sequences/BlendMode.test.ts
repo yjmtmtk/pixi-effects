@@ -133,6 +133,15 @@ describe('blendMode on a layer with an inverted mask', () => {
     expect(target.effects).toHaveLength(0);
   });
 
+  it('a mask with a filter of its own (a feathered hole) carries the erase on its LAST filter: a blend on the container would apply inside the filter pass and erase nothing', async () => {
+    const f1: Record<string, unknown> = { apply() {} };
+    const comp = await build([layer({ blendMode: 'multiply', maskInverted: true,
+      mask: { ...hole, filters: [{ type: 'custom', name: 'soft', filter: f1 }] } })]);
+    const wrap = innerOf(comp).children[0] as unknown as Wrap;
+    expect(f1.blendMode).toBe('erase');
+    expect(wrap.children[1]!.blendMode).toBeUndefined();
+  });
+
   it('an advanced mode: the group\'s filter is the blend filter', async () => {
     const made: Array<{ mode: string; destroy(): void }> = [];
     setBlendFilterFactory(mode => { const f = { mode, destroy() {} }; made.push(f); return f; });
@@ -184,6 +193,15 @@ describe('blendMode on a layer masked by a text layer', () => {
 });
 
 describe('many advanced blends at once', () => {
+  it('a composition with an advanced mode counts each layer inside it', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const inside = Array.from({ length: 12 }, () => ({ type: 'shape', shape: 'circle', radius: 10 }));
+    await build([{ type: 'composition', width: 200, height: 200, blendMode: 'overlay', sequences: inside }]);
+    const said = warn.mock.calls.map(c => String(c[0])).filter(m => m.includes('advanced blendMode'));
+    expect(said).toHaveLength(1);
+    expect(said[0]).toMatch(/12 layers/);
+  });
+
   it('warns once when 10 or more layers with an advanced mode are on screen together, and not for a slideshow of them', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const pile = Array.from({ length: 12 }, () => ({ type: 'shape', shape: 'circle', radius: 10, blendMode: 'overlay' }));
