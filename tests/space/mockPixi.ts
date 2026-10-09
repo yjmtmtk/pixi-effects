@@ -28,6 +28,8 @@ export function createPixiMock() {
     setMask(opts: { mask?: Container | null; inverse?: boolean }) { if (opts.mask !== undefined) this.mask = opts.mask; }
     effects: unknown[] = [];
     addEffect(effect: unknown) { this.effects.push(effect); }
+    localTransform = { clone() { return { prepend() {} }; } };
+    updateLocalTransform() {}
     getLocalBounds() { return new Rectangle(0, 0, 200, 100); }
     // global bounds: a 200x100 box at the container's position (tests place layers with x / y)
     getBounds() { return new Rectangle(this.x, this.y, 200, 100); }

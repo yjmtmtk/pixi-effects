@@ -10,7 +10,8 @@ import { assignDepthOrder } from '../space/depth';
 import { Layer3D, type SpaceHost } from '../space/Layer3D';
 import { lintSequence, lintFocus } from '../space/lint';
 import { layerInitialZ, blurRadius, MANY_BLURRED } from '../space/focus';
-import { matteProblems } from '../core/matte';
+import { matteProblems, maskSourceOf, refNames, MANY_MATTES } from '../core/matte';
+import { MatteSet } from '../core/MatteSet';
 import { describeLayer, lintText, lintTiming, summarizeWarnings, lintKeys } from '../core/lint';
 import { applyBlendMode, blendFilterFor, blendProblem, blendUnavailableMessage, isAdvancedBlend, maxConcurrentAdvanced, MANY_ADVANCED, type BlendReport } from '../core/blend';
 import { cameraBasis, homeCamera, projectPoint, NEAR, type CameraBasis, type CameraState } from '../space/math';
@@ -29,6 +30,8 @@ export class CompositionSequence extends Sequence {
   private _dofSaid = { behind: false, many: false };
   /** What this composition made for blend modes (filters added to layers' chains, groups and their carrier filters): destroyed with it. */
   private _blendOwned: Array<{ destroy(): void }> = [];
+  /** The mattes (layers drawn into textures that cut other layers), when any layer of this composition names or has one. */
+  private _mattes: MatteSet | null = null;
   /** Drawn children in stack order (cameras and target-less sequences excluded). */
   private _visual: Array<{ seq: Sequence; layer: Layer3D | null; wrap?: Container }> = [];
   /** Layers drawn inside a null layer (`parent`): they are not in the composition's own stack. */
@@ -105,6 +108,22 @@ export class CompositionSequence extends Sequence {
       this.root,
     );
     this._resolveParents();
+    // Named mattes: a layer that another layer names in `mask` is drawn into a texture (once per frame), not on screen
+    const matteNames = new Set<string>();
+    for (const c of this._children) for (const n of refNames((c.spec as { mask?: unknown }).mask)) matteNames.add(n);
+    if (matteNames.size > 0) {
+      this._mattes = new MatteSet(inner, width, height);
+      for (const name of matteNames) {
+        const source = this._children.find(c => c.spec.name === name && c.target && !(c instanceof CameraSequence) && !c.spec.threeD);
+        if (!source) continue;                                       // matteProblems has said why
+        const chain: Sequence[] = [];
+        for (let p = this._parentOf.get(source); p; p = this._parentOf.get(p)) chain.push(p);
+        this._mattes.add(name, source, chain);
+      }
+      if (this._mattes.size > MANY_MATTES) {
+        console.warn(`pixi-effects: ${describeLayer(this.spec)}: ${this._mattes.size} mattes: each is a ${width}×${height} texture (about ${Math.round(width * height * 4 / 1048576)} MiB, more with anti-aliasing). Share one matte between layers, or use fewer`);
+      }
+    }
     // A camera's `focus: "title"` becomes that layer's first z, here, where the siblings exist (a camera sees only its parent's shape)
     const layerNames = new Set(this._children.map(c => c.spec.name).filter((n): n is string => !!n));
     for (const cam of this._children) {
@@ -127,10 +146,12 @@ export class CompositionSequence extends Sequence {
         continue;
       }
       if (!child.target) continue;
+      if (this._mattes?.isSource(child)) continue;                   // a matte is drawn into its texture, not on screen
       const holder = this._parentOf.get(child);
       const into = holder?.target ?? inner;       // a layer with `parent` is drawn inside its null layer
 
-      const maskSpec = (child.spec as { mask?: SequenceSpec }).mask;
+      const maskSrc = maskSourceOf((child.spec as { mask?: unknown }).mask);
+      const maskSpec = maskSrc.kind === 'inline' ? (maskSrc.spec as unknown as SequenceSpec) : undefined;   // a layer written in place
 
       // threeD layers never enter the scene graph themselves: their display
       // object is rendered into a texture and a perspective mesh stands in.
@@ -141,7 +162,7 @@ export class CompositionSequence extends Sequence {
         this._visual.push({ seq: child, layer });
         const added3d = applyBlendMode(child.spec, layer.display, report);
         if (added3d) this._blendOwned.push(added3d);
-        if (maskSpec) {
+        if (maskSrc.kind !== 'none') {
           console.warn(`pixi-effects: ${describeLayer(child.spec)}: mask is not supported on threeD layers yet; ignored`);
         }
         continue;
@@ -175,6 +196,19 @@ export class CompositionSequence extends Sequence {
       } else into.addChild(child.target);
       if (holder) this._nested.push(child);
       else this._visual.push({ seq: child, layer: null, wrap });
+      // Named mattes: the layer's filter chain ends with one MatteFilter for each, after its own filters and before the blend
+      const matteFilters: Array<{ destroy(): void }> = [];
+      if (maskSrc.kind === 'refs' && this._mattes) {
+        for (const ref of maskSrc.refs) {
+          const f = this._mattes.filterFor(ref.layer, { channel: ref.channel, invert: ref.invert });
+          if (f) matteFilters.push(f);
+        }
+      }
+      if (matteFilters.length > 0) {
+        const t = child.target as unknown as { filters: unknown };
+        t.filters = [...(Array.isArray(t.filters) ? t.filters : []), ...matteFilters];
+        this._blendOwned.push(...matteFilters);
+      }
       if (!wrap && !alphaMaskLosesBlend) {
         const added = applyBlendMode(child.spec, child.target, report);
         if (added) this._blendOwned.push(added);
@@ -411,6 +445,7 @@ export class CompositionSequence extends Sequence {
     // texture by this level, so its content must already be projected.
     const childT = this.childTime(t);
     for (const child of this._children) child.updateSpace(childT, host);
+    this._mattes?.render(host);                                      // every matte, from the state the timeline just set
     if (this._layers3d.length === 0 || !this._compositionShape) return;
 
     const { width, height } = this._compositionShape;
@@ -484,6 +519,8 @@ export class CompositionSequence extends Sequence {
     this._clock = null;
     for (const l of this._layers3d) l.destroy();
     this._layers3d = [];
+    this._mattes?.destroy();
+    this._mattes = null;
     for (const c of this._children) c.destroy();
     for (const o of this._blendOwned) o.destroy();
     this._blendOwned = [];
