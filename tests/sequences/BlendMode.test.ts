@@ -5,6 +5,7 @@ vi.mock('pixi.js', async () => {
   return m;
 });
 import { CompositionSequence } from '../../src/sequences/Composition';
+import { setBlendFilterFactory } from '../../src/core/blend';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
 
 const shape: CompositionShape = { width: 1280, height: 720, duration: 10 };
@@ -62,5 +63,50 @@ describe('blendMode on a layer', () => {
     expect(f1.blendMode).toBeUndefined();                // intermediate passes stay normal
     expect(f2.blendMode).toBe('multiply');               // only the pass that draws onto the backdrop blends
     expect(blendOf(comp, 1)).toBe('add');                // layers without filters are unchanged
+  });
+});
+
+describe('an advanced blendMode', () => {
+  const made: Array<{ mode: string; blendMode?: unknown; destroy(): void }> = [];
+  beforeEach(() => {
+    made.length = 0;
+    setBlendFilterFactory(mode => { const f = { mode, destroy() {} }; made.push(f); return f; });
+  });
+
+  it('on a layer with no filters is set on the display object, like the basic modes (Pixi draws it through the registered filter)', async () => {
+    const comp = await build([{ type: 'shape', shape: 'circle', radius: 10, blendMode: 'soft-light' }]);
+    expect(blendOf(comp, 0)).toBe('soft-light');
+    expect(made).toHaveLength(0);
+  });
+
+  it('on a layer WITH filters becomes one more filter, last in the chain (a mode on the last filter would only blend a basic mode)', async () => {
+    const f1: Record<string, unknown> = { apply() {} };
+    const comp = await build([{ type: 'shape', shape: 'circle', radius: 10, blendMode: 'overlay', filters: [{ type: 'custom', name: 'a', filter: f1 }] }]);
+    const display = comp.layers()[0]!.display as unknown as { filters: unknown[]; blendMode?: string };
+    expect(display.filters).toHaveLength(2);
+    expect(display.filters[0]).toBe(f1);
+    expect((display.filters[1] as { mode: string }).mode).toBe('overlay');
+    expect(f1.blendMode).toBeUndefined();            // the layer's own filter stays normal
+    expect(display.blendMode).toBeUndefined();       // and so does the container
+  });
+
+  it('with the blends not registered (no factory), a layer with filters warns once and draws normal; one without filters is left to Pixi', async () => {
+    setBlendFilterFactory(null);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const f1: Record<string, unknown> = { apply() {} };
+    const comp = await build([{ type: 'shape', shape: 'circle', radius: 10, name: 'glow', blendMode: 'overlay', filters: [{ type: 'custom', name: 'a', filter: f1 }] }]);
+    const display = comp.layers()[0]!.display as unknown as { filters: unknown[] };
+    expect(display.filters).toHaveLength(1);
+    const said = warn.mock.calls.map(c => String(c[0])).filter(m => m.includes('blendMode'));
+    expect(said).toHaveLength(1);
+    expect(said[0]).toContain('layer "glow"');
+    expect(said[0]).toMatch(/not set up|could not/);
+  });
+
+  it('the basic modes behave exactly as before (the last filter carries the mode)', async () => {
+    const f1: Record<string, unknown> = { apply() {} };
+    await build([{ type: 'shape', shape: 'circle', radius: 10, blendMode: 'screen', filters: [{ type: 'custom', name: 'a', filter: f1 }] }]);
+    expect(f1.blendMode).toBe('screen');
+    expect(made).toHaveLength(0);
   });
 });

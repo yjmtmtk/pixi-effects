@@ -2,6 +2,7 @@ import { Container, Matrix, PerspectiveMesh, RenderTexture, Texture } from 'pixi
 import type { Sequence } from '../sequences/Base';
 import { DiscBlurFilter } from '../filters/DiscBlur';
 import { MAX_BLUR, MIN_BLUR } from './focus';
+import { blendFilterFor, isAdvancedBlend, type BlendFilterLike } from '../core/blend';
 import { describeLayer } from '../core/lint';
 import { DEG, NEAR, projectLayer, type CameraBasis, type LayerTransform, type Rect } from './math';
 
@@ -83,6 +84,7 @@ export class Layer3D {
   blur = 0;
   private blurFilter: DiscBlurFilter | null = null;
   private blendWas = 'normal';
+  private blendFilter: BlendFilterLike | null = null;
 
   constructor(
     private readonly seq: Sequence,
@@ -169,15 +171,25 @@ export class Layer3D {
         d.blendMode = this.blendWas;
         this.blurFilter.destroy();
         this.blurFilter = null;
+        this.blendFilter?.destroy();
+        this.blendFilter = null;
       }
       return;
     }
     if (!this.blurFilter) {
       this.blurFilter = new DiscBlurFilter(r);
       this.blendWas = d.blendMode ?? 'normal';
-      // only an explicit mode moves ('inherit' is Pixi's default for a container and 'normal' is the filter's own: nothing to move)
-      if (this.blendWas !== 'normal' && this.blendWas !== 'inherit') { this.blurFilter.blendMode = this.blendWas as never; d.blendMode = 'normal'; }
-      d.filters = [this.blurFilter];
+      const chain: unknown[] = [this.blurFilter];
+      if (isAdvancedBlend(this.blendWas)) {
+        // an advanced mode is a filter of its own: blur first, then blend what is blurred onto the backdrop
+        this.blendFilter = blendFilterFor(this.blendWas);
+        if (this.blendFilter) { chain.push(this.blendFilter); d.blendMode = 'normal'; }
+      } else if (this.blendWas !== 'normal' && this.blendWas !== 'inherit') {
+        // only an explicit basic mode moves ('inherit' is Pixi's default for a container and 'normal' is the filter's own: nothing to move)
+        this.blurFilter.blendMode = this.blendWas as never;
+        d.blendMode = 'normal';
+      }
+      d.filters = chain;
     }
     this.blurFilter.radius = r;
   }

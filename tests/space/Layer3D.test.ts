@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
 vi.mock('pixi.js', async () => (await import('./mockPixi')).createPixiMock());
 
 import { Container, Rectangle, RenderTexture } from 'pixi.js';
@@ -6,6 +6,7 @@ import { Layer3D, readLayerTransform, MAX_TEXTURE_SIZE, MAX_TEXTURE_PIXELS, type
 import { cameraBasis, homeCamera, homeDistance, DEG } from '../../src/space/math';
 import type { Sequence } from '../../src/sequences/Base';
 import { MAX_BLUR } from '../../src/space/focus';
+import { setBlendFilterFactory } from '../../src/core/blend';
 
 const W = 1280;
 const H = 720;
@@ -317,6 +318,57 @@ describe('Layer3D.setBlur (depth of field)', () => {
     layer.setBlur(0);
     expect(d.blendMode).toBe('inherit');
   });
+  describe('with an advanced blend mode on the layer', () => {
+    const made: Array<{ mode: string; destroyed: boolean; destroy(): void }> = [];
+    beforeEach(() => {
+      made.length = 0;
+      setBlendFilterFactory(mode => { const f = { mode, destroyed: false, destroy() { f.destroyed = true; } }; made.push(f); return f; });
+    });
+    afterAll(() => setBlendFilterFactory(null));
+
+    it('the blur filter goes first and a blend filter last (blur, then blend); the display itself is normal', () => {
+      const { layer } = setup();
+      const d = layer.display as unknown as { blendMode: string; filters: Array<{ mode?: string }> | null };
+      d.blendMode = 'overlay';
+      layer.setBlur(6);
+      expect(d.filters).toHaveLength(2);
+      expect(d.filters![1]!.mode).toBe('overlay');
+      expect(d.blendMode).toBe('normal');
+    });
+    it('when the blur goes, the mode is back on the display and the blend filter is destroyed (no filter is left behind)', () => {
+      const { layer } = setup();
+      const d = layer.display as unknown as { blendMode: string; filters: unknown[] | null };
+      d.blendMode = 'soft-light';
+      layer.setBlur(6);
+      layer.setBlur(0);
+      expect(d.filters).toBeNull();
+      expect(d.blendMode).toBe('soft-light');
+      expect(made).toHaveLength(1);
+      expect(made[0]!.destroyed).toBe(true);
+    });
+    it('turning the blur on and off again gives the same state each time', () => {
+      const { layer } = setup();
+      const d = layer.display as unknown as { blendMode: string; filters: unknown[] | null };
+      d.blendMode = 'hue';
+      for (let i = 0; i < 3; i++) {
+        layer.setBlur(5);
+        expect(d.filters).toHaveLength(2);
+        layer.setBlur(0);
+        expect(d.filters).toBeNull();
+        expect(d.blendMode).toBe('hue');
+      }
+      expect(made.every(f => f.destroyed)).toBe(true);
+    });
+    it('a basic mode is still carried by the blur filter, as in 0.21', () => {
+      const { layer } = setup();
+      const d = layer.display as unknown as { blendMode: string };
+      d.blendMode = 'add';
+      layer.setBlur(5);
+      expect(d.blendMode).toBe('normal');
+      expect(made).toHaveLength(0);
+    });
+  });
+
   it('destroy() drops the filter', () => {
     const { layer } = setup();
     layer.setBlur(5);
