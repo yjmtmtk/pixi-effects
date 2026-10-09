@@ -10,6 +10,7 @@ import { assignDepthOrder } from '../space/depth';
 import { Layer3D, type SpaceHost } from '../space/Layer3D';
 import { lintSequence, lintFocus } from '../space/lint';
 import { layerInitialZ, blurRadius, MANY_BLURRED } from '../space/focus';
+import { matteProblems } from '../core/matte';
 import { describeLayer, lintText, lintTiming, summarizeWarnings, lintKeys } from '../core/lint';
 import { applyBlendMode, blendFilterFor, blendProblem, blendUnavailableMessage, isAdvancedBlend, maxConcurrentAdvanced, MANY_ADVANCED, type BlendReport } from '../core/blend';
 import { cameraBasis, homeCamera, projectPoint, NEAR, type CameraBasis, type CameraState } from '../space/math';
@@ -87,6 +88,7 @@ export class CompositionSequence extends Sequence {
     for (const s of this.spec.sequences ?? []) {
       lintSequence(s);
       lintFocus(s, this.spec.sequences ?? []);
+      for (const message of matteProblems(s, this.spec.sequences ?? [], span)) console.warn(`pixi-effects: ${describeLayer(s)}: ${message}`);
       lintTiming(s, span, (message, kind) => (kind === 'late-keyframe' ? lateKeyframes.push(message) : console.warn(message)));
       lintText(s);
       lintKeys(s);

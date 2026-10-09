@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { maskSourceOf, refNames, usesMatteRoute, MATTE_CHANNELS } from '../../src/core/matte';
+import { maskSourceOf, refNames, usesMatteRoute, MATTE_CHANNELS, matteProblems } from '../../src/core/matte';
+import type { SequenceSpec } from '../../src/types';
 
 describe('maskSourceOf', () => {
   it('a layer spec (it has a type) is an inline mask, as it always was', () => {
@@ -66,5 +67,53 @@ describe('usesMatteRoute (which inline masks go through the matte filter)', () =
   });
   it('the channels are alpha and luma', () => {
     expect(MATTE_CHANNELS).toEqual(['alpha', 'luma']);
+  });
+});
+
+const sp = (o: unknown) => o as SequenceSpec;
+describe('matteProblems', () => {
+  const sibs = [
+    sp({ type: 'shape', shape: 'circle', name: 'disc' }),
+    sp({ type: 'shape', shape: 'rect', name: 'band', at: 1, duration: 2 }),
+    sp({ type: 'shape', shape: 'rect', name: 'dup' }), sp({ type: 'shape', shape: 'rect', name: 'dup' }),
+    sp({ type: 'shape', shape: 'rect', name: 'solid', threeD: true }),
+    sp({ type: 'shape', shape: 'rect', name: 'masked', mask: 'disc' }),
+    sp({ type: 'null', name: 'rig' }),
+  ];
+  const layer = (o: Record<string, unknown>) => sp({ type: 'text', text: 'a', name: 'title', ...o });
+  const run = (o: Record<string, unknown>, span = 10) => matteProblems(layer(o), [...sibs, layer(o)], span);
+
+  it('no mask, an inline mask, and a good reference: nothing to say', () => {
+    expect(run({})).toEqual([]);
+    expect(run({ mask: { type: 'shape', shape: 'circle' } })).toEqual([]);
+    expect(run({ mask: 'disc' })).toEqual([]);
+  });
+  it('a name no layer has, with did-you-mean', () => {
+    const p = run({ mask: 'dsic' });
+    expect(p).toHaveLength(1);
+    expect(p[0]).toContain('mask "dsic": no layer with that name');
+    expect(p[0]).toContain('did you mean "disc"?');
+    expect(run({ mask: 'zzz' })[0]).not.toContain('did you mean');
+  });
+  it('two layers with the name (the first is used), a matte that is threeD, a matte that has a mask of its own, a layer that masks itself', () => {
+    expect(run({ mask: 'dup' })[0]).toMatch(/2 layers are named "dup".*first/);
+    expect(run({ mask: 'solid' })[0]).toMatch(/"solid" is a threeD layer.*cannot be a matte/);
+    expect(run({ mask: 'masked' })[0]).toMatch(/"masked" has a mask of its own.*ignored/);
+    expect(run({ mask: 'title' })[0]).toMatch(/masks itself/);
+  });
+  it('the matte must be on screen for as long as the layer is: a matte that starts late or ends early leaves the layer invisible', () => {
+    const p = run({ mask: 'band', at: 0, duration: 5 });             // band is on 1–3 s, the layer 0–5 s
+    expect(p).toHaveLength(1);
+    expect(p[0]).toMatch(/"band" is on screen from 1s to 3s.*layer from 0s to 5s/);
+    expect(run({ mask: 'band', at: 1.5, duration: 1 })).toEqual([]);  // covered
+  });
+  it('a layer with a parent (it is in the null layer\'s space, the matte in the composition\'s) says what to do; maskInverted with a reference says invert', () => {
+    expect(run({ mask: 'disc', parent: 'rig' })[0]).toMatch(/parent.*mask the null layer/);
+    expect(run({ mask: 'disc', maskInverted: true })[0]).toMatch(/maskInverted.*invert: true/);
+  });
+  it('the problems of the reference itself (a wrong channel) are said once, with the layer', () => {
+    const p = run({ mask: { layer: 'disc', channel: 'luminance' } });
+    expect(p).toHaveLength(1);
+    expect(p[0]).toMatch(/did you mean "luma"\?/);
   });
 });
