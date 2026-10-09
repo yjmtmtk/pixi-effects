@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { resolveLoader, dismissLoader, failLoader } from '../../src/core/loader';
+import { resolveLoader, dismissLoader, failLoader, setLoaderProgress } from '../../src/core/loader';
 
 const css = readFileSync(resolve(__dirname, '../../src/loader.css'), 'utf8');
 
@@ -115,5 +115,38 @@ describe('loader.css', () => {
 
   it('does not animate a property through the shorthand either (no `transition: all`, no `animation` of width / height)', () => {
     expect(css).not.toMatch(/transition:\s*all/);
+  });
+});
+
+describe('setLoaderProgress: the numbers the loader shows', () => {
+  it('writes the share as a CSS variable, the stage and the percent as attributes', () => {
+    const canvas = page('<div class="stage"><canvas id="stage"></canvas><div class="pe-loader" id="l" data-label="LOADING"></div></div>');
+    const el = resolveLoader(undefined, canvas)!;
+    setLoaderProgress(el, { stage: 'build', loaded: 3, total: 10, progress: 0.4567 });
+    expect(el.style.getPropertyValue('--pe-progress')).toBe('0.457');
+    expect(el.getAttribute('data-stage')).toBe('BUILDING LAYERS');
+    expect(el.getAttribute('data-percent')).toBe('46');
+    expect(el.querySelector('.pe-loader__bar')).not.toBeNull();            // one element for the bar, made once
+    setLoaderProgress(el, { stage: 'sound', loaded: 1, total: 1, progress: 0.9 });
+    expect(el.querySelectorAll('.pe-loader__bar').length).toBe(1);
+    expect(el.getAttribute('data-label')).toBe('LOADING');                 // the author's own label is kept for a loader that shows none of this
+  });
+
+  it('does nothing for no loader, and nothing after the loader is done or failed', () => {
+    expect(() => setLoaderProgress(null, { stage: 'assets', loaded: 0, total: 1, progress: 0.1 })).not.toThrow();
+    const canvas = page('<div class="stage"><canvas id="stage"></canvas><div class="pe-loader" id="l"></div></div>');
+    const el = resolveLoader(undefined, canvas)!;
+    failLoader(el, 'COULD NOT LOAD');
+    setLoaderProgress(el, { stage: 'build', loaded: 1, total: 2, progress: 0.5 });
+    expect(el.getAttribute('data-stage')).toBeNull();
+  });
+});
+
+describe('loader.css shows the progress', () => {
+  it('a bar scaled by --pe-progress with a transition (compositor only), and a label made of the stage and the percent', () => {
+    expect(css).toMatch(/\.pe-loader__bar[^}]*scaleX\(var\(--pe-progress/s);
+    expect(css).toMatch(/attr\(data-stage\)/);
+    expect(css).toMatch(/attr\(data-percent\)/);
+    expect(css).toMatch(/prefers-reduced-motion/);
   });
 });

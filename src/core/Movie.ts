@@ -22,7 +22,8 @@ import { startWhenRunning, audioIsBlocked } from './startWhenRunning';
 import { normalizePoster } from './poster';
 import { buildPdf } from './pdf';
 import { normalizeStops, nextStopAfter, previousStopBefore, stopAtOrBefore, pageStarts, pictureStops, changedFraction, type Stop } from './stops';
-import { resolveLoader, dismissLoader, failLoader, type LoaderOption } from './loader';
+import { resolveLoader, dismissLoader, failLoader, setLoaderProgress, type LoaderOption } from './loader';
+import { LoadProgress, type LoadProgressState, type LoadStage } from './loadProgress';
 import { resolveMotionBlur, blurTimes, type MotionBlurSpec, type MotionBlurOptions, type ResolvedMotionBlur } from './motionBlur';
 import { ensureFilterLibrary } from '../filters/named';
 import type { Sequence } from '../sequences/Base';
@@ -220,6 +221,8 @@ export class Movie {
   on(event: 'volumechange', fn: (e: VolumeEvent) => void): this;
   on(event: 'error', fn: (e: MovieErrorEvent) => void): this;
   on(event: 'progress', fn: (e: ProgressEvent) => void): this;
+  /** How far `init()` is while it builds the movie: `{ stage: 'assets' | 'build' | 'sound' | 'frames', loaded, total, progress }`, `progress` 0 to 1. The page's `.pe-loader` shows it by itself. */
+  on(event: 'loadprogress', fn: (e: LoadProgressState) => void): this;
   on(event: 'play', fn: () => void): this;
   on(event: 'pause', fn: () => void): this;
   on(event: string, fn: Listener): this {
@@ -241,6 +244,10 @@ export class Movie {
   }
 
   get isReady(): boolean { return this._initState === 'ready'; }
+
+  /** Milliseconds `init()` spent in each stage (assets, build, sound, frames), or null before it has finished: `check` says which stage is the slow one. */
+  get loadStages(): Record<LoadStage, number> | null { return this._loadStages; }
+  private _loadStages: Record<LoadStage, number> | null = null;
 
   /** True while the movie has sound but the browser keeps it silent until the viewer taps (iOS Safari, a page nobody has touched): a player can show "tap for sound"; the sound starts at a tap or key press that arrives while play() is pending, or at the next play() made from a tap. */
   get audioBlocked(): boolean { return audioIsBlocked(this._audioContext, !!this.audioBuffer); }
@@ -345,9 +352,19 @@ export class Movie {
       this._rootContainer = root;
 
       const audioContext = this._ensureAudioContext();
-      await loadAssetBundle(options.assets ?? [], audioContext);
+      let loaderEl: HTMLElement | null | undefined;
+      const lp = new LoadProgress(state => {
+        if (loaderEl === undefined) loaderEl = resolveLoader(options.loader, options.canvas ?? (this.app?.canvas as HTMLCanvasElement | undefined) ?? null);
+        setLoaderProgress(loaderEl, state);       // the loader first, so a listener sees what the viewer sees
+        this.emit('loadprogress', state);
+      });
+      const assetCount = (options.assets ?? []).length;
+      lp.begin('assets', assetCount);
+      let assetsSeen = 0;
+      await loadAssetBundle(options.assets ?? [], audioContext, p => { const n = Math.round(p * assetCount); if (n > assetsSeen) { lp.tick(n - assetsSeen); assetsSeen = n; } });
 
-      const rootShape: CompositionShape = { width: this.width, height: this.height, duration: this.duration, frameRate: this.frameRate };
+      const rootShape: CompositionShape = { width: this.width, height: this.height, duration: this.duration, frameRate: this.frameRate,
+        onLayerBuilt: async () => { lp.tick(); await lp.yieldIfDue(); } };
       // Inject root dimensions before expanding transitions: the macro
       // expander reads `width` / `height` to compute filter areas, so the
       // values must be present on the spec it sees rather than being merged
@@ -371,6 +388,7 @@ export class Movie {
       };
       if (userComposition) carryTransitionWindows(userComposition, rootSeqSpec);
       const composition = new CompositionSequence(rootSeqSpec, null, rootShape);
+      lp.begin('build', countLayers(rootSeqSpec));
       await composition.build();
       this._rootSequence = composition;
       if (composition.target) root.addChild(composition.target);
@@ -379,17 +397,22 @@ export class Movie {
 
       const audios: AudioDescriptor[] = [];
       composition.collectAudio(audios, 0);
+      lp.begin('sound', audios.length);
       if (audios.length > 0) {
         this.audioBuffer = await mixdown(audios, this.duration, audioContext.sampleRate);
+        lp.tick(audios.length);
         if (this.audioBuffer) this._mixStats = limitMix(this.audioBuffer, audios);
       }
       this._audioSources = audios;
 
       this.timeline.progress(1).progress(0);
+      lp.begin('frames', 0);
       await this._awaitVideoFrames();
       this._updateSpace();
       this._renderNow();
 
+      lp.finish();
+      this._loadStages = lp.timings();
       this._initState = 'ready';
       if (this._posterFrame !== null) await this._showPoster();     // the canvas shows the poster until the first seek or play
       this.emit('ready');
@@ -1056,4 +1079,11 @@ export function collectVideoSequences(seq: Sequence, out: VideoLike[], clocks?: 
   for (const child of (seq as Sequence & { _children?: Sequence[] })._children ?? []) {
     collectVideoSequences(child, out, clocks, own);
   }
+}
+
+/** How many layers a composition spec holds (its children, theirs, …): the size of the `build` stage of `loadprogress`. */
+function countLayers(spec: { sequences?: unknown[] } | undefined): number {
+  let n = 0;
+  for (const s of spec?.sequences ?? []) n += 1 + countLayers(s as { sequences?: unknown[] });
+  return n;
 }

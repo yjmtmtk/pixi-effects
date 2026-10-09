@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>check · loading progress</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+</head>
+<body style="margin:0;background:#222">
+  <!--
+    Acceptance check (not an example): a movie of N text layers (query n, default 120) with a .pe-loader next to the canvas. It records every
+    `loadprogress` event and what the loader element showed at that moment, so tests/tools/loadProgress.test.ts can read them. Query: n, fast=1
+    (a loader that is never shown: loader: false).
+  -->
+  <div style="position:relative;width:640px;height:360px">
+    <canvas id="stage" width="640" height="360"></canvas>
+    <div class="pe-loader" data-label="LOADING" id="loader"></div>
+  </div>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">
+  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "gsap": "https://esm.sh/gsap@3.12.5", "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin", "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const Q = new URLSearchParams(location.search);
+    const N = Number(Q.get('n') ?? 120);
+    const loader = document.getElementById('loader');
+    const sequences = Array.from({ length: N }, (_, i) => ({ type: 'text', name: 't' + i, text: 'Layer ' + i, style: { fontSize: 20, fill: '#fff' }, initial: { x: 10 + (i % 8) * 76, y: 10 + Math.floor(i / 8) * 22 } }));
+    const movie = new Movie();
+    window.movie = movie;
+    window.__events = [];
+    movie.on('loadprogress', e => window.__events.push({ ...e, shownPercent: loader.getAttribute('data-percent'), shownStage: loader.getAttribute('data-stage'), shownVar: loader.style.getPropertyValue('--pe-progress') }));
+    await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 2, frameRate: 30, background: '#111',
+      ...(Q.has('fast') ? { loader: false } : {}), composition: { sequences } });
+    window.__layers = N;
+    window.__ready = true;
+  </script>
+</body>
+</html>

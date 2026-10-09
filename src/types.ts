@@ -736,6 +736,8 @@ export interface CompositionShape {
   duration: number;
   /** The movie's frame rate, on the root shape only (a shader layer's `iFrame` needs it). */
   frameRate?: number;
+  /** Called after each layer is built (the root shape only): feeds `loadprogress` and lets the page paint now and then. */
+  onLayerBuilt?: () => void | Promise<void>;
 }
 
 /** Audio descriptor pushed to the mixdown queue by AudioSequence/VideoSequence. */

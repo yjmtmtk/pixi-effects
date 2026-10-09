@@ -59,6 +59,7 @@ export async function buildSequenceTree(
     }
     const seq = new Cls(spec, parent, root);
     await seq.build();
+    await root.onLayerBuilt?.();
     if (seq.duration === undefined) {
       seq.duration = parent?.duration ?? root.duration;
     }

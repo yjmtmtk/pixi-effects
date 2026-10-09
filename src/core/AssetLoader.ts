@@ -77,9 +77,10 @@ export function ensureLoadersRegistered(audioContext: AudioContext): void {
 export async function loadAssetBundle(
   assets: AssetSpec[],
   audioContext: AudioContext,
+  onProgress?: (fraction: number) => void,
 ): Promise<Record<string, AudioAssetData | VideoAssetData>> {
   ensureLoadersRegistered(audioContext);
   const bundle = assets.map(a => ({ alias: a.name, src: a.src }));
   Assets.addBundle('pixi-effects', bundle);
-  return await Assets.loadBundle('pixi-effects');
+  return await Assets.loadBundle('pixi-effects', onProgress);
 }

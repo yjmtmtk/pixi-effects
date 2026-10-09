@@ -2,6 +2,8 @@
  * The page's loader (see `src/loader.css`): a `.pe-loader` element that is on screen before any script runs. `movie.init()` finds it,
  * fades it out when the movie is ready and, if init fails, stops it and says so.
  */
+import { STAGE_LABEL, type LoadProgressState } from './loadProgress';
+
 export type LoaderOption = HTMLElement | string | false;
 
 const FADE_FALLBACK_MS = 900;
@@ -37,4 +39,18 @@ export function failLoader(loader: HTMLElement | null, message: string): void {
   loader.setAttribute('data-state', 'error');
   if (loader.hasAttribute('data-label')) loader.setAttribute('data-label', message);
   loader.setAttribute('aria-busy', 'false');
+}
+
+/** How far init is: the share as `--pe-progress` (0 to 1, the bar scales by it), the stage and the percent as attributes (the label shows them). */
+export function setLoaderProgress(loader: HTMLElement | null, state: LoadProgressState): void {
+  if (!loader || loader.getAttribute('data-state') === 'error' || loader.classList.contains('pe-loader--done')) return;
+  if (!loader.querySelector('.pe-loader__bar')) {
+    const bar = loader.ownerDocument.createElement('i');
+    bar.className = 'pe-loader__bar';
+    bar.setAttribute('aria-hidden', 'true');
+    loader.appendChild(bar);
+  }
+  loader.style.setProperty('--pe-progress', String(Math.round(state.progress * 1000) / 1000));
+  loader.setAttribute('data-stage', STAGE_LABEL[state.stage]);
+  loader.setAttribute('data-percent', String(Math.round(state.progress * 100)));
 }

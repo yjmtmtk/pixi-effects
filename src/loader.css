@@ -15,6 +15,8 @@
  *
  * Looks:   .pe-loader (a ring)  ·  .pe-loader--pulse (a breathing dot)  ·  .pe-loader--bar (a sweeping line along the bottom)
  *          .pe-loader--custom: no built-in drawing; put your own markup inside (animate only transform / opacity there too).
+ * Progress:  movie.init() also writes how far it is (--pe-progress 0..1, data-stage, data-percent): a bar along the bottom and the label
+ *            "BUILDING LAYERS  62%" appear by themselves; the same numbers come as the movie's `loadprogress` event.
  * Restyle: --pe-loader-color, --pe-loader-bg, --pe-loader-track, --pe-loader-size (set them on the element or on any ancestor).
  */
 .pe-loader {
@@ -80,6 +82,35 @@
 }
 .pe-loader--bar[data-label]::after { top: calc(50% - 6px); }
 
+/* how far init is: a thin bar along the bottom edge and a label of the stage and the percent. The bar is scaled by --pe-progress (a number the library
+   writes; the browser eases between the steps), so it moves on the compositor like the rest and keeps its look while the page is busy. */
+.pe-loader__bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--pe-loader-color, #ffffff);
+  transform-origin: 0 50%;
+  transform: scaleX(var(--pe-progress, 0));
+  transition: transform 0.35s linear;
+}
+.pe-loader[data-stage]::after {
+  content: attr(data-stage) '  ' attr(data-percent) '%';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(50% + var(--pe-loader-size, 34px) / 2 + 18px);
+  padding-left: 0.4em;
+  text-align: center;
+  font: 600 11px/1 system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  letter-spacing: 0.4em;
+  opacity: 0.7;
+  animation: none;
+}
+.pe-loader--bar[data-stage]::before { display: none; }
+.pe-loader--bar[data-stage]::after { top: 50%; }
+
 /* your own drawing inside the box */
 .pe-loader--custom::before,
 .pe-loader--custom::after { content: none; display: none; }
@@ -104,6 +135,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .pe-loader__bar { transition: none; }
   .pe-loader::before { animation-duration: 3s; }
   .pe-loader--pulse::before, .pe-loader--bar::before { animation-duration: 3.2s; }
   .pe-loader[data-label]::after { animation: none; opacity: 0.6; }
