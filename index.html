@@ -560,11 +560,13 @@ movie.play();
   function tapForSound(f,w,go){
     try{
       var d=f.contentDocument, c=d.querySelector('#stage')||d.querySelector('canvas'), r=c.getBoundingClientRect(), k=f.parentNode.clientWidth/r.width, b=d.createElement('button');
+      if(!(r.width>0)){ go(); return; }
       b.type='button'; b.textContent='▶  Tap to play with sound';
       b.style.cssText='position:absolute;z-index:99999;left:'+(r.left+scrollX(d))+'px;top:'+(r.top+scrollY(d))+'px;width:'+r.width+'px;height:'+r.height+'px;border:0;margin:0;cursor:pointer;'
         +'background:rgba(11,13,18,.45);color:#fff;font:600 '+Math.round(22/k)+'px/1.2 -apple-system,system-ui,sans-serif;letter-spacing:.02em';
       b.addEventListener('click',function(e){ e.stopPropagation(); b.remove(); go(); });
       d.body.appendChild(b);
+      if(w.movie.on) w.movie.on('play',function(){ b.remove(); });   // started with the player bar instead
     }catch(e){ go(); }
   }
   function scrollX(d){ return (d.defaultView&&d.defaultView.pageXOffset)||0; }

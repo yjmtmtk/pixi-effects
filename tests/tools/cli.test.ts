@@ -21,6 +21,7 @@ describe('pixi-effects <check|render|view> — one command that is also the pack
     const r = route(['chek', 'a.html']);
     expect(r.error).toMatch(/unknown command "chek".*did you mean "check"/s);
     expect(route(['rendr']).error).toMatch(/did you mean "render"/);
+    expect(route(['my-video.html']).error).toMatch(/did you mean "check"/);
     expect(route(['zzz']).error).toMatch(/check, render, view/);
   });
 

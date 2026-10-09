@@ -49,6 +49,15 @@ describe('skills/pixi-effects — what an agent installs', () => {
     }
   });
 
+  it('does not list files that are not in the installed folder (the chat guide and the tools live elsewhere)', () => {
+    const text = skill.replace(/https?:\/\/\S+/g, '').replace(/node_modules\/pixi-effects\/ai\/tools\/[\w.-]+/g, '');
+    expect(text).not.toMatch(/CHAT\.md|chat-template\.html|(^|[^\w/])tools\/[\w.-]+/m);
+  });
+
+  it('keeps out of a project that already uses another video tool', () => {
+    expect(fm![2]).toMatch(/not for a project that already uses another video tool/i);
+  });
+
   it('every file SKILL.md points to is in the folder, and it stays under 500 lines', () => {
     expect(skill.split('\n').length).toBeLessThan(500);
     for (const m of skill.matchAll(/`((?:reference|scripts)\/[\w./-]+|template\.html)`/g)) expect(existsSync(join(dir, m[1]!)), m[1]).toBe(true);

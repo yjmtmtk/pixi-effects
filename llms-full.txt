@@ -52,13 +52,13 @@ Centred text must be positioned by `anchorX/anchorY: 0.5`; estimate text width a
 
 ## Files
 
-- `CHAT.md` and `chat-template.html` — the short version for an AI in a chat with no shell: one self-contained page that loads from a single CDN, shows warnings in a red box, and a worked example.
+- For an AI in a chat with no shell, the short version is https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/CHAT.md (it copies https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/chat-template.html: one self-contained page that loads from a single CDN and shows warnings in a red box).
 - `reference/cheatsheet.md` — every layer type, prop, default and rule on one page.
 - `reference/recipes.md` — tested building blocks: slam type, lower-third, marquee, count-up, bar chart, 2.5D title, camera orbit, slideshow with transitions + music, looping, particles, gradients/vignette, three.js metal.
 - `reference/pitfalls.md` — the full list of real mistakes, with status.
-- `tools/check.mjs` — the one-command review (see Workflow step 5).
+- `npx -p pixi-effects pixi-effects-check` — the one-command review (see Workflow step 5).
 - `template.html` — the starting file. (It loads the released library from a CDN, so it works from any folder.)
-- `tools/save-image.py` — save a `dataURL` result (contact sheet / snapshot) to a PNG.
+- `scripts/save-image.py` — save a `dataURL` result (contact sheet / snapshot) to a PNG.
 - Full reference: https://yjmtmtk.github.io/pixi-effects/docs/dsl.md and https://yjmtmtk.github.io/pixi-effects/docs/api.md
 
 
@@ -3563,7 +3563,7 @@ el('play').onclick = () => (movie.isPlaying ? movie.pause() : movie.play());
 el('seek').oninput = e => movie.gotoFrame(+e.target.value);
 ```
 
-What you have: `play()`, `pause()`, `gotoFrame(frame)`, `volume`, `muted` / `toggleMute()`; the state `currentFrame`, `totalFrames`, `frameRate`, `duration`, `isPlaying`, `isReady`, `audioBlocked` (true while the browser keeps the movie's sound silent until a tap: show "tap for sound"; the next tap or key press in the page starts it); the events above; `render()` for a download button; `snapshot()` for a thumbnail; `timelineData()` / `timelineSvg()` for a timeline like `pixi-effects-view`'s. Keep the movie's `canvas` wherever your layout wants it (the page's CSS sizes it). To only change how `Controller` looks, see **Theme** below.
+What you have: `play()`, `pause()`, `gotoFrame(frame)`, `volume`, `muted` / `toggleMute()`; the state `currentFrame`, `totalFrames`, `frameRate`, `duration`, `isPlaying`, `isReady`, `audioBlocked` (true while the browser keeps the movie's sound silent until a tap: show "tap for sound"; a tap or key press that arrives while `play()` is pending, or the next `play()` made from a tap, starts it); the events above; `render()` for a download button; `snapshot()` for a thumbnail; `timelineData()` / `timelineSvg()` for a timeline like `pixi-effects-view`'s. Keep the movie's `canvas` wherever your layout wants it (the page's CSS sizes it). To only change how `Controller` looks, see **Theme** below.
 
 ## `Controller`
 

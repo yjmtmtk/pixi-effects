@@ -1,6 +1,6 @@
 ---
 name: pixi-effects
-description: Use when asked to make, animate, preview or export a video, motion graphics, an animated title, a lower third, kinetic type, a promo, a slideshow with transitions, an animated chart or data story, a social clip, a 2.5D / depth scene, or music and sound for a video, written as code in JavaScript or HTML. pixi-effects is a JS library where a video is a plain-object composition (text, shape, image, video, audio and file-free sfx / music, camera, light and shader layers with keyframes) that plays in the browser, is checked by a tool the agent can run, and exports MP4 / WebM / MOV with no server.
+description: Use when asked to make, animate, preview or export a video, motion graphics, an animated title, a lower third, kinetic type, a promo, a slideshow with transitions, an animated chart or data story, a social clip, a 2.5D / depth scene, or music and sound for a video, written as code in JavaScript or HTML. pixi-effects is a JS library where a video is a plain-object composition (text, shape, image, video, audio and file-free sfx / music, camera, light and shader layers with keyframes) that plays in the browser, is checked by a tool the agent can run, and exports MP4 / WebM / MOV with no server. Not for a project that already uses another video tool (Remotion, Motion Canvas, ffmpeg): follow that tool instead.
 ---
 
 > Written for pixi-effects 0.25.0. Update this skill with `npx skills update`; the newest docs are at https://yjmtmtk.github.io/pixi-effects/
@@ -49,11 +49,11 @@ Centred text must be positioned by `anchorX/anchorY: 0.5`; estimate text width a
 
 ## Files
 
-- `CHAT.md` and `chat-template.html` — the short version for an AI in a chat with no shell: one self-contained page that loads from a single CDN, shows warnings in a red box, and a worked example.
+- For an AI in a chat with no shell, the short version is https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/CHAT.md (it copies https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/chat-template.html: one self-contained page that loads from a single CDN and shows warnings in a red box).
 - `reference/cheatsheet.md` — every layer type, prop, default and rule on one page.
 - `reference/recipes.md` — tested building blocks: slam type, lower-third, marquee, count-up, bar chart, 2.5D title, camera orbit, slideshow with transitions + music, looping, particles, gradients/vignette, three.js metal.
 - `reference/pitfalls.md` — the full list of real mistakes, with status.
-- `tools/check.mjs` — the one-command review (see Workflow step 5).
+- `npx -p pixi-effects pixi-effects-check` — the one-command review (see Workflow step 5).
 - `template.html` — the starting file. (It loads the released library from a CDN, so it works from any folder.)
-- `tools/save-image.py` — save a `dataURL` result (contact sheet / snapshot) to a PNG.
+- `scripts/save-image.py` — save a `dataURL` result (contact sheet / snapshot) to a PNG.
 - Full reference: https://yjmtmtk.github.io/pixi-effects/docs/dsl.md and https://yjmtmtk.github.io/pixi-effects/docs/api.md

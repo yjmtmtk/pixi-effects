@@ -242,7 +242,7 @@ export class Movie {
 
   get isReady(): boolean { return this._initState === 'ready'; }
 
-  /** True while the movie has sound but the browser keeps it silent until the viewer taps (iOS Safari, a page nobody has touched): a player can show "tap for sound"; the sound starts at the next tap or key press inside the page. */
+  /** True while the movie has sound but the browser keeps it silent until the viewer taps (iOS Safari, a page nobody has touched): a player can show "tap for sound"; the sound starts at a tap or key press that arrives while play() is pending, or at the next play() made from a tap. */
   get audioBlocked(): boolean { return audioIsBlocked(this._audioContext, !!this.audioBuffer); }
 
   /** The poster time as a frame number, or null. */
