@@ -47,15 +47,18 @@ vi.mock('pixi.js', () => {
     getLocalBounds() { return new Rectangle(0, 0, 0, 0); }
   }
   class GraphicsPath { constructor(public svgD: string) {} }
-  class Sprite extends Container {}
+  class Texture { source = { style: {} }; destroy() {} }
+  class RenderTexture extends Texture { static create() { return new RenderTexture(); } }
+  class Matrix {}
+  class Sprite extends Container { texture: Texture | undefined; constructor(t?: Texture) { super(); this.texture = t; } }
   class Text extends Container { width = 0; height = 0; style: Record<string, unknown> = {}; }
-  class Filter { resources: Record<string, unknown> = {}; constructor(_opts?: unknown) {} apply() {} }
+  class Filter { resources: Record<string, unknown> = {}; constructor(opts?: { resources?: Record<string, unknown> }) { if (opts?.resources) this.resources = opts.resources; } apply() {} destroy() {} }
   class GlProgram { constructor(_opts: unknown) {} static from(opts: unknown) { return new GlProgram(opts); } }
   class GpuProgram { constructor(_opts: unknown) {} static from(opts: unknown) { return new GpuProgram(opts); } }
   class UniformGroup { uniforms: Record<string, unknown>; constructor(u: Record<string, { value: unknown }>) { this.uniforms = Object.fromEntries(Object.entries(u).map(([k, v]) => [k, v.value])); } }
   class AlphaMask { inverse = false; mask: unknown; constructor(o?: { mask?: unknown }) { this.mask = o?.mask; } }
   return {
-    Container, Graphics, GraphicsPath, Rectangle, Sprite, Text, AlphaMask,
+    Container, Graphics, GraphicsPath, Rectangle, Sprite, Text, AlphaMask, RenderTexture, Matrix, Texture,
     Filter, GlProgram, GpuProgram, UniformGroup, defaultFilterVert: '',
     Assets: { get: async () => null },
   };
@@ -138,30 +141,34 @@ describe('Sequence — inline mask', () => {
   const circleMask = { type: 'shape', shape: 'circle', radius: 30, initial: { x: 0, y: 0, fillColor: '#ffffff' } };
   type Masked = { mask: unknown; maskInverseSetting: boolean; effects: Array<{ inverse: boolean; mask: unknown }> };
 
-  it('maskInverted: true is an ALPHA mask with inverse set, not a stencil: an inverted stencil shows what an outer mask hides', async () => {
+  it('maskInverted: true is read by its alpha through a MatteFilter (an inverted stencil shows what an outer mask hides): no stencil, no alpha mask effect', async () => {
     const seq = new CompositionSequence(maskedRect({ maskInverted: true }, circleMask), root, root);
     await seq.build();
     const child = seq._children[0]!;
-    const t = child.target as unknown as Masked;
-    expect(t.effects).toHaveLength(1);
-    expect(t.effects[0]!.inverse).toBe(true);
-    expect(t.effects[0]!.mask).toBe(child.maskSequence?.target);
-    expect(t.maskInverseSetting).toBe(true);                              // the alpha pipe reads the flag from the maskee's mask options
+    const t = child.target as unknown as Masked & { filters: Array<{ constructor: { name: string }; resources: { matteUniforms: { uniforms: { uInvert: number } } } }> };
+    expect(t.filters).toHaveLength(1);
+    expect(t.filters[0]!.constructor.name).toBe('MatteFilter');
+    expect(t.filters[0]!.resources.matteUniforms.uniforms.uInvert).toBe(1);
+    expect(t.effects).toHaveLength(0);                                    // no Pixi alpha mask
     expect(t.mask).toBeNull();                                            // no stencil mask
+    expect(child.maskSequence).not.toBeNull();                            // the mask is still the layer's own sequence (timeline, sync, destroy)
   });
 
-  it('a text mask is an alpha mask too (a stencil would be the text\'s whole bounding box); an ordinary shape mask stays a stencil mask', async () => {
+  it('a text mask is read by its alpha too (a stencil would be the text\'s whole bounding box); an ordinary shape mask stays a stencil mask', async () => {
     const text = new CompositionSequence(maskedRect({}, { type: 'text', text: 'LOGO', initial: { x: 0, y: 0 } }), root, root);
     await text.build();
-    const tt = text._children[0]!.target as unknown as Masked;
-    expect(tt.effects).toHaveLength(1);
-    expect(tt.effects[0]!.inverse).toBe(false);
+    const tt = text._children[0]!.target as unknown as Masked & { filters: Array<{ constructor: { name: string }; resources: { matteUniforms: { uniforms: { uInvert: number } } } }> };
+    expect(tt.filters).toHaveLength(1);
+    expect(tt.filters[0]!.constructor.name).toBe('MatteFilter');
+    expect(tt.filters[0]!.resources.matteUniforms.uniforms.uInvert).toBe(0);
+    expect(tt.effects).toHaveLength(0);
     expect(tt.mask).toBeNull();
 
     const shape = new CompositionSequence(maskedRect({}, circleMask), root, root);
     await shape.build();
-    const st = shape._children[0]!.target as unknown as Masked;
+    const st = shape._children[0]!.target as unknown as Masked & { filters: unknown[] | null };
     expect(st.effects).toHaveLength(0);
+    expect(st.filters ?? []).toHaveLength(0);                             // no matte filter: the stencil
     expect(st.mask).toBe(shape._children[0]!.maskSequence?.target);
   });
 

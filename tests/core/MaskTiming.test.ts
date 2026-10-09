@@ -63,7 +63,7 @@ describe('a mask shares the lifetime of the layer it masks', () => {
   });
 });
 
-describe('an image used as a mask stays hidden (PIXI hides a sprite mask with renderable = false)', () => {
+describe('an image used as a mask is a matte: it is drawn into the matte texture while it is alive, never on screen', () => {
   async function maskOf(mask: Record<string, unknown>) {
     const spec = {
       type: 'composition', width: 1280, height: 720, duration: 10,
@@ -72,19 +72,21 @@ describe('an image used as a mask stays hidden (PIXI hides a sprite mask with re
     const comp = new CompositionSequence(spec as never, shape, shape);
     await comp.build();
     const target = (comp as unknown as { _children: Array<{ maskSequence: { target: { renderable: boolean } } | null }> })._children[0].maskSequence!.target;
-    target.renderable = false;                                     // what PIXI's AlphaMask does to a sprite mask
     const tl = gsap.timeline({ paused: true });
     comp.bindTimeline(tl, 0);
     const toggles = tl.getChildren(true, true, false).filter((c: any) => c.targets?.().includes(target) && c.vars && 'renderable' in c.vars);
     return { target, tl, toggles };
   }
 
-  it('the lifespan toggles never switch an image mask\'s renderable back on (it was drawn as a normal white picture)', async () => {
+  it('the lifespan toggles switch the image mask on at the layer\'s start and off at its end (the matte texture is drawn only while it is alive)', async () => {
     const { target, tl, toggles } = await maskOf({ type: 'image', asset: 'disc' });
-    expect(target.renderable).toBe(false);
-    expect(toggles).toHaveLength(0);
+    expect(toggles.length).toBeGreaterThan(0);
+    tl.time(0);
+    expect(target.renderable).toBe(false);                         // before the layer starts (2 s)
     tl.time(3);
-    expect(target.renderable).toBe(false);
+    expect(target.renderable).toBe(true);
+    tl.time(6);
+    expect(target.renderable).toBe(false);                         // after it ends (5 s)
   });
 
   it('a shape mask keeps its lifespan toggles (its own at / duration still switch it on and off)', async () => {

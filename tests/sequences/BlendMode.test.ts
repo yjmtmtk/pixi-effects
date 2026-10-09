@@ -134,111 +134,61 @@ describe('the same blendMode mistake in many layers', () => {
   });
 });
 
-describe('blendMode on a layer with an inverted mask', () => {
-  // an inverted mask is an alpha mask: the layer is drawn into a texture first and its own blend mode would apply inside it, against nothing
-  // (multiply rendered black), and Pixi skips a parent's filter when a masked layer is inside. So the layer goes into a group whose one
-  // filter blends, with the mask shape drawn over it with the `erase` blend (no alpha mask).
-  const innerOf = (comp: CompositionSequence) => ((comp.target as unknown as { children: Array<{ children: unknown[] }> }).children[0]!);
+describe('an inline mask that goes through the matte filter (inverted, text, image, video)', () => {
   const hole = { type: 'shape', shape: 'circle', radius: 15 };
   const layer = (extra: Record<string, unknown>) => ({ type: 'shape', shape: 'rect', width: 50, height: 50, name: 'lit', ...extra });
-  type Wrap = { children: Array<{ blendMode?: string; effects?: unknown[] }>; filters: Array<{ blendMode?: string; mode?: string }> };
+  const matteFilters = (display: unknown) => ((display as { filters?: Array<{ constructor: { name: string } }> }).filters ?? []).filter(f => f.constructor.name === 'MatteFilter');
 
-  it('a basic mode: the group\'s one filter carries the mode; the layer stays normal and has no alpha mask; the mask shape erases', async () => {
-    const comp = await build([layer({ blendMode: 'multiply', mask: hole, maskInverted: true })]);
-    const wrap = innerOf(comp).children[0] as unknown as Wrap;
-    const target = comp._children[0]!.target as unknown as { blendMode?: string; effects: unknown[] };
-    expect(wrap.children[0]).toBe(target);
-    expect(wrap.children).toHaveLength(2);
-    expect(wrap.children[1]!.blendMode).toBe('erase');
-    expect(wrap.filters).toHaveLength(1);
-    expect(wrap.filters[0]!.blendMode).toBe('multiply');
-    expect(target.blendMode).toBeUndefined();
-    expect(target.effects).toHaveLength(0);
+  it('maskInverted: the layer has an inverted MatteFilter, the mask is not drawn, no alpha mask effect, no wrapper group', async () => {
+    const comp = await build([layer({ mask: hole, maskInverted: true })]);
+    const [l] = comp.layers();
+    const filters = matteFilters(l!.display) as unknown as Array<{ resources: { matteUniforms: { uniforms: { uInvert: number } } } }>;
+    expect(filters).toHaveLength(1);
+    expect(filters[0]!.resources.matteUniforms.uniforms.uInvert).toBe(1);
+    expect((l!.display as unknown as { effects: unknown[] }).effects).toHaveLength(0);
+    // the layer and the matte's hidden sprite: no mask shape in the scene, no wrapper
+    expect(((comp.target as unknown as { children: Array<{ children: unknown[] }> }).children[0]!).children).toHaveLength(2);
   });
 
-  it('a mask with a filter of its own (a feathered hole) carries the erase on its LAST filter: a blend on the container would apply inside the filter pass and erase nothing', async () => {
-    const f1: Record<string, unknown> = { apply() {} };
-    const comp = await build([layer({ blendMode: 'multiply', maskInverted: true,
-      mask: { ...hole, filters: [{ type: 'custom', name: 'soft', filter: f1 }] } })]);
-    const wrap = innerOf(comp).children[0] as unknown as Wrap;
-    expect(f1.blendMode).toBe('erase');
-    expect(wrap.children[1]!.blendMode).toBeUndefined();
+  it('a text, image or video mask is a matte too (alpha)', async () => {
+    for (const mask of [{ type: 'text', text: 'I' }, { type: 'image', asset: 'a' }]) {
+      const comp = await build([layer({ mask })]);
+      expect(matteFilters(comp.layers()[0]!.display), mask.type).toHaveLength(1);
+    }
   });
 
-  it('an advanced mode: the group\'s filter is the blend filter', async () => {
-    const made: Array<{ mode: string; destroy(): void }> = [];
-    setBlendFilterFactory(mode => { const f = { mode, destroy() {} }; made.push(f); return f; });
-    const comp = await build([layer({ blendMode: 'overlay', mask: hole, maskInverted: true })]);
-    const wrap = innerOf(comp).children[0] as unknown as Wrap;
-    expect(wrap.filters).toHaveLength(1);
-    expect(wrap.filters[0]!.mode).toBe('overlay');
-    expect(wrap.children[1]!.blendMode).toBe('erase');
+  it('a plain shape mask is still the stencil: no filter, no matte sprite', async () => {
+    const comp = await build([layer({ mask: hole })]);
+    expect(matteFilters(comp.layers()[0]!.display)).toHaveLength(0);
   });
 
-  it('an advanced mode with the blends not registered warns once and draws the layer normal (no group filter)', async () => {
-    setBlendFilterFactory(null);
+  it('blendMode with such a mask is applied after the matte (no warning that the blend is lost any more)', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const comp = await build([layer({ blendMode: 'multiply', mask: { type: 'text', text: 'I' } }), layer({ blendMode: 'add', mask: hole, maskInverted: true, name: 'lit2' })]);
+    const [a, b] = comp.layers();
+    const lastOf = (d: unknown) => ((d as { filters: Array<{ blendMode?: string }> }).filters).slice(-1)[0]!;
+    expect(lastOf(a!.display).blendMode).toBe('multiply');
+    expect(lastOf(b!.display).blendMode).toBe('add');
+    expect(warn.mock.calls.map(c => String(c[0])).filter(m => m.includes('as the mask'))).toEqual([]);
+  });
+
+  it('an advanced blend is a filter after the matte filter', async () => {
+    setBlendFilterFactory(mode => ({ mode, destroy() {} } as never));
     const comp = await build([layer({ blendMode: 'overlay', mask: hole, maskInverted: true })]);
-    const wrap = innerOf(comp).children[0] as unknown as Wrap;
-    expect(wrap.filters ?? []).toHaveLength(0);
-    expect(warn.mock.calls.map(c => String(c[0])).filter(m => m.includes('blendMode'))).toHaveLength(1);
+    const names = ((comp.layers()[0]!.display as unknown as { filters: Array<{ constructor: { name: string }; mode?: string }> }).filters).map(f => f.mode ?? f.constructor.name);
+    expect(names).toEqual(['MatteFilter', 'overlay']);
   });
 
-  it('nothing changes without an inverted mask or without a blend mode: no group, the mask works as before', async () => {
-    const comp = await build([
-      layer({ blendMode: 'multiply', mask: hole }),                       // a stencil mask: the blend works as it is
-      layer({ mask: hole, maskInverted: true }),                          // an inverted mask but no blend
-      layer({ blendMode: 'add' }),
-    ]);
-    const kids = innerOf(comp).children as unknown[];
-    const targets = comp._children.map(c => c.target);
-    expect(kids).toContain(targets[0]);
-    expect(kids).toContain(targets[1]);
-    expect(kids).toContain(targets[2]);
-    expect((targets[1] as unknown as { effects: unknown[] }).effects).toHaveLength(1);    // still an alpha mask effect
-  });
-});
-
-describe('a blendMode on a layer destroyed with its composition', () => {
-  it('destroys the blend filter it added and the group (with its filter) it made, so no GPU object is left behind', async () => {
+  it('destroy() destroys the matte filter and the blend filter it made, so no GPU object is left behind', async () => {
     const made: Array<{ mode: string; destroyed: boolean; destroy(): void }> = [];
-    setBlendFilterFactory(mode => { const f = { mode, destroyed: false, destroy() { f.destroyed = true; } }; made.push(f); return f; });
-    const f1: Record<string, unknown> = { apply() {} };
-    const comp = await build([
-      { type: 'shape', shape: 'circle', radius: 10, blendMode: 'overlay', filters: [{ type: 'custom', name: 'a', filter: f1 }] },              // a blend filter appended
-      { type: 'shape', shape: 'rect', width: 20, height: 20, blendMode: 'overlay', maskInverted: true, mask: { type: 'shape', shape: 'circle', radius: 5 } },   // a group with a blend filter
-      { type: 'shape', shape: 'rect', width: 20, height: 20, blendMode: 'multiply', maskInverted: true, mask: { type: 'shape', shape: 'circle', radius: 5 } },  // a group with an AlphaFilter
-    ]);
-    const wraps = ((comp.target as unknown as { children: Array<{ children: Array<{ filters?: Array<{ destroyed?: boolean; destroy(): void }>; destroyed?: boolean }> }> }).children[0]!.children)
-      .filter(c => Array.isArray(c.filters) && c.filters.length === 1 && c.children !== undefined && (c as unknown as { children: unknown[] }).children.length === 2);
-    expect(made).toHaveLength(2);
-    expect(wraps).toHaveLength(2);
-    const alphaFilter = wraps.find(w => (w.filters![0] as { mode?: string }).mode === undefined)!.filters![0]! as { destroyed?: boolean; destroy(): void };
-    const alphaDestroy = vi.spyOn(alphaFilter, 'destroy');
+    setBlendFilterFactory(mode => { const f = { mode, destroyed: false, destroy() { f.destroyed = true; } }; made.push(f); return f as never; });
+    const comp = await build([layer({ blendMode: 'overlay', mask: { type: 'text', text: 'I' } })]);
+    const [matte] = matteFilters(comp.layers()[0]!.display);
+    const destroy = vi.spyOn(matte as unknown as { destroy(): void }, 'destroy');
     comp.destroy();
-    expect(made.every(f => f.destroyed)).toBe(true);                 // both blend filters
-    expect(wraps.every(w => w.destroyed === true)).toBe(true);       // both groups
-    expect(alphaDestroy).toHaveBeenCalled();                          // and the plain carrier of the multiply group
-  });
-});
-
-describe('blendMode on a layer masked by a text layer', () => {
-  it('warns once (the blend is lost in the alpha mask) and leaves the layer normal; no warning without a blend mode, or with an inverted shape mask', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const text = { type: 'text', text: 'I' };
-    const comp = await build([{ type: 'shape', shape: 'rect', width: 50, height: 50, name: 'lit', blendMode: 'multiply', mask: text }]);
-    expect(blendOf(comp, 0)).toBeUndefined();
-    const said = warn.mock.calls.map(c => String(c[0])).filter(m => m.includes('text layer as the mask'));
-    expect(said).toHaveLength(1);
-    expect(said[0]).toContain('layer "lit"');
-    warn.mockClear();
-    // an image or a video layer as the mask is the same (a Sprite mask is an alpha mask)
-    await build([{ type: 'shape', shape: 'rect', width: 50, height: 50, name: 'lit2', blendMode: 'multiply', mask: { type: 'image', asset: 'a' } }]);
-    expect(warn.mock.calls.map(c => String(c[0])).filter(m => m.includes('image layer as the mask'))).toHaveLength(1);
-    warn.mockClear();
-    await build([{ type: 'shape', shape: 'rect', width: 50, height: 50, mask: text }]);
-    await build([{ type: 'shape', shape: 'rect', width: 50, height: 50, blendMode: 'multiply', mask: { type: 'shape', shape: 'circle', radius: 5 }, maskInverted: true }]);
-    expect(warn.mock.calls.map(c => String(c[0])).filter(m => m.includes('text layer as the mask'))).toEqual([]);
+    expect(made).toHaveLength(1);
+    expect(made[0]!.destroyed).toBe(true);
+    expect(destroy).toHaveBeenCalled();
   });
 });
 

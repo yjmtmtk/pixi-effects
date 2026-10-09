@@ -195,7 +195,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
     });
   });
 
-  it('a text layer as the mask with a blendMode: the blend cannot work (an alpha mask); it warns once and the letters show the layer normal, the rest the backdrop', async () => {
+  it('a text layer as the mask with a blendMode: the letters show the blend, the rest the backdrop (the mask is a matte; no warning)', async () => {
     await withPage(async (cdp) => {
       const mask = { type: 'text', text: 'I', style: { fontSize: 90, fontWeight: '900', fill: '#ffffff', fontFamily: 'sans-serif' }, initial: { x: 80, y: 45, anchorX: 0.5, anchorY: 0.5 } };
       const comp = { sequences: [
@@ -206,11 +206,12 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
       const url = await cdp.eval('snap(0)');
       const inLetter: number[] = await cdp.eval(`px(${JSON.stringify(url)}, 80, 45)`);
       const outside: number[] = await cdp.eval(`px(${JSON.stringify(url)}, 10, 10)`);
+      const back = hexToRgb('#b0703a'), src = hexToRgb('#3dd6c8');
       for (let k = 0; k < 3; k++) {
-        expect(Math.abs(inLetter[k]! - hexToRgb('#3dd6c8')[k]! * 255), `in the letter, channel ${k}: got ${inLetter}`).toBeLessThanOrEqual(TOLERANCE);
-        expect(Math.abs(outside[k]! - hexToRgb('#b0703a')[k]! * 255), `outside, channel ${k}: got ${outside}`).toBeLessThanOrEqual(TOLERANCE);
+        expect(Math.abs(inLetter[k]! - back[k]! * src[k]! * 255), `in the letter, channel ${k}: got ${inLetter}`).toBeLessThanOrEqual(TOLERANCE);
+        expect(Math.abs(outside[k]! - back[k]! * 255), `outside, channel ${k}: got ${outside}`).toBeLessThanOrEqual(TOLERANCE);
       }
-      expect(mine(await cdp.eval('__logs')).filter((l: string) => l.includes('text layer as the mask'))).toHaveLength(1);
+      expect(mine(await cdp.eval('__logs'))).toEqual([]);
     });
   });
 
@@ -243,7 +244,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
     });
   });
 
-  it('an image layer as the mask with a blendMode cannot blend (a Sprite mask is an alpha mask too): it warns once and the disc shows the layer normal, the rest the backdrop', async () => {
+  it('an image layer as the mask with a blendMode: the disc shows the blend, the rest the backdrop (a matte; no warning)', async () => {
     await withPage(async (cdp) => {
       const disc: string = await cdp.eval(`(() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); g.fillStyle = '#ffffff'; g.beginPath(); g.arc(32, 32, 28, 0, 7); g.fill(); return c.toDataURL('image/png'); })()`);
       const comp = { sequences: [
@@ -255,11 +256,12 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
       const url = await cdp.eval('snap(0)');
       const inDisc: number[] = await cdp.eval(`px(${JSON.stringify(url)}, 80, 45)`);
       const outside: number[] = await cdp.eval(`px(${JSON.stringify(url)}, 10, 10)`);
+      const back = hexToRgb('#b0703a'), src = hexToRgb('#3dd6c8');
       for (let k = 0; k < 3; k++) {
-        expect(Math.abs(inDisc[k]! - hexToRgb('#3dd6c8')[k]! * 255), `in the disc, channel ${k}: got ${inDisc}`).toBeLessThanOrEqual(TOLERANCE);
-        expect(Math.abs(outside[k]! - hexToRgb('#b0703a')[k]! * 255), `outside, channel ${k}: got ${outside}`).toBeLessThanOrEqual(TOLERANCE);
+        expect(Math.abs(inDisc[k]! - back[k]! * src[k]! * 255), `in the disc, channel ${k}: got ${inDisc}`).toBeLessThanOrEqual(TOLERANCE);
+        expect(Math.abs(outside[k]! - back[k]! * 255), `outside, channel ${k}: got ${outside}`).toBeLessThanOrEqual(TOLERANCE);
       }
-      expect(mine(await cdp.eval('__logs')).filter((l: string) => l.includes('image layer as the mask'))).toHaveLength(1);
+      expect(mine(await cdp.eval('__logs'))).toEqual([]);
     });
   });
 
