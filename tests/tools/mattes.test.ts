@@ -142,6 +142,19 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
     });
   });
 
+  it('an inline inverted mask on a layer inside a null follows the null (the hole is where the null puts it)', async () => {
+    await withPage(async (cdp) => {
+      const comp = { sequences: [backdrop,
+        { type: 'null', name: 'rig', initial: { x: 40, y: 0 } },
+        rect('L', { parent: 'rig', maskInverted: true, initial: { x: 0, y: 0, fillColor: LAYER },
+          mask: { type: 'shape', shape: 'circle', radius: 20, initial: { x: 40, y: 45, fillColor: '#ffffff' } } })] };
+      const url = await frame(cdp, comp);
+      near(await at(cdp, url, 80, 45), mix(0), 'the hole is at the null\'s x (40) + the mask\'s own x (40) = 80');
+      near(await at(cdp, url, 140, 45), mix(1), 'elsewhere the layer shows');
+      near(await at(cdp, url, 20, 45), mix(0), 'x = 20 is left of the null (it starts at 40): nothing of the layer there');
+    });
+  });
+
   it('with a blend mode the blend is inside the matte and the backdrop is outside', async () => {
     await withPage(async (cdp) => {
       const url = await frame(cdp, { sequences: [backdrop, disc(), layer({ mask: 'm', blendMode: 'multiply' })] });
@@ -302,6 +315,23 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
       expect(mine(await cdp.eval('__logs')).filter((l: string) => l.includes('no layer with that name'))).toEqual([]);
     });
   });
+
+  for (const kind of ['zoom', 'luma', 'wipe', 'iris']) {
+    it(`a named matte on a layer that a ${kind} transition wraps still cuts it once the transition is over`, async () => {
+      await withPage(async (cdp) => {
+        const comp = { sequences: [
+          rect('a', { initial: { x: 0, y: 0, fillColor: A }, duration: 2 }),
+          disc('m'),
+          rect('b', { initial: { x: 0, y: 0, fillColor: B }, mask: 'm', duration: 2 }),
+        ], transitions: [{ kind, from: 'a', to: 'b', at: 0.5, duration: 1 }] };
+        await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: comp })})`);
+        const url: string = await cdp.eval('snap(59)');
+        near(await at(cdp, url, 80, 45), rgb(B), 'inside the matte');
+        near(await at(cdp, url, 10, 10), [0, 0, 0], 'outside the matte: cut, and A is gone');
+        expect(mine(await cdp.eval('__logs')).filter((l: string) => l.includes('no layer with that name'))).toEqual([]);
+      });
+    });
+  }
 
   it('a composition with no mask does not touch the matte machinery: the same pixels, no warning', async () => {
     await withPage(async (cdp) => {

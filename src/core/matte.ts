@@ -74,6 +74,11 @@ const startOf = (s: Timed): number => Math.max(0, s.at ?? 0);
 const endOf = (s: Timed, span: number): number => (s.duration === undefined ? span : (s.at ?? 0) + s.duration);
 const num = (n: number): string => String(Number(n.toFixed(3)));
 
+/** A layer can be a matte only if it draws something: not a camera, an audio layer, a null layer or a threeD layer. */
+export function canBeMatte(spec: { type: string; threeD?: boolean }): boolean {
+  return spec.type !== 'camera' && spec.type !== 'audio' && spec.type !== 'null' && !spec.threeD;
+}
+
 /**
  * What is wrong with a layer's `mask` references, as sentences (the caller puts `pixi-effects: layer "x": ` in front). `siblings` are the layers
  * of the same composition (the layer itself among them); `span` is the composition's length in seconds.
@@ -99,7 +104,11 @@ export function matteProblems(layer: SequenceSpec, siblings: readonly SequenceSp
     }
     if (same.length > 1) out.push(`mask "${ref.layer}": ${same.length} layers are named "${ref.layer}"; the first is used`);
     const matte = same[0]!;
-    if (matte.threeD) { out.push(`mask "${ref.layer}": "${ref.layer}" is a threeD layer and cannot be a matte (the layer is drawn without it)`); continue; }
+    if (!canBeMatte(matte)) {
+      const what = matte.threeD ? 'a threeD layer' : matte.type === 'audio' ? 'an audio layer (it draws nothing)' : 'a null layer (it draws nothing)';
+      out.push(`mask "${ref.layer}": "${ref.layer}" is ${what} and cannot be a matte (the layer is drawn without it)`);
+      continue;
+    }
     if (maskSourceOf((matte as { mask?: unknown }).mask).kind !== 'none') out.push(`mask "${ref.layer}": "${ref.layer}" has a mask of its own, which is ignored when it is used as a matte`);
     // the matte is on screen from its own at / duration; where it is not, the layer is cut by nothing and so invisible
     const ms = startOf(matte), me = endOf(matte, span), ls = startOf(layer), le = endOf(layer, span);

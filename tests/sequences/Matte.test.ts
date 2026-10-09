@@ -5,6 +5,7 @@ vi.mock('pixi.js', async () => {
   return m;
 });
 import { CompositionSequence } from '../../src/sequences/Composition';
+import { MatteSet } from '../../src/core/MatteSet';
 import { Container } from 'pixi.js';
 import type { SpaceHost } from '../../src/space/Layer3D';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
@@ -133,5 +134,48 @@ describe('limits and memory', () => {
     const users = mattes.map((m, i) => ({ type: 'shape', shape: 'rect', width: 10, height: 10, name: 'u' + i, mask: m.name }));
     await build([...mattes, ...users]);
     expect(warn.mock.calls.map(c => String(c[0])).filter(m => m.includes('mattes'))).toEqual([]);
+  });
+});
+
+describe('final review fixes', () => {
+  it('an inline mask on the matte route follows the layer\'s null chain (nearest parent first), as the stencil always did', async () => {
+    const add = vi.spyOn(MatteSet.prototype, 'add');
+    await build([
+      { type: 'null', name: 'outer', initial: { x: 10 } },
+      { type: 'null', name: 'rig', parent: 'outer', initial: { x: 30 } },
+      { type: 'shape', shape: 'rect', width: 50, height: 50, name: 'a', parent: 'rig', maskInverted: true,
+        mask: { type: 'shape', shape: 'circle', radius: 10 } },
+    ]);
+    const inline = add.mock.calls.find(c => String(c[0]).includes('inline'))!;
+    expect((inline[2] as Array<{ spec: { name?: string } }>).map(p => p.spec.name)).toEqual(['rig', 'outer']);
+  });
+
+  it('a matte that is an audio layer or a null layer says it cannot be one (and the layer is drawn without it)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const comp = await build([
+      { type: 'null', name: 'rig' },
+      { type: 'audio', name: 'bgm', sfx: 'click' },
+      { type: 'shape', shape: 'rect', width: 50, height: 50, name: 'a', mask: 'bgm' },
+      { type: 'shape', shape: 'rect', width: 50, height: 50, name: 'b', mask: 'rig' },
+    ]);
+    const said = warn.mock.calls.map(c => String(c[0]));
+    expect(said.some(m => m.includes('layer "a"') && m.includes('"bgm" is an audio layer') && m.includes('cannot be a matte'))).toBe(true);
+    expect(said.some(m => m.includes('layer "b"') && m.includes('"rig" is a null layer') && m.includes('cannot be a matte'))).toBe(true);
+    const [a, b] = comp.layers().filter(l => l.seq.spec.name === 'a' || l.seq.spec.name === 'b');
+    expect(matteFiltersOf(a!.display)).toHaveLength(0);
+    expect(matteFiltersOf(b!.display)).toHaveLength(0);
+  });
+
+  it('two layers with the name: the build uses the one the warning says (the first); a threeD first one means no matte at all', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const comp = await build([
+      { type: 'shape', shape: 'circle', radius: 10, name: 'm', threeD: true },
+      { type: 'shape', shape: 'circle', radius: 10, name: 'm' },
+      { type: 'shape', shape: 'rect', width: 50, height: 50, name: 'a', mask: 'm' },
+    ]);
+    const said = warn.mock.calls.map(c => String(c[0]));
+    expect(said.some(m => m.includes('"m" is a threeD layer and cannot be a matte'))).toBe(true);
+    const a = comp.layers().find(l => l.seq.spec.name === 'a')!;
+    expect(matteFiltersOf(a.display)).toHaveLength(0);                       // not matted by the second "m" the author was never told about
   });
 });

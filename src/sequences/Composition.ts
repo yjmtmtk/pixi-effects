@@ -10,7 +10,7 @@ import { assignDepthOrder } from '../space/depth';
 import { Layer3D, type SpaceHost } from '../space/Layer3D';
 import { lintSequence, lintFocus } from '../space/lint';
 import { layerInitialZ, blurRadius, MANY_BLURRED } from '../space/focus';
-import { matteProblems, maskSourceOf, refNames, usesMatteRoute, MANY_MATTES } from '../core/matte';
+import { matteProblems, maskSourceOf, refNames, usesMatteRoute, canBeMatte, MANY_MATTES } from '../core/matte';
 import { MatteSet } from '../core/MatteSet';
 import { describeLayer, lintText, lintTiming, summarizeWarnings, lintKeys } from '../core/lint';
 import { applyBlendMode, maxConcurrentAdvanced, MANY_ADVANCED, type BlendReport } from '../core/blend';
@@ -115,8 +115,9 @@ export class CompositionSequence extends Sequence {
     if (matteNames.size > 0) {
       this._mattes = new MatteSet(inner, width, height);
       for (const name of matteNames) {
-        const source = this._children.find(c => c.spec.name === name && c.target && !(c instanceof CameraSequence) && !c.spec.threeD);
-        if (!source) continue;                                       // matteProblems has said why
+        // the first layer of that name, as matteProblems says: if it cannot be a matte (threeD, audio, null) the layer is drawn without one
+        const source = this._children.find(c => c.spec.name === name && !(c instanceof CameraSequence));
+        if (!source || !source.target || !canBeMatte(source.spec)) continue;       // matteProblems has said why
         const chain: Sequence[] = [];
         for (let p = this._parentOf.get(source); p; p = this._parentOf.get(p)) chain.push(p);
         this._mattes.add(name, source, chain);
@@ -190,7 +191,9 @@ export class CompositionSequence extends Sequence {
           if (usesMatteRoute(child.spec)) {
             if (!this._mattes) this._mattes = new MatteSet(inner, width, height);
             const key = `\u0000inline-${this._inlineMattes++}`;
-            this._mattes.add(key, maskSeq);                   // drawn into a texture of its own each frame, not on screen
+            const chain: Sequence[] = [];                      // the mask is in the layer's space: the null layers it sits in move it too
+            for (let p = this._parentOf.get(child); p; p = this._parentOf.get(p)) chain.push(p);
+            this._mattes.add(key, maskSeq, chain);            // drawn into a texture of its own each frame, not on screen
             const f = this._mattes.filterFor(key, { channel: 'alpha', invert: (child.spec as { maskInverted?: boolean }).maskInverted === true });
             if (f) matteFilters.push(f);
           } else {
