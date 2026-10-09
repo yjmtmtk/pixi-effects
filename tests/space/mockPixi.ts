@@ -122,6 +122,10 @@ export function createPixiMock() {
   class AlphaMask { inverse = false; mask: unknown; constructor(o?: { mask?: unknown }) { this.mask = o?.mask; } }
   class FillGradient { destroyed = false; constructor(public options: Record<string, unknown>) {} destroy() { this.destroyed = true; } }
   class Filter { resources: Record<string, unknown> = {}; padding = 0; blendMode = 'normal'; constructor(opts?: { resources?: Record<string, unknown> }) { if (opts?.resources) this.resources = opts.resources; } apply() {} destroy() {} }
+  class BlendModeFilter extends Filter { options: unknown; constructor(options: unknown) { super(); this.options = options; } }
+  const ExtensionType = { BlendMode: 'blend-mode' };
+  const added: unknown[] = [];
+  const extensions = { add(c: unknown) { added.push(c); }, __added: added };
   class GlProgram { constructor(_o: unknown) {} static from(o: unknown) { return new GlProgram(o); } }
   class GpuProgram { constructor(_o: unknown) {} static from(o: unknown) { return new GpuProgram(o); } }
   class UniformGroup {
@@ -133,7 +137,7 @@ export function createPixiMock() {
   return {
     Container, Rectangle, Matrix, Texture, RenderTexture, PerspectiveMesh, AlphaMask,
     Sprite, Text, Graphics, GraphicsPath, FillGradient, TextStyle, CanvasTextMetrics,
-    Filter, GlProgram, GpuProgram, UniformGroup, defaultFilterVert: '',
+    Filter, GlProgram, GpuProgram, UniformGroup, BlendModeFilter, ExtensionType, extensions, defaultFilterVert: '',
     Assets: { get: async () => null },
   };
 }

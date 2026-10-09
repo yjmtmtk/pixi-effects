@@ -53,3 +53,17 @@ export function applyBlendMode(spec: { blendMode?: string; name?: string; type: 
   }
   display.blendMode = mode;
 }
+
+/** What blend.ts needs of a blend filter (the real ones are Pixi filters; tests use plain objects). */
+export type BlendFilterLike = { blendMode?: unknown; destroy(): void };
+let factory: ((mode: string) => BlendFilterLike | null) | null = null;
+
+/** `filters/blendModes.ts` hands its filter maker here when it registers, so this file never imports Pixi. */
+export function setBlendFilterFactory(f: ((mode: string) => BlendFilterLike | null) | null): void {
+  factory = f;
+}
+
+/** A fresh blend filter for an advanced mode, or null when the blends are not registered (or the mode is not an advanced one). */
+export function blendFilterFor(mode: string): BlendFilterLike | null {
+  return isAdvancedBlend(mode) && factory ? factory(mode) : null;
+}
