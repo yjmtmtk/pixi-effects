@@ -29,7 +29,7 @@ export type DeckTransition = TransitionSpec extends infer T ? (T extends Transit
 export interface DeckOptions {
   pages: DeckPage[];
   /**
-   * A transition between every two pages: `{ kind: 'crossfade' | 'slide' | 'wipe' | 'iris' | 'dip' | 'zoom' | 'dissolve', duration, …its own options }` (see Transitions). The next page starts
+   * A transition between every two pages: `{ kind: 'crossfade' | 'slide' | 'wipe' | 'iris' | 'dip' | 'zoom' | 'dissolve' | 'luma', duration, …its own options }` (see Transitions). The next page starts
    * `duration` seconds before the current one ends, and the transition plays across the overlap.
    */
   transition?: DeckTransition;

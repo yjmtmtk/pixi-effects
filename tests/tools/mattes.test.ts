@@ -9,6 +9,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { launchPage } from '../support/browser';
 import { blendPixel, hexToRgb } from '../support/blendReference';
+import { builtInLuma } from '../../src/filters/LumaWipe';
 
 const root = resolve(__dirname, '../..');
 const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
@@ -208,6 +209,97 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
       expect(o.bwdMax).toBe(0);
       expect(o.jmpMax).toBe(0);
       expect(mine(await cdp.eval('__logs'))).toEqual([]);
+    });
+  });
+
+  const A = '#c03030', B = '#3050c0';
+  const scene = (name: string, fill: string) => ({ type: 'composition', name, width: 160, height: 90, duration: 2, sequences: [rect(name + '-fill', { initial: { x: 0, y: 0, fillColor: fill } })] });
+  const rgb = (hex: string) => hexToRgb(hex).map(v => v * 255);
+  const isB = (p: number[]) => Math.abs(p[2]! - 192) < Math.abs(p[2]! - 48);
+
+  it('a luma wipe (linear): at the start only A, midway the left is B and the right is A, at the end only B; the same on every seek order', async () => {
+    await withPage(async (cdp) => {
+      const comp = { sequences: [scene('a', A), scene('b', B)], transitions: [{ kind: 'luma', from: 'a', to: 'b', at: 0.5, duration: 1, map: 'linear', softness: 0.1 }] };
+      await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: comp })})`);
+      const url = async (f: number) => cdp.eval(`snap(${f})`) as Promise<string>;
+      near(await at(cdp, await url(0), 10, 45), rgb(A), 'start, left');
+      near(await at(cdp, await url(0), 150, 45), rgb(A), 'start, right');
+      const mid = await url(30);                                     // 1.0 s: progress 0.5 (ease none)
+      near(await at(cdp, mid, 10, 45), rgb(B), 'midway: the dark (left) side has changed');
+      near(await at(cdp, mid, 150, 45), rgb(A), 'midway: the light (right) side has not');
+      near(await at(cdp, await url(59), 10, 45), rgb(B), 'end, left');
+      near(await at(cdp, await url(59), 150, 45), rgb(B), 'end, right');
+      const o = await cdp.eval('orders([0, 10, 20, 30, 40, 50, 59])');
+      expect(o.bwdMax).toBe(0);
+      expect(o.jmpMax).toBe(0);
+      expect(mine(await cdp.eval('__logs'))).toEqual([]);
+    });
+  });
+
+  it('a luma wipe with flip: the light side changes first', async () => {
+    await withPage(async (cdp) => {
+      const comp = { sequences: [scene('a', A), scene('b', B)], transitions: [{ kind: 'luma', from: 'a', to: 'b', at: 0.5, duration: 1, map: 'linear', softness: 0.1, flip: true }] };
+      await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: comp })})`);
+      const mid: string = await cdp.eval('snap(30)');
+      near(await at(cdp, mid, 10, 45), rgb(A), 'flipped, midway: the left has not changed');
+      near(await at(cdp, mid, 150, 45), rgb(B), 'flipped, midway: the right has');
+    });
+  });
+
+  it('a luma wipe with a built-in radial map starts at the middle and the circle grows to the corners (a circle on screen, not an ellipse)', async () => {
+    await withPage(async (cdp) => {
+      const comp = { sequences: [scene('a', A), scene('b', B)], transitions: [{ kind: 'luma', from: 'a', to: 'b', at: 0.5, duration: 1, map: 'radial', softness: 0.05 }] };
+      await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: comp })})`);
+      const url: string = await cdp.eval('snap(30)');                // progress 0.5
+      const lumaAt = (x: number, y: number) => builtInLuma('radial', x / 160, y / 90, 160 / 90);
+      let inside = 0, outside = 0;
+      for (let y = 5; y < 90; y += 10) for (let x = 5; x < 160; x += 10) {
+        const l = lumaAt(x, y);
+        if (l < 0.4) { inside++; expect(isB(await at(cdp, url, x, y)), `inside (${x},${y}) luma ${l.toFixed(2)}`).toBe(true); }
+        if (l > 0.6) { outside++; expect(isB(await at(cdp, url, x, y)), `outside (${x},${y}) luma ${l.toFixed(2)}`).toBe(false); }
+      }
+      expect(inside).toBeGreaterThan(10);
+      expect(outside).toBeGreaterThan(10);
+    });
+  });
+
+  it('a luma wipe with a grayscale image as the map: dark parts change first (here a map that is dark on the right)', async () => {
+    await withPage(async (cdp) => {
+      const mapUrl: string = await cdp.eval(`(() => { const c = document.createElement('canvas'); c.width = 160; c.height = 90; const g = c.getContext('2d'); const gr = g.createLinearGradient(0, 0, 160, 0); gr.addColorStop(0, '#fff'); gr.addColorStop(1, '#000'); g.fillStyle = gr; g.fillRect(0, 0, 160, 90); return c.toDataURL('image/png'); })()`);
+      const comp = { sequences: [scene('a', A), scene('b', B)], transitions: [{ kind: 'luma', from: 'a', to: 'b', at: 0.5, duration: 1, map: 'rightfirst', softness: 0.1 }] };
+      await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: comp, assets: [{ name: 'rightfirst', src: mapUrl }] })})`);
+      const mid: string = await cdp.eval('snap(30)');
+      near(await at(cdp, mid, 150, 45), rgb(B), 'the dark (right) side has changed');
+      near(await at(cdp, mid, 10, 45), rgb(A), 'the light (left) side has not');
+      expect(mine(await cdp.eval('__logs'))).toEqual([]);
+    });
+  });
+
+  for (const kind of ['wipe', 'iris', 'dissolve', 'luma']) {
+    it(`a ${kind} transition compiles on this backend (no shader error) and ends on B, starts on A`, async () => {
+      await withPage(async (cdp) => {
+        const comp = { sequences: [scene('a', A), scene('b', B)], transitions: [{ kind, from: 'a', to: 'b', at: 0.5, duration: 1 }] };
+        await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: comp })})`);
+        near(await at(cdp, await cdp.eval('snap(0)'), 80, 45), rgb(A), 'start');
+        near(await at(cdp, await cdp.eval('snap(59)'), 80, 45), rgb(B), 'end');
+        const logs: string[] = await cdp.eval('__logs');
+        expect(logs.filter(l => /shader|Precision/i.test(l)), JSON.stringify(logs)).toEqual([]);
+      });
+    });
+  }
+
+  it('a layer with a named matte inside a transition keeps its matte (the transition wraps the layer; the matte is found)', async () => {
+    await withPage(async (cdp) => {
+      const comp = { sequences: [
+        rect('a', { initial: { x: 0, y: 0, fillColor: A }, duration: 2 }),
+        disc('m'),
+        rect('b', { initial: { x: 0, y: 0, fillColor: B }, mask: 'm', duration: 2 }),
+      ], transitions: [{ kind: 'dissolve', from: 'a', to: 'b', at: 0.5, duration: 1 }] };
+      await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: comp })})`);
+      const url: string = await cdp.eval('snap(59)');                // after the transition: only B, cut by the disc
+      near(await at(cdp, url, 80, 45), rgb(B), 'inside the matte, after the transition');
+      near(await at(cdp, url, 10, 10), [0, 0, 0], 'outside the matte: A is gone, the layer is cut, the background shows');
+      expect(mine(await cdp.eval('__logs')).filter((l: string) => l.includes('no layer with that name'))).toEqual([]);
     });
   });
 

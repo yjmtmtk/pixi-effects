@@ -174,6 +174,16 @@ export interface DissolveTransition extends TransitionCommon {
   smoothing?: number;
 }
 
+export interface LumaTransition extends TransitionCommon {
+  kind: 'luma';
+  /** The brightness map the wipe follows: `'linear'` (left to right), `'diagonal'`, `'radial'` (from the middle), or the name of a grayscale image asset (dark parts change first). Default `'linear'`. */
+  map?: string;
+  /** Width of the soft band between the scenes, in brightness units (0..1). Default 0.1. */
+  softness?: number;
+  /** Reverse the map (light parts change first). */
+  flip?: boolean;
+}
+
 export type TransitionSpec =
   | CrossfadeTransition
   | WipeTransition
@@ -181,7 +191,8 @@ export type TransitionSpec =
   | SlideTransition
   | DipTransition
   | ZoomTransition
-  | DissolveTransition;
+  | DissolveTransition
+  | LumaTransition;
 
 // ─── Sequence specs ───────────────────────────────────────────────────────
 

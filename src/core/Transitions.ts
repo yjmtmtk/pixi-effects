@@ -1,7 +1,7 @@
 import type {
   CompositionSpec, CompositionSequenceSpec, SequenceSpec, TransitionSpec,
   CrossfadeTransition, WipeTransition, IrisTransition, SlideTransition,
-  DipTransition, ZoomTransition, DissolveTransition,
+  DipTransition, ZoomTransition, DissolveTransition, LumaTransition,
   Keyframe, FilterSpec,
 } from '../types';
 import { resolveAt } from './Timeline';
@@ -10,6 +10,8 @@ import { timeRemapOf, contentLength } from './remap';
 /** Sums of decimal seconds (6 + 0.7 against 6.699999999999999) must not fail a coverage check. */
 const EPS = 1e-6;
 import { TransitionMaskFilter, type TransitionMode } from '../filters/TransitionMask';
+import { LumaWipeFilter } from '../filters/LumaWipe';
+import { maskSourceOf } from './matte';
 
 export interface TransitionWindow { from: string; to: string; start: number; end: number }
 
@@ -107,7 +109,7 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
   // Wrapping is a no-op for sequences that are already full-size compositions.
   const masksParticipants = new Set<string>();
   for (const t of transitions) {
-    if (t.kind === 'wipe' || t.kind === 'iris' || t.kind === 'dissolve' || t.kind === 'zoom') {
+    if (t.kind === 'wipe' || t.kind === 'iris' || t.kind === 'dissolve' || t.kind === 'zoom' || t.kind === 'luma') {
       masksParticipants.add(t.from);
       masksParticipants.add(t.to);
     }
@@ -229,6 +231,9 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
       case 'dissolve':
         expandDissolve(out, abs, fromEntry.seq, toEntry.seq, i);
         break;
+      case 'luma':
+        expandLuma(out, abs, fromEntry.seq, toEntry.seq, i);
+        break;
     }
     rebaseNewKeyframes(fromEntry.seq, nFrom, fromStart);
     rebaseNewKeyframes(toEntry.seq, nTo, toStart);
@@ -276,7 +281,13 @@ function wrapAsFullComposition(seq: SequenceSpec, compW: number, compH: number):
   delete (inner as { name?: string }).name;
   delete (inner as { at?: number }).at;
   delete (inner as { duration?: number }).duration;
+  // A named matte (`mask: 'name'`, a reference, a list) points at a SIBLING of the layer; inside the wrapper there is none, so the
+  // wrapper carries the matte and the layer keeps nothing to look up. An inline mask (a layer spec) is the layer's own and stays.
+  const m = (inner as { mask?: unknown }).mask;
+  const carriesMatte = m !== undefined && maskSourceOf(m as never).kind === 'refs';
+  if (carriesMatte) delete (inner as { mask?: unknown }).mask;
   return {
+    ...(carriesMatte ? { mask: m } : {}),
     type: 'composition',
     name: seq.name,
     at: seq.at,
@@ -584,6 +595,29 @@ function expandDissolve(
     ease,
   });
   (fromSeq as { filterArea?: typeof fullArea }).filterArea = fullArea;
+}
+
+/**
+ * `{ kind: 'luma', map: 'linear' | 'diagonal' | 'radial' | <grayscale image asset>, softness?: 0.1, flip?: false }`: B appears through a
+ * soft edge where the map is dark first; A holds until B has covered it (a hard cutoff, as wipe / iris / dissolve do).
+ */
+function expandLuma(
+  comp: CompositionSpec | CompositionSequenceSpec,
+  t: LumaTransition,
+  fromSeq: SequenceSpec, toSeq: SequenceSpec, transitionIndex: number,
+): void {
+  const ease = t.ease ?? 'none';
+  const inName = transitionFilterName(transitionIndex);
+  const outName = `${transitionFilterName(transitionIndex)}-out`;
+  const fullArea = { x: 0, y: 0, width: comp.width ?? 0, height: comp.height ?? 0 };
+  const opts = { map: t.map ?? 'linear', softness: t.softness ?? 0.1, flip: t.flip ?? false };
+  for (const [seq, name, invert] of [[toSeq, inName, false], [fromSeq, outName, true]] as const) {
+    const filters = ensureFilters(seq);
+    rejectReservedNameCollision(filters, seq.name);
+    filters.push({ type: 'custom', name, filter: new LumaWipeFilter({ ...opts, invert }) });
+    ensureKeyframes(seq).push({ at: t.at, to: { [`filters.${name}.uProgress`]: 1 }, duration: t.duration, ease });
+    (seq as { filterArea?: typeof fullArea }).filterArea = fullArea;
+  }
 }
 
 // User-supplied filters with the reserved prefix collide with our internal

@@ -86,6 +86,7 @@ export type {
   DipTransition,
   ZoomTransition,
   DissolveTransition,
+  LumaTransition,
   TransitionSpec,
   SequenceCommon,
   BlendModeName,

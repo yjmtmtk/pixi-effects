@@ -527,6 +527,58 @@ describe('expandTransitions — dissolve', () => {
   });
 });
 
+describe('expandTransitions — luma wipe', () => {
+  const luma = (extra: Record<string, unknown> = {}) => expandTransitions(spec({
+    transitions: [{ kind: 'luma', from: 'A', to: 'B', at: 4, duration: 1, ...extra } as never],
+  }));
+  const seqOf = (out: CompositionSpec, name: string) => out.sequences!.find(s => s.name === name) as CompositionSequenceSpec & { filterArea?: unknown; keyframes?: Keyframe[] };
+
+  it('puts a LumaWipeFilter (progress 0 → 1) on `to` and an inverted one on `from`, both over the whole composition', () => {
+    const out = luma({ map: 'radial', softness: 0.2 });
+    const inF = findCustomFilter(out, 'B', '_pe-transition-0')!.filter as unknown as { uProgress: number; resources: { lumaUniforms: { uniforms: Record<string, number> } } };
+    const outF = findCustomFilter(out, 'A', '_pe-transition-0-out')!.filter as unknown as typeof inF;
+    expect(inF.resources.lumaUniforms.uniforms).toMatchObject({ uMode: 3, uSoftness: 0.2, uInvert: 0, uFlip: 0 });
+    expect(outF.resources.lumaUniforms.uniforms).toMatchObject({ uMode: 3, uSoftness: 0.2, uInvert: 1 });
+    expect(seqOf(out, 'B').filterArea).toEqual({ x: 0, y: 0, width: 100, height: 100 });
+    expect(seqOf(out, 'A').filterArea).toEqual({ x: 0, y: 0, width: 100, height: 100 });
+    const kf = (name: string, f: string) => seqOf(out, name).keyframes!.find(k => JSON.stringify(k.to).includes(f))!;
+    expect(kf('B', '_pe-transition-0.uProgress')).toMatchObject({ to: { 'filters._pe-transition-0.uProgress': 1 }, duration: 1 });
+    expect(kf('A', '_pe-transition-0-out.uProgress')).toMatchObject({ to: { 'filters._pe-transition-0-out.uProgress': 1 }, duration: 1 });
+  });
+
+  it('without a map it is linear; flip is passed on', () => {
+    const f = findCustomFilter(luma({ flip: true }), 'B', '_pe-transition-0')!.filter as unknown as { resources: { lumaUniforms: { uniforms: Record<string, number> } } };
+    expect(f.resources.lumaUniforms.uniforms).toMatchObject({ uMode: 1, uFlip: 1, uSoftness: 0.1 });
+  });
+});
+
+describe('expandTransitions — a layer with a named matte that a transition wraps', () => {
+  const withMatte = (mask: unknown) => expandTransitions({
+    width: 100, height: 100, duration: 10,
+    sequences: [
+      { type: 'text', name: 'A', text: 'a', at: 0, duration: 5 },
+      { type: 'shape', shape: 'circle', name: 'm', radius: 10, at: 4, duration: 5 },
+      { type: 'text', name: 'B', text: 'b', at: 4, duration: 5, mask },
+    ],
+    transitions: [{ kind: 'dissolve', from: 'A', to: 'B', at: 4, duration: 1 }],
+  } as CompositionSpec);
+  const wrapperB = (out: CompositionSpec) => out.sequences!.find(s => s.name === 'B') as CompositionSequenceSpec & { mask?: unknown };
+
+  it.each([['a name', 'm'], ['a reference', { layer: 'm', channel: 'luma' }], ['a list', ['m', { layer: 'm', invert: true }]]])('%s moves to the wrapper, which is a sibling of the matte; the layer inside keeps no mask', (_l, mask) => {
+    const w = wrapperB(withMatte(mask));
+    expect(w.type).toBe('composition');
+    expect(w.mask).toEqual(mask);
+    expect((w.sequences![0] as { mask?: unknown }).mask).toBeUndefined();
+  });
+
+  it('an inline mask (a layer spec) stays on the layer inside', () => {
+    const inline = { type: 'shape', shape: 'circle', radius: 10 };
+    const w = wrapperB(withMatte(inline));
+    expect(w.mask).toBeUndefined();
+    expect((w.sequences![0] as { mask?: unknown }).mask).toEqual(inline);
+  });
+});
+
 describe('expandTransitions — threeD participants', () => {
   it('FIX: warns once per transition when a participant is threeD (the wrapper would drop the camera)', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});

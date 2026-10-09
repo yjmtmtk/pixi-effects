@@ -38,10 +38,10 @@ export interface TransitionMaskOptions {
 const GL_FRAGMENT = `
 in vec2 vTextureCoord;
 uniform sampler2D uTexture;
-uniform vec4 uInputSize;     // PIXI-bound: xy = sprite render texture size (with padding)
-uniform vec4 uInputClamp;    // PIXI-bound: xy = min uv of unpadded content, zw = max uv
-uniform vec4 uOutputFrame;   // PIXI-bound: xy = sprite top-left on output, zw = bbox size in px
-uniform vec4 uGlobalFrame;   // PIXI-bound: xy = global frame offset, zw = canvas size in px
+uniform highp vec4 uInputSize;     // PIXI-bound: xy = sprite render texture size (with padding)
+uniform highp vec4 uInputClamp;    // PIXI-bound: xy = min uv of unpadded content, zw = max uv
+uniform highp vec4 uOutputFrame;   // PIXI-bound: xy = sprite top-left on output, zw = bbox size in px
+uniform highp vec4 uGlobalFrame;   // PIXI-bound: xy = global frame offset, zw = canvas size in px
 uniform float uProgress;
 uniform float uSmoothing;
 uniform float uMode;
