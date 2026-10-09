@@ -1,5 +1,6 @@
 {
   "overlap": 0.6,
+  "poster": 4.2,
   "chapters": [
     { "id": "00-open",            "duration": 6, "model": "fable",  "title": "OPEN",             "idea": "A word becomes a video: the title and the claim 'a video is a file of data'" },
     { "id": "01-type",            "duration": 8, "model": "fable",  "title": "TYPE",             "idea": "Kinetic typography: per-letter and per-word entrances, a counter, one line in Japanese" },

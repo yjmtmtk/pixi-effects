@@ -47,6 +47,8 @@
 .facade button:hover .play{transform:translate(-50%,-50%) scale(1.06)}
 .facade .play{width:60px;height:60px;border-radius:50%;background:#ff5a3c;display:grid;place-items:center;transition:transform .2s;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);box-shadow:0 8px 30px rgba(0,0,0,.45)}
 #facade .play{top:76%}
+#reelFacade .play{left:auto;right:28px;top:auto;bottom:64px;transform:none}
+#reelFacade button:hover .play{transform:scale(1.06)}
 .facade .play svg{width:22px;height:22px;margin-left:4px;fill:#0b0d12}
 .facade .hint{position:absolute;right:12px;bottom:10px;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:#fff;background:rgba(0,0,0,.55);padding:4px 8px;border-radius:4px}
 .vinfo{padding:16px 16px 14px;flex:1;display:flex;flex-direction:column;gap:8px;border-top:1px solid rgba(255,255,255,.1)}

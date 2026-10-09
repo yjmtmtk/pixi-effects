@@ -11,14 +11,14 @@
 <meta property="og:url" content="https://yjmtmtk.github.io/pixi-effects/">
 <meta property="og:title" content="pixi-effects — video, written as data">
 <meta property="og:description" content="A tree of plain objects goes in, motion-graphics video comes out. It plays in the browser, scrubs frame by frame and exports MP4, WebM or MOV with no server. Tell any AI one sentence and it writes the video for you.">
-<meta property="og:image" content="https://yjmtmtk.github.io/pixi-effects/examples/gallery/posters/ma.jpg">
-<meta property="og:image:width" content="960">
-<meta property="og:image:height" content="540">
-<meta property="og:image:alt" content="間 MA, a frame from a 48-second film written as data: a large black 間 character with its lower strokes in red, beside the word MA, on warm paper.">
+<meta property="og:image" content="https://yjmtmtk.github.io/pixi-effects/examples/showreel/poster.jpg">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="720">
+<meta property="og:image:alt" content="The pixi-effects reel: the word pixi-effects with a red diamond and the line “a video is a file of data.”, drawn by the data shown beneath it.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="pixi-effects — video, written as data">
 <meta name="twitter:description" content="Motion-graphics video written as plain data: it plays in the browser and exports MP4 with no server. Open source, MIT, made for AI to write.">
-<meta name="twitter:image" content="https://yjmtmtk.github.io/pixi-effects/examples/gallery/posters/ma.jpg">
+<meta name="twitter:image" content="https://yjmtmtk.github.io/pixi-effects/examples/showreel/poster.jpg">
 <meta name="theme-color" content="#0b0d12" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#f4f1ea" media="(prefers-color-scheme: light)">
 <meta name="color-scheme" content="dark light">
@@ -83,6 +83,23 @@
         <div><dt>Depends on</dt><dd>mediabunny only; PixiJS v8 and GSAP as peers</dd></div>
         <div><dt>Licence</dt><dd>MIT · v0.25.0 · experimental, pre-1.0</dd></div>
       </dl>
+    </div>
+
+    <!-- the reel: everything the library does, in one 81-second video (plays from the published page, same origin) -->
+    <div class="feature" id="reel">
+      <div class="facade" id="reelFacade">
+        <img src="examples/showreel/poster.jpg" width="1280" height="720" alt="Poster of the reel: the word pixi-effects with a red diamond and the line “a video is a file of data.”, above two lines of the data that draws them">
+        <button type="button" id="reelBtn" aria-label="Play the reel live: 81 seconds, twelve chapters, with sound">
+          <span class="play" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3 1.5l11 6.5-11 6.5z"/></svg></span>
+          <span class="hint" aria-hidden="true">play the reel · sound on</span>
+        </button>
+      </div>
+      <div class="feature-info">
+        <p class="lbl"><span class="dia" aria-hidden="true"></span>The reel</p>
+        <h3>Everything it does, in 81 seconds</h3>
+        <p>Type, shapes, depth, light, blends and mattes, shaders and warps, particles, motion, sound, data — twelve chapters, <strong>one HTML page of data</strong>, music written as text. Each chapter was made by a fresh AI model from the docs alone. The last chapter prints the reel's own data.</p>
+        <p class="fmeta"><span>1920×1080</span><span>81 s</span><span>no files, no assets</span><span><a href="examples/showreel/pixi-effects-reel.html">open the page with controls</a></span></p>
+      </div>
     </div>
 
     <!-- the composition panel: data in, video out -->
@@ -524,8 +541,8 @@ movie.play();
   // lets the sound start, so when the frame is on this page's own origin (the published site) play it from here once it is ready, as the
   // guide's demos do (a deck plays to its first stop). From another origin (a local preview) the frame cannot be reached: press play in it.
   var GALLERY=window.__GALLERY_BASE||'https://yjmtmtk.github.io/pixi-effects/examples/gallery/';
-  function openPiece(id,host){
-    var f=document.createElement('iframe'); f.src=GALLERY+id+'.html'; f.allow='autoplay; fullscreen'; f.loading='eager'; host.appendChild(f);
+  function openPiece(id,host,url){
+    var f=document.createElement('iframe'); f.src=url||(GALLERY+id+'.html'); f.allow='autoplay; fullscreen'; f.loading='eager'; host.appendChild(f);
     var tries=0;
     (function wait(){
       var w=null;
@@ -547,7 +564,15 @@ movie.play();
       f.style.transform='scale('+k+') translate('+(-r.left)+'px,'+(-r.top)+'px)';
     }catch(e){ /* another origin: leave the frame as it is */ }
   }
-  var fitting=0; window.addEventListener('resize',function(){ clearTimeout(fitting); fitting=setTimeout(function(){ document.querySelectorAll('#player iframe, #kmFacade iframe').forEach(fitFrame); },120); });
+  var fitting=0; window.addEventListener('resize',function(){ clearTimeout(fitting); fitting=setTimeout(function(){ document.querySelectorAll('#player iframe, #kmFacade iframe, #reelFacade iframe').forEach(fitFrame); },120); });
+
+  // the reel: the same page the link opens, played in the frame from this origin
+  var rb=document.getElementById('reelBtn'), rf=document.getElementById('reelFacade');
+  if(rb) rb.addEventListener('click',function(){
+    var f=openPiece('reel',rf,'examples/showreel/pixi-effects-reel.html'); f.title='The pixi-effects reel, playing live'; rb.remove();
+    var still=rf.querySelector('img'), n=0;   // the poster stays until the page behind it has drawn its first frame
+    (function hide(){ try{ if(f.contentWindow.__ready===true){ setTimeout(function(){ still.style.display='none'; },400); return; } }catch(e){ still.style.display='none'; return; } if(++n<250) setTimeout(hide,100); })();
+  });
 
   // a real piece, live (a video facade for the published gallery page)
   var km=document.getElementById('kmBtn'), kmFacade=document.getElementById('kmFacade');

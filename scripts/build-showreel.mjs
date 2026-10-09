@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Build the reel: ONE page that holds the whole video as data.
 //   node scripts/build-showreel.mjs [--cdn] [--out examples/showreel/pixi-effects-reel.html]
-// It reads examples/showreel/{reel.src.html, shared.js, chapters.json, chapters/<id>.js, music.js} and inlines the chapter functions, so the page
+// It reads examples/showreel/{reel.src.tpl, shared.js, chapters.json, chapters/<id>.js, music.js} and inlines the chapter functions, so the page
 // has no module of its own: only the library (the local dist/, or with --cdn the pinned release on jsDelivr). Each chapter file must be ONE
 // `export default function chapter(P) { … }` with no import, no other export and no other top-level code (the check below says what is wrong).
 import fs from 'node:fs';
@@ -39,7 +39,7 @@ export function build({ cdn: useCdn = false } = {}) {
   ].join('\n    ');
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   const distBase = useCdn ? `https://cdn.jsdelivr.net/npm/pixi-effects@${pkg.version}/dist/` : '../../dist/';
-  const html = (kb) => read('reel.src.html')
+  const html = (kb) => read('reel.src.tpl')
     .replace('/*@@INLINE@@*/', () => inline)
     .replace('@@LOADER_CSS@@', distBase + 'loader.css').replace(/@@DIST@@/g, distBase)
     .replace('@@KB@@', String(kb));
