@@ -138,8 +138,22 @@ export function createPixiMock() {
       this.uniforms = Object.fromEntries(Object.entries(u).map(([k, v]) => [k, v.value]));
     }
   }
+  /** Just enough of Pixi's Color for the light layer: '#rgb', '#rrggbb' and 0xRRGGBB; anything else throws like Pixi does. */
+  class Color {
+    private rgb: [number, number, number] = [1, 1, 1];
+    setValue(v: unknown) {
+      let n: number | null = null;
+      if (typeof v === 'number') n = v;
+      else if (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)) n = parseInt(v.slice(1), 16);
+      else if (typeof v === 'string' && /^#[0-9a-f]{3}$/i.test(v)) n = parseInt(v.slice(1).replace(/./g, c => c + c), 16);
+      if (n === null || !Number.isFinite(n)) throw new Error('Unable to convert color ' + String(v));
+      this.rgb = [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+      return this;
+    }
+    toArray() { return [this.rgb[0], this.rgb[1], this.rgb[2], 1]; }
+  }
   return {
-    Container, Rectangle, Matrix, Texture, RenderTexture, PerspectiveMesh, AlphaMask,
+    Container, Rectangle, Matrix, Color, Texture, RenderTexture, PerspectiveMesh, AlphaMask,
     Sprite, Text, Graphics, GraphicsPath, FillGradient, TextStyle, CanvasTextMetrics,
     Filter, GlProgram, GpuProgram, UniformGroup, BlendModeFilter, AlphaFilter, ExtensionType, extensions, defaultFilterVert: '',
     Assets: { get: async () => null },

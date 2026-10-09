@@ -5,6 +5,8 @@ import { NullSequence } from './Null';
 import { suggestName } from '../core/options';
 import { buildSequenceTree } from '../core/Composition';
 import { CameraSequence } from '../space/CameraSequence';
+import { LightSequence } from '../space/LightSequence';
+import { lightSetProblems } from '../space/lightChecks';
 import { findOverlap, pickActiveCamera } from '../space/camera';
 import { assignDepthOrder } from '../space/depth';
 import { Layer3D, type SpaceHost } from '../space/Layer3D';
@@ -26,6 +28,7 @@ export class CompositionSequence extends Sequence {
   private _compositionShape: CompositionShape | null = null;
   _children: Sequence[] = [];
   private _cameras: CameraSequence[] = [];
+  private _lights: LightSequence[] = [];
   private _layers3d: Layer3D[] = [];
   private _dofSaid = { behind: false, many: false };
   /** What this composition made for blend modes (filters added to layers' chains, groups and their carrier filters): destroyed with it. */
@@ -123,6 +126,10 @@ export class CompositionSequence extends Sequence {
         this._mattes.add(name, source, chain);
       }
     }
+    // Lights taken together (no ambient light, shadows half set, too many lights or casters): said once per composition, only when it has a light
+    if (this._children.some(c => c instanceof LightSequence)) {
+      for (const message of lightSetProblems((this.spec.sequences ?? []) as SequenceSpec[])) console.warn(`pixi-effects: ${describeLayer(this.spec)}: ${message}`);
+    }
     // A camera's `focus: "title"` becomes that layer's first z, here, where the siblings exist (a camera sees only its parent's shape)
     const layerNames = new Set(this._children.map(c => c.spec.name).filter((n): n is string => !!n));
     for (const cam of this._children) {
@@ -144,6 +151,7 @@ export class CompositionSequence extends Sequence {
         this._cameras.push(child);
         continue;
       }
+      if (child instanceof LightSequence) { this._lights.push(child); continue; }     // a light has no picture: it feeds the lit layers' shading
       if (!child.target) continue;
       if (this._mattes?.isSource(child)) continue;                   // a matte is drawn into its texture, not on screen
       const holder = this._parentOf.get(child);

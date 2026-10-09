@@ -1,4 +1,4 @@
-import { Container } from 'pixi.js';
+import { Color, Container } from 'pixi.js';
 import { Sequence } from '../sequences/Base';
 import { MAX_FOV, MIN_FOV, clampFov, homeCamera, homeDistance, type CameraState } from './math';
 import { collectPropKeys } from './specKeys';
@@ -9,6 +9,7 @@ import type { CameraSequenceSpec, Keyframe } from '../types';
 type Carrier = Container & {
   z: number; lookAtX: number; lookAtY: number; lookAtZ: number; fov: number; focus: number; aperture: number;
   offsetX: number; offsetY: number; offsetZ: number; lookOffsetX: number; lookOffsetY: number; lookOffsetZ: number;
+  fogNear: number; fogFar: number; fogColor: string | number; fogAmount: number;
 };
 
 /**
@@ -27,6 +28,9 @@ export class CameraSequence extends Sequence {
   private warnedAperture = false;
   /** True when the camera writes `focus` or `aperture` anywhere: depth of field is on. */
   private dof = false;
+  /** True when the camera writes any fog key anywhere: depth fog is on (nothing is made for a camera without fog). */
+  fog = false;
+  private fogC: Color | null = null;
   private zOfName: ((name: string) => number | undefined) | null = null;
   private layerNames: ReadonlySet<string> = new Set();
 
@@ -50,10 +54,13 @@ export class CameraSequence extends Sequence {
     // added on top of the camera's own move: put a handheld shake (wiggle) here and it never collides with a dolly or an orbit
     carrier.offsetX = carrier.offsetY = carrier.offsetZ = 0;
     carrier.lookOffsetX = carrier.lookOffsetY = carrier.lookOffsetZ = 0;
+    // depth fog: near / far are distances along the view direction; the defaults start at the home distance and end at three times it
+    carrier.fogNear = home.z; carrier.fogFar = home.z * 3; carrier.fogColor = '#000000'; carrier.fogAmount = 1;
     this.target = carrier as unknown as Container;
     const keys = collectPropKeys(this.spec);
     this.autoZ = !keys.has('z');
     this.dof = keys.has('focus') || keys.has('aperture');
+    this.fog = keys.has('fogNear') || keys.has('fogFar') || keys.has('fogColor') || keys.has('fogAmount');
   }
 
   /** The aperture to use now: off unless depth of field is on and the value is a number of 0 or more (said once if it is not). */
@@ -98,6 +105,17 @@ export class CameraSequence extends Sequence {
       lookAtX: c.lookAtX + c.lookOffsetX, lookAtY: c.lookAtY + c.lookOffsetY, lookAtZ: c.lookAtZ + c.lookOffsetZ,
       fov, focus: Number.isFinite(c.focus) ? c.focus : 0, aperture: this.apertureNow(c.aperture),
     };
+  }
+
+  /** The fog now (colour as 0..1 channels, distances, 0..1 amount), or null when the camera writes no fog key. */
+  fogState(): { r: number; g: number; b: number; near: number; far: number; amount: number } | null {
+    if (!this.fog) return null;
+    const c = this.target as unknown as Carrier;
+    const fc = (this.fogC ??= new Color());
+    try { fc.setValue(c.fogColor as never); } catch { fc.setValue(0); }
+    const [r, g, b] = fc.toArray();
+    const amount = Number.isFinite(c.fogAmount) ? Math.min(1, Math.max(0, c.fogAmount)) : 1;
+    return { r: r!, g: g!, b: b!, near: c.fogNear, far: c.fogFar, amount };
   }
 
   /** Lifespan on the global timeline (valid after bindTimeline). */

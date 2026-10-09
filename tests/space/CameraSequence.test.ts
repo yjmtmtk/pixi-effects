@@ -199,3 +199,31 @@ describe('CameraSequence — depth of field', () => {
     expect(cam.state().focus).toBe(-400);
   });
 });
+
+describe('CameraSequence — fog', () => {
+  it('fogState() is null until the camera writes a fog key: a camera without fog costs nothing', async () => {
+    const cam = make({ initial: { fov: 50 } });
+    await cam.build();
+    expect(cam.fogState()).toBeNull();
+  });
+  it('any one fog key turns it on, with the rest at their defaults (near = the home distance, far = three times it, black, full)', async () => {
+    const cam = make({ initial: { fogColor: '#102030' } });
+    await cam.build();
+    (cam.target as unknown as { fogColor: string }).fogColor = '#102030';           // `initial` is applied when the timeline binds; the test sets the carrier by hand
+    const f = cam.fogState()!;
+    expect(f).not.toBeNull();
+    expect(f.near).toBeCloseTo(homeDistance(720, 40), 9);
+    expect(f.far).toBeCloseTo(homeDistance(720, 40) * 3, 9);
+    expect(f.amount).toBe(1);
+    expect([f.r, f.g, f.b].map(v => Math.round(v * 255))).toEqual([16, 32, 48]);
+  });
+  it('a fog key in a keyframe turns it on too; the amount is held between 0 and 1', async () => {
+    const cam = make({ keyframes: [{ at: 1, to: { fogAmount: 0.5 }, duration: 1 }] });
+    await cam.build();
+    expect(cam.fogState()!.amount).toBe(1);
+    (cam.target as unknown as { fogAmount: number }).fogAmount = 5;
+    expect(cam.fogState()!.amount).toBe(1);
+    (cam.target as unknown as { fogAmount: number }).fogAmount = -1;
+    expect(cam.fogState()!.amount).toBe(0);
+  });
+});
