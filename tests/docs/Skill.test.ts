@@ -42,7 +42,7 @@ describe('skills/pixi-effects — what an agent installs', () => {
     }
   });
 
-  it('never tells an agent to run a bin by a bare `npx pixi-effects-…` (npm 404s: the bin name is not a package; `npx -p pixi-effects pixi-effects-check` works)', () => {
+  it('never tells an agent to run a bin by a bare `npx pixi-effects-…` (npm 404s: the bin name is not a package; `npx pixi-effects check` works)', () => {
     for (const f of [...walk(dir), resolve(root, 'README.md'), resolve(root, 'AGENTS.md'), resolve(root, 'llms.txt')]) {
       if (!/\.(md|html|py|txt)$/.test(f)) continue;
       expect(readFileSync(f, 'utf8'), f).not.toMatch(/npx pixi-effects-(check|render|view)/);

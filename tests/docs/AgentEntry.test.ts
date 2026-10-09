@@ -29,12 +29,11 @@ describe('"Use https://github.com/yjmtmtk/pixi-effects to make a video" works as
     for (const m of agents.matchAll(/raw\.githubusercontent\.com\/yjmtmtk\/pixi-effects\/main\/([\w./-]+)/g)) expect(existsSync(resolve(root, m[1]!)), m[1]).toBe(true);
   });
 
-  it('it names the two commands that check and export a video, and both are real bins of the package', () => {
+  it('it names the commands that check and export a video (`npx pixi-effects check|render`), and the package has that bin', () => {
     const bins = Object.keys(JSON.parse(read('package.json')).bin);
-    for (const b of ['pixi-effects-check', 'pixi-effects-render']) {
-      expect(agents).toContain(b);
-      expect(bins).toContain(b);
-    }
+    expect(bins).toContain('pixi-effects');
+    for (const c of ['check', 'render']) expect(agents).toContain(`npx pixi-effects ${c}`);
+    for (const b of ['pixi-effects-check', 'pixi-effects-render']) expect(bins).toContain(b);   // the older names stay
   });
 
   it('CLAUDE.md hands Claude Code the same file, so there is one source of truth', () => {

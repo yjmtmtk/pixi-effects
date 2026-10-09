@@ -1127,6 +1127,6 @@ const sequences = [
 # batch.sh: one video per row of table.csv (name,score). --draft first, to look; remove it for the real files.
 mkdir -p out
 while IFS=, read -r name score; do
-  npx -p pixi-effects pixi-effects-render batch.html --query "name=$(printf %s "$name" | jq -sRr @uri)&score=$score" -o "out/$name.mp4" --quiet
+  npx pixi-effects render batch.html --query "name=$(printf %s "$name" | jq -sRr @uri)&score=$score" -o "out/$name.mp4" --quiet
 done < table.csv
 ```

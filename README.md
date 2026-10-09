@@ -1,6 +1,6 @@
 # pixi-effects
 
-> **Status**: experimental — current release `0.25.0`. The API may still change between minor versions; see the [CHANGELOG](./CHANGELOG.md) for what each release changed.
+> **Status**: experimental — current release `0.26.0`. The API may still change between minor versions; see the [CHANGELOG](./CHANGELOG.md) for what each release changed.
 
 **[Guide →](https://yjmtmtk.github.io/pixi-effects/guide/)** · **[Gallery →](https://yjmtmtk.github.io/pixi-effects/examples/gallery/)** · 50 portfolio pieces written as plain data by AI models · **[Examples →](https://yjmtmtk.github.io/pixi-effects/examples/)** · 15 numbered examples, a music lab + an in-browser playground.
 
@@ -51,8 +51,8 @@ Drop the imports into an [importmap](https://developer.mozilla.org/docs/Web/HTML
     "gsap":                    "https://esm.sh/gsap@3.12.5",
     "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
     "mediabunny":              "https://esm.sh/mediabunny",
-    "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@0.25.0/dist/index.js",
-    "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.25.0/dist/Controller.js"
+    "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@0.26.0/dist/index.js",
+    "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.26.0/dist/Controller.js"
   }
 }
 </script>
@@ -63,7 +63,7 @@ Drop the imports into an [importmap](https://developer.mozilla.org/docs/Web/HTML
 </script>
 ```
 
-Load the `dist/` files **as they are** (jsDelivr's `/npm/…/dist/…`, or unpkg's `https://unpkg.com/pixi-effects@0.25.0/dist/index.js`) rather than a CDN-rebundled build such as `esm.sh/pixi-effects` or jsDelivr's `+esm`: the entries (`pixi-effects`, `…/controller`, `…/three`) share internal chunks, which only works when each file is served untouched.
+Load the `dist/` files **as they are** (jsDelivr's `/npm/…/dist/…`, or unpkg's `https://unpkg.com/pixi-effects@0.26.0/dist/index.js`) rather than a CDN-rebundled build such as `esm.sh/pixi-effects` or jsDelivr's `+esm`: the entries (`pixi-effects`, `…/controller`, `…/three`) share internal chunks, which only works when each file is served untouched.
 
 > **Using three.js?** Add two more entries (`three` and `pixi-effects/three`) to this importmap — see [Adding three.js](#adding-threejs-optional) below.
 >
@@ -79,7 +79,7 @@ Add two more entries to the importmap above: three.js itself, and the `pixi-effe
   "imports": {
     "...":                     "(everything from the importmap above)",
     "three":                   "https://esm.sh/three@0.178.0",
-    "pixi-effects/three":      "https://cdn.jsdelivr.net/npm/pixi-effects@0.25.0/dist/three.js"
+    "pixi-effects/three":      "https://cdn.jsdelivr.net/npm/pixi-effects@0.26.0/dist/three.js"
   }
 }
 </script>
@@ -176,10 +176,10 @@ This library is designed to be written by AI: a video is plain data, and every m
 - [`skills/pixi-effects/SKILL.md`](./skills/pixi-effects/SKILL.md) — a [skill](https://docs.claude.com/en/docs/claude-code/skills) (workflow, rules, verification loop). Copy the `ai/` folder to `~/.claude/skills/pixi-effects/` (or your project's `.claude/skills/`) to have Claude load it automatically when you ask for a video.
 - [`skills/pixi-effects/reference/cheatsheet.md`](./skills/pixi-effects/reference/cheatsheet.md), [`recipes.md`](./skills/pixi-effects/reference/recipes.md) (tested), [`pitfalls.md`](./skills/pixi-effects/reference/pitfalls.md), and a starter [`skills/pixi-effects/template.html`](./skills/pixi-effects/template.html).
 
-- **Look at a page with its timeline, and scrub one with the other:** `npx -p pixi-effects pixi-effects-view my-video.html` (or `node ai/tools/view.mjs …`) opens your browser on a viewer: the page on top, the timeline of every layer under it with a playhead that follows the movie. Click or drag the timeline to seek, click a layer's name to jump to where it starts, Space plays, ← / → step a frame, + / − (or Ctrl/⌘ + wheel) zoom, the names stay in place. For the human who wants to see what the AI made.
-- **Render a page to a video file, headless:** `npx -p pixi-effects pixi-effects-render my-video.html -o my-video.mp4` (or `node ai/tools/render.mjs …`; Node ≥ 22 and Chrome installed, no dependencies). The container follows the extension (`mp4 webm mov mkv`); `--quality very-low…very-high`, `--query lang=ja` (added to the page URL), `--fail-on-warn` (exit 1 when the page logged a warning), `--quiet`. It waits for `window.__ready`, runs `movie.render()` and streams the file to disk; exit 0 = written, 1 = the page or the render failed (no file). For scripts, CI and batches; `pixi-effects-check` below is the review.
-- **A talk as a PDF:** `npx -p pixi-effects pixi-effects-render my-talk.html -o my-talk.pdf` (one page per page of a `deck()` / `stops` movie; `--all-stops` makes a page of every step). The review tool writes `stops.png` for such a page, one picture per stop.
-- **One-command review for the AI that wrote the page:** `npx -p pixi-effects pixi-effects-check my-video.html` (or `node ai/tools/check.mjs my-video.html`; Node ≥ 22 and Chrome installed, no dependencies). It opens the page in its own headless Chrome and reports warnings, layout (`movie.inspect` over the whole timeline), the soundtrack (`movie.inspectAudio`) and a real export decoded again, and writes a contact sheet PNG and a `timeline.html` (every layer as a bar on a time axis) to look at. Exit code 0 / 1.
+- **Look at a page with its timeline, and scrub one with the other:** `npx pixi-effects view my-video.html` (or `node ai/tools/view.mjs …`) opens your browser on a viewer: the page on top, the timeline of every layer under it with a playhead that follows the movie. Click or drag the timeline to seek, click a layer's name to jump to where it starts, Space plays, ← / → step a frame, + / − (or Ctrl/⌘ + wheel) zoom, the names stay in place. For the human who wants to see what the AI made.
+- **Render a page to a video file, headless:** `npx pixi-effects render my-video.html -o my-video.mp4` (or `node ai/tools/render.mjs …`; Node ≥ 22 and Chrome installed, no dependencies). The container follows the extension (`mp4 webm mov mkv`); `--quality very-low…very-high`, `--query lang=ja` (added to the page URL), `--fail-on-warn` (exit 1 when the page logged a warning), `--quiet`. It waits for `window.__ready`, runs `movie.render()` and streams the file to disk; exit 0 = written, 1 = the page or the render failed (no file). For scripts, CI and batches; `pixi-effects-check` below is the review.
+- **A talk as a PDF:** `npx pixi-effects render my-talk.html -o my-talk.pdf` (one page per page of a `deck()` / `stops` movie; `--all-stops` makes a page of every step). The review tool writes `stops.png` for such a page, one picture per stop.
+- **One-command review for the AI that wrote the page:** `npx pixi-effects check my-video.html` (or `node ai/tools/check.mjs my-video.html`; Node ≥ 22 and Chrome installed, no dependencies). It opens the page in its own headless Chrome and reports warnings, layout (`movie.inspect` over the whole timeline), the soundtrack (`movie.inspectAudio`) and a real export decoded again, and writes a contact sheet PNG and a `timeline.html` (every layer as a bar on a time axis) to look at. Exit code 0 / 1.
 
 They ship in the npm package (`node_modules/pixi-effects/ai/`).
 

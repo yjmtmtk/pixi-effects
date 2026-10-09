@@ -3,7 +3,7 @@
  * After `npm publish`: is the release really out, and do the pages that load it from the CDN work?
  *
  *   npm run post-publish:check            the version in package.json
- *   node scripts/post-publish-check.mjs 0.25.0
+ *   node scripts/post-publish-check.mjs 0.26.0
  *
  * The whole test suite does not need to run again: `release:check` ran it on this very tree. What a publish can break is only what
  * lives on the other side: the package on npm, the files on jsDelivr, and the tests that load the released library from the CDN.
