@@ -45,10 +45,11 @@ run('loading progress, on a real browser', () => {
     });
   }, 180000);
 
-  it('the movie is the same with or without a loader to feed (all 120 layers are in the picture)', async () => {
-    const withLoader = await withPage('n=120', cdp => cdp.eval('window.movie.inspect(0).then(r => r.layers?.length ?? r.length ?? -1)'));
-    const without = await withPage('n=120&fast=1', cdp => cdp.eval('window.movie.inspect(0).then(r => r.layers?.length ?? r.length ?? -1)'));
-    expect(withLoader).toBe(without);
-    expect(withLoader).toBeGreaterThanOrEqual(120);
+  it('yielding changes nothing in the movie: built with a yield after every layer and with none, the layers, their bounds and the picture are the same', async () => {
+    const take = (q: string) => withPage(q, cdp => cdp.eval(`(async () => { const i = await window.movie.inspect(0); return JSON.stringify(i) + '|' + (await window.movie.snapshot(0, { as: 'dataURL' })).length + '|' + JSON.stringify(window.movie.timelineData ? window.movie.timelineData().rows.map(r => r.name) : []); })()`));
+    const often = await take('n=120&yield=0');
+    const never = await take('n=120&yield=1000000000');
+    expect(often).toBe(never);
+    expect(often.length).toBeGreaterThan(1000);
   }, 180000);
 });

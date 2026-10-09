@@ -28,7 +28,6 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // ───────────────────────────── pure helpers (unit-tested) ─────────────────────────────
 
-/** Chrome / Chromium executable: $CHROME, then the usual install paths. Null if none is found. */
 /** `assets 0.1 s · build 2.4 s (slowest) · sound 0.6 s · frames 0.2 s` from `movie.loadStages` (milliseconds); the slowest stage is named only when the load took 1 s or more. */
 export function formatLoadStages(stages) {
   if (!stages) return '';
@@ -39,6 +38,7 @@ export function formatLoadStages(stages) {
   return names.map(k => `${k} ${sec(stages[k])}${k === slowest ? ' (slowest)' : ''}`).join(' · ');
 }
 
+/** Chrome / Chromium executable: $CHROME, then the usual install paths. Null if none is found. */
 export function findChrome(env = process.env, exists = fs.existsSync, platform = process.platform) {
   if (env.CHROME && exists(env.CHROME)) return env.CHROME;
   const candidates = platform === 'darwin'

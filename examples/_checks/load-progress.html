@@ -9,7 +9,7 @@
   <!--
     Acceptance check (not an example): a movie of N text layers (query n, default 120) with a .pe-loader next to the canvas. It records every
     `loadprogress` event and what the loader element showed at that moment, so tests/tools/loadProgress.test.ts can read them. Query: n, fast=1
-    (a loader that is never shown: loader: false).
+    (a loader that is never shown: loader: false), yield (ms between yields; 0 or 1e9).
   -->
   <div style="position:relative;width:640px;height:360px">
     <canvas id="stage" width="640" height="360"></canvas>
@@ -28,6 +28,7 @@
     const N = Number(Q.get('n') ?? 120);
     const loader = document.getElementById('loader');
     const sequences = Array.from({ length: N }, (_, i) => ({ type: 'text', name: 't' + i, text: 'Layer ' + i, style: { fontSize: 20, fill: '#fff' }, initial: { x: 10 + (i % 8) * 76, y: 10 + Math.floor(i / 8) * 22 } }));
+    if (Q.has('yield')) window.__peLoadYieldMs = Number(Q.get('yield'));          // 0 = yield after every layer, 1e9 = never: the movie must come out the same
     const movie = new Movie();
     window.movie = movie;
     window.__events = [];

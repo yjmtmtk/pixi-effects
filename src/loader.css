@@ -111,7 +111,8 @@
 .pe-loader--bar[data-stage]::before { display: none; }
 .pe-loader--bar[data-stage]::after { top: 50%; }
 
-/* your own drawing inside the box */
+/* your own drawing inside the box (the built-in bar and label stay out of it; --pe-progress is still there for your own markup) */
+.pe-loader--custom .pe-loader__bar { display: none; }
 .pe-loader--custom::before,
 .pe-loader--custom::after { content: none; display: none; }
 

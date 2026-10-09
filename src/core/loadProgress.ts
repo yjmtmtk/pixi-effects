@@ -30,6 +30,18 @@ export interface LoadProgressOptions {
   /** What to await so the page can paint (default: one macrotask). */
   yielder?: () => Promise<void>;
   yieldEveryMs?: number;
+  /** True while the page is in a hidden tab (a timer there waits about a second per yield, so none is made). */
+  hidden?: () => boolean;
+}
+
+/** One macrotask, through a MessageChannel when there is one: it is not slowed like setTimeout in a tab the viewer is not looking at. */
+function defaultYielder(): Promise<void> {
+  if (typeof MessageChannel === 'undefined') return new Promise<void>(resolve => setTimeout(resolve, 0));
+  return new Promise<void>(resolve => {
+    const ch = new MessageChannel();
+    ch.port1.onmessage = () => { ch.port1.close(); resolve(); };
+    ch.port2.postMessage(0);
+  });
 }
 
 export class LoadProgress {
@@ -43,10 +55,12 @@ export class LoadProgress {
   private readonly _now: () => number;
   private readonly _yielder: () => Promise<void>;
   private readonly _every: number;
+  private readonly _hidden: () => boolean;
 
   constructor(private readonly _onChange: (state: LoadProgressState) => void, opts: LoadProgressOptions = {}) {
     this._now = opts.now ?? (() => (typeof performance !== 'undefined' ? performance.now() : Date.now()));
-    this._yielder = opts.yielder ?? (() => new Promise<void>(resolve => setTimeout(resolve, 0)));
+    this._yielder = opts.yielder ?? defaultYielder;
+    this._hidden = opts.hidden ?? (() => typeof document !== 'undefined' && document.hidden === true);
     this._every = opts.yieldEveryMs ?? YIELD_EVERY_MS;
     this._lastYield = this._now();
   }
@@ -84,7 +98,7 @@ export class LoadProgress {
   /** Await one macrotask when 50 ms of work have gone by since the last time, so the page can paint the bar. Cheap when it is not due. */
   async yieldIfDue(): Promise<void> {
     const t = this._now();
-    if (t - this._lastYield < this._every) return;
+    if (t - this._lastYield < this._every || this._hidden()) return;
     await this._yielder();
     this._lastYield = this._now();
   }

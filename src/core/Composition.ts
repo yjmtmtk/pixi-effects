@@ -55,6 +55,7 @@ export async function buildSequenceTree(
     }
     if (!Cls) {
       console.warn(`pixi-effects: unknown sequence type "${(spec as { type: string }).type}"`);
+      await root.onLayerBuilt?.();                    // it was counted: count it done, or the bar would stop short
       continue;
     }
     const seq = new Cls(spec, parent, root);

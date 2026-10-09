@@ -357,7 +357,7 @@ export class Movie {
         if (loaderEl === undefined) loaderEl = resolveLoader(options.loader, options.canvas ?? (this.app?.canvas as HTMLCanvasElement | undefined) ?? null);
         setLoaderProgress(loaderEl, state);       // the loader first, so a listener sees what the viewer sees
         this.emit('loadprogress', state);
-      });
+      }, { yieldEveryMs: (globalThis as { __peLoadYieldMs?: number }).__peLoadYieldMs });   // __peLoadYieldMs: a hook for the test that yielding changes nothing
       const assetCount = (options.assets ?? []).length;
       lp.begin('assets', assetCount);
       let assetsSeen = 0;
@@ -1084,6 +1084,10 @@ export function collectVideoSequences(seq: Sequence, out: VideoLike[], clocks?: 
 /** How many layers a composition spec holds (its children, theirs, …): the size of the `build` stage of `loadprogress`. */
 function countLayers(spec: { sequences?: unknown[] } | undefined): number {
   let n = 0;
-  for (const s of spec?.sequences ?? []) n += 1 + countLayers(s as { sequences?: unknown[] });
+  for (const s of spec?.sequences ?? []) {
+    const mask = (s as { mask?: unknown }).mask;
+    n += 1 + countLayers(s as { sequences?: unknown[] });
+    for (const m of Array.isArray(mask) ? mask : [mask]) if (m && typeof m === 'object' && 'type' in m) n += 1 + countLayers(m as { sequences?: unknown[] });   // an inline mask is built as a layer too
+  }
   return n;
 }

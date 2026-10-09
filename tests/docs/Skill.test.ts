@@ -41,7 +41,9 @@ describe('skills/pixi-effects — what an agent installs', () => {
   });
 
   it('the starter page preloads the library while the page is parsed, so a long load starts early', () => {
-    expect(read('template.html')).toMatch(/<link rel="modulepreload" href="https:\/\/cdn\.jsdelivr\.net\/npm\/pixi-effects@[\d.]+\/dist\/index\.js"/);
+    const html = read('template.html');
+    expect(html.indexOf('rel="modulepreload"')).toBeGreaterThan(html.indexOf('type="importmap"'));   // after the import map: a browser that reads one map must see it first
+    expect(html).toMatch(/<link rel="modulepreload" href="https:\/\/cdn\.jsdelivr\.net\/npm\/pixi-effects@[\d.]+\/dist\/index\.js"/);
   });
 
   it('has no path that only exists inside the repository', () => {

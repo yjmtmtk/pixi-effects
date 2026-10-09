@@ -150,3 +150,34 @@ describe('loader.css shows the progress', () => {
     expect(css).toMatch(/prefers-reduced-motion/);
   });
 });
+
+describe('review fixes: a failed init says so after progress, and the fade is not cut short', () => {
+  it('failLoader takes the progress away, so the error label (not "BUILDING LAYERS 42%") is what is shown', () => {
+    const canvas = page('<div class="stage"><canvas id="stage"></canvas><div class="pe-loader" id="l" data-label="LOADING"></div></div>');
+    const el = resolveLoader(undefined, canvas)!;
+    setLoaderProgress(el, { stage: 'build', loaded: 5, total: 10, progress: 0.42 });
+    failLoader(el, 'COULD NOT LOAD');
+    expect(el.getAttribute('data-stage')).toBeNull();
+    expect(el.getAttribute('data-percent')).toBeNull();
+    expect(el.querySelector('.pe-loader__bar')).toBeNull();
+    expect(el.getAttribute('data-label')).toBe('COULD NOT LOAD');
+  });
+
+  it('only the loader\'s own opacity transition removes it: the bar finishing its transform transition must not', () => {
+    const canvas = page('<div class="stage"><canvas id="stage"></canvas><div class="pe-loader" id="l"></div></div>');
+    const el = resolveLoader(undefined, canvas)!;
+    setLoaderProgress(el, { stage: 'frames', loaded: 0, total: 0, progress: 1 });
+    dismissLoader(el);
+    const bar = el.querySelector('.pe-loader__bar')!;
+    const fromBar = new Event('transitionend', { bubbles: true }); Object.defineProperty(fromBar, 'propertyName', { value: 'transform' });
+    bar.dispatchEvent(fromBar);
+    expect(el.isConnected).toBe(true);
+    const own = new Event('transitionend', { bubbles: true }); Object.defineProperty(own, 'propertyName', { value: 'opacity' });
+    el.dispatchEvent(own);
+    expect(el.isConnected).toBe(false);
+  });
+
+  it('a custom loader keeps its own drawing: the built-in bar is hidden there', () => {
+    expect(css).toMatch(/\.pe-loader--custom \.pe-loader__bar\s*\{[^}]*display:\s*none/);
+  });
+});

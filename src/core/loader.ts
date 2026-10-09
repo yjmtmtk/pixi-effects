@@ -29,7 +29,7 @@ export function dismissLoader(loader: HTMLElement | null): void {
   loader.setAttribute('aria-hidden', 'true');
   let removed = false;
   const remove = () => { if (!removed) { removed = true; loader.remove(); } };
-  loader.addEventListener('transitionend', remove, { once: true });
+  loader.addEventListener('transitionend', e => { if (e.target === loader && (e as TransitionEvent).propertyName === 'opacity') remove(); });   // not the bar's own transform transition
   setTimeout(remove, FADE_FALLBACK_MS);                       // no transition (display: none, reduced styles): still gone
 }
 
@@ -37,6 +37,8 @@ export function dismissLoader(loader: HTMLElement | null): void {
 export function failLoader(loader: HTMLElement | null, message: string): void {
   if (!loader) return;
   loader.setAttribute('data-state', 'error');
+  for (const a of ['data-stage', 'data-percent']) loader.removeAttribute(a);       // the error label, not "BUILDING LAYERS 42%"
+  loader.querySelector('.pe-loader__bar')?.remove();
   if (loader.hasAttribute('data-label')) loader.setAttribute('data-label', message);
   loader.setAttribute('aria-busy', 'false');
 }

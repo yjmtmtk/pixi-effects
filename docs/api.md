@@ -223,7 +223,7 @@ movie.off(event, fn): this
 | `'play'`    | none                                              | when `play()` actually transitions from paused        |
 | `'pause'`   | none                                              | when `pause()` actually transitions from playing      |
 | `'progress'`| `{ progress: number; frame: number; totalFrames: number }` | during `render()`, once per encoded frame    |
-| `'loadprogress'` | `{ stage: 'assets' \| 'build' \| 'sound' \| 'frames'; loaded: number; total: number; progress: number }` | during `init()`, after each asset / layer / sound; `progress` is 0 to 1 for the whole init. The page's `.pe-loader` already shows it; `movie.loadStages` gives the milliseconds per stage afterwards |
+| `'loadprogress'` | `{ stage: 'assets' \| 'build' \| 'sound' \| 'frames'; loaded: number; total: number; progress: number }` | during `init()`, after each asset and each layer built, once the sound is mixed; `progress` is 0 to 1 for the whole init. The page's `.pe-loader` already shows it; `movie.loadStages` gives the milliseconds per stage afterwards |
 | `'seeking'` / `'seeked'` | `{ frame, totalFrames }` (the frame it lands on) | a `gotoFrame()` to another frame starts / has finished. NOT emitted for playback ticks, `render()`, `snapshot()` or `contactSheet()` |
 | `'stop'`    | `{ index: number; stop: Stop; pageIndex: number }` | a presentation is on a stop: `next()` played to it, or `prev()` / `goToStop()` / `goToPage()` jumped to it |
 | `'ended'`   | none                                              | playback ran off the end (after `'pause'`); pausing by hand does not emit it |
@@ -373,7 +373,7 @@ el('play').onclick = () => (movie.isPlaying ? movie.pause() : movie.play());
 el('seek').oninput = e => movie.gotoFrame(+e.target.value);
 ```
 
-What you have: `play()`, `pause()`, `gotoFrame(frame)`, `volume`, `muted` / `toggleMute()`; the state `currentFrame`, `totalFrames`, `frameRate`, `duration`, `isPlaying`, `isReady`, `audioBlocked` (true while the browser keeps the movie's sound silent until a tap: show "tap for sound"; a tap or key press that arrives while `play()` is pending, or the next `play()` made from a tap, starts it); the events above; `render()` for a download button; `snapshot()` for a thumbnail; `timelineData()` / `timelineSvg()` for a timeline like `pixi-effects-view`'s. Keep the movie's `canvas` wherever your layout wants it (the page's CSS sizes it). To only change how `Controller` looks, see **Theme** below.
+What you have: `play()`, `pause()`, `gotoFrame(frame)`, `volume`, `muted` / `toggleMute()`; the state `currentFrame`, `totalFrames`, `frameRate`, `duration`, `isPlaying`, `isReady`, `loadStages` (milliseconds `init()` spent in `assets` / `build` / `sound` / `frames`), `audioBlocked` (true while the browser keeps the movie's sound silent until a tap: show "tap for sound"; a tap or key press that arrives while `play()` is pending, or the next `play()` made from a tap, starts it); the events above; `render()` for a download button; `snapshot()` for a thumbnail; `timelineData()` / `timelineSvg()` for a timeline like `pixi-effects-view`'s. Keep the movie's `canvas` wherever your layout wants it (the page's CSS sizes it). To only change how `Controller` looks, see **Theme** below.
 
 ## `Controller`
 

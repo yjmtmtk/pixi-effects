@@ -73,4 +73,13 @@ describe('LoadProgress — one number from 0 to 1 for a movie that takes seconds
     lp.finish();
     expect(lp.timings()).toEqual({ assets: 100, build: 2400, sound: 600, frames: 0 });
   });
+
+  it('does not yield in a hidden tab (a timer there waits about a second), and the default yielder is not a plain setTimeout', async () => {
+    let hidden = true; let yields = 0; let t = 0;
+    const lp = new LoadProgress(() => {}, { now: () => t, yielder: async () => { yields++; }, hidden: () => hidden });
+    t = 500; await lp.yieldIfDue();
+    expect(yields).toBe(0);
+    hidden = false; await lp.yieldIfDue();
+    expect(yields).toBe(1);
+  });
 });
