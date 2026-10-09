@@ -5,7 +5,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ORIGIN = 'https://yjmtmtk.github.io/pixi-effects/';
-const SKIP_DIRS = new Set(['node_modules', '.git', 'wedding-profilemovie', '_notes']);
+const SKIP_DIRS = new Set(['node_modules', '.git', '_notes']);
 const ATTR = /\b(?:href|src|poster|data-src|data-embed)\s*=\s*"([^"]*)"/gi;
 const SRCSET = /\bsrcset\s*=\s*"([^"]*)"/gi;
 const IMPORTMAP = /<script\b[^>]*type=["']importmap["'][^>]*>([\s\S]*?)<\/script>/gi;
