@@ -95,6 +95,12 @@ describe('focusProblems', () => {
   it('a layer whose z moves later (only the first z is read)', () => {
     expect(focusProblems({ initial: { focus: 'mover' } }, sibs)).toEqual([{ kind: 'moving', name: 'mover' }]);
   });
+  it('a sibling name with spaces or a leading digit is a name, and is judged like any other', () => {
+    const odd = [sp({ type: 'text', name: 'hero card', threeD: true, text: 'a' }), sp({ type: 'image', name: '3d-label', asset: 'a' })];
+    expect(focusProblems({ initial: { focus: 'hero card' } }, odd)).toEqual([]);
+    expect(focusProblems({ initial: { focus: '3d-label' } }, odd)).toEqual([{ kind: 'not-threeD', name: '3d-label' }]);
+    expect(withFocusResolved({ initial: { focus: 'hero card' } }, () => -300, new Set(['hero card'])).initial).toEqual({ focus: -300 });
+  });
   it('says each problem once, however many times the name is written', () => {
     const kfs = [{ at: 0, from: { focus: 'tilte' }, to: { focus: 'tilte' } }, { at: 1, to: { focus: 'tilte' } }];
     expect(focusProblems({ initial: { focus: 'tilte' }, keyframes: kfs }, sibs)).toHaveLength(1);

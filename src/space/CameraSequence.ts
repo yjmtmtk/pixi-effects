@@ -27,6 +27,7 @@ export class CameraSequence extends Sequence {
   /** True when the camera writes `focus` or `aperture` anywhere: depth of field is on. */
   private dof = false;
   private zOfName: ((name: string) => number | undefined) | null = null;
+  private layerNames: ReadonlySet<string> = new Set();
 
   async build(): Promise<void> {
     const compW = this.parent?.width ?? this.root.width;
@@ -55,13 +56,14 @@ export class CameraSequence extends Sequence {
   }
 
   /** Called by the composition once its children exist: how a layer name in `focus` becomes the z of that layer. */
-  resolveFocusNames(zOf: (name: string) => number | undefined): void {
+  resolveFocusNames(zOf: (name: string) => number | undefined, names: ReadonlySet<string> = new Set()): void {
     this.zOfName = zOf;
+    this.layerNames = names;
   }
 
   protected override displayProps(): ReturnType<Sequence['displayProps']> {
     const base = super.displayProps();
-    return this.zOfName ? (withFocusResolved(base as { initial?: Record<string, unknown>; keyframes?: Keyframe[] }, this.zOfName) as typeof base) : base;
+    return this.zOfName ? (withFocusResolved(base as { initial?: Record<string, unknown>; keyframes?: Keyframe[] }, this.zOfName, this.layerNames) as typeof base) : base;
   }
 
   /** The camera's state at the current timeline position. */

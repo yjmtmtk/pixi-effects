@@ -33,21 +33,28 @@ export function looksLikeLayerName(s: string): boolean {
 type Bag = Record<string, unknown>;
 type Props = { initial?: Bag; keyframes?: Keyframe[] };
 
-/** Every `focus` string in `initial` and in the keyframes' `set` / `to` / `from`. */
-function focusNames(props: Props): string[] {
+/** A `focus` string that names a layer: exactly the name of a sibling (any string a layer can be called by), or shaped like a name. */
+const isName = (v: unknown, known: ReadonlySet<string>): v is string => typeof v === 'string' && (known.has(v) || looksLikeLayerName(v));
+
+/** Every layer name in `initial` and in the keyframes' `set` / `to` / `from` (`known`: the names the sibling layers have). */
+function focusNames(props: Props, known: ReadonlySet<string>): string[] {
   const out: string[] = [];
-  const read = (bag: Bag | undefined) => { const v = bag?.focus; if (typeof v === 'string' && looksLikeLayerName(v)) out.push(v); };
+  const read = (bag: Bag | undefined) => { const v = bag?.focus; if (isName(v, known)) out.push(v); };
   read(props.initial);
   for (const kf of props.keyframes ?? []) for (const bag of [kf.set, kf.to, kf.from]) read(bag as Bag | undefined);
   return out;
 }
 
-/** A copy of `props` with every layer-name `focus` replaced by the z `zOf` gives (0, the z = 0 plane, if it gives none). The input is not changed. */
-export function withFocusResolved<T extends Props>(props: T, zOf: (name: string) => number | undefined): T {
-  if (focusNames(props).length === 0) return props;
+/**
+ * A copy of `props` with every layer-name `focus` replaced by the z `zOf` gives (0, the z = 0 plane, if it gives none). The input is not
+ * changed. `known` is the set of names the sibling layers have: a string that is exactly one of them is a name even if it looks like
+ * an expression (`hero card`, `3d-title`).
+ */
+export function withFocusResolved<T extends Props>(props: T, zOf: (name: string) => number | undefined, known: ReadonlySet<string> = new Set()): T {
+  if (focusNames(props, known).length === 0) return props;
   const fix = (bag: Bag | undefined): Bag | undefined => {
     const v = bag?.focus;
-    if (!bag || typeof v !== 'string' || !looksLikeLayerName(v)) return bag;
+    if (!bag || !isName(v, known)) return bag;
     return { ...bag, focus: zOf(v) ?? 0 };
   };
   return {
@@ -78,7 +85,8 @@ export function focusProblems(camera: Props, siblings: readonly SequenceSpec[]):
   const out: FocusProblem[] = [];
   const said = new Set<string>();
   const threeD = siblings.filter(s => s.threeD && s.name).map(s => s.name!);
-  for (const name of focusNames(camera)) {
+  const known = new Set(siblings.map(s => s.name).filter((n): n is string => !!n));
+  for (const name of focusNames(camera, known)) {
     if (said.has(name)) continue;
     said.add(name);
     const hit = siblings.find(s => s.name === name);

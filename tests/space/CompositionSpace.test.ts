@@ -212,6 +212,16 @@ describe('CompositionSequence — focus by layer name', () => {
     ]);
     expect(focusOf(comp2)).toBe(-320);
   });
+  it('a layer name may be any string a layer can be called by (spaces, a leading digit): the exact name wins over the expression reading', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const comp = await build([
+      { type: 'camera', initial: { focus: 'hero card' }, keyframes: [{ at: 0, to: { focus: '3d-title' }, duration: 1 }] },
+      { type: '__box', name: 'hero card', threeD: true, initial: { z: -300 } },
+      { type: '__box', name: '3d-title', threeD: true, initial: { z: -700 } },
+    ]);
+    expect(focusOf(comp)).toBe(-300);
+    expect(warn.mock.calls.filter(c => String(c[0]).includes('focus') || String(c[0]).includes('expression failed'))).toEqual([]);
+  });
   it('warns once for a name nobody has, and uses the z = 0 plane', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const comp = await build([
@@ -316,6 +326,21 @@ describe('CompositionSequence — depth of field', () => {
     expect(filters(comp, 1)).toBeNull();
     comp.updateSpace(0.5, host);                      // and back again
     expect(filters(comp, 1)).toHaveLength(1);
+  });
+  it('a layer that is hidden (lifespan over, alpha 0) is not blurred and not counted, whatever the frames visited before (the picture is the same for every order)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const slides = Array.from({ length: 24 }, (_, i) => ({ type: '__box', name: 's' + i, threeD: true, initial: { z: -400 } }));
+    const comp = await build([{ type: 'camera', initial: { focus: 0, aperture: 30 } }, ...slides]);
+    const { host } = mkHost();
+    comp.updateSpace(0, host);                                              // all 24 are drawn: 24 blurred, one warning
+    expect(warn.mock.calls.filter(c => String(c[0]).includes('blurred'))).toHaveLength(1);
+    warn.mockClear();
+    for (const c of comp._children.slice(1, 23)) (c.target as unknown as { renderable: boolean }).renderable = false;   // 22 of them are over
+    comp.updateSpace(1, host);
+    const rows = comp.layers();
+    expect(rows.filter(r => r.depthBlur > 0)).toHaveLength(2);              // only the two still shown
+    expect(rows.slice(0, 22).every(r => r.depthBlur === 0)).toBe(true);
+    for (let i = 0; i < 22; i++) expect(filters(comp, i)).toBeNull();
   });
   it('layers() reports the blur each threeD layer has now (for inspect)', async () => {
     const comp = await build(scene({ focus: 'front', aperture: 60 }));

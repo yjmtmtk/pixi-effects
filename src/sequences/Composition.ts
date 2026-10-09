@@ -98,12 +98,13 @@ export class CompositionSequence extends Sequence {
     );
     this._resolveParents();
     // A camera's `focus: "title"` becomes that layer's first z, here, where the siblings exist (a camera sees only its parent's shape)
+    const layerNames = new Set(this._children.map(c => c.spec.name).filter((n): n is string => !!n));
     for (const cam of this._children) {
       if (!(cam instanceof CameraSequence)) continue;
       cam.resolveFocusNames(name => {
         const hit = this._children.find(c => c.spec.name === name && c.spec.threeD);
         return hit ? layerInitialZ(hit.spec, hit.scope() as unknown as Record<string, number>) : undefined;
-      });
+      }, layerNames);
     }
     for (const child of this._children) {
       // Cameras are display-less: they only feed the projection pass.
@@ -395,7 +396,8 @@ export class CompositionSequence extends Sequence {
     }
     let blurred = 0;
     for (const l of this._layers3d) {
-      l.setBlur(blurRadius(aperture, basis.focal, l.depth, focusDepth));
+      // a hidden layer (lifespan over, alpha 0, behind the camera) keeps the depth of the last frame it was drawn: it is not blurred or counted
+      l.setBlur(l.display.visible ? blurRadius(aperture, basis.focal, l.depth, focusDepth) : 0);
       if (l.blur > 0) blurred++;
     }
     if (blurred >= MANY_BLURRED && !this._dofSaid.many) {
