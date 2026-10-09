@@ -51,7 +51,7 @@
       const table = await (await fetch('./chapters.json')).json();
       const row = table.chapters.find(c => c.id === id);
       if (!row) throw new Error(`no chapter "${id}" in chapters.json`);
-      const facts = { kb: 0, layers: 0, lines: 0, excerpt: [] };       // the real numbers exist only in the built reel
+      const facts = { kb: 0, layers: 0, lineCount: 0, lines: [] };      // the real numbers exist only in the built reel
       const P = shared(lib, facts);
       const plan = P.planOf(table);
       const music = (await import('./music.js')).default(P, plan);
