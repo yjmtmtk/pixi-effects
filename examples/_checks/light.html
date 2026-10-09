@@ -47,6 +47,8 @@
       times.sort((a, b) => a - b);
       return times[Math.floor(times.length / 2)];
     };
+    // destroy the movie under test and return what the page warned while doing it (mk() clears the log after its own destroy)
+    window.destroyMovie = async () => { window.__logs.length = 0; await window.movie.destroy(); window.movie = null; return window.__logs.slice(); };
     window.shuffle = (arr, seed = 1) => { const a = arr.slice(); let s = seed; const r = () => (s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
     window.orders = async (frames) => {
       const take = async (order) => { const m = {}; for (const f of order) m[f] = await window.snap(f); return m; };

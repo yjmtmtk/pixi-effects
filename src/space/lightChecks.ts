@@ -68,6 +68,22 @@ export function lightLayerProblems(spec: SequenceSpec): string[] {
   if (numbersOf(spec, 'coneFeather').some(v => v > 1 || v < 0)) out.push('coneFeather is 0..1 (the soft part of the cone edge, as a fraction of the half angle); it is clamped');
   const big = numbersOf(spec, 'intensity').find(v => v > 10);
   if (big !== undefined) out.push(`intensity ${big} looks like a percentage: it is a multiplier (1 = full, 0.25 = a quarter); did you mean ${big / 100}?`);
+  const kindNow = typeof raw.kind === 'string' && (LIGHT_KINDS as readonly string[]).includes(raw.kind) ? raw.kind : 'point';
+  const has = (...keys: string[]) => keys.filter(k => bagsOf(spec).some(b => b[k] !== undefined));
+  const falloffOn = raw.falloff === 'smooth' || raw.falloff === 'inverseSquare';
+  if (kindNow === 'ambient' && raw.castsShadows) out.push('an ambient light has no direction, so it makes no shadow: castsShadows is ignored (put it on a point, spot or parallel light)');
+  const dist = has('radius', 'falloffDistance');
+  if (dist.length && !falloffOn && kindNow !== 'ambient' && kindNow !== 'parallel') out.push(`${dist.join(' / ')} only matter with falloff: 'smooth' or 'inverseSquare' (the default 'none' does not fade with distance): write falloff on the layer`);
+  const shadowNums = has('shadowDarkness', 'shadowDiffusion');
+  if (shadowNums.length && !raw.castsShadows) out.push(`${shadowNums.join(' / ')} only matter with castsShadows: true on the light (and on the layers that cast)`);
+  const cone = has('coneAngle', 'coneFeather');
+  if (cone.length && kindNow !== 'spot') out.push(`${cone.join(' / ')} only matter for kind: 'spot' (this light is ${kindNow})`);
+  if (kindNow === 'parallel' && raw.falloff !== undefined && raw.falloff !== 'none') out.push('a parallel light has no distance, so falloff has no effect on it');
+  const init = (spec as { initial?: Bag }).initial ?? {};
+  const pos = ['x', 'y', 'z'].map(k => init[k]), look = ['lookAtX', 'lookAtY', 'lookAtZ'].map(k => init[k]);
+  if ((kindNow === 'spot' || kindNow === 'parallel') && pos.every(v => typeof v === 'number') && pos.every((v, i) => v === look[i])) {
+    out.push('lookAt equals the position, so the light has no direction and lights nothing: move lookAtX / lookAtY / lookAtZ to where it should point');
+  }
   if ((spec as { threeD?: boolean }).threeD) out.push('a light has no picture, so threeD has no effect on it (write it without threeD)');
   return out;
 }
@@ -86,7 +102,7 @@ export function lightSetProblems(layers: readonly SequenceSpec[]): string[] {
     const dropped = direct.slice(MAX_LIGHTS).map(l => nameOf(l, layers.indexOf(l)));
     out.push(`${direct.length} lights, but at most ${MAX_LIGHTS} are used (the first ${MAX_LIGHTS}, in layer order); ${dropped.join(', ')} and later are dropped. Use fewer lights`);
   }
-  const lightsCast = lights.some(l => (l as { castsShadows?: boolean }).castsShadows);
+  const lightsCast = lights.some(l => kindOf(l) !== 'ambient' && (l as { castsShadows?: boolean }).castsShadows);
   const casters = layers.filter(l => l.type !== 'light' && (l as { castsShadows?: boolean }).castsShadows && (l as { threeD?: boolean }).threeD);
   if (casters.length > 0 && !lightsCast) out.push(`${casters.length} layer${casters.length > 1 ? 's have' : ' has'} castsShadows but no light has castsShadows: add castsShadows: true to the light that should make the shadows`);
   if (lightsCast && casters.length === 0) out.push('a light has castsShadows but no layer has castsShadows: add castsShadows: true to the threeD layers that should cast a shadow');

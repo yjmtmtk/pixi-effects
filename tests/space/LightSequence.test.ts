@@ -60,3 +60,12 @@ describe('LightSequence', () => {
     expect(whole.window()).toEqual({ start: 0, end: 10 });
   });
 });
+
+describe('LightSequence — a kind or falloff nobody knows is the default the warning promises', () => {
+  it('an unknown kind is a point light and an unknown falloff is none (the shader must never see NaN)', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const l = make({ kind: 'directional', falloff: 'quadratic' });
+    await l.build();
+    expect([l.state().kind, l.state().falloff]).toEqual(['point', 'none']);
+  });
+});

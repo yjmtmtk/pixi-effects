@@ -77,3 +77,27 @@ describe('fogProblems', () => {
     expect(fogProblems(cam({ fogAmount: 5 })).join('\n')).toContain('0..1');
   });
 });
+
+describe('settings that do nothing', () => {
+  const L2 = (o: Record<string, unknown>) => lightLayerProblems(S({ type: 'light', ...o })).join('\n');
+  it('an ambient light cannot cast shadows (and does not count as the light that does)', () => {
+    expect(L2({ kind: 'ambient', castsShadows: true })).toContain('ambient light has no direction');
+    const set = lightSetProblems([S({ type: 'light', kind: 'ambient', castsShadows: true }), S({ type: 'light', kind: 'point' }), S({ type: 'shape', shape: 'rect', threeD: true, castsShadows: true })]).join('\n');
+    expect(set).toContain('no light has castsShadows');
+  });
+  it('radius and falloffDistance need a falloff; shadowDarkness and shadowDiffusion need castsShadows; cone numbers need a spot', () => {
+    expect(L2({ kind: 'point', initial: { radius: 300 } })).toMatch(/radius.*falloff: 'smooth' or 'inverseSquare'/);
+    expect(L2({ kind: 'point', falloff: 'smooth', initial: { radius: 300 } })).not.toContain('falloff:');
+    expect(L2({ kind: 'point', initial: { shadowDiffusion: 20 } })).toMatch(/shadowDiffusion.*castsShadows/);
+    expect(L2({ kind: 'point', castsShadows: true, initial: { shadowDiffusion: 20 } })).not.toContain('castsShadows: true on the light');
+    expect(L2({ kind: 'point', initial: { coneAngle: 30 } })).toMatch(/coneAngle.*spot/);
+    expect(L2({ kind: 'spot', initial: { coneAngle: 30 } })).not.toContain('only for');
+    expect(L2({ kind: 'parallel', falloff: 'smooth' })).toContain('parallel light has no distance');
+  });
+  it('a spot or parallel light that looks at its own position has no direction and lights nothing', () => {
+    const at = { x: 100, y: 100, z: 300, lookAtX: 100, lookAtY: 100, lookAtZ: 300 };
+    expect(L2({ kind: 'spot', initial: at })).toContain('lookAt equals the position');
+    expect(L2({ kind: 'point', initial: at })).not.toContain('lookAt equals');
+    expect(L2({ kind: 'spot', initial: { ...at, lookAtZ: 0 } })).not.toContain('lookAt equals');
+  });
+});

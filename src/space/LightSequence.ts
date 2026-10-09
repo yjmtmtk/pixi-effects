@@ -7,7 +7,7 @@ import { Color, Container } from 'pixi.js';
 import { Sequence } from '../sequences/Base';
 import { homeDistance } from './math';
 import type { CameraWindow } from './camera';
-import type { LightState } from './lighting';
+import { FALLOFFS, LIGHT_KINDS, type LightState } from './lighting';
 import type { LightSequenceSpec } from '../types';
 
 type Carrier = Container & {
@@ -39,11 +39,12 @@ export class LightSequence extends Sequence {
     try { this.color.setValue(c.color as never); } catch { this.color.setValue(0xffffff); }
     const [r, g, b] = this.color.toArray();
     return {
-      kind: this.spec.kind ?? 'point',
+      // a kind or falloff nobody knows is the default the warning promises (the shader must never see an unknown id)
+      kind: LIGHT_KINDS.includes(this.spec.kind as never) ? this.spec.kind! : 'point',
       x: c.x, y: c.y, z: c.z, lookAtX: c.lookAtX, lookAtY: c.lookAtY, lookAtZ: c.lookAtZ,
       r: r!, g: g!, b: b!, intensity: Number.isFinite(c.intensity) ? Math.max(0, c.intensity) : 1,
       coneAngle: c.coneAngle, coneFeather: c.coneFeather,
-      falloff: this.spec.falloff ?? 'none', radius: c.radius, falloffDistance: c.falloffDistance,
+      falloff: FALLOFFS.includes(this.spec.falloff as never) ? this.spec.falloff! : 'none', radius: c.radius, falloffDistance: c.falloffDistance,
       castsShadows: !!this.spec.castsShadows,
       shadowDarkness: Math.min(1, Math.max(0, c.shadowDarkness)), shadowDiffusion: Math.max(0, c.shadowDiffusion),
     };

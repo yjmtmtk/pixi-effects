@@ -244,6 +244,9 @@ export class CompositionSequence extends Sequence {
     } else if (this._cameras.length > 0) {
       console.warn('pixi-effects: camera has no effect: this composition has no threeD layers');
     }
+    if (this._layers3d.length === 0 && this._lights.length > 0) {
+      console.warn(`pixi-effects: ${describeLayer(this.spec)}: a light has no effect: this composition has no threeD layers (a light lights only the threeD layers of its own composition, not those of the compositions nested in it: put the light inside the composition that holds them)`);
+    }
 
     this.buildFilters();
   }
@@ -368,6 +371,7 @@ export class CompositionSequence extends Sequence {
       if (want === undefined) continue;
       const who = describeLayer(child.spec);
       if (child instanceof CameraSequence) { console.warn(`pixi-effects: ${who}: a camera cannot have a parent; ignored`); continue; }
+      if (child instanceof LightSequence) { console.warn(`pixi-effects: ${who}: a light cannot have a parent (parent "${want}" ignored: move the light with its own x / y / z keyframes)`); continue; }
       if (child.spec.threeD) { console.warn(`pixi-effects: ${who}: a threeD layer cannot have a parent (parent "${want}" ignored)`); continue; }
       const same = this._children.filter(c => c.spec.name === want);
       if (same.length === 0) {
@@ -446,7 +450,9 @@ export class CompositionSequence extends Sequence {
    */
   private _applyLighting(t: number, compEnd: number, basis: CameraBasis, cam: CameraSequence | null): void {
     const fog = cam?.fogState() ?? null;
-    if (this._lights.length === 0 && !fog) return;
+    // decided on what the composition HAS, not on this frame's camera: once a layer has the lit shader, every later frame must write its uniforms
+    // (a fog camera that is over, or a cut to a camera without fog, would leave the last frame's fog on the layers)
+    if (this._lights.length === 0 && !this._cameras.some(c => c.fog)) return;
     const live = this._lights.filter(l => { const w = l.window(); return t >= w.start && (t < w.end || (w.end >= compEnd && t <= w.end)); });
     const states = live.map(l => l.state());
     const packed = states.length > 0 ? packLights(states) : null;
@@ -514,6 +520,8 @@ export class CompositionSequence extends Sequence {
     this._inner?.kill();
     this._inner = null;
     this._clock = null;
+    // every shader goes first: a caster's texture is bound in the shaders of the layers that read its shadow, and destroying it while they still hold it warns
+    for (const l of this._layers3d) l.setLit(false);
     for (const l of this._layers3d) l.destroy();
     this._layers3d = [];
     this._mattes?.destroy();

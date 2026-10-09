@@ -43,10 +43,15 @@ const L = (o: Partial<LightState> & { kind: LightState['kind'] }): LightState =>
   x: 0, y: 0, z: 100, lookAtX: 160, lookAtY: 90, lookAtZ: 0, r: 1, g: 1, b: 1, intensity: 1,
   coneAngle: 90, coneFeather: 0.5, falloff: 'none', radius: 500, falloffDistance: 500, castsShadows: false, shadowDarkness: 1, shadowDiffusion: 0, ...o,
 });
-const lightSpec = (s: LightState, extra: Record<string, unknown> = {}) => ({
-  type: 'light', kind: s.kind, falloff: s.falloff, ...extra,
-  initial: { x: s.x, y: s.y, z: s.z, lookAtX: s.lookAtX, lookAtY: s.lookAtY, lookAtZ: s.lookAtZ, intensity: s.intensity, coneAngle: s.coneAngle, coneFeather: s.coneFeather, radius: s.radius, falloffDistance: s.falloffDistance },
-});
+/** The layer for a reference light: only the numbers that matter for its kind (the build warns about the ones that do nothing). */
+const lightSpec = (s: LightState, extra: Record<string, unknown> = {}) => {
+  const initial: Record<string, number> = { intensity: s.intensity };
+  if (s.kind !== 'ambient') Object.assign(initial, { x: s.x, y: s.y, z: s.z });
+  if (s.kind === 'spot' || s.kind === 'parallel') Object.assign(initial, { lookAtX: s.lookAtX, lookAtY: s.lookAtY, lookAtZ: s.lookAtZ });
+  if (s.kind === 'spot') Object.assign(initial, { coneAngle: s.coneAngle, coneFeather: s.coneFeather });
+  if (s.falloff !== 'none' && s.kind !== 'ambient' && s.kind !== 'parallel') Object.assign(initial, { radius: s.radius, falloffDistance: s.falloffDistance });
+  return { type: 'light', kind: s.kind, ...(s.falloff !== 'none' ? { falloff: s.falloff } : {}), ...extra, initial };
+};
 const ambient = (i: number) => L({ kind: 'ambient', intensity: i });
 
 /** A grey card as big as the picture, facing the camera at z = 0. */
@@ -512,6 +517,30 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
       expect(o.bwdMax).toBe(0);
       expect(o.jmpMax).toBe(0);
       expect(mine(await cdp.eval('__logs'))).toEqual([]);
+    });
+  });
+
+  // ── from the final review ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+  it('a camera with fog that is over (outside its life) leaves no fog behind: any seek order shows the same pictures as a composition without that camera', async () => {
+    await withPage(async (cdp) => {
+      const plain = await frame(cdp, [farCard()], 45, { duration: 2 });
+      const seq = [{ type: 'camera', at: 0, duration: 1, initial: FOGGED }, farCard()];
+      await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: { sequences: seq } })})`);
+      const early: string = await cdp.eval('snap(15)');                          // inside the camera's life: fogged
+      const late: string = await cdp.eval('snap(45)');                           // after it: the home camera, no fog
+      near(await rgb(cdp, early, 160, 90), [0, 1, 2].map(k => 128 * (1 - fogAmount(CAM.z + 200, FOGGED.fogNear, FOGGED.fogFar, FOGGED.fogAmount)) + [0x20, 0x40, 0x60][k]! * fogAmount(CAM.z + 200, FOGGED.fogNear, FOGGED.fogFar, FOGGED.fogAmount)), 'fogged inside the camera\'s life');
+      expect(await diff(cdp, plain, late)).toBe(0);
+      const o = await cdp.eval('orders([0, 10, 15, 25, 35, 45, 59])');
+      expect(o.bwdMax).toBe(0);
+      expect(o.jmpMax).toBe(0);
+    });
+  });
+
+  it('destroying a movie that drew shadows leaves no "destroyed while still bound" warning from the renderer', async () => {
+    await withPage(async (cdp) => {
+      await frame(cdp, shadowScene([blocker('block', 160, 90, 0)], SUN, { castsShadows: true }));
+      const logs: string[] = await cdp.eval('destroyMovie()');
+      expect(logs.filter(l => /destroyed|still bound/i.test(l)), JSON.stringify(logs)).toEqual([]);
     });
   });
 });

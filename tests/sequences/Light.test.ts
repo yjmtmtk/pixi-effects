@@ -122,3 +122,17 @@ describe('lit layers (the shader is made only when there is something to light)'
     expect((material.shader as unknown as { destroyed: boolean }).destroyed).toBe(true);
   });
 });
+
+
+describe('a light that cannot do anything says so', () => {
+  const said = async (sequences: unknown[]) => { const warn = vi.spyOn(console, 'warn').mockImplementation(() => {}); await build(sequences); return warn.mock.calls.map(c => String(c[0])); };
+  it('a light in a composition that has no threeD layer (lights do not reach into nested compositions)', async () => {
+    const w = await said([{ type: 'light', kind: 'ambient' }, { type: 'composition', name: 'scene', width: 100, height: 100, sequences: [card()] }]);
+    expect(w.some(m => m.includes('light') && m.includes('no threeD layers') && m.includes('inside the composition'))).toBe(true);
+    expect((await said([{ type: 'light', kind: 'ambient' }, card()])).some(m => m.includes('no threeD layers'))).toBe(false);
+  });
+  it('parent on a light is not followed: it says so, as it does for a camera', async () => {
+    const w = await said([{ type: 'null', name: 'rig' }, { type: 'light', kind: 'ambient', name: 'fill', parent: 'rig' }, card()]);
+    expect(w.some(m => m.includes('"fill"') && m.includes('light cannot have a parent'))).toBe(true);
+  });
+});
