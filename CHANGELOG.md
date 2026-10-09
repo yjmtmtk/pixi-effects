@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+**Added**
+
+- **Loading progress.** `movie.init()` reports how far it is: a `loadprogress` event (`{ stage: 'assets' | 'build' | 'sound' | 'frames', loaded, total, progress }`, `progress` 0 to 1) and `movie.loadStages` (milliseconds per stage). The page's `.pe-loader` shows it by itself: a bar along the bottom (`--pe-progress`) and a label such as `BUILDING LAYERS  62%`; the build now lets the page paint every 50 ms. `pixi-effects check` prints a `loading` line with the time of each stage and names the slowest when the load took a second or more. The template links the library with `modulepreload`, so the download overlaps the page parse.
+
 ## 0.26.0
 
 **Added**

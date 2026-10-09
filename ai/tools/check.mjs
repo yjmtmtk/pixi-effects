@@ -29,6 +29,16 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 // ───────────────────────────── pure helpers (unit-tested) ─────────────────────────────
 
 /** Chrome / Chromium executable: $CHROME, then the usual install paths. Null if none is found. */
+/** `assets 0.1 s · build 2.4 s (slowest) · sound 0.6 s · frames 0.2 s` from `movie.loadStages` (milliseconds); the slowest stage is named only when the load took 1 s or more. */
+export function formatLoadStages(stages) {
+  if (!stages) return '';
+  const names = ['assets', 'build', 'sound', 'frames'];
+  const total = names.reduce((n, k) => n + (stages[k] ?? 0), 0);
+  const slowest = total >= 1000 ? names.reduce((a, k) => ((stages[k] ?? 0) > (stages[a] ?? 0) ? k : a), 'assets') : null;
+  const sec = ms => `${Math.round((ms ?? 0) / 100) / 10} s`;
+  return names.map(k => `${k} ${sec(stages[k])}${k === slowest ? ' (slowest)' : ''}`).join(' · ');
+}
+
 export function findChrome(env = process.env, exists = fs.existsSync, platform = process.platform) {
   if (env.CHROME && exists(env.CHROME)) return env.CHROME;
   const candidates = platform === 'darwin'
@@ -296,6 +306,7 @@ export async function runCheck(opts, log = console.log) {
     info = await cdp.eval(INFO).catch(() => info) ?? info;
     report.ready = !!info?.hasMovie && (await cdp.eval('window.__ready === true').catch(() => false));
     report.readySeconds = Math.round((Date.now() - t0) / 100) / 10;
+    report.loadStages = await cdp.eval('(window.movie && window.movie.loadStages) || null').catch(() => null);
     report.logs = [...new Set([...(info?.logs ?? []), ...consoleLines])];
     if (!report.ready) {
       report.problems.push(`the page did not become ready (window.__ready !== true within 60 s${info?.hasMovie ? '' : '; window.movie is missing'})`);
@@ -464,6 +475,7 @@ function finish(report, outDir, log) {
   L.push(`pixi-effects check — ${report.page}`);
   if (report.ready) L.push(`  page      ready in ${report.readySeconds} s · ${report.width}×${report.height} · ${report.frameRate} fps · ${report.totalFrames} frames (${report.duration} s)${report.hasAudio ? ' · audio' : ''}`);
   else L.push('  page      NOT READY');
+  if (report.loadStages) L.push(`  loading   ${formatLoadStages(report.loadStages)}`);
   L.push(`  warnings  ${report.logs?.length ? report.logs.length + ' — ' + report.logs.slice(0, 5).map(l => l.length > 220 ? l.slice(0, 217) + '…' : l).join('\n            ') + (report.logs.length > 5 ? `\n            … ${report.logs.length - 5} more (report.json)` : '') : 'none'}`);
   if (report.inspect) {
     const g = report.inspect.issues;

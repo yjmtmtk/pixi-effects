@@ -3236,7 +3236,7 @@ interface MovieOptions {
   composition?: CompositionSpec;    // root composition (see DSL reference)
   poster?:     number;              // seconds: the frame shown before play (negative: from the end), see movie.poster
   motionBlur?: boolean | number | { samples?: number; shutter?: number };   // blur for render() / snapshot() / contactSheet(), not live playback; see Motion blur
-  loader?:     HTMLElement | string | false;   // the page's loader (see pixi-effects/loader.css): faded out when ready, stopped if init fails; default: a .pe-loader next to the canvas
+  loader?:     HTMLElement | string | false;   // the page's loader (see pixi-effects/loader.css): shows how far init is (a bar, "BUILDING LAYERS 62%"), faded out when ready, stopped if init fails; default: a .pe-loader next to the canvas
 }
 ```
 
@@ -3414,6 +3414,7 @@ movie.off(event, fn): this
 | `'play'`    | none                                              | when `play()` actually transitions from paused        |
 | `'pause'`   | none                                              | when `pause()` actually transitions from playing      |
 | `'progress'`| `{ progress: number; frame: number; totalFrames: number }` | during `render()`, once per encoded frame    |
+| `'loadprogress'` | `{ stage: 'assets' \| 'build' \| 'sound' \| 'frames'; loaded: number; total: number; progress: number }` | during `init()`, after each asset / layer / sound; `progress` is 0 to 1 for the whole init. The page's `.pe-loader` already shows it; `movie.loadStages` gives the milliseconds per stage afterwards |
 | `'seeking'` / `'seeked'` | `{ frame, totalFrames }` (the frame it lands on) | a `gotoFrame()` to another frame starts / has finished. NOT emitted for playback ticks, `render()`, `snapshot()` or `contactSheet()` |
 | `'stop'`    | `{ index: number; stop: Stop; pageIndex: number }` | a presentation is on a stop: `next()` played to it, or `prev()` / `goToStop()` / `goToPage()` jumped to it |
 | `'ended'`   | none                                              | playback ran off the end (after `'pause'`); pausing by hand does not emit it |

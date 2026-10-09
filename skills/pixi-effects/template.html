@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>pixi-effects video</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.26.0/dist/loader.css" />   <!-- the loader: HTML + CSS only, so it is on screen at once and keeps moving while the page builds the video -->
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.26.0/dist/index.js" />   <!-- download the library while the page is parsed -->
   <style>
     body { background: #0d1220; margin: 0; padding: 16px; }
     .stage { position: relative; width: min(960px, 100%); }                 /* the player and the loader both sit inside this box */

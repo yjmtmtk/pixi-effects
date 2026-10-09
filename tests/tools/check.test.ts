@@ -262,3 +262,11 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     } finally { rmSync(bad, { force: true }); }
   }, 130_000);
 });
+
+describe('check: where the time went while the page loaded', () => {
+  it('formatLoadStages names every stage in seconds and marks the slowest one when the load was long', () => {
+    expect(tool.formatLoadStages({ assets: 100, build: 2400, sound: 600, frames: 200 })).toBe('assets 0.1 s · build 2.4 s (slowest) · sound 0.6 s · frames 0.2 s');
+    expect(tool.formatLoadStages({ assets: 10, build: 80, sound: 0, frames: 0 })).toBe('assets 0 s · build 0.1 s · sound 0 s · frames 0 s');   // a quick load names no culprit
+    expect(tool.formatLoadStages(null)).toBe('');
+  });
+});
