@@ -25,7 +25,7 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "bin": { "pixi-effects-check": "ai/tools/check.mjs", "pixi-effects-render": "ai/tools/render.mjs", "pixi-effects-view": "ai/tools/view.mjs" },
+  "bin": { "pixi-effects": "ai/tools/pixi-effects.mjs", "pixi-effects-check": "ai/tools/check.mjs", "pixi-effects-render": "ai/tools/render.mjs", "pixi-effects-view": "ai/tools/view.mjs" },
   "files": ["dist", "ai", "skills", "docs/dsl.md", "docs/api.md", "llms.txt", "llms-full.txt", "CHANGELOG.md", "README.md", "LICENSE"],
   "keywords": [
     "pixi", "pixijs", "video", "composition", "compositing", "rendering",

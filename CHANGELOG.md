@@ -5,6 +5,7 @@
 **Added**
 
 - **Agent skill.** `npx skills add yjmtmtk/pixi-effects` registers pixi-effects as a skill in Claude Code, Codex, Cursor, Gemini CLI, Copilot, OpenCode and about 70 more agents; its description starts from the task (a video, motion graphics, an animated title, a lower third, a promo, a chart), so an agent can reach it without being told the library's name. Claude Code also installs it as a plugin (`/plugin install pixi-effects --marketplace yjmtmtk/pixi-effects`).
+- **`pixi-effects` bin** (named like the package): `npx pixi-effects check my-video.html`, `npx pixi-effects render … -o x.mp4`, `npx pixi-effects view …` run the same three tools with nothing installed, and a mistyped command says which one you meant. The three `pixi-effects-check|render|view` bins stay; `npx pixi-effects-check` on its own never worked (npm looks for a package of that name), the docs now say `npx -p pixi-effects pixi-effects-check` and switch to the short form once this is released.
 - **`movie.audioBlocked`**: true while the browser keeps the movie's sound silent until a tap (iOS Safari); a player can then ask for the tap. The landing page does: the reel and the gallery pieces start with one tap inside the frame when the sound is locked.
 
 **Changed**
