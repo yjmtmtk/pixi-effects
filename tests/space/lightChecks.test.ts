@@ -54,8 +54,18 @@ describe('lightSetProblems', () => {
   it('more lights or casters than there is room for says which are dropped', () => {
     const many = Array.from({ length: 9 }, (_, i) => light({ name: 'l' + i }));
     expect(lightSetProblems([light({ kind: 'ambient' }), ...many, card()]).join('\n')).toMatch(/9 lights.*8.*"l8"/);
-    const casters = [0, 1, 2].map(i => card({ name: 'c' + i, castsShadows: true }));
-    expect(lightSetProblems([light({ kind: 'ambient' }), light({ castsShadows: true }), ...casters, card()]).join('\n')).toMatch(/3 layers cast shadows.*2.*"c2"/);
+    const casters = [0, 1, 2, 3, 4].map(i => card({ name: 'c' + i, castsShadows: true }));
+    expect(lightSetProblems([light({ kind: 'ambient' }), light({ castsShadows: true }), ...casters, card()]).join('\n')).toMatch(/5 layers cast shadows.*4.*"c4"/);
+  });
+});
+
+describe('soft shadows from many lights', () => {
+  const soft = (name: string, diffusion = 30) => S({ type: 'light', kind: 'point', name, castsShadows: true, initial: { shadowDiffusion: diffusion } });
+  const base = [S({ type: 'light', kind: 'ambient' }), S({ type: 'shape', shape: 'rect', threeD: true, castsShadows: true })];
+  it('three or more lights with soft shadows warn that they are costly; hard ones, or two soft ones, do not', () => {
+    expect(lightSetProblems([...base, soft('a'), soft('b'), soft('c')]).join('\n')).toMatch(/3 lights make soft shadows.*costly/);
+    expect(lightSetProblems([...base, soft('a'), soft('b')]).join('\n')).not.toContain('soft shadows');
+    expect(lightSetProblems([...base, soft('a', 0), soft('b', 0), soft('c', 0)]).join('\n')).not.toContain('soft shadows');
   });
 });
 

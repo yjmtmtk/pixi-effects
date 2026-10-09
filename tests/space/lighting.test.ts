@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { fogAmount, packLights, shadeReference, smoothstep, coneCos, MAX_LIGHTS, LIGHT_KINDS, FALLOFFS, type LightState } from '../../src/space/lighting';
+import { fogAmount, packLights, shadeReference, shadowReference, smoothstep, coneCos, MAX_LIGHTS, LIGHT_KINDS, FALLOFFS, type LightState } from '../../src/space/lighting';
 
 const base: LightState = {
   kind: 'point', x: 0, y: 0, z: 100, lookAtX: 0, lookAtY: 0, lookAtZ: 0, r: 1, g: 1, b: 1, intensity: 1,
@@ -87,5 +87,40 @@ describe('cone, packing, fog', () => {
     expect([fogAmount(100, 100, 300), fogAmount(300, 100, 300), fogAmount(200, 100, 300)]).toEqual([0, 1, 0.5]);
     expect(fogAmount(200, 100, 300, 0.4)).toBeCloseTo(0.2, 12);
     expect([fogAmount(99, 100, 100), fogAmount(100, 100, 100)]).toEqual([0, 1]);
+  });
+});
+
+describe('shadowReference (a hard shadow, worked by hand)', () => {
+  // the light at (0, 0, 200); the caster is a 100 x 100 plane at z = 100 centred on the axis: o = (-50, -50, 100), u = (100, 0, 0), v = (0, 100, 0)
+  const caster = { o: { x: -50, y: -50, z: 100 }, u: { x: 100, y: 0, z: 0 }, v: { x: 0, y: 100, z: 0 } };
+  const solid = () => 1;
+  const light = L({ x: 0, y: 0, z: 200 });
+  const at = (x: number, y: number, z = 0, l = light, c = caster, a: (u: number, v: number) => number = solid) => shadowReference({ x, y, z }, l, c, a);
+
+  it('a point straight under the caster is in its shadow; one far to the side is not', () => {
+    expect(at(0, 0)).toBe(1);                       // the ray to the light crosses the caster's plane at (0, 0, 100): halfway up, t = 0.5
+    expect(at(300, 0)).toBe(0);                     // it crosses at (150, 0, 100): outside the 100 x 100 plane
+  });
+  it('the edge of the shadow is where the ray meets the edge of the caster: halfway up, so the shadow is twice as wide as the caster', () => {
+    expect(at(99, 0)).toBe(1);                      // crosses at x = 49.5
+    expect(at(101, 0)).toBe(0);                     // crosses at x = 50.5
+  });
+  it('the caster\'s own alpha is the shadow: a half-transparent caster casts half a shadow, a hole in it lets the light through', () => {
+    expect(at(0, 0, 0, light, caster, () => 0.5)).toBe(0.5);
+    expect(at(0, 0, 0, light, caster, (u, v) => (u > 0.4 && u < 0.6 && v > 0.4 && v < 0.6 ? 0 : 1))).toBe(0);
+  });
+  it('a caster that is not between the point and the light casts nothing: below the point, or past the light', () => {
+    expect(at(0, 0, 0, light, { ...caster, o: { x: -50, y: -50, z: -100 } })).toBe(0);
+    expect(at(0, 0, 0, light, { ...caster, o: { x: -50, y: -50, z: 300 } })).toBe(0);
+  });
+  it('a caster seen edge-on casts nothing (no division by zero)', () => {
+    const edgeOn = { o: { x: -50, y: -50, z: 100 }, u: { x: 100, y: 0, z: 0 }, v: { x: 0, y: 0, z: 100 } };
+    expect(Number.isFinite(at(0, 0, 0, light, edgeOn))).toBe(true);
+  });
+  it('a parallel light casts along its direction, whatever its position: the shadow of the caster falls straight down for a light looking down -z', () => {
+    const sun = L({ kind: 'parallel', x: 500, y: 500, z: 200, lookAtX: 500, lookAtY: 500, lookAtZ: 0 });
+    expect(at(0, 0, 0, sun)).toBe(1);
+    expect(at(49, 0, 0, sun)).toBe(1);
+    expect(at(51, 0, 0, sun)).toBe(0);
   });
 });

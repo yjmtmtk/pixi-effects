@@ -40,7 +40,7 @@ export interface LightState {
 export const LIGHT_PROPS = ['x', 'y', 'z', 'lookAtX', 'lookAtY', 'lookAtZ', 'intensity', 'color', 'coneAngle', 'coneFeather', 'radius', 'falloffDistance', 'shadowDarkness', 'shadowDiffusion'] as const;
 
 export const MAX_LIGHTS = 8;
-export const MAX_CASTERS = 2;
+export const MAX_CASTERS = 4;
 export const SHADOW_TAPS = 16;
 
 const FALLOFF_ID: Record<Falloff, number> = { none: 0, smooth: 1, inverseSquare: 2 };
@@ -125,4 +125,29 @@ export function shadeReference(p: Vec3, n: Vec3, cam: Vec3, lights: readonly Lig
 export function fogAmount(depth: number, near: number, far: number, max = 1): number {
   if (!(far > near)) return depth >= near ? max : 0;
   return Math.min(1, Math.max(0, (depth - near) / (far - near))) * max;
+}
+
+/**
+ * The independent JS reference of the shader's HARD shadow (no penumbra): how much of the light reaches the point `p` is blocked by `caster`,
+ * 0..1. The ray from `p` toward the light (or against a parallel light's direction) meets the caster's plane; where it meets it inside the
+ * plane's rectangle, the caster's alpha there (`alphaAt(u, v)`, uv in 0..1) is the occlusion. A caster that is not between the point and the
+ * light (below the point, or past the light) blocks nothing.
+ */
+export function shadowReference(p: Vec3, light: LightState, caster: PlaneFrame, alphaAt: (u: number, v: number) => number): number {
+  const Nc = { x: caster.u.y * caster.v.z - caster.u.z * caster.v.y, y: caster.u.z * caster.v.x - caster.u.x * caster.v.z, z: caster.u.x * caster.v.y - caster.u.y * caster.v.x };
+  let D: Vec3;
+  if (light.kind === 'parallel') {
+    const d = norm({ x: light.lookAtX - light.x, y: light.lookAtY - light.y, z: light.lookAtZ - light.z });
+    D = { x: -d.x * 100000, y: -d.y * 100000, z: -d.z * 100000 };
+  } else D = sub({ x: light.x, y: light.y, z: light.z }, p);
+  const denom = dot(D, Nc);
+  if (Math.abs(denom) < 1e-9) return 0;
+  const t = dot(sub(caster.o, p), Nc) / denom;
+  if (t <= 1e-4 || t >= 1) return 0;
+  const H = { x: p.x + t * D.x, y: p.y + t * D.y, z: p.z + t * D.z };
+  const rel = sub(H, caster.o);
+  const u = dot(rel, caster.u) / dot(caster.u, caster.u);
+  const v = dot(rel, caster.v) / dot(caster.v, caster.v);
+  if (u < 0 || u > 1 || v < 0 || v > 1) return 0;
+  return alphaAt(u, v);
 }

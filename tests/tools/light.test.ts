@@ -8,9 +8,9 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { launchPage } from '../support/browser';
-import { shadeReference, fogAmount, type LightState } from '../../src/space/lighting';
+import { shadeReference, shadowReference, fogAmount, type LightState, type PlaneFrame } from '../../src/space/lighting';
 import { blendPixel, hexToRgb } from '../support/blendReference';
-import { cameraBasis, homeCamera, layerToWorld, DEG, type Vec3 } from '../../src/space/math';
+import { cameraBasis, homeCamera, layerToWorld, projectPoint, DEG, type Vec3 } from '../../src/space/math';
 
 const root = resolve(__dirname, '../..');
 const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
@@ -326,6 +326,192 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
       const o = await cdp.eval('orders([0, 10, 20, 30, 40, 50, 59])');
       expect(o.bwdMax).toBe(0);
       expect(o.jmpMax).toBe(0);
+    });
+  });
+
+  // ── shadows (Task 6) ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  const FLOOR = { o: { x: 0, y: 0, z: -100 }, n: { x: 0, y: 0, z: 1 } };
+  const floor = () => card({ name: 'floor', width: 700, height: 500, anchorX: 0.5, anchorY: 0.5, initial: { x: 160, y: 90, z: -100, fillColor: '#808080' } });
+  /** A 60 x 60 red square centred on (cx, cy) at depth z: its picture is the whole texture, so its plane is exactly the square. */
+  const blocker = (name: string, cx: number, cy: number, z: number, extra: Record<string, unknown> = {}, init: Record<string, unknown> = {}) =>
+    ({ type: 'shape', shape: 'rect', name, width: 60, height: 60, anchorX: 0.5, anchorY: 0.5, threeD: true, castsShadows: true, initial: { x: cx, y: cy, z, fillColor: '#ff0000', ...init }, ...extra });
+  const planeOf = (cx: number, cy: number, z: number, ry = 0): PlaneFrame => {
+    const lt = { x: cx, y: cy, z, rotationX: 0, rotationY: ry * DEG, rotationZ: 0, scaleX: 1, scaleY: 1, pivotX: 0, pivotY: 0 };
+    const o = layerToWorld(lt, -30, -30), a = layerToWorld(lt, 30, -30), b = layerToWorld(lt, -30, 30);
+    return { o, u: { x: a.x - o.x, y: a.y - o.y, z: a.z - o.z }, v: { x: b.x - o.x, y: b.y - o.y, z: b.z - o.z } };
+  };
+  const SUN = L({ kind: 'point', x: 40, y: 20, z: 150, intensity: 1, castsShadows: true });
+  const AMB = ambient(0.2);
+  /** The floor's red channel at a pixel with the shadows of `casters` (each a plane) from `light`: ambient + light × (1 − the strongest occlusion). */
+  function floorWithShadow(x: number, y: number, light: LightState, casters: PlaneFrame[], darkness = 1): { value: number; occl: number } {
+    const P = pointAt(x, y, FLOOR);
+    const cam = { x: CAM.x, y: CAM.y, z: CAM.z };
+    const amb = shadeReference(P, FLOOR.n, cam, [AMB])[0]!;
+    const full = shadeReference(P, FLOOR.n, cam, [AMB, light])[0]!;
+    const occl = Math.max(0, ...casters.map(c => shadowReference(P, light, c, () => 1)));
+    return { value: Math.min(GREY * (amb + (full - amb) * (1 - occl * darkness)), 1) * 255, occl };
+  }
+  /** Pixels clearly in the umbra and clearly in the light (every pixel within 4 of them says the same), found by the reference itself. */
+  /** Where a caster's plane is on the screen (its own red picture is drawn there, in front of the floor): x0, y0, x1, y1. */
+  function screenRect(c: PlaneFrame): [number, number, number, number] {
+    const pts = [[0, 0], [1, 0], [0, 1], [1, 1]].map(([a, b]) => projectPoint(BASIS, { x: c.o.x + a! * c.u.x + b! * c.v.x, y: c.o.y + a! * c.u.y + b! * c.v.y, z: c.o.z + a! * c.u.z + b! * c.v.z }));
+    return [Math.min(...pts.map(p => p.x)), Math.min(...pts.map(p => p.y)), Math.max(...pts.map(p => p.x)), Math.max(...pts.map(p => p.y))];
+  }
+  function samples(light: LightState, casters: PlaneFrame[], drawn: PlaneFrame[] = casters) {
+    const inside: Array<[number, number]> = [], outside: Array<[number, number]> = [];
+    const rects = drawn.map(screenRect);
+    const onCaster = (x: number, y: number) => rects.some(([x0, y0, x1, y1]) => x >= x0 - 6 && x <= x1 + 6 && y >= y0 - 6 && y <= y1 + 6);
+    const at = (x: number, y: number) => floorWithShadow(x, y, light, casters).occl;
+    for (let y = 8; y < H - 8; y += 6) for (let x = 8; x < W - 8; x += 6) {
+      if (onCaster(x, y)) continue;
+      const o = at(x, y);
+      const around = [at(x - 4, y), at(x + 4, y), at(x, y - 4), at(x, y + 4)];
+      if (o === 1 && around.every(v => v === 1)) inside.push([x, y]);
+      if (o === 0 && around.every(v => v === 0)) outside.push([x, y]);
+    }
+    return { inside, outside };
+  }
+  const shadowScene = (casters: unknown[], light: LightState = SUN, lightExtra: Record<string, unknown> = {}) => [lightSpec(AMB), lightSpec(light, lightExtra), ...casters, floor()];
+  const pick = <T,>(a: T[], n: number): T[] => Array.from({ length: n }, (_, i) => a[Math.floor((i + 0.5) * a.length / n)]!);
+
+  it('a hard shadow: where the caster\'s shadow falls on the floor is dark and everywhere else is lit, to within 2/255 of the reference', async () => {
+    await withPage(async (cdp) => {
+      const caster = blocker('block', 160, 90, 0, { castsShadows: true });
+      const url = await frame(cdp, shadowScene([caster], SUN, { castsShadows: true }));
+      const { inside, outside } = samples(SUN, [planeOf(160, 90, 0)]);
+      expect(inside.length, 'the reference finds an umbra to look at').toBeGreaterThan(20);
+      expect(outside.length).toBeGreaterThan(200);
+      for (const [x, y] of [...pick(inside, 8), ...pick(outside, 8)]) {
+        const want = floorWithShadow(x, y, SUN, [planeOf(160, 90, 0)]).value;
+        near(await rgb(cdp, url, x, y), [want, want, want], `floor at (${x},${y})`);
+      }
+    });
+  });
+
+  it('shadows need both halves: castsShadows on the light AND on the layer; either alone leaves the floor as if there were no shadow', async () => {
+    await withPage(async (cdp) => {
+      const none = await frame(cdp, shadowScene([blocker('block', 160, 90, 0, { castsShadows: false })], SUN, { castsShadows: true }));
+      const layerOnly = await frame(cdp, shadowScene([blocker('block', 160, 90, 0)], L({ ...SUN, castsShadows: false })));
+      expect(await diff(cdp, none, layerOnly)).toBe(0);
+      const withShadow = await frame(cdp, shadowScene([blocker('block', 160, 90, 0)], SUN, { castsShadows: true }));
+      expect(await diff(cdp, none, withShadow)).toBeGreaterThan(40);
+    });
+  });
+
+  it('a soft shadow (shadowDiffusion) has a wider edge than a hard one, and the same dark middle', async () => {
+    await withPage(async (cdp) => {
+      const caster = blocker('block', 160, 90, 0);
+      const hardUrl = await frame(cdp, shadowScene([caster], SUN, { castsShadows: true }));
+      const soft = L({ ...SUN });
+      const softSeq = [lightSpec(AMB), { ...lightSpec(soft, { castsShadows: true }), initial: { ...lightSpec(soft).initial, shadowDiffusion: 30 } }, caster, floor()];
+      const softUrl = await frame(cdp, softSeq);
+      const { inside } = samples(SUN, [planeOf(160, 90, 0)]);
+      // the umbra sample nearest the umbra's centre of mass: far enough from every edge for a 13 px penumbra not to reach it
+      const mx = inside.reduce((a, [x]) => a + x, 0) / inside.length, my = inside.reduce((a, [, y]) => a + y, 0) / inside.length;
+      const [cx, cy] = inside.reduce((best, p) => (Math.hypot(p[0] - mx, p[1] - my) < Math.hypot(best[0] - mx, best[1] - my) ? p : best))!;
+      // count the pixels of the row through the umbra that are neither the lit level nor the shadow level
+      const x0 = Math.ceil(screenRect(planeOf(160, 90, 0))[2]) + 8;                 // right of the red caster: only the floor and its shadow are there
+      const band = async (url: string) => {
+        const row: number[] = (await cdp.eval(`row(${JSON.stringify(url)}, ${cy})`)).filter((_: number, x: number) => x > x0 && x < 300);
+        const lo = Math.min(...row), hi = Math.max(...row);
+        return row.filter(v => v > lo + 0.1 * (hi - lo) && v < hi - 0.1 * (hi - lo)).length;
+      };
+      const hard = await band(hardUrl), softBand = await band(softUrl);
+      expect(softBand, `the soft edge (${softBand} px) is wider than the hard one (${hard} px)`).toBeGreaterThan(hard + 4);
+      const mid = await rgb(cdp, softUrl, cx, cy), midHard = await rgb(cdp, hardUrl, cx, cy);
+      near(mid, midHard, 'the middle of the umbra is as dark as with a hard shadow');
+    });
+  });
+
+  it('two casters: the shadows join by the strongest, not by adding up (an overlap is no darker than one shadow alone)', async () => {
+    await withPage(async (cdp) => {
+      const a = blocker('a', 160, 90, 0), b = blocker('b', 170, 95, -40);
+      const planes = [planeOf(160, 90, 0), planeOf(170, 95, -40)];
+      const url = await frame(cdp, shadowScene([a, b], SUN, { castsShadows: true }));
+      const { inside } = samples(SUN, planes);
+      for (const [x, y] of pick(inside, 8)) {
+        const want = floorWithShadow(x, y, SUN, planes).value;
+        near(await rgb(cdp, url, x, y), [want, want, want], `two casters at (${x},${y})`);
+      }
+    });
+  });
+
+  it('a caster that is hidden (alpha 0, or outside its life) casts nothing', async () => {
+    await withPage(async (cdp) => {
+      const none = await frame(cdp, shadowScene([], SUN, { castsShadows: true }));
+      const clear = await frame(cdp, shadowScene([blocker('block', 160, 90, 0, {}, { alpha: 0 })], SUN, { castsShadows: true }));
+      expect(await diff(cdp, none, clear)).toBe(0);
+      const gone = await frame(cdp, shadowScene([blocker('block', 160, 90, 0, { at: 1, duration: 1 })], SUN, { castsShadows: true }), 0, { duration: 2 });
+      expect(await diff(cdp, none, gone)).toBe(0);
+    });
+  });
+
+  it('a caster turned on its axis casts the shadow of its turned outline', async () => {
+    await withPage(async (cdp) => {
+      const turned = blocker('block', 160, 90, 0, {}, { rotationY: 40 });
+      const plane = planeOf(160, 90, 0, 40);
+      const url = await frame(cdp, shadowScene([turned], SUN, { castsShadows: true }));
+      const { inside, outside } = samples(SUN, [plane]);
+      expect(inside.length).toBeGreaterThan(10);
+      for (const [x, y] of [...pick(inside, 6), ...pick(outside, 6)]) {
+        const want = floorWithShadow(x, y, SUN, [plane]).value;
+        near(await rgb(cdp, url, x, y), [want, want, want], `turned caster, floor at (${x},${y})`);
+      }
+    });
+  });
+
+  it('up to four casters shade one receiver: each of the four shadows is where the reference says; a fifth caster is not read (the build says so)', async () => {
+    await withPage(async (cdp) => {
+      const spots: Array<[number, number]> = [[80, 50], [200, 40], [90, 140], [210, 140], [150, 95]];
+      const names = spots.map((_, i) => 'c' + i);
+      const planes = spots.map(([x, y]) => planeOf(x, y, 0));
+      const url = await frame(cdp, shadowScene(spots.map(([x, y], i) => blocker(names[i]!, x, y, 0)), SUN, { castsShadows: true }));
+      const four = samples(SUN, planes.slice(0, 4), planes);
+      const onlyFifth = samples(SUN, [planes[4]!], planes).inside.filter(([x, y]) => planes.slice(0, 4).every(p => floorWithShadow(x, y, SUN, [p]).occl === 0));
+      expect(four.inside.length, 'the reference finds the four umbras to look at').toBeGreaterThan(40);
+      for (const [x, y] of pick(four.inside, 16)) {
+        const want = floorWithShadow(x, y, SUN, planes.slice(0, 4)).value;
+        near(await rgb(cdp, url, x, y), [want, want, want], `four casters at (${x},${y})`);
+      }
+      // where only the fifth caster's shadow would fall the floor is lit: the fifth is not read
+      expect(onlyFifth.length, 'there is floor that only the fifth caster would shade').toBeGreaterThan(3);
+      for (const [x, y] of pick(onlyFifth, 3)) {
+        const want = floorWithShadow(x, y, SUN, []).value;
+        near(await rgb(cdp, url, x, y), [want, want, want], `fifth caster ignored at (${x},${y})`);
+      }
+    });
+  });
+
+  it('a caster below the floor (the floor hides it) casts nothing onto the floor', async () => {
+    await withPage(async (cdp) => {
+      const none = await frame(cdp, shadowScene([], SUN, { castsShadows: true }));
+      const below = await frame(cdp, shadowScene([blocker('block', 200, 100, -220)], SUN, { castsShadows: true }));
+      expect(await diff(cdp, none, below)).toBe(0);
+    });
+  });
+
+  it('a caster does not shade itself, and a layer with lit: false receives no shadow', async () => {
+    await withPage(async (cdp) => {
+      const caster = blocker('block', 160, 90, 0);
+      const withFloorUnlit = await frame(cdp, [lightSpec(AMB), lightSpec(SUN, { castsShadows: true }), caster, { ...floor(), lit: false }]);
+      near(await rgb(cdp, withFloorUnlit, 40, 150), [128, 128, 128], 'an unlit floor is not shadowed');
+      // the caster's own face: it is lit by the light as any card is (no self shadow): its pixel at the centre follows the reference without a shadow
+      const lit = await frame(cdp, shadowScene([caster], SUN, { castsShadows: true }));
+      const P = pointAt(160, 90, { o: { x: 0, y: 0, z: 0 }, n: { x: 0, y: 0, z: 1 } });
+      const m = shadeReference(P, { x: 0, y: 0, z: 1 }, { x: CAM.x, y: CAM.y, z: CAM.z }, [AMB, SUN])[0]!;
+      near(await rgb(cdp, lit, 160, 90), [Math.min(m, 1) * 255, 0, 0], 'the caster\'s own face, lit and unshadowed');
+    });
+  });
+
+  it('with shadows, every seek order gives the same pictures and nothing is warned', async () => {
+    await withPage(async (cdp) => {
+      const caster = blocker('block', 160, 90, 0, {}, { rotationY: 0 });
+      const move = { ...lightSpec(SUN, { castsShadows: true }), keyframes: [{ at: 0, to: { x: 260 }, duration: 2, ease: 'none' }] };
+      await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: { sequences: [lightSpec(AMB), move, { ...caster, keyframes: [{ at: 0, to: { rotationY: 80 }, duration: 2, ease: 'none' }] }, floor()] } })})`);
+      const o = await cdp.eval('orders([0, 7, 15, 22, 30, 38, 45, 52, 59])');
+      expect(o.bwdMax).toBe(0);
+      expect(o.jmpMax).toBe(0);
+      expect(mine(await cdp.eval('__logs'))).toEqual([]);
     });
   });
 });

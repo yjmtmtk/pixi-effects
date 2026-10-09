@@ -6,7 +6,7 @@
     Acceptance check (not an example): tests/tools/light.test.ts. 320 x 180, the home camera at (160, 90, 247.3). Helpers: mk(opts) rebuilds
     the movie under test and returns the render backend; snap(f) is a frame as a data URL; px(url, x, y) is one pixel as [r, g, b] 0..255;
     diff(a, b) is the largest pixel difference of two data URLs; orders(frames) snapshots a list in three seek orders and returns the largest
-    differences. ?backend=webgl hides WebGPU from the page, so the movie falls back to WebGL (and warns about it once).
+    differences; row(url, y) is the red channel of every pixel of row y. ?backend=webgl hides WebGPU from the page, so the movie falls back to WebGL (and warns about it once).
   -->
   <canvas id="stage" width="320" height="180"></canvas>
   <script>
@@ -38,6 +38,15 @@
     window.snap = (f) => window.movie.snapshot(f, { as: 'dataURL' });
     window.diff = async (a, b) => { if (a === b) return 0; const A = await pixels(a), B = await pixels(b); let m = 0; for (let i = 0; i < A.length; i++) m = Math.max(m, Math.abs(A[i] - B[i])); return m; };
     window.px = async (url, x, y) => { const P = await pixels(url); const o = (y * 320 + x) * 4; return [P[o], P[o + 1], P[o + 2]]; };
+    window.row = async (url, y) => { const P = await pixels(url); return Array.from({ length: 320 }, (_, x) => P[(y * 320 + x) * 4]); };
+    // cost: the median of `frames` snapshots (a snapshot includes the read-back, so compare two runs, never read one alone)
+    window.bench = async (opts, frames = 40) => {
+      await window.mk(opts);
+      const times = [];
+      for (let f = 0; f < frames + 5; f++) { const t0 = performance.now(); await window.snap(f % 30); const dt = performance.now() - t0; if (f >= 5) times.push(dt); }
+      times.sort((a, b) => a - b);
+      return times[Math.floor(times.length / 2)];
+    };
     window.shuffle = (arr, seed = 1) => { const a = arr.slice(); let s = seed; const r = () => (s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
     window.orders = async (frames) => {
       const take = async (order) => { const m = {}; for (const f of order) m[f] = await window.snap(f); return m; };

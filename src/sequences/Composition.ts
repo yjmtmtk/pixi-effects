@@ -7,7 +7,8 @@ import { buildSequenceTree } from '../core/Composition';
 import { CameraSequence } from '../space/CameraSequence';
 import { LightSequence } from '../space/LightSequence';
 import { lightSetProblems } from '../space/lightChecks';
-import { packLights } from '../space/lighting';
+import { MAX_CASTERS, packLights } from '../space/lighting';
+import type { CasterInput } from '../space/LitMaterial';
 import { findOverlap, pickActiveCamera } from '../space/camera';
 import { assignDepthOrder } from '../space/depth';
 import { Layer3D, type SpaceHost } from '../space/Layer3D';
@@ -443,13 +444,20 @@ export class CompositionSequence extends Sequence {
     const fog = cam?.fogState() ?? null;
     if (this._lights.length === 0 && !fog) return;
     const live = this._lights.filter(l => { const w = l.window(); return t >= w.start && (t < w.end || (w.end >= compEnd && t <= w.end)); });
-    const packed = live.length > 0 ? packLights(live.map(l => l.state())) : null;
+    const states = live.map(l => l.state());
+    const packed = states.length > 0 ? packLights(states) : null;
+    // A shadow needs a light that makes shadows AND layers that cast them: the casters are the visible layers with `castsShadows`, drawn this frame
+    // (a layer that is hidden, outside its life or behind the camera has no up-to-date picture and casts nothing)
+    const shadowing = states.some(s => s.castsShadows);
+    const casters = shadowing ? this._layers3d.filter(l => l.spec.castsShadows && l.display.visible && l.world && l.source) : [];
     const camInfo = { x: basis.cx, y: basis.cy, z: basis.cz, fx: basis.fx, fy: basis.fy, fz: basis.fz };
     for (const l of this._layers3d) {
       const mat = l.setLit(true);
       if (!mat || !l.world) continue;
       const lit = l.spec.lit !== false;
-      mat.update(l.world, camInfo, lit ? packed : null, fog, []);
+      // a layer never shadows itself; each receiver reads at most MAX_CASTERS casters (the first ones, in layer order: said at build)
+      const mine: CasterInput[] = lit ? casters.filter(c => c !== l).slice(0, MAX_CASTERS).map(c => ({ frame: c.world!, source: c.source! })) : [];
+      mat.update(l.world, camInfo, lit ? packed : null, fog, mine);
     }
   }
 

@@ -7,6 +7,9 @@ import { collectPropKeys } from './specKeys';
 import { FALLOFFS, LIGHT_KINDS, LIGHT_PROPS, MAX_CASTERS, MAX_LIGHTS } from './lighting';
 import type { SequenceSpec } from '../types';
 
+/** This many lights with soft shadows warn (measured: 3 soft lights over 20 layers cost about 20 ms a frame at 1080p). */
+const SOFT_LIGHTS = 3;
+
 type Bag = Record<string, unknown>;
 const bagsOf = (spec: SequenceSpec): Bag[] => {
   const s = spec as unknown as { initial?: Bag; keyframes?: Array<{ set?: Bag; to?: Bag; from?: Bag }> };
@@ -90,6 +93,10 @@ export function lightSetProblems(layers: readonly SequenceSpec[]): string[] {
   if (lightsCast && casters.length > MAX_CASTERS) {
     const dropped = casters.slice(MAX_CASTERS).map(c => nameOf(c, layers.indexOf(c)));
     out.push(`${casters.length} layers cast shadows, but a layer receives shadows from at most ${MAX_CASTERS} (the first ${MAX_CASTERS}, in layer order); ${dropped.join(', ')} and later cast none`);
+  }
+  const softLights = lights.filter(l => (l as { castsShadows?: boolean }).castsShadows && numbersOf(l, 'shadowDiffusion').some(v => v > 0));
+  if (softLights.length >= SOFT_LIGHTS) {
+    out.push(`${softLights.length} lights make soft shadows (shadowDiffusion above 0): each is a 16-sample search per pixel and per caster, costly (about 20 ms more a frame at 1080p with 20 lit layers in our measurement). Give shadowDiffusion to one or two lights; the others keep hard shadows`);
   }
   layers.forEach((l, i) => {
     if (l.type === 'light' || (l as { threeD?: boolean }).threeD) return;

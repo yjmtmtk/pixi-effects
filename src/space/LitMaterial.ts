@@ -44,6 +44,12 @@ const roundPixelsBit = {
 };
 
 const ML = MAX_LIGHTS, MC = MAX_CASTERS, TAPS = SHADOW_TAPS;
+const SHADOW_KEYS = Array.from({ length: MC }, (_, j) => `uShadow${j}`);
+// the caster textures: one binding each (the first of them is binding 4), and a chain that picks the one a caster index names
+const WGSL_SHADOW_DECLS = SHADOW_KEYS.map((k, j) => `      @group(2) @binding(${4 + j}) var ${k}: texture_2d<f32>;`).join('\n');
+const WGSL_SHADOW_PICK = SHADOW_KEYS.map((k, j) => (j === 0 ? '' : 'else ') + `if (j == ${j}) { a = textureSampleLevel(${k}, uSampler, uv, 0.0).a; }`).join(' ');
+const GLSL_SHADOW_DECLS = SHADOW_KEYS.map(k => `uniform sampler2D ${k};`).join(' ');
+const GLSL_SHADOW_PICK = SHADOW_KEYS.map((k, j) => (j === MC - 1 ? '' : `j == ${j} ? textureLod(${k}, uv, 0.0).a : `) + (j === MC - 1 ? `textureLod(${k}, uv, 0.0).a` : '')).join('');
 
 const STRUCT_WGSL = /* wgsl */`
       struct LightUniforms {
@@ -72,13 +78,12 @@ const lightBit = {
     header: /* wgsl */`
 ${STRUCT_WGSL}
       @in vPW: vec4<f32>;
-      @group(2) @binding(4) var uShadow0: texture_2d<f32>;
-      @group(2) @binding(5) var uShadow1: texture_2d<f32>;
+${WGSL_SHADOW_DECLS}
 
       fn casterAlpha(j: i32, uv: vec2<f32>) -> f32 {
         let inside = step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
         var a = 0.0;
-        if (j == 0) { a = textureSampleLevel(uShadow0, uSampler, uv, 0.0).a; } else { a = textureSampleLevel(uShadow1, uSampler, uv, 0.0).a; }
+        ${WGSL_SHADOW_PICK}
         return a * inside;
       }
 
@@ -161,11 +166,11 @@ const lightBitGl = {
       uniform vec4 uAmbient; uniform vec4 uFogColor; uniform vec4 uFogRange;
       uniform vec4 uLPos[${ML}]; uniform vec4 uLDir[${ML}]; uniform vec4 uLCol[${ML}]; uniform vec4 uLFall[${ML}]; uniform vec4 uLShadow[${ML}];
       uniform vec4 uCO[${MC}]; uniform vec4 uCU[${MC}]; uniform vec4 uCV[${MC}];
-      uniform sampler2D uShadow0; uniform sampler2D uShadow1;
+      ${GLSL_SHADOW_DECLS}
 
       float casterAlpha(int j, vec2 uv) {
         float inside = step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
-        float a = j == 0 ? textureLod(uShadow0, uv, 0.0).a : textureLod(uShadow1, uv, 0.0).a;
+        float a = ${GLSL_SHADOW_PICK};
         return a * inside;
       }
 
@@ -311,8 +316,7 @@ export class LitMaterial {
         uSampler: Texture.EMPTY.source.style,
         textureUniforms: { uTextureMatrix: { type: 'mat3x3<f32>', value: new Matrix() } },
         lightUniforms: this.u,
-        uShadow0: Texture.EMPTY.source,
-        uShadow1: Texture.EMPTY.source,
+        ...Object.fromEntries(SHADOW_KEYS.map(k => [k, Texture.EMPTY.source])),
       },
     });
   }
@@ -338,7 +342,7 @@ export class LitMaterial {
     }
     if (fog) { U.uFogColor!.set([fog.r, fog.g, fog.b, fog.amount]); U.uFogRange!.set([fog.near, fog.far, 0, 1]); }
     else U.uFogRange!.set([0, 0, 0, 0]);
-    const keys = ['uShadow0', 'uShadow1'] as const;
+    const keys = SHADOW_KEYS;
     for (let j = 0; j < MC; j++) {
       const c = casters[j];
       if (c && j < nc) {
