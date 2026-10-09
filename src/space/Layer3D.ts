@@ -158,6 +158,9 @@ export class Layer3D {
    */
   setBlur(radius: number): void {
     const d = this.display as unknown as { filters: unknown; blendMode: string };
+    // No hysteresis on purpose: whether a layer has the filter must depend only on this frame's radius, never on the frame before it
+    // (a frame is a pure function of the camera and the layers, whichever order frames are visited in). A layer hovering at the
+    // threshold creates and destroys a cheap filter object each frame; that is the price of determinism.
     const r = radius > MIN_BLUR ? Math.min(radius, MAX_BLUR) : 0;
     this.blur = r;
     if (r === 0) {

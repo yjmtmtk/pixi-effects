@@ -150,6 +150,32 @@ describe('CameraSequence — depth of field', () => {
     expect(bare.state().focus).toBe(0);
     expect(bare.state().aperture).toBe(60);
   });
+  it('a negative or non-numeric aperture is off, with one warning that says so', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const cam = make({ name: 'main', initial: { focus: 100, aperture: -30 } });
+    await cam.build();
+    cam.bindTimeline(gsap.timeline({ paused: true }));
+    expect(cam.state().aperture).toBe(0);
+    cam.state();
+    const said = warn.mock.calls.filter(c => String(c[0]).includes('aperture'));
+    expect(said).toHaveLength(1);
+    expect(String(said[0]![0])).toMatch(/aperture -30.*0 or more.*off/);
+  });
+  it('a dolly with no typed home distance: offsetZ moves an auto z (the z = 0 plane stays where fov puts it)', async () => {
+    const cam = make({ keyframes: [{ at: 0, to: { offsetZ: -200 }, duration: 1 }] });
+    await cam.build();
+    const tl = gsap.timeline({ paused: true });
+    cam.bindTimeline(tl);
+    tl.progress(1);
+    expect(cam.autoZ).toBe(true);
+    expect(cam.state().z).toBeCloseTo(homeDistance(720, 40) - 200, 9);
+  });
+  it('the documented expression for the home distance, H / 2 / tan(20 * PI / 180), is the distance fov 40 puts the camera at', async () => {
+    const cam = make({ initial: { z: 'H / 2 / tan(20 * PI / 180)' } });
+    await cam.build();
+    cam.bindTimeline(gsap.timeline({ paused: true }));
+    expect(cam.state().z).toBeCloseTo(homeDistance(720, 40), 5);       // the evaluator rounds to six decimals
+  });
   it('aperture 0 is off even though it is written', async () => {
     const cam = make({ initial: { focus: 100, aperture: 0 } });
     await cam.build();

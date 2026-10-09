@@ -75,7 +75,8 @@ export function layerInitialZ(spec: { initial?: Bag }, scope: Record<string, num
 export type FocusProblem =
   | { kind: 'missing'; name: string; hint: string | null }
   | { kind: 'not-threeD'; name: string }
-  | { kind: 'moving'; name: string };
+  | { kind: 'moving'; name: string }
+  | { kind: 'duplicate'; name: string; count: number };
 
 const movesZ = (spec: SequenceSpec): boolean =>
   (spec.keyframes ?? []).some(kf => [kf.set, kf.to, kf.from].some(bag => bag && 'z' in (bag as Bag)));
@@ -89,10 +90,14 @@ export function focusProblems(camera: Props, siblings: readonly SequenceSpec[]):
   for (const name of focusNames(camera, known)) {
     if (said.has(name)) continue;
     said.add(name);
-    const hit = siblings.find(s => s.name === name);
+    const same = siblings.filter(s => s.name === name);
+    const hit = same.find(s => s.threeD) ?? same[0];          // the first threeD layer with the name: what the composition resolves to
     if (!hit) out.push({ kind: 'missing', name, hint: suggestName(name, threeD) });
     else if (!hit.threeD) out.push({ kind: 'not-threeD', name });
-    else if (movesZ(hit)) out.push({ kind: 'moving', name });
+    else {
+      if (same.length > 1) out.push({ kind: 'duplicate', name, count: same.length });
+      if (movesZ(hit)) out.push({ kind: 'moving', name });
+    }
   }
   return out;
 }

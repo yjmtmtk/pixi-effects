@@ -46,6 +46,13 @@ describe('lintSequence', () => {
     expect(run({ type: 'camera', initial: { fov: 50, lookAtX: 10 }, keyframes: [{ at: 0, to: { x: 5 } }] })).toEqual([]);
   });
 
+  it('focus and aperture on a layer that is not a camera say where they belong', () => {
+    const w = run({ type: 'text', text: 'hi', threeD: true, initial: { focus: 'x', aperture: 40 }, keyframes: [{ at: 0, to: { aperture: 10 } }] });
+    expect(w).toHaveLength(2);
+    expect(w.some(m => m.includes('"focus"') && m.includes('camera'))).toBe(true);
+    expect(w.some(m => m.includes('"aperture"') && m.includes('camera'))).toBe(true);
+    expect(run({ type: 'camera', initial: { focus: 'x', aperture: 40 } })).toEqual([]);
+  });
   it('threeD on audio warns', () => {
     const w = run({ type: 'audio', asset: 'a', threeD: true });
     expect(w).toHaveLength(1);
@@ -108,6 +115,12 @@ describe('lintFocus', () => {
   it('a layer that is not threeD, and a layer whose z moves, are said', () => {
     expect(runFocus({ type: 'camera', initial: { focus: 'label' } }, sibs)[0]).toMatch(/"label".*not a threeD/);
     expect(runFocus({ type: 'camera', initial: { focus: 'mover' } }, sibs)[0]).toMatch(/"mover".*first z/);
+  });
+  it('duplicate names are said, with the one that is used', () => {
+    const dup = [{ type: 'text', name: 'title', text: 'a' }, { type: 'text', name: 'title', threeD: true, text: 'b' }];
+    const w = runFocus({ type: 'camera', initial: { focus: 'title' } }, dup);
+    expect(w).toHaveLength(1);
+    expect(w[0]).toMatch(/2 layers are named "title".*first threeD/);
   });
   it('is silent for a good name, a number and a camera without focus', () => {
     expect(runFocus({ type: 'camera', initial: { focus: 'title' } }, sibs)).toEqual([]);

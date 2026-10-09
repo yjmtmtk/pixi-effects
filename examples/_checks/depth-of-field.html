@@ -39,6 +39,8 @@
     const pixels = async (url) => { const i = await toImg(url); const c = document.createElement('canvas'); c.width = i.width; c.height = i.height; const g = c.getContext('2d'); g.drawImage(i, 0, 0); return g.getImageData(0, 0, i.width, i.height).data; };
     window.snap = (f) => window.movie.snapshot(f, { as: 'dataURL' });
     window.diff = async (a, b) => { if (a === b) return 0; const A = await pixels(a), B = await pixels(b); let m = 0; for (let i = 0; i < A.length; i++) m = Math.max(m, Math.abs(A[i] - B[i])); return m; };
+    // the red channel (0..1) of one pixel
+    window.px = async (url, x, y) => (await pixels(url))[(y * 320 + x) * 4] / 255;
     window.edge = async (url, y, x0, x1) => { const P = await pixels(url); let n = 0; for (let x = x0; x < x1; x++) { const v = P[(y * 320 + x) * 4] / 255; if (v > 0.1 && v < 0.9) n++; } return n; };
     window.shuffle = (arr, seed = 1) => { const a = arr.slice(); let s = seed; const r = () => (s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
     window.orders = async (frames) => {

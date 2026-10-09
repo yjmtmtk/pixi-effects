@@ -276,14 +276,15 @@ describe('Layer3D.setBlur (depth of field)', () => {
     expect(filtersOf(layer)![0]).toBe(f[0]);           // the same filter, not a new one each frame
     expect(f[0]!.radius).toBe(9);
   });
-  it('a radius under MIN_BLUR removes the filter and costs nothing', () => {
+  it('whether a layer has the filter depends only on the radius it is given now, not on the radius before (a frame is the same whichever way it was reached)', () => {
     const { layer } = setup();
-    layer.setBlur(6);
-    layer.setBlur(0.04);
-    expect(filtersOf(layer)).toBeNull();
+    const has = (r: number) => { layer.setBlur(r); return filtersOf(layer) !== null; };
+    const radii = [0.04, 6, 0.04, 0.06, 0.02, 0, 0.049, 0.051, 0.03];
+    const forward = radii.map(has);
+    const backward = radii.slice().reverse().map(has).reverse();
+    expect(backward).toEqual(forward);
+    expect(forward).toEqual([false, true, false, true, false, false, false, true, false]);
     expect(layer.blur).toBe(0);
-    layer.setBlur(0);
-    expect(filtersOf(layer)).toBeNull();
   });
   it('a layer that was never blurred never gets a filter (no cost for those who do not use it)', () => {
     const { layer } = setup();

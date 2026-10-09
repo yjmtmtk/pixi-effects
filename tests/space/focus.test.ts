@@ -101,6 +101,12 @@ describe('focusProblems', () => {
     expect(focusProblems({ initial: { focus: '3d-label' } }, odd)).toEqual([{ kind: 'not-threeD', name: '3d-label' }]);
     expect(withFocusResolved({ initial: { focus: 'hero card' } }, () => -300, new Set(['hero card'])).initial).toEqual({ focus: -300 });
   });
+  it('two layers with one name: the first threeD one is the target (lint and resolver agree), and it is said', () => {
+    const dup = [sp({ type: 'text', name: 'title', text: 'a' }), sp({ type: 'text', name: 'title', threeD: true, text: 'b' }), sp({ type: 'text', name: 'title', threeD: true, text: 'c' })];
+    expect(focusProblems({ initial: { focus: 'title' } }, dup)).toEqual([{ kind: 'duplicate', name: 'title', count: 3 }]);
+    const flatFirst = [sp({ type: 'text', name: 'x', text: 'a' }), sp({ type: 'text', name: 'x', threeD: true, text: 'b' })];
+    expect(focusProblems({ initial: { focus: 'x' } }, flatFirst)).toEqual([{ kind: 'duplicate', name: 'x', count: 2 }]);   // not "not threeD": the threeD one is used
+  });
   it('says each problem once, however many times the name is written', () => {
     const kfs = [{ at: 0, from: { focus: 'tilte' }, to: { focus: 'tilte' } }, { at: 1, to: { focus: 'tilte' } }];
     expect(focusProblems({ initial: { focus: 'tilte' }, keyframes: kfs }, sibs)).toHaveLength(1);

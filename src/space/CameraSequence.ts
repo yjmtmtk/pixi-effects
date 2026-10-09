@@ -24,6 +24,7 @@ export class CameraSequence extends Sequence {
   private compH = 0;
   private warnedFov = false;
   private warnedLookAt = false;
+  private warnedAperture = false;
   /** True when the camera writes `focus` or `aperture` anywhere: depth of field is on. */
   private dof = false;
   private zOfName: ((name: string) => number | undefined) | null = null;
@@ -55,6 +56,17 @@ export class CameraSequence extends Sequence {
     this.dof = keys.has('focus') || keys.has('aperture');
   }
 
+  /** The aperture to use now: off unless depth of field is on and the value is a number of 0 or more (said once if it is not). */
+  private apertureNow(a: number): number {
+    if (!this.dof) return 0;
+    if (!(a >= 0) && !this.warnedAperture) {
+      this.warnedAperture = true;
+      const who = this.spec.name ? ` "${this.spec.name}"` : '';
+      console.warn(`pixi-effects: camera${who}: aperture ${a} is not a number of 0 or more; depth of field is off (it is the lens diameter in px: 30 is the default, 0 turns it off)`);
+    }
+    return a > 0 ? a : 0;
+  }
+
   /** Called by the composition once its children exist: how a layer name in `focus` becomes the z of that layer. */
   resolveFocusNames(zOf: (name: string) => number | undefined, names: ReadonlySet<string> = new Set()): void {
     this.zOfName = zOf;
@@ -84,7 +96,7 @@ export class CameraSequence extends Sequence {
     return {
       x: c.x + c.offsetX, y: c.y + c.offsetY, z: z + c.offsetZ,
       lookAtX: c.lookAtX + c.lookOffsetX, lookAtY: c.lookAtY + c.lookOffsetY, lookAtZ: c.lookAtZ + c.lookOffsetZ,
-      fov, focus: Number.isFinite(c.focus) ? c.focus : 0, aperture: this.dof && c.aperture > 0 ? c.aperture : 0,
+      fov, focus: Number.isFinite(c.focus) ? c.focus : 0, aperture: this.apertureNow(c.aperture),
     };
   }
 

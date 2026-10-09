@@ -32,6 +32,8 @@ const CAMERA_ALIASES: Record<string, string> = {
 
 const CAMERA_PROPS = ['x', 'y', 'z', 'fov', 'focus', 'aperture', 'lookAtX', 'lookAtY', 'lookAtZ', 'offsetX', 'offsetY', 'offsetZ', 'lookOffsetX', 'lookOffsetY', 'lookOffsetZ'];
 const NEEDS_THREE_D = ['z', 'rotationX', 'rotationY'];
+/** Camera-only names that the animatable-property check lets through on any layer. */
+const CAMERA_ONLY = ['focus', 'aperture'];
 const SKEW_KEYS = ['skew', 'skewX', 'skewY'];
 
 /**
@@ -68,6 +70,10 @@ export function lintSequence(spec: SequenceSpec, warn: Warn = defaultWarn): void
     return;
   }
 
+  for (const k of CAMERA_ONLY) {
+    if (keys.has(k)) warn(`pixi-effects: ${who}: "${k}" is a camera property and does nothing on this layer: write it in the initial / keyframes of a { type: 'camera' } layer`);
+  }
+
   if (spec.type === 'audio') {
     if (spec.threeD) warn(`pixi-effects: ${who}: threeD has no effect on audio`);
     return;
@@ -93,6 +99,8 @@ export function lintFocus(camera: SequenceSpec, siblings: readonly SequenceSpec[
       warn(`pixi-effects: ${who}: focus: no layer named "${p.name}"${p.hint ? `; did you mean "${p.hint}"?` : ''} (the z = 0 plane is used). Write a threeD layer's name or a z number`);
     } else if (p.kind === 'not-threeD') {
       warn(`pixi-effects: ${who}: focus "${p.name}" is not a threeD layer, so it has no depth (the z = 0 plane is used). Write a threeD layer's name or a z number`);
+    } else if (p.kind === 'duplicate') {
+      warn(`pixi-effects: ${who}: focus "${p.name}": ${p.count} layers are named "${p.name}"; the first threeD one is used. Give the layers different names`);
     } else {
       warn(`pixi-effects: ${who}: focus "${p.name}" reads only the first z of that layer; its z moves later and the focus does not follow. Animate focus itself with numbers to follow it`);
     }

@@ -114,6 +114,21 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
     });
   });
 
+  it('a blurred layer that runs off the right and bottom edges of the picture stays solid up to the edge (it does not fade toward transparent there)', async () => {
+    await withPage(async (cdp) => {
+      const rect = (name: string, x: number, y: number, w: number, h: number, z: number) => ({ type: 'shape', shape: 'rect', name, width: w, height: h, threeD: true, initial: { x, y, z, fillColor: '#ffffff' } });
+      const comp = { sequences: [{ type: 'camera', initial: { focus: 'sharp', aperture: 40 } }, rect('sharp', 20, 20, 10, 10, 0), rect('wide', 300, 90, 200, 60, -100), rect('tall', 160, 300, 60, 400, -100)] };
+      await cdp.eval(`mk(${JSON.stringify({ composition: comp })})`);
+      const url = await cdp.eval('snap(0)');
+      const at = (x: number, y: number) => cdp.eval(`px(${JSON.stringify(url)}, ${x}, ${y})`);
+      // 'wide' is far (z -100, blurred ~6 px) and spans x ~ 188..331: its middle row at the last column; 'tall' spans y ~ 120..250+ off the bottom
+      expect(await at(319, 90), 'last column, middle of the wide bar').toBeGreaterThan(0.9);
+      expect(await at(314, 90)).toBeGreaterThan(0.9);
+      expect(await at(160, 179), 'last row, middle of the tall bar').toBeGreaterThan(0.9);
+      expect(await at(160, 174)).toBeGreaterThan(0.9);
+    });
+  });
+
   it('the movie exports (mp4) with the blur in it', async () => {
     await withPage(async (cdp) => {
       await cdp.eval(`mk(${JSON.stringify({ duration: 1, composition: await bars(cdp, { initial: { focus: 'front', aperture: 40 } }) })})`);
