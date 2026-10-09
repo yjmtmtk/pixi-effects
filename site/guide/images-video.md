@@ -67,6 +67,6 @@ Any layer can be a **mask** for another: only the part under the mask shows. A m
 
 ## Blend modes and chroma key
 
-`blendMode: 'add' | 'screen' | 'multiply'` on a layer (or on a composition, whose children inherit it) makes glows and light leaks that brighten where they overlap. `filters: [{ type: 'chromaKey', keyColor: '#00ff00' }]` removes a green screen from a video; its `threshold`, `smoothing` and `spill` are animatable.
+`blendMode` on a layer mixes it with what is behind it, with the same 18 names as CSS `mix-blend-mode` (`add`, `screen`, `multiply`, `overlay`, `soft-light`, `color-dodge`, `hue`, …): `add` and `color-dodge` for glows and light leaks, `soft-light` for a colour cast over a photo, `multiply` for a vignette (the recipe `light-leak`). On a composition each child blends; to blend a composition as one picture give it `threeD: true` or a filter. `filters: [{ type: 'chromaKey', keyColor: '#00ff00' }]` removes a green screen from a video; its `threshold`, `smoothing` and `spill` are animatable.
 
 {{demo examples/04-media.html}}

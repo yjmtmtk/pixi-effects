@@ -2,8 +2,13 @@
 
 ## Unreleased
 
+**Added**
+
+- **Blend modes: 18, the CSS names.** `blendMode` takes `overlay`, `soft-light`, `hard-light`, `color-dodge`, `color-burn`, `darken`, `lighten`, `difference`, `exclusion`, `hue`, `saturation`, `color`, `luminosity` and `linear-burn` besides `normal`, `add`, `screen` and `multiply`. They are our own blend filters, checked against the W3C formulas on WebGPU and WebGL (within 2/255: measured worst 0.5/255 at alpha 1 and 1.5/255 at alpha 0.5), in a separate chunk that a movie loads only when a layer uses one (nothing changes for the others), and they work on a layer with filters, on a `threeD` layer (after the depth-of-field blur) and on a composition (each child blends). A typo (`softlight`, `soft_light`) says what was meant; 10 or more on screen at once warns (about 2 ms each on WebGL in the author's measurement). The recipe `light-leak`, pitfalls 78–80.
+
 **Fixed**
 
+- `blendMode` together with `maskInverted` rendered the layer black (the layer is drawn into a texture for the alpha mask, and its blend applied inside that texture against nothing; wrapping it in a group with a blend filter did not help either, because Pixi 8.22 skips a parent's filter when an alpha-masked layer is inside). A layer with both is now built as a group whose filter blends, with the mask shape drawn over the layer with the `erase` blend; it works with every mode on WebGPU and WebGL. A **text** layer as a (not inverted) mask still cannot carry a blend: it warns and draws the layer normal.
 - Depth of field: a layer that was hidden (its lifespan over, `alpha` 0) kept the depth of the last frame it was drawn, so it was still counted as blurred: the "N layers are blurred" warning could fire for a movie that had only two layers on screen, and `inspect` returned a different `depthBlur` for the same frame depending on how you had got there. And `focus` could not name a layer called `hero card` or `3d-title` (only names shaped like a word): any name a sibling layer has now works.
 
 **Changed**

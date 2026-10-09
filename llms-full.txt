@@ -39,7 +39,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
 - **Group / parent layers = `{ type: 'null', name: 'rig' }`** (draws nothing, only moves) + `parent: 'rig'` on the layers that should follow it: their `x`/`y` are then measured from the null's origin, and the null's position / rotation / scale / alpha carry them (orbits, clock hands, grouped fades). Nulls chain. Only `null` layers can be parents; not for `threeD` layers.
 - **Time:** `speed` (slow motion, backward) and `time` (a curve of the layer's own seconds: freeze, rewind, ramp) on video, audio-file and composition layers; put what you want to rewind in a composition. Children of such a composition are in ITS seconds. `ease: 'cubic-bezier(.4, 0, .2, 1)'` is the CSS curve. See the recipe `rewind-and-replay` and pitfalls 69–73.
 - **Built in:** `animateText()` (per-letter / per-word / per-line entrances and exits in one call: `...animateText('Title', style, { x, y, align: 'center', at: 0.5, duration: 5, in: 'rise', out: 'fade', stagger: { each: 0.05 } })`), `splitText()` / `measureText()` (per-letter / per-word layers, exact positions, by hand), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) `wiggle()` (a seeded shake as keyframes; on a camera put it on `offsetX` / `offsetY` so it rides on the move) `cameraPath()` (a camera flight through `[x, y, z]` points as keyframes; layers it passes: `hideBehindCamera: true`) depth of field (camera `focus` + `aperture`: `{ type: 'camera', initial: { focus: 'title' } }` blurs the other threeD layers by depth; a rack focus is a keyframe on `focus`) `music` (a tune with no file: `{ type: 'audio', music: { bpm, tracks: [{ inst: 'keys', notes: 'Cmaj7:4 Am7:4' }, { inst: 'bass', notes: 'c2:2 g1:2' }], drums: { from: 8, kick: 'x...x...' } } }`: notes and chords as text, counted in beats; instruments `keys pluck pad bass sub lead bell musicbox`; `musicEnvelope(music)` feeds `react()`), `audioEnvelope()` / `bpmEnvelope()` + `react()` (visuals that follow music: `const env = await audioEnvelope('music.mp3', { frameRate })` before `movie.init`, then `keyframes: react(env, { duration, props: { scale: { base: 1, amount: 0.4, band: 'bass', release: 0.2 } } })`; `beats: true` pulses on the beats; `bpmEnvelope(120, …)` when there is no file), `deck()` + `Presenter` (a talk as one movie: pages, steps, stops that pause playback, arrow keys / click / swipe to move on: `...deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops, sequences }] })`, `new Presenter(movie, { canvas })` from `pixi-effects/presenter`; G = page overview, P = presenter view with notes and a timer; `pixi-effects-render talk.html -o talk.pdf` = a PDF of the pages), `particles()` (bursts, snow, confetti, sparks as seeded layers: `...particles({ count: 90, at: 2, life: [1, 1.8], area: { x: 640, y: 330 }, speed: [120, 420], gravity: 240, fade: { out: 0.6 } })`), `followPath()` (a layer along an SVG path: `keyframes: followPath({ d, duration, orient: true })`), path morphing (`{ shape: 'path', d, morphTo, initial/keyframes: morph 0 → 1 }`) and `stagger()` (delays for a wave of layers: `stagger(letters, { each: 0.05, from: 'center' })`, or `stagger(n, …)` for numbers; GSAP-style `each` / `amount` / `from` / `grid` / `ease`). **Not in the DSL (hand-roll with a JS loop):** other per-frame curves (waves, spirals: sample them into short linear keyframes), shared masks. (Draw-on strokes `trimEnd`, text that changes over time `set: { text }` / `visibleChars`, shake `wiggle()` and particles are built in.)
-- **Blend modes:** `blendMode: 'add' | 'screen' | 'multiply'` on any layer (glows, light leaks).
+- **Blend modes:** `blendMode` takes 18 CSS names (`add` `screen` `multiply` `overlay` `soft-light` `hard-light` `color-dodge` `color-burn` `darken` `lighten` `difference` `exclusion` `hue` `saturation` `color` `luminosity` `linear-burn`, hyphenated) on any layer: glows and light leaks (`add`, `color-dodge`), colour casts and contrast (`soft-light`, `overlay`), vignettes (`multiply`). It blends with everything below the layer; on a composition each child blends (as one picture: `threeD: true` or a filter); 10+ of the new modes on screen at once warn.
 - **One `Movie` per page.** A sound effect needs no `duration` (it lasts as long as its clip). Seeking is safe: counters, colours and growing shapes are right after any jump.
 
 ## Layout sanity (the cheap bugs a screenshot catches)
@@ -102,7 +102,7 @@ filters: [ { type: 'chromaKey', keyColor, threshold, smoothing, spill } | { type
 mask: <a layer spec>, maskInverted,   // a mask with no `at` of its own starts and ends with the layer it masks (its keyframes count from that layer's start); an explicit mask `at` is composition time
 filterArea: { x, y, width, height }   // in the layer's OWN coordinates; lets blur/glow draw past the layer's bounds
 threeD: true                          // opt into 2.5D (see below)
-blendMode: 'normal' | 'add' | 'screen' | 'multiply'   // add / screen brighten (glows, light leaks: overlapping halos add up); on a composition its children inherit the mode
+blendMode: 'normal' | 'add' | 'screen' | 'multiply' | 'overlay' | 'soft-light' | 'hard-light' | 'color-dodge' | 'color-burn' | 'darken' | 'lighten' | 'difference' | 'exclusion' | 'hue' | 'saturation' | 'color' | 'luminosity' | 'linear-burn'   // CSS names (hyphenated); blends with EVERYTHING BELOW the layer; add / screen brighten (glows), multiply darkens, soft-light / overlay for colour casts and contrast, color-dodge for light sources; on a composition the children each blend (to blend it as one picture: threeD: true or a filter); the 14 new ones cost ~2 ms a layer on WebGL (10+ on screen warns)
 ```
 
 Animatable props (`initial` / keyframes): `x y alpha rotation scale scaleX scaleY pivotX pivotY anchorX anchorY skewX skewY tint width height visible autoAlpha`, plus for shapes their style/geometry, for text `fill`, for audio `volume`, for 3D `z rotationX rotationY`, filter params as `'filters.<name>.<param>'`, three objects as `'three.<obj>.<path>'`. **These go in `initial` / keyframes, never at the top level of a shape or text layer** (top-level `x`, `rotation`, `strokeColor`, `fillAlpha` each warn "is not a … key"): the top level of a shape holds its geometry (`width height radius d startAngle endAngle cornerRadius anchorX anchorY`), `trimStart` / `trimEnd`, `strokeCap` / `strokeJoin`, `fillGradient`.
@@ -318,7 +318,7 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 44. **Zero-pad a counter with `format: { pad: 2 }`** (`18:42:{value}` shows `18:42:05`). A `{value}` placeholder that nothing sets or animates prints 0 and now warns: `{value}` is reserved, there is no way to print it literally. *(fixed)*
 45. **The same mistake in a loop warns once**: the warning "keyframe starts after the layer ends" is summarised after three layers. The usual cause is an off-by-one (`f <= frames` instead of `f < frames`) that puts the last sample exactly at the layer's end. *(fixed)*
 46. **Still not in the DSL (hand-roll):** shared masks (one mask for several layers), `zIndex` (stack order is list order). *(Earlier round-two notes listed draw-on strokes, changing text, jitter and particle emitters here: they are built in now: `trimEnd`, `set: { text }` / `visibleChars`, `wiggle()`, `particles()`.)*
-46b. **Blend modes exist now** (`blendMode: 'add' | 'screen' | 'multiply'` on any layer, threeD layers and compositions included; a composition's children inherit it). Additive white cores no longer read grey on a coloured background. It also works on a layer with `filters` (a blurred glow with `add` / `multiply`): the mode is applied by the last filter, because a container's blend inside a filter pass multiplied against nothing and rendered black. With `add`, use dim saturated colours: overlaps sum, and near-white sums to pure white. *(fixed)*
+46b. **Blend modes exist now** (`blendMode`: `add` `screen` `multiply` and, since 0.22, 15 more CSS names (pitfalls 78–80), on any layer, threeD layers and compositions included; a composition's children inherit it). Additive white cores no longer read grey on a coloured background. It also works on a layer with `filters` (a blurred glow with `add` / `multiply`): the mode is applied by the last filter, because a container's blend inside a filter pass multiplied against nothing and rendered black. With `add`, use dim saturated colours: overlaps sum, and near-white sums to pure white. *(fixed)*
 47. **Browser tooling: prefer `node ai/tools/check.mjs page.html`** — it runs its own private Chrome, so none of the following can bite. If you drive a browser by hand instead: the `agent-browser` daemon is shared, so a `contactSheet` can come back from another session: after saving an image, look at it and confirm it is YOUR piece. In zsh a variable holding `agent-browser --session x` is not split into words (use a small wrapper script). `inspect` now clips overlaps to the visible area, ignores the two scenes of a running transition, treats text inside a moving (panned) composition as moving, and does not report text scaled to 0 as "no size"; it still does not compare text with picture content or shapes.
 48. **A composition's `alpha` is applied to each child separately, not to the flattened group** (measured: two overlapping opaque circles in a composition at `alpha: 0.5` show the lower one through the upper one in the overlap). Fading a group that has overlapping children therefore shows the overlap; fade the children themselves, or keep overlapping parts out of the group. Expressions have no way to read a sibling's size: measure text with `canvas.measureText` (the font string Pixi uses) and compute pill widths in JS. *(docs)*
 49. **sfx timing and level.** An sfx layer's `duration` is the sound's length (it stretches, it does not trim). Align the loud point: a `riser` peaks at its end, a `swoosh` 0.16 s in. Many sounds at the same instant add up: above 0.9 the mix is limited and a warning names the layers to turn down. Preset names, knobs and voice fields are closed lists — a guess (`whoosh`, `ding`, `impact`, `sawtooth`, `lp`, `decay`) warns with the right word. *(fixed: warns)*
@@ -350,6 +350,9 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 75. **Depth of field blurs `threeD` layers only, and the layer's own depth decides it.** A 2D layer never blurs; a `threeD` layer at the focus depth stays sharp; the depth is measured along the camera's view direction, so with an orbiting or tilted camera a layer off to the side of the look-at point is a little deeper than its `z` says and blurs a little even at the focus `z`; one blur for the whole layer, so a tilted floor is one blur (split it into layers).
 76. **`aperture` is the lens diameter in px, not a 0–1 strength.** 30 is the default (clearly shallow), 0 turns it off, 60 is strong, 100 is extreme (small bright objects speckle); the blur never exceeds 32 px. 20 or more blurred layers at once warns (one filter pass each, more on WebGPU).
 77. **A dolly does not need the camera's home distance typed in:** keep `z` automatic and animate `offsetZ` (negative = closer). Writing `z` yourself means typing `H / 2 / tan(fov / 2)` (about 989 at 720p, fov 40; as an expression `H / 2 / tan(20 * PI / 180)`). A bokeh field is a few big cards, not dozens of layers: a card at depth `z` fills the frame at size `(W / s) × (H / s)`, `s = camZ / (camZ − z)`.
+78. **A blend mode mixes the layer with everything BELOW it, in the order of the array.** The backdrop goes first, the blended layer after it; a layer placed before its backdrop blends with nothing. Names are CSS names with the hyphen: `soft-light`, not `softLight` (the warning says which you meant).
+79. **On a plain `composition` a `blendMode` makes each child blend by itself, not the composition as one picture.** To blend the whole group give the composition `threeD: true` (z 0, default camera: nothing else changes) or a filter. A text layer as the `mask` cannot carry a blend (it warns); `maskInverted` works.
+80. **The 14 new modes cost about 2 ms a layer on WebGL; 10 or more on screen at once warns.** A glow, a haze or a colour cast is ONE layer with a gradient (`fillGradient`), not dozens of circles; keep `add` / `screen` / `multiply` for big piles of particles.
 
 
 <!-- ===== ai/reference/recipes.md ===== -->
@@ -1127,6 +1130,36 @@ return [
     keyframes: [{ at: 0, to: { rotation: 1440 }, duration: 8, ease: 'none' }] },
   { type: 'shape', shape: 'circle', radius: 7, parent: 'moon-orbit', initial: { x: 55, y: 0, fillColor: '#e8eefc' } },        // 55 px from the earth
 ];
+```
+
+---
+
+## Light leaks and colour casts (blend modes)
+
+`blendMode` mixes a layer with everything **below** it. A colour cast is one `soft-light` gradient over the whole picture, a light leak is a `color-dodge` glow that drifts across it, a vignette is a `multiply` radial gradient that goes from clear to dark. Each is ONE layer (a gradient), not a pile of shapes: the blend modes beyond `add` / `screen` / `multiply` cost a full-frame pass each.
+
+```js
+// @recipe light-leak
+const skyline = Array.from({ length: 9 }, (_, i) => ({
+  type: 'shape', shape: 'rect', name: 'block-' + i, width: 90 + (i % 3) * 30, height: 160 + ((i * 53) % 190), anchorX: 0, anchorY: 1,
+  initial: { x: 40 + i * 140, y: 650, fillColor: '#0d1220' },
+}));
+return { duration: 6, sequences: [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', anchorX: 0, anchorY: 0, initial: { x: 0, y: 0 },
+    fillGradient: { stops: [[0, '#2a3b66'], [0.55, '#8a5a78'], [1, '#e8a060']] } },
+  ...skyline,
+  // a colour cast: orange at the top, blue at the bottom, over everything above
+  { type: 'shape', shape: 'rect', name: 'cast', width: 'GW', height: 'GH', anchorX: 0, anchorY: 0, blendMode: 'soft-light', initial: { x: 0, y: 0, alpha: 0 },
+    fillGradient: { stops: [[0, '#ff9a3c'], [1, '#3c5bff']] },
+    keyframes: [{ at: 0.5, to: { alpha: 0.9 }, duration: 2, ease: 'sine.inOut' }] },
+  // a light leak: a strong source burning out toward white as it drifts in from the right
+  { type: 'shape', shape: 'circle', name: 'leak', radius: 380, blendMode: 'color-dodge', initial: { x: 1500, y: 140 },
+    fillGradient: { type: 'radial', stops: [[0, 'rgba(255,120,30,0.9)'], [1, 'rgba(255,120,30,0)']] },
+    keyframes: [{ at: 1, to: { x: 900 }, duration: 3.5, ease: 'power2.out' }] },
+  // a vignette: clear in the middle, dark at the corners
+  { type: 'shape', shape: 'rect', name: 'vignette', width: 'GW', height: 'GH', anchorX: 0, anchorY: 0, blendMode: 'multiply', initial: { x: 0, y: 0 },
+    fillGradient: { type: 'radial', radius: 0.8, stops: [[0.5, 'rgba(255,255,255,1)'], [1, 'rgba(60,60,80,1)']] } },
+] };
 ```
 
 ---
@@ -2066,13 +2099,49 @@ Routed through PIXI v8's native `setMask({ inverse: true })`.
 
 #### `blendMode`
 
-How a layer blends with what is behind it: `'normal'` (default), `'add'`, `'screen'` or `'multiply'`. `add` and `screen` brighten, so overlapping glows, halos and light leaks add up instead of covering each other; `multiply` darkens. It works on every layer type, on `threeD` layers, and on a composition (its children inherit the mode, each blending with what is behind it). Any other value warns and is ignored.
+How a layer blends with what is **behind it** (everything drawn below it in the stack): 18 modes, the CSS `mix-blend-mode` names (`add` and `linear-burn` are the two that CSS does not have; `linear-burn` is the After Effects / Photoshop name). Default `'normal'`. It works on every layer type, on `threeD` layers, and on a composition.
+
+| mode | what it does |
+|---|---|
+| `normal` | the layer covers what is behind it |
+| `add`, `screen` | brighten: overlapping glows, halos and light leaks add up instead of covering each other |
+| `multiply` | darkens: shadows, vignettes, a tint over a photo |
+| `overlay` | contrast: darks get darker, lights lighter, by what is behind |
+| `soft-light` | a gentle `overlay`: colour casts, soft vignettes, a graded look |
+| `hard-light` | `overlay` decided by the layer instead of the backdrop: strong punch |
+| `color-dodge` | strong light: burns bright spots out toward white (light sources, lens flares) |
+| `color-burn`, `linear-burn` | deep shadows and saturated darks |
+| `darken`, `lighten` | keep the darker / the lighter of the two, channel by channel |
+| `difference`, `exclusion` | the distance between the two colours (`exclusion` is softer): inversions, "film negative" looks |
+| `hue`, `saturation`, `color`, `luminosity` | put only the hue, the saturation, the colour (hue + saturation) or the brightness of the layer onto the backdrop |
+
+Rules:
+
+1. **The order of layers decides what is blended.** Put the backdrop first (earlier in the array) and the blended layer after it.
+2. **Names are CSS names, with the hyphen** (`soft-light`, not `softLight` / `soft_light`; a slip like that warns with the name you meant).
+3. **Colours are mixed as the sRGB values you see** (as CSS does), not in linear light.
+4. **`alpha` fades the blended result** (as CSS `opacity` does).
+5. **On a composition the mode is inherited by its children, each blending with what is behind it** (not as one picture). To blend a composition as a whole, give it `threeD: true` (at `z: 0` with the default camera nothing else changes) or a filter.
+6. **The 14 new modes are heavier** (each is a full-frame pass; about 1.5–2 ms a layer on WebGL at 1080p in the author's measurement, much less on WebGPU). 10 or more on screen at once warns; a glow or a haze should be one layer (a gradient), not a pile.
+7. **Together with `filters`, `threeD` and depth of field they all work** (the blend is applied after the layer's own filters, and after the depth-of-field blur).
+8. **With `mask`:** an inverted mask (`maskInverted: true`) works with every mode. A **text layer as the mask** cannot carry a blend (it warns and draws the layer normal): put the text on a layer of its own with the `blendMode`.
+
+Checked against the W3C formulas on WebGPU and WebGL: every pixel within 2/255 (measured worst: 0.5/255 at alpha 1, 1.5/255 at alpha 0.5); on the same machine a frame is the same picture however it was reached. Another GPU can differ by a step or two.
 
 ```ts
 // A soft white glow that brightens whatever it overlaps
 { type: 'shape', shape: 'circle', radius: 120, blendMode: 'add',
   fillGradient: { type: 'radial', stops: [[0, 'rgba(255,255,255,0.9)'], [1, 'rgba(255,255,255,0)']] },
   initial: { x: 'W/2', y: 'H/2' } }
+
+// A colour cast over everything below it: orange at the top, blue at the bottom
+{ type: 'shape', shape: 'rect', width: 'GW', height: 'GH', anchorX: 0, anchorY: 0, blendMode: 'soft-light',
+  fillGradient: { stops: [[0, '#ff9a3c'], [1, '#3c5bff']] } }
+
+// A light leak: a strong source that burns out toward white where it meets the picture
+{ type: 'shape', shape: 'circle', radius: 380, blendMode: 'color-dodge',
+  fillGradient: { type: 'radial', stops: [[0, 'rgba(255,120,30,0.9)'], [1, 'rgba(255,120,30,0)']] },
+  initial: { x: 1000, y: 160 } }
 ```
 
 ---

@@ -735,13 +735,49 @@ Routed through PIXI v8's native `setMask({ inverse: true })`.
 
 #### `blendMode`
 
-How a layer blends with what is behind it: `'normal'` (default), `'add'`, `'screen'` or `'multiply'`. `add` and `screen` brighten, so overlapping glows, halos and light leaks add up instead of covering each other; `multiply` darkens. It works on every layer type, on `threeD` layers, and on a composition (its children inherit the mode, each blending with what is behind it). Any other value warns and is ignored.
+How a layer blends with what is **behind it** (everything drawn below it in the stack): 18 modes, the CSS `mix-blend-mode` names (`add` and `linear-burn` are the two that CSS does not have; `linear-burn` is the After Effects / Photoshop name). Default `'normal'`. It works on every layer type, on `threeD` layers, and on a composition.
+
+| mode | what it does |
+|---|---|
+| `normal` | the layer covers what is behind it |
+| `add`, `screen` | brighten: overlapping glows, halos and light leaks add up instead of covering each other |
+| `multiply` | darkens: shadows, vignettes, a tint over a photo |
+| `overlay` | contrast: darks get darker, lights lighter, by what is behind |
+| `soft-light` | a gentle `overlay`: colour casts, soft vignettes, a graded look |
+| `hard-light` | `overlay` decided by the layer instead of the backdrop: strong punch |
+| `color-dodge` | strong light: burns bright spots out toward white (light sources, lens flares) |
+| `color-burn`, `linear-burn` | deep shadows and saturated darks |
+| `darken`, `lighten` | keep the darker / the lighter of the two, channel by channel |
+| `difference`, `exclusion` | the distance between the two colours (`exclusion` is softer): inversions, "film negative" looks |
+| `hue`, `saturation`, `color`, `luminosity` | put only the hue, the saturation, the colour (hue + saturation) or the brightness of the layer onto the backdrop |
+
+Rules:
+
+1. **The order of layers decides what is blended.** Put the backdrop first (earlier in the array) and the blended layer after it.
+2. **Names are CSS names, with the hyphen** (`soft-light`, not `softLight` / `soft_light`; a slip like that warns with the name you meant).
+3. **Colours are mixed as the sRGB values you see** (as CSS does), not in linear light.
+4. **`alpha` fades the blended result** (as CSS `opacity` does).
+5. **On a composition the mode is inherited by its children, each blending with what is behind it** (not as one picture). To blend a composition as a whole, give it `threeD: true` (at `z: 0` with the default camera nothing else changes) or a filter.
+6. **The 14 new modes are heavier** (each is a full-frame pass; about 1.5–2 ms a layer on WebGL at 1080p in the author's measurement, much less on WebGPU). 10 or more on screen at once warns; a glow or a haze should be one layer (a gradient), not a pile.
+7. **Together with `filters`, `threeD` and depth of field they all work** (the blend is applied after the layer's own filters, and after the depth-of-field blur).
+8. **With `mask`:** an inverted mask (`maskInverted: true`) works with every mode. A **text layer as the mask** cannot carry a blend (it warns and draws the layer normal): put the text on a layer of its own with the `blendMode`.
+
+Checked against the W3C formulas on WebGPU and WebGL: every pixel within 2/255 (measured worst: 0.5/255 at alpha 1, 1.5/255 at alpha 0.5); on the same machine a frame is the same picture however it was reached. Another GPU can differ by a step or two.
 
 ```ts
 // A soft white glow that brightens whatever it overlaps
 { type: 'shape', shape: 'circle', radius: 120, blendMode: 'add',
   fillGradient: { type: 'radial', stops: [[0, 'rgba(255,255,255,0.9)'], [1, 'rgba(255,255,255,0)']] },
   initial: { x: 'W/2', y: 'H/2' } }
+
+// A colour cast over everything below it: orange at the top, blue at the bottom
+{ type: 'shape', shape: 'rect', width: 'GW', height: 'GH', anchorX: 0, anchorY: 0, blendMode: 'soft-light',
+  fillGradient: { stops: [[0, '#ff9a3c'], [1, '#3c5bff']] } }
+
+// A light leak: a strong source that burns out toward white where it meets the picture
+{ type: 'shape', shape: 'circle', radius: 380, blendMode: 'color-dodge',
+  fillGradient: { type: 'radial', stops: [[0, 'rgba(255,120,30,0.9)'], [1, 'rgba(255,120,30,0)']] },
+  initial: { x: 1000, y: 160 } }
 ```
 
 ---
