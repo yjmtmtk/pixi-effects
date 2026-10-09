@@ -16,6 +16,7 @@ import depthOfField from './16-depth-of-field.js';
 import blendModes from './17-blend-modes.js';
 import mattes from './18-mattes.js';
 import light from './19-light.js';
+import shader from './20-shader.js';
 
 export default [
   { id: '01-hello',       label: '01 · hello',              code: hello },
@@ -35,6 +36,7 @@ export default [
   { id: '17-blend-modes', label: '17 · blend modes: light and colour', code: blendModes },
   { id: '18-mattes', label: '18 · mattes and a luma wipe', code: mattes },
   { id: '19-light', label: '19 · light and shadow', code: light },
+  { id: '20-shader', label: '20 · shader and warp', code: shader },
 ];
 
 /** Import-map entries a piece of code needs beyond the template's own (the old Playground's values). */
