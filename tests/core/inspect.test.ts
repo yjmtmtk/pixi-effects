@@ -317,3 +317,15 @@ describe('inspectScene — depth of field', () => {
     expect(by.flat).toBeUndefined();
   });
 });
+
+describe('inspectScene — a layer used as a matte', () => {
+  it('is not in the layer list (it is not drawn), so it is never reported as off-canvas, overlapping or with no size', async () => {
+    const comp = await scene([
+      { type: 'text', name: 'matte', text: 'I', initial: { x: 5000, y: 10 } },
+      { type: '__box', name: 'photo', mask: 'matte' },
+    ]);
+    const r = inspectScene(comp, 0, 0, { width: 1280, height: 720 });
+    expect(r.layers.map(l => l.name)).toEqual(['photo']);
+    expect(r.issues).toEqual([]);
+  });
+});

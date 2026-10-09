@@ -102,3 +102,36 @@ describe('a named matte', () => {
     expect(sprite.destroyed).toBe(true);
   });
 });
+
+describe('limits and memory', () => {
+  it('a threeD matte is not used (it is drawn as a normal threeD layer) and a threeD layer with a reference warns that masks are not supported on it', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const comp = await build([
+      { type: 'shape', shape: 'circle', radius: 30, name: 'solid', threeD: true },
+      { type: 'shape', shape: 'rect', width: 50, height: 50, name: 'a', mask: 'solid' },
+      { type: 'shape', shape: 'rect', width: 50, height: 50, name: 'b', threeD: true, mask: 'solid' },
+    ]);
+    const said = warn.mock.calls.map(c => String(c[0]));
+    expect(said.some(m => m.includes('"solid" is a threeD layer and cannot be a matte'))).toBe(true);
+    expect(said.some(m => m.includes('layer "b"') && m.includes('mask is not supported on threeD'))).toBe(true);
+    expect(comp.layers().map(l => l.seq.spec.name)).toContain('solid');                    // not a matte: it is drawn (as the threeD layer it is)
+  });
+
+  it('more than 8 mattes in one composition warns once, with the size of each texture', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const mattes = Array.from({ length: 9 }, (_, i) => ({ type: 'shape', shape: 'circle', radius: 10, name: 'm' + i }));
+    const users = mattes.map((m, i) => ({ type: 'shape', shape: 'rect', width: 10, height: 10, name: 'u' + i, mask: m.name }));
+    await build([...mattes, ...users]);
+    const said = warn.mock.calls.map(c => String(c[0])).filter(m => m.includes('mattes'));
+    expect(said).toHaveLength(1);
+    expect(said[0]).toMatch(/9 mattes.*1280×720.*MiB/);
+  });
+
+  it('8 mattes are fine: no memory warning', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const mattes = Array.from({ length: 8 }, (_, i) => ({ type: 'shape', shape: 'circle', radius: 10, name: 'm' + i }));
+    const users = mattes.map((m, i) => ({ type: 'shape', shape: 'rect', width: 10, height: 10, name: 'u' + i, mask: m.name }));
+    await build([...mattes, ...users]);
+    expect(warn.mock.calls.map(c => String(c[0])).filter(m => m.includes('mattes'))).toEqual([]);
+  });
+});
