@@ -562,6 +562,9 @@ movie.play();
       f.style.cssText='position:absolute;inset:auto;left:0;top:0;width:1400px;height:1400px;max-width:none;transform-origin:0 0';
       var r=c.getBoundingClientRect(), k=box.clientWidth/r.width;
       f.style.transform='scale('+k+') translate('+(-r.left)+'px,'+(-r.top)+'px)';
+      // the page is drawn small, so its player bar would be too: grow the bar's parts back to about their natural size on screen
+      var st=d.getElementById('fitZoom'); if(!st){ st=d.createElement('style'); st.id='fitZoom'; d.head.appendChild(st); }
+      st.textContent='.movie-controller > *{zoom:'+Math.min(2.4,Math.max(1,1/k)).toFixed(3)+'}';
     }catch(e){ /* another origin: leave the frame as it is */ }
   }
   var fitting=0; window.addEventListener('resize',function(){ clearTimeout(fitting); fitting=setTimeout(function(){ document.querySelectorAll('#player iframe, #kmFacade iframe, #reelFacade iframe').forEach(fitFrame); },120); });
