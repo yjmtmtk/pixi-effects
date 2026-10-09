@@ -25,6 +25,9 @@ const COMMON_ALIASES: Record<string, string> = {
   seconds: 'duration', length: 'duration', time: 'duration',
   w: 'width', h: 'height', cols: 'columns', sweep: 'degrees', angle: 'degrees',
   playbackrate: 'speed', timescale: 'speed', rate: 'speed',
+  // blend modes by the names other programs use
+  'linear-dodge': 'add', 'linear dodge': 'add', lineardodge: 'add', linear_dodge: 'add', 'plus-lighter': 'add', pluslighter: 'add', plus_lighter: 'add',
+  luminance: 'luminosity', exclude: 'exclusion',
 };
 
 /** The valid name an author most likely meant by `name` (alias, typo, abbreviation or case slip), or null. */

@@ -34,20 +34,29 @@ export function usesAdvancedBlend(spec: unknown): boolean {
   return visit(spec);
 }
 
-/** The blend filters of an advanced mode were not registered (a movie registers them in `Movie.init`): the layer is drawn normal. */
-export function warnBlendUnavailable(spec: { name?: string; type: string }, mode: string): void {
-  console.warn(`pixi-effects: ${describeLayer(spec)}: blendMode "${mode}" could not be set up (the blend filters are not registered); the layer is drawn normal`);
+/** What to say about a layer's blend mode: `Composition` collects these per build, so the same mistake in 300 particle layers is said once. */
+export type BlendReport = (message: string, spec: { name?: string; type: string }) => void;
+const sayNow: BlendReport = (message, spec) => console.warn(`pixi-effects: ${describeLayer(spec)}: ${message}`);
+
+/** The blend filters of an advanced mode were not registered (a movie registers them in `Movie.init`, or loading them failed): the layer is drawn normal. */
+export function blendUnavailableMessage(mode: string): string {
+  return `blendMode "${mode}" could not be set up (the blend filters are not registered); the layer is drawn normal`;
 }
 
-/** Apply a layer's `blendMode` to its display object; an unknown mode warns and is ignored. */
-export function applyBlendMode(spec: { blendMode?: string; name?: string; type: string }, display: { blendMode?: unknown; filters?: unknown }): void {
+/**
+ * Apply a layer's `blendMode` to its display object; an unknown mode, or an advanced mode while the blend filters are not registered, says so
+ * and the layer is drawn normal. Returns the blend filter it added to the layer's filter chain (the caller destroys it with the layer), if any.
+ */
+export function applyBlendMode(
+  spec: { blendMode?: string; name?: string; type: string },
+  display: { blendMode?: unknown; filters?: unknown },
+  report: BlendReport = sayNow,
+): BlendFilterLike | null {
   const mode = spec.blendMode;
-  if (mode === undefined) return;
+  if (mode === undefined) return null;
   const problem = blendProblem(mode);
-  if (problem) {
-    console.warn(`pixi-effects: ${describeLayer(spec)}: ${problem}`);
-    return;
-  }
+  if (problem) { report(problem, spec); return null; }
+  if (isAdvancedBlend(mode) && !blendRegistered()) { report(blendUnavailableMessage(mode), spec); return null; }
   // A container's blend mode applies INSIDE a filter's offscreen pass (against transparent black: multiply gave
   // solid black) and not to the filtered result. With filters, the pass that draws onto the backdrop is the last
   // filter's, so the mode goes there; the container stays normal.
@@ -56,14 +65,15 @@ export function applyBlendMode(spec: { blendMode?: string; name?: string; type: 
     if (isAdvancedBlend(mode)) {
       // an advanced mode is a filter of its own (it reads the backdrop): it joins the chain as the last pass
       const blend = blendFilterFor(mode);
-      if (!blend) { warnBlendUnavailable(spec, mode); return; }
+      if (!blend) { report(blendUnavailableMessage(mode), spec); return null; }
       display.filters = [...filters, blend];
-      return;
+      return blend;
     }
     (filters[filters.length - 1] as { blendMode?: unknown }).blendMode = mode;
-    return;
+    return null;
   }
   display.blendMode = mode;
+  return null;
 }
 
 /** What blend.ts needs of a blend filter (the real ones are Pixi filters; tests use plain objects). */
@@ -73,6 +83,11 @@ let factory: ((mode: string) => BlendFilterLike | null) | null = null;
 /** `filters/blendModes.ts` hands its filter maker here when it registers, so this file never imports Pixi. */
 export function setBlendFilterFactory(f: ((mode: string) => BlendFilterLike | null) | null): void {
   factory = f;
+}
+
+/** Are the blend filters registered (a movie that uses an advanced mode registers them in `Movie.init`)? */
+export function blendRegistered(): boolean {
+  return factory !== null;
 }
 
 /** A fresh blend filter for an advanced mode, or null when the blends are not registered (or the mode is not an advanced one). */
@@ -86,8 +101,15 @@ export function blendFilterFor(mode: string): BlendFilterLike | null {
  * backdrop by itself, and has no such switch). A movie that uses none never reaches this, so nothing about it changes.
  */
 export async function enableAdvancedBlend(renderer: unknown): Promise<void> {
-  const { registerBlendModes } = await import('../filters/blendModes');
-  registerBlendModes();
+  try {
+    const { registerBlendModes } = await import('../filters/blendModes');
+    registerBlendModes();
+  } catch (e) {
+    // a page that serves dist/index.js without its chunk, a CDN hiccup: the movie still plays, its advanced blends drawn normal
+    const why = e instanceof Error ? e.message : String(e);
+    console.warn(`pixi-effects: the blend filters could not be loaded (${why}); layers with an advanced blendMode are drawn normal. Serve the whole dist/ folder (the filters are the blendModes-*.js file next to index.js)`);
+    return;
+  }
   const bb = (renderer as { backBuffer?: { useBackBuffer: boolean } }).backBuffer;
   if (bb) bb.useBackBuffer = true;
 }
@@ -108,23 +130,26 @@ function drawnLeaves(sequences: unknown): number {
   return n;
 }
 
-/** The full-frame passes one layer costs: 0 without an advanced mode, 1 for a layer, and one per drawn layer inside a composition (it has at least 1). */
-function passesOf(l: Counted): number {
-  if (!isAdvancedBlend(l.blendMode)) return 0;
-  return l.type === 'composition' ? Math.max(1, drawnLeaves(l.sequences)) : 1;
+/**
+ * The full-frame passes one layer costs while it is on screen: 1 for a layer with an advanced mode; for a composition with one, one for each
+ * drawn layer inside it (its children inherit the mode and blend one by one); for a composition without, the most that its own layers add
+ * at one instant (a card with three blends in it, on screen with four other cards, is twelve).
+ */
+function passesOf(l: Counted, span: number): number {
+  const isComposition = l.type === 'composition';
+  if (isAdvancedBlend(l.blendMode)) return isComposition ? Math.max(1, drawnLeaves(l.sequences)) : 1;
+  return isComposition && Array.isArray(l.sequences) ? maxConcurrentAdvanced(l.sequences as Counted[], l.duration ?? span) : 0;
 }
 
-/**
- * The most full-frame advanced-blend passes on screen at one instant, from the layers' `at` and `duration` (a layer with no duration lasts to
- * the end). A composition with an advanced mode counts one for each layer inside it: its children inherit the mode and blend one by one.
- */
+/** The most full-frame advanced-blend passes on screen at one instant, from the layers' `at` and `duration` (a layer with no duration lasts to the end). */
 export function maxConcurrentAdvanced(layers: ReadonlyArray<Counted>, span: number): number {
   const events: Array<[number, number]> = [];
   for (const l of layers) {
-    const w = passesOf(l);
+    const w = passesOf(l, span);
     if (w === 0) continue;
-    const start = Math.max(0, l.at ?? 0);
-    const end = l.duration === undefined ? span : start + l.duration;
+    const at = l.at ?? 0;
+    const end = l.duration === undefined ? span : at + l.duration;
+    const start = Math.max(0, at);                                     // a negative `at` starts before the composition: only what is after 0 is on screen
     if (end > start) events.push([start, w], [end, -w]);
   }
   events.sort((a, b) => a[0] - b[0] || a[1] - b[1]);                  // at one instant, the layers that end go before the ones that start

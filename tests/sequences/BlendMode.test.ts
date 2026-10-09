@@ -103,11 +103,34 @@ describe('an advanced blendMode', () => {
     expect(said[0]).toMatch(/not set up|could not/);
   });
 
+  it('with the blends not registered, a layer with NO filters warns too (it used to be left to Pixi\'s own message) and is drawn normal', async () => {
+    setBlendFilterFactory(null);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const comp = await build([{ type: 'shape', shape: 'circle', radius: 10, name: 'glow', blendMode: 'soft-light' }]);
+    expect(blendOf(comp, 0)).toBeUndefined();
+    const said = warn.mock.calls.map(c => String(c[0])).filter(m => m.includes('blendMode'));
+    expect(said).toHaveLength(1);
+    expect(said[0]).toContain('layer "glow"');
+    expect(said[0]).toMatch(/not registered/);
+  });
+
   it('the basic modes behave exactly as before (the last filter carries the mode)', async () => {
     const f1: Record<string, unknown> = { apply() {} };
     await build([{ type: 'shape', shape: 'circle', radius: 10, blendMode: 'screen', filters: [{ type: 'custom', name: 'a', filter: f1 }] }]);
     expect(f1.blendMode).toBe('screen');
     expect(made).toHaveLength(0);
+  });
+});
+
+describe('the same blendMode mistake in many layers', () => {
+  it('is said once for a composition, however many layers have it (particles make hundreds); a different mistake is said again', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const many = Array.from({ length: 40 }, (_, i) => ({ type: 'shape', shape: 'circle', radius: 5, name: 'p' + i, blendMode: 'softlight' }));
+    await build([...many, { type: 'shape', shape: 'circle', radius: 5, name: 'other', blendMode: 'glow' }]);
+    const said = warn.mock.calls.map(c => String(c[0])).filter(m => m.includes('blendMode'));
+    expect(said).toHaveLength(2);
+    expect(said[0]).toContain('layer "p0"');
+    expect(said[0]).toMatch(/40 layers|and 39 more/);
   });
 });
 
@@ -176,6 +199,29 @@ describe('blendMode on a layer with an inverted mask', () => {
   });
 });
 
+describe('a blendMode on a layer destroyed with its composition', () => {
+  it('destroys the blend filter it added and the group (with its filter) it made, so no GPU object is left behind', async () => {
+    const made: Array<{ mode: string; destroyed: boolean; destroy(): void }> = [];
+    setBlendFilterFactory(mode => { const f = { mode, destroyed: false, destroy() { f.destroyed = true; } }; made.push(f); return f; });
+    const f1: Record<string, unknown> = { apply() {} };
+    const comp = await build([
+      { type: 'shape', shape: 'circle', radius: 10, blendMode: 'overlay', filters: [{ type: 'custom', name: 'a', filter: f1 }] },              // a blend filter appended
+      { type: 'shape', shape: 'rect', width: 20, height: 20, blendMode: 'overlay', maskInverted: true, mask: { type: 'shape', shape: 'circle', radius: 5 } },   // a group with a blend filter
+      { type: 'shape', shape: 'rect', width: 20, height: 20, blendMode: 'multiply', maskInverted: true, mask: { type: 'shape', shape: 'circle', radius: 5 } },  // a group with an AlphaFilter
+    ]);
+    const wraps = ((comp.target as unknown as { children: Array<{ children: Array<{ filters?: Array<{ destroyed?: boolean; destroy(): void }>; destroyed?: boolean }> }> }).children[0]!.children)
+      .filter(c => Array.isArray(c.filters) && c.filters.length === 1 && c.children !== undefined && (c as unknown as { children: unknown[] }).children.length === 2);
+    expect(made).toHaveLength(2);
+    expect(wraps).toHaveLength(2);
+    const alphaFilter = wraps.find(w => (w.filters![0] as { mode?: string }).mode === undefined)!.filters![0]! as { destroyed?: boolean; destroy(): void };
+    const alphaDestroy = vi.spyOn(alphaFilter, 'destroy');
+    comp.destroy();
+    expect(made.every(f => f.destroyed)).toBe(true);                 // both blend filters
+    expect(wraps.every(w => w.destroyed === true)).toBe(true);       // both groups
+    expect(alphaDestroy).toHaveBeenCalled();                          // and the plain carrier of the multiply group
+  });
+});
+
 describe('blendMode on a layer masked by a text layer', () => {
   it('warns once (the blend is lost in the alpha mask) and leaves the layer normal; no warning without a blend mode, or with an inverted shape mask', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -185,6 +231,10 @@ describe('blendMode on a layer masked by a text layer', () => {
     const said = warn.mock.calls.map(c => String(c[0])).filter(m => m.includes('text layer as the mask'));
     expect(said).toHaveLength(1);
     expect(said[0]).toContain('layer "lit"');
+    warn.mockClear();
+    // an image or a video layer as the mask is the same (a Sprite mask is an alpha mask)
+    await build([{ type: 'shape', shape: 'rect', width: 50, height: 50, name: 'lit2', blendMode: 'multiply', mask: { type: 'image', asset: 'a' } }]);
+    expect(warn.mock.calls.map(c => String(c[0])).filter(m => m.includes('image layer as the mask'))).toHaveLength(1);
     warn.mockClear();
     await build([{ type: 'shape', shape: 'rect', width: 50, height: 50, mask: text }]);
     await build([{ type: 'shape', shape: 'rect', width: 50, height: 50, blendMode: 'multiply', mask: { type: 'shape', shape: 'circle', radius: 5 }, maskInverted: true }]);

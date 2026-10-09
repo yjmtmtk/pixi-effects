@@ -242,4 +242,49 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
       }
     });
   });
+
+  it('an image layer as the mask with a blendMode cannot blend (a Sprite mask is an alpha mask too): it warns once and the disc shows the layer normal, the rest the backdrop', async () => {
+    await withPage(async (cdp) => {
+      const disc: string = await cdp.eval(`(() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); g.fillStyle = '#ffffff'; g.beginPath(); g.arc(32, 32, 28, 0, 7); g.fill(); return c.toDataURL('image/png'); })()`);
+      const comp = { sequences: [
+        { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#b0703a' } },
+        { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, blendMode: 'multiply', initial: { x: 0, y: 0, fillColor: '#3dd6c8' },
+          mask: { type: 'image', asset: 'disc', initial: { x: 80, y: 45, anchorX: 0.5, anchorY: 0.5 } } },
+      ] };
+      await cdp.eval(`mk(${JSON.stringify({ composition: comp, assets: [{ name: 'disc', src: disc }] })})`);
+      const url = await cdp.eval('snap(0)');
+      const inDisc: number[] = await cdp.eval(`px(${JSON.stringify(url)}, 80, 45)`);
+      const outside: number[] = await cdp.eval(`px(${JSON.stringify(url)}, 10, 10)`);
+      for (let k = 0; k < 3; k++) {
+        expect(Math.abs(inDisc[k]! - hexToRgb('#3dd6c8')[k]! * 255), `in the disc, channel ${k}: got ${inDisc}`).toBeLessThanOrEqual(TOLERANCE);
+        expect(Math.abs(outside[k]! - hexToRgb('#b0703a')[k]! * 255), `outside, channel ${k}: got ${outside}`).toBeLessThanOrEqual(TOLERANCE);
+      }
+      expect(mine(await cdp.eval('__logs')).filter((l: string) => l.includes('image layer as the mask'))).toHaveLength(1);
+    });
+  });
+
+  it('an INVERTED image mask with a blendMode works: the disc is a hole, the rest is the blend', async () => {
+    await withPage(async (cdp) => {
+      const disc: string = await cdp.eval(`(() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); g.fillStyle = '#ffffff'; g.beginPath(); g.arc(32, 32, 28, 0, 7); g.fill(); return c.toDataURL('image/png'); })()`);
+      const back = hexToRgb('#b0703a');
+      for (const mode of ['multiply', 'overlay']) {
+        const comp = { sequences: [
+          { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#b0703a' } },
+          { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, blendMode: mode, maskInverted: true, initial: { x: 0, y: 0, fillColor: '#3dd6c8' },
+            mask: { type: 'image', asset: 'disc', initial: { x: 80, y: 45, anchorX: 0.5, anchorY: 0.5 } } },
+        ] };
+        await cdp.eval(`mk(${JSON.stringify({ composition: comp, assets: [{ name: 'disc', src: disc }] })})`);
+        const url = await cdp.eval('snap(0)');
+        const inDisc: number[] = await cdp.eval(`px(${JSON.stringify(url)}, 80, 45)`);
+        const outside: number[] = await cdp.eval(`px(${JSON.stringify(url)}, 10, 10)`);
+        const blended = mode === 'multiply'
+          ? back.map((b, k) => b * hexToRgb('#3dd6c8')[k]! * 255)
+          : blendPixel('overlay', back, 1, hexToRgb('#3dd6c8'), 1).slice(0, 3);
+        for (let k = 0; k < 3; k++) {
+          expect(Math.abs(inDisc[k]! - back[k]! * 255), `${mode}: in the hole, channel ${k}: got ${inDisc}`).toBeLessThanOrEqual(TOLERANCE);
+          expect(Math.abs(outside[k]! - blended[k]!), `${mode}: outside, channel ${k}: got ${outside}`).toBeLessThanOrEqual(TOLERANCE);
+        }
+      }
+    });
+  });
 });

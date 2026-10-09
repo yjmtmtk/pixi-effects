@@ -25,6 +25,11 @@ describe('blendProblem', () => {
   it('is null for every name in the table', () => {
     for (const m of BLEND_MODES) expect(blendProblem(m)).toBeNull();
   });
+  it('knows the other programs\' names: linear-dodge and plus-lighter are add, luminance is luminosity, exclude is exclusion', () => {
+    for (const [typed, meant] of [['linear-dodge', 'add'], ['Linear Dodge', 'add'], ['plus-lighter', 'add'], ['luminance', 'luminosity'], ['exclude', 'exclusion']]) {
+      expect(blendProblem(typed), typed).toContain(`did you mean "${meant}"?`);
+    }
+  });
   it('says what was meant for the usual slips, and lists the modes', () => {
     const cases: Array<[string, string]> = [
       ['softlight', 'soft-light'], ['soft_light', 'soft-light'], ['SoftLight', 'soft-light'], ['hardlight', 'hard-light'],
@@ -92,6 +97,20 @@ describe('maxConcurrentAdvanced', () => {
     expect(maxConcurrentAdvanced([comp('overlay', [])], 10)).toBe(1);                                 // an empty one still counts as itself
     expect(maxConcurrentAdvanced([comp('add', shapes(20))], 10)).toBe(0);                             // a basic mode is not a heavy pass
     expect(maxConcurrentAdvanced([comp('overlay', shapes(4), 0, 2), comp('overlay', shapes(5), 1, 2)], 10)).toBe(9);   // they overlap during 1–2 s
+  });
+  it('a negative at starts the layer before the composition: it lasts to at + duration, not past it', () => {
+    expect(maxConcurrentAdvanced([L(-1, 2), L(1.5, 1)], 10)).toBe(1);        // [-1, 1) ends before [1.5, 2.5) starts
+    expect(maxConcurrentAdvanced([L(-1, 2), L(0.5, 1)], 10)).toBe(2);        // [-1, 1) and [0.5, 1.5) overlap during 0.5–1
+    expect(maxConcurrentAdvanced([L(-3, 2)], 10)).toBe(0);                   // over before the composition starts
+  });
+  it('counts through the compositions: a composition with no mode adds what is blended inside it, at the same time; one with a mode counts its layers once', () => {
+    const shapes = (n: number, blendMode: unknown = 'overlay') => Array.from({ length: n }, () => ({ type: 'shape', blendMode }));
+    const comp = (blendMode: unknown, sequences: unknown[], at = 0, duration?: number) => ({ type: 'composition', blendMode, sequences, at, duration });
+    expect(maxConcurrentAdvanced(Array.from({ length: 5 }, () => comp(undefined, shapes(3))), 10)).toBe(15);              // five cards on screen together, three blends in each
+    expect(maxConcurrentAdvanced(Array.from({ length: 5 }, (_, i) => comp(undefined, shapes(3), i * 2, 2)), 10)).toBe(3);  // five cards one after another
+    expect(maxConcurrentAdvanced([comp('overlay', shapes(4))], 10)).toBe(4);                                              // 4 layers, each blends once (not 4 + 4)
+    expect(maxConcurrentAdvanced([comp(undefined, shapes(3, 'add'))], 10)).toBe(0);
+    expect(maxConcurrentAdvanced([comp(undefined, [comp(undefined, shapes(2)), ...shapes(1)])], 10)).toBe(3);             // nested one level deeper
   });
   it('does not count the basic modes, normal, or layers with no mode; a layer with no duration lasts to the end of the composition', () => {
     expect(maxConcurrentAdvanced([L(0, 5, 'add'), L(0, 5, 'normal'), L(0, 5, null), L(0, 5, 'multiply')], 10)).toBe(0);

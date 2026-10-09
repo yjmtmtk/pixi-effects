@@ -9,6 +9,9 @@ vi.mock('pixi.js', async () => {
   return m;
 });
 import { CompositionSequence } from '../../src/sequences/Composition';
+import { registerBlendModes } from '../../src/filters/blendModes';
+// a movie that uses an advanced blend mode registers the blend filters in Movie.init; this test builds the compositions without a movie
+registerBlendModes();
 import { expandTransitions } from '../../src/core/Transitions';
 import { kenBurns } from '../../src/presets/kenBurns';
 import { withFade } from '../../src/transforms/withFade';

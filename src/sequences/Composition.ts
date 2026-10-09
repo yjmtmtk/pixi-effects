@@ -11,7 +11,7 @@ import { Layer3D, type SpaceHost } from '../space/Layer3D';
 import { lintSequence, lintFocus } from '../space/lint';
 import { layerInitialZ, blurRadius, MANY_BLURRED } from '../space/focus';
 import { describeLayer, lintText, lintTiming, summarizeWarnings, lintKeys } from '../core/lint';
-import { applyBlendMode, blendFilterFor, blendProblem, isAdvancedBlend, warnBlendUnavailable, maxConcurrentAdvanced, MANY_ADVANCED } from '../core/blend';
+import { applyBlendMode, blendFilterFor, blendProblem, blendUnavailableMessage, isAdvancedBlend, maxConcurrentAdvanced, MANY_ADVANCED, type BlendReport } from '../core/blend';
 import { cameraBasis, homeCamera, projectPoint, NEAR, type CameraBasis, type CameraState } from '../space/math';
 import { timeRemapOf, remapOf, contentLength, bindClock, clockTable, type TimeRemap, type ClockTable } from '../core/remap';
 import type { CompositionSequenceSpec, AudioDescriptor, CompositionShape, SequenceSpec } from '../types';
@@ -26,6 +26,8 @@ export class CompositionSequence extends Sequence {
   private _cameras: CameraSequence[] = [];
   private _layers3d: Layer3D[] = [];
   private _dofSaid = { behind: false, many: false };
+  /** What this composition made for blend modes (filters added to layers' chains, groups and their carrier filters): destroyed with it. */
+  private _blendOwned: Array<{ destroy(): void }> = [];
   /** Drawn children in stack order (cameras and target-less sequences excluded). */
   private _visual: Array<{ seq: Sequence; layer: Layer3D | null; wrap?: Container }> = [];
   /** Layers drawn inside a null layer (`parent`): they are not in the composition's own stack. */
@@ -110,6 +112,12 @@ export class CompositionSequence extends Sequence {
         return hit ? layerInitialZ(hit.spec, hit.scope() as unknown as Record<string, number>) : undefined;
       }, layerNames);
     }
+    // What is said about blend modes is collected per build: the same mistake in 300 particle layers is one warning ("and 299 more")
+    const blendSaid = new Map<string, { spec: { name?: string; type: string }; n: number }>();
+    const report: BlendReport = (message, spec) => {
+      const seen = blendSaid.get(message);
+      if (seen) seen.n++; else blendSaid.set(message, { spec, n: 1 });
+    };
     for (const child of this._children) {
       // Cameras are display-less: they only feed the projection pass.
       if (child instanceof CameraSequence) {
@@ -129,7 +137,8 @@ export class CompositionSequence extends Sequence {
         inner.addChild(layer.display);
         this._layers3d.push(layer);
         this._visual.push({ seq: child, layer });
-        applyBlendMode(child.spec, layer.display);
+        const added3d = applyBlendMode(child.spec, layer.display, report);
+        if (added3d) this._blendOwned.push(added3d);
         if (maskSpec) {
           console.warn(`pixi-effects: ${describeLayer(child.spec)}: mask is not supported on threeD layers yet; ignored`);
         }
@@ -146,10 +155,10 @@ export class CompositionSequence extends Sequence {
         && mode !== undefined && mode !== 'normal' && blendProblem(mode) === null;
       // A (not inverted) text mask is an alpha mask too, and there is no way to express it with a blend of its own: the blend is said to be lost
       // and the layer is drawn normal (the letters can be a layer of their own, which blends fine).
-      const textMaskLosesBlend = !!maskSpec && maskSpec.type === 'text' && !eraseMask
+      const alphaMaskLosesBlend = !!maskSpec && (maskSpec.type === 'text' || maskSpec.type === 'image' || maskSpec.type === 'video') && !eraseMask
         && mode !== undefined && mode !== 'normal' && blendProblem(mode) === null;
-      if (textMaskLosesBlend) {
-        console.warn(`pixi-effects: ${describeLayer(child.spec)}: blendMode "${mode}" cannot be used together with a text layer as the mask (the blend is lost); the layer is drawn normal. Put the text on a layer of its own with the blendMode instead of masking with it`);
+      if (alphaMaskLosesBlend) {
+        report(`blendMode "${mode}" cannot be used together with ${maskSpec!.type === 'image' ? 'an' : 'a'} ${maskSpec!.type} layer as the mask (the blend is lost); the layer is drawn normal. Put the ${maskSpec!.type} on a layer of its own with the blendMode instead of masking with it, or use maskInverted`, child.spec);
       }
       let wrap: Container | undefined;
       if (eraseMask) {
@@ -158,12 +167,16 @@ export class CompositionSequence extends Sequence {
         let carrier: unknown = null;
         if (isAdvancedBlend(mode)) carrier = blendFilterFor(mode);
         else { const f = new AlphaFilter({ alpha: 1 }); f.blendMode = mode as never; carrier = f; }
-        if (carrier) wrap.filters = [carrier as never]; else warnBlendUnavailable(child.spec, mode);
+        if (carrier) { wrap.filters = [carrier as never]; this._blendOwned.push(carrier as { destroy(): void }); } else report(blendUnavailableMessage(mode), child.spec);
+        this._blendOwned.push(wrap);
         into.addChild(wrap);
       } else into.addChild(child.target);
       if (holder) this._nested.push(child);
       else this._visual.push({ seq: child, layer: null, wrap });
-      if (!wrap && !textMaskLosesBlend) applyBlendMode(child.spec, child.target);
+      if (!wrap && !alphaMaskLosesBlend) {
+        const added = applyBlendMode(child.spec, child.target, report);
+        if (added) this._blendOwned.push(added);
+      }
       // If this child has a `mask` spec, build the mask sequence in the same
       // composition shape, add its target to the same parent (so its
       // transforms resolve in the same coord space), and wire PIXI's
@@ -213,6 +226,10 @@ export class CompositionSequence extends Sequence {
           maskSeq.keepHidden = !wrap && (maskSpec.type === 'image' || maskSpec.type === 'video');   // PIXI: a Sprite mask is hidden by renderable = false
         }
       }
+    }
+
+    for (const [message, seen] of blendSaid) {
+      console.warn(`pixi-effects: ${describeLayer(seen.spec)}: ${message}${seen.n > 1 ? ` (and ${seen.n - 1} more layers have the same mistake)` : ''}`);
     }
 
     if (this._layers3d.length > 0) {
@@ -466,6 +483,8 @@ export class CompositionSequence extends Sequence {
     for (const l of this._layers3d) l.destroy();
     this._layers3d = [];
     for (const c of this._children) c.destroy();
+    for (const o of this._blendOwned) o.destroy();
+    this._blendOwned = [];
     super.destroy();
   }
 }
