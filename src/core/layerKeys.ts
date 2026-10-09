@@ -1,6 +1,6 @@
 import type {
   SequenceCommon, VideoSequenceSpec, ImageSequenceSpec, TextSequenceSpec, AudioAssetSpec, AudioSfxSpec, AudioMusicSpec,
-  CompositionSequenceSpec, CameraSequenceSpec, NullSequenceSpec, SequenceSpec,
+  CompositionSequenceSpec, CameraSequenceSpec, LightSequenceSpec, NullSequenceSpec, SequenceSpec,
   RectShapeSpec, CircleShapeSpec, EllipseShapeSpec, ArcShapeSpec, LineShapeSpec, PolygonShapeSpec, PathShapeSpec,
 } from '../types';
 
@@ -13,7 +13,7 @@ type KeysOfUnion<T> = T extends unknown ? keyof T : never;
 type Covers<T, K extends readonly string[]> = [Exclude<KeysOfUnion<T>, K[number]>] extends [never] ? true : { missing: Exclude<KeysOfUnion<T>, K[number]> };
 type Assert<T extends true> = T;
 
-const COMMON = ['type', 'name', 'parent', 'at', 'duration', 'initial', 'keyframes', 'filters', 'filterArea', 'mask', 'maskInverted', 'blendMode', 'threeD', 'hideBehindCamera'] as const satisfies readonly KeysOfUnion<SequenceCommon | { type: string }>[];
+const COMMON = ['type', 'name', 'parent', 'at', 'duration', 'initial', 'keyframes', 'filters', 'filterArea', 'mask', 'maskInverted', 'blendMode', 'threeD', 'hideBehindCamera', 'lit', 'castsShadows'] as const satisfies readonly KeysOfUnion<SequenceCommon | { type: string }>[];
 
 const VIDEO = [...COMMON, 'asset', 'loop', 'audio', 'volume', 'speed'] as const satisfies readonly KeysOfUnion<VideoSequenceSpec>[];
 const IMAGE = [...COMMON, 'asset', 'colorSpace'] as const satisfies readonly KeysOfUnion<ImageSequenceSpec>[];
@@ -21,6 +21,7 @@ const TEXT = [...COMMON, 'text', 'format', 'style', 'colorSpace', 'fillGradient'
 const AUDIO = [...COMMON, 'volume', 'asset', 'loop', 'sfx', 'music', 'speed'] as const satisfies readonly KeysOfUnion<AudioAssetSpec | AudioSfxSpec | AudioMusicSpec>[];
 const COMPOSITION = [...COMMON, 'width', 'height', 'sequences', 'transitions', 'speed'] as const satisfies readonly KeysOfUnion<CompositionSequenceSpec>[];
 const CAMERA = [...COMMON] as const satisfies readonly KeysOfUnion<CameraSequenceSpec>[];
+const LIGHT = [...COMMON, 'kind', 'falloff'] as const satisfies readonly KeysOfUnion<LightSequenceSpec>[];
 const NULL = [...COMMON] as const satisfies readonly KeysOfUnion<NullSequenceSpec>[];
 
 const SHAPE = [...COMMON, 'shape', 'fillGradient', 'colorSpace', 'strokeCap', 'strokeJoin'] as const;
@@ -37,14 +38,14 @@ const PATH = [...SHAPE, ...TRIM, 'd', 'morphTo', 'morph', 'morphPoints'] as cons
 export type __Covered = [
   Assert<Covers<VideoSequenceSpec, typeof VIDEO>>, Assert<Covers<ImageSequenceSpec, typeof IMAGE>>, Assert<Covers<TextSequenceSpec, typeof TEXT>>,
   Assert<Covers<AudioAssetSpec | AudioSfxSpec | AudioMusicSpec, typeof AUDIO>>, Assert<Covers<CompositionSequenceSpec, typeof COMPOSITION>>,
-  Assert<Covers<CameraSequenceSpec, typeof CAMERA>>, Assert<Covers<NullSequenceSpec, typeof NULL>>,
+  Assert<Covers<CameraSequenceSpec, typeof CAMERA>>, Assert<Covers<LightSequenceSpec, typeof LIGHT>>, Assert<Covers<NullSequenceSpec, typeof NULL>>,
   Assert<Covers<RectShapeSpec, typeof RECT>>, Assert<Covers<CircleShapeSpec, typeof CIRCLE>>, Assert<Covers<EllipseShapeSpec, typeof ELLIPSE>>,
   Assert<Covers<ArcShapeSpec, typeof ARC>>, Assert<Covers<LineShapeSpec, typeof LINE>>, Assert<Covers<PolygonShapeSpec, typeof POLYGON>>,
   Assert<Covers<PathShapeSpec, typeof PATH>>,
 ];
 
 const SHAPES: Record<string, readonly string[]> = { rect: RECT, circle: CIRCLE, ellipse: ELLIPSE, arc: ARC, line: LINE, polygon: POLYGON, path: PATH };
-const BY_TYPE: Record<string, readonly string[]> = { video: VIDEO, image: IMAGE, text: TEXT, audio: AUDIO, composition: COMPOSITION, camera: CAMERA, null: NULL };
+const BY_TYPE: Record<string, readonly string[]> = { video: VIDEO, image: IMAGE, text: TEXT, audio: AUDIO, composition: COMPOSITION, camera: CAMERA, light: LIGHT, null: NULL };
 
 /** What a layer may be called, for the message: `text layer`, `rect shape`. */
 export function kindName(spec: { type: string; shape?: string }): string {
@@ -78,6 +79,8 @@ export const PROP_KEYS: ReadonlySet<string> = new Set([
   'fill', 'value', 'visibleChars', 'text', 'volume', 'time',
   // camera
   'lookAtX', 'lookAtY', 'lookAtZ', 'fov', 'focus', 'aperture', 'offsetX', 'offsetY', 'offsetZ', 'lookOffsetX', 'lookOffsetY', 'lookOffsetZ',
+  // light + fog
+  'intensity', 'color', 'coneAngle', 'coneFeather', 'falloffDistance', 'shadowDarkness', 'shadowDiffusion', 'fogNear', 'fogFar', 'fogColor', 'fogAmount',
 ]);
 
 /** The text `style` keys (PixiJS TextStyle) that this library passes on. */

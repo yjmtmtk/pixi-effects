@@ -111,6 +111,7 @@ export type {
   AudioMusicSpec,
   CompositionSequenceSpec,
   CameraSequenceSpec,
+  LightSequenceSpec,
   NullSequenceSpec,
   ShapeSequenceSpec,
   RectShapeSpec,

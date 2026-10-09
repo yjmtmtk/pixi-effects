@@ -272,6 +272,10 @@ export interface SequenceCommon {
   threeD?: boolean;
   /** A threeD layer the camera passes (a fly-through): hide it quietly when it is at or behind the camera instead of warning. Default false. */
   hideBehindCamera?: boolean;
+  /** `false` keeps this `threeD` layer unlit when the composition has `light` layers (default true: every threeD layer receives the lights). */
+  lit?: boolean;
+  /** This `threeD` layer's outline shadows the other lit layers under lights that have `castsShadows`. Default false. */
+  castsShadows?: boolean;
 }
 
 export interface VideoSequenceSpec extends SequenceCommon {
@@ -497,6 +501,18 @@ export interface CameraSequenceSpec extends SequenceCommon {
   type: 'camera';
 }
 
+/**
+ * A light layer. Like the camera it draws nothing; put its props in `initial` / `keyframes`:
+ * `x y z lookAtX lookAtY lookAtZ intensity color coneAngle coneFeather radius falloffDistance shadowDarkness shadowDiffusion`.
+ */
+export interface LightSequenceSpec extends SequenceCommon {
+  type: 'light';
+  /** `ambient`: a flat colour everywhere; `point`: from a position in every direction; `spot`: a point limited to a cone around the direction to its look-at point; `parallel`: a direction only (the sun). Default `'point'`. */
+  kind?: 'ambient' | 'point' | 'spot' | 'parallel';
+  /** How a point or spot light weakens with distance. Default `'none'`. */
+  falloff?: 'none' | 'smooth' | 'inverseSquare';
+}
+
 // ─── Shape sequence ──────────────────────────────────────────────────────
 //
 // `type: 'shape'` renders a parametric primitive (rect / circle / ellipse /
@@ -674,6 +690,7 @@ export type SequenceSpec =
   | AudioSequenceSpec
   | CompositionSequenceSpec
   | CameraSequenceSpec
+  | LightSequenceSpec
   | ShapeSequenceSpec;
 
 /** Top-level composition (root node) — same as `CompositionSequenceSpec` minus the discriminant. */
