@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>spike · light</title></head>
+<body>
+  <!-- SPIKE 0.24 light: driven by driver.mjs (same folder). Needs the patched dist/ (patch.diff). -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    if (new URLSearchParams(location.search).get('backend') === 'webgl') Object.defineProperty(navigator, 'gpu', { value: undefined });
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">
+  { "imports": {
+      "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap": "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }
+  </script>
+  <script type="module">
+    import { Movie } from '../../../../dist/index.js';
+    const FPS = 30;
+    let W = 320, H = 180;
+    window.mk = async (opts) => {
+      if (window.movie) { await window.movie.destroy(); window.movie = null; }
+      window.__logs.length = 0;
+      W = opts.width ?? 320; H = opts.height ?? 180;
+      const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H; document.body.appendChild(canvas);
+      const movie = new Movie(); window.movie = movie;
+      await movie.init({ canvas, width: W, height: H, duration: opts.duration ?? 2, frameRate: FPS, background: '#000000', ...opts });
+      window.backend = movie.app.renderer.name || String(movie.app.renderer.type);
+      return window.backend;
+    };
+    const toImg = (url) => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = url; });
+    const pixels = async (url) => { const i = await toImg(url); const c = document.createElement('canvas'); c.width = i.width; c.height = i.height; const g = c.getContext('2d'); g.drawImage(i, 0, 0); return g.getImageData(0, 0, i.width, i.height).data; };
+    window.snap = (f) => window.movie.snapshot(f, { as: 'dataURL' });
+    window.diff = async (a, b) => { if (a === b) return 0; const A = await pixels(a), B = await pixels(b); let m = 0; for (let i = 0; i < A.length; i++) m = Math.max(m, Math.abs(A[i] - B[i])); return m; };
+    window.diffCount = async (a, b, tol) => { const A = await pixels(a), B = await pixels(b); let n = 0; for (let i = 0; i < A.length; i += 4) { if (Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2])) > tol) n++; } return `${n} of ${A.length / 4}`; };
+    window.shuffle =(arr, seed = 1) => { const a = arr.slice(); let s = seed; const r = () => (s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    window.orders = async (frames) => {
+      const take = async (order) => { const m = {}; for (const f of order) m[f] = await window.snap(f); return m; };
+      const fwd = await take(frames), bwd = await take(frames.slice().reverse()), jmp = await take(window.shuffle(frames, 7));
+      const out = { bwdMax: 0, jmpMax: 0 };
+      for (const f of frames) { out.bwdMax = Math.max(out.bwdMax, await window.diff(fwd[f], bwd[f])); out.jmpMax = Math.max(out.jmpMax, await window.diff(fwd[f], jmp[f])); }
+      return out;
+    };
+
+    // ── independent JS reference (written again here, not imported from the library) ──
+    const smooth = (e0, e1, x) => { const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
+    const hex = (s) => { const n = parseInt(s.slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; };
+    function lightRef(P, N, cam, lights) {
+      const toCam = [cam[0] - P[0], cam[1] - P[1], cam[2] - P[2]];
+      if (N[0] * toCam[0] + N[1] * toCam[1] + N[2] * toCam[2] < 0) N = N.map(v => -v);
+      const out = [0, 0, 0];
+      for (const L of lights) {
+        const i = L.initial ?? {};
+        const col = hex(i.color ?? '#ffffff'), k0 = i.intensity ?? 1;
+        if (L.kind === 'ambient') { for (let c = 0; c < 3; c++) out[c] += col[c] * k0; continue; }
+        const lp = [i.x, i.y, i.z], la = [i.lookAtX, i.lookAtY, i.lookAtZ];
+        let dv = [la[0] - lp[0], la[1] - lp[1], la[2] - lp[2]]; const dl = Math.hypot(...dv); dv = dv.map(v => v / dl);
+        let Ld, dist = 0;
+        if (L.kind === 'parallel') Ld = dv.map(v => -v);
+        else { const d = [lp[0] - P[0], lp[1] - P[1], lp[2] - P[2]]; dist = Math.hypot(...d); Ld = d.map(v => v / dist); }
+        const ndl = Math.max(0, N[0] * Ld[0] + N[1] * Ld[1] + N[2] * Ld[2]);
+        let att = 1;
+        if (L.kind !== 'parallel') {
+          const r = i.radius ?? 500, fd = i.falloffDistance ?? 500;
+          if (L.falloff === 'smooth') att = 1 - smooth(r, r + fd, dist);
+          else if (L.falloff === 'inverseSquare') att = Math.min(1, r * r / (dist * dist));
+        }
+        let cone = 1;
+        if (L.kind === 'spot') {
+          const half = (i.coneAngle ?? 90) * Math.PI / 360, inner = half * (1 - (i.coneFeather ?? 0.5));
+          const co = Math.cos(half), ci = Math.max(Math.cos(inner), co + 1e-4);
+          cone = smooth(co, ci, -(Ld[0] * dv[0] + Ld[1] * dv[1] + Ld[2] * dv[2]));
+        }
+        for (let c = 0; c < 3; c++) out[c] += col[c] * k0 * ndl * att * cone;
+      }
+      return out;
+    }
+    // plane normal of a layer with rotationX / rotationY (degrees), as the library's layerToWorld rotates (0,0,1)
+    const normalOf = (rx, ry) => { const a = rx * Math.PI / 180, b = ry * Math.PI / 180; return [Math.cos(a) * Math.sin(b), -Math.sin(a), Math.cos(a) * Math.cos(b)]; };
+    // compare: the GPU picture of ONE plane (layer spec `plane`, a flat colour `albedo` hex) against albedo × lightRef, ray-cast per pixel
+    window.refCompare = async ({ plane, lights, albedo, region, frame = 0 }) => {
+      const url = await window.snap(frame);
+      const P = await pixels(url);
+      const fov = 40, D = (H / 2) / Math.tan(fov * Math.PI / 360);
+      const cam = [W / 2, H / 2, D];
+      const pi = plane.initial; const p0 = [pi.x, pi.y, pi.z ?? 0];
+      const N = normalOf(pi.rotationX ?? 0, pi.rotationY ?? 0);
+      const alb = hex(albedo);
+      let max = 0, over2 = 0, n = 0; const worst = [];
+      for (let y = region[1]; y < region[3]; y += region[4] ?? 1) for (let x = region[0]; x < region[2]; x += region[4] ?? 1) {
+        const dir = [x + 0.5 - W / 2, y + 0.5 - H / 2, -D];
+        const t = ((p0[0] - cam[0]) * N[0] + (p0[1] - cam[1]) * N[1] + (p0[2] - cam[2]) * N[2]) / (dir[0] * N[0] + dir[1] * N[1] + dir[2] * N[2]);
+        const w = [cam[0] + t * dir[0], cam[1] + t * dir[1], cam[2] + t * dir[2]];
+        const a = (pi.rotationX ?? 0) * Math.PI / 180, b = (pi.rotationY ?? 0) * Math.PI / 180;
+        const U = [Math.cos(b), 0, -Math.sin(b)], V = [Math.sin(a) * Math.sin(b), Math.cos(a), Math.sin(a) * Math.cos(b)];
+        const rel = [w[0] - p0[0], w[1] - p0[1], w[2] - p0[2]];
+        const lu = rel[0] * U[0] + rel[1] * U[1] + rel[2] * U[2], lv = rel[0] * V[0] + rel[1] * V[1] + rel[2] * V[2];
+        if (Math.abs(lu) > plane.width / 2 - 4 || Math.abs(lv) > plane.height / 2 - 4) continue;     // off the plane (or on its antialiased edge)
+        const l = lightRef(w, N, cam, lights);
+        for (let c = 0; c < 3; c++) {
+          const exp = Math.min(1, alb[c] * l[c]) * 255;
+          const got = P[(y * W + x) * 4 + c];
+          const d = Math.abs(exp - got);
+          if (d > max) { max = d; worst.length = 0; worst.push({ x, y, c, exp: +exp.toFixed(1), got }); }
+          if (d > 2) over2++;
+          n++;
+        }
+      }
+      return { max: +max.toFixed(2), over2, n, worst };
+    };
+    window.px = async (url, x, y) => { const P = await pixels(url); const i = (y * W + x) * 4; return [P[i], P[i + 1], P[i + 2]]; };
+
+    // ── timing: ms per frame of seek + draw, with the GPU drained each frame ──
+    window.timeFrames = async (frames) => {
+      const m = window.movie, r = m.app.renderer;
+      const drain = async () => {
+        if (r.gpu?.device) await r.gpu.device.queue.onSubmittedWorkDone();
+        else { const gl = r.gl; const b = new Uint8Array(4); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); }
+      };
+      for (let i = 0; i < 10; i++) { await m.gotoFrame(i % 30, true); await drain(); }        // warm up (shader compile, textures)
+      const t0 = performance.now();
+      for (let i = 0; i < frames; i++) { await m.gotoFrame(i % 60, true); await drain(); }
+      return (performance.now() - t0) / frames;
+    };
+    window.gpuName = () => {
+      const r = window.movie.app.renderer;
+      if (r.gl) { const e = r.gl.getExtension('WEBGL_debug_renderer_info'); return e ? r.gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : 'webgl'; }
+      return r.gpu?.adapter?.info ? `${r.gpu.adapter.info.vendor} ${r.gpu.adapter.info.architecture} ${r.gpu.adapter.info.description || ''}` : 'webgpu';
+    };
+    window.litCount = () => {
+      let n = 0; const walk = (s) => { for (const l of s._layers3d ?? []) if (l.material) n++; for (const c of s._children ?? []) walk(c); };
+      walk(window.movie._rootSequence); return n;
+    };
+    window.__ready = true;
+  </script>
+</body></html>

@@ -1,0 +1,12 @@
+{
+ "backend": "default",
+ "checked": 5886,
+ "bad": 0,
+ "worst": 0.38,
+ "badList": [],
+ "seekOrders": {
+  "bwdMax": 0,
+  "jmpMax": 0
+ },
+ "logs": []
+}

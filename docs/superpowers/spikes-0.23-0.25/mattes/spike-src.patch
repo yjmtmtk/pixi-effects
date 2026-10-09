@@ -1,0 +1,174 @@
+diff --git a/src/core/Transitions.ts b/src/core/Transitions.ts
+index 8dbf5fe..5a4622e 100644
+--- a/src/core/Transitions.ts
++++ b/src/core/Transitions.ts
+@@ -10,6 +10,7 @@ import { timeRemapOf, contentLength } from './remap';
+ /** Sums of decimal seconds (6 + 0.7 against 6.699999999999999) must not fail a coverage check. */
+ const EPS = 1e-6;
+ import { TransitionMaskFilter, type TransitionMode } from '../filters/TransitionMask';
++import { LumaWipeFilter } from '../filters/LumaWipe';
+ 
+ export interface TransitionWindow { from: string; to: string; start: number; end: number }
+ 
+@@ -107,7 +108,7 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
+   // Wrapping is a no-op for sequences that are already full-size compositions.
+   const masksParticipants = new Set<string>();
+   for (const t of transitions) {
+-    if (t.kind === 'wipe' || t.kind === 'iris' || t.kind === 'dissolve' || t.kind === 'zoom') {
++    if (t.kind === 'wipe' || t.kind === 'iris' || t.kind === 'dissolve' || t.kind === 'zoom' || (t.kind as string) === 'luma') {
+       masksParticipants.add(t.from);
+       masksParticipants.add(t.to);
+     }
+@@ -229,6 +230,8 @@ export function expandTransitions<T extends CompositionSpec | CompositionSequenc
+       case 'dissolve':
+         expandDissolve(out, abs, fromEntry.seq, toEntry.seq, i);
+         break;
++      default:
++        if ((abs as { kind: string }).kind === 'luma') expandLuma(out, abs as never, fromEntry.seq, toEntry.seq, i);   // SPIKE 0.23
+     }
+     rebaseNewKeyframes(fromEntry.seq, nFrom, fromStart);
+     rebaseNewKeyframes(toEntry.seq, nTo, toStart);
+@@ -276,7 +279,12 @@ function wrapAsFullComposition(seq: SequenceSpec, compW: number, compH: number):
+   delete (inner as { name?: string }).name;
+   delete (inner as { at?: number }).at;
+   delete (inner as { duration?: number }).duration;
++  // SPIKE 0.23: a named matte (`mask: 'name'`) refers to a SIBLING; inside the wrapper there is none, so the wrapper carries the matte
++  const m = (inner as { mask?: unknown }).mask;
++  const named = typeof m === 'string' || Array.isArray(m) || (!!m && typeof m === 'object' && !(m as { type?: unknown }).type);
++  if (named) delete (inner as { mask?: unknown }).mask;
+   return {
++    ...(named ? { mask: m } : {}),
+     type: 'composition',
+     name: seq.name,
+     at: seq.at,
+@@ -586,6 +594,26 @@ function expandDissolve(
+   (fromSeq as { filterArea?: typeof fullArea }).filterArea = fullArea;
+ }
+ 
++/** SPIKE 0.23: `{ kind: 'luma', map: 'radial' | 'linear' | 'diagonal' | <image asset name>, softness?: 0.1, flip?: false }`. */
++function expandLuma(
++  comp: CompositionSpec | CompositionSequenceSpec,
++  t: { at: number; duration: number; ease?: string; map?: string; softness?: number; flip?: boolean },
++  fromSeq: SequenceSpec, toSeq: SequenceSpec, transitionIndex: number,
++): void {
++  const ease = t.ease ?? 'none';
++  const inName = transitionFilterName(transitionIndex);
++  const outName = `${transitionFilterName(transitionIndex)}-out`;
++  const fullArea = { x: 0, y: 0, width: comp.width ?? 0, height: comp.height ?? 0 };
++  const opts = { map: t.map ?? 'linear', softness: t.softness ?? 0.1, flip: t.flip ?? false };
++  for (const [seq, name, invert] of [[toSeq, inName, false], [fromSeq, outName, true]] as const) {
++    const filters = ensureFilters(seq);
++    rejectReservedNameCollision(filters, seq.name);
++    filters.push({ type: 'custom', name, filter: new LumaWipeFilter({ ...opts, invert }) } as FilterSpec);
++    ensureKeyframes(seq).push({ at: t.at, to: { [`filters.${name}.uProgress`]: 1 }, duration: t.duration, ease });
++    (seq as { filterArea?: typeof fullArea }).filterArea = fullArea;
++  }
++}
++
+ // User-supplied filters with the reserved prefix collide with our internal
+ // naming and should fail loud. Our own injected names (`_pe-transition-N` /
+ // `_pe-transition-N-out`) are tolerated so a sequence can be `to` of one
+diff --git a/src/sequences/Composition.ts b/src/sequences/Composition.ts
+index e61c3b2..8cc7982 100644
+--- a/src/sequences/Composition.ts
++++ b/src/sequences/Composition.ts
+@@ -1,4 +1,10 @@
+-import { AlphaFilter, AlphaMask, Container, Rectangle } from 'pixi.js';
++import { AlphaFilter, AlphaMask, Container, Matrix, Rectangle, RenderTexture, Sprite } from 'pixi.js';
++import { MatteFilter } from '../filters/Matte';
++
++type MatteRef = { layer: string; channel?: 'alpha' | 'luma'; invert?: boolean };
++const EMPTY = new Container();
++/** SPIKE: MSAA on the matte texture (the canvas has it; without it the matte's edge is aliased). `?matteAA=0` turns it off to measure. */
++const MATTE_AA = typeof location === 'undefined' || new URLSearchParams(location.search).get('matteAA') !== '0';
+ import { gsap } from 'gsap';
+ import { Sequence } from './Base';
+ import { NullSequence } from './Null';
+@@ -40,6 +46,8 @@ export class CompositionSequence extends Sequence {
+   private _remap: TimeRemap | null = null;
+   private _childBase = 0;
+   private _contentSpan = 0;
++  /** SPIKE 0.23: named mattes: the source layer, its per-frame texture, and a hidden sprite placing that texture in the inner container. */
++  private _mattes = new Map<string, { seq: Sequence; rt: RenderTexture; sprite: Sprite }>();
+ 
+   /** Where the children's time starts: the composition's absolute start, or 0 when their time is local (remapped). */
+   get childBase(): number { return this._childBase; }
+@@ -118,6 +126,23 @@ export class CompositionSequence extends Sequence {
+       const seen = blendSaid.get(message);
+       if (seen) seen.n++; else blendSaid.set(message, { spec, n: 1 });
+     };
++    // SPIKE 0.23: track mattes by name. `mask: 'name'`, `mask: { layer, channel, invert }` or an array of those (intersect).
++    const refsOf = (m: unknown): MatteRef[] | null => {
++      const one = (r: unknown): MatteRef | null => typeof r === 'string' ? { layer: r } : (r && typeof r === 'object' && typeof (r as MatteRef).layer === 'string' && !(r as { type?: unknown }).type ? r as MatteRef : null);
++      if (Array.isArray(m)) { const all = m.map(one); return all.every(Boolean) ? all as MatteRef[] : null; }
++      const r = one(m); return r ? [r] : null;
++    };
++    const matteNames = new Set<string>();
++    for (const c of this._children) for (const r of refsOf((c.spec as { mask?: unknown }).mask) ?? []) matteNames.add(r.layer);
++    for (const name of matteNames) {
++      const seq = this._children.find(c => c.spec.name === name && c.target && !(c instanceof CameraSequence));
++      if (!seq) { console.warn(`pixi-effects: mask "${name}": no layer with that name`); continue; }
++      const rt = RenderTexture.create({ width, height, resolution: 1, antialias: MATTE_AA });
++      const sprite = new Sprite(rt);
++      sprite.renderable = false;              // only its worldTransform is used: where the matte texture sits on screen
++      inner.addChild(sprite);
++      this._mattes.set(name, { seq, rt, sprite });
++    }
+     for (const child of this._children) {
+       // Cameras are display-less: they only feed the projection pass.
+       if (child instanceof CameraSequence) {
+@@ -125,9 +150,25 @@ export class CompositionSequence extends Sequence {
+         continue;
+       }
+       if (!child.target) continue;
++      if (child.spec.name && this._mattes.get(child.spec.name)?.seq === child) continue;   // SPIKE: a matte source is not drawn
+       const holder = this._parentOf.get(child);
+       const into = holder?.target ?? inner;       // a layer with `parent` is drawn inside its null layer
+ 
++      const refs = refsOf((child.spec as { mask?: unknown }).mask);
++      if (refs) {
++        // SPIKE: the matte filters join the layer's own chain (after its effects); the blend, if any, is appended after them by applyBlendMode
++        const t = child.target as unknown as { filters: unknown };
++        const own = Array.isArray(t.filters) ? t.filters : [];
++        const mf = refs.map(r => this._mattes.get(r.layer)).map((m, i) => m ? new MatteFilter({ sprite: m.sprite, channel: refs[i]!.channel, invert: refs[i]!.invert }) : null).filter(Boolean);
++        t.filters = [...own, ...mf];
++        this._blendOwned.push(...(mf as Array<{ destroy(): void }>));
++        into.addChild(child.target);
++        if (holder) this._nested.push(child); else this._visual.push({ seq: child, layer: null });
++        const added = applyBlendMode(child.spec, child.target, report);
++        if (added) this._blendOwned.push(added);
++        continue;
++      }
++
+       const maskSpec = (child.spec as { mask?: SequenceSpec }).mask;
+ 
+       // threeD layers never enter the scene graph themselves: their display
+@@ -409,6 +450,19 @@ export class CompositionSequence extends Sequence {
+     // texture by this level, so its content must already be projected.
+     const childT = this.childTime(t);
+     for (const child of this._children) child.updateSpace(childT, host);
++    // SPIKE 0.23: every named matte is drawn into its texture once per frame, from the state the timeline just set (no history)
++    for (const { seq, rt } of this._mattes.values()) {
++      const target = seq.target!;
++      if (target.renderable && target.visible) {
++        target.updateLocalTransform();
++        // a matte with `parent` is not inside its null layer (it is in no container at all): compose the null chain's transforms by hand
++        const m = target.localTransform.clone();
++        for (let p = this._parentOf.get(seq); p?.target; p = this._parentOf.get(p)) { p.target.updateLocalTransform(); m.prepend(p.target.localTransform); }
++        host.render({ container: target, target: rt, transform: m, clear: true, clearColor: [0, 0, 0, 0] });
++      } else {
++        host.render({ container: EMPTY, target: rt, transform: new Matrix(), clear: true, clearColor: [0, 0, 0, 0] });
++      }
++    }
+     if (this._layers3d.length === 0 || !this._compositionShape) return;
+ 
+     const { width, height } = this._compositionShape;
+@@ -482,6 +536,8 @@ export class CompositionSequence extends Sequence {
+     this._clock = null;
+     for (const l of this._layers3d) l.destroy();
+     this._layers3d = [];
++    for (const m of this._mattes.values()) { m.sprite.destroy(); m.rt.destroy(true); }
++    this._mattes.clear();
+     for (const c of this._children) c.destroy();
+     for (const o of this._blendOwned) o.destroy();
+     this._blendOwned = [];

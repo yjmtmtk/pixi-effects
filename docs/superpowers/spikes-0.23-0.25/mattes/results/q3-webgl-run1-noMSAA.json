@@ -1,0 +1,30 @@
+{
+ "backend": "webgl",
+ "info": "webgl: ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+ "rows": [
+  "none | 1 | 0.42 (0.41–0.47) | tex 2 / 0 MB",
+  "none | 3 | 0.4 (0.34–0.75) | tex 2 / 0 MB",
+  "none | 10 | 0.79 (0.68–0.94) | tex 2 / 0 MB",
+  "stencil (inline shape mask) | 1 | 0.51 (0.3–0.53) | tex 2 / 0 MB",
+  "stencil (inline shape mask) | 3 | 1.55 (1.33–1.6) | tex 2 / 0 MB",
+  "stencil (inline shape mask) | 10 | 2.55 (1.89–3.06) | tex 2 / 0 MB",
+  "AlphaMask (inline maskInverted) | 1 | 1.43 (1.41–1.95) | tex 4 / 11.9 MB",
+  "AlphaMask (inline maskInverted) | 3 | 5.02 (4.95–5.12) | tex 4 / 11.9 MB",
+  "AlphaMask (inline maskInverted) | 10 | 13.16 (13.11–13.33) | tex 4 / 11.9 MB",
+  "own-texture, one matte per layer | 1 | 0.88 (0.85–0.94) | tex 4 / 15.8 MB",
+  "own-texture, one matte per layer | 3 | 3.3 (3.02–3.36) | tex 6 / 31.6 MB",
+  "own-texture, one matte per layer | 10 | 7.09 (7–8.9) | tex 13 / 87 MB",
+  "own-texture, one shared matte | 1 | 0.85 (0.83–0.89) | tex 4 / 15.8 MB",
+  "own-texture, one shared matte | 3 | 2.87 (2.81–3.01) | tex 4 / 15.8 MB",
+  "own-texture, one shared matte | 10 | 7.07 (7.03–7.28) | tex 4 / 15.8 MB",
+  "overlay, no mask | 1 | 2.47 (2.44–3.17) | tex 5 / 23.7 MB",
+  "overlay, no mask | 3 | 6.57 (6.12–7.01) | tex 5 / 23.7 MB",
+  "overlay, no mask | 10 | 17.21 (17.05–17.9) | tex 5 / 23.7 MB",
+  "overlay + own-texture matte per layer | 1 | 2.69 (2.65–2.84) | tex 7 / 39.6 MB",
+  "overlay + own-texture matte per layer | 3 | 7.14 (6.89–7.55) | tex 9 / 55.4 MB",
+  "overlay + own-texture matte per layer | 10 | 18.74 (18.47–19.05) | tex 16 / 110.7 MB",
+  "two mattes per layer (A·(1−B)), own-texture | 1 | 1.06 (1.05–1.06) | tex 6 / 31.6 MB",
+  "two mattes per layer (A·(1−B)), own-texture | 3 | 3.55 (3.48–3.97) | tex 8 / 47.5 MB",
+  "two mattes per layer (A·(1−B)), own-texture | 10 | 8.61 (8.56–8.85) | tex 15 / 102.8 MB"
+ ]
+}

@@ -1,0 +1,54 @@
+{
+ "backend": "default",
+ "radial": {
+  "midFrame14": {
+   "centreTop": [
+    192,
+    48,
+    48
+   ],
+   "corner": [
+    192,
+    48,
+    48
+   ],
+   "otherCorner": [
+    192,
+    48,
+    48
+   ]
+  },
+  "seekOrders": {
+   "bwdMax": 0,
+   "jmpMax": 0
+  },
+  "logs": []
+ },
+ "image map": {
+  "midFrame14": {
+   "centreTop": [
+    181,
+    51,
+    59
+   ],
+   "corner": [
+    85,
+    72,
+    155
+   ],
+   "otherCorner": [
+    103,
+    68,
+    137
+   ]
+  },
+  "seekOrders": {
+   "bwdMax": 0,
+   "jmpMax": 0
+  },
+  "logs": []
+ },
+ "wipe from a matted scene": {
+  "logs": []
+ }
+}

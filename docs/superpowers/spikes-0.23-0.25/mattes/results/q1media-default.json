@@ -1,0 +1,208 @@
+[
+ {
+  "layer": "text",
+  "mode": "normal",
+  "inMatte": [
+   61,
+   214,
+   200
+  ],
+  "want": [
+   61,
+   214,
+   200
+  ],
+  "outside": [
+   176,
+   112,
+   58
+  ],
+  "wantOutside": [
+   176,
+   112,
+   58
+  ],
+  "worst": 0
+ },
+ {
+  "layer": "text",
+  "mode": "overlay",
+  "inMatte": [
+   135,
+   188,
+   91
+  ],
+  "want": [
+   135,
+   188,
+   91
+  ],
+  "outside": [
+   176,
+   112,
+   58
+  ],
+  "wantOutside": [
+   176,
+   112,
+   58
+  ],
+  "worst": 0.20392156862743605
+ },
+ {
+  "layer": "text",
+  "mode": "multiply",
+  "inMatte": [
+   42,
+   94,
+   45
+  ],
+  "want": [
+   42,
+   94,
+   45
+  ],
+  "outside": [
+   176,
+   112,
+   58
+  ],
+  "wantOutside": [
+   176,
+   112,
+   58
+  ],
+  "worst": 0.49019607843136725
+ },
+ {
+  "layer": "image (inverted matte)",
+  "mode": "normal",
+  "outsideHole": [
+   61,
+   214,
+   200
+  ],
+  "want": [
+   61,
+   214,
+   200
+  ],
+  "inHole": [
+   176,
+   112,
+   58
+  ],
+  "wantHole": [
+   176,
+   112,
+   58
+  ],
+  "worst": 0
+ },
+ {
+  "layer": "image (inverted matte)",
+  "mode": "overlay",
+  "outsideHole": [
+   135,
+   188,
+   91
+  ],
+  "want": [
+   135,
+   188,
+   91
+  ],
+  "inHole": [
+   176,
+   112,
+   58
+  ],
+  "wantHole": [
+   176,
+   112,
+   58
+  ],
+  "worst": 0.20392156862743605
+ },
+ {
+  "layer": "image (inverted matte)",
+  "mode": "multiply",
+  "outsideHole": [
+   42,
+   94,
+   45
+  ],
+  "want": [
+   42,
+   94,
+   45
+  ],
+  "inHole": [
+   176,
+   112,
+   58
+  ],
+  "wantHole": [
+   176,
+   112,
+   58
+  ],
+  "worst": 0.49019607843136725
+ },
+ {
+  "layer": "video",
+  "mode": "normal",
+  "inMatte": [
+   0,
+   216,
+   0
+  ],
+  "want": [
+   0,
+   216,
+   0
+  ],
+  "outside": [
+   176,
+   112,
+   58
+  ],
+  "wantOutside": [
+   176,
+   112,
+   58
+  ],
+  "worst": 0,
+  "logs": [
+   "warn: PixiJS Warning:  [Resolver] already has key: pixi-effects-green overwriting"
+  ]
+ },
+ {
+  "layer": "video",
+  "mode": "overlay",
+  "inMatte": [
+   97,
+   190,
+   0
+  ],
+  "want": [
+   97,
+   190,
+   0
+  ],
+  "outside": [
+   176,
+   112,
+   58
+  ],
+  "wantOutside": [
+   176,
+   112,
+   58
+  ],
+  "worst": 0.2588235294117567,
+  "logs": [
+   "warn: PixiJS Warning:  [Resolver] already has key: pixi-effects-green overwriting"
+  ]
+ }
+]

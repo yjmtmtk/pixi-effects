@@ -1,0 +1,106 @@
+{
+ "backends": [
+  "webgpu"
+ ],
+ "worst": 0.68,
+ "failing": [],
+ "warned": [
+  {
+   "case": "image matte",
+   "mode": "multiply",
+   "logs": [
+    "warn: PixiJS Warning:  [Resolver] already has key: pixi-effects-disc overwriting"
+   ]
+  },
+  {
+   "case": "image matte",
+   "mode": "screen",
+   "logs": [
+    "warn: PixiJS Warning:  [Resolver] already has key: pixi-effects-disc overwriting"
+   ]
+  },
+  {
+   "case": "image matte",
+   "mode": "overlay",
+   "logs": [
+    "warn: PixiJS Warning:  [Resolver] already has key: pixi-effects-disc overwriting"
+   ]
+  },
+  {
+   "case": "image matte",
+   "mode": "soft-light",
+   "logs": [
+    "warn: PixiJS Warning:  [Resolver] already has key: pixi-effects-disc overwriting"
+   ]
+  },
+  {
+   "case": "image matte",
+   "mode": "hue",
+   "logs": [
+    "warn: PixiJS Warning:  [Resolver] already has key: pixi-effects-disc overwriting"
+   ]
+  }
+ ],
+ "rows": [
+  "alpha | normal | 0",
+  "alpha | multiply | 0.5",
+  "alpha | screen | 0.5",
+  "alpha | overlay | 0.2",
+  "alpha | soft-light | 0.4",
+  "alpha | hue | 0.2",
+  "alpha-0.5 | normal | 0.5",
+  "alpha-0.5 | multiply | 0.3",
+  "alpha-0.5 | screen | 0.4",
+  "alpha-0.5 | overlay | 0.5",
+  "alpha-0.5 | soft-light | 0.3",
+  "alpha-0.5 | hue | 0.5",
+  "luma (a composition as the matte) | normal | 0.4",
+  "luma (a composition as the matte) | multiply | 0.5",
+  "luma (a composition as the matte) | screen | 0.5",
+  "luma (a composition as the matte) | overlay | 0.5",
+  "luma (a composition as the matte) | soft-light | 0.3",
+  "luma (a composition as the matte) | hue | 0.6",
+  "alpha inverted | normal | 0",
+  "alpha inverted | multiply | 0.5",
+  "alpha inverted | screen | 0.5",
+  "alpha inverted | overlay | 0.2",
+  "alpha inverted | soft-light | 0.4",
+  "alpha inverted | hue | 0.2",
+  "luma inverted | normal | 0.4",
+  "luma inverted | multiply | 0.4",
+  "luma inverted | screen | 0.5",
+  "luma inverted | overlay | 0.6",
+  "luma inverted | soft-light | 0.6",
+  "luma inverted | hue | 0.5",
+  "subtract A·(1−B) | normal | 0",
+  "subtract A·(1−B) | multiply | 0.5",
+  "subtract A·(1−B) | screen | 0.5",
+  "subtract A·(1−B) | overlay | 0.2",
+  "subtract A·(1−B) | soft-light | 0.4",
+  "subtract A·(1−B) | hue | 0.2",
+  "intersect A·B (luma B 0.5 grey) | normal | 0.3",
+  "intersect A·B (luma B 0.5 grey) | multiply | 0.3",
+  "intersect A·B (luma B 0.5 grey) | screen | 0.5",
+  "intersect A·B (luma B 0.5 grey) | overlay | 0.7",
+  "intersect A·B (luma B 0.5 grey) | soft-light | 0.4",
+  "intersect A·B (luma B 0.5 grey) | hue | 0.3",
+  "text matte | normal | 0",
+  "text matte | multiply | 0.5",
+  "text matte | screen | 0.5",
+  "text matte | overlay | 0.2",
+  "text matte | soft-light | 0.4",
+  "text matte | hue | 0.2",
+  "image matte | normal | 0",
+  "image matte | multiply | 0.5",
+  "image matte | screen | 0.5",
+  "image matte | overlay | 0.2",
+  "image matte | soft-light | 0.4",
+  "image matte | hue | 0.2",
+  "alpha, matted layer has its own filter | normal | 0",
+  "alpha, matted layer has its own filter | multiply | 0.5",
+  "alpha, matted layer has its own filter | screen | 0.5",
+  "alpha, matted layer has its own filter | overlay | 0.2",
+  "alpha, matted layer has its own filter | soft-light | 0.4",
+  "alpha, matted layer has its own filter | hue | 0.2"
+ ]
+}

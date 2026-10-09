@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>spike · track mattes</title></head>
+<body>
+  <!--
+    SPIKE 0.23 (throwaway). Driven by drive.mjs. Same helpers as examples/_checks/blend-modes.html, but the canvas size is free
+    (px reads any width), plus timing helpers: bench(frames, reps) renders frames back to back and waits for the GPU once at the end.
+    ?backend=webgl hides WebGPU.
+  -->
+  <script>
+    if (new URLSearchParams(location.search).get('backend') === 'webgl') Object.defineProperty(navigator, 'gpu', { value: undefined });
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">
+  { "imports": {
+      "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap": "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }
+  </script>
+  <script type="module">
+    import { Movie } from '../../../../dist/index.js';
+    import * as PIXI from 'pixi.js';
+    window.PIXI = PIXI;
+    const FPS = 30;
+    let W = 160, H = 90;
+    window.mk = async (opts) => {
+      if (window.movie) { await window.movie.destroy(); window.movie = null; }
+      window.__logs.length = 0;
+      W = opts.width ?? 160; H = opts.height ?? 90;
+      const movie = new Movie(); window.movie = movie;
+      await movie.init({ canvas: document.createElement('canvas'), width: W, height: H, duration: opts.duration ?? 1, frameRate: FPS, background: opts.background ?? '#000000', ...opts });
+      return { backend: movie.app.renderer.name || String(movie.app.renderer.type) };
+    };
+    const toImg = (url) => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = url; });
+    const pixels = async (url) => { const i = await toImg(url); const c = document.createElement('canvas'); c.width = i.width; c.height = i.height; const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(i, 0, 0); return { P: g.getImageData(0, 0, i.width, i.height).data, w: i.width }; };
+    window.snap = (f) => window.movie.snapshot(f, { as: 'dataURL' });
+    window.px = async (url, x, y) => { const { P, w } = await pixels(url); const o = (y * w + x) * 4; return [P[o], P[o + 1], P[o + 2], P[o + 3]]; };
+    window.pxs = async (url, pts) => { const { P, w } = await pixels(url); return pts.map(([x, y]) => { const o = (y * w + x) * 4; return [P[o], P[o + 1], P[o + 2], P[o + 3]]; }); };
+    window.diff = async (a, b) => { if (a === b) return 0; const { P: A } = await pixels(a), { P: B } = await pixels(b); let m = 0; for (let i = 0; i < A.length; i++) m = Math.max(m, Math.abs(A[i] - B[i])); return m; };
+    /** How many pixels differ by more than `t` on some channel, and the largest difference. */
+    window.diffCount = async (a, b, t = 24) => { const { P: A } = await pixels(a), { P: B } = await pixels(b); let n = 0, m = 0; for (let i = 0; i < A.length; i += 4) { let d = 0; for (let k = 0; k < 3; k++) d = Math.max(d, Math.abs(A[i + k] - B[i + k])); m = Math.max(m, d); if (d > t) n++; } return { n, max: m }; };
+    window.shuffle = (arr, seed = 1) => { const a = arr.slice(); let s = seed; const r = () => (s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    window.orders = async (frames) => {
+      const take = async (order) => { const m = {}; for (const f of order) m[f] = await window.snap(f); return m; };
+      const fwd = await take(frames), bwd = await take(frames.slice().reverse()), jmp = await take(window.shuffle(frames, 7));
+      const out = { bwdMax: 0, jmpMax: 0 };
+      for (const f of frames) { out.bwdMax = Math.max(out.bwdMax, await window.diff(fwd[f], bwd[f])); out.jmpMax = Math.max(out.jmpMax, await window.diff(fwd[f], jmp[f])); }
+      return out;
+    };
+    /** Wait until the GPU has finished everything submitted so far. */
+    const gpuIdle = async () => {
+      const r = window.movie.app.renderer;
+      if (r.gpu?.device) { await r.gpu.device.queue.onSubmittedWorkDone(); return; }
+      const gl = r.gl; const b = new Uint8Array(4); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b);
+    };
+    /** ms per frame: `reps` passes over frames 0..n-1 (gotoFrame force = seek + updateSpace + render), one GPU wait per pass; median of passes. */
+    window.bench = async (n = 30, reps = 5) => {
+      const m = window.movie; const per = [];
+      for (let f = 0; f < 5; f++) await m.gotoFrame(f, true);           // warm-up: shaders, pools
+      await gpuIdle();
+      for (let r = 0; r < reps; r++) {
+        const t0 = performance.now();
+        for (let f = 0; f < n; f++) await m.gotoFrame(f, true);
+        await gpuIdle();
+        per.push((performance.now() - t0) / n);
+      }
+      per.sort((a, b) => a - b);
+      return { median: per[Math.floor(per.length / 2)], min: per[0], max: per[per.length - 1], all: per };
+    };
+    /** Bytes of the GPU textures Pixi manages now (render textures, pool textures, sprites' sources). */
+    window.texBytes = () => {
+      const r = window.movie.app.renderer; let b = 0, n = 0;
+      for (const s of r.texture.managedTextures) { if (!s) continue; n++; b += (s.pixelWidth || s.width) * (s.pixelHeight || s.height) * 4; }
+      return { count: n, mb: +(b / 1048576).toFixed(1) };
+    };
+    window.gpuInfo = async () => {
+      const r = window.movie.app.renderer;
+      if (r.gpu?.adapter) { const i = r.gpu.adapter.info || {}; return `webgpu: ${i.vendor} ${i.architecture} ${i.description || ''}`; }
+      const gl = r.gl; const e = gl.getExtension('WEBGL_debug_renderer_info'); return `webgl: ${e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)}`;
+    };
+    window.__ready = true;
+  </script>
+</body></html>

@@ -1,0 +1,313 @@
+diff --git a/src/core/Composition.ts b/src/core/Composition.ts
+index f0a21d8..f67b721 100644
+--- a/src/core/Composition.ts
++++ b/src/core/Composition.ts
+@@ -5,6 +5,7 @@ import { VideoSequence } from '../sequences/Video';
+ import { ShapeSequence } from '../sequences/Shape';
+ import { NullSequence } from '../sequences/Null';
+ import { CameraSequence } from '../space/CameraSequence';
++import { LightSequence } from '../space/LightSequence';
+ import type { Sequence } from '../sequences/Base';
+ import type { SequenceSpec, CompositionShape } from '../types';
+ 
+@@ -25,6 +26,7 @@ const staticTypes: Partial<Record<SequenceSpec['type'], SequenceCtor>> = {
+   video: VideoSequence as unknown as SequenceCtor,
+   shape: ShapeSequence as unknown as SequenceCtor,
+   camera: CameraSequence as unknown as SequenceCtor,
++  light: LightSequence as unknown as SequenceCtor,
+   null: NullSequence as unknown as SequenceCtor,
+ };
+ 
+diff --git a/src/core/layerKeys.ts b/src/core/layerKeys.ts
+index 7712b60..37e573e 100644
+--- a/src/core/layerKeys.ts
++++ b/src/core/layerKeys.ts
+@@ -13,7 +13,7 @@ type KeysOfUnion<T> = T extends unknown ? keyof T : never;
+ type Covers<T, K extends readonly string[]> = [Exclude<KeysOfUnion<T>, K[number]>] extends [never] ? true : { missing: Exclude<KeysOfUnion<T>, K[number]> };
+ type Assert<T extends true> = T;
+ 
+-const COMMON = ['type', 'name', 'parent', 'at', 'duration', 'initial', 'keyframes', 'filters', 'filterArea', 'mask', 'maskInverted', 'blendMode', 'threeD', 'hideBehindCamera'] as const satisfies readonly KeysOfUnion<SequenceCommon | { type: string }>[];
++const COMMON = ['type', 'name', 'parent', 'at', 'duration', 'initial', 'keyframes', 'filters', 'filterArea', 'mask', 'maskInverted', 'blendMode', 'threeD', 'hideBehindCamera', 'lit', 'castsShadows'] as const satisfies readonly KeysOfUnion<SequenceCommon | { type: string }>[];
+ 
+ const VIDEO = [...COMMON, 'asset', 'loop', 'audio', 'volume', 'speed'] as const satisfies readonly KeysOfUnion<VideoSequenceSpec>[];
+ const IMAGE = [...COMMON, 'asset', 'colorSpace'] as const satisfies readonly KeysOfUnion<ImageSequenceSpec>[];
+@@ -21,6 +21,7 @@ const TEXT = [...COMMON, 'text', 'format', 'style', 'colorSpace', 'fillGradient'
+ const AUDIO = [...COMMON, 'volume', 'asset', 'loop', 'sfx', 'music', 'speed'] as const satisfies readonly KeysOfUnion<AudioAssetSpec | AudioSfxSpec | AudioMusicSpec>[];
+ const COMPOSITION = [...COMMON, 'width', 'height', 'sequences', 'transitions', 'speed'] as const satisfies readonly KeysOfUnion<CompositionSequenceSpec>[];
+ const CAMERA = [...COMMON] as const satisfies readonly KeysOfUnion<CameraSequenceSpec>[];
++const LIGHT = [...COMMON, 'kind', 'falloff'] as const;
+ const NULL = [...COMMON] as const satisfies readonly KeysOfUnion<NullSequenceSpec>[];
+ 
+ const SHAPE = [...COMMON, 'shape', 'fillGradient', 'colorSpace', 'strokeCap', 'strokeJoin'] as const;
+@@ -44,7 +45,7 @@ export type __Covered = [
+ ];
+ 
+ const SHAPES: Record<string, readonly string[]> = { rect: RECT, circle: CIRCLE, ellipse: ELLIPSE, arc: ARC, line: LINE, polygon: POLYGON, path: PATH };
+-const BY_TYPE: Record<string, readonly string[]> = { video: VIDEO, image: IMAGE, text: TEXT, audio: AUDIO, composition: COMPOSITION, camera: CAMERA, null: NULL };
++const BY_TYPE: Record<string, readonly string[]> = { video: VIDEO, image: IMAGE, text: TEXT, audio: AUDIO, composition: COMPOSITION, camera: CAMERA, light: LIGHT, null: NULL };
+ 
+ /** What a layer may be called, for the message: `text layer`, `rect shape`. */
+ export function kindName(spec: { type: string; shape?: string }): string {
+@@ -78,6 +79,8 @@ export const PROP_KEYS: ReadonlySet<string> = new Set([
+   'fill', 'value', 'visibleChars', 'text', 'volume', 'time',
+   // camera
+   'lookAtX', 'lookAtY', 'lookAtZ', 'fov', 'focus', 'aperture', 'offsetX', 'offsetY', 'offsetZ', 'lookOffsetX', 'lookOffsetY', 'lookOffsetZ',
++  // SPIKE light + fog
++  'intensity', 'color', 'coneAngle', 'coneFeather', 'falloffDistance', 'shadowDarkness', 'shadowDiffusion', 'fogNear', 'fogFar', 'fogColor', 'fogAmount',
+ ]);
+ 
+ /** The text `style` keys (PixiJS TextStyle) that this library passes on. */
+diff --git a/src/sequences/Composition.ts b/src/sequences/Composition.ts
+index e61c3b2..b78716f 100644
+--- a/src/sequences/Composition.ts
++++ b/src/sequences/Composition.ts
+@@ -5,6 +5,9 @@ import { NullSequence } from './Null';
+ import { suggestName } from '../core/options';
+ import { buildSequenceTree } from '../core/Composition';
+ import { CameraSequence } from '../space/CameraSequence';
++import { LightSequence } from '../space/LightSequence';
++import { packLights } from '../space/lighting';
++import type { CasterInput } from '../space/LitMaterial';
+ import { findOverlap, pickActiveCamera } from '../space/camera';
+ import { assignDepthOrder } from '../space/depth';
+ import { Layer3D, type SpaceHost } from '../space/Layer3D';
+@@ -24,6 +27,7 @@ export class CompositionSequence extends Sequence {
+   private _compositionShape: CompositionShape | null = null;
+   _children: Sequence[] = [];
+   private _cameras: CameraSequence[] = [];
++  private _lights: LightSequence[] = [];
+   private _layers3d: Layer3D[] = [];
+   private _dofSaid = { behind: false, many: false };
+   /** What this composition made for blend modes (filters added to layers' chains, groups and their carrier filters): destroyed with it. */
+@@ -124,6 +128,7 @@ export class CompositionSequence extends Sequence {
+         this._cameras.push(child);
+         continue;
+       }
++      if (child instanceof LightSequence) { this._lights.push(child); continue; }
+       if (!child.target) continue;
+       const holder = this._parentOf.get(child);
+       const into = holder?.target ?? inner;       // a layer with `parent` is drawn inside its null layer
+@@ -422,6 +427,7 @@ export class CompositionSequence extends Sequence {
+     const basis = cameraBasis(cam, width, height);
+ 
+     for (const layer of this._layers3d) layer.update(host, basis);
++    this._applyLighting(childT, compEnd, basis, active?.cam ?? null);
+     this._applyDepthOfField(cam, basis);
+ 
+     const order = assignDepthOrder(
+@@ -432,6 +438,25 @@ export class CompositionSequence extends Sequence {
+     });
+   }
+ 
++  /** SPIKE light: when the composition has a light layer or camera fog, every lit threeD layer draws with the lit shader. */
++  private _applyLighting(t: number, compEnd: number, basis: CameraBasis, cam: CameraSequence | null): void {
++    const fog = cam?.fogState() ?? null;
++    if (this._lights.length === 0 && !fog) return;                // no light, no fog: nothing is made, nothing costs
++    const live = this._lights.filter(l => { const w = l.window(); return t >= w.start && (t < w.end || (w.end >= compEnd && t <= w.end)); });
++    const states = live.map(l => l.state());
++    const packed = this._lights.length ? packLights(states) : null;
++    const casters = this._layers3d.filter(l => (l as unknown as { seq: { spec: { castsShadows?: boolean } } }).seq.spec.castsShadows && l.display.visible && l.world && l.source);
++    const camInfo = { x: basis.cx, y: basis.cy, z: basis.cz, fx: basis.fx, fy: basis.fy, fz: basis.fz };
++    for (const l of this._layers3d) {
++      const spec = (l as unknown as { seq: { spec: { lit?: boolean } } }).seq.spec;
++      const mat = l.setLit(true);
++      if (!mat || !l.world) continue;
++      const lit = spec.lit !== false;
++      const mine: CasterInput[] = lit ? casters.filter(c => c !== l).map(c => ({ frame: c.world!, source: c.source! })) : [];
++      mat.update(l.world, camInfo, lit ? packed : null, fog, mine);
++    }
++  }
++
+   /** Depth of field: each threeD layer is blurred by how far its depth is from the focal plane (a pure function of the camera and the layers). */
+   private _applyDepthOfField(cam: CameraState, basis: CameraBasis): void {
+     const aperture = cam.aperture ?? 0;
+diff --git a/src/space/CameraSequence.ts b/src/space/CameraSequence.ts
+index eaac7e5..0b68250 100644
+--- a/src/space/CameraSequence.ts
++++ b/src/space/CameraSequence.ts
+@@ -1,4 +1,4 @@
+-import { Container } from 'pixi.js';
++import { Color, Container } from 'pixi.js';
+ import { Sequence } from '../sequences/Base';
+ import { MAX_FOV, MIN_FOV, clampFov, homeCamera, homeDistance, type CameraState } from './math';
+ import { collectPropKeys } from './specKeys';
+@@ -8,7 +8,7 @@ import type { CameraSequenceSpec, Keyframe } from '../types';
+ 
+ type Carrier = Container & {
+   z: number; lookAtX: number; lookAtY: number; lookAtZ: number; fov: number; focus: number; aperture: number;
+-  offsetX: number; offsetY: number; offsetZ: number; lookOffsetX: number; lookOffsetY: number; lookOffsetZ: number;
++  offsetX: number; offsetY: number; offsetZ: number; fogNear: number; fogFar: number; fogColor: string | number; fogAmount: number; lookOffsetX: number; lookOffsetY: number; lookOffsetZ: number;
+ };
+ 
+ /**
+@@ -27,6 +27,9 @@ export class CameraSequence extends Sequence {
+   private warnedAperture = false;
+   /** True when the camera writes `focus` or `aperture` anywhere: depth of field is on. */
+   private dof = false;
++  /** SPIKE light */
++  fog = false;
++  private fogC: Color | null = null;
+   private zOfName: ((name: string) => number | undefined) | null = null;
+   private layerNames: ReadonlySet<string> = new Set();
+ 
+@@ -50,10 +53,13 @@ export class CameraSequence extends Sequence {
+     // added on top of the camera's own move: put a handheld shake (wiggle) here and it never collides with a dolly or an orbit
+     carrier.offsetX = carrier.offsetY = carrier.offsetZ = 0;
+     carrier.lookOffsetX = carrier.lookOffsetY = carrier.lookOffsetZ = 0;
++    // SPIKE light: depth fog, on when the camera writes any fog key
++    carrier.fogNear = home.z; carrier.fogFar = home.z * 3; carrier.fogColor = '#000000'; carrier.fogAmount = 1;
+     this.target = carrier as unknown as Container;
+     const keys = collectPropKeys(this.spec);
+     this.autoZ = !keys.has('z');
+     this.dof = keys.has('focus') || keys.has('aperture');
++    this.fog = keys.has('fogNear') || keys.has('fogFar') || keys.has('fogColor') || keys.has('fogAmount');
+   }
+ 
+   /** The aperture to use now: off unless depth of field is on and the value is a number of 0 or more (said once if it is not). */
+@@ -100,6 +106,16 @@ export class CameraSequence extends Sequence {
+     };
+   }
+ 
++  /** SPIKE light: the fog now, or null. */
++  fogState(): { r: number; g: number; b: number; near: number; far: number; amount: number } | null {
++    if (!this.fog) return null;
++    const c = this.target as unknown as Carrier;
++    const fc = (this.fogC ??= new Color());
++    try { fc.setValue(c.fogColor as never); } catch { fc.setValue(0); }
++    const [r, g, b] = fc.toArray();
++    return { r: r!, g: g!, b: b!, near: c.fogNear, far: c.fogFar, amount: Math.min(1, Math.max(0, c.fogAmount)) };
++  }
++
+   /** Lifespan on the global timeline (valid after bindTimeline). */
+   window(): CameraWindow {
+     const start = this.absoluteStart ?? this.at;
+diff --git a/src/space/Layer3D.ts b/src/space/Layer3D.ts
+index 6f7df96..2da33b2 100644
+--- a/src/space/Layer3D.ts
++++ b/src/space/Layer3D.ts
+@@ -4,7 +4,9 @@ import { DiscBlurFilter } from '../filters/DiscBlur';
+ import { MAX_BLUR, MIN_BLUR } from './focus';
+ import { blendFilterFor, isAdvancedBlend, type BlendFilterLike } from '../core/blend';
+ import { describeLayer } from '../core/lint';
+-import { DEG, NEAR, projectLayer, type CameraBasis, type LayerTransform, type Rect } from './math';
++import { DEG, NEAR, layerToWorld, projectLayer, type CameraBasis, type LayerTransform, type Rect } from './math';
++import { LitMaterial } from './LitMaterial';
++import type { PlaneFrame } from './lighting';
+ 
+ /** Render textures are capped at this many pixels on the long side; larger layers are downscaled. */
+ export const MAX_TEXTURE_SIZE = 4096;
+@@ -85,6 +87,11 @@ export class Layer3D {
+   private blurFilter: DiscBlurFilter | null = null;
+   private blendWas = 'normal';
+   private blendFilter: BlendFilterLike | null = null;
++  /** SPIKE light: the plane in world space from the last update (uv 0..1 of the texture → o + u·U + v·V). */
++  world: PlaneFrame | null = null;
++  /** SPIKE light: the lit shader, made only when the composition has a light or fog (zero cost otherwise). */
++  material: LitMaterial | null = null;
++  get source() { return this.rt?.source ?? null; }
+ 
+   constructor(
+     private readonly seq: Sequence,
+@@ -117,6 +124,13 @@ export class Layer3D {
+     const frame: Rect = { x: bounds.x - pad, y: bounds.y - pad, width: size.w, height: size.h };
+     const projected = projectLayer(readLayerTransform(target), frame, basis);
+     this.depth = projected.depth;
++    {
++      const lt = readLayerTransform(target);
++      const o = layerToWorld(lt, frame.x, frame.y);
++      const pu = layerToWorld(lt, frame.x + frame.width, frame.y);
++      const pv = layerToWorld(lt, frame.x, frame.y + frame.height);
++      this.world = { o, u: { x: pu.x - o.x, y: pu.y - o.y, z: pu.z - o.z }, v: { x: pv.x - o.x, y: pv.y - o.y, z: pv.z - o.z } };
++    }
+     if (!projected.visible) {
+       if (!this.warnedBehind) {
+         this.warnedBehind = true;
+@@ -150,6 +164,7 @@ export class Layer3D {
+       clearColor: [0, 0, 0, 0],
+     });
+     this.display.geometry.setCorners(...projected.corners);
++    this.material?.setTexture(this.rt!.source);
+     this.display.visible = true;
+   }
+ 
+@@ -194,7 +209,22 @@ export class Layer3D {
+     this.blurFilter.radius = r;
+   }
+ 
++  /** SPIKE light: turn the lit shader on (made once) or off. */
++  setLit(on: boolean): LitMaterial | null {
++    if (on && !this.material) {
++      this.material = new LitMaterial();
++      if (this.rt) this.material.setTexture(this.rt.source);
++      (this.display as unknown as { shader: unknown }).shader = this.material.shader;
++    } else if (!on && this.material) {
++      (this.display as unknown as { shader: unknown }).shader = null;
++      this.material.destroy();
++      this.material = null;
++    }
++    return this.material;
++  }
++
+   destroy(): void {
++    this.setLit(false);
+     this.setBlur(0);
+     this.display.destroy();
+     this.rt?.destroy(true);
+diff --git a/src/space/lint.ts b/src/space/lint.ts
+index 888f119..055a3cb 100644
+--- a/src/space/lint.ts
++++ b/src/space/lint.ts
+@@ -30,7 +30,7 @@ const CAMERA_ALIASES: Record<string, string> = {
+   depthOfField: DOF_HINT, dof: DOF_HINT, focalDistance: DOF_HINT, focusDistance: DOF_HINT, fStop: DOF_HINT, blurAmount: DOF_HINT,
+ };
+ 
+-const CAMERA_PROPS = ['x', 'y', 'z', 'fov', 'focus', 'aperture', 'lookAtX', 'lookAtY', 'lookAtZ', 'offsetX', 'offsetY', 'offsetZ', 'lookOffsetX', 'lookOffsetY', 'lookOffsetZ'];
++const CAMERA_PROPS = ['x', 'y', 'z', 'fov', 'focus', 'aperture', 'lookAtX', 'lookAtY', 'lookAtZ', 'offsetX', 'offsetY', 'offsetZ', 'lookOffsetX', 'lookOffsetY', 'lookOffsetZ', 'fogNear', 'fogFar', 'fogColor', 'fogAmount'];
+ const NEEDS_THREE_D = ['z', 'rotationX', 'rotationY'];
+ /** Camera-only names that the animatable-property check lets through on any layer. */
+ const CAMERA_ONLY = ['focus', 'aperture'];
+@@ -53,6 +53,7 @@ export function lintSequence(spec: SequenceSpec, warn: Warn = defaultWarn): void
+     }
+   }
+ 
++  if ((spec.type as string) === 'light') return;                 // SPIKE light: its own checks would go here
+   if (spec.type === 'camera') {
+     const raw = spec as unknown as Record<string, unknown>;
+     for (const p of CAMERA_PROPS) {
+diff --git a/src/types.ts b/src/types.ts
+index 1cc3524..a040fda 100644
+--- a/src/types.ts
++++ b/src/types.ts
+@@ -252,6 +252,10 @@ export interface SequenceCommon {
+   threeD?: boolean;
+   /** A threeD layer the camera passes (a fly-through): hide it quietly when it is at or behind the camera instead of warning. Default false. */
+   hideBehindCamera?: boolean;
++  /** SPIKE light: false keeps this threeD layer unlit when the composition has lights (default true). */
++  lit?: boolean;
++  /** SPIKE light: this threeD layer's silhouette shadows the other lit threeD layers (lights with castsShadows). */
++  castsShadows?: boolean;
+ }
+ 
+ export interface VideoSequenceSpec extends SequenceCommon {
+@@ -477,6 +481,13 @@ export interface CameraSequenceSpec extends SequenceCommon {
+   type: 'camera';
+ }
+ 
++/** SPIKE light: a light layer (props in initial / keyframes like a camera). */
++export interface LightSequenceSpec extends SequenceCommon {
++  type: 'light';
++  kind?: 'ambient' | 'point' | 'spot' | 'parallel';
++  falloff?: 'none' | 'smooth' | 'inverseSquare';
++}
++
+ // ─── Shape sequence ──────────────────────────────────────────────────────
+ //
+ // `type: 'shape'` renders a parametric primitive (rect / circle / ellipse /
+@@ -654,6 +665,7 @@ export type SequenceSpec =
+   | AudioSequenceSpec
+   | CompositionSequenceSpec
+   | CameraSequenceSpec
++  | LightSequenceSpec
+   | ShapeSequenceSpec;
+ 
+ /** Top-level composition (root node) — same as `CompositionSequenceSpec` minus the discriminant. */

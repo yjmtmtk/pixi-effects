@@ -1,0 +1,80 @@
+{
+ "backend": "default",
+ "pairs": [
+  {
+   "case": "top level",
+   "f0": "0 px > 24 (max 0)",
+   "f15": "0 px > 24 (max 0)",
+   "f25": "0 px > 24 (max 0)"
+  },
+  {
+   "case": "nested comp, moved / scaled / rotated",
+   "f0": "141 px > 24 (max 97)",
+   "f15": "160 px > 24 (max 85)",
+   "f25": "135 px > 24 (max 80)"
+  },
+  {
+   "case": "nested comp with a blur filter of its own",
+   "f0": "0 px > 24 (max 3)",
+   "f15": "0 px > 24 (max 4)",
+   "f25": "0 px > 24 (max 3)"
+  },
+  {
+   "case": "threeD comp (rotationY 25) holding the matte",
+   "f0": "124 px > 24 (max 101)",
+   "f15": "111 px > 24 (max 88)",
+   "f25": "99 px > 24 (max 93)"
+  },
+  {
+   "case": "matted layer has parent (a moving null)",
+   "f0": "0 px > 24 (max 0)",
+   "f15": "0 px > 24 (max 0)",
+   "f25": "0 px > 24 (max 0)"
+  },
+  {
+   "case": "MATTE layer has parent (a moving null)",
+   "f0": "0 px > 24 (max 0)",
+   "f15": "0 px > 24 (max 0)",
+   "f25": "0 px > 24 (max 0)"
+  },
+  {
+   "case": "time-remapped comp (speed 2) holding both",
+   "f0": "0 px > 24 (max 0)",
+   "f15": "0 px > 24 (max 0)",
+   "f25": "0 px > 24 (max 0)"
+  },
+  {
+   "case": "matte with a lifespan (at 0.3, duration 0.4)",
+   "f0": "0 px > 24 (max 0)",
+   "f15": "0 px > 24 (max 0)",
+   "f25": "0 px > 24 (max 0)"
+  },
+  {
+   "case": "matte with a filter of its own (blur)",
+   "f0": "0 px > 24 (max 0)",
+   "f15": "0 px > 24 (max 0)",
+   "f25": "0 px > 24 (max 0)"
+  }
+ ],
+ "transition": {
+  "logs": [
+   "warn: pixi-effects: mask \"m\": no layer with that name"
+  ]
+ },
+ "inspect": {
+  "issues": [],
+  "layers": [
+   {
+    "path": "T",
+    "type": "text",
+    "visible": true,
+    "bounds": [
+     62,
+     57,
+     197,
+     66
+    ]
+   }
+  ]
+ }
+}
