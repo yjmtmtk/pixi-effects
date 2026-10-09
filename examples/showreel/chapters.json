@@ -1,0 +1,30 @@
+{
+  "overlap": 0.6,
+  "chapters": [
+    { "id": "00-open",            "duration": 6, "model": "fable",  "title": "OPEN",             "idea": "A word becomes a video: the title and the claim 'a video is a file of data'" },
+    { "id": "01-type",            "duration": 8, "model": "fable",  "title": "TYPE",             "idea": "Kinetic typography: per-letter and per-word entrances, a counter, one line in Japanese" },
+    { "id": "02-shapes",          "duration": 7, "model": "opus",   "title": "SHAPES",           "idea": "Draw-on strokes, arcs and rings, gradients that move, a path that morphs, a wave of staggered shapes" },
+    { "id": "03-space",           "duration": 8, "model": "fable",  "title": "SPACE",            "idea": "2.5D: cards in depth, a camera flight, depth of field with a rack focus" },
+    { "id": "04-light",           "duration": 8, "model": "opus",   "title": "LIGHT",            "idea": "A lamp across a dark room: lit cards, shadows on the wall, fog" },
+    { "id": "05-blend-matte",     "duration": 7, "model": "opus",   "title": "BLEND AND MATTE",  "idea": "Blend modes (light leaks), one matte shared by several layers, a luma matte" },
+    { "id": "06-shader-warp",     "duration": 7, "model": "opus",   "title": "SHADER AND WARP",  "idea": "Fragment shaders drawn by formula, a title bent like water" },
+    { "id": "07-filters-particles","duration": 7, "model": "sonnet","title": "FILTERS AND PARTICLES", "idea": "Glow, CRT, glitch, film grain; a seeded particle burst" },
+    { "id": "08-motion",          "duration": 7, "model": "sonnet", "title": "MOTION",           "idea": "Springs, cubic-bezier easing, a time remap (slow, freeze, rewind), a seeded handheld shake" },
+    { "id": "09-sound",           "duration": 8, "model": "opus",   "title": "SOUND",            "idea": "Sound is text too: the music of this reel as notation, sfx hits with matching visuals, visuals that follow the beat" },
+    { "id": "10-data-talks",      "duration": 7, "model": "sonnet", "title": "DATA AND TALKS",   "idea": "A chart that draws itself, a counter, a slide deck with stops" },
+    { "id": "11-source",          "duration": 8, "model": "fable",  "title": "SOURCE",           "idea": "This video's own data scrolling, the measured size, the install line, experimental / MIT" }
+  ],
+  "transitions": {
+    "01-type":             { "kind": "wipe", "direction": "left", "smoothing": 0.1 },
+    "02-shapes":           { "kind": "luma", "map": "radial", "softness": 0.15 },
+    "03-space":            { "kind": "iris", "mode": "in", "smoothing": 0.08 },
+    "04-light":            { "kind": "dip" },
+    "05-blend-matte":      { "kind": "luma", "map": "diagonal", "softness": 0.2 },
+    "06-shader-warp":      { "kind": "dissolve", "scale": 90, "smoothing": 0.5 },
+    "07-filters-particles":{ "kind": "wipe", "direction": "up", "smoothing": 0.1 },
+    "08-motion":           { "kind": "luma", "map": "radial", "softness": 0.12 },
+    "09-sound":            { "kind": "slide", "direction": "left" },
+    "10-data-talks":       { "kind": "iris", "mode": "in", "smoothing": 0.08 },
+    "11-source":           { "kind": "dip" }
+  }
+}

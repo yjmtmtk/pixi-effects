@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>reel chapter (one at a time)</title>
+  <style>
+    body { background: #0d1220; margin: 0; padding: 16px; }
+    .stage { position: relative; width: min(1280px, 100%); margin: 0 auto; }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <!--
+    The harness an author of ONE chapter checks it with:
+      node ai/tools/check.mjs examples/showreel/chapter.html --query ch=03-space --no-export --at 1,3,5 --out <dir>
+    It loads examples/showreel/chapters/<ch>.js (one `export default function chapter(P)` that returns { duration, assets?, sequences, poster? }), plays it alone at
+    1920 x 1080 and 30 fps, and warns (into window.__logs, which `check` prints) when the duration is not the one the table in chapters.json promises.
+  -->
+  <div class="stage"><canvas id="stage" width="1920" height="1080"></canvas></div>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+  <script type="importmap">
+  { "imports": {
+      "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap": "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny": "https://esm.sh/mediabunny",
+      "pixi-effects": "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/presenter": "../../dist/Presenter.js",
+      "pixi-effects/three": "../../dist/three.js",
+      "pixi-filters": "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three": "https://esm.sh/three@0.178.0" } }
+  </script>
+  <script type="module">
+    import * as lib from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+    import shared from './shared.js';
+
+    const id = new URLSearchParams(location.search).get('ch');
+    try {
+      if (!id) throw new Error('add ?ch=<chapter id> (the file name in chapters/ without .js)');
+      const table = await (await fetch('./chapters.json')).json();
+      const row = table.chapters.find(c => c.id === id);
+      if (!row) throw new Error(`no chapter "${id}" in chapters.json`);
+      const facts = { kb: 0, layers: 0, lines: 0, excerpt: [] };       // the real numbers exist only in the built reel
+      const P = shared(lib, facts);
+      const plan = P.planOf(table);
+      const music = (await import('./music.js')).default(P, plan);
+      P.music = (music.find(l => l.music) || {}).music;               // what the reel's music is (undefined until the music exists)
+      const chapter = (await import(`./chapters/${id}.js`)).default(P);
+      if (chapter.duration !== row.duration) console.warn(`reel: chapter ${id} lasts ${chapter.duration} s but chapters.json promises ${row.duration} s`);
+      window.chapterSpec = chapter;
+      const movie = new lib.Movie();
+      window.movie = movie;
+      new Controller(movie, { canvas: document.getElementById('stage') });
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 1920, height: 1080, duration: row.duration, frameRate: 30, background: '#000000',
+        assets: chapter.assets ?? [], poster: chapter.poster ?? row.duration * 0.6, composition: { sequences: chapter.sequences },
+      });
+      window.__ready = true;
+    } catch (err) {
+      console.error('reel chapter failed: ' + (err && err.message || err));
+      window.__ready = true;
+    }
+  </script>
+</body>
+</html>
