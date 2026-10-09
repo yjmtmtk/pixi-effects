@@ -27,6 +27,7 @@ export const AREAS = [
   { name: 'mattes', paths: ['src/core/matte.ts', 'src/core/MatteSet.ts', 'src/filters/Matte.ts', 'src/filters/LumaWipe.ts', 'src/core/Transitions.ts', 'examples/_checks/mattes.html'], tests: ['tests/tools/mattes.test.ts', 'tests/tools/blendModes.test.ts'] },
   { name: 'light', paths: ['src/space/', 'src/sequences/Composition.ts', 'examples/_checks/light.html'], tests: ['tests/tools/light.test.ts'] },
   { name: 'shader', paths: ['src/sequences/Shader.ts', 'src/core/glShared.ts', 'src/core/shaderChecks.ts', 'examples/_checks/shader.html'], tests: ['tests/tools/shader.test.ts'] },
+  { name: 'warp', paths: ['src/filters/Warp.ts', 'src/filters/named.ts', 'examples/_checks/warp.html'], tests: ['tests/tools/warp.test.ts'] },
   { name: 'blend modes', paths: ['src/core/blend.ts', 'src/filters/blendModes.ts', 'src/space/Layer3D.ts', 'examples/_checks/blend-modes.html', 'tests/support/blendReference.ts'], tests: ['tests/tools/blendModes.test.ts'] },
   { name: 'depth of field', paths: ['src/space/', 'src/filters/DiscBlur.ts', 'src/core/inspect.ts', 'src/sequences/Composition.ts', 'examples/_checks/depth-of-field.html'], tests: ['tests/tools/depthOfField.test.ts'] },
   { name: 'audio', paths: ['src/audio/', 'src/core/AudioMixer.ts', 'src/core/inspectAudio.ts'], tests: ['tests/tools/audioReact.test.ts', 'tests/tools/musicLab.test.ts'] },

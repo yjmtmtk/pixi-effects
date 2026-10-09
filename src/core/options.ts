@@ -28,6 +28,8 @@ const COMMON_ALIASES: Record<string, string> = {
   // blend modes by the names other programs use
   'linear-dodge': 'add', 'linear dodge': 'add', lineardodge: 'add', linear_dodge: 'add', 'plus-lighter': 'add', pluslighter: 'add', plus_lighter: 'add',
   luminance: 'luminosity', exclude: 'exclusion',
+  // distortion filters by the names other programs use
+  distort: 'warp', distortion: 'warp', displace: 'warp', displacement: 'warp', ripple: 'warp', wavy: 'warp', heathaze: 'warp', haze: 'warp',
 };
 
 /** The valid name an author most likely meant by `name` (alias, typo, abbreviation or case slip), or null. */
