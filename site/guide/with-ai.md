@@ -20,7 +20,9 @@ An AI does best when it reads a short, exact description of the format before it
 | [`skills/pixi-effects/template.html`](../skills/pixi-effects/template.html) | a starter page: a harness that collects every warning into `window.__logs`, and `window.movie` / `window.__ready` for tools |
 | [`llms.txt`](../llms.txt) and [`llms-full.txt`](../llms-full.txt) | the same material in one file, for a chat window |
 
-If the package is installed, they are in `node_modules/pixi-effects/ai/`.
+**Register it as a skill, one command:** `npx skills add yjmtmtk/pixi-effects` (Claude Code, Codex, Cursor, Gemini CLI, Copilot, OpenCode and more; `npx skills update` keeps it current). In Claude Code: `/plugin install pixi-effects --marketplace yjmtmtk/pixi-effects`. The agent then uses it whenever you ask for a video, with no need to name the library.
+
+If the package is installed, the same files are in `node_modules/pixi-effects/skills/pixi-effects/` (the chat guide is in `node_modules/pixi-effects/ai/`).
 
 ## No shell? A chat is enough
 

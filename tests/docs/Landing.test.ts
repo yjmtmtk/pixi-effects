@@ -8,6 +8,10 @@ const html = read('index.html');
 const version: string = JSON.parse(read('package.json')).version;
 
 describe('the landing page (index.html at the repository root, deployed as the site root)', () => {
+  it('gives an agent the one command that registers the skill, once, near the one-sentence request', () => {
+    expect(html.split('npx skills add yjmtmtk/pixi-effects').length - 1).toBe(1);
+  });
+
   it('is staged as the Pages site root by the stage script, which the workflow runs', () => {
     expect(read('.github/workflows/pages.yml')).toContain('node scripts/stage-site.mjs _site');
     expect(read('scripts/stage-site.mjs')).toContain("copy('index.html')");

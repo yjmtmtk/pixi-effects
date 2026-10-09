@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+**Added**
+
+- **Agent skill.** `npx skills add yjmtmtk/pixi-effects` registers pixi-effects as a skill in Claude Code, Codex, Cursor, Gemini CLI, Copilot, OpenCode and about 70 more agents; its description starts from the task (a video, motion graphics, an animated title, a lower third, a promo, a chart), so an agent can reach it without being told the library's name. Claude Code also installs it as a plugin (`/plugin install pixi-effects --marketplace yjmtmtk/pixi-effects`).
+- **`movie.audioBlocked`**: true while the browser keeps the movie's sound silent until a tap (iOS Safari); a player can then ask for the tap. The landing page does: the reel and the gallery pieces start with one tap inside the frame when the sound is locked.
+
+**Changed**
+
+- The skill moved from `ai/` to `skills/pixi-effects/` (`SKILL.md`, `template.html`, `reference/`, `scripts/save-image.py`); `ai/` keeps the chat guide and the tools. Old links to `ai/SKILL.md`, `ai/reference/*` and `ai/template.html` no longer exist. The skill's commands are `npx pixi-effects-check|render|view`.
+
 ## 0.25.0
 
 One release holds three milestones that were built one after the other: **composition** (named mattes, the luma wipe), **light** (lights, shadows, fog) and **freedom of drawing** (the shader layer, the `warp` filter). Wipe, iris and dissolve transitions now also work on WebGL (they drew nothing there before).

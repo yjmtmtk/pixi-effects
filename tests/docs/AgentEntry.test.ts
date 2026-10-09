@@ -17,6 +17,11 @@ describe('"Use https://github.com/yjmtmtk/pixi-effects to make a video" works as
     expect(top).toContain('https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/CHAT.md');
   });
 
+  it('tells an agent that supports skills the one command that registers pixi-effects, in the README, AGENTS.md and llms.txt', () => {
+    for (const text of [readme, agents, read('llms.txt')]) expect(text).toContain('npx skills add yjmtmtk/pixi-effects');
+    expect(readme).toContain('/plugin install pixi-effects --marketplace yjmtmtk/pixi-effects');
+  });
+
   it('every repository file AGENTS.md sends an agent to exists, and every raw link points at a file that exists', () => {
     const files = [...agents.matchAll(/`((?:ai|docs|skills)\/[\w./-]+\.(?:md|html|mjs))`/g)].map(m => m[1]!);
     expect(files.length).toBeGreaterThanOrEqual(6);
