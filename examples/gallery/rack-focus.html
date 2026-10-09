@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Rack focus</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.20.0/dist/loader.css" />
+  <style>
+    body { background: #0d1220; margin: 0; padding: 16px; }
+    .stage { position: relative; width: min(960px, 100%); margin: 0 auto; }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>
+  </div>
+
+  <script type="application/json" id="piece-meta">{ "title": "Rack focus", "subtitle": "A still life in depth: the lens finds a badge, a title, then a sign far in the back.", "tags": ["2.5D", "depth of field", "camera", "sfx"], "width": 1280, "height": 720, "duration": 8, "model": "sonnet" }</script>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "gsap":                    "https://esm.sh/gsap@3.12.5",
+      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/presenter":  "../../dist/Presenter.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie, random } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 8;
+
+    // Palette: ink, cream, and three lamp colours.
+    const INK = '#080b16', INK2 = '#1b2550', CREAM = '#f4ecd8';
+    const CORAL = '#ff5a4e', AMBER = '#ffb84d', TEAL = '#35d0c0';
+
+    // The camera: one lens, 989.1 = (H/2) / tan(20deg), the distance that keeps z = 0 at 1:1.
+    const CAM_Z = 989.1, APERTURE = 58;
+
+    // The story, in seconds. Each pull is a keyframe on the camera's `focus`.
+    const PULL = 'cubic-bezier(.6, 0, .2, 1)';
+    const R1 = { at: 1.4, d: 1.0 };   // badge -> title    (lands 2.4)
+    const R2 = { at: 3.2, d: 1.3 };   // title -> sign     (lands 4.5)
+    const R3 = { at: 5.7, d: 1.0 };   // sign  -> title    (lands 6.7), then the held end frame
+    const land = r => r.at + r.d;
+
+    // --- far field: soft lamps drawn into three cards at three depths (one blur per card, not per lamp) ---
+    const LAMPS = [AMBER, AMBER, TEAL, CORAL, CREAM];
+    function lampCard(name, z, seed, count, sizePx, drift) {
+      const s = CAM_Z / (CAM_Z - z);                    // how much smaller a layer at this depth is drawn
+      const cw = Math.ceil(W / s + 300), ch = Math.ceil(H / s + 200);
+      const r = random(seed);
+      const lamps = [];
+      for (let i = 0; i < count; i++) {
+        // keep the band behind the title and its caption calm: draw again until the lamp lands outside it (screen px at the start)
+        let x, y;
+        do { x = r() * cw; y = r() * ch; }
+        while (Math.abs(640 + (x - cw / 2) * s - 700) < 520 && Math.abs(360 + (y - ch / 2) * s - 380) < 110);
+        const radius = (sizePx[0] + r() * (sizePx[1] - sizePx[0])) / s;     // sizePx = the size on screen
+        const color = LAMPS[Math.floor(r() * LAMPS.length)];
+        const ring = r() < 0.25;
+        lamps.push({
+          type: 'shape', shape: 'circle', radius,
+          initial: ring
+            ? { x, y, strokeColor: color, strokeWidth: 4 / s, strokeAlpha: 0.7, fillColor: color, fillAlpha: 0.12 }
+            : { x, y, fillColor: color, fillAlpha: 0.35 + r() * 0.35 },
+        });
+      }
+      return {
+        type: 'composition', name, threeD: true, width: cw, height: ch, sequences: lamps,
+        initial: { x: W / 2, y: H / 2, z, pivotX: cw / 2, pivotY: ch / 2 },
+        keyframes: [{ at: 0, to: { x: W / 2 + drift }, duration: DURATION, ease: 'sine.inOut' }],
+      };
+    }
+
+    // --- near foreground: a big round badge, three layers at the same depth (so the same blur) ---
+    const BADGE_Z = 250, BX = 347, BY = 487;
+    const bobAt = dy => ({ at: 0, to: { y: dy }, duration: DURATION, ease: 'sine.inOut' });
+    const badge = [
+      { type: 'shape', shape: 'circle', name: 'badge', radius: 100, threeD: true,
+        initial: { x: BX, y: BY, z: BADGE_Z, fillColor: CORAL },
+        keyframes: [bobAt(BY - 16)] },
+      { type: 'shape', shape: 'circle', name: 'badge-ring', radius: 82, threeD: true,
+        initial: { x: BX, y: BY, z: BADGE_Z, strokeColor: CREAM, strokeWidth: 3, strokeAlpha: 0.85, fillAlpha: 0 },
+        keyframes: [bobAt(BY - 16)] },
+      { type: 'text', name: 'badge-f', text: 'f/1.4', threeD: true,
+        style: { fontFamily: 'Arial Black, Helvetica Neue, system-ui, sans-serif', fontWeight: '900', fontSize: 50, fill: CREAM },
+        initial: { x: BX, y: BY - 6, z: BADGE_Z, anchorX: 0.5, anchorY: 0.5 },
+        keyframes: [bobAt(BY - 6 - 16)] },
+      { type: 'text', name: 'badge-mm', text: '50 MM', threeD: true,
+        style: { fontFamily: 'ui-monospace, Menlo, monospace', fontWeight: '700', fontSize: 15, fill: CREAM, letterSpacing: 4 },
+        initial: { x: BX, y: BY + 34, z: BADGE_Z, anchorX: 0.5, anchorY: 0.5, alpha: 0.85 },
+        keyframes: [bobAt(BY + 34 - 16)] },
+    ];
+
+    // --- the title and its caption, at z = 0 ---
+    const TX = 730;
+    const title = {
+      type: 'text', name: 'title', text: 'RACK FOCUS', threeD: true,
+      style: { fontFamily: 'Arial Black, Helvetica Neue, system-ui, sans-serif', fontWeight: '900', fontSize: 112, fill: CREAM, letterSpacing: 4 },
+      initial: { x: TX, y: 335, z: 0, anchorX: 0.5, anchorY: 0.5 },
+    };
+    const caption = {
+      type: 'text', name: 'caption', text: 'A SHORT FILM ABOUT WHERE THE LENS LOOKS', threeD: true,
+      style: { fontFamily: 'ui-monospace, Menlo, monospace', fontWeight: '600', fontSize: 20, fill: AMBER, letterSpacing: 5 },
+      initial: { x: TX, y: 428, z: 0, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+      keyframes: [
+        { at: land(R1) - 0.4, to: { alpha: 1 }, duration: 0.6, ease: 'power2.out' },
+      ],
+    };
+
+    // --- the small sign, far back, readable only when the lens lands on it ---
+    const SIGN_Z = -600, SX = 960, SY = 110;
+    const flicker = (hi) => [
+      { at: land(R2) - 0.55, to: { alpha: 0.35 }, duration: 0.05 },
+      { at: land(R2) - 0.5, to: { alpha: hi }, duration: 0.05 },
+      { at: land(R2) - 0.38, to: { alpha: 0.45 }, duration: 0.04 },
+      { at: land(R2) - 0.34, to: { alpha: hi }, duration: 0.08 },
+    ];
+    const sign = [
+      { type: 'shape', shape: 'rect', name: 'sign', width: 560, height: 116, cornerRadius: 18, threeD: true,
+        initial: { x: SX, y: SY, z: SIGN_Z, fillColor: '#0d1430', fillAlpha: 0.9, strokeColor: AMBER, strokeWidth: 4, alpha: 0.7 },
+        keyframes: flicker(1) },
+      { type: 'text', name: 'sign-text', text: 'LOOK CLOSER', threeD: true,
+        style: { fontFamily: 'Arial Black, Helvetica Neue, system-ui, sans-serif', fontWeight: '900', fontSize: 52, fill: AMBER, letterSpacing: 7 },
+        initial: { x: SX, y: SY, z: SIGN_Z, anchorX: 0.5, anchorY: 0.5, alpha: 0.7 },
+        keyframes: flicker(1) },
+    ];
+
+    // --- the camera: a slow dolly in plus three focus pulls ---
+    const camera = {
+      type: 'camera', name: 'cam',
+      initial: { x: W / 2, y: H / 2, z: CAM_Z, lookAtX: W / 2, lookAtY: H / 2, focus: 'badge', aperture: APERTURE },
+      keyframes: [
+        { at: 0, to: { z: 925, x: W / 2 + 14, lookAtX: W / 2 + 14 }, duration: DURATION, ease: 'sine.inOut' },
+        { at: R1.at, to: { focus: 'title' }, duration: R1.d, ease: PULL },
+        { at: R2.at, to: { focus: 'sign' }, duration: R2.d, ease: PULL },
+        { at: R3.at, to: { focus: 'title' }, duration: R3.d, ease: PULL },
+      ],
+    };
+
+    // --- a viewfinder readout (2D, on top of the picture) ---
+    const hud = {
+      type: 'text', name: 'hud', text: 'FOCUS  /  BADGE',
+      style: { fontFamily: 'ui-monospace, Menlo, monospace', fontWeight: '600', fontSize: 17, fill: CREAM, letterSpacing: 4 },
+      initial: { x: 1200, y: 656, anchorX: 1, anchorY: 0.5, alpha: 0.7 },
+      keyframes: [
+        { at: R1.at + R1.d / 2, set: { text: 'FOCUS  /  TITLE' } },
+        { at: R2.at + R2.d / 2, set: { text: 'FOCUS  /  SIGN' } },
+        { at: R3.at + R3.d / 2, set: { text: 'FOCUS  /  TITLE' } },
+      ],
+    };
+
+    // --- sound: a soft chime each time the lens lands, a muted swoosh on each pull ---
+    const sfx = [
+      { type: 'audio', sfx: 'click', at: 0.3, volume: 1 },   // the shutter: the lens locks on the badge
+      ...[[R1, 0], [R2, 7], [R3, 0]].flatMap(([r, pitch]) => [
+        { type: 'audio', sfx: { preset: 'swoosh', brightness: -0.5 }, at: r.at - 0.05, volume: 0.7 },
+        { type: 'audio', sfx: { preset: 'chime', pitch }, at: Math.min(land(r) - 0.1, DURATION - 1.45), volume: 1.3 },
+      ]),
+    ];
+
+    const sequences = [
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', name: 'backdrop',
+        initial: { x: 'GW/2', y: 'GH/2' },
+        fillGradient: { type: 'radial', center: [0.5, 0.42], radius: 0.75, stops: [[0, INK2], [1, INK]] } },
+      camera,
+      lampCard('lamps-far', -1100, 11, 16, [12, 34], -30),
+      lampCard('lamps-mid', -880, 23, 14, [16, 44], 24),
+      lampCard('lamps-near', -720, 37, 12, [20, 52], -20),
+      ...sign,
+      title,
+      caption,
+      ...badge,
+      hud,
+      // fade up from black
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', name: 'fade-in',
+        initial: { x: 'GW/2', y: 'GH/2', fillColor: '#000000', alpha: 1 },
+        keyframes: [{ at: 0, to: { alpha: 0 }, duration: 0.8, ease: 'power1.out' }] },
+      ...sfx,
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 5.0,
+        background: INK,
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

@@ -49,8 +49,11 @@ Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same br
 | haiku | REPLAY — One great shot, live, then again in slow motion with the arc drawn on: a composition whose own clock slows, freezes and resumes | 1280×720 | replay-highlight.html |
 | haiku | Eight Bars — A four-bar tune written as text, falling down a piano roll: each bar flashes and rings the moment its note sounds | 1080×1080 | piano-roll.html |
 | haiku | Last Train — A split-flap station board at night, in Japanese and English: the cascade, one status change, and the last train of the night | 720×1280 | departure-board.html |
+| sonnet | Rack focus — A shallow-depth still life that is about the camera's focus: the lens racks from a coral badge to the title to a small sign that only resolves when the focus lands on it, and back, with a slow dolly and bokeh lamps | 1280×720 | rack-focus.html |
 
-Counts: fable 13, opus 13, sonnet 16, haiku 3 (45 pieces).
+Counts: fable 13, opus 13, sonnet 17, haiku 3 (46 pieces).
+
+`rack-focus` (sonnet): made on 2026-10-09 by one subagent from the brief and the docs of the unreleased 0.21 (depth of field: camera `focus` / `aperture`); the model name is the author's self-report (Claude Sonnet 5.5).
 
 Per-piece stumble notes are in [_notes/](_notes/), named after the piece id (file name without `.html`).
 

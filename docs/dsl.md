@@ -577,6 +577,7 @@ A focus pull is a normal keyframe on `focus`; a layer name works there too:
 ```
 
 - `aperture` is the lens diameter in pixels; the blur radius of a layer is `aperture × focal × |1/depth − 1/focusDepth| / 2` (focal = `(H/2)/tan(fov/2)`), capped at 32 px. With the default camera at 720p and the focus on `z = 0`, a layer at `z = −400` blurs by: `aperture 10` → 1.4 px (a soft hint), `30` → 4.3 px (clearly shallow), `60` → 8.6 px (strong), `100` → 14.4 px (extreme: small bright objects show a faint speckle). A layer further away blurs more, up to the cap.
+- A layer **nearer** than the focus blurs too, and for the same `z` distance a near layer blurs more than a far one: with `aperture: 58` and the focus on a sign at `z = −600`, a layer at `z = +250` blurs about 21 px; with the focus on a layer at `z = +250`, a layer at `z = −1100` blurs about 25 px (720p, default camera). Plan a scene with the formula above, or read `depthBlur` from `movie.inspect(frame)`.
 - A layer name in `focus` means **the first `z`** of that layer; if its `z` moves later, animate `focus` itself with numbers (a warning says so). A name that no layer has, or a layer that is not `threeD`, warns and uses the `z = 0` plane.
 - The blur is the same over the whole layer (decided by the layer's origin depth). A tilted floor is one blur: split it into layers.
 - It blurs `threeD` layers only. A nested `threeD` composition is blurred as one layer by its parent's camera; its own camera decides its content.

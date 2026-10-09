@@ -742,6 +742,25 @@
       "notes": "_notes/paper-cutout-forest.md"
     },
     {
+      "id": "rack-focus",
+      "title": "Rack focus",
+      "subtitle": "A still life in depth: the lens finds a badge, a title, then a sign far in the back.",
+      "tags": [
+        "2.5D",
+        "depth of field",
+        "camera",
+        "sfx"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 8,
+      "posterFrame": 150,
+      "model": "sonnet",
+      "page": "rack-focus.html",
+      "poster": "posters/rack-focus.jpg",
+      "notes": "_notes/rack-focus.md"
+    },
+    {
       "id": "replay-highlight",
       "title": "REPLAY",
       "subtitle": "One great shot, live, then again in slow motion with the arc drawn on.",
