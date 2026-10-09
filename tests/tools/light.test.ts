@@ -9,6 +9,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { launchPage } from '../support/browser';
 import { shadeReference, fogAmount, type LightState } from '../../src/space/lighting';
+import { blendPixel, hexToRgb } from '../support/blendReference';
 import { cameraBasis, homeCamera, layerToWorld, DEG, type Vec3 } from '../../src/space/math';
 
 const root = resolve(__dirname, '../..');
@@ -213,6 +214,118 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
       near(await rgb(cdp, url, 160, 90), [0, 1, 2].map(k => 128 * (1 - f) + fog[k]! * f), 'fogged');
       expect(f).toBeGreaterThan(0.2);
       expect(f).toBeLessThan(amount);
+    });
+  });
+
+  // ── together with the rest (Task 5) ───────────────────────────────────────────────────────────────────────────────────────────────
+  const BACK = '#b0703a';
+  const backdrop = () => ({ type: 'shape', shape: 'rect', name: 'backdrop', width: W, height: H, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: BACK } });
+  const FOGGED = { fogNear: 300, fogFar: 700, fogColor: '#204060', fogAmount: 0.8 };
+  const farCard = () => card({ initial: { x: 0, y: 0, z: -200, fillColor: '#808080' } });
+
+  it('light and fog together: the fog mixes in AFTER the shading, so what is far is shaded first and then misted', async () => {
+    await withPage(async (cdp) => {
+      const url = await frame(cdp, [lightSpec(ambient(0.5)), { type: 'camera', initial: FOGGED }, farCard()]);
+      const f = fogAmount(CAM.z + 200, FOGGED.fogNear, FOGGED.fogFar, FOGGED.fogAmount);
+      const fog = [0x20, 0x40, 0x60];
+      near(await rgb(cdp, url, 160, 90), [0, 1, 2].map(k => 64 * (1 - f) + fog[k]! * f), 'shaded to 64, then misted');
+    });
+  });
+
+  it('a fog amount of 0.5 mixes half as much as 1', async () => {
+    await withPage(async (cdp) => {
+      const half = await frame(cdp, [{ type: 'camera', initial: { ...FOGGED, fogAmount: 0.5 } }, farCard()]);
+      const f = fogAmount(CAM.z + 200, FOGGED.fogNear, FOGGED.fogFar, 0.5);
+      near(await rgb(cdp, half, 160, 90), [0, 1, 2].map(k => 128 * (1 - f) + [0x20, 0x40, 0x60][k]! * f), 'half fog');
+    });
+  });
+
+  it('with depth of field, light and fog on at once every seek order gives the same pictures, and nothing is warned', async () => {
+    await withPage(async (cdp) => {
+      const seq = [
+        lightSpec(ambient(0.2)),
+        { ...lightSpec(L({ kind: 'point', x: 30, y: 40, z: 140, intensity: 0.9 })), keyframes: [{ at: 0, to: { x: 280 }, duration: 2, ease: 'none' }] },
+        { type: 'camera', initial: { focus: 'tilt', aperture: 60, ...FOGGED }, keyframes: [{ at: 0, to: { offsetZ: -60 }, duration: 2, ease: 'sine.inOut' }] },
+        tiltedCard(25, 20),
+        card({ name: 'far', initial: { x: 0, y: 0, z: -250, fillColor: '#808080' } }),
+      ];
+      await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: { sequences: seq } })})`);
+      const o = await cdp.eval('orders([0, 7, 15, 22, 30, 38, 45, 52, 59])');
+      expect(o.bwdMax).toBe(0);
+      expect(o.jmpMax).toBe(0);
+      expect(mine(await cdp.eval('__logs'))).toEqual([]);
+    });
+  });
+
+  for (const [mode, alpha] of [['multiply', 1], ['multiply', 0.5], ['screen', 1], ['overlay', 1]] as const) {
+    it(`a lit layer with blendMode ${mode}${alpha < 1 ? ' at alpha ' + alpha : ''} blends its SHADED colour with what is behind it`, async () => {
+      await withPage(async (cdp) => {
+        const url = await frame(cdp, [backdrop(), lightSpec(ambient(0.5)), card({ blendMode: mode, initial: { x: 0, y: 0, z: 0, fillColor: '#808080', alpha } })]);
+        const shaded = hexToRgb('#808080').map(v => v * 0.5) as [number, number, number];
+        const back = hexToRgb(BACK);
+        // multiply and screen are the basic modes (the backdrop reference table holds the advanced ones): worked by hand, source-over with alpha
+        const want = mode === 'multiply' ? back.map((b, k) => (b * shaded[k]! * alpha + b * (1 - alpha)) * 255)
+          : mode === 'screen' ? back.map((b, k) => ((b + shaded[k]! - b * shaded[k]!) * alpha + b * (1 - alpha)) * 255)
+          : blendPixel(mode, back, 1, shaded, alpha).slice(0, 3);
+        near(await rgb(cdp, url, 160, 90), want, `${mode} of the shaded card`);
+      });
+    });
+  }
+
+  it('the layer\'s own filters run BEFORE the shading (the filter sees the unlit picture, the light then shades the result)', async () => {
+    await withPage(async (cdp) => {
+      const invert = [-1, 0, 0, 0, 1, 0, -1, 0, 0, 1, 0, 0, -1, 0, 1, 0, 0, 0, 1, 0];
+      const url = await frame(cdp, [lightSpec(ambient(0.5)), card({ filters: [{ type: 'colorMatrix', matrix: invert }] })]);
+      near(await rgb(cdp, url, 160, 90), [0, 1, 2].map(() => (255 - 128) * 0.5), 'inverted to 127, then shaded to 63.5');
+    });
+  });
+
+  it('a card (a threeD composition) is lit like any threeD layer: its picture is shaded by the card\'s plane', async () => {
+    await withPage(async (cdp) => {
+      const lights = [ambient(0.2), L({ kind: 'point', x: 160, y: 90, z: 150, intensity: 0.7 })];
+      const cardComp = { type: 'composition', name: 'cardc', width: W, height: H, threeD: true, initial: { x: 0, y: 0, z: 0 },
+        sequences: [{ type: 'shape', shape: 'rect', width: W, height: H, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#808080' } }] };
+      const url = await frame(cdp, [...lights.map(l => lightSpec(l)), cardComp]);
+      for (const [x, y] of [[160, 90], [40, 30], [280, 150]] as Array<[number, number]>) near(await rgb(cdp, url, x, y), expected(x, y, FLAT, lights), `card at (${x},${y})`);
+    });
+  });
+
+  it('each composition has its own lights: a light in an inner composition shades only that composition\'s threeD layers, and an outer light does not reach inside', async () => {
+    await withPage(async (cdp) => {
+      const inner = (extra: unknown[]) => ({ type: 'composition', name: 'inner', width: W, height: H, initial: { x: 0, y: 0 }, sequences: [...extra, card()] });
+      const inside = await frame(cdp, [inner([lightSpec(ambient(0.3))])]);
+      near(await rgb(cdp, inside, 160, 90), expected(160, 90, FLAT, [ambient(0.3)]), 'an inner light shades the inner card');
+      const outside = await frame(cdp, [lightSpec(ambient(0.3)), inner([])]);
+      near(await rgb(cdp, outside, 160, 90), [128, 128, 128], 'an outer light does not reach the inner composition\'s cards');
+    });
+  });
+
+  it('a light inside a time-remapped composition runs on that composition\'s own clock, and every seek order agrees', async () => {
+    await withPage(async (cdp) => {
+      const ramp = { ...lightSpec(ambient(0)), keyframes: [{ at: 0, to: { intensity: 1 }, duration: 4, ease: 'none' }] };
+      const inner = { type: 'composition', name: 'inner', width: W, height: H, duration: 2, speed: 2, initial: { x: 0, y: 0 }, sequences: [ramp, card()] };
+      await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: { sequences: [inner] } })})`);
+      const url: string = await cdp.eval('snap(30)');                           // 1.0 s: the inner clock reads 2 s of a 4 s ramp = intensity 0.5
+      near(await rgb(cdp, url, 160, 90), expected(160, 90, FLAT, [ambient(0.5)]), 'half way up the inner ramp');
+      const o = await cdp.eval('orders([0, 10, 20, 30, 40, 50, 59])');
+      expect(o.bwdMax).toBe(0);
+      expect(o.jmpMax).toBe(0);
+      expect(mine(await cdp.eval('__logs'))).toEqual([]);
+    });
+  });
+
+  it('the light\'s colour can be keyframed from one colour string to another: halfway it is the mixture, in every seek order', async () => {
+    await withPage(async (cdp) => {
+      const tint = { ...lightSpec(ambient(1)), keyframes: [{ at: 0, from: { color: '#ff0000' }, to: { color: '#0000ff' }, duration: 2, ease: 'none' }] };
+      await cdp.eval(`mk(${JSON.stringify({ duration: 2, composition: { sequences: [tint, card()] } })})`);
+      const start: string = await cdp.eval('snap(0)');
+      near(await rgb(cdp, start, 160, 90), [128, 0, 0], 'red at the start');
+      const mid: string = await cdp.eval('snap(30)');
+      const [r, g, b] = await rgb(cdp, mid, 160, 90);
+      near([r!, g!, b!], [64, 0, 64], 'halfway: the sRGB mixture of red and blue (the default colour space of colour keyframes), shaded by the grey card');
+      const o = await cdp.eval('orders([0, 10, 20, 30, 40, 50, 59])');
+      expect(o.bwdMax).toBe(0);
+      expect(o.jmpMax).toBe(0);
     });
   });
 });
