@@ -2,7 +2,7 @@
 /**
  * pixi-effects render — turn a composition page into a video file, headless, in ONE command.
  *
- *   node ai/tools/render.mjs my-video.html -o my-video.mp4        (or:  npx pixi-effects-render my-video.html -o out.mp4)
+ *   node ai/tools/render.mjs my-video.html -o my-video.mp4        (or:  npx -p pixi-effects pixi-effects-render my-video.html -o out.mp4)
  *
  * It starts a private static server and a private headless Chrome, opens the page, waits for `window.__ready === true`
  * (the contract of skills/pixi-effects/template.html), runs `movie.render()` in the page and streams the file to disk. Nothing is decoded or

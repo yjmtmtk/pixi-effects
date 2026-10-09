@@ -17,12 +17,12 @@ Most of the video is meant to be written by an AI, so the tools around it are pa
 
 | Tool | What it gives | Try |
 |---|---|---|
-| **Check** | one command that opens the page in a private headless Chrome and reports warnings, layout problems, sound problems and a real export decoded again. Exit code 0 / 1 | `npx pixi-effects-check video.html` |
+| **Check** | one command that opens the page in a private headless Chrome and reports warnings, layout problems, sound problems and a real export decoded again. Exit code 0 / 1 | `npx -p pixi-effects pixi-effects-check video.html` |
 | **Contact sheet** | twelve labelled frames on one picture: the whole animation at a glance | written by *check*, or `movie.contactSheet()` |
-| **Timeline** | every layer as a bar on a time axis, keyframes, transitions; scrub it against the video, zoom | `npx pixi-effects-view video.html` |
+| **Timeline** | every layer as a bar on a time axis, keyframes, transitions; scrub it against the video, zoom | `npx -p pixi-effects pixi-effects-view video.html` |
 | **Inspect** | where every layer is at any frame, and text that is cut off, off-canvas, empty or overlapping | `movie.inspect(frame)` |
 | **Sound check** | when each sound plays, how loud, and clipping or inaudible layers; sound you cannot hear, measured | `movie.inspectAudio()` |
-| **Render** | the video file from a script or CI, headless | `npx pixi-effects-render video.html -o out.mp4` |
+| **Render** | the video file from a script or CI, headless | `npx -p pixi-effects pixi-effects-render video.html -o out.mp4` |
 | **Skill and cheatsheet** | a short, exact description of the format for an AI to read first, `llms.txt`, a starter page | [Working with an AI](with-ai.html) |
 | **Warnings that teach** | every mistake prints a message that says what to change, with "did you mean" | the browser console |
 

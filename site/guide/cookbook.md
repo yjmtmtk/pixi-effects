@@ -112,7 +112,7 @@ return { sequences, transitions, duration: total };
 
 ```js
 // @recipe typewriter
-const lines = ['$ npm install pixi-effects', 'added 4 packages in 3s', '$ npx pixi-effects-render movie.html', 'rendered movie.mp4 (12 s)'];
+const lines = ['$ npm install pixi-effects', 'added 4 packages in 3s', '$ npx -p pixi-effects pixi-effects-render movie.html', 'rendered movie.mp4 (12 s)'];
 const CPS = 22;
 let at = 0.5;
 return [
@@ -217,7 +217,7 @@ const sequences = [
 # batch.sh: one video per row of table.csv (name,score). --draft first, to look; remove it for the real files.
 mkdir -p out
 while IFS=, read -r name score; do
-  npx pixi-effects-render batch.html --query "name=$(printf %s "$name" | jq -sRr @uri)&score=$score" -o "out/$name.mp4" --quiet
+  npx -p pixi-effects pixi-effects-render batch.html --query "name=$(printf %s "$name" | jq -sRr @uri)&score=$score" -o "out/$name.mp4" --quiet
 done < table.csv
 ```
 

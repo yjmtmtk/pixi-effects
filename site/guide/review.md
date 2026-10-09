@@ -10,7 +10,7 @@ A video is hard to judge from code, so pixi-effects ships ways to look at it. Th
 ## One command: check
 
 ```bash
-npx pixi-effects-check my-video.html
+npx -p pixi-effects pixi-effects-check my-video.html
 ```
 
 It opens your page in a private headless Chrome and reports, in one go:
@@ -57,7 +57,7 @@ The last line is on purpose: *check* cannot tell you whether a video is **good**
 ## See the timeline, and scrub it
 
 ```bash
-npx pixi-effects-view my-video.html
+npx -p pixi-effects pixi-effects-view my-video.html
 ```
 
 Your browser opens on the page with a **timeline under it**: every layer as a bar on a time axis, ◆ at each keyframe, a shaded band for each transition, and a red playhead that follows the movie.

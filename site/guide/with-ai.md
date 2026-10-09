@@ -49,7 +49,7 @@ Useful things to say: the **size and duration**, the **moment that should be the
 This is the part that makes it practical. The AI runs one command and reads the result:
 
 ```bash
-npx pixi-effects-check bakery.html
+npx -p pixi-effects pixi-effects-check bakery.html
 ```
 
 It reports warnings, layout problems, sound problems and a real export; writes a **contact sheet** the AI can look at; and exits 0 or 1. The AI loops: write, check, look, fix. See [Reviewing your video](review.html) for what each line means.
@@ -61,7 +61,7 @@ It reports warnings, layout problems, sound problems and a real export; writes a
 When the AI says it is done, **you** open it:
 
 ```bash
-npx pixi-effects-view bakery.html
+npx -p pixi-effects pixi-effects-view bakery.html
 ```
 
 You get the page with a timeline under it. It is also the best way to give feedback: *"the line under the title starts too early: it begins at 0.2 s, move it to where the typing ends"* is easy to say when you can see the bars. Ask the AI to give layers meaningful `name`s so the rows are readable.
@@ -71,7 +71,7 @@ You get the page with a timeline under it. It is also the best way to give feedb
 ## 5. Get the file
 
 ```bash
-npx pixi-effects-render bakery.html -o bakery.mp4
+npx -p pixi-effects pixi-effects-render bakery.html -o bakery.mp4
 ```
 
 ## Why this works

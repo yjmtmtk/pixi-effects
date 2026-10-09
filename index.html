@@ -201,12 +201,12 @@ movie.play();
       <div class="stp">
         <p class="n"><span class="dia" aria-hidden="true"></span>2 · it writes, then checks</p>
         <h3>One HTML file of plain data</h3>
-        <p>The video is a tree of plain objects in one file that loads the library from a CDN. The AI runs <code>npx pixi-effects-check</code>: the warnings say what to change, and the tool writes a contact sheet the AI looks at before it says it is done. In a chat, the page itself shows the warnings in a red box.</p>
+        <p>The video is a tree of plain objects in one file that loads the library from a CDN. The AI runs <code>npx -p pixi-effects pixi-effects-check</code>: the warnings say what to change, and the tool writes a contact sheet the AI looks at before it says it is done. In a chat, the page itself shows the warnings in a red box.</p>
       </div>
       <div class="stp">
         <p class="n"><span class="dia" aria-hidden="true"></span>3 · you watch it</p>
         <h3>Open the file, press download</h3>
-        <p>Open the file in a browser, watch it, and press the download button in the player bar for the MP4 — or the AI renders it with one command, <code>npx pixi-effects-render your-video.html -o your-video.mp4</code>.</p>
+        <p>Open the file in a browser, watch it, and press the download button in the player bar for the MP4 — or the AI renders it with one command, <code>npx -p pixi-effects pixi-effects-render your-video.html -o your-video.mp4</code>.</p>
       </div>
     </div>
 
@@ -237,7 +237,7 @@ movie.play();
       <article class="card">
         <p class="lbl">export</p>
         <h3>Runs in the browser, exports MP4</h3>
-        <p>Play, scrub and export MP4 / WebM / MOV with no server — WebCodecs via mediabunny. A starter is <b>one HTML file</b> with an import map; <code>npm install</code> works too. Headless from a script: <code>npx pixi-effects-render page.html -o out.mp4</code> (Node 22 and Chrome).</p>
+        <p>Play, scrub and export MP4 / WebM / MOV with no server — WebCodecs via mediabunny. A starter is <b>one HTML file</b> with an import map; <code>npm install</code> works too. Headless from a script: <code>npx -p pixi-effects pixi-effects-render page.html -o out.mp4</code> (Node 22 and Chrome).</p>
         <ul><li>Documented: Chrome 94+, Edge 94+, Safari 16.4+, Firefox 130+. <b>Verified by the author in Chrome</b>; Safari and Firefox are documented, not independently verified.</li></ul>
       </article>
       <article class="card">
@@ -462,7 +462,7 @@ movie.play();
         <h3>Install into a project</h3>
         <p>PixiJS and GSAP are peer dependencies; three.js and pixi-filters are optional and only needed if you use them.</p>
         <div class="quote" id="npm">npm install pixi-effects pixi.js gsap<button class="copy" type="button" data-copy="npm" aria-label="Copy the install command">Copy</button></div>
-        <div class="quote" id="render">npx pixi-effects-render page.html -o out.mp4<button class="copy" type="button" data-copy="render" aria-label="Copy the headless render command">Copy</button></div>
+        <div class="quote" id="render">npx -p pixi-effects pixi-effects-render page.html -o out.mp4<button class="copy" type="button" data-copy="render" aria-label="Copy the headless render command">Copy</button></div>
         <a class="more" href="guide/">The guide: 18 pages →</a>
       </div>
       <div class="way">

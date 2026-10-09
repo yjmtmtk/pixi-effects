@@ -2,7 +2,7 @@
 /**
  * pixi-effects check — review a composition page in ONE command, without driving a browser by hand.
  *
- *   node ai/tools/check.mjs my-video.html            (or:  npx pixi-effects-check my-video.html)
+ *   node ai/tools/check.mjs my-video.html            (or:  npx -p pixi-effects pixi-effects-check my-video.html)
  *
  * It starts a private static server and a private headless Chrome (nothing shared with other sessions), opens the page,
  * waits for `window.__ready === true`, then checks: console warnings / errors, `movie.inspect` over the whole timeline

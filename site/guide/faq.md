@@ -23,7 +23,7 @@ Text is positioned by its **top-left** unless you set `anchorX: 0.5` and `anchor
 
 - **"This specific encoder configuration is not supported" with sound.** That was Chrome on Linux, which has no AAC encoder. Current versions fall back to Opus inside the MP4 with a warning; or export WebM.
 - Very long, high-bitrate exports are built in memory; lower the bitrate or split the video.
-- Rendering in a script: `npx pixi-effects-render page.html -o out.mp4` needs Node 22+ and Chrome.
+- Rendering in a script: `npx -p pixi-effects pixi-effects-render page.html -o out.mp4` needs Node 22+ and Chrome.
 
 ## A filter does nothing, or paints a black box
 

@@ -101,7 +101,7 @@ Both use a picture of every stop that `presenter.start()` makes **before** the a
 ## A deck as a PDF
 
 ```bash
-npx pixi-effects-render my-talk.html -o my-talk.pdf
+npx -p pixi-effects pixi-effects-render my-talk.html -o my-talk.pdf
 ```
 
 One PDF page per page of the deck, each the page fully built, as a picture at the canvas size (`--all-stops` makes a page of every stop). From code, `await movie.exportPDF({ title })` returns the Blob, and `movie.stopImages()` gives you the pictures themselves (for a handout, a thumbnail strip, a page list of your own). Give the movie a `background`: a transparent one comes out black in a JPEG.

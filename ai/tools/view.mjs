@@ -2,7 +2,7 @@
 /**
  * pixi-effects view — look at a composition page WITH its timeline, and scrub the one with the other.
  *
- *   node ai/tools/view.mjs my-video.html            (or:  npx pixi-effects-view my-video.html)
+ *   node ai/tools/view.mjs my-video.html            (or:  npx -p pixi-effects pixi-effects-view my-video.html)
  *
  * It serves the page's folder on a private port and opens your browser on a viewer: the page itself on top (its own player
  * works as usual) and, under it, the timeline of every layer (`movie.timelineSvg()`) with a playhead that follows the movie.
