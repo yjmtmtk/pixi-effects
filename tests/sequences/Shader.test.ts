@@ -104,3 +104,32 @@ describe('the shader layer', () => {
     expect(warn.mock.calls.map(c => String(c[0])).some(m => m.includes('gl_FragColor') && m.includes('layer "s"'))).toBe(true);
   });
 });
+
+describe('uniforms and keyframes', () => {
+  it('a keyframe on a component of a vector moves that component and sends the whole vector to the GPU (vectors are plain objects: GSAP would read an array as a list of targets)', async () => {
+    const gl = fakeGl(); installCanvas(gl);
+    const tl = gsap.timeline({ paused: true });
+    const comp = new CompositionSequence({ type: 'composition', width: 320, height: 180, duration: 4, sequences: [
+      { type: 'shader', name: 's', fragment: 'void mainImage(out vec4 c, in vec2 f) { c = vec4(pos, 0.0, 1.0); }', uniforms: { pos: [0.25, 0.5], tint: '#ff0000' },
+        keyframes: [{ at: 0, to: { 'uniforms.pos.1': 1, 'uniforms.tint.2': 1 }, duration: 2, ease: 'none' }] },
+    ] } as unknown as SequenceSpec as never, shape, shape);
+    await comp.build();
+    comp.bindTimeline(tl);
+    tl.seek(1);                                              // halfway through the 2 s keyframe
+    gl.calls.length = 0;
+    await layer(comp, 's').awaitFrameAt(1);
+    const sent = (name: string) => gl.calls.filter(c => /^uniform[234]fv$/.test(c[0]) && (c[1] as { name: string }).name === name).map(c => c[2]);
+    expect(sent('pos')).toEqual([[0.25, 0.75]]);
+    expect(sent('tint')).toEqual([[1, 0, 0.5]]);
+  });
+
+  it('a name nobody declared, or a whole vector, is said once and skipped', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    installCanvas(fakeGl());
+    await build([sh({ uniforms: { speed: 0, pos: [0, 0] }, keyframes: [{ at: 0, to: { 'uniforms.sped': 1, 'uniforms.pos': 1, 'uniforms.pos.5': 1 }, duration: 1 }] })]);
+    const said = warn.mock.calls.map(c => String(c[0])).filter(m => m.includes('keyframe path uniforms.'));
+    expect(said).toHaveLength(3);
+    expect(said[0]).toContain('did you mean "speed"');
+    expect(said.join('\n')).toContain("'uniforms.pos.0'");
+  });
+});

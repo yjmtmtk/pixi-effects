@@ -106,4 +106,102 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
       near(await rgb(cdp, u, 80, 135), [0.25 * 255, (1 - 135.5 / 180) * 255, 128], 3, 'after four rebuilds');
     });
   });
+
+  // ── together with the rest (Task 3) ───────────────────────────────────────────────────────────────────────────────────────────────
+  const solid = (r: number, g: number, b: number, extra: Record<string, unknown> = {}) => ({ type: 'shader', fragment: `void mainImage(out vec4 c, in vec2 f) { c = vec4(${r.toFixed(3)}, ${g.toFixed(3)}, ${b.toFixed(3)}, 1.0); }`, ...extra });
+  const backdrop = (color: string) => ({ type: 'shape', shape: 'rect', name: 'backdrop', width: 320, height: 180, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: color } });
+
+  it('uniforms move with keyframes: a number, a component of a vector, a component of a colour; every seek order agrees', async () => {
+    await withPage(async (cdp) => {
+      const frag = 'void mainImage(out vec4 c, in vec2 f) { c = vec4(speed, pos.y, tint.z, 1.0); }';
+      await mk(cdp, [{ type: 'shader', fragment: frag, uniforms: { speed: 0, pos: [0, 0], tint: '#ff0000' },
+        keyframes: [{ at: 0, to: { 'uniforms.speed': 1, 'uniforms.pos.1': 1, 'uniforms.tint.2': 1 }, duration: 2, ease: 'none' }] }], { duration: 2 });
+      near(await rgb(cdp, await cdp.eval('snap(0)'), 100, 100), [0, 0, 0], 2, 'start');
+      near(await rgb(cdp, await cdp.eval('snap(30)'), 100, 100), [127.5, 127.5, 127.5], 3, 'halfway');
+      near(await rgb(cdp, await cdp.eval('snap(59)'), 100, 100), [250, 250, 250], 8, 'end');
+      const o = await cdp.eval('orders([0, 10, 20, 30, 40, 50, 59])');
+      expect(o.bwdMax).toBe(0); expect(o.jmpMax).toBe(0);
+      expect(mine(await cdp.eval('__logs'))).toEqual([]);
+    });
+  });
+
+  it('a keyframe on a uniform that does not exist, or a whole vector, is said once with what to write', async () => {
+    await withPage(async (cdp) => {
+      await mk(cdp, [{ type: 'shader', fragment: 'void mainImage(out vec4 c, in vec2 f) { c = vec4(speed, pos.y, 0.0, 1.0); }', uniforms: { speed: 0, pos: [0, 0] },
+        keyframes: [{ at: 0, to: { 'uniforms.sped': 1, 'uniforms.pos': 1 }, duration: 1 }] }]);
+      const logs = mine(await cdp.eval('__logs')).join('\n');
+      expect(logs).toContain('names no uniform "sped"'); expect(logs).toContain('did you mean "speed"');
+      expect(logs).toContain("'uniforms.pos.0'");
+    });
+  });
+
+  it('iTime is the layer\'s own clock: from its start (at), and the clock of a time-remapped composition', async () => {
+    await withPage(async (cdp) => {
+      const t = 'void mainImage(out vec4 c, in vec2 f) { c = vec4(iTime / 4.0, 0.0, 0.0, 1.0); }';
+      await mk(cdp, [{ type: 'shader', fragment: t, at: 1, duration: 1 }], { duration: 3 });
+      near(await rgb(cdp, await cdp.eval('snap(45)'), 100, 100), [0.5 / 4 * 255, 0, 0], 3, 'at: 1, drawn at 1.5 s');
+      await mk(cdp, [{ type: 'composition', name: 'inner', width: 320, height: 180, duration: 2, speed: 2, initial: { x: 0, y: 0 }, sequences: [{ type: 'shader', fragment: t }] }], { duration: 2 });
+      near(await rgb(cdp, await cdp.eval('snap(30)'), 100, 100), [2 / 4 * 255, 0, 0], 3, 'a composition at speed 2: 1 s of the movie is 2 s of its clock');
+      const o = await cdp.eval('orders([0, 10, 20, 30, 40, 50, 59])');
+      expect(o.bwdMax).toBe(0); expect(o.jmpMax).toBe(0);
+    });
+  });
+
+  it('a mask cuts it, a matte can be made of it (by its brightness), a filter and a blend mode work on it', async () => {
+    await withPage(async (cdp) => {
+      await mk(cdp, [backdrop('#00ff00'), solid(1, 0, 0, { mask: { type: 'shape', shape: 'circle', radius: 40, initial: { x: 160, y: 90, fillColor: '#ffffff' } } })]);
+      let u = await cdp.eval('snap(0)');
+      near(await rgb(cdp, u, 160, 90), [255, 0, 0], 2, 'inside the mask'); near(await rgb(cdp, u, 10, 10), [0, 255, 0], 2, 'outside the mask');
+      // a shader as the matte of an ordinary layer: brightness uv.x
+      await mk(cdp, [backdrop('#00ff00'), { type: 'shader', name: 'm', fragment: 'void mainImage(out vec4 c, in vec2 f) { c = vec4(vec3(f.x / iResolution.x), 1.0); }' },
+        { type: 'shape', shape: 'rect', name: 'L', width: 320, height: 180, anchorX: 0, anchorY: 0, mask: { layer: 'm', channel: 'luma' }, initial: { x: 0, y: 0, fillColor: '#0000ff' } }]);
+      u = await cdp.eval('snap(0)');
+      near(await rgb(cdp, u, 160, 90), [0, 255 * (1 - 160.5 / 320), 255 * 160.5 / 320], 4, 'a luma matte from a shader');
+      const negative = [-1, 0, 0, 0, 1, 0, -1, 0, 0, 1, 0, 0, -1, 0, 1, 0, 0, 0, 1, 0];
+      await mk(cdp, [solid(1, 0, 0, { filters: [{ type: 'colorMatrix', matrix: negative }] })]);
+      near(await rgb(cdp, await cdp.eval('snap(0)'), 100, 100), [0, 255, 255], 3, 'a colour matrix on a shader');
+      await mk(cdp, [backdrop('#808080'), solid(1, 0.5, 0, { blendMode: 'multiply' })]);
+      near(await rgb(cdp, await cdp.eval('snap(0)'), 100, 100), [128, 64, 0], 3, 'multiply');
+      expect(mine(await cdp.eval('__logs'))).toEqual([]);
+    });
+  });
+
+  it('a shader layer can be threeD (flat at z = 0, tilted with rotationY) and receives the lights of its composition', async () => {
+    await withPage(async (cdp) => {
+      await mk(cdp, [backdrop('#000000'), solid(1, 0, 0, { threeD: true, initial: { x: 0, y: 0, z: 0 } })]);
+      near(await rgb(cdp, await cdp.eval('snap(0)'), 160, 90), [255, 0, 0], 2, 'threeD at z = 0');
+      await mk(cdp, [backdrop('#000000'), solid(1, 0, 0, { threeD: true, width: 160, height: 90, initial: { x: 160, y: 90, rotationY: 50, pivotX: 80, pivotY: 45 } })]);
+      near(await rgb(cdp, await cdp.eval('snap(0)'), 160, 90), [255, 0, 0], 2, 'tilted: the middle is still red');
+      await mk(cdp, [{ type: 'light', kind: 'ambient', initial: { intensity: 0.5 } }, solid(1, 0, 0, { threeD: true })]);
+      near(await rgb(cdp, await cdp.eval('snap(0)'), 100, 100), [127.5, 0, 0], 3, 'lit by an ambient light of 0.5');
+      expect(mine(await cdp.eval('__logs'))).toEqual([]);
+    });
+  });
+
+  it('resolution 0.5 draws at half size and scales up to the same picture', async () => {
+    await withPage(async (cdp) => {
+      await mk(cdp, [{ type: 'shader', fragment: GRAD, resolution: 0.5 }]);
+      near(await rgb(cdp, await cdp.eval('snap(0)'), 80, 135), [0.25 * 255, (1 - 135.5 / 180) * 255, 128], 5, 'half resolution');
+    });
+  });
+
+  it('when the browser takes the shared context away the next frame makes a new one and draws the right picture', async () => {
+    await withPage(async (cdp) => {
+      await mk(cdp, [{ type: 'shader', fragment: GRAD }]);
+      const lost: boolean = await cdp.eval('loseShared()');
+      if (!lost) return;                                                       // no WEBGL_lose_context on this machine
+      await check.sleep(150);                                                  // the 'lost' event arrives as a task
+      near(await rgb(cdp, await cdp.eval('snap(0)'), 80, 135), [0.25 * 255, (1 - 135.5 / 180) * 255, 128], 3, 'after the context was lost');
+      near(await rgb(cdp, await cdp.eval('snap(15)'), 80, 135), [0.25 * 255, (1 - 135.5 / 180) * 255, 255], 3, 'and later frames');
+    });
+  });
+
+  it('the movie exports to an mp4 with a shader layer in it', async () => {
+    await withPage(async (cdp) => {
+      await mk(cdp, [{ type: 'shader', fragment: GRAD }], { duration: 1 });
+      const size: number = await cdp.eval('renderBlob()');
+      expect(size).toBeGreaterThan(2000);
+      expect(mine(await cdp.eval('__logs'))).toEqual([]);
+    });
+  }, 120000);
 });

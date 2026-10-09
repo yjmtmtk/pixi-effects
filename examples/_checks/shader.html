@@ -6,15 +6,15 @@
     Acceptance check (not an example): tests/tools/shader.test.ts. 320 x 180. Helpers: mk(opts) rebuilds the movie under test and returns the render
     backend; snap(f) is a frame as a data URL; px(url, x, y) is one pixel as [r, g, b]; diff(a, b) is the largest pixel difference of two data URLs;
     orders(frames) snapshots a list in three seek orders and returns the largest differences; bench(opts) is the median ms of a snapshot;
-    gl2() is how many WebGL2 contexts the page has made so far (every canvas.getContext('webgl2') is counted; a WebGL-backend movie makes one of its own).
+    loseShared() takes the shared shader context away; renderBlob() exports the movie to an mp4 and returns its size; gl2() is how many WebGL2 contexts the page has made so far (every canvas.getContext('webgl2') is counted; a WebGL-backend movie makes one of its own).
     ?backend=webgl hides WebGPU from the page, so the movie falls back to WebGL (and warns about it once).
   -->
   <canvas id="stage" width="320" height="180"></canvas>
   <script>
     // ?backend=webgl hides WebGPU from the page, so the movie falls back to WebGL (and warns about it once)
     if (new URLSearchParams(location.search).get('backend') === 'webgl') Object.defineProperty(navigator, 'gpu', { value: undefined });
-    window.__gl2 = 0;
-    { const orig = HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext = function (type, ...rest) { const c = orig.call(this, type, ...rest); if (type === 'webgl2' && c) window.__gl2++; return c; }; }
+    window.__gl2 = 0; window.__gl2s = [];
+    { const orig = HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext = function (type, ...rest) { const c = orig.call(this, type, ...rest); if (type === 'webgl2' && c) { window.__gl2++; window.__gl2s.push(c); } return c; }; }
     window.__logs = [];
     for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
   </script>
@@ -42,6 +42,9 @@
     window.diff = async (a, b) => { if (a === b) return 0; const A = await pixels(a), B = await pixels(b); let m = 0; for (let i = 0; i < A.length; i++) m = Math.max(m, Math.abs(A[i] - B[i])); return m; };
     window.px = async (url, x, y) => { const P = await pixels(url); const o = (y * 320 + x) * 4; return [P[o], P[o + 1], P[o + 2]]; };
     window.gl2 = () => window.__gl2;
+    // take the shared shader context away from the page (the one made with antialias off; Pixi's own has it on): the browser's "context lost"
+    window.loseShared = () => { const c = window.__gl2s.find(g => g.getContextAttributes && g.getContextAttributes() && g.getContextAttributes().antialias === false && !g.isContextLost()); if (!c) return false; c.getExtension('WEBGL_lose_context').loseContext(); return true; };
+    window.renderBlob = async () => { const blob = await window.movie.render({ format: 'mp4' }); return blob.size; };
     window.row = async (url, y) => { const P = await pixels(url); return Array.from({ length: 320 }, (_, x) => P[(y * 320 + x) * 4]); };
     // cost: the median of `frames` snapshots (a snapshot includes the read-back, so compare two runs, never read one alone)
     window.bench = async (opts, frames = 40) => {

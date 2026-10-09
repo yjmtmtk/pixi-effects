@@ -12,7 +12,8 @@ import type { PropValue, ShaderSequenceSpec } from '../types';
 const VERT = `#version 300 es
 void main() { vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); }`;
 
-type UniformSlot = number | number[];
+// A vector is an object with the keys '0', '1', … and not an array: GSAP reads an array it is given as a LIST of targets, so a keyframe on 'uniforms.pos.1' needs an object to move
+type UniformSlot = number | Record<string, number>;
 
 /**
  * `type: 'shader'`: a Shadertoy `mainImage` drawn into a picture. Like the `three` layer it is a sprite whose texture is a canvas that is redrawn
@@ -32,6 +33,8 @@ export class ShaderSequence extends Sequence {
   private warnedPaths = new Set<string>();
   /** The current value of every uniform: what keyframes move (`uniforms.speed`, `uniforms.tint.0`). */
   private carrier: Record<string, UniformSlot> = {};
+  /** How many components each vector uniform has (a scalar is not listed). */
+  private dims: Record<string, number> = {};
 
   private get shaderSpec(): ShaderSequenceSpec { return this.spec as unknown as ShaderSequenceSpec; }
 
@@ -52,7 +55,9 @@ export class ShaderSequence extends Sequence {
     this.h = Math.max(1, Math.round(height * res));
     this.fps = this.root.frameRate ?? 30;
     for (const [name, v] of Object.entries(spec.uniforms ?? {})) {
-      if (uniformType(v) !== null) this.carrier[name] = typeof v === 'number' ? v : uniformFloats(v);
+      if (uniformType(v) === null) continue;
+      if (typeof v === 'number') this.carrier[name] = v;
+      else { const f = uniformFloats(v); this.carrier[name] = Object.fromEntries(f.map((x, i) => [String(i), x])); this.dims[name] = f.length; }
     }
     this.c2d = document.createElement('canvas');
     this.c2d.width = this.w; this.c2d.height = this.h;
@@ -89,9 +94,10 @@ export class ShaderSequence extends Sequence {
       if (segs.length !== 1) { warn(`has more than a name, but "${name}" is a single number`); return null; }
       return { target: this.carrier, prop: name };
     }
+    const n = this.dims[name]!;
     const index = segs.length === 2 ? Number(segs[1]) : NaN;
-    if (!Number.isInteger(index) || index < 0 || index >= slot.length) {
-      warn(`must name a component of "${name}" (0 to ${slot.length - 1}): 'uniforms.${name}.0'`);
+    if (!Number.isInteger(index) || index < 0 || index >= n) {
+      warn(`must name a component of "${name}" (0 to ${n - 1}): 'uniforms.${name}.0'`);
       return null;
     }
     return { target: slot, prop: String(index) };
@@ -156,10 +162,12 @@ export class ShaderSequence extends Sequence {
       gl.uniform1i(gl.getUniformLocation(this.prog, 'iFrame'), Math.round(local * this.fps));
       for (const [name, v] of Object.entries(this.carrier)) {
         const loc = gl.getUniformLocation(this.prog, name);
-        if (typeof v === 'number') gl.uniform1f(loc, v);
-        else if (v.length === 2) gl.uniform2fv(loc, v);
-        else if (v.length === 3) gl.uniform3fv(loc, v);
-        else gl.uniform4fv(loc, v);
+        if (typeof v === 'number') { gl.uniform1f(loc, v); continue; }
+        const n = this.dims[name]!;
+        const comps = Array.from({ length: n }, (_, i) => v[String(i)] ?? 0);
+        if (n === 2) gl.uniform2fv(loc, comps);
+        else if (n === 3) gl.uniform3fv(loc, comps);
+        else gl.uniform4fv(loc, comps);
       }
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
