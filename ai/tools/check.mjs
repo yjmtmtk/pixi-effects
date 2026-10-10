@@ -40,10 +40,11 @@ export function formatMusic(sources) {
     const m = s.music;
     if (!m) continue;
     const assumed = m.meterSet === false ? ` (no meter set: ${m.meter} assumed; a waltz is meter: 3)` : '';
-    out.push(`  music     ${s.layer} · ${num(m.bpm)} bpm · ${m.beats} beats = ${num(m.bars)} bars of ${m.meter} beats${assumed} · ${num(Math.round(m.seconds * 10) / 10)} s (+ ${num(m.tail)} s tail)`);
+    out.push(`  music     ${s.layer} · ${num(m.bpm)} bpm · ${num(m.beats)} beats = ${num(m.bars)} bars of ${m.meter} beats${assumed} · ${num(Math.round(m.seconds * 10) / 10)} s (+ ${num(m.tail)} s tail)`);
     for (const t of m.tracks) {
       const whole = Math.abs(t.bars - Math.round(t.bars)) < 1e-6;
-      const note = !whole ? (m.meterSet === false ? '' : ' (not a whole number of bars: a bar is short)') : t.beats < m.beats - 1e-6 ? ` (ends before the others: silent from bar ${Math.round(t.bars) + 1})` : '';
+      // a track shorter than the longest stops early (whatever its length in bars); a short BAR can only be the longest track's, and only the author's meter can say so
+      const note = t.beats < m.beats - 1e-6 ? ` (ends early: silent from beat ${num(t.beats)})` : !whole && m.meterSet !== false ? ' (not a whole number of bars: a bar is short)' : '';
       const cell = names => { const n = names.match(/\[[^\]]*\]\S*|\S+/g) ?? []; return n.length === 0 ? '–' : n.length > 4 ? `${n.slice(0, 4).join(' ')} …` : n.join(' '); };
       const shown = t.perBar.slice(0, 16).map(cell).join(' | ');
       out.push(`${pad}${t.inst.padEnd(6)} ${num(t.bars)} bar${t.bars === 1 ? '' : 's'}${note} | ${shown}${t.perBar.length > 16 ? ` | … (${t.perBar.length - 16} more)` : ''}`);

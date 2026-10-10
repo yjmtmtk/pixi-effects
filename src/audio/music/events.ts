@@ -98,10 +98,11 @@ export function summarizeMusic(m: ResolvedMusic): MusicSummary {
       const perBar: string[][] = Array.from({ length: Math.max(1, Math.ceil(t.length / m.meter - 1e-9)) }, () => []);
       for (const e of t.events) {
         const bar = barOf(e.t, m.meter), at = round(e.t - (bar - 1) * m.meter + 1);
-        perBar[Math.min(perBar.length - 1, bar - 1)]!.push(at === 1 ? e.name : `${e.name}@${at}`);       // the beat in the bar, unless it is the downbeat
+        perBar[Math.min(perBar.length - 1, bar - 1)]!.push(at === 1 ? e.name : `${e.name}(${at})`);       // the beat in the bar, unless it is the downbeat (a bracket: `@` already means the octave in `C@4`)
       }
       return { inst: t.inst, beats: t.length, bars: round(t.length / m.meter), events: t.events.length, perBar: perBar.map(names => names.join(' ')) };
     }),
-    drums: m.drums.map(s => ({ from: s.from, to: Math.min(s.to, m.beats), kinds: s.drums.filter(d => d.hits.length > 0).map(d => d.kind) })),
+    // a section that starts at or after the end (or ends before it starts) never plays: render skips it, so the read-back does not list it
+    drums: m.drums.filter(s => s.from < Math.min(s.to, m.beats) - 1e-6).map(s => ({ from: s.from, to: Math.min(s.to, m.beats), kinds: s.drums.filter(d => d.hits.length > 0).map(d => d.kind) })),
   };
 }

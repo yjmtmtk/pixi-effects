@@ -377,7 +377,7 @@ ev.tracks[0].notes[0];                                  // { beat: 0, time: 0, d
 ev.drums[0];                                            // { kind: 'kick', hits: [{ beat, time, bar, beatInBar, velocity }, ...] }
 ```
 
-What a [`music`](dsl.md#music-written-as-text-music) score plays, as data: every note and chord with its `beat` and `time` (seconds, the tempo map applied; swing and humanize are not), `duration`, `bar` and `beatInBar` (from `meter`, default 4), the audible `midi` pitches (`transpose` is in), the `name` the score gave it, and every drum hit with the pattern repeated out. Also `bpm`, `meter`, `beats`, `bars`, `seconds` and per track `beats` / `bars`. Use it to make the picture follow the score: light the keys of the chord that sounds, caption its name, flash on the snare. A score that cannot play throws with the reason; warnings are logged as for the layer.
+What a [`music`](dsl.md#music-written-as-text-music) score plays, as data: every note and chord with its `beat` and `time` (seconds from the start of the music, the tempo map applied: add the audio layer's `at` for movie time; swing and humanize are not applied), `duration`, `bar` and `beatInBar` (from `meter`, default 4), the audible `midi` pitches (`transpose` is in), the `name` **as the score wrote it** (a transposed score still says `Am7` while `midi` sounds a tone higher: caption from `midi` if you transpose), and every drum hit with the pattern repeated out. Also `bpm`, `meter`, `beats`, `bars`, `seconds` and per track `beats` / `bars`. Use it to make the picture follow the score: light the keys of the chord that sounds, caption its name, flash on the snare. A score that cannot play throws with the reason; warnings are logged as for the layer.
 
 ### `musicBuffer()`
 

@@ -49,7 +49,7 @@ export interface ResolvedMusic {
   tempo: TempoPoints;
   /** Beats in a bar: bar numbers and bar counts only, playback does not use it. */
   meter: number;
-  /** The score gave a `meter` (when it did not, 4 is only assumed). */
+  /** The score gave a number as `meter` (when it did not, or gave something else, 4 is only assumed). */
   meterSet: boolean;
   swing: number;
   reverb: number;
@@ -198,7 +198,7 @@ export function resolveMusic(music: unknown, who: string, warn: Warn = defaultWa
     return null;
   }
   if (seconds > MAX_SECONDS) { warn(`pixi-effects: ${who}: the music lasts ${Math.round(seconds)} s; the limit is ${MAX_SECONDS} s. The layer is silent.`); return null; }
-  return { tempo, meter, meterSet: o.meter !== undefined, swing, reverb: reverbAmount, humanize, drumVol, grid, tail, seed, tracks, drums: sections, beats, seconds };
+  return { tempo, meter, meterSet: finite(o.meter), swing, reverb: reverbAmount, humanize, drumVol, grid, tail, seed, tracks, drums: sections, beats, seconds };
 }
 
 /** Cache key: equal keys render equal samples (the score is plain data, so its JSON is the key). */

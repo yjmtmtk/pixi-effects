@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { musicEvents } from '../../src/audio/musicEvents';
 import { resolveMusic } from '../../src/audio/music';
-import { summarizeMusic } from '../../src/audio/music/events';
+import { summarizeMusic, describeEvents } from '../../src/audio/music/events';
+import { musicBeatTimes } from '../../src/audio/music/render';
 import { TempoMap } from '../../src/audio/music/notation';
 
 const score = {
@@ -90,11 +91,15 @@ describe('musicEvents()', () => {
 describe('the meter option and the summary', () => {
   const warnings = (m: unknown) => { const w: string[] = []; resolveMusic(m, 'score', x => w.push(x)); return w; };
 
-  it('meter is a number of beats from 1 to 16 (default 4); anything else is said once and 4 is used', () => {
+  it('meter is a number of beats from 1 to 16 (default 4); a number outside that is clamped, a non-number falls back to 4, and either is said once', () => {
     expect(warnings({ ...score, meter: 3 })).toEqual([]);
     expect(warnings({ ...score, meter: 0 }).join()).toMatch(/music\.meter 0 is outside 1–16; using 1/);
     expect(warnings({ ...score, meter: '3/4' }).join()).toMatch(/music\.meter must be a number/);
     expect(resolveMusic({ ...score }, 'x', () => {})!.meter).toBe(4);
+    const resolved = (m: unknown) => resolveMusic(m, 'x', () => {})!;
+    expect(resolved({ ...score }).meterSet).toBe(false);
+    expect(resolved({ ...score, meter: 3 }).meterSet).toBe(true);
+    expect(resolved({ ...score, meter: '3/4' })).toMatchObject({ meter: 4, meterSet: false });      // 4 is only assumed: the read-back must not call it the author's
   });
 
   it('summarizeMusic: the length of every track in bars (so a short track shows), what starts in each bar, and the drum spans', () => {
@@ -108,8 +113,25 @@ describe('the meter option and the summary', () => {
     expect(summarizeMusic(resolveMusic({ bpm: 90, tracks: [{ inst: 'pad', notes: 'C:4' }] }, 'x', () => {})!).meterSet).toBe(false);
     expect(s.tracks.map(t => [t.inst, t.beats, t.bars])).toEqual([['pad', 16, 4], ['bass', 8, 2], ['lead', 12, 3]]);
     expect(s.tracks[0]!.perBar).toEqual(['C', 'Am', 'F', 'G']);
-    expect(s.tracks[2]!.perBar).toEqual(['', '', 'e4 g4@2 a4@3']);                  // a name carries its beat in the bar unless it is on the downbeat
-    expect(summarizeMusic(resolveMusic({ bpm: 90, meter: 3, tracks: [{ inst: 'keys', notes: '_:1 Am:2 | _:1 Am:1 Am:1 | c4:1.5 e4:1.5' }] }, 'x', () => {})!).tracks[0]!.perBar).toEqual(['Am@2', 'Am@2 Am@3', 'c4 e4@2.5']);
+    expect(s.tracks[2]!.perBar).toEqual(['', '', 'e4 g4(2) a4(3)']);                  // a name carries its beat in the bar unless it is on the downbeat
+    expect(summarizeMusic(resolveMusic({ bpm: 90, meter: 3, tracks: [{ inst: 'keys', notes: '_:1 Am:2 | _:1 Am:1 Am:1 | c4:1.5 e4:1.5' }] }, 'x', () => {})!).tracks[0]!.perBar).toEqual(['Am(2)', 'Am(2) Am(3)', 'c4 e4(2.5)']);
+    // `@` already means "octave" in a chord name (C@4), so the beat mark is a bracket
+    expect(summarizeMusic(resolveMusic({ bpm: 90, tracks: [{ inst: 'pad', notes: 'C@4:4 _:1 G@4:3' }] }, 'x', () => {})!).tracks[0]!.perBar).toEqual(['C@4', 'G@4(2)']);
     expect(s.drums).toEqual([{ from: 8, to: 16, kinds: ['kick', 'snare'] }]);
+  });
+
+  it('a drum section that never plays (it starts at or after the end, or ends before it starts) is left out', () => {
+    const sum = (drums: unknown) => summarizeMusic(resolveMusic({ bpm: 90, tracks: [{ inst: 'pad', notes: 'C:8' }], drums }, 'x', () => {})!).drums;
+    expect(sum([{ kick: 'x...' }, { from: 12, snare: 'x...' }])).toEqual([{ from: 0, to: 8, kinds: ['kick'] }]);
+    expect(sum([{ from: 6, to: 4, kick: 'x...' }])).toEqual([]);
+    expect(sum([{ from: 8, kick: 'x...' }])).toEqual([]);
+  });
+
+  it('the kick hits of musicEvents are the beats react() pulses on (one schedule, not two)', () => {
+    const m = resolveMusic({ bpm: [[0, 120], [8, 90]], tracks: [{ inst: 'pad', notes: 'C:16' }], drums: [{ kick: 'x...x.x.' }, { from: 8, to: 14, kick: 'x...' }] }, 'x', () => {})!;
+    const kick = describeEvents(m).drums.find(d => d.kind === 'kick')!;
+    const beats = musicBeatTimes(m, Infinity);
+    expect(kick.hits.map(h => h.time)).toHaveLength(beats.length);
+    kick.hits.forEach((h, i) => expect(h.time).toBeCloseTo(beats[i]!, 5));
   });
 });

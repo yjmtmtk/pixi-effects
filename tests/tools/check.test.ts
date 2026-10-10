@@ -267,10 +267,10 @@ describe('check: where the time went while the page loaded', () => {
   it('formatMusic reads a music layer back: length in bars per track (a short one is named), what starts in each bar, and the drum span', () => {
     const lines = tool.formatMusic([
       { layer: 'layer "bed"', source: 'music', music: {
-        bpm: 90, meter: 4, beats: 16, bars: 4, seconds: 10.7, tail: 2.5,
+        bpm: 90, meter: 4, meterSet: true, beats: 16, bars: 4, seconds: 10.7, tail: 2.5,
         tracks: [
           { inst: 'pad', beats: 16, bars: 4, events: 4, perBar: ['C', 'Am', 'F', 'G'] },
-          { inst: 'lead', beats: 12, bars: 3, events: 3, perBar: ['', '', 'e4 g4 a4'] },
+          { inst: 'lead', beats: 12, bars: 3, events: 3, perBar: ['', '', 'e4 g4(2) a4(3)'] },
           { inst: 'bass', beats: 14, bars: 3.5, events: 4, perBar: ['c2', 'a1', 'f1', 'g1'] },
         ],
         drums: [{ from: 8, to: 16, kinds: ['kick', 'snare'] }],
@@ -280,19 +280,31 @@ describe('check: where the time went while the page loaded', () => {
     expect(lines).toEqual([
       '  music     layer "bed" · 90 bpm · 16 beats = 4 bars of 4 beats · 10.7 s (+ 2.5 s tail)',
       '            pad    4 bars | C | Am | F | G',
-      '            lead   3 bars (ends before the others: silent from bar 4) | – | – | e4 g4 a4',
-      '            bass   3.5 bars (not a whole number of bars: a bar is short) | c2 | a1 | f1 | g1',
+      '            lead   3 bars (ends early: silent from beat 12) | – | – | e4 g4(2) a4(3)',
+      '            bass   3.5 bars (ends early: silent from beat 14) | c2 | a1 | f1 | g1',
       '            drums  kick, snare · beats 8–16 (bars 3–4)',
     ]);
     // no meter in the score: a bar is assumed to be 4 beats, and a length that is not a multiple of 4 is not called a mistake (it may be a waltz)
     const noMeter = tool.formatMusic([{ layer: 'layer "w"', source: 'music', music: {
-      bpm: 100, meter: 4, meterSet: false, beats: 27, bars: 6.75, seconds: 16.2, tail: 1.5,
-      tracks: [{ inst: 'pad', beats: 27, bars: 6.75, events: 2, perBar: ['[c3 e3 g3] [c3 e3 g4]@2 [a2 c3 e3]@3 [a2 c3 e3]@3.5 [a2 c3 e3]@4', 'G@2'] }], drums: [],
+      bpm: 100, meter: 4, meterSet: false, beats: 27.000000000000004, bars: 6.75, seconds: 16.2, tail: 1.5,
+      tracks: [{ inst: 'pad', beats: 27, bars: 6.75, events: 2, perBar: ['[c3 e3 g3] [c3 e3 g4](2) [a2 c3 e3](3) [a2 c3 e3](3.5) [a2 c3 e3](4)', 'G(2)'] }], drums: [],
     } }]);
     expect(noMeter).toEqual([
       '  music     layer "w" · 100 bpm · 27 beats = 6.75 bars of 4 beats (no meter set: 4 assumed; a waltz is meter: 3) · 16.2 s (+ 1.5 s tail)',
-      '            pad    6.75 bars | [c3 e3 g3] [c3 e3 g4]@2 [a2 c3 e3]@3 [a2 c3 e3]@3.5 … | G@2',
+      '            pad    6.75 bars | [c3 e3 g3] [c3 e3 g4](2) [a2 c3 e3](3) [a2 c3 e3](3.5) … | G(2)',
     ]);
+    // a track that stops early is named as that, whether or not its length is a whole number of bars; a SHORT BAR is only named on the longest track, and only when the author set a meter
+    const early = tool.formatMusic([{ layer: 'layer "e"', source: 'music', music: {
+      bpm: 90, meter: 4, meterSet: false, beats: 16, bars: 4, seconds: 10, tail: 2,
+      tracks: [{ inst: 'pad', beats: 16, bars: 4, events: 1, perBar: ['C', '', '', ''] }, { inst: 'lead', beats: 10, bars: 2.5, events: 1, perBar: ['c4', '', ''] }], drums: [],
+    } }]);
+    expect(early[2]).toBe('            lead   2.5 bars (ends early: silent from beat 10) | c4 | – | –');
+    const waltz = (meterSet: boolean) => tool.formatMusic([{ layer: 'layer "w"', source: 'music', music: {
+      bpm: 90, meter: 3, meterSet, beats: 10, bars: 3.333, seconds: 6, tail: 2,
+      tracks: [{ inst: 'pad', beats: 10, bars: 3.333, events: 1, perBar: ['C', '', '', ''] }], drums: [],
+    } }]);
+    expect(waltz(true)[1]).toBe('            pad    3.33 bars (not a whole number of bars: a bar is short) | C | – | – | –');
+    expect(waltz(false)[1]).toBe('            pad    3.33 bars | C | – | – | –');
     expect(tool.formatMusic([{ layer: 'layer "pop"', source: 'sfx "pop"' }])).toEqual([]);
     expect(tool.formatMusic(undefined)).toEqual([]);
   });
