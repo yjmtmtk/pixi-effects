@@ -10,9 +10,9 @@ const css = (c: ColorInput): string => (typeof c === 'number' ? '#' + c.toString
  * space (sRGB / OKLab / OKLCH).
  *
  * Keys to the design:
- * 1. The interpolator is built inside `onStart`, not at bind time, so a
- *    chained-keyframe tween picks up the previous tween's end colour
- *    (rather than locking onto the initial spec value).
+ * 1. The interpolator is built from the colour before the tween (the end of the
+ *    keyframe before it, or the layer's own), so a chained-keyframe tween picks
+ *    up the previous tween's end colour (rather than locking onto the initial spec value).
  * 2. `fromValue` is honoured if explicit; otherwise we read `target[key]`
  *    at tween start — like any other `.to()`.
  * 3. The optional `onUpdate` hook lets the caller flag the target as dirty

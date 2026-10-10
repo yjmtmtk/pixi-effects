@@ -72,7 +72,7 @@ describe('kenBurns()', () => {
       expect(s.initial?.y).toBe('H/2');
       expect(s.initial?.pivotX).toBe('w * 0.5');
       expect(s.initial?.pivotY).toBe('h * 0.5');
-      // Rotation is in DEGREES (PIXI shorthand → routed via gsap PixiPlugin).
+      // Rotation is in DEGREES (a shorthand the timeline converts to radians).
       expect(s.initial?.rotation).toBe(0);
       // 8° span → 9 samples (0, 1, 2, ..., 8) → 8 keyframes.
       expect(s.keyframes!.length).toBe(8);

@@ -9,7 +9,7 @@ const scope = { GW: 1920, GH: 1080, W: 1920, H: 1080, w: 100, h: 100 } as Record
 function build(target: Record<string, number>, keyframes: unknown[], duration = 4) {
   const tl = createTimeline({ paused: true });
   applyKeyframes(tl, target, keyframes as never, duration, scope, [], 0);
-  tl.progress(1).progress(0);                                   // what Movie.init does: every start value is settled before anyone seeks
+  tl.time(0);
   return tl;
 }
 const at = (tl: Timeline, t: number) => { tl.time(t); return tl; };

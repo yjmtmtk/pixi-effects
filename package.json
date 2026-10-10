@@ -1,6 +1,6 @@
 {
   "name": "pixi-effects",
-  "version": "0.26.3",
+  "version": "0.27.0",
   "description": "Declarative composition and video rendering for the web. Built on PixiJS v8.",
   "type": "module",
   "exports": {
@@ -75,6 +75,7 @@
     "typescript": "^5.5.0",
     "vitest": "^2.1.0",
     "happy-dom": "^15.0.0",
+    "gsap": "3.15.0",
     "marked": "^18.0.14",
     "pixi.js": "^8.22.0",
     "pixi-filters": "^6.1.5",

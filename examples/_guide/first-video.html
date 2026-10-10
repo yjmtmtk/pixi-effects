@@ -13,16 +13,13 @@
 <body>
   <canvas id="stage" width="1280" height="720"></canvas>
 
-  <!-- gsap: the pinned release (0.26.3) still imports it; the next release does not, and bumping the pin removes these two lines -->
 <script type="importmap">
   {
     "imports": {
       "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
-      "gsap":                    "https://esm.sh/gsap@3.12.5",
-      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
       "mediabunny":              "https://esm.sh/mediabunny",
-      "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@0.26.3/dist/index.js",
-      "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.26.3/dist/Controller.js"
+      "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@0.27.0/dist/index.js",
+      "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.27.0/dist/Controller.js"
     }
   }
   </script>

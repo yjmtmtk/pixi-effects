@@ -411,6 +411,7 @@ export class Movie {
       this._audioSources = audios;
 
       lp.begin('frames', 0);
+      this.timeline.time(this._timeOf(0));                     // the first picture is the movie at its start: a `set` at 0 is already applied
       await this._awaitVideoFrames();
       this._updateSpace();
       this._renderNow();

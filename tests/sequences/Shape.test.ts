@@ -231,7 +231,6 @@ describe('ShapeSequence — anchor', () => {
 
 describe('ShapeSequence — geometry animation', () => {
   it('circle radius is keyframable; onRender re-issues the new radius', async () => {
-    const { gsap } = await import('gsap');
     const seq = await build({
       type: 'shape', shape: 'circle', radius: 50, duration: 5,
       initial: { fillColor: '#fff' },
@@ -256,7 +255,6 @@ describe('ShapeSequence — geometry animation', () => {
   });
 
   it('rect width / height / cornerRadius all animate independently', async () => {
-    const { gsap } = await import('gsap');
     const seq = await build({
       type: 'shape', shape: 'rect',
       width: 100, height: 50, cornerRadius: 0,
@@ -276,7 +274,6 @@ describe('ShapeSequence — geometry animation', () => {
   });
 
   it('ellipse radiusX / radiusY animate', async () => {
-    const { gsap } = await import('gsap');
     const seq = await build({
       type: 'shape', shape: 'ellipse', radiusX: 80, radiusY: 30, duration: 5,
       initial: { fillColor: '#fff' },
@@ -298,7 +295,6 @@ describe('ShapeSequence — keyframe chaining', () => {
   // keyframe omits `from`, the tween must read the live state at tween
   // start (not capture the initial value at bind time and snap back).
   it('a strokeWidth tween chained 4→8→4 stays continuous (no snap-back)', async () => {
-    const { gsap } = await import('gsap');
     const seq = await build({
       type: 'shape', shape: 'circle', radius: 30, duration: 5,
       initial: { strokeColor: '#fff', strokeWidth: 4 },
@@ -319,7 +315,6 @@ describe('ShapeSequence — keyframe chaining', () => {
   });
 
   it('a colour tween chained #cc66ff → #88ccff → #cc66ff sweeps both directions', async () => {
-    const { gsap } = await import('gsap');
     const seq = await build({
       type: 'shape', shape: 'circle', radius: 30, duration: 5,
       initial: { strokeColor: '#cc66ff', strokeWidth: 4 },

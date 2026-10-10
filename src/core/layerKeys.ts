@@ -72,7 +72,7 @@ export const PROP_KEYS: ReadonlySet<string> = new Set([
   // transform and look
   'x', 'y', 'z', 'alpha', 'rotation', 'rotationX', 'rotationY', 'width', 'height', 'visible', 'autoAlpha',
   'scale', 'scaleX', 'scaleY', 'anchor', 'anchorX', 'anchorY', 'pivot', 'pivotX', 'pivotY', 'skew', 'skewX', 'skewY',
-  'position', 'positionX', 'positionY', 'tint',
+  'position', 'positionX', 'positionY', 'tilePosition', 'tilePositionX', 'tilePositionY', 'tileScale', 'tileScaleX', 'tileScaleY', 'tint',
   // shapes
   'fillColor', 'fillAlpha', 'strokeColor', 'strokeAlpha', 'strokeWidth', 'cornerRadius', 'radius', 'radiusX', 'radiusY',
   'innerRadius', 'startAngle', 'endAngle', 'trimStart', 'trimEnd', 'trimEach', 'morph', 'fillGradient', 'strokeCap', 'strokeJoin',

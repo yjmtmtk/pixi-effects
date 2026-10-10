@@ -103,7 +103,7 @@ function parse(raw: string): EaseFn | null {
   const s = raw.toLowerCase();
   if (s === 'none' || s === 'linear' || s === 'linear.easenone') return LINEAR;
   if (/^spring/.test(s)) { const sp = parseSpring(raw); return sp ? springEase(sp) : null; }
-  if (/^cubic-bezier/.test(s)) { const c = parseCubicBezier(raw); return c ? cubicBezierEase(...c) : null; }
+  if (/^cubic-bezier/.test(s)) { const c = parseCubicBezier(raw); return c ? cubicBezierEase(...c) : LINEAR; }   // a malformed one is a straight line (checkEase says so)
   const st = /^steps\(\s*([^)]*)\)$/.exec(s);
   if (st) return steps(Number(st[1]));
   if (/^[a-z][a-z0-9]*$/.test(raw) && FAMILY[raw]) return FAMILY[raw]!([]).out;   // `power2`, `back`: the family's `out` (`Power2` with a capital is the family itself, not an ease)

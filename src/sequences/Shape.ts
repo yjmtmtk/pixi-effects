@@ -132,7 +132,7 @@ export class ShapeSequence extends Sequence {
       this._state.trimEnd ??= 1;
     }
     const gradientSpec = this.spec.fillGradient ?? (this.spec.initial as { fillGradient?: GradientSpec } | undefined)?.fillGradient;
-    validateGradientKeyframes(this.spec as never, describeLayer(this.spec));          // once, here: a tween's onStart runs again at every seek
+    validateGradientKeyframes(this.spec as never, describeLayer(this.spec));          // once, here, not at every evaluation of the timeline
     if (gradientSpec) {
       if (hasGradientKeys(this.spec.keyframes)) {
         // animated: one canvas + one texture, repainted in place whenever the gradient changes

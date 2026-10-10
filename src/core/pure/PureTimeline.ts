@@ -357,7 +357,7 @@ export class PureTimeline {
   // --- evaluation ----------------------------------------------------------------------------------------
 
   /**
-   * What GSAP ends up with once it has been played to the end and back (Movie does that once at build), as rules that depend
+   * What GSAP ended up with once it had been played to the end and back (what Movie used to do at build), as rules that depend
    * on the segments of a property only:
    * - a `from` / `fromTo` shows its start from the moment it is built, so a `to` that comes first starts at the start of the
    *   `from` built last, else at the property's own value;

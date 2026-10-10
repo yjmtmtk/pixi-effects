@@ -62,3 +62,10 @@ describe('checkEase', () => {
     expect(EASE_NAMES).toEqual(expect.arrayContaining(['none', 'power2.out', 'back.inOut', 'sine.in']));
   });
 });
+
+describe('a malformed cubic-bezier runs as a straight line, as the warning says', () => {
+  it('the curve is none, not the default ease', async () => {
+    const { pureEase } = await import('../../src/core/pure/ease');
+    for (const bad of ['cubic-bezier(1.4,0,.2,1)', 'cubic-bezier(.4,0,.2)']) for (const p of [0, 0.25, 0.5, 0.9, 1]) expect(pureEase(bad)(p)).toBe(p);
+  });
+});

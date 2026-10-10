@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>check · the first picture</title>
+</head>
+<body style="margin:0;background:#222">
+  <!--
+    Acceptance check (not an example): a movie with no poster whose layer has `{ at: 0, set: { x: 300 } }` and a tween that is already running at 0.
+    Right after `movie.init()` the layer must be where the movie is at its start, before anything seeks: tests/tools/firstFrame.test.ts reads it.
+  -->
+  <canvas id="stage" width="640" height="360"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">
+  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const movie = new Movie();
+    window.movie = movie;
+    await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 2, frameRate: 30, loader: false, background: '#111',
+      composition: { sequences: [
+        { type: 'shape', shape: 'rect', name: 'box', width: 40, height: 40, initial: { x: 0, y: 100 }, keyframes: [{ at: 0, set: { x: 300 } }, { at: 0, to: { y: 200 }, duration: 1 }] },
+        { type: 'shape', shape: 'rect', name: 'later', at: 1, width: 40, height: 40, initial: { x: 0, y: 0 } },
+      ] } });
+    window.__ready = true;
+  </script>
+</body>
+</html>
