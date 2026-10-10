@@ -36,3 +36,28 @@ Then, and only then, measure: time per frame with 1000 tweens, bundle size, and 
 ## Not in the spike
 
 GSAP plugins as optional adapters, a public API change, deleting GSAP, `bind` / inputs. Those wait for the numbers.
+
+## Results of the spike (2026-10-10)
+
+The engine exists (`src/core/pure/`, `src/core/timelineEngine.ts`), is switched with `?pe-timeline=pure` / `PE_TIMELINE=pure` / `setTimelineEngine('pure')`, and GSAP is still the default. Every number below is measured.
+
+**Equal to GSAP, by the three checks of the design**
+1. Eases: 69 names x 2001 points within 1e-12 of `gsap.parseEase`, and exactly equal at 0 and 1 (a colour is cut towards zero, so 2e-16 for 0 would change it). Colour strings: 10 pairs x 200 points, the same strings as `gsap.utils.interpolate`.
+2. Differential fuzz (random keyframes through the same call shapes as `applyKeyframes`, read in random order, on plain objects): 5 families (to, set + to, from / fromTo, repeat / yoyo / repeatDelay, relative values) x 300 scripts x 2 orders; and 4 families x 200 scripts for the Pixi plugin shorthands (`scale`, `anchor`, `pivot`, `skew`, `rotation` in degrees, `tint`, `autoAlpha`) and for child timelines. All equal within 3e-6 (GSAP writes six decimals).
+3. Pictures: 92 pages drawn (82 + 10 whose movie had to be exposed), 3 frames each, by hash. 77 identical; 14 differ by at most 3/255 (the 1/255 noise that two builds of the same tree already show); and 5 are larger: three pages (`aura-launch`, `recipe-card`, `three-product-spin`) use `expo.out` and the pages load GSAP 3.12.5, whose expo is another formula than 3.15's (up to 0.78 % of the range; with the 3.12.5 formula in the pure engine the three pages are identical); `named-filters` is not reproducible under GSAP itself (two GSAP captures differ); `solar-system` differs in one pixel by 9/255 (not explained: the sequences' numbers agree to 1e-5).
+   The whole non-browser suite (2806 tests) passes on both engines (`PE_TIMELINE=pure npx vitest run`); 32 test files that built their own `gsap.timeline` now build theirs through `createTimeline`, and 4 that read GSAP's own tweens (`getChildren`) are pinned to GSAP.
+
+**What the pure engine does that GSAP does not**
+- The picture at a time depends on the script and the time only (`purity.test.ts`). GSAP answers by the direction it came from for: overlapping tweens on one property, a `set` that starts where a tween starts, a `set` where a tween ends (rounded to seven decimals the tween ends 1e-7 after it and GSAP writes its end value over the set at the next frame: the set is lost), a `fromTo` after a repeating tween, `from` after `from` / after `set`, a zero-length `fromTo` (not seen as the segment before another).
+- It does not depend on the version of GSAP: the pages' 3.12.5 and the repository's 3.15 draw `expo` differently.
+- A `from` that has a segment before it ends where that segment ended (GSAP: where the property happened to be).
+
+**Speed** (plain objects, 700 layers x 5 tweens, one timeline per layer under a parent as `Composition` builds it; ms per frame): GSAP 0.098 forward / 0.051 backward / 0.226 random seeks; pure 0.021 / 0.019 / 0.027; init (`progress(1).progress(0)`): GSAP 2.6 ms, pure 0.9 ms; building: equal (about 2-3 ms). 2000 layers x 3: GSAP 0.235 / 0.090 / 0.339, pure 0.045 / 0.046 / 0.063. The timeline is not what limits a frame (drawing is), so the gain is headroom for heavy pieces (particles), and a seek that no longer costs more than a frame.
+
+**Size**: the pure engine with eases, springs, cubic-bezier, the Pixi shorthands and colour strings is 14.1 KB minified, 5.8 KB gzip. GSAP + PixiPlugin is 79.5 KB minified, 31.2 KB gzip: 25 KB gzip less for the page that loads both.
+
+**Workarounds that the pure engine makes unnecessary** (kept while GSAP is the default): the proxy `p` of `revertibleSet`; Base's baseline `renderable` for a `set` that only fires on crossing; the grain's compensation for GSAP rounding time; the init pass `progress(1).progress(0)` of Movie and of a remapped composition; one timeline per layer to avoid the re-measure at every `add`; the vector-as-object of the shader uniforms; `onStart` as the place where colour and gradient tweens read their start (the pure `tweenValue` reads it from the segment before); the registration of spring / cubic-bezier into GSAP; the silent `power1.out` for an unknown ease.
+
+**Not done** (to adopt it): `checkEase` still asks GSAP whether a name exists (the pure parse never says "unknown"); the three `isPure` branches (`colorTween`, `gradientAnim`, `revertibleSet`) and the GSAP code beside them would collapse into one; the Pixi shorthands `fillColor / lineColor / colorize / blur ...` are inert (a shape keeps its own colours; they were noise on a Graphics); GSAP-only features (CustomEase, Physics2D, text plugins) would be optional adapters; docs and the peer dependency would change; the real-browser test suite has not been run on the pure engine (the pages above stand for it).
+
+**Recommendation**: adopt it as the default after one release in which `?pe-timeline=pure` is documented for trying; the numbers say it is equal where GSAP is deterministic, faster, 25 KB lighter, and the only deviations are places where GSAP's answer depends on history or on its own version.

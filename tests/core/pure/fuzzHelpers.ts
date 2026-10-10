@@ -6,7 +6,7 @@ import { PureTimeline, spacer } from '../../../src/core/pure/PureTimeline';
  * separate plain objects, and both are read at the same times in the same order. GSAP is the oracle.
  */
 
-function rng(seed: number): () => number {
+export function rng(seed: number): () => number {
   let s = seed >>> 0;
   return () => { s = (s + 0x6d2b79f5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
@@ -65,9 +65,9 @@ export function makeScript(seed: number, opts: { overlap: boolean; ascending?: b
   return { init, ops, total };
 }
 
-type AnyTl = { set: Function; to: Function; from: Function; fromTo: Function; add: Function; time: Function; progress: Function };
+export type AnyTl = { set: Function; to: Function; from: Function; fromTo: Function; add: Function; time: Function; progress: Function };
 
-function build(tl: AnyTl, objs: Record<string, number>[], s: Script, mkSpacer: (d: number) => unknown): void {
+export function build(tl: AnyTl, objs: Record<string, number>[], s: Script, mkSpacer: (d: number) => unknown): void {
   for (const o of s.ops) {
     const vars = (vals: number[]) => Object.fromEntries(o.props.map((p, i) => [p, o.rel ? `${vals[i]! < 0 ? '-=' : '+='}${Math.abs(vals[i]!)}` : vals[i]]));
     const tween = { duration: o.dur, ease: o.ease, ...(o.repeat ? { repeat: o.repeat, yoyo: o.yoyo, repeatDelay: o.repeatDelay } : {}) };
@@ -81,7 +81,7 @@ function build(tl: AnyTl, objs: Record<string, number>[], s: Script, mkSpacer: (
   tl.progress(1).progress(0);
 }
 
-function times(r: () => number, total: number): number[] {
+export function times(r: () => number, total: number): number[] {
   const out: number[] = [];
   const grid = (n: number) => Math.min(total, Math.max(0, n / 30));
   for (let i = 0; i < 40; i++) {
