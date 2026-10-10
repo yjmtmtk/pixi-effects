@@ -433,6 +433,28 @@
       "notes": "_notes/christmas-eve.md"
     },
     {
+      "id": "d3-story",
+      "title": "d3 × pixi-effects",
+      "subtitle": "d3 computes, pixi-effects performs: a bar chart, a self-drawing line, a donut and a world map with great-circle routes, every number from d3 scales, line, pie, arc and geoPath",
+      "tags": [
+        "d3",
+        "data",
+        "chart",
+        "map",
+        "editorial",
+        "luma-wipe",
+        "music"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 23,
+      "posterFrame": 555,
+      "model": "sonnet",
+      "page": "d3-story.html",
+      "poster": "posters/d3-story.jpg",
+      "notes": "_notes/d3-story.md"
+    },
+    {
       "id": "piano-roll",
       "title": "Eight Bars",
       "subtitle": "A four-bar tune written as text, falling down a piano roll: each bar flashes and rings the moment its note sounds",

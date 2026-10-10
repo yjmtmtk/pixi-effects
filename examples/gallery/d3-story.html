@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>d3 × pixi-effects — data in, motion out</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+  <style>
+    body { background: #07080b; margin: 0; padding: 16px; min-height: 100vh; box-sizing: border-box;
+           display: flex; align-items: center; justify-content: center; }
+    .pe-stage { position: relative; width: min(960px, 100%); border-radius: 8px; --pe-loader-bg: #07080b; background: #07080b; }
+    .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
+  </style>
+</head>
+<body>
+  <div class="pe-stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
+
+  <script type="application/json" id="piece-meta">{
+    "title": "d3 × pixi-effects",
+    "subtitle": "d3 computes, pixi-effects performs: a bar chart, a self-drawing line, a donut and a world map with great-circle routes, every number from d3 scales, line, pie, arc and geoPath",
+    "tags": ["d3", "data", "chart", "map", "editorial", "luma-wipe", "music"],
+    "width": 1280, "height": 720, "duration": 23, "model": "sonnet"
+  }</script>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0",
+      "d3":                      "https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm",
+      "topojson-client":         "https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/+esm"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+    import * as d3 from 'd3';
+    import * as topojson from 'topojson-client';
+
+    const W = 1280, H = 720, FPS = 30, M = 72;
+    const INK = '#f1ede6', BG = '#07080b', OR = '#ff5a1f', BL = '#3d6bff', DIM = '#7d8190', GRID = '#222636';
+    const SANS = 'Helvetica Neue, Helvetica, Arial, sans-serif', MONO = 'Menlo, Consolas, monospace';
+
+    // ---------- the design kit (flat objects; d3 only does the numbers) ----------
+    const rect = (color, extra = {}) => ({ type: 'shape', shape: 'rect', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: color }, ...extra });
+    const glow = (x, y, r, rgb, a = 0.3) => ({ type: 'shape', shape: 'circle', radius: r, initial: { x, y }, fillGradient: { type: 'radial', stops: [[0, `rgba(${rgb},${a})`], [1, `rgba(${rgb},0)`]] } });
+    const bg = (x, y, rgb) => [rect(BG), glow(x, y, 640, rgb)];
+    const rise = (text, x, y, size, o = {}) => {
+      const h = size * 1.15;
+      return { type: 'text', text, at: o.at ?? 0, style: { fontSize: size, fontFamily: o.mono ? MONO : SANS, fontWeight: o.weight ?? '700', fill: o.fill ?? INK, letterSpacing: o.spacing ?? -size * 0.04 },
+        mask: { type: 'shape', shape: 'rect', width: o.maskW ?? 1200, height: h, initial: { x, y: y - h * 0.12, anchorX: 0, anchorY: 0, fillColor: '#ffffff' } },
+        initial: { x, y: y + h, anchorX: 0, anchorY: 0 }, keyframes: [{ at: 0, to: { y }, duration: 0.5, ease: 'expo.out' }] };
+    };
+    const label = (text, x, y, o = {}) => ({ type: 'text', text, at: o.at ?? 0, style: { fontSize: o.size ?? 20, fontFamily: MONO, fill: o.fill ?? DIM },
+      initial: { x, y, anchorX: o.ax ?? 0.5, anchorY: o.ay ?? 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] });
+    const chrome = (n, d3call, title) => [
+      { type: 'text', text: 'd3 × pixi-effects', style: { fontSize: 20, fontFamily: MONO, fill: DIM }, initial: { x: M, y: 44, anchorX: 0, anchorY: 0.5 } },
+      { type: 'text', text: `0${n} / 04`, style: { fontSize: 20, fontFamily: MONO, fill: DIM }, initial: { x: W - M, y: 44, anchorX: 1, anchorY: 0.5 } },
+      rise(title, M, 78, 44, { at: 0.1 }),
+      { type: 'shape', shape: 'rect', width: 2, height: 22, initial: { x: M, y: H - 52, anchorX: 0, anchorY: 0.5, fillColor: OR } },
+      { type: 'text', text: d3call, style: { fontSize: 22, fontFamily: MONO, fill: INK }, initial: { x: M + 18, y: H - 52, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0.3, to: { alpha: 1 }, duration: 0.3 }] },
+    ];
+    const comp = (name, at, duration, sequences) => ({ type: 'composition', name, at, duration, width: W, height: H, sequences });
+    const drawOn = (at, duration = 1.2, ease = 'power2.inOut') => ({ at, to: { trimEnd: 1 }, duration, ease });
+    const sfx = [];
+
+    // ---------- 01 · a bar chart: d3.scaleBand + scaleLinear + scaleSequential ----------
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'];
+    const sample = [12, 19, 15, 27, 34, 31, 46, 58];
+    const bx = d3.scaleBand().domain(months).range([M + 40, W - M]).padding(0.3);
+    const by = d3.scaleLinear().domain([0, d3.max(sample)]).nice().range([590, 190]);
+    const bc = d3.scaleSequential([0, d3.max(sample)], d3.interpolateRgb(BL, OR));
+    const bars = [];
+    by.ticks(4).forEach((v, i) => {
+      bars.push({ type: 'shape', shape: 'line', from: [M + 20, by(v)], to: [W - M, by(v)], trimEnd: 0, initial: { strokeColor: GRID, strokeWidth: 1 }, keyframes: [drawOn(0.1 + i * 0.08, 0.6)] });
+      bars.push(label(String(v), M + 4, by(v), { ax: 1, at: 0.2 }));
+    });
+    sample.forEach((v, i) => {
+      const x = bx(months[i]) + bx.bandwidth() / 2, at = 0.5 + i * 0.1, h = by(0) - by(v);
+      bars.push({ type: 'shape', shape: 'rect', width: bx.bandwidth(), height: 0, cornerRadius: 8, anchorY: 1, at, initial: { x, y: by(0), fillColor: bc(v) },
+        keyframes: [{ at: 0, to: { height: h }, duration: 0.8, ease: 'power3.out' }] });
+      bars.push({ type: 'text', text: '{value}', at, style: { fontSize: 26, fontWeight: '700', fontFamily: SANS, fill: INK }, initial: { x, y: by(0) - 14, anchorX: 0.5, anchorY: 1, value: 0 },
+        keyframes: [{ at: 0, to: { value: v, y: by(v) - 14 }, duration: 0.8, ease: 'power3.out' }] });
+      bars.push(label(months[i], x, by(0) + 22, { at }));
+      sfx.push({ type: 'audio', sfx: 'click', at: 0 + at + 0.0, volume: 0.35, _scene: 1 });
+    });
+    const sBars = comp('bars', 3.0, 4.4, [...bg(1000, 200, '61,107,255'), ...bars, ...chrome(1, "d3.scaleBand().domain(months).padding(0.3)", 'Bars'), label('sample data', W - M, H - 52, { ax: 1, at: 0.4 })]);
+
+    // ---------- 02 · a line: d3.line + curveCatmullRom (one path string) ----------
+    const rnd = d3.randomNormal.source(d3.randomLcg(7))(0, 5);
+    const series = d3.range(32).map(i => 40 + 16 * Math.sin(i / 4.2) + i * 1.3 + rnd());
+    const lx = d3.scaleLinear([0, series.length - 1], [M + 40, W - M]);
+    const ly = d3.scaleLinear(d3.extent(series), [560, 190]).nice();
+    const lineGen = d3.line().x((d, i) => lx(i)).y(d => ly(d)).curve(d3.curveCatmullRom.alpha(0.5));
+    const areaGen = d3.area().x((d, i) => lx(i)).y0(ly.range()[0] + 30).y1(d => ly(d)).curve(d3.curveCatmullRom.alpha(0.5));
+    const peak = d3.maxIndex(series), LD = 2.2;
+    // how far along the drawn line each point is (the line is trimmed by its length, not by x)
+    const cum = series.reduce((c, v, i) => (c.push(i ? c[i - 1] + Math.hypot(lx(i) - lx(i - 1), ly(v) - ly(series[i - 1])) : 0), c), []);
+    const lines = [
+      ...ly.ticks(4).flatMap((v, i) => [{ type: 'shape', shape: 'line', from: [M + 20, ly(v)], to: [W - M, ly(v)], trimEnd: 0, initial: { strokeColor: GRID, strokeWidth: 1 }, keyframes: [drawOn(0.1 + i * 0.08, 0.6)] }, label(String(v), M + 4, ly(v), { ax: 1, at: 0.2 })]),
+      { type: 'shape', shape: 'path', d: areaGen(series), at: 0.4, initial: { fillColor: BL, fillAlpha: 0, strokeWidth: 0 }, keyframes: [{ at: LD + 0.1, to: { fillAlpha: 0.16 }, duration: 0.8, ease: 'sine.out' }] },
+      { type: 'shape', shape: 'path', d: lineGen(series), trimEnd: 0, at: 0.4, strokeCap: 'round', strokeJoin: 'round', initial: { strokeColor: BL, strokeWidth: 5 }, keyframes: [drawOn(0, LD, 'none')] },
+      ...series.map((v, i) => i % 4 === 0 ? [{ type: 'shape', shape: 'circle', radius: 6, at: 0.4 + LD * (cum[i] / cum[cum.length - 1]) + 0.08, initial: { x: lx(i), y: ly(v), fillColor: INK, scale: 0 }, keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.3, ease: 'back.out' }] }] : []).flat(),
+      { type: 'shape', shape: 'circle', radius: 16, at: 0.4 + LD + 0.1, initial: { x: lx(peak), y: ly(series[peak]), strokeColor: OR, strokeWidth: 3, fillAlpha: 0, scale: 0.2, alpha: 0 }, keyframes: [{ at: 0, to: { scale: 1, alpha: 1 }, duration: 0.4, ease: 'expo.out' }] },
+      { type: 'text', text: `peak ${series[peak].toFixed(1)}`, at: 0.4 + LD + 0.2, style: { fontSize: 26, fontFamily: MONO, fill: OR }, initial: { x: lx(peak) - 24, y: ly(series[peak]) - 4, anchorX: 1, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] },
+    ];
+    const sLine = comp('line', 7.0, 4.4, [...bg(300, 620, '255,90,31'), ...lines, ...chrome(2, "d3.line().curve(d3.curveCatmullRom)", 'Lines'), label('sample data', W - M, H - 52, { ax: 1, at: 0.4 })]);
+
+    // ---------- 03 · a donut: d3.pie + d3.arc ----------
+    const parts = [['Design', 38], ['Code', 27], ['Motion', 19], ['Sound', 11], ['Other', 5]];
+    const pie = d3.pie().sort(null).value(d => d[1]).padAngle(0.035)(parts);
+    // d3 draws into any "context": this one flattens every arc into points, so a slice becomes a plain polygon
+    const flat = () => { const pts = []; const ctx = {
+      moveTo: (x, y) => pts.push([x, y]), lineTo: (x, y) => pts.push([x, y]), closePath() {}, rect() {},
+      arc(x, y, r, a0, a1, ccw) { let d = a1 - a0; if (ccw && d > 0) d -= 2 * Math.PI; if (!ccw && d < 0) d += 2 * Math.PI; const n = Math.max(2, Math.ceil(Math.abs(d) / 0.05)); for (let k = 0; k <= n; k++) { const a = a0 + d * k / n; pts.push([x + r * Math.cos(a), y + r * Math.sin(a)]); } } };
+      return { ctx, pts }; };
+    const arc = d3.arc().innerRadius(100).outerRadius(200).cornerRadius(8);
+    // a polygon is placed by the centre of its bounds, so give it points around that centre and its place on the canvas
+    const slicePlace = (s) => { const { ctx, pts } = flat(); arc.context(ctx)(s);
+      const [x0, x1] = d3.extent(pts, p => p[0]), [y0, y1] = d3.extent(pts, p => p[1]), mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+      return { points: pts.map(p => [p[0] - mx, p[1] - my]), x: mx, y: my }; };
+    const outer = d3.arc().innerRadius(236).outerRadius(236);
+    const pc = d3.scaleOrdinal([BL, OR, '#f1ede6', '#8ea6ff', '#444a63']).domain(parts.map(p => p[0]));
+    const CX = W / 2, CY = 395;
+    const donut = pie.flatMap((s, i) => {
+      const at = 0.4 + i * 0.16, [lx2, ly2] = outer.centroid(s), pl = slicePlace(s);
+      return [
+        { type: 'shape', shape: 'polygon', points: pl.points, at, initial: { x: CX + pl.x, y: CY + pl.y, fillColor: pc(s.data[0]), scale: 0 }, keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.7, ease: 'back.out(1.4)' }] },
+        { type: 'text', text: `${s.data[0]}  ${s.data[1]}%`, at: at + 0.35, style: { fontSize: 22, fontFamily: MONO, fill: INK }, initial: { x: CX + lx2 * 1.0, y: CY + ly2, anchorX: lx2 < 0 ? 1 : 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] },
+      ];
+    });
+    const sDonut = comp('donut', 11.0, 3.9, [...bg(640, 400, '61,107,255'), ...donut,
+      { type: 'text', text: '{value}', format: { decimals: 0 }, at: 0.3, style: { fontSize: 96, fontWeight: '700', fontFamily: SANS, fill: INK, letterSpacing: -4 }, initial: { x: CX, y: CY, anchorX: 0.5, anchorY: 0.5, value: 0 }, keyframes: [{ at: 0, to: { value: 100 }, duration: 1.2, ease: 'power3.out' }] },
+      ...chrome(3, "d3.pie().padAngle(0.035) · d3.arc()", 'Shares'), label('sample data', W - M, H - 52, { ax: 1, at: 0.4 })]);
+
+    // ---------- 04 · a world map: d3.geoNaturalEarth1 + geoPath (real coordinates) ----------
+    const world = await (await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json')).json();
+    const land = topojson.feature(world, world.objects.land);
+    const borders = topojson.mesh(world, world.objects.countries, (a, b) => a !== b);
+    const proj = d3.geoNaturalEarth1().fitExtent([[M, 120], [W - M, H - 110]], { type: 'Sphere' });
+    const geo = d3.geoPath(proj);
+    const hub = { name: 'Tokyo', c: [139.69, 35.69] };
+    const cities = [{ name: 'London', c: [-0.13, 51.51] }, { name: 'New York', c: [-74.0, 40.71] }, { name: 'Sydney', c: [151.21, -33.87] }, { name: 'São Paulo', c: [-46.63, -23.55] }, { name: 'Cape Town', c: [18.42, -33.92] }];
+    const hp = proj(hub.c);
+    const mapLayers = [
+      { type: 'shape', shape: 'path', d: geo({ type: 'Sphere' }), trimEnd: 0, initial: { strokeColor: GRID, strokeWidth: 2 }, keyframes: [drawOn(0.0, 0.9)] },
+      { type: 'shape', shape: 'path', d: geo(d3.geoGraticule10()), at: 0.2, initial: { strokeColor: '#161a28', strokeWidth: 1, strokeAlpha: 0 }, keyframes: [{ at: 0, to: { strokeAlpha: 1 }, duration: 0.8 }] },
+      { type: 'shape', shape: 'path', d: geo(land), at: 0.3, initial: { fillColor: '#12151f', fillAlpha: 0, strokeColor: '#5b6177', strokeWidth: 1.2, strokeAlpha: 0 }, keyframes: [{ at: 0, to: { fillAlpha: 1, strokeAlpha: 1 }, duration: 1.0, ease: 'sine.out' }] },
+      { type: 'shape', shape: 'path', d: geo(borders), at: 0.6, initial: { strokeColor: '#2b3045', strokeWidth: 0.8, strokeAlpha: 0 }, keyframes: [{ at: 0, to: { strokeAlpha: 1 }, duration: 0.8 }] },
+      ...cities.flatMap((ct, i) => {
+        const p = proj(ct.c), at = 1.2 + i * 0.3;
+        return [
+          { type: 'shape', shape: 'path', d: geo({ type: 'LineString', coordinates: [hub.c, ct.c] }), trimEnd: 0, at, strokeCap: 'round', initial: { strokeColor: OR, strokeWidth: 2.5 }, keyframes: [drawOn(0, 0.9, 'power2.out')] },
+          { type: 'shape', shape: 'circle', radius: 6, at: at + 0.8, initial: { x: p[0], y: p[1], fillColor: INK, scale: 0 }, keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.3, ease: 'back.out' }] },
+          { type: 'shape', shape: 'circle', radius: 22, at: at + 0.8, initial: { x: p[0], y: p[1], strokeColor: OR, strokeWidth: 2, fillAlpha: 0, scale: 0.3, alpha: 0.9 }, keyframes: [{ at: 0, to: { scale: 1.3, alpha: 0 }, duration: 0.9, ease: 'power2.out', repeat: 1 }] },
+          label(ct.name, p[0] + 12, p[1] - 14, { ax: 0, at: at + 0.9, fill: INK, size: 18 }),
+        ];
+      }),
+      { type: 'shape', shape: 'circle', radius: 9, at: 1.0, initial: { x: hp[0], y: hp[1], fillColor: OR, scale: 0 }, keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.4, ease: 'back.out' }] },
+      label(hub.name, hp[0] - 14, hp[1] - 16, { ax: 1, at: 1.1, fill: INK, size: 20 }),
+    ];
+    const sMap = comp('map', 14.5, 5.4, [...bg(900, 300, '255,90,31'), ...mapLayers, ...chrome(4, "d3.geoPath(d3.geoNaturalEarth1())", 'Maps')]);
+
+    // ---------- outro ----------
+    const sOut = comp('outro', 19.5, 3.5, [
+      ...bg(300, 620, '255,90,31'),
+      rise('d3 computes.', M, 190, 120, { at: 0.1 }),
+      rise('pixi-effects performs.', M, 330, 120, { at: 0.5, weight: '300', fill: BL }),
+      { type: 'shape', shape: 'rect', width: 2, height: 54, initial: { x: M, y: H - 70, anchorX: 0, anchorY: 0.5, fillColor: OR } },
+      rise('free · open source', M + 18, H - 94, 22, { mono: true, weight: '400', at: 1.2, spacing: 0 }),
+      rise('github.com/yjmtmtk/pixi-effects', M + 18, H - 62, 22, { mono: true, weight: '400', fill: DIM, at: 1.4, spacing: 0 }),
+    ]);
+
+    // ---------- title ----------
+    const sTitle = comp('title', 0, 3.4, [
+      ...bg(300, 620, '61,107,255'),
+      rise('d3', M, 190, 170, { at: 0.1 }),
+      rise('× pixi-effects', M, 360, 110, { at: 0.5, weight: '300', fill: OR }),
+      rise('data in, motion out.', M + 6, 520, 34, { mono: true, weight: '400', fill: DIM, at: 1.0, spacing: 0 }),
+    ]);
+
+    // ---------- sound (120 bpm, soft) ----------
+    const chords = ['Am7', 'Fmaj7', 'Cmaj7', 'G6'], bassBar = ['a1', 'f1', 'c2', 'g1'];
+    const arp = [['a4', 'c5', 'e5', 'g5'], ['f4', 'a4', 'c5', 'e5'], ['c5', 'e5', 'g5', 'b5'], ['g4', 'b4', 'd5', 'e5']];
+    const bars_ = (n, f) => Array.from({ length: n }, (_, i) => f(i)).join(' ');
+    const music = { type: 'audio', at: 0, duration: 23, volume: 0.7, music: { bpm: 120, reverb: 0.25, tail: 2, seed: 7, tracks: [
+      { inst: 'pad', vol: 0.5, notes: bars_(12, i => chords[i % 4] + ':4') },
+      { inst: 'bass', vol: 0.45, notes: bars_(12, i => `${bassBar[i % 4]}:1.5 ${bassBar[i % 4]}:0.5 ${bassBar[i % 4]}:1 ${bassBar[i % 4]}:1`) },
+      { inst: 'pluck', vol: 0.28, notes: '_:4 ' + bars_(11, i => [0, 1, 2, 3, 2, 1, 2, 3].map(k => arp[(i + 1) % 4][k] + ':0.5').join(' ')) },
+    ], drums: { kick: 'x...x...x...x...', hat: '..x...x...x...x.' } } };
+    const sounds = [
+      ...sample.map((v, i) => ({ type: 'audio', sfx: 'click', at: 3.0 + 0.5 + i * 0.1, volume: 0.3, sfx_pitch: i })),
+      ...[3.0, 7.0, 11.0, 14.5, 19.5].map(at => ({ type: 'audio', sfx: 'swoosh', at: at - 0.05, volume: 0.4 })),
+      ...cities.map((_, i) => ({ type: 'audio', sfx: 'pop', at: 14.5 + 1.2 + i * 0.3 + 0.8, volume: 0.35 })),
+    ].map(({ sfx_pitch, ...s }) => sfx_pitch === undefined ? s : { ...s, sfx: { preset: 'click', pitch: sfx_pitch * 2 } });
+
+    const order = [sTitle, sBars, sLine, sDonut, sMap, sOut];
+    const maps = ['diagonal', 'linear', 'radial', 'diagonal', 'linear'];
+    const DURATION = 23;
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: W, height: H, duration: DURATION, frameRate: FPS, poster: 18.5, background: BG,
+        composition: {
+          sequences: [...order, { type: 'shape', shape: 'rect', width: W, height: H, blendMode: 'multiply', initial: { x: W / 2, y: H / 2 }, fillGradient: { type: 'radial', radius: 0.8, stops: [[0.55, 'rgba(255,255,255,1)'], [1, 'rgba(70,70,80,1)']] } }, music, ...sounds],
+          transitions: order.slice(1).map((c, i) => ({ kind: 'luma', from: order[i].name, to: c.name, at: c.at, duration: 0.4, map: maps[i], softness: 0.12 })),
+          filters: [{ type: 'grain', name: 'g', amount: 0.02, size: 1.4, color: 0.2 }],
+        },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

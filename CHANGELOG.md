@@ -5,6 +5,7 @@
 **Added**
 
 - **`Sequence` is exported, so a layer type can be written outside the library** (`registerSequenceType` was public, its base class was not). A subclass builds a Pixi display object in `build()` and may draw each frame in `awaitFrameAt(local)`; keyframes, filters, masks and the lifespan then work on it like on the built-in layers. See "Your own layer type" in `docs/api.md`.
+- **A gallery piece with d3 (51 now): `d3-story`.** d3 computes the numbers (scales, `line`, `area`, `pie`, `arc`, `geoPath`, a seeded `randomLcg`) and pixi-effects performs them: bars that count up, a self-drawing line, a donut, a world map with great-circle routes. It imports `d3` and `topojson-client` through the import map; the library did not change.
 
 ## 0.27.2
 
