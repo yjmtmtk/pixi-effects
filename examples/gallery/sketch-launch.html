@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sketch to Launch — drawn with Rough.js (pixi-effects)</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+  <style>
+    body { background: #2a2c36; margin: 0; padding: 16px; min-height: 100vh; box-sizing: border-box;
+           display: flex; align-items: center; justify-content: center; }
+    .pe-stage { position: relative; width: min(960px, 100%); border-radius: 8px; --pe-loader-bg: #f4efe3; background: #f4efe3; }
+    .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
+  </style>
+</head>
+<body>
+  <div class="pe-stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
+
+  <script type="application/json" id="piece-meta">{
+    "title": "Sketch to Launch",
+    "subtitle": "A notebook page where a rocket draws itself stroke by stroke, is coloured in with hachure, counts down and lifts off toward a moon; every wobbly line comes from Rough.js as plain path data",
+    "tags": ["rough-js", "hand-drawn", "sketch", "draw-on", "notebook", "countdown", "music"],
+    "width": 1280, "height": 720, "duration": 14.5, "model": "sonnet"
+  }</script>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "three":                   "https://esm.sh/three@0.178.0",
+      "roughjs":                 "https://cdn.jsdelivr.net/npm/roughjs@4.6.6/bundled/rough.esm.js"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+    import rough from 'roughjs';
+
+    // ---------------------------------------------------------------- canvas / timeline
+    const W = 1280, H = 720, FPS = 30, DURATION = 14.5;
+    const PAPER = '#f4efe3', INK = '#1d2340', RED = '#e8553d', YEL = '#f2b632', TEAL = '#2a9d8f', BLUE = '#3d6bff', SKY = '#cfe3ff', GREY = '#9aa0ad';
+    const HAND = "'Bradley Hand', 'Segoe Print', 'Marker Felt', 'Comic Sans MS', cursive";
+    const MONO = "ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
+
+    // ---------------------------------------------------------------- Rough.js draws, pixi-effects performs
+    // Rough.js only makes numbers: a sketchy outline and its hachure fill are plain SVG paths (M and C, in the units you gave it).
+    // Each one becomes a `path` layer that draws itself on with `trimEnd`. A seed makes every wobble the same on every run.
+    const gen = rough.generator();
+    const shift = (d, ox, oy) => d.replace(/([MC])([^MC]*)/g, (_, c, nums) => {
+      const v = nums.trim().split(/[\s,]+/).map(Number);
+      return c + v.map((n, i) => +(n + (i % 2 ? oy : ox)).toFixed(2)).join(' ');
+    });
+    const sketch = (drawable, ox, oy, at, dur, o = {}) => gen.toPaths(drawable).map((p, i, all) => {
+      const filled = p.fill !== 'none', ink = !filled && p.stroke !== 'none';
+      const isOutline = i === all.length - 1 && !filled;
+      const start = at + (isOutline ? 0 : dur * 0.0), d = dur;
+      return { type: 'shape', shape: 'path', d: shift(p.d, ox, oy), at: o.fillLate && !isOutline ? at + (o.fillLate) : start, name: o.name,
+        trimEnd: filled ? 1 : 0, strokeCap: 'round', strokeJoin: 'round',
+        initial: filled ? { fillColor: p.fill, fillAlpha: 0, strokeWidth: 0 } : { strokeColor: p.stroke, strokeWidth: p.strokeWidth },
+        keyframes: filled ? [{ at: 0, to: { fillAlpha: 1 }, duration: 0.3 }] : [{ at: 0, to: { trimEnd: 1 }, duration: o.fillLate && !isOutline ? d * 0.6 : d, ease: 'power1.inOut' }] };
+    });
+    const R = (extra) => ({ roughness: 1.3, bowing: 1.2, stroke: INK, strokeWidth: 3.2, ...extra });
+    const hach = (color, extra) => ({ fill: color, fillStyle: 'hachure', hachureGap: 7, fillWeight: 2.6, hachureAngle: -40, ...extra });
+
+    // ---------------------------------------------------------------- the notebook page
+    const page = [
+      { type: 'shape', shape: 'rect', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: PAPER } },
+      ...Array.from({ length: 17 }, (_, i) => ({ type: 'shape', shape: 'line', from: [0, 112 + i * 36], to: [W, 112 + i * 36], initial: { strokeColor: '#b9c9e8', strokeWidth: 1.4, strokeAlpha: 0.7 } })),
+      { type: 'shape', shape: 'line', from: [150, 0], to: [150, H], initial: { strokeColor: '#e8a3a0', strokeWidth: 2, strokeAlpha: 0.8 } },
+      { type: 'shape', shape: 'rect', width: 120, height: 34, anchorX: 0.5, anchorY: 0.5, initial: { x: 120, y: 34, rotation: -8, fillColor: TEAL, alpha: 0.55 } },     // a piece of washi tape
+    ];
+    const writing = (text, x, y, size, at, dur, o = {}) => ({ type: 'text', text, at, style: { fontSize: size, fontFamily: o.mono ? MONO : HAND, fill: o.fill ?? INK, fontWeight: o.mono ? '400' : '700' },
+      initial: { x, y, anchorX: o.ax ?? 0, anchorY: 0.5, visibleChars: 0, rotation: o.rot ?? 0 }, keyframes: [{ at: 0, to: { visibleChars: text.length }, duration: dur, ease: 'none' }] });
+    const title = [
+      writing('Sketch to Launch', 190, 70, 60, 0.2, 1.3),
+      ...sketch(gen.linearPath([[190, 112], [330, 108], [470, 116], [610, 110]], R({ seed: 5, strokeWidth: 4, stroke: RED })), 0, 0, 1.4, 0.6),
+    ];
+
+    // ---------------------------------------------------------------- the rocket, drawn in four moves (all in one composition so it can lift off as one)
+    const RX = 640, RY = 380, STEP = 0.35;
+    const bodyD = 'M0 -170 C 40 -130, 55 -60, 55 40 L 55 100 L -55 100 L -55 40 C -55 -60, -40 -130, 0 -170 Z';
+    const noseD = 'M0 -170 C 22 -150 38 -122 44 -96 L -44 -96 C -38 -122 -22 -150 0 -170 Z';
+    const flameD = 'M -30 126 C -44 176 -12 196 0 238 C 12 196 44 176 30 126 Z';
+    const parts = [
+      ['body', gen.path(bodyD, R({ seed: 11, ...hach(SKY, { hachureGap: 8 }) })), 1.3, 0.9],
+      ['nose', gen.path(noseD, R({ seed: 12, ...hach(RED, { hachureGap: 5 }) })), 2.0, 0.5],
+      ['finL', gen.polygon([[-55, 36], [-108, 122], [-55, 102]], R({ seed: 13, ...hach(RED, { hachureGap: 5 }) })), 2.4, 0.5],
+      ['finR', gen.polygon([[55, 36], [108, 122], [55, 102]], R({ seed: 14, ...hach(RED, { hachureGap: 5 }) })), 2.7, 0.5],
+      ['window', gen.circle(0, -40, 58, R({ seed: 15, ...hach(TEAL, { hachureGap: 4 }) })), 3.0, 0.5],
+      ['band', gen.rectangle(-55, 28, 110, 22, R({ seed: 16, ...hach(YEL, { hachureGap: 5 }) })), 3.3, 0.4],
+      ['nozzle', gen.polygon([[-32, 100], [32, 100], [42, 128], [-42, 128]], R({ seed: 17, ...hach(GREY, { hachureGap: 5 }) })), 3.6, 0.4],
+    ];
+    const rocketLayers = parts.flatMap(([name, dr, at, dur]) => sketch(dr, RX, RY, at - 1.0, dur, { name, fillLate: dur * 0.5 }));
+    // the flame boils: three drawings of the same flame (three seeds), shown in turn like a flipbook
+    const flames = [31, 32, 33].map((seed, k) => {
+      const outer = gen.path(flameD, R({ seed, stroke: '#c2410c', strokeWidth: 3, ...hach('#f97316', { hachureGap: 5 }) }));
+      const inner = gen.path('M -14 128 C -20 156 -6 168 0 190 C 6 168 20 156 14 128 Z', R({ seed: seed + 10, stroke: YEL, strokeWidth: 2, ...hach(YEL, { hachureGap: 4 }) }));
+      const sets = []; for (let t = 0; t < 7.0; t += 0.36) sets.push({ at: t + k * 0.12, set: { alpha: 1 } }, { at: t + k * 0.12 + 0.12, set: { alpha: 0 } });
+      return { type: 'composition', name: 'flame' + k, at: 4.2 - 1.0, duration: 8.0, width: W, height: H, initial: { alpha: 0 },
+        sequences: [...sketch(outer, RX, RY, 0, 0.01), ...sketch(inner, RX, RY, 0, 0.01)].map(l => ({ ...l, trimEnd: 1, keyframes: l.keyframes.map(kf => ({ ...kf, duration: 0.01 })) })), keyframes: sets };
+    });
+    // the two wings of an arrowhead sit behind the tip, whichever way the arrow points
+    const arrowHead = (from, to, len = 17, spread = 0.5) => {
+      const a = Math.atan2(from[1] - to[1], from[0] - to[0]);        // from the tip back along the arrow
+      return [[to[0] + Math.cos(a + spread) * len, to[1] + Math.sin(a + spread) * len], to, [to[0] + Math.cos(a - spread) * len, to[1] + Math.sin(a - spread) * len]];
+    };
+    const label = (text, x, y, ax, from, to, at) => [
+      writing(text, x, y, 30, at, 0.6, { ax }),
+      ...sketch(gen.linearPath([from, [(from[0] + to[0]) / 2 + 6, (from[1] + to[1]) / 2 - 10], to], R({ seed: at * 10 | 0, strokeWidth: 2.6 })), 0, 0, at + 0.2, 0.5),
+      ...sketch(gen.linearPath(arrowHead(from, to), R({ seed: 70 + (at * 10 | 0), strokeWidth: 2.6 })), 0, 0, at + 0.65, 0.2),
+    ];
+    // a drawing note belongs to the rocket on the pad: it ends when the rocket lifts off
+    const until = (t, layers) => layers.map(l => ({ ...l, duration: Math.max(0.1, t - (l.at ?? 0)) }));
+    const labels = until(7.7, [
+      ...label('nose cone', 910, 232, 0, [905, 244], [690, 232], 3.9),
+      ...label('porthole', 140 + 30, 340, 0, [300, 352], [585, 342], 4.2),
+      ...label('fins', 900, 520, 0, [895, 520], [750, 505], 4.5),
+    ]);
+    const liftAt = 8.0;
+    const rocket = {
+      type: 'composition', name: 'rocket', at: 1.0, duration: DURATION - 1.0, width: W, height: H,
+      sequences: [...rocketLayers],
+      keyframes: [
+        { at: liftAt - 1.0 - 0.7, to: { x: '+=4' }, duration: 0.06, repeat: 11, yoyo: true, ease: 'none' },          // a shiver before it goes
+        { at: liftAt - 1.0, to: { y: '-=1100' }, duration: 2.0, ease: 'power3.in' },
+      ],
+    };
+    // the flame rides the rocket: its own composition list is lifted with the same move
+    const rocketWithFlames = { ...rocket, sequences: [...rocket.sequences, ...flames] };
+
+    // ---------------------------------------------------------------- the pad, the countdown, the smoke, the sky
+    const pad = [
+      ...sketch(gen.line(190, 590, 1090, 590, R({ seed: 21, strokeWidth: 4 })), 0, 0, 4.7, 0.6),
+      ...sketch(gen.polygon([[540, 590], [740, 590], [725, 538], [555, 538]], R({ seed: 22, ...hach(GREY, { hachureGap: 8 }) })), 0, 0, 4.9, 0.6, { fillLate: 0.3 }),
+    ];
+    const count = ['3', '2', '1'].flatMap((n, i) => {
+      const at = 5.6 + i * 0.8;
+      return [
+        { type: 'text', text: n, at, duration: 0.8, style: { fontSize: 170, fontFamily: HAND, fontWeight: '700', fill: RED }, initial: { x: 1090, y: 380, anchorX: 0.5, anchorY: 0.5, scale: 1.5, alpha: 0, rotation: -6 }, keyframes: [{ at: 0, to: { scale: 1, alpha: 1 }, duration: 0.18, ease: 'back.out(2)' }] },
+        ...sketch(gen.circle(1090, 380, 220, R({ seed: 40 + i, strokeWidth: 4, stroke: INK })), 0, 0, at, 0.5).map(l => ({ ...l, duration: 0.8 - 0.0 })),
+      ];
+    });
+    const smoke = Array.from({ length: 7 }, (_, i) => {
+      const x = 640 + (i - 3) * 66 + (i % 2 ? 18 : -10), y = 536 - (i % 3) * 18, r = 46 + (i % 3) * 14;
+      return [
+        ...sketch(gen.circle(x, y, r * 2, R({ seed: 50 + i, strokeWidth: 2.6, stroke: '#6b7280', ...hach('#d1d5db', { fillStyle: 'cross-hatch', hachureGap: 11 }) })), 0, 0, liftAt + 0.1 + i * 0.08, 0.5, { fillLate: 0.2 }),
+      ];
+    }).flat();
+    const burst = Array.from({ length: 9 }, (_, i) => {
+      const a = (i / 9) * Math.PI * 2 + 0.2, x = 640, y = 560;
+      return sketch(gen.line(x + Math.cos(a) * 120, y + Math.sin(a) * 60, x + Math.cos(a) * 190, y + Math.sin(a) * 105, R({ seed: 60 + i, strokeWidth: 3, stroke: YEL })), 0, 0, liftAt, 0.3);
+    }).flat();
+    const star = (cx, cy, r, seed, at) => {
+      const pts = Array.from({ length: 10 }, (_, i) => { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; return [cx + Math.cos(a) * rr, cy + Math.sin(a) * rr]; });
+      return sketch(gen.polygon(pts, R({ seed, strokeWidth: 2.6, ...hach(YEL, { hachureGap: 4 }) })), 0, 0, at, 0.5, { fillLate: 0.25 });
+    };
+    const stars = [[700, 112, 22], [770, 80, 18], [880, 270, 24], [1170, 330, 20], [330, 360, 18], [1170, 520, 22], [1160, 90, 16]].flatMap(([x, y, r], i) => star(x, y, r, 80 + i, 9.0 + i * 0.28));
+    const moon = [
+      ...sketch(gen.circle(1030, 150, 150, R({ seed: 90, strokeWidth: 3.4, ...hach('#f6e7a8', { hachureGap: 6 }) })), 0, 0, 10.8, 0.9, { fillLate: 0.5 }),
+      ...[[1000, 120, 34], [1062, 176, 26], [1020, 190, 16]].flatMap(([x, y, d], i) => sketch(gen.circle(x, y, d, R({ seed: 95 + i, strokeWidth: 2.4 })), 0, 0, 11.5 + i * 0.2, 0.4)),
+    ];
+    const trail = sketch(gen.curve([[640, 560], [660, 420], [720, 280], [840, 190], [960, 160]], R({ seed: 99, strokeWidth: 3, stroke: BLUE, roughness: 0.8 })), 0, 0, liftAt + 0.4, 1.8);
+    const ending = [
+      writing('three drawings, one launch', 190, 636, 42, 12.0, 1.3),
+      writing('every line here is data, sketched with Rough.js', 190, 672, 21, 13.0, 1.1, { mono: true, fill: '#5b6177' }),
+    ];
+    const liftoffWord = writing('LIFTOFF!', 190, 200, 76, liftAt - 0.1, 0.5, { fill: RED, rot: -4 });
+
+    // ---------------------------------------------------------------- sound: soft ukulele-ish tune, pencil ticks, countdown beeps, a launch
+    const sfx = [
+      ...[1.3, 2.0, 2.4, 2.7, 3.0, 3.3, 3.6].map(at => ({ type: 'audio', sfx: { preset: 'typewriter', pitch: 6 }, at, volume: 0.5 })),
+      ...[5.6, 6.4, 7.2].map((at, i) => ({ type: 'audio', sfx: { preset: 'beep', pitch: i === 2 ? 7 : 0 }, at, volume: 0.45 })),
+      { type: 'audio', sfx: 'riser', at: 7.0, duration: 1, volume: 0.6 },
+      { type: 'audio', sfx: 'hit', at: liftAt, volume: 0.8 }, { type: 'audio', sfx: 'swoosh', at: liftAt + 0.3, duration: 1.2, volume: 0.6 },
+      ...[9.0, 9.28, 9.56, 9.84, 10.12, 10.4, 10.68].map((at, i) => ({ type: 'audio', sfx: { preset: 'chime', pitch: (i % 4) * 3 }, at, volume: 0.25 })),
+      { type: 'audio', sfx: 'coin', at: 12.3, volume: 0.4 },
+    ];
+    const chords = ['C', 'Am', 'F', 'G'];
+    const music = { type: 'audio', at: 0, duration: DURATION, volume: 0.65, music: { bpm: 104, reverb: 0.18, tail: 1.5, seed: 4, swing: 0.1, tracks: [
+      { inst: 'pluck', vol: 0.5, notes: Array.from({ length: 13 }, (_, i) => `[${['c4 e4 g4', 'a3 c4 e4', 'f3 a3 c4', 'g3 b3 d4'][i % 4]}]:2`).join(' ') },
+      { inst: 'bass', vol: 0.45, notes: Array.from({ length: 13 }, (_, i) => `${['c2', 'a1', 'f1', 'g1'][i % 4]}:2`).join(' ') },
+      { inst: 'musicbox', vol: 0.3, notes: '_:8 ' + Array.from({ length: 9 }, (_, i) => ['e5:1 g5:1', 'c5:1 e5:1', 'a4:1 c5:1', 'b4:1 d5:1'][i % 4]).join(' ') },
+    ], drums: { kick: 'x...x...', hat: '..x...x.' } } };
+
+    const sequences = [...page, ...title, ...labels, ...pad, ...count, rocketWithFlames, ...smoke, ...burst, liftoffWord, ...trail, ...stars, ...moon, ...ending, music, ...sfx];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: W, height: H, duration: DURATION, frameRate: FPS, poster: 8.5, background: PAPER,
+        composition: { sequences, filters: [{ type: 'grain', name: 'g', amount: 0.035, size: 1.6, color: 0.15 }] },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

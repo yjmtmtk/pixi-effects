@@ -55,8 +55,9 @@ Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same br
 | sonnet | Spotlight — A dark room, one tight lamp: it picks out three pictures one after another, and they throw their shadows on the wall; slow camera, depth fog, an end card as the house lights come up | 1280×720 | spotlight-room.html |
 | sonnet | Shader garden — Four formulas and no pictures: a flowing green field under a title bent like water, contour lines of a noise terrain seen only through the letters CONTOUR, and ripples through a disc | 1280×720 | shader-garden.html |
 | sonnet | d3 × pixi-effects — d3 computes, pixi-effects performs: a bar chart, a self-drawing line, a donut and a world map with great-circle routes, every number from d3 scales, line, pie, arc and geoPath | 1280×720 | d3-story.html |
+| sonnet | Sketch to Launch — A notebook page where a rocket draws itself stroke by stroke, is coloured in with hachure, counts down and lifts off toward a moon; every wobbly line comes from Rough.js as plain path data | 1280×720 | sketch-launch.html |
 
-Counts: fable 13, opus 13, sonnet 22, haiku 3 (51 pieces).
+Counts: fable 13, opus 13, sonnet 23, haiku 3 (52 pieces).
 
 `rack-focus` (sonnet): made on 2026-10-09 by one subagent from the brief and the docs of the unreleased 0.21 (depth of field: camera `focus` / `aperture`); the model name is the author's self-report (Claude Sonnet 5.5).
 
@@ -69,6 +70,8 @@ Counts: fable 13, opus 13, sonnet 22, haiku 3 (51 pieces).
 `shader-garden` (sonnet): made on 2026-10-09 by one subagent from the brief and the docs of the unreleased 0.25 (the shader layer and the warp filter); the model name is the author's self-report (Claude Sonnet 5.5).
 
 `d3-story` (sonnet): made on 2026-10-10 in the main working session by Claude Sonnet 5.5 (not a fresh subagent), to show d3 computing the numbers and pixi-effects performing them; the model name is the author's self-report.
+
+`sketch-launch` (sonnet): made on 2026-10-10/11 in the main working session by Claude Sonnet 5.5 (not a fresh subagent), to show Rough.js making the wobbly paths and pixi-effects drawing them on; the model name is the author's self-report.
 
 Per-piece stumble notes are in [_notes/](_notes/), named after the piece id (file name without `.html`).
 

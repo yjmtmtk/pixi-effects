@@ -863,6 +863,28 @@
       "notes": "_notes/shader-garden.md"
     },
     {
+      "id": "sketch-launch",
+      "title": "Sketch to Launch",
+      "subtitle": "A notebook page where a rocket draws itself stroke by stroke, is coloured in with hachure, counts down and lifts off toward a moon; every wobbly line comes from Rough.js as plain path data",
+      "tags": [
+        "rough-js",
+        "hand-drawn",
+        "sketch",
+        "draw-on",
+        "notebook",
+        "countdown",
+        "music"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 14.5,
+      "posterFrame": 255,
+      "model": "sonnet",
+      "page": "sketch-launch.html",
+      "poster": "posters/sketch-launch.jpg",
+      "notes": "_notes/sketch-launch.md"
+    },
+    {
       "id": "gradient-type",
       "title": "Spectrum",
       "subtitle": "One heavy word whose gradient turns through four colours while a radial glow drifts behind it",
