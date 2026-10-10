@@ -221,7 +221,7 @@ Some codecs (notably `aac` audio in older Firefox) may need the [mediabunny poly
 
 ## Author
 
-Made by [@t_yjm](https://x.com/t_yjm): release notes and small experiments are posted there. Questions, bugs and ideas are welcome as [GitHub issues](https://github.com/yjmtmtk/pixi-effects/issues).
+Made by [@t_yjm](https://x.com/t_yjm). Questions, bugs and ideas are welcome as [GitHub issues](https://github.com/yjmtmtk/pixi-effects/issues).
 
 ## License
 

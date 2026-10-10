@@ -2,7 +2,7 @@
 // `npm run site:sync` writes the result into the pages between their <!--site:…--> markers (a test fails when a page is stale).
 export const REPO = 'https://github.com/yjmtmtk/pixi-effects';
 export const NPM = 'https://www.npmjs.com/package/pixi-effects';
-/** The author's page: updates and release notes. */
+/** The author's X account. */
 export const AUTHOR_X = 'https://x.com/t_yjm';
 
 /** The entrances, with their address from the site root. */
@@ -52,7 +52,7 @@ export function renderFooter({ root }) {
       <a href="${root}examples/music-lab.html">Music lab</a>
       <a href="${REPO}/blob/main/skills/pixi-effects/SKILL.md">AI skill</a>
       <a href="${root}llms.txt">llms.txt</a>
-      <a href="${AUTHOR_X}" rel="me noopener">Updates on X</a>
+      <a href="${AUTHOR_X}" rel="me noopener">Author on X</a>
     </p>
     <p class="end"><span class="dia" aria-hidden="true"></span><span>pixi-effects · MIT · built on PixiJS v8 and mediabunny · ease names after GSAP, with thanks</span></p>
   </div>
