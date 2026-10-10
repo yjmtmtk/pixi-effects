@@ -1103,6 +1103,31 @@ return [
 ];
 ```
 
+## One source, two formats (16:9 and 9:16), and a photo inside a region
+
+A vertical film is not a crop of the wide one. Write each scene as a function of a layout, switch with a query (`?f=9x16`), and render each format on its own: `npx pixi-effects check film.html --query f=9x16`, `npx pixi-effects render film.html --query f=9x16 -o film-9x16.mp4`. `photo()` fits a picture into any rectangle like CSS `cover` (scale from the image's own size, a mask for the rectangle); `scale: 'cover'` only fits the PARENT.
+
+```js
+// @docs-only two-formats
+const PORTRAIT = new URLSearchParams(location.search).get('f') === '9x16';
+const W = PORTRAIT ? 1080 : 1920, H = PORTRAIT ? 1920 : 1080, MX = PORTRAIT ? 76 : 150;      // margins: nothing important in the outer 5 %
+const IMG = { hero: [1920, 1280] };                                                           // each photo's size (assets: [{ name: 'hero', src: '...' }])
+const photo = (key, x, y, w, h, duration) => {
+  const cover = Math.max(w / IMG[key][0], h / IMG[key][1]);
+  return { type: 'image', asset: key, duration,
+    mask: { type: 'shape', shape: 'rect', width: w, height: h, initial: { x: x + w / 2, y: y + h / 2, fillColor: '#fff' } },     // the mask lives in the parent's coordinates
+    initial: { x: x + w / 2, y: y + h / 2, anchorX: 0.5, anchorY: 0.5, scale: cover },                                             // image anchors go in `initial`
+    keyframes: [{ at: 0, to: { scale: cover * 1.1 }, duration, ease: 'sine.inOut' }] };                                             // a slow push
+};
+const scene = { type: 'composition', name: 'hook', at: 0, duration: 5.5, width: W, height: H, sequences: [
+  photo('hero', 0, 0, W, H, 5.5),
+  { type: 'text', text: 'Headline', initial: { x: MX, y: PORTRAIT ? 1150 : 620 }, style: { fontSize: PORTRAIT ? 100 : 112, fill: '#fff' } },   // wide: lower left; tall: lower third
+] };
+// movie.init({ width: W, height: H, composition: { sequences: [scene] } })
+```
+
+---
+
 ## A batch of videos from a table (one video per row)
 
 A batch of videos is a loop outside the video. The page reads what changes from its address (`new URLSearchParams(location.search)`), and `pixi-effects-render --query "name=Aiko&score=92"` opens it with those values. Names with spaces or non-Latin letters must be URL-encoded (`jq -sRr @uri` as below, or `encodeURIComponent` in Node). Each video starts its own browser, so N videos cost N start-ups: try one with `--draft` (half size, fast), then render the real ones. To make the pieces of one row differ in more than text, use the same values to pick colours or an image name.

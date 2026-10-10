@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+**Changed**
+
+- **The skill now tells an agent how to make a film, not only a clip** (`SKILL.md` "For a film", pitfalls 101–102, recipe `two-formats`). Write `brief.md` (real assets with paths, the one sentence to remember; if a needed asset is missing, stop and ask instead of drawing a fake) and `shotlist.md` (a row per beat with entry and exit state) before any composition; put every cut on a bar line of a tempo whose bar is a round number of seconds; make a vertical cut as its own composition (one source, a layout function, `?f=9x16`, `check` / `render --query f=9x16`); and review the rendered frames cold: the three largest defects, each with a timestamp, evidence and a local fix. Came from making a 45 s company film (16:9 and 9:16) from a real website's photos and copy.
+
 ## 0.28.0
 
 **Added**
