@@ -1,12 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.28.1
 
 **Changed**
 
 - **A guide for directing a film, `reference/direction.md`** (renderer-neutral; linked from `SKILL.md` "For a film", pitfalls 101–102, recipe `two-formats`). Write `brief.md` (real assets with paths; if a needed asset is missing, stop and ask instead of drawing a fake), `style-guide.md` (taken from the real source, a motion rule per class of object) and `shotlist.md` (a row per beat with entry and exit state) before any composition; keep the files in a studio folder; put every cut on a bar line; review the rendered frames cold (the three largest defects, each with a timestamp, evidence and a local fix); make the formats the human asked for (one if they did not say; a vertical cut is its own composition, `?f=9x16`, `--query f=9x16`). Came from making two 32–45 s company films (16:9 and 9:16) from real websites' photos and copy, and from a published breakdown of building a code-rendered video studio (@0xwhrrari, rewritten, credited in the file).
 
-## 0.28.0
+## 0.28.1
 
 **Added**
 
