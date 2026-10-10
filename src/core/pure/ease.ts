@@ -27,10 +27,12 @@ const circ: Trio = {
   out: (p) => Math.sqrt(1 - (p - 1) * (p - 1)),
   inOut: (p) => (p < 0.5 ? -0.5 * (Math.sqrt(1 - 4 * p * p) - 1) : 0.5 * (Math.sqrt(1 - (2 * p - 2) * (2 * p - 2)) + 1)),
 };
+// GSAP blends the textbook 2^(10(p-1)) with p^6(1-p) so that the curve lands exactly on 1; out and inOut are mirrored from it.
+const expoIn: EaseFn = (p) => Math.pow(2, 10 * (p - 1)) * p + p * p * p * p * p * p * (1 - p);
 const expo: Trio = {
-  in: (p) => (p === 0 ? 0 : Math.pow(2, 10 * (p - 1))),
-  out: (p) => (p === 1 ? 1 : 1 - Math.pow(2, -10 * p)),
-  inOut: (p) => (p === 0 ? 0 : p === 1 ? 1 : p < 0.5 ? 0.5 * Math.pow(2, 20 * p - 10) : 1 - 0.5 * Math.pow(2, -20 * p + 10)),
+  in: expoIn,
+  out: (p) => 1 - expoIn(1 - p),
+  inOut: (p) => (p < 0.5 ? expoIn(p * 2) / 2 : 1 - expoIn((1 - p) * 2) / 2),
 };
 const bounceOut: EaseFn = (p) => {
   if (p < 1 / 2.75) return 7.5625 * p * p;
