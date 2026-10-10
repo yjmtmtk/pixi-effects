@@ -38,3 +38,14 @@ describe('pure eases are GSAP\'s eases: every name, 2001 points, the same number
     for (let i = 0; i <= 20; i++) expect(mine(i / 20)).toBeCloseTo(g(i / 20), 12);
   });
 });
+
+describe('the ends are exact: a colour is cut towards zero, so an ease that returns 2e-16 for 0 would change it', () => {
+  for (const name of NAMES) {
+    it(name, () => {
+      const g = gsap.parseEase(name) as (p: number) => number;
+      const mine = pureEase(name);
+      expect(mine(0)).toBe(g(0));
+      expect(mine(1)).toBe(g(1));
+    });
+  }
+});

@@ -21,12 +21,14 @@ const fromOut = (out: EaseFn): Trio => ({
   inOut: (p) => (p < 0.5 ? 0.5 * (1 - out(1 - 2 * p)) : 0.5 + 0.5 * out(2 * p - 1)),
 });
 
-const sine: Trio = { in: (p) => 1 - Math.cos(p * PI / 2), out: (p) => Math.sin(p * PI / 2), inOut: (p) => -(Math.cos(PI * p) - 1) / 2 };
-const circ: Trio = {
-  in: (p) => -(Math.sqrt(1 - p * p) - 1),
-  out: (p) => Math.sqrt(1 - (p - 1) * (p - 1)),
-  inOut: (p) => (p < 0.5 ? -0.5 * (Math.sqrt(1 - 4 * p * p) - 1) : 0.5 * (Math.sqrt(1 - (2 * p - 2) * (2 * p - 2)) + 1)),
-};
+/** GSAP defines only the `in` of these and mirrors the others from it, which is what keeps the ends exactly 0 and 1. */
+const mirrored = (easeIn: EaseFn): Trio => ({
+  in: easeIn,
+  out: (p) => 1 - easeIn(1 - p),
+  inOut: (p) => (p < 0.5 ? easeIn(p * 2) / 2 : 1 - easeIn((1 - p) * 2) / 2),
+});
+const sine = mirrored((p) => (p === 1 ? 1 : -Math.cos(p * PI / 2) + 1));
+const circ = mirrored((p) => -(Math.sqrt(1 - p * p) - 1));
 // GSAP blends the textbook 2^(10(p-1)) with p^6(1-p) so that the curve lands exactly on 1; out and inOut are mirrored from it.
 const expoIn: EaseFn = (p) => Math.pow(2, 10 * (p - 1)) * p + p * p * p * p * p * p * (1 - p);
 const expo: Trio = {
@@ -44,7 +46,7 @@ const bounceOut: EaseFn = (p) => {
 const bounce = fromOut(bounceOut);
 
 function back(s = 1.70158): Trio {
-  const out: EaseFn = (p) => { p -= 1; return p * p * ((s + 1) * p + s) + 1; };
+  const out: EaseFn = (p) => (p ? (p -= 1, p * p * ((s + 1) * p + s) + 1) : 0);   // exactly 0 at 0, as GSAP's: a colour is cut towards zero, so 2e-16 would change it
   return fromOut(out);
 }
 
