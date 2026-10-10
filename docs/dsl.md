@@ -401,7 +401,7 @@ Fill a shape with a gradient instead of `fillColor` (top level or in `initial`).
 
 #### `colorSpace`
 
-Per-shape choice of how colour keyframes are interpolated. Default `'rgb'` (linear sRGB lerp via `gsap.utils.interpolate`) is fast but classic — a red → green ramp passes through muddy olive at the midpoint. The two perceptually uniform options keep saturation through the transition:
+Per-shape choice of how colour keyframes are interpolated. Default `'rgb'` (a straight lerp of the red, green and blue channels) is fast but classic — a red → green ramp passes through muddy olive at the midpoint. The two perceptually uniform options keep saturation through the transition:
 
 | Value     | Behaviour                                                                                         |
 |-----------|---------------------------------------------------------------------------------------------------|
@@ -924,7 +924,7 @@ Supported formats are whatever PixiJS Assets and the browser's audio/video decod
 interface Keyframe {
   at?: number;       // start, in seconds from the start of THIS sequence; negative = back from the sequence's end (-0.5 = 0.5 s before it ends)
   duration?: number | 'auto'; // seconds (default 0 — instantaneous); 'auto' = the time a spring ease takes to settle
-  ease?: string;     // GSAP easing name (default 'none'), or a spring: 'spring(mass, stiffness, damping)', 'spring.gentle|snappy|bouncy|wobbly|slow'
+  ease?: string;     // Ease name (default 'none'), or a spring: 'spring(mass, stiffness, damping)', 'spring.gentle|snappy|bouncy|wobbly|slow'
   set?:  Props;      // jump to these values at `at`
   to?:   Props;      // animate from current to these values over `duration`
   from?: Props;      // animate from these values to current
@@ -932,7 +932,7 @@ interface Keyframe {
 }
 ```
 
-**Relative values.** A number in `to`, `from` or `set` may be written `'+=36'` or `'-=36'`: it is measured from where the property stands when the keyframe starts (GSAP's own relative values), and the right side is an expression (`'-=GW*0.1'`). `from: { x: '-=36' }` starts 36 px to the left of where the layer is and arrives there (the usual slide-in); `to: { y: '+=40' }` moves 40 px further. Several keyframes one after another stack, whatever order you seek in; with `repeat` the same move plays again from the same start (it does not stack). A relative value in `initial`, a style, or the start side of a `from` + `to` keyframe has nothing to be measured from: it warns and is read as the number.
+**Relative values.** A number in `to`, `from` or `set` may be written `'+=36'` or `'-=36'`: it is measured from where the property stands when the keyframe starts (the way GSAP writes them), and the right side is an expression (`'-=GW*0.1'`). `from: { x: '-=36' }` starts 36 px to the left of where the layer is and arrives there (the usual slide-in); `to: { y: '+=40' }` moves 40 px further. Several keyframes one after another stack, whatever order you seek in; with `repeat` the same move plays again from the same start (it does not stack). A relative value in `initial`, a style, or the start side of a `from` + `to` keyframe has nothing to be measured from: it warns and is read as the number.
 
 The four kinds are mutually exclusive per keyframe:
 
@@ -996,13 +996,13 @@ If `at < 0`, it's interpreted as `duration + at` — measured back from the end 
 
 ### Easing
 
-`'cubic-bezier(x1, y1, x2, y2)'` is the CSS curve exactly (x1 and x2 between 0 and 1, y1 and y2 may overshoot): `'cubic-bezier(.4, 0, .2, 1)'` is a gentle in-out, `'cubic-bezier(.2, .8, .2, 1)'` is front-loaded, not slow motion (half of the change in the first 13 % of the time, 99 % by 74 %, then a long settle). GSAP's `power2` is a cubic: `power2.in` has done only 12.5 % at half time. A malformed one warns once and runs as `'none'`.
+`'cubic-bezier(x1, y1, x2, y2)'` is the CSS curve exactly (x1 and x2 between 0 and 1, y1 and y2 may overshoot): `'cubic-bezier(.4, 0, .2, 1)'` is a gentle in-out, `'cubic-bezier(.2, .8, .2, 1)'` is front-loaded, not slow motion (half of the change in the first 13 % of the time, 99 % by 74 %, then a long settle). `power2` is a cubic: `power2.in` has done only 12.5 % at half time. A malformed one warns once and runs as `'none'`.
 
-Standard GSAP easing strings: `'none'`, `'linear'`, `'power1.in'` ... `'power4.inOut'`, `'sine.in/out/inOut'`, `'expo.in/out/inOut'`, `'circ.in/out/inOut'`, `'back.in/out/inOut(overshoot)'`, `'elastic.in/out/inOut(amplitude, period)'`, `'bounce.in/out/inOut'`. See [GSAP easing docs](https://gsap.com/docs/v3/Eases/).
+Ease strings (the names GSAP made familiar): `'none'`, `'linear'`, `'power1.in'` ... `'power4.inOut'`, `'sine.in/out/inOut'`, `'expo.in/out/inOut'`, `'circ.in/out/inOut'`, `'back.in/out/inOut(overshoot)'`, `'elastic.in/out/inOut(amplitude, period)'`, `'bounce.in/out/inOut'`. `'steps(n)'` is n equal steps.
 
 ### PIXI shorthands
 
-These keys are auto-routed through GSAP's PixiPlugin when used in `initial` / `set` / `to` / `from` / `keyframes`:
+These keys are shorthands the timeline understands when used in `initial` / `set` / `to` / `from` / `keyframes`:
 
 ```
 scale, scaleX, scaleY
@@ -1013,12 +1013,10 @@ position, positionX, positionY
 tilePosition, tilePositionX, tilePositionY
 tileScale, tileScaleX, tileScaleY
 tint, autoAlpha
-colorize, colorizeAmount, colorMatrixFilter
-blur, blurX, blurY, blurPadding
-lineColor, lineAlpha, fillColor, fillAlpha
+fillColor, fillAlpha                 (a shape's own colour keys)
 ```
 
-(In addition to plain DisplayObject props like `x`, `y`, `rotation`, `alpha`, `width`, `height`, `visible`.) **Angles are in degrees**: `rotation`, `skew` / `skewX` / `skewY` (PixiPlugin converts them), and `rotationX` / `rotationY` for 3D layers.
+(In addition to plain DisplayObject props like `x`, `y`, `rotation`, `alpha`, `width`, `height`, `visible`.) `blur`, `colorize` and the other colour-matrix shorthands of GSAP's PixiPlugin are gone: use a named filter and animate `filters.<name>.<prop>` (below). **Angles are in degrees**: `rotation`, `skew` / `skewX` / `skewY`, and `rotationX` / `rotationY` for 3D layers.
 
 ### Filter keyframe paths
 
@@ -1145,7 +1143,7 @@ Common fields (`TransitionCommon`):
 | `to`       | string  | sibling sequence's `name`. Must be declared **after** `from` in `sequences[]`.         |
 | `at`       | number  | start of the transition, in the **parent composition's** time (like a sequence's `at`, not sequence-local); negative = back from the parent's end. |
 | `duration` | number  | seconds, must be > 0.                                                                  |
-| `ease`     | string? | GSAP easing name. Default `'none'` (linear).                                           |
+| `ease`     | string? | Ease name. Default `'none'` (linear).                                           |
 
 Validation runs at composition build time. Errors throw with the offending `transitions[<index>]` quoted in the message: missing names, `to` before `from`, transition window outside either sequence's lifespan, duplicate use of one sequence as `from`, `from === to`, `duration <= 0`.
 
@@ -1412,7 +1410,7 @@ The image is centred on the canvas; `fit` (default `'cover'`) controls how the t
 | `name?`    | string                | sequence name so transitions can reference it                                        |
 | `at?`      | number                | start time, parent-relative seconds                                                  |
 | `fit?`     | `'cover'` \| `'contain'` | how the texture fills the canvas. Default `'cover'`.                              |
-| `ease?`    | string                | GSAP easing name. Default `'sine.inOut'`.                                            |
+| `ease?`    | string                | Ease name. Default `'sine.inOut'`.                                            |
 
 #### `motion: 'still'`
 
@@ -1548,7 +1546,7 @@ import { cameraPath, wiggle } from 'pixi-effects';
 | `points` | `[[x, y, z], …]`, at least two, the route in order |
 | `duration` | seconds; required |
 | `at` | start, seconds from the start of the camera layer (default 0) |
-| `ease` | GSAP ease for the progress along the route (default `'none'`: constant speed; `'power2.in'` an accelerating rush) |
+| `ease` | Ease for the progress along the route (default `'none'`: constant speed; `'power2.in'` an accelerating rush) |
 | `look` | `'ahead'` (default: face where it flies) or a fixed `[x, y, z]` |
 | `lookAhead` | with `'ahead'`: how far ahead, as a fraction 0–1 of the route (default 0.08); past the end it continues along the last direction |
 | `smooth` | `true` (default): a smooth curve through the points (Catmull-Rom); `false`: straight lines |
@@ -1574,7 +1572,7 @@ import { followPath } from 'pixi-effects';
 | `d` | the route: SVG path data in canvas coordinates; several sub-paths are walked in order; a closed one comes back to its start |
 | `duration` | seconds; required |
 | `at` | start, seconds from the start of the layer (default 0): give the layer its own `at` so it is not drawn at the origin before the trip |
-| `ease` | GSAP ease for the progress along the path (default `'none'`: constant speed) |
+| `ease` | Ease for the progress along the path (default `'none'`: constant speed) |
 | `from` / `to` | fractions 0–1 of the path to start and stop at (default 0 → 1; `from: 1, to: 0` goes backwards) |
 | `orient` / `rotate` | `orient: true` also keyframes `rotation` (degrees) to face the way it is going, without ever jumping by a turn; `rotate` adds an offset (`-90` for an image that points up) |
 | `frameRate` | samples per second (default 30) |
@@ -1643,7 +1641,7 @@ const ripple = stagger(18, { each: 0.12, grid: [6, 3], from: 'center', ease: 'si
 | `amount` | seconds from the first to the last, however many there are |
 | `from` | `'start'` (default), `'end'`, `'center'` (outward), `'edges'` (inward), `'random'` (a seeded shuffle of the same delays) or an item index |
 | `grid` | `[columns, rows]`: items fill the grid row by row, and the wave travels by straight-line distance (a ripple) |
-| `ease` | a GSAP ease that reshapes the spread (default `'none'`); the first stays at 0, the last at the full spread |
+| `ease` | an ease that reshapes the spread (default `'none'`); the first stays at 0, the last at the full spread |
 | `seed` | for `from: 'random'`: another seed, another order |
 
 With a layer array each layer's own `at` is kept and the delay is added to it. Keyframes inside the layers stay as they are (they count from the layer's start).

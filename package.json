@@ -29,7 +29,7 @@
   "files": ["dist", "ai", "skills", "docs/dsl.md", "docs/api.md", "llms.txt", "llms-full.txt", "CHANGELOG.md", "README.md", "LICENSE"],
   "keywords": [
     "pixi", "pixijs", "video", "composition", "compositing", "rendering",
-    "after-effects", "motion-graphics", "timeline", "webgl", "gsap", "keyframe", "typescript",
+    "after-effects", "motion-graphics", "timeline", "webgl", "keyframe", "typescript",
     "three", "threejs"
   ],
   "license": "MIT",
@@ -62,7 +62,6 @@
     "mediabunny": "^1.61.3"
   },
   "peerDependencies": {
-    "gsap": "^3.12.0",
     "pixi.js": "^8.0.0",
     "three": ">=0.150.0",
     "pixi-filters": "^6.1.0"
@@ -76,7 +75,6 @@
     "typescript": "^5.5.0",
     "vitest": "^2.1.0",
     "happy-dom": "^15.0.0",
-    "gsap": "^3.12.0",
     "marked": "^18.0.14",
     "pixi.js": "^8.22.0",
     "pixi-filters": "^6.1.5",

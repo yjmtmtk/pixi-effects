@@ -16,7 +16,7 @@
     for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
   </script>
   <script type="importmap">
-  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "gsap": "https://esm.sh/gsap@3.12.5", "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin", "mediabunny": "https://esm.sh/mediabunny@1.61.3", "pixi-filters": "https://esm.sh/pixi-filters@6.1.5?bundle-deps" } }
+  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3", "pixi-filters": "https://esm.sh/pixi-filters@6.1.5?bundle-deps" } }
   </script>
   <script type="module">
     import { Movie } from '../../dist/index.js';

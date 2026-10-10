@@ -57,7 +57,7 @@ A layer's starting values go in `initial`. Changes go in `keyframes`:
 | `{ at, from: { … }, duration }` | animates from the value to where it is now |
 | `{ at, from: { … }, to: { … }, duration }` | explicit start and end |
 
-`ease` is any [GSAP ease](https://gsap.com/docs/v3/Eases/) (`'power2.out'`, `'back.out(1.7)'`, `'elastic.out(1, 0.5)'`…); the default is linear. `repeat`, `yoyo` and `repeatDelay` loop a keyframe a finite number of times.
+`ease` is an ease name (the familiar ones: `'power2.out'`, `'back.out(1.7)'`, `'elastic.out(1, 0.5)'`…); the default is linear. `repeat`, `yoyo` and `repeatDelay` loop a keyframe a finite number of times.
 
 The things you can animate: `x y alpha rotation scale scaleX scaleY pivotX pivotY anchorX anchorY skewX skewY tint width height`; for shapes their colour and geometry (`fillColor`, `radius`, `trimEnd`…); for text `fill` and the [text tricks](text.html); for audio `volume`; for 2.5D `z rotationX rotationY`; and filter options as `'filters.<name>.<option>'`.
 

@@ -39,7 +39,7 @@ No. The bar is the `Controller`, a separate import. You can change its colours w
 
 ## Can I use it without a bundler?
 
-Yes: [Your first video](getting-started.html) is one HTML file with an import map. With npm, `pixi.js` and `gsap` are peer dependencies (they must be the same copy your page uses), so install them next to `pixi-effects`.
+Yes: [Your first video](getting-started.html) is one HTML file with an import map. With npm, `pixi.js` is a peer dependency (it must be the same copy your page uses), so install it next to `pixi-effects`.
 
 ## Can I use my own fonts, images and video?
 

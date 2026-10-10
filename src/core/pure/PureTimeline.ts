@@ -173,7 +173,7 @@ export class PureTimeline {
     const start = quantize((at ?? this.spans) + (Number(vars.delay) || 0));
     const dur = quantize(Math.max(0, vars.duration ?? 0));
     for (const cb of CALLBACKS) if (cb in vars) {
-      if (!saidCallbacks) { saidCallbacks = true; console.warn(`pixi-effects: the pure timeline does not run ${cb}: what a tween does must be a value of the time (use onUpdate for a redraw); it is ignored`); }
+      if (!saidCallbacks) { saidCallbacks = true; console.warn(`pixi-effects: the timeline does not run ${cb}: what a tween does must be a value of the time (use onUpdate for a redraw); it is ignored`); }
     }
     const repeat = Math.max(0, Math.floor(vars.repeat ?? 0));
     const yoyo = !!vars.yoyo;
@@ -190,7 +190,7 @@ export class PureTimeline {
       }
       if (v.pixi) for (const key of Object.keys(v.pixi)) {
         const accs = pixiAccessors(t, key);
-        if (!accs) { if (!PIXI_INERT.has(key)) console.warn(`pixi-effects: the pure timeline has no "${key}" shorthand yet; it is ignored`); continue; }
+        if (!accs) { if (!PIXI_INERT.has(key)) console.warn(`pixi-effects: the timeline has no "${key}" shorthand yet; it is ignored`); continue; }
         for (const acc of accs) out.set(acc.id, { acc, value: v.pixi[key] });
       }
       return out;
@@ -206,7 +206,7 @@ export class PureTimeline {
       const cur = acc.get();
       const color = acc.kind === 'color';
       const endSpec = e ? read(e.value, acc) : null;
-      if (e && !endSpec && acc.kind === 'color') console.warn(`pixi-effects: the pure timeline cannot read the colour ${JSON.stringify(e.value)} (use #rgb, #rrggbb, rgb(...) or a number); this tween is skipped`);
+      if (e && !endSpec && acc.kind === 'color') console.warn(`pixi-effects: the timeline cannot read the colour ${JSON.stringify(e.value)} (use #rgb, #rrggbb, rgb(...) or a number); this tween is skipped`);
       const fromSpec = f ? read(f.value, acc) : null;
       let from: number | null = null, to: number, toRel = false;
       if (kind === 'from') {

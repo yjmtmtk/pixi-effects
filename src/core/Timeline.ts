@@ -141,11 +141,8 @@ const PIXI_SHORTHANDS = new Set([
   'tilePosition', 'tilePositionX', 'tilePositionY',
   'tileScale', 'tileScaleX', 'tileScaleY',
   'tint',
-  'colorize', 'colorizeAmount',
-  'colorMatrixFilter',
-  'blur', 'blurX', 'blurY', 'blurPadding',
   'autoAlpha',
-  'lineColor', 'lineAlpha', 'fillColor', 'fillAlpha',
+  'fillColor', 'fillAlpha',
 ]);
 
 function pixiwrap(props: Record<string, unknown>): Record<string, unknown> {

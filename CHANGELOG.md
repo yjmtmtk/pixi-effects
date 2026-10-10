@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+**Changed (breaking)**
+
+- **The library no longer uses GSAP.** The timeline is the library's own (`src/core/pure/`): a value at a time is computed from the script and the time alone, never from the way the playhead came to it, so scrubbing, looping, reverse play and export all give the same picture at the same time. `gsap` leaves the peer dependencies (`npm install pixi-effects pixi.js`), and every page loses the `gsap` and `gsap/PixiPlugin` lines of its import map (a page that still has them works; nothing imports them). Measured against the GSAP build on 92 pages by frame hash: 77 identical, 9 within 3/255, and the rest explained (four pages use `expo`, whose formula differs between GSAP 3.12 and 3.15; one page is not reproducible even with GSAP). The timeline itself is 1.3 to 11 times faster per frame and 25 KB (gzip) lighter for a page; a whole frame is dominated by drawing and changes by 1 to 15 %.
+- **`expo` is GSAP 3.15's curve** (`2^(10(p-1))·p + p^6(1-p)`, which lands exactly on 1): up to 0.78 % of the range away from 3.12's, so a page made with 3.12 moves a little.
+- **Where GSAP answered by the way the playhead came, the answer is now the script's**: overlapping tweens on one property (the one that started last wins), two items with the same start, a `set` where a tween ends (GSAP could lose it), a `from` after another segment (it ends where that segment ended).
+- **`blur`, `blurX`, `blurY`, `blurPadding`, `colorize`, `colorizeAmount`, `colorMatrixFilter`, `lineColor`, `lineAlpha` are no longer keys** (they were GSAP PixiPlugin shorthands for a filter on the layer): the lint says so with the likely name; use a named filter and animate `filters.<name>.<prop>`. `scale`, `anchor`, `pivot`, `skew` (degrees), `rotation` (degrees), `position`, `tilePosition`, `tileScale`, `tint` and `autoAlpha` stay.
+- `ease` names are the familiar ones (`power1…4`, `sine`, `expo`, `circ`, `back`, `elastic`, `bounce`, `steps(n)`, `spring…`, `cubic-bezier(…)`); a name nobody knows still warns and runs as `power1.out`. `delay` in a keyframe's vars moves its start; `onStart`, `onComplete`, `onRepeat` and `onReverseComplete` are said once and ignored.
+- `movie.timeline` is the library's `Timeline` (`time(t)`, `duration()`, `segments()`), not a GSAP timeline.
+
+**Added**
+
+- `ease(name)` is exported: the function behind an ease name.
+- Colour strings that Pixi can read (names, `hsl()`, `oklch()`) interpolate in `'rgb'` colour space as rgba.
+
 ## 0.26.3
 
 **Added**

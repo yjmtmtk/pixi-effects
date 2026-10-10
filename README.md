@@ -12,7 +12,7 @@ Give any AI (ChatGPT, Claude, Codex, Cursor, Claude Code …) one sentence:
 
 That is all it needs. **To register it as a skill** in your agent (Claude Code, Codex, Cursor, Gemini CLI, Copilot, OpenCode, …): `npx skills add yjmtmtk/pixi-effects` (update with `npx skills update`). In Claude Code you can also run `/plugin install pixi-effects --marketplace yjmtmtk/pixi-effects`. **If you are the AI** that was asked to do this, do not read the whole repository: if you can run commands (a shell, Node 22, Chrome), read [`AGENTS.md`](./AGENTS.md) and [`skills/pixi-effects/SKILL.md`](./skills/pixi-effects/SKILL.md); if you can only write text (a browser chat), fetch https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/CHAT.md and follow it. You will write the video as plain data in one HTML file, check it (the check tool writes a contact sheet to look at), and hand it over; the person opens the file and downloads the MP4 with the button in the player bar.
 
-Declarative composition and video rendering for the web. After Effects-style timelines on top of [PixiJS v8](https://pixijs.com/) and [GSAP](https://gsap.com/), with strict TypeScript types. Render to MP4 / WebM / MOV via [mediabunny](https://mediabunny.dev/).
+Declarative composition and video rendering for the web. After Effects-style timelines on top of [PixiJS v8](https://pixijs.com/), with a small timeline of its own and strict TypeScript types. The ease names and the way `to` / `from` / `set` read are [GSAP](https://gsap.com/)'s, with thanks. Render to MP4 / WebM / MOV via [mediabunny](https://mediabunny.dev/).
 
 - **Declarative DSL** — describe your composition as a tree of typed sequences (text, image, video, audio, shapes, nested compositions). No imperative tween code.
 - **Sound effects without files** — `{ type: 'audio', sfx: 'swoosh', at: 2 }`: 11 synthesised presets (click, pop, swoosh, riser, hit, chime …) with `pitch` / `brightness` / `seed`, or your own `voices`; deterministic and in the exported file at the same moments as in the browser; `movie.inspectAudio()` checks them as numbers.
@@ -29,12 +29,12 @@ Declarative composition and video rendering for the web. After Effects-style tim
 - **Built-in player UI — or your own** — a drop-in HTML5-`<video>`-style overlay controller (play, scrub, mute, volume, fullscreen, export-to-file) whose colours are one option (`theme: { accent: '#ff4d6d' }`); or build a player yourself on the movie's `<video>`-named events (`play pause ended seeking seeked volumechange error`).
 - **MP4 / WebM / MOV export** — pick container and quality from the controller, call `movie.render()` from code, or render headless from the command line (`pixi-effects-render`).
 - **A timeline you can read and scrub** — `movie.timelineChart()` draws every layer as a bar on a time axis; `pixi-effects-view` opens the page with that timeline under it, zoomable, with a playhead you can drag.
-- **Tiny dependency surface** — only `mediabunny` (runtime) plus PixiJS and GSAP (peer deps). three.js is an *optional* peer, needed only if you import `pixi-effects/three`.
+- **Tiny dependency surface** — only `mediabunny` (runtime) plus PixiJS (a peer dep). three.js is an *optional* peer, needed only if you import `pixi-effects/three`.
 
 ## Install
 
 ```bash
-npm install pixi-effects pixi.js gsap
+npm install pixi-effects pixi.js
 npm install three        # optional — only if you import `pixi-effects/three`
 npm install pixi-filters # optional — only if a layer uses a named filter other than blur / noise / alpha / colorMatrix
 ```
@@ -48,8 +48,6 @@ Drop the imports into an [importmap](https://developer.mozilla.org/docs/Web/HTML
 {
   "imports": {
     "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
-    "gsap":                    "https://esm.sh/gsap@3.12.5",
-    "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
     "mediabunny":              "https://esm.sh/mediabunny",
     "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@0.26.3/dist/index.js",
     "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.26.3/dist/Controller.js"

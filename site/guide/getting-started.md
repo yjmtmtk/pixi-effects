@@ -18,7 +18,7 @@ Save the following as `video.html` and open it in Chrome, Edge, Safari or Firefo
 ## 2. What each part does
 
 - **`<canvas>`** is where the video is drawn. Its `width` and `height` attributes are the video's size (1280×720 here); your CSS can scale it on the page without changing the video.
-- **The import map** tells the browser where to load `pixi-effects` and its three companions from. `pixi.js` and `gsap` are not bundled into pixi-effects on purpose: your page and the library must share one copy of each.
+- **The import map** tells the browser where to load `pixi-effects` and its companions from. `pixi.js` is not bundled into pixi-effects on purpose: your page and the library must share one copy.
 - **`new Movie()`** is the video. **`new Controller(movie, { canvas })`** adds the player bar. Both are separate: you can use the movie without the bar, or build your own bar ([Your own player](player.html)).
 - **`poster: 2.5`** names the moment that stands for the video: the canvas shows it before you press play (the frame at 0 s is empty here), and play still starts from 0. It is the same idea as `<video poster>`, derived from the data, with no image file. Leave it out and the first frame is shown.
 - **`movie.init({ … composition })`** is where the video is described. `composition.sequences` is the list of **layers**, drawn in order (later ones on top).
@@ -49,10 +49,10 @@ Press the download icon on the player bar, choose MP4 / WebM / MOV and a quality
 ## 5. With npm and a bundler
 
 ```bash
-npm install pixi-effects pixi.js gsap
+npm install pixi-effects pixi.js
 ```
 
-`pixi.js` and `gsap` are **peer dependencies**: they must be the same copy your app uses, so they are not bundled inside pixi-effects (npm 7 and later installs them for you). Optional extras: `three` for the three.js layer, `pixi-filters` for filters such as `glow` and `crt`.
+`pixi.js` is a **peer dependency**: it must be the same copy your app uses, so it is not bundled inside pixi-effects (npm 7 and later installs them for you). Optional extras: `three` for the three.js layer, `pixi-filters` for filters such as `glow` and `crt`.
 
 ```js
 import { Movie } from 'pixi-effects';

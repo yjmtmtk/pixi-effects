@@ -25,8 +25,6 @@
 <script type="importmap">
 { "imports": {
   "pixi.js":      "https://esm.sh/pixi.js@8.22.0?bundle-deps",
-  "gsap":         "https://esm.sh/gsap@3.12.5",
-  "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
   "mediabunny":   "https://esm.sh/mediabunny",
   "pixi-effects": "https://cdn.jsdelivr.net/npm/pixi-effects@0.26.3/dist/index.js"
 } }
@@ -80,8 +78,8 @@
       <dl class="slate" aria-label="Key facts">
         <div><dt>Output</dt><dd>MP4 · WebM · MOV, encoded in the browser (WebCodecs)</dd></div>
         <div><dt>Runs</dt><dd>Entirely in the browser, no server; headless with Node 22 + Chrome</dd></div>
-        <div><dt>Install</dt><dd><code>npm install pixi-effects pixi.js gsap</code> — or one HTML file, no bundler</dd></div>
-        <div><dt>Depends on</dt><dd>mediabunny only; PixiJS v8 and GSAP as peers</dd></div>
+        <div><dt>Install</dt><dd><code>npm install pixi-effects pixi.js</code> — or one HTML file, no bundler</dd></div>
+        <div><dt>Depends on</dt><dd>mediabunny only; PixiJS v8 as a peer</dd></div>
         <div><dt>Licence</dt><dd>MIT · v0.26.3 · experimental, pre-1.0</dd></div>
       </dl>
     </div>
@@ -398,7 +396,7 @@ movie.play();
           <td data-col="Remotion">React components. Three ways to work: agentically, interactively (drag-and-drop in Remotion Studio), or programmatically.</td>
           <td data-col="fframes">Rust and SVG.</td></tr>
         <tr><th scope="row">Where it runs, what you install</th>
-          <td class="me" data-col="pixi-effects">Entirely in the browser: one HTML file with an import map, or <code>npm install pixi-effects pixi.js gsap</code>. Headless render needs Node 22 and Chrome.</td>
+          <td class="me" data-col="pixi-effects">Entirely in the browser: one HTML file with an import map, or <code>npm install pixi-effects pixi.js</code>. Headless render needs Node 22 and Chrome.</td>
           <td data-col="Remotion">A React / npm project. Server-side and client-side rendering; Remotion Lambda for cloud rendering.</td>
           <td data-col="fframes">Prebuilt binaries for macOS and Linux (arm64, x86_64); building needs Rust and ffmpeg libraries; Windows needs a separate FFmpeg setup.</td></tr>
         <tr><th scope="row">Preview and editing</th>
@@ -470,8 +468,8 @@ movie.play();
       <div class="way">
         <p class="n">B · NPM</p>
         <h3>Install into a project</h3>
-        <p>PixiJS and GSAP are peer dependencies; three.js and pixi-filters are optional and only needed if you use them.</p>
-        <div class="quote" id="npm">npm install pixi-effects pixi.js gsap<button class="copy" type="button" data-copy="npm" aria-label="Copy the install command">Copy</button></div>
+        <p>PixiJS is a peer dependency; three.js and pixi-filters are optional and only needed if you use them.</p>
+        <div class="quote" id="npm">npm install pixi-effects pixi.js<button class="copy" type="button" data-copy="npm" aria-label="Copy the install command">Copy</button></div>
         <div class="quote" id="render">npx pixi-effects render page.html -o out.mp4<button class="copy" type="button" data-copy="render" aria-label="Copy the headless render command">Copy</button></div>
         <a class="more" href="guide/">The guide: 18 pages →</a>
       </div>
@@ -499,7 +497,7 @@ movie.play();
 </dialog>
 
 <div class="colophon wrap">
-  <p>pixi-effects is an open-source library for writing motion-graphics video as plain data, playing it in the browser and exporting MP4, WebM or MOV. Built on PixiJS v8, GSAP and mediabunny. MIT licence; no company licence.</p>
+  <p>pixi-effects is an open-source library for writing motion-graphics video as plain data, playing it in the browser and exporting MP4, WebM or MOV. Built on PixiJS v8 and mediabunny. MIT licence; no company licence.</p>
   <p class="end"><span class="dia" aria-hidden="true"></span><span>v0.26.3 · experimental · MIT · comparison facts checked 2026-10-07</span></p>
 </div>
 <!--site:footer-->
@@ -516,7 +514,7 @@ movie.play();
       <a href="https://github.com/yjmtmtk/pixi-effects/blob/main/skills/pixi-effects/SKILL.md">AI skill</a>
       <a href="llms.txt">llms.txt</a>
     </p>
-    <p class="end"><span class="dia" aria-hidden="true"></span><span>pixi-effects · MIT · built on PixiJS v8, GSAP and mediabunny</span></p>
+    <p class="end"><span class="dia" aria-hidden="true"></span><span>pixi-effects · MIT · built on PixiJS v8 and mediabunny</span></p>
   </div>
 </footer>
 <!--/site:footer-->

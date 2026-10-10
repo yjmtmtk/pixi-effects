@@ -69,12 +69,12 @@ export function kindsWithKey(key: string): string[] {
 
 /** Names a keyframe or `initial` may animate. Dotted paths (`filters.g.amount`, `three.box.x`) belong to their routers and are not looked up here. */
 export const PROP_KEYS: ReadonlySet<string> = new Set([
-  // transform and look (GSAP + PixiPlugin names)
+  // transform and look
   'x', 'y', 'z', 'alpha', 'rotation', 'rotationX', 'rotationY', 'width', 'height', 'visible', 'autoAlpha',
   'scale', 'scaleX', 'scaleY', 'anchor', 'anchorX', 'anchorY', 'pivot', 'pivotX', 'pivotY', 'skew', 'skewX', 'skewY',
-  'position', 'positionX', 'positionY', 'tint', 'colorize', 'colorizeAmount', 'blur', 'blurX', 'blurY', 'blurPadding',
+  'position', 'positionX', 'positionY', 'tint',
   // shapes
-  'fillColor', 'fillAlpha', 'strokeColor', 'strokeAlpha', 'strokeWidth', 'lineColor', 'lineAlpha', 'cornerRadius', 'radius', 'radiusX', 'radiusY',
+  'fillColor', 'fillAlpha', 'strokeColor', 'strokeAlpha', 'strokeWidth', 'cornerRadius', 'radius', 'radiusX', 'radiusY',
   'innerRadius', 'startAngle', 'endAngle', 'trimStart', 'trimEnd', 'trimEach', 'morph', 'fillGradient', 'strokeCap', 'strokeJoin',
   // text, audio, video
   'fill', 'value', 'visibleChars', 'text', 'volume', 'time',

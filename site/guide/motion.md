@@ -113,7 +113,7 @@ Put what you want to slow down, reverse or hold **in a composition**, then give 
 ] }
 ```
 
-The layers inside write their `at`, `duration` and keyframes in the composition's own seconds (its local time); the composition's own `at`, `duration` and keyframes stay in the movie's time, so an overlay outside it (a "REW" label) is written in movie seconds. Sounds and sound effects inside follow the clock: a rewinding sfx runs backward and falls in pitch, like a tape. `cubic-bezier(x1, y1, x2, y2)` is the CSS easing curve, usable anywhere an `ease` is. Mind its shape: `(.2, .8, .2, 1)` is front-loaded (half of the change in the first 13 % of the time, 99 % by 74 %), so over a 6 s replay the first third of the content passes quickly and the end gets the long glide; GSAP's `power2.in` is a cubic and has done only 12.5 % at half time.
+The layers inside write their `at`, `duration` and keyframes in the composition's own seconds (its local time); the composition's own `at`, `duration` and keyframes stay in the movie's time, so an overlay outside it (a "REW" label) is written in movie seconds. Sounds and sound effects inside follow the clock: a rewinding sfx runs backward and falls in pitch, like a tape. `cubic-bezier(x1, y1, x2, y2)` is the CSS easing curve, usable anywhere an `ease` is. Mind its shape: `(.2, .8, .2, 1)` is front-loaded (half of the change in the first 13 % of the time, 99 % by 74 %), so over a 6 s replay the first third of the content passes quickly and the end gets the long glide; `power2.in` is a cubic and has done only 12.5 % at half time.
 
 ## Waves: `stagger`
 

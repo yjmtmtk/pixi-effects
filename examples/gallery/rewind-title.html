@@ -30,8 +30,6 @@
   {
     "imports": {
       "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
-      "gsap":                    "https://esm.sh/gsap@3.12.5",
-      "gsap/PixiPlugin":         "https://esm.sh/gsap@3.12.5/PixiPlugin",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
       "pixi-effects/controller": "../../dist/Controller.js",
@@ -82,7 +80,7 @@
     const pieces = splitText(TITLE, titleStyle, { by: 'chars', x: LEFT, y: titleTop, align: 'left' });
 
     // ---------- the act: everything inside is written in the act's own seconds ----------
-    // The rewind accelerates (power2.in is CUBIC in GSAP), so the dismantling bunches at its end: the letters land late
+    // The rewind accelerates (power2.in is CUBIC), so the dismantling bunches at its end: the letters land late
     // enough (0.5 … 1.9) that the middle of the rewind (act 1.65 s) shows the word half built.
     const LETTER_AT = 0.5, LETTER_STEP = 0.2, LETTER_DUR = 0.42;
     const RULE_AT = 1.9, CAP_AT = 2.4, RING_AT = 2.6, RING_DUR = 1.4, SETTLE_AT = RING_AT + RING_DUR;   // the ring completes at 4.0

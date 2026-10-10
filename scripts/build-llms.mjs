@@ -13,7 +13,7 @@ const stripFrontmatter = (s) => s.replace(/^---\n[\s\S]*?\n---\n/, '');
 export function buildLlms() {
   const llms = `# pixi-effects
 
-> Declarative motion graphics and video for the web. Describe a video as plain objects (text, shapes, images, video, audio, nested compositions, a 2.5D camera, optional three.js), play it in a canvas, export MP4 / WebM / MOV. Built on PixiJS v8, GSAP and mediabunny. Written to be authored by AI: no per-frame code.
+> Declarative motion graphics and video for the web. Describe a video as plain objects (text, shapes, images, video, audio, nested compositions, a 2.5D camera, optional three.js), play it in a canvas, export MP4 / WebM / MOV. Built on PixiJS v8 and mediabunny. Written to be authored by AI: no per-frame code.
 
 Rules that cause most failures (details in the skill and pitfalls):
 

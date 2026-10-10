@@ -211,6 +211,10 @@ The whole movie as rows on a time axis, for a person to read at a glance. `timel
 
 `movie.timelineSvg()` is the chart alone (one `<svg>`, geometry in `data-*` attributes, each row `<g class="row" data-start>`): `pixi-effects-view` puts a playhead on it and turns a click into a seek.
 
+### `ease(name): (p: number) => number`
+
+The function behind an ease name (`ease('power2.out')(0.5)`, `ease('spring.bouncy')`, `ease('cubic-bezier(.4, 0, .2, 1)')`), for a preset or a check of your own. A name nobody knows warns once and runs as `power1.out`.
+
 ### `movie.destroy(): Promise<void>`
 
 Pauses playback, destroys the underlying PIXI Application, releases audio buffers and AudioContext, and marks the instance unusable.
@@ -254,7 +258,7 @@ The names are the ones an HTML5 `<video>` uses, so a player written for `<video>
 | `volume`         | number    | 0..1 getter/setter; immediate. Setter clamps and applies to active audio |
 | `muted`          | boolean   | getter/setter; immediate                                |
 | `app`            | `pixi.js Application \| null` | PIXI Application instance (advanced/escape hatch) |
-| `timeline`       | GSAP Timeline `\| null`         | underlying GSAP timeline (advanced)              |
+| `timeline`       | `Timeline \| null`              | the movie's timeline (advanced): `time(t)`, `duration()`, `segments()` |
 | `stops`          | `Stop[]`  | the composition's stops (see Presentations); empty for an ordinary movie |
 | `stopIndex`, `pageIndex`, `pageCount`, `currentStop` | number, number, number, `Stop \| null` | where the playhead is among the stops and pages (`-1` / `null` before the first stop) |
 

@@ -36,9 +36,9 @@ Everything below follows from that sentence. A composition is a JSON-shaped spec
 - Goal: describe a video in natural language, get a valid spec on the first or second try.
 
 ### 6. Light by default
-- Core depends on `mediabunny` only, with PixiJS and GSAP as peers. People who never use 3D pay nothing: no install, no bundle weight, no import.
+- Core depends on `mediabunny` only, with PixiJS as a peer. People who never use 3D pay nothing: no install, no bundle weight, no import.
 - Optional capabilities live behind optional entries and optional peer dependencies. Splitting is by *cost*, not by concept: the *spec language* stays one language.
-- Thin over fat: wrap PixiJS, GSAP and mediabunny; do not reimplement them.
+- Thin over fat: wrap PixiJS and mediabunny; do not reimplement them. The timeline is the one thing that is ours: a value at a time is computed from the script and the time alone, never from the way the playhead came.
 
 ### 7. Every layer is, in the end, one display object
 - Whatever a layer renders internally, it surfaces as a single textured object so masks, filters, transitions and export work on it for free.

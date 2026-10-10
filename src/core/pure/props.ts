@@ -49,10 +49,10 @@ const VEC: [string, string, number][] = [
 ];
 
 /**
- * Shorthands of the plugin that act on a Graphics' line and fill or on a colour matrix filter. A shape keeps its own colours (live state, redrawn),
- * so GSAP's copy of `fillColor` on the Graphics object is not what is seen; the pure timeline leaves these alone.
+ * `fillColor` and `fillAlpha` reach the timeline as shorthands too; a shape keeps its own colours (live state, redrawn), so a write on the
+ * Graphics object is not what is seen: the timeline leaves these alone.
  */
-export const PIXI_INERT = new Set(['fillColor', 'fillAlpha', 'lineColor', 'lineAlpha', 'colorize', 'colorizeAmount', 'colorMatrixFilter', 'blur', 'blurX', 'blurY', 'blurPadding']);
+export const PIXI_INERT = new Set(['fillColor', 'fillAlpha']);
 
 /** Accessors for a key under `pixi: { ... }`; `null` when the plugin has no such shorthand. */
 export function pixiAccessors(target: Target, key: string): Accessor[] | null {

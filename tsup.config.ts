@@ -14,6 +14,6 @@ export default defineConfig({
   splitting: true,
   treeshake: true,
   target: 'es2022',
-  external: ['pixi.js', 'gsap', 'gsap/PixiPlugin', 'mediabunny', 'three', 'pixi-filters'],
+  external: ['pixi.js', 'mediabunny', 'three', 'pixi-filters'],
   onSuccess: 'cp src/loader.css dist/loader.css',        // the loader's stylesheet is shipped as it is: `pixi-effects/loader.css`
 });
