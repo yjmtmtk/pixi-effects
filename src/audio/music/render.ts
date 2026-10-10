@@ -18,6 +18,14 @@ function rng(seed: number): () => number {
   };
 }
 
+/** The first and the last index where the bus is not 0 (`[total, -1]` when it is all 0). */
+function extent(b: Bus): [number, number] {
+  let lo = b.L.length, hi = -1;
+  for (let i = 0; i < b.L.length; i++) if (b.L[i] !== 0 || b.R[i] !== 0) { lo = i; break; }
+  for (let i = b.L.length - 1; i >= lo; i--) if (b.L[i] !== 0 || b.R[i] !== 0) { hi = i; break; }
+  return [lo, hi];
+}
+
 /** How long the music plays, in seconds: its notes plus the tail of the reverb. */
 export function musicLength(m: ResolvedMusic): number {
   return m.seconds + m.tail;
@@ -65,6 +73,16 @@ function* renderMusicSteps(m: ResolvedMusic, sampleRate: number, length: number,
   const levelAt = (vol: ResolvedTrack['vol']): ((sec: number) => number) => {
     if (typeof vol === 'number') return () => vol;
     const pts = vol.map(([b, v]) => [map.seconds(b), v] as const);
+    // played in order (a render asks for seconds that only rise) the segment is found by moving on, not by searching from the start
+    if (!loop && pts.every((p, i) => i === 0 || p[0] >= pts[i - 1]![0])) {
+      let j = 1;
+      return sec => {
+        if (sec <= pts[0]![0]) return pts[0]![1];
+        while (j < pts.length && !(sec < pts[j]![0])) j++;
+        if (j < pts.length) return pts[j - 1]![1] + ((pts[j]![1] - pts[j - 1]![1]) * (sec - pts[j - 1]![0])) / (pts[j]![0] - pts[j - 1]![0]);
+        return pts[pts.length - 1]![1];
+      };
+    }
     return sec => {
       const t = loop && loopSec > 0 ? sec % loopSec : sec;
       if (t <= pts[0]![0]) return pts[0]![1];
@@ -77,7 +95,6 @@ function* renderMusicSteps(m: ResolvedMusic, sampleRate: number, length: number,
 
   for (const tr of m.tracks) {
     const inst = VOICES[tr.inst];
-    scratch.L.fill(0); scratch.R.fill(0);
     for (let r = 0; r < repeats; r++) {
       const offset = r * loopSec;
       for (let ei = 0; ei < tr.events.length; ei++) {
@@ -94,26 +111,33 @@ function* renderMusicSteps(m: ResolvedMusic, sampleRate: number, length: number,
         });
       }
     }
+    // where the track made sound: before and after it the scratch bus is exactly 0, so nothing there is filtered or mixed
+    const [lo, hi] = extent(scratch);
+    let end = hi + 1;
     if (tr.tone < 1) {
       const fc = 400 * 50 ** tr.tone;
       const a = [new Biquad('lp', fc, 0.7), new Biquad('lp', fc, 0.7)], b = [new Biquad('lp', fc, 0.7), new Biquad('lp', fc, 0.7)];
-      for (let i = 0; i < total; i++) {
+      let i = lo;
+      // up to the last sound, then until the filter has run out (what it gives from there on is 0 in a Float32Array)
+      for (; i < total && (i < end || !(a[0]!.settled() && a[1]!.settled() && b[0]!.settled() && b[1]!.settled())); i++) {
         if ((i & 65535) === 0) yield (unit + 0.9) / units;
         scratch.L[i] = a[1]!.run(a[0]!.run(scratch.L[i]!));
         scratch.R[i] = b[1]!.run(b[0]!.run(scratch.R[i]!));
       }
+      end = Math.max(end, i);
     }
     const level = levelAt(tr.vol), pan = Math.max(-1, Math.min(1, tr.pan));
     const gl = Math.cos(((pan + 1) * Math.PI) / 4) * 1.3, gr = Math.sin(((pan + 1) * Math.PI) / 4) * 1.3;
     const constant = typeof tr.vol === 'number';
     let g = constant ? level(0) : 0;
-    for (let i = 0; i < total; i++) {
+    for (let i = lo; i < end; i++) {
       if ((i & 65535) === 0) yield (unit + 0.95) / units;
       if (!constant) g = level(i / sampleRate);
       const l = scratch.L[i]! * g * gl, r = scratch.R[i]! * g * gr;
       out.L[i]! += l; out.R[i]! += r;
       send.L[i]! += l * tr.reverb; send.R[i]! += r * tr.reverb;
     }
+    scratch.L.fill(0, lo, end); scratch.R.fill(0, lo, end);
     unit++;
   }
 

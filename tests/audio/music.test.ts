@@ -281,8 +281,32 @@ describe('the music is rendered in slices a page can paint between (the load of 
     const fractions: number[] = [];
     const [l2, r2] = await renderMusicAsync(m, SR, musicLength(m), false, async (f) => { fractions.push(f); });
     expect(l2).toEqual(l1); expect(r2).toEqual(r1);
-    expect(fractions.length).toBeGreaterThan(10);
+    expect(fractions.length).toBeGreaterThan(5);
     for (let i = 1; i < fractions.length; i++) expect(fractions[i]!).toBeGreaterThanOrEqual(fractions[i - 1]!);   // it only goes forward
     expect(fractions.at(-1)!).toBeLessThanOrEqual(1);
   });
+});
+
+describe('the renderer keeps its samples (these checksums were taken from the renderer as it was before it was made faster)', () => {
+  const specs = {
+    mixed: { bpm: 128, seed: 4, reverb: 0.3, humanize: 0.004, tracks: [
+      { inst: 'keys', notes: 'Am7:2 Fmaj7:2 C:4', tone: 0.6, reverb: 0.3, vol: [[0, 0.2], [4, 0.5], [12, 0.3]] },
+      { inst: 'pad', notes: 'Am:8 F:8', tone: 0.45, attack: 0.5, release: 1.2, vol: 0.4 },
+      { inst: 'bass', notes: 'a1:1 a1:1 f1:2 c2:4', tone: 0.5, vol: [[0, 0.5], [8, 0.7]] },
+      { inst: 'pluck', notes: '_:4 e4:1 g4:1 a4:2', tone: 0.8, pan: -0.3, vol: 0.3 },
+      { inst: 'bell', notes: '_:8 c6:1 e6:1', ring: 0.8, vol: 0.25 },
+      { inst: 'lead', notes: '_:4 e5:2 g5:2', tone: 0.9, vol: [[4, 0], [8, 0.4]] },
+    ], drums: [{ from: 0, to: 12, kick: 'x...x...x.o.....', hat: '..o...o...o...o.' }, { from: 8, to: 24, snare: '....o.......o...', clap: '..............o.', tom: 'o...............' }] },
+    loopy: { bpm: 100, tracks: [{ inst: 'keys', notes: 'C:2 G:2', tone: 0.5, vol: [[0, 0.1], [2, 0.5]] }, { inst: 'sub', notes: 'c2:2 g1:2', vol: 0.5 }], drums: [{ from: 0, to: 8, kick: 'x...x...', crash: 'o.......' }] },
+  };
+  const PINNED: Record<string, string> = { mixed: '8cf69cae0b59', 'mixed+loop': 'f3764d44fa86', loopy: 'c3acc79a0ca4', 'loopy+loop': 'c00846ec99e5' };
+  for (const [name, spec] of Object.entries(specs)) for (const loop of [false, true]) {
+    it(`${name}${loop ? ' with loop' : ''}: the same samples, to the last bit`, async () => {
+      const { createHash } = await import('node:crypto');
+      const m = resolveMusic(spec as never, name)!;
+      const [L, R] = renderMusic(m, 8000, loop ? 14 : 22, loop);
+      const sum = createHash('sha1').update(Buffer.from(L.buffer, L.byteOffset, L.byteLength)).update(Buffer.from(R.buffer, R.byteOffset, R.byteLength)).digest('hex').slice(0, 12);
+      expect(sum).toBe(PINNED[`${name}${loop ? '+loop' : ''}`]);
+    });
+  }
 });

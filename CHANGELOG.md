@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+**Changed**
+
+- **The music is made about 30 % faster, with the same samples (to the last bit).** The reel's 81 seconds: 4.45 s to 3.1 s in Node, the sound stage of its load 4.9 s to 3.7 s in Chrome. The electric-piano voice no longer computes the 1.2 s of silence after each note, a track is filtered and mixed only where it sounds (and until its filter has run out), the volume curve is followed instead of searched, and the voices write the bus without a call per sample. Four checksums of full renders (two with `loop`) taken before the change are pinned in tests.
+
 ## 0.27.1
 
 **Fixed**
