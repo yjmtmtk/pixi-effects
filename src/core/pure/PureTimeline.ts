@@ -28,6 +28,8 @@ interface Channel {
   acc: Accessor;
   /** The value shown before the first segment starts (see `prepare`). */
   pre: any;
+  /** What the channel wrote last: a segment's `onUpdate` runs when it changes (two segments on one property share it). */
+  last: unknown;
   segs: Segment[];
   /** `segs` is sorted by (start, creation order) before it is read. */
   dirty: boolean;
@@ -50,7 +52,6 @@ interface Segment {
   /** Relative values (`'+=36'`) are resolved against the start. */
   toRel: boolean;
   onUpdate?: () => void;
-  lastReported: unknown;
   order: number;
   /** `'fn'` channels: where it starts and ends, from the value before it (`start`) and the value the channel had at the beginning (`base`). */
   fnFrom?: (prev: any) => any;
@@ -196,7 +197,7 @@ export class PureTimeline {
       if (color && toRel) toRel = false;
       const seg: Segment = {
         channel: ch, kind, createCur: cur, start, dur, ease, repeat, yoyo, repeatDelay, from, to, toRel,
-        onUpdate: vars.onUpdate, lastReported: NaN, order: this.order++,
+        onUpdate: vars.onUpdate, order: this.order++,
       };
       if (id === 'visible#auto') seg.partner = lastAlpha;
       else if (id === 'alpha') lastAlpha = seg;
@@ -214,7 +215,7 @@ export class PureTimeline {
     if (!m) this.channels.set(target, (m = new Map()));
     let ch = m.get(acc.id);
     if (!ch) {
-      ch = { target, acc, pre: NaN, segs: [], dirty: false };
+      ch = { target, acc, pre: NaN, last: NaN, segs: [], dirty: false };
       m.set(acc.id, ch);
       this.channelList.push(ch);
     }
@@ -240,7 +241,7 @@ export class PureTimeline {
     const ease = typeof spec.ease === 'function' ? spec.ease : pureEase(spec.ease);
     ch.segs.push({
       channel: ch, kind: 'to', createCur: null, start, dur, ease, repeat, yoyo: !!spec.yoyo, repeatDelay, from: null, to: null, toRel: false,
-      lastReported: NaN, order: this.order++, fnFrom: spec.from as never, fnTo: spec.to as never, fnMake: spec.make as never,
+      order: this.order++, fnFrom: spec.from as never, fnTo: spec.to as never, fnMake: spec.make as never,
     });
     ch.dirty = true;
     this.prepared = false;
@@ -258,7 +259,7 @@ export class PureTimeline {
     const ch = this.channel(holder as Target, acc);
     ch.segs.push({
       channel: ch, kind: 'set', createCur: null, start: quantize(at), dur: 0, ease: pureEase('none'), repeat: 0, yoyo: false, repeatDelay: 0,
-      from: null, to: value, toRel: false, lastReported: NaN, order: this.order++, step: true,
+      from: null, to: value, toRel: false, order: this.order++, step: true,
       onUpdate: () => write(read()),
     });
     ch.dirty = true;
@@ -359,12 +360,12 @@ export class PureTimeline {
         const pre = settle(ch.acc, ch.pre);
         ch.acc.set(pre);
         const head = segs[0];
-        if (head?.onUpdate && pre !== head.lastReported) { head.lastReported = pre; head.onUpdate(); }
+        if (pre !== ch.last) { ch.last = pre; head?.onUpdate?.(); }
         continue;
       }
       const v = mix(seg, ratioAt(seg, t), over);
       ch.acc.set(v);
-      if (seg.onUpdate && v !== seg.lastReported) { seg.lastReported = v; seg.onUpdate(); }
+      if (v !== ch.last) { ch.last = v; seg.onUpdate?.(); }
     }
     for (const c of this.children) {
       const local = Math.min(Math.max(t - c.start, 0), c.child.duration());

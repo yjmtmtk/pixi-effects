@@ -3,7 +3,7 @@
 // hash of every frame, so two builds are compared in seconds (identical hash = identical picture; PNGs of the frames are kept to look at the
 // ones that differ).
 //
-//   node scripts/compare-frames.mjs capture --root <a repo with a built dist/> --pages <list.txt> --out <dir> [--frames 0,50%,99%] [--lanes 4] [--force]
+//   node scripts/compare-frames.mjs capture --root <a repo with a built dist/> --pages <list.txt> --out <dir> [--frames 0,50%,99%] [--lanes 4] [--force] [--query ?a=b]
 //   node scripts/compare-frames.mjs compare <dirBefore> <dirAfter>
 //
 // Why it exists: the one-page-at-a-time way (`check.mjs` per page, twice) took about 25 minutes for 64 pages; this takes a few minutes, and
@@ -60,6 +60,7 @@ const out = path.resolve(opt('--out'));
 const marks = (opt('--frames', '0,50%,99%')).split(',');
 const lanes = Number(opt('--lanes', '4'));
 const force = args.includes('--force');
+const query = opt('--query', '');                         // appended to every page address, e.g. ?pe-timeline=pure
 fs.mkdirSync(out, { recursive: true });
 const hashFile = path.join(out, 'hashes.json');
 const hashes = fs.existsSync(hashFile) ? JSON.parse(fs.readFileSync(hashFile, 'utf8')) : {};
@@ -88,7 +89,7 @@ async function lane() {
     const result = {};
     try {
       // a page without window.__ready: its movie is made at module level; poll for it
-      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/${page}` });
+      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/${page}${query}` });
       let ready = false;
       for (let k = 0; k < 150 && !ready; k++) { await check.sleep(100); ready = await cdp.eval('window.__ready === true || !!(window.movie && window.movie.isReady)').catch(() => false); }
       if (!ready) await check.sleep(3500);
