@@ -1,6 +1,6 @@
 {
   "name": "pixi-effects",
-  "version": "0.26.2",
+  "version": "0.26.3",
   "description": "Make a video, motion graphics, an animated title, a lower third, a promo or an animated chart as code: pixi-effects writes a video as plain data, checks it and exports MP4.",
   "author": { "name": "yjmtmtk" },
   "homepage": "https://yjmtmtk.github.io/pixi-effects/",

@@ -6,7 +6,7 @@ Concatenation of the skill, cheatsheet, pitfalls, recipes and the DSL / API refe
 
 <!-- ===== skills/pixi-effects/SKILL.md ===== -->
 
-> Written for pixi-effects 0.26.2. Update this skill with `npx skills update`; the newest docs are at https://yjmtmtk.github.io/pixi-effects/
+> Written for pixi-effects 0.26.3. Update this skill with `npx skills update`; the newest docs are at https://yjmtmtk.github.io/pixi-effects/
 
 # pixi-effects — write a video as data
 
