@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+**Added**
+
+- **Relative keyframe values.** `to`, `from` and `set` accept `'+=36'` / `'-=36'`, measured from where the layer stands, with an expression on the right (`'-=GW*0.1'`): `from: { x: '-=36' }` is the usual slide-in, `to: { y: '+=40' }` a nudge, and keyframes one after another stack in any order of seeking. Until now `'+=36'` was evaluated as an expression and became **0 with no warning**; in `initial`, a style or the start of a `from` + `to` it now warns and is read as the number. (GSAP supported relative values all along; the keyframe pipeline did not let them through.)
+
 **Changed**
 
 - **Video: the pauses of reverse play and of a loop are read ahead.** A looping layer reads the first frames of the file (and a pass behind them) before the end comes, so the wrap shows no pause (a 30 s loop of two heavy layers: 0 pauses, it had 3). Reverse play reads the next window in the background while the held frames last, and each window now just fits what is held: one heavy layer played backwards shows 29.3 distinct frames a second with 1 pause in 6 s (24.8 and 6 pauses without the read-ahead, 14.1 and 31 before 0.26.2); four heavy layers, each reading its own window, reach 18 a second. Frames are now let go by where the playhead is (the ones it has passed first), not by age. Measured with the on-screen frame-number method of 0.26.2, on an M1 Pro.

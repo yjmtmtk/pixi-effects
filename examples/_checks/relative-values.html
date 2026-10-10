@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>check · relative keyframe values</title>
+</head>
+<body style="margin:0;background:#222">
+  <!--
+    Acceptance check (not an example): a rect that slides in with `from: { x: '-=200' }`, a text that grows with `to: { scale: '+=1' }` and drifts with
+    `to: { y: '+=100' }`, a rect whose `alpha` goes down by `'-=0.5'`, and a filter option moved by `'+=...'`. tests/tools/relativeValues.test.ts reads it
+    (positions through movie.inspect, library warnings through window.__logs).
+  -->
+  <canvas id="stage"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">
+  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "gsap": "https://esm.sh/gsap@3.12.5", "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin", "mediabunny": "https://esm.sh/mediabunny@1.61.3", "pixi-filters": "https://esm.sh/pixi-filters@6.1.5?bundle-deps" } }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const sequences = [
+      { type: 'shape', shape: 'rect', name: 'slide', width: 100, height: 100, initial: { x: 500, y: 100, anchorX: 0, anchorY: 0, fillColor: '#ff5a36' },
+        keyframes: [{ at: 0, duration: 1, from: { x: '-=200' } }] },
+      { type: 'shape', shape: 'rect', name: 'fade', width: 100, height: 100, initial: { x: 100, y: 300, anchorX: 0, anchorY: 0, alpha: 1, fillColor: '#38c8ff' },
+        keyframes: [{ at: 0, duration: 1, to: { alpha: '-=0.5' } }] },
+      { type: 'shape', shape: 'rect', name: 'stack', width: 100, height: 100, initial: { x: 100, y: 450, anchorX: 0, anchorY: 0, fillColor: '#ffd166' },
+        keyframes: [{ at: 0, duration: 1, to: { x: '+=100' } }, { at: 1, duration: 1, to: { x: '+=100' } }] },
+      { type: 'text', text: 'grow', name: 'grow', style: { fontSize: 40, fill: '#fff' }, initial: { x: 800, y: 100, anchorX: 0, anchorY: 0, scale: 1 },
+        keyframes: [{ at: 0, duration: 1, to: { scale: '+=1', y: '+=100' } }] },
+    ];
+    const movie = new Movie();
+    window.movie = movie;
+    await movie.init({ canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 3, frameRate: 30, background: '#111', composition: { sequences } });
+    window.__ready = true;
+  </script>
+</body>
+</html>

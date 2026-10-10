@@ -932,6 +932,8 @@ interface Keyframe {
 }
 ```
 
+**Relative values.** A number in `to`, `from` or `set` may be written `'+=36'` or `'-=36'`: it is measured from where the property stands when the keyframe starts (GSAP's own relative values), and the right side is an expression (`'-=GW*0.1'`). `from: { x: '-=36' }` starts 36 px to the left of where the layer is and arrives there (the usual slide-in); `to: { y: '+=40' }` moves 40 px further. Several keyframes one after another stack, whatever order you seek in; with `repeat` the same move plays again from the same start (it does not stack). A relative value in `initial`, a style, or the start side of a `from` + `to` keyframe has nothing to be measured from: it warns and is read as the number.
+
 The four kinds are mutually exclusive per keyframe:
 
 - **`set`** — instantaneous property assignment at `at`.

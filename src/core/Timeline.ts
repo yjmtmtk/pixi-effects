@@ -176,7 +176,7 @@ export function applyKeyframes(
     const kf = normalizeKeyframe(raw, parentDuration);
     const at = offset + kf.at;
     if (kf.kind === 'set') {
-      const resolved = normalizeProps(kf.set!, scope, { skipKeys });
+      const resolved = normalizeProps(kf.set!, scope, { skipKeys, relative: 'allow' });
       const { rest, routed } = splitRouted(resolved, routers);
       for (const r of routed) timeline.set(r.target, { [r.prop]: r.value }, at);
       const { ownProps, filterProps } = partitionProps(rest);
@@ -187,7 +187,7 @@ export function applyKeyframes(
         timeline.set(f, props, at);
       }
     } else if (kf.kind === 'to') {
-      const resolved = normalizeProps(kf.to!, scope, { skipKeys });
+      const resolved = normalizeProps(kf.to!, scope, { skipKeys, relative: 'allow' });
       const { rest, routed } = splitRouted(resolved, routers);
       for (const r of routed)
         timeline.to(r.target, { [r.prop]: r.value, duration: kf.duration, ease: kf.ease, ...kf.loop }, at);
@@ -200,7 +200,7 @@ export function applyKeyframes(
         timeline.to(f, { ...props, duration: kf.duration, ease: kf.ease, ...kf.loop }, at);
       }
     } else if (kf.kind === 'from') {
-      const resolved = normalizeProps(kf.from!, scope, { skipKeys });
+      const resolved = normalizeProps(kf.from!, scope, { skipKeys, relative: 'allow' });
       const { rest, routed } = splitRouted(resolved, routers);
       for (const r of routed)
         timeline.from(r.target, { [r.prop]: r.value, duration: kf.duration, ease: kf.ease, ...kf.loop }, at);
@@ -213,8 +213,8 @@ export function applyKeyframes(
         timeline.from(f, { ...props, duration: kf.duration, ease: kf.ease, ...kf.loop }, at);
       }
     } else {
-      const fromResolved = normalizeProps(kf.from!, scope, { skipKeys });
-      const toResolved = normalizeProps(kf.to!, scope, { skipKeys });
+      const fromResolved = normalizeProps(kf.from!, scope, { skipKeys, where: 'the from side of a from + to keyframe' });
+      const toResolved = normalizeProps(kf.to!, scope, { skipKeys, relative: 'allow' });
       const fromRouted = splitRouted(fromResolved, routers);
       const toRouted = splitRouted(toResolved, routers);
       // Pair routed from/to entries by their original key.
@@ -268,7 +268,7 @@ export function applyInitial(
   routers?: PathRouters,
 ): void {
   if (!initial) return;
-  const resolved = normalizeProps(initial, scope, { skipKeys });
+  const resolved = normalizeProps(initial, scope, { skipKeys, where: 'initial' });
   const { rest, routed } = splitRouted(resolved, routers);
   for (const r of routed) gsap.set(r.target, { [r.prop]: r.value });
   const { ownProps, filterProps } = partitionProps(rest);
