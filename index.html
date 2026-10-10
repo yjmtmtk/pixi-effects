@@ -552,16 +552,20 @@ movie.play();
   var GALLERY=window.__GALLERY_BASE||'https://yjmtmtk.github.io/pixi-effects/examples/gallery/';
   function openPiece(id,host,url){
     var f=document.createElement('iframe'); f.src=url||(GALLERY+id+'.html'); f.allow='autoplay; fullscreen'; f.loading='eager'; host.appendChild(f);
+    // the poster stands in for the piece until the piece is on screen; it sits above the frame (z-index), so take it away once the frame
+    // shows the piece's own first picture (or, when the frame cannot be reached, once it has loaded: the frame has its own play button)
+    var reveal=function(){ var im=host.querySelector('img'); if(im) im.style.display='none'; };
     var tries=0;
     (function wait(){
       var w=null;
       try{ w=f.contentWindow; if(w && w.__ready===true && w.movie){ fitFrame(f); Promise.resolve(w.movie.gotoFrame(0,true)).then(function(){
+          reveal();
           var go=function(){ if(w.movie.stops && w.movie.stops.length) w.movie.next(); else w.movie.play(); };
           // The click that opened the frame was made in THIS page. Some browsers (iOS Safari) do not carry it into the frame, so the sound would stay
           // locked until the viewer pauses and plays again: when the movie says its sound is blocked, ask for one tap INSIDE the frame and start there.
           if(w.movie.audioBlocked) tapForSound(f,w,go); else go();
-        }); return; } }catch(e){ return; }
-      if(++tries<250 && f.isConnected) setTimeout(wait,100);
+        }); return; } }catch(e){ f.addEventListener('load',reveal); return; }      // another origin: the frame has its own play button; show it once it has loaded
+      if(++tries<250 && f.isConnected) setTimeout(wait,100); else reveal();
     })();
     return f;
   }

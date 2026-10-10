@@ -38,6 +38,9 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the landin
       await check.sleep(800);
       const later = await cdp.eval(`document.querySelector('#kmFacade iframe').contentWindow.movie.currentFrame`);
       expect(later).toBeGreaterThan(state.frame);                              // and it is moving
+      // and it is SEEN: the poster that stood in for the piece no longer covers it (it used to stay on top, with the piece playing behind it)
+      const poster = await cdp.eval(`(() => { const i = document.querySelector('#kmFacade img'); return !i || !i.isConnected || getComputedStyle(i).display === 'none' || getComputedStyle(i).visibility === 'hidden' ? 'gone' : 'covering'; })()`);
+      expect(poster).toBe('gone');
 
       // the hero: this exact snippet, running live after a click (needs the released library on the CDN)
       if (onCdn) {
