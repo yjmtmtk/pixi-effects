@@ -28,6 +28,8 @@ interface Channel {
   acc: Accessor;
   /** The value shown before the first segment starts (see `prepare`). */
   pre: any;
+  /** The property's own value when the channel was first prepared; kept, so that a later `prepare` does not read an animated value. */
+  base0?: { v: any };
   /** What the channel wrote last: a segment's `onUpdate` runs when it changes (two segments on one property share it). */
   last: unknown;
   segs: Segment[];
@@ -64,12 +66,19 @@ interface Segment {
   interp?: (p: number) => any;
   /** The segment of the same call on another channel whose numbers this one copies (autoAlpha's `visible` follows its `alpha`). */
   partner?: Segment;
+  /** What was given, before `prepare` resolves it against the segments before: `prepare` can run again when segments are added later. */
+  from0: any;
+  to0: any;
+  toRel0: boolean;
 }
 
 interface ChildItem {
   child: PureTimeline;
   start: number;
   order: number;
+  /** No channel of this child (or of anything under it) writes a property that another channel of the tree writes: its picture depends on its own local time only. */
+  exclusive: boolean;
+  /** The local time it was last played at; an exclusive child at the same local time writes the same things, so it is skipped. */
   last: number;
 }
 
@@ -93,6 +102,9 @@ const parseRel = (v: unknown): { rel: boolean; n: number } | null => {
 };
 
 const RESERVED = new Set(['duration', 'ease', 'repeat', 'yoyo', 'repeatDelay', 'onUpdate', 'delay']);
+/** GSAP callbacks that a timeline with no state cannot run (they depend on the way the playhead moved): said once, not written onto the target. */
+const CALLBACKS = ['onStart', 'onComplete', 'onRepeat', 'onReverseComplete'];
+let saidCallbacks = false;
 
 export class PureTimeline {
   private readonly defaultEase: string | EaseFn;
@@ -120,7 +132,7 @@ export class PureTimeline {
       // a tween of another engine (`gsap.to({}, { duration })`): only its length matters
       this.spans = Math.max(this.spans, start + (child as { duration(): number }).duration());
     } else {
-      this.children.push({ child, start, order: this.order++, last: NaN });
+      this.children.push({ child, start: quantize(start), order: this.order++, exclusive: false, last: NaN });
       this.prepared = false;
       this.spans = Math.max(this.spans, start + child.duration());
     }
@@ -145,8 +157,11 @@ export class PureTimeline {
 
   private build(target: object, fromVars: PureVars | null, vars: PureVars, at: number | undefined, kind: 'set' | 'to' | 'from' | 'fromTo'): this {
     const t = target as Target;
-    const start = quantize(at ?? this.spans);
+    const start = quantize((at ?? this.spans) + (Number(vars.delay) || 0));
     const dur = quantize(Math.max(0, vars.duration ?? 0));
+    for (const cb of CALLBACKS) if (cb in vars) {
+      if (!saidCallbacks) { saidCallbacks = true; console.warn(`pixi-effects: the pure timeline does not run ${cb}: what a tween does must be a value of the time (use onUpdate for a redraw); it is ignored`); }
+    }
     const repeat = Math.max(0, Math.floor(vars.repeat ?? 0));
     const yoyo = !!vars.yoyo;
     const repeatDelay = Math.max(0, vars.repeatDelay ?? 0);
@@ -155,7 +170,7 @@ export class PureTimeline {
     const given = (v: PureVars): Map<string, { acc: Accessor; value: unknown }> => {
       const out = new Map<string, { acc: Accessor; value: unknown }>();
       for (const key of Object.keys(v)) {
-        if (RESERVED.has(key) || key === 'pixi') continue;
+        if (RESERVED.has(key) || key === 'pixi' || CALLBACKS.includes(key)) continue;
         const value = v[key];
         const acc = parseRel(value) ? plainAccessor(t, key) : rawAccessor(t, key);   // a boolean or a word switches when its segment starts
         out.set(acc.id, { acc, value });
@@ -200,7 +215,7 @@ export class PureTimeline {
       if (color && toRel) toRel = false;
       const seg: Segment = {
         channel: ch, kind, createCur: cur, start, dur, ease, repeat, yoyo, repeatDelay, from, to, toRel,
-        onUpdate: vars.onUpdate, order: this.order++,
+        from0: from, to0: to, toRel0: toRel, onUpdate: vars.onUpdate, order: this.order++,
       };
       if (id === 'visible#auto') seg.partner = lastAlpha;
       else if (id === 'alpha') lastAlpha = seg;
@@ -243,7 +258,7 @@ export class PureTimeline {
     const repeatDelay = Math.max(0, spec.repeatDelay ?? 0);
     const ease = typeof spec.ease === 'function' ? spec.ease : pureEase(spec.ease);
     ch.segs.push({
-      channel: ch, kind: 'to', createCur: null, start, dur, ease, repeat, yoyo: !!spec.yoyo, repeatDelay, from: null, to: null, toRel: false,
+      channel: ch, kind: 'to', createCur: null, start, dur, ease, repeat, yoyo: !!spec.yoyo, repeatDelay, from: null, to: null, toRel: false, from0: null, to0: null, toRel0: false,
       order: this.order++, fnFrom: spec.from as never, fnTo: spec.to as never, fnMake: spec.make as never, write: spec.set as never,
     });
     ch.dirty = true;
@@ -262,7 +277,7 @@ export class PureTimeline {
     const ch = this.channel(holder as Target, acc);
     ch.segs.push({
       channel: ch, kind: 'set', createCur: null, start: quantize(at), dur: 0, ease: pureEase('none'), repeat: 0, yoyo: false, repeatDelay: 0,
-      from: null, to: value, toRel: false, order: this.order++, step: true, write: write as never,
+      from: null, to: value, toRel: false, from0: null, to0: value, toRel0: false, order: this.order++, step: true, write: write as never,
       onUpdate: () => write(read()),
     });
     ch.dirty = true;
@@ -281,6 +296,12 @@ export class PureTimeline {
     if (value === undefined) return this.now;
     if (this.killed) return this;
     this.now = value;
+    if (!this.prepared) {
+      this.prepareDeep();
+      const counts = new Map<Target, Map<string, number>>();
+      this.countChannels(counts);
+      this.markExclusive(counts);
+    }
     this.evaluate(quantize(value));
     return this;
   }
@@ -318,12 +339,14 @@ export class PureTimeline {
     ch.segs.sort((a, b) => a.start - b.start || a.order - b.order);
     ch.dirty = false;
     let latest: Segment | null = null;
-    for (const s of ch.segs) if ((s.kind === 'from' || s.kind === 'fromTo') && s.from !== null && (!latest || s.order > latest.order)) latest = s;
-    let cur = latest ? latest.from! : ch.acc.get();
+    for (const s of ch.segs) if ((s.kind === 'from' || s.kind === 'fromTo') && s.from0 !== null && (!latest || s.order > latest.order)) latest = s;
+    ch.base0 ??= { v: ch.acc.get() };
+    let cur = latest ? latest.from0! : ch.base0.v;
     const base = cur;
     let first = true;
     for (const s of ch.segs) {
       const before = cur;
+      s.from = s.from0; s.to = s.to0; s.toRel = s.toRel0;
       if (s.fnTo) {
         s.from = s.fnFrom ? s.fnFrom(cur) : cur;
         s.to = s.fnTo(s.from, before, base);
@@ -345,7 +368,27 @@ export class PureTimeline {
     if (this.prepared) return;
     this.prepared = true;
     for (const ch of this.channelList) this.prepare(ch);
-    for (const c of this.children) c.child.prepareDeep();
+    this.children.sort((a, b) => a.start - b.start || a.order - b.order);
+    for (const c of this.children) { c.last = NaN; c.child.prepareDeep(); }
+  }
+
+  /** How many channels write each (target, property) in this timeline and everything under it. */
+  private countChannels(into: Map<Target, Map<string, number>>): void {
+    for (const ch of this.channelList) {
+      let m = into.get(ch.target);
+      if (!m) into.set(ch.target, (m = new Map()));
+      m.set(ch.acc.id, (m.get(ch.acc.id) ?? 0) + 1);
+    }
+    for (const c of this.children) c.child.countChannels(into);
+  }
+
+  private isExclusive(counts: Map<Target, Map<string, number>>): boolean {
+    for (const ch of this.channelList) if ((counts.get(ch.target)?.get(ch.acc.id) ?? 0) > 1) return false;
+    return this.children.every(c => c.child.isExclusive(counts));
+  }
+
+  private markExclusive(counts: Map<Target, Map<string, number>>): void {
+    for (const c of this.children) { c.exclusive = c.child.isExclusive(counts); c.child.markExclusive(counts); }
   }
 
   private evaluate(t: number): void {
@@ -370,9 +413,13 @@ export class PureTimeline {
       write(ch, seg, v);
       if (v !== ch.last) { ch.last = v; seg.onUpdate?.(); }
     }
+    // children in the order they start (then the order they were added): where two write one property the later one wins, however the playhead came
     for (const c of this.children) {
       const local = Math.min(Math.max(t - c.start, 0), c.child.duration());
-      if (local !== c.last) { c.last = local; c.child.time(local); }
+      if (c.exclusive && local === c.last) continue;
+      c.last = local;
+      c.child.now = local;
+      c.child.evaluate(quantize(local));
     }
   }
 }

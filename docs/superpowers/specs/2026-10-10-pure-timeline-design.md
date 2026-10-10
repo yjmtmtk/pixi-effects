@@ -62,10 +62,11 @@ The engine exists (`src/core/pure/`, `src/core/timelineEngine.ts`), is switched 
 
 **Recommendation**: adopt it as the default after one release in which `?pe-timeline=pure` is documented for trying; the numbers say it is equal where GSAP is deterministic, faster, 25 KB lighter, and the only deviations are places where GSAP's answer depends on history or on its own version.
 
-## Findings of the fresh review that were not fixed (deferred)
+## Findings of the fresh review
 
-A reader without the author's context found three real bugs (fixed in c5f128c: a write only when the value changes, a tween keeps its own setter, colours in `setNow`). Not fixed, on purpose:
+A reader without the author's context found three real bugs (fixed in c5f128c: a write only when the value changes, a tween keeps its own setter, colours in `setNow`). Asked afterwards what should really be done, three more were fixed, each with a test that failed first (`review2.test.ts`; the exclusivity rule was mutation-checked):
+- **Parent and child timelines**: children are played in the order they start, always, except a child whose properties nobody else writes and whose local time did not change (so the speed gain stays: 700 layers x 5 tweens 0.023 ms per frame, as before). A shared property now gives the same answer however the playhead came.
+- **Segments added after the first `time()`**: the base value is captured once and the given values are kept, so a later `prepare` resolves them again from scratch.
+- **Vars that cannot run**: `delay` moves the start; `onStart`, `onComplete`, `onRepeat`, `onReverseComplete` are said once and no longer written onto the target.
 
-- **Segments added after the first `time()`**: `prepare` keeps the `from` and the absolute `to` it already resolved and re-reads the base from the live (animated) value. `Movie`, `Composition` and `remap` build everything before the first `time()`, so a movie never meets it; only a caller of the API who adds tweens later does. Fix when needed: capture the base once per channel and reset unresolved `from`s before re-resolving.
-- **Order between a parent's channels and a child timeline on one property**: the parent writes first, children in insertion order (not start order), and a child whose clamped local time did not change is not written again, so the winner can depend on how the playhead arrived. Layers have separate targets, so no page does this.
-- **Input checks**: `repeat: -1` is read as no repeat (`loopVars` already refuses it upstream); `add(child, NaN)` makes the length NaN; `delay` is reserved but not applied, and `onStart` / `onComplete` would be written onto the target as plain properties; `time()` without an argument returns the playhead unclamped; a zero-length tween with `repeat` and `yoyo` ends on `from` in `endValue` but draws `to` in `ratioAt`. All of these belong to the adoption step (what to do with GSAP vars we do not support: warn or refuse).
+Left as they are (input checks that belong to the adoption step): `repeat: -1` read as no repeat (`loopVars` refuses it upstream); `add(child, NaN)` makes the length NaN; `time()` without an argument returns the playhead unclamped; a zero-length tween with `repeat` and `yoyo` ends on `from` in `endValue` but draws `to` in `ratioAt`.
