@@ -36,6 +36,12 @@ export function cubicBezierEase(x1: number, y1: number, x2: number, y2: number):
 const NUM = String.raw`\s*(-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*`;
 const RE = new RegExp(`^\\s*cubic-bezier\\(${NUM},${NUM},${NUM},${NUM}\\)\\s*$`, 'i');
 
+/** The four numbers of a well-formed `cubic-bezier(x1, y1, x2, y2)` string, or null. */
+export function parseCubicBezier(name: string): [number, number, number, number] | null {
+  const m = RE.exec(name);
+  return m && !cubicBezierProblem(name) ? [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4])] : null;
+}
+
 /** Why a cubic-bezier ease string is malformed, or null. */
 export function cubicBezierProblem(name: string): string | null {
   const m = RE.exec(name);
