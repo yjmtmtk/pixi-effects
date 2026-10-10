@@ -1,5 +1,5 @@
 /**
- * `type: 'light'`. Like the camera: no display object, a detached carrier whose numeric props GSAP tweens with the usual `initial` /
+ * `type: 'light'`. Like the camera: no display object, a detached carrier whose numeric props the timeline tweens with the usual `initial` /
  * `keyframes` (x, y, z, lookAtX/Y/Z, intensity, color, coneAngle, coneFeather, radius, falloffDistance, shadowDarkness, shadowDiffusion).
  * `kind`, `falloff` and `castsShadows` are fixed settings on the layer. Never added to the scene graph.
  */

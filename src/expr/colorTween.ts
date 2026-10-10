@@ -14,7 +14,7 @@ const css = (c: ColorInput): string => (typeof c === 'number' ? '#' + c.toString
  *    chained-keyframe tween picks up the previous tween's end colour
  *    (rather than locking onto the initial spec value).
  * 2. `fromValue` is honoured if explicit; otherwise we read `target[key]`
- *    at tween start — matching GSAP's standard `.to()` semantic.
+ *    at tween start — like any other `.to()`.
  * 3. The optional `onUpdate` hook lets the caller flag the target as dirty
  *    after each write (e.g. PIXI Text needs `_didChange = true` to
  *    re-rasterise its fill).

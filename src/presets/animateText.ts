@@ -30,7 +30,7 @@ export interface AnimateTextTween {
   to?: Record<string, number>;
   /** Seconds each piece takes. */
   duration?: number;
-  /** GSAP ease. */
+  /** Ease name. */
   ease?: string;
 }
 

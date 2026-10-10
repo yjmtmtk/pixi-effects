@@ -59,3 +59,14 @@ describe('vars the pure timeline does not run are said, not dropped', () => {
     warn.mockRestore();
   });
 });
+
+describe('colour strings on plain properties (a light, a camera fog colour)', () => {
+  it('move through the colours, in any order of seeking', () => {
+    const o = { color: '#ff0000' };
+    const tl = mk(); tl.to(o, { color: '#0000ff', duration: 2 }, 1); tl.add(spacer(5), 0);
+    for (const t of [0, 3, 2, 3.5, 0.5]) { tl.time(t); }
+    tl.time(2); expect(o.color).toBe('rgba(128,0,128,1)');
+    tl.time(0); expect(o.color).toBe('#ff0000');
+    tl.time(4); expect(o.color).toBe('#0000ff');
+  });
+});

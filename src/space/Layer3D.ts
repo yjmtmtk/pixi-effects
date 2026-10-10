@@ -67,7 +67,7 @@ export function readLayerTransform(target: Container): LayerTransform {
  *
  * The sequence's `target` is never in the scene graph; the composition adds
  * `display` instead. `z`, `rotationX`, `rotationY` live on `target` as plain
- * numeric props so GSAP tweens them like any other prop.
+ * numeric props so the timeline tweens them like any other prop.
  */
 export class Layer3D {
   readonly display: PerspectiveMesh;

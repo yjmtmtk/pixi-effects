@@ -12,7 +12,7 @@ import type { PropValue, ShaderSequenceSpec } from '../types';
 const VERT = `#version 300 es
 void main() { vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); }`;
 
-// A vector is an object with the keys '0', '1', … and not an array: GSAP reads an array it is given as a LIST of targets, so a keyframe on 'uniforms.pos.1' needs an object to move
+// A vector is an object with the keys '0', '1', … and not an array: a keyframe on 'uniforms.pos.1' addresses one component by its key
 type UniformSlot = number | Record<string, number>;
 
 /**

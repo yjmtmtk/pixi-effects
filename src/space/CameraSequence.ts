@@ -14,7 +14,7 @@ type Carrier = Container & {
 
 /**
  * `type: 'camera'`. Has no display object: `target` is a detached carrier whose
- * numeric props GSAP tweens exactly like any other layer, so the camera reuses
+ * numeric props the timeline tweens exactly like any other layer, so the camera reuses
  * the whole `initial` / `keyframes` / expression pipeline. It is never added to
  * the scene graph.
  */

@@ -21,7 +21,7 @@ export interface WiggleOptions {
   freq?: number;
   /** Another seed is another take of the same shake. Default 0. */
   seed?: number;
-  /** GSAP ease between targets. Default `'sine.inOut'`; `'none'` gives straight, jittery lines. */
+  /** Ease between targets. Default `'sine.inOut'`; `'none'` gives straight, jittery lines. */
   ease?: string;
   /** The properties to move, each independently: `{ x: { around: 960, amp: 6 }, rotation: { around: 0, amp: 1.5 } }`. */
   props: Record<string, WiggleProp>;

@@ -288,9 +288,9 @@ export class ShapeSequence extends Sequence {
 
     // Live props (style + scalar geometry) get a parallel set of tweens
     // targeting `_state`. Colour keys (fillColor / strokeColor) interpolate
-    // through gsap.utils.interpolate (or OKLab / OKLCH if `colorSpace` is
+    // through a straight rgb lerp (or OKLab / OKLCH if `colorSpace` is
     // set on the spec); geometry / alpha / width tween linearly through
-    // GSAP's standard numeric interpolation.
+    // the timeline's ordinary numeric interpolation.
     const colorSpace: ColorSpace = (this.spec as { colorSpace?: ColorSpace }).colorSpace ?? 'rgb';
     bindLiveKeyframes(timeline, this._state, this._liveKeys, this.spec.keyframes ?? [], this.duration!, scope, startTime, colorSpace);
     if (this._grad) bindGradientKeyframes(timeline, this._grad, this.spec.keyframes ?? [], this.duration!, startTime, colorSpace, () => { this._gradDirty = true; });

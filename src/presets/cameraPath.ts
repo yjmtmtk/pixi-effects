@@ -15,7 +15,7 @@ export interface CameraPathOptions {
   at?: number;
   /** How long the flight takes, in seconds. Required. */
   duration: number;
-  /** GSAP ease for the progress along the route (default `'none'`: constant speed; `'power2.in'` is an accelerating rush). */
+  /** Ease for the progress along the route (default `'none'`: constant speed; `'power2.in'` is an accelerating rush). */
   ease?: string;
   /** Where the camera looks: a fixed `[x, y, z]`, or `'ahead'` (default): a point further along the route, so it faces where it flies. */
   look?: [number, number, number] | 'ahead';

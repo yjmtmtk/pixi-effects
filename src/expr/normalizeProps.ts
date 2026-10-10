@@ -4,7 +4,7 @@ export interface NormalizeOptions {
   /** Keys whose string values should NOT be evaluated as expressions (e.g. 'fill', 'fontFamily'). */
   skipKeys?: string[];
   /**
-   * `'+=36'` / `'-=GW*0.1'`: a value measured from where the layer is. 'allow' keeps it as the string GSAP understands (its right side evaluated);
+   * `'+=36'` / `'-=GW*0.1'`: a value measured from where the layer is. 'allow' keeps it as the string the timeline understands (its right side evaluated);
    * 'forbid' (the default) warns and reads it as the number, because there is nothing to be relative to.
    */
   relative?: 'allow' | 'forbid';

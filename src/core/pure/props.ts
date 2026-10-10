@@ -12,11 +12,11 @@ export interface Accessor {
   get(): any;
   set(value: any): void;
   /**
-   * `'color'` is a packed 0xrrggbb number that is tweened per channel; `'raw'` is anything that is not a number (a boolean, a
+   * `'color'` is a packed 0xrrggbb number that is tweened per channel; `'css'` is a CSS colour string (`'#ff0000'`, `'rgb(…)'`) tweened as rgba strings; `'raw'` is anything that is not a number (a boolean, a
    * string): it switches when its segment starts; `'fn'` is a value of any kind that a function of the caller moves between
    * two values; the rest are plain numbers.
    */
-  kind: 'num' | 'color' | 'raw' | 'fn';
+  kind: 'num' | 'color' | 'css' | 'raw' | 'fn';
   /** `'fn'`: the interpolator between two values. */
   make?(a: any, b: any): (p: number) => any;
   /** Multiplies the value a key gives (degrees to radians). */
@@ -75,6 +75,10 @@ export function pixiAccessors(target: Target, key: string): Accessor[] | null {
 
 export function rawAccessor(target: Target, key: string): Accessor {
   return { id: key, kind: 'raw', unit: 1, round: 1, get: () => target[key], set: (v) => { target[key] = v; } };
+}
+
+export function cssAccessor(target: Target, key: string): Accessor {
+  return { id: key, kind: 'css', unit: 1, round: 1, get: () => target[key], set: (v) => { target[key] = v; } };
 }
 
 export function plainAccessor(target: Target, key: string): Accessor {

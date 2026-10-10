@@ -17,14 +17,14 @@ export interface StaggerOptions {
   from?: 'start' | 'end' | 'center' | 'edges' | 'random' | number;
   /** `[columns, rows]`: the items fill a grid row by row and the wave travels by straight-line distance across it. */
   grid?: [number, number];
-  /** GSAP ease that reshapes the spread (default `'none'`: even steps). The first stays at 0, the last at the full spread. */
+  /** Ease that reshapes the spread (default `'none'`: even steps). The first stays at 0, the last at the full spread. */
   ease?: string;
   /** For `from: 'random'`: another seed is another order. Default 0. */
   seed?: number;
 }
 
 /**
- * Delays for a wave of items, in seconds, in the style of GSAP's `stagger`.
+ * Delays for a wave of items, in seconds, in the style of GSAP's `stagger` (its names, with thanks).
  *
  *   stagger(6, { each: 0.08 })                        // [0, 0.08, 0.16, …]            use: `at: 1 + d[i]`
  *   stagger(letters, { each: 0.05, from: 'center' })  // the same layers with their `at` pushed back

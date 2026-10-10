@@ -21,7 +21,7 @@ export interface OrbitOptions {
   height?: number;
   /** Vertical field of view, degrees. Default 40. Written to the camera. */
   fov?: number;
-  /** Easing of the sweep as a whole (any GSAP ease). Default `'sine.inOut'`. */
+  /** Easing of the sweep as a whole (any ease name). Default `'sine.inOut'`. */
   ease?: string;
   /**
    * A dolly zoom while orbiting: `fov` animates from `from` to `to` (degrees) and the radius follows it

@@ -410,7 +410,6 @@ export class Movie {
       }
       this._audioSources = audios;
 
-      this.timeline.progress(1).progress(0);
       lp.begin('frames', 0);
       await this._awaitVideoFrames();
       this._updateSpace();

@@ -93,10 +93,9 @@ export abstract class Sequence {
     const { initial, keyframes } = this.displayProps();
     applyInitial(this.target, initial as Record<string, unknown> | undefined, scope as unknown as Record<string, number>, [], routers);
     applyKeyframes(timeline, this.target, keyframes, this.duration!, scope as unknown as Record<string, number>, [], startTime, routers);
-    // Hide before lifespan starts. GSAP's `set` only fires when the playhead
-    // crosses its time, so without this baseline a sequence with at>0 (or any
-    // non-zero offset from a nested composition) would render at t<startTime
-    // on PIXI's default `renderable: true`.
+    // Hide before lifespan starts. Before its first `set` a property is what it is when the timeline is first played, so this
+    // baseline is what a sequence with at>0 (or any non-zero offset from a nested composition) shows at t<startTime, instead of
+    // PIXI's default `renderable: true`.
     const endTime = startTime + this.duration!;
     this.absoluteStart = startTime;
     if (this.keepHidden) return;                    // a sprite mask: PIXI keeps it hidden (see keepHidden)

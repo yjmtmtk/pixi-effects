@@ -44,7 +44,7 @@ interface KenBurnsBase {
   duration: number;
   /** How the image fills the canvas. Default `'cover'`. */
   fit?: 'cover' | 'contain';
-  /** GSAP easing name. Default `'sine.inOut'`. */
+  /** Ease name. Default `'sine.inOut'`. */
   ease?: string;
 }
 
@@ -153,7 +153,7 @@ export function kenBurns(opts: KenBurnsOptions): ImageSequenceSpec {
     //   w*scale >= W*|cosθ| + H*|sinθ|     and
     //   h*scale >= W*|sinθ| + H*|cosθ|
     //
-    // We sample 1° apart and emit one keyframe per sample so gsap interpolates
+    // We sample 1° apart and emit one keyframe per sample so the timeline interpolates
     // rotation AND scale together — never a gap, never an over-scale.
     const sampleStep = 1; // degrees
     const span = Math.abs(endAngle - startAngle);
@@ -173,7 +173,7 @@ export function kenBurns(opts: KenBurnsOptions): ImageSequenceSpec {
       rotation: startAngle,
     };
     // Build sampled keyframes: each step animates from the previous (rotation,
-    // scale) to the next pair. gsap linearly interpolates between samples;
+    // scale) to the next pair. the timeline interpolates linearly between samples;
     // with 1° spacing the interpolation error in scale is sub-pixel.
     keyframes = [];
     for (let i = 1; i < sampleCount; i++) {

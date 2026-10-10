@@ -19,7 +19,7 @@ export interface NormalizedKeyframe {
 }
 
 /**
- * GSAP loop vars (`repeat`, `yoyo`, `repeatDelay`) for a keyframe. Only a finite,
+ * Loop vars (`repeat`, `yoyo`, `repeatDelay`) for a keyframe. Only a finite,
  * non-negative repeat count is allowed: an infinite repeat would give the
  * timeline an infinite length and break seeking / export.
  */
@@ -84,7 +84,7 @@ export function partitionProps(props: Record<string, unknown>): Partitioned {
 }
 
 /**
- * Resolves a routed keyframe path to a concrete GSAP tween target.
+ * Resolves a routed keyframe path to a concrete tween target.
  * `path` is everything after the registered prefix + dot (for
  * `three.cube.rotation.y` under prefix `three`, path = `cube.rotation.y`).
  * Return null to skip the key (the router is expected to have warned).

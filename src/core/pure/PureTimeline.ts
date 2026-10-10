@@ -1,5 +1,6 @@
 import { pureEase, type EaseFn } from './ease';
-import { PIXI_INERT, lerpColor, parseColor, pixiAccessors, plainAccessor, rawAccessor, type Accessor, type Target } from './props';
+import { parseCssColor, rgbInterp } from './colorLerp';
+import { PIXI_INERT, lerpColor, parseColor, pixiAccessors, cssAccessor, plainAccessor, rawAccessor, type Accessor, type Target } from './props';
 
 /**
  * A timeline that is a pure function of time (spike: see docs/superpowers/specs/2026-10-10-pure-timeline-design.md).
@@ -185,7 +186,9 @@ export class PureTimeline {
       for (const key of Object.keys(v)) {
         if (RESERVED.has(key) || key === 'pixi' || CALLBACKS.includes(key)) continue;
         const value = v[key];
-        const acc = parseRel(value) ? plainAccessor(t, key) : rawAccessor(t, key);   // a boolean or a word switches when its segment starts
+        const acc = parseRel(value) ? plainAccessor(t, key)
+          : typeof value === 'string' && parseCssColor(value) ? cssAccessor(t, key)       // '#ff0000' moves through rgba strings
+          : rawAccessor(t, key);                                                          // a boolean or a word switches when its segment starts
         out.set(acc.id, { acc, value });
       }
       if (v.pixi) for (const key of Object.keys(v.pixi)) {
@@ -465,7 +468,7 @@ function endValue(s: Segment): any {
 
 /** The value a key gives, in the unit of the property; `rel` for `'+=36'`. */
 function read(value: unknown, acc: Accessor): { rel: boolean; n: any } | null {
-  if (acc.kind === 'raw') return { rel: false, n: value };
+  if (acc.kind === 'raw' || acc.kind === 'css') return { rel: false, n: value };
   if (acc.kind === 'color') {
     const c = parseColor(value);
     return c === null ? null : { rel: false, n: c };
@@ -490,6 +493,7 @@ function mix(s: Segment, r: number, ended: boolean): any {
     return interp(Math.round(r * 1e6) / 1e6);              // a number tweened from 0 to 1, as GSAP writes it
   }
   if (acc.kind === 'raw') return s.to;
+  if (acc.kind === 'css') return (s.interp ??= rgbInterp(String(s.from), String(s.to)))(r);
   if (acc.kind === 'color') return ended ? endValue(s) : lerpColor(s.from!, s.to, r);
   if ((ended || r === 1) && acc.exactEnd) return endValue(s);
   const k = acc.round;

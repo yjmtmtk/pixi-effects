@@ -116,7 +116,7 @@ export interface TransitionCommon {
   at: number;
   /** Length of the transition in seconds. Must be > 0. */
   duration: number;
-  /** GSAP easing name. Default `'none'` (linear). */
+  /** Ease name (`'power2.out'`, `'back.out(1.7)'`, `'spring.bouncy'`, `'cubic-bezier(.4,0,.2,1)'`, `'steps(8)'`). Default `'none'` (linear). */
   ease?: string;
 }
 
@@ -586,7 +586,7 @@ interface ShapeBase extends SequenceCommon {
   /**
    * Colour space used to interpolate `fillColor` / `strokeColor` keyframes.
    *
-   * - `'rgb'` (default): linear RGB tween via `gsap.utils.interpolate`.
+   * - `'rgb'` (default): a straight lerp of the red, green and blue channels.
    *   Fast, but a red → green ramp passes through muddy brown / olive
    *   greys at the midpoint because intermediate sRGB values are
    *   perceptually unbalanced.

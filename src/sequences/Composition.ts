@@ -265,10 +265,9 @@ export class CompositionSequence extends Sequence {
     this._childBase = childOffset;
     const target = remap ? createTimeline({ paused: true, defaults: { ease: 'none' } }) : timeline;
     for (const child of this._children) {
-      // Each layer builds its tweens in a small timeline of its own, which is added to the parent once, finished. Adding
-      // thousands of tweens one by one to a single timeline makes GSAP re-measure the whole timeline at every add (the cost
-      // grows with the square of the count: ~3 s for a piece with 700 particle layers); this way the parent only ever holds
-      // one child per layer. Positions stay absolute, so the picture at any time is the same.
+      // Each layer builds its tweens in a small timeline of its own, which is added to the parent once, finished: the parent holds
+      // one child per layer, and a layer nobody else writes is not visited again while its local time stands still. Positions stay
+      // absolute, so the picture at any time is the same.
       const own = createTimeline({ defaults: { ease: 'none' } });
       child.bindTimeline(own, childOffset);
       // The mask shares the maskee's offset — its `at` is interpreted
@@ -302,10 +301,6 @@ export class CompositionSequence extends Sequence {
     const scope = this.scope() as unknown as Record<string, number>;
     if (remap.start !== undefined && remap.timeKfs.length === 0) clock.time = remap.start;
     bindClock(timeline, clock, 'time', remap, this.duration!, offset + this.at, scope);
-    // Initialise every tween of the local timeline in order (end, then start), as Movie does for the main one: GSAP captures a `to`
-    // tween's start value the first time it renders, and a remap can reach a stretch of local time for the first time going BACKWARD.
-    inner.time(inner.duration()); inner.time(0);
-    last = NaN;                                          // the inner timeline now sits at 0, whatever the clock last said
     this._warnUnreachable(clockTable(remap, 'time', this.duration!, offset + this.at, scope, offset + this.at + this.duration!), offset + this.at, offset + this.at + this.duration!);
   }
 

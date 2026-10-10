@@ -13,7 +13,7 @@ export interface FollowPathOptions {
   at?: number;
   /** How long the trip takes, in seconds. Required. */
   duration: number;
-  /** GSAP ease for the progress along the path (default `'none'`: constant speed). */
+  /** Ease for the progress along the path (default `'none'`: constant speed). */
   ease?: string;
   /** Where on the path to start and stop, as fractions 0–1 of its length (default 0 → 1). `from: 1, to: 0` goes backwards. */
   from?: number;

@@ -135,7 +135,7 @@ export class TextSequence extends Sequence {
     const colorSpace = this.spec.colorSpace ?? 'rgb';
     // Run the standard pipeline with `fill` stripped — text doesn't have a
     // top-level `fill` property (it lives on `style`), so leaving it in
-    // would make GSAP warn about an unknown prop. Then route fill through
+    // would write a `fill` property onto the Text object. Then route fill through
     // our per-frame text.style.fill update, with optional perceptual
     // interpolation.
     // `value` (the counter) is likewise not a property of the Text object.

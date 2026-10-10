@@ -22,9 +22,12 @@
 <meta name="theme-color" content="#0b0d12" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#f4f1ea" media="(prefers-color-scheme: light)">
 <meta name="color-scheme" content="dark light">
+<!-- gsap: the pinned release (0.26.3) still imports it; the next release does not, and bumping the pin removes these two lines -->
 <script type="importmap">
 { "imports": {
   "pixi.js":      "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+  "gsap":         "https://esm.sh/gsap@3.12.5",
+  "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin",
   "mediabunny":   "https://esm.sh/mediabunny",
   "pixi-effects": "https://cdn.jsdelivr.net/npm/pixi-effects@0.26.3/dist/index.js"
 } }
@@ -230,7 +233,7 @@ movie.play();
       <article class="card">
         <p class="lbl">composition</p>
         <h3>Write it as data</h3>
-        <p>A tree of plain objects: text, shapes, images, video, audio and nested compositions, each with <code>at</code>, <code>duration</code>, <code>initial</code>, <code>keyframes</code>, <code>filters</code>, <code>mask</code>. Numbers may be expressions (<code>'min(W,H)*0.4'</code>). Deterministic and seeded, so the file you export is the frame you saw.</p>
+        <p>A tree of plain objects: text, shapes, images, video, audio and nested compositions, each with <code>at</code>, <code>duration</code>, <code>initial</code>, <code>keyframes</code>, <code>filters</code>, <code>mask</code>. Numbers may be expressions (<code>'min(W,H)*0.4'</code>). Deterministic and seeded, so the file you export is the frame you saw. The timeline is the library's own: the picture at a time comes from the data and the time alone, so scrubbing forward, backward or at random shows the same frame.</p>
       </article>
       <article class="card">
         <p class="lbl">export</p>
@@ -514,7 +517,7 @@ movie.play();
       <a href="https://github.com/yjmtmtk/pixi-effects/blob/main/skills/pixi-effects/SKILL.md">AI skill</a>
       <a href="llms.txt">llms.txt</a>
     </p>
-    <p class="end"><span class="dia" aria-hidden="true"></span><span>pixi-effects · MIT · built on PixiJS v8 and mediabunny</span></p>
+    <p class="end"><span class="dia" aria-hidden="true"></span><span>pixi-effects · MIT · built on PixiJS v8 and mediabunny · ease names after GSAP, with thanks</span></p>
   </div>
 </footer>
 <!--/site:footer-->

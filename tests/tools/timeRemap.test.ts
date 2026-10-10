@@ -220,7 +220,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('time remap
     await withPage(async (cdp) => {
       await cdp.eval(`mk({ duration: 4, composition: { sequences: [{ ...stage(), speed: -1 }, { ...stage(), speed: 2 }] } })`);
       await cdp.eval('snap(30)');
-      await cdp.eval('window.__tl = window.movie.timeline');
+      await cdp.eval('(window.__tl = window.movie.timeline, 0)');
       expect(await cdp.eval('window.__tl.segments().length')).toBeGreaterThan(0);          // the movie and its local timelines exist
       await cdp.eval('window.movie.destroy().then(() => { window.movie = null; })');
       expect(await cdp.eval('window.__tl.segments().length'), 'timelines left behind by a destroyed movie').toBe(0);
