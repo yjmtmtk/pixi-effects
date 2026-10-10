@@ -3403,6 +3403,23 @@ The whole movie as rows on a time axis, for a person to read at a glance. `timel
 
 `movie.timelineSvg()` is the chart alone (one `<svg>`, geometry in `data-*` attributes, each row `<g class="row" data-start>`): `pixi-effects-view` puts a playhead on it and turns a click into a seek.
 
+### Your own layer type: `Sequence` and `registerSequenceType(type, ctor)`
+
+A layer type that the library does not have (a different renderer, a data view) is a subclass of `Sequence`, registered under a `type` name; then `{ type: 'mine', at, duration, initial, keyframes, filters, mask }` works like any layer, in any composition.
+
+```js
+import { Sequence, registerSequenceType } from 'pixi-effects';
+import { Container } from 'pixi.js';
+
+class Mine extends Sequence {
+  async build() { this.target = new Container(); this.intrinsicWidth = 200; this.intrinsicHeight = 100; }   // the display object the keyframes move
+  async awaitFrameAt(local) { /* optional: draw the frame at `local` seconds (playback and export both call it, so draw from the time only) */ }
+}
+registerSequenceType('mine', Mine);
+```
+
+`target` is the Pixi display object; `spec`, `parent`, `root`, `at`, `duration` are set for you; `scope()` gives the expression scope. Keyframes, filters, masks and the lifespan work on `target` as for the built-in layers. `awaitFrameAt(local)` is called once per frame by `gotoFrame` (the one path playback and export share), after the timeline has been set to that frame.
+
 ### `ease(name): (p: number) => number`
 
 The function behind an ease name (`ease('power2.out')(0.5)`, `ease('spring.bouncy')`, `ease('cubic-bezier(.4, 0, .2, 1)')`), for a preset or a check of your own. A name nobody knows warns once and runs as `power1.out`.

@@ -31,6 +31,8 @@ export type { MeasureStyle, TextSize, SplitOptions, TextPiece } from './text/mea
 
 export { registerSequenceType } from './core/Composition';
 export type { SequenceCtor } from './core/Composition';
+export type { CompositionShape } from './types';
+export { Sequence } from './sequences/Base';
 
 export { parseEase as ease } from './presets/_ease';
 export { kenBurns } from './presets/kenBurns';
