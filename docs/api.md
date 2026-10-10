@@ -368,6 +368,17 @@ const env = await musicEnvelope(music, { frameRate: 30 });                      
 
 The [audio-reactive](#audio-reactive-audioenvelope-react-bpmenvelope) envelope of an audio layer's [`music`](dsl.md#music-written-as-text-music): it renders the score and analyses that very sound, so `env.series` (`level`, `bass`, `mid`, `treble`, or your `bands`) follows the notes. `env.beats` are exact (the kick hits, or every beat when the score has no kick) and `env.bpm` is the starting tempo. Options are `audioEnvelope`'s (`frameRate`, `bands`, `beatBand`, `beatSensitivity`). Throws, saying why, when the score cannot play (for example no `bpm`). The envelope covers the music and its tail; when the layer starts at `at`, pass `at` to `react()`.
 
+### `musicEvents()`
+
+```ts
+import { musicEvents } from 'pixi-effects';
+const ev = await musicEvents(music);                    // the same object the audio layer plays; BEFORE movie.init, async like musicEnvelope()
+ev.tracks[0].notes[0];                                  // { beat: 0, time: 0, duration: 4, seconds: 2, bar: 1, beatInBar: 1, name: 'Am7', chord: true, midi: [57, 60, 64, 67], velocity: 0.8 }
+ev.drums[0];                                            // { kind: 'kick', hits: [{ beat, time, bar, beatInBar, velocity }, ...] }
+```
+
+What a [`music`](dsl.md#music-written-as-text-music) score plays, as data: every note and chord with its `beat` and `time` (seconds, the tempo map applied; swing and humanize are not), `duration`, `bar` and `beatInBar` (from `meter`, default 4), the audible `midi` pitches (`transpose` is in), the `name` the score gave it, and every drum hit with the pattern repeated out. Also `bpm`, `meter`, `beats`, `bars`, `seconds` and per track `beats` / `bars`. Use it to make the picture follow the score: light the keys of the chord that sounds, caption its name, flash on the snare. A score that cannot play throws with the reason; warnings are logged as for the layer.
+
 ### `musicBuffer()`
 
 ```ts

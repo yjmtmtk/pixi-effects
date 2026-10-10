@@ -85,6 +85,7 @@ return [
 - `react(env, { duration, props })` returns keyframes: each property is `base + amount × level`. Use `band` to pick the low, middle or high end, `beats: true` for a pulse that jumps on each beat and fades (`decay`), `attack` / `release` (seconds) to smooth the rise and fall like a level meter, and `audioOffset` / `loop` to line it up with a music layer that starts late or repeats.
 - Many bands make an equaliser: `bands: { b0: [50, 80], b1: [80, 130], … }`, one bar per band with `height: { base: 6, amount: 220, band: 'b7' }`. The gallery's [Night Drive](../examples/gallery/music-visualizer.html) is exactly that: a 24-band analysis of the sample loop, mirrored into 48 bars.
 - No audio file? `bpmEnvelope(120, { duration })` is a kick, a snare and hats exactly on a tempo. If the music is itself written as text, `await musicEnvelope(music, { frameRate })` analyses that very score (exact beats, bass / mid / treble that follow the notes): pass it to `react()` just like `audioEnvelope()`.
+- To make the picture follow the notes themselves (light the keys of the chord that sounds, caption its name), `await musicEvents(music)` lists every note and drum hit with its beat, time, bar and pitches. `check` prints the same facts as a `music` block (bars per track, what starts in each bar, the drum span), so you can verify a score without listening; set `meter: 3` for a waltz.
 
 {{demo examples/gallery/music-visualizer.html}}
 

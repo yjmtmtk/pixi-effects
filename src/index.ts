@@ -57,6 +57,8 @@ export type { ReactOptions, ReactProp } from './presets/react';
 export { audioEnvelope, computeEnvelope, bpmEnvelope } from './audio/envelope';
 export { musicEnvelope } from './audio/musicEnvelope';
 export { musicBuffer } from './audio/musicBuffer';
+export { musicEvents } from './audio/musicEvents';
+export type { MusicEvents, MusicNote, MusicTrackEvents, MusicDrumEvents, MusicDrumHit, MusicSummary } from './audio/musicEvents';
 export type { AudioEnvelope, EnvelopeOptions, AudioEnvelopeSource } from './audio/envelope';
 
 export { deck } from './presets/deck';

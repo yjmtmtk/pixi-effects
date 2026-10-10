@@ -1,4 +1,5 @@
 export { resolveMusic, musicKey, MAX_SECONDS, DEFAULT_TAIL, type ResolvedMusic } from './resolve';
 export { renderMusic, renderMusicAsync, musicLength, musicBeatTimes, MUSIC_PEAK } from './render';
 export { INSTRUMENTS, DRUMS } from './instruments';
+export { describeEvents, summarizeMusic } from './events';
 export { noteToMidi, chordToMidi, parseNotes, parseDrumGrid, TempoMap, CHORD_KINDS } from './notation';

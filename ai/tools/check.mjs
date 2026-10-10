@@ -28,6 +28,34 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // ───────────────────────────── pure helpers (unit-tested) ─────────────────────────────
 
+/**
+ * A music layer's score read back, so the author can check it without listening: the length of every track in bars (a track that ends early or
+ * has a short bar is named), the names that start in each bar, and where the drums play. One header line per music layer; none for other sources.
+ */
+export function formatMusic(sources) {
+  const out = [];
+  const pad = '            ';
+  const num = x => String(Math.round(x * 100) / 100);
+  for (const s of sources ?? []) {
+    const m = s.music;
+    if (!m) continue;
+    const assumed = m.meterSet === false ? ` (no meter set: ${m.meter} assumed; a waltz is meter: 3)` : '';
+    out.push(`  music     ${s.layer} · ${num(m.bpm)} bpm · ${m.beats} beats = ${num(m.bars)} bars of ${m.meter} beats${assumed} · ${num(Math.round(m.seconds * 10) / 10)} s (+ ${num(m.tail)} s tail)`);
+    for (const t of m.tracks) {
+      const whole = Math.abs(t.bars - Math.round(t.bars)) < 1e-6;
+      const note = !whole ? (m.meterSet === false ? '' : ' (not a whole number of bars: a bar is short)') : t.beats < m.beats - 1e-6 ? ` (ends before the others: silent from bar ${Math.round(t.bars) + 1})` : '';
+      const cell = names => { const n = names.match(/\[[^\]]*\]|\S+/g) ?? []; return n.length === 0 ? '–' : n.length > 3 ? `${n.slice(0, 3).join(' ')} …` : n.join(' '); };
+      const shown = t.perBar.slice(0, 16).map(cell).join(' | ');
+      out.push(`${pad}${t.inst.padEnd(6)} ${num(t.bars)} bar${t.bars === 1 ? '' : 's'}${note} | ${shown}${t.perBar.length > 16 ? ` | … (${t.perBar.length - 16} more)` : ''}`);
+    }
+    for (const d of m.drums) {
+      if (!d.kinds.length) continue;
+      out.push(`${pad}drums  ${d.kinds.join(', ')} · beats ${num(d.from)}–${num(d.to)} (bars ${Math.floor(d.from / m.meter + 1e-9) + 1}–${Math.max(1, Math.ceil(d.to / m.meter - 1e-9))})`);
+    }
+  }
+  return out;
+}
+
 /** `assets 0.1 s · build 2.4 s (slowest) · sound 0.6 s · frames 0.2 s` from `movie.loadStages` (milliseconds); the slowest stage is named only when the load took 1 s or more. */
 export function formatLoadStages(stages) {
   if (!stages) return '';
@@ -510,6 +538,7 @@ function finish(report, outDir, log) {
   if (report.audio !== undefined) {
     const a = report.audio;
     L.push(a ? `  audio     ${a.sources.length} source(s) · mix peak ${a.peakDb} dBFS · ${a.loudness?.integratedLufs ?? 'n/a'} LUFS · true peak ${a.loudness?.truePeakDb ?? 'n/a'} dBTP · ${a.issues.length ? a.issues.join(' | ') : 'no issues (movie.inspectAudio)'}` : '  audio     none');
+    for (const l of formatMusic(a?.sources)) L.push(l);
     for (const n of a?.notes ?? []) L.push(`  note      ${n}`);
   }
   for (const ex of report.exports ?? []) {

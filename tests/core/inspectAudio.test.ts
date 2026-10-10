@@ -16,6 +16,12 @@ const src = (layer: string, source: string, start: number, end: number, synth = 
 });
 
 describe('analyzeAudio', () => {
+  it('a music layer\'s summary is passed through to its source, so the report can say what the score is', () => {
+    const music = { bpm: 120, meter: 4, beats: 8, bars: 2, seconds: 4, tail: 2.5, tracks: [{ inst: 'keys', beats: 8, bars: 2, events: 2, perBar: ['C', 'G'] }], drums: [] };
+    const r = analyzeAudio(pcm(4, t => 0.3 * Math.sin(2 * Math.PI * 1000 * t)), [{ ...src('layer "m"', 'music', 0, 4), music }], { peak: 0.3, peakAt: 1 }, 4, { window: 1 });
+    expect(r.sources[0]!.music).toEqual(music);
+    expect(analyzeAudio(pcm(4, () => 0.3), [src('layer "s"', 'sfx "pop"', 0, 1)], { peak: 0.3, peakAt: 0 }, 4, { window: 1 }).sources[0]).not.toHaveProperty('music');
+  });
   it('a sound the clock of its composition cuts short is said to be cut by the CLOCK (not by the end of the movie)', () => {
     const mix = pcm(11, t => (t >= 4 && t < 5.5 ? 0.3 * Math.sin(2 * Math.PI * 1000 * t) : 0));
     // a 1.4 s sound at local 4.0 .. 5.4 in a composition whose clock runs 0 -> 4.5 and then stands still: the sound stops at 4.5 of its own time

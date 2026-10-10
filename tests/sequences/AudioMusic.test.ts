@@ -31,6 +31,12 @@ describe('audio layer with music', () => {
     expect(audios.every(a => a.synth && !a.buffer && !a.loop)).toBe(true);
   });
 
+  it('the descriptor carries a summary of the score (bars per track, what starts in each bar), for movie.inspectAudio() and the check tool', async () => {
+    const audios = await build([{ type: 'audio', name: 'm', music: { ...tune, meter: 4, tracks: [{ inst: 'keys', notes: 'C:4 G:4' }, { inst: 'bass', notes: 'c2:4' }] } }]);
+    expect(audios[0]!.music).toMatchObject({ bpm: 120, meter: 4, beats: 8, bars: 2 });
+    expect(audios[0]!.music!.tracks.map(t => [t.inst, t.bars, t.perBar])).toEqual([['keys', 2, ['C', 'G']], ['bass', 1, ['c2']]]);
+  });
+
   it('music that would outlast the movie ends with it, with no warning', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const audios = await build([{ type: 'audio', music: tune, at: 2 }], 5);

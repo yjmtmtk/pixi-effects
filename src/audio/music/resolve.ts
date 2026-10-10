@@ -8,7 +8,7 @@ export const MAX_SECONDS = 180;
 export const MAX_NOTES = 20000;
 export const DEFAULT_TAIL = 2.5;
 
-const OPTION_KEYS = ['bpm', 'tracks', 'drums', 'grid', 'swing', 'reverb', 'humanize', 'drumVol', 'transpose', 'tail', 'seed'] as const;
+const OPTION_KEYS = ['bpm', 'meter', 'tracks', 'drums', 'grid', 'swing', 'reverb', 'humanize', 'drumVol', 'transpose', 'tail', 'seed'] as const;
 const TRACK_KEYS = ['inst', 'notes', 'vol', 'pan', 'step', 'strum', 'legato', 'tone', 'reverb', 'attack', 'release', 'ring', 'transpose'] as const;
 /** Layer fields an author may put inside `music` by mistake. */
 const LAYER_KEYS = ['duration', 'length', 'volume', 'at', 'loop'];
@@ -47,6 +47,10 @@ export interface ResolvedDrums {
 }
 export interface ResolvedMusic {
   tempo: TempoPoints;
+  /** Beats in a bar: bar numbers and bar counts only, playback does not use it. */
+  meter: number;
+  /** The score gave a `meter` (when it did not, 4 is only assumed). */
+  meterSet: boolean;
   swing: number;
   reverb: number;
   humanize: number;
@@ -101,6 +105,7 @@ export function resolveMusic(music: unknown, who: string, warn: Warn = defaultWa
   }
   if (finite(o.bpm) && (o.bpm < 20 || o.bpm > 400)) warn(`pixi-effects: ${who}: music.bpm ${o.bpm} is outside 20–400; using ${tempo[0]![1]}`);
 
+  const meter = num('meter', 1, 16, 4);
   const swing = num('swing', 0, 0.4, 0);
   const reverbAmount = num('reverb', 0, 0.6, 0.22);
   const humanize = num('humanize', 0, 0.06, 0.012);
@@ -193,7 +198,7 @@ export function resolveMusic(music: unknown, who: string, warn: Warn = defaultWa
     return null;
   }
   if (seconds > MAX_SECONDS) { warn(`pixi-effects: ${who}: the music lasts ${Math.round(seconds)} s; the limit is ${MAX_SECONDS} s. The layer is silent.`); return null; }
-  return { tempo, swing, reverb: reverbAmount, humanize, drumVol, grid, tail, seed, tracks, drums: sections, beats, seconds };
+  return { tempo, meter, meterSet: o.meter !== undefined, swing, reverb: reverbAmount, humanize, drumVol, grid, tail, seed, tracks, drums: sections, beats, seconds };
 }
 
 /** Cache key: equal keys render equal samples (the score is plain data, so its JSON is the key). */

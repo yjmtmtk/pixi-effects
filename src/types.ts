@@ -1,3 +1,4 @@
+import type { MusicSummary } from './audio/music/events';
 /**
  * pixi-effects public DSL types.
  *
@@ -441,6 +442,8 @@ export type MusicDrums = { [D in MusicDrum]?: string } & { from?: number; to?: n
 export interface MusicOptions {
   /** Beats per minute, or `[beat, bpm]` points for a tempo change (a ritardando: `[[0, 96], [28, 96], [32, 60]]`). */
   bpm: number | Array<[number, number]>;
+  /** Beats in a bar (default 4; a waltz is 3). Only names the bars in `musicEvents()` and the `check` read-back; playback does not use it. */
+  meter?: number;
   tracks?: MusicTrack[];
   /** Drum patterns that repeat, or a list of them with `from` / `to` (beats) for sections. */
   drums?: MusicDrums | MusicDrums[];
@@ -755,6 +758,8 @@ export interface AudioDescriptor {
   layer?: string;
   /** What it plays: `sfx "pop"`, `asset "bgm"`, `video "green"`. */
   source?: string;
+  /** A music layer's score read back: bars per track, what starts in each bar, the drum spans (for `movie.inspectAudio()` and the `check` tool). */
+  music?: MusicSummary;
   loop: boolean;
   start: number;
   end: number;

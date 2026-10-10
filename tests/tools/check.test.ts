@@ -264,6 +264,39 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
 });
 
 describe('check: where the time went while the page loaded', () => {
+  it('formatMusic reads a music layer back: length in bars per track (a short one is named), what starts in each bar, and the drum span', () => {
+    const lines = tool.formatMusic([
+      { layer: 'layer "bed"', source: 'music', music: {
+        bpm: 90, meter: 4, beats: 16, bars: 4, seconds: 10.7, tail: 2.5,
+        tracks: [
+          { inst: 'pad', beats: 16, bars: 4, events: 4, perBar: ['C', 'Am', 'F', 'G'] },
+          { inst: 'lead', beats: 12, bars: 3, events: 3, perBar: ['', '', 'e4 g4 a4'] },
+          { inst: 'bass', beats: 14, bars: 3.5, events: 4, perBar: ['c2', 'a1', 'f1', 'g1'] },
+        ],
+        drums: [{ from: 8, to: 16, kinds: ['kick', 'snare'] }],
+      } },
+      { layer: 'layer "pop"', source: 'sfx "pop"' },
+    ]);
+    expect(lines).toEqual([
+      '  music     layer "bed" · 90 bpm · 16 beats = 4 bars of 4 beats · 10.7 s (+ 2.5 s tail)',
+      '            pad    4 bars | C | Am | F | G',
+      '            lead   3 bars (ends before the others: silent from bar 4) | – | – | e4 g4 a4',
+      '            bass   3.5 bars (not a whole number of bars: a bar is short) | c2 | a1 | f1 | g1',
+      '            drums  kick, snare · beats 8–16 (bars 3–4)',
+    ]);
+    // no meter in the score: a bar is assumed to be 4 beats, and a length that is not a multiple of 4 is not called a mistake (it may be a waltz)
+    const noMeter = tool.formatMusic([{ layer: 'layer "w"', source: 'music', music: {
+      bpm: 100, meter: 4, meterSet: false, beats: 27, bars: 6.75, seconds: 16.2, tail: 1.5,
+      tracks: [{ inst: 'pad', beats: 27, bars: 6.75, events: 2, perBar: ['[c3 e3 g3] [c3 e3 g4] [a2 c3 e3] [a2 c3 e3]', 'G'] }], drums: [],
+    } }]);
+    expect(noMeter).toEqual([
+      '  music     layer "w" · 100 bpm · 27 beats = 6.75 bars of 4 beats (no meter set: 4 assumed; a waltz is meter: 3) · 16.2 s (+ 1.5 s tail)',
+      '            pad    6.75 bars | [c3 e3 g3] [c3 e3 g4] [a2 c3 e3] … | G',
+    ]);
+    expect(tool.formatMusic([{ layer: 'layer "pop"', source: 'sfx "pop"' }])).toEqual([]);
+    expect(tool.formatMusic(undefined)).toEqual([]);
+  });
+
   it('formatLoadStages names every stage in seconds and marks the slowest one when the load was long', () => {
     expect(tool.formatLoadStages({ assets: 100, build: 2400, sound: 600, frames: 200 })).toBe('assets 0.1 s · build 2.4 s (slowest) · sound 0.6 s · frames 0.2 s');
     expect(tool.formatLoadStages({ assets: 10, build: 80, sound: 0, frames: 0 })).toBe('assets 0 s · build 0.1 s · sound 0 s · frames 0 s');   // a quick load names no culprit

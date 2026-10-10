@@ -10,6 +10,7 @@ export class AudioSequence extends Sequence {
   declare spec: AudioSequenceSpec;
   private _audioBuffer: AudioBuffer | null = null;
   private _synth: AudioDescriptor['synth'] | null = null;
+  private _music: AudioDescriptor['music'] | null = null;
   private _source = '';
   private _remap: TimeRemap | null = null;
 
@@ -68,7 +69,7 @@ export class AudioSequence extends Sequence {
     if (raw.asset !== undefined) console.warn(`pixi-effects: ${who}: has both asset and music — the music plays; remove one`);
     if (raw.sfx !== undefined) console.warn(`pixi-effects: ${who}: has both sfx and music — the music plays; remove one`);
     // The music synthesiser is its own chunk: movies without music never load it.
-    const { resolveMusic, renderMusic, renderMusicAsync, musicLength, musicKey } = await import('../audio/music');
+    const { resolveMusic, renderMusic, renderMusicAsync, musicLength, musicKey, summarizeMusic } = await import('../audio/music');
     const music = resolveMusic(spec.music, who);
     if (!music) return;                                   // warned; the layer stays silent
     const natural = musicLength(music);
@@ -85,6 +86,7 @@ export class AudioSequence extends Sequence {
     this.duration = length;
     const loop = !!spec.loop;
     this._source = 'music';
+    this._music = summarizeMusic(music);
     this._synth = { key: musicKey(music, length, loop), render: sr => renderMusic(music, sr, length, loop), renderAsync: (sr, pace) => renderMusicAsync(music, sr, length, loop, pace) };
   }
 
@@ -106,6 +108,7 @@ export class AudioSequence extends Sequence {
       ...(this._audioBuffer ? { buffer: this._audioBuffer } : { synth: this._synth! }),
       layer: describeLayer(this.spec),
       source: this._source,
+      ...(this._music ? { music: this._music } : {}),
       loop: !this._synth && !!(this.spec as AudioAssetSpec).loop,
       start: t0,
       end: t0 + dur,

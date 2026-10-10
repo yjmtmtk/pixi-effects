@@ -56,7 +56,11 @@ export function chordToMidi(sym: string): number[] | null {
 }
 
 /** One note or chord of a track: where (beats from the start), how long (beats), which MIDI notes, how hard (0–1). */
-export interface MusicEvent { t: number; dur: number; midi: number[]; vel: number }
+export interface MusicEvent {
+  t: number; dur: number; midi: number[]; vel: number;
+  /** What the score called it, without length or accent: `Am7`, `c4`, `[c4 e4 g4]`. */
+  name: string;
+}
 
 /**
  * A track's `notes` string → events. Tokens are separated by spaces (`|` is ignored: use it for bars).
@@ -86,7 +90,7 @@ export function parseNotes(str: string, step = 1): { events: MusicEvent[]; lengt
       const hint = /^[A-G]/.test(tok) && !tok.startsWith('[') ? capitalHint(tok) : null;
       throw new Error(`cannot read "${raw}"${hint ? `: ${hint}` : ''} (${NOTE_FORMS})`);
     }
-    events.push({ t, dur, midi: midi as number[], vel });
+    events.push({ t, dur, midi: midi as number[], vel, name: tok });
     t += dur;
   }
   return { events, length: t };

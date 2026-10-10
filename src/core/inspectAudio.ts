@@ -1,4 +1,5 @@
 import type { AudioDescriptor } from '../types';
+import type { MusicSummary } from '../audio/music/events';
 import { playSpan, clockReach } from './audioRemap';
 import type { MixStats } from './AudioMixer';
 import { spectralCentroid } from './spectrum';
@@ -34,6 +35,8 @@ export interface AudioSourceReport {
   /** Loudest sample of the MIX while this source plays, dBFS (−120 = silence). */
   peakDb: number;
   sound: SoundMeasure;
+  /** For a `music` layer: its score read back (bars per track, what starts in each bar, the drum spans). */
+  music?: MusicSummary;
 }
 
 export interface AudioReport {
@@ -175,7 +178,7 @@ export function analyzeAudio(
         issues.push(`${layer} (${source}) is cut off by the end of the movie at ${movieDuration}s (it runs to ${s.end.toFixed(2)}s)`);
       }
     }
-    return { layer, source, start: s.start, end: s.end, peakDb, sound };
+    return { layer, source, start: s.start, end: s.end, peakDb, sound, ...(s.music ? { music: s.music } : {}) };
   });
 
   // the mix as a whole, scene by scene, and the advice
