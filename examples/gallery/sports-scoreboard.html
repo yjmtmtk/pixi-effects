@@ -136,10 +136,10 @@
       const LX = 285, RX = 995;          // team column centres
       const seq = [
         rect('bg', 640, 360, W, H, C.night),
-        // the two team panels meet on a diagonal seam through (640, 360)
-        slab('panel-home', 300, 360, 840, 760, 160, null, { fillGradient: { angle: 0, stops: [[0, C.homeDark], [0.7, C.homeDeep], [1, C.home]] },
+        // the two team panels meet on a diagonal seam through (640, 360): each one's inner edge sits exactly on it (the dark gap covers the joint)
+        slab('panel-home', 220, 360, 840, 760, 160, null, { fillGradient: { angle: 0, stops: [[0, C.homeDark], [0.7, C.homeDeep], [1, C.home]] },
           keyframes: ins(0, { x: -560 }, 0.75) }),
-        slab('panel-away', 980, 360, 840, 760, 160, null, { fillGradient: { angle: 0, stops: [[0, C.away], [0.3, C.awayDeep], [1, C.awayDark]] },
+        slab('panel-away', 1060, 360, 840, 760, 160, null, { fillGradient: { angle: 0, stops: [[0, C.away], [0.3, C.awayDeep], [1, C.awayDark]] },
           keyframes: ins(0.08, { x: 1840 }, 0.75) }),
         ...stripes(name + '-tex', 14, 0.035, 120, duration),
         // seam: dark gap + gold blade
