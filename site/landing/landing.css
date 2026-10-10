@@ -53,6 +53,8 @@
 .facade .ld b{display:flex;align-items:center;gap:10px;font-weight:400;background:rgba(11,13,18,.82);padding:9px 14px;border-radius:999px}
 .facade .ld i{width:22px;height:22px;border-radius:50%;border:3px solid rgba(255,255,255,.28);border-top-color:#ff5a3c;animation:ldspin .9s linear infinite}
 @keyframes ldspin{to{transform:rotate(360deg)}}
+.facade .ld .bar{position:absolute;left:0;right:0;bottom:0;height:4px;background:#ff5a3c;transform:scaleX(var(--p,0));transform-origin:0 50%;transition:transform .3s linear}
+@media (prefers-reduced-motion:reduce){.facade .ld .bar{transition:none}}
 @media (prefers-reduced-motion:reduce){.facade .ld i{animation:none;border-top-color:rgba(255,255,255,.28)}}
 .facade .play svg{width:22px;height:22px;margin-left:4px;fill:#0b0d12}
 .facade .hint{position:absolute;right:12px;bottom:10px;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:#fff;background:rgba(0,0,0,.55);padding:4px 8px;border-radius:4px}

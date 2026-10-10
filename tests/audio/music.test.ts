@@ -271,3 +271,18 @@ describe('the warnings use console.warn by default', () => {
     spy.mockRestore();
   });
 });
+
+describe('the music is rendered in slices a page can paint between (the load of a long reel froze the page for 4 s)', () => {
+  const spec = { bpm: 120, tracks: [{ inst: 'pluck', notes: 'c4:1 e4:1 g4:1 c5:1' }, { inst: 'pad', notes: 'Am:4' }], drums: [{ pattern: 'x.x.x.x.' }], reverb: 0.3 } as never;
+  it('the sliced render gives exactly the samples of the one-piece render, and it hands control back many times', async () => {
+    const { renderMusicAsync } = await import('../../src/audio/music/render');
+    const m = resolveMusic(spec, 'test')!;
+    const [l1, r1] = renderMusic(m, SR, musicLength(m));
+    const fractions: number[] = [];
+    const [l2, r2] = await renderMusicAsync(m, SR, musicLength(m), false, async (f) => { fractions.push(f); });
+    expect(l2).toEqual(l1); expect(r2).toEqual(r1);
+    expect(fractions.length).toBeGreaterThan(10);
+    for (let i = 1; i < fractions.length; i++) expect(fractions[i]!).toBeGreaterThanOrEqual(fractions[i - 1]!);   // it only goes forward
+    expect(fractions.at(-1)!).toBeLessThanOrEqual(1);
+  });
+});

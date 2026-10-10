@@ -47,6 +47,7 @@ function defaultYielder(): Promise<void> {
 export class LoadProgress {
   private _stage: LoadStage | null = null;
   private _loaded = 0;
+  private _part = 0;
   private _total = 0;
   private _high = 0;
   private _started = 0;
@@ -72,6 +73,7 @@ export class LoadProgress {
     this._closeTiming();
     this._stage = stage;
     this._loaded = 0;
+    this._part = 0;
     this._total = Math.max(0, total);
     this._started = this._now();
     this._emit();
@@ -80,6 +82,14 @@ export class LoadProgress {
   tick(n = 1): void {
     if (!this._stage) return;
     this._loaded = Math.min(this._total, this._loaded + n);
+    this._part = 0;
+    this._emit();
+  }
+
+  /** How much of the item being worked on is done (0..1), for an item that takes long: the number moves between two `tick`s. */
+  part(done: number): void {
+    if (!this._stage) return;
+    this._part = Math.min(1, Math.max(0, done));
     this._emit();
   }
 
@@ -111,7 +121,7 @@ export class LoadProgress {
     const stage = this._stage!;
     let done = 0;
     for (const s of ORDER) { if (s === stage) break; done += WEIGHT[s]; }
-    const within = this._total > 0 ? this._loaded / this._total : 1;
+    const within = this._total > 0 ? Math.min(1, (this._loaded + this._part) / this._total) : 1;
     this._high = Math.min(1, Math.max(this._high, done + WEIGHT[stage] * within));
     this._onChange({ stage, loaded: this._loaded, total: this._total, progress: this._high });
   }

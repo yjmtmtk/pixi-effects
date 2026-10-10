@@ -6,17 +6,23 @@ export async function mixdown(
   audios: AudioDescriptor[],
   totalDuration: number,
   sampleRate = 44100,
+  /** Runs between the slices of the work (`done` is how much of the whole mixdown is made, 0..1) and may wait: the page can paint. */
+  pace?: (done: number) => Promise<void> | void,
 ): Promise<AudioBuffer | null> {
   if (audios.length === 0) return null;
+  // how much each sound weighs in `pace`: a synthesised one by its length (the music is nearly all of the time), a file very little
+  const weight = (a: AudioDescriptor): number => (a.synth ? Math.max(1, a.end - a.start) : 0.2);
+  const all = audios.reduce((s, a) => s + weight(a), 0) + 0.5;                         // + the final render
+  let made = 0;
   const ctx = new OfflineAudioContext(2, Math.ceil(sampleRate * totalDuration), sampleRate);
   // A synthesised sound is rendered once per mix, at the mix's own rate, however often it is used.
   const synthesised = new Map<string, AudioBuffer>();
-  const bufferOf = (a: AudioDescriptor): AudioBuffer | null => {
+  const bufferOf = async (a: AudioDescriptor, inner?: (done: number) => Promise<void> | void): Promise<AudioBuffer | null> => {
     if (a.buffer) return a.buffer;
     if (!a.synth) return null;
     let buf = synthesised.get(a.synth.key);
     if (!buf) {
-      const [left, right] = a.synth.render(sampleRate);
+      const [left, right] = a.synth.renderAsync ? await a.synth.renderAsync(sampleRate, inner) : a.synth.render(sampleRate);
       buf = ctx.createBuffer(2, left.length, sampleRate);
       buf.getChannelData(0).set(left);
       buf.getChannelData(1).set(right);
@@ -25,7 +31,10 @@ export async function mixdown(
     return buf;
   };
   for (const a of audios) {
-    const buffer = bufferOf(a);
+    const w = weight(a), base = made;
+    const buffer = await bufferOf(a, pace ? (f) => pace((base + w * f) / all) : undefined);
+    made += w;
+    if (pace) await pace(made / all);
     if (!buffer) continue;
     if (a.warp || a.sourceMap) {
       // A time remap: resample the sound through the maps into a buffer of its own, then play that one straight. (`start` is in the

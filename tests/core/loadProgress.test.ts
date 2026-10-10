@@ -83,3 +83,18 @@ describe('LoadProgress — one number from 0 to 1 for a movie that takes seconds
     expect(yields).toBe(1);
   });
 });
+
+describe('part(): a long item moves the number between two ticks', () => {
+  it('the number rises with the part done and never goes down, and a tick makes the item whole', () => {
+    const seen: number[] = [];
+    const lp = new LoadProgress(s => seen.push(s.progress));
+    lp.begin('sound', 1);
+    lp.part(0.25); lp.part(0.5); lp.part(0.9);
+    expect(seen.length).toBeGreaterThanOrEqual(4);
+    for (let i = 1; i < seen.length; i++) expect(seen[i]!).toBeGreaterThanOrEqual(seen[i - 1]!);
+    const mid = lp.progress;
+    lp.tick();
+    expect(lp.progress).toBeGreaterThan(mid);
+    expect(lp.progress).toBeCloseTo(0.15 + 0.6 + 0.2, 6);                 // the stages before it count as done, and the sound stage is whole
+  });
+});

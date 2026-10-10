@@ -231,7 +231,8 @@ export function hitDrum(kind: DrumName, vel: number, out: Bus, start: number, rn
 }
 
 /** Freeverb-style reverb: sums the `send` bus to mono and adds its tail to `out` (the same bus works too). `wet` 0–1. */
-export function reverb(send: Bus, out: Bus, wet: number, size = 0.8): void {
+/** `reverb` in slices: it yields how far it is (0..1) every 16384 samples, so a caller can hand control back to the page. */
+export function* reverbSteps(send: Bus, out: Bus, wet: number, size = 0.8): Generator<number, void, void> {
   const L = out.L, R = out.R, sL = send.L, sR = send.R;
   const scale = SR / 44100;
   type Comb = { b: Float32Array; i: number; fb: number; d: number; damp: number };
@@ -259,7 +260,12 @@ export function reverb(send: Bus, out: Bus, wet: number, size = 0.8): void {
   };
   const chL = mk(0), chR = mk(23);
   for (let i = 0; i < L.length; i++) {
+    if ((i & 16383) === 0) yield i / L.length;
     const m = (sL[i]! + sR[i]!) * 0.5;
     L[i]! += run(m, chL) * wet; R[i]! += run(m, chR) * wet;
   }
+}
+
+export function reverb(send: Bus, out: Bus, wet: number, size = 0.8): void {
+  for (const _ of reverbSteps(send, out, wet, size)) void _;
 }

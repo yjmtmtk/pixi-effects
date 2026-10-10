@@ -608,9 +608,18 @@ movie.play();
     var f=openPiece('reel',rf,'examples/showreel/pixi-effects-reel.html'); f.title='The pixi-effects reel, playing live'; rb.remove();
     // the poster stays until the page behind it has drawn its first frame; a spinner and a line say that it is loading, not stuck
     var still=rf.querySelector('img'), ld=document.createElement('div'), n=0;
-    ld.className='ld'; ld.setAttribute('role','status'); ld.innerHTML='<b><i aria-hidden="true"></i><span>loading the reel…</span></b>'; rf.appendChild(ld);
+    ld.className='ld'; ld.setAttribute('role','status'); ld.innerHTML='<b><i aria-hidden="true"></i><span>loading the reel…</span></b><u class="bar" aria-hidden="true"></u>'; rf.appendChild(ld);
     function done(msg){ if(msg){ ld.querySelector('span').textContent=msg; ld.querySelector('i').remove(); } else { still.style.display='none'; ld.remove(); } }
+    // the page in the frame says how far it is on its own loader (data-stage / data-percent, the library writes them); say it here too
+    var label=ld.querySelector('span'), bar=ld.querySelector('.bar');
+    function progress(){
+      try{
+        var l=f.contentDocument.querySelector('.pe-loader'), st=l&&l.getAttribute('data-stage'), pc=l&&l.getAttribute('data-percent');
+        if(st&&pc){ label.textContent=st.toLowerCase()+' · '+pc+' %'; bar.style.setProperty('--p',(Number(pc)/100).toFixed(3)); }
+      }catch(e){ /* another origin: the plain line stays */ }
+    }
     (function wait(){
+      progress();
       try{ if(f.contentWindow.__ready===true){ setTimeout(function(){ done(); },400); return; } }catch(e){ done(); return; }
       if(++n<250) setTimeout(wait,100); else done('could not load the reel here: open the page with controls');
     })();

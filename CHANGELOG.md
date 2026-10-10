@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+**Fixed**
+
+- **The load of a long movie no longer freezes the page, and the loading number moves through the sound.** The music was made in one piece (4.4 s of blocked page for the 81-second reel); it is now made in slices that hand control back every 50 ms (`renderMusicAsync`; the samples are the same ones as `renderMusic`'s, a test compares them), and the sound stage reports how far it is (the number used to sit at 75 % until the end). On the landing page the reel's loading line says the stage and the percentage, with a bar.
+- **The landing page's "A real piece, live" plays in front of its poster** (the poster stayed on top of the frame, with the piece playing behind it).
+- **Gallery: Matchday Graphics' two team panels meet on the seam** (a wedge of blue showed to the left of the gold blade).
+
 ## 0.27.0
 
 **Changed (breaking)**

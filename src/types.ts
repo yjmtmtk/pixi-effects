@@ -745,7 +745,12 @@ export interface AudioDescriptor {
   /** Decoded audio (a file or a video's soundtrack). Exactly one of `buffer` / `synth` is set. */
   buffer?: AudioBuffer;
   /** Stereo samples (left, right) made on demand at the mix's sample rate (a synthesised sfx). Equal keys render equal samples. */
-  synth?: { key: string; render: (sampleRate: number) => [Float32Array, Float32Array] };
+  synth?: {
+    key: string;
+    render: (sampleRate: number) => [Float32Array, Float32Array];
+    /** The same samples in slices: `pace(done)` (0..1) runs between them and may wait, so a long piece does not freeze the page. */
+    renderAsync?: (sampleRate: number, pace?: (done: number) => Promise<void> | void) => Promise<[Float32Array, Float32Array]>;
+  };
   /** Who made it, for warnings and inspectAudio: `layer "pop-1"`. */
   layer?: string;
   /** What it plays: `sfx "pop"`, `asset "bgm"`, `video "green"`. */

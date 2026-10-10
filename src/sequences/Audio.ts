@@ -68,7 +68,7 @@ export class AudioSequence extends Sequence {
     if (raw.asset !== undefined) console.warn(`pixi-effects: ${who}: has both asset and music — the music plays; remove one`);
     if (raw.sfx !== undefined) console.warn(`pixi-effects: ${who}: has both sfx and music — the music plays; remove one`);
     // The music synthesiser is its own chunk: movies without music never load it.
-    const { resolveMusic, renderMusic, musicLength, musicKey } = await import('../audio/music');
+    const { resolveMusic, renderMusic, renderMusicAsync, musicLength, musicKey } = await import('../audio/music');
     const music = resolveMusic(spec.music, who);
     if (!music) return;                                   // warned; the layer stays silent
     const natural = musicLength(music);
@@ -85,7 +85,7 @@ export class AudioSequence extends Sequence {
     this.duration = length;
     const loop = !!spec.loop;
     this._source = 'music';
-    this._synth = { key: musicKey(music, length, loop), render: sr => renderMusic(music, sr, length, loop) };
+    this._synth = { key: musicKey(music, length, loop), render: sr => renderMusic(music, sr, length, loop), renderAsync: (sr, pace) => renderMusicAsync(music, sr, length, loop, pace) };
   }
 
   override bindTimeline(_timeline: unknown): void {

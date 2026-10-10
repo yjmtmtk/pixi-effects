@@ -402,10 +402,10 @@ export class Movie {
 
       const audios: AudioDescriptor[] = [];
       composition.collectAudio(audios, 0);
-      lp.begin('sound', audios.length);
+      lp.begin('sound', 1);                                    // one whole: `mixdown` says how far it is
       if (audios.length > 0) {
-        this.audioBuffer = await mixdown(audios, this.duration, audioContext.sampleRate);
-        lp.tick(audios.length);
+        this.audioBuffer = await mixdown(audios, this.duration, audioContext.sampleRate, async (done) => { lp.part(done); await lp.yieldIfDue(); });
+        lp.tick();
         if (this.audioBuffer) this._mixStats = limitMix(this.audioBuffer, audios);
       }
       this._audioSources = audios;

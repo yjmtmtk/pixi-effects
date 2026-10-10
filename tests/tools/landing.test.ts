@@ -61,6 +61,37 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the landin
     }
   }, 120_000);
 
+  it('loading the reel says how far it is (the stage and a percentage, a bar) and the page does not freeze while it loads', async () => {
+    const { server, port } = await check.serve(root);
+    const userDataDir = mkdtempSync(join(tmpdir(), 'landing-'));
+    const { proc, cdp } = await launchPage(chrome, userDataDir);
+    try {
+      await cdp.send('Runtime.enable');
+      await cdp.send('Page.enable');
+      await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__beat = []; let last = performance.now(); setInterval(() => { const n = performance.now(); window.__beat.push(n - last); last = n; }, 50);` });
+      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/index.html` });
+      await check.sleep(1500);
+      await cdp.eval(`window.__beat.length = 0; document.getElementById('reelBtn').click()`);
+      const labels = new Set<string>();
+      let ready = false;
+      for (let i = 0; i < 240 && !ready; i++) {
+        await check.sleep(100);
+        const t = await cdp.eval(`(document.querySelector('#reelFacade .ld span') || {}).textContent || ''`).catch(() => '');
+        if (t) labels.add(t);
+        ready = await cdp.eval(`!document.querySelector('#reelFacade .ld')`).catch(() => false);
+      }
+      expect(ready, [...labels].join(' | ')).toBe(true);
+      expect([...labels].some((t) => /\d+ %/.test(t)), [...labels].join(' | ')).toBe(true);         // it said a number
+      const worst = await cdp.eval(`Math.max(...window.__beat)`);
+      expect(worst, 'the longest gap of the page while the reel loaded, in ms').toBeLessThan(1000);   // it was 4400 ms: the sound was made in one piece
+    } finally {
+      try { proc.kill(); } catch { /* gone */ }
+      server.close();
+      await check.sleep(200);
+      try { rmSync(userDataDir, { recursive: true, force: true }); } catch { /* chrome may still hold files */ }
+    }
+  }, 120_000);
+
   it('a poster in the gallery strip opens THAT piece in a player and plays it on the click; its link goes to that piece in the gallery; closing stops it', async () => {
     const { server, port } = await check.serve(root);
     const userDataDir = mkdtempSync(join(tmpdir(), 'landing-'));

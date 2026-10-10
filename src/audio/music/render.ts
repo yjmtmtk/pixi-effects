@@ -1,4 +1,4 @@
-import { Biquad, hitDrum, reverb, setSampleRate, VOICES, type Bus } from './instruments';
+import { Biquad, hitDrum, reverbSteps, setSampleRate, VOICES, type Bus } from './instruments';
 import { TempoMap } from './notation';
 import type { ResolvedMusic, ResolvedTrack } from './resolve';
 
@@ -44,12 +44,12 @@ export function musicBeatTimes(m: ResolvedMusic, until = m.seconds): number[] {
   return times.filter(t => t < until);
 }
 
-/**
- * Stereo samples `[left, right]` of the music at `sampleRate`, `length` seconds long: cut (with a short fade) if shorter than the music,
- * silent after it if longer, or repeated from the start with `loop`. Same music, same samples.
- */
-export function renderMusic(m: ResolvedMusic, sampleRate: number, length: number, loop = false): [Float32Array, Float32Array] {
+/** The music as a sequence of slices: each `yield` is how much is done (0..1); the return value is the samples. */
+function* renderMusicSteps(m: ResolvedMusic, sampleRate: number, length: number, loop: boolean): Generator<number, [Float32Array, Float32Array], void> {
   setSampleRate(sampleRate);
+  // work is counted in units (a track, the drums, the reverb, the last pass): a yield says how many are done, as 0..1
+  const units = m.tracks.length + (m.drums.length ? 1 : 0) + 2;
+  let unit = 0;
   const total = Math.max(2, Math.round(length * sampleRate));
   const rnd = rng(m.seed);
   const map = new TempoMap(m.tempo);
@@ -80,7 +80,9 @@ export function renderMusic(m: ResolvedMusic, sampleRate: number, length: number
     scratch.L.fill(0); scratch.R.fill(0);
     for (let r = 0; r < repeats; r++) {
       const offset = r * loopSec;
-      for (const e of tr.events) {
+      for (let ei = 0; ei < tr.events.length; ei++) {
+        const e = tr.events[ei]!;
+        yield (unit + ei / tr.events.length) / units;
         const strum = e.midi.length > 1 ? tr.strum : 0;
         const startBeat = swingShift(e.t);
         const lenSec = Math.max(0.05, (map.seconds(e.t + e.dur) - map.seconds(e.t)) * tr.legato);
@@ -96,6 +98,7 @@ export function renderMusic(m: ResolvedMusic, sampleRate: number, length: number
       const fc = 400 * 50 ** tr.tone;
       const a = [new Biquad('lp', fc, 0.7), new Biquad('lp', fc, 0.7)], b = [new Biquad('lp', fc, 0.7), new Biquad('lp', fc, 0.7)];
       for (let i = 0; i < total; i++) {
+        if ((i & 65535) === 0) yield (unit + 0.9) / units;
         scratch.L[i] = a[1]!.run(a[0]!.run(scratch.L[i]!));
         scratch.R[i] = b[1]!.run(b[0]!.run(scratch.R[i]!));
       }
@@ -105,11 +108,13 @@ export function renderMusic(m: ResolvedMusic, sampleRate: number, length: number
     const constant = typeof tr.vol === 'number';
     let g = constant ? level(0) : 0;
     for (let i = 0; i < total; i++) {
+      if ((i & 65535) === 0) yield (unit + 0.95) / units;
       if (!constant) g = level(i / sampleRate);
       const l = scratch.L[i]! * g * gl, r = scratch.R[i]! * g * gr;
       out.L[i]! += l; out.R[i]! += r;
       send.L[i]! += l * tr.reverb; send.R[i]! += r * tr.reverb;
     }
+    unit++;
   }
 
   if (m.drums.length) {
@@ -117,6 +122,7 @@ export function renderMusic(m: ResolvedMusic, sampleRate: number, length: number
     for (let r = 0; r < repeats; r++) {
       const offset = r * loopSec;
       for (const s of m.drums) {
+        yield unit / units;
         const end = Math.min(s.to, m.beats);
         for (let rep = 0; s.from + rep * s.repeat < end - 1e-6; rep++) for (const d of s.drums) for (const h of d.hits) {
           const beat = s.from + rep * s.repeat + h.i / m.grid;
@@ -132,11 +138,14 @@ export function renderMusic(m: ResolvedMusic, sampleRate: number, length: number
       const l = scratch.L[i]! * m.drumVol, r = scratch.R[i]! * m.drumVol;
       out.L[i]! += l; out.R[i]! += r; send.L[i]! += l; send.R[i]! += r;
     }
+    unit++;
   }
 
-  reverb(send, out, m.reverb, 0.8);
+  for (const f of reverbSteps(send, out, m.reverb, 0.8)) yield (unit + f) / units;
+  unit++;
   let peak = 0, sum = 0;
   for (let i = 0; i < total; i++) {
+    if ((i & 65535) === 0) yield (unit + (0.5 * i) / total) / units;
     const l = (out.L[i] = Math.tanh(out.L[i]! * 0.9)), r = (out.R[i] = Math.tanh(out.R[i]! * 0.9));
     peak = Math.max(peak, Math.abs(l), Math.abs(r));
     sum += l * l + r * r;
@@ -150,3 +159,25 @@ export function renderMusic(m: ResolvedMusic, sampleRate: number, length: number
   }
   return [out.L, out.R];
 }
+
+/**
+ * Stereo samples `[left, right]` of the music at `sampleRate`, `length` seconds long: cut (with a short fade) if shorter than the music,
+ * silent after it if longer, or repeated from the start with `loop`. Same music, same samples.
+ */
+export function renderMusic(m: ResolvedMusic, sampleRate: number, length: number, loop = false): [Float32Array, Float32Array] {
+  const it = renderMusicSteps(m, sampleRate, length, loop);
+  for (;;) { const r = it.next(); if (r.done) return r.value; }
+}
+
+/** The same samples, made in slices: `pace(done)` (0..1) runs between them and may wait, so the page can paint while a long piece is made. */
+export async function renderMusicAsync(
+  m: ResolvedMusic, sampleRate: number, length: number, loop = false, pace?: (done: number) => Promise<void> | void,
+): Promise<[Float32Array, Float32Array]> {
+  const it = renderMusicSteps(m, sampleRate, length, loop);
+  for (;;) {
+    const r = it.next();
+    if (r.done) return r.value;
+    if (pace) await pace(r.value);
+  }
+}
+
