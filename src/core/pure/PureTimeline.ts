@@ -1,5 +1,5 @@
 import { pureEase, type EaseFn } from './ease';
-import { lerpColor, parseColor, pixiAccessors, plainAccessor, type Accessor, type Target } from './props';
+import { PIXI_INERT, lerpColor, parseColor, pixiAccessors, plainAccessor, rawAccessor, type Accessor, type Target } from './props';
 
 /**
  * A timeline that is a pure function of time (spike: see docs/superpowers/specs/2026-10-10-pure-timeline-design.md).
@@ -27,7 +27,7 @@ interface Channel {
   target: Target;
   acc: Accessor;
   /** The value shown before the first segment starts (see `prepare`). */
-  pre: number;
+  pre: any;
   segs: Segment[];
   /** `segs` is sorted by (start, creation order) before it is read. */
   dirty: boolean;
@@ -37,7 +37,7 @@ interface Segment {
   channel: Channel;
   kind: 'set' | 'to' | 'from' | 'fromTo';
   /** What the property was when this segment was built (a `from` ends there unless a tween just before it ends elsewhere). */
-  createCur: number;
+  createCur: any;
   start: number;
   dur: number;
   ease: EaseFn;
@@ -45,13 +45,20 @@ interface Segment {
   yoyo: boolean;
   repeatDelay: number;
   /** `null` for a `to` / `from` tween whose start is "where the property was": resolved on first use. */
-  from: number | null;
-  to: number;
+  from: any;
+  to: any;
   /** Relative values (`'+=36'`) are resolved against the start. */
   toRel: boolean;
   onUpdate?: () => void;
-  lastReported: number;
+  lastReported: unknown;
   order: number;
+  /** `'fn'` channels: where it starts and ends, from the value before it (`start`) and the value the channel had at the beginning (`base`). */
+  fnFrom?: (prev: any) => any;
+  fnTo?: (start: any, prev: any, base: any) => any;
+  fnMake?: (a: any, b: any) => (p: number) => any;
+  /** A write that switches when the segment starts (revertible sets): `to` is the value, whatever the channel is. */
+  step?: boolean;
+  interp?: (p: number) => any;
   /** The segment of the same call on another channel whose numbers this one copies (autoAlpha's `visible` follows its `alpha`). */
   partner?: Segment;
 }
@@ -93,6 +100,7 @@ export class PureTimeline {
   private now = 0;
   private order = 0;
   private killed = false;
+  private prepared = false;
 
   constructor(opts: { paused?: boolean; defaults?: { ease?: string | EaseFn } } = {}) {
     this.defaultEase = opts.defaults?.ease ?? 'none';
@@ -105,8 +113,12 @@ export class PureTimeline {
     const start = at ?? this.spans;
     if ('spacer' in child) {
       this.spans = Math.max(this.spans, start + child.duration);
+    } else if (!(child instanceof PureTimeline)) {
+      // a tween of another engine (`gsap.to({}, { duration })`): only its length matters
+      this.spans = Math.max(this.spans, start + (child as { duration(): number }).duration());
     } else {
       this.children.push({ child, start, order: this.order++, last: NaN });
+      this.prepared = false;
       this.spans = Math.max(this.spans, start + child.duration());
     }
     return this;
@@ -141,12 +153,13 @@ export class PureTimeline {
       const out = new Map<string, { acc: Accessor; value: unknown }>();
       for (const key of Object.keys(v)) {
         if (RESERVED.has(key) || key === 'pixi') continue;
-        const acc = plainAccessor(t, key);
-        out.set(acc.id, { acc, value: v[key] });
+        const value = v[key];
+        const acc = parseRel(value) ? plainAccessor(t, key) : rawAccessor(t, key);   // a boolean or a word switches when its segment starts
+        out.set(acc.id, { acc, value });
       }
       if (v.pixi) for (const key of Object.keys(v.pixi)) {
         const accs = pixiAccessors(t, key);
-        if (!accs) { console.warn(`pixi-effects: the pure timeline has no "${key}" shorthand yet; it is ignored`); continue; }
+        if (!accs) { if (!PIXI_INERT.has(key)) console.warn(`pixi-effects: the pure timeline has no "${key}" shorthand yet; it is ignored`); continue; }
         for (const acc of accs) out.set(acc.id, { acc, value: v.pixi[key] });
       }
       return out;
@@ -189,6 +202,7 @@ export class PureTimeline {
       else if (id === 'alpha') lastAlpha = seg;
       ch.segs.push(seg);
       ch.dirty = true;
+      this.prepared = false;
     }
     const total = dur * (repeat + 1) + repeatDelay * repeat;
     this.spans = Math.max(this.spans, start + total);
@@ -207,6 +221,52 @@ export class PureTimeline {
     return ch;
   }
 
+  /**
+   * A property moved by a function of the caller (a colour in OKLab, a gradient): `to` and `from` say how to get the two ends from
+   * the value before the segment, `make` the interpolator between them. The value is only written while the segment is the last
+   * one that has started, so nothing is read or kept between two frames.
+   */
+  tweenValue<T>(spec: {
+    holder: object; id: string; get(): T; set(v: T): void;
+    from?: (prev: T) => T; to: (start: T, prev: T, base: T) => T; make: (a: T, b: T) => (p: number) => T;
+    duration: number; ease: string | EaseFn; at: number; repeat?: number; yoyo?: boolean; repeatDelay?: number;
+  }): this {
+    const acc: Accessor = { id: spec.id, kind: 'fn', unit: 1, round: 1, get: spec.get, set: spec.set, make: spec.make };
+    const ch = this.channel(spec.holder as Target, acc);
+    const start = quantize(spec.at);
+    const dur = quantize(Math.max(0, spec.duration));
+    const repeat = Math.max(0, Math.floor(spec.repeat ?? 0));
+    const repeatDelay = Math.max(0, spec.repeatDelay ?? 0);
+    const ease = typeof spec.ease === 'function' ? spec.ease : pureEase(spec.ease);
+    ch.segs.push({
+      channel: ch, kind: 'to', createCur: null, start, dur, ease, repeat, yoyo: !!spec.yoyo, repeatDelay, from: null, to: null, toRel: false,
+      lastReported: NaN, order: this.order++, fnFrom: spec.from as never, fnTo: spec.to as never, fnMake: spec.make as never,
+    });
+    ch.dirty = true;
+    this.prepared = false;
+    this.spans = Math.max(this.spans, start + dur * (repeat + 1) + repeatDelay * repeat);
+    return this;
+  }
+
+  /**
+   * A write that is undone when time goes back before it: the property is `value` from `at` on, and what it was before otherwise.
+   * `holder` and `id` name the property, so a set and the tweens of the same property are one channel; `write` is the way the caller
+   * writes it (it may do more than assign: redraw), and runs again whenever this set is what the property shows.
+   */
+  setValue<T>(holder: object, id: string, at: number, read: () => T, write: (v: T) => void, value: T): this {
+    const acc: Accessor = { id, kind: typeof value === 'number' ? 'num' : 'raw', unit: 1, round: 1e6, get: read, set: write };
+    const ch = this.channel(holder as Target, acc);
+    ch.segs.push({
+      channel: ch, kind: 'set', createCur: null, start: quantize(at), dur: 0, ease: pureEase('none'), repeat: 0, yoyo: false, repeatDelay: 0,
+      from: null, to: value, toRel: false, lastReported: NaN, order: this.order++, step: true,
+      onUpdate: () => write(read()),
+    });
+    ch.dirty = true;
+    this.prepared = false;
+    this.spans = Math.max(this.spans, quantize(at));
+    return this;
+  }
+
   // --- reading -------------------------------------------------------------------------------------------
 
   duration(): number { return this.spans; }
@@ -220,6 +280,9 @@ export class PureTimeline {
     this.evaluate(quantize(value));
     return this;
   }
+
+  /** GSAP's name for `time(t)`. */
+  seek(t: number): this { return this.time(t); }
 
   progress(): number;
   progress(p: number): this;
@@ -251,23 +314,38 @@ export class PureTimeline {
     ch.segs.sort((a, b) => a.start - b.start || a.order - b.order);
     ch.dirty = false;
     let latest: Segment | null = null;
-    for (const s of ch.segs) if (s.from !== null && (!latest || s.order > latest.order)) latest = s;
+    for (const s of ch.segs) if ((s.kind === 'from' || s.kind === 'fromTo') && s.from !== null && (!latest || s.order > latest.order)) latest = s;
     let cur = latest ? latest.from! : ch.acc.get();
+    const base = cur;
     let first = true;
     for (const s of ch.segs) {
-      if (s.partner) { s.from = s.partner.from; s.to = s.partner.to; }
-      if (s.from === null) s.from = cur;
-      if (s.kind === 'from') s.to = first ? s.createCur : cur;
-      if (s.toRel) { s.to = s.from + s.to; s.toRel = false; }
-      if (first) ch.pre = s.from;
+      const before = cur;
+      if (s.fnTo) {
+        s.from = s.fnFrom ? s.fnFrom(cur) : cur;
+        s.to = s.fnTo(s.from, before, base);
+        s.interp = undefined;
+      } else {
+        if (s.partner) { s.from = s.partner.from; s.to = s.partner.to; }
+        if (s.from === null) s.from = cur;
+        if (s.kind === 'from') s.to = first ? s.createCur : cur;
+        if (s.toRel) { s.to = s.from + s.to; s.toRel = false; }
+      }
+      if (first) ch.pre = s.fnTo ? before : s.from;
       cur = endValue(s);
       first = false;
     }
   }
 
-  private evaluate(t: number): void {
-    // every channel reads the property it starts from before any of them writes (autoAlpha's `visible` reads the alpha)
+  /** Every channel of this timeline and of its children reads the property it starts from before any of them writes. */
+  private prepareDeep(): void {
+    if (this.prepared) return;
+    this.prepared = true;
     for (const ch of this.channelList) this.prepare(ch);
+    for (const c of this.children) c.child.prepareDeep();
+  }
+
+  private evaluate(t: number): void {
+    this.prepareDeep();
     for (const ch of this.channelList) {
       const segs = ch.segs;
       // the last segment whose start is not after t
@@ -277,7 +355,13 @@ export class PureTimeline {
       // a repeating tween is not yet on at the exact moment it starts (GSAP shows what was there before)
       while (k >= 0 && segs[k]!.repeat > 0 && t - segs[k]!.start <= TINY) k--;
       const seg = k >= 0 ? segs[k]! : null;
-      if (!seg) { ch.acc.set(settle(ch.acc, ch.pre)); continue; }
+      if (!seg) {
+        const pre = settle(ch.acc, ch.pre);
+        ch.acc.set(pre);
+        const head = segs[0];
+        if (head?.onUpdate && pre !== head.lastReported) { head.lastReported = pre; head.onUpdate(); }
+        continue;
+      }
       const v = mix(seg, ratioAt(seg, t), over);
       ch.acc.set(v);
       if (seg.onUpdate && v !== seg.lastReported) { seg.lastReported = v; seg.onUpdate(); }
@@ -289,13 +373,14 @@ export class PureTimeline {
   }
 }
 
-function endValue(s: Segment): number {
+function endValue(s: Segment): any {
   if (s.dur === 0 && s.repeat === 0) return s.to;
   return s.yoyo && s.repeat % 2 === 1 ? s.from! : s.to;
 }
 
 /** The value a key gives, in the unit of the property; `rel` for `'+=36'`. */
-function read(value: unknown, acc: Accessor): { rel: boolean; n: number } | null {
+function read(value: unknown, acc: Accessor): { rel: boolean; n: any } | null {
+  if (acc.kind === 'raw') return { rel: false, n: value };
   if (acc.kind === 'color') {
     const c = parseColor(value);
     return c === null ? null : { rel: false, n: c };
@@ -305,16 +390,21 @@ function read(value: unknown, acc: Accessor): { rel: boolean; n: number } | null
 }
 
 /** A start value as GSAP shows it before the tween begins: rendered at ratio 0, so rounded like the rest of the tween. */
-function settle(acc: Accessor, v: number): number {
-  return acc.kind === 'color' ? v : Math.round(v * acc.round) / acc.round;
+function settle(acc: Accessor, v: any): any {
+  return acc.kind !== 'num' ? v : Math.round(v * acc.round) / acc.round;
 }
 
 /** Set by `ratioAt`: the tween is over (the exact end value is written), not merely at or past the end of its curve. */
 let over = false;
 
-function mix(s: Segment, r: number, ended: boolean): number {
-  if (s.channel.acc.kind === 'color') return ended ? endValue(s) : lerpColor(s.from!, s.to, r);
+function mix(s: Segment, r: number, ended: boolean): any {
   const acc = s.channel.acc;
+  if (s.step || acc.kind === 'raw') return s.to;
+  if (s.fnMake) {
+    const interp = (s.interp ??= s.fnMake(s.from, s.to));
+    return interp(Math.round(r * 1e6) / 1e6);              // a number tweened from 0 to 1, as GSAP writes it
+  }
+  if (acc.kind === 'color') return ended ? endValue(s) : lerpColor(s.from!, s.to, r);
   if ((ended || r === 1) && acc.exactEnd) return endValue(s);
   const k = acc.round;
   return Math.round((s.from! + (s.to - s.from!) * r) * k) / k;

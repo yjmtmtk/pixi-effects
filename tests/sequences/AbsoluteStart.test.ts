@@ -49,6 +49,7 @@ vi.mock('pixi.js', () => {
 import { ShapeSequence } from '../../src/sequences/Shape';
 import { ImageSequence } from '../../src/sequences/Image';
 import type { ShapeSequenceSpec, ImageSequenceSpec } from '../../src/types';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 const shape: CompositionShape = { width: 100, height: 100, duration: 10 };
 
@@ -73,7 +74,7 @@ describe('Sequence.absoluteStart', () => {
   it('records offset + at when bound', async () => {
     const seq = makeSeq(1);
     await seq.build();
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     seq.bindTimeline(tl, 3); // nested composition starting at t=3
     expect(seq.absoluteStart).toBe(4);
     tl.kill();
@@ -82,7 +83,7 @@ describe('Sequence.absoluteStart', () => {
   it('equals at when bound with no offset', async () => {
     const seq = makeSeq(1.5);
     await seq.build();
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     seq.bindTimeline(tl);
     expect(seq.absoluteStart).toBe(1.5);
     tl.kill();
@@ -100,7 +101,7 @@ describe('Sequence.absoluteStart', () => {
     };
     const seq = new ShapeSequence(spec, root, root);
     await seq.build();
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     seq.bindTimeline(tl, 3); // offset=3, at=1 → startTime=4
     expect(seq.absoluteStart).toBe(4);
     tl.kill();
@@ -117,7 +118,7 @@ describe('Sequence.absoluteStart', () => {
     };
     const seq = new ImageSequence(spec, root, root);
     await seq.build();
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     seq.bindTimeline(tl, 5); // offset=5, at=2 → startTime=7
     expect(seq.absoluteStart).toBe(7);
     tl.kill();

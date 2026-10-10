@@ -223,7 +223,7 @@ function bindCounterKeyframes(
     const loop = loopVars(kf);
     if (setV !== undefined) {
       const v = resolveNumber(setV, scope);
-      revertibleSet(timeline, at, () => state[key], n => { state[key] = n; refresh(); }, v);
+      revertibleSet(timeline, at, () => state[key], n => { state[key] = n; refresh(); }, v, [state, key]);
     }
     if (toV !== undefined && fromV !== undefined) {
       timeline.fromTo(state, { [key]: resolveNumber(fromV, scope) },
@@ -287,7 +287,7 @@ function bindFillKeyframes(
     const toFill   = pickFill(kf.to);
 
     if (setFill !== undefined) {
-      revertibleSet(timeline, at, () => state.fill, c => { state.fill = c; writeFill(); }, setFill);
+      revertibleSet(timeline, at, () => state.fill, c => { state.fill = c; writeFill(); }, setFill, [state, 'fill']);
     }
     if (toFill !== undefined) {
       tweenColor(

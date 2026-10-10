@@ -9,6 +9,8 @@ import { applyKeyframes, loopVars } from '../../src/core/Timeline';
 import { ShapeSequence } from '../../src/sequences/Shape';
 import { TextSequence } from '../../src/sequences/Text';
 import type { CompositionShape, Keyframe, SequenceSpec } from '../../src/types';
+import { setTimelineEngine } from '../../src/core/timelineEngine';
+setTimelineEngine('gsap');   // these read GSAP's own tweens (getChildren): they are about the GSAP engine
 
 const comp: CompositionShape = { width: 1280, height: 720, duration: 10 };
 beforeEach(() => { vi.restoreAllMocks(); });

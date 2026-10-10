@@ -2,10 +2,11 @@
 import { describe, it, expect } from 'vitest';
 import { gsap } from 'gsap';
 import { timeRemapOf, resolveFromEnd, contentLength, bindClock, clockTable, remapOf } from '../../src/core/remap';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 const scope = {} as Record<string, number>;
 const clockAt = (remap: NonNullable<ReturnType<typeof timeRemapOf>>, prop: string, duration: number, t: number): number => {
-  const tl = gsap.timeline({ paused: true });
+  const tl = createTimeline({ paused: true });
   const clock: Record<string, number> = { [prop]: 0 };
   bindClock(tl, clock, prop, remap, duration, 0, scope);
   tl.time(tl.duration()); tl.time(0);
@@ -60,7 +61,7 @@ describe('bindClock', () => {
   });
   it('seeks backward first and still gets the same values (a to-tween captures its start once, in order)', () => {
     const r = timeRemapOf({ keyframes: [{ at: 0, to: { time: 2 }, duration: 1 }, { at: 1, to: { time: 6 }, duration: 1 }] })!;
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     const clock = { time: 0 };
     bindClock(tl, clock, 'time', r, 2, 0, scope);
     tl.time(tl.duration()); tl.time(0);

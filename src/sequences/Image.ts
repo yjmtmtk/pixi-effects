@@ -62,7 +62,7 @@ export class ImageSequence extends Sequence {
       const setTint  = (kf.set  as Record<string, unknown> | undefined)?.tint as ColorInput | undefined;
       if (setTint !== undefined) {
         const sprite = this.target as unknown as { tint: ColorInput };
-        revertibleSet(timeline, at, () => sprite.tint, c => { sprite.tint = c; }, setTint);
+        revertibleSet(timeline, at, () => sprite.tint, c => { sprite.tint = c; }, setTint, [sprite, 'tint']);
       }
       if (toTint !== undefined) {
         tweenColor(

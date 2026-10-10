@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { gsap } from 'gsap';
 import { tweenColor } from '../../src/expr/colorTween';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 const mid = (from: string | number, to: string | number): unknown => {
   const target: Record<string, unknown> = { c: from };
-  const tl = gsap.timeline({ paused: true });
+  const tl = createTimeline({ paused: true });
   tweenColor(tl, target, 'c', undefined, to, 2, 'none', 0, 'rgb');
   tl.time(1);
   return target.c;

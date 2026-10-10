@@ -1,5 +1,6 @@
 import { Container, Rectangle } from 'pixi.js';
 import { gsap } from 'gsap';
+import { createTimeline } from '../core/timelineEngine';
 import { Sequence } from './Base';
 import { NullSequence } from './Null';
 import { suggestName } from '../core/options';
@@ -263,13 +264,13 @@ export class CompositionSequence extends Sequence {
     // timeline. A remapped composition builds them in LOCAL time (offset 0) on a timeline of its own, which the clock drives.
     const childOffset = remap ? 0 : offset + this.at;
     this._childBase = childOffset;
-    const target = remap ? gsap.timeline({ paused: true, defaults: { ease: 'none' } }) : timeline;
+    const target = remap ? createTimeline({ paused: true, defaults: { ease: 'none' } }) : timeline;
     for (const child of this._children) {
       // Each layer builds its tweens in a small timeline of its own, which is added to the parent once, finished. Adding
       // thousands of tweens one by one to a single timeline makes GSAP re-measure the whole timeline at every add (the cost
       // grows with the square of the count: ~3 s for a piece with 700 particle layers); this way the parent only ever holds
       // one child per layer. Positions stay absolute, so the picture at any time is the same.
-      const own = gsap.timeline({ defaults: { ease: 'none' } });
+      const own = createTimeline({ defaults: { ease: 'none' } });
       child.bindTimeline(own, childOffset);
       // The mask shares the maskee's offset — its `at` is interpreted
       // relative to the composition's start, just like the child itself,

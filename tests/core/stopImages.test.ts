@@ -3,13 +3,14 @@ import { gsap } from 'gsap';
 vi.mock('../../src/core/Renderer', () => ({ exportFrames: vi.fn() }));
 import { Movie } from '../../src/core/Movie';
 import { normalizeStops } from '../../src/core/stops';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 /** A "ready" Movie without a GPU; taking a picture of a frame is stubbed (the frame it is asked for is recorded). */
 function movieWith(raw: Parameters<typeof normalizeStops>[0]) {
   const m = new Movie();
   const a = m as unknown as Record<string, any>;
   Object.assign(a, { _initState: 'ready', totalFrames: 300, frameRate: 30, duration: 10 });
-  a.timeline = gsap.timeline({ paused: true }).add(gsap.to({}, { duration: 10 }));
+  a.timeline = createTimeline({ paused: true }).add(gsap.to({}, { duration: 10 }));
   a._rootSequence = {}; a.app = {};
   a._awaitVideoFrames = async () => {}; a._updateSpace = () => {}; a._renderNow = () => {};
   a.stops = normalizeStops(raw, 10, 30);

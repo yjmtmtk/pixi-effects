@@ -6,6 +6,7 @@ import { wiggle } from '../../src/presets/wiggle';
 import { CameraSequence } from '../../src/space/CameraSequence';
 import { homeDistance } from '../../src/space/math';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 const shape: CompositionShape = { width: 1280, height: 720, duration: 10 };
 const make = (spec: Record<string, unknown> = {}) =>
@@ -113,7 +114,7 @@ describe('CameraSequence', () => {
       keyframes: [{ at: 0, to: { z: 600 }, duration: 4, ease: 'none' }, ...wiggle({ duration: 4, freq: 6, seed: 3, ease: 'none', props: { offsetX: { around: 0, amp: 8 }, offsetY: { around: 0, amp: 5 } } })],
     });
     await cam.build();
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     cam.bindTimeline(tl, 0);
     let moved = 0;
     for (const t of [0.5, 1, 2, 3]) {
@@ -140,13 +141,13 @@ describe('CameraSequence — depth of field', () => {
   it('focus alone turns it on with the default aperture 30 and the focal plane at z = 0', async () => {
     const cam = make({ initial: { focus: 250 } });
     await cam.build();
-    cam.bindTimeline(gsap.timeline({ paused: true }));            // initial is applied when the camera is bound
+    cam.bindTimeline(createTimeline({ paused: true }));            // initial is applied when the camera is bound
     const s = cam.state();
     expect(s.focus).toBe(250);
     expect(s.aperture).toBe(30);
     const bare = make({ initial: { aperture: 60 } });
     await bare.build();
-    bare.bindTimeline(gsap.timeline({ paused: true }));
+    bare.bindTimeline(createTimeline({ paused: true }));
     expect(bare.state().focus).toBe(0);
     expect(bare.state().aperture).toBe(60);
   });
@@ -154,7 +155,7 @@ describe('CameraSequence — depth of field', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const cam = make({ name: 'main', initial: { focus: 100, aperture: -30 } });
     await cam.build();
-    cam.bindTimeline(gsap.timeline({ paused: true }));
+    cam.bindTimeline(createTimeline({ paused: true }));
     expect(cam.state().aperture).toBe(0);
     cam.state();
     const said = warn.mock.calls.filter(c => String(c[0]).includes('aperture'));
@@ -164,7 +165,7 @@ describe('CameraSequence — depth of field', () => {
   it('a dolly with no typed home distance: offsetZ moves an auto z (the z = 0 plane stays where fov puts it)', async () => {
     const cam = make({ keyframes: [{ at: 0, to: { offsetZ: -200 }, duration: 1 }] });
     await cam.build();
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     cam.bindTimeline(tl);
     tl.progress(1);
     expect(cam.autoZ).toBe(true);
@@ -173,13 +174,13 @@ describe('CameraSequence — depth of field', () => {
   it('the documented expression for the home distance, H / 2 / tan(20 * PI / 180), is the distance fov 40 puts the camera at', async () => {
     const cam = make({ initial: { z: 'H / 2 / tan(20 * PI / 180)' } });
     await cam.build();
-    cam.bindTimeline(gsap.timeline({ paused: true }));
+    cam.bindTimeline(createTimeline({ paused: true }));
     expect(cam.state().z).toBeCloseTo(homeDistance(720, 40), 5);       // the evaluator rounds to six decimals
   });
   it('aperture 0 is off even though it is written', async () => {
     const cam = make({ initial: { focus: 100, aperture: 0 } });
     await cam.build();
-    cam.bindTimeline(gsap.timeline({ paused: true }));
+    cam.bindTimeline(createTimeline({ paused: true }));
     expect(cam.state().aperture).toBe(0);
   });
   it('written only in a keyframe, it still turns on (the carrier starts at the defaults)', async () => {
@@ -191,7 +192,7 @@ describe('CameraSequence — depth of field', () => {
     const cam = make({ initial: { focus: 'title' }, keyframes: [{ at: 0, from: { focus: 'title' }, to: { focus: 'back' }, duration: 1 }] });
     cam.resolveFocusNames(n => ({ title: 0, back: -400 } as Record<string, number>)[n]);
     await cam.build();
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     cam.bindTimeline(tl);
     tl.progress(0);
     expect(cam.state().focus).toBe(0);

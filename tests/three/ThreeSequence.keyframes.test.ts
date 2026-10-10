@@ -7,6 +7,7 @@ import { Sprite } from 'pixi.js';
 import { ThreeSequence } from '../../src/three/ThreeSequence';
 import type { ThreeSequenceSpec } from '../../src/three/types';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 const shape: CompositionShape = { width: 1280, height: 720, duration: 10 };
 
@@ -14,7 +15,7 @@ async function bind(over: Partial<ThreeSequenceSpec>): Promise<{ seq: ThreeSeque
   const spec = { type: 'three', setup: vi.fn(), duration: 10, ...over } as unknown as SequenceSpec;
   const seq = new ThreeSequence(spec, shape, shape);
   await seq.build();
-  const tl = gsap.timeline({ paused: true });
+  const tl = createTimeline({ paused: true });
   tl.add(gsap.to({}, { duration: 10 }));
   seq.bindTimeline(tl);
   return { seq, tl };

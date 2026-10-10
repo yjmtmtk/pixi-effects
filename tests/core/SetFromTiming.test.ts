@@ -9,6 +9,7 @@ import { TextSequence } from '../../src/sequences/Text';
 import { ShapeSequence } from '../../src/sequences/Shape';
 import { ImageSequence } from '../../src/sequences/Image';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 const comp: CompositionShape = { width: 1280, height: 720, duration: 10 };
 const textOf = (s: TextSequence) => (s.target as unknown as { text: string }).text;
@@ -17,14 +18,14 @@ const alphaOf = (s: { target: unknown }) => (s.target as { alpha: number }).alph
 async function boundText(spec: unknown) {
   const s = new TextSequence({ type: 'text', ...(spec as object) } as SequenceSpec, comp, comp);
   await s.build();
-  const tl = gsap.timeline({ paused: true });
+  const tl = createTimeline({ paused: true });
   s.bindTimeline(tl, 0);
   return { s, tl };
 }
 async function boundRect(spec: unknown) {
   const s = new ShapeSequence({ type: 'shape', shape: 'rect', width: 10, height: 10, ...(spec as object) } as SequenceSpec, comp, comp);
   await s.build();
-  const tl = gsap.timeline({ paused: true });
+  const tl = createTimeline({ paused: true });
   s.bindTimeline(tl, 0);
   return { s, tl };
 }
@@ -66,7 +67,7 @@ describe('set on live shape style and on image tint is undone by a backward seek
   it('image tint', async () => {
     const s = new ImageSequence({ type: 'image', asset: 'x', duration: 6, colorSpace: 'oklab', initial: { tint: '#ff0000' }, keyframes: [{ at: 1, set: { tint: '#00ff00' } }] } as unknown as SequenceSpec, comp, comp);
     await s.build();
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     s.bindTimeline(tl, 0);
     const tint = () => (s.target as unknown as { tint: unknown }).tint;
     const start = tint();

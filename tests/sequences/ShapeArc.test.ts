@@ -3,6 +3,7 @@ import { gsap } from 'gsap';
 vi.mock('pixi.js', async () => (await import('../space/mockPixi')).createPixiMock());
 import { ShapeSequence } from '../../src/sequences/Shape';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 const comp: CompositionShape = { width: 1280, height: 720, duration: 10 };
 type Call = [string, ...unknown[]];
@@ -16,7 +17,7 @@ async function arc(spec: Record<string, unknown>) {
   for (const m of ['clear', 'moveTo', 'lineTo', 'arc', 'circle', 'closePath', 'fill', 'stroke']) {
     g[m] = (...a: unknown[]) => { calls.push([m, ...a]); return g; };
   }
-  const tl = gsap.timeline({ paused: true });
+  const tl = createTimeline({ paused: true });
   seq.bindTimeline(tl, 0);
   const draw = (): Call[] => { calls.length = 0; g.onRender(); return calls.filter(c => c[0] !== 'clear'); };
   return { seq, tl, draw };

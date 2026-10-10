@@ -68,6 +68,7 @@ import { gsap } from 'gsap';
 import { ImageSequence } from '../../src/sequences/Image';
 import { TextSequence } from '../../src/sequences/Text';
 import type { ImageSequenceSpec, TextSequenceSpec, CompositionShape } from '../../src/types';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 const root: CompositionShape = { width: 1280, height: 720, duration: 10 };
 
@@ -92,7 +93,7 @@ describe('ImageSequence — colorSpace tint animation', () => {
       initial: { tint: '#ff0000' },
       keyframes: [{ at: 0, to: { tint: '#00ff00' }, duration: 2, ease: 'none' }],
     });
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     seq.bindTimeline(tl);
     tl.time(1); // midpoint
     const tint = (seq as unknown as { target: { tint: string } }).target.tint;
@@ -131,7 +132,7 @@ describe('TextSequence — colorSpace fill animation', () => {
       style: { fill: '#ff0000' },
       keyframes: [{ at: 0, to: { fill: '#00ff00' }, duration: 2, ease: 'none' }],
     });
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     seq.bindTimeline(tl);
     tl.time(1); // midpoint
     const fill = (seq as unknown as { target: { style: { fill: string } } }).target.style.fill;
@@ -149,7 +150,7 @@ describe('TextSequence — colorSpace fill animation', () => {
       style: { fill: '#ff0000' },
       keyframes: [{ at: 0, to: { fill: '#00ff00' }, duration: 2, ease: 'none' }],
     });
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     seq.bindTimeline(tl);
     tl.time(2); // end of tween
     const fill = (seq as unknown as { target: { style: { fill: string } } }).target.style.fill;

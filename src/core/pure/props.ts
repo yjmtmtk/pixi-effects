@@ -9,10 +9,16 @@ export type Target = Record<string, unknown>;
 export interface Accessor {
   /** Identity inside the target: segments on the same id belong to one channel. */
   id: string;
-  get(): number;
-  set(value: number): void;
-  /** `'color'` is a packed 0xrrggbb number that is tweened per channel; the rest are plain numbers. */
-  kind: 'num' | 'color';
+  get(): any;
+  set(value: any): void;
+  /**
+   * `'color'` is a packed 0xrrggbb number that is tweened per channel; `'raw'` is anything that is not a number (a boolean, a
+   * string): it switches when its segment starts; `'fn'` is a value of any kind that a function of the caller moves between
+   * two values; the rest are plain numbers.
+   */
+  kind: 'num' | 'color' | 'raw' | 'fn';
+  /** `'fn'`: the interpolator between two values. */
+  make?(a: any, b: any): (p: number) => any;
   /** Multiplies the value a key gives (degrees to radians). */
   unit: number;
   /** The written number is rounded to 1 / `round`: GSAP keeps six decimals, five for a rotation. */
@@ -40,6 +46,12 @@ const VEC: [string, string, number][] = [
   ['position', 'position', 1], ['tilePosition', 'tilePosition', 1], ['tileScale', 'tileScale', 1],
 ];
 
+/**
+ * Shorthands of the plugin that act on a Graphics' line and fill or on a colour matrix filter. A shape keeps its own colours (live state, redrawn),
+ * so GSAP's copy of `fillColor` on the Graphics object is not what is seen; the pure timeline leaves these alone.
+ */
+export const PIXI_INERT = new Set(['fillColor', 'fillAlpha', 'lineColor', 'lineAlpha', 'colorize', 'colorizeAmount', 'colorMatrixFilter', 'blur', 'blurX', 'blurY', 'blurPadding']);
+
 /** Accessors for a key under `pixi: { ... }`; `null` when the plugin has no such shorthand. */
 export function pixiAccessors(target: Target, key: string): Accessor[] | null {
   for (const [name, base, unit] of VEC) {
@@ -57,6 +69,10 @@ export function pixiAccessors(target: Target, key: string): Accessor[] | null {
     ];
     default: return null;
   }
+}
+
+export function rawAccessor(target: Target, key: string): Accessor {
+  return { id: key, kind: 'raw', unit: 1, round: 1, get: () => target[key], set: (v) => { target[key] = v; } };
 }
 
 export function plainAccessor(target: Target, key: string): Accessor {

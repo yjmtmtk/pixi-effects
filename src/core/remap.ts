@@ -1,4 +1,5 @@
 import { gsap } from 'gsap';
+import { createTimeline } from './timelineEngine';
 import { applyKeyframes } from './Timeline';
 import type { Keyframe, KeyframeProps } from '../types';
 
@@ -111,7 +112,7 @@ export interface ClockTable { at(t: number): number; min: number; max: number }
  * the range the clock reaches (for "a layer starts after the clock can reach it"). `to` is the last moment that matters.
  */
 export function clockTable(remap: TimeRemap, prop: string, duration: number, at: number, scope: Record<string, number>, to: number): ClockTable {
-  const probe = gsap.timeline({ paused: true });
+  const probe = createTimeline({ paused: true });
   const clock: Record<string, number> = { [prop]: remap.start ?? 0 };
   bindClock(probe, clock, prop, remap, duration, at, scope);
   probe.time(probe.duration()); probe.time(0);

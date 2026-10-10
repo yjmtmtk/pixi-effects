@@ -1,4 +1,5 @@
 import type { gsap } from 'gsap';
+import { isPure } from './timelineEngine';
 
 type Timeline = ReturnType<typeof gsap.timeline>;
 
@@ -16,7 +17,10 @@ export function revertibleSet<T>(
   read: () => T,
   write: (value: T) => void,
   value: T,
+  /** The property this writes, when tweens write it too (so the two are one channel of the pure timeline). */
+  property?: [object, string],
 ): void {
+  if (isPure(timeline)) { timeline.setValue(property?.[0] ?? read, property?.[1] ?? 'set', at, read, write, value); return; }
   let p = 0;
   let before: T;
   const proxy = {

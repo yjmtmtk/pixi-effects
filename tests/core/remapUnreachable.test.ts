@@ -6,6 +6,7 @@ import { Sequence } from '../../src/sequences/Base';
 import { Container } from 'pixi.js';
 import { registerSequenceType } from '../../src/core/Composition';
 import type { CompositionSequenceSpec, CompositionShape } from '../../src/types';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 class Box extends Sequence {
   async build(): Promise<void> { this.target = new Container(); this.intrinsicWidth = 20; this.intrinsicHeight = 20; }
@@ -19,7 +20,7 @@ async function warningsOf(stageExtra: Record<string, unknown>, children: unknown
   const spec = { type: 'composition', width: 320, height: 180, duration: 10, sequences: [{ type: 'composition', name: 'stage', duration: 4, width: 320, height: 180, ...stageExtra, sequences: children }] } as unknown as CompositionSequenceSpec;
   const comp = new CompositionSequence(spec, shape, shape);
   await comp.build();
-  comp.bindTimeline(gsap.timeline({ paused: true }));
+  comp.bindTimeline(createTimeline({ paused: true }));
   const out = warn.mock.calls.map(c => String(c[0]));
   warn.mockRestore();
   return out;

@@ -4,6 +4,7 @@ vi.mock('pixi.js', async () => (await import('../space/mockPixi')).createPixiMoc
 import { TextSequence } from '../../src/sequences/Text';
 import { lintText } from '../../src/core/lint';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 const comp: CompositionShape = { width: 1280, height: 720, duration: 10 };
 const make = (spec: unknown) => new TextSequence({ type: 'text', ...(spec as object) } as SequenceSpec, comp, comp);
@@ -11,7 +12,7 @@ const textOf = (s: TextSequence) => (s.target as unknown as { text: string }).te
 async function bound(spec: unknown) {
   const s = make(spec);
   await s.build();
-  const tl = gsap.timeline({ paused: true });
+  const tl = createTimeline({ paused: true });
   s.bindTimeline(tl, 0);
   return { s, tl };
 }

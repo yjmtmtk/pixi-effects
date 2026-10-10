@@ -11,6 +11,7 @@ import { Container } from 'pixi.js';
 import { registerSequenceType } from '../../src/core/Composition';
 import { collectVideoSequences } from '../../src/core/Movie';
 import type { CompositionSequenceSpec, CompositionShape } from '../../src/types';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 /** A frame-driven layer like a three.js one: Movie asks it to draw for a time it works out. */
 class Frame extends Sequence {
@@ -29,7 +30,7 @@ async function build(stage: Record<string, unknown>) {
   ] } as unknown as CompositionSequenceSpec;
   const comp = new CompositionSequence(spec, shape, shape);
   await comp.build();
-  const tl = gsap.timeline({ paused: true });
+  const tl = createTimeline({ paused: true });
   comp.bindTimeline(tl);
   const out: any[] = [], clocks = new Map<any, () => number>();
   collectVideoSequences(comp, out, clocks);

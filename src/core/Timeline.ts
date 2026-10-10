@@ -1,4 +1,5 @@
 import { gsap } from 'gsap';
+import { setNow } from './timelineEngine';
 import { kfDuration } from './spring';
 import { normalizeProps } from '../expr/normalizeProps';
 import { checkEase } from './ease';
@@ -270,12 +271,12 @@ export function applyInitial(
   if (!initial) return;
   const resolved = normalizeProps(initial, scope, { skipKeys, where: 'initial' });
   const { rest, routed } = splitRouted(resolved, routers);
-  for (const r of routed) gsap.set(r.target, { [r.prop]: r.value });
+  for (const r of routed) setNow(r.target, { [r.prop]: r.value });
   const { ownProps, filterProps } = partitionProps(rest);
-  if (Object.keys(ownProps).length > 0) gsap.set(target, pixiwrap(ownProps));
+  if (Object.keys(ownProps).length > 0) setNow(target, pixiwrap(ownProps));
   for (const [name, props] of Object.entries(filterProps)) {
     const f = findFilter(target as FilterTarget, name);
     if (!f) continue;
-    gsap.set(f, props);
+    setNow(f, props);
   }
 }

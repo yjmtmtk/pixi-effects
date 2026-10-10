@@ -3,6 +3,7 @@ import { gsap } from 'gsap';
 vi.mock('pixi.js', async () => (await import('../space/mockPixi')).createPixiMock());
 import { CompositionSequence } from '../../src/sequences/Composition';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 const root: CompositionShape = { width: 1280, height: 720, duration: 6 };
 async function build(sequences: SequenceSpec[]): Promise<CompositionSequence> {
@@ -57,7 +58,7 @@ describe('null layers and parent', () => {
       { type: 'null', name: 'rig', initial: { x: 100 }, keyframes: [{ at: 0, to: { x: 300 }, duration: 2, ease: 'none' }] } as SequenceSpec,
       rect('a', { parent: 'rig' }),
     ]);
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     comp.bindTimeline(tl);
     tl.seek(1);
     expect((find(comp, 'rig').target as any).x).toBeCloseTo(200, 5);

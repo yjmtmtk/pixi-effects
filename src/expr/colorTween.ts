@@ -1,5 +1,6 @@
 import { gsap } from 'gsap';
 import { buildColorInterp, type ColorSpace, type ColorInput } from './colorInterp';
+import { interpolateColors, isPure } from '../core/timelineEngine';
 
 type Timeline = ReturnType<typeof gsap.timeline>;
 
@@ -34,6 +35,22 @@ export function tweenColor(
   onUpdate?: () => void,
   loop: Record<string, number | boolean> = {},
 ): void {
+  if (isPure(timeline)) {
+    // the timeline of our own: the colour at a time is made from the colour before the tween, which it knows without playing
+    const none = (): unknown => undefined;
+    timeline.tweenValue<ColorInput | undefined>({
+      holder: target, id: key,
+      get: () => target[key] as ColorInput | undefined,
+      set: (v) => { if (v === undefined) return; target[key] = v; if (onUpdate) onUpdate(); },
+      from: fromValue !== undefined ? () => fromValue : undefined,
+      to: () => toValue,
+      make: (a, b) => (a === undefined ? (none as (p: number) => undefined)
+        : colorSpace === 'rgb' ? (interpolateColors(css(a), css(b!)) as (p: number) => ColorInput)
+        : (buildColorInterp(a, b!, colorSpace) as (p: number) => ColorInput)),
+      duration, ease, at, repeat: loop.repeat as number | undefined, yoyo: loop.yoyo as boolean | undefined, repeatDelay: loop.repeatDelay as number | undefined,
+    });
+    return;
+  }
   let interp: ((p: number) => unknown) | null = null;
   const proxy = { p: 0 };
   timeline.fromTo(

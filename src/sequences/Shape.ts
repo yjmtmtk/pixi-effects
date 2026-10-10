@@ -593,7 +593,7 @@ function bindLiveKeyframes(
           if (k === 'fillGradient') continue;   // animated by bindGradientKeyframes
           const resolved = resolveLiveValue(k as LiveKey, v, scope);
           const live = state as unknown as Record<string, unknown>;
-          revertibleSet(timeline, at, () => live[k], v2 => { live[k] = v2; }, resolved);
+          revertibleSet(timeline, at, () => live[k], v2 => { live[k] = v2; }, resolved, [live, k]);
         }
       }
     }

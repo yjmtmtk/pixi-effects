@@ -15,6 +15,7 @@ import { registerSequenceType } from '../../src/core/Composition';
 import { LitMaterial } from '../../src/space/LitMaterial';
 import type { Layer3D, SpaceHost } from '../../src/space/Layer3D';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 class Box extends Sequence {
   async build(): Promise<void> { this.target = new Container(); this.intrinsicWidth = 200; this.intrinsicHeight = 100; }
@@ -25,7 +26,7 @@ const shape: CompositionShape = { width: 1280, height: 720, duration: 10 };
 async function build(sequences: unknown[]) {
   const comp = new CompositionSequence({ type: 'composition', width: 1280, height: 720, duration: 10, sequences } as unknown as SequenceSpec as never, shape, shape);
   await comp.build();
-  comp.bindTimeline(gsap.timeline({ paused: true }));
+  comp.bindTimeline(createTimeline({ paused: true }));
   return comp;
 }
 const card = (o: Record<string, unknown> = {}) => ({ type: '__box', threeD: true, ...o });

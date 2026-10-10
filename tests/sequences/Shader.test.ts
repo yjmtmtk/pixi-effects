@@ -8,13 +8,14 @@ import { CompositionSequence } from '../../src/sequences/Composition';
 import { resetGl } from '../../src/core/glShared';
 import { fakeGl, fake2d, installCanvas as installFake, type Fake2d, type FakeGl } from '../support/fakeGl';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 const shape: CompositionShape = { width: 320, height: 180, duration: 4, frameRate: 30 };
 const GOOD = 'void mainImage(out vec4 fragColor, in vec2 fragCoord) { fragColor = vec4(fragCoord / iResolution.xy, speed, 1.0); }';
 async function build(sequences: unknown[]) {
   const comp = new CompositionSequence({ type: 'composition', width: 320, height: 180, duration: 4, sequences } as unknown as SequenceSpec as never, shape, shape);
   await comp.build();
-  comp.bindTimeline(gsap.timeline({ paused: true }));
+  comp.bindTimeline(createTimeline({ paused: true }));
   return comp;
 }
 const layer = (comp: CompositionSequence, name: string) => (comp as unknown as { _children: Array<{ spec: { name?: string }; awaitFrameAt(t: number): Promise<void>; destroy(): void }> })._children.find(c => c.spec.name === name)!;
@@ -110,7 +111,7 @@ describe('the shader layer', () => {
 describe('uniforms and keyframes', () => {
   it('a keyframe on a component of a vector moves that component and sends the whole vector to the GPU (vectors are plain objects: GSAP would read an array as a list of targets)', async () => {
     const gl = fakeGl(); installCanvas(gl);
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     const comp = new CompositionSequence({ type: 'composition', width: 320, height: 180, duration: 4, sequences: [
       { type: 'shader', name: 's', fragment: 'void mainImage(out vec4 c, in vec2 f) { c = vec4(pos, 0.0, 1.0); }', uniforms: { pos: [0.25, 0.5], tint: '#ff0000' },
         keyframes: [{ at: 0, to: { 'uniforms.pos.1': 1, 'uniforms.tint.2': 1 }, duration: 2, ease: 'none' }] },

@@ -4,6 +4,7 @@ vi.mock('pixi.js', async () => (await import('../space/mockPixi')).createPixiMoc
 import { Graphics, Rectangle } from 'pixi.js';
 import { ShapeSequence } from '../../src/sequences/Shape';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 const comp: CompositionShape = { width: 1280, height: 720, duration: 10 };
 const make = (spec: unknown) => new ShapeSequence({ type: 'shape', ...(spec as object) } as SequenceSpec, comp, comp);
@@ -11,7 +12,7 @@ async function placed(spec: unknown, bounds: Rectangle) {
   vi.spyOn(Graphics.prototype, 'getLocalBounds').mockReturnValue(bounds as never);
   const s = make(spec);
   await s.build();
-  s.bindTimeline(gsap.timeline({ paused: true }), 0);
+  s.bindTimeline(createTimeline({ paused: true }), 0);
   const g = s.target as unknown as { x: number; y: number };
   return { x: g.x, y: g.y };
 }

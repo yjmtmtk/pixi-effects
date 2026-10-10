@@ -8,6 +8,7 @@ import { registerSequenceType } from '../../src/core/Composition';
 import { expandTransitions } from '../../src/core/Transitions';
 import { collectTimeline, timelineHtml, timelineSvg } from '../../src/core/timelineChart';
 import type { CompositionSequenceSpec, CompositionShape } from '../../src/types';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 class Box extends Sequence {
   async build(): Promise<void> { this.target = new Container(); this.intrinsicWidth = 200; this.intrinsicHeight = 100; }
@@ -20,7 +21,7 @@ async function scene(sequences: unknown[], extra: Record<string, unknown> = {}) 
   const spec = extra.transitions ? expandTransitions(base) : base;
   const comp = new CompositionSequence(spec, shape, shape);
   await comp.build();
-  comp.bindTimeline(gsap.timeline({ paused: true }));
+  comp.bindTimeline(createTimeline({ paused: true }));
   return comp;
 }
 beforeEach(() => { vi.restoreAllMocks(); });

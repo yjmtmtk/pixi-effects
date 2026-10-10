@@ -10,6 +10,8 @@ import { ShapeSequence } from '../../src/sequences/Shape';
 import { ImageSequence } from '../../src/sequences/Image';
 import { CompositionSequence } from '../../src/sequences/Composition';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
+import { setTimelineEngine } from '../../src/core/timelineEngine';
+setTimelineEngine('gsap');   // these read GSAP's own tweens (getChildren): they are about the GSAP engine
 
 const shape: CompositionShape = { width: 1280, height: 720, duration: 10 };
 

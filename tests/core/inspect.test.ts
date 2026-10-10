@@ -8,6 +8,7 @@ import { registerSequenceType } from '../../src/core/Composition';
 import { inspectScene } from '../../src/core/inspect';
 import { expandTransitions, transitionWindowsOf, carryTransitionWindows } from '../../src/core/Transitions';
 import type { CompositionSequenceSpec, CompositionShape } from '../../src/types';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 class Box extends Sequence {
   async build(): Promise<void> { this.target = new Container(); this.intrinsicWidth = 200; this.intrinsicHeight = 100; }
@@ -19,7 +20,7 @@ async function scene(sequences: unknown[]) {
   const spec = { type: 'composition', width: 1280, height: 720, duration: 10, sequences } as unknown as CompositionSequenceSpec;
   const comp = new CompositionSequence(spec, root, root);
   await comp.build();
-  comp.bindTimeline(gsap.timeline({ paused: true }));
+  comp.bindTimeline(createTimeline({ paused: true }));
   return comp;
 }
 beforeEach(() => { vi.restoreAllMocks(); });
@@ -171,7 +172,7 @@ describe('inspectScene during a transition', () => {
     } as unknown as CompositionSequenceSpec);
     const comp = new CompositionSequence(spec, root, root);
     await comp.build();
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     comp.bindTimeline(tl);
     return { comp, tl };
   }
@@ -209,7 +210,7 @@ describe('inspectScene during a transition', () => {
     } as unknown as CompositionSequenceSpec);
     const comp = new CompositionSequence(spec, root, root);
     await comp.build();
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     comp.bindTimeline(tl);
     tl.time(5);
     const mid = inspectScene(comp, 150, 5, { width: 1280, height: 720 });

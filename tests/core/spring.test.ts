@@ -4,6 +4,7 @@ import { gsap } from 'gsap';
 import { springEase, springResponse, springDuration, registerSpringEases, kfDuration, parseSpring, springProblem, SPRING_PRESETS } from '../../src/core/spring';
 import { checkEase, __resetEaseWarnings } from '../../src/core/ease';
 import { stagger } from '../../src/presets/stagger';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 registerSpringEases();
 
@@ -59,7 +60,7 @@ describe('spring ease', () => {
     expect(gsap.parseEase('spring')(0.3)).toBe(springEase()(0.3));
 
     const o = { x: 0 };
-    const tl = gsap.timeline({ paused: true, defaults: { ease: 'none' } });
+    const tl = createTimeline({ paused: true, defaults: { ease: 'none' } });
     tl.fromTo(o, { x: 100 }, { x: 300, duration: 1.2, ease: 'spring(1, 170, 12)' }, 0.5);
     const times = [0, 0.5, 0.7, 0.9, 1.1, 1.4, 1.7, 2.5];
     const fwd = times.map(t => { tl.seek(t); return o.x; });

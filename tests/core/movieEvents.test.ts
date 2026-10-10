@@ -3,13 +3,14 @@ import { gsap } from 'gsap';
 vi.mock('../../src/core/Renderer', () => ({ exportFrames: vi.fn() }));
 import { Movie } from '../../src/core/Movie';
 import { exportFrames } from '../../src/core/Renderer';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 /** A Movie that is "ready" without a GPU: the drawing steps are stubbed, the playhead logic is the real one. */
 function readyMovie(totalFrames = 30, frameRate = 30) {
   const m = new Movie();
   const a = m as unknown as Record<string, unknown>;
   Object.assign(a, { _initState: 'ready', totalFrames, frameRate, duration: totalFrames / frameRate });
-  a.timeline = gsap.timeline({ paused: true });
+  a.timeline = createTimeline({ paused: true });
   a._awaitVideoFrames = async () => {};
   a._updateSpace = () => {};
   a._renderNow = () => {};

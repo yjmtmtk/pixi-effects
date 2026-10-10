@@ -3,6 +3,8 @@ import { gsap } from 'gsap';
 vi.mock('pixi.js', async () => (await import('../space/mockPixi')).createPixiMock());
 import { CompositionSequence } from '../../src/sequences/Composition';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
+import { setTimelineEngine } from '../../src/core/timelineEngine';
+setTimelineEngine('gsap');   // these read GSAP's own tweens (getChildren): they are about the GSAP engine
 
 const root: CompositionShape = { width: 1280, height: 720, duration: 10 };
 async function build(sequences: SequenceSpec[]) {

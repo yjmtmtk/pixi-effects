@@ -2,11 +2,12 @@ import { describe, it, expect, vi } from 'vitest';
 import { gsap } from 'gsap';
 import { applyKeyframes, applyInitial } from '../../src/core/Timeline';
 import { normalizeProps } from '../../src/expr/normalizeProps';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 const scope = { GW: 1920, GH: 1080, W: 1920, H: 1080, w: 100, h: 100 } as Record<string, number>;
 
 function build(target: Record<string, number>, keyframes: unknown[], duration = 4) {
-  const tl = gsap.timeline({ paused: true });
+  const tl = createTimeline({ paused: true });
   applyKeyframes(tl, target, keyframes as never, duration, scope, [], 0);
   tl.progress(1).progress(0);                                   // what Movie.init does: every start value is settled before anyone seeks
   return tl;

@@ -2,6 +2,7 @@ import * as PIXI from 'pixi.js';
 import { usesAdvancedBlend, enableAdvancedBlend } from './blend';
 import { Application, Container, Culler, Rectangle, extensions, CullerPlugin } from 'pixi.js';
 import { gsap } from 'gsap';
+import { createTimeline, lengthen } from './timelineEngine';
 import { PixiPlugin } from 'gsap/PixiPlugin';
 import { loadAssetBundle } from './AssetLoader';
 import { CompositionSequence } from '../sequences/Composition';
@@ -324,8 +325,8 @@ export class Movie {
       this._posterFrame = poster.frame;
       this.background = options.background ?? '#000000';
 
-      this.timeline = gsap.timeline({ paused: true, defaults: { ease: 'none' } });
-      this.timeline.add(gsap.to({}, { duration: this.duration }));
+      this.timeline = createTimeline({ paused: true, defaults: { ease: 'none' } });
+      lengthen(this.timeline, this.duration);
 
       // Try WebGPU first, fall back to WebGL on any init failure. PIXI's
       // autoDetectRenderer only checks `navigator.gpu` existence — it doesn't

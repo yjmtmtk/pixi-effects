@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { gsap } from 'gsap';
 import { applyKeyframes, applyInitial, splitRouted, type PathRouters } from '../../src/core/Timeline';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 /** Router resolving against a plain-object registry, walking dotted paths. */
 function makeRouter(registry: Record<string, object>): PathRouters {
@@ -47,7 +48,7 @@ describe('splitRouted', () => {
 describe('applyKeyframes with routers', () => {
   it('tweens routed props (to)', () => {
     const cube = { rotation: { x: 0, y: 0 } };
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     applyKeyframes(tl, {}, [{ at: 0, to: { 'three.cube.rotation.y': 2 }, duration: 1 }],
       10, {}, [], 0, makeRouter({ cube }));
     tl.progress(1);
@@ -57,7 +58,7 @@ describe('applyKeyframes with routers', () => {
 
   it('sets routed props (set)', () => {
     const cube = { visible: 0 };
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     applyKeyframes(tl, {}, [{ at: 0, set: { 'three.cube.visible': 1 } }],
       10, {}, [], 0, makeRouter({ cube }));
     tl.progress(1);
@@ -67,7 +68,7 @@ describe('applyKeyframes with routers', () => {
 
   it('pairs from/to per key (fromTo)', () => {
     const cube = { position: { z: 99 } };
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     applyKeyframes(tl, {},
       [{ at: 0, from: { 'three.cube.position.z': 0 }, to: { 'three.cube.position.z': 10 }, duration: 1 }],
       10, {}, [], 0, makeRouter({ cube }));
@@ -80,7 +81,7 @@ describe('applyKeyframes with routers', () => {
 
   it('respects the timeline offset for routed props', () => {
     const cube = { rotation: { y: 0 } };
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     tl.add(gsap.to({}, { duration: 10 })); // give the timeline room
     applyKeyframes(tl, {}, [{ at: 0, to: { 'three.cube.rotation.y': 2 }, duration: 2 }],
       10, {}, [], 4, makeRouter({ cube })); // offset = 4
@@ -94,7 +95,7 @@ describe('applyKeyframes with routers', () => {
   it('still applies non-routed props to the main target alongside routed ones', () => {
     const cube = { rotation: { y: 0 } };
     const sprite = { x: 0 };
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     applyKeyframes(tl, sprite, [{ at: 0, to: { x: 50, 'three.cube.rotation.y': 2 }, duration: 1 }],
       10, {}, [], 0, makeRouter({ cube }));
     tl.progress(1);

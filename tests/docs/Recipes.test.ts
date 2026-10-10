@@ -32,6 +32,7 @@ import { lintTiming } from '../../src/core/lint';
 import { fakeGl, installCanvas } from '../support/fakeGl';
 import { resetGl } from '../../src/core/glShared';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 // the AI recipes, and the human cookbook (site/guide): every `// @recipe` block in either is built and linted
 const md = ['skills/pixi-effects/reference/recipes.md', 'site/guide/cookbook.md', 'site/guide/text.md', 'site/guide/shapes.md', 'site/guide/transitions.md', 'site/guide/motion.md', 'site/guide/presenting.md', 'site/guide/audio.md']
@@ -74,7 +75,7 @@ describe('skills/pixi-effects/reference/recipes.md', () => {
       const spec = expandTransitions({ width: 1280, height: 720, duration, sequences, ...(transitions ? { transitions } : {}) } as never);
       const comp = new CompositionSequence({ type: 'composition', ...spec } as never, null, root);
       await comp.build();
-      comp.bindTimeline(gsap.timeline({ paused: true }));
+      comp.bindTimeline(createTimeline({ paused: true }));
 
       // (GSAP's own "Invalid property" notes appear because the test env does not register PixiPlugin; only ours matter.)
       expect(warn.mock.calls.map(c => String(c[0])).filter(m => m.startsWith('pixi-effects:'))).toEqual([]);

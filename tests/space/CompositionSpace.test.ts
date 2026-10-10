@@ -10,6 +10,7 @@ import type { SpaceHost } from '../../src/space/Layer3D';
 import { blurRadius } from '../../src/space/focus';
 import { homeDistance } from '../../src/space/math';
 import type { CompositionSequenceSpec, CompositionShape } from '../../src/types';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 class Box extends Sequence {
   async build(): Promise<void> {
@@ -26,7 +27,7 @@ async function build(sequences: unknown[], width = 1280, height = 720) {
   const spec = { type: 'composition', width, height, duration: 10, sequences } as unknown as CompositionSequenceSpec;
   const comp = new CompositionSequence(spec, root, root);
   await comp.build();
-  comp.bindTimeline(gsap.timeline({ paused: true }));
+  comp.bindTimeline(createTimeline({ paused: true }));
   return comp;
 }
 const innerOf = (comp: CompositionSequence) => (comp.target as unknown as Container).children[0] as Container;

@@ -5,6 +5,7 @@ import { ShapeSequence } from '../../src/sequences/Shape';
 import { TextSequence } from '../../src/sequences/Text';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
 import { gradStateFrom, mergeGrad, tweenGradient, bindGradientKeyframes, hasGradientKeys, validateGradientKeyframes } from '../../src/sequences/gradientAnim';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 const two = { angle: 0, stops: [[0, '#ff0000'], [1, '#0000ff']] as Array<[number, string]> };
 const base = () => gradStateFrom(two);
@@ -32,7 +33,7 @@ describe('gradient state', () => {
 describe('tweenGradient', () => {
   const run = (colorSpace: 'rgb' | 'oklch', to: object) => {
     const holder = { grad: base() };
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     let changes = 0;
     tweenGradient(tl, holder, undefined, to, 2, 'none', 0, colorSpace, () => { changes++; });
     return { holder, tl, changes: () => changes };
@@ -61,7 +62,7 @@ describe('tweenGradient', () => {
     const num = { grad: gradStateFrom({ angle: 0, stops: [[0, 0xff0000], [1, 0x0000ff]] }) };
     const css = { grad: base() };
     for (const h of [num, css]) {
-      const tl = gsap.timeline({ paused: true });
+      const tl = createTimeline({ paused: true });
       tweenGradient(tl, h, undefined, { stops: [[0, '#00ff00'], [1, '#ffff00']] }, 2, 'none', 0, 'rgb', () => {});
       tl.time(1);
     }
@@ -72,7 +73,7 @@ describe('tweenGradient', () => {
 describe('bindGradientKeyframes', () => {
   it('a set jumps at its time and is undone by a seek back; a keyframe after it starts from the live value', () => {
     const holder = { grad: base() };
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     bindGradientKeyframes(tl, holder, [
       { at: 1, set: { fillGradient: { angle: 90 } } },
       { at: 2, to: { fillGradient: { angle: 180 } }, duration: 2 },
@@ -84,7 +85,7 @@ describe('bindGradientKeyframes', () => {
   });
   it('a keyframe with only `from` runs from that gradient to the one the layer has (like every other property), then holds', () => {
     const holder = { grad: gradStateFrom({ angle: 90, stops: [[0, '#ff0000'], [1, '#0000ff']] }) };
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     bindGradientKeyframes(tl, holder, [{ at: 0, duration: 2, from: { fillGradient: { angle: 0 } } }] as never, 10, 0, 'rgb', () => {});
     const at = (t: number) => { tl.time(t); return holder.grad.angle; };
     expect(at(0.001)).toBeCloseTo(0, 1);
@@ -175,7 +176,7 @@ describe('the layers that animate a gradient', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const s = shape({ name: 'bg', keyframes: [{ at: 0, to: { fillGradient: { angel: 5 } }, duration: 1 }] });
     await s.build();
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     s.bindTimeline(tl as never, 0);
     for (const t of [0, 0.5, 1, 0.2, 0.8]) tl.time(t);
     const mine = warn.mock.calls.map(c => String(c[0])).filter(m => /angel/.test(m));
@@ -191,7 +192,7 @@ describe('the layers that animate a gradient', () => {
       await t.build();
       const style = (t.target as unknown as { style: { fill: { options: { colorStops: Array<{ color: string }> } } } }).style;
       expect(style.fill.options.colorStops.map(c => c.color)).toEqual(['#ff0000', '#0000ff']);
-      const tl = gsap.timeline({ paused: true });
+      const tl = createTimeline({ paused: true });
       t.bindTimeline(tl as never, 0);
       tl.time(0.5);
       expect((t.target as unknown as { style: { fill: { options: Record<string, unknown> } } }).style.fill.options.start).toBeDefined();

@@ -60,6 +60,7 @@ vi.mock('pixi.js', () => {
 
 import { ShapeSequence } from '../../src/sequences/Shape';
 import type { ShapeSequenceSpec, CompositionShape } from '../../src/types';
+import { createTimeline } from '../../src/core/timelineEngine';
 
 const root: CompositionShape = { width: 1280, height: 720, duration: 10 };
 
@@ -201,7 +202,7 @@ describe('ShapeSequence — anchor', () => {
       initial: { x: 0, y: 0, fillColor: '#5599ff' },
       keyframes: [{ at: 0, to: { width: 200 }, duration: 1, ease: 'none' }],
     });
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     seq.bindTimeline(tl);
     const g = (seq as unknown as { target: { onRender: () => void } }).target;
     const state = (seq as unknown as { _state: { width: number; anchorX: number } })._state;
@@ -239,7 +240,7 @@ describe('ShapeSequence — geometry animation', () => {
         { at: 0, to: { radius: 100 }, duration: 1, ease: 'none' },
       ],
     });
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     seq.bindTimeline(tl);
     const g = (seq as unknown as { target: { onRender: () => void } }).target;
     const state = (seq as unknown as { _state: { radius: number } })._state;
@@ -266,7 +267,7 @@ describe('ShapeSequence — geometry animation', () => {
         { at: 0, to: { width: 200, height: 100, cornerRadius: 20 }, duration: 1, ease: 'none' },
       ],
     });
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     seq.bindTimeline(tl);
     const state = (seq as unknown as { _state: { width: number; height: number; cornerRadius: number } })._state;
 
@@ -284,7 +285,7 @@ describe('ShapeSequence — geometry animation', () => {
         { at: 0, to: { radiusX: 40, radiusY: 60 }, duration: 1, ease: 'none' },
       ],
     });
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     seq.bindTimeline(tl);
     const state = (seq as unknown as { _state: { radiusX: number; radiusY: number } })._state;
     tl.time(0.5);
@@ -308,7 +309,7 @@ describe('ShapeSequence — keyframe chaining', () => {
       ],
     });
 
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     seq.bindTimeline(tl);
     const state = (seq as unknown as { _state: { strokeWidth: number } })._state;
 
@@ -329,7 +330,7 @@ describe('ShapeSequence — keyframe chaining', () => {
       ],
     });
 
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     seq.bindTimeline(tl);
     const state = (seq as unknown as { _state: { strokeColor: string } })._state;
 
