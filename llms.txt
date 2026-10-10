@@ -18,6 +18,7 @@ Rules that cause most failures (details in the skill and pitfalls):
 - [Cheatsheet](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/skills/pixi-effects/reference/cheatsheet.md): every layer type, prop, default and convention on one page
 - [Recipes](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/skills/pixi-effects/reference/recipes.md): tested building blocks (kinetic type, lower-third, count-up, bar chart, 2.5D title, camera orbit, slideshow with transitions, sound effects without files, music written as text, three.js, a presentation deck, visuals that follow music)
 - [Pitfalls](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/skills/pixi-effects/reference/pitfalls.md): real mistakes made by AI authors, with fixes
+- [Directing a film](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/skills/pixi-effects/reference/direction.md): for a product film or company intro, before building: brief, style guide, shot list, assets rule, review protocol (any renderer)
 - [Starter template](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/skills/pixi-effects/template.html): copy this file to begin
 
 ## Reference

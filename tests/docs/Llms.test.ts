@@ -31,7 +31,7 @@ describe('llms.txt / llms-full.txt', () => {
   });
 
   it('llms-full.txt contains every source document once', () => {
-    for (const name of ['skills/pixi-effects/SKILL.md', 'skills/pixi-effects/reference/cheatsheet.md', 'skills/pixi-effects/reference/pitfalls.md', 'skills/pixi-effects/reference/recipes.md', 'docs/dsl.md', 'docs/api.md']) {
+    for (const name of ['skills/pixi-effects/SKILL.md', 'skills/pixi-effects/reference/cheatsheet.md', 'skills/pixi-effects/reference/pitfalls.md', 'skills/pixi-effects/reference/recipes.md', 'skills/pixi-effects/reference/direction.md', 'docs/dsl.md', 'docs/api.md']) {
       expect(full.split(`===== ${name} =====`).length - 1).toBe(1);
     }
   });

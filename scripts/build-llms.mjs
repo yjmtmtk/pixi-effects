@@ -31,6 +31,7 @@ Rules that cause most failures (details in the skill and pitfalls):
 - [Cheatsheet](${RAW}/skills/pixi-effects/reference/cheatsheet.md): every layer type, prop, default and convention on one page
 - [Recipes](${RAW}/skills/pixi-effects/reference/recipes.md): tested building blocks (kinetic type, lower-third, count-up, bar chart, 2.5D title, camera orbit, slideshow with transitions, sound effects without files, music written as text, three.js, a presentation deck, visuals that follow music)
 - [Pitfalls](${RAW}/skills/pixi-effects/reference/pitfalls.md): real mistakes made by AI authors, with fixes
+- [Directing a film](${RAW}/skills/pixi-effects/reference/direction.md): for a product film or company intro, before building: brief, style guide, shot list, assets rule, review protocol (any renderer)
 - [Starter template](${RAW}/skills/pixi-effects/template.html): copy this file to begin
 
 ## Reference
@@ -50,6 +51,7 @@ Rules that cause most failures (details in the skill and pitfalls):
     ['skills/pixi-effects/reference/cheatsheet.md', read('skills/pixi-effects/reference/cheatsheet.md')],
     ['skills/pixi-effects/reference/pitfalls.md', read('skills/pixi-effects/reference/pitfalls.md')],
     ['skills/pixi-effects/reference/recipes.md', read('skills/pixi-effects/reference/recipes.md')],
+    ['skills/pixi-effects/reference/direction.md', read('skills/pixi-effects/reference/direction.md')],
     ['docs/dsl.md', read('docs/dsl.md')],
     ['docs/api.md', read('docs/api.md')],
   ];

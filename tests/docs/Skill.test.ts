@@ -26,6 +26,18 @@ describe('skills/pixi-effects — what an agent installs', () => {
     for (const w of ['video', 'motion graphics', 'animated title', 'lower third', 'promo', 'chart', 'slideshow']) expect(fm![2]!.toLowerCase(), w).toContain(w);
   });
 
+  it('sends a film to reference/direction.md, which is renderer-neutral and names the files an agent must write', () => {
+    expect(skill).toContain('reference/direction.md');
+    expect(existsSync(join(dir, 'reference/direction.md'))).toBe(true);
+    const direction = read('reference/direction.md');
+    for (const f of ['brief.md', 'style-guide.md', 'shotlist.md']) expect(direction, f).toContain(f);
+    for (const dirName of ['assets/', 'src/', 'reviews/', 'out/']) expect(direction, dirName).toContain(dirName);
+    expect(direction).not.toMatch(/npx |ai\/tools|check\.mjs|render\.mjs|pixi-effects check/);                       // the commands live in SKILL.md, so the guide can be lifted out for any renderer
+    expect(direction).toMatch(/stop and ask/i);                                                                          // a missing real asset is a blocker, not an invitation to invent
+    expect(direction).toMatch(/three largest defects/i);
+    expect(direction).toMatch(/do not make a format nobody asked for/i);
+  });
+
   it('is a plain YAML scalar: no ": " and no " #" in the description (the skills CLI refuses the whole skill with "Nested mappings are not allowed")', () => {
     expect(fm![2]).not.toMatch(/: | #/);
     expect(fm![2]).not.toMatch(/^["'>|\[{&*!%@`-]/);

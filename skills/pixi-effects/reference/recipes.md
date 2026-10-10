@@ -1105,7 +1105,7 @@ return [
 
 ## One source, two formats (16:9 and 9:16), and a photo inside a region
 
-A vertical film is not a crop of the wide one. Write each scene as a function of a layout, switch with a query (`?f=9x16`), and render each format on its own: `npx pixi-effects check film.html --query f=9x16`, `npx pixi-effects render film.html --query f=9x16 -o film-9x16.mp4`. `photo()` fits a picture into any rectangle like CSS `cover` (scale from the image's own size, a mask for the rectangle); `scale: 'cover'` only fits the PARENT.
+Only when a vertical cut is wanted (ask first). It is not a crop of the wide one: write each scene as a function of a layout, switch with a query (`?f=9x16`), and render each format on its own: `npx pixi-effects check film.html --query f=9x16`, `npx pixi-effects render film.html --query f=9x16 -o film-9x16.mp4`. `photo()` fits a picture into any rectangle like CSS `cover` (scale from the image's own size, a mask for the rectangle); `scale: 'cover'` only fits the PARENT.
 
 ```js
 // @docs-only two-formats

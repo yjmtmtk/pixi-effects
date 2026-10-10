@@ -4,7 +4,7 @@
 
 **Changed**
 
-- **The skill now tells an agent how to make a film, not only a clip** (`SKILL.md` "For a film", pitfalls 101–102, recipe `two-formats`). Write `brief.md` (real assets with paths, the one sentence to remember; if a needed asset is missing, stop and ask instead of drawing a fake) and `shotlist.md` (a row per beat with entry and exit state) before any composition; put every cut on a bar line of a tempo whose bar is a round number of seconds; make a vertical cut as its own composition (one source, a layout function, `?f=9x16`, `check` / `render --query f=9x16`); and review the rendered frames cold: the three largest defects, each with a timestamp, evidence and a local fix. Came from making a 45 s company film (16:9 and 9:16) from a real website's photos and copy.
+- **A guide for directing a film, `reference/direction.md`** (renderer-neutral; linked from `SKILL.md` "For a film", pitfalls 101–102, recipe `two-formats`). Write `brief.md` (real assets with paths; if a needed asset is missing, stop and ask instead of drawing a fake), `style-guide.md` (taken from the real source, a motion rule per class of object) and `shotlist.md` (a row per beat with entry and exit state) before any composition; keep the files in a studio folder; put every cut on a bar line; review the rendered frames cold (the three largest defects, each with a timestamp, evidence and a local fix); make the formats the human asked for (one if they did not say; a vertical cut is its own composition, `?f=9x16`, `--query f=9x16`). Came from making two 32–45 s company films (16:9 and 9:16) from real websites' photos and copy, and from a published breakdown of building a code-rendered video studio (@0xwhrrari, rewritten, credited in the file).
 
 ## 0.28.0
 

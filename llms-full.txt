@@ -29,16 +29,14 @@ You describe a video as a tree of plain objects; the library plays it in a canva
    From a browser tool the result is a `data:` URL string: `agent-browser eval "movie.contactSheet({ count: 6, as: 'dataURL' })" | python3 scripts/save-image.py /absolute/sheet.png`, then open the PNG. Sheet tiles are small (~480 px): use `snapshot` for detail. `inspect` output is long on busy scenes: pass `{ layers: 'none' }` and read `issues` first. Give layers a `name` so inspect paths are readable. A moving ticker is not flagged as cut off.
 6. **Iterate** on what you saw (clipped text, collisions, wrong timing). Fast motion looks choppy: add `motionBlur: true` to `movie.init` (render, snapshot and contact sheet then show a film-style blur; renders take ~8× longer). Then export: `const blob = await movie.render({ format: 'mp4' })` (about real time; `movie.on('progress', …)` reports 0–100). **While you iterate, do not export the whole movie:** `check --no-export --at <the moment you changed>` takes seconds (3 to 10 s on the gallery pieces: most of it is loading the page and measuring the sound); to see motion, `render({ range: [from, to] })` / `pixi-effects-render --range 10:15` / `--scene name` exports only that part (picture and sound); `draft: true` / `--draft` is half size, low quality and no motion blur: a much smaller file (a piece that asks for motion blur renders much faster as a draft: 4 s of `hanabi-night` took 14.0 s, and 8.2 s as a draft, about 7 s of either being the browser's start-up), but the drawing itself is not faster. Export the whole movie once, at the end.
 
-## For a film (more than a title card): files first, then code
+## For a film (more than a title card): direct it first
 
-A one-line prompt gives the safe default: big centred text, a gradient, everything fading in, the logo last. Write three small files before any composition, and keep them next to the page so the next film starts from a real base.
+**Read `reference/direction.md` before writing a composition for a product film, a company introduction, a launch or a data story.** It is renderer-neutral: write `brief.md` (the one sentence to remember, the REAL assets with paths, what must never be invented; if a needed asset is missing, stop and ask), `style-guide.md` (palette and type taken from the real source, a motion rule per class of object) and `shotlist.md` (a row per beat with entry and exit state) next to the page; then build, then review the rendered frames cold. What is specific to this library:
 
-- **`brief.md`**: the one sentence the viewer should remember, the audience, duration, formats (16:9 / 9:16 / 1:1), the REAL assets (logo, photos, screens, copy, numbers: with their paths), what the film must avoid. Facts come from the product, choices from you: invent a camera move, never a dashboard, a figure or a logo. **If an asset the brief needs is missing, stop and ask; do not draw a convincing fake.** Take colours and type from the real source (a site's CSS, a brand sheet), not from an adjective like "premium".
-- **`shotlist.md`**: one row per beat: time, what the viewer learns, entry state → exit state, which real asset and words, why it exists. A shot nobody can explain is cut. For a UI film write the state list first (SEARCH → RESULT → DETAIL → ACTION) and let one object change across it.
-- **Motion and sound rules per class of object** (in the shotlist or a `style-guide.md`): photos push slowly, headlines rise and then HOLD, numbers count up, one object may be playful. Choose a tempo whose bar is a nice number of seconds (96 bpm: 2.5 s) and put every cut on a bar line; `check` prints a `music` read-back (bars per track, drum span) so you can verify the sound without listening.
-- **One source, several formats.** A vertical cut is its own composition (bigger type, fewer things at once, another layout), not a crop: write the scenes as functions of a layout (`W`, `H`, margins) and pick it with `?f=9x16` (recipe `two-formats`); `check` and `render` take `--query f=9x16`. Look at a contact sheet of every format.
-- **Review rule: judge the rendered frames, not your intent.** Open the contact sheet cold (and mid-transition frames from the exported file), then write the three largest defects, each with a timestamp, evidence (what you SEE) and a local fix; patch only those and look at those frames again. Ask for a second pair of eyes (another agent, the human) on the sheet when you can: the author reads their own intent into it. Checklist: text readable at phone size (in a 1080p film keep every line of text at 34 px or more, labels included), nothing in the outer 5 %, real assets only, one type and colour system, no awkward half-transition frame, cuts and sound cues land together, a real hook in the first two seconds, a last frame that works as a poster.
-- Stop at gates when a human is there: brief and shotlist first, then a few stills, then the rough cut. Between gates a long run may repair itself; it never makes brand decisions (logo, claims, numbers) for the human.
+- **Time and sound:** pick a tempo whose bar is a round number of seconds (96 bpm: 2.5 s; 120 bpm: 2 s), put every cut on a bar line and every sfx on its beat. `npx pixi-effects check` prints a `music` read-back (bars per track, what starts on which beat, the drum span): verify the sound with it.
+- **Review:** `check --at 3.5,title@end,50%` writes the contact sheet and single frames; look at mid-transition frames of the exported file too. Frames are seekable and deterministic here: render the same range twice and compare the frames if you doubt it.
+- **Formats:** make the formats the human asked for, one if they did not say. When a vertical cut is wanted it is its own composition: one source, a layout function, `?f=9x16` (recipe `two-formats`); `check` and `render` take `--query f=9x16`.
+- Fit a picture into a rectangle with the `photo()` helper of that recipe (`scale: 'cover'` fits the PARENT only); designed pictures (posters, flyers, screenshots) are shown whole, never cropped.
 
 ## The rules that cause most failures
 
@@ -67,6 +65,7 @@ Centred text must be positioned by `anchorX/anchorY: 0.5`; estimate text width a
 - `reference/cheatsheet.md` — every layer type, prop, default and rule on one page.
 - `reference/recipes.md` — tested building blocks: slam type, lower-third, marquee, count-up, bar chart, 2.5D title, camera orbit, slideshow with transitions + music, looping, particles, gradients/vignette, three.js metal.
 - `reference/pitfalls.md` — the full list of real mistakes, with status.
+- `reference/direction.md` — how to direct a film (any renderer): brief, style guide, shot list, assets rule, sound on the beat grid, review protocol, formats, gates.
 - `npx pixi-effects check` — the one-command review (see Workflow step 5).
 - `template.html` — the starting file. (It loads the released library from a CDN, so it works from any folder.)
 - `scripts/save-image.py` — save a `dataURL` result (contact sheet / snapshot) to a PNG.
@@ -391,8 +390,8 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 98. **A matte layer needs a fill.** A named matte (`mask: 'glass'`) that is a shape with no `fillColor` / `fillGradient` (or a text with no fill) cuts everything away and nothing warns: the layers it should show simply vanish. Give the matte a fill (white for `alpha`, a gradient for `luma`).
 99. **In a `music` score a capital letter is a chord and a lowercase one a note.** `G7` is G dominant seventh, `C5` a power chord, `C6` a sixth chord; `g7`, `c5`, `c6` are notes (octave 7 is a very high note: it used to be what `G7` meant, silently). A bare note in capitals (`Bb2`) is refused with the lowercase spelling (`bb2`); inside brackets (`[C4 E4 G4]`) any case is a note. An unknown chord kind suggests the nearest (`Cmin7` → `Cm7`, `Csus` → `Csus4`, `CM7` → `Cmaj7`).
 100. **Read the score back before you trust it.** `check` prints a `music` block: every track's length in bars (a track that ends early or has a short bar is named), the names that start in each bar with their beat (`Am(2)` starts on beat 2; no mark = the downbeat; the first four names of a bar are shown, `musicEvents()` lists everything), and the drum span. Count bars by the read-back, not by hand: a bar of 3 beats in a score with no `meter` is shown as bars of 4, so set `meter: 3` for a waltz. Drums repeat by themselves and `from` / `to` are beats; `swing` only moves notes that start off the beat, so a comp on beats 2 and 4 stays straight.
-101. **A film built from one adjective looks like every other one.** Write `brief.md` / `shotlist.md` first (see SKILL.md, "For a film"): real assets with paths, the one sentence to remember, a row per beat with entry and exit state. If a real asset is missing, ask: a drawn fake (a logo, a dashboard, a figure) is the failure that matters. Take palette and type from the source (a site's CSS), and judge the contact sheet cold: three defects, each with a timestamp, evidence and a local fix.
-102. **A vertical cut is a second composition, not a crop.** One source, a layout function, `?f=9x16`; `check` and `render` take `--query f=9x16` (recipe `two-formats`). Look at a contact sheet of each format: type that fits wide is tiny tall, and a column of cards that fits tall leaves a wide frame empty. In a 1080p film keep every line of text at 34 px or more; if you cannot read it in a sheet tile, a phone cannot.
+101. **A film built from one adjective looks like every other one.** Read `reference/direction.md` and write `brief.md` / `style-guide.md` / `shotlist.md` first: real assets with paths, the one sentence to remember, a row per beat with entry and exit state. If a real asset is missing, ask: a drawn fake (a logo, a dashboard, a figure) is the failure that matters. Judge the contact sheet cold: three defects, each with a timestamp, evidence and a local fix.
+102. **A vertical cut is a second composition, not a crop, and only when someone asked for it.** One source, a layout function, `?f=9x16`; `check` and `render` take `--query f=9x16` (recipe `two-formats`). Look at a contact sheet of each format: type that fits wide is tiny tall. Ask which formats are wanted; make one if the answer is open. In a 1080p film keep every line of text at 34 px or more; if you cannot read it in a sheet tile, a phone cannot.
 
 
 <!-- ===== skills/pixi-effects/reference/recipes.md ===== -->
@@ -1504,7 +1503,7 @@ return [
 
 ## One source, two formats (16:9 and 9:16), and a photo inside a region
 
-A vertical film is not a crop of the wide one. Write each scene as a function of a layout, switch with a query (`?f=9x16`), and render each format on its own: `npx pixi-effects check film.html --query f=9x16`, `npx pixi-effects render film.html --query f=9x16 -o film-9x16.mp4`. `photo()` fits a picture into any rectangle like CSS `cover` (scale from the image's own size, a mask for the rectangle); `scale: 'cover'` only fits the PARENT.
+Only when a vertical cut is wanted (ask first). It is not a crop of the wide one: write each scene as a function of a layout, switch with a query (`?f=9x16`), and render each format on its own: `npx pixi-effects check film.html --query f=9x16`, `npx pixi-effects render film.html --query f=9x16 -o film-9x16.mp4`. `photo()` fits a picture into any rectangle like CSS `cover` (scale from the image's own size, a mask for the rectangle); `scale: 'cover'` only fits the PARENT.
 
 ```js
 // @docs-only two-formats
@@ -1554,6 +1553,146 @@ while IFS=, read -r name score; do
   npx pixi-effects render batch.html --query "name=$(printf %s "$name" | jq -sRr @uri)&score=$score" -o "out/$name.mp4" --quiet
 done < table.csv
 ```
+
+
+<!-- ===== skills/pixi-effects/reference/direction.md ===== -->
+
+# Directing a film (for any AI that makes video with code)
+
+Read this before you write a composition for anything longer than a title card: a product film, a company introduction, a launch, a data story. It is about the decisions around the renderer, so it names no tool; `SKILL.md` has the pixi-effects commands.
+
+A one-line prompt makes the model fill every missing decision with its safest default: large text in the middle, a gradient behind it, everything fading in, the logo last. The fix is not a cleverer prompt. It is to remove the missing decisions before anything is drawn, and to judge what was drawn with evidence.
+
+## The five layers (do not collapse them into one step)
+
+| Layer | The question | Where the answer lives |
+|---|---|---|
+| Director | What is the film trying to say, to whom? | `brief.md` |
+| Reference | What should it look and feel like? | `style-guide.md` |
+| Timeline | What changes at each beat, and why? | `shotlist.md` |
+| Renderer | How is every frame produced? | `src/` (seekable code) |
+| Critic | What failed, exactly where, and why? | `reviews/` |
+
+## Keep the decisions in files, not in the chat
+
+A film whose only record is a conversation is a lucky session. Put the decisions where the next run can read them:
+
+```
+film/
+  brief.md        the one-sentence goal, the audience, the product facts, the real assets
+  style-guide.md  palette, type, motion rules, banned defaults
+  shotlist.md     beats, states, timestamps, purpose
+  assets/         approved logos, photos, screens, footage, sound
+  src/            the composition and its code
+  reviews/        contact sheets and defect notes
+  out/            exports
+```
+
+The next film swaps the brief and the assets and keeps the rest. A run that stops can resume from the last file it finished and say which one is missing; "the last command exited 0" is never the definition of done.
+
+## brief.md: facts about the product, choices about the film
+
+Separate what is true (it comes from the product) from what is chosen (it comes from you). The model may invent a camera move or a stronger opening. It may not invent a dashboard, a figure, a logo or a client.
+
+```
+FILM
+One sentence: what the viewer should remember
+Audience:     who it is for
+Duration:     seconds
+Formats:      ask the human; one format unless they name more (see "Formats" below)
+
+ASSETS (paths; everything on screen comes from here)
+Logo · photos · screens · copy and numbers · brand type and colours · sound reference
+
+VISUAL RULES
+Keep:   traits taken from the reference
+Avoid:  the clichés you will not use
+Never:  invent a product screen, a metric, a claim or a logo
+
+DELIVERABLES
+Final video, poster frame, contact sheets, source, an asset list, a note on what a human still has to check
+```
+
+**Collect the assets first, list them, and read the list before building.** If the brief needs an asset that is missing, stop and ask. A convincing fake (a drawn logo, an invented dashboard, a guessed number) is the one failure that cannot be repaired afterwards. Words and numbers on screen are the source's own; take colours and type from the source itself (a site's CSS, a brand sheet), never from an adjective such as "premium".
+
+## style-guide.md: a visual grammar written down
+
+Without one the model supplies its own, which is why unrelated one-prompt films look related. Give it a frame, a film or the real site, and make it write what it saw:
+
+```
+REFERENCE ANALYSIS
+Palette:      the actual colours (hex), not an adjective
+Typography:   family, weight, scale
+Composition:  where the eye goes first
+Pacing:       average time between meaningful changes
+Motion:       snap, glide, overshoot, cut or hold
+Texture:      grain, paper, glass, flat
+DO NOT COPY:  the reference's subjects, logos, copy or product imagery
+```
+
+The result is a style guide, not a collage of borrowed shots. Add a **motion rule per class of object**, because "motion with weight" is the difference between decoration and direction: small controls snap, large panels settle, the camera is almost invisible, headlines enter strongly and then hold long enough to read, one playful object is allowed to overshoot. If everything overshoots, nothing feels precise. After each move ask: does the viewer know where to look?
+
+## shotlist.md: states and beats, not effects
+
+"Zoom in, then morph, then add particles" lists activity. A plan says what the viewer knows at each moment:
+
+```
+00-02  HOOK     one image that earns attention
+02-05  PROBLEM  the friction, shown, not described in a paragraph
+05-09  REVEAL   the product enters through a real interaction
+09-13  PROOF    one screen or number that demonstrates the claim
+13-16  CLOSE    a clean final state and a readable call to action
+```
+
+Each row has an entry state, an exit state and a reason to exist. For a UI film write the state list first (SEARCH → RESULT → DETAIL → ACTION → CONFIRMATION) so one component can change size, colour and content while staying recognisably the same object. The shot list is a contract: a shot nobody can justify is cut.
+
+## Seekable and deterministic, or it cannot be reviewed
+
+Frame 240 must render directly, without replaying frames 0 to 239: no hidden clock, no unseeded randomness, nothing that only works after eight seconds of running. Think of a frame as a query: `frame = render(time, shotlist, assets, style, seed)`. Then a revision is local (change one time value, one curve, one asset) and a reviewed frame stays reviewed. Two renders of the same moment must give the same pixels; check it.
+
+## Sound is on the same timeline
+
+Many AI films look finished with the sound off; then the click lands after the button, the cut misses the beat, the logo arrives before the music resolves. Write a beat grid and drive picture and sound from it: choose a tempo whose bar is a round number of seconds, put every cut on a bar line and every cue on the beat it belongs to. With a licensed or original track, measure its beats and cut against them. Test: close your eyes and listen; if the film has no shape without the picture, the sound is not finished.
+
+## Review the rendered frames, not your intent
+
+Do not start by watching a full export ten times, and do not describe what you meant to make. Ask the renderer for a contact sheet: one frame at every beat, a short strip around the fastest transitions, and a frame from the middle of each cut taken from the exported file. Look cold, then write the **three largest defects**, each with a **timestamp**, the **evidence** (what you see) and a **local fix**; patch only those, render those frames again. Ask for a second pair of eyes on the sheet whenever one is available: the author reads their own intent into it.
+
+```
+[ ] text readable at phone size (about 34 px or more on a 1080p frame)
+[ ] nothing in the outer 5 % of the frame
+[ ] real assets only, none redrawn or invented
+[ ] one type and colour system across scenes
+[ ] no awkward half-transition frame
+[ ] cuts and sound cues land together
+[ ] the first two seconds are a real hook
+[ ] the last frame works as a poster
+```
+
+"The agent made a video" stops when the file exists. "The agent directed a video" stops when the evidence says the film works.
+
+## Formats
+
+A 16:9 film and a 9:16 cut are different compositions: the vertical one needs larger type, fewer things at once, another layout, sometimes a tighter story. Never crop the middle of the wide one. **Do not make a format nobody asked for:** ask which formats are wanted, make one if the answer is "whatever", and offer the others. When more than one is wanted, keep the same assets, timeline and states, define the layout per format, and look at a contact sheet of each: an export is correct because the composition survived the format, not because the encoder finished.
+
+## Gates, and what to do when no human is there
+
+Long runs need places to stop. With a human present:
+
+1. approve the references and the asset list
+2. approve the style guide and the shot list
+3. look at representative stills
+4. look at a rough cut and its contact sheet
+5. repair the three highest-impact defects
+6. check sound, formats and deliverables
+
+Between gates the agent may work for hours; it never makes an irreversible brand decision (logo, claim, number) for the human, and a missing real asset is a blocker, not an invitation to invent one. If the reference is unclear, the right output is a question or one small test frame, not nine hundred polished wrong ones. With nobody to ask, record each decision you took as a "ruling" in the review notes, with what it costs if wrong, and finish with a short note of what still needs a human.
+
+## The loop
+
+PROMPT → CLIP is a demo. BRIEF → SYSTEM → FILM → REVIEW → BETTER SYSTEM is a studio: every stage leaves evidence the next one can use, and the tenth film can be better than the first.
+
+*The shape of this guide follows a published breakdown of building a code-rendered video studio around an AI model ("Motion Engineering", @0xwhrrari, September 2026); the wording and the checklist are rewritten for this library's users.*
 
 
 <!-- ===== docs/dsl.md ===== -->
