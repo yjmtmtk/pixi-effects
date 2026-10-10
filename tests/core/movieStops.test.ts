@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { gsap } from 'gsap';
 vi.mock('../../src/core/Renderer', () => ({ exportFrames: vi.fn() }));
 import { Movie } from '../../src/core/Movie';
 import { normalizeStops } from '../../src/core/stops';
 import { createTimeline } from '../../src/core/timelineEngine';
+import { spacer } from '../../src/core/pure/PureTimeline';
 
 /** A manual clock: requestAnimationFrame callbacks run only when the test advances time. */
 let now = 0;
@@ -25,7 +25,7 @@ function movieWithStops(raw: Parameters<typeof normalizeStops>[0], totalFrames =
   const a = m as unknown as Record<string, unknown>;
   const drawn: number[] = [];
   Object.assign(a, { _initState: 'ready', totalFrames, frameRate, duration: totalFrames / frameRate });
-  a.timeline = createTimeline({ paused: true }).add(gsap.to({}, { duration: totalFrames / frameRate }));
+  a.timeline = createTimeline({ paused: true }).add(spacer(totalFrames / frameRate));
   a._rootSequence = {}; a.app = {};
   a._awaitVideoFrames = async () => {};
   a._updateSpace = () => {};

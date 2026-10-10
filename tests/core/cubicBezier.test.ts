@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi } from 'vitest';
-import { gsap } from 'gsap';
+import { pureEase } from '../../src/core/pure/ease';
 import { cubicBezierEase, cubicBezierProblem } from '../../src/core/cubicBezier';
 import { checkEase, __resetEaseWarnings } from '../../src/core/ease';
 
@@ -45,10 +45,10 @@ describe('cubicBezierEase', () => {
   });
 });
 
-describe('cubic-bezier as a GSAP ease', () => {
-  it('gsap resolves the string, with or without spaces and a leading dot', () => {
-    const a = gsap.parseEase('cubic-bezier(.4,0,.2,1)') as (p: number) => number;
-    const b = gsap.parseEase('cubic-bezier(0.4, 0, 0.2, 1)') as (p: number) => number;
+describe('cubic-bezier as an ease name', () => {
+  it('the string resolves, with or without spaces and a leading dot', () => {
+    const a = pureEase('cubic-bezier(.4,0,.2,1)');
+    const b = pureEase('cubic-bezier(0.4, 0, 0.2, 1)');
     const ref = cubicBezierEase(0.4, 0, 0.2, 1);
     for (let i = 0; i <= 20; i++) { expect(a(i / 20)).toBeCloseTo(ref(i / 20), 12); expect(b(i / 20)).toBeCloseTo(ref(i / 20), 12); }
   });

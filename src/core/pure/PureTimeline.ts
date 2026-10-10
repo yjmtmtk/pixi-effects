@@ -22,6 +22,19 @@ export interface PureVars {
   [prop: string]: unknown;
 }
 
+/** One thing a timeline writes: see `segments()`. */
+export interface SegmentInfo {
+  target: object;
+  /** The property (`'alpha'`, `'scale.x'`, `'fill'`). */
+  id: string;
+  start: number;
+  duration: number;
+  repeat: number;
+  yoyo: boolean;
+  repeatDelay: number;
+  kind: 'set' | 'to' | 'from' | 'fromTo';
+}
+
 /** A property of a target that a segment writes; the unit the value is computed for. */
 interface Channel {
   target: Target;
@@ -287,6 +300,21 @@ export class PureTimeline {
   }
 
   // --- reading -------------------------------------------------------------------------------------------
+
+  /** What the timeline will write, for tools and tests: every segment of this timeline and of the ones under it, starts in this timeline's time. */
+  segments(offset = 0): SegmentInfo[] {
+    const out: SegmentInfo[] = [];
+    for (const ch of this.channelList) {
+      for (const s of ch.segs) {
+        out.push({ target: ch.target, id: ch.acc.id, start: s.start + offset, duration: s.dur, repeat: s.repeat, yoyo: s.yoyo, repeatDelay: s.repeatDelay, kind: s.step ? 'set' : s.kind });
+      }
+    }
+    for (const c of this.children) out.push(...c.child.segments(offset + c.start));
+    return out;
+  }
+
+  /** How many timelines are directly under this one. */
+  timelines(): number { return this.children.length; }
 
   duration(): number { return this.spans; }
 

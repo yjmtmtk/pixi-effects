@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { PureTimeline } from '../../../src/core/pure/PureTimeline';
-import { setTimelineEngine, setNow } from '../../../src/core/timelineEngine';
+import { setNow } from '../../../src/core/timelineEngine';
 
 describe('findings of the fresh review of the pure timeline', () => {
   it('a setter with a side effect (a video frame, a text redraw) runs when the value changes, not on every frame', () => {
@@ -36,12 +36,10 @@ describe('findings of the fresh review of the pure timeline', () => {
   });
 
   it('setNow reads rgb() and #rrggbbaa tints like a tween does', () => {
-    setTimelineEngine('pure');
     const o = { tint: 0xffffff };
     setNow(o, { pixi: { tint: 'rgb(255,0,0)' } });
     expect(o.tint).toBe(0xff0000);
     setNow(o, { pixi: { tint: '#00ff0080' } });
     expect(o.tint).toBe(0x00ff00);
-    setTimelineEngine('gsap');
   });
 });

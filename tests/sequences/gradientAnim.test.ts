@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('pixi.js', async () => (await import('../space/mockPixi')).createPixiMock());
-import { gsap } from 'gsap';
 import { ShapeSequence } from '../../src/sequences/Shape';
 import { TextSequence } from '../../src/sequences/Text';
 import type { CompositionShape, SequenceSpec } from '../../src/types';

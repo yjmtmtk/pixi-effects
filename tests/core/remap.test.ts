@@ -1,6 +1,5 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { gsap } from 'gsap';
 import { timeRemapOf, resolveFromEnd, contentLength, bindClock, clockTable, remapOf } from '../../src/core/remap';
 import { createTimeline } from '../../src/core/timelineEngine';
 

@@ -142,7 +142,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('time remap
         await cdp.eval(`mk({ duration: 4, composition: { sequences: [{ ...stage(), ...${JSON.stringify(extra)} }] } })`);
         let worst = 0;
         for (const f of exact) worst = Math.max(worst, await cdp.eval(`snap(${f}).then(s => diff(s, ${JSON.stringify(want[f])}))`));
-        expect(worst, `${name}: largest difference from the unremapped composition`).toBeLessThanOrEqual(60);          // antialiased edges only (gsap rounds the clock to ~1e-8 s)
+        expect(worst, `${name}: largest difference from the unremapped composition`).toBeLessThanOrEqual(60);          // antialiased edges only (the clock is rounded to 1e-7 s)
         expect(await cdp.eval(`orders(${JSON.stringify(OUTER)})`)).toEqual({ bwdMax: 0, jmpMax: 0, jmp2Max: 0 });
         const logs = (await cdp.eval('window.__logs')).filter((l: string) => !/\[Resolver\]/.test(l));
         expect(logs, `${name}: ${JSON.stringify(logs)}`).toEqual([]);
@@ -216,15 +216,14 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('time remap
     });
   }, 300000);
 
-  it('destroy kills the local timeline and the clock: nothing a remapped composition made is left running on the global timeline', async () => {
+  it('destroy kills the local timeline and the clock: nothing a remapped composition made is left behind', async () => {
     await withPage(async (cdp) => {
-      const count = `import('gsap').then(m => m.gsap.globalTimeline.getChildren(true, true, true).length)`;
-      const before: number = await cdp.eval(count);
       await cdp.eval(`mk({ duration: 4, composition: { sequences: [{ ...stage(), speed: -1 }, { ...stage(), speed: 2 }] } })`);
       await cdp.eval('snap(30)');
-      expect(await cdp.eval(count)).toBeGreaterThan(before);                    // the movie and its local timelines exist
+      await cdp.eval('window.__tl = window.movie.timeline');
+      expect(await cdp.eval('window.__tl.segments().length')).toBeGreaterThan(0);          // the movie and its local timelines exist
       await cdp.eval('window.movie.destroy().then(() => { window.movie = null; })');
-      expect(await cdp.eval(count), 'timelines left behind by a destroyed movie').toBeLessThanOrEqual(before);
+      expect(await cdp.eval('window.__tl.segments().length'), 'timelines left behind by a destroyed movie').toBe(0);
     });
   }, 300000);
 });

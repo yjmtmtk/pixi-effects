@@ -1,5 +1,4 @@
 import { describe, it, expect, vi } from 'vitest';
-import { gsap } from 'gsap';
 vi.mock('pixi.js', async () => {
   const m = (await import('../space/mockPixi')).createPixiMock();
   m.Assets.get = async () => ({ width: 100, height: 100 });
@@ -10,26 +9,22 @@ import { ShapeSequence } from '../../src/sequences/Shape';
 import { ImageSequence } from '../../src/sequences/Image';
 import { CompositionSequence } from '../../src/sequences/Composition';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
-import { setTimelineEngine } from '../../src/core/timelineEngine';
-setTimelineEngine('gsap');   // these read GSAP's own tweens (getChildren): they are about the GSAP engine
+import { createTimeline } from '../../src/core/timelineEngine';
 
 const shape: CompositionShape = { width: 1280, height: 720, duration: 10 };
 
-type Tl = ReturnType<typeof gsap.timeline>;
-/** Start times (global timeline seconds) of every tween whose vars touch `prop` (or its pixi/live wrapper). */
+type Tl = ReturnType<typeof createTimeline>;
+/** Start times (global timeline seconds) of every segment that writes `prop` (the shorthand ids are `scale.x`, `anchor.y` ...). */
 function startsOf(tl: Tl, prop: string): number[] {
-  return tl.getChildren(true, true, false)
-    .filter((c: any) => c.vars && (prop in c.vars || (c.vars.pixi && prop in c.vars.pixi)))
-    .map((c: any) => +c.startTime().toFixed(3))
-    .sort((a: number, b: number) => a - b);
+  return tl.segments().filter(s => s.id === prop || s.id.startsWith(prop + '.'))
+    .map(s => +s.start.toFixed(3)).sort((a, b) => a - b);
 }
-/** Start times of tweens that write into a plain state object property (fill / live shape colour). */
+/** Start times of the segments that write a plain state property (fill / live shape colour) or switch a layer on and off. */
 function startsOfState(tl: Tl, key: string): number[] {
-  return tl.getChildren(true, true, false)
-    .filter((c: any) => c.vars && (key in c.vars || (c.vars.p !== undefined)))
-    .map((c: any) => +c.startTime().toFixed(3))
-    .sort((a: number, b: number) => a - b);
+  return tl.segments().filter(s => s.id === key || s.id === 'renderable')
+    .map(s => +s.start.toFixed(3)).sort((a, b) => a - b);
 }
+const allStarts = (tl: Tl): number[] => tl.segments().map(s => +s.start.toFixed(3));
 
 describe('keyframe `at` is sequence-local (After Effects style)', () => {
   it('text at:2 — `at: 0` starts at global 2s, for plain props AND fill', async () => {
@@ -41,7 +36,7 @@ describe('keyframe `at` is sequence-local (After Effects style)', () => {
       ],
     } as unknown as SequenceSpec, shape, shape);
     await t.build();
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     t.bindTimeline(tl, 0);
     expect(startsOf(tl, 'alpha')).toEqual([2]);
     expect(startsOfState(tl, 'fill').filter(s => s !== 2 && s !== 5)).toEqual([]);   // only the renderable toggles (2, 5) and the fill tween (2)
@@ -54,7 +49,7 @@ describe('keyframe `at` is sequence-local (After Effects style)', () => {
       keyframes: [{ at: -1, to: { y: 5 }, duration: 1 }],
     } as unknown as SequenceSpec, shape, shape);
     await t.build();
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     t.bindTimeline(tl, 0);
     expect(startsOf(tl, 'y')).toEqual([4]);
   });
@@ -68,10 +63,10 @@ describe('keyframe `at` is sequence-local (After Effects style)', () => {
       ],
     } as unknown as SequenceSpec, shape, shape);
     await t.build();
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     t.bindTimeline(tl, 0);
     expect(startsOf(tl, 'alpha')).toContain(2.5);
-    const all = tl.getChildren(true, true, false).map((c: any) => +c.startTime().toFixed(3));
+    const all = allStarts(tl);
     expect(all.filter(s => s === 2.5).length).toBeGreaterThanOrEqual(2);   // alpha + the live colour tween
     expect(all).not.toContain(0.5);
   });
@@ -83,9 +78,9 @@ describe('keyframe `at` is sequence-local (After Effects style)', () => {
       keyframes: [{ at: 0.5, to: { tint: '#00ff00' }, duration: 1 }],
     } as unknown as SequenceSpec, shape, shape);
     await t.build();
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     t.bindTimeline(tl, 0);
-    const all = tl.getChildren(true, true, false).map((c: any) => +c.startTime().toFixed(3));
+    const all = allStarts(tl);
     expect(all).toContain(2.5);
     expect(all).not.toContain(0.5);
   });
@@ -97,7 +92,7 @@ describe('keyframe `at` is sequence-local (After Effects style)', () => {
     } as unknown as SequenceSpec;
     const comp = new CompositionSequence(spec as never, shape, shape);
     await comp.build();
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     comp.bindTimeline(tl, 0);
     expect(startsOf(tl, 'alpha')).toEqual([4]);
   });
@@ -108,7 +103,7 @@ describe('keyframe `at` is sequence-local (After Effects style)', () => {
       keyframes: [{ at: 0, to: { alpha: 0.5 }, duration: 1 }],
     } as unknown as SequenceSpec, shape, shape);
     await t.build();
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     t.bindTimeline(tl, 0);
     expect(startsOf(tl, 'alpha')).toEqual([0]);
   });

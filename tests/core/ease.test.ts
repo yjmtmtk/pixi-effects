@@ -47,14 +47,14 @@ describe('checkEase', () => {
     parseEase('sine.inOutt');
     expect(String(w.mock.calls[1]![0])).toMatch(/a preset: unknown ease "sine\.inOutt"/);
   });
-  it('an empty ease says so; a family name such as Power2 is not an ease (GSAP gives back an object) and warns with the way to write it', () => {
+  it('an empty ease says so; a family name such as Power2 is not an ease and warns with the way to write it', () => {
     const w = vi.spyOn(console, 'warn').mockImplementation(() => {});
     checkEase('', 'a keyframe');
     expect(String(w.mock.calls[0]![0])).toMatch(/an empty ease/);
     checkEase('Power2', 'a keyframe');
     expect(String(w.mock.calls[1]![0])).toMatch(/"Power2" is a family, not an ease.*power2\.out/s);
     const quiet = vi.spyOn(console, 'warn').mockClear();
-    checkEase('power2', 'a keyframe');                                     // lower-case power2 is a real ease in GSAP
+    checkEase('power2', 'a keyframe');                                     // lower-case power2 is a real ease (the family's out)
     checkEase('Power2.easeOut', 'a keyframe');
     expect(quiet).not.toHaveBeenCalled();
   });

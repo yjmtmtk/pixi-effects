@@ -1,5 +1,4 @@
 import { describe, it, expect, vi } from 'vitest';
-import { gsap } from 'gsap';
 vi.mock('pixi.js', async () => {
   const m = (await import('../space/mockPixi')).createPixiMock();
   m.Assets.get = async () => ({ width: 100, height: 100 });
@@ -7,17 +6,13 @@ vi.mock('pixi.js', async () => {
 });
 import { CompositionSequence } from '../../src/sequences/Composition';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
-import { setTimelineEngine } from '../../src/core/timelineEngine';
-setTimelineEngine('gsap');   // these read GSAP's own tweens (getChildren): they are about the GSAP engine
+import { createTimeline } from '../../src/core/timelineEngine';
 
 const shape: CompositionShape = { width: 1280, height: 720, duration: 10 };
-type Tl = ReturnType<typeof gsap.timeline>;
-/** Global start times of every tween that animates `prop` on a layer named `name` (the label sits on the display object). */
+type Tl = ReturnType<typeof createTimeline>;
+/** Global start times of every segment that animates `prop`. */
 function startsOfLayer(tl: Tl, prop: string): number[] {
-  return tl.getChildren(true, true, false)
-    .filter((c: any) => c.vars && (prop in c.vars || c.vars.pixi && prop in c.vars.pixi || c.vars[prop] !== undefined))
-    .map((c: any) => +c.startTime().toFixed(3))
-    .sort((a: number, b: number) => a - b);
+  return tl.segments().filter(s => s.id === prop).map(s => +s.start.toFixed(3)).sort((a, b) => a - b);
 }
 
 async function build(maskExtra: Record<string, unknown> = {}) {
@@ -34,7 +29,7 @@ async function build(maskExtra: Record<string, unknown> = {}) {
   } as unknown as SequenceSpec;
   const comp = new CompositionSequence(spec as never, shape, shape);
   await comp.build();
-  const tl = gsap.timeline({ paused: true });
+  const tl = createTimeline({ paused: true });
   comp.bindTimeline(tl, 0);
   return { comp, tl };
 }
@@ -74,9 +69,9 @@ describe('an image used as a mask is a matte: it is drawn into the matte texture
     const comp = new CompositionSequence(spec as never, shape, shape);
     await comp.build();
     const target = (comp as unknown as { _children: Array<{ maskSequence: { target: { renderable: boolean } } | null }> })._children[0].maskSequence!.target;
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     comp.bindTimeline(tl, 0);
-    const toggles = tl.getChildren(true, true, false).filter((c: any) => c.targets?.().includes(target) && c.vars && 'renderable' in c.vars);
+    const toggles = tl.segments().filter(s => s.target === target && s.id === 'renderable');
     return { target, tl, toggles };
   }
 

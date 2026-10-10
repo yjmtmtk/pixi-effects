@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Container } from 'pixi.js';
-import { gsap } from 'gsap';
 import { Sequence } from '../../src/sequences/Base';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
 

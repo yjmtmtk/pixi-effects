@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { gsap } from 'gsap';
 import { applyKeyframes, applyInitial, splitRouted, type PathRouters } from '../../src/core/Timeline';
 import { createTimeline } from '../../src/core/timelineEngine';
+import { spacer } from '../../src/core/pure/PureTimeline';
+import type { Timeline } from '../../src/core/timelineEngine';
 
 /** Router resolving against a plain-object registry, walking dotted paths. */
 function makeRouter(registry: Record<string, object>): PathRouters {
@@ -82,7 +83,7 @@ describe('applyKeyframes with routers', () => {
   it('respects the timeline offset for routed props', () => {
     const cube = { rotation: { y: 0 } };
     const tl = createTimeline({ paused: true });
-    tl.add(gsap.to({}, { duration: 10 })); // give the timeline room
+    tl.add(spacer(10)); // give the timeline room
     applyKeyframes(tl, {}, [{ at: 0, to: { 'three.cube.rotation.y': 2 }, duration: 2 }],
       10, {}, [], 4, makeRouter({ cube })); // offset = 4
     tl.time(4);

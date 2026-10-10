@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { gsap } from 'gsap';
 vi.mock('../../src/core/Renderer', () => ({ exportFrames: vi.fn() }));
 import { Movie } from '../../src/core/Movie';
 import { exportFrames } from '../../src/core/Renderer';

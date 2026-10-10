@@ -106,6 +106,7 @@ function parse(raw: string): EaseFn | null {
   if (/^cubic-bezier/.test(s)) { const c = parseCubicBezier(raw); return c ? cubicBezierEase(...c) : null; }
   const st = /^steps\(\s*([^)]*)\)$/.exec(s);
   if (st) return steps(Number(st[1]));
+  if (/^[a-z][a-z0-9]*$/.test(raw) && FAMILY[raw]) return FAMILY[raw]!([]).out;   // `power2`, `back`: the family's `out` (`Power2` with a capital is the family itself, not an ease)
   const m = /^([a-z0-9]+)\.(?:ease)?(in|out|inout)(?:\(([^)]*)\))?$/.exec(s);
   if (!m) return null;
   const make = FAMILY[m[1]!];

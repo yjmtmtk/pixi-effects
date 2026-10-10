@@ -64,7 +64,6 @@ vi.mock('pixi.js', () => {
   };
 });
 
-import { gsap } from 'gsap';
 import { ImageSequence } from '../../src/sequences/Image';
 import { TextSequence } from '../../src/sequences/Text';
 import type { ImageSequenceSpec, TextSequenceSpec, CompositionShape } from '../../src/types';

@@ -1,5 +1,4 @@
 import { describe, it, expect, vi } from 'vitest';
-import { gsap } from 'gsap';
 vi.mock('pixi.js', async () => {
   const m = (await import('../space/mockPixi')).createPixiMock();
   m.Assets.get = async () => ({ width: 100, height: 100 });

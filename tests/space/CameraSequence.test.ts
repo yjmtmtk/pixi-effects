@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('pixi.js', async () => (await import('./mockPixi')).createPixiMock());
 
-import { gsap } from 'gsap';
 import { wiggle } from '../../src/presets/wiggle';
 import { CameraSequence } from '../../src/space/CameraSequence';
 import { homeDistance } from '../../src/space/math';

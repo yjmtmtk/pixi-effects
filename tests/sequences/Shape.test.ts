@@ -196,7 +196,6 @@ describe('ShapeSequence — anchor', () => {
   });
 
   it('progress-bar pattern: width animates 0 → W with anchorX:0; live state reflects the live width', async () => {
-    const { gsap } = await import('gsap');
     const seq = await build({
       type: 'shape', shape: 'rect', width: 0, height: 18, anchorX: 0, duration: 4,
       initial: { x: 0, y: 0, fillColor: '#5599ff' },

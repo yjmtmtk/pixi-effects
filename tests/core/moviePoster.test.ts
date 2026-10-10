@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { gsap } from 'gsap';
 vi.mock('../../src/core/Renderer', () => ({ exportFrames: vi.fn() }));
 import { Movie } from '../../src/core/Movie';
 import { normalizePoster } from '../../src/core/poster';
 import { createTimeline } from '../../src/core/timelineEngine';
+import { spacer } from '../../src/core/pure/PureTimeline';
 
 /** A "ready" Movie without a GPU: the drawing steps are stubbed and counted, the playhead logic is the real one. */
 function readyMovie(totalFrames = 60, frameRate = 30) {
@@ -11,7 +11,7 @@ function readyMovie(totalFrames = 60, frameRate = 30) {
   const a = m as unknown as Record<string, unknown>;
   const drawn: number[] = [];
   Object.assign(a, { _initState: 'ready', totalFrames, frameRate, duration: totalFrames / frameRate });
-  a.timeline = createTimeline({ paused: true }).add(gsap.to({}, { duration: totalFrames / frameRate }));      // a timeline with a length, as init() makes it
+  a.timeline = createTimeline({ paused: true }).add(spacer(totalFrames / frameRate));      // a timeline with a length, as init() makes it
   a._rootSequence = {}; a.app = {};                                                                        // what _requireReady looks for
   a._awaitVideoFrames = async () => {};
   a._updateSpace = () => {};

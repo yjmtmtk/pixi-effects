@@ -7,7 +7,6 @@ vi.mock('pixi.js', async () => {
   m.Shader = class extends Base { constructor(o: { resources?: Record<string, unknown> }) { super(o); shaders.push(this); } } as typeof Base;
   return m;
 });
-import { gsap } from 'gsap';
 import { Container } from 'pixi.js';
 import { CompositionSequence } from '../../src/sequences/Composition';
 import { Sequence } from '../../src/sequences/Base';

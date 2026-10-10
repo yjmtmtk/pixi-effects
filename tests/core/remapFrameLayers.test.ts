@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { gsap } from 'gsap';
 // Movie.ts registers a culler plugin when it is imported: the shared mock gets the few names that needs
 vi.mock('pixi.js', async () => ({
   ...(await import('../space/mockPixi')).createPixiMock(),

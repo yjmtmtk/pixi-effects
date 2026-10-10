@@ -1,16 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
-import { gsap } from 'gsap';
 vi.mock('pixi.js', async () => (await import('../space/mockPixi')).createPixiMock());
 import { CompositionSequence } from '../../src/sequences/Composition';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
-import { setTimelineEngine } from '../../src/core/timelineEngine';
-setTimelineEngine('gsap');   // these read GSAP's own tweens (getChildren): they are about the GSAP engine
+import { createTimeline } from '../../src/core/timelineEngine';
 
 const root: CompositionShape = { width: 1280, height: 720, duration: 10 };
 async function build(sequences: SequenceSpec[]) {
   const comp = new CompositionSequence({ type: 'composition', sequences } as never, null, root);
   await comp.build();
-  const tl = gsap.timeline({ paused: true, defaults: { ease: 'none' } });
+  const tl = createTimeline({ paused: true, defaults: { ease: 'none' } });
   comp.bindTimeline(tl);
   return { comp, tl };
 }
@@ -20,8 +18,8 @@ describe('every layer is bound in a small timeline of its own', () => {
   it('the parent timeline holds one timeline per layer, however many tweens each has (adding thousands of tweens to one timeline made GSAP re-measure it at every add)', async () => {
     const many = Array.from({ length: 60 }, (_, i) => ({ at: i * 0.1, to: { x: i }, duration: 0.1 }));
     const { tl } = await build([box('a', { keyframes: many }), box('b', { keyframes: many }), box('c')]);
-    expect(tl.getChildren(false, false, true)).toHaveLength(3);                     // three timelines (the composition's own on / off switches are the only direct tweens)
-    expect(tl.getChildren(true, true, false).length).toBeGreaterThan(120);          // the tweens are all there, one level down
+    expect(tl.timelines()).toBe(3);                     // three timelines (each layer's own on / off switches are in its timeline)
+    expect(tl.segments().length).toBeGreaterThan(120);          // the tweens are all there, one level down
   });
 
   it('positions stay absolute: the picture at any time is the same as with one flat timeline', async () => {

@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import { gsap } from 'gsap';
 import { tweenColor } from '../../src/expr/colorTween';
 import { createTimeline } from '../../src/core/timelineEngine';
 

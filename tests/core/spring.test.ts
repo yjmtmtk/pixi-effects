@@ -1,12 +1,11 @@
 // @vitest-environment node
 import { describe, it, expect, vi } from 'vitest';
-import { gsap } from 'gsap';
-import { springEase, springResponse, springDuration, registerSpringEases, kfDuration, parseSpring, springProblem, SPRING_PRESETS } from '../../src/core/spring';
+import { pureEase } from '../../src/core/pure/ease';
+import { springEase, springResponse, springDuration, kfDuration, parseSpring, springProblem, SPRING_PRESETS } from '../../src/core/spring';
 import { checkEase, __resetEaseWarnings } from '../../src/core/ease';
 import { stagger } from '../../src/presets/stagger';
 import { createTimeline } from '../../src/core/timelineEngine';
 
-registerSpringEases();
 
 const CASES = {
   under: { mass: 1, stiffness: 170, damping: 12 },
@@ -52,12 +51,12 @@ describe('spring ease', () => {
     }
   });
 
-  it('GSAP resolves spring(m,k,c), spring and the named presets; a seeked timeline is the same going back and forth', () => {
-    const a = gsap.parseEase('spring(1, 170, 12)') as (p: number) => number;
+  it('the names spring(m,k,c), spring and the presets run our spring; a seeked timeline is the same going back and forth', () => {
+    const a = pureEase('spring(1, 170, 12)');
     const b = springEase({ mass: 1, stiffness: 170, damping: 12 });
     expect(a(0.37)).toBe(b(0.37));
-    expect(gsap.parseEase('spring.bouncy')(0.3)).toBe(springEase({ mass: 1, stiffness: 170, damping: 10 })(0.3));
-    expect(gsap.parseEase('spring')(0.3)).toBe(springEase()(0.3));
+    expect(pureEase('spring.bouncy')(0.3)).toBe(springEase({ mass: 1, stiffness: 170, damping: 10 })(0.3));
+    expect(pureEase('spring')(0.3)).toBe(springEase()(0.3));
 
     const o = { x: 0 };
     const tl = createTimeline({ paused: true, defaults: { ease: 'none' } });

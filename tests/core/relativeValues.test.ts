@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import { gsap } from 'gsap';
 import { applyKeyframes, applyInitial } from '../../src/core/Timeline';
 import { normalizeProps } from '../../src/expr/normalizeProps';
 import { createTimeline } from '../../src/core/timelineEngine';
+import type { Timeline } from '../../src/core/timelineEngine';
 
 const scope = { GW: 1920, GH: 1080, W: 1920, H: 1080, w: 100, h: 100 } as Record<string, number>;
 
@@ -12,7 +12,7 @@ function build(target: Record<string, number>, keyframes: unknown[], duration = 
   tl.progress(1).progress(0);                                   // what Movie.init does: every start value is settled before anyone seeks
   return tl;
 }
-const at = (tl: ReturnType<typeof gsap.timeline>, t: number) => { tl.time(t); return tl; };
+const at = (tl: Timeline, t: number) => { tl.time(t); return tl; };
 
 describe('relative values: "+=36" and "-=36" in a keyframe are measured from where the layer is', () => {
   it('to: "+=36" moves 36 further, and seeking back puts it where it was', () => {

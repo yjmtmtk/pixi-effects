@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { gsap } from 'gsap';
 vi.mock('pixi.js', async () => {
   const m = (await import('../space/mockPixi')).createPixiMock();
   m.Assets.get = async () => ({ width: 100, height: 100 });
@@ -9,8 +8,7 @@ import { applyKeyframes, loopVars } from '../../src/core/Timeline';
 import { ShapeSequence } from '../../src/sequences/Shape';
 import { TextSequence } from '../../src/sequences/Text';
 import type { CompositionShape, Keyframe, SequenceSpec } from '../../src/types';
-import { setTimelineEngine } from '../../src/core/timelineEngine';
-setTimelineEngine('gsap');   // these read GSAP's own tweens (getChildren): they are about the GSAP engine
+import { createTimeline } from '../../src/core/timelineEngine';
 
 const comp: CompositionShape = { width: 1280, height: 720, duration: 10 };
 beforeEach(() => { vi.restoreAllMocks(); });
@@ -33,7 +31,7 @@ describe('loopVars', () => {
 describe('applyKeyframes with repeat / yoyo', () => {
   it('a yoyo tween goes there and back (value check by seeking)', () => {
     const target = { x: 0 };
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     const kfs: Keyframe[] = [{ at: 0, to: { x: 100 }, duration: 1, repeat: 1, yoyo: true }];
     applyKeyframes(tl, target, kfs, 10, {});
     tl.time(0.5); expect(target.x).toBeCloseTo(50, 6);
@@ -44,23 +42,23 @@ describe('applyKeyframes with repeat / yoyo', () => {
 
   it('a plain repeat restarts from the start value; fromTo and from also repeat', () => {
     const t1 = { x: 0 };
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     applyKeyframes(tl, t1, [{ at: 0, from: { x: 0 }, to: { x: 100 }, duration: 1, repeat: 2 }], 10, {});
     tl.time(2.5); expect(t1.x).toBeCloseTo(50, 6);
     const t2 = { y: 100 };
-    const tl2 = gsap.timeline({ paused: true });
+    const tl2 = createTimeline({ paused: true });
     applyKeyframes(tl2, t2, [{ at: 0, from: { y: 0 }, duration: 1, repeat: 1, yoyo: true }], 10, {});
-    expect(tl2.getChildren(false, true, true).some((c: any) => c.repeat() === 1 && c.yoyo())).toBe(true);
+    expect(tl2.segments().some(c => c.repeat === 1 && c.yoyo)).toBe(true);
   });
 
   it('repeatDelay is honoured and filter / routed paths repeat too', () => {
     const f = { _name: 'b', strength: 0 };
     const target = { filters: [f] };
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     applyKeyframes(tl, target, [{ at: 0, to: { 'filters.b.strength': 10 }, duration: 1, repeat: 1, repeatDelay: 1, yoyo: false }], 10, {});
-    const child = tl.getChildren(false, true, true).find((c: any) => c.targets?.()[0] === f) as any;
-    expect(child.repeat()).toBe(1);
-    expect(child.repeatDelay()).toBe(1);
+    const child = tl.segments().find(c => c.target === f)!;
+    expect(child.repeat).toBe(1);
+    expect(child.repeatDelay).toBe(1);
   });
 });
 
@@ -72,16 +70,16 @@ describe('colour and shape paths repeat too', () => {
         { at: 0, to: { fillColor: '#ff0000' }, duration: 1, repeat: 3, yoyo: true },
       ] } as unknown as SequenceSpec, comp, comp);
     await s.build();
-    const tl = gsap.timeline({ paused: true });
+    const tl = createTimeline({ paused: true });
     s.bindTimeline(tl, 0);
-    const reps = tl.getChildren(false, true, true).filter((c: any) => c.repeat?.() === 3);
+    const reps = tl.segments().filter(c => c.repeat === 3);
     expect(reps.length).toBe(2);
 
     const t = new TextSequence({ type: 'text', text: 'a', duration: 5,
       keyframes: [{ at: 0, to: { fill: '#00ff00' }, duration: 1, repeat: 2, yoyo: true }] } as unknown as SequenceSpec, comp, comp);
     await t.build();
-    const tl2 = gsap.timeline({ paused: true });
+    const tl2 = createTimeline({ paused: true });
     t.bindTimeline(tl2, 0);
-    expect(tl2.getChildren(false, true, true).some((c: any) => c.repeat?.() === 2 && c.yoyo?.())).toBe(true);
+    expect(tl2.segments().some(c => c.repeat === 2 && c.yoyo)).toBe(true);
   });
 });

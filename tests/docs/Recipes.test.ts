@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { gsap } from 'gsap';
 vi.mock('pixi.js', async () => {
   const m = (await import('../space/mockPixi')).createPixiMock();
   // every asset name resolves to something that works as image (size) and audio (buffer + 6 s duration)
