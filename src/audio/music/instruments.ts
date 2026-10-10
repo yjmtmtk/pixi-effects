@@ -22,13 +22,47 @@ type Voice = (midi: number, dur: number, vel: number, out: Bus, start: number, r
 const TAU = Math.PI * 2;
 let SR = 44100;
 /** Set the sample rate for the render that follows. */
-export function setSampleRate(sr: number): void { SR = sr; }
+export function setSampleRate(sr: number): void { if (sr !== SR) clearVoiceTables(); SR = sr; }
+/** The tables the voices share within a render (see `keysTables`): let go of them when a render is over, they are tens of MB for a long piece. */
+export function clearVoiceTables(): void { KEYS_TABLES.clear(); BELL_TABLES.clear(); }
+interface BellTables { s35: Float64Array; e5: Float64Array; ek: Float64Array; s276: Float64Array; e4: Float64Array; n: number }
+const BELL_TABLES = new Map<string, BellTables>();
+function bellTables(f: number, k: number, n: number): BellTables {
+  const key = f + '/' + k;
+  let tb = BELL_TABLES.get(key);
+  if (tb && tb.n >= n) return tb;
+  const len = Math.max(n, tb ? tb.n * 2 : 0);
+  const s35 = new Float64Array(len), e5 = new Float64Array(len), ek = new Float64Array(len), s276 = new Float64Array(len), e4 = new Float64Array(len);
+  for (let i = 0; i < len; i++) { const t = i / SR; s35[i] = Math.sin(TAU * f * 3.5 * t); e5[i] = Math.exp(-t * 5); ek[i] = Math.exp(-t * k); s276[i] = Math.sin(TAU * f * 2.76 * t); e4[i] = Math.exp(-t * 4); }
+  tb = { s35, e5, ek, s276, e4, n: len };
+  BELL_TABLES.set(key, tb);
+  return tb;
+}
+
+
+interface KeysTables { decay: Float64Array; s14: Float64Array; s1: Float64Array; e18: Float64Array; e32: Float64Array; n: number }
+const KEYS_TABLES = new Map<number, KeysTables>();
+/** Tables of exp(-t*(1.1+f/1500)), sin(TAU*f*14*t), sin(TAU*f*t) for this pitch and exp(-t*18), exp(-t*3.2) for t = i/SR, at least `n` long (grown when a longer note comes). */
+function keysTables(f: number, n: number): KeysTables {
+  let tb = KEYS_TABLES.get(f);
+  if (tb && tb.n >= n) return tb;
+  const len = Math.max(n, tb ? tb.n * 2 : 0);
+  const decay = new Float64Array(len), s14 = new Float64Array(len), s1 = new Float64Array(len), e18 = new Float64Array(len), e32 = new Float64Array(len);
+  for (let i = 0; i < len; i++) {
+    const t = i / SR;
+    decay[i] = Math.exp(-t * (1.1 + f / 1500)); s14[i] = Math.sin(TAU * f * 14 * t); s1[i] = Math.sin(TAU * f * t); e18[i] = Math.exp(-t * 18); e32[i] = Math.exp(-t * 3.2);
+  }
+  tb = { decay, s14, s1, e18, e32, n: len };
+  KEYS_TABLES.set(f, tb);
+  return tb;
+}
+
 
 const mtof = (m: number): number => 440 * 2 ** ((m - 69) / 12);
 
 class Biquad {
-  private b0 = 1; private b1 = 0; private b2 = 0; private a1 = 0; private a2 = 0;
-  private x1 = 0; private x2 = 0; private y1 = 0; private y2 = 0;
+  b0 = 1; b1 = 0; b2 = 0; a1 = 0; a2 = 0;
+  x1 = 0; x2 = 0; y1 = 0; y2 = 0;
   constructor(type: 'lp' | 'hp' | 'bp', fc: number, q = 0.707) { this.set(type, fc, q); }
   /** Change the cutoff without clearing the state (so it can move while a sound plays). */
   set(type: 'lp' | 'hp' | 'bp', fc: number, q = 0.707): void {
@@ -69,10 +103,13 @@ export const VOICES: Record<InstrumentName, Voice> = {
     const f = mtof(m), rel = o.release ?? 0.5, total = dur + rel + 1.2;
     // the envelope is 0 from `dur + rel` on: what follows is silence, so it is not computed (the notes used to run 1.2 s of zeros)
     const n = Math.min(Math.floor(Math.min(total, 6) * SR), Math.ceil((dur + rel) * SR) + 2), idx = 1.1 + 2.2 * vel, det = 1 + (rnd() - 0.5) * 0.002;
-    for (let i = 0, lim = Math.min(n, out.L.length - start); i < lim; i++) {   // what falls past the end of the bus is not made
+    const lim = Math.min(n, out.L.length - start);
+    // the parts of the sound that depend only on the pitch and the sample index are the same for every note of that pitch: tabled once (the same Math.exp / Math.sin values, so the same samples)
+    const tb = keysTables(f, lim), dcy = tb.decay, s14 = tb.s14, s1 = tb.s1, e18 = tb.e18, e32 = tb.e32;
+    for (let i = 0; i < lim; i++) {   // what falls past the end of the bus is not made
       const t = i / SR;
-      const decay = Math.exp(-t * (1.1 + f / 1500));
-      const mod = Math.sin(TAU * f * 14 * t) * idx * 0.12 * Math.exp(-t * 18) + Math.sin(TAU * f * t) * idx * Math.exp(-t * 3.2);
+      const decay = dcy[i]!;
+      const mod = s14[i]! * idx * 0.12 * e18[i]! + s1[i]! * idx * e32[i]!;
       const body = Math.sin(TAU * f * t + mod) * decay;
       const body2 = Math.sin(TAU * f * det * t + mod * 0.9) * decay;
       const env = t < dur ? 1 : Math.max(0, 1 - (t - dur) / rel);
@@ -102,20 +139,20 @@ export const VOICES: Record<InstrumentName, Voice> = {
   pad(m, dur, vel, out, start, rnd, o) {
     const f = mtof(m), A = o.attack ?? 0.7, R = o.release ?? 1.4, n = Math.floor((dur + R) * SR);
     const cs = [-0.14, -0.07, 0, 0.07, 0.14];
-    // the five detuned saws as plain arrays (their numbers are computed in the same order as ever: the samples do not change)
-    const ph = new Float64Array(5), step = new Float64Array(5), gl = new Float64Array(5), gr = new Float64Array(5);
-    cs.forEach((c, k) => { ph[k] = rnd(); step[k] = (f * 2 ** ((c / 12) * 0.6)) / SR; const pan = (k - 2) / 2.5; gl[k] = 1 - pan; gr[k] = 1 + pan; });
+    const st = (k: number): number => (f * 2 ** ((cs[k]! / 12) * 0.6)) / SR, gL = (k: number): number => 1 - (k - 2) / 2.5, gR = (k: number): number => 1 + (k - 2) / 2.5;
+    let p0 = rnd(), p1 = rnd(), p2 = rnd(), p3 = rnd(), p4 = rnd();
+    const d0 = st(0), d1 = st(1), d2 = st(2), d3 = st(3), d4 = st(4);
+    const gl0 = gL(0), gl1 = gL(1), gl2 = gL(2), gl3 = gL(3), gl4 = gL(4), gr0 = gR(0), gr1 = gR(1), gr2 = gR(2), gr3 = gR(3), gr4 = gR(4);
     const cut = Math.min(1800, 500 + f * 1.5);
     const lp = new Biquad('lp', cut, 0.6), lp2 = new Biquad('lp', cut, 0.6);
     for (let i = 0, lim = Math.min(n, out.L.length - start); i < lim; i++) {
       const t = i / SR;
-      let l = 0, r = 0;
-      for (let k = 0; k < 5; k++) {
-        const dt = step[k]!;
-        let p = ph[k]! + dt; if (p >= 1) p -= 1; ph[k] = p;
-        const sv = saw(p, dt);
-        l += sv * gl[k]! * 0.5; r += sv * gr[k]! * 0.5;
-      }
+      let l = 0, r = 0, sv: number;
+      p0 += d0; if (p0 >= 1) p0 -= 1; sv = saw(p0, d0); l += sv * gl0 * 0.5; r += sv * gr0 * 0.5;
+      p1 += d1; if (p1 >= 1) p1 -= 1; sv = saw(p1, d1); l += sv * gl1 * 0.5; r += sv * gr1 * 0.5;
+      p2 += d2; if (p2 >= 1) p2 -= 1; sv = saw(p2, d2); l += sv * gl2 * 0.5; r += sv * gr2 * 0.5;
+      p3 += d3; if (p3 >= 1) p3 -= 1; sv = saw(p3, d3); l += sv * gl3 * 0.5; r += sv * gr3 * 0.5;
+      p4 += d4; if (p4 >= 1) p4 -= 1; sv = saw(p4, d4); l += sv * gl4 * 0.5; r += sv * gr4 * 0.5;
       const env = t < dur ? Math.min(1, t / A) : Math.max(0, Math.min(1, dur / A) * (1 - (t - dur) / R));
       const g = env * 0.11 * vel;
       { const wl = lp.run(l) * g, wr = lp2.run(r) * g; out.L[start + i]! += wl; out.R[start + i]! += wr; }
@@ -167,10 +204,12 @@ export const VOICES: Record<InstrumentName, Voice> = {
   bell(m, dur, vel, out, start, rnd, o) {
     const f = mtof(m), ring = o.ring ?? 2.5, n = Math.floor(Math.min(dur + ring, 6) * SR), pan = (rnd() - 0.5) * 0.6;
     const k = 1.5 * (2.5 / ring);
-    for (let i = 0, lim = Math.min(n, out.L.length - start); i < lim; i++) {   // what falls past the end of the bus is not made
+    const lim = Math.min(n, out.L.length - start);
+    const tb = bellTables(f, k, lim), s35 = tb.s35, e5 = tb.e5, ek = tb.ek, s276 = tb.s276, e4 = tb.e4;
+    for (let i = 0; i < lim; i++) {   // what falls past the end of the bus is not made
       const t = i / SR;
-      const mod = Math.sin(TAU * f * 3.5 * t) * 1.6 * Math.exp(-t * 5);
-      const s = Math.sin(TAU * f * t + mod) * Math.exp(-t * k) + Math.sin(TAU * f * 2.76 * t) * 0.25 * Math.exp(-t * 4);
+      const mod = s35[i]! * 1.6 * e5[i]!;
+      const s = Math.sin(TAU * f * t + mod) * ek[i]! + s276[i]! * 0.25 * e4[i]!;
       const y = s * Math.min(1, t / 0.002) * 0.3 * vel;
       { const wl = y * (1 - pan), wr = y * (1 + pan); out.L[start + i]! += wl; out.R[start + i]! += wr; }
     }
@@ -191,38 +230,38 @@ export const DRUMS = ['kick', 'snare', 'hat', 'openhat', 'clap', 'rim', 'tom', '
 export type DrumName = (typeof DRUMS)[number];
 
 export function hitDrum(kind: DrumName, vel: number, out: Bus, start: number, rnd: Rand): void {
-  const mono = (n: number, f: (t: number) => [number, number]): void => {
+  const mono = (n: number, f: (t: number) => number, gl = 1, gr = 1): void => {
     // `f` runs for every sample (it draws noise from the seeded stream); only the samples inside the bus are written
-    const lim = Math.min(n, out.L.length - start);
-    for (let i = 0; i < n; i++) { const [l, r] = f(i / SR); if (i < lim) { out.L[start + i]! += l; out.R[start + i]! += r; } }
+    const lim = Math.min(n, out.L.length - start), L = out.L, R = out.R;
+    for (let i = 0; i < n; i++) { const o = f(i / SR); if (i < lim) { L[start + i]! += o * gl; R[start + i]! += o * gr; } }
   };
   const len = (s: number) => Math.floor(s * SR);
   if (kind === 'kick') {
     let ph = 0;
-    mono(len(0.5), t => { ph += (TAU * (45 + 110 * Math.exp(-t * 28))) / SR; const o = (Math.sin(ph) * Math.exp(-t * 7.5) + (t < 0.004 ? (rnd() - 0.5) * 0.5 : 0)) * 0.95 * vel; return [o, o]; });
+    mono(len(0.5), t => { ph += (TAU * (45 + 110 * Math.exp(-t * 28))) / SR; const o = (Math.sin(ph) * Math.exp(-t * 7.5) + (t < 0.004 ? (rnd() - 0.5) * 0.5 : 0)) * 0.95 * vel; return o; });
   } else if (kind === 'snare') {
     const bp = new Biquad('bp', 1900, 0.9), hp = new Biquad('hp', 700, 0.7);
     let ph = 0;
-    mono(len(0.4), t => { ph += (TAU * (185 - 40 * t)) / SR; const nz = hp.run(bp.run(rnd() * 2 - 1)) * 2.2; const o = (nz * Math.exp(-t * 17) + Math.sin(ph) * Math.exp(-t * 26) * 0.6) * 0.6 * vel; return [o * 0.95, o * 1.05]; });
+    mono(len(0.4), t => { ph += (TAU * (185 - 40 * t)) / SR; const nz = hp.run(bp.run(rnd() * 2 - 1)) * 2.2; const o = (nz * Math.exp(-t * 17) + Math.sin(ph) * Math.exp(-t * 26) * 0.6) * 0.6 * vel; return o; }, 0.95, 1.05);
   } else if (kind === 'clap') {
     const bp = new Biquad('bp', 1500, 1.2);
-    mono(len(0.35), t => { const burst = t < 0.033 ? Math.exp(-((t * 1000) % 11) * 0.5) : Math.exp(-(t - 0.033) * 22); const o = bp.run(rnd() * 2 - 1) * 2.4 * burst * 0.5 * vel; return [o, o * 0.9]; });
+    mono(len(0.35), t => { const burst = t < 0.033 ? Math.exp(-((t * 1000) % 11) * 0.5) : Math.exp(-(t - 0.033) * 22); const o = bp.run(rnd() * 2 - 1) * 2.4 * burst * 0.5 * vel; return o; }, 1, 0.9);
   } else if (kind === 'hat' || kind === 'openhat') {
     const hp = new Biquad('hp', 7500, 0.8), dec = kind === 'hat' ? 55 : 9;
-    mono(len(kind === 'hat' ? 0.12 : 0.6), t => { const o = hp.run(rnd() * 2 - 1) * Math.exp(-t * dec) * 0.35 * vel; return [o * 0.8, o * 1.2]; });
+    mono(len(kind === 'hat' ? 0.12 : 0.6), t => { const o = hp.run(rnd() * 2 - 1) * Math.exp(-t * dec) * 0.35 * vel; return o; }, 0.8, 1.2);
   } else if (kind === 'rim') {
     let ph = 0;
     const bp = new Biquad('bp', 3200, 4);
-    mono(len(0.1), t => { ph += (TAU * 1750) / SR; const o = (Math.sin(ph) * 0.5 + bp.run(rnd() * 2 - 1)) * Math.exp(-t * 70) * 0.5 * vel; return [o, o]; });
+    mono(len(0.1), t => { ph += (TAU * 1750) / SR; const o = (Math.sin(ph) * 0.5 + bp.run(rnd() * 2 - 1)) * Math.exp(-t * 70) * 0.5 * vel; return o; });
   } else if (kind === 'tom') {
     let ph = 0;
-    mono(len(0.5), t => { ph += (TAU * (95 + 70 * Math.exp(-t * 15))) / SR; const o = Math.sin(ph) * Math.exp(-t * 7) * 0.7 * vel; return [o, o]; });
+    mono(len(0.5), t => { ph += (TAU * (95 + 70 * Math.exp(-t * 15))) / SR; const o = Math.sin(ph) * Math.exp(-t * 7) * 0.7 * vel; return o; });
   } else if (kind === 'crash') {
     const hp = new Biquad('hp', 5200, 0.7), bp = new Biquad('bp', 9000, 0.6);
-    mono(len(1.8), t => { const nz = rnd() * 2 - 1; const o = (hp.run(nz) * 0.7 + bp.run(nz) * 0.5) * (0.55 * Math.exp(-t * 2.6) + 0.45 * Math.exp(-t * 11)) * 0.5 * vel; return [o * 0.9, o * 1.1]; });
+    mono(len(1.8), t => { const nz = rnd() * 2 - 1; const o = (hp.run(nz) * 0.7 + bp.run(nz) * 0.5) * (0.55 * Math.exp(-t * 2.6) + 0.45 * Math.exp(-t * 11)) * 0.5 * vel; return o; }, 0.9, 1.1);
   } else if (kind === 'shaker') {
     const bp = new Biquad('bp', 6500, 1.4);
-    mono(len(0.16), t => { const env = (t < 0.018 ? t / 0.018 : 1) * Math.exp(-t * 28); const o = bp.run(rnd() * 2 - 1) * env * 1.4 * 0.3 * vel; return [o * 0.85, o * 1.15]; });
+    mono(len(0.16), t => { const env = (t < 0.018 ? t / 0.018 : 1) * Math.exp(-t * 28); const o = bp.run(rnd() * 2 - 1) * env * 1.4 * 0.3 * vel; return o; }, 0.85, 1.15);
   } else { // sleigh: a jingle of small bells (bright noise + a cluster of high partials with a fast flutter)
     const bp = new Biquad('bp', 7800, 1.0);
     const partials = [4200, 5630, 6900, 8350];
@@ -230,8 +269,8 @@ export function hitDrum(kind: DrumName, vel: number, out: Bus, start: number, rn
       let s = 0;
       for (let k = 0; k < partials.length; k++) s += Math.sin(TAU * partials[k]! * t * (1 + k * 0.0007)) * (0.5 + 0.5 * Math.sin(TAU * (19 + k * 3.1) * t + k)) * Math.exp(-t * (7 + k * 2));
       const o = (s * 0.11 + bp.run(rnd() * 2 - 1) * Math.exp(-t * 16) * 0.5) * Math.min(1, t / 0.003) * vel * 0.8;
-      return [o * 0.85, o * 1.15];
-    });
+      return o;
+    }, 0.85, 1.15);
   }
 }
 
@@ -246,31 +285,41 @@ export function* reverbSteps(send: Bus, out: Bus, wet: number, size = 0.8): Gene
     c: [1116, 1188, 1277, 1356, 1422, 1491].map(l => comb(l + off)),
     a: [556, 441, 341].map(l => ({ b: new Float32Array(Math.max(8, Math.round((l + off) * scale))), i: 0 })),
   });
-  const run = (x: number, ch: ReturnType<typeof mk>): number => {
-    let y = 0;
-    for (const c of ch.c) {
-      const o = c.b[c.i]!;
-      c.d = o * (1 - c.damp) + c.d * c.damp;
-      c.b[c.i] = x * 0.03 + c.d * c.fb;
-      c.i = (c.i + 1) % c.b.length;
-      y += o;
-    }
-    for (const a of ch.a) {
-      const o = a.b[a.i]!, inp = y;
-      a.b[a.i] = inp + o * 0.5;
-      a.i = (a.i + 1) % a.b.length;
-      y = o - inp;
-    }
-    return y;
-  };
   const chL = mk(0), chR = mk(23);
-  for (let i = 0; i < L.length; i++) {
-    if ((i & 16383) === 0) yield i / L.length;
-    const m = (sL[i]! + sR[i]!) * 0.5;
-    L[i]! += run(m, chL) * wet; R[i]! += run(m, chR) * wet;
+  const block = (i: number, stop: number): void => {
+    for (; i < stop; i++) {
+      const m = (sL[i]! + sR[i]!) * 0.5;
+      L[i]! += runFlat(m, chL) * wet; R[i]! += runFlat(m, chR) * wet;
+    }
+  };
+  for (let i = 0; i < L.length; ) {
+    yield i / L.length;
+    const stop = Math.min(L.length, (i | 16383) + 1);
+    block(i, stop);
+    i = stop;
   }
 }
 
+function runFlat(x: number, ch: { c: { b: Float32Array; i: number; fb: number; d: number; damp: number }[]; a: { b: Float32Array; i: number }[] }): number {
+  let y = 0;
+  const cs = ch.c, as = ch.a;
+  for (let k = 0; k < 6; k++) {
+    const c = cs[k]!, b = c.b;
+    const o = b[c.i]!;
+    c.d = o * (1 - c.damp) + c.d * c.damp;
+    b[c.i] = x * 0.03 + c.d * c.fb;
+    c.i = c.i + 1 === b.length ? 0 : c.i + 1;
+    y += o;
+  }
+  for (let k = 0; k < 3; k++) {
+    const a = as[k]!, b = a.b;
+    const o = b[a.i]!, inp = y;
+    b[a.i] = inp + o * 0.5;
+    a.i = a.i + 1 === b.length ? 0 : a.i + 1;
+    y = o - inp;
+  }
+  return y;
+}
 export function reverb(send: Bus, out: Bus, wet: number, size = 0.8): void {
   for (const _ of reverbSteps(send, out, wet, size)) void _;
 }

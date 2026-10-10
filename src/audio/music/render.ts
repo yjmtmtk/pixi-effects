@@ -1,4 +1,4 @@
-import { Biquad, hitDrum, reverbSteps, setSampleRate, VOICES, type Bus } from './instruments';
+import { Biquad, clearVoiceTables, hitDrum, reverbSteps, setSampleRate, VOICES, type Bus } from './instruments';
 import { TempoMap } from './notation';
 import type { ResolvedMusic, ResolvedTrack } from './resolve';
 
@@ -50,6 +50,38 @@ export function musicBeatTimes(m: ResolvedMusic, until = m.seconds): number[] {
     for (let b = 0; b < m.beats; b++) times.push(map.seconds(b));
   }
   return times.filter(t => t < until);
+}
+
+
+/** The tone filter (two cascaded biquads per channel) over [i, stop): a plain function, so the loop is not inside the generator. Returns where it stopped. */
+function toneRun(scratch: Bus, a: Biquad[], b: Biquad[], i: number, stop: number, end: number): number {
+  const L = scratch.L, R = scratch.R;
+  const a0 = a[0]!, a1 = a[1]!, b0 = b[0]!, b1 = b[1]!;
+  for (; i < stop && (i < end || !(a0.settled() && a1.settled() && b0.settled() && b1.settled())); i++) {
+    L[i] = a1.run(a0.run(L[i]!));
+    R[i] = b1.run(b0.run(R[i]!));
+  }
+  return i;
+}
+/** Level, pan and the sends of one track over [i, stop): a plain function for the same reason. */
+function mixRun(scratch: Bus, out: Bus, send: Bus, i: number, stop: number, level: (sec: number) => number, constant: boolean, g: number, gl: number, gr: number, rv: number, sampleRate: number): void {
+  const sL = scratch.L, sR = scratch.R, oL = out.L, oR = out.R, eL = send.L, eR = send.R;
+  for (; i < stop; i++) {
+    if (!constant) g = level(i / sampleRate);
+    const l = sL[i]! * g * gl, r = sR[i]! * g * gr;
+    oL[i]! += l; oR[i]! += r;
+    eL[i]! += l * rv; eR[i]! += r * rv;
+  }
+}
+function tanhRun(out: Bus, i: number, stop: number, acc: Float64Array): void {
+  const L = out.L, R = out.R;
+  let peak = acc[0]!, sum = acc[1]!;
+  for (; i < stop; i++) {
+    const l = (L[i] = Math.tanh(L[i]! * 0.9)), r = (R[i] = Math.tanh(R[i]! * 0.9));
+    peak = Math.max(peak, Math.abs(l), Math.abs(r));
+    sum += l * l + r * r;
+  }
+  acc[0] = peak; acc[1] = sum;
 }
 
 /** The music as a sequence of slices: each `yield` is how much is done (0..1); the return value is the samples. */
@@ -119,10 +151,11 @@ function* renderMusicSteps(m: ResolvedMusic, sampleRate: number, length: number,
       const a = [new Biquad('lp', fc, 0.7), new Biquad('lp', fc, 0.7)], b = [new Biquad('lp', fc, 0.7), new Biquad('lp', fc, 0.7)];
       let i = lo;
       // up to the last sound, then until the filter has run out (what it gives from there on is 0 in a Float32Array)
-      for (; i < total && (i < end || !(a[0]!.settled() && a[1]!.settled() && b[0]!.settled() && b[1]!.settled())); i++) {
-        if ((i & 65535) === 0) yield (unit + 0.9) / units;
-        scratch.L[i] = a[1]!.run(a[0]!.run(scratch.L[i]!));
-        scratch.R[i] = b[1]!.run(b[0]!.run(scratch.R[i]!));
+      for (;;) {
+        const stop = Math.min(total, (i | 65535) + 1);
+        const j = toneRun(scratch, a, b, i, stop, end);
+        if (j < stop || j >= total) { i = j; break; }
+        i = j; yield (unit + 0.9) / units;
       }
       end = Math.max(end, i);
     }
@@ -130,12 +163,10 @@ function* renderMusicSteps(m: ResolvedMusic, sampleRate: number, length: number,
     const gl = Math.cos(((pan + 1) * Math.PI) / 4) * 1.3, gr = Math.sin(((pan + 1) * Math.PI) / 4) * 1.3;
     const constant = typeof tr.vol === 'number';
     let g = constant ? level(0) : 0;
-    for (let i = lo; i < end; i++) {
-      if ((i & 65535) === 0) yield (unit + 0.95) / units;
-      if (!constant) g = level(i / sampleRate);
-      const l = scratch.L[i]! * g * gl, r = scratch.R[i]! * g * gr;
-      out.L[i]! += l; out.R[i]! += r;
-      send.L[i]! += l * tr.reverb; send.R[i]! += r * tr.reverb;
+    for (let i = lo; i < end; ) {
+      const stop = Math.min(end, (i | 65535) + 1);
+      mixRun(scratch, out, send, i, stop, level, constant, g, gl, gr, tr.reverb, sampleRate);
+      i = stop; yield (unit + 0.95) / units;
     }
     scratch.L.fill(0, lo, end); scratch.R.fill(0, lo, end);
     unit++;
@@ -167,13 +198,13 @@ function* renderMusicSteps(m: ResolvedMusic, sampleRate: number, length: number,
 
   for (const f of reverbSteps(send, out, m.reverb, 0.8)) yield (unit + f) / units;
   unit++;
-  let peak = 0, sum = 0;
-  for (let i = 0; i < total; i++) {
-    if ((i & 65535) === 0) yield (unit + (0.5 * i) / total) / units;
-    const l = (out.L[i] = Math.tanh(out.L[i]! * 0.9)), r = (out.R[i] = Math.tanh(out.R[i]! * 0.9));
-    peak = Math.max(peak, Math.abs(l), Math.abs(r));
-    sum += l * l + r * r;
+  const acc = new Float64Array(2);
+  for (let i = 0; i < total; ) {
+    const stop = Math.min(total, (i | 65535) + 1);
+    tanhRun(out, i, stop, acc);
+    i = stop; yield (unit + (0.5 * i) / total) / units;
   }
+  const peak = acc[0]!, sum = acc[1]!;
   const rms = Math.sqrt(sum / (2 * total));
   const gain = peak > 0 ? Math.min(MUSIC_PEAK / peak, RMS_CAP / Math.max(rms, 1e-9)) : 0;
   const fade = Math.min(Math.floor(0.4 * sampleRate), total >> 2);
@@ -181,6 +212,7 @@ function* renderMusicSteps(m: ResolvedMusic, sampleRate: number, length: number,
     const f = i >= total - fade ? (total - 1 - i) / fade : 1;
     out.L[i]! *= gain * f; out.R[i]! *= gain * f;
   }
+  clearVoiceTables();
   return [out.L, out.R];
 }
 

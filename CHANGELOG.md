@@ -4,7 +4,7 @@
 
 **Changed**
 
-- **The music is made about 30 % faster, with the same samples (to the last bit).** The reel's 81 seconds: 4.45 s to 3.1 s in Node, the sound stage of its load 4.9 s to 3.7 s in Chrome. The electric-piano voice no longer computes the 1.2 s of silence after each note, a track is filtered and mixed only where it sounds (and until its filter has run out), the volume curve is followed instead of searched, and the voices write the bus without a call per sample. Four checksums of full renders (two with `loop`) taken before the change are pinned in tests.
+- **The music is made more than twice as fast, with the same samples (to the last bit).** The reel's 80 seconds: 4.45 s to 1.9 s in Node, the sound stage of its load 4.9 s to 2.5 s in Chrome (the whole load 7 s to 4.4 s). The electric piano no longer computes the 1.2 s of silence after each note; what depends only on the pitch and the sample index (the exponentials and the modulator sines of the electric piano and the bell) is computed once per pitch for the render and shared by its notes; a track is filtered and mixed only where it sounds (and until its filter has run out); the volume curve is followed instead of searched; the five saws of the pad, the drums' writes and the reverb are plain loops; the long loops of the mix run outside the generator that slices the render. Four checksums of full renders (two with `loop`) taken before the changes are pinned in tests, and the reel's own checksum was checked.
 
 ## 0.27.1
 
