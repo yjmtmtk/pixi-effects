@@ -433,27 +433,6 @@
       "notes": "_notes/christmas-eve.md"
     },
     {
-      "id": "circle-of-fifths",
-      "title": "Circle of Fifths",
-      "subtitle": "The progression I–V–vi–IV played in four keys, one step round the wheel each time: the wheel, a keyboard and the music all come from the same chords, which tonal works out",
-      "tags": [
-        "tonal",
-        "music-theory",
-        "circle-of-fifths",
-        "piano",
-        "music",
-        "editorial"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 21.5,
-      "posterFrame": 369,
-      "model": "sonnet",
-      "page": "circle-of-fifths.html",
-      "poster": "posters/circle-of-fifths.jpg",
-      "notes": "_notes/circle-of-fifths.md"
-    },
-    {
       "id": "d3-story",
       "title": "d3 × pixi-effects",
       "subtitle": "d3 computes, pixi-effects performs: a bar chart, a self-drawing line, a donut and a world map with great-circle routes, every number from d3 scales, line, pie, arc and geoPath",
