@@ -277,7 +277,7 @@ A tune with no audio file: notes, chords and drum patterns written as strings, p
 
 **Comping on named beats, and swing.** There is no "on beats 2 and 4" option: write the rests, `_:1 Dm7:0.5 _:0.5 _:1 Dm7:0.5 _:0.5` is a short chord on beats 2 and 4 of one bar. `swing` delays only notes that start on an off-beat eighth (`.5`) or sixteenth, so notes on whole beats stay straight; for a swung comp put the chords on the "and" (`_:1.5 Dm7:0.5 ...`).
 
-**Read it back.** `check` prints a `music` block for every music layer: its length in bars per track (a track that ends early, or a bar that is short, is named), the names that start in each bar, and where the drums play. That is how to verify a score without listening. Set `meter` for anything but 4/4, or a waltz is reported as bars of 4. [`musicEvents(music)`](api.md#musicevents) gives the same facts as data, with every note's beat, time and pitches.
+**Read it back.** `check` prints a `music` block for every music layer: its length in bars per track (a track that ends early, or a bar that is short, is named), the names that start in each bar with their beat (`Am@2`: on beat 2; no mark: on the downbeat), and where the drums play. That is how to verify a score without listening. Set `meter` for anything but 4/4, or a waltz is reported as bars of 4. [`musicEvents(music)`](api.md#musicevents) gives the same facts as data, with every note's beat, time and pitches.
 
 **Hear it without a movie.** [`musicBuffer(music)`](api.md#musicbuffer) returns a Web Audio buffer; [`examples/music-lab.html`](../examples/music-lab.html) plays eight finished scores and shows each one as source.
 

@@ -96,7 +96,10 @@ export function summarizeMusic(m: ResolvedMusic): MusicSummary {
     bpm: round(map.bpmAt(0), 2), meter: m.meter, meterSet: m.meterSet, beats: m.beats, bars: round(m.beats / m.meter), seconds: m.seconds, tail: m.tail,
     tracks: m.tracks.map(t => {
       const perBar: string[][] = Array.from({ length: Math.max(1, Math.ceil(t.length / m.meter - 1e-9)) }, () => []);
-      for (const e of t.events) perBar[Math.min(perBar.length - 1, barOf(e.t, m.meter) - 1)]!.push(e.name);
+      for (const e of t.events) {
+        const bar = barOf(e.t, m.meter), at = round(e.t - (bar - 1) * m.meter + 1);
+        perBar[Math.min(perBar.length - 1, bar - 1)]!.push(at === 1 ? e.name : `${e.name}@${at}`);       // the beat in the bar, unless it is the downbeat
+      }
       return { inst: t.inst, beats: t.length, bars: round(t.length / m.meter), events: t.events.length, perBar: perBar.map(names => names.join(' ')) };
     }),
     drums: m.drums.map(s => ({ from: s.from, to: Math.min(s.to, m.beats), kinds: s.drums.filter(d => d.hits.length > 0).map(d => d.kind) })),

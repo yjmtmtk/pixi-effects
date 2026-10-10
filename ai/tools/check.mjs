@@ -44,7 +44,7 @@ export function formatMusic(sources) {
     for (const t of m.tracks) {
       const whole = Math.abs(t.bars - Math.round(t.bars)) < 1e-6;
       const note = !whole ? (m.meterSet === false ? '' : ' (not a whole number of bars: a bar is short)') : t.beats < m.beats - 1e-6 ? ` (ends before the others: silent from bar ${Math.round(t.bars) + 1})` : '';
-      const cell = names => { const n = names.match(/\[[^\]]*\]|\S+/g) ?? []; return n.length === 0 ? '–' : n.length > 3 ? `${n.slice(0, 3).join(' ')} …` : n.join(' '); };
+      const cell = names => { const n = names.match(/\[[^\]]*\]\S*|\S+/g) ?? []; return n.length === 0 ? '–' : n.length > 4 ? `${n.slice(0, 4).join(' ')} …` : n.join(' '); };
       const shown = t.perBar.slice(0, 16).map(cell).join(' | ');
       out.push(`${pad}${t.inst.padEnd(6)} ${num(t.bars)} bar${t.bars === 1 ? '' : 's'}${note} | ${shown}${t.perBar.length > 16 ? ` | … (${t.perBar.length - 16} more)` : ''}`);
     }

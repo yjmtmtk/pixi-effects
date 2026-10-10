@@ -287,11 +287,11 @@ describe('check: where the time went while the page loaded', () => {
     // no meter in the score: a bar is assumed to be 4 beats, and a length that is not a multiple of 4 is not called a mistake (it may be a waltz)
     const noMeter = tool.formatMusic([{ layer: 'layer "w"', source: 'music', music: {
       bpm: 100, meter: 4, meterSet: false, beats: 27, bars: 6.75, seconds: 16.2, tail: 1.5,
-      tracks: [{ inst: 'pad', beats: 27, bars: 6.75, events: 2, perBar: ['[c3 e3 g3] [c3 e3 g4] [a2 c3 e3] [a2 c3 e3]', 'G'] }], drums: [],
+      tracks: [{ inst: 'pad', beats: 27, bars: 6.75, events: 2, perBar: ['[c3 e3 g3] [c3 e3 g4]@2 [a2 c3 e3]@3 [a2 c3 e3]@3.5 [a2 c3 e3]@4', 'G@2'] }], drums: [],
     } }]);
     expect(noMeter).toEqual([
       '  music     layer "w" · 100 bpm · 27 beats = 6.75 bars of 4 beats (no meter set: 4 assumed; a waltz is meter: 3) · 16.2 s (+ 1.5 s tail)',
-      '            pad    6.75 bars | [c3 e3 g3] [c3 e3 g4] [a2 c3 e3] … | G',
+      '            pad    6.75 bars | [c3 e3 g3] [c3 e3 g4]@2 [a2 c3 e3]@3 [a2 c3 e3]@3.5 … | G@2',
     ]);
     expect(tool.formatMusic([{ layer: 'layer "pop"', source: 'sfx "pop"' }])).toEqual([]);
     expect(tool.formatMusic(undefined)).toEqual([]);

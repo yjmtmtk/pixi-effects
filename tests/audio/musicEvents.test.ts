@@ -108,7 +108,8 @@ describe('the meter option and the summary', () => {
     expect(summarizeMusic(resolveMusic({ bpm: 90, tracks: [{ inst: 'pad', notes: 'C:4' }] }, 'x', () => {})!).meterSet).toBe(false);
     expect(s.tracks.map(t => [t.inst, t.beats, t.bars])).toEqual([['pad', 16, 4], ['bass', 8, 2], ['lead', 12, 3]]);
     expect(s.tracks[0]!.perBar).toEqual(['C', 'Am', 'F', 'G']);
-    expect(s.tracks[2]!.perBar).toEqual(['', '', 'e4 g4 a4']);
+    expect(s.tracks[2]!.perBar).toEqual(['', '', 'e4 g4@2 a4@3']);                  // a name carries its beat in the bar unless it is on the downbeat
+    expect(summarizeMusic(resolveMusic({ bpm: 90, meter: 3, tracks: [{ inst: 'keys', notes: '_:1 Am:2 | _:1 Am:1 Am:1 | c4:1.5 e4:1.5' }] }, 'x', () => {})!).tracks[0]!.perBar).toEqual(['Am@2', 'Am@2 Am@3', 'c4 e4@2.5']);
     expect(s.drums).toEqual([{ from: 8, to: 16, kinds: ['kick', 'snare'] }]);
   });
 });
