@@ -155,14 +155,16 @@ Renders the entire timeline to a single video file. Pauses playback first.
 
 ```ts
 interface RenderOptions {
-  format?: 'mp4' | 'mov' | 'webm' | 'mkv';   // default 'mp4'
+  format?: 'mp4' | 'mov' | 'webm' | 'mkv' | 'wav' | 'ogg';   // default 'mp4'; wav / ogg: ONLY the movie's sound (an error when it has none)
   video?: {
-    codec?:   string;   // default per format (mp4/mov→avc, webm/mkv→vp9)
-    bitrate?: 'very-low' | 'low' | 'medium' | 'high' | 'very-high';   // default 'high'
+    codec?:   string;   // 'avc' (H.264) | 'hevc' | 'vp9' | 'av1' | 'vp8'; default per format (mp4/mov→avc, webm→vp9, mkv→vp9)
+    bitrate?: 'very-low' | 'low' | 'medium' | 'high' | 'very-high' | number | string;   // default 'high'; or bits a second: 8_000_000, '8M', '800k'
+    hardware?: 'no-preference' | 'prefer-hardware' | 'prefer-software';   // where to encode (default 'no-preference')
+    keyFrameInterval?: number;   // seconds between keyframes (default 2): shorter seeks faster, a bigger file
   };
   audio?: {
-    codec?:   string;   // default per format (mp4/mov→aac, webm/mkv→opus)
-    bitrate?: 'very-low' | 'low' | 'medium' | 'high' | 'very-high';   // default 'high'
+    codec?:   string;   // default per format (mp4/mov→aac, webm/mkv/ogg→opus, wav→pcm-s16)
+    bitrate?: 'very-low' | 'low' | 'medium' | 'high' | 'very-high' | number | string;   // default 'high' (not for wav: it is not compressed)
   };
   motionBlur?: boolean | number | { samples?: number; shutter?: number };   // overrides movie.init's; false turns it off
 }
@@ -176,6 +178,10 @@ interface RenderOptions {
 - Cost: a render takes about `samples` times as long (video layers are decoded once per sample). Eight samples is enough for most motion; raise it for very fast or large movement, where fewer samples show as separate ghost images instead of a smear.
 - After a blurred snapshot, contact sheet or render the playhead and the stage are on an exact frame again, not a sample.
 - `pixi-effects-render --motion-blur 8 [--shutter 0.5]` sets it for one file.
+
+**Video codec:** unless you name `video.codec`, the usual one for the format is used (mp4 / mov: `avc`; webm: `vp9`); if this browser cannot encode it, the next that works is used and a warning says so. A codec you name is never swapped: it is used, or the error names the one that would work (`"av1" ... "avc" would work: render({ format: 'mp4', video: { codec: 'avc' } })`). `hevc` and `av1` make smaller files at the same quality but play in fewer places than `avc`; `hardware: 'prefer-hardware'` asks the GPU's encoder.
+
+**Sound only:** `render({ format: 'wav' })` (16-bit PCM, no loss) or `render({ format: 'ogg' })` (Opus) writes the movie's mixed sound without drawing a frame: a tune written as `music` becomes an audio file. `range` cuts it like a video. `pixi-effects render page.html -o mix.wav` does the same from a script. `mp3` and `flac` are not offered: browsers cannot encode them.
 
 **Audio codec fallback:** unless you name `audio.codec`, the first codec this browser can actually encode is used (mp4: `aac`, then `opus`, `mp3`, `flac`; webm: `opus`, `vorbis`). Chrome on Linux has no AAC encoder, so there an mp4 with sound carries Opus and a warning says so (before, the export failed with a message about encoder configurations). A codec you name is never swapped: if it cannot be encoded the error says which one would work.
 

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>check · render formats and video options</title>
+</head>
+<body style="margin:0;background:#222">
+  <!--
+    Acceptance check (not an example): a 2 s movie with a moving picture and a sound (a chime and a short tune), or with no sound at all (?silent=1).
+    tests/tools/renderFormats.test.ts renders it as wav / ogg (sound only) and as mp4 / webm with a named codec and bitrate. Query: silent.
+  -->
+  <canvas id="stage"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">
+  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "gsap": "https://esm.sh/gsap@3.12.5", "gsap/PixiPlugin": "https://esm.sh/gsap@3.12.5/PixiPlugin", "mediabunny": "https://esm.sh/mediabunny@1.61.3", "pixi-filters": "https://esm.sh/pixi-filters@6.1.5?bundle-deps" } }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const silent = new URLSearchParams(location.search).has('silent');
+    const sequences = [
+      { type: 'shape', shape: 'rect', width: 640, height: 360, initial: { x: 320, y: 180, fillColor: '#123' } },
+      ...Array.from({ length: 12 }, (_, i) => ({ type: 'shape', shape: 'circle', radius: 20 + i * 3, initial: { x: 40 + i * 50, y: 60 + (i % 4) * 70, fillColor: i % 2 ? '#ff5a36' : '#38c8ff' },
+        keyframes: [{ at: 0, duration: 2, to: { x: 600 - i * 40, y: 300 - (i % 5) * 40, rotation: 3 } }] })),
+      ...(silent ? [] : [
+        { type: 'audio', sfx: 'chime', at: 0.2 },
+        { type: 'audio', at: 0.5, music: { bpm: 120, tracks: [{ inst: 'keys', notes: 'Am7:2 G7:2' }, { inst: 'bass', notes: 'a1:2 g1:2' }], drums: { kick: 'x...x...' } } },
+      ]),
+    ];
+    const movie = new Movie();
+    window.movie = movie;
+    await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 2, frameRate: 30, background: '#000', composition: { sequences } });
+    window.__ready = true;
+  </script>
+</body>
+</html>

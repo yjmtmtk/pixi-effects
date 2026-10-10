@@ -18,7 +18,9 @@ describe('render.mjs — pure helpers', () => {
     expect(tool.formatFromPath('x.mkv')).toBe('mkv');
     expect(tool.formatFromPath('deck.PDF')).toBe('pdf');
     expect(tool.formatFromPath('x')).toBeNull();
-    expect(() => tool.formatFromPath('x.gif')).toThrow(/mp4, webm, mov, mkv or pdf/);
+    expect(tool.formatFromPath('mix.WAV')).toBe('wav');
+    expect(tool.formatFromPath('tune.ogg')).toBe('ogg');
+    expect(() => tool.formatFromPath('x.gif')).toThrow(/mp4, webm, mov, mkv, wav, ogg or pdf/);
   });
 
   it('parseRenderArgs: a page, -o, and options; the format comes from -o unless --format says otherwise', () => {
@@ -168,4 +170,14 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('render.mjs
       expect(statSync(out).size).toBeGreaterThan(2000);
     } finally { rmSync(warn, { force: true }); }
   }, 160_000);
+
+  it('parseRenderArgs: --video-bitrate takes bits a second, and the sound-only formats refuse picture options', () => {
+    expect(tool.parseRenderArgs(['p.html', '-o', 'mix.wav']).format).toBe('wav');
+    expect(tool.parseRenderArgs(['p.html', '--format', 'ogg']).format).toBe('ogg');
+    expect(tool.parseRenderArgs(['p.html', '--video-bitrate', '8M']).videoBitrate).toBe('8M');
+    expect(() => tool.parseRenderArgs(['p.html', '--video-bitrate', 'loud'])).toThrow(/very-low.*8M/s);
+    expect(() => tool.parseRenderArgs(['p.html', '-o', 'a.wav', '--scale', '0.5'])).toThrow(/wav.*sound/);
+    expect(() => tool.parseRenderArgs(['p.html', '-o', 'a.ogg', '--draft'])).toThrow(/ogg.*sound/);
+    expect(() => tool.parseRenderArgs(['p.html', '-o', 'a.wav', '--video-codec', 'avc'])).toThrow(/wav.*sound/);
+  });
 });

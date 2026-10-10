@@ -69,9 +69,19 @@ export type { MotionBlurSpec, MotionBlurOptions };
 export interface RenderOptions {
   /** Motion blur for this export (see `MovieOptions.motionBlur`); overrides the movie's own setting, `false` turns it off. */
   motionBlur?: MotionBlurSpec;
-  format?: 'mp4' | 'mov' | 'webm' | 'mkv';
-  video?: { codec?: string; bitrate?: 'very-low' | 'low' | 'medium' | 'high' | 'very-high' };
-  audio?: { codec?: string; bitrate?: 'very-low' | 'low' | 'medium' | 'high' | 'very-high' };
+  /** `mp4`, `mov`, `webm`, `mkv`: the picture with its sound. `wav`, `ogg`: only the sound of the movie (an error when it has none). */
+  format?: 'mp4' | 'mov' | 'webm' | 'mkv' | 'wav' | 'ogg';
+  video?: {
+    /** `'avc'` (H.264), `'hevc'`, `'vp9'`, `'av1'`, `'vp8'`: default the usual one for the format, the next that works if this browser cannot encode it; a name you give is never swapped. */
+    codec?: string;
+    /** A quality name, or bits a second: `8_000_000` or `'8M'`, `'800k'`. */
+    bitrate?: 'very-low' | 'low' | 'medium' | 'high' | 'very-high' | number | string;
+    /** Where to encode: `'prefer-hardware'`, `'prefer-software'` or `'no-preference'` (default). */
+    hardware?: 'no-preference' | 'prefer-hardware' | 'prefer-software';
+    /** Seconds between keyframes (default 2): shorter seeks faster and makes a bigger file. */
+    keyFrameInterval?: number;
+  };
+  audio?: { codec?: string; bitrate?: 'very-low' | 'low' | 'medium' | 'high' | 'very-high' | number | string };
   /**
    * Only part of the movie: `[from, to]` in seconds, or the name of a top-level layer (its start to its end). The file starts at 0
    * and its sound is cut the same way (with a 10 ms fade on a cut edge). Past the end, backwards or an unknown name is an error.

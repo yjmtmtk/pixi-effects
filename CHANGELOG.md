@@ -4,6 +4,8 @@
 
 **Added**
 
+- **Sound-only export.** `render({ format: 'wav' })` (16-bit PCM) and `render({ format: 'ogg' })` (Opus) write the movie's mixed sound without drawing a frame, with `range` cutting it; `pixi-effects render page.html -o mix.wav` does it from a script. A movie with no sound says so instead of writing an empty file.
+- **Video codec and bitrate options.** `render({ video: { codec, bitrate, hardware, keyFrameInterval } })`: `codec` is `avc`, `hevc`, `vp9`, `av1` or `vp8` (checked against the container and against what this browser can encode: the usual one falls back to the next that works with a warning, a codec you name is used or the error names the one that would work, and `h264` gets a did-you-mean); `bitrate` is a quality name or bits a second (`8_000_000`, `'8M'`, `'800k'`); `hardware` picks the encoder; `keyFrameInterval` (seconds, default 2). The render command gains `--video-bitrate`.
 - **Relative keyframe values.** `to`, `from` and `set` accept `'+=36'` / `'-=36'`, measured from where the layer stands, with an expression on the right (`'-=GW*0.1'`): `from: { x: '-=36' }` is the usual slide-in, `to: { y: '+=40' }` a nudge, and keyframes one after another stack in any order of seeking. Until now `'+=36'` was evaluated as an expression and became **0 with no warning**; in `initial`, a style or the start of a `from` + `to` it now warns and is read as the number. (GSAP supported relative values all along; the keyframe pipeline did not let them through.)
 
 **Changed**

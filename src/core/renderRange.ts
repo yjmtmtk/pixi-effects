@@ -54,7 +54,7 @@ export function sliceChannels(
  * What `draft` stands for, and the checks on `scale`: a draft is half size, low quality and no motion blur (for looking, not for
  * delivering); anything the caller sets itself wins.
  */
-export function resolveRenderOptions(o: { scale?: number; draft?: boolean; video?: { bitrate?: string }; motionBlur?: unknown }): { scale: number; bitrate: string | undefined; motionBlur: unknown } {
+export function resolveRenderOptions(o: { scale?: number; draft?: boolean; video?: { bitrate?: unknown }; motionBlur?: unknown }): { scale: number; bitrate: unknown; motionBlur: unknown } {
   const draft = !!o.draft;
   const scale = o.scale ?? (draft ? 0.5 : 1);
   if (!(typeof scale === 'number' && scale > 0 && scale <= 1)) throw new Error(`pixi-effects: render({ scale }): scale must be above 0 and at most 1 (got ${scale})`);

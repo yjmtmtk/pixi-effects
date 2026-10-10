@@ -23,13 +23,18 @@ vi.mock('mediabunny', () => {
     audioSourceCloses: 0,
     starts: 0,
     finalizes: 0,
-    encodable: { audio: ['aac', 'opus', 'mp3', 'flac', 'vorbis'] as string[] },
+    encodable: { audio: ['aac', 'opus', 'mp3', 'flac', 'vorbis'] as string[], video: ['avc', 'hevc', 'vp9', 'av1', 'vp8'] as string[] },
+    WavOutputFormat: [] as unknown[],
+    OggOutputFormat: [] as unknown[],
   };
 
-  class Mp4OutputFormat { mimeType = 'video/mp4'; getSupportedAudioCodecs() { return ['aac', 'mp3', 'opus', 'flac']; } constructor(public opts?: unknown) { calls.Mp4OutputFormat.push(opts); } }
-  class MovOutputFormat { mimeType = 'video/quicktime'; getSupportedAudioCodecs() { return ['aac', 'mp3']; } constructor(public opts?: unknown) { calls.MovOutputFormat.push(opts); } }
-  class WebMOutputFormat { mimeType = 'video/webm'; getSupportedAudioCodecs() { return ['opus', 'vorbis']; } constructor(public opts?: unknown) { calls.WebMOutputFormat.push(opts); } }
-  class MkvOutputFormat { mimeType = 'video/x-matroska'; getSupportedAudioCodecs() { return ['aac', 'mp3', 'opus', 'vorbis', 'flac']; } constructor(public opts?: unknown) { calls.MkvOutputFormat.push(opts); } }
+  class Mp4OutputFormat { mimeType = 'video/mp4'; getSupportedVideoCodecs() { return ['avc', 'hevc', 'vp9', 'av1']; } getSupportedAudioCodecs() { return ['aac', 'mp3', 'opus', 'flac']; } constructor(public opts?: unknown) { calls.Mp4OutputFormat.push(opts); } }
+  class MovOutputFormat { mimeType = 'video/quicktime'; getSupportedVideoCodecs() { return ['avc', 'hevc']; } getSupportedAudioCodecs() { return ['aac', 'mp3']; } constructor(public opts?: unknown) { calls.MovOutputFormat.push(opts); } }
+  class WebMOutputFormat { mimeType = 'video/webm'; getSupportedVideoCodecs() { return ['vp9', 'av1', 'vp8']; } getSupportedAudioCodecs() { return ['opus', 'vorbis']; } constructor(public opts?: unknown) { calls.WebMOutputFormat.push(opts); } }
+  class MkvOutputFormat { mimeType = 'video/x-matroska'; getSupportedVideoCodecs() { return ['vp9', 'avc', 'hevc', 'av1', 'vp8']; } getSupportedAudioCodecs() { return ['aac', 'mp3', 'opus', 'vorbis', 'flac']; } constructor(public opts?: unknown) { calls.MkvOutputFormat.push(opts); } }
+
+  class WavOutputFormat { mimeType = 'audio/wav'; getSupportedAudioCodecs() { return ['pcm-s16', 'pcm-s24', 'pcm-f32']; } constructor(public opts?: unknown) { calls.WavOutputFormat.push(opts); } }
+  class OggOutputFormat { mimeType = 'audio/ogg'; getSupportedAudioCodecs() { return ['opus', 'vorbis', 'flac']; } constructor(public opts?: unknown) { calls.OggOutputFormat.push(opts); } }
 
   class BufferTarget {
     buffer = new ArrayBuffer(0);
@@ -72,10 +77,13 @@ vi.mock('mediabunny', () => {
     MovOutputFormat,
     WebMOutputFormat,
     MkvOutputFormat,
+    WavOutputFormat,
+    OggOutputFormat,
     BufferTarget,
     CanvasSource,
     AudioBufferSource,
     Output,
+    canEncodeVideo: async (codec: string) => calls.encodable.video.includes(codec),
     getFirstEncodableAudioCodec: async (checked: string[]) => checked.find(c => calls.encodable.audio.includes(c)) ?? null,
     __calls: calls,
   };
@@ -104,12 +112,15 @@ function bag() {
     audioSourceCloses: 0,
     starts: 0,
     finalizes: 0,
-    encodable: { audio: [] as string[] },
+    encodable: { audio: [] as string[], video: [] as string[] },
+    WavOutputFormat: [] as unknown[],
+    OggOutputFormat: [] as unknown[],
   };
 }
 
 beforeEach(() => {
-  (calls as unknown as { encodable: { audio: string[] } }).encodable.audio = ['aac', 'opus', 'mp3', 'flac', 'vorbis'];
+  (calls as unknown as { encodable: { audio: string[]; video: string[] } }).encodable.audio = ['aac', 'opus', 'mp3', 'flac', 'vorbis'];
+  (calls as unknown as { encodable: { audio: string[]; video: string[] } }).encodable.video = ['avc', 'hevc', 'vp9', 'av1', 'vp8'];
   for (const key of Object.keys(calls)) {
     const val = (calls as Record<string, unknown>)[key];
     if (Array.isArray(val)) val.length = 0;
@@ -452,3 +463,88 @@ describe('Renderer — the audio codec the browser can actually encode', () => {
     await expect(exportFrames(asMovie(fakeMovie().movie), { format: 'mp4' })).resolves.toBeInstanceOf(Blob);
   });
 });
+
+// ── sound-only formats and the video options ─────────────────────────────
+
+describe('Renderer — sound-only formats (wav, ogg)', () => {
+  const audio = { numberOfChannels: 2, sampleRate: 48000, length: 96000, duration: 2 } as unknown as AudioBuffer;
+
+  it('wav writes the sound alone: a Wav container, one audio track of 16-bit PCM, no picture, no CanvasSource, no frame drawn', async () => {
+    const { movie, local } = fakeMovie({ audioBuffer: audio });
+    await exportFrames(asMovie(movie), { format: 'wav' });
+    expect(calls.WavOutputFormat.length).toBe(1);
+    expect(calls.Mp4OutputFormat.length).toBe(0);
+    expect(calls.CanvasSource.length).toBe(0);
+    expect(calls.addVideoTrack.length).toBe(0);
+    expect(calls.addAudioTrack.length).toBe(1);
+    expect(calls.AudioBufferSource[0]).toEqual({ codec: 'pcm-s16' });
+    expect(calls.audioSourceAdds.length).toBe(1);
+    expect(local.gotoFrame.length).toBe(0);
+    expect(local.tickerStops).toBe(0);
+  });
+
+  it('ogg writes Opus (the first codec this browser can encode, opus first)', async () => {
+    const { movie } = fakeMovie({ audioBuffer: audio });
+    await exportFrames(asMovie(movie), { format: 'ogg' });
+    expect(calls.OggOutputFormat.length).toBe(1);
+    expect((calls.AudioBufferSource[0] as { codec: string }).codec).toBe('opus');
+    calls.encodable.audio = ['vorbis'];
+    await exportFrames(asMovie(movie), { format: 'ogg' });
+    expect((calls.AudioBufferSource[1] as { codec: string }).codec).toBe('vorbis');
+  });
+
+  it('a movie with no sound refuses with what to do; picture options are ignored with a warning', async () => {
+    const { movie } = fakeMovie({ audioBuffer: null });
+    await expect(exportFrames(asMovie(movie), { format: 'wav' })).rejects.toThrow(/no sound to export.*mp4/s);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const withSound = fakeMovie({ audioBuffer: audio });
+    await exportFrames(asMovie(withSound.movie), { format: 'ogg', video: { codec: 'avc' } });
+    expect(warn.mock.calls.some(c => /video options are ignored/.test(String(c[0])))).toBe(true);
+    warn.mockRestore();
+  });
+
+  it('a codec wav does not hold is refused with what it holds', async () => {
+    const { movie } = fakeMovie({ audioBuffer: audio });
+    await expect(exportFrames(asMovie(movie), { format: 'wav', audio: { codec: 'aac' } })).rejects.toThrow(/wav holds pcm-s16/);
+  });
+});
+
+describe('Renderer — video options', () => {
+  it('a bitrate in bits a second goes to the encoder as a number; a quality name as before', async () => {
+    const { movie } = fakeMovie();
+    await exportFrames(asMovie(movie), { video: { bitrate: '8M' } });
+    expect(calls.CanvasSource[0]!.opts.bitrate).toBe(8_000_000);
+    await exportFrames(asMovie(movie), { video: { bitrate: 2_500_000 } });
+    expect(calls.CanvasSource[1]!.opts.bitrate).toBe(2_500_000);
+    await exportFrames(asMovie(movie), { video: { bitrate: 'low' } });
+    expect(calls.CanvasSource[2]!.opts.bitrate).toBe('ql');
+  });
+
+  it('hardware goes to the encoder; the keyframe interval sets how often a keyframe is forced', async () => {
+    const { movie } = fakeMovie({ totalFrames: 90, frameRate: 30 });
+    await exportFrames(asMovie(movie), { video: { hardware: 'prefer-hardware', keyFrameInterval: 1 } });
+    expect((calls.CanvasSource[0]!.opts as unknown as { hardwareAcceleration: string }).hardwareAcceleration).toBe('prefer-hardware');
+    const keys = calls.canvasSourceAdds.filter(c => c.opts && c.opts.keyFrame === true).length;
+    expect(keys).toBe(4);                                                   // frames 0, 30, 60, 90
+    await expect(exportFrames(asMovie(movie), { video: { hardware: 'gpu' as never } })).rejects.toThrow(/prefer-hardware/);
+    await expect(exportFrames(asMovie(movie), { video: { keyFrameInterval: 0 } })).rejects.toThrow(/keyFrameInterval/);
+  });
+
+  it('a browser that cannot encode avc gets the next codec that works, with a warning; a named codec it cannot encode is an error that says which works', async () => {
+    const { movie } = fakeMovie();
+    calls.encodable.video = ['hevc', 'vp9'];
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await exportFrames(asMovie(movie));
+    expect(calls.CanvasSource[0]!.opts.codec).toBe('hevc');
+    expect(warn.mock.calls.some(c => /cannot encode AVC video.*HEVC/s.test(String(c[0])))).toBe(true);
+    warn.mockRestore();
+    await expect(exportFrames(asMovie(movie), { video: { codec: 'av1' } })).rejects.toThrow(/cannot encode "av1".*"hevc" would work/s);
+    await expect(exportFrames(asMovie(movie), { video: { codec: 'h264' } })).rejects.toThrow(/did you mean "avc"/);
+  });
+
+  it('a format it does not know is an error naming the ones it does', async () => {
+    const { movie } = fakeMovie();
+    await expect(exportFrames(asMovie(movie), { format: 'avi' as never })).rejects.toThrow(/mp4, mov, webm, mkv.*wav, ogg/s);
+  });
+});
+

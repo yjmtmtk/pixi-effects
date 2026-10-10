@@ -12,12 +12,12 @@
  * Exit code: 0 = the file was written, 1 = the page or the render failed (no file), 2 = bad usage.
  *
  * Options: -o, --out FILE (default ./<page name>.<format>; the container follows the extension: mp4 webm mov mkv) ·
- *          --format mp4|webm|mov|mkv|pdf (a .pdf is the deck as pages: one picture per page of a movie with `stops`; --all-stops makes a page of every stop) · --quality very-low|low|medium|high|very-high (video and audio bitrate, default high) ·
+ *          --format mp4|webm|mov|mkv|wav|ogg|pdf (wav / ogg: only the movie's sound, no picture; a .pdf is the deck as pages: one picture per page of a movie with `stops`; --all-stops makes a page of every stop) · --quality very-low|low|medium|high|very-high (video and audio bitrate, default high) ·
  *          --range A:B (only seconds A to B; 2: runs to the end, :5 starts at the beginning) · --scene NAME (the span of a top-level layer: a movie's scene) · --scale S (output size, 0 < S <= 1: smaller picture, smaller file) ·
  *          --draft (for looking: half size, low quality, no motion blur; a --quality you give still wins) ·
  *          --motion-blur SAMPLES (2-64: each frame is drawn that many times over the shutter and averaged; overrides the page's own motionBlur) ·
  *          --shutter FRACTION (with --motion-blur: how long the shutter is open, 0-1 of a frame, default 0.5) ·
- *          --video-codec C · --audio-codec C · --query "a=1&b=2" (added to the page URL) · --fail-on-warn (exit 1 when the page
+ *          --video-codec C (avc hevc vp9 av1 vp8) · --video-bitrate B (a quality or bits a second: 8M, 800k) · --audio-codec C · --query "a=1&b=2" (added to the page URL) · --fail-on-warn (exit 1 when the page
  *          logged a warning; the file is still written) · --quiet (no progress line) · --timeout SECONDS (default 900) ·
  *          --root DIR (static server root; default: the nearest folder above the page with dist/) · --chrome PATH
  */
@@ -27,14 +27,15 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { findChrome, findRoot, serve, launchChrome, shown, sleep } from './check.mjs';
 
-const FORMATS = ['mp4', 'webm', 'mov', 'mkv', 'pdf'];
+const FORMATS = ['mp4', 'webm', 'mov', 'mkv', 'wav', 'ogg', 'pdf'];
+const SOUND_ONLY = ['wav', 'ogg'];
 const QUALITIES = ['very-low', 'low', 'medium', 'high', 'very-high'];
 
 /** 'clip.WEBM' → 'webm'; no extension → null; any other extension is an error. */
 export function formatFromPath(file) {
   const ext = path.extname(file).slice(1).toLowerCase();
   if (!ext) return null;
-  if (!FORMATS.includes(ext)) throw new Error(`cannot tell the container from ".${ext}": use an output ending in mp4, webm, mov, mkv or pdf (or --format)`);
+  if (!FORMATS.includes(ext)) throw new Error(`cannot tell the container from ".${ext}": use an output ending in mp4, webm, mov, mkv, wav, ogg or pdf (or --format)`);
   return ext;
 }
 
@@ -43,18 +44,21 @@ export function defaultOutput(page, format) {
 }
 
 export function parseRenderArgs(argv) {
-  const o = { range: null, scene: null, scale: null, draft: false, qualityGiven: false, page: null, out: null, format: null, quality: 'high', videoCodec: null, audioCodec: null, allStops: false, motionBlur: null, shutter: null, query: null, failOnWarn: false, quiet: false, timeout: 900, root: null, chrome: null };
+  const o = { range: null, scene: null, scale: null, draft: false, qualityGiven: false, page: null, out: null, format: null, quality: 'high', videoCodec: null, videoBitrate: null, audioCodec: null, allStops: false, motionBlur: null, shutter: null, query: null, failOnWarn: false, quiet: false, timeout: 900, root: null, chrome: null };
   const need = (i, name) => { if (i + 1 >= argv.length) throw new Error(`${name} needs a value`); return argv[i + 1]; };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '-o' || a === '--out') o.out = need(i++, a);
     else if (a === '--format') {
       o.format = need(i++, a).toLowerCase();
-      if (!FORMATS.includes(o.format)) throw new Error(`--format must be mp4, webm, mov, mkv or pdf (got "${o.format}")`);
+      if (!FORMATS.includes(o.format)) throw new Error(`--format must be mp4, webm, mov, mkv, wav, ogg or pdf (got "${o.format}")`);
     } else if (a === '--quality') {
       o.qualityGiven = true;
       o.quality = need(i++, a);
       if (!QUALITIES.includes(o.quality)) throw new Error(`--quality must be very-low, low, medium, high or very-high (got "${o.quality}")`);
+    } else if (a === '--video-bitrate') {
+      o.videoBitrate = need(i++, a);
+      if (!/^(very-low|low|medium|high|very-high|\d+(\.\d+)?\s*[kKmM]?)$/.test(o.videoBitrate)) throw new Error(`--video-bitrate must be a quality (very-low, low, medium, high, very-high) or bits a second (8000000, 8M, 800k), got "${o.videoBitrate}"`);
     } else if (a === '--video-codec') o.videoCodec = need(i++, a);
     else if (a === '--audio-codec') o.audioCodec = need(i++, a);
     else if (a === '--motion-blur') {
@@ -88,6 +92,7 @@ export function parseRenderArgs(argv) {
   if (o.allStops && o.format !== 'pdf' && !(o.out && formatFromPath(o.out) === 'pdf')) throw new Error('--all-stops goes with a PDF (-o deck.pdf)');
   o.format ??= (o.out ? formatFromPath(o.out) : null) ?? 'mp4';
   if (o.range && o.scene !== null) throw new Error('--range and --scene cannot be used together: a scene is a range');
+  if (SOUND_ONLY.includes(o.format) && (o.scale !== null || o.draft || o.motionBlur !== null || o.videoCodec || o.videoBitrate)) throw new Error(`--scale, --draft, --motion-blur, --video-codec and --video-bitrate are for a picture: ${o.format} writes only the sound`);
   if (o.format === 'pdf' && (o.range || o.scene !== null || o.scale !== null || o.draft)) throw new Error('--range, --scene, --scale and --draft are not for a PDF (a PDF is the pages of a deck)');
   return o;
 }
@@ -96,16 +101,16 @@ const UPLOAD = '/__pixi_effects_out';
 const kb = n => (n >= 1048576 ? `${(n / 1048576).toFixed(2)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 
 /** The page's side: render, and PUT the Blob to our server (so a long video never goes through base64). */
-const renderScript = (format, quality, videoCodec, audioCodec, motionBlur, shutter, allStops, part = {}) => `(() => {
+const renderScript = (format, quality, videoCodec, audioCodec, motionBlur, shutter, allStops, part = {}, videoBitrate = null) => `(() => {
   window.__r = { state: 'running', progress: 0 };
   movie.on('progress', e => { window.__r.progress = e.progress; });
   (async () => {
     try {
-      const video = { ${[part.draft && !part.qualityGiven ? null : `bitrate: ${JSON.stringify(quality)}`, videoCodec ? `codec: ${JSON.stringify(videoCodec)}` : null].filter(Boolean).join(', ')} };
+      const video = { ${[videoBitrate ? `bitrate: ${JSON.stringify(/^\d+(\.\d+)?$/.test(videoBitrate) ? Number(videoBitrate) : videoBitrate)}` : part.draft && !part.qualityGiven ? null : `bitrate: ${JSON.stringify(quality)}`, videoCodec ? `codec: ${JSON.stringify(videoCodec)}` : null].filter(Boolean).join(', ')} };
       const audio = { bitrate: ${JSON.stringify(quality)}${audioCodec ? `, codec: ${JSON.stringify(audioCodec)}` : ''} };
       const blob = ${JSON.stringify(format)} === 'pdf'
         ? await movie.exportPDF({ which: ${allStops ? "'stops'" : "'pages'"}, title: document.title })
-        : await movie.render({ format: ${JSON.stringify(format)}, video, audio${part.range ? `, range: [${part.range[0] ?? 0}, ${part.range[1] ?? 'movie.duration'}]` : ''}${part.scene ? `, range: ${JSON.stringify(part.scene)}` : ''}${part.scale ? `, scale: ${part.scale}` : ''}${part.draft ? ', draft: true' : ''}${motionBlur ? `, motionBlur: { samples: ${motionBlur}${shutter ? `, shutter: ${shutter}` : ''} }` : ''} });
+        : await movie.render({ format: ${JSON.stringify(format)}, ${SOUND_ONLY.includes(format) ? '' : 'video, '}audio${part.range ? `, range: [${part.range[0] ?? 0}, ${part.range[1] ?? 'movie.duration'}]` : ''}${part.scene ? `, range: ${JSON.stringify(part.scene)}` : ''}${part.scale ? `, scale: ${part.scale}` : ''}${part.draft ? ', draft: true' : ''}${motionBlur ? `, motionBlur: { samples: ${motionBlur}${shutter ? `, shutter: ${shutter}` : ''} }` : ''} });
       const res = await fetch(${JSON.stringify(UPLOAD)}, { method: 'PUT', body: blob });
       if (!res.ok) throw new Error('could not hand the file to the command (' + res.status + ')');
       window.__r = { state: 'done', bytes: blob.size, type: blob.type };
@@ -171,7 +176,7 @@ export async function runRender(opts, log = console.log, progress = () => {}) {
     }
     Object.assign(result, { duration: info.duration, frames: info.totalFrames, width: info.width, height: info.height, frameRate: info.frameRate });
 
-    await cdp.eval(renderScript(opts.format, opts.quality, opts.videoCodec, opts.audioCodec, opts.motionBlur, opts.shutter, opts.allStops, { range: opts.range, scene: opts.scene, scale: opts.scale, draft: opts.draft, qualityGiven: opts.qualityGiven }));
+    await cdp.eval(renderScript(opts.format, opts.quality, opts.videoCodec, opts.audioCodec, opts.motionBlur, opts.shutter, opts.allStops, { range: opts.range, scene: opts.scene, scale: opts.scale, draft: opts.draft, qualityGiven: opts.qualityGiven }, opts.videoBitrate));
     let state;
     for (;;) {
       left();
@@ -221,7 +226,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process
       console.error(`pixi-effects render failed: ${r.problems.join('; ') || 'no file written'}`);
       process.exit(1);
     }
-    console.log(`${shown(r.file)}  ${kb(r.bytes)} · ${r.duration} s · ${r.width}×${r.height} @ ${r.frameRate} fps · ${opts.format} · rendered in ${r.seconds} s`);
+    console.log(`${shown(r.file)}  ${kb(r.bytes)} · ${r.duration} s · ${SOUND_ONLY.includes(opts.format) ? 'sound only' : `${r.width}×${r.height} @ ${r.frameRate} fps`} · ${opts.format} · rendered in ${r.seconds} s`);
     process.exit(opts.failOnWarn && r.logs.length ? 1 : 0);
   } catch (e) {
     console.error(`pixi-effects render failed: ${e.message}`);

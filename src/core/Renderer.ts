@@ -1,6 +1,6 @@
 import {
-  Output, Mp4OutputFormat, MovOutputFormat, WebMOutputFormat, MkvOutputFormat,
-  BufferTarget, CanvasSource, AudioBufferSource, getFirstEncodableAudioCodec,
+  Output, Mp4OutputFormat, MovOutputFormat, WebMOutputFormat, MkvOutputFormat, WavOutputFormat, OggOutputFormat,
+  BufferTarget, CanvasSource, AudioBufferSource, getFirstEncodableAudioCodec, canEncodeVideo,
   QUALITY_VERY_LOW, QUALITY_LOW, QUALITY_MEDIUM, QUALITY_HIGH, QUALITY_VERY_HIGH,
   Quality,
 } from 'mediabunny';
@@ -8,20 +8,8 @@ import type { Movie, RenderOptions } from './Movie';
 import { resolveMotionBlur } from './motionBlur';
 import type { MotionBlurSpec } from './motionBlur';
 import { resolveRange, resolveRenderOptions, sliceChannels } from './renderRange';
-
-const VIDEO_CODEC_BY_FORMAT = {
-  mp4: 'avc',
-  mov: 'avc',
-  webm: 'vp9',
-  mkv: 'vp9',
-} as const;
-
-const AUDIO_CODEC_BY_FORMAT = {
-  mp4: 'aac',
-  mov: 'aac',
-  webm: 'opus',
-  mkv: 'opus',
-} as const;
+import { parseBitrate, chooseVideoCodec, isAudioFormat, type AudioFormat } from './renderOptions';
+import { warnUnknownOptions } from './options';
 
 /** Audio codecs to try for each container, best first (the first one the browser can encode wins). */
 const AUDIO_PREFERENCE = {
@@ -29,6 +17,7 @@ const AUDIO_PREFERENCE = {
   mov: ['aac', 'mp3'],
   webm: ['opus', 'vorbis'],
   mkv: ['opus', 'vorbis', 'aac', 'flac', 'mp3'],
+  ogg: ['opus', 'vorbis', 'flac'],
 } as const;
 
 /**
@@ -37,7 +26,7 @@ const AUDIO_PREFERENCE = {
  * `AUDIO_PREFERENCE` that this browser can encode (and say so); a codec the caller named is never swapped, but a failure says which would work.
  */
 async function chooseAudioCodec(
-  fmt: 'mp4' | 'mov' | 'webm' | 'mkv', requested: string | undefined, container: unknown, audio: AudioBuffer, bitrate: Quality,
+  fmt: 'mp4' | 'mov' | 'webm' | 'mkv' | 'ogg', requested: string | undefined, container: unknown, audio: AudioBuffer, bitrate: Quality | number,
 ): Promise<string> {
   const supported = (container as { getSupportedAudioCodecs?: () => string[] }).getSupportedAudioCodecs?.();
   const preferred = AUDIO_PREFERENCE[fmt].filter(c => !supported || supported.includes(c));
@@ -68,6 +57,12 @@ const qualityMap: Record<string, Quality> = {
   'very-high': QUALITY_VERY_HIGH,
 };
 
+/** A bitrate option (a quality name, bits a second, '8M') as what mediabunny takes. */
+function bitrateOf(v: unknown, fallback: Quality): Quality | number {
+  const b = parseBitrate(v);
+  return b.bps ?? (b.quality ? qualityMap[b.quality]! : fallback);
+}
+
 function makeOutputFormat(name: 'mp4' | 'mov' | 'webm' | 'mkv') {
   switch (name) {
     case 'mp4': return new Mp4OutputFormat({ fastStart: 'in-memory' });
@@ -86,19 +81,49 @@ function sliceAudio(buffer: AudioBuffer, fromSec: number, toSec: number, fadeIn:
   return out;
 }
 
+/** The audio of the movie as a file of its own (`format: 'wav' | 'ogg'`): no picture is drawn. */
+async function exportAudioOnly(movie: Movie, options: RenderOptions, fmt: AudioFormat, range: ReturnType<typeof resolveRange>): Promise<Blob> {
+  if (!movie.audioBuffer) {
+    throw new Error(`pixi-effects: render({ format: '${fmt}' }): this movie has no sound to export (add an audio layer, an sfx or a music score); for the picture use mp4, webm, mov or mkv`);
+  }
+  if (options.video) console.warn(`pixi-effects: render({ format: '${fmt}' }): video options are ignored, only the sound is written`);
+  const audio = range.partial ? sliceAudio(movie.audioBuffer, range.fromSec, range.toSec, range.fromFrame > 0, range.toFrame < movie.totalFrames) : movie.audioBuffer;
+  const container = fmt === 'wav' ? new WavOutputFormat() : new OggOutputFormat();
+  let codec: string;
+  if (fmt === 'wav') {
+    codec = options.audio?.codec ?? 'pcm-s16';
+    const held = (container as unknown as { getSupportedAudioCodecs(): string[] }).getSupportedAudioCodecs();
+    if (!held.includes(codec)) throw new Error(`pixi-effects: render({ format: 'wav', audio: { codec: "${codec}" } }): wav holds ${held.join(', ')} (the usual is pcm-s16)`);
+  } else {
+    codec = await chooseAudioCodec('ogg', options.audio?.codec, container, audio, bitrateOf(options.audio?.bitrate, QUALITY_HIGH));
+  }
+  const output = new Output({ format: container, target: new BufferTarget() });
+  const source = new AudioBufferSource({ codec: codec as never, ...(fmt === 'wav' ? {} : { bitrate: bitrateOf(options.audio?.bitrate, QUALITY_HIGH) }) });
+  output.addAudioTrack(source);
+  movie.emit('progress', { progress: 0, frame: range.fromFrame, totalFrames: movie.totalFrames });
+  await output.start();
+  await source.add(audio);
+  await source.close();
+  await output.finalize();
+  movie.emit('progress', { progress: 100, frame: range.toFrame, totalFrames: movie.totalFrames });
+  return new Blob([output.target.buffer as ArrayBuffer], { type: output.format.mimeType });
+}
+
 export async function exportFrames(movie: Movie, options: RenderOptions = {}): Promise<Blob> {
   const fmt = options.format ?? 'mp4';
   const eff = resolveRenderOptions(options);                         // `draft` expanded, `scale` checked
   const range = resolveRange(options.range, { frameRate: movie.frameRate, totalFrames: movie.totalFrames, duration: movie.duration, rows: typeof options.range === 'string' ? movie.timelineData().rows : undefined });
+  if (isAudioFormat(fmt)) return exportAudioOnly(movie, options, fmt, range);
+  if (!['mp4', 'mov', 'webm', 'mkv'].includes(fmt)) throw new Error(`pixi-effects: render({ format: "${String(fmt)}" }): use mp4, mov, webm, mkv (a picture) or wav, ogg (only the sound)`);
+  warnUnknownOptions('movie.render({ video })', options.video, ['codec', 'bitrate', 'hardware', 'keyFrameInterval']);
+  warnUnknownOptions('movie.render({ audio })', options.audio, ['codec', 'bitrate']);
+  const videoBitrate = bitrateOf(eff.bitrate ?? 'high', QUALITY_HIGH);
   const opts = {
     format: fmt,
-    video: {
-      codec: options.video?.codec ?? VIDEO_CODEC_BY_FORMAT[fmt],
-      bitrate: qualityMap[eff.bitrate ?? 'high'] ?? QUALITY_HIGH,
-    },
+    video: { codec: '' as string, bitrate: videoBitrate },
     audio: {
-      codec: options.audio?.codec ?? AUDIO_CODEC_BY_FORMAT[fmt],
-      bitrate: qualityMap[options.audio?.bitrate ?? 'high'] ?? QUALITY_HIGH,
+      codec: options.audio?.codec ?? (fmt === 'mp4' || fmt === 'mov' ? 'aac' : 'opus'),
+      bitrate: bitrateOf(options.audio?.bitrate, QUALITY_HIGH),
     },
   };
 
@@ -119,9 +144,22 @@ export async function exportFrames(movie: Movie, options: RenderOptions = {}): P
     ? Object.assign(document.createElement('canvas'), { width: Math.max(2, Math.round((stage.width * eff.scale) / 2) * 2), height: Math.max(2, Math.round((stage.height * eff.scale) / 2) * 2) })
     : null;
   const smallCtx = small?.getContext('2d') ?? null;
-  const canvasSource = new CanvasSource(small ?? blurCanvas ?? stage, {
+  const picture = small ?? blurCanvas ?? stage;
+  const chosen = await chooseVideoCodec({
+    fmt, requested: options.video?.codec,
+    supported: (container as unknown as { getSupportedVideoCodecs(): string[] }).getSupportedVideoCodecs(),
+    canEncode: c => canEncodeVideo(c as never, { width: picture.width, height: picture.height, bitrate: opts.video.bitrate as never }),
+  });
+  if (chosen.fellBackFrom) console.warn(`pixi-effects: this browser cannot encode ${chosen.fellBackFrom.toUpperCase()} video, so the ${fmt} carries ${chosen.codec.toUpperCase()} instead (name a codec with render({ video: { codec } }) to choose yourself).`);
+  opts.video.codec = chosen.codec;
+  const hardware = options.video?.hardware;
+  if (hardware !== undefined && !['no-preference', 'prefer-hardware', 'prefer-software'].includes(hardware)) {
+    throw new Error(`pixi-effects: render({ video: { hardware: "${String(hardware)}" } }): use 'prefer-hardware', 'prefer-software' or 'no-preference'`);
+  }
+  const canvasSource = new CanvasSource(picture, {
     codec: opts.video.codec as any,
     bitrate: opts.video.bitrate,
+    ...(hardware ? { hardwareAcceleration: hardware } : {}),
   });
   output.addVideoTrack(canvasSource, { frameRate: movie.frameRate });
 
@@ -142,9 +180,11 @@ export async function exportFrames(movie: Movie, options: RenderOptions = {}): P
   }
 
   movie.app!.ticker.stop();
-  // Force a keyframe every ~2 seconds (and at frame 0). Improves seek
+  // Force a keyframe every `keyFrameInterval` seconds, 2 by default (and at frame 0). Improves seek
   // responsiveness in players without inflating bitrate appreciably.
-  const keyframeIntervalFrames = Math.max(1, Math.round(2 * movie.frameRate));
+  const interval = options.video?.keyFrameInterval ?? 2;
+  if (!(typeof interval === 'number' && Number.isFinite(interval) && interval > 0)) throw new Error(`pixi-effects: render({ video: { keyFrameInterval: ${String(interval)} } }): seconds between keyframes, above 0 (default 2)`);
+  const keyframeIntervalFrames = Math.max(1, Math.round(interval * movie.frameRate));
   try {
     const count = Math.max(1, range.toFrame - range.fromFrame);
     for (let frame = range.fromFrame; frame <= range.toFrame; frame++) {
