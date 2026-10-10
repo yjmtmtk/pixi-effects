@@ -219,6 +219,10 @@ Rendering uses the [WebCodecs API](https://developer.mozilla.org/docs/Web/API/We
 
 Some codecs (notably `aac` audio in older Firefox) may need the [mediabunny polyfill encoders](https://mediabunny.dev/) (`@mediabunny/aac-encoder`, etc.).
 
+## Author
+
+Made by [@t_yjm](https://x.com/t_yjm): release notes and small experiments are posted there. Questions, bugs and ideas are welcome as [GitHub issues](https://github.com/yjmtmtk/pixi-effects/issues).
+
 ## License
 
 MIT — see [LICENSE](./LICENSE).

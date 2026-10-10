@@ -144,8 +144,8 @@ describe('examples/gallery/index.html', () => {
     expect(title.split(/\s+/).length).toBeLessThanOrEqual(4);
   });
 
-  it('loads nothing from another host: no web fonts, no libraries (its only absolute links are to GitHub and npm)', () => {
+  it('loads nothing from another host: no web fonts, no libraries (its only absolute links are to GitHub, npm and the author page on X)', () => {
     const hosts = [...html.matchAll(/https?:\/\/([^/"'\s)]+)/g)].map((m) => m[1]!);
-    for (const h of new Set(hosts)) expect(['github.com', 'www.npmjs.com']).toContain(h);
+    for (const h of new Set(hosts)) expect(['github.com', 'www.npmjs.com', 'x.com']).toContain(h);
   });
 });

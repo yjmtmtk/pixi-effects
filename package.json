@@ -33,7 +33,7 @@
     "three", "threejs"
   ],
   "license": "MIT",
-  "author": "tefista <tefista.dev@gmail.com>",
+  "author": { "name": "tefista", "email": "tefista.dev@gmail.com", "url": "https://x.com/t_yjm" },
   "repository": { "type": "git", "url": "git+https://github.com/yjmtmtk/pixi-effects.git" },
   "homepage": "https://github.com/yjmtmtk/pixi-effects#readme",
   "bugs": { "url": "https://github.com/yjmtmtk/pixi-effects/issues" },

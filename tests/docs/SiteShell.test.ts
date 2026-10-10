@@ -31,7 +31,7 @@ describe('site-parts: the header, footer and head every page shares', () => {
 
   it('the footer links to every entrance, the repository, npm and the AI entry', () => {
     const f = renderFooter({ root: '../' });
-    for (const need of ['../guide/', '../examples/gallery/', '../examples/', '../examples/playground.html', '../examples/music-lab.html', '../llms.txt', 'https://github.com/yjmtmtk/pixi-effects', 'https://www.npmjs.com/package/pixi-effects']) {
+    for (const need of ['../guide/', '../examples/gallery/', '../examples/', '../examples/playground.html', '../examples/music-lab.html', '../llms.txt', 'https://github.com/yjmtmtk/pixi-effects', 'https://www.npmjs.com/package/pixi-effects', 'https://x.com/t_yjm']) {
       expect(hrefs(f), need).toContain(need);
     }
   });
