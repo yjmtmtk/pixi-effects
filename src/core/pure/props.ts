@@ -25,6 +25,8 @@ export interface Accessor {
   round: number;
   /** At the end of a tween (and in a `set`) the exact value is written, not the rounded one: a rotation. */
   exactEnd?: boolean;
+  /** `get` is not what `set` writes (autoAlpha's `visible` reads the alpha): every write is made. */
+  always?: boolean;
 }
 
 const DEG = Math.PI / 180;
@@ -65,7 +67,7 @@ export function pixiAccessors(target: Target, key: string): Accessor[] | null {
     case 'autoAlpha': return [
       { id: 'alpha', kind: 'num', unit: 1, round: 1e6, get: () => Number(target.alpha), set: (v) => { target.alpha = v; } },
       // `visible` follows the autoAlpha tweens only, not a plain `alpha` tween on the same layer: a channel of its own
-      { id: 'visible#auto', kind: 'num', unit: 1, round: 1e6, get: () => Number(target.alpha), set: (v) => { target.visible = v !== 0; } },
+      { id: 'visible#auto', kind: 'num', unit: 1, round: 1e6, always: true, get: () => Number(target.alpha), set: (v) => { target.visible = v !== 0; } },
     ];
     default: return null;
   }
@@ -86,7 +88,7 @@ export function parseColor(v: unknown): number | null {
   const s = v.trim();
   let m = /^#([0-9a-f]{3})$/i.exec(s);
   if (m) { const h = m[1]!; return parseInt(h[0]! + h[0]! + h[1]! + h[1]! + h[2]! + h[2]!, 16); }
-  m = /^#([0-9a-f]{6})$/i.exec(s);
+  m = /^#([0-9a-f]{6})(?:[0-9a-f]{2})?$/i.exec(s);                 // the alpha of #rrggbbaa is not a tint
   if (m) return parseInt(m[1]!, 16);
   m = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i.exec(s);
   if (m) return (Number(m[1]) << 16) | (Number(m[2]) << 8) | Number(m[3]);

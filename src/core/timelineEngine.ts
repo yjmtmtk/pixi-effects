@@ -1,7 +1,7 @@
 import { gsap } from 'gsap';
 import { PureTimeline, spacer } from './pure/PureTimeline';
 import { pureEase } from './pure/ease';
-import { PIXI_INERT, pixiAccessors, plainAccessor } from './pure/props';
+import { PIXI_INERT, parseColor, pixiAccessors, plainAccessor } from './pure/props';
 import { rgbInterp } from './pure/colorLerp';
 
 /**
@@ -54,7 +54,10 @@ export function setNow(target: object, vars: Record<string, unknown>): void {
         const accs = pixiAccessors(t, k);
         if (!accs) { if (!PIXI_INERT.has(k)) console.warn(`pixi-effects: the pure timeline has no "${k}" shorthand yet; it is ignored`); continue; }
         const raw = (vars.pixi as Record<string, unknown>)[k];
-        for (const acc of accs) acc.set(acc.kind === 'color' ? colorNumber(raw) : Number(raw) * acc.unit);
+        for (const acc of accs) {
+          const n = acc.kind === 'color' ? colorNumber(raw) : Number(raw) * acc.unit;
+          if (!Number.isNaN(n)) acc.set(n);
+        }
       }
     } else {
       const v = vars[key];
@@ -64,13 +67,9 @@ export function setNow(target: object, vars: Record<string, unknown>): void {
 }
 
 function colorNumber(v: unknown): number {
-  if (typeof v === 'number') return v;
-  const s = String(v).trim();
-  const m = /^#([0-9a-f]{6})$/i.exec(s);
-  if (m) return parseInt(m[1]!, 16);
-  const h = /^#([0-9a-f]{3})$/i.exec(s);
-  if (h) return parseInt(h[1]!.split('').map(c => c + c).join(''), 16);
-  return Number(v);
+  const c = parseColor(v);
+  if (c === null) { console.warn(`pixi-effects: the pure timeline cannot read the colour ${JSON.stringify(v)} (use #rgb, #rrggbb, rgb(...) or a number); it is left as it was`); return NaN; }
+  return c;
 }
 
 /** `gsap.utils.interpolate(a, b)` for two CSS colour strings. */

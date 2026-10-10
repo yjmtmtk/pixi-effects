@@ -59,6 +59,8 @@ interface Segment {
   fnMake?: (a: any, b: any) => (p: number) => any;
   /** A write that switches when the segment starts (revertible sets): `to` is the value, whatever the channel is. */
   step?: boolean;
+  /** How this segment writes the property, when it is not the way the channel's first segment did (a tween and a set can share a property). */
+  write?: (v: any) => void;
   interp?: (p: number) => any;
   /** The segment of the same call on another channel whose numbers this one copies (autoAlpha's `visible` follows its `alpha`). */
   partner?: Segment;
@@ -176,6 +178,7 @@ export class PureTimeline {
       const cur = acc.get();
       const color = acc.kind === 'color';
       const endSpec = e ? read(e.value, acc) : null;
+      if (e && !endSpec && acc.kind === 'color') console.warn(`pixi-effects: the pure timeline cannot read the colour ${JSON.stringify(e.value)} (use #rgb, #rrggbb, rgb(...) or a number); this tween is skipped`);
       const fromSpec = f ? read(f.value, acc) : null;
       let from: number | null = null, to: number, toRel = false;
       if (kind === 'from') {
@@ -241,7 +244,7 @@ export class PureTimeline {
     const ease = typeof spec.ease === 'function' ? spec.ease : pureEase(spec.ease);
     ch.segs.push({
       channel: ch, kind: 'to', createCur: null, start, dur, ease, repeat, yoyo: !!spec.yoyo, repeatDelay, from: null, to: null, toRel: false,
-      order: this.order++, fnFrom: spec.from as never, fnTo: spec.to as never, fnMake: spec.make as never,
+      order: this.order++, fnFrom: spec.from as never, fnTo: spec.to as never, fnMake: spec.make as never, write: spec.set as never,
     });
     ch.dirty = true;
     this.prepared = false;
@@ -259,7 +262,7 @@ export class PureTimeline {
     const ch = this.channel(holder as Target, acc);
     ch.segs.push({
       channel: ch, kind: 'set', createCur: null, start: quantize(at), dur: 0, ease: pureEase('none'), repeat: 0, yoyo: false, repeatDelay: 0,
-      from: null, to: value, toRel: false, order: this.order++, step: true,
+      from: null, to: value, toRel: false, order: this.order++, step: true, write: write as never,
       onUpdate: () => write(read()),
     });
     ch.dirty = true;
@@ -358,13 +361,13 @@ export class PureTimeline {
       const seg = k >= 0 ? segs[k]! : null;
       if (!seg) {
         const pre = settle(ch.acc, ch.pre);
-        ch.acc.set(pre);
+        write(ch, segs[0], pre);
         const head = segs[0];
         if (pre !== ch.last) { ch.last = pre; head?.onUpdate?.(); }
         continue;
       }
       const v = mix(seg, ratioAt(seg, t), over);
-      ch.acc.set(v);
+      write(ch, seg, v);
       if (v !== ch.last) { ch.last = v; seg.onUpdate?.(); }
     }
     for (const c of this.children) {
@@ -372,6 +375,12 @@ export class PureTimeline {
       if (local !== c.last) { c.last = local; c.child.time(local); }
     }
   }
+}
+
+/** Writes a value unless the property already holds it: a setter that decodes a frame or redraws a text runs when the value changes. */
+function write(ch: Channel, seg: Segment | undefined, v: any): void {
+  if (!ch.acc.always && ch.acc.get() === v) return;
+  (seg?.write ?? ch.acc.set)(v);
 }
 
 function endValue(s: Segment): any {
@@ -400,11 +409,12 @@ let over = false;
 
 function mix(s: Segment, r: number, ended: boolean): any {
   const acc = s.channel.acc;
-  if (s.step || acc.kind === 'raw') return s.to;
-  if (s.fnMake) {
+  if (s.step) return s.to;
+  if (s.fnMake) {                                            // before `raw`: a channel made by a set can carry a tween
     const interp = (s.interp ??= s.fnMake(s.from, s.to));
     return interp(Math.round(r * 1e6) / 1e6);              // a number tweened from 0 to 1, as GSAP writes it
   }
+  if (acc.kind === 'raw') return s.to;
   if (acc.kind === 'color') return ended ? endValue(s) : lerpColor(s.from!, s.to, r);
   if ((ended || r === 1) && acc.exactEnd) return endValue(s);
   const k = acc.round;
