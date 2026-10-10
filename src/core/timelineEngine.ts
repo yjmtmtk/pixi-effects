@@ -1,58 +1,39 @@
-import { gsap } from 'gsap';
+import { Color } from 'pixi.js';
 import { PureTimeline, spacer } from './pure/PureTimeline';
 import { pureEase } from './pure/ease';
 import { PIXI_INERT, parseColor, pixiAccessors, plainAccessor } from './pure/props';
-import { rgbInterp } from './pure/colorLerp';
+import { rgbInterp, type Rgba } from './pure/colorLerp';
 
 /**
- * The one place that creates timelines. `'gsap'` is the default; `'pure'` is the timeline of our own (a spike: see
- * docs/superpowers/specs/2026-10-10-pure-timeline-design.md), chosen with `setTimelineEngine('pure')`, the page URL `?pe-timeline=pure`,
- * or `PE_TIMELINE=pure` in the environment. Both are driven through the same calls (`set / to / from / fromTo / add / time / progress`).
+ * The timeline of the library and the few things around it: a timeline is a pure function of time (a value at a time is computed from the
+ * script and the time alone, never from the way the playhead came), see docs/superpowers/specs/2026-10-10-pure-timeline-design.md.
  */
 
-export type TimelineEngine = 'gsap' | 'pure';
-export type Timeline = ReturnType<typeof gsap.timeline>;
+export type Timeline = PureTimeline;
 
-let chosen: TimelineEngine | null = null;
-
-function detect(): TimelineEngine {
-  try { if (typeof location !== 'undefined' && /[?&]pe-timeline=pure\b/.test(location.search)) return 'pure'; } catch { /* no location */ }
-  try {
-    const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
-    if (env?.PE_TIMELINE === 'pure') return 'pure';
-  } catch { /* no process */ }
-  return (globalThis as { __PE_TIMELINE__?: string }).__PE_TIMELINE__ === 'pure' ? 'pure' : 'gsap';
-}
-
-export function timelineEngine(): TimelineEngine { return (chosen ??= detect()); }
-export function setTimelineEngine(engine: TimelineEngine): void { chosen = engine; }
-
-/** `gsap.timeline({ paused, defaults })`. Without a default ease GSAP's tweens ease with `power1.out`; so do ours. */
+/** A timeline for the tweens of a layer, a composition or a movie. Without a default ease a tween eases with `power1.out`. */
 export function createTimeline(opts: { paused?: boolean; defaults?: { ease?: string } } = {}): Timeline {
-  if (timelineEngine() === 'pure') return new PureTimeline({ paused: opts.paused, defaults: { ease: opts.defaults?.ease ?? 'power1.out' } }) as unknown as Timeline;
-  return gsap.timeline(opts);
+  return new PureTimeline({ paused: opts.paused, defaults: { ease: opts.defaults?.ease ?? 'power1.out' } });
 }
 
-/** Lengthens a timeline to `duration` without writing anything (`timeline.add(gsap.to({}, { duration }))`). */
+/** Lengthens a timeline to `duration` without writing anything. */
 export function lengthen(timeline: Timeline, duration: number): void {
-  if (timeline instanceof PureTimeline) timeline.add(spacer(duration));
-  else timeline.add(gsap.to({}, { duration }));
+  timeline.add(spacer(duration));
 }
 
-/** An ease name to a function of 0..1. */
+/** An ease name to a function of 0..1 (a name nobody knows runs as `power1.out`; `checkEase` says so). */
 export function parseEase(name: string): (p: number) => number {
-  return timelineEngine() === 'pure' ? pureEase(name) : gsap.parseEase(name) as (p: number) => number;
+  return pureEase(name);
 }
 
-/** `gsap.set(target, vars)` (values written at once; `vars.pixi` is the plugin's shorthands). */
+/** Writes values at once: plain properties, and under `pixi` the shorthands (`scale`, `anchor`, `rotation` in degrees, `tint`, `autoAlpha` ...). */
 export function setNow(target: object, vars: Record<string, unknown>): void {
-  if (timelineEngine() !== 'pure') { gsap.set(target, vars); return; }
   const t = target as Record<string, unknown>;
   for (const key of Object.keys(vars)) {
     if (key === 'pixi') {
       for (const k of Object.keys(vars.pixi as object)) {
         const accs = pixiAccessors(t, k);
-        if (!accs) { if (!PIXI_INERT.has(k)) console.warn(`pixi-effects: the pure timeline has no "${k}" shorthand yet; it is ignored`); continue; }
+        if (!accs) { if (!PIXI_INERT.has(k)) console.warn(`pixi-effects: "${k}" is not a property a keyframe or initial can set; it is ignored`); continue; }
         const raw = (vars.pixi as Record<string, unknown>)[k];
         for (const acc of accs) {
           const n = acc.kind === 'color' ? colorNumber(raw) : Number(raw) * acc.unit;
@@ -68,14 +49,19 @@ export function setNow(target: object, vars: Record<string, unknown>): void {
 
 function colorNumber(v: unknown): number {
   const c = parseColor(v);
-  if (c === null) { console.warn(`pixi-effects: the pure timeline cannot read the colour ${JSON.stringify(v)} (use #rgb, #rrggbb, rgb(...) or a number); it is left as it was`); return NaN; }
+  if (c === null) { console.warn(`pixi-effects: cannot read the colour ${JSON.stringify(v)} (use #rgb, #rrggbb, rgb(...) or a number); it is left as it was`); return NaN; }
   return c;
 }
 
-/** `gsap.utils.interpolate(a, b)` for two CSS colour strings. */
-export function interpolateColors(a: string, b: string): (p: number) => string {
-  const viaGsap = (x: string, y: string): ((p: number) => string) => gsap.utils.interpolate(x, y) as (p: number) => string;
-  return timelineEngine() === 'pure' ? rgbInterp(a, b, viaGsap) : viaGsap(a, b);
+/** Any other CSS colour (names, hsl, oklch ...) as red, green, blue (0..255) and alpha, through Pixi's own parser. */
+function viaPixi(s: string): Rgba | null {
+  try {
+    const [r, g, b, a] = new Color(s).toArray();
+    return [Math.round(r! * 255), Math.round(g! * 255), Math.round(b! * 255), a!];
+  } catch { return null; }
 }
 
-export function isPure(timeline: unknown): timeline is PureTimeline { return timeline instanceof PureTimeline; }
+/** A function of 0..1 between two CSS colour strings: the start string at 0, the end string at 1, `rgba(r,g,b,a)` between. */
+export function interpolateColors(a: string, b: string): (p: number) => string {
+  return rgbInterp(a, b, viaPixi);
+}

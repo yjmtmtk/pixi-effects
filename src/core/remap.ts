@@ -1,9 +1,8 @@
-import { gsap } from 'gsap';
-import { createTimeline } from './timelineEngine';
+import { createTimeline, type Timeline } from './timelineEngine';
 import { applyKeyframes } from './Timeline';
 import type { Keyframe, KeyframeProps } from '../types';
 
-type Timeline = ReturnType<typeof gsap.timeline>;
+
 
 /**
  * Time remap. A layer's own time is a keyframed property, `time` (seconds of the layer's content: a video's position in the file, a

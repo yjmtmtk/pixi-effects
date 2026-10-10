@@ -1,4 +1,3 @@
-import { gsap } from 'gsap';
 import { Texture, FillGradient } from 'pixi.js';
 import { cssColor, gradientOptions, paintRadial, type RadialCtx } from './gradient';
 import { buildColorInterp, type ColorSpace } from '../expr/colorInterp';
@@ -6,10 +5,10 @@ import { suggestName } from '../core/options';
 import { kfDuration } from '../core/spring';
 import { resolveAt, loopVars } from '../core/Timeline';
 import { revertibleSet } from '../core/revertibleSet';
-import { interpolateColors, isPure } from '../core/timelineEngine';
+import { interpolateColors, type Timeline } from '../core/timelineEngine';
 import type { GradientSpec, Keyframe, Props } from '../types';
 
-type Timeline = ReturnType<typeof gsap.timeline>;
+
 
 /** The live numbers of an animated `fillGradient`. Every colour is a CSS string. */
 export interface GradState {
@@ -116,56 +115,25 @@ export function tweenGradient(
   onChange: () => void,
   loop: Record<string, number | boolean> = {},
 ): void {
-  if (isPure(timeline)) {
-    // the timeline of our own: both ends come from the gradient before the tween, so nothing is kept between two seeks
-    timeline.tweenValue<GradState>({
-      holder, id: 'grad', get: () => holder.grad, set: (g) => { holder.grad = g; onChange(); },
-      from: fromPatch !== undefined ? (prev) => mergeGrad(prev, fromPatch) : undefined,
-      to: (start, prev) => (toPatch !== undefined ? mergeGrad(start, toPatch) : prev),
-      make: (a, b) => {
-        const colors = a.stops.map((s, i) => (colorSpace === 'rgb' ? interpolateColors(s.color, b.stops[i]!.color) : buildColorInterp(s.color, b.stops[i]!.color, colorSpace) as (p: number) => string));
-        return (t) => {
-          const l = (x: number, y: number): number => x + (y - x) * t;
-          return {
-            type: a.type, angle: l(a.angle, b.angle),
-            center: [l(a.center[0], b.center[0]), l(a.center[1], b.center[1])],
-            innerRadius: l(a.innerRadius, b.innerRadius), radius: l(a.radius, b.radius),
-            stops: a.stops.map((s, i) => ({ offset: l(s.offset, b.stops[i]!.offset), color: colors[i]!(t) })),
-          };
+  // both ends come from the gradient before the tween, so nothing is kept between two seeks
+  timeline.tweenValue<GradState>({
+    holder, id: 'grad', get: () => holder.grad, set: (g) => { holder.grad = g; onChange(); },
+    from: fromPatch !== undefined ? (prev) => mergeGrad(prev, fromPatch) : undefined,
+    to: (start, prev) => (toPatch !== undefined ? mergeGrad(start, toPatch) : prev),
+    make: (a, b) => {
+      const colors = a.stops.map((s, i) => (colorSpace === 'rgb' ? interpolateColors(s.color, b.stops[i]!.color) : buildColorInterp(s.color, b.stops[i]!.color, colorSpace) as (p: number) => string));
+      return (t) => {
+        const l = (x: number, y: number): number => x + (y - x) * t;
+        return {
+          type: a.type, angle: l(a.angle, b.angle),
+          center: [l(a.center[0], b.center[0]), l(a.center[1], b.center[1])],
+          innerRadius: l(a.innerRadius, b.innerRadius), radius: l(a.radius, b.radius),
+          stops: a.stops.map((s, i) => ({ offset: l(s.offset, b.stops[i]!.offset), color: colors[i]!(t) })),
         };
-      },
-      duration, ease, at, repeat: loop.repeat as number | undefined, yoyo: loop.yoyo as boolean | undefined, repeatDelay: loop.repeatDelay as number | undefined,
-    });
-    return;
-  }
-  let a: GradState | null = null, b: GradState | null = null;
-  let resting: GradState | null = null;                            // `from` alone runs to the gradient the layer had: kept from the first start, so a seek back and forward again does not take the `from` state for it
-  let colors: Array<(p: number) => string> = [];
-  const proxy = { p: 0 };
-  timeline.fromTo(proxy, { p: 0 }, {
-    p: 1, duration, ease, ...loop,
-    onStart: () => {
-      const live = holder.grad;
-      a = fromPatch !== undefined ? mergeGrad(live, fromPatch) : live;
-      if (toPatch === undefined) resting ??= live;
-      b = toPatch !== undefined ? mergeGrad(a, toPatch) : resting!;
-      colors = a.stops.map((s, i) => (colorSpace === 'rgb'
-        ? (gsap.utils.interpolate(s.color, b!.stops[i]!.color) as (p: number) => string)
-        : buildColorInterp(s.color, b!.stops[i]!.color, colorSpace)));
-    },
-    onUpdate: () => {
-      if (!a || !b) return;
-      const t = proxy.p;
-      const l = (x: number, y: number): number => x + (y - x) * t;
-      holder.grad = {
-        type: a.type, angle: l(a.angle, b.angle),
-        center: [l(a.center[0], b.center[0]), l(a.center[1], b.center[1])],
-        innerRadius: l(a.innerRadius, b.innerRadius), radius: l(a.radius, b.radius),
-        stops: a.stops.map((s, i) => ({ offset: l(s.offset, b!.stops[i]!.offset), color: colors[i]!(t) })),
       };
-      onChange();
     },
-  }, at);
+    duration, ease, at, repeat: loop.repeat as number | undefined, yoyo: loop.yoyo as boolean | undefined, repeatDelay: loop.repeatDelay as number | undefined,
+  });
 }
 
 /** Resolution of the painted gradient: a hard stop across a 1920 px shape stays sharp enough at 512. */
@@ -215,14 +183,11 @@ export function bindGradientKeyframes(
   for (const kf of keyframes) {
     const at = offset + resolveAt(kf.at, duration);
     const setV = bag(kf.set), fromV = bag(kf.from), toV = bag(kf.to);
-    if (setV !== undefined && isPure(timeline)) {
+    if (setV !== undefined) {
       timeline.tweenValue<GradState>({
         holder, id: 'grad', get: () => holder.grad, set: (g) => { holder.grad = g; onChange(); },
         to: (start) => mergeGrad(start, setV), make: (_a, b) => () => b, duration: 0, ease: 'none', at,
       });
-    } else if (setV !== undefined) {
-      revertibleSet<{ state?: GradState; patch?: unknown }>(timeline, at, () => ({ state: holder.grad }),
-        v => { holder.grad = v.state ?? mergeGrad(holder.grad, v.patch); onChange(); }, { patch: setV });
     }
     if (fromV !== undefined || toV !== undefined) {
       tweenGradient(timeline, holder, fromV, toV, kfDuration(kf), kf.ease ?? 'none', at, colorSpace, onChange, loopVars(kf));

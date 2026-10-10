@@ -1,7 +1,6 @@
 import { Text, FillGradient } from 'pixi.js';
 import { gradStateFrom, bindGradientKeyframes, validateGradientKeyframes, type GradState } from './gradientAnim';
 import { gradientOptions } from './gradient';
-import { gsap } from 'gsap';
 import { kfDuration } from '../core/spring';
 import { Sequence } from './Base';
 import { normalizeProps } from '../expr/normalizeProps';
@@ -11,8 +10,9 @@ import { tweenColor } from '../expr/colorTween';
 import { describeLayer } from '../core/lint';
 import type { ColorInput } from '../expr/colorInterp';
 import type { TextSequenceSpec, Keyframe, Props, GradientSpec } from '../types';
+import type { Timeline } from '../core/timelineEngine';
 
-type Timeline = ReturnType<typeof gsap.timeline>;
+
 
 // TextStyle fields whose string values are words or colours, never expressions. `join` / `cap` / `color`
 // also live inside `stroke` and `dropShadow`, `stroke` itself may be a colour name.

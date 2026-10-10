@@ -1,10 +1,9 @@
 /**
  * `gsap.utils.interpolate('#102030', '#f08060')` without GSAP: a function of 0..1 that gives the start string at 0, the end string at 1,
  * and `rgba(r,g,b,a)` in between (channels rounded to whole numbers, alpha to four decimals, no clamping on an overshoot).
- * Strings it cannot read (hsl, names) go back to `fallback`.
- */
+ *  */
 
-type Rgba = [number, number, number, number];
+export type Rgba = [number, number, number, number];
 
 export function parseCssColor(s: string): Rgba | null {
   const v = s.trim();
@@ -24,9 +23,10 @@ export function parseCssColor(s: string): Rgba | null {
   return null;
 }
 
-export function rgbInterp(a: string, b: string, fallback: (a: string, b: string) => (p: number) => string): (p: number) => string {
-  const ca = parseCssColor(a), cb = parseCssColor(b);
-  if (!ca || !cb) return fallback(a, b);
+/** `fallback` reads what `parseCssColor` cannot (names, hsl ...); a string neither can read stays what it was until the end. */
+export function rgbInterp(a: string, b: string, fallback: (s: string) => Rgba | null = () => null): (p: number) => string {
+  const ca = parseCssColor(a) ?? fallback(a), cb = parseCssColor(b) ?? fallback(b);
+  if (!ca || !cb) return (p) => (p >= 1 ? b : a);
   return (p) => {
     if (p === 0) return a;
     if (p === 1) return b;

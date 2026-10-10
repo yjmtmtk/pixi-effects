@@ -1,7 +1,6 @@
-import { gsap } from 'gsap';
 
 /**
- * CSS `cubic-bezier(x1, y1, x2, y2)` as a GSAP ease, with no plugin (GSAP's CustomEase is a separate file, and a Club plugin before 3.13).
+ * CSS `cubic-bezier(x1, y1, x2, y2)` as an ease.
  * The curve is (0,0) (x1,y1) (x2,y2) (1,1); x is time, y is progress. Solve x(t) = p for t (Newton, then bisection when the slope is
  * flat) and return y(t). Exactly 0 at 0 and 1 at 1; y may leave 0..1 (an overshoot), x1 and x2 may not (the CSS rule).
  */
@@ -50,17 +49,3 @@ export function cubicBezierProblem(name: string): string | null {
   if (x1 < 0 || x1 > 1 || x2 < 0 || x2 > 1) return 'x1 and x2 must be between 0 and 1 (y1 and y2 may overshoot)';
   return null;
 }
-
-let registered = false;
-/** `cubic-bezier(a,b,c,d)` for GSAP: it splits the string at "(" and calls `.config` with the numbers. */
-export function registerCubicBezierEase(): void {
-  if (registered) return;
-  registered = true;
-  const base = ((p: number) => p) as ((p: number) => number) & { config: (x1: number, y1: number, x2: number, y2: number) => (p: number) => number };
-  base.config = (x1, y1, x2, y2) => {
-    const bad = [x1, y1, x2, y2].some(v => typeof v !== 'number' || !Number.isFinite(v)) || x1 < 0 || x1 > 1 || x2 < 0 || x2 > 1;
-    return bad ? (p: number) => p : cubicBezierEase(x1, y1, x2, y2);        // `checkEase` says why, once
-  };
-  gsap.registerEase('cubic-bezier', base);
-}
-registerCubicBezierEase();                                // importing this module is what makes the string work (as with spring.ts)

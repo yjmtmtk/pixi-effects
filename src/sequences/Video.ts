@@ -6,9 +6,9 @@ import { describeLayer } from '../core/lint';
 import { remapOf, bindClock, clockTable, type TimeRemap } from '../core/remap';
 import type { VideoSequenceSpec, AudioDescriptor } from '../types';
 import type { VideoAssetData } from '../core/AssetLoader';
+import type { Timeline } from '../core/timelineEngine';
 
-import type { gsap } from 'gsap';
-type Timeline = ReturnType<typeof gsap.timeline>;
+
 
 export class VideoSequence extends Sequence {
   declare spec: VideoSequenceSpec;

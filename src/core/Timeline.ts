@@ -1,5 +1,4 @@
-import { gsap } from 'gsap';
-import { setNow } from './timelineEngine';
+import { setNow, type Timeline } from './timelineEngine';
 import { kfDuration } from './spring';
 import { normalizeProps } from '../expr/normalizeProps';
 import { checkEase } from './ease';
@@ -161,7 +160,7 @@ function pixiwrap(props: Record<string, unknown>): Record<string, unknown> {
   return out;
 }
 
-type Timeline = ReturnType<typeof gsap.timeline>;
+
 
 export function applyKeyframes(
   timeline: Timeline,

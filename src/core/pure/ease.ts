@@ -79,31 +79,37 @@ const FAMILY: Record<string, (args: number[]) => Trio> = {
 };
 
 const LINEAR: EaseFn = (p) => p;
-const DEFAULT: EaseFn = power(2).out;                            // what GSAP runs for a name it does not know
+const DEFAULT: EaseFn = power(2).out;                            // power1.out: what a name nobody knows runs as
 
-const cache = new Map<string, EaseFn>();
+const cache = new Map<string, EaseFn | null>();
 
-/** The ease function for a GSAP-style ease name; a name it does not know runs as `power1.out`, as in GSAP. */
-export function pureEase(name: unknown): EaseFn {
-  if (typeof name !== 'string') return DEFAULT;
-  const hit = cache.get(name);
-  if (hit) return hit;
-  const fn = parse(name.trim());
-  cache.set(name, fn);
-  return fn;
+function lookup(name: string): EaseFn | null {
+  let hit = cache.get(name);
+  if (hit === undefined) { hit = parse(name.trim()); cache.set(name, hit); }
+  return hit;
 }
 
-function parse(raw: string): EaseFn {
+/** The ease function for an ease name; a name it does not know runs as `power1.out` (`checkEase` has said so). */
+export function pureEase(name: unknown): EaseFn {
+  return (typeof name === 'string' ? lookup(name) : null) ?? DEFAULT;
+}
+
+/** Whether `name` is an ease this library runs (`checkEase` warns about the others). */
+export function isEaseName(name: unknown): boolean {
+  return typeof name === 'string' && lookup(name) !== null;
+}
+
+function parse(raw: string): EaseFn | null {
   const s = raw.toLowerCase();
   if (s === 'none' || s === 'linear' || s === 'linear.easenone') return LINEAR;
-  if (/^spring/.test(s)) { const sp = parseSpring(raw); return sp ? springEase(sp) : DEFAULT; }
-  if (/^cubic-bezier/.test(s)) { const c = parseCubicBezier(raw); return c ? cubicBezierEase(...c) : LINEAR; }
+  if (/^spring/.test(s)) { const sp = parseSpring(raw); return sp ? springEase(sp) : null; }
+  if (/^cubic-bezier/.test(s)) { const c = parseCubicBezier(raw); return c ? cubicBezierEase(...c) : null; }
   const st = /^steps\(\s*([^)]*)\)$/.exec(s);
   if (st) return steps(Number(st[1]));
   const m = /^([a-z0-9]+)\.(?:ease)?(in|out|inout)(?:\(([^)]*)\))?$/.exec(s);
-  if (!m) return DEFAULT;
+  if (!m) return null;
   const make = FAMILY[m[1]!];
-  if (!make) return DEFAULT;
+  if (!make) return null;
   const args = (m[3] ?? '').split(',').map(x => x.trim()).filter(Boolean).map(Number).filter(n => Number.isFinite(n));
   const trio = make(args);
   return m[2] === 'in' ? trio.in : m[2] === 'out' ? trio.out : trio.inOut;

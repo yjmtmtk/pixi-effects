@@ -1,9 +1,6 @@
-import * as PIXI from 'pixi.js';
 import { usesAdvancedBlend, enableAdvancedBlend } from './blend';
 import { Application, Container, Culler, Rectangle, extensions, CullerPlugin } from 'pixi.js';
-import { gsap } from 'gsap';
-import { createTimeline, lengthen } from './timelineEngine';
-import { PixiPlugin } from 'gsap/PixiPlugin';
+import { createTimeline, lengthen, type Timeline } from './timelineEngine';
 import { loadAssetBundle } from './AssetLoader';
 import { CompositionSequence } from '../sequences/Composition';
 import { mixdown, limitMix, type MixStats } from './AudioMixer';
@@ -33,9 +30,6 @@ import type {
 } from '../types';
 
 extensions.add(CullerPlugin);
-
-gsap.registerPlugin(PixiPlugin);
-PixiPlugin.registerPIXI(PIXI);
 
 export interface MovieOptions {
   width?: number;
@@ -174,7 +168,7 @@ export class Movie {
   private _events: Record<string, Listener[]> = {};
   private _initState: 'idle' | 'pending' | 'ready' | 'destroyed' = 'idle';
   app: Application | null = null;
-  timeline: ReturnType<typeof gsap.timeline> | null = null;
+  timeline: Timeline | null = null;
   audioBuffer: AudioBuffer | null = null;
   audioSource: AudioBufferSourceNode | null = null;
   gainNode: GainNode | null = null;

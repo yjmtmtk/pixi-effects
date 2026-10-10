@@ -1,5 +1,4 @@
 import { Graphics, GraphicsPath } from 'pixi.js';
-import { gsap } from 'gsap';
 import { kfDuration } from '../core/spring';
 import { Sequence } from './Base';
 import { evaluateExpr, isExpr } from '../expr/Parser';
@@ -14,13 +13,14 @@ import { GradientPainter, gradStateFrom, bindGradientKeyframes, hasGradientKeys,
 import { trimPolylines, rectOutline, ellipseOutline, flattenSvgPath, type Polyline } from './trimPath';
 import { buildMorph, morphAt, type MorphPair } from './morphPath';
 import { collectPropKeys } from '../space/specKeys';
+import type { Timeline } from '../core/timelineEngine';
 import type {
   ShapeSequenceSpec, GradientSpec,
   LineShapeSpec, PolygonShapeSpec, PathShapeSpec,
   Props, Keyframe, PropValue,
 } from '../types';
 
-type Timeline = ReturnType<typeof gsap.timeline>;
+
 
 // Style + geometry props live on the shape's `_state`, not on the Graphics.
 // The shape redraws every frame from `_state`, so style AND scalar geometry

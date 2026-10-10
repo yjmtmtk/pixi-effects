@@ -5,9 +5,9 @@ import { buildScope, type Scope } from '../expr/Scope';
 import { createFilter, type NamedFilter } from '../filters';
 import type { CompositionShape, SequenceSpec, AudioDescriptor } from '../types';
 import type { SpaceHost } from '../space/Layer3D';
+import type { Timeline } from '../core/timelineEngine';
 
-import type { gsap } from 'gsap';
-type Timeline = ReturnType<typeof gsap.timeline>;
+
 
 export abstract class Sequence {
   spec: SequenceSpec;

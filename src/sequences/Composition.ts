@@ -1,6 +1,5 @@
 import { Container, Rectangle } from 'pixi.js';
-import { gsap } from 'gsap';
-import { createTimeline } from '../core/timelineEngine';
+import { createTimeline, type Timeline } from '../core/timelineEngine';
 import { Sequence } from './Base';
 import { NullSequence } from './Null';
 import { suggestName } from '../core/options';
@@ -23,7 +22,7 @@ import { cameraBasis, homeCamera, projectPoint, NEAR, type CameraBasis, type Cam
 import { timeRemapOf, remapOf, contentLength, bindClock, clockTable, type TimeRemap, type ClockTable } from '../core/remap';
 import type { CompositionSequenceSpec, AudioDescriptor, CompositionShape, SequenceSpec } from '../types';
 
-type Timeline = ReturnType<typeof gsap.timeline>;
+
 
 export class CompositionSequence extends Sequence {
   declare spec: CompositionSequenceSpec;

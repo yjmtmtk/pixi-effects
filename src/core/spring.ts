@@ -1,5 +1,3 @@
-import { gsap } from 'gsap';
-
 /**
  * Spring easing . A unit step response of a damped mass-spring system:
  *   m x'' + c x' + k x = k   with x(0) = 0, x'(0) = 0, target 1.
@@ -93,22 +91,6 @@ export function parseSpring(name: unknown): Required<SpringParams> | null {
   return complete({ mass, stiffness, damping });
 }
 
-let registered = false;
-/** Register 'spring', 'spring(m,k,c)' (GSAP calls .config with the numbers) and 'spring.<preset>' with GSAP. Idempotent. */
-export function registerSpringEases(): void {
-  if (registered) return;
-  registered = true;
-  const base = springEase();
-  const ease: any = (p: number) => base(p);
-  // GSAP calls config() once per target, with garbled numbers for a malformed string: no warning here (checkEase says it once), defaults instead
-  ease.config = (mass?: number, stiffness?: number, damping?: number) => {
-    const bad = [mass, stiffness, damping].some(v => v !== undefined && !(typeof v === 'number' && v > 0 && Number.isFinite(v)));
-    return springEase(bad ? {} : { mass, stiffness, damping });
-  };
-  gsap.registerEase('spring', ease);
-  for (const [name, p] of Object.entries(SPRING_PRESETS)) gsap.registerEase(`spring.${name}`, springEase(p));
-}
-
 const autoWarned = new Set<string>();
 /** A keyframe's length in seconds: a number, or 'auto' = the time its spring ease takes to settle (0.5 %). */
 export function kfDuration(kf: { duration?: number | 'auto'; ease?: string }): number {
@@ -124,4 +106,3 @@ export function kfDuration(kf: { duration?: number | 'auto'; ease?: string }): n
   return 0.5;
 }
 
-registerSpringEases();                                            // importing this module is enough for GSAP to know the names
