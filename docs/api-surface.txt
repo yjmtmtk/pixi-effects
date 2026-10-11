@@ -743,10 +743,10 @@ interface ControllerOptions
   canvas: HTMLCanvasElement
   className?: string
   clickToPlay?: boolean
-  enableKeyboardShortcuts?: boolean
+  exportButton?: boolean
+  keyboard?: boolean
   pauseAtStops?: boolean
-  present?: boolean
-  showExportButton?: boolean
+  presentButton?: boolean
   theme?: ControllerTheme
 interface ControllerTheme
   accent?: string | null

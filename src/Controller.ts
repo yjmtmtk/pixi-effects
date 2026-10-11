@@ -61,16 +61,20 @@ const THEME_PROPERTIES: Record<keyof ControllerTheme, string> = {
   accent: '--mc-accent', foreground: '--mc-fg', track: '--mc-track', barBackground: '--mc-bar-bg', trackHeight: '--mc-track-height', font: '--mc-font',
 };
 
+const CONTROLLER_OPTION_KEYS = ['canvas', 'theme', 'exportButton', 'keyboard', 'clickToPlay', 'presentButton', 'pauseAtStops', 'className'] as const;
+
 export interface ControllerOptions {
   canvas: HTMLCanvasElement;
   /** Colours and sizes of the bar, see {@link ControllerTheme}. Can be changed later with `controller.setTheme()`. */
   theme?: ControllerTheme;
-  showExportButton?: boolean;
-  enableKeyboardShortcuts?: boolean;
+  /** The download button and its panel. Default true. */
+  exportButton?: boolean;
+  /** Space, arrows, M, F, E … on the page (not while typing in a field). Default true. */
+  keyboard?: boolean;
   /** A click (or tap) on the picture plays / pauses, like a `<video>` element. Default true; `false` leaves the canvas alone. */
   clickToPlay?: boolean;
   /** A movie with `stops` gets a Present button that starts a {@link Presenter} (keys, click and swipe move through the stops). Default true; `false` keeps only the marks on the seek bar. */
-  present?: boolean;
+  presentButton?: boolean;
   /** A movie with `stops`: the play button (and a click on the picture, and Space) plays to the next stop and pauses there, like a slide. Default true; `false` plays straight through to the end. */
   pauseAtStops?: boolean;
   className?: string;
@@ -78,10 +82,10 @@ export interface ControllerOptions {
 
 interface ResolvedOptions {
   canvas: HTMLCanvasElement;
-  showExportButton: boolean;
-  enableKeyboardShortcuts: boolean;
+  exportButton: boolean;
+  keyboard: boolean;
   clickToPlay: boolean;
-  present: boolean;
+  presentButton: boolean;
   pauseAtStops: boolean;
   className: string;
 }
@@ -163,13 +167,14 @@ export class Controller {
     if (!options || !options.canvas) {
       throw new Error('Controller requires options.canvas (HTMLCanvasElement).');
     }
+    warnUnknownOptions('Controller', options, CONTROLLER_OPTION_KEYS);
     this.movie = movie;
     this.options = {
       canvas: options.canvas,
-      showExportButton: options.showExportButton ?? true,
-      enableKeyboardShortcuts: options.enableKeyboardShortcuts ?? true,
+      exportButton: options.exportButton ?? true,
+      keyboard: options.keyboard ?? true,
       clickToPlay: options.clickToPlay ?? true,
-      present: options.present ?? true,
+      presentButton: options.presentButton ?? true,
       pauseAtStops: options.pauseAtStops ?? true,
       className: options.className ?? 'movie-controller',
     };
@@ -202,11 +207,11 @@ export class Controller {
     this.bindExportPopover();
     this.bindFullscreen();
     this.bindVisibility();
-    if (this.options.enableKeyboardShortcuts) this.bindKeyboard();
+    if (this.options.keyboard) this.bindKeyboard();
   }
 
   private buildBar(): void {
-    const popoverHtml = this.options.showExportButton ? `
+    const popoverHtml = this.options.exportButton ? `
       <div class="mc-settings-popover" role="dialog" aria-label="Export settings" data-open="false">
         <label class="mc-settings-row">
           <span>Format</span>
@@ -245,7 +250,7 @@ export class Controller {
         </div>
         <span class="mc-time">0:00 / 0:00</span>
         <div class="mc-spacer"></div>
-        ${this.options.showExportButton ? `<button class="mc-btn mc-export" aria-label="Export" aria-expanded="false">${ICONS.download}</button>` : ''}
+        ${this.options.exportButton ? `<button class="mc-btn mc-export" aria-label="Export" aria-expanded="false">${ICONS.download}</button>` : ''}
         <button class="mc-btn mc-fullscreen" aria-label="Enter fullscreen">${ICONS.fullscreenEnter}</button>
       </div>
     `;
@@ -404,7 +409,7 @@ export class Controller {
       holder.appendChild(tick);
     }
     this.progressEl.appendChild(holder);
-    if (this.options.present && !this.presentBtn && this.fullscreenBtn) {
+    if (this.options.presentButton && !this.presentBtn && this.fullscreenBtn) {
       const btn = document.createElement('button');
       btn.className = 'mc-btn mc-present';
       btn.setAttribute('aria-label', 'Present');

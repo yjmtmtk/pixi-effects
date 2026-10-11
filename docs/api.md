@@ -453,8 +453,8 @@ new Controller(movie: Movie, options: ControllerOptions)
 
 interface ControllerOptions {
   canvas: HTMLCanvasElement;          // required
-  showExportButton?: boolean;         // default true; hides ⬇ + popover
-  enableKeyboardShortcuts?: boolean;  // default true
+  exportButton?: boolean;             // default true; false hides ⬇ + popover
+  keyboard?: boolean;                 // default true
   present?: boolean;                  // default true: a movie with stops gets a Present button (marks on the seek bar are always shown)
   pauseAtStops?: boolean;             // default true: with stops, play / Space / click on the picture play to the next stop and pause; false plays straight through
   clickToPlay?: boolean;              // default true: a click / tap on the picture plays / pauses (like <video>); false leaves the canvas alone
@@ -516,7 +516,7 @@ The download is triggered by an in-page `<a download>` click, so the file lands 
 
 ### Keyboard shortcuts
 
-Active when `enableKeyboardShortcuts: true` and the key target is not `<input>`/`<textarea>`/`<select>`/contenteditable.
+Active when `keyboard: true` and the key target is not `<input>`/`<textarea>`/`<select>`/contenteditable.
 
 | Key         | Action                                              |
 | ----------- | --------------------------------------------------- |

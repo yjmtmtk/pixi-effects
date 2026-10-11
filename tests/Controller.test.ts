@@ -277,10 +277,10 @@ describe('Controller — bar DOM', () => {
     ctrl.destroy();
   });
 
-  it('omits export button when showExportButton is false', () => {
+  it('omits export button when exportButton is false', () => {
     const canvas = makeCanvas();
     const movie = makeFakeMovie();
-    const ctrl = new Controller(movie, { canvas, showExportButton: false });
+    const ctrl = new Controller(movie, { canvas, exportButton: false });
     const root = canvas.parentElement!.querySelector('.movie-controller')!;
     expect(root.querySelector('.mc-export')).toBeNull();
     ctrl.destroy();
@@ -743,10 +743,21 @@ describe('Controller — keyboard', () => {
     ctrl.destroy();
   });
 
-  it('disabled by enableKeyboardShortcuts: false', () => {
+  it('the old option names say what to write now (enableKeyboardShortcuts → keyboard, showExportButton → exportButton, present → presentButton)', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const canvas = makeCanvas();
+    const ctrl = new Controller(makeFakeMovie(), { canvas, enableKeyboardShortcuts: false, showExportButton: false, present: false } as never);
+    const said = warn.mock.calls.map(c => String(c[0])).join('\n');
+    expect(said).toMatch(/enableKeyboardShortcuts.*did you mean "keyboard"/);
+    expect(said).toMatch(/showExportButton.*did you mean "exportButton"/);
+    expect(said).toMatch(/"present".*did you mean "presentButton"/);
+    ctrl.destroy(); warn.mockRestore();
+  });
+
+  it('disabled by keyboard: false', () => {
     const canvas = makeCanvas();
     const movie = makeFakeMovie();
-    const ctrl = new Controller(movie, { canvas, enableKeyboardShortcuts: false });
+    const ctrl = new Controller(movie, { canvas, keyboard: false });
     movie.emit('ready');
     document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space' }));
     expect(movie.isPlaying).toBe(false);
@@ -791,10 +802,10 @@ describe('Controller — settings popover (DOM)', () => {
     ctrl.destroy();
   });
 
-  it('omits popover and download button when showExportButton is false', () => {
+  it('omits popover and download button when exportButton is false', () => {
     const canvas = makeCanvas();
     const movie = makeFakeMovie();
-    const ctrl = new Controller(movie, { canvas, showExportButton: false });
+    const ctrl = new Controller(movie, { canvas, exportButton: false });
     const root = canvas.parentElement!.querySelector('.movie-controller')!;
     expect(root.querySelector('.mc-export')).toBeNull();
     expect(root.querySelector('.mc-settings-popover')).toBeNull();
@@ -1493,9 +1504,9 @@ describe('Controller — a movie with stops (a presentation)', () => {
     ctrl.destroy();
   });
 
-  it('present: false keeps the marks but not the button', () => {
+  it('presentButton: false keeps the marks but not the button', () => {
     const canvas = makeCanvas();
-    const ctrl = new Controller(withStops(), { canvas, present: false });
+    const ctrl = new Controller(withStops(), { canvas, presentButton: false });
     expect(canvas.parentElement!.querySelectorAll('.mc-stop-tick')).toHaveLength(3);
     expect(canvas.parentElement!.querySelector('.mc-present')).toBeNull();
     ctrl.destroy();
