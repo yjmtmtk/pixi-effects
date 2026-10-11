@@ -97,7 +97,7 @@ Many AI films look finished with the sound off; then the click lands after the b
 
 ## Review the rendered frames, not your intent
 
-Do not start by watching a full export ten times, and do not describe what you meant to make. Ask the renderer for a contact sheet: one frame at every beat, a short strip around the fastest transitions, and a frame from the middle of each cut taken from the exported file. Look cold, then write the **three largest defects**, each with a **timestamp**, the **evidence** (what you see) and a **local fix**; patch only those, render those frames again. Ask for a second pair of eyes on the sheet whenever one is available: the author reads their own intent into it.
+Do not start by watching a full export ten times, and do not describe what you meant to make. Ask the renderer for a contact sheet: one frame at every beat, a short strip around the fastest transitions, and a frame from the middle of each cut taken from the exported file. Look cold, then write the **three largest defects** into `reviews/notes.md`, each with a **timestamp**, the **evidence** (what you see) and a **local fix**; patch only those, render those frames again, and note the result. A defect you fixed but did not write down is lost for the next film. Two things are easy to miss on a sheet, so do them on purpose: **measure the smallest text** on screen (its pixel size scaled to a 1080p frame, not the look of it), and look at **both ends of every cut and at every state a card passes through** (an empty frame that holds content a beat later is a defect). Ask for a second pair of eyes on the sheet whenever one is available: the author reads their own intent into it.
 
 ```
 [ ] text readable at phone size (about 34 px or more on a 1080p frame)

@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+**Fixed**
+
+- **A text layer whose `style` has an undefined value is no longer blanked.** `style: { fontSize: undefined }` (a variable that was never set) erased the default size and the text was not drawn; the check said only "has no size". The undefined keys are now skipped (Pixi keeps its default) and one warning names them: `style.fontSize is undefined … omit the key instead`.
+
+**Docs**
+
+- Pitfall 103: load a web font before `measureText` / `splitText` / `animateText` (measured: a Latin headline is 21 % wider in the fallback font). `direction.md` asks the reviewer to write the three defects into `reviews/notes.md`, to measure the smallest text, and to look at both ends of every cut. Both came from a fresh agent making a company film from the published skill alone.
+
 ## 0.28.1
 
 **Changed**

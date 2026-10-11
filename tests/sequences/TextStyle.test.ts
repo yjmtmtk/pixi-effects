@@ -27,6 +27,18 @@ describe('text style values', () => {
     expect(style.textBaseline).toBe('middle');
   });
 
+  it('a style value that is undefined (a variable that was never set) is ignored with a warning that names the key, and the text still has a size', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const t = new TextSequence({ type: 'text', name: 'big', text: 'hi', style: { fontSize: undefined, fill: '#ff0000', fontWeight: undefined } } as unknown as SequenceSpec, comp, comp);
+    await t.build();
+    const style = (t.target as unknown as { style: Record<string, any> }).style;
+    expect('fontSize' in style || 'fontWeight' in style).toBe(false);   // never written as undefined: Pixi keeps its default (36 px)
+    expect(style.fill).toBe('#ff0000');                                // the rest of the style still applies
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]![0])).toMatch(/style\.fontSize, style\.fontWeight are undefined.*omit the key/);
+    expect(String(warn.mock.calls[0]![0])).toContain('big');
+  });
+
   it('a named colour given directly as stroke is kept as it is', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const t = new TextSequence({ type: 'text', text: 'hi', style: { stroke: 'white' } } as unknown as SequenceSpec, comp, comp);
