@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>pixi-effects · interactive movies (promo)</title>
+  <link rel="stylesheet" href="../../../dist/loader.css" />
+  <style>
+    body { background: #07080c; margin: 0; padding: 16px; }
+    .stage { position: relative; width: min(1280px, 100%); margin: 0 auto; }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <!--
+    The promo for interactive movies, made with pixi-effects. The four screen clips are the real sample pages played one frame at a time
+    (capture.mjs + scenes.mjs: real clicks, keys, sliders and scrolls on the real pages); this page lays them out with big words and music.
+    Render: npm run build && node examples/interactive/promo/capture.mjs card (city, janken, chords), then
+    node ai/tools/render.mjs examples/interactive/promo/promo.html -o examples/interactive/promo/out/interactive-movies.mp4
+  -->
+  <div class="stage"><canvas id="stage" width="1920" height="1080"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+  <script type="importmap">
+  { "imports": {
+      "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+      "pixi-effects": "../../../dist/index.js",
+      "pixi-effects/controller": "../../../dist/Controller.js" } }
+  </script>
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1920, H = 1080, FPS = 30, TOTAL = 38;
+    const FONT = '"Helvetica Neue", "Arial Black", "Segoe UI", system-ui, sans-serif';
+    const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+    const ACC = '#ff5a3c', INK = '#ffffff', MUTED = '#b9bfcc', BG = '#07080c';
+    const jankenMeta = await fetch('clips/janken.json').then(r => r.json()).catch(() => null);
+
+    // the scenes, in seconds from the start (every start is on a beat: 120 bpm)
+    const S = { hook: 0, card: 3, city: 10, janken: 15.5, chords: 23.5, still: 27.5, touch: 31.5, end: 33.5 };
+    const pops = [];                                                         // a tick for every caption
+    const slam = (text, { at, until, x = 70, y, size = 140, fill = INK, align = 'left', stroke = true, tick = true }) => {
+      if (tick) pops.push(at);
+      return { type: 'text', text, at, duration: until - at, style: { fontFamily: FONT, fontSize: size, fontWeight: '900', fill, letterSpacing: -3, align, lineHeight: size * 0.96,
+          ...(stroke ? { stroke: { color: '#000000', width: Math.max(8, size * 0.1) } } : {}) },
+        initial: { x, y, anchorX: align === 'left' ? 0 : 0.5, anchorY: 0.5 },
+        keyframes: [{ at: 0, from: { scale: 1.4, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.2, ease: 'power4.out' }, { at: -0.07, to: { alpha: 0 }, duration: 0.07 }] };
+    };
+    const flash = (at) => ({ type: 'shape', shape: 'rect', at, duration: 0.2, width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: '#ffffff', alpha: 0 }, keyframes: [{ at: 0, from: { alpha: 0.85 }, to: { alpha: 0 }, duration: 0.18, ease: 'power2.out' }] });
+
+    /** An app window: the real screen clip, cropped to [cx, cy, cw, ch] (pixels of the clip), drawn at `scale` with its top-left at (left, top). */
+    const appWindow = ({ asset, at, dur, speed, crop: [cx, cy, cw, ch], scale, left, top, radius = 26 }) => {
+      const w = cw * scale, h = ch * scale;
+      return [
+        { type: 'shape', shape: 'rect', at, duration: dur, width: w + 40, height: h + 40, cornerRadius: radius + 14, initial: { x: left + w / 2, y: top + h / 2 + 24, fillColor: '#000000', alpha: 0.5 }, filters: [{ type: 'blur', strength: 28 }] },
+        { type: 'video', asset, at, duration: dur, speed, audio: false,
+          initial: { x: left - cx * scale, y: top - cy * scale, anchorX: 0, anchorY: 0, scale },
+          mask: { type: 'shape', shape: 'rect', width: w, height: h, cornerRadius: radius, initial: { x: left + w / 2, y: top + h / 2, fillColor: '#ffffff' } } },
+        { type: 'shape', shape: 'rect', at, duration: dur, width: w, height: h, cornerRadius: radius, initial: { x: left + w / 2, y: top + h / 2, fillAlpha: 0, strokeColor: '#ffffff', strokeWidth: 2, alpha: 0.22 } },
+      ];
+    };
+
+    const layers = [
+      { type: 'shape', shape: 'rect', name: 'bg', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: BG } },
+      { type: 'shape', shape: 'circle', name: 'glow', radius: 520, initial: { x: 1500, y: 300, fillColor: ACC, alpha: 0.16 }, filters: [{ type: 'blur', strength: 120 }],
+        keyframes: [{ at: 0, to: { x: 400, y: 800 }, duration: TOTAL, ease: 'sine.inOut' }] },
+
+      // ── the hook ─────────────────────────────────────────────────────────────────────────────────────────────────
+      slam('WHAT IF', { at: 0.5, until: S.card, x: W / 2, y: 250, size: 250, align: 'center', stroke: false }),
+      slam('A MOVIE', { at: 1.0, until: S.card, x: W / 2, y: 480, size: 250, align: 'center', stroke: false, fill: ACC }),
+      slam('COULD', { at: 1.5, until: S.card, x: W / 2, y: 700, size: 190, align: 'center', stroke: false }),
+      slam('ANSWER BACK?', { at: 2.0, until: S.card, x: W / 2, y: 900, size: 200, align: 'center', stroke: false }),
+
+      // ── 1. a form: the card ──────────────────────────────────────────────────────────────────────────────────────
+      ...appWindow({ asset: 'card', at: S.card, dur: 7, speed: 1, crop: [364, 84, 1190, 668], scale: 1.22, left: 520, top: 40 }),
+      ...appWindow({ asset: 'card', at: S.card, dur: 7, speed: 1, crop: [330, 780, 820, 300], scale: 1.12, left: 40, top: 700, radius: 18 }),
+      slam('TYPE A\nNAME.', { at: S.card + 0.2, until: S.card + 2.6, y: 300, size: 135 }),
+      slam('SLIDE A\nNUMBER.', { at: S.card + 2.6, until: S.card + 4.5, y: 300, size: 135 }),
+      slam('PICK A\nCOLOUR.', { at: S.card + 4.5, until: S.card + 7, y: 300, size: 135 }),
+
+      // ── 2. the page's scroll: the city ───────────────────────────────────────────────────────────────────────────
+      { type: 'video', asset: 'city', at: S.city, duration: 5.5, speed: 6 / 5.5, audio: false, initial: { x: -364 * 1.6134, y: -84 * 1.6134, anchorX: 0, anchorY: 0, scale: 1.6134 } },
+      { type: 'shape', shape: 'rect', at: S.city, duration: 5.5, width: 10, height: 880, cornerRadius: 5, initial: { x: 1858, y: 540, fillColor: '#ffffff', alpha: 0.2 } },
+      { type: 'shape', shape: 'rect', at: S.city + 0.7 / 1.09, duration: 4.6 / 1.09, width: 10, height: 120, cornerRadius: 5, initial: { x: 1858, y: 160, fillColor: ACC },
+        keyframes: [{ at: 0, to: { y: 920 }, duration: 4.6 / 1.09, ease: 'power2.inOut' }] },
+      slam('SCROLL.', { at: S.city + 0.2, until: S.city + 2.5, x: W / 2, y: 900, size: 240, align: 'center' }),
+      slam('THE CAMERA FLIES.', { at: S.city + 2.5, until: S.city + 5.5, x: W / 2, y: 900, size: 175, align: 'center' }),
+
+      // ── 3. rewind: rock paper scissors ───────────────────────────────────────────────────────────────────────────
+      ...appWindow({ asset: 'janken', at: S.janken, dur: 8, speed: 12.6 / 8, crop: [364, 84, 1190, 668], scale: 1.05, left: 640, top: 150 }),
+      slam('REWIND.', { at: S.janken + 0.3, until: S.janken + 2.3, y: 360, size: 190 }),
+      slam('IT THROWS\nAGAIN.', { at: S.janken + 2.3, until: S.janken + 4.4, y: 400, size: 150 }),
+      slam('AGAIN.', { at: S.janken + 4.4, until: S.janken + 6.3, y: 360, size: 190 }),
+      slam('AFTER “SHOOT!”\nSAME ENDING.', { at: S.janken + 6.4, until: S.janken + 8, y: 430, size: 105 }),
+    ];
+    if (jankenMeta) {                                        // a mark on the seek bar where SHOOT! is (the clip is 4/3 of the page's pixels)
+      const k = 4 / 3, s = 1.05, left = 640, top = 150;
+      const mx = left + ((jankenMeta.bar.left + (jankenMeta.ponFrame / jankenMeta.total) * jankenMeta.bar.width) * k - 364) * s;
+      const my = top + (jankenMeta.bar.top * k - 84) * s;
+      layers.push({ type: 'shape', shape: 'rect', at: S.janken + 0.2, duration: 7.8, width: 4, height: 56, initial: { x: mx, y: my - 14, fillColor: ACC } },
+        { type: 'text', text: 'SHOOT!', at: S.janken + 0.2, duration: 7.8, style: { fontFamily: FONT, fontSize: 30, fontWeight: '900', fill: ACC, stroke: { color: '#000000', width: 6 } }, initial: { x: mx, y: my - 58, anchorX: 0.5, anchorY: 0.5 } });
+    }
+    layers.push(
+      // ── 4. the music is text ─────────────────────────────────────────────────────────────────────────────────────
+      ...appWindow({ asset: 'chords', at: S.chords, dur: 4, speed: 1.5, crop: [364, 84, 1190, 668], scale: 1.22, left: 520, top: 40 }),
+      ...appWindow({ asset: 'chords', at: S.chords, dur: 4, speed: 1.5, crop: [350, 780, 930, 110], scale: 1.3, left: 40, top: 800, radius: 18 }),
+      slam('EVEN THE\nMUSIC', { at: S.chords + 0.2, until: S.chords + 2.2, y: 300, size: 135 }),
+      slam('IS A\nVARIABLE.', { at: S.chords + 2.2, until: S.chords + 4, y: 300, size: 135 }),
+
+      // ── 5. still a movie ─────────────────────────────────────────────────────────────────────────────────────────
+      ...['janken', 'scroll-city', 'chords', 'card', 'ending', 'variants', 'sliders', 'pointer', 'liquid'].map((id, i) => ({
+        type: 'image', asset: `poster-${id}`, at: S.still + i * 0.05, duration: 4 - i * 0.05,
+        initial: { x: 360 + (i % 3) * 600, y: 230 + Math.floor(i / 3) * 310, anchorX: 0.5, anchorY: 0.5, scale: 1.45, alpha: 0.5 },
+        keyframes: [{ at: 0, from: { scale: 0.2, alpha: 0 }, to: { scale: 1.45, alpha: 0.5 }, duration: 0.35, ease: 'back.out(1.6)' }] })),
+      { type: 'shape', shape: 'rect', at: S.still, duration: 4, width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: BG, alpha: 0.55 } },
+      slam('STILL A MOVIE.', { at: S.still + 0.2, until: S.still + 4, x: W / 2, y: 430, size: 200, align: 'center' }),
+      ...[['film.html', 480, 0.0], ['name=Ben  →', 960, 0.5], ['ben.mp4', 1440, 1.0]].map(([text, x, d], i) => ({
+        type: 'text', text, at: S.still + 1.4 + d, duration: 2.6 - d, style: { fontFamily: MONO, fontSize: i === 1 ? 54 : 70, fontWeight: '700', fill: i === 1 ? MUTED : (i === 2 ? ACC : INK), stroke: { color: '#000000', width: 10 } },
+        initial: { x, y: 800, anchorX: 0.5, anchorY: 0.5 }, keyframes: [{ at: 0, from: { alpha: 0, scale: 0.7 }, to: { alpha: 1, scale: 1 }, duration: 0.25, ease: 'back.out(2)' }] })),
+      { type: 'text', text: 'the same file, the values you choose', at: S.still + 2.2, duration: 1.8, style: { fontFamily: FONT, fontSize: 44, fontWeight: '700', fill: MUTED, stroke: { color: '#000', width: 8 } }, initial: { x: W / 2, y: 930, anchorX: 0.5, anchorY: 0.5 }, keyframes: [{ at: 0, from: { alpha: 0 }, duration: 0.4 }] },
+
+      // ── 6. you cannot touch this one ─────────────────────────────────────────────────────────────────────────────
+      { type: 'shape', shape: 'rect', at: S.touch, duration: 2, width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: BG } },
+      slam('YOU CAN’T TOUCH\nTHIS ONE.', { at: S.touch + 0.2, until: S.touch + 2, x: W / 2, y: 400, size: 190, align: 'center', stroke: false }),
+      slam('THE NEXT ONE IS YOURS.', { at: S.touch + 1.0, until: S.touch + 2, x: W / 2, y: 730, size: 90, align: 'center', stroke: false, fill: ACC }),
+
+      // ── the end card ─────────────────────────────────────────────────────────────────────────────────────────────
+      { type: 'shape', shape: 'rect', at: S.end, duration: TOTAL - S.end, width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: BG } },
+      { type: 'shape', shape: 'rect', at: S.end + 0.1, duration: TOTAL - S.end - 0.1, width: 64, height: 64, initial: { x: W / 2, y: 250, rotation: 45, fillColor: ACC },
+        keyframes: [{ at: 0, from: { scale: 0, rotation: -45 }, to: { scale: 1, rotation: 45 }, duration: 0.5, ease: 'back.out(2)' }] },
+      slam('INTERACTIVE MOVIES', { at: S.end + 0.3, until: TOTAL, x: W / 2, y: 470, size: 165, align: 'center', stroke: false }),
+      { type: 'text', text: 'a movie you can change while it plays', at: S.end + 1.0, duration: TOTAL - S.end - 1.0, style: { fontFamily: FONT, fontSize: 58, fontWeight: '600', fill: MUTED }, initial: { x: W / 2, y: 640, anchorX: 0.5, anchorY: 0.5 }, keyframes: [{ at: 0, from: { alpha: 0, y: '+=24' }, duration: 0.6, ease: 'expo.out' }] },
+      { type: 'text', text: 'pixi-effects', at: S.end + 1.7, duration: TOTAL - S.end - 1.7, style: { fontFamily: MONO, fontSize: 70, fontWeight: '700', fill: ACC }, initial: { x: W / 2, y: 800, anchorX: 0.5, anchorY: 0.5 }, keyframes: [{ at: 0, from: { alpha: 0 }, duration: 0.5 }] },
+      { type: 'text', text: 'yjmtmtk.github.io/pixi-effects', at: S.end + 2.1, duration: TOTAL - S.end - 2.1, style: { fontFamily: MONO, fontSize: 46, fill: INK }, initial: { x: W / 2, y: 890, anchorX: 0.5, anchorY: 0.5 }, keyframes: [{ at: 0, from: { alpha: 0 }, duration: 0.5 }] },
+
+      // cuts and the movie's own play bar
+      ...Object.values(S).slice(1).map(flash),
+      { type: 'shape', shape: 'rect', name: 'playhead', width: 0, height: 6, initial: { x: 0, y: 1077, anchorX: 0, fillColor: ACC }, keyframes: [{ at: 0, to: { width: W }, duration: TOTAL, ease: 'none' }] },
+    );
+
+    // ── sound ──────────────────────────────────────────────────────────────────────────────────────────────────────
+    const CH = [['Am', 'a1', 'a3 c4 e4 a4'], ['F', 'f1', 'f3 a3 c4 f4'], ['C', 'c2', 'c3 e3 g3 c4'], ['G', 'g1', 'g3 b3 d4 g4']];
+    const rep = (f, n) => Array.from({ length: n }, f).join(' ');
+    const bars = 20;                                                          // 80 beats, 4 per chord
+    const pad = rep((_, i) => `${CH[i % 4][0]}:4`, bars);
+    const bass = rep((_, i) => { const r = CH[i % 4][1]; return `${r}:0.5 _:0.5 ${r}:0.5 _:0.5 ${r}:0.5 _:0.5 ${r}:1`; }, bars);
+    const arp = rep((_, i) => { const [a, b, c, d] = CH[i % 4][2].split(' '); return [a, b, c, d, c, b, c, b].map(n => `${n}:0.5`).join(' '); }, bars);
+    const sfx = (name, sfxName, at, volume = 0.8, extra = {}) => ({ type: 'audio', name, sfx: sfxName, at, volume, ...extra });
+    layers.push(
+      { type: 'audio', name: 'music', volume: 0.9, at: 0, duration: TOTAL, keyframes: [{ at: -1.5, to: { volume: 0 }, duration: 1.5 }], music: { bpm: 120, reverb: 0.22, tracks: [
+        { inst: 'pad', vol: 0.55, notes: pad },
+        { inst: 'sub', vol: 0.9, notes: `_:12 ${bass}` },
+        { inst: 'pluck', vol: 0.5, notes: `_:12 ${arp}` },
+      ], drums: [{ from: 6, to: 66, kick: 'x...x...x...x...' }, { from: 10, to: 66, hat: '..x...x...x...x.' }, { from: 14, to: 66, snare: '....x.......x...' }] } },
+      sfx('hit-1', 'hit', 0.5, 0.9), sfx('hit-2', 'hit', 1.0, 0.9), sfx('hit-3', 'hit', 1.5, 0.9), sfx('hit-4', 'hit', 2.0, 1),
+      sfx('riser', 'riser', 1.9, 0.8, { duration: 1.1 }),
+      ...Object.entries(S).slice(1).map(([k, t]) => sfx(`whoosh-${k}`, 'swoosh', t, 0.7)),
+      sfx('chime-still', 'chime', S.still + 0.2, 0.7), sfx('chime-end', 'chime', S.end + 0.3, 0.9),
+      ...pops.map((t, i) => sfx(`tick-${i}`, 'pop', t, 0.45)),
+    );
+
+    const canvas = document.getElementById('stage');
+    const movie = new Movie();
+    window.movie = movie;
+    await movie.init({
+      canvas, width: W, height: H, duration: TOTAL, frameRate: FPS, background: BG, poster: S.janken + 3.5,
+      assets: [
+        ...['card', 'city', 'janken', 'chords'].map(id => ({ name: id, src: `clips/${id}.mp4` })),
+        ...['janken', 'scroll-city', 'chords', 'card', 'ending', 'variants', 'sliders', 'pointer', 'liquid'].map(id => ({ name: `poster-${id}`, src: `../posters/${id}.jpg` })),
+      ],
+      composition: { sequences: layers },
+    });
+    new Controller(movie, { canvas });
+    window.__ready = true;
+  </script>
+</body>
+</html>

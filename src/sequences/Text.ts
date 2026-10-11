@@ -105,6 +105,9 @@ export class TextSequence extends Sequence {
       // An undefined value (a variable that was never set) would erase the default and leave a text with no size: skip it, and say which keys.
       const unset = Object.keys(resolved).filter(k => (resolved as Record<string, unknown>)[k] === undefined);
       if (unset.length) console.warn(`pixi-effects: ${describeLayer(this.spec)}: ${unset.map(k => `style.${k}`).join(', ')} ${unset.length > 1 ? 'are' : 'is'} undefined (a variable that was never set?), so ${unset.length > 1 ? 'they are' : 'it is'} ignored and the default is used: omit the key instead`);
+      // An outline is drawn with PixiJS's default join, `miter`: the sharp corners of W, V, A, k grow spikes. Round unless the author chose a join.
+      const outline = (resolved as Record<string, unknown>).stroke;
+      if (outline && typeof outline === 'object' && !('join' in outline) && !('lineJoin' in outline)) (resolved as Record<string, unknown>).stroke = { ...outline, join: 'round' };
       for (const k of Object.keys(resolved)) {
         if (unset.includes(k)) continue;
         (text.style as unknown as Record<string, unknown>)[k] = (resolved as Record<string, unknown>)[k];
