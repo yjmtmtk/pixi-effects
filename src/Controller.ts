@@ -8,6 +8,7 @@ const ICONS = {
   pause: '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><rect x="3" y="2" width="3.5" height="12"/><rect x="9.5" y="2" width="3.5" height="12"/></svg>',
   volumeOn: '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M2 6 H5 L9 2 V14 L5 10 H2 Z"/><path d="M11 5 Q13 8 11 11" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M12.5 3.5 Q15.5 8 12.5 12.5" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>',
   volumeOff: '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M2 6 H5 L9 2 V14 L5 10 H2 Z"/><path d="M11 5 L15 11 M15 5 L11 11" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>',
+  loop: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7 V6 Q3 4 5 4 H12"/><path d="M10 2 L12.5 4 L10 6"/><path d="M13 9 V10 Q13 12 11 12 H4"/><path d="M6 14 L3.5 12 L6 10"/></svg>',
   download: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2 V11 M4 7 L8 11 L12 7 M3 13 H13"/></svg>',
   fullscreenEnter: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6 V2 H6 M14 6 V2 H10 M2 10 V14 H6 M14 10 V14 H10"/></svg>',
   present: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2.5 H14 V10.5 H2 Z M8 10.5 V13.5 M5 13.5 H11"/></svg>',
@@ -61,7 +62,7 @@ const THEME_PROPERTIES: Record<keyof ControllerTheme, string> = {
   accent: '--mc-accent', foreground: '--mc-fg', track: '--mc-track', barBackground: '--mc-bar-bg', trackHeight: '--mc-track-height', font: '--mc-font',
 };
 
-const CONTROLLER_OPTION_KEYS = ['canvas', 'theme', 'exportButton', 'keyboard', 'clickToPlay', 'presentButton', 'pauseAtStops', 'className'] as const;
+const CONTROLLER_OPTION_KEYS = ['canvas', 'theme', 'exportButton', 'keyboard', 'clickToPlay', 'presentButton', 'pauseAtStops', 'loopButton', 'className'] as const;
 
 export interface ControllerOptions {
   canvas: HTMLCanvasElement;
@@ -77,6 +78,8 @@ export interface ControllerOptions {
   presentButton?: boolean;
   /** A movie with `stops`: the play button (and a click on the picture, and Space) plays to the next stop and pauses there, like a slide. Default true; `false` plays straight through to the end. */
   pauseAtStops?: boolean;
+  /** The loop button (and the L key) next to the volume: it flips `movie.loop`, so playing goes back to the start at the end. Default true; `false` leaves the loop to the page. */
+  loopButton?: boolean;
   className?: string;
 }
 
@@ -87,6 +90,7 @@ interface ResolvedOptions {
   clickToPlay: boolean;
   presentButton: boolean;
   pauseAtStops: boolean;
+  loopButton: boolean;
   className: string;
 }
 
@@ -109,6 +113,8 @@ export class Controller {
   private progressThumbEl!: HTMLDivElement;
   private playBtn!: HTMLButtonElement;
   private muteBtn!: HTMLButtonElement;
+  private loopBtn: HTMLButtonElement | null = null;
+  private onLoopChange: (() => void) | null = null;
   private timeEl!: HTMLSpanElement;
   private exportBtn: HTMLButtonElement | null = null;
   private settingsPopoverEl: HTMLDivElement | null = null;
@@ -178,6 +184,7 @@ export class Controller {
       clickToPlay: options.clickToPlay ?? true,
       presentButton: options.presentButton ?? true,
       pauseAtStops: options.pauseAtStops ?? true,
+      loopButton: options.loopButton ?? true,
       className: options.className ?? 'movie-controller',
     };
 
@@ -205,6 +212,7 @@ export class Controller {
     if (this.options.clickToPlay) this.bindCanvasClick();
     this.bindScrubbing();
     this.bindMuteButton();
+    this.bindLoopButton();
     this.bindVolumeSlider();
     this.bindExportPopover();
     this.bindFullscreen();
@@ -250,6 +258,7 @@ export class Controller {
             <div class="mc-vol-thumb"></div>
           </div>
         </div>
+        ${this.options.loopButton ? `<button class="mc-btn mc-loop" aria-label="Loop" aria-pressed="false" title="Loop (L)">${ICONS.loop}</button>` : ''}
         <span class="mc-time">0:00 / 0:00</span>
         <div class="mc-spacer"></div>
         ${this.options.exportButton ? `<button class="mc-btn mc-export" aria-label="Export" aria-expanded="false">${ICONS.download}</button>` : ''}
@@ -505,6 +514,16 @@ export class Controller {
   private refreshPlayIcon(): void {
     this.playBtn.innerHTML = this.movie.isPlaying ? ICONS.pause : ICONS.play;
     this.playBtn.setAttribute('aria-label', this.movie.isPlaying ? 'Pause' : 'Play');
+  }
+
+  private bindLoopButton(): void {
+    this.loopBtn = this.root.querySelector('.mc-loop') as HTMLButtonElement | null;
+    if (!this.loopBtn) return;
+    const refresh = () => { this.loopBtn!.setAttribute('aria-pressed', String(this.movie.loop)); };
+    this.loopBtn.addEventListener('click', () => { this.movie.loop = !this.movie.loop; refresh(); });
+    this.onLoopChange = refresh;
+    this.movie.on('loopchange', this.onLoopChange);
+    refresh();
   }
 
   private bindMuteButton(): void {
@@ -930,6 +949,9 @@ export class Controller {
           e.preventDefault();
           this.muteBtn.click();
           break;
+        case 'KeyL':
+          if (this.loopBtn) { e.preventDefault(); this.loopBtn.click(); }
+          break;
         case 'KeyE':
           if (e.shiftKey && this.exportBtn) {
             e.preventDefault();
@@ -966,6 +988,7 @@ export class Controller {
     this.stopPresenting();
     if (this.onReady) { this.movie.off('ready', this.onReady); this.onReady = null; }
     if (this.onRebuilt) { this.movie.off('rebuilt', this.onRebuilt); this.onRebuilt = null; }
+    if (this.onLoopChange) { this.movie.off('loopchange', this.onLoopChange); this.onLoopChange = null; }
     if (this.onFrame) { this.movie.off('frame', this.onFrame); this.onFrame = null; }
     if (this.onPlay) { this.movie.off('play', this.onPlay); this.onPlay = null; }
     if (this.onPause) { this.movie.off('pause', this.onPause); this.onPause = null; }

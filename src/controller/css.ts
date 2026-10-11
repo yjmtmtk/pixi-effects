@@ -77,6 +77,7 @@ export const CONTROLLER_CSS = `
   transition: opacity 120ms ease;
 }
 .mc-btn:hover { opacity: 1; }
+.mc-loop[aria-pressed="true"] { opacity: 1; color: var(--mc-accent); }
 .mc-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .mc-time {
   font-size: 12px; font-family: Menlo, Monaco, monospace;

@@ -43,6 +43,7 @@ interface MovieOptions {
   assets?:     AssetSpec[];         // [{ name, src }]
   composition?: CompositionSpec;    // root composition (see DSL reference)
   vars?:       Record<string, number | string>;   // named values the composition reads: a number as a name in an expression, any as {name} in a string (see Variables)
+  loop?:       boolean;             // start with movie.loop on: playing goes back to the start at the end (default false, like a <video>)
   poster?:     number;              // seconds: the frame shown before play (negative: from the end), see movie.poster
   motionBlur?: boolean | number | { samples?: number; shutter?: number };   // blur for render() / snapshot() / contactSheet(), not live playback; see Motion blur
   loader?:     HTMLElement | string | false;   // the page's loader (see pixi-effects/loader.css): shows how far init is (a bar, "BUILDING LAYERS 62%"), faded out when ready, stopped if init fails; default: a .pe-loader next to the canvas
@@ -281,6 +282,7 @@ movie.off(event, fn): this
 | `'seeking'` / `'seeked'` | `{ frame, totalFrames }` (the frame it lands on) | a `gotoFrame()` to another frame starts / has finished. NOT emitted for playback ticks, `render()`, `snapshot()` or `contactSheet()` |
 | `'ended'`   | none                                              | playback ran off the end (after `'pause'`); pausing by hand does not emit it |
 | `'volumechange'` | `{ volume: number; muted: boolean }`         | `volume` or `muted` really changed (clamping counts) |
+| `'loopchange'` | `{ loop: boolean }`                            | `movie.loop` really changed (the first value from `init({ loop })` is not a change) |
 | `'error'`   | `{ where: 'init' \| 'render' \| 'playback' \| 'rebuild'; message: string; error: unknown }` | `init()` / `render()` / a rebuild failed (the call still rejects), or a frame failed during playback |
 | `'rebuilt'` | `RebuildReport` (see above) | a `setVars()` / `resize()` / `rebuild()` built the composition again (not for a call that changed nothing) |
 
@@ -301,6 +303,7 @@ The names are the ones an HTML5 `<video>` uses, so a player written for `<video>
 | `background`     | string    | CSS color                                               |
 | `volume`         | number    | 0..1 getter/setter; immediate. Setter clamps and applies to active audio |
 | `muted`          | boolean   | getter/setter; immediate                                |
+| `loop`           | boolean   | getter/setter, default `false`. When true, an ordinary `play()` that reaches the end goes back to the start and plays on: no `ended`, no `pause` / `play` events at the wrap, the sound starts again (a short gap). `playUntil()` and `render()` ignore it. Say `loopchange` when it changes |
 | `app`            | `pixi.js Application \| null` | PIXI Application instance (advanced/escape hatch) |
 | `timeline`       | `Timeline \| null`              | the movie's timeline (advanced): `time(t)`, `duration()`, `segments()` |
 | `vars`           | `Record<string, number \| string>` | the current variable values (a copy) |
@@ -477,6 +480,7 @@ interface ControllerOptions {
   exportButton?: boolean;             // default true; false hides ⬇ + popover
   keyboard?: boolean;                 // default true
   presentButton?: boolean;            // default true: a movie with stops gets a Present button (marks on the seek bar are always shown)
+  loopButton?: boolean;               // default true: a loop button next to the volume (and the L key) that flips movie.loop
   pauseAtStops?: boolean;             // default true: with stops, play / Space / click on the picture play to the next stop and pause; false plays straight through
   clickToPlay?: boolean;              // default true: a click / tap on the picture plays / pauses (like <video>); false leaves the canvas alone
   className?: string;                 // default 'movie-controller'
@@ -545,6 +549,7 @@ Active when `keyboard: true` and the key target is not `<input>`/`<textarea>`/`<
 | `←` / `→`   | step ±1 frame                                       |
 | `↑` / `↓`   | volume ±5% (clears mute when increasing past zero)  |
 | `M`         | toggle mute                                         |
+| `L`         | toggle loop (`movie.loop`)                          |
 | `Shift+E`   | export with current settings (skips the popover)    |
 | `F`         | toggle fullscreen                                   |
 | `Esc`       | close the export popover or exit fullscreen (browser) |

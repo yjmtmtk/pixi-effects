@@ -31,6 +31,9 @@ function makeFakeMovie(overrides: Partial<Movie> = {}): Movie {
     set volume(v: number) { this._volume = v; },
     get muted() { return this._muted; },
     set muted(v: boolean) { this._muted = v; },
+    _loop: false,
+    get loop() { return this._loop; },
+    set loop(v: boolean) { if (!!v !== this._loop) { this._loop = !!v; (this as unknown as { emit(e: string, p: unknown): void }).emit('loopchange', { loop: this._loop }); } },
     play() {
       const was = this.isPlaying;
       this.isPlaying = true;
@@ -1625,6 +1628,69 @@ describe('Controller — a movie with stops (a presentation)', () => {
     (movie as unknown as { emit(e: string): void }).emit('rebuilt');
     expect(wrap.querySelectorAll('.mc-stop-tick').length).toBe(1);
     ctrl.destroy();
+  });
+
+  describe('the loop button', () => {
+    afterEach(() => { document.body.innerHTML = ''; });
+    const button = (canvas: HTMLCanvasElement) => canvas.parentElement!.querySelector('.mc-loop') as HTMLButtonElement | null;
+
+    it('is on the bar by default, shows the movie\'s loop in aria-pressed, and a click flips movie.loop', () => {
+      const canvas = makeCanvas();
+      const movie = makeFakeMovie();
+      const ctrl = new Controller(movie, { canvas });
+      const b = button(canvas)!;
+      expect(b).not.toBeNull();
+      expect(b.getAttribute('aria-pressed')).toBe('false');
+      b.click();
+      expect(movie.loop).toBe(true);
+      expect(b.getAttribute('aria-pressed')).toBe('true');
+      b.click();
+      expect(movie.loop).toBe(false);
+      expect(b.getAttribute('aria-pressed')).toBe('false');
+      ctrl.destroy();
+    });
+
+    it('follows a loop the page changes (the loopchange event), and starts right when the movie already loops', () => {
+      const canvas = makeCanvas();
+      const movie = makeFakeMovie();
+      movie.loop = true;
+      const ctrl = new Controller(movie, { canvas });
+      const b = button(canvas)!;
+      expect(b.getAttribute('aria-pressed')).toBe('true');
+      movie.loop = false;
+      expect(b.getAttribute('aria-pressed')).toBe('false');
+      ctrl.destroy();
+      movie.loop = true;                                                          // after destroy() nothing listens
+      expect(b.getAttribute('aria-pressed')).toBe('false');
+    });
+
+    it('the L key flips it (not while typing in a field), and keyboard: false leaves the key alone', () => {
+      const canvas = makeCanvas();
+      const movie = makeFakeMovie();
+      const ctrl = new Controller(movie, { canvas });
+      document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyL', bubbles: true }));
+      expect(movie.loop).toBe(true);
+      const input = document.createElement('input'); document.body.appendChild(input);
+      input.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyL', bubbles: true }));
+      expect(movie.loop, 'typing an l in a text field').toBe(true);
+      ctrl.destroy();
+
+      const canvas2 = makeCanvas();
+      const movie2 = makeFakeMovie();
+      const ctrl2 = new Controller(movie2, { canvas: canvas2, keyboard: false });
+      document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyL', bubbles: true }));
+      expect(movie2.loop).toBe(false);
+      ctrl2.destroy();
+    });
+
+    it('loopButton: false leaves the bar without it (and the movie\'s loop alone)', () => {
+      const canvas = makeCanvas();
+      const movie = makeFakeMovie();
+      const ctrl = new Controller(movie, { canvas, loopButton: false });
+      expect(button(canvas)).toBeNull();
+      expect(movie.loop).toBe(false);
+      ctrl.destroy();
+    });
   });
 
   it('a page start is marked differently from a step (a larger ringed dot), and every mark names its page', () => {

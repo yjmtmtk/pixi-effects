@@ -250,6 +250,8 @@ interface LoadProgressState
   stage: LoadStage
   total: number
 type LoadStage = 'assets' | 'build' | 'sound' | 'frames'
+interface LoopEvent
+  loop: boolean
 interface LumaTransition extends TransitionCommon
   flip?: boolean
   kind: "luma"
@@ -286,6 +288,7 @@ class Movie
   isPlaying: boolean
   isReady: boolean
   loadStages: Record<LoadStage, number> | null
+  loop: boolean
   motionBlur: ResolvedMotionBlur | null
   muted: boolean
   off(event: string, fn: Listener): Movie
@@ -294,6 +297,7 @@ class Movie
   on(event: "seeking" | "seeked", fn: (e: FrameEvent) => void): Movie
   on(event: "ended", fn: () => void): Movie
   on(event: "volumechange", fn: (e: VolumeEvent) => void): Movie
+  on(event: "loopchange", fn: (e: LoopEvent) => void): Movie
   on(event: "error", fn: (e: MovieErrorEvent) => void): Movie
   on(event: "progress", fn: (e: ProgressEvent) => void): Movie
   on(event: "loadprogress", fn: (e: LoadProgressState) => void): Movie
@@ -343,6 +347,7 @@ interface MovieOptions
   frameRate?: number
   height?: number
   loader?: LoaderOption
+  loop?: boolean
   motionBlur?: MotionBlurSpec
   poster?: number
   vars?: Vars
@@ -764,6 +769,7 @@ interface ControllerOptions
   clickToPlay?: boolean
   exportButton?: boolean
   keyboard?: boolean
+  loopButton?: boolean
   pauseAtStops?: boolean
   presentButton?: boolean
   theme?: ControllerTheme

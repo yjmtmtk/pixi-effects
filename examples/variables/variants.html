@@ -81,12 +81,11 @@
     window.movie = movie;
     const [w0, h0] = FORMATS[state.format];
     await movie.init({
-      canvas: document.getElementById('stage'), width: w0, height: h0, duration: 8, frameRate: 30, background: '#000',
+      canvas: document.getElementById('stage'), width: w0, height: h0, duration: 8, frameRate: 30, loop: true, background: '#000',
       vars: { ...COPY[state.lang], ...BRANDS[state.brand] },
       composition: layout(w0, h0),
     });
     new Controller(movie, { canvas: document.getElementById('stage') });
-    movie.on('ended', async () => { await movie.gotoFrame(0); movie.play(); });
     movie.play();
 
     const status = document.getElementById('status');

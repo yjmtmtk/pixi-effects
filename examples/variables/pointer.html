@@ -62,10 +62,9 @@
     const canvas = document.getElementById('stage');
     const movie = new Movie();
     window.movie = movie;
-    await movie.init({ canvas, width: W, height: H, duration: 8, frameRate: 30, background: '#000',
+    await movie.init({ canvas, width: W, height: H, duration: 8, frameRate: 30, loop: true, background: '#000',
       vars: { px: Number(params.get('px') ?? W / 2), py: Number(params.get('py') ?? H / 2) }, composition });
     new Controller(movie, { canvas });
-    movie.on('ended', async () => { await movie.gotoFrame(0); movie.play(); });
     movie.play();
 
     const status = document.getElementById('status');

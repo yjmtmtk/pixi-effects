@@ -65,6 +65,8 @@ export interface MovieOptions {
    * the canvas is used. It is faded out once the movie is ready (the poster is on the canvas) and, if `init()` fails, it stops and says so.
    */
   loader?: LoaderOption;
+  /** Start with `movie.loop` on: playing goes back to the start at the end instead of stopping. Default false (like a `<video>`). */
+  loop?: boolean;
 }
 
 export type { MotionBlurSpec, MotionBlurOptions };
@@ -162,6 +164,8 @@ export interface FrameEvent { frame: number; totalFrames: number }
 export interface ProgressEvent { progress: number; frame: number; totalFrames: number }
 /** `volumechange`: the values after the change. */
 export interface VolumeEvent { volume: number; muted: boolean }
+/** `loopchange`: the value of `movie.loop` after the change. */
+export interface LoopEvent { loop: boolean }
 /** `error`: something failed in `init()`, `render()` or during playback. The call that failed still rejects / warns as before. */
 export interface MovieErrorEvent { where: 'init' | 'render' | 'playback' | 'rebuild'; message: string; error: unknown }
 
@@ -194,6 +198,7 @@ export class Movie {
   private _quiet = 0;
   private _volume = 1;
   private _muted = false;
+  private _loop = false;
   isPlaying = false;
   currentFrame = 0;
   totalFrames = 0;
@@ -241,6 +246,8 @@ export class Movie {
   /** Playback ran off the end (after `pause`). Pausing by hand does not emit it. */
   on(event: 'ended', fn: () => void): this;
   on(event: 'volumechange', fn: (e: VolumeEvent) => void): this;
+  /** `movie.loop` changed (set by the page, the bar's loop button or `init({ loop })` is not a change). */
+  on(event: 'loopchange', fn: (e: LoopEvent) => void): this;
   on(event: 'error', fn: (e: MovieErrorEvent) => void): this;
   on(event: 'progress', fn: (e: ProgressEvent) => void): this;
   /** How far `init()` is while it builds the movie: `{ stage: 'assets' | 'build' | 'sound' | 'frames', loaded, total, progress }`, `progress` 0 to 1. The page's `.pe-loader` shows it by itself. */
@@ -324,7 +331,7 @@ export class Movie {
   }
 
   async init(options: MovieOptions = {}): Promise<void> {
-    warnUnknownOptions('movie.init()', options, ['width', 'height', 'duration', 'frameRate', 'background', 'canvas', 'assets', 'composition', 'vars', 'poster', 'motionBlur', 'loader']);
+    warnUnknownOptions('movie.init()', options, ['width', 'height', 'duration', 'frameRate', 'background', 'canvas', 'assets', 'composition', 'vars', 'poster', 'motionBlur', 'loader', 'loop']);
     this._initState = 'pending';
     try {
       this.width = options.width ?? 1920;
@@ -335,6 +342,7 @@ export class Movie {
       const poster = normalizePoster(options.poster, this.duration, this.frameRate);
       this.poster = poster.seconds;
       this.motionBlur = resolveMotionBlur(options.motionBlur, 'movie.init()');
+      this._loop = options.loop === true;
       this._vars = normalizeVars(options.vars, 'movie.init()');
       this._declared = new Set(Object.keys(this._vars));
       this._composition = options.composition;
@@ -1042,6 +1050,11 @@ export class Movie {
           .catch((err) => { console.warn('pixi-effects: gotoFrame failed during playback:', err); this._emitError('playback', err); })
           .finally(() => { inFlight = false; });
         this._raf = requestAnimationFrame(tick);
+      } else if (this._loop && this._untilWaiters.length === 0) {
+        // loop: back to the start, playing on (the stop and start are the movie's own: no pause / play events, no ended)
+        this._silent++;
+        try { this.pause(); this._goto(0).catch((err) => { console.warn('pixi-effects: gotoFrame failed at the loop:', err); this._emitError('playback', err); }); this.play(); }
+        finally { this._silent--; }
       } else {
         const toEnd = this._untilWaiters; this._untilWaiters = []; this._until = null;     // `playUntil()` to the end: it has landed
         this.pause();
@@ -1113,6 +1126,18 @@ export class Movie {
   }
   get muted(): boolean { return this._muted; }
   toggleMute(): boolean { this.muted = !this.muted; return this.muted; }
+
+  /**
+   * At the end of an ordinary `play()` the movie goes back to the start and plays on (no `ended`, no `pause` / `play` events at the wrap; the sound
+   * starts again). Default false. `playUntil()` and `render()` ignore it. Can be changed at any time; `loopchange` says so.
+   */
+  set loop(v: boolean) {
+    const next = !!v;
+    if (next === this._loop) return;
+    this._loop = next;
+    this.emit('loopchange', { loop: next } satisfies LoopEvent);
+  }
+  get loop(): boolean { return this._loop; }
 
   async render(options?: RenderOptions): Promise<Blob> {
     warnUnknownOptions('movie.render()', options, ['format', 'video', 'audio', 'motionBlur', 'range', 'scale', 'draft']);

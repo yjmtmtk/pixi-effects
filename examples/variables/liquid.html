@@ -77,9 +77,8 @@
     const [w0, h0] = pixels();
     const movie = new Movie();
     window.movie = movie;
-    await movie.init({ canvas, width: w0, height: h0, duration: 8, frameRate: 30, background: '#0b0e14', composition: layout(w0, h0) });
+    await movie.init({ canvas, width: w0, height: h0, duration: 8, frameRate: 30, loop: true, background: '#0b0e14', composition: layout(w0, h0) });
     new Controller(movie, { canvas });
-    movie.on('ended', async () => { await movie.gotoFrame(0); movie.play(); });
     movie.play();
 
     let rebuilds = 0;

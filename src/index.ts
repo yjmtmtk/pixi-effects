@@ -12,6 +12,7 @@ export type {
   FrameEvent,
   ProgressEvent,
   VolumeEvent,
+  LoopEvent,
   MovieErrorEvent,
   MotionBlurSpec,
   MotionBlurOptions,
