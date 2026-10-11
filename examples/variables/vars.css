@@ -1,0 +1,23 @@
+/* shared by the variables samples: a stage, a control panel, a status line */
+:root { color-scheme: dark; --bg: #0f1218; --panel: #181d27; --line: #2a3140; --text: #e8ecf4; --muted: #8b95a8; --accent: #ff5d5d; }
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, -apple-system, "Hiragino Sans", "Segoe UI", sans-serif; }
+body { padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+h1 { font-size: 18px; margin: 0; font-weight: 650; }
+h1 small { color: var(--muted); font-weight: 400; margin-left: 8px; }
+a { color: #8ab4ff; }
+.stage { position: relative; line-height: 0; border-radius: 10px; overflow: hidden; background: #000; box-shadow: 0 10px 40px #0008; }
+.stage canvas { display: block; max-width: min(100%, 1280px); max-height: 62vh; width: auto; height: auto; }
+.panel { width: min(100%, 1100px); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 12px; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.row > label, .row > .name { width: 86px; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+button { font: inherit; color: var(--text); background: #232a38; border: 1px solid var(--line); border-radius: 7px; padding: 5px 12px; cursor: pointer; }
+button:hover { border-color: #46506a; }
+button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+input[type="range"] { width: 220px; accent-color: var(--accent); }
+input[type="text"] { font: inherit; color: var(--text); background: #11151d; border: 1px solid var(--line); border-radius: 7px; padding: 5px 10px; width: 260px; }
+input[type="color"] { width: 44px; height: 28px; border: 1px solid var(--line); border-radius: 6px; background: none; padding: 0; }
+.out { font-variant-numeric: tabular-nums; min-width: 3ch; text-align: right; }
+.status { font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: #9fe3b4; min-height: 1.4em; }
+.note { color: var(--muted); font-size: 12px; margin: 0; }
+.note code { color: #c8d3ea; background: #11151d; padding: 1px 5px; border-radius: 4px; }

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Variables · one film, many variants</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+  <link rel="stylesheet" href="vars.css" />
+</head>
+<body>
+  <h1>One film, many variants <small>language × brand × format, switched live with <code>movie.setVars()</code> / <code>rebuild()</code></small></h1>
+  <div class="stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
+
+  <div class="panel">
+    <div class="row"><span class="name">Language</span><span id="lang"></span></div>
+    <div class="row"><span class="name">Brand</span><span id="brand"></span></div>
+    <div class="row"><span class="name">Format</span><span id="format"></span></div>
+    <div class="status" id="status">…</div>
+    <p class="note">The film is written once. The words are <code>{head}</code> <code>{sub}</code> <code>{tag}</code> <code>{price}</code>, the colours <code>{accent}</code> <code>{paper}</code> <code>{ink}</code>. A language or brand switch builds the pictures again at the same frame and reuses the mixed sound (<code>audio: reused</code>). The format switch hands <code>rebuild()</code> a new layout and a new size. The same file renders as a variant from the command line: <code>pixi-effects render variants.html --var accent=#2b7fff</code>.</p>
+  </div>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  { "imports": {
+      "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+      "pixi-effects": "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js" } }
+  </script>
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const COPY = {
+      en: { head: 'Spring Sale', sub: 'Up to 40% off everything', tag: 'THIS WEEK ONLY', price: 'from $19' },
+      ja: { head: '春のセール', sub: '全品 最大40%オフ', tag: '今週限り', price: '1,980円〜' },
+      de: { head: 'Frühlingsaktion', sub: 'Bis zu 40 % auf alles', tag: 'NUR DIESE WOCHE', price: 'ab 19 €' },
+    };
+    const BRANDS = {
+      coral:  { accent: '#ff5d5d', paper: '#fff4ec', ink: '#2a1710' },
+      ocean:  { accent: '#2b7fff', paper: '#eaf2ff', ink: '#0d1b33' },
+      forest: { accent: '#1f9d63', paper: '#eef8f1', ink: '#10261a' },
+      night:  { accent: '#ffc83d', paper: '#161a26', ink: '#f5f2e8' },
+    };
+    const FORMATS = { wide: [1280, 720], tall: [720, 1280], square: [900, 900] };
+    const FONT = 'system-ui, -apple-system, "Hiragino Sans", "Yu Gothic", "Segoe UI", sans-serif';
+
+    // The layout is a function of the size; every colour and word is a variable.
+    const layout = (w, h) => {
+      const tall = h > w * 1.1, square = !tall && h > w * 0.8;
+      const pad = tall ? 'GW*0.09' : 'GW*0.06';
+      const headSize = tall ? 'GW*0.135' : square ? 'GW*0.095' : 'GW*0.07';
+      const subSize = tall ? 'GW*0.052' : square ? 'GW*0.04' : 'GW*0.029';
+      const left = { x: pad, anchorX: 0, anchorY: 0.5 };
+      const rise = (delay) => ({ at: delay, from: { alpha: 0, y: '+=40' }, duration: 0.7, ease: 'expo.out' });
+      return { sequences: [
+        { type: 'shape', shape: 'rect', name: 'paper', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '{paper}' } },
+        { type: 'shape', shape: 'circle', name: 'sun', radius: square ? 'GW*0.27' : 'min(GW,GH)*0.46', initial: { x: tall ? 'GW*0.72' : square ? 'GW*0.8' : 'GW*0.8', y: tall ? 'GH*0.2' : square ? 'GH*0.2' : 'GH*0.52', fillColor: '{accent}' },
+          keyframes: [{ at: 0.1, from: { scale: 0 }, to: { scale: 1 }, duration: 0.9, ease: 'back.out(1.6)' }, { at: 1.2, to: { scale: 1.06 }, duration: 1.4, ease: 'sine.inOut', repeat: 2, yoyo: true }] },
+        { type: 'shape', shape: 'circle', name: 'dot', radius: 'min(GW,GH)*0.07', initial: { x: tall ? 'GW*0.2' : square ? 'GW*0.52' : 'GW*0.62', y: tall ? 'GH*0.1' : square ? 'GH*0.1' : 'GH*0.14', fillColor: '{ink}' },
+          keyframes: [{ at: 0.6, from: { scale: 0 }, to: { scale: 1 }, duration: 0.5, ease: 'back.out(2.4)' }] },
+        { type: 'text', name: 'tag', text: '{tag}', at: 0.3, style: { fontFamily: FONT, fontSize: tall ? 'GW*0.04' : 'GW*0.022', fontWeight: '700', fill: '{accent}', letterSpacing: 4 },
+          initial: { ...left, y: tall ? 'GH*0.42' : square ? 'GH*0.4' : 'GH*0.3' }, keyframes: [rise(0)] },
+        { type: 'text', name: 'head', text: '{head}', at: 0.5, style: { fontFamily: FONT, fontSize: headSize, fontWeight: '800', fill: '{ink}', wordWrap: true, wordWrapWidth: tall ? 'GW*0.82' : square ? 'GW*0.7' : 'GW*0.5' },
+          initial: { ...left, y: tall ? 'GH*0.52' : square ? 'GH*0.52' : 'GH*0.44' }, keyframes: [rise(0)] },
+        { type: 'text', name: 'sub', text: '{sub}', at: 0.9, style: { fontFamily: FONT, fontSize: subSize, fill: '{ink}' },
+          initial: { ...left, y: tall ? 'GH*0.64' : square ? 'GH*0.67' : 'GH*0.6' }, keyframes: [rise(0)] },
+        { type: 'text', name: 'price', text: '{price}', at: 1.3, style: { fontFamily: FONT, fontSize: tall ? 'GW*0.11' : 'GW*0.06', fontWeight: '800', fill: '{accent}' },
+          initial: { ...left, y: tall ? 'GH*0.78' : square ? 'GH*0.82' : 'GH*0.74' }, keyframes: [rise(0)] },
+        { type: 'audio', name: 'pad', volume: 0.5, music: { bpm: 100, tracks: [{ inst: 'pad', notes: 'Cmaj7:4 Am7:4 Fmaj7:4 G6:4' }, { inst: 'pluck', notes: 'e4:1 g4:1 b4:1 g4:1 c5:1 b4:1 g4:1 e4:1', vol: 0.5 }] } },
+        { type: 'audio', name: 'pop', sfx: 'pop', at: 0.1, volume: 0.6 },
+      ] };
+    };
+
+    const state = { lang: 'en', brand: 'coral', format: 'wide' };
+    const movie = new Movie();
+    window.movie = movie;
+    const [w0, h0] = FORMATS[state.format];
+    await movie.init({
+      canvas: document.getElementById('stage'), width: w0, height: h0, duration: 8, frameRate: 30, background: '#000',
+      vars: { ...COPY[state.lang], ...BRANDS[state.brand] },
+      composition: layout(w0, h0),
+    });
+    new Controller(movie, { canvas: document.getElementById('stage') });
+    movie.on('ended', async () => { await movie.gotoFrame(0); movie.play(); });
+    movie.play();
+
+    const status = document.getElementById('status');
+    movie.on('rebuilt', r => { status.textContent = `rebuilt (${r.reason}) in ${r.ms} ms · sound ${r.audio} · frame ${r.frame} · ${r.playing ? 'playing' : 'paused'}`; });
+    movie.on('error', e => { status.textContent = 'error: ' + e.message; });
+
+    const group = (id, items, key, apply) => {
+      const el = document.getElementById(id);
+      const buttons = Object.keys(items).map(name => {
+        const b = Object.assign(document.createElement('button'), { textContent: name });
+        b.onclick = () => { state[key] = name; mark(); apply(name); };
+        el.append(b); return b;
+      });
+      const mark = () => buttons.forEach(b => b.setAttribute('aria-pressed', String(b.textContent === state[key])));
+      mark();
+    };
+    group('lang', COPY, 'lang', name => movie.setVars(COPY[name]));
+    group('brand', BRANDS, 'brand', name => movie.setVars(BRANDS[name]));
+    group('format', FORMATS, 'format', name => { const [w, h] = FORMATS[name]; movie.rebuild({ composition: layout(w, h), width: w, height: h }); });
+    window.__ready = true;
+  </script>
+</body>
+</html>

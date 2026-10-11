@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Variables · the pointer as a variable</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+  <link rel="stylesheet" href="vars.css" />
+  <style> .stage canvas { cursor: crosshair; touch-action: none; } </style>
+</head>
+<body>
+  <h1>The pointer as a variable <small>two numbers, <code>px</code> and <code>py</code>, read by 84 dots and a ring</small></h1>
+  <div class="stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
+
+  <div class="panel">
+    <div class="status" id="status">Move the pointer over the picture.</div>
+    <p class="note">Each dot is <code>scale: 'clamp(1.8 - sqrt(pow(x0 - px, 2) + pow(y0 - py, 2)) / 260, 0.25, 1.8)'</code> with its own <code>x0</code>, <code>y0</code>. The page calls <code>movie.setVars({ px, py })</code> on every pointer move; calls that arrive during a rebuild are joined (so "moves" counts more than "rebuilds"). The ring keeps turning because a rebuild keeps the frame and keeps playing. A recorded session of <code>px</code>/<code>py</code> would export to the same video: <code>pixi-effects render pointer.html --var px=900 --var py=200</code>.</p>
+  </div>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  { "imports": {
+      "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+      "pixi-effects": "../../dist/index.js" } }
+  </script>
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+
+    const W = 1280, H = 720, FONT = 'system-ui, -apple-system, "Hiragino Sans", "Segoe UI", sans-serif';
+    const COLS = 14, ROWS = 6, GX = W / COLS, GY = H / ROWS;
+    const params = new URLSearchParams(location.search);
+
+    const dots = [];
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      const x0 = Math.round(GX * (c + 0.5)), y0 = Math.round(GY * (r + 0.5));
+      const near = `clamp(1.8 - sqrt(pow(${x0} - px, 2) + pow(${y0} - py, 2)) / 260, 0.25, 1.8)`;
+      dots.push({ type: 'shape', shape: 'circle', radius: 9, initial: { x: x0, y: y0, scale: near, alpha: `clamp(0.25 + ${near} * 0.4, 0.3, 1)`, fillColor: (r + c) % 2 ? '#6aa8ff' : '#a06bff' } });
+    }
+    const composition = { sequences: [
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0d1018' } },
+      ...dots,
+      { type: 'shape', shape: 'arc', name: 'ring', radius: 54, innerRadius: 46, startAngle: 0, endAngle: 270, initial: { x: 'px', y: 'py', fillColor: '#ffffff' },
+        keyframes: [{ at: 0, to: { rotation: 360 }, duration: 2, ease: 'none', repeat: 3 }] },
+      { type: 'text', name: 'readout', text: '{px}, {py}', style: { fontFamily: FONT, fontSize: 26, fontWeight: '700', fill: '#ffffff' }, initial: { x: 'px', y: 'py + 84', anchorX: 0.5, anchorY: 0.5 } },
+      { type: 'text', name: 'hint', text: 'move the pointer', style: { fontFamily: FONT, fontSize: 22, fill: '#8b95a8' }, initial: { x: 36, y: 40, anchorX: 0, anchorY: 0.5 } },
+    ] };
+
+    const canvas = document.getElementById('stage');
+    const movie = new Movie();
+    window.movie = movie;
+    await movie.init({ canvas, width: W, height: H, duration: 8, frameRate: 30, background: '#000',
+      vars: { px: Number(params.get('px') ?? W / 2), py: Number(params.get('py') ?? H / 2) }, composition });
+    movie.on('ended', async () => { await movie.gotoFrame(0); movie.play(); });
+    movie.play();
+
+    const status = document.getElementById('status');
+    let moves = 0, rebuilds = 0, last = 0, worst = 0;
+    movie.on('rebuilt', r => { rebuilds++; last = r.ms; worst = Math.max(worst, r.ms); });
+    setInterval(() => { if (moves) status.textContent = `moves: ${moves} · rebuilds: ${rebuilds} · last ${last} ms · slowest ${worst} ms · sound ${'untouched'}`; }, 200);
+    canvas.addEventListener('pointermove', e => {
+      const b = canvas.getBoundingClientRect();
+      const px = Math.round((e.clientX - b.left) * W / b.width), py = Math.round((e.clientY - b.top) * H / b.height);
+      moves++;
+      movie.setVars({ px, py }).catch(console.error);
+    });
+    window.__ready = true;
+  </script>
+</body>
+</html>

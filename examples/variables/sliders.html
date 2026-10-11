@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Variables · numbers and words from a form</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+  <link rel="stylesheet" href="vars.css" />
+</head>
+<body>
+  <h1>Numbers and words from a form <small>sliders, a text box and a colour picker drive the picture; the host adds the total</small></h1>
+  <div class="stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
+
+  <div class="panel">
+    <div class="row"><label for="title">Title</label><input type="text" id="title" value="Weekly sales" /></div>
+    <div class="row"><label for="accent">Colour</label><input type="color" id="accent" value="#4f8cff" /></div>
+    <div id="sliders"></div>
+    <div class="status" id="status">…</div>
+    <p class="note">Declared once: <code>vars: { title, accent, v1…v4, total }</code>. A bar is <code>height: 'v1*4.2'</code>, its label <code>'{v1}'</code>, the title <code>'{title}'</code>. Each input event calls <code>movie.setVars()</code>; events that arrive during a rebuild are joined, so dragging stays smooth. The sound does not change, so it is never mixed again.</p>
+  </div>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  { "imports": {
+      "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+      "pixi-effects": "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js" } }
+  </script>
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const FONT = 'system-ui, -apple-system, "Hiragino Sans", "Segoe UI", sans-serif';
+    const DAYS = ['Mon', 'Tue', 'Wed', 'Thu'];
+    const values = { v1: 42, v2: 68, v3: 35, v4: 85 };
+    const total = () => values.v1 + values.v2 + values.v3 + values.v4;
+
+    const bars = DAYS.flatMap((day, i) => {
+      const k = `v${i + 1}`, x = `GW*${0.22 + i * 0.19}`;
+      return [
+        { type: 'shape', shape: 'rect', name: `bar${i + 1}`, width: 'GW*0.12', height: `${k}*4.2`, cornerRadius: 14,
+          initial: { x, y: `GH*0.84 - ${k}*2.1`, fillColor: '{accent}' } },
+        { type: 'text', name: `value${i + 1}`, text: `{${k}}`, style: { fontFamily: FONT, fontSize: 'GW*0.032', fontWeight: '700', fill: '#ffffff' },
+          initial: { x, y: `GH*0.84 - ${k}*4.2 - 34`, anchorX: 0.5, anchorY: 0.5 } },
+        { type: 'text', name: `day${i + 1}`, text: day, style: { fontFamily: FONT, fontSize: 'GW*0.022', fill: '#8b95a8' },
+          initial: { x, y: 'GH*0.9', anchorX: 0.5, anchorY: 0.5 } },
+      ];
+    });
+
+    const composition = { sequences: [
+      { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#10141d' } },
+      { type: 'shape', shape: 'rect', name: 'baseline', width: 'GW*0.8', height: 3, initial: { x: 'GW/2', y: 'GH*0.84', fillColor: '#2a3140' } },
+      { type: 'text', name: 'title', text: '{title}', style: { fontFamily: FONT, fontSize: 'GW*0.045', fontWeight: '800', fill: '#ffffff' }, initial: { x: 'GW*0.1', y: 'GH*0.12', anchorX: 0, anchorY: 0.5 } },
+      { type: 'text', name: 'total', text: 'Total {total}', style: { fontFamily: FONT, fontSize: 'GW*0.026', fill: '{accent}' }, initial: { x: 'GW*0.1', y: 'GH*0.2', anchorX: 0, anchorY: 0.5 } },
+      ...bars,
+      // a marker that sweeps across, so the movie is visibly playing while the numbers change
+      { type: 'shape', shape: 'rect', name: 'sweep', width: 4, height: 'GH*0.5', initial: { x: 'GW*0.1', y: 'GH*0.58', fillColor: '#ffffff', fillAlpha: 0.25 },
+        keyframes: [{ at: 0, to: { x: 'GW*0.9' }, duration: 6, ease: 'none' }] },
+      { type: 'audio', name: 'bed', volume: 0.35, music: { bpm: 90, tracks: [{ inst: 'pad', notes: 'Am7:8 Fmaj7:8' }, { inst: 'bass', notes: 'a1:4 f1:4' }] } },
+    ] };
+
+    const movie = new Movie();
+    window.movie = movie;
+    await movie.init({
+      canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 6, frameRate: 30, background: '#000',
+      vars: { title: 'Weekly sales', accent: '#4f8cff', ...values, total: total() },
+      composition,
+    });
+    new Controller(movie, { canvas: document.getElementById('stage') });
+    movie.on('ended', async () => { await movie.gotoFrame(0); movie.play(); });
+    movie.play();
+
+    const status = document.getElementById('status');
+    let calls = 0, rebuilds = 0;
+    movie.on('rebuilt', r => { rebuilds++; status.textContent = `${calls} changes → ${rebuilds} rebuilds · last ${r.ms} ms · sound ${r.audio}`; });
+
+    document.getElementById('title').addEventListener('input', e => { calls++; movie.setVars({ title: e.target.value }); });
+    document.getElementById('accent').addEventListener('input', e => { calls++; movie.setVars({ accent: e.target.value }); });
+    const sliders = document.getElementById('sliders');
+    DAYS.forEach((day, i) => {
+      const k = `v${i + 1}`;
+      const row = document.createElement('div'); row.className = 'row';
+      row.innerHTML = `<label for="${k}">${day}</label><input type="range" id="${k}" min="0" max="100" value="${values[k]}"><span class="out" id="${k}-out">${values[k]}</span>`;
+      sliders.append(row);
+      row.querySelector('input').addEventListener('input', e => {
+        values[k] = Number(e.target.value);
+        document.getElementById(`${k}-out`).textContent = values[k];
+        calls++;
+        movie.setVars({ [k]: values[k], total: total() });
+      });
+    });
+    window.__ready = true;
+  </script>
+</body>
+</html>

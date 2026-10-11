@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Variables · a layout that follows the window</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+  <style>
+    html, body { height: 100%; margin: 0; background: #0b0e14; overflow: hidden; }
+    #box { position: fixed; inset: 0; }
+    #stage { display: block; width: 100%; height: 100%; }
+    #hud { position: fixed; left: 12px; top: 10px; font: 12px/1.4 ui-monospace, Menlo, monospace; color: #9fe3b4; background: #000a; padding: 6px 10px; border-radius: 6px; pointer-events: none; }
+    #hint { position: fixed; right: 12px; top: 10px; font: 12px/1.4 system-ui, sans-serif; color: #c8d3ea; background: #000a; padding: 6px 10px; border-radius: 6px; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div id="box"><canvas id="stage"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
+  <div id="hud">…</div>
+  <div id="hint">Drag the window edge (or rotate the phone). The layout is rebuilt for the new shape.</div>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  { "imports": {
+      "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+      "pixi-effects": "../../dist/index.js" } }
+  </script>
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+
+    const FONT = 'system-ui, -apple-system, "Hiragino Sans", "Segoe UI", sans-serif';
+    const STATS = [['Visitors', 12840, 0, '#6aa8ff'], ['Orders', 932, 0, '#ff8a5c'], ['Rating', 4.8, 1, '#7be0a8']];
+
+    // Written in W / H / GW / GH and the shape of the window: wide puts the cards in a row under the title, tall stacks them.
+    const layout = (w, h) => {
+      const tall = h > w * 1.05;
+      const u = 'min(GW,GH)';
+      const cards = STATS.flatMap(([label, n, decimals, color], i) => {
+        const cw = tall ? 'GW*0.84' : 'GW*0.27', ch = tall ? 'GH*0.15' : 'GH*0.3';
+        const cx = tall ? 'GW/2' : `GW*${0.07 + 0.135 + i * 0.29}`;
+        const cy = tall ? `GH*${0.42 + i * 0.185}` : 'GH*0.68';
+        const at = 0.5 + i * 0.25;
+        return [
+          { type: 'shape', shape: 'rect', name: `card${i}`, width: cw, height: ch, cornerRadius: `${u}*0.03`, at,
+            initial: { x: cx, y: cy, fillColor: '#1a2030', strokeColor: color, strokeWidth: 3 },
+            keyframes: [{ at: 0, from: { alpha: 0, scale: 0.85 }, to: { alpha: 1, scale: 1 }, duration: 0.6, ease: 'back.out(1.7)' }] },
+          { type: 'text', name: `label${i}`, text: label, at: at + 0.1, style: { fontFamily: FONT, fontSize: `${u}*0.032`, fill: '#8b95a8' },
+            initial: { x: tall ? 'GW*0.12' : `GW*${0.07 + 0.135 + i * 0.29 - 0.12}`, y: tall ? `GH*${0.42 + i * 0.185 - 0.04}` : 'GH*0.62', anchorX: 0, anchorY: 0.5 },
+            keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.5 }] },
+          { type: 'text', name: `value${i}`, text: '{value}', format: { decimals, grouping: true }, at: at + 0.1, style: { fontFamily: FONT, fontSize: `${u}*0.075`, fontWeight: '800', fill: color },
+            initial: { x: tall ? 'GW*0.12' : `GW*${0.07 + 0.135 + i * 0.29 - 0.12}`, y: tall ? `GH*${0.42 + i * 0.185 + 0.03}` : 'GH*0.72', anchorX: 0, anchorY: 0.5, value: 0 },
+            keyframes: [{ at: 0.2, to: { value: n }, duration: 1.6, ease: 'expo.out' }] },
+        ];
+      });
+      return { sequences: [
+        { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' }, fillGradient: { angle: 90, stops: [[0, '#0f1424'], [1, '#1b1033']] } },
+        { type: 'shape', shape: 'circle', name: 'orb', radius: `${u}*${tall ? 0.28 : 0.22}`, initial: { x: tall ? 'GW*0.8' : 'GW*0.82', y: tall ? 'GH*0.12' : 'GH*0.26' }, fillGradient: { stops: [[0, '#6aa8ff'], [1, '#a06bff']] },
+          keyframes: [{ at: 0, to: { y: tall ? 'GH*0.15' : 'GH*0.3' }, duration: 2, ease: 'sine.inOut', repeat: 3, yoyo: true }] },
+        { type: 'text', name: 'title', text: 'Liquid layout', at: 0.1, style: { fontFamily: FONT, fontSize: `${u}*${tall ? 0.11 : 0.1}`, fontWeight: '800', fill: '#ffffff' },
+          initial: { x: tall ? 'GW*0.08' : 'GW*0.07', y: tall ? 'GH*0.16' : 'GH*0.2', anchorX: 0, anchorY: 0.5 },
+          keyframes: [{ at: 0, from: { alpha: 0, x: '-=60' }, duration: 0.8, ease: 'expo.out' }] },
+        { type: 'text', name: 'sub', text: tall ? 'one composition,\nbuilt again for this shape' : 'one composition, built again for this shape', at: 0.3, style: { fontFamily: FONT, fontSize: `${u}*0.04`, fill: '#a9b4ca', align: 'left' },
+          initial: { x: tall ? 'GW*0.08' : 'GW*0.07', y: tall ? 'GH*0.26' : 'GH*0.34', anchorX: 0, anchorY: 0.5 },
+          keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.8 }] },
+        ...cards,
+      ] };
+    };
+
+    const box = document.getElementById('box'), canvas = document.getElementById('stage'), hud = document.getElementById('hud');
+    const pixels = () => { const d = Math.min(devicePixelRatio || 1, 2); return [Math.max(200, Math.round(box.clientWidth * d)), Math.max(200, Math.round(box.clientHeight * d))]; };
+    const [w0, h0] = pixels();
+    const movie = new Movie();
+    window.movie = movie;
+    await movie.init({ canvas, width: w0, height: h0, duration: 8, frameRate: 30, background: '#0b0e14', composition: layout(w0, h0) });
+    movie.on('ended', async () => { await movie.gotoFrame(0); movie.play(); });
+    movie.play();
+
+    let rebuilds = 0;
+    const show = (r) => { hud.textContent = `${movie.width}×${movie.height}px · ${movie.height > movie.width * 1.05 ? 'tall' : 'wide'} layout · ${rebuilds} rebuilds${r ? ` · last ${r.ms} ms` : ''}`; };
+    movie.on('rebuilt', r => { rebuilds++; show(r); });
+    show();
+    new ResizeObserver(() => {
+      const [w, h] = pixels();
+      if (w === movie.width && h === movie.height) return;
+      movie.rebuild({ composition: layout(w, h), width: w, height: h }).catch(console.error);   // calls that overlap are joined: only the latest size is built
+    }).observe(box);
+    window.__ready = true;
+  </script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Variables · samples</title>
+  <link rel="stylesheet" href="vars.css" />
+  <style> .cards { display: grid; gap: 12px; width: min(100%, 900px); } .card { display: block; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; text-decoration: none; color: var(--text); } .card:hover { border-color: #46506a; } .card b { display: block; font-size: 16px; margin-bottom: 2px; } .card span { color: var(--muted); } </style>
+</head>
+<body>
+  <h1>Variables <small>samples that change a finished film while it plays</small></h1>
+  <div class="cards">
+    <a class="card" href="variants.html"><b>One film, many variants</b><span>Language, brand colours and format (wide / tall / square) switched with buttons. The sound is mixed once and reused.</span></a>
+    <a class="card" href="liquid.html"><b>A layout that follows the window</b><span>Drag the window edge: a wide layout becomes a tall one. Written in <code>W</code> / <code>H</code>, rebuilt with <code>rebuild()</code> from a <code>ResizeObserver</code>.</span></a>
+    <a class="card" href="sliders.html"><b>Numbers and words from a form</b><span>Four sliders, a text box and a colour picker change a bar chart live; the host adds the total.</span></a>
+    <a class="card" href="pointer.html"><b>The pointer as a variable</b><span>Two numbers, 84 dots and a ring. Many moves are joined into few rebuilds while the movie keeps playing.</span></a>
+  </div>
+  <p class="note">Run from the repository root with a static server (the pages load <code>../../dist</code>); build first with <code>npm run build</code>.</p>
+</body>
+</html>
