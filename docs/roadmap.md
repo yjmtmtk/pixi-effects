@@ -1,6 +1,6 @@
 # Roadmap: more expressive, still easy for an AI
 
-Status: rewritten 2026-10-11, current release 0.30.0. Nothing here is promised; the order is the proposal.
+Status: rewritten 2026-10-11, current release 0.30.1. Nothing here is promised; the order is the proposal.
 
 ## The gate every item passes
 
