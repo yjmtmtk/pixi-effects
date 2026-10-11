@@ -9,6 +9,10 @@
  * Click or drag on the timeline to seek the movie; click a layer's name to jump to where it starts; Space plays / pauses,
  * ← / → step a frame (Shift: a second), Home / End jump to the ends. Stop it with Ctrl-C.
  *
+ * It watches the page's folder (not `node_modules`, `out`, `reviews`, `check-out`, hidden files). When the work changes it shows "Updated hh:mm:ss — reload (R)"
+ * and NOTHING else: the picture you are looking at never switches by itself. Reload (the button, or R) loads the page again and goes back to the frame you were on.
+ * The switch "auto" (off by default, remembered) reloads for you, but only while the movie is paused and you are not dragging the timeline.
+ *
  * Needs: Node >= 18. A browser (the default one is opened; --no-open prints the address instead). The page must follow
  * skills/pixi-effects/template.html (`window.movie`, `window.__ready = true`) and use a pixi-effects that has `movie.timelineSvg()` (0.7+).
  * Options: --port N (default: a free one) · --no-open · --query "a=1" (added to the page URL) · --root DIR (default: the nearest folder above the page with dist/)
@@ -38,6 +42,26 @@ export function parseViewArgs(argv) {
   return o;
 }
 
+const IGNORED = new Set(['node_modules', 'out', 'reviews', 'check-out', '.git', 'dist']);
+
+/** A short fingerprint of the work in a folder (file count, newest edit, total size): it changes when something is edited or added. Outputs, installs and hidden files are left out. */
+export function folderSignature(dir, { ignore = IGNORED, maxFiles = 4000, maxDepth = 5 } = {}) {
+  let count = 0, newest = 0, bytes = 0;
+  const walk = (d, depth) => {
+    let entries;
+    try { entries = fs.readdirSync(d, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      if (count >= maxFiles) return;
+      if (e.name.startsWith('.')) continue;
+      const full = path.join(d, e.name);
+      if (e.isDirectory()) { if (!ignore.has(e.name) && depth < maxDepth) walk(full, depth + 1); continue; }
+      try { const st = fs.statSync(full); count++; newest = Math.max(newest, st.mtimeMs); bytes += st.size; } catch { /* removed while we looked */ }
+    }
+  };
+  walk(dir, 0);
+  return count + ':' + Math.round(newest) + ':' + bytes;
+}
+
 const escHtml = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /** The viewer page: the composition in an iframe, its timeline under it (zoomable), a playhead, click / drag / keys to seek. */
@@ -53,6 +77,8 @@ export function viewerHtml({ pageUrl, title }) {
   header b { font-size: 14px; font-weight: 600; }
   #time { font-family: ui-monospace, Menlo, monospace; color: var(--dim); }
   #status { color: var(--dim); }
+  #update button { background: var(--head); color: #fff; border-color: var(--head); font-weight: 600; }
+  #autolabel { color: var(--dim); user-select: none; }
   .zoom { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
   #zlabel { min-width: 44px; text-align: center; font-family: ui-monospace, Menlo, monospace; color: var(--dim); }
   button { font: inherit; background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 3px 12px; cursor: pointer; }
@@ -72,7 +98,7 @@ export function viewerHtml({ pageUrl, title }) {
   #head line { stroke: var(--head); stroke-width: 2; } #head path { fill: var(--head); }
 </style></head>
 <body>
-<header><b>${escHtml(title)}</b><button id="play" type="button" disabled>▶</button><span id="time">0.00 / 0.00 s · frame 0</span><span id="status">loading the page…</span>
+<header><b>${escHtml(title)}</b><button id="play" type="button" disabled>▶</button><span id="time">0.00 / 0.00 s · frame 0</span><span id="status">loading the page…</span><span id="update" hidden><button id="reload" type="button" title="load the page again, on the frame you are on (R)">Updated — reload (R)</button></span><label id="autolabel" title="reload by itself, but only while the movie is paused"><input type="checkbox" id="auto"> auto</label>
   <span class="zoom"><button id="zout" type="button" title="zoom out (-)" disabled>−</button><span id="zlabel">fit</span><button id="zin" type="button" title="zoom in (+, or Ctrl/⌘ + wheel)" disabled>+</button><button id="zfit" type="button" title="fit the whole movie (0)" disabled>fit</button></span></header>
 <div id="stage"><iframe id="page" src="${escHtml(pageUrl)}" allow="autoplay; fullscreen"></iframe></div>
 <div id="chart"><div id="names"></div><div id="plot"></div></div>
@@ -87,18 +113,60 @@ export function viewerHtml({ pageUrl, title }) {
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  let movie = null, svg = null, head = null, geom = null, zoom = 1, scrubbing = false;
+  let movie = null, svg = null, head = null, geom = null, zoom = 1, scrubbing = false, bound = false;
+  const $update = document.getElementById('update'), $reload = document.getElementById('reload'), $auto = document.getElementById('auto');
+  let seen = null, pending = false;
+  try { $auto.checked = localStorage.getItem('pe-view-auto') === '1'; } catch { /* storage may be blocked */ }
 
-  (async () => {
+  /** Wait for the page inside to be a ready movie, then (re)build the timeline. \`restore\` = { frame, playing }: go back where the viewer was. */
+  async function attach(restore) {
+    movie = null; svg = null; head = null; geom = null;
     for (let i = 0; i < 600 && !movie; i++) {
       try { const w = frame.contentWindow; if (w && w.__ready === true && w.movie) movie = w.movie; } catch { /* still loading */ }
       if (!movie) await sleep(200);
     }
-    if (!movie) { $status.textContent = 'the page did not become ready (window.__ready === true and window.movie are needed)'; return; }
+    if (!movie) {
+      let logs = '';
+      try { logs = (frame.contentWindow.__logs || []).slice(-3).join(' | '); } catch { /* unreadable */ }
+      $status.textContent = 'the page did not become ready (window.__ready === true and window.movie are needed)' + (logs ? ' — ' + logs : '');
+      return;
+    }
     if (typeof movie.timelineSvg !== 'function') { $status.textContent = 'this page loads a pixi-effects without movie.timelineSvg() (0.7+ needed)'; return; }
     layout();
     mount();
-  })();
+    if (restore) { await seekFrame(restore.frame); if (restore.playing) movie.play(); }
+  }
+  attach(null);
+
+  /** Load the page again and come back to the same frame (and playing, if it was). Only ever on a request. */
+  async function reload() {
+    const restore = movie ? { frame: movie.currentFrame, playing: movie.isPlaying } : null;
+    pending = false; $update.hidden = true;
+    movie = null; svg = null; head = null; geom = null; plot.innerHTML = ''; names.innerHTML = '';
+    const loaded = new Promise(r => frame.addEventListener('load', r, { once: true }));
+    try { frame.contentWindow.location.reload(); } catch { frame.src = frame.src; }
+    await loaded;
+    await attach(restore);
+  }
+  $reload.addEventListener('click', reload);
+  $auto.addEventListener('change', () => { try { localStorage.setItem('pe-view-auto', $auto.checked ? '1' : '0'); } catch { /* storage may be blocked */ } });
+  // auto only while the movie is paused and nobody is dragging: otherwise the notice waits
+  const maybeAuto = () => { if (pending && $auto.checked && movie && !movie.isPlaying && !scrubbing) reload(); };
+
+  // does the work still look the same? (the server's number goes up when a file in the folder changes)
+  async function poll() {
+    try {
+      const v = await (await fetch('/__viewer/version', { cache: 'no-store' })).json();
+      if (seen === null) seen = v.version;
+      else if (v.version !== seen) {
+        seen = v.version; pending = true;
+        const d = new Date(v.at), p2 = n => String(n).padStart(2, '0');
+        $reload.textContent = 'Updated ' + p2(d.getHours()) + ':' + p2(d.getMinutes()) + ':' + p2(d.getSeconds()) + ' — reload (R)';
+        $update.hidden = false;
+      }
+    } catch { /* the viewer is stopped */ }
+  }
+  poll(); setInterval(poll, 800);
 
   // The page is shown whole: as tall as its picture, scaled down (never up) so the timeline stays in view under it.
   function layout() {
@@ -180,10 +248,12 @@ export function viewerHtml({ pageUrl, title }) {
     const data = movie.timelineData();
     names.innerHTML = '<div class="ruler" style="height:34px"></div>' + data.rows.map(r =>
       '<div class="name" data-start="' + r.start + '" style="padding-left:' + (8 + r.depth * 14) + 'px" title="' + esc(r.path + ' · ' + r.type) + '">' + esc(r.name) + '</div>').join('');
-    names.addEventListener('click', e => { const n = e.target.closest('.name'); if (n) seekTime(parseFloat(n.dataset.start) || 0); });
     render(null);
     $status.textContent = 'click or drag the timeline · Space plays · ← → step a frame (Shift: a second) · + / − zoom (Ctrl/⌘ + wheel) · click a layer name to jump to its start';
     $play.disabled = false; $zfit.disabled = true;
+    if (bound) return;                                              // the controls below are bound once; a reload only rebuilds the timeline
+    bound = true;
+    names.addEventListener('click', e => { const n = e.target.closest('.name'); if (n && movie) seekTime(parseFloat(n.dataset.start) || 0); });
 
     $play.addEventListener('click', toggle);
     $zin.addEventListener('click', () => setZoom(zoom * 1.6, playheadAnchor()));
@@ -198,6 +268,8 @@ export function viewerHtml({ pageUrl, title }) {
     }, { passive: false });
     addEventListener('keydown', e => {
       if (e.target && /input|textarea|select/i.test(e.target.tagName)) return;
+      if ((e.key === 'r' || e.key === 'R') && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); reload(); return; }
+      if (!movie) return;
       const fps = movie.frameRate, f = movie.currentFrame;
       if (e.key === ' ') { e.preventDefault(); toggle(); }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); seekFrame(f - (e.shiftKey ? fps : 1)); }
@@ -210,9 +282,11 @@ export function viewerHtml({ pageUrl, title }) {
     });
     requestAnimationFrame(tick);
   }
-  const toggle = () => { if (movie.isPlaying) movie.pause(); else movie.play(); };
+  const toggle = () => { if (!movie) return; if (movie.isPlaying) movie.pause(); else movie.play(); };
 
   function tick() {
+    if (!movie || !head || !geom) { maybeAuto(); requestAnimationFrame(tick); return; }
+    maybeAuto();
     const t = nowT(), x = tToX(t);
     head.setAttribute('transform', 'translate(' + x.toFixed(2) + ',0)');
     $time.textContent = t.toFixed(2) + ' / ' + geom.dur.toFixed(2) + ' s · frame ' + movie.currentFrame;
@@ -244,11 +318,23 @@ export async function startViewer(opts) {
   const pageUrl = '/' + rel + (opts.query ? '?' + opts.query : '');
   const title = path.basename(pagePath).replace(/\.[^.]+$/, '');
   const html = viewerHtml({ pageUrl, title });
+  // The work's version: a number that goes up when a file in the page's folder changes. The viewer only SHOWS it; it never reloads by itself.
+  const dir = path.dirname(pagePath);
+  let version = 1, changedAt = Date.now(), signature = folderSignature(dir);
+  const timer = setInterval(() => { const now = folderSignature(dir); if (now !== signature) { signature = now; version++; changedAt = Date.now(); } }, opts.watchEvery ?? 400);
+  timer.unref();
   const { server, port } = await serve(root, (req, res) => {
-    if (req.method !== 'GET' || !req.url.startsWith(VIEWER)) return false;
+    if (req.method !== 'GET') return false;
+    const pathname = req.url.split('?')[0];
+    if (pathname === VIEWER + '/version') {
+      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify({ version, at: changedAt }));
+      return true;
+    }
+    if (pathname !== VIEWER) return false;
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }).end(html);
     return true;
   }, opts.port);
+  server.on('close', () => clearInterval(timer));
   return { server, url: `http://127.0.0.1:${port}${VIEWER}` };
 }
 

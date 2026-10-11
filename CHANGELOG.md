@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+**Added**
+
+- **`pixi-effects view` tells you the work changed, and never switches by itself.** It watches the page's folder (not `node_modules`, `out`, `reviews`, `check-out`, hidden files); when something changes it shows "Updated hh:mm:ss — reload (R)" and nothing else. Reload (the button or R) loads the page again and returns to the frame you were on; the switch "auto" (off by default, remembered) reloads only while the movie is paused. The skill now says to start the viewer as soon as a first draft exists and give the human the address, so they watch the film grow.
+
 **Fixed**
 
 - **A text layer whose `style` has an undefined value is no longer blanked.** `style: { fontSize: undefined }` (a variable that was never set) erased the default size and the text was not drawn; the check said only "has no size". The undefined keys are now skipped (Pixi keeps its default) and one warning names them: `style.fontSize is undefined … omit the key instead`.
