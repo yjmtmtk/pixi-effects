@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Interactive movie · choose your ending</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+  <link rel="stylesheet" href="vars.css" />
+  <style>
+    .choices { position: absolute; left: 0; right: 0; bottom: 64px; z-index: 6; display: flex; justify-content: center; gap: 12px; line-height: 1; transition: opacity .3s; }
+    .choices button { font-size: 20px; padding: 12px 22px; border-radius: 999px; background: #000b; border: 2px solid #fff6; color: #fff; }
+    .choices button:hover { border-color: #fff; background: #000e; }
+    .choices[data-wait="true"] { opacity: 0; pointer-events: none; }
+    .stage .pick { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 6; color: #fff; font: 700 15px/1 system-ui, sans-serif; background: #000a; padding: 8px 14px; border-radius: 999px; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <h1>Choose your ending <small>the film stops at the fork; what you pick decides the second half, and you can go back and pick again</small></h1>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div>
+    <div class="choices" id="choices" data-wait="true"></div>
+  </div>
+
+  <div class="panel">
+    <div class="status" id="status">…</div>
+    <p class="note">One film, one number: <code>path</code> (-1 nobody chose yet, 0 forest, 1 city, 2 mountain). Every ending is a group of layers that is on only when <code>path</code> says so (<code>alpha: 'step(0.5, 1 - abs(path - 1))'</code>), so all three exist in the file and the picture shows one. The page stops the film at the fork, then <code>movie.setVars({ path })</code> and plays on. Seek back before the fork and the choice is cleared. It is not a branching tree of clips: any ending is the same film with one number changed, so each can be rendered on its own: <code>pixi-effects render ending.html --var path=2 --var jingle=riser -o mountain.mp4</code>.</p>
+  </div>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  { "imports": {
+      "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+      "pixi-effects": "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js" } }
+  </script>
+  <script type="module">
+    import { Movie, particles } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+    const EMOJI = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+    const W = 1280, H = 720, FPS = 30, CHOICE = 4.5, DURATION = 11, GROUND = 520;
+    const choiceFrame = Math.round(CHOICE * FPS);
+    const ENDINGS = [
+      { name: 'Forest', icon: '🌲', jingle: 'chime' },
+      { name: 'City', icon: '🏙', jingle: 'coin' },
+      { name: 'Mountain', icon: '⛰', jingle: 'riser' },
+    ];
+
+    const is = (v, k) => `step(0.5, 1 - abs(${v} - ${k}))`;                     // 1 when the variable is k
+    const AFTER = DURATION - CHOICE;
+    const emoji = (text, size, x, y, extra = {}) => ({ type: 'text', text, style: { fontFamily: EMOJI, fontSize: size }, ...extra, initial: { x, y, anchorX: 0.5, anchorY: 0.5, ...extra.initial } });
+    const label = (text, size, x, y, extra = {}) => ({ type: 'text', text, style: { fontFamily: FONT, fontSize: size, fontWeight: '800', fill: '#fff', ...extra.style }, ...extra, initial: { x, y, anchorX: 0.5, anchorY: 0.5, ...extra.initial } });
+    const fade = (d = 0.8) => [{ at: 0, from: { alpha: 0 }, duration: d }];
+
+    // one ending = a composition that lives from the fork to the end and is shown only when `path` is its number
+    const ending = (k, name, sequences) => ({ type: 'composition', name: `ending-${name}`, at: CHOICE, duration: AFTER, width: W, height: H, initial: { alpha: is('path', k) }, sequences });
+    const walkOff = (x, y, s, d = 2.6) => ({ at: 0.2, to: { x, y, scale: s }, duration: d, ease: 'power2.inOut' });
+
+    const forest = ending(0, 'forest', [
+      { type: 'shape', shape: 'rect', width: W, height: H, initial: { x: W / 2, y: H / 2 }, fillGradient: { stops: [[0, '#0b2b1e'], [1, '#1f5a3a']] }, keyframes: fade(0.9) },
+      ...[110, 300, 470, 840, 1010, 1180].map((x, i) => emoji('🌲', 200 + (i % 3) * 40, x, 420 + (i % 2) * 40, { keyframes: [{ at: i * 0.08, from: { scale: 0, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.5, ease: 'back.out(2)' }] })),
+      emoji('🤖', 150, 560, 470, { keyframes: [walkOff(640, 380, 0.5)] }),
+      ...particles({ count: 46, at: 0.4, emit: 2, life: [2.5, 4], area: { x: W / 2, y: 430, width: 1100, height: 280 }, speed: [8, 30], sway: { amp: 24, freq: 0.6 }, size: [2.5, 5], colors: ['#fff59d', '#ffe082', '#c5e1a5'], fade: { in: 0.8, out: 1 }, blendMode: 'add', name: 'fly' }),
+      label('The Forest', 96, W / 2, 130, { at: 2.2, style: { fill: '#e8ffd9' }, keyframes: [{ at: 0, from: { alpha: 0, scale: 0.8 }, duration: 0.8, ease: 'expo.out' }] }),
+      label('where the fireflies live', 38, W / 2, 205, { at: 2.8, style: { fontWeight: '500', fill: '#c9e8b8' }, keyframes: fade(0.8) }),
+    ]);
+
+    const skyline = Array.from({ length: 14 }, (_, i) => {
+      const h = 160 + ((i * 97) % 240), w = 86, x = 40 + i * 92;
+      return [
+        { type: 'shape', shape: 'rect', width: w, height: h, initial: { x, y: GROUND + 60 - h / 2, fillColor: i % 2 ? '#1b1740' : '#251a55' }, keyframes: [{ at: i * 0.05, from: { alpha: 0, y: '+=60' }, duration: 0.6, ease: 'power2.out' }] },
+        ...[0, 1, 2].map(r => ({ type: 'shape', shape: 'rect', width: 10, height: 14, initial: { x: x - 14 + (r % 2) * 28, y: GROUND + 20 - h + 30 + r * 38, fillColor: r % 2 ? '#ff4fd8' : '#4fe9ff', alpha: 0.9 },
+          keyframes: [{ at: 0.5 + (i + r) * 0.15, to: { alpha: 0.25 }, duration: 0.5, ease: 'sine.inOut', repeat: 7, yoyo: true }] })),
+      ];
+    }).flat();
+    const city = ending(1, 'city', [
+      { type: 'shape', shape: 'rect', width: W, height: H, initial: { x: W / 2, y: H / 2 }, fillGradient: { stops: [[0, '#0a0722'], [1, '#3a1263']] }, keyframes: fade(0.9) },
+      ...skyline,
+      emoji('🤖', 150, 560, 470, { keyframes: [walkOff(900, 470, 0.9)] }),
+      label('NEON CITY', 110, W / 2, 140, { at: 2.0, style: { fill: '#4fe9ff', stroke: { color: '#ff4fd8', width: 6 } }, keyframes: [{ at: 0, from: { alpha: 0 }, duration: 0.3 }, { at: 0.3, to: { alpha: 0.4 }, duration: 0.08, repeat: 5, yoyo: true }] }),
+      label('open all night', 38, W / 2, 215, { at: 2.8, style: { fontWeight: '500', fill: '#d6c4ff' }, keyframes: fade(0.8) }),
+      ...particles({ count: 60, at: 0.2, emit: 3, life: [0.6, 1], area: { x: W / 2, y: -20, width: 1400 }, angle: [78, 84], speed: [700, 900], size: [1.5, 2.2], shape: 'rect', colors: ['#7fdcff', '#c9a6ff'], fade: { out: 0.3 }, name: 'rain' }),
+    ]);
+
+    const mountain = ending(2, 'mountain', [
+      { type: 'shape', shape: 'rect', width: W, height: H, initial: { x: W / 2, y: H / 2 }, fillGradient: { stops: [[0, '#8fb8e8'], [1, '#eaf4ff']] }, keyframes: fade(0.9) },
+      emoji('🏔', 520, 420, 380, { keyframes: [{ at: 0, from: { y: '+=140', alpha: 0 }, duration: 1.1, ease: 'expo.out' }] }),
+      emoji('⛰', 380, 900, 430, { keyframes: [{ at: 0.2, from: { y: '+=140', alpha: 0 }, duration: 1.1, ease: 'expo.out' }] }),
+      emoji('🤖', 150, 560, 470, { keyframes: [walkOff(470, 300, 0.4, 3.2)] }),
+      ...particles({ count: 90, at: 0.2, emit: 4, life: [3, 5], area: { x: W / 2, y: -20, width: 1400 }, angle: [70, 110], speed: [60, 140], sway: { amp: 30, freq: 0.5 }, size: [2, 4.5], colors: ['#ffffff'], fade: { in: 0.4, out: 0.8 }, name: 'snow' }),
+      label('The Summit', 100, W / 2, 130, { at: 2.2, style: { fill: '#16335c' }, keyframes: [{ at: 0, from: { alpha: 0, scale: 0.8 }, duration: 0.8, ease: 'expo.out' }] }),
+      label('everything is small up here', 38, W / 2, 205, { at: 2.8, style: { fontWeight: '500', fill: '#365a8c' }, keyframes: fade(0.8) }),
+    ]);
+
+    const composition = { sequences: [
+      { type: 'shape', shape: 'rect', name: 'sky', width: W, height: H, initial: { x: W / 2, y: H / 2 }, fillGradient: { stops: [[0, '#79c2ff'], [1, '#ffe9bd']] } },
+      { type: 'shape', shape: 'circle', radius: 80, initial: { x: 1060, y: 150, fillColor: '#fff7c9' } },
+      { type: 'shape', shape: 'rect', name: 'ground', width: W, height: H - GROUND, initial: { x: W / 2, y: GROUND + (H - GROUND) / 2, fillColor: '#6bbf6a' } },
+      { type: 'shape', shape: 'rect', name: 'road', width: W, height: 70, initial: { x: W / 2, y: GROUND + 40, fillColor: '#d9c9a3' } },
+      // the signpost at the fork
+      { type: 'shape', shape: 'rect', width: 14, height: 250, initial: { x: 860, y: GROUND - 90, fillColor: '#7a5230' } },
+      ...ENDINGS.map((e, i) => label(`${e.icon} ${e.name.toLowerCase()}`, 30, 860, GROUND - 190 + i * 56, { style: { fill: '#fff', stroke: { color: '#7a5230', width: 10 } }, initial: { rotation: -6 + i * 6 } })),
+      // before the fork: the robot walks in (and stays when nothing has been chosen)
+      emoji('🤖', 150, -120, 470, { name: 'robot', initial: { alpha: is('path', -1) },
+        keyframes: [{ at: 0.3, to: { x: 560 }, duration: 3.8, ease: 'power1.out' }, { at: 0.3, to: { y: '-=14' }, duration: 0.19, ease: 'sine.inOut', repeat: 19, yoyo: true }] }),
+      label('Which way?', 84, W / 2, 130, { at: 2.6, duration: DURATION - 2.6, initial: { alpha: is('path', -1) }, style: { stroke: { color: '#00000055', width: 8 } }, keyframes: [{ at: 0, from: { scale: 0.7 }, duration: 0.6, ease: 'back.out(2)' }] }),
+      forest, city, mountain,
+      { type: 'audio', name: 'bed', volume: 0.3, music: { bpm: 80, tracks: [{ inst: 'pad', notes: 'C:8 Am:8 F:8' }, { inst: 'pluck', vol: 0.5, notes: 'e4:1 g4:1 c5:1 g4:1 e4:1 a4:1 c5:1 a4:1 f4:1 a4:1 c5:1 a4:1' }] } },
+      { type: 'audio', name: 'step', sfx: 'pop', at: 0.9, volume: 0.5 },
+      { type: 'audio', name: 'jingle', sfx: '{jingle}', at: CHOICE + 0.3, volume: 1 },
+    ] };
+
+    const params = new URLSearchParams(location.search);
+    const state = { path: params.has('path') ? Number(params.get('path')) : -1 };
+    const jingleOf = (p) => ENDINGS[p]?.jingle ?? 'pop';
+    const canvas = document.getElementById('stage');
+    const movie = new Movie();
+    window.movie = movie;
+    await movie.init({ canvas, width: W, height: H, duration: DURATION, frameRate: FPS, background: '#000', loop: true, poster: state.path >= 0 ? CHOICE + 2.5 : 0,
+      vars: { path: state.path, jingle: jingleOf(state.path) }, composition });
+    new Controller(movie, { canvas });
+
+    {
+      const hint = Object.assign(document.createElement('div'), { className: 'sound-hint', textContent: '🔊 Click anywhere to turn the sound on' });
+      document.querySelector('.stage').append(hint);
+      for (const type of ['pointerdown', 'keydown']) addEventListener(type, () => hint.remove(), { once: true, capture: true });
+    }
+
+    const status = document.getElementById('status'), choices = document.getElementById('choices');
+    const say = (extra = '') => { status.textContent = state.path < 0 ? `no ending chosen yet${extra}` : `ending: ${ENDINGS[state.path].icon} ${ENDINGS[state.path].name}${extra}`; };
+    movie.on('rebuilt', r => say(` · rebuilt in ${r.ms} ms · sound ${r.audio}`));
+    say();
+
+    const choose = async (k) => {
+      choices.dataset.wait = 'true';
+      state.path = k;
+      await movie.setVars({ path: k, jingle: jingleOf(k) });
+      await movie.gotoFrame(choiceFrame, true);
+      movie.play();
+    };
+    ENDINGS.forEach((e, k) => { choices.append(Object.assign(document.createElement('button'), { textContent: `${e.icon} ${e.name}`, onclick: () => choose(k) })); });
+
+    // the fork: the film waits there until an ending is chosen; going back before it clears the choice
+    const atFork = () => { movie.pause(); choices.dataset.wait = 'false'; };
+    let from = 0, last = 0;
+    movie.on('seeking', () => { from = movie.currentFrame; });
+    movie.on('seeked', ({ frame }) => {
+      if (from >= choiceFrame && frame < choiceFrame && state.path >= 0) { state.path = -1; movie.setVars({ path: -1, jingle: 'pop' }).catch(console.error); }
+      choices.dataset.wait = frame === choiceFrame && state.path < 0 ? 'false' : 'true';
+    });
+    movie.on('frame', ({ frame }) => {
+      if (movie.isPlaying && state.path < 0 && last < choiceFrame && frame >= choiceFrame) { atFork(); movie.gotoFrame(choiceFrame, true); }
+      if (movie.isPlaying && last >= choiceFrame && frame < choiceFrame && state.path >= 0) { state.path = -1; movie.setVars({ path: -1, jingle: 'pop' }).catch(console.error); }   // the loop came round
+      last = frame;
+    });
+    if (state.path < 0) movie.play();
+    window.__ready = true;
+  </script>
+</body>
+</html>

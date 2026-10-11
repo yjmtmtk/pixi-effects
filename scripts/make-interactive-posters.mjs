@@ -16,6 +16,10 @@ export const POSTERS = {
   sliders: ['', 60],
   pointer: ['?px=820&py=300', 40],
   liquid: ['', 120],
+  'scroll-city': ['?scroll=0.55', 40],
+  chords: ['', 90],
+  card: ['', 105],
+  ending: ['?path=1', 195],
 };
 
 const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;
