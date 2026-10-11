@@ -16,7 +16,7 @@
 <body>
   <div id="box"><canvas id="stage"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
   <div id="hud">…</div>
-  <div id="hint">Drag the window edge (or rotate the phone). The layout is rebuilt for the new shape. (This one has no player bar on purpose: it is an app, not a video.)</div>
+  <div id="hint">Drag the window edge (or rotate the phone). The layout is rebuilt for the new shape.</div>
 
   <script>
     window.__logs = [];
@@ -27,10 +27,12 @@
   { "imports": {
       "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps",
       "mediabunny": "https://esm.sh/mediabunny@1.61.3",
-      "pixi-effects": "../../dist/index.js" } }
+      "pixi-effects": "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js" } }
   </script>
   <script type="module">
     import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
 
     const FONT = 'system-ui, -apple-system, "Hiragino Sans", "Segoe UI", sans-serif';
     const STATS = [['Visitors', 12840, 0, '#6aa8ff'], ['Orders', 932, 0, '#ff8a5c'], ['Rating', 4.8, 1, '#7be0a8']];
@@ -76,6 +78,7 @@
     const movie = new Movie();
     window.movie = movie;
     await movie.init({ canvas, width: w0, height: h0, duration: 8, frameRate: 30, background: '#0b0e14', composition: layout(w0, h0) });
+    new Controller(movie, { canvas });
     movie.on('ended', async () => { await movie.gotoFrame(0); movie.play(); });
     movie.play();
 
