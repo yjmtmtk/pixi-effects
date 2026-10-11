@@ -1,5 +1,4 @@
 export { Movie } from './core/Movie';
-export { normalizeStops, pictureStops } from './core/stops';
 export type { Stop, StopSpec } from './core/stops';
 export { resolveLoader, dismissLoader, failLoader } from './core/loader';
 export type { LoaderOption } from './core/loader';
@@ -14,9 +13,6 @@ export type {
   ProgressEvent,
   VolumeEvent,
   MovieErrorEvent,
-  StopEvent,
-  StopImage,
-  StopImagesOptions,
   MotionBlurSpec,
   MotionBlurOptions,
 } from './core/Movie';
@@ -29,6 +25,7 @@ export type { ReviewOptions, ReviewReport, IssueGroup } from './core/review';
 export { measureText, splitText } from './text/measure';
 export type { MeasureStyle, TextSize, SplitOptions, TextPiece } from './text/measure';
 
+export { warnUnknownOptions } from './core/options';
 export { registerSequenceType } from './core/Composition';
 export type { SequenceCtor } from './core/Composition';
 export type { CompositionShape } from './types';
@@ -60,9 +57,6 @@ export { musicBuffer } from './audio/musicBuffer';
 export { musicEvents } from './audio/musicEvents';
 export type { MusicEvents, MusicNote, MusicTrackEvents, MusicDrumEvents, MusicDrumHit, MusicSummary } from './audio/musicEvents';
 export type { AudioEnvelope, EnvelopeOptions, AudioEnvelopeSource } from './audio/envelope';
-
-export { deck } from './presets/deck';
-export type { DeckOptions, DeckPage, DeckResult, DeckTransition } from './presets/deck';
 
 export { stagger } from './presets/stagger';
 export type { StaggerOptions } from './presets/stagger';

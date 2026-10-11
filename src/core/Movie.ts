@@ -18,8 +18,7 @@ import { pickFrames, sheetLayout } from './frames';
 import { warnUnknownOptions } from './options';
 import { startWhenRunning, audioIsBlocked } from './startWhenRunning';
 import { normalizePoster } from './poster';
-import { buildPdf } from './pdf';
-import { normalizeStops, nextStopAfter, previousStopBefore, stopAtOrBefore, pageStarts, pictureStops, changedFraction, type Stop } from './stops';
+import { normalizeStops, type Stop } from './stops';
 import { resolveLoader, dismissLoader, failLoader, setLoaderProgress, type LoaderOption } from './loader';
 import { LoadProgress, type LoadProgressState, type LoadStage } from './loadProgress';
 import { resolveMotionBlur, blurTimes, type MotionBlurSpec, type MotionBlurOptions, type ResolvedMotionBlur } from './motionBlur';
@@ -97,32 +96,8 @@ export interface SnapshotOptions {
   type?: 'image/png' | 'image/jpeg';
   /** JPEG quality, 0 to 1 (the encoder's default when left out). */
   quality?: number;
-  /** Return a `data:` URL string instead of a Blob (handy for scripts that can only return text). */
-  as?: 'blob' | 'dataURL';
-}
-
-/** One picture of a stop (see `movie.stopImages()`). */
-export interface StopImage { stop: Stop; /** The page it belongs to (0-based). */ page: number; image: Blob | string }
-
-export interface StopImagesOptions {
-  /** One picture per page (default) or one per stop. */
-  which?: 'pages' | 'stops';
-  /** With `which: 'pages'`: the page's last stop (default: the page fully built) or its first. */
-  pick?: 'last' | 'first';
-  /** Output size relative to the canvas. Default 1. */
-  scale?: number;
-  /** `'image/png'` (default) or `'image/jpeg'`. */
-  type?: 'image/png' | 'image/jpeg';
-  /** JPEG quality, 0–1. */
-  quality?: number;
-  /** Return `data:` URLs instead of Blobs. */
-  as?: 'blob' | 'dataURL';
-  /** Motion blur for the pictures (off unless you ask: they are usually for looking at). */
-  motionBlur?: MotionBlurSpec;
-  /** Pictures for a PDF: stops flagged `pdf: false` are left out (a page whose stops are all flagged has no picture). `exportPDF` sets it. */
-  pdf?: boolean;
-  /** Called as each picture is ready, in order. */
-  onImage?: (image: StopImage) => void;
+  /** Return a `data:` URL string instead of a Blob (handy for scripts that can only return text), or `'imageData'`: the pixels as an `ImageData` (to measure, compare). */
+  as?: 'blob' | 'dataURL' | 'imageData';
 }
 
 export interface ContactSheetOptions {
@@ -156,8 +131,6 @@ export interface OnionSkinOptions {
 }
 
 export interface FrameEvent { frame: number; totalFrames: number }
-/** A presentation reached a stop (`movie.next()` played to it, or `prev()` / `goToStop()` / `goToPage()` jumped to it). */
-export interface StopEvent { index: number; stop: Stop; pageIndex: number }
 export interface ProgressEvent { progress: number; frame: number; totalFrames: number }
 /** `volumechange`: the values after the change. */
 export interface VolumeEvent { volume: number; muted: boolean }
@@ -177,12 +150,8 @@ export class Movie {
   private _cancelAudioStart: (() => void) | null = null;
   /** The poster time in seconds (`movie.init({ poster })`), or null. */
   poster: number | null = null;
-  /** The stops of the composition (`composition.stops`), checked and in order: where `next()` pauses. Empty for an ordinary movie. */
+  /** The stops of the composition (`composition.stops`), checked and in order: named times for a presentation to pause on (`pixi-effects/present`). Empty for an ordinary movie. */
   stops: Stop[] = [];
-  /** The frame `next()` is playing toward, or null. */
-  private _stopAt: number | null = null;
-  private _stopWaiters: Array<() => void> = [];
-  private _arriving = false;
   /** The frame `playUntil()` is playing toward, or null (also null while it plays to the end). */
   private _until: number | null = null;
   private _untilWaiters: Array<(landed: boolean) => void> = [];
@@ -221,8 +190,6 @@ export class Movie {
   private _mixStats: MixStats | null = null;
 
   on(event: 'ready', fn: () => void): this;
-  /** A presentation is now on a stop (see `stops` in the composition, `next()`, `prev()`). */
-  on(event: 'stop', fn: (e: StopEvent) => void): this;
   on(event: 'frame', fn: (e: FrameEvent) => void): this;
   /** A jump to another frame (`gotoFrame`, a seek bar) starts / finishes. Not emitted for playback ticks, `render()`, `snapshot()` or `contactSheet()`. */
   on(event: 'seeking' | 'seeked', fn: (e: FrameEvent) => void): this;
@@ -439,8 +406,7 @@ export class Movie {
 
   async gotoFrame(frame: number, force = false): Promise<void> {
     if (this._initState !== 'ready') return;
-    if (!this._arriving) this._cancelStop();                                      // a seek by someone else ends "play to the next stop"
-    this._cancelUntil();                                                          // ... and a `playUntil()` in flight
+    this._cancelUntil();                                                          // a seek by someone else ends a `playUntil()` in flight
     if (!force && !this._atPoster && this.currentFrame === frame) return;      // (at the poster the canvas shows another frame)
     if (this._quiet > 0) return this._goto(frame);
     const target = Math.max(0, Math.min(frame, this.totalFrames));
@@ -498,7 +464,8 @@ export class Movie {
    */
   async snapshot(frame?: number, opts?: SnapshotOptions & { as?: 'blob' }): Promise<Blob>;
   async snapshot(frame: number | undefined, opts: SnapshotOptions & { as: 'dataURL' }): Promise<string>;
-  async snapshot(frame: number = this.currentFrame, opts: SnapshotOptions = {}): Promise<Blob | string> {
+  async snapshot(frame: number | undefined, opts: SnapshotOptions & { as: 'imageData' }): Promise<ImageData>;
+  async snapshot(frame: number = this.currentFrame, opts: SnapshotOptions = {}): Promise<Blob | string | ImageData> {
     warnUnknownOptions('movie.snapshot()', opts, ['scale', 'type', 'quality', 'as', 'motionBlur']);
     this._requireReady('snapshot');
     return this._captureFrame(clampFrame(frame, this.totalFrames), { scale: opts.scale ?? 1, type: opts.type ?? 'image/png', quality: opts.quality, as: opts.as ?? 'blob', motionBlur: opts.motionBlur });
@@ -517,100 +484,11 @@ export class Movie {
     return out;
   }
 
-  /** The pixels of `frame`, small (about 320 px wide) and without motion blur, to compare pictures. */
-  private async _framePixels(frame: number): Promise<Uint8ClampedArray> {
-    const c = await this._frameCanvas(frame, Math.min(1, 320 / Math.max(1, this.width)), false);
-    return c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
-  }
-
   /** Seek to `frame` (quietly, and stay there) and encode the canvas as a picture. */
-  private async _captureFrame(frame: number, o: { scale: number; type: string; quality?: number; as: 'blob' | 'dataURL'; motionBlur?: MotionBlurSpec }): Promise<Blob | string> {
+  private async _captureFrame(frame: number, o: { scale: number; type: string; quality?: number; as: 'blob' | 'dataURL' | 'imageData'; motionBlur?: MotionBlurSpec }): Promise<Blob | string | ImageData> {
     const out = await this._frameCanvas(frame, o.scale, o.motionBlur);
+    if (o.as === 'imageData') return out.getContext('2d')!.getImageData(0, 0, out.width, out.height);
     return encodeCanvas(out, o.type, o.as, o.quality);
-  }
-
-  /**
-   * A picture of the settled state of each page (default: the page's last stop, fully built) or of every stop, for a page list, an
-   * overview, an export. Pauses the movie, and leaves the playhead where it was. `onImage` is called as each picture is ready.
-   */
-  async stopImages(opts: StopImagesOptions & { as: 'dataURL' }): Promise<Array<StopImage & { image: string }>>;
-  async stopImages(opts?: StopImagesOptions): Promise<StopImage[]>;
-  async stopImages(opts: StopImagesOptions = {}): Promise<StopImage[]> {
-    warnUnknownOptions('movie.stopImages()', opts, ['which', 'pick', 'scale', 'type', 'quality', 'as', 'motionBlur', 'pdf', 'onImage']);
-    this._requireReady('stopImages');
-    if (this.stops.length === 0) return [];
-    const picks = pictureStops(this.stops, { which: opts.which, pick: opts.pick, pdf: opts.pdf });
-    this.pause();
-    const back = this.currentFrame, wasAtPoster = this._atPoster;
-    const out: StopImage[] = [];
-    try {
-      for (const stop of picks) {
-        const image = await this._captureFrame(stop.frame, {
-          scale: opts.scale ?? 1, type: opts.type ?? 'image/png', quality: opts.quality, as: opts.as ?? 'blob', motionBlur: opts.motionBlur === undefined ? false : opts.motionBlur,
-        });
-        const item: StopImage = { stop, page: stop.pageIndex, image };
-        out.push(item);
-        opts.onImage?.(item);
-      }
-    } finally {
-      if (wasAtPoster) await this._showPoster();
-      else await this._quietly(() => this.gotoFrame(back, true));
-    }
-    return out;
-  }
-
-  /**
-   * Look at every stop: is the picture there still changing? A stop is compared with the picture `lookback` frames before it (default 3):
-   * when more than `tolerance` (default 0.4 %) of the picture differs, the audience, a page overview and a PDF all see a half-finished
-   * animation. `issues` says which stop, which page and what to do; leaves the playhead where it was.
-   */
-  async inspectStops(opts: { lookback?: number; tolerance?: number } = {}): Promise<{ stops: Array<{ index: number; page: string | null; at: number; frame: number; moving: number; settled: boolean }>; issues: string[] }> {
-    warnUnknownOptions('movie.inspectStops()', opts, ['lookback', 'tolerance']);
-    this._requireReady('inspectStops');
-    const out: { stops: Array<{ index: number; page: string | null; at: number; frame: number; moving: number; settled: boolean }>; issues: string[] } = { stops: [], issues: [] };
-    if (this.stops.length === 0) return out;
-    const lookback = Math.max(1, Math.round(opts.lookback ?? 3));
-    const tolerance = opts.tolerance ?? 0.004;
-    this.pause();
-    const back = this.currentFrame, wasAtPoster = this._atPoster;
-    try {
-      for (const stop of this.stops) {
-        const before = Math.max(0, stop.frame - lookback);
-        let moving = 0;
-        if (before < stop.frame) {
-          const now = await this._framePixels(stop.frame);
-          moving = changedFraction(now, await this._framePixels(before));
-        }
-        const settled = moving <= tolerance;
-        out.stops.push({ index: stop.index, page: stop.page, at: stop.at, frame: stop.frame, moving, settled });
-        if (!settled) {
-          out.issues.push(`stop ${stop.index + 1}${stop.page ? ` (page "${stop.page}")` : ''} at ${stop.at.toFixed(1)} s: the picture is still changing there (${moving < 0.1 ? (moving * 100).toFixed(1) : Math.round(moving * 100)}% of it changed in the last ${stop.frame - before} frames), so the audience, the page overview and a PDF see it mid-animation. Move the stop to after the animation has finished, or flag a settled stop of the page with \`pdf: true\`.`);
-        }
-      }
-    } finally {
-      if (wasAtPoster) await this._showPoster();
-      else await this._quietly(() => this.gotoFrame(back, true));
-    }
-    return out;
-  }
-
-  /**
-   * The deck as a PDF: one page per page of the talk (the page's last stop, fully built, unless a stop says `pdf: true` or `pdf: false`;
-   * `which: 'stops'` makes a page of every stop that is not `pdf: false`), each a
-   * JPEG at the canvas size. Needs `composition.stops`. A transparent background comes out black: give the movie a `background`.
-   */
-  async exportPDF(opts: { which?: 'pages' | 'stops'; pick?: 'last' | 'first'; scale?: number; quality?: number; title?: string; motionBlur?: MotionBlurSpec; onImage?: (image: StopImage) => void } = {}): Promise<Blob> {
-    warnUnknownOptions('movie.exportPDF()', opts, ['which', 'pick', 'scale', 'quality', 'title', 'motionBlur', 'onImage']);
-    this._requireReady('exportPDF');
-    if (this.stops.length === 0) throw new Error('pixi-effects: movie.exportPDF(): this movie has no stops, so there are no pages; add `stops` to the composition (or build it with deck())');
-    const scale = opts.scale ?? 1;
-    const images = await this.stopImages({
-      which: opts.which, pick: opts.pick, scale, type: 'image/jpeg', quality: opts.quality ?? 0.92, as: 'blob', motionBlur: opts.motionBlur, pdf: true, onImage: opts.onImage,
-    });
-    const pages = await Promise.all(images.map(async i => ({
-      jpeg: new Uint8Array(await (i.image as Blob).arrayBuffer()), width: Math.max(1, Math.round(this.width * scale)), height: Math.max(1, Math.round(this.height * scale)),
-    })));
-    return new Blob([buildPdf(pages, { title: opts.title }) as unknown as BlobPart], { type: 'application/pdf' });
   }
 
   /**
@@ -851,89 +729,11 @@ export class Movie {
     return c;
   }
 
-  /** Which stop the playhead is on or has passed (-1 before the first). */
-  get stopIndex(): number { return stopAtOrBefore(this.stops, this.currentFrame)?.index ?? -1; }
-  /** The stop the playhead is on or has passed, or null. */
-  get currentStop(): Stop | null { return stopAtOrBefore(this.stops, this.currentFrame); }
-  /** Which page the playhead is in (0-based), -1 before the first stop. */
-  get pageIndex(): number { return this.currentStop?.pageIndex ?? -1; }
-  /** How many pages the stops make. */
-  get pageCount(): number { return pageStarts(this.stops).length; }
-
-  private _cancelStop(): void {
-    this._stopAt = null;
-    this._settleStopWaiters();
-  }
-  private _settleStopWaiters(): void {
-    const waiters = this._stopWaiters; this._stopWaiters = [];
-    waiters.forEach(w => w());
-  }
-  private _emitStop(stop: Stop): void {
-    this.emit('stop', { index: stop.index, stop, pageIndex: stop.pageIndex } satisfies StopEvent);
-  }
-  /** Land exactly on a stop's frame, pause, and say so. */
-  private async _arriveAtStop(frame: number): Promise<void> {
-    this._arriving = true;
-    this._stopAt = null;
-    try {
-      this.pause();
-      await this._goto(frame);
-    } catch (err) {
-      console.warn('pixi-effects: could not land on a stop:', err);
-      this._emitError('playback', err);
-    } finally { this._arriving = false; }
-    const stop = this.stops.find(s => s.frame === frame);
-    if (stop) this._emitStop(stop);
-    this._settleStopWaiters();
-  }
-
-  /**
-   * Play to the next stop and pause exactly there (a presentation's "next"). Pressed again while it is playing toward a stop, it skips the
-   * rest of the animation and lands on that stop at once. After the last stop it plays to the end. Resolves when it has landed (or
-   * stopped for another reason). An ordinary `play()` ignores the stops.
-   */
-  async next(): Promise<void> {
-    if (this._initState !== 'ready') return;
-    if (this._stopAt !== null) { await this._arriveAtStop(this._stopAt); return; }
-    if (this.currentFrame >= this.totalFrames) return;
-    const target = nextStopAfter(this.stops, this.currentFrame);
-    this._stopAt = target ? target.frame : null;
-    const landed = new Promise<void>(resolve => this._stopWaiters.push(resolve));
-    this.play();
-    await landed;
-  }
-
-  /** Jump back to the previous stop at once (no reverse playback); from the first stop, to the start. */
-  async prev(): Promise<void> {
-    if (this._initState !== 'ready') return;
-    this.pause();
-    const target = previousStopBefore(this.stops, this.currentFrame);
-    await this.gotoFrame(target ? target.frame : 0, true);
-    if (target) this._emitStop(target);
-  }
-
-  /** Jump to stop `index` (0-based). */
-  async goToStop(index: number): Promise<void> {
-    if (this._initState !== 'ready') return;
-    const stop = this.stops[index];
-    if (!stop) { console.warn(`pixi-effects: movie.goToStop(${index}): there are ${this.stops.length} stops (0 to ${this.stops.length - 1})`); return; }
-    this.pause();
-    await this.gotoFrame(stop.frame, true);
-    this._emitStop(stop);
-  }
-
-  /** Jump to the first stop of page `page` (0-based). */
-  async goToPage(page: number): Promise<void> {
-    const starts = pageStarts(this.stops);
-    const stop = starts[page];
-    if (!stop) { console.warn(`pixi-effects: movie.goToPage(${page}): there are ${starts.length} pages (0 to ${starts.length - 1})`); return; }
-    await this.goToStop(stop.index);
-  }
-
   /**
    * Play and pause exactly at `seconds`: it resolves `true` when the playhead has landed on that frame, `false` when something else ended it
-   * first (a `pause()`, a seek, a newer `playUntil()`), or when there is nothing to play toward (a time at or before the playhead, or a
-   * movie that is not ready). With no time it plays to the end and resolves `true` once the movie has ended. An ordinary `play()` is
+   * first (a `pause()`, a seek, a newer `playUntil()`), or when there is nothing to play toward (a time at or before the playhead, which also
+   * pauses it where it is, or a movie that is not ready). A time at or past the end lands on the last frame; with no time at all it plays to
+   * the end and resolves `true` once the movie has ended (and says `ended`). An ordinary `play()` is
    * not affected by it. It is the one primitive a presentation is built on (see `pixi-effects/present`).
    */
   async playUntil(seconds?: number): Promise<boolean> {
@@ -942,7 +742,7 @@ export class Movie {
     if (this.currentFrame >= this.totalFrames) return false;
     const frame = seconds === undefined ? Infinity : Math.round(seconds * this.frameRate);
     if (frame <= this.currentFrame) { this.pause(); return false; }
-    this._until = frame < this.totalFrames ? frame : null;
+    this._until = Number.isFinite(frame) ? Math.min(frame, this.totalFrames) : null;      // a time at or past the end lands on the last frame (no 'ended'); only no time at all runs to the end
     const landed = new Promise<boolean>(resolve => this._untilWaiters.push(resolve));
     if (!this.isPlaying) this.play();
     return landed;
@@ -993,7 +793,6 @@ export class Movie {
       }
       const elapsed = (time - startTime) / 1000;
       const frame = Math.floor(elapsed * this.frameRate);
-      if (this._stopAt !== null && frame >= this._stopAt) { void this._arriveAtStop(this._stopAt); return; }
       if (this._until !== null && frame >= this._until) { void this._arriveUntil(); return; }
       if (frame <= this.totalFrames) {
         inFlight = true;
@@ -1010,7 +809,6 @@ export class Movie {
           this._emitError('playback', err);
         });
         this.emit('ended');
-        this._settleStopWaiters();
         toEnd.forEach(w => w(true));
       }
     };
@@ -1054,7 +852,6 @@ export class Movie {
       this.gainNode = null;
     }
     if (wasPlaying) this.emit('pause');
-    if (!this._arriving) this._cancelStop();
     this._cancelUntil();
   }
 

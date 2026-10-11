@@ -314,7 +314,7 @@
       const start = () => {
         if (!movie || current !== p) return reveal();
         Promise.resolve(typeof movie.gotoFrame === 'function' ? movie.gotoFrame(0, true) : null)
-          .then(() => { if (current === p) { if (movie.stops && movie.stops.length) movie.next(); else movie.play(); } })
+          .then(() => { if (current === p) { const s0 = (movie.stops || []).find(s => s.frame > 0); if (s0) movie.playUntil(s0.at); else movie.play(); } })
           .catch(() => { /* the player bar still works */ })
           .finally(() => { if (current === p) reveal(); });
       };

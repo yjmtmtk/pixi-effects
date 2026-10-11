@@ -1,6 +1,5 @@
-import type { CompositionSpec, SequenceSpec, TransitionSpec, Keyframe, Props } from '../types';
-import type { StopSpec } from '../core/stops';
-import { warnUnknownOptions } from '../core/options';
+import type { CompositionSpec, SequenceSpec, TransitionSpec, Keyframe, Props, StopSpec } from '../index';
+import { warnUnknownOptions } from '../index';
 
 const PAGE_KEYS = ['name', 'duration', 'sequences', 'stops', 'notes', 'advance', 'initial', 'keyframes', 'filters', 'filterArea', 'blendMode', 'mask', 'maskInverted'] as const;
 const DECK_KEYS = ['pages', 'transition', 'width', 'height', 'frameRate', 'background', 'canvas', 'assets', 'poster', 'motionBlur', 'loader'] as const;

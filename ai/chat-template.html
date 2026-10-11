@@ -61,15 +61,15 @@
       "mediabunny":              "https://cdn.jsdelivr.net/npm/mediabunny@1.61.3/+esm",
       "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@0.28.2/dist/index.js",
       "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.28.2/dist/Controller.js",
-      "pixi-effects/presenter":  "https://cdn.jsdelivr.net/npm/pixi-effects@0.28.2/dist/Presenter.js"
+      "pixi-effects/present":  "https://cdn.jsdelivr.net/npm/pixi-effects@0.28.2/dist/present.js"
     }
   }
   </script>
 
   <script type="module">
-    import { Movie, kenBurns, withFade, wiggle, stagger, animateText, followPath, particles, deck } from 'pixi-effects';
+    import { Movie, kenBurns, withFade, wiggle, stagger, animateText, followPath, particles } from 'pixi-effects';
     import { Controller } from 'pixi-effects/controller';
-    // A talk instead of a video: import { Presenter } from 'pixi-effects/presenter'; use deck({ pages: [...] }) and new Presenter(movie, { canvas }) instead of the Controller.
+    // A talk instead of a video: import { deck, Presenter } from 'pixi-effects/present'; use deck({ pages: [...] }) and new Presenter(movie, { canvas }) instead of the Controller.
 
     // ===================== EDIT FROM HERE =====================
     const W = 1280, H = 720, FPS = 30, DURATION = 6;

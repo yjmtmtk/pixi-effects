@@ -658,8 +658,8 @@ return { duration: d.duration, sequences: d.composition.sequences, transitions: 
 ```js
 // @docs-only
 // in the page: the deck is spread into init; the Presenter (or the Controller, which then shows the stops and a Present button) plays it
-import { Movie, deck } from 'pixi-effects';
-import { Presenter } from 'pixi-effects/presenter';
+import { Movie } from 'pixi-effects';
+import { deck, Presenter } from 'pixi-effects/present';     // (add "pixi-effects/present" to the import map)
 const movie = new Movie();
 await movie.init({ canvas, width: 1280, height: 720, frameRate: 30, ...deck({ /* as above */ }) });
 new Presenter(movie, { canvas });     // arrows / Space / Enter / click / swipe = next, ← = back, B = black screen, F = fullscreen, ? = keys

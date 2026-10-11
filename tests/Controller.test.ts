@@ -3,6 +3,17 @@ import type { Movie } from '../src/core/Movie';
 import { Controller, CONTROLLER_CSS } from '../src/Controller';
 import { formatTime, frameToPercent, pxToFrame, pxToFraction, extensionForMimeType } from '../src/Controller';
 
+// The Controller reaches the presentation side through `src/present` (next, exportPDF, the Presenter): these tests check what the Controller asks for,
+// so navigation and images hand each call to the fake movie's own method of the same name (the real ones are tested in tests/present/).
+vi.mock('../src/present/navigation', () => ({
+  next: (m: any) => m.next(), prev: (m: any) => m.prev(), goToStop: (m: any, i: number) => m.goToStop(i), goToPage: (m: any, n: number) => m.goToPage(n),
+  stopIndex: (m: any) => m.stopIndex, pageIndex: (m: any) => m.pageIndex, pageCount: (m: any) => m.pageCount, currentStop: (m: any) => m.currentStop,
+  onStop: (m: any, fn: (e: unknown) => void) => { m.on('stop', fn); return () => m.off('stop', fn); },
+}));
+vi.mock('../src/present/images', () => ({ stopImages: (m: any, o: unknown) => m.stopImages(o), exportPDF: (m: any, o: unknown) => m.exportPDF(o), inspectStops: (m: any, o: unknown) => m.inspectStops(o) }));
+/** A movie with stops makes the Controller load `pixi-effects/present` at once: wait for that before the first press. */
+const loaded = () => new Promise<void>(r => setTimeout(r, 20));
+
 type Listener = (...args: unknown[]) => void;
 
 function makeFakeMovie(overrides: Partial<Movie> = {}): Movie {
@@ -1495,6 +1506,7 @@ describe('Controller — a movie with stops (a presentation)', () => {
     const calls: string[] = [];
     Object.assign(movie, { async next() { calls.push('next'); }, async prev() { calls.push('prev'); }, async stopImages() { return []; } });
     const ctrl = new Controller(movie, { canvas });
+    await loaded();
     const wrap = canvas.parentElement!;
     (wrap.querySelector('.mc-present') as HTMLButtonElement).click();
     await vi.waitFor(() => expect(wrap.querySelector('.movie-presenter')).not.toBeNull());
@@ -1527,19 +1539,21 @@ describe('Controller — a movie with stops (a presentation)', () => {
       return { movie, calls };
     };
 
-    it('the play button plays to the next stop (movie.next), not to the end', () => {
+    it('the play button plays to the next stop (movie.next), not to the end', async () => {
       const canvas = makeCanvas();
       const { movie, calls } = playingFake();
       const ctrl = new Controller(movie, { canvas });
+      await loaded();
       (canvas.parentElement!.querySelector('.mc-play') as HTMLButtonElement).click();
       expect(calls).toEqual(['next']);
       ctrl.destroy();
     });
 
-    it('while it is playing toward a stop the same button pauses', () => {
+    it('while it is playing toward a stop the same button pauses', async () => {
       const canvas = makeCanvas();
       const { movie, calls } = playingFake();
       const ctrl = new Controller(movie, { canvas });
+      await loaded();
       const btn = canvas.parentElement!.querySelector('.mc-play') as HTMLButtonElement;
       btn.click();
       btn.click();
@@ -1548,10 +1562,11 @@ describe('Controller — a movie with stops (a presentation)', () => {
       ctrl.destroy();
     });
 
-    it('a click on the picture and the Space key do the same', () => {
+    it('a click on the picture and the Space key do the same', async () => {
       const canvas = makeCanvas();
       const { movie, calls } = playingFake();
       const ctrl = new Controller(movie, { canvas });
+      await loaded();
       canvas.click();
       movie.pause();
       document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', bubbles: true, cancelable: true }));

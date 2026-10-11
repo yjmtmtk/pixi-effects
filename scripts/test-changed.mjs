@@ -33,7 +33,7 @@ export const AREAS = [
   { name: 'audio', paths: ['src/audio/', 'src/core/AudioMixer.ts', 'src/core/inspectAudio.ts'], tests: ['tests/tools/audioReact.test.ts', 'tests/tools/musicLab.test.ts'] },
   { name: 'playground', paths: ['examples/playground', 'examples/_checks/sandbox-runner.html'], tests: ['tests/tools/playground.test.ts', 'tests/tools/playgroundSandbox.test.ts', 'tests/tools/playgroundMcp.test.ts'] },
   { name: 'chat template', paths: ['ai/chat-template.html', 'ai/CHAT.md'], tests: ['tests/tools/chatTemplate.test.ts', 'tests/tools/playground.test.ts'] },
-  { name: 'player and presenter', paths: ['src/Controller.ts', 'src/Presenter.ts', 'src/core/stops.ts', 'src/loader.css', 'src/core/loader.ts'], tests: ['tests/tools/controllerLayout.test.ts', 'tests/tools/presenter.test.ts', 'tests/tools/loader.test.ts'] },
+  { name: 'player and presenter', paths: ['src/Controller.ts', 'src/present/', 'src/core/stops.ts', 'src/core/Movie.ts', 'src/loader.css', 'src/core/loader.ts'], tests: ['tests/tools/controllerLayout.test.ts', 'tests/tools/presenter.test.ts', 'tests/tools/loader.test.ts'] },
   { name: 'export and frames', paths: ['src/core/Renderer.ts', 'src/core/renderRange.ts', 'src/core/motionBlur.ts', 'src/core/onion.ts', 'src/core/frames.ts', 'src/core/poster.ts'], tests: ['tests/tools/renderRange.test.ts', 'tests/tools/motionBlur.test.ts', 'tests/tools/onion.test.ts', 'tests/tools/poster.test.ts', 'tests/tools/lastFrame.test.ts'] },
   { name: 'site and landing', paths: ['site/', 'index.html', 'scripts/sync-site.mjs', 'scripts/site-parts.mjs', 'scripts/stage-site.mjs'], tests: ['tests/tools/siteShell.test.ts', 'tests/tools/landing.test.ts', 'tests/tools/guideDemo.test.ts'] },
 ];

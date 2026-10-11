@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 vi.mock('../../src/core/Renderer', () => ({ exportFrames: vi.fn() }));
 import { Movie } from '../../src/core/Movie';
 import { normalizeStops } from '../../src/core/stops';
+import { next, prev, goToStop, goToPage, onStop, stopIndex, pageIndex, pageCount } from '../../src/present/navigation';
 import { createTimeline } from '../../src/core/timelineEngine';
 import { spacer } from '../../src/core/pure/PureTimeline';
 
@@ -32,7 +33,7 @@ function movieWithStops(raw: Parameters<typeof normalizeStops>[0], totalFrames =
   a._renderNow = () => { drawn.push(Math.round((a.timeline as { time(): number }).time() * frameRate)); };
   a.stops = normalizeStops(raw, totalFrames / frameRate, frameRate);
   const events: Array<[string, unknown]> = [];
-  m.on('stop', e => events.push(['stop', e]));
+  onStop(m, e => events.push(['stop', e]));
   m.on('play', () => events.push(['play', null]));
   m.on('pause', () => events.push(['pause', null]));
   m.on('ended', () => events.push(['ended', null]));
@@ -48,10 +49,10 @@ afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 const DECK = [{ at: 2, page: 'A' }, { at: 4 }, { at: 6, page: 'B' }, { at: 8 }];     // frames 60 120 180 240 of 300
 
-describe('movie.next(): play to the next stop and stop there', () => {
+describe('next(movie): play to the next stop and stop there', () => {
   it('plays from the start up to the first stop, pauses exactly on its frame, and says so', async () => {
     const { m, events } = movieWithStops(DECK);
-    const done = m.next();
+    const done = next(m);
     expect(m.isPlaying).toBe(true);
     await run(3000);
     await done;
@@ -59,23 +60,23 @@ describe('movie.next(): play to the next stop and stop there', () => {
     expect(m.currentFrame).toBe(60);
     expect(events.filter(e => e[0] === 'stop')).toHaveLength(1);
     expect(events.find(e => e[0] === 'stop')![1]).toMatchObject({ index: 0, stop: { at: 2, page: 'A' } });
-    expect(m.stopIndex).toBe(0);
+    expect(stopIndex(m)).toBe(0);
   });
 
   it('from a stop it goes to the next one (not further), then the next press goes on', async () => {
     const { m } = movieWithStops(DECK);
-    m.next(); await run(2500);
+    next(m); await run(2500);
     expect(m.currentFrame).toBe(60);
-    const second = m.next(); await run(2500); await second;
+    const second = next(m); await run(2500); await second;
     expect(m.currentFrame).toBe(120);
-    expect(m.stopIndex).toBe(1);
+    expect(stopIndex(m)).toBe(1);
   });
 
   it('pressing again while it is playing toward a stop skips the rest of the animation: it lands on that stop at once', async () => {
     const { m, events } = movieWithStops(DECK);
-    m.next(); await run(500);
+    next(m); await run(500);
     expect(m.currentFrame).toBeLessThan(60);
-    const skip = m.next();
+    const skip = next(m);
     await skip;
     expect(m.isPlaying).toBe(false);
     expect(m.currentFrame).toBe(60);
@@ -84,17 +85,17 @@ describe('movie.next(): play to the next stop and stop there', () => {
 
   it('after the last stop it plays to the end (and says ended); at the end it does nothing', async () => {
     const { m, events } = movieWithStops(DECK);
-    await m.goToStop(3);
-    const last = m.next(); await run(3000); await last;
+    await goToStop(m, 3);
+    const last = next(m); await run(3000); await last;
     expect(m.currentFrame).toBe(300);
     expect(events.some(e => e[0] === 'ended')).toBe(true);
-    await m.next();
+    await next(m);
     expect(m.currentFrame).toBe(300);
   });
 
   it('a movie with no stops: next() just plays to the end', async () => {
     const { m } = movieWithStops([]);
-    m.next(); await run(11000);
+    next(m); await run(11000);
     expect(m.currentFrame).toBe(300);
   });
 
@@ -107,7 +108,7 @@ describe('movie.next(): play to the next stop and stop there', () => {
 
   it('a pause by hand while it is playing toward a stop cancels the stop; the promise still settles', async () => {
     const { m } = movieWithStops(DECK);
-    const p = m.next(); await run(500);
+    const p = next(m); await run(500);
     m.pause();
     await p;
     await run(3000);
@@ -116,11 +117,42 @@ describe('movie.next(): play to the next stop and stop there', () => {
   });
 });
 
-describe('movie.prev(), goToStop(), goToPage()', () => {
+describe('next(movie): the edges', () => {
+  it('a stop on the very last frame is landed on like any other: no "ended", one stop event, and the next press does nothing', async () => {
+    const { m, events } = movieWithStops([2, 10]);                       // frame 60 and the last frame, 300
+    next(m); await run(2500);
+    const last = next(m); await run(9000); await last;
+    expect(m.currentFrame).toBe(300);
+    expect(m.isPlaying).toBe(false);
+    expect(events.some(e => e[0] === 'ended')).toBe(false);
+    expect(events.filter(e => e[0] === 'stop').map(e => (e[1] as { index: number }).index)).toEqual([0, 1]);
+    await next(m);
+    expect(m.currentFrame).toBe(300);
+  });
+
+  it('a press while the movie is landing on a stop plays on to the next stop; the landed stop is announced once', async () => {
+    const { m, a, events } = movieWithStops([2, 4, 6]);
+    let release: () => void = () => {};
+    let hold = true;
+    a._awaitVideoFrames = () => (hold && a.currentFrame === 60 ? new Promise<void>(r => { release = r; }) : Promise.resolve());     // the landing render on frame 60 is held open
+    next(m); await run(2300);                                                      // the tick reaches frame 60: it pauses and starts to land
+    expect(m.isPlaying).toBe(false);
+    expect(m.currentFrame).toBe(60);
+    hold = false;
+    const second = next(m);                                                        // pressed during the landing
+    expect(m.isPlaying).toBe(true);                                                // it is on its way to the next stop (the old behaviour)
+    release();
+    await run(2500); await second;
+    expect(m.currentFrame).toBe(120);
+    expect(events.filter(e => e[0] === 'stop').map(e => (e[1] as { index: number }).index)).toEqual([0, 1]);
+  });
+});
+
+describe('prev(), goToStop(), goToPage()', () => {
   it('prev() jumps back to the previous stop, at once (no reverse playback), and stays there', async () => {
     const { m, events } = movieWithStops(DECK);
-    await m.goToStop(2);
-    await m.prev();
+    await goToStop(m, 2);
+    await prev(m);
     expect(m.currentFrame).toBe(120);
     expect(m.isPlaying).toBe(false);
     expect(events.filter(e => e[0] === 'stop').map(e => (e[1] as { index: number }).index)).toEqual([2, 1]);
@@ -128,18 +160,18 @@ describe('movie.prev(), goToStop(), goToPage()', () => {
 
   it('prev() from the first stop goes to the start; from the start it does nothing', async () => {
     const { m } = movieWithStops(DECK);
-    await m.goToStop(0);
-    await m.prev();
+    await goToStop(m, 0);
+    await prev(m);
     expect(m.currentFrame).toBe(0);
-    await m.prev();
+    await prev(m);
     expect(m.currentFrame).toBe(0);
   });
 
   it('prev() while playing stops playback and goes back to the stop before where it is', async () => {
     const { m } = movieWithStops(DECK);
-    await m.goToStop(1);
-    m.next(); await run(1200);                                           // on its way from stop 1 toward stop 2
-    await m.prev();
+    await goToStop(m, 1);
+    next(m); await run(1200);                                           // on its way from stop 1 toward stop 2
+    await prev(m);
     expect(m.isPlaying).toBe(false);
     expect(m.currentFrame).toBe(120);
   });
@@ -147,34 +179,34 @@ describe('movie.prev(), goToStop(), goToPage()', () => {
   it('goToStop(i) lands on stop i; a bad index says so and does nothing', async () => {
     const { m } = movieWithStops(DECK);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    await m.goToStop(3);
+    await goToStop(m, 3);
     expect(m.currentFrame).toBe(240);
-    await m.goToStop(9);
+    await goToStop(m, 9);
     expect(m.currentFrame).toBe(240);
-    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/goToStop\(9\)/));
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/goToStop\(movie, 9\)/));
   });
 
   it('goToPage(n) lands on the first stop of page n (0-based)', async () => {
     const { m } = movieWithStops(DECK);
-    await m.goToPage(1);
+    await goToPage(m, 1);
     expect(m.currentFrame).toBe(180);
-    await m.goToPage(0);
+    await goToPage(m, 0);
     expect(m.currentFrame).toBe(60);
   });
 
   it('page and step positions: pageIndex, pageCount, stopIndex', async () => {
     const { m } = movieWithStops(DECK);
-    expect(m.pageCount).toBe(2);
-    expect(m.pageIndex).toBe(-1);                                        // before the first stop
-    await m.goToStop(1);
-    expect([m.stopIndex, m.pageIndex]).toEqual([1, 0]);
-    await m.goToStop(2);
-    expect([m.stopIndex, m.pageIndex]).toEqual([2, 1]);
+    expect(pageCount(m)).toBe(2);
+    expect(pageIndex(m)).toBe(-1);                                        // before the first stop
+    await goToStop(m, 1);
+    expect([stopIndex(m), pageIndex(m)]).toEqual([1, 0]);
+    await goToStop(m, 2);
+    expect([stopIndex(m), pageIndex(m)]).toEqual([2, 1]);
   });
 
   it('an outside seek (gotoFrame) while it plays toward a stop cancels that stop: playback goes on past it', async () => {
     const { m } = movieWithStops(DECK);
-    const p = m.next(); await run(300);
+    const p = next(m); await run(300);
     await m.gotoFrame(10);
     await p;                                                              // the promise settles when the stop is cancelled
     await run(3000);

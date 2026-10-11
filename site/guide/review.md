@@ -87,7 +87,7 @@ The same chart is available in code: `movie.timelineChart()` returns an HTML pag
 | `await movie.contactSheet({ count: 12, as: 'dataURL' })` | many frames on one labelled image |
 | `await movie.snapshot(frame, { as: 'dataURL' })` | one frame as an image |
 | `await movie.contactSheet({ frames: movie.stops.map(s => s.frame), as: 'dataURL' })` | one picture of every stop of a deck |
-| `await movie.stopImages({ which: 'pages' })` | every page of a deck as its own image (see [Presenting](presenting.html)) |
+| `await stopImages(movie, { which: 'pages' })` | every page of a deck as its own image (see [Presenting](presenting.html)) |
 
 ## The warnings are instructions
 

@@ -33,13 +33,15 @@
       "mediabunny": "https://esm.sh/mediabunny",
       "pixi-effects": "../../dist/index.js",
       "pixi-effects/controller": "../../dist/Controller.js",
-      "pixi-effects/presenter": "../../dist/Presenter.js",
+      "pixi-effects/present": "../../dist/present.js",
       "pixi-effects/three": "../../dist/three.js",
       "pixi-filters": "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
       "three": "https://esm.sh/three@0.178.0" } }
   </script>
   <script type="module">
-    import * as lib from 'pixi-effects';
+    import * as core from 'pixi-effects';
+    import { deck } from 'pixi-effects/present';
+    const lib = { ...core, deck };                                   // (deck is in pixi-effects/present)
     import { Controller } from 'pixi-effects/controller';
     import shared from './shared.js';
 

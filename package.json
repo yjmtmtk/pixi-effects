@@ -13,9 +13,9 @@
       "require": { "types": "./dist/Controller.d.cts", "default": "./dist/Controller.cjs" }
     },
     "./loader.css": "./dist/loader.css",
-    "./presenter": {
-      "import": { "types": "./dist/Presenter.d.ts", "default": "./dist/Presenter.js" },
-      "require": { "types": "./dist/Presenter.d.cts", "default": "./dist/Presenter.cjs" }
+    "./present": {
+      "import": { "types": "./dist/present.d.ts", "default": "./dist/present.js" },
+      "require": { "types": "./dist/present.d.cts", "default": "./dist/present.cjs" }
     },
     "./three": {
       "import": { "types": "./dist/three.d.ts", "default": "./dist/three.js" },

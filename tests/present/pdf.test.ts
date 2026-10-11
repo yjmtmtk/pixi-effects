@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildPdf } from '../../src/core/pdf';
+import { buildPdf } from '../../src/present/pdf';
 
 // a real 1 x 1 baseline JPEG
 const JPEG = Uint8Array.from(atob('/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA='), c => c.charCodeAt(0));

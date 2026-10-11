@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+**Changed (breaking): presentation leaves the core**
+
+The talk side of the library is now its own entry, `pixi-effects/present`, built on the core's public API only (a test enforces the import rule). The core keeps `composition.stops` (named times, `movie.stops`) and gains two general moves; everything else that was about a talk moved out.
+
+| before | now |
+|---|---|
+| `movie.next()` `prev()` `goToStop(i)` `goToPage(n)` | `next(movie)` `prev(movie)` `goToStop(movie, i)` `goToPage(movie, n)` from `pixi-effects/present` |
+| `movie.stopIndex` `pageIndex` `pageCount` `currentStop` | `stopIndex(movie)` `pageIndex(movie)` `pageCount(movie)` `currentStop(movie)` |
+| `movie.on('stop', fn)` | `const off = onStop(movie, fn)` |
+| `movie.stopImages(o)` `movie.inspectStops(o)` `movie.exportPDF(o)` | `stopImages(movie, o)` `inspectStops(movie, o)` `exportPDF(movie, o)` |
+| `import { deck } from 'pixi-effects'` | `import { deck } from 'pixi-effects/present'` |
+| `import { Presenter } from 'pixi-effects/presenter'` (`dist/Presenter.js`) | `import { Presenter } from 'pixi-effects/present'` (`dist/present.js`; the import map line is `"pixi-effects/present"`) |
+| `normalizeStops`, `pictureStops` exported from `pixi-effects` | not exported (the core normalises `composition.stops` itself; `pictureStops` is inside `pixi-effects/present`) |
+| the types `StopEvent`, `StopImage`, `StopImagesOptions` from `pixi-effects` | the same names from `pixi-effects/present` (`Stop` and `StopSpec` stay in `pixi-effects`) |
+
+A page that only maps `"pixi-effects"` still gets its stops reviewed and its PDF exported by `check` / `render`: they load `present.js` from beside the library.
+
+**Added**
+
+- `movie.playUntil(seconds?)`: play and pause exactly at a time (`true` when it landed; `false` when a pause, a seek or a newer `playUntil` ended it first; no time = to the end). It is what `next(movie)` is made of, and the way to "play the intro, then wait".
+- `movie.peek(fn)`: run a function that looks around (seeks, pictures) and put the playhead or the poster back; the seeks inside are not reported as `seeking` / `seeked`.
+- `movie.snapshot(frame, { quality })` (JPEG quality) and `{ as: 'imageData' }` (the pixels, to measure or compare).
+- `warnUnknownOptions(where, options, validNames)` is exported: the did-you-mean warning for an unknown option, for presets and layer types written outside the library.
+
+**Checked, not reproduced**
+
+- The two bugs the old roadmap listed (an inline shape mask under a transition; a 4000 x 2400 `threeD` layer black on WebGPU) do not reproduce on this code. Real-browser tests pin both, on both backends.
+
 **Docs**
 
 - **The film guide says who it is for.** `direction.md` opens with a note for an AI in a browser chat (no shell, no files): this guide is not yours, follow `ai/CHAT.md`; you can still put a three-line plan in your reply and ask. The `llms.txt` line for it says "for an AI with a shell and files; a browser chat skips it".

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { deck } from '../../src/presets/deck';
+import { deck } from '../../src/present/deck';
 
 const box = (name: string) => ({ type: 'shape', shape: 'rect', name, width: 10, height: 10 }) as never;
 const layers = (r: any) => r.composition.sequences as any[];

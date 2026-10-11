@@ -64,16 +64,23 @@ describe('movie.playUntil(seconds): play and pause exactly at a time', () => {
     expect(m.currentFrame).toBe(120);
   });
 
-  it('with no time it plays to the end and resolves true when it has ended (a time at or past the end is the same)', async () => {
+  it('with no time it plays to the end and resolves true when it has ended (and says ended)', async () => {
     const { m, events } = readyMovie();
     const toEnd = m.playUntil(); await run(11000);
     expect(await toEnd).toBe(true);
     expect(m.currentFrame).toBe(300);
     expect(events).toContain('ended');
-    const { m: m2 } = readyMovie();
-    const past = m2.playUntil(99); await run(11000);
-    expect(await past).toBe(true);
-    expect(m2.currentFrame).toBe(300);
+  });
+
+  it('a time at or past the end lands on the last frame like any other time (a stop on the last frame is a stop, not "the movie ended")', async () => {
+    for (const t of [10, 99]) {
+      const { m, events } = readyMovie();
+      const p = m.playUntil(t); await run(11000);
+      expect(await p).toBe(true);
+      expect(m.currentFrame).toBe(300);
+      expect(m.isPlaying).toBe(false);
+      expect(events).not.toContain('ended');
+    }
   });
 
   it('a time at or before the playhead has nothing to play toward: it pauses and resolves false at once', async () => {

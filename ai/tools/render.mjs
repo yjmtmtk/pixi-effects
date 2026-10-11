@@ -25,7 +25,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { findChrome, findRoot, serve, launchChrome, shown, sleep } from './check.mjs';
+import { findChrome, findRoot, serve, launchChrome, shown, sleep, LOAD_PRESENT } from './check.mjs';
 
 const FORMATS = ['mp4', 'webm', 'mov', 'mkv', 'wav', 'ogg', 'pdf'];
 const SOUND_ONLY = ['wav', 'ogg'];
@@ -109,7 +109,7 @@ const renderScript = (format, quality, videoCodec, audioCodec, motionBlur, shutt
       const video = { ${[videoBitrate ? `bitrate: ${JSON.stringify(/^\d+(\.\d+)?$/.test(videoBitrate) ? Number(videoBitrate) : videoBitrate)}` : part.draft && !part.qualityGiven ? null : `bitrate: ${JSON.stringify(quality)}`, videoCodec ? `codec: ${JSON.stringify(videoCodec)}` : null].filter(Boolean).join(', ')} };
       const audio = { bitrate: ${JSON.stringify(quality)}${audioCodec ? `, codec: ${JSON.stringify(audioCodec)}` : ''} };
       const blob = ${JSON.stringify(format)} === 'pdf'
-        ? await movie.exportPDF({ which: ${allStops ? "'stops'" : "'pages'"}, title: document.title })
+        ? await (${LOAD_PRESENT}).catch(e => { throw new Error('a PDF needs pixi-effects/present in the page (add "pixi-effects/present": ".../dist/present.js" to its import map, from the same version as the library): ' + ((e && e.message) || e)); }).then(p => p.exportPDF(movie, { which: ${allStops ? "'stops'" : "'pages'"}, title: document.title }))
         : await movie.render({ format: ${JSON.stringify(format)}, ${SOUND_ONLY.includes(format) ? '' : 'video, '}audio${part.range ? `, range: [${part.range[0] ?? 0}, ${part.range[1] ?? 'movie.duration'}]` : ''}${part.scene ? `, range: ${JSON.stringify(part.scene)}` : ''}${part.scale ? `, scale: ${part.scale}` : ''}${part.draft ? ', draft: true' : ''}${motionBlur ? `, motionBlur: { samples: ${motionBlur}${shutter ? `, shutter: ${shutter}` : ''} }` : ''} });
       const res = await fetch(${JSON.stringify(UPLOAD)}, { method: 'PUT', body: blob });
       if (!res.ok) throw new Error('could not hand the file to the command (' + res.status + ')');

@@ -38,13 +38,15 @@
       "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
-      "pixi-effects/controller": "../../dist/Controller.js"
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":    "../../dist/present.js"
     }
   }
   </script>
 
   <script type="module">
-    import { Movie, deck, animateText, stagger } from 'pixi-effects';
+    import { Movie, animateText, stagger } from 'pixi-effects';
+    import { deck } from 'pixi-effects/present';
     import { Controller } from 'pixi-effects/controller';
 
     const W = 1280, H = 720, FPS = 30;

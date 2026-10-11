@@ -21,7 +21,7 @@ import { animateText } from '../../src/presets/animateText';
 import { followPath } from '../../src/presets/followPath';
 import { cameraPath } from '../../src/presets/cameraPath';
 import { particles } from '../../src/presets/particles';
-import { deck } from '../../src/presets/deck';
+import { deck } from '../../src/present/deck';
 import { react } from '../../src/presets/react';
 import { bpmEnvelope } from '../../src/audio/envelope';
 import { random, rand, noise } from '../../src/expr/random';

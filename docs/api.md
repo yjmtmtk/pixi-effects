@@ -71,13 +71,21 @@ Seeks to a specific frame. Pauses if currently playing? **No** — does not chan
 
 `force=true` skips the early-return when the requested frame equals `currentFrame`. Use it after a composition rebuild.
 
+### `movie.playUntil(seconds?): Promise<boolean>`
+
+Play, and pause exactly at `seconds` (the frame `round(seconds × frameRate)`). It resolves `true` when the playhead has landed there; `false` when something else ended it first (a `pause()`, a seek, a newer `playUntil()`) or when there is nothing to play toward (a time at or before the playhead: it also pauses the movie where it is; a movie that is not ready). A time at or past the end lands on the last frame; with no time at all it plays to the end, says `ended`, and resolves `true`. An ordinary `play()` is not affected. It is the one move a presentation (`pixi-effects/present`) is built on; it is also the way to "play the intro, then wait": `await movie.playUntil(4.5)`.
+
+### `movie.peek(fn): Promise<T>`
+
+Look around and put the movie back: pauses, runs `fn` (seek, take pictures with `snapshot()`; the seeks made inside are not reported as `seeking` / `seeked`), then puts the playhead (or the poster) back where it was, whatever `fn` did, and returns what `fn` returned. `stopImages()` and `inspectStops()` (`pixi-effects/present`) are made with it.
+
 ### `movie.snapshot(frame?, options?): Promise<Blob | string>`
 
 ```ts
-snapshot(frame?: number, options?: { scale?: number; type?: 'image/png' | 'image/jpeg'; as?: 'blob' | 'dataURL'; motionBlur?: MotionBlurSpec }): Promise<Blob | string>
+snapshot(frame?: number, options?: { scale?: number; type?: 'image/png' | 'image/jpeg'; quality?: number; as?: 'blob' | 'dataURL' | 'imageData'; motionBlur?: MotionBlurSpec }): Promise<Blob | string | ImageData>
 ```
 
-A picture of one frame: **the canvas only** (the player bar is not in it). Seeks to `frame` (default: the current frame) and stays there. `as: 'dataURL'` returns a `data:` URL string, handy when a script can only return text. Use it to look at what you built.
+A picture of one frame: **the canvas only** (the player bar is not in it). Seeks to `frame` (default: the current frame) and stays there. `as: 'dataURL'` returns a `data:` URL string, `as: 'imageData'` the pixels as an `ImageData` (to measure or compare; `quality` is the JPEG quality, 0 to 1), handy when a script can only return text. Use it to look at what you built.
 
 ### `movie.contactSheet(options?): Promise<Blob | string>`
 
@@ -252,7 +260,6 @@ movie.off(event, fn): this
 | `'progress'`| `{ progress: number; frame: number; totalFrames: number }` | during `render()`, once per encoded frame    |
 | `'loadprogress'` | `{ stage: 'assets' \| 'build' \| 'sound' \| 'frames'; loaded: number; total: number; progress: number }` | during `init()`, after each asset and each layer built, once the sound is mixed; `progress` is 0 to 1 for the whole init. The page's `.pe-loader` already shows it; `movie.loadStages` gives the milliseconds per stage afterwards |
 | `'seeking'` / `'seeked'` | `{ frame, totalFrames }` (the frame it lands on) | a `gotoFrame()` to another frame starts / has finished. NOT emitted for playback ticks, `render()`, `snapshot()` or `contactSheet()` |
-| `'stop'`    | `{ index: number; stop: Stop; pageIndex: number }` | a presentation is on a stop: `next()` played to it, or `prev()` / `goToStop()` / `goToPage()` jumped to it |
 | `'ended'`   | none                                              | playback ran off the end (after `'pause'`); pausing by hand does not emit it |
 | `'volumechange'` | `{ volume: number; muted: boolean }`         | `volume` or `muted` really changed (clamping counts) |
 | `'error'`   | `{ where: 'init' \| 'render' \| 'playback'; message: string; error: unknown }` | `init()` / `render()` failed (the call still rejects), or a frame failed during playback |
@@ -276,28 +283,32 @@ The names are the ones an HTML5 `<video>` uses, so a player written for `<video>
 | `muted`          | boolean   | getter/setter; immediate                                |
 | `app`            | `pixi.js Application \| null` | PIXI Application instance (advanced/escape hatch) |
 | `timeline`       | `Timeline \| null`              | the movie's timeline (advanced): `time(t)`, `duration()`, `segments()` |
-| `stops`          | `Stop[]`  | the composition's stops (see Presentations); empty for an ordinary movie |
-| `stopIndex`, `pageIndex`, `pageCount`, `currentStop` | number, number, number, `Stop \| null` | where the playhead is among the stops and pages (`-1` / `null` before the first stop) |
+| `stops`          | `Stop[]`  | the composition's stops: named times (see Presentations); empty for an ordinary movie |
 
-### Presentations: `stops`, `next()`, `prev()`, `Presenter`
+### Presentations: `stops` and `pixi-effects/present`
 
 A composition can say where a presentation pauses: `composition: { stops: [...] }`. A stop is a time in seconds or `{ at, page?, notes?, advance?, pdf? }`; a stop with `page` (a name, or `true`) begins a page, the others are steps of it; with no `page` anywhere each stop is a page; the first stop always begins one. A negative `at` counts back from the end; two stops on one frame are one; a stop outside the movie is ignored with a warning. `movie.play()` ignores the stops and plays to the end; the `Controller`'s play button, Space and a click on the picture play to the next stop and pause there (see `pauseAtStops`). `pdf: true` marks the stop whose picture stands for its page in a PDF (and in the page overview); `pdf: false` keeps a stop's picture out of the PDF (a last stop that is mid-exit, a step you do not want on paper). Without flags a page is pictured by its last stop.
 
 ```ts
-movie.stops                    // Stop[]: { index, at, frame, page: string | null, pageIndex, pageStart, notes?, advance?, pdf? }
-await movie.next();            // play to the next stop and pause exactly on its frame; pressed again while playing, skip to that stop at once;
+import { next, prev, goToStop, goToPage, onStop, stopIndex, pageIndex, pageCount, currentStop } from 'pixi-effects/present';
+
+movie.stops                    // (the core) Stop[]: { index, at, frame, page: string | null, pageIndex, pageStart, notes?, advance?, pdf? }
+await next(movie);             // play to the next stop and pause exactly on its frame; pressed again while playing, skip to that stop at once;
                                // after the last stop play to the end. Resolves when it has landed (or stopped for another reason).
-await movie.prev();            // jump back to the previous stop at once (no reverse playback); from the first stop, to the start
-await movie.goToStop(i);       // 0-based
-await movie.goToPage(n);       // 0-based: the first stop of page n
-movie.stopIndex / movie.pageIndex / movie.pageCount / movie.currentStop
-movie.on('stop', ({ index, stop, pageIndex }) => …)
+await prev(movie);             // jump back to the previous stop at once (no reverse playback); from the first stop, to the start
+await goToStop(movie, i);      // 0-based
+await goToPage(movie, n);      // 0-based: the first stop of page n
+stopIndex(movie) / pageIndex(movie) / pageCount(movie) / currentStop(movie)      // where the playhead is (-1 / null before the first stop)
+const off = onStop(movie, ({ index, stop, pageIndex }) => …);                    // a stop was landed on; off() stops listening
 ```
 
-`deck({ pages, transition? })` builds such a movie from pages (see the DSL reference). **`Presenter`** (`pixi-effects/presenter`) is the player for it:
+The presentation side is a separate entry, `pixi-effects/present`, built on the core's public API only (an import map line: `"pixi-effects/present": ".../dist/present.js"`). The core knows `stops` (named times) and two general moves it is made of: `movie.playUntil(seconds)` and `movie.peek(fn)` (below). An ordinary `movie.play()` ignores the stops. `onStop` listeners belong to the `pixi-effects/present` module the page imported: the `Controller` loads `present.js` from beside itself, so map `"pixi-effects/present"` to the same folder as `Controller.js`, or a Controller landing will not reach your `onStop`.
+
+
+`deck({ pages, transition? })` (from `pixi-effects/present`) builds such a movie from pages (see the DSL reference). **`Presenter`** (also `pixi-effects/present`) is the player for it:
 
 ```ts
-import { Presenter } from 'pixi-effects/presenter';
+import { Presenter } from 'pixi-effects/present';
 const presenter = new Presenter(movie, { canvas });     // instead of Controller; await presenter.start() to go fullscreen and play to the first stop
 ```
 
@@ -317,16 +328,17 @@ const presenter = new Presenter(movie, { canvas });     // instead of Controller
 
 `presenter.start()`, `presenter.openPresenterView()`, `presenter.closePresenterView()`, `presenter.next()`, `presenter.prev()`, `presenter.setCover('black' \| 'white' \| 'off')`, `presenter.exit()`, `presenter.destroy()`. It uses the canvas's positioned parent, or wraps the canvas like `Controller` does. A movie with stops shown through a **`Controller`** gets a mark per stop on the seek bar and a Present button (`present: false` leaves the marks only) that hands the page to a `Presenter` (fullscreen, keys, click and swipe move through the stops; Esc gives the bar back).
 
-### `movie.inspectStops(options?)`
+### `inspectStops(movie, options?)`
 
-Is the picture at each stop still changing? Each stop is compared with the picture `lookback` frames before it (default 3); when more than `tolerance` (default 0.004, a share of the pixels) differs, the audience, the page overview and a PDF would see a half-finished animation. Returns `{ stops: [{ index, page, at, frame, moving, settled }], issues: string[] }`; each issue names the stop and the page and says what to do (move the stop to after the animation has ended, or flag a settled stop of the page `pdf: true`). Leaves the playhead where it was. `pixi-effects-check` runs it for any page with `stops`.
+Is the picture at each stop still changing? Each stop is compared with the picture `lookback` frames before it (default 3); when more than `tolerance` (default 0.004, a share of the pixels) differs, the audience, the page overview and a PDF would see a half-finished animation. Returns `{ stops: [{ index, page, at, frame, moving, settled }], issues: string[] }`; each issue names the stop and the page and says what to do (move the stop to after the animation has ended, or flag a settled stop of the page `pdf: true`). Leaves the playhead where it was. `pixi-effects-check` runs it for any page with `stops` (it loads the page's own `pixi-effects/present`; add that line to the import map).
 
-### Pictures of the stops and the deck as a PDF: `movie.stopImages()`, `movie.exportPDF()`
+### Pictures of the stops and the deck as a PDF: `stopImages(movie)`, `exportPDF(movie)`
 
 ```ts
-const pages = await movie.stopImages({ as: 'dataURL', type: 'image/jpeg', scale: 0.25 });   // one picture per PAGE: its last stop, fully built
+import { stopImages, exportPDF } from 'pixi-effects/present';
+const pages = await stopImages(movie, { as: 'dataURL', type: 'image/jpeg', scale: 0.25 });   // one picture per PAGE: its last stop, fully built
 // [{ stop, page, image }, …]; { which: 'stops' } is one per stop, { pick: 'first' } the first stop of each page; onImage(img) is called as each one is ready
-const pdf = await movie.exportPDF({ title: 'My talk' });                                    // a Blob: one PDF page per page of the deck (JPEG at the canvas size)
+const pdf = await exportPDF(movie, { title: 'My talk' });                                    // a Blob: one PDF page per page of the deck (JPEG at the canvas size)
 ```
 
 Both pause the movie and leave the playhead where it was; a movie with no stops returns an empty list / throws (a PDF needs pages). The picture of a page is, in order: its last stop flagged `pdf: true`, else its last (with `pick: 'first'`, first) stop that is not `pdf: false`; a page whose stops are all `pdf: false` is left out of a PDF (a page list still shows it by its last stop); `which: 'stops'` makes a page of every stop that is not `pdf: false`. `exportPDF` options: `which`, `pick`, `scale`, `quality` (JPEG, default 0.92), `title`, `motionBlur`, `onImage`. A transparent background comes out black in a JPEG: give the movie a `background`. From a script, `npx pixi-effects render my-talk.html -o my-talk.pdf` (add `--all-stops` for a page per stop).

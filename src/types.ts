@@ -724,7 +724,7 @@ export interface CompositionSpec extends SequenceCommon {
   transitions?: TransitionSpec[];
   /**
    * Where a presentation pauses: seconds, or `{ at, page?, notes?, advance? }` (see `StopSpec`). A stop with `page` begins a page, the others
-   * are steps of it; with no `page` anywhere each stop is a page. Nothing changes for an ordinary player: `Presenter` (and `movie.next()`)
+   * are steps of it; with no `page` anywhere each stop is a page. Nothing changes for an ordinary player: `Presenter` (and `next(movie)`, from `pixi-effects/present`)
    * stop at them, `Controller` shows them as marks on the seek bar.
    */
   stops?: Array<number | import('./core/stops').StopSpec>;

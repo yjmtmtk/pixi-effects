@@ -18,11 +18,13 @@
     }
   </script>
   <script type="importmap">
-  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny" } }
+  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny", "pixi-effects": "../../dist/index.js", "pixi-effects/present": "../../dist/present.js" } }
   </script>
   <script type="module">
     import { Movie } from '../../dist/index.js';
-    import { Presenter } from '../../dist/Presenter.js';
+    import * as present from '../../dist/present.js';
+    const { Presenter } = present;
+    window.present = present;                                          // for the test: stopIndex(movie), goToStop(movie, i), exportPDF(movie), …
     import { Controller } from '../../dist/Controller.js';
     const q = new URLSearchParams(location.search);
     const realOpen = window.open.bind(window);                        // remember the windows the presenter opens, for the test
@@ -31,7 +33,7 @@
     const movie = new Movie();
     window.movie = movie;
     window.__stops = [];
-    movie.on('stop', e => window.__stops.push(e.index));
+    present.onStop(movie, e => window.__stops.push(e.index));
     if (q.has('controller')) new Controller(movie, { canvas: document.getElementById('stage') });
     try {
       await movie.init({

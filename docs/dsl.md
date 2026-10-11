@@ -1121,7 +1121,7 @@ initial: { x: 'GW/2', y: 'GH * 0.96', anchorX: 0.5, anchorY: 1 }
 
 ## Stops (presentations)
 
-`composition.stops` says where a presentation pauses: seconds, or `{ at, page?, notes?, advance?, pdf? }` (see [Presentations in the API reference](api.md#presentations-stops-next-prev-presenter)). A stop with `page` begins a page (a name, or `true`), the others are steps of it; with no `page` anywhere each stop is a page. `movie.play()` ignores them; the `Controller` shows marks on the seek bar and its play button plays to the next stop (`pauseAtStops: false` plays through), and `movie.next()` and `Presenter` pause on them. **`pdf: true` / `pdf: false`** on a stop chooses which moment stands for a page in a PDF: `true` = this stop is the page's picture, `false` = never use it (default: the page's last stop). Use it when the last stop is mid-exit. [`deck()`](#deck) builds the whole thing from pages.
+`composition.stops` says where a presentation pauses: seconds, or `{ at, page?, notes?, advance?, pdf? }` (see [Presentations in the API reference](api.md#presentations-stops-and-pixi-effectspresent)). A stop with `page` begins a page (a name, or `true`), the others are steps of it; with no `page` anywhere each stop is a page. `movie.play()` ignores them; the `Controller` shows marks on the seek bar and its play button plays to the next stop (`pauseAtStops: false` plays through), and `next(movie)` and `Presenter` (both from `pixi-effects/present`) pause on them. **`pdf: true` / `pdf: false`** on a stop chooses which moment stands for a page in a PDF: `true` = this stop is the page's picture, `false` = never use it (default: the page's last stop). Use it when the last stop is mid-exit. [`deck()`](#deck) builds the whole thing from pages.
 
 ## Transitions
 
@@ -1602,10 +1602,10 @@ See [the API reference](api.md#audio-reactive-audioenvelope-react-bpmenvelope) f
 
 ### `deck`
 
-A deck of pages as one movie, for a `Presenter`. Each page is a nested composition laid out after the one before (so its layers are written in the page's own time), the stops come from the pages, and an optional `transition` joins them with the existing transitions.
+A deck of pages as one movie, for a `Presenter` (`import { deck, Presenter } from 'pixi-effects/present'`). Each page is a nested composition laid out after the one before (so its layers are written in the page's own time), the stops come from the pages, and an optional `transition` joins them with the existing transitions.
 
 ```ts
-import { deck } from 'pixi-effects';
+import { deck } from 'pixi-effects/present';
 
 await movie.init({ canvas, width: 1280, height: 720, frameRate: 30, ...deck({
   transition: { kind: 'slide', direction: 'left', duration: 0.6, ease: 'power3.inOut' },

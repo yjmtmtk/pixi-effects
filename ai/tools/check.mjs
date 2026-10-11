@@ -286,6 +286,18 @@ const waveformScript = (audio, duration) => `(() => {
 // ───────────────────────────── the check ─────────────────────────────
 
 export const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/**
+ * JavaScript, as text, for the page: it resolves to the page's own `pixi-effects/present` module (stops, pages, PDF). The page's import map names it
+ * (`pixi-effects/present`); a page that only maps `pixi-effects` gets the `present.js` that sits beside the library.
+ */
+export const LOAD_PRESENT = `(async () => {
+  try { return await import('pixi-effects/present'); } catch (e) { /* not in the import map: look beside the library */ }
+  let lib = null;
+  try { lib = JSON.parse(document.querySelector('script[type="importmap"]').textContent).imports['pixi-effects']; } catch (e) { /* none */ }
+  if (!lib) throw new Error('the page has no "pixi-effects" in its import map');
+  return import(new URL('present.js', new URL(lib, document.baseURI)).href);
+})()`;
 /** A path for display: relative to the cwd when it is inside it, absolute otherwise. */
 export const shown = f => { const r = path.relative(process.cwd(), f); return r.startsWith('..') || path.isAbsolute(r) ? f : r; };
 const kb = n => (n >= 1048576 ? `${(n / 1048576).toFixed(2)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
@@ -404,11 +416,13 @@ export async function runCheck(opts, log = console.log) {
     }
 
     // a presentation (composition.stops): one picture of every stop, in order, so the pages and steps can be read at a glance
-    const stops = await cdp.eval(`(() => { const s = movie.stops || []; return s.length ? { count: s.length, pages: movie.pageCount, items: s.map(x => ({ at: Math.round(x.at * 100) / 100, frame: x.frame, page: x.page, pageStart: x.pageStart, notes: !!x.notes, pdf: x.pdf })) } : null; })()`).catch(() => null);
+    const stops = await cdp.eval(`(() => { const s = movie.stops || []; return s.length ? { count: s.length, pages: new Set(s.map(x => x.pageIndex)).size, items: s.map(x => ({ at: Math.round(x.at * 100) / 100, frame: x.frame, page: x.page, pageStart: x.pageStart, notes: !!x.notes, pdf: x.pdf })) } : null; })()`).catch(() => null);
     if (stops) {
       report.stops = stops;
       // is the picture at each stop still changing? (the audience, the page overview and a PDF would see a half-finished animation)
-      const settled = await cdp.eval('movie.inspectStops()').catch(() => null);
+      let skipped = '';
+      const settled = await cdp.eval(`${LOAD_PRESENT}.then(p => p.inspectStops(movie))`).catch(e => { skipped = String((e && e.message) || e); return null; });
+      if (!settled) report.stops.reviewSkipped = `${skipped || 'no answer'} (the page needs "pixi-effects/present": ".../dist/present.js" in its import map, from the same version as the library)`;
       if (settled) {
         report.stops.review = settled.issues;
         report.stops.moving = settled.stops.map(s => Math.round(s.moving * 10000) / 10000);
@@ -529,7 +543,8 @@ function finish(report, outDir, log) {
   }
   if (report.stops) {
     const s = report.stops;
-    L.push(`  stops     ${s.count} stop(s) on ${s.pages} page(s) — stops.png shows each one in order; the picture at a stop is what the audience sees while it waits`);
+    L.push(`  stops     ${s.count} stop(s) on ${s.pages} page(s) — stops.png shows each one in order; the picture at a stop is what the audience sees while it waits`)
+    if (s.reviewSkipped) L.push(`            not reviewed for stops that are still moving: ${s.reviewSkipped}`);
     if (s.review?.length) {
       L.push(`  review    ${s.review.length} stop(s) where the picture is still changing (may be on purpose, e.g. something always moving; use --strict to fail on them):`);
       for (const r of s.review.slice(0, 4)) L.push(`            - ${r}`);

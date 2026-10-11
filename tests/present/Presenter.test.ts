@@ -1,8 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { Movie } from '../src/core/Movie';
-import { Presenter } from '../src/Presenter';
-import { normalizeStops } from '../src/core/stops';
+import type { Movie } from '../../src/core/Movie';
+import { Presenter } from '../../src/present/Presenter';
+import { normalizeStops } from '../../src/core/stops';
 import { Window as HappyWindow } from 'happy-dom';
+
+// The Presenter drives the movie through `src/present/navigation` and `images`; what these tests check is what the Presenter asks for (keys, taps,
+// timers, the page list), so those two modules hand every call to the fake movie's own methods of the same name. The movement itself is
+// tested in navigation.test.ts / images.test.ts.
+vi.mock('../../src/present/navigation', () => ({
+  next: (m: any) => m.next(), prev: (m: any) => m.prev(), goToStop: (m: any, i: number) => m.goToStop(i), goToPage: (m: any, n: number) => m.goToPage(n),
+  stopIndex: (m: any) => m.stopIndex, pageIndex: (m: any) => m.pageIndex, pageCount: (m: any) => m.pageCount, currentStop: (m: any) => m.currentStop,
+  onStop: (m: any, fn: (e: unknown) => void) => { m.on('stop', fn); return () => m.off('stop', fn); },
+}));
+vi.mock('../../src/present/images', () => ({ stopImages: (m: any, o: unknown) => m.stopImages(o) }));
 
 type Listener = (...args: unknown[]) => void;
 

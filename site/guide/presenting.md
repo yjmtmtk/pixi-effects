@@ -34,7 +34,7 @@ A stop with `page` begins a page; the others are **steps** of it (a bullet appea
 ## The Presenter
 
 ```js
-import { Presenter } from 'pixi-effects/presenter';
+import { Presenter } from 'pixi-effects/present';
 const presenter = new Presenter(movie, { canvas });      // use it instead of Controller
 await presenter.start();                                 // from a button: fullscreen, then play to the first stop
 ```
@@ -54,7 +54,7 @@ await presenter.start();                                 // from a button: fulls
 
 It draws only a small page counter (`3 / 8`), the page name and a thin progress line, which fade out when nothing happens, and the pointer hides with them. A movie shown through a `Controller` gets a **Present** button for free; `Esc` brings the bar back. Options: `clickToAdvance`, `swipe`, `keyboard`, `indicator`, `autoAdvance`, `loop`, `accent`.
 
-From code, the same moves are `movie.next()`, `movie.prev()`, `movie.goToStop(i)`, `movie.goToPage(n)`, and `movie.on('stop', …)` tells you where it landed.
+From code, the same moves are `next(movie)`, `prev(movie)`, `goToStop(movie, i)`, `goToPage(movie, n)`, and `onStop(movie, fn)` tells you where it landed (all from `pixi-effects/present`; add `"pixi-effects/present"` to the import map, next to `"pixi-effects"`). Underneath is one move of the core, `movie.playUntil(seconds)`: play, then pause exactly there.
 
 ## `deck()`: pages and steps without the arithmetic
 
@@ -104,7 +104,7 @@ Both use a picture of every stop that `presenter.start()` makes **before** the a
 npx pixi-effects render my-talk.html -o my-talk.pdf
 ```
 
-One PDF page per page of the deck, each the page fully built, as a picture at the canvas size (`--all-stops` makes a page of every stop). From code, `await movie.exportPDF({ title })` returns the Blob, and `movie.stopImages()` gives you the pictures themselves (for a handout, a thumbnail strip, a page list of your own). Give the movie a `background`: a transparent one comes out black in a JPEG.
+One PDF page per page of the deck, each the page fully built, as a picture at the canvas size (`--all-stops` makes a page of every stop). From code, `await exportPDF(movie, { title })` returns the Blob, and `stopImages(movie)` gives you the pictures themselves (for a handout, a thumbnail strip, a page list of your own). Give the movie a `background`: a transparent one comes out black in a JPEG.
 
 **Choosing the picture of a page.** Normally a page is pictured by its last stop. If that moment is wrong on paper (the page is already leaving, or the last step is a transition), say so in the stops: `{ at: 4, pdf: true }` makes this stop the page's picture, `{ at: 5, pdf: false }` keeps a stop out of the PDF. In `deck()` write the page's stops as `stops: [1.2, { at: 3, pdf: true }, { at: 4.2, pdf: false }]`. The page overview shows the same pictures.
 
@@ -112,7 +112,7 @@ The player bar's download panel has the same choice: for a deck its format list 
 
 ## Reviewing a deck
 
-`await movie.contactSheet({ frames: movie.stops.map(s => s.frame), as: 'dataURL' })` is one picture of every stop: the whole talk at a glance. Check it as you would any piece. `await movie.inspectStops()` checks for you whether the picture at each stop has stopped moving: a stop that lands a few frames before an animation ends (a line still growing, a word still fading in) is listed with its page and time, and `pixi-effects-check` prints the same list. A stop where something moves on purpose is fine; otherwise move the stop later, or flag a settled stop of the page `pdf: true` for the PDF.
+`await movie.contactSheet({ frames: movie.stops.map(s => s.frame), as: 'dataURL' })` is one picture of every stop: the whole talk at a glance. Check it as you would any piece. `await inspectStops(movie)` checks for you whether the picture at each stop has stopped moving: a stop that lands a few frames before an animation ends (a line still growing, a word still fading in) is listed with its page and time, and `pixi-effects-check` prints the same list. A stop where something moves on purpose is fine; otherwise move the stop later, or flag a settled stop of the page `pdf: true` for the PDF.
 
 ## Also useful
 

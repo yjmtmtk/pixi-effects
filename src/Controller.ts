@@ -385,6 +385,13 @@ export class Controller {
   private settingsOutsideHandler: ((e: PointerEvent) => void) | null = null;
   private onReady: (() => void) | null = null;
   private presenter: { destroy(): void } | null = null;
+  /** `pixi-effects/present`, loaded as soon as the movie has stops (a press of play must not wait for it). */
+  private present: typeof import('./present/index') | null = null;
+  private presentLoading: Promise<typeof import('./present/index')> | null = null;
+  private playStarting = false;
+  private loadPresent(): Promise<typeof import('./present/index')> {
+    return this.presentLoading ??= import('./present/index').then(m => (this.present = m), err => { this.presentLoading = null; throw err; });     // (a failed load is tried again next time)
+  }
   private presentBtn: HTMLButtonElement | null = null;
   private onFrame: ((e: { frame: number; totalFrames: number }) => void) | null = null;
   private onPlay: (() => void) | null = null;
@@ -640,6 +647,7 @@ export class Controller {
       this.presentBtn?.remove(); this.presentBtn = null;
       return;
     }
+    this.loadPresent().catch(() => { /* said when it is needed: startPlaying() plays straight through instead */ });
     const total = this.movie.totalFrames || 1;
     const holder = document.createElement('div');
     holder.className = 'mc-stops';
@@ -690,14 +698,23 @@ export class Controller {
   private async startPlaying(): Promise<void> {
     if (this.options.pauseAtStops && (this.movie.stops?.length ?? 0) > 0) {
       if (this.movie.currentFrame >= this.movie.totalFrames) await this.movie.gotoFrame(0, true);
-      await this.movie.next();
+      let present = this.present;
+      if (!present) {
+        if (this.playStarting) return;                                 // a second press while the module loads is the same press
+        this.playStarting = true;
+        try { present = await this.loadPresent(); }
+        catch (err) { console.warn('pixi-effects: could not load pixi-effects/present, playing straight through:', err); }
+        finally { this.playStarting = false; }
+      }
+      if (!present) { this.movie.play(); return; }
+      await present.next(this.movie);
     } else this.movie.play();
   }
 
   /** Hand the page over to a Presenter (fullscreen, keys, click and swipe move through the stops); Escape gives it back. */
   private async startPresenting(): Promise<void> {
     if (this.presenter || this.destroyed) return;
-    const { Presenter } = await import('./Presenter');
+    const { Presenter } = await this.loadPresent();
     if (this.presenter || this.destroyed) return;
     const p = new Presenter(this.movie, { canvas: this.options.canvas, onExit: () => this.stopPresenting() });
     this.presenter = p;
@@ -1000,7 +1017,7 @@ export class Controller {
     } else this.showExportOverlay();
     try {
       const blob = pdf
-        ? await this.movie.exportPDF({
+        ? await (await this.loadPresent()).exportPDF(this.movie, {
           which: this.exportFormat === 'pdf-steps' ? 'stops' : 'pages',
           quality: PDF_QUALITY[this.exportQuality],
           onImage: () => this.pdfPageDone(),

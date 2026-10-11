@@ -171,5 +171,7 @@ export function createPixiMock() {
     Sprite, Text, Graphics, GraphicsPath, FillGradient, TextStyle, CanvasTextMetrics,
     Filter, GlProgram, GpuProgram, UniformGroup, Shader, compileHighShaderGpuProgram, BlendModeFilter, AlphaFilter, ExtensionType, extensions, defaultFilterVert: '',
     Assets: { get: async () => null },
+    // (the Movie module, loaded by anything that imports the library's index, names these at import time)
+    Application: class {}, Culler: class {}, CullerPlugin: class {},
   };
 }

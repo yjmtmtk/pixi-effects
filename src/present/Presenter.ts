@@ -1,6 +1,8 @@
-import type { Movie, StopEvent } from './core/Movie';
-import type { Stop } from './core/stops';
-import { warnUnknownOptions } from './core/options';
+import type { Movie, Stop } from '../index';
+import { warnUnknownOptions } from '../index';
+import * as nav from './navigation';
+import type { StopEvent } from './navigation';
+import { stopImages } from './images';
 
 export interface PresenterOptions {
   canvas: HTMLCanvasElement;
@@ -156,6 +158,7 @@ export class Presenter {
 
   private onKey = (e: KeyboardEvent) => this.handleKey(e);
   private onStop = (e: StopEvent) => this.handleStop(e);
+  private offStop: (() => void) | null = null;
   private onSeeked = () => this.refresh();
   private onFrame = () => this.mirror();
   private onEnded = () => this.handleEnded();
@@ -215,7 +218,7 @@ export class Presenter {
     canvas.addEventListener('pointermove', this.onPointerMove);
     if (this.options.keyboard) document.addEventListener('keydown', this.onKey);
     document.addEventListener('fullscreenchange', this.onFullscreenChange);
-    movie.on('stop', this.onStop);
+    this.offStop = nav.onStop(movie, this.onStop);
     movie.on('seeked', this.onSeeked);
     movie.on('ended', this.onEnded);
     this.refresh();
@@ -235,8 +238,8 @@ export class Presenter {
     if (document.fullscreenElement === this.box) await document.exitFullscreen?.().catch(() => {});
   }
 
-  next(): Promise<void> { this.cancelAdvance(); return this.run(() => this.movie.next()); }
-  prev(): Promise<void> { this.cancelAdvance(); return this.run(() => this.movie.prev()); }
+  next(): Promise<void> { this.cancelAdvance(); return this.run(() => nav.next(this.movie)); }
+  prev(): Promise<void> { this.cancelAdvance(); return this.run(() => nav.prev(this.movie)); }
 
   /** Black out (`'black'`), white out (`'white'`) or bring the picture back (`'off'`). */
   setCover(mode: 'black' | 'white' | 'off'): void {
@@ -255,7 +258,7 @@ export class Presenter {
     canvas.removeEventListener('pointerup', this.onPointerUp);
     canvas.removeEventListener('pointermove', this.onPointerMove);
     this.closePresenterView();
-    this.movie.off('stop', this.onStop);
+    this.offStop?.(); this.offStop = null;
     this.movie.off('seeked', this.onSeeked);
     this.movie.off('ended', this.onEnded);
     for (const t of [this.idleTimer, this.digitsTimer, this.advanceTimer, this.loopTimer]) if (t) clearTimeout(t);
@@ -317,19 +320,19 @@ export class Presenter {
     this.cancelAdvance();
     this.loopTimer = setTimeout(() => {
       this.loopTimer = null;
-      void this.run(async () => { await this.movie.gotoFrame(0, true); await this.movie.next(); });
+      void this.run(async () => { await this.movie.gotoFrame(0, true); await nav.next(this.movie); });
     }, 800);
   }
 
   private refresh(): void {
     const m = this.movie;
-    const pages = m.pageCount ?? 0, stops = m.stops?.length ?? 0;
+    const pages = nav.pageCount(m), stops = m.stops?.length ?? 0;
     if (this.counterEl) {
-      this.counterEl.textContent = pages > 0 ? `${m.pageIndex >= 0 ? m.pageIndex + 1 : '–'} / ${pages}` : '';
+      this.counterEl.textContent = pages > 0 ? `${nav.pageIndex(m) >= 0 ? nav.pageIndex(m) + 1 : '–'} / ${pages}` : '';
       this.counterEl.style.display = pages > 0 ? '' : 'none';
     }
-    if (this.titleEl) this.titleEl.textContent = m.currentStop?.page ?? '';
-    if (this.progressEl) this.progressEl.style.setProperty('--mp-fill', String(stops > 0 ? (m.stopIndex + 1) / stops : 0));
+    if (this.titleEl) this.titleEl.textContent = nav.currentStop(m)?.page ?? '';
+    if (this.progressEl) this.progressEl.style.setProperty('--mp-fill', String(stops > 0 ? (nav.stopIndex(m) + 1) / stops : 0));
     this.refreshView();
   }
 
@@ -369,13 +372,13 @@ export class Presenter {
     if (k >= '0' && k <= '9' && k.length === 1) { this.digits = (this.digits + k).slice(0, 4); this.showDigits(); }
     else if (k === 'Enter' && this.digits) {
       const page = Number(this.digits) - 1; this.digits = ''; this.showDigits();
-      this.navigate(() => { this.cancelAdvance(); void this.run(() => this.movie.goToPage(page)); });
+      this.navigate(() => { this.cancelAdvance(); void this.run(() => nav.goToPage(this.movie, page)); });
     }
     else if (k === 'Backspace' && this.digits) { this.digits = this.digits.slice(0, -1); this.showDigits(); }
     else if (NEXT_KEYS.has(k)) this.navigate(() => void this.next());
     else if (PREV_KEYS.has(k)) this.navigate(() => void this.prev());
-    else if (k === 'Home') this.navigate(() => { this.cancelAdvance(); void this.run(() => this.movie.goToPage(0)); });
-    else if (k === 'End') this.navigate(() => { this.cancelAdvance(); void this.run(() => this.movie.goToStop(Math.max(0, (this.movie.stops?.length ?? 1) - 1))); });
+    else if (k === 'Home') this.navigate(() => { this.cancelAdvance(); void this.run(() => nav.goToPage(this.movie, 0)); });
+    else if (k === 'End') this.navigate(() => { this.cancelAdvance(); void this.run(() => nav.goToStop(this.movie, Math.max(0, (this.movie.stops?.length ?? 1) - 1))); });
     else if (k === 'b' || k === 'B' || k === '.') this.setCover(this.coverEl.getAttribute('data-mode') === 'black' ? 'off' : 'black');
     else if (k === 'w' || k === 'W' || k === ',') this.setCover(this.coverEl.getAttribute('data-mode') === 'white' ? 'off' : 'white');
     else if (k === 'p' || k === 'P') this.togglePresenterView();
@@ -460,10 +463,10 @@ export class Presenter {
     if (!v || v.win.closed) return;
     const m = this.movie;
     const stops = m.stops ?? [];
-    const pages = m.pageCount ?? 0;
-    const cur = m.stopIndex ?? -1;
-    v.els.count!.textContent = pages > 0 ? `${m.pageIndex >= 0 ? m.pageIndex + 1 : '–'} / ${pages}` : '';
-    v.els.title!.textContent = m.currentStop?.page ?? (cur < 0 ? stops[0]?.page ?? '' : '');
+    const pages = nav.pageCount(m);
+    const cur = nav.stopIndex(m);
+    v.els.count!.textContent = pages > 0 ? `${nav.pageIndex(m) >= 0 ? nav.pageIndex(m) + 1 : '–'} / ${pages}` : '';
+    v.els.title!.textContent = nav.currentStop(m)?.page ?? (cur < 0 ? stops[0]?.page ?? '' : '');
     // the notes of the page the talk is in (before the first stop: of the first page, "coming up"): the latest ones written on or before this stop
     const upTo = cur < 0 ? 0 : cur, pageIndex = stops[upTo]?.pageIndex;
     let notes = '';
@@ -499,7 +502,7 @@ export class Presenter {
   ensureThumbs(): Promise<void> {
     this.thumbsPromise ??= (async () => {
       try {
-        await this.movie.stopImages({
+        await stopImages(this.movie, {
           which: 'stops', as: 'dataURL', type: 'image/jpeg', quality: 0.72, scale: Math.min(1, 480 / Math.max(1, this.options.canvas.width)),
           onImage: img => { this.thumbs.set(img.stop.index, img.image as string); this.onThumb(img.stop.index); },
         });
@@ -530,15 +533,15 @@ export class Presenter {
     this.gridEl.style.setProperty('--mp-cols', String(cols));
     this.gridEl.style.setProperty('--mp-ratio', `${width} / ${height}`);
     this.gridEl.innerHTML = '';
-    const current = Math.max(0, this.movie.pageIndex ?? 0);
+    const current = Math.max(0, nav.pageIndex(this.movie));
     pages.forEach((s, i) => {
       const cell = document.createElement('div');
       cell.className = 'mp-cell';
-      cell.setAttribute('data-current', String(i === this.movie.pageIndex));
+      cell.setAttribute('data-current', String(i === nav.pageIndex(this.movie)));
       cell.setAttribute('data-selected', String(i === current));
       cell.innerHTML = `<div class="mp-cell-label"><span class="mp-cell-num">${i + 1}</span><span class="mp-cell-name"></span></div>`;
       (cell.querySelector('.mp-cell-name') as HTMLElement).textContent = s.page ?? '';
-      cell.addEventListener('click', () => { this.overviewEl.setAttribute('data-open', 'false'); this.cancelAdvance(); void this.run(() => this.movie.goToPage(i)); });
+      cell.addEventListener('click', () => { this.overviewEl.setAttribute('data-open', 'false'); this.cancelAdvance(); void this.run(() => nav.goToPage(this.movie, i)); });
       this.gridEl.appendChild(cell);
       this.fillThumb(i);
     });
@@ -568,7 +571,7 @@ export class Presenter {
       case 'ArrowLeft': this.select(this.overviewSel - 1); return true;
       case 'ArrowDown': this.select(this.overviewSel + cols); return true;
       case 'ArrowUp': this.select(this.overviewSel - cols); return true;
-      case 'Enter': { const page = this.overviewSel; this.overviewEl.setAttribute('data-open', 'false'); this.cancelAdvance(); void this.run(() => this.movie.goToPage(page)); return true; }
+      case 'Enter': { const page = this.overviewSel; this.overviewEl.setAttribute('data-open', 'false'); this.cancelAdvance(); void this.run(() => nav.goToPage(this.movie, page)); return true; }
       case 'Escape': this.overviewEl.setAttribute('data-open', 'false'); return true;
       default: return NEXT_KEYS.has(e.key) || PREV_KEYS.has(e.key);        // swallowed: the presentation does not move underneath
     }

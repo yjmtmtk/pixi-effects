@@ -10,7 +10,7 @@ const root = resolve(__dirname, '../..');
 const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
 
 const chrome = check.findChrome();
-const built = existsSync(join(root, 'dist/index.js')) && existsSync(join(root, 'dist/Presenter.js'));
+const built = existsSync(join(root, 'dist/index.js')) && existsSync(join(root, 'dist/present.js'));
 
 async function withPage<T>(query: string, fn: (cdp: any) => Promise<T>): Promise<T> {
   const { server, port } = await check.serve(root);
@@ -38,7 +38,7 @@ const press = async (cdp: any, key: string, code = key, vk = 0) => {
   await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode: vk });
 };
 const waitFor = async (cdp: any, expr: string, tries = 80) => { for (let i = 0; i < tries; i++) { if (await cdp.eval(expr).catch(() => false)) return true; await check.sleep(100); } return false; };
-const state = (cdp: any) => cdp.eval(`({ frame: movie.currentFrame, playing: movie.isPlaying, stop: movie.stopIndex, page: movie.pageIndex, counter: document.querySelector('.mp-counter')?.textContent, title: document.querySelector('.mp-title')?.textContent })`);
+const state = (cdp: any) => cdp.eval(`({ frame: movie.currentFrame, playing: movie.isPlaying, stop: present.stopIndex(movie), page: present.pageIndex(movie), counter: document.querySelector('.mp-counter')?.textContent, title: document.querySelector('.mp-title')?.textContent })`);
 
 describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('Presenter, in a real browser', () => {
   it('the arrow key plays to the next stop and stops exactly on its frame; again, to the next; a key during playback skips to the stop', async () => {
@@ -61,7 +61,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('Presenter,
 
   it('back jumps to the previous stop at once, Home to the first page, End to the last stop, and a number then Enter to that page', async () => {
     await withPage('', async (cdp) => {
-      await cdp.eval('movie.goToStop(3)');
+      await cdp.eval('present.goToStop(movie, 3)');
       expect(await waitFor(cdp, 'movie.currentFrame === 150')).toBe(true);
       await press(cdp, 'ArrowLeft', 'ArrowLeft', 37);
       expect(await waitFor(cdp, 'movie.currentFrame === 105')).toBe(true);
@@ -117,7 +117,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('Presenter,
       expect(imgs).toEqual(['data:image/jpeg;base64', 'data:image/jpeg;base64', 'data:image/jpeg;base64']);   // already there: nothing is made in front of the audience
       expect(await cdp.eval(`[...document.querySelectorAll('.mp-cell-name')].map(c => c.textContent)`)).toEqual(['A', 'B', 'C']);
       await cdp.eval(`document.querySelectorAll('.mp-cell')[2].click()`);
-      expect(await waitFor(cdp, 'movie.currentFrame === 150 && movie.pageIndex === 2')).toBe(true);
+      expect(await waitFor(cdp, 'movie.currentFrame === 150 && present.pageIndex(movie) === 2')).toBe(true);
       expect(await cdp.eval(`document.querySelector('.mp-overview').getAttribute('data-open')`)).toBe('false');
     });
   }, 90_000);
@@ -149,7 +149,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('Presenter,
 
   it('exportPDF: one PDF page per page of the deck', async () => {
     await withPage('', async (cdp) => {
-      const r = await cdp.eval(`(async () => { const b = await movie.exportPDF({ title: 'check' }); const bytes = new Uint8Array(await b.arrayBuffer()); const s = new TextDecoder('latin1').decode(bytes);
+      const r = await cdp.eval(`(async () => { const b = await present.exportPDF(movie, { title: 'check' }); const bytes = new Uint8Array(await b.arrayBuffer()); const s = new TextDecoder('latin1').decode(bytes);
         return { type: b.type, size: b.size, head: s.slice(0, 8), pages: (s.match(/\\/Type \\/Page\\b(?!s)/g) || []).length, frame: movie.currentFrame }; })()`);
       expect(r).toMatchObject({ type: 'application/pdf', head: '%PDF-1.4', pages: 3, frame: 0 });
       expect(r.size).toBeGreaterThan(3000);
@@ -159,7 +159,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('Presenter,
     await withPage('?controller=1', async (cdp) => {
       await cdp.eval(`document.querySelector('.mc-play').click()`);
       expect(await waitFor(cdp, 'movie.currentFrame === 30 && !movie.isPlaying')).toBe(true);          // the first stop (1 s), not the end
-      expect(await cdp.eval('movie.stopIndex')).toBe(0);
+      expect(await cdp.eval('present.stopIndex(movie)')).toBe(0);
       await cdp.eval(`document.querySelector('.mc-play').click()`);
       expect(await waitFor(cdp, 'movie.currentFrame === 60 && !movie.isPlaying')).toBe(true);          // the step (2 s)
       await cdp.eval(`document.querySelector('.mc-play').click()`);

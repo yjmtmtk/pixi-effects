@@ -4,7 +4,7 @@ export default defineConfig({
   entry: {
     index: 'src/index.ts',
     Controller: 'src/Controller.ts',
-    Presenter: 'src/Presenter.ts',
+    present: 'src/present/index.ts',
     three: 'src/three/index.ts',
   },
   format: ['esm', 'cjs'],
