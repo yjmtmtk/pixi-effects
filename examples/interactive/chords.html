@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Interactive movie · write a tune with four chords</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+  <link rel="stylesheet" href="vars.css" />
+  <style> select { font: inherit; color: var(--text); background: #11151d; border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; } </style>
+</head>
+<body>
+  <h1>Write a tune with four chords <small>the music is text, so a chord is a variable: change one and the sound is made again</small></h1>
+  <div class="stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
+
+  <div class="panel">
+    <div class="row"><span class="name">Presets</span><span id="presets"></span></div>
+    <div class="row"><span class="name">Chords</span><span id="slots"></span></div>
+    <div class="status" id="status">…</div>
+    <p class="note">The score is <code>notes: '{c1}:4 {c2}:4 {c3}:4 {c4}:4'</code> for the keys, <code>'{b1}:2 {b1}:2 …'</code> for the bass and <code>'{arp1} {arp2} {arp3} {arp4}'</code> for the plucked arpeggio; the colours of the four bars are <code>{k1}</code> … <code>{k4}</code>. The page works out the arpeggio and the colour from the chord and calls <code>movie.setVars()</code>. The sound is mixed again (the report says <code>sound mixed</code> and how long it took); the pictures take a few milliseconds. The same tune as a file: <code>pixi-effects render chords.html --var c1=Am --var b1=a2 …</code>.</p>
+  </div>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  { "imports": {
+      "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+      "pixi-effects": "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js" } }
+  </script>
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+    const W = 1280, H = 720, BPM = 96, BEAT = 60 / BPM, BAR = BEAT * 4, DURATION = BAR * 4;
+    const NOTE = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#', 'b'];
+    const note = (pc, oct) => `${NOTE[((pc % 12) + 12) % 12]}${oct + Math.floor(pc / 12)}`;
+
+    // chord name → root (semitones above C) and the intervals of its tones
+    const CHORDS = {
+      C: [0, [0, 4, 7]], Dm: [2, [0, 3, 7]], Em: [4, [0, 3, 7]], F: [5, [0, 4, 7]], G: [7, [0, 4, 7]], Am: [9, [0, 3, 7]],
+      Cmaj7: [0, [0, 4, 7, 11]], Dm7: [2, [0, 3, 7, 10]], Em7: [4, [0, 3, 7, 10]], Fmaj7: [5, [0, 4, 7, 11]], G7: [7, [0, 4, 7, 10]], Am7: [9, [0, 3, 7, 10]],
+    };
+    const PRESETS = { Pop: ['C', 'G', 'Am', 'F'], Sad: ['Am', 'F', 'C', 'G'], Dreamy: ['Fmaj7', 'Em7', 'Dm7', 'Cmaj7'], Jazz: ['Dm7', 'G7', 'Cmaj7', 'Am7'] };
+
+    /** What one slot needs in the score and in the picture, from its chord. */
+    const slotVars = (i, name) => {
+      const [root, tones] = CHORDS[name];
+      const order = [0, 1, 2, tones.length - 1, 2, 1, 2, 1].map(k => tones[k % tones.length]);       // an eight-note arpeggio over the chord's tones
+      return {
+        [`c${i}`]: name,
+        [`b${i}`]: note(root, 2),
+        [`arp${i}`]: order.map(iv => `${note(root + iv, 4)}:0.5`).join(' '),
+        [`k${i}`]: `hsl(${Math.round(root * 30)}, 78%, 56%)`,
+      };
+    };
+    const varsOf = (names) => Object.assign({}, ...names.map((n, k) => slotVars(k + 1, n)));
+
+    const bars = [1, 2, 3, 4].flatMap(i => {
+      const at = (i - 1) * BAR, x = 190 + (i - 1) * 300;
+      return [
+        // the bar that is playing: its colour washes the picture, its card lights up
+        { type: 'shape', shape: 'rect', name: `wash${i}`, at, duration: BAR, width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: `{k${i}}`, alpha: 0.22 },
+          keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 0.22 }, duration: 0.25 }] },
+        { type: 'shape', shape: 'rect', name: `card${i}`, at: 0, width: 260, height: 300, cornerRadius: 28, initial: { x, y: 330, fillColor: '#171b2c', strokeColor: '#2c3350', strokeWidth: 3 } },
+        { type: 'shape', shape: 'rect', name: `lit${i}`, at, duration: BAR, width: 260, height: 300, cornerRadius: 28, initial: { x, y: 330, fillColor: `{k${i}}`, alpha: 0.95 },
+          keyframes: [{ at: 0, from: { scale: 0.94 }, to: { scale: 1 }, duration: 0.25, ease: 'back.out(2)' }] },
+        { type: 'text', name: `chord${i}`, text: `{c${i}}`, style: { fontFamily: FONT, fontSize: 84, fontWeight: '800', fill: '#ffffff' }, initial: { x, y: 330, anchorX: 0.5, anchorY: 0.5 } },
+        { type: 'text', name: `num${i}`, text: String(i), style: { fontFamily: FONT, fontSize: 28, fontWeight: '700', fill: '#8e97bb' }, initial: { x, y: 205, anchorX: 0.5, anchorY: 0.5 } },
+      ];
+    });
+    // sixteen beat dots, the current one lit
+    const dots = Array.from({ length: 16 }, (_, b) => {
+      const x = 190 + (b % 4) * 75 + Math.floor(b / 4) * 300 - 112;
+      return [
+        { type: 'shape', shape: 'circle', radius: 9, initial: { x, y: 540, fillColor: '#2c3350' } },
+        { type: 'shape', shape: 'circle', name: `beat${b}`, radius: 12, at: b * BEAT, duration: BEAT, initial: { x, y: 540, fillColor: '#ffffff' },
+          keyframes: [{ at: 0, from: { scale: 1.8 }, to: { scale: 1 }, duration: 0.18, ease: 'power2.out' }] },
+      ];
+    }).flat();
+
+    const composition = { sequences: [
+      { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0d1020' } },
+      ...bars, ...dots,
+      { type: 'text', name: 'title', text: 'four chords', style: { fontFamily: FONT, fontSize: 40, fontWeight: '800', fill: '#c8d0ee', letterSpacing: 8 }, initial: { x: W / 2, y: 80, anchorX: 0.5, anchorY: 0.5 } },
+      { type: 'text', name: 'sub', text: '{c1} · {c2} · {c3} · {c4}', style: { fontFamily: FONT, fontSize: 30, fill: '#8e97bb' }, initial: { x: W / 2, y: 625, anchorX: 0.5, anchorY: 0.5 } },
+      { type: 'audio', name: 'tune', volume: 0.9, duration: DURATION, music: { bpm: BPM, reverb: 0.2, tracks: [
+        { inst: 'pad', vol: 0.6, notes: '{c1}:4 {c2}:4 {c3}:4 {c4}:4' },
+        { inst: 'bass', vol: 0.8, notes: '{b1}:1.5 _:0.5 {b1}:2 {b2}:1.5 _:0.5 {b2}:2 {b3}:1.5 _:0.5 {b3}:2 {b4}:1.5 _:0.5 {b4}:2' },
+        { inst: 'pluck', vol: 0.55, notes: '{arp1} {arp2} {arp3} {arp4}' },
+      ], drums: [{ kick: 'x...x...x...x...', hat: '..o...o...o...o.' }] } },
+    ] };
+
+    const state = { names: [...PRESETS.Pop] };
+    const canvas = document.getElementById('stage');
+    const movie = new Movie();
+    window.movie = movie;
+    await movie.init({ canvas, width: W, height: H, duration: DURATION, frameRate: 30, background: '#000', loop: true, vars: varsOf(state.names), composition });
+    new Controller(movie, { canvas });
+    movie.play();
+
+    {
+      const hint = Object.assign(document.createElement('div'), { className: 'sound-hint', textContent: '🔊 Click anywhere to turn the sound on' });
+      document.querySelector('.stage').append(hint);
+      for (const type of ['pointerdown', 'keydown']) addEventListener(type, () => hint.remove(), { once: true, capture: true });
+    }
+
+    const status = document.getElementById('status');
+    movie.on('rebuilt', r => { status.textContent = `rebuilt in ${r.ms} ms · sound ${r.audio} · ${state.names.join('  ')}`; });
+    movie.on('error', e => { status.textContent = 'error: ' + e.message; });
+    status.textContent = state.names.join('  ');
+
+    const selects = [];
+    const slots = document.getElementById('slots');
+    for (let i = 0; i < 4; i++) {
+      const sel = document.createElement('select');
+      sel.setAttribute('aria-label', `chord ${i + 1}`);
+      sel.innerHTML = Object.keys(CHORDS).map(n => `<option>${n}</option>`).join('');
+      sel.value = state.names[i];
+      sel.onchange = () => { state.names[i] = sel.value; movie.setVars(slotVars(i + 1, sel.value)).catch(console.error); };
+      slots.append(sel); selects.push(sel);
+    }
+    const presets = document.getElementById('presets');
+    for (const [label, names] of Object.entries(PRESETS)) {
+      const b = Object.assign(document.createElement('button'), { textContent: `${label}  ${names.join(' ')}` });
+      b.onclick = () => { state.names = [...names]; selects.forEach((s, i) => { s.value = names[i]; }); movie.setVars(varsOf(names)).catch(console.error); };
+      presets.append(b);
+    }
+    window.__ready = true;
+  </script>
+</body>
+</html>

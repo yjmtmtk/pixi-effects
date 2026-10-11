@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Interactive movie · scroll through a city</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+  <link rel="stylesheet" href="vars.css" />
+  <style>
+    body { padding: 0; display: block; }
+    .intro { padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+    #track { height: 520vh; position: relative; }
+    .pin { position: sticky; top: 0; height: 100vh; display: flex; align-items: center; justify-content: center; padding: 12px; }
+    .pin .stage { width: min(100%, calc((100vh - 24px) * 16 / 9)); }
+    .pin .stage canvas { max-width: 100%; max-height: calc(100vh - 24px); width: 100%; height: auto; }
+    .scrollhint { position: absolute; left: 50%; bottom: 76px; transform: translateX(-50%); z-index: 4; color: #fff; font: 600 14px/1 system-ui, sans-serif; background: #0009; padding: 8px 14px; border-radius: 999px; pointer-events: none; transition: opacity .4s; }
+    .after { padding: 40px 20px 80px; display: flex; justify-content: center; }
+    .after .panel { width: min(100%, 900px); }
+  </style>
+</head>
+<body>
+  <div class="intro">
+    <h1>Scroll through a city <small>the page's scroll position is one variable, <code>scroll</code> (0 to 1)</small></h1>
+  </div>
+  <div id="track">
+    <div class="pin">
+      <div class="stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div><div class="scrollhint" id="hint">Scroll down ↓</div></div>
+    </div>
+  </div>
+  <div class="after">
+    <div class="panel">
+      <div class="status" id="status">…</div>
+      <p class="note">Camera depth, the colour of the sky, the moon and the glow of every window are expressions on <code>scroll</code>, for example the camera is <code>z: '989 - scroll * 5200'</code> and a window's glow is <code>alpha: 'smoothstep(0.45, 0.75, scroll) * …'</code>. The page does one thing: <code>movie.setVars({ scroll })</code> on every scroll event; events that arrive during a rebuild are joined. The clouds, the lamps and the camera's sway are ordinary keyframes, so it is still a film while you stand still. The same city as a file at dusk: <code>pixi-effects render scroll-city.html --var scroll=0.6</code>.</p>
+    </div>
+  </div>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  { "imports": {
+      "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+      "pixi-effects": "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js" } }
+  </script>
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+    const W = 1280, H = 720, HORIZON = 360, BASE = 470;                  // the vanishing point is the middle of the picture; the street floor is BASE
+    const ROWS = 11, STEP = 430, FAR = -4700;
+    const CAM_Z = (t) => `989 - ${t} * 5200`;                            // the camera flies down the street as `scroll` goes 0 → 1
+
+    let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const glow = (k) => `smoothstep(${(0.42 + k * 0.05).toFixed(2)}, ${(0.62 + k * 0.05).toFixed(2)}, scroll)`;   // each window lights at its own moment
+
+    const buildings = [], windows = [], lamps = [];
+    for (let row = 0; row < ROWS; row++) {
+      const z = -150 - row * STEP;
+      for (const side of [-1, 1]) {
+        const h = 620 + Math.floor(rnd() * 760), w = 380, x = W / 2 + side * (150 + w / 2 + (row % 3) * 10);
+        const tone = 28 + Math.floor(rnd() * 26);
+        buildings.push({ type: 'shape', shape: 'rect', name: `b${row}${side}`, width: w, height: h, threeD: true, hideBehindCamera: true,
+          initial: { x, y: BASE - h / 2, z, fillColor: `rgb(${tone}, ${tone + 6}, ${tone + 22})` } });
+        // 2 columns × 4 rows of windows on the street-facing part of the facade
+        for (let c = 0; c < 2; c++) for (let r = 0; r < 4; r++) {
+          if (rnd() < 0.3) continue;
+          windows.push({ type: 'shape', shape: 'rect', width: 44, height: 62, threeD: true, hideBehindCamera: true,
+            initial: { x: x - side * (w / 2 - 70 - c * 90), y: BASE - 110 - r * 120, z: z + 1, fillColor: '#ffd98a', alpha: `${glow(rnd() * 3)} * ${(0.65 + rnd() * 0.35).toFixed(2)}` } });
+        }
+      }
+      // a lamp on each side every second row
+      if (row % 2 === 0) for (const side of [-1, 1]) {
+        const x = W / 2 + side * 128;
+        lamps.push({ type: 'shape', shape: 'rect', width: 8, height: 190, threeD: true, hideBehindCamera: true, initial: { x, y: BASE - 95, z: z + 140, fillColor: '#2c3140' } });
+        lamps.push({ type: 'shape', shape: 'circle', radius: 30, threeD: true, hideBehindCamera: true, initial: { x, y: BASE - 200, z: z + 141, fillColor: '#ffe9a8', alpha: 'smoothstep(0.35, 0.6, scroll)' } });
+      }
+    }
+    const stars = Array.from({ length: 46 }, () => ({ type: 'shape', shape: 'circle', radius: 1.4 + rnd() * 1.6,
+      initial: { x: rnd() * W, y: rnd() * HORIZON * 0.9, fillColor: '#ffffff', alpha: `smoothstep(0.5, 0.8, scroll) * ${(0.4 + rnd() * 0.6).toFixed(2)}` } }));
+    const cloud = (x, y, s, dur) => ({ type: 'shape', shape: 'ellipse', radiusX: 120 * s, radiusY: 34 * s, initial: { x, y, fillColor: '#ffffff', alpha: '0.85 - smoothstep(0.3, 0.7, scroll) * 0.6' },
+      keyframes: [{ at: 0, to: { x: x + 260 }, duration: dur, ease: 'none', repeat: 0 }] });
+    const caption = (text, a, b, c, d) => ({ type: 'text', text, style: { fontFamily: FONT, fontSize: 46, fontWeight: '800', fill: '#ffffff', stroke: { color: '#00000066', width: 6 } },
+      initial: { x: W / 2, y: 120, anchorX: 0.5, anchorY: 0.5, alpha: `smoothstep(${a}, ${b}, scroll) * (1 - smoothstep(${c}, ${d}, scroll))` } });
+
+    const composition = { sequences: [
+      // sky: day, then night fading in over it
+      { type: 'shape', shape: 'rect', name: 'day', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' }, fillGradient: { stops: [[0, '#6ab7ff'], [0.5, '#ffd9a3']] } },
+      { type: 'shape', shape: 'rect', name: 'night', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', alpha: 'smoothstep(0.3, 0.75, scroll)' }, fillGradient: { stops: [[0, '#070b24'], [0.55, '#43296b']] } },
+      ...stars,
+      { type: 'shape', shape: 'circle', name: 'sun', radius: 70, initial: { x: 880, y: '190 + scroll * 240', fillColor: '#fff3c4', alpha: '1 - smoothstep(0.25, 0.55, scroll)' } },
+      { type: 'shape', shape: 'circle', name: 'moon', radius: 52, initial: { x: 420, y: '330 - smoothstep(0.5, 1, scroll) * 190', fillColor: '#f4f1e6', alpha: 'smoothstep(0.5, 0.8, scroll)' } },
+      cloud(160, 140, 1, 14), cloud(700, 90, 0.8, 18), cloud(1000, 200, 1.2, 16),
+      { type: 'shape', shape: 'rect', name: 'floor', width: 'GW', height: 'GH - 360', initial: { x: 'GW/2', y: 360 + (H - 360) / 2 }, fillGradient: { stops: [[0, '#2a2e3d'], [1, '#12141c']] } },
+
+      { type: 'camera', name: 'cam', initial: { z: CAM_Z('scroll'), lookAtZ: `${CAM_Z('scroll')} - 1000`, y: '360 - scroll * 30', lookAtY: '360 - scroll * 30' },
+        keyframes: [{ at: 0, to: { offsetX: 16 }, duration: 3, ease: 'sine.inOut', repeat: 3, yoyo: true }] },
+      ...buildings, ...windows, ...lamps,
+
+      caption('Morning', -1, -0.5, 0.12, 0.2),
+      caption('Dusk', 0.3, 0.38, 0.5, 0.58),
+      caption('Night', 0.78, 0.86, 1.01, 1.02),
+      { type: 'audio', name: 'bed', volume: 0.35, music: { bpm: 70, tracks: [{ inst: 'pad', notes: 'Fmaj7:8 Em7:8 Dm7:8 Cmaj7:8' }] } },
+    ] };
+
+    const canvas = document.getElementById('stage');
+    const params = new URLSearchParams(location.search);
+    const track = document.getElementById('track');
+    const progress = () => Math.max(0, Math.min(1, scrollY / (track.offsetHeight - innerHeight)));
+    const movie = new Movie();
+    window.movie = movie;
+    await movie.init({ canvas, width: W, height: H, duration: 12, frameRate: 30, background: '#000', loop: true,
+      vars: { scroll: params.has('scroll') ? Number(params.get('scroll')) : Math.round(progress() * 1000) / 1000 }, composition });
+    new Controller(movie, { canvas });
+    movie.play();
+
+    {
+      const hint = Object.assign(document.createElement('div'), { className: 'sound-hint', textContent: '🔊 Click anywhere to turn the sound on' });
+      document.querySelector('.stage').append(hint);
+      for (const type of ['pointerdown', 'keydown']) addEventListener(type, () => hint.remove(), { once: true, capture: true });
+    }
+
+    const status = document.getElementById('status'), scrollHint = document.getElementById('hint');
+    let sets = 0, rebuilds = 0, last = 0;
+    movie.on('rebuilt', r => { rebuilds++; last = r.ms; });
+    setInterval(() => { status.textContent = `scroll ${movie.vars.scroll.toFixed(3)} · ${sets} scroll events → ${rebuilds} rebuilds · last ${last} ms · ${Math.round(movie.vars.scroll * 100)} % of the way down the street`; }, 200);
+    let queued = false;
+    addEventListener('scroll', () => {
+      if (queued) return; queued = true;
+      requestAnimationFrame(() => {
+        queued = false; sets++;
+        const p = Math.round(progress() * 1000) / 1000;
+        scrollHint.style.opacity = p > 0.02 ? '0' : '1';
+        movie.setVars({ scroll: p }).catch(console.error);
+      });
+    }, { passive: true });
+    window.__ready = true;
+  </script>
+</body>
+</html>

@@ -619,7 +619,8 @@ export class Movie {
         this._rootSequence = sequence;
         this.timeline = timeline;
         this._timeFilters = collectTimeFilters(sequence);
-        safeRun(() => old?.destroy());
+        const unmute = muteBoundTextureWarning();
+        try { safeRun(() => old?.destroy()); } finally { unmute(); }
         safeRun(() => oldTimeline?.kill());
         this._vars = vars;
         this._composition = composition;
@@ -1170,6 +1171,18 @@ export class Movie {
 
 /** How far before the end of the movie its last frame is drawn (seconds): inside every layer's lifespan, far below a frame. */
 const END_MARGIN = 1e-4;
+
+/**
+ * PixiJS warns "a textureSource was destroyed while still bound to a shader" when a layer that was drawn a moment ago is destroyed. A rebuild does
+ * exactly that to the composition it replaces; the renderer builds its bind groups again on the next draw, so the warning says nothing here and
+ * would make `check` count a problem. Silenced for the synchronous destroy only; any other warning goes through.
+ */
+function muteBoundTextureWarning(): () => void {
+  const original = console.warn;
+  const ours = (...args: unknown[]) => { if (args.some(a => /destroyed while still bound/.test(String(a)))) return; original.apply(console, args); };
+  console.warn = ours;
+  return () => { if (console.warn === ours) console.warn = original; };
+}
 
 const clampFrame = (f: number, last: number): number => Math.max(0, Math.min(Math.round(f), last));
 
