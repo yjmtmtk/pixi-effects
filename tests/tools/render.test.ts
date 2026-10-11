@@ -31,7 +31,8 @@ describe('render.mjs — pure helpers', () => {
     expect(d.out).toBeNull();                                   // the default name comes from the page
     expect(d.quality).toBe('high');
     expect(tool.parseRenderArgs(['p.html', '-o', 'x.mp4', '--format', 'mov']).format).toBe('mov');
-    expect(tool.parseRenderArgs(['p.html', '--fail-on-warn']).failOnWarn).toBe(true);
+    expect(tool.parseRenderArgs(['p.html', '--strict']).strict).toBe(true);
+    expect(() => tool.parseRenderArgs(['p.html', '--fail-on-warn'])).toThrow(/--fail-on-warn is now --strict/);
   });
 
   it('parseRenderArgs: a PDF, and --all-stops only goes with it', () => {
@@ -159,13 +160,13 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('render.mjs
     } finally { rmSync(bad, { force: true }); }
   }, 90_000);
 
-  it('--fail-on-warn: a page warning still writes the file, but the exit code is 1', async () => {
+  it('--strict: a page warning still writes the file, but the exit code is 1', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'render-test-'));
     const out = join(dir, 'warned.mp4');
     const warn = join(root, 'examples/_checks/__warn-render-fixture.html');
     writeFileSync(warn, readFileSync(join(root, 'examples/_checks/sfx-export.html'), 'utf8').replace("['click', 0.5]", "['whoosh', 0.5]"));
     try {
-      await expect(promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), warn, '-o', out, '--fail-on-warn', '--timeout', '120', '--quiet'], { timeout: 150_000 }))
+      await expect(promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), warn, '-o', out, '--strict', '--timeout', '120', '--quiet'], { timeout: 150_000 }))
         .rejects.toMatchObject({ code: 1 });
       expect(statSync(out).size).toBeGreaterThan(2000);
     } finally { rmSync(warn, { force: true }); }

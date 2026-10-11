@@ -17,7 +17,7 @@
  *          --draft (for looking: half size, low quality, no motion blur; a --quality you give still wins) ·
  *          --motion-blur SAMPLES (2-64: each frame is drawn that many times over the shutter and averaged; overrides the page's own motionBlur) ·
  *          --shutter FRACTION (with --motion-blur: how long the shutter is open, 0-1 of a frame, default 0.5) ·
- *          --video-codec C (avc hevc vp9 av1 vp8) · --video-bitrate B (a quality or bits a second: 8M, 800k) · --audio-codec C · --query "a=1&b=2" (added to the page URL) · --fail-on-warn (exit 1 when the page
+ *          --video-codec C (avc hevc vp9 av1 vp8) · --video-bitrate B (a quality or bits a second: 8M, 800k) · --audio-codec C · --query "a=1&b=2" (added to the page URL) · --strict (exit 1 when the page
  *          logged a warning; the file is still written) · --quiet (no progress line) · --timeout SECONDS (default 900) ·
  *          --root DIR (static server root; default: the nearest folder above the page with dist/) · --chrome PATH
  */
@@ -43,10 +43,10 @@ export function defaultOutput(page, format) {
   return path.resolve(path.basename(page).replace(/\.[^.]+$/, '') + '.' + format);
 }
 
-export const USAGE = 'usage: node ai/tools/render.mjs <page.html> [-o out.mp4] [--format mp4|webm|mov|mkv|pdf] [--range A:B | --scene NAME] [--scale S] [--draft] [--quality very-low|low|medium|high|very-high] [--query a=1] [--fail-on-warn] [--quiet] [--timeout S] [--root DIR] [--chrome PATH]';
+export const USAGE = 'usage: node ai/tools/render.mjs <page.html> [-o out.mp4] [--format mp4|webm|mov|mkv|pdf] [--range A:B | --scene NAME] [--scale S] [--draft] [--quality very-low|low|medium|high|very-high] [--query a=1] [--strict] [--quiet] [--timeout S] [--root DIR] [--chrome PATH]';
 
 export function parseRenderArgs(argv) {
-  const o = { range: null, scene: null, scale: null, draft: false, qualityGiven: false, page: null, out: null, format: null, quality: 'high', videoCodec: null, videoBitrate: null, audioCodec: null, allStops: false, motionBlur: null, shutter: null, query: null, failOnWarn: false, quiet: false, timeout: 900, root: null, chrome: null };
+  const o = { range: null, scene: null, scale: null, draft: false, qualityGiven: false, page: null, out: null, format: null, quality: 'high', videoCodec: null, videoBitrate: null, audioCodec: null, allStops: false, motionBlur: null, shutter: null, query: null, strict: false, quiet: false, timeout: 900, root: null, chrome: null };
   const need = (i, name) => { if (i + 1 >= argv.length) throw new Error(`${name} needs a value`); return argv[i + 1]; };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -82,7 +82,8 @@ export function parseRenderArgs(argv) {
     } else if (a === '--draft') o.draft = true;
     else if (a === '--query') o.query = need(i++, a).replace(/^\?/, '');
     else if (a === '--all-stops') o.allStops = true;
-    else if (a === '--fail-on-warn') o.failOnWarn = true;
+    else if (a === '--strict') o.strict = true;
+    else if (a === '--fail-on-warn') throw new Error('--fail-on-warn is now --strict (the same word as in check: a warning, or anything it would only list, fails the run)');
     else if (a === '--quiet') o.quiet = true;
     else if (a === '--timeout') o.timeout = Math.max(10, Number(need(i++, a)) || 900);
     else if (a === '--root') o.root = need(i++, a);
@@ -231,7 +232,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process
       process.exit(1);
     }
     console.log(`${shown(r.file)}  ${kb(r.bytes)} · ${r.duration} s · ${SOUND_ONLY.includes(opts.format) ? 'sound only' : `${r.width}×${r.height} @ ${r.frameRate} fps`} · ${opts.format} · rendered in ${r.seconds} s`);
-    process.exit(opts.failOnWarn && r.logs.length ? 1 : 0);
+    process.exit(opts.strict && r.logs.length ? 1 : 0);
   } catch (e) {
     console.error(`pixi-effects render failed: ${e.message}`);
     process.exit(2);

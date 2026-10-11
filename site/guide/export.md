@@ -74,7 +74,7 @@ It starts a private web server and a headless Chrome, opens your page, waits for
 |---|---|
 | `--quality very-low…very-high` | video and audio bitrate |
 | `--query lang=ja` | adds a query string to the page's address, so one page can render variants |
-| `--fail-on-warn` | exit code 1 if the page logged a warning (the file is still written) |
+| `--strict` | exit code 1 if the page logged a warning (the file is still written) |
 | `--motion-blur 8` / `--shutter 0.5` | [motion blur](#motion-blur) for this file: the number of samples, and how long the shutter is open |
 | `--quiet` | no progress line |
 
