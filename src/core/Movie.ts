@@ -578,16 +578,20 @@ export class Movie {
       const timeline = createTimeline({ paused: true, defaults: { ease: 'none' } });
       lengthen(timeline, this.duration);
       sequence.bindTimeline(timeline);
+      const hadSound = this.audioBuffer !== null;
       const audio = await this._mixSound(sequence, this._ensureAudioContext());
+      const soundChanged = audio === 'mixed' || (audio === 'none' && hadSound);
       while (this._busy > 0) { await new Promise<void>(r => this._idleWaiters.push(r)); }       // not under a render() / peek()
       alive();
 
       // the swap, in one go: what the movie is doing NOW (the user may have paused, sought or played meanwhile) is what it keeps doing
       const wasPlaying = this.isPlaying, frame = this.currentFrame, wasAtPoster = this._atPoster;
       const oldSize = { w: this.width, h: this.height }, oldResized = this._resized;
+      // a playing movie whose sound stays the same is not stopped at all: the frame clock and the sound go on, only the picture's tree is swapped
+      const goOn = wasPlaying && !soundChanged;
       this._silent++;
       try {
-        this.pause();                                                         // (a `playUntil()` in flight ends here too)
+        if (goOn) this._cancelUntil(); else this.pause();                     // (a `playUntil()` in flight ends here too)
         if (sizeChanged) {
           try {
             this.width = width; this.height = height; this._resized = true;
@@ -597,7 +601,7 @@ export class Movie {
             this.width = oldSize.w; this.height = oldSize.h; this._resized = oldResized;
             safeRun(() => app.renderer.resize(oldSize.w, oldSize.h));
             root.cullArea = new Rectangle(0, 0, oldSize.w, oldSize.h);
-            if (wasPlaying) this.play();
+            if (wasPlaying && !goOn) this.play();
             throw e;
           }
         }
@@ -620,7 +624,7 @@ export class Movie {
         if (wasAtPoster) await this._showPoster();
         else await this._quietly(() => this.gotoFrame(frame, true));
       } catch (e) { console.warn('pixi-effects: could not draw the frame after a rebuild:', e); this._emitError('playback', e); }
-      if (wasPlaying && this._initState === 'ready' && !this.isPlaying) { this._silent++; try { this.play(); } finally { this._silent--; } }
+      if (wasPlaying && !goOn && this._initState === 'ready' && !this.isPlaying) { this._silent++; try { this.play(); } finally { this._silent--; } }
       const report: RebuildReport = { reason, ms: Math.round((performance.now() - started) * 10) / 10, audio, frame, playing: wasPlaying };
       this.emit('rebuilt', report);
       return report;
@@ -1020,6 +1024,7 @@ export class Movie {
     if (this.currentFrame >= this.totalFrames) this.currentFrame = 0;
     const wasPlaying = this.isPlaying;
     this.isPlaying = true;
+    const startFrame = this.currentFrame;
     const startTime = performance.now() - (this.currentFrame / this.frameRate * 1000);
     let inFlight = false;
     const tick = (time: number) => {
@@ -1029,7 +1034,7 @@ export class Movie {
         return;
       }
       const elapsed = (time - startTime) / 1000;
-      const frame = Math.floor(elapsed * this.frameRate);
+      const frame = Math.max(startFrame, Math.floor(elapsed * this.frameRate));        // (rAF's time is a little before `startTime`: the first tick must not land a frame back)
       if (this._until !== null && frame >= this._until) { void this._arriveUntil(); return; }
       if (frame <= this.totalFrames) {
         inFlight = true;

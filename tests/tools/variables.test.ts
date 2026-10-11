@@ -282,6 +282,37 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
     });
   });
 
+  it('rebuilds in a row while it plays: the playhead goes on forward (never back a frame), and the frame clock is not reset', async () => {
+    await withPage(async (cdp) => {
+      await mk(cdp, { duration: 4, vars: { shift: 0 }, composition: { sequences: [square('#ff0000', 'W/2 + shift')] } });
+      const out = await cdp.eval(`(async () => {
+        const frames = []; movie.on('frame', e => frames.push(e.frame));
+        movie.play();
+        const t0 = performance.now(); let i = 0;
+        while (performance.now() - t0 < 1500) { await movie.setVars({ shift: ++i % 40 }); await new Promise(r => setTimeout(r, 4)); }
+        movie.pause();
+        let back = 0; for (let k = 1; k < frames.length; k++) if (frames[k] < frames[k - 1]) back++;
+        return { back, last: frames[frames.length - 1], rebuilds: i };
+      })()`);
+      expect(out.rebuilds).toBeGreaterThan(20);
+      expect(out.back, 'frame events that went back').toBe(0);
+      expect(out.last, '1.5 s of playing is about 45 frames; it must not stand still').toBeGreaterThan(30);
+    });
+  });
+
+  it('a rebuild that leaves the sound alone does not touch the sound that is playing; one that changes it starts the new sound', async () => {
+    await withPage(async (cdp) => {
+      await mk(cdp, { duration: 4, vars: { shift: 0, kind: 'pop' }, composition: { sequences: [square('#ff0000', 'W/2 + shift'), { type: 'audio', sfx: '{kind}', at: 0 }] } });
+      await cdp.eval('movie.play()');
+      await cdp.eval('window.__src = movie.audioSource');
+      await cdp.eval('movie.setVars({ shift: 3 })');
+      expect(await cdp.eval('movie.audioSource === window.__src && movie.isPlaying'), 'same source, still playing').toBe(true);
+      await cdp.eval("movie.setVars({ kind: 'click' })");
+      expect(await cdp.eval('movie.audioSource !== window.__src && movie.isPlaying'), 'a new sound: a new source, still playing').toBe(true);
+      await cdp.eval('movie.pause()');
+    });
+  });
+
   it('after resize() the size of the movie wins over a width and height the composition names (the expressions follow the new size)', async () => {
     await withPage(async (cdp) => {
       await mk(cdp, { composition: { width: 160, height: 90, sequences: [square('#ff0000')] } });
