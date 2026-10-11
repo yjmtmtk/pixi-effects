@@ -182,6 +182,14 @@ section{padding:72px 0 0}
 .piece img{width:100%;transition:transform .5s cubic-bezier(.2,.7,.2,1)}
 .piece:hover img{transform:scale(1.03)}
 .piece:hover .frame{border-color:var(--ink-3)}
+.ipiece{break-inside:avoid;margin:0 0 16px;display:block;text-decoration:none;position:relative}
+.ipiece .frame{border-radius:8px;background:var(--bg-2)}
+.ipiece img{width:100%;transition:transform .5s cubic-bezier(.2,.7,.2,1)}
+.ipiece:hover img{transform:scale(1.03)}
+.ipiece:hover .frame{border-color:var(--ink-3)}
+.ipiece figcaption{padding:8px 2px 0;font-size:13.5px;line-height:1.35}
+.ipiece figcaption b{display:block;font-weight:600;color:var(--ink)}
+.ipiece figcaption span{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--ink-3)}
 .piece figcaption{padding:8px 2px 0;font-size:13.5px;line-height:1.35}
 .piece figcaption b{display:block;font-weight:600;color:var(--ink)}
 .piece figcaption span{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--ink-3)}
@@ -257,7 +265,7 @@ section{padding:72px 0 0}
   .feature{grid-template-columns:minmax(0,1.55fr) minmax(0,1fr)}
   .feature-info{padding:22px 24px 24px}
   .masonry{columns:4;column-gap:14px}
-  .piece{margin-bottom:14px}
+  .piece,.ipiece{margin-bottom:14px}
   .choose{grid-template-columns:1fr 1fr 1fr 1fr}
   .chat{grid-template-columns:1fr 1.4fr;align-items:start}
   .chat .quote{margin-top:0}
@@ -286,5 +294,5 @@ section{padding:72px 0 0}
 @media (prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}
   .tl-play,.tl-bar,.hero h1 .w{animation:none}
-  .piece img,.facade .play{transition:none}
+  .piece img,.ipiece img,.facade .play{transition:none}
 }
