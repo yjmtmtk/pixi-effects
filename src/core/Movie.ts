@@ -95,6 +95,8 @@ export interface SnapshotOptions {
   scale?: number;
   /** `'image/png'` (default) or `'image/jpeg'`. */
   type?: 'image/png' | 'image/jpeg';
+  /** JPEG quality, 0 to 1 (the encoder's default when left out). */
+  quality?: number;
   /** Return a `data:` URL string instead of a Blob (handy for scripts that can only return text). */
   as?: 'blob' | 'dataURL';
 }
@@ -181,6 +183,9 @@ export class Movie {
   private _stopAt: number | null = null;
   private _stopWaiters: Array<() => void> = [];
   private _arriving = false;
+  /** The frame `playUntil()` is playing toward, or null (also null while it plays to the end). */
+  private _until: number | null = null;
+  private _untilWaiters: Array<(landed: boolean) => void> = [];
   /** The motion blur `render()`, `snapshot()` and `contactSheet()` apply unless told otherwise (`movie.init({ motionBlur })`), or null. */
   motionBlur: ResolvedMotionBlur | null = null;
   private _posterFrame: number | null = null;
@@ -435,6 +440,7 @@ export class Movie {
   async gotoFrame(frame: number, force = false): Promise<void> {
     if (this._initState !== 'ready') return;
     if (!this._arriving) this._cancelStop();                                      // a seek by someone else ends "play to the next stop"
+    this._cancelUntil();                                                          // ... and a `playUntil()` in flight
     if (!force && !this._atPoster && this.currentFrame === frame) return;      // (at the poster the canvas shows another frame)
     if (this._quiet > 0) return this._goto(frame);
     const target = Math.max(0, Math.min(frame, this.totalFrames));
@@ -493,9 +499,9 @@ export class Movie {
   async snapshot(frame?: number, opts?: SnapshotOptions & { as?: 'blob' }): Promise<Blob>;
   async snapshot(frame: number | undefined, opts: SnapshotOptions & { as: 'dataURL' }): Promise<string>;
   async snapshot(frame: number = this.currentFrame, opts: SnapshotOptions = {}): Promise<Blob | string> {
-    warnUnknownOptions('movie.snapshot()', opts, ['scale', 'type', 'as', 'motionBlur']);
+    warnUnknownOptions('movie.snapshot()', opts, ['scale', 'type', 'quality', 'as', 'motionBlur']);
     this._requireReady('snapshot');
-    return this._captureFrame(clampFrame(frame, this.totalFrames), { scale: opts.scale ?? 1, type: opts.type ?? 'image/png', as: opts.as ?? 'blob', motionBlur: opts.motionBlur });
+    return this._captureFrame(clampFrame(frame, this.totalFrames), { scale: opts.scale ?? 1, type: opts.type ?? 'image/png', quality: opts.quality, as: opts.as ?? 'blob', motionBlur: opts.motionBlur });
   }
 
   /** Seek to `frame` (quietly, and stay there) and draw the canvas on a new canvas of `scale` times its size. */
@@ -924,6 +930,54 @@ export class Movie {
     await this.goToStop(stop.index);
   }
 
+  /**
+   * Play and pause exactly at `seconds`: it resolves `true` when the playhead has landed on that frame, `false` when something else ended it
+   * first (a `pause()`, a seek, a newer `playUntil()`), or when there is nothing to play toward (a time at or before the playhead, or a
+   * movie that is not ready). With no time it plays to the end and resolves `true` once the movie has ended. An ordinary `play()` is
+   * not affected by it. It is the one primitive a presentation is built on (see `pixi-effects/present`).
+   */
+  async playUntil(seconds?: number): Promise<boolean> {
+    if (this._initState !== 'ready') return false;
+    this._settleUntil(false);                                                    // a new target replaces the one in flight
+    if (this.currentFrame >= this.totalFrames) return false;
+    const frame = seconds === undefined ? Infinity : Math.round(seconds * this.frameRate);
+    if (frame <= this.currentFrame) { this.pause(); return false; }
+    this._until = frame < this.totalFrames ? frame : null;
+    const landed = new Promise<boolean>(resolve => this._untilWaiters.push(resolve));
+    if (!this.isPlaying) this.play();
+    return landed;
+  }
+
+  /**
+   * Look around and put the movie back: pauses, runs `fn` (seek, take pictures: the seeks made inside are not reported as `seeking` / `seeked`),
+   * then puts the playhead (or the poster) back where it was, whatever `fn` did, and returns what `fn` returned.
+   */
+  async peek<T>(fn: () => Promise<T>): Promise<T> {
+    this._requireReady('peek');
+    this.pause();
+    const back = this.currentFrame, wasAtPoster = this._atPoster;
+    try { return await this._quietly(fn); }
+    finally {
+      if (wasAtPoster) await this._showPoster();
+      else await this._quietly(() => this.gotoFrame(back, true));
+    }
+  }
+
+  private _settleUntil(landed: boolean): void {
+    const waiters = this._untilWaiters; this._untilWaiters = []; this._until = null;
+    waiters.forEach(w => w(landed));
+  }
+  private _cancelUntil(): void { if (this._untilWaiters.length > 0 || this._until !== null) this._settleUntil(false); }
+  /** The playhead reached the frame `playUntil()` was playing to: land exactly on it, pause, resolve true. */
+  private async _arriveUntil(): Promise<void> {
+    const frame = this._until!;
+    const waiters = this._untilWaiters; this._untilWaiters = []; this._until = null;      // (taken first, so the pause below does not cancel them)
+    let landed = true;
+    try { this.pause(); await this._goto(frame); }
+    catch (err) { landed = false; console.warn('pixi-effects: could not land on the frame playUntil() was playing to:', err); this._emitError('playback', err); }
+    waiters.forEach(w => w(landed));
+  }
+
   play(): void {
     if (this._initState !== 'ready') return;
     if (this.currentFrame >= this.totalFrames) this.currentFrame = 0;
@@ -940,6 +994,7 @@ export class Movie {
       const elapsed = (time - startTime) / 1000;
       const frame = Math.floor(elapsed * this.frameRate);
       if (this._stopAt !== null && frame >= this._stopAt) { void this._arriveAtStop(this._stopAt); return; }
+      if (this._until !== null && frame >= this._until) { void this._arriveUntil(); return; }
       if (frame <= this.totalFrames) {
         inFlight = true;
         this._goto(frame)
@@ -947,6 +1002,7 @@ export class Movie {
           .finally(() => { inFlight = false; });
         this._raf = requestAnimationFrame(tick);
       } else {
+        const toEnd = this._untilWaiters; this._untilWaiters = []; this._until = null;     // `playUntil()` to the end: it has landed
         this.pause();
         // Final frame — also catch so the play loop never leaves an unhandled rejection.
         this._goto(this.totalFrames).catch((err) => {
@@ -955,6 +1011,7 @@ export class Movie {
         });
         this.emit('ended');
         this._settleStopWaiters();
+        toEnd.forEach(w => w(true));
       }
     };
     this._raf = requestAnimationFrame(tick);
@@ -998,6 +1055,7 @@ export class Movie {
     }
     if (wasPlaying) this.emit('pause');
     if (!this._arriving) this._cancelStop();
+    this._cancelUntil();
   }
 
   set volume(v: number) {
