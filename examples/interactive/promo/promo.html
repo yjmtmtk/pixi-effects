@@ -36,14 +36,14 @@
     import { Movie } from 'pixi-effects';
     import { Controller } from 'pixi-effects/controller';
 
-    const W = 1920, H = 1080, FPS = 30, TOTAL = 38;
+    const W = 1920, H = 1080, FPS = 30, TOTAL = 70;
     const FONT = '"Helvetica Neue", "Arial Black", "Segoe UI", system-ui, sans-serif';
     const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
     const ACC = '#ff5a3c', INK = '#ffffff', MUTED = '#b9bfcc', BG = '#07080c';
     const jankenMeta = await fetch('clips/janken.json').then(r => r.json()).catch(() => null);
 
     // the scenes, in seconds from the start (every start is on a beat: 120 bpm)
-    const S = { hook: 0, card: 3, city: 10, janken: 15.5, chords: 23.5, still: 27.5, touch: 31.5, end: 33.5 };
+    const S = { hook: 0, card: 3, city: 10, janken: 15.5, ending: 23.5, variants: 30.5, pointer: 37, chords: 42, how: 46, batch: 52, still: 59, touch: 63, end: 65 };
     const pops = [];                                                         // a tick for every caption
     const slam = (text, { at, until, x = 70, y, size = 140, fill = INK, align = 'left', stroke = true, tick = true }) => {
       if (tick) pops.push(at);
@@ -54,16 +54,18 @@
     };
     const flash = (at) => ({ type: 'shape', shape: 'rect', at, duration: 0.2, width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: '#ffffff', alpha: 0 }, keyframes: [{ at: 0, from: { alpha: 0.85 }, to: { alpha: 0 }, duration: 0.18, ease: 'power2.out' }] });
 
-    /** An app window: the real screen clip, cropped to [cx, cy, cw, ch] (pixels of the clip), drawn at `scale` with its top-left at (left, top). */
-    const appWindow = ({ asset, at, dur, speed, crop: [cx, cy, cw, ch], scale, left, top, radius = 26 }) => {
-      const w = cw * scale, h = ch * scale;
-      return [
-        { type: 'shape', shape: 'rect', at, duration: dur, width: w + 40, height: h + 40, cornerRadius: radius + 14, initial: { x: left + w / 2, y: top + h / 2 + 24, fillColor: '#000000', alpha: 0.5 }, filters: [{ type: 'blur', strength: 28 }] },
-        { type: 'video', asset, at, duration: dur, speed, audio: false,
-          initial: { x: left - cx * scale, y: top - cy * scale, anchorX: 0, anchorY: 0, scale },
-          mask: { type: 'shape', shape: 'rect', width: w, height: h, cornerRadius: radius, initial: { x: left + w / 2, y: top + h / 2, fillColor: '#ffffff' } } },
-        { type: 'shape', shape: 'rect', at, duration: dur, width: w, height: h, cornerRadius: radius, initial: { x: left + w / 2, y: top + h / 2, fillAlpha: 0, strokeColor: '#ffffff', strokeWidth: 2, alpha: 0.22 } },
-      ];
+    /** An app window: the real screen clip, cropped to [cx, cy, cw, ch] (pixels of the clip), drawn at `scale` with its top-left at (left, top); it flies in. */
+    const appWindow = ({ asset, at, dur, speed, crop: [cx, cy, cw, ch], scale, left, top, radius = 26, tilt = -3 }) => {
+      const w = cw * scale, h = ch * scale, mx = left + w / 2, my = top + h / 2;
+      return { type: 'composition', name: `window-${asset}`, at, duration: dur, width: W, height: H,
+        initial: { x: mx, y: my, pivotX: mx, pivotY: my },
+        keyframes: [{ at: 0, from: { scale: 1.2, rotation: tilt, alpha: 0 }, to: { scale: 1, rotation: 0, alpha: 1 }, duration: 0.42, ease: 'expo.out' }],
+        sequences: [
+          { type: 'shape', shape: 'rect', width: w + 40, height: h + 40, cornerRadius: radius + 14, initial: { x: mx, y: my + 24, fillColor: '#000000', alpha: 0.5 }, filters: [{ type: 'blur', strength: 28 }] },
+          { type: 'video', asset, speed, audio: false, initial: { x: left - cx * scale, y: top - cy * scale, anchorX: 0, anchorY: 0, scale },
+            mask: { type: 'shape', shape: 'rect', width: w, height: h, cornerRadius: radius, initial: { x: mx, y: my, fillColor: '#ffffff' } } },
+          { type: 'shape', shape: 'rect', width: w, height: h, cornerRadius: radius, initial: { x: mx, y: my, fillAlpha: 0, strokeColor: '#ffffff', strokeWidth: 2, alpha: 0.22 } },
+        ] };
     };
 
     const layers = [
@@ -76,10 +78,15 @@
       slam('A MOVIE', { at: 1.0, until: S.card, x: W / 2, y: 480, size: 250, align: 'center', stroke: false, fill: ACC }),
       slam('COULD', { at: 1.5, until: S.card, x: W / 2, y: 700, size: 190, align: 'center', stroke: false }),
       slam('ANSWER BACK?', { at: 2.0, until: S.card, x: W / 2, y: 900, size: 200, align: 'center', stroke: false }),
+      // a glitch the moment it says it: two offset copies jitter for a third of a second
+      ...[['#00e5ff', -1], [ACC, 1]].map(([fill, dir]) => ({ type: 'text', text: 'ANSWER BACK?', at: 2.0, duration: 0.36, style: { fontFamily: FONT, fontSize: 200, fontWeight: '900', fill, letterSpacing: -3 },
+        initial: { x: W / 2, y: 900, anchorX: 0.5, anchorY: 0.5, alpha: 0.75 }, blendMode: 'add',
+        keyframes: Array.from({ length: 7 }, (_, k) => ({ at: k * 0.05, to: { x: W / 2 + dir * (k % 2 ? 26 : -18), y: 900 + (k % 3 - 1) * 6 }, duration: 0.05, ease: 'none' })) })),
+
 
       // ── 1. a form: the card ──────────────────────────────────────────────────────────────────────────────────────
-      ...appWindow({ asset: 'card', at: S.card, dur: 7, speed: 1, crop: [364, 84, 1190, 668], scale: 1.22, left: 520, top: 40 }),
-      ...appWindow({ asset: 'card', at: S.card, dur: 7, speed: 1, crop: [330, 780, 820, 300], scale: 1.12, left: 40, top: 700, radius: 18 }),
+      appWindow({ asset: 'card', at: S.card, dur: 7, speed: 1, crop: [364, 84, 1190, 668], scale: 1.22, left: 520, top: 40 }),
+      appWindow({ asset: 'card', at: S.card, dur: 7, speed: 1, crop: [330, 780, 820, 300], scale: 1.12, left: 40, top: 700, radius: 18 }),
       slam('TYPE A\nNAME.', { at: S.card + 0.2, until: S.card + 2.6, y: 300, size: 135 }),
       slam('SLIDE A\nNUMBER.', { at: S.card + 2.6, until: S.card + 4.5, y: 300, size: 135 }),
       slam('PICK A\nCOLOUR.', { at: S.card + 4.5, until: S.card + 7, y: 300, size: 135 }),
@@ -93,7 +100,7 @@
       slam('THE CAMERA FLIES.', { at: S.city + 2.5, until: S.city + 5.5, x: W / 2, y: 900, size: 175, align: 'center' }),
 
       // ── 3. rewind: rock paper scissors ───────────────────────────────────────────────────────────────────────────
-      ...appWindow({ asset: 'janken', at: S.janken, dur: 8, speed: 12.6 / 8, crop: [364, 84, 1190, 668], scale: 1.05, left: 640, top: 150 }),
+      appWindow({ asset: 'janken', at: S.janken, dur: 8, speed: 12.6 / 8, crop: [364, 84, 1190, 668], scale: 1.05, left: 640, top: 150 }),
       slam('REWIND.', { at: S.janken + 0.3, until: S.janken + 2.3, y: 360, size: 190 }),
       slam('IT THROWS\nAGAIN.', { at: S.janken + 2.3, until: S.janken + 4.4, y: 400, size: 150 }),
       slam('AGAIN.', { at: S.janken + 4.4, until: S.janken + 6.3, y: 360, size: 190 }),
@@ -107,11 +114,50 @@
         { type: 'text', text: 'SHOOT!', at: S.janken + 0.2, duration: 7.8, style: { fontFamily: FONT, fontSize: 30, fontWeight: '900', fill: ACC, stroke: { color: '#000000', width: 6 } }, initial: { x: mx, y: my - 58, anchorX: 0.5, anchorY: 0.5 } });
     }
     layers.push(
+      // ── 3b. choose your ending ───────────────────────────────────────────────────────────────────────────────────
+      appWindow({ asset: 'ending', at: S.ending, dur: 7, speed: 9 / 7, crop: [364, 84, 1190, 668], scale: 1.22, left: 520, top: 40 }),
+      slam('A FORK IN\nTHE ROAD.', { at: S.ending + 0.2, until: S.ending + 3.4, y: 300, size: 135 }),
+      slam('YOU\nPICK.', { at: S.ending + 3.4, until: S.ending + 4.9, y: 300, size: 150 }),
+      slam('THE SECOND\nHALF\nCHANGES.', { at: S.ending + 4.9, until: S.ending + 7, y: 330, size: 120 }),
+
+      // ── 3c. one file, many versions ──────────────────────────────────────────────────────────────────────────────
+      appWindow({ asset: 'variants', at: S.variants, dur: 6.5, speed: 7 / 6.5, crop: [364, 84, 1190, 668], scale: 1.22, left: 520, top: 40 }),
+      appWindow({ asset: 'variants', at: S.variants, dur: 6.5, speed: 7 / 6.5, crop: [340, 795, 520, 160], scale: 1.5, left: 40, top: 770, radius: 18 }),
+      slam('ONE\nFILE.', { at: S.variants + 0.2, until: S.variants + 2.4, y: 300, size: 150 }),
+      slam('MANY\nVERSIONS.', { at: S.variants + 2.4, until: S.variants + 3.7, y: 300, size: 135 }),
+      slam('ANY\nSHAPE.', { at: S.variants + 3.7, until: S.variants + 6.5, y: 300, size: 150 }),
+
+      // ── 3d. the pointer ──────────────────────────────────────────────────────────────────────────────────────────
+      appWindow({ asset: 'pointer', at: S.pointer, dur: 5, speed: 1, crop: [364, 84, 1190, 668], scale: 1.22, left: 520, top: 40 }),
+      slam('THE POINTER\nIS A\nVARIABLE.', { at: S.pointer + 0.2, until: S.pointer + 5, y: 330, size: 110 }),
+
       // ── 4. the music is text ─────────────────────────────────────────────────────────────────────────────────────
-      ...appWindow({ asset: 'chords', at: S.chords, dur: 4, speed: 1.5, crop: [364, 84, 1190, 668], scale: 1.22, left: 520, top: 40 }),
-      ...appWindow({ asset: 'chords', at: S.chords, dur: 4, speed: 1.5, crop: [350, 780, 930, 110], scale: 1.3, left: 40, top: 800, radius: 18 }),
+      appWindow({ asset: 'chords', at: S.chords, dur: 4, speed: 1.5, crop: [364, 84, 1190, 668], scale: 1.22, left: 520, top: 40 }),
+      appWindow({ asset: 'chords', at: S.chords, dur: 4, speed: 1.5, crop: [350, 780, 930, 110], scale: 1.3, left: 40, top: 800, radius: 18 }),
       slam('EVEN THE\nMUSIC', { at: S.chords + 0.2, until: S.chords + 2.2, y: 300, size: 135 }),
       slam('IS A\nVARIABLE.', { at: S.chords + 2.2, until: S.chords + 4, y: 300, size: 135 }),
+
+      // ── 5a. three lines ──────────────────────────────────────────────────────────────────────────────────────────
+      { type: 'shape', shape: 'rect', at: S.how, duration: 6, width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: BG } },
+      slam('THREE LINES.', { at: S.how + 0.2, until: S.how + 6, x: W / 2, y: 170, size: 170, align: 'center', stroke: false }),
+      ...[["vars: { name: 'Aiko' }", 390, 0.5, 0.9, INK], ["text: 'Happy birthday, {name}!'", 540, 1.6, 1.2, INK], ["await movie.setVars({ name: 'Ben' })", 690, 3.0, 1.2, ACC], ['pixi-effects render card.html --var name=Ben', 850, 4.4, 1.3, '#9fe3b4']].map(([text, y, d, typing, fill]) => ({
+        type: 'text', text, at: S.how + d, duration: 6 - d, style: { fontFamily: MONO, fontSize: text.length > 40 ? 56 : 84, fontWeight: '700', fill },
+        initial: { x: 130, y, anchorX: 0, anchorY: 0.5, visibleChars: 0 }, keyframes: [{ at: 0, to: { visibleChars: text.length }, duration: typing, ease: 'none' }] })),
+
+      // ── 5b. one film, six videos: the real renders ──────────────────────────────────────────────────────────────
+      { type: 'shape', shape: 'rect', at: S.batch, duration: 7, width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: BG } },
+      slam('ONE FILM. SIX VIDEOS.', { at: S.batch + 0.2, until: S.batch + 7, x: W / 2, y: 80, size: 100, align: 'center', stroke: false }),
+      ...['aiko', 'ben', 'chloe', 'dev', 'emi', 'finn'].flatMap((id, i) => {
+        const cx = 356 + (i % 3) * 604, cy = 365 + Math.floor(i / 3) * 400, sc = 0.44, w = 1280 * sc, h = 720 * sc, at = S.batch + 0.3 + i * 0.18;
+        return [
+          { type: 'composition', name: `tile-${id}`, at, duration: S.batch + 7 - at, width: W, height: H, initial: { x: cx, y: cy, pivotX: cx, pivotY: cy },
+            keyframes: [{ at: 0, from: { scale: 0.3, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.35, ease: 'back.out(1.8)' }],
+            sequences: [{ type: 'video', asset: `batch-${id}`, audio: false, initial: { x: cx - w / 2, y: cy - h / 2, anchorX: 0, anchorY: 0, scale: sc },
+              mask: { type: 'shape', shape: 'rect', width: w, height: h, cornerRadius: 16, initial: { x: cx, y: cy, fillColor: '#ffffff' } } }] },
+          { type: 'text', text: `${id}.mp4`, at: at + 0.2, duration: S.batch + 7 - at - 0.2, style: { fontFamily: MONO, fontSize: 36, fontWeight: '700', fill: MUTED }, initial: { x: cx, y: cy + h / 2 + 34, anchorX: 0.5, anchorY: 0.5 },
+            keyframes: [{ at: 0, from: { alpha: 0 }, duration: 0.3 }] },
+        ];
+      }),
 
       // ── 5. still a movie ─────────────────────────────────────────────────────────────────────────────────────────
       ...['janken', 'scroll-city', 'chords', 'card', 'ending', 'variants', 'sliders', 'pointer', 'liquid'].map((id, i) => ({
@@ -147,22 +193,22 @@
     // ── sound ──────────────────────────────────────────────────────────────────────────────────────────────────────
     const CH = [['Am', 'a1', 'a3 c4 e4 a4'], ['F', 'f1', 'f3 a3 c4 f4'], ['C', 'c2', 'c3 e3 g3 c4'], ['G', 'g1', 'g3 b3 d4 g4']];
     const rep = (f, n) => Array.from({ length: n }, f).join(' ');
-    const bars = 20;                                                          // 80 beats, 4 per chord
+    const bars = 36;                                                          // 144 beats, 4 per chord
     const pad = rep((_, i) => `${CH[i % 4][0]}:4`, bars);
     const bass = rep((_, i) => { const r = CH[i % 4][1]; return `${r}:0.5 _:0.5 ${r}:0.5 _:0.5 ${r}:0.5 _:0.5 ${r}:1`; }, bars);
     const arp = rep((_, i) => { const [a, b, c, d] = CH[i % 4][2].split(' '); return [a, b, c, d, c, b, c, b].map(n => `${n}:0.5`).join(' '); }, bars);
-    const sfx = (name, sfxName, at, volume = 0.8, extra = {}) => ({ type: 'audio', name, sfx: sfxName, at, volume, ...extra });
+    const sfx = (name, sfxName, at, volume = 1, extra = {}) => ({ type: 'audio', name, sfx: sfxName, at, volume, ...extra });
     layers.push(
-      { type: 'audio', name: 'music', volume: 0.9, at: 0, duration: TOTAL, keyframes: [{ at: -1.5, to: { volume: 0 }, duration: 1.5 }], music: { bpm: 120, reverb: 0.22, tracks: [
-        { inst: 'pad', vol: 0.55, notes: pad },
-        { inst: 'sub', vol: 0.9, notes: `_:12 ${bass}` },
-        { inst: 'pluck', vol: 0.5, notes: `_:12 ${arp}` },
-      ], drums: [{ from: 6, to: 66, kick: 'x...x...x...x...' }, { from: 10, to: 66, hat: '..x...x...x...x.' }, { from: 14, to: 66, snare: '....x.......x...' }] } },
-      sfx('hit-1', 'hit', 0.5, 0.9), sfx('hit-2', 'hit', 1.0, 0.9), sfx('hit-3', 'hit', 1.5, 0.9), sfx('hit-4', 'hit', 2.0, 1),
+      { type: 'audio', name: 'music', volume: 1, at: 0, duration: TOTAL, keyframes: [{ at: 62.5, to: { volume: 0.25 }, duration: 0.5 }, { at: 65, to: { volume: 1 }, duration: 0.3 }, { at: -1.5, to: { volume: 0 }, duration: 1.5 }], music: { bpm: 120, reverb: 0.22, tracks: [
+        { inst: 'pad', vol: 1, notes: pad },
+        { inst: 'sub', vol: 1, notes: `_:12 ${bass}` },
+        { inst: 'pluck', vol: 1, notes: `_:12 ${arp}` },
+      ], drums: [{ from: 6, to: 124, kick: 'x...x...x...x...' }, { from: 10, to: 124, hat: '..x...x...x...x.' }, { from: 14, to: 124, snare: '....x.......x...' }] } },
+      sfx('hit-1', 'hit', 0.5), sfx('hit-2', 'hit', 1.0), sfx('hit-3', 'hit', 1.5), sfx('hit-4', 'hit', 2.0),
       sfx('riser', 'riser', 1.9, 0.8, { duration: 1.1 }),
       ...Object.entries(S).slice(1).map(([k, t]) => sfx(`whoosh-${k}`, 'swoosh', t, 0.7)),
       sfx('chime-still', 'chime', S.still + 0.2, 0.7), sfx('chime-end', 'chime', S.end + 0.3, 0.9),
-      ...pops.map((t, i) => sfx(`tick-${i}`, 'pop', t, 0.45)),
+      ...pops.map((t, i) => sfx(`tick-${i}`, 'pop', t, 0.7)),
     );
 
     const canvas = document.getElementById('stage');
@@ -171,7 +217,7 @@
     await movie.init({
       canvas, width: W, height: H, duration: TOTAL, frameRate: FPS, background: BG, poster: S.janken + 3.5,
       assets: [
-        ...['card', 'city', 'janken', 'chords'].map(id => ({ name: id, src: `clips/${id}.mp4` })),
+        ...['card', 'city', 'janken', 'chords', 'ending', 'variants', 'pointer', 'batch-aiko', 'batch-ben', 'batch-chloe', 'batch-dev', 'batch-emi', 'batch-finn'].map(id => ({ name: id, src: `clips/${id}.mp4` })),
         ...['janken', 'scroll-city', 'chords', 'card', 'ending', 'variants', 'sliders', 'pointer', 'liquid'].map(id => ({ name: `poster-${id}`, src: `../posters/${id}.jpg` })),
       ],
       composition: { sequences: layers },

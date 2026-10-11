@@ -76,6 +76,7 @@ try {
     let ripple = 0, rx = x, ry = y;
     for (const c of plan.clicks ?? []) if (t >= c.t && t < c.t + 0.45) { ripple = (t - c.t) / 0.45; rx = c.x ?? x; ry = c.y ?? y; }
     await ev(`__cursor(${x.toFixed(1)}, ${y.toFixed(1)}); __ripple(${rx.toFixed(1)}, ${ry.toFixed(1)}, ${ripple.toFixed(3)})`);
+    if (plan.mouse) await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });          // the page hears the pointer too (a real mousemove)
     // acts: once at their time, or every frame while they last
     for (const [n, a] of plan.acts.entries()) {
       const d = a.d ?? 0;

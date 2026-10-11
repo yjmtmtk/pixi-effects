@@ -81,4 +81,44 @@ export const SCENES = {
       };
     },
   },
+  // 5. choose your ending: the film waits at the fork; the cursor picks a path
+  ending: {
+    page: 'ending', seconds: 9,
+    async plan(api) {
+      const pick = await api.center('#choices button:nth-child(3)');
+      return {
+        cursor: [{ t: 0, x: 1250, y: 650 }, { t: 4.6, x: 1250, y: 650 }, { t: 5.1, x: pick[0], y: pick[1] }, { t: 6.5, x: pick[0] + 140, y: pick[1] - 120 }, { t: 9, x: 1100, y: 500 }],
+        clicks: [{ t: 5.15, x: pick[0], y: pick[1] }],
+        acts: [{ t: 5.15, run: async (api) => { await api.ev(`document.querySelectorAll('#choices button')[2].click()`); } }],
+        inner: (i, t) => (t < 4.5 ? t * 30 : t < 5.15 ? 135 : 135 + (t - 5.15) * 30),
+      };
+    },
+  },
+
+  // 6. one film, many versions: language, colours, shape
+  variants: {
+    page: 'variants', seconds: 7,
+    async plan(api) {
+      const b = (sel) => api.center(sel);
+      const targets = [['#lang button:nth-child(3)', 0.8], ['#brand button:nth-child(2)', 1.8], ['#brand button:nth-child(4)', 3.0], ['#format button:nth-child(2)', 4.2], ['#format button:nth-child(3)', 5.4], ['#format button:nth-child(1)', 6.5]];
+      const pts = []; for (const [sel] of targets) pts.push(await b(sel));
+      return {
+        cursor: [{ t: 0, x: 1250, y: 700 }, ...targets.map(([, t], k) => ({ t, x: pts[k][0], y: pts[k][1] })), { t: 7, x: 1100, y: 500 }],
+        clicks: targets.map(([, t], k) => ({ t: t + 0.05, x: pts[k][0], y: pts[k][1] })),
+        acts: targets.map(([sel, t]) => ({ t: t + 0.05, run: click(sel) })),
+        inner: (i) => 70 + i,
+      };
+    },
+  },
+
+  // 7. the pointer is a variable: a real mouse move across the picture
+  pointer: {
+    page: 'pointer', seconds: 5, mouse: true,
+    async plan() {
+      const way = [[300, 140], [560, 420], [880, 200], [720, 330], [430, 480], [900, 440], [1000, 250]];
+      return { mouse: true,
+        cursor: way.map(([x, y], k) => ({ t: 0.4 + k * 0.7, x, y })).concat([{ t: 5, x: 1000, y: 250 }]),
+        clicks: [], acts: [], inner: (i) => 50 + i };
+    },
+  },
 };
