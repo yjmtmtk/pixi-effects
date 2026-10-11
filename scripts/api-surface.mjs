@@ -66,7 +66,7 @@ export async function surface() {
     const lines = [];
     for (const m of checker.getPropertiesOfType(type).sort((a, b) => a.name.localeCompare(b.name))) {
       const decl = m.valueDeclaration ?? m.declarations?.[0];
-      if (!decl || isHidden(decl) || m.name.startsWith('_') || m.name.startsWith('#')) continue;
+      if (!decl || isHidden(decl) || m.name.startsWith('_') || m.name.startsWith('#') || ts.getJSDocTags(decl).some(t => t.tagName.text === 'internal')) continue;
       if (ownOf && !(m.declarations ?? []).some(d => d.parent === ownOf)) continue;
       const sigs = callSig(m, decl);
       if (sigs.length && (ts.isMethodDeclaration(decl) || ts.isMethodSignature(decl))) sigs.forEach(sg => lines.push(`${indent}${m.name}${optional(m)}${sg}`));

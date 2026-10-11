@@ -15,6 +15,7 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": false,
     "declaration": true,
+    "stripInternal": true,
     "declarationMap": true,
     "sourceMap": true,
     "outDir": "dist",

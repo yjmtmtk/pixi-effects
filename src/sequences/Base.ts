@@ -18,16 +18,19 @@ export abstract class Sequence {
   intrinsicHeight = 0;
   at: number;
   duration: number | undefined;
+  /** @internal */
   filters: NamedFilter[] = [];
   /**
    * Mask sequence built from `spec.mask`, if any. Built and added to the
    * scene graph by the parent CompositionSequence; rendered as a mask
    * (not a normal child) by PIXI when `target.mask = maskSequence.target`.
+   * @internal
    */
   maskSequence: Sequence | null = null;
   /**
    * Set by the parent composition on a sprite-based (image / video) mask. PIXI hides such a mask with
    * `renderable = false`; the lifespan toggles must not switch it back on, or the mask is drawn as a picture.
+   * @internal
    */
   keepHidden = false;
   /**
@@ -35,6 +38,7 @@ export abstract class Sequence {
    * bindTimeline. Movie._awaitVideoFrames uses it to determine the correct
    * time to pass to awaitFrameAt. Subclasses that override bindTimeline
    * without calling super must set this field themselves. Null until bound.
+   * @internal
    */
   absoluteStart: number | null = null;
 
@@ -83,6 +87,7 @@ export abstract class Sequence {
     return { initial: this.spec.initial, keyframes: this.spec.keyframes };
   }
 
+  /** @internal */
   bindTimeline(timeline: Timeline, offset = 0): void {
     if (!this.target) return;
     const scope = this.scope();
@@ -104,6 +109,7 @@ export abstract class Sequence {
     timeline.set(this.target, { renderable: false }, endTime);
   }
 
+  /** @internal */
   collectAudio(_out: AudioDescriptor[], _baseTime: number): void {
     // default: no audio
   }
@@ -112,6 +118,7 @@ export abstract class Sequence {
    * 2.5D hook. Runs once per rendered frame, after the timeline seek and the
    * per-frame media sync, before the render. Compositions override it to
    * project their `threeD` layers; everything else has nothing to do.
+   * @internal
    */
   updateSpace(_t: number, _host: SpaceHost): void {
     // default: nothing to project
@@ -121,6 +128,7 @@ export abstract class Sequence {
    * Runs once per rendered frame, after the timeline seek and before the cull. Layers whose drawn
    * geometry follows tweened state (shapes) redraw here, so the culler measures where the layer is NOW
    * and not where it was drawn at the previous render.
+   * @internal
    */
   syncFrame(): void {
     this.maskSequence?.syncFrame();

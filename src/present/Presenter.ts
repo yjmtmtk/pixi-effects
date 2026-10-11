@@ -499,6 +499,7 @@ export class Presenter {
    * Make a picture of every stop, once. Taking them moves the playhead through the stops and back, which the audience would see:
    * `start()` does it before anything is shown (behind a "Preparing" cover), and an overview opened before that does it on the spot.
    */
+  /** @internal */
   ensureThumbs(): Promise<void> {
     this.thumbsPromise ??= (async () => {
       try {

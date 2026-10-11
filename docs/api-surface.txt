@@ -268,16 +268,13 @@ class Movie
   app: Application<Renderer> | null
   audioBlocked: boolean
   audioBuffer: AudioBuffer | null
-  audioSource: AudioBufferSourceNode | null
   background: string
   contactSheet(opts?: (ContactSheetOptions & { as?: "blob" | undefined; }) | undefined): Promise<Blob>
   contactSheet(opts: ContactSheetOptions & { as: "dataURL"; }): Promise<string>
   currentFrame: number
   destroy(): Promise<void>
   duration: number
-  emit(event: string, ...args: unknown[]): void
   frameRate: number
-  gainNode: GainNode | null
   gotoFrame(frame: number, force?: boolean): Promise<void>
   height: number
   init(options?: MovieOptions): Promise<void>
@@ -532,26 +529,18 @@ interface ReviewReport
   problems: IssueGroup[]
   review: IssueGroup[]
 class Sequence
-  absoluteStart: number | null
   at: number
-  bindTimeline(timeline: PureTimeline, offset?: number): void
   build(): Promise<void>
   buildFilters(): void
-  collectAudio(_out: AudioDescriptor[], _baseTime: number): void
   destroy(): void
   duration: number
-  filters: NamedFilter[]
   intrinsicHeight: number
   intrinsicWidth: number
-  keepHidden: boolean
-  maskSequence: Sequence | null
   parent: CompositionShape | null
   root: CompositionShape
   scope(): Scope
   spec: SequenceSpec
-  syncFrame(): void
   target: Container<ContainerChild> | null
-  updateSpace(_t: number, _host: SpaceHost): void
   constructor(spec: SequenceSpec, parent: CompositionShape | null, root: CompositionShape)
 interface SequenceCommon
   at?: number
@@ -805,7 +794,6 @@ const pageIndex: (movie: Movie) => number
 class Presenter
   closePresenterView(): void
   destroy(): void
-  ensureThumbs(): Promise<void>
   exit(): Promise<void>
   movie: Movie
   next(): Promise<void>
@@ -858,27 +846,19 @@ interface ThreeContext
   scene: Scene<Object3DEventMap>
   width: number
 class ThreeSequence
-  absoluteStart: number | null
   at: number
   awaitFrameAt(local: number): Promise<void>
-  bindTimeline(timeline: PureTimeline, offset?: number): void
   build(): Promise<void>
   buildFilters(): void
-  collectAudio(_out: AudioDescriptor[], _baseTime: number): void
   destroy(): void
   duration: number
-  filters: NamedFilter[]
   intrinsicHeight: number
   intrinsicWidth: number
-  keepHidden: boolean
-  maskSequence: Sequence | null
   parent: CompositionShape | null
   root: CompositionShape
   scope(): Scope
   spec: SequenceSpec
-  syncFrame(): void
   target: Container<ContainerChild> | null
-  updateSpace(_t: number, _host: SpaceHost): void
   constructor(spec: SequenceSpec, parent: CompositionShape | null, root: CompositionShape)
 interface ThreeSequenceSpec extends SequenceCommon
   dispose?: ((ctx: ThreeContext) => void)
@@ -928,4 +908,4 @@ polygon shape: shape fillGradient colorSpace strokeCap strokeJoin trimStart trim
 path shape: shape fillGradient colorSpace strokeCap strokeJoin trimStart trimEnd trimEach d morphTo morph morphPoints
 animatable (initial / keyframes): x y z alpha rotation rotationX rotationY width height visible autoAlpha scale scaleX scaleY anchor anchorX anchorY pivot pivotX pivotY skew skewX skewY position positionX positionY tilePosition tilePositionX tilePositionY tileScale tileScaleX tileScaleY tint fillColor fillAlpha strokeColor strokeAlpha strokeWidth cornerRadius radius radiusX radiusY innerRadius startAngle endAngle trimStart trimEnd trimEach morph fillGradient strokeCap strokeJoin fill value visibleChars text volume time lookAtX lookAtY lookAtZ fov focus aperture offsetX offsetY offsetZ lookOffsetX lookOffsetY lookOffsetZ intensity color coneAngle coneFeather falloffDistance shadowDarkness shadowDiffusion fogNear fogFar fogColor fogAmount
 text style: fontSize fontFamily fontWeight fontStyle fontVariant fill stroke dropShadow letterSpacing lineHeight leading align wordWrap wordWrapWidth breakWords whiteSpace padding textBaseline trim lineJoin miterLimit filters tagStyles
-filter types: chromaKey custom blur noise alpha colorMatrix grain warp adjustment advancedBloom ascii backdropBlur bevel bloom bulgePinch colorGradient colorMap colorOverlay colorReplace convolution crossHatch crt dot dropShadow emboss glitch glow godray grayscale hslAdjustment kawaseBlur motionBlur multiColorReplace oldFilm outline pixelate radialBlur reflection rgbSplit shockwave simpleLightmap simplexNoise tiltShift tiltShiftAxis twist zoomBlur
+filter types: chromaKey custom blur noise alpha adjustment advancedBloom ascii backdropBlur bevel bloom bulgePinch colorGradient colorMap colorOverlay colorReplace convolution crossHatch crt dot dropShadow emboss glitch glow godray grayscale hslAdjustment kawaseBlur motionBlur multiColorReplace oldFilm outline pixelate radialBlur reflection rgbSplit shockwave simpleLightmap simplexNoise tiltShift tiltShiftAxis twist zoomBlur

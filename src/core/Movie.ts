@@ -145,7 +145,9 @@ export class Movie {
   app: Application | null = null;
   timeline: Timeline | null = null;
   audioBuffer: AudioBuffer | null = null;
+  /** @internal */
   audioSource: AudioBufferSourceNode | null = null;
+  /** @internal */
   gainNode: GainNode | null = null;
   private _cancelAudioStart: (() => void) | null = null;
   /** The poster time in seconds (`movie.init({ poster })`), or null. */
@@ -216,6 +218,7 @@ export class Movie {
     if (i > -1) list.splice(i, 1);
     return this;
   }
+  /** @internal */
   emit(event: string, ...args: unknown[]): void {
     for (const fn of this._events[event] ?? []) fn(...args);
   }
