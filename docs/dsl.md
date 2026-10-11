@@ -1084,6 +1084,8 @@ No comparison, conditional, bitwise, or string operators — keep it numeric (`s
 
 ### Scope variables
 
+(Your own names, set from outside, are [Variables](#variables) below.)
+
 Each sequence has its own scope, computed at build time:
 
 | Name      | Meaning                                                                               |
@@ -1118,6 +1120,35 @@ style: { fontSize: 'min(GW, GH) * 0.06' }
 // Subtitle 4% above bottom
 initial: { x: 'GW/2', y: 'GH * 0.96', anchorX: 0.5, anchorY: 1 }
 ```
+
+### Variables
+
+A **variable** is a name with a value you can change after the movie is built: the language of a title, a brand colour, an offset, the screen size. Declare them once in `movie.init`; the composition reads them by name.
+
+```ts
+await movie.init({
+  vars: { title: 'NORD', accent: '#e5399a', shift: 0 },           // a number or a string; no booleans (write 0 / 1)
+  composition: { sequences: [
+    { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '{accent}' } },
+    { type: 'text', text: '{title}', initial: { x: 'W/2 + shift', y: 'H/2' } },
+  ] },
+});
+await movie.setVars({ title: 'SÜD', shift: 40 });                 // builds the composition again, at the same frame
+```
+
+| Where | How it reads a variable |
+| --- | --- |
+| a numeric expression (`x`, `scale`, `width`, `fontSize` … any value that takes an [expression](#expressions)) | the **name**, like `W` or `GW`: `'W/2 + shift'`. Only number variables. |
+| any string anywhere in the composition (`text`, a colour, `asset`, a layer `name`, nested layers) | **`{name}`**: `'{title}'`, `'#{hex}'`, `'{lang}-logo'`. The text is replaced before the layer is built. A `{name}` that was not declared stays as written (`{value}` is the [counter](#counters-value) of a text layer, so it is also a name no variable can take). `$` is not used: it is a price (`'$5'`). |
+
+Rules, all checked when the movie is built (each warning says what to change):
+- A name is letters, digits and `_`, not starting with a digit. These are **reserved** and are refused: `w h W H GW GH t d T contain cover value`, every expression function (`min max abs … step rand noise lerp clamp smoothstep mod`) and `PI`.
+- A variable that nothing reads (no `{name}` in a string, no use in an expression) is said: it is usually a typo on one side. A `{name}` that was not declared says the declared name it looks like.
+- Values are read **when the composition is built**, once (not every frame). `at` and `duration` are plain numbers, so a variable moves values, not timing; to change the structure in time, call `movie.rebuild({ composition })` with a composition made by your own function.
+- `setVars` of a name that was not declared is ignored with a did-you-mean; `setVars` of the values it already has does nothing.
+- Everything is built again, the playhead stays at the same frame, a playing movie keeps playing, and the sound is mixed again **only if** the sound changed. See [`movie.rebuild`](api.md#movie-variables-and-rebuilding-vars-setvars-resize-rebuild).
+- A video file is a function of the script **and** the variables: `pixi-effects render page.html --var title=SÜD --var shift=40`, `check --size 1920x1080,1080x1920` (a contact sheet per size).
+- Layout that should follow the screen size uses `W` / `H` / `GW` / `GH`, not pixels: after `movie.resize(w, h)` they are the new size.
 
 ---
 

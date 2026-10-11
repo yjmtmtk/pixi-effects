@@ -1174,3 +1174,51 @@ while IFS=, read -r name score; do
   npx pixi-effects render batch.html --query "name=$(printf %s "$name" | jq -sRr @uri)&score=$score" -o "out/$name.mp4" --quiet
 done < table.csv
 ```
+
+---
+
+## One film, several languages and colours (variables)
+
+Declare what changes as `vars` and write `{name}` in the strings and the names as identifiers in the expressions. One page then makes every variant: `pixi-effects render film.html --var lang=ja --var accent=#3949ab -o film-ja.mp4`, and a page can switch live with `movie.setVars(...)`. Load the fonts of every language before the first build (pitfall 103); `check` says a variable nothing reads, and a `{name}` nobody declared.
+
+```js
+// @docs-only variants
+const COPY = { en: { head: 'Spring sale', sub: 'Up to 40% off' }, ja: { head: '春のセール', sub: '最大40%オフ' } };
+const lang = new URLSearchParams(location.search).get('lang') ?? 'en';
+await movie.init({
+  canvas, width: 1920, height: 1080, duration: 5,
+  vars: { head: COPY[lang].head, sub: COPY[lang].sub, accent: '#e5399a', lift: 0 },        // numbers can be read in expressions, any value in {name}
+  composition: { sequences: [
+    { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#12151f' } },
+    { type: 'text', text: '{head}', at: 0.3, duration: 4.7, style: { fontSize: 120, fontWeight: 'bold', fill: '{accent}' },
+      initial: { x: 'GW/2', y: 'GH/2 - 40 - lift', anchorX: 0.5, anchorY: 0.5 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.6 }] },
+    { type: 'text', text: '{sub}', at: 0.9, duration: 4.1, style: { fontSize: 56, fill: '#ffffff' },
+      initial: { x: 'GW/2', y: 'GH/2 + 80', anchorX: 0.5, anchorY: 0.5 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.6 }] },
+  ] },
+});
+// later, from a button: await movie.setVars({ head: COPY.ja.head, sub: COPY.ja.sub, accent: '#3949ab' });   // same frame, sound untouched
+```
+
+---
+
+## A layout that follows the window (liquid)
+
+`resize(w, h)` builds the composition again at that size, and every expression sees it as `W` / `H` / `GW` / `GH`: write the layout in those, never in pixels. For a different arrangement per shape (wide / tall) write the composition in a function of the size and hand it to `rebuild`. `check --size 1920x1080,1080x1920` makes a contact sheet and a layout review for each size without a browser window.
+
+```js
+// @docs-only liquid-layout
+const layout = (w, h) => {
+  const tall = h > w;
+  return { sequences: [
+    { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#12151f' } },
+    { type: 'text', text: 'Headline', style: { fontSize: tall ? 'GW * 0.12' : 'GH * 0.14', fontWeight: 'bold', fill: '#ffffff' },
+      initial: { x: tall ? 'GW * 0.08' : 'GW/2', y: tall ? 'GH * 0.7' : 'GH/2', anchorX: tall ? 0 : 0.5, anchorY: 0.5 } },
+  ] };
+};
+await movie.init({ canvas, width: canvas.clientWidth, height: canvas.clientHeight, duration: 6, composition: layout(canvas.clientWidth, canvas.clientHeight) });
+new ResizeObserver(() => {
+  const w = Math.round(canvas.clientWidth * devicePixelRatio), h = Math.round(canvas.clientHeight * devicePixelRatio);
+  movie.rebuild({ composition: layout(w, h), width: w, height: h });                       // overlapping calls are joined: only the latest size is built
+}).observe(canvas);
+```
+

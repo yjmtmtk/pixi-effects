@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+**Added: variables, and a composition that is built again (design: `docs/superpowers/specs/2026-10-11-variables-0.31-design.md`)**
+
+- **`movie.init({ vars: { title: 'NORD', accent: '#e5399a', shift: 0 } })`.** A number is a plain name in an expression (`x: 'W/2 + shift'`); any value is `{title}` inside a string anywhere in the composition (`text`, a colour, `asset`, a layer name). Not `$`: that is a price. Reserved (refused, said once): `w h W H GW GH t d T contain cover value`, the expression functions and `PI`. `at` and `duration` stay plain numbers: a variable moves values, not timing.
+- **`movie.setVars()`, `movie.resize(w, h)`, `movie.rebuild({ composition, vars, width, height })`, `movie.vars`, the `'rebuilt'` event.** The composition is built off the stage and swapped in whole, at the same frame; a playing movie keeps playing, a poster stays; a failure keeps the old composition (`error` with `where: 'rebuild'`, and the promise rejects); calls that overlap are joined (the latest values are built once more). Each returns `{ reason, ms, audio: 'reused' | 'mixed' | 'none', frame, playing }`. The sound is mixed again **only if it changed** (a mix of a film takes 0.6 to 0.8 s, the rest about 20 ms). After `resize()` the movie's size beats a `width` / `height` the composition names. The `Controller` redraws its stop marks.
+- **Warnings at `init` (and when `rebuild({ composition })` replaces the spec):** a variable nothing reads, and a `{name}` nobody declared (with the declared name it looks like). `setVars` of an undeclared name is ignored with a did-you-mean.
+- **`pixi-effects check` / `render` take `--var name=value` (repeatable) and `--size WxH`.** The tool builds the page again once it is ready, so a page needs nothing for it; a number variable is given a number, a name the page did not declare stops the run with the nearest one. `check --size 1920x1080,1080x1920` writes a contact sheet and a layout review per size (`sheet.png`, `sheet-1080x1920.png`) and a `vars` and a `sizes` line; `render --var lang=ja --size 1080x1920` writes the variant.
+- Recipes `variants` (a language and a colour as variables) and `liquid-layout` (`ResizeObserver` + `rebuild`); pitfalls 104 and 105; `docs/dsl.md` "Variables", `docs/api.md` "Movie variables and rebuilding".
+
+**Known limits.** While a movie plays, a rebuild stops and starts the sound again from the same time (a gap as long as the rebuild); a rebuild is the whole composition, not one property (measured in the spike: evaluating the expressions is about 40 µs, so a finer recompute buys little).
+
 ## 0.30.1
 
 **Docs**

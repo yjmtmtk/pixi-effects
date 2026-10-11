@@ -138,6 +138,7 @@ Operators `+ - * /`, parentheses, unary `-`. Functions `min max abs floor ceil r
 | `w`, `h` | this layer's own size (image/video natural size, text size **after** its style is applied, shape bounds) |
 | `cover`, `contain` | scale that makes the layer cover / fit the parent (`scale: 'cover'`) |
 | `t`, `d`, `T` | layer start time, layer duration, parent duration |
+| your own names | `movie.init({ vars: { shift: 0, title: 'NORD' } })`: a number is a name in an expression (`'W/2 + shift'`), any value is `{title}` inside a string (`text: '{title}'`, `fillColor: '{accent}'`). Reserved: the names above, `value`, the functions, `PI`. `await movie.setVars({ shift: 40 })` builds again at the same frame; `await movie.resize(w, h)` makes `W` / `H` follow a window. `render --var title=SÜD --size 1080x1920`, `check --size 1920x1080,1080x1920` |
 
 ## Common fields (every layer)
 
@@ -278,6 +279,7 @@ movie.play(); movie.pause();
 await movie.gotoFrame(n, true);                 // seek (frames; 30 fps => t = n/30)
 const blob = await movie.render({ format: 'mp4' });   // 'mp4' | 'webm' | 'mov' | 'mkv'; ~real-time. `format: 'wav'` / `'ogg'` writes only the movie's SOUND (a `music` score as an audio file). `video: { codec: 'hevc' | 'av1' | 'vp9' | 'avc', bitrate: '8M', hardware, keyFrameInterval }` (a codec this browser cannot encode names the one that works). Part of it: `range: [2, 5]` (seconds) or `range: 'title'` (a top-level layer's span; picture and sound); `scale: 0.5` / `draft: true` (half size, low quality, no motion blur: a smaller file, not a faster drawing). Fast motion: `movie.init({ motionBlur: true })` (8 samples, 180° shutter; or a number / { samples: 2–64, shutter: 0–1 }) blurs render / snapshot / contactSheet, not live playback; a render takes `samples`× as long
 movie.on('progress', e => e.progress /* 0–100 */);
+await movie.setVars({ shift: 40 });              // declared variables → build again, same frame, sound mixed again only if it changed. `resize(w, h)`, `rebuild({ composition, vars, width, height })`; `movie.on('rebuilt', report => …)`; `movie.vars`
 movie.audioBuffer                                // mixed audio (after init), if any audio layers
 await movie.contactSheet({ count: 6, as: 'dataURL' })   // ONE image of several labelled frames — look at it. Options: frames | times | count, columns, cellWidth, as
 await movie.snapshot(60, { as: 'dataURL' })             // one frame, canvas only (no player bar) — use it for detail; sheet tiles are small
@@ -426,6 +428,8 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 101. **A film built from one adjective looks like every other one.** Read `reference/direction.md` and write `brief.md` / `style-guide.md` / `shotlist.md` first: real assets with paths, the one sentence to remember, a row per beat with entry and exit state. If a real asset is missing, ask: a drawn fake (a logo, a dashboard, a figure) is the failure that matters. Judge the contact sheet cold: three defects, each with a timestamp, evidence and a local fix.
 102. **A vertical cut is a second composition, not a crop, and only when someone asked for it.** One source, a layout function, `?f=9x16`; `check` and `render` take `--query f=9x16` (recipe `two-formats`). Look at a contact sheet of each format: type that fits wide is tiny tall. Ask which formats are wanted; make one if the answer is open. In a 1080p film keep every line of text at 34 px or more; if you cannot read it in a sheet tile, a phone cannot.
 103. **Load a web font BEFORE you measure with it.** `measureText` / `splitText` / `animateText` measure once, when the composition is built. Measured in Chrome: "Respect the Local, Loop the Value." at 80 px Lato 900 is 1487 px wide before the Google font has arrived (the fallback) and 1231 px after; Japanese text in a similar fallback was within 3 px. Every box, line break and centred position built from the wrong width stays wrong. `await document.fonts.load('900 80px "Lato"', theTextYouUse)` first (the text argument loads exactly the glyphs you need), then build the composition.
+104. **A variable moves values, not timing, and it is read when the composition is built.** `at` and `duration` are plain numbers; `vars: { shift }` works in `x: 'W/2 + shift'` and `'{title}'` inside any string, not in `at: 'shift'`. `setVars` builds everything again (about 20 ms, plus the sound only if it changed): for a continuous input call it as often as you like, calls that overlap are joined, but do not use it for something that should move every frame (that is a keyframe).
+105. **Layout that follows the screen is written in `W` / `H` / `GW` / `GH`, never in pixels.** After `movie.resize(w, h)` an expression sees the new size; a literal `x: 960` stays at 960. A string variable cannot be read in an expression (`x: 'title'` is a number context): use `{title}` in a string, or declare the number. A name that is declared but never read, and a `{name}` that was not declared, are both said at `init` (usually a typo). Load a web font BEFORE the first `setVars` that changes a text (see 103): the text is measured again each rebuild.
 
 
 <!-- ===== skills/pixi-effects/reference/recipes.md ===== -->
@@ -1605,6 +1609,53 @@ mkdir -p out
 while IFS=, read -r name score; do
   npx pixi-effects render batch.html --query "name=$(printf %s "$name" | jq -sRr @uri)&score=$score" -o "out/$name.mp4" --quiet
 done < table.csv
+```
+
+---
+
+## One film, several languages and colours (variables)
+
+Declare what changes as `vars` and write `{name}` in the strings and the names as identifiers in the expressions. One page then makes every variant: `pixi-effects render film.html --var lang=ja --var accent=#3949ab -o film-ja.mp4`, and a page can switch live with `movie.setVars(...)`. Load the fonts of every language before the first build (pitfall 103); `check` says a variable nothing reads, and a `{name}` nobody declared.
+
+```js
+// @docs-only variants
+const COPY = { en: { head: 'Spring sale', sub: 'Up to 40% off' }, ja: { head: '春のセール', sub: '最大40%オフ' } };
+const lang = new URLSearchParams(location.search).get('lang') ?? 'en';
+await movie.init({
+  canvas, width: 1920, height: 1080, duration: 5,
+  vars: { head: COPY[lang].head, sub: COPY[lang].sub, accent: '#e5399a', lift: 0 },        // numbers can be read in expressions, any value in {name}
+  composition: { sequences: [
+    { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#12151f' } },
+    { type: 'text', text: '{head}', at: 0.3, duration: 4.7, style: { fontSize: 120, fontWeight: 'bold', fill: '{accent}' },
+      initial: { x: 'GW/2', y: 'GH/2 - 40 - lift', anchorX: 0.5, anchorY: 0.5 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.6 }] },
+    { type: 'text', text: '{sub}', at: 0.9, duration: 4.1, style: { fontSize: 56, fill: '#ffffff' },
+      initial: { x: 'GW/2', y: 'GH/2 + 80', anchorX: 0.5, anchorY: 0.5 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.6 }] },
+  ] },
+});
+// later, from a button: await movie.setVars({ head: COPY.ja.head, sub: COPY.ja.sub, accent: '#3949ab' });   // same frame, sound untouched
+```
+
+---
+
+## A layout that follows the window (liquid)
+
+`resize(w, h)` builds the composition again at that size, and every expression sees it as `W` / `H` / `GW` / `GH`: write the layout in those, never in pixels. For a different arrangement per shape (wide / tall) write the composition in a function of the size and hand it to `rebuild`. `check --size 1920x1080,1080x1920` makes a contact sheet and a layout review for each size without a browser window.
+
+```js
+// @docs-only liquid-layout
+const layout = (w, h) => {
+  const tall = h > w;
+  return { sequences: [
+    { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#12151f' } },
+    { type: 'text', text: 'Headline', style: { fontSize: tall ? 'GW * 0.12' : 'GH * 0.14', fontWeight: 'bold', fill: '#ffffff' },
+      initial: { x: tall ? 'GW * 0.08' : 'GW/2', y: tall ? 'GH * 0.7' : 'GH/2', anchorX: tall ? 0 : 0.5, anchorY: 0.5 } },
+  ] };
+};
+await movie.init({ canvas, width: canvas.clientWidth, height: canvas.clientHeight, duration: 6, composition: layout(canvas.clientWidth, canvas.clientHeight) });
+new ResizeObserver(() => {
+  const w = Math.round(canvas.clientWidth * devicePixelRatio), h = Math.round(canvas.clientHeight * devicePixelRatio);
+  movie.rebuild({ composition: layout(w, h), width: w, height: h });                       // overlapping calls are joined: only the latest size is built
+}).observe(canvas);
 ```
 
 
@@ -2838,6 +2889,8 @@ No comparison, conditional, bitwise, or string operators — keep it numeric (`s
 
 ### Scope variables
 
+(Your own names, set from outside, are [Variables](#variables) below.)
+
 Each sequence has its own scope, computed at build time:
 
 | Name      | Meaning                                                                               |
@@ -2872,6 +2925,35 @@ style: { fontSize: 'min(GW, GH) * 0.06' }
 // Subtitle 4% above bottom
 initial: { x: 'GW/2', y: 'GH * 0.96', anchorX: 0.5, anchorY: 1 }
 ```
+
+### Variables
+
+A **variable** is a name with a value you can change after the movie is built: the language of a title, a brand colour, an offset, the screen size. Declare them once in `movie.init`; the composition reads them by name.
+
+```ts
+await movie.init({
+  vars: { title: 'NORD', accent: '#e5399a', shift: 0 },           // a number or a string; no booleans (write 0 / 1)
+  composition: { sequences: [
+    { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '{accent}' } },
+    { type: 'text', text: '{title}', initial: { x: 'W/2 + shift', y: 'H/2' } },
+  ] },
+});
+await movie.setVars({ title: 'SÜD', shift: 40 });                 // builds the composition again, at the same frame
+```
+
+| Where | How it reads a variable |
+| --- | --- |
+| a numeric expression (`x`, `scale`, `width`, `fontSize` … any value that takes an [expression](#expressions)) | the **name**, like `W` or `GW`: `'W/2 + shift'`. Only number variables. |
+| any string anywhere in the composition (`text`, a colour, `asset`, a layer `name`, nested layers) | **`{name}`**: `'{title}'`, `'#{hex}'`, `'{lang}-logo'`. The text is replaced before the layer is built. A `{name}` that was not declared stays as written (`{value}` is the [counter](#counters-value) of a text layer, so it is also a name no variable can take). `$` is not used: it is a price (`'$5'`). |
+
+Rules, all checked when the movie is built (each warning says what to change):
+- A name is letters, digits and `_`, not starting with a digit. These are **reserved** and are refused: `w h W H GW GH t d T contain cover value`, every expression function (`min max abs … step rand noise lerp clamp smoothstep mod`) and `PI`.
+- A variable that nothing reads (no `{name}` in a string, no use in an expression) is said: it is usually a typo on one side. A `{name}` that was not declared says the declared name it looks like.
+- Values are read **when the composition is built**, once (not every frame). `at` and `duration` are plain numbers, so a variable moves values, not timing; to change the structure in time, call `movie.rebuild({ composition })` with a composition made by your own function.
+- `setVars` of a name that was not declared is ignored with a did-you-mean; `setVars` of the values it already has does nothing.
+- Everything is built again, the playhead stays at the same frame, a playing movie keeps playing, and the sound is mixed again **only if** the sound changed. See [`movie.rebuild`](api.md#movie-variables-and-rebuilding-vars-setvars-resize-rebuild).
+- A video file is a function of the script **and** the variables: `pixi-effects render page.html --var title=SÜD --var shift=40`, `check --size 1920x1080,1080x1920` (a contact sheet per size).
+- Layout that should follow the screen size uses `W` / `H` / `GW` / `GH`, not pixels: after `movie.resize(w, h)` they are the new size.
 
 ---
 
@@ -3473,6 +3555,7 @@ interface MovieOptions {
   canvas?:     HTMLCanvasElement;   // existing canvas to render into; otherwise PixiJS creates one
   assets?:     AssetSpec[];         // [{ name, src }]
   composition?: CompositionSpec;    // root composition (see DSL reference)
+  vars?:       Record<string, number | string>;   // named values the composition reads: a number as a name in an expression, any as {name} in a string (see Variables)
   poster?:     number;              // seconds: the frame shown before play (negative: from the end), see movie.poster
   motionBlur?: boolean | number | { samples?: number; shutter?: number };   // blur for render() / snapshot() / contactSheet(), not live playback; see Motion blur
   loader?:     HTMLElement | string | false;   // the page's loader (see pixi-effects/loader.css): shows how far init is (a bar, "BUILDING LAYERS 62%"), faded out when ready, stopped if init fails; default: a .pe-loader next to the canvas
@@ -3508,6 +3591,25 @@ Play, and pause exactly at `seconds` (the frame `round(seconds × frameRate)`). 
 ### `movie.peek(fn): Promise<T>`
 
 Look around and put the movie back: pauses, runs `fn` (seek, take pictures with `snapshot()`; the seeks made inside are not reported as `seeking` / `seeked`), then puts the playhead (or the poster) back where it was, whatever `fn` did, and returns what `fn` returned. `stopImages()` and `inspectStops()` (`pixi-effects/present`) are made with it.
+
+### Movie variables and rebuilding: `vars`, `setVars()`, `resize()`, `rebuild()`
+
+Variables are declared in `init({ vars: { title: 'NORD', shift: 0 } })` and read by the composition (see [Variables](dsl.md#variables)). Changing one builds the composition again: the new one is built off the stage first and swapped in when it is whole, at the same frame; a failure leaves the old one in place.
+
+```ts
+movie.vars                                         // the current values (a copy)
+await movie.setVars({ shift: 40 });                // the declared names only (others: ignored with a did-you-mean); the same values: nothing happens
+await movie.resize(1080, 1920);                    // the movie's size; W / H / GW / GH follow. Beats a width / height the composition names
+await movie.rebuild({ composition, vars, width, height });   // the general form: any of the four; `composition` replaces the whole spec (your layout function, called again)
+// all three resolve to a report, and fire 'rebuilt' with it:
+interface RebuildReport { reason: 'vars' | 'resize' | 'rebuild'; ms: number; audio: 'reused' | 'mixed' | 'none'; frame: number; playing: boolean; unchanged?: true }
+```
+
+- The playhead stays on the same frame, a playing movie goes on playing (a rebuild takes `ms`; the sound starts again from the same time), a poster stays the poster. A `playUntil()` in flight ends.
+- The sound is mixed only when it changed: `audio: 'reused'` means the same mix as before (the mix is the slow part, 0.6 to 0.8 s for a film; the rest takes about 20 ms). A time remap (`warp` / `sourceMap`) turns the cache off.
+- Calls that arrive during a rebuild are joined: the latest values are built once more. Safe to call from `pointermove` or `scroll`; the cost is one rebuild per frame at most.
+- A rebuild that fails (a bad expression, a missing asset) rejects, emits `error` with `where: 'rebuild'`, and the movie goes on with what it had.
+- To follow a window: `new ResizeObserver(() => movie.resize(canvas.clientWidth * devicePixelRatio, canvas.clientHeight * devicePixelRatio))` (the `liquid-layout` recipe).
 
 ### `movie.snapshot(frame?, options?): Promise<Blob | string>`
 
@@ -3692,7 +3794,8 @@ movie.off(event, fn): this
 | `'seeking'` / `'seeked'` | `{ frame, totalFrames }` (the frame it lands on) | a `gotoFrame()` to another frame starts / has finished. NOT emitted for playback ticks, `render()`, `snapshot()` or `contactSheet()` |
 | `'ended'`   | none                                              | playback ran off the end (after `'pause'`); pausing by hand does not emit it |
 | `'volumechange'` | `{ volume: number; muted: boolean }`         | `volume` or `muted` really changed (clamping counts) |
-| `'error'`   | `{ where: 'init' \| 'render' \| 'playback'; message: string; error: unknown }` | `init()` / `render()` failed (the call still rejects), or a frame failed during playback |
+| `'error'`   | `{ where: 'init' \| 'render' \| 'playback' \| 'rebuild'; message: string; error: unknown }` | `init()` / `render()` / a rebuild failed (the call still rejects), or a frame failed during playback |
+| `'rebuilt'` | `RebuildReport` (see above) | a `setVars()` / `resize()` / `rebuild()` built the composition again (not for a call that changed nothing) |
 
 The names are the ones an HTML5 `<video>` uses, so a player written for `<video>` ports over.
 
@@ -3713,6 +3816,7 @@ The names are the ones an HTML5 `<video>` uses, so a player written for `<video>
 | `muted`          | boolean   | getter/setter; immediate                                |
 | `app`            | `pixi.js Application \| null` | PIXI Application instance (advanced/escape hatch) |
 | `timeline`       | `Timeline \| null`              | the movie's timeline (advanced): `time(t)`, `duration()`, `segments()` |
+| `vars`           | `Record<string, number \| string>` | the current variable values (a copy) |
 | `stops`          | `Stop[]`  | the composition's stops: named times (see Presentations); empty for an ordinary movie |
 
 ### Presentations: `stops` and `pixi-effects/present`

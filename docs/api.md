@@ -42,6 +42,7 @@ interface MovieOptions {
   canvas?:     HTMLCanvasElement;   // existing canvas to render into; otherwise PixiJS creates one
   assets?:     AssetSpec[];         // [{ name, src }]
   composition?: CompositionSpec;    // root composition (see DSL reference)
+  vars?:       Record<string, number | string>;   // named values the composition reads: a number as a name in an expression, any as {name} in a string (see Variables)
   poster?:     number;              // seconds: the frame shown before play (negative: from the end), see movie.poster
   motionBlur?: boolean | number | { samples?: number; shutter?: number };   // blur for render() / snapshot() / contactSheet(), not live playback; see Motion blur
   loader?:     HTMLElement | string | false;   // the page's loader (see pixi-effects/loader.css): shows how far init is (a bar, "BUILDING LAYERS 62%"), faded out when ready, stopped if init fails; default: a .pe-loader next to the canvas
@@ -77,6 +78,25 @@ Play, and pause exactly at `seconds` (the frame `round(seconds × frameRate)`). 
 ### `movie.peek(fn): Promise<T>`
 
 Look around and put the movie back: pauses, runs `fn` (seek, take pictures with `snapshot()`; the seeks made inside are not reported as `seeking` / `seeked`), then puts the playhead (or the poster) back where it was, whatever `fn` did, and returns what `fn` returned. `stopImages()` and `inspectStops()` (`pixi-effects/present`) are made with it.
+
+### Movie variables and rebuilding: `vars`, `setVars()`, `resize()`, `rebuild()`
+
+Variables are declared in `init({ vars: { title: 'NORD', shift: 0 } })` and read by the composition (see [Variables](dsl.md#variables)). Changing one builds the composition again: the new one is built off the stage first and swapped in when it is whole, at the same frame; a failure leaves the old one in place.
+
+```ts
+movie.vars                                         // the current values (a copy)
+await movie.setVars({ shift: 40 });                // the declared names only (others: ignored with a did-you-mean); the same values: nothing happens
+await movie.resize(1080, 1920);                    // the movie's size; W / H / GW / GH follow. Beats a width / height the composition names
+await movie.rebuild({ composition, vars, width, height });   // the general form: any of the four; `composition` replaces the whole spec (your layout function, called again)
+// all three resolve to a report, and fire 'rebuilt' with it:
+interface RebuildReport { reason: 'vars' | 'resize' | 'rebuild'; ms: number; audio: 'reused' | 'mixed' | 'none'; frame: number; playing: boolean; unchanged?: true }
+```
+
+- The playhead stays on the same frame, a playing movie goes on playing (a rebuild takes `ms`; the sound starts again from the same time), a poster stays the poster. A `playUntil()` in flight ends.
+- The sound is mixed only when it changed: `audio: 'reused'` means the same mix as before (the mix is the slow part, 0.6 to 0.8 s for a film; the rest takes about 20 ms). A time remap (`warp` / `sourceMap`) turns the cache off.
+- Calls that arrive during a rebuild are joined: the latest values are built once more. Safe to call from `pointermove` or `scroll`; the cost is one rebuild per frame at most.
+- A rebuild that fails (a bad expression, a missing asset) rejects, emits `error` with `where: 'rebuild'`, and the movie goes on with what it had.
+- To follow a window: `new ResizeObserver(() => movie.resize(canvas.clientWidth * devicePixelRatio, canvas.clientHeight * devicePixelRatio))` (the `liquid-layout` recipe).
 
 ### `movie.snapshot(frame?, options?): Promise<Blob | string>`
 
@@ -261,7 +281,8 @@ movie.off(event, fn): this
 | `'seeking'` / `'seeked'` | `{ frame, totalFrames }` (the frame it lands on) | a `gotoFrame()` to another frame starts / has finished. NOT emitted for playback ticks, `render()`, `snapshot()` or `contactSheet()` |
 | `'ended'`   | none                                              | playback ran off the end (after `'pause'`); pausing by hand does not emit it |
 | `'volumechange'` | `{ volume: number; muted: boolean }`         | `volume` or `muted` really changed (clamping counts) |
-| `'error'`   | `{ where: 'init' \| 'render' \| 'playback'; message: string; error: unknown }` | `init()` / `render()` failed (the call still rejects), or a frame failed during playback |
+| `'error'`   | `{ where: 'init' \| 'render' \| 'playback' \| 'rebuild'; message: string; error: unknown }` | `init()` / `render()` / a rebuild failed (the call still rejects), or a frame failed during playback |
+| `'rebuilt'` | `RebuildReport` (see above) | a `setVars()` / `resize()` / `rebuild()` built the composition again (not for a call that changed nothing) |
 
 The names are the ones an HTML5 `<video>` uses, so a player written for `<video>` ports over.
 
@@ -282,6 +303,7 @@ The names are the ones an HTML5 `<video>` uses, so a player written for `<video>
 | `muted`          | boolean   | getter/setter; immediate                                |
 | `app`            | `pixi.js Application \| null` | PIXI Application instance (advanced/escape hatch) |
 | `timeline`       | `Timeline \| null`              | the movie's timeline (advanced): `time(t)`, `duration()`, `segments()` |
+| `vars`           | `Record<string, number \| string>` | the current variable values (a copy) |
 | `stops`          | `Stop[]`  | the composition's stops: named times (see Presentations); empty for an ordinary movie |
 
 ### Presentations: `stops` and `pixi-effects/present`

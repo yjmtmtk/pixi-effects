@@ -29,6 +29,7 @@ Operators `+ - * /`, parentheses, unary `-`. Functions `min max abs floor ceil r
 | `w`, `h` | this layer's own size (image/video natural size, text size **after** its style is applied, shape bounds) |
 | `cover`, `contain` | scale that makes the layer cover / fit the parent (`scale: 'cover'`) |
 | `t`, `d`, `T` | layer start time, layer duration, parent duration |
+| your own names | `movie.init({ vars: { shift: 0, title: 'NORD' } })`: a number is a name in an expression (`'W/2 + shift'`), any value is `{title}` inside a string (`text: '{title}'`, `fillColor: '{accent}'`). Reserved: the names above, `value`, the functions, `PI`. `await movie.setVars({ shift: 40 })` builds again at the same frame; `await movie.resize(w, h)` makes `W` / `H` follow a window. `render --var title=SÜD --size 1080x1920`, `check --size 1920x1080,1080x1920` |
 
 ## Common fields (every layer)
 
@@ -169,6 +170,7 @@ movie.play(); movie.pause();
 await movie.gotoFrame(n, true);                 // seek (frames; 30 fps => t = n/30)
 const blob = await movie.render({ format: 'mp4' });   // 'mp4' | 'webm' | 'mov' | 'mkv'; ~real-time. `format: 'wav'` / `'ogg'` writes only the movie's SOUND (a `music` score as an audio file). `video: { codec: 'hevc' | 'av1' | 'vp9' | 'avc', bitrate: '8M', hardware, keyFrameInterval }` (a codec this browser cannot encode names the one that works). Part of it: `range: [2, 5]` (seconds) or `range: 'title'` (a top-level layer's span; picture and sound); `scale: 0.5` / `draft: true` (half size, low quality, no motion blur: a smaller file, not a faster drawing). Fast motion: `movie.init({ motionBlur: true })` (8 samples, 180° shutter; or a number / { samples: 2–64, shutter: 0–1 }) blurs render / snapshot / contactSheet, not live playback; a render takes `samples`× as long
 movie.on('progress', e => e.progress /* 0–100 */);
+await movie.setVars({ shift: 40 });              // declared variables → build again, same frame, sound mixed again only if it changed. `resize(w, h)`, `rebuild({ composition, vars, width, height })`; `movie.on('rebuilt', report => …)`; `movie.vars`
 movie.audioBuffer                                // mixed audio (after init), if any audio layers
 await movie.contactSheet({ count: 6, as: 'dataURL' })   // ONE image of several labelled frames — look at it. Options: frames | times | count, columns, cellWidth, as
 await movie.snapshot(60, { as: 'dataURL' })             // one frame, canvas only (no player bar) — use it for detail; sheet tiles are small
