@@ -14,6 +14,7 @@ interface AnimateTextOptions
   x?: number
   y?: number
 interface AnimateTextTween
+  at?: number
   duration?: number
   ease?: string
   from?: Record<string, number>

@@ -25,6 +25,12 @@ A page that only maps `"pixi-effects"` still gets its stops reviewed and its PDF
 - `movie.peek(fn)`: run a function that looks around (seeks, pictures) and put the playhead or the poster back; the seeks inside are not reported as `seeking` / `seeked`.
 - `movie.snapshot(frame, { quality })` (JPEG quality) and `{ as: 'imageData' }` (the pixels, to measure or compare).
 - `warnUnknownOptions(where, options, validNames)` is exported: the did-you-mean warning for an unknown option, for presets and layer types written outside the library.
+- `animateText({ out: { preset, at: T } })`: the exit starts at composition second T (the pieces leave in the same wave and stay gone until the layer ends). Without `at` it is the end of the layer run backwards, as before; a warning says `out.at ≤ …` when the exit does not fit, or when T is before the entrance has finished.
+- `pixi-effects render --help` and `pixi-effects view --help` (usage, exit 0), like `check`.
+
+**Fixed**
+
+- `NamedFilterType` lacked `'warp'`: `{ type: 'warp' }` was a TypeScript error though it worked at run time. The compiler now checks the type and the runtime filter tables against each other, both ways.
 
 **Checked, not reproduced**
 

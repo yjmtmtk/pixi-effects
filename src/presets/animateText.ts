@@ -32,6 +32,8 @@ export interface AnimateTextTween {
   duration?: number;
   /** Ease name. */
   ease?: string;
+  /** `out` only: the composition second the exit starts at (every piece leaves in the same wave from then on, and holds its exit state until the layer ends). Without it the exit is the end of the layer run backwards. Not for `in` (an entrance starts with its piece: the options' `at`). */
+  at?: number;
 }
 
 export interface AnimateTextOptions {
@@ -50,7 +52,7 @@ export interface AnimateTextOptions {
   duration: number;
   /** How a piece arrives: a preset (`'rise'` default, `'drop'`, `'fade'`, `'pop'`, `'zoom'`, `'slide'`, `'spin'`), your own tween, or `false` for none. */
   in?: TextPreset | AnimateTextTween | false;
-  /** How a piece leaves, in the same wave (the entrance backwards, eased the other way). It leaves from the END of the layer (`at + duration`) and has no `at` of its own: to be gone at time T, set `duration` to T − `at`. Default none. */
+  /** How a piece leaves, in the same wave (the entrance backwards, eased the other way). With `{ preset, at: T }` the exit starts at composition second T; without `at` it leaves from the END of the layer (`at + duration`), the last piece finishing exactly then. Default none. */
   out?: TextPreset | AnimateTextTween | false;
   /** The wave: see {@link stagger}. Default `{ each: 0.04 }`. */
   stagger?: StaggerOptions;
@@ -60,7 +62,7 @@ export interface AnimateTextOptions {
   styleFor?: (piece: TextPiece) => MeasureStyle;
 }
 
-interface Resolved { from: Record<string, number>; to: Record<string, number>; duration: number; ease: string }
+interface Resolved { from: Record<string, number>; to: Record<string, number>; duration: number; ease: string; /** `out` only: the composition second the exit starts at. */ at?: number }
 
 /**
  * Per-character, per-word or per-line text animation in one call: one text layer per piece, laid out exactly like the
@@ -97,6 +99,11 @@ export function animateText(text: string, style: MeasureStyle, options: AnimateT
   }
 
   const end = at + duration;
+  if (outTween?.at !== undefined) {
+    const latest = end - outTween.duration - wave;
+    if (outTween.at > latest + 1e-9) console.warn(`pixi-effects: animateText(): out.at ${outTween.at} leaves after the layer ends (the exit and the wave take ${+(outTween.duration + wave).toFixed(3)} s and the layer ends at ${+end.toFixed(3)} s): use out.at ≤ ${+latest.toFixed(3)}, or a longer duration`);
+    if (inTween && outTween.at - at < inTween.duration - 1e-9) console.warn(`pixi-effects: animateText(): out.at ${outTween.at} is before the entrance has finished (it takes ${inTween.duration} s from at ${at}): use out.at ≥ ${+(at + inTween.duration).toFixed(3)}`);
+  }
   return pieces.map((p, i) => {
     const cx = p.x + p.width / 2, cy = p.y + lineHeight / 2;
     const rest: Record<string, number> = { x: cx, y: cy, alpha: 1, scale: 1, scaleX: 1, scaleY: 1, rotation: 0 };
@@ -113,10 +120,13 @@ export function animateText(text: string, style: MeasureStyle, options: AnimateT
     }
     let idleEnd = len;
     if (outTween) {
-      const begin = outTween.duration + (wave - delays[i]!);                        // seconds before this piece's end
-      idleEnd = len - begin;
+      // `out.at` (composition seconds) starts every piece's exit at the same local time (their own starts shift by their delays, so does the wave);
+      // without it the exit is the end of the layer run backwards: the last piece finishes exactly at the end
+      const begin = outTween.at !== undefined ? undefined : outTween.duration + (wave - delays[i]!);      // seconds before this piece's end
+      const local = outTween.at !== undefined ? outTween.at - at : -begin!;
+      idleEnd = outTween.at !== undefined ? local : len - begin!;
       keyframes.push({
-        at: -begin, duration: outTween.duration, ease: outTween.ease,
+        at: local, duration: outTween.duration, ease: outTween.ease,
         from: Object.fromEntries(Object.keys(outTween.from).map(k => [k, outTween.to[k] ?? rest[k]!])),
         to: Object.fromEntries(Object.entries(outTween.from).map(([k, v]) => [k, place(k, v)])),
       });
@@ -144,9 +154,13 @@ function resolveTween(spec: TextPreset | AnimateTextTween, which: 'in' | 'out'):
   if (typeof spec === 'object' && spec) {
     for (const key of Object.keys(spec)) {
       if ((TWEEN_KEYS as readonly string[]).includes(key)) continue;
+      if (which === 'out' && key === 'at') {
+        if (typeof (spec as AnimateTextTween & { at?: unknown }).at !== 'number' || !Number.isFinite((spec as { at?: number }).at)) console.warn(`pixi-effects: animateText(): out.at must be a number of seconds (the composition second the exit starts at), got ${JSON.stringify((spec as { at?: unknown }).at)}; ignored`);
+        continue;
+      }
       if (TIME_KEYS.includes(key)) {
-        // a time is never read: the piece's own time comes from the options' `at` and `duration`, and an `out` runs backwards from the END of the layer
-        console.warn(`pixi-effects: animateText(): ${which}.${key} ("${key}") is ignored: ${which === 'out' ? 'an out leaves from the END of the layer (at + duration), so to make the text gone at a time T set duration to T − at' : 'the entrance starts when the piece starts (the options\' at, plus the stagger)'}`);
+        // a time is never read here: the piece's own time comes from the options' `at` and `duration`; an `out` starts at its own `at`, or runs backwards from the END of the layer
+        console.warn(`pixi-effects: animateText(): ${which}.${key} ("${key}") is ignored: ${which === 'out' ? 'an exit starts at out.at (composition seconds); without it it leaves from the END of the layer (at + duration)' : 'the entrance starts when the piece starts (the options\' `at`, plus the stagger), and the layer lasts `duration`'}`);
       } else warnUnknownOptions(`animateText() ${which}`, { [key]: 1 }, TWEEN_KEYS);
     }
   }
@@ -164,5 +178,6 @@ function resolveTween(spec: TextPreset | AnimateTextTween, which: 'in' | 'out'):
   if (Object.keys(from).length === 0) throw new Error(`animateText(): ${which} needs a preset or a from`);
   let ease = t.ease ?? base?.ease ?? 'power2.out';
   if (which === 'out' && t.ease === undefined) ease = ease.replace('.out', '.in');
-  return { from, to: { ...to }, duration: t.duration ?? base?.duration ?? 0.5, ease };
+  const at = which === 'out' && typeof t.at === 'number' && Number.isFinite(t.at) ? t.at : undefined;
+  return { from, to: { ...to }, duration: t.duration ?? base?.duration ?? 0.5, ease, ...(at !== undefined ? { at } : {}) };
 }

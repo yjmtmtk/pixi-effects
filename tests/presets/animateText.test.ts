@@ -144,10 +144,29 @@ describe('animateText(): mistakes are said out loud', () => {
     expect(() => animateText('A', style, { duration: 3, in: { from: { skewX: 30 }, to: { skewX: 0 } } })).not.toThrow();
   });
 
-  it('a time (`at`, `delay`, `start`) in `in` / `out` is warned about, with what decides the time: out leaves from the END of the layer', () => {
-    animateText('AB', style, { duration: 4, in: 'fade', out: { preset: 'fade', at: 7.6 } as any });
-    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/out.*"at".*ignored.*duration/s));
-    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/out leaves from the END of the layer/));
+  it('`out.at` is the time (composition seconds) the exit starts at: each piece leaves then, in the same wave, and holds its exit state until the layer ends', () => {
+    const out = animateText('AB', style, { at: 1, duration: 8, in: 'fade', out: { preset: 'fade', at: 6 }, stagger: { each: 0.1 } }) as any[];
+    for (const l of out) {
+      expect(l.at + l.duration).toBeCloseTo(9, 6);                    // the layer still ends at at + duration
+      expect(kf(l).at(-1)).toMatchObject({ at: 5, duration: 0.5, from: { alpha: 1 }, to: { alpha: 0 } });      // 6 − 1: local to the piece (its own start is `at + its delay`)
+    }
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('an `out.at` that leaves after the layer ends, or before the entrance has finished, is warned about with the number to use', () => {
+    animateText('AB', style, { duration: 4, in: 'fade', out: { preset: 'fade', at: 3.8 }, stagger: { each: 0.1 } });
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/out\.at 3\.8.*after the layer ends.*(≤|at most) 3\.[0-9]/s));
+    warn.mockClear();
+    animateText('AB', style, { duration: 8, in: 'fade', out: { preset: 'fade', at: 0.2 } });
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/out\.at 0\.2.*before the entrance has finished/s));
+  });
+
+  it('any other time (`at` / `delay` / `start` in `in`, `delay` / `start` in `out`) is warned about, with what decides the time', () => {
+    animateText('AB', style, { duration: 4, in: { preset: 'rise', at: 1 } as any });
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/in.*"at".*ignored.*at.*duration/s));
+    warn.mockClear();
+    animateText('AB', style, { duration: 4, in: 'fade', out: { preset: 'fade', delay: 2 } as any });
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/out.*"delay".*ignored.*out\.at/s));
     warn.mockClear();
     animateText('AB', style, { duration: 4, in: { preset: 'rise', delay: 1 } as any });
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/in.*"delay".*ignored/s));
