@@ -14,7 +14,7 @@
 
   <div class="panel">
     <div class="status" id="status">Move the pointer over the picture.</div>
-    <p class="note">Each dot is <code>scale: 'clamp(1.8 - sqrt(pow(x0 - px, 2) + pow(y0 - py, 2)) / 260, 0.25, 1.8)'</code> with its own <code>x0</code>, <code>y0</code>. The page calls <code>movie.setVars({ px, py })</code> on every pointer move; calls that arrive during a rebuild are joined (so "moves" counts more than "rebuilds"). The ring keeps turning because a rebuild keeps the frame and keeps playing. A recorded session of <code>px</code>/<code>py</code> would export to the same video: <code>pixi-effects render pointer.html --var px=900 --var py=200</code>.</p>
+    <p class="note">Each dot is <code>scale: 'clamp(1.8 - sqrt(pow(x0 - px, 2) + pow(y0 - py, 2)) / 260, 0.25, 1.8)'</code> with its own <code>x0</code>, <code>y0</code>. The page calls <code>movie.setVars({ px, py })</code> on every pointer move; calls that arrive during a rebuild are joined (so "moves" counts more than "rebuilds"). The wave of dots, the drifting lights and the sweeping band run by themselves (keyframes), so it is a film even when the pointer rests; a rebuild keeps the frame and keeps playing. A recorded session of <code>px</code>/<code>py</code> would export to the same video: <code>pixi-effects render pointer.html --var px=900 --var py=200</code>.</p>
   </div>
 
   <script>
@@ -41,15 +41,22 @@
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
       const x0 = Math.round(GX * (c + 0.5)), y0 = Math.round(GY * (r + 0.5));
       const near = `clamp(1.8 - sqrt(pow(${x0} - px, 2) + pow(${y0} - py, 2)) / 260, 0.25, 1.8)`;
-      dots.push({ type: 'shape', shape: 'circle', radius: 9, initial: { x: x0, y: y0, scale: near, alpha: `clamp(0.25 + ${near} * 0.4, 0.3, 1)`, fillColor: (r + c) % 2 ? '#6aa8ff' : '#a06bff' } });
+      // the wave runs by itself (a keyframe, no variable): each dot bobs, started a little later than its neighbour on the diagonal
+      dots.push({ type: 'shape', shape: 'circle', radius: 9, initial: { x: x0, y: y0, scale: near, alpha: `clamp(0.25 + ${near} * 0.4, 0.3, 1)`, fillColor: (r + c) % 2 ? '#6aa8ff' : '#a06bff' },
+        keyframes: [{ at: (c + r) * 0.1, to: { y: '-=26' }, duration: 0.9, ease: 'sine.inOut', repeat: 6, yoyo: true }] });
     }
     const composition = { sequences: [
       { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0d1018' } },
+      // two soft lights drifting on their own, and a band that sweeps down the picture
+      { type: 'shape', shape: 'circle', radius: 340, initial: { x: 200, y: 180, fillColor: '#6aa8ff', fillAlpha: 0.10 }, keyframes: [{ at: 0, to: { x: 1000, y: 520 }, duration: 8, ease: 'sine.inOut' }] },
+      { type: 'shape', shape: 'circle', radius: 300, initial: { x: 1100, y: 560, fillColor: '#a06bff', fillAlpha: 0.12 }, keyframes: [{ at: 0, to: { x: 300, y: 200 }, duration: 8, ease: 'sine.inOut' }] },
+      { type: 'shape', shape: 'rect', width: 'GW', height: 90, initial: { x: 'GW/2', y: -60, fillColor: '#ffffff', fillAlpha: 0.05 }, keyframes: [{ at: 0, to: { y: 780 }, duration: 2.6, ease: 'none', repeat: 2 }] },
       ...dots,
       { type: 'shape', shape: 'arc', name: 'ring', radius: 54, innerRadius: 46, startAngle: 0, endAngle: 270, initial: { x: 'px', y: 'py', fillColor: '#ffffff' },
         keyframes: [{ at: 0, to: { rotation: 360 }, duration: 2, ease: 'none', repeat: 3 }] },
       { type: 'text', name: 'readout', text: '{px}, {py}', style: { fontFamily: FONT, fontSize: 26, fontWeight: '700', fill: '#ffffff' }, initial: { x: 'px', y: 'py + 84', anchorX: 0.5, anchorY: 0.5 } },
-      { type: 'text', name: 'hint', text: 'move the pointer', style: { fontFamily: FONT, fontSize: 22, fill: '#8b95a8' }, initial: { x: 36, y: 40, anchorX: 0, anchorY: 0.5 } },
+      { type: 'text', name: 'hint', text: 'move the pointer', style: { fontFamily: FONT, fontSize: 22, fill: '#8b95a8' }, initial: { x: 36, y: 40, anchorX: 0, anchorY: 0.5 },
+        keyframes: [{ at: 0, from: { alpha: 0.35 }, to: { alpha: 1 }, duration: 1.2, ease: 'sine.inOut', repeat: 5, yoyo: true }] },
     ] };
 
     const canvas = document.getElementById('stage');
