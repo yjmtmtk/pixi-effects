@@ -53,15 +53,21 @@ export function parseRecipes(md) {
   });
 }
 
+/** The name `recipe` lists a section by: its first id, or a slug of its title when it has none (so no recipe hides). */
+export function recipeId(section) {
+  return section.ids[0] ?? section.title.toLowerCase().replace(/`/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
 /** { section, id } for an exact id or a unique part of one (or of a title); { many } when several match; { nearest } (maybe undefined) when none does. */
 export function findRecipe(sections, query) {
   const q = query.trim().toLowerCase();
-  const exact = sections.find(s => s.ids.some(id => id.toLowerCase() === q));
-  if (exact) return { section: exact, id: exact.ids.find(id => id.toLowerCase() === q) };
-  const part = sections.filter(s => s.ids.some(id => id.toLowerCase().includes(q)) || s.title.toLowerCase().includes(q));
+  const names = (s) => [...s.ids, recipeId(s)];
+  const exact = sections.find(s => names(s).some(id => id.toLowerCase() === q));
+  if (exact) return { section: exact, id: names(exact).find(id => id.toLowerCase() === q) };
+  const part = sections.filter(s => names(s).some(id => id.toLowerCase().includes(q)) || s.title.toLowerCase().includes(q));
   if (part.length === 1) return { section: part[0] };
   if (part.length > 1) return { many: part };
-  return { nearest: nearestOf(q, sections.flatMap(s => s.ids)) };
+  return { nearest: nearestOf(q, sections.flatMap(names)) };
 }
 
 const readIf = (file) => { try { return fs.readFileSync(file, 'utf8'); } catch { return null; } };
@@ -164,12 +170,12 @@ export function runLookup(cmd, args, { cwd = process.cwd(), root = PACKAGE_ROOT 
     const query = args.join(' ').trim();
     if (!query) {
       const lines = ['recipes (pixi-effects recipe <id> prints one with its code):'];
-      for (const s of sections) for (const id of s.ids) lines.push(`  ${id.padEnd(28)} ${s.title}`);
+      for (const s of sections) (s.ids.length ? s.ids : [recipeId(s)]).forEach((id, k) => lines.push(`  ${id.padEnd(28)} ${k === 0 ? s.title : `(the same section as ${recipeId(s)})`}`));
       return ok(lines.join('\n'));
     }
     const r = findRecipe(sections, query);
     if (r.section) return ok(r.section.text);
-    if (r.many) return fail(`several recipes match "${query}": ${r.many.map(s => s.ids[0] ?? s.title).join(', ')}. Give one id (pixi-effects recipe lists them).`);
+    if (r.many) return fail(`several recipes match "${query}": ${r.many.map(s => recipeId(s)).join(', ')}. Give one id (pixi-effects recipe lists them).`);
     return fail(`no recipe "${query}"${r.nearest ? `; did you mean "${r.nearest}"?` : ''} (pixi-effects recipe lists them)`);
   }
   if (cmd === 'help') {

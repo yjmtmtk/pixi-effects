@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+**Docs**
+
+- **Found by six fresh agents (three before 0.30.0's docs, three after):** a recipe for **a plain cut with generated images and music written as text** (`slideshow-cuts`; the slideshow recipe had only transitions and a music file); the **bar chart** recipe grows its bars one at a time with `EACH = DUR + 0.3` (the highlight and the callout wait for the last bar: `PEAK_AT`); `AGENTS.md` and the skill now agree that the check writes to `check-out/<name>/` (the example passed `--out check-out`).
+
+**Fixed**
+
+- `pixi-effects recipe` listed only the recipes whose code block had a name, so three (`deck-in-page`, `placeholder-images`, `metallic-three`) were invisible to it; every section is listed now (a section without a name gets one made from its title), and a test requires every section of `recipes.md` to have a name.
+
 ## 0.30.0
 
 **Added**

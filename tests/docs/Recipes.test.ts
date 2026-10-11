@@ -33,6 +33,18 @@ import { resetGl } from '../../src/core/glShared';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
 import { createTimeline } from '../../src/core/timelineEngine';
 
+// the bar chart can grow its bars one at a time (EACH) without the highlight and the callout landing before the last bar
+{
+  const bar = readFileSync(resolve(__dirname, '../../skills/pixi-effects/reference/recipes.md'), 'utf8').split('// @recipe bar-chart')[1]!.split('```')[0]!;
+  describe('the bar-chart recipe', () => {
+    it('has EACH (the gap between bars) and times the highlight and the callout after the last bar', () => {
+      expect(bar).toMatch(/const EACH = 0\.12;/);
+      expect(bar).toMatch(/const PEAK_AT = Math\.max\(4,/);
+      expect(bar).not.toMatch(/at: 4\.2|at: 4 - at/);
+    });
+  });
+}
+
 // the AI recipes, and the human cookbook (site/guide): every `// @recipe` block in either is built and linted
 const md = ['skills/pixi-effects/reference/recipes.md', 'skills/pixi-effects/reference/quickstart.md', 'site/guide/cookbook.md', 'site/guide/text.md', 'site/guide/shapes.md', 'site/guide/transitions.md', 'site/guide/motion.md', 'site/guide/presenting.md', 'site/guide/audio.md']
   .map(f => readFileSync(resolve(__dirname, '../..', f), 'utf8')).join('\n');

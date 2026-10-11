@@ -622,6 +622,8 @@ const max = Math.max(...data.map(d => d[1]));
 const step = [1, 2, 2.5, 5, 10].map(m => m * 10 ** Math.floor(Math.log10(max / 4))).find(v => max / v <= 5) ?? 10;
 const NICE = Math.ceil(max / step) * step;                    // axis top, so the chart survives changed data
 const BASE = 600, CHART_H = 380, BAR_W = 90, GAP = 40, DUR = 0.9, EASE = 'power3.out';
+const EACH = 0.12;                                            // seconds between bars: 0.12 is a quick wave; EACH = DUR + 0.3 grows them one at a time
+const PEAK_AT = Math.max(4, 0.4 + (data.length - 1) * EACH + DUR + 0.2);   // the highlight and the callout come after the last bar has grown
 const X0 = (1280 - (data.length * BAR_W + (data.length - 1) * GAP)) / 2, X1 = X0 + data.length * BAR_W + (data.length - 1) * GAP;
 const sequences = [];
 for (let v = 0; v <= NICE; v += step) {                       // grid lines + tick labels
@@ -632,14 +634,14 @@ for (let v = 0; v <= NICE; v += step) {                       // grid lines + ti
 const best = data.findIndex(d => d[1] === max);
 data.forEach(([label, value], i) => {
   const x = X0 + i * (BAR_W + GAP) + BAR_W / 2;
-  const at = 0.4 + i * 0.12;
+  const at = 0.4 + i * EACH;
   const h = CHART_H * value / NICE;
   sequences.push({
     type: 'shape', shape: 'rect', width: BAR_W, height: 0, cornerRadius: 8, anchorY: 1, at, colorSpace: 'oklab',
     initial: { x, y: BASE, fillColor: '#4f6df5' },
     keyframes: [
       { at: 0, to: { height: h }, duration: DUR, ease: EASE },
-      ...(i === best ? [{ at: 4 - at, to: { fillColor: '#ffd166' }, duration: 0.5 }] : [{ at: 4 - at, to: { alpha: 0.45 }, duration: 0.5 }]),   // highlight the maximum at t = 4 s
+      ...(i === best ? [{ at: PEAK_AT - at, to: { fillColor: '#ffd166' }, duration: 0.5 }] : [{ at: PEAK_AT - at, to: { alpha: 0.45 }, duration: 0.5 }]),   // highlight the maximum at t = 4 s
     ],
   });
   sequences.push({                                            // value label: counts up while riding the bar's top
@@ -653,11 +655,11 @@ data.forEach(([label, value], i) => {
 // callout: a pill sized from its text (~0.58 x fontSize per glyph + padding), a pointer triangle, clamped inside the plot
 const text = 'Peak: ' + data[best][0] + ' ' + max, FS = 26;
 const PW = text.length * FS * 0.58 + 44, cx = Math.min(Math.max(X0 + best * (BAR_W + GAP) + BAR_W / 2, X0 + PW / 2), X1 - PW / 2), cy = BASE - CHART_H - 70;
-sequences.push({ type: 'shape', shape: 'rect', width: PW, height: 52, cornerRadius: 26, at: 4.2, initial: { x: cx, y: cy, fillColor: '#ffd166', alpha: 0 },
+sequences.push({ type: 'shape', shape: 'rect', width: PW, height: 52, cornerRadius: 26, at: PEAK_AT + 0.2, initial: { x: cx, y: cy, fillColor: '#ffd166', alpha: 0 },
                  keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] });
-sequences.push({ type: 'shape', shape: 'polygon', points: [[-10, 0], [10, 0], [0, 12]], at: 4.2, initial: { x: cx, y: cy + 32, fillColor: '#ffd166', alpha: 0 },
+sequences.push({ type: 'shape', shape: 'polygon', points: [[-10, 0], [10, 0], [0, 12]], at: PEAK_AT + 0.2, initial: { x: cx, y: cy + 32, fillColor: '#ffd166', alpha: 0 },
                  keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] });
-sequences.push({ type: 'text', text, at: 4.2, style: { fontSize: FS, fontWeight: 'bold', fill: '#1b1b2f' }, initial: { x: cx, y: cy, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+sequences.push({ type: 'text', text, at: PEAK_AT + 0.2, style: { fontSize: FS, fontWeight: 'bold', fill: '#1b1b2f' }, initial: { x: cx, y: cy, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
                  keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] });
 return sequences;
 ```
@@ -787,6 +789,23 @@ return { sequences, transitions, duration: total };
 ```
 
 Source images should be at least canvas-sized (`kenBurns` zooms in): draw generated images at 1920×1080 for a 1280×720 movie.
+
+**A plain cut instead of a transition, generated images, music with no file:** scenes are layers one after the other (`at` = `i × L`) with no `transitions`; the images are the assets `p1…p3` (draw them with `placeholderPhoto`, recipe `placeholder-images`). The tune is written as text: at 96 bpm a beat is 0.625 s, so 24 beats are 15 s and every track has to add up to 24 (the check's `music` read-back shows each track's length).
+
+```js
+// @recipe slideshow-cuts
+const N = 3, L = 5, total = N * L;
+const sequences = Array.from({ length: N }, (_, i) =>
+  kenBurns({ asset: 'p' + (i + 1), name: 'scene' + i, at: i * L, duration: L, motion: i % 2 ? 'position' : 'scale' }));
+sequences.push({ type: 'audio', at: 0, volume: 0.7, duration: total, music: {
+  bpm: 96,
+  tracks: [
+    { inst: 'pad',  notes: 'Am:4 F:4 C:4 G:4 Am:4 F:4' },                     // 6 chords x 4 beats = 24 beats = 15 s
+    { inst: 'bass', notes: 'a1:4 f1:4 c2:4 g1:4 a1:4 f1:4' },
+  ],
+} });
+return { sequences, duration: total };
+```
 
 ---
 
@@ -1088,7 +1107,7 @@ return { duration: d.duration, sequences: d.composition.sequences, transitions: 
 ```
 
 ```js
-// @docs-only
+// @docs-only deck-in-page
 // in the page: the deck is spread into init; the Presenter (or the Controller, which then shows the stops and a Present button) plays it
 import { Movie } from 'pixi-effects';
 import { deck, Presenter } from 'pixi-effects/present';     // (add "pixi-effects/present" to the import map)
@@ -1457,7 +1476,7 @@ return [{ type: 'composition', name: 'film', width: 'GW', height: 'GH', sequence
 Draw on a canvas and register `canvas.toDataURL()` as an asset (`data:` URLs work). Make the image at least canvas-sized (1920×1080 for a 1280×720 movie) so `kenBurns` zooms stay sharp.
 
 ```js
-// @docs-only
+// @docs-only placeholder-images
 function placeholderPhoto(name, hueA, hueB, w = 1920, h = 1080) {
   const c = Object.assign(document.createElement('canvas'), { width: w, height: h });
   const g = c.getContext('2d');
@@ -1476,7 +1495,7 @@ function placeholderPhoto(name, hueA, hueB, w = 1920, h = 1080) {
 `ctx.renderer` is a normal `WebGLRenderer`, so an environment map works; lights alone make `metalness: 1` look black. `three/addons` is not in the importmap: build the environment yourself. Size the layer to the area you want (it clips at its own rectangle) and pull the camera back (`z ≈ 5.4` for a radius-1 torus knot at fov 50).
 
 ```js
-// @docs-only
+// @docs-only metallic-three
 // registerThree();  const THREE = await import('three');
 three({
   type: 'three', width: 'GW * 0.56', height: 'GH * 0.9', initial: { x: 'GW * 0.77', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },

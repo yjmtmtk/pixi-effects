@@ -26,6 +26,15 @@ describe('recipes: parse and read', () => {
     expect(r[0].text.trim().endsWith('---')).toBe(false);                      // the separator belongs to nobody
   });
 
+  it('a section with no named block is still listed (by a name made from its title) and found by it, so no recipe hides from `recipe`', () => {
+    const md = '## Hidden gem (a thing)\n\n```js\n// @docs-only\nx\n```\n';
+    const r = lookup.parseRecipes(md);
+    expect(r[0].ids).toEqual([]);
+    expect(lookup.recipeId(r[0])).toBe('hidden-gem-a-thing');
+    expect(lookup.findRecipe(r, 'hidden-gem-a-thing').section.title).toBe('Hidden gem (a thing)');
+    expect(lookup.runLookup('recipe', [], { root: lookup.PACKAGE_ROOT }).stdout).toMatch(/placeholder-images/);
+  });
+
   it('findRecipe: an exact id; a unique part of one; several matches are listed; nothing matches with a nearest guess', () => {
     const r = lookup.parseRecipes(FIXTURE);
     expect(lookup.findRecipe(r, 'slam-words').section.title).toBe('Words that slam');
@@ -45,6 +54,8 @@ describe('recipes: parse and read', () => {
     for (const s of r.filter((x: any) => x.ids.length)) expect(s.text).toContain('```js');
     expect(ids).toContain('slam-words');
     expect(ids).toContain('two-formats');
+    for (const id of ['slideshow-cuts', 'placeholder-images']) expect(ids, id).toContain(id);       // a plain cut and generated images: asked for by two agents
+    expect(r.filter((s: any) => s.ids.length === 0).map((s: any) => s.title), 'every recipe section has a name `recipe` can list').toEqual([]);
   });
 });
 

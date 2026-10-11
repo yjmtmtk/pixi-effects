@@ -37,6 +37,13 @@ describe('skills/pixi-effects — what an agent installs', () => {
     expect(quick).toContain('// @recipe quickstart');                          // the example is built and linted by tests/docs/Recipes.test.ts
   });
 
+  it('AGENTS.md and the skill say the same about where the check writes: check-out/<name>/ by default, so the example does not pass --out check-out', () => {
+    const agents = readFileSync(resolve(root, 'AGENTS.md'), 'utf8');
+    expect(agents).not.toMatch(/check your-video\.html --out check-out/);
+    expect(agents).toMatch(/check-out\/<name>\//);
+    expect(skill).toMatch(/check-out\/<name>\//);
+  });
+
   it('sends a film to reference/direction.md, which is renderer-neutral and names the files an agent must write', () => {
     expect(skill).toContain('reference/direction.md');
     expect(skill).toMatch(/first address goes out within two minutes/);                                                 // the viewer starts on the copied template, before the brief
