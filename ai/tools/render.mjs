@@ -43,12 +43,15 @@ export function defaultOutput(page, format) {
   return path.resolve(path.basename(page).replace(/\.[^.]+$/, '') + '.' + format);
 }
 
+export const USAGE = 'usage: node ai/tools/render.mjs <page.html> [-o out.mp4] [--format mp4|webm|mov|mkv|pdf] [--range A:B | --scene NAME] [--scale S] [--draft] [--quality very-low|low|medium|high|very-high] [--query a=1] [--fail-on-warn] [--quiet] [--timeout S] [--root DIR] [--chrome PATH]';
+
 export function parseRenderArgs(argv) {
   const o = { range: null, scene: null, scale: null, draft: false, qualityGiven: false, page: null, out: null, format: null, quality: 'high', videoCodec: null, videoBitrate: null, audioCodec: null, allStops: false, motionBlur: null, shutter: null, query: null, failOnWarn: false, quiet: false, timeout: 900, root: null, chrome: null };
   const need = (i, name) => { if (i + 1 >= argv.length) throw new Error(`${name} needs a value`); return argv[i + 1]; };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '-o' || a === '--out') o.out = need(i++, a);
+    if (a === '--help' || a === '-h') o.help = true;
+    else if (a === '-o' || a === '--out') o.out = need(i++, a);
     else if (a === '--format') {
       o.format = need(i++, a).toLowerCase();
       if (!FORMATS.includes(o.format)) throw new Error(`--format must be mp4, webm, mov, mkv, wav, ogg or pdf (got "${o.format}")`);
@@ -209,8 +212,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process
   try {
     if (typeof WebSocket === 'undefined') throw new Error('Node >= 22 is needed (built-in WebSocket)');
     const opts = parseRenderArgs(process.argv.slice(2));
+    if (opts.help) { console.log(USAGE); process.exit(0); }
     if (!opts.page) {
-      console.error('usage: node ai/tools/render.mjs <page.html> [-o out.mp4] [--format mp4|webm|mov|mkv|pdf] [--range A:B | --scene NAME] [--scale S] [--draft] [--quality very-low|low|medium|high|very-high] [--query a=1] [--fail-on-warn] [--quiet] [--timeout S] [--root DIR] [--chrome PATH]');
+      console.error(USAGE);
       process.exit(2);
     }
     let last = -1;

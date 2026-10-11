@@ -11,6 +11,19 @@ const root = resolve(__dirname, '../..');
 const view: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/view.mjs')).href);
 const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
 
+describe('every command answers --help: usage on stdout, exit 0 (not "unknown option")', () => {
+  for (const cmd of ['check', 'render', 'view']) {
+    it(`${cmd}.mjs --help and -h`, async () => {
+      const { spawnSync } = await import('node:child_process');
+      for (const flag of ['--help', '-h']) {
+        const r = spawnSync(process.execPath, [join(root, `ai/tools/${cmd}.mjs`), flag], { encoding: 'utf8' });
+        expect(r.status, `${cmd} ${flag}: ${r.stderr}`).toBe(0);
+        expect(r.stdout).toMatch(new RegExp(`usage: .*${cmd}\\.mjs`));
+      }
+    });
+  }
+});
+
 describe('view.mjs — pure helpers', () => {
   it('parseViewArgs: a page and the options; clear errors for a typo or a missing value', () => {
     expect(view.parseViewArgs(['p.html', '--port', '8123', '--no-open', '--query', '?lang=ja'])).toMatchObject({ page: 'p.html', port: 8123, open: false, query: 'lang=ja' });

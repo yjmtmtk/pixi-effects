@@ -26,12 +26,15 @@ import { findRoot, serve } from './check.mjs';
 
 export const VIEWER = '/__viewer';
 
+export const USAGE = 'usage: node ai/tools/view.mjs <page.html> [--port N] [--no-open] [--query a=1] [--root DIR]';
+
 export function parseViewArgs(argv) {
   const o = { page: null, port: 0, open: true, query: null, root: null };
   const need = (i, name) => { if (i + 1 >= argv.length) throw new Error(`${name} needs a value`); return argv[i + 1]; };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '--port') o.port = Math.max(0, Math.round(Number(need(i++, a))) || 0);
+    if (a === '--help' || a === '-h') o.help = true;
+    else if (a === '--port') o.port = Math.max(0, Math.round(Number(need(i++, a))) || 0);
     else if (a === '--no-open') o.open = false;
     else if (a === '--query') o.query = need(i++, a).replace(/^\?/, '');
     else if (a === '--root') o.root = need(i++, a);
@@ -343,8 +346,9 @@ export async function startViewer(opts) {
 if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href) {   // the real path: npm starts a bin through a symlink
   try {
     const opts = parseViewArgs(process.argv.slice(2));
+    if (opts.help) { console.log(USAGE); process.exit(0); }
     if (!opts.page) {
-      console.error('usage: node ai/tools/view.mjs <page.html> [--port N] [--no-open] [--query a=1] [--root DIR]');
+      console.error(USAGE);
       process.exit(2);
     }
     const { url } = await startViewer(opts);
