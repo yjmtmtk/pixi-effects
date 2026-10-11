@@ -206,7 +206,7 @@ export class CompositionSequence extends Sequence {
             const chain: Sequence[] = [];                      // the mask is in the layer's space: the null layers it sits in move it too
             for (let p = this._parentOf.get(child); p; p = this._parentOf.get(p)) chain.push(p);
             this._mattes.add(key, maskSeq, chain);            // drawn into a texture of its own each frame, not on screen
-            const f = this._mattes.filterFor(key, { channel: 'alpha', invert: (child.spec as { maskInverted?: boolean }).maskInverted === true });
+            const f = this._mattes.filterFor(key, { channel: maskSrc.channel, invert: maskSrc.invert });
             if (f) matteFilters.push(f);
           } else {
             // a plain shape mask is a stencil: the mask's geometry (cheap, and the canvas anti-aliasing makes its edge)

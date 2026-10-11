@@ -3,6 +3,7 @@ import type { Sequence } from '../sequences/Base';
 import { CompositionSequence } from '../sequences/Composition';
 import { collectPropKeys } from '../space/specKeys';
 import { transitionWindowsOf } from './Transitions';
+import { maskSourceOf } from './matte';
 
 export interface Rect { x: number; y: number; width: number; height: number }
 
@@ -115,7 +116,8 @@ export function inspectScene(
       layers.push(info);
       let shown = bounds ? clip(bounds, view) : null;
       const maskTarget = seq.maskSequence?.target as Container | null | undefined;
-      if (shown && maskTarget && !(seq.spec as { maskInverted?: boolean }).maskInverted) {
+      const maskSrc = maskSourceOf((seq.spec as { mask?: unknown }).mask);
+      if (shown && maskTarget && !(maskSrc.kind === 'inline' && maskSrc.invert)) {
         const m = maskTarget.getBounds();
         shown = clip(shown, { x: m.x, y: m.y, width: m.width, height: m.height });
       }

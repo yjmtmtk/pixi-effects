@@ -19,6 +19,7 @@ import { warnUnknownOptions } from './options';
 import { startWhenRunning, audioIsBlocked } from './startWhenRunning';
 import { normalizePoster } from './poster';
 import { normalizeStops, type Stop } from './stops';
+import { maskSourceOf } from './matte';
 import { resolveLoader, dismissLoader, failLoader, setLoaderProgress, type LoaderOption } from './loader';
 import { LoadProgress, type LoadProgressState, type LoadStage } from './loadProgress';
 import { resolveMotionBlur, blurTimes, type MotionBlurSpec, type MotionBlurOptions, type ResolvedMotionBlur } from './motionBlur';
@@ -950,7 +951,8 @@ function countLayers(spec: { sequences?: unknown[] } | undefined): number {
   for (const s of spec?.sequences ?? []) {
     const mask = (s as { mask?: unknown }).mask;
     n += 1 + countLayers(s as { sequences?: unknown[] });
-    for (const m of Array.isArray(mask) ? mask : [mask]) if (m && typeof m === 'object' && 'type' in m) n += 1 + countLayers(m as { sequences?: unknown[] });   // an inline mask is built as a layer too
+    const src = maskSourceOf(mask);
+    if (src.kind === 'inline') n += 1 + countLayers(src.spec as { sequences?: unknown[] });   // an inline mask is built as a layer too
   }
   return n;
 }

@@ -13,7 +13,7 @@ type KeysOfUnion<T> = T extends unknown ? keyof T : never;
 type Covers<T, K extends readonly string[]> = [Exclude<KeysOfUnion<T>, K[number]>] extends [never] ? true : { missing: Exclude<KeysOfUnion<T>, K[number]> };
 type Assert<T extends true> = T;
 
-const COMMON = ['type', 'name', 'parent', 'at', 'duration', 'initial', 'keyframes', 'filters', 'filterArea', 'mask', 'maskInverted', 'blendMode', 'threeD', 'hideBehindCamera', 'lit', 'castsShadows'] as const satisfies readonly KeysOfUnion<SequenceCommon | { type: string }>[];
+const COMMON = ['type', 'name', 'parent', 'at', 'duration', 'initial', 'keyframes', 'filters', 'filterArea', 'mask', 'blendMode', 'threeD', 'hideBehindCamera', 'lit', 'castsShadows'] as const satisfies readonly KeysOfUnion<SequenceCommon | { type: string }>[];
 
 const VIDEO = [...COMMON, 'asset', 'loop', 'audio', 'volume', 'speed'] as const satisfies readonly KeysOfUnion<VideoSequenceSpec>[];
 const IMAGE = [...COMMON, 'asset', 'colorSpace'] as const satisfies readonly KeysOfUnion<ImageSequenceSpec>[];
@@ -49,7 +49,7 @@ const SHAPES: Record<string, readonly string[]> = { rect: RECT, circle: CIRCLE, 
 const BY_TYPE: Record<string, readonly string[]> = { video: VIDEO, image: IMAGE, text: TEXT, audio: AUDIO, composition: COMPOSITION, camera: CAMERA, light: LIGHT, shader: SHADER, null: NULL };
 
 /** The keys that shape what is drawn: a layer that is never drawn (audio, a camera, a light) accepts them in its type but they do nothing there. */
-const PICTURE_KEYS = ['filters', 'filterArea', 'mask', 'maskInverted', 'blendMode', 'threeD', 'hideBehindCamera', 'lit', 'castsShadows'] as const;
+const PICTURE_KEYS = ['filters', 'filterArea', 'mask', 'blendMode', 'threeD', 'hideBehindCamera', 'lit', 'castsShadows'] as const;
 const NOT_DRAWN: Record<string, string> = {
   audio: 'an audio layer: it is not drawn (it plays)',
   camera: 'a camera layer: it is not drawn, it frames the picture (its place and lens go in `initial` / `keyframes`: x y z lookAtX … fov)',

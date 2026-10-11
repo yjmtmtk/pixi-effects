@@ -359,7 +359,7 @@
         rect({ name: 'snap-ring', at: 3.0, duration: 0.8, width: 319, height: 325, initial: { x: 966.5, y: 655.5, strokeColor: VERMILION, strokeWidth: 3, alpha: 0.7 },
           keyframes: [{ at: 0, to: { scale: 1.32, alpha: 0, strokeWidth: 1 }, duration: 0.8, ease: 'expo.out' }] }),
         { type: 'text', name: 'gate-glyph', text: '間', style: { ...KANJI, fill: INK }, initial: { x: W / 2, y: H / 2, anchorX: 0.5, anchorY: 0.5 },
-          maskInverted: true, mask: { type: 'shape', shape: 'polygon', points: HOLE, initial: { fillColor: '#ffffff' } } },
+          mask: { layer: { type: 'shape', shape: 'polygon', points: HOLE, initial: { fillColor: '#ffffff' } }, invert: true } },
         { type: 'text', name: 'sun-glyph', text: '間', style: { ...KANJI, fill: VERMILION }, initial: { x: W / 2, y: H / 2, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
           keyframes: [{ at: 3.0, to: { alpha: 1 }, duration: 0.1 }],
           mask: { type: 'shape', shape: 'polygon', points: HOLE, initial: { fillColor: '#ffffff' } } },

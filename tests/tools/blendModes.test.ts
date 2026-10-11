@@ -172,13 +172,13 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
     });
   });
 
-  it('maskInverted with a blendMode: the layer blends where it shows and leaves the backdrop alone in the hole (basic and advanced)', async () => {
+  it('an inverted mask with a blendMode: the layer blends where it shows and leaves the backdrop alone in the hole (basic and advanced)', async () => {
     await withPage(async (cdp) => {
       const hole = { type: 'shape', shape: 'circle', radius: 15, initial: { x: 80, y: 45, fillColor: '#ffffff' } };
       for (const mode of ['multiply', 'overlay']) {
         const comp = { sequences: [
           { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#b0703a' } },
-          { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, blendMode: mode, mask: hole, maskInverted: true, initial: { x: 0, y: 0, fillColor: '#3dd6c8' } },
+          { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, blendMode: mode, mask: { layer: hole, invert: true }, initial: { x: 0, y: 0, fillColor: '#3dd6c8' } },
         ] };
         await cdp.eval(`mk(${JSON.stringify({ composition: comp })})`);
         const url = await cdp.eval('snap(0)');
@@ -215,14 +215,14 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
     });
   });
 
-  it('maskInverted with a blendMode and a mask that has a filter of its own (a feathered hole): the middle of the hole is the backdrop, far out is the blend, the edge is in between', async () => {
+  it('an inverted mask with a blendMode and a mask that has a filter of its own (a feathered hole): the middle of the hole is the backdrop, far out is the blend, the edge is in between', async () => {
     await withPage(async (cdp) => {
       const hole = { type: 'shape', shape: 'circle', radius: 18, filters: [{ type: 'blur', strength: 5 }], initial: { x: 80, y: 45, fillColor: '#ffffff' } };
       const back = hexToRgb('#b0703a');
       for (const mode of ['multiply', 'overlay']) {
         const comp = { sequences: [
           { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#b0703a' } },
-          { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, blendMode: mode, mask: hole, maskInverted: true, initial: { x: 0, y: 0, fillColor: '#3dd6c8' } },
+          { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, blendMode: mode, mask: { layer: hole, invert: true }, initial: { x: 0, y: 0, fillColor: '#3dd6c8' } },
         ] };
         await cdp.eval(`mk(${JSON.stringify({ composition: comp })})`);
         const url = await cdp.eval('snap(0)');
@@ -272,8 +272,8 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
       for (const mode of ['multiply', 'overlay']) {
         const comp = { sequences: [
           { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#b0703a' } },
-          { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, blendMode: mode, maskInverted: true, initial: { x: 0, y: 0, fillColor: '#3dd6c8' },
-            mask: { type: 'image', asset: 'disc', initial: { x: 80, y: 45, anchorX: 0.5, anchorY: 0.5 } } },
+          { type: 'shape', shape: 'rect', width: 160, height: 90, anchorX: 0, anchorY: 0, blendMode: mode, initial: { x: 0, y: 0, fillColor: '#3dd6c8' },
+            mask: { layer: { type: 'image', asset: 'disc', initial: { x: 80, y: 45, anchorX: 0.5, anchorY: 0.5 } }, invert: true } },
         ] };
         await cdp.eval(`mk(${JSON.stringify({ composition: comp, assets: [{ name: 'disc', src: disc }] })})`);
         const url = await cdp.eval('snap(0)');

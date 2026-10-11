@@ -258,7 +258,7 @@ type MaskRefSpec = string | MatteRefSpec
 interface MatteRefSpec
   channel?: "luma" | "alpha"
   invert?: boolean
-  layer: string
+  layer: string | SequenceSpec
 type MeasureStyle = Record<string, unknown>
 function measureText(text: string, style?: MeasureStyle): TextSize
 interface MotionBlurOptions
@@ -555,7 +555,6 @@ interface SequenceCommon
   keyframes?: Keyframe[]
   lit?: boolean
   mask?: SequenceSpec | MaskRefSpec | MaskRefSpec[]
-  maskInverted?: boolean
   name?: string
   parent?: string
   threeD?: boolean
@@ -878,13 +877,12 @@ interface SequenceCommon (not exported; the keys of the types above)
   keyframes?: Keyframe[]
   lit?: boolean
   mask?: SequenceSpec | MaskRefSpec | MaskRefSpec[]
-  maskInverted?: boolean
   name?: string
   parent?: string
   threeD?: boolean
 
 == DSL (the runtime tables) ==
-every layer: type name parent at duration initial keyframes filters filterArea mask maskInverted blendMode threeD hideBehindCamera lit castsShadows
+every layer: type name parent at duration initial keyframes filters filterArea mask blendMode threeD hideBehindCamera lit castsShadows
 null layer: 
 camera layer: 
 light layer: kind falloff

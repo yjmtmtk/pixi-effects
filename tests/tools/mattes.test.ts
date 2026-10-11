@@ -146,8 +146,8 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
     await withPage(async (cdp) => {
       const comp = { sequences: [backdrop,
         { type: 'null', name: 'rig', initial: { x: 40, y: 0 } },
-        rect('L', { parent: 'rig', maskInverted: true, initial: { x: 0, y: 0, fillColor: LAYER },
-          mask: { type: 'shape', shape: 'circle', radius: 20, initial: { x: 40, y: 45, fillColor: '#ffffff' } } })] };
+        rect('L', { parent: 'rig', initial: { x: 0, y: 0, fillColor: LAYER },
+          mask: { layer: { type: 'shape', shape: 'circle', radius: 20, initial: { x: 40, y: 45, fillColor: '#ffffff' } }, invert: true } })] };
       const url = await frame(cdp, comp);
       near(await at(cdp, url, 80, 45), mix(0), 'the hole is at the null\'s x (40) + the mask\'s own x (40) = 80');
       near(await at(cdp, url, 140, 45), mix(1), 'elsewhere the layer shows');

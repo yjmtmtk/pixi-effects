@@ -43,10 +43,10 @@
       text: [bg, { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ffffff' },
         mask: { type: 'text', text: 'II', style: textStyle, initial: textInit } }],
       // an alpha mask that moves: the hole slides right; seeking back must give the same picture as playing forward
-      moving: [bg, { type: 'text', text: 'II', style: textStyle, initial: textInit, maskInverted: true,
-        mask: { type: 'shape', shape: 'circle', radius: 60, initial: { x: 200, y: 180, fillColor: '#ffffff' }, keyframes: [{ at: 0, to: { x: 440 }, duration: 1, ease: 'none' }] } }],
+      moving: [bg, { type: 'text', text: 'II', style: textStyle, initial: textInit,
+        mask: { invert: true, layer: { type: 'shape', shape: 'circle', radius: 60, initial: { x: 200, y: 180, fillColor: '#ffffff' }, keyframes: [{ at: 0, to: { x: 440 }, duration: 1, ease: 'none' }] } } }],
       inverted: [bg, { type: 'composition', name: 'group', mask: circle(120, 320, 180), sequences: [
-        { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ff0000' }, maskInverted: true, mask: circle(50, 320, 180) },
+        { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ff0000' }, mask: { layer: circle(50, 320, 180), invert: true } },
       ] }],
     };
     const movie = new Movie();

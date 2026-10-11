@@ -203,8 +203,11 @@ export type BlendModeName =
   | 'overlay' | 'soft-light' | 'hard-light' | 'color-dodge' | 'color-burn' | 'darken' | 'lighten' | 'difference' | 'exclusion'
   | 'hue' | 'saturation' | 'color' | 'luminosity' | 'linear-burn';
 
-/** A matte given by name: another layer of the same composition. `channel` is how it is read (`'alpha'` by default, or `'luma'`: its brightness); `invert` uses 1 − matte. */
-export interface MatteRefSpec { layer: string; channel?: 'alpha' | 'luma'; invert?: boolean }
+/**
+ * A matte with options: `layer` is another layer of the same composition by name, or a layer written in place. `channel` is how it is read (`'alpha'` by
+ * default, or `'luma'`: its brightness); `invert` uses 1 − matte (a hole instead of a crop). A layer written in place cannot go inside a list.
+ */
+export interface MatteRefSpec { layer: string | SequenceSpec; channel?: 'alpha' | 'luma'; invert?: boolean }
 /** A layer's `mask` can be a layer written in place, the name of another layer, `{ layer, channel, invert }`, or a list of those (intersect). */
 export type MaskRefSpec = string | MatteRefSpec;
 
@@ -245,18 +248,10 @@ export interface SequenceCommon {
    * geometric reveals.
    *
    * Instead of a layer written in place, `mask` can name another layer of the same composition (a matte: it is not drawn, and several
-   * layers can share it), `{ layer, channel, invert }`, or a list of those (all of them must let the layer through: intersect; subtract
-   * with `invert: true`).
+   * layers can share it), `{ layer, channel, invert }` (`layer` is a name, or a layer written in place), or a list of names and `{ layer: name }`
+   * (all of them must let the layer through: intersect; subtract with `invert: true`). A hole instead of a crop: `mask: { layer: { …the shape… }, invert: true }`.
    */
   mask?: SequenceSpec | MaskRefSpec | MaskRefSpec[];
-  /**
-   * When true, the mask is inverted: pixels inside the mask shape become
-   * transparent and pixels outside become visible. Useful for "knockout"
-   * effects (cut a hole through an image / panel). Default false.
-   *
-   * Routed through PIXI's native `setMask({ inverse: true })`.
-   */
-  maskInverted?: boolean;
   /**
    * How this layer blends with what is behind it (everything drawn below it). `'add'` and `'screen'` brighten (glows, light
    * leaks, overlapping halos add up instead of covering each other), `'multiply'` darkens; `'overlay'`, `'soft-light'`,

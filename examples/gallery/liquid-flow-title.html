@@ -132,7 +132,7 @@
     });
 
     // ---------------------------------------------------------------- the cover: the pale field with the word punched out of it (alpha handoff)
-    // A text mask is only its bounding box in Pixi v8 (stencil), and an image mask ignores `maskInverted`,
+    // A text mask is only its bounding box in Pixi v8 (stencil), and an image mask ignored an inverted mask,
     // so the "everything but the letters" cover is drawn once on a canvas: pale fill, letters cut with destination-out.
     function coverAsset() {
       const S = 2;                                                          // drawn at 2x for crisp letter edges

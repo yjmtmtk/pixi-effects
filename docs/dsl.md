@@ -792,31 +792,33 @@ The mask is itself a sequence, so it can have `keyframes` of its own — useful 
 Notes:
 - The mask sequence is rendered as a mask, not as a normal child — its `fillColor` / `strokeColor` only matter for which pixels are kept, not for the visible colour.
 - Any sequence type works as a mask (shape / image / text / video / nested composition); shapes are the natural choice for geometric reveals.
-- A plain **shape** mask (not inverted) is a hard-edged stencil, the cheapest way. Every other mask (a text, image or video layer, `maskInverted`, a named matte, a list) is drawn into a texture once per frame and applied as a **matte filter**: its edges are soft and antialiased, it costs one offscreen pass, and `blendMode` works with it (see [Mattes](#named-mattes-and-luma)).
+- A plain **shape** mask (not inverted) is a hard-edged stencil, the cheapest way. Every other mask (a text, image or video layer, an inverted or luma mask, a named matte, a list) is drawn into a texture once per frame and applied as a **matte filter**: its edges are soft and antialiased, it costs one offscreen pass, and `blendMode` works with it (see [Mattes](#named-mattes-and-luma)).
 - For a left-to-right wipe, give the mask `anchorX: 0` (rect/circle/ellipse) so `width: 0 → full` grows rightward from the left edge.
 
-#### `maskInverted`
+#### An inverted mask: `mask: { layer, invert: true }`
 
-When `true`, flip the mask sense: pixels INSIDE the mask shape become transparent, pixels OUTSIDE stay visible. Useful for knockout / cutout effects (punch a circular hole through a panel, etc.). It works inside a masked group too: the hole is cut out of what the outer mask lets through, and nothing shows outside the outer mask.
+Write the mask layer inside `layer` and add `invert: true` to flip the mask sense: pixels INSIDE the mask shape become transparent, pixels OUTSIDE stay visible. Useful for knockout / cutout effects (punch a circular hole through a panel, etc.). It works inside a masked group too: the hole is cut out of what the outer mask lets through, and nothing shows outside the outer mask.
 
 ```ts
 // Photo with a circular hole punched through the middle
 {
   type: 'image', asset: 'photo',
   initial: { x: 'W/2', y: 'H/2', anchorX: 0.5, anchorY: 0.5 },
-  maskInverted: true,
   mask: {
-    type: 'shape', shape: 'circle', radius: 80,
-    initial: { x: 'W/2', y: 'H/2', fillColor: '#ffffff' },
-    keyframes: [
-      { at: 0, to: { radius: 120 }, duration: 1.5, ease: 'sine.inOut' },
-      { at: 1.5, to: { radius: 80 }, duration: 1.5, ease: 'sine.inOut' },
-    ],
+    invert: true,
+    layer: {
+      type: 'shape', shape: 'circle', radius: 80,
+      initial: { x: 'W/2', y: 'H/2', fillColor: '#ffffff' },
+      keyframes: [
+        { at: 0, to: { radius: 120 }, duration: 1.5, ease: 'sine.inOut' },
+        { at: 1.5, to: { radius: 80 }, duration: 1.5, ease: 'sine.inOut' },
+      ],
+    },
   },
 }
 ```
 
-An inverted mask goes through the matte filter (the letters of a text mask, or a hole with a soft edge), so it works with every `blendMode` and with a mask that has its own `filters`. `maskInverted` is the same thing as `invert: true` on a named matte; with a named matte, write `invert: true` (below).
+An inverted mask goes through the matte filter (the letters of a text mask, or a hole with a soft edge), so it works with every `blendMode` and with a mask that has its own `filters`. `{ layer: <the mask layer>, invert: true }` is the same thing as `{ layer: 'matteName', invert: true }` on a named matte (below); `channel: 'luma'` works on a layer written in place too. (A layer written in place cannot go inside a list of masks: give it a name.)
 
 #### Named mattes and luma
 

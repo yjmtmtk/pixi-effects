@@ -61,7 +61,7 @@ Any layer can be a **mask** for another: only the part under the mask shows. A m
           keyframes: [{ at: 0, from: { radius: 0 }, to: { radius: 420 }, duration: 1.2, ease: 'power2.out' }] } }     // an iris that opens
 ```
 
-`maskInverted: true` cuts a hole instead. A mask with no `at` of its own lives exactly as long as the layer it masks, and its keyframes count from that layer's start. Text, image and video masks and inverted masks have soft edges and work together with `blendMode`.
+`mask: { layer: { …the mask… }, invert: true }` cuts a hole instead. A mask with no `at` of its own lives exactly as long as the layer it masks, and its keyframes count from that layer's start. Text, image and video masks and inverted masks have soft edges and work together with `blendMode`.
 
 ### One mask for several layers
 

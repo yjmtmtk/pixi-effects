@@ -139,8 +139,8 @@ describe('an inline mask that goes through the matte filter (inverted, text, ima
   const layer = (extra: Record<string, unknown>) => ({ type: 'shape', shape: 'rect', width: 50, height: 50, name: 'lit', ...extra });
   const matteFilters = (display: unknown) => ((display as { filters?: Array<{ constructor: { name: string } }> }).filters ?? []).filter(f => f.constructor.name === 'MatteFilter');
 
-  it('maskInverted: the layer has an inverted MatteFilter, the mask is not drawn, no alpha mask effect, no wrapper group', async () => {
-    const comp = await build([layer({ mask: hole, maskInverted: true })]);
+  it('an inverted mask: the layer has an inverted MatteFilter, the mask is not drawn, no alpha mask effect, no wrapper group', async () => {
+    const comp = await build([layer({ mask: { layer: hole, invert: true } })]);
     const [l] = comp.layers();
     const filters = matteFilters(l!.display) as unknown as Array<{ resources: { matteUniforms: { uniforms: { uInvert: number } } } }>;
     expect(filters).toHaveLength(1);
@@ -164,7 +164,7 @@ describe('an inline mask that goes through the matte filter (inverted, text, ima
 
   it('blendMode with such a mask is applied after the matte (no warning that the blend is lost any more)', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const comp = await build([layer({ blendMode: 'multiply', mask: { type: 'text', text: 'I' } }), layer({ blendMode: 'add', mask: hole, maskInverted: true, name: 'lit2' })]);
+    const comp = await build([layer({ blendMode: 'multiply', mask: { type: 'text', text: 'I' } }), layer({ blendMode: 'add', mask: { layer: hole, invert: true }, name: 'lit2' })]);
     const [a, b] = comp.layers();
     const lastOf = (d: unknown) => ((d as { filters: Array<{ blendMode?: string }> }).filters).slice(-1)[0]!;
     expect(lastOf(a!.display).blendMode).toBe('multiply');
@@ -174,7 +174,7 @@ describe('an inline mask that goes through the matte filter (inverted, text, ima
 
   it('an advanced blend is a filter after the matte filter', async () => {
     setBlendFilterFactory(mode => ({ mode, destroy() {} } as never));
-    const comp = await build([layer({ blendMode: 'overlay', mask: hole, maskInverted: true })]);
+    const comp = await build([layer({ blendMode: 'overlay', mask: { layer: hole, invert: true } })]);
     const names = ((comp.layers()[0]!.display as unknown as { filters: Array<{ constructor: { name: string }; mode?: string }> }).filters).map(f => f.mode ?? f.constructor.name);
     expect(names).toEqual(['MatteFilter', 'overlay']);
   });

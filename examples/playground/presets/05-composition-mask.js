@@ -79,7 +79,7 @@ const sequences = [
     ],
   },
 
-  // ─── 3) Knockout: maskInverted punches a hole ───────────
+  // ─── 3) Knockout: an inverted mask punches a hole ───────
   {
     type: 'composition',
     width: 480, height: 480,
@@ -93,18 +93,20 @@ const sequences = [
       {
         type: 'image', asset: 'tilesC',
         initial: { x: 'W/2', y: 'H/2', anchorX: 0.5, anchorY: 0.5 },
-        maskInverted: true,
         mask: {
-          type: 'shape', shape: 'circle', radius: 100,
-          initial: { x: 'W/2', y: 'H/2', fillColor: '#ffffff' },
-          keyframes: [
-            { at: 1.5, to: { radius: 160 }, duration: 1.5, ease: 'sine.inOut' },
-            { at: 3,   to: { radius: 100 }, duration: 1.5, ease: 'sine.inOut' },
-          ],
+          invert: true,
+          layer: {
+            type: 'shape', shape: 'circle', radius: 100,
+            initial: { x: 'W/2', y: 'H/2', fillColor: '#ffffff' },
+            keyframes: [
+              { at: 1.5, to: { radius: 160 }, duration: 1.5, ease: 'sine.inOut' },
+              { at: 3,   to: { radius: 100 }, duration: 1.5, ease: 'sine.inOut' },
+            ],
+          },
         },
       },
       {
-        type: 'text', text: 'maskInverted',
+        type: 'text', text: 'invert: true',
         initial: { x: 'W/2', y: 'H + 30', anchorX: 0.5, anchorY: 0.5 },
         style: { fontSize: 'GW * 0.022', fill: '#aaccee', fontFamily: 'Menlo, monospace' },
       },

@@ -15,7 +15,7 @@ vi.mock('pixi.js', () => {
     label: string | undefined;
     mask: Container | null = null;
     // Mirror PIXI v8's setMask({ mask, inverse }) so we can verify the
-    // wiring picks the right path when `maskInverted` is on the spec.
+    // wiring picks the right path when the mask is inverted (`mask: { layer, invert: true }`).
     maskInverseSetting = false;
     children: Container[] = [];
     pivot = { x: 0, y: 0, set(x: number, y: number) { this.x = x; this.y = y; } };
@@ -141,8 +141,8 @@ describe('Sequence — inline mask', () => {
   const circleMask = { type: 'shape', shape: 'circle', radius: 30, initial: { x: 0, y: 0, fillColor: '#ffffff' } };
   type Masked = { mask: unknown; maskInverseSetting: boolean; effects: Array<{ inverse: boolean; mask: unknown }> };
 
-  it('maskInverted: true is read by its alpha through a MatteFilter (an inverted stencil shows what an outer mask hides): no stencil, no alpha mask effect', async () => {
-    const seq = new CompositionSequence(maskedRect({ maskInverted: true }, circleMask), root, root);
+  it('an inverted mask ({ layer, invert: true }) is read by its alpha through a MatteFilter (an inverted stencil shows what an outer mask hides): no stencil, no alpha mask effect', async () => {
+    const seq = new CompositionSequence(maskedRect({}, { layer: circleMask, invert: true }), root, root);
     await seq.build();
     const child = seq._children[0]!;
     const t = child.target as unknown as Masked & { filters: Array<{ constructor: { name: string }; resources: { matteUniforms: { uniforms: { uInvert: number } } } }> };
@@ -172,7 +172,7 @@ describe('Sequence — inline mask', () => {
     expect(st.mask).toBe(shape._children[0]!.maskSequence?.target);
   });
 
-  it('maskInverted defaults to false (normal masking)', async () => {
+  it('a mask is not inverted unless it says so (normal masking)', async () => {
     const spec: CompositionSequenceSpec = {
       type: 'composition',
       width: 1280, height: 720,

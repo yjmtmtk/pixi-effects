@@ -19,6 +19,17 @@ The talk side of the library is now its own entry, `pixi-effects/present`, built
 
 A page that only maps `"pixi-effects"` still gets its stops reviewed and its PDF exported by `check` / `render`: they load `present.js` from beside the library.
 
+**Changed (breaking): the API list for 0.29** (`docs/api-surface.txt` is the whole public surface, read from the sources and frozen by a test; the decisions are in `docs/superpowers/specs/2026-10-11-api-list-0.29.md`)
+
+| before | now |
+|---|---|
+| `maskInverted: true` next to `mask: { …a layer… }` | `mask: { layer: { …the mask layer… }, invert: true }` (the one inverted-mask form, the same as `{ layer: 'name', invert: true }` for a named matte; `channel: 'luma'` works on a layer written in place too). The old key warns and says this. Inside a list of masks only names are allowed |
+| `Controller` options `enableKeyboardShortcuts`, `showExportButton`, `present` | `keyboard`, `exportButton`, `presentButton` (the Presenter's names). An unknown `Controller` option now warns, with did-you-mean |
+| `pixi-effects/controller` also exported `CONTROLLER_CSS`, `formatTime`, `frameToPercent`, `pxToFrame`, `pxToFraction`, `extensionForMimeType` | `Controller`, `ControllerOptions`, `ControllerTheme` only |
+| the bins `pixi-effects-check`, `pixi-effects-render`, `pixi-effects-view` | `pixi-effects check|render|view` (the one bin; `npx pixi-effects-check` never worked) |
+| `pixi-effects render --fail-on-warn` | `--strict`, the word `check` already used (the old flag says so) |
+| `Movie.emit`, `audioSource`, `gainNode`; `Sequence.bindTimeline`, `collectAudio`, `absoluteStart`, `keepHidden`, `maskSequence`, `filters`, `updateSpace`, `syncFrame`; `Presenter.ensureThumbs` in the type declarations | marked `@internal` and stripped from the declarations (the library still uses them) |
+
 **Added**
 
 - `movie.playUntil(seconds?)`: play and pause exactly at a time (`true` when it landed; `false` when a pause, a seek or a newer `playUntil` ended it first; no time = to the end). It is what `next(movie)` is made of, and the way to "play the intro, then wait".

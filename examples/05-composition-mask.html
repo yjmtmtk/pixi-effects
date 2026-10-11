@@ -16,13 +16,13 @@
   <h1>05 · composition &amp; mask</h1>
   <p>
     Three nested compositions, each with its own coordinate system, plus three masks: a circular avatar
-    crop, an iris reveal, and a punched-out hole using <code>maskInverted</code>.
+    crop, an iris reveal, and a punched-out hole using <code>mask: { layer, invert: true }</code>.
   </p>
   <ul>
     <li><code>type: 'composition'</code> with explicit <code>width</code>/<code>height</code> — children use local <code>W</code>/<code>H</code>; <code>GW</code>/<code>GH</code> still refer to the root</li>
     <li>Composition itself transforms as a unit (rotate the parent → children come along)</li>
     <li><code>mask</code> on any sequence, animatable like a normal child</li>
-    <li><code>maskInverted: true</code> — flip the mask to punch a hole instead of cropping</li>
+    <li><code>mask: { layer: …, invert: true }</code> — flip the mask to punch a hole instead of cropping</li>
   </ul>
   <canvas id="stage" width="1280" height="720"></canvas>
   <script type="importmap">
@@ -134,7 +134,7 @@
             ],
           },
 
-          // ─── 3) Knockout: maskInverted punches a hole through the image ─
+          // ─── 3) Knockout: an inverted mask punches a hole through the image ─
           {
             type: 'composition',
             width: 480, height: 480,
@@ -149,19 +149,21 @@
               {
                 type: 'image', asset: 'tilesC',
                 initial: { x: 'W/2', y: 'H/2', anchorX: 0.5, anchorY: 0.5 },
-                maskInverted: true,
                 mask: {
-                  // The CIRCLE here is the hole.
-                  type: 'shape', shape: 'circle', radius: 100,
-                  initial: { x: 'W/2', y: 'H/2', fillColor: '#ffffff' },
-                  keyframes: [
-                    { at: 1.5, to: { radius: 160 }, duration: 1.5, ease: 'sine.inOut' },
-                    { at: 3,   to: { radius: 100 }, duration: 1.5, ease: 'sine.inOut' },
-                  ],
+                  invert: true,
+                  layer: {
+                    // The CIRCLE here is the hole.
+                    type: 'shape', shape: 'circle', radius: 100,
+                    initial: { x: 'W/2', y: 'H/2', fillColor: '#ffffff' },
+                    keyframes: [
+                      { at: 1.5, to: { radius: 160 }, duration: 1.5, ease: 'sine.inOut' },
+                      { at: 3,   to: { radius: 100 }, duration: 1.5, ease: 'sine.inOut' },
+                    ],
+                  },
                 },
               },
               {
-                type: 'text', text: 'maskInverted',
+                type: 'text', text: 'invert: true',
                 initial: { x: 'W/2', y: 'H + 30', anchorX: 0.5, anchorY: 0.5 },
                 style: { fontSize: 'GW * 0.022', fill: '#aaccee', fontFamily: 'Menlo, monospace' },
               },

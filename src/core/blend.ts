@@ -29,7 +29,7 @@ export function usesAdvancedBlend(spec: unknown): boolean {
     if (!n || typeof n !== 'object') return false;
     if (Array.isArray(n)) return n.some(visit);
     const o = n as Record<string, unknown>;
-    return isAdvancedBlend(o.blendMode) || visit(o.sequences) || visit(o.mask);
+    return isAdvancedBlend(o.blendMode) || visit(o.sequences) || visit(o.mask) || visit(o.layer);       // (`layer`: a mask written as { layer: <spec>, invert })
   };
   return visit(spec);
 }

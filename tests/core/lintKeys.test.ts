@@ -24,6 +24,14 @@ describe('lintKeys: a layer key that does not exist', () => {
   });
 });
 
+describe('lintKeys: maskInverted is gone', () => {
+  it('says what to write: mask: { layer: <the mask layer>, invert: true }', () => {
+    const w = warns({ type: 'shape', shape: 'rect', width: 1, height: 1, mask: { type: 'shape', shape: 'circle', radius: 1 }, maskInverted: true });
+    expect(w).toHaveLength(1);
+    expect(w[0]).toMatch(/"maskInverted" is not a rect shape key.*mask: \{ layer: .*invert: true \}/s);
+  });
+});
+
 describe('lintKeys: a picture key on a layer that is never drawn', () => {
   it('audio, a camera and a light are not drawn: filters, mask, blendMode, threeD … do nothing there, and the warning says so', () => {
     expect(warns({ type: 'audio', asset: 'a', filters: [{ type: 'blur' }] })[0]).toMatch(/"filters" does nothing on an audio layer: it is not drawn/);

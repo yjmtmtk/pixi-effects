@@ -8,39 +8,52 @@ export interface MatteRef { layer: string; channel: 'alpha' | 'luma'; invert: bo
 
 export type MaskSource =
   | { kind: 'none' }
-  | { kind: 'inline'; spec: Record<string, unknown> }
+  | { kind: 'inline'; spec: Record<string, unknown>; channel: 'alpha' | 'luma'; invert: boolean; problems: string[] }
   | { kind: 'refs'; refs: MatteRef[]; problems: string[] };
 
 const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+const isLayerSpec = (v: unknown): v is Record<string, unknown> => isObject(v) && typeof v.type === 'string';
 
-/** What a layer's `mask` value is: nothing, a layer spec written in place (it has a `type`), or references to other layers by name. */
+/** The `channel` and `invert` of a `{ layer, channel, invert }` mask, with a sentence for each wrong value (the default is used). */
+function matteOptions(r: Record<string, unknown>, label: string): { channel: 'alpha' | 'luma'; invert: boolean; problems: string[] } {
+  const problems: string[] = [];
+  let channel: 'alpha' | 'luma' = 'alpha';
+  if (r.channel !== undefined) {
+    if (r.channel === 'alpha' || r.channel === 'luma') channel = r.channel;
+    else {
+      const guess = typeof r.channel === 'string' ? suggestName(r.channel, MATTE_CHANNELS) : null;
+      const alias = typeof r.channel === 'string' && ['luminance', 'brightness', 'grayscale', 'greyscale', 'gray', 'grey', 'value'].includes(r.channel.toLowerCase()) ? 'luma' : null;
+      const meant = guess ?? alias;
+      problems.push(`${label}: channel ${JSON.stringify(r.channel)} is not a matte channel${meant ? `; did you mean "${meant}"?` : ''} (use alpha or luma); alpha is used`);
+    }
+  }
+  let invert = false;
+  if (r.invert !== undefined) {
+    if (typeof r.invert === 'boolean') invert = r.invert;
+    else problems.push(`${label}: invert must be true or false (got ${JSON.stringify(r.invert)}); false is used`);
+  }
+  return { channel, invert, problems };
+}
+
+/**
+ * What a layer's `mask` value is: nothing; a layer written in place (a layer spec, or `{ layer: <a layer spec>, channel?, invert? }`); or references
+ * to other layers by name.
+ */
 export function maskSourceOf(mask: unknown): MaskSource {
-  if (isObject(mask) && typeof mask.type === 'string') return { kind: 'inline', spec: mask };
+  if (isLayerSpec(mask)) return { kind: 'inline', spec: mask, channel: 'alpha', invert: false, problems: [] };
+  if (isObject(mask) && isLayerSpec(mask.layer)) return { kind: 'inline', spec: mask.layer, ...matteOptions(mask, 'mask (written in place)') };
   const problems: string[] = [];
   const refs: MatteRef[] = [];
   const one = (r: unknown, inList: boolean): void => {
     if (typeof r === 'string') { refs.push({ layer: r, channel: 'alpha', invert: false }); return; }
-    if (isObject(r) && typeof r.type === 'string') {
+    if (isLayerSpec(r) || (isObject(r) && isLayerSpec(r.layer))) {
       if (inList) problems.push('a layer written inside a list of masks is ignored: give that layer a name and write the name');
       return;
     }
     if (isObject(r) && typeof r.layer === 'string') {
-      let channel: 'alpha' | 'luma' = 'alpha';
-      if (r.channel !== undefined) {
-        if (r.channel === 'alpha' || r.channel === 'luma') channel = r.channel;
-        else {
-          const guess = typeof r.channel === 'string' ? suggestName(r.channel, MATTE_CHANNELS) : null;
-          const alias = typeof r.channel === 'string' && ['luminance', 'brightness', 'grayscale', 'greyscale', 'gray', 'grey', 'value'].includes(r.channel.toLowerCase()) ? 'luma' : null;
-          const meant = guess ?? alias;
-          problems.push(`mask "${r.layer}": channel ${JSON.stringify(r.channel)} is not a matte channel${meant ? `; did you mean "${meant}"?` : ''} (use alpha or luma); alpha is used`);
-        }
-      }
-      let invert = false;
-      if (r.invert !== undefined) {
-        if (typeof r.invert === 'boolean') invert = r.invert;
-        else problems.push(`mask "${r.layer}": invert must be true or false (got ${JSON.stringify(r.invert)}); false is used`);
-      }
-      refs.push({ layer: r.layer, channel, invert });
+      const o = matteOptions(r, `mask "${r.layer}"`);
+      problems.push(...o.problems);
+      refs.push({ layer: r.layer, channel: o.channel, invert: o.invert });
     }
   };
   if (Array.isArray(mask)) for (const r of mask) one(r, true);
@@ -55,15 +68,15 @@ export function refNames(mask: unknown): string[] {
 }
 
 /**
- * Does the layer's inline `mask` go through the matte filter? An inverted mask, and a text, image or video mask, are read by their alpha
+ * Does the layer's inline `mask` go through the matte filter? An inverted mask (`invert: true`), a luma one, and a text, image or video mask, are read by their alpha
  * (a stencil would be the bounding box); they used to be Pixi alpha masks, inside which a blend mode applied to nothing. A plain shape mask
  * stays the cheap stencil.
  */
-export function usesMatteRoute(spec: { mask?: unknown; maskInverted?: boolean }): boolean {
+export function usesMatteRoute(spec: { mask?: unknown }): boolean {
   const s = maskSourceOf(spec.mask);
   if (s.kind !== 'inline') return false;
   const t = s.spec.type;
-  return spec.maskInverted === true || t === 'text' || t === 'image' || t === 'video' || t === 'shader';       // a sprite-backed mask: a stencil would paint it over the layer
+  return s.invert || s.channel === 'luma' || t === 'text' || t === 'image' || t === 'video' || t === 'shader';       // a sprite-backed mask: a stencil would paint it over the layer
 }
 
 /** More mattes than this in one composition warns (each is a full-composition texture). */
@@ -85,12 +98,10 @@ export function canBeMatte(spec: { type: string; threeD?: boolean }): boolean {
  */
 export function matteProblems(layer: SequenceSpec, siblings: readonly SequenceSpec[], span: number): string[] {
   const src = maskSourceOf((layer as { mask?: unknown }).mask);
+  if (src.kind === 'inline') return [...src.problems];
   if (src.kind !== 'refs') return [];
   const out: string[] = [...src.problems];
   const names = siblings.filter(s => s.name && s.type !== 'camera').map(s => s.name!);
-  if ((layer as { maskInverted?: boolean }).maskInverted && src.refs.length) {
-    out.push('maskInverted is for a mask written in place: with a reference write { layer: "name", invert: true } (and use a list to subtract one matte from another)');
-  }
   if (layer.parent && src.refs.length) {
     out.push(`it has a parent, so it is drawn in the null layer's space and the matte is in the composition's: mask the null layer ("${layer.parent}") instead`);
   }

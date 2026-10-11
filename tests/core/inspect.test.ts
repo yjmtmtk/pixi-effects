@@ -137,8 +137,8 @@ describe('inspectScene', () => {
 
   it('an inverted mask is not used to clip (the layer shows everywhere outside the hole)', async () => {
     const comp = await scene([
-      { type: 'text', name: 'under', text: 'a', initial: { x: 100, y: 100 }, maskInverted: true,
-        mask: { type: '__box', initial: { x: 0, y: 100 } } },
+      { type: 'text', name: 'under', text: 'a', initial: { x: 100, y: 100 },
+        mask: { layer: { type: '__box', initial: { x: 0, y: 100 } }, invert: true } },
       { type: 'text', name: 'beside', text: 'b', initial: { x: 200, y: 100 } },
     ]);
     expect(inspectScene(comp, 0, 0, { width: 1280, height: 720 }).issues.filter(i => /overlap/.test(i))).toHaveLength(1);

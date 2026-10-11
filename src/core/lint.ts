@@ -112,6 +112,11 @@ function lintRemap(spec: SequenceSpec, warn: Warn): void {
  * paths (`filters.g.amount`, `three.box.x`: their routers say what is wrong), the names `fillGradient` says itself (`gradientAngle`),
  * and a kind of layer registered elsewhere (`three`).
  */
+/** Keys the library used to have: the sentence says what to write now. */
+const REMOVED_KEYS: Record<string, string> = {
+  maskInverted: 'a hole instead of a crop is `mask: { layer: <the mask layer>, invert: true }`',
+};
+
 export function lintKeys(spec: SequenceSpec, warn: Warn = defaultWarn): void {
   const who = describeLayer(spec);
   const valid = layerKeys(spec as { type: string; shape?: string });
@@ -119,6 +124,7 @@ export function lintKeys(spec: SequenceSpec, warn: Warn = defaultWarn): void {
     for (const key of Object.keys(spec)) {
       if (valid.includes(key) || (spec as unknown as Record<string, unknown>)[key] === undefined) continue;       // a spread that sets a key only when it applies leaves `undefined`
       if (REMAPPABLE.has(spec.type) && REMAP_NAMES.has(key)) continue;                                            // lintRemap has its own message for these
+      if (REMOVED_KEYS[key]) { warn(`pixi-effects: ${who}: "${key}" is not a ${kindName(spec as { type: string; shape?: string })} key: ${REMOVED_KEYS[key]}`); continue; }
       const guess = suggestName(key, valid.filter(k => k !== 'type'));
       const owners = kindsWithKey(key);
       const belongs = owners.length ? ` (it belongs to ${owners.slice(0, 3).join(', ')})` : '';

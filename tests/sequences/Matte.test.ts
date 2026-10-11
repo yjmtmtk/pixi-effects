@@ -143,8 +143,8 @@ describe('final review fixes', () => {
     await build([
       { type: 'null', name: 'outer', initial: { x: 10 } },
       { type: 'null', name: 'rig', parent: 'outer', initial: { x: 30 } },
-      { type: 'shape', shape: 'rect', width: 50, height: 50, name: 'a', parent: 'rig', maskInverted: true,
-        mask: { type: 'shape', shape: 'circle', radius: 10 } },
+      { type: 'shape', shape: 'rect', width: 50, height: 50, name: 'a', parent: 'rig',
+        mask: { layer: { type: 'shape', shape: 'circle', radius: 10 }, invert: true } },
     ]);
     const inline = add.mock.calls.find(c => String(c[0]).includes('inline'))!;
     expect((inline[2] as Array<{ spec: { name?: string } }>).map(p => p.spec.name)).toEqual(['rig', 'outer']);

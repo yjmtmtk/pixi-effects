@@ -3,9 +3,32 @@ import { maskSourceOf, refNames, usesMatteRoute, MATTE_CHANNELS, matteProblems }
 import type { SequenceSpec } from '../../src/types';
 
 describe('maskSourceOf', () => {
-  it('a layer spec (it has a type) is an inline mask, as it always was', () => {
+  it('a layer spec (it has a type) is an inline mask, as it always was: read by its alpha, not inverted', () => {
     const spec = { type: 'shape', shape: 'circle', radius: 10 };
-    expect(maskSourceOf(spec)).toEqual({ kind: 'inline', spec });
+    expect(maskSourceOf(spec)).toEqual({ kind: 'inline', spec, channel: 'alpha', invert: false, problems: [] });
+  });
+  it('{ layer: <a layer spec>, invert, channel } is an inline mask with its options (the one way to invert a mask written in place)', () => {
+    const spec = { type: 'shape', shape: 'circle', radius: 10 };
+    expect(maskSourceOf({ layer: spec, invert: true })).toEqual({ kind: 'inline', spec, channel: 'alpha', invert: true, problems: [] });
+    expect(maskSourceOf({ layer: spec, channel: 'luma' })).toMatchObject({ kind: 'inline', spec, channel: 'luma', invert: false });
+    expect(maskSourceOf({ layer: spec })).toMatchObject({ kind: 'inline', invert: false });
+  });
+  it('a wrong channel or invert on an inline mask is a problem with what to write, and the default is used', () => {
+    const spec = { type: 'shape', shape: 'circle' };
+    const a = maskSourceOf({ layer: spec, channel: 'luminance' });
+    expect(a).toMatchObject({ kind: 'inline', channel: 'alpha' });
+    expect((a as { problems: string[] }).problems[0]).toMatch(/channel "luminance".*did you mean "luma"\?/);
+    const b = maskSourceOf({ layer: spec, invert: 'yes' });
+    expect(b).toMatchObject({ kind: 'inline', invert: false });
+    expect((b as { problems: string[] }).problems[0]).toMatch(/invert.*true or false/);
+  });
+  it('a layer written inside a list of masks is ignored with what to do (bare or wrapped): give it a name and write the name', () => {
+    const spec = { type: 'shape', shape: 'circle' };
+    for (const m of [[spec], [{ layer: spec, invert: true }]]) {
+      const s = maskSourceOf(m);
+      expect(s.kind).toBe('refs');
+      expect((s as { problems: string[] }).problems[0]).toMatch(/inside a list of masks is ignored/);
+    }
   });
   it('a string is the name of another layer: alpha, not inverted', () => {
     expect(maskSourceOf('wipe')).toEqual({ kind: 'refs', refs: [{ layer: 'wipe', channel: 'alpha', invert: false }], problems: [] });
@@ -62,7 +85,9 @@ describe('a shader layer as an inline mask', () => {
 
 describe('usesMatteRoute (which inline masks go through the matte filter)', () => {
   it('an inverted mask and a text, image or video mask do; a plain shape mask (the stencil) and no mask do not', () => {
-    expect(usesMatteRoute({ mask: { type: 'shape', shape: 'circle' }, maskInverted: true })).toBe(true);
+    expect(usesMatteRoute({ mask: { layer: { type: 'shape', shape: 'circle' }, invert: true } })).toBe(true);
+    expect(usesMatteRoute({ mask: { layer: { type: 'shape', shape: 'circle' }, channel: 'luma' } })).toBe(true);
+    expect(usesMatteRoute({ mask: { layer: { type: 'shape', shape: 'circle' } } })).toBe(false);          // wrapped, no options: still the plain stencil
     expect(usesMatteRoute({ mask: { type: 'text', text: 'a' } })).toBe(true);
     expect(usesMatteRoute({ mask: { type: 'image', asset: 'a' } })).toBe(true);
     expect(usesMatteRoute({ mask: { type: 'video', asset: 'a' } })).toBe(true);
@@ -113,9 +138,8 @@ describe('matteProblems', () => {
     expect(p[0]).toMatch(/"band" is on screen from 1s to 3s.*layer from 0s to 5s/);
     expect(run({ mask: 'band', at: 1.5, duration: 1 })).toEqual([]);  // covered
   });
-  it('a layer with a parent (it is in the null layer\'s space, the matte in the composition\'s) says what to do; maskInverted with a reference says invert', () => {
+  it('a layer with a parent (it is in the null layer\'s space, the matte in the composition\'s) says what to do', () => {
     expect(run({ mask: 'disc', parent: 'rig' })[0]).toMatch(/parent.*mask the null layer/);
-    expect(run({ mask: 'disc', maskInverted: true })[0]).toMatch(/maskInverted.*invert: true/);
   });
   it('the problems of the reference itself (a wrong channel) are said once, with the layer', () => {
     const p = run({ mask: { layer: 'disc', channel: 'luminance' } });
