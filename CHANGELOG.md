@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.31.0
 
 **Added: variables, and a composition that is built again (design: `docs/superpowers/specs/2026-10-11-variables-0.31-design.md`)**
 
