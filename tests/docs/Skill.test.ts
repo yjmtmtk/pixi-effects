@@ -28,6 +28,8 @@ describe('skills/pixi-effects — what an agent installs', () => {
 
   it('sends a film to reference/direction.md, which is renderer-neutral and names the files an agent must write', () => {
     expect(skill).toContain('reference/direction.md');
+    expect(skill).toMatch(/first address goes out within two minutes/);                                                 // the viewer starts on the copied template, before the brief
+    expect(skill).toMatch(/BEFORE you write the brief/);
     expect(existsSync(join(dir, 'reference/direction.md'))).toBe(true);
     const direction = read('reference/direction.md');
     for (const f of ['brief.md', 'style-guide.md', 'shotlist.md']) expect(direction, f).toContain(f);

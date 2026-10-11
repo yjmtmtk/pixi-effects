@@ -4,7 +4,7 @@
 
 **Added**
 
-- **`pixi-effects view` tells you the work changed, and never switches by itself.** It watches the page's folder (not `node_modules`, `out`, `reviews`, `check-out`, hidden files); when something changes it shows "Updated hh:mm:ss — reload (R)" and nothing else. Reload (the button or R) loads the page again and returns to the frame you were on; the switch "auto" (off by default, remembered) reloads only while the movie is paused. The skill now says to start the viewer as soon as a first draft exists and give the human the address, so they watch the film grow.
+- **`pixi-effects view` tells you the work changed, and never switches by itself.** It watches the page's folder (not `node_modules`, `out`, `reviews`, `check-out`, hidden files); when something changes it shows "Updated hh:mm:ss — reload (R)" and nothing else. Reload (the button or R) loads the page again and returns to the frame you were on; the switch "auto" (off by default, remembered) reloads only while the movie is paused. The skill now says to start the viewer right after copying the template (before the brief is written) and to give the human the address in the first message, so the first address goes out within two minutes and they watch the film grow.
 
 **Fixed**
 
