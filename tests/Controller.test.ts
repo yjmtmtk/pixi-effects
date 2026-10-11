@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { Movie } from '../src/core/Movie';
-import { Controller, CONTROLLER_CSS } from '../src/Controller';
-import { formatTime, frameToPercent, pxToFrame, pxToFraction, extensionForMimeType } from '../src/Controller';
+import { Controller } from '../src/Controller';
+import { CONTROLLER_CSS } from '../src/controller/css';
+import { formatTime, frameToPercent, pxToFrame, pxToFraction, extensionForMimeType } from '../src/controller/helpers';
 
 // The Controller reaches the presentation side through `src/present` (next, exportPDF, the Presenter): these tests check what the Controller asks for,
 // so navigation and images hand each call to the fake movie's own method of the same name (the real ones are tested in tests/present/).

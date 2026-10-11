@@ -739,7 +739,6 @@ class Controller
   options: ResolvedOptions
   setTheme(theme: ControllerTheme): void
   constructor(movie: Movie, options: ControllerOptions)
-const CONTROLLER_CSS: "\n.movie-controller-wrap { position: relative; display: inline-block; line-height: 0; }\n.movie-controller {…
 interface ControllerOptions
   canvas: HTMLCanvasElement
   className?: string
@@ -756,11 +755,6 @@ interface ControllerTheme
   foreground?: string | null
   track?: string | null
   trackHeight?: string | number | null
-function extensionForMimeType(mime: string): string
-function formatTime(seconds: number): string
-function frameToPercent(frame: number, totalFrames: number): number
-function pxToFraction(clientX: number, rect: { left: number; width: number; }, inset?: number): number
-function pxToFrame(clientX: number, rect: { left: number; width: number; }, totalFrames: number): number
 
 == pixi-effects/present ==
 const currentStop: (movie: Movie) => Stop | null
