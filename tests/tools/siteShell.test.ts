@@ -14,7 +14,7 @@ const chrome = check.findChrome();
 const built = existsSync(join(root, 'dist/index.js'));
 
 /** Pages that carry the shared header (each task that moves a page onto the shared shell adds it here). */
-const PAGES: Array<[string]> = [['index.html'], ['guide-preview/getting-started.html'], ['examples/index.html'], ['examples/music-lab.html'], ['examples/playground.html'], ['examples/gallery/index.html']];
+const PAGES: Array<[string]> = [['index.html'], ['guide-preview/getting-started.html'], ['examples/index.html'], ['examples/music-lab.html'], ['examples/playground.html'], ['examples/gallery/index.html'], ['examples/interactive/index.html']];
 
 async function withPage<T>(path: string, width: number, fn: (cdp: any) => Promise<T>): Promise<T> {
   const { server, port } = await check.serve(root);
@@ -32,7 +32,7 @@ async function withPage<T>(path: string, width: number, fn: (cdp: any) => Promis
 describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the shared header, in a real browser', () => {
   beforeAll(async () => { await buildGuide({ srcDir: join(root, 'site/guide'), outDir: join(root, 'guide-preview'), root }); });   // the guide is built, not stored
   for (const width of [390, 1440]) {
-    it.each(PAGES)(`%s at ${width}px: the four entrances are all on screen, nothing scrolls sideways`, async (path) => {
+    it.each(PAGES)(`%s at ${width}px: all the entrances are on screen, nothing scrolls sideways`, async (path) => {
       await withPage(path, width, async (cdp) => {
         const r = await cdp.eval(`(() => {
           const links = [...document.querySelectorAll('header.top nav a')].filter(a => a.offsetParent);

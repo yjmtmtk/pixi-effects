@@ -1,0 +1,14 @@
+/* The Interactive movies entrance only. Colours, fonts, header and footer come from site/shared. */
+main.wrap{padding-top:56px}
+h1{font-size:clamp(34px,5.6vw,60px);margin-top:14px}
+.im-intro{color:var(--ink-2);max-width:68ch;margin:16px 0 0;font-size:17px}
+.im-intro code,.im-more code{font-family:var(--mono);font-size:.9em;background:var(--bg-3);padding:1px 6px;border-radius:5px;color:var(--ink)}
+.im-grid{list-style:none;margin:32px 0 0;padding:0;display:grid;grid-template-columns:1fr;gap:16px}
+.im{display:grid;align-content:start;gap:6px;border:1px solid var(--line);border-radius:12px;background:var(--bg-2);text-decoration:none;color:var(--ink);height:100%;overflow:hidden}
+.im:hover{border-color:var(--accent)}
+.im img{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;background:var(--bg-3)}
+.im b{font-size:18px;letter-spacing:-.01em;padding:8px 16px 0}
+.im span{color:var(--ink-2);font-size:14.5px;padding:0 16px 16px}
+.im-more{color:var(--ink-2);font-size:14.5px;margin-top:36px;max-width:68ch}
+@media (min-width:640px){.im-grid{grid-template-columns:1fr 1fr}}
+@media (min-width:1000px){.im-grid{grid-template-columns:1fr 1fr 1fr}}

@@ -26,6 +26,10 @@
     {
       "file": "examples/gallery/index.html",
       "current": "gallery"
+    },
+    {
+      "file": "examples/interactive/index.html",
+      "current": "interactive"
     }
   ]
 }
