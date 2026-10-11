@@ -87,7 +87,7 @@ export interface ChromaKeyFilterSpec {
 /**
  * A filter by name: `{ type: 'glow', outerStrength: 3, color: '#ffd166' }`. The type is the filter's class name without
  * `Filter` in camelCase (case does not matter); every other key is the filter's own option. `blur`, `noise`, `alpha` and
- * `colorMatrix` (`preset: 'sepia' | 'grayscale' | …` or a 20-number `matrix`) come from pixi.js; the rest are the filters of
+ * `colorMatrix` (`preset: 'sepia' | 'grayscale' | …` or a 20-number `matrix`) come from pixi.js; `grain` and `warp` are this library's own, the rest are the filters of
  * the `pixi-filters` package (add it to the import map, or `npm i pixi-filters`), loaded on first use. Animate an option with
  * `'filters.<name>.<option>'` like any other filter.
  */
@@ -97,7 +97,7 @@ export interface NamedFilterSpec {
   [option: string]: unknown;
 }
 export type NamedFilterType =
-  | 'blur' | 'noise' | 'alpha' | 'colorMatrix' | 'grain'
+  | 'blur' | 'noise' | 'alpha' | 'colorMatrix' | 'grain' | 'warp'
   | 'adjustment' | 'advancedBloom' | 'ascii' | 'backdropBlur' | 'bevel' | 'bloom' | 'bulgePinch' | 'colorGradient' | 'colorMap'
   | 'colorOverlay' | 'colorReplace' | 'convolution' | 'crossHatch' | 'crt' | 'dot' | 'dropShadow' | 'emboss' | 'glitch' | 'glow'
   | 'godray' | 'grayscale' | 'hslAdjustment' | 'kawaseBlur' | 'motionBlur' | 'multiColorReplace' | 'oldFilm' | 'outline'

@@ -1,5 +1,6 @@
 import * as PIXI from 'pixi.js';
 import type { Filter } from 'pixi.js';
+import type { NamedFilterType } from '../types';
 import { suggestName } from '../core/options';
 import { GrainFilter } from './Grain';
 import { WarpFilter } from './Warp';
@@ -15,7 +16,7 @@ type FilterCtor = new (options?: Record<string, unknown>) => Filter;
 
 /** pixi.js's own filters: no extra package. Looked up when used (a test may mock pixi.js without them). */
 const CORE: Record<string, string> = { blur: 'BlurFilter', noise: 'NoiseFilter', alpha: 'AlphaFilter' };
-const CORE_TYPES = [...Object.keys(CORE), 'colorMatrix', 'grain', 'warp'];
+const CORE_TYPES = ['blur', 'noise', 'alpha', 'colorMatrix', 'grain', 'warp'] as const;
 
 /** The filters of pixi-filters v6, by type name. */
 const LIBRARY_TYPES = [
@@ -24,7 +25,12 @@ const LIBRARY_TYPES = [
   'godray', 'grayscale', 'hslAdjustment', 'kawaseBlur', 'motionBlur', 'multiColorReplace', 'oldFilm', 'outline',
   'pixelate', 'radialBlur', 'reflection', 'rgbSplit', 'shockwave', 'simpleLightmap', 'simplexNoise', 'tiltShift',
   'tiltShiftAxis', 'twist', 'zoomBlur',
-];
+] as const;
+
+/** The compiler checks the type `NamedFilterType` (what `filters: [{ type }]` accepts in TypeScript) and these tables name the same filters, both ways: add a filter to one and `tsc` says so. */
+type Same<A, B> = [Exclude<A, B>] extends [never] ? ([Exclude<B, A>] extends [never] ? true : { onlyInTables: Exclude<B, A> }) : { onlyInType: Exclude<A, B> };
+type Assert<T extends true> = T;
+export type __FilterTypesCovered = Assert<Same<NamedFilterType, (typeof CORE_TYPES)[number] | (typeof LIBRARY_TYPES)[number]>>;
 
 /** Every type that `filters: [{ type }]` accepts besides `chromaKey` and `custom`. */
 export const FILTER_TYPES: readonly string[] = [...CORE_TYPES, ...LIBRARY_TYPES];
