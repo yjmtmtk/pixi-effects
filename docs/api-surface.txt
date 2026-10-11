@@ -118,6 +118,7 @@ interface CompositionShape
   frameRate?: number
   height: number
   onLayerBuilt?: (() => void | Promise<void>)
+  vars?: Record<string, number>
   width: number
 interface CompositionSpec extends SequenceCommon
   height?: number

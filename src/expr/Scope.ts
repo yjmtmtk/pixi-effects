@@ -31,6 +31,7 @@ export function buildScope(
   const contain = (w === 0 || h === 0) ? 1 : Math.min(W / w, H / h);
   const cover   = (w === 0 || h === 0) ? 1 : Math.max(W / w, H / h);
   return {
+    ...(root.vars ?? {}),                                  // the declared numbers first: the built-in words below win
     w, h, W, H, GW, GH,
     contain, cover,
     t: sequence.at ?? 0,

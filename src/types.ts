@@ -736,6 +736,8 @@ export interface CompositionShape {
   frameRate?: number;
   /** Called after each layer is built (the root shape only): feeds `loadprogress` and lets the page paint now and then. */
   onLayerBuilt?: () => void | Promise<void>;
+  /** The numbers declared as variables (`movie.init({ vars })`), on the root shape only: an expression reads them as identifiers. */
+  vars?: Record<string, number>;
 }
 
 /** Audio descriptor pushed to the mixdown queue by AudioSequence/VideoSequence. */

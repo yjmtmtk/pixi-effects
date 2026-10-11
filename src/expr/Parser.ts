@@ -37,6 +37,9 @@ const FUNCS: Record<string, (...args: number[]) => number> = {
 };
 const CONSTS: Record<string, number> = { PI: Math.PI };
 
+/** The functions and the constant an expression already means: a variable cannot be named like one. */
+export const EXPRESSION_NAMES: readonly string[] = [...Object.keys(FUNCS), ...Object.keys(CONSTS)];
+
 type BinOp = '+' | '-' | '*' | '/';
 type Token =
   | { type: 'num'; value: number }
