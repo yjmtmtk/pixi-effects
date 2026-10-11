@@ -1,6 +1,6 @@
 # Roadmap: more expressive, still easy for an AI
 
-Status: rewritten 2026-10-11, current release 0.29.0. Nothing here is promised; the order is the proposal.
+Status: rewritten 2026-10-11, current release 0.30.0. Nothing here is promised; the order is the proposal.
 
 ## The gate every item passes
 
@@ -28,7 +28,7 @@ The measure of success is not the feature list: it is a **fresh agent given one 
 1. **Presentation leaves the core.** `Presenter`, `deck()`, `stopImages()`, `inspectStops()`, `exportPDF()` and `next()` / `prev()` / `goToStop()` / `goToPage()` move into `src/present/`, published as `pixi-effects/present`, and may use only the core's public API (a test enforces the import rule). The core gains one general primitive, `playUntil(time)`, and keeps `composition.stops` as named times. Why first: it shrinks `Movie.ts` before the variables work touches it, and it is a rehearsal of "an extension built on the public API only". A separate package only when someone else needs it.
 2. **A spike on named variables** (throwaway, outside the repository), run beside step 1. See "Variables" below.
 3. **The API list, then one breaking release (0.29).** Done in the first pass (2026-10-11, `docs/superpowers/specs/2026-10-11-api-list-0.29.md`, `docs/api-surface.txt`): `maskInverted` is `mask: { layer, invert: true }`; the Controller's options are named like the Presenter's; the three old bins are gone (`pixi-effects check|render|view`), `--fail-on-warn` is `--strict`; the internals of `Movie` / `Sequence` / `Presenter` are `@internal`; `pixi-effects/controller` exports the player only. Kept as they are: the anchor defaults that differ by type, geometry at the top level and in `initial`, `speed` against `time`, the `three` layer (an escape hatch; revisit at the 3D engine's launch). Still open: `draft` / `scale` (decide after measuring in step 4).
-4. **Reading less, waiting less.** `npx pixi-effects recipe <id>`, `help <word>`, `new <name>`, a 2 KB quick start in front of the cheatsheet (written once, for the cleaned API), and a draft export that really is faster (fewer frames: `--fps`; measured first: today `--draft` saves file size, not time). Measured by a before / after run of three fresh agents (reads, failed commands, time to the first picture).
+4. **Reading less, waiting less.** Done in 0.30.0: `npx pixi-effects new <name>`, `recipe [id]`, `help <word>` and a 2 KB quick start (`skills/pixi-effects/reference/quickstart.md`). To do: measure it (three fresh agents, before / after: reads, failed commands, time to the first picture), and a draft export that really is faster (fewer frames: `--fps`; measured first: today `--draft` saves file size, not time).
 5. **Variables, built** (after the spike), smallest level first.
 
 ## Variables: one definition for what used to be five features
