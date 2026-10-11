@@ -26,6 +26,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { findChrome, findRoot, serve, launchChrome, shown, sleep, LOAD_PRESENT } from './check.mjs';
+import { parseVar, parseSizes, applyToPage } from './varArgs.mjs';
 
 const FORMATS = ['mp4', 'webm', 'mov', 'mkv', 'wav', 'ogg', 'pdf'];
 const SOUND_ONLY = ['wav', 'ogg'];
@@ -43,10 +44,10 @@ export function defaultOutput(page, format) {
   return path.resolve(path.basename(page).replace(/\.[^.]+$/, '') + '.' + format);
 }
 
-export const USAGE = 'usage: node ai/tools/render.mjs <page.html> [-o out.mp4] [--format mp4|webm|mov|mkv|pdf] [--range A:B | --scene NAME] [--scale S] [--draft] [--quality very-low|low|medium|high|very-high] [--query a=1] [--strict] [--quiet] [--timeout S] [--root DIR] [--chrome PATH]';
+export const USAGE = 'usage: node ai/tools/render.mjs <page.html> [-o out.mp4] [--format mp4|webm|mov|mkv|pdf] [--range A:B | --scene NAME] [--scale S] [--draft] [--quality very-low|low|medium|high|very-high] [--query a=1] [--var name=value] [--size 1080x1920] [--strict] [--quiet] [--timeout S] [--root DIR] [--chrome PATH]';
 
 export function parseRenderArgs(argv) {
-  const o = { range: null, scene: null, scale: null, draft: false, qualityGiven: false, page: null, out: null, format: null, quality: 'high', videoCodec: null, videoBitrate: null, audioCodec: null, allStops: false, motionBlur: null, shutter: null, query: null, strict: false, quiet: false, timeout: 900, root: null, chrome: null };
+  const o = { range: null, scene: null, scale: null, draft: false, qualityGiven: false, page: null, out: null, format: null, quality: 'high', videoCodec: null, videoBitrate: null, audioCodec: null, allStops: false, motionBlur: null, shutter: null, query: null, vars: [], size: null, strict: false, quiet: false, timeout: 900, root: null, chrome: null };
   const need = (i, name) => { if (i + 1 >= argv.length) throw new Error(`${name} needs a value`); return argv[i + 1]; };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -81,6 +82,12 @@ export function parseRenderArgs(argv) {
       if (!(o.scale > 0 && o.scale <= 1)) throw new Error(`--scale must be above 0 and at most 1 (0.5 is half size), got "${argv[i]}"`);
     } else if (a === '--draft') o.draft = true;
     else if (a === '--query') o.query = need(i++, a).replace(/^\?/, '');
+    else if (a === '--var') o.vars.push(parseVar(need(i++, a)));
+    else if (a === '--size') {
+      const sizes = parseSizes(need(i++, a));
+      if (sizes.length > 1) throw new Error('render writes one file: one --size (1080x1920); check takes several');
+      o.size = sizes[0];
+    }
     else if (a === '--all-stops') o.allStops = true;
     else if (a === '--strict') o.strict = true;
     else if (a === '--fail-on-warn') throw new Error('--fail-on-warn is now --strict (the same word as in check: a warning, or anything it would only list, fails the run)');
@@ -177,6 +184,12 @@ export async function runRender(opts, log = console.log, progress = () => {}) {
     if (!ready || !info?.hasMovie) {
       result.problems.push(`the page did not become ready (window.__ready !== true${info?.hasMovie ? '' : '; window.movie is missing'})${result.logs.length ? ': ' + result.logs[0] : ''}`);
       return result;
+    }
+    // --var / --size: the page is built again with them before anything is drawn
+    if (opts.vars.length || opts.size) {
+      await applyToPage(cdp, opts.vars, opts.size);
+      info = await cdp.eval(`(() => { const m = window.movie; return { logs: window.__logs || [], duration: m.duration, totalFrames: m.totalFrames, width: m.width, height: m.height, frameRate: m.frameRate }; })()`);
+      result.logs = [...new Set([...info.logs, ...consoleLines])];
     }
     Object.assign(result, { duration: info.duration, frames: info.totalFrames, width: info.width, height: info.height, frameRate: info.frameRate });
 

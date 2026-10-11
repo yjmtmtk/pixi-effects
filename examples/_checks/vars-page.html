@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>check · vars, --var and --size</title>
+</head>
+<body>
+  <!--
+    Acceptance check (not an example): a 2 s movie that declares variables (a string, a colour, a number) and follows its size.
+    tests/tools/varsTools.test.ts runs `check` and `render` on it with --var and --size.
+  -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":      "https://esm.sh/mediabunny@1.61.3"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 320, height: 180, duration: 2, frameRate: 30,
+        vars: { title: 'NORD', accent: '#e53935', shift: 0 },
+        composition: { sequences: [
+          { type: 'shape', shape: 'rect', name: 'background', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '{accent}' } },
+          { type: 'text', text: '{title}', name: 'title', style: { fontSize: 24, fill: '#ffffff' }, initial: { x: 'W/2 + shift', y: 'H/2', anchorX: 0.5, anchorY: 0.5 } },
+        ] },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+  </script>
+</body>
+</html>

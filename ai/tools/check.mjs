@@ -25,6 +25,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { parseVar, parseSizes, applyToPage } from './varArgs.mjs';
 
 // ───────────────────────────── pure helpers (unit-tested) ─────────────────────────────
 
@@ -78,10 +79,10 @@ export function findChrome(env = process.env, exists = fs.existsSync, platform =
   return candidates.find(c => c && exists(c)) ?? null;
 }
 
-export const USAGE = 'usage: node ai/tools/check.mjs <page.html> [--out DIR] [--frames N] [--formats mp4,webm] [--no-export] [--draft] [--at 3.5,title@end] [--onion 1:3] [--query a=1&b=2] [--timeout S] [--root DIR] [--chrome PATH] [--strict] [--help]\n(the header of ai/tools/check.mjs explains each option)';
+export const USAGE = 'usage: node ai/tools/check.mjs <page.html> [--out DIR] [--frames N] [--formats mp4,webm] [--no-export] [--draft] [--at 3.5,title@end] [--onion 1:3] [--query a=1&b=2] [--var name=value] [--size 1920x1080,1080x1920] [--timeout S] [--root DIR] [--chrome PATH] [--strict] [--help]\n(the header of ai/tools/check.mjs explains each option)';
 
 export function parseArgs(argv) {
-  const o = { page: null, out: null, frames: 12, formats: ['mp4'], export: true, timeout: 240, root: null, chrome: null, strict: false, at: null, draft: false, onion: null, query: null, help: false };
+  const o = { page: null, out: null, frames: 12, formats: ['mp4'], export: true, timeout: 240, root: null, chrome: null, strict: false, at: null, draft: false, onion: null, query: null, vars: [], sizes: [], help: false };
   const need = (i, name) => { if (i + 1 >= argv.length) throw new Error(`${name} needs a value`); return argv[i + 1]; };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -94,6 +95,8 @@ export function parseArgs(argv) {
     else if (a === '--draft') o.draft = true;
     else if (a === '--query') o.query = need(i++, a).replace(/^\?/, '');
     else if (a === '--at') o.at = need(i++, a);
+    else if (a === '--var') o.vars.push(parseVar(need(i++, a)));
+    else if (a === '--size') o.sizes.push(...parseSizes(need(i++, a)));
     else if (a === '--onion') {
       const m = need(i++, a).match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/);
       if (!m || !(Number(m[1]) < Number(m[2]))) throw new Error(`--onion must look like 1:3 (seconds, from before to), got "${argv[i]}"`);
@@ -353,6 +356,13 @@ export async function runCheck(opts, log = console.log) {
       report.problems.push(`the page did not become ready (window.__ready !== true within 60 s${info?.hasMovie ? '' : '; window.movie is missing'})`);
       return finish(report, outDir, log);
     }
+    // --var / --size: the page is rebuilt once with what the command line gave (the first size; the others are looked at after the export)
+    if (opts.vars.length || opts.sizes.length) {
+      report.rebuilt = await applyToPage(cdp, opts.vars, opts.sizes[0] ?? null);
+      info = await cdp.eval(INFO).catch(() => info) ?? info;
+      report.logs = [...new Set([...(info?.logs ?? []), ...consoleLines])];
+    }
+    report.vars = await cdp.eval('JSON.parse(JSON.stringify((window.movie && window.movie.vars) || {}))').catch(() => ({}));
     Object.assign(report, { width: info.width, height: info.height, frameRate: info.frameRate, totalFrames: info.totalFrames, duration: info.duration, hasAudio: info.hasAudio });
     if (report.logs.length) report.problems.push(`${report.logs.length} console warning(s) / error(s) — each says what to change`);
 
@@ -500,6 +510,23 @@ export async function runCheck(opts, log = console.log) {
         report.exports.push(ex);
       }
     }
+
+    // --size A,B,…: the same movie at the other sizes, a layout review and a contact sheet each (the export above was the first size)
+    if (opts.sizes.length) {
+      report.sizes = [{ size: `${info.width}x${info.height}`, sheet: report.files.sheet, issues: report.inspect.issues, review: report.inspect.review }];
+      for (const size of opts.sizes.slice(1)) {
+        left();
+        const label = `${size.width}x${size.height}`;
+        await applyToPage(cdp, [], size);
+        const r = await cdp.eval(`movie.review(${JSON.stringify({ strict: !!opts.strict })})`);
+        const sheetAt = await cdp.eval(`movie.contactSheet({ count: ${opts.frames}, as: 'dataURL' })`);
+        const file = path.join(outDir, `sheet-${label}.png`);
+        fs.writeFileSync(file, Buffer.from(sheetAt.slice(sheetAt.indexOf(',') + 1), 'base64'));
+        report.files[`sheet ${label}`] = shown(file);
+        report.sizes.push({ size: label, sheet: shown(file), issues: r.problems, review: r.review });
+        if (r.problems.length) report.problems.push(`${r.problems.length} kind(s) of layout issue from movie.inspect at ${label}`);
+      }
+    }
     return finish(report, outDir, log);
   } finally {
     try { chromeProc?.kill(); } catch { /* already gone */ }
@@ -519,6 +546,7 @@ function finish(report, outDir, log) {
   if (report.ready) L.push(`  page      ready in ${report.readySeconds} s · ${report.width}×${report.height} · ${report.frameRate} fps · ${report.totalFrames} frames (${report.duration} s)${report.hasAudio ? ' · audio' : ''}`);
   else L.push('  page      NOT READY');
   if (report.loadStages) L.push(`  loading   ${formatLoadStages(report.loadStages)}`);
+  if (report.vars && Object.keys(report.vars).length) L.push(`  vars      ${Object.entries(report.vars).map(([k, v]) => `${k}=${typeof v === 'string' && v.length > 40 ? v.slice(0, 37) + '…' : v}`).join(', ')}${report.rebuilt ? ' (after --var / --size: the page was built again)' : ''}`);
   L.push(`  warnings  ${report.logs?.length ? report.logs.length + ' — ' + report.logs.slice(0, 5).map(l => l.length > 220 ? l.slice(0, 217) + '…' : l).join('\n            ') + (report.logs.length > 5 ? `\n            … ${report.logs.length - 5} more (report.json)` : '') : 'none'}`);
   if (report.inspect) {
     const g = report.inspect.issues;
@@ -532,6 +560,11 @@ function finish(report, outDir, log) {
       for (const i of rv.slice(0, 4)) L.push(line(i));
       if (rv.length > 4) L.push(`            … ${rv.length - 4} more (report.json)`);
     }
+  }
+  if (report.sizes) {
+    const g = report.sizes;
+    L.push(`  sizes     ${g.map(x => `${x.size} ${x.issues.length ? x.issues.length + ' layout issue kind(s)' : 'no layout issue'}`).join(' · ')}${g.length > 1 ? ' (one contact sheet each: sheet.png, sheet-<size>.png)' : ''}`);
+    for (const x of g) for (const i of x.issues.slice(0, 3)) L.push(`            - ${x.size}: ${i.message}`);
   }
   for (const w of (report.at ?? []).filter(x => x.depthBlur)) {
     const shown = Object.entries(w.depthBlur).slice(0, 8).map(([k, px]) => `${k} ${px} px`).join(', ');
