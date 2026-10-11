@@ -1,0 +1,931 @@
+== pixi-effects ==
+function animateText(text: string, style: MeasureStyle, options: AnimateTextOptions): TextSequenceSpec[]
+interface AnimateTextOptions
+  align?: "left" | "center" | "right"
+  at?: number
+  by?: "chars" | "words" | "lines"
+  duration: number
+  idle?: { x?: number | undefined; y?: number | undefined; rotation?: number | undefined; scale?: number | undefined; …
+  in?: false | "rise" | "drop" | "fade" | "pop" | "zoom" | "slide" | "spin" | AnimateTextTween
+  name?: string
+  out?: false | "rise" | "drop" | "fade" | "pop" | "zoom" | "slide" | "spin" | AnimateTextTween
+  stagger?: StaggerOptions
+  styleFor?: ((piece: TextPiece) => MeasureStyle)
+  x?: number
+  y?: number
+interface AnimateTextTween
+  duration?: number
+  ease?: string
+  from?: Record<string, number>
+  preset?: "rise" | "drop" | "fade" | "pop" | "zoom" | "slide" | "spin"
+  to?: Record<string, number>
+interface ArcShapeSpec extends ShapeBase
+  endAngle?: PropValue
+  innerRadius?: PropValue
+  radius: PropValue
+  shape: "arc"
+  startAngle?: PropValue
+interface AssetSpec
+  name: string
+  src: string
+interface AudioAssetSpec extends AudioBase
+  asset: string
+  loop?: boolean
+  music?: undefined
+  sfx?: undefined
+function audioEnvelope(source: AudioEnvelopeSource, options?: EnvelopeOptions): Promise<AudioEnvelope>
+interface AudioEnvelope
+  at(time: number, series?: string | undefined): number
+  beats: number[]
+  bpm: number | null
+  duration: number
+  frameRate: number
+  frames: number
+  series: Record<string, Float32Array<ArrayBufferLike>>
+type AudioEnvelopeSource = string | URL | Blob | ArrayBuffer | AudioBuffer
+interface AudioInspectOptions
+  scenes?: { name: string; start: number; end: number; }[]
+  window?: number
+interface AudioMusicSpec extends AudioBase
+  asset?: undefined
+  loop?: boolean
+  music: MusicOptions
+  sfx?: undefined
+interface AudioReport
+  cues: { t: number; name: string; }[]
+  duration: number
+  issues: string[]
+  loudness: { integratedLufs: number | null; truePeakDb: number; clippedSamples: number; silences: { from: number; to: nu…
+  notes: string[]
+  peakAt: number
+  peakDb: number
+  sampleRate: number
+  scenes: { name: string; from: number; to: number; lufs: number | null; peakDb: number; silent: boolean; }[]
+  sources: AudioSourceReport[]
+  windows: { t: number; rmsDb: number; peakDb: number; brightnessHz: number; }[]
+type AudioSequenceSpec = AudioAssetSpec | AudioSfxSpec | AudioMusicSpec
+interface AudioSfxSpec extends AudioBase
+  asset?: undefined
+  loop?: undefined
+  music?: undefined
+  sfx: SfxPreset | SfxOptions
+interface AudioSourceReport
+  end: number
+  layer: string
+  music?: MusicSummary
+  peakDb: number
+  sound: SoundMeasure
+  source: string
+  start: number
+type BlendModeName = | 'normal' | 'add' | 'screen' | 'multiply' | 'overlay' | 'soft-light' | 'hard-light' | 'color-dodge' | 'color-burn' | 'darken' | 'lighten' | 'difference' | 'exclusion' |…
+function bpmEnvelope(bpm: number, options: { duration: number; frameRate?: number | undefined; swing?: number | undefined; }): AudioEnvelope
+function cameraPath(opts: CameraPathOptions): Keyframe[]
+interface CameraPathOptions
+  at?: number
+  duration: number
+  ease?: string
+  frameRate?: number
+  from?: number
+  look?: [number, number, number] | "ahead"
+  lookAhead?: number
+  points: [number, number, number][]
+  smooth?: boolean
+  to?: number
+interface CameraSequenceSpec extends SequenceCommon
+  type: "camera"
+interface ChromaKeyFilterSpec
+  keyColor?: string | [number, number, number]
+  name?: string
+  smoothing?: number
+  spill?: number
+  threshold?: number
+  type: "chromaKey"
+interface CircleShapeSpec extends ShapeBase, Trimmable
+  anchorX?: PropValue
+  anchorY?: PropValue
+  radius: PropValue
+  shape: "circle"
+interface CompositionSequenceSpec extends SequenceCommon
+  height?: number
+  sequences?: SequenceSpec[]
+  speed?: number
+  transitions?: TransitionSpec[]
+  type: "composition"
+  width?: number
+interface CompositionShape
+  duration: number
+  frameRate?: number
+  height: number
+  onLayerBuilt?: (() => void | Promise<void>)
+  width: number
+interface CompositionSpec extends SequenceCommon
+  height?: number
+  sequences?: SequenceSpec[]
+  stops?: (number | StopSpec)[]
+  transitions?: TransitionSpec[]
+  width?: number
+function computeEnvelope(audio: AudioLike, options?: EnvelopeOptions): AudioEnvelope
+interface ContactSheetOptions
+  as?: "blob" | "dataURL"
+  cellWidth?: number
+  columns?: number
+  count?: number
+  frames?: number[]
+  motionBlur?: MotionBlurSpec
+  times?: number[]
+interface CrossfadeTransition extends TransitionCommon
+  kind: "crossfade"
+interface CustomFilterSpec
+  filter: unknown
+  name?: string
+  type: "custom"
+interface DipTransition extends TransitionCommon
+  kind: "dip"
+function dismissLoader(loader: HTMLElement | null): void
+interface DissolveTransition extends TransitionCommon
+  kind: "dissolve"
+  scale?: number
+  seed?: number
+  smoothing?: number
+function ease(name: string): (p: number) => number
+interface EllipseShapeSpec extends ShapeBase, Trimmable
+  anchorX?: PropValue
+  anchorY?: PropValue
+  radiusX: PropValue
+  radiusY: PropValue
+  shape: "ellipse"
+interface EnvelopeOptions
+  bands?: Record<string, [number, number]>
+  beatBand?: string
+  beatSensitivity?: number
+  frameRate?: number
+type Expr = string
+function failLoader(loader: HTMLElement | null, message: string): void
+type FilterSpec = ChromaKeyFilterSpec | CustomFilterSpec | NamedFilterSpec
+function followPath(opts: FollowPathOptions): Keyframe[]
+interface FollowPathOptions
+  at?: number
+  d: string
+  duration: number
+  ease?: string
+  frameRate?: number
+  from?: number
+  orient?: boolean
+  rotate?: number
+  to?: number
+interface FontReport
+  failed: string[]
+  failedUnused: string[]
+  missing: { layer: string; family: string; }[]
+interface FrameEvent
+  frame: number
+  totalFrames: number
+interface GradientSpec
+  angle?: number
+  center?: [number, number]
+  innerRadius?: number
+  radius?: number
+  stops: ([number, string | number] | { offset: number; color: string | number; })[]
+  type?: "linear" | "radial"
+interface ImageSequenceSpec extends SequenceCommon
+  asset: string
+  colorSpace?: "rgb" | "oklab" | "oklch"
+  type: "image"
+interface InspectOptions
+  layers?: "all" | "visible" | "none"
+interface InspectReport
+  canvas: { width: number; height: number; }
+  frame: number
+  issues: string[]
+  layers: LayerInfo[]
+  summary: { layers: number; visible: number; }
+  time: number
+interface IrisTransition extends TransitionCommon
+  kind: "iris"
+  mode?: "in" | "out"
+  smoothing?: number
+interface IssueGroup
+  count: number
+  firstFrame: number
+  lastFrame: number
+  message: string
+function kenBurns(opts: KenBurnsOptions): ImageSequenceSpec
+type KenBurnsOptions = & KenBurnsBase & ( | { motion: 'still' } | KenBurnsScale | KenBurnsRotation | KenBurnsPosition )
+interface Keyframe
+  at?: number
+  duration?: number | "auto"
+  ease?: string
+  from?: KeyframeProps
+  repeat?: number
+  repeatDelay?: number
+  set?: KeyframeProps
+  to?: KeyframeProps
+  yoyo?: boolean
+interface LayerInfo
+  alpha: number
+  bounds: Rect | null
+  depthBlur?: number
+  light?: number
+  moving: boolean
+  name?: string
+  onCanvas: "none" | "full" | "partial" | null
+  path: string
+  threeD: boolean
+  type: string
+  visible: boolean
+interface LightSequenceSpec extends SequenceCommon
+  falloff?: "none" | "smooth" | "inverseSquare"
+  kind?: "ambient" | "point" | "spot" | "parallel"
+  type: "light"
+interface LineShapeSpec extends ShapeBase, Trimmable
+  from: [PropValue, PropValue]
+  shape: "line"
+  to: [PropValue, PropValue]
+type LoaderOption = HTMLElement | string | false
+interface LoadProgressState
+  loaded: number
+  progress: number
+  stage: LoadStage
+  total: number
+type LoadStage = 'assets' | 'build' | 'sound' | 'frames'
+interface LumaTransition extends TransitionCommon
+  flip?: boolean
+  kind: "luma"
+  map?: string
+  softness?: number
+type MaskRefSpec = string | MatteRefSpec
+interface MatteRefSpec
+  channel?: "luma" | "alpha"
+  invert?: boolean
+  layer: string
+type MeasureStyle = Record<string, unknown>
+function measureText(text: string, style?: MeasureStyle): TextSize
+interface MotionBlurOptions
+  samples?: number
+  shutter?: number
+type MotionBlurSpec = boolean | number | MotionBlurOptions
+class Movie
+  app: Application<Renderer> | null
+  audioBlocked: boolean
+  audioBuffer: AudioBuffer | null
+  audioSource: AudioBufferSourceNode | null
+  background: string
+  contactSheet(opts?: (ContactSheetOptions & { as?: "blob" | undefined; }) | undefined): Promise<Blob>
+  contactSheet(opts: ContactSheetOptions & { as: "dataURL"; }): Promise<string>
+  currentFrame: number
+  destroy(): Promise<void>
+  duration: number
+  emit(event: string, ...args: unknown[]): void
+  frameRate: number
+  gainNode: GainNode | null
+  gotoFrame(frame: number, force?: boolean): Promise<void>
+  height: number
+  init(options?: MovieOptions): Promise<void>
+  inspect(frame?: number, opts?: InspectOptions): Promise<InspectReport>
+  inspectAudio(opts?: AudioInspectOptions): AudioReport
+  inspectFonts(): FontReport
+  isPlaying: boolean
+  isReady: boolean
+  loadStages: Record<LoadStage, number> | null
+  motionBlur: ResolvedMotionBlur | null
+  muted: boolean
+  off(event: string, fn: Listener): Movie
+  on(event: "ready", fn: () => void): Movie
+  on(event: "frame", fn: (e: FrameEvent) => void): Movie
+  on(event: "seeking" | "seeked", fn: (e: FrameEvent) => void): Movie
+  on(event: "ended", fn: () => void): Movie
+  on(event: "volumechange", fn: (e: VolumeEvent) => void): Movie
+  on(event: "error", fn: (e: MovieErrorEvent) => void): Movie
+  on(event: "progress", fn: (e: ProgressEvent) => void): Movie
+  on(event: "loadprogress", fn: (e: LoadProgressState) => void): Movie
+  on(event: "play", fn: () => void): Movie
+  on(event: "pause", fn: () => void): Movie
+  onionSkin(opts?: (OnionSkinOptions & { as?: "blob" | undefined; }) | undefined): Promise<Blob>
+  onionSkin(opts: OnionSkinOptions & { as: "dataURL"; }): Promise<string>
+  pause(): void
+  peek<T>(fn: () => Promise<T>): Promise<T>
+  play(): void
+  playUntil(seconds?: number | undefined): Promise<boolean>
+  poster: number | null
+  posterFrame: number | null
+  posterImage(opts?: (SnapshotOptions & { as?: "blob" | undefined; }) | undefined): Promise<Blob>
+  posterImage(opts: SnapshotOptions & { as: "dataURL"; }): Promise<string>
+  render(options?: RenderOptions | undefined): Promise<Blob>
+  resolveAt(list: string): { label: string; frame: number; }[]
+  review(opts?: ReviewOptions): Promise<ReviewReport>
+  snapshot(frame?: number | undefined, opts?: (SnapshotOptions & { as?: "blob" | undefined; }) | undefined): Promise<Blob>
+  snapshot(frame: number | undefined, opts: SnapshotOptions & { as: "dataURL"; }): Promise<string>
+  snapshot(frame: number | undefined, opts: SnapshotOptions & { as: "imageData"; }): Promise<ImageData>
+  stops: Stop[]
+  timeline: PureTimeline | null
+  timelineChart(opts?: TimelineHtmlOptions): string
+  timelineData(): TimelineData
+  timelineSvg(opts?: TimelineSvgOptions): string
+  toggleMute(): boolean
+  totalFrames: number
+  volume: number
+  width: number
+  constructor()
+interface MovieErrorEvent
+  error: unknown
+  message: string
+  where: "init" | "render" | "playback"
+interface MovieOptions
+  assets?: AssetSpec[]
+  background?: string
+  canvas?: HTMLCanvasElement
+  composition?: CompositionSpec
+  duration?: number
+  frameRate?: number
+  height?: number
+  loader?: LoaderOption
+  motionBlur?: MotionBlurSpec
+  poster?: number
+  width?: number
+function musicBuffer(music: MusicOptions, options?: { sampleRate?: number | undefined; duration?: number | undefined; loop?: boolean | undefined; }): Promise<AudioBuffer>
+type MusicDrum = 'kick' | 'snare' | 'hat' | 'openhat' | 'clap' | 'rim' | 'tom' | 'crash' | 'shaker' | 'sleigh'
+interface MusicDrumEvents
+  hits: MusicDrumHit[]
+  kind: string
+interface MusicDrumHit
+  bar: number
+  beat: number
+  beatInBar: number
+  time: number
+  velocity: number
+type MusicDrums = { [D in MusicDrum]?: string } & { from?: number; to?: number }
+function musicEnvelope(music: MusicOptions, options?: EnvelopeOptions): Promise<AudioEnvelope>
+function musicEvents(music: MusicOptions): Promise<MusicEvents>
+interface MusicEvents
+  bars: number
+  beats: number
+  bpm: number
+  drums: MusicDrumEvents[]
+  meter: number
+  seconds: number
+  tracks: MusicTrackEvents[]
+type MusicInstrument = 'keys' | 'pluck' | 'pad' | 'bass' | 'sub' | 'lead' | 'bell' | 'musicbox'
+type MusicLevel = number | Array<[number, number]>
+interface MusicNote
+  bar: number
+  beat: number
+  beatInBar: number
+  chord: boolean
+  duration: number
+  midi: number[]
+  name: string
+  seconds: number
+  time: number
+  velocity: number
+interface MusicOptions
+  bpm: number | [number, number][]
+  drums?: MusicDrums | MusicDrums[]
+  drumVol?: number
+  grid?: number
+  humanize?: number
+  meter?: number
+  reverb?: number
+  seed?: number
+  swing?: number
+  tail?: number
+  tracks?: MusicTrack[]
+  transpose?: number
+interface MusicSummary
+  bars: number
+  beats: number
+  bpm: number
+  drums: { from: number; to: number; kinds: string[]; }[]
+  meter: number
+  meterSet: boolean
+  seconds: number
+  tail: number
+  tracks: { inst: string; beats: number; bars: number; events: number; perBar: string[]; }[]
+interface MusicTrack
+  attack?: number
+  inst: MusicInstrument
+  legato?: number
+  notes: string
+  pan?: number
+  release?: number
+  reverb?: number
+  ring?: number
+  step?: number
+  strum?: number
+  tone?: number
+  transpose?: number
+  vol?: MusicLevel
+interface MusicTrackEvents
+  bars: number
+  beats: number
+  inst: string
+  notes: MusicNote[]
+function noise(x: number, seed?: number): number
+interface NullSequenceSpec extends SequenceCommon
+  type: "null"
+interface OnionSkinOptions
+  as?: "blob" | "dataURL"
+  count?: number
+  from?: number
+  motionBlur?: MotionBlurSpec
+  scale?: number
+  to?: number
+function orbit(opts: OrbitOptions): CameraSequenceSpec
+interface OrbitOptions
+  at?: number
+  center?: [number, number]
+  degrees: number
+  dollyZoom?: { from: number; to: number; ease?: string | undefined; }
+  duration: number
+  ease?: string
+  fov?: number
+  height?: number
+  name?: string
+  radius?: number
+  start?: number
+  stepsPerSecond?: number
+  width?: number
+function particles(opts: ParticlesOptions): SequenceSpec[]
+interface ParticlesOptions
+  angle?: Range
+  area: { x: number; y: number; width?: number | undefined; height?: number | undefined; }
+  at?: number
+  blendMode?: string
+  colors?: string[]
+  count: number
+  drag?: number
+  emit?: number
+  fade?: { in?: number | undefined; out?: number | undefined; }
+  gravity?: number
+  life: Range
+  name?: string
+  sampleRate?: number
+  scale?: [number, number]
+  seed?: number
+  shape?: "circle" | "rect" | "star"
+  size?: Range
+  speed?: Range
+  spin?: Range
+  sway?: { amp: number; freq?: number | undefined; }
+  template?: SequenceSpec
+  wind?: number
+interface PathShapeSpec extends ShapeBase, Trimmable
+  d: string
+  morph?: number
+  morphPoints?: number
+  morphTo?: string
+  shape: "path"
+interface PolygonShapeSpec extends ShapeBase, Trimmable
+  open?: boolean
+  points: [PropValue, PropValue][]
+  shape: "polygon"
+interface ProgressEvent
+  frame: number
+  progress: number
+  totalFrames: number
+type Props = Record<string, PropValue>
+type PropValue = number | string
+function rand(seed: number): number
+function random(seed: number): () => number
+function react(env: AudioEnvelope, options: ReactOptions): Keyframe[]
+interface ReactOptions
+  at?: number
+  audioOffset?: number
+  duration: number
+  frameRate?: number
+  loop?: boolean
+  props: Record<string, ReactProp>
+interface ReactProp
+  amount: number
+  attack?: number
+  band?: string
+  base?: number
+  beats?: boolean
+  curve?: number
+  decay?: number
+  invert?: boolean
+  release?: number
+interface RectShapeSpec extends ShapeBase, Trimmable
+  anchorX?: PropValue
+  anchorY?: PropValue
+  cornerRadius?: PropValue
+  height: PropValue
+  shape: "rect"
+  width: PropValue
+function registerSequenceType(type: string, ctor: SequenceCtor): void
+interface RenderOptions
+  audio?: { codec?: string | undefined; bitrate?: string | number | undefined; }
+  draft?: boolean
+  format?: "mp4" | "mov" | "webm" | "mkv" | "wav" | "ogg"
+  motionBlur?: MotionBlurSpec
+  range?: string | [number, number]
+  scale?: number
+  video?: { codec?: string | undefined; bitrate?: string | number | undefined; hardware?: "no-preference" | "prefer-har…
+function resolveLoader(option: LoaderOption | undefined, canvas: HTMLCanvasElement | null): HTMLElement | null
+interface ReviewOptions
+  at?: string
+  strict?: boolean
+interface ReviewReport
+  at: { label: string; frame: number; }[]
+  audio: AudioReport | null
+  fonts: FontReport
+  frames: number
+  problems: IssueGroup[]
+  review: IssueGroup[]
+class Sequence
+  absoluteStart: number | null
+  at: number
+  bindTimeline(timeline: PureTimeline, offset?: number): void
+  build(): Promise<void>
+  buildFilters(): void
+  collectAudio(_out: AudioDescriptor[], _baseTime: number): void
+  destroy(): void
+  duration: number
+  filters: NamedFilter[]
+  intrinsicHeight: number
+  intrinsicWidth: number
+  keepHidden: boolean
+  maskSequence: Sequence | null
+  parent: CompositionShape | null
+  root: CompositionShape
+  scope(): Scope
+  spec: SequenceSpec
+  syncFrame(): void
+  target: Container<ContainerChild> | null
+  updateSpace(_t: number, _host: SpaceHost): void
+  constructor(spec: SequenceSpec, parent: CompositionShape | null, root: CompositionShape)
+interface SequenceCommon
+  at?: number
+  blendMode?: BlendModeName
+  castsShadows?: boolean
+  duration?: number
+  filterArea?: { x: number; y: number; width: number; height: number; }
+  filters?: FilterSpec[]
+  hideBehindCamera?: boolean
+  initial?: Props
+  keyframes?: Keyframe[]
+  lit?: boolean
+  mask?: SequenceSpec | MaskRefSpec | MaskRefSpec[]
+  maskInverted?: boolean
+  name?: string
+  parent?: string
+  threeD?: boolean
+type SequenceCtor = { new (spec: SequenceSpec, parent: CompositionShape | null, root: CompositionShape): Sequence }
+type SequenceSpec = | NullSequenceSpec | VideoSequenceSpec | ImageSequenceSpec | TextSequenceSpec | AudioSequenceSpec | CompositionSequenceSpec | CameraSequenceSpec | LightSequenceSpec | Sh…
+interface SfxKnobs
+  brightness?: number
+  pitch?: number
+  seed?: number
+type SfxOptions = | (SfxKnobs & { preset: SfxPreset; voices?: never }) | (SfxKnobs & { voices: SfxVoice[]; preset?: never })
+type SfxPreset = | 'click' | 'pop' | 'swoosh' | 'swipe' | 'hit' | 'riser' | 'chime' | 'beep' | 'coin' | 'glitch' | 'typewriter'
+interface SfxVoice
+  envelope?: "bell" | "fall" | "swell" | "hold"
+  filter?: { type: "lowpass" | "highpass" | "bandpass"; freq: number | [number, number]; q?: number | undefined; } | und…
+  freq?: number | [number, number]
+  from?: number
+  gain?: number
+  pan?: number | [number, number]
+  to?: number
+  wave: "sine" | "triangle" | "square" | "saw" | "noise"
+interface ShaderSequenceSpec extends SequenceCommon
+  fragment: string
+  height?: string | number
+  resolution?: number
+  transparent?: boolean
+  type: "shader"
+  uniforms?: Record<string, string | number | number[]>
+  width?: string | number
+type ShapeSequenceSpec = | RectShapeSpec | CircleShapeSpec | EllipseShapeSpec | ArcShapeSpec | LineShapeSpec | PolygonShapeSpec | PathShapeSpec
+interface SlideTransition extends TransitionCommon
+  direction: "left" | "right" | "up" | "down"
+  kind: "slide"
+interface SnapshotOptions
+  as?: "blob" | "dataURL" | "imageData"
+  motionBlur?: MotionBlurSpec
+  quality?: number
+  scale?: number
+  type?: "image/png" | "image/jpeg"
+interface SoundMeasure
+  brightnessHz: number
+  length: number
+  loudestAt: number
+  peakDb: number
+interface SplitOptions
+  align?: "left" | "center" | "right"
+  by?: "chars" | "words" | "lines"
+  x?: number
+  y?: number
+function splitText(text: string, style?: MeasureStyle, opts?: SplitOptions): TextPiece[]
+function stagger(count: number, options?: StaggerOptions | undefined): number[]
+function stagger<T extends { at?: number; }>(layers: readonly T[], options?: StaggerOptions | undefined): T[]
+interface StaggerOptions
+  amount?: number
+  each?: number
+  ease?: string
+  from?: number | "center" | "start" | "end" | "edges" | "random"
+  grid?: [number, number]
+  seed?: number
+interface Stop
+  advance?: number
+  at: number
+  frame: number
+  index: number
+  notes?: string
+  page: string | null
+  pageIndex: number
+  pageStart: boolean
+  pdf?: boolean
+interface StopSpec
+  advance?: number
+  at: number
+  notes?: string
+  page?: string | true
+  pdf?: boolean
+interface TextPiece
+  index: number
+  line: number
+  text: string
+  width: number
+  x: number
+  y: number
+type TextPreset = keyof typeof PRESETS
+interface TextSequenceSpec extends SequenceCommon
+  colorSpace?: "rgb" | "oklab" | "oklch"
+  fillGradient?: GradientSpec
+  format?: { decimals?: number | undefined; grouping?: boolean | undefined; pad?: number | undefined; }
+  style?: Record<string, PropValue | { color?: PropValue | undefined; width?: PropValue | undefined; }>
+  text?: string
+  type: "text"
+interface TextSize
+  height: number
+  lines: number
+  width: number
+interface TimelineData
+  duration: number
+  rows: TimelineRow[]
+  transitions: TimelineTransition[]
+interface TimelineHtmlOptions
+  title?: string
+interface TimelineRow
+  depth: number
+  detail?: string
+  end: number
+  keys: number[]
+  local?: string
+  name: string
+  partNames?: string[]
+  parts?: { start: number; end: number; }[]
+  path: string
+  start: number
+  type: string
+interface TimelineSvgOptions
+  chartWidth?: number
+  labels?: boolean
+interface TimelineTransition
+  end: number
+  from: string
+  local?: string
+  start: number
+  to: string
+interface TransitionCommon
+  at: number
+  duration: number
+  ease?: string
+  from: string
+  to: string
+type TransitionSpec = | CrossfadeTransition | WipeTransition | IrisTransition | SlideTransition | DipTransition | ZoomTransition | DissolveTransition | LumaTransition
+interface VideoSequenceSpec extends SequenceCommon
+  asset: string
+  audio?: boolean
+  loop?: boolean
+  speed?: number
+  type: "video"
+  volume?: number
+interface VolumeEvent
+  muted: boolean
+  volume: number
+function warnUnknownOptions(where: string, opts: object | null | undefined, valid: readonly string[]): void
+function wiggle(opts: WiggleOptions): Keyframe[]
+interface WiggleOptions
+  at?: number
+  duration: number
+  ease?: string
+  freq?: number
+  props: Record<string, WiggleProp>
+  seed?: number
+interface WiggleProp
+  amp: number
+  around: string | number
+interface WipeTransition extends TransitionCommon
+  direction: "left" | "right" | "up" | "down"
+  kind: "wipe"
+  smoothing?: number
+function withFade<T extends SequenceCommon>(spec: T, opts: WithFadeOptions): T
+interface WithFadeOptions
+  in?: number
+  out?: number
+interface ZoomTransition extends TransitionCommon
+  fromScale?: number
+  kind: "zoom"
+  mode?: "in" | "out"
+interface AudioBase (not exported; the keys of the types above)
+  speed?: number
+  type: "audio"
+  volume?: number
+interface ShapeBase (not exported; the keys of the types above)
+  colorSpace?: "rgb" | "oklab" | "oklch"
+  fillGradient?: GradientSpec
+  strokeCap?: "square" | "butt" | "round"
+  strokeJoin?: "round" | "miter" | "bevel"
+  type: "shape"
+interface Trimmable (not exported; the keys of the types above)
+  trimEach?: boolean
+  trimEnd?: PropValue
+  trimStart?: PropValue
+
+== pixi-effects/controller ==
+class Controller
+  destroy(): void
+  movie: Movie
+  options: ResolvedOptions
+  setTheme(theme: ControllerTheme): void
+  constructor(movie: Movie, options: ControllerOptions)
+const CONTROLLER_CSS: "\n.movie-controller-wrap { position: relative; display: inline-block; line-height: 0; }\n.movie-controller {…
+interface ControllerOptions
+  canvas: HTMLCanvasElement
+  className?: string
+  clickToPlay?: boolean
+  enableKeyboardShortcuts?: boolean
+  pauseAtStops?: boolean
+  present?: boolean
+  showExportButton?: boolean
+  theme?: ControllerTheme
+interface ControllerTheme
+  accent?: string | null
+  barBackground?: string | null
+  font?: string | null
+  foreground?: string | null
+  track?: string | null
+  trackHeight?: string | number | null
+function extensionForMimeType(mime: string): string
+function formatTime(seconds: number): string
+function frameToPercent(frame: number, totalFrames: number): number
+function pxToFraction(clientX: number, rect: { left: number; width: number; }, inset?: number): number
+function pxToFrame(clientX: number, rect: { left: number; width: number; }, totalFrames: number): number
+
+== pixi-effects/present ==
+const currentStop: (movie: Movie) => Stop | null
+function deck(options: DeckOptions): DeckResult
+interface DeckOptions
+  pages: DeckPage[]
+  transition?: Omit<CrossfadeTransition, "from" | "to" | "at"> | Omit<WipeTransition, "from" | "to" | "at"> | Omit<IrisTrans…
+interface DeckPage
+  advance?: number
+  duration: number
+  initial?: Props
+  keyframes?: Keyframe[]
+  name?: string
+  notes?: string
+  sequences: SequenceSpec[]
+  stops?: (number | { at: number; pdf?: boolean | undefined; })[]
+interface DeckResult
+  composition: CompositionSpec
+  duration: number
+type DeckTransition = TransitionSpec extends infer T ? (T extends TransitionSpec ? Omit<T, 'from' | 'to' | 'at'> : never) : never
+function exportPDF(movie: Movie, opts?: { which?: "pages" | "stops" | undefined; pick?: "last" | "first" | undefined; scale?: number | undefined; quality?: number | undefined; title?: str…
+function goToPage(movie: Movie, page: number): Promise<void>
+function goToStop(movie: Movie, index: number): Promise<void>
+function inspectStops(movie: Movie, opts?: { lookback?: number | undefined; tolerance?: number | undefined; }): Promise<InspectStopsReport>
+interface InspectStopsReport
+  issues: string[]
+  stops: { index: number; page: string | null; at: number; frame: number; moving: number; settled: boolean; }[]
+function next(movie: Movie): Promise<void>
+function onStop(movie: Movie, fn: (e: StopEvent) => void): () => void
+const pageCount: (movie: Movie) => number
+const pageIndex: (movie: Movie) => number
+class Presenter
+  closePresenterView(): void
+  destroy(): void
+  ensureThumbs(): Promise<void>
+  exit(): Promise<void>
+  movie: Movie
+  next(): Promise<void>
+  openPresenterView(): Window | null
+  options: Required<Omit<PresenterOptions, "accent" | "onExit">> & { accent?: string | undefined; onExit?: (() => void) …
+  prev(): Promise<void>
+  setCover(mode: "black" | "white" | "off"): void
+  start(): Promise<void>
+  constructor(movie: Movie, options: PresenterOptions)
+interface PresenterOptions
+  accent?: string
+  autoAdvance?: boolean
+  canvas: HTMLCanvasElement
+  clickToAdvance?: boolean
+  indicator?: boolean
+  keyboard?: boolean
+  loop?: boolean
+  onExit?: (() => void)
+  swipe?: boolean
+function prev(movie: Movie): Promise<void>
+interface StopEvent
+  index: number
+  pageIndex: number
+  stop: Stop
+interface StopImage
+  image: string | Blob
+  page: number
+  stop: Stop
+function stopImages(movie: Movie, opts: StopImagesOptions & { as: "dataURL"; }): Promise<(StopImage & { image: string; })[]>
+function stopImages(movie: Movie, opts?: StopImagesOptions | undefined): Promise<StopImage[]>
+interface StopImagesOptions
+  as?: "blob" | "dataURL"
+  motionBlur?: MotionBlurSpec
+  onImage?: ((image: StopImage) => void)
+  pdf?: boolean
+  pick?: "last" | "first"
+  quality?: number
+  scale?: number
+  type?: "image/png" | "image/jpeg"
+  which?: "pages" | "stops"
+const stopIndex: (movie: Movie) => number
+
+== pixi-effects/three ==
+function registerThree(): void
+function three(spec: ThreeSequenceSpec): SequenceSpec
+interface ThreeContext
+  camera: Camera
+  height: number
+  renderer: WebGLRenderer
+  scene: Scene<Object3DEventMap>
+  width: number
+class ThreeSequence
+  absoluteStart: number | null
+  at: number
+  awaitFrameAt(local: number): Promise<void>
+  bindTimeline(timeline: PureTimeline, offset?: number): void
+  build(): Promise<void>
+  buildFilters(): void
+  collectAudio(_out: AudioDescriptor[], _baseTime: number): void
+  destroy(): void
+  duration: number
+  filters: NamedFilter[]
+  intrinsicHeight: number
+  intrinsicWidth: number
+  keepHidden: boolean
+  maskSequence: Sequence | null
+  parent: CompositionShape | null
+  root: CompositionShape
+  scope(): Scope
+  spec: SequenceSpec
+  syncFrame(): void
+  target: Container<ContainerChild> | null
+  updateSpace(_t: number, _host: SpaceHost): void
+  constructor(spec: SequenceSpec, parent: CompositionShape | null, root: CompositionShape)
+interface ThreeSequenceSpec extends SequenceCommon
+  dispose?: ((ctx: ThreeContext) => void)
+  height?: PropValue
+  resolution?: number
+  setup: (ctx: ThreeContext) => void | ThreeSetupResult | Promise<void | ThreeSetupResult>
+  type: "three"
+  update?: ((t: number, ctx: ThreeContext) => void)
+  width?: PropValue
+interface ThreeSetupResult
+  camera?: Camera
+  objects?: Record<string, object>
+interface SequenceCommon (not exported; the keys of the types above)
+  at?: number
+  blendMode?: BlendModeName
+  castsShadows?: boolean
+  duration?: number
+  filterArea?: { x: number; y: number; width: number; height: number; }
+  filters?: FilterSpec[]
+  hideBehindCamera?: boolean
+  initial?: Props
+  keyframes?: Keyframe[]
+  lit?: boolean
+  mask?: SequenceSpec | MaskRefSpec | MaskRefSpec[]
+  maskInverted?: boolean
+  name?: string
+  parent?: string
+  threeD?: boolean
+
+== DSL (the runtime tables) ==
+every layer: type name parent at duration initial keyframes filters filterArea mask maskInverted blendMode threeD hideBehindCamera lit castsShadows
+null layer: 
+camera layer: 
+light layer: kind falloff
+text layer: text format style colorSpace fillGradient
+image layer: asset colorSpace
+video layer: asset loop audio volume speed
+audio layer: volume asset loop sfx music speed
+composition layer: width height sequences transitions speed
+shader layer: fragment uniforms width height resolution transparent
+rect shape: shape fillGradient colorSpace strokeCap strokeJoin trimStart trimEnd trimEach width height cornerRadius anchorX anchorY
+circle shape: shape fillGradient colorSpace strokeCap strokeJoin trimStart trimEnd trimEach radius anchorX anchorY
+ellipse shape: shape fillGradient colorSpace strokeCap strokeJoin trimStart trimEnd trimEach radiusX radiusY anchorX anchorY
+arc shape: shape fillGradient colorSpace strokeCap strokeJoin radius innerRadius startAngle endAngle
+line shape: shape fillGradient colorSpace strokeCap strokeJoin trimStart trimEnd trimEach from to
+polygon shape: shape fillGradient colorSpace strokeCap strokeJoin trimStart trimEnd trimEach points open
+path shape: shape fillGradient colorSpace strokeCap strokeJoin trimStart trimEnd trimEach d morphTo morph morphPoints
+animatable (initial / keyframes): x y z alpha rotation rotationX rotationY width height visible autoAlpha scale scaleX scaleY anchor anchorX anchorY pivot pivotX pivotY skew skewX skewY position positionX positionY tilePosition tilePositionX tilePositionY tileScale tileScaleX tileScaleY tint fillColor fillAlpha strokeColor strokeAlpha strokeWidth cornerRadius radius radiusX radiusY innerRadius startAngle endAngle trimStart trimEnd trimEach morph fillGradient strokeCap strokeJoin fill value visibleChars text volume time lookAtX lookAtY lookAtZ fov focus aperture offsetX offsetY offsetZ lookOffsetX lookOffsetY lookOffsetZ intensity color coneAngle coneFeather falloffDistance shadowDarkness shadowDiffusion fogNear fogFar fogColor fogAmount
+text style: fontSize fontFamily fontWeight fontStyle fontVariant fill stroke dropShadow letterSpacing lineHeight leading align wordWrap wordWrapWidth breakWords whiteSpace padding textBaseline trim lineJoin miterLimit filters tagStyles
+filter types: chromaKey custom blur noise alpha colorMatrix grain warp adjustment advancedBloom ascii backdropBlur bevel bloom bulgePinch colorGradient colorMap colorOverlay colorReplace convolution crossHatch crt dot dropShadow emboss glitch glow godray grayscale hslAdjustment kawaseBlur motionBlur multiColorReplace oldFilm outline pixelate radialBlur reflection rgbSplit shockwave simpleLightmap simplexNoise tiltShift tiltShiftAxis twist zoomBlur
