@@ -48,6 +48,21 @@ export type __Covered = [
 const SHAPES: Record<string, readonly string[]> = { rect: RECT, circle: CIRCLE, ellipse: ELLIPSE, arc: ARC, line: LINE, polygon: POLYGON, path: PATH };
 const BY_TYPE: Record<string, readonly string[]> = { video: VIDEO, image: IMAGE, text: TEXT, audio: AUDIO, composition: COMPOSITION, camera: CAMERA, light: LIGHT, shader: SHADER, null: NULL };
 
+/** The keys that shape what is drawn: a layer that is never drawn (audio, a camera, a light) accepts them in its type but they do nothing there. */
+const PICTURE_KEYS = ['filters', 'filterArea', 'mask', 'maskInverted', 'blendMode', 'threeD', 'hideBehindCamera', 'lit', 'castsShadows'] as const;
+const NOT_DRAWN: Record<string, string> = {
+  audio: 'an audio layer: it is not drawn (it plays)',
+  camera: 'a camera layer: it is not drawn, it frames the picture (its place and lens go in `initial` / `keyframes`: x y z lookAtX … fov)',
+  light: 'a light layer: it is not drawn, it lights `threeD` layers (its numbers go in `initial` / `keyframes`: intensity color …)',
+};
+
+/** For a layer that is never drawn: the picture keys it carries, each with what the layer is (the keys do nothing there). A light keeps `castsShadows`, its own switch. */
+export function pictureKeysIgnored(spec: { type: string } & Record<string, unknown>): Array<{ key: string; why: string }> {
+  const why = NOT_DRAWN[spec.type];
+  if (!why) return [];
+  return PICTURE_KEYS.filter(k => spec[k] !== undefined && !(spec.type === 'light' && k === 'castsShadows')).map(key => ({ key, why }));
+}
+
 /** What a layer may be called, for the message: `text layer`, `rect shape`. */
 export function kindName(spec: { type: string; shape?: string }): string {
   return spec.type === 'shape' && spec.shape ? `${spec.shape} shape` : `${spec.type} layer`;

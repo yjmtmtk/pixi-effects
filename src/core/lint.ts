@@ -1,7 +1,7 @@
 import type { SequenceSpec } from '../types';
 import { collectPropKeys } from '../space/specKeys';
 import { suggestName } from './options';
-import { layerKeys, kindName, kindsWithKey, PROP_KEYS, STYLE_KEYS } from './layerKeys';
+import { layerKeys, kindName, kindsWithKey, pictureKeysIgnored, PROP_KEYS, STYLE_KEYS } from './layerKeys';
 
 type Warn = (message: string, kind?: 'late-keyframe') => void;
 const defaultWarn: Warn = m => console.warn(m);
@@ -126,6 +126,7 @@ export function lintKeys(spec: SequenceSpec, warn: Warn = defaultWarn): void {
       warn(`pixi-effects: ${who}: "${key}" is not a ${kindName(spec as { type: string; shape?: string })} key${hint}. Valid keys: ${valid.join(', ')}`);
     }
   }
+  for (const { key, why } of pictureKeysIgnored(spec as unknown as { type: string } & Record<string, unknown>)) warn(`pixi-effects: ${who}: "${key}" does nothing on ${why}`);
   lintRemap(spec, warn);
   const said = new Set<string>();
   const bags: Array<Record<string, unknown> | undefined> = [spec.initial, ...(spec.keyframes ?? []).flatMap(kf => [kf.set, kf.to, kf.from])] as Array<Record<string, unknown> | undefined>;

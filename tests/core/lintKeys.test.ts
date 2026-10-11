@@ -24,6 +24,23 @@ describe('lintKeys: a layer key that does not exist', () => {
   });
 });
 
+describe('lintKeys: a picture key on a layer that is never drawn', () => {
+  it('audio, a camera and a light are not drawn: filters, mask, blendMode, threeD … do nothing there, and the warning says so', () => {
+    expect(warns({ type: 'audio', asset: 'a', filters: [{ type: 'blur' }] })[0]).toMatch(/"filters" does nothing on an audio layer: it is not drawn/);
+    expect(warns({ type: 'camera', blendMode: 'add' })[0]).toMatch(/"blendMode" does nothing on a camera layer: .*initial/s);
+    expect(warns({ type: 'light', mask: 'm', threeD: true })).toHaveLength(2);
+    expect(warns({ type: 'light', kind: 'point' })).toEqual([]);
+  });
+  it('a light keeps castsShadows (it is the light\'s own switch, pitfall 86); a layer that is drawn keeps every picture key; an undefined value says nothing', () => {
+    expect(warns({ type: 'light', castsShadows: true })).toEqual([]);
+    expect(warns({ type: 'text', text: 'a', filters: [{ type: 'blur' }], mask: 'm', blendMode: 'add', threeD: true })).toEqual([]);
+    expect(warns({ type: 'audio', asset: 'a', filters: undefined })).toEqual([]);
+  });
+  it('a null layer is a group: it keeps them too', () => {
+    expect(warns({ type: 'null', name: 'g', filters: [{ type: 'blur' }] })).toEqual([]);
+  });
+});
+
 describe('lintKeys: animatable property names (initial, set, to, from)', () => {
   it('a mistyped property says which one was meant', () => {
     expect(warns({ type: 'shape', shape: 'rect', width: 1, height: 1, keyframes: [{ at: 0, to: { alhpa: 1 }, duration: 1 }] })[0]).toMatch(/"alhpa" is not an animatable property — did you mean "alpha"\?/);

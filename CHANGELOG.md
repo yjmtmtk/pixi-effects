@@ -27,6 +27,7 @@ A page that only maps `"pixi-effects"` still gets its stops reviewed and its PDF
 - `warnUnknownOptions(where, options, validNames)` is exported: the did-you-mean warning for an unknown option, for presets and layer types written outside the library.
 - `animateText({ out: { preset, at: T } })`: the exit starts at composition second T (the pieces leave in the same wave and stay gone until the layer ends). Without `at` it is the end of the layer run backwards, as before; a warning says `out.at ≤ …` when the exit does not fit, or when T is before the entrance has finished.
 - `pixi-effects render --help` and `pixi-effects view --help` (usage, exit 0), like `check`.
+- A warning when a picture key (`filters`, `filterArea`, `mask`, `blendMode`, `threeD`, `hideBehindCamera`, `lit`, `castsShadows`) is put on a layer that is never drawn: an audio layer, a camera, a light (a light keeps `castsShadows`, its own switch). The key did nothing there, silently.
 
 **Fixed**
 
