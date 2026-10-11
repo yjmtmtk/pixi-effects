@@ -105,6 +105,11 @@ describe('needsFilterLibrary / ensureFilterLibrary', () => {
     expect(needsFilterLibrary({ sequences: [{ type: 'shape', mask: { type: 'shape', filters: [{ type: 'pixelate' }] } }] })).toBe(true);
   });
 
+  it('finds it in a mask written as { layer: <spec>, invert }, and rejects an unknown type there too', () => {
+    expect(needsFilterLibrary({ sequences: [{ type: 'shape', mask: { layer: { type: 'shape', filters: [{ type: 'glow' }] }, invert: true } }] })).toBe(true);
+    expect(() => needsFilterLibrary({ sequences: [{ type: 'shape', mask: { layer: { type: 'shape', filters: [{ type: 'glwo' }] }, invert: true } }] })).toThrow(/glwo/);
+  });
+
   it('is false for pixi.js\'s own filters, chromaKey, custom and a composition with no filters', () => {
     expect(needsFilterLibrary(comp([{ type: 'blur' }, { type: 'colorMatrix', preset: 'sepia' }, { type: 'chromaKey' }, { type: 'custom', filter: {} }]))).toBe(false);
     expect(needsFilterLibrary({ sequences: [{ type: 'text' }] })).toBe(false);

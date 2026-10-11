@@ -36,10 +36,9 @@ async function dslSection() {
   out.push(`animatable (initial / keyframes): ${[...keys.PROP_KEYS].join(' ')}`);
   out.push(`text style: ${keys.STYLE_KEYS.join(' ')}`);
   const named = fs.readFileSync(path.join(root, 'src/filters/named.ts'), 'utf8');
-  const core = [...(named.match(/const CORE: Record<string, string> = \{([^}]*)\}/)?.[1] ?? '').matchAll(/(\w+):/g)].map(m => m[1]);
-  const core2 = [...(named.match(/const CORE_TYPES = \[\.\.\.Object\.keys\(CORE\), ([^\]]*)\]/)?.[1] ?? '').matchAll(/'(\w+)'/g)].map(m => m[1]);
+  const core = [...(named.match(/const CORE_TYPES = \[([^\]]*)\]/)?.[1] ?? '').matchAll(/'(\w+)'/g)].map(m => m[1]);
   const lib = [...(named.match(/const LIBRARY_TYPES = \[([^\]]*)\]/)?.[1] ?? '').matchAll(/'(\w+)'/g)].map(m => m[1]);
-  out.push(`filter types: chromaKey custom ${[...core, ...core2, ...lib].join(' ')}`);
+  out.push(`filter types: chromaKey custom ${[...core, ...lib].join(' ')}`);
   out.push('');
   return out.join('\n');
 }

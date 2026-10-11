@@ -28,7 +28,7 @@ A page that only maps `"pixi-effects"` still gets its stops reviewed and its PDF
 | `pixi-effects/controller` also exported `CONTROLLER_CSS`, `formatTime`, `frameToPercent`, `pxToFrame`, `pxToFraction`, `extensionForMimeType` | `Controller`, `ControllerOptions`, `ControllerTheme` only |
 | the bins `pixi-effects-check`, `pixi-effects-render`, `pixi-effects-view` | `pixi-effects check|render|view` (the one bin; `npx pixi-effects-check` never worked) |
 | `pixi-effects render --fail-on-warn` | `--strict`, the word `check` already used (the old flag says so) |
-| `Movie.emit`, `audioSource`, `gainNode`; `Sequence.bindTimeline`, `collectAudio`, `absoluteStart`, `keepHidden`, `maskSequence`, `filters`, `updateSpace`, `syncFrame`; `Presenter.ensureThumbs` in the type declarations | marked `@internal` and stripped from the declarations (the library still uses them) |
+| `Movie.emit`, `audioSource`, `gainNode`; `Sequence.bindTimeline`, `collectAudio`, `absoluteStart`, `keepHidden`, `maskSequence`, `filters`, `updateSpace`, `syncFrame` in the type declarations | marked `@internal` and stripped from the declarations (the library still uses them) |
 
 **Added**
 

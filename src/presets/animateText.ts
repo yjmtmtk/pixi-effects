@@ -100,6 +100,7 @@ export function animateText(text: string, style: MeasureStyle, options: AnimateT
 
   const end = at + duration;
   if (outTween?.at !== undefined) {
+    if (outTween.at < at - 1e-9) console.warn(`pixi-effects: animateText(): out.at ${outTween.at} is before the layer starts (at ${at}): the exit starts with the piece; use out.at ≥ ${at}`);
     const latest = end - outTween.duration - wave;
     if (outTween.at > latest + 1e-9) console.warn(`pixi-effects: animateText(): out.at ${outTween.at} leaves after the layer ends (the exit and the wave take ${+(outTween.duration + wave).toFixed(3)} s and the layer ends at ${+end.toFixed(3)} s): use out.at ≤ ${+latest.toFixed(3)}, or a longer duration`);
     if (inTween && outTween.at - at < inTween.duration - 1e-9) console.warn(`pixi-effects: animateText(): out.at ${outTween.at} is before the entrance has finished (it takes ${inTween.duration} s from at ${at}): use out.at ≥ ${+(at + inTween.duration).toFixed(3)}`);
@@ -123,7 +124,7 @@ export function animateText(text: string, style: MeasureStyle, options: AnimateT
       // `out.at` (composition seconds) starts every piece's exit at the same local time (their own starts shift by their delays, so does the wave);
       // without it the exit is the end of the layer run backwards: the last piece finishes exactly at the end
       const begin = outTween.at !== undefined ? undefined : outTween.duration + (wave - delays[i]!);      // seconds before this piece's end
-      const local = outTween.at !== undefined ? outTween.at - at : -begin!;
+      const local = outTween.at !== undefined ? Math.max(0, outTween.at - at) : -begin!;       // (a negative keyframe time means "from the end", so an `out.at` before the start is held at 0)
       idleEnd = outTween.at !== undefined ? local : len - begin!;
       keyframes.push({
         at: local, duration: outTween.duration, ease: outTween.ease,

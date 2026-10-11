@@ -21,5 +21,6 @@ describe('the public surface', () => {
     for (const h of ['== pixi-effects ==', '== pixi-effects/controller ==', '== pixi-effects/present ==', '== pixi-effects/three ==', '== DSL (the runtime tables) ==']) expect(kept).toContain(h);
     expect(kept).toMatch(/^class Movie$/m);
     expect(kept).toMatch(/^  playUntil\(/m);
+    expect(kept).toMatch(/^filter types: chromaKey custom .*\bblur noise alpha colorMatrix grain warp adjustment\b/m);       // the runtime filter tables, in full
   });
 });

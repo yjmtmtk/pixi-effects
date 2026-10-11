@@ -42,6 +42,7 @@ function matteOptions(r: Record<string, unknown>, label: string): { channel: 'al
 export function maskSourceOf(mask: unknown): MaskSource {
   if (isLayerSpec(mask)) return { kind: 'inline', spec: mask, channel: 'alpha', invert: false, problems: [] };
   if (isObject(mask) && isLayerSpec(mask.layer)) return { kind: 'inline', spec: mask.layer, ...matteOptions(mask, 'mask (written in place)') };
+  if (isObject(mask) && isObject(mask.layer)) return { kind: 'refs', refs: [], problems: ['mask: `layer` is an object with no `type`, so it is neither a layer written in place (it needs a `type`, such as \'shape\') nor the name of another layer (a string); the layer is drawn without a mask'] };
   const problems: string[] = [];
   const refs: MatteRef[] = [];
   const one = (r: unknown, inList: boolean): void => {

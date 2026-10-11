@@ -79,7 +79,7 @@ export function needsFilterLibrary(spec: unknown): boolean {
         else if (!isCoreType(f.type)) throw unknownType(f.type);
       }
     }
-    for (const key of ['sequences', 'mask']) visit(o[key]);
+    for (const key of ['sequences', 'mask', 'layer']) visit(o[key]);          // ('layer': a mask written as { layer: <spec>, invert })
   };
   visit(spec);
   return needs;

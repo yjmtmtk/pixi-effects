@@ -161,6 +161,12 @@ describe('animateText(): mistakes are said out loud', () => {
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/out\.at 0\.2.*before the entrance has finished/s));
   });
 
+  it('an `out.at` before the layer starts is warned about and the exit starts with the piece (never read as "from the end")', () => {
+    const out = animateText('A', style, { at: 2, duration: 6, in: false, out: { preset: 'fade', at: 1 } }) as any[];
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/out\.at 1 is before the layer starts \(at 2\)/));
+    expect(kf(out[0]).at(-1).at).toBe(0);
+  });
+
   it('any other time (`at` / `delay` / `start` in `in`, `delay` / `start` in `out`) is warned about, with what decides the time', () => {
     animateText('AB', style, { duration: 4, in: { preset: 'rise', at: 1 } as any });
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/in.*"at".*ignored.*at.*duration/s));

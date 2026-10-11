@@ -146,7 +146,7 @@ export async function runRender(opts, log = console.log, progress = () => {}) {
     return true;
   };
 
-  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pixi-effects render-'));
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pixi-effects-render-'));
   const { server, port } = await serve(root, upload);
   let chromeProc = null;
   const result = { page: shown(pagePath), file: null, logs: [], problems: [] };

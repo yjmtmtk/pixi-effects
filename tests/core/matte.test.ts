@@ -22,6 +22,11 @@ describe('maskSourceOf', () => {
     expect(b).toMatchObject({ kind: 'inline', invert: false });
     expect((b as { problems: string[] }).problems[0]).toMatch(/invert.*true or false/);
   });
+  it('{ layer: <an object with no type> } is neither a layer nor a name: a problem that says so (the mask used to vanish without a word)', () => {
+    const s = maskSourceOf({ layer: { shape: 'rect' } });
+    expect(s.kind).toBe('refs');
+    expect((s as { problems: string[] }).problems[0]).toMatch(/`layer` is an object with no `type`.*name of another layer/s);
+  });
   it('a layer written inside a list of masks is ignored with what to do (bare or wrapped): give it a name and write the name', () => {
     const spec = { type: 'shape', shape: 'circle' };
     for (const m of [[spec], [{ layer: spec, invert: true }]]) {

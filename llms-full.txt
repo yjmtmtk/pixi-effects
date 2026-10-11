@@ -3381,7 +3381,6 @@ The added keyframes are layered on top of any keyframes the spec already has. `w
 
 - [`Movie`](#movie) — composition runtime: init, playback, render
 - [`Controller`](#controller) — drop-in player UI overlay
-- [Helpers](#helpers) — pure utilities exported from `pixi-effects/controller`
 - [`pixi-effects/three`](#pixi-effectsthree) — optional three.js integration
 
 For DSL types (composition spec, sequences, filters, keyframes, expressions), see [DSL reference](./dsl.md).
@@ -3705,7 +3704,7 @@ const presenter = new Presenter(movie, { canvas });     // instead of Controller
 
 **The page overview (`G`)** is a grid of every page with its picture, the current page marked: arrows choose, Enter or a click goes there, `G` or Esc closes. **The presenter view (`P`)** opens a second window for the speaker: the picture that is on screen (live), the picture of the next stop, the notes of the page, a timer (with reset), the page counter and Back / Next buttons; the keys work there too. Both use a picture of every stop that `start()` makes **before** the audience sees anything (behind a "Preparing…" cover; taking them moves the playhead through the stops and back, so it must not happen on screen); `presenter.ensureThumbs()` makes them on demand (an overview opened before that does it on the spot, with a flicker). A browser needs a click or key press to open a popup: `P` is one; if it is blocked a warning says so.
 
-`presenter.start()`, `presenter.openPresenterView()`, `presenter.closePresenterView()`, `presenter.next()`, `presenter.prev()`, `presenter.setCover('black' \| 'white' \| 'off')`, `presenter.exit()`, `presenter.destroy()`. It uses the canvas's positioned parent, or wraps the canvas like `Controller` does. A movie with stops shown through a **`Controller`** gets a mark per stop on the seek bar and a Present button (`present: false` leaves the marks only) that hands the page to a `Presenter` (fullscreen, keys, click and swipe move through the stops; Esc gives the bar back).
+`presenter.start()`, `presenter.openPresenterView()`, `presenter.closePresenterView()`, `presenter.next()`, `presenter.prev()`, `presenter.setCover('black' \| 'white' \| 'off')`, `presenter.exit()`, `presenter.destroy()`. It uses the canvas's positioned parent, or wraps the canvas like `Controller` does. A movie with stops shown through a **`Controller`** gets a mark per stop on the seek bar and a Present button (`presentButton: false` leaves the marks only) that hands the page to a `Presenter` (fullscreen, keys, click and swipe move through the stops; Esc gives the bar back).
 
 ### `inspectStops(movie, options?)`
 
@@ -3834,7 +3833,7 @@ interface ControllerOptions {
   canvas: HTMLCanvasElement;          // required
   exportButton?: boolean;             // default true; false hides ⬇ + popover
   keyboard?: boolean;                 // default true
-  present?: boolean;                  // default true: a movie with stops gets a Present button (marks on the seek bar are always shown)
+  presentButton?: boolean;            // default true: a movie with stops gets a Present button (marks on the seek bar are always shown)
   pauseAtStops?: boolean;             // default true: with stops, play / Space / click on the picture play to the next stop and pause; false plays straight through
   clickToPlay?: boolean;              // default true: a click / tap on the picture plays / pauses (like <video>); false leaves the canvas alone
   className?: string;                 // default 'movie-controller'
@@ -3869,7 +3868,7 @@ controller.setTheme({ accent: null });               // null = back to the defau
 | `trackHeight` | `--mc-track-height` | thickness of the progress bar (a number is px) | `3px` |
 | `font` | `--mc-font` | `font-family` of the bar | system UI font |
 
-A misspelt key warns with the valid ones. The default stylesheet is exported as `CONTROLLER_CSS` (from `pixi-effects/controller`) if you want to copy and restyle more.
+A misspelt key warns with the valid ones. To restyle more than the theme covers, set the `--mc-*` custom properties (or override the `.movie-controller` classes) in your own CSS.
 
 ### `controller.destroy(): void`
 
@@ -3910,50 +3909,6 @@ Active when `keyboard: true` and the key target is not `<input>`/`<textarea>`/`<
 ### Theming
 
 The bar uses fixed colors (`#007AFF` for the active track / fill / confirm button, white for icons, `rgba(0,0,0,0.75)` gradient background). Override by adding stricter CSS rules under `.movie-controller`. A theming API (CSS custom properties) is on the roadmap.
-
----
-
-## Helpers
-
-These pure functions are exported from `pixi-effects/controller` for consumers who want to build custom controls or reuse the parsing utilities. All are side-effect-free.
-
-```ts
-import { formatTime, frameToPercent, pxToFrame, pxToFraction, extensionForMimeType }
-  from 'pixi-effects/controller';
-```
-
-### `formatTime(seconds: number): string`
-
-Returns `M:SS` (no leading zero on minutes). `formatTime(125)` → `"2:05"`. Negatives clamp to zero.
-
-### `frameToPercent(frame: number, totalFrames: number): number`
-
-Returns 0..100 (clamped). `totalFrames <= 0` returns 0.
-
-### `pxToFrame(clientX, rect, totalFrames): number`
-
-Maps a pointer X coordinate (relative to viewport) inside a `DOMRect`-shaped object to a frame index 0..totalFrames. Rounded.
-
-```ts
-pxToFrame(150, { left: 100, width: 200 } as DOMRect, 100)  // 25
-```
-
-### `pxToFraction(clientX, rect, inset?): number`
-
-Same as `pxToFrame` but returns a normalized 0..1 fraction. The optional `inset` shrinks the active range by that many pixels on each side (used internally for the volume slider).
-
-### `extensionForMimeType(mime: string): string`
-
-Maps common video MIME types to file extensions. Falls back to `'mp4'`.
-
-| MIME contains       | Extension |
-| ------------------- | --------- |
-| `webm`              | `webm`    |
-| `quicktime` / `mov` | `mov`     |
-| `matroska` / `mkv`  | `mkv`     |
-| anything else       | `mp4`     |
-
----
 
 ## `pixi-effects/three`
 

@@ -1,7 +1,7 @@
 import type { CompositionSpec, SequenceSpec, TransitionSpec, Keyframe, Props, StopSpec } from '../index';
 import { warnUnknownOptions } from '../index';
 
-const PAGE_KEYS = ['name', 'duration', 'sequences', 'stops', 'notes', 'advance', 'initial', 'keyframes', 'filters', 'filterArea', 'blendMode', 'mask', 'maskInverted'] as const;
+const PAGE_KEYS = ['name', 'duration', 'sequences', 'stops', 'notes', 'advance', 'initial', 'keyframes', 'filters', 'filterArea', 'blendMode', 'mask'] as const;
 const DECK_KEYS = ['pages', 'transition', 'width', 'height', 'frameRate', 'background', 'canvas', 'assets', 'poster', 'motionBlur', 'loader'] as const;
 
 export interface DeckPage {
