@@ -333,6 +333,44 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
     });
   }
 
+  // 0.23 notes said "an inline shape mask on a layer a transition wraps shows the white mask shape"; on the 0.28 code it does not (fixed with the
+  // matte-in-transition work). This pins it: the mask is the layer's own, it cuts, and its own fill (white) is never drawn.
+  for (const kind of ['wipe', 'iris', 'dissolve', 'zoom', 'luma']) {
+    it(`an inline mask on a layer that a ${kind} transition wraps still cuts it, before and after, and its white fill never shows`, async () => {
+      await withPage(async (cdp) => {
+        const inline = { type: 'shape', shape: 'circle', radius: 20, initial: { x: 80, y: 45, fillColor: '#ffffff' } };
+        const comp = { sequences: [
+          rect('a', { initial: { x: 0, y: 0, fillColor: A }, duration: 1.5, mask: inline }),
+          rect('b', { initial: { x: 0, y: 0, fillColor: B }, duration: 1.5, mask: inline, at: 1 }),
+        ], transitions: [{ kind, from: 'a', to: 'b', at: 1, duration: 0.5 }] };
+        await cdp.eval(`mk(${JSON.stringify({ duration: 2.5, composition: comp })})`);
+        const before: string = await cdp.eval('snap(15)');                // 0.5 s: only A, wrapped, not yet in the transition
+        near(await at(cdp, before, 80, 45), rgb(A), 'inside the inline mask, before');
+        near(await at(cdp, before, 10, 10), [0, 0, 0], 'outside it, before: the background, not the mask\'s white');
+        const after: string = await cdp.eval('snap(74)');                 // 2.47 s: only B, cut by the same kind of mask
+        near(await at(cdp, after, 80, 45), rgb(B), 'inside the inline mask, after');
+        near(await at(cdp, after, 10, 10), [0, 0, 0], 'outside it, after');
+      });
+    });
+  }
+
+  // The roadmap listed "a 4000x2400 threeD layer is black on WebGPU". It is not on the 0.28 code (WebGPU or WebGL, a plain layer or a card);
+  // (the frame is 960 x 540: in a small frame the default camera is so near that a tilted 4000 px plane crosses the camera plane and is hidden, pitfall 25). This pins it, so a regression (or a GPU whose limit differs) is caught where the real browsers are tested.
+  for (const [what, layerSpec] of [
+    ['a shape', (W: number, H: number) => ({ type: 'shape', shape: 'rect', name: 'big', width: 4000, height: 2400, threeD: true, initial: { x: W / 2, y: H / 2, z: 0, rotationY: 12, fillColor: A } })],
+    ['a composition card', (W: number, H: number) => ({ type: 'composition', name: 'big', width: 4000, height: 2400, threeD: true, initial: { x: W / 2, y: H / 2, z: 0, rotationY: 12, pivotX: 2000, pivotY: 1200 },     // a composition has no anchor: the pivot is its centre
+      sequences: [{ type: 'shape', shape: 'rect', width: 4000, height: 2400, initial: { x: 2000, y: 1200, fillColor: A } }] })],
+  ] as const) {
+    it(`${what} of 4000 x 2400 in perspective is drawn (not black)`, async () => {
+      await withPage(async (cdp) => {
+        await cdp.eval(`mk(${JSON.stringify({ width: 960, height: 540, duration: 1, composition: { sequences: [layerSpec(960, 540)] } })})`);
+        const url: string = await cdp.eval('snap(0)');
+        near(await at(cdp, url, 480, 270), rgb(A), 'centre');
+        near(await at(cdp, url, 40, 40), rgb(A), 'near a corner (the layer is far larger than the frame)');
+      });
+    });
+  }
+
   it('a composition with no mask does not touch the matte machinery: the same pixels, no warning', async () => {
     await withPage(async (cdp) => {
       const url = await frame(cdp, { sequences: [backdrop, layer({ initial: { x: 40, y: 20, fillColor: LAYER }, width: 40, height: 30 })] });

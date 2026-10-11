@@ -1,6 +1,6 @@
 # Roadmap: more expressive, still easy for an AI
 
-Status: draft of 2026-10-10, current release 0.26.3. Nothing here is promised; the order is the proposal.
+Status: rewritten 2026-10-11, current release 0.28.2. Nothing here is promised; the order is the proposal.
 
 ## The gate every item passes
 
@@ -12,79 +12,65 @@ A feature enters the library only when an AI model can write it and check it fro
 4. **A build-time warning for the mistake an AI will make** (did-you-mean, a silent failure turned into a sentence).
 5. **Checkable without eyes or ears**: `check`, `inspect`, `inspectAudio` give numbers or a picture the AI reads. A feature whose result an AI cannot verify waits until it can.
 
-The measure of success is not the feature list: it is a **fresh agent given one sentence** (the landing page's) producing a checked video with fewer reads, fewer failed commands and fewer wasted cycles than before. Every theme below ends with such a trial.
+The measure of success is not the feature list: it is a **fresh agent given one sentence** (the landing page's) producing a checked video with fewer reads, fewer failed commands and fewer wasted cycles than before. Every theme ends with such a trial.
 
-## Where the wishes come from
+## What changed since the 2026-10-10 draft
 
-The twelve authors of the showreel (each a fresh model reading only the docs) wrote down what they wished for; a research pass over the music engine listed what an AI gets wrong and what a musician would miss; the two one-sentence trials showed what an agent wastes. This roadmap is that list, ordered.
+| release | what | what it did to the plan |
+|---|---|---|
+| 0.27.0 | the library's own pure timeline (GSAP is gone): a value is a function of the script and the time, never of how the playhead came to it | seeking is exact and cheap, so a variable can be a plain input to the timeline |
+| 0.27.1 | long movies load without freezing (the music is made in slices) | |
+| 0.28.0 | `musicEvents()`, `music.meter`, a music read-back in `check`, the `Sequence` export (a layer type can live outside the library) | the music items M1 and M3 of the old draft are mostly done; a spike showed that a new score syntax (`bars` / `play`, `key` / degrees) adds no correctness, so M4 and M9 are dropped |
+| 0.28.1–0.28.2 | `reference/direction.md` (how to direct a film), the viewer says "Updated … reload" and never switches by itself, the first address goes out within two minutes | the work on the AI's way of making a film moved from the library to the skill and the tools |
 
----
+## The order now
 
-## 0.27: say it right (the enablers)
+1. **Presentation leaves the core.** `Presenter`, `deck()`, `stopImages()`, `inspectStops()`, `exportPDF()` and `next()` / `prev()` / `goToStop()` / `goToPage()` move into `src/present/`, published as `pixi-effects/present`, and may use only the core's public API (a test enforces the import rule). The core gains one general primitive, `playUntil(time)`, and keeps `composition.stops` as named times. Why first: it shrinks `Movie.ts` before the variables work touches it, and it is a rehearsal of "an extension built on the public API only". A separate package only when someone else needs it.
+2. **A spike on named variables** (throwaway, outside the repository), run beside step 1. See "Variables" below.
+3. **The API list, then one breaking release (0.29).** One list of the whole public surface (exports, DSL keys per layer type, CLI commands and flags), walked once with the owner: keep / rename / remove, then frozen by a snapshot test. Candidates so far: the old `pixi-effects-check` / `-render` / `-view` bins; `maskInverted` against `mask: { …, invert }`; `animateText`'s `out` (no `at`) and its pixel `x` / `y`; `speed` against `time`; `draft` / `scale` (they shrink the file, they do not speed up); the `three` layer type and `pixi-effects/three`; a reserved namespace for variables (`$name`) next to the expression words `w h W H GW GH t d T contain cover`. Not changed: the anchor defaults that differ by type (a visible change for every piece).
+4. **Reading less, waiting less.** `npx pixi-effects recipe <id>`, `help <word>`, `new <name>`, a 2 KB quick start in front of the cheatsheet (written once, for the cleaned API), and a draft export that really is faster (fewer frames: `--fps`; measured first: today `--draft` saves file size, not time). Measured by a before / after run of three fresh agents (reads, failed commands, time to the first picture).
+5. **Variables, built** (after the spike), smallest level first.
 
-Small, and every later theme stands on it.
+## Variables: one definition for what used to be five features
 
-| id | item | why / evidence | size | AI risk |
-|---|---|---|---|---|
-| E1 | **Silent failures become sentences**: a matte with no fill, `animateText` exits on the last frame, a gradient left at the default angle, a dodge leak over dark, a track shorter than the others | each cost an author or a trial a cycle | S | none |
-| E2 | **`check` says more**: when the last motion ends (proves calm edges), the content time inside a remapped composition, `threeD` layers partly outside the frame, shader cost per frame, masks and `visible: false` understood by `inspect` | 6 of 12 authors | M | none |
-| E3 | **Reading less**: `npx pixi-effects new <name> --recipe title`, `recipe <name>`, `help <word>`; a 2 KB quick start in front of the cheatsheet | a trial read 20 k-110 k tokens for a title | M | none |
-| E4 | **Small API holes**: `fitText(text, style, maxWidth)`, `animateText({ out: { stagger: false } })`, `fillGradient: { direction: 'to right' }`, a union of mattes `mask: { any: [...] }`, `pathFromPoints(points)` | wishes of 5 authors | S each | low |
-| E5 | **The trial as a script**: a repeatable fresh-agent run (reads, failures, warnings, contact sheet looked at) before every release | it found two real bugs in one afternoon | M | none |
+A **named variable** with a source: a default, a value the host sets, the canvas size, the pointer or scroll, a recorded track, a value derived from audio (`react()` bakes this one today) or the time. A layer reads it by name inside an expression. This one definition covers what the old draft listed apart: responsive ("liquid") layout, parameters for variants (language, brand, format), time driven by scroll, and pointer-driven layers.
 
-## 0.28: music, the second engine
+Recomputing only what depends on a variable: the expression is already parsed to a tree (cached), so the identifiers it reads can be collected statically at build; a table says which property of which layer reads which variable; a change marks those places and only they are recomputed. The author declares nothing, the table comes from the strings already written. Three levels:
 
-Music is written as text, deterministic, and cheap to check with numbers: the best place to add expressiveness fast. Order from the research pass:
+| level | what changes | what is recomputed |
+|---|---|---|
+| L2 | a numeric property (`x`, `scale`, `alpha`, `width` …) | that property's expression, and its keyframe chain |
+| L1 | a text's content, wrapping or style; a shape's geometry; an image; a filter value | that layer, rebuilt |
+| L0 | anything a JavaScript preset expanded before the spec existed (`splitText`, `animateText`, `particles`, `deck`) | the whole composition, rebuilt |
 
-| id | item | one-line common case | size | AI risk |
-|---|---|---|---|---|
-| M1 | **Guards**: tracks of different lengths warn (named, with beats), notes far outside an instrument's range warn, per-bar `meter: 4` check | none: it only warns | S | none |
-| M2 | **A loudness target**: `music: { loudness: -16 }` (LUFS) so a track's `vol` means balance and one number means loudness | `loudness: -16` | S | none |
-| M3 | **Score view and timing**: `check` writes `score.png` (tracks x bars, chord names), `inspectAudio` lists each track's onsets and level, and `musicTime(music, { bar: 9 })` gives seconds | `const t = musicTime(m, { bar: 9 })` | M | none |
-| M4 | **Chord-driven tracks**: arpeggio, bass and comping played from one progression, so every track has the same length by construction | `{ inst: 'pluck', chords: 'Am7:4 Fmaj7:4', play: 'arp-up:0.5' }` | M | low |
-| M5 | **Ducking**: music steps down under an sfx or a voice (all times are known at init, so it is deterministic) | `duck: -6` | S-M | none |
-| M6 | **Automation** on the existing points form: a filter sweep, pan, reverb, drum volume | `tone: [[0, 0.2], [16, 1]]` | S | none |
-| M7 | **Fit to the picture**: pick a tempo so given bars land on given seconds (the reel author did it by script) | `bpm: { fit: [[0, 0], [16, 13.8]] }` | S | low |
-| M8 | **More timbres** (strings, brass, organ, marimba, a choir pad, an 808 kit), a tempo-synced delay, a kick pump, drum velocity digits | `{ inst: 'strings', notes: 'Am:8' }` | M each | none |
-| M9 | **Sections**: `sections` and `form: 'A A B A'` instead of strings built in JS | `form: 'A A B A'` | M | medium |
+Boundaries for the first version: variables move values, not timing (`at` / `duration` stay numbers); audio is not reactive. Exports are one function of the script and a set of values (`render --var lang=en --size 1080x1920`), and `check --size 1920x1080,1080x1920` prints a sheet per size, so an AI can verify a layout it cannot see live. `check` / `inspect` will also say which layers depend on a variable.
 
-Not added, because an AI cannot judge the result: random melody generators, sung vocals, a user-built synth graph, a second note language, MIDI or sample import. `key: 'A minor'` is only ever a check.
+Interactive input is this same mechanism with a different source. Pick, drag, branches and live camera (the old I4–I6) wait for a concrete piece that needs them; an input must always reduce to a recorded session that exports to the same video.
 
-## 0.29: picture, light and type
+## Candidate pool (chosen by evidence from real films, not from this list)
 
-| id | item | evidence | size | AI risk |
-|---|---|---|---|---|
-| V1 | **Type**: per-token colour inside one text layer (`spans`), `splitText` baselines, `arc` `trimStart / trimEnd`, text on a path | 3 authors | M | low |
-| V2 | **Camera and light**: a lens shift (`shiftY`, no keystone), a fade for a layer that nears the camera plane, a visible-lamp helper, shadow casters chosen per receiver, `lightLeak()` | 04-light, 03-space | M | low |
-| V3 | **Transitions and shader kit**: shader-driven transitions (a transition is a luma map or a shader), a small library of tested shaders (plasma, water, grain, vignette, CRT with documented ranges) as recipes | 06, 07 | M | low |
-| V4 | **Motion**: physics-flavoured eases and a bounce/wiggle set (GSAP's free CustomBounce / CustomWiggle / Physics2D as optional entries, keeping the core light), a `clock` that follows a named composition's local time | 08 | M | medium |
-| V5 | **Loading, as a show**: the loader with the poster behind it (`data-poster`), and chapter segments lighting up for long, chaptered movies | the owner | S | none |
+- **Music**: a loudness target (`loudness: -16`), ducking under an sfx or voice, automation points (filter, pan, reverb), fitting a tempo so given bars land on given seconds, more timbres. A tempo-synced delay and a kick pump. The read-back (done) is how an AI checks them.
+- **Type**: per-token colour in one text layer (`spans`), `fitText(text, style, maxWidth)`, text on a path.
+- **Picture and light**: a lens shift, a fade for a layer nearing the camera plane, `lightLeak()`, shader-driven transitions, a small tested shader kit.
+- **Small API holes**: a union of mattes (`mask: { any: [...] }`), `pathFromPoints()`, a gradient `direction`.
+- **`check` says more**: when the last motion ends, the content time inside a remapped composition, `threeD` layers partly outside the frame, shader cost.
+- **Video**: trim in one line, big footage through sinks, metadata and subtitle tracks, variable-frame-rate warnings.
 
-Licence note: GSAP's plugins are free under its standard licence (checked 2026-10-10); that licence forbids use in no-code visual animation builders competing with Webflow. pixi-effects is data you write, not such a builder; revisit before anything visual is built on top.
+## Hardening before 1.0
 
-## 0.30 and 0.31: movies that answer
+- Every browser test on both backends; Safari and Firefox checked by hand (documented, not yet verified).
+- The two bugs of the old list are **not reproducible on the 0.28 code**: an inline shape mask under a transition (fixed in 0.25 with the matte work) and a 4000 x 2400 `threeD` layer black on WebGPU (not seen on WebGPU or WebGL, for a layer or a card). Both are pinned by real-browser tests; if either comes back, the test says so.
+- The API freeze of step 3, and a freeze checklist.
 
-The idea (see the notes of 2026-10-10): an input is a named signal, live or recorded, and a recording is just data, so the movie stays deterministic and exportable.
+## Parked
 
-| id | item | size | AI risk |
-|---|---|---|---|
-| I1 | **`iMouse` and live uniforms in shader layers** (the cheapest first step: the cursor lights a shader) | S | low |
-| I2 | **Inputs and `bind`**: `movie.input(...)`, a small per-frame expression that binds an input to a layer's value (`bind: { x: '+=mouse.x * 0.1' }`), evaluated between the timeline and the 3D / light pass (prototyped: a light followed a live variable and the export called the hook on every frame) | M | medium |
-| I3 | **Sessions**: record an input track, replay it, export it as MP4; `check --inputs session.json` renders the movie for synthetic input, so an AI can test an interaction without a person | M | low |
-| I4 | **Pick and drag**: `pick: true`, events (enter / down / drag / up), a drag preset with a spring return, an sfx on touch | M-L | medium |
-| I5 | **Branches**: `interactions` that jump between named scenes (stops and `Presenter` are the base) | M | medium |
-| I6 | **Live camera and mic** as layers and inputs; recording a live session through `captureStream` into MP4 | L | medium |
-| I7 | **Things inside footage**: the library accepts position data (tracks), made elsewhere; it does not look at pixels | M | low |
-
-Open choice for the owner: live experience, recorded-session-to-video, or both (both makes the "input is recordable data" idea the centre).
-
-## Foundations running alongside
-
-- **Video**: trim in one line (`trim: [5, 9]`), a read-ahead for the loop wrap and reverse play (done in 0.26.3), `CanvasSink` / `AudioBufferSink` / `UrlSource` for big footage, metadata and cover art in the exported file, subtitle tracks, HDR and variable-frame-rate warnings.
-- **Hardening before 1.0**: every browser test on both backends, Safari and Firefox checked by hand (documented, not yet verified), the known bugs (a 4000x2400 `threeD` black on WebGPU, an inline shape mask under a transition), an API clean-up and a freeze checklist.
+- **HTML-in-Canvas** (drawing real HTML and CSS into a layer): works as an outside layer type behind a Chrome flag (`CanvasDrawElement`), deterministic when the CSS animations are seeked by time (a spike, 2026-10-11). Not offered until the API ships without a flag; the host canvas must be on screen and not transparent.
+- **A 3D engine layer**: waits for the engine's public launch; the neutral hook (`Sequence` export) is in.
+- **Interactive pick / drag / branches / live camera and mic**: see Variables.
 
 ## What would change the order
 
 - A trial showing an AI wasting more on something not listed here: that goes first.
-- A feature needing a second look at determinism (inputs, physics): it waits for the inputs design to settle.
-- A gallery or reel that cannot be made because of a missing piece: the piece decides.
+- A feature needing a second look at determinism (inputs, physics): it waits for the variables design to settle.
+- A gallery piece or a film that cannot be made because of a missing piece: the piece decides.
+- A spike result that makes variables need a structural change in `Movie`: the API list waits for it, so that the breaking changes come in one release, not two.
