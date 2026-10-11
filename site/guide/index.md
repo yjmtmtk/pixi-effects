@@ -32,7 +32,7 @@ Most of the video is meant to be written by an AI, so the tools around it are pa
 
 ![The timeline viewer: the page on top, every layer as a bar under it, a playhead that follows the movie](assets/timeline-view.jpg)
 
-*`pixi-effects-view`: the page on top, its timeline under it. Click or drag to seek; the red playhead follows the movie.*
+*`pixi-effects view`: the page on top, its timeline under it. Click or drag to seek; the red playhead follows the movie.*
 
 [How to use these tools](review.html) · [Working with an AI](with-ai.html)
 

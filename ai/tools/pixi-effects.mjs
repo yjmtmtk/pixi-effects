@@ -7,7 +7,7 @@
  *   npx pixi-effects view   my-video.html                           open it in a browser with a timeline
  *
  * Everything after the command goes to the tool unchanged (`check.mjs`, `render.mjs`, `view.mjs`; their own headers list every option), and so do the
- * exit code and the output. The three older bins (`pixi-effects-check|render|view`) still work.
+ * exit code and the output. It is the package's only bin (the older `pixi-effects-check|render|view` are gone).
  */
 import { spawn } from 'node:child_process';
 import { realpathSync } from 'node:fs';

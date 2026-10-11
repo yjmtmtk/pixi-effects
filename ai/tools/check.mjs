@@ -315,7 +315,7 @@ export async function runCheck(opts, log = console.log) {
   const deadline = Date.now() + opts.timeout * 1000;
   const left = () => { if (Date.now() > deadline) throw new Error(`timed out after ${opts.timeout} s`); };
 
-  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pixi-effects-check-'));
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pixi-effects check-'));
   const { server, port } = await serve(root);
   let chromeProc = null;
   const report = { page: shown(pagePath), problems: [], files: {} };

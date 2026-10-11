@@ -156,7 +156,7 @@ return splitText('Make it move', style, { by: 'words', x: 640, y: 330, align: 'c
 
 ## Subtitles from an SRT file
 
-Subtitles are just text layers. The function reads a `.srt` (numbers, `00:00:01,000 --> 00:00:03,500`, the words) and returns one layer per cue: it appears and disappears over 0.12 s, sits 90 px above the bottom edge, wraps at 1000 px (about 80 % of a 1280 px picture) and has a black outline so it reads on any picture. Two cues that overlap in time are drawn on top of each other: split a long line into two lines in the `.srt` rather than relying on wrapping. Check the result with `pixi-effects-check`; it reports text that is cut off by the edge.
+Subtitles are just text layers. The function reads a `.srt` (numbers, `00:00:01,000 --> 00:00:03,500`, the words) and returns one layer per cue: it appears and disappears over 0.12 s, sits 90 px above the bottom edge, wraps at 1000 px (about 80 % of a 1280 px picture) and has a black outline so it reads on any picture. Two cues that overlap in time are drawn on top of each other: split a long line into two lines in the `.srt` rather than relying on wrapping. Check the result with `pixi-effects check`; it reports text that is cut off by the edge.
 
 ```js
 // @recipe subtitles
@@ -195,7 +195,7 @@ return [
 
 ## A batch of videos from a table
 
-A batch of videos is a loop outside the video. The page reads what changes from its address (`new URLSearchParams(location.search)`), and `pixi-effects-render --query "name=Aiko&score=92"` opens it with those values. Names with spaces or non-Latin letters must be URL-encoded (`jq -sRr @uri` as below, or `encodeURIComponent` in Node). Each video starts its own browser, so N videos cost N start-ups: try one with `--draft` (half size, fast), then render the real ones. To make the pieces of one row differ in more than text, use the same values to pick colours or an image name.
+A batch of videos is a loop outside the video. The page reads what changes from its address (`new URLSearchParams(location.search)`), and `pixi-effects render --query "name=Aiko&score=92"` opens it with those values. Names with spaces or non-Latin letters must be URL-encoded (`jq -sRr @uri` as below, or `encodeURIComponent` in Node). Each video starts its own browser, so N videos cost N start-ups: try one with `--draft` (half size, fast), then render the real ones. To make the pieces of one row differ in more than text, use the same values to pick colours or an image name.
 
 ```js
 // @docs-only batch-page

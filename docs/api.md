@@ -182,10 +182,10 @@ interface RenderOptions {
 
 `movie.init({ motionBlur })` (or the same option on a single `render()`, `snapshot()` or `contactSheet()` call) exposes each frame the way a film camera does: the frame is drawn `samples` times at moments spread over the shutter interval around its time, and the pictures are averaged. Fast motion smears along its path; a still picture is unchanged. `true` is 8 samples at a 180° shutter, a number is the sample count (2–64), `{ samples, shutter }` sets both (`shutter` is the fraction of a frame the shutter stays open, above 0 and up to 1; `0.5` is the film look, `1` blurs more). `false` turns it off for one call.
 
-- It applies to what is **made**: the exported file, snapshots, contact sheets (so `pixi-effects-check` and `inspect`-style reviews show what the file will have). Live playback is not blurred.
+- It applies to what is **made**: the exported file, snapshots, contact sheets (so `pixi-effects check` and `inspect`-style reviews show what the file will have). Live playback is not blurred.
 - Cost: a render takes about `samples` times as long (video layers are decoded once per sample). Eight samples is enough for most motion; raise it for very fast or large movement, where fewer samples show as separate ghost images instead of a smear.
 - After a blurred snapshot, contact sheet or render the playhead and the stage are on an exact frame again, not a sample.
-- `pixi-effects-render --motion-blur 8 [--shutter 0.5]` sets it for one file.
+- `pixi-effects render --motion-blur 8 [--shutter 0.5]` sets it for one file.
 
 **Video codec:** unless you name `video.codec`, the usual one for the format is used (mp4 / mov: `avc`; webm: `vp9`); if this browser cannot encode it, the next that works is used and a warning says so. A codec you name is never swapped: it is used, or the error names the one that would work (`"av1" ... "avc" would work: render({ format: 'mp4', video: { codec: 'avc' } })`). `hevc` and `av1` make smaller files at the same quality but play in fewer places than `avc`; `hardware: 'prefer-hardware'` asks the GPU's encoder.
 
@@ -211,13 +211,13 @@ const blob = await movie.posterImage();             // the picture at that time 
 - Once the movie is ready the **canvas shows the poster frame**, while the playhead stays at frame 0 (`currentFrame` is 0, the player shows 0:00). The first `play()` or `gotoFrame()` replaces it, and **play starts from 0**.
 - `posterImage()` leaves the movie as it was: still showing the poster, or back at the frame it was at. `contactSheet()` does the same.
 - A time past the end is clamped to the last frame, and something that is not a number is ignored; both warn.
-- `pixi-effects-check` writes the poster as `poster.jpg`.
+- `pixi-effects check` writes the poster as `poster.jpg`.
 
 ### `movie.timelineData(): TimelineData` and `movie.timelineChart(options?): string`
 
-The whole movie as rows on a time axis, for a person to read at a glance. `timelineData()` is the data: `{ duration, rows, transitions }`, a row per layer with `name`, `type`, `depth` (1 inside a composition), absolute `start` / `end` in seconds, `keys` (when each keyframe starts) and, for a family of generated layers, `parts` (one span per layer). Layers of one type whose names differ only by numbers (`ring10-0`, `ring9-1`, `pop-3` …), four or more, become ONE row (`ring#-# ×19`), so a movie with 700 generated layers is a screenful. `timelineChart({ title })` returns one self-contained HTML page (an inline SVG, no scripts): bars coloured by type, ◆ at each keyframe start, a shaded band per transition, a tooltip per bar. `pixi-effects-check` writes it next to the contact sheet as `timeline.html`.
+The whole movie as rows on a time axis, for a person to read at a glance. `timelineData()` is the data: `{ duration, rows, transitions }`, a row per layer with `name`, `type`, `depth` (1 inside a composition), absolute `start` / `end` in seconds, `keys` (when each keyframe starts) and, for a family of generated layers, `parts` (one span per layer). Layers of one type whose names differ only by numbers (`ring10-0`, `ring9-1`, `pop-3` …), four or more, become ONE row (`ring#-# ×19`), so a movie with 700 generated layers is a screenful. `timelineChart({ title })` returns one self-contained HTML page (an inline SVG, no scripts): bars coloured by type, ◆ at each keyframe start, a shaded band per transition, a tooltip per bar. `pixi-effects check` writes it next to the contact sheet as `timeline.html`.
 
-`movie.timelineSvg()` is the chart alone (one `<svg>`, geometry in `data-*` attributes, each row `<g class="row" data-start>`): `pixi-effects-view` puts a playhead on it and turns a click into a seek.
+`movie.timelineSvg()` is the chart alone (one `<svg>`, geometry in `data-*` attributes, each row `<g class="row" data-start>`): `pixi-effects view` puts a playhead on it and turns a click into a seek.
 
 ### Your own layer type: `Sequence` and `registerSequenceType(type, ctor)`
 
@@ -330,7 +330,7 @@ const presenter = new Presenter(movie, { canvas });     // instead of Controller
 
 ### `inspectStops(movie, options?)`
 
-Is the picture at each stop still changing? Each stop is compared with the picture `lookback` frames before it (default 3); when more than `tolerance` (default 0.004, a share of the pixels) differs, the audience, the page overview and a PDF would see a half-finished animation. Returns `{ stops: [{ index, page, at, frame, moving, settled }], issues: string[] }`; each issue names the stop and the page and says what to do (move the stop to after the animation has ended, or flag a settled stop of the page `pdf: true`). Leaves the playhead where it was. `pixi-effects-check` runs it for any page with `stops` (it loads the page's own `pixi-effects/present`; add that line to the import map).
+Is the picture at each stop still changing? Each stop is compared with the picture `lookback` frames before it (default 3); when more than `tolerance` (default 0.004, a share of the pixels) differs, the audience, the page overview and a PDF would see a half-finished animation. Returns `{ stops: [{ index, page, at, frame, moving, settled }], issues: string[] }`; each issue names the stop and the page and says what to do (move the stop to after the animation has ended, or flag a settled stop of the page `pdf: true`). Leaves the playhead where it was. `pixi-effects check` runs it for any page with `stops` (it loads the page's own `pixi-effects/present`; add that line to the import map).
 
 ### Pictures of the stops and the deck as a PDF: `stopImages(movie)`, `exportPDF(movie)`
 
@@ -423,7 +423,7 @@ el('play').onclick = () => (movie.isPlaying ? movie.pause() : movie.play());
 el('seek').oninput = e => movie.gotoFrame(+e.target.value);
 ```
 
-What you have: `play()`, `pause()`, `gotoFrame(frame)`, `volume`, `muted` / `toggleMute()`; the state `currentFrame`, `totalFrames`, `frameRate`, `duration`, `isPlaying`, `isReady`, `loadStages` (milliseconds `init()` spent in `assets` / `build` / `sound` / `frames`), `audioBlocked` (true while the browser keeps the movie's sound silent until a tap: show "tap for sound"; a tap or key press that arrives while `play()` is pending, or the next `play()` made from a tap, starts it); the events above; `render()` for a download button; `snapshot()` for a thumbnail; `timelineData()` / `timelineSvg()` for a timeline like `pixi-effects-view`'s. Keep the movie's `canvas` wherever your layout wants it (the page's CSS sizes it). To only change how `Controller` looks, see **Theme** below.
+What you have: `play()`, `pause()`, `gotoFrame(frame)`, `volume`, `muted` / `toggleMute()`; the state `currentFrame`, `totalFrames`, `frameRate`, `duration`, `isPlaying`, `isReady`, `loadStages` (milliseconds `init()` spent in `assets` / `build` / `sound` / `frames`), `audioBlocked` (true while the browser keeps the movie's sound silent until a tap: show "tap for sound"; a tap or key press that arrives while `play()` is pending, or the next `play()` made from a tap, starts it); the events above; `render()` for a download button; `snapshot()` for a thumbnail; `timelineData()` / `timelineSvg()` for a timeline like `pixi-effects view`'s. Keep the movie's `canvas` wherever your layout wants it (the page's CSS sizes it). To only change how `Controller` looks, see **Theme** below.
 
 ## `Controller`
 

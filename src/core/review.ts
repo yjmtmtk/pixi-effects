@@ -106,7 +106,7 @@ export function splitIssues(groups: IssueGroup[], strict = false): { problems: I
   return { problems: groups.filter((g) => !overlap(g)), review: groups.filter(overlap) };
 }
 
-/** What `pixi-effects-check` and the Playground tell about a movie that is ready. Warnings come from the page (`window.__logs`), the rest from here. */
+/** What `pixi-effects check` and the Playground tell about a movie that is ready. Warnings come from the page (`window.__logs`), the rest from here. */
 export async function reviewMovie(movie: Movie, opts: ReviewOptions = {}): Promise<ReviewReport> {
   const rows = movie.timelineData().rows;
   const at = opts.at ? resolveAtList(opts.at, { frameRate: movie.frameRate, totalFrames: movie.totalFrames, duration: movie.duration, rows }) : [];

@@ -602,7 +602,7 @@ export class Movie {
     return timelineHtml(this.timelineData(), opts);
   }
 
-  /** Just the chart: one `<svg>` whose geometry is in `data-*` attributes (a viewer puts a playhead on it: `pixi-effects-view`). */
+  /** Just the chart: one `<svg>` whose geometry is in `data-*` attributes (a viewer puts a playhead on it: `pixi-effects view`). */
   timelineSvg(opts: TimelineSvgOptions = {}): string {
     warnUnknownOptions('movie.timelineSvg()', opts, ['chartWidth', 'labels']);
     return timelineSvg(this.timelineData(), opts);
@@ -619,7 +619,7 @@ export class Movie {
   }
 
   /**
-   * One call that looks at everything `pixi-effects-check` looks at inside the page: layout issues over the whole timeline (every
+   * One call that looks at everything `pixi-effects check` looks at inside the page: layout issues over the whole timeline (every
    * scene's first and last frame and a frame every 0.25 s), fonts and the sound. See `ReviewReport`. Page warnings are in `window.__logs`. The movie is left as it was.
    */
   async review(opts: ReviewOptions = {}): Promise<ReviewReport> {

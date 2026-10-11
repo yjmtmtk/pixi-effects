@@ -43,7 +43,7 @@ await movie.render({ range: 'title' });        // a top-level layer's span (its 
 await movie.render({ draft: true });           // half size, low quality, no motion blur
 ```
 
-From a script: `pixi-effects-render page.html --range 10:15`, `--scene title`, `--scale 0.5`, `--draft`. A cut edge of the sound fades over 10 ms, so there is no click; a range that is backwards, past the end, or names no layer is an error that says so.
+From a script: `pixi-effects render page.html --range 10:15`, `--scene title`, `--scale 0.5`, `--draft`. A cut edge of the sound fades over 10 ms, so there is no click; a range that is backwards, past the end, or names no layer is an error that says so.
 
 What each one saves, measured on the author's M1 Pro with the 48 s 1080p film (`ma`), the whole command including the browser's start-up (about 7 s): the whole film 20.8 s; `--range 10:15` 10.4 s; `--draft` 20.6 s but a file 7 times smaller (12.0 MB → 1.7 MB); `--scale 0.5` 19.0 s. So **a range saves time; a draft or a scale saves file size**: each frame is still drawn at full size and then copied smaller. A draft also turns motion blur off, which is the one thing that makes a draft much faster, because a render with motion blur draws every frame several times: 4 s of `hanabi-night`, a piece that asks for motion blur, took 14.0 s and 8.2 s as a draft (about 7 s of each is the browser's start-up). Motion blur you ask for on the command line (`--motion-blur 8`) is not switched off by `--draft`.
 
@@ -56,7 +56,7 @@ await movie.init({ /* … */ motionBlur: true });          // 8 samples, a 180°
 // or per call: movie.render({ motionBlur: { samples: 16, shutter: 0.75 } }), movie.snapshot(90, { motionBlur: false })
 ```
 
-It applies to what you *make*: the exported video, snapshots and contact sheets, so `pixi-effects-check` shows what the file will look like. Live playback in the browser is not blurred. A render takes about `samples` times as long. `shutter` is how long the shutter stays open as a fraction of a frame (0.5 is the film look, 1 blurs more); `samples` is 2 to 64. More samples smooth very fast motion, which otherwise shows as separate ghost images.
+It applies to what you *make*: the exported video, snapshots and contact sheets, so `pixi-effects check` shows what the file will look like. Live playback in the browser is not blurred. A render takes about `samples` times as long. `shutter` is how long the shutter stays open as a fraction of a frame (0.5 is the film look, 1 blurs more); `samples` is 2 to 64. More samples smooth very fast motion, which otherwise shows as separate ghost images.
 
 {{demo examples/gallery/hanabi-night.html}}
 

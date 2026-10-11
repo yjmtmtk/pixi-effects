@@ -33,7 +33,7 @@ describe('"Use https://github.com/yjmtmtk/pixi-effects to make a video" works as
     const bins = Object.keys(JSON.parse(read('package.json')).bin);
     expect(bins).toContain('pixi-effects');
     for (const c of ['check', 'render']) expect(agents).toContain(`npx pixi-effects ${c}`);
-    for (const b of ['pixi-effects-check', 'pixi-effects-render']) expect(bins).toContain(b);   // the older names stay
+    expect(bins).toEqual(['pixi-effects']);                                                       // one command: the older pixi-effects-check|render|view bins are gone
   });
 
   it('CLAUDE.md hands Claude Code the same file, so there is one source of truth', () => {
