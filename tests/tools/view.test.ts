@@ -184,6 +184,34 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('view.mjs â
     }
   }, 120_000);
 
+  it('puts the page in the middle of the viewer even when the page itself is left-aligned', async () => {
+    const proc = spawn('node', [join(root, 'ai/tools/view.mjs'), join(root, 'examples/_checks/first-frame.html'), '--no-open'], { stdio: ['ignore', 'pipe', 'inherit'] });   // a 640 px canvas at the left edge of the page
+    const url: string = await new Promise((res, rej) => {
+      let buf = '';
+      const t = setTimeout(() => rej(new Error('the viewer did not print its address')), 15000);
+      proc.stdout!.on('data', d => { buf += d; const m = buf.match(/(http:\/\/127\.0\.0\.1:\d+\/__viewer)/); if (m) { clearTimeout(t); res(m[1]!); } });
+    });
+    const userDataDir = mkdtempSync(join(tmpdir(), 'view-centre-'));
+    const { proc: chromeProc, cdp } = await launchPage(chrome, userDataDir);
+    try {
+      await cdp.send('Runtime.enable'); await cdp.send('Page.enable'); await cdp.send('Page.navigate', { url });
+      let ready = false;
+      for (let i = 0; i < 100 && !ready; i++) { await check.sleep(300); ready = await cdp.eval("!!document.querySelector('#plot svg') && !!document.querySelector('#head')").catch(() => false); }
+      expect(ready).toBe(true);
+      const centres = await cdp.eval(`(() => {
+        const f = document.getElementById('page'), fr = f.getBoundingClientRect(), k = fr.width / f.offsetWidth;
+        const c = f.contentDocument.querySelector('canvas').getBoundingClientRect();
+        return { canvas: fr.left + (c.left + c.width / 2) * k, stage: document.getElementById('stage').getBoundingClientRect().left + document.getElementById('stage').clientWidth / 2 };
+      })()`);
+      expect(Math.abs(centres.canvas - centres.stage)).toBeLessThanOrEqual(3);                  // the picture sits in the middle of the viewer, not against its left edge
+    } finally {
+      try { chromeProc.kill(); } catch { /* gone */ }
+      proc.kill();
+      await check.sleep(200);
+      try { rmSync(userDataDir, { recursive: true, force: true }); } catch { /* chrome may still hold files */ }
+    }
+  }, 90_000);
+
   it('zooms: fit shows the whole movie without sideways scrolling; + makes the chart wider; the names stay in a fixed column; clicks still seek to the right time', async () => {
     const proc = spawn('node', [join(root, 'ai/tools/view.mjs'), join(root, 'examples/gallery/blueprint-house.html'), '--no-open'], { stdio: ['ignore', 'pipe', 'inherit'] });
     const url: string = await new Promise((res, rej) => {

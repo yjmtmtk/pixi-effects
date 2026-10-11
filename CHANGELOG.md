@@ -8,6 +8,7 @@
 
 **Fixed**
 
+- **`pixi-effects view` centres the page, and the timeline legend no longer gets cut off.** A page that keeps its picture at the left edge (the template does) sat against the left of a wide viewer; the iframe is now as wide as the page's own content and centred. The legend under the timeline (text, shape, image, …) is wrapped onto more lines when the chart is narrow instead of running past the right edge (`timelineSvg()` and the `timeline.html` that `check` writes).
 - **A text layer whose `style` has an undefined value is no longer blanked.** `style: { fontSize: undefined }` (a variable that was never set) erased the default size and the text was not drawn; the check said only "has no size". The undefined keys are now skipped (Pixi keeps its default) and one warning names them: `style.fontSize is undefined … omit the key instead`.
 
 **Docs**

@@ -168,18 +168,20 @@ export function viewerHtml({ pageUrl, title }) {
   }
   poll(); setInterval(poll, 800);
 
-  // The page is shown whole: as tall as its picture, scaled down (never up) so the timeline stays in view under it.
+  // The page is shown whole and in the MIDDLE: as tall as its picture, scaled down (never up) so the timeline stays in view under it. A page that
+  // keeps its picture at the left edge (the template does) is still centred: the iframe is as wide as the page's own content, then centred.
   function layout() {
     const stageW = stage.clientWidth || innerWidth, headH = document.querySelector('header').offsetHeight;
-    let h = 560;
-    const fit = k => { frame.style.width = (stageW / k) + 'px'; frame.style.transform = 'scale(' + k + ')'; };
-    fit(1);
+    let h = 560, cw = stageW;
+    frame.style.width = stageW + 'px'; frame.style.transform = 'none'; frame.style.marginLeft = '0px';
     try {
       const c = frame.contentDocument.querySelector('canvas');
-      if (c) h = Math.round(c.getBoundingClientRect().height + 40);
+      if (c) { const r = c.getBoundingClientRect(); h = Math.round(r.height + 40); cw = Math.min(stageW, Math.round(r.right + r.left)); }
     } catch { /* a page we cannot read */ }
     const k = Math.min(1, Math.max(200, innerHeight - headH - 240) / h);
-    fit(k);
+    frame.style.width = cw + 'px';
+    frame.style.transform = 'scale(' + k + ')';
+    frame.style.marginLeft = Math.max(0, Math.round((stageW - cw * k) / 2)) + 'px';
     frame.style.height = h + 'px';
     stage.style.height = Math.round(h * k) + 'px';
   }

@@ -183,8 +183,11 @@ export function timelineSvg(data: TimelineData, opts: TimelineSvgOptions = {}): 
     out.push('</g>');
   });
 
-  const legend = Object.entries(COLORS).map(([type, c], i) => `<g transform="translate(${PAD + i * 108},${H + 10})"><rect width="12" height="12" rx="3" fill="${c}"/><text x="18" y="10" class="tick">${type}</text></g>`).join('');
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H + 32}" viewBox="0 0 ${W} ${H + 32}" role="img" aria-label="Timeline of ${data.rows.length} rows" data-duration="${num(data.duration)}" data-x0="${num(x(0))}" data-x1="${num(x(data.duration))}" data-top="${TOP - 6}" data-bottom="${H - PAD}" data-row="${ROW}">
+  // The legend wraps onto more lines when the chart is narrow (a narrow window must not cut it off at the right edge).
+  const LEGEND_STEP = 108, perLine = Math.max(1, Math.floor((W - PAD * 2) / LEGEND_STEP));
+  const kinds = Object.entries(COLORS), lines = Math.ceil(kinds.length / perLine), HH = H + 14 + lines * 18;
+  const legend = kinds.map(([type, c], i) => `<g transform="translate(${PAD + (i % perLine) * LEGEND_STEP},${H + 10 + Math.floor(i / perLine) * 18})"><rect width="12" height="12" rx="3" fill="${c}"/><text x="18" y="10" class="tick">${type}</text></g>`).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${HH}" viewBox="0 0 ${W} ${HH}" role="img" aria-label="Timeline of ${data.rows.length} rows" data-duration="${num(data.duration)}" data-x0="${num(x(0))}" data-x1="${num(x(data.duration))}" data-top="${TOP - 6}" data-bottom="${H - PAD}" data-row="${ROW}">
 ${out.join('\n')}
 ${legend}
 </svg>`;

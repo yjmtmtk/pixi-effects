@@ -143,6 +143,21 @@ describe('timelineSvg — the chart a viewer can put a playhead on', () => {
     expect(Number(bar)).toBeCloseTo((attr('x0') + attr('x1')) / 2, 1);
   });
 
+  it('the legend wraps onto more lines when the chart is narrow, and always stays inside the picture (a narrow window must not cut it off)', async () => {
+    const data = collectTimeline(await scene([{ type: '__box', name: 'a' }]), 12);
+    const legendBoxes = (svg: string) => [...svg.matchAll(/<g transform="translate\(([\d.]+),([\d.]+)\)"><rect width="12"/g)].map(m => ({ x: Number(m[1]), y: Number(m[2]) }));
+    for (const chartWidth of [100, 300, 600, 950, 2000]) {
+      const svg = timelineSvg(data, { chartWidth, labels: false });
+      const [, w, h] = /viewBox="0 0 (\d+) (\d+)"/.exec(svg)!.map(Number) as [number, number, number];
+      const boxes = legendBoxes(svg);
+      expect(boxes).toHaveLength(10);
+      for (const b of boxes) { expect(b.x + 100).toBeLessThanOrEqual(w); expect(b.y + 14).toBeLessThanOrEqual(h); }      // each entry (swatch + a word) fits horizontally and vertically
+    }
+    const rowsOf = (chartWidth: number) => new Set(legendBoxes(timelineSvg(data, { chartWidth, labels: false })).map(b => b.y)).size;
+    expect(rowsOf(2000)).toBe(1);                                  // plenty of room: one line, as before
+    expect(rowsOf(300)).toBeGreaterThan(1);                        // a narrow chart: wrapped
+  });
+
   it('every row has its start as a data attribute, so a click on a row can seek there', async () => {
     const data = collectTimeline(await scene([{ type: '__box', name: 'b', at: 6, duration: 3 }]), 12);
     expect(timelineSvg(data)).toMatch(/<g class="row" data-start="6"/);
