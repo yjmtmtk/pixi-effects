@@ -1,20 +1,20 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Variables · rock paper scissors (a different PON every time)</title>
+  <title>Variables · rock paper scissors (a different throw every time)</title>
   <link rel="stylesheet" href="../../dist/loader.css" />
   <link rel="stylesheet" href="vars.css" />
 </head>
 <body>
-  <h1>じゃんけん <small>seek back before “ぽん” and it is a new roll; seek anywhere after it and the ending is the same</small></h1>
+  <h1>Rock paper scissors <small>seek back before “SHOOT!” and it is a new roll; seek anywhere after it and the ending is the same</small></h1>
   <div class="stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
 
   <div class="panel">
     <div class="row"><span class="name">Your hand</span><span id="hands"></span></div>
     <div class="status" id="status">…</div>
-    <p class="note">The whole film is data and two numbers: <code>you</code> and <code>cpu</code> (0 rock, 1 paper, 2 scissors). The hands and the ending are chosen by expressions on them, for example the win ending has <code>alpha: 'win'</code> where <code>win</code> is <code>step(0.5, 1 - abs(mod(you - cpu, 3) - 1))</code>. The page does one thing: when the playhead goes from after the PON to before it (a seek back, or the loop starting again) it calls <code>movie.setVars({ cpu })</code> with a new random hand. After the PON nothing changes, so every seek there lands on the same ending. The same film as a file: <code>pixi-effects render janken.html --var you=1 --var cpu=0 --var jingle=chime</code> (<code>jingle</code> is the ending's sound: chime for a win, hit for a loss, beep for a draw).</p>
+    <p class="note">The whole film is data and two numbers: <code>you</code> and <code>cpu</code> (0 rock, 1 paper, 2 scissors). The hands and the ending are chosen by expressions on them, for example the win ending has <code>alpha: 'win'</code> where <code>win</code> is <code>step(0.5, 1 - abs(mod(you - cpu, 3) - 1))</code>. The page does one thing: when the playhead goes from after the SHOOT! to before it (a seek back, or the loop starting again) it calls <code>movie.setVars({ cpu })</code> with a new random hand. After the SHOOT! nothing changes, so every seek there lands on the same ending. The same film as a file: <code>pixi-effects render janken.html --var you=1 --var cpu=0 --var jingle=chime</code> (<code>jingle</code> is the ending's sound: chime for a win, hit for a loss, beep for a draw).</p>
   </div>
 
   <script>
@@ -63,21 +63,21 @@
       { type: 'text', name: 'cap-you', text: 'YOU', style: { fontFamily: FONT, fontSize: 34, fontWeight: '700', fill: '#9aa6c8', letterSpacing: 6 }, initial: { x: X.you, y: 580, anchorX: 0.5, anchorY: 0.5 } },
       { type: 'text', name: 'cap-cpu', text: 'CPU', style: { fontFamily: FONT, fontSize: 34, fontWeight: '700', fill: '#9aa6c8', letterSpacing: 6 }, initial: { x: X.cpu, y: 580, anchorX: 0.5, anchorY: 0.5 } },
 
-      // before the PON: two fists that bob on the beat, and the words
+      // before the SHOOT: two fists that bob on the beat, and the words
       hand('you', '✊', { name: 'fist-you', duration: PON, keyframes: [bob(0.25), bob(0.85)] }),
       hand('cpu', '✊', { name: 'fist-cpu', duration: PON, keyframes: [bob(0.25), bob(0.85)] }),
-      word('じゃん', 0.3, 0.55),
-      word('けん', 0.9, 0.55),
+      word('ROCK', 0.3, 0.55),
+      word('PAPER', 0.9, 0.55),
 
-      // at the PON: the real hands (each one is on only when the variable says so)
+      // at the SHOOT: the real hands (each one is on only when the variable says so)
       ...['you', 'cpu'].flatMap(side => HANDS.map((g, k) => hand(side, g, {
         name: `${side}-${NAMES[k]}`, at: PON, initial: { alpha: is(side, k) },
         keyframes: [{ at: 0, from: { scale: 0.3 }, to: { scale: 1 }, duration: 0.3, ease: 'back.out(2.4)' }],
       }))),
-      word('ぽん！', PON, 0.5, { style: { fill: '#ffd166' } }),
+      word('SHOOT!', PON, 0.5, { style: { fill: '#ffd166' } }),
 
       // the ending
-      ...[['かち！', '#ffd166', WIN], ['まけ…', '#8fb4ff', LOSE], ['あいこで…', '#d2b8ff', DRAW]].map(([text, fill, on], i) => ({
+      ...[['YOU WIN!', '#ffd166', WIN], ['YOU LOSE', '#8fb4ff', LOSE], ['DRAW!', '#d2b8ff', DRAW]].map(([text, fill, on], i) => ({
         type: 'text', name: `result-${['win', 'lose', 'draw'][i]}`, text, at: PON + 0.5, style: { fontFamily: FONT, fontSize: 150, fontWeight: '900', fill, stroke: { color: '#0d1020', width: 10 } },
         initial: { x: 640, y: 235, anchorX: 0.5, anchorY: 0.5, alpha: on },
         keyframes: [{ at: 0, from: { scale: 0.2 }, to: { scale: 1 }, duration: 0.4, ease: 'back.out(2.2)' }],
@@ -93,10 +93,10 @@
         type: 'shape', shape: 'circle', radius: 170, initial: { x: 640, y: Y, fillAlpha: 0, strokeColor: '#d2b8ff', strokeWidth: 8 },
         keyframes: [{ at: i * 0.55, from: { scale: 0.3, alpha: 1 }, to: { scale: 2.6, alpha: 0 }, duration: 1.4, ease: 'power2.out', repeat: 2 }],
       })) },
-      { type: 'text', name: 'again', text: 'もういちど ➜ 巻き戻すか、そのまま待つ', at: 5.2, style: { fontFamily: FONT, fontSize: 36, fill: '#c8d0ee' }, initial: { x: 640, y: 660, anchorX: 0.5, anchorY: 0.5 },
+      { type: 'text', name: 'again', text: 'Play again: seek back before SHOOT!, or just wait', at: 5.2, style: { fontFamily: FONT, fontSize: 36, fill: '#c8d0ee' }, initial: { x: 640, y: 660, anchorX: 0.5, anchorY: 0.5 },
         keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.5 }] },
 
-      // sound: a tick on each beat, the hit of the PON, and the jingle of the ending (named by the variable `jingle`)
+      // sound: a tick on each beat, the hit of the SHOOT, and the jingle of the ending (named by the variable `jingle`)
       { type: 'audio', name: 'beat1', sfx: 'pop', at: 0.3, volume: 1 },
       { type: 'audio', name: 'beat2', sfx: 'pop', at: 0.9, volume: 1 },
       { type: 'audio', name: 'pon', sfx: 'swoosh', at: PON, volume: 1 },
@@ -116,6 +116,13 @@
     new Controller(movie, { canvas: document.getElementById('stage') });
     movie.play();
 
+    // The browser keeps sound off until the page has been clicked (or a key pressed): say so until then. The picture plays at once; the sound starts from where it is.
+    {
+      const hint = Object.assign(document.createElement('div'), { className: 'sound-hint', textContent: '🔊 Click anywhere to turn the sound on' });
+      document.querySelector('.stage').append(hint);
+      for (const type of ['pointerdown', 'keydown']) addEventListener(type, () => hint.remove(), { once: true, capture: true });
+    }
+
     const status = document.getElementById('status');
     const say = (extra = '') => {
       const o = outcome(state.you, state.cpu);
@@ -124,13 +131,18 @@
     movie.on('rebuilt', r => say(` · rebuilt in ${r.ms} ms · sound ${r.audio}`));
     say();
 
-    // The one rule of the page: from after the PON to before it is a new roll. Anything after the PON is the same ending.
-    let last = 0;
+    // The one rule of the page: from after the SHOOT to before it is a new roll. Anything after the SHOOT is the same ending.
+    // It listens to the seeks a person makes (`seeking` / `seeked`: the bar, gotoFrame) and to the loop starting again, not to the frames the tools
+    // read for a contact sheet or an export, so `check` and `render` see the roll they asked for.
+    const reroll = () => {
+      state.cpu = roll(); state.rolls++;
+      movie.setVars({ cpu: state.cpu, jingle: jingleOf(state.you, state.cpu) }).catch(console.error);
+    };
+    let from = 0, last = 0;
+    movie.on('seeking', () => { from = movie.currentFrame; });
+    movie.on('seeked', ({ frame }) => { if (from >= ponFrame && frame < ponFrame) reroll(); });
     movie.on('frame', ({ frame }) => {
-      if (last >= ponFrame && frame < ponFrame) {
-        state.cpu = roll(); state.rolls++;
-        movie.setVars({ cpu: state.cpu, jingle: jingleOf(state.you, state.cpu) }).catch(console.error);
-      }
+      if (movie.isPlaying && last >= ponFrame && frame < ponFrame) reroll();                // the loop went back to the start
       last = frame;
     });
 

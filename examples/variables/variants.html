@@ -88,6 +88,13 @@
     new Controller(movie, { canvas: document.getElementById('stage') });
     movie.play();
 
+    // The browser keeps sound off until the page has been clicked (or a key pressed): say so until then. The picture plays at once; the sound starts from where it is.
+    {
+      const hint = Object.assign(document.createElement('div'), { className: 'sound-hint', textContent: '🔊 Click anywhere to turn the sound on' });
+      document.querySelector('.stage').append(hint);
+      for (const type of ['pointerdown', 'keydown']) addEventListener(type, () => hint.remove(), { once: true, capture: true });
+    }
+
     const status = document.getElementById('status');
     movie.on('rebuilt', r => { status.textContent = `rebuilt (${r.reason}) in ${r.ms} ms · sound ${r.audio} · frame ${r.frame} · ${r.playing ? 'playing' : 'paused'}`; });
     movie.on('error', e => { status.textContent = 'error: ' + e.message; });
