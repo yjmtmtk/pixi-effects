@@ -1203,7 +1203,7 @@ await movie.init({
 
 ## A layout that follows the window (liquid)
 
-`resize(w, h)` builds the composition again at that size, and every expression sees it as `W` / `H` / `GW` / `GH`: write the layout in those, never in pixels. For a different arrangement per shape (wide / tall) write the composition in a function of the size and hand it to `rebuild`. `check --size 1920x1080,1080x1920` makes a contact sheet and a layout review for each size without a browser window.
+`resize(w, h)` builds the composition again at that size, and every expression sees it as `W` / `H` / `GW` / `GH`: write the layout in those, never in pixels. For a different arrangement per shape (wide / tall) write the composition in a function of the size and hand it to `rebuild`. Watch a **box** that you size with CSS (`#box { width: 100vw; height: 100vh }`, the canvas inside it `width: 100%; height: 100%`), not the canvas: the movie sets the canvas's pixel size, and an observer on the canvas would see its own change and grow it again. `check --size 1920x1080,1080x1920` makes a contact sheet and a layout review for each size without a browser window.
 
 ```js
 // @docs-only liquid-layout
@@ -1215,10 +1215,14 @@ const layout = (w, h) => {
       initial: { x: tall ? 'GW * 0.08' : 'GW/2', y: tall ? 'GH * 0.7' : 'GH/2', anchorX: tall ? 0 : 0.5, anchorY: 0.5 } },
   ] };
 };
-await movie.init({ canvas, width: canvas.clientWidth, height: canvas.clientHeight, duration: 6, composition: layout(canvas.clientWidth, canvas.clientHeight) });
+// <div id="box" style="width:100vw;height:100vh"><canvas id="stage" style="width:100%;height:100%;display:block"></canvas></div>
+const box = document.getElementById('box');
+const pixels = () => [Math.round(box.clientWidth * devicePixelRatio), Math.round(box.clientHeight * devicePixelRatio)];
+const [w0, h0] = pixels();
+await movie.init({ canvas, width: w0, height: h0, duration: 6, composition: layout(w0, h0) });
 new ResizeObserver(() => {
-  const w = Math.round(canvas.clientWidth * devicePixelRatio), h = Math.round(canvas.clientHeight * devicePixelRatio);
-  movie.rebuild({ composition: layout(w, h), width: w, height: h });                       // overlapping calls are joined: only the latest size is built
-}).observe(canvas);
+  const [w, h] = pixels();
+  movie.rebuild({ composition: layout(w, h), width: w, height: h }).catch(console.error);   // overlapping calls are joined: only the latest size is built
+}).observe(box);
 ```
 

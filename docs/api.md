@@ -92,11 +92,11 @@ await movie.rebuild({ composition, vars, width, height });   // the general form
 interface RebuildReport { reason: 'vars' | 'resize' | 'rebuild'; ms: number; audio: 'reused' | 'mixed' | 'none'; frame: number; playing: boolean; unchanged?: true }
 ```
 
-- The playhead stays on the same frame, a playing movie goes on playing (a rebuild takes `ms`; the sound starts again from the same time), a poster stays the poster. A `playUntil()` in flight ends.
+- The new composition is built while the old one goes on; at the swap the movie keeps doing what it is doing at that moment: the same frame, playing or paused (a `pause()`, a seek or a `play()` you made during the build is kept), the poster if it was shown. A playing movie starts its sound again from the same time at the swap. A `playUntil()` in flight ends. The canvas changes size at the swap, not before. A `render()` or `peek()` in flight is not interrupted: the swap waits for it.
 - The sound is mixed only when it changed: `audio: 'reused'` means the same mix as before (the mix is the slow part, 0.6 to 0.8 s for a film; the rest takes about 20 ms). A time remap (`warp` / `sourceMap`) turns the cache off.
-- Calls that arrive during a rebuild are joined: the latest values are built once more. Safe to call from `pointermove` or `scroll`; the cost is one rebuild per frame at most.
-- A rebuild that fails (a bad expression, a missing asset) rejects, emits `error` with `where: 'rebuild'`, and the movie goes on with what it had.
-- To follow a window: `new ResizeObserver(() => movie.resize(canvas.clientWidth * devicePixelRatio, canvas.clientHeight * devicePixelRatio))` (the `liquid-layout` recipe).
+- Calls that arrive during a rebuild are joined: at most one rebuild runs and one waits, with the latest values. Safe to call from `pointermove` or `scroll`: a rebuild that leaves the sound alone takes tens of milliseconds (11 to 42 ms on four gallery pieces), one that mixes the sound again 0.6 to 0.8 s, so a slider that changes the sound will lag behind the hand.
+- A rebuild that fails (a bad expression, a missing asset, a size that is not pixels) rejects, emits `error` with `where: 'rebuild'`, and the movie goes on with what it had. A `destroy()` during a rebuild ends it the same way.
+- To follow a window: observe a CSS-sized box around the canvas, not the canvas itself (the movie sets the canvas's pixel size): `new ResizeObserver(() => movie.resize(Math.round(box.clientWidth * devicePixelRatio), Math.round(box.clientHeight * devicePixelRatio))).observe(box)` (the `liquid-layout` recipe).
 
 ### `movie.snapshot(frame?, options?): Promise<Blob | string>`
 

@@ -19,14 +19,16 @@
   </script>
   <script type="module">
     import { Movie } from '../../dist/index.js';
-    window.events = [];
+    window.events = []; window.errors = []; window.played = [];
     window.mk = async (opts) => {
       if (window.movie) { await window.movie.destroy(); window.movie = null; }
-      window.__logs.length = 0; window.events.length = 0;
+      window.__logs.length = 0; window.events.length = 0; window.errors.length = 0; window.played.length = 0;
       const movie = new Movie(); window.movie = movie;
       const canvas = document.createElement('canvas'); document.body.appendChild(canvas);
       await movie.init({ canvas, width: 160, height: 90, duration: 1, frameRate: 30, background: '#000000', loader: false, ...opts });
       movie.on('rebuilt', e => window.events.push(e));
+      movie.on('error', e => window.errors.push({ where: e.where, message: e.message }));
+      movie.on('play', () => window.played.push('play')); movie.on('pause', () => window.played.push('pause'));
       return { backend: movie.app.renderer.name || String(movie.app.renderer.type) };
     };
     const toImg = (url) => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = url; });

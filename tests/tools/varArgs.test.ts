@@ -55,6 +55,15 @@ describe('coerceVars: the page decides what each variable is', () => {
   });
 });
 
+describe('applyToPage: a page whose library has no rebuild', () => {
+  it('says the library is too old for --var / --size, instead of "the page declares no variables"', async () => {
+    const cdp = { eval: async (expr: string) => (/typeof/.test(expr) ? 'undefined' : {}) };
+    await expect(v.applyToPage(cdp, [['a', '1']], null)).rejects.toThrow(/older than --var \/ --size: use 0\.31 or newer/);
+    await expect(v.applyToPage(cdp, [], { width: 10, height: 10 })).rejects.toThrow(/older than --var \/ --size/);
+    expect(await v.applyToPage(cdp, [], null)).toBeNull();                                    // nothing asked: nothing to refuse
+  });
+});
+
 describe('the options on the commands', () => {
   it('check: --var (repeatable) and --size are kept; nothing by default', () => {
     expect(check.parseArgs(['p.html']).vars).toEqual([]);

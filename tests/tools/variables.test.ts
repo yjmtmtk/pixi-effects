@@ -168,6 +168,96 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
     });
   });
 
+  it('what you do while a rebuild runs is kept: a pause stays paused, a seek stays where it went, a play plays (and says so)', async () => {
+    await withPage(async (cdp) => {
+      await mk(cdp, { duration: 4, vars: { shift: 0 }, composition: { sequences: [square('#ff0000', 'W/2 + shift')] } });
+      await cdp.eval('movie.play()');
+      const paused = await cdp.eval('(async () => { const p = movie.setVars({ shift: 10 }); movie.pause(); const r = await p; return { r, playing: movie.isPlaying }; })()');
+      expect(paused.playing, 'paused by the user during the rebuild').toBe(false);
+      expect(paused.r.playing).toBe(false);
+
+      await cdp.eval('movie.gotoFrame(0)');
+      const seeked = await cdp.eval('(async () => { const p = movie.setVars({ shift: 20 }); await movie.gotoFrame(60); await p; return movie.currentFrame; })()');
+      expect(seeked, 'seeked by the user during the rebuild').toBe(60);
+
+      await cdp.eval('window.played.length = 0');
+      const played = await cdp.eval('(async () => { const p = movie.setVars({ shift: 30 }); movie.play(); const r = await p; return { playing: movie.isPlaying, reported: r.playing, events: window.played.slice() }; })()');
+      expect(played).toMatchObject({ playing: true, reported: true });
+      expect(played.events, 'the play event of the user is not swallowed').toContain('play');
+      await cdp.eval('movie.pause()');
+    });
+  });
+
+  it('the rebuild itself does not make noise: no play / pause events for the stop and start it does at the swap', async () => {
+    await withPage(async (cdp) => {
+      await mk(cdp, { duration: 4, composition: { sequences: [square('#ff0000')] } });
+      await cdp.eval('movie.play()');
+      await cdp.eval('window.played.length = 0');
+      await cdp.eval('movie.rebuild({})');
+      expect(await cdp.eval('window.played')).toEqual([]);
+      await cdp.eval('movie.pause()');
+    });
+  });
+
+  it('a destroy during a rebuild ends it: nothing is built into the dead movie, no rebuilt event, the promise rejects', async () => {
+    await withPage(async (cdp) => {
+      await mk(cdp, { composition: { sequences: [square('#ff0000')] } });
+      const out = await cdp.eval('(async () => { const p = movie.rebuild({}).then(() => "built", e => String(e && e.message || e)); await movie.destroy(); const how = await p; return { how, rebuilt: window.events.length, sequence: !!movie._rootSequence }; })()');
+      expect(out.how).toMatch(/destroyed/);
+      expect(out.rebuilt).toBe(0);
+      expect(out.sequence).toBe(false);
+    });
+  });
+
+  it('a resize changes the canvas when the new composition is swapped in, not before (the old picture stays on until then), and a failed one never changes it', async () => {
+    await withPage(async (cdp) => {
+      await mk(cdp, { composition: { sequences: [square('#ff0000')] } });
+      const during = await cdp.eval('(async () => { const p = movie.resize(100, 60); const at = { w: movie.app.renderer.width, mw: movie.width }; await p; return at; })()');
+      expect(during, 'right after the call the movie is still 160 wide').toMatchObject({ w: 160, mw: 160 });
+      expect(await cdp.eval('size()')).toMatchObject({ w: 100, h: 60, cw: 100, ch: 60 });
+      const bad = JSON.stringify({ composition: { sequences: [{ type: 'image', asset: 'nobody-registered-this' }] }, width: 300, height: 200 });
+      const msg = await cdp.eval(`movie.rebuild(${bad}).then(() => 'no error', e => String(e && e.message || e))`);
+      expect(msg).not.toBe('no error');
+      expect(await cdp.eval('size()')).toMatchObject({ w: 100, h: 60, cw: 100, ch: 60 });
+    });
+  });
+
+  it('a size that is not pixels is an error event too, and the movie is as it was', async () => {
+    await withPage(async (cdp) => {
+      await mk(cdp, { composition: { sequences: [square('#ff0000')] } });
+      const msg = await cdp.eval(`movie.resize(0, 10).then(() => 'no error', e => String(e && e.message || e))`);
+      expect(msg).toMatch(/width must be a number of pixels/);
+      expect(await cdp.eval('errors')).toEqual([expect.objectContaining({ where: 'rebuild' })]);
+      expect(await cdp.eval('size()')).toMatchObject({ w: 160, h: 90 });
+    });
+  });
+
+  it('a blend mode named by a variable (or by a composition handed to rebuild) is set up like one written out', async () => {
+    await withPage(async (cdp) => {
+      const grey = { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#404040' } };
+      const orange = (mode: string) => ({ type: 'shape', shape: 'rect', width: 40, height: 40, blendMode: mode, initial: { x: 'W/2', y: 'H/2', fillColor: '#ff8000' } });
+      await mk(cdp, { vars: { mode: 'overlay' }, composition: { sequences: [grey, orange('{mode}')] } });
+      near(await px(cdp, 0, 80, 45), [128, 64, 0], 'overlay by variable');
+      await mk(cdp, { composition: { sequences: [grey, orange('normal')] } });
+      near(await px(cdp, 0, 80, 45), [255, 128, 0], 'normal');
+      await cdp.eval(`movie.rebuild(${JSON.stringify({ composition: { sequences: [grey, orange('overlay')] } })})`);
+      near(await px(cdp, 0, 80, 45), [128, 64, 0], 'overlay handed to rebuild');
+    });
+  });
+
+  it('a rebuild waits for a peek() to finish: the swap does not happen under the code that is looking around', async () => {
+    await withPage(async (cdp) => {
+      await mk(cdp, { vars: { shift: 0 }, composition: { sequences: [square('#ff0000', 'W/2 + shift')] } });
+      const out = await cdp.eval(`(async () => {
+        let p, during;
+        await movie.peek(async () => { p = movie.setVars({ shift: 20 }); await new Promise(r => setTimeout(r, 400)); during = window.events.length; });
+        const r = await p; return { during, after: window.events.length, report: r };
+      })()`);
+      expect(out.during, 'no swap while peek() runs').toBe(0);
+      expect(out.after).toBe(1);
+    });
+  });
+
   it('calls that arrive while a rebuild runs are joined into one more rebuild, with the latest values', async () => {
     await withPage(async (cdp) => {
       await mk(cdp, { vars: { shift: 0 }, composition: { sequences: [square('#ff0000', 'W/2 + shift')] } });

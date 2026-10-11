@@ -527,6 +527,13 @@ export async function runCheck(opts, log = console.log) {
         if (r.problems.length) report.problems.push(`${r.problems.length} kind(s) of layout issue from movie.inspect at ${label}`);
       }
     }
+    // what the page said while the other sizes were built (the first list was taken before)
+    const later = await cdp.eval('window.__logs || []').catch(() => []);
+    const fresh = [...new Set([...later, ...consoleLines])].filter(l => !report.logs.includes(l));
+    if (fresh.length) {
+      report.logs.push(...fresh);
+      report.problems.push(`${fresh.length} more console warning(s) / error(s) while the page was built at the other size(s) — each says what to change`);
+    }
     return finish(report, outDir, log);
   } finally {
     try { chromeProc?.kill(); } catch { /* already gone */ }

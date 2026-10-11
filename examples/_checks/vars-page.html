@@ -39,6 +39,7 @@
           { type: 'text', text: '{title}', name: 'title', style: { fontSize: 24, fill: '#ffffff' }, initial: { x: 'W/2 + shift', y: 'H/2', anchorX: 0.5, anchorY: 0.5 } },
         ] },
       });
+      if (new URLSearchParams(location.search).get('warn')) movie.on('rebuilt', () => { if (movie.width === 360) console.warn('test: a warning while the page was built at 360 wide'); });
       window.__ready = true;
     } catch (e) { window.__logs.push('init: ' + e.message); }
   </script>

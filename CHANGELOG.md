@@ -10,7 +10,7 @@
 - **`pixi-effects check` / `render` take `--var name=value` (repeatable) and `--size WxH`.** The tool builds the page again once it is ready, so a page needs nothing for it; a number variable is given a number, a name the page did not declare stops the run with the nearest one. `check --size 1920x1080,1080x1920` writes a contact sheet and a layout review per size (`sheet.png`, `sheet-1080x1920.png`) and a `vars` and a `sizes` line; `render --var lang=ja --size 1080x1920` writes the variant.
 - Recipes `variants` (a language and a colour as variables) and `liquid-layout` (`ResizeObserver` + `rebuild`); pitfalls 104 and 105; `docs/dsl.md` "Variables", `docs/api.md` "Movie variables and rebuilding".
 
-**Known limits.** While a movie plays, a rebuild stops and starts the sound again from the same time (a gap as long as the rebuild); a rebuild is the whole composition, not one property (measured in the spike: evaluating the expressions is about 40 µs, so a finer recompute buys little).
+**Known limits.** While a movie plays, the new composition is built beside the old one (it keeps playing), and at the swap the sound starts again from the same time (a short gap); a rebuild is the whole composition, not one property (measured in the spike: evaluating the expressions is about 40 µs, so a finer recompute buys little).
 
 ## 0.30.1
 

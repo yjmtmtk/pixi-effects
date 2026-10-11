@@ -227,6 +227,9 @@ export class Movie {
   private _rebuildNext: { change: RebuildOptions; reason: RebuildReason; promise: Promise<RebuildReport>; resolve: (r: RebuildReport) => void; reject: (e: unknown) => void } | null = null;
   /** > 0 while a rebuild stops and restarts playback: `play` / `pause` are not announced then (a player's button must not flicker). */
   private _silent = 0;
+  /** render() / peek() in flight: a rebuild does not swap the composition under them. */
+  private _busy = 0;
+  private _idleWaiters: Array<() => void> = [];
   /** What went into the mix, and its peak before limiting — kept for inspectAudio(). */
   private _audioSources: AudioDescriptor[] = [];
   private _mixStats: MixStats | null = null;
@@ -370,8 +373,6 @@ export class Movie {
         await this.app.init({ ...baseAppOptions, preference: 'webgl' });
       }
 
-      if (usesAdvancedBlend(options.composition)) await enableAdvancedBlend(this.app.renderer);
-
       const root = new Container();
       root.cullable = true;
       root.cullableChildren = true;
@@ -426,7 +427,7 @@ export class Movie {
    * Build the composition tree for these variables and this size, off stage: `{name}` replaced, the root shape (with the numeric variables for the
    * expressions), transitions expanded, every layer built. Used by `init` and by `rebuild`.
    */
-  private async _construct(composition: CompositionSpec | undefined, vars: Vars, width: number, height: number, lp?: LoadProgress): Promise<CompositionSequence> {
+  private async _construct(composition: CompositionSpec | undefined, vars: Vars, width: number, height: number, lp?: LoadProgress, sizeWins = this._resized): Promise<CompositionSequence> {
     const spec = applyVars(composition, vars);
     const rootShape: CompositionShape = {
       width, height, duration: this.duration, frameRate: this.frameRate, vars: numericVars(vars),
@@ -439,12 +440,13 @@ export class Movie {
     const seededComposition = spec
       ? {
           ...spec,
-          width: this._resized ? width : (spec.width ?? width),
-          height: this._resized ? height : (spec.height ?? height),
+          width: sizeWins ? width : (spec.width ?? width),
+          height: sizeWins ? height : (spec.height ?? height),
           duration: spec.duration ?? this.duration,
         }
       : undefined;
     await ensureFilterLibrary(seededComposition);            // pixi-filters, only when a layer names one of its filters
+    if (usesAdvancedBlend(seededComposition)) await enableAdvancedBlend(this.app!.renderer);   // (on the spec after {name} is replaced: a variable may name the mode)
     const userComposition = seededComposition ? expandTransitions(seededComposition) : undefined;
     const rootSeqSpec = {
       type: 'composition' as const,
@@ -542,77 +544,88 @@ export class Movie {
     const started = performance.now();
     const root = this._rootContainer, app = this.app;
     if (!root || !app) throw new Error('pixi-effects: movie.rebuild() needs a ready movie — await movie.init(...) first');
-    // what changes
-    const vars: Vars = { ...this._vars };
-    let changed = false;
-    if (change.vars !== undefined) {
-      const given = normalizeVars(change.vars, `movie.${reason === 'vars' ? 'setVars' : 'rebuild'}()`);
-      for (const [name, value] of Object.entries(given)) {
-        if (!this._declared.has(name)) {
-          const guess = suggestName(name, [...this._declared]);
-          console.warn(`pixi-effects: movie.${reason === 'vars' ? 'setVars' : 'rebuild'}(): "${name}" is not a declared variable${guess ? ` — did you mean "${guess}"?` : ''} (declared in movie.init({ vars }): ${[...this._declared].join(', ') || 'none'}); ignored`);
-          continue;
-        }
-        if (vars[name] !== value) { vars[name] = value; changed = true; }
-      }
-    }
-    const width = change.width ?? this.width, height = change.height ?? this.height;
-    const sizeChanged = width !== this.width || height !== this.height;
-    for (const [k, v] of [['width', change.width], ['height', change.height]] as const) {
-      if (v !== undefined && !(Number.isFinite(v) && v >= 1)) throw new Error(`pixi-effects: movie.rebuild(): ${k} must be a number of pixels (1 or more), got ${JSON.stringify(v)}`);
-    }
-    const composition = change.composition ?? this._composition;
-    if (change.composition !== undefined) for (const w of lintVars(change.composition, vars)) console.warn(w);
-    changed = changed || sizeChanged || change.composition !== undefined || reason === 'rebuild';
-    const wasPlaying = this.isPlaying, frame = this.currentFrame, wasAtPoster = this._atPoster;
-    if (!changed) return { reason, ms: 0, audio: 'none', frame, playing: wasPlaying, unchanged: true };
-
-    this._silent++;
-    this.pause();                                             // (a `playUntil()` in flight ends here too)
+    const who = `movie.${reason === 'vars' ? 'setVars' : 'rebuild'}()`;
     let sequence: CompositionSequence | null = null;
-    const oldSize = { w: this.width, h: this.height }, oldResized = this._resized;
+    const alive = () => { if (this._initState !== 'ready') throw new Error('pixi-effects: the movie was destroyed while it was being rebuilt'); };
     try {
-      if (sizeChanged) {
-        this.width = width; this.height = height;
-        this._resized = true;
-        app.renderer.resize(width, height);
-        root.cullArea = new Rectangle(0, 0, width, height);
+      // what changes
+      const vars: Vars = { ...this._vars };
+      let changed = false;
+      if (change.vars !== undefined) {
+        const given = normalizeVars(change.vars, who);
+        for (const [name, value] of Object.entries(given)) {
+          if (!this._declared.has(name)) {
+            const guess = suggestName(name, [...this._declared]);
+            console.warn(`pixi-effects: ${who}: "${name}" is not a declared variable${guess ? ` — did you mean "${guess}"?` : ''} (declared in movie.init({ vars }): ${[...this._declared].join(', ') || 'none'}); ignored`);
+            continue;
+          }
+          if (vars[name] !== value) { vars[name] = value; changed = true; }
+        }
       }
-      sequence = await this._construct(composition, vars, width, height);
+      for (const [k, v] of [['width', change.width], ['height', change.height]] as const) {
+        if (v !== undefined && !(Number.isFinite(v) && v >= 1)) throw new Error(`pixi-effects: movie.rebuild(): ${k} must be a number of pixels (1 or more), got ${JSON.stringify(v)}`);
+      }
+      const width = change.width ?? this.width, height = change.height ?? this.height;
+      const sizeChanged = width !== this.width || height !== this.height;
+      const composition = change.composition ?? this._composition;
+      if (change.composition !== undefined) for (const w of lintVars(change.composition, vars)) console.warn(w);
+      changed = changed || sizeChanged || change.composition !== undefined || reason === 'rebuild';
+      if (!changed) return { reason, ms: 0, audio: 'none', frame: this.currentFrame, playing: this.isPlaying, unchanged: true };
+
+      // build the new composition and its sound off the stage, while the old one goes on (playing, seekable): the size and the swap come last
+      sequence = await this._construct(composition, vars, width, height, undefined, this._resized || sizeChanged);
+      alive();
       const timeline = createTimeline({ paused: true, defaults: { ease: 'none' } });
       lengthen(timeline, this.duration);
       sequence.bindTimeline(timeline);
       const audio = await this._mixSound(sequence, this._ensureAudioContext());
-      // the swap: the new composition is whole, so the old one can go
-      const old = this._rootSequence, oldTimeline = this.timeline;
-      if (old?.target) root.removeChild(old.target);
-      if (sequence.target) root.addChild(sequence.target);
-      this._rootSequence = sequence;
-      this.timeline = timeline;
-      this._timeFilters = collectTimeFilters(sequence);
-      safeRun(() => old?.destroy());
-      safeRun(() => oldTimeline?.kill());
-      this._vars = vars;
-      this._composition = composition;
-      this.stops = normalizeStops(applyVars(composition, vars)?.stops, this.duration, this.frameRate);
-      sequence = null;
-      // put the movie back where it was
-      if (wasAtPoster) await this._showPoster();
-      else await this._quietly(() => this.gotoFrame(frame, true));
-      if (wasPlaying) this.play();
+      while (this._busy > 0) { await new Promise<void>(r => this._idleWaiters.push(r)); }       // not under a render() / peek()
+      alive();
+
+      // the swap, in one go: what the movie is doing NOW (the user may have paused, sought or played meanwhile) is what it keeps doing
+      const wasPlaying = this.isPlaying, frame = this.currentFrame, wasAtPoster = this._atPoster;
+      const oldSize = { w: this.width, h: this.height }, oldResized = this._resized;
+      this._silent++;
+      try {
+        this.pause();                                                         // (a `playUntil()` in flight ends here too)
+        if (sizeChanged) {
+          try {
+            this.width = width; this.height = height; this._resized = true;
+            app.renderer.resize(width, height);
+            root.cullArea = new Rectangle(0, 0, width, height);
+          } catch (e) {
+            this.width = oldSize.w; this.height = oldSize.h; this._resized = oldResized;
+            safeRun(() => app.renderer.resize(oldSize.w, oldSize.h));
+            root.cullArea = new Rectangle(0, 0, oldSize.w, oldSize.h);
+            if (wasPlaying) this.play();
+            throw e;
+          }
+        }
+        const old = this._rootSequence, oldTimeline = this.timeline;
+        if (old?.target) root.removeChild(old.target);
+        if (sequence.target) root.addChild(sequence.target);
+        this._rootSequence = sequence;
+        this.timeline = timeline;
+        this._timeFilters = collectTimeFilters(sequence);
+        safeRun(() => old?.destroy());
+        safeRun(() => oldTimeline?.kill());
+        this._vars = vars;
+        this._composition = composition;
+        this.stops = normalizeStops(applyVars(composition, vars)?.stops, this.duration, this.frameRate);
+        sequence = null;
+      } finally { this._silent--; }
+
+      // put the movie back where it was; the swap has happened, so a picture that cannot be drawn is a playback error, not a failed rebuild
+      try {
+        if (wasAtPoster) await this._showPoster();
+        else await this._quietly(() => this.gotoFrame(frame, true));
+      } catch (e) { console.warn('pixi-effects: could not draw the frame after a rebuild:', e); this._emitError('playback', e); }
+      if (wasPlaying && this._initState === 'ready' && !this.isPlaying) { this._silent++; try { this.play(); } finally { this._silent--; } }
       const report: RebuildReport = { reason, ms: Math.round((performance.now() - started) * 10) / 10, audio, frame, playing: wasPlaying };
-      this._silent--;
       this.emit('rebuilt', report);
       return report;
     } catch (err) {
       if (sequence) safeRun(() => sequence!.destroy());
-      if (sizeChanged) {                                       // the old size stays with the old composition
-        this.width = oldSize.w; this.height = oldSize.h; this._resized = oldResized;
-        safeRun(() => app.renderer.resize(oldSize.w, oldSize.h));
-        root.cullArea = new Rectangle(0, 0, oldSize.w, oldSize.h);
-      }
-      if (wasPlaying) this.play();
-      this._silent--;
       this._emitError('rebuild', err);
       throw err;
     }
@@ -968,13 +981,23 @@ export class Movie {
    */
   async peek<T>(fn: () => Promise<T>): Promise<T> {
     this._requireReady('peek');
-    this.pause();
-    const back = this.currentFrame, wasAtPoster = this._atPoster;
-    try { return await this._quietly(fn); }
-    finally {
-      if (wasAtPoster) await this._showPoster();
-      else await this._quietly(() => this.gotoFrame(back, true));
-    }
+    return this._exclusive(async () => {
+      this.pause();
+      const back = this.currentFrame, wasAtPoster = this._atPoster;
+      try { return await this._quietly(fn); }
+      finally {
+        if (wasAtPoster) await this._showPoster();
+        else await this._quietly(() => this.gotoFrame(back, true));
+      }
+    });
+  }
+
+  /** Run `fn` as the only thing that moves the composition: waits for a rebuild in flight, and holds the next one's swap until `fn` is done. */
+  private async _exclusive<T>(fn: () => Promise<T>): Promise<T> {
+    while (this._rebuildRun) await this._rebuildRun.catch(() => {});
+    this._busy++;
+    try { return await fn(); }
+    finally { if (--this._busy === 0) { const waiting = this._idleWaiters; this._idleWaiters = []; waiting.forEach(w => w()); } }
   }
 
   private _settleUntil(landed: boolean): void {
@@ -1089,7 +1112,7 @@ export class Movie {
   async render(options?: RenderOptions): Promise<Blob> {
     warnUnknownOptions('movie.render()', options, ['format', 'video', 'audio', 'motionBlur', 'range', 'scale', 'draft']);
     try {
-      return await this._quietly(() => exportFrames(this, options));
+      return await this._exclusive(() => this._quietly(() => exportFrames(this, options)));
     } catch (err) {
       this._emitError('render', err);
       throw err;

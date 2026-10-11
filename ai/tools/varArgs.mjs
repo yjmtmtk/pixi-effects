@@ -61,12 +61,12 @@ export function coerceVars(pairs, declared) {
  */
 export async function applyToPage(cdp, pairs, size) {
   if (!pairs.length && !size) return null;
+  if (await cdp.eval("typeof (window.movie && window.movie.rebuild)") !== 'function') throw new Error("this page's pixi-effects is older than --var / --size: use 0.31 or newer (the version in the page's import map)");
   const declared = await cdp.eval('JSON.parse(JSON.stringify((window.movie && window.movie.vars) || {}))');
   const given = coerceVars(pairs, declared);
   const change = { ...(Object.keys(given).length ? { vars: given } : {}), ...(size ?? {}) };
   const answer = JSON.parse(await cdp.eval(`(async () => {
     try {
-      if (typeof movie.rebuild !== 'function') return JSON.stringify({ error: "this page's pixi-effects is older than --var / --size: use 0.31 or newer (the version in the page's import map)" });
       return JSON.stringify({ report: await movie.rebuild(${JSON.stringify(change)}) });
     } catch (e) { return JSON.stringify({ error: String((e && e.message) || e) }); }
   })()`));

@@ -41,6 +41,16 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check and 
     expect(stdout).not.toMatch(/sizes\s/);
   });
 
+  it('a warning the page makes while an extra size is built is not lost: it is listed and the check does not say OK', async () => {
+    const out = mkdtempSync(join(tmpdir(), 'varcheck-'));
+    const { stdout } = await run('check.mjs', ['--no-export', '--frames', '2', '--out', out, '--query', 'warn=1', '--size', '640x360,360x640']).catch((e: any) => e);
+    const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));
+    expect(report.logs.join('\n')).toMatch(/a warning while the page was built at 360 wide/);
+    expect(report.problems.join('\n')).toMatch(/console warning/);
+    expect(report.ok).toBe(false);
+    void stdout;
+  });
+
   it('a variable the page did not declare stops the run and says the nearest one', async () => {
     const e = await fail('check.mjs', ['--no-export', '--var', 'shfit=3']);
     expect(e.stderr).toMatch(/--var shfit: the page declares no variable "shfit" — did you mean "shift"\? \(declared: title, accent, shift\)/);
