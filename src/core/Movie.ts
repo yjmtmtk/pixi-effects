@@ -16,7 +16,7 @@ import { inspectScene, type InspectReport, type InspectOptions } from './inspect
 import { collectTimeline, timelineHtml, timelineSvg, type TimelineData, type TimelineHtmlOptions, type TimelineSvgOptions } from './timelineChart';
 import { pickFrames, sheetLayout } from './frames';
 import { warnUnknownOptions, suggestName } from './options';
-import { normalizeVars, applyVars, numericVars, type Vars } from './vars';
+import { normalizeVars, applyVars, numericVars, lintVars, type Vars } from './vars';
 import { mixKey, MixCache } from './mixCache';
 import { startWhenRunning, audioIsBlocked } from './startWhenRunning';
 import { normalizePoster } from './poster';
@@ -336,6 +336,7 @@ export class Movie {
       this._declared = new Set(Object.keys(this._vars));
       this._composition = options.composition;
       this._resized = false;
+      for (const w of lintVars(options.composition, this._vars)) console.warn(w);
       this._mixCache.set(null, null);
       this.stops = normalizeStops(applyVars(options.composition, this._vars)?.stops, this.duration, this.frameRate);
       this._posterFrame = poster.frame;
@@ -561,6 +562,7 @@ export class Movie {
       if (v !== undefined && !(Number.isFinite(v) && v >= 1)) throw new Error(`pixi-effects: movie.rebuild(): ${k} must be a number of pixels (1 or more), got ${JSON.stringify(v)}`);
     }
     const composition = change.composition ?? this._composition;
+    if (change.composition !== undefined) for (const w of lintVars(change.composition, vars)) console.warn(w);
     changed = changed || sizeChanged || change.composition !== undefined || reason === 'rebuild';
     const wasPlaying = this.isPlaying, frame = this.currentFrame, wasAtPoster = this._atPoster;
     if (!changed) return { reason, ms: 0, audio: 'none', frame, playing: wasPlaying, unchanged: true };

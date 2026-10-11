@@ -156,6 +156,18 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
     });
   });
 
+  it('the composition is read against its variables: one nothing uses and a {name} nobody declared are said at init, and a setVars does not say them again', async () => {
+    await withPage(async (cdp) => {
+      await mk(cdp, { vars: { title: 'a', spare: 1 }, composition: { sequences: [{ type: 'text', text: '{titel}', initial: { x: 'W/2', y: 'H/2' } }] } });
+      const logs = (await cdp.eval('__logs')).join('\n');
+      expect(logs).toMatch(/variable "spare" is declared but nothing uses it/);
+      expect(logs).toMatch(/\{titel\} is not a declared variable — did you mean "title"\?/);
+      const before = (await cdp.eval('__logs')).length;
+      await cdp.eval("movie.setVars({ spare: 2 })");
+      expect((await cdp.eval('__logs')).length).toBe(before);
+    });
+  });
+
   it('calls that arrive while a rebuild runs are joined into one more rebuild, with the latest values', async () => {
     await withPage(async (cdp) => {
       await mk(cdp, { vars: { shift: 0 }, composition: { sequences: [square('#ff0000', 'W/2 + shift')] } });

@@ -1,4 +1,5 @@
 import { EXPRESSION_NAMES } from '../expr/Parser';
+import { suggestName } from './options';
 
 /** A variable holds a number (read as an identifier in an expression) or a string (read as `{name}` in any string of the spec). */
 export type VarValue = number | string;
@@ -53,4 +54,40 @@ export function applyVars<T>(spec: T, vars: Vars): T {
     return v;
   };
   return walk(spec) as T;
+}
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * What the composition says about its variables, as sentences: a declared variable nothing reads (a `{name}` in a string, or the name as a word in
+ * an expression), and a `{name}` that was not declared (with the declared name it looks like). Each problem once. The spec is the one given to
+ * `movie.init`, before any `{name}` is replaced.
+ */
+export function lintVars(spec: unknown, vars: Vars): string[] {
+  const declared = Object.keys(vars);
+  const strings: string[] = [];
+  const walk = (v: unknown): void => {
+    if (typeof v === 'string') strings.push(v);
+    else if (Array.isArray(v)) v.forEach(walk);
+    else if (isPlain(v)) Object.values(v).forEach(walk);
+  };
+  walk(spec);
+
+  const out: string[] = [];
+  for (const name of declared) {
+    const word = new RegExp(`(?<![A-Za-z0-9_.])${escapeRe(name)}(?![A-Za-z0-9_])`);
+    if (!strings.some(s => word.test(s))) out.push(`pixi-effects: vars: variable "${name}" is declared but nothing uses it (write {${name}} in a string, or "${name}" in an expression); a typo on one side?`);
+  }
+
+  const seen = new Set<string>();
+  for (const s of strings) {
+    for (const m of s.matchAll(TOKEN)) {
+      const name = m[1];
+      if (seen.has(name) || Object.prototype.hasOwnProperty.call(vars, name) || RESERVED_NAMES.includes(name) || declared.length === 0) continue;
+      seen.add(name);
+      const guess = suggestName(name, declared);
+      out.push(`pixi-effects: vars: {${name}} is not a declared variable${guess ? ` — did you mean "${guess}"?` : ` (declared: ${declared.join(', ')})`}`);
+    }
+  }
+  return out;
 }

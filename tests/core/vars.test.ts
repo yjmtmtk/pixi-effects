@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { normalizeVars, applyVars, numericVars, RESERVED_NAMES } from '../../src/core/vars';
+import { normalizeVars, applyVars, numericVars, lintVars, RESERVED_NAMES } from '../../src/core/vars';
 import { buildScope } from '../../src/expr/Scope';
 import { evaluateExpr } from '../../src/expr/Parser';
 
@@ -86,5 +86,37 @@ describe('numeric variables in expressions', () => {
     const root = { width: 1280, height: 720, duration: 10, frameRate: 30 };
     const scope = buildScope({ intrinsicWidth: 0, intrinsicHeight: 0 }, null, root as never);
     expect(Object.keys(scope).sort()).toEqual(['GH', 'GW', 'H', 'T', 'W', 'contain', 'cover', 'd', 'h', 't', 'w']);
+  });
+});
+
+describe('lintVars: what the composition says about its variables', () => {
+  const lint = (spec: unknown, vars: Record<string, number | string>) => lintVars(spec, vars);
+
+  it('a variable that nothing uses is said (the usual cause is a typo on one side)', () => {
+    const w = lint({ sequences: [{ type: 'text', text: '{title}', initial: { x: 'W/2' } }] }, { title: 'a', unused: 1 });
+    expect(w).toHaveLength(1);
+    expect(w[0]).toMatch(/variable "unused" is declared but nothing uses it/);
+  });
+
+  it('a variable is used by {name} in any string, or by name as a whole word in an expression', () => {
+    expect(lint({ a: { fill: '{accent}' } }, { accent: '#fff' })).toEqual([]);
+    expect(lint({ a: { x: 'W/2 + shift' } }, { shift: 4 })).toEqual([]);
+    expect(lint({ a: { x: 'W/2 + shifty' } }, { shift: 4 })).toHaveLength(1);              // "shifty" is another word
+    expect(lint({ a: { keyframes: [{ to: { x: 'shift*2' } }] } }, { shift: 4 })).toEqual([]);
+  });
+
+  it('a {name} that was not declared says which declared name it looks like ({value} and other counter words are left alone)', () => {
+    const w = lint({ a: { text: '{titel} and {value}' } }, { title: 'x' });
+    expect(w.some(m => /\{titel\} is not a declared variable — did you mean "title"\?/.test(m))).toBe(true);
+    expect(w.some(m => /\{value\}/.test(m))).toBe(false);
+  });
+
+  it('with nothing declared and no {name} that looks like a typo there is nothing to say', () => {
+    expect(lint({ a: { text: 'plain {value}' } }, {})).toEqual([]);
+  });
+
+  it('each problem is said once, however many times it occurs', () => {
+    const w = lint({ a: [{ text: '{nope}' }, { text: '{nope}' }, { text: '{nope}' }] }, { yes: 1 });
+    expect(w.filter(m => /\{nope\}/.test(m))).toHaveLength(1);
   });
 });
