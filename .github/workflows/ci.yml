@@ -1,3 +1,6 @@
+# A fresh checkout on Linux: typecheck, build, unit tests (about 90 s). It catches what a working tree on the maintainer's Mac cannot: a file that was never
+# committed, a name that differs only in case, a lockfile that does not match. The real-browser tests are not run here: a runner has no GPU (Chrome falls back to
+# software GL and WebGPU is absent), so they say little about drawing and take 10 to 17 minutes; `npm run release:check` runs them before every publish.
 name: CI
 
 on:
@@ -21,24 +24,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
-      - name: Unit tests (the real-browser tests are skipped here, see the next job)
+      - name: Unit tests (the real-browser tests are skipped here: they run on the maintainer's machine, with a GPU, as `npm run release:check`)
         run: npm test
         env:
           SKIP_BROWSER_TESTS: '1'
-
-  browser:
-    name: real-browser tests (Chrome)
-    runs-on: ubuntu-latest
-    continue-on-error: true        # these load pages from esm.sh / jsDelivr: report, but do not block
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - name: Tests that run the command-line tools in headless Chrome
-        run: npx vitest run tests/tools
-        env:
-          CHROME: /usr/bin/google-chrome
