@@ -26,10 +26,12 @@
   { "imports": {
       "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps",
       "mediabunny": "https://esm.sh/mediabunny@1.61.3",
-      "pixi-effects": "../../dist/index.js" } }
+      "pixi-effects": "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js" } }
   </script>
   <script type="module">
     import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
 
     const W = 1280, H = 720, FONT = 'system-ui, -apple-system, "Hiragino Sans", "Segoe UI", sans-serif';
     const COLS = 14, ROWS = 6, GX = W / COLS, GY = H / ROWS;
@@ -55,6 +57,7 @@
     window.movie = movie;
     await movie.init({ canvas, width: W, height: H, duration: 8, frameRate: 30, background: '#000',
       vars: { px: Number(params.get('px') ?? W / 2), py: Number(params.get('py') ?? H / 2) }, composition });
+    new Controller(movie, { canvas });
     movie.on('ended', async () => { await movie.gotoFrame(0); movie.play(); });
     movie.play();
 
