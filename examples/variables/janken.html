@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Variables · rock paper scissors (a different PON every time)</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+  <link rel="stylesheet" href="vars.css" />
+</head>
+<body>
+  <h1>じゃんけん <small>seek back before “ぽん” and it is a new roll; seek anywhere after it and the ending is the same</small></h1>
+  <div class="stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
+
+  <div class="panel">
+    <div class="row"><span class="name">Your hand</span><span id="hands"></span></div>
+    <div class="status" id="status">…</div>
+    <p class="note">The whole film is data and two numbers: <code>you</code> and <code>cpu</code> (0 rock, 1 paper, 2 scissors). The hands and the ending are chosen by expressions on them, for example the win ending has <code>alpha: 'win'</code> where <code>win</code> is <code>step(0.5, 1 - abs(mod(you - cpu, 3) - 1))</code>. The page does one thing: when the playhead goes from after the PON to before it (a seek back, or the loop starting again) it calls <code>movie.setVars({ cpu })</code> with a new random hand. After the PON nothing changes, so every seek there lands on the same ending. The same film as a file: <code>pixi-effects render janken.html --var you=1 --var cpu=0 --var jingle=chime</code> (<code>jingle</code> is the ending's sound: chime for a win, hit for a loss, beep for a draw).</p>
+  </div>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  { "imports": {
+      "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+      "pixi-effects": "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js" } }
+  </script>
+  <script type="module">
+    import { Movie, particles } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const FONT = 'system-ui, -apple-system, "Hiragino Sans", "Yu Gothic", "Segoe UI", sans-serif';
+    const EMOJI = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+    const HANDS = ['✊', '✋', '✌'], NAMES = ['rock', 'paper', 'scissors'];
+    const PON = 1.6, DURATION = 7, FPS = 30;
+    const ponFrame = Math.round(PON * FPS);
+
+    // 0 draw, 1 you win, 2 you lose
+    const outcome = (you, cpu) => ((you - cpu) % 3 + 3) % 3;
+    const jingleOf = (you, cpu) => ['beep', 'chime', 'hit'][outcome(you, cpu)];
+    const roll = () => Math.floor(Math.random() * 3);
+
+    // "is it k?" as an expression on a variable: 1 when v is k, else 0
+    const is = (v, k) => `step(0.5, 1 - abs(${v} - ${k}))`;
+    const WIN = 'step(0.5, 1 - abs(mod(you - cpu, 3) - 1))', LOSE = 'step(0.5, 1 - abs(mod(you - cpu, 3) - 2))', DRAW = 'step(0.5, 1 - abs(mod(you - cpu, 3)))';
+
+    const X = { you: 330, cpu: 950 }, Y = 400;
+    const hand = (side, glyph, extra) => ({ type: 'text', text: glyph, style: { fontFamily: EMOJI, fontSize: 250 }, ...extra, initial: { x: X[side], y: Y, anchorX: 0.5, anchorY: 0.5, ...extra.initial } });
+    const word = (text, at, duration, extra = {}) => ({ type: 'text', text, at, duration, style: { fontFamily: FONT, fontSize: 130, fontWeight: '900', fill: '#ffffff', ...extra.style },
+      initial: { x: 640, y: 215, anchorX: 0.5, anchorY: 0.5 }, keyframes: [{ at: 0, from: { scale: 0.3, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 0.18, ease: 'back.out(2)' }] });
+
+    const bob = (t) => ({ at: t, to: { y: '-=80' }, duration: 0.14, ease: 'power2.out', repeat: 1, yoyo: true });
+    const sequences = [
+      { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#171a2e' } },
+      // the mood of the ending: a wash of colour that depends on who won
+      { type: 'shape', shape: 'rect', name: 'wash-win', at: PON, width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ffb703', alpha: `0.30*${WIN}` } },
+      { type: 'shape', shape: 'rect', name: 'wash-lose', at: PON, width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#2a4a8a', alpha: `0.45*${LOSE}` } },
+      { type: 'shape', shape: 'rect', name: 'wash-draw', at: PON, width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#8a5be0', alpha: `0.30*${DRAW}` } },
+      { type: 'text', name: 'cap-you', text: 'YOU', style: { fontFamily: FONT, fontSize: 34, fontWeight: '700', fill: '#9aa6c8', letterSpacing: 6 }, initial: { x: X.you, y: 580, anchorX: 0.5, anchorY: 0.5 } },
+      { type: 'text', name: 'cap-cpu', text: 'CPU', style: { fontFamily: FONT, fontSize: 34, fontWeight: '700', fill: '#9aa6c8', letterSpacing: 6 }, initial: { x: X.cpu, y: 580, anchorX: 0.5, anchorY: 0.5 } },
+
+      // before the PON: two fists that bob on the beat, and the words
+      hand('you', '✊', { name: 'fist-you', duration: PON, keyframes: [bob(0.25), bob(0.85)] }),
+      hand('cpu', '✊', { name: 'fist-cpu', duration: PON, keyframes: [bob(0.25), bob(0.85)] }),
+      word('じゃん', 0.3, 0.55),
+      word('けん', 0.9, 0.55),
+
+      // at the PON: the real hands (each one is on only when the variable says so)
+      ...['you', 'cpu'].flatMap(side => HANDS.map((g, k) => hand(side, g, {
+        name: `${side}-${NAMES[k]}`, at: PON, initial: { alpha: is(side, k) },
+        keyframes: [{ at: 0, from: { scale: 0.3 }, to: { scale: 1 }, duration: 0.3, ease: 'back.out(2.4)' }],
+      }))),
+      word('ぽん！', PON, 0.5, { style: { fill: '#ffd166' } }),
+
+      // the ending
+      ...[['かち！', '#ffd166', WIN], ['まけ…', '#8fb4ff', LOSE], ['あいこで…', '#d2b8ff', DRAW]].map(([text, fill, on], i) => ({
+        type: 'text', name: `result-${['win', 'lose', 'draw'][i]}`, text, at: PON + 0.5, style: { fontFamily: FONT, fontSize: 150, fontWeight: '900', fill, stroke: { color: '#0d1020', width: 10 } },
+        initial: { x: 640, y: 235, anchorX: 0.5, anchorY: 0.5, alpha: on },
+        keyframes: [{ at: 0, from: { scale: 0.2 }, to: { scale: 1 }, duration: 0.4, ease: 'back.out(2.2)' }],
+      })),
+      { type: 'composition', name: 'confetti', at: PON + 0.4, duration: 3, width: 1280, height: 720, initial: { alpha: WIN }, sequences: [
+        ...particles({ count: 140, at: 0, emit: 0.4, life: [1.4, 2.4], area: { x: 640, y: -20, width: 1300 }, angle: [70, 110], speed: [220, 520], gravity: 380, size: [5, 10], shape: 'rect', spin: 360,
+          colors: ['#ffd166', '#ff6b9d', '#4cc9f0', '#80ed99', '#ffffff'], fade: { out: 0.6 }, name: 'conf' }),
+      ] },
+      { type: 'composition', name: 'rain', at: PON + 0.4, duration: 4.5, width: 1280, height: 720, initial: { alpha: LOSE }, sequences: [
+        ...particles({ count: 150, at: 0, emit: 3, life: [0.8, 1.2], area: { x: 640, y: -30, width: 1400 }, angle: [84, 96], speed: [520, 760], size: [2, 3], shape: 'rect', colors: ['#9db8ff', '#6f93e8'], fade: { out: 0.3 }, name: 'drop' }),
+      ] },
+      { type: 'composition', name: 'rings', at: PON + 0.4, duration: 4.5, width: 1280, height: 720, initial: { alpha: DRAW }, sequences: [0, 1, 2].map(i => ({
+        type: 'shape', shape: 'circle', radius: 170, initial: { x: 640, y: Y, fillAlpha: 0, strokeColor: '#d2b8ff', strokeWidth: 8 },
+        keyframes: [{ at: i * 0.55, from: { scale: 0.3, alpha: 1 }, to: { scale: 2.6, alpha: 0 }, duration: 1.4, ease: 'power2.out', repeat: 2 }],
+      })) },
+      { type: 'text', name: 'again', text: 'もういちど ➜ 巻き戻すか、そのまま待つ', at: 5.2, style: { fontFamily: FONT, fontSize: 36, fill: '#c8d0ee' }, initial: { x: 640, y: 660, anchorX: 0.5, anchorY: 0.5 },
+        keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.5 }] },
+
+      // sound: a tick on each beat, the hit of the PON, and the jingle of the ending (named by the variable `jingle`)
+      { type: 'audio', name: 'beat1', sfx: 'pop', at: 0.3, volume: 1 },
+      { type: 'audio', name: 'beat2', sfx: 'pop', at: 0.9, volume: 1 },
+      { type: 'audio', name: 'pon', sfx: 'swoosh', at: PON, volume: 1 },
+      { type: 'audio', name: 'jingle', sfx: '{jingle}', at: PON + 0.45, volume: 1 },
+    ];
+
+    const params = new URLSearchParams(location.search);
+    const state = { you: Number(params.get('you') ?? 0), cpu: params.has('cpu') ? Number(params.get('cpu')) : roll(), rolls: 1 };
+
+    const movie = new Movie();
+    window.movie = movie;
+    await movie.init({
+      canvas: document.getElementById('stage'), width: 1280, height: 720, duration: DURATION, frameRate: FPS, background: '#000', loop: true,
+      vars: { you: state.you, cpu: state.cpu, jingle: jingleOf(state.you, state.cpu) },
+      composition: { sequences },
+    });
+    new Controller(movie, { canvas: document.getElementById('stage') });
+    movie.play();
+
+    const status = document.getElementById('status');
+    const say = (extra = '') => {
+      const o = outcome(state.you, state.cpu);
+      status.textContent = `roll #${state.rolls}: you ${HANDS[state.you]} vs cpu ${HANDS[state.cpu]} → ${['DRAW', 'WIN', 'LOSE'][o]}${extra}`;
+    };
+    movie.on('rebuilt', r => say(` · rebuilt in ${r.ms} ms · sound ${r.audio}`));
+    say();
+
+    // The one rule of the page: from after the PON to before it is a new roll. Anything after the PON is the same ending.
+    let last = 0;
+    movie.on('frame', ({ frame }) => {
+      if (last >= ponFrame && frame < ponFrame) {
+        state.cpu = roll(); state.rolls++;
+        movie.setVars({ cpu: state.cpu, jingle: jingleOf(state.you, state.cpu) }).catch(console.error);
+      }
+      last = frame;
+    });
+
+    const hands = document.getElementById('hands');
+    const buttons = HANDS.map((g, k) => {
+      const b = Object.assign(document.createElement('button'), { textContent: `${g} ${NAMES[k]}`, style: 'font-size:16px' });
+      b.onclick = () => { state.you = k; mark(); movie.setVars({ you: k, jingle: jingleOf(k, state.cpu) }).catch(console.error); };
+      hands.append(b); return b;
+    });
+    const mark = () => buttons.forEach((b, k) => b.setAttribute('aria-pressed', String(k === state.you)));
+    mark();
+    window.__ready = true;
+  </script>
+</body>
+</html>
