@@ -24,7 +24,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
-      - name: Unit tests (the real-browser tests are skipped here: they run on the maintainer's machine, with a GPU, as `npm run release:check`)
+      - name: Unit tests (the real-browser tests are skipped here; they run with a GPU on the maintainer's machine, in release:check)
         run: npm test
         env:
           SKIP_BROWSER_TESTS: '1'
