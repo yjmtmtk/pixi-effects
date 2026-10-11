@@ -15,6 +15,9 @@ export type {
   MovieErrorEvent,
   MotionBlurSpec,
   MotionBlurOptions,
+  RebuildOptions,
+  RebuildReport,
+  RebuildReason,
 } from './core/Movie';
 
 export type { InspectReport, InspectOptions, LayerInfo } from './core/inspect';

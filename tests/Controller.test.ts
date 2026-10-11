@@ -1615,6 +1615,18 @@ describe('Controller — a movie with stops (a presentation)', () => {
     });
   });
 
+  it('a rebuilt event draws the stop marks again (a variable can move the stops)', () => {
+    const canvas = makeCanvas();
+    const movie = withStops();
+    const ctrl = new Controller(movie, { canvas });
+    const wrap = canvas.parentElement!;
+    expect(wrap.querySelectorAll('.mc-stop-tick').length).toBe(STOPS.length);
+    (movie as unknown as { stops: unknown[] }).stops = [STOPS[0]];
+    (movie as unknown as { emit(e: string): void }).emit('rebuilt');
+    expect(wrap.querySelectorAll('.mc-stop-tick').length).toBe(1);
+    ctrl.destroy();
+  });
+
   it('a page start is marked differently from a step (a larger ringed dot), and every mark names its page', () => {
     const canvas = makeCanvas();
     const ctrl = new Controller(withStops(), { canvas });

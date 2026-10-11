@@ -297,6 +297,7 @@ class Movie
   on(event: "error", fn: (e: MovieErrorEvent) => void): Movie
   on(event: "progress", fn: (e: ProgressEvent) => void): Movie
   on(event: "loadprogress", fn: (e: LoadProgressState) => void): Movie
+  on(event: "rebuilt", fn: (e: RebuildReport) => void): Movie
   on(event: "play", fn: () => void): Movie
   on(event: "pause", fn: () => void): Movie
   onionSkin(opts?: (OnionSkinOptions & { as?: "blob" | undefined; }) | undefined): Promise<Blob>
@@ -309,9 +310,12 @@ class Movie
   posterFrame: number | null
   posterImage(opts?: (SnapshotOptions & { as?: "blob" | undefined; }) | undefined): Promise<Blob>
   posterImage(opts: SnapshotOptions & { as: "dataURL"; }): Promise<string>
+  rebuild(change?: RebuildOptions, reason?: RebuildReason): Promise<RebuildReport>
   render(options?: RenderOptions | undefined): Promise<Blob>
+  resize(width: number, height: number): Promise<RebuildReport>
   resolveAt(list: string): { label: string; frame: number; }[]
   review(opts?: ReviewOptions): Promise<ReviewReport>
+  setVars(changes: Vars): Promise<RebuildReport>
   snapshot(frame?: number | undefined, opts?: (SnapshotOptions & { as?: "blob" | undefined; }) | undefined): Promise<Blob>
   snapshot(frame: number | undefined, opts: SnapshotOptions & { as: "dataURL"; }): Promise<string>
   snapshot(frame: number | undefined, opts: SnapshotOptions & { as: "imageData"; }): Promise<ImageData>
@@ -322,13 +326,14 @@ class Movie
   timelineSvg(opts?: TimelineSvgOptions): string
   toggleMute(): boolean
   totalFrames: number
+  vars: Readonly<Vars>
   volume: number
   width: number
   constructor()
 interface MovieErrorEvent
   error: unknown
   message: string
-  where: "init" | "render" | "playback"
+  where: "rebuild" | "init" | "render" | "playback"
 interface MovieOptions
   assets?: AssetSpec[]
   background?: string
@@ -340,6 +345,7 @@ interface MovieOptions
   loader?: LoaderOption
   motionBlur?: MotionBlurSpec
   poster?: number
+  vars?: Vars
   width?: number
 function musicBuffer(music: MusicOptions, options?: { sampleRate?: number | undefined; duration?: number | undefined; loop?: boolean | undefined; }): Promise<AudioBuffer>
 type MusicDrum = 'kick' | 'snare' | 'hat' | 'openhat' | 'clap' | 'rim' | 'tom' | 'crash' | 'shaker' | 'sleigh'
@@ -503,6 +509,19 @@ interface ReactProp
   decay?: number
   invert?: boolean
   release?: number
+interface RebuildOptions
+  composition?: CompositionSpec
+  height?: number
+  vars?: Vars
+  width?: number
+type RebuildReason = 'vars' | 'resize' | 'rebuild'
+interface RebuildReport
+  audio: "none" | "reused" | "mixed"
+  frame: number
+  ms: number
+  playing: boolean
+  reason: RebuildReason
+  unchanged?: boolean
 interface RectShapeSpec extends ShapeBase, Trimmable
   anchorX?: PropValue
   anchorY?: PropValue

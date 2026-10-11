@@ -133,6 +133,8 @@ export class Controller {
   private settingsKeyHandler: ((e: KeyboardEvent) => void) | null = null;
   private settingsOutsideHandler: ((e: PointerEvent) => void) | null = null;
   private onReady: (() => void) | null = null;
+  /** A rebuild (setVars, resize, rebuild) may have moved the stops: draw their marks again. */
+  private onRebuilt: (() => void) | null = null;
   private presenter: { destroy(): void } | null = null;
   /** `pixi-effects/present`, loaded as soon as the movie has stops (a press of play must not wait for it). */
   private present: typeof import('./present/index') | null = null;
@@ -381,7 +383,9 @@ export class Controller {
       this.exportFillEl.style.width = `${progress}%`;
       this.exportTextEl.textContent = `${progress}% (${frame} / ${totalFrames} frames)`;
     };
+    this.onRebuilt = () => { this.refreshStops(); };
     this.movie.on('ready', this.onReady);
+    this.movie.on('rebuilt', this.onRebuilt);
     this.movie.on('frame', this.onFrame);
     this.movie.on('play', this.onPlay);
     this.movie.on('pause', this.onPause);
@@ -961,6 +965,7 @@ export class Controller {
     this.destroyed = true;
     this.stopPresenting();
     if (this.onReady) { this.movie.off('ready', this.onReady); this.onReady = null; }
+    if (this.onRebuilt) { this.movie.off('rebuilt', this.onRebuilt); this.onRebuilt = null; }
     if (this.onFrame) { this.movie.off('frame', this.onFrame); this.onFrame = null; }
     if (this.onPlay) { this.movie.off('play', this.onPlay); this.onPlay = null; }
     if (this.onPause) { this.movie.off('pause', this.onPause); this.onPause = null; }

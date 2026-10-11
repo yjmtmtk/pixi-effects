@@ -15,7 +15,9 @@ import { expandTransitions, carryTransitionWindows } from './Transitions';
 import { inspectScene, type InspectReport, type InspectOptions } from './inspect';
 import { collectTimeline, timelineHtml, timelineSvg, type TimelineData, type TimelineHtmlOptions, type TimelineSvgOptions } from './timelineChart';
 import { pickFrames, sheetLayout } from './frames';
-import { warnUnknownOptions } from './options';
+import { warnUnknownOptions, suggestName } from './options';
+import { normalizeVars, applyVars, numericVars, type Vars } from './vars';
+import { mixKey, MixCache } from './mixCache';
 import { startWhenRunning, audioIsBlocked } from './startWhenRunning';
 import { normalizePoster } from './poster';
 import { normalizeStops, type Stop } from './stops';
@@ -40,6 +42,12 @@ export interface MovieOptions {
   canvas?: HTMLCanvasElement;
   assets?: AssetSpec[];
   composition?: CompositionSpec;
+  /**
+   * Named variables: numbers an expression reads as identifiers (`x: 'W/2 + shift'`) and strings that `{name}` stands for anywhere in the
+   * composition (`text: '{title}'`, `fillColor: '{accent}'`). Change them later with `movie.setVars()`, which rebuilds the movie at the same time.
+   * A name an expression already means (`W`, `t`, `sin`, `PI`, `value` …) is refused.
+   */
+  vars?: Vars;
   /**
    * The poster time in seconds: the moment that stands for the movie before it plays. The canvas shows that frame once the movie is
    * ready, the playhead stays at 0 and play starts from 0 (like `<video poster>`); `movie.posterImage()` is that picture. A negative
@@ -101,6 +109,25 @@ export interface SnapshotOptions {
   as?: 'blob' | 'dataURL' | 'imageData';
 }
 
+/** What `movie.rebuild()` may change: the composition itself, variables (a partial set), the size of the movie. */
+export interface RebuildOptions {
+  composition?: CompositionSpec;
+  vars?: Vars;
+  width?: number;
+  height?: number;
+}
+export type RebuildReason = 'vars' | 'resize' | 'rebuild';
+/** What a rebuild did: how long it took, whether the sound was mixed again (`'mixed'`), reused from the last mix (`'reused'`) or there is none, and where the playhead was put back. */
+export interface RebuildReport {
+  reason: RebuildReason;
+  ms: number;
+  audio: 'reused' | 'mixed' | 'none';
+  frame: number;
+  playing: boolean;
+  /** True when nothing changed (`setVars` with the values it already has): nothing was rebuilt. */
+  unchanged?: boolean;
+}
+
 export interface ContactSheetOptions {
   /** Motion blur for these pictures (see `MovieOptions.motionBlur`); overrides the movie's own setting, `false` turns it off. */
   motionBlur?: MotionBlurSpec;
@@ -136,7 +163,7 @@ export interface ProgressEvent { progress: number; frame: number; totalFrames: n
 /** `volumechange`: the values after the change. */
 export interface VolumeEvent { volume: number; muted: boolean }
 /** `error`: something failed in `init()`, `render()` or during playback. The call that failed still rejects / warns as before. */
-export interface MovieErrorEvent { where: 'init' | 'render' | 'playback'; message: string; error: unknown }
+export interface MovieErrorEvent { where: 'init' | 'render' | 'playback' | 'rebuild'; message: string; error: unknown }
 
 type Listener = (...args: any[]) => void;
 
@@ -188,6 +215,18 @@ export class Movie {
   }
   private _rootContainer: Container | null = null;
   private _raf: number | null = null;
+  /** The variables now, and the names that were declared (a `setVars` of any other name is refused). */
+  private _vars: Vars = {};
+  private _declared = new Set<string>();
+  /** The composition as the author wrote it (before `{name}` is replaced): a rebuild starts from it. */
+  private _composition: CompositionSpec | undefined;
+  /** True once `resize()` was called: the size of the movie then replaces an explicit `width` / `height` of the composition. */
+  private _resized = false;
+  private _mixCache = new MixCache<MixStats | null>();
+  private _rebuildRun: Promise<RebuildReport> | null = null;
+  private _rebuildNext: { change: RebuildOptions; reason: RebuildReason; promise: Promise<RebuildReport>; resolve: (r: RebuildReport) => void; reject: (e: unknown) => void } | null = null;
+  /** > 0 while a rebuild stops and restarts playback: `play` / `pause` are not announced then (a player's button must not flicker). */
+  private _silent = 0;
   /** What went into the mix, and its peak before limiting — kept for inspectAudio(). */
   private _audioSources: AudioDescriptor[] = [];
   private _mixStats: MixStats | null = null;
@@ -203,6 +242,8 @@ export class Movie {
   on(event: 'progress', fn: (e: ProgressEvent) => void): this;
   /** How far `init()` is while it builds the movie: `{ stage: 'assets' | 'build' | 'sound' | 'frames', loaded, total, progress }`, `progress` 0 to 1. The page's `.pe-loader` shows it by itself. */
   on(event: 'loadprogress', fn: (e: LoadProgressState) => void): this;
+  /** A `rebuild()` (a `setVars()` or a `resize()` too) finished: what it was and what it cost. */
+  on(event: 'rebuilt', fn: (e: RebuildReport) => void): this;
   on(event: 'play', fn: () => void): this;
   on(event: 'pause', fn: () => void): this;
   on(event: string, fn: Listener): this {
@@ -280,7 +321,7 @@ export class Movie {
   }
 
   async init(options: MovieOptions = {}): Promise<void> {
-    warnUnknownOptions('movie.init()', options, ['width', 'height', 'duration', 'frameRate', 'background', 'canvas', 'assets', 'composition', 'poster', 'motionBlur', 'loader']);
+    warnUnknownOptions('movie.init()', options, ['width', 'height', 'duration', 'frameRate', 'background', 'canvas', 'assets', 'composition', 'vars', 'poster', 'motionBlur', 'loader']);
     this._initState = 'pending';
     try {
       this.width = options.width ?? 1920;
@@ -291,7 +332,12 @@ export class Movie {
       const poster = normalizePoster(options.poster, this.duration, this.frameRate);
       this.poster = poster.seconds;
       this.motionBlur = resolveMotionBlur(options.motionBlur, 'movie.init()');
-      this.stops = normalizeStops(options.composition?.stops, this.duration, this.frameRate);
+      this._vars = normalizeVars(options.vars, 'movie.init()');
+      this._declared = new Set(Object.keys(this._vars));
+      this._composition = options.composition;
+      this._resized = false;
+      this._mixCache.set(null, null);
+      this.stops = normalizeStops(applyVars(options.composition, this._vars)?.stops, this.duration, this.frameRate);
       this._posterFrame = poster.frame;
       this.background = options.background ?? '#000000';
 
@@ -344,47 +390,14 @@ export class Movie {
       let assetsSeen = 0;
       await loadAssetBundle(options.assets ?? [], audioContext, p => { const n = Math.round(p * assetCount); if (n > assetsSeen) { lp.tick(n - assetsSeen); assetsSeen = n; } });
 
-      const rootShape: CompositionShape = { width: this.width, height: this.height, duration: this.duration, frameRate: this.frameRate,
-        onLayerBuilt: async () => { lp.tick(); await lp.yieldIfDue(); } };
-      // Inject root dimensions before expanding transitions: the macro
-      // expander reads `width` / `height` to compute filter areas, so the
-      // values must be present on the spec it sees rather than being merged
-      // in below as overrides.
-      const seededComposition = options.composition
-        ? {
-            ...options.composition,
-            width: options.composition.width ?? this.width,
-            height: options.composition.height ?? this.height,
-            duration: options.composition.duration ?? this.duration,
-          }
-        : undefined;
-      await ensureFilterLibrary(seededComposition);            // pixi-filters, only when a layer names one of its filters
-      const userComposition = seededComposition ? expandTransitions(seededComposition) : undefined;
-      const rootSeqSpec = {
-        type: 'composition' as const,
-        width: this.width,
-        height: this.height,
-        duration: this.duration,
-        ...userComposition,
-      };
-      if (userComposition) carryTransitionWindows(userComposition, rootSeqSpec);
-      const composition = new CompositionSequence(rootSeqSpec, null, rootShape);
-      lp.begin('build', countLayers(rootSeqSpec));
-      await composition.build();
+      const composition = await this._construct(this._composition, this._vars, this.width, this.height, lp);
       this._rootSequence = composition;
       if (composition.target) root.addChild(composition.target);
       composition.bindTimeline(this.timeline);
       this._timeFilters = collectTimeFilters(composition);
 
-      const audios: AudioDescriptor[] = [];
-      composition.collectAudio(audios, 0);
       lp.begin('sound', 1);                                    // one whole: `mixdown` says how far it is
-      if (audios.length > 0) {
-        this.audioBuffer = await mixdown(audios, this.duration, audioContext.sampleRate, async (done) => { lp.part(done); await lp.yieldIfDue(); });
-        lp.tick();
-        if (this.audioBuffer) this._mixStats = limitMix(this.audioBuffer, audios);
-      }
-      this._audioSources = audios;
+      await this._mixSound(composition, audioContext, lp);
 
       lp.begin('frames', 0);
       this.timeline.time(this._timeOf(0));                     // the first picture is the movie at its start: a `set` at 0 is already applied
@@ -404,6 +417,201 @@ export class Movie {
         console.warn('pixi-effects: cleanup after init failure also threw:', cleanupErr);
       }
       this._emitError('init', err);
+      throw err;
+    }
+  }
+
+  /**
+   * Build the composition tree for these variables and this size, off stage: `{name}` replaced, the root shape (with the numeric variables for the
+   * expressions), transitions expanded, every layer built. Used by `init` and by `rebuild`.
+   */
+  private async _construct(composition: CompositionSpec | undefined, vars: Vars, width: number, height: number, lp?: LoadProgress): Promise<CompositionSequence> {
+    const spec = applyVars(composition, vars);
+    const rootShape: CompositionShape = {
+      width, height, duration: this.duration, frameRate: this.frameRate, vars: numericVars(vars),
+      ...(lp ? { onLayerBuilt: async () => { lp.tick(); await lp.yieldIfDue(); } } : {}),
+    };
+    // Inject root dimensions before expanding transitions: the macro
+    // expander reads `width` / `height` to compute filter areas, so the
+    // values must be present on the spec it sees rather than being merged
+    // in below as overrides. (After `resize()` the movie's size wins over a size the composition names.)
+    const seededComposition = spec
+      ? {
+          ...spec,
+          width: this._resized ? width : (spec.width ?? width),
+          height: this._resized ? height : (spec.height ?? height),
+          duration: spec.duration ?? this.duration,
+        }
+      : undefined;
+    await ensureFilterLibrary(seededComposition);            // pixi-filters, only when a layer names one of its filters
+    const userComposition = seededComposition ? expandTransitions(seededComposition) : undefined;
+    const rootSeqSpec = {
+      type: 'composition' as const,
+      width,
+      height,
+      duration: this.duration,
+      ...userComposition,
+    };
+    if (userComposition) carryTransitionWindows(userComposition, rootSeqSpec);
+    const sequence = new CompositionSequence(rootSeqSpec, null, rootShape);
+    lp?.begin('build', countLayers(rootSeqSpec));
+    try { await sequence.build(); }
+    catch (err) { safeRun(() => sequence.destroy()); throw err; }
+    return sequence;
+  }
+
+  /** Make the sound of a built composition: the same mix as last time when the sounds are the same (`'reused'`), else mix it. */
+  private async _mixSound(sequence: CompositionSequence, audioContext: AudioContext, lp?: LoadProgress): Promise<'reused' | 'mixed' | 'none'> {
+    const audios: AudioDescriptor[] = [];
+    sequence.collectAudio(audios, 0);
+    let status: 'reused' | 'mixed' | 'none' = 'none';
+    if (audios.length === 0) {
+      this.audioBuffer = null; this._mixStats = null; this._mixCache.set(null, null);
+    } else {
+      const key = mixKey(audios, this.duration, audioContext.sampleRate);
+      const hit = this._mixCache.get(key);
+      if (hit) { this.audioBuffer = hit.buffer; this._mixStats = hit.extra; status = 'reused'; }
+      else {
+        this.audioBuffer = await mixdown(audios, this.duration, audioContext.sampleRate, lp ? async (done) => { lp.part(done); await lp.yieldIfDue(); } : undefined);
+        this._mixStats = this.audioBuffer ? limitMix(this.audioBuffer, audios) : null;
+        this._mixCache.set(key, this.audioBuffer, this._mixStats);
+        status = 'mixed';
+      }
+      lp?.tick();
+    }
+    this._audioSources = audios;
+    return status;
+  }
+
+  /** The variables now (a copy; change them with `setVars()`). */
+  get vars(): Readonly<Vars> { return { ...this._vars }; }
+
+  /**
+   * Change variables and rebuild at the same time. Only the declared names (`movie.init({ vars })`) are accepted; another name says which one it
+   * looks like and is ignored. Values it already has change nothing: no rebuild (`unchanged: true`).
+   */
+  async setVars(changes: Vars): Promise<RebuildReport> {
+    this._requireReady('setVars');
+    return this.rebuild({ vars: changes }, 'vars');
+  }
+
+  /** Make the movie `width` x `height` pixels (the canvas, and `W` / `H` / `GW` / `GH` in every expression) and rebuild at the same time. */
+  async resize(width: number, height: number): Promise<RebuildReport> {
+    this._requireReady('resize');
+    return this.rebuild({ width, height }, 'resize');
+  }
+
+  /**
+   * Build the composition again, with what `change` replaces (variables, the composition, the size), and put the movie back where it was: the
+   * same frame, playing or not, the poster if that was shown. The new composition is built first: when that fails the old one stays, `error` is
+   * emitted and the promise rejects. The sound is mixed again only when it changed (`audio: 'reused'` otherwise). Calls that arrive while a
+   * rebuild runs are joined into one more rebuild (the latest values win), so a slider can call it on every move.
+   */
+  async rebuild(change: RebuildOptions = {}, reason: RebuildReason = 'rebuild'): Promise<RebuildReport> {
+    this._requireReady('rebuild');
+    warnUnknownOptions('movie.rebuild()', change, ['composition', 'vars', 'width', 'height']);
+    if (this._rebuildRun) {
+      if (!this._rebuildNext) {
+        let resolve!: (r: RebuildReport) => void, reject!: (e: unknown) => void;
+        const promise = new Promise<RebuildReport>((res, rej) => { resolve = res; reject = rej; });
+        this._rebuildNext = { change: {}, reason, promise, resolve, reject };
+      }
+      const next = this._rebuildNext;
+      next.change = { ...next.change, ...change, vars: { ...(next.change.vars ?? {}), ...(change.vars ?? {}) } };
+      if (reason !== 'vars') next.reason = reason;
+      return next.promise;
+    }
+    return this._runRebuild(change, reason);
+  }
+
+  private _runRebuild(change: RebuildOptions, reason: RebuildReason): Promise<RebuildReport> {
+    const run = this._doRebuild(change, reason);
+    this._rebuildRun = run;
+    const settled = () => {
+      if (this._rebuildRun === run) this._rebuildRun = null;
+      const next = this._rebuildNext;
+      if (next && this._initState === 'ready') { this._rebuildNext = null; this._runRebuild(next.change, next.reason).then(next.resolve, next.reject); }
+      else if (next) { this._rebuildNext = null; next.reject(new Error('pixi-effects: the movie was destroyed before the rebuild could run')); }
+    };
+    run.then(settled, settled);
+    return run;
+  }
+
+  private async _doRebuild(change: RebuildOptions, reason: RebuildReason): Promise<RebuildReport> {
+    const started = performance.now();
+    const root = this._rootContainer, app = this.app;
+    if (!root || !app) throw new Error('pixi-effects: movie.rebuild() needs a ready movie — await movie.init(...) first');
+    // what changes
+    const vars: Vars = { ...this._vars };
+    let changed = false;
+    if (change.vars !== undefined) {
+      const given = normalizeVars(change.vars, `movie.${reason === 'vars' ? 'setVars' : 'rebuild'}()`);
+      for (const [name, value] of Object.entries(given)) {
+        if (!this._declared.has(name)) {
+          const guess = suggestName(name, [...this._declared]);
+          console.warn(`pixi-effects: movie.${reason === 'vars' ? 'setVars' : 'rebuild'}(): "${name}" is not a declared variable${guess ? ` — did you mean "${guess}"?` : ''} (declared in movie.init({ vars }): ${[...this._declared].join(', ') || 'none'}); ignored`);
+          continue;
+        }
+        if (vars[name] !== value) { vars[name] = value; changed = true; }
+      }
+    }
+    const width = change.width ?? this.width, height = change.height ?? this.height;
+    const sizeChanged = width !== this.width || height !== this.height;
+    for (const [k, v] of [['width', change.width], ['height', change.height]] as const) {
+      if (v !== undefined && !(Number.isFinite(v) && v >= 1)) throw new Error(`pixi-effects: movie.rebuild(): ${k} must be a number of pixels (1 or more), got ${JSON.stringify(v)}`);
+    }
+    const composition = change.composition ?? this._composition;
+    changed = changed || sizeChanged || change.composition !== undefined || reason === 'rebuild';
+    const wasPlaying = this.isPlaying, frame = this.currentFrame, wasAtPoster = this._atPoster;
+    if (!changed) return { reason, ms: 0, audio: 'none', frame, playing: wasPlaying, unchanged: true };
+
+    this._silent++;
+    this.pause();                                             // (a `playUntil()` in flight ends here too)
+    let sequence: CompositionSequence | null = null;
+    const oldSize = { w: this.width, h: this.height }, oldResized = this._resized;
+    try {
+      if (sizeChanged) {
+        this.width = width; this.height = height;
+        this._resized = true;
+        app.renderer.resize(width, height);
+        root.cullArea = new Rectangle(0, 0, width, height);
+      }
+      sequence = await this._construct(composition, vars, width, height);
+      const timeline = createTimeline({ paused: true, defaults: { ease: 'none' } });
+      lengthen(timeline, this.duration);
+      sequence.bindTimeline(timeline);
+      const audio = await this._mixSound(sequence, this._ensureAudioContext());
+      // the swap: the new composition is whole, so the old one can go
+      const old = this._rootSequence, oldTimeline = this.timeline;
+      if (old?.target) root.removeChild(old.target);
+      if (sequence.target) root.addChild(sequence.target);
+      this._rootSequence = sequence;
+      this.timeline = timeline;
+      this._timeFilters = collectTimeFilters(sequence);
+      safeRun(() => old?.destroy());
+      safeRun(() => oldTimeline?.kill());
+      this._vars = vars;
+      this._composition = composition;
+      this.stops = normalizeStops(applyVars(composition, vars)?.stops, this.duration, this.frameRate);
+      sequence = null;
+      // put the movie back where it was
+      if (wasAtPoster) await this._showPoster();
+      else await this._quietly(() => this.gotoFrame(frame, true));
+      if (wasPlaying) this.play();
+      const report: RebuildReport = { reason, ms: Math.round((performance.now() - started) * 10) / 10, audio, frame, playing: wasPlaying };
+      this._silent--;
+      this.emit('rebuilt', report);
+      return report;
+    } catch (err) {
+      if (sequence) safeRun(() => sequence!.destroy());
+      if (sizeChanged) {                                       // the old size stays with the old composition
+        this.width = oldSize.w; this.height = oldSize.h; this._resized = oldResized;
+        safeRun(() => app.renderer.resize(oldSize.w, oldSize.h));
+        root.cullArea = new Rectangle(0, 0, oldSize.w, oldSize.h);
+      }
+      if (wasPlaying) this.play();
+      this._silent--;
+      this._emitError('rebuild', err);
       throw err;
     }
   }
@@ -834,7 +1042,7 @@ export class Movie {
         this.audioSource.start(0, Math.min(this.currentFrame / this.frameRate, buffer.duration));
       }, typeof window !== 'undefined' ? window : undefined);
     }
-    if (!wasPlaying) this.emit('play');
+    if (!wasPlaying && !this._silent) this.emit('play');
   }
 
   pause(): void {
@@ -855,7 +1063,7 @@ export class Movie {
       this.gainNode.disconnect();
       this.gainNode = null;
     }
-    if (wasPlaying) this.emit('pause');
+    if (wasPlaying && !this._silent) this.emit('pause');
     this._cancelUntil();
   }
 
@@ -898,6 +1106,7 @@ export class Movie {
     this.audioBuffer = null;
     this._audioSources = [];
     this._mixStats = null;
+    this._mixCache.set(null, null);
     safeRun(() => this._audioContext?.close().catch(() => {}));
     this._audioContext = null;
     this._initState = 'destroyed';
