@@ -1560,6 +1560,8 @@ done < table.csv
 
 # Directing a film (for any AI that makes video with code)
 
+> **No shell or files (a browser chat)?** This guide is not for you: follow https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/CHAT.md. You can still plan: put three lines in your reply (the one sentence to remember, the real assets you were given, the beats in order) and ask the person before you build.
+
 Read this before you write a composition for anything longer than a title card: a product film, a company introduction, a launch, a data story. It is about the decisions around the renderer, so it names no tool; `SKILL.md` has the pixi-effects commands.
 
 A one-line prompt makes the model fill every missing decision with its safest default: large text in the middle, a gradient behind it, everything fading in, the logo last. The fix is not a cleverer prompt. It is to remove the missing decisions before anything is drawn, and to judge what was drawn with evidence.

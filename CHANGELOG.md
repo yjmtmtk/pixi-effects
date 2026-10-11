@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+**Docs**
+
+- **The film guide says who it is for.** `direction.md` opens with a note for an AI in a browser chat (no shell, no files): this guide is not yours, follow `ai/CHAT.md`; you can still put a three-line plan in your reply and ask. The `llms.txt` line for it says "for an AI with a shell and files; a browser chat skips it".
+
 ## 0.28.2
 
 **Added**

@@ -38,6 +38,9 @@ describe('skills/pixi-effects — what an agent installs', () => {
     expect(direction).toMatch(/stop and ask/i);                                                                          // a missing real asset is a blocker, not an invitation to invent
     expect(direction).toMatch(/three largest defects/i);
     expect(direction).toMatch(/do not make a format nobody asked for/i);
+    // an AI in a browser chat (no shell, no files) must be told at the very top that this is not its guide
+    expect(direction.split('\n').slice(0, 8).join('\n')).toMatch(/no shell or files.*ai\/CHAT\.md/is);
+    expect(direction).toMatch(/three lines/i);                                                                          // what such an AI can still do: a three-line plan in its reply
   });
 
   it('is a plain YAML scalar: no ": " and no " #" in the description (the skills CLI refuses the whole skill with "Nested mappings are not allowed")', () => {
