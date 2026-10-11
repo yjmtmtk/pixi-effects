@@ -28,7 +28,8 @@ Rules that cause most failures (details in the skill and pitfalls):
 - **If you are an AI in a chat with no shell and no files** (a browser chat, a preview window): read only [Chat guide](${RAW}/ai/CHAT.md) and copy [chat-template.html](${RAW}/ai/chat-template.html); everything below is for an AI that can run commands.
 - **If your agent supports skills:** \`npx skills add yjmtmtk/pixi-effects\` registers the workflow below as a skill (Claude Code also: \`/plugin install pixi-effects --marketplace yjmtmtk/pixi-effects\`)
 - [Skill: workflow and rules](${RAW}/skills/pixi-effects/SKILL.md): how to build, check and export a video; read first
-- [Cheatsheet](${RAW}/skills/pixi-effects/reference/cheatsheet.md): every layer type, prop, default and convention on one page
+- [Quick start](${RAW}/skills/pixi-effects/reference/quickstart.md): 2 KB: the commands (\`npx pixi-effects new | view | check | help <word> | recipe [id]\`), a working title card, and what goes wrong most; read this before the cheatsheet
+- [Cheatsheet](${RAW}/skills/pixi-effects/reference/cheatsheet.md): every layer type, prop, default and convention on one page (look things up here, or \`npx pixi-effects help <word>\`)
 - [Recipes](${RAW}/skills/pixi-effects/reference/recipes.md): tested building blocks (kinetic type, lower-third, count-up, bar chart, 2.5D title, camera orbit, slideshow with transitions, sound effects without files, music written as text, three.js, a presentation deck, visuals that follow music)
 - [Pitfalls](${RAW}/skills/pixi-effects/reference/pitfalls.md): real mistakes made by AI authors, with fixes
 - [Directing a film](${RAW}/skills/pixi-effects/reference/direction.md): for an AI with a shell and files: a product film or company intro, before building: brief, style guide, shot list, assets rule, review protocol (any renderer; a browser chat skips it)
@@ -48,6 +49,7 @@ Rules that cause most failures (details in the skill and pitfalls):
 
   const parts = [
     ['skills/pixi-effects/SKILL.md', stripFrontmatter(read('skills/pixi-effects/SKILL.md'))],
+    ['skills/pixi-effects/reference/quickstart.md', read('skills/pixi-effects/reference/quickstart.md')],
     ['skills/pixi-effects/reference/cheatsheet.md', read('skills/pixi-effects/reference/cheatsheet.md')],
     ['skills/pixi-effects/reference/pitfalls.md', read('skills/pixi-effects/reference/pitfalls.md')],
     ['skills/pixi-effects/reference/recipes.md', read('skills/pixi-effects/reference/recipes.md')],

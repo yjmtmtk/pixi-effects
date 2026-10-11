@@ -26,6 +26,17 @@ describe('skills/pixi-effects — what an agent installs', () => {
     for (const w of ['video', 'motion graphics', 'animated title', 'lower third', 'promo', 'chart', 'slideshow']) expect(fm![2]!.toLowerCase(), w).toContain(w);
   });
 
+  it('starts an agent on the 2 KB quick start, not on the 35 KB cheatsheet; the commands it names exist; the cheatsheet is for looking things up', () => {
+    const quick = read('reference/quickstart.md');
+    expect(Buffer.byteLength(quick)).toBeLessThanOrEqual(2048);
+    expect(skill).toContain('reference/quickstart.md');
+    expect(skill).not.toMatch(/Read `reference\/cheatsheet\.md` once before writing anything/);
+    const cmds = [...quick.matchAll(/npx pixi-effects (\w+)/g)].map(m => m[1]);
+    expect(new Set(cmds)).toEqual(new Set(['new', 'view', 'check', 'help', 'recipe']));
+    for (const c of ['new', 'recipe', 'help']) expect(skill, `the skill names \`${c}\``).toContain(`pixi-effects ${c}`);
+    expect(quick).toContain('// @recipe quickstart');                          // the example is built and linted by tests/docs/Recipes.test.ts
+  });
+
   it('sends a film to reference/direction.md, which is renderer-neutral and names the files an agent must write', () => {
     expect(skill).toContain('reference/direction.md');
     expect(skill).toMatch(/first address goes out within two minutes/);                                                 // the viewer starts on the copied template, before the brief

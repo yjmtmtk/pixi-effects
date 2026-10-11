@@ -1,0 +1,131 @@
+// @vitest-environment node
+import { describe, it, expect } from 'vitest';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+// `pixi-effects recipe | help | new`: the agent reads what it needs instead of 35 KB of cheatsheet and 69 KB of recipes.
+const root = resolve(__dirname, '../..');
+const lookup: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/lookup.mjs')).href);
+const cli = (args: string[], cwd = root) => spawnSync(process.execPath, [join(root, 'ai/tools/pixi-effects.mjs'), ...args], { encoding: 'utf8', cwd });
+
+const FIXTURE = [
+  '# Recipes', '', 'intro text', '', '---', '',
+  '## A pop-in (a card)', '', 'prose of the first', '', '```js', '// @recipe pop-in', 'const a = 1;', '```', '', '---', '',
+  '## Words that slam', '', 'prose of the second', '', '```js', '// @recipe slam-words', 'const b = 2;', '```', '', '```js', '// @docs-only', 'other', '```', '',
+].join('\n');
+
+describe('recipes: parse and read', () => {
+  it('a section is a "## " heading up to the next one; its ids are the `// @recipe` names inside it (a docs-only block has none)', () => {
+    const r = lookup.parseRecipes(FIXTURE);
+    expect(r.map((s: any) => [s.title, s.ids])).toEqual([['A pop-in (a card)', ['pop-in']], ['Words that slam', ['slam-words']]]);
+    expect(r[0].text).toContain('prose of the first');
+    expect(r[0].text).not.toContain('prose of the second');
+    expect(r[0].text.trim().endsWith('---')).toBe(false);                      // the separator belongs to nobody
+  });
+
+  it('findRecipe: an exact id; a unique part of one; several matches are listed; nothing matches with a nearest guess', () => {
+    const r = lookup.parseRecipes(FIXTURE);
+    expect(lookup.findRecipe(r, 'slam-words').section.title).toBe('Words that slam');
+    expect(lookup.findRecipe(r, 'slam').section.title).toBe('Words that slam');
+    expect(lookup.findRecipe(r, 'a').many.map((s: any) => s.ids[0])).toEqual(['pop-in', 'slam-words']);
+    const none = lookup.findRecipe(r, 'slam-wrods');
+    expect(none.section).toBeUndefined();
+    expect(none.nearest).toBe('slam-words');
+  });
+
+  it('the real recipes.md: every id is in exactly one section, there are at least 40, and each section carries its code', () => {
+    const md = readFileSync(join(root, 'skills/pixi-effects/reference/recipes.md'), 'utf8');
+    const r = lookup.parseRecipes(md);
+    const ids = r.flatMap((s: any) => s.ids);
+    expect(ids.length).toBeGreaterThanOrEqual(40);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const s of r.filter((x: any) => x.ids.length)) expect(s.text).toContain('```js');
+    expect(ids).toContain('slam-words');
+    expect(ids).toContain('two-formats');
+  });
+});
+
+describe('help: search the docs for a word', () => {
+  it('finds the sections about it, headings first, each cut to a few lines with where the rest is; nothing for a word that is nowhere', () => {
+    const hits = lookup.searchDocs(root, 'mask');
+    expect(hits.length).toBeGreaterThan(0);
+    expect(hits.length).toBeLessThanOrEqual(5);
+    expect(hits[0].heading.toLowerCase()).toContain('mask');
+    for (const h of hits) { expect(h.file).toMatch(/\.md$/); expect(h.lines.length).toBeLessThanOrEqual(30); }
+    expect(lookup.searchDocs(root, 'qwertyzzzz')).toEqual([]);
+  });
+
+  it('knows the layer words an agent asks about, and the one that was removed', () => {
+    expect(lookup.searchDocs(root, 'threeD').length).toBeGreaterThan(0);
+    expect(lookup.searchDocs(root, 'keyframes').length).toBeGreaterThan(0);
+    const inv = lookup.formatHelp(lookup.searchDocs(root, 'maskInverted'), 'maskInverted').join('\n');
+    expect(inv).toMatch(/invert: true/);                                        // the pitfall that says what replaced it
+  });
+
+  it('formatHelp keeps the whole answer short (at most 170 lines) and ends with the next step', () => {
+    const out = lookup.formatHelp(lookup.searchDocs(root, 'text'), 'text');
+    expect(out.length).toBeLessThanOrEqual(170);
+    expect(out.join('\n')).toMatch(/recipe|help/);
+  });
+});
+
+describe('new: a page to start from', () => {
+  it('writes <name>.html from the template, titled with the name and pinned to this package\'s version; it will not overwrite', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'new-'));
+    const r = lookup.newPage('My Film', { cwd: dir, root });
+    expect(r.file).toBe(join(dir, 'My-Film.html'));
+    const html = readFileSync(r.file, 'utf8');
+    const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
+    expect(html).toContain('<title>My Film</title>');
+    expect(html).toContain(`pixi-effects@${version}/dist/index.js`);
+    expect(html).toContain('window.__logs');
+    expect(() => lookup.newPage('My Film', { cwd: dir, root })).toThrow(/already exists/);
+    expect(lookup.newPage('My Film', { cwd: dir, root, force: true }).file).toBe(r.file);
+  });
+
+  it('a name that is already a .html file keeps it; a path is kept (a folder that exists)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'new-'));
+    expect(lookup.newPage('clip.html', { cwd: dir, root }).file).toBe(join(dir, 'clip.html'));
+  });
+});
+
+describe('the command: pixi-effects recipe | help | new', () => {
+  it('recipe with no id lists them; with an id prints the section; an id nobody has says the nearest and exits 1', () => {
+    const list = cli(['recipe']);
+    expect(list.status).toBe(0);
+    expect(list.stdout).toMatch(/slam-words/);
+    const one = cli(['recipe', 'slam-words']);
+    expect(one.status).toBe(0);
+    expect(one.stdout).toContain('// @recipe slam-words');
+    expect(one.stdout).not.toContain('// @recipe lower-third');
+    const none = cli(['recipe', 'slam-wrods']);
+    expect(none.status).toBe(1);
+    expect(none.stderr).toMatch(/did you mean "slam-words"/);
+  });
+
+  it('help <word> prints the sections; help alone says what to ask; a word that is nowhere exits 1', () => {
+    const h = cli(['help', 'mask']);
+    expect(h.status).toBe(0);
+    expect(h.stdout.length).toBeGreaterThan(200);
+    expect(cli(['help']).stdout).toMatch(/help <word>/);
+    expect(cli(['help', 'qwertyzzzz']).status).toBe(1);
+  });
+
+  it('new makes the page in the current folder and says what to type next', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'new-'));
+    const r = cli(['new', 'demo'], dir);
+    expect(r.status).toBe(0);
+    expect(existsSync(join(dir, 'demo.html'))).toBe(true);
+    expect(r.stdout).toMatch(/pixi-effects view demo\.html/);
+    expect(cli(['new', 'demo'], dir).status).toBe(1);                           // exists
+  });
+
+  it('the usage and the unknown-command message name the new commands', () => {
+    expect(cli([]).stdout + cli([]).stderr).toMatch(/recipe/);
+    expect(cli(['zzz']).stderr).toMatch(/check, render, view, recipe, help, new/);
+    expect(cli(['recepie']).stderr).toMatch(/did you mean "recipe"/);
+  });
+});

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+**Added**
+
+- **`pixi-effects new <name>`, `recipe [id]` and `help <word>`: read what you need, not 100 KB.** `new` writes `<name>.html` from the template, titled with the name and pinned to the installed version (it will not overwrite without `--force`). `recipe` lists the tested recipes (id and title); with an id (or a unique part of one) it prints that recipe's text and code; an id nobody has says the nearest one. `help <word>` prints the sections of the docs about a word (`docs/dsl.md`, the cheatsheet, the pitfalls, `docs/api.md`, `direction.md`), headings first, each cut to 30 lines with where the rest is, never more than 170 lines in all.
+- **`skills/pixi-effects/reference/quickstart.md`** (under 2 KB, a test holds it there): the five commands, a title card that the recipe tests build and lint, and the rules that cause most failures. `SKILL.md`, `AGENTS.md`, `llms.txt` and the README start an agent there; the 35 KB cheatsheet and the 41 KB pitfalls are for looking things up.
+
 ## 0.29.0
 
 **Changed (breaking): presentation leaves the core**
