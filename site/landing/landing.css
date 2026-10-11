@@ -185,6 +185,8 @@ section{padding:72px 0 0}
 .piece figcaption{padding:8px 2px 0;font-size:13.5px;line-height:1.35}
 .piece figcaption b{display:block;font-weight:600;color:var(--ink)}
 .piece figcaption span{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--ink-3)}
+.code-fig{margin:28px 0 0;border:1px solid var(--line);border-radius:10px;background:var(--code-bg);overflow-x:auto}
+.code-fig pre{margin:0;padding:18px 20px;font-size:12.5px;line-height:1.62;color:var(--code-ink);tab-size:2}
 .gal-foot{margin-top:18px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
 .gal-foot p{color:var(--ink-2);font-size:15px}
 .tally{display:flex;gap:14px;font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:var(--ink-3);flex-wrap:wrap}

@@ -15,10 +15,10 @@ describe('site-parts: the header, footer and head every page shares', () => {
     expect([0, 1, 2].map(rootPrefix)).toEqual(['', '../', '../../']);
   });
 
-  it('the header has the brand and the four entrances, relative to the page, and marks the current one', () => {
+  it('the header has the brand and the five entrances, relative to the page, and marks the current one', () => {
     const h = renderHeader({ root: '../../', current: 'gallery' });
-    expect(hrefs(h)).toEqual(expect.arrayContaining(['../../', '../../guide/', '../../examples/gallery/', '../../examples/', '../../examples/playground.html']));
-    expect(NAV.map((n: any) => n.id)).toEqual(['guide', 'gallery', 'examples', 'playground']);
+    expect(hrefs(h)).toEqual(expect.arrayContaining(['../../', '../../guide/', '../../examples/gallery/', '../../examples/interactive/', '../../examples/', '../../examples/playground.html']));
+    expect(NAV.map((n: any) => n.id)).toEqual(['guide', 'gallery', 'interactive', 'examples', 'playground']);
     expect(h.match(/aria-current="page"/g)).toHaveLength(1);
     expect(h).toMatch(/<a href="\.\.\/\.\.\/examples\/gallery\/" aria-current="page">Gallery<\/a>/);
     expect(h).toContain('id="themeBtn"');

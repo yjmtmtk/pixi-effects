@@ -1,6 +1,6 @@
 # Roadmap: more expressive, still easy for an AI
 
-Status: rewritten 2026-10-11, current release 0.30.1. Nothing here is promised; the order is the proposal.
+Status: rewritten 2026-10-11, current release 0.30.1; variables (0.31) are built on `feat/variables` and waiting for a release. Nothing here is promised; the order is the proposal.
 
 ## The gate every item passes
 
@@ -32,6 +32,8 @@ The measure of success is not the feature list: it is a **fresh agent given one 
 5. **Variables, built** (0.31, on branch `feat/variables` until released). The first version is L0 only: the whole composition is built again at the same frame, the sound is mixed again only if it changed (`movie.setVars` / `resize` / `rebuild`, `check` / `render --var --size`). The finer levels L1 and L2 below were measured to buy little and are not built; the spec is `docs/superpowers/specs/2026-10-11-variables-0.31-design.md`.
 
 ## Variables: one definition for what used to be five features
+
+**Status (built, waiting for the 0.31 release).** Called **interactive movies** in the docs and on the site (the mechanism keeps the name *variables*). Level L0 only: `init({ vars })`, `setVars`, `resize`, `rebuild`, `check` / `render --var --size`, `movie.loop` and the player's loop button. Nine live samples in `examples/interactive/`, a guide chapter, a landing-page section. The finer levels (L1, L2) below were measured to buy little and are not built. **Next, when a piece needs it:** clicking an item in the picture (`pick`; the player's `clickToPlay: false` already leaves the canvas alone), a sound that continues across a rebuild that changes the sound, a warning when the root size differs between `init` and the composition, more samples (a roulette, a time-of-day sky, a title maker).
 
 A **named variable** with a source: a default, a value the host sets, the canvas size, the pointer or scroll, a recorded track, a value derived from audio (`react()` bakes this one today) or the time. A layer reads it by name: a numeric expression reads it as a plain identifier (`x: 'W/2 + shift'`), a text or colour string as `{name}` (the form `{value}` already has; a `$` marker would collide with prices such as `'$5'`). The expression words `w h W H GW GH t d T contain cover` and the expression functions are reserved; a declaration that uses one is a lint warning. This one definition covers what the old draft listed apart: responsive ("liquid") layout, parameters for variants (language, brand, format), time driven by scroll, and pointer-driven layers.
 

@@ -186,6 +186,7 @@ They ship in the npm package (`node_modules/pixi-effects/ai/`).
 
 - [**DSL reference**](./docs/dsl.md) — composition, sequences, 3D layers & camera, three.js layer, keyframes, expressions, filters
 - [**API reference**](./docs/api.md) — `Movie`, `Controller`, `pixi-effects/present`, `pixi-effects/three`, events, render options
+- [**Interactive movies**](./examples/interactive/) — nine live samples of a movie you change while it plays (variables, `setVars`, `rebuild`, loop): rock paper scissors, a scrolling city, a tune from four chords, a card for anyone, choose your ending … ([the guide chapter](./site/guide/interactive.md))
 - [**Examples**](./examples/) — runnable HTML files (read in order):
   - `01-hello.html` — minimum viable composition
   - `02-keyframes.html` — keyframes, easings, expressions

@@ -383,10 +383,43 @@ movie.play();
   </div>
 </section>
 
-<!-- ================= 05 COMPARE ================= -->
+<!-- ================= 05 INTERACTIVE MOVIES ================= -->
+<section id="interactive" aria-labelledby="h-int">
+  <div class="wrap">
+    <header class="ch"><span class="n">05</span><span class="dia" aria-hidden="true"></span><h2 id="h-int">A movie you can change while it plays</h2><span class="rule" aria-hidden="true"></span></header>
+    <p class="deck">Declare a few <strong>variables</strong> and read them from the film: a name, a colour, the scroll of the page, the pointer, a roll of the dice. Change one and the film is built again <strong>at the same frame</strong>, and the sound is kept when it did not change. <strong>It is still a movie</strong>: the same file renders to MP4 with the values you choose. Every poster below opens a live sample.</p>
+
+    <figure class="code-fig">
+<pre><code>await movie.init({
+  vars: { name: 'Aiko', accent: '#ff5d73' },
+  composition: { sequences: [
+    { type: 'text', text: 'Happy birthday, {name}!', style: { fill: '{accent}' }, initial: { x: 'W/2', y: 'H/2' } },
+  ] },
+});
+await movie.setVars({ name: 'Ben' });          // built again at the same frame; the sound is reused
+// pixi-effects render card.html --var name=Ben -o ben.mp4</code></pre>
+    </figure>
+
+    <div class="masonry">
+      <a class="piece" href="examples/interactive/janken.html"><figure style="margin:0"><div class="frame"><img src="examples/interactive/posters/janken.jpg" width="640" height="360" loading="lazy" alt="Rock paper scissors: a hand and a fist under the words YOU WIN with confetti"></div><figcaption><b>Rock paper scissors</b><span>A new throw every time you seek back before “SHOOT!”</span></figcaption></figure></a>
+      <a class="piece" href="examples/interactive/scroll-city.html"><figure style="margin:0"><div class="frame"><img src="examples/interactive/posters/scroll-city.jpg" width="640" height="360" loading="lazy" alt="A dusk street seen from the middle of the road: dark towers on both sides, lit windows and street lamps, a purple sky ahead"></div><figcaption><b>Scroll through a city</b><span>The page’s scroll is one variable</span></figcaption></figure></a>
+      <a class="piece" href="examples/interactive/chords.html"><figure style="margin:0"><div class="frame"><img src="examples/interactive/posters/chords.jpg" width="640" height="360" loading="lazy" alt="Four chord cards, C G Am F, the second one lit blue, with sixteen beat dots under them"></div><figcaption><b>Write a tune with four chords</b><span>The music is text, so a chord is a variable</span></figcaption></figure></a>
+      <a class="piece" href="examples/interactive/card.html"><figure style="margin:0"><div class="frame"><img src="examples/interactive/posters/card.jpg" width="640" height="360" loading="lazy" alt="A birthday card for Aiko: balloons, confetti and the words Happy Birthday, turning 30, three candles"></div><figcaption><b>A card for anyone</b><span>One MP4 per name, made in the browser</span></figcaption></figure></a>
+      <a class="piece" href="examples/interactive/ending.html"><figure style="margin:0"><div class="frame"><img src="examples/interactive/posters/ending.jpg" width="640" height="360" loading="lazy" alt="A small robot between neon city towers at night"></div><figcaption><b>Choose your ending</b><span>Stop at a fork, pick, go back and pick again</span></figcaption></figure></a>
+      <a class="piece" href="examples/interactive/variants.html"><figure style="margin:0"><div class="frame"><img src="examples/interactive/posters/variants.jpg" width="640" height="360" loading="lazy" alt="A sale poster in English: Spring Sale, Up to 40% off everything, a large coral circle"></div><figcaption><b>One film, many variants</b><span>Language, colour and format switched live</span></figcaption></figure></a>
+    </div>
+
+    <div class="gal-foot">
+      <p class="tally"><span>9 live samples</span><span>11–42 ms to rebuild, sound reused</span><span>seekable · loopable · renderable</span></p>
+      <a class="btn" href="examples/interactive/">Open the interactive movies <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2l10 6-10 6z" fill="currentColor"/></svg></a>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 06 COMPARE ================= -->
 <section id="compare" aria-labelledby="h-cmp">
   <div class="wrap">
-    <header class="ch"><span class="n">05</span><span class="dia" aria-hidden="true"></span><h2 id="h-cmp">Next to Remotion and fframes</h2><span class="rule" aria-hidden="true"></span></header>
+    <header class="ch"><span class="n">06</span><span class="dia" aria-hidden="true"></span><h2 id="h-cmp">Next to Remotion and fframes</h2><span class="rule" aria-hidden="true"></span></header>
     <p class="deck">Three different answers to “video from code”. Remotion is the mature one, fframes is the native GPU one, pixi-effects is the one where the video is data and a model can check it. <strong>None of them is better overall</strong>; pick by what you are making and who is writing it.</p>
     <p class="cmp-note">Checked 2026-10-07, from their own pages: <a href="https://www.remotion.dev/">remotion.dev</a> · <a href="https://fframes.studio/">fframes.studio</a> and its <a href="https://github.com/dmtrKovalenko/fframes">repository</a>. No benchmark of pixi-effects against either has been made.</p>
 
@@ -453,10 +486,10 @@ movie.play();
   </div>
 </section>
 
-<!-- ================= 06 START ================= -->
+<!-- ================= 07 START ================= -->
 <section id="start" aria-labelledby="h-start">
   <div class="wrap">
-    <header class="ch"><span class="n">06</span><span class="dia" aria-hidden="true"></span><h2 id="h-start">Start in one minute</h2><span class="rule" aria-hidden="true"></span></header>
+    <header class="ch"><span class="n">07</span><span class="dia" aria-hidden="true"></span><h2 id="h-start">Start in one minute</h2><span class="rule" aria-hidden="true"></span></header>
     <p class="deck">Three doors, same library. The shortest is <a href="#one">the one sentence</a>; for your own hands, the snippet at the top of this page is a complete movie — paste it into either of the first two and press play.</p>
 
     <div class="ways">
