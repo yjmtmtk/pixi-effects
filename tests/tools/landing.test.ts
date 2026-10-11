@@ -92,6 +92,35 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the landin
     }
   }, 120_000);
 
+  it('the two films next to the reel play from a click: the page behind the poster loads, draws its first frame and logs no warning', async () => {
+    const { server, port } = await check.serve(root);
+    const userDataDir = mkdtempSync(join(tmpdir(), 'landing-'));
+    const { proc, cdp } = await launchPage(chrome, userDataDir);
+    try {
+      await cdp.send('Runtime.enable');
+      await cdp.send('Page.enable');
+      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/index.html` });
+      await check.sleep(1500);
+      for (const [btn, facade, page] of [['inkBtn', 'inkFacade', 'ink-and-paper'], ['lightBtn', 'lightFacade', 'light-as-material']]) {
+        await cdp.eval(`document.getElementById('${btn}').click()`);
+        let ready = false;
+        for (let i = 0; i < 400 && !ready; i++) {
+          await check.sleep(100);
+          ready = await cdp.eval(`!!document.querySelector('#${facade} iframe') && !document.querySelector('#${facade} .ld')`).catch(() => false);
+        }
+        expect(ready, `${page} loaded in its frame`).toBe(true);
+        expect(await cdp.eval(`document.querySelector('#${facade} iframe').src`)).toContain(`examples/films/${page}.html`);
+        expect(await cdp.eval(`document.querySelector('#${facade} iframe').contentWindow.__ready === true`), `${page} is ready`).toBe(true);
+        expect(await cdp.eval(`JSON.stringify(document.querySelector('#${facade} iframe').contentWindow.__logs)`), `${page} logged nothing`).toBe('[]');
+      }
+    } finally {
+      try { proc.kill(); } catch { /* gone */ }
+      server.close();
+      await check.sleep(200);
+      try { rmSync(userDataDir, { recursive: true, force: true }); } catch { /* chrome may still hold files */ }
+    }
+  }, 180_000);
+
   it('a poster in the gallery strip opens THAT piece in a player and plays it on the click; its link goes to that piece in the gallery; closing stops it', async () => {
     const { server, port } = await check.serve(root);
     const userDataDir = mkdtempSync(join(tmpdir(), 'landing-'));

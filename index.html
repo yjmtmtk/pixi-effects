@@ -103,6 +103,40 @@
       </div>
     </div>
 
+    <!-- two more films, played live the same way as the reel: a click starts the page behind the poster -->
+    <div class="films" id="films">
+      <div class="feature">
+        <div class="facade" id="inkFacade">
+          <img src="examples/films/ink-and-paper.jpg" width="1280" height="720" alt="Poster of the film “Ink and paper”: the word pixi-effects in heavy serif type over a red hatched circle, with a hand-written note above it." loading="lazy">
+          <button type="button" id="inkBtn" aria-label="Play the film “Ink and paper” live: 45 seconds, with sound">
+            <span class="play" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3 1.5l11 6.5-11 6.5z"/></svg></span>
+            <span class="hint" aria-hidden="true">play · sound on</span>
+          </button>
+        </div>
+        <div class="feature-info">
+          <p class="lbl"><span class="dia" aria-hidden="true"></span>A film · paper and ink</p>
+          <h3>A film an AI wrote, in one page</h3>
+          <p>It opens in a terminal where an AI is asked for a video, then plays it: hand-drawn data (Rough.js, D3), a three.js knot, a paper diorama lit by one spot, a shader, sound written as text, and the whole film rewinding. <strong>One HTML page of data</strong>, written by an AI model from the docs and a short brief.</p>
+          <p class="fmeta"><span>1920×1080</span><span>45 s</span><span>Rough.js · D3 · three.js</span><span><a href="examples/films/ink-and-paper.html">open the page with controls</a></span></p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="facade" id="lightFacade">
+          <img src="examples/films/light-as-material.jpg" width="1280" height="720" alt="Poster of the film “Light as a material”: 2,880 thin rods in a wave, lit blue in the dark, above the word MATERIAL in thin capitals." loading="lazy">
+          <button type="button" id="lightBtn" aria-label="Play the film “Light as a material” live: 45 seconds, with sound">
+            <span class="play" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3 1.5l11 6.5-11 6.5z"/></svg></span>
+            <span class="hint" aria-hidden="true">play · sound on</span>
+          </button>
+        </div>
+        <div class="feature-info">
+          <p class="lbl"><span class="dia" aria-hidden="true"></span>A film · light as a material</p>
+          <h3>The same idea, at night</h3>
+          <p>A spot light with cast shadows, 2,880 rods drawn by three.js and moved by one function of time, the film's own layer tree laid out by D3, a hand-drawn lens, a camera flight with focus pulls, and music written as text.</p>
+          <p class="fmeta"><span>1920×1080</span><span>45 s</span><span>three.js · D3 · Rough.js</span><span><a href="examples/films/light-as-material.html">open the page with controls</a></span></p>
+        </div>
+      </div>
+    </div>
+
     <!-- the composition panel: data in, video out -->
     <div class="comp" id="demo">
       <div class="comp-bar" aria-hidden="true">
@@ -637,15 +671,16 @@ await movie.setVars({ name: 'Ben' });          // built again at the same frame;
       st.textContent='.movie-controller > *{zoom:'+Math.min(2.4,Math.max(1,1/k)).toFixed(3)+'}';
     }catch(e){ /* another origin: leave the frame as it is */ }
   }
-  var fitting=0; window.addEventListener('resize',function(){ clearTimeout(fitting); fitting=setTimeout(function(){ document.querySelectorAll('#player iframe, #kmFacade iframe, #reelFacade iframe').forEach(fitFrame); },120); });
+  var fitting=0; window.addEventListener('resize',function(){ clearTimeout(fitting); fitting=setTimeout(function(){ document.querySelectorAll('#player iframe, #kmFacade iframe, #reelFacade iframe, #inkFacade iframe, #lightFacade iframe').forEach(fitFrame); },120); });
 
-  // the reel: the same page the link opens, played in the frame from this origin
-  var rb=document.getElementById('reelBtn'), rf=document.getElementById('reelFacade');
+  // the reel and the two films: the same page the link opens, played in the frame from this origin
+  function liveFilm(btnId,hostId,url,title,what){
+  var rb=document.getElementById(btnId), rf=document.getElementById(hostId);
   if(rb) rb.addEventListener('click',function(){
-    var f=openPiece('reel',rf,'examples/showreel/pixi-effects-reel.html'); f.title='The pixi-effects reel, playing live'; rb.remove();
+    var f=openPiece(hostId,rf,url); f.title=title; rb.remove();
     // the poster stays until the page behind it has drawn its first frame; a spinner and a line say that it is loading, not stuck
     var still=rf.querySelector('img'), ld=document.createElement('div'), n=0;
-    ld.className='ld'; ld.setAttribute('role','status'); ld.innerHTML='<b><i aria-hidden="true"></i><span>loading the reel…</span></b><u class="bar" aria-hidden="true"></u>'; rf.appendChild(ld);
+    ld.className='ld'; ld.setAttribute('role','status'); ld.innerHTML='<b><i aria-hidden="true"></i><span>loading '+what+'…</span></b><u class="bar" aria-hidden="true"></u>'; rf.appendChild(ld);
     function done(msg){ if(msg){ ld.querySelector('span').textContent=msg; ld.querySelector('i').remove(); } else { still.style.display='none'; ld.remove(); } }
     // the page in the frame says how far it is on its own loader (data-stage / data-percent, the library writes them); say it here too
     var label=ld.querySelector('span'), bar=ld.querySelector('.bar');
@@ -658,9 +693,13 @@ await movie.setVars({ name: 'Ben' });          // built again at the same frame;
     (function wait(){
       progress();
       try{ if(f.contentWindow.__ready===true){ setTimeout(function(){ done(); },400); return; } }catch(e){ done(); return; }
-      if(++n<250) setTimeout(wait,100); else done('could not load the reel here: open the page with controls');
+      if(++n<250) setTimeout(wait,100); else done('could not load '+what+' here: open the page with controls');
     })();
   });
+  }
+  liveFilm('reelBtn','reelFacade','examples/showreel/pixi-effects-reel.html','The pixi-effects reel, playing live','the reel');
+  liveFilm('inkBtn','inkFacade','examples/films/ink-and-paper.html','The film Ink and paper, playing live','the film');
+  liveFilm('lightBtn','lightFacade','examples/films/light-as-material.html','The film Light as a material, playing live','the film');
 
   // a real piece, live (a video facade for the published gallery page)
   var km=document.getElementById('kmBtn'), kmFacade=document.getElementById('kmFacade');

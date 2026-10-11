@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+**Landing: two 45-second films next to the reel**
+
+- `examples/films/ink-and-paper.html` and `examples/films/light-as-material.html`: two films, each one HTML page of data, played live from the landing page on a click (the same way as the reel). They open in a terminal where an AI is asked for a video and then combine Rough.js, D3 and three.js with the library's own features (springs, particles, shaders, warp, light and shadows, depth of field, camera paths, time remap, music and sfx written as text). Written by an AI model from the docs and a short brief. Their web fonts load inside the film pages only; the landing page itself still loads nothing from third parties.
+- They are not gallery pieces (the gallery's rules are 8–14 s and no third-party fonts), so the gallery's 52 is unchanged.
+- A browser test: each of the two cards loads its page on a click, the page is ready and logs nothing.
+
 ## 0.31.0
 
 **Added: variables, and a composition that is built again (design: `docs/superpowers/specs/2026-10-11-variables-0.31-design.md`)**

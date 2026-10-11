@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>pixi-effects — light as a material (a 45-second film)</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@100;500&family=PT+Mono&display=block" />
+  <style>
+    body { background: #070b14; margin: 0; padding: 16px; }
+    .stage { position: relative; width: min(1280px, 100%); --pe-loader-bg: #070b14; }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1920" height="1080"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>
+  </div>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny@1.61.3",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0",
+      "roughjs":                 "https://esm.sh/roughjs@4.6.6",
+      "d3-shape":                "https://esm.sh/d3-shape@3.2.0",
+      "d3-scale":                "https://esm.sh/d3-scale@4.0.2",
+      "d3-force":                "https://esm.sh/d3-force@3.0.0"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="../../dist/index.js" />
+
+  <script type="module">
+    import { Movie, animateText, measureText, particles, cameraPath, wiggle, react, musicEnvelope, random } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+    import { registerThree, three } from 'pixi-effects/three';
+    import * as THREE from 'three';
+    import rough from 'roughjs';
+    import { line as d3line, pie as d3pie, curveCatmullRom } from 'd3-shape';
+    import { scaleLinear } from 'd3-scale';
+    import { forceSimulation, forceManyBody, forceLink, forceCenter, forceCollide } from 'd3-force';
+
+    registerThree();
+    // web fonts (the same look on every machine) must be ready before anything is measured or drawn
+    await Promise.all([document.fonts.load('100 60px "Albert Sans"'), document.fonts.load('500 24px "Albert Sans"'), document.fonts.load('400 24px "PT Mono"')]);
+
+    // ───────────────────────── constants ─────────────────────────
+    const W = 1920, H = 1080, FPS = 30, DURATION = 45;
+    const BPM = 120, BEAT = 60 / BPM, BAR = 4 * BEAT;                 // 0.5 s, 2 s: every cut sits on a bar line
+    const snap = t => Math.round(t * FPS) / FPS;
+
+    // palette: ink ground, one white, one mute, two accent hues (tungsten amber, ice cyan)
+    const INK = '#070b14', INK2 = '#0b1222', WHITE = '#eef2f7', MUTE = '#7d889c', DIM = '#46506a';
+    const AMBER = '#f2b35c', AMBER_HI = '#ffd9a3', CYAN = '#8fd8ff', CYAN_HI = '#dff4ff';
+    const SANS = '"Albert Sans", "Avenir Next", system-ui, sans-serif', MONO = 'PT Mono';
+    const thin = (size, extra = {}) => ({ fontFamily: SANS, fontWeight: '100', fontSize: size, fill: WHITE, letterSpacing: Math.round(size * 0.18), ...extra });
+    const caps = (size, extra = {}) => ({ fontFamily: SANS, fontWeight: '500', fontSize: size, fill: CYAN, letterSpacing: Math.round(size * 0.3), ...extra });
+    const mono = (size, extra = {}) => ({ fontFamily: MONO, fontWeight: '400', fontSize: size, fill: MUTE, ...extra });
+    const glowText = (color, blur = 14, alpha = 0.6) => ({ dropShadow: { color, blur, distance: 0, alpha }, padding: blur + 6 });
+    const rgba = (hex, a) => { const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)); return `rgba(${r},${g},${b},${a})`; };
+
+    // the schedule (movie seconds): the terminal, then the reel the AI "wrote"
+    const T = { light: 10, material: 16, data: 22, sketch: 28, flight: 32, end: 38 };
+
+    // ───────────────────────── helpers ─────────────────────────
+    let sfxN = 0;
+    const sfx = (preset, at, o = {}) => ({
+      type: 'audio', name: `sfx-${preset}-${sfxN++}`, at: snap(at), volume: o.volume ?? 0.8,
+      sfx: (o.pitch == null && o.brightness == null && o.seed == null) ? preset
+        : { preset, ...(o.pitch != null && { pitch: o.pitch }), ...(o.brightness != null && { brightness: o.brightness }), ...(o.seed != null && { seed: o.seed }) },
+      ...(o.duration ? { duration: o.duration } : {}),
+    });
+    const bg = (color = INK, extra = {}) => ({ type: 'shape', shape: 'rect', name: 'bg', width: W, height: H, ...extra, initial: { x: W / 2, y: H / 2, fillColor: color, ...(extra.initial || {}) } });
+    const scene = (name, at, duration, sequences, extra = {}) => ({ type: 'composition', name, at, duration, width: W, height: H, sequences, ...extra });
+    const glowBlob = (name, x, y, r, color, alpha = 0.5, extra = {}) => ({
+      type: 'shape', shape: 'circle', name, radius: r, blendMode: 'add', ...extra,
+      fillGradient: { type: 'radial', stops: [[0, rgba(color, alpha)], [0.4, rgba(color, alpha * 0.35)], [1, rgba(color, 0)]] },
+      initial: { x, y, ...(extra.initial || {}) },
+    });
+    const smooth = v => { v = Math.min(1, Math.max(0, v)); return v * v * (3 - 2 * v); };
+
+    // ───────────────────────── the score: 23 bars at 120 bpm, written as text ─────────────────────────
+    // bar n covers [2(n−1), 2n) s. Scenes start on bars 6, 9, 12, 15, 17, 20.
+    const BARS = ['Dm', 'Dm', 'Dm', 'Dm', 'Dm', 'Dm9', 'Bbmaj7', 'Fmaj7', 'Csus2', 'Dm9', 'Bbmaj7', 'Fmaj7', 'Csus2', 'Dm9', 'Bbmaj7', 'Fmaj7', 'Csus2', 'Dm9', 'Bbmaj7', 'Fmaj7', 'Csus2', 'Dm9', 'Dm'];
+    const ROOT = { Dm: ['d2', 'a1'], Dm9: ['d2', 'a1'], Bbmaj7: ['bb1', 'f2'], Fmaj7: ['f2', 'c2'], Csus2: ['c2', 'g1'] };
+    const ARP = { Dm: 'd4 f4 a4 d5 a4 f4 d4 a4', Dm9: 'd4 f4 a4 e5 a4 f4 d4 a4', Bbmaj7: 'bb3 d4 f4 a4 f4 d4 bb3 f4', Fmaj7: 'f3 a3 c4 e4 c4 a3 f3 c4', Csus2: 'c4 d4 g4 c5 g4 d4 c4 g4' };
+    const bar = fn => BARS.map((c, i) => fn(c, i + 1)).join(' | ');
+    const MUSIC = {
+      bpm: BPM, reverb: 0.3, drumVol: 0.85, seed: 3,
+      tracks: [
+        { inst: 'pad', vol: [[0, 0.2], [20, 0.2], [22, 0.72], [60, 0.72], [64, 0.8], [80, 0.7]], attack: 0.6, release: 1.6, reverb: 0.5, notes: bar(c => `${c}:4`) },
+        { inst: 'sub', vol: 0.5, notes: bar((c, n) => n <= 5 ? 'd1:3.5 _:0.5' : '_:4') },
+        { inst: 'bass', vol: 1.0, reverb: 0.05,
+          notes: bar((c, n) => n <= 5 ? '_:4' : n >= 21 ? `${ROOT[c][0]}:4` : `${ROOT[c][0]}:1.5 ${ROOT[c][0]}:0.5 _:1 ${ROOT[c][0]}:0.5 ${ROOT[c][1]}:0.5`) },
+        { inst: 'keys', vol: 0.6, pan: -0.2, strum: 0.012, tone: 0.6,
+          notes: bar((c, n) => ((n >= 9 && n <= 14) || (n >= 17 && n <= 19)) ? `_:1.5 ${c}:0.5 _:1 ${c}:1` : n >= 20 ? `${c}:4` : '_:4') },
+        { inst: 'pluck', vol: [[0, 0], [42, 0], [44, 0.5]], pan: 0.25, step: 0.5, tone: 0.7, reverb: 0.3,
+          notes: bar((c, n) => ((n >= 12 && n <= 14) || (n >= 17 && n <= 19)) ? ARP[c] : '_:4') },
+        { inst: 'lead', vol: 0.55, pan: 0.1,
+          notes: '_:48 | a4:1 c5:0.5 d5:1.5 c5:1 | a4:0.5 g4:0.5 f4:1 e4:2 | _:12 | a4:1 c5:0.5 d5:1.5 c5:1 | a4:0.5 g4:0.5 f4:1 e4:2 | _:16' },
+        { inst: 'bell', vol: 0.5, pan: -0.1, ring: 1.2, notes: '_:80 | a5:1 f5:1 d5:2 | e5:1 f5:1 a5:2 | d5:4' },
+        { inst: 'musicbox', vol: 0.35, step: 0.5, notes: bar((c, n) => n <= 5 ? (n % 2 ? 'd5 _ _ _ a5 _ _ _' : '_ _ _ _ _ _ f5 _') : '_:4') },
+      ],
+      drums: [
+        { from: 32, to: 56, kick: 'x.........x.....', snare: '........x.......', hat: 'o.o.o.o.o.o.o.o.' },   // 16–28 s, half time
+        { from: 64, to: 72, kick: 'x.........x.....', snare: '........x.......', hat: 'x.x.x.x.x.x.x.x.' },   // 32–36 s
+        { from: 72, to: 76, kick: 'x...x...x...x...', snare: '....x...x.x.xxxx', hat: 'xxxxxxxxxxxxxxxx' },   // 36–38 s, the fill
+        { from: 76, to: 80, crash: 'x...............', kick: 'x...............' },                              // 38 s, the crash
+      ],
+    };
+    const env = await musicEnvelope(MUSIC, { frameRate: FPS });    // the score analysed before init: rods and gates follow the kick
+
+    // ───────────────────────── 00 · the terminal (0–11.5): a 2.5D window, typed by hand, answered by the agent ─────────────────────────
+    function terminalScene() {
+      const WIN_W = 1480, WIN_H = 790, TITLE_H = 44, PAD = 90;
+      const CW = WIN_W + 2 * PAD, CH = WIN_H + 2 * PAD;
+      const FS = 25, ROW = 38;
+      const wx = PAD, wy = PAD, wcx = CW / 2, wcy = CH / 2;
+      const SX = wx, SY = wy + TITLE_H, SH = WIN_H - TITLE_H;
+      const ROWS = Math.floor((SH - 24) / ROW);
+      const mctx = document.createElement('canvas').getContext('2d');
+      const measure = (s, font) => { mctx.font = font; return mctx.measureText(s).width; };
+      const ADV = measure('M', `400 ${FS}px "${MONO}"`);
+      const colX = c => 30 + c * ADV;
+      const rowY = r => 22 + r * ROW + ROW / 2;
+      const st = (fill, glow = false) => ({ fontFamily: MONO, fontSize: FS, fill, ...(glow ? glowText(fill, 6, 0.45) : {}) });
+      const rnd = random(11);
+      const lines = [], cursorKeys = [], audio = [], scrollKeys = [];
+      let scrolled = 0;
+      const show = (row, t) => {
+        const need = row - (ROWS - 1) - scrolled;
+        if (need > 0) { scrolled += need; scrollKeys.push({ at: snap(t), to: { y: SY - scrolled * ROW }, duration: 0.14, ease: 'power2.out' }); }
+      };
+      const put = (t, row, col, text, fill, { glow = false, slide = false, name } = {}) => {
+        show(row, t); const x = colX(col);
+        lines.push({ type: 'text', name: name ?? `r${row}c${col}`, text, at: snap(t), style: st(fill, glow), initial: { x, y: rowY(row), anchorX: 0, anchorY: 0.5 },
+          keyframes: slide ? [{ at: 0, from: { alpha: 0, x: x - 10 }, to: { alpha: 1, x }, duration: 0.2, ease: 'power3.out' }] : [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 2 / FPS }] });
+      };
+      const putTokens = (t, row, tokens, opts = {}) => {
+        let col = 0;
+        for (const [s, fill] of tokens) { const lead = s.length - s.trimStart().length; if (s.trim()) put(t, row, col + lead, s.trim(), fill, { ...opts, name: `r${row}c${col + lead}` }); col += s.length; }
+      };
+      const typeOut = (t0, row, startCol, tokens) => {
+        let t = t0, col = startCol, n = 0;
+        for (const [s, fill] of tokens) for (const ch of s) {
+          t = snap(t + (ch === ' ' ? 0.055 : n < 12 ? 0.03 + rnd() * 0.03 : 0.022 + rnd() * 0.02));
+          if (ch !== ' ') lines.push({ type: 'text', name: `r${row}c${col}`, text: ch, at: t, style: st(fill, true), initial: { x: colX(col), y: rowY(row), anchorX: 0, anchorY: 0.5 } });
+          audio.push(sfx('click', t, { volume: 0.16 + rnd() * 0.14, pitch: Math.round(rnd() * 4 - 2) }));
+          col++; n++; cursorKeys.push({ at: t, set: { x: colX(col) } });
+          if (ch === ':') t = snap(t + 0.2); else if (ch === '.') t = snap(t + 0.08);
+        }
+        return t;
+      };
+      const blink = (keys, from, to, period = 0.5) => {
+        let on = false;
+        for (let t = snap(from + period); t < to; t = snap(t + period), on = !on) keys.push({ at: t, set: { alpha: on ? 1 : 0 } });
+        keys.push({ at: to, set: { alpha: 1 } });
+      };
+      // code lines, coloured by a tiny tokenizer: strings amber, numbers cyan, keys grey, words white
+      const KEY = '#aeb8cc';
+      const tok = line => {
+        const out = []; const re = /('[^']*'|\d+(?:\.\d+)?|[A-Za-z_][\w.]*|\s+|.)/g; let m;
+        while ((m = re.exec(line))) {
+          const s = m[0]; const next = line.slice(re.lastIndex, re.lastIndex + 1);
+          const fill = /^'/.test(s) ? AMBER : /^\d/.test(s) ? CYAN : /^[A-Za-z_]/.test(s) ? (next === ':' ? KEY : WHITE) : /^\s+$/.test(s) ? WHITE : MUTE;
+          out.push([s, fill]);
+        }
+        return out;
+      };
+      const progress = (t, row, label, dur) => {
+        put(t, row, 0, label, MUTE);
+        const x = colX(16), y = rowY(row), BW = 360, BH = 8;
+        lines.push({ type: 'shape', shape: 'rect', name: 'track', width: BW, height: BH, cornerRadius: BH / 2, anchorX: 0, at: t, initial: { x, y, fillColor: '#18213a' } });
+        lines.push({ type: 'shape', shape: 'rect', name: 'fill', width: 0, height: BH, cornerRadius: BH / 2, anchorX: 0, at: t, initial: { x, y, fillColor: AMBER },
+          keyframes: [{ at: 2 / FPS, to: { width: BW }, duration: dur, ease: 'power2.inOut' }] });
+        lines.push({ type: 'text', name: 'pct', text: '{value}%', at: t, style: st(MUTE), initial: { x: x + BW + 18, y, anchorX: 0, anchorY: 0.5, value: 0 },
+          keyframes: [{ at: 2 / FPS, to: { value: 100 }, duration: dur, ease: 'power2.inOut' }] });
+      };
+
+      // ── the session ──
+      const t1 = 0.75;
+      put(t1, 0, 0, '❯', AMBER, { glow: true });
+      cursorKeys.push({ at: t1, set: { alpha: 1, x: colX(2), y: rowY(0) } });
+      blink(cursorKeys, t1, t1 + 0.45);
+      let t = typeOut(t1 + 0.45, 0, 2, [['Use ', WHITE], ['https://github.com/yjmtmtk/pixi-effects', CYAN], [' to make a video:', WHITE]]);
+      cursorKeys.push({ at: snap(t + 0.02), set: { x: colX(2), y: rowY(1) } });
+      t = typeOut(snap(t + 0.1), 1, 2, [['a showreel. Night. Light as material.', WHITE]]);
+      const T_ENTER = snap(t + 0.3);
+      audio.push(sfx('click', T_ENTER, { volume: 0.55, pitch: -3 }));
+      cursorKeys.push({ at: T_ENTER, set: { alpha: 0 } });
+
+      let r = 3, ta = snap(T_ENTER + 0.15);
+      put(ta, r++, 0, '◆  reading skills/pixi-effects/SKILL.md · quickstart.md', MUTE, { slide: true });
+      ta = snap(ta + 0.35);
+      put(ta, r++, 0, '◆  writing reel.html', MUTE, { slide: true });
+      const CODE = [
+        "const reel = { width: 1920, height: 1080, fps: 30, duration: 45 }",
+        "sequences: [",
+        "  { type: 'camera', initial: { focus: 'title', aperture: 34, fogFar: 3600 } },",
+        "  { type: 'light', kind: 'spot', castsShadows: true, initial: { intensity: 1.5 } },",
+        "  { type: 'text', text: 'LIGHT AS A MATERIAL', threeD: true, style: thin(190) },",
+        "  three({ setup: rods, update: t => wave(t) }),",
+        "  ...particles({ count: 150, life: [1.2, 2.6], blendMode: 'add' }),",
+        "  ...graph.links.map(l => ({ type: 'shape', shape: 'line', trimEnd: 0 })),",
+        "  { type: 'shape', shape: 'path', d: rough.ellipse(960, 540, 120, 560) },",
+        "  { type: 'camera', keyframes: cameraPath({ points, duration: 6 }) },",
+        "  { type: 'audio', music: { bpm: 120, tracks, drums } },",
+        "  { type: 'audio', sfx: 'click', at: 1.2 },",
+        "],",
+        "transitions: [{ kind: 'luma', from: 'data', to: 'sketch', map: 'radial' }]",
+      ];
+      ta = snap(ta + 0.3);
+      CODE.forEach((line, i) => { const tt = snap(ta + i * 0.07); putTokens(tt, r++, tok(line), { slide: true }); if (i % 2 === 0) audio.push(sfx('typewriter', tt, { volume: 0.22, pitch: -5 })); });
+      const T_CODE_END = snap(ta + CODE.length * 0.07);
+
+      const T_CHECK = snap(T_CODE_END + 0.3);
+      r++;
+      putTokens(T_CHECK, r++, [['❯ ', AMBER], ['npx pixi-effects check reel.html', WHITE]], { slide: true });
+      audio.push(sfx('click', T_CHECK, { volume: 0.5 }));
+      const CHECKS = ['warnings  0', 'layout  no text cut off', 'audio  −16.0 LUFS  ·  −0.7 dBTP', '1350 frames  ·  45.0 s'];
+      CHECKS.forEach((s, i) => {
+        const tt = snap(T_CHECK + 0.3 + i * 0.16);
+        put(tt, r, 0, '✓', CYAN, { glow: true, slide: true, name: 'ok' + i });
+        put(tt, r++, 2, s, WHITE, { slide: true, name: 'ok' + i + '-label' });
+        audio.push(sfx('pop', tt, { volume: 0.5, pitch: i * 2 }));
+      });
+
+      const T_RENDER = snap(T_CHECK + 0.3 + CHECKS.length * 0.16 + 0.3);
+      r++;
+      putTokens(T_RENDER, r++, [['❯ ', AMBER], ['npx pixi-effects render reel.html -o reel.mp4', WHITE]], { slide: true });
+      audio.push(sfx('click', T_RENDER, { volume: 0.5 }));
+      const T_BAR = snap(T_RENDER + 0.25), BAR_DUR = 0.8;
+      progress(T_BAR, r++, '▸  rendering', BAR_DUR);
+      audio.push(sfx('riser', T_BAR, { duration: BAR_DUR, volume: 0.3, brightness: -0.3 }));
+      const T_DONE = snap(T_BAR + BAR_DUR + 0.1);
+      put(T_DONE, r, 0, '✓', CYAN, { glow: true, slide: true, name: 'done' });
+      put(T_DONE, r++, 2, 'reel.mp4  ·  1920×1080  ·  30 fps  ·  45 s', WHITE, { slide: true, name: 'done-label' });
+      audio.push(sfx('chime', T_DONE, { volume: 0.35, duration: 0.9 }));
+      cursorKeys.push({ at: snap(T_DONE + 0.1), set: { alpha: 1, x: colX(0), y: rowY(r) } });
+      show(r, T_DONE + 0.1);
+      window.__T = { T_ENTER, T_CODE_END, T_CHECK, T_RENDER, T_DONE };
+
+      cursorKeys.sort((a, b) => a.at - b.at);
+      const cursor = { type: 'shape', shape: 'rect', name: 'cursor', width: ADV, height: FS * 1.15, anchorX: 0, anchorY: 0.5,
+        initial: { x: colX(2), y: rowY(0), fillColor: AMBER_HI, alpha: 0 }, keyframes: cursorKeys };
+
+      // the screen: a composition that scrolls under a fixed mask (the mask stays, the content moves)
+      const screen = { type: 'composition', name: 'screen', width: WIN_W, height: 2400, initial: { x: SX, y: SY }, keyframes: scrollKeys,
+        mask: { type: 'shape', shape: 'rect', width: WIN_W - 2, height: SH - 1, anchorX: 0, anchorY: 0, initial: { x: SX + 1, y: SY, fillColor: '#ffffff' } },
+        sequences: [...lines, cursor] };
+
+      // window chrome and screen texture
+      const scan = (() => { const c = Object.assign(document.createElement('canvas'), { width: WIN_W, height: SH }); const g = c.getContext('2d'); g.fillStyle = 'rgba(0,0,0,0.16)'; for (let y = 1; y < SH; y += 3) g.fillRect(0, y, WIN_W, 1); return c.toDataURL(); })();
+      const chrome = [
+        { type: 'shape', shape: 'rect', name: 'shadow', width: WIN_W + 150, height: WIN_H + 150, initial: { x: wcx, y: wcy + 34 },
+          fillGradient: { type: 'radial', radius: 0.5, stops: [[0, 'rgba(0,0,0,0.9)'], [0.7, 'rgba(0,0,0,0.5)'], [1, 'rgba(0,0,0,0)']] } },
+        { type: 'shape', shape: 'rect', name: 'window', width: WIN_W, height: WIN_H, cornerRadius: 14, initial: { x: wcx, y: wcy, fillColor: INK2, strokeColor: '#243049', strokeWidth: 1 } },
+        { type: 'shape', shape: 'rect', name: 'titlebar', width: WIN_W - 2, height: TITLE_H + 14, cornerRadius: 14, anchorY: 0, initial: { x: wcx, y: wy + 1, fillColor: '#121a2e' } },
+        { type: 'shape', shape: 'rect', name: 'titlebar-patch', width: WIN_W - 2, height: 14, anchorY: 0, initial: { x: wcx, y: wy + TITLE_H, fillColor: INK2 } },
+        { type: 'shape', shape: 'rect', name: 'titlebar-rule', width: WIN_W - 2, height: 1, anchorY: 0, initial: { x: wcx, y: wy + TITLE_H, fillColor: '#243049' } },
+        ...[0, 1, 2].map(i => ({ type: 'shape', shape: 'circle', name: 'dot' + i, radius: 6, initial: { x: wx + 24 + i * 22, y: wy + TITLE_H / 2, fillColor: '#2c3650' } })),
+        { type: 'text', name: 'wtitle', text: 'reel  —  terminal  —  96×20', style: { fontFamily: SANS, fontWeight: '500', fontSize: 14, fill: MUTE, letterSpacing: 1 },
+          initial: { x: wcx, y: wy + TITLE_H / 2, anchorX: 0.5, anchorY: 0.5 } },
+      ];
+      const fx = [
+        { type: 'image', asset: 'scanlines', name: 'scanlines', initial: { x: SX, y: SY } },
+        { type: 'shape', shape: 'rect', name: 'crt', width: WIN_W, height: SH, anchorY: 0, initial: { x: wcx, y: SY },
+          fillGradient: { type: 'radial', radius: 0.8, stops: [[0.5, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.4)']] } },
+      ];
+
+      const T_RECEDE = T.light + 0.3;
+      const card = {
+        type: 'composition', name: 'terminal', threeD: true, width: CW, height: CH, duration: T_RECEDE + 1.3,
+        initial: { x: W / 2, y: H / 2 - 8, pivotX: CW / 2, pivotY: CH / 2, z: -320, alpha: 0, rotationY: -7, rotationX: 2.5 },
+        keyframes: [
+          { at: 0, to: { z: 0, alpha: 1 }, duration: 0.7, ease: 'expo.out' },
+          { at: 0.7, to: { rotationY: -4, rotationX: 1.2 }, duration: 9, ease: 'sine.inOut' },
+          { at: T_RECEDE, to: { z: -1900, x: W / 2 + 320, y: H / 2 + 60, rotationY: -32 }, duration: 1.25, ease: 'power3.in' },
+        ],
+        sequences: [...chrome, screen, ...fx],
+      };
+      audio.push(sfx('swoosh', T_RECEDE - 0.05, { pitch: -6, brightness: -0.4, volume: 0.7 }));
+      return { card, audio, scan };
+    }
+
+    // ───────────────────────── 01 · LIGHT (10–16): one lamp clicks on and sweeps the words; three blades throw shadows ─────────────────────────
+    function lightScene() {
+      const at = T.light, dur = T.material - T.light;
+      const WALL_Z = -520, TITLE_Z = -200, FLOOR_Y = 900;
+      const TW = 1600, TH = 560;
+      const titleStyle = thin(190, { letterSpacing: 36 });
+      const seqs = [bg(INK)];
+      seqs.push({ type: 'camera', name: 'cam', initial: { focus: 'title', aperture: 22, fogNear: 1500, fogFar: 3600, fogColor: INK, fogAmount: 0.9 },
+        keyframes: [{ at: 0, to: { offsetZ: -150, offsetY: -24 }, duration: dur, ease: 'sine.inOut' }] });
+      seqs.push({ type: 'light', kind: 'ambient', initial: { intensity: 0.06, color: '#8fa0d0' }, keyframes: [{ at: 4.3, to: { intensity: 0.16 }, duration: 1.3, ease: 'sine.inOut' }] });
+      seqs.push({ type: 'light', kind: 'spot', name: 'lamp', castsShadows: true,
+        initial: { x: 100, y: -560, z: 900, lookAtX: 170, lookAtY: 540, lookAtZ: TITLE_Z, coneAngle: 30, coneFeather: 0.55, intensity: 0, color: AMBER_HI, shadowDarkness: 0.85, shadowDiffusion: 14 },
+        keyframes: [
+          { at: 0.4, to: { intensity: 1.9 }, duration: 0.04 }, { at: 0.47, to: { intensity: 0.3 }, duration: 0.04 },
+          { at: 0.55, to: { intensity: 1.9 }, duration: 0.04 }, { at: 0.68, to: { intensity: 0.6 }, duration: 0.04 },
+          { at: 0.76, to: { intensity: 1.9 }, duration: 0.12 },
+          { at: 0.9, to: { x: 1820, lookAtX: 1750 }, duration: 3.1, ease: 'sine.inOut' },
+          { at: 4.3, to: { x: 960, y: -300, lookAtX: 960, coneAngle: 80, coneFeather: 0.85, intensity: 1.4 }, duration: 1.3, ease: 'sine.inOut' },
+        ] });
+      // the room: a wall far back, a floor laid flat from its foot
+      seqs.push({ type: 'shape', shape: 'rect', name: 'wall', width: W * 1.8, height: H * 1.7, threeD: true, initial: { x: W / 2, y: H / 2 - 120, z: WALL_Z, fillColor: '#262f4a' } });
+      seqs.push({ type: 'shape', shape: 'rect', name: 'floor', width: W * 1.9, height: 1500, anchorX: 0.5, anchorY: 0, threeD: true, initial: { x: W / 2, y: FLOOR_Y, z: WALL_Z, rotationX: 90, fillColor: '#141c30' } });
+      // the words: a card that the light reveals and that throws its own shadow on the wall
+      seqs.push({ type: 'composition', name: 'title', width: TW, height: TH, threeD: true, castsShadows: true,
+        initial: { x: W / 2, y: H / 2 - 30, z: TITLE_Z, pivotX: TW / 2, pivotY: TH / 2 },
+        sequences: [
+          { type: 'text', name: 'l1', text: 'LIGHT AS', style: titleStyle, initial: { x: TW / 2 + 18, y: 150, anchorX: 0.5, anchorY: 0.5 } },
+          { type: 'text', name: 'l2', text: 'A MATERIAL', style: titleStyle, initial: { x: TW / 2 + 18, y: 400, anchorX: 0.5, anchorY: 0.5 } },
+        ] });
+      // three blades standing between the lamp and the words
+      [430, 960, 1490].forEach((x, i) => seqs.push({ type: 'shape', shape: 'rect', name: 'blade' + i, width: 26, height: 1000, cornerRadius: 4, threeD: true, castsShadows: true,
+        initial: { x: x + (i - 1) * 46, y: H / 2 + 40, z: -70 + i * 32, fillColor: '#d7dde9' } }));
+      // dust in the air (2D, additive)
+      seqs.push(...particles({ count: 46, at: 0.3, emit: 5, life: [3, 5.5], area: { x: W / 2, y: H / 2, width: W, height: H }, angle: [-110, -70], speed: [4, 16],
+        sway: { amp: 14, freq: 0.3 }, size: [0.8, 2.1], fade: { in: 1.4, out: 1.2 }, colors: [AMBER_HI, AMBER, CYAN], blendMode: 'add', seed: 5, name: 'dust' }));
+      // sound: the lamp's switch, its stutter, the sweep, the room opening
+      seqs.push(sfx('hit', 0, { pitch: -5, brightness: -0.6, volume: 1.0 }));
+      seqs.push(sfx('click', 0.4, { pitch: -7, volume: 1.3 }), sfx('click', 0.55, { pitch: -4, volume: 0.7 }), sfx('click', 0.76, { pitch: -7, volume: 0.9 }));
+      seqs.push(sfx('swoosh', 0.9, { pitch: -9, brightness: -0.6, duration: 3.0, volume: 0.45 }));
+      seqs.push(sfx('chime', 4.4, { pitch: -7, brightness: -0.3, volume: 0.5 }));
+      return scene('light', at, dur, seqs);
+    }
+
+    // ───────────────────────── 02 · MATERIAL (16–22): a three.js field of 2,880 metal rods, a wave, two lamps that trade places ─────────────────────────
+    function materialScene() {
+      const at = T.material, dur = T.data - T.material;
+      const N = 72, M = 40;
+      let rods;
+      const m4 = new THREE.Matrix4(), p3 = new THREE.Vector3(), q4 = new THREE.Quaternion(), s3 = new THREE.Vector3(), eu = new THREE.Euler();
+      const field = three({
+        type: 'three', name: 'rods', width: W, height: H, resolution: 1.25,
+        initial: { x: W / 2, y: H / 2, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        setup: (ctx) => {
+          const { scene: sc, renderer } = ctx;
+          renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+          sc.fog = new THREE.FogExp2(new THREE.Color(INK), 0.075);
+          const envScene = new THREE.Scene();
+          const strip = (w, h, x, y, z, color, k) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(k), side: THREE.DoubleSide })); m.position.set(x, y, z); m.lookAt(0, 0, 0); envScene.add(m); };
+          strip(6, 1.2, -6, 6, 2, AMBER_HI, 4); strip(1.2, 8, 7, 3, -3, CYAN, 3); strip(8, 2, 0, 8, -6, '#ffffff', 1.2);
+          const pm = new THREE.PMREMGenerator(renderer); sc.environment = pm.fromScene(envScene, 0.04).texture; pm.dispose();
+          const mat = new THREE.MeshStandardMaterial({ color: 0xaab2c4, metalness: 0.92, roughness: 0.32 });
+          const geo = new THREE.BoxGeometry(0.07, 1, 0.07); geo.translate(0, 0.5, 0);
+          rods = new THREE.InstancedMesh(geo, mat, N * M); sc.add(rods);
+          const lampA = new THREE.PointLight(new THREE.Color(AMBER), 150, 40, 1.6); lampA.position.set(-5.5, 3.2, 2.5); sc.add(lampA);
+          const lampB = new THREE.PointLight(new THREE.Color(CYAN), 60, 40, 1.6); lampB.position.set(6, 2.6, -3); sc.add(lampB);
+          const rig = new THREE.Group(); sc.add(rig);
+          const camera = new THREE.PerspectiveCamera(34, ctx.width / ctx.height, 0.1, 100);
+          camera.position.set(0, 2.4, 10.5); camera.lookAt(0, 0.3, -1); rig.add(camera);
+          return { camera, objects: { rig, lampA, lampB } };
+        },
+        update: (t) => {                                   // a pure function of t: the wave, and the kick of the score
+          const amp = 0.42 + 0.3 * smooth((t - 4.2) / 1.6);
+          const kick = env.at(t + at, 'bass');
+          let k = 0;
+          for (let j = 0; j < M; j++) for (let i = 0; i < N; i++, k++) {
+            const x = (i - (N - 1) / 2) * 0.21, z = (j - (M - 1) / 2) * 0.21 - 1.5;
+            const w1 = Math.sin(x * 0.75 - t * 1.4 + Math.sin(z * 0.6 + t * 0.6) * 0.8);
+            const w2 = Math.cos(z * 0.9 + x * 0.3 - t * 1.1);
+            const h = 0.35 + amp * (0.5 + 0.5 * w1) + 0.2 * (0.5 + 0.5 * w2) + 0.3 * kick * Math.exp(-(x * x + (z + 1.5) * (z + 1.5)) * 0.05);
+            eu.set(0.32 * w2, 0, -0.32 * w1); q4.setFromEuler(eu); p3.set(x, 0, z); s3.set(1, h, 1);
+            m4.compose(p3, q4, s3); rods.setMatrixAt(k, m4);
+          }
+          rods.instanceMatrix.needsUpdate = true;
+        },
+        keyframes: [
+          { at: 0, to: { alpha: 1 }, duration: 0.5, ease: 'power2.out' },
+          { at: 0, to: { 'three.rig.rotation.y': 0.42 }, duration: dur, ease: 'sine.inOut' },
+          { at: 0, to: { 'three.camera.position.z': 8.6, 'three.camera.position.y': 2.0 }, duration: dur, ease: 'sine.inOut' },
+          { at: 2.0, to: { 'three.lampA.intensity': 14, 'three.lampB.intensity': 170 }, duration: 0.6, ease: 'power2.inOut' },     // bar 10: the cold lamp takes over
+          { at: 4.0, to: { 'three.lampA.intensity': 160, 'three.lampB.intensity': 110 }, duration: 0.8, ease: 'power2.inOut' },    // bar 11: both
+        ],
+      });
+      const seqs = [bg(INK), field];
+      seqs.push({ type: 'text', name: 'eyebrow', text: '2,880 RODS   ·   TWO LAMPS   ·   ONE FUNCTION OF t', at: 0.5, duration: dur - 0.5, style: caps(18),
+        initial: { x: 96, y: 96, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, from: { alpha: 0, x: 80 }, to: { alpha: 1, x: 96 }, duration: 0.6, ease: 'power2.out' }] });
+      seqs.push({ type: 'text', name: 'word', text: 'MATERIAL', at: 0.8, duration: dur - 0.8, blendMode: 'add', style: thin(150, { ...glowText(AMBER_HI, 22, 0.5) }),
+        initial: { x: 90, y: 250, anchorX: 0, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, from: { alpha: 0, x: 70 }, to: { alpha: 0.95, x: 90 }, duration: 0.9, ease: 'power3.out' }] });
+      seqs.push(sfx('hit', 0, { pitch: -2, volume: 1.0 }), sfx('swoosh', 0.05, { brightness: 0.2, volume: 0.5 }));
+      seqs.push(sfx('chime', 2.0, { pitch: -3, volume: 0.55 }), sfx('swoosh', 4.0, { pitch: 3, brightness: 0.3, volume: 0.4 }));
+      seqs.push(sfx('riser', dur - 1.0, { duration: 1.0, volume: 0.45 }));
+      return scene('material', at, dur, seqs);
+    }
+
+    // ───────────────────────── 03 · DATA (22–28.6): this film's own layer tree as a force graph, its layer counts as a ring, its score as a line ─────────────────────────
+    function dataScene(counts) {
+      const at = T.data, dur = T.sketch + 0.6 - T.data;
+      const seqs = [bg(INK)];
+      // the tree: root → scenes → the types each scene is made of
+      const nodes = [{ id: 'reel', depth: 0, r: 17 }], links = [];
+      for (const s of counts.scenes) {
+        nodes.push({ id: s.name, depth: 1, r: 10, label: s.name });
+        links.push({ source: 'reel', target: s.name });
+        for (const [type, n] of Object.entries(s.types)) {
+          const id = `${s.name}/${type}`;
+          nodes.push({ id, depth: 2, r: Math.min(9, 3 + Math.sqrt(n) * 0.85), type, n });
+          links.push({ source: s.name, target: id });
+        }
+      }
+      const sim = forceSimulation(nodes).randomSource(() => 0.5)
+        .force('charge', forceManyBody().strength(d => d.depth === 0 ? -1100 : d.depth === 1 ? -460 : -95))
+        .force('link', forceLink(links).id(d => d.id).distance(l => l.target.depth === 1 ? 200 : 64).strength(0.9))
+        .force('center', forceCenter(0, 0)).force('collide', forceCollide(d => d.r + 9)).stop();
+      for (let i = 0; i < 320; i++) sim.tick();
+      const xs = nodes.map(n => n.x), ys = nodes.map(n => n.y);
+      const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+      const sc = Math.min(880 / (maxX - minX), 640 / (maxY - minY)), GX = 560, GY = 500;
+      const P = n => [GX + (n.x - (minX + maxX) / 2) * sc, GY + (n.y - (minY + maxY) / 2) * sc];
+      const bloomAt = n => n.depth === 0 ? 0.25 : n.depth === 1 ? 0.6 + counts.scenes.findIndex(s => s.name === n.id) * 0.1 : 1.3 + (nodes.indexOf(n) % 37) * 0.028;
+      const graph = [];
+      links.forEach((l, i) => {
+        const [x1, y1] = P(l.source), [x2, y2] = P(l.target), t0 = bloomAt(l.target) - 0.25;
+        graph.push({ type: 'shape', shape: 'line', name: 'link' + i, from: [x1, y1], to: [x2, y2], trimEnd: 0, blendMode: 'add', at: t0, duration: dur - t0,
+          initial: { strokeColor: l.target.depth === 1 ? AMBER : CYAN, strokeWidth: l.target.depth === 1 ? 1.6 : 1.1, strokeAlpha: l.target.depth === 1 ? 0.75 : 0.5 },
+          keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.4, ease: 'power2.out' }] });
+      });
+      nodes.forEach((n, i) => {
+        const [x, y] = P(n), t0 = bloomAt(n), color = n.depth === 0 ? AMBER_HI : n.depth === 1 ? CYAN_HI : WHITE;
+        graph.push(glowBlob('halo' + i, x, y, n.r * 3.4, n.depth === 0 ? AMBER : CYAN, n.depth === 2 ? 0.35 : 0.6, { at: t0, duration: dur - t0, initial: { scale: 0 },
+          keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.7, ease: 'power2.out' }] }));
+        graph.push({ type: 'shape', shape: 'circle', name: 'node' + i, radius: n.r, at: t0, duration: dur - t0, initial: { x, y, fillColor: color, scale: 0 },
+          keyframes: [{ at: 0, to: { scale: 1 }, duration: 'auto', ease: 'spring.snappy' }] });
+        if (n.depth === 1) graph.push({ type: 'text', name: 'lbl-' + n.id, text: n.label, at: t0 + 0.1, duration: dur - t0 - 0.1, style: mono(19, { fill: CYAN_HI }),
+          initial: { x, y: y - n.r - 12, anchorX: 0.5, anchorY: 1, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.9 }, duration: 0.4 }] });
+        if (n.depth === 0) graph.push({ type: 'text', name: 'lbl-reel', text: 'reel.html', at: t0 + 0.1, duration: dur - t0 - 0.1, style: caps(18, { fill: AMBER_HI }),
+          initial: { x, y: y + n.r + 14, anchorX: 0.5, anchorY: 0, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.4 }] });
+      });
+      seqs.push({ type: 'camera', name: 'cam', keyframes: [{ at: 0, to: { offsetZ: -70, offsetX: 30 }, duration: dur, ease: 'sine.inOut' }] });
+      seqs.push({ type: 'composition', name: 'graph', width: W, height: H, threeD: true, initial: { x: W / 2, y: H / 2, pivotX: W / 2, pivotY: H / 2, rotationY: 9, rotationX: -3 }, sequences: graph });
+
+      // the ring: layers by type (d3 pie → arc slices that draw on)
+      const types = Object.entries(counts.types).sort((a, b) => b[1] - a[1]);
+      const total = types.reduce((s, [, n]) => s + n, 0);
+      const SLICE = [AMBER, CYAN, AMBER_HI, CYAN_HI, '#c9a06a', '#6fb6de', WHITE, MUTE];
+      const RX = 1400, RY = 440, R_IN = 150, R_OUT = 196;
+      const arcs = d3pie().sort(null).value(d => d[1])(types);
+      arcs.forEach((a, i) => {
+        const s = a.startAngle * 180 / Math.PI - 90 + 1.2, e = a.endAngle * 180 / Math.PI - 90 - 1.2;
+        if (e <= s) return;
+        const t0 = 1.4 + i * 0.12;
+        seqs.push({ type: 'shape', shape: 'arc', name: 'slice-' + a.data[0], radius: R_OUT, innerRadius: R_IN, startAngle: s, endAngle: s, at: t0, duration: dur - t0,
+          initial: { x: RX, y: RY, fillColor: SLICE[i % SLICE.length], fillAlpha: 0.92 }, keyframes: [{ at: 0, to: { endAngle: e }, duration: 0.7, ease: 'power3.out' }] });
+      });
+      seqs.push(glowBlob('ring-glow', RX, RY, 300, AMBER, 0.22, { at: 1.4, duration: dur - 1.4, initial: { alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 1.2 }] }));
+      seqs.push({ type: 'text', name: 'total', text: '{value}', format: { decimals: 0, grouping: true }, at: 1.4, duration: dur - 1.4, style: thin(84, { letterSpacing: 2 }),
+        initial: { x: RX, y: RY - 12, anchorX: 0.5, anchorY: 0.5, value: 0 }, keyframes: [{ at: 0, to: { value: total }, duration: 2.2, ease: 'power2.out' }] });
+      seqs.push({ type: 'text', name: 'total-label', text: 'LAYERS', at: 1.6, duration: dur - 1.6, style: caps(17), initial: { x: RX, y: RY + 52, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.5 }] });
+      types.forEach(([type, n], i) => {
+        const y = 300 + i * 36, t0 = 1.6 + i * 0.12;
+        seqs.push({ type: 'shape', shape: 'circle', name: 'leg-dot-' + type, radius: 4, at: t0, duration: dur - t0, initial: { x: 1626, y, fillColor: SLICE[i % SLICE.length], scale: 0 }, keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.3, ease: 'back.out(2)' }] });
+        seqs.push({ type: 'text', name: 'leg-' + type, text: type, at: t0, duration: dur - t0, style: mono(21), initial: { x: 1646, y, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, from: { alpha: 0, x: 1638 }, to: { alpha: 1, x: 1646 }, duration: 0.4, ease: 'power2.out' }] });
+        seqs.push({ type: 'text', name: 'leg-n-' + type, text: String(n), at: t0, duration: dur - t0, style: mono(21, { fill: CYAN_HI }), initial: { x: 1836, y, anchorX: 1, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.4 }] });
+      });
+
+      // the score read back as a line: the level of the music per 0.1 s, then it morphs into the bass
+      const pts = Array.from({ length: 451 }, (_, i) => i * 0.1);
+      const LX = scaleLinear().domain([0, 45]).range([240, 1680]), LY = scaleLinear().domain([0, 1]).range([935, 860]);
+      const pathOf = band => d3line().x(t => LX(t)).y(t => LY(env.at(t, band))).curve(curveCatmullRom.alpha(0.5))(pts);
+      seqs.push({ type: 'shape', shape: 'path', name: 'level', d: pathOf('level'), morphTo: pathOf('bass'), trimEnd: 0, strokeCap: 'round', strokeJoin: 'round', blendMode: 'add', at: 2.0, duration: dur - 2,
+        initial: { strokeColor: CYAN, strokeWidth: 2, strokeAlpha: 0.9 },
+        keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 1.6, ease: 'power2.inOut' }, { at: 3.4, to: { morph: 1, strokeColor: AMBER }, duration: 0.8, ease: 'power2.inOut' }] });
+      seqs.push({ type: 'shape', shape: 'line', name: 'level-axis', from: [240, 936], to: [1680, 936], at: 2.0, duration: dur - 2, initial: { strokeColor: DIM, strokeWidth: 1, strokeAlpha: 0.8 } });
+      seqs.push({ type: 'text', name: 'level-label', text: 'THE SCORE, READ BACK   ·   LEVEL', at: 2.1, duration: dur - 2.1, style: caps(15, { fill: MUTE }),
+        initial: { x: 1680, y: 846, anchorX: 1, anchorY: 1, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.4 }, { at: 3.3, set: { text: 'THE SCORE, READ BACK   ·   BASS' } }] });
+      seqs.push({ type: 'text', name: 'data-title', text: 'THE FILM, AS DATA', at: 0.3, duration: dur - 0.3, style: thin(54, { letterSpacing: 14 }),
+        initial: { x: 96, y: 92, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, from: { alpha: 0, x: 80 }, to: { alpha: 1, x: 96 }, duration: 0.7, ease: 'power3.out' }] });
+
+      seqs.push(sfx('hit', 0, { pitch: 1, brightness: 0.3, volume: 0.9 }), sfx('pop', 0.25, { pitch: -4, volume: 0.6 }));
+      counts.scenes.forEach((s, i) => seqs.push(sfx('pop', 0.6 + i * 0.1, { pitch: i * 2 - 2, volume: 0.45 })));
+      seqs.push(sfx('swipe', 1.3, { pitch: -4, brightness: -0.3, volume: 0.35 }), sfx('swipe', 1.9, { pitch: -2, brightness: -0.3, volume: 0.3 }));
+      seqs.push(sfx('chime', 2.1, { pitch: 2, volume: 0.4 }), sfx('click', 3.6, { pitch: 7, volume: 0.7 }), sfx('swoosh', 5.4, { pitch: -4, brightness: -0.5, volume: 0.45 }));
+      return scene('data', at, dur, seqs);
+    }
+
+    // ───────────────────────── 04 · BY HAND (28–32.4): a lens diagram sketched in light, the plan for the next shot ─────────────────────────
+    function sketchScene() {
+      const at = T.sketch, dur = T.flight + 0.4 - T.sketch;
+      const gen = rough.generator();
+      const sheet = [], audio = [];
+      const seqs = [bg(INK)];
+      let k = 0;
+      const stroke = (drawable, t0, d, color = AMBER_HI, w = 2.6) => {
+        for (const p of gen.toPaths(drawable)) {
+          const base = { type: 'shape', shape: 'path', d: p.d, trimEnd: 0, strokeCap: 'round', strokeJoin: 'round', at: t0, duration: dur - t0 };
+          sheet.push({ ...base, name: 'sk-glow' + k, blendMode: 'add', initial: { strokeColor: color, strokeWidth: w * 5, strokeAlpha: 0.14 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: d, ease: 'power2.inOut' }] });
+          sheet.push({ ...base, name: 'sk' + k++, initial: { strokeColor: color, strokeWidth: w, strokeAlpha: 0.95 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: d, ease: 'power2.inOut' }] });
+        }
+        audio.push(sfx('swipe', t0, { pitch: -8, brightness: -0.6, volume: 0.3, seed: k }));
+      };
+      const LX = 960, LY = 560, FX = 1500, FY = 560;
+      stroke(gen.line(176, 330, 170, 790, { seed: 2, roughness: 2.2, bowing: 2 }), 0.45, 0.5, MUTE, 2.2);                                   // the sensor
+      stroke(gen.ellipse(LX, LY, 120, 540, { seed: 3, roughness: 2.1, bowing: 2.2 }), 0.6, 0.9);                                              // the lens
+      [380, 560, 740].forEach((y, i) => stroke(gen.linearPath([[176, y], [LX - 24, y], [FX, FY], [1790, FY + (FY - y) * 0.55]], { seed: 11 + i, roughness: 2.3, bowing: 2.2 }), 1.0 + i * 0.22, 1.0, i === 1 ? AMBER_HI : CYAN, 2.2));
+      stroke(gen.circle(FX, FY, 56, { seed: 21, roughness: 2.0 }), 2.0, 0.5, AMBER_HI, 2.6);                                                 // the focus
+      stroke(gen.curve([[LX - 80, 270], [LX - 104, 560], [LX - 80, 850]], { seed: 33, roughness: 1.9 }), 2.3, 0.6, MUTE, 2);                 // the aperture bracket
+      [1120, 1310].forEach((x, i) => stroke(gen.line(x, 540, x + 4, 584, { seed: 41 + i, roughness: 1.8 }), 2.6 + i * 0.12, 0.25, MUTE, 2));  // depth ticks
+      const label = (name, text, x, y, t0, extra = {}) => sheet.push({ type: 'text', name, text, at: t0, duration: dur - t0, style: mono(24, { fill: CYAN_HI, ...extra }),
+        initial: { x, y, anchorX: 0, anchorY: 0.5, alpha: 0, visibleChars: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.1 }, { at: 0, to: { visibleChars: text.length }, duration: 0.35, ease: 'none' }] });
+      label('lb-focus', "focus: 'gate'", FX + 44, FY - 72, 2.5, { fill: AMBER_HI });
+      label('lb-aperture', 'aperture: 34', LX - 330, 240, 2.75);
+      label('lb-fog', 'fogFar: 2600', 1540, 905, 2.95);
+      label('lb-cam', 'camera', 150, 300, 0.7, { fill: MUTE });
+      label('lb-z1', 'z −420', 1090, 616, 2.7, { fill: MUTE, fontSize: 19 });
+      label('lb-z2', '−840', 1290, 616, 2.82, { fill: MUTE, fontSize: 19 });
+      sheet.push({ type: 'text', name: 'sk-title', text: 'THE PLAN, BY HAND', at: 0.55, duration: dur - 0.55, style: thin(60, { letterSpacing: 16 }),
+        initial: { x: 170, y: 160, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, from: { alpha: 0, y: 170 }, to: { alpha: 1, y: 160 }, duration: 0.8, ease: 'power2.out' }] });
+      // the whole sheet drifts and grows a little, like a slow push-in on a drawing
+      seqs.push({ type: 'composition', name: 'sheet', width: W, height: H, initial: { x: W / 2, y: H / 2, pivotX: W / 2, pivotY: H / 2 },
+        keyframes: [{ at: 0, to: { scale: 1.04, x: W / 2 - 14, y: H / 2 + 6 }, duration: dur, ease: 'sine.inOut' }], sequences: sheet });
+      seqs.push(...audio, sfx('pop', 0.5, { pitch: -6, brightness: -0.4, volume: 0.5 }));
+      return scene('sketch', at, dur, seqs);
+    }
+
+    // ───────────────────────── 05 · DEPTH (32–38.5): a flight through gates and panes, focus racking ahead, haze, motes, a rush into the light ─────────────────────────
+    const HAZE = `
+      float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float vnoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y); }
+      float fbm(vec2 p) { float v = 0.0, a = 0.5; for (int k = 0; k < 5; k++) { v += a * vnoise(p); p = p * 2.03 + vec2(1.7, 9.2); a *= 0.5; } return v; }
+      void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+        vec2 uv = fragCoord / iResolution.xy; vec2 c = uv - 0.5; c.x *= iResolution.x / iResolution.y;
+        float r = length(c);
+        float n = fbm(uv * 3.0 + vec2(iTime * 0.05, -iTime * 0.03));
+        float core = exp(-r * r * 6.0) * (0.5 + 0.5 * n);
+        float rays = pow(max(0.0, 0.5 + 0.5 * sin(atan(c.y, c.x) * 5.0 + iTime * 0.3 + n * 7.0)), 2.0) * exp(-r * 3.5) * 0.28 * (0.4 + 0.6 * n);
+        vec3 col = mix(cyan, amber, smoothstep(0.0, 0.5, r)) * (core + rays) * glow;
+        fragColor = vec4(col, 1.0);
+      }`;
+    function flightScene() {
+      const at = T.flight, dur = T.end + 0.5 - T.flight;
+      const GATES = 7, STEP = 420, FLY = 6;
+      const seqs = [bg(INK)];
+      seqs.push({ type: 'shader', name: 'haze', fragment: HAZE, resolution: 0.5, blendMode: 'add', uniforms: { glow: 0.3, amber: AMBER, cyan: CYAN },
+        keyframes: [{ at: 3.2, to: { 'uniforms.glow': 1.6 }, duration: 2.8, ease: 'power2.in' }] });
+      seqs.push({ type: 'camera', name: 'cam',
+        initial: { focus: -STEP, aperture: 34, fogNear: 600, fogFar: 2600, fogColor: INK, fogAmount: 0.95 },
+        keyframes: [
+          ...cameraPath({ points: [[960, 540, 2300], [1040, 500, 700], [900, 590, -900], [960, 540, -2500]], duration: FLY, ease: 'power1.in', frameRate: FPS }),
+          ...wiggle({ duration: FLY, freq: 7, seed: 4, props: { offsetX: { around: 0, amp: 4 }, offsetY: { around: 0, amp: 3 } } }),
+          { at: 0, to: { focus: -3900 }, duration: FLY, ease: 'power1.in' },
+        ] });
+      for (let i = 0; i < GATES; i++) {
+        seqs.push({ type: 'shape', shape: 'rect', name: 'gate' + i, width: 1500, height: 850, cornerRadius: 24, threeD: true, hideBehindCamera: true, blendMode: 'add',
+          initial: { x: 960, y: 540, z: -STEP * i, strokeColor: i % 2 ? AMBER : CYAN, strokeWidth: 5, fillAlpha: 0, strokeAlpha: 0.5 },
+          keyframes: react(env, { duration: dur, audioOffset: at, props: { strokeAlpha: { base: 0.4, amount: 0.6, band: 'bass', attack: 0.01, release: 0.25 } } }) });
+      }
+      // panes: the layers of a film, floating between the gates as thin cards
+      const PW = 520, PH = 320;
+      const paneContent = [
+        [{ type: 'text', text: 'Aa', style: thin(170, { letterSpacing: 10 }), initial: { x: PW / 2, y: PH / 2, anchorX: 0.5, anchorY: 0.5 } }],
+        [{ type: 'text', text: "{ type: 'text',\n  at: 32,\n  duration: 6 }", style: mono(26, { fill: CYAN_HI, align: 'left', lineHeight: 40 }), initial: { x: 60, y: 90, anchorX: 0, anchorY: 0 } }],
+        [{ type: 'shape', shape: 'path', d: d3line().curve(curveCatmullRom.alpha(0.5))([[60, 230], [140, 120], [230, 190], [320, 80], [400, 150], [470, 60]]), initial: { strokeColor: CYAN, strokeWidth: 4 }, strokeCap: 'round' }],
+        [{ type: 'shape', shape: 'arc', radius: 110, startAngle: -90, endAngle: 180, strokeCap: 'round', initial: { x: PW / 2, y: PH / 2, strokeColor: AMBER, strokeWidth: 8 } }],
+        [{ type: 'shape', shape: 'polygon', open: true, points: Array.from({ length: 48 }, (_, i) => [40 + i * 9.2, PH / 2 + Math.sin(i * 0.45) * 70 * Math.exp(-i * 0.02)]), initial: { strokeColor: WHITE, strokeWidth: 3 } }],
+        ...[[0]].map(() => [0, 1, 2, 3, 4].map(i => ({ type: 'shape', shape: 'rect', width: 48, height: 60 + i * 38, anchorY: 1, initial: { x: 120 + i * 72, y: 270, fillColor: i % 2 ? AMBER : CYAN, fillAlpha: 0.8 } }))),
+      ];
+      paneContent.forEach((content, i) => {
+        const x = i % 2 ? 1480 : 440, y = i % 3 === 0 ? 330 : 690, z = -STEP * i - 210;
+        seqs.push({ type: 'composition', name: 'pane' + i, width: PW, height: PH, threeD: true, hideBehindCamera: true,
+          initial: { x, y, z, pivotX: PW / 2, pivotY: PH / 2, rotationY: i % 2 ? -14 : 14, alpha: 0.9 },
+          sequences: [{ type: 'shape', shape: 'rect', width: PW, height: PH, cornerRadius: 16, initial: { x: PW / 2, y: PH / 2, fillColor: '#101a30', fillAlpha: 0.55, strokeColor: WHITE, strokeWidth: 1.5, strokeAlpha: 0.35 } }, ...content] });
+      });
+      // the light at the end of the corridor
+      seqs.push({ type: 'shape', shape: 'circle', name: 'sun', radius: 320, threeD: true, hideBehindCamera: true, blendMode: 'add', initial: { x: 960, y: 540, z: -STEP * GATES - 300, alpha: 0 },
+        fillGradient: { type: 'radial', stops: [[0, AMBER_HI], [0.35, rgba(AMBER_HI, 0.8)], [1, rgba(AMBER, 0)]] },
+        keyframes: [{ at: 2.5, to: { alpha: 1 }, duration: 2.5, ease: 'power2.in' }] });
+      seqs.push(glowBlob('sun-glow', 960, 540, 900, AMBER_HI, 0.9, { at: 4.6, duration: dur - 4.6, initial: { alpha: 0, scale: 0.4 }, keyframes: [{ at: 0, to: { alpha: 1, scale: 2.2 }, duration: FLY - 4.6, ease: 'power3.in' }] }));
+      // motes streaming toward the lens
+      seqs.push(...particles({ count: 150, at: 0, emit: FLY - 0.6, life: [1.2, 2.6], area: { x: W / 2, y: H / 2, width: 320, height: 200 }, angle: [0, 360], speed: [60, 420],
+        size: [1, 2.6], scale: [0.2, 2.4], fade: { in: 0.3, out: 0.3 }, colors: [WHITE, CYAN, AMBER_HI], blendMode: 'add', seed: 9, name: 'motes' }));
+      // sound: the arrival, each gate as it passes (t = 6·√((2300 + 420 i) / 4800)), the riser into the light
+      seqs.push(sfx('hit', 0, { pitch: -3, brightness: -0.4, volume: 0.9 }));
+      for (let i = 0; i < GATES - 1; i++) seqs.push(sfx('swoosh', FLY * Math.sqrt((2300 + STEP * i) / 4800) - 0.16, { pitch: (i % 2 ? 2 : -3), brightness: -0.2, volume: 0.32 }));
+      seqs.push(sfx('riser', FLY - 2.0, { duration: 2.0, volume: 0.8 }));
+      return scene('flight', at, dur, seqs);
+    }
+
+    // ───────────────────────── end card (38–45): the lockup lit by a sweep, the sentence, the licence, the brief as a ghost ─────────────────────────
+    function endScene() {
+      const at = T.end, dur = DURATION - T.end;
+      const seqs = [bg(INK)];
+      seqs.push({ type: 'shape', shape: 'ellipse', name: 'floor-glow', radiusX: 760, radiusY: 70, blendMode: 'add', initial: { x: W / 2, y: 790, alpha: 0 },
+        fillGradient: { type: 'radial', stops: [[0, rgba(AMBER, 0.4)], [0.5, rgba(AMBER, 0.12)], [1, rgba(AMBER, 0)]] }, keyframes: [{ at: 0.3, to: { alpha: 1 }, duration: 1.6 }] });
+      [820, 880].forEach((y, i) => seqs.push({ type: 'shape', shape: 'rect', name: 'rail' + i, width: W, height: 1, initial: { x: W / 2, y, fillColor: CYAN, fillAlpha: 0 },
+        keyframes: [{ at: 0.6 + i * 0.2, to: { fillAlpha: 0.22 - i * 0.08 }, duration: 1.2 }] }));
+      // the sweep: a matte shared by the lockup and its rule (its right edge is soft)
+      seqs.push({ type: 'shape', shape: 'rect', name: 'sweep', width: W * 2, height: H, anchorX: 0, anchorY: 0, initial: { x: -W * 2 + 100, y: 0 },
+        fillGradient: { type: 'linear', angle: 0, stops: [[0, '#ffffff'], [0.86, '#ffffff'], [1, 'rgba(255,255,255,0)']] },
+        keyframes: [{ at: 0.15, to: { x: 0 }, duration: 1.5, ease: 'power2.inOut' }] });
+      const TS = thin(176, { letterSpacing: 58, ...glowText(CYAN_HI, 18, 0.35) });
+      seqs.push({ type: 'text', name: 'lockup', text: 'PIXI-EFFECTS', mask: 'sweep', style: TS, initial: { x: W / 2 + 29, y: 470, anchorX: 0.5, anchorY: 0.5 },
+        filters: [{ type: 'warp', name: 'hz', kind: 'haze', strength: 9, scale: 60, speed: 1.2 }],
+        keyframes: [{ at: 0.2, to: { 'filters.hz.strength': 0 }, duration: 1.7, ease: 'power2.out' }] });
+      seqs.push({ type: 'shape', shape: 'rect', name: 'rule', width: 1140, height: 1, mask: 'sweep', initial: { x: W / 2, y: 574, fillColor: AMBER, fillAlpha: 0.75 } });
+      const TAG = 'ONE HTML FILE.  PLAIN DATA.';
+      const tagStyle = caps(32, { fill: CYAN_HI, letterSpacing: 10 });
+      const tagM = measureText(TAG, tagStyle), tagTop = 618 - tagM.height / 2;
+      seqs.push(...animateText(TAG, tagStyle, { by: 'words', x: W / 2, y: tagTop, align: 'center', at: 1.5, duration: dur - 1.5,
+        in: { from: { y: 16, alpha: 0 }, duration: 0.7, ease: 'power3.out' }, stagger: { each: 0.1 } }));
+      seqs.push({ type: 'text', name: 'meta', text: 'MIT LICENCE   ·   FREE   ·   OPEN SOURCE   ·   0.x  EXPERIMENTAL', at: 2.7, duration: dur - 2.7, style: mono(22, { letterSpacing: 5, fill: WHITE }),
+        initial: { x: W / 2, y: 690, anchorX: 0.5, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.78 }, duration: 0.8 }] });
+      // a hand-drawn underline under the first three words
+      const firstW = measureText('ONE HTML FILE.', tagStyle).width, left = W / 2 - tagM.width / 2 + 4;
+      const gen = rough.generator();
+      gen.toPaths(gen.line(left, 652, left + firstW, 650, { seed: 5, roughness: 1.4, bowing: 1.3 })).forEach((p, i) => seqs.push({ type: 'shape', shape: 'path', name: 'underline' + i, d: p.d, trimEnd: 0, strokeCap: 'round', at: 3.5, duration: dur - 3.5,
+        initial: { strokeColor: AMBER, strokeWidth: 2.4, strokeAlpha: 0.9 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.5, ease: 'power2.inOut' }] }));
+      // the brief, typed again as a ghost at the top
+      const GHOST = '❯ Use https://github.com/yjmtmtk/pixi-effects to make a video:';
+      const gw = measureText(GHOST, mono(24)).width;
+      seqs.push({ type: 'text', name: 'ghost', text: GHOST, at: 4.3, duration: dur - 4.3, style: mono(24, { fill: AMBER, align: 'left' }),
+        initial: { x: W / 2 - gw / 2, y: 150, anchorX: 0, anchorY: 0.5, alpha: 0.8, visibleChars: 0 }, keyframes: [{ at: 0, to: { visibleChars: GHOST.length }, duration: 0.9, ease: 'none' }] });
+      seqs.push({ type: 'text', name: 'footer', text: 'pixi-effects {version}   ·   1920×1080   ·   {fps} fps   ·   45 s   ·   music written as text', at: 1.2, duration: dur - 1.2, style: mono(20, { letterSpacing: 2 }),
+        initial: { x: 96, y: 1002, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.85 }, duration: 0.8 }] });
+      seqs.push(sfx('hit', 0, { pitch: -1, volume: 1.1 }), sfx('swoosh', 0.15, { pitch: -4, brightness: -0.3, duration: 1.4, volume: 0.5 }));
+      seqs.push(sfx('chime', 1.5, { pitch: 0, volume: 0.55 }), sfx('swipe', 3.5, { pitch: -8, brightness: -0.6, volume: 0.35 }));
+      for (let i = 0; i < 6; i++) seqs.push(sfx('typewriter', 4.3 + i * 0.15, { volume: 0.2, pitch: -3 }));
+      return scene('end', at, dur, seqs);
+    }
+
+    // ───────────────────────── overlays over every scene: chapter + the data behind the shot, a reel counter, the flash ─────────────────────────
+    function overlays() {
+      const CH = [
+        ['01', 'LIGHT', T.light + 0.6, T.material, "{ type: 'light', kind: 'spot', castsShadows: true }   ·   shadowDiffusion: 14"],
+        ['02', 'MATERIAL', T.material + 0.3, T.data, "three({ setup, update: t => wave(t) })   ·   InstancedMesh × 2,880   ·   PointLight × 2"],
+        ['03', 'DATA', T.data + 0.3, T.sketch, "d3.forceSimulation(tree).tick(320)  →  { type: 'shape' }   ·   d3.pie  →  shape: 'arc'"],
+        ['04', 'BY HAND', T.sketch + 0.4, T.flight, "rough.generator().toPaths(lens)  →  { shape: 'path', d, trimEnd: 0 → 1 }"],
+        ['05', 'DEPTH', T.flight + 0.3, T.end, "cameraPath({ points })   ·   focus: −420 → −3900   ·   aperture: 34   ·   fogFar: 2600"],
+      ];
+      const seqs = [];
+      CH.forEach(([n, w, from, to, code]) => {
+        const label = `${n}   ${w}`;
+        seqs.push({ type: 'text', name: 'ch-' + n, text: label, at: from, duration: to - from - 0.35, style: caps(18, { fill: CYAN_HI }),
+          initial: { x: 96, y: 968, anchorX: 0, anchorY: 0.5, visibleChars: 0 },
+          keyframes: [{ at: 0, to: { visibleChars: label.length }, duration: 0.3, ease: 'none' }, { at: -0.25, to: { alpha: 0 }, duration: 0.2 }] });
+        seqs.push({ type: 'text', name: 'code-' + n, text: code, at: from + 0.25, duration: to - from - 0.6, style: mono(21),
+          initial: { x: 96, y: 1002, anchorX: 0, anchorY: 0.5, alpha: 0 },
+          keyframes: [{ at: 0, from: { alpha: 0, x: 84 }, to: { alpha: 0.95, x: 96 }, duration: 0.4, ease: 'power2.out' }, { at: -0.25, to: { alpha: 0 }, duration: 0.2 }] });
+      });
+      seqs.push({ type: 'shape', shape: 'rect', name: 'reel-progress', width: 0, height: 2, anchorX: 0, anchorY: 1, at: T.light, duration: DURATION - T.light,
+        initial: { x: 0, y: H, fillColor: AMBER, fillAlpha: 0.8 }, keyframes: [{ at: 0, from: { width: W * T.light / DURATION }, to: { width: W }, duration: DURATION - T.light, ease: 'none' }] });
+      seqs.push({ type: 'text', name: 'frame-counter', text: 'f {value}', format: { decimals: 0, pad: 4 }, at: T.light + 0.6, duration: DURATION - T.light - 0.6, style: mono(21, { letterSpacing: 2 }),
+        initial: { x: W - 96, y: 1002, anchorX: 1, anchorY: 0.5, value: (T.light + 0.6) * FPS, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 0.9 }, duration: 0.4 }, { at: 0, to: { value: DURATION * FPS }, duration: DURATION - T.light - 0.6, ease: 'none' }] });
+      seqs.push({ type: 'text', name: 'mark', text: 'PIXI-EFFECTS   ·   SHOWREEL', at: T.light + 0.6, duration: T.end - T.light - 0.6, style: caps(15, { fill: WHITE }),
+        initial: { x: W - 96, y: 86, anchorX: 1, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.6 }, duration: 0.5 }, { at: -0.3, to: { alpha: 0 }, duration: 0.25 }] });
+      seqs.push({ type: 'shape', shape: 'rect', name: 'flash', width: W, height: H, at: T.end - 0.05, duration: 0.95, initial: { x: W / 2, y: H / 2, fillColor: '#fff4e2', alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.05 }, { at: 0.05, to: { alpha: 0 }, duration: 0.85, ease: 'power2.out' }] });
+      return seqs;
+    }
+
+    // ───────────────────────── the movie: build, count the layers, let the data scene show the count ─────────────────────────
+    const countTypes = (seqs, acc = {}) => {
+      for (const s of seqs) {
+        acc[s.type] = (acc[s.type] || 0) + 1;
+        if (s.sequences) countTypes(s.sequences, acc);
+        if (s.mask && typeof s.mask === 'object' && s.mask.type) acc[s.mask.type] = (acc[s.mask.type] || 0) + 1;
+      }
+      return acc;
+    };
+    const terminal = terminalScene();
+    const score = { type: 'audio', name: 'score', at: 0, volume: 1.55, music: MUSIC };
+    const parts = { terminal: [terminal.card, ...terminal.audio], light: [lightScene()], material: [materialScene()], sketch: [sketchScene()], flight: [flightScene()], end: [endScene()], captions: overlays(), score: [score] };
+    const summarise = (withData) => {
+      const scenes = Object.entries(withData).map(([name, seqs]) => ({ name, types: countTypes(seqs) }));
+      const types = {}; for (const s of scenes) for (const [k, n] of Object.entries(s.types)) types[k] = (types[k] || 0) + n;
+      return { scenes, types };
+    };
+    const order = ['terminal', 'light', 'material', 'data', 'sketch', 'flight', 'end', 'captions', 'score'];
+    const pick = (data) => Object.fromEntries(order.map(k => [k, k === 'data' ? data : parts[k]]));
+    const pass1 = dataScene(summarise(pick([])));                 // the data scene counts everything else, then itself
+    const counts = summarise(pick([pass1]));
+    const data = dataScene(counts);
+    window.__counts = counts;
+
+    const sequences = [
+      { type: 'shape', shape: 'rect', name: 'root-glow', width: W, height: H, duration: T.light + 1.6, initial: { x: W / 2, y: H / 2 },
+        fillGradient: { type: 'radial', center: [0.5, 0.55], radius: 0.7, stops: [[0, rgba(AMBER, 0.08)], [0.5, rgba(CYAN, 0.03)], [1, rgba(INK, 0)]] } },
+      { type: 'camera', name: 'rootcam', initial: { focus: 0, aperture: 30, fogNear: 1500, fogFar: 3400, fogColor: INK, fogAmount: 1 } },
+      ...parts.light, ...parts.material, data, ...parts.sketch, ...parts.flight, ...parts.end,
+      ...parts.terminal,
+      ...parts.captions,
+      score,
+    ];
+    const transitions = [
+      { kind: 'luma', from: 'data', to: 'sketch', at: T.sketch, duration: 0.6, map: 'radial', softness: 0.3, ease: 'power2.inOut' },
+      { kind: 'crossfade', from: 'sketch', to: 'flight', at: T.flight, duration: 0.4, ease: 'sine.inOut' },
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 19.5,
+        background: INK,
+        motionBlur: { samples: 6, shutter: 0.5 },
+        vars: { version: '0.31.0', fps: FPS },
+        assets: [{ name: 'scanlines', src: terminal.scan }],
+        composition: { sequences, transitions, filters: [{ type: 'grain', amount: 0.025, size: 1.5 }] },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>
