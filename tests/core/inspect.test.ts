@@ -120,17 +120,78 @@ describe('inspectScene', () => {
     expect(r.layers.find(l => l.name === 'still')!.moving).toBe(false);
   });
 
-  it('a layer is "moving" only when a KEYFRAME animates its x or y: an x in initial plus a fade is a still layer, and a cut-off one is reported', async () => {
+  it('a layer is "moving" only while a KEYFRAME that animates its geometry is running: an x in initial plus a fade is a still layer, and a cut-off one is reported', async () => {
     const comp = await scene([
       { type: 'text', name: 'fading', text: 'a', initial: { x: 1200, y: 100 }, keyframes: [{ at: 0, to: { alpha: 0.9 }, duration: 0.6 }] },
       { type: 'text', name: 'from', text: 'b', initial: { y: 300 }, keyframes: [{ at: 0, from: { x: 1500 }, to: { x: 100 }, duration: 2 }] },
-      { type: 'text', name: 'set', text: 'c', initial: { y: 500 }, keyframes: [{ at: 0, set: { x: 1200 } }] },
+      { type: 'text', name: 'set', text: 'c', initial: { x: 1200, y: 500 }, keyframes: [{ at: 0, set: { x: 1200 } }] },
     ]);
-    const r = inspectScene(comp, 60, 2, { width: 1280, height: 720 });
+    const r = inspectScene(comp, 30, 1, { width: 1280, height: 720 });
     expect(r.layers.find(l => l.name === 'fading')!.moving).toBe(false);
     expect(r.issues.some(i => i.includes('"fading"') && /cut off/.test(i))).toBe(true);
-    expect(r.layers.find(l => l.name === 'from')!.moving).toBe(true);        // `from` / `set` / `to` of x or y all count
-    expect(r.layers.find(l => l.name === 'set')!.moving).toBe(true);
+    expect(r.layers.find(l => l.name === 'from')!.moving).toBe(true);        // a tween of x is running at 1 s
+    expect(r.layers.find(l => l.name === 'set')!.moving).toBe(false);        // a `set` is instant: there is no motion, and it sits cut off
+    expect(r.issues.some(i => i.includes('"set"') && /cut off/.test(i))).toBe(true);
+  });
+
+  it('the commonest entrance, a rise + fade, is exempt only while it runs; once it has settled a title that is wider than the canvas is reported', async () => {
+    const comp = await scene([
+      { type: 'text', name: 'title', text: 'a', initial: { x: 1200, y: 100 }, keyframes: [{ at: 0.5, to: { y: 100, alpha: 1 }, duration: 0.5 }] },       // (the mock timeline does not run: the bounds are the initial ones)
+    ]);
+    const during = inspectScene(comp, 0, 0.75, { width: 1280, height: 720 });
+    expect(during.layers[0]!.moving).toBe(true);
+    expect(during.issues.some(i => /cut off/.test(i))).toBe(false);
+    const before = inspectScene(comp, 0, 0.2, { width: 1280, height: 720 });        // not started yet
+    expect(before.layers[0]!.moving).toBe(false);
+    const after = inspectScene(comp, 0, 2, { width: 1280, height: 720 });
+    expect(after.layers[0]!.moving).toBe(false);
+    expect(after.issues.some(i => /"title".*cut off/.test(i))).toBe(true);
+  });
+
+  it('a slide that leaves the canvas and stays parked there is not "entirely outside" (an exit), but a text that stops half cut off is reported', async () => {
+    const comp = await scene([
+      { type: 'text', name: 'exit', text: 'a', initial: { x: 5000, y: 100 }, keyframes: [{ at: 0, to: { x: 5000 }, duration: 1 }] },
+      { type: 'text', name: 'stops', text: 'b', initial: { x: 1200, y: 300 }, keyframes: [{ at: 0, to: { x: 1200 }, duration: 1 }] },
+      { type: 'text', name: 'parked', text: 'c', initial: { x: 5000, y: 500 } },       // never moved: really outside
+    ]);
+    const r = inspectScene(comp, 0, 3, { width: 1280, height: 720 });
+    expect(r.issues.some(i => i.includes('"exit"'))).toBe(false);
+    expect(r.issues.some(i => i.includes('"stops"') && /cut off/.test(i))).toBe(true);
+    expect(r.issues.some(i => i.includes('"parked"') && /outside the canvas/.test(i))).toBe(true);
+  });
+
+  it('a layer that waits outside the canvas until its entrance starts (a score bug above the top, a robot at the left) is not "entirely outside"; the same text with no motion is', async () => {
+    const comp = await scene([
+      { type: 'text', name: 'waits', text: 'a', initial: { x: 5000, y: 100 }, keyframes: [{ at: 2, to: { x: 600 }, duration: 0.5 }] },        // enters at 2 s
+      { type: 'text', name: 'never', text: 'b', initial: { x: 5000, y: 300 } },
+    ]);
+    const r = inspectScene(comp, 0, 0.1, { width: 1280, height: 720 });
+    expect(r.layers.find(l => l.name === 'waits')!.moving).toBe(false);                      // it is not moving yet ...
+    expect(r.issues.some(i => i.includes('"waits"'))).toBe(false);                            // ... but it is waiting for its entrance, not lost
+    expect(r.issues.some(i => i.includes('"never"') && /outside the canvas/.test(i))).toBe(true);
+  });
+
+  it('a zoom, a spin or a fly-through is motion too: scale, scaleX, rotation, z, anchor and pivot keyframes count, in the layer and in a composition that carries it', async () => {
+    const comp = await scene([
+      { type: 'text', name: 'zoom', text: 'a', initial: { x: 1200, y: 100 }, keyframes: [{ at: 0, to: { scale: 4 }, duration: 2 }] },
+      { type: 'text', name: 'fly', text: 'b', threeD: true, initial: { x: 1200, y: 200 }, keyframes: [{ at: 0, to: { z: 800 }, duration: 2 }] },
+      { type: 'text', name: 'pivot', text: 'c', initial: { x: 1200, y: 300 }, keyframes: [{ at: 0, to: { pivotX: 50 }, duration: 2 }] },
+      { type: 'composition', name: 'scene', width: 1280, height: 720, keyframes: [{ at: 0, to: { scale: 3 }, duration: 2 }],
+        sequences: [{ type: 'text', name: 'inner', text: 'd', initial: { x: 1200, y: 400 } }] },
+    ]);
+    const r = inspectScene(comp, 0, 1, { width: 1280, height: 720 });
+    for (const n of ['zoom', 'fly', 'pivot', 'scene/inner']) expect(r.layers.find(l => l.path === n)!.moving, n).toBe(true);
+    expect(r.issues.filter(i => /cut off|outside/.test(i))).toEqual([]);
+  });
+
+  it('a camera that moves carries every threeD layer with it (a pan is not "cut off"); a still camera does not', async () => {
+    const moving = await scene([
+      { type: 'camera', name: 'cam', keyframes: [{ at: 0, to: { x: 1800 }, duration: 2 }] },
+      { type: 'text', name: 'plane', text: 'a', threeD: true, initial: { x: 1200, y: 100 }, keyframes: [{ at: 0, to: { alpha: 0.9 }, duration: 0.5 }] },
+    ]);
+    const a = inspectScene(moving, 0, 1, { width: 1280, height: 720 });
+    expect(a.layers.find(l => l.name === 'plane')!.moving).toBe(true);
+    expect(a.issues.some(i => /"plane"/.test(i))).toBe(false);
   });
 
   it('judges overlaps on what is visible: text parked off the canvas, or hidden by its mask, does not overlap anything', async () => {

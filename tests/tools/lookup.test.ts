@@ -119,12 +119,27 @@ describe('new --size WxH --duration S: the page starts at the size and length as
   it('without them the page is the usual 1280x720, 6 s; a bad size or duration says what is accepted and writes nothing', () => {
     const dir = mkdtempSync(join(tmpdir(), 'new-size-'));
     expect(readFileSync(lookup.newPage('plain', { cwd: dir, root }).file, 'utf8')).toContain('const W = 1280, H = 720, FPS = 30, DURATION = 6;');
-    for (const bad of [['--size', '1080'], ['--size', '0x720'], ['--size', '9000x9000'], ['--duration', '0'], ['--duration', 'long'], ['--size']]) {
+    for (const bad of [['--size', '1080'], ['--size', '0x720'], ['--size', '9000x9000'], ['--duration', '0'], ['--duration', 'long'], ['--duration', '0x10'], ['--duration', '-5'], ['--size']]) {
       const r = cli(['new', 'bad', ...bad], dir);
       expect(r.status, bad.join(' ')).toBe(1);
-      expect(r.stderr).toMatch(/--size 1920x1080|--duration 12/);
+      expect(r.stderr).toMatch(/--size 1920x1080|--duration 12|--duration takes/);
       expect(existsSync(join(dir, 'bad.html'))).toBe(false);
     }
+  });
+});
+
+describe('new: an option nobody knows is refused, not turned into a page name', () => {
+  it('`new vid --fps 60` and `new --width 1920 vid` exit 1 naming the accepted options and write nothing; --size=WxH and a name after the flags work', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'new-flags-'));
+    for (const args of [['vid', '--fps', '60'], ['--width', '1920', 'vid']]) {
+      const r = cli(['new', ...args], dir);
+      expect(r.status, args.join(' ')).toBe(1);
+      expect(r.stderr).toMatch(/unknown option --(fps|width).*--size WxH, --duration S/);
+    }
+    expect(existsSync(join(dir, 'vid.html'))).toBe(false);
+    expect(existsSync(join(dir, '--fps.html'))).toBe(false);
+    expect(cli(['new', '--size=1920x1080', 'ok'], dir).status).toBe(0);
+    expect(readFileSync(join(dir, 'ok.html'), 'utf8')).toContain('const W = 1920, H = 1080, FPS = 30, DURATION = 6;');
   });
 });
 

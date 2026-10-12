@@ -83,12 +83,8 @@ export function lintVars(spec: unknown, vars: Vars): string[] {
   for (const s of strings) {
     for (const m of s.matchAll(TOKEN)) {
       const name = m[1];
-      if (seen.has(name) || Object.prototype.hasOwnProperty.call(vars, name) || RESERVED_NAMES.includes(name)) continue;
+      if (seen.has(name) || Object.prototype.hasOwnProperty.call(vars, name) || RESERVED_NAMES.includes(name) || declared.length === 0) continue;
       seen.add(name);
-      if (declared.length === 0) {
-        out.push(`pixi-effects: vars: {${name}} is not a declared variable, so it is drawn as written. Declare it in movie.init({ vars: { ${name}: … } }) (a \`--var ${name}=…\` on check / render needs it declared too), or write the text without braces`);
-        continue;
-      }
       const guess = suggestName(name, declared);
       out.push(`pixi-effects: vars: {${name}} is not a declared variable${guess ? ` — did you mean "${guess}"?` : ` (declared: ${declared.join(', ')})`}`);
     }

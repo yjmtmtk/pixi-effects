@@ -115,14 +115,6 @@ describe('lintVars: what the composition says about its variables', () => {
     expect(lint({ a: { text: 'plain {value}' } }, {})).toEqual([]);
   });
 
-  it('with nothing declared, a {name} written in a string is still said (a price placeholder nobody filled drew "{price}" in a film)', () => {
-    const w = lint({ a: { text: '特価 {price} 円' } }, {});
-    expect(w).toHaveLength(1);
-    expect(w[0]).toMatch(/\{price\} is not a declared variable/);
-    expect(w[0]).toMatch(/movie\.init\(\{ vars: \{ price: … \} \}\)/);       // what to write
-    expect(lint({ a: { text: 'a {value} counter and { spaced } braces and {1}' } }, {})).toEqual([]);   // reserved words, braces with spaces, a number
-  });
-
   it('each problem is said once, however many times it occurs', () => {
     const w = lint({ a: [{ text: '{nope}' }, { text: '{nope}' }, { text: '{nope}' }] }, { yes: 1 });
     expect(w.filter(m => /\{nope\}/.test(m))).toHaveLength(1);

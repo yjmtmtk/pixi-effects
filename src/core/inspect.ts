@@ -1,7 +1,7 @@
 import type { Container } from 'pixi.js';
 import type { Sequence } from '../sequences/Base';
 import { CompositionSequence } from '../sequences/Composition';
-import { collectKeyframeKeys } from '../space/specKeys';
+import type { Keyframe } from '../types';
 import { transitionWindowsOf } from './Transitions';
 import { maskSourceOf } from './matte';
 
@@ -58,6 +58,34 @@ const clip = (a: Rect, b: Rect): Rect | null => {
   return w > 0 && h > 0 ? { x, y, width: w, height: h } : null;
 };
 
+/** What a keyframe can move on the canvas: a layer whose own or whose parent's geometry is animated crosses the edge on purpose (a ticker, a zoom-through, a fly-through). */
+const GEOMETRY = new Set(['x', 'y', 'z', 'scale', 'scaleX', 'scaleY', 'rotation', 'rotationX', 'rotationY', 'skewX', 'skewY', 'positionX', 'positionY', 'pivotX', 'pivotY', 'anchorX', 'anchorY']);
+interface Motion { running: boolean; ever: boolean }
+const NO_MOTION: Motion = { running: false, ever: false };
+const either = (a: Motion, b: Motion): Motion => ({ running: a.running || b.running, ever: a.ever || b.ever });
+
+/**
+ * Is a geometry keyframe of this layer running at `local` (seconds since the layer started), and has one begun? A tween is running from its `at` for its `duration`
+ * (repeats included; a spring or any non-number length is taken to run on); a `set` is instant, so it is no motion. A fade (alpha only) is no motion.
+ * `ever`: the layer has a geometry tween at some time. A text that waits outside the canvas for its entrance, or slid out and stays parked there (an exit), is not
+ * called "entirely outside"; one that stops half cut off is still reported.
+ */
+function motionOf(keyframes: Keyframe[] | undefined, local: number, lives: number): Motion {
+  let running = false, ever = false;
+  for (const kf of keyframes ?? []) {
+    if (![kf.set, kf.to, kf.from].some(bag => bag && Object.keys(bag).some(k => GEOMETRY.has(k)))) continue;
+    const length = typeof kf.duration === 'number' ? kf.duration : kf.duration === undefined ? 0 : Infinity;
+    if (!(length > 0)) continue;
+    const kat = kf.at ?? 0;
+    const start = kat < 0 ? lives + kat : kat;
+    const repeats = kf.repeat ?? 0;
+    const end = Number.isFinite(length) ? start + length * (repeats + 1) + (kf.repeatDelay ?? 0) * repeats : Infinity;
+    ever = true;
+    if (local >= start - 1e-6 && local <= end + 1e-6) running = true;
+  }
+  return { running, ever };
+}
+
 /**
  * Describe where every layer is drawn at the CURRENT timeline position, and flag layout problems an AI
  * cannot see without looking: text that is off the canvas or cut by an edge, empty text, and text layers
@@ -76,10 +104,13 @@ export function inspectScene(
   const scene = new Map<LayerInfo, string>();
   // Layers whose own or an ancestor's scale is 0, or a typewriter that has not typed yet: no size is expected.
   const scaledToNothing = new Set<LayerInfo>();
+  // Layers with a geometry tween at some time: waiting outside the canvas for an entrance, or parked there after an exit, is on purpose.
+  const hasMotion = new Set<LayerInfo>();
 
-  const walk = (comp: CompositionSequence, prefix: string, insideThreeD: boolean, parentVisible: boolean, parentScene?: string, parentMoving = false, parentZero = false): void => {
+  const walk = (comp: CompositionSequence, prefix: string, insideThreeD: boolean, parentVisible: boolean, parentScene?: string, parentMotion: Motion = NO_MOTION, parentZero = false): void => {
     const blending = new Set<string>();
     const now = comp.childTime(time);                                   // the time its children live in (local when it is remapped)
+    const cameraMoves = (comp.spec.sequences ?? []).some(q => q.type === 'camera' && (q.keyframes ?? []).some(kf => [kf.set, kf.to, kf.from].some(bag => bag && Object.keys(bag).length > 0)));
     for (const w of transitionWindowsOf(comp.spec)) {
       const start = comp.childBase + w.start, end = comp.childBase + w.end;
       if (now >= start - 1e-9 && now <= end + 1e-9) { blending.add(w.from); blending.add(w.to); }
@@ -104,17 +135,20 @@ export function inspectScene(
         onCanvas = inter === 0 && area > 0 ? 'none' : inter >= area - 1e-6 ? 'full' : 'partial';
         if (area === 0) onCanvas = 'none';
       }
-      // moved by its own keyframes, or carried along by a parent that is (a panned timeline). A value only written in `initial` never moves:
-      // an x there plus a fade is a still layer, and a cut-off one must be reported.
-      const keys = collectKeyframeKeys(seq.spec);
-      const carried = carriers.some(c => { const k = collectKeyframeKeys(c.spec); return k.has('x') || k.has('y') || k.has('rotation') || k.has('scale'); });
-      const moving = parentMoving || carried || keys.has('x') || keys.has('y');
+      // Moving: a geometry keyframe of its own, of a null parent, of the composition that holds it, or a moving camera for a threeD layer, is running at this frame.
+      // An x in `initial` plus a fade is a still layer, and a cut-off one must be reported.
+      const localOf = (q: Sequence): number => now - comp.childBase - q.at;
+      let motion = either(parentMotion, motionOf(seq.spec.keyframes, localOf(seq), seq.duration ?? Infinity));
+      for (const c of carriers) motion = either(motion, motionOf(c.spec.keyframes, localOf(c), c.duration ?? Infinity));
+      if (threeD && cameraMoves) motion = { running: true, ever: true };
+      const moving = motion.running;
       const zeroScale = (o: unknown): boolean => { const s = (o as { scale?: { x: number; y: number } } | null)?.scale; return !!s && (s.x === 0 || s.y === 0); };
       const zero = parentZero || zeroScale(t) || carriers.some(c => zeroScale(c.target));
       const info: LayerInfo = { path: prefix + label, name, type: seq.spec.type, threeD, visible, alpha, moving, bounds, onCanvas };
       if (threeD) info.depthBlur = Number(depthBlur.toFixed(2));
       if (threeD && light !== undefined) info.light = Number(light.toFixed(2));
       layers.push(info);
+      if (motion.ever) hasMotion.add(info);
       let shown = bounds ? clip(bounds, view) : null;
       const maskTarget = seq.maskSequence?.target as Container | null | undefined;
       const maskSrc = maskSourceOf((seq.spec as { mask?: unknown }).mask);
@@ -126,7 +160,7 @@ export function inspectScene(
       const group = parentScene ?? (name !== undefined && blending.has(name) ? name : undefined);
       if (group) scene.set(info, group);
       if (zero || (seq as { showsNothingYet?: boolean }).showsNothingYet) scaledToNothing.add(info);
-      if (seq instanceof CompositionSequence) walk(seq, prefix + label + '/', insideThreeD || threeD, visible, group, moving, zero);
+      if (seq instanceof CompositionSequence) walk(seq, prefix + label + '/', insideThreeD || threeD, visible, group, motion, zero);
     });
   };
   walk(root, '', false, true);
@@ -143,6 +177,7 @@ export function inspectScene(
     } else if (l.moving || scene.has(l)) {
       // on purpose crossing the canvas edge (marquee, slide-in, a slide / zoom transition): not a layout problem
     } else if (l.onCanvas === 'none') {
+      if (hasMotion.has(l)) continue;                                    // waiting for an entrance, or parked after an exit
       issues.push(`${who} is entirely outside the canvas (at ${Math.round(b.x)},${Math.round(b.y)}, ${Math.round(b.width)}×${Math.round(b.height)})`);
     } else if (l.onCanvas === 'partial') {
       const over: string[] = [];

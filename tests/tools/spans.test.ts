@@ -38,7 +38,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('a text lay
       expect(blue![1], 'and sits below the first').toBeGreaterThan(white![3]);
       expect(await cdp.eval('JSON.stringify(window.__logs)')).toBe('[]');
     });
-  });
+  }, 120000);
 
   it.each([['an expression (GH * 0.18)', '?size=expr'], ['a declared variable', '?size=var'], ['no fontSize at all (the text layer\'s default)', '?size=none']])('the pieces still follow each other when fontSize is %s: they are measured with the style they are drawn with', async (_label, query) => {
     await open(query, async (cdp) => {

@@ -22,17 +22,20 @@ describe('analyzeAudio', () => {
     expect(r.sources[0]!.music).toEqual(music);
     expect(analyzeAudio(pcm(4, () => 0.3), [src('layer "s"', 'sfx "pop"', 0, 1)], { peak: 0.3, peakAt: 0 }, 4, { window: 1 }).sources[0]).not.toHaveProperty('music');
   });
-  it('a written music score that is much longer than the movie is said to be cut off mid-phrase (and how long it is), a score that ends with the movie is not', () => {
+  it('a written music score much longer than what plays is a NOTE (advice, not a fault: music that outlasts the movie ends with it): how long it is and how much plays', () => {
     const music = (seconds: number) => ({ bpm: 100, meter: 4, beats: Math.round(seconds * 100 / 60), bars: 1, seconds, tail: 2.5, tracks: [], drums: [] });
-    const run = (seconds: number, movie: number, start = 0) => analyzeAudio(pcm(movie, t => 0.2 * Math.sin(2 * Math.PI * 1000 * t)),
-      [{ ...src('layer "bgm"', 'music', start, movie), music: music(seconds) }], { peak: 0.2, peakAt: 1 }, movie, { window: 1 }).issues;
+    const run = (seconds: number, movie: number, start = 0, end = movie, loop = false) => analyzeAudio(pcm(movie, t => 0.2 * Math.sin(2 * Math.PI * 1000 * t)),
+      [{ ...src('layer "bgm"', 'music', start, end), loop, music: music(seconds) }], { peak: 0.2, peakAt: 1 }, movie, { window: 1 });
     const long = run(19.2, 10);
-    expect(long).toHaveLength(1);
-    expect(long[0]).toMatch(/layer "bgm" \(music\) is 19\.2s long but only 10s of it play: it is cut off mid-phrase at the end of the movie/);
-    expect(long[0]).toMatch(/fewer bars/);
-    expect(run(10, 10)).toEqual([]);                    // fits
-    expect(run(11.5, 10)).toEqual([]);                  // a little over: a tail, not a cut (under 2 s)
-    expect(run(24, 12, 4)[0]).toMatch(/only 8s of it play/);        // it starts at 4 s
+    expect(long.issues.some(i => /bgm/.test(i) && /cut off/.test(i))).toBe(false);        // not a fault: a loop-style movie ends its music with it on purpose
+    const note = long.notes.find(n => /bgm/.test(n))!;
+    expect(note).toMatch(/layer "bgm" \(music\): the score is 19\.2s long but only 10s of it play/);
+    expect(note).toMatch(/fewer bars/);
+    expect(run(10, 10).notes.some(n => /score is/.test(n))).toBe(false);                   // fits
+    expect(run(11.5, 10).notes.some(n => /score is/.test(n))).toBe(false);                 // a little over: a tail, not a cut
+    expect(run(24, 12, 4).notes.find(n => /score is/.test(n))).toMatch(/only 8s of it play/);        // it starts at 4 s
+    expect(run(24, 12, 0, 8).notes.find(n => /score is/.test(n))).toMatch(/only 8s of it play/);     // the LAYER ends at 8 s, before the movie does
+    expect(run(19.2, 10, 0, 10, true).notes.some(n => /score is/.test(n))).toBe(false);    // a looping layer is meant to be cut
   });
   it('a sound the clock of its composition cuts short is said to be cut by the CLOCK (not by the end of the movie)', () => {
     const mix = pcm(11, t => (t >= 4 && t < 5.5 ? 0.3 * Math.sin(2 * Math.PI * 1000 * t) : 0));

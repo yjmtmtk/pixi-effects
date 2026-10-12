@@ -153,6 +153,7 @@ export function analyzeAudio(
     const b = s.buffer!;
     return measure(Array.from({ length: b.numberOfChannels }, (_, c) => b.getChannelData(c)), b.sampleRate);
   };
+  const scoreNotes: string[] = [];
   const list = [...sources].sort((a, b) => a.start - b.start).map(s => {
     const layer = s.layer ?? 'an audio layer';
     const source = s.source ?? 'audio';
@@ -178,14 +179,12 @@ export function analyzeAudio(
         issues.push(`${layer} (${source}) is cut off by the end of the movie at ${movieDuration}s (it runs to ${s.end.toFixed(2)}s)`);
       }
     }
-    // A written score (`music`) longer than the movie is cut off mid-phrase (a trial: 19.2 s of music under a 10 s film; the read-back said so but nothing flagged it).
-    // A tail of under 2 s over the end, or under 15 % of the score, is only the reverb tail; a long music FILE ending with the movie is normal and is not checked.
-    if (s.music && s.start < movieDuration && !clock) {
-      const over = s.start + s.music.seconds - movieDuration;
-      if (over > 2 && over / s.music.seconds > 0.15) {
-        const plays = Math.round((movieDuration - s.start) * 100) / 100;
-        issues.push(`${layer} (${source}) is ${Math.round(s.music.seconds * 10) / 10}s long but only ${plays}s of it play: it is cut off mid-phrase at the end of the movie. Write fewer bars (or a faster tempo) so the score ends with the movie, or let it fade out with \`vol\` points`);
-      }
+    // A written score (`music`) much longer than what plays: said as a NOTE (a trial: 19.2 s of music under a 10 s film; the read-back showed it but nothing said it).
+    // Not a fault: music that outlasts the movie ends with it (see Audio.ts). A tail under 2 s or 15 % over is only the reverb tail; a looping layer is meant to be cut.
+    if (s.music && !s.loop && s.start < movieDuration && !clock) {
+      const plays = Math.min(s.end, movieDuration) - s.start;
+      const over = s.music.seconds - plays;
+      if (over > 2 && over / s.music.seconds > 0.15) scoreNotes.push(`${layer} (${source}): the score is ${Math.round(s.music.seconds * 10) / 10}s long but only ${Math.round(plays * 100) / 100}s of it play, so it is cut off mid-phrase. Write fewer bars (or a faster tempo) so it ends with the movie, or fade it out with \`vol\` points`);
     }
     return { layer, source, start: s.start, end: s.end, peakDb, sound, ...(s.music ? { music: s.music } : {}) };
   });
@@ -195,7 +194,7 @@ export function analyzeAudio(
   const silences = findSilences(chans, sr, { minLength: 1 });
   if (whole.clippedSamples > 0) issues.push(`${whole.clippedSamples} sample(s) of the mix are at full scale (clipped) — lower the volume of the layers that play loudest`);
   if (whole.truePeakDb! > 0) issues.push(`the mix's true peak is ${whole.truePeakDb} dBTP: it will distort when the video is encoded — lower the volume`);
-  const notes: string[] = [];
+  const notes: string[] = [...scoreNotes];
   if (whole.integratedLufs !== null) {
     if (whole.integratedLufs < LOUDNESS_NOTES.quietBelow) notes.push(`the mix is quiet for web video: ${whole.integratedLufs} LUFS (typical −14 to −16); raise the volume if that is not on purpose`);
     else if (whole.integratedLufs > LOUDNESS_NOTES.loudAbove) notes.push(`the mix is loud: ${whole.integratedLufs} LUFS (typical web video −14 to −16)`);
