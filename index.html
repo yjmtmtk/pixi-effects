@@ -662,6 +662,17 @@ await movie.setVars({ name: 'Ben' });          // built again at the same frame;
     try{
       var d=f.contentDocument, c=d.querySelector('#stage')||d.querySelector('canvas'), box=f.parentNode;
       if(!c) return;
+      // Fullscreen: the browser lifts the frame out of its box and drops its scale, so the page is at its natural size and the bar needs no zoom
+      // (the zoom set below was for the small frame: left on, the bar was 2.4 times too big on a 4K screen). Leaving fullscreen fits it again.
+      if(!f.fsHooked){
+        f.fsHooked=true;
+        var onFs=function(){
+          var on=document.fullscreenElement===f||!!d.fullscreenElement, z=d.getElementById('fitZoom');
+          if(on){ if(z) z.textContent=''; } else setTimeout(function(){ fitFrame(f); },60);
+        };
+        d.addEventListener('fullscreenchange',onFs); document.addEventListener('fullscreenchange',onFs);
+      }
+      if(document.fullscreenElement===f||d.fullscreenElement){ var z0=d.getElementById('fitZoom'); if(z0) z0.textContent=''; return; }
       d.documentElement.style.overflow='hidden'; d.body.style.overflow='hidden';
       f.style.cssText='position:absolute;inset:auto;left:0;top:0;width:1400px;height:1400px;max-width:none;transform-origin:0 0';
       var r=c.getBoundingClientRect(), k=box.clientWidth/r.width;

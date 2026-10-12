@@ -121,6 +121,50 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the landin
     }
   }, 180_000);
 
+  it('fullscreen inside the film frame: the bar is zoomed to make up for the small frame, and that zoom goes away in fullscreen (the frame is not small any more) and comes back after', async () => {
+    const { server, port } = await check.serve(root);
+    const userDataDir = mkdtempSync(join(tmpdir(), 'landing-'));
+    const { proc, cdp } = await launchPage(chrome, userDataDir);
+    try {
+      await cdp.send('Runtime.enable');
+      await cdp.send('Page.enable');
+      await cdp.send('Emulation.setDeviceMetricsOverride', { width: 700, height: 900, deviceScaleFactor: 1, mobile: false });     // a narrow window: the frame is drawn smaller than its page
+      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/index.html` });
+      await check.sleep(1500);
+      await cdp.eval(`document.getElementById('inkBtn').click()`);
+      let ready = false;
+      for (let i = 0; i < 400 && !ready; i++) {
+        await check.sleep(100);
+        ready = await cdp.eval(`!!document.querySelector('#inkFacade iframe') && !document.querySelector('#inkFacade .ld')`).catch(() => false);
+      }
+      expect(ready, 'the film loaded in its frame').toBe(true);
+      const zoom = () => cdp.eval(`(() => { const d = document.querySelector('#inkFacade iframe').contentDocument; const e = d.querySelector('.movie-controller > *'); return e ? Number(getComputedStyle(e).zoom) : null; })()`);
+      const frameScale = () => cdp.eval(`(() => { const f = document.querySelector('#inkFacade iframe'); return f.getBoundingClientRect().width / f.offsetWidth; })()`);
+      const before = await zoom();
+      expect(await frameScale(), 'the frame is drawn smaller than its page').toBeLessThan(0.9);
+      expect(before, 'so the bar is zoomed up').toBeGreaterThan(1.05);
+      await cdp.eval(`document.getElementById('inkFacade').scrollIntoView({ block: 'center' })`);
+      await check.sleep(500);
+      // a real click (a user gesture) on the frame's own fullscreen button; the frame's page is drawn scaled, so the point is mapped to the top window
+      const at: any = await cdp.eval(`(() => { const f = document.querySelector('#inkFacade iframe'); const d = f.contentDocument; const b = d.querySelector('.mc-fullscreen'); const r = b.getBoundingClientRect(), fr = f.getBoundingClientRect(), k = fr.width / f.offsetWidth; return { x: fr.left + (r.left + r.width / 2) * k, y: fr.top + (r.top + r.height / 2) * k }; })()`);
+      for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await cdp.send('Input.dispatchMouseEvent', { type, x: at.x, y: at.y, button: 'left', clickCount: 1 });
+      let inFs = false;
+      for (let i = 0; i < 30 && !inFs; i++) { await check.sleep(200); inFs = await cdp.eval(`!!document.fullscreenElement`); }
+      expect(inFs, 'the frame went fullscreen').toBe(true);
+      await check.sleep(600);
+      expect(await zoom(), 'in fullscreen the bar is at its own size').toBe(1);
+      await cdp.eval(`document.exitFullscreen()`);
+      for (let i = 0; i < 30 && inFs; i++) { await check.sleep(200); inFs = await cdp.eval(`!!document.fullscreenElement`); }
+      await check.sleep(600);
+      expect(await zoom(), 'after fullscreen the bar is zoomed for the small frame again').toBeGreaterThan(1.05);
+    } finally {
+      try { proc.kill(); } catch { /* gone */ }
+      server.close();
+      await check.sleep(200);
+      try { rmSync(userDataDir, { recursive: true, force: true }); } catch { /* chrome may still hold files */ }
+    }
+  }, 180_000);
+
   it('a poster in the gallery strip opens THAT piece in a player and plays it on the click; its link goes to that piece in the gallery; closing stops it', async () => {
     const { server, port } = await check.serve(root);
     const userDataDir = mkdtempSync(join(tmpdir(), 'landing-'));
