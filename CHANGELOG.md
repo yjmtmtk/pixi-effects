@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.35.0
 
 **The player's seek-bar preview (`thumbnails: true`, off by default) and `movie.thumbnail()`**
 
