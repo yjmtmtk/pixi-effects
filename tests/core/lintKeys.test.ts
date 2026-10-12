@@ -24,6 +24,23 @@ describe('lintKeys: a layer key that does not exist', () => {
   });
 });
 
+describe('lintKeys: a property written on the layer instead of in initial', () => {
+  it('a path with z: says "put it in initial", and does not guess "did you mean d"', () => {
+    const w = warns({ type: 'shape', shape: 'path', d: 'M 0 0 L 10 10', threeD: true, z: -300 });
+    expect(w).toHaveLength(1);
+    expect(w[0]).toMatch(/"z" is a property.*initial: \{ z: -300 \}/s);
+    expect(w[0]).not.toMatch(/did you mean/);
+  });
+  it('the same for x, alpha and rotationX on any kind of layer', () => {
+    expect(warns({ type: 'text', text: 'a', alpha: 0.5 })[0]).toMatch(/"alpha" is a property.*initial: \{ alpha: 0\.5 \}/s);
+    expect(warns({ type: 'shape', shape: 'rect', width: 1, height: 1, x: 100 })[0]).toMatch(/"x" is a property.*initial/s);
+    expect(warns({ type: 'image', asset: 'a', rotationX: 20 })[0]).toMatch(/"rotationX" is a property.*initial/s);
+  });
+  it('a key that is only a typo still gets its did-you-mean', () => {
+    expect(warns({ type: 'text', text: 'a', duraton: 3 })[0]).toMatch(/did you mean "duration"/);
+  });
+});
+
 describe('lintKeys: maskInverted is gone', () => {
   it('says what to write: mask: { layer: <the mask layer>, invert: true }', () => {
     const w = warns({ type: 'shape', shape: 'rect', width: 1, height: 1, mask: { type: 'shape', shape: 'circle', radius: 1 }, maskInverted: true });

@@ -55,6 +55,18 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS).each([['the
     });
   });
 
+  it('twenty or more blurred layers at once warn, say how many AND from how many it warns, and say it only once', async () => {
+    await withPage(async (cdp) => {
+      const cards = Array.from({ length: 24 }, (_, i) => ({ type: 'shape', shape: 'rect', name: `c${i}`, width: 20, height: 20, threeD: true, initial: { x: 20 + (i % 8) * 36, y: 40 + Math.floor(i / 8) * 40, z: -150 - i * 5, fillColor: '#ffffff' } }));
+      const composition = { sequences: [{ type: 'camera', name: 'cam', initial: { focus: 0, aperture: 40 } }, ...cards] };
+      await cdp.eval(`mk(${JSON.stringify({ composition })})`);
+      await cdp.eval('snap(0)'); await cdp.eval('snap(10)');
+      const said = (await cdp.eval('window.__logs') as string[]).filter((l) => /blurred by depth of field/.test(l));
+      expect(said, JSON.stringify(said)).toHaveLength(1);
+      expect(said[0]).toMatch(/24 layers are blurred by depth of field at once \(it warns from 20\)/);
+    });
+  });
+
   it('no focus, or aperture 0, gives the very same picture as a movie without the feature', async () => {
     await withPage(async (cdp) => {
       await cdp.eval(`mk(${JSON.stringify({ composition: await bars(cdp, { initial: { fov: 40 } }) })})`);

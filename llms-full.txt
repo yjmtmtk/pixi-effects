@@ -264,7 +264,7 @@ measureText('Hello', style)                              // → { width, height,
 splitText('Hello world', style, { by: 'chars' | 'words' | 'lines', x, y, align: 'left' | 'center' | 'right' })
                                                          // → [{ text, x, y, width, index, line }] — one text layer per piece, same style, anchor top-left
 ```
-Per-letter / per-word / per-line animation in one call: `...animateText(text, style, { x, y, align, by: 'chars'|'words'|'lines', at, duration /* required: until the last piece is gone */, in: 'rise'|'drop'|'fade'|'pop'|'zoom'|'slide'|'spin'|{ from, to, duration, ease }|false, out: <same, in the same wave; by default BACKWARDS FROM THE LAYER'S END (at + duration, so to be gone at time T set duration = T − at); `out: { preset: 'fade', at: 6 }` starts the exit at composition second 6 instead>, stagger: { each, from, … }, idle: { y: 4, rotation: 1 }, styleFor: p => ({ fill }) })` → text layers `<name>-0…` (anchor centre; `x`/`y` in `from` are offsets) to spread into `sequences`. **`x` / `y` are pixel NUMBERS (an expression like `'GW/2'` throws: compute `W / 2`), and `y` is the TOP of the line box**: the visible text is centred `lineHeight / 2` below it, so an underline goes at `y + lineHeight`, not at `y` (recipe `animate-text`). By hand: `splitText(...)` + one layer per piece (recipe `split-text`). A web font must be loaded before measuring.
+Per-letter / per-word / per-line animation in one call: `...animateText(text, style, { x, y, align, by: 'chars'|'words'|'lines', at, duration /* required: until the last piece is gone */, in: 'rise'|'drop'|'fade'|'pop'|'zoom'|'slide'|'spin'|{ from, to, duration, ease }|false, out: <same, in the same wave (leave `out` out and the pieces stay until the layer ends); by default BACKWARDS FROM THE LAYER'S END (at + duration, so to be gone at time T set duration = T − at); `out: { preset: 'fade', at: 6 }` starts the exit at composition second 6 instead>, stagger: { each, from, … }, idle: { y: 4, rotation: 1 }, styleFor: p => ({ fill }) })` → text layers `<name>-0…` (anchor centre; `x`/`y` in `from` are offsets) to spread into `sequences`. **`x` / `y` are pixel NUMBERS (an expression like `'GW/2'` throws: compute `W / 2`), and `y` is the TOP of the line box**: the visible text is centred `lineHeight / 2` below it, so an underline goes at `y + lineHeight`, not at `y` (recipe `animate-text`). By hand: `splitText(...)` + one layer per piece (recipe `split-text`). A web font must be loaded before measuring.
 
 ## Assets
 
@@ -1870,7 +1870,7 @@ interface SequenceCommon {
 | Layer | Where `x, y` land by default | To change it |
 |---|---|---|
 | `shape` rect / circle / ellipse | the **centre** of the shape | `anchorX` / `anchorY` (0–1). A bar growing from its base: `anchorY: 1`; left to right: `anchorX: 0` |
-| `shape` line / polygon / path | the centre of the shape's bounds | `pivotX` / `pivotY` (in the shape's own canvas coordinates): the point that sits at `x, y` and that rotation / scale turn about. **`anchorX` / `anchorY` do nothing on these.** |
+| `shape` line / polygon / path | the centre of the shape's bounds | `pivotX` / `pivotY` (in the shape's own canvas coordinates): the point that sits at `x, y` and that rotation / scale turn about. **`anchorX` / `anchorY` do nothing on these.** A `path` whose `d` is already written in canvas coordinates takes no `x` / `y` at all (they would move its centre to that point); to move it, change the coordinates or wrap it in a composition. |
 | `text`, `image`, `video` | the **top-left** corner | `anchorX` / `anchorY: 0.5` to centre |
 | `composition` | its top-left corner | `pivotX` / `pivotY` = the point that sits at `x, y` and that rotation / scale turn about |
 
@@ -3076,7 +3076,7 @@ A scaled punch-in / punch-out. By default `B` opens up: it starts large and zoom
 
 ### `dissolve`
 
-Pixel-grain noise reveal driven by deterministic 2D Perlin noise. Pixels with a low noise value reveal first; as `uProgress` advances, more pixels reveal. The same `seed` always produces the same dissolve pattern, so a render is bit-exact reproducible.
+A noise reveal driven by deterministic 2D Perlin noise. Pixels with a low noise value reveal first; as `uProgress` advances, more pixels reveal. At the default `scale` of 30 it reads as large blotches (about 40 px each), not as grain: `scale: 200` or more gives a fine grain. The same `seed` always produces the same dissolve pattern, so a render is bit-exact reproducible.
 
 ```ts
 {

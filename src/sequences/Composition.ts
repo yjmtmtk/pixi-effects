@@ -488,7 +488,7 @@ export class CompositionSequence extends Sequence {
     }
     if (blurred >= MANY_BLURRED && !this._dofSaid.many) {
       this._dofSaid.many = true;
-      console.warn(`pixi-effects: ${describeLayer(this.spec)}: ${blurred} layers are blurred by depth of field at once; each costs a filter pass per frame (WebGPU more). Merge the far layers or lower aperture`);
+      console.warn(`pixi-effects: ${describeLayer(this.spec)}: ${blurred} layers are blurred by depth of field at once (it warns from ${MANY_BLURRED}); each costs a filter pass per frame (WebGPU more). Merge the far layers or lower aperture`);
     }
   }
 

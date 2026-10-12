@@ -64,7 +64,7 @@ The letters are drawn again on every change (about 0.4 ms for a line at 1080p), 
 
 ## Per-letter and per-word animation
 
-`animateText()` does it in one call (`x` and `y` are pixel numbers, not expressions, and `y` is the top of the line): one text layer per character, word or line, laid out exactly like the whole text, arriving (and leaving) in a wave. Letters turn and scale about their own centre. The result is plain layers: spread it into `sequences`. `duration` is how long until every piece is gone. `out` leaves **from that end** by default: to be gone at 8 s, with `at: 0.4`, write `duration: 7.6`. To start the exit at a time you name, give it an `at`: `out: { preset: 'fade', at: 6 }` (composition seconds; the pieces leave in the same wave from 6 s and stay gone until the end).
+`animateText()` does it in one call (`x` and `y` are pixel numbers, not expressions, and `y` is the top of the line): one text layer per character, word or line, laid out exactly like the whole text, arriving (and leaving) in a wave; leave `out` out and the pieces simply stay until the layer ends. Letters turn and scale about their own centre. The result is plain layers: spread it into `sequences`. `duration` is how long until every piece is gone. `out` leaves **from that end** by default: to be gone at 8 s, with `at: 0.4`, write `duration: 7.6`. To start the exit at a time you name, give it an `at`: `out: { preset: 'fade', at: 6 }` (composition seconds; the pieces leave in the same wave from 6 s and stay gone until the end).
 
 ```js
 // @recipe animate-text

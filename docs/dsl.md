@@ -59,7 +59,7 @@ interface SequenceCommon {
 | Layer | Where `x, y` land by default | To change it |
 |---|---|---|
 | `shape` rect / circle / ellipse | the **centre** of the shape | `anchorX` / `anchorY` (0–1). A bar growing from its base: `anchorY: 1`; left to right: `anchorX: 0` |
-| `shape` line / polygon / path | the centre of the shape's bounds | `pivotX` / `pivotY` (in the shape's own canvas coordinates): the point that sits at `x, y` and that rotation / scale turn about. **`anchorX` / `anchorY` do nothing on these.** |
+| `shape` line / polygon / path | the centre of the shape's bounds | `pivotX` / `pivotY` (in the shape's own canvas coordinates): the point that sits at `x, y` and that rotation / scale turn about. **`anchorX` / `anchorY` do nothing on these.** A `path` whose `d` is already written in canvas coordinates takes no `x` / `y` at all (they would move its centre to that point); to move it, change the coordinates or wrap it in a composition. |
 | `text`, `image`, `video` | the **top-left** corner | `anchorX` / `anchorY: 0.5` to centre |
 | `composition` | its top-left corner | `pivotX` / `pivotY` = the point that sits at `x, y` and that rotation / scale turn about |
 
@@ -1265,7 +1265,7 @@ A scaled punch-in / punch-out. By default `B` opens up: it starts large and zoom
 
 ### `dissolve`
 
-Pixel-grain noise reveal driven by deterministic 2D Perlin noise. Pixels with a low noise value reveal first; as `uProgress` advances, more pixels reveal. The same `seed` always produces the same dissolve pattern, so a render is bit-exact reproducible.
+A noise reveal driven by deterministic 2D Perlin noise. Pixels with a low noise value reveal first; as `uProgress` advances, more pixels reveal. At the default `scale` of 30 it reads as large blotches (about 40 px each), not as grain: `scale: 200` or more gives a fine grain. The same `seed` always produces the same dissolve pattern, so a render is bit-exact reproducible.
 
 ```ts
 {
