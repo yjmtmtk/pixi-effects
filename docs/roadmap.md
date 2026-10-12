@@ -1,6 +1,6 @@
 # Roadmap: more expressive, still easy for an AI
 
-Status: rewritten 2026-10-11, current release 0.31.0 (variables, loop, the interactive movies). Nothing here is promised; the order is the proposal.
+Status: rewritten 2026-10-12, current release 0.31.0 (variables, loop, the interactive movies). Nothing here is promised; the order is the proposal.
 
 ## The gate every item passes
 
@@ -22,6 +22,7 @@ The measure of success is not the feature list: it is a **fresh agent given one 
 | 0.27.1 | long movies load without freezing (the music is made in slices) | |
 | 0.28.0 | `musicEvents()`, `music.meter`, a music read-back in `check`, the `Sequence` export (a layer type can live outside the library) | the music items M1 and M3 of the old draft are mostly done; a spike showed that a new score syntax (`bars` / `play`, `key` / degrees) adds no correctness, so M4 and M9 are dropped |
 | 0.28.1–0.28.2 | `reference/direction.md` (how to direct a film), the viewer says "Updated … reload" and never switches by itself, the first address goes out within two minutes | the work on the AI's way of making a film moved from the library to the skill and the tools |
+| 2026-10-12 | five films made by fresh AI agents with the library (a minimal-prompt reel, two 45-second films with Rough.js, D3 and three.js, a promo for a real site; two of them now on the landing page) | the gaps they hit become the next releases (steps 6 and 7) instead of the old candidate list; Rough.js, D3 and three.js were shown to work as plain data and need no new feature (no new recipes either: the typewriter-terminal opener stays a gallery piece) |
 
 ## The order now
 
@@ -30,6 +31,11 @@ The measure of success is not the feature list: it is a **fresh agent given one 
 3. **The API list, then one breaking release (0.29).** Done in the first pass (2026-10-11, `docs/superpowers/specs/2026-10-11-api-list-0.29.md`, `docs/api-surface.txt`): `maskInverted` is `mask: { layer, invert: true }`; the Controller's options are named like the Presenter's; the three old bins are gone (`pixi-effects check|render|view`), `--fail-on-warn` is `--strict`; the internals of `Movie` / `Sequence` / `Presenter` are `@internal`; `pixi-effects/controller` exports the player only. Kept as they are: the anchor defaults that differ by type, geometry at the top level and in `initial`, `speed` against `time`, the `three` layer (an escape hatch; revisit at the 3D engine's launch). Still open: `draft` / `scale` (decide after measuring in step 4).
 4. **Reading less, waiting less.** Done in 0.30.0: `npx pixi-effects new <name>`, `recipe [id]`, `help <word>` and a 2 KB quick start (`skills/pixi-effects/reference/quickstart.md`). To do: measure it (three fresh agents, before / after: reads, failed commands, time to the first picture), and a draft export that really is faster (fewer frames: `--fps`; measured first: today `--draft` saves file size, not time).
 5. **Variables, built** (0.31.0). The first version is L0 only: the whole composition is built again at the same frame, the sound is mixed again only if it changed (`movie.setVars` / `resize` / `rebuild`, `check` / `render --var --size`). The finer levels L1 and L2 below were measured to buy little and are not built; the spec is `docs/superpowers/specs/2026-10-11-variables-0.31-design.md`.
+6. **0.32: papercuts and `spans`** (decided 2026-10-12, from the films above). Warnings and docs, one release: the depth-of-field warning says its number (about 20 blurred layers); `focus: 'layerName'` follows the layer's current depth; `rgbSplit` offsets animate; the 4-casters-per-receiver limit is warned about; `animateText`'s `y` (top edge) and a way to say "no exit" are written down; a `path` given `z` outside `initial` is no longer silent; `dissolve` is described (and its look judged); `render --range` prints the range, not the whole movie; a sound inside a time-remapped composition is warned about (it plays backwards; put it at the root). Together with **`spans`**: per-token colour and style inside one text layer (the films needed one text layer per token to stream coloured code). The gate applies: one line for the common case, a warning for the mistake, and `inspect` can read it.
+7. **0.33: geometry.** `pathFromPoints()`, a way to place a path given in canvas coordinates (today `initial.x/y` re-centres it), `mask: { any: [...] }`, a gradient `direction`.
+8. **`check` says more.** What an AI cannot hear or see: when the last motion ends, `light` read-back at the layer's lit point (not its middle), `threeD` layers partly outside the frame, shader cost, a clearer music and loudness read-back.
+9. **Interactive movies, next** (when a piece needs it): a sound that continues across a rebuild that changes it, `pick`, more samples. See "Variables".
+10. **Hardening before 1.0** (below): both backends in every browser test, Safari and Firefox by hand, the API freeze checklist.
 
 ## Variables: one definition for what used to be five features
 
@@ -52,9 +58,9 @@ Interactive input is this same mechanism with a different source. Pick, drag, br
 ## Candidate pool (chosen by evidence from real films, not from this list)
 
 - **Music**: a loudness target (`loudness: -16`), ducking under an sfx or voice, automation points (filter, pan, reverb), fitting a tempo so given bars land on given seconds, more timbres. A tempo-synced delay and a kick pump. The read-back (done) is how an AI checks them.
-- **Type**: per-token colour in one text layer (`spans`), `fitText(text, style, maxWidth)`, text on a path.
+- **Type**: `fitText(text, style, maxWidth)`, text on a path (per-token colour, `spans`, is step 6).
 - **Picture and light**: a lens shift, a fade for a layer nearing the camera plane, `lightLeak()`, shader-driven transitions, a small tested shader kit.
-- **Small API holes**: a union of mattes (`mask: { any: [...] }`), `pathFromPoints()`, a gradient `direction`.
+- **Small API holes**: (a union of mattes, `pathFromPoints()` and a gradient `direction` are step 7).
 - **`check` says more**: when the last motion ends, the content time inside a remapped composition, `threeD` layers partly outside the frame, shader cost.
 - **Video**: trim in one line, big footage through sinks, metadata and subtitle tracks, variable-frame-rate warnings.
 
