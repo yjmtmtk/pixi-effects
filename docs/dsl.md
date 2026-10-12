@@ -1333,6 +1333,8 @@ Animatable: `threshold`, `smoothing`, `spill`. `keyColor` is set at build time.
 
 ### Named filters (`{ type: 'glow', … }`)
 
+**Which ones to use.** A filter works on a layer's own pixels (a glow around the letters, an outline, a shadow), which a `shader` layer cannot do (it draws new content). The 38 named filters that come from `pixi-filters` are not equally trustworthy: `tests/tools/filterSweep.test.ts` draws these on WebGPU (the default backend) and on WebGL and requires that each one shows and looks the same: **`glow`, `outline`, `dropShadow`, `bevel`, `bloom`, `pixelate`, `crt`, `rgbSplit`, `dot`, `radialBlur`, `glitch`** (`grain`, `warp` and `blur` are this library's or PixiJS's own). Reach for these first. The others are not tested on both backends; measured differences: `multiColorReplace` draws the whole picture black on WebGPU (use `colorReplace`), `kawaseBlur` blurs far less on WebGPU (use `blur`), `advancedBloom` is sharper on WebGPU (use `bloom`), `ascii` shows stripes on WebGPU. A filter only shows along the edges of a layer's own picture: on a full-bleed opaque layer `glow` and `outline` have nothing to follow, so put them on the shapes and text. `radialBlur` did nothing on WebGPU before 0.34 (an upstream i32 / f32 mismatch, worked around).
+
 A filter by name, as plain data. `type` is the filter's class name without `Filter`, in camelCase (case does not matter), and every other key is that filter's own option. No import, and the layer stays JSON:
 
 ```ts

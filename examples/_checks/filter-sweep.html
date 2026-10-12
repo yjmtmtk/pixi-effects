@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>check · named filters look the same on WebGPU and WebGL</title>
+</head>
+<body>
+  <!--
+    Acceptance check (not an example): a circle, a square and a text, each carrying the filter named by `?f=` (nothing for `?f=none`), on a dark picture. The
+    filters work on a layer's own edges, so they must be on layers with edges (a full-bleed opaque picture shows nothing). `grab()` is the frame at 1 s as a
+    128 x 72 array of RGBA. `?backend=webgl` hides WebGPU from the page, so the movie falls back to WebGL.
+    tests/tools/filterSweep.test.ts compares every filter the docs recommend on the two backends: pixi-filters 6.1.5 had a radial blur that did nothing on WebGPU.
+  -->
+  <canvas id="stage" width="1280" height="720"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    if (new URLSearchParams(location.search).get('backend') === 'webgl') Object.defineProperty(navigator, 'gpu', { value: undefined });
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":      "https://esm.sh/mediabunny@1.61.3",
+      "pixi-filters":    "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+
+    const type = new URLSearchParams(location.search).get('f') || 'none';
+    // options that make each filter clearly visible on this picture
+    const OPT = {
+      glow: { distance: 25, outerStrength: 6, innerStrength: 0, color: '#ffe066' }, outline: { thickness: 8, color: '#ff00ff' },
+      dropShadow: { offset: { x: 18, y: 18 }, blur: 6, alpha: 0.9, color: '#000000' }, bevel: { thickness: 6, lightAlpha: 1, shadowAlpha: 1 },
+      bloom: { strength: 8 }, pixelate: { size: 10 }, crt: { curvature: 4, lineWidth: 3, time: 0.3 },
+      rgbSplit: { red: { x: -12, y: 0 }, blue: { x: 12, y: 0 } }, glitch: { seed: 3, slices: 8, offset: 30 }, dot: { scale: 1, angle: 5 },
+      radialBlur: { angle: 60, center: { x: 640, y: 330 }, kernelSize: 15, radius: -1 },
+    };
+    const f = type === 'none' ? [] : [{ type, ...(OPT[type] || {}) }];
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 2, frameRate: 30,
+        composition: { sequences: [
+          { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#16324f' } },
+          { type: 'shape', shape: 'circle', radius: 110, filters: f, initial: { x: 330, y: 330, fillColor: '#ffd166' } },
+          { type: 'shape', shape: 'rect', width: 220, height: 220, filters: f, initial: { x: 700, y: 330, fillColor: '#2ecc71' } },
+          { type: 'text', text: 'Filter 123', filters: f, style: { fontSize: 120, fontWeight: 'bold', fill: '#ffffff' }, initial: { x: 640, y: 580, anchorX: 0.5, anchorY: 0.5 } },
+        ] },
+      });
+      window.backend = movie.app.renderer.name || String(movie.app.renderer.type);
+      window.grab = async () => {
+        const img = new Image(); img.src = await movie.snapshot(30, { as: 'dataURL' }); await img.decode();
+        const c = document.createElement('canvas'); c.width = 128; c.height = 72;
+        const g = c.getContext('2d'); g.drawImage(img, 0, 0, 128, 72);
+        return Array.from(g.getImageData(0, 0, 128, 72).data);
+      };
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+  </script>
+</body>
+</html>

@@ -35,6 +35,8 @@ A filter changes how a layer looks after it is drawn. Name it in `filters` and g
 
 `blur`, `noise`, `alpha`, `colorMatrix` and `grain` need nothing extra (the first four come with PixiJS, `grain` with this library). The rest come from the `pixi-filters` package, which is loaded the first time a layer uses one: add it to your import map (`"pixi-filters": "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"`) or `npm install pixi-filters`. The [DSL reference](https://github.com/yjmtmtk/pixi-effects/blob/main/docs/dsl.md) has the whole table. Anything else that is a PixiJS `Filter` goes in as `{ type: 'custom', filter: new MyFilter() }`.
 
+**Reach for these first:** `glow`, `outline`, `dropShadow`, `bevel`, `bloom`, `pixelate`, `crt`, `rgbSplit`, `dot`, `radialBlur`, `glitch`. They are drawn on WebGPU and on WebGL by a test and look the same. The others are not tested on both: `multiColorReplace` draws everything black on WebGPU (use `colorReplace`), `kawaseBlur` blurs far less (use `blur`), `advancedBloom` is sharper (use `bloom`), `ascii` shows stripes. A filter follows the edges of a layer's own picture, so put `glow` and `outline` on shapes and text, not on a full-screen background.
+
 {{demo examples/06-filters.html}}
 
 ## Film grain
