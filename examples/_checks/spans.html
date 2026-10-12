@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>check · spans: colour inside one text layer</title>
+</head>
+<body style="margin:0;background:#222">
+  <!--
+    Acceptance check (not an example): one text layer with `spans` on black. tests/tools/spans.test.ts reads it with `bbox(frame, colour)`: the
+    bounding box of the pixels of one of the four colours (white WW, red RR, green GG, blue BB on a second line).
+    Query: vars=1 (the red word is {word}), typed=1 (a visibleChars keyframe 0 -> 8 over 8 frames), align=center|right, anchor=1 (anchorX / anchorY 0.5 at the middle of the canvas).
+  -->
+  <canvas id="stage"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const Q = new URLSearchParams(location.search);
+    const W = 640, H = 360;
+    const layer = {
+      type: 'text', name: 's', style: { fontFamily: 'Arial', fontSize: 64, fontWeight: '900', fill: '#ffffff', align: Q.get('align') ?? 'left' },
+      spans: ['WW', { text: 'RR', fill: '#ff0000' }, { text: 'GG', fill: '#00ff00' }, '\n', { text: 'BB', fill: '#0000ff' }],
+      initial: Q.has('anchor') ? { x: W / 2, y: H / 2, anchorX: 0.5, anchorY: 0.5 } : { x: 40, y: 40 },
+      ...(Q.has('typed') ? { initial: { x: 40, y: 40, visibleChars: 0 }, keyframes: [{ at: 0, to: { visibleChars: 9 }, duration: 9 / 30, ease: 'none' }] } : {}),
+    };
+    // vars=1: the red word is a variable, so setVars({ word: 'RRRR' }) builds the layer again and the pieces are laid out again
+    if (Q.has('vars')) layer.spans = ['WW', { text: '{word}', fill: '#ff0000' }, { text: 'GG', fill: '#00ff00' }, '\n', { text: 'BB', fill: '#0000ff' }];
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: W, height: H, duration: 2, frameRate: 30, background: '#000000', ...(Q.has('vars') ? { vars: { word: 'RR' } } : {}), composition: { sequences: [layer] } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+
+    const pixels = async (frame) => {
+      const img = new Image(); img.src = await movie.snapshot(frame, { as: 'dataURL' }); await img.decode();
+      const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+      const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0);
+      return { d: g.getImageData(0, 0, c.width, c.height).data, w: c.width, h: c.height };
+    };
+    const IS = { white: (r, g, b) => r > 200 && g > 200 && b > 200, red: (r, g, b) => r > 200 && g < 60 && b < 60, green: (r, g, b) => g > 200 && r < 60 && b < 60, blue: (r, g, b) => b > 200 && r < 60 && g < 60 };
+    // the bounding box [x0, y0, x1, y1] of the pixels of one colour, or null
+    window.bbox = async (frame, colour) => {
+      const { d, w, h } = await pixels(frame);
+      let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = (y * w + x) * 4; if (IS[colour](d[i], d[i + 1], d[i + 2])) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } }
+      return x1 < 0 ? null : [x0, y0, x1, y1];
+    };
+    window.pieceNames = async () => ((await movie.inspect(0)).layers || []).map(l => l.path);
+    window.issues = async () => (await movie.inspect(0)).issues;
+  </script>
+</body>
+</html>

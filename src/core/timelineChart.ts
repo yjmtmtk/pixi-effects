@@ -1,3 +1,4 @@
+import { spansMeta } from '../text/spans';
 import { CompositionSequence } from '../sequences/Composition';
 import type { Sequence } from '../sequences/Base';
 import { transitionWindowsOf } from './Transitions';
@@ -43,6 +44,8 @@ const family = (name: string): string => name.replace(/\d+/g, '#');
 
 function detailOf(seq: Sequence): string | undefined {
   const s = seq.spec as { text?: unknown; asset?: unknown; sfx?: unknown; music?: unknown };
+  const spans = spansMeta.get(seq.spec as object)?.preview;                       // a text with spans is a group: say what it spells
+  if (spans) return spans.length > 60 ? spans.slice(0, 57) + '…' : spans;
   if (typeof s.text === 'string') return s.text.length > 60 ? s.text.slice(0, 57) + '…' : s.text;
   if (typeof s.asset === 'string') return `asset “${s.asset}”`;
   if (typeof s.sfx === 'string') return `sfx “${s.sfx}”`;

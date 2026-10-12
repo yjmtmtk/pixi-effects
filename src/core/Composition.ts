@@ -8,7 +8,8 @@ import { CameraSequence } from '../space/CameraSequence';
 import { LightSequence } from '../space/LightSequence';
 import { ShaderSequence } from '../sequences/Shader';
 import type { Sequence } from '../sequences/Base';
-import type { SequenceSpec, CompositionShape } from '../types';
+import { expandSpans } from '../text/spans';
+import type { SequenceSpec, CompositionShape, TextSequenceSpec } from '../types';
 
 let _CompositionSequence: typeof import('../sequences/Composition').CompositionSequence | null = null;
 async function getCompositionSequence() {
@@ -16,6 +17,12 @@ async function getCompositionSequence() {
     _CompositionSequence = (await import('../sequences/Composition')).CompositionSequence;
   }
   return _CompositionSequence;
+}
+
+let _SpansSequence: typeof import('../sequences/Spans').SpansSequence | null = null;
+async function getSpansSequence() {
+  if (!_SpansSequence) _SpansSequence = (await import('../sequences/Spans')).SpansSequence;
+  return _SpansSequence;
 }
 
 export type SequenceCtor = { new (spec: SequenceSpec, parent: CompositionShape | null, root: CompositionShape): Sequence };
@@ -48,8 +55,13 @@ export async function buildSequenceTree(
   root: CompositionShape,
 ): Promise<Sequence[]> {
   const out: Sequence[] = [];
-  for (const spec of specs) {
+  for (let spec of specs) {
     let Cls: SequenceCtor | undefined = staticTypes[spec.type] ?? registry[spec.type];
+    // a text layer with `spans` stands for a group of text layers, one per piece (src/text/spans.ts)
+    if (spec.type === 'text' && (spec as { spans?: unknown }).spans !== undefined) {
+      spec = expandSpans(spec as TextSequenceSpec);
+      Cls = (await getSpansSequence()) as unknown as SequenceCtor;
+    }
     if (!Cls && spec.type === 'composition') {
       Cls = (await getCompositionSequence()) as unknown as SequenceCtor;
     }

@@ -129,6 +129,16 @@ A text layer has one animatable number, `value`, printed wherever the text conta
 
 `format`: `decimals` (default 0), thousands `grouping` (default false) and `pad` (zero-pad the whole part to that many digits: `pad: 2` gives `05`, so a clock is `text: '18:42:{value}'` with `format: { pad: 2 }`). Put prefixes and suffixes in the text (`'${value}'`, `'{value}%'`). If `value` is animated but the text has no `{value}`, a warning says so.
 
+**Colour inside one text layer: `spans`.** Instead of `text`, write an array of strings (drawn in the layer's own `style`) and `{ text, fill, … }` objects; they are shown one after the other, and `\n` inside a span starts a new line:
+
+```ts
+{ type: 'text', name: 'code', style: { fontFamily: 'Menlo', fontSize: 30, fill: '#e8f5e8', align: 'left' },
+  spans: [{ text: 'type', fill: '#7fa07f' }, ': ', { text: "'text'", fill: '#ffd166', fontWeight: '700' }, ',\n  at: 0.5'],
+  initial: { x: 120, y: 200 } }
+```
+
+A span may change `fill`, `stroke`, `fontWeight`, `fontStyle`, `fontVariant`, `letterSpacing` and `dropShadow`; a size, a font, `lineHeight` or `align` belongs to the layer's `style` (a span that sets one is warned about once and the key is ignored). `style.align` places the lines on the width of the block (`'left'`, `'center'` — the default, as for every text — or `'right'`). At build time the layer becomes a group (a composition) of ordinary text layers, one per piece of a line, named `<name>.0`, `<name>.1` …, each at the x it has when the pieces are measured one after the other (the same measuring as `splitText`), so `inspect`, the timeline view and `check` see them. The group carries the layer's `name`, `at`, `duration`, `initial` (`anchorX` / `anchorY` 0.5 centre the whole block), `keyframes` (`x`, `y`, `alpha`, `scale`, `rotation`, …), `filters`, `mask` and `blendMode`. A **typewriter** works over all the spans: `initial: { visibleChars: 0 }` and a keyframe `to: { visibleChars: N }` count every character in order, the newline included. `fill`, `text` and `value` as keyframed properties do not apply to a group (a warning says so): use a separate text layer, or put the colour in a span. Measuring needs the font loaded (`await document.fonts.load('30px "Name"')` for a web font), as for `splitText`; the size and spacing in `style` must be numbers (they are measured when the layer is built).
+
 ### `image`
 
 Renders a [PIXI.Sprite](https://pixijs.com/8.x/guides/components/scene-objects/sprite/sprite) from a registered asset. Intrinsic `w`/`h` come from the loaded texture.

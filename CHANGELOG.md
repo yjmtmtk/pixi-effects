@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+**`spans`: colour and style inside one text layer, and the papercuts of five films (planned as 0.32)**
+
+- **`spans`** (design: `docs/superpowers/specs/2026-10-12-spans-design.md`): a text layer takes `spans: [{ text: 'type', fill: '#7fa07f' }, ': ', { text: "'a'", fill: '#ffd166', fontWeight: '700' }, ',\n next']` instead of `text`. A span changes `fill`, `stroke`, `fontWeight`, `fontStyle`, `fontVariant`, `letterSpacing` or `dropShadow` (a size, a font, `lineHeight` or `align` is warned about and ignored: they belong to the layer's `style`); `\n` starts a line; `style.align` places the lines. At build time the layer becomes a group of ordinary text layers `<name>.0 …` (so every keyframe, filter and mask works, `anchorX` / `anchorY` centre the whole block, `inspect`, `check` and the timeline view see the pieces); a `visibleChars` typewriter counts over all the spans, the newline included; `{name}` variables inside spans are read before the layout, so `setVars` lays the line out again. Needs the font loaded, like `splitText`. The films needed one text layer per token to stream coloured code.
+- **A dotted keyframe key on a filter now moves the leaf of a point option** (`'filters.s.red.x'`): it used to be written as a property literally named `red.x` and nothing moved, silently. A path that leads nowhere is warned about once. The docs said both that it works and that it does not; they say one true sentence now (the whole point `red: { x, y }` as a keyframe value still does not tween).
+- **`pixi-effects render` prints the length of the FILE** (it printed the length of the whole movie for a `--range` or `--scene`).
+- **A property written on a layer instead of in `initial`** (`z`, `x`, `alpha`, `rotationX` …) now says "put it in `initial`" instead of guessing another key ("did you mean d?" on a path).
+- **The depth-of-field warning says where it starts** ("it warns from 20") and has a test.
+- Docs: `animateText` without `out` (the pieces stay), what the default `dissolve` looks like (blotches; `scale: 200` is grain), a `path` in canvas coordinates takes no `x` / `y`. The roadmap's 0.32 list was checked against the 0.31.0 build before work began: of 11 gaps reported by AI agents, 6 were already documented or warned about.
+
 **Landing: two 45-second films next to the reel**
 
 - `examples/films/ink-and-paper.html` and `examples/films/light-as-material.html`: two films, each one HTML page of data, played live from the landing page on a click (the same way as the reel). They open in a terminal where an AI is asked for a video and then combine Rough.js, D3 and three.js with the library's own features (springs, particles, shaders, warp, light and shadows, depth of field, camera paths, time remap, music and sfx written as text). Written by an AI model from the docs and a short brief. Their web fonts load inside the film pages only; the landing page itself still loads nothing from third parties.

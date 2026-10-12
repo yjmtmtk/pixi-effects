@@ -17,7 +17,7 @@ const COMMON = ['type', 'name', 'parent', 'at', 'duration', 'initial', 'keyframe
 
 const VIDEO = [...COMMON, 'asset', 'loop', 'audio', 'volume', 'speed'] as const satisfies readonly KeysOfUnion<VideoSequenceSpec>[];
 const IMAGE = [...COMMON, 'asset', 'colorSpace'] as const satisfies readonly KeysOfUnion<ImageSequenceSpec>[];
-const TEXT = [...COMMON, 'text', 'format', 'style', 'colorSpace', 'fillGradient'] as const satisfies readonly KeysOfUnion<TextSequenceSpec>[];
+const TEXT = [...COMMON, 'text', 'spans', 'format', 'style', 'colorSpace', 'fillGradient'] as const satisfies readonly KeysOfUnion<TextSequenceSpec>[];
 const AUDIO = [...COMMON, 'volume', 'asset', 'loop', 'sfx', 'music', 'speed'] as const satisfies readonly KeysOfUnion<AudioAssetSpec | AudioSfxSpec | AudioMusicSpec>[];
 const COMPOSITION = [...COMMON, 'width', 'height', 'sequences', 'transitions', 'speed'] as const satisfies readonly KeysOfUnion<CompositionSequenceSpec>[];
 const CAMERA = [...COMMON] as const satisfies readonly KeysOfUnion<CameraSequenceSpec>[];

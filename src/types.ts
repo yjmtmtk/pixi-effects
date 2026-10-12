@@ -298,6 +298,21 @@ export interface ImageSequenceSpec extends SequenceCommon {
    */
   colorSpace?: 'rgb' | 'oklab' | 'oklch';
 }
+/**
+ * One piece of a text layer's `spans`: its text and what it changes of the layer's `style`: only what keeps the baseline (colours, weight, slant,
+ * letter spacing, a shadow). `\n` in `text` starts a new line. A size, a font or a line height belongs to the layer's `style`.
+ */
+export interface TextSpan {
+  text: string;
+  fill?: string | number;
+  stroke?: string | { color?: PropValue; width?: PropValue };
+  fontWeight?: string | number;
+  fontStyle?: 'normal' | 'italic' | 'oblique';
+  fontVariant?: string;
+  letterSpacing?: number;
+  dropShadow?: boolean | Record<string, PropValue>;
+}
+
 export interface TextSequenceSpec extends SequenceCommon {
   type: 'text';
   /**
@@ -310,6 +325,14 @@ export interface TextSequenceSpec extends SequenceCommon {
    * (a typewriter): `initial: { visibleChars: 0 }`, keyframe `to: { visibleChars: 20 }`. It starts at 0 once it is animated.
    */
   text?: string;
+  /**
+   * Colour and style inside ONE text layer, written instead of `text`: an array of strings (the layer's own `style`) and `{ text, fill, fontWeight … }`
+   * objects, shown one after the other (`\n` starts a new line): `spans: [{ text: 'type', fill: '#7fa07f' }, ': ', { text: "'text'", fill: '#ffd166' }]`.
+   * At build time the layer becomes a group of plain text layers, so `name`, `at`, `duration`, `initial` (`anchorX` / `anchorY` too), `keyframes`
+   * (`x`, `y`, `alpha`, `scale`, `rotation`, `visibleChars` for a typewriter over all the spans), `filters`, `mask` and `blendMode` work as on a text.
+   * `style.align` places the lines (default `'center'`, like every text). Measuring needs the fonts loaded (`await document.fonts.load(...)`).
+   */
+  spans?: Array<string | TextSpan>;
   /** How `{value}` is printed: `decimals` (default 0) and thousands `grouping` (default false). */
   format?: { decimals?: number; grouping?: boolean; /** Zero-pad the whole part to this many digits (`pad: 2` → `05`; a clock `18:42:05`). */ pad?: number };
   /** Subset of PIXI v8 TextStyleOptions. String values may be exprs (e.g. fontSize: 'GW * 0.05'). */

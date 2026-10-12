@@ -50,6 +50,18 @@ Anchor a typewriter on its **left** edge, or each new letter re-centres the line
 
 {{demo examples/14-draw-on.html}}
 
+## Colour inside one line: `spans`
+
+A text layer takes `spans` instead of `text`: strings in the layer's own `style`, and `{ text, fill, fontWeight … }` objects that change how that part looks. It is how a line of code, a price with a coloured number, or a headline with one orange word is written, in one layer:
+
+```js
+{ type: 'text', style: { fontFamily: 'Menlo', fontSize: 30, fill: '#e8f5e8', align: 'left' },
+  spans: [{ text: 'type', fill: '#7fa07f' }, ': ', { text: "'text'", fill: '#ffd166', fontWeight: '700' }, ',\n  at: 0.5'],
+  initial: { x: 120, y: 200 } }
+```
+
+A span changes colour, outline, weight, slant, letter spacing or shadow, never the size or the font (one size and one font per layer; the warning says where to put them). `\n` starts a new line, and `style.align` places the lines on the block. The layer becomes a group of plain text layers named `<name>.0`, `<name>.1` …, so every keyframe, filter and mask of a text layer works on it, and `anchorX: 0.5` centres the whole block. A typewriter (`visibleChars`) counts over all the spans in order. For a web font, load it before the page builds the movie (`await document.fonts.load(...)`): the pieces are placed by measuring.
+
 ## Gradient letters
 
 A text layer takes a `fillGradient` for its letters, and a keyframe can move it (the same partial gradient as on a shape, but **linear only**: `angle` and `stops` apply; for a radial gradient use a shape):

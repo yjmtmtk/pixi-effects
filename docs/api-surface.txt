@@ -666,6 +666,7 @@ interface TextSequenceSpec extends SequenceCommon
   colorSpace?: "rgb" | "oklab" | "oklch"
   fillGradient?: GradientSpec
   format?: { decimals?: number | undefined; grouping?: boolean | undefined; pad?: number | undefined; }
+  spans?: (string | TextSpan)[]
   style?: Record<string, PropValue | { color?: PropValue | undefined; width?: PropValue | undefined; }>
   text?: string
   type: "text"
@@ -673,6 +674,15 @@ interface TextSize
   height: number
   lines: number
   width: number
+interface TextSpan
+  dropShadow?: boolean | Record<string, PropValue>
+  fill?: string | number
+  fontStyle?: "normal" | "italic" | "oblique"
+  fontVariant?: string
+  fontWeight?: string | number
+  letterSpacing?: number
+  stroke?: string | { color?: PropValue | undefined; width?: PropValue | undefined; }
+  text: string
 interface TimelineData
   duration: number
   rows: TimelineRow[]
@@ -913,7 +923,7 @@ every layer: type name parent at duration initial keyframes filters filterArea m
 null layer: 
 camera layer: 
 light layer: kind falloff
-text layer: text format style colorSpace fillGradient
+text layer: text spans format style colorSpace fillGradient
 image layer: asset colorSpace
 video layer: asset loop audio volume speed
 audio layer: volume asset loop sfx music speed

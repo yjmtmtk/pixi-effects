@@ -99,6 +99,7 @@ export type {
   VideoSequenceSpec,
   ImageSequenceSpec,
   TextSequenceSpec,
+  TextSpan,
   AudioSequenceSpec,
   AudioAssetSpec,
   AudioSfxSpec,

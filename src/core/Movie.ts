@@ -1228,6 +1228,8 @@ function countLayers(spec: { sequences?: unknown[] } | undefined): number {
   for (const s of spec?.sequences ?? []) {
     const mask = (s as { mask?: unknown }).mask;
     n += 1 + countLayers(s as { sequences?: unknown[] });
+    const spans = (s as { spans?: unknown }).spans;
+    if (Array.isArray(spans)) n += spans.length;                         // a text with spans is built as a group and one layer per piece (at least one per span)
     const src = maskSourceOf(mask);
     if (src.kind === 'inline') n += 1 + countLayers(src.spec as { sequences?: unknown[] });   // an inline mask is built as a layer too
   }

@@ -21,7 +21,7 @@ const STYLE_OPAQUE_KEYS = [
   'lineJoin', 'join', 'cap', 'color', 'stroke',
 ];
 
-type CounterState = { value: number; visibleChars: number };
+export type CounterState = { value: number; visibleChars: number };
 
 function formatValue(v: number, f: TextSequenceSpec['format']): string {
   const fixed = v.toFixed(Math.max(0, Math.floor(f?.decimals ?? 0)));
@@ -59,6 +59,9 @@ export class TextSequence extends Sequence {
     this._fillGradient?.destroy();
     this._fillGradient = null;
   }
+
+  /** @internal A `spans` group that types over several pieces: this piece shows its first `n` characters (the piece was built typed). */
+  setVisibleChars(n: number): void { this._counters.visibleChars = n; this._refreshText(); }
 
   /** A typewriter that has typed nothing yet: the layer is empty on purpose (inspect must not call that "no size"). */
   get showsNothingYet(): boolean { return this._typed && this._lastText === '' && this._template !== ''; }
@@ -201,7 +204,7 @@ function stripProps(props: Props | undefined, keys: string[]): Props | undefined
   return out as unknown as Props;
 }
 
-function resolveNumber(v: unknown, scope: unknown): number {
+export function resolveNumber(v: unknown, scope: unknown): number {
   if (typeof v === 'number') return v;
   const out = normalizeProps({ v }, scope as unknown as Record<string, number>).v;
   return typeof out === 'number' ? out : Number(out) || 0;
@@ -209,7 +212,7 @@ function resolveNumber(v: unknown, scope: unknown): number {
 
 // Tween a number on the layer (`value` for the `{value}` counter, `visibleChars` for the typewriter). Mirrors the other
 // keyframe kinds (set / to / from / from+to), honours ease and repeat/yoyo, and calls `refresh` after every update.
-function bindCounterKeyframes(
+export function bindCounterKeyframes(
   timeline: Timeline,
   state: CounterState,
   key: keyof CounterState,
