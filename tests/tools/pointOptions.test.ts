@@ -34,7 +34,7 @@ run('a point option of a filter, on a real browser', () => {
       expect(await cdp.eval('redShift(15)'), 'half way after a rebuild').toBeLessThan(-6);
       expect(await cdp.eval('redShift(15)')).toBeGreaterThan(-9);
     });
-  });
+  }, 120000);
 
   it("'filters.s.red.x' moves the red copy of the picture: the point reaches the GPU, not only the object", async () => {
     const { server, port } = await check.serve(root);

@@ -1,6 +1,6 @@
 # Roadmap: more expressive, still easy for an AI
 
-Status: rewritten 2026-10-12, current release 0.31.0 (variables, loop, the interactive movies). Nothing here is promised; the order is the proposal.
+Status: rewritten 2026-10-12, current release 0.32.0 (spans, point options, papercuts); 0.31.0 brought variables, loop, the interactive movies. Nothing here is promised; the order is the proposal.
 
 ## The gate every item passes
 

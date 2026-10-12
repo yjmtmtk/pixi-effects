@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.32.0
 
 **`spans`: colour and style inside one text layer, and the papercuts of five films (planned as 0.32)**
 
