@@ -8,18 +8,12 @@ import { applyKeyframes, applyInitial, resolveAt, loopVars } from '../core/Timel
 import { revertibleSet } from '../core/revertibleSet';
 import { tweenColor } from '../expr/colorTween';
 import { describeLayer } from '../core/lint';
+import { STYLE_OPAQUE_KEYS, TEXT_STYLE_DEFAULTS } from '../text/styleKeys';
 import type { ColorInput } from '../expr/colorInterp';
 import type { TextSequenceSpec, Keyframe, Props, GradientSpec } from '../types';
 import type { Timeline } from '../core/timelineEngine';
 
 
-
-// TextStyle fields whose string values are words or colours, never expressions. `join` / `cap` / `color`
-// also live inside `stroke` and `dropShadow`, `stroke` itself may be a colour name.
-const STYLE_OPAQUE_KEYS = [
-  'fontFamily', 'fill', 'align', 'fontStyle', 'fontWeight', 'fontVariant', 'textBaseline', 'whiteSpace',
-  'lineJoin', 'join', 'cap', 'color', 'stroke',
-];
 
 export type CounterState = { value: number; visibleChars: number };
 
@@ -78,12 +72,7 @@ export class TextSequence extends Sequence {
   }
 
   async build(): Promise<void> {
-    const baseStyle = {
-      fontFamily: 'Arial',
-      fontSize: 36,
-      fill: '#ffffff',
-      align: 'center' as const,
-    };
+    const baseStyle = { ...TEXT_STYLE_DEFAULTS };
     const initialProps = (this.spec.initial ?? {}) as Record<string, unknown>;
     this._template = String(initialProps.text ?? this.spec.text ?? '');
     const text = new Text({

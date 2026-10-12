@@ -139,6 +139,13 @@ const renderScript = (format, quality, videoCodec, audioCodec, motionBlur, shutt
   return 0;
 })()`;
 
+/** The length to print: the file's own (read in the page); when that could not be read, the range asked for, and only then the whole movie's. */
+export function fileSeconds(r, opts) {
+  if (r.length != null) return r.length;
+  if (opts.range && r.duration != null) return Math.round(((opts.range[1] ?? r.duration) - (opts.range[0] ?? 0)) * 10) / 10;
+  return r.duration;
+}
+
 export async function runRender(opts, log = console.log, progress = () => {}) {
   const pagePath = path.resolve(opts.page);
   if (!fs.existsSync(pagePath)) throw new Error(`page not found: ${opts.page}`);
@@ -254,7 +261,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process
       console.error(`pixi-effects render failed: ${r.problems.join('; ') || 'no file written'}`);
       process.exit(1);
     }
-    console.log(`${shown(r.file)}  ${kb(r.bytes)} · ${r.length ?? r.duration} s · ${SOUND_ONLY.includes(opts.format) ? 'sound only' : `${r.width}×${r.height} @ ${r.frameRate} fps`} · ${opts.format} · rendered in ${r.seconds} s`);
+    console.log(`${shown(r.file)}  ${kb(r.bytes)} · ${fileSeconds(r, opts)} s · ${SOUND_ONLY.includes(opts.format) ? 'sound only' : `${r.width}×${r.height} @ ${r.frameRate} fps`} · ${opts.format} · rendered in ${r.seconds} s`);
     process.exit(opts.strict && r.logs.length ? 1 : 0);
   } catch (e) {
     console.error(`pixi-effects render failed: ${e.message}`);

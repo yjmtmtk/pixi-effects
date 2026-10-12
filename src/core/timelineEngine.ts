@@ -1,7 +1,7 @@
 import { Color } from 'pixi.js';
 import { PureTimeline, spacer } from './pure/PureTimeline';
 import { pureEase } from './pure/ease';
-import { PIXI_INERT, parseColor, pixiAccessors, plainAccessor } from './pure/props';
+import { PIXI_INERT, parseColor, pathView, pixiAccessors, plainAccessor, warnLeadsNowhere } from './pure/props';
 import { rgbInterp, type Rgba } from './pure/colorLerp';
 
 /**
@@ -42,7 +42,13 @@ export function setNow(target: object, vars: Record<string, unknown>): void {
       }
     } else {
       const v = vars[key];
-      plainAccessor(t, key).set(typeof v === 'number' ? Math.round(v * 1e6) / 1e6 : v);
+      const value = typeof v === 'number' ? Math.round(v * 1e6) / 1e6 : v;
+      if (key.includes('.')) {                                       // 'red.x': the leaf of a point or object option (a filter's), as in a keyframe
+        const path = pathView(t, key);
+        if (path) (path.view as Record<string, unknown>)[path.leaf] = value; else warnLeadsNowhere(key);
+        continue;
+      }
+      plainAccessor(t, key).set(value);
     }
   }
 }

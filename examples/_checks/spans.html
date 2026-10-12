@@ -8,7 +8,7 @@
   <!--
     Acceptance check (not an example): one text layer with `spans` on black. tests/tools/spans.test.ts reads it with `bbox(frame, colour)`: the
     bounding box of the pixels of one of the four colours (white WW, red RR, green GG, blue BB on a second line).
-    Query: vars=1 (the red word is {word}), typed=1 (a visibleChars keyframe 0 -> 8 over 8 frames), align=center|right, anchor=1 (anchorX / anchorY 0.5 at the middle of the canvas).
+    Query: size=expr|var|none (how fontSize is written), vars=1 (the red word is {word}), typed=1 (a visibleChars keyframe 0 -> 8 over 8 frames), align=center|right, anchor=1 (anchorX / anchorY 0.5 at the middle of the canvas).
   -->
   <canvas id="stage"></canvas>
   <script>
@@ -23,8 +23,10 @@
     import { Movie } from '../../dist/index.js';
     const Q = new URLSearchParams(location.search);
     const W = 640, H = 360;
+    // size=expr: fontSize is an expression (GH * 0.18); size=var: a declared variable; size=none: no fontSize at all (the text layer's default, 36)
+    const SIZE = { expr: 'GH * 0.18', var: 'size', none: undefined }[Q.get('size') ?? ''] ?? 64;
     const layer = {
-      type: 'text', name: 's', style: { fontFamily: 'Arial', fontSize: 64, fontWeight: '900', fill: '#ffffff', align: Q.get('align') ?? 'left' },
+      type: 'text', name: 's', style: { fontFamily: 'Arial', ...(SIZE === undefined ? {} : { fontSize: SIZE }), fontWeight: '900', fill: '#ffffff', align: Q.get('align') ?? 'left' },
       spans: ['WW', { text: 'RR', fill: '#ff0000' }, { text: 'GG', fill: '#00ff00' }, '\n', { text: 'BB', fill: '#0000ff' }],
       initial: Q.has('anchor') ? { x: W / 2, y: H / 2, anchorX: 0.5, anchorY: 0.5 } : { x: 40, y: 40 },
       ...(Q.has('typed') ? { initial: { x: 40, y: 40, visibleChars: 0 }, keyframes: [{ at: 0, to: { visibleChars: 9 }, duration: 9 / 30, ease: 'none' }] } : {}),
@@ -34,7 +36,7 @@
     const movie = new Movie();
     window.movie = movie;
     try {
-      await movie.init({ canvas: document.getElementById('stage'), width: W, height: H, duration: 2, frameRate: 30, background: '#000000', ...(Q.has('vars') ? { vars: { word: 'RR' } } : {}), composition: { sequences: [layer] } });
+      await movie.init({ canvas: document.getElementById('stage'), width: W, height: H, duration: 2, frameRate: 30, background: '#000000', ...(Q.has('vars') ? { vars: { word: 'RR' } } : Q.get('size') === 'var' ? { vars: { size: 64 } } : {}), composition: { sequences: [layer] } });
       window.__ready = true;
     } catch (e) { window.__logs.push('init: ' + e.message); }
 

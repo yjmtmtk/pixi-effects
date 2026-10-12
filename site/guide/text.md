@@ -60,7 +60,7 @@ A text layer takes `spans` instead of `text`: strings in the layer's own `style`
   initial: { x: 120, y: 200 } }
 ```
 
-A span changes colour, outline, weight, slant, letter spacing or shadow, never the size or the font (one size and one font per layer; the warning says where to put them). `\n` starts a new line, and `style.align` places the lines on the block. The layer becomes a group of plain text layers named `<name>.0`, `<name>.1` …, so every keyframe, filter and mask of a text layer works on it, and `anchorX: 0.5` centres the whole block. A typewriter (`visibleChars`) counts over all the spans in order. For a web font, load it before the page builds the movie (`await document.fonts.load(...)`): the pieces are placed by measuring.
+A span changes colour, weight, slant, letter spacing or shadow, never the size, the font or the outline (one size, one font and one outline per layer; the warning says where to put them). `\n` starts a new line, and `style.align` places the lines on the block. The layer becomes a group of plain text layers named `<name>.0`, `<name>.1` …, so the keyframes (position, alpha, scale, rotation, a typewriter), filters and masks of a text layer work on it (not `fill`, `text` or `value`, which a group cannot carry), and `anchorX: 0.5` centres the whole block. A typewriter (`visibleChars`) counts over all the spans in order. For a web font, load it before the page builds the movie (`await document.fonts.load(...)`): the pieces are placed by measuring.
 
 ## Gradient letters
 

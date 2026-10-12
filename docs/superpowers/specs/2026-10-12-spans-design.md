@@ -20,7 +20,7 @@ Lines are aligned by `style.align` (`left`, `center`, `right`; the default is `c
 
 ## Rules and warnings (the gate: a build-time sentence for the mistake an AI will make)
 
-- Overrides may change what is drawn without changing the baseline: `fill`, `stroke`, `fontWeight`, `fontStyle`, `fontVariant`, `letterSpacing`, `dropShadow`. `fontSize`, `fontFamily`, `lineHeight`, `wordWrap`, `align` on a span move the baseline or the width of the line, so they are not allowed there: said once ("put it on the layer's style; one size per layer"), ignored.
+- Overrides may change what is drawn without changing the baseline: `fill`, `fontWeight`, `fontStyle`, `fontVariant`, `letterSpacing`, `dropShadow`. `fontSize`, `fontFamily`, `lineHeight`, `wordWrap`, `align` on a span move the baseline or the width of the line, so they are not allowed there: said once ("put it on the layer's style; one size per layer"), ignored.
 - `text` together with `spans` warns (`spans` wins). An empty `spans`, a span without a string `text`, an unknown override key (did-you-mean) each warn once.
 - Keyframes on `text`, `fill`, `visibleChars`, `value` do not apply to a spans layer (it is a group): said once, with what to write instead (a separate text layer, or `animateText`). **Open choice 2** below.
 - Measuring needs the font loaded, as for `splitText` (`await document.fonts.load(...)` first for a web font): the cheatsheet line says so.

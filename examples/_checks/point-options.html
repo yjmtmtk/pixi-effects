@@ -23,10 +23,11 @@
     import { Movie } from '../../dist/index.js';
     const W = 640, H = 360;
     const still = new URLSearchParams(location.search).has('still');       // no keyframe: the filter's own `red` only
+    const toOnly = new URLSearchParams(location.search).has('toOnly');     // a `to` keyframe alone: it starts from wherever the filter's own point is
     const composition = { sequences: [
       { type: 'composition', name: 'inner', width: W, height: H,
         filters: [{ type: 'rgbSplit', name: 's', red: { x: 0, y: 0 }, green: { x: 0, y: 0 }, blue: { x: 0, y: 0 } }],
-        keyframes: still ? [] : [{ at: 0, from: { 'filters.s.red.x': 0 }, to: { 'filters.s.red.x': 30 }, duration: 1, ease: 'none' }],
+        keyframes: still ? [] : toOnly ? [{ at: 0, to: { 'filters.s.red.x': 30 }, duration: 1, ease: 'none' }] : [{ at: 0, from: { 'filters.s.red.x': 0 }, to: { 'filters.s.red.x': 30 }, duration: 1, ease: 'none' }],
         sequences: [{ type: 'shape', shape: 'rect', width: 100, height: 100, initial: { x: W / 2, y: H / 2, fillColor: '#ffffff' } }] },
     ] };
     const movie = new Movie();

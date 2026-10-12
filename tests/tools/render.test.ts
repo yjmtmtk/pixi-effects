@@ -11,6 +11,14 @@ const tool: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/t
 const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
 
 describe('render.mjs — pure helpers', () => {
+  it('fileSeconds: the file\'s own length; if it could not be read, the range asked for; only then the whole movie\'s', () => {
+    expect(tool.fileSeconds({ length: 1.5, duration: 4 }, { range: [1, 2] })).toBe(1.5);
+    expect(tool.fileSeconds({ length: null, duration: 4 }, { range: [1, 2.5] })).toBe(1.5);
+    expect(tool.fileSeconds({ length: null, duration: 4 }, { range: [1, null] })).toBe(3);
+    expect(tool.fileSeconds({ length: null, duration: 4 }, { range: [null, 2] })).toBe(2);
+    expect(tool.fileSeconds({ length: null, duration: 4 }, { range: null })).toBe(4);
+  });
+
   it('formatFromPath: the container follows the output file extension', () => {
     expect(tool.formatFromPath('out.mp4')).toBe('mp4');
     expect(tool.formatFromPath('/a/b/clip.WEBM')).toBe('webm');

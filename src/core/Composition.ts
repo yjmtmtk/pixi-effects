@@ -9,6 +9,7 @@ import { LightSequence } from '../space/LightSequence';
 import { ShaderSequence } from '../sequences/Shader';
 import type { Sequence } from '../sequences/Base';
 import { expandSpans } from '../text/spans';
+import { buildScope } from '../expr/Scope';
 import type { SequenceSpec, CompositionShape, TextSequenceSpec } from '../types';
 
 let _CompositionSequence: typeof import('../sequences/Composition').CompositionSequence | null = null;
@@ -59,7 +60,8 @@ export async function buildSequenceTree(
     let Cls: SequenceCtor | undefined = staticTypes[spec.type] ?? registry[spec.type];
     // a text layer with `spans` stands for a group of text layers, one per piece (src/text/spans.ts)
     if (spec.type === 'text' && (spec as { spans?: unknown }).spans !== undefined) {
-      spec = expandSpans(spec as TextSequenceSpec);
+      // the layer's own scope (W, H, GW, GH, the declared variables): the style's expressions are resolved for measuring
+      spec = expandSpans(spec as TextSequenceSpec, undefined, buildScope({ intrinsicWidth: 0, intrinsicHeight: 0, at: spec.at, duration: spec.duration }, parent, root) as unknown as Record<string, number>);
       Cls = (await getSpansSequence()) as unknown as SequenceCtor;
     }
     if (!Cls && spec.type === 'composition') {

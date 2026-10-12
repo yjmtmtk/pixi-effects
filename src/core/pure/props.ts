@@ -96,6 +96,14 @@ export function pathView(target: Target, key: string): { view: Target; leaf: str
   return { view, leaf };
 }
 
+const saidPaths = new Set<string>();
+/** A dotted key that leads nowhere on its target: said once per key, and the key is ignored. */
+export function warnLeadsNowhere(key: string): void {
+  if (saidPaths.has(key)) return;
+  saidPaths.add(key);
+  console.warn(`pixi-effects: "${key}" leads nowhere on its target, so it is ignored (a point option of a filter must exist to be animated: give it in the filter's options, e.g. red: { x: 0, y: 0 })`);
+}
+
 export function rawAccessor(target: Target, key: string): Accessor {
   return { id: key, kind: 'raw', unit: 1, round: 1, get: () => target[key], set: (v) => { target[key] = v; } };
 }

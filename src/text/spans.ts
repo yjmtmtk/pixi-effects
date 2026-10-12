@@ -4,6 +4,8 @@
 // works on the group, and `inspect` and the timeline view show the pieces.
 import { CanvasTextMetrics, TextStyle } from 'pixi.js';
 import { suggestName } from '../core/options';
+import { normalizeProps } from '../expr/normalizeProps';
+import { STYLE_OPAQUE_KEYS, TEXT_STYLE_DEFAULTS } from './styleKeys';
 import { describeLayer } from '../core/lint';
 import type { SequenceSpec, TextSequenceSpec } from '../types';
 export type { TextSpan } from '../types';
@@ -11,10 +13,10 @@ export type { TextSpan } from '../types';
 type Warn = (message: string) => void;
 const defaultWarn: Warn = m => console.warn(m);
 
-/** What a span may change without moving the baseline or the width of the line's grid: colours, weight, slant, spacing, a shadow. */
-export const SPAN_STYLE_KEYS = ['fill', 'stroke', 'fontWeight', 'fontStyle', 'fontVariant', 'letterSpacing', 'dropShadow'] as const;
+/** What a span may change without moving the baseline or the places of the pieces: colour, weight, slant, spacing, a shadow. */
+export const SPAN_STYLE_KEYS = ['fill', 'fontWeight', 'fontStyle', 'fontVariant', 'letterSpacing', 'dropShadow'] as const;
 /** What moves the baseline or the line: said once, ignored. */
-const LINE_KEYS = ['fontSize', 'fontFamily', 'lineHeight', 'wordWrap', 'wordWrapWidth', 'align', 'leading', 'textBaseline', 'whiteSpace'];
+const LINE_KEYS = ['fontSize', 'fontFamily', 'lineHeight', 'wordWrap', 'wordWrapWidth', 'align', 'leading', 'textBaseline', 'whiteSpace', 'stroke', 'padding'];
 
 
 export interface SpanPiece {
@@ -64,7 +66,7 @@ function normalize(spans: unknown, who: string, warn: Warn): Array<{ text: strin
     }
     out.push({ text: text as string, overrides });
   });
-  if (lineKeys.size) warn(`pixi-effects: ${who}: a span cannot set ${[...lineKeys].join(', ')}: they move the baseline or the line; put them in the style of the layer (one size and one font per layer). They are ignored`);
+  if (lineKeys.size) warn(`pixi-effects: ${who}: a span cannot set ${[...lineKeys].join(', ')}: they move the baseline, the line or the pieces' places (a stroke shifts a piece by half its width); put them in the style of the layer (one size, one font and one outline per layer). They are ignored`);
   return out;
 }
 
@@ -102,6 +104,30 @@ export function layoutSpans(spans: unknown, style: Record<string, unknown>, alig
   return { pieces, width, height: pieces.length ? (line + 1) * lineHeight : 0, lineHeight, chars };
 }
 
+/**
+ * The style the pieces are measured with AND drawn with: the text layer's own defaults, the layer's `style` with its expressions and variables
+ * resolved to numbers (in the scope of the layer; the pieces would resolve them against the small group), no wrapping (the lines are the
+ * author's `\n`). A size that cannot be resolved is said and the default is used.
+ */
+export function resolveSpansStyle(style: Record<string, unknown>, scope: Record<string, number> | undefined, who: string, warn: Warn = defaultWarn): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...TEXT_STYLE_DEFAULTS };
+  for (const [k, raw] of Object.entries(style)) {
+    if (raw === undefined) continue;
+    let v: unknown = raw;
+    if (scope) {
+      try { v = (normalizeProps({ [k]: raw }, scope, { skipKeys: STYLE_OPAQUE_KEYS }) as Record<string, unknown>)[k]; }
+      catch (e) { v = NaN; if (!(k in TEXT_STYLE_DEFAULTS) || k === 'fontSize') warn(`pixi-effects: ${who}: style.${k} ${JSON.stringify(raw)} could not be resolved (${(e as Error).message}); ${k === 'fontSize' ? `the default, ${TEXT_STYLE_DEFAULTS.fontSize}, is used` : 'it is left out'}`); continue; }
+    }
+    // an unknown name evaluates to 0: a text of size 0 (or below) draws nothing, so it is the same mistake as not being a number
+    if (['fontSize', 'letterSpacing', 'lineHeight'].includes(k) && (typeof v !== 'number' || !Number.isFinite(v) || (k !== 'letterSpacing' && v <= 0))) {
+      warn(`pixi-effects: ${who}: style.${k} ${JSON.stringify(raw)} is not a usable number here (a name that is not declared counts as 0; spans measure the text when the layer is built); ${k === 'fontSize' ? `the default, ${TEXT_STYLE_DEFAULTS.fontSize}, is used` : 'it is left out'}`);
+      continue;
+    }
+    out[k] = v;
+  }
+  return out;
+}
+
 /** Keys a text layer has and a group does not (the pieces carry the style; the string is the spans). */
 const TEXT_ONLY = ['type', 'spans', 'text', 'style', 'format', 'colorSpace', 'fillGradient', 'initial', 'keyframes'];
 /** Properties of one text that cannot be one number for a group of pieces. */
@@ -112,15 +138,18 @@ const NOT_FOR_A_GROUP = ['fill', 'text', 'value', 'fillGradient'];
  * picture keys move to it; `anchorX` / `anchorY` become its pivot. Pieces are named `<name>.0`, `<name>.1` … and a typewriter (`visibleChars`) is
  * remembered in `spansMeta` for the sequence that counts over the pieces.
  */
-export function expandSpans(spec: TextSequenceSpec, warn: Warn = defaultWarn): SequenceSpec {
+export function expandSpans(spec: TextSequenceSpec, warn: Warn = defaultWarn, scope?: Record<string, number>): SequenceSpec {
   const who = describeLayer(spec as SequenceSpec);
   const s = spec as unknown as Record<string, unknown> & TextSequenceSpec;
   if (s.text !== undefined) warn(`pixi-effects: ${who}: "text" is ignored when the layer has spans: write the text as spans`);
-  const style = (s.style ?? {}) as Record<string, unknown>;
-  const align = (['left', 'center', 'right'].includes(String(style.align)) ? style.align : 'center') as 'left' | 'center' | 'right';
-  const layout = layoutSpans(s.spans, style, align, who, warn);
+  const style = resolveSpansStyle((s.style ?? {}) as Record<string, unknown>, scope, who, warn);
+  // pieces are single lines placed by the author's `\n`: wrapping and extra leading would make a piece taller than the line it is placed on
+  const noLayout = ['wordWrap', 'wordWrapWidth', 'leading'].filter(k => style[k] !== undefined && style[k] !== false && style[k] !== 0);
+  for (const k of ['wordWrap', 'wordWrapWidth', 'leading']) delete style[k];
+  if (noLayout.length) warn(`pixi-effects: ${who}: style.${noLayout.join(', style.')} ${noLayout.length > 1 ? 'do' : 'does'} not apply to a spans layer (the lines are the \\n of the spans); break the lines with \\n. ${noLayout.length > 1 ? 'They are' : 'It is'} ignored`);
+  const layout = layoutSpans(s.spans, style, style.align as 'left' | 'center' | 'right', who, warn);
 
-  const dropped = new Set<string>();
+  const dropped = new Set<string>(['fillGradient', 'format', 'colorSpace'].filter(k => s[k] !== undefined));
   const clean = (bag: Record<string, unknown> | undefined): Record<string, unknown> | undefined => {
     if (!bag) return bag;
     const out: Record<string, unknown> = {};
@@ -133,8 +162,14 @@ export function expandSpans(spec: TextSequenceSpec, warn: Warn = defaultWarn): S
 
   const typed = initial.visibleChars !== undefined || keyframes.some(kf => [kf.set, kf.to, kf.from].some(p => p && (p as Record<string, unknown>).visibleChars !== undefined));
   const width = Math.max(1, layout.width), height = Math.max(1, layout.height);
-  if (typeof initial.anchorX === 'number') { initial.pivotX = initial.anchorX * width; delete initial.anchorX; }
-  if (typeof initial.anchorY === 'number') { initial.pivotY = initial.anchorY * height; delete initial.anchorY; }
+  // anchorX / anchorY become the group's pivot, in pixels of the measured block: they must be numbers, and cannot be animated
+  for (const [a, pivot, size] of [['anchorX', 'pivotX', width], ['anchorY', 'pivotY', height]] as const) {
+    if (initial[a] === undefined) continue;
+    if (typeof initial[a] === 'number') { initial[pivot] = (initial[a] as number) * size; delete initial[a]; }
+    else { warn(`pixi-effects: ${who}: initial.${a} ${JSON.stringify(initial[a])} must be a number on a spans layer (it becomes the pivot of the block); it is ignored`); delete initial[a]; }
+  }
+  const animatedAnchors = ['anchorX', 'anchorY'].filter(a => keyframes.some(kf => [kf.set, kf.to, kf.from].some(p => p && (p as Record<string, unknown>)[a] !== undefined)));
+  if (animatedAnchors.length) warn(`pixi-effects: ${who}: ${animatedAnchors.join(', ')} cannot be keyframed on a spans layer (the anchor is the pivot of the block, set once in initial); the keyframes do nothing`);
 
   const baseName = typeof s.name === 'string' && s.name ? s.name : 'spans';
   const drawn = layout.pieces.filter(p => !p.blank);

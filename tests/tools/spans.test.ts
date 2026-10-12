@@ -40,6 +40,17 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('a text lay
     });
   });
 
+  it.each([['an expression (GH * 0.18)', '?size=expr'], ['a declared variable', '?size=var'], ['no fontSize at all (the text layer\'s default)', '?size=none']])('the pieces still follow each other when fontSize is %s: they are measured with the style they are drawn with', async (_label, query) => {
+    await open(query, async (cdp) => {
+      const [white, red, green] = [await box(cdp, 0, 'white'), await box(cdp, 0, 'red'), await box(cdp, 0, 'green')];
+      expect(white && red && green, JSON.stringify({ white, red, green })).toBeTruthy();
+      expect(Math.abs(red![0] - (white![2] + 1)), 'RR starts where WW ends').toBeLessThanOrEqual(6);
+      expect(Math.abs(green![0] - (red![2] + 1)), 'GG starts where RR ends').toBeLessThanOrEqual(6);
+      expect(white![3] - white![1], 'the letters have a real height (not 3 px)').toBeGreaterThan(20);
+      expect(await cdp.eval('JSON.stringify(window.__logs)')).toBe('[]');
+    });
+  });
+
   it('inspect lists the group and its pieces (s/s.0 … s/s.3), and says nothing is wrong with a line of adjacent pieces', async () => {
     await open('', async (cdp) => {
       const paths = JSON.parse(await cdp.eval('(async () => JSON.stringify(await pieceNames()))()')) as string[];

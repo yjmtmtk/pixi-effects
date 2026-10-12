@@ -41,6 +41,18 @@ describe('declarative filters: { type: "glow", … }', () => {
     expect(f._name).toBe('halo');
   });
 
+  it('object options are copied: animating a leaf of a point (filters.s.red.x) never writes into the author\'s spec', () => {
+    registerFilterLibrary(FAKE_LIB);
+    const red = { x: 0, y: 0 }, shadow = { offset: { x: 7, y: 7 }, colors: ['#fff', '#000'] };
+    const f = createFilter(spec({ type: 'rgbSplit', red, extra: shadow })) as unknown as RGBSplitFilter & { opts: { red: { x: number }; extra: { offset: { x: number }; colors: string[] } } };
+    f.opts.red.x = 30;                       // what a keyframe on 'filters.s.red.x' does to the filter's own object
+    f.opts.extra.offset.x = 99;
+    f.opts.extra.colors[0] = '#f00';
+    expect(red).toEqual({ x: 0, y: 0 });
+    expect(shadow).toEqual({ offset: { x: 7, y: 7 }, colors: ['#fff', '#000'] });
+    expect(f.opts.red).not.toBe(red);
+  });
+
   it('finds the class by name, ignoring case (crt → CRTFilter, rgbSplit → RGBSplitFilter, dropShadow → DropShadowFilter)', () => {
     registerFilterLibrary(FAKE_LIB);
     expect(createFilter(spec({ type: 'crt' }))).toBeInstanceOf(CRTFilter);

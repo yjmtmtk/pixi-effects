@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { PureTimeline } from '../../src/core/pure/PureTimeline';
+import { setNow } from '../../src/core/timelineEngine';
 
 /** A filter like pixi-filters' RGBSplitFilter: `red` is a point object (`{ x, y }`) the filter reads when it draws. */
 const splitLike = () => ({ apply() {}, red: { x: 0, y: 0 }, green: { x: 0, y: 0 } });
@@ -48,5 +49,24 @@ describe('a point option of a filter moves: "red.x" is a key like any other', ()
     expect(Object.keys(f)).not.toContain('blue.x');
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0]![0])).toMatch(/blue\.x/);
+  });
+});
+
+describe('a dotted key in initial (or a set written at once) is a path too', () => {
+  it('setNow writes the leaf of the point, not a property called "red.x"', () => {
+    const f = splitLike();
+    setNow(f, { 'red.x': 5, 'green.y': 2 });
+    expect(f.red).toEqual({ x: 5, y: 0 });
+    expect(f.green).toEqual({ x: 0, y: 2 });
+    expect(Object.keys(f)).not.toContain('red.x');
+  });
+
+  it('a path that leads nowhere is said once and ignored, here too', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const f = splitLike();
+    setNow(f, { 'nothing.x': 5 });
+    setNow(f, { 'nothing.x': 6 });
+    expect(Object.keys(f)).not.toContain('nothing.x');
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 });

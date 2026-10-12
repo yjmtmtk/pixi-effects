@@ -26,6 +26,18 @@ function looksLikePixiFilter(x: unknown): x is Filter {
   return !!x && typeof x === 'object' && typeof (x as { apply?: unknown }).apply === 'function';
 }
 
+/**
+ * A copy of plain objects and arrays, all the way down: a filter keeps the object it is given (`red: { x, y }` is its uniform), and a keyframe on
+ * `'filters.s.red.x'` writes the leaf in place, so without a copy the author's spec would change with the last frame that was drawn.
+ */
+function copyPlain<T>(v: T): T {
+  if (Array.isArray(v)) return v.map(copyPlain) as unknown as T;
+  if (v && typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype) {
+    return Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, copyPlain(x)])) as T;
+  }
+  return v;
+}
+
 export function createFilter(spec: FilterSpec): NamedFilter {
   if (spec.type === 'custom') {
     const inst = (spec as CustomFilterSpec).filter;
@@ -36,7 +48,8 @@ export function createFilter(spec: FilterSpec): NamedFilter {
     named._name = spec.name;
     return named;
   }
-  const { type, name, ...params } = spec as Record<string, unknown> & { type: string; name?: string };
+  const { type, name, ...given } = spec as Record<string, unknown> & { type: string; name?: string };
+  const params = copyPlain(given);
   const Cls = registry[type];
   const inst = (Cls ? new Cls(params) : createNamedFilter(type, params)) as NamedFilter;
   inst._name = name;

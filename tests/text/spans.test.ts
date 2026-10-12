@@ -61,6 +61,16 @@ describe('layoutSpans: where each piece of a line of spans goes', () => {
   });
 });
 
+describe('layoutSpans: a stroke belongs to the layer', () => {
+  it('a span with its own stroke is said once and the stroke is ignored (a stroke shifts a piece by half its width, so the pieces would not line up)', () => {
+    const L = layoutSpans(['A', { text: 'B', stroke: { color: '#000', width: 8 } } as never], style, 'left', 'text', warn);
+    expect(L.pieces[1]!.style).toEqual({});
+    expect(said).toHaveLength(1);
+    expect(said[0]).toMatch(/stroke/);
+    expect(said[0]).toMatch(/style of the layer/);
+  });
+});
+
 describe('expandSpans: the text layer becomes one group of ordinary text layers', () => {
   const spec = {
     type: 'text', name: 'code', spans: ['AB', { text: 'CD', fill: '#ff0000' }], style: { fontSize: 20, fill: '#ffffff', align: 'left' },
@@ -77,7 +87,29 @@ describe('expandSpans: the text layer becomes one group of ordinary text layers'
   it('every piece is a text layer with the layer\'s style plus its own overrides, at its measured place, named name.N', () => {
     const g = expandSpans(spec, warn) as { sequences: Array<Record<string, unknown>> };
     expect(g.sequences.map(s => [s.type, s.name, s.text])).toEqual([['text', 'code.0', 'AB'], ['text', 'code.1', 'CD']]);
-    expect(g.sequences[1]).toMatchObject({ style: { fontSize: 20, fill: '#ff0000', align: 'left' }, initial: { x: 20, y: 0 } });
+    expect(g.sequences[1]).toMatchObject({ style: { fontFamily: 'Arial', fontSize: 20, fill: '#ff0000', align: 'left' }, initial: { x: 20, y: 0 } });
+  });
+
+  it('the pieces are measured with the style a text layer is DRAWN with: its defaults (Arial 36, white, centred) fill in what the layer does not say', () => {
+    const g = expandSpans({ type: 'text', spans: ['AB', 'CD'], style: {} } as never, warn) as { sequences: Array<{ style: Record<string, unknown>; initial: { x: number } }>; width: number };
+    expect(g.sequences[0]!.style).toMatchObject({ fontFamily: 'Arial', fontSize: 36, fill: '#ffffff', align: 'center' });
+    expect(g.sequences[1]!.initial.x).toBe(36);                       // the mock: 18 px per character at 36, so AB is 36 wide (it was measured at 26 and the pieces overlapped)
+    expect(g.width).toBe(72);
+  });
+
+  it('numbers written as expressions or variables are resolved BEFORE measuring, and the pieces get the numbers (not the expression, which would resolve against the small group)', () => {
+    const g = expandSpans({ type: 'text', spans: ['AB', 'CD'], style: { fontSize: 'H * 0.1', fill: '#fff' } } as never, warn, { H: 200, W: 400 }) as { sequences: Array<{ style: Record<string, unknown>; initial: { x: number } }> };
+    expect(g.sequences[1]!.initial.x).toBe(20);                       // fontSize 20: 10 px per character
+    expect(g.sequences.map(q => q.style.fontSize)).toEqual([20, 20]);
+    const v = expandSpans({ type: 'text', spans: ['AB', 'CD'], style: { fontSize: 'size' } } as never, warn, { size: 30 }) as { sequences: Array<{ initial: { x: number } }> };
+    expect(v.sequences[1]!.initial.x).toBe(30);
+  });
+
+  it('a size that cannot be resolved is said, and the default is measured and drawn (never NaN)', () => {
+    const g = expandSpans({ type: 'text', spans: ['AB', 'CD'], style: { fontSize: 'nowhere * 2' } } as never, warn, { H: 200 }) as { sequences: Array<{ style: Record<string, unknown>; initial: { x: number } }> };
+    expect(said.some(m => /fontSize/.test(m) && /36/.test(m))).toBe(true);
+    expect(g.sequences[0]!.style.fontSize).toBe(36);
+    expect(g.sequences[1]!.initial.x).toBe(36);
   });
 
   it('anchorX / anchorY of the layer become the group\'s pivot (0.5 centres the block on x, y, as it does a text)', () => {
@@ -91,6 +123,30 @@ describe('expandSpans: the text layer becomes one group of ordinary text layers'
     expect(g.keyframes[0]!.to).toEqual({ alpha: 1 });
     expect(said.some(m => /"text" is ignored.*spans/.test(m))).toBe(true);
     expect(said.some(m => /fill.*do not apply.*separate/.test(m))).toBe(true);
+  });
+
+  it('keys of a text that a group cannot carry are said, not dropped silently: fillGradient, format, colorSpace', () => {
+    expandSpans({ type: 'text', spans: ['A'], style, fillGradient: { angle: 0, stops: [[0, '#f00'], [1, '#00f']] }, format: { decimals: 1 }, colorSpace: 'oklab' } as never, warn);
+    const m = said.find(x => /do not apply to a spans layer/.test(x))!;
+    expect(m).toMatch(/fillGradient/);
+    expect(m).toMatch(/format/);
+    expect(m).toMatch(/colorSpace/);
+  });
+
+  it('an anchor that is an expression, or is animated, is said (the anchor becomes the block\'s pivot, set once)', () => {
+    const g = expandSpans({ type: 'text', spans: ['AB'], style, initial: { anchorX: 'w / 2', anchorY: 0.5 }, keyframes: [{ at: 0, to: { anchorY: 1 }, duration: 1 }] } as never, warn) as { initial: Record<string, unknown> };
+    expect(said.some(m => /initial\.anchorX "w \/ 2" must be a number/.test(m))).toBe(true);
+    expect(said.some(m => /anchorY cannot be keyframed/.test(m))).toBe(true);
+    expect(g.initial).not.toHaveProperty('anchorX');
+    expect(g.initial.pivotY).toBe(12);
+  });
+
+  it('style.wordWrap and style.leading do not apply (the lines are the \\n of the spans): said, and taken out of the pieces', () => {
+    const g = expandSpans({ type: 'text', spans: ['AB'], style: { fontSize: 20, wordWrap: true, wordWrapWidth: 100, leading: 6 } } as never, warn) as { sequences: Array<{ style: Record<string, unknown> }> };
+    expect(said.some(m => /style\.wordWrap, style\.wordWrapWidth, style\.leading do not apply/.test(m))).toBe(true);
+    expect(g.sequences[0]!.style).not.toHaveProperty('wordWrap');
+    expect(g.sequences[0]!.style).not.toHaveProperty('wordWrapWidth');
+    expect(g.sequences[0]!.style).not.toHaveProperty('leading');
   });
 
   it('a typewriter (visibleChars) is remembered for the group, and its pieces start fully visible and typed; blank pieces draw nothing', () => {

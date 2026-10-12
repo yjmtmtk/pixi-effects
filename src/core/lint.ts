@@ -117,6 +117,10 @@ const REMOVED_KEYS: Record<string, string> = {
   maskInverted: 'a hole instead of a crop is `mask: { layer: <the mask layer>, invert: true }`',
 };
 
+/** Where a layer is and how it is turned: always `initial` or a keyframe, even for a kind of layer that has such a name as a key of another meaning (`anchorX` on a shape). */
+const TRANSFORM_KEYS = new Set(['x', 'y', 'z', 'alpha', 'rotation', 'rotationX', 'rotationY', 'scale', 'scaleX', 'scaleY', 'anchor', 'anchorX', 'anchorY',
+  'pivot', 'pivotX', 'pivotY', 'skew', 'skewX', 'skewY', 'position', 'positionX', 'positionY', 'tint', 'visible', 'autoAlpha']);
+
 export function lintKeys(spec: SequenceSpec, warn: Warn = defaultWarn): void {
   const who = describeLayer(spec);
   const valid = layerKeys(spec as { type: string; shape?: string });
@@ -126,7 +130,7 @@ export function lintKeys(spec: SequenceSpec, warn: Warn = defaultWarn): void {
       if (REMAPPABLE.has(spec.type) && REMAP_NAMES.has(key)) continue;                                            // lintRemap has its own message for these
       if (REMOVED_KEYS[key]) { warn(`pixi-effects: ${who}: "${key}" is not a ${kindName(spec as { type: string; shape?: string })} key: ${REMOVED_KEYS[key]}`); continue; }
       // `z`, `x`, `alpha`, `rotationX` … are properties of the picture: they go in `initial` (or a keyframe), not on the layer. Say that, not a guess at another key.
-      if (PROP_KEYS.has(key) && kindsWithKey(key).length === 0) {                 // (a key some other kind of layer owns, `radius` on a rect, keeps its "it belongs to" sentence below)
+      if (TRANSFORM_KEYS.has(key) || (PROP_KEYS.has(key) && kindsWithKey(key).length === 0)) {                 // (a key some other kind of layer owns, `radius` on a rect, keeps its "it belongs to" sentence below)
         const v = (spec as unknown as Record<string, unknown>)[key];
         const shown = typeof v === 'number' || (typeof v === 'string' && v.length <= 24) ? JSON.stringify(v) : '…';
         warn(`pixi-effects: ${who}: "${key}" is a property, not a ${kindName(spec as { type: string; shape?: string })} key, so it is ignored: write it in initial (initial: { ${key}: ${shown} }) or in a keyframe`);
