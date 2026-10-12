@@ -131,10 +131,10 @@ describe('new --size WxH --duration S: the page starts at the size and length as
 describe('new: an option nobody knows is refused, not turned into a page name', () => {
   it('`new vid --fps 60` and `new --width 1920 vid` exit 1 naming the accepted options and write nothing; --size=WxH and a name after the flags work', () => {
     const dir = mkdtempSync(join(tmpdir(), 'new-flags-'));
-    for (const args of [['vid', '--fps', '60'], ['--width', '1920', 'vid']]) {
+    for (const args of [['vid', '--fps', '60'], ['--width', '1920', 'vid'], ['vid', '-o', 'x']]) {
       const r = cli(['new', ...args], dir);
       expect(r.status, args.join(' ')).toBe(1);
-      expect(r.stderr).toMatch(/unknown option --(fps|width).*--size WxH, --duration S/);
+      expect(r.stderr).toMatch(/unknown option (--fps|--width|-o).*--size WxH, --duration S/);
     }
     expect(existsSync(join(dir, 'vid.html'))).toBe(false);
     expect(existsSync(join(dir, '--fps.html'))).toBe(false);

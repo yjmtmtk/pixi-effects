@@ -2,6 +2,7 @@ import type { Container } from 'pixi.js';
 import type { Sequence } from '../sequences/Base';
 import { CompositionSequence } from '../sequences/Composition';
 import type { Keyframe } from '../types';
+import { parseSpring, springDuration } from './spring';
 import { transitionWindowsOf } from './Transitions';
 import { maskSourceOf } from './matte';
 
@@ -64,23 +65,29 @@ interface Motion { running: boolean; ever: boolean }
 const NO_MOTION: Motion = { running: false, ever: false };
 const either = (a: Motion, b: Motion): Motion => ({ running: a.running || b.running, ever: a.ever || b.ever });
 
+/** The keys that put a layer on or off the canvas (an entrance, an exit, a fly-through): a layer waiting off the canvas for one of these tweens is not lost. */
+const TRANSLATION = new Set(['x', 'y', 'z', 'positionX', 'positionY']);
+
 /**
- * Is a geometry keyframe of this layer running at `local` (seconds since the layer started), and has one begun? A tween is running from its `at` for its `duration`
- * (repeats included; a spring or any non-number length is taken to run on); a `set` is instant, so it is no motion. A fade (alpha only) is no motion.
- * `ever`: the layer has a geometry tween at some time. A text that waits outside the canvas for its entrance, or slid out and stays parked there (an exit), is not
- * called "entirely outside"; one that stops half cut off is still reported.
+ * Is a keyframe of this layer that animates `keys` running at `local` (seconds since the layer started), and does the layer ever have one? A tween runs from its `at` for its
+ * `duration` (repeats included; a spring for the time it takes to settle); a `set` is instant, so it is no motion; a fade (alpha only) is no motion.
+ * `ever`: a TRANSLATION tween exists at some time. A text that waits outside the canvas for its entrance, or slid out and stays parked there (an exit), is not called
+ * "entirely outside"; a layer put off the canvas whose only motion is a scale pop is, and one that stops half cut off is reported.
  */
-function motionOf(keyframes: Keyframe[] | undefined, local: number, lives: number): Motion {
+function motionOf(keyframes: Keyframe[] | undefined, local: number, lives: number, keys: (k: string) => boolean = k => GEOMETRY.has(k)): Motion {
   let running = false, ever = false;
   for (const kf of keyframes ?? []) {
-    if (![kf.set, kf.to, kf.from].some(bag => bag && Object.keys(bag).some(k => GEOMETRY.has(k)))) continue;
-    const length = typeof kf.duration === 'number' ? kf.duration : kf.duration === undefined ? 0 : Infinity;
+    const names = [kf.set, kf.to, kf.from].flatMap(bag => (bag ? Object.keys(bag) : []));
+    if (!names.some(keys)) continue;
+    let length = 0;
+    if (typeof kf.duration === 'number') length = kf.duration;
+    else if (kf.duration === 'auto') { const sp = parseSpring(kf.ease); length = sp ? Math.round(springDuration(sp) * 1000) / 1000 : 0.5; }   // what the timeline does with 'auto'
     if (!(length > 0)) continue;
     const kat = kf.at ?? 0;
     const start = kat < 0 ? lives + kat : kat;
     const repeats = kf.repeat ?? 0;
-    const end = Number.isFinite(length) ? start + length * (repeats + 1) + (kf.repeatDelay ?? 0) * repeats : Infinity;
-    ever = true;
+    const end = start + length * (repeats + 1) + (kf.repeatDelay ?? 0) * repeats;
+    if (names.some(k => TRANSLATION.has(k))) ever = true;
     if (local >= start - 1e-6 && local <= end + 1e-6) running = true;
   }
   return { running, ever };
@@ -110,7 +117,9 @@ export function inspectScene(
   const walk = (comp: CompositionSequence, prefix: string, insideThreeD: boolean, parentVisible: boolean, parentScene?: string, parentMotion: Motion = NO_MOTION, parentZero = false): void => {
     const blending = new Set<string>();
     const now = comp.childTime(time);                                   // the time its children live in (local when it is remapped)
-    const cameraMoves = (comp.spec.sequences ?? []).some(q => q.type === 'camera' && (q.keyframes ?? []).some(kf => [kf.set, kf.to, kf.from].some(bag => bag && Object.keys(bag).length > 0)));
+    // a camera with a tween running now carries every threeD layer of the composition with it (a pan is not "cut off"); one at rest, or one that only `set`s values, carries nothing
+    const cameraMotion = (comp.spec.sequences ?? []).filter(q => q.type === 'camera').reduce((m: Motion, q) =>
+      either(m, motionOf(q.keyframes, now - comp.childBase - (q.at ?? 0), q.duration ?? comp.duration ?? Infinity, () => true)), NO_MOTION);
     for (const w of transitionWindowsOf(comp.spec)) {
       const start = comp.childBase + w.start, end = comp.childBase + w.end;
       if (now >= start - 1e-9 && now <= end + 1e-9) { blending.add(w.from); blending.add(w.to); }
@@ -140,7 +149,7 @@ export function inspectScene(
       const localOf = (q: Sequence): number => now - comp.childBase - q.at;
       let motion = either(parentMotion, motionOf(seq.spec.keyframes, localOf(seq), seq.duration ?? Infinity));
       for (const c of carriers) motion = either(motion, motionOf(c.spec.keyframes, localOf(c), c.duration ?? Infinity));
-      if (threeD && cameraMoves) motion = { running: true, ever: true };
+      if (threeD) motion = either(motion, cameraMotion);
       const moving = motion.running;
       const zeroScale = (o: unknown): boolean => { const s = (o as { scale?: { x: number; y: number } } | null)?.scale; return !!s && (s.x === 0 || s.y === 0); };
       const zero = parentZero || zeroScale(t) || carriers.some(c => zeroScale(c.target));

@@ -38,12 +38,16 @@ export function lintTiming(spec: SequenceSpec, parentDuration: number, warn: War
       );
       return;
     }
-    // Starts in time but is cut off by the layer's end: a FADE (to alpha 0 or 1) that never finishes (a trial: a fade-out that stopped half way, a 1.2 s fade-in on a 0.6 s layer).
-    // Not a drift, a fall, a zoom or a decaying flash (to 0.22) that is still going when its layer ends: those are common and on purpose. A `set` is instant, a repeating tween
+    // Starts in time but is cut off by the layer's end: a FADE (to alpha 0 or 1, or from 0 / 1) that never finishes (a trial: a fade-out that stopped half way, a 1.2 s fade-in on a 0.6 s layer).
+    // Not a drift, a fall, a zoom or a decaying glow (to 0.22) that is still going when its layer ends: those are common and on purpose. A `set` is instant, a repeating tween
     // (a blink) and a spring ('auto') are meant to run over, and a cut of under 0.2 s (a few frames: the last keyframe of a generated loop) is nothing.
     const length = kf.duration;
+    // a fade ends (almost) opaque or (almost) clear: `to` alpha, or, when only `from` names alpha, the value it fades from (a fade-in `from: { alpha: 0 }` ends where it was)
     const toAlpha = (kf.to as Record<string, unknown> | undefined)?.alpha;
-    if ((toAlpha === 0 || toAlpha === 1) && typeof length === 'number' && length > 0 && !kf.repeat) {
+    const fromAlpha = (kf.from as Record<string, unknown> | undefined)?.alpha;
+    const nearEnd = (v: unknown) => typeof v === 'number' && (v <= 0.1 || v >= 0.9);
+    const fade = toAlpha !== undefined ? nearEnd(toAlpha) : nearEnd(fromAlpha);
+    if (fade && typeof length === 'number' && length > 0 && !kf.repeat) {
       const start = kat < 0 ? lives + kat : kat;                              // a negative `at` counts back from the end of the layer
       const cut = (start + length - lives) / length;
       if (start >= 0 && cut > 0.25 && cut * length >= 0.2) {

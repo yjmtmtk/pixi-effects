@@ -184,7 +184,7 @@ export function analyzeAudio(
     if (s.music && !s.loop && s.start < movieDuration && !clock) {
       const plays = Math.min(s.end, movieDuration) - s.start;
       const over = s.music.seconds - plays;
-      if (over > 2 && over / s.music.seconds > 0.15) scoreNotes.push(`${layer} (${source}): the score is ${Math.round(s.music.seconds * 10) / 10}s long but only ${Math.round(plays * 100) / 100}s of it play, so it is cut off mid-phrase. Write fewer bars (or a faster tempo) so it ends with the movie, or fade it out with \`vol\` points`);
+      if (over > 2 && over / s.music.seconds > 0.15) scoreNotes.push(`${layer} (${source}): the score is ${Math.round(s.music.seconds * 10) / 10}s long but only ${Math.round(plays * 100) / 100}s of it play, so it is cut off mid-phrase. Write fewer bars (or a faster tempo) so it ends with the movie`);
     }
     return { layer, source, start: s.start, end: s.end, peakDb, sound, ...(s.music ? { music: s.music } : {}) };
   });

@@ -8,7 +8,7 @@
   <!--
     Acceptance check (not an example): three texts a reviewer must be told about although each one FADES IN (a keyframe on alpha) and has
     x / y written in `initial`: a 90 px title far wider than the 1280 canvas (cut off), a label of a null rig that sits half a screen right
-    (the rig only fades), and a rise + fade title that settles cut off (reported once it has settled), and a ticker and a zoom whose geometry really is animated (they cross the edge on purpose: not reported).
+    (the rig only fades), and a rise + fade title that settles cut off (reported once it has settled), and a threeD title under a camera that moved for 0.4 s and now rests (reported once the camera rests), and a ticker and a zoom whose geometry really is animated (they cross the edge on purpose: not reported).
     tests/tools/layoutCutoff.test.ts reads what `check` says about them.
   -->
   <canvas id="stage" width="1280" height="720"></canvas>
@@ -43,6 +43,9 @@
           { type: 'text', name: 'label', text: 'sits half a screen right', parent: 'rig', style: { fontSize: 40, fill: '#ffd166' }, initial: { x: 1000, y: 0 } },
           { type: 'text', name: 'rise', text: 'ピカッと洗浄キャンペーン開催中！今だけ特別価格', style: { fontSize: 90, fill: '#ffffff' },
             initial: { x: 200, y: 450 }, keyframes: [{ at: 0, from: { y: 490, alpha: 0 }, to: { y: 450, alpha: 1 }, duration: 0.5 }] },
+          { type: 'camera', name: 'cam', keyframes: [{ at: 0, from: { x: 0 }, to: { x: 30 }, duration: 0.4 }] },
+          { type: 'text', name: 'plane', text: 'ピカッと洗浄キャンペーン開催中！今だけ特別価格', threeD: true, style: { fontSize: 90, fill: '#ffd166' },
+            initial: { x: 200, y: 560 } },
           { type: 'text', name: 'zoom', text: 'zooms through the edge on purpose', style: { fontSize: 40, fill: '#9fb3d9' },
             initial: { x: 900, y: 650 }, keyframes: [{ at: 0, to: { scale: 3 }, duration: 2, ease: 'none' }] },
           { type: 'text', name: 'ticker', text: 'crosses the edge on purpose', style: { fontSize: 40, fill: '#9fb3d9' },

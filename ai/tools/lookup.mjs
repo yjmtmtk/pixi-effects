@@ -207,7 +207,7 @@ export function runLookup(cmd, args, { cwd = process.cwd(), root = PACKAGE_ROOT 
     for (let i = 0; i < args.length; i++) {
       const a = args[i];
       if (a === '--force') continue;
-      if (/^--/.test(a) && !/^--(size|duration)(=|$)/.test(a)) { bad = `unknown option ${a.split('=')[0]} (accepted: --size WxH, --duration S, --force)`; continue; }
+      if (/^-/.test(a) && !/^--(size|duration)(=|$)/.test(a)) { bad = `unknown option ${a.split('=')[0]} (accepted: --size WxH, --duration S, --force)`; continue; }
       const m = /^(--size|--duration)(?:=(.*))?$/.exec(a);
       if (!m) { rest.push(a); continue; }
       const value = m[2] !== undefined ? m[2] : args[++i];

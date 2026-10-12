@@ -17,8 +17,9 @@ describe('check: a faded-in text that is cut off by the edge is reported (real b
     expect(stdout).toMatch(/text layer "title" is cut off by the canvas edge: \d+px beyond the right edge/);
     expect(stdout).toMatch(/text layer "label" is cut off/);
     expect(stdout).toMatch(/text layer "rise" is cut off/);                 // a rise + fade settles at y 450: reported once it has stopped moving
-    expect(stdout).not.toMatch(/"ticker"/);
-    expect(stdout).not.toMatch(/"zoom"/);
+    expect(stdout).toMatch(/text layer "plane" is cut off/);                // a threeD title under a camera that moved for 0.4 s and now rests
+    expect(stdout).not.toMatch(/text layer "ticker"/);
+    expect(stdout).not.toMatch(/text layer "zoom"/);
     const issues: string[] = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8')).inspect.issues.map((i: any) => i.message);
     expect(issues.some(i => i.includes('"title"'))).toBe(true);
     expect(issues.some(i => i.includes('"ticker"') || i.includes('"zoom"'))).toBe(false);

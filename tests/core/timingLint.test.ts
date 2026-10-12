@@ -71,6 +71,12 @@ describe('summarizeWarnings', () => {
     expect(run({ type: 'text', name: 'f', text: 'a', duration: 0.1 + 0.2 + 0.4, keyframes: [{ at: 0.1 + 0.2, to: { alpha: 0 }, duration: 1 }] })[0]).toMatch(/runs from 0\.3s to 1\.3s/);
   });
 
+  it('a fade-in written as `from: { alpha: 0 }` (the form most pages use) or to a value that is almost opaque is judged like to 0 / 1', () => {
+    expect(run({ type: 'text', name: 'f', text: 'a', at: 3, duration: 0.6, keyframes: [{ at: 0, from: { alpha: 0 }, duration: 1.2 }] })[0]).toMatch(/last 50%/);
+    expect(run({ type: 'text', name: 'g', text: 'a', at: 3, duration: 0.6, keyframes: [{ at: 0, to: { alpha: 0.95 }, duration: 1.2 }] })[0]).toMatch(/last 50%/);
+    expect(run({ type: 'text', name: 'h', text: 'a', at: 3, duration: 0.6, keyframes: [{ at: 0, from: { alpha: 0.4 }, to: { alpha: 0.22 }, duration: 1.2 }] })).toEqual([]);   // a glow decay
+  });
+
   it('an `at` counted from the end is judged too: a 1 s fade that starts 0.5 s before the end loses half of it', () => {
     const w = run({ type: 'text', name: 'tail', text: 'a', duration: 4, keyframes: [{ at: -0.5, to: { alpha: 0 }, duration: 1 }] });
     expect(w).toHaveLength(1);

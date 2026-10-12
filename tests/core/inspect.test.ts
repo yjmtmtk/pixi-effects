@@ -171,6 +171,39 @@ describe('inspectScene', () => {
     expect(r.issues.some(i => i.includes('"never"') && /outside the canvas/.test(i))).toBe(true);
   });
 
+  it('a spring entrance (duration auto) is exempt only until it settles, then a cut-off title is reported', async () => {
+    const comp = await scene([
+      { type: 'text', name: 'pop', text: 'a', initial: { x: 1200, y: 100 }, keyframes: [{ at: 0, from: { scale: 0.5 }, to: { scale: 1 }, duration: 'auto', ease: 'spring(1,170,12)' }] },
+    ]);
+    expect(inspectScene(comp, 0, 0.2, { width: 1280, height: 720 }).layers[0]!.moving).toBe(true);        // still springing
+    const rest = inspectScene(comp, 0, 3, { width: 1280, height: 720 });                                     // a 1,170,12 spring settles in about a second
+    expect(rest.layers[0]!.moving).toBe(false);
+    expect(rest.issues.some(i => /"pop".*cut off/.test(i))).toBe(true);
+  });
+
+  it('a camera is motion only while one of its keyframes tweens something: a camera that has moved and rests, or one that only `set`s a value, carries nothing', async () => {
+    const cam = (keyframes: unknown[]) => scene([
+      { type: 'camera', name: 'cam', keyframes },
+      { type: 'text', name: 'plane', text: 'a', threeD: true, initial: { x: 1200, y: 100 } },
+    ]);
+    const during = inspectScene(await cam([{ at: 0, to: { x: 1800 }, duration: 0.5 }]), 0, 0.2, { width: 1280, height: 720 });
+    expect(during.layers[0]!.moving).toBe(true);
+    const rested = inspectScene(await cam([{ at: 0, to: { x: 1800 }, duration: 0.5 }]), 0, 3, { width: 1280, height: 720 });
+    expect(rested.layers[0]!.moving).toBe(false);
+    const setOnly = inspectScene(await cam([{ at: 0, set: { fov: 50 } }]), 0, 0.2, { width: 1280, height: 720 });
+    expect(setOnly.layers[0]!.moving).toBe(false);
+  });
+
+  it('waiting for an entrance is judged by a TRANSLATION tween (x, y, z): a layer put off the canvas by a typo whose only motion is a scale pop is still "entirely outside"', async () => {
+    const comp = await scene([
+      { type: 'text', name: 'typo', text: 'a', initial: { x: 6400, y: 100 }, keyframes: [{ at: 0, to: { scale: 1.1 }, duration: 0.4 }] },
+      { type: 'text', name: 'enters', text: 'b', initial: { x: 6400, y: 300 }, keyframes: [{ at: 2, to: { x: 600 }, duration: 0.5 }] },
+    ]);
+    const r = inspectScene(comp, 0, 3, { width: 1280, height: 720 });
+    expect(r.issues.some(i => i.includes('"typo"') && /outside the canvas/.test(i))).toBe(true);
+    expect(r.issues.some(i => i.includes('"enters"'))).toBe(false);
+  });
+
   it('a zoom, a spin or a fly-through is motion too: scale, scaleX, rotation, z, anchor and pivot keyframes count, in the layer and in a composition that carries it', async () => {
     const comp = await scene([
       { type: 'text', name: 'zoom', text: 'a', initial: { x: 1200, y: 100 }, keyframes: [{ at: 0, to: { scale: 4 }, duration: 2 }] },
