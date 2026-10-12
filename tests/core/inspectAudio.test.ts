@@ -22,6 +22,18 @@ describe('analyzeAudio', () => {
     expect(r.sources[0]!.music).toEqual(music);
     expect(analyzeAudio(pcm(4, () => 0.3), [src('layer "s"', 'sfx "pop"', 0, 1)], { peak: 0.3, peakAt: 0 }, 4, { window: 1 }).sources[0]).not.toHaveProperty('music');
   });
+  it('a written music score that is much longer than the movie is said to be cut off mid-phrase (and how long it is), a score that ends with the movie is not', () => {
+    const music = (seconds: number) => ({ bpm: 100, meter: 4, beats: Math.round(seconds * 100 / 60), bars: 1, seconds, tail: 2.5, tracks: [], drums: [] });
+    const run = (seconds: number, movie: number, start = 0) => analyzeAudio(pcm(movie, t => 0.2 * Math.sin(2 * Math.PI * 1000 * t)),
+      [{ ...src('layer "bgm"', 'music', start, movie), music: music(seconds) }], { peak: 0.2, peakAt: 1 }, movie, { window: 1 }).issues;
+    const long = run(19.2, 10);
+    expect(long).toHaveLength(1);
+    expect(long[0]).toMatch(/layer "bgm" \(music\) is 19\.2s long but only 10s of it play: it is cut off mid-phrase at the end of the movie/);
+    expect(long[0]).toMatch(/fewer bars/);
+    expect(run(10, 10)).toEqual([]);                    // fits
+    expect(run(11.5, 10)).toEqual([]);                  // a little over: a tail, not a cut (under 2 s)
+    expect(run(24, 12, 4)[0]).toMatch(/only 8s of it play/);        // it starts at 4 s
+  });
   it('a sound the clock of its composition cuts short is said to be cut by the CLOCK (not by the end of the movie)', () => {
     const mix = pcm(11, t => (t >= 4 && t < 5.5 ? 0.3 * Math.sin(2 * Math.PI * 1000 * t) : 0));
     // a 1.4 s sound at local 4.0 .. 5.4 in a composition whose clock runs 0 -> 4.5 and then stands still: the sound stops at 4.5 of its own time

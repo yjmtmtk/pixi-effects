@@ -1,6 +1,6 @@
 # pixi-effects quick start
 
-    npx pixi-effects new my-video          # a page to edit
+    npx pixi-effects new my-video          # a page to edit (--size 1080x1920 --duration 20)
     npx pixi-effects view my-video.html    # look at it while you edit
     npx pixi-effects check my-video.html   # warnings, layout, sound, a contact sheet: LOOK at the PNG
     npx pixi-effects help <word>           # the docs about a word: mask, threeD, keyframes, music
@@ -25,5 +25,6 @@ What goes wrong most:
 - Anchors: rect and circle are centred on x,y; text and image are top-left (use `anchorX: 0.5`).
 - A warning is an instruction: `window.__logs` must be `[]`. Fix what it names.
 - Sound needs no files: `{ type: 'audio', sfx: 'swoosh', at: 2 }`, or `music: { bpm, tracks }`.
-- Never say done before you have looked at the check's PNG.
+- Never say done before you have looked at the check's PNG: it cannot judge a line break, a font, or how a fade ends.
+- Exist already (`help <word>`): `spans` (colour part of a text line), `vars` + `--var name=value` / `--size 1080x1920` (one page, many versions).
 - Anything else: `help <word>` first; the cheatsheet is for grep, not for reading.

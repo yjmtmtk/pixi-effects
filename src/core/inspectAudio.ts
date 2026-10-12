@@ -178,6 +178,15 @@ export function analyzeAudio(
         issues.push(`${layer} (${source}) is cut off by the end of the movie at ${movieDuration}s (it runs to ${s.end.toFixed(2)}s)`);
       }
     }
+    // A written score (`music`) longer than the movie is cut off mid-phrase (a trial: 19.2 s of music under a 10 s film; the read-back said so but nothing flagged it).
+    // A tail of under 2 s over the end, or under 15 % of the score, is only the reverb tail; a long music FILE ending with the movie is normal and is not checked.
+    if (s.music && s.start < movieDuration && !clock) {
+      const over = s.start + s.music.seconds - movieDuration;
+      if (over > 2 && over / s.music.seconds > 0.15) {
+        const plays = Math.round((movieDuration - s.start) * 100) / 100;
+        issues.push(`${layer} (${source}) is ${Math.round(s.music.seconds * 10) / 10}s long but only ${plays}s of it play: it is cut off mid-phrase at the end of the movie. Write fewer bars (or a faster tempo) so the score ends with the movie, or let it fade out with \`vol\` points`);
+      }
+    }
     return { layer, source, start: s.start, end: s.end, peakDb, sound, ...(s.music ? { music: s.music } : {}) };
   });
 

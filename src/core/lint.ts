@@ -26,6 +26,7 @@ export function lintTiming(spec: SequenceSpec, parentDuration: number, warn: War
   // An sfx or a piece of music without a duration is as long as its sound, which only the audio layer knows (it checks its own keyframes).
   if (spec.type === 'audio' && ((spec as { sfx?: unknown }).sfx !== undefined || (spec as { music?: unknown }).music !== undefined) && spec.duration === undefined) return;
   const duration = spec.duration ?? parentDuration;
+  const lives = spec.duration ?? Math.max(0, parentDuration - at);          // without a duration a layer lives until its composition ends
   (spec.keyframes ?? []).forEach((kf, i) => {
     const kat = kf.at ?? 0;
     if (kat >= duration) {
@@ -34,6 +35,22 @@ export function lintTiming(spec: SequenceSpec, parentDuration: number, warn: War
         `Keyframe \`at\` is measured from the start of this layer, not from the start of the composition.`,
         'late-keyframe',
       );
+      return;
+    }
+    // Starts in time but is cut off by the layer's end: a FADE that never finishes (a trial: a fade-out that stopped half way, a 1.2 s fade on a 0.6 s layer).
+    // Only alpha: a drift, a fall or a zoom that is still going when its layer ends is common and on purpose. Repeating tweens, springs, `at` counted from the end
+    // and a cut of under 0.2 s (a few frames: the last keyframe of a generated loop) are left alone.
+    const length = kf.duration;
+    const fades = [kf.set, kf.to, kf.from].some(bag => bag !== undefined && Object.prototype.hasOwnProperty.call(bag, 'alpha'));
+    if (fades && typeof length === 'number' && length > 0 && kat >= 0 && !kf.repeat && kat + length > lives) {
+      const cut = (kat + length - lives) / length;
+      if (cut > 0.25 && cut * length >= 0.2) {
+        warn(
+          `pixi-effects: ${who}: keyframes[${i}] runs from ${kat}s to ${Math.round((kat + length) * 1000) / 1000}s but the layer ends at ${Math.round(lives * 1000) / 1000}s, so the last ${Math.round(cut * 100)}% of it never plays ` +
+          `(a fade stops half way). Keyframe \`at\` is measured from the start of this layer: start it earlier, make it shorter, or make the layer longer.`,
+          'late-keyframe',
+        );
+      }
     }
   });
 }

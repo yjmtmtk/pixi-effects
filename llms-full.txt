@@ -76,7 +76,7 @@ Centred text must be positioned by `anchorX/anchorY: 0.5`; estimate text width a
 
 # pixi-effects quick start
 
-    npx pixi-effects new my-video          # a page to edit
+    npx pixi-effects new my-video          # a page to edit (--size 1080x1920 --duration 20)
     npx pixi-effects view my-video.html    # look at it while you edit
     npx pixi-effects check my-video.html   # warnings, layout, sound, a contact sheet: LOOK at the PNG
     npx pixi-effects help <word>           # the docs about a word: mask, threeD, keyframes, music
@@ -101,7 +101,8 @@ What goes wrong most:
 - Anchors: rect and circle are centred on x,y; text and image are top-left (use `anchorX: 0.5`).
 - A warning is an instruction: `window.__logs` must be `[]`. Fix what it names.
 - Sound needs no files: `{ type: 'audio', sfx: 'swoosh', at: 2 }`, or `music: { bpm, tracks }`.
-- Never say done before you have looked at the check's PNG.
+- Never say done before you have looked at the check's PNG: it cannot judge a line break, a font, or how a fade ends.
+- Exist already (`help <word>`): `spans` (colour part of a text line), `vars` + `--var name=value` / `--size 1080x1920` (one page, many versions).
 - Anything else: `help <word>` first; the cheatsheet is for grep, not for reading.
 
 
@@ -433,6 +434,8 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 105. **Layout that follows the screen is written in `W` / `H` / `GW` / `GH`, never in pixels.** After `movie.resize(w, h)` an expression sees the new size; a literal `x: 960` stays at 960. A string variable cannot be read in an expression (`x: 'title'` is a number context): use `{title}` in a string, or declare the number. A name that is declared but never read, and a `{name}` that was not declared, are both said at `init` (usually a typo). Load a web font BEFORE the first `setVars` that changes a text (see 103): the text is measured again each rebuild.
 106. **A text outline used to spike; it is round-joined now.** `style: { stroke: { color: '#000', width: 12 } }` was drawn with PixiJS's default `miter` join, so the sharp corners of W, V, A, k and 4 grew spikes ("the outline sticks out"). The library now adds `join: 'round'` to an outline that names no join; say `join: 'miter'` or `'bevel'` if you want one. The stroke is centred on the glyph edge, so half of it eats into the letter: keep `width` to about a tenth of `fontSize`, or for a thick outline put a second copy of the text with the stroke UNDER the plain one.
 107. **`spans` places pieces by measuring, so the font must be loaded first, and a span cannot change size.** A web font that is not loaded yet is measured as the fallback font and the pieces drift apart: `await document.fonts.load('30px "Name"')` before `movie.init`. `fontSize` / `fontFamily` / `lineHeight` / `align` on a span are ignored (warned): they belong to the layer's `style`. `fill`, `text` and `value` keyframes do not reach a spans layer (it is a group of text layers).
+108. **Japanese, Chinese and Korean do not wrap at spaces.** `wordWrap: true` alone does nothing for a long line (it runs off the canvas); `breakWords: true` breaks between any two characters and can leave one to three characters alone on the last line. Break the line yourself with `\n` after a comma or a particle and size the font to fit; `check` reports a line cut by the canvas edge but does not judge an ugly break, so look at the contact sheet. Raising `fontSize` can turn a clean line into an orphan: look again after any size change.
+109. **No font is bundled, and each script needs a font that has its characters.** The machine's own fonts are used; characters a font lacks are drawn with whatever the machine falls back to, so the same page can look different on another machine. Load a web font that covers the script (Noto Sans JP, Noto Sans KR for Hangul, Noto Sans SC) with `await document.fonts.load('40px "Noto Sans KR"')` before `movie.init`, and say it in `style.fontFamily` (pitfall 103). A family that nothing installs or loads is silently replaced by the next one in the list, and `check` does not say so: the first name in `fontFamily` is not proof it was used.
 
 
 <!-- ===== skills/pixi-effects/reference/recipes.md ===== -->
@@ -1618,7 +1621,7 @@ done < table.csv
 
 ## One film, several languages and colours (variables)
 
-Declare what changes as `vars` and write `{name}` in the strings and the names as identifiers in the expressions. One page then makes every variant: `pixi-effects render film.html --var lang=ja --var accent=#3949ab -o film-ja.mp4`, and a page can switch live with `movie.setVars(...)`. Load the fonts of every language before the first build (pitfall 103); `check` says a variable nothing reads, and a `{name}` nobody declared.
+Declare what changes as `vars` and write `{name}` in the strings and the names as identifiers in the expressions. One page then makes every variant: a declared variable is set from the command line (`pixi-effects render film.html --var accent=#3949ab -o film-blue.mp4`; a name the page did not declare stops the run), the language below is picked by the page from the query (`--query lang=ja`, on `check` as well as `render`), and a page can switch live with `movie.setVars(...)`. Load the fonts of every language before the first build (pitfall 103); `check` says a variable nothing reads, and a `{name}` nobody declared.
 
 ```js
 // @docs-only variants
@@ -1901,6 +1904,8 @@ Renders a [PIXI.Text](https://pixijs.com/8.x/guides/components/scene-objects/tex
   },
 }
 ```
+
+**Wrapping and fonts for Japanese, Chinese and Korean.** `wordWrap: true` breaks a line at spaces, and these scripts have none: with `wordWrap` alone a long line does not wrap and runs off the canvas. `breakWords: true` makes it break between any two characters, so a line can end with one to three characters alone (an orphan) and split a word or phrase in the middle. For a clean break write the line break yourself (`'あの日言えなかった言葉が、\n風に溶けていく'`, after a comma or a particle) and size the font so each line fits; `check` lists a line that is cut by the canvas edge, but it does not judge an ugly break, so look at the sheet. No font is bundled: the machine's own fonts are used, and a font that lacks the script's characters is replaced for those characters by whatever the machine has, so the look differs from machine to machine. For a result that looks the same everywhere, load a web font that covers the script (for example Noto Sans JP, Noto Sans KR for Hangul, Noto Sans SC) and `await document.fonts.load('40px "Noto Sans KR"')` before `movie.init` (see pitfall 103); give the family in `style.fontFamily`.
 
 The text's `fill` is also animatable via keyframes (under the `to`/`from`/`set` keys, not under `style`). Set `colorSpace` for perceptual interpolation:
 

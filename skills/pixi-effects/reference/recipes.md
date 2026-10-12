@@ -1179,7 +1179,7 @@ done < table.csv
 
 ## One film, several languages and colours (variables)
 
-Declare what changes as `vars` and write `{name}` in the strings and the names as identifiers in the expressions. One page then makes every variant: `pixi-effects render film.html --var lang=ja --var accent=#3949ab -o film-ja.mp4`, and a page can switch live with `movie.setVars(...)`. Load the fonts of every language before the first build (pitfall 103); `check` says a variable nothing reads, and a `{name}` nobody declared.
+Declare what changes as `vars` and write `{name}` in the strings and the names as identifiers in the expressions. One page then makes every variant: a declared variable is set from the command line (`pixi-effects render film.html --var accent=#3949ab -o film-blue.mp4`; a name the page did not declare stops the run), the language below is picked by the page from the query (`--query lang=ja`, on `check` as well as `render`), and a page can switch live with `movie.setVars(...)`. Load the fonts of every language before the first build (pitfall 103); `check` says a variable nothing reads, and a `{name}` nobody declared.
 
 ```js
 // @docs-only variants

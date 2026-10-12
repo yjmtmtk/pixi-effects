@@ -20,7 +20,7 @@ const USAGE = `usage:
   pixi-effects check  <page.html> [--at 3,6] [--out dir]    review a video page: warnings, layout, sound, contact sheet, real export
   pixi-effects render <page.html> -o <file.mp4>             export the video
   pixi-effects view   <page.html>                           look at it in a browser, with a timeline
-  pixi-effects new    <name>                                a page to start from (<name>.html)
+  pixi-effects new    <name> [--size 1080x1920] [--duration 20]   a page to start from (<name>.html), 1280x720 and 6 s unless asked
   pixi-effects recipe [id]                                  the tested recipes; with an id, one of them with its code
   pixi-effects help   <word>                                the docs about a word (mask, threeD, keyframes, music …)
 (every option of a command is listed in the header of its file: node_modules/pixi-effects/ai/tools/<command>.mjs)`;

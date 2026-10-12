@@ -90,6 +90,8 @@ Renders a [PIXI.Text](https://pixijs.com/8.x/guides/components/scene-objects/tex
 }
 ```
 
+**Wrapping and fonts for Japanese, Chinese and Korean.** `wordWrap: true` breaks a line at spaces, and these scripts have none: with `wordWrap` alone a long line does not wrap and runs off the canvas. `breakWords: true` makes it break between any two characters, so a line can end with one to three characters alone (an orphan) and split a word or phrase in the middle. For a clean break write the line break yourself (`'あの日言えなかった言葉が、\n風に溶けていく'`, after a comma or a particle) and size the font so each line fits; `check` lists a line that is cut by the canvas edge, but it does not judge an ugly break, so look at the sheet. No font is bundled: the machine's own fonts are used, and a font that lacks the script's characters is replaced for those characters by whatever the machine has, so the look differs from machine to machine. For a result that looks the same everywhere, load a web font that covers the script (for example Noto Sans JP, Noto Sans KR for Hangul, Noto Sans SC) and `await document.fonts.load('40px "Noto Sans KR"')` before `movie.init` (see pitfall 103); give the family in `style.fontFamily`.
+
 The text's `fill` is also animatable via keyframes (under the `to`/`from`/`set` keys, not under `style`). Set `colorSpace` for perceptual interpolation:
 
 ```ts

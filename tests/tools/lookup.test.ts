@@ -103,6 +103,31 @@ describe('new: a page to start from', () => {
   });
 });
 
+describe('new --size WxH --duration S: the page starts at the size and length asked for (the template had to be edited in three places)', () => {
+  it('sets the canvas attributes and the W / H / DURATION constants; the poster follows the duration', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'new-size-'));
+    const r = cli(['new', 'tall', '--size', '1080x1920', '--duration', '24'], dir);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toMatch(/1080x1920 page/);
+    const html = readFileSync(join(dir, 'tall.html'), 'utf8');
+    expect(html).toContain('<canvas id="stage" width="1080" height="1920">');
+    expect(html).toContain('const W = 1080, H = 1920, FPS = 30, DURATION = 24;');
+    expect(html).not.toContain('1280');
+    expect(html).toContain('poster: DURATION * 0.75');
+  });
+
+  it('without them the page is the usual 1280x720, 6 s; a bad size or duration says what is accepted and writes nothing', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'new-size-'));
+    expect(readFileSync(lookup.newPage('plain', { cwd: dir, root }).file, 'utf8')).toContain('const W = 1280, H = 720, FPS = 30, DURATION = 6;');
+    for (const bad of [['--size', '1080'], ['--size', '0x720'], ['--size', '9000x9000'], ['--duration', '0'], ['--duration', 'long'], ['--size']]) {
+      const r = cli(['new', 'bad', ...bad], dir);
+      expect(r.status, bad.join(' ')).toBe(1);
+      expect(r.stderr).toMatch(/--size 1920x1080|--duration 12/);
+      expect(existsSync(join(dir, 'bad.html'))).toBe(false);
+    }
+  });
+});
+
 describe('the command: pixi-effects recipe | help | new', () => {
   it('recipe with no id lists them; with an id prints the section; an id nobody has says the nearest and exits 1', () => {
     const list = cli(['recipe']);
