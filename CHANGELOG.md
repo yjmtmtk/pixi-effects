@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+**From the capability probe of 2026-10-12 (15 kinds of video tried by fresh agents; nothing was impossible, 9 needed hand-written glue; these are the defects that were verified on the real build)**
+
+- **Fixed (docs + a warning): `bulgePinch.center` is a fraction of the filtered layer (0 to 1), not canvas pixels.** The docs said pixels; a pixel value such as `{ x: 900, y: 500 }` moved the bulge out of the layer and nothing showed, silently (a trial lost three runs on it). The docs now say so (`docs/dsl.md`, the filters guide, pitfall 110), and a centre with a component beyond 3 warns: `bulgePinch.center is 0-1 of the layer ({ x: 0.5, y: 0.5 } is its middle), but {"x":900,"y":500} reads as pixels`. `twist.offset`, `zoomBlur.center` and `shockwave.center` were measured and are pixels, as documented.
+- **Docs, facts only: right-to-left and complex scripts** (`docs/dsl.md` Text, pitfall 110). Arabic, Hebrew, Thai and Devanagari are shaped correctly with a font that covers the script; marks that hang below the font's box can be cut off (the dots of an Arabic ي: set `style.padding`; `check` cannot see it); `splitText` / `animateText` place words left to right, so an Arabic line comes out reversed; `visibleChars` shapes each prefix alone. Not changed in the code: nothing asked for it yet.
+- Known, not fixed: `radialBlur` showed no visible effect in five variants on the real build (angle 60 to 90, radius 300 / 400 / default, centre in pixels or as a fraction, on a composition and on a shape and a text): to be investigated on its own.
+
 ## 0.33.0
 
 **`check` tells the truth about what a trial found (design: the AI trial of 2026-10-12, 10 fresh agents on 0.32.0; a fresh review of this change found 2 gaps and 3 false alarms, fixed below)**

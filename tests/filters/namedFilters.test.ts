@@ -27,7 +27,8 @@ class DropShadowFilter extends FakeFilter {}
 /** pixi-filters' PixelateFilter and EmbossFilter take their value as the first argument, not as options. */
 class PixelateFilter { apply() { /* duck-type marker */ } constructor(public size?: unknown) {} }
 class EmbossFilter { apply() { /* duck-type marker */ } constructor(public strength?: unknown) {} }
-const FAKE_LIB = { GlowFilter, CRTFilter, RGBSplitFilter, DropShadowFilter, PixelateFilter, EmbossFilter, notAFilter: class {} };
+class BulgePinchFilter extends FakeFilter {}
+const FAKE_LIB = { BulgePinchFilter, GlowFilter, CRTFilter, RGBSplitFilter, DropShadowFilter, PixelateFilter, EmbossFilter, notAFilter: class {} };
 const spec = (s: Record<string, unknown>) => s as unknown as FilterSpec;
 
 beforeEach(() => { resetFilterLibrary(); });
@@ -146,5 +147,36 @@ describe('needsFilterLibrary / ensureFilterLibrary', () => {
     const load = vi.fn(async () => FAKE_LIB);
     await expect(ensureFilterLibrary(comp([{ type: 'glwo' }]), load)).rejects.toThrow(/did you mean "glow"/);
     expect(load).not.toHaveBeenCalled();
+  });
+});
+
+describe('bulgePinch.center is a fraction of the layer (0-1), not pixels: a pixel-looking value is said, since it moves the bulge out of the layer and nothing shows', () => {
+  beforeEach(() => { registerFilterLibrary(FAKE_LIB); vi.restoreAllMocks(); });
+
+  it('warns for { x: 900, y: 500 } (and an [x, y] array), naming what to write', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    createFilter(spec({ type: 'bulgePinch', center: { x: 900, y: 500 }, radius: 190, strength: 0.8 }));
+    expect(warn).toHaveBeenCalledTimes(1);
+    const m = String(warn.mock.calls[0]![0]);
+    expect(m).toMatch(/bulgePinch\.center is 0-1 of the layer/);
+    expect(m).toMatch(/\{ x: 0\.5, y: 0\.5 \} is its middle/);
+    expect(m).toMatch(/900/);
+    createFilter(spec({ type: 'bulgePinch', center: [900, 500] }));
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  it('is silent for a fraction, for no centre, and for a point a little outside the layer (1.2)', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    createFilter(spec({ type: 'bulgePinch', center: { x: 0.5, y: 0.5 } }));
+    createFilter(spec({ type: 'bulgePinch', radius: 100 }));
+    createFilter(spec({ type: 'bulgePinch', center: { x: 1.2, y: -0.2 } }));
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('other filters keep centres in pixels: twist.offset 640 is not warned about', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    registerFilterLibrary({ ...FAKE_LIB, TwistFilter: class extends FakeFilter {} });
+    createFilter(spec({ type: 'twist', offset: { x: 640, y: 360 } }));
+    expect(warn).not.toHaveBeenCalled();
   });
 });

@@ -128,8 +128,21 @@ function colorGradientParams(params: Record<string, unknown>): Record<string, un
   return { ...rest, type: i };
 }
 
+/**
+ * `bulgePinch.center` is a fraction of the filtered layer ({ x: 0.5, y: 0.5 } is its middle), unlike `twist.offset`, `zoomBlur.center` and `shockwave.center`, which are
+ * canvas pixels. A pixel value ({ x: 900, y: 500 }) puts the bulge far outside the layer and nothing shows, and nothing says so: said here, once per filter.
+ */
+function lintBulgeCenter(params: Record<string, unknown>): void {
+  const c = params.center as { x?: unknown; y?: unknown } | unknown[] | undefined;
+  if (!c || typeof c !== 'object') return;
+  const xy = Array.isArray(c) ? [c[0], c[1]] : [c.x, c.y];
+  if (!xy.some(v => typeof v === 'number' && Math.abs(v) > 3)) return;
+  console.warn(`pixi-effects: bulgePinch.center is 0-1 of the layer ({ x: 0.5, y: 0.5 } is its middle), but ${JSON.stringify(c)} reads as pixels: the bulge lands outside the layer and nothing shows. Write the point as a fraction (x / the layer's width), or animate center.x / center.y between 0 and 1.`);
+}
+
 /** Build the filter a `{ type: 'glow', … }` spec names. */
 export function createNamedFilter(type: string, params: Record<string, unknown>): Filter {
+  if (lower(type) === 'bulgepinch') lintBulgeCenter(params);
   if (lower(type) === 'colormatrix') return colorMatrix(params);
   if (lower(type) === 'grain') return new GrainFilter(params) as unknown as Filter;
   if (lower(type) === 'warp') return new WarpFilter(params) as unknown as Filter;

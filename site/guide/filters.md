@@ -52,7 +52,8 @@ The old `noise` filter is a different thing: one frozen pattern (its seed is ran
 
 ## Gotchas, all measured
 
-- **Centres are in canvas pixels, not the layer's.** `twist`, `bulgePinch`, `zoomBlur`, `shockwave` and `radialBlur` default to the canvas's top-left corner, so a layer in the middle looks untouched. Put the centre on the layer: `{ type: 'twist', offset: { x: 640, y: 360 } }`.
+- **Centres are in canvas pixels, not the layer's** (except `bulgePinch`). `twist`, `zoomBlur`, `shockwave` and `radialBlur` default to the canvas's top-left corner, so a layer in the middle looks untouched. Put the centre on the layer: `{ type: 'twist', offset: { x: 640, y: 360 } }`.
+- **`bulgePinch.center` is a fraction of the layer** (`{ x: 0.5, y: 0.5 }` is its middle; animate it between 0 and 1). A pixel value moves the bulge out of the layer and nothing shows (it warns).
 - **A filter works inside the layer's bounds.** Glow, shadow and blur draw outside it and are clipped: widen the area with `filterArea: { x: -24, y: -24, width: w + 48, height: h + 48 }` (in the layer's own coordinates). Do **not** widen it for `grayscale` or `oldFilm`, which paint the extra margin black.
 - **A point option (`rgbSplit.red`, `dropShadow.offset`) is animated one leaf at a time**: `'filters.<name>.red.x'` and `'filters.<name>.red.y'` move like any number. The whole point as a keyframe value (`red: { x, y }`) does not tween: it switches when its keyframe starts. A path that leads nowhere (the option does not exist on that filter) is said once and ignored. `rgbSplit` draws inside the layer's own bounds: an offset that pushes a channel past the edge is clipped, not shown outside. `pixelate` animates through `sizeX` and `sizeY`.
 - `shockwave` and `godray` are driven by `time`: a still frame at `time: 0` shows nothing, so animate it.
