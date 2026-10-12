@@ -324,6 +324,8 @@ class Movie
   snapshot(frame: number | undefined, opts: SnapshotOptions & { as: "dataURL"; }): Promise<string>
   snapshot(frame: number | undefined, opts: SnapshotOptions & { as: "imageData"; }): Promise<ImageData>
   stops: Stop[]
+  thumbnail(frame: number, opts?: ThumbnailOptions): Promise<HTMLCanvasElement | null>
+  thumbnailsOff: "variables" | "video" | null
   timeline: PureTimeline | null
   timelineChart(opts?: TimelineHtmlOptions): string
   timelineData(): TimelineData
@@ -683,6 +685,9 @@ interface TextSpan
   letterSpacing?: number
   stroke?: string | { color?: PropValue | undefined; width?: PropValue | undefined; }
   text: string
+interface ThumbnailOptions
+  scale?: number
+  width?: number
 interface TimelineData
   duration: number
   rows: TimelineRow[]
@@ -783,6 +788,7 @@ interface ControllerOptions
   pauseAtStops?: boolean
   presentButton?: boolean
   theme?: ControllerTheme
+  thumbnails?: boolean
 interface ControllerTheme
   accent?: string | null
   barBackground?: string | null

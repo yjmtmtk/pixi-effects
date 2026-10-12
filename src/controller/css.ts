@@ -59,6 +59,19 @@ export const CONTROLLER_CSS = `
 .mc-progress:hover .mc-progress-thumb,
 .mc-progress.mc-scrubbing .mc-progress-thumb { transform: translate(-50%, -50%) scale(1); }
 
+.movie-controller > .mc-preview {
+  position: absolute; bottom: 74px; left: 0;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 3px; border-radius: 4px;
+  background: rgba(0,0,0,0.75);
+  pointer-events: none;
+  opacity: 0; transition: opacity 100ms ease;
+}
+.mc-preview[data-show="1"] { opacity: 1; }
+.mc-preview canvas { display: block; width: 160px; height: auto; border-radius: 2px; }
+.mc-preview-time { font-size: 12px; line-height: 1; color: var(--mc-fg, #fff); font-variant-numeric: tabular-nums; }
+
 .mc-bar {
   position: relative;
   display: flex;

@@ -12,7 +12,7 @@ import { Controller } from 'pixi-effects/controller';
 const controller = new Controller(movie, { canvas });
 ```
 
-It adds play and pause, a seek bar, mute and volume, fullscreen and an export button over the canvas, and the keyboard shortcuts you expect (Space, arrows, F for fullscreen, M for mute). **Clicking or tapping the picture plays and pauses**, like a `<video>`. Options: `exportButton` (default `true`), `keyboard` (default `true`), `presentButton` (default `true`; a movie with `stops` gets a Present button), `pauseAtStops` (default `true`; with `stops`, play pauses at each stop), `clickToPlay` (default `true`; `false` leaves the canvas alone, for a page that has its own click handler).
+It adds play and pause, a seek bar, mute and volume, fullscreen and an export button over the canvas, and the keyboard shortcuts you expect (Space, arrows, F for fullscreen, M for mute). **Clicking or tapping the picture plays and pauses**, like a `<video>`. Options: `exportButton` (default `true`), `keyboard` (default `true`), `presentButton` (default `true`; a movie with `stops` gets a Present button), `pauseAtStops` (default `true`; with `stops`, play pauses at each stop), `thumbnails` (default `false`; a small picture and the time of the frame under the pointer above the seek bar, made without disturbing playback; it switches itself off for a movie with video footage or variables), `clickToPlay` (default `true`; `false` leaves the canvas alone, for a page that has its own click handler).
 
 Before play the canvas shows the movie's **poster frame** if you gave one with `poster` in `movie.init` (see [Exporting video](export.html#pictures)); the bar shows 0:00 and play starts from the beginning.
 

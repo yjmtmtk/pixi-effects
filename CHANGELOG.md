@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+**The player's seek-bar preview (`thumbnails: true`, off by default) and `movie.thumbnail()`**
+
+- **`movie.thumbnail(frame, { width? | scale? })`** gives a small canvas of any frame **without moving the playhead or changing the picture**, also while the movie plays. It draws the frame on the side inside one task (nominal time set, 3D / shader layers awaited, the playhead put back and awaited), so the browser never shows the in-between; it equals `snapshot({ motionBlur: false })` at that size. `null` when a seek, render or another thumbnail is running. Seeks, renders and peeks wait for a running thumbnail, so they never interleave with it.
+- **`movie.thumbnailsOff`** is `'variables'` for a movie that declares variables and `'video'` for one with a video layer, else `null`; `thumbnail()` gives `null` then (a video would have to seek twice, a variable movie can be re-laid out under it).
+- **`new Controller(movie, { canvas, thumbnails: true })`**: hover (or move along) the seek bar and a 160 px picture with the time appears above it, kept inside the picture, hidden while dragging; pictures are cached per tenth of a second until a rebuild. Default off.
+- Tests: `tests/tools/thumbnail.test.ts` (exact against `snapshot`, undisturbed canvas and playhead, playback with a thumbnail per frame, the off reasons, options) and `tests/tools/thumbnailPreview.test.ts` (the bar, with real mouse moves).
+
 ## 0.34.0
 
 **From the capability probe of 2026-10-12 (15 kinds of video tried by fresh agents; nothing was impossible, 9 needed hand-written glue; these are the defects that were verified on the real build)**

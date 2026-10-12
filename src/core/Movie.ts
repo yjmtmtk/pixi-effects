@@ -98,6 +98,13 @@ export interface RenderOptions {
   draft?: boolean;
 }
 
+export interface ThumbnailOptions {
+  /** Width of the picture in px (default 160); the height follows the movie's shape. */
+  width?: number;
+  /** Instead of `width`: the size relative to the canvas (0 to 4). */
+  scale?: number;
+}
+
 export interface SnapshotOptions {
   /** Motion blur for this picture (see `MovieOptions.motionBlur`); overrides the movie's own setting, `false` turns it off. */
   motionBlur?: MotionBlurSpec;
@@ -234,6 +241,10 @@ export class Movie {
   private _silent = 0;
   /** render() / peek() in flight: a rebuild does not swap the composition under them. */
   private _busy = 0;
+  /** > 0 while the movie is moving its scene to another moment (a seek, a motion-blurred frame, the poster): a thumbnail does not start then. */
+  private _moving = 0;
+  /** The thumbnail being drawn, if any: a seek waits for it (it has the scene on another moment for a few microtasks). */
+  private _thumbRun: Promise<void> | null = null;
   private _idleWaiters: Array<() => void> = [];
   /** What went into the mix, and its peak before limiting — kept for inspectAudio(). */
   private _audioSources: AudioDescriptor[] = [];
@@ -292,6 +303,7 @@ export class Movie {
     if (this._posterFrame === null || !this.timeline) return;
     const back = this.currentFrame;
     this.currentFrame = this._posterFrame;                 // the drawing steps read the playhead
+    this._moving++;
     try {
       this.timeline.time(this._timeOf(this._posterFrame));
       await this._awaitVideoFrames();
@@ -299,6 +311,7 @@ export class Movie {
       this._renderNow();
     } finally {
       this.currentFrame = back;
+      this._moving--;
     }
     this._atPoster = true;
   }
@@ -666,12 +679,16 @@ export class Movie {
   }
 
   private async _goto(frame: number): Promise<void> {
-    this._atPoster = false;
-    this.currentFrame = Math.max(0, Math.min(frame, this.totalFrames));
-    this.timeline!.time(this._timeOf(this.currentFrame));
-    await this._awaitVideoFrames();
-    this._updateSpace();
-    this._renderNow();
+    if (this._thumbRun) await this._thumbRun;
+    this._moving++;
+    try {
+      this._atPoster = false;
+      this.currentFrame = Math.max(0, Math.min(frame, this.totalFrames));
+      this.timeline!.time(this._timeOf(this.currentFrame));
+      await this._awaitVideoFrames();
+      this._updateSpace();
+      this._renderNow();
+    } finally { this._moving--; }
     this.emit('frame', { frame: this.currentFrame, totalFrames: this.totalFrames } satisfies FrameEvent);
   }
 
@@ -729,6 +746,63 @@ export class Movie {
     const out = await this._frameCanvas(frame, o.scale, o.motionBlur);
     if (o.as === 'imageData') return out.getContext('2d')!.getImageData(0, 0, out.width, out.height);
     return encodeCanvas(out, o.type, o.as, o.quality);
+  }
+
+  /**
+   * Why `thumbnail()` is off for this movie: `'variables'` (it declares `vars`: the picture depends on them and changes when they do) or `'video'` (a video
+   * layer: its frame must be waited for, which would seek the playing video). `null`: it works.
+   */
+  get thumbnailsOff(): 'variables' | 'video' | null {
+    if (this._declared.size > 0) return 'variables';
+    if (!this._rootSequence) return null;
+    const found: VideoLike[] = [];
+    collectVideoSequences(this._rootSequence, found);
+    return found.some(v => (v as unknown as { spec?: { type?: string } }).spec?.type === 'video') ? 'video' : null;
+  }
+
+  /**
+   * A small picture of any frame, drawn WITHOUT moving the playhead or changing what is on the canvas, so it can be made while the movie plays or is
+   * paused (a seek-bar preview). The scene is put on that moment, drawn, copied, and put back, all within the microtasks of one task: the browser never
+   * shows the in-between. Gives `null` when it cannot be made right now: the movie has thumbnails off (see `thumbnailsOff`), is moving somewhere else
+   * (a seek, a render, a peek), or is another thumbnail's turn. It is the picture `snapshot()` gives at that size (without motion blur).
+   */
+  async thumbnail(frame: number, opts: ThumbnailOptions = {}): Promise<HTMLCanvasElement | null> {
+    warnUnknownOptions('movie.thumbnail()', opts, ['width', 'scale']);
+    this._requireReady('thumbnail');
+    if (opts.width !== undefined && !(opts.width > 0 && opts.width <= this.width * 4)) throw new Error(`pixi-effects: movie.thumbnail(): width must be above 0 and at most ${this.width * 4} px, got ${opts.width}`);
+    if (opts.scale !== undefined && !(opts.scale > 0 && opts.scale <= 4)) throw new Error(`pixi-effects: movie.thumbnail(): scale must be above 0 and at most 4, got ${opts.scale}`);
+    if (this.thumbnailsOff || this._moving > 0 || this._busy > 0 || this._thumbRun) return null;
+    const w = Math.max(1, Math.round(opts.width ?? (opts.scale !== undefined ? this.width * opts.scale : 160)));
+    const h = Math.max(1, Math.round(w * this.height / this.width));
+    let done!: () => void;
+    this._thumbRun = new Promise<void>(r => { done = r; });
+    try { return await this._drawThumbnail(clampFrame(frame, this.totalFrames), w, h); }
+    finally { this._thumbRun = null; done(); }
+  }
+
+  private async _drawThumbnail(frame: number, w: number, h: number): Promise<HTMLCanvasElement> {
+    const stage = this.app!.canvas as HTMLCanvasElement;
+    const out = document.createElement('canvas');
+    out.width = w; out.height = h;
+    const keep = this.timeline!.time();                         // where the scene is now (the playhead's moment, or the poster's)
+    const t = this._timeOf(frame);
+    this._nominalTime = t;                                      // time-driven filters read the moment being drawn, not the playhead
+    try {
+      this.timeline!.time(t);
+      await this._awaitVideoFrames(t);                         // 3D and shader layers prepare their picture here, as in a seek
+      this._updateSpace(t);
+      this._renderNow();
+      out.getContext('2d')!.drawImage(stage, 0, 0, w, h);
+    } finally {
+      this._nominalTime = keep;                                 // and the scene goes back, drawn the same way: the canvas ends as it was
+      try {
+        this.timeline!.time(keep);
+        await this._awaitVideoFrames(keep);
+        this._updateSpace(keep);
+        this._renderNow();
+      } finally { this._nominalTime = null; }
+    }
+    return out;
   }
 
   /**
@@ -939,9 +1013,11 @@ export class Movie {
   async _exposeFrame(frame: number, mb: ResolvedMotionBlur, target: HTMLCanvasElement, settle: boolean): Promise<void> {
     const g = target.getContext('2d')!;
     const stage = this.app!.canvas as HTMLCanvasElement;
+    if (this._thumbRun) await this._thumbRun;                          // (before the nominal time is set: a thumbnail has its own and clears it when done)
     this._atPoster = false;
     const times = blurTimes(frame, this.frameRate, mb, Math.max(0, this.duration - END_MARGIN));
     this._nominalTime = this._timeOf(Math.max(0, Math.min(frame, this.totalFrames)));
+    this._moving++;
     try {
       for (let k = 0; k < times.length; k++) {
         const t = times[k]!;
@@ -953,7 +1029,7 @@ export class Movie {
         g.globalAlpha = 1 / (k + 1);                                     // a running mean: sample k weighs 1/(k + 1)
         g.drawImage(stage, 0, 0, target.width, target.height);
       }
-    } finally { this._nominalTime = null; }
+    } finally { this._nominalTime = null; this._moving--; }
     g.globalAlpha = 1;
     if (settle) await this._goto(frame);
     else {

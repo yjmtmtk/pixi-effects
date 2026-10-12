@@ -5,6 +5,7 @@ export type { LoaderOption } from './core/loader';
 export type { LoadProgressState, LoadStage } from './core/loadProgress';
 export type {
   SnapshotOptions,
+  ThumbnailOptions,
   ContactSheetOptions,
   OnionSkinOptions,
   MovieOptions,

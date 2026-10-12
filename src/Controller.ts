@@ -62,7 +62,7 @@ const THEME_PROPERTIES: Record<keyof ControllerTheme, string> = {
   accent: '--mc-accent', foreground: '--mc-fg', track: '--mc-track', barBackground: '--mc-bar-bg', trackHeight: '--mc-track-height', font: '--mc-font',
 };
 
-const CONTROLLER_OPTION_KEYS = ['canvas', 'theme', 'exportButton', 'keyboard', 'clickToPlay', 'presentButton', 'pauseAtStops', 'loopButton', 'className'] as const;
+const CONTROLLER_OPTION_KEYS = ['canvas', 'theme', 'exportButton', 'keyboard', 'clickToPlay', 'presentButton', 'pauseAtStops', 'loopButton', 'thumbnails', 'className'] as const;
 
 export interface ControllerOptions {
   canvas: HTMLCanvasElement;
@@ -80,6 +80,12 @@ export interface ControllerOptions {
   pauseAtStops?: boolean;
   /** The loop button (and the L key) next to the volume: it flips `movie.loop`, so playing goes back to the start at the end. Default true; `false` leaves the loop to the page. */
   loopButton?: boolean;
+  /**
+   * A small picture of the frame under the pointer, above the seek bar, with its time (like a video site). Default false. It is made with `movie.thumbnail()` without
+   * moving the playhead or changing the picture, also while the movie plays. It switches itself off for a movie with video footage or variables (`movie.thumbnailsOff`
+   * says why), where a frame cannot be drawn on the side.
+   */
+  thumbnails?: boolean;
   className?: string;
 }
 
@@ -91,6 +97,7 @@ interface ResolvedOptions {
   presentButton: boolean;
   pauseAtStops: boolean;
   loopButton: boolean;
+  thumbnails: boolean;
   className: string;
 }
 
@@ -141,6 +148,17 @@ export class Controller {
   private onReady: (() => void) | null = null;
   /** A rebuild (setVars, resize, rebuild) may have moved the stops: draw their marks again. */
   private onRebuilt: (() => void) | null = null;
+  private previewEl: HTMLDivElement | null = null;
+  private previewCanvas: HTMLCanvasElement | null = null;
+  private previewTimeEl: HTMLSpanElement | null = null;
+  /** Pictures already made, by frame bucket (a frame is a pure function of time; cleared on a rebuild). */
+  private previewCache = new Map<number, HTMLCanvasElement>();
+  private previewWanted: number | null = null;
+  private previewRunning = false;
+  private previewRetry: ReturnType<typeof setTimeout> | null = null;
+  private previewRetries = 0;
+  private previewCleanup: (() => void) | null = null;
+  private static readonly PREVIEW_WIDTH_PX = 160;
   private presenter: { destroy(): void } | null = null;
   /** `pixi-effects/present`, loaded as soon as the movie has stops (a press of play must not wait for it). */
   private present: typeof import('./present/index') | null = null;
@@ -185,6 +203,7 @@ export class Controller {
       presentButton: options.presentButton ?? true,
       pauseAtStops: options.pauseAtStops ?? true,
       loopButton: options.loopButton ?? true,
+      thumbnails: options.thumbnails ?? false,
       className: options.className ?? 'movie-controller',
     };
 
@@ -211,6 +230,7 @@ export class Controller {
     this.bindPlayButton();
     if (this.options.clickToPlay) this.bindCanvasClick();
     this.bindScrubbing();
+    if (this.options.thumbnails) this.bindPreview();
     this.bindMuteButton();
     this.bindLoopButton();
     this.bindVolumeSlider();
@@ -392,7 +412,7 @@ export class Controller {
       this.exportFillEl.style.width = `${progress}%`;
       this.exportTextEl.textContent = `${progress}% (${frame} / ${totalFrames} frames)`;
     };
-    this.onRebuilt = () => { this.refreshStops(); };
+    this.onRebuilt = () => { this.refreshStops(); this.previewCache.clear(); };
     this.movie.on('ready', this.onReady);
     this.movie.on('rebuilt', this.onRebuilt);
     this.movie.on('frame', this.onFrame);
@@ -696,6 +716,84 @@ export class Controller {
     window.addEventListener('blur', this.windowBlurHandler);
   }
 
+  /** The hover preview above the seek bar (`thumbnails: true`). */
+  private bindPreview(): void {
+    const el = document.createElement('div');
+    el.className = 'mc-preview';
+    el.setAttribute('aria-hidden', 'true');
+    const canvas = document.createElement('canvas');
+    const time = document.createElement('span');
+    time.className = 'mc-preview-time';
+    el.append(canvas, time);
+    this.root.appendChild(el);
+    this.previewEl = el; this.previewCanvas = canvas; this.previewTimeEl = time;
+
+    const hide = () => { this.previewWanted = null; el.removeAttribute('data-show'); };
+    const onMove = (e: PointerEvent) => {
+      if (this.isScrubbing || this.movie.thumbnailsOff || e.pointerType === 'touch') { hide(); return; }
+      const rect = this.progressEl.getBoundingClientRect();
+      const inset = Controller.PROGRESS_INSET_PX;
+      const frame = pxToFrame(e.clientX, { left: rect.left + inset, width: Math.max(0, rect.width - 2 * inset) }, this.movie.totalFrames);
+      // the box follows the pointer but stays inside the picture
+      const rootRect = this.root.getBoundingClientRect();
+      // (the box is measured as drawn and placed in per cent of the bar, so a page that scales or zooms the bar does not move it out)
+      const half = el.getBoundingClientRect().width / 2 + 2;
+      const x = Math.min(Math.max(e.clientX - rootRect.left, half), Math.max(half, rootRect.width - half));
+      el.style.left = `${rootRect.width > 0 ? (x / rootRect.width) * 100 : 50}%`;
+      this.previewRetries = 0;
+      time.textContent = formatTime(frame / (this.movie.frameRate || 1));
+      this.previewWanted = frame;
+      void this.runPreview();
+    };
+    this.progressEl.addEventListener('pointermove', onMove);
+    this.progressEl.addEventListener('pointerleave', hide);
+    this.progressEl.addEventListener('pointerdown', hide);
+    this.previewCleanup = () => {
+      this.progressEl.removeEventListener('pointermove', onMove);
+      this.progressEl.removeEventListener('pointerleave', hide);
+      this.progressEl.removeEventListener('pointerdown', hide);
+      if (this.previewRetry) { clearTimeout(this.previewRetry); this.previewRetry = null; }
+      el.remove();
+    };
+  }
+
+  /** Draws the picture of the wanted frame into the preview; one at a time, and the last wish wins. */
+  private async runPreview(): Promise<void> {
+    if (this.previewRunning) return;
+    this.previewRunning = true;
+    try {
+      while (this.previewWanted !== null && !this.destroyed) {
+        const wanted = this.previewWanted;
+        const fps = this.movie.frameRate || 30;
+        const step = Math.max(1, Math.round(fps / 10));                  // pictures of the same tenth of a second are the same picture
+        const key = Math.min(this.movie.totalFrames, Math.round(wanted / step) * step);
+        let pic = this.previewCache.get(key) ?? null;
+        if (!pic) {
+          try { pic = await this.movie.thumbnail(key, { width: Controller.PREVIEW_WIDTH_PX }); }
+          catch { this.previewWanted = null; this.previewEl?.removeAttribute('data-show'); break; }      // it cannot be made at all: do not ask again
+          if (pic) {
+            if (this.previewCache.size >= 120) this.previewCache.delete(this.previewCache.keys().next().value as number);
+            this.previewCache.set(key, pic);
+          }
+        }
+        if (this.previewWanted === null || this.destroyed) break;        // the pointer has left meanwhile
+        if (pic) {
+          const c = this.previewCanvas!;
+          if (c.width !== pic.width || c.height !== pic.height) { c.width = pic.width; c.height = pic.height; }
+          c.getContext('2d')!.drawImage(pic, 0, 0);
+          this.previewEl!.setAttribute('data-show', '1');
+          if (this.previewWanted === wanted) this.previewWanted = null;
+        } else if (this.previewWanted !== wanted) {
+          // the pointer moved on while this one was being made: the loop takes the newer wish
+        } else if (!this.movie.thumbnailsOff && this.previewRetries++ < 10) {
+          // not possible just now (a seek or an export is running): try again soon, if the pointer is still there
+          this.previewRetry = setTimeout(() => { this.previewRetry = null; void this.runPreview(); }, 120);
+          break;
+        } else { this.previewWanted = null; this.previewEl?.removeAttribute('data-show'); }
+      }
+    } finally { this.previewRunning = false; }
+  }
+
   private seekFromPointer(clientX: number): void {
     const rect = this.progressEl.getBoundingClientRect();
     const inset = Controller.PROGRESS_INSET_PX;
@@ -986,6 +1084,7 @@ export class Controller {
     if (this.destroyed) return;
     this.destroyed = true;
     this.stopPresenting();
+    if (this.previewCleanup) { this.previewCleanup(); this.previewCleanup = null; }
     if (this.onReady) { this.movie.off('ready', this.onReady); this.onReady = null; }
     if (this.onRebuilt) { this.movie.off('rebuilt', this.onRebuilt); this.onRebuilt = null; }
     if (this.onLoopChange) { this.movie.off('loopchange', this.onLoopChange); this.onLoopChange = null; }

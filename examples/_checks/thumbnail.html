@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>check · movie.thumbnail()</title>
+</head>
+<body style="margin:0;background:#222">
+  <!--
+    Acceptance check (not an example): a small film with things that move (a circle, a spinning card in 2.5D, a shader layer, a counter) and a grain filter that follows the
+    time. `movie.thumbnail(frame)` must give the picture `snapshot(frame)` gives, without moving the playhead or changing what is on the canvas.
+    ?vars=1 declares a variable, ?video=1 adds a video layer (both switch thumbnails off), ?poster=1 sets a poster time (the canvas starts on the poster). ?ui=1 / ?ui=0 add the player bar with / without `thumbnails: true`.
+    tests/tools/thumbnail.test.ts reads it.
+  -->
+  <canvas id="stage" width="640" height="360"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">
+  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const q = new URLSearchParams(location.search);
+    const movie = new Movie();
+    window.movie = movie;
+    const sequences = [
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#16324f' } },
+      { type: 'shape', shape: 'circle', name: 'ball', radius: 40, initial: { x: 60, y: 120, fillColor: '#ffd166' }, keyframes: [{ at: 0, to: { x: 580 }, duration: 4, ease: 'power2.inOut' }] },
+      { type: 'shape', shape: 'rect', name: 'card', width: 120, height: 80, threeD: true, initial: { x: 320, y: 250, fillColor: '#2ecc71' }, keyframes: [{ at: 0, to: { rotationY: 180 }, duration: 4, ease: 'none' }] },
+      { type: 'text', name: 'count', text: '{a}{value}', style: { fontSize: 40, fill: '#ffffff' }, initial: { x: 20, y: 20, value: 0 }, keyframes: [{ at: 0, to: { value: 100 }, duration: 4, ease: 'none' }] },
+      // a shader layer draws its frame in `awaitFrameAt`, like a 3D layer: the picture a seek, and so a thumbnail and its restore, must wait for
+      { type: 'shader', name: 'plasma', width: 160, height: 100, initial: { x: 460, y: 40 }, fragment: 'void mainImage(out vec4 fragColor, in vec2 fragCoord) { vec2 uv = fragCoord / iResolution.xy; fragColor = vec4(uv.x, 0.5 + 0.5 * sin(iTime * 3.0 + uv.y * 6.0), 0.5 + 0.5 * cos(iTime * 2.0), 1.0); }' },
+    ];
+    if (q.get('video')) sequences.push({ type: 'video', asset: 'green', audio: false, initial: { x: 500, y: 300, scale: 0.2 } });
+    if (!q.get('vars')) sequences[3].text = '{value}';
+    const options = { canvas: document.getElementById('stage'), width: 640, height: 360, duration: 4, frameRate: 30, loader: false, background: '#000',
+      composition: { sequences, filters: [{ type: 'grain', amount: 0.2, size: 1.5, fps: 30, seed: 3 }] } };
+    if (q.get('video')) options.assets = [{ name: 'green', src: '../_assets/green.mp4' }];
+    if (q.get('vars')) options.vars = { a: 'n ' };
+    if (q.get('poster')) options.poster = 2;
+    await movie.init(options);
+    // ?ui=1 puts the player bar on it with the seek-bar preview on, ?ui=0 with the option left out
+    if (q.get('ui') !== null) {
+      const { Controller } = await import('../../dist/Controller.js');
+      window.controller = new Controller(movie, q.get('ui') === '1' ? { canvas: document.getElementById('stage'), thumbnails: true } : { canvas: document.getElementById('stage') });
+    }
+    window.__ready = true;
+  </script>
+</body>
+</html>

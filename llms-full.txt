@@ -3649,6 +3649,15 @@ snapshot(frame?: number, options?: { scale?: number; type?: 'image/png' | 'image
 
 A picture of one frame: **the canvas only** (the player bar is not in it). Seeks to `frame` (default: the current frame) and stays there. `as: 'dataURL'` returns a `data:` URL string, `as: 'imageData'` the pixels as an `ImageData` (to measure or compare; `quality` is the JPEG quality, 0 to 1), handy when a script can only return text. Use it to look at what you built.
 
+### `movie.thumbnail(frame, options?): Promise<HTMLCanvasElement | null>`
+
+```ts
+thumbnail(frame: number, options?: { width?: number; scale?: number }): Promise<HTMLCanvasElement | null>   // width default 160 px
+movie.thumbnailsOff   // null, 'video' or 'variables'
+```
+
+A small picture of any frame, made **without moving the playhead or changing what is on the canvas**, also while the movie plays (a seek-bar preview): the scene is put on that moment, drawn, copied and put back inside one task, so the browser never shows the in-between. It is the picture `snapshot()` gives at that size, without motion blur. It gives `null` when it cannot be made right now (a seek, a render or another thumbnail is running; ask again) and always when `movie.thumbnailsOff` is set: `'video'` for a movie with a video layer (the footage would have to seek twice), `'variables'` for a movie that declares variables. The player bar uses it for `thumbnails: true`.
+
 ### `movie.contactSheet(options?): Promise<Blob | string>`
 
 ```ts
@@ -4023,6 +4032,7 @@ interface ControllerOptions {
   keyboard?: boolean;                 // default true
   presentButton?: boolean;            // default true: a movie with stops gets a Present button (marks on the seek bar are always shown)
   loopButton?: boolean;               // default true: a loop button next to the volume (and the L key) that flips movie.loop
+  thumbnails?: boolean;               // default false: a small picture of the frame under the pointer above the seek bar (movie.thumbnail()); off by itself with video footage or variables
   pauseAtStops?: boolean;             // default true: with stops, play / Space / click on the picture play to the next stop and pause; false plays straight through
   clickToPlay?: boolean;              // default true: a click / tap on the picture plays / pauses (like <video>); false leaves the canvas alone
   className?: string;                 // default 'movie-controller'
