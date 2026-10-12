@@ -140,6 +140,20 @@ function lintBulgeCenter(params: Record<string, unknown>): void {
   console.warn(`pixi-effects: bulgePinch.center is 0-1 of the layer ({ x: 0.5, y: 0.5 } is its middle), but ${JSON.stringify(c)} reads as pixels: the bulge lands outside the layer and nothing shows. Write the point as a fraction (x / the layer's width), or animate center.x / center.y between 0 and 1.`);
 }
 
+/**
+ * pixi-filters 6.1.5: RadialBlurFilter writes `uKernelSize` as an i32 but its WGSL struct reads an f32, so on WebGPU (the default backend) the 15 is read as a
+ * denormal 0 and the blur is skipped: `radialBlur` did nothing at all (WebGL, where the GLSL says int, was fine). The WGSL is rebuilt with the field as an i32.
+ * Checked against every filter of the package: this is the only mismatch. Remove when pixi-filters fixes it (the check below then finds nothing to change).
+ */
+function fixRadialBlurGpu(f: Filter): Filter {
+  const holder = f as unknown as { gpuProgram?: { name?: string; vertex: unknown; fragment: { source: string } } };
+  const gp = holder.gpuProgram;
+  const GpuProgram = (PIXI as unknown as { GpuProgram?: { from(o: unknown): unknown } }).GpuProgram;
+  if (!gp || !GpuProgram || !/uKernelSize\s*:\s*f32/.test(gp.fragment.source)) return f;
+  holder.gpuProgram = GpuProgram.from({ name: gp.name, vertex: gp.vertex, fragment: { ...gp.fragment, source: gp.fragment.source.replace(/uKernelSize(\s*):\s*f32/, 'uKernelSize$1: i32') } }) as typeof gp;
+  return f;
+}
+
 /** Build the filter a `{ type: 'glow', … }` spec names. */
 export function createNamedFilter(type: string, params: Record<string, unknown>): Filter {
   if (lower(type) === 'bulgepinch') lintBulgeCenter(params);
@@ -153,5 +167,6 @@ export function createNamedFilter(type: string, params: Record<string, unknown>)
   if (!Ctor) throw MISSING(type, library ? 'not found in the loaded package' : 'not loaded yet');
   const single = SINGLE_VALUE[Object.keys(SINGLE_VALUE).find(k => lower(k) === lower(type)) ?? ''];
   if (single) return new (Ctor as unknown as new (v?: unknown) => Filter)(params[single]);
-  return new Ctor(lower(type) === 'colorgradient' ? colorGradientParams(params) : params);
+  const made = new Ctor(lower(type) === 'colorgradient' ? colorGradientParams(params) : params);
+  return lower(type) === 'radialblur' ? fixRadialBlurGpu(made) : made;
 }

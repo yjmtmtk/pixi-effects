@@ -12,7 +12,8 @@ vi.mock('pixi.js', () => {
     desaturate() { this.calls.push('desaturate'); }
     negative() { this.calls.push('negative'); }
   }
-  return { Filter, BlurFilter, NoiseFilter, AlphaFilter, ColorMatrixFilter };
+  class GpuProgram { static from(o: unknown) { return { rebuilt: true, ...(o as object) }; } }
+  return { Filter, BlurFilter, NoiseFilter, AlphaFilter, ColorMatrixFilter, GpuProgram };
 });
 
 import { createFilter } from '../../src/filters';
@@ -28,7 +29,10 @@ class DropShadowFilter extends FakeFilter {}
 class PixelateFilter { apply() { /* duck-type marker */ } constructor(public size?: unknown) {} }
 class EmbossFilter { apply() { /* duck-type marker */ } constructor(public strength?: unknown) {} }
 class BulgePinchFilter extends FakeFilter {}
-const FAKE_LIB = { BulgePinchFilter, GlowFilter, CRTFilter, RGBSplitFilter, DropShadowFilter, PixelateFilter, EmbossFilter, notAFilter: class {} };
+/** pixi-filters 6.1.5's RadialBlurFilter: the JS side writes uKernelSize as an i32, the WGSL struct reads an f32. */
+const wgsl = (type: string) => ({ name: 'radial-blur-filter', vertex: { source: 'v', entryPoint: 'mainVertex' }, fragment: { source: `struct RadialBlurUniforms { uRadian: f32, uKernelSize: ${type}, };`, entryPoint: 'mainFragment' } });
+class RadialBlurFilter extends FakeFilter { gpuProgram: unknown; constructor(o?: Record<string, unknown>) { super(o); this.gpuProgram = wgsl((globalThis as { __kernelType?: string }).__kernelType ?? 'f32'); } }
+const FAKE_LIB = { RadialBlurFilter, BulgePinchFilter, GlowFilter, CRTFilter, RGBSplitFilter, DropShadowFilter, PixelateFilter, EmbossFilter, notAFilter: class {} };
 const spec = (s: Record<string, unknown>) => s as unknown as FilterSpec;
 
 beforeEach(() => { resetFilterLibrary(); });
@@ -178,5 +182,26 @@ describe('bulgePinch.center is a fraction of the layer (0-1), not pixels: a pixe
     registerFilterLibrary({ ...FAKE_LIB, TwistFilter: class extends FakeFilter {} });
     createFilter(spec({ type: 'twist', offset: { x: 640, y: 360 } }));
     expect(warn).not.toHaveBeenCalled();
+  });
+});
+
+describe('radialBlur on WebGPU: pixi-filters declares uKernelSize as i32 in JS but f32 in WGSL, so the blur was skipped (the filter did nothing on the default backend)', () => {
+  beforeEach(() => { registerFilterLibrary(FAKE_LIB); });
+
+  it('the filter is built with a WGSL that reads uKernelSize as an i32 like the JS side writes it', () => {
+    (globalThis as { __kernelType?: string }).__kernelType = 'f32';
+    const f = createFilter(spec({ type: 'radialBlur', angle: 40, kernelSize: 15 })) as unknown as { gpuProgram: { rebuilt?: boolean; fragment: { source: string; entryPoint: string }; vertex: { source: string } } };
+    expect(f.gpuProgram.rebuilt).toBe(true);
+    expect(f.gpuProgram.fragment.source).toContain('uKernelSize: i32,');
+    expect(f.gpuProgram.fragment.source).not.toContain('uKernelSize: f32');
+    expect(f.gpuProgram.fragment.entryPoint).toBe('mainFragment');
+    expect(f.gpuProgram.vertex.source).toBe('v');
+  });
+
+  it('a pixi-filters that has fixed it is left alone', () => {
+    (globalThis as { __kernelType?: string }).__kernelType = 'i32';
+    const f = createFilter(spec({ type: 'radialBlur', angle: 40 })) as unknown as { gpuProgram: { rebuilt?: boolean } };
+    expect(f.gpuProgram.rebuilt).toBeUndefined();
+    delete (globalThis as { __kernelType?: string }).__kernelType;
   });
 });

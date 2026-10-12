@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>check · radialBlur does something</title>
+</head>
+<body>
+  <!--
+    Acceptance check (not an example): a yellow 500 x 40 bar through the centre of a dark 1280x720 picture, with `radialBlur` (angle 90, centre on the bar's middle)
+    when the query says `?m=on`. pixi-filters 6.1.5 declared the kernel size as an i32 in JS but an f32 in its WGSL, so on WebGPU the blur was skipped.
+    tests/tools/radialBlur.test.ts reads `signal(frame)`: the brightness left inside the bar's box (a blur spreads it out, so it must fall).
+    `?backend=webgl` hides WebGPU from the page, so the movie falls back to WebGL.
+  -->
+  <canvas id="stage" width="1280" height="720"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    if (new URLSearchParams(location.search).get('backend') === 'webgl') Object.defineProperty(navigator, 'gpu', { value: undefined });
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":      "https://esm.sh/mediabunny@1.61.3",
+      "pixi-filters":    "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+
+    const on = new URLSearchParams(location.search).get('m') === 'on';
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 2, frameRate: 30,
+        composition: { sequences: [
+          { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#102a43' } },
+          { type: 'shape', shape: 'rect', name: 'bar', width: 500, height: 40, initial: { x: 640, y: 360, fillColor: '#ffd166' },
+            filters: on ? [{ type: 'radialBlur', angle: 90, center: { x: 640, y: 360 }, kernelSize: 15, radius: -1 }] : [] },
+        ] },
+      });
+      window.backend = movie.app.renderer.name || String(movie.app.renderer.type);
+      // the brightness (R + G) inside the bar's box, summed
+      window.signal = async (frame) => {
+        const img = new Image(); img.src = await movie.snapshot(frame, { as: 'dataURL' }); await img.decode();
+        const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+        const g = c.getContext('2d'); g.drawImage(img, 0, 0);
+        const d = g.getImageData(390, 340, 500, 40).data;
+        let sum = 0; for (let i = 0; i < d.length; i += 4) sum += d[i] + d[i + 1];
+        return sum;
+      };
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+  </script>
+</body>
+</html>
