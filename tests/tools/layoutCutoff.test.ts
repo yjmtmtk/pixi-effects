@@ -1,15 +1,19 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const root = resolve(__dirname, '../..');
+const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
+const run = describe.skipIf(!check.findChrome() || !existsSync(join(root, 'dist/index.js')) || process.env.SKIP_BROWSER_TESTS);
 
 // A text that fades in (a keyframe on alpha) with an x written in `initial` is a STILL layer: a cut-off one is reported. Found by a trial in which
 // `check` said "no cut-off" for a 2000 px title on a 1280 canvas, because any layer with an x in `initial` and any keyframe counted as "moving".
-describe('check: a faded-in text that is cut off by the edge is reported (real browser)', () => {
+run('check: a faded-in text that is cut off by the edge is reported (real browser)', () => {
   it('the title, a rise + fade title that has settled, and a label of a null rig that only fades are listed; a ticker and a zoom, whose geometry is animated, are not', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-cutoff-'));
     const { stdout } = await promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/layout-cutoff.html'), '--no-export', '--out', out, '--timeout', '150'], { timeout: 170_000 })
