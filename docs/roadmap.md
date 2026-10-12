@@ -1,6 +1,6 @@
 # Roadmap: more expressive, still easy for an AI
 
-Status: rewritten 2026-10-12, current release 0.33.0 (`check` tells the truth: the AI trial of 2026-10-12); 0.32.0 brought spans and point options, 0.31.0 variables and the interactive movies. Nothing here is promised; the order is the proposal.
+Status: rewritten 2026-10-12, current release 0.34.0 (a radial blur that works on WebGPU, `bulgePinch` and the recommended filters tested on both backends); 0.33.0 made `check` tell the truth, 0.32.0 brought spans and point options. Nothing here is promised; the order is the proposal.
 
 ## The gate every item passes
 

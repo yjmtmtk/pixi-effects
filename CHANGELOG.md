@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.34.0
 
 **From the capability probe of 2026-10-12 (15 kinds of video tried by fresh agents; nothing was impossible, 9 needed hand-written glue; these are the defects that were verified on the real build)**
 
