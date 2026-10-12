@@ -73,6 +73,29 @@ export function pixiAccessors(target: Target, key: string): Accessor[] | null {
   }
 }
 
+/**
+ * A key with dots (`'red.x'`, `'offset.y'`) is a path into the target: the leaf of a point or of an object option (a filter's `red: { x, y }`).
+ * Returns a one-property view of that leaf for the accessors above, or `null` when the path leads nowhere (the leaf must exist now).
+ * Without this the key was written as a property literally called "red.x", and nothing moved.
+ */
+export function pathView(target: Target, key: string): { view: Target; leaf: string } | null {
+  const parts = key.split('.');
+  const leaf = parts.pop()!;
+  const parentOf = (): Record<string, unknown> | null => {
+    let o: unknown = target;
+    for (const p of parts) { o = (o as Record<string, unknown> | null | undefined)?.[p]; if (o === null || typeof o !== 'object') return null; }
+    return o as Record<string, unknown>;
+  };
+  const first = parentOf();
+  if (!first || !(leaf in first)) return null;
+  const view: Target = {};
+  Object.defineProperty(view, leaf, {
+    get: () => parentOf()?.[leaf],
+    set: (v: unknown) => { const parent = parentOf(); if (parent) parent[leaf] = v; },
+  });
+  return { view, leaf };
+}
+
 export function rawAccessor(target: Target, key: string): Accessor {
   return { id: key, kind: 'raw', unit: 1, round: 1, get: () => target[key], set: (v) => { target[key] = v; } };
 }

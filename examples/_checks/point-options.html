@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>check · a point option of a filter moves (rgbSplit red.x)</title>
+</head>
+<body style="margin:0;background:#222">
+  <!--
+    Acceptance check (not an example): a white square in a layer with `{ type: 'rgbSplit', name: 's' }` and a keyframe on 'filters.s.red.x' (0 to 30 in one second).
+    The red channel of the picture must move with it. tests/tools/pointOptions.test.ts reads it: `redShift(frame)` is where the red copy of the square is,
+    minus where the green one is, in pixels. The filter samples the red image x pixels to the right, so the shift is -x / 2 (the square's own bounds clip the rest).
+  -->
+  <canvas id="stage"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  { "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3", "pixi-filters": "https://esm.sh/pixi-filters@6.1.5?external=pixi.js" } }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const W = 640, H = 360;
+    const still = new URLSearchParams(location.search).has('still');       // no keyframe: the filter's own `red` only
+    const composition = { sequences: [
+      { type: 'composition', name: 'inner', width: W, height: H,
+        filters: [{ type: 'rgbSplit', name: 's', red: { x: 0, y: 0 }, green: { x: 0, y: 0 }, blue: { x: 0, y: 0 } }],
+        keyframes: still ? [] : [{ at: 0, from: { 'filters.s.red.x': 0 }, to: { 'filters.s.red.x': 30 }, duration: 1, ease: 'none' }],
+        sequences: [{ type: 'shape', shape: 'rect', width: 100, height: 100, initial: { x: W / 2, y: H / 2, fillColor: '#ffffff' } }] },
+    ] };
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: W, height: H, duration: 2, frameRate: 30, background: '#000000', composition });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+
+    // where the red copy of the square is, minus where the green one is (pixels, from the centroids of the two channels along x)
+    window.redShift = async (frame) => {
+      const img = new Image(); img.src = await movie.snapshot(frame, { as: 'dataURL' }); await img.decode();
+      const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+      const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0);
+      const d = g.getImageData(0, 0, c.width, c.height).data;
+      const centroid = (ch) => { let s = 0, n = 0; for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) { const v = d[(y * c.width + x) * 4 + ch]; s += v * x; n += v; } return n ? s / n : NaN; };
+      return centroid(0) - centroid(1);
+    };
+  </script>
+</body>
+</html>

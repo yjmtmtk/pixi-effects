@@ -1375,7 +1375,7 @@ Gotchas, all measured:
 - **Distortion:** `warp` (`wave`: a flag or the surface of water, `haze`: heat shimmer; moves with the frame's time, no keyframes needed, and pads the layer by `strength` so a shifted edge is not cut), `twist` (a swirl), `bulgePinch` (a lens), `shockwave` (a ring that spreads), `rgbSplit` (colour fringes), `glitch` (slices). `warp`'s time is the time of the frame (inside a time-remapped composition, that composition's clock), `speed: 0` stands still, `strength` is in px and is capped at 200. It bends the layer's picture; to draw something that does not exist yet, use a `shader` layer.
 - **Centres and offsets are in canvas pixels, not the layer's:** `twist.offset`, `bulgePinch.center`, `zoomBlur.center`, `radialBlur.center`, `shockwave.center` default to the canvas's top-left corner, so a layer in the middle looks unaffected. Put the centre on the layer: `{ type: 'twist', offset: { x: 640, y: 360 } }` for a layer centred on a 1280×720 canvas.
 - **A filter works inside the layer's bounds.** Glow, dropShadow, outline and blur draw outside it and are clipped unless you widen the area (`filterArea: { x: -24, y: -24, width: w + 48, height: h + 48 }`, in the layer's own coordinates). Do not widen it for `grayscale`, `oldFilm` or other filters that paint the whole area: they fill the extra margin with black.
-- **Animate scalars by name** (`'filters.halo.outerStrength'`). Options that are points (`rgbSplit.red`, `dropShadow.offset`) do not tween as a whole; animate `'filters.<name>.red.x'` if the filter exposes it, or swap the filter. `pixelate` animates through `sizeX` / `sizeY`, not `size`.
+- **Animate scalars by name** (`'filters.halo.outerStrength'`). Options that are points (`rgbSplit.red`, `dropShadow.offset`) are animated one leaf at a time: `'filters.<name>.red.x'` / `'filters.<name>.red.y'` tween like any number (the whole point `red: { x, y }` as a keyframe value switches at its keyframe and does not tween; a path that leads nowhere is warned about once and ignored). `pixelate` animates through `sizeX` / `sizeY`, not `size`.
 - `shockwave` and `godray` are driven by `time` (a still frame at `time: 0` looks like nothing): animate it. `radialBlur`, `shockwave` and `tiltShift` positions are canvas pixels too.
 - Some filters take their value as one argument; the DSL hides that (`{ type: 'pixelate', size: 8 }`, `{ type: 'emboss', strength: 6 }`).
 
@@ -1406,7 +1406,7 @@ import { GlowFilter, OldFilmFilter } from 'pixi-filters';
 Notes:
 
 - `filter` must be a `Filter` instance (constructor must have run on the consumer side).
-- Animation paths use scalar property setters. Filters whose properties are PointData (e.g. `pixi-filters` `RGBSplitFilter` exposes `red: { x, y }`) currently don't propagate the change to the GPU uniform when only `.x` is mutated — replace the whole point in an `onUpdate` callback or use a scalar-API filter instead.
+- A dotted key (`'filters.s.red.x'`) is a path into the filter: the leaf of the point is written in place, which `pixi-filters` reads when it draws (checked on `RGBSplitFilter`, WebGPU and WebGL, `tests/tools/pointOptions.test.ts`). Before 0.32 such a key was written as a property literally named `red.x` and nothing moved.
 - Without a `name`, the filter still applies but cannot be addressed via `filters.<name>.<prop>` keyframe paths.
 
 Notes:

@@ -1,6 +1,6 @@
 import { pureEase, type EaseFn } from './ease';
 import { parseCssColor, rgbInterp } from './colorLerp';
-import { PIXI_INERT, lerpColor, parseColor, pixiAccessors, cssAccessor, plainAccessor, rawAccessor, type Accessor, type Target } from './props';
+import { PIXI_INERT, lerpColor, parseColor, pathView, pixiAccessors, cssAccessor, plainAccessor, rawAccessor, type Accessor, type Target } from './props';
 
 /**
  * A timeline that is a pure function of time (spike: see docs/superpowers/specs/2026-10-10-pure-timeline-design.md).
@@ -118,6 +118,7 @@ const parseRel = (v: unknown): { rel: boolean; n: number } | null => {
 const RESERVED = new Set(['duration', 'ease', 'repeat', 'yoyo', 'repeatDelay', 'onUpdate', 'delay']);
 /** GSAP callbacks that a timeline with no state cannot run (they depend on the way the playhead moved): said once, not written onto the target. */
 const CALLBACKS = ['onStart', 'onComplete', 'onRepeat', 'onReverseComplete'];
+const saidPaths = new Set<string>();
 let saidCallbacks = false;
 
 export class PureTimeline {
@@ -186,9 +187,17 @@ export class PureTimeline {
       for (const key of Object.keys(v)) {
         if (RESERVED.has(key) || key === 'pixi' || CALLBACKS.includes(key)) continue;
         const value = v[key];
-        const acc = parseRel(value) ? plainAccessor(t, key)
-          : typeof value === 'string' && parseCssColor(value) ? cssAccessor(t, key)       // '#ff0000' moves through rgba strings
-          : rawAccessor(t, key);                                                          // a boolean or a word switches when its segment starts
+        // 'red.x': a leaf of a point or object option (a filter's `red: { x, y }`); a path that leads nowhere is said once, not written as a property of that name
+        const path = key.includes('.') ? pathView(t, key) : null;
+        if (key.includes('.') && !path) {
+          if (!saidPaths.has(key)) { saidPaths.add(key); console.warn(`pixi-effects: "${key}" leads nowhere on its target (a point option such as filters.NAME.red.x needs the option to exist: name it in the filter's options), so it is ignored`); }
+          continue;
+        }
+        const at = path?.view ?? t, name = path?.leaf ?? key;
+        const acc = parseRel(value) ? plainAccessor(at, name)
+          : typeof value === 'string' && parseCssColor(value) ? cssAccessor(at, name)       // '#ff0000' moves through rgba strings
+          : rawAccessor(at, name);                                                          // a boolean or a word switches when its segment starts
+        acc.id = key;
         out.set(acc.id, { acc, value });
       }
       if (v.pixi) for (const key of Object.keys(v.pixi)) {
