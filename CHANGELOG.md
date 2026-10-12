@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+**`check` tells the truth about what a trial found (design: the AI trial of 2026-10-12, 10 fresh agents on 0.32.0)**
+
+- **Fixed: `inspect` (and so `check`) never reported cut-off or off-canvas text on a layer that had an x or y in `initial` AND any keyframe** (a title with a fade-in: the commonest case). Such a layer was counted as "moving" (a ticker that crosses the edge on purpose) and skipped, so a 2000 px title on a 1280 canvas passed with "no cut-off". A layer is now "moving" only when a **keyframe** (`set` / `to` / `from`) animates its `x` or `y`, or its `null` parent's keyframes move, rotate or scale it. The same fix covers the children of a `null` rig that only fades. All 52 gallery pieces still say nothing; `tests/core/inspect.test.ts`, `tests/tools/layoutCutoff.test.ts` (`examples/_checks/layout-cutoff.html`). Pitfall 30b says what counts as moving.
+
 ## 0.32.0
 
 **`spans`: colour and style inside one text layer, and the papercuts of five films (planned as 0.32)**

@@ -1,7 +1,7 @@
 import type { Container } from 'pixi.js';
 import type { Sequence } from '../sequences/Base';
 import { CompositionSequence } from '../sequences/Composition';
-import { collectPropKeys } from '../space/specKeys';
+import { collectKeyframeKeys } from '../space/specKeys';
 import { transitionWindowsOf } from './Transitions';
 import { maskSourceOf } from './matte';
 
@@ -104,10 +104,11 @@ export function inspectScene(
         onCanvas = inter === 0 && area > 0 ? 'none' : inter >= area - 1e-6 ? 'full' : 'partial';
         if (area === 0) onCanvas = 'none';
       }
-      const keys = collectPropKeys(seq.spec);
-      // moved by its own keyframes, or carried along by a parent that is (a panned timeline)
-      const carried = carriers.some(c => { const k = collectPropKeys(c.spec); return (c.spec.keyframes ?? []).length > 0 && (k.has('x') || k.has('y') || k.has('rotation') || k.has('scale')); });
-      const moving = parentMoving || carried || ((seq.spec.keyframes ?? []).length > 0 && (keys.has('x') || keys.has('y')));
+      // moved by its own keyframes, or carried along by a parent that is (a panned timeline). A value only written in `initial` never moves:
+      // an x there plus a fade is a still layer, and a cut-off one must be reported.
+      const keys = collectKeyframeKeys(seq.spec);
+      const carried = carriers.some(c => { const k = collectKeyframeKeys(c.spec); return k.has('x') || k.has('y') || k.has('rotation') || k.has('scale'); });
+      const moving = parentMoving || carried || keys.has('x') || keys.has('y');
       const zeroScale = (o: unknown): boolean => { const s = (o as { scale?: { x: number; y: number } } | null)?.scale; return !!s && (s.x === 0 || s.y === 0); };
       const zero = parentZero || zeroScale(t) || carriers.some(c => zeroScale(c.target));
       const info: LayerInfo = { path: prefix + label, name, type: seq.spec.type, threeD, visible, alpha, moving, bounds, onCanvas };

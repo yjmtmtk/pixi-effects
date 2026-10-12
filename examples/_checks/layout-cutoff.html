@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>check · a faded-in text that is cut off by the edge</title>
+</head>
+<body>
+  <!--
+    Acceptance check (not an example): three texts a reviewer must be told about although each one FADES IN (a keyframe on alpha) and has
+    x / y written in `initial`: a 90 px title far wider than the 1280 canvas (cut off), a label of a null rig that sits half a screen right
+    (the rig only fades), and a ticker whose x really is animated (crosses the edge on purpose: not reported).
+    tests/tools/layoutCutoff.test.ts reads what `check` says about them.
+  -->
+  <canvas id="stage" width="1280" height="720"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":      "https://esm.sh/mediabunny@1.61.3"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 2, frameRate: 30,
+        composition: { sequences: [
+          { type: 'shape', shape: 'rect', name: 'background', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101820' } },
+          { type: 'text', name: 'title', text: 'ピカッと洗浄キャンペーン開催中！今だけ特別価格', style: { fontSize: 90, fill: '#ffffff' },
+            initial: { x: 200, y: 100 }, keyframes: [{ at: 0, to: { alpha: 0.95 }, duration: 0.5 }] },
+          { type: 'null', name: 'rig', initial: { x: 100, y: 300 }, keyframes: [{ at: 0, to: { alpha: 0.95 }, duration: 0.5 }] },
+          { type: 'text', name: 'label', text: 'sits half a screen right', parent: 'rig', style: { fontSize: 40, fill: '#ffd166' }, initial: { x: 1000, y: 0 } },
+          { type: 'text', name: 'ticker', text: 'crosses the edge on purpose', style: { fontSize: 40, fill: '#9fb3d9' },
+            initial: { x: 1200, y: 600 }, keyframes: [{ at: 0, to: { x: -500 }, duration: 2, ease: 'none' }] },
+        ] },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+  </script>
+</body>
+</html>

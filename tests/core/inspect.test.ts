@@ -120,6 +120,19 @@ describe('inspectScene', () => {
     expect(r.layers.find(l => l.name === 'still')!.moving).toBe(false);
   });
 
+  it('a layer is "moving" only when a KEYFRAME animates its x or y: an x in initial plus a fade is a still layer, and a cut-off one is reported', async () => {
+    const comp = await scene([
+      { type: 'text', name: 'fading', text: 'a', initial: { x: 1200, y: 100 }, keyframes: [{ at: 0, to: { alpha: 0.9 }, duration: 0.6 }] },
+      { type: 'text', name: 'from', text: 'b', initial: { y: 300 }, keyframes: [{ at: 0, from: { x: 1500 }, to: { x: 100 }, duration: 2 }] },
+      { type: 'text', name: 'set', text: 'c', initial: { y: 500 }, keyframes: [{ at: 0, set: { x: 1200 } }] },
+    ]);
+    const r = inspectScene(comp, 60, 2, { width: 1280, height: 720 });
+    expect(r.layers.find(l => l.name === 'fading')!.moving).toBe(false);
+    expect(r.issues.some(i => i.includes('"fading"') && /cut off/.test(i))).toBe(true);
+    expect(r.layers.find(l => l.name === 'from')!.moving).toBe(true);        // `from` / `set` / `to` of x or y all count
+    expect(r.layers.find(l => l.name === 'set')!.moving).toBe(true);
+  });
+
   it('judges overlaps on what is visible: text parked off the canvas, or hidden by its mask, does not overlap anything', async () => {
     const offscreen = await scene([
       { type: 'text', name: 'p1', text: 'a', initial: { x: 5000, y: 100 } },
@@ -285,6 +298,16 @@ describe('inspectScene — layers inside a null layer', () => {
     expect(r.layers.map(l => l.name)).toEqual(['caption']);
     expect(r.layers[0]!.moving).toBe(true);
     expect(r.issues.some(i => /cut off|outside/.test(i))).toBe(false);      // crossing the edge on purpose, like a marquee
+  });
+
+  it('a null that only fades (an x in its initial, no moving keyframe) does not make its children "moving": a child that sits half a screen right is cut off', async () => {
+    const comp = await scene([
+      { type: 'null', name: 'rig', initial: { x: 100, y: 100 }, keyframes: [{ at: 0, to: { alpha: 0.9 }, duration: 0.5 }] },
+      { type: 'text', name: 'label', text: 'hi', parent: 'rig', initial: { x: 1200, y: 10 } },
+    ]);
+    const r = inspectScene(comp, 30, 1, { width: 1280, height: 720 });
+    expect(r.layers[0]!.moving).toBe(false);
+    expect(r.issues.some(i => i.includes('"label"') && /cut off|outside/.test(i))).toBe(true);
   });
 
   it('a null that has ended hides its children; a null at alpha 0.5 halves theirs', async () => {

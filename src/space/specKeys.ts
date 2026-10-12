@@ -14,3 +14,14 @@ export function collectPropKeys(spec: {
   }
   return out;
 }
+
+/** Every prop key a spec animates: the keyframes' `set` / `to` / `from`, not `initial` (a value that never changes is not motion). */
+export function collectKeyframeKeys(spec: { keyframes?: Keyframe[] }): Set<string> {
+  const out = new Set<string>();
+  for (const kf of spec.keyframes ?? []) {
+    for (const bag of [kf.set, kf.to, kf.from]) {
+      for (const k of Object.keys(bag ?? {})) out.add(k);
+    }
+  }
+  return out;
+}
