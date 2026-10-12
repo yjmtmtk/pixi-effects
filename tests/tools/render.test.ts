@@ -107,6 +107,21 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('render.mjs
     rmSync(dir, { recursive: true, force: true });
   }, 400_000);
 
+  it('the line it prints says how long the FILE is: a range of 1 s is not announced as the whole 4 s movie', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'render-len-'));
+    const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), join(root, 'examples/_checks/render-range.html'), ...args, '--quiet', '--timeout', '150'], { timeout: 170_000 });
+    const seconds = (stdout: string): number => Number(/· ([0-9.]+) s ·/.exec(stdout)?.[1]);
+    const whole = await run(['-o', join(dir, 'whole.mp4')]);
+    expect(seconds(whole.stdout)).toBeGreaterThan(3.8);
+    expect(seconds(whole.stdout)).toBeLessThan(4.2);
+    const part = await run(['-o', join(dir, 'part.mp4'), '--range', '1:2']);
+    expect(seconds(part.stdout), part.stdout).toBeGreaterThan(0.9);
+    expect(seconds(part.stdout), part.stdout).toBeLessThan(1.2);
+    const scene = await run(['-o', join(dir, 'scene.mp4'), '--scene', 'title']);
+    expect(seconds(scene.stdout), scene.stdout).toBeLessThan(3.5);
+    rmSync(dir, { recursive: true, force: true });
+  }, 400_000);
+
   it('renders a page to an mp4 file (a real file, with the page\'s duration and size) and exits 0', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'render-test-'));
     const out = join(dir, 'clip.mp4');

@@ -124,7 +124,16 @@ const renderScript = (format, quality, videoCodec, audioCodec, motionBlur, shutt
         : await movie.render({ format: ${JSON.stringify(format)}, ${SOUND_ONLY.includes(format) ? '' : 'video, '}audio${part.range ? `, range: [${part.range[0] ?? 0}, ${part.range[1] ?? 'movie.duration'}]` : ''}${part.scene ? `, range: ${JSON.stringify(part.scene)}` : ''}${part.scale ? `, scale: ${part.scale}` : ''}${part.draft ? ', draft: true' : ''}${motionBlur ? `, motionBlur: { samples: ${motionBlur}${shutter ? `, shutter: ${shutter}` : ''} }` : ''} });
       const res = await fetch(${JSON.stringify(UPLOAD)}, { method: 'PUT', body: blob });
       if (!res.ok) throw new Error('could not hand the file to the command (' + res.status + ')');
-      window.__r = { state: 'done', bytes: blob.size, type: blob.type };
+      // how long the FILE is (a range or a scene is shorter than the movie): ask a media element, which reads the metadata of what was written; null when it cannot
+      let length = null;
+      try {
+        if (${JSON.stringify(format)} !== 'pdf') {
+          const el = document.createElement(${SOUND_ONLY.includes(format) ? "'audio'" : "'video'"}); el.preload = 'metadata'; el.muted = true; el.src = URL.createObjectURL(blob);
+          length = await new Promise(res => { el.onloadedmetadata = () => res(Number.isFinite(el.duration) ? Math.round(el.duration * 100) / 100 : null); el.onerror = () => res(null); setTimeout(() => res(null), 5000); });
+          URL.revokeObjectURL(el.src);
+        }
+      } catch { /* the length stays unknown: the command falls back to the movie's */ }
+      window.__r = { state: 'done', bytes: blob.size, type: blob.type, length };
     } catch (e) { window.__r = { state: 'error', message: String((e && e.message) || e) }; }
   })();
   return 0;
@@ -209,6 +218,7 @@ export async function runRender(opts, log = console.log, progress = () => {}) {
     fs.renameSync(part, out);
     result.file = out;
     result.bytes = written;
+    result.length = result.render?.length ?? null;                   // the file's own length; a range or a scene is not the whole movie
     result.seconds = Math.round((Date.now() - t0) / 100) / 10;
     return result;
   } finally {
@@ -244,7 +254,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process
       console.error(`pixi-effects render failed: ${r.problems.join('; ') || 'no file written'}`);
       process.exit(1);
     }
-    console.log(`${shown(r.file)}  ${kb(r.bytes)} · ${r.duration} s · ${SOUND_ONLY.includes(opts.format) ? 'sound only' : `${r.width}×${r.height} @ ${r.frameRate} fps`} · ${opts.format} · rendered in ${r.seconds} s`);
+    console.log(`${shown(r.file)}  ${kb(r.bytes)} · ${r.length ?? r.duration} s · ${SOUND_ONLY.includes(opts.format) ? 'sound only' : `${r.width}×${r.height} @ ${r.frameRate} fps`} · ${opts.format} · rendered in ${r.seconds} s`);
     process.exit(opts.strict && r.logs.length ? 1 : 0);
   } catch (e) {
     console.error(`pixi-effects render failed: ${e.message}`);
