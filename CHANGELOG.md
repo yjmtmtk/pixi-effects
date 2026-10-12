@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.33.0
 
 **`check` tells the truth about what a trial found (design: the AI trial of 2026-10-12, 10 fresh agents on 0.32.0; a fresh review of this change found 2 gaps and 3 false alarms, fixed below)**
 
