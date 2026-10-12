@@ -129,7 +129,7 @@ const renderScript = (format, quality, videoCodec, audioCodec, motionBlur, shutt
       try {
         if (${JSON.stringify(format)} !== 'pdf') {
           const el = document.createElement(${SOUND_ONLY.includes(format) ? "'audio'" : "'video'"}); el.preload = 'metadata'; el.muted = true; el.src = URL.createObjectURL(blob);
-          length = await new Promise(res => { el.onloadedmetadata = () => res(Number.isFinite(el.duration) ? Math.round(el.duration * 100) / 100 : null); el.onerror = () => res(null); setTimeout(() => res(null), 5000); });
+          length = await new Promise(res => { el.onloadedmetadata = () => res(Number.isFinite(el.duration) ? Math.round(el.duration * 10) / 10 : null); el.onerror = () => res(null); setTimeout(() => res(null), 5000); });
           URL.revokeObjectURL(el.src);
         }
       } catch { /* the length stays unknown: the command falls back to the movie's */ }
