@@ -115,6 +115,23 @@ return pieces.map(p => ({
 
 `splitText(text, style, { by: 'chars' | 'words' | 'lines', x, y, align })` returns `{ text, x, y, width, index, line }` for each piece; use `measureText(text, style)` to size a background pill from the real width. Load a web font first if you use one.
 
+## Vertical writing
+
+Japanese (and Chinese) can be set downward, one column after another from the right. Give `animateText` `vertical: true`: the characters go down a column, a new line (`\n`) is a new column to the left, and `x` is the **right** edge of the first column. The commas `、。` move to the upper right of their cell, small kana a little up and right, and the long vowel mark `ー`, dashes, waves and brackets `「」` lie turned a quarter, as in print. Latin letters and digits stay upright, one to a cell.
+
+```js
+// @recipe vertical-text-guide
+const style = { fontFamily: 'Hiragino Mincho ProN, Yu Mincho, serif', fontSize: 56, fill: '#1c1a17' };
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#efe9dc' } },
+  ...animateText('雨のあと、\nコーヒーは「ゆっくり」', style, { x: 900, y: 70, vertical: true, at: 0.3, duration: 4.4, in: 'fade', stagger: { each: 0.04 } }),
+];
+```
+
+{{demo examples/_guide/vertical-text.html}}
+
+With `splitText(text, style, { vertical: true, ... })` each piece also has `cx` / `cy` (the centre of its cell) and `rotation`: place a text layer at `cx` / `cy` with `anchorX: 0.5, anchorY: 0.5` and `rotation: p.rotation`. A line is cut only where you write `\n` (there is no automatic line breaking), and `by: 'words'` or `'lines'` has no vertical form.
+
 ## Things that go wrong
 
 - **Text is cut off or off-screen.** Run the [review tools](review.html): `movie.inspect()` reports text that leaves the canvas, is cut by an edge, or overlaps other text. Centred text needs `anchorX: 0.5`.

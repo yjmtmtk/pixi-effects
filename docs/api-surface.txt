@@ -11,6 +11,7 @@ interface AnimateTextOptions
   out?: false | "rise" | "drop" | "fade" | "pop" | "zoom" | "slide" | "spin" | AnimateTextTween
   stagger?: StaggerOptions
   styleFor?: ((piece: TextPiece) => MeasureStyle)
+  vertical?: boolean
   x?: number
   y?: number
 interface AnimateTextTween
@@ -629,6 +630,7 @@ interface SoundMeasure
 interface SplitOptions
   align?: "left" | "center" | "right"
   by?: "chars" | "words" | "lines"
+  vertical?: boolean
   x?: number
   y?: number
 function splitText(text: string, style?: MeasureStyle, opts?: SplitOptions): TextPiece[]
@@ -658,8 +660,11 @@ interface StopSpec
   page?: string | true
   pdf?: boolean
 interface TextPiece
+  cx?: number
+  cy?: number
   index: number
   line: number
+  rotation?: number
   text: string
   width: number
   x: number

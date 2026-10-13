@@ -6,7 +6,7 @@ import { wiggle } from './wiggle';
 
 const TWEEN_KEYS = ['preset', 'from', 'to', 'duration', 'ease'] as const;
 const TIME_KEYS = ['at', 'delay', 'start', 'begin', 'time'];
-const KEYS = ['by', 'x', 'y', 'align', 'name', 'at', 'duration', 'in', 'out', 'stagger', 'idle', 'styleFor'] as const;
+const KEYS = ['by', 'x', 'y', 'align', 'vertical', 'name', 'at', 'duration', 'in', 'out', 'stagger', 'idle', 'styleFor'] as const;
 
 /** Where a piece starts (`from`), as offsets in x / y and absolute values for the rest, and how it gets to its resting place. */
 const PRESETS = {
@@ -44,6 +44,8 @@ export interface AnimateTextOptions {
   /** Top of the first line. */
   y?: number;
   align?: 'left' | 'center' | 'right';
+  /** Vertical writing: characters go down a column, a new line is a new column to the left, and `x` is the RIGHT edge of the first column (see `splitText`). Punctuation and the long vowel mark are placed and turned the way tategaki wants. */
+  vertical?: boolean;
   /** Layers are named `<name>-0`, `<name>-1`, … (default `'text'`). */
   name?: string;
   /** When the first piece starts, in composition seconds. Default 0. */
@@ -78,14 +80,14 @@ interface Resolved { from: Record<string, number>; to: Record<string, number>; d
  */
 export function animateText(text: string, style: MeasureStyle, options: AnimateTextOptions): TextSequenceSpec[] {
   warnUnknownOptions('animateText()', options, KEYS);
-  const { by = 'chars', x = 0, y = 0, align = 'left', name = 'text', at = 0, duration, idle, styleFor } = options;
+  const { by = 'chars', x = 0, y = 0, align = 'left', vertical = false, name = 'text', at = 0, duration, idle, styleFor } = options;
   for (const [n, v] of [['x', x], ['y', y]] as const) {
     if (typeof v !== 'number' || !Number.isFinite(v)) {
       throw new Error(`animateText(): ${n} must be a number of pixels (e.g. ${n}: 640), got ${JSON.stringify(v)}. The letters are measured once, when the layers are made, so an expression such as 'GW/2' cannot be used here: compute the number (W / 2) yourself. \`y\` is the TOP of the line.`);
     }
   }
   if (!(Number.isFinite(duration) && duration > 0)) throw new Error(`animateText(): duration must be a positive number of seconds (how long until the last piece is gone), got ${duration}`);
-  const pieces = splitText(text, style, { by, x, y, align });
+  const pieces = splitText(text, style, { by, x, y, align, ...(vertical ? { vertical } : {}) });
   if (pieces.length === 0) return [];
 
   const lineHeight = measureText('M', style).height;
@@ -106,8 +108,8 @@ export function animateText(text: string, style: MeasureStyle, options: AnimateT
     if (inTween && outTween.at - at < inTween.duration - 1e-9) console.warn(`pixi-effects: animateText(): out.at ${outTween.at} is before the entrance has finished (it takes ${inTween.duration} s from at ${at}): use out.at ≥ ${+(at + inTween.duration).toFixed(3)}`);
   }
   return pieces.map((p, i) => {
-    const cx = p.x + p.width / 2, cy = p.y + lineHeight / 2;
-    const rest: Record<string, number> = { x: cx, y: cy, alpha: 1, scale: 1, scaleX: 1, scaleY: 1, rotation: 0 };
+    const cx = p.cx ?? p.x + p.width / 2, cy = p.cy ?? p.y + lineHeight / 2;                   // vertical pieces come with their centre and a turn
+    const rest: Record<string, number> = { x: cx, y: cy, alpha: 1, scale: 1, scaleX: 1, scaleY: 1, rotation: p.rotation ?? 0 };
     const start = at + delays[i]!;
     const len = end - start;
     const keyframes: Keyframe[] = [];
@@ -144,7 +146,7 @@ export function animateText(text: string, style: MeasureStyle, options: AnimateT
     return {
       type: 'text', name: `${name}-${i}`, text: p.text, style: styleFor ? { ...style, ...styleFor(p) } : style,
       at: start, duration: len,
-      initial: { x: cx, y: cy, anchorX: 0.5, anchorY: 0.5 },
+      initial: { x: cx, y: cy, anchorX: 0.5, anchorY: 0.5, ...(rest.rotation !== 0 ? { rotation: rest.rotation } : {}) },
       keyframes,
     } as TextSequenceSpec;
   });

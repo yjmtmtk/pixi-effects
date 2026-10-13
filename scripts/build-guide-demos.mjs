@@ -23,6 +23,7 @@ export const DEMOS = [
   { id: 'path-ride',     file: 'motion',     recipe: 'path-ride',       title: 'Travel along a path',         duration: 5.5, poster: 2.5 },
   { id: 'ripple',        file: 'motion',     recipe: 'ripple',          title: 'Waves with stagger',          duration: 5, poster: 2.4 },
   { id: 'animate-text',  file: 'text',       recipe: 'animate-text',    title: 'Per-letter animation',        duration: 6, poster: 3 },
+  { id: 'vertical-text', file: 'text',       recipe: 'vertical-text-guide', title: 'Vertical writing',        duration: 5, poster: 4.2, bg: '#efe9dc' },
   { id: 'music',         file: 'audio',      recipe: 'music-guide',     title: 'Music written as text',       duration: 12, poster: 1.5 },
   { id: 'audio-react',   file: 'audio',      recipe: 'audio-react-guide', title: 'Visuals that follow the music', duration: 8, poster: 3.2 },
   { id: 'deck',          file: 'presenting', recipe: 'present-deck',    title: 'A talk made with deck()',     deck: true, poster: 1.5 },
@@ -40,7 +41,9 @@ export function recipeCode(name, file) {
 function pins() {
   const t = readFileSync(resolve(root, 'skills/pixi-effects/template.html'), 'utf8');
   const get = key => t.match(new RegExp(`"${key}"\\s*:\\s*"([^"]+)"`))[1];
-  return { pixi: get('pixi.js'), mediabunny: get('mediabunny'), index: get('pixi-effects'), controller: get('pixi-effects/controller'), present: get('pixi-effects/present') };
+  // the library comes from this repository's build, like the gallery pages (../../dist/…): a demo then shows the code of the same commit, also for a feature not released yet
+  const local = key => '../../dist/' + get(key).split('/dist/')[1];
+  return { pixi: get('pixi.js'), mediabunny: get('mediabunny'), index: local('pixi-effects'), controller: local('pixi-effects/controller'), present: local('pixi-effects/present') };
 }
 
 export function page(d) {

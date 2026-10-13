@@ -61,3 +61,56 @@ describe('splitText(): x and y are pixel numbers', () => {
   });
 });
 
+describe('splitText vertical: true (tategaki)', () => {
+  // the mock: fontSize 20 → a cell of 20 px down, 24 px between columns; a glyph is 10 px wide
+  const v = (text: string, opts: Record<string, unknown> = {}) => splitText(text, style, { vertical: true, x: 100, y: 10, ...opts });
+  const centre = (p: { cx?: number; cy?: number }) => [p.cx, p.cy];
+
+  it('stacks the characters downward, centred in a column whose RIGHT edge is x, one cell of font size each (x / y of a piece place it with anchor 0, cx / cy with anchor 0.5)', () => {
+    const p = v('ABC');
+    expect(p.map(centre)).toEqual([[88, 20], [88, 40], [88, 60]]);
+    expect(p.map(q => [q.x, q.y])).toEqual([[83, 8], [83, 28], [83, 48]]);
+    expect(p.map(q => [q.text, q.index, q.line, q.rotation])).toEqual([['A', 0, 0, 0], ['B', 1, 0, 0], ['C', 2, 0, 0]]);
+  });
+
+  it('a new line is a new column to the LEFT of the last one (the line height apart)', () => {
+    const p = v('AB\nCD');
+    expect(p.map(centre)).toEqual([[88, 20], [88, 40], [64, 20], [64, 40]]);
+    expect(p.map(q => q.line)).toEqual([0, 0, 1, 1]);
+  });
+
+  it('a space takes a cell and is not returned; letterSpacing adds to the cell', () => {
+    expect(v('A B').map(centre)).toEqual([[88, 20], [88, 60]]);
+    expect(splitText('AB', { fontSize: 20, letterSpacing: 4 }, { vertical: true, x: 100, y: 10 }).map(centre)).toEqual([[88, 22], [88, 46]]);
+  });
+
+  it('align puts y at the top of the column (left, the default), its middle (center) or its bottom (right)', () => {
+    expect(v('ABCD', { y: 100 }).map(q => q.cy)).toEqual([110, 130, 150, 170]);
+    expect(v('ABCD', { y: 100, align: 'center' }).map(q => q.cy)).toEqual([70, 90, 110, 130]);
+    expect(v('ABCD', { y: 100, align: 'right' }).map(q => q.cy)).toEqual([30, 50, 70, 90]);
+  });
+
+  it('、 and 。 sit at the upper right of their cell, small kana a little up and right', () => {
+    const p = v('A、。っ');
+    expect(centre(p[1]!)).toEqual([98, 30]);                                  // (88 + 10, 40 − 10)
+    expect(centre(p[2]!)).toEqual([98, 50]);
+    expect(centre(p[3]!)).toEqual([90, 78]);                                  // (88 + 2, 80 − 2)
+    expect(p.map(q => q.rotation)).toEqual([0, 0, 0, 0]);
+  });
+
+  it('the long vowel mark, dashes, waves and brackets are turned a quarter clockwise', () => {
+    const p = v('ー「」—〜');
+    expect(p.map(q => q.rotation)).toEqual([90, 90, 90, 90, 90]);
+    expect(p.map(q => q.cx)).toEqual([88, 88, 88, 88, 88]);                   // they stay in the column
+  });
+
+  it('by "words" or "lines" has no vertical form: it is said, and characters are used', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(v('AB CD', { by: 'words' }).map(q => q.text)).toEqual(['A', 'B', 'C', 'D']);
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/vertical.*chars/));
+  });
+
+  it('horizontal pieces carry no cx / cy / rotation (nothing changes for text written across)', () => {
+    expect(splitText('AB', style)[0]).toEqual({ text: 'A', x: 0, y: 0, width: 10, index: 0, line: 0 });
+  });
+});

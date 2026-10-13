@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>check · vertical writing (tategaki) with animateText</title>
+</head>
+<body>
+  <!--
+    Acceptance check (not an example): two columns of Japanese written downward, right to left, with 、。ー「」 and a small kana, a latin word and a digit.
+    LOOK at the picture (check --at 2): the long vowel mark and the brackets lie turned, the commas sit at the upper right of their cell.
+  -->
+  <canvas id="stage" width="720" height="1280"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":    "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny": "https://esm.sh/mediabunny@1.61.3"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie, animateText } from '../../dist/index.js';
+    const style = { fontFamily: 'Hiragino Mincho ProN, Yu Mincho, serif', fontSize: 64, fill: '#1c1a17' };
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 720, height: 1280, duration: 4, frameRate: 30, background: '#efe9dc',
+        composition: { sequences: [
+          ...animateText('雨のあと、\nコーヒーは「ゆっくり」\nQ3は2倍。', style, { x: 600, y: 160, vertical: true, at: 0.2, duration: 3.6, in: 'fade', stagger: { each: 0.03 }, name: 'v' }),
+        ] },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+  </script>
+</body>
+</html>

@@ -266,7 +266,7 @@ measureText('Hello', style)                              // → { width, height,
 splitText('Hello world', style, { by: 'chars' | 'words' | 'lines', x, y, align: 'left' | 'center' | 'right' })
                                                          // → [{ text, x, y, width, index, line }] — one text layer per piece, same style, anchor top-left
 ```
-Per-letter / per-word / per-line animation in one call: `...animateText(text, style, { x, y, align, by: 'chars'|'words'|'lines', at, duration /* required: until the last piece is gone */, in: 'rise'|'drop'|'fade'|'pop'|'zoom'|'slide'|'spin'|{ from, to, duration, ease }|false, out: <same, in the same wave (leave `out` out and the pieces stay until the layer ends); by default BACKWARDS FROM THE LAYER'S END (at + duration, so to be gone at time T set duration = T − at); `out: { preset: 'fade', at: 6 }` starts the exit at composition second 6 instead>, stagger: { each, from, … }, idle: { y: 4, rotation: 1 }, styleFor: p => ({ fill }) })` → text layers `<name>-0…` (anchor centre; `x`/`y` in `from` are offsets) to spread into `sequences`. **`x` / `y` are pixel NUMBERS (an expression like `'GW/2'` throws: compute `W / 2`), and `y` is the TOP of the line box**: the visible text is centred `lineHeight / 2` below it, so an underline goes at `y + lineHeight`, not at `y` (recipe `animate-text`). By hand: `splitText(...)` + one layer per piece (recipe `split-text`). A web font must be loaded before measuring.
+Per-letter / per-word / per-line animation in one call: `...animateText(text, style, { x, y, align, vertical: true /* tategaki: down a column, new line = new column to the left, x = RIGHT edge of the first column; 、。 ー 「」 placed and turned for you */, by: 'chars'|'words'|'lines', at, duration /* required: until the last piece is gone */, in: 'rise'|'drop'|'fade'|'pop'|'zoom'|'slide'|'spin'|{ from, to, duration, ease }|false, out: <same, in the same wave (leave `out` out and the pieces stay until the layer ends); by default BACKWARDS FROM THE LAYER'S END (at + duration, so to be gone at time T set duration = T − at); `out: { preset: 'fade', at: 6 }` starts the exit at composition second 6 instead>, stagger: { each, from, … }, idle: { y: 4, rotation: 1 }, styleFor: p => ({ fill }) })` → text layers `<name>-0…` (anchor centre; `x`/`y` in `from` are offsets) to spread into `sequences`. **`x` / `y` are pixel NUMBERS (an expression like `'GW/2'` throws: compute `W / 2`), and `y` is the TOP of the line box**: the visible text is centred `lineHeight / 2` below it, so an underline goes at `y + lineHeight`, not at `y` (recipe `animate-text`). By hand: `splitText(...)` + one layer per piece (recipe `split-text`). A web font must be loaded before measuring.
 
 ## Assets
 
@@ -1041,6 +1041,17 @@ return [
     styleFor: p => (p.index === 0 ? { fill: '#ffd166' } : {}) }),
   ...animateText('one word at a time', { fontFamily: 'Arial, sans-serif', fontSize: 44, fill: '#8fa0bf' },
     { by: 'words', x: 640, y: 420, align: 'center', at: 1.6, duration: 3.7, in: 'pop', stagger: { each: 0.25 } }),
+];
+```
+
+**Vertical Japanese (tategaki)** is one option: `vertical: true`. The characters go down a column and a new line is a new column to the LEFT, so `x` is the RIGHT edge of the first column. The commas sit at the upper right of their cell, and the long vowel mark and the brackets are turned a quarter, as in print.
+
+```js
+// @recipe vertical-text
+const style = { fontFamily: 'Hiragino Mincho ProN, Yu Mincho, serif', fontSize: 56, fill: '#1c1a17' };
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#efe9dc' } },
+  ...animateText('雨のあと、\nコーヒーは「ゆっくり」', style, { x: 900, y: 70, vertical: true, at: 0.3, duration: 5, in: 'fade', stagger: { each: 0.04 } }),
 ];
 ```
 
@@ -3685,13 +3696,13 @@ Text layout helpers, exported from `pixi-effects`. They measure with the rendere
 ```ts
 measureText('Hello', { fontSize: 72 });                       // { width: 187.4, height: 81.3, lines: 1 }
 
-interface SplitOptions { by?: 'chars' | 'words' | 'lines'; x?: number; y?: number; align?: 'left' | 'center' | 'right' }
-interface TextPiece { text: string; x: number; y: number; width: number; index: number; line: number }
+interface SplitOptions { by?: 'chars' | 'words' | 'lines'; x?: number; y?: number; align?: 'left' | 'center' | 'right'; vertical?: boolean }
+interface TextPiece { text: string; x: number; y: number; width: number; index: number; line: number; cx?: number; cy?: number; rotation?: number }   // cx / cy / rotation: vertical text only
 splitText('Hello world', style, { by: 'words', x: 640, y: 300, align: 'center' });
 // → [{ text: 'Hello', x, y, width, index: 0, line: 0 }, { text: 'world', ... }]
 ```
 
-`x` is the line's left edge, or its centre / right edge with `align` (each line of a `\n` text is aligned on its own width); `y` is the top of the first line, and further lines go down by the line height. Whitespace takes its room but is not returned as a piece. Use one text layer per piece with the same `style` and the default top-left anchor: `{ type: 'text', text: p.text, style, initial: { x: p.x, y: p.y } }`. Kerning is kept (a piece's x is the measured width of everything before it).
+`x` is the line's left edge, or its centre / right edge with `align` (each line of a `\n` text is aligned on its own width); `y` is the top of the first line, and further lines go down by the line height. **Vertical writing (`vertical: true`, tategaki):** characters go down a column and a new line is a new column to the LEFT; `x` is the RIGHT edge of the first column, `y` the top of a column (`align: 'center'` / `'right'` put `y` at its middle / bottom). Each piece also has `cx` / `cy` (the centre of its cell, with 、。 moved to the upper right and small kana a little up and right) and `rotation` (90 for the long vowel mark, dashes, waves, leaders and brackets, which lie turned in vertical text): put a text layer with `anchorX: 0.5, anchorY: 0.5` at `cx` / `cy` with `rotation: p.rotation`, or call `animateText(..., { vertical: true })`, which does it. Latin letters and digits stay upright, one per cell (no tate-chu-yoko), and a line is only cut at `\n` (no kinsoku). Only `by: 'chars'` has a vertical form. Whitespace takes its room but is not returned as a piece. Use one text layer per piece with the same `style` and the default top-left anchor: `{ type: 'text', text: p.text, style, initial: { x: p.x, y: p.y } }`. Kerning is kept (a piece's x is the measured width of everything before it).
 
 ### `movie.inspect(frame?, options?): Promise<InspectReport>`
 

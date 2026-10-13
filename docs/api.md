@@ -137,13 +137,13 @@ Text layout helpers, exported from `pixi-effects`. They measure with the rendere
 ```ts
 measureText('Hello', { fontSize: 72 });                       // { width: 187.4, height: 81.3, lines: 1 }
 
-interface SplitOptions { by?: 'chars' | 'words' | 'lines'; x?: number; y?: number; align?: 'left' | 'center' | 'right' }
-interface TextPiece { text: string; x: number; y: number; width: number; index: number; line: number }
+interface SplitOptions { by?: 'chars' | 'words' | 'lines'; x?: number; y?: number; align?: 'left' | 'center' | 'right'; vertical?: boolean }
+interface TextPiece { text: string; x: number; y: number; width: number; index: number; line: number; cx?: number; cy?: number; rotation?: number }   // cx / cy / rotation: vertical text only
 splitText('Hello world', style, { by: 'words', x: 640, y: 300, align: 'center' });
 // → [{ text: 'Hello', x, y, width, index: 0, line: 0 }, { text: 'world', ... }]
 ```
 
-`x` is the line's left edge, or its centre / right edge with `align` (each line of a `\n` text is aligned on its own width); `y` is the top of the first line, and further lines go down by the line height. Whitespace takes its room but is not returned as a piece. Use one text layer per piece with the same `style` and the default top-left anchor: `{ type: 'text', text: p.text, style, initial: { x: p.x, y: p.y } }`. Kerning is kept (a piece's x is the measured width of everything before it).
+`x` is the line's left edge, or its centre / right edge with `align` (each line of a `\n` text is aligned on its own width); `y` is the top of the first line, and further lines go down by the line height. **Vertical writing (`vertical: true`, tategaki):** characters go down a column and a new line is a new column to the LEFT; `x` is the RIGHT edge of the first column, `y` the top of a column (`align: 'center'` / `'right'` put `y` at its middle / bottom). Each piece also has `cx` / `cy` (the centre of its cell, with 、。 moved to the upper right and small kana a little up and right) and `rotation` (90 for the long vowel mark, dashes, waves, leaders and brackets, which lie turned in vertical text): put a text layer with `anchorX: 0.5, anchorY: 0.5` at `cx` / `cy` with `rotation: p.rotation`, or call `animateText(..., { vertical: true })`, which does it. Latin letters and digits stay upright, one per cell (no tate-chu-yoko), and a line is only cut at `\n` (no kinsoku). Only `by: 'chars'` has a vertical form. Whitespace takes its room but is not returned as a piece. Use one text layer per piece with the same `style` and the default top-left anchor: `{ type: 'text', text: p.text, style, initial: { x: p.x, y: p.y } }`. Kerning is kept (a piece's x is the measured width of everything before it).
 
 ### `movie.inspect(frame?, options?): Promise<InspectReport>`
 

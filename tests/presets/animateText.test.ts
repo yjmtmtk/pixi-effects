@@ -30,6 +30,26 @@ describe('animateText(): one text layer per piece', () => {
   });
 });
 
+describe('animateText(): vertical: true', () => {
+  it('stacks the characters down a column centred on its cells, turns ー and brackets a quarter, and moves 、 to the upper right', () => {
+    const out = animateText('Aー、', style, { x: 100, y: 10, duration: 3, in: false, vertical: true }) as any[];
+    expect(out.map(l => [l.initial.x, l.initial.y])).toEqual([[88, 20], [88, 40], [98, 50]]);
+    expect(out.map(l => l.initial.rotation)).toEqual([undefined, 90, undefined]);
+    expect(out.every(l => l.initial.anchorX === 0.5 && l.initial.anchorY === 0.5)).toBe(true);
+  });
+
+  it('a turned piece rests at its turn: an entrance that goes back to rotation 0 would unturn it', () => {
+    const out = animateText('ー', style, { x: 100, y: 10, duration: 3, in: { from: { alpha: 0 } }, vertical: true }) as any[];
+    expect(out[0].initial.rotation).toBe(90);
+    expect(out[0].keyframes[0].to.alpha).toBe(1);
+  });
+
+  it('is the same as before without it: pieces are still laid across', () => {
+    const out = animateText('AB', style, { x: 100, y: 50, duration: 3, in: false }) as any[];
+    expect(out.map(l => l.initial.x)).toEqual([105, 115]);
+  });
+});
+
 describe('animateText(): timing', () => {
   it('pieces start one after the other (stagger) and all end together at `at + duration`', () => {
     const out = animateText('ABCD', style, { at: 1, duration: 5, in: 'fade', stagger: { each: 0.1 } }) as any[];

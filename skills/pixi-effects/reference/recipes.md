@@ -596,6 +596,17 @@ return [
 ];
 ```
 
+**Vertical Japanese (tategaki)** is one option: `vertical: true`. The characters go down a column and a new line is a new column to the LEFT, so `x` is the RIGHT edge of the first column. The commas sit at the upper right of their cell, and the long vowel mark and the brackets are turned a quarter, as in print.
+
+```js
+// @recipe vertical-text
+const style = { fontFamily: 'Hiragino Mincho ProN, Yu Mincho, serif', fontSize: 56, fill: '#1c1a17' };
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#efe9dc' } },
+  ...animateText('雨のあと、\nコーヒーは「ゆっくり」', style, { x: 900, y: 70, vertical: true, at: 0.3, duration: 5, in: 'fade', stagger: { each: 0.04 } }),
+];
+```
+
 Presets for `in` / `out`: `rise` (default) `drop` `fade` `pop` `zoom` `slide` `spin`; or `{ from: { x: -30, scale: 0.5, rotation: 20 }, duration: 0.8, ease: 'power3.out' }` (`x` / `y` in `from` are offsets from the resting place, the rest are absolute values). `idle` drifts each piece between the entrance and the exit.
 
 ---

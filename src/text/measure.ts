@@ -20,6 +20,13 @@ export interface SplitOptions {
   y?: number;
   /** How each line sits on `x`. Default `'left'`. */
   align?: 'left' | 'center' | 'right';
+  /**
+   * Vertical writing (tategaki): characters go down a column, a new line is a new column to the left. `x` is then the RIGHT edge of the first column and `y` the top
+   * of a column (`align`: `'left'` keeps y at the top, `'center'` at the middle, `'right'` at the bottom). Only `by: 'chars'` has a vertical form. Each piece also gets
+   * `cx` / `cy` (the centre of its cell, punctuation already moved to the upper right) and `rotation` (degrees: the long vowel mark, dashes, waves and brackets are turned
+   * a quarter clockwise); place a text layer with `anchorX: 0.5, anchorY: 0.5` at `cx` / `cy` and `rotation: p.rotation`. `animateText(..., { vertical: true })` does all of it.
+   */
+  vertical?: boolean;
 }
 
 export interface TextPiece {
@@ -33,6 +40,11 @@ export interface TextPiece {
   index: number;
   /** Which line (0-based) the piece is on. */
   line: number;
+  /** Vertical text only: where the centre of the piece goes (a text layer with `anchorX: 0.5, anchorY: 0.5`). */
+  cx?: number;
+  cy?: number;
+  /** Vertical text only: the turn in degrees the piece needs (0 or 90). */
+  rotation?: number;
 }
 
 const BY = ['chars', 'words', 'lines'] as const;
@@ -62,7 +74,7 @@ export function measureText(text: string, style: MeasureStyle = {}): TextSize {
  * ```
  */
 export function splitText(text: string, style: MeasureStyle = {}, opts: SplitOptions = {}): TextPiece[] {
-  warnUnknownOptions('splitText()', opts as Record<string, unknown>, ['by', 'x', 'y', 'align']);
+  warnUnknownOptions('splitText()', opts as Record<string, unknown>, ['by', 'x', 'y', 'align', 'vertical']);
   let by = opts.by ?? 'chars';
   if (!(BY as readonly string[]).includes(by)) {
     const g = suggestName(String(by), BY);
@@ -82,6 +94,7 @@ export function splitText(text: string, style: MeasureStyle = {}, opts: SplitOpt
   if (text === '') return [];
 
   const ts = new TextStyle(style as never);
+  if (opts.vertical) return splitVertical(text, style, ts, x0, y0, align, by);
   const lineHeight = CanvasTextMetrics.measureText('M', ts).lineHeight ?? CanvasTextMetrics.measureText('M', ts).height;
   const sentinel = widthOf('|', ts);                       // measuring "prefix|" − "|" keeps trailing spaces in the prefix
   const out: TextPiece[] = [];
@@ -105,6 +118,36 @@ export function splitText(text: string, style: MeasureStyle = {}, opts: SplitOpt
       const piece = line.slice(a, b);
       out.push({ text: piece, x: left + advance(a), y, width: widthOf(piece, ts), index: out.length, line: lineNo });
     }
+  });
+  return out;
+}
+
+/** 、 。 and their kin sit at the upper right of a vertical cell (in a horizontal text they are at the lower left). */
+const PUNCT = new Set('、。，．､｡');
+/** Small kana drift a little up and right in vertical text. */
+const SMALL = new Set('ぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮヵヶ');
+/** Turned a quarter clockwise in vertical text: the long vowel mark, dashes, waves, leaders and brackets. */
+const TURNED = new Set('ー―—－～〜…‥（）()［］[]｛｝{}「」『』〈〉《》【】〔〕<>≪≫');
+
+function splitVertical(text: string, style: MeasureStyle, ts: TextStyle, right: number, top: number, align: 'left' | 'center' | 'right', by: string): TextPiece[] {
+  if (by !== 'chars') console.warn(`pixi-effects: splitText(): vertical text has only a "chars" form (by "${by}" has no vertical layout); using "chars"`);
+  const em = typeof style.fontSize === 'number' ? style.fontSize : Number((ts as unknown as { fontSize?: unknown }).fontSize) || 26;
+  const spacing = typeof style.letterSpacing === 'number' ? style.letterSpacing : 0;
+  const cell = em + spacing;
+  const lineHeight = CanvasTextMetrics.measureText('M', ts).lineHeight ?? CanvasTextMetrics.measureText('M', ts).height;
+  const out: TextPiece[] = [];
+  text.split('\n').forEach((line, lineNo) => {
+    const chars = Array.from(line);
+    const start = align === 'center' ? top - (chars.length * cell) / 2 : align === 'right' ? top - chars.length * cell : top;
+    const column = right - lineHeight / 2 - lineNo * lineHeight;
+    chars.forEach((ch, i) => {
+      if (/\s/.test(ch)) return;                                                // a space takes its cell and is not a piece
+      let cx = column, cy = start + i * cell + cell / 2;
+      if (PUNCT.has(ch)) { cx += 0.5 * em; cy -= 0.5 * em; }
+      else if (SMALL.has(ch)) { cx += 0.1 * em; cy -= 0.1 * em; }
+      const width = widthOf(ch, ts);
+      out.push({ text: ch, x: cx - width / 2, y: cy - lineHeight / 2, width, index: out.length, line: lineNo, cx, cy, rotation: TURNED.has(ch) ? 90 : 0 });
+    });
   });
   return out;
 }

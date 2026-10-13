@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vertical writing</title>
+  <!-- written by scripts/build-guide-demos.mjs from the `// @recipe vertical-text-guide` block of site/guide/text.md: edit the guide, then run the script -->
+  <style>
+    body { margin: 0; padding: 16px; background: #0d1220; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+    .movie-controller-wrap { width: min(960px, 100%); }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+<script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":    "../../dist/present.js"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie, animateText } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const canvas = document.getElementById('stage');
+    const movie = new Movie();
+    new Controller(movie, { canvas });       // a movie with stops gets a Present button
+
+    // the guide's recipe, as it is printed there
+    const built = (() => {
+      const style = { fontFamily: 'Hiragino Mincho ProN, Yu Mincho, serif', fontSize: 56, fill: '#1c1a17' };
+      return [
+        { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#efe9dc' } },
+        ...animateText('雨のあと、\nコーヒーは「ゆっくり」', style, { x: 900, y: 70, vertical: true, at: 0.3, duration: 4.4, in: 'fade', stagger: { each: 0.04 } }),
+      ];
+    })();
+
+    await movie.init({ canvas, width: 1280, height: 720, duration: 5, frameRate: 30, background: '#efe9dc', poster: 4.2,
+      composition: Array.isArray(built) ? { sequences: built } : { sequences: built.sequences, transitions: built.transitions } });
+
+    window.movie = movie;
+    window.__ready = true;
+  </script>
+</body>
+</html>
