@@ -1,6 +1,6 @@
 # Roadmap: more expressive, still easy for an AI
 
-Status: rewritten 2026-10-12, current release 0.36.0 (vertical writing, `check` that lists a picture over text and `--crop`, path holes with `fillRule: 'evenodd'`, `format.time`, text `resolution`, image `scaleMode`); 0.35.0 added the player's seek-bar preview `thumbnails: true` and `movie.thumbnail()`, 0.34.0 fixed a radial blur on WebGPU and tested the recommended filters on both backends, 0.33.0 made `check` tell the truth, 0.32.0 brought spans and point options. Nothing here is promised; the order is the proposal.
+Status: rewritten 2026-10-14, current release 0.37.0 (the `canvas` layer: a picture drawn by your own function of the time, with `info.time` / `info.start` / `info.canvas`, `samplePath`, `noise2`, and a `check` that reports canvas layers); 0.36.0 added vertical writing, `check` that lists a picture over text and `--crop`, path holes with `fillRule: 'evenodd'`, `format.time`, text `resolution`, image `scaleMode`; 0.35.0 added the player's seek-bar preview `thumbnails: true` and `movie.thumbnail()`, 0.34.0 fixed a radial blur on WebGPU and tested the recommended filters on both backends, 0.33.0 made `check` tell the truth, 0.32.0 brought spans and point options. Nothing here is promised; the order is the proposal.
 
 ## The gate every item passes
 
