@@ -63,8 +63,13 @@ Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same br
 | opus | 月の満ち欠け — The Moon is always half lit; the phase is only the angle we see it from | 1080×1080 | moon-phases.html |
 | opus | 振り子の波 — Pendulum Wave — Fifteen pendulums released together drift into waves and meet again eight seconds later; each one rings at its turn | 1280×720 | pendulum-wave.html |
 | opus | おむかえ — A rainy crossing seen from above: one umbrella, two people, one wet shoulder. | 720×1280 | aiai-gasa.html |
+| opus | Ramulus seminalis — A botanical plate that grows: a seeded branching plant grows, flowers and sheds | 1080×1350 | ramulus-seminalis.html |
+| opus | Paris pedals past Copenhagen — An FT-style bar-chart race of protected cycle lanes | 1280×720 | cycle-lane-race.html |
+| opus | Elastic exposure — Six bodies of light in a circle under gravity, every collision a note, traced as one long exposure | 1280×720 | elastic-exposure.html |
+| opus | Rain Walk Home — A 320x180 pixel cut-scene: afternoon to night, rain, a lit window | 1280×720 | rain-walk-home.html |
+| opus | A Line, Again — a five-line bilingual poem, each line set by the move it describes | 1280×720 | line-again.html |
 
-Counts: fable 10, opus 46, sonnet 3, haiku 0 (59 pieces).
+Counts: fable 10, opus 51, sonnet 3, haiku 0 (64 pieces).
 
 Removed on 2026-10-13: eleven pieces that only showed off a new effect (rack-focus, gradient-type, shader-garden, light-leaks, matte-reel, spotlight-room, liquid-flow-title, rewind-title, transitions-reel), the 19-second talk (quiet-hours) and the plain quote card (social-quote-vertical). The pages that tests need as fixtures live on in `examples/_checks/`.
 

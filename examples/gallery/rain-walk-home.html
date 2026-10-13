@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Rain Walk Home</title>
+  <style>
+    body { background: #0b0b12; margin: 0; padding: 16px; }
+    .stage { position: relative; width: min(960px, 100%); margin: 0 auto; }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 6px; image-rendering: pixelated; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+  </div>
+
+  <script type="application/json" id="piece-meta">{"title": "Rain Walk Home", "subtitle": "A 320x180 pixel cut-scene: afternoon to night, rain, a lit window", "tags": ["pixel-art", "parallax", "chiptune"], "width": 1280, "height": 720, "duration": 14, "model": "opus"}</script>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+    "pixi-effects": "../../dist/index.js", "pixi-effects/controller": "../../dist/Controller.js" } }</script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 14;
+    const LW = 320, LH = 180, S = 4;                 // the art: 320x180 pixels shown at 4x
+    const GROUND = 150;                              // feet stand on row 149, the sidewalk starts at 150
+
+    // ---------- one palette, three keys (afternoon / sunset / night) ----------
+    const KEYS = {
+      skyHi:   ['#5fa8d3', '#3a2f6b', '#0c0f2a'],
+      skyMid:  ['#8fc7e0', '#b04a6a', '#161a3e'],
+      skyLo:   ['#f3d9a4', '#f08a4b', '#272a5c'],
+      sun:     ['#fff1c1', '#ffb347', '#272a5c'],
+      cloud:   ['#eef2f7', '#d98a8a', '#2e3158'],
+      cloudDk: ['#b8c4d8', '#8a4f72', '#1e2146'],
+      far:     ['#7d93b5', '#5b3c6e', '#1b1f42'],
+      bldg:    ['#556a8e', '#432c58', '#151834'],
+      bldgDk:  ['#3f4f70', '#321f45', '#0e1026'],
+      winOff:  ['#9fb6d0', '#6a4a78', '#20244a'],
+      street:  ['#4a4a5a', '#3a2c48', '#141428'],
+      wet:     ['#6c6c80', '#5a4568', '#262848'],
+      near:    ['#2e3248', '#24193a', '#0b0b1a'],
+      house:   ['#8a6a5a', '#6a4250', '#2a1e34'],
+      roof:    ['#5a3a3a', '#45263a', '#1a1226'],
+      coat:    ['#c9503c', '#a43c40', '#8e3448'],
+      skin:    ['#f2c79a', '#d89a7a', '#9a7484'],
+      hair:    ['#3a2a2a', '#2e1e2a', '#1a1220'],
+      pants:   ['#3b3f5c', '#2e2a48', '#1c1c34'],
+      umb:     ['#f2c94c', '#e0a23a', '#b08a3a'],
+      rain:    ['#d6e6f2', '#c9a3c0', '#6e7eb6'],
+      ink:     ['#1a1a2a', '#140f20', '#05050c'],
+    };
+    const FIXED = { winOn: '#ffcf6b', lamp: '#ffe9a8', lampDim: '#c9a35a' };
+    const hex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+    const KEYRGB = Object.fromEntries(Object.entries(KEYS).map(([k, v]) => [k, v.map(hex)]));
+    const clamp01 = (v) => Math.max(0, Math.min(1, v));
+    // phase 0 (afternoon) -> 1 (sunset) -> 2 (night), in 1/8 steps: the palette fades like an old console's
+    const phaseAt = (t) => Math.round((clamp01((t - 1.5) / 4) + clamp01((t - 5.5) / 3)) * 8) / 8;
+    const memo = new Map();                          // a pure cache: the same phase always gives the same palette
+    function palette(t) {
+      const ph = phaseAt(t);
+      if (memo.has(ph)) return memo.get(ph);
+      const i = Math.min(1, Math.floor(ph)), f = ph - i;
+      const rgb = {}, css = {}, u32 = {};
+      for (const [k, v] of Object.entries(KEYRGB)) {
+        const c = v[i].map((a, j) => Math.round(a + (v[i + 1][j] - a) * f));
+        rgb[k] = c;
+      }
+      for (const [k, h] of Object.entries(FIXED)) rgb[k] = hex(h);
+      for (const [k, c] of Object.entries(rgb)) {
+        css[k] = '#' + c.map((x) => x.toString(16).padStart(2, '0')).join('');
+        u32[k] = ((255 << 24) | (c[2] << 16) | (c[1] << 8) | c[0]) >>> 0;
+      }
+      const p = { rgb, css, u32, phase: ph };
+      memo.set(ph, p);
+      return p;
+    }
+    const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+    const bayer = (x, y) => (BAYER[(y & 3) * 4 + (x & 3)] + 0.5) / 16;      // ordered dither threshold 0..1
+
+    // ---------- seeded value noise (for the mountains) ----------
+    const hash = (n) => { let x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+    const vnoise = (x) => { const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f); return hash(i) * (1 - u) + hash(i + 1) * u; };
+
+    // ---------- the story in numbers ----------
+    const V = 30;                                    // walking speed, art px per second
+    const camAt = (t) => {                           // how far the camera has scrolled (eases to a stop 8.5 -> 10.5)
+      if (t < 8.5) return V * t;
+      const d = Math.min(2, t - 8.5);
+      return V * (8.5 + d - d * d / 4);
+    };
+    const WALK_X = 110;                              // the walker's screen x while the camera follows
+    const HOME_X = 423, DOOR_X = HOME_X + 8;         // the house in street (world) pixels
+    const T_DOOR_OPEN = 10.3, T_INSIDE = 10.85, T_DOOR_SHUT = 11.3, T_UPSTAIRS = 12.0;
+    const walkerX = (t) => Math.floor(WALK_X + V * t - camAt(t));            // screen x of the walker's centre
+    const T_RAIN = 3.5, T_UMB = 4.0, T_LAMPS = 8.0, T_UMB_SHUT = 10.5;
+    const nightAt = (t) => clamp01((t - 5) / 3.5);                          // continuous: windows light one by one
+    const lampsOn = (t) => t >= T_LAMPS + 0.3 || (t >= T_LAMPS && [1, 0, 1, 1, 0, 1][Math.floor((t - T_LAMPS) * 20)] === 1);
+    const LAMPS = [20, 116, 212, 308, 404];                                      // lamp posts, street pixels
+
+    // ---------- a 5x7 bitmap font for the two titles ----------
+    const GLYPH = {
+      T: ['#####', '..#..', '..#..', '..#..', '..#..', '..#..', '..#..'],
+      H: ['#...#', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'],
+      E: ['#####', '#....', '#....', '####.', '#....', '#....', '#####'],
+      W: ['#...#', '#...#', '#...#', '#.#.#', '#.#.#', '##.##', '#...#'],
+      A: ['.###.', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'],
+      L: ['#....', '#....', '#....', '#....', '#....', '#....', '#####'],
+      K: ['#...#', '#..#.', '#.#..', '##...', '#.#..', '#..#.', '#...#'],
+      O: ['.###.', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'],
+      M: ['#...#', '##.##', '#.#.#', '#.#.#', '#...#', '#...#', '#...#'],
+      G: ['.###.', '#...#', '#....', '#.###', '#...#', '#...#', '.###.'],
+      D: ['####.', '#...#', '#...#', '#...#', '#...#', '#...#', '####.'],
+      N: ['#...#', '##..#', '#.#.#', '#..##', '#...#', '#...#', '#...#'],
+      I: ['.###.', '..#..', '..#..', '..#..', '..#..', '..#..', '.###.'],
+      ' ': ['.....', '.....', '.....', '.....', '.....', '.....', '.....'],
+    };
+    // text in art pixels; `chars` letters shown; `reveal` 0..1 dissolves it in with the ordered dither
+    function pixelText(ctx, str, x, y, sc, fill, shadow, chars, reveal) {
+      [...str].slice(0, chars).forEach((ch, n) => {
+        GLYPH[ch].forEach((row, gy) => [...row].forEach((c, gx) => {
+          if (c !== '#') return;
+          const px = x + (n * 6 + gx) * sc, py = y + gy * sc;
+          for (let a = 0; a < sc; a++) for (let b = 0; b < sc; b++) {
+            if (bayer(px + a, py + b) > reveal) continue;
+            ctx.fillStyle = shadow; ctx.fillRect(px + a + 1, py + b + 1, 1, 1);
+          }
+          for (let a = 0; a < sc; a++) for (let b = 0; b < sc; b++) {
+            if (bayer(px + a, py + b) > reveal) continue;
+            ctx.fillStyle = fill; ctx.fillRect(px + a, py + b, 1, 1);
+          }
+        }));
+      });
+    }
+
+    // every art layer is the same: 320x180, hard pixels, shown at 4x over the whole frame
+    const art = (name, draw, extra = {}) => ({
+      type: 'canvas', name, width: LW, height: LH, smoothing: false, duration: DURATION,
+      initial: { x: W / 2, y: H / 2, anchorX: 0.5, anchorY: 0.5, scale: S }, draw, ...extra,
+    });
+    const image = (ctx) => { const img = ctx.createImageData(LW, LH); return { img, buf: new Uint32Array(img.data.buffer) }; };
+
+    // ---------- 1. sky and sun (per pixel, dithered bands) ----------
+    const sky = art('sky', (ctx, t) => {
+      const P = palette(t), { img, buf } = image(ctx);
+      const bands = [P.u32.skyHi, P.u32.skyMid, P.u32.skyLo];
+      const sunY = Math.round(52 + 72 * clamp01((t - 0.5) / 5.5)), sunX = 236, R = 11;
+      for (let y = 0; y < LH; y++) {
+        const s = clamp01(y / 128) * 1.999, i = Math.floor(s), f = s - i;
+        for (let x = 0; x < LW; x++) {
+          let c = f > bayer(x, y) ? bands[i + 1] : bands[i];
+          const dx = x - sunX, dy = y - sunY, d2 = dx * dx + dy * dy;
+          if (P.phase < 1.75) {
+            if (d2 <= R * R) c = P.u32.sun;
+            else if (d2 <= (R + 4) * (R + 4) && bayer(x, y) < 0.3) c = P.u32.sun;   // a dithered halo
+          }
+          buf[y * LW + x] = c;
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+    });
+
+    // ---------- 2. clouds: blobs that gather (params.cover is keyframed) ----------
+    const clouds = art('clouds', (ctx, t, info) => {
+      const P = palette(t), { img, buf } = image(ctx);
+      const shift = Math.floor(t * 3);
+      info.state.forEach((cl, k) => {
+        if (k >= info.params.cover * info.state.length) return;
+        const cx = ((cl.x - shift) % 460 + 460) % 460 - 70;
+        for (let y = Math.max(0, cl.y - cl.h); y < Math.min(LH, cl.y + cl.h); y++) {
+          for (let x = Math.max(0, cx - cl.w); x < Math.min(LW, cx + cl.w); x++) {
+            let inside = false;
+            for (const b of cl.blobs) { const dx = (x - cx - b.dx) / b.r, dy = (y - cl.y - b.dy) / (b.r * 0.62); if (dx * dx + dy * dy <= 1) { inside = true; break; } }
+            if (!inside) continue;
+            const shade = (y - (cl.y - cl.h * 0.3)) / (cl.h * 0.9);                // lower = darker, dithered
+            buf[y * LW + x] = shade > bayer(x, y) ? P.u32.cloudDk : P.u32.cloud;
+          }
+        }
+      });
+      ctx.putImageData(img, 0, 0);
+    }, {
+      seed: 7, params: { cover: 0.25 },
+      keyframes: [{ at: 1.5, to: { 'params.cover': 1 }, duration: 5, ease: 'power1.inOut' }],
+      setup: (info) => Array.from({ length: 16 }, (_, k) => {
+        const n = 3 + Math.floor(info.random() * 4), blobs = [];
+        for (let j = 0; j < n; j++) blobs.push({ dx: Math.round((j - n / 2) * 9 + info.random() * 6), dy: Math.round(info.random() * 6 - 3), r: 8 + info.random() * 9 });
+        return { x: Math.round(((k * 0.618) % 1) * 460), y: 14 + Math.round(info.random() * 56), w: n * 9 + 22, h: 18, blobs };
+      }),
+    });
+
+    // ---------- 3. mountains (value noise, parallax 0.12) ----------
+    const mountains = art('mountains', (ctx, t) => {
+      const P = palette(t), off = Math.floor(camAt(t) * 0.12);
+      ctx.fillStyle = P.css.far;
+      for (let x = 0; x < LW; x++) {
+        const wx = x + off, h = Math.round(66 + 30 * vnoise(wx / 46) + 8 * vnoise(wx / 13 + 40));
+        ctx.fillRect(x, h, 1, LH - h);
+      }
+    });
+
+    // ---------- 4. the city (parallax 0.45) with windows that light one by one ----------
+    // the buildings are module data (not setup state): the street layer needs them too, for the reflections on the wet road
+    const mulberry = (a) => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let r = Math.imul(a ^ a >>> 15, 1 | a); r = r + Math.imul(r ^ r >>> 7, 61 | r) ^ r; return ((r ^ r >>> 14) >>> 0) / 4294967296; };
+    const CITY = (() => {
+      const rnd = mulberry(21), out = []; let x = -10;
+      while (x < 520) {
+        const w = 16 + Math.floor(rnd() * 18), top = 70 + Math.floor(rnd() * 44), wins = [];
+        for (let wy = 5; wy < GROUND - top - 14; wy += 6) for (let wx = 3; wx < w - 5; wx += 4) wins.push({ x: wx, y: wy, th: 0.05 + rnd() * 1.25, off: T_UPSTAIRS + 0.4 + rnd() * 5 });
+        out.push({ x, w, top, wins, tank: rnd() < 0.3, mast: rnd() < 0.25 });
+        x += w + 2 + Math.floor(rnd() * 5);
+      }
+      return out;
+    })();
+    const CITY_PARALLAX = 0.45;
+    const litWin = (w, t) => nightAt(t) > w.th && t < w.off;          // on as night falls, off one by one once the walker is home
+    const city = art('city', (ctx, t) => {
+      const P = palette(t), off = Math.floor(camAt(t) * CITY_PARALLAX), night = nightAt(t);
+      for (const b of CITY) {
+        const x = b.x - off;
+        if (x > LW || x + b.w < 0) continue;
+        ctx.fillStyle = P.css.bldg; ctx.fillRect(x, b.top, b.w, GROUND - b.top);
+        ctx.fillStyle = P.css.bldgDk; ctx.fillRect(x + b.w - 2, b.top, 2, GROUND - b.top);   // shaded side
+        if (b.tank) { ctx.fillRect(x + 3, b.top - 4, 5, 4); ctx.fillRect(x + 4, b.top - 6, 3, 2); }
+        if (b.mast) ctx.fillRect(x + b.w - 6, b.top - 9, 1, 9);
+        for (const w of b.wins) {
+          ctx.fillStyle = litWin(w, t) ? FIXED.winOn : P.css.winOff;
+          ctx.fillRect(x + w.x, b.top + w.y, 2, 3);
+        }
+      }
+    });
+
+    // ---------- rain (two layers: far and near) ----------
+    const rainLayer = (name, opts) => art(name, (ctx, t, info) => {
+      const P = palette(t), cam = camAt(t) * opts.parallax, n = Math.floor(info.params.amount * opts.count);
+      const lit = lampsOn(t), wx = walkerX(t), umbOpen = t >= T_UMB + 0.25 && t < T_UMB_SHUT;
+      for (let i = 0; i < opts.count; i++) {
+        const r1 = info.random(), r2 = info.random(), r3 = info.random(), r4 = info.random();   // drawn for every drop: the same numbers every frame
+        if (i >= n) continue;
+        const speed = opts.speed[0] + r2 * (opts.speed[1] - opts.speed[0]);
+        const ground = opts.ground[0] + Math.floor(r4 * (opts.ground[1] - opts.ground[0]));
+        const cycle = ground + 40;
+        const y = Math.floor((r3 * cycle + t * speed) % cycle) - 20;
+        const x = Math.floor((((r1 * 420 - y * 0.25 - cam) % 420) + 420) % 420) - 50;
+        let color = P.css.rain;
+        if (opts.lampLight && lit) for (const L of LAMPS) {                        // drops in a lamp's cone catch the light
+          const lx = L - Math.floor(camAt(t)) + 4;
+          if (y > 112 && Math.abs(x - lx) < (y - 108) * 0.45) { color = FIXED.lamp; break; }
+        }
+        ctx.fillStyle = color;
+        if (opts.umbrella && umbOpen && x >= wx - 6 && x <= wx + 14 && y >= GROUND - 29) {   // stopped by the umbrella
+          if (y < GROUND - 26 && (i % 3 === 0)) { ctx.fillRect(x - 1, GROUND - 31, 1, 1); ctx.fillRect(x + 1, GROUND - 31, 1, 1); }
+          continue;
+        }
+        if (y < ground) ctx.fillRect(x, y, 1, opts.len);
+        else if (y < ground + 5) { ctx.fillRect(x - 1, ground - 1, 1, 1); ctx.fillRect(x + 1, ground - 1, 1, 1); if (y < ground + 2) ctx.fillRect(x, ground - 2, 1, 1); }
+      }
+    }, {
+      seed: opts.seed, params: { amount: 0 },
+      keyframes: [{ at: T_RAIN, to: { 'params.amount': 1 }, duration: 3.5, ease: 'power1.in' }, { at: T_UPSTAIRS, to: { 'params.amount': 0.45 }, duration: 2, ease: 'power1.out' }],
+    });
+    const rainFar = rainLayer('rain-far', { seed: 3, count: 120, parallax: 0.6, speed: [150, 190], ground: [136, 150], len: 3 });
+    const rainNear = rainLayer('rain-near', { seed: 5, count: 150, parallax: 1.2, speed: [230, 290], ground: [152, 178], len: 4, lampLight: true, umbrella: true });
+
+    // ---------- 5. the street: wall, lamps, the house ----------
+    const street = art('street', (ctx, t) => {
+      const P = palette(t), cam = Math.floor(camAt(t)), lit = lampsOn(t), wetness = clamp01((t - T_RAIN) / 4);
+      // low wall behind the sidewalk
+      ctx.fillStyle = P.css.near; ctx.fillRect(0, 140, LW, 10);
+      ctx.fillStyle = P.css.wet; ctx.fillRect(0, 140, LW, 1);
+      ctx.fillStyle = P.css.ink;
+      for (let x = -((cam) % 12); x < LW; x += 12) ctx.fillRect(x, 141, 1, 9);
+      // sidewalk, curb, road
+      ctx.fillStyle = P.css.wet; ctx.fillRect(0, GROUND, LW, 6);
+      ctx.fillStyle = P.css.ink; ctx.fillRect(0, GROUND + 6, LW, 1);
+      ctx.fillStyle = P.css.street; ctx.fillRect(0, GROUND + 7, LW, LH - GROUND - 7);
+      ctx.fillStyle = P.css.wet;
+      for (let x = -((cam) % 32); x < LW; x += 32) ctx.fillRect(x, 168, 14, 1);          // lane dashes
+      // the house
+      const hx = HOME_X - cam;
+      if (hx < LW && hx + 48 > 0) {
+        ctx.fillStyle = P.css.ink; ctx.fillRect(hx + 33, 84, 5, 12);                         // chimney, its foot hidden by the roof
+        ctx.fillStyle = P.css.roof;
+        for (let r = 0; r < 12; r++) { const w = Math.min(52, 8 + r * 4); ctx.fillRect(hx + 24 - w / 2, 88 + r, w, 1); }
+        ctx.fillStyle = P.css.house; ctx.fillRect(hx, 100, 48, GROUND - 100);
+        ctx.fillStyle = P.css.ink; ctx.fillRect(hx, 100, 48, 1); ctx.fillRect(hx + 46, 100, 2, GROUND - 100);
+        // windows: ground floor already lit (someone is home), upstairs lights at T_UPSTAIRS
+        const win = (x, y, on) => { ctx.fillStyle = P.css.ink; ctx.fillRect(x - 1, y - 1, 12, 10); ctx.fillStyle = on ? FIXED.winOn : P.css.winOff; ctx.fillRect(x, y, 10, 8); ctx.fillStyle = P.css.ink; ctx.fillRect(x + 5, y, 1, 8); ctx.fillRect(x, y + 4, 10, 1); };
+        win(hx + 26, 108, t >= T_UPSTAIRS);
+        win(hx + 6, 108, false);
+        win(hx + 26, 128, nightAt(t) > 0.15);
+        // the door
+        const open = t >= T_DOOR_OPEN && t < T_DOOR_SHUT;
+        ctx.fillStyle = P.css.ink; ctx.fillRect(DOOR_X - cam - 1, 133, 10, 17);
+        ctx.fillStyle = open ? FIXED.winOn : P.css.roof; ctx.fillRect(DOOR_X - cam, 134, 8, 16);
+        if (open) {
+          ctx.fillStyle = P.css.roof; ctx.fillRect(DOOR_X - cam, 134, 2, 16);                 // the door leaf, opened inward
+          for (let y = GROUND; y < GROUND + 6; y++) for (let x = DOOR_X - cam - 3; x < DOOR_X - cam + 11; x++)
+            if (bayer(x, y) < 0.55 - (y - GROUND) * 0.08) { ctx.fillStyle = FIXED.winOn; ctx.fillRect(x, y, 1, 1); }   // light spilling on the sidewalk
+        } else { ctx.fillStyle = FIXED.lampDim; ctx.fillRect(DOOR_X - cam + 6, 142, 1, 1); }  // the knob
+        if (nightAt(t) > 0.15 || t >= T_UPSTAIRS)                                            // glow under the lit window
+          for (let y = GROUND; y < GROUND + 5; y++) for (let x = hx + 24; x < hx + 38; x++) if (bayer(x, y) < 0.12) { ctx.fillStyle = FIXED.winOn; ctx.fillRect(x, y, 1, 1); }
+      }
+      // the wet road mirrors the lit windows of the city (recomputed here: a layer cannot see the city layer's pixels)
+      if (wetness > 0) {
+        const off = Math.floor(camAt(t) * CITY_PARALLAX), night = nightAt(t);
+        for (const b of CITY) {
+          const bx = b.x - off;
+          if (bx > LW || bx + b.w < 0) continue;
+          for (const w of b.wins) {
+            if (!litWin(w, t)) continue;
+            const ry = GROUND + 8 + Math.floor((GROUND - b.top - w.y) * 0.32);              // mirrored, squashed toward the curb
+            if (ry >= LH) continue;
+            const wob = Math.round(Math.sin(ry * 1.3 + t * 5 + bx) * 0.8);
+            if (bayer(bx + w.x + wob, ry) < 0.55 * wetness) { ctx.fillStyle = FIXED.lampDim; ctx.fillRect(bx + w.x + wob, ry, 2, 1); }
+          }
+        }
+      }
+      // lamp posts
+      for (const L of LAMPS) {
+        const x = L - cam;
+        if (x < -30 || x > LW + 30) continue;
+        ctx.fillStyle = P.css.ink;
+        ctx.fillRect(x, 108, 1, GROUND - 108); ctx.fillRect(x - 1, GROUND - 3, 3, 3); ctx.fillRect(x, 107, 5, 1);
+        ctx.fillStyle = lit ? FIXED.lamp : P.css.near; ctx.fillRect(x + 3, 108, 3, 2);
+        if (!lit) continue;
+        for (let y = 110; y < GROUND + 6; y++) {                                              // the cone, dithered
+          const half = (y - 108) * 0.45, cx = x + 4;
+          for (let xx = Math.floor(cx - half); xx <= Math.ceil(cx + half); xx++) {
+            const edge = 1 - Math.abs(xx - cx) / (half + 1);
+            const d = y >= GROUND ? 0.5 * edge : 0.34 * edge * (1 - (y - 110) / 70);
+            if (bayer(xx, y) < d) { ctx.fillStyle = y >= GROUND || d > 0.2 ? FIXED.lamp : FIXED.lampDim; ctx.fillRect(xx, y, 1, 1); }
+          }
+        }
+        for (let y = GROUND + 8; y < LH; y++) {                                               // its reflection on the wet road
+          const wob = Math.round(Math.sin(y * 0.9 + t * 6) * 1.2);
+          if (bayer(x + 4 + wob, y) < 0.5 * wetness * (1 - (y - GROUND - 8) / 24)) { ctx.fillStyle = FIXED.lampDim; ctx.fillRect(x + 3 + wob, y, 2, 1); }
+        }
+      }
+    });
+
+    // ---------- 6. the walker ----------
+    const BODY = [
+      '..hhhh..',
+      '.hhhhhh.',
+      '.hhssss.',
+      '.hhsskss',
+      '..hssss.',
+      '...ss...',
+      '..cccc..',
+      '.cccccc.',
+      '.cccccc.',
+      '.cccccc.',
+      '.cccccc.',
+      '..cccc..',
+    ];
+    const CODE = { h: 'hair', s: 'skin', k: 'ink', c: 'coat' };
+    const LEG_A = { fx: [3, 1, -3, 0], lift: [0, 0, 0, 2] }, LEG_B = { fx: [-3, 0, 3, 1], lift: [0, 2, 0, 0] };
+    const walker = art('walker', (ctx, t) => {
+      if (t >= T_INSIDE) return;
+      const P = palette(t), x0 = walkerX(t), y0 = GROUND - 1;
+      const frame = Math.floor((V * t) / 4) % 4, bob = frame % 2 ? -1 : 0;
+      const top = y0 - 17 + bob, left = x0 - 4;
+      const leg = (L, color) => {
+        const fx = L.fx[frame], lift = L.lift[frame];
+        ctx.fillStyle = color;
+        for (let r = 0; r < 5; r++) ctx.fillRect(x0 - 1 + Math.round(fx * r / 4), y0 - 5 + r - Math.min(lift, r), 2, 1);
+        ctx.fillStyle = P.css.ink; ctx.fillRect(x0 - 1 + fx, y0 - lift, 3, 1);
+      };
+      leg(LEG_B, P.css.ink); leg(LEG_A, P.css.pants);
+      BODY.forEach((row, ry) => [...row].forEach((c, rx) => { if (c !== '.') { ctx.fillStyle = P.css[CODE[c]]; ctx.fillRect(left + rx, top + ry, 1, 1); } }));
+      ctx.fillStyle = P.css.ink; ctx.fillRect(left + 1, top + 11, 6, 1);                      // belt line of the coat
+      const swing = [1, 0, -1, 0][frame];
+      ctx.fillStyle = P.css.coat; ctx.fillRect(left + 2 - swing, top + 7, 2, 4);              // back arm swings
+      ctx.fillStyle = P.css.ink; ctx.fillRect(left + 2 - swing, top + 10, 2, 1);
+      // the umbrella: carried closed, opens at T_UMB in three frames
+      const u = t < T_UMB ? -1 : t < T_UMB_SHUT ? Math.min(2, Math.floor((t - T_UMB) / 0.08)) : 2 - Math.floor((t - T_UMB_SHUT) / 0.08);   // folds again at the door
+      ctx.fillStyle = P.css.umb;
+      if (u < 0) {                                                                            // closed, a cane in the front hand
+        const hx = left + 6, hy = top + 10;
+        for (let i = 0; i < 7; i++) ctx.fillRect(hx + Math.round(i * (0.5 + swing * 0.15)), hy + i, 1, 1);
+        ctx.fillStyle = P.css.skin; ctx.fillRect(hx - 1, hy - 1, 2, 2);
+      } else {
+        const hx = left + 7, hy = top + 8, cx = hx;                                           // hand on the stick, raised, in front of the face
+        ctx.fillStyle = P.css.ink; ctx.fillRect(cx, top - 7, 1, hy - top + 7);
+        ctx.fillStyle = P.css.skin; ctx.fillRect(hx - 1, hy, 2, 2);
+        ctx.fillStyle = P.css.umb;
+        if (u === 0) { ctx.fillRect(cx - 1, top - 11, 3, 6); }
+        else if (u === 1) { ctx.fillRect(cx - 2, top - 12, 5, 2); ctx.fillRect(cx - 4, top - 10, 9, 3); }
+        else {
+          const rows = [[-3, 7], [-6, 13], [-8, 17], [-9, 19]];
+          rows.forEach(([dx, w], r) => ctx.fillRect(cx + dx, top - 12 + r, w, 1));
+          ctx.fillStyle = P.css.ink;
+          for (let i = 0; i <= 18; i += 2) ctx.fillRect(cx - 9 + i, top - 8, 1, 1);           // scalloped hem
+          ctx.fillRect(cx, top - 13, 1, 1);
+        }
+      }
+    });
+
+    // ---------- 7. railing in front (parallax 1.5) ----------
+    const railing = art('railing', (ctx, t) => {
+      const P = palette(t), off = Math.floor(camAt(t) * 1.5);
+      ctx.fillStyle = P.css.ink;
+      ctx.fillRect(0, 170, LW, 1); ctx.fillRect(0, 176, LW, 1);
+      for (let x = -(off % 26); x < LW; x += 26) ctx.fillRect(x, 168, 2, 12);
+      ctx.fillStyle = P.css.near;
+      for (let x = -(off % 26); x < LW; x += 26) ctx.fillRect(x, 168, 2, 1);
+    });
+
+    // ---------- 8. titles in the bitmap font ----------
+    const titles = art('titles', (ctx, t) => {
+      const P = palette(t);
+      if (t < 3) {
+        const chars = Math.floor(clamp01((t - 0.4) / 1.0) * 13);
+        const reveal = t < 2.4 ? 1 : 1 - clamp01((t - 2.4) / 0.5);
+        pixelText(ctx, 'THE WALK HOME', 82, 26, 2, P.css.cloud === '#eef2f7' ? '#ffffff' : P.css.cloud, P.css.ink, chars, reveal);
+      }
+      if (t >= T_UPSTAIRS + 0.3) pixelText(ctx, 'GOOD NIGHT', 100, 36, 2, FIXED.winOn, P.css.ink, 10, clamp01((t - T_UPSTAIRS - 0.3) / 0.6));
+    });
+
+    // ---------- sound ----------
+    const bars = (pat, chords) => chords.map((c) => pat[c]).join(' | ');
+    const ARP = { Am: 'a4 c5 e5 a5 e5 c5 a4 c5', F: 'f4 a4 c5 f5 c5 a4 f4 a4', C: 'c5 e5 g5 c6 g5 e5 c5 e5', G: 'g4 b4 d5 g5 d5 b4 g4 b4' };
+    const BASS = { Am: 'a1 a2 a1 a2 a1 a2 a1 a2', F: 'f1 f2 f1 f2 f1 f2 f1 f2', C: 'c2 c3 c2 c3 c2 c3 c2 c3', G: 'g1 g2 g1 g2 g1 g2 g1 g2' };
+    const music = {
+      bpm: 120, reverb: 0.2, humanize: 0,
+      tracks: [
+        { inst: 'musicbox', vol: 0.45, step: 0.5, tone: 0.9, notes: bars(ARP, ['Am', 'F', 'C', 'G', 'Am', 'F']) + ' | c5:0.5 e5:0.5 g5:0.5 c6:2.5' },
+        { inst: 'bass', vol: 0.7, step: 0.5, legato: 0.45, tone: 0.8, notes: '_:4 | ' + bars(BASS, ['F', 'C', 'G', 'Am', 'F']) + ' | c2:4' },
+        { inst: 'lead', vol: 0.55, tone: 0.9, notes: '_:8 | e5:1 g5:1 e5:0.5 d5:0.5 c5:1 | d5:1.5 b4:0.5 g4:2 | c5:1 e5:1 a5:1 g5:1 | f5:1.5 e5:0.5 c5:1 d5:1 | g5:0.5 e5:0.5 c5:3' },
+      ],
+      drums: [{ from: 8, to: 24, hat: 'o.o.o.o.o.o.o.o.' }, { from: 16, to: 24, kick: 'x.......x.......', snare: '....x.......x...' }],
+    };
+    const steps = [];
+    for (let k = 1; 8 * k / V < T_INSIDE; k++) {
+      const at = 8 * k / V;
+      steps.push({ type: 'audio', name: `step-${k}`, at, volume: at < T_RAIN ? 0.5 : 0.6,
+        sfx: { voices: [{ wave: 'noise', filter: { type: 'lowpass', freq: at < T_RAIN ? 700 : 1400 }, envelope: 'fall' }] }, duration: 0.06 });
+    }
+    const sound = [
+      { type: 'audio', name: 'music', at: 0, volume: 1, music },
+      { type: 'audio', name: 'rain-bed', at: T_RAIN, duration: 10, volume: 0,
+        sfx: { voices: [{ wave: 'noise', filter: { type: 'bandpass', freq: 3200, q: 0.5 }, envelope: 'hold' }, { wave: 'noise', filter: { type: 'lowpass', freq: 500 }, envelope: 'hold', gain: 0.5 }] },
+        keyframes: [{ at: 0, to: { volume: 0.55 }, duration: 3.5, ease: 'power1.in' }, { at: -1.5, to: { volume: 0 }, duration: 1.5 }] },
+      { type: 'audio', name: 'umbrella', at: T_UMB, duration: 0.18, volume: 0.6,
+        sfx: { voices: [{ wave: 'square', freq: [260, 900], filter: { type: 'lowpass', freq: 2400 }, envelope: 'fall' }] } },
+      { type: 'audio', name: 'umbrella-shut', at: T_UMB_SHUT, duration: 0.18, volume: 0.9,
+        sfx: { voices: [{ wave: 'square', freq: [800, 240], filter: { type: 'lowpass', freq: 2000 }, envelope: 'fall' }] } },
+      { type: 'audio', name: 'lamps', at: T_LAMPS, duration: 0.3, volume: 0.35,
+        sfx: { voices: [{ wave: 'square', freq: 1800, filter: { type: 'lowpass', freq: 4000 }, envelope: 'fall', to: 0.2 }, { wave: 'square', freq: 1800, envelope: 'fall', from: 0.5, to: 0.7 }] } },
+      { type: 'audio', name: 'door-open', at: T_DOOR_OPEN, sfx: { preset: 'click', pitch: -10 }, volume: 0.6 },
+      { type: 'audio', name: 'door-shut', at: T_DOOR_SHUT, duration: 0.2, volume: 0.7,
+        sfx: { voices: [{ wave: 'square', freq: [140, 60], filter: { type: 'lowpass', freq: 600 }, envelope: 'fall' }] } },
+      { type: 'audio', name: 'window', at: T_UPSTAIRS, sfx: 'coin', volume: 0.5 },
+      ...steps,
+    ];
+
+    const sequences = [sky, clouds, mountains, city, rainFar, street, walker, rainNear, railing, titles, ...sound];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 9.4,
+        background: '#05050c',
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

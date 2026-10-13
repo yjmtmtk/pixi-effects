@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ramulus seminalis</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />
+  <style>
+    body { background: #16140f; margin: 0; padding: 16px; display: flex; justify-content: center; }
+    .stage { position: relative; width: min(94vw, calc(88vh * 1080 / 1350)); }
+    .stage canvas { display: block; width: 100%; height: auto; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1080" height="1350"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>
+  </div>
+
+  <script type="application/json" id="piece-meta">{"title": "Ramulus seminalis", "subtitle": "A botanical plate that grows: a seeded branching plant grows, flowers and sheds", "tags": ["generative", "botanical", "vertical", "ink"], "width": 1080, "height": 1350, "duration": 14, "model": "opus"}</script>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+    "pixi-effects": "../../dist/index.js", "pixi-effects/controller": "../../dist/Controller.js" } }</script>
+
+  <script type="module">
+    import { Movie, random } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1080, H = 1350, FPS = 30, DURATION = 14, SEED = 417;
+    const INK = '#2a241d', PAPER = '#efe7d6';
+    const SAGE = '141,152,115', MADDER = '163,64,44', INKRGB = '42,36,29';
+    const BASE = { x: 540, y: 1040 };
+    const GROW_FROM = 0.8, GROW_TO = 6.2;                // the seconds the stems grow in
+    const T_ANTHESIS = 4.8, T_ABSCISSIO = 9.0, T_END = 12.6, LANDED_BY = 12.75;
+    const SERIF = 'Georgia, "Times New Roman", serif';
+
+    const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+    const easeOut2 = (x) => 1 - (1 - x) * (1 - x);
+    const easeOutBack = (x) => { const c1 = 1.3, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+    const smooth = (x) => x * x * (3 - 2 * x);
+
+    // ───────────────────────── the plant: computed once, as data (a pure function of the seed) ─────────────────────────
+    // A branch is a chain of nodes 12 px apart; its tip moves at a constant speed; children start when the tip passes their node.
+    function buildPlant(seed) {
+      const R = random(seed);
+      const rr = (a, b) => a + (b - a) * R();
+      const STEP = 12;
+      const branches = [], leaves = [], flowers = [];
+      const inside = (x, y) => x > 130 && x < 950 && y > 215 && y < BASE.y - 10;
+
+      function branch(x, y, ang, len, depth, t0, w0) {
+        const want = Math.max(3, Math.round(len / STEP));
+        const nodes = [{ x, y, a: ang }];
+        let a = ang, cx = x, cy = y;
+        const curl = rr(-0.02, 0.02);
+        for (let i = 1; i <= want; i++) {
+          a += (R() - 0.5) * 0.14 + curl + (-Math.PI / 2 - a) * (depth ? 0.03 : 0.05) + (depth ? 0 : (BASE.x - cx) * 0.0006);
+          const nx = cx + Math.cos(a) * STEP, ny = cy + Math.sin(a) * STEP;
+          if (!inside(nx, ny)) break;
+          cx = nx; cy = ny; nodes.push({ x: cx, y: cy, a });
+        }
+        const n = nodes.length - 1;
+        if (n < 2) return;
+        const speed = 100 * (1 - 0.12 * depth);          // px per growth unit
+        const b = { nodes, n, depth, t0, dtNode: STEP / speed, w0, idx: branches.length };
+        branches.push(b);
+        const tPass = (i) => t0 + i * b.dtNode;
+        // children and leaves along the branch
+        let side = R() < 0.5 ? 1 : -1, lastChild = -9;
+        for (let i = 2; i <= n - 1; i++) {
+          const room = n - i;
+          if (depth < 2 && i >= (depth ? 3 : 9) && i - lastChild >= (depth ? 6 : 6) && room > 4 && R() < (depth === 0 ? 0.3 : 0.16)) {
+            const childLen = len * rr(0.36, 0.56) * (1 - 0.35 * (i / n)) + 40;
+            branch(nodes[i].x, nodes[i].y, nodes[i].a + side * rr(0.5, 0.9), childLen, depth + 1, tPass(i) + rr(0.05, 0.3), w0 * rr(0.55, 0.68));
+            lastChild = i; side = -side;
+          } else if (i % 3 === 0 && i - lastChild >= 2) {
+            leaves.push({ b: b.idx, i, side, tb: tPass(i) + 0.12, L: [74, 60, 48][depth] * rr(0.8, 1.15), rel: rr(0.55, 1.0), droop: rr(0.05, 0.35), fall: R() < 0.5, fr: R() });
+            side = -side;
+          }
+        }
+        if (depth >= 1 || n > 20) flowers.push({ b: b.idx, tTip: tPass(n), P: [46, 40, 34][depth] * rr(0.9, 1.1), r: [R(), R(), R(), R(), R(), R()], fr: R() });
+      }
+      branch(BASE.x, BASE.y, -Math.PI / 2 + rr(-0.08, 0.08), 800, 0, 0, 9.5);
+
+      // map growth units to seconds
+      const uMax = Math.max(...branches.map((b) => b.t0 + b.n * b.dtNode));
+      const toS = (u) => GROW_FROM + (u / uMax) * (GROW_TO - GROW_FROM);
+      for (const b of branches) { b.t0 = toS(b.t0); b.dtNode = b.dtNode * (GROW_TO - GROW_FROM) / uMax; }
+      for (const l of leaves) { l.tb = toS(l.tb); }
+      const fallers = [];          // petals and leaves that come off
+      const order = flowers.map((f) => f).sort((a, b) => a.y - b.y);     // the highest flowers shed first (they fall the furthest)
+      for (const f of flowers) {
+        const rank = order.indexOf(f) / Math.max(1, flowers.length - 1);
+        f.tTip = toS(f.tTip);
+        const b = branches[f.b], tip = b.nodes[b.n];
+        f.x = tip.x; f.y = tip.y; f.a = tip.a;
+        f.tBloom = Math.min(7.5, Math.max(T_ANTHESIS, f.tTip + 0.4 + f.r[0] * 1.1));
+        // five petals; each comes off at its own moment and falls
+        f.td = [];
+        for (let k = 0; k < 5; k++) {
+          const o = (k - 2) / 2, ang = f.a + Math.PI / 2 + o * 1.17, L = f.P;
+          // the petal's centre at the moment it comes off
+          const cx = f.x + Math.sin(ang) * L * 0.5, cy = f.y - Math.cos(ang) * L * 0.5;
+          const q = makeFaller({ kind: 'petal', f, k, td: 0, x0: cx, y0: cy, rot0: ang, L, R });
+          // it comes off after the flower has been open a while, and early enough to have landed by LANDED_BY
+          const lo = Math.max(f.tBloom + 1.4, T_ABSCISSIO + rank * 0.6), hi = LANDED_BY - q.dtLand;
+          q.td = hi > lo ? lo + (hi - lo) * Math.pow(R(), 0.8) : lo;
+          f.td.push(q.td); fallers.push(q);
+        }
+      }
+      for (const l of leaves) {
+        if (l.fall && branches[l.b].nodes[l.i].y < 640) l.fall = false;     // the old leaves low on the stem go first
+        if (!l.fall) continue;
+        const p = leafPose(branches[l.b], l);
+        const q = makeFaller({ kind: 'leaf', l, td: 0, x0: p.x + Math.cos(p.ang) * l.L * 0.5, y0: p.y + Math.sin(p.ang) * l.L * 0.5, rot0: p.ang, L: l.L, R });
+        q.td = l.td = Math.max(9.4, Math.min(9.8 + l.fr * 1.8, LANDED_BY - q.dtLand));
+        fallers.push(q);
+      }
+      return { branches, leaves, flowers, fallers };
+    }
+
+    // where a leaf hangs on its branch (at full growth; the stem's width is added at draw time)
+    function leafPose(b, l) {
+      const nd = b.nodes[l.i];
+      return { x: nd.x, y: nd.y, ang: nd.a + l.side * l.rel + l.side * l.droop * 0.6 };
+    }
+
+    // a falling thing: accelerates to a terminal speed with drag, sways, spins, and lies where it lands
+    function makeFaller({ kind, f, l, k, td, x0, y0, rot0, L, R }) {
+      const vt = kind === 'petal' ? 230 + R() * 70 : 180 + R() * 50;
+      const tau = 0.45, sway = (kind === 'petal' ? 22 : 30) * (0.6 + R() * 0.8), w = 2.2 + R() * 1.6, ph = R() * 6.28;
+      const spin = (R() - 0.5) * 4;
+      const ground = BASE.y + 3 + R() * 26;
+      // where it should come to rest: under the plant, on the drawn ground, never past its ends
+      const target = Math.max(BASE.x - 235, Math.min(BASE.x + 235, BASE.x + (x0 - BASE.x) * 0.5 + (R() - 0.5) * 300));
+      let drift = 0;
+      const pos = (dt) => {
+        const ramp = Math.min(1, dt / 0.6);
+        return {
+          x: x0 + drift * dt + sway * Math.sin(ph + dt * w) * ramp - sway * Math.sin(ph) * ramp,
+          y: y0 + vt * (dt - tau * (1 - Math.exp(-dt / tau))),
+          rot: rot0 + spin * dt + 0.5 * Math.sin(ph + dt * w * 1.1) * ramp,
+        };
+      };
+      let dtLand = 0;                                    // computed once by stepping (a pure function of the data)
+      while (pos(dtLand).y < ground && dtLand < 20) dtLand += 1 / 240;
+      drift = (target - pos(dtLand).x) / Math.max(0.3, dtLand);
+      return { kind, f, l, k, td, L, pos, dtLand };
+    }
+
+    const plant = buildPlant(SEED);
+    window.plant = plant;
+
+    // ───────────────────────── drawing helpers (plain canvas 2D) ─────────────────────────
+    function stemPoints(b, t) {
+      const f = (t - b.t0) / b.dtNode;
+      if (f <= 0) return null;
+      const k = Math.min(b.n, Math.floor(f)), frac = k >= b.n ? 0 : f - k;
+      const pts = [];
+      for (let i = 0; i <= k; i++) pts.push({ ...b.nodes[i], i });
+      if (frac > 0) {
+        const a = b.nodes[k], c = b.nodes[k + 1];
+        pts.push({ x: a.x + (c.x - a.x) * frac, y: a.y + (c.y - a.y) * frac, a: c.a, i: k + frac });
+      }
+      return pts.length > 1 ? pts : null;
+    }
+    const stemWidth = (b, i, t) => {
+      const age = t - (b.t0 + i * b.dtNode);
+      return Math.max(0.5, b.w0 * (1 - 0.62 * i / b.n) * (0.4 + 0.6 * clamp01(age / 2.6)));
+    };
+
+    function drawStem(ctx, b, t) {
+      const pts = stemPoints(b, t);
+      if (!pts) return;
+      const last = pts.length - 1;
+      const thinStem = stemWidth(b, 0, t) <= 2.6;
+      const left = [], right = [];
+      pts.forEach((p, j) => {
+        const w = j === last ? 0.35 : stemWidth(b, p.i, t) / 2 * (thinStem ? 0.7 : 1);
+        const nx = -Math.sin(p.a), ny = Math.cos(p.a);
+        left.push([p.x + nx * w, p.y + ny * w]); right.push([p.x - nx * w, p.y - ny * w]);
+      });
+      const thick = stemWidth(b, 0, t) > 2.6;
+      ctx.beginPath();
+      ctx.moveTo(left[0][0], left[0][1]);
+      for (const q of left) ctx.lineTo(q[0], q[1]);
+      for (let j = right.length - 1; j >= 0; j--) ctx.lineTo(right[j][0], right[j][1]);
+      ctx.closePath();
+      if (!thick) { ctx.fillStyle = INK; ctx.fill(); return; }
+      // an engraved stem: a pale body, two ink edges, hatching on the shaded (right) side
+      ctx.fillStyle = `rgba(${INKRGB},0.10)`; ctx.fill();
+      ctx.strokeStyle = INK; ctx.lineWidth = 1.1; ctx.lineJoin = 'round';
+      ctx.beginPath(); left.forEach((q, j) => (j ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); ctx.stroke();
+      ctx.beginPath(); right.forEach((q, j) => (j ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); ctx.stroke();
+      ctx.lineWidth = 0.6; ctx.strokeStyle = `rgba(${INKRGB},0.75)`;
+      ctx.beginPath();
+      for (let j = 0; j < last; j++) {
+        const p = pts[j], w = stemWidth(b, p.i, t) / 2;
+        if (w < 1.7) continue;
+        const nx = -Math.sin(p.a), ny = Math.cos(p.a), tx = Math.cos(p.a), ty = Math.sin(p.a);
+        for (const s of [0, 0.5]) {
+          const bx = p.x + tx * s * 12, by = p.y + ty * s * 12;
+          ctx.moveTo(bx - nx * w * 0.95, by - ny * w * 0.95);
+          ctx.lineTo(bx - nx * w * 0.15 + tx * 3, by - ny * w * 0.15 + ty * 3);
+        }
+      }
+      ctx.stroke();
+    }
+
+    // a leaf in its own frame: base at 0,0, pointing along +x
+    function leafPath(ctx, L, Wd) {
+      const p0 = 7;                                       // petiole
+      ctx.beginPath();
+      ctx.moveTo(p0, 0);
+      ctx.bezierCurveTo(p0 + L * 0.22, -Wd * 1.05, p0 + L * 0.68, -Wd * 0.85, p0 + L, 0);
+      ctx.bezierCurveTo(p0 + L * 0.68, Wd * 0.85, p0 + L * 0.22, Wd * 1.05, p0, 0);
+      ctx.closePath();
+    }
+    function drawLeafShape(ctx, L, s, wash) {
+      const Wd = L * 0.27 * Math.pow(clamp01(s), 1.6);
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = INK; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(8, 0); ctx.stroke();       // petiole
+      leafPath(ctx, L * s, Wd);
+      if (wash > 0) { ctx.fillStyle = `rgba(${SAGE},${wash})`; ctx.fill(); }
+      ctx.lineWidth = 0.95; ctx.stroke();
+      if (s < 0.35) return;
+      const Ls = L * s;
+      ctx.lineWidth = 0.6; ctx.strokeStyle = `rgba(${INKRGB},0.8)`;
+      ctx.beginPath(); ctx.moveTo(7, 0); ctx.lineTo(7 + Ls * 0.93, 0); ctx.stroke();   // midrib
+      ctx.lineWidth = 0.45; ctx.strokeStyle = `rgba(${INKRGB},0.6)`;
+      ctx.beginPath();
+      for (let v = 1; v <= 4; v++) {
+        const u = 0.12 + v * 0.17, x = 7 + Ls * u, prof = Math.sin(Math.PI * Math.min(1, u + 0.12));
+        for (const sg of [-1, 1]) { ctx.moveTo(x, 0); ctx.quadraticCurveTo(x + Ls * 0.06, sg * Wd * 0.45 * prof, x + Ls * 0.14, sg * Wd * 0.8 * prof); }
+      }
+      ctx.stroke();
+    }
+
+    function drawLeaf(ctx, plant, l, t) {
+      const b = plant.branches[l.b];
+      if (t < l.tb) return;
+      if (l.fall && t >= l.td) return;                   // drawn as a faller
+      const s = easeOutBack(clamp01((t - l.tb) / 0.75));
+      const p = leafPose(b, l);
+      const w = stemWidth(b, l.i, t) / 2;
+      const nx = -Math.sin(b.nodes[l.i].a) * l.side, ny = Math.cos(b.nodes[l.i].a) * l.side;
+      const dry = l.fall ? clamp01((t - (l.td - 0.9)) / 0.9) : 0;
+      ctx.save();
+      ctx.translate(p.x + nx * w * 0.6, p.y + ny * w * 0.6);
+      ctx.rotate(p.ang + dry * l.side * 0.25);
+      drawLeafShape(ctx, l.L, s, 0.42 * (1 - dry));
+      ctx.restore();
+    }
+
+    // a flower seen from the side: a fan of five petals that spreads as it opens
+    function petalPath(ctx, L, wd) {
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.bezierCurveTo(wd * 0.9, -L * 0.22, wd * 1.15, -L * 0.82, 0, -L);
+      ctx.bezierCurveTo(-wd * 1.15, -L * 0.82, -wd * 0.9, -L * 0.22, 0, 0);
+      ctx.closePath();
+    }
+    function drawPetal(ctx, L, open, fillA = 0.82) {
+      const wd = L * 0.34 * (0.5 + 0.5 * open);
+      petalPath(ctx, L, wd);
+      ctx.fillStyle = `rgba(${MADDER},${fillA})`; ctx.fill();
+      ctx.strokeStyle = INK; ctx.lineWidth = 0.8; ctx.stroke();
+      if (L > 14) {
+        ctx.lineWidth = 0.4; ctx.strokeStyle = `rgba(${INKRGB},0.45)`;
+        ctx.beginPath();
+        for (const sx of [-0.3, 0, 0.3]) { ctx.moveTo(0, -L * 0.08); ctx.quadraticCurveTo(wd * sx, -L * 0.4, wd * sx * 1.3, -L * 0.7); }
+        ctx.stroke();
+      }
+    }
+    function drawFlower(ctx, f, t) {
+      const g = clamp01((t - f.tTip) / 0.9);
+      if (g <= 0) return;
+      const open = easeOut2(clamp01((t - f.tBloom) / 1.3));
+      const minTd = Math.min(...f.td), maxTd = Math.max(...f.td);
+      const pod = clamp01((t - minTd) / 1.8);
+      const P = f.P * (0.35 + 0.65 * smooth(g)) * (0.8 + 0.2 * open);
+      ctx.save();
+      ctx.translate(f.x, f.y);
+      ctx.rotate(f.a + Math.PI / 2);
+      ctx.lineCap = 'round';
+      // the receptacle and the seed pod that swells after the petals go
+      if (pod > 0) {
+        const rx = f.P * 0.16 * (0.5 + 0.5 * pod), ry = f.P * 0.3 * (0.4 + 0.6 * pod);
+        ctx.beginPath(); ctx.ellipse(0, -ry, rx, ry, 0, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${INKRGB},0.12)`; ctx.fill();
+        ctx.strokeStyle = INK; ctx.lineWidth = 0.9; ctx.stroke();
+        ctx.lineWidth = 0.45; ctx.beginPath();
+        for (let h = -0.6; h <= 0.61; h += 0.3) { ctx.moveTo(rx * h, -ry * 0.25); ctx.lineTo(rx * h * 0.6 + rx * 0.3, -ry * 1.75); }
+        ctx.stroke();
+        if (t > maxTd) {                                  // a tuft at the pod's tip
+          ctx.beginPath();
+          for (const q of [-0.5, 0, 0.5]) { ctx.moveTo(0, -ry * 2); ctx.lineTo(q * rx * 1.4, -ry * 2 - f.P * 0.12 * pod); }
+          ctx.stroke();
+        }
+      }
+      // sepals
+      const sep = 0.3 + 0.7 * open;
+      for (const sg of [-1, 1]) {
+        ctx.save(); ctx.rotate(sg * (0.25 + 0.75 * sep));
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(sg * P * 0.14, -P * 0.25, 0, -P * 0.42); ctx.quadraticCurveTo(-sg * P * 0.06, -P * 0.2, 0, 0);
+        ctx.fillStyle = `rgba(${SAGE},0.55)`; ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 0.7; ctx.stroke();
+        ctx.restore();
+      }
+      // stamens between the petals
+      if (open > 0.3) {
+        ctx.globalAlpha = clamp01((open - 0.3) / 0.5);
+        ctx.strokeStyle = INK; ctx.fillStyle = INK; ctx.lineWidth = 0.55;
+        for (let s = -2; s <= 2; s++) {
+          const a = s * 0.16 * open, len = P * (0.62 + 0.08 * (s & 1));
+          const ex = Math.sin(a) * len, ey = -Math.cos(a) * len;
+          ctx.beginPath(); ctx.moveTo(0, -2); ctx.lineTo(ex, ey); ctx.stroke();
+          ctx.beginPath(); ctx.ellipse(ex, ey, 1.6, 1.1, a, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
+      // petals, outer ones first
+      for (const k of [0, 4, 1, 3, 2]) {
+        if (t >= f.td[k]) continue;
+        const o = (k - 2) / 2;
+        ctx.save();
+        ctx.rotate(o * (0.1 + 1.07 * open));
+        drawPetal(ctx, P * (1 - 0.08 * Math.abs(o)), open);
+        ctx.restore();
+      }
+      ctx.restore();
+    }
+
+    function drawFaller(ctx, q, t) {
+      if (t < q.td) return;
+      const dt = Math.min(t - q.td, q.dtLand);
+      const p = q.pos(dt);
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      if (q.kind === 'petal') {
+        // lying flat once landed: squash a little, as if seen on the ground
+        const landed = clamp01((t - q.td - q.dtLand) / 0.25);
+        ctx.rotate(p.rot * (1 - landed) + (Math.round(p.rot / Math.PI) * Math.PI + Math.PI / 2) * landed); ctx.scale(1, 1 - 0.45 * landed);
+        ctx.translate(0, q.L * 0.5);
+        drawPetal(ctx, q.L, 1, 0.82 - 0.3 * clamp01((t - q.td - q.dtLand) / 1.2));
+      } else {
+        ctx.rotate(p.rot);
+        ctx.translate(-q.L * 0.5, 0);
+        drawLeafShape(ctx, q.L, 1, 0);
+      }
+      ctx.restore();
+    }
+
+    function drawGround(ctx, t) {
+      const g = easeOut2(clamp01((t - 0.2) / 1.0));
+      if (g <= 0) return;
+      const half = 250 * g;
+      ctx.strokeStyle = INK; ctx.lineWidth = 1.1; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(BASE.x - half, BASE.y + 0.5); ctx.lineTo(BASE.x + half, BASE.y + 0.5); ctx.stroke();
+      // engraved soil: short diagonal hatches that thin out toward the ends
+      ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      for (let x = BASE.x - half + 4; x < BASE.x + half - 4; x += 6) {
+        const e = 1 - Math.abs(x - BASE.x) / 250;
+        const len = 4 + 12 * e * e;
+        ctx.moveTo(x, BASE.y + 4); ctx.lineTo(x - len * 0.55, BASE.y + 4 + len);
+      }
+      ctx.stroke();
+      // the seed, half buried
+      const s = clamp01((t - 0.3) / 0.4);
+      if (s > 0) {
+        ctx.beginPath(); ctx.ellipse(BASE.x + 6, BASE.y + 9, 9 * s, 5.5 * s, -0.3, 0, Math.PI * 2);
+        ctx.fillStyle = PAPER; ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 1; ctx.stroke();
+        ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(BASE.x - 1, BASE.y + 11); ctx.lineTo(BASE.x + 12, BASE.y + 6); ctx.stroke();
+      }
+    }
+
+    function drawPlant(ctx, t) {
+      drawGround(ctx, t);
+      for (const b of plant.branches) drawStem(ctx, b, t);
+      for (const l of plant.leaves) drawLeaf(ctx, plant, l, t);
+      for (const f of plant.flowers) drawFlower(ctx, f, t);
+      for (const q of plant.fallers) drawFaller(ctx, q, t);
+    }
+
+    // the flower shown enlarged in Fig. 2: the biggest one that opens before 8 s
+    const FEATURE = plant.flowers.filter((f) => f.tBloom < 8).sort((a, b) => b.P - a.P || a.tBloom - b.tBloom)[0];
+
+    // ───────────────────────── paper ─────────────────────────
+    function makePaper(info) {
+      const c = document.createElement('canvas');
+      c.width = W; c.height = H;
+      const g = c.getContext('2d');
+      g.fillStyle = PAPER; g.fillRect(0, 0, W, H);
+      for (let i = 0; i < 70; i++) {                     // soft mottling
+        const x = info.random() * W, y = info.random() * H, r = 60 + info.random() * 200;
+        const gr = g.createRadialGradient(x, y, 0, x, y, r);
+        const dark = info.random() < 0.6;
+        gr.addColorStop(0, dark ? 'rgba(170,140,95,0.022)' : 'rgba(255,252,240,0.03)');
+        gr.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+      const img = g.getImageData(0, 0, W, H), d = img.data;      // fine grain
+      for (let p = 0; p < d.length; p += 4) { const n = (info.random() - 0.5) * 14; d[p] += n; d[p + 1] += n; d[p + 2] += n * 0.9; }
+      g.putImageData(img, 0, 0);
+      for (let i = 0; i < 26; i++) {                     // foxing
+        const x = info.random() * W, y = info.random() * H, r = 1 + info.random() * 3.5;
+        g.fillStyle = `rgba(150,105,60,${0.06 + info.random() * 0.1})`; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+      }
+      const v = g.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.78);  // edges age
+      v.addColorStop(0, 'rgba(120,90,50,0)'); v.addColorStop(1, 'rgba(120,90,50,0.16)');
+      g.fillStyle = v; g.fillRect(0, 0, W, H);
+      return { paper: c };
+    }
+
+    function drawPlate(ctx, t, info) {
+      ctx.drawImage(info.state.paper, 0, 0);
+      // the plate's double rule draws on
+      const p = easeOut2(clamp01(t / 1.4));
+      ctx.strokeStyle = INK;
+      for (const [inset, lw] of [[44, 1.3], [52, 0.6]]) {
+        const w = W - inset * 2, h = H - inset * 2, per = 2 * (w + h);
+        ctx.lineWidth = lw; ctx.setLineDash([per * p, per]);
+        ctx.strokeRect(inset, inset, w, h);
+      }
+      ctx.setLineDash([]);
+      // the phase rule: a hairline with ticks at the phase edges and a marker that walks with the time
+      const a = clamp01((t - 0.6) / 0.6);
+      if (a > 0) {
+        ctx.globalAlpha = a;
+        ctx.lineWidth = 0.7;
+        ctx.beginPath(); ctx.moveTo(TL.x0, TL.y); ctx.lineTo(TL.x1, TL.y); ctx.stroke();
+        ctx.beginPath();
+        for (const s of [GROW_FROM, 2.4, T_ANTHESIS, T_ABSCISSIO, T_END]) { const x = TL.x(s); ctx.moveTo(x, TL.y - 4); ctx.lineTo(x, TL.y + 4); }
+        ctx.stroke();
+        const mx = TL.x(Math.min(T_END, Math.max(GROW_FROM, t)));
+        ctx.fillStyle = INK; ctx.beginPath(); ctx.moveTo(mx, TL.y - 4); ctx.lineTo(mx + 4, TL.y); ctx.lineTo(mx, TL.y + 4); ctx.lineTo(mx - 4, TL.y); ctx.closePath(); ctx.fill();
+        ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(TL.x0, TL.y); ctx.lineTo(mx, TL.y); ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+    }
+    const TL = { x0: 150, x1: 930, y: 1084, x: (s) => 150 + ((s - GROW_FROM) / (T_END - GROW_FROM)) * 780 };
+
+    // ───────────────────────── Fig. 2: the magnifier ─────────────────────────
+    const INSET = { size: 290, r: 128, zoom: 2.5, x: 0, y: 0 };
+    function drawInset(ctx, t, info) {
+      const c = INSET.size / 2;
+      ctx.save();
+      ctx.beginPath(); ctx.arc(c, c, INSET.r, 0, Math.PI * 2); ctx.clip();
+      ctx.fillStyle = PAPER; ctx.fillRect(0, 0, INSET.size, INSET.size);
+      ctx.translate(c, c); ctx.scale(INSET.zoom, INSET.zoom);
+      // look at the flower, a little below its tip so the fan is centred
+      const cx = FEATURE.x + Math.cos(FEATURE.a) * FEATURE.P * 0.45, cy = FEATURE.y + Math.sin(FEATURE.a) * FEATURE.P * 0.45;
+      ctx.translate(-cx, -cy);
+      const b = plant.branches[FEATURE.b];
+      drawStem(ctx, b, t);
+      for (const l of plant.leaves) if (l.b === FEATURE.b && l.i > b.n - 6) drawLeaf(ctx, plant, l, t);
+      drawFlower(ctx, FEATURE, t);
+      for (const q of plant.fallers) if (q.f === FEATURE) drawFaller(ctx, q, t);
+      ctx.restore();
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(c, c, INSET.r, 0, Math.PI * 2); ctx.stroke();
+      ctx.lineWidth = 0.5; ctx.beginPath(); ctx.arc(c, c, INSET.r + 6, 0, Math.PI * 2); ctx.stroke();
+    }
+
+    // ───────────────────────── music: a pad, and a music-box note when a flower opens ─────────────────────────
+    function bloomNotes() {
+      const scale = ['d5', 'e5', 'f#5', 'a5', 'b5', 'd6', 'e6'];
+      const times = plant.flowers.map((f) => ({ t: Math.round(f.tBloom * 4) / 4, x: f.x })).sort((a, b) => a.t - b.t);
+      let out = [], cur = 0;
+      for (const n of times) {
+        if (n.t < cur) continue;                         // one note per quarter beat at most
+        if (n.t > cur) out.push(`_:${(n.t - cur).toFixed(2)}`);
+        out.push(`${scale[Math.min(scale.length - 1, Math.floor((n.x - 150) / 780 * scale.length))]}:0.25`);
+        cur = n.t + 0.25;
+      }
+      return out.join(' ');
+    }
+    const music = {
+      bpm: 60, reverb: 0.4, seed: 4,
+      tracks: [
+        { inst: 'pad', vol: [[0, 0], [2, 0.5], [12, 0.5], [14, 0.2]], attack: 1.2, release: 2, tone: 0.35, notes: 'Dmaj7@3:4 Bm7@3:3 Gmaj7@3:3 A@3:2 D@3:2' },
+        { inst: 'musicbox', vol: 0.55, ring: 1.6, reverb: 0.7, notes: bloomNotes() },
+        { inst: 'pluck', vol: 0.35, tone: 0.3, notes: '_:10 a3:1 f#3:1 e3:1 d3:1' },
+      ],
+    };
+
+    // ───────────────────────── the composition ─────────────────────────
+    const fadeIn = (at, d = 0.7) => [{ at, from: { alpha: 0 }, to: { alpha: 1 }, duration: d, ease: 'power2.out' }];
+
+    const phases = [
+      ['i. germinatio', GROW_FROM, 2.4], ['ii. ramificatio', 2.4, T_ANTHESIS],
+      ['iii. anthesis', T_ANTHESIS, T_ABSCISSIO], ['iv. abscissio', T_ABSCISSIO, T_END],
+    ];
+    const phaseLabels = phases.map(([label, a, b], i) => ({
+      type: 'text', name: `phase-${i}`, text: label, at: 0.6,
+      style: { fontFamily: SERIF, fontStyle: 'italic', fontSize: 19, fill: INK },
+      initial: { x: TL.x((a + b) / 2), y: TL.y + 12, anchorX: 0.5, alpha: 0 },
+      keyframes: [
+        { at: 0, to: { alpha: 0.3 }, duration: 0.6, ease: 'power2.out' },
+        { at: a - 0.6 - 0.1, to: { alpha: 1 }, duration: 0.4, ease: 'power2.out' },
+        ...(i < 3 ? [{ at: b - 0.6, to: { alpha: 0.45 }, duration: 0.6, ease: 'power2.inOut' }] : []),
+      ],
+    }));
+
+    const sequences = [
+      { type: 'canvas', name: 'plate', width: W, height: H, seed: SEED, initial: { x: 0, y: 0 }, setup: makePaper, draw: drawPlate },
+      { type: 'text', name: 'tab', text: 'TAB. VII', style: { fontFamily: SERIF, fontSize: 15, letterSpacing: 4, fill: INK },
+        initial: { x: 96, y: 78, alpha: 0 }, keyframes: fadeIn(0.5) },
+      { type: 'text', name: 'flora', text: 'FLORA SEMINALIS', style: { fontFamily: SERIF, fontSize: 15, letterSpacing: 4, fill: INK },
+        initial: { x: 984, y: 78, anchorX: 1, alpha: 0 }, keyframes: fadeIn(0.6) },
+      { type: 'canvas', name: 'plant', width: W, height: H, seed: SEED, initial: { x: 0, y: 0 }, draw: (ctx, t) => drawPlant(ctx, t) },
+      { type: 'text', name: 'fig1', text: 'Fig. 1', style: { fontFamily: SERIF, fontStyle: 'italic', fontSize: 15, fill: INK },
+        initial: { x: 800, y: 1031, alpha: 0 }, keyframes: fadeIn(1.4) },
+      { type: 'canvas', name: 'inset', width: INSET.size, height: INSET.size, seed: SEED, at: 0,
+        initial: { x: 0, y: 0, alpha: 0 }, keyframes: fadeIn(6.4, 0.9), draw: (ctx, t, info) => drawInset(ctx, t, info) },
+      { type: 'text', name: 'fig2', text: 'Fig. 2', style: { fontFamily: SERIF, fontStyle: 'italic', fontSize: 15, fill: INK },
+        initial: { x: 0, y: 0, anchorX: 0.5, alpha: 0 }, keyframes: fadeIn(6.8) },
+      ...phaseLabels,
+      { type: 'text', name: 'title', text: 'Ramulus seminalis', style: { fontFamily: SERIF, fontStyle: 'italic', fontSize: 58, fill: INK },
+        initial: { x: 540, y: 1140, anchorX: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, from: { alpha: 0, y: 1150 }, to: { alpha: 1, y: 1140 }, duration: 1.2, ease: 'power2.out' }], at: 1.0 },
+      { type: 'text', name: 'subtitle', text: 'A PLANT GROWN FROM SEED Nº 417 IN FOURTEEN SECONDS', at: 1.6,
+        style: { fontFamily: SERIF, fontSize: 15, letterSpacing: 3.5, fill: INK },
+        initial: { x: 540, y: 1216, anchorX: 0.5, alpha: 0 }, keyframes: fadeIn(0, 0.9) },
+      { type: 'text', name: 'del', text: 'Del. ex semine', at: 2.2, style: { fontFamily: SERIF, fontStyle: 'italic', fontSize: 14, fill: INK },
+        initial: { x: 96, y: 1250, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.75 }, duration: 0.8 }] },
+      { type: 'text', name: 'sculp', text: 'Sculp. in tabula', at: 2.4, style: { fontFamily: SERIF, fontStyle: 'italic', fontSize: 14, fill: INK },
+        initial: { x: 984, y: 1250, anchorX: 1, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.75 }, duration: 0.8 }] },
+      { type: 'audio', name: 'score', at: 0, volume: 1.35, music },
+    ];
+
+    // place the inset in the upper corner the plant leaves most free
+    {
+      const tips = plant.branches.flatMap((b) => b.nodes);
+      const free = (cx, cy) => Math.min(...tips.map((p) => Math.hypot(p.x - cx, p.y - cy)));
+      const cands = [[250, 300], [830, 300], [250, 470], [830, 470]];
+      const [ix, iy] = cands.sort((a, b) => free(b[0], b[1]) - free(a[0], a[1]))[0];
+      INSET.x = ix; INSET.y = iy;
+      const inset = sequences.find((s) => s.name === 'inset');
+      inset.initial.x = ix - INSET.size / 2; inset.initial.y = iy - INSET.size / 2;
+      const fig2 = sequences.find((s) => s.name === 'fig2');
+      fig2.initial.x = ix; fig2.initial.y = iy + INSET.r + 14;
+    }
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 8.9,
+        background: PAPER,
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

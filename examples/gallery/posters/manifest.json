@@ -24,6 +24,11 @@
     "posterFrame": 348,
     "hash": "dcfb50f5365ee58b74f823e534c234f9eb6dfbb0"
   },
+  "cycle-lane-race": {
+    "poster": 13.2,
+    "posterFrame": 396,
+    "hash": "7653d0fd7f5c650734c0e45cb31eaaf7e5d4073e"
+  },
   "d3-story": {
     "poster": 18.5,
     "posterFrame": 555,
@@ -33,6 +38,11 @@
     "poster": 11.666666666666666,
     "posterFrame": 350,
     "hash": "6ded80aa91d0bd39b87c7c9b76bbe7c0106aac32"
+  },
+  "elastic-exposure": {
+    "poster": 12.8,
+    "posterFrame": 384,
+    "hash": "65674a99f31ee9b15ee19ecec5b9aa4c9fdcc742"
   },
   "escapement": {
     "poster": 12.3,
@@ -108,6 +118,11 @@
     "poster": 4.5,
     "posterFrame": 135,
     "hash": "32d698f3ce30eb85afb8b0cb3f80ce428725e526"
+  },
+  "line-again": {
+    "poster": 8.75,
+    "posterFrame": 263,
+    "hash": "bd26a8214b58469c2dc75d6d6dc054a1228b6190"
   },
   "line-to-light": {
     "poster": 11,
@@ -203,6 +218,16 @@
     "poster": 11.8,
     "posterFrame": 354,
     "hash": "6e07b7b40dc86324d72a4b823592c8fe1f3d15a9"
+  },
+  "rain-walk-home": {
+    "poster": 9.4,
+    "posterFrame": 282,
+    "hash": "7ba745e18eabe60f6c677b4fda82bce875a85524"
+  },
+  "ramulus-seminalis": {
+    "poster": 8.9,
+    "posterFrame": 267,
+    "hash": "1e4205f1818d1d24f6b08eb52ea2bc328c480efc"
   },
   "route-atlas": {
     "poster": 10.4,

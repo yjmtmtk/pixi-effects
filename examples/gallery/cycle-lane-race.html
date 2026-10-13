@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Paris pedals past Copenhagen</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />
+  <style>
+    body { background: #1a1816; margin: 0; padding: 16px; }
+    .stage { position: relative; width: min(960px, 100%); margin: 0 auto; }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>
+  </div>
+
+  <script type="application/json" id="piece-meta">{"title": "Paris pedals past Copenhagen", "subtitle": "An FT-style bar-chart race of protected cycle lanes", "tags": ["data", "chart", "editorial"], "width": 1280, "height": 720, "duration": 14, "model": "opus"}</script>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+    "pixi-effects": "../../dist/index.js", "pixi-effects/controller": "../../dist/Controller.js",
+    "pixi-effects/present": "../../dist/present.js" } }</script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 14;
+
+    // ── palette ──────────────────────────────────────────────────────────────
+    const PAPER = '#FFF1E5', INK = '#33302E', MUTED = '#66605C', BAR = '#CCC1B7', BAR_HOT = '#8F857C',
+          GRID = '#E9DACB', NUMERAL = '#EADBCB', CLARET = '#990F3D', OXFORD = '#0F5499';
+    const SANS = 'system-ui, -apple-system, "Segoe UI", Arial, sans-serif';
+    const SERIF = 'Georgia, "Times New Roman", serif';
+
+    // ── the invented dataset: km of protected cycle lanes = base + logistic steps (amplitude, mid-year, width) ──
+    const CITIES = [
+      ['Copenhagen', 170, [[95, 2003, 3], [115, 2013, 4]]],
+      ['Amsterdam', 150, [[80, 2005, 4], [105, 2017, 4]]],
+      ['Utrecht', 85, [[70, 2008, 4], [105, 2018, 3]]],
+      ['Berlin', 45, [[60, 2004, 5], [85, 2019, 3]]],
+      ['Paris', 4, [[38, 2008, 1.2], [85, 2016, 2.5], [55, 2020.4, 0.35], [260, 2023.15, 0.9]]],
+      ['London', 8, [[42, 2011, 1.2], [70, 2016, 3], [60, 2020.5, 0.5]]],
+      ['Seville', 0, [[100, 2007.6, 0.8], [38, 2015, 3]]],
+      ['Barcelona', 14, [[50, 2008, 3], [110, 2017, 3]]],
+      ['Vienna', 55, [[90, 2009, 7]]],
+      ['Munich', 62, [[95, 2010, 7]]],
+      ['Milan', 3, [[30, 2012, 3], [75, 2020.6, 0.6]]],
+      ['Madrid', 6, [[62, 2016, 5]]],
+    ];
+    const Y0 = 1995, Y1 = 2025;
+    const sig = (x) => 1 / (1 + Math.exp(-x));
+    const kmAt = (c, y) => c[1] + c[2].reduce((s, [a, m, w]) => s + a * sig((y - m) / w), 0);
+    const colourOf = (name) => (name === 'Paris' ? CLARET : name === 'Copenhagen' ? OXFORD : null);
+
+    // ── the clock: the year as a function of the layer's seconds ──
+    // 1995 held 0.4 s, eased into 3 years/s, constant to 2018, then eased out to 2025 (the speeds match at the joins:
+    // a power2.in ends at twice its mean speed, a power2.out starts at twice its mean speed).
+    // Written as a JS function, not as keyframes on params.year: setup needs the year at EVERY frame to compute the
+    // rank swaps in seconds (a swap smoothed in years crawls when the clock slows down), and setup cannot read keyframes.
+    const YB = 2018, TB = 1.4 + (YB - 1996.5) / 3, DOUT = (2 * (Y1 - YB)) / 3;
+    const yearAt = (t) => {
+      if (t < 0.4) return Y0;
+      if (t < 1.4) return Y0 + 1.5 * (t - 0.4) ** 2;
+      if (t < TB) return 1996.5 + 3 * (t - 1.4);
+      const u = Math.min(1, (t - TB) / DOUT);
+      return YB + (Y1 - YB) * (1 - (1 - u) ** 2);
+    };
+    const timeOfYear = (Y) => { let lo = 0, hi = 14; for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (yearAt(m) < Y) lo = m; else hi = m; } return hi; };
+    const RACE_AT = 0.0;                    // the movie second the chart layers start
+
+    const clamp01 = (x) => Math.max(0, Math.min(1, x));
+    const easeInOut = (x) => { x = clamp01(x); return x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2; };
+
+    // the year Paris passes Copenhagen, found in the data (not typed in)
+    const P = CITIES.find((c) => c[0] === 'Paris'), C = CITIES.find((c) => c[0] === 'Copenhagen');
+    let lo = 2015, hi = 2025; for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (kmAt(P, m) < kmAt(C, m)) lo = m; else hi = m; }
+    const OVERTAKE = hi;
+
+    // ── annotations: appear when the year passes, by the bar of their city ──
+    const NOTES = [
+      { year: 2000.0, city: 'Copenhagen', hold: 1.8, text: 'Copenhagen already has 200 km of kerb-protected lanes; Paris has four.' },
+      { year: 2007.2, city: 'Seville', hold: 1.5, text: 'Seville lays 80 km of two-way lanes in under four years.' },
+      { year: 2012.0, city: 'London', hold: 1.7, text: 'London opens its first “cycle superhighways” — mostly blue paint.' },
+      { year: 2020.3, city: 'Paris', hold: 1.8, text: 'Pandemic pop-up lanes: Paris adds 50 km of “coronapistes” in one summer.' },
+      { year: OVERTAKE, city: 'Paris', hold: 99, text: 'Paris overtakes Copenhagen, the city that set the standard for thirty years.' },
+    ].map((n) => ({ ...n, t0: timeOfYear(n.year) }));
+
+    // ── chart geometry (in the race canvas's own pixels) ──
+    const RACE = { x: 64, y: 176, w: 1152, h: 464 };
+    const TOP = 34, ROW = 35.5, BAR0 = 124, BARMAX = 560, BAR_H = 23;
+    const NOTE_X = 806, NOTE_Y = 30, NOTE_W = 340;
+
+    // setup: every city's rank at every frame of the layer; draw reads it by info.frame
+    function setupRace(info) {
+      const n = Math.round(info.duration * info.frameRate) + 1;
+      const rank = [];
+      // the order is carried from frame to frame and two bars swap only when one leads by more than 0.6 km,
+      // so two cities with the same value do not flicker (a hysteresis; a plain sort per frame flips ties)
+      let order = null;
+      for (let f = 0; f < n; f++) {
+        const v = CITIES.map((c) => kmAt(c, yearAt(f / info.frameRate)));
+        if (!order) order = v.map((x, k) => k).sort((a, b) => v[b] - v[a]);
+        for (let swapped = true; swapped; ) {
+          swapped = false;
+          for (let p = 0; p + 1 < order.length; p++) if (v[order[p + 1]] > v[order[p]] + 0.6) { [order[p], order[p + 1]] = [order[p + 1], order[p]]; swapped = true; }
+        }
+        const r = new Array(CITIES.length); order.forEach((k, pos) => (r[k] = pos));
+        rank.push(r);
+      }
+      // a smoothed rank: a triangle-weighted mean over ±5 frames, so two bars slide past each other in a third of a second
+      const K = 5;
+      return rank.map((_, i) => CITIES.map((_, c) => {
+        let s = 0, ws = 0;
+        for (let k = -K; k <= K; k++) { const j = Math.max(0, Math.min(n - 1, i + k)), w = K + 1 - Math.abs(k); s += w * rank[j][c]; ws += w; }
+        return s / ws;
+      }));
+    }
+
+    function wrap(ctx, text, maxW) {
+      const words = text.split(' '), lines = [];
+      let line = '';
+      for (const w of words) { const test = line ? line + ' ' + w : w; if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = w; } else line = test; }
+      if (line) lines.push(line);
+      return lines;
+    }
+
+    function drawRace(ctx, t, info) {
+      const year = yearAt(t), dim = info.params.dim;
+      const km = CITIES.map((c) => kmAt(c, year)), rank = info.state[Math.min(info.state.length - 1, info.frame)];
+      const maxKm = Math.max(...km), scaleMax = Math.max(120, maxKm * 1.12);
+      const px = (v) => BAR0 + (v / scaleMax) * BARMAX;
+      const bottom = TOP + CITIES.length * ROW;
+
+      // axis: a line every 50 km; the odd ones fade out as the scale shrinks them together
+      const spacing = (50 / scaleMax) * BARMAX;
+      ctx.font = `13px ${SANS}`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+      for (let v = 0; v <= scaleMax; v += 50) {
+        const a = v % 100 === 0 ? 1 : clamp01((spacing - 30) / 26);
+        if (a <= 0) continue;
+        const x = Math.round(px(v)) + 0.5;
+        ctx.globalAlpha = a;
+        ctx.strokeStyle = v === 0 ? '#B5A89C' : GRID; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x, TOP - 8); ctx.lineTo(x, bottom); ctx.stroke();
+        ctx.fillStyle = MUTED; ctx.fillText(String(v), x, TOP - 14);
+      }
+      ctx.globalAlpha = 1;
+
+      // the year, huge and quiet, behind the bars
+      ctx.font = `110px ${SERIF}`; ctx.fillStyle = NUMERAL; ctx.textAlign = 'right';
+      ctx.fillText(String(Math.floor(year + 1e-6)), BAR0 + BARMAX, bottom - 14);
+
+      // which city does an annotation point at right now (its bar darkens)
+      const active = NOTES.map((n) => ({ n, a: noteAlpha(n, t) })).filter((o) => o.a > 0);
+      const hot = new Set(active.map((o) => o.n.city));
+
+      // bars, back to front: the protagonists last so they pass over the others
+      const order = CITIES.map((c, k) => k).sort((a, b) => (colourOf(CITIES[a][0]) ? 1 : 0) - (colourOf(CITIES[b][0]) ? 1 : 0));
+      // while two bars slide past each other their labels would print on top of each other: the label of the smaller
+      // value fades out while they are less than 0.8 of a row apart (a protagonist always keeps its label)
+      const labelA = CITIES.map(() => 1);
+      for (let a = 0; a < CITIES.length; a++) for (let b = a + 1; b < CITIES.length; b++) {
+        const d = Math.abs(rank[a] - rank[b]);
+        if (d >= 0.8) continue;
+        let lose = km[a] < km[b] ? a : b;
+        if (colourOf(CITIES[lose][0])) lose = lose === a ? b : a;
+        labelA[lose] = Math.min(labelA[lose], clamp01((d - 0.2) / 0.6));
+      }
+      const ends = {};
+      for (const k of order) {
+        const name = CITIES[k][0], col = colourOf(name), y = TOP + rank[k] * ROW + (ROW - BAR_H) / 2;
+        const cy = y + BAR_H / 2, x1 = px(km[k]);
+        ctx.globalAlpha = col ? 1 : 1 - 0.55 * dim;
+        ctx.fillStyle = col || (hot.has(name) ? BAR_HOT : BAR);
+        ctx.fillRect(BAR0, y, Math.max(1, x1 - BAR0), BAR_H);
+        ctx.textBaseline = 'middle';
+        ctx.globalAlpha *= labelA[k];
+        ctx.font = `${col ? 600 : 400} 15px ${SANS}`; ctx.textAlign = 'right'; ctx.fillStyle = col || INK;
+        ctx.fillText(name, BAR0 - 10, cy + 1);
+        ctx.font = `${col ? 600 : 400} 14px ${SANS}`; ctx.textAlign = 'left'; ctx.fillStyle = col || MUTED;
+        const label = String(Math.round(km[k]));
+        ctx.fillText(label, x1 + 7, cy + 1);
+        ends[name] = { x: x1 + 7 + ctx.measureText(label).width + 6, y: cy };
+      }
+      ctx.globalAlpha = 1;
+
+      // annotations with an elbow leader from the bar's end
+      for (const { n, a } of active) {
+        const e = ends[n.city], col = colourOf(n.city) || INK;
+        ctx.font = `16px ${SANS}`;
+        const lines = wrap(ctx, n.text, NOTE_W);
+        const draw = easeInOut((t - n.t0) / 0.45);                      // the leader draws on
+        const elbowX = NOTE_X - 16, ty = NOTE_Y;
+        const segs = [[e.x, e.y, elbowX, e.y], [elbowX, e.y, elbowX, ty + 9], [elbowX, ty + 9, NOTE_X - 6, ty + 9]];
+        const lens = segs.map(([a1, b1, a2, b2]) => Math.hypot(a2 - a1, b2 - b1)), total = lens.reduce((s, l) => s + l, 0);
+        let left = total * draw;
+        ctx.globalAlpha = a; ctx.strokeStyle = col; ctx.lineWidth = 1.25;
+        ctx.beginPath(); ctx.moveTo(e.x, e.y);
+        for (let i = 0; i < segs.length && left > 0; i++) {
+          const [x0, y0, x2, y2] = segs[i], u = Math.min(1, left / (lens[i] || 1));
+          ctx.lineTo(x0 + (x2 - x0) * u, y0 + (y2 - y0) * u); left -= lens[i];
+        }
+        ctx.stroke();
+        ctx.fillStyle = col; ctx.beginPath(); ctx.arc(e.x, e.y, 2.5, 0, Math.PI * 2); ctx.fill();
+        const ta = a * clamp01((t - n.t0 - 0.25) / 0.3);
+        ctx.globalAlpha = ta; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        ctx.font = `700 14px ${SANS}`; ctx.fillStyle = col;
+        ctx.fillText(`${Math.floor(n.year)} · ${n.city.toUpperCase()}`, NOTE_X, ty + 14);
+        ctx.font = `16px ${SANS}`; ctx.fillStyle = INK;
+        lines.forEach((l, i) => ctx.fillText(l, NOTE_X, ty + 38 + i * 22));
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function noteAlpha(n, t) {
+      if (t < n.t0) return 0;
+      const inA = clamp01((t - n.t0) / 0.3), outA = clamp01((n.t0 + n.hold - t) / 0.3);
+      return Math.min(inA, outA);
+    }
+
+    // ── the small line chart: Paris v Copenhagen, the others faint ──
+    const LINES = { x: 870, y: 404, w: 346, h: 236 };
+    const L = { x0: 34, x1: 292, y0: 214, y1: 52, max: 450 };
+    function drawLines(ctx, t, info) {
+      const year = yearAt(t);
+      const X = (y) => L.x0 + ((y - Y0) / (Y1 - Y0)) * (L.x1 - L.x0), Yv = (v) => L.y0 - (v / L.max) * (L.y0 - L.y1);
+      ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+      ctx.font = `700 14px ${SANS}`; ctx.fillStyle = INK; ctx.fillText('Paris v Copenhagen', 0, 15);
+      ctx.font = `13px ${SANS}`; ctx.fillStyle = MUTED; ctx.fillText('Protected lanes, km', 0, 33);
+      ctx.font = `12px ${SANS}`; ctx.textAlign = 'right';
+      for (let v = 0; v <= 400; v += 100) {
+        const y = Math.round(Yv(v)) + 0.5;
+        ctx.strokeStyle = v ? GRID : '#B5A89C'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(L.x0, y); ctx.lineTo(L.x1, y); ctx.stroke();
+        ctx.fillStyle = MUTED; ctx.fillText(String(v), L.x0 - 6, y + 4);
+      }
+      ctx.textAlign = 'center';
+      for (const y of [1995, 2010, 2025]) ctx.fillText(String(y), X(y), L.y0 + 18);
+      const path = (c, w, col) => {
+        ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineJoin = 'round'; ctx.beginPath();
+        for (let y = Y0; ; y = Math.min(year, y + 0.25)) { ctx.lineTo(X(y), Yv(kmAt(c, y))); if (y >= year) break; }
+        ctx.stroke();
+      };
+      for (const c of CITIES) if (!colourOf(c[0])) path(c, 1, '#DCCFC2');
+      const ends = [];
+      for (const c of CITIES) if (colourOf(c[0])) {
+        const col = colourOf(c[0]); path(c, 2.25, col);
+        const v = kmAt(c, year); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(X(year), Yv(v), 3.5, 0, Math.PI * 2); ctx.fill();
+        ends.push({ col, v, y: Yv(v), x: X(year) });
+      }
+      // the two value labels at the line ends, pushed apart when they meet
+      ends.sort((a, b) => a.y - b.y);
+      if (ends[1].y - ends[0].y < 16) { const m = (ends[0].y + ends[1].y) / 2; ends[0].y = m - 8; ends[1].y = m + 8; }
+      ctx.font = `600 13px ${SANS}`; ctx.textAlign = 'left';
+      for (const e of ends) { ctx.fillStyle = e.col; ctx.fillText(String(Math.round(e.v)), e.x + 8, e.y + 4); }
+    }
+
+    const fadeIn = (d = 0.5) => ({ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: d, ease: 'power2.out' });
+    const rise = (y, dy = 12, d = 0.6) => ({ at: 0, from: { alpha: 0, y: y + dy }, to: { alpha: 1, y }, duration: d, ease: 'power3.out' });
+
+    const sequences = [
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: PAPER } },
+      // FT-style header: the short black bar, a serif headline, a grey standfirst
+      { type: 'shape', name: 'accent', shape: 'rect', at: 0.1, width: 64, height: 7, initial: { x: 96, y: 46, fillColor: INK },
+        keyframes: [{ at: 0, from: { scaleX: 0 }, to: { scaleX: 1 }, duration: 0.5, ease: 'power3.out' }] },
+      { type: 'text', name: 'headline', text: 'Paris pedals past Copenhagen', at: 0.25,
+        style: { fontFamily: SERIF, fontSize: 38, fill: INK }, initial: { x: 64, y: 62 }, keyframes: [rise(62)] },
+      { type: 'text', name: 'standfirst', text: 'Kilometres of protected cycle lanes in 12 European cities, 1995–2025', at: 0.5,
+        style: { fontFamily: SANS, fontSize: 19, fill: MUTED }, initial: { x: 64, y: 112 }, keyframes: [rise(112, 8)] },
+
+      { type: 'canvas', name: 'race', at: RACE_AT, duration: 14, width: RACE.w, height: RACE.h,
+        initial: { x: RACE.x, y: RACE.y }, params: { dim: 0 },
+        keyframes: [fadeIn(0.5), { at: 12.1, to: { 'params.dim': 1 }, duration: 0.9, ease: 'power2.inOut' }],
+        setup: setupRace, draw: drawRace },
+      { type: 'canvas', name: 'lines', at: RACE_AT, duration: 14, width: LINES.w, height: LINES.h,
+        initial: { x: LINES.x, y: LINES.y },
+        keyframes: [fadeIn(0.5)], draw: drawLines },
+
+      // sound: a quiet bed at 96 bpm (a bar is 2.3 s); the last chord lands on the overtake (movie 11.5 s)
+      { type: 'audio', name: 'bed', at: 0, volume: 0.9, music: {
+          bpm: 104.4, reverb: 0.3,
+          tracks: [
+            { inst: 'keys', vol: 0.55, strum: 0.012, tone: 0.45, notes: 'Fmaj7:4 Am7:4 Dm7:4 Bbmaj7:4 Gm7:4 Fmaj7@4:4' },
+            { inst: 'bass', vol: 0.6, tone: 0.4, notes: 'f2:3 c2:1 | a1:3 e2:1 | d2:3 a1:1 | bb1:3 f2:1 | g1:3 d2:1 | f1:4' },
+            { inst: 'pluck', vol: [[0, 0], [4, 0.0], [8, 0.4]], step: 0.5, tone: 0.5,
+              notes: '_:4 | a4 c5 e5 g5 e5 c5 a4 e4 | d5 f5 a5 c6 a5 f5 d5 a4 | bb4 d5 f5 a5 f5 d5 bb4 f4 | g4 bb4 d5 f5 d5 bb4 g4 d4 | f5:4' },
+          ] } },
+      ...NOTES.map((n, i) => ({ type: 'audio', name: `tick${i}`, at: RACE_AT + n.t0, sfx: { preset: 'click', pitch: -5, brightness: 0.3 }, volume: 1.4 })),
+      // the closing figure, read from the data
+      { type: 'text', name: 'stat', at: 12.3, text: `Paris: ${Math.round(kmAt(P, Y0))} km in ${Y0}, ${Math.round(kmAt(P, Y1))} km in ${Y1}`,
+        style: { fontFamily: SANS, fontSize: 16, fontWeight: '600', fill: CLARET }, initial: { x: 870, y: 300 }, keyframes: [rise(300, 6, 0.5)] },
+      { type: 'text', name: 'source', text: 'Source: illustrative data invented for this graphic.', at: 1.2,
+        style: { fontFamily: SANS, fontSize: 13, fill: MUTED }, initial: { x: 64, y: 664 }, keyframes: [fadeIn(0.6)] },
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 13.2,
+        background: PAPER,
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

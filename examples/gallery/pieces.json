@@ -329,6 +329,24 @@
       "notes": "_notes/solar-system.md"
     },
     {
+      "id": "line-again",
+      "title": "A Line, Again",
+      "subtitle": "a five-line bilingual poem, each line set by the move it describes",
+      "tags": [
+        "kinetic type",
+        "japanese",
+        "poem"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 13.5,
+      "posterFrame": 263,
+      "model": "opus",
+      "page": "line-again.html",
+      "poster": "posters/line-again.jpg",
+      "notes": "_notes/line-again.md"
+    },
+    {
       "id": "binary-count",
       "title": "Binary, Counted",
       "subtitle": "One digit that holds only 0 or 1: when it overflows, a new digit is born, worth twice as much",
@@ -368,6 +386,25 @@
       "page": "d3-story.html",
       "poster": "posters/d3-story.jpg",
       "notes": "_notes/d3-story.md"
+    },
+    {
+      "id": "elastic-exposure",
+      "title": "Elastic exposure",
+      "subtitle": "Six bodies of light in a circle under gravity, every collision a note, traced as one long exposure",
+      "tags": [
+        "simulation",
+        "physics",
+        "generative",
+        "sound"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 14,
+      "posterFrame": 384,
+      "model": "opus",
+      "page": "elastic-exposure.html",
+      "poster": "posters/elastic-exposure.jpg",
+      "notes": "_notes/elastic-exposure.md"
     },
     {
       "id": "escapement",
@@ -695,6 +732,24 @@
       "notes": "_notes/lyric-video.md"
     },
     {
+      "id": "cycle-lane-race",
+      "title": "Paris pedals past Copenhagen",
+      "subtitle": "An FT-style bar-chart race of protected cycle lanes",
+      "tags": [
+        "data",
+        "chart",
+        "editorial"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 14,
+      "posterFrame": 396,
+      "model": "opus",
+      "page": "cycle-lane-race.html",
+      "poster": "posters/cycle-lane-race.jpg",
+      "notes": "_notes/cycle-lane-race.md"
+    },
+    {
       "id": "pour-over",
       "title": "Pour-over",
       "subtitle": "One cup of hand-drip coffee, drawn as a quiet instruction diagram: grounds, bloom, a spiral pour, the last drop.",
@@ -756,6 +811,43 @@
       "page": "paper-cutout-forest.html",
       "poster": "posters/paper-cutout-forest.jpg",
       "notes": "_notes/paper-cutout-forest.md"
+    },
+    {
+      "id": "rain-walk-home",
+      "title": "Rain Walk Home",
+      "subtitle": "A 320x180 pixel cut-scene: afternoon to night, rain, a lit window",
+      "tags": [
+        "pixel-art",
+        "parallax",
+        "chiptune"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 14,
+      "posterFrame": 282,
+      "model": "opus",
+      "page": "rain-walk-home.html",
+      "poster": "posters/rain-walk-home.jpg",
+      "notes": "_notes/rain-walk-home.md"
+    },
+    {
+      "id": "ramulus-seminalis",
+      "title": "Ramulus seminalis",
+      "subtitle": "A botanical plate that grows: a seeded branching plant grows, flowers and sheds",
+      "tags": [
+        "generative",
+        "botanical",
+        "vertical",
+        "ink"
+      ],
+      "width": 1080,
+      "height": 1350,
+      "duration": 14,
+      "posterFrame": 267,
+      "model": "opus",
+      "page": "ramulus-seminalis.html",
+      "poster": "posters/ramulus-seminalis.jpg",
+      "notes": "_notes/ramulus-seminalis.md"
     },
     {
       "id": "route-atlas",

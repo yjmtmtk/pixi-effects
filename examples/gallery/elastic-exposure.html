@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Elastic exposure</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />
+  <style>
+    body { background: #050608; margin: 0; padding: 16px; min-height: 100vh; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+    .stage { position: relative; width: min(960px, 100%); }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>
+  </div>
+
+  <script type="application/json" id="piece-meta">{"title": "Elastic exposure", "subtitle": "Six bodies of light in a circle under gravity, every collision a note, traced as one long exposure", "tags": ["simulation", "physics", "generative", "sound"], "width": 1280, "height": 720, "duration": 14, "model": "opus"}</script>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+    "pixi-filters": "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+    "pixi-effects": "../../dist/index.js", "pixi-effects/controller": "../../dist/Controller.js",
+    "pixi-effects/present": "../../dist/present.js" } }</script>
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 14;
+
+    // ── the world ────────────────────────────────────────────────────────────────
+    const CX = 820, CY = 360, R = 284, BALL = 10, G = 900, HZ = 240;
+    const T_SIM = 11.0;                       // the simulation (and the sound) ends here; the exposure stays
+    const RELEASES = [0.8, 2.0, 3.0, 3.8, 4.5, 5.1];
+    const BODIES = RELEASES.map((at, i) => ({
+      at, x: CX + (i % 2 ? 1 : -1) * (40 + i * 25), y: CY - R * 0.55 + i * 6, vx: (i % 2 ? -1 : 1) * (120 + i * 40), vy: -260,
+    }));
+    // palette: warm light on near-black, one cool accent for body-on-body contact
+    const HUES = ['#ffd08a', '#ffb070', '#ff9466', '#ffc27e', '#ff8a6a', '#ffe0a8'];
+    const SPARK = '#8fdcff', CREAM = '#fff4e4';
+    // a note per body: D major pentatonic, low to high, so the chord builds as bodies enter
+    const NOTES = [146.83, 220.0, 293.66, 329.63, 369.99, 440.0];
+
+    function simulate() {
+      const dt = 1 / HZ, steps = Math.round(T_SIM * HZ), n = BODIES.length;
+      const px = BODIES.map(() => new Float32Array(steps + 1).fill(NaN));
+      const py = BODIES.map(() => new Float32Array(steps + 1).fill(NaN));
+      const st = BODIES.map(() => null), events = [];
+      for (let s = 0; s <= steps; s++) {
+        const t = s * dt;
+        BODIES.forEach((b, i) => { if (!st[i] && t >= b.at) { st[i] = { x: b.x, y: b.y, vx: b.vx, vy: b.vy }; events.push({ t, kind: 'drop', i, x: b.x, y: b.y, v: 0 }); } });
+        for (let i = 0; i < n; i++) { const p = st[i]; if (!p) continue; p.vy += G * dt; p.x += p.vx * dt; p.y += p.vy * dt; }
+        for (let i = 0; i < n; i++) {
+          const p = st[i]; if (!p) continue;
+          const dx = p.x - CX, dy = p.y - CY, d = Math.hypot(dx, dy), lim = R - BALL;
+          if (d > lim) {
+            const nx = dx / d, ny = dy / d, vn = p.vx * nx + p.vy * ny;
+            if (vn > 0) { p.vx -= 2 * vn * nx; p.vy -= 2 * vn * ny; events.push({ t, kind: 'wall', i, x: CX + nx * R, y: CY + ny * R, v: vn, a: Math.atan2(ny, nx) }); }
+            p.x = CX + nx * lim; p.y = CY + ny * lim;
+          }
+        }
+        for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+          const a = st[i], b = st[j]; if (!a || !b) continue;
+          const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+          if (d < 2 * BALL && d > 0) {
+            const nx = dx / d, ny = dy / d, vn = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
+            if (vn > 0) { a.vx -= vn * nx; a.vy -= vn * ny; b.vx += vn * nx; b.vy += vn * ny; events.push({ t, kind: 'pair', i, j, x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, v: vn }); }
+            const push = (2 * BALL - d) / 2; a.x -= nx * push; a.y -= ny * push; b.x += nx * push; b.y += ny * push;
+          }
+        }
+        for (let i = 0; i < n; i++) if (st[i]) { px[i][s] = st[i].x; py[i][s] = st[i].y; }
+      }
+      const hits = events.filter(e => e.kind !== 'drop');
+      return { steps, px, py, events, hits, count: hits.length };
+    }
+    // The sound needs the collision times while the sequences are written, so the run happens here, before init;
+    // `setup` hands the same object to every canvas layer as info.state.
+    const SIM = simulate();
+    const sim = () => SIM;
+
+    // ── helpers for drawing ──────────────────────────────────────────────────────
+    const rgba = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
+    const clamp01 = (x) => Math.max(0, Math.min(1, x));
+    const easeOut = (x) => 1 - Math.pow(1 - clamp01(x), 3);
+    const stepAt = (t) => Math.min(SIM.steps, Math.max(0, Math.floor(Math.min(t, T_SIM) * HZ)));
+
+    // the long exposure: every body's whole path so far, in chunks so crossings add up ('lighter')
+    function drawExposure(ctx, t, info) {
+      const S = info.state, s1 = stepAt(t), STRIDE = 2, CHUNK = 48;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      for (let i = 0; i < S.px.length; i++) {
+        const X = S.px[i], Y = S.py[i], s0 = Math.ceil(BODIES[i].at * HZ);
+        if (s1 <= s0) continue;
+        ctx.strokeStyle = rgba(HUES[i], Math.min(1, 0.26 * info.params.exposure)); ctx.lineWidth = 1.2 + 0.3 * info.params.exposure;
+        for (let c = s0; c < s1; c += CHUNK) {
+          ctx.beginPath(); ctx.moveTo(X[c], Y[c]);
+          for (let s = c + STRIDE; s <= Math.min(c + CHUNK, s1); s += STRIDE) ctx.lineTo(X[s], Y[s]);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // the rim, and the marks the hits leave on it
+    function drawRim(ctx, t, info) {
+      const S = info.state, a = easeOut(t / 1.0);
+      ctx.strokeStyle = rgba(CREAM, 0.16 * a); ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(CX, CY, R, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalCompositeOperation = 'lighter';
+      for (const e of S.hits) {
+        if (e.kind !== 'wall' || e.t > t) continue;
+        const age = t - e.t, k = Math.min(1, e.v / 900);
+        const span = 0.012 + 0.05 * k;
+        ctx.strokeStyle = rgba(HUES[e.i], 0.22 + 0.6 * Math.exp(-age * 3));
+        ctx.lineWidth = 1.5 + 2.5 * Math.exp(-age * 4);
+        ctx.beginPath(); ctx.arc(CX, CY, R + 1, e.a - span, e.a + span); ctx.stroke();
+      }
+    }
+
+    // what moves: the recent tails, the heads, the flashes of contact
+    function drawLive(ctx, t, info) {
+      const S = info.state, s1 = stepAt(t), fade = 1 - clamp01((t - T_SIM) / 0.7);
+      if (fade <= 0) return;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.lineCap = 'round';
+      const TAIL = Math.round(0.45 * HZ), STRIDE = 2, SEG = 8;
+      for (let i = 0; i < S.px.length; i++) {
+        const X = S.px[i], Y = S.py[i], s0 = Math.max(Math.ceil(BODIES[i].at * HZ), s1 - TAIL);
+        if (s1 < Math.ceil(BODIES[i].at * HZ)) continue;
+        ctx.lineCap = 'butt';
+        for (let s = s0; s + STRIDE <= s1; s += SEG) {          // short polylines, alpha and width growing toward the head
+          const k = (s - (s1 - TAIL)) / TAIL, e = Math.min(s + SEG, s1);
+          ctx.strokeStyle = rgba(HUES[i], 0.85 * k * k * fade); ctx.lineWidth = 0.6 + 3 * k;
+          ctx.beginPath(); ctx.moveTo(X[s], Y[s]); for (let q = s + STRIDE; q <= e; q += STRIDE) ctx.lineTo(X[q], Y[q]); ctx.stroke();
+        }
+        const x = X[s1], y = Y[s1], born = clamp01((t - BODIES[i].at) / 0.25);
+        const glow = ctx.createRadialGradient(x, y, 0, x, y, 30);
+        glow.addColorStop(0, rgba(HUES[i], 0.55 * fade * born)); glow.addColorStop(1, rgba(HUES[i], 0));
+        ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y, 30, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = rgba(CREAM, fade * born); ctx.beginPath(); ctx.arc(x, y, BALL * (0.5 + 0.3 * born), 0, Math.PI * 2); ctx.fill();
+      }
+      // contact flashes: a ring that opens for 0.6 s
+      for (const e of S.events) {
+        const age = t - e.t; if (age < 0 || age > 0.6) continue;
+        const k = age / 0.6, col = e.kind === 'pair' ? SPARK : (e.kind === 'drop' ? CREAM : HUES[e.i]);
+        const strength = e.kind === 'drop' ? 0.8 : Math.min(1, e.v / 700);
+        ctx.strokeStyle = rgba(col, (1 - k) * (1 - k) * strength * fade);
+        ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.arc(e.x, e.y, 5 + 32 * easeOut(k) * (0.4 + 0.6 * strength), 0, Math.PI * 2); ctx.stroke();
+        if (e.kind === 'pair' && age < 0.35) {                 // body on body: a cool glint, the one cold colour of the piece
+          const g = 1 - age / 0.35, L = 6 + 22 * g * (0.5 + 0.5 * strength);
+          ctx.strokeStyle = rgba(SPARK, g * fade); ctx.lineWidth = 1.4;
+          const D = L * 0.707; ctx.beginPath(); ctx.moveTo(e.x - D, e.y - D); ctx.lineTo(e.x + D, e.y + D); ctx.moveTo(e.x + D, e.y - D); ctx.lineTo(e.x - D, e.y + D); ctx.stroke();
+          ctx.fillStyle = rgba(SPARK, 0.8 * g * fade); ctx.beginPath(); ctx.arc(e.x, e.y, 3 + 3 * g, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+    }
+
+    // the instrument panel: time, bodies in play, collisions so far
+    const PANEL_AT = 0.6;
+    function drawPanel(ctx, t, info) {
+      const S = info.state, tt = Math.min(t + PANEL_AT, T_SIM);     // t is the layer's own: add its start by hand
+      const bodies = BODIES.filter(b => b.at <= tt).length;
+      let hits = 0; for (const e of S.hits) if (e.t <= tt) hits++;
+      const rows = [[t + PANEL_AT >= T_SIM ? 'exposure' : 't', tt.toFixed(2) + ' s'], ['bodies', String(bodies)], ['collisions', String(hits).padStart(3, '0')]];
+      ctx.textBaseline = 'alphabetic';
+      rows.forEach(([k, v], r) => {
+        const y = 22 + r * 30;
+        ctx.font = '500 13px ui-monospace, Menlo, Consolas, monospace'; ctx.letterSpacing = '2px';
+        ctx.fillStyle = 'rgba(255,244,228,0.42)'; ctx.textAlign = 'left'; ctx.fillText(k.toUpperCase(), 0, y);
+        ctx.font = '500 17px ui-monospace, Menlo, Consolas, monospace'; ctx.letterSpacing = '0px';
+        ctx.fillStyle = 'rgba(255,244,228,0.92)'; ctx.textAlign = 'right'; ctx.fillText(v, info.width, y);
+        ctx.fillStyle = 'rgba(255,244,228,0.10)'; ctx.fillRect(0, y + 9, info.width, 1);
+      });
+    }
+
+    // ── sound: one audio layer per collision ─────────────────────────────────────
+    const sounds = [];
+    for (const e of SIM.events) {
+      const name = `${e.kind}-${e.t.toFixed(3)}`;
+      const pan = Math.max(-0.8, Math.min(0.8, (e.x - CX) / R * 0.8));
+      if (e.kind === 'drop') {
+        sounds.push({ type: 'audio', name, at: e.t, volume: 0.55, sfx: { voices: [{ wave: 'sine', freq: [NOTES[e.i] * 4, NOTES[e.i] * 2], envelope: 'fall', pan, gain: 0.6 }] }, duration: 0.25 });
+      } else if (e.kind === 'wall') {
+        if (e.v < 140) continue;
+        const f = NOTES[e.i], vol = 0.2 + 0.6 * Math.min(1, e.v / 900);
+        sounds.push({ type: 'audio', name, at: e.t, volume: vol, duration: 1.6, sfx: { voices: [
+          { wave: 'sine', freq: f, envelope: 'bell', pan },
+          { wave: 'sine', freq: f * 2.01, envelope: 'fall', pan, gain: 0.3 },
+          { wave: 'triangle', freq: f * 3, envelope: 'fall', pan, gain: 0.08, to: 0.2 },
+        ] } });
+      } else {
+        if (e.v < 40) continue;
+        const vol = 0.18 + 0.5 * Math.min(1, e.v / 600);
+        sounds.push({ type: 'audio', name, at: e.t, volume: vol, duration: 0.3, sfx: { voices: [
+          { wave: 'sine', freq: 2637, envelope: 'fall', pan, gain: 0.5 },
+          { wave: 'sine', freq: 3951, envelope: 'fall', pan, gain: 0.25 },
+        ] } });
+      }
+    }
+    // a room under it all: a low D and a little air, 10 s (the longest an sfx can be), faded by volume keyframes
+    sounds.push({ type: 'audio', name: 'room', at: 0.3, duration: 10, volume: 0, sfx: { voices: [
+      { wave: 'sine', freq: 73.42, envelope: 'hold', gain: 0.6 }, { wave: 'sine', freq: 110, envelope: 'hold', gain: 0.18 },
+      { wave: 'noise', filter: { type: 'lowpass', freq: 380 }, envelope: 'hold', gain: 0.25 },
+    ] }, keyframes: [{ at: 0, to: { volume: 0.4 }, duration: 1.4 }, { at: 8.4, to: { volume: 0 }, duration: 1.6 }] });
+    // the end: a low D under the title
+    sounds.push({ type: 'audio', name: 'final-d', at: 11.3, volume: 1.1, duration: 2.6, sfx: { voices: [
+      { wave: 'sine', freq: 73.42, envelope: 'bell' }, { wave: 'sine', freq: 146.83, envelope: 'bell', gain: 0.4 }, { wave: 'sine', freq: 220, envelope: 'bell', gain: 0.15 },
+    ] } });
+
+    // ── composition ──────────────────────────────────────────────────────────────
+    const MONO = 'ui-monospace, Menlo, Consolas, monospace';
+    const LX = 96;                               // the left column
+    const canvasLayer = (name, draw, extra = {}) => ({ type: 'canvas', name, width: W, height: H, duration: DURATION, setup: sim, draw, ...extra });
+
+    const sequences = [
+      { type: 'shape', name: 'bg', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#06070a' } },
+      { type: 'shape', name: 'pool', shape: 'circle', radius: R + 140, initial: { x: CX, y: CY, alpha: 0.9,
+          fillGradient: { type: 'radial', stops: [{ offset: 0, color: '#141018' }, { offset: 1, color: '#06070a' }] } } },
+      canvasLayer('exposure', drawExposure, { params: { exposure: 1 },
+        filters: [{ type: 'bloom', strength: 2, quality: 4 }],
+        keyframes: [{ at: T_SIM, to: { 'params.exposure': 1.9 }, duration: 1.6, ease: 'power2.inOut' }] }),     // the print develops
+      canvasLayer('rim', drawRim),
+      canvasLayer('live', drawLive, { filters: [{ type: 'bloom', strength: 4, quality: 4 }] }),
+      // left column
+      { type: 'text', name: 'label', text: 'FIG. 1   LONG EXPOSURE', at: 0.2, duration: DURATION - 0.2,
+        style: { fontFamily: MONO, fontSize: 13, letterSpacing: 3, fill: '#fff4e4' },
+        initial: { x: LX, y: 92, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.55 }, duration: 0.8 }] },
+      { type: 'text', name: 'caption', text: 'Six bodies released into a circle.\nGravity, and nothing lost on impact.\nEvery collision is a note.', at: 0.5, duration: DURATION - 0.5,
+        style: { fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 19, lineHeight: 30, fill: '#fff4e4', align: 'left' },
+        initial: { x: LX, y: 128, alpha: 0 }, keyframes: [{ at: 0, from: { y: 138 }, to: { y: 128, alpha: 0.78 }, duration: 1, ease: 'power2.out' }, { at: 10.2, to: { alpha: 0 }, duration: 0.6 }] },
+      canvasLayer('panel', drawPanel, { width: 250, height: 100, at: PANEL_AT, duration: DURATION - PANEL_AT, initial: { x: LX, y: 470, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8 }] }),
+      // the end
+      { type: 'text', name: 'title', text: 'Elastic', at: 11.4, duration: DURATION - 11.4,
+        style: { fontFamily: 'Georgia, "Times New Roman", serif', fontStyle: 'italic', fontSize: 92, fill: '#fff4e4' },
+        initial: { x: LX - 4, y: 230, alpha: 0 }, keyframes: [{ at: 0, from: { y: 250 }, to: { y: 230, alpha: 1 }, duration: 1.1, ease: 'power3.out' }] },
+      { type: 'text', name: 'sub', text: `${BODIES.length} bodies · ${SIM.count} collisions · ${T_SIM.toFixed(0)} seconds`, at: 11.9, duration: DURATION - 11.9,
+        style: { fontFamily: MONO, fontSize: 14, letterSpacing: 2, fill: '#ffc27e' },
+        initial: { x: LX, y: 352, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.9 }, duration: 0.8 }] },
+      ...sounds,
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 12.8,
+        background: '#06070a',
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>
