@@ -36,4 +36,12 @@ describe('samplePath(d): walk an SVG path by length (for draw-on lines, text on 
     expect(() => samplePath('M 5 5')).toThrow(/samplePath.*no length/);
     expect(() => samplePath('')).toThrow(/samplePath/);
   });
+
+  it('a closed sub-path trimmed whole still has its closing side (the draw-on line of a rectangle must not lose its last edge when it reaches 1)', () => {
+    const p = samplePath('M 0 0 L 100 0 L 100 100 L 0 100 Z');
+    expect(p.length).toBe(400);
+    expect(p.trim(0, 1)).toEqual([[0, 0, 100, 0, 100, 100, 0, 100, 0, 0]]);
+    const almost = p.trim(0, 0.999)[0]!;
+    expect(almost.slice(-2)[0]).toBe(0);                                   // both end on the way back to the start
+  });
 });

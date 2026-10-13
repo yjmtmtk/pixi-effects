@@ -50,7 +50,7 @@ export function samplePath(d: string): PathSampler {
       return { x: g.x0 + (g.x1 - g.x0) * t, y: g.y0 + (g.y1 - g.y0) * t, angle: Math.atan2(g.y1 - g.y0, g.x1 - g.x0) };
     },
     trim(start = 0, end = 1) {
-      return trimPolylines(lines, start, end).map(l => l.pts);
+      return trimPolylines(lines, start, end).map(l => (l.closed ? [...l.pts, l.pts[0]!, l.pts[1]!] : l.pts));       // a closed sub-path kept whole still has its closing side
     },
   };
 }

@@ -581,7 +581,7 @@ export interface CanvasInfo {
   state: unknown;
   /** A seeded random generator: its sequence starts again at every call of `draw`, so a frame always draws the same numbers. */
   random: () => number;
-  /** Where the layer starts on the movie's clock (its `at`, plus the starts of the compositions around it): `time = start + t`. In `setup` it is the layer's own `at`. */
+  /** Where the layer starts on the movie's clock (its `at`, plus the starts of the compositions around it): `time = start + t`. Inside a time-remapped composition (`speed` / `time`) it is that composition's own clock. In `setup` it is the layer's own `at`. */
   start: number;
   /** The movie's time at this call: what several canvas layers (and the sound) share, whatever each layer's `at`. */
   time: number;

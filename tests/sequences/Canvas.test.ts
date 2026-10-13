@@ -69,6 +69,17 @@ describe('the canvas layer: what draw is given', () => {
     expect(info.time).toBe(2.75);
   });
 
+  it('the first frame of a layer inside a group that starts later is drawn with the right start and time (the build draws it before the group is bound, so the first request must redraw)', async () => {
+    const draw = vi.fn();
+    const { comp } = await build([{ type: 'composition', name: 'g', at: 5, duration: 2, width: 200, height: 100, sequences: [cv({ at: 0, duration: 1, draw })] }]);
+    draw.mockClear();
+    const g = (comp as unknown as { _children: Array<{ spec: { name?: string }; _children: Layer[] }> })._children.find(c => c.spec.name === 'g')!;
+    await g._children[0]!.awaitFrameAt(0);
+    expect(draw).toHaveBeenCalledTimes(1);
+    const info = draw.mock.calls[0]![2] as CanvasInfo;
+    expect([info.start, info.time]).toEqual([5, 5]);
+  });
+
   it('info.canvas(w, h) gives an offscreen canvas of that size whose 2D context is made for reading (willReadFrequently: the CPU rasteriser, which draws the same picture the first time and every time after)', async () => {
     const asked: unknown[][] = [];
     const spy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(function (this: HTMLCanvasElement, type: string, ...rest: unknown[]) { asked.push([this.width, this.height, type, ...rest]); return rec.ctx as never; } as never);
@@ -241,7 +252,7 @@ describe('the canvas layer: is the same frame the same picture', () => {
     });
     return { ctx };
   }
-  type Checked = Layer & { checkDeterminism(times: number[]): { differs: Array<{ t: number; pixels: number; maxDiff: number }>; drawMs: number } };
+  type Checked = Layer & { checkDeterminism(times: number[]): { differs: Array<{ t: number; pixels: number; maxDiff: number }>; drawMs: number; threw: number[] } };
 
   it('checkDeterminism draws each time twice and lists the times where the two pictures differ', async () => {
     installCanvas(null, pixelCtx() as never);
@@ -273,6 +284,15 @@ describe('the canvas layer: is the same frame the same picture', () => {
     const { comp } = await build([cv({ name: 'warm', draw: (ctx: CanvasRenderingContext2D, t: number) => { ctx.fillRect(seen.has(t) ? 5 : 99, 0, 1, 1); seen.add(t); } })]);
     seen.clear();
     expect((layer(comp, 'warm') as Checked).checkDeterminism([0.5, 1]).differs).toEqual([]);
+  });
+
+  it('a draw that throws at a checked moment is listed in threw (its checkerboard must not pass for a picture that is the same twice)', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    installCanvas(null, pixelCtx() as never);
+    const { comp } = await build([cv({ name: 'bad', draw: (ctx: CanvasRenderingContext2D, t: number) => { if (t > 0.9) throw new Error('boom'); ctx.fillRect(1, 0, 1, 1); } })]);
+    const r = (layer(comp, 'bad') as Checked).checkDeterminism([0.5, 1, 2]);
+    expect(r.threw).toEqual([1, 2]);
+    expect(r.differs).toEqual([]);
   });
 
   it('a layer that failed (no draw) has nothing to check', async () => {

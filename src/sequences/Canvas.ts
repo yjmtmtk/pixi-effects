@@ -8,7 +8,7 @@ import type { PathRouters } from '../core/Timeline';
 import type { CanvasInfo, CanvasSequenceSpec, PropValue } from '../types';
 
 /** What the determinism check found: the moments whose two pictures differ (channel values that differ, the largest difference out of 255; -1 when only a hash was compared) and the usual time of one draw. */
-export interface CanvasCheck { differs: Array<{ t: number; pixels: number; maxDiff: number }>; drawMs: number }
+export interface CanvasCheck { differs: Array<{ t: number; pixels: number; maxDiff: number }>; drawMs: number; /** Moments where `draw` threw (or the layer has no working draw): the picture there is a checkerboard, which is not a picture that is the same twice. */ threw: number[] }
 
 const MAX_SIZE = 8192;
 const MIN_RESOLUTION = 0.25;
@@ -177,7 +177,7 @@ export class CanvasSequence extends Sequence {
     if (!c) return;
     const ctx = c.getContext('2d');
     if (!ctx) { this.say('this browser gave no 2D context for the layer\'s canvas, so nothing can be drawn'); return; }
-    const key = `${local}|${JSON.stringify(this.carrier)}`;
+    const key = `${local}|${this.absoluteStart ?? this.at}|${JSON.stringify(this.carrier)}`;     // the start is part of what info says: the build draws before the layer is bound to its clock
     if (key === this.lastKey) return;                              // the same frame again: nothing changes
     this.lastKey = key;
     this.lastLocal = local;
@@ -212,12 +212,13 @@ export class CanvasSequence extends Sequence {
   /**
    * Draws each of `times` in two orders and returns the moments where the pictures differ (a draw that uses Math.random, the clock or state that outlives the call), with how much
    * (channel values that differ, the largest difference out of 255), and how long a draw took. One draw of every moment comes first and is thrown away: a browser can draw a canvas
-   * made in `setup` differently the first time it is used as a source, and a cache a draw fills on its first call is fine. The picture the layer showed before is drawn again at the end.
-   * A layer that failed has nothing to check.
+   * made in `setup` differently the first time it is used as a source, and a cache a draw fills on its first call is fine. The layer's own canvas is not touched (everything is drawn in a scratch canvas).
+   * A layer that failed, or a draw that throws, is reported in `threw`.
    */
   checkDeterminism(times: number[]): CanvasCheck {
-    const none: CanvasCheck = { differs: [], drawMs: 0 };
-    if (!this.canvas || this.failed || !this.drawFn) return none;
+    const none: CanvasCheck = { differs: [], drawMs: 0, threw: [] };
+    if (!this.canvas) return none;
+    if (this.failed || !this.drawFn) return { ...none, threw: [...times] };
     // A scratch canvas of the same size that is read from the start (`willReadFrequently`: drawn by the CPU): reading the pixels of the layer's own canvas a few times would make
     // Chrome move it from the GPU to the CPU in the middle of the check, and the two rasterisers anti-alias a few pixels differently, which is not the author's fault.
     const scratch = document.createElement('canvas');
@@ -230,9 +231,10 @@ export class CanvasSequence extends Sequence {
     const read = (): Uint8ClampedArray => ctx.getImageData(0, 0, scratch.width, scratch.height).data;
     const hash = (d: Uint8ClampedArray): number => { let h = 0x811c9dc5; for (let i = 0; i < d.length; i++) { h ^= d[i]!; h = Math.imul(h, 0x01000193); } return h >>> 0; };
     const ms: number[] = [];
+    const threw = new Set<number>();
     const once = (t: number, timed: boolean): Uint8ClampedArray => {
       const from = performance.now();
-      this.paint(ctx, scratch, t);
+      if (!this.paint(ctx, scratch, t)) threw.add(t);
       if (timed) { ctx.getImageData(0, 0, 1, 1); ms.push(performance.now() - from); }       // a canvas keeps its calls until something reads it: one pixel makes the browser do the drawing, so the time is the draw's
       return read();
     };
@@ -249,7 +251,7 @@ export class CanvasSequence extends Sequence {
       if (pixels) differs.push({ t, pixels, maxDiff });
     });
     ms.sort((x, y) => x - y);
-    return { differs, drawMs: ms.length ? ms[Math.floor(ms.length / 2)]! : 0 };
+    return { differs: differs.filter(d => !threw.has(d.t)), drawMs: ms.length ? ms[Math.floor(ms.length / 2)]! : 0, threw: times.filter(t => threw.has(t)) };
   }
 
   private checkerboard(ctx: CanvasRenderingContext2D, c: HTMLCanvasElement): void {

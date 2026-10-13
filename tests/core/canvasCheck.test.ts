@@ -91,5 +91,13 @@ describe('canvasReport: what the check tells even when every canvas layer passes
     expect(problem).toMatch(/up to \d+ of 255/);
     expect(problem).toMatch(/info\.canvas/);
   });
-});
 
+  it('a layer whose draw throws is not "deterministic": its row is not ok and the sentence says it drew a checkerboard', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const comp = await build([{ type: 'canvas', name: 'bad', draw: () => { throw new Error('boom'); } }]);
+    const [row] = canvasReport(comp);
+    expect(row!.ok).toBe(false);
+    expect(row!.problem).toMatch(/"bad"/);
+    expect(row!.problem).toMatch(/threw|checkerboard/);
+  });
+});
