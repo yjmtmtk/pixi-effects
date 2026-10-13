@@ -222,6 +222,16 @@ describe('analyzeAudio: a sound buried under the rest of the mix (an author who 
     expect(run(0.3).notes.some(n => /buried/.test(n))).toBe(false);                       // about 9 dB under: still audible
   });
 
+  it('layers with no name are counted one by one (they all carry the same label), and the volume is printed rounded', () => {
+    const bedMix = pcm(8, t => loud(t) + (((t >= 2 && t < 3) || (t >= 4 && t < 5) || (t >= 6 && t < 7)) ? 0.04 * Math.sin(2 * Math.PI * 1000 * t) : 0));
+    const unnamed = (start: number): AudioDescriptor => ({ ...sfx('hit', start, 0.04), layer: undefined, volumeKeyframes: [], initialVolume: 0.30038536902602725 });
+    const r = analyzeAudio(bedMix, [bed, unnamed(2), unnamed(4), unnamed(6)], { peak: 0.54, peakAt: 2 }, 8, { window: 1 });
+    const note = r.notes.find(n => /buried/.test(n))!;
+    expect(note).toMatch(/3 sound effects are buried/);
+    expect(note).not.toMatch(/0\.30038/);
+    expect(note).toMatch(/volume 0\.3\b/);
+  });
+
   it('many of them, however often they play, are still one note that counts the distinct ones', () => {
     const bedMix = pcm(8, t => loud(t) + (((t >= 2 && t < 3) || (t >= 4 && t < 5)) ? 0.04 * Math.sin(2 * Math.PI * 1000 * t) : 0));
     const r = analyzeAudio(bedMix, [bed, sfx('hit', 2, 0.04), sfx('hit', 4, 0.04), sfx('pop', 6, 0.04)], { peak: 0.54, peakAt: 2 }, 8, { window: 1 });

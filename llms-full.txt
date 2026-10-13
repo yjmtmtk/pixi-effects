@@ -710,7 +710,7 @@ return [
 ];
 ```
 
-A **simulation** (a game of life) is computed WHOLE in `setup`, one array per generation, and `draw` only reads `info.frame`: a pure function of the frame, so a seek or an export agrees with playback:
+A **simulation** (a game of life) is computed WHOLE in `setup`, one array per generation, and `draw` only reads the generation for the time (`info.frame`, or here `t`): a pure function of the time, so a seek or an export agrees with playback:
 
 ```js
 // @recipe canvas-life

@@ -211,8 +211,9 @@ export function analyzeAudio(
   // ONE note for the movie (an accent that is meant to be subtle is common: the numbers are in every source's `belowMixDb`): how many, and the worst
   if (buried.length > 0) {
     const worst = buried.reduce((a, b) => (b.belowMixDb > a.belowMixDb ? b : a));
-    const names = new Set(buried.map(x => x.layer + x.source));
-    scoreNotes.push(`${names.size === 1 ? '1 sound effect is' : `${names.size} sound effects are`} buried (${BURIED_DB} dB or more under the loudest sample of the mix around its loudest moment${buried.length > names.size ? `, ${buried.length} times in all` : ''}): the worst is ${worst.layer} (${worst.source}), its own peak ${worst.ownDb} dBFS at volume ${worst.topVolume} against ${worst.around} dBFS at ${worst.at} s, ${worst.belowMixDb} dB louder. If it is meant to be heard, raise its volume (an accent over music needs 2 to 3) or lower what plays there; every source's belowMixDb has its own number`);
+    // layers with no name all carry the same label, so they are counted one by one; a named layer that plays many times counts once
+    const distinct = new Set(buried.map(x => (x.layer === 'an audio layer' ? `#${buried.indexOf(x)}` : x.layer) + x.source)).size;
+    scoreNotes.push(`${distinct === 1 ? '1 sound effect is' : `${distinct} sound effects are`} buried (${BURIED_DB} dB or more under the loudest sample of the mix around its loudest moment${buried.length > distinct ? `, ${buried.length} times in all` : ''}): the worst is ${worst.layer} (${worst.source}), its own peak ${worst.ownDb} dBFS at volume ${Math.round(worst.topVolume * 100) / 100} against ${worst.around} dBFS at ${worst.at} s, ${worst.belowMixDb} dB louder. If it is meant to be heard, raise its volume (an accent over music needs 2 to 3) or lower what plays there; every source's belowMixDb has its own number`);
   }
   // the mix as a whole, scene by scene, and the advice
   const whole = measureLoudness(chans, sr);
