@@ -72,6 +72,32 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     expect(existsSync(join(out, 'sfx-export.mp4'))).toBe(true);
   }, 190_000);
 
+  it('a picture that hides or cuts through text is listed for review (an opaque card over it, a rule through it) and a shadow, a glow, a ring and a backdrop are not', async () => {
+    const out = mkdtempSync(join(tmpdir(), 'check-overlap-'));
+    await promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/overlap-picture.html'), '--no-export', '--out', out, '--timeout', '150'], { timeout: 170_000 });
+    const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));
+    const said = report.inspect.review.map((g: { message: string }) => g.message).join('\n');
+    expect(said).toMatch(/"hidden-text" and shape layer "card-over" overlap/);
+    expect(said).toMatch(/"struck-text" and shape layer "rule-through" overlap/);
+    for (const quiet of ['shadow-under', 'glow', 'ring', 'panel']) expect(said, quiet).not.toContain(`layer "${quiet}"`);
+    expect(report.problems).toEqual([]);                                       // a review item, not a failure
+  }, 190_000);
+
+  it('--crop X,Y,W,H (with --at) writes each picture as that part of the canvas, enlarged, so a 40 px figure can be judged; a bad crop or --crop without --at exits 2', async () => {
+    const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/render-range.html'), ...args, '--timeout', '150'], { timeout: 170_000 });
+    const out = mkdtempSync(join(tmpdir(), 'check-crop-'));
+    await run(['--out', out, '--no-export', '--at', '1,2', '--crop', '0,0,160,90']);
+    const png = (f: string) => { const b = readFileSync(join(out, f)); return { sig: b.subarray(1, 4).toString(), w: b.readUInt32BE(16), h: b.readUInt32BE(20) }; };
+    expect(png('frames/1.00s.png')).toEqual({ sig: 'PNG', w: 640, h: 360 });                  // 160 x 90 enlarged 4x
+    expect(png('frames/2.00s.png')).toEqual({ sig: 'PNG', w: 640, h: 360 });
+    expect(png('at.png').sig).toBe('PNG');
+    const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));
+    expect(report.crop).toEqual({ x: 0, y: 0, width: 160, height: 90, scale: 4 });
+    for (const bad of [['--crop', '0,0,160,90'], ['--at', '1', '--crop', '10,10'], ['--at', '1', '--crop', '0,0,0,50'], ['--at', '1', '--crop', '5000,0,100,100']]) {
+      await expect(run(['--out', out, '--no-export', ...bad]), bad.join(' ')).rejects.toMatchObject({ code: 2 });
+    }
+  }, 280_000);
+
   it('--at writes the pictures you name (and a sheet); --draft makes the export a half-size draft; a bad --at exits 2 naming the layers', async () => {
     const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/render-range.html'), ...args, '--timeout', '150'], { timeout: 170_000 });
     const out = mkdtempSync(join(tmpdir(), 'check-at-'));

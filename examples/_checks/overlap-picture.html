@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>check · a picture that hides or cuts through text</title>
+</head>
+<body>
+  <!--
+    Acceptance check (not an example): one text, several pictures around it. tests/tools/check.test.ts expects `check` to list the first two (an opaque card drawn over the
+    text, a thin rule through it) and none of the others (a shadow under the text, a soft glow, a stroke-only ring, a backdrop that holds the whole text).
+  -->
+  <canvas id="stage" width="1280" height="720"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":    "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+      "pixi-filters": "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const bg = { type: 'shape', shape: 'rect', name: 'backdrop', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101420' } };
+    const label = (name, y, extra = {}) => ({ type: 'text', name, text: 'Quarterly results', style: { fontSize: 60, fill: '#ffffff' }, initial: { x: 640, y, anchorX: 0.5, anchorY: 0.5 }, ...extra });
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 2, frameRate: 30,
+        composition: { sequences: [
+          bg,
+          // 1: an opaque card drawn OVER the right half of its text
+          label('hidden-text', 100),
+          { type: 'shape', shape: 'rect', name: 'card-over', width: 220, height: 90, anchorX: 0, anchorY: 0.5, initial: { x: 700, y: 100, fillColor: '#3b5bdb' } },
+          // 2: a thin rule through the middle of its text
+          label('struck-text', 230),
+          { type: 'shape', shape: 'rect', name: 'rule-through', width: 600, height: 4, initial: { x: 640, y: 230, fillColor: '#ffd166' } },
+          // not reported: a shadow UNDER the text, a soft glow, a stroke-only ring, a backdrop that holds the whole text
+          { type: 'shape', shape: 'rect', name: 'shadow-under', width: 520, height: 80, initial: { x: 646, y: 366, fillColor: '#000000' } },
+          label('shadowed-text', 360),
+          label('glowing-text', 490),
+          { type: 'shape', shape: 'circle', name: 'glow', radius: 60, initial: { x: 640, y: 490, fillColor: '#ffd166', alpha: 0.9 }, filters: [{ type: 'blur', strength: 20 }] },
+          { type: 'shape', shape: 'circle', name: 'ring', radius: 70, initial: { x: 640, y: 490, strokeColor: '#ffffff', strokeWidth: 3 } },
+          { type: 'shape', shape: 'rect', name: 'panel', width: 700, height: 100, initial: { x: 640, y: 620, fillColor: '#1f2a44' } },
+          label('held-text', 620),
+        ] },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+  </script>
+</body>
+</html>

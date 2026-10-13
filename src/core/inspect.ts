@@ -113,6 +113,9 @@ export function inspectScene(
   const scaledToNothing = new Set<LayerInfo>();
   // Layers with a geometry tween at some time: waiting outside the canvas for an entrance, or parked there after an exit, is on purpose.
   const hasMotion = new Set<LayerInfo>();
+  // What each layer is (a shape's kind, or its type): only boxes are compared with text for crossings.
+  const kinds = new Map<LayerInfo, string>();
+  const specs = new Map<LayerInfo, Record<string, unknown>>();
 
   const walk = (comp: CompositionSequence, prefix: string, insideThreeD: boolean, parentVisible: boolean, parentScene?: string, parentMotion: Motion = NO_MOTION, parentZero = false): void => {
     const blending = new Set<string>();
@@ -157,6 +160,8 @@ export function inspectScene(
       if (threeD) info.depthBlur = Number(depthBlur.toFixed(2));
       if (threeD && light !== undefined) info.light = Number(light.toFixed(2));
       layers.push(info);
+      specs.set(info, seq.spec as unknown as Record<string, unknown>);
+      kinds.set(info, seq.spec.type === 'shape' ? String((seq.spec as { shape?: string }).shape) : seq.spec.type);
       if (motion.ever) hasMotion.add(info);
       let shown = bounds ? clip(bounds, view) : null;
       const maskTarget = seq.maskSequence?.target as Container | null | undefined;
@@ -207,6 +212,45 @@ export function inspectScene(
       if (smaller <= 0) continue;
       const share = intersection(a, b) / smaller;
       if (share > 0.25) issues.push(`text layers "${texts[i]!.path}" and "${texts[j]!.path}" overlap by ${Math.round(share * 100)}% of the smaller one`);
+    }
+  }
+  // Pictures that hide or cut through text, judged on boxes, and only the clear cases (most overlaps of a picture with text are on purpose: a shadow, a glow, a ripple, a card
+  // behind a word, so a general "this overlaps that" would be noise). (1) An opaque box drawn OVER the text and covering part of it: the text is hidden there. (2) A hairline (a
+  // line, or a rule a few pixels thick) drawn OVER the body of the text. Not text-on-card (a box that holds the whole text), not a soft or blended
+  // layer, not a stroke-only ring. An "overlap" kind: it goes to the review list, never fails the check.
+  const FILLED = new Set(['rect', 'circle', 'ellipse', 'image', 'video']);
+  for (const t of texts) {
+    const tb = seen.get(t);
+    if (!tb) continue;
+    const area = tb.width * tb.height;
+    if (!(area > 0)) continue;
+    for (const o of layers) {
+      if (o === t || o.type === 'text' || !o.visible || !o.bounds) continue;
+      if (o.path.startsWith(t.path + '/') || t.path.startsWith(o.path + '/')) continue;
+      const kind = kinds.get(o) ?? o.type, spec = specs.get(o) ?? {};
+      const initial = (spec.initial ?? {}) as Record<string, unknown>;
+      const hairline = (kind === 'line' || kind === 'rect') && Math.min(o.bounds.width, o.bounds.height) < 12 && Math.max(o.bounds.width, o.bounds.height) >= 40;
+      const soft = (spec.blendMode !== undefined && spec.blendMode !== 'normal') || (Array.isArray(spec.filters) && spec.filters.length > 0);
+      const filled = kind === 'image' || kind === 'video' || initial.fillColor !== undefined || spec.fillGradient !== undefined || initial.fillGradient !== undefined;
+      const over = layers.indexOf(o) > layers.indexOf(t);
+      const hides = FILLED.has(kind) && !hairline && filled && !soft && over && o.alpha >= 0.8;
+      const cuts = hairline && !soft && over && o.alpha >= FAINT;                    // a grid line or a rule BEHIND the text is a design; one drawn over it is not
+      if (!hides && !cuts) continue;
+      const st = scene.get(t), so = scene.get(o);
+      if (st && so && st !== so) continue;                                // the two scenes of a running transition
+      const ob = seen.get(o);
+      if (!ob) continue;
+      const covered = intersection(tb, ob) / area;
+      if (cuts) {
+        // a hairline counts when it runs through the BODY of the text (the middle 60% across, over at least 30% along): a rule just under or above the box is a rule
+        const horizontal = ob.width >= ob.height;
+        const mid = horizontal ? ob.y + ob.height / 2 : ob.x + ob.width / 2;
+        const lo = horizontal ? tb.y + tb.height * 0.2 : tb.x + tb.width * 0.2, hi = horizontal ? tb.y + tb.height * 0.8 : tb.x + tb.width * 0.8;
+        const along = horizontal ? Math.min(ob.x + ob.width, tb.x + tb.width) - Math.max(ob.x, tb.x) : Math.min(ob.y + ob.height, tb.y + tb.height) - Math.max(ob.y, tb.y);
+        if (mid < lo || mid > hi || along < 0.3 * (horizontal ? tb.width : tb.height)) continue;
+      } else if (covered < 0.1 || covered >= 0.9) continue;
+      const word = kind === 'image' || kind === 'video' ? kind : 'shape';
+      issues.push(`text layer "${t.path}" and ${word} layer "${o.path}" overlap: it covers ${Math.round(covered * 100)}% of the text (drawn ${over ? 'over' : 'under'} it)`);
     }
   }
   const mode = opts.layers ?? 'all';

@@ -153,7 +153,7 @@ Where every layer is drawn at `frame`, as JSON — for checking layout without e
 interface InspectReport {
   frame: number; time: number; canvas: { width: number; height: number };
   summary: { layers: number; visible: number };
-  issues: string[];              // text off the canvas / cut by an edge / empty / overlapping other text — read this first
+  issues: string[];              // text off the canvas / cut by an edge / empty / overlapping other text / partly hidden by an opaque shape or image drawn over it / struck through by a thin line drawn over it — read this first
   layers: Array<{
     path: string;                // names (or type#index) from the root, joined by '/'
     name?: string; type: string; threeD: boolean;

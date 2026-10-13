@@ -15,6 +15,7 @@
  *
  * Options: --draft (the export is a draft: half size, low quality, no motion blur: a much smaller file; the drawing itself is not faster) · --at LIST (pictures at moments you name: 3.5, 50%, f120, title@end → frames/*.png and at.png) ·
  *          --query "a=1&b=2" (added to the page address: for a page that reads it, such as one video of a batch) ·
+ *          --crop X,Y,W,H (with --at: each picture is that part of the canvas, in canvas pixels, enlarged up to 4x so a small figure can be judged) ·
  *          --onion A:B (one picture of the movement between A and B seconds, frames overlaid: onion.png) ·
  *          --strict (text overlaps and stops where the picture is still changing fail the check; by default they are only listed for review) · --out DIR · --frames N (contact sheet tiles, default 12) · --formats mp4,webm (default mp4) · --no-export ·
  *          --timeout SECONDS (default 240) · --root DIR (static server root; default: the nearest folder above the page with dist/) · --chrome PATH
@@ -79,10 +80,10 @@ export function findChrome(env = process.env, exists = fs.existsSync, platform =
   return candidates.find(c => c && exists(c)) ?? null;
 }
 
-export const USAGE = 'usage: node ai/tools/check.mjs <page.html> [--out DIR] [--frames N] [--formats mp4,webm] [--no-export] [--draft] [--at 3.5,title@end] [--onion 1:3] [--query a=1&b=2] [--var name=value] [--size 1920x1080,1080x1920] [--timeout S] [--root DIR] [--chrome PATH] [--strict] [--help]\n(the header of ai/tools/check.mjs explains each option)';
+export const USAGE = 'usage: node ai/tools/check.mjs <page.html> [--out DIR] [--frames N] [--formats mp4,webm] [--no-export] [--draft] [--at 3.5,title@end] [--crop X,Y,W,H] [--onion 1:3] [--query a=1&b=2] [--var name=value] [--size 1920x1080,1080x1920] [--timeout S] [--root DIR] [--chrome PATH] [--strict] [--help]\n(the header of ai/tools/check.mjs explains each option)';
 
 export function parseArgs(argv) {
-  const o = { page: null, out: null, frames: 12, formats: ['mp4'], export: true, timeout: 240, root: null, chrome: null, strict: false, at: null, draft: false, onion: null, query: null, vars: [], sizes: [], help: false };
+  const o = { page: null, out: null, frames: 12, formats: ['mp4'], export: true, timeout: 240, root: null, chrome: null, strict: false, at: null, crop: null, draft: false, onion: null, query: null, vars: [], sizes: [], help: false };
   const need = (i, name) => { if (i + 1 >= argv.length) throw new Error(`${name} needs a value`); return argv[i + 1]; };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -95,6 +96,11 @@ export function parseArgs(argv) {
     else if (a === '--draft') o.draft = true;
     else if (a === '--query') o.query = need(i++, a).replace(/^\?/, '');
     else if (a === '--at') o.at = need(i++, a);
+    else if (a === '--crop') {
+      const m = need(i++, a).split(',').map(Number);
+      if (m.length !== 4 || !m.every(Number.isFinite) || m[0] < 0 || m[1] < 0 || m[2] < 1 || m[3] < 1) throw new Error(`--crop must look like 100,200,400,300 (x, y, width, height in canvas pixels, width and height at least 1), got "${argv[i]}"`);
+      o.crop = { x: Math.round(m[0]), y: Math.round(m[1]), width: Math.round(m[2]), height: Math.round(m[3]) };
+    }
     else if (a === '--var') o.vars.push(parseVar(need(i++, a)));
     else if (a === '--size') o.sizes.push(...parseSizes(need(i++, a)));
     else if (a === '--onion') {
@@ -109,6 +115,7 @@ export function parseArgs(argv) {
     else if (!o.page) o.page = a;
     else throw new Error(`unexpected argument ${a}`);
   }
+  if (o.crop && !o.at) throw new Error('--crop crops the pictures of --at: give --at too (for example --at 3.5 --crop 100,200,400,300)');
   return o;
 }
 
@@ -377,6 +384,7 @@ export async function runCheck(opts, log = console.log) {
       if (r.error) throw new Error(r.error.replace(/^pixi-effects: /, ''));
       atList = r.at;
     }
+    if (opts.crop && (opts.crop.x + opts.crop.width > info.width || opts.crop.y + opts.crop.height > info.height)) throw new Error(`--crop ${opts.crop.x},${opts.crop.y},${opts.crop.width},${opts.crop.height} goes past the canvas (${info.width}×${info.height})`);
     if (opts.onion && opts.onion[1] > info.duration + 1e-9) throw new Error(`--onion ${opts.onion[0]}:${opts.onion[1]} goes past the end: the movie is ${info.duration} s`);
 
     const rv = await cdp.eval(`movie.review(${JSON.stringify({ strict: !!opts.strict })})`);
@@ -399,8 +407,15 @@ export async function runCheck(opts, log = console.log) {
       const framesDir = path.join(outDir, 'frames');
       fs.mkdirSync(framesDir, { recursive: true });
       for (const old of fs.readdirSync(framesDir)) if (old.endsWith('.png')) fs.rmSync(path.join(framesDir, old));        // the pictures of an earlier run: frames/ shows this run's moments only
+      // --crop: that part of the canvas, enlarged by a whole factor (up to 4x, the longer side to about 800 px) with no smoothing, so small figures and fine lines can be judged
+      const crop = opts.crop ? { ...opts.crop, scale: Math.max(1, Math.min(4, Math.floor(800 / Math.max(opts.crop.width, opts.crop.height)))) } : null;
+      const cropped = [];
       for (const w of wanted) {
-        const png = await cdp.eval(`movie.snapshot(${w.frame}, { as: 'dataURL' })`);
+        let png = await cdp.eval(`movie.snapshot(${w.frame}, { as: 'dataURL' })`);
+        if (crop) {
+          png = await cdp.eval(`(async (url, c) => { const img = new Image(); img.src = url; await img.decode(); const cv = document.createElement('canvas'); cv.width = c.width * c.scale; cv.height = c.height * c.scale; const g = cv.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(img, c.x, c.y, c.width, c.height, 0, 0, cv.width, cv.height); return cv.toDataURL('image/png'); })(${JSON.stringify(png)}, ${JSON.stringify(crop)})`);
+          cropped.push(png);
+        }
         fs.writeFileSync(path.join(framesDir, `${w.label}.png`), Buffer.from(png.slice(png.indexOf(',') + 1), 'base64'));
         // depth of field: the blur (px) each threeD layer has at this moment, so a focus pull can be read as numbers (0 = sharp)
         const rows = await cdp.eval(`movie.inspect(${w.frame}).then(r => r.layers.filter(l => l.depthBlur !== undefined).map(l => [l.path, l.depthBlur]))`).catch(() => []);
@@ -409,12 +424,15 @@ export async function runCheck(opts, log = console.log) {
         const lit = await cdp.eval(`movie.inspect(${w.frame}).then(r => r.layers.filter(l => l.light !== undefined).map(l => [l.path, l.light]))`).catch(() => []);
         if (lit.length) w.light = Object.fromEntries(lit);
       }
-      const atSheet = await cdp.eval(`movie.contactSheet({ frames: ${JSON.stringify(wanted.map(w => w.frame))}, as: 'dataURL' })`);
+      const atSheet = crop
+        ? await cdp.eval(`(async (urls) => { const imgs = await Promise.all(urls.map(async u => { const i = new Image(); i.src = u; await i.decode(); return i; })); const cols = Math.min(imgs.length, 3), rows = Math.ceil(imgs.length / cols), w = imgs[0].width, h = imgs[0].height; const cv = document.createElement('canvas'); cv.width = cols * w; cv.height = rows * h; const g = cv.getContext('2d'); imgs.forEach((im, k) => g.drawImage(im, (k % cols) * w, Math.floor(k / cols) * h)); return cv.toDataURL('image/png'); })(${JSON.stringify(cropped)})`)
+        : await cdp.eval(`movie.contactSheet({ frames: ${JSON.stringify(wanted.map(w => w.frame))}, as: 'dataURL' })`);
       const atFile = path.join(outDir, 'at.png');
       fs.writeFileSync(atFile, Buffer.from(atSheet.slice(atSheet.indexOf(',') + 1), 'base64'));
       report.files.at = shown(atFile);
       report.files.frames = shown(framesDir);
       report.at = wanted;
+      if (crop) report.crop = crop;
     }
 
     // --onion A:B: one picture of the movement between A and B seconds (8 frames overlaid, the later the stronger)

@@ -103,6 +103,26 @@ describe('new: a page to start from', () => {
   });
 });
 
+describe('help finds what is there: a heading written with spaces, a table row, a function-like word', () => {
+  const top = (w: string, n = 1) => lookup.searchDocs(root, w).slice(0, n).map((h: { file: string; heading: string }) => `${h.file}: ${h.heading}`);
+
+  it('motionBlur (one word) finds the section "Motion blur" (two words)', () => {
+    expect(top('motionBlur')[0]).toMatch(/Motion blur/);
+  });
+
+  it('path finds the shapes table where `path` is a row among the first three, not only the helpers whose name contains it (followPath, cameraPath)', () => {
+    expect(top('path', 3).join('\n')).toMatch(/dsl\.md: `shape`/);
+  });
+
+  it('steps finds the easing section, where `steps(n)` is written, before the music and the stops', () => {
+    expect(top('steps')[0]).toMatch(/Easing/);
+  });
+
+  it('a word that is only a prefix of a heading still works as before (mask, threeD, keyframes)', () => {
+    for (const w of ['mask', 'threeD', 'keyframes']) expect(lookup.searchDocs(root, w).length).toBeGreaterThan(0);
+  });
+});
+
 describe('new --size WxH --duration S: the page starts at the size and length asked for (the template had to be edited in three places)', () => {
   it('sets the canvas attributes and the W / H / DURATION constants; the poster follows the duration', () => {
     const dir = mkdtempSync(join(tmpdir(), 'new-size-'));

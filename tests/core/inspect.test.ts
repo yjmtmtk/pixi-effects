@@ -5,6 +5,7 @@ import { Sequence } from '../../src/sequences/Base';
 import { Container } from 'pixi.js';
 import { registerSequenceType } from '../../src/core/Composition';
 import { inspectScene } from '../../src/core/inspect';
+import { groupIssues, splitIssues } from '../../src/core/review';
 import { expandTransitions, transitionWindowsOf, carryTransitionWindows } from '../../src/core/Transitions';
 import type { CompositionSequenceSpec, CompositionShape } from '../../src/types';
 import { createTimeline } from '../../src/core/timelineEngine';
@@ -65,6 +66,47 @@ describe('inspectScene', () => {
     expect(overlap[0]).toContain('"one"');
     expect(overlap[0]).toContain('"two"');
     expect(overlap[0]).toMatch(/75%/);               // 150x100 of the 200x100 boxes
+  });
+
+  describe('a picture that crosses text (a shape or an image, not text)', () => {
+    // in this mock every layer's box is 200 x 100 at its x / y, whatever width / height it is given
+    const rect = (name: string, x: number, y: number, extra: Record<string, unknown> = {}) =>
+      ({ type: 'shape', shape: 'rect', name, width: 10, height: 10, initial: { x, y, fillColor: '#ff0000' }, ...extra });
+    const text = { type: 'text', name: 'label', text: 'a', initial: { x: 100, y: 100 } };
+    const crossing = (issues: string[]) => issues.filter(i => /\boverlap\b/.test(i) && i.includes('"label"') && !/text layers/.test(i));
+    const run = async (layers: unknown[]) => crossing(inspectScene(await scene(layers), 0, 0, { width: 1280, height: 720 }).issues);
+
+    it('flags an opaque shape that covers part of the text, naming both layers and how much (an "overlap" kind: a review item, not a failure)', async () => {
+      const [msg] = await run([text, rect('card', 150, 100)]);
+      expect(msg).toContain('"card"');
+      expect(msg).toContain('"label"');
+      expect(msg).toMatch(/\boverlap\b/);
+      expect(msg).toMatch(/75%/);
+    });
+
+    it('flags only an OPAQUE shape drawn OVER the text: under the text it is a shadow or a card, which is on purpose', async () => {
+      expect((await run([text, rect('card', 150, 100)]))[0]).toMatch(/drawn over it/);
+      expect(await run([rect('card', 150, 100), text])).toEqual([]);
+    });
+
+    it('is silent for a backdrop that holds the text (the same box), a shape somewhere else, a faint one, a blended or filtered one (a glow), a stroke-only ring, a path, and a text inside its own group', async () => {
+      expect(await run([rect('panel', 100, 100), text])).toEqual([]);                                  // the box of the text is the box of the panel: it holds it
+      expect(await run([text, rect('far', 700, 400)])).toEqual([]);
+      expect(await run([text, rect('ghost', 150, 100, { initial: { x: 150, y: 100, fillColor: '#f00', alpha: 0.5 } })])).toEqual([]);
+      expect(await run([text, rect('glow', 150, 100, { blendMode: 'screen' })])).toEqual([]);
+      expect(await run([text, { type: 'shape', shape: 'circle', name: 'ring', radius: 10, initial: { x: 150, y: 100, strokeColor: '#fff', strokeWidth: 2 } }])).toEqual([]);
+      expect(await run([text, { type: 'shape', shape: 'path', name: 'curve', d: 'M 0 0 L 400 400', initial: { x: 150, y: 100, fillColor: '#fff' } }])).toEqual([]);
+      const comp = await scene([{ type: 'composition', name: 'group', width: 400, height: 300, sequences: [text] }]);
+      expect(inspectScene(comp, 0, 0, { width: 1280, height: 720 }).issues).toEqual([]);
+    });
+
+    it('goes to the review list with the other overlaps, and fails only under --strict', async () => {
+      const issues = inspectScene(await scene([text, rect('card', 150, 100)]), 0, 0, { width: 1280, height: 720 }).issues;
+      const { problems, review } = splitIssues(groupIssues([{ frame: 0, issues }]));
+      expect(problems).toEqual([]);
+      expect(review).toHaveLength(1);
+      expect(splitIssues(groupIssues([{ frame: 0, issues }]), true).problems).toHaveLength(1);
+    });
   });
 
   it('reports hidden layers as not visible and does not raise issues for them', async () => {

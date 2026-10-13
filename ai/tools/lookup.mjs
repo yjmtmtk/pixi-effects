@@ -105,9 +105,13 @@ export function searchDocs(root, word) {
       const heading = s.heading.toLowerCase();
       const body = s.lines.join('\n').toLowerCase();
       if (!tokens.every(t => body.includes(t))) continue;
-      const inHeading = tokens.every(t => heading.includes(t));
+      const flat = (x) => x.replace(/[^a-z0-9]/g, '');                       // "motionBlur" is the heading "Motion blur"
+      const inHeading = tokens.every(t => heading.includes(t) || (flat(t).length > 2 && flat(heading).includes(flat(t))));
       const count = tokens.reduce((n, t) => n + body.split(t).length - 1, 0);
-      scored.push({ s, score: (inHeading ? 1000 : 0) + Math.min(count, 50) + bonus });
+      // the word as a table row (`| \`path\` | …`, the first cell) or as a call in code (`steps(n)`) says the section is ABOUT it, not that it only mentions it
+      const row = tokens.some(t => s.lines.some(l => new RegExp(`^\\|\\s*\\*{0,2}\\x60${t.replace(/[^a-z0-9]/g, '')}\\x60`).test(l.toLowerCase())));
+      const call = tokens.some(t => new RegExp(`\\x60[^\\x60]*\\b${t.replace(/[^a-z0-9]/g, '')}\\s*\\(`).test(body));
+      scored.push({ s, score: (inHeading ? 1000 : 0) + (row ? 1100 : 0) + (call ? 300 : 0) + Math.min(count, 50) + bonus });
     }
   }
   scored.sort((a, b) => b.score - a.score);
