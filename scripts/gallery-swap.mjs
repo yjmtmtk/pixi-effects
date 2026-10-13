@@ -14,7 +14,7 @@ import { readPiece, MODELS, GALLERY_DIR, DEFAULT_ROOT } from './build-gallery.mj
 
 const META_RE = /<script[^>]*\bid=["']piece-meta["'][^>]*>([\s\S]*?)<\/script>/i;
 const ALLOWED_HOSTS = ['cdn.jsdelivr.net', 'esm.sh'];             // the importmap and the loader stylesheet; nothing else may be fetched
-const HISTORY = [/^CHANGELOG\.md$/, /^docs\/superpowers\//, /^llms(-full)?\.txt$/, /^examples\/gallery\/pieces\.json$/, /^examples\/gallery\/posters\/manifest\.json$/, /^node_modules\//, /^dist\//, /^_site\//, /^\.git\//, /^examples\/gallery\/_notes\//, /^package-lock\.json$/];
+const HISTORY = [/^CHANGELOG\.md$/, /^docs\/superpowers\//, /^llms(-full)?\.txt$/, /^examples\/gallery\/pieces\.json$/, /^examples\/gallery\/posters\/manifest\.json$/, /^node_modules\//, /^dist\//, /^_site\//, /^guide-preview\//, /^\.git\//, /^examples\/gallery\/_notes\//, /^package-lock\.json$/];
 
 const fmtDuration = (d) => `${Number.isInteger(d) ? d : String(d)} s`;
 
