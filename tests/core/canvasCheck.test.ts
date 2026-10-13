@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('pixi.js', async () => (await import('../space/mockPixi')).createPixiMock());
 import { CompositionSequence } from '../../src/sequences/Composition';
-import { canvasProblems } from '../../src/core/canvasCheck';
+import { canvasProblems, canvasReport } from '../../src/core/canvasCheck';
 import { createTimeline } from '../../src/core/timelineEngine';
 import { installCanvas } from '../support/fakeGl';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
@@ -64,6 +64,32 @@ describe('canvasProblems: the canvas layers of a movie whose same frame is not t
       mask: { type: 'canvas', name: 'maskdraw', width: 50, height: 50, draw: (ctx: CanvasRenderingContext2D) => { ctx.fillRect(n++, 0, 1, 1); } } }]);
     const problems = canvasProblems(comp);
     expect(problems.some(m => m.includes('"maskdraw"'))).toBe(true);
+  });
+});
+
+describe('canvasReport: what the check tells even when every canvas layer passes', () => {
+  it('lists each canvas layer with the moments checked, a draw time and whether it passed (also inside a nested composition); no canvas layer, no rows', async () => {
+    let n = 0;
+    const comp = await build([
+      { type: 'canvas', name: 'pure', draw: (ctx: CanvasRenderingContext2D, t: number) => { ctx.fillRect(Math.round(t * 10), 0, 1, 1); } },
+      { type: 'composition', name: 'group', width: 200, height: 100, sequences: [
+        { type: 'canvas', name: 'leaky', draw: (ctx: CanvasRenderingContext2D) => { ctx.fillRect(n++, 0, 1, 1); } },
+      ] },
+    ]);
+    const rows = canvasReport(comp);
+    expect(rows.map(r => [r.name, r.ok])).toEqual([['pure', true], ['leaky', false]]);
+    expect(rows[0]!.moments).toHaveLength(4);
+    expect(rows[0]!.drawMs).toBeGreaterThanOrEqual(0);
+    expect(canvasReport(await build([{ type: 'shape', shape: 'rect', width: 10, height: 10 }]))).toEqual([]);
+  });
+
+  it('the sentence about a layer that differs gives the number of pixels and the largest difference, and does not blame only Math.random: it names the canvas-from-setup cause and info.canvas', async () => {
+    let n = 0;
+    const comp = await build([{ type: 'canvas', name: 'leaky', draw: (ctx: CanvasRenderingContext2D) => { ctx.fillRect(10 * n++, 0, 1, 1); } }]);
+    const [problem] = canvasProblems(comp);
+    expect(problem).toMatch(/differ/);
+    expect(problem).toMatch(/up to \d+ of 255/);
+    expect(problem).toMatch(/info\.canvas/);
   });
 });
 

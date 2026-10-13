@@ -1,6 +1,7 @@
 import type { Movie } from './Movie';
 import type { AudioReport } from './inspectAudio';
 import type { FontReport } from './inspectFonts';
+import type { CanvasRow } from './canvasCheck';
 import { namedScenes } from './scenes';
 
 /** One kind of issue, with how many frames it was seen in. Issues that differ only by numbers are one kind. */
@@ -20,6 +21,8 @@ export interface ReviewReport {
   problems: IssueGroup[];
   /** Text overlaps and fonts that are not available: often intentional, look at them on the contact sheet. */
   review: IssueGroup[];
+  /** Every canvas layer as the determinism check saw it (a failing one is also in `problems` with `kind: 'canvas'`). */
+  canvas: CanvasRow[];
   fonts: FontReport;
   /** The sound as numbers (`movie.inspectAudio()`), or null for a movie with no audio. */
   audio: AudioReport | null;
@@ -117,11 +120,12 @@ export async function reviewMovie(movie: Movie, opts: ReviewOptions = {}): Promi
     if (r.issues.length) perFrame.push({ frame, issues: r.issues });
   }
   const grouped = splitIssues(groupIssues(perFrame), !!opts.strict);
-  for (const message of movie.canvasProblems()) grouped.problems.push({ message, count: 1, firstFrame: 0, lastFrame: 0, kind: 'canvas' });       // a picture that changes by itself is a defect, not a matter of taste
+  const canvas = movie.canvasReport();
+  for (const r of canvas) if (!r.ok) grouped.problems.push({ message: r.problem, count: 1, firstFrame: 0, lastFrame: 0, kind: 'canvas' });       // a picture that changes by itself is a defect, not a matter of taste
   const fonts = movie.inspectFonts();
   for (const f of fonts.failedUnused) grouped.review.push({ message: `web font "${f}" failed to load, but no text layer uses it (a broken or unused @font-face)`, count: 1, firstFrame: 0, lastFrame: 0 });
   for (const m of fonts.missing) {
     (opts.strict ? grouped.problems : grouped.review).push({ message: `layer "${m.layer}": none of the fonts "${m.family}" is available here (it is drawn in a fallback font)`, count: 1, firstFrame: 0, lastFrame: 0 });
   }
-  return { frames: frames.length, problems: grouped.problems, review: grouped.review, fonts, audio: movie.audioBuffer ? movie.inspectAudio() : null, at };
+  return { frames: frames.length, problems: grouped.problems, review: grouped.review, canvas, fonts, audio: movie.audioBuffer ? movie.inspectAudio() : null, at };
 }

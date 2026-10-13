@@ -47,6 +47,39 @@ describe('the canvas layer: what draw is given', () => {
     expect(typeof info.random()).toBe('number');
   });
 
+  it('info.time is the movie\'s time and info.start is where the layer starts: time = start + t, whatever the layer\'s at (setup sees them too)', async () => {
+    const draw = vi.fn(), seen: CanvasInfo[] = [];
+    const { comp } = await build([cv({ at: 1.5, duration: 2, draw, setup: (i: CanvasInfo) => { seen.push(i); } })]);
+    expect(seen[0]).toMatchObject({ start: 1.5, time: 1.5 });
+    draw.mockClear();
+    await layer(comp, 'c').awaitFrameAt(0.5);
+    const info = draw.mock.calls[0]![2] as CanvasInfo;
+    expect(info.start).toBe(1.5);
+    expect(info.time).toBe(2);
+  });
+
+  it('info.start counts the compositions around the layer: a layer at 0.5 inside a group at 2 starts at 2.5 on the movie\'s clock', async () => {
+    const draw = vi.fn();
+    const { comp } = await build([{ type: 'composition', name: 'g', at: 2, duration: 2, width: 200, height: 100, sequences: [cv({ at: 0.5, duration: 1, draw })] }]);
+    draw.mockClear();
+    const g = (comp as unknown as { _children: Array<{ spec: { name?: string }; _children: Layer[] }> })._children.find(c => c.spec.name === 'g')!;
+    await g._children[0]!.awaitFrameAt(0.25);
+    const info = draw.mock.calls[0]![2] as CanvasInfo;
+    expect(info.start).toBe(2.5);
+    expect(info.time).toBe(2.75);
+  });
+
+  it('info.canvas(w, h) gives an offscreen canvas of that size whose 2D context is made for reading (willReadFrequently: the CPU rasteriser, which draws the same picture the first time and every time after)', async () => {
+    const asked: unknown[][] = [];
+    const spy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(function (this: HTMLCanvasElement, type: string, ...rest: unknown[]) { asked.push([this.width, this.height, type, ...rest]); return rec.ctx as never; } as never);
+    let made: HTMLCanvasElement | undefined;
+    await build([cv({ draw: vi.fn(), setup: (i: CanvasInfo) => { made = i.canvas(64, 32); } })]);
+    expect(made).toBeInstanceOf(HTMLCanvasElement);
+    expect([made!.width, made!.height]).toEqual([64, 32]);
+    expect(asked.some(a => a[0] === 64 && a[1] === 32 && a[2] === '2d' && (a[3] as { willReadFrequently?: boolean })?.willReadFrequently === true)).toBe(true);
+    spy.mockRestore();
+  });
+
   it('clears the canvas, resets the transform and saves / restores around every call (nothing a frame sets survives into the next)', async () => {
     const { comp } = await build([cv({ draw: () => { rec.calls.push(['draw']); } })]);
     rec.calls.length = 0;
@@ -208,7 +241,7 @@ describe('the canvas layer: is the same frame the same picture', () => {
     });
     return { ctx };
   }
-  type Checked = Layer & { checkDeterminism(times: number[]): number[] };
+  type Checked = Layer & { checkDeterminism(times: number[]): { differs: Array<{ t: number; pixels: number; maxDiff: number }>; drawMs: number } };
 
   it('checkDeterminism draws each time twice and lists the times where the two pictures differ', async () => {
     installCanvas(null, pixelCtx() as never);
@@ -217,15 +250,36 @@ describe('the canvas layer: is the same frame the same picture', () => {
       cv({ name: 'pure', draw: (ctx: CanvasRenderingContext2D, t: number) => { ctx.fillRect(Math.round(t * 10), 0, 1, 1); } }),
       cv({ name: 'leaky', draw: (ctx: CanvasRenderingContext2D) => { ctx.fillRect(counter++, 0, 1, 1); } }),
     ]);
-    expect((layer(comp, 'pure') as Checked).checkDeterminism([0.5, 1, 2])).toEqual([]);
-    expect((layer(comp, 'leaky') as Checked).checkDeterminism([0.5, 1, 2])).toEqual([0.5, 1, 2]);
+    const pure = (layer(comp, 'pure') as Checked).checkDeterminism([0.5, 1, 2]);
+    expect(pure.differs).toEqual([]);
+    expect(pure.drawMs).toBeGreaterThanOrEqual(0);
+    expect((layer(comp, 'leaky') as Checked).checkDeterminism([0.5, 1, 2]).differs.map(d => d.t)).toEqual([0.5, 1, 2]);
+  });
+
+  it('says how much differs: the number of differing channel values and the largest difference', async () => {
+    installCanvas(null, pixelCtx() as never);
+    let n = 0;
+    const { comp } = await build([cv({ name: 'leaky', draw: (ctx: CanvasRenderingContext2D) => { ctx.fillRect(10 * n++, 0, 1, 1); } })]);
+    const d = (layer(comp, 'leaky') as Checked).checkDeterminism([1]).differs[0]!;
+    expect(d.t).toBe(1);
+    expect(d.pixels).toBeGreaterThan(0);
+    expect(d.maxDiff).toBeGreaterThan(0);
+    expect(d.maxDiff).toBeLessThanOrEqual(255);
+  });
+
+  it('a first draw that differs from every later one (a browser drawing a canvas from setup differently the first time) is not held against the layer: one draw is thrown away before the pictures are compared', async () => {
+    installCanvas(null, pixelCtx() as never);
+    const seen = new Set<number>();
+    const { comp } = await build([cv({ name: 'warm', draw: (ctx: CanvasRenderingContext2D, t: number) => { ctx.fillRect(seen.has(t) ? 5 : 99, 0, 1, 1); seen.add(t); } })]);
+    seen.clear();
+    expect((layer(comp, 'warm') as Checked).checkDeterminism([0.5, 1]).differs).toEqual([]);
   });
 
   it('a layer that failed (no draw) has nothing to check', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     installCanvas(null, pixelCtx() as never);
     const { comp } = await build([{ type: 'canvas', name: 'c' }]);
-    expect((layer(comp, 'c') as Checked).checkDeterminism([1])).toEqual([]);
+    expect((layer(comp, 'c') as Checked).checkDeterminism([1]).differs).toEqual([]);
   });
 
   it('after the check the picture is the one the movie had (the next real draw is not skipped)', async () => {

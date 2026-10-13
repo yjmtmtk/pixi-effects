@@ -12,7 +12,7 @@ import { resolveAtList, reviewMovie, type ReviewOptions, type ReviewReport } fro
 import { onionAlphas, onionTimes } from './onion';
 import { exportFrames } from './Renderer';
 import { expandTransitions, carryTransitionWindows } from './Transitions';
-import { canvasProblems } from './canvasCheck';
+import { canvasProblems, canvasReport, type CanvasRow } from './canvasCheck';
 import { inspectScene, type InspectReport, type InspectOptions } from './inspect';
 import { collectTimeline, timelineHtml, timelineSvg, type TimelineData, type TimelineHtmlOptions, type TimelineSvgOptions } from './timelineChart';
 import { pickFrames, sheetLayout } from './frames';
@@ -903,6 +903,12 @@ export class Movie {
   canvasProblems(): string[] {
     this._requireReady('canvasProblems');
     return canvasProblems(this._rootSequence as CompositionSequence);
+  }
+
+  /** Every canvas layer as the determinism check saw it: the moments drawn, the usual time of a draw in ms, and whether the same time gave the same picture (`check` prints it even when all pass). */
+  canvasReport(): CanvasRow[] {
+    this._requireReady('canvasReport');
+    return canvasReport(this._rootSequence as CompositionSequence);
   }
 
   /**

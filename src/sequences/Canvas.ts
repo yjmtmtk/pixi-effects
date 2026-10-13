@@ -7,6 +7,9 @@ import { suggestName } from '../core/options';
 import type { PathRouters } from '../core/Timeline';
 import type { CanvasInfo, CanvasSequenceSpec, PropValue } from '../types';
 
+/** What the determinism check found: the moments whose two pictures differ (channel values that differ, the largest difference out of 255; -1 when only a hash was compared) and the usual time of one draw. */
+export interface CanvasCheck { differs: Array<{ t: number; pixels: number; maxDiff: number }>; drawMs: number }
+
 const MAX_SIZE = 8192;
 const MIN_RESOLUTION = 0.25;
 const MAX_RESOLUTION = 4;
@@ -23,6 +26,14 @@ function seeded(seed: number): () => number {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
+}
+
+/** An offscreen canvas whose context is made for reading: the CPU rasteriser, which draws the first time what it draws every time after (a GPU canvas used as a source can differ the first time). */
+function offscreen(width: number, height: number): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(width)); c.height = Math.max(1, Math.round(height));
+  c.getContext('2d', { willReadFrequently: true });                    // the first getContext fixes the kind: later ones get this context
+  return c;
 }
 
 /**
@@ -141,10 +152,12 @@ export class CanvasSequence extends Sequence {
 
   private info(local: number): CanvasInfo {
     const duration = this.duration ?? 0;
+    const start = this.absoluteStart ?? this.at;
     return {
       frame: Math.round(local * this.fps), duration, progress: duration > 0 ? local / duration : 0,
       width: this.layerW, height: this.layerH, resolution: this.res, frameRate: this.fps,
       params: { ...this.carrier }, state: this.state, random: seeded(this.seed),
+      start, time: start + local, canvas: offscreen,
     };
   }
 
@@ -197,30 +210,46 @@ export class CanvasSequence extends Sequence {
   }
 
   /**
-   * Draws each of `times` twice and returns the times where the two pictures differ (a draw that uses Math.random, the clock or state that outlives the call). The picture
-   * the layer showed before is drawn again at the end. A layer that failed has nothing to check.
+   * Draws each of `times` in two orders and returns the moments where the pictures differ (a draw that uses Math.random, the clock or state that outlives the call), with how much
+   * (channel values that differ, the largest difference out of 255), and how long a draw took. One draw of every moment comes first and is thrown away: a browser can draw a canvas
+   * made in `setup` differently the first time it is used as a source, and a cache a draw fills on its first call is fine. The picture the layer showed before is drawn again at the end.
+   * A layer that failed has nothing to check.
    */
-  checkDeterminism(times: number[]): number[] {
-    if (!this.canvas || this.failed || !this.drawFn) return [];
+  checkDeterminism(times: number[]): CanvasCheck {
+    const none: CanvasCheck = { differs: [], drawMs: 0 };
+    if (!this.canvas || this.failed || !this.drawFn) return none;
     // A scratch canvas of the same size that is read from the start (`willReadFrequently`: drawn by the CPU): reading the pixels of the layer's own canvas a few times would make
     // Chrome move it from the GPU to the CPU in the middle of the check, and the two rasterisers anti-alias a few pixels differently, which is not the author's fault.
     const scratch = document.createElement('canvas');
     scratch.width = this.w; scratch.height = this.h;
     const ctx = scratch.getContext('2d', { willReadFrequently: true });
-    if (!ctx) return [];
-    // Each moment is drawn in the order given and again in the opposite order, and the two pictures of a moment are compared (by a hash of the pixels, so a 4K canvas costs no
-    // copy). Two draws in a row at one time would miss state that builds up from call to call (an integrator that moves by the time since the last call).
-    const hash = (): number => {
-      const d = ctx.getImageData(0, 0, scratch.width, scratch.height).data;
-      let h = 0x811c9dc5;
-      for (let i = 0; i < d.length; i++) { h ^= d[i]!; h = Math.imul(h, 0x01000193); }
-      return h >>> 0;
+    if (!ctx) return none;
+    // Each moment is drawn in the order given and again in the opposite order, and the two pictures of a moment are compared pixel by pixel (the first pass keeps its pixels while the
+    // memory is reasonable, else only a hash of them). Two draws in a row at one time would miss state that builds up from call to call (an integrator that moves by the time since the last call).
+    const keep = this.w * this.h * 4 * times.length <= 96e6;
+    const read = (): Uint8ClampedArray => ctx.getImageData(0, 0, scratch.width, scratch.height).data;
+    const hash = (d: Uint8ClampedArray): number => { let h = 0x811c9dc5; for (let i = 0; i < d.length; i++) { h ^= d[i]!; h = Math.imul(h, 0x01000193); } return h >>> 0; };
+    const ms: number[] = [];
+    const once = (t: number, timed: boolean): Uint8ClampedArray => {
+      const from = performance.now();
+      this.paint(ctx, scratch, t);
+      if (timed) ms.push(performance.now() - from);
+      return read();
     };
-    const once = (t: number): number => { this.paint(ctx, scratch, t); return hash(); };
-    const first = times.map(once);
-    const second = [...times].reverse().map(once).reverse();
+    for (const t of times) once(t, false);                         // the warm-up
+    const first = times.map(t => { const d = once(t, true); return keep ? d.slice() : hash(d); });
+    const second = [...times].reverse().map(t => once(t, false)).reverse();
     scratch.width = scratch.height = 1;                            // let the memory go
-    return times.filter((_, i) => first[i] !== second[i]);
+    const differs: CanvasCheck['differs'] = [];
+    times.forEach((t, i) => {
+      const a = first[i]!, b = second[i]!;
+      if (typeof a === 'number') { if (a !== hash(b)) differs.push({ t, pixels: -1, maxDiff: -1 }); return; }
+      let pixels = 0, maxDiff = 0;
+      for (let k = 0; k < a.length; k++) { const d = Math.abs(a[k]! - b[k]!); if (d) { pixels++; if (d > maxDiff) maxDiff = d; } }
+      if (pixels) differs.push({ t, pixels, maxDiff });
+    });
+    ms.sort((x, y) => x - y);
+    return { differs, drawMs: ms.length ? ms[Math.floor(ms.length / 2)]! : 0 };
   }
 
   private checkerboard(ctx: CanvasRenderingContext2D, c: HTMLCanvasElement): void {

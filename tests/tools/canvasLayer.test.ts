@@ -70,19 +70,33 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the canvas
     } finally { try { proc.kill(); } catch { /* gone */ } server.close(); await check.sleep(200); try { rmSync(dir, { recursive: true, force: true }); } catch { /* held */ } }
   }, 120_000);
 
-  it('check says nothing about a pure canvas layer and names a draw that uses Math.random (a problem, with the moments)', async () => {
-    const run = (query: string, out: string) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/canvas-layer.html'), '--no-export', '--out', out, '--timeout', '120', ...(query ? ['--query', query] : [])], { timeout: 150_000 }).then(() => 0, (e: any) => e.code as number);
+  it('check says that the canvas layers are deterministic (and how long a draw takes) when they pass, and names a draw that uses Math.random (a problem, with the moments and how much differs)', async () => {
+    let stdout = '';
+    const run = (query: string, out: string) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/canvas-layer.html'), '--no-export', '--out', out, '--timeout', '120', ...(query ? ['--query', query] : [])], { timeout: 150_000 }).then((r) => { stdout = r.stdout; return 0; }, (e: any) => { stdout = e.stdout ?? ''; return e.code as number; });
     const clean = mkdtempSync(join(tmpdir(), 'canvas-clean-')), dirty = mkdtempSync(join(tmpdir(), 'canvas-leaky-'));
     expect(await run('', clean)).toBe(0);
+    expect(stdout).toMatch(/canvas +\d+ canvas layer\(s\) drew the same picture twice at 4 moments[^\n]*deterministic[^\n]*slowest draw [\d.]+ ms/);
     const r1 = JSON.parse(readFileSync(join(clean, 'report.json'), 'utf8'));
     expect(r1.inspect.issues).toEqual([]);
     expect(r1.inspect.canvas).toEqual([]);
+    expect(r1.inspect.canvasLayers.every((r: any) => r.ok && r.moments.length === 4 && r.drawMs >= 0)).toBe(true);
     expect(await run('leaky=1', dirty)).toBe(1);
+    expect(stdout).toMatch(/the other \d+ canvas layer/);
     const r2 = JSON.parse(readFileSync(join(dirty, 'report.json'), 'utf8'));
     const said = r2.inspect.canvas.join('\n');
     expect(said).toMatch(/"leaky" does not draw the same picture/);
+    expect(said).toMatch(/channel values differ, by up to \d+ of 255/);
     expect(r2.inspect.issues).toEqual([]);                                     // it is not a layout issue
     expect(said).not.toMatch(/"mover"|"params"|"masked"/);
     expect(r2.logs.join('\n')).toMatch(/Math\.random/);                        // and the build-time warning too
+  }, 300_000);
+
+  it('a mask made in setup (document.createElement or info.canvas) and drawn with destination-in over many anti-aliased strokes is not reported: the browser draws it differently the first time, which the check throws away', async () => {
+    const run = (query: string, out: string) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/canvas-layer.html'), '--no-export', '--out', out, '--timeout', '120', '--query', query], { timeout: 150_000 }).then(() => 0, (e: any) => e.code as number);
+    for (const kind of ['plain', 'helper']) {
+      const out = mkdtempSync(join(tmpdir(), `canvas-mask-${kind}-`));
+      expect(await run(`mask=${kind}`, out), kind).toBe(0);
+      expect(JSON.parse(readFileSync(join(out, 'report.json'), 'utf8')).inspect.canvas, kind).toEqual([]);
+    }
   }, 300_000);
 });

@@ -581,6 +581,12 @@ export interface CanvasInfo {
   state: unknown;
   /** A seeded random generator: its sequence starts again at every call of `draw`, so a frame always draws the same numbers. */
   random: () => number;
+  /** Where the layer starts on the movie's clock (its `at`, plus the starts of the compositions around it): `time = start + t`. In `setup` it is the layer's own `at`. */
+  start: number;
+  /** The movie's time at this call: what several canvas layers (and the sound) share, whatever each layer's `at`. */
+  time: number;
+  /** An offscreen canvas of that size for sprites, masks and scratch pictures, with a 2D context made for reading (`willReadFrequently`, drawn by the CPU): it draws the same picture the first time and every time after, which a GPU canvas does not always do when it is drawn into another canvas. */
+  canvas: (width: number, height: number) => HTMLCanvasElement;
 }
 
 /**

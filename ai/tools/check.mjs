@@ -389,7 +389,7 @@ export async function runCheck(opts, log = console.log) {
 
     const rv = await cdp.eval(`movie.review(${JSON.stringify({ strict: !!opts.strict })})`);
     const layoutProblems = rv.problems.filter(g => g.kind !== 'canvas'), canvasProblems = rv.problems.filter(g => g.kind === 'canvas');
-    report.inspect = { checkedFrames: rv.frames, issues: layoutProblems, review: rv.review, canvas: canvasProblems.map(g => g.message) };
+    report.inspect = { checkedFrames: rv.frames, issues: layoutProblems, review: rv.review, canvas: canvasProblems.map(g => g.message), canvasLayers: rv.canvas ?? [] };
     if (layoutProblems.length) report.problems.push(`${layoutProblems.length} kind(s) of layout issue from movie.inspect`);
     if (canvasProblems.length) report.problems.push(`${canvasProblems.length} canvas layer(s) that do not draw the same picture for the same time (movie.canvasProblems)`);
     // fonts: a web font whose file did not load is a problem (the library lists a layer with no available font for review)
@@ -583,7 +583,13 @@ function finish(report, outDir, log) {
     for (const i of g.slice(0, 8)) L.push(line(i));
     if (g.length > 8) L.push(`            … ${g.length - 8} more (report.json)`);
     const cv = report.inspect.canvas ?? [];
+    const rows = report.inspect.canvasLayers ?? [];
     if (cv.length) { L.push(`  canvas    ${cv.length} canvas layer(s) that do not draw the same picture for the same time:`); for (const m of cv.slice(0, 4)) L.push(`            - ${m}`); }
+    if (rows.length) {                                              // silence must not be the only sign that the check ran
+      const good = rows.filter(r => r.ok), slow = [...rows].sort((a, b) => b.drawMs - a.drawMs)[0];
+      const ms = x => x < 10 ? x.toFixed(1) : String(Math.round(x));
+      if (good.length) L.push(`  canvas    ${cv.length ? 'the other ' : ''}${good.length} canvas layer(s) drew the same picture twice at ${good[0].moments.length} moments (two orders): deterministic · slowest draw ${ms(slow.drawMs)} ms on the CPU (${slow.name})`);
+    }
     const rv = report.inspect.review;
     if (rv.length) {
       L.push(`  review    ${rv.length} to look at — text overlaps are often intentional (ghost / glow copies, per-letter boxes, a wipe), and a font that is not available is drawn in a fallback; check them on the contact sheet, or use --strict to fail on them:`);

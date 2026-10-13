@@ -97,6 +97,7 @@ interface CameraPathOptions
 interface CameraSequenceSpec extends SequenceCommon
   type: "camera"
 interface CanvasInfo
+  canvas: (width: number, height: number) => HTMLCanvasElement
   duration: number
   frame: number
   frameRate: number
@@ -105,7 +106,9 @@ interface CanvasInfo
   progress: number
   random: () => number
   resolution: number
+  start: number
   state: unknown
+  time: number
   width: number
 interface CanvasSequenceSpec extends SequenceCommon
   draw: (ctx: CanvasRenderingContext2D, t: number, info: CanvasInfo) => void
@@ -299,6 +302,7 @@ class Movie
   audioBuffer: AudioBuffer | null
   background: string
   canvasProblems(): string[]
+  canvasReport(): CanvasRow[]
   contactSheet(opts?: (ContactSheetOptions & { as?: "blob" | undefined; }) | undefined): Promise<Blob>
   contactSheet(opts: ContactSheetOptions & { as: "dataURL"; }): Promise<string>
   currentFrame: number
@@ -579,6 +583,7 @@ interface ReviewOptions
 interface ReviewReport
   at: { label: string; frame: number; }[]
   audio: AudioReport | null
+  canvas: CanvasRow[]
   fonts: FontReport
   frames: number
   problems: IssueGroup[]
