@@ -12,7 +12,7 @@ export async function withBrowser({ chrome, inputs, outDir, requestLog = null, t
   const check = await import(pathToFileURL(path.join(HERE, 'check.mjs')).href);
   const { serveMedia } = await import(pathToFileURL(path.join(HERE, 'media.mjs')).href);
   const chromePath = chrome ?? check.findChrome();
-  if (!chromePath) throw new Error('Chrome was not found: this command decodes video in a browser; install Chrome, or pass --chrome PATH (or set CHROME_PATH)');
+  if (!chromePath || !fs.existsSync(chromePath)) throw new Error(`Chrome was not found${chromePath ? ` at ${chromePath}` : ''}: this command decodes video in a browser; install Chrome, or pass --chrome PATH (or set CHROME_PATH) with the right path`);
   const srv = await serveMedia({ inputs, outDir, requestLog });
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pixi-effects-media-'));
   let proc = null;
