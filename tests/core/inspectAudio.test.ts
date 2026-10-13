@@ -207,17 +207,24 @@ describe('analyzeAudio: a sound buried under the rest of the mix (an author who 
     expect(run(0.5).sources.find(x => x.layer === 'hit')!.belowMixDb).toBeCloseTo(6, 0);                // as loud as the bed: the sum is 6 dB above it
   });
 
-  it('a short sound effect more than 10 dB under the mix gets a note naming it, the two levels and the moment', () => {
+  it('short sound effects more than 12 dB under the mix get ONE note: how many, the worst one by name, the two levels and the moment', () => {
     const note = run(0.04).notes.find(n => /hit/.test(n))!;
-    expect(note).toMatch(/hit \(sfx "hit"\) is buried/);
+    expect(note).toMatch(/1 sound effect is buried/);
+    expect(note).toMatch(/the worst is hit \(sfx "hit"\)/);
     expect(note).toMatch(/buried/);
     expect(note).toMatch(/dBFS/);
-    expect(note).toMatch(/\(2(\.\d+)? s\)/);
+    expect(note).toMatch(/at 2(\.\d+)? s/);
     expect(run(0.5).notes.some(n => /buried/.test(n))).toBe(false);
   });
 
-  it('a music bed is never "buried", and a sound under the limit of 10 dB is left alone', () => {
+  it('a music bed is never "buried", and a sound under the limit of 12 dB is left alone', () => {
     expect(run(0.04).notes.some(n => /bed/.test(n) && /buried/.test(n))).toBe(false);
     expect(run(0.3).notes.some(n => /buried/.test(n))).toBe(false);                       // about 9 dB under: still audible
+  });
+
+  it('many of them, however often they play, are still one note that counts the distinct ones', () => {
+    const bedMix = pcm(8, t => loud(t) + (((t >= 2 && t < 3) || (t >= 4 && t < 5)) ? 0.04 * Math.sin(2 * Math.PI * 1000 * t) : 0));
+    const r = analyzeAudio(bedMix, [bed, sfx('hit', 2, 0.04), sfx('hit', 4, 0.04), sfx('pop', 6, 0.04)], { peak: 0.54, peakAt: 2 }, 8, { window: 1 });
+    expect(r.notes.filter(n => /buried/.test(n))).toHaveLength(1);
   });
 });

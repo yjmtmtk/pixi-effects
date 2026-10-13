@@ -73,6 +73,8 @@ interface PcmLike {
   getChannelData(ch: number): Float32Array;
 }
 
+/** A short sound effect this many dB under the loudest sample of the mix around its loudest moment is hardly heard. */
+const BURIED_DB = 12;
 /** Below this a source counts as inaudible. */
 const INAUDIBLE_DB = -50;
 
@@ -159,6 +161,7 @@ export function analyzeAudio(
     return measure(Array.from({ length: b.numberOfChannels }, (_, c) => b.getChannelData(c)), b.sampleRate);
   };
   const scoreNotes: string[] = [];
+  const buried: Array<{ layer: string; source: string; ownDb: number; topVolume: number; around: number; belowMixDb: number; at: number }> = [];
   const list = [...sources].sort((a, b) => a.start - b.start).map(s => {
     const layer = s.layer ?? 'an audio layer';
     const source = s.source ?? 'audio';
@@ -197,13 +200,19 @@ export function analyzeAudio(
       const at = s.start + sound.loudestAt;
       const around = db(peakIn(Math.max(0, at - 0.05), Math.min(movieDuration, at + 0.05)));
       belowMixDb = Math.max(0, Math.round((around - ownDb) * 10) / 10);
-      if (!s.music && source.startsWith('sfx') && sound.length <= 4 && belowMixDb > 10) {
-        scoreNotes.push(`${layer} (${source}) is buried: its own peak is ${ownDb} dBFS at volume ${topVolume}, and the mix around its loudest moment (${(Math.round(at * 100) / 100)} s) peaks at ${around} dBFS, ${belowMixDb} dB louder: raise this sound's volume (an accent over music needs 2 to 3) or lower what plays there`);
+      if (!s.music && source.startsWith('sfx') && sound.length <= 4 && belowMixDb > BURIED_DB) {
+        buried.push({ layer, source, ownDb, topVolume, around, belowMixDb, at: Math.round(at * 100) / 100 });
       }
     }
     return { layer, source, start: s.start, end: s.end, peakDb, sound, ...(belowMixDb !== undefined ? { belowMixDb } : {}), ...(s.music ? { music: s.music } : {}) };
   });
 
+  // ONE note for the movie (an accent that is meant to be subtle is common: the numbers are in every source's `belowMixDb`): how many, and the worst
+  if (buried.length > 0) {
+    const worst = buried.reduce((a, b) => (b.belowMixDb > a.belowMixDb ? b : a));
+    const names = new Set(buried.map(x => x.layer + x.source));
+    scoreNotes.push(`${names.size === 1 ? '1 sound effect is' : `${names.size} sound effects are`} buried (${BURIED_DB} dB or more under the loudest sample of the mix around its loudest moment${buried.length > names.size ? `, ${buried.length} times in all` : ''}): the worst is ${worst.layer} (${worst.source}), its own peak ${worst.ownDb} dBFS at volume ${worst.topVolume} against ${worst.around} dBFS at ${worst.at} s, ${worst.belowMixDb} dB louder. If it is meant to be heard, raise its volume (an accent over music needs 2 to 3) or lower what plays there; every source's belowMixDb has its own number`);
+  }
   // the mix as a whole, scene by scene, and the advice
   const whole = measureLoudness(chans, sr);
   const silences = findSilences(chans, sr, { minLength: 1 });

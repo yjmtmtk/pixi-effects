@@ -178,7 +178,7 @@ interface AudioReport {
     start: number; end: number;            // movie time
     peakDb: number;                        // the MIX while it plays
     sound: { length: number; peakDb: number; loudestAt: number; brightnessHz: number };   // the sound alone
-    belowMixDb?: number;                   // how far below the loudest sample of the mix (itself included) around its own loudest moment it is; a short sfx more than 10 dB under gets a note "is buried"
+    belowMixDb?: number;                   // how far below the loudest sample of the mix (itself included) around its own loudest moment it is; short sfx more than 12 dB under get ONE note, "buried", naming the worst
   }>;
   windows: Array<{ t: number; rmsDb: number; peakDb: number; brightnessHz: number }>;
   issues: string[];                        // limited mix, inaudible layer, sfx cut off by the end, no audio — read first

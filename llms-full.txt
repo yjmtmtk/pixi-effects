@@ -593,6 +593,55 @@ return [
 
 ---
 
+## Push in on a whole flat scene (the 2D "camera"): a null that scales, and text drawn big enough
+
+There is no second camera for flat scenes: the camera of the 2.5D layers is for `threeD` layers. For a push-in or pull-back of an ordinary 2D scene, put everything in a `null` layer that sits at the middle of the canvas and scale THAT (children use `parent: 'world'`, and their x / y are measured from the null's origin, so the middle of the canvas is 0, 0). Text is drawn once at its own size and then stretched, so give every text `resolution: R` where R is the biggest scale the group reaches (R 1–8); otherwise it goes soft.
+
+```js
+// @recipe scene-zoom
+const R = 2;                                                  // the group grows to 2x: its text is drawn at 2x pixels
+const inWorld = (spec) => ({ parent: 'world', ...spec });
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0f1424' } },
+  { type: 'null', name: 'world', initial: { x: 'GW/2', y: 'GH/2' },
+    keyframes: [{ at: 0.5, from: { scale: 1 }, to: { scale: R }, duration: 3.5, ease: 'power2.inOut' }] },
+  inWorld({ type: 'shape', shape: 'circle', radius: 120, initial: { x: 0, y: 0, fillColor: '#3b5bdb' } }),
+  inWorld({ type: 'shape', shape: 'circle', radius: 40, initial: { x: 260, y: -120, fillColor: '#ffd166' } }),
+  inWorld({ type: 'text', text: 'Zoom in', resolution: R, style: { fontSize: 48, fontWeight: 'bold', fill: '#ffffff' }, initial: { x: 0, y: 0, anchorX: 0.5, anchorY: 0.5 } }),
+  inWorld({ type: 'text', text: 'sharp at 2x', resolution: R, style: { fontSize: 22, fill: '#c9d3f5' }, initial: { x: 0, y: 150, anchorX: 0.5, anchorY: 0.5 } }),
+];
+```
+
+---
+
+## Parallax: layers that scroll past at their own speed (a window of a train, a side-scroller)
+
+Each layer is a long strip of repeated shapes that moves left at a constant speed, `speed × duration` pixels in all, so it must be that long plus the width of the screen. The speed is the depth: the near strip fast, the far one slow. A strip that is longer than it needs to be is only more layers.
+
+```js
+// @recipe parallax-strips
+const D = 8, W = 1280;
+// one strip: `count` shapes `gap` px apart, scrolling left at `speed` px/s from x = 0 for D seconds
+const strip = (name, speed, gap, y, size, color) => {
+  const count = Math.ceil((speed * D + W) / gap) + 1;
+  return Array.from({ length: count }, (_, i) => ({
+    type: 'shape', shape: 'rect', name: `${name}-${i}`, width: size, height: size * 2,
+    initial: { x: i * gap, y, fillColor: color },
+    keyframes: [{ at: 0, to: { x: i * gap - speed * D }, duration: D, ease: 'none' }],
+  }));
+};
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1b2a4a' } },
+  ...strip('far', 30, 240, 420, 60, '#26365c'),               // distant hills: 30 px/s
+  ...strip('mid', 120, 200, 500, 40, '#314a7a'),              // 120 px/s
+  ...strip('near', 480, 360, 600, 24, '#0b1220'),             // poles: 480 px/s
+];
+```
+
+To land something exactly where you want at a time `t` (a moon under a bridge at 6 s), compute the strip's x at `t` the same way: `i * gap - speed * t`.
+
+---
+
 ## A ticker that scrolls out completely (`w` = the text's own width)
 
 `'-w'` is the exact x at which the text has left the screen on the left (`w` is measured after the style is applied).
@@ -3737,7 +3786,7 @@ interface AudioReport {
     start: number; end: number;            // movie time
     peakDb: number;                        // the MIX while it plays
     sound: { length: number; peakDb: number; loudestAt: number; brightnessHz: number };   // the sound alone
-    belowMixDb?: number;                   // how far below the loudest sample of the mix (itself included) around its own loudest moment it is; a short sfx more than 10 dB under gets a note "is buried"
+    belowMixDb?: number;                   // how far below the loudest sample of the mix (itself included) around its own loudest moment it is; short sfx more than 12 dB under get ONE note, "buried", naming the worst
   }>;
   windows: Array<{ t: number; rmsDb: number; peakDb: number; brightnessHz: number }>;
   issues: string[];                        // limited mix, inaudible layer, sfx cut off by the end, no audio — read first
