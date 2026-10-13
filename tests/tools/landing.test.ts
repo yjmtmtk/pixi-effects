@@ -146,10 +146,15 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the landin
       await cdp.eval(`document.getElementById('inkFacade').scrollIntoView({ block: 'center' })`);
       await check.sleep(500);
       // a real click (a user gesture) on the frame's own fullscreen button; the frame's page is drawn scaled, so the point is mapped to the top window
-      const at: any = await cdp.eval(`(() => { const f = document.querySelector('#inkFacade iframe'); const d = f.contentDocument; const b = d.querySelector('.mc-fullscreen'); const r = b.getBoundingClientRect(), fr = f.getBoundingClientRect(), k = fr.width / f.offsetWidth; return { x: fr.left + (r.left + r.width / 2) * k, y: fr.top + (r.top + r.height / 2) * k }; })()`);
-      for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await cdp.send('Input.dispatchMouseEvent', { type, x: at.x, y: at.y, button: 'left', clickCount: 1 });
+      // (under the load of the whole suite the first click can be lost: the click is tried up to three times, each with the button measured again)
       let inFs = false;
-      for (let i = 0; i < 30 && !inFs; i++) { await check.sleep(200); inFs = await cdp.eval(`!!document.fullscreenElement`); }
+      for (let attempt = 0; attempt < 3 && !inFs; attempt++) {
+        await cdp.eval(`document.getElementById('inkFacade').scrollIntoView({ block: 'center' })`);
+        await check.sleep(300);
+        const at: any = await cdp.eval(`(() => { const f = document.querySelector('#inkFacade iframe'); const d = f.contentDocument; const b = d.querySelector('.mc-fullscreen'); const r = b.getBoundingClientRect(), fr = f.getBoundingClientRect(), k = fr.width / f.offsetWidth; return { x: fr.left + (r.left + r.width / 2) * k, y: fr.top + (r.top + r.height / 2) * k }; })()`);
+        for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await cdp.send('Input.dispatchMouseEvent', { type, x: at.x, y: at.y, button: 'left', clickCount: 1 });
+        for (let i = 0; i < 20 && !inFs; i++) { await check.sleep(200); inFs = await cdp.eval(`!!document.fullscreenElement`); }
+      }
       expect(inFs, 'the frame went fullscreen').toBe(true);
       await check.sleep(600);
       expect(await zoom(), 'in fullscreen the bar is at its own size').toBe(1);
