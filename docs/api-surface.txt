@@ -482,6 +482,7 @@ interface ParticlesOptions
   wind?: number
 interface PathShapeSpec extends ShapeBase, Trimmable
   d: string
+  fillRule?: "nonzero" | "evenodd"
   morph?: number
   morphPoints?: number
   morphTo?: string
@@ -941,7 +942,7 @@ ellipse shape: shape fillGradient colorSpace strokeCap strokeJoin trimStart trim
 arc shape: shape fillGradient colorSpace strokeCap strokeJoin radius innerRadius startAngle endAngle
 line shape: shape fillGradient colorSpace strokeCap strokeJoin trimStart trimEnd trimEach from to
 polygon shape: shape fillGradient colorSpace strokeCap strokeJoin trimStart trimEnd trimEach points open
-path shape: shape fillGradient colorSpace strokeCap strokeJoin trimStart trimEnd trimEach d morphTo morph morphPoints
+path shape: shape fillGradient colorSpace strokeCap strokeJoin trimStart trimEnd trimEach d fillRule morphTo morph morphPoints
 animatable (initial / keyframes): x y z alpha rotation rotationX rotationY width height visible autoAlpha scale scaleX scaleY anchor anchorX anchorY pivot pivotX pivotY skew skewX skewY position positionX positionY tilePosition tilePositionX tilePositionY tileScale tileScaleX tileScaleY tint fillColor fillAlpha strokeColor strokeAlpha strokeWidth cornerRadius radius radiusX radiusY innerRadius startAngle endAngle trimStart trimEnd trimEach morph fillGradient strokeCap strokeJoin fill value visibleChars text volume time lookAtX lookAtY lookAtZ fov focus aperture offsetX offsetY offsetZ lookOffsetX lookOffsetY lookOffsetZ intensity color coneAngle coneFeather falloffDistance shadowDarkness shadowDiffusion fogNear fogFar fogColor fogAmount
 text style: fontSize fontFamily fontWeight fontStyle fontVariant fill stroke dropShadow letterSpacing lineHeight leading align wordWrap wordWrapWidth breakWords whiteSpace padding textBaseline trim lineJoin miterLimit filters tagStyles
 filter types: chromaKey custom blur noise alpha colorMatrix grain warp adjustment advancedBloom ascii backdropBlur bevel bloom bulgePinch colorGradient colorMap colorOverlay colorReplace convolution crossHatch crt dot dropShadow emboss glitch glow godray grayscale hslAdjustment kawaseBlur motionBlur multiColorReplace oldFilm outline pixelate radialBlur reflection rgbSplit shockwave simpleLightmap simplexNoise tiltShift tiltShiftAxis twist zoomBlur

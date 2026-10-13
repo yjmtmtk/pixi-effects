@@ -37,6 +37,8 @@ vi.mock('pixi.js', () => {
     poly(...args: unknown[]) { return this._record('poly', ...args); }
     path(...args: unknown[]) { return this._record('path', ...args); }
     fill(...args: unknown[]) { return this._record('fill', ...args); }
+    beginPath() { return this._record('beginPath'); }
+    cut() { return this._record('cut'); }
     stroke(...args: unknown[]) { return this._record('stroke', ...args); }
     getLocalBounds() { return new Rectangle(nextBounds.x, nextBounds.y, nextBounds.width, nextBounds.height); }
   }
@@ -57,6 +59,12 @@ vi.mock('pixi.js', () => {
     Assets: { get: async () => null },
   };
 });
+
+// the real splitEvenOdd measures curves with PIXI's own GraphicsPath (tests/sequences/trimPath.test.ts runs it); here it is told which sub-path is the big one
+vi.mock('../../src/sequences/trimPath', async (orig) => ({
+  ...(await orig<typeof import('../../src/sequences/trimPath')>()),
+  splitEvenOdd: (d: string) => { const [main, ...holes] = d.split(/(?=M)/).map(x => x.trim()); return { main: main!, holes }; },
+}));
 
 import { ShapeSequence } from '../../src/sequences/Shape';
 import type { ShapeSequenceSpec, CompositionShape } from '../../src/types';
@@ -399,5 +407,33 @@ describe('ShapeSequence — auto-centring via pivot', () => {
     await build({ type: 'shape', shape: 'polygon', points: [[20, 0], [100, 0], [60, 60]], duration: 1 });
     expect(lastGraphics?.pivot.x).toBe(60); // 20 + 80/2
     expect(lastGraphics?.pivot.y).toBe(30); // 0 + 60/2
+  });
+});
+
+describe('a path with fillRule "evenodd": the biggest sub-path is filled and the others are cut out of it', () => {
+  const D = 'M 0 0 L 100 0 L 100 100 L 0 100 Z M 25 25 L 75 25 L 75 75 L 25 75 Z';
+  const run = async (extra: Record<string, unknown>) => {
+    calls.length = 0;
+    const seq = new ShapeSequence({ type: 'shape', shape: 'path', d: D, initial: { fillColor: '#ffcc00' }, ...extra } as unknown as ShapeSequenceSpec, root, root);
+    await seq.build();
+    calls.length = 0;
+    (seq as unknown as { _redraw(): void })._redraw();
+    return calls.map(c => c.method + (c.method === 'GraphicsPath' ? ':' + String(c.args[0]) : ''));
+  };
+
+  it('draws the big outline, fills it, then draws the hole and cuts it', async () => {
+    const seen = await run({ fillRule: 'evenodd' });
+    expect(seen).toEqual(['clear', 'GraphicsPath:M 0 0 L 100 0 L 100 100 L 0 100 Z', 'path', 'fill', 'beginPath', 'GraphicsPath:M 25 25 L 75 25 L 75 75 L 25 75 Z', 'path', 'cut']);
+  });
+
+  it('with a stroke the cut comes between the fill and the stroke (PIXI\'s cut only reaches the last instruction), and the stroke goes round the shape and the hole', async () => {
+    const seen = await run({ fillRule: 'evenodd', initial: { fillColor: '#ffcc00', strokeColor: '#ffffff', strokeWidth: 4 } });
+    expect(seen).toEqual(['clear', 'GraphicsPath:M 0 0 L 100 0 L 100 100 L 0 100 Z', 'path', 'fill', 'beginPath', 'GraphicsPath:M 25 25 L 75 25 L 75 75 L 25 75 Z', 'path', 'cut',
+      'beginPath', 'GraphicsPath:M 0 0 L 100 0 L 100 100 L 0 100 Z', 'path', 'GraphicsPath:M 25 25 L 75 25 L 75 75 L 25 75 Z', 'path', 'stroke']);
+  });
+
+  it('without it the path is drawn as it always was (both sub-paths filled, no cut)', async () => {
+    const seen = await run({});
+    expect(seen).toEqual(['clear', `GraphicsPath:${D}`, 'path', 'fill']);
   });
 });

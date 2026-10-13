@@ -42,6 +42,8 @@ async function shape(spec: Record<string, unknown>) {
   return { seq, tl, draw };
 }
 const FILL = { fillColor: '#ffffff' };
+// the same square with a corner point halfway along the top edge: five corners against BIG's four, so the morph is resampled (morphPoints) instead of paired corner to corner
+const SQUARE5 = 'M 0 0 L 50 0 L 100 0 L 100 100 L 0 100 Z';
 let warn: ReturnType<typeof vi.spyOn>;
 beforeEach(() => { warn = vi.spyOn(console, 'warn').mockImplementation(() => {}); });
 
@@ -57,7 +59,7 @@ describe('path morph: morphTo + morph (0 → 1)', () => {
   });
 
   it('in between it is a polygon of points half way from one outline to the other', async () => {
-    const { draw, tl } = await shape({ shape: 'path', d: SQUARE, morphTo: BIG, morphPoints: 8, initial: FILL, keyframes: [{ at: 0, to: { morph: 1 }, duration: 2, ease: 'none' }] });
+    const { draw, tl } = await shape({ shape: 'path', d: SQUARE5, morphTo: BIG, morphPoints: 8, initial: FILL, keyframes: [{ at: 0, to: { morph: 1 }, duration: 2, ease: 'none' }] });
     tl.time(1);
     const c = draw();
     const poly = c.find(x => x[0] === 'poly')!;
@@ -71,19 +73,19 @@ describe('path morph: morphTo + morph (0 → 1)', () => {
   });
 
   it('`morph` may be written at the top level or in initial, and a layer can start part way', async () => {
-    const top = await shape({ shape: 'path', d: SQUARE, morphTo: BIG, morph: 0.5, morphPoints: 8, initial: FILL });
+    const top = await shape({ shape: 'path', d: SQUARE5, morphTo: BIG, morph: 0.5, morphPoints: 8, initial: FILL });
     expect(Math.max(...(top.draw().find(x => x[0] === 'poly')![1] as number[]))).toBeCloseTo(150, 6);
-    const ini = await shape({ shape: 'path', d: SQUARE, morphTo: BIG, morphPoints: 8, initial: { ...FILL, morph: 0.5 } });
+    const ini = await shape({ shape: 'path', d: SQUARE5, morphTo: BIG, morphPoints: 8, initial: { ...FILL, morph: 0.5 } });
     expect(Math.max(...(ini.draw().find(x => x[0] === 'poly')![1] as number[]))).toBeCloseTo(150, 6);
   });
 
   it('morphPoints sets how finely the outline is sampled', async () => {
-    const { draw } = await shape({ shape: 'path', d: SQUARE, morphTo: BIG, morph: 0.5, morphPoints: 40, initial: FILL });
+    const { draw } = await shape({ shape: 'path', d: SQUARE5, morphTo: BIG, morph: 0.5, morphPoints: 40, initial: FILL });
     expect((draw().find(x => x[0] === 'poly')![1] as number[]).length).toBe(80);
   });
 
   it('a trimmed stroke follows the morphing outline', async () => {
-    const { draw } = await shape({ shape: 'path', d: SQUARE, morphTo: BIG, morph: 0.5, morphPoints: 8, trimEnd: 0.5, initial: { strokeColor: '#fff', strokeWidth: 4 } });
+    const { draw } = await shape({ shape: 'path', d: SQUARE5, morphTo: BIG, morph: 0.5, morphPoints: 8, trimEnd: 0.5, initial: { strokeColor: '#fff', strokeWidth: 4 } });
     const c = draw();
     expect(c.map(x => x[0])).toEqual(['moveTo', 'lineTo', 'lineTo', 'lineTo', 'lineTo', 'stroke'].slice(0, c.length));
     expect(c.filter(x => x[0] === 'lineTo').length).toBeGreaterThan(1);
@@ -114,7 +116,7 @@ describe('path morph: morphTo + morph (0 → 1)', () => {
     });
 
     it('a morphPoints that cannot work', async () => {
-      await shape({ shape: 'path', d: SQUARE, morphTo: BIG, morphPoints: 2, initial: FILL });
+      await shape({ shape: 'path', d: SQUARE5, morphTo: BIG, morphPoints: 2, initial: FILL });
       expect(warn).toHaveBeenCalledWith(expect.stringMatching(/morphPoints/));
     });
   });

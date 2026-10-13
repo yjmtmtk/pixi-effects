@@ -33,14 +33,14 @@ describe('buildMorph / morphAt', () => {
     const a = square(...SQ);
     const b = square([100, 100], [0, 100], [0, 0], [100, 0]);                      // same corners, same direction, another start
     const mid = morphAt(buildMorph([a], [b], 64), 0.5)[0]!.pts;
-    expect(sum(mid, resample(a, 64))).toBeLessThan(1e-6);
+    expect(sum(mid, a.pts)).toBeLessThan(1e-6);
   });
 
   it('nor when it runs the other way round', () => {
     const a = square(...SQ);
     const b = square([0, 0], [0, 100], [100, 100], [100, 0]);                      // the same square, counter-clockwise
     const mid = morphAt(buildMorph([a], [b], 64), 0.5)[0]!.pts;
-    expect(sum(mid, resample(a, 64))).toBeLessThan(1e-6);
+    expect(sum(mid, a.pts)).toBeLessThan(1e-6);
   });
 
   it('stays closed only when both are closed', () => {
@@ -69,5 +69,30 @@ describe('buildMorph / morphAt', () => {
     const pairs = buildMorph([line([0, 0, 100, 0])], [line([0, 100, 100, 100])], 3);
     close(morphAt(pairs, -2)[0]!.pts, [0, 0, 50, 0, 100, 0]);
     close(morphAt(pairs, 5)[0]!.pts, [0, 100, 50, 100, 100, 100]);
+  });
+});
+
+describe('two outlines with the same number of corners are paired corner to corner (no resampling, so no corner is rounded half way)', () => {
+  const SQUARE = square(...SQ);
+  const PARA = square([50, 20], [190, 20], [150, 120], [10, 120]);          // a parallelogram: its edges are not as long as the square's
+
+  it('the middle of a square and a parallelogram is a quad whose corners are the averages of the corners', () => {
+    const [pair] = buildMorph([SQUARE], [PARA]);
+    expect(pair!.a).toHaveLength(8);                                         // four corners each, not 128 points along the edges
+    const mid = morphAt([pair!], 0.5)[0]!.pts;
+    close(mid, [25, 10, 145, 10, 125, 110, 5, 110]);
+  });
+
+  it('the corners are lined up with the nearest ones (a start point or direction that differs does not twist it)', () => {
+    const rotated = square([150, 120], [10, 120], [50, 20], [190, 20]);      // the same parallelogram, written from another corner
+    const mid = morphAt(buildMorph([SQUARE], [rotated]), 0.5)[0]!.pts;
+    close(mid, [25, 10, 145, 10, 125, 110, 5, 110]);
+    const reversed = square([10, 120], [150, 120], [190, 20], [50, 20]);     // and the other way round
+    close(morphAt(buildMorph([SQUARE], [reversed]), 0.5)[0]!.pts, [25, 10, 145, 10, 125, 110, 5, 110]);
+  });
+
+  it('a different number of corners is still resampled (a triangle into a square)', () => {
+    const [pair] = buildMorph([square([0, 0], [100, 0], [50, 100])], [SQUARE], 32);
+    expect(pair!.a).toHaveLength(64);
   });
 });

@@ -113,3 +113,20 @@ function slice(line: Polyline, a: number, b: number): number[] {
   }
   return out;
 }
+
+/**
+ * `fillRule: 'evenodd'` for a path with several sub-paths (a donut is two circles in one `d`): the biggest sub-path is the shape and every other one is a hole cut out of it.
+ * Sub-paths start at an `M` / `m`; write them in absolute coordinates (a relative `m` after a closed one starts from the previous end). Islands inside a hole are not drawn.
+ */
+export function splitEvenOdd(d: string): { main: string; holes: string[] } {
+  const parts = d.split(/(?=[Mm])/).map(x => x.trim()).filter(Boolean);
+  if (parts.length < 2) return { main: d.trim(), holes: [] };
+  const area = (sub: string): number => flattenSvgPath(sub).reduce((sum, line) => {
+    let a = 0;
+    for (let i = 0; i < line.pts.length; i += 2) { const j = (i + 2) % line.pts.length; a += line.pts[i]! * line.pts[j + 1]! - line.pts[j]! * line.pts[i + 1]!; }
+    return sum + Math.abs(a) / 2;
+  }, 0);
+  const areas = parts.map(area);
+  const big = areas.indexOf(Math.max(...areas));
+  return { main: parts[big]!, holes: parts.filter((_, i) => i !== big) };
+}

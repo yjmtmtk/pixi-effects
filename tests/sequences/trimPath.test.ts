@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { trimPolylines, rectOutline, ellipseOutline, flattenSvgPath, type Polyline } from '../../src/sequences/trimPath';
+import { trimPolylines, rectOutline, ellipseOutline, flattenSvgPath, splitEvenOdd, type Polyline } from '../../src/sequences/trimPath';
 
 const line = (pts: number[], closed = false): Polyline => ({ pts, closed });
 const close = (a: number[], b: number[]) => { expect(a.length).toBe(b.length); a.forEach((v, i) => expect(v).toBeCloseTo(b[i]!, 6)); };
@@ -75,5 +75,28 @@ describe('flattenSvgPath', () => {
     expect(out[0]!.closed).toBe(true);
     expect(out[0]!.pts.length).toBeGreaterThan(20);                    // the curve is sampled
     expect(out[1]).toEqual({ pts: [200, 0, 250, 0], closed: false });
+  });
+});
+
+describe('splitEvenOdd — the biggest sub-path is the shape, every other one is a hole (fillRule: "evenodd")', () => {
+  const BIG = 'M 0 0 L 100 0 L 100 100 L 0 100 Z', SMALL = 'M 25 25 L 75 25 L 75 75 L 25 75 Z', TINY = 'M 40 40 L 60 40 L 60 60 L 40 60 Z';
+
+  it('a square with a square hole', () => {
+    expect(splitEvenOdd(`${BIG} ${SMALL}`)).toEqual({ main: BIG, holes: [SMALL] });
+  });
+
+  it('the order of the sub-paths does not matter, and there can be several holes', () => {
+    const r = splitEvenOdd(`${SMALL} ${BIG}  ${TINY}`);
+    expect(r.main).toBe(BIG);
+    expect(r.holes).toEqual([SMALL, TINY]);
+  });
+
+  it('a curved outer and inner circle (the donut)', () => {
+    const outer = 'M 0 -100 A 100 100 0 1 1 0 100 A 100 100 0 1 1 0 -100 Z', inner = 'M 0 -50 A 50 50 0 1 0 0 50 A 50 50 0 1 0 0 -50 Z';
+    expect(splitEvenOdd(`${inner} ${outer}`)).toEqual({ main: outer, holes: [inner] });
+  });
+
+  it('one sub-path has no holes', () => {
+    expect(splitEvenOdd(BIG)).toEqual({ main: BIG, holes: [] });
   });
 });

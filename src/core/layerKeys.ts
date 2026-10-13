@@ -33,7 +33,7 @@ const ELLIPSE = [...SHAPE, ...TRIM, 'radiusX', 'radiusY', 'anchorX', 'anchorY'] 
 const ARC = [...SHAPE, 'radius', 'innerRadius', 'startAngle', 'endAngle'] as const satisfies readonly KeysOfUnion<ArcShapeSpec>[];
 const LINE = [...SHAPE, ...TRIM, 'from', 'to'] as const satisfies readonly KeysOfUnion<LineShapeSpec>[];
 const POLYGON = [...SHAPE, ...TRIM, 'points', 'open'] as const satisfies readonly KeysOfUnion<PolygonShapeSpec>[];
-const PATH = [...SHAPE, ...TRIM, 'd', 'morphTo', 'morph', 'morphPoints'] as const satisfies readonly KeysOfUnion<PathShapeSpec>[];
+const PATH = [...SHAPE, ...TRIM, 'd', 'fillRule', 'morphTo', 'morph', 'morphPoints'] as const satisfies readonly KeysOfUnion<PathShapeSpec>[];
 
 /** The compiler checks every table covers its type (this type is never used: it exists to fail the build). */
 export type __Covered = [

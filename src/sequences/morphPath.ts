@@ -56,7 +56,8 @@ function align(a: number[], b: number[]): number[] {
 }
 
 /**
- * Prepare a morph between two outlines: both are resampled to `n` points per sub-path, closed outlines are rotated /
+ * Prepare a morph between two outlines: when a pair of sub-paths has the same number of corners they are paired corner to corner (resampling would round the
+ * corners half way when the edges are not in proportion); otherwise both are resampled to `n` points per sub-path, closed outlines are rotated /
  * reversed so they do not twist, and sub-paths are paired by order. A sub-path with no partner grows out of (or shrinks
  * into) its own centre. Empty on either side: nothing to morph.
  */
@@ -67,6 +68,11 @@ export function buildMorph(from: Polyline[], to: Polyline[], n = 128): MorphPair
   for (let i = 0; i < count; i++) {
     const fa = from[i], fb = to[i];
     const closed = (fa?.closed ?? fb!.closed) && (fb?.closed ?? fa!.closed);
+    if (fa && fb && fa.closed === fb.closed && fa.pts.length === fb.pts.length && fa.pts.length >= 6) {        // the same number of corners: corner to corner, so a quad stays a quad half way
+      const a = [...fa.pts];
+      pairs.push({ a, b: closed ? align(a, [...fb.pts]) : [...fb.pts], closed });
+      continue;
+    }
     const a = fa ? resample({ pts: fa.pts, closed }, n) : collapsed(resample({ pts: fb!.pts, closed }, n));
     let b = fb ? resample({ pts: fb.pts, closed }, n) : collapsed(a);
     if (closed && fa && fb) b = align(a, b);
