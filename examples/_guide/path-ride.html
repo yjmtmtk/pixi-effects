@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Travel along a path</title>
+  <!-- written by scripts/build-guide-demos.mjs from the `// @recipe path-ride` block of site/guide/motion.md: edit the guide, then run the script -->
+  <style>
+    body { margin: 0; padding: 16px; background: #0d1220; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+    .movie-controller-wrap { width: min(960px, 100%); }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+<script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js",
+      "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/Controller.js",
+      "pixi-effects/present":    "https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/present.js"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie, followPath } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const canvas = document.getElementById('stage');
+    const movie = new Movie();
+    new Controller(movie, { canvas });       // a movie with stops gets a Present button
+
+    // the guide's recipe, as it is printed there
+    const built = (() => {
+      const ROUTE = 'M 120 560 C 360 120 920 120 1160 560';
+      return [
+        { type: 'shape', shape: 'path', d: ROUTE, duration: 5, initial: { strokeColor: '#ffffff', strokeWidth: 3, strokeAlpha: 0.25 } },
+        { type: 'shape', shape: 'polygon', points: [[-18, -12], [18, 0], [-18, 12]], at: 0.5, duration: 4.5, initial: { fillColor: '#ffd166' },
+          keyframes: followPath({ d: ROUTE, duration: 4, ease: 'power2.inOut', orient: true, frameRate: 30 }) },
+      ];
+    })();
+
+    await movie.init({ canvas, width: 1280, height: 720, duration: 5.5, frameRate: 30, background: '#101424', poster: 2.5,
+      composition: Array.isArray(built) ? { sequences: built } : { sequences: built.sequences, transitions: built.transitions } });
+
+    window.movie = movie;
+    window.__ready = true;
+  </script>
+</body>
+</html>

@@ -26,8 +26,9 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the guide\
       await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1100, height: 900, deviceScaleFactor: 1, mobile: false });
       await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/guide-preview/presenting.html` });
       await check.sleep(1500);
-      await cdp.eval(`document.querySelector('.facade').click()`);
-      const frame = () => cdp.eval(`(() => { const w = document.querySelector('.facade iframe')?.contentWindow; return w && w.movie ? { frame: w.movie.currentFrame, playing: w.movie.isPlaying, first: w.movie.stops[0]?.frame } : null; })()`).catch(() => null);
+      const frame = () => cdp.eval(`(() => { const w = document.querySelector('.demo iframe')?.contentWindow; return w && w.movie ? { frame: w.movie.currentFrame, playing: w.movie.isPlaying, first: w.movie.stops[0]?.frame } : null; })()`).catch(() => null);
+      for (let i = 0; i < 120 && !(await frame()); i++) await check.sleep(250);                // the demo page is a plain lazy iframe: wait until its movie is there
+      await cdp.eval(`document.querySelector('.demo iframe').contentDocument.querySelector('.mc-play').click()`);
       let s: any = null;
       for (let i = 0; i < 120; i++) { await check.sleep(250); s = await frame(); if (s && s.first && s.frame >= s.first && !s.playing) break; }
       expect(s).toMatchObject({ playing: false });

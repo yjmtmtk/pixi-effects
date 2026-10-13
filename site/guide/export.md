@@ -58,9 +58,9 @@ await movie.init({ /* … */ motionBlur: true });          // 8 samples, a 180°
 
 It applies to what you *make*: the exported video, snapshots and contact sheets, so `pixi-effects check` shows what the file will look like. Live playback in the browser is not blurred. A render takes about `samples` times as long. `shutter` is how long the shutter stays open as a fraction of a frame (0.5 is the film look, 1 blurs more); `samples` is 2 to 64. More samples smooth very fast motion, which otherwise shows as separate ghost images.
 
-{{demo examples/gallery/hanabi-night.html}}
+{{demo examples/_guide/confetti-blur.html}}
 
-The piece above is exported with motion blur (`motionBlur: { samples: 8, shutter: 0.55 }`): the rockets are streaks in the file. In the page you are playing, live playback is not blurred.
+The page above is exported with motion blur (`motionBlur: { samples: 8, shutter: 0.55 }`): the falling confetti is streaks in the file. In the page you are playing, live playback is not blurred.
 
 ## From a script, with no window
 

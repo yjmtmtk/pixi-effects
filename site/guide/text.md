@@ -17,7 +17,7 @@ A text layer is `type: 'text'` with a `text` and a `style`. `style` takes the Pi
 - Use **system fonts** (`system-ui`, `Georgia`, `ui-monospace`…) unless you load a web font first: `await document.fonts.load('48px "My Font"')` before `movie.init`.
 - A `dropShadow` glow is clipped unless you give the text `padding` of at least twice its `blur`.
 
-{{demo examples/gallery/kinetic-manifesto.html}}
+{{demo examples/_guide/animate-text.html}}
 
 ## Counters
 
@@ -31,7 +31,7 @@ A text layer has one number you can animate, `value`, printed wherever the text 
 
 `format` takes `decimals`, `grouping` (thousands separators) and `pad` (zero-pad: `pad: 2` shows `05`, so a clock is `text: '18:42:{value}'`).
 
-{{demo examples/gallery/countdown-newyear.html}}
+{{demo examples/_guide/count-up.html}}
 
 ## Typewriter and changing words
 

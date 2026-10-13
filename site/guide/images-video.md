@@ -33,13 +33,9 @@ kenBurns({ asset: 'photo', at: 5, duration: 5, motion: 'position', from: [0.4, 0
 
 `motion` is `'still'`, `'scale'` (zoom in or out about `origin`), `'rotation'` or `'position'` (pan). Combine it with [transitions](transitions.html) for a slideshow.
 
-{{demo examples/gallery/still-water.html}}
-
 ## Transparent images
 
-A PNG or WebP with an alpha channel just works, and **WebP is much smaller**: four museum teapots cut out of their backgrounds are 64–94 KB each as WebP and about 650–700 KB as PNG. Put them in front of other layers, give them a soft shadow that is itself a feathered PNG, and the transparency does the rest.
-
-{{demo examples/gallery/teatime.html}}
+A PNG or WebP with an alpha channel just works, and **WebP is much smaller**: a museum teapot cut out of its background was 64–94 KB as WebP and about 650–700 KB as PNG. Put them in front of other layers, give them a soft shadow that is itself a feathered PNG, and the transparency does the rest.
 
 ## Video clips
 

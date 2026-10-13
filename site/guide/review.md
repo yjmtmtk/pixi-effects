@@ -35,16 +35,19 @@ Options worth knowing while you work:
 
 `check` looks at the first and last frame of every scene (a named top-level composition of a second or more) and a frame every 0.25 s, up to 240 frames, so a title cut off at the edge of a scene is not missed. The mix is judged by ITU-R BS.1770 loudness: web video is typically −14 to −16 LUFS; quieter or louder than −24 or −9 LUFS, little headroom (true peak above −1 dBTP) and silent stretches are listed as `notes`, not failures; clipping, or a true peak above 0 dBTP (the file will distort), fails.
 
-The exit code is 0 when there is nothing to fix and 1 otherwise, so it also works in CI. This is its real output for the piece in the demo further down:
+The exit code is 0 when there is nothing to fix and 1 otherwise, so it also works in CI. This is its real output for the title-card recipe of the [Cookbook](cookbook.html):
 
 ```text
-pixi-effects check — examples/gallery/still-water.html
-  page      ready in 2 s · 1280×720 · 30 fps · 360 frames (12 s) · audio
+pixi-effects check — examples/_guide/title-card.html
+  page      ready in 4.8 s · 1280×720 · 30 fps · 150 frames (5 s) · audio
+  loading   assets 0 s · build 0.1 s · sound 0 s · frames 0 s
   warnings  none
-  layout    no cut-off / off-canvas text over 61 frames (movie.inspect)
-  audio     3 source(s) · mix peak -19.4 dBFS · no issues (movie.inspectAudio)
-  export    mp4 ok · 8.55 MB · video 12.03 s 1280×720 · audio 12.031 s, peak -19.4 dBFS
-  files     check-out/still-water/sheet.png  timeline.html  still-water.mp4  report.json
+  layout    no cut-off / off-canvas text over 21 frames (movie.inspect)
+  audio     1 source(s) · mix peak -12 dBFS · -24.4 LUFS · true peak -11.8 dBTP · no issues (movie.inspectAudio)
+  note      the mix is quiet for web video: -24.4 LUFS (typical −14 to −16); raise the volume if that is not on purpose
+  note      the mix is silent from 0.786 s to 5 s (4.2 s)
+  export    mp4 ok · 113 KB · video 5.03 s 1280×720 · audio 5.033 s, peak -13 dBFS, rms/s [-31.6 -120 -120 -120 -120 -120]
+  files     check-out/title-card/sheet.png  check-out/title-card/poster.jpg  check-out/title-card/timeline.html  check-out/title-card/waveform.png  check-out/title-card/title-card.mp4  check-out/title-card/report.json
 RESULT: OK — nothing to fix. Look at the contact sheet before you call it done.
 ```
 
@@ -72,7 +75,6 @@ The same chart is available in code: `movie.timelineChart()` returns an HTML pag
 
 *The timeline of the countdown piece: 706 layers become 28 rows, because layers named `ring10-0`, `ring9-1`… share a row.*
 
-{{demo examples/gallery/countdown-newyear.html}}
 
 ## One movement in one picture
 

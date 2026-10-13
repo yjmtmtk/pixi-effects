@@ -24,7 +24,7 @@ return [
 ];
 ```
 
-{{demo examples/gallery/aurora-logo.html}}
+{{demo examples/_guide/title-card.html}}
 
 ## A lower third
 
@@ -46,7 +46,7 @@ return [
 ];
 ```
 
-{{demo examples/gallery/news-package.html}}
+{{demo examples/_guide/lower-third.html}}
 
 ## Numbers that count up
 
@@ -64,7 +64,7 @@ return stats.flatMap(([label, value], i) => [
 ]);
 ```
 
-{{demo examples/gallery/data-story.html}}
+{{demo examples/_guide/count-up.html}}
 
 ## A bar chart from data
 
@@ -106,7 +106,7 @@ transitions.forEach(tr => sequences.push({ type: 'audio', sfx: 'swoosh', at: tr.
 return { sequences, transitions, duration: total };
 ```
 
-{{demo examples/gallery/travel-slideshow.html}}
+{{demo examples/_guide/slideshow.html}}
 
 ## Terminal lines that type themselves
 
@@ -127,7 +127,7 @@ return [
 ];
 ```
 
-{{demo examples/gallery/typewriter-terminal.html}}
+{{demo examples/_guide/typewriter.html}}
 
 ## Confetti, the same every time
 
@@ -140,7 +140,7 @@ return particles({ count: 90, at: 0.2, emit: 1.2, life: [3, 4.5], area: { x: 640
   colors: ['#ff5c8a', '#ffd166', '#4cc9f0', '#7bd88f', '#c77dff'] });
 ```
 
-{{demo examples/gallery/birthday-card.html}}
+{{demo examples/_guide/confetti.html}}
 
 ## Words that arrive one at a time
 
@@ -223,4 +223,4 @@ done < table.csv
 
 ## More
 
-The [gallery](../examples/gallery/) has thirty-nine complete pieces, each one a single HTML file you can open and read. More guides for what you are making: [Presenting](presenting.html) (a talk as one movie; `quiet-hours` in the gallery is a five-page one, press Present), [Audio](audio.html#visuals-that-follow-the-music) (the picture following the music, with `audioEnvelope()` and `react()`) and [Motion](motion.html). The [DSL reference](https://github.com/yjmtmtk/pixi-effects/blob/main/docs/dsl.md) lists every property.
+The [gallery](../examples/gallery/) has fifty-two complete pieces, each one a single HTML file you can open and read. More guides for what you are making: [Presenting](presenting.html) (a talk as one movie; `quiet-hours` in the gallery is a five-page one, press Present), [Audio](audio.html#visuals-that-follow-the-music) (the picture following the music, with `audioEnvelope()` and `react()`) and [Motion](motion.html). The [DSL reference](https://github.com/yjmtmtk/pixi-effects/blob/main/docs/dsl.md) lists every property.

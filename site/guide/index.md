@@ -7,9 +7,9 @@ summary: Describe a video as plain data. pixi-effects plays it in the browser an
 
 pixi-effects turns **data into video**. You write a tree of plain objects (text, shapes, images, audio, filters, camera moves) and it plays that tree in the browser, scrubs it, and renders it to a video file. There is no timeline editor and no imperative animation code: the whole video is one object you can read, version, template and generate.
 
-{{demo examples/gallery/blueprint-house.html}}
+{{demo examples/_guide/ripple.html}}
 
-*The piece above is about 150 lines of data. It draws itself, types its labels and ends with a sound.*
+*The page above is the whole video: 17 lines of data. Six letters rise from the middle outwards, then a grid of tiles pops in as a ripple.*
 
 ## Built for AI to write, and for you to review
 

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>A talk made with deck()</title>
+  <!-- written by scripts/build-guide-demos.mjs from the `// @recipe present-deck` block of site/guide/presenting.md: edit the guide, then run the script -->
+  <style>
+    body { margin: 0; padding: 16px; background: #0d1220; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+    .movie-controller-wrap { width: min(960px, 100%); }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+<script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js",
+      "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/Controller.js",
+      "pixi-effects/present":    "https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/present.js"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie, animateText } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+    import { deck } from 'pixi-effects/present';
+
+    const canvas = document.getElementById('stage');
+    const movie = new Movie();
+    new Controller(movie, { canvas });       // a movie with stops gets a Present button
+
+    // the guide's recipe, as it is printed there
+    const built = (() => {
+      const paper = { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#f4efe6' } };
+      const style = { fontFamily: 'Georgia, serif', fontSize: 80, fill: '#1c1a17' };
+      const line = (text, y, at, dur) => animateText(text, style, { by: 'words', x: 96, y, align: 'left', name: 'l' + y, at, duration: dur - at,
+        in: { from: { y: 40, alpha: 0 }, duration: 0.8, ease: 'power3.out' }, stagger: { each: 0.1 } });
+      const T = 0.6;                                           // the slide between pages
+      const d = deck({
+        transition: { kind: 'slide', direction: 'left', duration: T, ease: 'power3.inOut' },
+        pages: [
+          { name: 'Hello', duration: 2 + T, stops: [2], sequences: [paper, ...line('The Quiet Hours', 260, 0.4, 2 + T)] },
+          { name: 'Two steps', duration: 3.4 + T, stops: [1.6, 3.4], notes: 'pause after the first line',
+            sequences: [paper, ...line('We measure speed.', 200, 0.4, 3.4 + T), ...line('We rarely measure attention.', 340, 1.6, 3.4 + T)] },
+          { name: 'Thanks', duration: 3, stops: [2], sequences: [paper, ...line('Go slowly.', 260, 0.4, 3)] },
+        ],
+      });
+      return d;
+    })();
+
+    await movie.init({ canvas, width: 1280, height: 720, frameRate: 30, background: '#f4efe6', poster: 1.5, ...built });
+
+    window.movie = movie;
+    window.__ready = true;
+  </script>
+</body>
+</html>

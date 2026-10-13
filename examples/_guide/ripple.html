@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Waves with stagger</title>
+  <!-- written by scripts/build-guide-demos.mjs from the `// @recipe ripple` block of site/guide/motion.md: edit the guide, then run the script -->
+  <style>
+    body { margin: 0; padding: 16px; background: #0d1220; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+    .movie-controller-wrap { width: min(960px, 100%); }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+<script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js",
+      "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/Controller.js",
+      "pixi-effects/present":    "https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/present.js"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie, splitText, stagger } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const canvas = document.getElementById('stage');
+    const movie = new Movie();
+    new Controller(movie, { canvas });       // a movie with stops gets a Present button
+
+    // the guide's recipe, as it is printed there
+    const built = (() => {
+      const style = { fontFamily: 'Arial, sans-serif', fontSize: 96, fontWeight: 'bold', fill: '#ffffff' };
+      const letters = stagger(
+        splitText('RIPPLE', style, { x: 640, y: 120, align: 'center' }).map(p => ({
+          type: 'text', name: 'letter-' + p.index, text: p.text, style, at: 0.2, duration: 4,
+          initial: { x: p.x, y: p.y, alpha: 0 },
+          keyframes: [{ at: 0, from: { y: p.y + 40, alpha: 0 }, to: { y: p.y, alpha: 1 }, duration: 0.4, ease: 'back.out(2)' }],
+        })),
+        { each: 0.07, from: 'center' });                     // the letters rise from the middle outwards
+      const COLS = 6, ROWS = 3, delays = stagger(COLS * ROWS, { each: 0.12, grid: [COLS, ROWS], from: 'center', ease: 'sine.out' });
+      const tiles = delays.map((d, i) => ({
+        type: 'shape', shape: 'rect', width: 120, height: 120, cornerRadius: 18, at: 1 + d, duration: 3 - d,
+        initial: { x: 190 + (i % COLS) * 180, y: 330 + Math.floor(i / COLS) * 150, fillColor: '#4cc9f0', scale: 0 },
+        keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.4, ease: 'back.out(2)' }],
+      }));
+      return [...letters, ...tiles];
+    })();
+
+    await movie.init({ canvas, width: 1280, height: 720, duration: 5, frameRate: 30, background: '#101424', poster: 2.4,
+      composition: Array.isArray(built) ? { sequences: built } : { sequences: built.sequences, transitions: built.transitions } });
+
+    window.movie = movie;
+    window.__ready = true;
+  </script>
+</body>
+</html>

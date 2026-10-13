@@ -58,6 +58,8 @@ return [
 ];
 ```
 
+{{demo examples/_guide/orbit-chain.html}}
+
 Two things to know. The children of a null are drawn together, at the null's place in the layer list. And only `null` layers can be parents (not shapes, text or images); a wrong name or a cycle gets a warning and the layer is drawn without a parent.
 
 A null at the middle of the canvas that carries *everything* is also the easiest way to make a camera shake or a slow push-in: put the `wiggle()` and a `scale` keyframe on that one layer.
@@ -75,6 +77,8 @@ return [
     keyframes: followPath({ d: ROUTE, duration: 4, ease: 'power2.inOut', orient: true, frameRate: 30 }) },
 ];
 ```
+
+{{demo examples/_guide/path-ride.html}}
 
 The layer's own `x` and `y` are the points of the path, so give circles and shapes their centre there and text `anchorX: 0.5, anchorY: 0.5`. Give the layer its own `at` (as above) so it is not drawn at the origin before the trip begins. `from` and `to` (fractions of the path) travel only part of the way, or backwards; `rotate: -90` fixes an image that points up. To turn one outline into another, see [Shapes](shapes.html#morph-one-outline-into-another).
 
@@ -138,16 +142,8 @@ const tiles = delays.map((d, i) => ({
 return [...letters, ...tiles];
 ```
 
+{{demo examples/_guide/ripple.html}}
+
 `stagger` changes only `at`. If a layer should live to the end of the video, set its `duration` after the stagger (`duration: total - layer.at`).
-
-## All together
-
-A museum plate of the solar system. One null layer carries the whole diagram (and breathes a little, by hand, with `wiggle`); five planets and a moon ride nested rotating nulls; the orbit rings draw on in a `stagger` wave, and so do the clicks. The stars come from seeds.
-
-{{demo examples/gallery/orbit-rig.html}}
-
-And a poster for the path and text tools: a square turns into a circle turns into a triangle (path morphing), a small dot rides the ring round them (`followPath`), and the big lines and the changing word arrive letter by letter (`animateText`).
-
-{{demo examples/gallery/shape-shift.html}}
 
 To make motion follow a sound instead of a seed, see [Audio](audio.html#visuals-that-follow-the-music): `audioEnvelope()` analyses the music and `react()` turns it into keyframes the same way. For slides that move, see [Presenting](presenting.html).

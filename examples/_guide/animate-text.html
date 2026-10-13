@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Per-letter animation</title>
+  <!-- written by scripts/build-guide-demos.mjs from the `// @recipe animate-text` block of site/guide/text.md: edit the guide, then run the script -->
+  <style>
+    body { margin: 0; padding: 16px; background: #0d1220; }
+    canvas { width: min(960px, 100%); border-radius: 8px; }
+    .movie-controller-wrap { width: min(960px, 100%); }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1280" height="720"></canvas>
+
+<script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js",
+      "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/Controller.js",
+      "pixi-effects/present":    "https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/present.js"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import { Movie, animateText } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const canvas = document.getElementById('stage');
+    const movie = new Movie();
+    new Controller(movie, { canvas });       // a movie with stops gets a Present button
+
+    // the guide's recipe, as it is printed there
+    const built = (() => {
+      const style = { fontFamily: 'Arial, sans-serif', fontSize: 110, fontWeight: 'bold', fill: '#ffffff' };
+      return [
+        ...animateText('Kinetic type', style, { x: 640, y: 230, align: 'center', at: 0.3, duration: 5,
+          in: 'rise', out: 'fade', stagger: { each: 0.05, from: 'center' }, idle: { y: 5, rotation: 1 },
+          styleFor: p => (p.index === 0 ? { fill: '#ffd166' } : {}) }),
+        ...animateText('one word at a time', { fontFamily: 'Arial, sans-serif', fontSize: 44, fill: '#8fa0bf' },
+          { by: 'words', x: 640, y: 420, align: 'center', at: 1.6, duration: 3.7, in: 'pop', stagger: { each: 0.25 } }),
+      ];
+    })();
+
+    await movie.init({ canvas, width: 1280, height: 720, duration: 6, frameRate: 30, background: '#101424', poster: 3,
+      composition: Array.isArray(built) ? { sequences: built } : { sequences: built.sequences, transitions: built.transitions } });
+
+    window.movie = movie;
+    window.__ready = true;
+  </script>
+</body>
+</html>

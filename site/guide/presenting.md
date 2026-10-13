@@ -7,9 +7,9 @@ summary: A talk as one movie. Stops pause it where you say, the arrow keys, a cl
 
 A presentation is a movie that **waits for you**. You say where it pauses (the *stops*), and a `Presenter` plays it like slides with animation: press next and it plays to the next stop and stops exactly there; press back and it jumps to the one before.
 
-{{demo examples/gallery/quiet-hours.html}}
+{{demo examples/_guide/deck.html}}
 
-The piece above is a five-page talk made this way. Press the **Present** button on its player bar (it appears because the movie has stops), then use the arrow keys, Space, a click or a swipe. Or just press play and watch it as a video.
+The page above is a three-page talk made this way (the code is below). Press the **Present** button on its player bar (it appears because the movie has stops), then use the arrow keys, Space, a click or a swipe. Or just press play and watch it as a video.
 
 ## Stops
 
@@ -63,7 +63,7 @@ Writing absolute times for a whole talk is tedious. `deck()` lets you write each
 ```js
 // @recipe present-deck
 const paper = { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#f4efe6' } };
-const style = { fontFamily: 'Georgia, serif', fontSize: 96, fill: '#1c1a17' };
+const style = { fontFamily: 'Georgia, serif', fontSize: 80, fill: '#1c1a17' };
 const line = (text, y, at, dur) => animateText(text, style, { by: 'words', x: 96, y, align: 'left', name: 'l' + y, at, duration: dur - at,
   in: { from: { y: 40, alpha: 0 }, duration: 0.8, ease: 'power3.out' }, stagger: { each: 0.1 } });
 const T = 0.6;                                           // the slide between pages

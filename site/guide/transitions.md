@@ -51,4 +51,3 @@ transitions: [{ kind: 'luma', from: 'a', to: 'b', at: 3, duration: 1, map: 'radi
 
 {{demo examples/07-transitions.html}}
 
-{{demo examples/gallery/transitions-reel.html}}

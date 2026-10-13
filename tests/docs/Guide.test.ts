@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 // @ts-expect-error plain ESM script without types
 import { buildGuide, parsePage, renderMarkdown, slugify } from '../../scripts/build-guide.mjs';
+// @ts-expect-error plain ESM script without types
+import { DEMOS, page as demoPage, pathOf as demoPath } from '../../scripts/build-guide-demos.mjs';
 
 const root = resolve(__dirname, '../..');
 const guideDir = join(root, 'site/guide');
@@ -35,15 +37,15 @@ describe('build-guide: markdown with a few directives', () => {
   });
 
   it('{{demo}} of a gallery piece is its poster with a play button, not the piece: it loads and plays from 0:00 when clicked', () => {
-    const { html } = renderMarkdown('{{demo examples/gallery/blueprint-house.html}}', { root, demoBase: '../' });
+    const { html } = renderMarkdown('{{demo examples/gallery/aurora-logo.html}}', { root, demoBase: '../' });
     expect(html).toContain('class="frame facade"');
-    expect(html).toContain('src="../examples/gallery/posters/blueprint-house.jpg"');           // the poster, shown first
-    expect(html).toContain('data-embed="../examples/gallery/blueprint-house.html"');            // what is loaded on click: no ?poster, so it starts at the beginning
+    expect(html).toContain('src="../examples/gallery/posters/aurora-logo.jpg"');           // the poster, shown first
+    expect(html).toContain('data-embed="../examples/gallery/aurora-logo.html"');            // what is loaded on click: no ?poster, so it starts at the beginning
     expect(html).not.toContain('?poster');
     expect(html).toContain('<button class="play"');
     expect(html).toContain('aspect-ratio:1280/720');                                            // from the piece's own size (pieces.json)
     expect(html).not.toContain('<iframe');                                                      // nothing heavy until the reader asks
-    expect(html).toContain('href="../examples/gallery/blueprint-house.html"');                  // and a link to open it on its own
+    expect(html).toContain('href="../examples/gallery/aurora-logo.html"');                  // and a link to open it on its own
   });
 
   it('a gallery piece that is not 16:9 gets its own aspect ratio', () => {
@@ -147,6 +149,19 @@ describe('the guide (site/guide)', () => {
       }
     }
     expect(missing).toEqual([]);
+  });
+
+  it('shows no gallery piece: every demo is a page of examples/ that is not in examples/gallery', () => {
+    const gallery: string[] = [];
+    for (const f of readdirSync(guideDir).filter(f => f.endsWith('.md'))) {
+      for (const m of readFileSync(join(guideDir, f), 'utf8').matchAll(/\{\{demo\s+(\S+)/g)) if (m[1]!.startsWith('examples/gallery/')) gallery.push(`${f}: ${m[1]}`);
+    }
+    expect(gallery).toEqual([]);
+  });
+
+  it('the guide demos (examples/_guide) are exactly what scripts/build-guide-demos.mjs makes from the recipes printed in the guide', () => {
+    const stale = (DEMOS as Array<{ id: string }>).filter(d => !existsSync(demoPath(d)) || readFileSync(demoPath(d), 'utf8') !== demoPage(d)).map(d => d.id);
+    expect(stale).toEqual([]);
   });
 
   it('no leftover directives or placeholders; every code block has a language', () => {
