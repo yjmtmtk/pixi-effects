@@ -1,8 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.36.0
 
-**From 18 fresh Opus authors (2026-10-13): the claims that were verified on the real build**
+**Vertical writing, `check` that sees pictures over text, holes in paths, and the fixes found by 18 fresh authors (the claims that were verified on the real build)**
 
 - **New: vertical writing (tategaki).** `animateText(..., { vertical: true })` and `splitText(..., { vertical: true })`: characters go down a column and a new line is a new column to the left (`x` is the right edge of the first column). 、。 sit at the upper right of their cell, small kana a little up and right, and the long vowel mark, dashes, waves and brackets are turned a quarter clockwise (`rotation: 90`); pieces carry `cx` / `cy` / `rotation`. No tate-chu-yoko and no automatic line breaking.
 - **New: `check` lists an opaque shape or image drawn over part of a text, and a thin line drawn over its body** (review list, with the other overlaps; a shadow, glow, ring or backdrop is not reported), **`check --at … --crop X,Y,W,H`** writes each picture as that part of the canvas, enlarged up to 4x, and **`help`** finds a heading written with spaces (`motionBlur`), a table row (`path`) and a call (`steps`).
