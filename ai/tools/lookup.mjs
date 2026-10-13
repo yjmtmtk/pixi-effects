@@ -117,7 +117,8 @@ export function searchDocs(root, word) {
         return [...fences, ...inline].some(code => re.test(code));
       };
       const call = tokens.some(calls);
-      scored.push({ s, score: (inHeading ? 1000 : 0) + (row ? 1100 : 0) + (call ? 300 : 0) + Math.min(count, 50) + bonus });
+      const exact = tokens.length === 1 && flat(heading) === flat(tokens[0]);                // the heading IS the word
+      scored.push({ s, score: (exact ? 1500 : 0) + (inHeading ? 1000 : 0) + (row ? 1100 : 0) + (call ? 300 : 0) + Math.min(count, 50) + bonus });
     }
   }
   scored.sort((a, b) => b.score - a.score);

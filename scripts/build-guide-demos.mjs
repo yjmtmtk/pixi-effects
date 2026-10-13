@@ -24,6 +24,7 @@ export const DEMOS = [
   { id: 'ripple',        file: 'motion',     recipe: 'ripple',          title: 'Waves with stagger',          duration: 5, poster: 2.4 },
   { id: 'animate-text',  file: 'text',       recipe: 'animate-text',    title: 'Per-letter animation',        duration: 6, poster: 3 },
   { id: 'vertical-text', file: 'text',       recipe: 'vertical-text-guide', title: 'Vertical writing',        duration: 5, poster: 4.2, bg: '#efe9dc' },
+  { id: 'canvas-trail',  file: 'shaders',    recipe: 'canvas-trail-guide', title: 'A canvas layer: an afterimage', duration: 6, poster: 3 },
   { id: 'music',         file: 'audio',      recipe: 'music-guide',     title: 'Music written as text',       duration: 12, poster: 1.5 },
   { id: 'audio-react',   file: 'audio',      recipe: 'audio-react-guide', title: 'Visuals that follow the music', duration: 8, poster: 3.2 },
   { id: 'deck',          file: 'presenting', recipe: 'present-deck',    title: 'A talk made with deck()',     deck: true, poster: 1.5 },

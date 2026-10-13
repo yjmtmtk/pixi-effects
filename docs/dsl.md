@@ -516,6 +516,39 @@ Rules:
 8. **Size and place**: with `width` / `height` smaller than the composition the layer's **top-left corner** sits at `initial.x` / `initial.y` (like an image; a shader layer has no anchor to set). **A mask or matte cuts the picture the shader drew over its whole size, it does not move it**: a ripple centred in the shader's own frame stays there, so to show the middle of a pattern through a disc at x = 410, put the pattern's centre at x = 410 (a `vec2` uniform: `uniforms: { centre: [410, 360] }`) or size and place the layer to match. With `resolution` below 1, `iResolution` and `fragCoord` are in the **scaled** buffer's pixels (half size at 0.5), so a pixel-unit uniform (a centre, a radius) must be multiplied by `resolution`; `fragCoord / iResolution.xy` needs no correction.
 9. **Cost** (a prototype measurement at 1080p, on one machine, an Apple M1 Pro; the released layer is not re-measured): a 160×90 shader with an 8-step loop, 20 layers, cost 11 ms (WebGPU) to 17 ms (WebGL) a frame more than 20 plain rectangles; one full-size 1920×1080 layer cost about 10 ms more. Every layer pays a fixed cost (about 0.5 to 0.85 ms), so use a few big shaders rather than many small ones, and `resolution` for heavy ones. All shader layers share **one** WebGL2 context (so there is no limit from the browser's number of contexts); a shader layer needs WebGL2 (without it the build warns and draws the checkerboard).
 
+### `canvas`
+
+A picture drawn by **your own function of the time**, into a canvas of the layer's own, shown like an image at its place in the stack. Use it for what no other layer draws: an afterimage, rings that grow, a brush stroke, a waveform, a pixel sprite, a chart, a simulation. It is the escape hatch for "I want to draw this myself".
+
+```ts
+{ type: 'canvas', width: 800, height: 450, duration: 4, initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5 },
+  params: { size: 40 },
+  draw: (ctx, t, info) => {                                  // ctx: the layer's own 2D context, already cleared
+    ctx.fillStyle = '#ff4f1a';
+    ctx.beginPath(); ctx.arc(400 + 300 * Math.sin(t * 2), 225, info.params.size, 0, Math.PI * 2); ctx.fill();
+  } }
+```
+
+It is a layer like any other: `name`, `at`, `duration`, `initial`, `keyframes`, `filters`, `mask`, `blendMode`, `parent`, `threeD`, lights, transitions, mattes, export all work on its picture.
+
+| Key | Meaning |
+|---|---|
+| `draw(ctx, t, info)` | **Required.** Draws the picture at `t`, the layer's own seconds (0 when it starts). The canvas is **cleared before every call** and nothing a call sets (a fill colour, a font, a transform) survives into the next. The units are the layer's pixels. |
+| `setup(info)` | Optional, may be async, called once at build: heavy preparation. Its result is `info.state`. |
+| `width`, `height` | Layer size in px or an expression (`'GW / 2'`); default the composition's size; at most 8192. |
+| `resolution` | 0.25 to 4 (default 1): canvas pixels per layer pixel. Text and fine lines under a zoom (a parent scaled up) need 2 or more. |
+| `params` | Numbers that **keyframes can animate**: `keyframes: [{ at: 0, to: { 'params.size': 80 }, duration: 2 }]`; `draw` reads them as `info.params`. |
+| `seed` | Integer (default 0) that seeds `info.random()`. |
+| `smoothing` | `false`: no smoothing when drawing images into it AND hard pixels when the layer is scaled up (pixel art). Default `true`. |
+
+`info` is `{ frame, duration, progress, width, height, resolution, frameRate, params, state, random }`: `frame` is the layer's own frame number, `progress` is `t / duration`, `params` holds the values at this time, `state` is what `setup` returned, and `random()` is a **seeded** generator whose sequence starts again at every call (the same frame always draws the same numbers; for a value that must differ from frame to frame, derive it from `t`).
+
+**The contract: a function of the time.** The same `t` and the same `params` must give the same pixels, in playback, in a seek and in an export. So: no `Math.random`, `Date.now`, `performance.now` or `new Date()` (a warning at build says so, and `check` draws each canvas layer twice at a few moments and reports a layer whose two pictures differ), and no state that outlives a call. A trail is drawn from the positions of the past computed from `t`, not from the last picture. A **simulation** (a game of life, a physics sim, a growth process) is computed whole in `setup` into an array and read by `info.frame` in `draw`.
+
+**What it cannot do.** It cannot see or paint on what is below it in the stack (the stage is drawn by the GPU, not by a 2D context): use `filters`, a matte or a composition that holds the layers for that. It is not audio. For a picture made by a formula on the GPU, the `shader` layer is faster. A spec that holds a `canvas` layer holds functions, so it is not pure JSON (the same standing as `three` and the `custom` filter).
+
+Mistakes are said at build time with the layer's name: no `draw`, a `draw` or `setup` that throws (the frame is a magenta checkerboard and the next frames are tried again), a bad `width` / `height` / `resolution` / `params`, an unknown key (did you mean …), a `params.name` keyframe that names nothing. A draw costs time on every frame that changes: a slow `draw` slows the export in proportion.
+
 ## 3D layers & camera
 
 Place any 2D layer in depth and view it through a camera — After Effects style, no three.js. Everything uses the normal `initial` / `keyframes` / expression vocabulary.

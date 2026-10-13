@@ -96,6 +96,27 @@ interface CameraPathOptions
   to?: number
 interface CameraSequenceSpec extends SequenceCommon
   type: "camera"
+interface CanvasInfo
+  duration: number
+  frame: number
+  frameRate: number
+  height: number
+  params: Record<string, number>
+  progress: number
+  random: () => number
+  resolution: number
+  state: unknown
+  width: number
+interface CanvasSequenceSpec extends SequenceCommon
+  draw: (ctx: CanvasRenderingContext2D, t: number, info: CanvasInfo) => void
+  height?: string | number
+  params?: Record<string, number>
+  resolution?: number
+  seed?: number
+  setup?: ((info: CanvasInfo) => unknown)
+  smoothing?: boolean
+  type: "canvas"
+  width?: string | number
 interface ChromaKeyFilterSpec
   keyColor?: string | [number, number, number]
   name?: string
@@ -276,6 +297,7 @@ class Movie
   audioBlocked: boolean
   audioBuffer: AudioBuffer | null
   background: string
+  canvasProblems(): string[]
   contactSheet(opts?: (ContactSheetOptions & { as?: "blob" | undefined; }) | undefined): Promise<Blob>
   contactSheet(opts: ContactSheetOptions & { as: "dataURL"; }): Promise<string>
   currentFrame: number

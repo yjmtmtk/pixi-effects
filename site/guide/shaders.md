@@ -34,3 +34,30 @@ The `warp` filter bends whatever a layer shows. `kind: 'wave'` sends a wave thro
 ```
 
 It follows the time of the frame by itself, so there is nothing to keyframe but the options. For a swirl or a lens, `twist` and `bulgePinch` are in the filter table. The `shader-plasma` and `warp-water` recipes are complete examples.
+
+## Draw it yourself: the `canvas` layer
+
+When no layer draws what you need (an afterimage, rings that grow, a brush stroke, a chart, a pixel sprite), write the picture as **a function of the time**. A `canvas` layer gives your function the layer's own cleared 2D canvas and shows the result like an image, at its place in the stack: it takes `initial`, `keyframes`, `filters`, `mask`, `blendMode` and exports like any layer.
+
+```js
+// @recipe canvas-trail-guide
+const at = (t) => ({ x: 640 + 420 * Math.sin(t * 1.7), y: 360 + 200 * Math.sin(t * 2.9) });      // where the dot is at time t
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101420' } },
+  { type: 'canvas', name: 'trail', duration: 6, params: { tail: 0.5 },
+    draw: (ctx, t, info) => {
+      const N = 14;
+      for (let i = N; i >= 0; i--) {                                  // the oldest first, the head last
+        const p = at(Math.max(0, t - i * info.params.tail / N));
+        ctx.globalAlpha = (1 - i / (N + 1)) * 0.85;
+        ctx.fillStyle = '#ff4f1a';
+        ctx.beginPath(); ctx.arc(p.x, p.y, 34 - i * 1.6, 0, Math.PI * 2); ctx.fill();
+      }
+    } },
+];
+```
+
+{{demo examples/_guide/canvas-trail.html}}
+
+The one rule: **the same time must draw the same picture.** So `draw` uses `t` (not a counter it keeps), `info.random()` (a seeded generator, not `Math.random`) and `info.params` (numbers that keyframes can animate as `'params.tail'`). Nothing survives from the previous frame: a trail is drawn from the positions of the past. A simulation is computed whole in `setup` into an array and read by `info.frame`. `check` draws every canvas layer twice at a few moments and tells you about one whose pictures differ. A `canvas` layer cannot see what is below it (use `filters` or a matte for that), and a spec that holds one holds functions, so it is not pure JSON. The [DSL reference](https://github.com/yjmtmtk/pixi-effects/blob/main/docs/dsl.md#canvas) has every key.
+

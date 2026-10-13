@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+**The `canvas` layer: draw it yourself**
+
+- **New: `{ type: 'canvas', draw: (ctx, t, info) => { … } }`.** A picture drawn by your own function of the time into a canvas of the layer's own (cleared before every call, nothing survives into the next), shown like an image at its place in the stack: `initial`, `keyframes`, `filters`, `mask`, `blendMode`, `parent`, `threeD`, transitions and export work on it. Keys: `draw` (required), `setup` (once, may be async; its result is `info.state`, the place to compute a whole simulation), `width` / `height` (px or expression, at most 8192), `resolution` (0.25 to 4), `params` (numbers that keyframes animate as `'params.name'`), `seed` (seeds `info.random()`, which starts again at every call), `smoothing: false` (hard pixels, also when the layer is scaled up: pixel art). `info` is `{ frame, duration, progress, width, height, resolution, frameRate, params, state, random }`.
+- **The contract is a function of the time, and `check` holds you to it:** a build-time warning for `Math.random`, `Date.now`, `performance.now` and `new Date()` in `draw`, and `check` (and `movie.review()`, so the Playground) draws every canvas layer twice at four moments and reports a layer whose two pictures differ, naming the moments (`movie.canvasProblems()`). A missing or throwing `draw` / `setup` is said once with the layer's name and the layer is a magenta checkerboard (the next frames are tried again).
+- It cannot see or paint on what is below it, it is not audio, and a spec that holds one holds functions (not pure JSON): an escape hatch like `three` and the `custom` filter. Recipes `canvas-trail`, `canvas-rings`, `canvas-pixel-sprite`, `canvas-life`; a guide section with a live demo; pitfall 115; `help canvas` finds the layer first (a heading that is the word now ranks first).
+- Spec and plan: `docs/superpowers/specs/2026-10-14-canvas-layer-design.md`. Plugins, registries and maintainer-only fields were considered and dropped: a layer that can draw anything makes them unnecessary.
+
 ## 0.36.0
 
 **Vertical writing, `check` that sees pictures over text, holes in paths, and the fixes found by 18 fresh authors (the claims that were verified on the real build)**

@@ -194,6 +194,97 @@ To land something exactly where you want at a time `t` (a moon under a bridge at
 
 ---
 
+## Draw it yourself: the `canvas` layer (an afterimage, rings that grow, a pixel sprite, a simulation)
+
+When no layer draws what you need, write the drawing as a **function of the time**: `draw(ctx, t, info)` paints into the layer's own cleared 2D canvas and the layer is a normal layer (`initial`, `keyframes`, `filters`, `mask`, export). Rules: the same `t` and `info.params` give the same pixels (no `Math.random` or `Date.now`: `info.random()` is seeded), nothing survives from the last frame, and a simulation is computed whole in `setup`. `help canvas` has the contract.
+
+An **afterimage** is drawn from the positions of the past, not from the last picture:
+
+```js
+// @recipe canvas-trail
+const at = (t) => ({ x: 640 + 420 * Math.sin(t * 1.7), y: 360 + 200 * Math.sin(t * 2.9) });      // where the dot is at time t
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101420' } },
+  { type: 'canvas', name: 'trail', duration: 6, params: { tail: 0.5 },
+    draw: (ctx, t, info) => {
+      const N = 14;
+      for (let i = N; i >= 0; i--) {                                  // the oldest first, the head last
+        const p = at(Math.max(0, t - i * info.params.tail / N));
+        ctx.globalAlpha = (1 - i / (N + 1)) * 0.85;
+        ctx.fillStyle = '#ff4f1a';
+        ctx.beginPath(); ctx.arc(p.x, p.y, 34 - i * 1.6, 0, Math.PI * 2); ctx.fill();
+      }
+    } },
+];
+```
+
+**Rings that grow**, wobbling a little with a seeded `random()`, and `params` that keyframes animate (the `progress` of the layer is `info.progress`):
+
+```js
+// @recipe canvas-rings
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#efe9dc' } },
+  { type: 'canvas', name: 'rings', width: 720, height: 720, duration: 8, seed: 3, params: { years: 0 },
+    initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5 },
+    keyframes: [{ at: 0, to: { 'params.years': 40 }, duration: 8, ease: 'power1.inOut' }],
+    draw: (ctx, t, info) => {
+      const cx = info.width / 2, cy = info.height / 2, n = Math.floor(info.params.years);
+      const wob = Array.from({ length: n + 1 }, () => [info.random() * 6, info.random() * Math.PI * 2]);      // the same wobble at every frame
+      for (let k = n; k >= 0; k--) {
+        const r = 8 + k * 8.5 + (k === n ? (info.params.years - n) * 8.5 : 0);
+        ctx.beginPath();
+        for (let a = 0; a <= 64; a++) { const th = (a / 64) * Math.PI * 2, rr = r + wob[k][0] * Math.sin(th * 3 + wob[k][1]); ctx.lineTo(cx + rr * Math.cos(th), cy + rr * Math.sin(th)); }
+        ctx.closePath();
+        ctx.fillStyle = k % 2 ? '#c9a36a' : '#a87c45'; ctx.fill();
+      }
+    } },
+];
+```
+
+A **pixel sprite**: drawn small with `smoothing: false`, shown big (the layer is scaled up and the pixels stay hard):
+
+```js
+// @recipe canvas-pixel-sprite
+const ROWS = ['..1111..', '.111111.', '11.11.11', '11111111', '.1.11.1.', '..1111..', '.1....1.', '1......1'];
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1b1330' } },
+  { type: 'canvas', name: 'sprite', width: 8, height: 8, smoothing: false, duration: 8,
+    initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5, scale: 30 },
+    keyframes: [{ at: 0, from: { y: 300 }, to: { y: 420 }, duration: 8, ease: 'steps(16)' }],             // moves in whole steps
+    draw: (ctx, t) => {
+      const blink = Math.floor(t * 2) % 2;                          // two frames of animation
+      ROWS.forEach((row, y) => [...row].forEach((c, x) => { if (c === '1') { ctx.fillStyle = (y === 2 && blink) ? '#1b1330' : '#ffd166'; ctx.fillRect(x, y, 1, 1); } }));
+    } },
+];
+```
+
+A **simulation** (a game of life) is computed WHOLE in `setup`, one array per generation, and `draw` only reads `info.frame`: a pure function of the frame, so a seek or an export agrees with playback:
+
+```js
+// @recipe canvas-life
+const W = 48, H = 27, GENERATIONS = 90;
+const step = (g) => g.map((row, y) => row.map((v, x) => {
+  let n = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (dx || dy) n += g[(y + dy + H) % H][(x + dx + W) % W];
+  return n === 3 || (v && n === 2) ? 1 : 0;
+}));
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0b0f14' } },
+  { type: 'canvas', name: 'life', width: 960, height: 540, duration: 6, seed: 11, initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5 },
+    setup: (info) => {
+      let g = Array.from({ length: H }, () => Array.from({ length: W }, () => (info.random() < 0.3 ? 1 : 0)));
+      const all = [g]; for (let i = 1; i < GENERATIONS; i++) all.push((g = step(g)));
+      return all;
+    },
+    draw: (ctx, t, info) => {
+      const g = info.state[Math.min(info.state.length - 1, Math.floor(t * 15))];          // 15 generations a second
+      ctx.fillStyle = '#7bd88f';
+      g.forEach((row, y) => row.forEach((v, x) => { if (v) ctx.fillRect(x * 20 + 2, y * 20 + 2, 16, 16); }));
+    } },
+];
+```
+
+---
+
 ## A ticker that scrolls out completely (`w` = the text's own width)
 
 `'-w'` is the exact x at which the text has left the screen on the left (`w` is measured after the style is applied).

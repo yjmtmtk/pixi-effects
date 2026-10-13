@@ -118,6 +118,11 @@ describe('help finds what is there: a heading written with spaces, a table row, 
     expect(top('steps')[0]).toMatch(/Easing/);
   });
 
+  it('a section whose heading IS the word comes first: canvas finds the `canvas` layer, shader the `shader` layer', () => {
+    expect(top('canvas')[0]).toMatch(/dsl\.md: `canvas`/);
+    expect(top('shader')[0]).toMatch(/dsl\.md: `shader`/);
+  });
+
   it('a word that merely stands before a bracket in plain prose (a sentence like "behind the camera (the warning …") is not a call: camera still finds the Camera section first', () => {
     expect(top('camera')[0]).toMatch(/dsl\.md: Camera/);
   });

@@ -50,6 +50,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
 - **Group / parent layers = `{ type: 'null', name: 'rig' }`** (draws nothing, only moves) + `parent: 'rig'` on the layers that should follow it: their `x`/`y` are then measured from the null's origin, and the null's position / rotation / scale / alpha carry them (orbits, clock hands, grouped fades). Nulls chain. Only `null` layers can be parents; not for `threeD` layers.
 - **Time:** `speed` (slow motion, backward) and `time` (a curve of the layer's own seconds: freeze, rewind, ramp) on video, audio-file and composition layers; put what you want to rewind in a composition. Children of such a composition are in ITS seconds. `ease: 'cubic-bezier(.4, 0, .2, 1)'` is the CSS curve. See the recipe `rewind-and-replay` and pitfalls 69–73.
 - **Built in:** `animateText()` (per-letter / per-word / per-line entrances and exits in one call: `...animateText('Title', style, { x, y, align: 'center', at: 0.5, duration: 5, in: 'rise', out: 'fade', stagger: { each: 0.05 } })`), `splitText()` / `measureText()` (per-letter / per-word layers, exact positions, by hand), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) `wiggle()` (a seeded shake as keyframes; on a camera put it on `offsetX` / `offsetY` so it rides on the move) `cameraPath()` (a camera flight through `[x, y, z]` points as keyframes; layers it passes: `hideBehindCamera: true`) depth of field (camera `focus` + `aperture`: `{ type: 'camera', initial: { focus: 'title' } }` blurs the other threeD layers by depth; a rack focus is a keyframe on `focus`) `music` (a tune with no file: `{ type: 'audio', music: { bpm, tracks: [{ inst: 'keys', notes: 'Cmaj7:4 Am7:4' }, { inst: 'bass', notes: 'c2:2 g1:2' }], drums: { from: 8, kick: 'x...x...' } } }`: notes and chords as text, counted in beats; instruments `keys pluck pad bass sub lead bell musicbox`; `musicEnvelope(music)` feeds `react()`), `audioEnvelope()` / `bpmEnvelope()` + `react()` (visuals that follow music: `const env = await audioEnvelope('music.mp3', { frameRate })` before `movie.init`, then `keyframes: react(env, { duration, props: { scale: { base: 1, amount: 0.4, band: 'bass', release: 0.2 } } })`; `beats: true` pulses on the beats; `bpmEnvelope(120, …)` when there is no file), `deck()` + `Presenter` from `pixi-effects/present` (a talk as one movie: pages, steps, stops that pause playback, arrow keys / click / swipe to move on: `...deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops, sequences }] })`, `new Presenter(movie, { canvas })` from `pixi-effects/presenter`; G = page overview, P = presenter view with notes and a timer; `pixi-effects render talk.html -o talk.pdf` = a PDF of the pages), `particles()` (bursts, snow, confetti, sparks as seeded layers: `...particles({ count: 90, at: 2, life: [1, 1.8], area: { x: 640, y: 330 }, speed: [120, 420], gravity: 240, fade: { out: 0.6 } })`), `followPath()` (a layer along an SVG path: `keyframes: followPath({ d, duration, orient: true })`), path morphing (`{ shape: 'path', d, morphTo, initial/keyframes: morph 0 → 1 }`) and `stagger()` (delays for a wave of layers: `stagger(letters, { each: 0.05, from: 'center' })`, or `stagger(n, …)` for numbers; GSAP-style `each` / `amount` / `from` / `grid` / `ease`). **Not in the DSL (hand-roll with a JS loop):** other per-frame curves (waves, spirals: sample them into short linear keyframes). (Draw-on strokes `trimEnd`, text that changes over time `set: { text }` / `visibleChars`, shake `wiggle()` and particles are built in.)
+- **Draw it yourself (`canvas` layer):** when nothing in the library draws what you need (an afterimage, rings, a brush stroke, a pixel sprite, a chart), `{ type: 'canvas', width, height, draw: (ctx, t, info) => { … } }`: your function of the time draws into the layer's own cleared 2D canvas and it is a normal layer. Pure function of `t` and `info.params` (`info.random()` is seeded; no `Math.random` / `Date.now`); a simulation is computed in `setup` and read by `info.frame`. `help canvas`, recipes `canvas-trail` and `canvas-life`.
 - **Shader layer and warp:** `{ type: 'shader', fragment: 'void mainImage(out vec4 fragColor, in vec2 fragCoord) { … }', uniforms: { speed: 1, tint: '#ff8040' } }` draws a Shadertoy-style formula (GLSL ES 3.00; `iTime` `iResolution` `iFrame` are declared; keyframes move `'uniforms.speed'`; opaque by default; it cannot read the layers behind it; a compile error comes back in your own line numbers). `filters: [{ type: 'warp', kind: 'wave' | 'haze', strength: 6 }]` bends a layer's picture like water or heat.
 - **Light, shadow, fog (2.5D):** a `{ type: 'light', kind: 'ambient', initial: { intensity: 0.2 } }` plus a `spot` / `point` / `parallel` light (`castsShadows: true` on the light AND on the `threeD` layers that cast) shades every `threeD` layer by angle and distance; `lit: false` opts a layer out; camera `fogNear` / `fogFar` / `fogColor` fade what is far. What no light reaches is black (add the ambient light); layers are drawn in distance order (no depth buffer). `check --at` prints how lit each layer is.
 - **Blend modes:** `blendMode` takes 18 CSS names (`add` `screen` `multiply` `overlay` `soft-light` `hard-light` `color-dodge` `color-burn` `darken` `lighten` `difference` `exclusion` `hue` `saturation` `color` `luminosity` `linear-burn`, hyphenated) on any layer: glows and light leaks (`add`, `color-dodge`), colour casts and contrast (`soft-light`, `overlay`), vignettes (`multiply`). It blends with everything below the layer; on a composition each child blends (as one picture: `threeD: true` or a filter); 10+ of the new modes on screen at once warn; it works with every mask.
@@ -188,6 +189,8 @@ Keyframe kinds: `set` (jump at `at`; undone when you seek back), `to` (animate t
 Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha strokeWidth`; `colorSpace: 'oklab'|'oklch'` for clean colour tweens. rect/circle/ellipse are **centred on `x,y` by default** (`anchorX/anchorY` default 0.5): for a bar growing from its base use `anchorY: 1` (or `anchorX: 0` for left-to-right). **`fillGradient`** (top level or `initial`; instead of `fillColor`): `{ type?: 'linear'|'radial', stops: [[0, '#000'], [1, 'rgba(0,0,0,.6)']], angle? /* linear, deg; DEFAULT 90 = top→bottom, 0 = left→right: a wide gradient slid sideways as a matte needs angle: 0 */, center?, innerRadius?, radius? /* radial, 0–1 of the SHAPE's own bounds, not the canvas: a glow on a 1500 px circle is placed with fractions of that circle */ }` — stops may have alpha, so a radial transparent→dark is a vignette. **Animate it** with a partial gradient in a keyframe (`to: { fillGradient: { angle: 360, stops: [...] } }`: keys you leave out stay; the same number of stops; `type` cannot change; a start gradient is required; use `colorSpace: 'oklch'` for a vivid fade). A text layer takes `fillGradient` too (LINEAR only: angle and stops; type / center / radius are ignored with a warning; letters re-rasterised per change). `from` alone runs from that gradient to the layer's own. The names `'fillGradient.angle'` / `gradientAngle` are not properties: write `fillGradient: { angle }`. Stroke ends and corners: `strokeCap: 'butt'|'round'|'square'`, `strokeJoin: 'miter'|'round'|'bevel'` (top level or in `initial`; not animated — `round` keeps sharp corners like an M from poking out).
 
 **composition** — `width height duration sequences transitions`, **`speed`** (the composition's own time: its content plays backward, in slow motion, … — `time` keyframes give a freeze, a rewind, a ramp; a composition's sound and sfx follow; its own x / alpha keyframes stay in the outer time; **children are placed in the composition's local seconds**; the content is as long as the larger of `duration` and the farthest `time` it reaches (`speed: 2` → twice `duration`; `time` keyframes → their largest number), and children default to that length. A child whose life ends exactly where a held `time` stands is hidden during the hold (a life is [at, at + duration)): give it a `duration` that reaches past. `time` keyframes and ordinary ones (`x`, `alpha`, a `wiggle`) may share one `keyframes` list. A sound inside goes silent while the clock stands still). With `threeD: true` it is a **card**: its children are drawn into one texture (content outside its `width × height` is clipped: size it for a soft shadow too; a plain 2D composition does not clip, but is skipped when its whole rectangle is off screen) and move / rotate in depth together. Children use the composition's local coordinates and times. Position/rotate/scale it as a unit; to rotate/scale about its centre set `pivotX/pivotY` to the centre and `x/y` to where that point should sit.
+
+**canvas** — `{ type: 'canvas', width, height, draw: (ctx, t, info) => { … }, setup?, params?, seed?, resolution?, smoothing? }`: a picture drawn by YOUR function of the time into the layer's own cleared canvas (`t` = the layer's seconds; `info` = `{ frame, duration, progress, width, height, resolution, frameRate, params, state, random }`). It is a normal layer (initial, keyframes, mask, filters, blendMode …); `params` are numbers keyframes animate as `'params.x'`; no `Math.random` / `Date.now` (`info.random()` is seeded); a simulation is computed in `setup` and read by `info.frame`; it cannot see what is below it. `check` draws it twice per moment and reports a picture that differs.
 
 **shader** — `{ type: 'shader', fragment: 'void mainImage(out vec4 fragColor, in vec2 fragCoord) { … }', uniforms: { speed: 1, tint: '#ff8040', pos: [0.5, 0.5] }, width?, height?, resolution?: 0.5, transparent?: false }` — a Shadertoy fragment shader drawn into a layer (GLSL ES 3.00): `iResolution` `iTime` (the layer's own seconds) `iFrame` and your uniforms are declared for you; keyframes move uniforms as `'uniforms.speed'` and components as `'uniforms.tint.0'`; opaque unless `transparent: true`; it cannot read what is behind it (no `iChannel` / `iMouse` / `iDate`); no `while` or non-constant `for`; a compile error is reported in your own line numbers and the layer is a checkerboard.
 
@@ -442,6 +445,7 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 112. **Text inside a parent that is scaled up comes out soft.** Text is drawn once at its own size and then stretched, so `{ type: 'null', initial: { scale: 3 } }` with a text child of `fontSize: 30` is blurry (shapes stay sharp). Give the text `resolution: 3` (it is drawn at 3 times the pixels, for a parent that grows to 3x; 1 to 8, the cost is the memory), or write it at the size it is shown (`fontSize: 90`, parent scale 1), or let the parent only scale DOWN (a pull-back from big to normal is sharp the whole way). `check --at … --crop` shows the difference.
 113. **Two limits on sound that `help sfx` / `help music` did not say.** An `sfx` lasts at most 10 s (`MAX_LENGTH` in the synth): for a longer rain or room tone, chain two audio layers that overlap by a moment, or use `loop` on a short one. A `music` layer plays at most 16 tracks, and a warning says that only the first 16 play: put the rest in a second audio layer.
 114. **A keyframe's `from` is on screen from the start of the layer, and it beats `initial`.** `initial: { alpha: 0 }` plus `{ at: 2, from: { alpha: 1 }, to: { alpha: 0.5 }, duration: 1 }` shows the layer at full alpha from second 0 (measured in Chrome: the red square was there at 0.5 s). That is how a title waits invisible with `from: { alpha: 0 }` until its `at`, but it surprises when `from` is the visible end. Give the layer its own `at: 2`, or use `set` at the moment it should appear. No warning: the same pattern (`initial` = the resting value, `from` = where it starts) is what the recipes do everywhere.
+115. **A `canvas` layer is a function of the time, nothing more.** The canvas is cleared before every call and nothing survives into the next, so `x += 1` per call, "draw over the last picture" and `Math.random()` all break: a seek or an export would not match playback (`check` draws each canvas layer twice at a few moments and reports a layer whose pictures differ). Compute from `t` (a trail is the positions of the past), use `info.random()` (seeded) and `params` that keyframes animate, and compute a whole simulation in `setup` (an array by frame) and read `info.frame`. A canvas layer cannot see or paint on what is below it: use `filters`, a matte or a composition for that. Pixel art needs `smoothing: false` (hard pixels when scaled up) and a small `width` / `height` with a big `initial.scale`.
 
 
 <!-- ===== skills/pixi-effects/reference/recipes.md ===== -->
@@ -639,6 +643,97 @@ return [
 ```
 
 To land something exactly where you want at a time `t` (a moon under a bridge at 6 s), compute the strip's x at `t` the same way: `i * gap - speed * t`.
+
+---
+
+## Draw it yourself: the `canvas` layer (an afterimage, rings that grow, a pixel sprite, a simulation)
+
+When no layer draws what you need, write the drawing as a **function of the time**: `draw(ctx, t, info)` paints into the layer's own cleared 2D canvas and the layer is a normal layer (`initial`, `keyframes`, `filters`, `mask`, export). Rules: the same `t` and `info.params` give the same pixels (no `Math.random` or `Date.now`: `info.random()` is seeded), nothing survives from the last frame, and a simulation is computed whole in `setup`. `help canvas` has the contract.
+
+An **afterimage** is drawn from the positions of the past, not from the last picture:
+
+```js
+// @recipe canvas-trail
+const at = (t) => ({ x: 640 + 420 * Math.sin(t * 1.7), y: 360 + 200 * Math.sin(t * 2.9) });      // where the dot is at time t
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101420' } },
+  { type: 'canvas', name: 'trail', duration: 6, params: { tail: 0.5 },
+    draw: (ctx, t, info) => {
+      const N = 14;
+      for (let i = N; i >= 0; i--) {                                  // the oldest first, the head last
+        const p = at(Math.max(0, t - i * info.params.tail / N));
+        ctx.globalAlpha = (1 - i / (N + 1)) * 0.85;
+        ctx.fillStyle = '#ff4f1a';
+        ctx.beginPath(); ctx.arc(p.x, p.y, 34 - i * 1.6, 0, Math.PI * 2); ctx.fill();
+      }
+    } },
+];
+```
+
+**Rings that grow**, wobbling a little with a seeded `random()`, and `params` that keyframes animate (the `progress` of the layer is `info.progress`):
+
+```js
+// @recipe canvas-rings
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#efe9dc' } },
+  { type: 'canvas', name: 'rings', width: 720, height: 720, duration: 8, seed: 3, params: { years: 0 },
+    initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5 },
+    keyframes: [{ at: 0, to: { 'params.years': 40 }, duration: 8, ease: 'power1.inOut' }],
+    draw: (ctx, t, info) => {
+      const cx = info.width / 2, cy = info.height / 2, n = Math.floor(info.params.years);
+      const wob = Array.from({ length: n + 1 }, () => [info.random() * 6, info.random() * Math.PI * 2]);      // the same wobble at every frame
+      for (let k = n; k >= 0; k--) {
+        const r = 8 + k * 8.5 + (k === n ? (info.params.years - n) * 8.5 : 0);
+        ctx.beginPath();
+        for (let a = 0; a <= 64; a++) { const th = (a / 64) * Math.PI * 2, rr = r + wob[k][0] * Math.sin(th * 3 + wob[k][1]); ctx.lineTo(cx + rr * Math.cos(th), cy + rr * Math.sin(th)); }
+        ctx.closePath();
+        ctx.fillStyle = k % 2 ? '#c9a36a' : '#a87c45'; ctx.fill();
+      }
+    } },
+];
+```
+
+A **pixel sprite**: drawn small with `smoothing: false`, shown big (the layer is scaled up and the pixels stay hard):
+
+```js
+// @recipe canvas-pixel-sprite
+const ROWS = ['..1111..', '.111111.', '11.11.11', '11111111', '.1.11.1.', '..1111..', '.1....1.', '1......1'];
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1b1330' } },
+  { type: 'canvas', name: 'sprite', width: 8, height: 8, smoothing: false, duration: 8,
+    initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5, scale: 30 },
+    keyframes: [{ at: 0, from: { y: 300 }, to: { y: 420 }, duration: 8, ease: 'steps(16)' }],             // moves in whole steps
+    draw: (ctx, t) => {
+      const blink = Math.floor(t * 2) % 2;                          // two frames of animation
+      ROWS.forEach((row, y) => [...row].forEach((c, x) => { if (c === '1') { ctx.fillStyle = (y === 2 && blink) ? '#1b1330' : '#ffd166'; ctx.fillRect(x, y, 1, 1); } }));
+    } },
+];
+```
+
+A **simulation** (a game of life) is computed WHOLE in `setup`, one array per generation, and `draw` only reads `info.frame`: a pure function of the frame, so a seek or an export agrees with playback:
+
+```js
+// @recipe canvas-life
+const W = 48, H = 27, GENERATIONS = 90;
+const step = (g) => g.map((row, y) => row.map((v, x) => {
+  let n = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (dx || dy) n += g[(y + dy + H) % H][(x + dx + W) % W];
+  return n === 3 || (v && n === 2) ? 1 : 0;
+}));
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0b0f14' } },
+  { type: 'canvas', name: 'life', width: 960, height: 540, duration: 6, seed: 11, initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5 },
+    setup: (info) => {
+      let g = Array.from({ length: H }, () => Array.from({ length: W }, () => (info.random() < 0.3 ? 1 : 0)));
+      const all = [g]; for (let i = 1; i < GENERATIONS; i++) all.push((g = step(g)));
+      return all;
+    },
+    draw: (ctx, t, info) => {
+      const g = info.state[Math.min(info.state.length - 1, Math.floor(t * 15))];          // 15 generations a second
+      ctx.fillStyle = '#7bd88f';
+      g.forEach((row, y) => row.forEach((v, x) => { if (v) ctx.fillRect(x * 20 + 2, y * 20 + 2, 16, 16); }));
+    } },
+];
+```
 
 ---
 
@@ -2396,6 +2491,39 @@ Rules:
 7. **Deterministic, with one caveat**: a frame is a pure function of `iTime`, `iFrame` and the uniforms, so playback, seeking and export agree. Different GPUs can round differently, so an export from another machine can differ in the last bits.
 8. **Size and place**: with `width` / `height` smaller than the composition the layer's **top-left corner** sits at `initial.x` / `initial.y` (like an image; a shader layer has no anchor to set). **A mask or matte cuts the picture the shader drew over its whole size, it does not move it**: a ripple centred in the shader's own frame stays there, so to show the middle of a pattern through a disc at x = 410, put the pattern's centre at x = 410 (a `vec2` uniform: `uniforms: { centre: [410, 360] }`) or size and place the layer to match. With `resolution` below 1, `iResolution` and `fragCoord` are in the **scaled** buffer's pixels (half size at 0.5), so a pixel-unit uniform (a centre, a radius) must be multiplied by `resolution`; `fragCoord / iResolution.xy` needs no correction.
 9. **Cost** (a prototype measurement at 1080p, on one machine, an Apple M1 Pro; the released layer is not re-measured): a 160×90 shader with an 8-step loop, 20 layers, cost 11 ms (WebGPU) to 17 ms (WebGL) a frame more than 20 plain rectangles; one full-size 1920×1080 layer cost about 10 ms more. Every layer pays a fixed cost (about 0.5 to 0.85 ms), so use a few big shaders rather than many small ones, and `resolution` for heavy ones. All shader layers share **one** WebGL2 context (so there is no limit from the browser's number of contexts); a shader layer needs WebGL2 (without it the build warns and draws the checkerboard).
+
+### `canvas`
+
+A picture drawn by **your own function of the time**, into a canvas of the layer's own, shown like an image at its place in the stack. Use it for what no other layer draws: an afterimage, rings that grow, a brush stroke, a waveform, a pixel sprite, a chart, a simulation. It is the escape hatch for "I want to draw this myself".
+
+```ts
+{ type: 'canvas', width: 800, height: 450, duration: 4, initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5 },
+  params: { size: 40 },
+  draw: (ctx, t, info) => {                                  // ctx: the layer's own 2D context, already cleared
+    ctx.fillStyle = '#ff4f1a';
+    ctx.beginPath(); ctx.arc(400 + 300 * Math.sin(t * 2), 225, info.params.size, 0, Math.PI * 2); ctx.fill();
+  } }
+```
+
+It is a layer like any other: `name`, `at`, `duration`, `initial`, `keyframes`, `filters`, `mask`, `blendMode`, `parent`, `threeD`, lights, transitions, mattes, export all work on its picture.
+
+| Key | Meaning |
+|---|---|
+| `draw(ctx, t, info)` | **Required.** Draws the picture at `t`, the layer's own seconds (0 when it starts). The canvas is **cleared before every call** and nothing a call sets (a fill colour, a font, a transform) survives into the next. The units are the layer's pixels. |
+| `setup(info)` | Optional, may be async, called once at build: heavy preparation. Its result is `info.state`. |
+| `width`, `height` | Layer size in px or an expression (`'GW / 2'`); default the composition's size; at most 8192. |
+| `resolution` | 0.25 to 4 (default 1): canvas pixels per layer pixel. Text and fine lines under a zoom (a parent scaled up) need 2 or more. |
+| `params` | Numbers that **keyframes can animate**: `keyframes: [{ at: 0, to: { 'params.size': 80 }, duration: 2 }]`; `draw` reads them as `info.params`. |
+| `seed` | Integer (default 0) that seeds `info.random()`. |
+| `smoothing` | `false`: no smoothing when drawing images into it AND hard pixels when the layer is scaled up (pixel art). Default `true`. |
+
+`info` is `{ frame, duration, progress, width, height, resolution, frameRate, params, state, random }`: `frame` is the layer's own frame number, `progress` is `t / duration`, `params` holds the values at this time, `state` is what `setup` returned, and `random()` is a **seeded** generator whose sequence starts again at every call (the same frame always draws the same numbers; for a value that must differ from frame to frame, derive it from `t`).
+
+**The contract: a function of the time.** The same `t` and the same `params` must give the same pixels, in playback, in a seek and in an export. So: no `Math.random`, `Date.now`, `performance.now` or `new Date()` (a warning at build says so, and `check` draws each canvas layer twice at a few moments and reports a layer whose two pictures differ), and no state that outlives a call. A trail is drawn from the positions of the past computed from `t`, not from the last picture. A **simulation** (a game of life, a physics sim, a growth process) is computed whole in `setup` into an array and read by `info.frame` in `draw`.
+
+**What it cannot do.** It cannot see or paint on what is below it in the stack (the stage is drawn by the GPU, not by a 2D context): use `filters`, a matte or a composition that holds the layers for that. It is not audio. For a picture made by a formula on the GPU, the `shader` layer is faster. A spec that holds a `canvas` layer holds functions, so it is not pure JSON (the same standing as `three` and the `custom` filter).
+
+Mistakes are said at build time with the layer's name: no `draw`, a `draw` or `setup` that throws (the frame is a magenta checkerboard and the next frames are tried again), a bad `width` / `height` / `resolution` / `params`, an unknown key (did you mean …), a `params.name` keyframe that names nothing. A draw costs time on every frame that changes: a slow `draw` slows the export in proportion.
 
 ## 3D layers & camera
 
