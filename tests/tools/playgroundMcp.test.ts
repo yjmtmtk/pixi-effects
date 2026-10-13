@@ -1,8 +1,8 @@
 // @vitest-environment node
 // The Playground's WebMCP tools on a real Chrome (154+, started with --enable-features=WebMCP).
-// What that Chrome does, measured with a probe page: getTools() items have { name, title, description, inputSchema (a JSON string),
-// annotations { readOnlyHint, consequentialHint, untrustedContentHint }, origin, window }; executeTool(tool, argsAsJsonString) returns
-// the result as a JSON string; image content { type: 'image', data, mimeType } passes through; a tool that throws reaches the agent with
+// What that Chrome does, measured with a probe page: getTools() items have { name, title, description, inputSchema (a JSON string in 154, an object in 155),
+// annotations { readOnlyHint, consequentialHint, untrustedContentHint }, origin, window }; executeTool(tool, args) takes the arguments as a JSON string (154) or an object (155)
+// and returns the result as a JSON string; the helpers below try the object first and fall back to the string, so one test file runs on both; image content { type: 'image', data, mimeType } passes through; a tool that throws reaches the agent with
 // no message; parallel executeTool calls run in parallel; arguments are not validated against the schema.
 import { describe, it, expect } from 'vitest';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
@@ -42,18 +42,21 @@ const hasWebMcp: boolean = chrome ? await (async () => {
   } catch { return false; } finally { try { proc.kill(); } catch { /* gone */ } server.close(); await check.sleep(200); try { rmSync(dir, { recursive: true, force: true }); } catch { /* held */ } }
 })() : false;
 
-/** executeTool by name, with the arguments as the JSON string Chrome wants; the result parsed. */
+/** The page-side helper: executeTool with the arguments as an object (Chrome 155), or as a JSON string where that is what the Chrome wants (154). */
+const CALL = `window.__callTool = async (mc, tool, args) => { try { return await mc.executeTool(tool, args); } catch (e) { if (!/not an object/.test(String(e && e.message))) throw e; return await mc.executeTool(tool, JSON.stringify(args)); } };`;
+/** executeTool by name; the result parsed. */
 const exec = (cdp: any, name: string, args: unknown = {}) => cdp.eval(`(async () => {
+  ${CALL}
   const mc = document.modelContext, tool = (await mc.getTools()).find(t => t.name === ${JSON.stringify(name)});
   if (!tool) return { missing: true };
-  return JSON.parse(await mc.executeTool(tool, ${JSON.stringify(JSON.stringify(args))}));
+  return JSON.parse(await window.__callTool(mc, tool, ${JSON.stringify(args)}));
 })()`);
 const body = (r: any) => JSON.parse(r.content.find((c: any) => c.type === 'text').text);
 
 describe.skipIf(!chrome || !built || !hasWebMcp || process.env.SKIP_BROWSER_TESTS)('the Playground\'s WebMCP tools, on a real Chrome', () => {
   it('registers the ten tools, with schemas and hints, and the page says so', async () => {
     await open(async (cdp) => {
-      const tools = await cdp.eval(`(async () => (await document.modelContext.getTools()).map(t => ({ name: t.name, desc: t.description.length, schema: JSON.parse(t.inputSchema).type, ro: t.annotations ? t.annotations.readOnlyHint : null, untrusted: t.annotations ? t.annotations.untrustedContentHint : null })))()`);
+      const tools = await cdp.eval(`(async () => (await document.modelContext.getTools()).map(t => ({ name: t.name, desc: t.description.length, schema: (typeof t.inputSchema === 'string' ? JSON.parse(t.inputSchema) : t.inputSchema).type, ro: t.annotations ? t.annotations.readOnlyHint : null, untrusted: t.annotations ? t.annotations.untrustedContentHint : null })))()`);
       expect(tools.map((t: any) => t.name).sort()).toEqual(['check', 'get_code', 'get_docs', 'list_examples', 'load_example', 'look', 'onion', 'render_draft', 'run', 'set_code']);
       for (const t of tools) { expect(t.desc).toBeGreaterThan(20); expect(t.schema).toBe('object'); }
       expect(tools.find((t: any) => t.name === 'check').ro).toBe(true);
@@ -118,7 +121,8 @@ describe.skipIf(!chrome || !built || !hasWebMcp || process.env.SKIP_BROWSER_TEST
     await open(async (cdp) => {
       const r = await cdp.eval(`(async () => {
         const mc = document.modelContext, tools = await mc.getTools(), by = n => tools.find(t => t.name === n);
-        const [run, check] = await Promise.all([mc.executeTool(by('run'), '{}'), mc.executeTool(by('check'), '{}')]);
+        ${CALL}
+        const [run, check] = await Promise.all([window.__callTool(mc, by('run'), {}), window.__callTool(mc, by('check'), {})]);
         return { run: JSON.parse(run), check: JSON.parse(check), frames: document.querySelectorAll('iframe').length };
       })()`);
       expect(body(r.run).ready).toBe(true);
