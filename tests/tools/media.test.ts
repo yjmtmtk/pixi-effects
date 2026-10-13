@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync, rmSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { join, resolve } from 'node:path';
@@ -174,6 +174,96 @@ describe('probe: what is in a file', () => {
       const url = await run(['probe', 'http://127.0.0.1:1/x.mp4']);
       expect(url.code).toBe(1);
       expect(url.err).toMatch(/could not read http:\/\/127\.0\.0\.1:1\/x\.mp4/);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+describe('trim: a cut by copy, with the real times', () => {
+  const fx = (n: string) => join(root, 'tests/fixtures/media', n);
+  const run = async (argv: string[]) => { const out: string[] = [], err: string[] = []; const code = await media.runMedia(argv, { log: (s: string) => out.push(s), err: (s: string) => err.push(s) }); return { code, out: out.join('\n'), err: err.join('\n') }; };
+  const tmp = () => mkdtempSync(join(tmpdir(), 'media-trim-'));
+  /** The packets of a track between two source times, as byte strings (for "the same bytes as the source"). */
+  async function packets(file: string, kind: 'video' | 'audio', from: number, to: number, shift = 0) {
+    const mb = await import('mediabunny');
+    const input = new mb.Input({ source: new mb.FilePathSource(file), formats: mb.ALL_FORMATS });
+    const track = kind === 'video' ? await input.getPrimaryVideoTrack() : await input.getPrimaryAudioTrack();
+    const out: Array<{ t: number; data: string }> = [];
+    for await (const p of new mb.EncodedPacketSink(track!).packets()) {
+      const t = Math.round((p.timestamp + shift) * 1000) / 1000;
+      if (t >= from - 1e-3 && t < to - 1e-3) out.push({ t, data: Buffer.from(p.data).toString('base64') });
+    }
+    return out;
+  }
+
+  it('from a key frame (2 s): got exactly 2–4 s, copied, and the video packets are byte for byte the source\'s', async () => {
+    const dir = tmp();
+    try {
+      const out = join(dir, 'cut.mp4');
+      const r = await media.trimFile({ input: fx('colors.mp4'), start: 2, end: 4, out });
+      expect(r).toMatchObject({ actual: [2, 4], mode: 'copy', reencoded: false });
+      expect(r.tracks.join(' ')).toMatch(/video.*audio/);
+      expect(r.notes).toEqual([]);
+      const src = await packets(fx('colors.mp4'), 'video', 0, 2, -2), got = await packets(out, 'video', 0, 2);        // the source's 2–4 s, moved to start at 0
+      expect(got.length).toBe(src.length);
+      expect(got.map(p => p.data)).toEqual(src.map(p => p.data));          // not re-encoded: the same bytes
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('between key frames (3.3 s): a copy cannot start there, so it starts on the NEXT key frame (4 s) and says so, in the report and in actual', async () => {
+    const dir = tmp();
+    try {
+      const out = join(dir, 'cut.mp4');
+      const r = await run(['trim', fx('colors.mp4'), '3.3', '4.9', '-o', out, '--json']);
+      expect(r.code).toBe(0);
+      const j = JSON.parse(r.out);
+      expect(j.requested).toEqual([3.3, 4.9]);
+      expect(j.actual).toEqual([4, 4.9]);
+      expect(j.notes.join(' ')).toMatch(/next key frame.*4.*--exact/s);
+      const text = (await run(['trim', fx('colors.mp4'), '3.3', '4.9', '-o', out, '--force'])).out;
+      expect(text).toMatch(/asked 3\.3–4\.9 s, got 4–4\.9 s/);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('a range with no key frame inside (2.5–3.5) is exit 1 naming --exact and the key frames around it; no file is left', async () => {
+    const dir = tmp();
+    try {
+      const out = join(dir, 'cut.mp4');
+      const r = await run(['trim', fx('colors.mp4'), '2.5', '3.5', '-o', out]);
+      expect(r.code).toBe(1);
+      expect(r.err).toMatch(/no key frame/);
+      expect(r.err).toMatch(/--exact/);
+      expect(existsSync(out)).toBe(false);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('an end past the file is cut at the end of the file and said; start after end, a start past the file, an unknown output type, and the input as the output are refused with a sentence', async () => {
+    const dir = tmp();
+    try {
+      const out = join(dir, 'cut.mp4');
+      const past = await media.trimFile({ input: fx('colors.mp4'), start: 4, end: 99, out });
+      expect(past.actual[0]).toBe(4);
+      expect(past.actual[1]).toBeGreaterThan(5.9);
+      expect(past.notes.join(' ')).toMatch(/end is past the file/);
+      expect((await run(['trim', fx('colors.mp4'), '4', '2', '-o', out, '--force'])).err).toMatch(/start must be before end/);
+      expect((await run(['trim', fx('colors.mp4'), '50', '60', '-o', out, '--force'])).err).toMatch(/past the end of the file \(6/);
+      expect((await run(['trim', fx('colors.mp4'), '2', '4', '-o', join(dir, 'x.avi')])).err).toMatch(/\.mp4, \.mov/);
+      const same = join(dir, 'same.mp4'); copyFileSync(fx('colors.mp4'), same);
+      expect((await run(['trim', same, '2', '4', '-o', same, '--force'])).err).toMatch(/would overwrite the input/);
+      expect((await run(['trim', fx('colors.mp4'), '2', '4', '-o', out])).err).toMatch(/already exists.*--force/);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('works for a file whose name has spaces and non-Latin letters, into a folder that does not exist yet, and for webm and mov', async () => {
+    const dir = tmp();
+    try {
+      const odd = join(dir, 'été café 日本.mp4'); copyFileSync(fx('colors.mp4'), odd);
+      const r = await run(['trim', odd, '2', '4', '-o', join(dir, 'new folder', 'cut ñ.mp4')]);
+      expect(r.code, r.err).toBe(0);
+      expect(existsSync(join(dir, 'new folder', 'cut ñ.mp4'))).toBe(true);
+      const w = await media.trimFile({ input: fx('colors.webm'), start: 2, end: 4, out: join(dir, 'w.webm') });
+      expect(w.tracks.join(' ')).toMatch(/vp9/);
+      const m = await media.trimFile({ input: fx('colors.mov'), start: 2, end: 4, out: join(dir, 'm.mov') });
+      expect(m.actual).toEqual([2, 4]);
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 });

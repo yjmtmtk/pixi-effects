@@ -194,6 +194,85 @@ commands.probe = async ({ file, opts }, io) => {
   return 0;
 };
 
+const OUTPUT_FORMATS = { '.mp4': 'Mp4OutputFormat', '.m4v': 'Mp4OutputFormat', '.m4a': 'Mp4OutputFormat', '.mov': 'MovOutputFormat', '.webm': 'WebMOutputFormat', '.mkv': 'MkvOutputFormat', '.mka': 'MkvOutputFormat' };
+
+/**
+ * What a cut by copy of [start, stop) really contains: it starts on the first key frame at or after `start` (a copy cannot start between key frames) and ends with the
+ * last frame that is wholly before `stop`. `{ from, to }` in the file's own seconds, or `{ none: true, before, after }` (the key frames around the range) when no key frame
+ * is inside it. A sound has no key frames: any packet is one.
+ */
+async function copyWindow(mb, input, start, stop) {
+  const track = (await input.getPrimaryVideoTrack()) ?? (await input.getPrimaryAudioTrack());
+  if (!track) return null;
+  const sink = new mb.EncodedPacketSink(track);
+  const meta = { metadataOnly: true };
+  let key = await sink.getKeyPacket(start, meta);
+  const before = key ? key.timestamp : null;
+  if (!key || key.timestamp < start - 1e-6) key = key ? await sink.getNextKeyPacket(key, meta) : await sink.getFirstPacket(meta);
+  if (!key || key.timestamp >= stop - 1e-6) return { none: true, before, after: key ? key.timestamp : null };
+  let end = key.timestamp;
+  for await (const p of sink.packets(key, undefined, meta)) {
+    if (p.timestamp > stop + 4) break;                                 // the reorder window of a frame is far inside this
+    if (p.timestamp + p.duration <= stop + 1e-6) end = Math.max(end, p.timestamp + p.duration);
+  }
+  return { from: key.timestamp, to: end };
+}
+
+/**
+ * Cuts [start, end] out of a file. By copy when the codecs allow (no re-encode, no loss): it can only start on a frame and the container's rules decide how the start is
+ * made (`boundary`). With `exact` the cut is re-encoded in the browser so it starts on the frame asked for (see `trimExact`). The result says what was really done.
+ */
+export async function trimFile({ input: file, start, end, out, exact = false, force = false, copy = { boundaryPolicy: 'shrink', shiftTolerance: Infinity } }) {
+  if (!(end > start)) throw new UsageError(`start must be before end (got ${start} and ${end})`);
+  if (start < 0) throw new UsageError(`start must not be negative (got ${start})`);
+  const ext = path.extname(out).toLowerCase();
+  if (!OUTPUT_FORMATS[ext]) throw new UsageError(`cannot write "${ext || out}": name the output .mp4, .mov, .webm, .mkv or .m4a`);
+  if (!isUrl(file) && path.resolve(file) === path.resolve(out)) throw new Error(`the output ${out} would overwrite the input: choose another name`);
+  const { mb, input } = await openInput(file);
+  const duration = await input.computeDuration();
+  const notes = [];
+  if (start >= duration) throw new Error(`start ${start} s is past the end of the file (${round(duration, 3)} s)`);
+  let stop = end;
+  if (end > duration) { stop = duration; notes.push(`end is past the file (${round(duration, 3)} s): cut at ${round(duration, 3)}`); }
+  if (exact) throw new Error('--exact needs the browser engine, which this build does not have yet');
+  const { input: probe } = await openInput(file);
+  const window = await copyWindow(mb, probe, start, stop);
+  if (window && window.none) {
+    const around = [window.before, window.after].filter(t => t !== null).map(t => `${round(t, 3)} s`).join(' and ');
+    throw new Error(`no key frame between ${start} s and ${round(stop, 3)} s${around ? ` (the nearest are at ${around})` : ''}: a copy can only start on a key frame, so a cut this short cannot be copied; use --exact (re-encodes, needs Chrome)`);
+  }
+  prepareOutput(out, { force });
+  const target = new mb.FilePathTarget(path.resolve(out));
+  const output = new mb.Output({ format: new mb[OUTPUT_FORMATS[ext]](), target });
+  // 'shrink' + a shift: the cut starts on its first key frame and the file starts there (at 0), a plain file with no hidden frames. mediabunny's default, 'expand', starts the
+  // cut exactly where asked by writing the frames before it as hidden pre-roll with negative timestamps; measured by playing the cut in Chrome and decoding it in ffmpeg,
+  // both show it right, but other players handle pre-roll and edit lists differently and were not measured, and a glitch there would be invisible to an agent. So the
+  // default is the form that is right everywhere, at the cost of a later start, which the report says; --exact is for a start on the frame asked for.
+  const conversion = await mb.Conversion.init({ input, output, trim: { start, end: stop }, copy: { mode: 'forced', ...copy }, showWarnings: false });
+  if (!conversion.isValid || conversion.discardedTracks.length) {
+    const why = conversion.discardedTracks.map(d => `${d.track.type}: ${d.reason}`).join(', ');
+    throw new Error(`${file} cannot be cut by copy into ${ext} (${why || 'no track can be copied'}): use a different output type, or --exact (re-encodes, needs Chrome)`);
+  }
+  await conversion.execute();
+  const actual = window ? [round(window.from, 3), round(Math.min(window.to, duration), 3)] : [start, stop];
+  const tracks = conversion.utilizedTracks.map(t => `${t.type} ${t.codec ?? ''}`.trim());
+  if (actual[0] - start > 1e-3) notes.push(`a copy can only start on a key frame: it starts on the next key frame, ${actual[0]} s, not ${start} s (${round(actual[0] - start, 3)} s later); use --exact to start on ${start} s (re-encodes, needs Chrome), or probe --keyframes to pick a key frame`);
+  return { requested: [start, end], actual, mode: 'copy', reencoded: false, tracks, bytes: fs.statSync(path.resolve(out)).size, out, notes };
+}
+
+function trimText(r) {
+  const L = [`${r.out}  ${kb(r.bytes)}`, `  asked ${r.requested[0]}–${r.requested[1]} s, got ${r.actual[0]}–${r.actual[1]} s`, `  copied: ${r.tracks.join(', ')} (no re-encode)`];
+  for (const n of r.notes) L.push(`  note   ${n}`);
+  return L.join('\n');
+}
+
+commands.trim = async ({ file, opts }, io) => {
+  const r = await trimFile({ input: file, start: opts.start, end: opts.end, out: opts.out, exact: !!opts.exact, force: !!opts.force });
+  io.log(opts.json ? JSON.stringify(r, null, 2) : trimText(r));
+  return 0;
+};
+
+
 
 
 /** Runs a media command line; resolves to the exit code (0 done, 1 a problem, 2 usage). */
