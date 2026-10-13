@@ -15,11 +15,17 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runLookup, LOOKUP_COMMANDS } from './lookup.mjs';
 
+const MEDIA = ['probe', 'trim', 'frames', 'sound'];          // footage tools: one file, `media.mjs`, which gets the command word too
+
 const TOOLS = { check: 'check.mjs', render: 'render.mjs', view: 'view.mjs' };
 const USAGE = `usage:
   pixi-effects check  <page.html> [--at 3,6] [--out dir]    review a video page: warnings, layout, sound, contact sheet, real export
   pixi-effects render <page.html> -o <file.mp4>             export the video
   pixi-effects view   <page.html>                           look at it in a browser, with a timeline
+  pixi-effects probe  <file|url>                            what is in a video or audio file (codecs, size, duration), with no ffmpeg
+  pixi-effects trim   <file|url> <start> <end> -o <out>     cut a file (by copy when it can) and say the real times
+  pixi-effects frames <file|url> [--at 1,50%,end] [--sheet] pictures of a video at those times
+  pixi-effects sound  <file|url> [--waveform]               loudness, peak, silences of a file's sound
   pixi-effects new    <name> [--size 1080x1920] [--duration 20]   a page to start from (<name>.html), 1280x720 and 6 s unless asked
   pixi-effects recipe [id]                                  the tested recipes; with an id, one of them with its code
   pixi-effects help   <word>                                the docs about a word (mask, threeD, keyframes, music …)
@@ -28,7 +34,7 @@ const USAGE = `usage:
 function nearest(word) {
   const d = (a, b) => { const m = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]); for (let j = 1; j <= b.length; j++) m[0][j] = j;
     for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) m[i][j] = Math.min(m[i - 1][j] + 1, m[i][j - 1] + 1, m[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return m[a.length][b.length]; };
-  const best = [...Object.keys(TOOLS), ...LOOKUP_COMMANDS].map(k => [k, d(word, k)]).sort((x, y) => x[1] - y[1])[0];
+  const best = [...Object.keys(TOOLS), ...MEDIA, ...LOOKUP_COMMANDS].map(k => [k, d(word, k)]).sort((x, y) => x[1] - y[1])[0];
   return best[1] <= 2 ? best[0] : null;
 }
 
@@ -37,9 +43,10 @@ export function route(argv) {
   const [cmd, ...args] = argv;
   if (!cmd || cmd === '--help' || cmd === '-h') return { usage: USAGE };
   if (TOOLS[cmd]) return { tool: TOOLS[cmd], args };
+  if (MEDIA.includes(cmd)) return { tool: 'media.mjs', args: [cmd, ...args] };
   if (LOOKUP_COMMANDS.includes(cmd)) return { inline: cmd, args };
   const guess = /\.html?$/i.test(cmd) ? 'check' : nearest(cmd);
-  return { error: `pixi-effects: unknown command "${cmd}"${guess ? `; did you mean "${guess}"?` : ''} The commands are: ${[...Object.keys(TOOLS), ...LOOKUP_COMMANDS].join(', ')}.\n${USAGE}` };
+  return { error: `pixi-effects: unknown command "${cmd}"${guess ? `; did you mean "${guess}"?` : ''} The commands are: ${[...Object.keys(TOOLS), ...MEDIA, ...LOOKUP_COMMANDS].join(', ')}.\n${USAGE}` };
 }
 
 const self = fileURLToPath(import.meta.url);
