@@ -47,6 +47,8 @@ export { particles } from './presets/particles';
 export type { ParticlesOptions } from './presets/particles';
 
 export { followPath } from './presets/followPath';
+export { samplePath } from './core/pathSample';
+export type { PathSampler } from './core/pathSample';
 export { cameraPath } from './presets/cameraPath';
 export type { CameraPathOptions } from './presets/cameraPath';
 export type { FollowPathOptions } from './presets/followPath';
@@ -69,7 +71,7 @@ export type { StaggerOptions } from './presets/stagger';
 export { wiggle } from './presets/wiggle';
 export type { WiggleOptions, WiggleProp } from './presets/wiggle';
 
-export { random, rand, noise } from './expr/random';
+export { random, rand, noise, noise2 } from './expr/random';
 
 export { withFade } from './transforms/withFade';
 export type { WithFadeOptions } from './transforms/withFade';

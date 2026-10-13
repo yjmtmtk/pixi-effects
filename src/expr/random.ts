@@ -46,3 +46,16 @@ export function noise(x: number, seed = 0): number {
   const u = f * f * f * (f * (f * 6 - 15) + 10);          // quintic fade
   return a + (b - a) * u;
 }
+
+/** Smooth 2-D noise in [-1, 1]: continuous in `x` and in `y`, a different field for every `seed` (add octaves yourself for clouds: `noise2(x, y) + 0.5 * noise2(2 * x, 2 * y)`). */
+export function noise2(x: number, y: number, seed = 0): number {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return 0;
+  const i = Math.floor(x), j = Math.floor(y);
+  const fx = x - i, fy = y - j;
+  const s = fold(seed) * 0x27d4eb2d;
+  const corner = (a: number, b: number): number => mix(Math.imul((a | 0) + s, 0x9e3779b1) ^ Math.imul((b | 0) + 0x7f4a7c15, 0x85ebca6b)) / 2147483648 - 1;
+  const ux = fx * fx * fx * (fx * (fx * 6 - 15) + 10), uy = fy * fy * fy * (fy * (fy * 6 - 15) + 10);
+  const top = corner(i, j) + (corner(i + 1, j) - corner(i, j)) * ux;
+  const bottom = corner(i, j + 1) + (corner(i + 1, j + 1) - corner(i, j + 1)) * ux;
+  return top + (bottom - top) * uy;
+}

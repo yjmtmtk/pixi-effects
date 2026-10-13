@@ -233,7 +233,7 @@ export class CanvasSequence extends Sequence {
     const once = (t: number, timed: boolean): Uint8ClampedArray => {
       const from = performance.now();
       this.paint(ctx, scratch, t);
-      if (timed) ms.push(performance.now() - from);
+      if (timed) { ctx.getImageData(0, 0, 1, 1); ms.push(performance.now() - from); }       // a canvas keeps its calls until something reads it: one pixel makes the browser do the drawing, so the time is the draw's
       return read();
     };
     for (const t of times) once(t, false);                         // the warm-up

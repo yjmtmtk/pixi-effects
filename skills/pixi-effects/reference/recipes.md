@@ -285,6 +285,89 @@ return [
 
 ---
 
+## Type, curves and charts in a canvas layer (type through a moving texture, text along a curve, bars that swap places)
+
+The `canvas` layer (see the section above and `help canvas`) is also where text effects the text layer cannot do and live charts are drawn. `info.canvas(w, h)` makes sprites and masks in `setup`, `info.time` is the movie's clock, and `ease`, `noise`, `noise2`, `random`, `samplePath` are importable from `pixi-effects`. `check` does not see text drawn in a canvas: look at the sheet and at `--crop` enlargements.
+
+**Type as a window onto something that moves.** Draw the words once into a canvas from `info.canvas` (in `setup`), draw them back first, then paint with `source-atop`: the paint shows only where the words are (two `fillText` under `destination-in` would intersect instead):
+
+```js
+// @recipe canvas-text-mask
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0d0a14' } },
+  { type: 'canvas', name: 'window', width: 1100, height: 320, duration: 6, initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5 },
+    setup: (info) => {                                                // the words, drawn once into a canvas of their own
+      const word = info.canvas(1100, 320), c = word.getContext('2d');
+      c.fillStyle = '#fff'; c.font = '900 280px "Arial Black", "Helvetica Neue", sans-serif';
+      c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('LIGHT', 550, 160);
+      return { word };
+    },
+    draw: (ctx, t, info) => {
+      ctx.drawImage(info.state.word, 0, 0);                           // the words first: they are the window …
+      ctx.globalCompositeOperation = 'source-atop';                   // … and what is drawn next appears only where they are
+      ctx.fillStyle = '#2a1030'; ctx.fillRect(0, 0, 1100, 320);
+      for (let k = 0; k < 14; k++) {                                  // bands of colour sliding through
+        ctx.fillStyle = k % 2 ? '#ff4f1a' : '#ffb347';
+        ctx.fillRect(((k * 90 + t * 160) % 1260) - 80, 0, 38, 320);
+      }
+    } },
+];
+```
+
+**Text along a curve, and a line that draws on.** `samplePath(d)` walks SVG path data by length: `at(u)` is the point and the heading a fraction `u` along, `trim(a, b)` the part between two fractions. `ease('power2.out')` is the same easing a keyframe takes. Build the sampler once, outside `draw`:
+
+```js
+// @recipe canvas-text-on-path
+const route = samplePath('M 140 560 C 340 120 940 120 1140 560');
+const WORD = 'ALONG THE CURVE', EASE = ease('power2.out');
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101420' } },
+  { type: 'canvas', name: 'along', duration: 6,
+    draw: (ctx, t) => {
+      const run = EASE(Math.min(1, t / 3));                           // 0 → 1: the line draws on, then the letters settle
+      ctx.strokeStyle = '#ff4f1a'; ctx.lineWidth = 3; ctx.beginPath();
+      for (const piece of route.trim(0, run)) { ctx.moveTo(piece[0], piece[1]); for (let i = 2; i < piece.length; i += 2) ctx.lineTo(piece[i], piece[i + 1]); }
+      ctx.stroke();
+      ctx.font = '700 54px Georgia, serif'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#f4efe6';
+      let d = 0;                                                      // distance along the route, in px
+      for (const ch of WORD) {
+        const w = ctx.measureText(ch).width;
+        const u = (d + w / 2 + 90) / route.length - (1 - run) * 0.5;  // where this letter's middle is, a fraction along
+        d += w + 4;
+        if (u < 0 || u > 1) continue;
+        const p = route.at(u);
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.angle); ctx.globalAlpha = run; ctx.fillText(ch, -w / 2, -30); ctx.restore();
+      }
+    } },
+];
+```
+
+**Bars that swap places smoothly.** A bar's row is its rank averaged over the last third of a second, computed from `t` alone (the values at those earlier moments are a function of time too): when two bars change places they glide past each other, passing through one another for the length of the swap as in any bar race, nothing jumps, and a seek is exact:
+
+```js
+// @recipe canvas-bars
+const NAMES = ['Oslo', 'Lima', 'Kyiv', 'Pune', 'Graz'], FROM = [40, 55, 30, 20, 45], TO = [60, 35, 70, 50, 25];
+const BAR = 90, GAP = 28, EASE = ease('power2.inOut');
+const valuesAt = (time) => FROM.map((a, i) => a + (TO[i] - a) * EASE(Math.min(1, Math.max(0, time) / 5)));
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101420' } },
+  { type: 'canvas', name: 'race', width: 1000, height: 600, duration: 6, initial: { x: 140, y: 60 },
+    draw: (ctx, t) => {
+      const now = valuesAt(t), before = Array.from({ length: 8 }, (_, k) => valuesAt(t - k * 0.04));   // the last third of a second
+      ctx.font = '700 34px system-ui, sans-serif'; ctx.textBaseline = 'middle';
+      now.forEach((value, i) => {
+        const rank = before.reduce((sum, v) => sum + v.filter(other => other > v[i]).length, 0) / before.length;   // 0 = top
+        const y = rank * (BAR + GAP);
+        ctx.fillStyle = i === 2 ? '#ff4f1a' : '#4c5a78'; ctx.fillRect(160, y, value * 10, BAR);
+        ctx.fillStyle = '#f4efe6'; ctx.textAlign = 'right'; ctx.fillText(NAMES[i], 140, y + BAR / 2);
+        ctx.textAlign = 'left'; ctx.fillText(String(Math.round(value)), 160 + value * 10 + 14, y + BAR / 2);
+      });
+    } },
+];
+```
+
+---
+
 ## A ticker that scrolls out completely (`w` = the text's own width)
 
 `'-w'` is the exact x at which the text has left the screen on the left (`w` is measured after the style is applied).
@@ -617,18 +700,18 @@ return sequences;
 ```js
 // @recipe progress-ring
 const CX = 640, CY = 360, R = 120, TO = 0.82;            // 82 % filled
-const ease = 'power3.out', AT = 0.3, DUR = 2;
+const EASE = 'power3.out', AT = 0.3, DUR = 2;
 return [
   { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0f1424' } },
   { type: 'shape', shape: 'arc', name: 'track', radius: R, startAngle: 0, endAngle: 360,
     initial: { x: CX, y: CY, strokeColor: '#27304d', strokeWidth: 24 } },
   { type: 'shape', shape: 'arc', name: 'progress', radius: R, startAngle: -90, endAngle: -90, strokeCap: 'round',
     initial: { x: CX, y: CY, strokeColor: '#ffd166', strokeWidth: 24 },
-    keyframes: [{ at: AT, to: { endAngle: -90 + 360 * TO }, duration: DUR, ease }] },
+    keyframes: [{ at: AT, to: { endAngle: -90 + 360 * TO }, duration: DUR, ease: EASE }] },
   { type: 'text', name: 'percent', text: '{value}%', format: { decimals: 0 },
     style: { fontSize: 72, fontWeight: 'bold', fill: '#ffffff' },
     initial: { x: CX, y: CY, anchorX: 0.5, anchorY: 0.5, value: 0 },
-    keyframes: [{ at: AT, to: { value: TO * 100 }, duration: DUR, ease }] },
+    keyframes: [{ at: AT, to: { value: TO * 100 }, duration: DUR, ease: EASE }] },
 ];
 ```
 

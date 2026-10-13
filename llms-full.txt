@@ -10,7 +10,7 @@ Concatenation of the skill, cheatsheet, pitfalls, recipes and the DSL / API refe
 
 # pixi-effects — write a video as data
 
-You describe a video as a tree of plain objects; the library plays it in a canvas and exports it (MP4/WebM/MOV). You never write per-frame code. **Read `reference/quickstart.md` first (2 KB): the commands, a working title card, and what goes wrong most.** For anything it does not answer, ask the docs: `npx pixi-effects help <word>` prints the sections about a word (mask, threeD, keyframes, music …); `npx pixi-effects recipe` lists the tested recipes (a title, a lower third, a chart, kinetic type, a 2.5D scene …) and `npx pixi-effects recipe <id>` prints one with its code. `reference/cheatsheet.md` (35 KB) and `reference/pitfalls.md` (41 KB, numbered) are for looking things up when a warning or the picture surprises you: search them for the word, do not read them end to end. A simple title needs the quick start and one recipe, nothing more.
+You describe a video as a tree of plain objects; the library plays it in a canvas and exports it (MP4/WebM/MOV). You never write per-frame code (except inside a `canvas` layer, which you add only for a picture nothing else draws). **Read `reference/quickstart.md` first (2 KB): the commands, a working title card, and what goes wrong most.** For anything it does not answer, ask the docs: `npx pixi-effects help <word>` prints the sections about a word (mask, threeD, keyframes, music …); `npx pixi-effects recipe` lists the tested recipes (a title, a lower third, a chart, kinetic type, a 2.5D scene …) and `npx pixi-effects recipe <id>` prints one with its code. `reference/cheatsheet.md` (35 KB) and `reference/pitfalls.md` (41 KB, numbered) are for looking things up when a warning or the picture surprises you: search them for the word, do not read them end to end. A simple title needs the quick start and one recipe, nothing more.
 
 ## Workflow
 
@@ -50,7 +50,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
 - **Group / parent layers = `{ type: 'null', name: 'rig' }`** (draws nothing, only moves) + `parent: 'rig'` on the layers that should follow it: their `x`/`y` are then measured from the null's origin, and the null's position / rotation / scale / alpha carry them (orbits, clock hands, grouped fades). Nulls chain. Only `null` layers can be parents; not for `threeD` layers.
 - **Time:** `speed` (slow motion, backward) and `time` (a curve of the layer's own seconds: freeze, rewind, ramp) on video, audio-file and composition layers; put what you want to rewind in a composition. Children of such a composition are in ITS seconds. `ease: 'cubic-bezier(.4, 0, .2, 1)'` is the CSS curve. See the recipe `rewind-and-replay` and pitfalls 69–73.
 - **Built in:** `animateText()` (per-letter / per-word / per-line entrances and exits in one call: `...animateText('Title', style, { x, y, align: 'center', at: 0.5, duration: 5, in: 'rise', out: 'fade', stagger: { each: 0.05 } })`), `splitText()` / `measureText()` (per-letter / per-word layers, exact positions, by hand), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) `wiggle()` (a seeded shake as keyframes; on a camera put it on `offsetX` / `offsetY` so it rides on the move) `cameraPath()` (a camera flight through `[x, y, z]` points as keyframes; layers it passes: `hideBehindCamera: true`) depth of field (camera `focus` + `aperture`: `{ type: 'camera', initial: { focus: 'title' } }` blurs the other threeD layers by depth; a rack focus is a keyframe on `focus`) `music` (a tune with no file: `{ type: 'audio', music: { bpm, tracks: [{ inst: 'keys', notes: 'Cmaj7:4 Am7:4' }, { inst: 'bass', notes: 'c2:2 g1:2' }], drums: { from: 8, kick: 'x...x...' } } }`: notes and chords as text, counted in beats; instruments `keys pluck pad bass sub lead bell musicbox`; `musicEnvelope(music)` feeds `react()`), `audioEnvelope()` / `bpmEnvelope()` + `react()` (visuals that follow music: `const env = await audioEnvelope('music.mp3', { frameRate })` before `movie.init`, then `keyframes: react(env, { duration, props: { scale: { base: 1, amount: 0.4, band: 'bass', release: 0.2 } } })`; `beats: true` pulses on the beats; `bpmEnvelope(120, …)` when there is no file), `deck()` + `Presenter` from `pixi-effects/present` (a talk as one movie: pages, steps, stops that pause playback, arrow keys / click / swipe to move on: `...deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops, sequences }] })`, `new Presenter(movie, { canvas })` from `pixi-effects/presenter`; G = page overview, P = presenter view with notes and a timer; `pixi-effects render talk.html -o talk.pdf` = a PDF of the pages), `particles()` (bursts, snow, confetti, sparks as seeded layers: `...particles({ count: 90, at: 2, life: [1, 1.8], area: { x: 640, y: 330 }, speed: [120, 420], gravity: 240, fade: { out: 0.6 } })`), `followPath()` (a layer along an SVG path: `keyframes: followPath({ d, duration, orient: true })`), path morphing (`{ shape: 'path', d, morphTo, initial/keyframes: morph 0 → 1 }`) and `stagger()` (delays for a wave of layers: `stagger(letters, { each: 0.05, from: 'center' })`, or `stagger(n, …)` for numbers; GSAP-style `each` / `amount` / `from` / `grid` / `ease`). **Not in the DSL (hand-roll with a JS loop):** other per-frame curves (waves, spirals: sample them into short linear keyframes). (Draw-on strokes `trimEnd`, text that changes over time `set: { text }` / `visibleChars`, shake `wiggle()` and particles are built in.)
-- **Draw it yourself (`canvas` layer):** when nothing in the library draws what you need (an afterimage, rings, a brush stroke, a pixel sprite, a chart), `{ type: 'canvas', width, height, draw: (ctx, t, info) => { … } }`: your function of the time draws into the layer's own cleared 2D canvas and it is a normal layer. Pure function of `t` and `info.params` (`info.random()` is seeded; no `Math.random` / `Date.now`); a simulation is computed in `setup` and read by `info.frame`. `help canvas`, recipes `canvas-trail` and `canvas-life`.
+- **Draw it yourself (`canvas` layer):** when nothing in the library draws what you need (an afterimage, rings, a brush stroke, a pixel sprite, a chart), `{ type: 'canvas', width, height, draw: (ctx, t, info) => { … } }`: your function of the time draws into the layer's own cleared 2D canvas and it is a normal layer. Pure function of `t` and `info.params` (`info.random()` is seeded; no `Math.random` / `Date.now`); a simulation is computed in `setup` and read by `info.frame`. `info.time` is the movie's clock (several layers share it; never add `at` by hand), `info.canvas(w, h)` makes sprites and masks in `setup`, data shared by several canvas layers lives in module scope, and `import { ease, noise, noise2, random, samplePath } from 'pixi-effects'` gives the library's easing, seeded noise and a path walked by length. `check` prints a `canvas` line (deterministic, slowest draw in ms) and does NOT see text drawn in a canvas. `help canvas`, recipes `canvas-trail`, `canvas-life`, `canvas-text-mask`, `canvas-text-on-path`, `canvas-bars`.
 - **Shader layer and warp:** `{ type: 'shader', fragment: 'void mainImage(out vec4 fragColor, in vec2 fragCoord) { … }', uniforms: { speed: 1, tint: '#ff8040' } }` draws a Shadertoy-style formula (GLSL ES 3.00; `iTime` `iResolution` `iFrame` are declared; keyframes move `'uniforms.speed'`; opaque by default; it cannot read the layers behind it; a compile error comes back in your own line numbers). `filters: [{ type: 'warp', kind: 'wave' | 'haze', strength: 6 }]` bends a layer's picture like water or heat.
 - **Light, shadow, fog (2.5D):** a `{ type: 'light', kind: 'ambient', initial: { intensity: 0.2 } }` plus a `spot` / `point` / `parallel` light (`castsShadows: true` on the light AND on the `threeD` layers that cast) shades every `threeD` layer by angle and distance; `lit: false` opts a layer out; camera `fogNear` / `fogFar` / `fogColor` fade what is far. What no light reaches is black (add the ambient light); layers are drawn in distance order (no depth buffer). `check --at` prints how lit each layer is.
 - **Blend modes:** `blendMode` takes 18 CSS names (`add` `screen` `multiply` `overlay` `soft-light` `hard-light` `color-dodge` `color-burn` `darken` `lighten` `difference` `exclusion` `hue` `saturation` `color` `luminosity` `linear-burn`, hyphenated) on any layer: glows and light leaks (`add`, `color-dodge`), colour casts and contrast (`soft-light`, `overlay`), vignettes (`multiply`). It blends with everything below the layer; on a composition each child blends (as one picture: `threeD: true` or a filter); 10+ of the new modes on screen at once warn; it works with every mask.
@@ -190,7 +190,7 @@ Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha stro
 
 **composition** — `width height duration sequences transitions`, **`speed`** (the composition's own time: its content plays backward, in slow motion, … — `time` keyframes give a freeze, a rewind, a ramp; a composition's sound and sfx follow; its own x / alpha keyframes stay in the outer time; **children are placed in the composition's local seconds**; the content is as long as the larger of `duration` and the farthest `time` it reaches (`speed: 2` → twice `duration`; `time` keyframes → their largest number), and children default to that length. A child whose life ends exactly where a held `time` stands is hidden during the hold (a life is [at, at + duration)): give it a `duration` that reaches past. `time` keyframes and ordinary ones (`x`, `alpha`, a `wiggle`) may share one `keyframes` list. A sound inside goes silent while the clock stands still). With `threeD: true` it is a **card**: its children are drawn into one texture (content outside its `width × height` is clipped: size it for a soft shadow too; a plain 2D composition does not clip, but is skipped when its whole rectangle is off screen) and move / rotate in depth together. Children use the composition's local coordinates and times. Position/rotate/scale it as a unit; to rotate/scale about its centre set `pivotX/pivotY` to the centre and `x/y` to where that point should sit.
 
-**canvas** — `{ type: 'canvas', width, height, draw: (ctx, t, info) => { … }, setup?, params?, seed?, resolution?, smoothing? }`: a picture drawn by YOUR function of the time into the layer's own cleared canvas (`t` = the layer's seconds; `info` = `{ frame, duration, progress, width, height, resolution, frameRate, params, state, random }`). It is a normal layer (initial, keyframes, mask, filters, blendMode …); `params` are numbers keyframes animate as `'params.x'`; no `Math.random` / `Date.now` (`info.random()` is seeded); a simulation is computed in `setup` and read by `info.frame`; it cannot see what is below it. `check` draws it twice per moment and reports a picture that differs.
+**canvas** — `{ type: 'canvas', width, height, draw: (ctx, t, info) => { … }, setup?, params?, seed?, resolution?, smoothing? }`: a picture drawn by YOUR function of the time into the layer's own cleared canvas (`t` = the layer's seconds; `info` = `{ frame, duration, progress, width, height, resolution, frameRate, params, state, random, start, time, canvas }`: `time` is the MOVIE's seconds (`start + t`; share it between layers instead of adding `at` by hand), `canvas(w, h)` an offscreen canvas for sprites and masks made in `setup`). It is a normal layer (initial, keyframes, mask, filters, blendMode …); `params` are numbers keyframes animate as `'params.x'`; no `Math.random` / `Date.now` (`info.random()` is seeded); a simulation is computed in `setup` and read by `info.frame`; it cannot see what is below it. Data several canvas layers share lives in module scope; `import { ease, noise, noise2, random, rand, samplePath } from 'pixi-effects'` for easing by keyframe name, seeded noise and a path walked by length (`samplePath(d).at(u)` / `.trim(a, b)`). `check` draws it twice per moment (one draw thrown away first) and reports a picture that differs, with how much; it prints a `canvas` line when all pass and does NOT see text drawn in a canvas.
 
 **shader** — `{ type: 'shader', fragment: 'void mainImage(out vec4 fragColor, in vec2 fragCoord) { … }', uniforms: { speed: 1, tint: '#ff8040', pos: [0.5, 0.5] }, width?, height?, resolution?: 0.5, transparent?: false }` — a Shadertoy fragment shader drawn into a layer (GLSL ES 3.00): `iResolution` `iTime` (the layer's own seconds) `iFrame` and your uniforms are declared for you; keyframes move uniforms as `'uniforms.speed'` and components as `'uniforms.tint.0'`; opaque unless `transparent: true`; it cannot read what is behind it (no `iChannel` / `iMouse` / `iDate`); no `while` or non-constant `for`; a compile error is reported in your own line numbers and the layer is a checkerboard.
 
@@ -445,7 +445,10 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 112. **Text inside a parent that is scaled up comes out soft.** Text is drawn once at its own size and then stretched, so `{ type: 'null', initial: { scale: 3 } }` with a text child of `fontSize: 30` is blurry (shapes stay sharp). Give the text `resolution: 3` (it is drawn at 3 times the pixels, for a parent that grows to 3x; 1 to 8, the cost is the memory), or write it at the size it is shown (`fontSize: 90`, parent scale 1), or let the parent only scale DOWN (a pull-back from big to normal is sharp the whole way). `check --at … --crop` shows the difference.
 113. **Two limits on sound that `help sfx` / `help music` did not say.** An `sfx` lasts at most 10 s (`MAX_LENGTH` in the synth): for a longer rain or room tone, chain two audio layers that overlap by a moment, or use `loop` on a short one. A `music` layer plays at most 16 tracks, and a warning says that only the first 16 play: put the rest in a second audio layer.
 114. **A keyframe's `from` is on screen from the start of the layer, and it beats `initial`.** `initial: { alpha: 0 }` plus `{ at: 2, from: { alpha: 1 }, to: { alpha: 0.5 }, duration: 1 }` shows the layer at full alpha from second 0 (measured in Chrome: the red square was there at 0.5 s). That is how a title waits invisible with `from: { alpha: 0 }` until its `at`, but it surprises when `from` is the visible end. Give the layer its own `at: 2`, or use `set` at the moment it should appear. No warning: the same pattern (`initial` = the resting value, `from` = where it starts) is what the recipes do everywhere.
-115. **A `canvas` layer is a function of the time, nothing more.** The canvas is cleared before every call and nothing survives into the next, so `x += 1` per call, "draw over the last picture" and `Math.random()` all break: a seek or an export would not match playback (`check` draws each canvas layer twice at a few moments and reports a layer whose pictures differ). Compute from `t` (a trail is the positions of the past), use `info.random()` (seeded) and `params` that keyframes animate, and compute a whole simulation in `setup` (an array by frame) and read `info.frame`. A canvas layer cannot see or paint on what is below it: use `filters`, a matte or a composition for that. Pixel art needs `smoothing: false` (hard pixels when scaled up) and a small `width` / `height` with a big `initial.scale`.
+115. **A `canvas` layer is a function of the time, nothing more.** The canvas is cleared before every call and nothing survives into the next, so `x += 1` per call, "draw over the last picture" and `Math.random()` all break: a seek or an export would not match playback (`check` draws each canvas layer twice at a few moments and reports a layer whose pictures differ). Compute from `t` (a trail is the positions of the past), use `info.random()` (seeded) and `params` that keyframes animate, and compute a whole simulation in `setup` (an array by frame) and read `info.frame`. A cache of a pure function is fine (same input, same output); state that depends on which frames were drawn before is not. A canvas layer cannot see or paint on what is below it: use `filters`, a matte or a composition for that. Pixel art needs `smoothing: false` (hard pixels when scaled up) and a small `width` / `height` with a big `initial.scale`.
+116. **Several canvas layers that need the same thing: module scope and `info.time`, not `setup` and a hand-added `at`.** The state a layer's `setup` returns is private to that layer. A plant, a city or a palette that two layers draw is computed once before `movie.init` (from `random(seed)` and plain functions) and read by both; the shared clock is `info.time` (the movie's seconds), not `t + 3` with the layer's `at` copied in, which goes wrong without a word when someone moves the layer.
+117. **A sprite or mask made in `setup` with `document.createElement('canvas')` can be drawn differently the first time.** A GPU canvas used as the source of `drawImage`, under `destination-in` after many anti-aliased strokes, drew up to 128 of 255 differently over 40 000 pixels of a 1280×720 layer the first time and the same every time after. `info.canvas(w, h)` makes a canvas that does not do this; `check` throws away one draw of each moment before it compares, so it does not blame the layer, but an export that draws a frame for the first time is still safer with `info.canvas`. A mask is also easier to get right as: the words first, then `globalCompositeOperation = 'source-atop'` and the texture (recipe `canvas-text-mask`); two `fillText` under `destination-in` intersect.
+118. **`check` does not see text drawn in a canvas.** The layout test (cut-off, off-canvas, overlap) reads the text layers; a label or a caption you draw with `fillText` can run off the edge or collide with another without a word, and "no cut-off text" only speaks for the text layers. Look at the sheet and at `--at … --crop`, and keep a margin.
 
 
 <!-- ===== skills/pixi-effects/reference/recipes.md ===== -->
@@ -731,6 +734,89 @@ return [
       const g = info.state[Math.min(info.state.length - 1, Math.floor(t * 15))];          // 15 generations a second
       ctx.fillStyle = '#7bd88f';
       g.forEach((row, y) => row.forEach((v, x) => { if (v) ctx.fillRect(x * 20 + 2, y * 20 + 2, 16, 16); }));
+    } },
+];
+```
+
+---
+
+## Type, curves and charts in a canvas layer (type through a moving texture, text along a curve, bars that swap places)
+
+The `canvas` layer (see the section above and `help canvas`) is also where text effects the text layer cannot do and live charts are drawn. `info.canvas(w, h)` makes sprites and masks in `setup`, `info.time` is the movie's clock, and `ease`, `noise`, `noise2`, `random`, `samplePath` are importable from `pixi-effects`. `check` does not see text drawn in a canvas: look at the sheet and at `--crop` enlargements.
+
+**Type as a window onto something that moves.** Draw the words once into a canvas from `info.canvas` (in `setup`), draw them back first, then paint with `source-atop`: the paint shows only where the words are (two `fillText` under `destination-in` would intersect instead):
+
+```js
+// @recipe canvas-text-mask
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0d0a14' } },
+  { type: 'canvas', name: 'window', width: 1100, height: 320, duration: 6, initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5 },
+    setup: (info) => {                                                // the words, drawn once into a canvas of their own
+      const word = info.canvas(1100, 320), c = word.getContext('2d');
+      c.fillStyle = '#fff'; c.font = '900 280px "Arial Black", "Helvetica Neue", sans-serif';
+      c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('LIGHT', 550, 160);
+      return { word };
+    },
+    draw: (ctx, t, info) => {
+      ctx.drawImage(info.state.word, 0, 0);                           // the words first: they are the window …
+      ctx.globalCompositeOperation = 'source-atop';                   // … and what is drawn next appears only where they are
+      ctx.fillStyle = '#2a1030'; ctx.fillRect(0, 0, 1100, 320);
+      for (let k = 0; k < 14; k++) {                                  // bands of colour sliding through
+        ctx.fillStyle = k % 2 ? '#ff4f1a' : '#ffb347';
+        ctx.fillRect(((k * 90 + t * 160) % 1260) - 80, 0, 38, 320);
+      }
+    } },
+];
+```
+
+**Text along a curve, and a line that draws on.** `samplePath(d)` walks SVG path data by length: `at(u)` is the point and the heading a fraction `u` along, `trim(a, b)` the part between two fractions. `ease('power2.out')` is the same easing a keyframe takes. Build the sampler once, outside `draw`:
+
+```js
+// @recipe canvas-text-on-path
+const route = samplePath('M 140 560 C 340 120 940 120 1140 560');
+const WORD = 'ALONG THE CURVE', EASE = ease('power2.out');
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101420' } },
+  { type: 'canvas', name: 'along', duration: 6,
+    draw: (ctx, t) => {
+      const run = EASE(Math.min(1, t / 3));                           // 0 → 1: the line draws on, then the letters settle
+      ctx.strokeStyle = '#ff4f1a'; ctx.lineWidth = 3; ctx.beginPath();
+      for (const piece of route.trim(0, run)) { ctx.moveTo(piece[0], piece[1]); for (let i = 2; i < piece.length; i += 2) ctx.lineTo(piece[i], piece[i + 1]); }
+      ctx.stroke();
+      ctx.font = '700 54px Georgia, serif'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#f4efe6';
+      let d = 0;                                                      // distance along the route, in px
+      for (const ch of WORD) {
+        const w = ctx.measureText(ch).width;
+        const u = (d + w / 2 + 90) / route.length - (1 - run) * 0.5;  // where this letter's middle is, a fraction along
+        d += w + 4;
+        if (u < 0 || u > 1) continue;
+        const p = route.at(u);
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.angle); ctx.globalAlpha = run; ctx.fillText(ch, -w / 2, -30); ctx.restore();
+      }
+    } },
+];
+```
+
+**Bars that swap places smoothly.** A bar's row is its rank averaged over the last third of a second, computed from `t` alone (the values at those earlier moments are a function of time too): when two bars change places they glide past each other, passing through one another for the length of the swap as in any bar race, nothing jumps, and a seek is exact:
+
+```js
+// @recipe canvas-bars
+const NAMES = ['Oslo', 'Lima', 'Kyiv', 'Pune', 'Graz'], FROM = [40, 55, 30, 20, 45], TO = [60, 35, 70, 50, 25];
+const BAR = 90, GAP = 28, EASE = ease('power2.inOut');
+const valuesAt = (time) => FROM.map((a, i) => a + (TO[i] - a) * EASE(Math.min(1, Math.max(0, time) / 5)));
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101420' } },
+  { type: 'canvas', name: 'race', width: 1000, height: 600, duration: 6, initial: { x: 140, y: 60 },
+    draw: (ctx, t) => {
+      const now = valuesAt(t), before = Array.from({ length: 8 }, (_, k) => valuesAt(t - k * 0.04));   // the last third of a second
+      ctx.font = '700 34px system-ui, sans-serif'; ctx.textBaseline = 'middle';
+      now.forEach((value, i) => {
+        const rank = before.reduce((sum, v) => sum + v.filter(other => other > v[i]).length, 0) / before.length;   // 0 = top
+        const y = rank * (BAR + GAP);
+        ctx.fillStyle = i === 2 ? '#ff4f1a' : '#4c5a78'; ctx.fillRect(160, y, value * 10, BAR);
+        ctx.fillStyle = '#f4efe6'; ctx.textAlign = 'right'; ctx.fillText(NAMES[i], 140, y + BAR / 2);
+        ctx.textAlign = 'left'; ctx.fillText(String(Math.round(value)), 160 + value * 10 + 14, y + BAR / 2);
+      });
     } },
 ];
 ```
@@ -1069,18 +1155,18 @@ return sequences;
 ```js
 // @recipe progress-ring
 const CX = 640, CY = 360, R = 120, TO = 0.82;            // 82 % filled
-const ease = 'power3.out', AT = 0.3, DUR = 2;
+const EASE = 'power3.out', AT = 0.3, DUR = 2;
 return [
   { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0f1424' } },
   { type: 'shape', shape: 'arc', name: 'track', radius: R, startAngle: 0, endAngle: 360,
     initial: { x: CX, y: CY, strokeColor: '#27304d', strokeWidth: 24 } },
   { type: 'shape', shape: 'arc', name: 'progress', radius: R, startAngle: -90, endAngle: -90, strokeCap: 'round',
     initial: { x: CX, y: CY, strokeColor: '#ffd166', strokeWidth: 24 },
-    keyframes: [{ at: AT, to: { endAngle: -90 + 360 * TO }, duration: DUR, ease }] },
+    keyframes: [{ at: AT, to: { endAngle: -90 + 360 * TO }, duration: DUR, ease: EASE }] },
   { type: 'text', name: 'percent', text: '{value}%', format: { decimals: 0 },
     style: { fontSize: 72, fontWeight: 'bold', fill: '#ffffff' },
     initial: { x: CX, y: CY, anchorX: 0.5, anchorY: 0.5, value: 0 },
-    keyframes: [{ at: AT, to: { value: TO * 100 }, duration: DUR, ease }] },
+    keyframes: [{ at: AT, to: { value: TO * 100 }, duration: DUR, ease: EASE }] },
 ];
 ```
 
@@ -2517,13 +2603,15 @@ It is a layer like any other: `name`, `at`, `duration`, `initial`, `keyframes`, 
 | `seed` | Integer (default 0) that seeds `info.random()`. |
 | `smoothing` | `false`: no smoothing when drawing images into it AND hard pixels when the layer is scaled up (pixel art). Default `true`. |
 
-`info` is `{ frame, duration, progress, width, height, resolution, frameRate, params, state, random }`: `frame` is the layer's own frame number, `progress` is `t / duration`, `params` holds the values at this time, `state` is what `setup` returned, and `random()` is a **seeded** generator whose sequence starts again at every call (the same frame always draws the same numbers; for a value that must differ from frame to frame, derive it from `t`).
+`info` is `{ frame, duration, progress, width, height, resolution, frameRate, params, state, random, start, time, canvas }`: `frame` is the layer's own frame number, `progress` is `t / duration`, `params` holds the values at this time, `state` is what `setup` returned, `random()` is a **seeded** generator whose sequence starts again at every call (the same frame always draws the same numbers; for a value that must differ from frame to frame, derive it from `t`), **`start`** is where the layer starts on the movie's clock (its `at` plus the starts of the compositions around it; in `setup` just its `at`) and **`time`** is the movie's time now (`start + t`): read it for anything several layers or the sound share, instead of adding the `at` by hand (which breaks quietly when someone moves the layer). **`info.canvas(width, height)`** returns an offscreen canvas for a sprite, a mask or a scratch picture.
 
-**The contract: a function of the time.** The same `t` and the same `params` must give the same pixels, in playback, in a seek and in an export. So: no `Math.random`, `Date.now`, `performance.now` or `new Date()` (a warning at build says so, and `check` draws each canvas layer twice at a few moments and reports a layer whose two pictures differ), and no state that outlives a call. A trail is drawn from the positions of the past computed from `t`, not from the last picture. A **simulation** (a game of life, a physics sim, a growth process) is computed whole in `setup` into an array and read by `info.frame` in `draw`.
+**Helpers you can import** (they are plain functions of their input, so they are safe in `draw`): `import { ease, noise, noise2, random, rand, samplePath } from 'pixi-effects'`. `ease('power3.out')` returns the function `x => eased x` for any ease name a keyframe takes (`back.out`, `elastic.out`, `cubic-bezier(…)`, `spring.…`), so a canvas moves like the other layers. `noise(x, seed)` and `noise2(x, y, seed)` are smooth noise in [-1, 1] (sum a few doublings of `x` and `y` for clouds and terrain); `random(seed)` is a repeatable stream and `rand(seed)` one number for a seed. `samplePath(d)` walks SVG path data by length: `.length`, `.at(u)` gives `{ x, y, angle }` (radians) a fraction `u` along, `.trim(a, b)` gives the part between two fractions as flat `[x, y, …]` pieces for `moveTo` / `lineTo` (a line that draws on, a string set along a curve, a petal that falls along a route). Build a sampler once (module scope or `setup`) and ask it every frame.
 
-**What it cannot do.** It cannot see or paint on what is below it in the stack (the stage is drawn by the GPU, not by a 2D context): use `filters`, a matte or a composition that holds the layers for that. It is not audio. For a picture made by a formula on the GPU, the `shader` layer is faster. A spec that holds a `canvas` layer holds functions, so it is not pure JSON (the same standing as `three` and the `custom` filter).
+**The contract: a function of the time.** The same `t` and the same `params` must give the same pixels, in playback, in a seek and in an export. So: no `Math.random`, `Date.now`, `performance.now` or `new Date()` (a warning at build says so, and `check` draws each canvas layer twice at a few moments and reports a layer whose two pictures differ), and no state that outlives a call (a cache of a pure function, same input same output, is fine: a palette per phase, a table filled on the first call; state that depends on which frames were drawn before is not). A trail is drawn from the positions of the past computed from `t`, not from the last picture. A **simulation** (a game of life, a physics sim, a growth process) is computed whole in `setup` into an array and read by `info.frame` in `draw`. **Data that several canvas layers share** (the same plant, the same city, a palette phase) belongs in module scope, computed before `movie.init` from `random(seed)` and plain functions of the time: the state `setup` returns is private to its layer, and every layer reads the same clock through `info.time`. **Sprites, masks and scratch pictures** are made in `setup` with `info.canvas(w, h)` and drawn back with `drawImage` (a word rendered once, a paper texture, a mask for `destination-in`); not with `document.createElement('canvas')`: a GPU canvas used as a source can draw a little differently the first time (measured: up to 128 of 255 over 40 000 pixels on a 1280×720 layer), which is what `info.canvas` avoids. Everything of the 2D context works (`ctx.filter`, composite operations such as `source-atop` and `destination-in`, `drawImage` of another canvas, `measureText`: in `setup`, `info.canvas(1, 1).getContext('2d')` is a context to measure with). A web font must be loaded before it is measured or drawn: `await document.fonts.load('40px "Name"')` in `setup`. A type effect that shows words through a moving texture is: draw the words (the mask) first, then `ctx.globalCompositeOperation = 'source-atop'` and the texture, which paints only where the words are.
 
-Mistakes are said at build time with the layer's name: no `draw`, a `draw` or `setup` that throws (the frame is a magenta checkerboard and the next frames are tried again), a bad `width` / `height` / `resolution` / `params`, an unknown key (did you mean …), a `params.name` keyframe that names nothing. A draw costs time on every frame that changes: a slow `draw` slows the export in proportion. The layer's `duration` defaults to its parent's length: with `at` greater than 0 and no `duration`, `info.progress` stops short of 1 when the movie ends, so give a `duration` when you draw from `progress`. `check` draws each canvas layer in a scratch canvas (so reading its pixels does not change how the real one is drawn), each moment twice and in two orders, and reports a layer that is not deterministic under its own heading `canvas`.
+**What it cannot do.** It cannot see or paint on what is below it in the stack (the stage is drawn by the GPU, not by a 2D context): use `filters`, a matte or a composition that holds the layers for that. **`check` does not see text drawn in a canvas**: its layout test (cut-off, off-canvas, overlap) reads the text layers only, so labels and captions you draw yourself can collide without a word; look at the contact sheet and at `--crop` enlargements. It is not audio. For a picture made by a formula on the GPU, the `shader` layer is faster. A spec that holds a `canvas` layer holds functions, so it is not pure JSON (the same standing as `three` and the `custom` filter).
+
+Mistakes are said at build time with the layer's name: no `draw`, a `draw` or `setup` that throws (the frame is a magenta checkerboard and the next frames are tried again), a bad `width` / `height` / `resolution` / `params`, an unknown key (did you mean …), a `params.name` keyframe that names nothing. A draw costs time on every frame that changes (`draw` is called once for each distinct time, so a still picture still redraws every frame of a moving movie: draw what never changes once into a canvas from `info.canvas` in `setup` and `drawImage` it): a slow `draw` slows the export in proportion, and `check` prints the usual time of one draw. The layer's `duration` defaults to its parent's length: with `at` greater than 0 and no `duration`, `info.progress` stops short of 1 when the movie ends, so give a `duration` when you draw from `progress`. `check` draws each canvas layer in a scratch canvas (so reading its pixels does not change how the real one is drawn) at four moments: one draw of each is thrown away (a browser can draw a canvas from `setup` differently the first time), then each moment is drawn twice and in two orders. It prints a `canvas` line when every layer passed (`deterministic · slowest draw 3.2 ms`), so silence is never the only sign that it ran, and a layer that is not deterministic is reported under that heading with the moments, how many channel values differ and by how much (up to N of 255).
 
 ## 3D layers & camera
 

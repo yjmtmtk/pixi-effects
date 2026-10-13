@@ -27,7 +27,7 @@ export interface Fake2d { ctx: Record<string, unknown>; calls: Array<[string, ..
 export function fake2d(): Fake2d {
   const calls: Array<[string, ...unknown[]]> = [];
   const ctx: Record<string, unknown> = new Proxy({}, {
-    get(_t, key: string) { return (...a: unknown[]) => { calls.push([key, ...a]); }; },
+    get(_t, key: string) { return (...a: unknown[]) => { calls.push([key, ...a]); return key === 'measureText' ? { width: String(a[0] ?? '').length * 10 } : undefined; }; },
     set() { return true; },
   });
   return { ctx, calls };

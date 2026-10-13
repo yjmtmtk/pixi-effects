@@ -24,7 +24,9 @@ import { particles } from '../../src/presets/particles';
 import { deck } from '../../src/present/deck';
 import { react } from '../../src/presets/react';
 import { bpmEnvelope } from '../../src/audio/envelope';
-import { random, rand, noise } from '../../src/expr/random';
+import { random, rand, noise, noise2 } from '../../src/expr/random';
+import { samplePath } from '../../src/core/pathSample';
+import { parseEase as ease } from '../../src/presets/_ease';
 import { measureText, splitText } from '../../src/text/measure';
 import { lintSequence } from '../../src/space/lint';
 import { lintTiming } from '../../src/core/lint';
@@ -73,7 +75,7 @@ describe('skills/pixi-effects/reference/recipes.md', () => {
     it(`recipe "${r.name}" builds and binds with no warnings`, async () => {
       if (/type: 'canvas'/.test(r.code)) installCanvas(fakeGl(), fake2d());       // a canvas layer says so when a browser gives no 2D context, and happy-dom's gives none
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      const out = new Function('kenBurns', 'withFade', 'orbit', 'splitText', 'measureText', 'wiggle', 'stagger', 'animateText', 'followPath', 'cameraPath', 'particles', 'deck', 'react', 'bpmEnvelope', 'random', 'rand', 'noise', r.code)(kenBurns, withFade, orbit, splitText, measureText, wiggle, stagger, animateText, followPath, cameraPath, particles, deck, react, bpmEnvelope, random, rand, noise) as
+      const out = new Function('kenBurns', 'withFade', 'orbit', 'splitText', 'measureText', 'wiggle', 'stagger', 'animateText', 'followPath', 'cameraPath', 'particles', 'deck', 'react', 'bpmEnvelope', 'random', 'rand', 'noise', 'noise2', 'samplePath', 'ease', r.code)(kenBurns, withFade, orbit, splitText, measureText, wiggle, stagger, animateText, followPath, cameraPath, particles, deck, react, bpmEnvelope, random, rand, noise, noise2, samplePath, ease) as
         SequenceSpec[] | { sequences: SequenceSpec[]; transitions?: unknown[]; duration?: number };
       const sequences = Array.isArray(out) ? out : out.sequences;
       const transitions = Array.isArray(out) ? undefined : out.transitions;

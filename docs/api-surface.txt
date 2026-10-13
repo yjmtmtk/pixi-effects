@@ -462,6 +462,7 @@ interface MusicTrackEvents
   inst: string
   notes: MusicNote[]
 function noise(x: number, seed?: number): number
+function noise2(x: number, y: number, seed?: number): number
 interface NullSequenceSpec extends SequenceCommon
   type: "null"
 interface OnionSkinOptions
@@ -510,6 +511,10 @@ interface ParticlesOptions
   sway?: { amp: number; freq?: number | undefined; }
   template?: SequenceSpec
   wind?: number
+interface PathSampler
+  at(u: number): { x: number; y: number; angle: number; }
+  length: number
+  trim(start?: number | undefined, end?: number | undefined): number[][]
 interface PathShapeSpec extends ShapeBase, Trimmable
   d: string
   fillRule?: "nonzero" | "evenodd"
@@ -588,6 +593,7 @@ interface ReviewReport
   frames: number
   problems: IssueGroup[]
   review: IssueGroup[]
+function samplePath(d: string): PathSampler
 class Sequence
   at: number
   build(): Promise<void>

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { random, rand, noise } from '../../src/expr/random';
+import { random, rand, noise, noise2 } from '../../src/expr/random';
 
 describe('seeded randomness', () => {
   it('rand(seed): the same seed always gives the same number in [0, 1); different seeds differ', () => {
@@ -43,5 +43,25 @@ describe('seeded randomness', () => {
     expect(noise(2.5)).toBe(noise(2.5, 0));
     expect(Number.isFinite(noise(-3.2, 1))).toBe(true);
     expect(Number.isFinite(noise(1e9, 1))).toBe(true);
+  });
+
+  it('noise2(x, y, seed): deterministic, within [-1, 1], continuous in both directions, different per seed, finite for any input, and it is not noise(x) stretched along y', () => {
+    expect(noise2(1.37, 2.9, 5)).toBe(noise2(1.37, 2.9, 5));
+    expect(noise2(1.37, 2.9, 5)).not.toBe(noise2(1.37, 2.9, 6));
+    expect(noise2(2.5, 3.5)).toBe(noise2(2.5, 3.5, 0));
+    let maxStepX = 0, maxStepY = 0, min = 1, max = -1;
+    for (let y = 0; y < 8; y += 0.37) {
+      let prev = noise2(0, y, 1);
+      for (let x = 0.01; x < 8; x += 0.01) {
+        const v = noise2(x, y, 1);
+        expect(Math.abs(v)).toBeLessThanOrEqual(1);
+        maxStepX = Math.max(maxStepX, Math.abs(v - prev)); prev = v; min = Math.min(min, v); max = Math.max(max, v);
+      }
+    }
+    for (let x = 0; x < 8; x += 0.37) { let prev = noise2(x, 0, 1); for (let y = 0.01; y < 8; y += 0.01) { const v = noise2(x, y, 1); maxStepY = Math.max(maxStepY, Math.abs(v - prev)); prev = v; } }
+    expect(maxStepX).toBeLessThan(0.1); expect(maxStepY).toBeLessThan(0.1);
+    expect(max - min).toBeGreaterThan(1);                                   // it uses the range
+    expect(noise2(3.3, 0, 1)).not.toBeCloseTo(noise2(3.3, 5.5, 1), 3);     // y matters
+    for (const v of [noise2(-3.2, 1e9, 1), noise2(NaN, 1), noise2(1, Infinity)]) expect(Number.isFinite(v)).toBe(true);
   });
 });
