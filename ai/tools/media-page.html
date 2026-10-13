@@ -64,7 +64,7 @@
     const track = await input.getPrimaryAudioTrack();
     if (!track) throw new Error('no audio track');
     if (!(await track.canDecode())) throw new Error('this browser cannot decode ' + track.codec + ' (the audio codec of the file)');
-    const duration = await input.computeDuration();
+    const duration = await track.computeDuration();                                   // the sound's own length: a video file is often a little longer than its audio
     const sink = new mb.AudioBufferSink(track);
     const parts = [];
     let rate = 0, channels = 0;

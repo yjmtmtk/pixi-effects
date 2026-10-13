@@ -35,6 +35,10 @@ You describe a video as a tree of plain objects; the library plays it in a canva
 - **Formats:** make the formats the human asked for, one if they did not say. When a vertical cut is wanted it is its own composition: one source, a layout function, `?f=9x16` (recipe `two-formats`); `check` and `render` take `--query f=9x16`.
 - Fit a picture into a rectangle with the `photo()` helper of that recipe (`scale: 'cover'` fits the PARENT only); designed pictures (posters, flyers, screenshots) are shown whole, never cropped.
 
+## Look at footage before you use it
+
+If you are handed a video or a sound (a clip to put in the video, a reference to match), look at it first, with no ffmpeg needed: `npx pixi-effects probe clip.mp4` (size, length, rotation, whether it has sound), `npx pixi-effects frames clip.mp4 --sheet -o looks` (a contact sheet: open the PNG), `npx pixi-effects sound clip.mp4` (loudness, peak, silences), and `npx pixi-effects trim clip.mp4 3 8 -o cut.mp4` to cut it (by copy, starting on the next key frame, and it says the real times; `--exact` re-encodes). A clip you have not looked at is a clip you do not know: phone clips are often rotated, screen recordings often have no sound. `frames`, `sound` and `trim --exact` use Chrome; if ffmpeg is installed and the job is a long transcode, use ffmpeg. `npx pixi-effects help media` has the reference.
+
 ## The rules that cause most failures
 
 - **Keyframe `at` starts at 0 when the layer appears** (negative = back from the layer's end). A layer's own `at` and a transition's `at` are composition time.

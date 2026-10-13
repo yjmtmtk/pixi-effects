@@ -289,6 +289,14 @@ describe('inspectSound: the sound of ANY file, measured with the code `check` us
     expect(Object.keys(inspectSound(pcm, { window: 1 }).windows[0]!).sort()).toEqual(['rmsDb', 't']);
   });
 
+  it('a last window that is only a sliver of the window (a file that ends 36 ms into the next second) is not a row of its own', () => {
+    const pcm = tone(-20, 3.036);                                                // 3 whole seconds and 36 ms
+    const rows = inspectSound(pcm, { window: 1 }).windows;
+    expect(rows.map(w => w.t)).toEqual([0, 1, 2]);
+    expect(inspectSound(tone(-20, 3.6), { window: 1 }).windows.map(w => w.t)).toEqual([0, 1, 2, 3]);      // a window of 0.6 s is kept
+    expect(inspectSound(tone(-20, 0.3), { window: 1 }).windows.length).toBe(1);                       // a short sound keeps its one row
+  });
+
   it('a sound shorter than 0.4 s has no integrated loudness (null), not a made-up number', () => {
     expect(inspectSound(tone(-20, 0.2)).loudness.integratedLufs).toBeNull();
   });

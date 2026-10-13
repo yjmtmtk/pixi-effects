@@ -273,9 +273,13 @@ export interface SoundReport {
 export function inspectSound(pcm: PcmLike, opts: { window?: number } = {}): SoundReport {
   const duration = pcm.length / pcm.sampleRate;
   const r = analyzeAudio(pcm, [], null, duration, opts.window ? { window: opts.window } : {});
+  // a file that ends a few ms into a window would show that sliver as a row (a 36 ms tail of encoder padding reads as −90 dBFS): a last window under half the width is dropped
+  const width = opts.window ?? 0.1;
+  let windows = r.windows;
+  if (windows.length > 1 && duration - windows[windows.length - 1]!.t < width / 2) windows = windows.slice(0, -1);
   return {
     duration: Math.round(duration * 1000) / 1000, sampleRate: pcm.sampleRate, channels: pcm.numberOfChannels, peakDb: r.peakDb,
-    loudness: r.loudness, windows: r.windows.map(w => ({ t: w.t, rmsDb: w.rmsDb })), notes: [...r.notes, ...r.issues],
+    loudness: r.loudness, windows: windows.map(w => ({ t: w.t, rmsDb: w.rmsDb })), notes: [...r.notes, ...r.issues],
   };
 }
 

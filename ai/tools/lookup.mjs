@@ -15,7 +15,7 @@ const RECIPES = 'skills/pixi-effects/reference/recipes.md';
 /** What `help` reads, most useful first (the number is a small bonus in the ranking). */
 const CORPUS = [
   ['docs/dsl.md', 10], ['skills/pixi-effects/reference/cheatsheet.md', 8], ['skills/pixi-effects/reference/pitfalls.md', 6],
-  ['docs/api.md', 4], ['skills/pixi-effects/reference/direction.md', 2],
+  ['docs/api.md', 4], ['docs/media.md', 7], ['skills/pixi-effects/reference/direction.md', 2],
 ];
 const MAX_HITS = 5, MAX_LINES_PER_HIT = 30, MAX_OUTPUT_LINES = 170;
 

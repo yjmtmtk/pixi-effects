@@ -26,6 +26,7 @@ Rules that cause most failures (details in the skill and pitfalls):
 
 - [DSL reference](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/docs/dsl.md): composition, sequences, 3D layers and camera, keyframes, expressions, filters, transitions, presets (wiggle, stagger, animateText, followPath, particles, react, deck), music written as text, stops for presentations
 - [API reference](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/docs/api.md): Movie, Controller, Presenter (presentations, PDF export), audio analysis (audioEnvelope), events, render options, pixi-effects/three
+- [Media tools](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/docs/media.md): `npx pixi-effects probe | trim | frames | sound`: look at, listen to and cut a video or sound you were handed, with no ffmpeg installed
 - [README](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/README.md): install, CDN import map, quickstart
 
 ## Optional

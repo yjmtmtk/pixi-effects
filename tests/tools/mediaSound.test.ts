@@ -80,6 +80,12 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('sound: lou
     } finally { rmSync(dir, { recursive: true, force: true }); }
   }, 90_000);
 
+  it('the last level row is not a sliver: colors.mp4 ends with 36 ms of encoder padding, which is not reported as a row of -90 dBFS', async () => {
+    const j = JSON.parse((await run(['sound', fx('colors.mp4'), '--json'])).out);
+    expect(j.windows.at(-1).rmsDb).toBeGreaterThan(-40);                       // the last row is the tone
+    expect(j.loudness.silences).toEqual([]);
+  }, 90_000);
+
   it('a video with no audio track is exit 1 with a sentence; a file longer than the limit is refused with ffmpeg named', async () => {
     const a = await run(['sound', fx('video-only.mp4')]);
     expect(a.code).toBe(1);
