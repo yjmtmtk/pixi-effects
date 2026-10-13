@@ -11,16 +11,21 @@ import { describeLayer } from '../core/lint';
 
 
 
+/** The scale mode each texture source had before any layer changed it. */
+const ORIGINAL_SCALE_MODE = new WeakMap<object, string | undefined>();
+
 export class ImageSequence extends Sequence {
   declare spec: ImageSequenceSpec;
 
   async build(): Promise<void> {
     const texture = await Assets.get<Texture>(this.spec.asset);
+    // The filter belongs to the asset's texture (shared by every layer that shows it, and by a later build of the same page), so the asset's own mode is remembered the
+    // first time and put back when a layer does not ask: the same spec draws the same picture whatever was built before it.
+    const source = (texture as unknown as { source: { scaleMode?: string } }).source;
+    if (source && !ORIGINAL_SCALE_MODE.has(source)) ORIGINAL_SCALE_MODE.set(source, source.scaleMode);
     const mode = this.spec.scaleMode as unknown;
-    if (mode !== undefined) {
-      if (mode === 'nearest' || mode === 'linear') (texture as unknown as { source: { scaleMode: string } }).source.scaleMode = mode;       // of the asset: every layer that shows it
-      else console.warn(`pixi-effects: ${describeLayer(this.spec)}: scaleMode "${String(mode)}" is not "nearest" or "linear": ignored`);
-    }
+    if (mode !== undefined && mode !== 'nearest' && mode !== 'linear') console.warn(`pixi-effects: ${describeLayer(this.spec)}: scaleMode "${String(mode)}" is not "nearest" or "linear": ignored`);
+    if (source) source.scaleMode = (mode === 'nearest' || mode === 'linear' ? mode : ORIGINAL_SCALE_MODE.get(source)) as string;
     const sprite = new Sprite({ texture, label: this.spec.name });
     sprite.cullable = true;
     this.target = sprite;

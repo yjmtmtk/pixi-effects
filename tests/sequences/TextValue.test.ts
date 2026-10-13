@@ -136,4 +136,17 @@ describe('text `{value}` — lint and zero-padding', () => {
     expect(textOf(r.s)).toBe('75');
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/format\.time.*"hh:mm:ss\.s".*hh:mm:ss.*m:ss/));
   });
+
+  it('a clock that is a fraction of a second under zero prints 00:00, not -00:00 (a countdown that overshoots)', async () => {
+    const t = async (v: number) => textOf((await bound({ text: '{value}', format: { time: 'mm:ss' } as never, initial: { value: v } })).s);
+    expect(await t(-0.3)).toBe('00:00');
+    expect(await t(-1.2)).toBe('-00:01');
+  });
+
+  it('a bad time pattern is said once PER LAYER (a later build of the page warns again)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await bound({ text: '{value}', format: { time: 'bad' } as never, initial: { value: 1 } });
+    await bound({ text: '{value}', format: { time: 'bad' } as never, initial: { value: 1 } });
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
 });

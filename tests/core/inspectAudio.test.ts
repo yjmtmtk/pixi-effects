@@ -227,4 +227,11 @@ describe('analyzeAudio: a sound buried under the rest of the mix (an author who 
     const r = analyzeAudio(bedMix, [bed, sfx('hit', 2, 0.04), sfx('hit', 4, 0.04), sfx('pop', 6, 0.04)], { peak: 0.54, peakAt: 2 }, 8, { window: 1 });
     expect(r.notes.filter(n => /buried/.test(n))).toHaveLength(1);
   });
+
+  it('a sound with its own speed (sourceMap) is not measured: its loudest moment is not start + loudestAt', () => {
+    const slowed: AudioDescriptor = { ...sfx('hit', 2, 0.04), sourceMap: (t: number) => t * 0.5 } as AudioDescriptor;
+    const r = analyzeAudio(pcm(6, t => loud(t)), [bed, slowed], { peak: 0.5, peakAt: 2 }, 6, { window: 1 });
+    expect(r.sources.find(x => x.layer === 'hit')).not.toHaveProperty('belowMixDb');
+    expect(r.notes.some(n => /buried/.test(n))).toBe(false);
+  });
 });

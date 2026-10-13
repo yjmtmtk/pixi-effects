@@ -118,6 +118,10 @@ describe('help finds what is there: a heading written with spaces, a table row, 
     expect(top('steps')[0]).toMatch(/Easing/);
   });
 
+  it('a word that merely stands before a bracket in plain prose (a sentence like "behind the camera (the warning …") is not a call: camera still finds the Camera section first', () => {
+    expect(top('camera')[0]).toMatch(/dsl\.md: Camera/);
+  });
+
   it('a word that is only a prefix of a heading still works as before (mask, threeD, keyframes)', () => {
     for (const w of ['mask', 'threeD', 'keyframes']) expect(lookup.searchDocs(root, w).length).toBeGreaterThan(0);
   });

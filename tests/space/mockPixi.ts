@@ -24,7 +24,7 @@ export function createPixiMock() {
     scale = { x: 1, y: 1 };
     pivot = { x: 0, y: 0, set(x: number, y: number) { this.x = x; this.y = y; } };
     constructor(opts?: { label?: string }) { this.label = opts?.label; }
-    addChild(c: Container) { this.children.push(c); return c; }
+    addChild(c: Container) { this.children.push(c); (c as unknown as { parent: Container }).parent = this; return c; }
     setMask(opts: { mask?: Container | null; inverse?: boolean }) { if (opts.mask !== undefined) this.mask = opts.mask; }
     effects: unknown[] = [];
     addEffect(effect: unknown) { this.effects.push(effect); }

@@ -44,6 +44,23 @@ export interface InspectOptions {
   layers?: 'all' | 'visible' | 'none';
 }
 
+/** The child indices from the stage down to `node` (null when the tree cannot be read): what is drawn later is drawn over. */
+function chainOf(node: unknown): number[] | null {
+  const chain: number[] = [];
+  for (let n = node as { parent?: { children?: unknown[] } | null } | null; n && n.parent; n = n.parent as typeof n) {
+    const i = n.parent!.children?.indexOf(n);
+    if (i === undefined || i < 0) return null;
+    chain.unshift(i);
+  }
+  return chain.length ? chain : null;
+}
+/** Is the layer with chain `a` drawn after (over) the one with chain `b`? null: cannot tell. */
+function drawnAfter(a: number[] | null, b: number[] | null): boolean | null {
+  if (!a || !b) return null;
+  for (let i = 0; i < Math.min(a.length, b.length); i++) if (a[i] !== b[i]) return a[i]! > b[i]!;
+  return null;
+}
+
 /** Layers below this alpha are ignored by the layout checks. */
 const FAINT = 0.3;
 
@@ -116,8 +133,11 @@ export function inspectScene(
   // What each layer is (a shape's kind, or its type): only boxes are compared with text for crossings.
   const kinds = new Map<LayerInfo, string>();
   const specs = new Map<LayerInfo, Record<string, unknown>>();
+  // Where each layer is in the display tree (child indices from the stage) and its alpha with every group above it: what is drawn over what, and how opaque, is a fact of the tree.
+  const chains = new Map<LayerInfo, number[] | null>();
+  const chainAlpha = new Map<LayerInfo, number>();
 
-  const walk = (comp: CompositionSequence, prefix: string, insideThreeD: boolean, parentVisible: boolean, parentScene?: string, parentMotion: Motion = NO_MOTION, parentZero = false): void => {
+  const walk = (comp: CompositionSequence, prefix: string, insideThreeD: boolean, parentVisible: boolean, parentScene?: string, parentMotion: Motion = NO_MOTION, parentZero = false, parentAlpha = 1): void => {
     const blending = new Set<string>();
     const now = comp.childTime(time);                                   // the time its children live in (local when it is remapped)
     // a camera with a tween running now carries every threeD layer of the composition with it (a pan is not "cut off"); one at rest, or one that only `set`s values, carries nothing
@@ -160,6 +180,8 @@ export function inspectScene(
       if (threeD) info.depthBlur = Number(depthBlur.toFixed(2));
       if (threeD && light !== undefined) info.light = Number(light.toFixed(2));
       layers.push(info);
+      chainAlpha.set(info, parentAlpha * alpha);
+      chains.set(info, chainOf(display));
       specs.set(info, seq.spec as unknown as Record<string, unknown>);
       kinds.set(info, seq.spec.type === 'shape' ? String((seq.spec as { shape?: string }).shape) : seq.spec.type);
       if (motion.ever) hasMotion.add(info);
@@ -174,7 +196,7 @@ export function inspectScene(
       const group = parentScene ?? (name !== undefined && blending.has(name) ? name : undefined);
       if (group) scene.set(info, group);
       if (zero || (seq as { showsNothingYet?: boolean }).showsNothingYet) scaledToNothing.add(info);
-      if (seq instanceof CompositionSequence) walk(seq, prefix + label + '/', insideThreeD || threeD, visible, group, motion, zero);
+      if (seq instanceof CompositionSequence) walk(seq, prefix + label + '/', insideThreeD || threeD, visible, group, motion, zero, parentAlpha * alpha);
     });
   };
   walk(root, '', false, true);
@@ -232,9 +254,11 @@ export function inspectScene(
       const hairline = (kind === 'line' || kind === 'rect') && Math.min(o.bounds.width, o.bounds.height) < 12 && Math.max(o.bounds.width, o.bounds.height) >= 40;
       const soft = (spec.blendMode !== undefined && spec.blendMode !== 'normal') || (Array.isArray(spec.filters) && spec.filters.length > 0);
       const filled = kind === 'image' || kind === 'video' || initial.fillColor !== undefined || spec.fillGradient !== undefined || initial.fillGradient !== undefined;
-      const over = layers.indexOf(o) > layers.indexOf(t);
-      const hides = FILLED.has(kind) && !hairline && filled && !soft && over && o.alpha >= 0.8;
-      const cuts = hairline && !soft && over && o.alpha >= FAINT;                    // a grid line or a rule BEHIND the text is a design; one drawn over it is not
+      if (o.threeD || t.threeD) continue;                                // a threeD layer is sorted by depth: the tree does not say what is over what
+      const over = drawnAfter(chains.get(o) ?? null, chains.get(t) ?? null) ?? layers.indexOf(o) > layers.indexOf(t);
+      const opacity = chainAlpha.get(o) ?? o.alpha;
+      const hides = FILLED.has(kind) && !hairline && filled && !soft && over && opacity >= 0.8;
+      const cuts = hairline && !soft && over && opacity >= FAINT;                    // a grid line or a rule BEHIND the text is a design; one drawn over it is not
       if (!hides && !cuts) continue;
       const st = scene.get(t), so = scene.get(o);
       if (st && so && st !== so) continue;                                // the two scenes of a running transition
@@ -248,7 +272,7 @@ export function inspectScene(
         const lo = horizontal ? tb.y + tb.height * 0.2 : tb.x + tb.width * 0.2, hi = horizontal ? tb.y + tb.height * 0.8 : tb.x + tb.width * 0.8;
         const along = horizontal ? Math.min(ob.x + ob.width, tb.x + tb.width) - Math.max(ob.x, tb.x) : Math.min(ob.y + ob.height, tb.y + tb.height) - Math.max(ob.y, tb.y);
         if (mid < lo || mid > hi || along < 0.3 * (horizontal ? tb.width : tb.height)) continue;
-      } else if (covered < 0.1 || covered >= 0.9) continue;
+      } else if (covered < 0.1) continue;                                    // (a box over ALL of the text is the worst case, not a backdrop: a backdrop is drawn under it)
       const word = kind === 'image' || kind === 'video' ? kind : 'shape';
       issues.push(`text layer "${t.path}" and ${word} layer "${o.path}" overlap: it covers ${Math.round(covered * 100)}% of the text (drawn ${over ? 'over' : 'under'} it)`);
     }

@@ -24,7 +24,7 @@ const PRESET_NAMES = Object.keys(PRESETS);
 export interface AnimateTextTween {
   /** Start from this preset and change what you give below. */
   preset?: TextPreset;
-  /** The hidden state: `x` / `y` are offsets from the resting place, everything else (`alpha`, `scale`, `rotation`, …) is absolute. */
+  /** The hidden state: `x` / `y` are offsets from the resting place, everything else (`alpha`, `scale`, …) is absolute; `rotation` too, from the resting rotation (0, except the turned glyphs of vertical text, which rest at 90°). */
   from?: Record<string, number>;
   /** The resting state, for properties that have none of their own (`alpha` 1, `scale` 1, `rotation` 0 and the place are known). */
   to?: Record<string, number>;
@@ -113,7 +113,7 @@ export function animateText(text: string, style: MeasureStyle, options: AnimateT
     const start = at + delays[i]!;
     const len = end - start;
     const keyframes: Keyframe[] = [];
-    const place = (key: string, v: number) => (key === 'x' || key === 'y' ? rest[key]! + v : v);
+    const place = (key: string, v: number) => (key === 'x' || key === 'y' || key === 'rotation' ? rest[key]! + v : v);        // (a turned glyph of vertical text rests at 90°: a spin from -90 is a quarter turn for it too)
     if (inTween) {
       keyframes.push({
         at: 0, duration: inTween.duration, ease: inTween.ease,

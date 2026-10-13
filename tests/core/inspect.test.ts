@@ -100,6 +100,24 @@ describe('inspectScene', () => {
       expect(inspectScene(comp, 0, 0, { width: 1280, height: 720 }).issues).toEqual([]);
     });
 
+    it('judges "over" and "under" by the real draw order: a backdrop parented to a null is still drawn where the null is, and a cover parented to a null can be over the text', async () => {
+      // layers() lists the layers of a null last; the picture is drawn in the order of the tree
+      const under = await run([{ type: 'null', name: 'rig', initial: { x: 0, y: 0 } }, rect('bg', 150, 100, { parent: 'rig' }), text]);
+      expect(under).toEqual([]);                                              // the bg is drawn BEFORE the text (the null is first): under it
+      const over = await run([{ type: 'null', name: 'rig', initial: { x: 0, y: 0 } }, { ...text, parent: 'rig' }, rect('cover', 150, 100, { parent: 'rig' })]);      // both in the null, the cover after the text
+      expect(over[0]).toMatch(/"cover"/);
+    });
+
+    it('an opaque box over the WHOLE text is reported too (the worst case: nothing of it is seen)', async () => {
+      const [msg] = await run([text, rect('curtain', 100, 100)]);
+      expect(msg).toMatch(/"curtain".*100%/);
+    });
+
+    it('a cover inside a group that is almost transparent is not opaque', async () => {
+      const comp = await scene([text, { type: 'composition', name: 'veil', width: 400, height: 300, initial: { alpha: 0.2 }, sequences: [rect('card', 150, 100)] }]);
+      expect(crossing(inspectScene(comp, 0, 0, { width: 1280, height: 720 }).issues)).toEqual([]);
+    });
+
     it('goes to the review list with the other overlaps, and fails only under --strict', async () => {
       const issues = inspectScene(await scene([text, rect('card', 150, 100)]), 0, 0, { width: 1280, height: 720 }).issues;
       const { problems, review } = splitIssues(groupIssues([{ frame: 0, issues }]));

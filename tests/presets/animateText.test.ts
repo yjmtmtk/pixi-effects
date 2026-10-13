@@ -44,6 +44,13 @@ describe('animateText(): vertical: true', () => {
     expect(out[0].keyframes[0].to.alpha).toBe(1);
   });
 
+  it('a spin turns a turned glyph by the same amount as the others (its rotation is measured from where it rests: 90°)', () => {
+    const out = animateText('Aー', style, { x: 100, y: 10, duration: 3, in: 'spin', out: 'fade', vertical: true }) as any[];
+    const turn = (l: any) => { const k = l.keyframes[0]; return Math.abs(k.to.rotation - k.from.rotation); };
+    expect(turn(out[0])).toBe(90);
+    expect(turn(out[1])).toBe(90);
+  });
+
   it('is the same as before without it: pieces are still laid across', () => {
     const out = animateText('AB', style, { x: 100, y: 50, duration: 3, in: false }) as any[];
     expect(out.map(l => l.initial.x)).toEqual([105, 115]);

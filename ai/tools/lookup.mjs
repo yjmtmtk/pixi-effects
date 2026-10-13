@@ -110,7 +110,13 @@ export function searchDocs(root, word) {
       const count = tokens.reduce((n, t) => n + body.split(t).length - 1, 0);
       // the word as a table row (`| \`path\` | …`, the first cell) or as a call in code (`steps(n)`) says the section is ABOUT it, not that it only mentions it
       const row = tokens.some(t => s.lines.some(l => new RegExp(`^\\|\\s*\\*{0,2}\\x60${t.replace(/[^a-z0-9]/g, '')}\\x60`).test(l.toLowerCase())));
-      const call = tokens.some(t => new RegExp(`\\x60[^\\x60]*\\b${t.replace(/[^a-z0-9]/g, '')}\\s*\\(`).test(body));
+      const calls = (t) => {                                                 // the word followed by a bracket INSIDE code: a fenced block or an inline `span` (not prose that has a bracket after it)
+        const w = t.replace(/[^a-z0-9]/g, ''), re = new RegExp(`\\b${w}\\s*\\(`);
+        const fences = [...body.matchAll(/```[\s\S]*?```/g)].map(m => m[0]);
+        const inline = [...body.replace(/```[\s\S]*?```/g, ' ').matchAll(/`([^`\n]+)`/g)].map(m => m[1]);
+        return [...fences, ...inline].some(code => re.test(code));
+      };
+      const call = tokens.some(calls);
       scored.push({ s, score: (inHeading ? 1000 : 0) + (row ? 1100 : 0) + (call ? 300 : 0) + Math.min(count, 50) + bonus });
     }
   }

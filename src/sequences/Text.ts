@@ -18,13 +18,12 @@ import type { Timeline } from '../core/timelineEngine';
 export type CounterState = { value: number; visibleChars: number };
 
 const TIME_PATTERNS = ['hh:mm:ss', 'h:mm:ss', 'hh:mm', 'mm:ss', 'm:ss'] as const;
-let timeWarned = new Set<string>();
 
 /** `format.time`: the value in seconds as a clock. The hours do not wrap (25:00 after 24:59: use `mod` in an expression for a day clock); without an hour field the minutes carry them. */
-function formatTime(v: number, pattern: string): string | null {
+function formatTime(v: number, pattern: string, warned: Set<string>): string | null {
   if (!(TIME_PATTERNS as readonly string[]).includes(pattern)) {
-    if (!timeWarned.has(pattern)) {
-      timeWarned.add(pattern);
+    if (!warned.has(pattern)) {
+      warned.add(pattern);                                           // once per layer, not once per page
       console.warn(`pixi-effects: format.time "${pattern}" is not one of ${TIME_PATTERNS.map(p => `"${p}"`).join(', ')}: the value is printed as a number`);
     }
     return null;
@@ -32,7 +31,7 @@ function formatTime(v: number, pattern: string): string | null {
   const total = Math.floor(Math.abs(v));
   const h = Math.floor(total / 3600), m = Math.floor((total % 3600) / 60), sec = total % 60;
   const two = (n: number): string => String(n).padStart(2, '0');
-  const sign = v < 0 ? '-' : '';
+  const sign = v < 0 && total > 0 ? '-' : '';                       // -0.3 s is 00:00, not -00:00
   switch (pattern) {
     case 'hh:mm:ss': return `${sign}${two(h)}:${two(m)}:${two(sec)}`;
     case 'h:mm:ss': return `${sign}${h}:${two(m)}:${two(sec)}`;
@@ -42,8 +41,8 @@ function formatTime(v: number, pattern: string): string | null {
   }
 }
 
-function formatValue(v: number, f: TextSequenceSpec['format']): string {
-  if (f?.time !== undefined) { const t = formatTime(v, String(f.time)); if (t !== null) return t; }
+function formatValue(v: number, f: TextSequenceSpec['format'], warned: Set<string> = new Set()): string {
+  if (f?.time !== undefined) { const t = formatTime(v, String(f.time), warned); if (t !== null) return t; }
   const fixed = v.toFixed(Math.max(0, Math.floor(f?.decimals ?? 0)));
   const pad = Math.max(0, Math.floor(f?.pad ?? 0));
   if (!f?.grouping && !pad) return fixed;
@@ -64,6 +63,8 @@ export class TextSequence extends Sequence {
   /** `visibleChars` is in play (initial or animated): otherwise the whole text shows. */
   private _typed = false;
   private _lastText = '';
+  /** The `format.time` patterns already said to be wrong on this layer. */
+  private _timeWarned = new Set<string>();
   /** A gradient fill for the text (`fillGradient`, static or animated): rebuilt as a FillGradient on each change (the text is re-rasterised). */
   private _grad: { grad: GradState } | null = null;
   private _fillGradient: FillGradient | null = null;
@@ -89,7 +90,7 @@ export class TextSequence extends Sequence {
   /** Rewrite the displayed string from the template, the current `value` and `visibleChars`. */
   private _refreshText(): void {
     let next = this._template.includes('{value}')
-      ? this._template.split('{value}').join(formatValue(this._counters.value, this.spec.format))
+      ? this._template.split('{value}').join(formatValue(this._counters.value, this.spec.format, this._timeWarned))
       : this._template;
     if (this._typed) next = Array.from(next).slice(0, Math.max(0, Math.floor(this._counters.visibleChars))).join('');
     if (next === this._lastText) return;

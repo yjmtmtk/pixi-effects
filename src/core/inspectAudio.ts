@@ -194,13 +194,14 @@ export function analyzeAudio(
       const over = s.music.seconds - plays;
       if (over > 2 && over / s.music.seconds > 0.15) scoreNotes.push(`${layer} (${source}): the score is ${Math.round(s.music.seconds * 10) / 10}s long but only ${Math.round(plays * 100) / 100}s of it play, so it is cut off mid-phrase. Write fewer bars (or a faster tempo) so it ends with the movie`);
     }
-    // Buried: the sound's own peak against the mix around its loudest moment. A short sound effect more than 10 dB under what plays with it is a hit nobody hears.
+    // Buried: the sound's own peak against the mix around its loudest moment. A short sound effect 12 dB or more under what plays with it is a hit nobody hears.
+    // (A layer with its own speed or `time` plays the sound at another pace: its loudest moment is not at start + loudestAt, so it is left out.)
     let belowMixDb: number | undefined;
-    if (!clock && s.start < movieDuration && ownDb > INAUDIBLE_DB) {
+    if (!clock && !s.sourceMap && s.start < movieDuration && ownDb > INAUDIBLE_DB) {
       const at = s.start + sound.loudestAt;
       const around = db(peakIn(Math.max(0, at - 0.05), Math.min(movieDuration, at + 0.05)));
       belowMixDb = Math.max(0, Math.round((around - ownDb) * 10) / 10);
-      if (!s.music && source.startsWith('sfx') && sound.length <= 4 && belowMixDb > BURIED_DB) {
+      if (!s.music && source.startsWith('sfx') && sound.length <= 4 && belowMixDb >= BURIED_DB) {
         buried.push({ layer, source, ownDb, topVolume, around, belowMixDb, at: Math.round(at * 100) / 100 });
       }
     }
