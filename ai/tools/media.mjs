@@ -106,6 +106,96 @@ const defaultIo = { log: (s) => console.log(s), err: (s) => console.error(s) };
 /** Filled in by the commands (probe, trim, frames, sound). Each is `(parsed, io) => exit code`. */
 export const commands = {};
 
+const isUrl = (s) => /^https?:\/\//i.test(s);
+const round = (n, d = 2) => Math.round(n * 10 ** d) / 10 ** d;
+
+/** A path or a URL as a mediabunny input; a sentence for a path that cannot be read. */
+async function openInput(file) {
+  const mb = await import('mediabunny');
+  mb.Logging.level = mb.LogLevel.Silent;                          // its own console lines ("Retrying failed fetch" with a stack) are not for an agent's output
+  let source;
+  if (isUrl(file)) source = new mb.UrlSource(file, { getRetryDelay: (attempts) => (attempts < 3 ? 0.3 * attempts : null) });       // seconds; its default never gives up, and a dead URL must be a sentence, not a hang
+  else {
+    const full = path.resolve(file);
+    if (!fs.existsSync(full)) throw new Error(`no such file: ${file}`);
+    const stat = fs.statSync(full);
+    if (stat.isDirectory()) throw new Error(`${file} is a folder, not a media file`);
+    if (stat.size === 0) throw new Error(`${file} is empty`);
+    source = new mb.FilePathSource(full);
+  }
+  const input = new mb.Input({ source, formats: mb.ALL_FORMATS });
+  let format;
+  try { format = await input.getFormat(); }
+  catch (e) {
+    if (isUrl(file)) throw new Error(`could not read ${file}: ${e && e.message ? e.message : e}`);
+    throw new Error(`${file} is not a media file this tool can read (${String(e && e.message ? e.message : e).split('\n')[0]})`);
+  }
+  return { mb, input, format };
+}
+
+/** What is in a file: container, duration, size, one row per track, key packet times with `keyframes`, and notes about what an author would trip on. */
+export async function probeFile(file, { keyframes = false } = {}) {
+  const { mb, input, format } = await openInput(file);
+  const notes = [];
+  let duration;
+  try { duration = await input.computeDuration(); }
+  catch (e) { throw new Error(isUrl(file) ? `could not read ${file}: ${e.message}` : `${file}: could not read its duration (${e.message})`); }
+  const bytes = isUrl(file) ? null : fs.statSync(path.resolve(file)).size;
+  const video = [], audio = [];
+  let keys;
+  for (const track of await input.getTracks()) {
+    if (track.isVideoTrack()) {
+      const sink = new mb.EncodedPacketSink(track);
+      const pts = [];
+      for await (const p of sink.packets(undefined, undefined, { metadataOnly: true })) { pts.push(p.timestamp); if (pts.length >= 300) break; }       // the first 300 frames say how the rest are paced
+      pts.sort((a, b) => a - b);
+      const gaps = pts.slice(1).map((t, i) => t - pts[i]).filter(g => g > 0).sort((a, b) => a - b);
+      const median = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 0;
+      const fpsVaries = gaps.length > 4 && median > 0 && (gaps[gaps.length - 1] - gaps[0]) / median > 0.35;
+      const stats = await track.computePacketStats(300);
+      const rotation = await track.getRotation();
+      video.push({
+        codec: track.codec, width: await track.getDisplayWidth(), height: await track.getDisplayHeight(), rotation,
+        fps: round(stats.averagePacketRate, 2), fpsVaries, bitrate: Math.round(stats.averageBitrate),
+      });
+      if (rotation) notes.push(`rotated ${rotation}° (the file stores it sideways and asks players to turn it; frames, and anything that places the picture, need that turn)`);
+      if (fpsVaries) notes.push(`variable frame rate (the gaps between frames range from ${round(gaps[0] * 1000, 1)} to ${round(gaps[gaps.length - 1] * 1000, 1)} ms): a clip from a phone or a screen recording; cut and sample by time, not by frame number`);
+      if (keyframes && !keys) {
+        keys = [];
+        let packet = await sink.getFirstPacket({ metadataOnly: true });
+        if (packet && packet.type !== 'key') packet = await sink.getNextKeyPacket(packet, { metadataOnly: true });
+        while (packet && keys.length < 5000) { keys.push(round(packet.timestamp, 3)); packet = await sink.getNextKeyPacket(packet, { metadataOnly: true }); }
+      }
+    } else if (track.isAudioTrack()) {
+      audio.push({ codec: track.codec, sampleRate: track.sampleRate, channels: track.numberOfChannels, bitrate: await track.getBitrate() });
+    }
+  }
+  if (!video.length) notes.push('no video');
+  if (!audio.length) notes.push('no audio');
+  const report = { file, container: format.name, duration: round(duration, 3), bytes, video, audio, notes };
+  if (keyframes) report.keyframes = keys ?? [];
+  return report;
+}
+
+const kb = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(2)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+
+function probeText(r, keyframes) {
+  const L = [`${r.file}`, `  ${r.container} · ${r.duration} s${r.bytes != null ? ` · ${kb(r.bytes)}` : ''}`];
+  for (const v of r.video) L.push(`  video  ${v.codec} ${v.width}×${v.height} · ${v.fps}${v.fpsVaries ? ' (varies)' : ''} fps${v.bitrate ? ` · ${Math.round(v.bitrate / 1000)} kb/s` : ''}${v.rotation ? ` · rotated ${v.rotation}°` : ''}`);
+  for (const a of r.audio) L.push(`  audio  ${a.codec} ${a.sampleRate} Hz · ${a.channels} ch${a.bitrate ? ` · ${Math.round(a.bitrate / 1000)} kb/s` : ''}`);
+  if (keyframes) L.push(`  key packets at: ${r.keyframes.slice(0, 12).join(', ')}${r.keyframes.length > 12 ? `, … (${r.keyframes.length})` : ''} s`);
+  for (const n of r.notes) L.push(`  note   ${n}`);
+  return L.join('\n');
+}
+
+commands.probe = async ({ file, opts }, io) => {
+  const r = await probeFile(file, { keyframes: !!opts.keyframes });
+  io.log(opts.json ? JSON.stringify(r, null, 2) : probeText(r, !!opts.keyframes));
+  return 0;
+};
+
+
+
 /** Runs a media command line; resolves to the exit code (0 done, 1 a problem, 2 usage). */
 export async function runMedia(argv, io = defaultIo) {
   let parsed;

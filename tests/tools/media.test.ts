@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { join, resolve } from 'node:path';
 import http from 'node:http';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 const root = resolve(__dirname, '../..');
 const media: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/media.mjs')).href);
 const cli: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/pixi-effects.mjs')).href);
@@ -81,5 +83,97 @@ describe('the media commands: the local server', () => {
       expect((await fetch(`${base}/__mb/mediabunny.min.mjs`)).status).toBe(200);
       expect((await fetch(`${base}/__lib/not-built.js`)).status).toBe(404);      // /__lib is dist/<name>.js and nothing else (the rest of the package folder is the plain static server, as in check and render)
     } finally { await srv.close(); rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+describe('probe: what is in a file', () => {
+  const fx = (n: string) => join(root, 'tests/fixtures/media', n);
+  const run = async (argv: string[]) => { const out: string[] = [], err: string[] = []; const code = await media.runMedia(argv, { log: (s: string) => out.push(s), err: (s: string) => err.push(s) }); return { code, out: out.join('\n'), err: err.join('\n') }; };
+
+  it('colors.mp4: container, H.264 320x180 at 30 fps, AAC, 6 s, no notes; the text fits 12 lines', async () => {
+    const p = await media.probeFile(fx('colors.mp4'));
+    expect(p.container).toMatch(/mp4/i);
+    expect(Math.abs(p.duration - 6)).toBeLessThan(0.1);
+    expect(p.bytes).toBeGreaterThan(10_000);
+    expect(p.video).toHaveLength(1);
+    expect(p.video[0]).toMatchObject({ codec: 'avc', width: 320, height: 180, rotation: 0, fpsVaries: false });
+    expect(Math.abs(p.video[0].fps - 30)).toBeLessThan(0.5);
+    expect(p.audio).toHaveLength(1);
+    expect(p.audio[0]).toMatchObject({ codec: 'aac', channels: 2 });
+    expect(p.notes).toEqual([]);
+    const r = await run(['probe', fx('colors.mp4')]);
+    expect(r.code).toBe(0);
+    expect(r.out.split('\n').length).toBeLessThanOrEqual(12);
+    expect(r.out).toMatch(/avc.*320.180/);
+  });
+
+  it('colors.webm is VP9 + Opus and colors.mov is a MOV', async () => {
+    const w = await media.probeFile(fx('colors.webm'));
+    expect([w.video[0].codec, w.audio[0].codec]).toEqual(['vp9', 'opus']);
+    expect((await media.probeFile(fx('colors.mov'))).container).toMatch(/mov|quicktime/i);
+  });
+
+  it('rotated.mp4 says "rotated 90°", video-only.mp4 says "no audio", audio-only.m4a says "no video"', async () => {
+    const r = await media.probeFile(fx('rotated.mp4'));
+    expect(r.video[0].rotation).toBe(90);
+    expect(r.notes.join(' ')).toMatch(/rotated 90°/);
+    expect((await media.probeFile(fx('video-only.mp4'))).notes.join(' ')).toMatch(/no audio/);
+    const a = await media.probeFile(fx('audio-only.m4a'));
+    expect(a.video).toEqual([]);
+    expect(a.notes.join(' ')).toMatch(/no video/);
+  });
+
+  it('--keyframes lists the key packets (0, 2, 4 s); --json is the same facts as JSON', async () => {
+    const p = await media.probeFile(fx('colors.mp4'), { keyframes: true });
+    expect(p.keyframes.slice(0, 3)).toEqual([0, 2, 4]);
+    const r = await run(['probe', fx('colors.mp4'), '--json', '--keyframes']);
+    const j = JSON.parse(r.out);
+    expect(j.video[0].codec).toBe('avc');
+    expect(j.keyframes.slice(0, 3)).toEqual([0, 2, 4]);
+  });
+
+  it('a frame rate that varies is said (a clip whose frames come at uneven times)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'probe-vfr-'));
+    try {
+      const mb = await import('mediabunny');
+      const out = join(dir, 'vfr.mp4');
+      const input = new mb.Input({ source: new mb.FilePathSource(fx('colors.mp4')), formats: mb.ALL_FORMATS });
+      const track = (await input.getPrimaryVideoTrack())!;
+      const output = new mb.Output({ format: new mb.Mp4OutputFormat(), target: new mb.FilePathTarget(out) });
+      const src = new mb.EncodedVideoPacketSource('avc'); output.addVideoTrack(src); await output.start();
+      let i = 0, first = true, cfg = await track.getDecoderConfig();
+      let t = 0;
+      for await (const p of new mb.EncodedPacketSink(track).packets()) {
+        if (i++ > 90) break;
+        await src.add(p.clone({ timestamp: t, duration: i % 2 ? 0.02 : 0.05 }), first ? { decoderConfig: cfg! } : undefined); first = false;
+        t += i % 2 ? 0.02 : 0.05;
+      }
+      await output.finalize();
+      const p = await media.probeFile(out);
+      expect(p.video[0].fpsVaries).toBe(true);
+      expect(p.notes.join(' ')).toMatch(/variable frame rate/);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('bad input is exit 1 with one sentence naming the file: missing, empty, a folder, not media; no stack lines', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'probe-bad-'));
+    try {
+      writeFileSync(join(dir, 'empty.mp4'), '');
+      writeFileSync(join(dir, 'notes.txt'), 'this is not a video, just some words '.repeat(50));
+      const cases: Array<[string, RegExp]> = [[join(dir, 'nope.mp4'), /no such file/], [join(dir, 'empty.mp4'), /empty/], [dir, /folder/], [join(dir, 'notes.txt'), /not a media file/]];
+      for (const [file, re] of cases) {
+        const r = await run(['probe', file]);
+        expect(r.code, file).toBe(1);
+        expect(r.err, file).toMatch(re);
+        expect(r.err, file).not.toMatch(/\n\s+at /);
+        expect(r.err.split('\n').length, file).toBeLessThanOrEqual(2);
+      }
+      const real = await promisify(execFile)(process.execPath, [join(root, 'ai/tools/pixi-effects.mjs'), 'probe', 'http://127.0.0.1:1/x.mp4']).then(() => ({ code: 0, stderr: '' }), (e: any) => ({ code: e.code, stderr: String(e.stderr) }));
+      expect(real.code).toBe(1);                                                     // run as the command: mediabunny's own retry log would add stack lines here
+      expect(real.stderr.trim().split('\n')).toHaveLength(1);
+      const url = await run(['probe', 'http://127.0.0.1:1/x.mp4']);
+      expect(url.code).toBe(1);
+      expect(url.err).toMatch(/could not read http:\/\/127\.0\.0\.1:1\/x\.mp4/);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 });
