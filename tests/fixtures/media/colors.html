@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>media fixture: one flat colour per second, and a tone</title>
+  <style>body { background: #000; margin: 0; } canvas { display: block; }</style>
+</head>
+<body>
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny",
+    "pixi-effects": "../../../dist/index.js", "pixi-effects/controller": "../../../dist/Controller.js" } }</script>
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    // second k (0..5) is one flat colour: red, green, blue, yellow, magenta, cyan. Tests read the centre pixel to know WHICH second a frame is from.
+    const COLORS = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+    const sequences = [
+      ...COLORS.map((c, k) => ({ type: 'shape', shape: 'rect', name: `s${k}`, width: 'GW', height: 'GH', at: k, duration: 1, initial: { x: 'GW/2', y: 'GH/2', fillColor: c } })),
+      { type: 'audio', name: 'tone', at: 0, duration: 6, volume: 1, sfx: { voices: [{ wave: 'sine', freq: 440, envelope: 'hold', gain: 0.5 }] } },
+    ];
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 6, frameRate: 30, composition: { sequences } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>
