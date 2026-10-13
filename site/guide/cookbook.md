@@ -223,4 +223,4 @@ done < table.csv
 
 ## More
 
-The [gallery](../examples/gallery/) has fifty-two complete pieces, each one a single HTML file you can open and read. More guides for what you are making: [Presenting](presenting.html) (a talk as one movie; `quiet-hours` in the gallery is a five-page one, press Present), [Audio](audio.html#visuals-that-follow-the-music) (the picture following the music, with `audioEnvelope()` and `react()`) and [Motion](motion.html). The [DSL reference](https://github.com/yjmtmtk/pixi-effects/blob/main/docs/dsl.md) lists every property.
+The [gallery](../examples/gallery/) has forty-one complete pieces, each one a single HTML file you can open and read. More guides for what you are making: [Presenting](presenting.html) (a talk as one movie, with a Present button), [Audio](audio.html#visuals-that-follow-the-music) (the picture following the music, with `audioEnvelope()` and `react()`) and [Motion](motion.html). The [DSL reference](https://github.com/yjmtmtk/pixi-effects/blob/main/docs/dsl.md) lists every property.

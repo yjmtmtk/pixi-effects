@@ -64,26 +64,6 @@
       "notes": "_notes/aurora-logo.md"
     },
     {
-      "id": "social-quote-vertical",
-      "title": "Social Quote Card",
-      "subtitle": "A vertical 9:16 quote card: drifting warm blobs, line-by-line masked reveal, animated underline and a swipe cue.",
-      "tags": [
-        "vertical",
-        "social",
-        "typography",
-        "masks",
-        "gradient"
-      ],
-      "width": 720,
-      "height": 1280,
-      "duration": 10,
-      "posterFrame": 200,
-      "model": "sonnet",
-      "page": "social-quote-vertical.html",
-      "poster": "posters/social-quote-vertical.jpg",
-      "notes": "_notes/social-quote-vertical.md"
-    },
-    {
       "id": "kinetic-manifesto",
       "title": "Kinetic Manifesto",
       "subtitle": "Five bilingual statements on making things, slammed onto a 100 BPM grid",
@@ -288,25 +268,6 @@
       "notes": "_notes/network-explainer.md"
     },
     {
-      "id": "transitions-reel",
-      "title": "Transitions Reel",
-      "subtitle": "Seven cuts, seven colours: every transition kind in one tight typographic reel",
-      "tags": [
-        "transitions",
-        "kinetic type",
-        "flat colour",
-        "reel"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 14,
-      "posterFrame": 138,
-      "model": "opus",
-      "page": "transitions-reel.html",
-      "poster": "posters/transitions-reel.jpg",
-      "notes": "_notes/transitions-reel.md"
-    },
-    {
       "id": "made-of-seconds",
       "title": "Made of Seconds",
       "subtitle": "Sixty seconds close into a minute, and on up to a year: 31,536,000 ticks, and then the next one.",
@@ -368,28 +329,6 @@
       "notes": "_notes/solar-system.md"
     },
     {
-      "id": "rewind-title",
-      "title": "Again.",
-      "subtitle": "A title card is built, rewound like a tape, held, and replayed in slow motion — one composition with its own clock (speed / time), while the movie's own clock keeps running",
-      "tags": [
-        "time remap",
-        "rewind",
-        "slow motion",
-        "typography",
-        "sfx",
-        "cubic-bezier",
-        "vhs"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 11,
-      "posterFrame": 306,
-      "model": "fable",
-      "page": "rewind-title.html",
-      "poster": "posters/rewind-title.jpg",
-      "notes": "_notes/rewind-title.md"
-    },
-    {
       "id": "d3-story",
       "title": "d3 × pixi-effects",
       "subtitle": "d3 computes, pixi-effects performs: a bar chart, a self-drawing line, a donut and a world map with great-circle routes, every number from d3 scales, line, pie, arc and geoPath",
@@ -410,28 +349,6 @@
       "page": "d3-story.html",
       "poster": "posters/d3-story.jpg",
       "notes": "_notes/d3-story.md"
-    },
-    {
-      "id": "liquid-flow-title",
-      "title": "Flow",
-      "subtitle": "Blurred colour blobs drift and saturate on a pale field, then the field drains into the wordmark",
-      "tags": [
-        "title",
-        "gradient",
-        "liquid",
-        "oklch",
-        "alpha-handoff",
-        "blur",
-        "blendMode"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 10,
-      "posterFrame": 213,
-      "model": "fable",
-      "page": "liquid-flow-title.html",
-      "poster": "posters/liquid-flow-title.jpg",
-      "notes": "_notes/liquid-flow-title.md"
     },
     {
       "id": "rain-fourteen-days",
@@ -534,26 +451,6 @@
       "notes": "_notes/isometric-city.md"
     },
     {
-      "id": "light-leaks",
-      "title": "Light leaks",
-      "subtitle": "A dusk city told only by blend modes: a soft-light colour cast, a colour-dodge light leak, a multiply vignette",
-      "tags": [
-        "blend modes",
-        "gradients",
-        "shapes",
-        "dusk",
-        "audio"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 7.5,
-      "posterFrame": 186,
-      "model": "sonnet",
-      "page": "light-leaks.html",
-      "poster": "posters/light-leaks.jpg",
-      "notes": "_notes/light-leaks.md"
-    },
-    {
       "id": "loop-grid",
       "title": "Loop Grid",
       "subtitle": "An original two-bar loop written as text; every cell is a note and flares the moment it sounds",
@@ -572,27 +469,6 @@
       "page": "loop-grid.html",
       "poster": "posters/loop-grid.jpg",
       "notes": "_notes/loop-grid.md"
-    },
-    {
-      "id": "matte-reel",
-      "title": "Matte reel",
-      "subtitle": "One moving matte shared by many layers: a growing disc, an inverted hole, a luma headline, a multiply band and a luma wipe",
-      "tags": [
-        "mattes",
-        "luma",
-        "luma wipe",
-        "masks",
-        "blend modes",
-        "audio"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 10,
-      "posterFrame": 171,
-      "model": "sonnet",
-      "page": "matte-reel.html",
-      "poster": "posters/matte-reel.jpg",
-      "notes": "_notes/matte-reel.md"
     },
     {
       "id": "nagiro-light",
@@ -737,25 +613,6 @@
       "notes": "_notes/paper-cutout-forest.md"
     },
     {
-      "id": "rack-focus",
-      "title": "Rack focus",
-      "subtitle": "A still life in depth: the lens finds a badge, a title, then a sign far in the back.",
-      "tags": [
-        "2.5D",
-        "depth of field",
-        "camera",
-        "sfx"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 8,
-      "posterFrame": 150,
-      "model": "sonnet",
-      "page": "rack-focus.html",
-      "poster": "posters/rack-focus.jpg",
-      "notes": "_notes/rack-focus.md"
-    },
-    {
       "id": "route-atlas",
       "title": "Route Atlas",
       "subtitle": "An invented archipelago, one vermilion route, five harbours named in calm type",
@@ -776,26 +633,6 @@
       "page": "route-atlas.html",
       "poster": "posters/route-atlas.jpg",
       "notes": "_notes/route-atlas.md"
-    },
-    {
-      "id": "shader-garden",
-      "title": "Shader Garden",
-      "subtitle": "Four formulas, no pictures: a flowing field, contour lines through letters, ripples in a disc, drifting pollen.",
-      "tags": [
-        "shader",
-        "warp",
-        "mask",
-        "typography",
-        "generative"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 10,
-      "posterFrame": 267,
-      "model": "sonnet",
-      "page": "shader-garden.html",
-      "poster": "posters/shader-garden.jpg",
-      "notes": "_notes/shader-garden.md"
     },
     {
       "id": "sketch-launch",
@@ -840,47 +677,6 @@
       "notes": "_notes/loop-morph.md"
     },
     {
-      "id": "gradient-type",
-      "title": "Spectrum",
-      "subtitle": "One heavy word whose gradient turns through four colours while a radial glow drifts behind it",
-      "tags": [
-        "typography",
-        "gradient",
-        "oklch",
-        "spring",
-        "bilingual"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 11,
-      "posterFrame": 234,
-      "model": "fable",
-      "page": "gradient-type.html",
-      "poster": "posters/gradient-type.jpg",
-      "notes": "_notes/gradient-type.md"
-    },
-    {
-      "id": "spotlight-room",
-      "title": "Spotlight",
-      "subtitle": "A dark room, one tight lamp: it picks out three pictures, and they throw their shadows on the wall.",
-      "tags": [
-        "2.5D",
-        "light",
-        "shadows",
-        "fog",
-        "camera",
-        "sfx"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 9.5,
-      "posterFrame": 132,
-      "model": "sonnet",
-      "page": "spotlight-room.html",
-      "poster": "posters/spotlight-room.jpg",
-      "notes": "_notes/spotlight-room.md"
-    },
-    {
       "id": "still-field",
       "title": "Still Field",
       "subtitle": "633 strokes of a lattice, raked into rings: one wave goes out ember and comes back pale, a seamless 12 s loop",
@@ -898,28 +694,6 @@
       "page": "still-field.html",
       "poster": "posters/still-field.jpg",
       "notes": "_notes/still-field.md"
-    },
-    {
-      "id": "quiet-hours",
-      "title": "The Quiet Hours",
-      "subtitle": "A five-page talk as one movie: press Present and the arrow keys, Space, a click or a swipe move through the pages and the steps inside them (bullets, a growing chart), stopping exactly where the stops are; or just press play and watch it",
-      "tags": [
-        "presentation",
-        "deck",
-        "stops",
-        "typography",
-        "chart",
-        "editorial",
-        "sfx"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 19.2,
-      "posterFrame": 294,
-      "model": "sonnet",
-      "page": "quiet-hours.html",
-      "poster": "posters/quiet-hours.jpg",
-      "notes": "_notes/quiet-hours.md"
     },
     {
       "id": "typewriter-terminal",

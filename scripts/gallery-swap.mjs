@@ -1,6 +1,7 @@
 // Replace one gallery piece by another everywhere it is written down (or update a piece in place).
 //
 //   node scripts/gallery-swap.mjs <oldId> <new-page.html> [--id newId] [--notes notes.md] [--dry-run] [--no-posters]
+//   node scripts/gallery-swap.mjs --remove <id> [--dry-run]        take a piece out for good (no replacement)
 //
 // What it does: puts the new page into examples/gallery/ (its importmap pointed at the local build), removes the old page, its poster, its notes and
 // its poster-manifest entry, replaces the row in MODELS.md, the card and the tally on the landing page (index.html), the entry in build-gallery.mjs's FEATURED,
@@ -162,10 +163,75 @@ export async function swapPiece(root, { oldId, file, newId, notes = null, dryRun
   return { changes, review };
 }
 
+/**
+ * Take a piece out of the gallery for good, everywhere it is written down (no replacement): its page, poster, notes and manifest entry, its row in MODELS.md,
+ * its line in FEATURED, its landing card, and the counts. The guide embeds and every other mention are listed for a person (they cannot be removed blindly).
+ * @param {string} root the repository root
+ * @param {{ id: string, dryRun?: boolean, posters?: boolean }} opts `posters: false` leaves pieces.json alone
+ * @returns {Promise<{ changes: string[], review: string[] }>}
+ */
+export async function removePiece(root, { id, dryRun = false, posters = true }) {
+  const g = resolve(root, GALLERY_DIR);
+  if (!existsSync(join(g, `${id}.html`))) throw new Error(`no gallery piece "${id}" in ${GALLERY_DIR}/`);
+  const changes = [], review = [], writes = new Map(), removes = [];
+  const rel = (p) => relative(root, p).split(sep).join('/');
+  const queueWrite = (p, text, why) => { writes.set(p, text); changes.push(`${rel(p)}: ${why}`); };
+  const edit = (p, fn, why) => {
+    const full = join(root, p); if (!existsSync(full)) return;
+    const before = writes.get(full) ?? readFileSync(full, 'utf8'), after = fn(before);
+    if (after !== before) queueWrite(full, after, why);
+  };
+
+  for (const f of [`${id}.html`, `posters/${id}.jpg`, `_notes/${id}.md`, `_notes/${id}.music.md`]) if (existsSync(join(g, f))) { removes.push(join(g, f)); changes.push(`${GALLERY_DIR}/${f}: removed`); }
+  const manifestFile = join(g, 'posters/manifest.json');
+  if (existsSync(manifestFile)) {
+    const manifest = JSON.parse(readFileSync(manifestFile, 'utf8'));
+    if (id in manifest) { delete manifest[id]; queueWrite(manifestFile, JSON.stringify(manifest, null, 2) + '\n', `the poster entry of "${id}" is dropped`); }
+  }
+
+  const counts = modelCounts(root);                                    // as they will be once the piece is gone
+  try { counts[readMeta(readFileSync(join(g, `${id}.html`), 'utf8')).model]--; } catch { /* a broken piece: the counts stay */ }
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const tally = MODELS.filter((m) => counts[m] > 0).map((m) => `${m} ${counts[m]}`);
+
+  edit(`${GALLERY_DIR}/MODELS.md`, (t) => t.split('\n').filter((l) => !l.endsWith(`| ${id}.html |`)).join('\n')
+    .replace(/Counts: [^\n]*\(\d+ pieces\)\./, `Counts: ${MODELS.map((m) => `${m} ${counts[m]}`).join(', ')} (${total} pieces).`), 'the row and the counts');
+  edit('scripts/build-gallery.mjs', (t) => t.replace(new RegExp(`^[ \\t]*'${id}',[ \\t]*\\n`, 'm'), ''), 'FEATURED');
+  edit('index.html', (t) => t.replace(new RegExp(`[ \\t]*<a class="piece" href="examples/gallery/#${id}" data-piece="${id}">[\\s\\S]*?</a>\\n?`), '')
+    .replace(/(<span>written by )[^\n]*?(<\/span><span>\+)/, `$1${tally.map((x) => x.replace(/^(\S+) (\d+)$/, '<b>$1 $2</b>')).join(' · ')}$2`)
+    .replace(/<span>\d+ pieces<\/span>/, `<span>${total} pieces</span>`)
+    .replace(/(<h2 id="h-gal">)\d+( pieces)/, `$1${total}$2`), 'the card, the tally and the heading');
+  edit('site/landing/FACTS.md', (t) => t.replace(/\(fable \d+[^)]*\)/, `(${MODELS.map((m) => `${m} ${counts[m]}`).join(', ')})`).replace(/Gallery: \d+ complete pieces/, `Gallery: ${total} complete pieces`), 'the model tally and the count');
+
+  for (const p of walk(root, root)) {
+    if (p === `${GALLERY_DIR}/${id}.html`) continue;
+    const text = writes.get(join(root, p)) ?? readFileSync(join(root, p), 'utf8');
+    text.split('\n').forEach((l, i) => { if (new RegExp(`(?<![\\w-])${id}(?![\\w-])`).test(l)) review.push(`${p}:${i + 1}: still names "${id}": ${l.trim().slice(0, 110)}`); });
+  }
+
+  if (dryRun) return { changes, review };
+  for (const [p, text] of writes) writeFileSync(p, text);
+  for (const p of removes) rmSync(p, { force: true });
+  if (posters) {
+    const { buildGallery } = await import(pathToFileURL(join(fileURLToPath(new URL('.', import.meta.url)), 'build-gallery.mjs')).href);
+    const { json } = buildGallery(root); writeFileSync(join(g, 'pieces.json'), json); changes.push(`${GALLERY_DIR}/pieces.json: regenerated`);
+  }
+  return { changes, review };
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = process.argv.slice(2), opt = (n) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : undefined; };
-  const flags = new Set(['--dry-run', '--no-posters']), valued = new Set(['--id', '--notes']);
+  const flags = new Set(['--dry-run', '--no-posters']), valued = new Set(['--id', '--notes', '--remove']);
   const positional = args.filter((a, i) => !a.startsWith('--') && !valued.has(args[i - 1]));
+  if (args.includes('--remove')) {
+    try {
+      const { changes, review } = await removePiece(DEFAULT_ROOT, { id: opt('--remove'), dryRun: args.includes('--dry-run') });
+      console.log((args.includes('--dry-run') ? 'would change:\n' : 'changed:\n') + changes.map((c) => `  ${c}`).join('\n'));
+      if (review.length) console.log('\nreview by hand (not changed):\n' + review.map((r) => `  ${r}`).join('\n'));
+      if (!args.includes('--dry-run')) console.log('\nnext: npm run build:ai (llms-full.txt) and npm run test:changed; read the review list above.');
+    } catch (e) { console.error(`gallery-swap: ${e.message}`); process.exit(1); }
+    process.exit(0);
+  }
   if (positional.length < 2) {
     console.error('usage: node scripts/gallery-swap.mjs <oldId> <new-page.html> [--id newId] [--notes notes.md] [--dry-run] [--no-posters]');
     process.exit(1);

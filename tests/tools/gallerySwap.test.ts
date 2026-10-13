@@ -29,7 +29,7 @@ function fixture() {
   writeFileSync(join(g, '_notes/old.md'), '# old notes');
   writeFileSync(join(g, 'MODELS.md'), `# Gallery\n\n| Model | Piece | Size | File |\n|---|---|---|---|\n| fable | Other — x | 1280×720 | other.html |\n| sonnet | Old Piece — the weak one | 1280×720 | old.html |\n\nCounts: fable 1, opus 0, sonnet 1, haiku 0 (2 pieces).\n\n\`old\` (sonnet): made on 2026-10-06.\n`);
   writeFileSync(join(r, 'scripts/build-gallery.mjs'), `export const FEATURED = [\n  'other',\n  'old',\n];\n`);
-  writeFileSync(join(r, 'index.html'), `<h2>2 pieces</h2>\n      <a class="piece" href="examples/gallery/#other" data-piece="other"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/other.jpg" width="640" height="360" loading="lazy" alt="Other"></div><figcaption><b>Other</b><span>1280×720 · 12 s · fable</span></figcaption></figure></a>\n      <a class="piece" href="examples/gallery/#old" data-piece="old"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/old.jpg" width="640" height="360" loading="lazy" alt="Old"></div><figcaption><b>Old Piece</b><span>1280×720 · 12 s · sonnet</span></figcaption></figure></a>\n      <p class="tally"><span>2 pieces</span><span>written by <b>fable 1</b> · <b>sonnet 1</b></span><span>+ 15 numbered examples</span></p>\n`);
+  writeFileSync(join(r, 'index.html'), `<h2>2 pieces</h2>\n<h2 id="h-gal">2 pieces, each one file of data</h2>\n      <a class="piece" href="examples/gallery/#other" data-piece="other"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/other.jpg" width="640" height="360" loading="lazy" alt="Other"></div><figcaption><b>Other</b><span>1280×720 · 12 s · fable</span></figcaption></figure></a>\n      <a class="piece" href="examples/gallery/#old" data-piece="old"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/old.jpg" width="640" height="360" loading="lazy" alt="Old"></div><figcaption><b>Old Piece</b><span>1280×720 · 12 s · sonnet</span></figcaption></figure></a>\n      <p class="tally"><span>2 pieces</span><span>written by <b>fable 1</b> · <b>sonnet 1</b></span><span>+ 15 numbered examples</span></p>\n`);
   writeFileSync(join(r, 'site/guide/motion.md'), `Some text.\n\n{{demo examples/gallery/old.html}}\n\nThe old piece above shows springs.\n`);
   writeFileSync(join(r, 'site/landing/FACTS.md'), `- Gallery: 2 complete pieces (fable 1, opus 0, sonnet 1, haiku 0), from type to data.\n`);
   writeFileSync(join(r, 'skills/pixi-effects/reference/cheatsheet.md'), `See old for a worked example.\n`);
@@ -133,5 +133,57 @@ describe('gallery-swap: replace one piece by another', () => {
     await swap.swapPiece(r, { oldId: 'old', file, newId: 'old', posters: false });
     expect(read(r, 'index.html')).toContain(before);
     expect(read(r, 'index.html')).toContain('<span>written by <b>fable 1</b> · <b>opus 1</b></span>');
+  });
+});
+
+describe('gallery-swap: remove a piece for good', () => {
+  it('a dry run lists what would go and writes nothing', async () => {
+    const r = fixture();
+    const res = await swap.removePiece(r, { id: 'old', dryRun: true, posters: false });
+    expect(res.changes.join('\n')).toMatch(/old\.html: removed/);
+    expect(existsSync(join(r, 'examples/gallery/old.html'))).toBe(true);
+  });
+
+  it('takes the page, poster, notes and manifest entry away and leaves the other piece alone', async () => {
+    const r = fixture(); const g = 'examples/gallery';
+    await swap.removePiece(r, { id: 'old', posters: false });
+    for (const gone of ['old.html', 'posters/old.jpg', '_notes/old.md']) expect(existsSync(join(r, g, gone)), gone).toBe(false);
+    expect(existsSync(join(r, g, 'other.html'))).toBe(true);
+    const manifest = JSON.parse(read(r, `${g}/posters/manifest.json`));
+    expect(manifest.old).toBeUndefined(); expect(manifest.other).toBeDefined();
+  });
+
+  it('removes the MODELS row, the FEATURED line and the landing card, and fixes the counts and the tallies', async () => {
+    const r = fixture();
+    await swap.removePiece(r, { id: 'old', posters: false });
+    const models = read(r, 'examples/gallery/MODELS.md');
+    expect(models).not.toContain('old.html');
+    expect(models).toContain('| fable | Other — x | 1280×720 | other.html |');
+    expect(models).toContain('Counts: fable 1, opus 0, sonnet 0, haiku 0 (1 pieces).');
+    expect(read(r, 'scripts/build-gallery.mjs')).not.toContain("'old'");
+    expect(read(r, 'scripts/build-gallery.mjs')).toContain("'other'");
+    const index = read(r, 'index.html');
+    expect(index).not.toContain('data-piece="old"');
+    expect(index).toContain('data-piece="other"');
+    expect(index).toContain('<span>1 pieces</span>');
+    expect(index).toContain('<h2>2 pieces</h2>');                                       // a heading that is not the tally is not touched
+    expect(index).toContain('written by <b>fable 1</b></span>');
+    expect(index).toContain('<h2 id="h-gal">1 pieces, each one file of data</h2>');
+    expect(read(r, 'site/landing/FACTS.md')).toContain('(fable 1, opus 0, sonnet 0, haiku 0)');
+    expect(read(r, 'site/landing/FACTS.md')).toContain('Gallery: 1 complete pieces');
+  });
+
+  it('lists the guide embed and the other mentions for a person, and never touches the history files', async () => {
+    const r = fixture();
+    const { review } = await swap.removePiece(r, { id: 'old', posters: false });
+    const text = review.join('\n');
+    expect(text).toMatch(/site\/guide\/motion\.md:3/);
+    expect(text).toMatch(/skills\/pixi-effects\/reference\/cheatsheet\.md:1/);
+    expect(text).not.toMatch(/CHANGELOG|docs\/superpowers/);
+    expect(read(r, 'CHANGELOG.md')).toContain('(old)');
+  });
+
+  it('refuses a piece that does not exist', async () => {
+    await expect(swap.removePiece(fixture(), { id: 'nope', posters: false })).rejects.toThrow(/no gallery piece "nope"/);
   });
 });

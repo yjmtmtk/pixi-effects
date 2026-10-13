@@ -34,11 +34,6 @@
     "posterFrame": 180,
     "hash": "ced540e663861e44b686d2a8ddeb177f98c9fa60"
   },
-  "gradient-type": {
-    "poster": 7.8,
-    "posterFrame": 234,
-    "hash": "e56bdb84bde4c822d534af02edb58b08cd950113"
-  },
   "hanabi-night": {
     "poster": 9.4,
     "posterFrame": 282,
@@ -79,16 +74,6 @@
     "posterFrame": 42,
     "hash": "fd074a896c54c5b090474fc1aa59c2664efd36cc"
   },
-  "light-leaks": {
-    "poster": 6.2,
-    "posterFrame": 186,
-    "hash": "6ceeec0ec90438c906ba2878ff1c8914cc61df67"
-  },
-  "liquid-flow-title": {
-    "poster": 7.1,
-    "posterFrame": 213,
-    "hash": "b6100a53bd23e55f2fffc9acae33c42da9ed5a75"
-  },
   "loop-grid": {
     "poster": 7,
     "posterFrame": 210,
@@ -113,11 +98,6 @@
     "poster": 10.2,
     "posterFrame": 306,
     "hash": "fd1d73e97afc39a8ae2d9cd988963fc39c3c0520"
-  },
-  "matte-reel": {
-    "poster": 5.7,
-    "posterFrame": 171,
-    "hash": "ed8bc3afc98a041620d81339e34e5360266f9450"
   },
   "nagiro-light": {
     "poster": 12,
@@ -149,45 +129,20 @@
     "posterFrame": 345,
     "hash": "50ddc24a0f8cce8173c504831599026368a1fdc9"
   },
-  "quiet-hours": {
-    "poster": 9.8,
-    "posterFrame": 294,
-    "hash": "059d0dafbe99c2739dbddcb5bb011b9c33198c14"
-  },
-  "rack-focus": {
-    "poster": 5,
-    "posterFrame": 150,
-    "hash": "839e7217bc862d8a86aea1b9a8d3d4518a008465"
-  },
   "rain-fourteen-days": {
     "poster": 11.8,
     "posterFrame": 354,
     "hash": "6e07b7b40dc86324d72a4b823592c8fe1f3d15a9"
-  },
-  "rewind-title": {
-    "poster": 10.2,
-    "posterFrame": 306,
-    "hash": "7849f1a7b457d63cc7096933418d8c7820fd8090"
   },
   "route-atlas": {
     "poster": 10.4,
     "posterFrame": 312,
     "hash": "349704f0accbcf6edc708bd28da58b37e5ea1819"
   },
-  "shader-garden": {
-    "poster": 8.9,
-    "posterFrame": 267,
-    "hash": "e55ef1cdaff87c3676149b695d2a277446c6b1f7"
-  },
   "sketch-launch": {
     "poster": 8.5,
     "posterFrame": 255,
     "hash": "482aeb8949370d5820d2fd02f9b7957523e17e1d"
-  },
-  "social-quote-vertical": {
-    "poster": 6.666666666666667,
-    "posterFrame": 200,
-    "hash": "40a43684cc4f620a48d511e31696a477e79be81e"
   },
   "solar-system": {
     "poster": 10,
@@ -198,11 +153,6 @@
     "poster": 9.5,
     "posterFrame": 285,
     "hash": "cdf5fbf2f25d802c3ad9b50947527f63db849c13"
-  },
-  "spotlight-room": {
-    "poster": 4.4,
-    "posterFrame": 132,
-    "hash": "f007d2ff2730dd6de45b3adf4e7a073291e4783f"
   },
   "spring-marquee": {
     "poster": 10.2,
@@ -233,11 +183,6 @@
     "poster": 8.2,
     "posterFrame": 246,
     "hash": "8cac1954e0da89016a83e329e80404894ff69f7a"
-  },
-  "transitions-reel": {
-    "poster": 4.6,
-    "posterFrame": 138,
-    "hash": "7cd103b0c56adb9cb264287fef35a8f7fe81dd35"
   },
   "typewriter-terminal": {
     "poster": 11.5,

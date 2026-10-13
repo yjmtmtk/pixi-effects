@@ -105,7 +105,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
 
   it('--at: a threeD scene with depth of field gets each moment\'s blur in the printout and in report.at (so a focus pull can be read, not only seen)', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-dof-'));
-    const { stdout } = await promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/gallery/rack-focus.html'), '--no-export', '--frames', '2', '--at', '0.5,2.4', '--out', out, '--timeout', '150'], { timeout: 170_000 });
+    const { stdout } = await promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/rack-focus.html'), '--no-export', '--frames', '2', '--at', '0.5,2.4', '--out', out, '--timeout', '150'], { timeout: 170_000 });
     const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));
     expect(report.at).toHaveLength(2);
     const early = report.at[0].depthBlur, later = report.at[1].depthBlur;
@@ -121,7 +121,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
 
   it('--at: a scene with lights gets each moment\'s light level in the printout (the most lit first) and in report.at', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-light-'));
-    const { stdout } = await promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/gallery/spotlight-room.html'), '--no-export', '--frames', '2', '--at', '1.5,4.4', '--out', out, '--timeout', '150'], { timeout: 170_000 });
+    const { stdout } = await promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/spotlight-room.html'), '--no-export', '--frames', '2', '--at', '1.5,4.4', '--out', out, '--timeout', '150'], { timeout: 170_000 });
     const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));
     const early = report.at[0].light, later = report.at[1].light;
     const named = (o: Record<string, number>, part: string) => Object.entries(o).find(([k]) => k.includes(part))![1];
@@ -222,10 +222,10 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     expect(report.exports[0].audio).toBeNull();
   }, 190_000);
 
-  it('a presentation (quiet-hours) gets stops.png and a stops section in the report', async () => {
+  it('a presentation (examples/_checks/quiet-hours) gets stops.png and a stops section in the report', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-test-'));
     const { stdout } = await promisify(execFile)('node', [
-      join(root, 'ai/tools/check.mjs'), join(root, 'examples/gallery/quiet-hours.html'), '--out', out, '--frames', '4', '--no-export', '--timeout', '150',
+      join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/quiet-hours.html'), '--out', out, '--frames', '4', '--no-export', '--timeout', '150',
     ], { timeout: 170_000 });
     expect(stdout).toMatch(/stops\s+\d+ stop\(s\) on 5 page\(s\)/);
     const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));

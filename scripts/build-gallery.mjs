@@ -21,7 +21,6 @@ export const FEATURED = [
   'synthwave-drive',
   'ma',
   'aurora-logo',
-  'social-quote-vertical',
   'kinetic-manifesto',
   'film-titles',
   'generative-orbits',
@@ -32,7 +31,6 @@ export const FEATURED = [
   'data-story',
   'app-promo',
   'network-explainer',
-  'transitions-reel',
   'made-of-seconds',
   'kageokuri',
 ];

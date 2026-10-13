@@ -1,6 +1,6 @@
 # Gallery — which model made which piece
 
-Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same brief ([BRIEF.md](BRIEF.md)) and the same docs (`skills/pixi-effects/SKILL.md` and its references). Round one: 16 pieces. Round two: 14 more, after the library fixes the first round exposed. 0.19: two more (`spring-marquee`, `gradient-type`) written to show the new spring easing, grain and animated gradients. The model is the one passed when each agent was launched; it also sits in each piece's `#piece-meta` block as `model`.
+Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same brief ([BRIEF.md](BRIEF.md)) and the same docs (`skills/pixi-effects/SKILL.md` and its references). Round one: 16 pieces. Round two: 14 more, after the library fixes the first round exposed. 0.19: one more (`spring-marquee`) written to show the new spring easing and grain. The model is the one passed when each agent was launched; it also sits in each piece's `#piece-meta` block as `model`.
 
 | Model | Piece | Size | File |
 |---|---|---|---|
@@ -10,12 +10,10 @@ Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same br
 | fable | Cities at night — A three-beat data story: bars, a self-drawing line, a ring — one editorial system, one highlight colour | 1280×720 | data-story.html |
 | fable | Kōbe, 2040 — A seeded isometric city builds itself from dawn to dusk — three polygon faces per block, oklab light, windows that wake up | 1280×720 | isometric-city.html |
 | fable | Kinetic Manifesto — Five bilingual statements on making things, slammed onto a 100 BPM grid | 1280×720 | kinetic-manifesto.html |
-| fable | Flow — Blurred colour blobs drift and saturate on a pale field, then the field drains into the wordmark | 1280×720 | liquid-flow-title.html |
 | fable | Quiet Woods — A cut-paper diorama in 2.5D: layered hills and pines under a paper moon, a fox crossing the mid-ground, fireflies, and a hand-lettered label that unfolds | 1280×720 | paper-cutout-forest.html |
 | fable | Synthwave Drive — A retro night-drive loop: striped sun, neon grid floor racing in, a title that flickers on | 1280×720 | synthwave-drive.html |
 | fable | Typewriter Terminal — A dev-tool launch film typed out in a CRT terminal; the window steps back in depth for the title card | 1280×720 | typewriter-terminal.html |
 | fable | Wedding Invitation — A 4:5 cream card: a double gold border traces itself, seeded botanical sprigs unfurl in the corners, serif names and details arrive line by line, a gold rule and two rings close. | 1080×1350 | wedding-invitation.html |
-| fable | Spectrum — One heavy word whose gradient turns through four colours while a radial glow drifts behind it | 1280×720 | gradient-type.html |
 | opus | The Long Night — Main-title sequence for an imaginary thriller: a three.js shard in fog, letterboxed credits, film grain | 1280×720 | film-titles.html |
 | opus | Orbits — A seeded loop of pendulum-wave rings, epicycle rosettes and Lissajous comets | 1080×1080 | generative-orbits.html |
 | opus | Route Atlas — An invented archipelago, one vermilion route, five harbours named in calm type | 1280×720 | route-atlas.html |
@@ -25,7 +23,6 @@ Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same br
 | opus | A Flight Through the Solar System — An educational camera flight from the Sun to Neptune: orbits, facts and a recap | 1280×720 | solar-system.html |
 | opus | Matchday Graphics — Broadcast football package: crests, count-up score, stat bars, momentum graph and a GOAL stinger | 1280×720 | sports-scoreboard.html |
 | opus | ORRI ONE — A glossy three.js product turntable with spec callouts and a brand lock-up, studio white to graphite | 1280×720 | three-product-spin.html |
-| opus | Transitions Reel — Seven cuts, seven colours: every transition kind in one tight typographic reel | 1280×720 | transitions-reel.html |
 | opus | UI motion kit — Six microinteractions on a 3×2 board — toggle, ripple + check, like burst, loader, download, bell — played as a cascade, then all at once | 1280×720 | ui-microinteractions.html |
 | opus | 還暦 — Kanreki — A 60th-birthday greeting: one vermilion line travels the sixty-year calendar from 丙午 1966 back to 丙午 2026 | 1280×720 | kanreki-cycle.html |
 | opus | One Stroke — 一 is one line: a hairline becomes the letter, keeps its single stroke through 13 typefaces, and is left alone at the end | 1280×720 | one-stroke.html |
@@ -34,40 +31,24 @@ Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same br
 | opus | 影送り KAGEOKURI — Opening titles for a drama that does not exist: light passes over every name and leaves an afterimage; the title arrives as its own shadow. | 1280×720 | kageokuri.html |
 | opus | Pythagoras, Rearranged — Four triangles slide; the empty space goes from c² to a² + b² without changing its area | 1280×720 | pythagoras-rearranged.html |
 | opus | Still Field — 633 strokes of a lattice, raked into rings: one wave goes out ember and comes back pale, a seamless 12 s loop | 1080×1080 | still-field.html |
-| sonnet | The Quiet Hours — A five-page talk as one movie: press Present and the arrow keys, Space, a click or a swipe move through the pages and the steps inside them (bullets, a growing chart), stopping exactly where the stops are; or just press play and watch it | 1280×720 | quiet-hours.html |
 | sonnet | Hanabi Night — A summer fireworks festival title card in indigo, gold and vermilion: rockets streak up, a gold peony opens over the skyline, the vertical title rises and a red seal stamps in | 1280×720 | hanabi-night.html |
 | opus | hanbun — A fictional split-the-bill app: one tap folds eighteen transfers into three | 1080×1350 | hanbun-app.html |
 | opus | ひかりの音 — A four-line poem written top to bottom, right to left, each syllable landing on a note of its own tune | 720×1280 | hikari-no-oto.html |
-| sonnet | Social Quote Card — A vertical 9:16 quote card: drifting warm blobs, line-by-line masked reveal, animated underline and a swipe cue. | 720×1280 | social-quote-vertical.html |
 | opus | Fourteen Days of Rain — 365 day-bars re-sort themselves: half a year's rain falls on 14 days (illustrative data) | 1280×720 | rain-fourteen-days.html |
 | opus | Wild Geese Return — 寒露 初候「鴻雁来」: one micro-season in sumi on kinari paper | 1280×720 | wild-geese.html |
 | opus | 発車標 Departure Board — A station board where nothing moves unless the information changed: a departure, a delay, a track change | 1280×720 | hasshahyo.html |
 | opus | HOZO — A logo sting for an invented joinery workshop: two blocks slide out of a close-up and lock with one wooden click | 1280×720 | tenon-joint.html |
 | opus | 間 MA — the space between — A 48-second kinetic essay about one word: a hairline of light becomes a gate, a corridor, a silence, a sun and a seal, cut to a score written as text | 1920×1080 | ma.html |
-| fable | Again. — A title card is built, rewound like a tape, held, and replayed in slow motion: one composition with its own clock, its sounds running backward with it | 1280×720 | rewind-title.html |
 | opus | Now Showing — A vintage cinema marquee at night: bulbs snap on, letters bounce onto the rail, a ticket stub wobbles in, all under one film grain | 1280×720 | spring-marquee.html |
 | opus | NAGIRO — A quiet product film for an invented table light, told only with light on aluminium and opal glass | 1280×720 | nagiro-light.html |
 | opus | Loop Grid — An original two-bar loop written as text; every cell is a note and flares the moment it sounds | 1080×1080 | loop-grid.html |
 | opus | ただいま — A small ball hops ten ledges down to the one spot that fits it; the trip is shown again as a chronophotograph. | 720×1280 | tadaima.html |
-| sonnet | Rack focus — A shallow-depth still life that is about the camera's focus: the lens racks from a coral badge to the title to a small sign that only resolves when the focus lands on it, and back, with a slow dolly and bokeh lamps | 1280×720 | rack-focus.html |
-| sonnet | Light leaks — A dusk city told only by blend modes: a soft-light colour cast, a color-dodge light leak, a multiply vignette, a screen haze and a difference flash on the title | 1280×720 | light-leaks.html |
-| sonnet | Matte reel — One moving matte shared by many layers: a growing disc, an inverted hole, a luma headline, a multiply band and a luma wipe to an end card | 1280×720 | matte-reel.html |
-| sonnet | Spotlight — A dark room, one tight lamp: it picks out three pictures one after another, and they throw their shadows on the wall; slow camera, depth fog, an end card as the house lights come up | 1280×720 | spotlight-room.html |
-| sonnet | Shader garden — Four formulas and no pictures: a flowing green field under a title bent like water, contour lines of a noise terrain seen only through the letters CONTOUR, and ripples through a disc | 1280×720 | shader-garden.html |
 | sonnet | d3 × pixi-effects — d3 computes, pixi-effects performs: a bar chart, a self-drawing line, a donut and a world map with great-circle routes, every number from d3 scales, line, pie, arc and geoPath | 1280×720 | d3-story.html |
 | sonnet | Sketch to Launch — A notebook page where a rocket draws itself stroke by stroke, is coloured in with hachure, counts down and lifts off toward a moon; every wobbly line comes from Rough.js as plain path data | 1280×720 | sketch-launch.html |
 
-Counts: fable 13, opus 29, sonnet 10, haiku 0 (52 pieces).
+Counts: fable 10, opus 28, sonnet 3, haiku 0 (41 pieces).
 
-`rack-focus` (sonnet): made on 2026-10-09 by one subagent from the brief and the docs of the unreleased 0.21 (depth of field: camera `focus` / `aperture`); the model name is the author's self-report (Claude Sonnet 5.5).
-
-`light-leaks` (sonnet): made on 2026-10-09 by one subagent from the brief and the docs of the unreleased 0.22 (blend modes); the model name is the author's self-report (Claude Sonnet 5.5).
-
-`matte-reel` (sonnet): made on 2026-10-09 by one subagent from the brief and the docs of the unreleased 0.23 (named mattes, luma, luma wipe); the model name is the author's self-report (Claude Sonnet 5.5).
-
-`spotlight-room` (sonnet): made on 2026-10-09 by one subagent from the brief and the docs of the unreleased 0.24 (lights, shadows, fog); the model name is the author's self-report (Claude Sonnet 5.5).
-
-`shader-garden` (sonnet): made on 2026-10-09 by one subagent from the brief and the docs of the unreleased 0.25 (the shader layer and the warp filter); the model name is the author's self-report (Claude Sonnet 5.5).
+Removed on 2026-10-13: eleven pieces that only showed off a new effect (rack-focus, gradient-type, shader-garden, light-leaks, matte-reel, spotlight-room, liquid-flow-title, rewind-title, transitions-reel), the 19-second talk (quiet-hours) and the plain quote card (social-quote-vertical). The pages that tests need as fixtures live on in `examples/_checks/`.
 
 `d3-story` (sonnet): made on 2026-10-10 in the main working session by Claude Sonnet 5.5 (not a fresh subagent), to show d3 computing the numbers and pixi-effects performing them; the model name is the author's self-report.
 

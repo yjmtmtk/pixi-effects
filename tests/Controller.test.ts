@@ -13,7 +13,7 @@ vi.mock('../src/present/navigation', () => ({
 }));
 vi.mock('../src/present/images', () => ({ stopImages: (m: any, o: unknown) => m.stopImages(o), exportPDF: (m: any, o: unknown) => m.exportPDF(o), inspectStops: (m: any, o: unknown) => m.inspectStops(o) }));
 /** A movie with stops makes the Controller load `pixi-effects/present` at once: wait for that before the first press. */
-const loaded = () => new Promise<void>(r => setTimeout(r, 20));
+const loaded = async () => { await import('../src/present/index'); await new Promise<void>(r => setTimeout(r, 20)); };      // the import itself is awaited: on a cold cache it takes longer than a fixed 20 ms
 
 type Listener = (...args: unknown[]) => void;
 
