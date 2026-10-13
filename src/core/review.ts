@@ -117,6 +117,7 @@ export async function reviewMovie(movie: Movie, opts: ReviewOptions = {}): Promi
     if (r.issues.length) perFrame.push({ frame, issues: r.issues });
   }
   const grouped = splitIssues(groupIssues(perFrame), !!opts.strict);
+  for (const message of movie.canvasProblems()) grouped.problems.push({ message, count: 1, firstFrame: 0, lastFrame: 0 });       // a picture that changes by itself is a defect, not a matter of taste
   const fonts = movie.inspectFonts();
   for (const f of fonts.failedUnused) grouped.review.push({ message: `web font "${f}" failed to load, but no text layer uses it (a broken or unused @font-face)`, count: 1, firstFrame: 0, lastFrame: 0 });
   for (const m of fonts.missing) {

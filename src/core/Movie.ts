@@ -12,6 +12,7 @@ import { resolveAtList, reviewMovie, type ReviewOptions, type ReviewReport } fro
 import { onionAlphas, onionTimes } from './onion';
 import { exportFrames } from './Renderer';
 import { expandTransitions, carryTransitionWindows } from './Transitions';
+import { canvasProblems } from './canvasCheck';
 import { inspectScene, type InspectReport, type InspectOptions } from './inspect';
 import { collectTimeline, timelineHtml, timelineSvg, type TimelineData, type TimelineHtmlOptions, type TimelineSvgOptions } from './timelineChart';
 import { pickFrames, sheetLayout } from './frames';
@@ -896,6 +897,12 @@ export class Movie {
     const f = clampFrame(frame, this.totalFrames);
     await this.gotoFrame(f, true);
     return inspectScene(this._rootSequence as CompositionSequence, f, f / this.frameRate, { width: this.width, height: this.height }, opts);
+  }
+
+  /** The canvas layers whose same frame is not the same picture (what `check` reports as a problem): one sentence each. */
+  canvasProblems(): string[] {
+    this._requireReady('canvasProblems');
+    return canvasProblems(this._rootSequence as CompositionSequence);
   }
 
   /**

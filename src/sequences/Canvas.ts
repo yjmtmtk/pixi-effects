@@ -48,6 +48,7 @@ export class CanvasSequence extends Sequence {
   private warnedDraw = false;
   private warnedPaths = new Set<string>();
   private lastKey = '';
+  private lastLocal = 0;
 
   private get canvasSpec(): CanvasSequenceSpec { return this.spec as unknown as CanvasSequenceSpec; }
 
@@ -101,6 +102,7 @@ export class CanvasSequence extends Sequence {
     this.canvas = document.createElement('canvas');
     this.canvas.width = this.w; this.canvas.height = this.h;
     const sprite = new Sprite({ texture: Texture.from(this.canvas), label: spec.name });
+    if (!this.smoothing) (sprite.texture.source as unknown as { scaleMode: string }).scaleMode = 'nearest';       // the picture is this layer's own: hard pixels when it is scaled up too
     sprite.width = this.layerW; sprite.height = this.layerH;
     this.target = sprite;
     this.intrinsicWidth = this.layerW; this.intrinsicHeight = this.layerH;
@@ -159,6 +161,7 @@ export class CanvasSequence extends Sequence {
     const key = `${local}|${JSON.stringify(this.carrier)}`;
     if (key === this.lastKey) return;                              // the same frame again: nothing changes
     this.lastKey = key;
+    this.lastLocal = local;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, c.width, c.height);
     if (this.failed || !this.drawFn) {
@@ -181,6 +184,30 @@ export class CanvasSequence extends Sequence {
       ctx.restore();
     }
     (this.target as Sprite | null)?.texture.source.update();
+  }
+
+  /**
+   * Draws each of `times` twice and returns the times where the two pictures differ (a draw that uses Math.random, the clock or state that outlives the call). The picture
+   * the layer showed before is drawn again at the end. A layer that failed has nothing to check.
+   */
+  checkDeterminism(times: number[]): number[] {
+    const c = this.canvas;
+    const ctx = c?.getContext('2d');
+    if (!c || !ctx || this.failed || !this.drawFn) return [];
+    const back = this.lastLocal;
+    const grab = (): ArrayLike<number> => ctx.getImageData(0, 0, c.width, c.height).data;
+    const differing: number[] = [];
+    for (const t of times) {
+      this.lastKey = ''; this.drawAt(t);
+      const a = Array.from(grab());
+      this.lastKey = ''; this.drawAt(t);
+      const b = grab();
+      let same = a.length === b.length;
+      for (let i = 0; same && i < a.length; i++) if (a[i] !== b[i]) same = false;
+      if (!same) differing.push(t);
+    }
+    this.lastKey = ''; this.drawAt(back);
+    return differing;
   }
 
   private checkerboard(ctx: CanvasRenderingContext2D, c: HTMLCanvasElement): void {

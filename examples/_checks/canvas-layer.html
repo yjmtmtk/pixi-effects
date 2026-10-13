@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>check · the canvas layer</title>
+</head>
+<body>
+  <!--
+    Acceptance check (not an example): canvas layers drawn by functions of the time. tests/tools/canvasLayer.test.ts looks at what each one draws, at a mask, a filter, a blend
+    mode and params keyframes on them, at two renders of one frame being identical, and (with ?leaky=1) at `check` reporting a draw that uses Math.random.
+    `?leaky=1` adds a canvas layer that is not deterministic.
+  -->
+  <canvas id="stage" width="640" height="360"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":    "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny": "https://esm.sh/mediabunny@1.61.3"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const leaky = new URLSearchParams(location.search).has('leaky');
+    const bg = { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101420' } };
+    const sequences = [
+      bg,
+      // 1: a red square that moves right at 100 px per second (its position is the time), in a 200x100 canvas placed at the top left
+      { type: 'canvas', name: 'mover', width: 320, height: 100, duration: 4, initial: { x: 0, y: 0 },
+        draw: (ctx, t) => { ctx.fillStyle = '#ff0000'; ctx.fillRect(t * 100, 20, 40, 40); } },
+      // 2: params animated by keyframes: a circle whose radius goes 10 -> 50 over 2 s; a seeded scatter; a state made in setup
+      { type: 'canvas', name: 'params', width: 320, height: 160, params: { radius: 10 }, seed: 5, initial: { x: 320, y: 0 },
+        keyframes: [{ at: 0, to: { 'params.radius': 50 }, duration: 2, ease: 'none' }],
+        setup: () => ({ label: 'ready' }),
+        draw: (ctx, t, info) => {
+          ctx.fillStyle = '#00cc66'; ctx.beginPath(); ctx.arc(80, 80, info.params.radius, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#ffffff';
+          for (let i = 0; i < 20; i++) ctx.fillRect(160 + info.random() * 150, info.random() * 150, 3, 3);
+          ctx.fillStyle = info.state.label === 'ready' ? '#3b5bdb' : '#ff00ff'; ctx.fillRect(150, 140, 20, 10);
+        } },
+      // 3: a canvas layer with a mask, a filter and a blend mode like any layer
+      { type: 'canvas', name: 'masked', width: 200, height: 120, duration: 4, initial: { x: 20, y: 200 }, blendMode: 'screen',
+        filters: [{ type: 'blur', strength: 1 }],
+        mask: { type: 'shape', shape: 'circle', radius: 50, initial: { x: 120, y: 260, fillColor: '#ffffff' } },       // (a mask is placed in the composition's coordinates)
+        draw: (ctx) => { ctx.fillStyle = '#ffcc00'; ctx.fillRect(0, 0, 200, 120); } },
+      // 4: text on a canvas with resolution 2 (sharp when scaled up) and pixel art with smoothing off
+      { type: 'canvas', name: 'text', width: 200, height: 60, resolution: 2, initial: { x: 240, y: 200, scale: 1 },
+        draw: (ctx, t, info) => { ctx.fillStyle = '#ffffff'; ctx.font = 'bold 28px sans-serif'; ctx.fillText('canvas ' + info.frame, 8, 40); } },
+      { type: 'canvas', name: 'pixels', width: 8, height: 8, smoothing: false, initial: { x: 520, y: 220, scale: 8 },
+        draw: (ctx) => { for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { ctx.fillStyle = (x + y) % 2 ? '#ffffff' : '#000000'; ctx.fillRect(x, y, 1, 1); } } },
+      ...(leaky ? [{ type: 'canvas', name: 'leaky', width: 100, height: 60, initial: { x: 20, y: 300 }, draw: (ctx) => { ctx.fillStyle = `rgb(${Math.floor(Math.random() * 255)},0,0)`; ctx.fillRect(0, 0, 100, 60); } }] : []),
+    ];
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 4, frameRate: 30, composition: { sequences } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+  </script>
+</body>
+</html>

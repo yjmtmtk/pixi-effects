@@ -186,8 +186,56 @@ describe('the canvas layer: size', () => {
     expect(warn.mock.calls.some(c => /resolution/.test(String(c[0])))).toBe(true);
   });
 
-  it('smoothing: false turns image smoothing off for the draw (pixel art)', async () => {
-    await build([cv({ smoothing: false })]);
+  it('smoothing: false turns image smoothing off for the draw AND draws the picture with hard pixels when it is scaled up (pixel art); the default stays smooth', async () => {
+    const { comp } = await build([cv({ name: 'hard', smoothing: false }), cv({ name: 'soft' })]);
     expect(rec.calls.some(c => c[0] === 'set imageSmoothingEnabled' && c[1] === false)).toBe(true);
+    const mode = (name: string) => ((layer(comp, name).target as unknown as { texture: { source: { scaleMode?: string } } }).texture.source.scaleMode);
+    expect(mode('hard')).toBe('nearest');
+    expect(mode('soft')).not.toBe('nearest');
   });
 });
+
+describe('the canvas layer: is the same frame the same picture', () => {
+  /** A context whose "pixels" are the arguments of the last fillRect, so two draws can be compared. */
+  function pixelCtx() {
+    let last: unknown[] = [];
+    const ctx = new Proxy({}, {
+      get(_t, key: string) {
+        if (key === 'getImageData') return () => ({ data: Uint8ClampedArray.from(last.map(v => Number(v) & 255)) });
+        return (...a: unknown[]) => { if (key === 'fillRect') last = a; };
+      },
+      set() { return true; },
+    });
+    return { ctx };
+  }
+  type Checked = Layer & { checkDeterminism(times: number[]): number[] };
+
+  it('checkDeterminism draws each time twice and lists the times where the two pictures differ', async () => {
+    installCanvas(null, pixelCtx() as never);
+    let counter = 0;
+    const { comp } = await build([
+      cv({ name: 'pure', draw: (ctx: CanvasRenderingContext2D, t: number) => { ctx.fillRect(Math.round(t * 10), 0, 1, 1); } }),
+      cv({ name: 'leaky', draw: (ctx: CanvasRenderingContext2D) => { ctx.fillRect(counter++, 0, 1, 1); } }),
+    ]);
+    expect((layer(comp, 'pure') as Checked).checkDeterminism([0.5, 1, 2])).toEqual([]);
+    expect((layer(comp, 'leaky') as Checked).checkDeterminism([0.5, 1, 2])).toEqual([0.5, 1, 2]);
+  });
+
+  it('a layer that failed (no draw) has nothing to check', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    installCanvas(null, pixelCtx() as never);
+    const { comp } = await build([{ type: 'canvas', name: 'c' }]);
+    expect((layer(comp, 'c') as Checked).checkDeterminism([1])).toEqual([]);
+  });
+
+  it('after the check the picture is the one the movie had (the next real draw is not skipped)', async () => {
+    installCanvas(null, pixelCtx() as never);
+    const draw = vi.fn();
+    const { comp } = await build([cv({ draw })]);
+    (layer(comp, 'c') as Checked).checkDeterminism([1]);
+    draw.mockClear();
+    await layer(comp, 'c').awaitFrameAt(1);
+    expect(draw).toHaveBeenCalledTimes(1);
+  });
+});
+
