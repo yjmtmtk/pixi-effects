@@ -127,7 +127,7 @@ export async function swapPiece(root, { oldId, file, newId, notes = null, dryRun
   const size = cardSize(meta.width, meta.height), alt = (meta.subtitle || meta.title).replace(/"/g, '&quot;');
   const card = `<a class="piece" href="examples/gallery/#${newId}" data-piece="${newId}"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/${newId}.jpg" width="${size.width}" height="${size.height}" loading="lazy" alt="${alt}"></div><figcaption><b>${meta.title}</b><span>${meta.width}×${meta.height} · ${fmtDuration(meta.duration)} · ${meta.model}</span></figcaption></figure></a>`;
   edit('index.html', (t) => {
-    let out = t.replace(new RegExp(`<a class="piece" href="examples/gallery/#${oldId}" data-piece="${oldId}">[\\s\\S]*?</a>`), card);
+    let out = same ? t : t.replace(new RegExp(`<a class="piece" href="examples/gallery/#${oldId}" data-piece="${oldId}">[\\s\\S]*?</a>`), card);      // an update in place keeps the hand-written card
     out = out.replace(/(<span>written by )[^\n]*?(<\/span><span>\+)/, `$1${tally.map((x) => x.replace(/^(\S+) (\d+)$/, '<b>$1 $2</b>')).join(' · ')}$2`);
     return out.replace(/<span>\d+ pieces<\/span>/, `<span>${total} pieces</span>`);
   }, 'the card and the tally');

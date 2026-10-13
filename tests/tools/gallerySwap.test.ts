@@ -126,4 +126,12 @@ describe('gallery-swap: replace one piece by another', () => {
     expect(read(r, 'site/guide/motion.md')).toContain('{{demo examples/gallery/old.html}}');
     expect(read(r, 'scripts/build-gallery.mjs')).toContain("'old'");
   });
+
+  it('an update in place keeps the landing card as it is (its hand-written alt text), and only the tally is recounted', async () => {
+    const r = fixture(); const file = newPage();
+    const before = read(r, 'index.html').match(/<a class="piece"[^\n]*data-piece="old">[\s\S]*?<\/a>/)![0];
+    await swap.swapPiece(r, { oldId: 'old', file, newId: 'old', posters: false });
+    expect(read(r, 'index.html')).toContain(before);
+    expect(read(r, 'index.html')).toContain('<span>written by <b>fable 1</b> · <b>opus 1</b></span>');
+  });
 });
