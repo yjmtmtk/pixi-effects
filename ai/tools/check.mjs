@@ -388,8 +388,10 @@ export async function runCheck(opts, log = console.log) {
     if (opts.onion && opts.onion[1] > info.duration + 1e-9) throw new Error(`--onion ${opts.onion[0]}:${opts.onion[1]} goes past the end: the movie is ${info.duration} s`);
 
     const rv = await cdp.eval(`movie.review(${JSON.stringify({ strict: !!opts.strict })})`);
-    report.inspect = { checkedFrames: rv.frames, issues: rv.problems, review: rv.review };
-    if (rv.problems.length) report.problems.push(`${rv.problems.length} kind(s) of layout issue from movie.inspect`);
+    const layoutProblems = rv.problems.filter(g => g.kind !== 'canvas'), canvasProblems = rv.problems.filter(g => g.kind === 'canvas');
+    report.inspect = { checkedFrames: rv.frames, issues: layoutProblems, review: rv.review, canvas: canvasProblems.map(g => g.message) };
+    if (layoutProblems.length) report.problems.push(`${layoutProblems.length} kind(s) of layout issue from movie.inspect`);
+    if (canvasProblems.length) report.problems.push(`${canvasProblems.length} canvas layer(s) that do not draw the same picture for the same time (movie.canvasProblems)`);
     // fonts: a web font whose file did not load is a problem (the library lists a layer with no available font for review)
     report.fonts = rv.fonts;
     if (rv.fonts.failed.length) report.problems.push(`${rv.fonts.failed.length} web font(s) failed to load: ${rv.fonts.failed.join(', ')} (the layers that use them are drawn in a fallback)`);
@@ -580,6 +582,8 @@ function finish(report, outDir, log) {
     L.push(`  layout    ${g.length ? g.length + ' kind(s) of issue over ' + report.inspect.checkedFrames + ' frames:' : 'no cut-off / off-canvas text over ' + report.inspect.checkedFrames + ' frames (movie.inspect)'}`);
     for (const i of g.slice(0, 8)) L.push(line(i));
     if (g.length > 8) L.push(`            … ${g.length - 8} more (report.json)`);
+    const cv = report.inspect.canvas ?? [];
+    if (cv.length) { L.push(`  canvas    ${cv.length} canvas layer(s) that do not draw the same picture for the same time:`); for (const m of cv.slice(0, 4)) L.push(`            - ${m}`); }
     const rv = report.inspect.review;
     if (rv.length) {
       L.push(`  review    ${rv.length} to look at — text overlaps are often intentional (ghost / glow copies, per-letter boxes, a wipe), and a font that is not available is drawn in a fallback; check them on the contact sheet, or use --strict to fail on them:`);

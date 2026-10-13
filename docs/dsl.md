@@ -547,7 +547,7 @@ It is a layer like any other: `name`, `at`, `duration`, `initial`, `keyframes`, 
 
 **What it cannot do.** It cannot see or paint on what is below it in the stack (the stage is drawn by the GPU, not by a 2D context): use `filters`, a matte or a composition that holds the layers for that. It is not audio. For a picture made by a formula on the GPU, the `shader` layer is faster. A spec that holds a `canvas` layer holds functions, so it is not pure JSON (the same standing as `three` and the `custom` filter).
 
-Mistakes are said at build time with the layer's name: no `draw`, a `draw` or `setup` that throws (the frame is a magenta checkerboard and the next frames are tried again), a bad `width` / `height` / `resolution` / `params`, an unknown key (did you mean …), a `params.name` keyframe that names nothing. A draw costs time on every frame that changes: a slow `draw` slows the export in proportion.
+Mistakes are said at build time with the layer's name: no `draw`, a `draw` or `setup` that throws (the frame is a magenta checkerboard and the next frames are tried again), a bad `width` / `height` / `resolution` / `params`, an unknown key (did you mean …), a `params.name` keyframe that names nothing. A draw costs time on every frame that changes: a slow `draw` slows the export in proportion. The layer's `duration` defaults to its parent's length: with `at` greater than 0 and no `duration`, `info.progress` stops short of 1 when the movie ends, so give a `duration` when you draw from `progress`. `check` draws each canvas layer in a scratch canvas (so reading its pixels does not change how the real one is drawn), each moment twice and in two orders, and reports a layer that is not deterministic under its own heading `canvas`.
 
 ## 3D layers & camera
 

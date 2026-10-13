@@ -11,15 +11,20 @@ const isCanvas = (s: Sequence): s is Checkable => typeof (s as Partial<Checkable
  */
 export function canvasProblems(root: CompositionSequence): string[] {
   const out: string[] = [];
+  const visit = (seq: Sequence): void => {
+    if (isCanvas(seq)) {
+      const length = seq.duration ?? 0;
+      const times = [0.15, 0.4, 0.65, 0.9].map(f => Math.round(f * length * 1000) / 1000);
+      const bad = seq.checkDeterminism(times);
+      if (bad.length) out.push(`${describeLayer(seq.spec)} does not draw the same picture for the same time (checked at ${bad.map(t => `${t} s`).join(', ')}: drawn twice, in two orders): its draw uses Math.random, Date.now or state that outlives the call (a value it keeps from the last call), so playback, a seek and an export would not agree. Use info.random() (seeded) and derive everything from t`);
+    }
+    if (seq instanceof CompositionSequence) walk(seq);
+  };
   const walk = (comp: CompositionSequence): void => {
     for (const { seq } of comp.layers()) {
-      if (isCanvas(seq)) {
-        const length = seq.duration ?? 0;
-        const times = [0.15, 0.4, 0.65, 0.9].map(f => Math.round(f * length * 1000) / 1000);
-        const bad = seq.checkDeterminism(times);
-        if (bad.length) out.push(`${describeLayer(seq.spec)} draws different pictures when it is drawn twice at the same time (at ${bad.map(t => `${t} s`).join(', ')}): its draw uses Math.random, Date.now or state that outlives the call, so playback, a seek and an export would not agree. Use info.random() (seeded) and derive everything from t`);
-      }
-      if (seq instanceof CompositionSequence) walk(seq);
+      visit(seq);
+      const mask = (seq as { maskSequence?: Sequence | null }).maskSequence;                // an inline mask is a layer too
+      if (mask) visit(mask);
     }
   };
   walk(root);

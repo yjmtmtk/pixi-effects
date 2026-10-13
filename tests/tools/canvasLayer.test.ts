@@ -56,6 +56,12 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the canvas
         const d = g.getImageData(522, 222, 60, 60).data; let n = 0; for (let i = 0; i < d.length; i += 4) { const v = d[i]; if (v > 40 && v < 215) n++; } return n; })()`);
       expect(grey).toBeLessThan(40);                                           // a smoothed upscale has a grey seam at every edge: hundreds of pixels
 
+      // a draw that never closes its save() does not leak its colour or alpha into the next frame (every start saw the defaults)
+      await cdp.eval(`movie.snapshot(10, { as: 'dataURL' })`); await cdp.eval(`movie.snapshot(20, { as: 'dataURL' })`); await cdp.eval(`movie.snapshot(30, { as: 'dataURL' })`);
+      const starts: string[] = await cdp.eval('window.__starts');
+      expect(starts.length).toBeGreaterThan(3);
+      expect([...new Set(starts)]).toEqual(['#000000|1']);
+
       // one frame is one picture: the same frame drawn after other frames is byte-identical
       const a = await cdp.eval(`movie.snapshot(45, { as: 'dataURL' })`);
       await cdp.eval(`movie.snapshot(90, { as: 'dataURL' })`);
@@ -70,10 +76,12 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the canvas
     expect(await run('', clean)).toBe(0);
     const r1 = JSON.parse(readFileSync(join(clean, 'report.json'), 'utf8'));
     expect(r1.inspect.issues).toEqual([]);
+    expect(r1.inspect.canvas).toEqual([]);
     expect(await run('leaky=1', dirty)).toBe(1);
     const r2 = JSON.parse(readFileSync(join(dirty, 'report.json'), 'utf8'));
-    const said = r2.inspect.issues.map((g: { message: string }) => g.message).join('\n');
-    expect(said).toMatch(/"leaky" draws different pictures/);
+    const said = r2.inspect.canvas.join('\n');
+    expect(said).toMatch(/"leaky" does not draw the same picture/);
+    expect(r2.inspect.issues).toEqual([]);                                     // it is not a layout issue
     expect(said).not.toMatch(/"mover"|"params"|"masked"/);
     expect(r2.logs.join('\n')).toMatch(/Math\.random/);                        // and the build-time warning too
   }, 300_000);

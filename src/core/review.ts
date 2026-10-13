@@ -4,7 +4,7 @@ import type { FontReport } from './inspectFonts';
 import { namedScenes } from './scenes';
 
 /** One kind of issue, with how many frames it was seen in. Issues that differ only by numbers are one kind. */
-export interface IssueGroup { message: string; count: number; firstFrame: number; lastFrame: number }
+export interface IssueGroup { message: string; count: number; firstFrame: number; lastFrame: number; /** `'canvas'`: a canvas layer that does not draw the same picture for the same time (not about the layout; `check` lists it under its own heading). */ kind?: 'canvas' }
 
 export interface ReviewOptions {
   /** Moments to resolve and report: `3.5`, `50%`, `f120`, `title@end` (comma-separated). */
@@ -117,7 +117,7 @@ export async function reviewMovie(movie: Movie, opts: ReviewOptions = {}): Promi
     if (r.issues.length) perFrame.push({ frame, issues: r.issues });
   }
   const grouped = splitIssues(groupIssues(perFrame), !!opts.strict);
-  for (const message of movie.canvasProblems()) grouped.problems.push({ message, count: 1, firstFrame: 0, lastFrame: 0 });       // a picture that changes by itself is a defect, not a matter of taste
+  for (const message of movie.canvasProblems()) grouped.problems.push({ message, count: 1, firstFrame: 0, lastFrame: 0, kind: 'canvas' });       // a picture that changes by itself is a defect, not a matter of taste
   const fonts = movie.inspectFonts();
   for (const f of fonts.failedUnused) grouped.review.push({ message: `web font "${f}" failed to load, but no text layer uses it (a broken or unused @font-face)`, count: 1, firstFrame: 0, lastFrame: 0 });
   for (const m of fonts.missing) {

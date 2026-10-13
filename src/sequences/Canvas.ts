@@ -70,6 +70,12 @@ export class CanvasSequence extends Sequence {
       this.res = typeof r === 'number' && Number.isFinite(r) ? Math.min(MAX_RESOLUTION, Math.max(MIN_RESOLUTION, r)) : 1;
       console.warn(`pixi-effects: ${who}: resolution must be a number from ${MIN_RESOLUTION} to ${MAX_RESOLUTION} (canvas pixels per layer pixel), got ${JSON.stringify(r)}: ${this.res} is used`);
     }
+    const longest = Math.max(this.layerW, this.layerH);
+    if (longest * this.res > MAX_SIZE) {                           // a canvas wider than the GPU's texture limit would be blank or fail without a word
+      const fitted = MAX_SIZE / longest;
+      console.warn(`pixi-effects: ${who}: ${this.layerW}×${this.layerH} at resolution ${this.res} would be a canvas of ${Math.round(longest * this.res)} pixels, more than ${MAX_SIZE}: resolution ${Math.round(fitted * 1000) / 1000} is used (lower the size or the resolution)`);
+      this.res = fitted;
+    }
     this.w = Math.max(1, Math.round(this.layerW * this.res));
     this.h = Math.max(1, Math.round(this.layerH * this.res));
     this.fps = this.root.frameRate ?? 30;
@@ -157,33 +163,37 @@ export class CanvasSequence extends Sequence {
     const c = this.canvas;
     if (!c) return;
     const ctx = c.getContext('2d');
-    if (!ctx) return;
+    if (!ctx) { this.say('this browser gave no 2D context for the layer\'s canvas, so nothing can be drawn'); return; }
     const key = `${local}|${JSON.stringify(this.carrier)}`;
     if (key === this.lastKey) return;                              // the same frame again: nothing changes
     this.lastKey = key;
     this.lastLocal = local;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, c.width, c.height);
-    if (this.failed || !this.drawFn) {
-      this.checkerboard(ctx, c);
-    } else {
-      ctx.save();
-      try {
-        ctx.scale(this.res, this.res);
-        ctx.imageSmoothingEnabled = this.smoothing;
-        this.drawFn(ctx, local, this.info(local));
-      } catch (e) {
-        ctx.restore();
-        ctx.save();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.clearRect(0, 0, c.width, c.height);
-        this.say(`draw threw at ${local.toFixed(2)} s: ${e instanceof Error ? e.message : String(e)}; that frame is drawn as a checkerboard (the other frames are tried again)`);
-        this.checkerboard(ctx, c);
-        this.lastKey = '';                                         // try this frame again next time
-      }
-      ctx.restore();
-    }
+    if (!this.paint(ctx, c, local)) this.lastKey = '';             // a draw that threw: try this frame again next time
     (this.target as Sprite | null)?.texture.source.update();
+  }
+
+  /** Draws one frame of the layer into `ctx` (the layer's own canvas, or the scratch one of the determinism check). false: `draw` threw. */
+  private paint(ctx: CanvasRenderingContext2D, c: HTMLCanvasElement, local: number): boolean {
+    // A draw that does not balance its own save() must not leak into the next frame: where the context has `reset()` it is reset (state, transform, clip, the saved stack)
+    const hasReset = 'reset' in ctx && typeof (ctx as { reset?: unknown }).reset === 'function';
+    const fresh = (): void => { if (hasReset) (ctx as { reset(): void }).reset(); else { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, c.width, c.height); } };
+    fresh();
+    if (this.failed || !this.drawFn) { this.checkerboard(ctx, c); return true; }
+    if (!hasReset) ctx.save();
+    let ok = true;
+    try {
+      ctx.scale(this.res, this.res);
+      ctx.imageSmoothingEnabled = this.smoothing;
+      this.drawFn(ctx, local, this.info(local));
+    } catch (e) {
+      if (!hasReset) { ctx.restore(); ctx.save(); }
+      fresh();
+      this.say(`draw threw at ${local.toFixed(2)} s: ${e instanceof Error ? e.message : String(e)}; that frame is drawn as a checkerboard (the other frames are tried again)`);
+      this.checkerboard(ctx, c);
+      ok = false;
+    }
+    if (!hasReset) ctx.restore();
+    return ok;
   }
 
   /**
@@ -191,23 +201,26 @@ export class CanvasSequence extends Sequence {
    * the layer showed before is drawn again at the end. A layer that failed has nothing to check.
    */
   checkDeterminism(times: number[]): number[] {
-    const c = this.canvas;
-    const ctx = c?.getContext('2d');
-    if (!c || !ctx || this.failed || !this.drawFn) return [];
-    const back = this.lastLocal;
-    const grab = (): ArrayLike<number> => ctx.getImageData(0, 0, c.width, c.height).data;
-    const differing: number[] = [];
-    for (const t of times) {
-      this.lastKey = ''; this.drawAt(t);
-      const a = Array.from(grab());
-      this.lastKey = ''; this.drawAt(t);
-      const b = grab();
-      let same = a.length === b.length;
-      for (let i = 0; same && i < a.length; i++) if (a[i] !== b[i]) same = false;
-      if (!same) differing.push(t);
-    }
-    this.lastKey = ''; this.drawAt(back);
-    return differing;
+    if (!this.canvas || this.failed || !this.drawFn) return [];
+    // A scratch canvas of the same size that is read from the start (`willReadFrequently`: drawn by the CPU): reading the pixels of the layer's own canvas a few times would make
+    // Chrome move it from the GPU to the CPU in the middle of the check, and the two rasterisers anti-alias a few pixels differently, which is not the author's fault.
+    const scratch = document.createElement('canvas');
+    scratch.width = this.w; scratch.height = this.h;
+    const ctx = scratch.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return [];
+    // Each moment is drawn in the order given and again in the opposite order, and the two pictures of a moment are compared (by a hash of the pixels, so a 4K canvas costs no
+    // copy). Two draws in a row at one time would miss state that builds up from call to call (an integrator that moves by the time since the last call).
+    const hash = (): number => {
+      const d = ctx.getImageData(0, 0, scratch.width, scratch.height).data;
+      let h = 0x811c9dc5;
+      for (let i = 0; i < d.length; i++) { h ^= d[i]!; h = Math.imul(h, 0x01000193); }
+      return h >>> 0;
+    };
+    const once = (t: number): number => { this.paint(ctx, scratch, t); return hash(); };
+    const first = times.map(once);
+    const second = [...times].reverse().map(once).reverse();
+    scratch.width = scratch.height = 1;                            // let the memory go
+    return times.filter((_, i) => first[i] !== second[i]);
   }
 
   private checkerboard(ctx: CanvasRenderingContext2D, c: HTMLCanvasElement): void {

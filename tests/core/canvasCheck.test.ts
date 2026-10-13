@@ -47,4 +47,23 @@ describe('canvasProblems: the canvas layers of a movie whose same frame is not t
   it('a movie with no canvas layer has nothing to say', async () => {
     expect(canvasProblems(await build([{ type: 'shape', shape: 'rect', width: 10, height: 10 }]))).toEqual([]);
   });
+
+  it('catches state that builds up from call to call (an integrator: each call moves by the time since the last one), which two draws in a row at the same time cannot show', async () => {
+    let x = 0, v = 0, last = 0;
+    const comp = await build([{ type: 'canvas', name: 'integrator', draw: (ctx: CanvasRenderingContext2D, t: number) => {
+      const dt = t - last; last = t; v += 9.8 * dt; x += v * dt; ctx.fillRect(Math.round(x * 10), 0, 1, 1);
+    } }]);
+    const problems = canvasProblems(comp);
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain('"integrator"');
+  });
+
+  it('checks the canvas layers used as inline masks too', async () => {
+    let n = 0;
+    const comp = await build([{ type: 'shape', shape: 'rect', name: 'masked', width: 50, height: 50,
+      mask: { type: 'canvas', name: 'maskdraw', width: 50, height: 50, draw: (ctx: CanvasRenderingContext2D) => { ctx.fillRect(n++, 0, 1, 1); } } }]);
+    const problems = canvasProblems(comp);
+    expect(problems.some(m => m.includes('"maskdraw"'))).toBe(true);
+  });
 });
+

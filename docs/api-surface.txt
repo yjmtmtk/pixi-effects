@@ -233,6 +233,7 @@ interface IrisTransition extends TransitionCommon
 interface IssueGroup
   count: number
   firstFrame: number
+  kind?: "canvas"
   lastFrame: number
   message: string
 function kenBurns(opts: KenBurnsOptions): ImageSequenceSpec

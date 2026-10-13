@@ -239,3 +239,24 @@ describe('the canvas layer: is the same frame the same picture', () => {
   });
 });
 
+describe('the canvas layer: limits and a draw that does not balance its own save()', () => {
+  it('a canvas that would be larger than 8192 pixels (size x resolution) is made smaller and said, and info.resolution tells the truth', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const draw = vi.fn();
+    const { comp } = await build([cv({ draw, width: 4000, height: 100, resolution: 4 })]);
+    expect((draw.mock.calls[0]![2] as CanvasInfo).resolution).toBeCloseTo(8192 / 4000, 6);
+    expect(warn.mock.calls.some(c => /8192/.test(String(c[0])) && /resolution/.test(String(c[0])))).toBe(true);
+    expect(layer(comp, 'c').target.width).toBe(4000);                 // the layer is still 4000 px wide on the stage
+  });
+
+  it('a browser that gives no 2D context is said once (the layer would be blank without a word)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.restoreAllMocks();
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null as never);
+    const w2 = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await build([cv()]);
+    expect(w2.mock.calls.some(c => /2D context/.test(String(c[0])))).toBe(true);
+    expect(warn).toBeDefined();
+  });
+});
+

@@ -30,13 +30,13 @@ It is a layer like any other: `name`, `at`, `duration`, `initial`, `keyframes`, 
 | `setup(info) → state` | optional, may be async, called once at build: heavy preparation (a precomputed simulation, a parsed table, a loaded font). Its result is `info.state`. |
 | `width`, `height` | pixels or expressions (`'GW * 0.5'`); default the parent's size. At most 8192 each; a bigger one warns and is clamped. |
 | `resolution` | 0.25 to 4, default 1: how many canvas pixels per layer pixel. Text and fine lines under a camera push-in need 2 or more. |
-| `params` | an object of numbers (and number arrays) that **keyframes can animate**: `keyframes: [{ at: 0, to: { 'params.amount': 1 }, duration: 2 }]`. Passed as `info.params`. The same mechanism as `uniforms` of the `shader` layer, so the data side can still drive the picture. |
+| `params` | an object of numbers that **keyframes can animate**: `keyframes: [{ at: 0, to: { 'params.amount': 1 }, duration: 2 }]`. Passed as `info.params`. The same mechanism as `uniforms` of the `shader` layer, so the data side can still drive the picture. |
 | `seed` | integer, default 0: seeds `info.random()`. |
 | `smoothing` | `true` (default) or `false` (`imageSmoothingEnabled`, hard pixels for pixel art). |
 
-`info` = `{ t, frame, duration, progress (0..1), width, height, resolution, frameRate, params, state, random }`. `random()` is a seeded generator whose sequence restarts at every call of `draw` (the same frame draws the same numbers); for a value that must differ from frame to frame, derive it from `t`. `Math.random`, `Date.now`, `performance.now` and `new Date()` are not available to a deterministic layer: see §4.
+`info` = `{ frame, duration, progress (0..1), width, height, resolution, frameRate, params, state, random }`. `random()` is a seeded generator whose sequence restarts at every call of `draw` (the same frame draws the same numbers); for a value that must differ from frame to frame, derive it from `t`. `Math.random`, `Date.now`, `performance.now` and `new Date()` are not available to a deterministic layer: see §4.
 
-How it is made (built on what `shader` already does): a `Sprite` whose texture is the layer's own canvas, redrawn in `awaitFrameAt(local)` (the one frame path playback and export share) and uploaded with `texture.source.update()`. A frame is drawn once per distinct `(t, params)`; a seek back and forth does not redraw the same frame twice.
+How it is made (built on what `shader` already does): a `Sprite` whose texture is the layer's own canvas, redrawn in `awaitFrameAt(local)` (the one frame path playback and export share) and uploaded with `texture.source.update()`. A frame is drawn once per distinct `(t, params)`; a frame is drawn once per distinct `(t, params)` in a row: the same frame asked again immediately is not redrawn.
 
 ## 4. Mistakes are said at build time (the gate)
 
@@ -44,9 +44,9 @@ How it is made (built on what `shader` already does): a `Sprite` whose texture i
 - `draw` throws: warned once per layer with the message and the frame; that frame shows the checkerboard; the movie goes on.
 - **Not deterministic.** `check` calls `draw` twice at the same `t` for a few moments of every canvas layer and compares the pixels: a difference is a warning that names the layer and the moments ("the picture changes between two calls at the same time: draw uses Math.random, Date.now or state that outlives the call"). A static scan of `draw.toString()` warns early for `Math.random(`, `Date.now(`, `performance.now(`, `new Date(`. The scan can be wrong: the pixel comparison is the authority.
 - `width` / `height` of 0, negative or NaN, `resolution` out of range, an unknown key (did-you-mean), `params` that is not an object or has a non-number: each said once.
-- **Stateful simulations.** The docs and `help canvas` give the one pattern: compute the whole simulation in `setup` into an array indexed by frame, and read `state[info.frame]` in `draw` (a Game of Life, a physics sim, a growth process). The cost is memory; a long or heavy one says so.
+- **Stateful simulations.** The docs and `help canvas` give the one pattern: compute the whole simulation in `setup` into an array indexed by frame, and read `state[info.frame]` in `draw` (a Game of Life, a physics sim, a growth process). The cost is memory.
 - Fonts: `ctx.font` uses system fonts, or a web font that has been loaded before `movie.init` (`await document.fonts.load(...)`), as for every text in the library.
-- Cost: `draw` runs for every frame that changes; a slow `draw` slows the export in proportion. `check` prints the time of the slowest canvas layer next to the load stages.
+- Cost: `draw` runs for every frame that changes; a slow `draw` slows the export in proportion.
 
 ## 5. What is deliberately not in this version
 

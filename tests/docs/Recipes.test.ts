@@ -28,7 +28,7 @@ import { random, rand, noise } from '../../src/expr/random';
 import { measureText, splitText } from '../../src/text/measure';
 import { lintSequence } from '../../src/space/lint';
 import { lintTiming } from '../../src/core/lint';
-import { fakeGl, installCanvas } from '../support/fakeGl';
+import { fakeGl, fake2d, installCanvas } from '../support/fakeGl';
 import { resetGl } from '../../src/core/glShared';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
 import { createTimeline } from '../../src/core/timelineEngine';
@@ -71,6 +71,7 @@ describe('skills/pixi-effects/reference/recipes.md', () => {
 
   for (const r of recipes) {
     it(`recipe "${r.name}" builds and binds with no warnings`, async () => {
+      if (/type: 'canvas'/.test(r.code)) installCanvas(fakeGl(), fake2d());       // a canvas layer says so when a browser gives no 2D context, and happy-dom's gives none
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const out = new Function('kenBurns', 'withFade', 'orbit', 'splitText', 'measureText', 'wiggle', 'stagger', 'animateText', 'followPath', 'cameraPath', 'particles', 'deck', 'react', 'bpmEnvelope', 'random', 'rand', 'noise', r.code)(kenBurns, withFade, orbit, splitText, measureText, wiggle, stagger, animateText, followPath, cameraPath, particles, deck, react, bpmEnvelope, random, rand, noise) as
         SequenceSpec[] | { sequences: SequenceSpec[]; transitions?: unknown[]; duration?: number };
