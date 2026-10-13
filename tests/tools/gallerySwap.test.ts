@@ -187,3 +187,44 @@ describe('gallery-swap: remove a piece for good', () => {
     await expect(swap.removePiece(fixture(), { id: 'nope', posters: false })).rejects.toThrow(/no gallery piece "nope"/);
   });
 });
+
+describe('gallery-swap: add a piece (no old one to replace)', () => {
+  it('a dry run lists the changes and writes nothing', async () => {
+    const r = fixture(); const file = newPage();
+    const res = await swap.addPiece(r, { file, id: 'fresh', dryRun: true, posters: false });
+    expect(res.changes.join('\n')).toMatch(/examples\/gallery\/fresh\.html/);
+    expect(existsSync(join(r, 'examples/gallery/fresh.html'))).toBe(false);
+  });
+
+  it('puts the page in with its importmap on the local build, keeps the notes, and leaves every other piece alone', async () => {
+    const r = fixture(); const file = newPage(); const g = 'examples/gallery';
+    const notes = join(mkdtempSync(join(tmpdir(), 'swap-notes-')), 'n.md'); writeFileSync(notes, '# usability');
+    await swap.addPiece(r, { file, id: 'fresh', notes, posters: false });
+    expect(read(r, `${g}/fresh.html`)).toContain('"pixi-effects": "../../dist/index.js"');
+    expect(read(r, `${g}/_notes/fresh.md`)).toBe('# usability');
+    for (const kept of ['old.html', 'other.html', 'posters/old.jpg']) expect(existsSync(join(r, g, kept)), kept).toBe(true);
+  });
+
+  it('adds the MODELS row and recounts: the counts, the landing tally, the heading and FACTS; the landing cards are not touched', async () => {
+    const r = fixture(); const file = newPage();
+    await swap.addPiece(r, { file, id: 'fresh', posters: false });
+    const models = read(r, 'examples/gallery/MODELS.md');
+    expect(models).toContain('| opus | New Piece — the strong one | 720×1280 | fresh.html |');
+    expect(models).toContain('Counts: fable 1, opus 1, sonnet 1, haiku 0 (3 pieces).');
+    const index = read(r, 'index.html');
+    expect(index).toContain('<span>3 pieces</span>');
+    expect(index).toContain('<span>written by <b>fable 1</b> · <b>opus 1</b> · <b>sonnet 1</b></span>');
+    expect(index).toContain('<h2 id="h-gal">3 pieces, each one file of data</h2>');
+    expect(index).not.toContain('data-piece="fresh"');
+    expect(read(r, 'site/landing/FACTS.md')).toContain('Gallery: 3 complete pieces (fable 1, opus 1, sonnet 1, haiku 0)');
+  });
+
+  it('refuses an id that exists, a bad id and a page that breaks the gallery rules, and changes nothing', async () => {
+    const r = fixture();
+    await expect(swap.addPiece(r, { file: newPage(), id: 'old', posters: false })).rejects.toThrow(/already exists/);
+    await expect(swap.addPiece(r, { file: newPage(), id: 'Bad Id', posters: false })).rejects.toThrow(/kebab-case/);
+    const d = mkdtempSync(join(tmpdir(), 'swap-long-')); const f = join(d, 'long.html'); writeFileSync(f, page({ ...META_NEW, duration: 30 }));
+    await expect(swap.addPiece(r, { file: f, id: 'long', posters: false })).rejects.toThrow(/8 to 14 s/);
+    expect(existsSync(join(r, 'examples/gallery/long.html'))).toBe(false);
+  });
+});

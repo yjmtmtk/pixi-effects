@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pendulum Wave</title>
+  <script type="application/json" id="piece-meta">{ "title": "振り子の波 — Pendulum Wave", "subtitle": "Fifteen pendulums released together drift into waves and meet again eight seconds later; each one rings at its turn", "tags": ["physics", "generative", "music", "minimal"], "width": 1280, "height": 720, "duration": 13, "model": "opus" }</script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />   <!-- the loader: HTML + CSS only, so it is on screen at once and keeps moving while the page builds the video -->
+  <style>
+    body { background: #111; margin: 0; padding: 16px; min-height: 100vh; box-sizing: border-box; display: grid; place-items: center; }
+    .stage { position: relative; width: min(960px, 100%); }                 /* the player and the loader both sit inside this box */
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+    /* the loader (pixi-effects/loader.css, linked above): movie.init() fades it out when the movie is ready */
+    /* Screenshots: the player bar overlays the bottom ~60px of the canvas (it is NOT part of the exported video).
+       Uncomment to hide it while you check the layout:  .movie-controller { display: none !important; } */
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>   <!-- shared loader: .pe-loader--pulse / --bar for other looks, --custom for your own -->
+  </div>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":  "../../dist/present.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js" />   <!-- after the import map: the library downloads while the page is parsed -->
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+    // import { registerThree, three } from 'pixi-effects/three';   // only for a three.js layer; call registerThree() before init
+    // import * as THREE from 'three';
+    // A talk instead of a video: import { deck, Presenter } from 'pixi-effects/present';  (the import map above has "pixi-effects/present")
+    //   const d = deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops: [at, ...], notes, sequences }] });
+    //   composition: d.composition, duration: d.duration; then new Presenter(movie, { canvas }) instead of the Controller. Docs: reference/cheatsheet.md → Presets (the deck lines).
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 13;
+
+    // ── palette & type ─────────────────────────────────────────────
+    const BG = '#0d0c0b', INK = '#ebe4d6', DIM = '#7a7368', LINE = '#2e2b27', ACCENT = '#ff5b35';
+    const MINCHO = '"Hiragino Mincho ProN", "Yu Mincho", serif';
+    const SERIF = 'Georgia, "Times New Roman", serif';
+    const MONO = 'ui-monospace, Menlo, Consolas, "Courier New", monospace';
+
+    // ── physics ────────────────────────────────────────────────────
+    // A pendulum wave: pendulum i makes n_i = 5 + i full swings in CYCLE seconds, so all 15 leave
+    // together, drift apart into waves, and meet again exactly CYCLE seconds later.
+    // A half-cosine is exactly `sine.inOut`, so each swing is ONE keyframe with repeat + yoyo.
+    const ROWS = 15, N0 = 5, CYCLE = 8;
+    const T0 = 3.6;                         // release
+    const TEND = T0 + CYCLE;                // realignment (11.6)
+    const CX = 760, AMP = 305, XL = CX - AMP, XR = CX + AMP;
+    const ROW_Y = i => 576 - i * 30;     // the longest, slowest pendulum hangs lowest
+    const BEAT = 0.8;                       // 75 bpm: the single pendulum's half period (row 0: 8 s / 5 = 1.6 s)
+
+    const sequences = [
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: BG } },
+    ];
+
+    // ── act 1: one pendulum, side view (0 – 3.6 s) ─────────────────
+    // sized so that its right-hand turn lands exactly on row 0's start: the cut at T0 is a match cut
+    const PIV = { x: CX, y: 40 };
+    const L = Math.hypot(AMP, ROW_Y(0) - PIV.y), THETA = Math.asin(AMP / L) * 180 / Math.PI;
+    const A1_IN = 0.4;                       // released from the right at 0.4: extremes every 0.8 s, right again at 3.6
+    // its path, a faint arc (sampled)
+    const arcPts = [];
+    for (let k = 0; k <= 40; k++) {
+      const a = (-THETA - 3 + (2 * THETA + 6) * k / 40) * Math.PI / 180;
+      arcPts.push([PIV.x + L * Math.sin(a), PIV.y + L * Math.cos(a)]);
+    }
+    sequences.push(
+      { type: 'shape', shape: 'polygon', name: 'arc', points: arcPts, open: true, at: 0.2, duration: T0 - 0.2,
+        initial: { strokeColor: LINE, strokeWidth: 1, fillAlpha: 0 }, trimEnd: 0,
+        keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 1.4, ease: 'power2.inOut' },
+                    { at: -0.35, to: { alpha: 0 }, duration: 0.35 }] },
+      { type: 'shape', shape: 'line', name: 'pivotBar', from: [PIV.x - 36, PIV.y], to: [PIV.x + 36, PIV.y], at: 0.1, duration: T0 - 0.1,
+        initial: { strokeColor: DIM, strokeWidth: 1.5 }, trimEnd: 0,
+        keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.6, ease: 'power3.out' },
+                    { at: -0.35, to: { alpha: 0 }, duration: 0.35 }] },
+      { type: 'null', name: 'swing', at: 0, duration: T0,
+        initial: { x: PIV.x, y: PIV.y, rotation: -THETA },
+        keyframes: [{ at: A1_IN, to: { rotation: THETA }, duration: BEAT, ease: 'sine.inOut', repeat: 3, yoyo: true }] },
+      { type: 'shape', shape: 'rect', name: 'rod', parent: 'swing', width: 1.5, height: L, at: 0, duration: T0,
+        initial: { x: 0, y: L / 2, fillColor: INK, alpha: 0 },
+        keyframes: [{ at: 0.2, to: { alpha: 0.85 }, duration: 0.6 }, { at: -0.45, to: { alpha: 0 }, duration: 0.45 }] },
+      { type: 'shape', shape: 'circle', name: 'bob1', parent: 'swing', radius: 15, at: 0, duration: T0,
+        initial: { x: 0, y: L, fillColor: ACCENT, alpha: 0 },
+        keyframes: [{ at: 0.2, to: { alpha: 1 }, duration: 0.6 }, { at: -0.5, to: { scale: 0.5 }, duration: 0.5, ease: 'sine.inOut' }] },
+      { type: 'shape', shape: 'circle', name: 'pivotDot', radius: 3, at: 0.1, duration: T0 - 0.1,
+        initial: { x: PIV.x, y: PIV.y, fillColor: INK },
+        keyframes: [{ at: 0, from: { alpha: 0 }, duration: 0.4 }, { at: -0.35, to: { alpha: 0 }, duration: 0.35 }] },
+    );
+    // the tick of each extreme (tick-tock, like a metronome)
+    [1.2, 2.0, 2.8].forEach((t, k) => sequences.push(
+      { type: 'audio', sfx: { preset: 'click', pitch: k % 2 ? -3 : -7, brightness: -0.4 }, at: t, volume: 3.2 }));
+
+    // ── text, left column ──────────────────────────────────────────
+    const TX = 88;
+    const text = (name, str, at, dur, style, y, extra = {}) => ({
+      type: 'text', name, text: str, at, duration: dur, style: { fill: INK, ...style },
+      initial: { x: TX, y, ...extra },
+      keyframes: [{ at: 0, from: { alpha: 0, y: y + 10 }, to: { alpha: 1, y }, duration: 0.9, ease: 'power3.out' },
+                  ...(at + dur < DURATION - 0.01 ? [{ at: -0.5, to: { alpha: 0 }, duration: 0.5, ease: 'power2.in' }] : [])],
+    });
+    sequences.push(
+      text('formula', 'T = 2π √(L / g)', 0.9, 2.6, { fontFamily: SERIF, fontStyle: 'italic', fontSize: 30 }, 300),
+      text('cap1', '振り子の周期は、長さだけで決まる。', 1.3, 2.2, { fontFamily: MINCHO, fontSize: 19, fill: DIM, letterSpacing: 1 }, 352),
+      text('cap2', '長さの違う十五本を、\n同時に放つ。', 4.1, 2.5, { fontFamily: MINCHO, fontSize: 19, fill: DIM, letterSpacing: 1, lineHeight: 34, align: 'left' }, 300),
+      text('title', '振り子の波', 6.8, DURATION - 6.8, { fontFamily: MINCHO, fontSize: 54, letterSpacing: 6 }, 272),
+      text('titleEn', 'Pendulum wave', 7.1, DURATION - 7.1, { fontFamily: SERIF, fontStyle: 'italic', fontSize: 20, fill: DIM }, 352),
+      text('cap3', '八秒ごとに、すべてが揃う。', TEND, DURATION - TEND, { fontFamily: MINCHO, fontSize: 18, fill: INK, letterSpacing: 1 }, 404),
+      // the clock of the wave
+      { type: 'text', name: 'clock', text: 't = {value} s', format: { decimals: 2 }, at: T0 - 0.4, duration: DURATION - T0 + 0.4,
+        style: { fontFamily: MONO, fontSize: 14, fill: DIM, letterSpacing: 1 },
+        initial: { x: TX, y: 60, value: 0 },
+        keyframes: [{ at: 0, from: { alpha: 0 }, duration: 0.4 },
+                    { at: 0.4, to: { value: CYCLE }, duration: CYCLE, ease: 'none' },
+                    { at: 0.4 + CYCLE, to: { fill: ACCENT }, duration: 0.2 }] },
+    );
+
+    // ── act 2: the wave, seen from below (3.6 – 13 s) ──────────────
+    const NOTES = ['d4','e4','f#4','a4','b4','d5','e5','f#5','a5','b5','d6','e6','f#6','a6','b6'];
+    // a chronophotograph trail: copies a few hundredths of a second behind, fading (visible live AND in the export)
+    const GHOSTS = Array.from({ length: 6 }, (_, k) => [(k + 1) * 0.014, 0.34 * Math.pow(1 - (k + 1) / 7, 1.4)]);
+    for (let i = 0; i < ROWS; i++) {
+      const n = N0 + i, y = ROW_Y(i), half = CYCLE / n / 2;
+      // pop in bottom-up, held at the right, then all released at T0; row 0 IS the act-1 bob arriving at T0
+      const inAt = i === 0 ? T0 : T0 - 0.05 - (ROWS - i) * 0.02;
+      sequences.push(
+        { type: 'shape', shape: 'line', name: `track${i}`, from: [XL, y], to: [XR, y], at: T0 - 0.45 + i * 0.02,
+          initial: { strokeColor: '#3a3631', strokeWidth: 1 }, trimStart: 1,
+          keyframes: [{ at: 0, to: { trimStart: 0 }, duration: 0.6, ease: 'power3.out' }] },
+        { type: 'text', name: `n${i}`, text: String(n), at: inAt, style: { fontFamily: MONO, fontSize: 13, fill: DIM },
+          initial: { x: XR + 34, y, anchorY: 0.5 },
+          keyframes: [{ at: 0, from: { alpha: 0 }, duration: 0.4 }] },
+      );
+      const swing = (delay) => ({ at: T0 - inAt + delay, to: { x: XL }, duration: half, ease: 'sine.inOut', repeat: 2 * n - 1, yoyo: true });
+      GHOSTS.forEach(([d, a], k) => sequences.push(
+        { type: 'shape', shape: 'circle', name: `ghost${i}_${k}`, radius: 6.5 - k * 0.45, at: T0, duration: DURATION - T0,
+          initial: { x: XR, y, fillColor: i === 0 ? ACCENT : INK, alpha: a },
+          keyframes: [{ ...swing(d), at: d }] }));
+      sequences.push(
+        { type: 'shape', shape: 'circle', name: `bob${i}`, radius: 7.5, at: inAt,
+          initial: { x: XR, y, fillColor: i === 0 ? ACCENT : INK },
+          keyframes: [...(i === 0 ? [] : [{ at: 0, from: { scale: 0, alpha: 0 }, duration: 0.35, ease: 'back.out(2)' }]),
+                      swing(0),
+                      { at: TEND - inAt, to: { fillColor: ACCENT }, duration: 0.25, ease: 'power2.out' }] },
+      );
+    }
+    sequences.push(
+      { type: 'text', name: 'nHead', text: 'n / 8 s', at: T0 - 0.4, style: { fontFamily: MONO, fontSize: 12, fill: DIM, letterSpacing: 1 },
+        initial: { x: XR + 34, y: ROW_Y(ROWS - 1) - 34, anchorY: 0.5 }, keyframes: [{ at: 0, from: { alpha: 0 }, duration: 0.4 }] },
+      // the alignment: a hairline through every bob
+      { type: 'shape', shape: 'line', name: 'align', from: [XR, ROW_Y(ROWS - 1) - 22], to: [XR, ROW_Y(0) + 22], at: TEND,
+        initial: { strokeColor: ACCENT, strokeWidth: 1 }, trimEnd: 0,
+        keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.6, ease: 'power3.out' }] },
+    );
+
+    // ── the sound: every pendulum rings once per swing, at its right-hand turn ──
+    // 75 bpm: a beat is 0.8 s, the cycle is 10 beats; pendulum i rings every 10 / n_i beats.
+    const tracks = NOTES.map((note, i) => {
+      const n = N0 + i, step = (CYCLE / BEAT) / n;
+      const toks = Array.from({ length: n }, () => `${note}:${step.toFixed(6)}`);
+      toks.push(`${note}:3`);
+      const v = 0.5 - i * 0.018;   // quieter while scattered, a crescendo into the realignment
+      return { inst: 'musicbox', vol: [[0, v], [2, v * 0.5], [6.5, v * 0.55], [10, v], [13, v]], pan: -0.5 + i / (ROWS - 1), reverb: 0.6, ring: 1.2, notes: toks.join(' ') };
+    });
+    sequences.push({ type: 'audio', name: 'wave', at: T0, volume: 1.3, music: { bpm: 75, humanize: 0, reverb: 0.4, tracks } });
+    sequences.push({ type: 'audio', name: 'bed', at: T0, volume: 0.7, music: { bpm: 75, humanize: 0, reverb: 0.5, tracks: [
+      { inst: 'pad', vol: 0.5, attack: 2.5, release: 2, tone: 0.3, notes: '[d3 a3 e4]:10 [d3 a3 f#4]:3' },
+      { inst: 'bass', vol: 0.7, tone: 0.3, notes: '_:10 d2:3' } ] } });
+
+    const movie = new Movie();
+    window.movie = movie;                         // so a script can seek / screenshot / render
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 7.6,        // the moment that stands for the video before it plays (pick your most striking one)
+        background: BG,
+        // assets: [{ name: 'photo', src: './photo.jpg' }, { name: 'bgm', src: './bgm.mp3' }],
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
+    }
+  </script>
+</body>
+</html>

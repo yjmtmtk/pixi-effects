@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>夜想曲 — eight bars</title>
+  <script type="application/json" id="piece-meta">{ "title": "夜想曲 Nocturne", "subtitle": "Eight bars of an original piano nocturne, every note an ink bar landing on the key it lights", "tags": ["music", "piano", "data", "typography"], "width": 1080, "height": 1080, "duration": 14, "model": "opus" }</script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />   <!-- the loader: HTML + CSS only, so it is on screen at once and keeps moving while the page builds the video -->
+  <style>
+    body { background: #141413; margin: 0; padding: 16px; min-height: 100vh; box-sizing: border-box; display: flex; justify-content: center; align-items: center; }
+    .stage { position: relative; width: min(94vw, 88vh); }                 /* the player and the loader both sit inside this box */
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+    /* the loader (pixi-effects/loader.css, linked above): movie.init() fades it out when the movie is ready */
+    /* Screenshots: the player bar overlays the bottom ~60px of the canvas (it is NOT part of the exported video).
+       Uncomment to hide it while you check the layout:  .movie-controller { display: none !important; } */
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1080" height="1080"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>   <!-- shared loader: .pe-loader--pulse / --bar for other looks, --custom for your own -->
+  </div>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":  "../../dist/present.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js" />   <!-- after the import map: the library downloads while the page is parsed -->
+
+  <script type="module">
+    import { Movie, musicEvents } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1080, H = 1080, FPS = 30, DURATION = 14;
+
+    // ── palette & type ──────────────────────────────────────────────
+    const PAPER = '#EEE7DA', INK = '#1C1A17', RED = '#C8422B', BLUE = '#2E4766';
+    const MINCHO = '"Hiragino Mincho ProN", "Yu Mincho", serif';
+    const SERIF = 'Georgia, "Times New Roman", serif';
+    const MONO = 'ui-monospace, "Courier New", monospace';
+
+    // ── the piece: 8 bars of 3/4, quarter = 144 (a bar = 1.25 s) ────
+    const MUSIC_AT = 1.4;
+    const music = {
+      bpm: 144, meter: 3, humanize: 0, swing: 0, reverb: 0.32,
+      tracks: [
+        { inst: 'keys', vol: 0.95, pan: 0.12, tone: 0.55, release: 0.9,               // right hand: the melody
+          notes: 'e5:1.5 c5:0.5 d5:0.5 e5:0.5 | f5:2 e5:0.5 c5:0.5 | d5:1.5 a4:0.5 c5:0.5 d5:0.5 | e5:1 d5:0.5 b4:0.5 g#4:1 | ' +
+                 'a4:0.5 c5:0.5 e5:0.5 a5:1.5 | a5:1 g5:0.5 f5:0.5 e5:0.5 c5:0.5 | d5:1 c5:0.5 b4:1 d5:0.5 | c#5:3' },
+        { inst: 'keys', vol: 0.6, pan: -0.12, tone: 0.4, step: 0.5, strum: 0.03, release: 1.8,   // left hand: broken chords
+          notes: 'a2 e3 a3 c4 a3 e3 | f2 c3 e3 a3 e3 c3 | d2 a2 f3 c4 f3 a2 | e2 b2 g#3 d4 g#3 b2 | ' +
+                 'a2 e3 a3 c4 a3 e3 | f2 c3 f3 a3 f3 c3 | b2 f3 a3 e2 b2 g#3 | [a1 e2 a2 c#3 e3]:3' },
+      ],
+    };
+    const CHORDS = [[0, 'Am'], [3, 'Fmaj7'], [6, 'Dm7'], [9, 'E7'], [12, 'Am'], [15, 'F'], [18, 'Bm7♭5'], [19.5, 'E7'], [21, 'A']];
+
+    // ── grid ────────────────────────────────────────────────────────
+    const M = 54;                       // 5 % margin
+    const ROLL_TOP = 236, KY = 772, KEY_LEN = 188, BLACK_LEN = 116;
+    const LOW = 33, HIGH = 84;          // A1 .. C6
+    const V = (KY - ROLL_TOP) / 1.35;   // fall speed, px / s: a note is visible 1.35 s before it sounds
+    const LEAD = (KY - ROLL_TOP) / V;   // seconds a note is visible before it sounds
+    const isBlack = m => [1, 3, 6, 8, 10].includes(m % 12);
+    const whites = []; for (let m = LOW; m <= HIGH; m++) if (!isBlack(m)) whites.push(m);
+    const WW = (W - 2 * M) / whites.length;
+    const BW = WW * 0.58;
+    const keyX = m => {                 // centre x of a key
+      if (!isBlack(m)) return M + WW * (whites.indexOf(m) + 0.5);
+      return M + WW * whites.indexOf(m + 1);    // a black key sits on the line between its neighbours
+    };
+
+    const ev = await musicEvents(music);
+    const t0 = MUSIC_AT;
+    const beatTime = b => {                        // a beat of the score in movie seconds, from the events themselves
+      for (const tr of ev.tracks) for (const n of tr.notes) if (Math.abs(n.beat - b) < 1e-6) return t0 + n.time;
+      return t0 + b * 60 / ev.bpm;
+    };
+    const END = t0 + ev.seconds;                   // last note ends
+
+    // flatten every note (chords into their pitches) with its hand
+    const notes = [];
+    ev.tracks.forEach((tr, hand) => tr.notes.forEach(n => n.midi.forEach((m, i) => notes.push({
+      midi: m, hand, t: t0 + n.time + (n.chord ? i * 0.03 : 0), dur: n.seconds, last: n.beat >= 21,
+    }))));
+    window.__notes = notes;                        // for the sync check
+
+    const S = [];
+    const rect = (o) => ({ type: 'shape', shape: 'rect', ...o });
+    S.push(rect({ name: 'paper', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: PAPER } }));
+
+    // roll guides: a hairline on every C, and the bar lines falling with the music
+    whites.filter(m => m % 12 === 0).forEach(m => S.push(rect({ duration: END + 0.6, width: 1, height: KY - ROLL_TOP, initial: { x: M + WW * whites.indexOf(m), y: (ROLL_TOP + KY) / 2, fillColor: INK, alpha: 0.12 }, keyframes: [{ at: END, to: { alpha: 0 }, duration: 0.5 }] })));
+    for (let b = 0; b <= 8; b++) {
+      const tb = b < 8 ? beatTime(b * 3) : END;
+      const appear = tb - LEAD;
+      const travel = KY - ROLL_TOP + 2;
+      const dur = travel / V;
+      S.push(rect({ name: 'barline' + b, at: Math.max(0, appear), duration: dur - Math.max(0, -appear),
+        width: W - 2 * M, height: 1, initial: { x: W / 2, y: ROLL_TOP + Math.max(0, -appear) * V, fillColor: INK, alpha: 0.35 },
+        keyframes: [{ at: 0, to: { y: KY + 2 }, duration: dur - Math.max(0, -appear) }] }));
+      if (b < 8) S.push({ type: 'text', name: 'barno' + b, text: String(b + 1), at: Math.max(0, appear), duration: dur - Math.max(0, -appear),
+        style: { fontFamily: MONO, fontSize: 15, fill: INK },
+        initial: { x: M + 4, y: ROLL_TOP + Math.max(0, -appear) * V - 4, anchorY: 1, alpha: 0.6 },
+        keyframes: [{ at: 0, to: { y: KY - 2 }, duration: dur - Math.max(0, -appear) }] });
+    }
+
+    // falling notes: bottom edge touches the keyboard exactly when the note sounds; it slides under the keys for its length
+    for (const n of notes) {
+      const h = Math.max(6, n.dur * V - 5);
+      const w = isBlack(n.midi) ? BW - 4 : WW - 9;
+      const appear = n.t - LEAD;                      // bottom edge at ROLL_TOP
+      const life = LEAD + n.dur + 0.05;
+      S.push(rect({ at: appear, duration: life, width: w, height: h, cornerRadius: 3,
+        initial: { x: keyX(n.midi), y: ROLL_TOP - h / 2, fillColor: n.hand ? BLUE : RED },
+        keyframes: [{ at: 0, to: { y: ROLL_TOP - h / 2 + life * V }, duration: life }] }));
+    }
+
+
+    // the end: the whole piece at once, a miniature score drawn left to right (time → x, pitch → y)
+    const SX = (W - 2 * M) / ev.seconds, SY0 = 676, SY1 = 340;
+    const sy = m => SY0 - (m - LOW) * (SY0 - SY1) / (HIGH - LOW);
+    const S_AT = END + 0.3, SWEEP = 1.1;
+    for (let b = 0; b <= 8; b++) {
+      const x = M + (b < 8 ? (beatTime(b * 3) - t0) : ev.seconds) * SX;
+      const at = S_AT + SWEEP * (x - M) / (W - 2 * M);
+      S.push(rect({ name: 'sumbar' + b, at, width: 1, height: SY0 - SY1 + 60, initial: { x, y: (SY0 + SY1) / 2, fillColor: INK, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 0.3 }, duration: 0.4 }] }));
+      if (b < 8) S.push({ type: 'text', name: 'sumno' + b, text: String(b + 1), at, style: { fontFamily: MONO, fontSize: 15, fill: INK },
+        initial: { x: x + 6, y: SY1 - 30, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.6 }, duration: 0.4 }] });
+    }
+    for (const n of notes) {
+      const x = M + (n.t - t0) * SX;
+      const at = S_AT + SWEEP * (x - M) / (W - 2 * M);
+      S.push(rect({ at, width: Math.max(4, Math.min(n.dur * SX - 3, W - M - x - 1)), height: 7, anchorX: 0, cornerRadius: 2,
+        initial: { x: x + 1, y: sy(n.midi), fillColor: n.hand ? BLUE : RED, scaleX: 0 },
+        keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.35, ease: 'power2.out' }] }));
+    }
+    S.push({ type: 'text', name: 'count', text: `${notes.length} notes · 8 bars · ${ev.seconds} seconds`, at: S_AT + SWEEP,
+      style: { fontFamily: MONO, fontSize: 15, fill: INK, letterSpacing: 2 }, initial: { x: M, y: SY0 + 46, alpha: 0 },
+      keyframes: [{ at: 0, to: { alpha: 0.6 }, duration: 0.5 }] });
+
+    // header band covers the notes above the roll; the foot band hides them once they pass under the keyboard
+    S.push(rect({ width: W, height: H - KY - KEY_LEN + 1, initial: { x: W / 2, y: (KY + KEY_LEN + H) / 2, fillColor: PAPER } }));
+    S.push(rect({ width: W, height: ROLL_TOP, initial: { x: W / 2, y: ROLL_TOP / 2, fillColor: PAPER } }));
+    S.push(rect({ width: W - 2 * M, height: 1, initial: { x: W / 2, y: ROLL_TOP, fillColor: INK, alpha: 0.5 } }));
+
+    // keyboard
+    const keyIn = () => [{ at: 0, from: { scaleY: 0 }, to: { scaleY: 1 }, duration: 0.6, ease: 'power3.out' }];   // keys unfold down from the top edge
+    whites.forEach((m, i) => S.push(rect({ name: 'bed' + m, at: 0.1 + i * 0.012, width: WW + 2, height: KEY_LEN + 2, anchorY: 0,   // each key brings its own ink outline
+      initial: { x: keyX(m), y: KY - 1, fillColor: INK }, keyframes: keyIn() })));
+    whites.forEach((m, i) => S.push(rect({ name: 'w' + m, at: 0.1 + i * 0.012, width: WW - 2, height: KEY_LEN - 2,
+      cornerRadius: 2, anchorY: 0, initial: { x: keyX(m), y: KY, fillColor: PAPER }, keyframes: keyIn() })));
+    const light = (n, black) => {
+      const end = n.last ? DURATION + 1 : n.t + n.dur;
+      const len = end - n.t;
+      const base = black ? KY + BLACK_LEN / 2 : KY + KEY_LEN / 2;
+      return rect({ at: n.t, duration: len + 0.14,
+        width: black ? BW - 4 : WW - 6, height: black ? BLACK_LEN - 4 : KEY_LEN - 6, cornerRadius: 2,
+        initial: { x: keyX(n.midi), y: base, fillColor: n.hand ? BLUE : RED, alpha: 1 },
+        keyframes: [
+          { at: len, to: { alpha: 0 }, duration: 0.14, ease: 'power2.out' },
+        ] });
+    };
+    notes.filter(n => !isBlack(n.midi)).forEach(n => S.push(light(n, false)));
+    for (let m = LOW; m <= HIGH; m++) if (isBlack(m)) S.push(rect({ name: 'b' + m, at: 0.3, width: BW, height: BLACK_LEN, cornerRadius: 2,
+      anchorY: 0, initial: { x: keyX(m), y: KY, fillColor: INK }, keyframes: keyIn() }));
+    notes.filter(n => isBlack(n.midi)).forEach(n => S.push(light(n, true)));
+    // impact tick: a short stroke above the key at the instant it sounds
+    for (const n of notes) S.push(rect({ at: n.t, duration: 0.3, width: (isBlack(n.midi) ? BW : WW) + 6, height: 4,
+      initial: { x: keyX(n.midi), y: KY - 6, fillColor: n.hand ? BLUE : RED },
+      keyframes: [{ at: 0, to: { alpha: 0, scaleX: 0.3 }, duration: 0.3, ease: 'power2.out' }] }));
+
+    // header type
+    S.push({ type: 'text', name: 'title', text: '夜想曲', at: 0.1, style: { fontFamily: MINCHO, fontSize: 76, fill: INK, letterSpacing: 6 },
+      initial: { x: M, y: 64 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.9, ease: 'power3.out' }] });
+    S.push({ type: 'text', name: 'subtitle', text: 'Nocturne in A minor — eight bars', at: 0.35, style: { fontFamily: SERIF, fontStyle: 'italic', fontSize: 28, fill: INK },
+      initial: { x: M + 2, y: 162 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.9, ease: 'power3.out' }] });
+    S.push({ type: 'text', name: 'barlabel', text: 'BAR', at: t0, style: { fontFamily: MONO, fontSize: 17, fill: INK, letterSpacing: 4 },
+      initial: { x: W - M - 96, y: 74, anchorX: 1, alpha: 0.55 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 0.7 }, duration: 0.6 }] });
+    for (let b = 0; b < 8; b++) {
+      const a = beatTime(b * 3), e = b < 7 ? beatTime(b * 3 + 3) : DURATION;
+      S.push({ type: 'text', name: 'bar' + (b + 1), text: `${b + 1} / 8`, at: a, duration: e - a,
+        style: { fontFamily: MONO, fontSize: 17, fill: INK, letterSpacing: 2 }, initial: { x: W - M, y: 74, anchorX: 1 } });
+    }
+    CHORDS.forEach(([beat, name], i) => {
+      const a = beatTime(beat), e = i < CHORDS.length - 1 ? beatTime(CHORDS[i + 1][0]) : DURATION;
+      S.push({ type: 'text', name: 'chord' + i, text: name, at: a, duration: e - a,
+        style: { fontFamily: SERIF, fontStyle: 'italic', fontSize: 52, fill: i === CHORDS.length - 1 ? RED : INK },
+        initial: { x: W - M, y: 108, anchorX: 1 },
+        keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.18 }] });
+    });
+
+    // foot: progress through the eight bars
+    const FOOT = 1000;
+    S.push(rect({ width: W - 2 * M, height: 1, initial: { x: W / 2, y: FOOT, fillColor: INK, alpha: 0.25 } }));
+    S.push(rect({ name: 'progress', at: t0, duration: DURATION - t0, width: W - 2 * M, height: 3, anchorX: 0,
+      initial: { x: M, y: FOOT, fillColor: RED, scaleX: 0 }, keyframes: [{ at: 0, to: { scaleX: 1 }, duration: END - t0 }] }));
+    S.push({ type: 'text', name: 'tempo', text: '3/4   ♩ = 144', at: 0.6, style: { fontFamily: MONO, fontSize: 15, fill: INK, letterSpacing: 2 },
+      initial: { x: M, y: FOOT + 10, alpha: 0.6 } });
+    S.push({ type: 'text', name: 'fin', text: 'fin.', at: END + 0.2, style: { fontFamily: SERIF, fontStyle: 'italic', fontSize: 30, fill: RED },
+      initial: { x: W - M, y: FOOT + 6, anchorX: 1 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.6, ease: 'power2.out' }] });
+
+    S.push({ type: 'audio', name: 'piano', at: t0, volume: 1.0, music });
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 13.5,
+        background: PAPER,
+        composition: { sequences: S },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

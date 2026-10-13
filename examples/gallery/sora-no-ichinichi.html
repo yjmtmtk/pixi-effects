@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>空の一日 — sora-no-ichinichi</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />   <!-- the loader: HTML + CSS only, so it is on screen at once and keeps moving while the page builds the video -->
+  <style>
+    body { background: #0b0c10; margin: 0; padding: 16px; min-height: 100vh; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+    .stage { position: relative; width: min(960px, 100%); }                 /* the player and the loader both sit inside this box */
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+    /* the loader (pixi-effects/loader.css, linked above): movie.init() fades it out when the movie is ready */
+    /* Screenshots: the player bar overlays the bottom ~60px of the canvas (it is NOT part of the exported video).
+       Uncomment to hide it while you check the layout:  .movie-controller { display: none !important; } */
+  </style>
+  <script type="application/json" id="piece-meta">{ "title": "空の一日", "subtitle": "A day of sky, dawn to night, as one slow colour field with a 24-hour scale", "tags": ["abstract", "shader", "colour", "japanese", "music"], "width": 1280, "height": 720, "duration": 13, "model": "opus" }</script>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>   <!-- shared loader: .pe-loader--pulse / --bar for other looks, --custom for your own -->
+  </div>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":  "../../dist/present.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js" />   <!-- after the import map: the library downloads while the page is parsed -->
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+    // import { registerThree, three } from 'pixi-effects/three';   // only for a three.js layer; call registerThree() before init
+    // import * as THREE from 'three';
+    // A talk instead of a video: import { deck, Presenter } from 'pixi-effects/present';  (the import map above has "pixi-effects/present")
+    //   const d = deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops: [at, ...], notes, sequences }] });
+    //   composition: d.composition, duration: d.duration; then new Presenter(movie, { canvas }) instead of the Controller. Docs: reference/cheatsheet.md → Presets (the deck lines).
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 13;
+    const MINCHO = '"Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif';
+    const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace';
+    const INK = '#f4f1ea';
+
+    // ── the day: movie seconds → hour of the day. One schedule drives the sky, the scale marker and the labels.
+    // Bars of the score are 3 s (80 bpm): dawn, day, dusk, night each start on a bar line.
+    const SCHED = [[0, 4.2], [3, 6.6, 'sine.inOut'], [6, 16.4, 'sine.inOut'], [9, 19.8, 'sine.inOut'], [11, 23.4, 'power2.out']];
+    const EASE = { 'sine.inOut': t => -(Math.cos(Math.PI * t) - 1) / 2, 'power2.out': t => 1 - (1 - t) * (1 - t) };
+    const hourAt = t => {
+      if (t <= SCHED[0][0]) return SCHED[0][1];
+      for (let i = 1; i < SCHED.length; i++) {
+        const [t0, h0] = SCHED[i - 1], [t1, h1, e] = SCHED[i];
+        if (t <= t1) return h0 + (h1 - h0) * EASE[e]((t - t0) / (t1 - t0));
+      }
+      return SCHED[SCHED.length - 1][1];
+    };
+    const clock = h => { const m = Math.round(h * 12) * 5; return String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); };
+    const schedKeys = (prop, map) => SCHED.slice(1).map(([t1, h1, ease], i) => ({ at: SCHED[i][0], to: { [prop]: map(h1) }, duration: t1 - SCHED[i][0], ease }));
+
+    // ── the sky's palette: hour → zenith colour and horizon colour (interpolated in the shader)
+    const PAL = [
+      [0.0,  '#02040c', '#0a0f24'],
+      [4.3,  '#060a20', '#1c1b42'],
+      [5.3,  '#1a1e4a', '#a85a78'],
+      [6.2,  '#38558f', '#f0a274'],
+      [7.6,  '#5a86c0', '#f1d9c0'],
+      [12.0, '#2c6bc2', '#cfe5f2'],
+      [15.6, '#3a70b8', '#e8dcbc'],
+      [17.6, '#36498a', '#f5a24e'],
+      [18.6, '#28286a', '#df5c66'],
+      [19.5, '#141a48', '#6a4886'],
+      [20.6, '#0a1032', '#22306a'],
+      [22.0, '#060b26', '#16214e'],
+      [24.0, '#040820', '#101a40'],
+    ];
+    const v3 = hex => { const n = parseInt(hex.slice(1), 16); return `vec3(${((n >> 16) / 255).toFixed(4)}, ${(((n >> 8) & 255) / 255).toFixed(4)}, ${((n & 255) / 255).toFixed(4)})`; };
+    const K = PAL.length;
+    const PALGLSL = `
+const float HK[${K}] = float[${K}](${PAL.map(r => r[0].toFixed(2)).join(', ')});
+const vec3 TOP[${K}] = vec3[${K}](${PAL.map(r => v3(r[1])).join(', ')});
+const vec3 HOR[${K}] = vec3[${K}](${PAL.map(r => v3(r[2])).join(', ')});
+void palette(float h, out vec3 top, out vec3 hor) {
+  top = TOP[0]; hor = HOR[0];
+  for (int i = 0; i < ${K - 1}; i++) {
+    if (h >= HK[i] && h <= HK[i + 1]) { float t = smoothstep(HK[i], HK[i + 1], h); top = mix(TOP[i], TOP[i + 1], t); hor = mix(HOR[i], HOR[i + 1], t); }
+  }
+}`;
+    // the colour record: the 24-hour scale fills with the horizon's colour of each hour as the day passes
+    const RIBBON = PALGLSL + `
+void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+  float h = fragCoord.x / iResolution.x * 24.0;
+  vec3 top, hor; palette(h, top, hor);
+  float a = smoothstep(${SCHED[0][1].toFixed(2)}, ${SCHED[0][1].toFixed(2)} + 0.15, h) * (1.0 - smoothstep(hour - 0.15, hour, h));
+  vec3 c = mix(hor, top, 0.42) * 1.15 + 0.04;
+  fragColor = vec4(c * a, a);
+}`;
+    const SKY = PALGLSL + `
+#define PI 3.14159265
+float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+float hgr(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
+float vnoise(vec2 p) {
+  vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x), mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+float fbm(vec2 p) { float v = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { v += a * vnoise(p); p = p * 2.03 + vec2(17.1, 9.3); a *= 0.5; } return v; }
+void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+  vec2 uv = fragCoord / iResolution.xy;
+  float asp = iResolution.x / iResolution.y;
+  float hz = 0.40;                                  // the horizon, from the bottom
+  vec3 top, hor; palette(hour, top, hor);
+  // the sun: rises 5.6 h at the left, sets 18.7 h at the right
+  float s = clamp((hour - 5.6) / 13.1, -0.35, 1.35);
+  float elev = sin(s * PI);
+  vec2 sun = vec2(mix(0.16, 0.84, s) * asp, hz + elev * 0.46);
+  vec3 sunCol = mix(vec3(1.0, 0.52, 0.28), vec3(1.0, 0.96, 0.88), smoothstep(0.02, 0.45, elev));
+  float vis = smoothstep(-0.30, 0.04, elev);
+  // the moon: after dusk, low on the right, climbing slowly
+  float mt = clamp((hour - 20.0) / 3.4, 0.0, 1.0);
+  vec2 moon = vec2(0.74 * asp, hz + 0.06 + 0.24 * mt);
+  float moonAmt = smoothstep(20.0, 21.6, hour);
+  vec2 p = vec2(uv.x * asp, uv.y);
+  float d = length(p - sun);
+  vec3 c;
+  if (uv.y >= hz) {
+    float t = (uv.y - hz) / (1.0 - hz);
+    c = mix(hor, top, pow(t, 0.55));
+    c += sunCol * (0.22 * exp(-d * 3.5) + 0.45 * exp(-d * 13.0)) * vis;
+    c = mix(c, sunCol * 1.08 + 0.06, (1.0 - smoothstep(0.028, 0.040, d)) * smoothstep(-0.05, 0.0, elev));
+    float md = length(p - moon);
+    c += vec3(0.62, 0.72, 0.95) * (0.10 * exp(-md * 6.0) + 0.16 * exp(-md * 22.0)) * moonAmt;
+    float lit = (1.0 - smoothstep(0.019, 0.022, md)) * smoothstep(0.017, 0.021, length(p - moon - vec2(0.009, 0.005)));
+    c = mix(c, vec3(1.0, 0.97, 0.90) * 1.15, lit * moonAmt);   // a crescent
+    // drifting cloud bands, lit by the horizon and the sun
+    float cn = fbm(vec2(uv.x * 2.0 + iTime * 0.015, uv.y * 9.0 - iTime * 0.01));
+    float cm = smoothstep(0.52, 0.78, cn) * smoothstep(hz + 0.03, hz + 0.22, uv.y) * (1.0 - smoothstep(0.72, 0.98, uv.y));
+    vec3 cloud = mix(hor * 1.12, mix(top, hor, 0.5) * 0.9, t) + sunCol * 0.35 * exp(-d * 3.0) * vis;
+    c = mix(c, cloud, cm * 0.5);
+    // stars: before dawn and after dusk
+    float starAmt = 1.0 - smoothstep(4.4, 5.2, hour) + smoothstep(19.9, 21.8, hour);
+    vec2 g = fragCoord / 5.0; vec2 cid = floor(g); vec2 f = fract(g) - 0.5;
+    float r = h21(cid);
+    vec2 off = (vec2(h21(cid + 3.1), h21(cid + 7.7)) - 0.5) * 0.5;
+    float sd = length(f - off) * 5.0;
+    float tw = 0.6 + 0.4 * sin(iTime * (1.0 + r * 30.0) + r * 80.0);
+    float star = step(0.990, r) * smoothstep(1.4, 0.2, sd) * tw * (0.4 + 0.6 * fract(r * 913.0));
+    c += vec3(0.86, 0.9, 1.0) * 1.3 * star * starAmt * smoothstep(hz + 0.04, hz + 0.3, uv.y) * (1.0 - cm);
+  } else {
+    float dpt = (hz - uv.y) / hz;                   // 0 at the horizon, 1 at the bottom
+    c = mix(hor * 0.80, top * 0.42, pow(dpt, 0.45));
+    float z = 1.0 / (dpt + 0.06);
+    float rp = vnoise(vec2(uv.x * asp * z * 0.55, z * 3.0 - iTime * 0.5));
+    c *= 0.90 + 0.18 * rp;
+    float dx = abs(p.x - sun.x);
+    vec2 gq = vec2(uv.x * asp * 70.0 / (0.25 + dpt * 1.6), z * 42.0 - iTime * 1.4);
+    float glint = smoothstep(0.45, 0.9, vnoise(gq) * 0.65 + vnoise(gq * 2.3 + 5.0) * 0.35);
+    float column = exp(-dx * mix(30.0, 7.0, dpt)) * smoothstep(-0.02, 0.06, elev);
+    c += sunCol * column * (0.16 + 0.75 * glint) * (0.55 + 0.45 * elev) * (1.0 - 0.6 * dpt);
+    float mcol = exp(-abs(p.x - moon.x) * mix(60.0, 12.0, dpt)) * moonAmt;
+    c += vec3(0.75, 0.82, 0.95) * mcol * (0.05 + 0.4 * glint) * (1.0 - 0.6 * dpt);
+    c += hor * 0.18 * exp(-dpt * 14.0);
+  }
+  c += hor * 0.20 * exp(-abs(uv.y - hz) * 700.0);  // the horizon's thin line of light
+  vec2 vc = (uv - 0.5) * vec2(0.9, 1.2);
+  c *= 1.0 - dot(vc, vc) * 0.55;                    // vignette
+  c += (hgr(fragCoord + vec2(float(iFrame) * 17.0, float(iFrame) * 7.0)) - 0.5) * 0.026;   // film grain
+  fragColor = vec4(c, 1.0);
+}`;
+
+    // ── a time word, bottom left: kanji, reading, clock
+    const LX = 96, LY = 470;
+    const labelLayers = (kanji, reading, gloss, at, until) => {
+      const dur = until - at;
+      const inOut = (dy, a) => [
+        { at: 0, from: { alpha: 0, y: dy + 10 }, to: { alpha: a, y: dy }, duration: 1.0, ease: 'power3.out' },
+        ...(until < DURATION ? [{ at: -0.45, to: { alpha: 0 }, duration: 0.45, ease: 'sine.in' }] : []),
+      ];
+      return [
+        { type: 'text', name: 'kanji-' + reading, text: kanji, at, duration: dur,
+          style: { fontFamily: MINCHO, fontSize: 64, fill: INK, padding: 8 },
+          initial: { x: LX, y: LY, alpha: 0 }, keyframes: inOut(LY, 0.96) },
+        { type: 'text', name: 'reading-' + reading, text: reading, at: at + 0.12, duration: dur - 0.12,
+          style: { fontFamily: MONO, fontSize: 13, fill: INK, letterSpacing: 5 },
+          initial: { x: LX + 96, y: LY + 18, alpha: 0 }, keyframes: inOut(LY + 18, 0.78) },
+        { type: 'text', name: 'gloss-' + reading, text: gloss, at: at + 0.22, duration: dur - 0.22,
+          style: { fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 15, fontStyle: 'italic', fill: INK },
+          initial: { x: LX + 96, y: LY + 38, alpha: 0 }, keyframes: inOut(LY + 38, 0.6) },
+      ];
+    };
+    const WORDS = [['暁', 'AKATSUKI', 'the hour before dawn', 0.7, 2.7], ['朝', 'ASA', 'morning', 3.0, 4.4], ['昼', 'HIRU', 'midday', 4.6, 6.3],
+                   ['夕', 'YŪ', 'evening', 6.6, 8.2], ['宵', 'YOI', 'the first of the night', 8.45, 9.9], ['夜', 'YORU', 'night', 10.1, DURATION]];
+
+    // ── the 24-hour scale: a hairline with ticks and a marker that walks with the hour
+    const TL = { x0: 96, x1: 1184, y: 640 };
+    const hx = h => TL.x0 + (TL.x1 - TL.x0) * h / 24;
+    const clockSets = () => {            // the clock above the marker: a new string whenever the shown time (5-minute steps) changes
+      const out = []; let last = clock(SCHED[0][1]);
+      for (let f = 1; f <= DURATION * FPS; f++) { const c = clock(hourAt(f / FPS)); if (c !== last) { out.push({ at: f / FPS, set: { text: c } }); last = c; } }
+      return out;
+    };
+    const scale = [
+      { type: 'shape', name: 'scale-line', shape: 'rect', width: TL.x1 - TL.x0, height: 1, at: 0.6, duration: DURATION - 0.6,
+        initial: { x: (TL.x0 + TL.x1) / 2, y: TL.y, fillColor: INK, alpha: 0 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 0.32 }, duration: 1.4, ease: 'sine.out' }] },
+      ...Array.from({ length: 9 }, (_, i) => ({ type: 'shape', name: 'tick-' + i, shape: 'rect', width: 1, height: i % 2 ? 4 : 8, at: 0.6, duration: DURATION - 0.6,
+        initial: { x: hx(i * 3), y: TL.y - (i % 2 ? 2 : 4), fillColor: INK, alpha: 0 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 0.45 }, duration: 1.4, ease: 'sine.out' }] })),
+      ...[0, 6, 12, 18, 24].map(h => ({ type: 'text', name: 'hour-' + h, text: String(h), at: 0.6, duration: DURATION - 0.6,
+        style: { fontFamily: MONO, fontSize: 10, fill: INK, letterSpacing: 1 },
+        initial: { x: hx(h), y: TL.y + 10, anchorX: 0.5, alpha: 0 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 0.5 }, duration: 1.4, ease: 'sine.out' }] })),
+      { type: 'shader', name: 'ribbon', fragment: RIBBON, transparent: true, width: TL.x1 - TL.x0, height: 4,
+        initial: { x: TL.x0, y: TL.y - 2 }, uniforms: { hour: SCHED[0][1] }, keyframes: schedKeys('uniforms.hour', h => h) },
+      { type: 'shape', name: 'marker', shape: 'circle', radius: 3.5,
+        initial: { x: hx(SCHED[0][1]), y: TL.y, fillColor: INK, alpha: 0 },
+        keyframes: [{ at: 0.6, to: { alpha: 1 }, duration: 1.0, ease: 'sine.out' }, ...schedKeys('x', hx)] },
+      { type: 'text', name: 'clock', text: clock(SCHED[0][1]),
+        style: { fontFamily: MONO, fontSize: 11, fill: INK, letterSpacing: 2 },
+        initial: { x: hx(SCHED[0][1]), y: TL.y - 26, anchorX: 0.5, alpha: 0 },
+        keyframes: [{ at: 0.6, to: { alpha: 0.8 }, duration: 1.0, ease: 'sine.out' }, ...schedKeys('x', hx), ...clockSets()] },
+    ];
+
+    const sequences = [
+      { type: 'shader', name: 'sky', fragment: SKY, uniforms: { hour: SCHED[0][1] }, keyframes: schedKeys('uniforms.hour', h => h) },
+      ...scale,
+      ...WORDS.flatMap(([k, r, g, a, u]) => labelLayers(k, r, g, a, u)),
+      // the title, when night has settled
+      { type: 'text', name: 'title', text: '空の一日', at: 10.5, duration: DURATION - 10.5,
+        style: { fontFamily: MINCHO, fontSize: 76, fill: INK, letterSpacing: 22, padding: 10 },
+        initial: { x: LX - 4, y: 118, alpha: 0 }, filters: [{ type: 'blur', name: 'soft', strength: 14 }],
+        keyframes: [{ at: 0, to: { alpha: 1, 'filters.soft.strength': 0 }, duration: 1.4, ease: 'power2.out' }] },
+      { type: 'text', name: 'subtitle', text: `A DAY OF SKY   ${clock(SCHED[0][1])} — ${clock(SCHED[SCHED.length - 1][1])}`, at: 10.9, duration: DURATION - 10.9,
+        style: { fontFamily: MONO, fontSize: 13, fill: INK, letterSpacing: 5 },
+        initial: { x: LX, y: 226, alpha: 0 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 0.6 }, duration: 1.0, ease: 'sine.out' }] },
+      // out of black
+      { type: 'shape', name: 'black', shape: 'rect', width: 'GW', height: 'GH', duration: 1.6,
+        initial: { x: 'GW/2', y: 'GH/2', fillColor: '#000000' }, keyframes: [{ at: 0, to: { alpha: 0 }, duration: 1.6, ease: 'sine.inOut' }] },
+      // sound: a pad that changes colour with the light, a soft bass, bells for the first light, a music box for the stars
+      { type: 'audio', name: 'score', at: 0, volume: 0.95, music: {
+        bpm: 80, reverb: 0.45, seed: 7,
+        tracks: [
+          { inst: 'pad', vol: [[0, 0.3], [3, 0.75]], attack: 1.4, release: 2.2, tone: 0.5, notes: 'Dm9:4 | Fmaj9:4 | Bbmaj7#11:4 | Gm9:2 Dm9:6' },
+          { inst: 'bass', vol: 0.5, tone: 0.3, legato: 0.95, notes: 'd2:4 | f2:4 | bb1:4 | g1:2 d2:6' },
+          { inst: 'bell', vol: 0.36, ring: 2.6, reverb: 0.8, notes: '_:2 a5:1 e6:1 | _:1 c6:1 g5:2 | _:2 f5:1 a5:1 | _:2 d6:2 _:4' },
+          { inst: 'musicbox', vol: 0.3, ring: 2.0, reverb: 0.9, notes: '_:12 | _:2 a6:0.5 f6:0.5 d6:1 e6:1 a5:1 d6:2' },
+        ],
+      } },
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;                         // so a script can seek / screenshot / render
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 7.5,
+        background: '#02040c',
+        // assets: [{ name: 'photo', src: './photo.jpg' }, { name: 'bgm', src: './bgm.mp3' }],
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
+    }
+  </script>
+</body>
+</html>

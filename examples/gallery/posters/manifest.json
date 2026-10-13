@@ -1,4 +1,9 @@
 {
+  "aiai-gasa": {
+    "poster": 10.45,
+    "posterFrame": 314,
+    "hash": "4351cc139f037ee38f91e52b742937592c136047"
+  },
   "app-promo": {
     "poster": 6.066666666666666,
     "posterFrame": 182,
@@ -14,6 +19,11 @@
     "posterFrame": 210,
     "hash": "85ad31f0091d4c60eeb46a3dacecc6afb7912483"
   },
+  "binary-count": {
+    "poster": 11.6,
+    "posterFrame": 348,
+    "hash": "dcfb50f5365ee58b74f823e534c234f9eb6dfbb0"
+  },
   "d3-story": {
     "poster": 18.5,
     "posterFrame": 555,
@@ -23,6 +33,11 @@
     "poster": 11.666666666666666,
     "posterFrame": 350,
     "hash": "6ded80aa91d0bd39b87c7c9b76bbe7c0106aac32"
+  },
+  "escapement": {
+    "poster": 12.3,
+    "posterFrame": 369,
+    "hash": "22c873447601eab088f8986c1c14217c5685997e"
   },
   "film-titles": {
     "poster": 13.5,
@@ -43,6 +58,11 @@
     "poster": 5.6,
     "posterFrame": 168,
     "hash": "76d76fab9b3f004f95e29758b6b84f44b2b9d1b9"
+  },
+  "hanon-trio-night": {
+    "poster": 13,
+    "posterFrame": 390,
+    "hash": "0733459e172eaaed01b18bf26357d1de2ac3cd63"
   },
   "hasshahyo": {
     "poster": 8.5,
@@ -69,10 +89,30 @@
     "posterFrame": 330,
     "hash": "1d119875580b3c1498ae8ac4086463b0906b9582"
   },
+  "key-and-lock": {
+    "poster": 12.1,
+    "posterFrame": 363,
+    "hash": "e1573783b9af54a11d5d94a241c865ea72c114e1"
+  },
   "kinetic-manifesto": {
     "poster": 1.4,
     "posterFrame": 42,
     "hash": "fd074a896c54c5b090474fc1aa59c2664efd36cc"
+  },
+  "koyu-incense": {
+    "poster": 11.4,
+    "posterFrame": 342,
+    "hash": "b224de70f005f4798b35f63220cf8bca1baaf5bf"
+  },
+  "lamplighter": {
+    "poster": 4.5,
+    "posterFrame": 135,
+    "hash": "32d698f3ce30eb85afb8b0cb3f80ce428725e526"
+  },
+  "line-to-light": {
+    "poster": 11,
+    "posterFrame": 330,
+    "hash": "6f5ca474b2aa0b45fd344d7fd8c559cb31473b61"
   },
   "loop-grid": {
     "poster": 7,
@@ -99,10 +139,25 @@
     "posterFrame": 306,
     "hash": "fd1d73e97afc39a8ae2d9cd988963fc39c3c0520"
   },
+  "moon-phases": {
+    "poster": 6.6,
+    "posterFrame": 198,
+    "hash": "ab419d3698f03ebfddfff875f461aa9feac610a0"
+  },
   "nagiro-light": {
     "poster": 12,
     "posterFrame": 360,
     "hash": "b008e5ac35f0fe801613c25cb31d797afdb080ab"
+  },
+  "nengajo-hatsuhi": {
+    "poster": 11,
+    "posterFrame": 330,
+    "hash": "4af16a27b03b2ccec71f022fa00a087cbb5ea78b"
+  },
+  "nenrin": {
+    "poster": 12.2,
+    "posterFrame": 366,
+    "hash": "af48ba18b0e5d71a6301f1ba09b940982a1768d1"
   },
   "network-explainer": {
     "poster": 7.633333333333334,
@@ -114,6 +169,11 @@
     "posterFrame": 222,
     "hash": "327bb34c83c23eeb73e8365d735213c7326ba8c1"
   },
+  "nocturne-hachi": {
+    "poster": 13.5,
+    "posterFrame": 405,
+    "hash": "1ff8a74462b8644994a6aa45e144d4b25288132f"
+  },
   "one-stroke": {
     "poster": 10.5,
     "posterFrame": 315,
@@ -123,6 +183,16 @@
     "poster": 5.6,
     "posterFrame": 168,
     "hash": "1a030cd3d82498405913335e3b25409432e35e77"
+  },
+  "pendulum-wave": {
+    "poster": 7.6,
+    "posterFrame": 228,
+    "hash": "7e4256aa6daad094178b71ee50fc6482d056dda3"
+  },
+  "pour-over": {
+    "poster": 12,
+    "posterFrame": 360,
+    "hash": "f0f218db918cd1457367bd1b026a365e96e72744"
   },
   "pythagoras-rearranged": {
     "poster": 11.5,
@@ -139,6 +209,11 @@
     "posterFrame": 312,
     "hash": "349704f0accbcf6edc708bd28da58b37e5ea1819"
   },
+  "same-grey": {
+    "poster": 7.6,
+    "posterFrame": 228,
+    "hash": "c33341da7ad63944ba7f9346f757482c014f0726"
+  },
   "sketch-launch": {
     "poster": 8.5,
     "posterFrame": 255,
@@ -149,6 +224,11 @@
     "posterFrame": 300,
     "hash": "319946dff7bc85312ff076d0abda925ddc86d1cc"
   },
+  "sora-no-ichinichi": {
+    "poster": 7.5,
+    "posterFrame": 225,
+    "hash": "3f755080725a4feed1dce4b53d7ceb546e29567e"
+  },
   "sports-scoreboard": {
     "poster": 9.5,
     "posterFrame": 285,
@@ -158,6 +238,11 @@
     "poster": 10.2,
     "posterFrame": 306,
     "hash": "2a16895c2ec3cf07ea5f5cf8f4a13f5c8e4983d1"
+  },
+  "sprint-trace": {
+    "poster": 13.2,
+    "posterFrame": 396,
+    "hash": "cf1d8e145dd94cb92bdfe3a669731766dedd5153"
   },
   "still-field": {
     "poster": 4.4,
@@ -203,5 +288,10 @@
     "poster": 8.4,
     "posterFrame": 252,
     "hash": "314d7ae8889b7a62341a1a6477749f41a4c7c858"
+  },
+  "yakou-ressha": {
+    "poster": 11.8,
+    "posterFrame": 354,
+    "hash": "10deeb4632c6117e9dd54a5ab0d6616b60124c7a"
   }
 }

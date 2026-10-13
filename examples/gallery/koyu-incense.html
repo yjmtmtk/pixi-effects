@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>香結 KOYU — No.07 白檀・雨上がり</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />
+  <style>
+    html, body { height: 100%; }
+    body { background: #141312; margin: 0; padding: 16px; box-sizing: border-box; display: flex; justify-content: center; align-items: flex-start; }
+    .stage { position: relative; width: min(94vw, calc((100vh - 32px) * 720 / 1280)); }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 6px; }
+  </style>
+  <script type="application/json" id="piece-meta">{ "title": "香結 KOYU — No.07", "subtitle": "A vertical incense ad: one thread of procedural smoke on washi, vertical Mincho copy, the brand arrives last", "tags": ["vertical", "ad", "japanese", "shader", "typography", "minimal", "music"], "width": 720, "height": 1280, "duration": 12, "model": "opus" }</script>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="720" height="1280"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>
+  </div>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":  "../../dist/present.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js" />
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 720, H = 1280, FPS = 30, DURATION = 12;
+
+    // ── palette (brief.md) ─────────────────────────────────────────────
+    const WASHI = '#ECE6DA', SUMI = '#2A2622', SMOKE = '#7F8288', EMBER = '#C2552C';
+    const MINCHO = '"Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif';
+    const SERIF = 'Georgia, "Times New Roman", serif';
+
+    // ── grid ───────────────────────────────────────────────────────────
+    const M = 72;                      // outer margin left / right
+    const STICK_X = 240, BASE_Y = 980; // the incense stands on the left third
+    const STICK_H = 360, BURN = 26;    // it burns down 26 px over the piece
+    const TIP0 = BASE_Y - STICK_H;     // tip y (top-left coordinates) once drawn
+    const LIT = 2.0;                   // beat 3: the ember lights, the bell rings
+
+    // ── the ground: washi paper and one thread of smoke, drawn by a formula ──
+    const paperAndSmoke = {
+      type: 'shader', name: 'paper',
+      uniforms: { paper: WASHI, smoke: SMOKE, src: [STICK_X, H - TIP0], rise: 0 },
+      fragment: `
+        float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+        float vnoise(vec2 p) {
+          vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
+          return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+        }
+        float fbm(vec2 p) {
+          float v = 0.0, a = 0.5;
+          for (int i = 0; i < 5; i++) { v += a * vnoise(p); p = p * 2.03 + vec2(17.1, 9.2); a *= 0.5; }
+          return v;
+        }
+        void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+          vec2 uv = fragCoord / iResolution.xy;
+          vec2 p = fragCoord;
+          // washi: a soft cloudy formation, thin wandering fibres (contour lines of noise), fine tooth, a faint sheen from the top left
+          vec3 col = paper;
+          col *= 0.985 + 0.03 * fbm(p * 0.004);
+          float f1 = abs(fbm(p * vec2(0.010, 0.016) + 7.0) - 0.5);
+          float f2 = abs(fbm(p * vec2(0.018, 0.009) + 31.0) - 0.5);
+          float sparse = smoothstep(0.45, 0.7, vnoise(p * 0.01 + 5.0));
+          col -= 0.04 * (1.0 - smoothstep(0.0, 0.006, f1)) * sparse;
+          col -= 0.03 * (1.0 - smoothstep(0.0, 0.005, f2)) * (1.0 - sparse);
+          col += 0.016 * (hash(floor(p)) - 0.5);
+          col += 0.03 * (1.0 - smoothstep(0.0, 1.1, length((uv - vec2(0.1, 1.0)) * vec2(1.0, 0.7))));
+          // smoke: a thin column that sways, widens and breaks into wisps as it climbs
+          float t = iTime;
+          float h = p.y - src.y;
+          if (h > 0.0) {
+            float hn = h / 760.0;
+            float drift = 120.0 * hn * hn;
+            float sway = 16.0 * sin(h * 0.007 - t * 0.8) * hn
+                       + 70.0 * (fbm(vec2(h * 0.0035 - t * 0.12, 1.3)) - 0.5) * hn;
+            float curl = 140.0 * hn * hn * (fbm(vec2(h * 0.009 - t * 0.35, p.x * 0.006)) - 0.5);
+            float x = p.x - src.x - sway - curl - drift;
+            float w = 1.4 + 14.0 * hn + 150.0 * hn * hn;
+            float d = exp(-x * x / (w * w));
+            // higher up the plume becomes thin ribbons: contour lines of a slowly rising noise field
+            float n = fbm(vec2(x * 0.011 + 3.1, h * 0.0037 - t * 0.24));
+            float ribbon = exp(-pow((n - 0.5) / 0.03, 2.0)) + 0.35 * exp(-pow((n - 0.42) / 0.02, 2.0));
+            float haze = 0.15;
+            d *= mix(1.0, ribbon + haze, smoothstep(0.06, 0.32, hn));
+            float reach = rise * 760.0;
+            d *= 1.0 - smoothstep(reach - 200.0, reach, h);
+            d *= 1.0 - smoothstep(0.35, 0.72, hn);
+            d *= smoothstep(0.0, 5.0, h);
+            col = mix(col, smoke, clamp(d, 0.0, 1.0) * 0.68);
+          }
+          fragColor = vec4(col, 1.0);
+        }`,
+      keyframes: [
+        { at: LIT, to: { 'uniforms.rise': 1 }, duration: 6, ease: 'power1.out' },
+        { at: LIT, to: { 'uniforms.src.1': H - TIP0 - BURN }, duration: DURATION - LIT, ease: 'none' },
+      ],
+    };
+
+    // ── the object: a stone, a stick, an ember ─────────────────────────
+    const object = [
+      { type: 'shape', shape: 'path', name: 'stone', d: 'M -30 0 C -24 -6 -10 -8 0 -8 C 10 -8 24 -6 30 0 Z',
+        initial: { x: STICK_X, y: BASE_Y + 2, fillColor: SUMI, alpha: 0.88 } },
+      { type: 'shape', shape: 'rect', name: 'core', width: 2, height: 0, anchorY: 1,
+        initial: { x: STICK_X, y: BASE_Y, fillColor: SMOKE },
+        keyframes: [{ at: 0.2, to: { height: 64 }, duration: 0.4, ease: 'power1.in' }] },
+      { type: 'shape', shape: 'rect', name: 'stick', width: 3, height: 0, anchorY: 1,
+        initial: { x: STICK_X, y: BASE_Y - 62, fillColor: SUMI },
+        keyframes: [
+          { at: 0.6, to: { height: STICK_H - 62 }, duration: 1.1, ease: 'power2.out' },
+          { at: LIT, to: { height: STICK_H - 62 - BURN }, duration: DURATION - LIT, ease: 'none' },
+        ] },
+      { type: 'shape', shape: 'circle', name: 'glow', radius: 18, at: LIT - 0.15, duration: DURATION - LIT + 0.15,
+        fillGradient: { type: 'radial', stops: [[0, 'rgba(194,85,44,0.42)'], [0.5, 'rgba(194,85,44,0.12)'], [1, 'rgba(194,85,44,0)']] },
+        initial: { x: STICK_X, y: TIP0, scale: 0.4, alpha: 0 },
+        keyframes: [
+          { at: 0, to: { alpha: 1, scale: 1 }, duration: 0.6, ease: 'power2.out' },
+          { at: 0.15, to: { y: TIP0 + BURN }, duration: DURATION - LIT, ease: 'none' },
+          { at: 0.8, to: { scale: 1.25 }, duration: 0.9, ease: 'sine.inOut', yoyo: true, repeat: 9 },
+        ] },
+      { type: 'shape', shape: 'circle', name: 'ember', radius: 2.4, at: LIT - 0.15, duration: DURATION - LIT + 0.15,
+        initial: { x: STICK_X, y: TIP0, fillColor: EMBER, alpha: 0 },
+        keyframes: [
+          { at: 0, to: { alpha: 1 }, duration: 0.3, ease: 'power2.out' },
+          { at: 0.15, to: { y: TIP0 + BURN }, duration: DURATION - LIT, ease: 'none' },
+        ] },
+    ];
+
+    // ── vertical Japanese: one text layer per character ───────────────
+    const PUNCT = new Set(['、', '。']);
+    function column(str, { x, y, size, at, each = 0.09, out, name }) {
+      const pitch = size * 1.32;
+      return [...str].map((ch, i) => {
+        const p = PUNCT.has(ch);
+        const cx = x + (p ? size * 0.58 : 0), cy = y + i * pitch + (p ? -size * 0.58 : 0);
+        const t = at + i * each;
+        const kf = [
+          { at: 0, from: { alpha: 0, y: cy + 12, 'filters.ink.strength': 3.5 }, to: { alpha: 1, y: cy, 'filters.ink.strength': 0 }, duration: 1.1, ease: 'power2.out' },
+        ];
+        if (out != null) kf.push({ at: out - t, to: { alpha: 0, y: cy - 12, 'filters.ink.strength': 4 }, duration: 0.6, ease: 'power1.in' });
+        return {
+          type: 'text', name: `${name}-${i}`, text: ch, at: t, duration: (out != null ? out + 0.6 : DURATION) - t,
+          style: { fontFamily: MINCHO, fontSize: size, fill: SUMI, padding: 8 },
+          initial: { x: cx, y: cy, anchorX: 0.5, anchorY: 0.5 },
+          filters: [{ type: 'blur', name: 'ink', strength: 0, quality: 3 }],
+          keyframes: kf,
+        };
+      });
+    }
+
+    // copy: 雨のあと、 / 白檀はすこし / 甘くなる。 — three columns, read right to left, tops stepped down
+    const COPY_SIZE = 32, COPY_TOP = 196, COL = 50, OUT = 7.2;
+    const copy = [
+      ...column('雨のあと、', { x: 618, y: COPY_TOP, size: COPY_SIZE, at: 4.0, out: OUT, name: 'c1' }),
+      ...column('白檀はすこし', { x: 618 - COL, y: COPY_TOP + 2 * COPY_SIZE * 1.32, size: COPY_SIZE, at: 4.55, out: OUT + 0.08, name: 'c2' }),
+      ...column('甘くなる。', { x: 618 - 2 * COL, y: COPY_TOP + 4 * COPY_SIZE * 1.32, size: COPY_SIZE, at: 5.2, out: OUT + 0.16, name: 'c3' }),
+    ];
+
+    // brand: 香結 in the same column the copy leaves, a small ember seal under it
+    const BRAND_SIZE = 96, BRAND_X = 568, BRAND_TOP = 260;
+    const brand = [
+      ...['香', '結'].map((ch, i) => ({
+        type: 'text', name: `brand-${i}`, text: ch, at: 8.0 + i * 0.3,
+        style: { fontFamily: MINCHO, fontSize: BRAND_SIZE, fill: SUMI, padding: 16 },
+        initial: { x: BRAND_X, y: BRAND_TOP + i * BRAND_SIZE * 1.12, anchorX: 0.5, anchorY: 0.5 },
+        filters: [{ type: 'blur', name: 'ink', strength: 0, quality: 3 }],
+        keyframes: [{ at: 0, from: { alpha: 0, 'filters.ink.strength': 10, scale: 1.03 }, to: { alpha: 1, 'filters.ink.strength': 0, scale: 1 }, duration: 1.5, ease: 'power2.out' }],
+      })),
+      { type: 'shape', shape: 'rect', name: 'seal', width: 26, height: 26, at: 9.0,
+        initial: { x: BRAND_X, y: BRAND_TOP + 2 * BRAND_SIZE * 1.12 - 18, fillColor: EMBER },
+        keyframes: [{ at: 0, from: { alpha: 0, scale: 0.85 }, to: { alpha: 1, scale: 1 }, duration: 0.7, ease: 'power2.out' }] },
+      { type: 'text', name: 'seal-ch', text: '香', at: 9.0,
+        style: { fontFamily: MINCHO, fontSize: 17, fill: WASHI, padding: 4 },
+        initial: { x: BRAND_X, y: BRAND_TOP + 2 * BRAND_SIZE * 1.12 - 18, anchorX: 0.5, anchorY: 0.5 },
+        keyframes: [{ at: 0, from: { alpha: 0, scale: 0.85 }, to: { alpha: 1, scale: 1 }, duration: 0.7, ease: 'power2.out' }] },
+    ];
+
+    // folio: always there, small, top left
+    const folio = [
+      { type: 'text', name: 'folio', text: 'No.07', at: 0.8,
+        style: { fontFamily: SERIF, fontSize: 13, fill: EMBER, letterSpacing: 4 },
+        initial: { x: M, y: 100 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 1.2, ease: 'power2.out' }] },
+      { type: 'text', name: 'folio-en', text: 'SANDALWOOD AFTER RAIN', at: 1.0,
+        style: { fontFamily: SERIF, fontSize: 13, fill: SMOKE, letterSpacing: 4.5 },
+        initial: { x: M + 64, y: 100 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 1.2, ease: 'power2.out' }] },
+    ];
+
+    // info block, bottom left
+    const INFO_Y = 1068;
+    const info = [
+      { type: 'shape', shape: 'rect', name: 'rule', width: 0, height: 1, anchorX: 0, at: 9.3,
+        initial: { x: M, y: INFO_Y, fillColor: SMOKE },
+        keyframes: [{ at: 0, to: { width: 132 }, duration: 0.9, ease: 'power2.inOut' }] },
+      { type: 'text', name: 'info-jp', text: '白檀・雨上がり　二十本入', at: 9.5,
+        style: { fontFamily: MINCHO, fontSize: 18, fill: SUMI, letterSpacing: 2 },
+        initial: { x: M, y: INFO_Y + 22 },
+        keyframes: [{ at: 0, from: { alpha: 0, y: INFO_Y + 32 }, to: { alpha: 1, y: INFO_Y + 22 }, duration: 1.1, ease: 'power2.out' }] },
+      { type: 'text', name: 'info-en', text: 'KOYU INCENSE HOUSE', at: 9.7,
+        style: { fontFamily: SERIF, fontSize: 13, fill: SMOKE, letterSpacing: 4 },
+        initial: { x: M, y: INFO_Y + 56 },
+        keyframes: [{ at: 0, from: { alpha: 0, y: INFO_Y + 66 }, to: { alpha: 1, y: INFO_Y + 56 }, duration: 1.1, ease: 'power2.out' }] },
+    ];
+
+    // sound: 60 bpm, a beat is a second; a pad, a bell when the ember lights and when the brand arrives
+    const music = {
+      type: 'audio', name: 'score', at: 0, volume: 1.3,
+      music: {
+        bpm: 60, reverb: 0.45,
+        tracks: [
+          { inst: 'pad', vol: [[0, 0.2], [4, 0.6], [12, 0.55]], attack: 1.6, release: 2.5, tone: 0.35, notes: 'Dmaj9:4 Bm11:4 Gmaj7#11:4' },
+          { inst: 'bell', vol: 0.55, ring: 4, reverb: 0.8, notes: '_:2 a5:6 [d5 a5]:4' },
+          { inst: 'keys', vol: 0.4, tone: 0.3, reverb: 0.6, notes: '_:4 f#4:1.5 a4:0.5 e5:2 _:4' },
+        ],
+      },
+    };
+
+    const sequences = [paperAndSmoke, ...object, ...folio, ...copy, ...brand, ...info, music];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 11.4,
+        background: WASHI,
+        composition: { sequences, filters: [{ type: 'grain', amount: 0.035, size: 1.3, fps: 12 }] },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

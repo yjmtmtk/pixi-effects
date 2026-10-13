@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>夜をゆく</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />
+  <style>
+    body { background: #0b0d12; margin: 0; padding: 16px; min-height: 100vh; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+    .stage { position: relative; width: min(960px, 100%); }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>
+  </div>
+
+  <script type="application/json" id="piece-meta">{ "title": "夜をゆく", "subtitle": "A night-train window at 2 a.m.: the world slides past in layers, and only the moon stays.", "tags": ["parallax", "night", "japanese", "landscape", "ambient", "sound"], "width": 1280, "height": 720, "duration": 13, "model": "opus" }</script>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":  "../../dist/present.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js" />
+
+  <script type="module">
+    import { Movie, random, wiggle } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, T = 13;
+
+    // ── palette (brief.md) ─────────────────────────────────────────────
+    const INK = '#070A14', BLUE = '#22304F', PAPER = '#E9E4D4', AMBER = '#F0A85A';
+    // ink↔blue mixes for atmospheric depth (farther = lighter)
+    const SKY_LOW = '#2B3B60', FAR = '#151F39', MID = '#0E1528', NEAR = '#05070D';
+
+    // ── grid ────────────────────────────────────────────────────────────
+    const WIN = { x0: 96, y0: 84, x1: 936, y1: 552, r: 44 };
+    const WIN_W = WIN.x1 - WIN.x0, WIN_H = WIN.y1 - WIN.y0;
+    const WIN_CX = (WIN.x0 + WIN.x1) / 2, WIN_CY = (WIN.y0 + WIN.y1) / 2;
+    const HORIZON = 424;
+    const MOON = { x: 312, y: 196, r: 21 };
+
+    // ── speeds (px/s) ───────────────────────────────────────────────────
+    const V = { stars: 5, far: 28, mid: 160, bank: 520, near: 760 };
+
+    // ── rail joints: every second, a pair 0.13 s apart (the clatter and the sway share these) ──
+    const JOINTS = Array.from({ length: 13 }, (_, k) => 0.35 + k);
+    const TUNNEL_EXIT = 1.2;            // the mouth's edge reaches the window's right side
+
+    const r = random(11);
+
+    // A strip of scenery that slides left at a constant speed for the whole movie.
+    const strip = (name, speed, sequences) => ({
+      type: 'composition', name, width: Math.ceil(speed * T + W + 200), height: H,
+      initial: { x: 0, y: 0 },
+      keyframes: [{ at: 0, to: { x: -speed * T }, duration: T, ease: 'none' }],
+      sequences,
+    });
+
+    // a ridge line as polygon points, sampled every `step` px, closed down to `base`
+    const ridge = (len, step, fy, base) => {
+      const pts = [];
+      for (let x = -40; x <= len + step; x += step) pts.push([x, fy(x)]);
+      pts.push([len + step, base], [-40, base]);
+      return pts;
+    };
+
+    // ── far mountains ───────────────────────────────────────────────────
+    const farLen = V.far * T + W + 200;
+    const farY = x => HORIZON - 22 - 38 * (0.5 + 0.5 * Math.sin(x / 300 + 1.3)) - 44 * (1 - Math.abs(Math.sin(x / 150 + 0.4))) ** 3 - 6 * Math.abs(Math.sin(x / 31)) - 3 * Math.sin(x / 11);
+    const farRidge = { type: 'shape', shape: 'polygon', name: 'farRidge', points: ridge(farLen, 8, farY, HORIZON + 2), initial: { fillColor: FAR } };
+
+    const farLights = [[900, 0.8], [928, 0.5], [1250, 0.6]].map(([x, a], i) => ({ type: 'shape', shape: 'rect', name: `farLight${i}`, width: 2, height: 2,
+      initial: { x, y: HORIZON - 5 - i, fillColor: AMBER, alpha: a } }));
+
+    // ── mid hills, which fall away into a lake (LAKE_X in strip coordinates) ──
+    const midLen = V.mid * T + W + 200;
+    const LAKE_X = MOON.x + V.mid * 8.1;      // the shore passes under the moon at 8.1 s
+    const hillBase = x => HORIZON - 34 - 40 * (0.5 + 0.5 * Math.sin(x / 210)) - 14 * Math.sin(x / 71 + 2);
+    const midY = x => {
+      if (x < LAKE_X - 420) return hillBase(x);
+      if (x < LAKE_X) { const u = (x - (LAKE_X - 420)) / 420; return hillBase(x) + (HORIZON - hillBase(x)) * (u * u * (3 - 2 * u)); }
+      return Math.min(600, HORIZON + (x - LAKE_X) * 0.2 + 3 * Math.sin((x - LAKE_X) / 23));   // the near shore curves away under the window
+    };
+    const midRidge = { type: 'shape', shape: 'polygon', name: 'midHills', points: ridge(midLen, 6, midY, 760), initial: { fillColor: MID } };
+
+    // a village on the hills: warm windows, a few in clusters (visible about 3-8 s)
+    const village = [];
+    for (let i = 0; i < 26; i++) {
+      const cluster = [700, 980, 1240, 1520, 1700][i % 5];
+      const x = cluster + (r() - 0.5) * 150;
+      if (x > LAKE_X - 300) continue;
+      const y = Math.max(midY(x) + 14, HORIZON - 30) + r() * 70;
+      village.push({ type: 'shape', shape: 'rect', name: `light${i}`, width: 3 + Math.round(r() * 2), height: 2 + Math.round(r() * 2),
+        initial: { x, y, fillColor: AMBER, alpha: 0.55 + r() * 0.45 } });
+    }
+
+    // ── embankment grass right under the window ─────────────────────────
+    const bankLen = V.bank * T + W + 200;
+    const rg = random(29);
+    const bankY = x => 527 - 5 * rg() - (rg() > 0.9 ? 6 + 12 * rg() : 0) - 9 * Math.max(0, Math.sin(x / 61)) ** 4 - 3 * Math.sin(x / 150);
+    const bank = { type: 'shape', shape: 'polygon', name: 'bank', points: ridge(bankLen, 4, bankY, 600), initial: { fillColor: NEAR } };
+
+    // ── the near strip: the tunnel, its mouth, the catenary poles and wires ──
+    const nearLen = V.near * T + W + 200;
+    const MOUTH_X = WIN.x1 + V.near * TUNNEL_EXIT;
+    const tunnelLamps = Array.from({ length: 6 }, (_, i) => ({
+      type: 'shape', shape: 'rect', name: `tunnelLamp${i}`, width: 70, height: 3, cornerRadius: 1.5,
+      initial: { x: 260 + i * 300, y: 132, fillColor: AMBER, alpha: 0.9 },
+    }));
+    const tunnelGlow = tunnelLamps.map((l, i) => ({
+      type: 'shape', shape: 'ellipse', name: `tunnelGlow${i}`, radiusX: 120, radiusY: 34, blendMode: 'screen',
+      initial: { x: l.initial.x, y: 132 },
+      fillGradient: { type: 'radial', stops: [[0, 'rgba(240,168,90,0.22)'], [1, 'rgba(240,168,90,0)']] },
+    }));
+    const tunnel = [
+      { type: 'shape', shape: 'rect', name: 'tunnelWall', width: MOUTH_X + 200, height: 700, initial: { x: (MOUTH_X - 200) / 2, y: 330, fillColor: '#0A0E1A' } },
+      ...Array.from({ length: Math.floor((MOUTH_X - 100) / 230) }, (_, i) => ({ type: 'shape', shape: 'rect', name: `rib${i}`, width: 9, height: 700,
+        initial: { x: 120 + i * 230, y: 330, fillColor: '#0F1526' } })),
+      { type: 'shape', shape: 'rect', name: 'tunnelCable', width: MOUTH_X, height: 2, initial: { x: MOUTH_X / 2, y: 470, fillColor: '#141B2F' } },
+      ...tunnelGlow, ...tunnelLamps,
+      { type: 'shape', shape: 'rect', name: 'mouthEdge', width: 46, height: 700, initial: { x: MOUTH_X - 23, y: 330 }, fillGradient: { angle: 0, stops: [[0, '#0A0E1A'], [1, '#1C2643']] } },
+    ];
+    const POLES = [2150, 3010, 3870, 4730, 5590, 6450, 7310];
+    const WIRE_Y = [124, 146], SAG = 26;
+    const wireD = WIRE_Y.map(y => {
+      let d = '';
+      for (let i = 0; i < POLES.length - 1; i++) {        // the line ends at the last pole: the lake is left open
+        const a = POLES[i], b = POLES[i + 1];
+        d += `M ${a} ${y} Q ${(a + b) / 2} ${y + SAG} ${b} ${y} `;
+      }
+      // the span arriving at the first pole from the tunnel mouth
+      d += `M ${MOUTH_X} ${y + 6} Q ${(MOUTH_X + POLES[0]) / 2} ${y + SAG} ${POLES[0]} ${y}`;
+      return d;
+    });
+    const poles = POLES.flatMap((x, i) => [
+      { type: 'shape', shape: 'rect', name: `pole${i}`, width: 11, height: 560, initial: { x, y: 100 + 280, fillColor: NEAR } },
+      { type: 'shape', shape: 'rect', name: `arm${i}`, width: 64, height: 6, initial: { x: x - 14, y: 120, fillColor: NEAR } },
+      { type: 'shape', shape: 'rect', name: `brace${i}`, width: 30, height: 4, initial: { x: x - 30, y: 144, fillColor: NEAR } },
+    ]);
+    // a level crossing between two poles: its lamps take turns, its bell rings past (about 4.9-7.4 s)
+    const CROSS_X = 5160, CROSS_PASS = (CROSS_X - WIN_CX) / V.near;   // passes the window's centre at ~6.1 s
+    const BELL = Array.from({ length: 9 }, (_, i) => 4.9 + i * 0.3);
+    const flash = (odd) => [{ at: 0, set: { alpha: odd ? 0.15 : 1 } }, ...BELL.map((t, i) => ({ at: t, set: { alpha: (i % 2 === 0) !== odd ? 1 : 0.15 } }))];
+    const crossing = [
+      { type: 'shape', shape: 'rect', name: 'crossPost', width: 8, height: 340, initial: { x: CROSS_X, y: 296 + 170, fillColor: NEAR } },
+      { type: 'shape', shape: 'rect', name: 'crossBuckA', width: 62, height: 7, initial: { x: CROSS_X, y: 300, rotation: 30, fillColor: NEAR } },
+      { type: 'shape', shape: 'rect', name: 'crossBuckB', width: 62, height: 7, initial: { x: CROSS_X, y: 300, rotation: -30, fillColor: NEAR } },
+      { type: 'shape', shape: 'rect', name: 'crossBar', width: 52, height: 5, initial: { x: CROSS_X, y: 346, fillColor: NEAR } },
+      ...[-22, 22].flatMap((dx, k) => [
+        { type: 'shape', shape: 'circle', name: `crossHalo${k}`, radius: 46, blendMode: 'screen', initial: { x: CROSS_X + dx, y: 346 },
+          fillGradient: { type: 'radial', stops: [[0, 'rgba(240,168,90,0.55)'], [0.25, 'rgba(240,168,90,0.18)'], [1, 'rgba(240,168,90,0)']] }, keyframes: flash(k === 1) },
+        { type: 'shape', shape: 'circle', name: `crossLamp${k}`, radius: 6.5, initial: { x: CROSS_X + dx, y: 346, fillColor: AMBER }, keyframes: flash(k === 1) },
+      ]),
+    ];
+    const wires = wireD.map((d, i) => ({ type: 'shape', shape: 'path', name: `wire${i}`, d, initial: { strokeColor: NEAR, strokeWidth: 2.2 } }));
+
+    // ── stars (very slow) ───────────────────────────────────────────────
+    const starLen = V.stars * T + W + 200;
+    const stars = Array.from({ length: 70 }, (_, i) => {
+      const y = 40 + r() ** 1.6 * (HORIZON - 110);
+      return { type: 'shape', shape: 'circle', name: `star${i}`, radius: 0.7 + r() * 1.1,
+        initial: { x: r() * starLen, y, fillColor: PAPER, alpha: 0.25 + r() * 0.6 * (1 - y / HORIZON) } };
+    });
+
+    // ── the moon and its reflection: they never move (parallax at infinity) ──
+    const moon = [
+      { type: 'shape', shape: 'circle', name: 'moonHalo', radius: 190, blendMode: 'screen', initial: { x: MOON.x, y: MOON.y },
+        fillGradient: { type: 'radial', stops: [[0, 'rgba(233,228,212,0.20)'], [0.35, 'rgba(233,228,212,0.06)'], [1, 'rgba(233,228,212,0)']] } },
+      { type: 'shape', shape: 'circle', name: 'moon', radius: MOON.r, initial: { x: MOON.x, y: MOON.y, fillColor: PAPER } },
+      // faint maria, so the disc reads as the moon and not a dot
+      ...[[-6, -5, 7, 0.10], [5, 4, 5, 0.08], [-2, 9, 4, 0.07]].map(([dx, dy, rad, a], i) => ({ type: 'shape', shape: 'circle', name: `mare${i}`, radius: rad,
+        initial: { x: MOON.x + dx, y: MOON.y + dy, fillColor: BLUE, alpha: a } })),
+    ];
+    const water = { type: 'shape', shape: 'rect', name: 'water', width: WIN_W + 80, height: 600 - HORIZON, initial: { x: WIN_CX, y: (HORIZON + 600) / 2 },
+      fillGradient: { stops: [[0, '#24345A'], [0.5, '#121A31'], [1, INK]] } };
+    let gy = HORIZON + 4;
+    const glints = Array.from({ length: 14 }, (_, i) => {
+      gy += 3 + r() * 6;
+      const w = 8 + r() * 30 + (i < 3 ? 14 : 0), x = MOON.x + (r() - 0.5) * 10;
+      return { type: 'shape', shape: 'rect', name: `glint${i}`, width: w, height: 1.5, initial: { x, y: gy, fillColor: PAPER, alpha: 0.3 },
+        keyframes: wiggle({ duration: T, freq: 1.1 + r(), seed: 40 + i, props: { x: { around: x, amp: 6 }, alpha: { around: 0.34 - i * 0.015, amp: 0.2 } } }) };
+    });
+
+    // ── the outside: sky to poles, masked by the window, swaying at every rail joint ──
+    const sway = JOINTS.flatMap(t => [
+      { at: t, to: { y: 2.2 }, duration: 0.05, ease: 'none' },
+      { at: t + 0.05, to: { y: 0.6 }, duration: 0.08, ease: 'sine.out' },
+      { at: t + 0.13, to: { y: 2.0 }, duration: 0.05, ease: 'none' },
+      { at: t + 0.18, to: { y: 0 }, duration: 0.4, ease: 'sine.out' },
+    ]);
+    const outside = {
+      type: 'composition', name: 'outside', width: W, height: H, initial: { x: 0, y: 0 }, keyframes: sway,
+      mask: { type: 'shape', shape: 'rect', width: WIN_W, height: WIN_H, cornerRadius: WIN.r, initial: { x: WIN_CX, y: WIN_CY, fillColor: '#ffffff' } },
+      sequences: [
+        { type: 'shape', shape: 'rect', name: 'sky', width: WIN_W + 80, height: WIN_H + 80, initial: { x: WIN_CX, y: WIN_CY },
+          fillGradient: { stops: [[0, INK], [0.3, '#0B1121'], [0.62, '#18233F'], [(HORIZON - WIN.y0 + 40) / (WIN_H + 80), SKY_LOW], [1, SKY_LOW]] } },
+        strip('stars', V.stars, stars),
+        ...moon,
+        strip('far', V.far, [farRidge, ...farLights]),
+        water,
+        ...glints,
+        { type: 'shape', shape: 'rect', name: 'waterline', width: WIN_W, height: 1.5, initial: { x: WIN_CX, y: HORIZON + 0.5, fillColor: PAPER, alpha: 0.1 } },
+        strip('mid', V.mid, [midRidge, ...village]),
+        strip('bank', V.bank, [bank]),
+        strip('near', V.near, [...tunnel, ...wires, ...poles, ...crossing]),
+      ],
+    };
+
+    // ── the cabin ───────────────────────────────────────────────────────
+    const LAMP = { x: 1150, y: 92 };
+    const cabin = [
+      // the wall, with the window cut out of it
+      { type: 'shape', shape: 'rect', name: 'wall', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: INK },
+        mask: { invert: true, layer: { type: 'shape', shape: 'rect', width: WIN_W, height: WIN_H, cornerRadius: WIN.r, initial: { x: WIN_CX, y: WIN_CY, fillColor: '#ffffff' } } } },
+      // lamp light pooling on the wall
+      { type: 'shape', shape: 'circle', name: 'lampPool', radius: 520, blendMode: 'screen', initial: { x: LAMP.x, y: LAMP.y },
+        fillGradient: { type: 'radial', stops: [[0, 'rgba(240,168,90,0.20)'], [0.3, 'rgba(240,168,90,0.07)'], [1, 'rgba(240,168,90,0)']] } },
+      // the window's rubber frame and the sill catching the lamp
+      { type: 'shape', shape: 'rect', name: 'frame', width: WIN_W + 10, height: WIN_H + 10, cornerRadius: WIN.r + 5,
+        initial: { x: WIN_CX, y: WIN_CY, strokeColor: '#111829', strokeWidth: 12, fillAlpha: 0 } },
+      { type: 'shape', shape: 'rect', name: 'sill', width: WIN_W, height: 2, initial: { x: WIN_CX, y: WIN.y1 + 24, fillColor: AMBER, alpha: 0.22 } },
+      // the lamp
+      { type: 'shape', shape: 'rect', name: 'lampStem', width: 3, height: 40, initial: { x: LAMP.x, y: LAMP.y - 26, fillColor: '#151C30' } },
+      { type: 'shape', shape: 'polygon', name: 'lampShade', points: [[LAMP.x - 13, LAMP.y - 8], [LAMP.x + 13, LAMP.y - 8], [LAMP.x + 21, LAMP.y + 6], [LAMP.x - 21, LAMP.y + 6]],
+        initial: { fillColor: AMBER, alpha: 0.85 } },
+      { type: 'shape', shape: 'rect', name: 'lampBulb', width: 34, height: 2, initial: { x: LAMP.x, y: LAMP.y + 7, fillColor: PAPER } },
+      // the lamp's reflection in the glass: strong while the tunnel is black outside
+      { type: 'shape', shape: 'ellipse', name: 'lampReflection', radiusX: 110, radiusY: 46, blendMode: 'screen', initial: { x: 846, y: 150 },
+        fillGradient: { type: 'radial', stops: [[0, 'rgba(240,168,90,0.30)'], [1, 'rgba(240,168,90,0)']] },
+        keyframes: [{ at: 1.3, to: { alpha: 0.12 }, duration: 1.4, ease: 'sine.inOut' }] },
+    ];
+
+    // ── words on the wall, vertical (one layer per character) ───────────
+    const MINCHO = '"Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif';
+    const column = (text, { x, y, size, pitch, at, each, fill, alpha, name }) =>
+      [...text].map((ch, i) => ch === '　' ? null : ({
+        type: 'text', name: `${name}${i}`, text: ch, at: at + i * each, duration: T - (at + i * each),
+        style: { fontFamily: MINCHO, fontSize: size, fill },
+        initial: { x, y: y + i * pitch, anchorX: 0.5, anchorY: 0, alpha: 0 },
+        keyframes: [{ at: 0, from: { alpha: 0, y: y + i * pitch - 6 }, to: { alpha, y: y + i * pitch }, duration: 1.1, ease: 'sine.out' }],
+      })).filter(Boolean);
+    const words = [
+      ...column('夜をゆく', { name: 'title', x: 1150, y: 196, size: 40, pitch: 50, at: 8.3, each: 0.2, fill: PAPER, alpha: 1 }),
+      ...column('月だけが　ついてくる', { name: 'sub', x: 1088, y: 214, size: 19, pitch: 25, at: 9.3, each: 0.12, fill: PAPER, alpha: 0.7 }),
+      { type: 'text', name: 'label', text: 'NIGHT TRAIN  ·  02:14  ·  NORTHBOUND', at: 2.4, duration: T - 2.4,
+        style: { fontFamily: 'ui-monospace, "Courier New", monospace', fontSize: 13, letterSpacing: 4, fill: AMBER },
+        initial: { x: WIN.x0, y: 606, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 0.8 }, duration: 1.6, ease: 'sine.inOut' }] },
+    ];
+
+    // ── sound ───────────────────────────────────────────────────────────
+    const clack = (at, inTunnel, soft) => ({
+      type: 'audio', at, volume: (inTunnel ? 1.7 : 1.15) * (soft ? 0.7 : 1),
+      sfx: { voices: [
+        { wave: 'noise', filter: { type: 'bandpass', freq: inTunnel ? 1500 : 800, q: 1.4 }, envelope: 'fall', gain: 0.7 },
+        { wave: 'sine', freq: [150, 70], envelope: 'fall', gain: 0.9 },
+      ] },
+      duration: 0.14,
+    });
+    const bell = BELL.map((t, i) => {
+      const d = t - CROSS_PASS, after = d > 0;
+      const f = after ? 0.93 : 1;                                   // a touch of Doppler once it has passed
+      const pan = Math.max(-0.7, Math.min(0.7, -d * 0.6));          // right → left, like the picture
+      return { type: 'audio', name: `bell${i}`, at: t, duration: 0.42, volume: 0.9 * Math.max(0.18, 1 - Math.abs(d) / 1.5),
+        sfx: { voices: [
+          { wave: 'triangle', freq: 760 * f, envelope: 'bell', gain: 0.55, pan },
+          { wave: 'sine', freq: 1910 * f, envelope: 'fall', gain: 0.22, pan },
+        ] } };
+    });
+    const sound = [
+      ...bell,
+      ...JOINTS.flatMap(t => [clack(t, t < TUNNEL_EXIT + 0.4, false), clack(t + 0.13, t < TUNNEL_EXIT + 0.4, true)]),
+      // tunnel roar, then the open-air rumble
+      { type: 'audio', name: 'tunnelRoar', at: 0, duration: 2.4, volume: 1.1,
+        sfx: { voices: [{ wave: 'noise', filter: { type: 'lowpass', freq: 1400 }, envelope: 'hold' }, { wave: 'noise', filter: { type: 'bandpass', freq: 300, q: 0.8 }, envelope: 'hold' }] },
+        keyframes: [{ at: 1.3, to: { volume: 0 }, duration: 1.1, ease: 'sine.in' }] },
+      { type: 'audio', name: 'rumbleA', at: 1.2, duration: 10, volume: 0,
+        sfx: { voices: [{ wave: 'noise', filter: { type: 'lowpass', freq: 380 }, envelope: 'hold' }] },
+        keyframes: [{ at: 0, to: { volume: 0.85 }, duration: 0.9, ease: 'sine.out' }, { at: 9.2, to: { volume: 0 }, duration: 0.8, ease: 'none' }] },
+      { type: 'audio', name: 'rumbleB', at: 10.4, duration: T - 10.4, volume: 0,
+        sfx: { voices: [{ wave: 'noise', filter: { type: 'lowpass', freq: 380 }, envelope: 'hold' }] },
+        keyframes: [{ at: 0, to: { volume: 0.85 }, duration: 0.8, ease: 'none' }, { at: -0.8, to: { volume: 0.3 }, duration: 0.8, ease: 'sine.in' }] },
+      // the tune: 60 bpm so every beat lands on a rail joint; IV - V - I and a long held I
+      { type: 'audio', name: 'music', at: JOINTS[1], volume: 0.95,
+        keyframes: [{ at: -1.4, to: { volume: 0.2 }, duration: 1.4, ease: 'sine.in' }],
+        music: {
+          bpm: 60, reverb: 0.45, seed: 3, humanize: 0.008,
+          tracks: [
+            { inst: 'pad', vol: [[0, 0.2], [3, 0.55]], notes: '[f2 c3 e3 a3]:4 [g2 d3 e3 b3]:4 [c3 g3 d4 e4]:4' },
+            { inst: 'bass', vol: 0.35, notes: 'f2:4 g2:4 c2:4' },
+            { inst: 'musicbox', vol: 0.5, pan: 0.15, notes: '_:1 e5:1 a5:2 | g5:2 d5:2 | e5:1 _:1 g5:2' },
+          ],
+        } },
+    ];
+
+    const sequences = [
+      { type: 'shape', shape: 'rect', name: 'bg', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: INK } },
+      outside,
+      ...cabin,
+      ...words,
+      ...sound,
+      // open from black
+      { type: 'shape', shape: 'rect', name: 'fadeIn', width: W, height: H, duration: 1.2, initial: { x: W / 2, y: H / 2, fillColor: '#000000' },
+        keyframes: [{ at: 0, to: { alpha: 0 }, duration: 1.1, ease: 'sine.inOut' }] },
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: T, frameRate: FPS,
+        poster: 11.8,
+        background: INK,
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

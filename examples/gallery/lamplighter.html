@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LAMPLIGHTER</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />
+  <style>
+    body { background: #0b0b10; margin: 0; padding: 16px; min-height: 100vh; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+    .stage { position: relative; width: min(960px, 100%); }
+    /* pixel art: the browser must not smooth the canvas when it scales it to the page */
+    .stage canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+  </style>
+  <script type="application/json" id="piece-meta">{ "title": "LAMPLIGHTER", "subtitle": "The attract mode of a 1988 cartridge that never existed: maker splash, title screen, demo play, title again, with its own chiptune", "tags": ["pixel art", "retro game", "chiptune", "title screen", "8-bit"], "width": 1280, "height": 720, "duration": 13.6, "model": "opus" }</script>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>
+  </div>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":  "../../dist/present.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js" />
+
+  <script type="module">
+    import { Movie, random } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    // ── The machine: a 320 x 180 game screen, 1 game pixel = 4 screen pixels, 4 colours ─────────────
+    const W = 1280, H = 720, FPS = 30, DURATION = 13.6;
+    const S = 4;                                   // screen px per game px
+    const INK = '#14122b', VIO = '#4a3f7a', AMB = '#ffb547', CRM = '#f5ead0';
+    const BEAT = 60 / 150, BAR = 4 * BEAT;         // 150 bpm: beat 0.4 s, bar 1.6 s
+    const T_TITLE = BAR, T_DEMO = 3 * BAR, T_BACK = 7 * BAR;   // cuts on bar lines: 1.6, 4.8, 11.2
+    const fr = n => n / FPS;                       // frames -> seconds
+
+    // ── Baking pixel art: draw at game resolution, upscale with no smoothing, use at scale 1 ──────
+    const assets = [];
+    let bakeId = 0;
+    function bake(w, h, draw, name = 'px' + (bakeId++)) {
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      draw(c.getContext('2d'));
+      const big = document.createElement('canvas'); big.width = w * S; big.height = h * S;
+      const b = big.getContext('2d'); b.imageSmoothingEnabled = false; b.drawImage(c, 0, 0, w * S, h * S);
+      assets.push({ name, src: big.toDataURL('image/png') });
+      return { name, w, h };
+    }
+    // a sprite with a 1 px ink outline (how 8-bit sprites stay readable over busy backgrounds); 1 px larger on every side
+    function bakeOutlined(w, h, draw) {
+      return bake(w + 2, h + 2, g => {
+        g.save(); g.translate(1, 1); draw(g); g.restore();
+        const d = g.getImageData(0, 0, w + 2, h + 2).data, on = (x, y) => x >= 0 && y >= 0 && x < w + 2 && y < h + 2 && d[(y * (w + 2) + x) * 4 + 3] > 0;
+        for (let y = 0; y < h + 2; y++) for (let x = 0; x < w + 2; x++) if (!on(x, y) && (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1))) px(g, x, y, INK);
+      });
+    }
+    const px = (g, x, y, col, w = 1, h = 1) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+    const MAP = { k: INK, v: VIO, a: AMB, c: CRM };
+    function rows(g, list, ox = 0, oy = 0, map = MAP) {
+      list.forEach((r, y) => [...r].forEach((ch, x) => { if (map[ch]) px(g, ox + x, oy + y, map[ch]); }));
+    }
+    // an image layer at game-pixel coordinates
+    const img = (a, gx, gy, more = {}) => ({ type: 'image', asset: a.name, ...more, initial: { x: gx * S, y: gy * S, ...(more.initial || {}) } });
+
+    // ── A 5x7 bitmap font (variable width for punctuation) ──────────────────────────────────────
+    const FONT = {
+      A: ['.###.','#...#','#...#','#####','#...#','#...#','#...#'], B: ['####.','#...#','#...#','####.','#...#','#...#','####.'],
+      C: ['.###.','#...#','#....','#....','#....','#...#','.###.'], D: ['####.','#...#','#...#','#...#','#...#','#...#','####.'],
+      E: ['#####','#....','#....','####.','#....','#....','#####'], F: ['#####','#....','#....','####.','#....','#....','#....'],
+      G: ['.###.','#...#','#....','#.###','#...#','#...#','.####'], H: ['#...#','#...#','#...#','#####','#...#','#...#','#...#'],
+      I: ['.###.','..#..','..#..','..#..','..#..','..#..','.###.'], J: ['..###','...#.','...#.','...#.','...#.','#..#.','.##..'],
+      K: ['#...#','#..#.','#.#..','##...','#.#..','#..#.','#...#'], L: ['#....','#....','#....','#....','#....','#....','#####'],
+      M: ['#...#','##.##','#.#.#','#.#.#','#...#','#...#','#...#'], N: ['#...#','#...#','##..#','#.#.#','#..##','#...#','#...#'],
+      O: ['.###.','#...#','#...#','#...#','#...#','#...#','.###.'], P: ['####.','#...#','#...#','####.','#....','#....','#....'],
+      Q: ['.###.','#...#','#...#','#...#','#.#.#','#..#.','.##.#'], R: ['####.','#...#','#...#','####.','#.#..','#..#.','#...#'],
+      S: ['.####','#....','#....','.###.','....#','....#','####.'], T: ['#####','..#..','..#..','..#..','..#..','..#..','..#..'],
+      U: ['#...#','#...#','#...#','#...#','#...#','#...#','.###.'], V: ['#...#','#...#','#...#','#...#','#...#','.#.#.','..#..'],
+      W: ['#...#','#...#','#...#','#.#.#','#.#.#','#.#.#','.#.#.'], X: ['#...#','#...#','.#.#.','..#..','.#.#.','#...#','#...#'],
+      Y: ['#...#','#...#','.#.#.','..#..','..#..','..#..','..#..'], Z: ['#####','....#','...#.','..#..','.#...','#....','#####'],
+      0: ['.###.','#...#','#..##','#.#.#','##..#','#...#','.###.'], 1: ['..#..','.##..','..#..','..#..','..#..','..#..','.###.'],
+      2: ['.###.','#...#','....#','...#.','..#..','.#...','#####'], 3: ['####.','....#','....#','.###.','....#','....#','####.'],
+      4: ['...#.','..##.','.#.#.','#..#.','#####','...#.','...#.'], 5: ['#####','#....','####.','....#','....#','#...#','.###.'],
+      6: ['.###.','#....','#....','####.','#...#','#...#','.###.'], 7: ['#####','....#','...#.','..#..','.#...','.#...','.#...'],
+      8: ['.###.','#...#','#...#','.###.','#...#','#...#','.###.'], 9: ['.###.','#...#','#...#','.####','....#','....#','.###.'],
+      '©': ['.#####.','#.....#','#.###.#','#.#...#','#.###.#','#.....#','.#####.'],
+      '/': ['....#','....#','...#.','..#..','.#...','#....','#....'], '-': ['....','....','....','####','....','....','....'],
+      ' ': ['...','...','...','...','...','...','...'], '.': ['..','..','..','..','..','##','##'],
+    };
+    const glyphW = ch => FONT[ch][0].length;
+    const textW = (str, sc = 1) => [...str].reduce((s, ch) => s + (glyphW(ch) + 1) * sc, 0) - sc;
+    function drawText(g, str, x, y, colFn, sc = 1) {
+      for (const ch of str) {
+        FONT[ch].forEach((r, gy) => [...r].forEach((p, gx) => { if (p === '#') px(g, x + gx * sc, y + gy * sc, typeof colFn === 'function' ? colFn(gy) : colFn, sc, sc); }));
+        x += (glyphW(ch) + 1) * sc;
+      }
+    }
+    const textImg = (str, col, sc = 1) => bake(textW(str, sc), 7 * sc, g => drawText(g, str, 0, 0, col, sc));
+
+    // Japanese at 1 bit: a system gothic drawn small, then thresholded (no anti-aliasing survives)
+    function jpImg(str, size, col, gap = 1) {
+      const font = `700 ${size}px "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif`;
+      const m = document.createElement('canvas').getContext('2d'); m.font = font;
+      const widths = [...str].map(ch => Math.ceil(m.measureText(ch).width));
+      const w = widths.reduce((s, v) => s + v + gap, 0) - gap + 2, h = size + 4;
+      const t = document.createElement('canvas'); t.width = w; t.height = h;
+      const tg = t.getContext('2d'); tg.font = font; tg.fillStyle = '#fff'; tg.textBaseline = 'top';
+      let x = 1; [...str].forEach((ch, i) => { tg.fillText(ch, x, 2); x += widths[i] + gap; });
+      const d = tg.getImageData(0, 0, w, h).data;
+      return bake(w, h, g => { for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3] > 120) px(g, x, y, col); });
+    }
+
+    // ── Art ─────────────────────────────────────────────────────────────────────────────────────
+    const moon = bake(29, 29, g => {
+      for (let y = 0; y < 29; y++) for (let x = 0; x < 29; x++) {
+        const d = Math.hypot(x - 14, y - 14);
+        if (d <= 14) px(g, x, y, CRM);
+      }
+      [[8, 9, 3], [17, 17, 4], [19, 7, 2], [9, 20, 2]].forEach(([cx, cy, r]) => {
+        for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) if (Math.hypot(x, y) <= r - 0.3 && (x + y + 40) % 2 === 0) px(g, cx + x, cy + y, VIO);
+      });
+    });
+    const starField = (w, h, n, seed, avoid = () => false) => bake(w, h, g => {
+      const r = random(seed);
+      for (let i = 0; i < n; i++) { const x = Math.floor(r() * w), y = Math.floor(r() * h); if (!avoid(x, y)) px(g, x, y, r() < 0.3 ? AMB : CRM); }
+    });
+    const twinkle = bake(5, 5, g => rows(g, ['..c..', '..c..', 'cc.cc', '..c..', '..c..']));
+
+    // a lantern head, 7 x 8: lit or not
+    const headRows = lit => ['...v...', '..vvv..', '.vvvvv.', lit ? '.vacav.' : '.vkkkv.', lit ? '.vaaav.' : '.vkkkv.', lit ? '.vaaav.' : '.vkkkv.', '.vvvvv.', '..vvv..'];
+    // dithered halo (light drawn as pixels: dense near the lamp, sparse farther out)
+    const halo = (r0, r1, r2) => bake(2 * r2 + 1, 2 * r2 + 1, g => {
+      for (let y = -r2; y <= r2; y++) for (let x = -r2; x <= r2; x++) {
+        const d = Math.hypot(x, y);
+        if (d < r0 || d > r2) continue;
+        if (d < r1 ? (x + y) % 2 === 0 : (x % 2 === 0 && y % 2 === 0 && (x + y) % 4 === 0)) px(g, x + r2, y + r2, AMB);
+      }
+    });
+
+    // the street lamp of the demo: head + short post
+    const POST = 18;
+    const lampArt = lit => bakeOutlined(7, 8 + POST + 2, g => {
+      rows(g, headRows(lit));
+      for (let y = 8; y < 8 + POST; y++) { px(g, 3, y, VIO); }
+      px(g, 2, 8 + POST, VIO, 3, 1); px(g, 1, 9 + POST, VIO, 5, 1);
+    });
+    const lampOff = lampArt(false), lampOn = lampArt(true), lampHalo = halo(5, 9, 13);
+
+    // the big street lamp of the title screen (drawn at 2 x 2 game pixels per art pixel)
+    const BIGLAMP = [
+      '......v......', '.....vvv.....', '...vvvvvvv...', '..vvvvvvvvv..', '...v.....v...',
+      '...vGGGGGv...', '...vGGHGGv...', '...vGHHHGv...', '...vGGHGGv...', '...vGGGGGv...',
+      '..vvvvvvvvv..', '....vvvvv....', '.....vvv.....', '.v...vcv...v.', '..vvvvcvvvv..', '.....vcv.....',
+    ];
+    const bigLamp = lit => bake(26, 2 * (BIGLAMP.length + 24 + 3), g => {
+      const map = { v: VIO, c: CRM, G: lit ? AMB : INK, H: lit ? CRM : INK };
+      BIGLAMP.forEach((r, y) => [...r].forEach((ch, x) => { if (map[ch]) px(g, x * 2, y * 2, map[ch], 2, 2); }));
+      const y0 = BIGLAMP.length * 2;
+      for (let y = 0; y < 48; y++) { px(g, 10, y0 + y, VIO, 6, 1); px(g, 12, y0 + y, CRM, 1, 1); }
+      px(g, 8, y0 + 48, VIO, 10, 2); px(g, 6, y0 + 50, VIO, 14, 4);
+    });
+    const bigOff = bigLamp(false), bigOn = bigLamp(true), bigHalo = halo(9, 16, 26);
+
+    // title city: a band of rooftops with lit windows
+    const titleCityArt = litP => bake(320, 44, g => {
+      const r = random(7);
+      let x = 0;
+      while (x < 320) {
+        const bw = 18 + Math.floor(r() * 26);
+        const top = ((x <= 270 && x + bw > 270) || (x <= 244 && x + bw > 244)) ? 5 : 4 + Math.floor(r() * 14);   // the lamp and the hero stand on these two
+        px(g, x, top, VIO, bw, 44 - top);
+        px(g, x, top, INK, 1, 44 - top);                                  // seam between buildings
+        for (let wy = top + 4; wy < 40; wy += 6) for (let wx = x + 3; wx < x + bw - 3; wx += 5) {
+          const underCredit = wx < 140 && wy > 18 && wy < 34;           // keep the credit line on plain violet
+          if (r() < litP && !underCredit) px(g, wx, wy, AMB, 2, 3);
+        }
+        if (r() < 0.5) px(g, x + 4 + Math.floor(r() * (bw - 10)), top - 5, VIO, 3, 5); // chimney
+        x += bw;
+      }
+    });
+    const titleCity = titleCityArt(0.2), titleCityLit = titleCityArt(0.55);
+
+    // demo: far skyline (dithered, slow) and near rooftops (solid, fast)
+    const FAR_W = 420;
+    const farCity = bake(FAR_W, 90, g => {
+      const r = random(21);
+      let x = 0;
+      while (x < FAR_W) {
+        const bw = 14 + Math.floor(r() * 22), top = Math.floor(r() * 34);
+        for (let y = top; y < 90; y++) for (let xx = x; xx < x + bw; xx++) if (y === top || (xx % 2 === 0 && y % 2 === 0)) px(g, xx, y, VIO);
+        for (let wy = top + 5; wy < 80; wy += 7) for (let wx = x + 2; wx < x + bw - 2; wx += 4) if (r() < 0.08) px(g, wx, wy, AMB);
+        if (r() < 0.3) px(g, x + Math.floor(bw / 2), top - 6, VIO, 1, 6);       // antenna
+        x += bw + Math.floor(r() * 3);
+      }
+    });
+
+    // demo choreography (frames of the demo, 0..191): player runs at 2 game px / frame
+    const NF = Math.round((T_BACK - T_DEMO) * FPS);       // 192
+    const SPEED = 2, HERO_X = 96, ROOF = 136;
+    const LAMP_F = [24, 60, 120, 168];                     // demo frames where a lamp is lit (on beats)
+    const JUMP_F = [84, 144], AIR = 18, JUMP_H = 22;
+    const lampWX = f => HERO_X + 17 + SPEED * f;           // the pole tip (sprite x 17) meets the lamp's centre
+    const heroWX = f => HERO_X + 6 + SPEED * f;            // the hero's feet
+    const GAPS = [JUMP_F[0]].map(f => [heroWX(f + 4), heroWX(f + 14)]);   // jump 1 clears an alley, jump 2 a bat
+    const NEAR_W = 720;
+    const inGap = x => GAPS.some(([a, b]) => x >= a && x < b);
+    const nearCity = bake(NEAR_W, 180 - ROOF + 12, g => {
+      const r = random(5), top = 12;                       // 12 px of headroom for chimneys and tanks
+      let x = 0;
+      const H2 = 180 - ROOF;
+      while (x < NEAR_W) {
+        let bw = 36 + Math.floor(r() * 40);
+        // a building never straddles a gap: it ends at the gap
+        for (const [a] of GAPS) if (x < a && x + bw > a) bw = a - x;
+        if (inGap(x)) { x++; continue; }
+        px(g, x, top, VIO, bw, H2);
+        px(g, x, top, CRM, bw, 1);                          // roof edge catches the moonlight
+        px(g, x, top + 1, INK, 1, H2);                      // seam
+        const style = Math.floor(r() * 4), lit = 0.12 + r() * 0.3;
+        if (style === 0) { for (let wy = top + 7; wy < top + H2 - 3; wy += 9) for (let wx = x + 4; wx < x + bw - 4; wx += 7) px(g, wx, wy, r() < lit ? AMB : INK, 3, 4); }
+        else if (style === 1) { for (let wy = top + 6; wy < top + H2 - 8; wy += 12) for (let wx = x + 3; wx < x + bw - 3; wx += 5) px(g, wx, wy, r() < lit ? AMB : INK, 2, 8); }
+        else if (style === 2) { for (let wy = top + 8; wy < top + H2 - 2; wy += 8) { px(g, x + 3, wy, INK, bw - 6, 2); for (let wx = x + 4; wx < x + bw - 6; wx += 4) if (r() < lit) px(g, wx, wy, AMB, 3, 2); } }
+        else { px(g, x + 4, top + 5, INK, bw - 8, 3); for (let wx = x + 5; wx < x + bw - 6; wx += 2) if ((wx + x) % 4 === 1) px(g, wx, top + 6, AMB, 1, 1); }  // a dark shopfront sign
+        // roof furniture, kept clear of the lamps
+        const fx = x + 6 + Math.floor(r() * Math.max(1, bw - 16));
+        const nearLamp = LAMP_F.some(f => Math.abs(lampWX(f) - fx) < 14);
+        if (!nearLamp && bw > 24) {
+          const kind = r();
+          if (kind < 0.4) { px(g, fx, top - 7, VIO, 4, 7); px(g, fx - 1, top - 8, VIO, 6, 1); }                  // chimney
+          else if (kind < 0.7) { px(g, fx, top - 10, VIO, 8, 6); px(g, fx + 1, top - 4, VIO, 1, 4); px(g, fx + 6, top - 4, VIO, 1, 4); px(g, fx, top - 10, CRM, 8, 1); } // water tank
+          else { px(g, fx + 2, top - 11, VIO, 1, 11); px(g, fx, top - 9, VIO, 5, 1); px(g, fx + 1, top - 6, VIO, 3, 1); } // antenna
+        }
+        x += bw;
+      }
+    });
+
+    // the hero: a lamplighter in a cap and a long coat, scarf in the wind, a lit pole held high (20 x 23)
+    const BODY = [
+      '.................a..', '................aca.', '.................a..', '................v...',
+      '......vvv.......v...', '.....vvvvv.....v....', '....vvvvvvvv...v....', '....vccccc....v.....',
+      '....vcccck....v.....', '.....cccc....v......', '..vvvvvvv....v......', '...v.ccccccccv......',
+      '....cccccccc........', '...ccccccc..........', '...vvvvvvv..........', '...ccccccc..........',
+      '....cccccc..........', '....ccccc...........',
+    ];
+    const LEGS = [
+      ['....vv..vv..', '...vv....vv.', '..vv......v.', '.vv.......v.', '.cc.......cc'],
+      ['....vvvv....', '....v..vv...', '....v...vv..', '....v...cc..', '...cc.......'],
+      ['....vv.vv...', '...vv...vv..', '...v.....vv.', '..vv......v.', '..cc......cc'],
+      ['....vvvv....', '.....vv.v...', '.....v..v...', '....vv..cc..', '....cc......'],
+    ];
+    const heroFrame = (legs, bob) => bakeOutlined(20, 23, g => { rows(g, BODY, 0, bob); rows(g, legs, 0, 18); });
+    const runFrames = LEGS.map((l, i) => heroFrame(l, i % 2 ? 0 : 1));
+    const jumpFrame = heroFrame(['...vvvvvv...', '..vv....vv..', '..cc.....cc.', '............', '............'], 0);
+
+    // the title-screen hero: standing, the short pole replaced by a long one drawn as a pixel line up to the lamp
+    const standHero = bakeOutlined(20, 23, g => { rows(g, BODY.map(r => r.slice(0, 12) + '........'), 0, 0); rows(g, ['....vvvv....', '....v..v....', '....v..v....', '....v..v....', '...cc..cc...'], 0, 18); });
+    const HX = 236, HY = 141 - 23;                 // art top-left: feet on the roof at y 141
+    const pole = (x1, y1) => bake(320, 180, g => {
+      let x0 = HX + 11, y0 = HY + 11; const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1; let err = dx + dy;
+      for (;;) { px(g, x0, y0, VIO); if (x0 === x1 && y0 === y1) break; const e2 = 2 * err; if (e2 >= dy) { err += dy; x0 += sx; } if (e2 <= dx) { err += dx; y0 += sy; } }
+      rows(g, ['.a.', 'aca', '.a.'], x1 - 1, y1 - 2);
+    });
+    const poleLow = pole(250, 74), poleUp = pole(264, 75);
+
+    const SPARK = [
+      ['.........', '.........', '.........', '....c....', '...c.c...', '....c....', '.........', '.........', '.........'],
+      ['.........', '....a....', '....a....', '....c....', 'aac...caa', '....c....', '....a....', '....a....', '.........'],
+      ['a.......a', '.a.....a.', '..a...a..', '.........', '.........', '.........', '..a...a..', '.a.....a.', 'a.......a'],
+      ['c.......c', '.........', '.........', '.........', '.........', '.........', '.........', '.........', 'c.......c'],
+    ].map(r => bake(9, 9, g => rows(g, r)));
+
+    const cloudArt = list => bakeOutlined(list[0].length, list.length, g => list.forEach((r, y) => [...r].forEach((ch, x) => { if (ch === 'v' && (y < list.length - 1 || (x + y) % 2 === 0)) px(g, x, y, VIO); })));
+    // a cloud: pixel discs on a flat base, the bottom rows dithered
+    const cloud = (w, h, seed) => bakeOutlined(w, h, g => {
+      const r = random(seed), puffs = [];
+      for (let x = 5; x < w - 5; x += 5 + Math.floor(r() * 4)) { const mid = 1 - Math.abs(x / w - 0.5) * 1.6, rr = 2 + Math.round(mid * (h - 3) * (0.6 + 0.4 * r())); puffs.push([x, h - 1 - rr * 0.7, rr]); }
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const inside = puffs.some(([cx, cy, rr]) => Math.hypot(x - cx, (y - cy) * 1.3) <= rr) && y < h - 1 && x > 0 && x < w - 1;
+        if (inside && (y < h - 3 || (x + y) % 2 === 0)) px(g, x, y, VIO);
+      }
+    });
+    const cloudA = cloud(46, 12, 4), cloudB = cloud(30, 9, 9);
+    const BAT = [
+      ['c...........c', 'cc.........cc', '.cc..c.c..cc.', '..cccacaccc..', '....ccccc....', '.....c.c.....'],
+      ['.............', '.....c.c.....', '....cacac....', '..ccccccccc..', '.ccc.ccc.ccc.', 'cc.........cc'],
+    ].map(r => bakeOutlined(13, 6, g => rows(g, r)));
+    const lanternArt = lit => bake(21, 24, g => headRows(lit).forEach((r, y) => [...r].forEach((ch, x) => { if (MAP[ch]) px(g, x * 3, y * 3, MAP[ch], 3, 3); })));
+    const lanternOff = lanternArt(false), lanternOn = lanternArt(true), splashHalo = halo(12, 18, 26);
+    const logoStr = 'LAMPLIGHTER', LS = 3;
+    const logo = bake(textW(logoStr, LS) + 2, 7 * LS + 2, g => {
+      drawText(g, logoStr, 2, 2, VIO, LS);                                    // block shade, 2 px down-right
+      drawText(g, logoStr, 1, 1, VIO, LS);
+      drawText(g, logoStr, 0, 0, row => row < 2 ? CRM : AMB, LS);              // face: cream band over amber
+    });
+
+    // ── Helpers for stepped motion ──────────────────────────────────────────────────────────────
+    // one `set` per frame: positions only ever land on the game-pixel grid
+    const stepped = (n, fn, startFrame = 0) => {
+      const out = []; let last;
+      for (let f = 0; f < n; f++) { const v = fn(f); const key = JSON.stringify(v); if (key !== last) out.push({ at: fr(startFrame + f), set: v }); last = key; }
+      return out;
+    };
+    // show a layer only on given windows of its own time: [[from, to], ...] seconds
+    const windows = (list) => {
+      const k = list[0][0] > 0 ? [{ at: 0, set: { alpha: 0 } }] : [];
+      for (const [a, b] of list) { k.push({ at: a, set: { alpha: 1 } }); if (b != null) k.push({ at: b, set: { alpha: 0 } }); }
+      return k;
+    };
+    const blink = (from, to, on = BEAT, off = BEAT) => { const w = []; for (let t = from; t < to - 1e-6; t += on + off) w.push([t, Math.min(t + on, to)]); return w; };
+
+    // ── Scene 1: maker splash (0 - 1.6) — centred like a real boot logo ─────────────────────────
+    const maker = textImg('KANTERA SOFT', CRM, 2);
+    const splash = [
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: INK }, duration: T_TITLE },
+      img(splashHalo, 134, 40, { name: 'maker-halo', at: 0.3, duration: 1.1 }),
+      img(lanternOff, 160 - 10, 52, { name: 'maker-lamp-off', at: 0, duration: 0.3 }),
+      img(lanternOn, 160 - 10, 52, { name: 'maker-lamp', at: 0.3, duration: 1.1 }),
+      img(maker, 160 - Math.floor(maker.w / 2), 92, { name: 'maker', at: 0, duration: 1.4 }),
+    ];
+
+    // ── Scene 2 + 4: title screen (1.6 - end; the demo covers it from 4.8 to 11.2) ──────────────
+    const T = t => t - T_TITLE;                            // movie seconds -> title-layer seconds
+    const LOGO_X = 24, LOGO_Y = 36, LOGO_FROM = -30, LOGO_N = 24;
+    const sub = jpImg('ともしび街道', 14, CRM, 2);
+    const push = textImg('PUSH START', CRM);
+    const credit = textImg('©1988 KANTERA SOFT', CRM);
+    const tlen = DURATION - T_TITLE;
+    const stars = starField(320, 130, 46, 3, (x, y) => (x > 16 && x < 232 && y > 28 && y < 120) || (x > 244 && y > 8 && y < 50));
+    const TW = [[214, 18, 0.3], [40, 14, 0.9], [300, 92, 1.5], [150, 22, 2.1], [236, 112, 0.6]];
+    const title = [
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', at: T_TITLE, initial: { x: 'GW/2', y: 'GH/2', fillColor: INK } },
+      img(stars, 0, 0, { name: 'stars', at: T_TITLE }),
+      ...TW.map(([x, y, ph], i) => img(twinkle, x - 2, y - 2, { name: 'twinkle' + i, at: T_TITLE, keyframes: windows(blink(ph, tlen, 0.2, 1.4)) })),
+      img(moon, 256, 14, { name: 'moon', at: T_TITLE }),
+      img(titleCity, 0, 136, { name: 'city', at: T_TITLE, duration: T_BACK - T_TITLE }),
+      img(titleCityLit, 0, 136, { name: 'city-lit', at: T_BACK }),   // after the demo, the city has its lights on
+      img(bigHalo, 244, 44, { name: 'title-halo', at: T_TITLE, keyframes: windows([[T(2.8), T(2.87)], [T(2.93)]]) }),
+      img(standHero, HX - 1, HY - 1, { name: 'title-hero', at: T_TITLE }),
+      img(poleLow, 0, 0, { name: 'pole-low', at: T_TITLE, keyframes: windows([[0, T(2.6)], [T(3.4)]]) }),
+      img(poleUp, 0, 0, { name: 'pole-up', at: T_TITLE, keyframes: windows([[T(2.6), T(3.4)]]) }),
+      img(bigOff, 257, 55, { name: 'title-lamp-off', at: T_TITLE }),
+      img(bigOn, 257, 55, { name: 'title-lamp', at: T_TITLE, keyframes: windows([[T(2.8), T(2.87)], [T(2.93)]]) }),
+      ...SPARK.map((sp, k) => img(sp, 266, 66, { name: 'title-spark' + k, at: 2.8 + fr(2 * k), duration: fr(2) })),
+      img(logo, LOGO_X, LOGO_FROM, { name: 'logo', at: T_TITLE,
+        keyframes: stepped(LOGO_N + 1, f => ({ y: S * Math.round(LOGO_FROM + (LOGO_Y - LOGO_FROM) * (1 - Math.pow(1 - f / LOGO_N, 5))) })) }),
+      img(sub, LOGO_X, 66, { name: 'subtitle', at: 3.2 }),
+      img(push, LOGO_X, 104, { name: 'push-start', at: 3.6, keyframes: windows([...blink(0, T_BACK + BAR - 3.6), [T_BACK + BAR - 3.6]]) }),
+      img(credit, LOGO_X, 160, { name: 'credit', at: 3.2 }),
+      img(textImg('HI-SCORE', CRM), LOGO_X, 124, { name: 'hi-label', at: T_BACK }),
+      img(textImg('002000', AMB), LOGO_X + textW('HI-SCORE ') , 124, { name: 'hi-score', at: T_BACK }),
+    ];
+
+    // ── Scene 3: demo play (4.8 - 11.2) ─────────────────────────────────────────────────────────
+    const D = T_DEMO, DL = T_BACK - T_DEMO;
+    const heroY = f => {
+      for (const j of JUMP_F) if (f >= j && f < j + AIR) { const p = (f - j) / AIR; return ROOF - 23 - Math.round(JUMP_H * 4 * p * (1 - p)); }
+      return ROOF - 23;
+    };
+    const airborne = f => JUMP_F.some(j => f >= j && f < j + AIR);
+    // which sprite cell is showing on frame f (10 fps run cycle; the jump cell in the air)
+    const cell = f => airborne(f) ? 'jump' : Math.floor(f / 3) % 4;
+    const cellKeys = id => stepped(NF, f => ({ alpha: cell(f) === id ? 1 : 0 }));
+
+    const hud = { score: textImg('SCORE', CRM), lamps: textImg('LAMPS', CRM), time: textImg('TIME', CRM) };
+    const demoLabel = textImg('DEMO PLAY', AMB);
+    const scoreAt = [0, ...LAMP_F.map(fr)];
+    const timeSteps = Math.floor(DL / BEAT);
+
+    const demo = [
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', at: D, duration: DL, initial: { x: 'GW/2', y: 'GH/2', fillColor: INK } },
+      img(starField(320, 100, 30, 11), 0, 0, { name: 'demo-stars', at: D, duration: DL }),
+      img(moon, 196, 34, { name: 'demo-moon', at: D, duration: DL }),
+      img(cloudB, 58, 76, { name: 'cloud-b', at: D, duration: DL, keyframes: stepped(NF, f => ({ x: S * (58 - Math.floor(f / 4)) })) }),
+      img(cloudA, 252, 50, { name: 'cloud-a', at: D, duration: DL, keyframes: stepped(NF, f => ({ x: S * (252 - Math.floor(f / 3)) })) }),
+      img(farCity, 0, 90, { name: 'far-city', at: D, duration: DL, keyframes: stepped(NF, f => ({ x: -S * Math.floor(f / 2) })) }),
+      img(nearCity, 0, ROOF - 12, { name: 'near-city', at: D, duration: DL, keyframes: stepped(NF, f => ({ x: -S * SPEED * f })) }),
+      { type: 'null', name: 'world', at: D, duration: DL, keyframes: stepped(NF, f => ({ x: -S * SPEED * f })) },
+      ...LAMP_F.flatMap((lf, i) => {
+        const x = (lampWX(lf) - 3) * S, y = (ROOF - 8 - POST - 2) * S;   // the art's top-left (the outlined bitmap starts 1 px earlier)
+        return [
+          { type: 'image', asset: lampHalo.name, name: 'halo' + i, parent: 'world', at: D, duration: DL, initial: { x: x + (3 - 13) * S, y: y + (4 - 13) * S }, keyframes: windows([[fr(lf)]]) },
+          { type: 'image', asset: lampOff.name, name: 'lamp' + i, parent: 'world', at: D, duration: DL, initial: { x: x - S, y: y - S }, keyframes: windows([[0, fr(lf)]]) },
+          { type: 'image', asset: lampOn.name, name: 'lamp-lit' + i, parent: 'world', at: D, duration: DL, initial: { x: x - S, y: y - S }, keyframes: windows([[fr(lf)]]) },
+          ...SPARK.map((sp, k) => ({ type: 'image', asset: sp.name, name: `spark${i}-${k}`, parent: 'world', at: D, duration: DL,
+            initial: { x: x + (3 - 4) * S, y: y + (4 - 4) * S }, keyframes: windows([[fr(lf + 2 * k), fr(lf + 2 * k + 2)]]) })),
+        ];
+      }),
+      // the bat flies in from the right and passes under the hero at the top of jump 2
+      { type: 'null', name: 'bat', at: D, duration: DL, keyframes: stepped(NF, f => ({ x: S * (HERO_X + 4 + 3 * (JUMP_F[1] + AIR / 2 - f)), y: S * (ROOF - 14 + (Math.floor(f / 4) % 2)) })) },
+      ...BAT.map((a, i) => ({ type: 'image', asset: a.name, name: 'bat' + i, parent: 'bat', at: D, duration: DL, initial: { x: -S, y: -S }, keyframes: stepped(NF, f => ({ alpha: Math.floor(f / 4) % 2 === i ? 1 : 0 })) })),
+      { type: 'null', name: 'hero', at: D, duration: DL, initial: { x: HERO_X * S }, keyframes: stepped(NF, f => ({ y: S * heroY(f) })) },
+      ...runFrames.map((a, i) => ({ type: 'image', asset: a.name, name: 'run' + i, parent: 'hero', at: D, duration: DL, initial: { x: -S, y: -S }, keyframes: cellKeys(i) })),
+      { type: 'image', asset: jumpFrame.name, name: 'jump', parent: 'hero', at: D, duration: DL, initial: { x: -S, y: -S }, keyframes: cellKeys('jump') },
+      // HUD
+      img(hud.score, 16, 12, { name: 'hud-score', at: D, duration: DL }),
+      ...scoreAt.map((t, i) => img(textImg(String(i * 500).padStart(6, '0'), AMB), 52, 12, { name: 'score' + i, at: D + t, duration: (scoreAt[i + 1] ?? DL) - t })),
+      img(hud.lamps, 128, 12, { name: 'hud-lamps', at: D, duration: DL }),
+      ...scoreAt.map((t, i) => img(textImg(`${i}/4`, AMB), 164, 12, { name: 'lamps' + i, at: D + t, duration: (scoreAt[i + 1] ?? DL) - t })),
+      img(hud.time, 240, 12, { name: 'hud-time', at: D, duration: DL }),
+      ...Array.from({ length: timeSteps }, (_, i) => img(textImg(String(300 - i), AMB), 270, 12, { name: 'time' + i, at: D + i * BEAT, duration: BEAT })),
+      img(demoLabel, 304 - demoLabel.w, 26, { name: 'demo-label', at: D, duration: DL, keyframes: windows(blink(0, DL)) }),
+    ];
+
+    // ── Sound: chiptune at 150 bpm, A minor, ends on A major ──────────────────────────────────
+    const rep = (s, n) => Array(n).fill(s).join(' ');
+    const ARP = { Am: 'a4 c5 e5 a5', F: 'f4 a4 c5 f5', G: 'g4 b4 d5 g5', E: 'e4 g#4 b4 e5', A: 'a4 c#5 e5 a5' };
+    const OCT = { Am: 'a2 a3', F: 'f2 f3', G: 'g2 g3', E: 'e2 e3' };
+    const LEAD = [
+      '_:4',
+      'e5:1 a5:1 c6:1.5 a5:0.5 | b5:1 g5:1 g#5:1.5 e5:0.5',
+      'a5:0.5 a5:0.5 e5:0.5 a5:0.5 c6:1 b5:0.5 a5:0.5 | c6:0.5 c6:0.5 a5:0.5 f5:0.5 a5:1 g5:0.5 f5:0.5',
+      'g5:0.5 b5:0.5 d6:0.5 b5:0.5 g5:1 a5:0.5 b5:0.5 | g#5:1 b5:0.5 e6:0.5 d6:1 b5:1',
+      'a5:0.5 c#6:0.5 e6:3' ].join(' | ');
+    const BASS = [
+      '_:4',
+      rep(OCT.Am, 2), rep(OCT.F, 2), rep(OCT.G, 2), rep(OCT.E, 2),
+      rep(OCT.Am, 4), rep(OCT.F, 4), rep(OCT.G, 4), rep(OCT.E, 4),
+      'a2:1 a1:3' ].join(' | ');
+    // the same note text, read into single square / triangle tones (the cartridge's two pulse + one triangle channel)
+    const PC = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
+    function parseNotes(str, step = 1) {
+      let beat = 0; const out = [];
+      for (const tok of str.split(/\s+/).filter(t => t && t !== '|')) {
+        const [n, l] = tok.split(':'); const len = l ? +l : step;
+        if (n !== '_') { const m = n.match(/^([a-g])(#|b)?(\d)$/); out.push({ beat, len, midi: 12 * (+m[3] + 1) + PC[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0) }); }
+        beat += len;
+      }
+      return out;
+    }
+    const hz = midi => +(440 * Math.pow(2, (midi - 69) / 12)).toFixed(2);
+    // every note is held for `gate` of its length; the last one rings out to the end of the movie
+    const chip = (str, step, wave, gate, volume, cutoff, name) => parseNotes(str, step).map((n, i, all) => {
+      const at = +(n.beat * BEAT).toFixed(4), last = i === all.length - 1;
+      return { type: 'audio', name: `${name}${i}`, at, volume,
+        duration: +(last ? DURATION - at - 0.05 : Math.max(0.06, n.len * BEAT * gate)).toFixed(4),
+        sfx: { voices: [{ wave, freq: hz(n.midi), envelope: last ? 'fall' : 'hold', filter: { type: 'lowpass', freq: cutoff } }] } };
+    });
+    const music = {
+      bpm: 150, reverb: 0.12, humanize: 0, tail: 1.5,
+      tracks: [
+        { inst: 'bell', vol: 0.7, notes: 'a5:0.25 c6:0.25 e6:0.25 a6:3.25 | _:28' },
+        { inst: 'pluck', vol: 0.55, tone: 1, legato: 0.5, step: 0.25, reverb: 0.1, notes: [
+          '_:4',
+          rep(ARP.Am, 2), rep(ARP.F, 2), rep(ARP.G, 2), rep(ARP.E, 2),
+          rep(ARP.Am, 4), rep(ARP.F, 4), rep(ARP.G, 4), rep(ARP.E, 4),
+          ARP.A, '[a4 c#5 e5]:3' ].join(' | ') },
+        { inst: 'bass', vol: 0.45, legato: 0.6, step: 0.5, reverb: 0, notes: BASS },
+      ],
+      drums: [
+        { from: 12, to: 24, kick: 'x.......x.x.....', snare: '....x.......x...', hat: 'x.xxx.xxx.xxx.xx' },
+        { from: 24, to: 28, kick: 'x.......x.......', snare: '....x.......x.xx', hat: 'x.xxx.xxx.xxx...' },
+        { from: 28, to: 29, kick: 'x...', crash: 'x...' },
+      ],
+    };
+    const square = (f0, f1, env = 'fall') => ({ voices: [{ wave: 'square', freq: [f0, f1], filter: { type: 'lowpass', freq: 5000 }, envelope: env }] });
+    const sound = [
+      { type: 'audio', name: 'music', at: 0, volume: 0.7, music },
+      ...chip(LEAD, 1, 'square', 0.85, 0.5, 3200, 'pulse'),
+      ...chip(BASS, 0.5, 'triangle', 0.7, 0.9, 2000, 'tri'),
+      { type: 'audio', name: 'logo-thud', at: T_TITLE + fr(LOGO_N), duration: 0.22, volume: 0.7, sfx: square(180, 50) },
+      { type: 'audio', name: 'title-lamp-on', at: 2.8, volume: 0.6, sfx: { preset: 'coin', pitch: -5 } },
+      ...LAMP_F.map((f, i) => ({ type: 'audio', name: 'coin' + i, at: D + fr(f), volume: 0.55, sfx: { preset: 'coin', pitch: i * 2 } })),
+      ...JUMP_F.map((f, i) => ({ type: 'audio', name: 'jump' + i, at: D + fr(f), duration: 0.18, volume: 0.45, sfx: square(260, 900) })),
+    ];
+
+    const sequences = [...title, ...demo, ...splash, ...sound];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 4.5,
+        background: INK,
+        assets,
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

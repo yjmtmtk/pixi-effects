@@ -1,6 +1,7 @@
 // Replace one gallery piece by another everywhere it is written down (or update a piece in place).
 //
 //   node scripts/gallery-swap.mjs <oldId> <new-page.html> [--id newId] [--notes notes.md] [--dry-run] [--no-posters]
+//   node scripts/gallery-swap.mjs --add <new-page.html> [--id newId] [--notes notes.md] [--dry-run] [--no-posters]   add a piece, nothing replaced
 //   node scripts/gallery-swap.mjs --remove <id> [--dry-run]        take a piece out for good (no replacement)
 //
 // What it does: puts the new page into examples/gallery/ (its importmap pointed at the local build), removes the old page, its poster, its notes and
@@ -219,10 +220,68 @@ export async function removePiece(root, { id, dryRun = false, posters = true }) 
   return { changes, review };
 }
 
+/**
+ * Add a new piece to the gallery (nothing is replaced): the page (its importmap on the local build), its notes, its row in MODELS.md, the counts and tallies.
+ * The landing page's cards are a hand-picked strip, so no card is added; the poster and pieces.json are made unless `posters: false`.
+ * @param {string} root the repository root
+ * @param {{ file: string, id?: string, notes?: string | null, dryRun?: boolean, posters?: boolean }} opts
+ * @returns {Promise<{ changes: string[], review: string[] }>}
+ */
+export async function addPiece(root, { file, id, notes = null, dryRun = false, posters = true }) {
+  const g = resolve(root, GALLERY_DIR);
+  id = id ?? basename(file).replace(/\.html$/, '');
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) throw new Error(`the id "${id}" must be lowercase kebab-case`);
+  if (existsSync(join(g, `${id}.html`))) throw new Error(`a piece "${id}" already exists: pick another id (--id), or use gallery-swap with the same id to update it in place`);
+  const raw = readFileSync(file, 'utf8');
+  const meta = checkPage(raw, id);                                      // refuses before anything is changed
+  const changes = [], writes = new Map();
+  const rel = (p) => relative(root, p).split(sep).join('/');
+  const queueWrite = (p, text, why) => { writes.set(p, text); changes.push(`${rel(p)}: ${why}`); };
+  queueWrite(join(g, `${id}.html`), localizeImportmap(raw), 'the new piece');
+  if (notes) queueWrite(join(g, `_notes/${id}.md`), readFileSync(notes, 'utf8'), "the author's notes");
+
+  const counts = modelCounts(root); counts[meta.model]++;
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const tally = MODELS.filter((m) => counts[m] > 0).map((m) => `${m} ${counts[m]}`);
+  const edit = (p, fn, why) => {
+    const full = join(root, p); if (!existsSync(full)) return;
+    const before = writes.get(full) ?? readFileSync(full, 'utf8'), after = fn(before);
+    if (after !== before) queueWrite(full, after, why);
+  };
+  edit(`${GALLERY_DIR}/MODELS.md`, (t) => {
+    const row = `| ${meta.model} | ${meta.title}${meta.subtitle ? ` — ${meta.subtitle}` : ''} | ${meta.width}×${meta.height} | ${id}.html |`;
+    const lines = t.split('\n'), last = lines.map((l, i) => (/^\| \w+ \|.*\.html \|$/.test(l) ? i : -1)).filter((i) => i >= 0).pop();
+    if (last !== undefined) lines.splice(last + 1, 0, row);
+    return lines.join('\n').replace(/Counts: [^\n]*\(\d+ pieces\)\./, `Counts: ${MODELS.map((m) => `${m} ${counts[m]}`).join(', ')} (${total} pieces).`);
+  }, 'the row and the counts');
+  edit('index.html', (t) => t.replace(/(<span>written by )[^\n]*?(<\/span><span>\+)/, `$1${tally.map((x) => x.replace(/^(\S+) (\d+)$/, '<b>$1 $2</b>')).join(' · ')}$2`)
+    .replace(/<span>\d+ pieces<\/span>/, `<span>${total} pieces</span>`)
+    .replace(/(<h2 id="h-gal">)\d+( pieces)/, `$1${total}$2`), 'the tally and the heading');
+  edit('site/landing/FACTS.md', (t) => t.replace(/\(fable \d+[^)]*\)/, `(${MODELS.map((m) => `${m} ${counts[m]}`).join(', ')})`).replace(/Gallery: \d+ complete pieces/, `Gallery: ${total} complete pieces`), 'the model tally and the count');
+
+  if (dryRun) return { changes, review: [] };
+  for (const [p, text] of writes) writeFileSync(p, text);
+  if (posters) {
+    const { makePosters } = await import(pathToFileURL(join(fileURLToPath(new URL('.', import.meta.url)), 'make-posters.mjs')).href);
+    await makePosters({ root, only: [id], log: (m) => changes.push(`poster: ${m}`) });
+    const { buildGallery } = await import(pathToFileURL(join(fileURLToPath(new URL('.', import.meta.url)), 'build-gallery.mjs')).href);
+    const { json } = buildGallery(root); writeFileSync(join(g, 'pieces.json'), json); changes.push(`${GALLERY_DIR}/pieces.json: regenerated`);
+  }
+  return { changes, review: [] };
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = process.argv.slice(2), opt = (n) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : undefined; };
-  const flags = new Set(['--dry-run', '--no-posters']), valued = new Set(['--id', '--notes', '--remove']);
+  const flags = new Set(['--dry-run', '--no-posters']), valued = new Set(['--id', '--notes', '--remove', '--add']);
   const positional = args.filter((a, i) => !a.startsWith('--') && !valued.has(args[i - 1]));
+  if (args.includes('--add')) {
+    try {
+      const file = resolve(opt('--add'));
+      const { changes } = await addPiece(DEFAULT_ROOT, { file, id: opt('--id'), notes: opt('--notes') ? resolve(opt('--notes')) : null, dryRun: args.includes('--dry-run'), posters: !args.includes('--no-posters') });
+      console.log((args.includes('--dry-run') ? 'would change:\n' : 'changed:\n') + changes.map((c) => `  ${c}`).join('\n'));
+    } catch (e) { console.error(`gallery-swap: ${e.message}`); process.exit(1); }
+    process.exit(0);
+  }
   if (args.includes('--remove')) {
     try {
       const { changes, review } = await removePiece(DEFAULT_ROOT, { id: opt('--remove'), dryRun: args.includes('--dry-run') });

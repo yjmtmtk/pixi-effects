@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>sprint-trace</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />
+  <style>
+    body { background: #0a0b0c; margin: 0; padding: 16px; min-height: 100vh; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+    .stage { position: relative; width: min(960px, 100%); }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <script type="application/json" id="piece-meta">{ "title": "Sprint Trace", "subtitle": "A 100 m final in real time, told only with traces and numbers", "tags": ["sports", "data", "infographic", "typography", "counter"], "width": 1280, "height": 720, "duration": 14, "model": "opus" }</script>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>
+  </div>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":  "../../dist/present.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js" />
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 14;
+
+    // ── palette & type ─────────────────────────────────────────────
+    const BG = '#0b0c0e', INK = '#ecebe6', MID = '#80838a', DIM = '#3a3d43', RULE = '#1f2125', ACC = '#ff5a1f';
+    const SANS = '"Helvetica Neue", Helvetica, Arial, sans-serif';
+    const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace';
+
+    // ── geometry ───────────────────────────────────────────────────
+    const START_X = 228, FINISH_X = 1120, PXM = (FINISH_X - START_X) / 100;
+    const LANE_TOP = 202, PITCH = 34;
+    const laneY = (i) => LANE_TOP + PITCH * (i + 0.5);
+    const LANE_BOTTOM = LANE_TOP + PITCH * 8;
+    const X = (m) => START_X + m * PXM;
+    const G_BASE = 648, G_MIN = 8, G_SCALE = 24;      // speed graph (8 - 12.6 m/s): baseline y, px per m/s
+    const GY = (v) => G_BASE - (v - G_MIN) * G_SCALE;
+    const G_TOP = GY(12.9);
+    const GUN = 1.8;
+
+    // ── the field (invented athletes; times include reaction) ─────────
+    const RUNNERS = [
+      { lane: 1, name: 'D. VASQUELL', T: 10.14, r: 0.162, tau: 1.30, k: 0.10 },
+      { lane: 2, name: 'A. OKONTA',   T: 10.03, r: 0.147, tau: 1.22, k: 0.14 },
+      { lane: 3, name: 'J. HALLBERG', T: 9.95,  r: 0.139, tau: 1.28, k: 0.10 },
+      { lane: 4, name: 'K. MARENDI',  T: 9.81,  r: 0.151, tau: 1.18, k: 0.05, win: true },
+      { lane: 5, name: 'T. IWASE',    T: 9.88,  r: 0.128, tau: 1.18, k: 0.50, td: 3.5, rival: true },
+      { lane: 6, name: 'R. TCHALLA',  T: 9.99,  r: 0.144, tau: 1.18, k: 0.16 },
+      { lane: 7, name: 'M. BRENNICK', T: 10.09, r: 0.156, tau: 1.25, k: 0.12 },
+      { lane: 8, name: 'L. SOLANO',   T: 10.22, r: 0.171, tau: 1.35, k: 0.08 },
+    ];
+
+    // velocity model: v = vm(1 - e^(-t/tau)) - k(t - td)+ ; integrate, solve vm for the finish time
+    const DT = 0.001;
+    function run(vm, p) {
+      const pos = [0], vel = [0];
+      let x = 0, t = 0;
+      while (x < 100 && t < 14) {
+        t += DT;
+        const s = t - p.r;
+        const v = s <= 0 ? 0 : vm * (1 - Math.exp(-s / p.tau)) - p.k * Math.max(0, s - (p.td ?? 5.5));
+        x += v * DT; pos.push(x); vel.push(v);
+      }
+      return { pos, vel, finish: t };
+    }
+    for (const p of RUNNERS) {
+      let lo = 9, hi = 15;
+      for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (run(m, p).finish > p.T) lo = m; else hi = m; }
+      const s = run(hi, p);
+      p.pos = (t) => t >= p.T ? 100 : Math.min(100, s.pos[Math.min(s.pos.length - 1, Math.round(t / DT))]);
+      p.vel = (t) => s.vel[Math.min(s.vel.length - 1, Math.round(t / DT))];
+      p.cross = (m) => { const i = s.pos.findIndex(x => x >= m); return (i < 0 ? s.pos.length : i) * DT; };
+      let iv = 0; s.vel.forEach((v, i) => { if (v > s.vel[iv]) iv = i; });
+      p.vmax = s.vel[iv]; p.dmax = s.pos[iv]; p.tmax = iv * DT;
+    }
+    const ranked = [...RUNNERS].sort((a, b) => a.T - b.T);
+    ranked.forEach((p, i) => p.place = i + 1);
+    const WIN = ranked[0];
+    const LAST_T = ranked[ranked.length - 1].T;
+    const SETTLE = GUN + LAST_T + 0.35;                 // all finished: the field steps back
+
+    // sampled keyframes of a value that follows the runner (every 1/15 s, linear in between)
+    const STEP = 1 / 15;
+    function follow(p, prop, fn) {
+      const kf = [];
+      for (let t = 0; t < p.T - 1e-6; t += STEP) {
+        const t2 = Math.min(p.T, t + STEP);
+        kf.push({ at: +t.toFixed(4), to: { [prop]: +fn(p.pos(t2), t2).toFixed(2) }, duration: +(t2 - t).toFixed(4), ease: 'none' });
+      }
+      return kf;
+    }
+
+    const txt = (text, style, initial, extra = {}) => ({ type: 'text', text, style, initial, ...extra });
+    const fadeIn = (at, d = 0.4) => ({ at, from: { alpha: 0 }, to: { alpha: 1 }, duration: d, ease: 'power2.out' });
+
+    const seq = [];
+    seq.push({ type: 'shape', shape: 'rect', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: BG } });
+
+    // ── track: 10 m grid, lane rules, start & finish ───────────────────
+    for (let m = 0; m <= 100; m += 10) {
+      const edge = m === 0 || m === 100;
+      seq.push({ type: 'shape', shape: 'line', name: `grid${m}`, from: [X(m), LANE_TOP], to: [X(m), LANE_BOTTOM], trimEnd: 0,
+        initial: { strokeColor: edge ? INK : RULE, strokeWidth: 1, strokeAlpha: edge ? 0.55 : 1 },
+        keyframes: [{ at: 0.15 + m * 0.004, to: { trimEnd: 1 }, duration: 0.7, ease: 'power3.out' }] });
+      seq.push(txt(String(m), { fontFamily: MONO, fontSize: 11, fill: edge ? INK : MID, letterSpacing: 1 },
+        { x: X(m), y: LANE_TOP - 18, anchorX: 0.5, anchorY: 0.5 },
+        { name: `dist${m}`, keyframes: [fadeIn(0.3 + m * 0.005)] }));
+    }
+    seq.push(txt('M', { fontFamily: MONO, fontSize: 11, fill: MID, letterSpacing: 1 }, { x: X(100) + 22, y: LANE_TOP - 18, anchorX: 0.5, anchorY: 0.5 },
+      { name: 'distUnit', keyframes: [fadeIn(0.8)] }));
+    for (let i = 0; i <= 8; i++) {
+      seq.push({ type: 'shape', shape: 'line', name: `rule${i}`, from: [64, LANE_TOP + PITCH * i], to: [1216, LANE_TOP + PITCH * i], trimEnd: 0,
+        initial: { strokeColor: RULE, strokeWidth: 1 },
+        keyframes: [{ at: 0.05 + i * 0.03, to: { trimEnd: 1 }, duration: 0.9, ease: 'power3.inOut' }] });
+    }
+
+    // ── speed graph frame ─────────────────────────────────────────
+    for (const v of [8, 10, 12]) {
+      seq.push({ type: 'shape', shape: 'line', name: `vgrid${v}`, from: [START_X, GY(v)], to: [FINISH_X, GY(v)], trimEnd: 0,
+        initial: { strokeColor: v === 8 ? DIM : RULE, strokeWidth: 1 },
+        keyframes: [{ at: 0.4 + (v - 8) * 0.03, to: { trimEnd: 1 }, duration: 0.8, ease: 'power3.out' }] });
+      seq.push(txt(String(v), { fontFamily: MONO, fontSize: 11, fill: MID }, { x: START_X - 12, y: GY(v), anchorX: 1, anchorY: 0.5 },
+        { name: `vlab${v}`, keyframes: [fadeIn(0.6 + (v - 8) * 0.03)] }));
+    }
+    seq.push(txt('SPEED  M/S', { fontFamily: MONO, fontSize: 11, fill: MID, letterSpacing: 2 }, { x: 64, y: GY(12), anchorY: 0.5 },
+      { name: 'vtitle', keyframes: [fadeIn(0.7)] }));
+    seq.push(txt('LEADER', { fontFamily: MONO, fontSize: 11, fill: MID, letterSpacing: 2 }, { x: 64, y: LANE_BOTTOM + 22, anchorY: 0.5 },
+      { name: 'splitTitle', keyframes: [fadeIn(0.7)] }));
+
+    // ── each runner: chronophotographic ticks, trace, head, speed curve ─────
+    const order = [...RUNNERS.filter(p => !p.win), WIN];       // the winner is drawn last, on top
+    for (const p of order) {
+      const i = p.lane - 1, y = laneY(i), g = `lane${p.lane}`;
+      const col = p.win ? ACC : INK;
+      seq.push({ type: 'null', name: g, initial: { x: 0, y: 0 },
+        keyframes: p.win ? [] : [{ at: SETTLE, to: { alpha: 0.32 }, duration: 0.8, ease: 'power2.inOut' }] });
+
+      // a tick every 0.2 s of race time: the spacing IS the speed (Marey)
+      for (let t = 0.2; t < p.T; t += 0.2) {
+        const d = p.pos(t);
+        if (d < 0.4) continue;
+        seq.push({ type: 'shape', shape: 'rect', parent: g, name: `${g}-tick${Math.round(t * 5)}`, at: +(GUN + t).toFixed(3),
+          width: p.win ? 2 : 1.5, height: 12,
+          initial: { x: X(d), y, fillColor: col, alpha: p.win ? 0.9 : 0.5, scaleY: 1 },
+          keyframes: [{ at: 0, from: { scaleY: 1.9, alpha: 1 }, to: { scaleY: 1, alpha: p.win ? 0.9 : 0.5 }, duration: 0.5, ease: 'power3.out' }] });
+      }
+      // continuous trace
+      seq.push({ type: 'shape', shape: 'rect', parent: g, name: `${g}-trace`, at: GUN, width: 0, height: p.win ? 2 : 1, anchorX: 0,
+        initial: { x: START_X, y, fillColor: col, alpha: p.win ? 0.9 : 0.35 },
+        keyframes: follow(p, 'width', (d) => d * PXM) });
+      // head
+      seq.push({ type: 'shape', shape: 'circle', parent: g, name: `${g}-head`, at: GUN - 0.75, radius: p.win ? 4.5 : 3.5,
+        initial: { x: START_X, y, fillColor: col },
+        keyframes: [fadeIn(0, 0.3), ...follow(p, 'x', (d) => X(d)).map(k => ({ ...k, at: +(k.at + 0.75).toFixed(4) }))] });
+
+      // speed over distance, revealed under the runner
+      const pts = [];
+      for (let t = p.r; t <= p.T + 1e-6; t += 0.05) pts.push(`${X(p.pos(t)).toFixed(1)} ${GY(Math.max(G_MIN - 1, p.vel(t))).toFixed(1)}`);
+      pts.push(`${X(100).toFixed(1)} ${GY(p.vel(p.T)).toFixed(1)}`);
+      seq.push({ type: 'shape', shape: 'path', parent: g, name: `${g}-speed`, at: GUN, d: 'M ' + pts.join(' L '),
+        initial: { strokeColor: col, strokeWidth: p.win ? 2 : p.rival ? 1.5 : 1, strokeAlpha: p.win ? 1 : p.rival ? 0.85 : 0.22 },
+        mask: { type: 'shape', shape: 'rect', width: 0, height: G_BASE - G_TOP, anchorX: 0,
+          initial: { x: START_X - 2, y: (G_BASE + G_TOP) / 2, fillColor: '#ffffff' },
+          keyframes: follow(p, 'width', (d) => d * PXM + 2) } });
+    }
+
+    // peak speed of the winner and of the rival, marked when each reaches it (stem down into the empty area under the curves)
+    const RIVAL = RUNNERS.find(p => p.rival);
+    for (const p of [RIVAL, WIN]) {
+      const dimLater = (at) => p.win ? [] : [{ at: SETTLE - at, to: { alpha: 0.5 }, duration: 0.8, ease: 'power2.inOut' }];
+      const col = p.win ? ACC : INK, at = +(GUN + p.tmax).toFixed(3), px = X(p.dmax), py = GY(p.vmax), id = `peak${p.lane}`;
+      seq.push({ type: 'shape', shape: 'line', name: `${id}Stem`, at, from: [px, py + 6], to: [px, py + 46], trimEnd: 0,
+        initial: { strokeColor: col, strokeWidth: 1, strokeAlpha: 0.8 }, keyframes: [{ at: 0.05, to: { trimEnd: 1 }, duration: 0.35, ease: 'power2.out' }, ...dimLater(at)] });
+      seq.push({ type: 'shape', shape: 'circle', name: `${id}Dot`, at, radius: 3.5,
+        initial: { x: px, y: py, fillColor: BG, strokeColor: col, strokeWidth: 2 },
+        keyframes: [{ at: 0, from: { scale: 0 }, to: { scale: 1 }, duration: 0.4, ease: 'back.out(3)' }, ...dimLater(at)] });
+      seq.push(txt(`PEAK ${p.vmax.toFixed(2)}  L${p.lane}`, { fontFamily: MONO, fontSize: 11, fill: col, letterSpacing: 1 },
+        { x: px + 7, y: py + 40, anchorY: 0.5 }, { name: `${id}Label`, at: +(at + 0.2).toFixed(3), keyframes: [fadeIn(0, 0.35), ...(p.win ? [] : [{ at: SETTLE - at - 0.2, to: { alpha: 0.5 }, duration: 0.8, ease: 'power2.inOut' }])] }));
+    }
+    // curve ends: who is who
+    for (const p of [RIVAL, WIN]) {
+      seq.push(txt(`L${p.lane}`, { fontFamily: MONO, fontSize: 11, fill: p.win ? ACC : INK, letterSpacing: 1 },
+        { x: X(100) + 10, y: GY(p.vel(p.T)), anchorY: 0.5 }, { name: `curveEnd${p.lane}`, at: +(GUN + p.T).toFixed(3), keyframes: [fadeIn(0, 0.3), ...(p.win ? [] : [{ at: SETTLE - GUN - p.T, to: { alpha: 0.5 }, duration: 0.8, ease: 'power2.inOut' }])] }));
+    }
+
+    // ── leader splits at every 10 m ───────────────────────────────
+    for (let m = 10; m <= 100; m += 10) {
+      const lead = RUNNERS.reduce((a, b) => b.cross(m) < a.cross(m) ? b : a);
+      const tc = m === 100 ? lead.T : lead.cross(m);
+      seq.push(txt(tc.toFixed(2), { fontFamily: MONO, fontSize: 13, fill: lead.win ? ACC : INK },
+        { x: X(m), y: LANE_BOTTOM + 22, anchorX: 0.5, anchorY: 0.5 },
+        { name: `split${m}`, at: +(GUN + tc).toFixed(3), keyframes: [{ at: 0, from: { alpha: 0, y: LANE_BOTTOM + 30 }, to: { alpha: 1, y: LANE_BOTTOM + 22 }, duration: 0.35, ease: 'power3.out' }] }));
+      seq.push(txt(`L${lead.lane}`, { fontFamily: MONO, fontSize: 10, fill: lead.win ? ACC : MID, letterSpacing: 1 },
+        { x: X(m), y: LANE_BOTTOM + 40, anchorX: 0.5, anchorY: 0.5 },
+        { name: `splitLane${m}`, at: +(GUN + tc + 0.08).toFixed(3), keyframes: [fadeIn(0, 0.3)] }));
+    }
+
+    // ── lane labels, finish times ─────────────────────────────────
+    for (const p of RUNNERS) {
+      const i = p.lane - 1, y = laneY(i);
+      seq.push(txt(String(p.lane), { fontFamily: MONO, fontSize: 12, fill: MID }, { x: 64, y, anchorY: 0.5 },
+        { name: `num${p.lane}`, keyframes: [fadeIn(0.25 + i * 0.04)] }));
+      seq.push(txt(p.name, { fontFamily: SANS, fontSize: 13, fill: INK, letterSpacing: 1, fontWeight: p.win ? '600' : '400' }, { x: 88, y, anchorY: 0.5 },
+        { name: `name${p.lane}`, keyframes: [fadeIn(0.3 + i * 0.04),
+          p.win ? { at: GUN + p.T, to: { fill: ACC }, duration: 0.3 } : { at: SETTLE, to: { alpha: 0.4 }, duration: 0.8, ease: 'power2.inOut' }] }));
+      seq.push(txt(p.T.toFixed(2), { fontFamily: MONO, fontSize: 14, fill: p.win ? ACC : INK }, { x: 1140, y, anchorY: 0.5 },
+        { name: `time${p.lane}`, at: +(GUN + p.T).toFixed(3),
+          keyframes: [{ at: 0, from: { alpha: 0, x: 1130 }, to: { alpha: 1, x: 1140 }, duration: 0.3, ease: 'power3.out' },
+            ...(p.win ? [] : [{ at: SETTLE - GUN - p.T, to: { alpha: 0.45 }, duration: 0.8, ease: 'power2.inOut' }])] }));
+      seq.push(txt(String(p.place), { fontFamily: MONO, fontSize: 11, fill: p.win ? ACC : MID }, { x: 1216, y, anchorX: 1, anchorY: 0.5 },
+        { name: `place${p.lane}`, at: +(GUN + p.T + 0.1).toFixed(3), keyframes: [fadeIn(0, 0.3)] }));
+    }
+
+    // finish flash for the winner
+    seq.push({ type: 'shape', shape: 'line', name: 'finishFlash', at: GUN + WIN.T, from: [X(100), LANE_TOP], to: [X(100), LANE_BOTTOM],
+      initial: { strokeColor: ACC, strokeWidth: 2 },
+      keyframes: [{ at: 0, from: { alpha: 1 }, to: { alpha: 0.6 }, duration: 1.2, ease: 'power2.out' }] });
+
+    // ── header: event, status, winner ─────────────────────────────
+    seq.push(txt("MEN'S 100 M  ·  FINAL  ·  WIND +0.4 M/S", { fontFamily: MONO, fontSize: 12, fill: MID, letterSpacing: 3 }, { x: 64, y: 52 },
+      { name: 'event', keyframes: [fadeIn(0.1, 0.5)] }));
+    const statusStyle = { fontFamily: SANS, fontSize: 40, fontWeight: '300', fill: INK, letterSpacing: 0.5 };
+    seq.push(txt('On your marks', statusStyle, { x: 64, y: 76 }, { name: 'marks', at: 0.35, duration: GUN - 0.75 - 0.35, keyframes: [fadeIn(0, 0.3)] }));
+    seq.push(txt('Set', statusStyle, { x: 64, y: 76 }, { name: 'set', at: GUN - 0.75, duration: 0.75 + 0.12,
+      keyframes: [{ at: 0.75, to: { alpha: 0 }, duration: 0.12 }] }));
+    seq.push(txt(WIN.name, { ...statusStyle, fill: ACC }, { x: 64, y: 76 },
+      { name: 'winner', at: GUN + WIN.T + 0.15, keyframes: [{ at: 0, from: { alpha: 0, x: 52 }, to: { alpha: 1, x: 64 }, duration: 0.5, ease: 'power3.out' }] }));
+    const margin = (ranked[1].T - WIN.T).toFixed(2);
+    seq.push(txt(`LANE ${WIN.lane}   REACTION ${WIN.r.toFixed(3)}   MARGIN +${margin}`, { fontFamily: MONO, fontSize: 12, fill: INK, letterSpacing: 2 },
+      { x: 64, y: 132 }, { name: 'winStats', at: GUN + WIN.T + 0.45, keyframes: [fadeIn(0, 0.5)] }));
+
+    // race clock
+    seq.push(txt('{value}', { fontFamily: SANS, fontSize: 104, fontWeight: '200', fill: INK }, { x: 1216, y: 36, anchorX: 1, value: 0, alpha: 0 },
+      { name: 'clock', format: { decimals: 2 },
+        keyframes: [{ at: 0.2, to: { alpha: 0.35 }, duration: 0.5 }, { at: GUN, to: { alpha: 1 }, duration: 0.05 },
+          { at: GUN, to: { value: WIN.T }, duration: WIN.T, ease: 'none' },
+          { at: GUN + WIN.T, to: { fill: ACC }, duration: 0.15 }] }));
+    seq.push(txt('RACE TIME', { fontFamily: MONO, fontSize: 11, fill: MID, letterSpacing: 3 }, { x: 1216, y: 156, anchorX: 1 },
+      { name: 'clockLabel', keyframes: [fadeIn(0.4), { at: GUN + WIN.T, set: { text: 'WINNING TIME' } }] }));
+
+    // ── sound ────────────────────────────────────────────────────
+    // 20 beats = the winning time: the finish lands on the downbeat of bar 6
+    const bpm = +(20 * 60 / WIN.T).toFixed(3);
+    const rep = (s, n) => Array(n).fill(s).join(' ');
+    seq.push({ type: 'audio', sfx: { preset: 'beep', pitch: -7, brightness: -0.4 }, at: 0.35, volume: 0.6 });
+    seq.push({ type: 'audio', sfx: { preset: 'beep', pitch: 0, brightness: -0.2 }, at: GUN - 0.75, volume: 0.6 });
+    seq.push({ type: 'audio', sfx: { preset: 'hit', brightness: 0.5 }, at: GUN, volume: 2.2 });
+    seq.push({ type: 'audio', at: GUN, volume: 1.3, music: {
+      bpm, reverb: 0.25, drumVol: 0.6,
+      tracks: [
+        { inst: 'bass', vol: [[0, 0.55], [19.5, 1.0], [20, 0.9]], step: 0.5, notes: rep('a1 a1 a2 a1 a1 a1 g1 a1', 5) + ' f1:5' },
+        { inst: 'pluck', vol: [[8, 0.2], [20, 0.6]], step: 0.25, tone: 0.6, notes: '_:8 ' + rep('a4 e5 a5 e5', 12) + ' _:5' },
+        { inst: 'pad', vol: 0.55, attack: 0.05, release: 1.5, notes: '_:20 Fmaj7:5' },
+        { inst: 'bell', vol: 0.6, ring: 2.5, notes: '_:20 a5:0.5 c6:0.5 e6:4' },
+      ],
+      drums: [
+        { from: 0, to: 20, kick: 'x...x...x...x...' },
+        { from: 8, to: 20, hat: '..x...x...x...x.' },
+        { from: 16, to: 20, snare: '....x.......x...' },
+        { from: 20, to: 24, crash: 'x...............' },
+      ],
+    } });
+    seq.push({ type: 'audio', sfx: { preset: 'hit', brightness: 0.2, pitch: -3 }, at: +(GUN + WIN.T).toFixed(3), volume: 3 });
+    seq.push({ type: 'audio', sfx: { preset: 'riser', brightness: -0.3 }, duration: 2.5, at: +(GUN + WIN.T - 2.5).toFixed(3), volume: 0.5 });
+    ranked.slice(1).forEach((p, i) => seq.push({ type: 'audio', sfx: { preset: 'click', pitch: -2 - i, seed: i + 1 }, at: +(GUN + p.T).toFixed(3), volume: 0.5 }));
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 13.2,
+        background: BG,
+        composition: { sequences: seq },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

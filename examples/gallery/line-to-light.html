@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>line-to-light</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />
+  <style>
+    body { background: #0b0f13; margin: 0; padding: 16px; }
+    .stage { position: relative; width: min(960px, 100%); margin: 0 auto; }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>
+  </div>
+
+  <script type="application/json" id="piece-meta">{ "title": "Line to Light", "subtitle": "A small house is drafted, rises into an axonometric, and the morning sun comes in", "tags": ["architecture", "line drawing", "axonometric", "light", "morph", "music"], "width": 1280, "height": 720, "duration": 13, "model": "opus" }</script>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":  "../../dist/present.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js" />
+
+  <script type="module">
+    import { Movie, random } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 13;
+
+    // ── palette (brief.md) ─────────────────────────────────────────────
+    const INK = '#101a22', LINE = '#d4dde2', MASS = '#2b3c48', SUN = '#f2c46f';
+    const mix = (a, b, t) => {
+      const p = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
+      const A = p(a), B = p(b);
+      return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join('');
+    };
+    const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace';
+    const MINCHO = '"Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif';
+
+    // ── time: 80 bpm, a bar = 3 s ─────────────────────────────────────
+    const BAR = 3, BEAT = 0.75;
+    const T = {
+      grid: 0.15, plan: 0.45, poche: 2.55,
+      axo: 3.0, axoDur: 1.6,              // bar 2: plan tilts into the axonometric
+      rise: 4.6, riseDur: 1.4,            // walls rise, landing on bar 3
+      fill: 6.0, light: 7.5,              // beat 3 of bar 3: the sun comes in
+      title: 9.0,                          // bar 4
+      settle: 12.0,                        // the last chord: everything still for the final second
+    };
+    const SLOW = 'cubic-bezier(.6,0,.2,1)';
+
+    // ── the house, in metres (x = east, y = north, z = up) ────────────
+    const HW = 7.28, HD = 5.46, t = 0.15, HH = 2.6;
+    const box = (name, x0, x1, y0, y1, z0 = 0, z1 = HH) => ({ name, x0, x1, y0, y1, z0, z1 });
+    const boxes = [
+      box('S1', 0, 1.0, 0, t), box('Ssill', 1.0, 2.2, 0, t, 0, 0.9), box('Slint', 1.0, 2.2, 0, t, 2.0), box('S2', 2.2, 3.4, 0, t),
+      box('Sdoor', 3.4, 4.3, 0, t, 2.1), box('S3', 4.3, HW, 0, t),
+      box('N', 0, HW, HD - t, HD),
+      box('Wl', 0, t, t, HD - t),
+      box('E1', HW - t, HW, t, 2.4), box('Esill', HW - t, HW, 2.4, 3.8, 0, 0.6), box('Elint', HW - t, HW, 2.4, 3.8, 2.2), box('E2', HW - t, HW, 3.8, HD - t),
+      box('P', 2.6, 2.7, 1.7, HD - t),
+    ];
+    const WIN = { y0: 2.4, y1: 3.8, z0: 0.6, z1: 2.2, x: HW - t };   // the east window the sun comes through
+
+    // sun: horizontal travel per metre of fall (west and a little north), drifting as the morning goes on
+    const SUN0 = [-1.05, 0.30], SUN1 = [-0.72, 0.20];
+
+    // ── projection: plan (top view) and axonometric ───────────────────
+    const S = 60;
+    const A = 30 * Math.PI / 180, ca = Math.cos(A), sa = Math.sin(A), KT = 0.75, KV = 0.82;
+    const axoRaw = (x, y, z) => [S * (x * ca - y * sa), -S * (KT * (x * sa + y * ca) + KV * z)];
+    const planRaw = (x, y) => [S * x, -S * y];
+    // place both drawings in the right-hand field (x 470..1200, y 70..650)
+    const fieldC = [835, 372];
+    const bboxOf = pts => { const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; };
+    const shadowPts = o => [[0, 0], [HW, 0], [HW, HD], [0, HD]].flatMap(([x, y]) => [[x, y], [x + o[0] * HH, y + o[1] * HH]]);
+    const axoBB = bboxOf([...[[0, 0], [HW, 0], [HW, HD], [0, HD]].flatMap(([x, y]) => [axoRaw(x, y, 0), axoRaw(x, y, HH)]), ...shadowPts(SUN0).map(([x, y]) => axoRaw(x, y, 0))]);
+    const planBB = bboxOf([[-0.9, -0.9], [HW + 0.9, HD + 0.9]].map(([x, y]) => planRaw(x, y)));
+    const axoOff = [fieldC[0] - (axoBB[0] + axoBB[2]) / 2, fieldC[1] - (axoBB[1] + axoBB[3]) / 2 + 10];
+    const planOff = [fieldC[0] - (planBB[0] + planBB[2]) / 2, fieldC[1] - (planBB[1] + planBB[3]) / 2];
+    const AX = (x, y, z = 0) => { const p = axoRaw(x, y, z); return [p[0] + axoOff[0], p[1] + axoOff[1]]; };
+    const PL = (x, y) => { const p = planRaw(x, y); return [p[0] + planOff[0], p[1] + planOff[1]]; };
+    const f = n => n.toFixed(1);
+    // open polylines keep their point order through a morph (closed ones are re-aligned)
+    const poly = (pts, close = true) => 'M ' + [...pts, ...(close ? [pts[0]] : [])].map(p => f(p[0]) + ' ' + f(p[1])).join(' L ');
+    const closed = pts => 'M ' + pts.map(p => f(p[0]) + ' ' + f(p[1])).join(' L ') + ' Z';
+    const hull = pts => {   // monotone chain
+      const P = [...pts].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+      const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+      const lo = [], up = [];
+      for (const p of P) { while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
+      for (const p of P.reverse()) { while (up.length >= 2 && cross(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
+      return lo.slice(0, -1).concat(up.slice(0, -1));
+    };
+
+    const seq = [];
+    const stroke = (w, a = 1, c = LINE) => ({ strokeColor: c, strokeWidth: w, strokeAlpha: a });
+    const drawOn = (at, duration, ease = 'power2.inOut') => ({ at, to: { trimEnd: 1 }, duration, ease });
+
+    // paper
+    seq.push({ type: 'shape', shape: 'rect', name: 'paper', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: INK } });
+
+    // ── ground: a 910 mm grid that is the plan's sheet grid, then the ground of the axonometric ──
+    const M = 0.91, GX = [-3, 10], GY = [-2, 8];
+    const gridLines = [];
+    for (let i = GX[0]; i <= GX[1]; i++) gridLines.push([[i * M, GY[0] * M], [i * M, GY[1] * M]]);
+    for (let j = GY[0]; j <= GY[1]; j++) gridLines.push([[GX[0] * M, j * M], [GX[1] * M, j * M]]);
+    // sunlit ground (appears with the light) and the house's cast shadow
+    const groundCorners = [[GX[0] * M, GY[0] * M], [GX[1] * M, GY[0] * M], [GX[1] * M, GY[1] * M], [GX[0] * M, GY[1] * M]];
+    seq.push({ type: 'shape', shape: 'path', name: 'sunlit-ground', at: T.light, duration: DURATION - T.light,
+      d: closed(groundCorners.map(([x, y]) => AX(x, y))),
+      initial: { fillColor: SUN, fillAlpha: 0 },
+      keyframes: [{ at: 0, to: { fillAlpha: 0.06 }, duration: 1.4, ease: 'sine.inOut' }] });
+    // stagger from the centre of the sheet outward
+    const gridDist = gridLines.map(([a, b]) => Math.abs(a[0] === b[0] ? a[0] - HW / 2 : a[1] - HD / 2));
+    const gridDelay = gridDist.map(d => d * 0.07);
+    gridLines.forEach(([a, b], i) => {
+      seq.push({ type: 'shape', shape: 'path', name: `grid-${i}`, at: T.grid, duration: DURATION - T.grid, trimEnd: 0,
+        d: poly([PL(...a), PL(...b)], false), morphTo: poly([AX(...a), AX(...b)], false),
+        initial: stroke(1, 0.13),
+        keyframes: [drawOn(gridDelay[i], 1.0, 'power2.out'), { at: T.axo - T.grid, to: { morph: 1 }, duration: T.axoDur, ease: SLOW }] });
+    });
+    const shadowAt = o => closed(hull(shadowPts(o).map(([x, y]) => AX(x, y))));
+    seq.push({ type: 'shape', shape: 'path', name: 'house-shadow', at: T.light, duration: DURATION - T.light,
+      d: shadowAt(SUN0), morphTo: shadowAt(SUN1), morphPoints: 1024,
+      initial: { fillColor: mix(INK, '#000000', 0.35), fillAlpha: 0 },
+      keyframes: [{ at: 0, to: { fillAlpha: 0.9 }, duration: 1.2, ease: 'sine.inOut' }, { at: 0, to: { morph: 1 }, duration: T.settle - T.light, ease: 'sine.inOut' }] });
+
+    // ── plan: wall footprints (poché), windows, door, dimensions ──────
+    const cut = b => b.z0 === 0 && b.z1 > 1.2;            // walls the plan's 1 m cut passes through
+    const rect = (b, z = 0) => [[b.x0, b.y0], [b.x1, b.y0], [b.x1, b.y1], [b.x0, b.y1]];
+    const planBoxes = boxes.filter(cut);
+    planBoxes.forEach((b, i) => {
+      const r = rect(b);
+      seq.push({ type: 'shape', shape: 'path', name: `plan-${b.name}`, at: T.plan, duration: T.rise - T.plan, trimEnd: 0,
+        d: poly(r.map(p => PL(...p))), morphTo: poly(r.map(p => AX(...p))), strokeJoin: 'miter',
+        initial: { ...stroke(1.5), fillColor: LINE, fillAlpha: 0 },
+        keyframes: [drawOn(i * 0.16, 0.8), { at: T.poche - T.plan + i * 0.03, to: { fillAlpha: 1 }, duration: 0.35, ease: 'power2.out' },
+          { at: T.axo - T.plan, to: { morph: 1 }, duration: T.axoDur, ease: SLOW }] });
+    });
+    // window symbols: wall faces and the glass line across each opening
+    const winSym = [];
+    for (const yy of [0, t / 2, t]) winSym.push([[1.0, yy], [2.2, yy]]);
+    for (const xx of [HW - t, HW - t / 2, HW]) winSym.push([[xx, 2.4], [xx, 3.8]]);
+    winSym.forEach(([a, b], i) => seq.push({ type: 'shape', shape: 'path', name: `win-${i}`, at: T.plan + 1.3, duration: T.rise + 0.5 - T.plan - 1.3, trimEnd: 0,
+      d: poly([PL(...a), PL(...b)], false), morphTo: poly([AX(...a), AX(...b)], false),
+      initial: stroke(1, 0.85),
+      keyframes: [drawOn(i * 0.05, 0.5), { at: T.axo - T.plan - 1.3, to: { morph: 1 }, duration: T.axoDur, ease: SLOW },
+        { at: -0.5, to: { strokeAlpha: 0 }, duration: 0.5 }] }));
+    // door: leaf + swing (a quarter circle on the floor)
+    const doorArc = []; for (let k = 0; k <= 16; k++) { const a = Math.PI - (k / 16) * Math.PI / 2; doorArc.push([4.3 + 0.9 * Math.cos(a), t + 0.9 * Math.sin(a)]); }
+    const doorLeaf = [[4.3, t], [4.3, t + 0.9]];
+    for (const [i, pts] of [doorLeaf, doorArc].entries()) seq.push({ type: 'shape', shape: 'path', name: `door-${i}`, at: T.plan + 1.6, duration: T.rise - T.plan - 1.6, trimEnd: 0,
+      d: poly(pts.map(p => PL(...p)), false), morphTo: poly(pts.map(p => AX(...p)), false),
+      initial: stroke(i ? 1 : 1.5, i ? 0.6 : 0.9),
+      keyframes: [drawOn(i * 0.2, 0.6), { at: T.axo - T.plan - 1.6, to: { morph: 1 }, duration: T.axoDur, ease: SLOW },
+        { at: -0.4, to: { strokeAlpha: 0 }, duration: 0.4 }] });
+    // dimensions (plan only)
+    const dimOut = { at: T.axo, to: { alpha: 0 }, duration: 0.35, ease: 'power2.in' };
+    const dimLife = { duration: T.axo + 0.4 };
+    const [dx0, dy0] = PL(0, -0.7), [dx1] = PL(HW, -0.7);
+    const [lx, ly0] = PL(-0.7, 0), [, ly1] = PL(-0.7, HD);
+    const tick = (x, y) => `M ${f(x - 5)} ${f(y + 5)} L ${f(x + 5)} ${f(y - 5)}`;
+    const dimD = `M ${f(dx0)} ${f(dy0)} L ${f(dx1)} ${f(dy0)} ` + tick(dx0, dy0) + ' ' + tick(dx1, dy0);
+    const dimD2 = `M ${f(lx)} ${f(ly0)} L ${f(lx)} ${f(ly1)} ` + tick(lx, ly0) + ' ' + tick(lx, ly1);
+    for (const [i, d] of [dimD, dimD2].entries()) seq.push({ type: 'shape', shape: 'path', name: `dim-${i}`, at: 1.9 + i * 0.2, ...dimLife, d, trimEnd: 0,
+      initial: stroke(1, 0.6), keyframes: [drawOn(0, 0.7), { ...dimOut, at: dimOut.at - 1.9 - i * 0.2 }] });
+    const small = (text, extra = {}) => ({ fontSize: 12, fill: LINE, fontFamily: MONO, letterSpacing: 2, ...extra });
+    seq.push({ type: 'text', name: 'dim-w', text: '7 280', at: 2.3, ...dimLife, style: small('7 280'),
+      initial: { x: (dx0 + dx1) / 2, y: dy0 + 16, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+      keyframes: [{ at: 0, to: { alpha: 0.75 }, duration: 0.4 }, { ...dimOut, at: dimOut.at - 2.3 }] });
+    seq.push({ type: 'text', name: 'dim-d', text: '5 460', at: 2.4, ...dimLife, style: small('5 460'),
+      initial: { x: lx - 16, y: (ly0 + ly1) / 2, anchorX: 0.5, anchorY: 0.5, rotation: -90, alpha: 0 },
+      keyframes: [{ at: 0, to: { alpha: 0.75 }, duration: 0.4 }, { ...dimOut, at: dimOut.at - 2.4 }] });
+    for (const [i, [label, x, y]] of [['LIVING', 5.0, 3.6], ['ROOM', 1.35, 3.6], ['ENTRY', 3.85, 1.6]].entries()) {
+      const [px, py] = PL(x, y);
+      seq.push({ type: 'text', name: `room-${i}`, text: label, at: 2.0 + i * 0.12, ...dimLife, style: small(label, { fontSize: 11 }),
+        initial: { x: px, y: py, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 0.55 }, duration: 0.4 }, { ...dimOut, at: dimOut.at - 2.0 - i * 0.12 }] });
+    }
+
+    // ── axonometric: every box as three faces (west, south, top), drawn back to front ──
+    const behind = (a, b) => a.y0 >= b.y1 - 1e-6 || a.x0 >= b.x1 - 1e-6;   // a hides nothing of b
+    // the light shaft takes part in the sort as a pseudo-box
+    const shaftBox = { name: 'shaft', x0: 4.6, x1: HW - t, y0: WIN.y0, y1: WIN.y1 + 0.8, z0: 0, z1: WIN.z1, shaft: true };
+    const order = [];
+    const pending = [...boxes, shaftBox];
+    while (pending.length) {   // pick a box that nothing pending lies behind
+      const i = pending.findIndex(a => pending.every(b => b === a || !behind(b, a) || behind(a, b)));
+      order.push(...pending.splice(i < 0 ? 0 : i, 1));
+    }
+    const exterior = (b, face) => (face === 'south' && b.y0 === 0) || (face === 'west' && b.x0 === 0);
+    const faceCol = (b, face, lit) => {
+      if (face === 'top') return lit ? mix(LINE, SUN, 0.28) : LINE;
+      if (exterior(b, face)) {
+        if (face === 'south') return lit ? mix(mix(MASS, LINE, 0.2), SUN, 0.1) : mix(MASS, LINE, 0.16);
+        return lit ? mix(MASS, INK, 0.5) : mix(MASS, INK, 0.15);
+      }
+      return lit ? mix(MASS, INK, 0.5) : mix(MASS, INK, 0.3);
+    };
+    const faces = b => ({
+      west: [[b.x0, b.y0, b.z0], [b.x0, b.y1, b.z0], [b.x0, b.y1, b.z1], [b.x0, b.y0, b.z1]],
+      south: [[b.x0, b.y0, b.z0], [b.x1, b.y0, b.z0], [b.x1, b.y0, b.z1], [b.x0, b.y0, b.z1]],
+      top: [[b.x0, b.y0, b.z1], [b.x1, b.y0, b.z1], [b.x1, b.y1, b.z1], [b.x0, b.y1, b.z1]],
+    });
+    // interior floor
+    seq.push({ type: 'shape', shape: 'path', name: 'floor', at: T.rise, duration: DURATION - T.rise,
+      d: closed([[t, t], [HW - t, t], [HW - t, HD - t], [t, HD - t]].map(p => AX(...p))),
+      initial: { fillColor: mix(MASS, INK, 0.55), fillAlpha: 0 },
+      keyframes: [{ at: T.fill - T.rise, to: { fillAlpha: 1 }, duration: 0.8, ease: 'power2.inOut' }] });
+    // sun patch on the floor: the east window projected along the sun
+    const winPts = [[WIN.y0, WIN.z0], [WIN.y1, WIN.z0], [WIN.y1, WIN.z1], [WIN.y0, WIN.z1]].map(([y, z]) => AX(WIN.x, y, z));
+    const patchAt = o => [[WIN.y0, WIN.z0], [WIN.y1, WIN.z0], [WIN.y1, WIN.z1], [WIN.y0, WIN.z1]].map(([y, z]) => AX(WIN.x + o[0] * z, y + o[1] * z, 0));
+    const mid = pts => pts.reduce((a, p) => [a[0] + p[0] / pts.length, a[1] + p[1] / pts.length], [0, 0]);
+    const c0 = mid(winPts), c1 = mid(patchAt(SUN0));
+    const beamAngle = Math.atan2(c1[1] - c0[1], c1[0] - c0[0]) * 180 / Math.PI;
+    const ux = Math.cos(beamAngle * Math.PI / 180), uy = Math.sin(beamAngle * Math.PI / 180);
+    const reach = Math.hypot(c1[0] - c0[0], c1[1] - c0[1]) + 360;
+    // the light pours in: a soft-edged matte slides from the window down the beam (not drawn itself)
+    seq.push({ type: 'shape', shape: 'rect', name: 'beam-matte', at: T.light, duration: DURATION - T.light, width: 2400, height: 1600,
+      fillGradient: { type: 'linear', angle: 0, stops: [[0, '#ffffff'], [0.48, '#ffffff'], [0.52, '#000000'], [1, '#000000']] },
+      initial: { x: c0[0] - ux * 120, y: c0[1] - uy * 120, rotation: beamAngle },
+      keyframes: [{ at: 0, to: { x: c0[0] + ux * reach, y: c0[1] + uy * reach }, duration: 1.3, ease: 'power2.inOut' }] });
+    // The patch drifts as the sun climbs. Its new shape is an affine image of the old one (a shear of the floor that keeps
+    // the east wall's foot fixed), so a null carries it with rotation / scale / skew and the corners stay sharp (a morph
+    // between two quads of different proportions rounds the corners on the way).
+    const F = AX(WIN.x, WIN.y0, 0);
+    const Lm = [[S * ca, -S * sa], [-S * KT * sa, -S * KT * ca]];                 // floor (x, y) -> screen, linear part
+    const det = Lm[0][0] * Lm[1][1] - Lm[0][1] * Lm[1][0];
+    const Li = [[Lm[1][1] / det, -Lm[0][1] / det], [-Lm[1][0] / det, Lm[0][0] / det]];
+    const dO = [SUN1[0] - SUN0[0], SUN1[1] - SUN0[1]];
+    const v = [Lm[0][0] * dO[0] + Lm[0][1] * dO[1], Lm[1][0] * dO[0] + Lm[1][1] * dO[1]].map(n => n / SUN0[0]);
+    const w = Li[0];                                                                // e_x^T * L^-1
+    const Ms = [[1 + v[0] * w[0], v[0] * w[1]], [v[1] * w[0], 1 + v[1] * w[1]]];    // [a c; b d]
+    const deg = r => r * 180 / Math.PI;
+    const rot = Math.atan2(Ms[1][0], Ms[0][0]);
+    const drift = { rotation: deg(rot), scaleX: Math.hypot(Ms[0][0], Ms[1][0]), scaleY: Math.hypot(Ms[0][1], Ms[1][1]), skewX: deg(rot - Math.atan2(-Ms[0][1], Ms[1][1])) };
+    seq.push({ type: 'null', name: 'patch-rig', at: T.light, duration: DURATION - T.light, mask: { layer: 'beam-matte', channel: 'luma' },
+      initial: { x: F[0], y: F[1] },
+      keyframes: [{ at: 0, to: drift, duration: T.settle - T.light, ease: 'sine.inOut' }] });
+    seq.push({ type: 'shape', shape: 'path', name: 'sun-patch', parent: 'patch-rig', at: T.light, duration: DURATION - T.light,
+      d: poly(patchAt(SUN0).map(([x, y]) => [x - F[0], y - F[1]])),
+      initial: { fillColor: SUN, fillAlpha: 0.95 } });
+    if (location.search.includes('debug')) seq.push({ type: 'shape', shape: 'path', name: 'patch-target', at: T.light, duration: DURATION - T.light,
+      d: poly(patchAt(SUN1)), initial: stroke(1, 1, '#ff0000') });
+
+    const riseKf = { at: 0, to: { morph: 1 }, duration: T.riseDur, ease: SLOW };
+    for (const b of order) {
+      if (b.shaft) {
+        // the window itself: the bright morning outside, seen through the opening
+        seq.push({ type: 'shape', shape: 'path', name: 'sun-window', at: T.light, duration: DURATION - T.light,
+          d: closed(winPts), initial: { fillColor: mix(SUN, LINE, 0.45), fillAlpha: 0 },
+          keyframes: [{ at: 0, to: { fillAlpha: 1 }, duration: 0.45, ease: 'power2.out' }] });
+        const shaftAt = o => closed(hull([...winPts, ...patchAt(o)]));
+        seq.push({ type: 'shape', shape: 'path', name: 'sun-shaft', at: T.light, duration: DURATION - T.light,
+          d: shaftAt(SUN0), morphTo: shaftAt(SUN1), morphPoints: 1024, blendMode: 'add', mask: { layer: 'beam-matte', channel: 'luma' },
+          fillGradient: { type: 'linear', angle: beamAngle, stops: [[0, 'rgba(242,196,111,0.4)'], [0.75, 'rgba(242,196,111,0.05)'], [1, 'rgba(242,196,111,0)']] },
+          keyframes: [{ at: 0, to: { morph: 1 }, duration: T.settle - T.light, ease: 'sine.inOut' }] });
+        // dust in the beam: points inside the light volume, drifting slowly
+        const r = random(20);
+        const OM = [(SUN0[0] + SUN1[0]) / 2, (SUN0[1] + SUN1[1]) / 2];
+        for (let k = 0; k < 26; k++) {
+          const y = WIN.y0 + 0.15 + r() * (WIN.y1 - WIN.y0 - 0.3), z = WIN.z0 + 0.2 + r() * (WIN.z1 - WIN.z0 - 0.3), u = 0.12 + r() * 0.7;
+          const [mx, my] = AX(WIN.x + OM[0] * z * u, y + OM[1] * z * u, z * (1 - u));
+          const life = DURATION - T.light;
+          seq.push({ type: 'shape', shape: 'circle', name: `mote-${k}`, at: T.light, duration: life, radius: 0.8 + r() * 1.1,
+            blendMode: 'add', mask: { layer: 'beam-matte', channel: 'luma' },
+            initial: { x: mx, y: my, fillColor: mix(SUN, LINE, 0.5), alpha: 0 },
+            keyframes: [{ at: 0.3 + r() * 1.2, to: { alpha: 0.35 + r() * 0.5 }, duration: 1.2, ease: 'sine.inOut' },
+              { at: 0, to: { x: mx - 6 - r() * 10, y: my - 4 + r() * 14 }, duration: life, ease: 'none' }] });
+        }
+        continue;
+      }
+      const fs = faces(b);
+      for (const face of ['west', 'south', 'top']) {
+        const pts = fs[face];
+        const flat = pts.map(([x, y]) => AX(x, y, 0));
+        const up = pts.map(([x, y, z]) => AX(x, y, z));
+        const isTop = face === 'top';
+        const startFill = isTop && cut(b) ? 1 : 0;
+        const kfs = [{ ...riseKf }];
+        if (isTop && !cut(b)) kfs.push({ at: 0.3, to: { fillAlpha: 1 }, duration: T.riseDur - 0.3, ease: 'power2.inOut' });
+        if (!isTop) kfs.push({ at: T.fill - T.rise + (b.y0 === 0 ? 0.15 : 0), to: { fillAlpha: 1, strokeAlpha: 0.32 }, duration: 0.7, ease: 'power2.inOut' });
+        kfs.push({ at: T.light - T.rise, to: { fillColor: faceCol(b, face, true) }, duration: 1.2, ease: 'sine.inOut' });
+        seq.push({ type: 'shape', shape: 'path', name: `${b.name}-${face}`, at: T.rise, duration: DURATION - T.rise,
+          d: poly(flat), morphTo: poly(up), strokeJoin: 'miter',
+          initial: { ...stroke(isTop ? 1.5 : 1.3, isTop ? 1 : 0.85), fillColor: faceCol(b, face, false), fillAlpha: startFill },
+          keyframes: kfs });
+      }
+    }
+
+    // ── type ──────────────────────────────────────────────────────────
+    const M0 = 80;
+    const sheet = (text, at, end) => ({ type: 'text', name: `sheet-${at}`, text, at, duration: end - at,
+      style: { fontSize: 12, fill: LINE, fontFamily: MONO, letterSpacing: 3 },
+      initial: { x: M0, y: 64, anchorX: 0, anchorY: 0.5, visibleChars: 0, alpha: 0.8 },
+      keyframes: [{ at: 0, to: { visibleChars: text.length }, duration: text.length * 0.03, ease: 'none' },
+        ...(end < DURATION ? [{ at: -0.25, to: { alpha: 0 }, duration: 0.25 }] : [])] });
+    seq.push(sheet('A-01   PLAN   1:50', 0.3, T.axo));
+    seq.push(sheet('A-02   AXONOMETRIC', T.axo, T.light));
+    seq.push({ ...sheet('A-03   EAST LIGHT   09:{value}', T.light, DURATION), format: { pad: 2 } });
+    { const last = seq[seq.length - 1]; last.initial.value = 40; last.initial.visibleChars = 0;
+      last.keyframes = [{ at: 0, to: { visibleChars: 26 }, duration: 0.75, ease: 'none' }, { at: 0.5, to: { value: 58 }, duration: T.settle - T.light - 0.5, ease: 'sine.inOut' }]; }
+
+    // title block, bottom-left on the margin line
+    const TB = 640;
+    seq.push({ type: 'shape', shape: 'line', name: 'title-rule', at: T.title, duration: DURATION - T.title, from: [M0, TB - 92], to: [M0 + 445, TB - 92], trimEnd: 0,
+      initial: stroke(1, 0.7), keyframes: [drawOn(0, 0.9, 'power3.inOut')] });
+    seq.push({ type: 'text', name: 'title', text: '小さな家', at: T.title + 0.25, duration: DURATION - T.title - 0.25,
+      style: { fontSize: 54, fill: LINE, fontFamily: MINCHO, letterSpacing: 7 },
+      initial: { x: M0 - 2, y: TB - 46, anchorX: 0, anchorY: 0.5, alpha: 0 },
+      keyframes: [{ at: 0, from: { y: TB - 34, alpha: 0 }, to: { y: TB - 46, alpha: 1 }, duration: 0.9, ease: 'power3.out' }] });
+    seq.push({ type: 'text', name: 'subtitle', text: 'A SMALL HOUSE, WHERE THE LIGHT COMES IN', at: T.title + 0.7, duration: DURATION - T.title - 0.7,
+      style: { fontSize: 13, fill: LINE, fontFamily: MONO, letterSpacing: 3.6 },
+      initial: { x: M0, y: TB, anchorX: 0, anchorY: 0.5, alpha: 0 },
+      keyframes: [{ at: 0, from: { y: TB + 10, alpha: 0 }, to: { y: TB, alpha: 0.75 }, duration: 0.8, ease: 'power3.out' }] });
+
+    // ── sound ─────────────────────────────────────────────────────────
+    planBoxes.forEach((b, i) => seq.push({ type: 'audio', name: `pencil-${i}`, at: T.plan + i * 0.16, sfx: { preset: 'click', brightness: -0.4, pitch: (i % 3) * 2 - 2, seed: i }, volume: 1.1 }));
+    seq.push({ type: 'audio', name: 'tilt', at: T.axo - 0.1, sfx: { preset: 'swoosh', brightness: -0.6, pitch: -5 }, volume: 0.7 });
+    seq.push({ type: 'audio', name: 'rise', at: T.rise, duration: T.riseDur, sfx: { preset: 'riser', brightness: -0.6, pitch: -7 }, volume: 0.35 });
+    seq.push({ type: 'audio', name: 'land', at: T.fill, sfx: { preset: 'hit', brightness: -0.8, pitch: -5 }, volume: 0.4 });
+    seq.push({ type: 'audio', name: 'sun', at: T.light, sfx: { preset: 'chime', brightness: -0.1, pitch: 0 }, volume: 0.75 });
+    seq.push({ type: 'audio', name: 'score', at: 0, volume: 1.15, music: {
+      bpm: 80, reverb: 0.4, tail: 2,
+      tracks: [
+        { inst: 'pad', vol: [[0, 0.35], [8, 0.6], [16, 0.7]], notes: 'Fmaj7:4 | Dm9:4 | Bbmaj7:4 | Csus4:2 C:2 | Fmaj9:2' },
+        { inst: 'bass', vol: 0.45, notes: '_:4 | d2:4 | bb1:4 | c2:4 | f1:2' },
+        { inst: 'musicbox', vol: 0.5, notes: '_:10 c6:1 a5:1 | g5:2 e5:1 c6:1 | a5:2' },
+      ],
+    } });
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 11,
+        background: INK,
+        composition: { sequences: seq },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

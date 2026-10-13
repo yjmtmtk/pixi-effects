@@ -45,8 +45,26 @@ Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same br
 | opus | ただいま — A small ball hops ten ledges down to the one spot that fits it; the trip is shown again as a chronophotograph. | 720×1280 | tadaima.html |
 | sonnet | d3 × pixi-effects — d3 computes, pixi-effects performs: a bar chart, a self-drawing line, a donut and a world map with great-circle routes, every number from d3 scales, line, pie, arc and geoPath | 1280×720 | d3-story.html |
 | sonnet | Sketch to Launch — A notebook page where a rocket draws itself stroke by stroke, is coloured in with hachure, counts down and lifts off toward a moon; every wobbly line comes from Rough.js as plain path data | 1280×720 | sketch-launch.html |
+| opus | Pour-over — One cup of hand-drip coffee, drawn as a quiet instruction diagram: grounds, bloom, a spiral pour, the last drop. | 1080×1080 | pour-over.html |
+| opus | Sprint Trace — A 100 m final in real time, told only with traces and numbers | 1280×720 | sprint-trace.html |
+| opus | Line to Light — A small house is drafted, rises into an axonometric, and the morning sun comes in | 1280×720 | line-to-light.html |
+| opus | 夜想曲 Nocturne — Eight bars of an original piano nocturne, every note an ink bar landing on the key it lights | 1080×1080 | nocturne-hachi.html |
+| opus | 空の一日 — A day of sky, dawn to night, as one slow colour field with a 24-hour scale | 1280×720 | sora-no-ichinichi.html |
+| opus | 香結 KOYU — No.07 — A vertical incense ad: one thread of procedural smoke on washi, vertical Mincho copy, the brand arrives last | 720×1280 | koyu-incense.html |
+| opus | Binary, Counted — One digit that holds only 0 or 1: when it overflows, a new digit is born, worth twice as much | 1280×720 | binary-count.html |
+| opus | LAMPLIGHTER — The attract mode of a 1988 cartridge that never existed: maker splash, title screen, demo play, title again, with its own chiptune | 1280×720 | lamplighter.html |
+| opus | 夜をゆく — A night-train window at 2 a.m.: the world slides past in layers, and only the moon stays. | 1280×720 | yakou-ressha.html |
+| opus | Escapement — A watch movement seen from its heartbeat outward: five exact steps a second turn every wheel. | 1280×720 | escapement.html |
+| opus | 鍵と錠 — Public-key cryptography in one gesture: anyone can close the lock, only one key opens it | 1280×720 | key-and-lock.html |
+| opus | 同じ灰色 — Same Grey — One #808080 looks light, dark, graded, and then disappears: value is decided by the neighbour. | 1080×1080 | same-grey.html |
+| opus | Nengajo: Hatsuhi — A New Year card: the first sunrise over washi, a mizuhiki cord tied in gold and vermilion, a seal to close | 1080×1350 | nengajo-hatsuhi.html |
+| opus | 年輪 nenrin — A hundred springs, summers, autumns and winters, written into one tree as rings | 1080×1350 | nenrin.html |
+| opus | Hanon Trio Night — A basement jazz bar's poster, set note by note by a walking bass, a Rhodes and a vibes line | 1280×720 | hanon-trio-night.html |
+| opus | 月の満ち欠け — The Moon is always half lit; the phase is only the angle we see it from | 1080×1080 | moon-phases.html |
+| opus | 振り子の波 — Pendulum Wave — Fifteen pendulums released together drift into waves and meet again eight seconds later; each one rings at its turn | 1280×720 | pendulum-wave.html |
+| opus | おむかえ — A rainy crossing seen from above: one umbrella, two people, one wet shoulder. | 720×1280 | aiai-gasa.html |
 
-Counts: fable 10, opus 28, sonnet 3, haiku 0 (41 pieces).
+Counts: fable 10, opus 46, sonnet 3, haiku 0 (59 pieces).
 
 Removed on 2026-10-13: eleven pieces that only showed off a new effect (rack-focus, gradient-type, shader-garden, light-leaks, matte-reel, spotlight-room, liquid-flow-title, rewind-title, transitions-reel), the 19-second talk (quiet-hours) and the plain quote card (social-quote-vertical). The pages that tests need as fixtures live on in `examples/_checks/`.
 

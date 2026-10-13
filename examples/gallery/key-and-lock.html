@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>鍵と錠</title>
+  <script type="application/json" id="piece-meta">{ "title": "鍵と錠", "subtitle": "Public-key cryptography in one gesture: anyone can close the lock, only one key opens it", "tags": ["explainer", "japanese", "diagram", "line-art"], "width": 1280, "height": 720, "duration": 13, "model": "opus" }</script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />   <!-- the loader: HTML + CSS only, so it is on screen at once and keeps moving while the page builds the video -->
+  <style>
+    body { background: #111214; margin: 0; padding: 16px; min-height: 100vh; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+    .stage { position: relative; width: min(960px, 100%); }                 /* the player and the loader both sit inside this box */
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+    /* the loader (pixi-effects/loader.css, linked above): movie.init() fades it out when the movie is ready */
+    /* Screenshots: the player bar overlays the bottom ~60px of the canvas (it is NOT part of the exported video).
+       Uncomment to hide it while you check the layout:  .movie-controller { display: none !important; } */
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>   <!-- shared loader: .pe-loader--pulse / --bar for other looks, --custom for your own -->
+  </div>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":  "../../dist/present.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js" />   <!-- after the import map: the library downloads while the page is parsed -->
+
+  <script type="module">
+    import { Movie, kenBurns, withFade } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+    // import { registerThree, three } from 'pixi-effects/three';   // only for a three.js layer; call registerThree() before init
+    // import * as THREE from 'three';
+    // A talk instead of a video: import { deck, Presenter } from 'pixi-effects/present';  (the import map above has "pixi-effects/present")
+    //   const d = deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops: [at, ...], notes, sequences }] });
+    //   composition: d.composition, duration: d.duration; then new Presenter(movie, { canvas }) instead of the Controller. Docs: reference/cheatsheet.md → Presets (the deck lines).
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 13;
+
+    // Palette: four colours. Ink ground, bone line-art, brass for the one thing that matters (the private key), a dim grey for the rest.
+    const INK = '#0e0f12', BONE = '#ebe5d8', BRASS = '#d9a441', DIM = '#767982';
+    const MINCHO = '"Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif';
+    const GOTHIC = '"Hiragino Sans", "Yu Gothic", "YuGothic", sans-serif';
+    const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace';
+
+    // Grid: left margin 96; the channel runs along y = 560; A, the eavesdropper C and B sit on it.
+    const LEFT = 96, LINE_Y = 584, AX = 290, MX = 640, BX = 990, PY = 452, SC = 1.25;   // SC: the parcel, lock and keys are drawn at 1.25x
+    const LOCK_Y = -68;                      // lock body centre, relative to the parcel (it overlaps the card's top edge)
+    const KEYHOLE_Y = PY + (LOCK_Y - 6) * SC; // absolute y of the keyhole
+        const E_IN = 3.95, D_IN = 8.65;          // encryption / decryption start
+
+    const all = (o) => ({ at: 0, duration: DURATION, ...o });
+    const ease = { snap: 'power4.in', glide: 'power3.inOut', land: 'power3.out' };
+
+    const S = [];
+    // ---- ground
+    S.push({ type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: INK } });
+    S.push({ type: 'shape', shape: 'rect', width: 'GW', height: 'GH',
+      fillGradient: { type: 'radial', stops: [[0, 'rgba(0,0,0,0)'], [0.65, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.55)']] },
+      initial: { x: 'GW/2', y: 'GH/2' } });
+
+    // ---- the channel: A ———— C ———— B
+    S.push(all({ name: 'channel', type: 'shape', shape: 'line', from: [150, LINE_Y], to: [1130, LINE_Y], trimEnd: 0,
+      initial: { strokeColor: DIM, strokeWidth: 1.5 },
+      keyframes: [{ at: 0.2, to: { trimEnd: 1 }, duration: 1.4, ease: 'power2.inOut' }] }));
+    const node = (name, x, color, t, label) => {
+      S.push(all({ name: name + '-dot', type: 'shape', shape: 'circle', radius: 5,
+        initial: { x, y: LINE_Y, fillColor: color, scale: 0 },
+        keyframes: [{ at: t, to: { scale: 1 }, duration: 0.4, ease: 'back.out(2)' }] }));
+      S.push(all({ name: name + '-label', type: 'text', text: label,
+        style: { fontFamily: GOTHIC, fontSize: 16, fill: color, letterSpacing: 3 },
+        initial: { x, y: LINE_Y + 34, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: t + 0.1, from: { y: LINE_Y + 42 }, to: { alpha: 1, y: LINE_Y + 34 }, duration: 0.5, ease: ease.land }] }));
+    };
+    node('A', AX, BONE, 0.5, 'A　送る人');
+    node('B', BX, BONE, 1.2, 'B　受け取る人');
+    node('C', MX, DIM, 5.1, 'C　のぞき見る人');
+
+    // ---- the parcel: a card holding the message. The lock, the keys, the rings and the glow are its children (local, unscaled units),
+    //      so the finale can lift the whole thing at once.
+    const FIN = 9.65;                          // the finale: the parcel steps forward
+    S.push(all({ name: 'parcel', type: 'null', initial: { x: AX, y: PY, scale: SC },
+      keyframes: [
+        { at: 4.7, to: { x: MX }, duration: 0.8, ease: ease.glide },
+        { at: 6.8, to: { x: BX }, duration: 0.8, ease: ease.glide },
+        { at: FIN, to: { x: 960, y: 424, scale: 1.5 }, duration: 1.1, ease: ease.glide },
+      ] }));
+    S.push(all({ name: 'glow', type: 'shape', shape: 'circle', parent: 'parcel', radius: 220, blendMode: 'add',
+      fillGradient: { type: 'radial', stops: [[0, 'rgba(217,164,65,0.24)'], [1, 'rgba(217,164,65,0)']] },
+      initial: { x: 0, y: -40, alpha: 0 },
+      keyframes: [{ at: 8.5, to: { alpha: 1 }, duration: 0.25, ease: 'power2.out' }, { at: 8.75, to: { alpha: 0.6 }, duration: 1.6, ease: 'power2.inOut' }] }));
+    S.push(all({ name: 'card', type: 'shape', shape: 'rect', parent: 'parcel', width: 300, height: 96, cornerRadius: 6, trimEnd: 0,
+      initial: { x: 0, y: 0, strokeColor: BONE, strokeWidth: 2, fillColor: INK, fillAlpha: 0 },
+      keyframes: [{ at: 0.35, to: { trimEnd: 1 }, duration: 0.9, ease: 'power2.inOut' }, { at: 1.25, to: { fillAlpha: 1 }, duration: 0.4 }] }));
+
+    // the message, one character per slot; each one becomes a hex pair when the lock closes, and comes back when it opens
+    const PLAIN = [...'明日、十時に。'];
+    const HEX = ['9F', '2C', 'E1', '7A', '04', 'B8', 'D3'];
+    const TEXT_Y = 12;
+    PLAIN.forEach((ch, i) => {
+      const x = (i - 3) * 40, tE = E_IN + i * 0.05, tD = D_IN + i * 0.06, tIn = 0.9 + i * 0.07;
+      S.push(all({ name: 'plain-' + i, type: 'text', text: ch, parent: 'parcel',
+        style: { fontFamily: MINCHO, fontSize: 72, fill: BONE },               // drawn at 2x and scaled down: the finale lifts the parcel to 1.5x
+        initial: { x, y: TEXT_Y, anchorX: 0.5, anchorY: 0.5, alpha: 0, scale: 0.5 },
+        keyframes: [
+          { at: tIn, from: { y: TEXT_Y + 10 }, to: { alpha: 1, y: TEXT_Y }, duration: 0.5, ease: ease.land },
+          { at: tE, to: { alpha: 0, y: TEXT_Y - 8 }, duration: 0.12, ease: 'power2.in' },
+          { at: tD + 0.06, from: { y: TEXT_Y + 8, alpha: 0 }, to: { alpha: 1, y: TEXT_Y }, duration: 0.35, ease: ease.land },
+        ] }));
+      S.push(all({ name: 'hex-' + i, type: 'text', text: HEX[i], parent: 'parcel',
+        style: { fontFamily: MONO, fontSize: 42, fill: DIM, letterSpacing: 2 },     // grey: what an outsider sees
+        initial: { x, y: TEXT_Y, anchorX: 0.5, anchorY: 0.5, alpha: 0, scale: 0.5 },
+        keyframes: [
+          { at: tE + 0.06, from: { y: TEXT_Y + 8 }, to: { alpha: 1, y: TEXT_Y }, duration: 0.18, ease: ease.land },
+          { at: tD, to: { alpha: 0, y: TEXT_Y - 8 }, duration: 0.12, ease: 'power2.in' },
+        ] }));
+    });
+
+    // ---- the public lock: B hands out an OPEN lock; anyone can snap it shut
+    S.push(all({ name: 'lock', type: 'null', parent: 'parcel', initial: { x: (BX - AX) / SC, y: LOCK_Y - 22, alpha: 0 },
+      keyframes: [
+        { at: 2.0, to: { alpha: 1 }, duration: 0.3 },
+        { at: 2.2, to: { x: 0 }, duration: 1.05, ease: ease.glide },
+        { at: 3.25, to: { y: LOCK_Y }, duration: 0.35, ease: ease.land },
+        // the lock rattles under C's key, and holds
+        ...[2, -2, 1.5, -1, 0].map((dx, i) => ({ at: 5.95 + i * 0.07, to: { x: dx }, duration: 0.07, ease: 'sine.inOut' })),
+      ] }));
+    S.push(all({ name: 'shackle', type: 'null', parent: 'lock', initial: { y: -26 },
+      keyframes: [
+        { at: 3.78, to: { y: 0 }, duration: 0.12, ease: ease.snap },
+        { at: 8.5, to: { y: -26 }, duration: 0.3, ease: 'back.out(2.2)' },
+      ] }));
+    const SHACKLE = 'M -30 -40 L -30 -78 C -30 -94.6 -16.6 -108 0 -108 C 16.6 -108 30 -94.6 30 -78 L 30 -40';
+    S.push(all({ name: 'shackle-outer', type: 'shape', shape: 'path', parent: 'shackle', d: SHACKLE,
+      initial: { strokeColor: BONE, strokeWidth: 13, fillAlpha: 0 } }));
+    S.push(all({ name: 'shackle-inner', type: 'shape', shape: 'path', parent: 'shackle', d: SHACKLE,
+      initial: { strokeColor: INK, strokeWidth: 7, fillAlpha: 0 } }));
+    S.push(all({ name: 'lock-body', type: 'shape', shape: 'rect', parent: 'lock', width: 116, height: 88, cornerRadius: 12,
+      initial: { x: 0, y: 0, strokeColor: BONE, strokeWidth: 3, fillColor: INK } }));
+    S.push(all({ name: 'keyhole', type: 'shape', shape: 'circle', parent: 'lock', radius: 8,
+      initial: { x: 0, y: -6, fillColor: BONE },
+      keyframes: [{ at: 7.95, to: { fillColor: BRASS }, duration: 0.15 }] }));
+    S.push(all({ name: 'keyhole-slot', type: 'shape', shape: 'polygon', parent: 'lock', points: [[-4, -4], [4, -4], [7, 18], [-7, 18]],
+      initial: { fillColor: BONE },
+      keyframes: [{ at: 7.95, to: { fillColor: BRASS }, duration: 0.15 }] }));
+    S.push(all({ name: 'lock-label', type: 'text', text: '公開鍵', parent: 'lock',
+      style: { fontFamily: GOTHIC, fontSize: 30, fill: BONE, letterSpacing: 7 },
+      initial: { x: 76, y: 0, anchorX: 0, anchorY: 0.5, alpha: 0, scale: 0.5 },
+      keyframes: [
+        { at: 2.1, to: { alpha: 0.8 }, duration: 0.3 },
+        { at: 3.3, to: { alpha: 0 }, duration: 0.3 },
+      ] }));
+
+    // ---- a ring that marks each lock event (bone when it closes, brass when it opens)
+    const ring = (name, t, color) => S.push(all({ name, type: 'shape', shape: 'circle', parent: 'parcel', radius: 32,
+      initial: { x: 0, y: LOCK_Y - 6, strokeColor: color, strokeWidth: 2, fillAlpha: 0, alpha: 0, scale: 0.6 },
+      keyframes: [
+        { at: t, to: { alpha: 0.9 }, duration: 0.04 },
+        { at: t, to: { scale: 3.2 }, duration: 0.9, ease: 'power2.out' },
+        { at: t + 0.04, to: { alpha: 0 }, duration: 0.86, ease: 'power2.out' },
+      ] }));
+    ring('ring-close', 3.9, BONE);
+    ring('ring-open', 8.52, BRASS);
+
+    // ---- keys: drawn pointing left, the tip at the null's origin; they live in the parcel's units
+    const key = (name, teeth, color) => {
+      let d = 'M 0 0 L 62 0';
+      teeth.forEach(([x, h]) => { d += ` M ${x} 0 L ${x} ${h}`; });
+      S.push(all({ name: name + '-blade', type: 'shape', shape: 'path', parent: name, d, initial: { strokeColor: color, strokeWidth: 5, fillAlpha: 0 } }));
+      S.push(all({ name: name + '-bow', type: 'shape', shape: 'circle', parent: name, radius: 15,
+        initial: { x: 78, y: 0, strokeColor: color, strokeWidth: 5, fillColor: INK } }));
+    };
+    const KY = LOCK_Y - 6, TIP = -14, OFF = 130;
+    // C's key: the wrong teeth. It reaches the keyhole, rattles, gives up.
+    const jitter = [];
+    [5, -4, 4, -3, 2, 0].forEach((dx, i) => jitter.push({ at: 5.92 + i * 0.07, to: { x: TIP + dx }, duration: 0.07, ease: 'sine.inOut' }));
+    S.push(all({ name: 'ckey', type: 'null', parent: 'parcel', initial: { x: OFF, y: KY, alpha: 0 },
+      keyframes: [
+        { at: 5.45, to: { alpha: 1 }, duration: 0.25 },
+        { at: 5.45, to: { x: TIP }, duration: 0.45, ease: ease.land },
+        ...jitter,
+        { at: 6.4, to: { x: OFF, alpha: 0 }, duration: 0.35, ease: 'power2.in' },
+      ] }));
+    key('ckey', [[12, 13], [22, 6], [32, 13], [42, 6]], DIM);
+
+    // B's private key: brass, the right teeth; it turns (a flip about its own shaft) and the lock springs open
+    S.push(all({ name: 'pkey', type: 'null', parent: 'parcel', initial: { x: OFF, y: KY, alpha: 0 },
+      keyframes: [
+        { at: 7.35, to: { alpha: 1 }, duration: 0.3 },
+        { at: 7.35, to: { x: TIP }, duration: 0.6, ease: ease.land },
+        { at: 8.05, to: { scaleY: -1 }, duration: 0.32, ease: 'power2.inOut' },
+      ] }));
+    key('pkey', [[10, 9], [18, 15], [28, 7], [38, 12]], BRASS);
+    S.push(all({ name: 'pkey-label', type: 'text', text: '秘密鍵', parent: 'parcel',
+      style: { fontFamily: GOTHIC, fontSize: 28, fill: BRASS, letterSpacing: 6 },
+      initial: { x: OFF + 108, y: KY, anchorX: 0, anchorY: 0.5, alpha: 0, scale: 0.5 },
+      keyframes: [
+        { at: 7.35, to: { alpha: 1 }, duration: 0.3 },
+        { at: 7.35, to: { x: TIP + 108 }, duration: 0.6, ease: ease.land },
+      ] }));
+
+    // ---- captions (top left): a kicker, a step counter, one sentence per step
+    S.push(all({ name: 'kicker', type: 'text', text: '公開鍵暗号のしくみ',
+      style: { fontFamily: GOTHIC, fontSize: 15, fill: DIM, letterSpacing: 5 },
+      initial: { x: LEFT, y: 64, alpha: 0 },
+      keyframes: [{ at: 0.2, to: { alpha: 1 }, duration: 0.6 }] }));
+    const STEPS = [
+      [0.45, 2.0, '伝えたい文がある。'],
+      [2.0, 3.95, '受け取る人Bが、開いた錠を渡しておく。'],
+      [3.95, 5.4, '錠を閉めると、文は暗号になる。'],
+      [5.4, 6.95, '途中で盗まれても、合う鍵がない。'],
+      [6.95, 9.6, '開けられるのは、Bの鍵だけ。'],
+    ];
+    STEPS.forEach(([a, b, txt], i) => {
+      const last = i === STEPS.length - 1;
+      S.push({ name: 'step-' + i, type: 'text', text: txt, at: a, duration: b - a,
+        style: { fontFamily: MINCHO, fontSize: 34, fill: BONE },
+        initial: { x: LEFT, y: 100, alpha: 0 },
+        keyframes: [
+          { at: 0, from: { y: 112 }, to: { alpha: 1, y: 100 }, duration: 0.45, ease: ease.land },
+          { at: -0.24, to: { alpha: 0, y: last ? 92 : 94 }, duration: 0.22, ease: 'power2.in' },
+        ] });
+      S.push({ name: 'count-' + i, type: 'text', text: `0${i + 1} / 05`, at: a, duration: b - a,
+        style: { fontFamily: MONO, fontSize: 14, fill: DIM, letterSpacing: 2 },
+        initial: { x: W - LEFT, y: 64, anchorX: 1, alpha: 0 },
+        keyframes: [
+          { at: 0, to: { alpha: 1 }, duration: 0.3 },
+          { at: -0.24, to: { alpha: 0 }, duration: 0.22 },
+        ] });
+    });
+
+    // ---- the closing line, held to the end
+    const HEAD = 9.85;
+    S.push({ name: 'head-1', type: 'text', text: '閉めるのは、誰でも。', at: HEAD, duration: DURATION - HEAD,
+      style: { fontFamily: MINCHO, fontSize: 54, fill: BONE },
+      initial: { x: LEFT, y: 104, alpha: 0 },
+      keyframes: [{ at: 0, from: { y: 120 }, to: { alpha: 1, y: 104 }, duration: 0.8, ease: ease.land }] });
+    S.push({ name: 'head-2', type: 'text', at: HEAD + 0.35, duration: DURATION - HEAD - 0.35,
+      spans: ['開けるのは、', { text: 'ひとりだけ', fill: BRASS }, '。'],
+      style: { fontFamily: MINCHO, fontSize: 54, fill: BONE, align: 'left' },
+      initial: { x: LEFT, y: 178, alpha: 0 },
+      keyframes: [{ at: 0, from: { y: 194 }, to: { alpha: 1, y: 178 }, duration: 0.8, ease: ease.land }] });
+    // a two-line legend under the headline: the whole idea, in words
+    [[10.6, [{ text: '錠', fill: BONE }, '　＝ 公開鍵　誰でも閉められる']], [10.8, [{ text: '鍵', fill: BRASS }, '　＝ 秘密鍵　Bだけが持っている']]].forEach(([t, spans], i) => {
+      S.push({ name: 'legend-' + i, type: 'text', at: t, duration: DURATION - t, spans,
+        style: { fontFamily: GOTHIC, fontSize: 19, fill: DIM, letterSpacing: 2, align: 'left' },
+        initial: { x: LEFT, y: 286 + i * 36, alpha: 0 },
+        keyframes: [{ at: 0, from: { x: LEFT - 10 }, to: { alpha: 1, x: LEFT }, duration: 0.6, ease: ease.land }] });
+    });
+
+    // ---- sound: a quiet 120 bpm bed (a bar = 2 s), and an sfx on every mechanical event
+    const sfx = (preset, at, extra = {}, volume = 1) => S.push({ type: 'audio', at, volume, sfx: { preset, ...extra } });
+    sfx('swipe', 2.2, { pitch: -5, brightness: -0.4 }, 0.6);           // the open lock travels to A
+    sfx('click', 3.88, { pitch: -3 }, 1.6);                             // snap shut
+    PLAIN.forEach((_, i) => sfx('typewriter', E_IN + 0.06 + i * 0.05, { seed: i, brightness: -0.3 }, 0.35));
+    sfx('swoosh', 4.65, { pitch: -6, brightness: -0.5 }, 0.5);          // to the middle
+    [5.92, 6.06, 6.2].forEach((t, i) => sfx('click', t, { pitch: -14, seed: 3 + i, brightness: -0.6 }, 1.1));   // the wrong key rattles
+    sfx('swoosh', 6.75, { pitch: -6, brightness: -0.5, seed: 2 }, 0.5); // to B
+    sfx('click', 8.36, { pitch: 2 }, 1.4);                              // the key turns
+    sfx('chime', 8.5, { pitch: 0, brightness: -0.2 }, 0.7);             // open
+    PLAIN.forEach((_, i) => sfx('typewriter', D_IN + i * 0.06, { seed: 10 + i, brightness: 0 }, 0.3));
+
+    S.push({ type: 'audio', at: 0, volume: 1.0, music: {
+      bpm: 120, reverb: 0.45, tail: 2,
+      tracks: [
+        { inst: 'pad', vol: 0.55, notes: 'Am7:4 Fmaj7:4 Dm7:4 E7:5 Cmaj7:9' },
+        { inst: 'pluck', vol: 0.35, notes:
+            'a3:0.5 e4:0.5 g4:0.5 c5:0.5 a4:0.5 e4:0.5 g4:0.5 c5:0.5 ' +
+            'f3:0.5 c4:0.5 e4:0.5 a4:0.5 g4:0.5 e4:0.5 c4:0.5 a3:0.5 ' +
+            'd3:0.5 a3:0.5 c4:0.5 f4:0.5 e4:0.5 c4:0.5 a3:0.5 f3:0.5 ' +
+            'e3:0.5 b3:0.5 d4:0.5 g#4:0.5 b4:3 ' +
+            'c4:0.5 g4:0.5 b4:0.5 e5:0.5 d5:0.5 b4:0.5 g4:1 c4:5' },
+        { inst: 'bell', vol: 0.4, notes: '_:17 g5:1 b5:1 e6:7' },
+        { inst: 'bass', vol: 0.5, notes: 'a1:4 f1:4 d2:4 e1:5 c2:9' },
+      ],
+    } });
+
+    const sequences = S;
+
+    const movie = new Movie();
+    window.movie = movie;                         // so a script can seek / screenshot / render
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 12.1,                   // the closing frame: the line, the open lock, the key, the legend
+        background: INK,
+        // assets: [{ name: 'photo', src: './photo.jpg' }, { name: 'bgm', src: './bgm.mp3' }],
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
+    }
+  </script>
+</body>
+</html>

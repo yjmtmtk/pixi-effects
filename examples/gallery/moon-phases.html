@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>月の満ち欠け</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />   <!-- the loader: HTML + CSS only, so it is on screen at once and keeps moving while the page builds the video -->
+  <style>
+    body { background: #0b0c10; margin: 0; padding: 16px; min-height: 100vh; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+    .stage { position: relative; width: min(94vw, 86vh, 960px); }                 /* the player and the loader both sit inside this box */
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+    /* the loader (pixi-effects/loader.css, linked above): movie.init() fades it out when the movie is ready */
+    /* Screenshots: the player bar overlays the bottom ~60px of the canvas (it is NOT part of the exported video).
+       Uncomment to hide it while you check the layout:  .movie-controller { display: none !important; } */
+  </style>
+  <script type="application/json" id="piece-meta">{ "title": "月の満ち欠け", "subtitle": "The Moon is always half lit; the phase is only the angle we see it from", "tags": ["explainer", "science", "shader", "japanese", "music"], "width": 1080, "height": 1080, "duration": 14, "model": "opus" }</script>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1080" height="1080"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>   <!-- shared loader: .pe-loader--pulse / --bar for other looks, --custom for your own -->
+  </div>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":  "../../dist/present.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js" />   <!-- after the import map: the library downloads while the page is parsed -->
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+    // import { registerThree, three } from 'pixi-effects/three';   // only for a three.js layer; call registerThree() before init
+    // import * as THREE from 'three';
+    // A talk instead of a video: import { deck, Presenter } from 'pixi-effects/present';  (the import map above has "pixi-effects/present")
+    //   const d = deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops: [at, ...], notes, sequences }] });
+    //   composition: d.composition, duration: d.duration; then new Presenter(movie, { canvas }) instead of the Controller. Docs: reference/cheatsheet.md → Presets (the deck lines).
+
+    const W = 1080, H = 1080, FPS = 30, DURATION = 14;
+
+    // ── palette: ivory = the Moon, amber = sunlight, blue = our view from Earth ──
+    const BG = '#07090e', IVORY = '#ece4d2', AMBER = '#e6a659', BLUE = '#86acd6', LINE = '#283040', DIM = '#7d828d';
+    const MINCHO = '"Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif';
+    const SERIF = 'Georgia, "Times New Roman", serif';
+
+    // ── time: 120 bpm (a beat = 0.5 s); the Moon stops on a phase every 2 beats ──
+    const PHASES = [
+      { ja: '新月',     short: '新月',   en: 'NEW MOON' },
+      { ja: '三日月',   short: '三日月', en: 'WAXING CRESCENT' },
+      { ja: '上弦の月', short: '上弦',   en: 'FIRST QUARTER' },
+      { ja: '十日夜',   short: '十日夜', en: 'WAXING GIBBOUS' },
+      { ja: '満月',     short: '満月',   en: 'FULL MOON' },
+      { ja: '寝待月',   short: '寝待月', en: 'WANING GIBBOUS' },
+      { ja: '下弦の月', short: '下弦',   en: 'LAST QUARTER' },
+      { ja: '有明月',   short: '有明月', en: 'WANING CRESCENT' },
+      { ja: '新月',     short: '新月',   en: 'NEW MOON' },
+    ];
+    const T0 = 2.5, STEP = 1, MOVE = 0.7, EASE = 'power2.inOut';
+    const stopAt = k => T0 + k * STEP;                       // arrival on phase k (movie seconds)
+    // keyframes that step a property through values[k] on the stops (layer starting at 0)
+    const steps = (prop, values) => values.slice(1).map((v, i) => ({
+      at: stopAt(i + 1) - MOVE, to: { [prop]: v }, duration: MOVE, ease: EASE }));
+    const K = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+    // epilogue: after the full cycle the Moon drifts on 30° and a thin crescent returns
+    const EP = { at: 11.4, dur: 1.7, ease: 'sine.inOut', deg: 40 };
+    const epi = (prop, v, layerAt = 0) => ({ at: EP.at - layerAt, to: { [prop]: v }, duration: EP.dur, ease: EP.ease });
+
+    // ── layout ──
+    const E = { x: 330, y: 560 }, R = 190, MR = 24, ER = 15;  // orbit diagram (top-down)
+    const M = { x: 790, y: 540, r: 165 };                     // the Moon as seen from Earth
+    const ROW = { x: 90, y: 860, w: 900, h: 84 };             // the row of eight phases
+    const cell = ROW.w / 8;
+
+    // ── the Moon, drawn by a formula: a lit sphere (sun direction from the phase), maria, earthshine ──
+    const MOON_GLSL = `
+      float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+      float vnoise(vec2 p) { vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y); }
+      float fbm(vec2 p) { float v = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { v += a * vnoise(p); p = p * 2.03 + 1.7; a *= 0.5; } return v; }
+      float mare(vec2 p, vec2 c, vec2 r, float nz) { return 1.0 - smoothstep(0.25, 1.15, length((p - c) / r) + 0.75 * nz); }
+      // p: position in moon radii (y up); ph: phase in radians (0 new, pi full); px: one pixel in radii
+      vec4 moon(vec2 p, float ph, float px, float glow, float lightOn) {
+        float r = length(p);
+        float disc = 1.0 - smoothstep(1.0 - px, 1.0 + px, r);
+        float z = sqrt(max(0.0, 1.0 - r * r));
+        vec3 n = vec3(p, z);
+        vec3 L = vec3(sin(ph), 0.0, -cos(ph));
+        float grain = fbm(p * 11.0 + 7.0);
+        float nz = fbm(p * 3.2 + vec2(3.1, 1.3)) - 0.5 + 0.35 * (grain - 0.5);
+        // the near side's maria (the rabbit in the Moon), as soft blobs with noisy edges
+        float maria = 0.0;
+        maria = max(maria, mare(p, vec2(-0.55, 0.05), vec2(0.36, 0.56), nz));   // Oceanus Procellarum
+        maria = max(maria, mare(p, vec2(-0.27, 0.44), vec2(0.33, 0.27), nz));   // Imbrium
+        maria = max(maria, mare(p, vec2(0.17, 0.41), vec2(0.20, 0.18), nz));    // Serenitatis
+        maria = max(maria, mare(p, vec2(0.33, 0.12), vec2(0.25, 0.21), nz));    // Tranquillitatis
+        maria = max(maria, mare(p, vec2(0.71, 0.33), vec2(0.11, 0.10), nz));    // Crisium
+        maria = max(maria, mare(p, vec2(0.58, -0.14), vec2(0.12, 0.17), nz));   // Fecunditatis
+        maria = max(maria, mare(p, vec2(0.37, -0.27), vec2(0.09, 0.09), nz));   // Nectaris
+        maria = max(maria, mare(p, vec2(-0.20, -0.34), vec2(0.23, 0.17), nz));  // Nubium
+        maria = max(maria, mare(p, vec2(-0.50, -0.38), vec2(0.09, 0.09), nz));  // Humorum
+        maria = max(maria, 0.4 * mare(p, vec2(-0.05, 0.75), vec2(0.40, 0.09), nz)); // Frigoris
+        maria *= 0.7 + 0.6 * (fbm(p * 6.0 + 11.0) - 0.5) + 0.3;
+        float tycho = exp(-length(p - vec2(-0.14, -0.68)) * 55.0);
+        float speck = fbm(p * 26.0 + 3.0) - 0.5;
+        float alb = 1.0 - 0.40 * maria - 0.12 * (grain - 0.5) + 0.10 * speck + 0.22 * tycho;
+        float d = dot(n, L) + 0.06 * (grain - 0.5);
+        float lit = smoothstep(-0.03, 0.09, d) * lightOn;
+        vec3 litCol = moonCol * alb * (0.78 + 0.22 * z);
+        vec3 darkCol = vec3(0.075, 0.09, 0.12) * (0.88 + 0.15 * alb);
+        vec3 col = mix(darkCol, litCol, lit);
+        float rim = smoothstep(1.0 - 3.0 * px, 1.0, r) * disc * 0.18;
+        col += vec3(0.5, 0.6, 0.75) * rim * (1.0 - lit);
+        float illum = (0.5 - 0.5 * cos(ph)) * lightOn;
+        float halo = glow * illum * exp(-max(r - 1.0, 0.0) * 7.0) * (1.0 - smoothstep(1.25, 1.45, r)) * (1.0 - disc);
+        float a = disc + halo * (1.0 - disc);
+        vec3 rgb = (col * disc + moonCol * halo * (1.0 - disc)) / max(a, 1e-4);
+        return vec4(rgb, a);
+      }`;
+
+    const bigMoon = {
+      type: 'shader', name: 'bigMoon', transparent: true, width: 520, height: 520, at: 1.2,
+      initial: { x: M.x - 260, y: M.y - 260, alpha: 0 },
+      uniforms: { phase: 0, moonCol: IVORY, lightOn: 1 },
+      fragment: MOON_GLSL + `
+      void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+        vec2 p = (fragCoord - iResolution.xy * 0.5) / ${M.r.toFixed(1)};
+        fragColor = moon(p, radians(phase), 1.2 / ${M.r.toFixed(1)}, 0.30, lightOn);
+      }`,
+      keyframes: [{ at: 0, to: { alpha: 1 }, duration: 1.0, ease: 'power2.out' },
+        ...steps('uniforms.phase', K.map(k => k * 45)).map(kf => ({ ...kf, at: kf.at - 1.2 })), epi('uniforms.phase', 360 + EP.deg, 1.2)],
+    };
+
+    // the row: eight small moons; each one fills in when the orbit reaches it ('reached' = k)
+    const row = {
+      type: 'shader', name: 'phaseRow', transparent: true, width: ROW.w, height: ROW.h, at: 1.6,
+      initial: { x: ROW.x, y: ROW.y, alpha: 0 },
+      uniforms: { reached: 0, moonCol: IVORY },
+      fragment: MOON_GLSL + `
+      void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+        float cw = iResolution.x / 8.0;
+        float i = floor(fragCoord.x / cw);
+        vec2 c = vec2((i + 0.5) * cw, iResolution.y * 0.5);
+        float rad = 26.0;
+        vec2 p = (fragCoord - c) / rad;
+        float on = smoothstep(i - 0.45, i, reached);
+        vec4 m = moon(p, radians(i * 45.0), 1.2 / rad, 0.0, on);
+        float ghost = 0.35 + 0.65 * on;
+        fragColor = vec4(m.rgb, m.a * ghost);
+      }`,
+      keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8, ease: 'power2.out' },
+        ...steps('uniforms.reached', K).map(kf => ({ ...kf, at: kf.at - 1.6 }))],
+    };
+
+    // ── sunlight: a warm edge and parallel rays drawn on from the left ──
+    const rays = [];
+    for (let i = 0; i < 11; i++) {
+      const y = 390 + i * 34;
+      rays.push({ type: 'shape', shape: 'line', name: 'ray' + i, from: [62, y], to: [600, y], at: 0.2,
+        initial: { strokeColor: AMBER, strokeWidth: 1.5, alpha: 0.16, trimEnd: 0 },
+        keyframes: [{ at: i * 0.04, to: { trimEnd: 1 }, duration: 1.3, ease: 'power3.out' }] });
+    }
+
+    const orbitMoon = [
+      { type: 'null', name: 'orbit', initial: { x: E.x, y: E.y, rotation: -180 }, keyframes: [...steps('rotation', K.map(k => -180 - 45 * k)), epi('rotation', -540 - EP.deg)] },
+      // sight line Earth → Moon (blue = what we see)
+      { type: 'shape', shape: 'rect', name: 'sight', parent: 'orbit', at: 1.7, width: R - MR - ER - 18, height: 1.5,
+        initial: { x: (ER + 9 + R - MR - 9) / 2, y: 0, fillColor: BLUE, alpha: 0, scaleX: 0 },
+        keyframes: [{ at: 0, to: { alpha: 0.7, scaleX: 1 }, duration: 0.6, ease: 'power3.out' }] },
+      // the half of the Moon that faces Earth: a thin blue ring
+      { type: 'shape', shape: 'arc', name: 'facing', parent: 'orbit', at: 1.8, radius: MR + 8, innerRadius: MR + 5.5, startAngle: 90, endAngle: 270,
+        initial: { x: R, y: 0, fillColor: BLUE, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 0.95 }, duration: 0.5 }] },
+      // the Moon itself: dark disc + the sun-side half, counter-rotated so the lit half always faces the sun
+      { type: 'shape', shape: 'circle', name: 'moonDark', parent: 'orbit', at: 1.5, radius: MR,
+        initial: { x: R, y: 0, fillColor: '#1b2230', alpha: 0, scale: 0.6 },
+        keyframes: [{ at: 0, to: { alpha: 1, scale: 1 }, duration: 0.5, ease: 'back.out(2)' }] },
+      { type: 'shape', shape: 'arc', name: 'moonLit', parent: 'orbit', at: 1.5, radius: MR, startAngle: 90, endAngle: 270,
+        initial: { x: R, y: 0, fillColor: IVORY, alpha: 0, scale: 0.6, rotation: 180 },
+        keyframes: [{ at: 0, to: { alpha: 1, scale: 1 }, duration: 0.5, ease: 'back.out(2)' },
+          ...steps('rotation', K.map(k => 180 + 45 * k)).map(kf => ({ ...kf, at: kf.at - 1.5 })), epi('rotation', 540 + EP.deg, 1.5)] },
+    ];
+
+    const earth = [
+      { type: 'shape', shape: 'circle', name: 'earthDark', at: 1.1, radius: ER, initial: { x: E.x, y: E.y, fillColor: '#1a2638', alpha: 0, scale: 0.4 },
+        keyframes: [{ at: 0, to: { alpha: 1, scale: 1 }, duration: 0.5, ease: 'back.out(2)' }] },
+      { type: 'shape', shape: 'arc', name: 'earthLit', at: 1.1, radius: ER, startAngle: 90, endAngle: 270, initial: { x: E.x, y: E.y, fillColor: BLUE, alpha: 0, scale: 0.4 },
+        keyframes: [{ at: 0, to: { alpha: 1, scale: 1 }, duration: 0.5, ease: 'back.out(2)' }] },
+      { type: 'text', name: 'earthLabel', text: '地球', at: 1.4, duration: 1.5, style: { fontFamily: MINCHO, fontSize: 18, fill: DIM, letterSpacing: 4 },
+        initial: { x: E.x + 2, y: E.y + 38, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6 }, { at: -0.3, to: { alpha: 0 }, duration: 0.3 }] },
+      { type: 'shape', shape: 'circle', name: 'orbitPath', at: 0.9, radius: R,
+        initial: { x: E.x, y: E.y, strokeColor: LINE, strokeWidth: 1.5, fillAlpha: 0, trimEnd: 0, rotation: 180 },
+        keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 1.4, ease: 'power2.inOut' }] },
+    ];
+
+    // ── type ──
+    const header = [
+      { type: 'text', name: 'title', text: '月の満ち欠け', at: 0.4, style: { fontFamily: MINCHO, fontSize: 54, fill: IVORY, letterSpacing: 10 },
+        initial: { x: 90, y: 96, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 1.0, ease: 'power2.out' }] },
+      { type: 'text', name: 'titleEn', text: 'THE PHASES OF THE MOON', at: 0.7, style: { fontFamily: SERIF, fontSize: 15, fill: DIM, letterSpacing: 6 },
+        initial: { x: 93, y: 150, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 1.0 }] },
+      { type: 'text', name: 'sunLabel', text: 'SUNLIGHT  →', at: 0.6, style: { fontFamily: SERIF, fontSize: 14, fill: AMBER, letterSpacing: 4 },
+        initial: { x: 64, y: 356, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.9 }, duration: 0.8 }] },
+      { type: 'text', name: 'ageLabel', text: '月齢', at: 1.0, style: { fontFamily: MINCHO, fontSize: 16, fill: DIM, letterSpacing: 4 },
+        initial: { x: 990, y: 74, anchorX: 1, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8 }] },
+      { type: 'text', name: 'age', text: '{value}', format: { decimals: 1 }, at: 1.0, style: { fontFamily: SERIF, fontSize: 46, fill: IVORY },
+        initial: { x: 960, y: 118, anchorX: 1, anchorY: 0.5, alpha: 0, value: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8 }, ...steps('value', K.map(k => 29.5 * k / 8)).map(kf => ({ ...kf, at: kf.at - 1.0 })),
+          { at: EP.at - 1.0, set: { value: 0 } }, epi('value', 29.5 * EP.deg / 360, 1.0)] },
+      { type: 'text', name: 'ageUnit', text: '日', at: 1.0, style: { fontFamily: MINCHO, fontSize: 18, fill: DIM },
+        initial: { x: 990, y: 126, anchorX: 1, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8 }] },
+    ];
+
+    // captions: one at a time, in the band under the title
+    const CAP = { fontFamily: MINCHO, fontSize: 26, fill: IVORY, letterSpacing: 2, align: 'left' };
+    const caption = (name, spans, at, until) => ({
+      type: 'text', name, spans, at, duration: until - at, style: CAP,
+      initial: { x: 90, y: 238, anchorX: 0, anchorY: 0.5, alpha: 0 },
+      keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6, ease: 'power2.out' }, { at: -0.4, to: { alpha: 0 }, duration: 0.4 }],
+    });
+    const captions = [
+      caption('cap1', ['月はいつも、', { text: '太陽の側', fill: AMBER }, 'の半分だけが光っている。'], 1.0, 4.4),
+      caption('cap2', ['地球から見えるのは、', { text: 'こちら側', fill: BLUE }, 'の半分。'], 4.5, 10.6),
+      { ...caption('cap3', ['満ち欠けは、', { text: '光', fill: AMBER }, 'と', { text: '視線', fill: BLUE }, 'の角度で決まる。'], 10.8, DURATION + 1), duration: DURATION - 10.8,
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8, ease: 'power2.out' }] },
+    ];
+
+    // phase name under the big Moon: one pair of lines per stop
+    const names = [];
+    PHASES.forEach((p, k) => {
+      const inAt = k === 0 ? 2.0 : stopAt(k) - 0.3;
+      const last = k === PHASES.length - 1;
+      const outAt = last ? EP.at + 0.3 : stopAt(k + 1) - MOVE;
+      const kf = [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.35, ease: 'power2.out' }];
+      kf.push({ at: last ? -0.5 : -0.2, to: { alpha: 0 }, duration: last ? 0.5 : 0.2 });
+      names.push(
+        { type: 'text', name: 'name' + k, text: p.ja, at: inAt, duration: outAt - inAt,
+          style: { fontFamily: MINCHO, fontSize: 44, fill: IVORY, letterSpacing: 8 },
+          initial: { x: M.x + 4, y: M.y + M.r + 62, anchorX: 0.5, anchorY: 0.5 }, keyframes: kf },
+        { type: 'text', name: 'nameEn' + k, text: p.en, at: inAt, duration: outAt - inAt,
+          style: { fontFamily: SERIF, fontSize: 14, fill: DIM, letterSpacing: 5 },
+          initial: { x: M.x + 2, y: M.y + M.r + 106, anchorX: 0.5, anchorY: 0.5 }, keyframes: kf });
+    });
+
+    const CYC = EP.at + 0.4;
+    names.push(
+      { type: 'text', name: 'cycle', text: '29.5日で、ひとめぐり', at: CYC, style: { fontFamily: MINCHO, fontSize: 36, fill: IVORY, letterSpacing: 4 },
+        initial: { x: M.x + 2, y: M.y + M.r + 62, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8, ease: 'power2.out' }] },
+      { type: 'text', name: 'cycleEn', text: 'ONE LUNAR CYCLE', at: CYC + 0.15, style: { fontFamily: SERIF, fontSize: 14, fill: DIM, letterSpacing: 5 },
+        initial: { x: M.x + 2, y: M.y + M.r + 106, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8, ease: 'power2.out' }] });
+
+    // row labels: appear when reached, then settle a little dimmer
+    const rowNames = PHASES.slice(0, 8).map((p, k) => {
+      const kf = [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.3, ease: 'power2.out' }];
+      if (k < 8) kf.push({ at: stopAt(k + 1) - MOVE - stopAt(k) + 0.3, to: { alpha: 0.5 }, duration: 0.4 });
+      return { type: 'text', name: 'row' + k, text: p.short, at: k === 0 ? 2.0 : stopAt(k) - 0.3,
+        style: { fontFamily: MINCHO, fontSize: 19, fill: IVORY, letterSpacing: 2 },
+        initial: { x: ROW.x + cell * (k + 0.5) + 1, y: ROW.y + ROW.h + 22, anchorX: 0.5, anchorY: 0.5 }, keyframes: kf };
+    });
+    // at the end every name comes back to full strength
+    const rowFinal = rowNames.map(r => ({ ...r, keyframes: [...r.keyframes, { at: 11.0 - r.at, to: { alpha: 0.9 }, duration: 0.8 }] }));
+
+    // ── sound: a slow G-major bed; a bell on every stop rises to the full moon and falls back ──
+    const music = {
+      type: 'audio', name: 'score', at: 0, volume: 1.0,
+      music: {
+        bpm: 120, reverb: 0.5,
+        tracks: [
+          { inst: 'pad',  notes: 'Gmaj7:8 Em7:8 Cmaj7:4 D:4 Gmaj7:4', vol: 0.55, attack: 0.8, release: 1.5 },
+          { inst: 'bass', notes: 'g2:8 e2:8 c2:4 d2:4 g1:4', vol: 0.45, tone: 0.3 },
+          { inst: 'bell', notes: '_:5 d5:2 e5:2 g5:2 a5:2 b5:2 a5:2 g5:2 e5:2 [g4 d5]:7', vol: 0.75, ring: 2.2, reverb: 0.7 },
+          { inst: 'musicbox', notes: '_:24 g5:1 d6:1 b5:2', vol: 0.35, reverb: 0.8 },
+        ],
+      },
+    };
+    const sfx = [
+      { type: 'audio', name: 'lightIn', sfx: { preset: 'swoosh', brightness: -0.6, pitch: -5 }, at: 0.15, volume: 0.6 },
+    ];
+
+    const sequences = [
+      { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: BG } },
+      { type: 'shape', shape: 'rect', name: 'sunGlow', width: 560, height: 'GH', at: 0,
+        initial: { x: 280, y: 'GH/2', alpha: 0 },
+        fillGradient: { angle: 0, stops: [[0, 'rgba(230,166,89,0.11)'], [0.3, 'rgba(230,166,89,0.045)'], [1, 'rgba(230,166,89,0)']] },
+        keyframes: [{ at: 0.1, to: { alpha: 1 }, duration: 1.4, ease: 'power2.out' }] },
+      ...rays,
+      ...earth,
+      ...orbitMoon,
+      bigMoon,
+      row,
+      ...header,
+      ...captions,
+      ...names,
+      ...rowFinal,
+      music,
+      ...sfx,
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;                         // so a script can seek / screenshot / render
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 6.6,
+        background: BG,
+        // assets: [{ name: 'photo', src: './photo.jpg' }, { name: 'bgm', src: './bgm.mp3' }],
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
+    }
+  </script>
+</body>
+</html>

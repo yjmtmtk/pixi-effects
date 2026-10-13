@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>おむかえ — aiai-gasa</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />
+  <style>
+    html, body { height: 100%; }
+    body { background: #0c0e10; margin: 0; padding: 16px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+    .stage { position: relative; width: min(94vw, calc((100vh - 32px) * 720 / 1280)); }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="720" height="1280"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>
+  </div>
+
+  <script type="application/json" id="piece-meta">
+  { "title": "おむかえ", "subtitle": "A rainy crossing seen from above: one umbrella, two people, one wet shoulder.", "tags": ["story", "vertical", "rain", "japanese", "illustration", "music"], "width": 720, "height": 1280, "duration": 13, "model": "opus" }
+  </script>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":  "../../dist/present.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js" />
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 720, H = 1280, FPS = 30, DURATION = 13;
+
+    // ---------- palette ----------
+    const C = {
+      asphalt: '#161b20', roof: '#22282e', curb: '#8d969c',
+      stripe: '#d9dcde', ripple: '#a9bac6',
+      red: '#d4553a', redDark: '#9e3a27',
+      cream: '#e9e2d3', amber: '#f0b46c',
+      slate: '#3a444d', slate2: '#2c343b',
+      hair: '#17140f', coat: '#8a7255', sweater: '#d8cfbd', randoseru: '#7a3326', cap: '#e8b73e',
+    };
+    const MINCHO = '"Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif';
+
+    // ---------- geometry of the street (bird's-eye) ----------
+    const ROOF_B = 150, AWN_B = 188;          // shop roof, awning edge
+    const CURB_T = 384, CURB_B = 812;         // the road between the curbs
+    const XW = { x0: 204, bar: 30, gap: 18, n: 7 };   // zebra bars
+
+    // ---------- timing (80 bpm: a bar is 3 s) ----------
+    const T = {
+      arriveFrom: 2.7, arrive: 6.0,     // the red umbrella crosses up
+      share: 6.55, shareEnd: 7.25,      // the umbrella is tilted over the child
+      turn: 7.0, turnEnd: 7.5,
+      walk: 7.6, walkEnd: 10.3,         // both cross back down
+      close: 10.55, closeEnd: 11.0,     // rain has stopped, the umbrella closes
+      rainStop: 9.9,
+      goOn: 11.0, goOnEnd: 12.0,        // and walk on; the last second is held
+    };
+    const WALK = 660;                    // how far the pair walks down
+
+    // ---------- seeded randomness ----------
+    function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+    const R = rng(7);
+    const between = (a, b) => a + (b - a) * R();
+
+    // ---------- procedural pictures (canvas -> data URL) ----------
+    function canvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
+    function shade(hex, k) {           // k < 0 darker, k > 0 lighter
+      const n = parseInt(hex.slice(1), 16); let r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+      const f = v => Math.round(k < 0 ? v * (1 + k) : v + (255 - v) * k);
+      return `rgb(${f(r)},${f(g)},${f(b)})`;
+    }
+    // An open umbrella seen from above: 8 panels lit from the top-left, ribs, a ferrule, a few beads of rain.
+    function umbrella(color, r, seed) {
+      const pad = 10, S = 2 * (r + pad), cx = S / 2, cy = S / 2;
+      const [c, g] = canvas(S, S); const rr = rng(seed);
+      const pts = [...Array(8)].map((_, k) => { const a = (k * 45 + 22.5) * Math.PI / 180; return [cx + r * Math.cos(a), cy + r * Math.sin(a), a]; });
+      // soft shadow on the wet ground
+      g.fillStyle = 'rgba(0,0,0,0.28)'; g.beginPath(); g.arc(cx + 5, cy + 7, r * 0.98, 0, Math.PI * 2); g.fill();
+      for (let k = 0; k < 8; k++) {
+        const [x1, y1, a1] = pts[k], [x2, y2, a2] = pts[(k + 1) % 8];
+        const mid = (a1 + a2 + (k === 7 ? Math.PI * 2 : 0)) / 2;
+        const light = Math.cos(mid - (225 * Math.PI / 180));          // light from the top-left
+        g.fillStyle = shade(color, light > 0 ? light * 0.16 : light * 0.22);
+        const inset = 0.9;                                               // the cloth sags between the ribs
+        const mx = cx + r * inset * Math.cos(mid), my = cy + r * inset * Math.sin(mid);
+        g.beginPath(); g.moveTo(cx, cy); g.lineTo(x1, y1); g.quadraticCurveTo(mx, my, x2, y2); g.closePath(); g.fill();
+      }
+      g.strokeStyle = shade(color, -0.35); g.lineWidth = 1.2;
+      for (const [x, y] of pts) { g.beginPath(); g.moveTo(cx, cy); g.lineTo(x, y); g.stroke(); }
+      g.fillStyle = shade(color, -0.5);
+      for (const [x, y] of pts) { g.beginPath(); g.arc(x, y, 1.8, 0, Math.PI * 2); g.fill(); }
+      g.fillStyle = shade(color, -0.45); g.beginPath(); g.arc(cx, cy, 4.5, 0, Math.PI * 2); g.fill();
+      g.fillStyle = 'rgba(255,255,255,0.35)'; g.beginPath(); g.arc(cx - 1.2, cy - 1.2, 1.6, 0, Math.PI * 2); g.fill();
+      for (let i = 0; i < 26; i++) {                                    // beads of rain
+        const a = rr() * Math.PI * 2, d = Math.sqrt(rr()) * r * 0.86, x = cx + d * Math.cos(a), y = cy + d * Math.sin(a), s = 0.7 + rr() * 1.1;
+        g.fillStyle = 'rgba(255,255,255,0.32)'; g.beginPath(); g.arc(x, y, s, 0, Math.PI * 2); g.fill();
+      }
+      return c.toDataURL();
+    }
+    // A closed umbrella: a slim furled shape (drawn pointing down).
+    function furled(color) {
+      const [c, g] = canvas(20, 96);
+      g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(12, 50, 6, 40, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = color; g.beginPath(); g.moveTo(10, 10); g.quadraticCurveTo(17, 40, 10, 88); g.quadraticCurveTo(3, 40, 10, 10); g.fill();
+      g.strokeStyle = shade(color, -0.4); g.lineWidth = 1; g.beginPath(); g.moveTo(10, 14); g.lineTo(10, 84); g.stroke();
+      g.strokeStyle = '#2a2622'; g.lineWidth = 3; g.lineCap = 'round'; g.beginPath(); g.moveTo(10, 10); g.lineTo(10, 3); g.stroke();
+      return c.toDataURL();
+    }
+    // A person from above, facing UP (-y): a coat (shoulders + arms), the head; the child wears a yellow school cap and a randoseru.
+    function person({ sw, sh, head, coat, child, wet }) {
+      const S = 150, cx = S / 2, cy = S / 2;
+      const [c, g] = canvas(S, S);
+      g.filter = 'blur(4px)'; g.fillStyle = 'rgba(0,0,0,0.38)'; g.beginPath(); g.ellipse(cx + 4, cy + 6, sw * 0.95, sh * 1.25, 0, 0, Math.PI * 2); g.fill(); g.filter = 'none';
+      // arms, slightly behind the shoulder line
+      g.fillStyle = shade(coat, -0.2); roundRect(g, cx - sw, cy - sh * 0.7, sw * 2, sh * 1.75, sh * 0.85); g.fill();   // the coat's back and sleeves
+      g.fillStyle = coat; roundRect(g, cx - sw + sh * 0.25, cy - sh, (sw - sh * 0.25) * 2, sh * 2, sh * 0.95); g.fill();
+      g.fillStyle = shade(coat, 0.12); roundRect(g, cx - sw * 0.7, cy - sh * 0.95, sw * 1.4, sh * 0.8, sh * 0.4); g.fill();
+      if (child) {                                                       // randoseru on the back
+        g.fillStyle = C.randoseru; roundRect(g, cx - sw * 0.62, cy - sh * 0.1, sw * 1.24, sh * 1.75, 5); g.fill();
+        g.fillStyle = shade(C.randoseru, 0.18); roundRect(g, cx - sw * 0.62, cy + sh * 0.55, sw * 1.24, sh * 1.1, 5); g.fill();
+        g.fillStyle = '#c9a24a'; g.fillRect(cx - 1.5, cy + sh * 1.05, 3, 4);
+      }
+      if (wet) {                                                         // the RIGHT shoulder (screen right while facing up) soaked dark
+        const gx = cx + sw * 0.78;
+        const grd = g.createRadialGradient(gx, cy, 1, gx, cy, sw * 0.75);
+        grd.addColorStop(0, 'rgba(30,20,12,0.75)'); grd.addColorStop(0.6, 'rgba(30,20,12,0.4)'); grd.addColorStop(1, 'rgba(30,20,12,0)');
+        g.fillStyle = grd; g.globalCompositeOperation = 'source-atop'; g.fillRect(0, 0, S, S); g.globalCompositeOperation = 'source-over';
+        const rr = rng(11);
+        for (let i = 0; i < 12; i++) { g.fillStyle = 'rgba(225,238,248,0.7)'; g.beginPath(); g.arc(cx + sw * (0.45 + rr() * 0.5), cy + (rr() - 0.5) * sh * 1.5, 0.8 + rr() * 1.0, 0, Math.PI * 2); g.fill(); }
+      }
+      const hy = cy - sh * 0.25;
+      if (child) {                                                       // yellow school cap with its brim forward
+        g.fillStyle = shade(C.cap, -0.25); g.beginPath(); g.ellipse(cx, hy - head * 0.75, head * 0.85, head * 0.5, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = C.cap; g.beginPath(); g.arc(cx, hy, head, 0, Math.PI * 2); g.fill();
+        g.fillStyle = shade(C.cap, 0.3); g.beginPath(); g.arc(cx - head * 0.25, hy - head * 0.25, head * 0.45, 0, Math.PI * 2); g.fill();
+        g.fillStyle = shade(C.cap, -0.3); g.beginPath(); g.arc(cx, hy, 1.6, 0, Math.PI * 2); g.fill();
+      } else {
+        g.fillStyle = C.hair; g.beginPath(); g.ellipse(cx, hy, head * 0.9, head, 0, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = 'rgba(255,255,255,0.12)'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(cx - head * 0.25, hy - head * 0.85); g.quadraticCurveTo(cx - head * 0.15, hy, cx - head * 0.3, hy + head * 0.5); g.stroke();
+      }
+      return c.toDataURL();
+    }
+    function roundRect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+    // The street: asphalt, roof, awning, sidewalks, curbs, zebra bars (static, so one picture).
+    function street() {
+      const HH = H + 260;                // taller than the frame: the push-in at the end shows more pavement
+      const [c, g] = canvas(W, HH);
+      g.fillStyle = C.asphalt; g.fillRect(0, 0, W, HH);
+      // sidewalks: slightly lighter, with paving joints
+      for (const [y0, y1] of [[AWN_B, CURB_T], [CURB_B, HH]]) {
+        g.fillStyle = '#1c2227'; g.fillRect(0, y0, W, y1 - y0);
+        g.strokeStyle = 'rgba(255,255,255,0.035)'; g.lineWidth = 1;
+        for (let x = 0; x <= W; x += 60) { g.beginPath(); g.moveTo(x + 0.5, y0); g.lineTo(x + 0.5, y1); g.stroke(); }
+        for (let y = y0; y <= y1; y += 60) { g.beginPath(); g.moveTo(0, y + 0.5); g.lineTo(W, y + 0.5); g.stroke(); }
+      }
+      // asphalt grain
+      const rr = rng(3);
+      for (let i = 0; i < 2600; i++) { const x = rr() * W, y = CURB_T + rr() * (CURB_B - CURB_T); g.fillStyle = `rgba(255,255,255,${0.015 + rr() * 0.03})`; g.fillRect(x, y, 1, 1); }
+      // curbs
+      for (const y of [CURB_T, CURB_B]) { g.fillStyle = 'rgba(160,170,176,0.35)'; g.fillRect(0, y - 3, W, 6); g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(0, y + (y === CURB_T ? 3 : -5), W, 2); }
+      // zebra bars: worn and wet
+      for (let i = 0; i < XW.n; i++) {
+        const x = XW.x0 + i * (XW.bar + XW.gap), y0 = CURB_T + 18, h = CURB_B - CURB_T - 36;
+        const grd = g.createLinearGradient(0, y0, 0, y0 + h);
+        grd.addColorStop(0, 'rgba(217,220,222,0.15)'); grd.addColorStop(0.5, 'rgba(217,220,222,0.21)'); grd.addColorStop(1, 'rgba(217,220,222,0.13)');
+        g.fillStyle = grd; g.fillRect(x, y0, XW.bar, h);
+        for (let k = 0; k < 40; k++) { g.fillStyle = 'rgba(22,27,32,0.5)'; g.fillRect(x + rr() * XW.bar, y0 + rr() * h, 1 + rr() * 3, 1 + rr() * 2); }
+      }
+      // shop roof with seams, then the awning (stripes)
+      // a tiled (kawara) roof: rounded tile columns running down to the eave
+      g.fillStyle = C.roof; g.fillRect(0, 0, W, ROOF_B);
+      const TW = 20;
+      for (let x = 0; x < W; x += TW) {
+        const grd = g.createLinearGradient(x, 0, x + TW, 0);
+        grd.addColorStop(0, 'rgba(255,255,255,0.0)'); grd.addColorStop(0.35, 'rgba(190,205,215,0.10)'); grd.addColorStop(0.75, 'rgba(0,0,0,0.0)'); grd.addColorStop(1, 'rgba(0,0,0,0.45)');
+        g.fillStyle = grd; g.fillRect(x, 0, TW, ROOF_B);
+        for (let y = ROOF_B - 26; y > -26; y -= 26) { g.fillStyle = 'rgba(0,0,0,0.28)'; g.fillRect(x, y, TW, 2); g.fillStyle = 'rgba(200,215,225,0.05)'; g.fillRect(x, y + 2, TW, 1); }
+        g.fillStyle = 'rgba(200,215,225,0.16)'; g.beginPath(); g.arc(x + TW / 2, ROOF_B - 4, TW * 0.32, 0, Math.PI * 2); g.fill();
+      }
+      for (let x = 0, i = 0; x < W; x += 36, i++) { g.fillStyle = i % 2 ? '#2b3237' : '#5b5a53'; g.fillRect(x, ROOF_B, 36, AWN_B - ROOF_B); }
+      g.fillStyle = 'rgba(0,0,0,0.45)'; g.fillRect(0, AWN_B, W, 5);
+      // scalloped edge
+      g.fillStyle = 'rgba(0,0,0,0.25)'; for (let x = 0; x < W; x += 36) { g.beginPath(); g.arc(x + 18, AWN_B, 18, 0, Math.PI); g.fill(); }
+      return c.toDataURL();
+    }
+
+    // ---------- layers ----------
+    const L = [];
+    L.push({ type: 'image', asset: 'street', name: 'street', initial: { x: 0, y: 0 } });
+
+    // warm light from the shop window spilling onto the wet pavement
+    L.push({ type: 'shape', shape: 'rect', name: 'shopLight', width: W, height: 330, blendMode: 'add',
+      fillGradient: { type: 'linear', angle: 90, stops: [[0, 'rgba(240,180,108,0.30)'], [0.45, 'rgba(240,180,108,0.10)'], [1, 'rgba(240,180,108,0)']] },
+      initial: { x: W / 2, y: AWN_B + 165, alpha: 0.75 },
+      keyframes: [{ at: T.rainStop, to: { alpha: 1 }, duration: 2.5, ease: 'sine.inOut' }] });
+
+    // ---------- rain: ripples on the ground ----------
+    function ripple(x, y, start, period, stop, maxR, a) {
+      const n = Math.max(0, Math.floor((stop - start - 0.75) / period));
+      return { type: 'shape', shape: 'circle', radius: 1, at: start, duration: (n + 1) * period,
+        initial: { x, y, fillAlpha: 0, strokeColor: C.ripple, strokeWidth: 1.2, strokeAlpha: 0 },
+        keyframes: [
+          { at: 0, from: { radius: 1 }, to: { radius: maxR }, duration: 0.75, ease: 'expo.out', repeat: n, repeatDelay: period - 0.75 },
+          { at: 0, from: { strokeAlpha: a }, to: { strokeAlpha: 0 }, duration: 0.75, ease: 'power1.in', repeat: n, repeatDelay: period - 0.75 },
+        ] };
+    }
+    for (let i = 0; i < 90; i++) {
+      const x = between(30, W - 30), y = between(AWN_B + 30, H - 30);
+      const stop = T.rainStop - 1.3 + R() * 1.5;                       // the rain thins out over 1.5 s
+      L.push(ripple(x, y, between(0, 1.6), between(1.1, 1.9), stop, between(7, 15), between(0.35, 0.7)));
+    }
+    // drips from the awning edge
+    for (let x = 18; x < W; x += 36) {
+      if (R() < 0.35) continue;
+      L.push(ripple(x + between(-3, 3), AWN_B + between(10, 18), between(0, 1.2), between(0.9, 1.6), T.rainStop + 0.8, between(6, 10), 0.6));
+    }
+
+    // ---------- passers-by under grey umbrellas ----------
+    L.push({ type: 'image', asset: 'umbGrey', name: 'passerA', at: 0, duration: 4.2,
+      initial: { x: 272, y: 1380, anchorX: 0.5, anchorY: 0.5, rotation: 8 },
+      keyframes: [
+        { at: 0, to: { y: 318 }, duration: 3.2, ease: 'none' },
+        { at: 3.2, to: { x: -140, y: 298 }, duration: 1.0, ease: 'power1.in' },
+        { at: 0, to: { rotation: 40 }, duration: 4.2, ease: 'none' },
+      ] });
+    L.push({ type: 'image', asset: 'umbSlate', name: 'passerB', at: 0.2, duration: 4.4,
+      initial: { x: 860, y: 345, anchorX: 0.5, anchorY: 0.5, rotation: 0 },
+      keyframes: [
+        { at: 0, to: { x: 512 }, duration: 1.0, ease: 'none' },
+        { at: 1.0, to: { y: 892 }, duration: 2.0, ease: 'none' },
+        { at: 3.0, to: { x: 880, y: 900 }, duration: 1.4, ease: 'power1.in' },
+        { at: 0, to: { rotation: -30 }, duration: 4.4, ease: 'none' },
+      ] });
+
+    // ---------- the two of them ----------
+    const ADULT = { x: 330, y: 310 }, KID = { x: 446, y: 236 }, KID_BESIDE = { x: 406, y: 322 };
+    const steps = (from, to, each, amount) => ({ at: from, from: { scale: 1 }, to: { scale: 1 + amount }, duration: each / 2, ease: 'sine.inOut', yoyo: true, repeat: Math.floor((to - from) / (each / 2)) - 1 });
+
+    L.push({ type: 'null', name: 'pair', initial: { x: 0, y: 0 },
+      keyframes: [
+        { at: T.walk, to: { y: WALK }, duration: T.walkEnd - T.walk, ease: 'sine.inOut' },
+        { at: T.goOn, to: { y: WALK + 56 }, duration: T.goOnEnd - T.goOn, ease: 'sine.inOut' },
+      ] });
+
+    L.push({ type: 'null', name: 'adult', parent: 'pair', initial: { x: ADULT.x, y: 1420, rotation: 0 },
+      keyframes: [
+        { at: T.arriveFrom, to: { y: ADULT.y }, duration: T.arrive - T.arriveFrom, ease: 'sine.out' },
+        { at: T.turn, to: { rotation: 180 }, duration: T.turnEnd - T.turn, ease: 'power2.inOut' },
+        steps(T.arriveFrom, T.arrive - 0.3, 0.84, 0.03),
+        steps(T.walk + 0.1, T.walkEnd - 0.2, 0.84, 0.03),
+        steps(T.goOn, T.goOnEnd, 0.84, 0.03),
+      ] });
+    L.push({ type: 'image', asset: 'adult', parent: 'adult', initial: { x: 0, y: 0, anchorX: 0.5, anchorY: 0.5 } });
+    L.push({ type: 'image', asset: 'adultWet', parent: 'adult', initial: { x: 0, y: 0, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+      keyframes: [{ at: T.walk, to: { alpha: 1 }, duration: 2.6, ease: 'sine.in' }] });
+    L.push({ type: 'image', asset: 'furled', name: 'furled', parent: 'adult', at: T.close,
+      initial: { x: 44, y: -6, anchorX: 0.5, anchorY: 0.15, rotation: -14, alpha: 0, scaleY: 0.6 },
+      keyframes: [{ at: 0.15, to: { alpha: 1, scaleY: 1 }, duration: 0.45, ease: 'power2.out' }] });
+
+    L.push({ type: 'null', name: 'child', parent: 'pair', initial: { x: KID.x, y: KID.y, rotation: 180 },
+      keyframes: [
+        { at: T.share + 0.15, to: { x: KID_BESIDE.x, y: KID_BESIDE.y }, duration: 0.75, ease: 'power2.inOut' },
+        { at: T.share + 0.15, to: { scale: 1.03 }, duration: 0.38, ease: 'sine.inOut', yoyo: true, repeat: 1 },
+        steps(T.walk + 0.05, T.walkEnd - 0.2, 0.56, 0.035),
+        steps(T.goOn, T.goOnEnd, 0.56, 0.035),
+      ] });
+    L.push({ type: 'image', asset: 'child', parent: 'child', initial: { x: 0, y: 0, anchorX: 0.5, anchorY: 0.5 } });
+
+    // the vermilion umbrella: crosses up over the adult, is tilted over the child, crosses back, closes
+    const UMB_OVER_ADULT = { x: ADULT.x, y: ADULT.y - 6 }, UMB_SHARED = { x: 416, y: 310 };
+    L.push({ type: 'image', asset: 'umbRed', name: 'umbrella', parent: 'pair', duration: T.closeEnd,
+      initial: { x: UMB_OVER_ADULT.x, y: 1414, anchorX: 0.5, anchorY: 0.5, rotation: -20 },
+      keyframes: [
+        { at: T.arriveFrom, to: { y: UMB_OVER_ADULT.y }, duration: T.arrive - T.arriveFrom, ease: 'sine.out' },
+        { at: T.arriveFrom, to: { rotation: 10 }, duration: T.arrive - T.arriveFrom, ease: 'sine.out' },
+        steps(T.arriveFrom, T.arrive - 0.3, 0.84, 0.02),
+        { at: T.share, to: { x: UMB_SHARED.x, y: UMB_SHARED.y }, duration: T.shareEnd - T.share, ease: 'power3.inOut' },
+        { at: T.share, to: { rotation: 32 }, duration: T.closeEnd - T.share, ease: 'sine.inOut' },
+        steps(T.walk + 0.1, T.walkEnd - 0.2, 0.84, 0.02),
+        { at: T.close, to: { scale: 0.18, alpha: 0 }, duration: T.closeEnd - T.close, ease: 'power3.in' },
+      ] });
+
+    // ---------- rain in the air: streaks falling away from the camera, toward the centre of the frame ----------
+    const VP = { x: W / 2, y: H * 0.55 };
+    for (let i = 0; i < 46; i++) {
+      const x = between(40, W - 40), y = between(40, H - 40), dx = x - VP.x, dy = y - VP.y, d = Math.hypot(dx, dy);
+      if (d < 140) continue;
+      const period = between(0.7, 1.3), start = between(0, 1.0), stop = T.rainStop - 0.8 + R() * 1.0;
+      const n = Math.max(0, Math.floor((stop - start - 0.3) / period));
+      L.push({ type: 'shape', shape: 'rect', width: 1.4, height: 20 + d * 0.05, at: start, duration: (n + 1) * period,
+        initial: { x, y, rotation: Math.atan2(dy, dx) * 180 / Math.PI + 90, fillColor: '#c9d6df', alpha: 0 },
+        keyframes: [
+          { at: 0, from: { x, y, alpha: 0.32, scaleY: 1 }, to: { x: x - dx * 0.22, y: y - dy * 0.22, alpha: 0, scaleY: 0.35 }, duration: 0.3, ease: 'power1.in', repeat: n, repeatDelay: period - 0.3 },
+        ] });
+    }
+    // after the rain: the light warms the whole street a little
+    L.push({ type: 'shape', shape: 'rect', name: 'afterglow', width: W, height: H, blendMode: 'add', at: T.rainStop,
+      fillGradient: { type: 'linear', angle: 90, stops: [[0, 'rgba(240,170,100,0.16)'], [0.5, 'rgba(240,170,100,0.05)'], [1, 'rgba(240,170,100,0.02)']] },
+      initial: { x: W / 2, y: H / 2, alpha: 0 },
+      keyframes: [{ at: 0, to: { alpha: 1 }, duration: 2.4, ease: 'sine.inOut' }] });
+
+    // ...and a warm pool of light finds the two of them
+    L.push({ type: 'shape', shape: 'circle', name: 'warmPool', radius: 300, blendMode: 'add', at: T.close - 0.3,
+      fillGradient: { type: 'radial', center: [0.5, 0.5], innerRadius: 0, radius: 0.5, stops: [[0, 'rgba(240,176,104,0.20)'], [0.55, 'rgba(240,176,104,0.07)'], [1, 'rgba(240,176,104,0)']] },
+      initial: { x: 372, y: ADULT.y + WALK + 50, alpha: 0 },
+      keyframes: [{ at: 0, to: { alpha: 1 }, duration: 2.2, ease: 'sine.inOut' }] });
+
+    // ---------- vignette ----------
+    L.push({ type: 'shape', shape: 'rect', name: 'vignette', width: W, height: H, blendMode: 'multiply',
+      fillGradient: { type: 'radial', center: [0.5, 0.48], innerRadius: 0.35, radius: 0.85, stops: [[0, 'rgba(255,255,255,0)'], [1, 'rgba(40,46,54,1)']] },
+      initial: { x: W / 2, y: H / 2 } });
+
+    // ---------- one camera move: everything but the type sits on a 'world' null that pushes in on the two of them at the end ----------
+    const FOCUS = { x: 372, y: ADULT.y + WALK + 40 };
+    for (const l of L) if (l.type !== 'audio' && l.type !== 'text' && l.name !== 'vignette' && !l.parent) l.parent = 'world';
+    L.unshift({ type: 'null', name: 'world', initial: { x: FOCUS.x, y: FOCUS.y, pivotX: FOCUS.x, pivotY: FOCUS.y, scale: 1 },
+      keyframes: [{ at: T.walkEnd - 0.2, to: { scale: 1.3, x: 360, y: 870 }, duration: 12.1 - (T.walkEnd - 0.2), ease: 'sine.inOut' }] });
+
+    // ---------- type: vertical columns, one layer per character ----------
+    const PUNCT = new Set(['、', '。']);
+    function column(text, x, y0, fs, at, dur, { each = 0.07, fill = C.cream, outAt = null } = {}) {
+      const cell = fs * 1.22, out = [];
+      [...text].forEach((ch, i) => {
+        const p = PUNCT.has(ch);
+        const dx = p ? fs * 0.56 : 0, dy = p ? -fs * 0.56 : 0;
+        const kf = [{ at: i * each, from: { alpha: 0, y: y0 + i * cell + dy + 10 }, to: { alpha: 1, y: y0 + i * cell + dy }, duration: 0.9, ease: 'power2.out' }];
+        if (outAt != null) kf.push({ at: outAt - at + i * 0.03, to: { alpha: 0 }, duration: 0.6, ease: 'power1.in' });
+        out.push({ type: 'text', text: ch, at, duration: dur,
+          style: { fontFamily: MINCHO, fontSize: fs, fill, fontWeight: '400' },
+          initial: { x: x + dx, y: y0 + i * cell + dy, anchorX: 0.5, anchorY: 0.5, alpha: 0 }, keyframes: kf });
+      });
+      return out;
+    }
+    // opening title
+    L.push(...column('おむかえ', 662, 660, 48, 0.6, 3.6, { each: 0.12, outAt: 2.9 }));
+    // closing line (right column first)
+    L.push(...column('右の肩だけ、', 652, 660, 38, 8.9, DURATION - 8.9, { each: 0.09 }));
+    L.push(...column('濡れていた。', 600, 660, 38, 9.45, DURATION - 9.45, { each: 0.09 }));
+
+    // ---------- sound ----------
+    // rain: two bands of noise, thinning out with the picture
+    L.push({ type: 'audio', name: 'rain', at: 0, duration: 10, volume: 0.0,
+      sfx: { voices: [
+        { wave: 'noise', filter: { type: 'bandpass', freq: 3200, q: 0.6 }, envelope: 'hold', gain: 0.7 },
+        { wave: 'noise', filter: { type: 'lowpass', freq: 700 }, envelope: 'hold', gain: 0.45 },
+      ] },
+      keyframes: [
+        { at: 0, to: { volume: 0.75 }, duration: 0.8, ease: 'sine.out' },
+        { at: T.rainStop - 1.6, to: { volume: 0 }, duration: 1.7, ease: 'sine.inOut' },
+      ] });
+    // single drips off the awning
+    const dr = rng(21);
+    for (let i = 0; i < 9; i++) {
+      const at = 0.4 + i * 1.05 + dr() * 0.4;
+      L.push({ type: 'audio', at, duration: 0.25, volume: 0.22,
+        sfx: { voices: [{ wave: 'sine', freq: [1900 + dr() * 900, 700], envelope: 'fall', pan: dr() * 1.2 - 0.6 }] } });
+    }
+    // soft wet footsteps
+    const foot = (t, pitch, pan, vol) => ({ type: 'audio', at: t, duration: 0.09, volume: vol,
+      sfx: { voices: [{ wave: 'noise', filter: { type: 'bandpass', freq: 700 * pitch, q: 1.2 }, envelope: 'fall', pan }] } });
+    for (let t = T.arriveFrom + 0.2; t < T.arrive - 0.2; t += 0.42) L.push(foot(t, 1, 0, 0.28));
+    for (let t = T.walk + 0.15; t < T.walkEnd - 0.2; t += 0.42) L.push(foot(t, 1, -0.2, 0.26));
+    for (let t = T.walk + 0.25; t < T.walkEnd - 0.2; t += 0.28) L.push(foot(t, 1.6, 0.25, 0.18));
+    // the umbrella closing
+    L.push({ type: 'audio', at: T.close - 0.05, sfx: { preset: 'swoosh', pitch: -7, brightness: -0.5 }, volume: 0.35 });
+
+    // music: 80 bpm, a bar = 3 s. Bar 1 rain only, bar 2 the walk, bar 3 the gesture, bar 4 home (resolves at 10.5 s).
+    L.push({ type: 'audio', name: 'music', at: 0, volume: 1.1, music: {
+      bpm: 80, reverb: 0.42, humanize: 0.01,
+      tracks: [
+        { inst: 'musicbox', vol: 0.55, reverb: 0.7, ring: 1.6, pan: 0.15,
+          notes: '_:0.5 g5:0.5 _:1 e5:0.5 _:0.5 c6:1 | e5:1 g5:0.5 a5:0.5 g5:1 e5:1 | d5:1 e5:0.5 g5:0.5 c6:1.5 b5:0.5 | a5:1 g5:1 c6:2' },
+        { inst: 'keys', vol: 0.5, tone: 0.45, strum: 0.02, pan: -0.15,
+          notes: '_:4 | Fmaj7:4 | Em7:2 Am7:2 | Dm7:1 G7sus4:1 Cmaj9:2' },
+        { inst: 'pad', vol: [[4, 0], [8, 0.35], [14, 0.45]], attack: 1.2, release: 2.5,
+          notes: '_:4 | Fmaj7:4 | Em7:2 Am7:2 | Dm7:2 Cmaj7:2' },
+        { inst: 'bass', vol: 0.5, tone: 0.4, notes: '_:4 | f2:4 | e2:2 a1:2 | d2:1 g1:1 c2:2' },
+      ],
+    } });
+
+    // ---------- movie ----------
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 10.45,
+        background: C.asphalt,
+        assets: [
+          { name: 'street', src: street() },
+          { name: 'umbRed', src: umbrella(C.red, 92, 5) },
+          { name: 'umbGrey', src: umbrella('#4b545c', 86, 6) },
+          { name: 'umbSlate', src: umbrella('#2f3a44', 84, 9) },
+          { name: 'furled', src: furled(C.red) },
+          { name: 'adult', src: person({ sw: 44, sh: 18, head: 15, coat: C.coat }) },
+          { name: 'adultWet', src: person({ sw: 44, sh: 18, head: 15, coat: C.coat, wet: true }) },
+          { name: 'child', src: person({ sw: 27, sh: 12, head: 13, coat: C.sweater, child: true }) },
+        ],
+        composition: { sequences: L },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

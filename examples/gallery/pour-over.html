@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>pour-over</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />
+  <style>
+    html, body { height: 100%; }
+    body { background: #161412; margin: 0; padding: 16px; box-sizing: border-box; display: flex; justify-content: center; align-items: flex-start; }
+    .stage { position: relative; width: min(94vw, 86vh); }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 6px; }
+  </style>
+  <script type="application/json" id="piece-meta">{ "title": "Pour-over", "subtitle": "One cup of hand-drip coffee, drawn as a quiet instruction diagram: grounds, bloom, a spiral pour, the last drop.", "tags": ["coffee", "diagram", "japanese", "line-art", "quiet", "music", "sfx"], "width": 1080, "height": 1080, "duration": 13, "model": "opus" }</script>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1080" height="1080"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>
+  </div>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":  "../../dist/present.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js" />
+
+  <script type="module">
+    import { Movie, random } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1080, H = 1080, FPS = 30, DURATION = 13;
+
+    // ── palette (brief.md) ───────────────────────────────────────────
+    const PAPER = '#EEE8DF', INK = '#2A1E17', COPPER = '#B4673F', DUST = '#CFC5B8';
+    const MINCHO = '"Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif';
+    const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace';
+    const SERIF = 'Georgia, "Times New Roman", serif';
+
+    // ── time: 80 bpm, a beat is 0.75 s, a bar (one step) is 3 s ───────
+    const BEAT = 0.75;
+    const b = n => n * BEAT;
+
+    // ── grid ─────────────────────────────────────────────────────────
+    const M = 96;            // outer margin
+    const CX = 700;          // centre of the drawing column
+    const GROUND = 944;
+
+    // dripper (side view)
+    const RIM_Y = 466, TIP_Y = 686;
+    const FILTER = [[540, 454], [860, 454], [716, 680], [684, 680]];
+    const BED_Y = 590;
+    const filterX = y => 540 + (y - 454) * (144 / 226);         // left inner edge at height y
+    const BED = [[filterX(BED_Y), BED_Y], [2 * CX - filterX(BED_Y), BED_Y], [716, 680], [684, 680]];
+    const BED_RX = CX - filterX(BED_Y);
+
+    // server (carafe)
+    const GLASS = { x: CX, y: 824, w: 290, h: 236, r: 34 };
+    const GLASS_BOTTOM = GLASS.y + GLASS.h / 2 - 4;               // inside bottom
+    const NOZZLE_Y = 712;
+    const LIQ_FROM = b(7), LIQ_DUR = b(14) + 0.5 - b(7), LIQ_MAX = 120;  // level rises with the drops, settles just after the last one
+    const sineInOut = p => -(Math.cos(Math.PI * p) - 1) / 2;
+    const level = t => LIQ_MAX * sineInOut(Math.min(1, Math.max(0, (t - LIQ_FROM) / LIQ_DUR)));
+    const surfaceY = t => GLASS_BOTTOM - level(t);
+
+    // ── helpers ──────────────────────────────────────────────────────
+    const line = (from, to, at, dur, o = {}) => ({
+      type: 'shape', shape: 'line', from, to, at, duration: DURATION - at, trimEnd: 0, strokeCap: 'round',
+      initial: { strokeColor: o.color || INK, strokeWidth: o.width || 3, alpha: o.alpha ?? 1 },
+      keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: dur, ease: 'power2.inOut' }],
+    });
+
+    // a line of text that fades up 12 px and (unless it is the last) fades out at `out`
+    const text = (str, style, x, y, at, out, o = {}) => {
+      const kf = [{ at: 0, from: { alpha: 0, y: y + 12 }, to: { alpha: o.alpha ?? 1, y }, duration: 0.9, ease: 'power3.out' }];
+      if (out != null) kf.push({ at: out - at, to: { alpha: 0 }, duration: 0.5, ease: 'power2.in' });
+      return {
+        type: 'text', name: o.name, text: str, at, duration: (out != null ? out + 0.5 : DURATION) - at,
+        style: { fill: INK, ...style },
+        initial: { x, y, anchorX: 0, anchorY: 0, alpha: 0 }, keyframes: kf,
+      };
+    };
+
+    // ── the four steps (text column) ─────────────────────────────────
+    const STEPS = [
+      { no: '01', name: '粉',     gloss: 'Fifteen grams, medium-fine.', data: '15 g · 中細挽き',   at: 0.5,  out: 2.6 },
+      { no: '02', name: '蒸らし', gloss: 'Let it breathe.',             data: '30 ml · 30 sec',    at: 3.3,  out: 5.6 },
+      { no: '03', name: '注ぐ',   gloss: 'Pour slowly, in a spiral.',   data: '210 ml · 92 °C',    at: 6.2,  out: 8.9 },
+    ];
+    const stepText = s => [
+      text(s.no + ' / 04', { fontFamily: MONO, fontSize: 20, letterSpacing: 3, fill: COPPER }, M, 300, s.at, s.out, { name: `no${s.no}` }),
+      text(s.name, { fontFamily: MINCHO, fontSize: 64, letterSpacing: 6 }, M - 4, 340, s.at + 0.08, s.out, { name: `name${s.no}` }),
+      text(s.gloss, { fontFamily: SERIF, fontStyle: 'italic', fontSize: 24 }, M, 436, s.at + 0.16, s.out, { alpha: 0.7, name: `gloss${s.no}` }),
+      text(s.data, { fontFamily: MONO, fontSize: 18, letterSpacing: 2 }, M, 478, s.at + 0.24, s.out, { alpha: 0.55, name: `data${s.no}` }),
+    ];
+
+    // ── grounds: grains fall into the filter and become the bed ──────
+    const rnd = random(7);
+    const grains = Array.from({ length: 34 }, (_, i) => {
+      const at = 1.15 + i * 0.038 + rnd() * 0.05;
+      const x0 = CX - 26 + rnd() * 52, y0 = 300 + rnd() * 50;
+      const y1 = 600 + rnd() * 50;
+      const x1 = CX + (rnd() - 0.5) * 2 * (CX - filterX(y1) - 8);
+      return {
+        type: 'shape', shape: 'circle', radius: 2.2 + rnd() * 1.6, at, duration: 0.75,
+        initial: { x: x0, y: y0, fillColor: INK, alpha: 0 },
+        keyframes: [
+          { at: 0, to: { alpha: 1 }, duration: 0.12 },
+          { at: 0, to: { x: x1, y: y1 }, duration: 0.55, ease: 'power2.in' },
+          { at: 0.55, to: { alpha: 0 }, duration: 0.2 },
+        ],
+      };
+    });
+    const grainClicks = [1.3, 1.52, 1.66, 1.9, 2.05, 2.3].map((at, i) => ({
+      type: 'audio', at, volume: 0.22, sfx: { preset: 'click', pitch: -14, brightness: -0.7, seed: i + 1 },
+    }));
+
+    // ── the spiral pour (の), measured once and shared by both views ──
+    const POUR = { at: 6.3, dur: 2.4 };
+    const spiral = (() => {
+      const pts = [];
+      const turns = 2.6, N = 400;
+      for (let i = 0; i <= N; i++) {
+        const u = i / N, th = -Math.PI / 2 + u * turns * 2 * Math.PI;
+        const r = 4 + 72 * u;
+        pts.push([r * Math.cos(th), r * Math.sin(th)]);
+      }
+      const len = [0];
+      for (let i = 1; i < pts.length; i++) len.push(len[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+      const total = len[len.length - 1];
+      const at = f => {                         // the point at fraction f of the length
+        const target = f * total;
+        let i = 1; while (i < len.length - 1 && len[i] < target) i++;
+        const k = (target - len[i - 1]) / (len[i] - len[i - 1] || 1);
+        return [pts[i - 1][0] + k * (pts[i][0] - pts[i - 1][0]), pts[i - 1][1] + k * (pts[i][1] - pts[i - 1][1])];
+      };
+      return { pts, at };
+    })();
+    const sampled = (fn, at, dur, step = 0.1) => {       // fn(f) → props, as short linear keyframes
+      const kf = [];
+      const n = Math.round(dur / step);
+      for (let i = 1; i <= n; i++) kf.push({ at: at + (i - 1) * step, to: fn(i / n), duration: step, ease: 'none' });
+      return kf;
+    };
+
+    // top view diagram, in the text column
+    const TV = { x: 248, y: 742, r: 118 };
+    const spiralD = 'M ' + spiral.pts.filter((_, i) => i % 4 === 0).map(([x, y]) => `${(TV.x + x).toFixed(1)} ${(TV.y + y).toFixed(1)}`).join(' L ');
+    const TV_AT = 6.1, TV_OUT = 9.0;
+    const topView = [
+      { type: 'shape', shape: 'circle', radius: TV.r, at: TV_AT, duration: TV_OUT + 0.6 - TV_AT, trimEnd: 0,
+        initial: { x: TV.x, y: TV.y, strokeColor: INK, strokeWidth: 2, fillAlpha: 0, alpha: 0.35 },
+        keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 1.0, ease: 'power2.inOut' }, { at: TV_OUT - TV_AT, to: { alpha: 0 }, duration: 0.6 }] },
+      { type: 'shape', shape: 'circle', radius: 10, at: TV_AT + 0.3, duration: TV_OUT + 0.6 - TV_AT - 0.3,
+        initial: { x: TV.x, y: TV.y, strokeColor: INK, strokeWidth: 2, fillAlpha: 0, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 0.35 }, duration: 0.6 }, { at: TV_OUT - TV_AT - 0.3, to: { alpha: 0 }, duration: 0.6 }] },
+      { type: 'shape', shape: 'path', d: spiralD, at: POUR.at, duration: TV_OUT + 0.6 - POUR.at, trimEnd: 0, strokeCap: 'round', strokeJoin: 'round',
+        initial: { strokeColor: COPPER, strokeWidth: 3 },
+        keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: POUR.dur, ease: 'none' }, { at: TV_OUT - POUR.at, to: { alpha: 0 }, duration: 0.6 }] },
+      { type: 'shape', shape: 'circle', radius: 6, at: POUR.at, duration: POUR.dur + 0.3,
+        initial: { x: TV.x + spiral.at(0)[0], y: TV.y + spiral.at(0)[1], fillColor: COPPER },
+        keyframes: [...sampled(f => { const [x, y] = spiral.at(f); return { x: TV.x + x, y: TV.y + y }; }, 0, POUR.dur),
+                    { at: POUR.dur, to: { alpha: 0 }, duration: 0.3 }] },
+      text('上から見た図 — TOP VIEW', { fontFamily: MONO, fontSize: 15, letterSpacing: 2 }, M, TV.y + TV.r + 26, TV_AT + 0.4, TV_OUT, { alpha: 0.5, name: 'tvLabel' }),
+    ];
+
+    // ── kettle: only the gooseneck, entering from the right edge ─────
+    const K = { x: 1000, y: 470 };                       // the null sits where the spout leaves the kettle body
+    const TIP = [712 - K.x, 356 - K.y];
+    const SIDE = 0.62;                                    // top-view radius → side-view sway
+    const kettleKf = [
+      { at: 3.0, to: { x: K.x, rotation: -6 }, duration: 1.1, ease: 'power2.out' },
+      { at: 4.1, to: { rotation: 0 }, duration: 0.3, ease: 'sine.inOut' },
+      { at: 5.1, to: { rotation: -6 }, duration: 0.35, ease: 'sine.inOut' },
+      { at: 5.9, to: { rotation: 0 }, duration: 0.35, ease: 'sine.inOut' },
+      ...sampled(f => ({ x: K.x + spiral.at(f)[0] * SIDE }), POUR.at, POUR.dur),
+      { at: POUR.at + POUR.dur, to: { x: K.x, rotation: -6 }, duration: 0.35, ease: 'sine.inOut' },
+      { at: 9.1, to: { x: K.x + 460, rotation: -12 }, duration: 1.0, ease: 'power2.in' },
+    ];
+    const stream = (at, dur, name) => ({
+      type: 'shape', shape: 'line', name, parent: 'kettle', from: [TIP[0], TIP[1] + 6], to: [TIP[0], BED_Y - 6 - K.y + 0], at, duration: dur,
+      trimEnd: 0, strokeCap: 'round',
+      initial: { strokeColor: COPPER, strokeWidth: 3 },
+      keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.22, ease: 'power1.in' }, { at: dur - 0.28, to: { trimStart: 1 }, duration: 0.26, ease: 'power1.in' }],
+    });
+    const pourNoise = (at, duration) => ({
+      type: 'audio', at, duration, volume: 0.55,
+      keyframes: [{ at: 0, from: { volume: 0 }, to: { volume: 0.55 }, duration: 0.2 }, { at: -0.3, to: { volume: 0 }, duration: 0.3 }],
+      sfx: { voices: [
+        { wave: 'noise', filter: { type: 'bandpass', freq: 1800, q: 0.8 }, envelope: 'hold', gain: 0.6 },
+        { wave: 'noise', filter: { type: 'lowpass', freq: 500 }, envelope: 'hold', gain: 0.5 },
+      ] },
+    });
+
+    // ── drops: every landing is on the beat grid; some of them sing ──
+    // [beat of landing, musicbox note or null]
+    const DROPS = [
+      [7, 'g5'], [7.5, 'e5'],
+      [8.5, null], [9, 'a5'], [9.5, null], [10, 'f5'], [10.5, 'e5'], [11, 'd5'], [11.5, null], [12, null],
+      [13, 'd5'], [14, 'c5'],
+    ];
+    const FALL = 0.36;
+    const drops = DROPS.flatMap(([beat], i) => {
+      const land = b(beat), sy = surfaceY(land);
+      return [
+        { type: 'shape', shape: 'ellipse', radiusX: 4, radiusY: 5, at: land - FALL - 0.12, duration: FALL + 0.12, name: `drop${i}`,
+          initial: { x: CX, y: NOZZLE_Y, fillColor: INK, scaleY: 0.4 },
+          keyframes: [
+            { at: 0, to: { scaleY: 1 }, duration: 0.12, ease: 'sine.out' },
+            { at: 0.12, to: { y: sy - 4, scaleY: 1.35 }, duration: FALL, ease: 'power2.in' },
+          ] },
+        { type: 'shape', shape: 'ellipse', radiusX: 6, radiusY: 1.6, at: land, duration: 0.8,
+          initial: { x: CX, y: sy, strokeColor: level(land) > 2 ? COPPER : INK, strokeWidth: 2, fillAlpha: 0, alpha: 0.9 },
+          keyframes: [{ at: 0, to: { radiusX: 48, radiusY: 6, alpha: 0 }, duration: 0.8, ease: 'power2.out' }] },
+      ];
+    });
+    const musicboxNotes = (() => {                          // the musicbox line, built from DROPS so it cannot drift
+      let t = 0, s = [];
+      for (const [beat, note] of DROPS) {
+        if (!note) continue;
+        if (beat > t) s.push(`_:${beat - t}`);
+        const next = DROPS.find(([bb, n]) => n && bb > beat);
+        const len = next ? next[0] - beat : 3;
+        s.push(`${note}:${len}`); t = beat + len;
+      }
+      return s.join(' ');
+    })();
+
+    // ── steam over the dripper at the end ────────────────────────────
+    // steam: seeded S-strands that draw up from the rim and thin away from below, again and again
+    const STEAM_CYCLE = 2.6;
+    const steamStrand = (x0, at, seed, len) => {
+      const r = random(seed), a = 12 + r() * 10, top = 448 - len;
+      const ys = [448, 448 - len * 0.25, 448 - len * 0.5, 448 - len * 0.75, top];
+      const d = `M ${x0} ${ys[0]} C ${x0 - a} ${ys[0] - 30} ${x0 + a} ${ys[1] - 10} ${x0} ${ys[2]} S ${x0 - a * 0.8} ${ys[3] + 20} ${x0 + a * 0.4} ${top}`;
+      const mid = (448 + top) / 2;
+      const dur = Math.min(STEAM_CYCLE + 0.8, DURATION - at);
+      return {
+        type: 'shape', shape: 'path', at, duration: dur, trimEnd: 0, strokeCap: 'round', d,
+        initial: { strokeColor: INK, strokeWidth: 2.5, alpha: 0.3, y: mid },     // a path's y places its MIDPOINT (like a line)
+        keyframes: [
+          { at: 0, to: { trimEnd: 1 }, duration: 1.5, ease: 'sine.inOut' },
+          { at: 1.0, to: { trimStart: 1 }, duration: STEAM_CYCLE - 0.4, ease: 'sine.in' },
+          { at: 0, to: { y: mid - 30 }, duration: STEAM_CYCLE + 0.8, ease: 'none' },
+        ].filter(k => k.at < dur),                  // the last strand is cut by the end of the movie
+      };
+    };
+    const steam = (x0, from, seed, len) => {
+      const out = [];
+      for (let t = from, k = 0; t < DURATION - 0.1; t += STEAM_CYCLE, k++) out.push(steamStrand(x0, t, seed * 10 + k, len * (0.9 + 0.2 * random(seed + k)())));
+      return out;
+    };
+
+    // ── the composition ──────────────────────────────────────────────
+    const sequences = [
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: PAPER } },
+
+      // header + step progress
+      text('POUR-OVER', { fontFamily: MONO, fontSize: 18, letterSpacing: 5 }, M, M, 0.2, null, { alpha: 0.6, name: 'header' }),
+      ...[0, 1, 2, 3].map(i => line([M + i * 40, 140], [M + i * 40 + 28, 140], 0.3 + i * 0.06, 0.5, { color: DUST, width: 3 })),
+      { type: 'shape', shape: 'line', name: 'progress', from: [M, 140], to: [M + 28, 140], at: 0.5, duration: DURATION - 0.5, strokeCap: 'round',
+        initial: { strokeColor: COPPER, strokeWidth: 3, x: M + 14, y: 140, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.5 },
+          ...[1, 2, 3].map(i => ({ at: i * 3 - 0.5 + 0.2, to: { x: M + 14 + i * 40 }, duration: 0.6, ease: 'power2.inOut' }))] },
+
+      // ground and server
+      line([492, GROUND], [990, GROUND], 0.2, 1.2, { color: DUST, width: 2 }),
+      { type: 'shape', shape: 'rect', width: GLASS.w, height: GLASS.h, cornerRadius: GLASS.r, at: 0.35, duration: DURATION - 0.35, trimEnd: 0,
+        initial: { x: GLASS.x, y: GLASS.y, strokeColor: INK, strokeWidth: 3, fillAlpha: 0 },
+        keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 1.3, ease: 'power2.inOut' }] },
+      { type: 'shape', shape: 'path', d: `M ${GLASS.x - GLASS.w / 2} 750 C ${GLASS.x - GLASS.w / 2 - 56} 750 ${GLASS.x - GLASS.w / 2 - 56} 866 ${GLASS.x - GLASS.w / 2} 866`,
+        at: 1.0, duration: DURATION - 1.0, trimEnd: 0, strokeCap: 'round',
+        initial: { strokeColor: INK, strokeWidth: 3 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.8, ease: 'power2.inOut' }] },
+      // measuring ticks
+      line([GLASS.x + GLASS.w / 2 + 10, GLASS_BOTTOM - LIQ_MAX], [GLASS.x + GLASS.w / 2 + 28, GLASS_BOTTOM - LIQ_MAX], 1.2, 0.4, { color: INK, width: 2, alpha: 0.6 }),
+      line([GLASS.x + GLASS.w / 2 + 10, GLASS_BOTTOM - LIQ_MAX / 2], [GLASS.x + GLASS.w / 2 + 22, GLASS_BOTTOM - LIQ_MAX / 2], 1.3, 0.4, { color: DUST, width: 2 }),
+      text('240', { fontFamily: MONO, fontSize: 16, letterSpacing: 1 }, GLASS.x + GLASS.w / 2 + 36, GLASS_BOTTOM - LIQ_MAX - 10, 1.4, null, { alpha: 0.6, name: 'tick240' }),
+
+      // liquid in the server (a copper crema band over the ink)
+      { type: 'shape', shape: 'rect', width: GLASS.w, height: 0, at: LIQ_FROM, duration: DURATION - LIQ_FROM, anchorY: 1,
+        initial: { x: GLASS.x, y: GLASS_BOTTOM + 4, fillColor: COPPER },
+        keyframes: [{ at: 0, to: { height: LIQ_MAX + 8 }, duration: LIQ_DUR, ease: 'sine.inOut' }],
+        mask: { type: 'shape', shape: 'rect', width: GLASS.w - 6, height: GLASS.h - 6, cornerRadius: GLASS.r - 3, initial: { x: GLASS.x, y: GLASS.y, fillColor: '#ffffff' } } },
+      { type: 'shape', shape: 'rect', width: GLASS.w, height: 0, at: LIQ_FROM, duration: DURATION - LIQ_FROM, anchorY: 1,
+        initial: { x: GLASS.x, y: GLASS_BOTTOM + 4, fillColor: INK },
+        keyframes: [{ at: 0, to: { height: LIQ_MAX + 4 }, duration: LIQ_DUR, ease: 'sine.inOut' }],
+        mask: { type: 'shape', shape: 'rect', width: GLASS.w - 6, height: GLASS.h - 6, cornerRadius: GLASS.r - 3, initial: { x: GLASS.x, y: GLASS.y, fillColor: '#ffffff' } } },
+
+      // dripper: filter paper, plate, cone
+      { type: 'shape', shape: 'polygon', points: FILTER, at: 1.0, duration: DURATION - 1.0,
+        initial: { fillColor: DUST, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.75 }, duration: 0.8, ease: 'sine.inOut' }] },
+      // the bed of grounds, revealed from below
+      { type: 'shape', shape: 'polygon', points: BED, at: 1.4, duration: DURATION - 1.4,
+        initial: { fillColor: INK },
+        mask: { type: 'shape', shape: 'rect', width: 320, height: 0, anchorY: 1, initial: { x: CX, y: 682, fillColor: '#ffffff' },
+          keyframes: [{ at: 0, to: { height: 96 }, duration: 1.4, ease: 'power2.out' }] } },
+      // the bloom: the bed breathes up, then settles under the pour
+      { type: 'shape', shape: 'ellipse', radiusX: BED_RX, radiusY: 1, at: 4.3, duration: DURATION - 4.3, name: 'bloom',
+        initial: { x: CX, y: BED_Y, fillColor: INK },
+        keyframes: [
+          { at: 0, to: { radiusY: 24 }, duration: 1.5, ease: 'sine.out' },
+          { at: 1.5, to: { radiusY: 18 }, duration: 0.9, ease: 'sine.inOut' },
+          { at: 2.4, to: { radiusY: 8 }, duration: 1.2, ease: 'sine.inOut' },
+        ] },
+      // gas escaping from the bloom: tiny rings that open on the dome and vanish
+      ...[[684, 4.75], [716, 4.95], [700, 5.15], [668, 5.35], [728, 5.5], [692, 5.7], [710, 5.95]].map(([x, at], i) => {
+        const dy = 20 * Math.sqrt(Math.max(0, 1 - ((x - CX) / BED_RX) ** 2));
+        return { type: 'shape', shape: 'circle', radius: 3.5, at, duration: 0.55,
+          initial: { x, y: BED_Y - dy + 3, strokeColor: DUST, strokeWidth: 1.5, fillAlpha: 0, scale: 0.3 },
+          keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.35, ease: 'power2.out' }, { at: 0.3, to: { alpha: 0 }, duration: 0.25 }] };
+      }),
+      // water pooling over the bed while it is poured
+      { type: 'shape', shape: 'polygon', name: 'pool', points: [[filterX(560), 560], [2 * CX - filterX(560), 560], [2 * CX - filterX(BED_Y), BED_Y], [filterX(BED_Y), BED_Y]],
+        at: 6.4, duration: 3.6, initial: { fillColor: COPPER, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 0.35 }, duration: 0.8, ease: 'sine.inOut' }, { at: 2.2, to: { alpha: 0 }, duration: 0.8, ease: 'sine.inOut' }] },
+      line([528, RIM_Y], [672, TIP_Y], 0.55, 1.1),
+      line([872, RIM_Y], [728, TIP_Y], 0.55, 1.1),
+      line([508, RIM_Y], [892, RIM_Y], 0.45, 0.9, { width: 4 }),
+      { type: 'shape', shape: 'rect', width: 220, height: 10, at: 0.9, duration: DURATION - 0.9,
+        initial: { x: CX, y: 696, fillColor: INK, scaleX: 0 }, keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.7, ease: 'power2.out' }] },
+      { type: 'shape', shape: 'rect', width: 24, height: 12, at: 1.2, duration: DURATION - 1.2,
+        initial: { x: CX, y: 704, fillColor: INK, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.4 }] },
+
+      ...grains,
+      ...drops,
+
+      // kettle and its streams
+      { type: 'null', name: 'kettle', initial: { x: K.x + 460, y: K.y, rotation: -12 }, keyframes: kettleKf },
+      { type: 'shape', shape: 'path', parent: 'kettle', strokeCap: 'round', strokeJoin: 'round',
+        d: `M 30 20 L 0 0 C -80 -12 -110 -150 -190 -150 C -238 -150 -268 -132 ${TIP[0]} ${TIP[1]}`,
+        initial: { strokeColor: INK, strokeWidth: 10, fillAlpha: 0 } },
+      { type: 'shape', shape: 'rect', parent: 'kettle', width: 260, height: 250, cornerRadius: 70,
+        initial: { x: 140, y: -20, fillColor: DUST, strokeColor: INK, strokeWidth: 3 } },
+      { type: 'shape', shape: 'rect', parent: 'kettle', width: 14, height: 34, cornerRadius: 4,
+        initial: { x: 6, y: 2, fillColor: INK } },
+      stream(4.1 + 0.25, 0.85, 'bloomPour'),
+      stream(POUR.at - 0.15, POUR.dur + 0.3, 'mainPour'),
+
+      // text column
+      ...STEPS.flatMap(stepText),
+      ...topView,
+
+      // the end: steam, title
+      ...steam(676, 9.8, 1, 230),
+      ...steam(706, 10.6, 2, 270),
+      ...steam(734, 10.2, 3, 190),
+      text('04 / 04', { fontFamily: MONO, fontSize: 20, letterSpacing: 3, fill: COPPER }, M, 652, 10.1, null, { name: 'no04' }),
+      text('一杯', { fontFamily: MINCHO, fontSize: 132, letterSpacing: 10 }, M - 8, 688, 10.3, null, { name: 'title' }),
+      text('A cup, made slowly.', { fontFamily: SERIF, fontStyle: 'italic', fontSize: 26 }, M, 858, 10.6, null, { alpha: 0.7, name: 'titleGloss' }),
+      text('HAND DRIP · 15 g · 240 ml · 3:00', { fontFamily: MONO, fontSize: 16, letterSpacing: 2 }, M, GROUND - 20, 10.9, null, { alpha: 0.55, name: 'recipeLine' }),
+
+      // sound
+      ...grainClicks,
+      pourNoise(4.35, 0.85),
+      pourNoise(POUR.at - 0.15, POUR.dur + 0.3),
+      { type: 'audio', at: 0, volume: 0.75, music: {
+        bpm: 80, reverb: 0.4, humanize: 0.008,
+        tracks: [
+          { inst: 'keys', vol: [[0, 0.25], [8, 0.5]], tone: 0.35, strum: 0.03, notes: 'Fmaj7:4 Em7:4 Dm7:4 Cmaj9:4' },
+          { inst: 'pad', vol: 0.3, attack: 1.2, release: 2, notes: 'Fmaj7:4 Em7:4 Dm7:4 Cmaj9:4' },
+          { inst: 'bass', vol: 0.4, tone: 0.3, notes: '_:4 e2:4 d2:4 c2:4' },
+          { inst: 'musicbox', vol: 0.55, reverb: 0.6, ring: 1.6, notes: musicboxNotes },
+        ],
+      } },
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 12,
+        background: PAPER,
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

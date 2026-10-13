@@ -329,6 +329,25 @@
       "notes": "_notes/solar-system.md"
     },
     {
+      "id": "binary-count",
+      "title": "Binary, Counted",
+      "subtitle": "One digit that holds only 0 or 1: when it overflows, a new digit is born, worth twice as much",
+      "tags": [
+        "explainer",
+        "typography",
+        "japanese",
+        "math"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 13,
+      "posterFrame": 348,
+      "model": "opus",
+      "page": "binary-count.html",
+      "poster": "posters/binary-count.jpg",
+      "notes": "_notes/binary-count.md"
+    },
+    {
       "id": "d3-story",
       "title": "d3 × pixi-effects",
       "subtitle": "d3 computes, pixi-effects performs: a bar chart, a self-drawing line, a donut and a world map with great-circle routes, every number from d3 scales, line, pie, arc and geoPath",
@@ -349,6 +368,27 @@
       "page": "d3-story.html",
       "poster": "posters/d3-story.jpg",
       "notes": "_notes/d3-story.md"
+    },
+    {
+      "id": "escapement",
+      "title": "Escapement",
+      "subtitle": "A watch movement seen from its heartbeat outward: five exact steps a second turn every wheel.",
+      "tags": [
+        "mechanism",
+        "macro",
+        "procedural",
+        "shader",
+        "music",
+        "japanese"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 12.8,
+      "posterFrame": 369,
+      "model": "opus",
+      "page": "escapement.html",
+      "poster": "posters/escapement.jpg",
+      "notes": "_notes/escapement.md"
     },
     {
       "id": "rain-fourteen-days",
@@ -411,6 +451,26 @@
       "notes": "_notes/hanbun-app.md"
     },
     {
+      "id": "hanon-trio-night",
+      "title": "Hanon Trio Night",
+      "subtitle": "A basement jazz bar's poster, set note by note by a walking bass, a Rhodes and a vibes line",
+      "tags": [
+        "typography",
+        "music",
+        "jazz",
+        "poster",
+        "japanese"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 14,
+      "posterFrame": 390,
+      "model": "opus",
+      "page": "hanon-trio-night.html",
+      "poster": "posters/hanon-trio-night.jpg",
+      "notes": "_notes/hanon-trio-night.md"
+    },
+    {
       "id": "tenon-joint",
       "title": "HOZO",
       "subtitle": "A logo sting for an invented joinery workshop: two blocks slide out of a close-up and lock with one wooden click",
@@ -451,6 +511,47 @@
       "notes": "_notes/isometric-city.md"
     },
     {
+      "id": "lamplighter",
+      "title": "LAMPLIGHTER",
+      "subtitle": "The attract mode of a 1988 cartridge that never existed: maker splash, title screen, demo play, title again, with its own chiptune",
+      "tags": [
+        "pixel art",
+        "retro game",
+        "chiptune",
+        "title screen",
+        "8-bit"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 13.6,
+      "posterFrame": 135,
+      "model": "opus",
+      "page": "lamplighter.html",
+      "poster": "posters/lamplighter.jpg",
+      "notes": "_notes/lamplighter.md"
+    },
+    {
+      "id": "line-to-light",
+      "title": "Line to Light",
+      "subtitle": "A small house is drafted, rises into an axonometric, and the morning sun comes in",
+      "tags": [
+        "architecture",
+        "line drawing",
+        "axonometric",
+        "light",
+        "morph",
+        "music"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 13,
+      "posterFrame": 330,
+      "model": "opus",
+      "page": "line-to-light.html",
+      "poster": "posters/line-to-light.jpg",
+      "notes": "_notes/line-to-light.md"
+    },
+    {
       "id": "loop-grid",
       "title": "Loop Grid",
       "subtitle": "An original two-bar loop written as text; every cell is a note and flares the moment it sounds",
@@ -489,6 +590,28 @@
       "page": "nagiro-light.html",
       "poster": "posters/nagiro-light.jpg",
       "notes": "_notes/nagiro-light.md"
+    },
+    {
+      "id": "nengajo-hatsuhi",
+      "title": "Nengajo: Hatsuhi",
+      "subtitle": "A New Year card: the first sunrise over washi, a mizuhiki cord tied in gold and vermilion, a seal to close",
+      "tags": [
+        "japanese",
+        "new-year",
+        "card",
+        "typography",
+        "vertical-text",
+        "draw-on",
+        "music"
+      ],
+      "width": 1080,
+      "height": 1350,
+      "duration": 12,
+      "posterFrame": 330,
+      "model": "opus",
+      "page": "nengajo-hatsuhi.html",
+      "poster": "posters/nengajo-hatsuhi.jpg",
+      "notes": "_notes/nengajo-hatsuhi.md"
     },
     {
       "id": "spring-marquee",
@@ -570,6 +693,28 @@
       "page": "lyric-video.html",
       "poster": "posters/lyric-video.jpg",
       "notes": "_notes/lyric-video.md"
+    },
+    {
+      "id": "pour-over",
+      "title": "Pour-over",
+      "subtitle": "One cup of hand-drip coffee, drawn as a quiet instruction diagram: grounds, bloom, a spiral pour, the last drop.",
+      "tags": [
+        "coffee",
+        "diagram",
+        "japanese",
+        "line-art",
+        "quiet",
+        "music",
+        "sfx"
+      ],
+      "width": 1080,
+      "height": 1080,
+      "duration": 13,
+      "posterFrame": 360,
+      "model": "opus",
+      "page": "pour-over.html",
+      "poster": "posters/pour-over.jpg",
+      "notes": "_notes/pour-over.md"
     },
     {
       "id": "pythagoras-rearranged",
@@ -677,6 +822,26 @@
       "notes": "_notes/loop-morph.md"
     },
     {
+      "id": "sprint-trace",
+      "title": "Sprint Trace",
+      "subtitle": "A 100 m final in real time, told only with traces and numbers",
+      "tags": [
+        "sports",
+        "data",
+        "infographic",
+        "typography",
+        "counter"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 14,
+      "posterFrame": 396,
+      "model": "opus",
+      "page": "sprint-trace.html",
+      "poster": "posters/sprint-trace.jpg",
+      "notes": "_notes/sprint-trace.md"
+    },
+    {
       "id": "still-field",
       "title": "Still Field",
       "subtitle": "633 strokes of a lattice, raked into rings: one wave goes out ember and comes back pale, a seamless 12 s loop",
@@ -759,6 +924,27 @@
       "notes": "_notes/wedding-invitation.md"
     },
     {
+      "id": "aiai-gasa",
+      "title": "おむかえ",
+      "subtitle": "A rainy crossing seen from above: one umbrella, two people, one wet shoulder.",
+      "tags": [
+        "story",
+        "vertical",
+        "rain",
+        "japanese",
+        "illustration",
+        "music"
+      ],
+      "width": 720,
+      "height": 1280,
+      "duration": 13,
+      "posterFrame": 314,
+      "model": "opus",
+      "page": "aiai-gasa.html",
+      "poster": "posters/aiai-gasa.jpg",
+      "notes": "_notes/aiai-gasa.md"
+    },
+    {
       "id": "tadaima",
       "title": "ただいま",
       "subtitle": "A small ball hops ten ledges down to the one spot that fits it; the trip is shown again as a chronophotograph.",
@@ -799,6 +985,126 @@
       "notes": "_notes/hikari-no-oto.md"
     },
     {
+      "id": "same-grey",
+      "title": "同じ灰色 — Same Grey",
+      "subtitle": "One #808080 looks light, dark, graded, and then disappears: value is decided by the neighbour.",
+      "tags": [
+        "colour",
+        "value",
+        "albers",
+        "illusion",
+        "minimal",
+        "music"
+      ],
+      "width": 1080,
+      "height": 1080,
+      "duration": 14,
+      "posterFrame": 228,
+      "model": "opus",
+      "page": "same-grey.html",
+      "poster": "posters/same-grey.jpg",
+      "notes": "_notes/same-grey.md"
+    },
+    {
+      "id": "yakou-ressha",
+      "title": "夜をゆく",
+      "subtitle": "A night-train window at 2 a.m.: the world slides past in layers, and only the moon stays.",
+      "tags": [
+        "parallax",
+        "night",
+        "japanese",
+        "landscape",
+        "ambient",
+        "sound"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 13,
+      "posterFrame": 354,
+      "model": "opus",
+      "page": "yakou-ressha.html",
+      "poster": "posters/yakou-ressha.jpg",
+      "notes": "_notes/yakou-ressha.md"
+    },
+    {
+      "id": "nocturne-hachi",
+      "title": "夜想曲 Nocturne",
+      "subtitle": "Eight bars of an original piano nocturne, every note an ink bar landing on the key it lights",
+      "tags": [
+        "music",
+        "piano",
+        "data",
+        "typography"
+      ],
+      "width": 1080,
+      "height": 1080,
+      "duration": 14,
+      "posterFrame": 405,
+      "model": "opus",
+      "page": "nocturne-hachi.html",
+      "poster": "posters/nocturne-hachi.jpg",
+      "notes": "_notes/nocturne-hachi.md"
+    },
+    {
+      "id": "nenrin",
+      "title": "年輪 nenrin",
+      "subtitle": "A hundred springs, summers, autumns and winters, written into one tree as rings",
+      "tags": [
+        "nature",
+        "japanese",
+        "generative",
+        "time-lapse",
+        "music"
+      ],
+      "width": 1080,
+      "height": 1350,
+      "duration": 13.2,
+      "posterFrame": 366,
+      "model": "opus",
+      "page": "nenrin.html",
+      "poster": "posters/nenrin.jpg",
+      "notes": "_notes/nenrin.md"
+    },
+    {
+      "id": "pendulum-wave",
+      "title": "振り子の波 — Pendulum Wave",
+      "subtitle": "Fifteen pendulums released together drift into waves and meet again eight seconds later; each one rings at its turn",
+      "tags": [
+        "physics",
+        "generative",
+        "music",
+        "minimal"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 13,
+      "posterFrame": 228,
+      "model": "opus",
+      "page": "pendulum-wave.html",
+      "poster": "posters/pendulum-wave.jpg",
+      "notes": "_notes/pendulum-wave.md"
+    },
+    {
+      "id": "moon-phases",
+      "title": "月の満ち欠け",
+      "subtitle": "The Moon is always half lit; the phase is only the angle we see it from",
+      "tags": [
+        "explainer",
+        "science",
+        "shader",
+        "japanese",
+        "music"
+      ],
+      "width": 1080,
+      "height": 1080,
+      "duration": 14,
+      "posterFrame": 198,
+      "model": "opus",
+      "page": "moon-phases.html",
+      "poster": "posters/moon-phases.jpg",
+      "notes": "_notes/moon-phases.md"
+    },
+    {
       "id": "hasshahyo",
       "title": "発車標 Departure Board",
       "subtitle": "A station board where nothing moves unless the information changed: a departure, a delay, a track change",
@@ -819,6 +1125,26 @@
       "notes": "_notes/hasshahyo.md"
     },
     {
+      "id": "sora-no-ichinichi",
+      "title": "空の一日",
+      "subtitle": "A day of sky, dawn to night, as one slow colour field with a 24-hour scale",
+      "tags": [
+        "abstract",
+        "shader",
+        "colour",
+        "japanese",
+        "music"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 13,
+      "posterFrame": 225,
+      "model": "opus",
+      "page": "sora-no-ichinichi.html",
+      "poster": "posters/sora-no-ichinichi.jpg",
+      "notes": "_notes/sora-no-ichinichi.md"
+    },
+    {
       "id": "kanreki-cycle",
       "title": "還暦 — Kanreki",
       "subtitle": "A 60th-birthday greeting: one vermilion line travels the sixty-year calendar from 丙午 1966 back to 丙午 2026",
@@ -837,6 +1163,47 @@
       "page": "kanreki-cycle.html",
       "poster": "posters/kanreki-cycle.jpg",
       "notes": "_notes/kanreki-cycle.md"
+    },
+    {
+      "id": "key-and-lock",
+      "title": "鍵と錠",
+      "subtitle": "Public-key cryptography in one gesture: anyone can close the lock, only one key opens it",
+      "tags": [
+        "explainer",
+        "japanese",
+        "diagram",
+        "line-art"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 13,
+      "posterFrame": 363,
+      "model": "opus",
+      "page": "key-and-lock.html",
+      "poster": "posters/key-and-lock.jpg",
+      "notes": "_notes/key-and-lock.md"
+    },
+    {
+      "id": "koyu-incense",
+      "title": "香結 KOYU — No.07",
+      "subtitle": "A vertical incense ad: one thread of procedural smoke on washi, vertical Mincho copy, the brand arrives last",
+      "tags": [
+        "vertical",
+        "ad",
+        "japanese",
+        "shader",
+        "typography",
+        "minimal",
+        "music"
+      ],
+      "width": 720,
+      "height": 1280,
+      "duration": 12,
+      "posterFrame": 342,
+      "model": "opus",
+      "page": "koyu-incense.html",
+      "poster": "posters/koyu-incense.jpg",
+      "notes": "_notes/koyu-incense.md"
     }
   ]
 }
