@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>One Stroke</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />   <!-- the loader: HTML + CSS only, so it is on screen at once and keeps moving while the page builds the video -->
+  <style>
+    body { background: #161616; margin: 0; padding: 16px; min-height: 100vh; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+    .stage { position: relative; width: min(960px, 100%); }                 /* the player and the loader both sit inside this box */
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+    /* the loader (pixi-effects/loader.css, linked above): movie.init() fades it out when the movie is ready */
+    /* Screenshots: the player bar overlays the bottom ~60px of the canvas (it is NOT part of the exported video).
+       Uncomment to hide it while you check the layout:  .movie-controller { display: none !important; } */
+  </style>
+</head>
+<body>
+  <script type="application/json" id="piece-meta">{ "title": "One Stroke", "subtitle": "一 is one line: a hairline becomes the letter, keeps its single stroke through 13 typefaces, and is left alone at the end", "tags": ["typography", "kinetic type", "japanese", "poster", "specimen", "music"], "width": 1280, "height": 720, "duration": 14, "model": "opus" }</script>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>   <!-- shared loader: .pe-loader--pulse / --bar for other looks, --custom for your own -->
+  </div>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":  "../../dist/present.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js" />   <!-- after the import map: the library downloads while the page is parsed -->
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+    // import { registerThree, three } from 'pixi-effects/three';   // only for a three.js layer; call registerThree() before init
+    // import * as THREE from 'three';
+    // A talk instead of a video: import { deck, Presenter } from 'pixi-effects/present';  (the import map above has "pixi-effects/present")
+    //   const d = deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops: [at, ...], notes, sequences }] });
+    //   composition: d.composition, duration: d.duration; then new Presenter(movie, { canvas }) instead of the Controller. Docs: reference/cheatsheet.md → Presets (the deck lines).
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 14;
+
+    // ── palette and grid (see brief.md) ─────────────────────────────
+    const PAPER = '#EEEAE2', INK = '#141414', RED = '#E2401C', PENCIL = '#8C877E';
+    const LEFT = 80, RIGHT = 1200, TOP = 56, BOTTOM = 664;
+    const BASE_Y = 410;             // the poster's horizon: the bottom edge of the stroke
+    const GS = 900;                 // the hero glyph's font size (drawn as a picture: its em box would leave the frame)
+    const MONO = 'ui-monospace, Menlo, monospace';
+    const LATIN = '"Helvetica Neue", Helvetica, Arial, sans-serif';
+    const BEAT = 0.5;               // 120 bpm: a bar is 2 s
+
+    const MINCHO = '"Hiragino Mincho ProN", "Yu Mincho", YuMincho, "Noto Serif JP", serif';
+    const GOTHIC = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif';
+    const HERO = { family: MINCHO, weight: '600', label: 'MINCHO W6' };
+    const FACES = [
+      { family: GOTHIC, weight: '100', label: 'GOTHIC W1' },
+      { family: GOTHIC, weight: '300', label: 'GOTHIC W3' },
+      { family: GOTHIC, weight: '600', label: 'GOTHIC W6' },
+      { family: GOTHIC, weight: '900', label: 'GOTHIC W9' },
+      { family: '"Hiragino Maru Gothic ProN", ' + GOTHIC, weight: '400', label: 'MARU GOTHIC' },
+      { family: 'YuKyokasho, "YuKyokasho Yoko", ' + MINCHO, weight: '500', label: 'KYOKASHO' },
+      { family: '"Toppan Bunkyu Midashi Mincho", ' + MINCHO, weight: '800', label: 'MIDASHI MINCHO' },
+      { family: '"Tsukushi A Round Gothic", "Hiragino Maru Gothic ProN", ' + GOTHIC, weight: '700', label: 'ROUND GOTHIC' },
+      { family: 'YuMincho, "Yu Mincho", ' + MINCHO, weight: '300', label: 'MINCHO LIGHT' },
+      { family: '"Klee One", Klee, ' + MINCHO, weight: '600', label: 'PEN' },
+      { family: MINCHO, weight: '300', label: 'MINCHO W3' },
+      { family: '"Toppan Bunkyu Gothic", ' + GOTHIC, weight: '600', label: 'BUNKYU GOTHIC' },
+    ];
+    // Cuts on the beat grid: one face per beat while the stroke thickens, then two per beat.
+    //   0.5 hairline · 1.5 gathers · 2.5 cut: the letter · 3.5 the faces · 7.5 land · 8.0 tagline · 9.0 statement · 11.5 only the stroke stays
+    const LETTER = 2.5, CYCLE_AT = 3.5, FINAL = 7.5, ALONE = 11.5;
+    const cutTimes = FACES.map((_, i) => CYCLE_AT + (i < 4 ? i * BEAT : 4 * BEAT + (i - 4) * BEAT / 2));   // 4 on the beat, then 8 on the half beat → lands on 7.5
+
+    // 一 drawn by the browser's own font engine into a picture cropped to its ink.
+    // Returns the asset plus the ink box and the thickness of the bar (scanned in the middle of the stroke).
+    const assets = [];
+    function inkPicture(face, name) {
+      const c = document.createElement('canvas'), ctx = c.getContext('2d');
+      const font = `${face.weight} ${GS}px ${face.family}`;
+      ctx.font = font;
+      const m = ctx.measureText('一');
+      const pad = 4, iw = Math.ceil(m.actualBoundingBoxLeft + m.actualBoundingBoxRight), ih = Math.ceil(m.actualBoundingBoxAscent + m.actualBoundingBoxDescent);
+      c.width = iw + 2 * pad; c.height = ih + 2 * pad;
+      ctx.font = font; ctx.fillStyle = '#ffffff';
+      ctx.fillText('一', pad + m.actualBoundingBoxLeft, pad + m.actualBoundingBoxAscent);
+      const col = ctx.getImageData(Math.round(c.width * 0.45), 0, 1, c.height).data;
+      let first = -1, last = -1;
+      for (let y = 0; y < c.height; y++) if (col[y * 4 + 3] > 128) { if (first < 0) first = y; last = y; }
+      assets.push({ name, src: c.toDataURL('image/png') });
+      return { name, pad, w: c.width, h: c.height, iw, ih, bar: last - first + 1, barLift: pad + ih - (last + 1) };
+    }
+    // A layer of 一 whose ink starts at LEFT and whose ink bottom sits on BASE_Y.
+    function glyph(face, at, duration, name) {
+      const p = inkPicture(face, name);
+      return { layer: { type: 'image', name, asset: name, at, duration, initial: { x: LEFT - p.pad, y: BASE_Y + p.pad - p.h, tint: INK } },
+               x0: LEFT, x1: LEFT + p.iw, top: BASE_Y - p.ih, bar: p.bar, barLift: p.barLift };
+    }
+    // The vermilion dimension line over the ink: two ticks, a rule, the count.
+    function dimension(g, at, duration, name, draw = 0) {
+      const y = g.top - 30;
+      const kf = draw ? [{ at: 0, from: { trimEnd: 0 }, to: { trimEnd: 1 }, duration: draw, ease: 'expo.out' }] : [];
+      const kfT = draw ? [{ at: draw * 0.4, from: { alpha: 0 }, to: { alpha: 1 }, duration: draw * 0.6 }] : [];
+      const line = (n, from, to, k) => ({ type: 'shape', shape: 'line', name: name + '-' + n, at, duration, from, to,
+                                        initial: { strokeColor: RED, strokeWidth: 2 }, keyframes: k });
+      return [
+        line('rule', [g.x0, y], [g.x1, y], kf),
+        line('tickL', [g.x0, y - 9], [g.x0, y + 9], kfT),
+        line('tickR', [g.x1, y - 9], [g.x1, y + 9], kfT),
+        { type: 'text', name: name + '-count', text: 'STROKES 1', at, duration,
+          style: { fontSize: 15, fontFamily: MONO, fill: RED, letterSpacing: 2 },
+          initial: { x: (g.x0 + g.x1) / 2, y: y - 12, anchorX: 0.5, anchorY: 1 }, keyframes: kfT },
+      ];
+    }
+    const mono = (text, x, y, at, duration, extra = {}) => ({
+      type: 'text', name: extra.name, text, at, duration,
+      style: { fontSize: 15, fontFamily: MONO, fill: PENCIL, letterSpacing: 2, ...(extra.style || {}) },
+      initial: { x, y, anchorY: 0.5, ...(extra.initial || {}) }, keyframes: extra.keyframes || [] });
+    const rise = (at = 0) => [{ at, from: { alpha: 0, y: '+=12' }, duration: 0.5, ease: 'power3.out' }];
+
+    const hero = glyph(HERO, LETTER, CYCLE_AT - LETTER, 'hero-in');
+    const sequences = [
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: PAPER } },
+
+      // top information row
+      mono('U+4E00  ·  ICHI / ONE', LEFT, TOP, 0.2, ALONE - 0.2, { name: 'info-l', keyframes: rise() }),
+      mono('TYPE SPECIMEN  NO. 1', RIGHT, TOP, 0.35, ALONE - 0.35, { name: 'info-r', initial: { anchorX: 1 }, keyframes: rise() }),
+
+      // act 1: a hairline crosses the page, then gathers into the bar of the stroke (bottom edge on the horizon)
+      { type: 'shape', shape: 'rect', name: 'line', at: 0.5, duration: LETTER - 0.5, width: RIGHT - LEFT, height: 2,
+        initial: { x: LEFT, y: BASE_Y - hero.barLift, anchorX: 0, anchorY: 1, fillColor: INK, scaleX: 0 },
+        keyframes: [
+          { at: 0, to: { scaleX: 1 }, duration: 1, ease: 'expo.inOut' },
+          { at: 1, to: { scaleX: (hero.x1 - hero.x0) / (RIGHT - LEFT), scaleY: hero.bar / 2 }, duration: 0.8, ease: 'expo.inOut' },
+        ] },
+
+      // act 2: the line is a letter (the cut on 3.0 adds the serif)
+      hero.layer,
+      ...dimension(hero, LETTER + BEAT / 2, CYCLE_AT - LETTER - BEAT / 2, 'dim-hero', 0.5),
+    ];
+    const NFACES = FACES.length + 1;
+    const idx = n => String(n).padStart(2, '0') + ' / ' + String(NFACES).padStart(2, '0');
+    sequences.push(mono(HERO.label, LEFT, BOTTOM, LETTER + BEAT / 2, CYCLE_AT - LETTER - BEAT / 2, { name: 'label-hero', style: { fill: INK } }));
+    sequences.push(mono(idx(1), RIGHT, BOTTOM, LETTER + BEAT / 2, CYCLE_AT - LETTER - BEAT / 2, { name: 'index-hero', initial: { anchorX: 1 } }));
+
+    // act 3: the same one stroke in every face (hard cuts)
+    FACES.forEach((f, i) => {
+      const at = cutTimes[i], dur = (i + 1 < FACES.length ? cutTimes[i + 1] : FINAL) - at;
+      const g = glyph(f, at, dur, 'face-' + i);
+      sequences.push(g.layer, ...dimension(g, at, dur, 'dim-' + i));
+      sequences.push(mono(f.label, LEFT, BOTTOM, at, dur, { name: 'label-' + i, style: { fill: INK } }));
+      sequences.push(mono(idx(i + 2), RIGHT, BOTTOM, at, dur, { name: 'index-' + i, initial: { anchorX: 1 } }));
+    });
+
+    // act 4: land, and say it
+    // the last frame: only one thing is left, so it takes the centre (the one centred moment of the piece)
+    const fin = glyph(HERO, FINAL, DURATION - FINAL, 'hero');
+    fin.layer.keyframes = [{ at: ALONE - FINAL, to: { x: `+=${(W - (fin.x1 - fin.x0)) / 2 - LEFT}` }, duration: 1, ease: 'expo.inOut' }];
+    sequences.push(fin.layer, ...dimension(fin, FINAL, ALONE - FINAL, 'dim-final', 0.6));
+    // vertical Japanese tagline in the right column, its top on the red rule; 、 and 。 set by hand in the top-right of their cell
+    const TAG = '一画にして、一。'.split('');
+    const TAG_AT = FINAL + 0.5, TS = 36, PITCH = TS * 1.18, TX = 1140, TY = fin.top - 30 - TS / 2;
+    TAG.forEach((c, i) => {
+      const punct = c === '、' || c === '。';
+      const at = TAG_AT + i * BEAT / 4;
+      sequences.push({ type: 'text', name: 'tag-' + i, text: c, at, duration: ALONE - at,
+        style: { fontSize: TS, fontFamily: MINCHO, fontWeight: '600', fill: INK },
+        initial: { x: TX + (punct ? TS * 0.62 : 0), y: TY + i * PITCH - (punct ? TS * 0.62 : 0), anchorX: 0.5 } });
+    });
+    const LATIN_AT = FINAL + 1.5, LATIN_Y = BASE_Y + 60;
+    sequences.push({ type: 'text', name: 'latin', text: 'Draw one line.\nYou have written one.', at: LATIN_AT, duration: ALONE - LATIN_AT,
+      style: { fontSize: 30, fontFamily: LATIN, fontWeight: '700', fill: INK, align: 'left', lineHeight: 38 },
+      initial: { x: LEFT, y: LATIN_Y },
+      mask: { type: 'shape', shape: 'rect', width: 420, height: 100, initial: { x: LEFT - 4, y: LATIN_Y - 10, anchorX: 0, anchorY: 0, fillColor: '#ffffff', scaleX: 0 },
+              keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.7, ease: 'expo.inOut' }] } });
+    sequences.push(mono(HERO.label, LEFT, BOTTOM, FINAL, ALONE - FINAL, { name: 'foot-l', style: { fill: INK } }));
+    sequences.push(mono(NFACES + ' FACES  ·  1 STROKE', RIGHT, BOTTOM, FINAL, ALONE - FINAL, { name: 'foot-r', initial: { anchorX: 1 } }));
+
+    // ── sound: 120 bpm, every sound on the beat grid ───────────────
+    sequences.push({ type: 'audio', name: 'draw', sfx: { preset: 'swipe', pitch: -7, brightness: -0.4 }, at: 0.5, volume: 0.7 });
+    sequences.push({ type: 'audio', name: 'stamp', sfx: { preset: 'hit', pitch: -5, brightness: -0.6 }, at: LETTER, volume: 1.4 });
+    sequences.push({ type: 'audio', name: 'measure', sfx: { preset: 'click', pitch: 5 }, at: LETTER + BEAT / 2, volume: 0.9 });
+    cutTimes.forEach((t, i) => sequences.push({ type: 'audio', name: 'cut-' + i, sfx: { preset: 'click', pitch: i, seed: i }, at: t, volume: 1.1 }));
+    sequences.push({ type: 'audio', name: 'measure2', sfx: { preset: 'click', pitch: 5 }, at: FINAL, volume: 0.8 });
+    TAG.forEach((c, i) => sequences.push({ type: 'audio', name: 'tag-tick-' + i, sfx: { preset: 'typewriter', pitch: -4, seed: i }, at: TAG_AT + i * BEAT / 4, volume: 0.6 }));
+    sequences.push({ type: 'audio', name: 'wipe', sfx: { preset: 'swipe', pitch: -7, brightness: -0.4 }, at: LATIN_AT, volume: 0.6 });
+    sequences.push({ type: 'audio', name: 'land', sfx: { preset: 'hit', pitch: -5, brightness: -0.6 }, at: FINAL, volume: 1.2 });
+    sequences.push({ type: 'audio', name: 'bed', at: 0, volume: 1.3, music: {
+      bpm: 120, reverb: 0.35,
+      tracks: [
+        // beats: 5 = the letter (2.5 s), 7–15 = the faces, 15 = land (7.5 s), 23 = only the stroke (11.5 s); 28 beats = 14 s
+        { inst: 'pad',  vol: 0.45, notes: 'C@3:5 Am7:10 Fmaj7:8 C@3:5' },
+        { inst: 'bell', vol: 0.5,  notes: '_:5 g5:2 _:8 c6:1 e5:7 c5:5' },
+        { inst: 'sub',  vol: 0.7,  notes: '_:7 a1:1 a1:1 a1:1 a1:1 a1:0.5 a1:0.5 a1:0.5 a1:0.5 a1:0.5 a1:0.5 a1:0.5 a1:0.5 f1:8 c1:5' },
+      ],
+      drums: [{ from: 7, to: 15, hat: '..x...x...x...x.' }],
+    } });
+
+    const movie = new Movie();
+    window.movie = movie;                         // so a script can seek / screenshot / render
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 10.5,        // the moment that stands for the video before it plays (pick your most striking one)
+        background: PAPER,
+        assets,
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
+    }
+  </script>
+</body>
+</html>

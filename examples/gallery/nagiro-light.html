@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NAGIRO — Table Light 01</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />
+  <style>
+    html, body { height: 100%; }
+    body { background: #0e0d0c; margin: 0; padding: 16px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+    .stage { position: relative; width: min(960px, 100%); }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>
+  </div>
+
+  <script type="application/json" id="piece-meta">{ "title": "NAGIRO", "subtitle": "A quiet product film for an invented table light, told only with light on aluminium and opal glass", "tags": ["product", "shader", "raymarching", "light", "music"], "width": 1280, "height": 720, "duration": 13, "model": "opus" }</script>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":  "../../dist/present.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js" />
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 13;
+
+    // ── palette (brief.md) ──────────────────────────────────────────────
+    const C = { ground: '#0b0a09', warm: '#ffb36b', paper: '#ece6dc', ash: '#8c857b' };
+    const SANS = '"Helvetica Neue", "Hiragino Sans", system-ui, sans-serif';
+    const MINCHO = '"Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif';
+    const JPSANS = '"Hiragino Sans", "Yu Gothic", system-ui, sans-serif';
+    const MONO = 'ui-monospace, "SF Mono", Menlo, monospace';
+
+    // ── the product, drawn by light: one raymarched scene, four camera set-ups ──
+    // NAGIRO Table Light 01: a shallow bowl turned from aluminium, an opal glass globe resting in it.
+    const FRAG = `
+      #define PI 3.14159265
+      const vec3 WARM = vec3(1.0, 0.66, 0.36);
+      const vec3 GC = vec3(0.0, 0.68, 0.0);      // globe centre
+      const float GR = 0.5;                       // globe radius
+
+      float sdBowl(vec3 p) {
+        vec2 d = vec2(length(p.xz) - 0.62 + 0.035, abs(p.y - 0.13) - 0.13 + 0.035);
+        float cyl = min(max(d.x, d.y), 0.0) + length(max(d, 0.0)) - 0.035;
+        return max(cyl, -(length(p - GC) - (GR + 0.004)));
+      }
+      vec2 map(vec3 p) {
+        float g = length(p - GC) - GR;
+        float b = sdBowl(p);
+        float f = p.y;
+        vec2 r = vec2(f, 0.0);
+        if (b < r.x) r = vec2(b, 2.0);
+        if (g < r.x) r = vec2(g, 1.0);
+        return r;
+      }
+      vec3 calcNormal(vec3 p) {
+        const vec2 e = vec2(0.0007, -0.0007);
+        return normalize(e.xyy * map(p + e.xyy).x + e.yyx * map(p + e.yyx).x +
+                         e.yxy * map(p + e.yxy).x + e.xxx * map(p + e.xxx).x);
+      }
+      vec3 dirFrom(float az, float el) {
+        float a = radians(az), e = radians(el);
+        return vec3(cos(e) * sin(a), sin(e), cos(e) * cos(a));
+      }
+      float hitGlobe(vec3 ro, vec3 rd) {
+        vec3 oc = ro - GC; float b = dot(oc, rd); float c = dot(oc, oc) - GR * GR;
+        float h = b * b - c; if (h < 0.0) return -1.0; return -b - sqrt(h);
+      }
+      // light that falls on the table at gp: the key from above, the lamp (hidden near the base by the bowl)
+      vec3 groundLight(vec3 gp, vec3 L) {
+        float R = length(gp.xz);
+        vec3 toG = GC - gp; float dG = length(toG);
+        float ao = mix(0.2, 1.0, smoothstep(0.6, 1.1, R));
+        float occ = smoothstep(0.3, 0.95, R * 0.618);
+        float lamp = glow * occ * max(toG.y / dG, 0.0) * 2.2 / (1.0 + 1.6 * dG * dG);
+        vec3 alb = vec3(0.055, 0.048, 0.042);
+        float far = 1.0 - smoothstep(1.6, 4.2, R);                      // the table dissolves into the dark
+        return (alb * (max(L.y, 0.0) * keyI * 0.9 * ao + 0.02) * far + alb * WARM * lamp * 6.0) * mix(0.15, 1.0, far);
+      }
+      // what a polished surface sees: one tall strip softbox (the key light), the lit table, and the globe
+      vec3 env(vec3 ro, vec3 r, vec3 L, float rough) {
+        vec2 rh = normalize(r.xz + 1e-5), lh = normalize(L.xz + 1e-5);
+        float strip = pow(smoothstep(0.94 - rough, 0.9995 - rough * 0.15, dot(rh, lh)), 2.0) * (1.0 - rough * 1.6) * smoothstep(-0.55, -0.3, r.y) * (1.0 - smoothstep(0.75, 0.95, r.y));
+        vec3 c = vec3(0.010, 0.009, 0.008) + vec3(0.015) * max(r.y, 0.0);
+        c += vec3(1.0, 0.97, 0.92) * strip * keyI * 3.0;
+        if (r.y < -0.001) {
+          vec3 gp = ro + r * (-ro.y / r.y);
+          c += groundLight(gp, L) * 0.6;
+        }
+        float tg = hitGlobe(ro, r);
+        if (tg > 0.0) c += WARM * glow * 2.6;
+        return c;
+      }
+      void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+        vec2 uv = (fragCoord - 0.5 * iResolution.xy) / iResolution.y - shift;
+        vec3 T = tgt;
+        vec3 ro = T + cam.z * dirFrom(cam.x, cam.y);
+        vec3 f = normalize(T - ro);
+        vec3 rgt = normalize(cross(f, vec3(0.0, 1.0, 0.0)));
+        vec3 up = cross(rgt, f);
+        float focal = 0.5 / tan(radians(fov) * 0.5);
+        vec3 rd = normalize(f * focal + uv.x * rgt + uv.y * up);
+        vec3 L = dirFrom(keyAz, keyEl);
+
+        float t = 0.02; vec2 h = vec2(1.0, -1.0);
+        for (int i = 0; i < 140; i++) {
+          h = map(ro + rd * t);
+          if (abs(h.x) < 0.0004 * t) break;
+          t += h.x * 0.85;
+          if (t > 24.0) break;
+        }
+        vec3 col = vec3(0.0);
+        float pixel = t * 2.0 / (focal * iResolution.y);   // world size of one pixel here
+        if (t < 24.0) {
+          vec3 p = ro + rd * t;
+          vec3 n = calcNormal(p);
+          vec3 V = -rd;
+          vec3 toG = GC - p; float dG = length(toG); vec3 lG = toG / dG;
+          if (h.y > 1.5) {
+            // turned aluminium: concentric lathe lines (faded out where they would alias)
+            float rr = length(p.xz);
+            float fine = 1.0 - smoothstep(0.0018, 0.0045, pixel / max(dot(n, V), 0.15));   // footprint grows at grazing angles
+            float wob = sin(rr * 1150.0 + 2.0 * sin(rr * 41.0)) * 0.05 * fine;
+            vec3 radial = vec3(p.x, 0.0, p.z) / max(rr, 1e-4);
+            if (abs(n.y) > 0.6) n = normalize(n + radial * wob);
+            else n = normalize(n + vec3(0.0, 1.0, 0.0) * sin(p.y * 1150.0) * 0.05 * fine);
+            vec3 R = reflect(rd, n);
+            vec3 metal = vec3(0.80, 0.79, 0.77);
+            float fres = 0.7 + 0.3 * pow(1.0 - max(dot(n, V), 0.0), 5.0);
+            float rough = mix(0.16, 0.0, smoothstep(0.05, 0.3, n.y));        // turned side -> polished chamfer
+            rough = mix(rough, 0.12, smoothstep(0.93, 0.99, n.y));          // -> bead-blasted top
+            col = metal * env(p + n * 0.002, R, L, rough) * fres;
+            col += metal * 0.04 * max(dot(n, L), 0.0) * keyI;             // bead-blasted micro roughness
+            col += metal * WARM * glow * 0.5 * max(dot(n, lG), 0.0) / (dG * dG); // the globe lights the rim
+          } else if (h.y > 0.5) {
+            // opal glass: soft wrap diffuse + the strip light's reflection, then it glows from inside
+            vec3 opal = vec3(0.90, 0.89, 0.86);
+            float wrap = pow(max(dot(n, L) * 0.5 + 0.5, 0.0), 4.0);
+            float fres = 0.04 + 0.96 * pow(1.0 - max(dot(n, V), 0.0), 5.0);
+            vec3 Rr = reflect(rd, n);
+            vec3 refl = env(p + n * 0.002, Rr, L, 0.0);
+            float sil = smoothstep(0.02, 0.2, max(dot(n, V), 0.0));          // no sparkle on the grazing silhouette
+            vec3 off = opal * wrap * keyI * opalI + refl * (0.06 + fres) * sil;
+            float facing = max(dot(n, V), 0.0);
+            // thinner glass toward the eye: a near-white core, deeper amber at the edge
+            vec3 on = mix(WARM * vec3(1.0, 0.78, 0.55) * 0.75, vec3(1.0, 0.86, 0.68) * 1.35, pow(facing, 2.0));
+            col = off * (1.0 - 0.7 * glow) + on * glow + refl * 0.06 * glow;
+          } else {
+            col = groundLight(p, L);
+            vec3 Rg = reflect(rd, vec3(0.0, 1.0, 0.0));
+            float tg = hitGlobe(p, Rg);                                     // a faint satin reflection of the lit globe
+            if (tg > 0.0) col += WARM * glow * 0.08 * exp(-tg * 1.5);
+          }
+        }
+        // the lamp's own halo in the air (closest approach of the ray to the globe)
+        vec3 oc = GC - ro; float tc = max(dot(oc, rd), 0.0);
+        if (tc < t + 0.5) { float dmin = length(oc - rd * tc) - GR; col += WARM * glow * 0.10 * exp(-max(dmin, 0.0) * 5.0); }
+        // exposure, filmic roll-off, warm black, vignette
+        col = 1.0 - exp(-col * expo);
+        col = pow(col, vec3(1.0 / 2.2));
+        vec2 q = fragCoord / iResolution.xy - 0.5;
+        col *= 1.0 - 0.55 * dot(q, q) * 1.6;
+        col = max(col, vec3(0.043, 0.039, 0.035));
+        fragColor = vec4(col, 1.0);
+      }`;
+
+    // A camera set-up: uniforms at the start of the shot and where they travel to.
+    const XF = 0.4;                       // the dissolve between shots (centred on the bar line)
+    const BAR = 3;                        // 80 bpm, 4/4: a bar is 3 s, every cut on a bar line
+    const base = { cam: [20, 10, 1.3], tgt: [0, 0.4, 0], fov: 30, shift: [0, 0], keyAz: 0, keyEl: 30, keyI: 1, opalI: 0.42, glow: 0, expo: 1.4 };
+    const SHOTS = [
+      { name: 'rim', from: 0, to: BAR,                                  // 01: a key light travels over the lathe lines
+        u: { cam: [-8, 30, 0.9], tgt: [0.05, 0.24, 0.48], fov: 26, keyAz: 110, keyEl: 6, keyI: 1, opalI: 0.06 },
+        k: [{ at: 0, to: { 'uniforms.cam.2': 0.8, 'uniforms.cam.0': 6 }, duration: BAR + XF, ease: 'sine.inOut' },
+            { at: 0, to: { 'uniforms.keyAz': 250 }, duration: BAR + XF, ease: 'power1.inOut' }] },
+      { name: 'glass', from: BAR, to: 2 * BAR,                          // 02: opal glass, then it switches on
+        u: { cam: [-30, -4, 1.25], tgt: [-0.1, 0.92, 0], fov: 30, keyAz: 60, keyEl: 40, keyI: 0.9, opalI: 0.26, glow: 0 },
+        k: [{ at: 0, to: { 'uniforms.cam.0': -18, 'uniforms.cam.2': 1.15 }, duration: BAR + XF, ease: 'sine.inOut' },
+            { at: 1.55, to: { 'uniforms.glow': 1, 'uniforms.keyI': 0.35 }, duration: 1.6, ease: 'power2.in' }] },
+      { name: 'pool', from: 2 * BAR, to: 3 * BAR,                       // 03: a pool of 2700 K light on the table
+        u: { cam: [24, 13, 3.1], tgt: [0, 0.45, 0], fov: 32, keyAz: 60, keyEl: 40, keyI: 0.3, glow: 1 },
+        k: [{ at: 0, to: { 'uniforms.cam.0': 48, 'uniforms.cam.2': 2.9 }, duration: BAR + XF, ease: 'sine.inOut' }] },
+      { name: 'still', from: 3 * BAR, to: DURATION,                     // 04: set down. Product right, words left.
+        u: { cam: [36, 11, 3.8], tgt: [0, 0.5, 0], fov: 30, shift: [0.34, 0.0], keyAz: 60, keyEl: 40, keyI: 0.3, glow: 1 },
+        k: [{ at: 0, to: { 'uniforms.cam.2': 3.5, 'uniforms.cam.0': 40 }, duration: 2.6, ease: 'sine.out' }] },
+    ];
+
+    // Shots meet on the bar line with a breath of dark between them (no double exposure):
+    // each opens its exposure from 0 and, unless it is the last, closes it again just before the cut.
+    const shotLayer = (s, i) => {
+      const E = (s.u.expo ?? base.expo);
+      const keyframes = s.k.map(k => ({ ...k }));   // keyframe `at` = seconds from this layer's start
+      keyframes.push({ at: 0, from: { 'uniforms.expo': 0 }, duration: i === 0 ? 1.2 : 0.7, ease: 'sine.out' });
+      if (s.to < DURATION) keyframes.push({ at: -0.4, to: { 'uniforms.expo': 0 }, duration: 0.4, ease: 'sine.in' });
+      return { type: 'shader', name: s.name, fragment: FRAG, resolution: 1.5, at: s.from, duration: s.to - s.from,
+        uniforms: { ...base, ...s.u, expo: E }, keyframes };
+    };
+
+    // ── captions: an index in paper, the material in Japanese, an English line in ash ──
+    const caption = (i, jp, en, at, until) => {
+      const fade = [{ at: 0, from: { alpha: 0, y: '+=10' }, duration: 0.9, ease: 'power2.out' },
+                    { at: -0.5, to: { alpha: 0 }, duration: 0.5, ease: 'sine.in' }];
+      const X = 80, Y = 606;
+      const L = (o) => ({ type: 'text', at, duration: until - at, keyframes: fade, ...o });
+      return [
+        L({ name: `cap${i}-n`, text: `0${i}`, style: { fontFamily: MONO, fontSize: 16, fill: C.paper, letterSpacing: 2 }, initial: { x: X, y: Y + 4 } }),
+        L({ name: `cap${i}-jp`, text: jp, style: { fontFamily: JPSANS, fontSize: 22, fontWeight: '300', fill: C.paper, letterSpacing: 3 }, initial: { x: X + 44, y: Y } }),
+        L({ name: `cap${i}-en`, text: en, style: { fontFamily: MONO, fontSize: 16, fill: C.ash, letterSpacing: 3 }, initial: { x: X + 44, y: Y + 36 } }),
+      ];
+    };
+
+    // ── the closing type block (left), aligned to the product on the right ──
+    const T0 = 3 * BAR + 0.5;
+    const rise = (d) => [{ at: 0, from: { alpha: 0, y: '+=10' }, duration: d, ease: 'power2.out' }];
+    const TX = 112;
+    const closing = [
+      { type: 'text', name: 'wordmark', text: 'NAGIRO', at: T0, duration: DURATION - T0,
+        style: { fontFamily: SANS, fontSize: 64, fontWeight: '300', fill: C.paper, letterSpacing: 22 },
+        initial: { x: TX, y: 258 }, keyframes: rise(1.2) },
+      { type: 'shape', name: 'rule', shape: 'rect', width: 56, height: 1, at: T0 + 0.5, duration: DURATION - T0 - 0.5,
+        initial: { x: TX + 28, y: 362, fillColor: C.ash, scaleX: 0 },
+        keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.9, ease: 'power2.inOut' }] },
+      { type: 'text', name: 'tagline', text: '光を、置く。', at: T0 + 0.8, duration: DURATION - T0 - 0.8,
+        style: { fontFamily: MINCHO, fontSize: 30, fill: C.paper, letterSpacing: 6 },
+        initial: { x: TX, y: 392 }, keyframes: rise(1.1) },
+      { type: 'text', name: 'model', text: 'TABLE LIGHT 01  ·  2700K', at: T0 + 1.2, duration: DURATION - T0 - 1.2,
+        style: { fontFamily: MONO, fontSize: 16, fill: C.ash, letterSpacing: 2 },
+        initial: { x: TX, y: 456 }, keyframes: rise(1.0) },
+    ];
+
+    // ── sound: 80 bpm, a pad bed, a bell on each cut, a lamp switch, a low swell as it lights ──
+    const music = {
+      bpm: 80, reverb: 0.45,
+      tracks: [
+        { inst: 'pad', vol: [[0, 0], [3, 0.55], [16, 0.6]], attack: 1.8, release: 3, tone: 0.45,
+          notes: 'Dmaj9:4 Bm9:4 Gmaj7#11:4 Dmaj9:5.33' },
+        { inst: 'bell', vol: 0.32, reverb: 0.9, ring: 3.2, tone: 0.5,
+          notes: '_:4 a5:4 f#5:4 [d5 a5]:5.33' },
+        { inst: 'sub', vol: 0.5, release: 1.5, notes: '_:6 d1:4 _:7.33' },
+      ],
+    };
+    const sound = [
+      { type: 'audio', name: 'music', at: 0, volume: 1.3, music },
+      { type: 'audio', name: 'switch', sfx: { preset: 'click', pitch: -7, brightness: -0.6 }, at: BAR + 1.5, volume: 0.9 },
+    ];
+
+    const sequences = [
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: C.ground } },
+      ...SHOTS.map(shotLayer),
+      ...caption(1, '削り出しのアルミニウム', 'TURNED FROM SOLID ALUMINIUM', 0.9, BAR - 0.05),
+      ...caption(2, '手吹きの乳白ガラス', 'HAND-BLOWN OPAL GLASS', BAR + 0.5, 2 * BAR - 0.05),
+      ...caption(3, '夕方の色、2700K', 'THE COLOUR OF EARLY EVENING', 2 * BAR + 0.5, 3 * BAR - 0.05),
+      ...closing,
+      ...sound,
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 12,
+        background: C.ground,
+        composition: { sequences, filters: [{ type: 'grain', name: 'grain', amount: 0.018, size: 1.5, color: 0 }] },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

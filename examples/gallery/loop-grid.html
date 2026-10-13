@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>loop-grid</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />
+  <style>
+    body { background: #111214; margin: 0; padding: 16px; display: flex; justify-content: center; }
+    .stage { position: relative; width: min(760px, 100%, calc(100vh - 32px)); }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1080" height="1080"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>
+  </div>
+
+  <script type="application/json" id="piece-meta">{ "title": "Loop Grid", "subtitle": "An original two-bar loop written as text; every cell is a note and flares the moment it sounds", "tags": ["music", "sequencer", "audio-reactive", "grid", "square"], "width": 1080, "height": 1080, "duration": 13, "model": "opus" }</script>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":  "../../dist/present.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js" />
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1080, H = 1080, FPS = 30, DURATION = 13;
+
+    // ── palette (brief.md) ──────────────────────────────────────────────
+    const INK = '#0F1012', GRAPHITE = '#2B2D33', BONE = '#F1ECE2', SIGNAL = '#FF5B1F';
+    const MONO = 'ui-monospace, Menlo, Consolas, monospace';
+
+    // ── the grid: 16 columns = 16 eighth notes (2 bars at 120 bpm), 16 rows = A minor pentatonic ──
+    const GX = 72, GY = 216, P = 48, CELL = 40, N = 16;
+    const ROWS = ['a2', 'c3', 'd3', 'e3', 'g3', 'a3', 'c4', 'd4', 'e4', 'g4', 'a4', 'c5', 'd5', 'e5', 'g5', 'a5'];
+    const RIG_X = GX + N * P / 2, RIG_Y = GY + N * P / 2;          // the grid's centre: the kick pumps around it
+    const cx = c => GX + c * P + P / 2 - RIG_X;                    // cell centre, relative to the rig
+    const cy = r => GY + (N - 1 - r) * P + P / 2 - RIG_Y;
+
+    // ── time: 120 bpm, one beat 0.5 s, one column (eighth) 0.25 s ───────
+    const BPM = 120, BEAT = 60 / BPM, STEP = BEAT / 2;
+    const COUNT_IN = 2;                                            // beats of soft hats while the grid draws in
+    const T0 = COUNT_IN * BEAT;                                    // movie time of the loop's first downbeat (1.0 s)
+    const PASS = N * STEP;                                         // one pass of the loop (4 s)
+    const tOf = (pass, step) => T0 + pass * PASS + step * STEP;
+    const T_END = tOf(2, 8);                                       // the final downbeat (11.0 s)
+
+    // ── THE SCORE: one list of notes per track, [step, row, length in steps]; it builds the sound AND the picture ──
+    const BASS  = [[0, 0, 2], [3, 0, 1], [6, 5, 1], [8, 1, 2], [11, 1, 1], [14, 2, 1], [15, 3, 1]];
+    const BELL  = [[0, 10, 2], [2, 11, 1], [3, 13, 3], [6, 12, 1], [7, 11, 1], [8, 9, 3], [11, 10, 1], [12, 13, 1], [13, 12, 1], [14, 11, 2]];
+    const PLUCK = [[1, 6, 1], [3, 8, 1], [5, 7, 1], [9, 6, 1], [11, 8, 1], [13, 7, 1]];
+    // which passes play what (pass 2 is cut at step 8 by the final downbeat)
+    const PLAN = { bass: [0, 1, 2], bell: [0, 1, 2], pluck: [1, 2] };
+
+    const NOTES_PLAYED = Object.entries({ bass: BASS, bell: BELL, pluck: PLUCK })
+      .reduce((n, [k, list]) => n + PLAN[k].reduce((m, p) => m + list.filter(([s]) => p < 2 || s < 8).length, 0), 0) + 3;   // + the three final notes
+    // notes → the text score: tokens in beats, rests filled in
+    function scoreLine(list, passes, final) {
+      const out = [];
+      let beat = COUNT_IN;                                         // every track waits for the count-in
+      out.push(`_:${COUNT_IN}`);
+      for (let p = 0; p < 3; p++) {
+        const start = COUNT_IN + p * 8;
+        for (const [s, r, len] of list) {
+          if (!passes.includes(p) || (p === 2 && s >= 8)) continue;
+          const b = start + s / 2;
+          if (b > beat) out.push(`_:${b - beat}`);
+          out.push(`${ROWS[r]}:${len / 2}`);
+          beat = b + len / 2;
+        }
+      }
+      const fb = COUNT_IN + 2 * 8 + 4;                             // the final downbeat, in beats (22)
+      if (fb > beat) out.push(`_:${fb - beat}`);
+      out.push(final);
+      return out.join(' ');
+    }
+    const music = {
+      bpm: BPM, swing: 0, humanize: 0, reverb: 0.24, seed: 3,
+      tracks: [
+        { inst: 'bass', vol: 0.9, transpose: -12, tone: 0.55, reverb: 0.05, notes: scoreLine(BASS, PLAN.bass, 'a2:3') },
+        { inst: 'bell', vol: 0.62, transpose: 12, ring: 0.9, reverb: 0.5, pan: 0.12, notes: scoreLine(BELL, PLAN.bell, 'a5:3') },
+        { inst: 'pluck', vol: 0.5, pan: -0.25, tone: 0.6, notes: scoreLine(PLUCK, PLAN.pluck, 'e4:3') },
+        { inst: 'pad', vol: 0.55, attack: 0.05, release: 1.2, notes: `_:22 [a2 e3 g3 c4 e4]:3` },
+      ],
+      drums: [
+        { from: 0, to: COUNT_IN, hat: 'oooo' },                                                         // the count-in
+        { from: 10, to: 22, kick: 'x.......x.x.....', snare: '....x.......x...', hat: '..x...x...x...x.' },
+        { from: 22, to: 23, kick: 'x...', crash: 'x...' },
+      ],
+    };
+    // drum hits as movie times, from the same patterns (16ths: 4 per beat)
+    const hits = (pattern, fromBeat, toBeat) => {
+      const out = [];
+      for (let b = fromBeat * 4; b < toBeat * 4; b++) if (pattern[(b - fromBeat * 4) % pattern.length] !== '.') out.push(b / 4 * BEAT);
+      return out;
+    };
+    const KICKS  = [...hits(music.drums[1].kick, 10, 22), T_END];
+    const SNARES = hits(music.drums[1].snare, 10, 22);
+    const HATS   = hits(music.drums[1].hat, 10, 22);
+    const COUNT_HATS = hits(music.drums[0].hat, 0, COUNT_IN);
+
+    // ── layers ───────────────────────────────────────────────────────────
+    const seq = [];
+    seq.push({ type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: INK } });
+
+    // header: title, score line, bar.beat counter
+    seq.push({ type: 'text', name: 'title', text: 'LOOP Nº1', at: 0.2,
+      style: { fontFamily: '"Arial Black", "Helvetica Neue", Arial, sans-serif', fontWeight: '900', fontSize: 72, fill: BONE, letterSpacing: -1 },
+      initial: { x: GX - 4, y: 64 },
+      keyframes: [{ at: 0, from: { alpha: 0, y: 84 }, to: { alpha: 1, y: 64 }, duration: 0.6, ease: 'power3.out' }] });
+    seq.push({ type: 'text', name: 'legend', at: 0.45,
+      spans: [{ text: '■ BASS', fill: SIGNAL }, '   ', { text: '■ BELL', fill: BONE }, '   ', { text: '□ PLUCK', fill: BONE }, { text: '     120 BPM · A MINOR PENTATONIC', fill: '#8A8C92' }],
+      style: { fontFamily: MONO, fontSize: 16, fill: BONE, letterSpacing: 1.5, align: 'left' },
+      initial: { x: GX, y: 160 },
+      keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.5, ease: 'power2.out' }] });
+    seq.push({ type: 'text', name: 'counter-label', text: 'BAR · BEAT', at: 0.45,
+      style: { fontFamily: MONO, fontSize: 13, fill: '#8A8C92', letterSpacing: 2 },
+      initial: { x: 864, y: 74 },
+      keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.5 }, { at: T_END - 0.45, set: { text: 'LOOP' } }] });
+    seq.push({ type: 'text', name: 'caption', text: `${NOTES_PLAYED} NOTES`, at: T_END + 0.35,
+      style: { fontFamily: MONO, fontSize: 13, fill: SIGNAL, letterSpacing: 2 },
+      initial: { x: 864, y: 162 },
+      keyframes: [{ at: 0, from: { alpha: 0, x: 852 }, to: { alpha: 1, x: 864 }, duration: 0.5, ease: 'power3.out' }] });
+    const counterKeys = [];
+    for (let b = 0; b < 20; b++) counterKeys.push({ at: T0 + b * BEAT - 0.45, set: { text: `${Math.floor(b / 4) + 1}.${b % 4 + 1}` } });
+    counterKeys.push({ at: T_END - 0.45, set: { text: '∞' } });
+    seq.push({ type: 'text', name: 'counter', text: '–.–', at: 0.45,
+      style: { fontFamily: MONO, fontSize: 52, fontWeight: '700', fill: BONE },
+      initial: { x: 862, y: 96 },
+      keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.5 }, ...counterKeys] });
+
+    // row labels (pitch names), right of the grid
+    // every note lights its row's letter: the right column plays the melody too
+    const rowHits = ROWS.map(() => []);
+    const noteList = [];
+    for (const [kind, list] of [['bass', BASS], ['bell', BELL], ['pluck', PLUCK]]) for (const p of PLAN[kind]) for (const [s, r] of list) {
+      if (p === 2 && s >= 8) continue;
+      noteList.push([kind, r, tOf(p, s)]);
+    }
+    noteList.push(['bass', 0, T_END], ['pluck', 8, T_END], ['bell', 15, T_END]);
+    for (const [kind, r, t] of noteList) rowHits[r].push([t, kind === 'bass' ? SIGNAL : BONE]);
+    ROWS.forEach((name, r) => {
+      const at0 = 0.5 + r * 0.02;
+      const hitsHere = rowHits[r].sort((a, b) => a[0] - b[0]);
+      seq.push({ type: 'text', name: 'row-' + r, text: name[0].toUpperCase(), at: at0,
+        style: { fontFamily: MONO, fontSize: 18, fontWeight: '700', fill: '#5E6067' },
+        initial: { x: 866, y: GY + (N - 1 - r) * P + P / 2, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 },
+          ...hitsHere.map(([t, col], i) => {
+            const gap = i + 1 < hitsHere.length ? hitsHere[i + 1][0] - t : 1;
+            return t >= T_END ? { at: t - at0, from: { fill: col }, to: { fill: col }, duration: 0.01 }
+                              : { at: t - at0, from: { fill: col }, to: { fill: '#5E6067' }, duration: Math.min(0.45, gap - 0.02), ease: 'power2.in' };
+          })] });
+    });
+
+    // hat lane: one tick per column above the grid; lights on every hat
+    const hatTicks = [];
+    const tickAt = new Map();
+    const addTick = (col, t) => { if (!tickAt.has(col)) tickAt.set(col, []); tickAt.get(col).push(t); };
+    COUNT_HATS.forEach((t, i) => { addTick(2 * i, t); addTick(2 * i + 1, t); });     // the count-in reveals the columns in pairs
+    HATS.forEach(t => addTick(Math.round((t - T0) / STEP) % N, t));
+    for (let c = 0; c < N; c++) {
+      const ts = tickAt.get(c) || [];
+      seq.push({ type: 'shape', shape: 'rect', name: 'tick-' + c, width: 20, height: 3, at: ts[0],      // a 'from' shows from the layer's start: the layer starts at its first hit
+        initial: { x: GX + c * P + P / 2, y: GY - 18, fillColor: BONE, alpha: 0 },
+        keyframes: ts.map(t => ({ at: t - ts[0], from: { alpha: 1 }, to: { alpha: 0.18 }, duration: 0.22, ease: 'power2.out' })) });
+    }
+
+    // the rig: everything on the grid hangs from it, so the kick can pump the whole score
+    // the grid's rectangle (+16 px for the pump and a struck edge cell): ripples never cross into the header or the floor line
+    seq.push({ type: 'shape', shape: 'rect', name: 'grid-clip', width: N * P + 32, height: N * P + 32, initial: { x: RIG_X, y: RIG_Y, fillColor: '#ffffff' } });
+    seq.push({ type: 'null', name: 'rig', mask: 'grid-clip', initial: { x: RIG_X, y: RIG_Y },
+      keyframes: KICKS.map(t => ({ at: t, from: { scale: 1.025 }, to: { scale: 1 }, duration: 0.28, ease: 'power2.out' })) });
+
+    // the grid's own rectangle: ripples are clipped to it so they never cross into the header or the floor line
+
+    // unlit cells: drawn in, two columns per count-in hat
+    for (let c = 0; c < N; c++) for (let r = 0; r < N; r++) {
+      const t = COUNT_HATS[Math.floor(c / 2)] ?? 0;
+      seq.push({ type: 'shape', shape: 'rect', parent: 'rig', at: t, width: CELL, height: CELL, cornerRadius: 3,
+        initial: { x: cx(c), y: cy(r), fillColor: GRAPHITE, alpha: 0 },
+        keyframes: [{ at: 0, from: { alpha: 1, scale: 0.6 }, to: { alpha: 0.55, scale: 1 }, duration: 0.25, ease: 'power3.out' }] });
+    }
+
+    // programmed cells: the pattern is visible before it plays
+    const progCell = (kind, s, r, at) => {
+      const outline = kind === 'pluck';
+      const color = kind === 'bass' ? SIGNAL : BONE;
+      const ARMED = 12;
+      return { type: 'shape', shape: 'rect', name: `prog-${kind}-${s}`, parent: 'rig', at, width: outline ? CELL - 2 : ARMED, height: outline ? CELL - 2 : ARMED, cornerRadius: outline ? 3 : 1,
+        initial: outline ? { x: cx(s), y: cy(r), strokeColor: BONE, strokeWidth: 2, alpha: 0 } : { x: cx(s), y: cy(r), fillColor: color, alpha: 0 },
+        keyframes: [
+          { at: 0, from: { scale: 0.2 }, to: { alpha: outline ? 0.5 : 1, scale: 1 }, duration: 0.3, ease: 'back.out(2)' },
+          // the fingerprint: every note of the loop lit at once, a wave from left to right
+          { at: T_END - at + s * 0.018, to: outline ? { alpha: 1 } : { width: CELL, height: CELL, cornerRadius: 3 }, duration: 0.3, ease: 'expo.out' },
+        ] };
+    };
+    BASS.forEach(([s, r]) => seq.push(progCell('bass', s, r, 0.55 + s * 0.025)));
+    BELL.forEach(([s, r]) => seq.push(progCell('bell', s, r, 0.6 + s * 0.025)));
+    PLUCK.forEach(([s, r]) => seq.push(progCell('pluck', s, r, tOf(1, 0) - 0.5 + s * 0.02)));
+
+    // the playhead: a column that snaps to each step like a sequencer
+    const headKeys = [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.2 }];
+    for (let p = 0; p < 3; p++) for (let s = 0; s < N; s++) {
+      const t = tOf(p, s);
+      if (t > T_END) break;
+      if (t === T0) continue;
+      const head = { at: t - 0.85 - 0.02, to: { x: cx(s) }, duration: s === 0 ? 0.02 : 0.06, ease: 'power3.out' };
+      headKeys.push(head);
+    }
+    headKeys.push({ at: T_END - 0.85, to: { alpha: 0 }, duration: 0.4, ease: 'power2.out' });
+    seq.push({ type: 'shape', shape: 'rect', name: 'playhead', parent: 'rig', at: 0.85, width: P, height: N * P,
+      initial: { x: cx(0), y: 0, fillColor: BONE, alpha: 0, fillAlpha: 0.07 }, keyframes: headKeys });
+
+    // a hit: the cell flares and settles over the note's length; bass and bell send a square ripple
+    const hitLayers = (kind, s, r, len, t) => {
+      const color = kind === 'bass' ? SIGNAL : BONE;
+      const hold = len * STEP;
+      const fill = kind === 'pluck' ? { fillColor: BONE, fillAlpha: 0.28, strokeColor: BONE, strokeWidth: 3 } : { fillColor: color };
+      const out = [{ type: 'shape', shape: 'rect', name: `hit-${kind}-${t.toFixed(2)}`, parent: 'rig', at: t, duration: hold + 0.45, width: CELL, height: CELL, cornerRadius: 3,
+        initial: { x: cx(s), y: cy(r), ...fill },
+        keyframes: [{ at: 0, from: { scale: 1.4 }, to: { scale: 1 }, duration: 0.35, ease: 'expo.out' },
+                    ...(kind === 'pluck' ? [{ at: 0.1, to: { fillAlpha: 0, strokeWidth: 2 }, duration: Math.min(0.6, hold), ease: 'power2.out' }] : []),
+                    { at: hold, to: { alpha: 0 }, duration: 0.4, ease: 'power2.out' }] }];
+      if (kind !== 'pluck') out.push({ type: 'shape', shape: 'rect', name: `ripple-${kind}-${t.toFixed(2)}`, parent: 'rig', at: t, duration: 0.75, width: CELL, height: CELL, cornerRadius: 4,
+        initial: { x: cx(s), y: cy(r), strokeColor: color, strokeWidth: 3, alpha: 1 },
+        keyframes: [{ at: 0, to: { width: CELL + 2 * P, height: CELL + 2 * P, strokeWidth: 1 }, duration: 0.6, ease: 'expo.out' },
+                    { at: 0, to: { alpha: 0 }, duration: 0.42, ease: 'power1.out' }] });
+      return out;
+    };
+    const tracks = { bass: BASS, bell: BELL, pluck: PLUCK };
+    for (const kind of Object.keys(tracks)) for (const p of PLAN[kind]) for (const [s, r, len] of tracks[kind]) {
+      if (p === 2 && s >= 8) continue;
+      seq.push(...hitLayers(kind, s, r, len, tOf(p, s)));
+    }
+    // the final downbeat: tonic in bass and bell
+    seq.push(...hitLayers('bass', 8, 0, 8, T_END), ...hitLayers('pluck', 8, 8, 8, T_END), ...hitLayers('bell', 8, 15, 8, T_END));
+
+    // snare: a breath of light over the whole grid
+    for (const t of SNARES) seq.push({ type: 'shape', shape: 'rect', name: 'snare-' + t, parent: 'rig', at: t, duration: 0.3, width: N * P, height: N * P,
+      initial: { x: 0, y: 0, fillColor: BONE, alpha: 0.07 }, keyframes: [{ at: 0, to: { alpha: 0 }, duration: 0.3, ease: 'power2.out' }] });
+    // kick: the floor line under the grid
+    seq.push({ type: 'shape', shape: 'rect', name: 'floor', width: N * P - 8, height: 6, at: 0.9,
+      initial: { x: RIG_X, y: GY + N * P + 22, fillColor: SIGNAL, alpha: 0 },
+      keyframes: [{ at: 0, to: { alpha: 0.15 }, duration: 0.3 }, ...KICKS.map(t => ({ at: t - 0.9, from: { alpha: 1 }, to: { alpha: 0.15 }, duration: 0.3, ease: 'power2.out' }))] });
+
+    seq.push({ type: 'audio', name: 'loop', at: 0, volume: 1.5, music });
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 7.0,
+        background: INK,
+        composition: { sequences: seq },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

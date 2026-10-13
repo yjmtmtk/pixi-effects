@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>loop-morph</title>
+  <script type="application/json" id="piece-meta">{ "title": "Small Motions", "subtitle": "One dot becomes a loader, a progress bar, a toggle, a check and a spinner, and comes home: a seamless 12 s loop", "tags": ["loop", "micro-interaction", "loader", "ui", "music"], "width": 1080, "height": 1080, "duration": 12, "model": "opus" }</script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />   <!-- the loader: HTML + CSS only, so it is on screen at once and keeps moving while the page builds the video -->
+  <style>
+    body { background: #111113; margin: 0; padding: 16px; min-height: 100vh; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+    .stage { position: relative; width: min(720px, 100%, calc(100vh - 32px)); }                 /* the player and the loader both sit inside this box */
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+    /* the loader (pixi-effects/loader.css, linked above): movie.init() fades it out when the movie is ready */
+    /* Screenshots: the player bar overlays the bottom ~60px of the canvas (it is NOT part of the exported video).
+       Uncomment to hide it while you check the layout:  .movie-controller { display: none !important; } */
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1080" height="1080"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>   <!-- shared loader: .pe-loader--pulse / --bar for other looks, --custom for your own -->
+  </div>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":  "../../dist/present.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js" />   <!-- after the import map: the library downloads while the page is parsed -->
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+    // import { registerThree, three } from 'pixi-effects/three';   // only for a three.js layer; call registerThree() before init
+    // import * as THREE from 'three';
+    // A talk instead of a video: import { deck, Presenter } from 'pixi-effects/present';  (the import map above has "pixi-effects/present")
+    //   const d = deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops: [at, ...], notes, sequences }] });
+    //   composition: d.composition, duration: d.duration; then new Presenter(movie, { canvas }) instead of the Controller. Docs: reference/cheatsheet.md → Presets (the deck lines).
+
+    const W = 1080, H = 1080, FPS = 30, DURATION = 12;
+    const CX = 540, CY = 540;
+
+    // Palette: warm paper, ink, one accent. Everything else is a tint of these.
+    const PAPER = '#ECE8E0', INK = '#18181B', MUTE = '#CDC7BC', MID = '#8E887E', ACC = '#FF4A1C', KNOB = '#FBF9F5';
+    const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+    const SANS = 'system-ui, -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif';
+
+    // ── the six states (movie seconds) ───────────────────────────────────────────
+    const STATES = [
+      { t: 0.20, name: 'Typing' },
+      { t: 2.00, name: 'Loading' },
+      { t: 4.00, name: 'Toggle' },
+      { t: 6.00, name: 'Success' },
+      { t: 8.00, name: 'Syncing' },
+      { t: 9.85, name: 'Idle' },
+    ];
+
+    const S = 1.45;                   // one scale for the whole object
+    const R = 22 * S;                 // the dot
+    const GAP = 66 * S;               // typing dots, centre to centre
+    const BAR = 420 * S, BARH = 14 * S;   // progress bar
+    const TW = 150 * S, TH = 84 * S;  // toggle
+    const KR = 34 * S, KOFF = (TW - TH) / 2;   // knob radius, knob travel from centre
+    const DISC = 75 * S;              // success disc radius
+    const RING = 69 * S, RINGW = 12 * S;  // spinner ring
+    const HOP = 30 * S;
+
+    // a hop of one typing dot that starts at s (squash and stretch)
+    const hop = (s) => [
+      { at: s,        to: { scaleX: 0.9, scaleY: 1.12 }, duration: 0.1, ease: 'power2.out' },
+      { at: s,        to: { y: CY - HOP }, duration: 0.17, ease: 'power2.out' },
+      { at: s + 0.1,  to: { scaleX: 1, scaleY: 1 }, duration: 0.08, ease: 'sine.out' },
+      { at: s + 0.17, to: { y: CY }, duration: 0.19, ease: 'power2.in' },
+      { at: s + 0.36, to: { scaleX: 1.14, scaleY: 0.84 }, duration: 0.06, ease: 'power2.out' },
+      { at: s + 0.42, to: { scaleX: 1, scaleY: 1 }, duration: 0.24, ease: 'back.out(2.2)' },
+    ];
+    const WAVE = [0.75, 1.25];        // two waves of the typing indicator
+    const STAG = 0.125;               // a sixteenth at 120 bpm
+
+    const sequences = [];
+    const add = (...l) => sequences.push(...l);
+
+    add({ type: 'shader', name: 'paper', width: W, height: H, initial: { x: 0, y: 0 },
+      uniforms: { paper: PAPER, dot: MUTE },
+      fragment: `
+        void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+          vec2 uv = fragCoord / iResolution.xy;
+          vec2 g = mod(fragCoord - iResolution.xy * 0.5, 54.0) - 27.0;     // a 54 px grid centred on the canvas
+          float d = smoothstep(2.1, 1.1, length(g));
+          vec3 c = mix(paper.rgb, dot.rgb, d * 0.55);
+          float v = smoothstep(0.95, 0.25, length(uv - 0.5));               // the corners fall away a little
+          c *= mix(0.965, 1.0, v);
+          fragColor = vec4(c, 1.0);
+        }` });
+
+    // ── typing dots (left / right); they hide behind the body when not in use ──
+    for (const [side, i] of [[-1, 0], [1, 2]]) {
+      add({ type: 'shape', shape: 'circle', name: side < 0 ? 'dotL' : 'dotR', radius: R,
+        initial: { x: CX, y: CY, fillColor: INK },
+        keyframes: [
+          { at: 0.2, to: { x: CX + side * GAP }, duration: 0.42, ease: 'back.out(1.7)' },
+          ...WAVE.flatMap(w => hop(w + i * STAG)),
+          { at: 2.0, to: { x: CX }, duration: 0.14, ease: 'power3.in' },
+          { at: 2.15, set: { alpha: 0 } },
+        ] });
+    }
+
+    // ── the body: a rounded rect that is a dot, a bar, a toggle, a disc, and a dot again ──
+    add({ type: 'shape', shape: 'rect', name: 'body', width: 2 * R, height: 2 * R, cornerRadius: R,
+      initial: { x: CX, y: CY, fillColor: INK },
+      keyframes: [
+        // split
+        { at: 0.2, to: { scaleX: 1.16, scaleY: 0.86 }, duration: 0.1, ease: 'power2.out' },
+        { at: 0.3, to: { scaleX: 1, scaleY: 1 }, duration: 0.35, ease: 'back.out(2.5)' },
+        ...WAVE.flatMap(w => hop(w + STAG)),
+        // merge, then stretch into a track
+        { at: 2.1, to: { width: 2.55 * R, height: 2.55 * R, cornerRadius: 1.275 * R }, duration: 0.1, ease: 'power2.out' },
+        { at: 2.2, to: { width: BAR, height: BARH, cornerRadius: BARH / 2, fillColor: MUTE }, duration: 0.5, ease: 'expo.out' },
+        // complete: the track turns accent under the fill
+        { at: 3.85, set: { fillColor: ACC } },
+        // a toggle (off)
+        { at: 4.0, to: { width: TW, height: TH, cornerRadius: TH / 2 }, duration: 0.5, ease: 'cubic-bezier(.7,0,.2,1)' },
+        { at: 4.05, to: { fillColor: MUTE }, duration: 0.3, ease: 'power2.inOut' },
+        // switched on
+        { at: 5.0, to: { fillColor: ACC }, duration: 0.22, ease: 'power2.out' },
+        // a disc
+        { at: 6.0, to: { height: 2 * DISC, width: 2 * DISC, cornerRadius: DISC }, duration: 0.42, ease: 'back.out(1.5)' },
+        { at: 6.62, to: { scale: 1.06 }, duration: 0.12, ease: 'power2.out' },
+        { at: 6.74, to: { scale: 1 }, duration: 0.45, ease: 'back.out(2)' },
+        // retreat inside the ring
+        { at: 8.2, to: { scale: 0 }, duration: 0.28, ease: 'power3.in' },
+        // the spinner collapses to a dot at the top of the ring; the dot falls home
+        { at: 9.8, set: { width: RINGW, height: RINGW, cornerRadius: RINGW / 2, y: CY - RING, scale: 1, fillColor: ACC } },
+        { at: 9.85, to: { y: CY }, duration: 0.34, ease: 'power2.in' },
+        { at: 9.85, to: { width: 2 * R, height: 2 * R, cornerRadius: R }, duration: 0.34, ease: 'power2.out' },
+        { at: 9.85, to: { fillColor: INK }, duration: 0.4, ease: 'power1.inOut' },
+        { at: 10.19, to: { scaleX: 1.22, scaleY: 0.8 }, duration: 0.07, ease: 'power2.out' },
+        { at: 10.26, to: { scaleX: 1, scaleY: 1 }, duration: 0.7, ease: 'elastic.out(1,0.42)' },
+      ] });
+
+    // ── progress fill ──
+    const steps = [[2.65, 0.36, 0.35], [3.1, 0.64, 0.3], [3.5, 1, 0.35]];
+    add({ type: 'shape', shape: 'rect', name: 'fill', width: BARH, height: BARH, cornerRadius: BARH / 2, anchorX: 0,
+      initial: { x: CX - BAR / 2, y: CY, fillColor: ACC, alpha: 0 },
+      keyframes: [
+        { at: 2.6, set: { alpha: 1 } },
+        ...steps.map(([t, p, d]) => ({ at: t, to: { width: BAR * p }, duration: d, ease: p < 1 ? 'power3.out' : 'expo.out' })),
+        { at: 3.95, set: { alpha: 0 } },
+      ] });
+    add({ type: 'text', name: 'percent', text: '{value}%', at: 2.55, duration: 1.45,
+      style: { fontFamily: MONO, fontSize: 22, fill: INK, letterSpacing: 1 },
+      initial: { x: CX + BAR / 2, y: CY - 34, anchorX: 1, anchorY: 1, value: 0 },
+      keyframes: [
+        { at: 0, from: { alpha: 0, y: CY - 24 }, to: { alpha: 1, y: CY - 34 }, duration: 0.3, ease: 'power3.out' },
+        ...steps.map(([t, p, d]) => ({ at: t - 2.55, to: { value: p * 100 }, duration: d, ease: p < 1 ? 'power3.out' : 'expo.out' })),
+        { at: -0.25, to: { alpha: 0, y: CY - 46 }, duration: 0.2, ease: 'power2.in' },
+      ] });
+
+    // ── toggle knob ──
+    add({ type: 'shape', shape: 'circle', name: 'knob', radius: KR,
+      initial: { x: CX - KOFF, y: CY, fillColor: KNOB, scale: 0 },
+      keyframes: [
+        { at: 4.38, to: { scale: 1 }, duration: 0.4, ease: 'back.out(2.2)' },
+        { at: 4.85, to: { scale: 0.9 }, duration: 0.12, ease: 'power2.out' },          // pressed
+        { at: 5.0, to: { x: CX + KOFF }, duration: 0.36, ease: 'back.out(1.8)' },       // flicked on
+        { at: 5.0, to: { scaleX: 1.22, scaleY: 0.9 }, duration: 0.12, ease: 'power2.out' },
+        { at: 5.12, to: { scaleX: 1, scaleY: 1 }, duration: 0.4, ease: 'back.out(2)' },
+        { at: 6.0, to: { x: CX, scale: 0 }, duration: 0.3, ease: 'power3.in' },
+      ] });
+
+    // ── success: check mark + two ripples ──
+    const CHECK = `M ${CX - 33 * S} ${CY + 2 * S} L ${CX - 9 * S} ${CY + 25 * S} L ${CX + 35 * S} ${CY - 22 * S}`;
+    add({ type: 'shape', shape: 'path', name: 'check', d: CHECK, trimEnd: 0, strokeCap: 'round', strokeJoin: 'round',
+      initial: { strokeColor: KNOB, strokeWidth: 13 * S },
+      keyframes: [
+        { at: 6.3, to: { trimEnd: 1 }, duration: 0.36, ease: 'power2.out' },
+        { at: 8.0, to: { trimStart: 1 }, duration: 0.24, ease: 'power2.in' },
+      ] });
+    [[6.62, 2.0], [6.78, 1.55]].forEach(([t, s], i) => add({ type: 'shape', shape: 'circle', name: 'ripple' + i, radius: DISC,
+      at: t, duration: 1.1, initial: { x: CX, y: CY, strokeColor: ACC, strokeWidth: (2.5 - i) * S, strokeAlpha: 0 },
+      keyframes: [{ at: 0, from: { scale: 1, strokeAlpha: 0.9 }, to: { scale: s, strokeAlpha: 0 }, duration: 1.05, ease: 'expo.out' }] }));
+
+    // a small burst of eight sparks, like a "like" button
+    for (let i = 0; i < 8; i++) {
+      const ang = (i * 45 + 22.5) * Math.PI / 180, r0 = DISC + 14, r1 = DISC + 64;
+      add({ type: 'shape', shape: 'rect', name: 'spark' + i, at: 6.62, duration: 0.7, width: 22, height: 6, cornerRadius: 3,
+        initial: { x: CX + Math.cos(ang) * r0, y: CY + Math.sin(ang) * r0, rotation: i * 45 + 22.5, fillColor: i % 2 ? INK : ACC },
+        keyframes: [
+          { at: 0, to: { x: CX + Math.cos(ang) * r1, y: CY + Math.sin(ang) * r1 }, duration: 0.55, ease: 'expo.out' },
+          { at: 0, from: { scaleX: 0.2 }, to: { scaleX: 1 }, duration: 0.15, ease: 'power2.out' },
+          { at: 0.15, to: { scaleX: 0, scaleY: 0.4 }, duration: 0.45, ease: 'power2.in' },
+        ] });
+    }
+
+    // ── spinner ring: the disc becomes a ring, opens, chases itself, closes to a point at 12 o'clock ──
+    add({ type: 'shape', shape: 'arc', name: 'ring', radius: RING, startAngle: -90, endAngle: 270, strokeCap: 'round',
+      initial: { x: CX, y: CY, strokeColor: ACC, strokeWidth: RINGW, alpha: 0 },
+      keyframes: [
+        { at: 8.2, set: { alpha: 1 } },
+        { at: 8.2, to: { rotation: 540 }, duration: 1.6, ease: 'cubic-bezier(.35,0,.25,1)' },
+        { at: 8.35, to: { startAngle: 150 }, duration: 0.45, ease: 'power2.inOut' },
+        { at: 8.8, to: { endAngle: 450 }, duration: 0.45, ease: 'power2.inOut' },
+        { at: 9.25, to: { startAngle: 449.5 }, duration: 0.5, ease: 'power3.inOut' },
+        { at: 9.8, set: { alpha: 0 } },
+      ] });
+
+    // ── type: title, timecode, state label, pagination ──
+    const M = 96;
+    add({ type: 'text', name: 'title', text: '小さな動き', style: { fontFamily: SANS, fontSize: 38, fontWeight: '600', fill: INK, letterSpacing: 4 },
+      initial: { x: M, y: M } });
+    add({ type: 'text', name: 'subtitle', text: 'one dot · six states · no end', style: { fontFamily: MONO, fontSize: 19, fill: MID, letterSpacing: 1 },
+      initial: { x: M, y: M + 60 } });
+    add({ type: 'text', name: 'clock', text: '{value} s', format: { decimals: 2, pad: 2 },
+      style: { fontFamily: MONO, fontSize: 19, fill: MID, letterSpacing: 1 },
+      initial: { x: W - M, y: M + 10, anchorX: 1, value: 0 },
+      keyframes: [{ at: 0, to: { value: DURATION }, duration: DURATION, ease: 'none' }] });
+
+    const label = (i, at, duration, enter, exit) => ({
+      type: 'text', name: `label${i + 1}` + (enter ? '' : 'b'), at, duration,
+      style: { fontFamily: MONO, fontSize: 21, fill: INK, letterSpacing: 1, align: 'left' },
+      spans: [{ text: String(i + 1).padStart(2, '0'), fill: ACC }, '  ' + STATES[i].name],
+      initial: { x: M, y: H - M, anchorY: 1 },
+      keyframes: [
+        ...(enter ? [{ at: 0, from: { alpha: 0, y: H - M + 14 }, to: { alpha: 1, y: H - M }, duration: 0.4, ease: 'power3.out' }] : []),
+        ...(exit ? [{ at: -0.18, to: { alpha: 0, y: H - M - 14 }, duration: 0.18, ease: 'power2.in' }] : []),
+      ] });
+    STATES.forEach((s, i) => {
+      const end = i < STATES.length - 1 ? STATES[i + 1].t : DURATION;
+      add(label(i, s.t, end - s.t, true, i < STATES.length - 1));
+    });
+    add(label(5, 0, STATES[0].t, false, true));        // the loop starts where it ended: Idle
+
+    // pagination: six dots, the current state is a longer accent pill
+    const PD = 8, PA = 30, PG = 10;
+    const layoutPag = (k) => {           // x centre of each item when item k is active, right-aligned at W - M
+      const ws = STATES.map((_, i) => (i === k ? PA : PD));
+      const total = ws.reduce((a, b) => a + b, 0) + PG * (ws.length - 1);
+      let x = W - M - total; return ws.map(w => { const c = x + w / 2; x += w + PG; return c; });
+    };
+    STATES.forEach((_, i) => {
+      const at0 = layoutPag(5);
+      const kf = [];
+      STATES.forEach((s, k) => {
+        const pos = layoutPag(k);
+        kf.push({ at: s.t, to: { x: pos[i], width: i === k ? PA : PD, fillColor: i === k ? ACC : MUTE }, duration: 0.45, ease: 'cubic-bezier(.5,0,.1,1)' });
+      });
+      add({ type: 'shape', shape: 'rect', name: 'pag' + i, width: i === 5 ? PA : PD, height: PD, cornerRadius: PD / 2,
+        initial: { x: at0[i], y: H - M - 11, fillColor: i === 5 ? ACC : MUTE }, keyframes: kf });
+    });
+
+    // ── sound ────────────────────────────────────────────────────────────────────
+    // every interaction is a note of one F major figure, on the 120 bpm grid; tactile sfx underneath
+    const BPM = 120, BEAT = 60 / BPM;
+    const blips = [];                  // [seconds, note or chord]
+    WAVE.forEach((w, k) => [0, 1, 2].forEach(i => blips.push([w + i * STAG, (k ? ['d5', 'f5', 'a5'] : ['c5', 'd5', 'f5'])[i]])));
+    blips.push([3.0, 'a5'], [3.5, 'c6'], [3.875, '[f5 a5 c6]']);           // progress steps, complete (note on the beat grid)
+    blips.push([4.375, 'c5'], [5.0, 'f5'], [5.125, 'c6']);                  // knob appears, flick on
+    blips.push([6.375, '[a5 c6 f6]']);                                       // success
+    [8.375, 8.625, 8.875, 9.125, 9.375, 9.625].forEach((t, i) => blips.push([t, ['f6', 'c6', 'a5', 'g5', 'f5', 'd5'][i]]));  // spinner, falling
+    blips.push([10.25, 'c5']);                                              // home
+    const toNotes = (events) => {      // [[seconds, note]] → a notes string in beats (rests between)
+      let beat = 0, out = [];
+      for (const [t, n] of events.sort((a, b) => a[0] - b[0])) {
+        const b = Math.round(t / BEAT * 8) / 8;
+        if (b > beat) out.push(`_:${b - beat}`);
+        out.push(`${n}:0.25`); beat = b + 0.25;
+      }
+      if (beat < 24) out.push(`_:${24 - beat}`);
+      return out.join(' ');
+    };
+    add({ type: 'audio', name: 'music', at: 0, duration: DURATION, volume: 1.25, music: {
+      bpm: BPM, reverb: 0.32, humanize: 0,
+      tracks: [
+        { inst: 'pad', vol: 0.42, attack: 0.4, release: 1.2, tone: 0.45, notes: 'Fmaj9:4 Em7:4 Dm9:4 Cmaj7:4 Bbmaj7:4 C7sus4:2.5 _:1.5' },
+        { inst: 'sub', vol: 0.5, legato: 0.8, notes: 'f2:3 _:1 e2:3 _:1 d2:3 _:1 c2:3 _:1 bb1:3 _:1 c2:3 _:1' },
+        { inst: 'musicbox', vol: 0.6, reverb: 0.6, ring: 0.9, notes: toNotes(blips) },
+      ],
+      drums: { from: 0, to: 23, shaker: 'o.x.o.x.o.x.o.xo', rim: '....x.......x...' }, drumVol: 0.35,
+    } });
+    const sfx = (at, preset, volume, extra = {}) => add({ type: 'audio', name: `${preset}@${at}`, at, sfx: { preset, ...extra }, volume });
+    sfx(0.2, 'pop', 0.5, { pitch: 3 });
+    sfx(2.12, 'pop', 0.5, { pitch: -4 });
+    sfx(2.2, 'swipe', 0.35, { brightness: -0.4 });
+    steps.forEach(([t]) => sfx(t, 'click', 0.6));
+    sfx(4.38, 'pop', 0.45, { pitch: 5 });
+    sfx(5.0, 'click', 0.9, { pitch: -3 });
+    sfx(6.3, 'chime', 0.35, { brightness: -0.2 });
+    sfx(8.2, 'swipe', 0.3, { brightness: -0.5 });
+    sfx(10.19, 'pop', 0.6, { pitch: -7 });
+
+    const movie = new Movie();
+    window.movie = movie;                         // so a script can seek / screenshot / render
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 6.8,
+        loop: true,                     // it is a loop: the player goes back to 0 at the end
+        background: PAPER,
+        // assets: [{ name: 'photo', src: './photo.jpg' }, { name: 'bgm', src: './bgm.mp3' }],
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
+    }
+  </script>
+</body>
+</html>

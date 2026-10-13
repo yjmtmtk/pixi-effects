@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>hasshahyo</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />
+  <style>
+    body { background: #111214; margin: 0; padding: 16px; display: flex; justify-content: center; }
+    .stage { position: relative; width: min(960px, 100%); }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>
+  </div>
+
+  <script type="application/json" id="piece-meta">{ "title": "発車標 Departure Board", "subtitle": "A station board where nothing moves unless the information changed: a departure, a delay, a track change", "tags": ["information design", "typography", "grid", "japanese", "data"], "width": 1280, "height": 720, "duration": 10, "model": "opus" }</script>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":  "../../dist/present.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js" />
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 10;
+
+    // ── palette (brief.md): four colours, amber only for a change ──
+    const BLACK = '#0E0F11', PAPER = '#ECEAE4', GRAPHITE = '#767A82', AMBER = '#FFB000';
+    const BAND = '#2A2210';                       // amber at ~12 % on black: the changed row's band
+    const MONO = 'ui-monospace, "SF Mono", Menlo, monospace';
+    const SANS = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", system-ui, sans-serif';
+
+    // ── grid ──
+    const L = 64, R = 1216;                      // 5 % margins
+    const ROW0 = 186, ROWH = 80, ROWS = 5;
+    const COL = { time: 64, type: 212, dest: 352, track: 724, min: 884, note: 968 };
+    const MAINY = 30, SUBY = 60;                 // row-local centre lines of the two text lines
+    const AX0 = 352, AX1 = 1192, AXY = 642;      // footer axis: 08:40 → 09:00
+    const axX = min => AX0 + (min - 40) * (AX1 - AX0) / 20;   // minutes after 08:00 → x
+
+    // ── timing: 96 bpm, a bar is 2.5 s; every event sits on a beat ──
+    const T = { flip: 2.5, leave: 3.25, closeUp: 3.75, enter: 4.375, delay: 5.0, slide: 5.3125, sort: 6.25, track: 7.5, settle: 10.0 };
+
+    // ── data ──
+    // slots: [time, slot] pairs, the row the train sits in from that time on
+    const trains = [
+      { id: 'tokyo1', hhmm: '08:43', min: 43, type: 'rapid', dest: '東京', rom: 'Tokyo', track: '7',  slots: [[0, 0]], departs: true },
+      { id: 'takao',  hhmm: '08:49', min: 49, type: 'rapid', dest: '高尾', rom: 'Takao', track: '8',  slots: [[0, 2], [T.closeUp, 1], [T.sort, 0]] },
+      { id: 'mitaka', hhmm: '08:52', min: 52, type: 'local', dest: '三鷹', rom: 'Mitaka', track: '15', slots: [[0, 3], [T.closeUp, 2], [T.sort, 1]], trackChange: '16' },
+      { id: 'ome',    hhmm: '08:55', min: 55, type: 'rapid', dest: '青梅', rom: 'Ōme', track: '8',  slots: [[0, 4], [T.closeUp, 3], [T.sort, 2]] },
+      { id: 'tokyo2', hhmm: '08:58', min: 58, type: 'rapid', dest: '東京', rom: 'Tokyo', track: '7',  slots: [[T.enter, 4]], enters: true },
+      { id: 'azusa',  hhmm: '08:46', min: 46, type: 'ltd',   dest: '松本', rom: 'Azusa 12  ·  Matsumoto', track: '9', slots: [[0, 1], [T.closeUp, 0], [T.sort, 3]], delay: 10 },
+    ];
+    const TYPES = {
+      ltd:   { jp: '特急', en: 'LTD. EXP.', box: 'fill' },
+      rapid: { jp: '快速', en: 'RAPID',     box: 'line' },
+      local: { jp: '各停', en: 'LOCAL',     box: 'dim' },
+    };
+
+    // clock: 08:42:57 at t = 0, a second every second; the minute turns at T.flip
+    const secAt = t => 57 + Math.floor(t + 0.5);              // 57 at 0, 58 at 0.5, 60 (= 00) at 2.5
+    const minsLeft = (train, nowMin) => train.min - nowMin;     // whole minutes on the board
+
+    const S = [];
+    const clicks = [];                                          // movie times of every flap (one click each)
+    const flap = (at, set, layerStart = 0) => {                 // a value changes: fold, swap, unfold
+      clicks.push(at);
+      const a = at - layerStart;
+      return [
+        { at: a, to: { scaleY: 0 }, duration: 0.08, ease: 'power2.in' },
+        { at: a + 0.08, set },
+        { at: a + 0.08, to: { scaleY: 1 }, duration: 0.12, ease: 'power2.out' },
+      ];
+    };
+    const txt = (o) => ({ type: 'text', ...o, style: { fontFamily: SANS, fill: PAPER, ...o.style } });
+
+    // ── background ──
+    S.push({ type: 'shape', name: 'bg', shape: 'rect', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: BLACK } });
+
+    // ── static grid: rules draw on from the left ──
+    const rule = (name, y, h, color, alpha, at, dur = 0.7) => ({
+      type: 'shape', name, shape: 'rect', width: R - L, height: h, anchorX: 0, at,
+      initial: { x: L, y, fillColor: color, alpha, scaleX: 0 },
+      keyframes: [{ at: 0, to: { scaleX: 1 }, duration: dur, ease: 'power3.inOut' }],
+    });
+    S.push(rule('rule-head', 128, 2, PAPER, 1, 0, 0.9));
+    S.push(rule('rule-cols', 182, 1, GRAPHITE, 0.8, 0.45));
+    for (let k = 1; k <= ROWS; k++) S.push(rule('rule-row' + k, ROW0 + k * ROWH, 1, GRAPHITE, 0.32, 0.55 + k * 0.07));
+
+    // ── header ──
+    const enter = (at, dy = 10) => [{ at: 0, from: { alpha: 0, y: '+=' + dy }, duration: 0.4, ease: 'power2.out' }];
+    S.push(txt({ name: 'station', text: '新宿', at: 0.3, style: { fontSize: 40, fontWeight: '700' }, initial: { x: L, y: 48 }, keyframes: enter() }));
+    S.push(txt({ name: 'board-title', text: '発車案内', at: 0.38, style: { fontSize: 16, fontWeight: '600' }, initial: { x: L + 100, y: 52 }, keyframes: enter() }));
+    S.push(txt({ name: 'board-sub', text: 'Shinjuku  ·  Departures', at: 0.44, style: { fontSize: 13, fill: GRAPHITE, letterSpacing: 0.5 }, initial: { x: L + 100, y: 77 }, keyframes: enter() }));
+
+    // clock: HH:MM flaps at the minute; seconds tick
+    const secKeys = [];
+    for (let t = 0.5; t < DURATION; t += 1) secKeys.push({ at: t - 0.35, set: { text: String(secAt(t) % 60).padStart(2, '0') } });
+    S.push(txt({ name: 'clock', text: '08:42', at: 0.35, style: { fontFamily: MONO, fontSize: 60, fontWeight: '500' },
+      initial: { x: R - 50, y: 80, anchorX: 1, anchorY: 0.5 },
+      keyframes: [...enter(), ...flap(T.flip, { text: '08:43' }, 0.35)] }));
+    S.push(txt({ name: 'clock-sec', text: '57', at: 0.35, style: { fontFamily: MONO, fontSize: 24, fill: GRAPHITE },
+      initial: { x: R, y: 90, anchorX: 1, anchorY: 0.5 }, keyframes: [...enter(), ...secKeys] }));
+
+    // ── column heads ──
+    const heads = [['時刻', 'TIME', COL.time, 0], ['種別', 'TYPE', COL.type, 0], ['行先', 'DESTINATION', COL.dest, 0],
+                   ['番線', 'TRACK', COL.track, 0.5], ['あと', 'MIN', COL.min, 1], ['備考', 'REMARKS', COL.note, 0]];
+    heads.forEach(([jp, en, x, ax], i) => {
+      const at = 0.5 + i * 0.04;
+      S.push(txt({ name: 'head-' + en.toLowerCase(), text: jp, at, style: { fontSize: 12, fill: GRAPHITE, fontWeight: '600' },
+        initial: { x, y: 146, anchorX: ax }, keyframes: enter(at, 6) }));
+      S.push(txt({ name: 'head-en-' + en.toLowerCase(), text: en, at, style: { fontFamily: MONO, fontSize: 10, fill: GRAPHITE, letterSpacing: 1.5 },
+        initial: { x, y: 163, anchorX: ax }, keyframes: enter(at, 6) }));
+    });
+
+    // ── rows ──
+    const slotY = s => ROW0 + s * ROWH;
+    trains.forEach((tr, ti) => {
+      const rig = 'row-' + tr.id;
+      const start = tr.slots[0][0] === 0 ? 0.62 + tr.slots[0][1] * 0.07 : tr.slots[0][0];
+      const life = tr.departs ? T.leave + 0.6 - start : DURATION - start;
+      const rigKeys = [{ at: 0, from: { alpha: 0, y: '+=10' }, duration: 0.4, ease: 'power2.out' }];
+      for (let k = 1; k < tr.slots.length; k++) {
+        const [t, s] = tr.slots[k], down = s > tr.slots[k - 1][1];
+        rigKeys.push({ at: t - start + (down ? 0 : 0.08), to: { y: slotY(s) }, duration: down ? 0.8 : 0.6, ease: 'power3.inOut' });
+      }
+      if (tr.departs) rigKeys.push({ at: T.leave - start, to: { x: -32, alpha: 0 }, duration: 0.45, ease: 'power2.in' });
+      S.push({ type: 'null', name: rig, at: start, duration: life, initial: { x: 0, y: slotY(tr.slots[0][1]) }, keyframes: rigKeys });
+
+      const child = (o) => ({ at: start, duration: life, parent: rig, ...o });
+      const bandOn = tr.delay ? T.delay : tr.trackChange ? T.track : null;
+      if (bandOn) {
+        // the band: opaque so a row that is overtaken reads as one object; a short amber flash marks the moment
+        S.push(child({ type: 'shape', name: rig + '-band', shape: 'rect', width: W, height: ROWH - 2,
+          initial: { x: W / 2, y: ROWH / 2, fillColor: BAND, alpha: 0 },
+          keyframes: [{ at: bandOn - start, to: { alpha: 1 }, duration: 0.15, ease: 'power2.out' }] }));
+        S.push(child({ type: 'shape', name: rig + '-flash', shape: 'rect', width: W, height: ROWH - 2,
+          initial: { x: W / 2, y: ROWH / 2, fillColor: AMBER, alpha: 0 },
+          keyframes: [{ at: bandOn - start, to: { alpha: 0.35 }, duration: 0.08, ease: 'power2.out' },
+                      { at: bandOn - start + 0.12, to: { alpha: 0 }, duration: 0.5, ease: 'power2.out' }] }));
+      }
+
+      // time
+      const timeKeys = tr.delay ? flap(T.delay + 0.1, { text: '08:56', fill: AMBER }, start) : [];
+      S.push(child({ ...txt({ name: rig + '-time', text: tr.hhmm, style: { fontFamily: MONO, fontSize: 34, fontWeight: '500' } }),
+        initial: { x: COL.time, y: MAINY, anchorY: 0.5 }, keyframes: timeKeys }));
+      if (tr.delay) {
+        S.push(child({ ...txt({ name: rig + '-sched', text: '定刻 ' + tr.hhmm, style: { fontFamily: SANS, fontSize: 13, fill: GRAPHITE } }),
+          initial: { x: COL.time, y: SUBY, anchorY: 0.5, alpha: 0 },
+          keyframes: [{ at: T.delay + 0.2 - start, to: { alpha: 1 }, duration: 0.3, ease: 'power2.out' }] }));
+      }
+
+      // type: filled / outlined / plain (never coloured)
+      const ty = TYPES[tr.type];
+      if (ty.box !== 'none') {
+        S.push(child({ type: 'shape', name: rig + '-typebox', shape: 'rect', width: 58, height: 28, cornerRadius: 2,
+          initial: ty.box === 'fill' ? { x: COL.type + 29, y: MAINY, fillColor: PAPER }
+                                     : { x: COL.type + 29, y: MAINY, fillAlpha: 0, strokeColor: ty.box === 'dim' ? GRAPHITE : PAPER, strokeWidth: 1.5 } }));
+      }
+      S.push(child({ ...txt({ name: rig + '-type', text: ty.jp, style: { fontSize: 17, fontWeight: '700', fill: ty.box === 'fill' ? BLACK : PAPER } }),
+        initial: { x: COL.type + 29, y: MAINY, anchorX: 0.5, anchorY: 0.5 } }));
+      S.push(child({ ...txt({ name: rig + '-type-en', text: ty.en, style: { fontFamily: MONO, fontSize: 10, fill: GRAPHITE, letterSpacing: 1 } }),
+        initial: { x: COL.type, y: SUBY, anchorY: 0.5 } }));
+
+      // destination
+      S.push(child({ ...txt({ name: rig + '-dest', text: tr.dest, style: { fontSize: 36, fontWeight: '700' } }), initial: { x: COL.dest, y: MAINY, anchorY: 0.5 } }));
+      S.push(child({ ...txt({ name: rig + '-rom', text: tr.rom, style: { fontSize: 13, fill: GRAPHITE } }), initial: { x: COL.dest, y: SUBY, anchorY: 0.5 } }));
+
+      // track (a change: flap to the new number, amber, outlined)
+      const trackKeys = tr.trackChange ? flap(T.track + 0.1, { text: tr.trackChange, fill: AMBER }, start) : [];
+      if (tr.trackChange) {
+        S.push(child({ type: 'shape', name: rig + '-trackbox', shape: 'rect', width: 64, height: 46, trimEnd: 0,
+          initial: { x: COL.track, y: MAINY, fillAlpha: 0, strokeColor: AMBER, strokeWidth: 1.5 },
+          keyframes: [{ at: T.track + 0.2 - start, to: { trimEnd: 1 }, duration: 0.5, ease: 'power2.inOut' }] }));
+      }
+      S.push(child({ ...txt({ name: rig + '-track', text: tr.track, style: { fontFamily: MONO, fontSize: 34, fontWeight: '500' } }),
+        initial: { x: COL.track, y: MAINY, anchorX: 0.5, anchorY: 0.5 }, keyframes: trackKeys }));
+
+      // minutes left: flap when the minute turns, and on the delay
+      const minKeys = [];
+      let shown = tr.enters ? minsLeft(tr, 43) : minsLeft(tr, 42);
+      if (!tr.enters) minKeys.push(...flap(T.flip + 0.06 * ti, { text: String(minsLeft(tr, 43)) }, start));
+      if (tr.delay) minKeys.push(...flap(T.delay + 0.18, { text: String(minsLeft(tr, 43) + tr.delay), fill: AMBER }, start));
+      S.push(child({ ...txt({ name: rig + '-min', text: String(shown), style: { fontFamily: MONO, fontSize: 34, fontWeight: '500' } }),
+        initial: { x: COL.min, y: MAINY, anchorX: 1, anchorY: 0.5 }, keyframes: minKeys }));
+
+      // remarks
+      let note = ['定刻', 'On time', GRAPHITE];
+      const noteKeys = [], noteEnKeys = [];
+      if (tr.departs) {
+        noteKeys.push(...flap(T.flip + 0.1, { text: 'まもなく発車', fill: PAPER }, start));
+        noteEnKeys.push(...flap(T.flip + 0.14, { text: 'Departing' }, start));
+      }
+      if (tr.delay) {
+        noteKeys.push(...flap(T.delay + 0.26, { text: '約10分遅れ', fill: AMBER }, start));
+        noteEnKeys.push(...flap(T.delay + 0.3, { text: 'Delayed ~10 min' }, start));
+      }
+      if (tr.trackChange) {
+        noteKeys.push(...flap(T.track + 0.26, { text: tr.trackChange + '番線に変更', fill: AMBER }, start));
+        noteEnKeys.push(...flap(T.track + 0.3, { text: 'Track ' + tr.track + ' → ' + tr.trackChange }, start));
+      }
+      S.push(child({ ...txt({ name: rig + '-note', text: note[0], style: { fontSize: 19, fontWeight: '600', fill: note[2] } }),
+        initial: { x: COL.note, y: MAINY, anchorY: 0.5 }, keyframes: noteKeys }));
+      S.push(child({ ...txt({ name: rig + '-note-en', text: note[1], style: { fontSize: 12, fill: GRAPHITE } }),
+        initial: { x: COL.note, y: SUBY, anchorY: 0.5 }, keyframes: noteEnKeys }));
+    });
+
+    // ── footer: the next 20 minutes as a time axis; each train is a tick ──
+    S.push(txt({ name: 'axis-label', text: '次の20分', at: 1.3, style: { fontSize: 13, fontWeight: '600' }, initial: { x: L, y: AXY - 18 }, keyframes: enter() }));
+    S.push(txt({ name: 'axis-label-en', text: 'NEXT 20 MIN', at: 1.34, style: { fontFamily: MONO, fontSize: 10, fill: GRAPHITE, letterSpacing: 1.5 }, initial: { x: L, y: AXY + 4 }, keyframes: enter() }));
+    S.push({ type: 'shape', name: 'axis', shape: 'rect', width: AX1 - AX0, height: 1, anchorX: 0, at: 1.3,
+      initial: { x: AX0, y: AXY, fillColor: GRAPHITE, scaleX: 0 }, keyframes: [{ at: 0, to: { scaleX: 1 }, duration: 0.8, ease: 'power3.inOut' }] });
+    [40, 45, 50, 55, 60].forEach((m, i) => {
+      const at = 1.4 + i * 0.12;
+      S.push({ type: 'shape', name: 'axis-mark' + m, shape: 'rect', width: 1, height: 6, at, initial: { x: axX(m), y: AXY + 3, fillColor: GRAPHITE } });
+      S.push(txt({ name: 'axis-t' + m, text: m === 60 ? '09:00' : '08:' + m, at, style: { fontFamily: MONO, fontSize: 11, fill: GRAPHITE },
+        initial: { x: axX(m), y: AXY + 10, anchorX: 0.5 }, keyframes: enter(at, 4) }));
+    });
+    // now: a hairline that creeps with the clock (12 s of real time: 8 px)
+    S.push({ type: 'shape', name: 'now', shape: 'rect', width: 2, height: 26, at: 1.5,
+      initial: { x: axX(42 + 57 / 60 + 1.5 / 60), y: AXY - 6, fillColor: PAPER, alpha: 0 },
+      keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }, { at: 0, to: { x: axX(42 + 57 / 60 + DURATION / 60) }, duration: DURATION - 1.5, ease: 'none' }] });
+    S.push(txt({ name: 'now-label', text: 'NOW', at: 1.5, style: { fontFamily: MONO, fontSize: 9, fill: PAPER, letterSpacing: 1 },
+      initial: { x: axX(42.98), y: AXY - 32, anchorX: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] }));
+    trains.forEach((tr, i) => {
+      const at = tr.enters ? T.enter : 1.6 + i * 0.05;
+      const keys = [{ at: 0, from: { scaleY: 0 }, to: { scaleY: 1 }, duration: 0.25, ease: 'power2.out' }];
+      if (tr.departs) keys.push({ at: T.leave - at, to: { alpha: 0 }, duration: 0.5, ease: 'power2.in' });
+      if (tr.delay) keys.push({ at: T.slide - at, to: { x: axX(tr.min + tr.delay), fillColor: AMBER }, duration: 0.8, ease: 'power3.inOut' });
+      S.push({ type: 'shape', name: 'tick-' + tr.id, shape: 'rect', width: 3, height: tr.type === 'ltd' ? 18 : 12, anchorY: 1, at,
+        initial: { x: axX(tr.min), y: AXY - 1, fillColor: PAPER }, keyframes: keys });
+      if (tr.delay) {   // the size of the change, riding on the tick
+        S.push(txt({ name: 'delta-' + tr.id, text: '+' + tr.delay, at: T.slide, style: { fontFamily: MONO, fontSize: 11, fontWeight: '700', fill: AMBER },
+          initial: { x: axX(tr.min), y: AXY - 34, anchorX: 0.5, alpha: 0 },
+          keyframes: [{ at: 0, to: { x: axX(tr.min + tr.delay), alpha: 1 }, duration: 0.8, ease: 'power3.inOut' }] }));
+      }
+      if (tr.delay) {   // where it should have been: a graphite ghost stays behind
+        S.push({ type: 'shape', name: 'ghost-' + tr.id, shape: 'rect', width: 3, height: 18, anchorY: 1, at: T.slide,
+          initial: { x: axX(tr.min), y: AXY - 1, fillColor: GRAPHITE, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.6 }, duration: 0.4 }] });
+      }
+    });
+
+    // ── sound: a quiet pad, a station chime per announcement, a click per flap ──
+    S.push({ type: 'audio', name: 'bed', at: 0, volume: 0.55, music: {
+      bpm: 96, reverb: 0.35,
+      tracks: [
+        { inst: 'pad',  vol: [[0, 0], [3, 0.5], [12, 0.5], [16, 0.2]], tone: 0.35, attack: 1.2, release: 1.5, notes: 'Dmaj9:8 Gmaj9/b:4 Dmaj9:4' },
+        { inst: 'sub',  vol: [[0, 0], [3, 0.35]], notes: 'd2:8 b1:4 d2:4' },
+        { inst: 'bell', vol: 0.55, reverb: 0.7, ring: 1.6, notes: '_:4 f#6:0.5 d6:1.5 _:2 b5:0.5 g5:1.5 _:2 f#6:0.5 d6:1.5 _:2' },
+      ],
+    } });
+    clicks.forEach((t, i) => S.push({ type: 'audio', name: 'click' + i, sfx: { preset: 'click', brightness: -0.4, pitch: -5 + (i % 3), seed: i + 1 }, at: t, volume: 0.35 }));
+    S.push({ type: 'audio', name: 'reflow-up', sfx: { preset: 'swipe', brightness: -0.6, pitch: -7 }, at: T.closeUp, volume: 0.25 });
+    S.push({ type: 'audio', name: 'reflow-sort', sfx: { preset: 'swoosh', brightness: -0.6, pitch: -9 }, at: T.sort - 0.1, volume: 0.22 });
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 8.5,
+        background: BLACK,
+        composition: { sequences: S },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

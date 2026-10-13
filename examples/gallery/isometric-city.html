@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kōbe, 2040 — isometric city</title>
-  <link rel="stylesheet" href="../../dist/loader.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />
   <style>
     html, body { height: 100%; }
     body { background: #0d1220; margin: 0; padding: 16px; box-sizing: border-box; display: grid; place-items: center; }
@@ -369,17 +369,46 @@
         keyframes: [{ at: 0, from: { alpha: 0, y: 173 }, to: { alpha: 0.78, y: 165 }, duration: 0.9, ease: 'power3.out' }] },
     ];
 
-    // ---------------------------------------------------------------- sound: a bed, a whoosh for the river, pops for the tallest towers, a chime for the title
+    // ---------------------------------------------------------------- sound: a score in D major that follows the day, plus the sfx
+    // 120 bpm: a beat is 0.5 s, a bar is 2 s, so the picture's own times fall on the grid:
+    // river 1.0 s = beat 2, full day 6.0 s = bar 4, title 10.0 s = bar 6. Six bars = 24 beats = 12 s.
+    // | dawn Dsus2 | build Bm7 | Gmaj7 A7sus4 | noon Dadd9 | dusk Bbmaj7 Asus4 A | title Dmaj9 (held, then silence) |
+    const score = {
+      bpm: 120, reverb: 0.3, seed: 2040, meter: 4,
+      tracks: [
+        // the light: a pad that swells in with the slab and changes with the sky
+        { inst: 'pad', vol: 0.6, attack: 0.9, release: 1.1, reverb: 0.6,
+          notes: '[d3 a3 e4]:4 | [b2 f#3 a3 d4]:4 | [g2 d3 f#3 b3]:2 [a2 d3 e3 g3]:2 | [d3 a3 e4 f#4]:4 | [bb2 f3 a3 d4]:2 [a2 d3 e3 a3]:1 [a2 c#3 e3 a3]:1 | [d3 a3 c#4 e4 f#4]:2.5 _:1.5' },
+        // the ground: enters with the river (beat 2 = 1.0 s)
+        { inst: 'bass', vol: 0.75, tone: 0.45, reverb: 0.1,
+          notes: '_:2 d2:2 | b1:4 | g1:2 a1:2 | d2:2 f#2:2 | bb1:2 a1:2 | d2:2.5 _:1.5' },
+        // the building: an eighth-note ostinato that starts as the first blocks rise (1.5 s) and grows with the sweep
+        { inst: 'pluck', vol: [[3, 0.25], [9, 0.62], [16, 0.62], [20, 0.5]], pan: 0.18, step: 0.5, legato: 0.75, tone: 0.6,
+          notes: '_:3 a4 d5 | b4 f#4 d5 f#4 e5 f#4 d5 a4 | g4 d5 f#5 d5 a4 e5 g5 e5 | d5 a4 e5 a4 f#5 a4 e5 a4 | bb4 f5 d5 f5 a4 d5 c#5 e5 | [d5 f#5 a5]:2 _:2' },
+        // noon: a short tune at the top of the day; then the stars at 10.5, 10.75, 11.25 s
+        { inst: 'musicbox', vol: 0.5, pan: -0.25, reverb: 0.5,
+          notes: '_:12 | f#5:1.5 e5:0.5 d5:1 a5:1 | _:4 | _:1 a5:0.5 e6:1 f#6:1.5' },
+        // the windows waking (most light between 9.25 and 10.0 s: the notes get closer), and the title chord at 10.0 s
+        { inst: 'bell', vol: 0.42, pan: 0.3, reverb: 0.6,
+          notes: '_:16 | _:1.5 f5:0.5 a5:0.5 d6:0.5 c#6:0.5 e6:0.25 a6:0.25 | [f#5 a5 d6]:2 _:2' },
+      ],
+      drums: [
+        { from: 4, to: 12, shaker: 'o.o.o.o.o.o.o.o.' },                                                       // the city filling in
+        { from: 12, to: 16, kick: 'x.......x.......', hat: '..x...x...x...x.', shaker: 'o.o.o.o.o.o.o.o.' },  // full day
+        { from: 16, to: 20, kick: 'x...............', hat: '..o...o...o...o.' },                              // dusk thins out
+        { from: 20, to: 21, kick: 'x...' },                                                                    // the title lands
+      ],
+      drumVol: 0.4,
+    };
+    window.__score = score;
     const landmarks = [...buildings].sort((a, b) => b.floors - a.floors).slice(0, 7);
     const audio = [
-      { type: 'audio', name: 'bgm', asset: 'bgm', loop: true, volume: 0, keyframes: [{ at: 0, to: { volume: 0.3 }, duration: 1.5 }, { at: -2.5, to: { volume: 0 }, duration: 2.5 }] },
-      { type: 'audio', name: 'swoosh-river', sfx: 'swoosh', at: 1.0, volume: 0.43 },
-      ...landmarks.map((t, k) => ({ type: 'audio', name: `pop-${k}`, sfx: 'pop', at: Math.round(t.t0 * FPS) / FPS, volume: 0.25 })),
-      { type: 'audio', name: 'chime-title', sfx: 'chime', at: 10.0, volume: 0.1 },
+      { type: 'audio', name: 'score', music: score, at: 0, volume: 1.5 },
+      { type: 'audio', name: 'swoosh-river', sfx: 'swoosh', at: 1.0, volume: 0.6 },
+      ...landmarks.map((t, k) => ({ type: 'audio', name: `pop-${k}`, sfx: 'pop', at: Math.round(t.t0 * FPS) / FPS, volume: 0.35 })),
+      // the chime preset rings on C6, a semitone against the C# of the final Dmaj9: up a tone to D6, the root
+      { type: 'audio', name: 'chime-title', sfx: { preset: 'chime', pitch: 2 }, at: 10.0, volume: 0.16 },
     ];
-    assets.push(
-      { name: 'bgm', src: '../_assets/bgm.mp3' },
-    );
 
     const sequences = [...sky, ...stars, ...sun, city, vignette, ...text, ...audio];
 

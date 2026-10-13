@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>AURA ONE — launch teaser · pixi-effects</title>
-  <link rel="stylesheet" href="../../dist/loader.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />
   <style>
     html, body { height: 100%; }
     body { background: #0b0b10; margin: 0; padding: 16px; box-sizing: border-box; display: grid; place-items: center; }
@@ -69,7 +69,7 @@
       shrink: 3.1,                   // headline → wordmark at the top
       product: 3.5,                  // the product emerges from depth
       orbit: 3.8, orbitLen: 5.6,     // camera orbit + dolly zoom (3.8 → 9.4)
-      cards: 4.7, cardStep: 0.35,    // feature cards fly in
+      cards: 4.8, cardStep: 0.325,   // feature cards fly in (music retrofit: was 4.7 / 0.35, nudged onto the beat grid: beats 7, 7.5, 8, 8.5)
       sceneEnd: 9.3,                 // the whole 3D scene is gone
       cta: 9.35,                     // call-to-action (2D overlay)
     };
@@ -310,11 +310,54 @@
     ];
 
     // ───────────────────────────── audio ─────────────────────────────
+    // Score in D major (Lydian colour), 92.3 bpm: one beat = 0.65 s, so the picture's three big moments sit on the grid:
+    // headline 0.9 = beat 1, product 3.5 = beat 5, call-to-action 9.35 = beat 14 (music starts at 0.25, a one-beat pickup).
+    // Form: pickup | A (b1-5) headline, air: pad + sub + a music-box run under the letters | B-C (b5-13) product + orbit:
+    // pulse bass, pluck arpeggio, half-time kit; bells on the four cards | b13 one-beat break while the scene leaves |
+    // b14 the date: Dmaj9, sub, crash, and a last rising music-box figure that rings out before 12 s.
+    const MUSIC_AT = 0.25, BEAT = 0.65;
+    const beatOf = (s) => (s - MUSIC_AT) / BEAT;
+    const fx = (n) => +n.toFixed(4);
+    // music-box run: one note per headline letter, 0.15 s after each letter leaves depth (the moment it lands)
+    const RUN = ['d5', 'f#5', 'a5', 'c#6', null, 'e6', 'f#6', 'a6'];
+    const runTimes = RUN.map((_, i) => T.headline + i * 0.08 + 0.15);
+    const runStart = beatOf(runTimes[0]);
+    const runStep = fx(0.08 / BEAT);
+    const runNotes = `_:${fx(runStart)} ` + RUN.map(n => (n || '_') + ':' + runStep).join(' ');
+    const runEnd = runStart + runStep * RUN.length;
+    const TOTAL = 17;                                   // beats: pickup 1 + 12 + break 1 + final 3
+    const music = {
+      bpm: 60 / BEAT, reverb: 0.3, tail: 0.7, seed: 11, humanize: 0.006,
+      tracks: [
+        { inst: 'pad', vol: [[0, 0.25], [1, 0.45], [5, 0.55], [13, 0.6], [14, 0.7]], attack: 0.5, release: 0.7, reverb: 0.6,
+          notes: '[d3 a3 e4 f#4]:5 | [b2 f#3 a3 c#4 d4]:2 [g2 d3 f#3 a3 b3]:2 | [e3 g3 b3 d4 f#4]:2 [a2 d3 e3 g3 b3]:2 | [a2 e3 g3 c#4 e4]:1 | [d3 a3 c#4 e4 f#4]:3' },
+        { inst: 'sub', vol: [[0, 0.45], [5, 0.65]], legato: 0.9,               // an octave above the floor: d2 / b1 / g1 still sound on a laptop
+          notes: '_:1 d2:4 | b1:2 g1:2 | e2:2 a1:2 | _:1 | d2:3' },
+        { inst: 'bass', vol: 0.7, tone: 0.45, reverb: 0.05, step: 0.5,
+          notes: '_:5 | b1 b1 b1 b2 g1 g1 g1 g2 | e2 e2 e2 e1 a1 a1 a1 a2 | _:4' },
+        { inst: 'pluck', vol: [[5, 0.35], [12, 0.6]], pan: 0.2, step: 0.5, tone: 0.7, reverb: 0.35,
+          notes: '_:5 | b3 f#4 c#5 d5 g3 d4 a4 b4 | e4 b4 f#5 g5 a3 e4 b4 d5 | _:4' },
+        { inst: 'musicbox', vol: 0.55, pan: -0.15, ring: 1.6, reverb: 0.7,
+          notes: `${runNotes} _:${fx(TOTAL - 2 - runEnd)} | a5:0.5 d6:0.5 f#6:1` },
+        { inst: 'bell', vol: 0.5, pan: 0.15, ring: 1.4, reverb: 0.6,
+          notes: '_:7 f#5:0.5 a5:0.5 b5:0.5 d6:0.5 | _:5 | d6:1 _:2' },
+      ],
+      drumVol: 0.6,
+      drums: [
+        { from: 5, to: 13, kick: 'x.........x.....', snare: '........x.......', hat: 'o.x.o.x.o.x.o.xo' },
+        { from: 14, to: 15, crash: 'x...' },
+      ],
+    };
     const audio = [
-      { type: 'audio', asset: 'bgm', name: 'bgm', loop: true, volume: 0, duration: DURATION,
-        keyframes: [{ at: 0, to: { volume: 0.3 }, duration: 1.5 }, { at: -2, to: { volume: 0 }, duration: 2 }] },
-      { type: 'audio', sfx: 'swoosh', name: 'sfx-swoosh', at: T.headline, volume: 0.51 },
-      { type: 'audio', sfx: 'chime', name: 'sfx-chime', at: T.cta + 0.1, volume: 0.18 },
+      { type: 'audio', name: 'score', at: MUSIC_AT, volume: 1.3, music },
+      { type: 'audio', sfx: 'swoosh', name: 'sfx-swoosh', at: T.headline, volume: 0.82 },
+      { type: 'audio', sfx: { preset: 'swoosh', brightness: -0.4, seed: 3 }, name: 'sfx-streak', at: 2.42, volume: 0.35 },  // loudest 0.16 s in = the streak crossing the centre
+      { type: 'audio', sfx: 'riser', name: 'sfx-riser-product', at: T.product - 0.6, duration: 0.6, volume: 0.35 },
+      { type: 'audio', sfx: { preset: 'hit', pitch: -5, brightness: -0.6 }, name: 'sfx-product', at: T.product, volume: 0.64 },
+      { type: 'audio', sfx: 'riser', name: 'sfx-riser-cta', at: T.cta - 1.0, duration: 1.0, volume: 0.48 },
+      { type: 'audio', sfx: { preset: 'swoosh', brightness: -0.2, seed: 7 }, name: 'sfx-cards-out', at: 9.02, volume: 0.45 },
+      { type: 'audio', sfx: { preset: 'hit', pitch: -3, brightness: -0.4 }, name: 'sfx-cta', at: T.cta, volume: 0.72 },
+      { type: 'audio', sfx: 'chime', name: 'sfx-chime', at: T.cta + 0.1, volume: 0.48 },
     ];
 
     // Z-order is array order. One consecutive threeD block so all depth layers sort together; 2D overlays after it ignore the camera.
@@ -336,9 +379,6 @@
         canvas: document.getElementById('stage'),
         width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: BG,
-        assets: [
-          { name: 'bgm', src: '../_assets/bgm.mp3' },
-        ],
         composition: { sequences },
       });
       window.__ready = true;

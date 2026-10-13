@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pythagoras, Rearranged</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />   <!-- the loader: HTML + CSS only, so it is on screen at once and keeps moving while the page builds the video -->
+  <style>
+    body { background: #121214; margin: 0; padding: 16px; min-height: 100vh; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+    .stage { position: relative; width: min(960px, 100%); }                 /* the player and the loader both sit inside this box */
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+    /* the loader (pixi-effects/loader.css, linked above): movie.init() fades it out when the movie is ready */
+    /* Screenshots: the player bar overlays the bottom ~60px of the canvas (it is NOT part of the exported video).
+       Uncomment to hide it while you check the layout:  .movie-controller { display: none !important; } */
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>   <!-- shared loader: .pe-loader--pulse / --bar for other looks, --custom for your own -->
+  </div>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":  "../../dist/present.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js" />   <!-- after the import map: the library downloads while the page is parsed -->
+
+  <script type="application/json" id="piece-meta">{ "title": "Pythagoras, Rearranged", "subtitle": "Four triangles slide; the empty space goes from c² to a² + b² without changing its area", "tags": ["explainer", "math", "geometry", "editorial", "japanese"], "width": 1280, "height": 720, "duration": 12.5, "model": "opus" }</script>
+
+  <script type="module">
+    import { Movie, measureText } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 12.5;
+    // 96 bpm: one bar = 2.5 s. Every beat of the explanation starts on a bar line.
+    const BAR = 2.5;
+
+    // ---- palette and type ----
+    const PAPER = '#f1ede4', INK = '#1a1a1e', ACCENT = '#e0482d', MUTED = '#8c867b';
+    const SERIF_JA = "'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', serif";
+    const MATH = "Georgia, 'Times New Roman', serif";
+    const MONO = "ui-monospace, 'SF Mono', Menlo, monospace";
+
+    // ---- geometry: a 3-4-5 triangle, the big square has side a + b ----
+    const U = 64, A = 3 * U, B = 4 * U, S = A + B;     // 192, 256, 448
+    const X0 = 196, Y0 = (H - S) / 2;                   // square's top-left
+    const P = (x, y) => [X0 + x, Y0 + y];
+
+    // Four triangles in arrangement 1 (the gap is the tilted square c²), each with
+    // the move that takes it to arrangement 2 (the gaps are a² and b²). Pure translations.
+    const TRIS = [
+      // tri-bl moves at right angles to its hypotenuse: straight across the gap until it docks on tri-tr
+      { name: 'tri-tl', pts: [P(0, 0), P(A, 0), P(0, B)], move: [0, A],  slide: 0.85 },
+      { name: 'tri-tr', pts: [P(A, 0), P(S, 0), P(S, A)], move: [0, 0] },
+      { name: 'tri-br', pts: [P(S, A), P(S, S), P(B, S)], move: [-B, 0], slide: 0.95 },
+      { name: 'tri-bl', pts: [P(0, B), P(B, S), P(0, S)], move: [A, -B], slide: 0 },
+    ];
+    const OUT = [[-1, -1], [1, -1], [1, 1], [-1, 1]];   // each triangle enters from its own corner
+
+    const T_IN = 0.35;                // triangles land
+    const T_C = BAR;                  // 2.5  the gap is named c²
+    const T_SLIDE = 2 * BAR;          // 5.0  rearrange
+    const T_AB = 3 * BAR;             // 7.5  the gaps are named a², b²
+    const T_EQ = 3 * BAR + 0.7;       // 8.2  the equation assembles
+    const T_END = 4 * BAR;            // 10.0 the conclusion lands; hold to the end
+
+    const seq = [];
+    const bg = { type: 'shape', shape: 'rect', name: 'paper', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: PAPER } };
+    seq.push(bg);
+
+    // ---- the coloured area under everything: whatever the triangles leave uncovered ----
+    // it floods out from the centre of the empty tilted square once the four triangles are down
+    const T_FLOOD = 1.55;
+    seq.push({ type: 'shape', shape: 'rect', name: 'area', width: S, height: S, at: T_FLOOD, duration: DURATION - T_FLOOD,
+      initial: { x: X0 + S / 2, y: Y0 + S / 2, fillColor: ACCENT },
+      keyframes: [{ at: 0, from: { scale: 0 }, to: { scale: 1 }, duration: 0.85, ease: 'expo.inOut' }] });
+    seq.push({ type: 'audio', sfx: { preset: 'swoosh', pitch: -4, brightness: 0.15, seed: 5 }, at: T_FLOOD + 0.2, volume: 0.3 });
+
+    // ---- triangles ----
+    TRIS.forEach((t, i) => {
+      const [px, py] = t.pts[0];
+      const at = T_IN + i * 0.16;
+      const [ox, oy] = OUT[i];
+      seq.push({ type: 'shape', shape: 'polygon', name: t.name, points: t.pts, at, duration: DURATION - at,
+        initial: { pivotX: px, pivotY: py, x: px, y: py, fillColor: INK, strokeColor: PAPER, strokeWidth: 2.5 },
+        keyframes: [
+          { at: 0, from: { x: px + ox * 28, y: py + oy * 28, alpha: 0 }, to: { x: px, y: py, alpha: 1 }, duration: 0.7, ease: 'power3.out' },
+          ...(t.slide !== undefined ? [{ at: T_SLIDE + t.slide - at, to: { x: px + t.move[0], y: py + t.move[1] }, duration: t.slide ? 1.0 : 1.2, ease: 'cubic-bezier(.65, 0, .25, 1)' }] : []),
+        ] });
+      seq.push({ type: 'audio', sfx: { preset: 'click', pitch: i * 2, brightness: 0.4 }, at: at + 0.35, volume: 0.35 });
+    });
+
+    // ---- dimension lines: top edge a | b, right edge a | b (true in both arrangements) ----
+    const DIM = '#b3ac9f';
+    const dimLine = (name, from, to, at) => ({ type: 'shape', shape: 'line', name, from, to, at, duration: DURATION - at,
+      initial: { strokeColor: DIM, strokeWidth: 1.5, trimEnd: 0 },
+      keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.9, ease: 'power2.inOut' }] });
+    const tick = (name, x1, y1, x2, y2, at) => ({ type: 'shape', shape: 'line', name, from: [x1, y1], to: [x2, y2], at, duration: DURATION - at,
+      initial: { strokeColor: DIM, strokeWidth: 1.5 },
+      keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.3 }] });
+    const OFF = 18;
+    seq.push(dimLine('dim-top', [X0, Y0 - OFF], [X0 + S, Y0 - OFF], 1.2));
+    seq.push(dimLine('dim-right', [X0 + S + OFF, Y0], [X0 + S + OFF, Y0 + S], 1.35));
+    for (const [k, x] of [[0, X0], [1, X0 + A], [2, X0 + S]]) seq.push(tick('tick-t' + k, x, Y0 - OFF - 6, x, Y0 - OFF + 6, 1.5));
+    for (const [k, y] of [[0, Y0], [1, Y0 + A], [2, Y0 + S]]) seq.push(tick('tick-r' + k, X0 + S + OFF - 6, y, X0 + S + OFF + 6, y, 1.6));
+
+    const edgeStyle = { fontFamily: MATH, fontStyle: 'italic', fontSize: 26, fill: INK };
+    const label = (name, text, x, y, at, style, extra = {}) => ({ type: 'text', name, text, at, duration: extra.duration ?? DURATION - at, style,
+      initial: { x, y, anchorX: 0.5, anchorY: 0.5 },
+      keyframes: [{ at: 0, from: { alpha: 0, y: y + 8 }, to: { alpha: 1, y }, duration: 0.6, ease: 'power3.out' }, ...(extra.keyframes || [])] });
+    seq.push(label('lab-top-a', 'a', X0 + A / 2, Y0 - OFF - 22, 1.7, edgeStyle));
+    seq.push(label('lab-top-b', 'b', X0 + A + B / 2, Y0 - OFF - 22, 1.8, edgeStyle));
+    seq.push(label('lab-right-a', 'a', X0 + S + OFF + 22, Y0 + A / 2, 1.9, edgeStyle));
+    seq.push(label('lab-right-b', 'b', X0 + S + OFF + 22, Y0 + A + B / 2, 2.0, edgeStyle));
+
+    // ---- labels inside the gaps ----
+    const gapStyle = (size) => ({ fontFamily: MATH, fontStyle: 'italic', fontSize: size, fill: PAPER });
+    const fadeOut = (t, d = 0.35) => ({ at: t, to: { alpha: 0 }, duration: d, ease: 'power2.in' });
+    seq.push(label('gap-c2', 'c²', X0 + S / 2, Y0 + S / 2, T_C, gapStyle(76), { duration: T_SLIDE + 0.4 - T_C, keyframes: [fadeOut(T_SLIDE - T_C - 0.05)] }));
+    // the hypotenuse c is traced once, so "side c" has a place to point at
+    seq.push({ type: 'shape', shape: 'line', name: 'hyp-c', from: P(A, 0), to: P(S, A), at: T_C + 0.1, duration: T_SLIDE - T_C - 0.1,
+      initial: { strokeColor: PAPER, strokeWidth: 5, trimEnd: 0 },
+      keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.8, ease: 'power2.inOut' }, { at: -0.35, to: { alpha: 0 }, duration: 0.3 }] });
+    // the letter c on the hypotenuse of the top-right triangle, just inside the gap
+    seq.push(label('gap-c', 'c', X0 + A + B / 2 - 20, Y0 + A / 2 + 18, T_C + 0.2, gapStyle(26), { duration: T_SLIDE + 0.4 - T_C - 0.2, keyframes: [fadeOut(T_SLIDE - T_C - 0.25)] }));
+    seq.push(label('gap-a2', 'a²', X0 + A / 2, Y0 + A / 2, T_AB - 0.55, gapStyle(54)));
+    seq.push(label('gap-b2', 'b²', X0 + A + B / 2, Y0 + A + B / 2, T_AB - 0.4, gapStyle(68)));
+
+    // ---- right column: kicker, title, captions, equation ----
+    const CX = 752;                               // left edge of the text column
+    seq.push({ type: 'text', name: 'kicker', text: 'PROOF BY REARRANGEMENT', at: 0.4, duration: DURATION - 0.4,
+      style: { fontFamily: MONO, fontSize: 14, letterSpacing: 3, fill: MUTED },
+      initial: { x: CX, y: Y0 + 2 },
+      keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.8 }] });
+    seq.push({ type: 'text', name: 'title', text: 'ピタゴラスの定理', at: 0.5, duration: DURATION - 0.5,
+      style: { fontFamily: SERIF_JA, fontSize: 40, fill: INK, letterSpacing: 4 },
+      initial: { x: CX, y: Y0 + 32 },
+      keyframes: [{ at: 0, from: { alpha: 0, x: CX - 12 }, to: { alpha: 1, x: CX }, duration: 0.9, ease: 'power3.out' }] });
+    seq.push({ type: 'shape', shape: 'line', name: 'rule', from: [CX, Y0 + 104], to: [CX + 48, Y0 + 104], at: 0.9, duration: DURATION - 0.9,
+      initial: { strokeColor: ACCENT, strokeWidth: 3, trimEnd: 0 },
+      keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.6, ease: 'power2.out' }] });
+
+    const capStyle = { fontFamily: MATH + ', ' + SERIF_JA, fontSize: 25, fill: INK, lineHeight: 42, letterSpacing: 1, align: 'left' };
+    const CAP_Y = Y0 + 140;
+    // *x* marks a variable: set in Georgia italic (Latin glyphs come from Georgia, Japanese falls through to Mincho)
+    const toSpans = (text) => text.split(/(\*[^*]+\*)/).filter(Boolean).map(p => p.startsWith('*') ? { text: p.slice(1, -1), fontStyle: 'italic' } : p);
+    const caption = (name, text, from, to) => ({ type: 'text', name, spans: toSpans(text), at: from, duration: to - from, style: capStyle,
+      initial: { x: CX, y: CAP_Y },
+      keyframes: [
+        { at: 0, from: { alpha: 0, y: CAP_Y + 10 }, to: { alpha: 1, y: CAP_Y }, duration: 0.6, ease: 'power3.out' },
+        ...(to < DURATION ? [{ at: -0.35, to: { alpha: 0 }, duration: 0.35, ease: 'power2.in' }] : []),
+      ] });
+    seq.push(caption('cap-1', '同じ直角三角形を4枚、\n正方形の四隅に置く。', 0.9, T_C - 0.05));
+    seq.push(caption('cap-2', '残ったすき間は、\n斜辺 *c* の正方形。', T_C + 0.1, T_SLIDE - 0.05));
+    seq.push(caption('cap-3', '三角形を、\nすべらせて並べかえる。', T_SLIDE + 0.1, T_AB - 0.05));
+    seq.push(caption('cap-4', 'すき間は *a* と *b* の正方形に。\n面積は、変わらない。', T_AB + 0.1, DURATION));
+
+    // the equation: c² arrives first (on the right), then a² + b² = in front of it
+    const EQ = 80, eqY = Y0 + S - 50;
+    const termStyle = { fontFamily: MATH, fontStyle: 'italic', fontSize: EQ, fill: ACCENT };
+    const opStyle = { fontFamily: MATH, fontSize: EQ, fill: INK };
+    const parts = [['a²', termStyle], ['+', opStyle], ['b²', termStyle], ['=', opStyle], ['c²', termStyle]];
+    const GAP = 18;
+    let x = CX;
+    const placed = parts.map(([t, st]) => { const w = measureText(t, st).width; const p = { t, st, x, w }; x += w + GAP; return p; });
+    const eqWidth = x - GAP - CX;
+    placed.forEach((p, i) => {
+      const at = i === 4 ? T_C + 0.5 : T_EQ + i * 0.14;
+      seq.push({ type: 'text', name: 'eq-' + i, text: p.t, at, duration: DURATION - at, style: p.st,
+        initial: { x: p.x + p.w / 2, y: eqY, anchorX: 0.5, anchorY: 0.5 },
+        keyframes: [{ at: 0, from: { alpha: 0, y: eqY + 18 }, to: { alpha: 1, y: eqY }, duration: 0.7, ease: 'power3.out' }] });
+    });
+    // underline under the whole equation: the conclusion
+    seq.push({ type: 'shape', shape: 'line', name: 'eq-rule', from: [CX, eqY + 56], to: [CX + eqWidth, eqY + 56], at: T_END, duration: DURATION - T_END,
+      initial: { strokeColor: INK, strokeWidth: 2, trimEnd: 0 },
+      keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.9, ease: 'power3.inOut' }] });
+
+    // ---- sound ----
+    seq.push({ type: 'audio', sfx: { preset: 'pop', brightness: 0.3 }, at: T_C, volume: 0.4 });
+    seq.push({ type: 'audio', sfx: { preset: 'swoosh', brightness: 0.25 }, at: T_SLIDE + 0.35, volume: 0.4 });
+    seq.push({ type: 'audio', sfx: { preset: 'click', pitch: -3, brightness: 0.3 }, at: T_SLIDE + 1.15, volume: 0.45 });   // tri-bl docks
+    seq.push({ type: 'audio', sfx: { preset: 'swoosh', pitch: 2, brightness: 0.2, seed: 2 }, at: T_SLIDE + 1.1, volume: 0.3 });
+    seq.push({ type: 'audio', sfx: { preset: 'click', pitch: -1, brightness: 0.3, seed: 2 }, at: T_SLIDE + 1.85, volume: 0.45 });
+    seq.push({ type: 'audio', sfx: { preset: 'pop', pitch: 3, brightness: 0.3 }, at: T_AB - 0.55, volume: 0.4 });
+    seq.push({ type: 'audio', sfx: { preset: 'pop', pitch: 5, brightness: 0.3, seed: 2 }, at: T_AB - 0.4, volume: 0.35 });
+    seq.push({ type: 'audio', sfx: { preset: 'chime', brightness: 0.4 }, at: T_END, volume: 0.35 });
+    seq.push({ type: 'audio', at: 0, volume: 1, music: {
+      bpm: 96, reverb: 0.35, seed: 3,
+      tracks: [
+        { inst: 'pad',  vol: [[0, 0], [4, 0.5]], notes: '[f2 c3 a3]:4 [a2 e3 c4]:4 [d3 a3 f4]:4 [bb2 f3 d4]:4 [f2 c3 a3]:4' },
+        { inst: 'keys', vol: 0.5, strum: 0.02, notes: '_:4 Am7:4 Dm7:4 Bbmaj7:4 Fmaj7:4' },
+        { inst: 'bass', vol: 0.55, notes: 'f2:4 a1:4 d2:4 bb1:4 f1:4' },
+        { inst: 'bell', vol: 0.4, notes: '_:16 c6:1 a5:1 f5:2' },
+      ],
+    } });
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 11.5,
+        background: PAPER,
+        composition: { sequences: seq },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

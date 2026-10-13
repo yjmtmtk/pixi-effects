@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>made-of-seconds</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />
+  <style>
+    body { background: #0b0b0a; margin: 0; padding: 16px; min-height: 100vh; box-sizing: border-box; display: flex; justify-content: center; align-items: flex-start; }
+    .stage { position: relative; width: min(820px, 100%, calc(100vh - 32px)); }
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1080" height="1080"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>
+  </div>
+
+  <script type="application/json" id="piece-meta">{ "title": "Made of Seconds", "subtitle": "Sixty seconds close into a minute, and on up to a year: 31,536,000 ticks, and then the next one.", "tags": ["time", "minimal", "clock", "typography", "sound"], "width": 1080, "height": 1080, "duration": 13.8, "model": "opus" }</script>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":  "../../dist/present.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js" />
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    const W = 1080, H = 1080, FPS = 30, DURATION = 13.8;
+
+    // ── palette, type, grid (brief.md) ─────────────────────────────────────
+    const C = { bg: '#0E0E0D', dim: '#3A3833', bone: '#ECE8DF', red: '#FF3B1F' };
+    const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+    const MINCHO = '"Hiragino Mincho ProN", "Hiragino Mincho Pro", "Yu Mincho", "Noto Serif JP", serif';
+    const M = 90;                       // margin
+    const CX = 540, CY = 452, R = 290;  // the instrument
+
+    // ── the four rings: each tick of one ring is the whole of the ring before ─
+    // schedule: first ticks at real speed (ring 0), then geometric intervals d0 * r^k, never below dmin
+    const RINGS = [
+      { n: 60,  kanji: '秒', name: 'SECOND', mult: 1,     len: 26, w: 3,   pitch: 0,   d0: 0.30, r: 0.70, dmin: 1 / 120, real: 3 },
+      { n: 60,  kanji: '分', name: 'MINUTE', mult: 60,    len: 26, w: 3,   pitch: -5,  d0: 0.12, r: 0.80, dmin: 1 / 150 },
+      { n: 24,  kanji: '時', name: 'HOUR',   mult: 3600,  len: 40, w: 6,   pitch: -10, d0: 0.08, r: 0.85, dmin: 1 / 60 },
+      { n: 365, kanji: '日', name: 'DAY',    mult: 86400, len: 20, w: 2, pitch: -15, d0: 0.06, r: 0.85, dmin: 1 / 400 },
+    ];
+    const HOLD = 0.15, SHRINK = 0.45, TRAVEL = 0.4, DRAWON = 0.35;
+    const fmt = v => v.toLocaleString('en-US');
+    const pad2 = v => String(v).padStart(2, '0');
+
+    // tick i (1..n) sits at angle i * 360 / n; tick n is at 12 o'clock
+    const tickPos = (ring, i, rr = R - ring.len / 2) => {
+      const a = i * 360 / ring.n;
+      const rad = a * Math.PI / 180;
+      return { a, x: rr * Math.sin(rad), y: -rr * Math.cos(rad) };
+    };
+
+    // times
+    let first = 1.0, drawOnAt = 0.25;
+    for (const [k, ring] of RINGS.entries()) {
+      ring.drawOnAt = drawOnAt;
+      ring.t = [first];
+      let g = 0;
+      for (let i = 1; i < ring.n; i++) {
+        if (ring.real && i < ring.real) ring.t.push(ring.t[i - 1] + 1);
+        else { ring.t.push(ring.t[i - 1] + Math.max(ring.dmin, ring.d0 * Math.pow(ring.r, g))); g++; }
+      }
+      ring.end = ring.t[ring.n - 1];
+      ring.shrinkAt = ring.end + HOLD;
+      ring.closed = ring.shrinkAt + SHRINK;        // the ring is a dot at the centre
+      drawOnAt = ring.closed - 0.1;
+      first = ring.closed + TRAVEL;                // the dot lands on tick 1 of the next ring
+    }
+    const YEAR = RINGS[3].closed;                  // 10.73
+    const NEXT_RING = YEAR + 1.45;                 // a new seconds ring draws on
+    const NEXT_TICK = NEXT_RING + 0.5;             // ... and its first second ticks
+    window.__timing = RINGS.map(r => ({ first: r.t[0], end: r.end, closed: r.closed })).concat([{ YEAR, NEXT_TICK }]);
+
+    const sequences = [];
+    sequences.push({ type: 'shape', name: 'ground', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: C.bg } });
+
+    // ── rings ──────────────────────────────────────────────────────────────
+    const ringLayers = (ring, k, { lifeEnd, lit = true }) => {
+      const out = [];
+      const nul = `ring${k}`;
+      const keys = [];
+      if (lit) keys.push({ at: ring.shrinkAt - ring.drawOnAt, to: { scale: 0 }, duration: SHRINK, ease: 'expo.in' });
+      out.push({ type: 'null', name: nul, at: ring.drawOnAt, duration: lifeEnd - ring.drawOnAt, initial: { x: CX, y: CY }, keyframes: keys });
+      for (let i = 1; i <= ring.n; i++) {
+        const p = tickPos(ring, i);
+        const kf = [{ at: ring.drawOnAt + DRAWON * (i - 1) / ring.n, set: { alpha: 1 } }];
+        if (lit) {
+          kf.push({ at: ring.t[i - 1], set: { fillColor: C.red } });
+          if (i < ring.n) kf.push({ at: ring.t[i], set: { fillColor: C.bone } });
+        }
+        out.push({
+          type: 'shape', shape: 'rect', parent: nul, width: ring.w, height: ring.len,
+          initial: { x: p.x, y: p.y, rotation: p.a, fillColor: C.dim, alpha: 0 },
+          keyframes: kf,
+        });
+      }
+      return out;
+    };
+    for (const [k, ring] of RINGS.entries()) sequences.push(...ringLayers(ring, k, { lifeEnd: ring.closed }));
+
+    // ── the red dot that carries a closed ring to tick 1 of the next ─────────
+    for (let k = 0; k < RINGS.length; k++) {
+      const ring = RINGS[k], next = RINGS[k + 1];
+      const at = ring.closed - 0.06;
+      if (next) {
+        const p = tickPos(next, 1);
+        sequences.push({
+          type: 'shape', shape: 'circle', radius: 7, name: `dot${k}`, at, duration: next.t[0] - at,
+          initial: { x: CX, y: CY, fillColor: C.red, scale: 0 },
+          keyframes: [
+            { at: 0, to: { scale: 1 }, duration: 0.08, ease: 'power2.out' },
+            { at: 0.06, to: { x: CX + p.x, y: CY + p.y, scale: 0.55 }, duration: TRAVEL, ease: 'power3.inOut' },
+          ],
+        });
+      } else {
+        // the year: one point
+        sequences.push({
+          type: 'shape', shape: 'circle', radius: 9, name: 'year-dot', at, duration: DURATION - at,
+          initial: { x: CX, y: CY, fillColor: C.red, scale: 0 },
+          keyframes: [
+            { at: 0, to: { scale: 1 }, duration: 0.12, ease: 'power2.out' },
+            { at: NEXT_TICK - at, set: { fillColor: C.bone } },
+          ],
+        });
+      }
+    }
+
+    // ── after the year: the next second begins ───────────────────────────────
+    {
+      const ring = { ...RINGS[0], drawOnAt: NEXT_RING };
+      const out = ringLayers(ring, 'next', { lifeEnd: DURATION, lit: false });
+      // tick 1 turns red on the final click
+      out[1].keyframes.push({ at: NEXT_TICK, set: { fillColor: C.red } });
+      sequences.push(...out);
+    }
+
+    // ── type ───────────────────────────────────────────────────────────────
+    const label = (text, x, y, extra = {}) => ({
+      type: 'text', text, style: { fontFamily: MONO, fontSize: 15, letterSpacing: 4, fill: C.bone, fontWeight: '500' },
+      initial: { x, y, ...extra },
+    });
+    sequences.push({ ...label('MADE OF SECONDS', M, M), name: 'title' });
+
+    // the year's arithmetic, in the count slot (gone when the next second starts)
+    sequences.push({
+      ...label('60 × 60 × 24 × 365', 276, 916, { alpha: 0 }), name: 'formula', at: YEAR + 0.25, duration: NEXT_RING - YEAR - 0.25,
+      style: { fontFamily: MONO, fontSize: 15, letterSpacing: 4, fill: C.bone, fontWeight: '500' },
+      keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.4, ease: 'power2.out' }, { at: -0.25, to: { alpha: 0 }, duration: 0.25 }],
+    });
+
+
+    // ring index, top right
+    {
+      const kf = RINGS.map((r, k) => ({ at: r.drawOnAt, set: { text: `${pad2(k + 1)} / 04` } }));
+      kf.push({ at: NEXT_RING, set: { text: '01 / 04' } });
+      sequences.push({ ...label('01 / 04', W - M, M, { anchorX: 1 }), name: 'index', keyframes: kf });
+    }
+
+    // unit kanji (one layer per unit, slides up)
+    const units = RINGS.map((r, k) => ({ kanji: r.kanji, name: r.name, from: k === 0 ? 0.2 : RINGS[k - 1].closed, to: r.closed }));
+    units.push({ kanji: '年', name: 'YEAR', from: YEAR, to: NEXT_RING });
+    units.push({ kanji: '秒', name: 'SECOND', from: NEXT_RING, to: DURATION });   // and round again
+    for (const [k, u] of units.entries()) {
+      sequences.push({
+        type: 'text', name: `kanji${k}`, text: u.kanji, at: u.from, duration: u.to - u.from,
+        style: { fontFamily: MINCHO, fontSize: 150, fill: C.bone, fontWeight: '400' },
+        initial: { x: M - 6, y: 812 },
+        keyframes: [{ at: 0, from: { y: 836, alpha: 0 }, to: { y: 812, alpha: 1 }, duration: 0.3, ease: 'power3.out' }],
+      });
+      sequences.push({
+        ...label(u.name, 276, 848), name: `unit${k}`, at: u.from, duration: u.to - u.from,
+        keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.2 }],
+      });
+    }
+
+    // in-ring count  07 / 60
+    {
+      const kf = [];
+      for (const [k, ring] of RINGS.entries()) {
+        const digits = String(ring.n).length;
+        kf.push({ at: k === 0 ? 0.2 : RINGS[k - 1].closed, set: { text: `${'0'.padStart(digits, '0')} / ${ring.n}` } });
+        ring.t.forEach((t, i) => kf.push({ at: t, set: { text: `${String(i + 1).padStart(digits, '0')} / ${ring.n}` } }));
+      }
+      sequences.push({
+        type: 'text', name: 'count', text: '00 / 60', at: 0.2, duration: YEAR - 0.2,
+        style: { fontFamily: MONO, fontSize: 30, fill: C.bone },
+        initial: { x: 276, y: 906, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.2 }, ...kf.map(f => ({ ...f, at: f.at - 0.2 }))],
+      });
+    }
+
+    sequences.push({
+      type: 'text', name: 'count-next', text: '00 / 60', at: NEXT_RING, duration: DURATION - NEXT_RING,
+      style: { fontFamily: MONO, fontSize: 30, fill: C.bone },
+      initial: { x: 276, y: 906, alpha: 0 },
+      keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.2 }, { at: NEXT_TICK - NEXT_RING, set: { text: '01 / 60' } }],
+    });
+
+    // elapsed seconds, flush right
+    {
+      const kf = [];
+      let total = 0;
+      for (const ring of RINGS) ring.t.forEach((t, i) => kf.push({ at: t - 0.2, set: { text: fmt(ring.mult * (i + 1)) } }));
+      kf.push({ at: NEXT_TICK - 0.2, set: { text: fmt(31536001) } });
+      sequences.push({ ...label('経過秒数  ELAPSED SECONDS', W - M, 848, { anchorX: 1, alpha: 0 }), name: 'elapsed-label', at: 0.2, duration: DURATION - 0.2,
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.2 }] });
+      sequences.push({
+        type: 'text', name: 'elapsed', text: '0', at: 0.2, duration: DURATION - 0.2,
+        style: { fontFamily: MONO, fontSize: 64, fill: C.bone, fontWeight: '400' },
+        initial: { x: W - M, y: 878, anchorX: 1, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.2 }, ...kf],
+      });
+    }
+
+    // ── sound ──────────────────────────────────────────────────────────────
+    let lastClick = -1;
+    for (const ring of RINGS) {
+      ring.t.forEach((t, i) => {
+        if (t - lastClick < 1 / 30 - 1e-6) return;
+        const gap = i === 0 ? 1 : t - ring.t[i - 1];
+        const vol = 1.4 + 1.8 * Math.min(1, gap / 0.3);
+        sequences.push({ type: 'audio', at: t, volume: vol, sfx: { preset: 'click', pitch: ring.pitch, brightness: -0.3, seed: i % 5 } });
+        lastClick = t;
+      });
+      sequences.push({ type: 'audio', at: ring.closed - 0.08, volume: 1.4, sfx: { preset: 'hit', pitch: -6, brightness: -0.8 } });
+    }
+    sequences.push({ type: 'audio', at: YEAR, volume: 1.6, sfx: { preset: 'chime', pitch: -7, brightness: -0.4 } });
+    sequences.push({ type: 'audio', at: NEXT_TICK, volume: 3.2, sfx: { preset: 'click', pitch: 0, brightness: -0.3 } });
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 10.2,
+        background: C.bg,
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

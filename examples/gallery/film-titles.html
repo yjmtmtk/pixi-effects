@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>The Long Night — title sequence</title>
-  <link rel="stylesheet" href="../../dist/loader.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />
   <style>
     body { background: #0b0d0e; margin: 0; padding: 16px; display: flex; justify-content: center; }
     .pe-stage { position: relative; width: min(960px, 100%); border-radius: 6px; --pe-loader-bg: #0b0d0e; background: #0b0d0e; }
@@ -188,7 +188,7 @@
 
     const credits = [
       ...credit({ name: 'c1', at: 2.3, dur: 2.7, role: 'Northlight Pictures presents', names: ['A NOCTURNE PRODUCTION'], x: 128, y: 470 }),
-      ...credit({ name: 'c2', at: 5.2, dur: 2.7, role: 'a film by', names: ['MIRA HALVERSEN'], x: W - 128, y: 172, align: 'right' }),
+      ...credit({ name: 'c2', at: 5.3, dur: 2.7, role: 'a film by', names: ['MIRA HALVERSEN'], x: W - 128, y: 172, align: 'right' }),
       ...credit({ name: 'c3', at: 8.0, dur: 2.3, role: 'starring', names: ['ELIAS MARCH', 'JUNE TAVERNER'], x: 128, y: 424 }),
     ];
 
@@ -219,7 +219,7 @@
       }];
     });
 
-    const RULE_AT = 11.7, TAG_AT = 12.2;
+    const RULE_AT = 11.6, TAG_AT = 12.2;
     const titleExtras = [
       {
         type: 'shape', shape: 'rect', name: 'title-rule', at: RULE_AT, duration: DURATION - RULE_AT,
@@ -295,6 +295,56 @@
       keyframes: [{ at: 0.2, to: { alpha: 0 }, duration: 2.2, ease: EASE_MOVE }],
     };
 
+    // ---------- sound: an original score in D minor, 100 bpm, written to the picture ----------
+    // One bar = 4 beats = 2.4 s. The music starts at 0.8 s, so the bar lines fall on
+    // 0.8 | 3.2 | 5.6 | 8.0 (starring) | 10.4 (THE LONG NIGHT) | 12.8; the rule (11.6) is beat 3 and
+    // the tagline (12.2) beat 4 of the title bar. A beat b is at MUSIC_AT + b * BEAT seconds.
+    const BPM = 100, BEAT = 60 / BPM, MUSIC_AT = 0.8;
+    const atBeat = (b) => +(MUSIC_AT + b * BEAT).toFixed(3);
+    // the bass ostinato: eighths in a 3+3+2 accent pattern over a D pedal (bars 2-4), it stops dead for the title
+    const ost = (a, b, c) => `${a}!:0.5 ${a}:0.5, ${a}:0.5, ${b}!:0.5 ${b}:0.5, ${b}:0.5, ${c}!:0.5 ${c}:0.5,`;
+    const score = {
+      bpm: BPM, reverb: 0.38, seed: 3, tail: 0.6, drumVol: 0.42,
+      tracks: [
+        // the night itself: a slow pad, i - bVI - iv - bII - V(b9) - i(add9); every chord over D
+        { inst: 'pad', vol: [[0, 0.35], [12, 0.6], [16, 0.75], [20, 0.5]], attack: 1.6, release: 0.9, tone: 0.45,
+          notes: '[d3 a3 f4]:4 | [d3 f3 bb3]:4 | [d3 g3 bb3]:4 | [d3 eb3 g3 bb3]:2 [c#3 e3 g3 bb3]:2 | [d2 a2 e3 f3 a3]:4 | _:1' },
+        // a sine drone under it from bar 2 (d2: d1 was a 37 Hz rumble that only ate headroom); the title strikes it again
+        { inst: 'sub', vol: 0.3, notes: '_:4 | d2:4 ~:4 ~:4 | d2:3! _:2' },
+        // the pulse (dry, dark)
+        { inst: 'bass', vol: [[4, 0.35], [12, 0.55], [16, 0.7]], tone: 0.3, reverb: 0.08, legato: 0.7,
+          notes: `_:4 | ${ost('d2', 'd2', 'a2')} | ${ost('d2', 'd2', 'bb2')} | ${ost('d2', 'eb2', 'c#2')} | _:5` },
+        // a cold harp figure over the passing light and the starring card
+        { inst: 'pluck', vol: [[8, 0.18], [16, 0.42]], pan: 0.3, step: 0.5, tone: 0.55,
+          notes: '_:8 | d5 bb4 g4 bb4 d5 bb4 g4 bb4 | eb5 bb4 g4 bb4 e5 bb4 g4 c#5 | _:5' },
+        // the theme, one note per credit as its name sharpens: D (2.6) F (5.6) E (8.0) A (8.6) ... D (tagline)
+        { inst: 'musicbox', vol: 0.5, pan: -0.2, ring: 1.6, reverb: 0.7,
+          notes: '_:3 d5:5 | f5:4 | e5:1 a4:3 | _:3 d5:2' },
+        // the amber rule: one high bell
+        { inst: 'bell', vol: 0.65, pan: 0.15, ring: 1.8, notes: '_:18 a5:3' },
+        // the title chord, and the last chord on the tagline (left to ring out before 14 s)
+        { inst: 'keys', vol: 0.55, strum: 0.02, tone: 0.4, notes: '_:16 [d2 a2 d3]:3! [d3 f3 a3 e4]:2' },
+      ],
+      // the heartbeat kick enters with the passing light; a soft tick in the last bar before the title
+      drums: [
+        { from: 8, to: 12, kick: 'x..x............' },
+        { from: 12, to: 16, kick: 'x..x....x..x....', hat: '..o...o...o...o.' },
+      ],
+    };
+    const sound = [
+      { type: 'audio', name: 'score', at: MUSIC_AT, volume: 1.2, music: score },
+      // the letterbox bars close in (0.6-2.6, loudest at their middle 1.6)
+      { type: 'audio', name: 'sfx-bars', sfx: { preset: 'swoosh', pitch: -10, brightness: -0.7 }, at: 0.96, duration: 2.0, volume: 0.6 },
+      // the headlights pass left -> right behind the shard (swoosh pans left -> right; loudest as the light crosses, ~7.2)
+      { type: 'audio', name: 'sfx-headlights', sfx: { preset: 'swoosh', pitch: -14, brightness: -0.6, seed: 2 }, at: 5.92, duration: 4.0, volume: 0.8 },
+      // the night closes in: a dark riser that peaks on the title
+      { type: 'audio', name: 'sfx-riser', sfx: { preset: 'riser', pitch: -5, brightness: -0.5 }, at: atBeat(12), duration: atBeat(16) - atBeat(12), volume: 0.4 },
+      // THE LONG NIGHT: a deep hit on the downbeat
+      { type: 'audio', name: 'sfx-title', sfx: { preset: 'hit', pitch: -6, brightness: -0.5 }, at: atBeat(16), volume: 1.3 },
+      // the rule draws out: a soft, dark swipe
+      { type: 'audio', name: 'sfx-rule', sfx: { preset: 'swipe', pitch: -12, brightness: -0.6 }, at: atBeat(18), volume: 0.33 },
+    ];
+
     const sequences = [
       { type: 'shape', shape: 'rect', name: 'bg', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: C.night } },
       { type: 'shape', shape: 'rect', name: 'haze', width: W, height: H, initial: { x: W / 2, y: H / 2, fillGradient: { type: 'radial', center: [0.5, 0.36], radius: 0.75, stops: [[0, 'rgba(46,72,74,0.85)'], [0.45, 'rgba(22,36,38,0.6)'], [1, 'rgba(7,11,12,0)']] } } },
@@ -309,6 +359,7 @@
       flicker(),
       ...bars,
       fadeIn,
+      ...sound,
     ];
 
     const movie = new Movie();

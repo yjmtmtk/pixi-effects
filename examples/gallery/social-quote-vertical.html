@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Social Quote Card (9:16)</title>
-  <link rel="stylesheet" href="../../dist/loader.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />
   <style>
     html, body { height: 100%; }
     body { background: #14110f; margin: 0; padding: 16px; box-sizing: border-box; display: flex; justify-content: center; align-items: flex-start; }
@@ -45,6 +45,9 @@
     import { Controller } from 'pixi-effects/controller';
 
     const W = 720, H = 1280, FPS = 30, DURATION = 10, POSTER_FRAME = 200;
+    // ---- music grid: 144 bpm, one beat = 0.4167 s ~ the quote's line step (0.42 s); 24 beats = the 10 s exactly.
+    //      Line 1 lands on beat 3, the underline on 9, the dot on 10, the swipe label on 15, the last chord on 20.
+    const BPM = 144, BEAT = 60 / BPM;
 
     // ---- palette: warm editorial ------------------------------------------------------------
     const CREAM = '#f7e9d7', INK = '#2a1712', TERRA = '#c4452d', ROSE = '#e8786f', APRICOT = '#ffb27a', AMBER = '#ffd27a';
@@ -141,7 +144,7 @@
         initial: { x: PILL_X, y: CUE_Y, fillColor: INK, alpha: 0 },
         keyframes: [
           { at: 0, to: { alpha: 1 }, duration: 0.7 },
-          { at: 2.4, to: { x: PILL_X + 34, width: 12 }, duration: 0.5, ease: 'power3.inOut' },   // the pill "advances"
+          { at: 20 * BEAT - CUE_AT, to: { x: PILL_X + 34, width: 12 }, duration: 0.5, ease: 'power3.inOut' },   // the pill "advances" on the last downbeat (was 2.4: 2 frames earlier now)
         ] },
       { type: 'text', name: 'swipe-label', text: 'SWIPE', at: CUE_AT + 0.2,
         style: { fontSize: 20, fontWeight: '700', fill: INK, letterSpacing: 6, fontFamily: SANS },
@@ -156,10 +159,46 @@
     );
 
     // ---- final soft breath on the underline dot so the end frame is alive but composed ------------------
-    sequences.push({ type: 'shape', shape: 'circle', name: 'end-glow', radius: 90, at: 8.4,
+    sequences.push({ type: 'shape', shape: 'circle', name: 'end-glow', radius: 90, at: 20 * BEAT,   // was 8.4: 2 frames earlier, on the final chord
       initial: { x: LEFT + 330 + 28, y: UNDER_Y, alpha: 0 },
       fillGradient: { type: 'radial', radius: 0.5, stops: [[0, 'rgba(196,69,45,0.35)'], [1, 'rgba(196,69,45,0)']] },
       keyframes: [{ at: 0, to: { alpha: 1, scale: 1.25 }, duration: 0.7, ease: 'sine.out' }] });
+
+    // ---- sound: a warm Rhodes-and-pad score in F major, 144 bpm felt in half time -------------------------
+    // bars of 4 beats: | Fmaj7 (intro, quote mark) | Fmaj7 -> Bbmaj9 pushed on beat 7 ("the design.") | Bbmaj9 (underline, dot)
+    //                  | Gm9 (author holds; soft groove enters) | C9sus4 -> C13 (swipe cue, rising pluck) | Fmaj9 (pill advances, glow; rings out)
+    const music = {
+      bpm: BPM, reverb: 0.3, humanize: 0.006, seed: 7, tail: 1, drumVol: 0.4,
+      tracks: [
+        // the quote's own melody: one Rhodes note per line (beats 3-7), "the design." leaps up a sixth and holds; a small answer after the author
+        { inst: 'keys', vol: 0.85, pan: -0.08, tone: 0.55,
+          notes: '_:3 a4:1 | c5:1 f5:1 c5:1 a5!:3 | _:1 g5:0.5 f5:0.5 | d5:2 _:2 | _:4 | [f3 c4 e4 g4 a4]:3, _:1' },
+        // off-beat comping only under the author / swipe bars
+        { inst: 'keys', vol: 0.4, pan: 0.22, strum: 0.012, tone: 0.45,
+          notes: '_:12 | _:1 [f4 a4 bb4 d5]:1, _:1 [f4 a4 bb4 d5]:1, | _:1 [f4 g4 bb4 d5]:1, _:1 [e4 a4 bb4 d5]:1, | _:4' },
+        { inst: 'pad', vol: 0.5, attack: 0.9, release: 0.8, tone: 0.4,
+          notes: '[f3 a3 c4 e4]:7 [d3 f3 a3 c4]:5 | [f3 a3 bb3 d4]:4 | [f3 g3 bb3 d4]:2 [e3 a3 bb3 d4]:2 | [f3 a3 c4 e4 g4]:3 _:1' },
+        { inst: 'bass', vol: 0.8, reverb: 0.05,
+          notes: '_:4 | f1:3 bb1:1 | ~:3 bb1:0.5 c2:0.5 | g1:3 g1:0.5 a1:0.5 | c2:3 c2:1 | f1:3 _:1' },
+        // the swipe cue: a rising pluck figure that leans to the right, landing on the tonic with the pill
+        { inst: 'pluck', vol: [[15, 0.3], [20, 0.55]], pan: 0.3, step: 0.5,
+          notes: '_:15 g4 c5 d5 f5 g5 bb5 a5 g5 e5 c5 | f5:3 _:1' },
+        // two bell strikes: the underline dot, and the end glow
+        { inst: 'bell', vol: 0.5, ring: 2.2, reverb: 0.6,
+          notes: '_:10 d6:2 _:8 f6:3 _:1' },
+      ],
+      drums: [
+        { from: 12, to: 20, kick: 'x.........x.....', rim: '........o.......', shaker: 'o.x.o.x.o.x.o.x.' },
+      ],
+    };
+    sequences.push(
+      { type: 'audio', name: 'score', at: 0, volume: 1.3, music },
+      // picture hits (sfx on the picture's own times)
+      { type: 'audio', name: 'sfx-quote-mark', at: 0.35, volume: 0.7, sfx: { preset: 'pop', pitch: -5, brightness: -0.3 } },
+      { type: 'audio', name: 'sfx-underline', at: UL_AT - 0.06, volume: 0.75, sfx: { preset: 'swoosh', brightness: -0.4 } },   // loudest 0.16 s in = while the line shoots out
+      { type: 'audio', name: 'sfx-dot', at: UL_AT + 0.35, volume: 0.55, sfx: { preset: 'pop', pitch: 3 } },
+      { type: 'audio', name: 'sfx-pill', at: 20 * BEAT, volume: 0.5, sfx: { preset: 'swipe', brightness: -0.5 } },
+    );
 
     const movie = new Movie();
     window.movie = movie;

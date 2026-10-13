@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HOZO — logo sting</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />   <!-- the loader: HTML + CSS only, so it is on screen at once and keeps moving while the page builds the video -->
+  <style>
+    body { background: #111; margin: 0; padding: 16px; min-height: 100vh; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+    .stage { position: relative; width: min(960px, 100%); }                 /* the player and the loader both sit inside this box */
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+    /* the loader (pixi-effects/loader.css, linked above): movie.init() fades it out when the movie is ready */
+    /* Screenshots: the player bar overlays the bottom ~60px of the canvas (it is NOT part of the exported video).
+       Uncomment to hide it while you check the layout:  .movie-controller { display: none !important; } */
+  </style>
+</head>
+<body>
+  <script type="application/json" id="piece-meta">{ "title": "HOZO", "subtitle": "A logo sting for an invented joinery workshop: two blocks slide out of a close-up and lock with one wooden click", "tags": ["logo", "sting", "brand", "sound", "geometric"], "width": 1280, "height": 720, "duration": 9, "model": "opus" }</script>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>   <!-- shared loader: .pe-loader--pulse / --bar for other looks, --custom for your own -->
+  </div>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":  "../../dist/present.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js" />   <!-- after the import map: the library downloads while the page is parsed -->
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+    // import { registerThree, three } from 'pixi-effects/three';   // only for a three.js layer; call registerThree() before init
+    // import * as THREE from 'three';
+    // A talk instead of a video: import { deck, Presenter } from 'pixi-effects/present';  (the import map above has "pixi-effects/present")
+    //   const d = deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops: [at, ...], notes, sequences }] });
+    //   composition: d.composition, duration: d.duration; then new Presenter(movie, { canvas }) instead of the Controller. Docs: reference/cheatsheet.md → Presets (the deck lines).
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 9;
+
+    // ---- palette (brief.md) ----
+    const INK = '#16140F', PAPER = '#ECE4D6', HINOKI = '#C98A4B', GRAPHITE = '#77706A';
+
+    // ---- the mark, in rig units (scale 1 = final size) ----
+    const HALF = 75;            // the square is 150 x 150
+    const T = 33;               // tongue depth (into the left block)
+    const TH = 22;              // tongue half-height (44 tall)
+    const Z0 = 5;               // the opening close-up: rig scale
+    const Z1 = 1.7;             // the scale at the lock (the climax stays big)
+    const ZOOM_END = 2.75;      // the zoom-out lands here
+    const LOCK = 3.0;           // the click: downbeat of bar 2 (80 bpm: a beat is 0.75 s, a bar 3 s)
+    const BEAT = 0.75;
+    const MOVE = 3.75;          // beat 5: the mark shrinks and slides left
+    const WORD = 4.3;           // the name starts to come out of the joint
+    const TAG = 5.25;           // beat 7: the tagline, with the second bell note
+
+    // ---- final lockup ----
+    const MARK_X = 453, CY = 360;
+    const WORD_X = 572;
+    const MARK_TOP = CY - HALF, MARK_BOTTOM = CY + HALF;
+
+    const rect = (name, parent, cx, cy, w, h, color) => ({
+      type: 'shape', shape: 'rect', name, parent, width: w, height: h,
+      initial: { x: cx, y: cy, fillColor: color },
+    });
+
+    // the left block: a half-square with the mortise (notch) cut out of its right edge
+    const leftBlock = [
+      rect('L.top', 'pieceL', -HALF / 2, (-HALF - TH) / 2, HALF, HALF - TH, PAPER),
+      rect('L.bottom', 'pieceL', -HALF / 2, (HALF + TH) / 2, HALF, HALF - TH, PAPER),
+      rect('L.mid', 'pieceL', (-HALF - T) / 2, 0, HALF - T, 2 * TH, PAPER),
+    ];
+    // the right block: a half-square with the tenon (tongue) sticking out to the left
+    const rightBlock = [
+      rect('R.body', 'pieceR', HALF / 2, 0, HALF, 2 * HALF, HINOKI),
+      rect('R.tongue', 'pieceR', -T / 2, 0, T, 2 * TH, HINOKI),
+    ];
+
+    // a piece: glides in, stops short, breathes back, snaps home
+    // the hinoki tongue is already in frame on frame 0; the paper block is still off screen and arrives with it
+    const pieceMove = (sign) => [
+      { at: 0, from: { x: sign > 0 ? 120 : -140 }, to: { x: sign * 14 }, duration: 2.45, ease: 'power3.out' },
+      { at: 2.45, to: { x: sign * 20 }, duration: 0.4, ease: 'sine.inOut' },
+      { at: 2.85, to: { x: 0 }, duration: LOCK - 2.85, ease: 'power4.in' },
+    ];
+
+    // sumi-line guides: hairlines that mark the tongue before the wood fills it; they ride the zoom exactly
+    // (a guide at rig coordinate u sits at screen 360 + u * scale, and scale moves with the same ease)
+    // on the click the lines turn hinoki and are pulled into the joint (they shrink toward the mark's centre)
+    const guideSnap = (axis) => [
+      { at: LOCK, to: { fillColor: HINOKI, alpha: 1 }, duration: 0.04 },
+      { at: LOCK + 0.06, to: { [axis]: 0 }, duration: 0.42, ease: 'power3.in' },
+    ];
+    const hGuide = (name, u) => ({
+      type: 'shape', shape: 'rect', name, width: W, height: 1, duration: LOCK + 0.7,
+      initial: { x: W / 2, y: CY + u * Z0, fillColor: GRAPHITE, scaleX: 0, alpha: 0.9 },
+      keyframes: [
+        { at: 0.15, to: { scaleX: 1 }, duration: 1.1, ease: 'power3.inOut' },
+        { at: 0, to: { y: CY + u * Z1 }, duration: ZOOM_END, ease: 'expo.inOut' },
+        ...guideSnap('scaleX'),
+      ],
+    });
+    const vGuide = (name, u, delay) => ({
+      type: 'shape', shape: 'rect', name, width: 1, height: H, duration: LOCK + 0.7,
+      initial: { x: W / 2 + u * Z0, y: H / 2, fillColor: GRAPHITE, scaleY: 0, alpha: 0.9 },
+      keyframes: [
+        { at: 0.35 + delay, to: { scaleY: 1 }, duration: 1.0, ease: 'power3.inOut' },
+        { at: 0, to: { x: W / 2 + u * Z1 }, duration: ZOOM_END, ease: 'expo.inOut' },
+        ...guideSnap('scaleY'),
+      ],
+    });
+
+    // ---- sound ----
+    const ticks = [];
+    for (let i = 0; i < 6; i++) {              // eighth notes from beat 1, a ratchet tightening; silence 2.625 → 3.0
+      ticks.push({ type: 'audio', name: 'tick' + i, at: BEAT + i * BEAT / 2, volume: 0.5 + i * 0.14,
+        sfx: { preset: 'click', pitch: -14 + i, brightness: -0.5, seed: i + 1 } });
+    }
+    const music = {
+      bpm: 80, reverb: 0.3,                    // 12 beats = 3 bars = the whole 9 s
+      tracks: [
+        { inst: 'pad', vol: [[0, 0], [3, 0.5], [4, 0.65], [9, 0.5], [12, 0.2]], attack: 1.2, release: 1.6, notes: 'Gsus4:4 Cadd9:4 Fmaj7/c:2 Cadd9:2' },
+        { inst: 'bell', vol: 1.15, reverb: 0.6, ring: 2.4, notes: '_:4 [e5 g5]:2.5 g5:0.5 c6:5' },   // the lock; then HO (beat 6.5) - ZO (beat 7)
+        { inst: 'pluck', vol: 0.7, reverb: 0.4, notes: '_:6.5 g4:0.5 c5:5' },              // body under HO - ZO
+        { inst: 'sub', vol: 0.55, notes: '_:4 c2:8' },
+      ],
+    };
+
+    const sequences = [
+      { type: 'shape', name: 'ground', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: INK } },
+
+      hGuide('guide.top', -TH),
+      hGuide('guide.bottom', TH),
+      vGuide('guide.shoulder', 0, 0),
+      vGuide('guide.tip', -T, 0.12),
+
+      // the world: holds the lockup; a slow push-in keeps the final hold alive
+      { type: 'null', name: 'world', initial: { x: W / 2, y: CY },
+        keyframes: [{ at: 4.6, to: { scale: 1.025 }, duration: DURATION - 4.6, ease: 'sine.inOut' }] },
+
+      // the rig: zooms out from the close-up, punches on the lock, then slides left to make room for the name
+      { type: 'null', name: 'rig', parent: 'world', initial: { x: 0, y: 0, scale: Z0 },
+        keyframes: [
+          { at: 0, to: { scale: Z1 }, duration: ZOOM_END, ease: 'expo.inOut' },
+          { at: LOCK, to: { scale: Z1 * 0.965 }, duration: 0.05, ease: 'power2.out' },
+          { at: LOCK + 0.05, to: { scale: Z1 }, duration: 0.4, ease: 'back.out' },
+          { at: MOVE, to: { x: MARK_X - W / 2, scale: 1 }, duration: 0.7, ease: 'power3.inOut' },
+        ] },
+      { type: 'null', name: 'pieceL', parent: 'rig', keyframes: pieceMove(-1) },
+      { type: 'null', name: 'pieceR', parent: 'rig', keyframes: pieceMove(1) },
+      ...leftBlock,
+      ...rightBlock,
+
+
+
+      { type: 'text', name: 'wordmark', text: 'HOZO', at: WORD, parent: 'world',
+        // the window the name slides out of: everything right of the mark's edge (an inline mask follows the null)
+        mask: { type: 'shape', shape: 'rect', width: W, height: 260, initial: { x: MARK_X + HALF + 22 - W / 2, y: 0, anchorX: 0, fillColor: '#ffffff' } },
+        style: { fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif', fontSize: 96, fontWeight: '500', letterSpacing: 21, fill: PAPER },
+        initial: { x: WORD_X - W / 2, y: MARK_TOP - 21 - CY },
+        keyframes: [{ at: 0, from: { x: WORD_X - 190 - W / 2 }, to: { x: WORD_X - W / 2 }, duration: 0.85, ease: 'expo.out' }] },
+
+      { type: 'text', name: 'tagline', spans: [{ text: '枘', fill: HINOKI }, '  JOINERY WITHOUT NAILS'], at: TAG, parent: 'world',
+        style: { fontFamily: 'system-ui, "Hiragino Sans", sans-serif', fontSize: 16, fontWeight: '500', letterSpacing: 5.6, fill: GRAPHITE },
+        initial: { x: WORD_X + 4 - W / 2, y: HALF + 2, anchorY: 1 },
+        keyframes: [{ at: 0, from: { alpha: 0, y: HALF + 10 }, to: { alpha: 1, y: HALF + 2 }, duration: 0.6, ease: 'power2.out' }] },
+
+      // ---- sound ----
+      ...ticks,
+      { type: 'audio', name: 'breath', sfx: { preset: 'riser', brightness: -0.7 }, at: 0.4, duration: 2.25, volume: 0.35 },
+      { type: 'audio', name: 'lock.click', sfx: { preset: 'click', pitch: -4, brightness: 0.2 }, at: LOCK, volume: 1.4 },
+      { type: 'audio', name: 'lock.wood', at: LOCK, duration: 0.14, volume: 0.9,     // the body of the click: a wood block
+        sfx: { voices: [{ wave: 'sine', freq: [900, 620], envelope: 'fall', gain: 0.8 }, { wave: 'noise', filter: { type: 'bandpass', freq: 2600, q: 4 }, envelope: 'fall', gain: 0.4 }] } },
+      { type: 'audio', name: 'lock.knock', sfx: { preset: 'hit', pitch: -2, brightness: -0.6 }, at: LOCK, volume: 0.8 },
+      { type: 'audio', name: 'name.slide', sfx: { preset: 'swoosh', brightness: -0.6 }, at: WORD - 0.12, volume: 0.35 },
+      { type: 'audio', name: 'music', at: 0, volume: 1.3, music },
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;                         // so a script can seek / screenshot / render
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 6.5,        // the moment that stands for the video before it plays (pick your most striking one)
+        background: INK,
+        // assets: [{ name: 'photo', src: './photo.jpg' }, { name: 'bgm', src: './bgm.mp3' }],
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
+    }
+  </script>
+</body>
+</html>

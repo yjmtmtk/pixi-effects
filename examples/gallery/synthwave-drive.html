@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>SYNTHWAVE DRIVE — pixi-effects gallery</title>
-  <link rel="stylesheet" href="../../dist/loader.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />
   <style>
     body { background: #0d1220; margin: 0; padding: 16px; display: flex; justify-content: center; }
     .pe-stage { position: relative; width: min(960px, 100%); border-radius: 8px; --pe-loader-bg: #0d1220; background: #0d1220; }
@@ -51,6 +51,13 @@
     // ───────────────────────────── constants ─────────────────────────────
     const W = 1280, H = 720, FPS = 30, DURATION = 12;
     const POSTER_FRAME = 168;                           // 5.6 s — everything is on, sun half behind the ridge
+
+    // ───────────────────────────── beat grid (music retrofit) ─────────────────────────────
+    // The grid floor repeats every 0.8 s, so the music is locked to it: 150 bpm counted in half time
+    // (beat = 0.4 s, bar = 1.6 s, kick and snare alternate every 0.8 s = one grid line per drum hit).
+    // Every picture event already sat on the 0.4 s grid (1.2, 2.0, 3.2, 5.6) except three, nudged by 3 frames.
+    const BPM = 150, BEAT = 60 / BPM, B = beats => +(beats * BEAT).toFixed(3);
+    const METEOR1_AT = B(15), METEOR2_AT = B(22), STUTTER_AT = B(26);   // 6.0, 8.8, 10.4 s (were 6.1, 8.7, 10.5)
 
     const C = {
       skyTop: '#04010e', skyMid: '#120640', skyLow: '#3a0d6c', skyHot: '#9c1c73',
@@ -215,7 +222,8 @@
         // neon tube striking: a few hard on/off sets, then on
         ...flicker([[0, 1], [0.05, 0.1], [0.1, 1], [0.17, 0.35], [0.24, 1], [0.3, 0.6], [0.36, 1]]),
         // a stutter as the end beat, then hold
-        ...flicker([[10.5 - TITLE_AT, 0.5], [10.54 - TITLE_AT, 1], [10.6 - TITLE_AT, 0.7], [10.66 - TITLE_AT, 1]]),
+        // (music retrofit: moved 3 frames earlier, 10.5 → 10.4 s = beat 26, where the score lands its last chord)
+        ...flicker([[STUTTER_AT - TITLE_AT, 0.5], [STUTTER_AT + 0.04 - TITLE_AT, 1], [STUTTER_AT + 0.1 - TITLE_AT, 0.7], [STUTTER_AT + 0.16 - TITLE_AT, 1]]),
       ],
     };
     // Chromatic ghosts: cyan and magenta copies that lock into the title while it strikes.
@@ -259,6 +267,60 @@
       keyframes: [{ at: 0, to: { alpha: 0.85 }, duration: 0.6 }],
     });
 
+    // ───────────────────────────── score (music retrofit) ─────────────────────────────
+    // A minor, i–VI–III–VII (Am F C G), the night-drive progression; a V (E) in bar 7 so the last chord
+    // resolves exactly on the title's stutter. 29 beats = 11.6 s, then a 0.4 s tail: silence by 12 s.
+    //   bar 1 (0–1.6 s)   pad swells out of the black, a riser; the title strikes on beat 4 (1.2 s)
+    //   bar 2 (1.6 s)     the drop as the neon locks on: crash, kick/snare on the grid, octave bass
+    //   bar 3 (3.2 s)     the captions: the arp and the hats come in
+    //   bar 5 (6.4 s)     the lead melody; bell sparkles fall with each meteor (beats 15 and 22)
+    //   bar 7 (9.6 s)     E chord + drum fill → beat 26 (10.4 s): Am9 stuttered with the title, then held
+    const PROG = [['Am', 4], ['Am', 4], ['F', 4], ['C', 2], ['G', 2], ['Am', 4], ['F', 2], ['G', 2], ['E', 2], ['Am9', 3]];
+    const ARP  = { Am: ['a4', 'c5', 'e5', 'a5'], F: ['f4', 'a4', 'c5', 'f5'], C: ['g4', 'c5', 'e5', 'g5'], G: ['g4', 'b4', 'd5', 'g5'], E: ['g#4', 'b4', 'e5', 'g#5'] };
+    const ROOT = { Am: 'a1', F: 'f1', C: 'c2', G: 'g1', E: 'e1' };
+    const octUp = n => n.replace(/\d$/, d => +d + 1);
+    const FINAL = PROG.length - 1;
+    const bars = (fn) => PROG.map(([ch, len], i) => fn(ch, len, i)).join(' | ');
+    const ARP_ORDER = [0, 1, 2, 3, 2, 1, 2, 3];          // eighth notes, up and back
+    const score = {
+      bpm: BPM, meter: 4, reverb: 0.3, humanize: 0.004, tail: 0.4, seed: 1984, drumVol: 0.85,
+      tracks: [
+        { inst: 'pad', vol: [[0, 0], [3, 0.5], [29, 0.5]], pan: -0.1, attack: 0.25, release: 0.35, reverb: 0.6,
+          notes: PROG.map(([ch, len]) => `${ch}:${len}`).join(' ') },
+        { inst: 'bass', vol: 0.85, reverb: 0.05, legato: 0.7,           // octave eighths from the drop; the last root held
+          notes: bars((ch, len, i) => i === 0 ? `_:${len}` : i === FINAL ? `a1:${len}` :
+            Array.from({ length: len * 2 }, (_, k) => k % 2 ? octUp(ROOT[ch]) : ROOT[ch]).map(n => n + ':0.5').join(' ')) },
+        { inst: 'pluck', vol: 0.45, pan: 0.25, reverb: 0.45, tone: 0.7,  // the arp, from the captions (bar 3) to the last chord
+          notes: bars((ch, len, i) => i < 2 || i === FINAL ? `_:${len}` :
+            Array.from({ length: len * 2 }, (_, k) => ARP[ch][ARP_ORDER[k]] + ':0.5').join(' ')) },
+        { inst: 'lead', vol: 0.55, pan: -0.05, reverb: 0.5, tone: 0.75,
+          notes: '_:16 | e5:1.5 d5:0.5 c5:1 e5:1 | f5:1.5 e5:0.5 _:2 | e5:1 g#5:1 | a5:3' },
+        { inst: 'bell', vol: 0.5, pan: 0.35, reverb: 0.7, ring: 1.2,     // meteor sparkles (beats 15, 22) and the last shimmer
+          notes: '_:15 e6:0.25 b5:0.25 g5:0.25 e5:0.25 | _:6 d6:0.25 b5:0.25 g5:0.25 d5:0.25 | _:3 a6:3' },
+        { inst: 'keys', vol: 0.55, strum: 0.004,                          // the stutter: dim / bright / dim / bright, as the title flickers
+          notes: '_:26 Am9:0.1, Am9!:0.15 Am9:0.15, Am9!:2.6' },
+      ],
+      drums: [
+        { from: 4,  to: 24, kick: 'x.........x.....', snare: '........x.......' },
+        { from: 8,  to: 24, hat: 'x.o.x.o.x.o.x.o.' },
+        { from: 4,  to: 8,  crash: 'x...............' },
+        { from: 16, to: 20, crash: 'o...............' },
+        { from: 24, to: 26, kick: 'x.......', tom: 'x.x.x...', snare: '.o.o.xxx' },
+        { from: 26, to: 27, kick: 'x...............', crash: 'x...............' },
+      ],
+    };
+    const sound = [
+      { type: 'audio', name: 'score', at: 0, volume: 1.35, music: score },
+      { type: 'audio', name: 'sfx-riser', sfx: 'riser', at: B(4) - 1, duration: 1, volume: 0.35 },              // into the drop
+      { type: 'audio', name: 'sfx-strike', sfx: { preset: 'glitch', seed: 3 }, at: TITLE_AT, volume: 0.65 },      // the neon tube strikes
+      { type: 'audio', name: 'sfx-drop', sfx: { preset: 'hit', pitch: -3 }, at: B(4), volume: 0.55 },           // the tube locks on
+      { type: 'audio', name: 'sfx-drive', sfx: { preset: 'swoosh', pitch: 3, brightness: -0.2 }, at: SUB_AT - 0.16, volume: 0.45 },
+      { type: 'audio', name: 'sfx-meteor-1', sfx: { preset: 'swoosh', pitch: 7, brightness: 0.7 }, at: METEOR1_AT + 0.04, volume: 0.6 },
+      { type: 'audio', name: 'sfx-meteor-2', at: METEOR2_AT, duration: 0.6, volume: 0.75,                       // right → left, unlike the swoosh preset
+        sfx: { voices: [{ wave: 'noise', filter: { type: 'bandpass', freq: [7000, 2500], q: 2 }, envelope: 'bell', pan: [0.5, -0.6] }] } },
+      { type: 'audio', name: 'sfx-stutter', sfx: { preset: 'glitch', seed: 9, pitch: -2 }, at: STUTTER_AT - 0.04, volume: 0.6 },
+    ];
+
     // ───────────────────────────── composition ─────────────────────────────
     const kSun = K(Z_SUN), kStars = K(Z_STARS);
     const sequences = [
@@ -296,8 +358,9 @@
         initial: { x: 'GW/2', y: HORIZON, z: 0, fillColor: C.pink } },
 
       // ── 2D overlays: on the glass, so they ignore the camera drift ──
-      meteor('meteor-1', 6.1, 760, 92, 1040, 214, 150, 0.95),
-      meteor('meteor-2', 8.7, 330, 140, 140, 206, 120, 0.85),
+      // (music retrofit: meteor-1 6.1 → 6.0 s = beat 15, meteor-2 8.7 → 8.8 s = beat 22: 3 frames each, onto the beat grid)
+      meteor('meteor-1', METEOR1_AT, 760, 92, 1040, 214, 150, 0.95),
+      meteor('meteor-2', METEOR2_AT, 330, 140, 140, 206, 120, 0.85),
       halo,
       ghost('ghost-cyan', C.cyan, -12),
       ghost('ghost-magenta', C.magenta, 12),
@@ -310,6 +373,7 @@
       fullRect({ name: 'vignette', fillGradient: { type: 'radial', radius: 0.72, stops: [[0.45, 'rgba(0,0,0,0)'], [1, 'rgba(4,1,14,0.8)']] } }),
       fullRect({ name: 'fade-in', duration: 0.9, initial: { x: 'GW/2', y: 'GH/2', fillColor: '#000000', alpha: 1 },
                  keyframes: [{ at: 0, to: { alpha: 0 }, duration: 0.85, ease: 'sine.out' }] }),
+      ...sound,
     ];
 
     const movie = new Movie();

@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>hanbun — app promo</title>
+  <script type="application/json" id="piece-meta">{ "title": "hanbun", "subtitle": "A fictional split-the-bill app: one tap folds eighteen transfers into three", "tags": ["ui", "app promo", "japanese", "portrait"], "width": 1080, "height": 1350, "duration": 12, "model": "opus" }</script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />   <!-- the loader: HTML + CSS only, so it is on screen at once and keeps moving while the page builds the video -->
+  <style>
+    body { background: #111214; margin: 0; padding: 16px; min-height: 100vh; box-sizing: border-box; display: flex; justify-content: center; align-items: center; }
+    .stage { position: relative; width: min(720px, 100%, calc((100vh - 32px) * 0.8)); }                 /* the player and the loader both sit inside this box */
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+    /* the loader (pixi-effects/loader.css, linked above): movie.init() fades it out when the movie is ready */
+    /* Screenshots: the player bar overlays the bottom ~60px of the canvas (it is NOT part of the exported video).
+       Uncomment to hide it while you check the layout:  .movie-controller { display: none !important; } */
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1080" height="1350"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>   <!-- shared loader: .pe-loader--pulse / --bar for other looks, --custom for your own -->
+  </div>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":  "../../dist/present.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js" />   <!-- after the import map: the library downloads while the page is parsed -->
+
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+    // import { registerThree, three } from 'pixi-effects/three';   // only for a three.js layer; call registerThree() before init
+    // import * as THREE from 'three';
+    // A talk instead of a video: import { deck, Presenter } from 'pixi-effects/present';  (the import map above has "pixi-effects/present")
+    //   const d = deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops: [at, ...], notes, sequences }] });
+    //   composition: d.composition, duration: d.duration; then new Presenter(movie, { canvas }) instead of the Controller. Docs: reference/cheatsheet.md → Presets (the deck lines).
+
+    const W = 1080, H = 1350, FPS = 30, DURATION = 12;
+
+    // ---- system (brief.md) -------------------------------------------------
+    const C = { paper: '#ECE8DF', card: '#FFFFFF', ink: '#17181C', accent: '#FF4B1F',
+                mute: '#8B8B8D', hair: '#E4E2DD' };            // mute / hair = tints of ink
+    const SANS = 'system-ui, -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif';
+    const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+    const M = 96;                                                // outer margin
+    const CARD = { x: 96, y: 440, w: 888, h: 800 };
+    const SNAP = 'power3.out', SETTLE = 'cubic-bezier(.2,.8,.2,1)', EXIT = 'power2.in';
+    const BAR = 2;                                               // 120 bpm: a bar is 2 s
+    const NUM_X = W - M - 76;                                    // the count's right edge (its unit sits after it)
+
+    // ---- the fiction (fixed numbers, see brief.md) -------------------------
+    const P = { yuki: { k: 'ゆ', name: 'ゆき' }, ken: { k: 'け', name: 'けん' },
+                mai:  { k: 'ま', name: 'まい' }, sora: { k: 'そ', name: 'そら' } };
+    const EXP = [
+      { item: 'ホテル 2泊',     by: 'yuki', yen: 48000 },
+      { item: 'レンタカー',     by: 'ken',  yen: 21600 },
+      { item: '国際通りで夕食', by: 'mai',  yen: 18400 },
+      { item: 'ダイビング',     by: 'sora', yen: 32000 },
+      { item: '朝市',           by: 'ken',  yen: 6200 },
+      { item: 'ガソリン',       by: 'yuki', yen: 4800 },
+    ];
+    const SETTLE_PLAN = [ { from: 'sora', yen: 750 }, { from: 'ken', yen: 4950 }, { from: 'mai', yen: 14350 } ];   // top to bottom = where they stand in the graph
+    const yen = n => '¥' + n.toLocaleString('en-US');
+
+    // ---- helpers ------------------------------------------------------------
+    const txt = (text, x, y, size, o = {}) => ({
+      type: 'text', text, name: o.name, parent: o.parent, at: o.at, duration: o.duration,
+      style: { fontFamily: o.font || SANS, fontSize: size, fontWeight: o.weight || '500', fill: o.fill || C.ink,
+               letterSpacing: o.ls || 0, ...(o.style || {}) },
+      initial: { x, y, anchorX: o.ax ?? 0, anchorY: o.ay ?? 0, ...(o.initial || {}) },
+      keyframes: o.keyframes, format: o.format,
+    });
+    // a headline line that rises through a slot (mask) and leaves upward
+    const rise = (layer, top, h, inAt, outAt, extraKeys = []) => {
+      const y = layer.initial.y;
+      layer.at = inAt; layer.duration = outAt - inAt;
+      layer.keyframes = [
+        { at: 0, from: { y: y + h }, to: { y }, duration: 0.55, ease: 'power4.out' },
+        ...extraKeys,
+        ...(outAt < DURATION ? [{ at: -0.3, to: { y: y - h, alpha: 0 }, duration: 0.3, ease: EXIT }] : []),
+      ];
+      layer.mask = { type: 'shape', shape: 'rect', width: W, height: h,
+                     initial: { x: W / 2, y: top + h / 2, fillColor: '#ffffff' } };
+      return layer;
+    };
+    // an avatar: a null with a disc and a kana; drawn at r 44, shrunk with scale
+    const avatar = (name, who, x, y, scale, at, duration, keyframes, accentAt) => [
+      { type: 'null', name, at, duration, initial: { x, y, scale }, keyframes },
+      { type: 'shape', shape: 'circle', radius: 44, parent: name, initial: { x: 0, y: 0, fillColor: C.ink } },
+      ...(accentAt ? [{ type: 'shape', shape: 'circle', radius: 44, parent: name, initial: { x: 0, y: 0, fillColor: C.accent, alpha: 0 },
+                        keyframes: [{ at: accentAt - at, to: { alpha: 1 }, duration: 0.25, ease: SNAP }] }] : []),
+      txt(P[who].k, 0, 2, 44, { name: name + '-kana', parent: name, weight: '700', fill: '#ffffff', ax: 0.5, ay: 0.5 }),
+    ];
+
+    // ---- times (seconds) ----------------------------------------------------
+    const tRow = i => 0.7 + i * 0.07;
+    const tLine = i => 2.5 + i * 0.055;
+    const tTap = 2 * BAR;                 // 4.0: the tap is on the downbeat of bar 3
+    const tArrow = j => 4.7 + j * 0.12;
+    const tCheck = i => 7.0 + i * 0.5;
+    const tDone = 8.5;
+    const tEnd = 5 * BAR;                 // 10.0: end card (on the Cmaj7 that resolves the bed)
+    const tOut = tEnd - 0.25;              // the app and the headline leave just before it
+
+    // =========================================================================
+    // THE APP CARD (a composition; children in card coordinates, movie seconds)
+    // =========================================================================
+    const app = [];
+    const ROW0 = 176, RH = 96, rowCy = i => ROW0 + i * RH + RH / 2;
+    const NODE = { yuki: [444, 196], ken: [720, 396], mai: [444, 596], sora: [168, 396] };
+    const TR0 = 186, TRH = 148, trCy = i => TR0 + i * TRH + 64;
+
+    // surface: the outline draws on, then the white fills in under it
+    app.push({ type: 'shape', shape: 'rect', name: 'surface', width: CARD.w, height: CARD.h, cornerRadius: 36,
+      initial: { x: CARD.w / 2, y: CARD.h / 2, fillColor: C.card, alpha: 0 },
+      keyframes: [{ at: 0.3, to: { alpha: 1 }, duration: 0.45, ease: SNAP }] });
+    app.push({ type: 'shape', shape: 'rect', name: 'outline', width: CARD.w, height: CARD.h, cornerRadius: 36,
+      initial: { x: CARD.w / 2, y: CARD.h / 2, strokeColor: C.ink, strokeWidth: 2, trimEnd: 0 },
+      keyframes: [{ at: 0.05, to: { trimEnd: 1 }, duration: 0.6, ease: 'power2.inOut' },
+                  { at: 0.65, to: { strokeAlpha: 0.1 }, duration: 0.4, ease: SNAP }] });
+
+    // header
+    app.push(txt('沖縄旅行', 48, 40, 40, { name: 'title', weight: '700', at: 0.45, duration: 10,
+      keyframes: [{ at: 0, from: { y: 56, alpha: 0 }, to: { y: 40, alpha: 1 }, duration: 0.4, ease: SNAP }] }));
+    app.push(txt('4人 · 6件 · 合計 ' + yen(131000), 48, 100, 24, { name: 'meta', fill: C.mute, at: 0.55, duration: 6.0 - 0.55,
+      keyframes: [{ at: 0, from: { y: 112, alpha: 0 }, to: { y: 100, alpha: 1 }, duration: 0.4, ease: SNAP },
+                  { at: -0.2, to: { alpha: 0 }, duration: 0.2, ease: EXIT }] }));
+    app.push(txt('{value} / 3 件の送金が完了', 48, 100, 24, { name: 'meta-paid', fill: C.mute, at: 6.0, duration: 4.5,
+      initial: { value: 0 }, format: { decimals: 0 },
+      keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.3, ease: SNAP },
+                  ...[0, 1, 2].map(i => ({ at: tCheck(i) + 0.1 - 6.0, set: { value: i + 1 } }))] }));
+    app.push({ type: 'shape', shape: 'line', name: 'head-rule', from: [48, 156], to: [CARD.w - 48, 156], at: 0.5, duration: 10,
+      initial: { strokeColor: C.hair, strokeWidth: 2, trimEnd: 0 },
+      keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.5, ease: 'power2.inOut' }] });
+
+    // S1 LIST: six expense rows
+    EXP.forEach((e, i) => {
+      const t = tRow(i), cy = rowCy(i), out = 1.8 + i * 0.02;
+      const enter = (y) => [{ at: 0, from: { y: y + 18, alpha: 0 }, to: { y, alpha: 1 }, duration: 0.36, ease: SNAP },
+                            { at: out - t, to: { alpha: 0, y: y - 10 }, duration: 0.18, ease: EXIT }];
+      app.push(txt(e.item, 124, cy - 34, 30, { name: `row${i}-item`, weight: '600', at: t, duration: out + 0.25 - t, keyframes: enter(cy - 34) }));
+      app.push(txt(P[e.by].name + ' が支払い', 124, cy + 6, 24, { name: `row${i}-by`, fill: C.mute, at: t, duration: out + 0.25 - t, keyframes: enter(cy + 6) }));
+      app.push(txt(yen(e.yen), CARD.w - 48, cy - 1, 32, { name: `row${i}-yen`, font: MONO, weight: '600', ax: 1, ay: 0.5, at: t, duration: out + 0.25 - t, keyframes: enter(cy - 1) }));
+      if (i < EXP.length - 1) app.push({ type: 'shape', shape: 'line', name: `row${i}-rule`, from: [124, cy + RH / 2], to: [CARD.w - 48, cy + RH / 2],
+        at: t + 0.1, duration: out + 0.25 - t - 0.1, initial: { strokeColor: C.hair, strokeWidth: 2, trimEnd: 0 },
+        keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.4, ease: SNAP }, { at: -0.25, to: { alpha: 0 }, duration: 0.22, ease: EXIT }] });
+      // rows 4 and 5 repeat a payer: their avatar glides into that person's node and vanishes there
+      if (i >= 4) {
+        const [nx, ny] = NODE[e.by];
+        app.push(...avatar(`rowav${i}`, e.by, 76, cy, 0.6, t, 2.75 - t, [
+          { at: 0, from: { alpha: 0, y: cy + 18 }, to: { alpha: 1, y: cy }, duration: 0.36, ease: SNAP },
+          { at: 2.05 + (i - 4) * 0.05 - t, to: { x: nx, y: ny, scale: 1 }, duration: 0.7, ease: SETTLE },
+          { at: 2.45 - t, to: { alpha: 0 }, duration: 0.25, ease: EXIT }]));
+      }
+    });
+
+    // S2 GRAPH: eighteen transfers if everyone pays everyone back per expense
+    const lines = [];
+    EXP.forEach(e => Object.keys(P).filter(q => q !== e.by).forEach(q => lines.push({ from: q, to: e.by })));
+    const pairCount = {};
+    lines.forEach((l, i) => {
+      const key = [l.from, l.to].sort().join('-');
+      const k = (pairCount[key] = (pairCount[key] || 0) + 1) - 1;
+      const sign = l.from < l.to ? 1 : -1;
+      const bend = [-70, 70, -150, 150][k] * sign;
+      const [x1, y1] = NODE[l.from], [x2, y2] = NODE[l.to];
+      const mx = (x1 + x2) / 2, my = (y1 + y2) / 2, len = Math.hypot(x2 - x1, y2 - y1);
+      const nx = -(y2 - y1) / len, ny = (x2 - x1) / len;
+      const cx = mx + nx * bend, cy = my + ny * bend;
+      const toward = (px, py, qx, qy, d) => { const L = Math.hypot(qx - px, qy - py); return [px + (qx - px) / L * d, py + (qy - py) / L * d]; };
+      const [sx, sy] = toward(x1, y1, cx, cy, 56), [ex, ey] = toward(x2, y2, cx, cy, 58);
+      const tl = Math.hypot(ex - cx, ey - cy), ux = (ex - cx) / tl, uy = (ey - cy) / tl;
+      const hl = 13, hw = 8;
+      const h1 = [ex - ux * hl - uy * hw, ey - uy * hl + ux * hw], h2 = [ex - ux * hl + uy * hw, ey - uy * hl - ux * hw];
+      const f = n => n.toFixed(1);
+      const t = tLine(i), gone = tTap + 0.08 + (lines.length - 1 - i) * 0.022;
+      app.push({ type: 'shape', shape: 'path', name: `debt${i}`, at: t, duration: gone + 0.32 - t,
+        d: `M ${f(sx)} ${f(sy)} Q ${f(cx)} ${f(cy)} ${f(ex)} ${f(ey)} M ${f(h1[0])} ${f(h1[1])} L ${f(ex)} ${f(ey)} L ${f(h2[0])} ${f(h2[1])}`,
+        strokeCap: 'round', strokeJoin: 'round',
+        initial: { strokeColor: C.ink, strokeAlpha: 0.34, strokeWidth: 2.5, trimEnd: 0 },
+        keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.42, ease: 'power2.inOut' },
+                    { at: gone - t, to: { trimStart: 1 }, duration: 0.3, ease: EXIT }] });
+    });
+
+    // S3 SETTLE: three accent arrows into ゆき, with their amounts
+    SETTLE_PLAN.forEach((s, j) => {
+      const [x1, y1] = NODE[s.from], [x2, y2] = NODE.yuki;
+      const L = Math.hypot(x2 - x1, y2 - y1), ux = (x2 - x1) / L, uy = (y2 - y1) / L;
+      const sx = x1 + ux * 58, sy = y1 + uy * 58, ex = x2 - ux * 60, ey = y2 - uy * 60;
+      const hl = 20, hw = 13, f = n => n.toFixed(1);
+      const t = tArrow(j);
+      app.push({ type: 'shape', shape: 'path', name: `pay${j}`, at: t, duration: 6.0 - t,
+        d: `M ${f(sx)} ${f(sy)} L ${f(ex)} ${f(ey)} M ${f(ex - ux * hl - uy * hw)} ${f(ey - uy * hl + ux * hw)} L ${f(ex)} ${f(ey)} L ${f(ex - ux * hl + uy * hw)} ${f(ey - uy * hl - ux * hw)}`,
+        strokeCap: 'round', strokeJoin: 'round',
+        initial: { strokeColor: C.accent, strokeWidth: 6, trimEnd: 0 },
+        keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.45, ease: 'power3.inOut' },
+                    { at: -0.2, to: { alpha: 0 }, duration: 0.2, ease: EXIT }] });
+      const mx = (sx + ex) / 2, my = (sy + ey) / 2;
+      const lx = s.from === 'mai' ? mx + 22 : s.from === 'ken' ? mx + 26 : mx - 26;
+      const ly = s.from === 'mai' ? my : my - 26;
+      app.push(txt(yen(s.yen), lx, ly, 30, { name: `pay${j}-yen`, font: MONO, weight: '700', fill: C.accent,
+        ax: s.from === 'sora' ? 1 : 0, ay: 0.5, at: t + 0.35, duration: 5.95 - t - 0.35,
+        keyframes: [{ at: 0, from: { alpha: 0, y: ly + 10 }, to: { alpha: 1, y: ly }, duration: 0.3, ease: SNAP },
+                    { at: -0.2, to: { alpha: 0 }, duration: 0.2, ease: EXIT }] }));
+    });
+
+    // what the plan means, in one line where the button was
+    app.push(txt('ゆき が受け取る合計', 48, 700, 28, { name: 'sum-label', weight: '600', fill: C.mute, at: 5.25, duration: 0.7,
+      keyframes: [{ at: 0, from: { alpha: 0, y: 712 }, to: { alpha: 1, y: 700 }, duration: 0.35, ease: SNAP }, { at: -0.2, to: { alpha: 0 }, duration: 0.2, ease: EXIT }] }));
+    app.push(txt(yen(20050), CARD.w - 48, 698, 34, { name: 'sum-yen', font: MONO, weight: '700', ax: 1, at: 5.32, duration: 0.63,
+      keyframes: [{ at: 0, from: { alpha: 0, y: 710 }, to: { alpha: 1, y: 698 }, duration: 0.35, ease: SNAP }, { at: -0.2, to: { alpha: 0 }, duration: 0.2, ease: EXIT }] }));
+
+    // the button that does it
+    app.push({ type: 'null', name: 'btn', at: 2.9, duration: tTap + 0.55 - 2.9, initial: { x: CARD.w / 2, y: 712 },
+      keyframes: [{ at: 0, from: { scale: 0.86, alpha: 0 }, to: { scale: 1, alpha: 1 }, duration: 'auto', ease: 'spring.snappy' },
+                  { at: tTap - 2.9, to: { scale: 0.96 }, duration: 0.08, ease: 'power2.out' },
+                  { at: tTap + 0.08 - 2.9, to: { scale: 1 }, duration: 0.2, ease: SNAP },
+                  { at: -0.25, to: { alpha: 0, y: 730 }, duration: 0.25, ease: EXIT }] });
+    app.push({ type: 'shape', shape: 'rect', parent: 'btn', width: CARD.w - 96, height: 88, cornerRadius: 44, initial: { x: 0, y: 0, fillColor: C.accent } });
+    app.push(txt('精算プランを作る', 0, 0, 30, { parent: 'btn', weight: '700', fill: '#ffffff', ax: 0.5, ay: 0.5 }));
+
+    // S4 TRANSFERS: three rows, checked one by one
+    SETTLE_PLAN.forEach((s, i) => {
+      const cy = trCy(i), t = 6.1 + i * 0.07, tw = 6.42 + i * 0.07, tc = tCheck(i);
+      const enter = (y, dx = 0) => [{ at: 0, from: { y: y + 20, alpha: 0 }, to: { y, alpha: 1 }, duration: 0.42, ease: SNAP }];
+      app.push({ type: 'shape', shape: 'rect', name: `tr${i}-bg`, width: CARD.w - 96, height: 128, cornerRadius: 24, at: t, duration: 10.5 - t,
+        initial: { x: CARD.w / 2, y: cy, fillColor: C.paper, fillAlpha: 0.6 }, keyframes: enter(cy) });
+      app.push(txt(P[s.from].name, 148, cy - 34, 30, { name: `tr${i}-who`, weight: '700', at: tw, duration: 10.5 - tw, keyframes: enter(cy - 34) }));
+      app.push(txt('ゆき へ送金', 148, cy + 6, 24, { name: `tr${i}-to`, fill: C.mute, at: tw, duration: 10.5 - tw, keyframes: enter(cy + 6) }));
+      app.push(txt(yen(s.yen), 700, cy, 36, { name: `tr${i}-yen`, font: MONO, weight: '700', ax: 1, ay: 0.5, at: tw + 0.03, duration: 10.5 - tw, keyframes: enter(cy) }));
+      app.push({ type: 'shape', shape: 'circle', name: `tr${i}-ring`, radius: 24, at: tw + 0.05, duration: 10.5 - tw,
+        initial: { x: 776, y: cy, strokeColor: C.ink, strokeAlpha: 0.22, strokeWidth: 2 }, keyframes: enter(cy) });
+      app.push({ type: 'shape', shape: 'circle', name: `tr${i}-dot`, radius: 24, at: tc, duration: 10.5 - tc,
+        initial: { x: 776, y: cy, fillColor: C.accent, scale: 0 },
+        keyframes: [{ at: 0, to: { scale: 1 }, duration: 'auto', ease: 'spring.bouncy' }] });
+      app.push({ type: 'shape', shape: 'polygon', name: `tr${i}-tick`, open: true, points: [[765, cy + 1], [773, cy + 9], [788, cy - 8]],
+        at: tc + 0.08, duration: 10.5 - tc - 0.08, strokeCap: 'round', strokeJoin: 'round',
+        initial: { strokeColor: '#ffffff', strokeWidth: 4, trimEnd: 0 },
+        keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.22, ease: SNAP }] });
+    });
+    // the four people: rows 0-3 hand their avatar to the graph (same place, same size at 2.0)
+    const people = ['yuki', 'ken', 'mai', 'sora'];
+    const planIndex = Object.fromEntries(SETTLE_PLAN.map((s, i) => [s.from, i]));
+    people.forEach((p, i) => {
+      const cy = rowCy(i), [nx, ny] = NODE[p], t = tRow(i);
+      const toRow = p === 'yuki'
+        ? { x: CARD.w - 88, y: 66, scale: 0.6 }
+        : { x: 92, y: trCy(planIndex[p]), scale: 0.68 };
+      app.push(...avatar(`av-${p}`, p, 76, cy, 0.6, t, 10.5 - t, [
+        { at: 0, from: { alpha: 0, y: cy + 18 }, to: { alpha: 1, y: cy }, duration: 0.36, ease: SNAP },
+        { at: 2.05 + i * 0.05 - t, to: { x: nx, y: ny, scale: 1 }, duration: 0.7, ease: SETTLE },
+        { at: 6.0 + (p === 'yuki' ? 0 : planIndex[p] * 0.07) - t, to: toRow, duration: 0.6, ease: SETTLE },
+      ], p === 'yuki' ? tArrow(0) + 0.3 : null));
+    });
+
+    app.push(txt('受け取り', CARD.w - 132, 66, 24, { name: 'recv', fill: C.mute, ax: 1, ay: 0.5, at: 6.3, duration: 4.2,
+      keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 1 }, duration: 0.3, ease: SNAP }] }));
+    app.push({ type: 'shape', shape: 'rect', name: 'bar-track', width: CARD.w - 96, height: 8, cornerRadius: 4, at: 6.4, duration: 4.1,
+      initial: { x: 48, y: 660, anchorX: 0, fillColor: C.hair }, keyframes: [{ at: 0, from: { width: 0 }, to: { width: CARD.w - 96 }, duration: 0.5, ease: 'power2.inOut' }] });
+    app.push({ type: 'shape', shape: 'rect', name: 'bar-fill', width: 1, height: 8, cornerRadius: 4, at: 6.4, duration: 4.1,
+      initial: { x: 48, y: 660, anchorX: 0, fillColor: C.accent, alpha: 0 },
+      keyframes: [0, 1, 2].map(i => ({ at: tCheck(i) + 0.05 - 6.4, to: { width: (CARD.w - 96) * (i + 1) / 3, alpha: 1 }, duration: 0.35, ease: SNAP })) });
+    app.push(txt('全員の精算が終わりました。', 48, 696, 32, { name: 'done', weight: '700', at: tDone, duration: 10.5 - tDone,
+      keyframes: [{ at: 0, from: { y: 712, alpha: 0 }, to: { y: 696, alpha: 1 }, duration: 0.4, ease: SNAP }] }));
+
+    // =========================================================================
+    // ROOT
+    // =========================================================================
+    const sequences = [
+      { type: 'shape', shape: 'rect', name: 'paper', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: C.paper } },
+
+      // brand mark + step counter (top band)
+      { type: 'null', name: 'brand', at: 0.2, duration: tOut + 0.3 - 0.2, initial: { x: M, y: 96 },
+        keyframes: [{ at: 0, from: { alpha: 0, x: M - 12 }, to: { alpha: 1, x: M }, duration: 0.5, ease: SNAP },
+                    { at: -0.3, to: { alpha: 0 }, duration: 0.25, ease: EXIT }] },
+      { type: 'shape', shape: 'rect', parent: 'brand', width: 12, height: 28, cornerRadius: 3, initial: { x: 6, y: 0, fillColor: C.ink } },
+      { type: 'shape', shape: 'rect', parent: 'brand', width: 12, height: 28, cornerRadius: 3, initial: { x: 22, y: 0, fillColor: C.accent } },
+      txt('hanbun', 40, 0, 30, { parent: 'brand', weight: '700', ay: 0.5 }),
+      ...[['01', '記録'], ['02', '計算'], ['03', '精算'], ['04', '送金']].map(([n, w], i) =>
+        rise(txt(`${n} / 04  ${w}`, W - M, 84, 24, { name: `step${i}`, weight: '600', fill: C.mute, ax: 1, ls: 1 }), 80, 36,
+             i === 0 ? 0.3 : i * BAR, i === 3 ? tOut + 0.3 : (i + 1) * BAR + 0.02)),
+
+      // headline: left column says what is counted, the right column is the count (a stat, flush right)
+      ...[['4人で沖縄旅行。', 0.5, BAR], ['ひとつずつ精算すると、', BAR + 0.05, 2 * BAR], ['hanbun でまとめると、', 2 * BAR + 0.05, 3 * BAR],
+          ['あとは、タップして送るだけ。', 3 * BAR + 0.05, tOut + 0.3]].map(([s, a, b], i) =>
+        rise(txt(s, M, 186, 32, { name: `kicker${i}`, weight: '600', fill: C.mute }), 182, 48, a, b)),
+      rise(txt('立て替え', M, 244, 64, { name: 'what0', weight: '700' }), 238, 96, 0.6, BAR),
+      rise(txt('必要な送金', M, 244, 64, { name: 'what1', weight: '700' }), 238, 96, BAR + 0.2, tOut + 0.3),
+      rise(txt('{value}', NUM_X, 178, 200, { name: 'count0', weight: '700', ls: -6, ax: 1, initial: { value: 0 }, format: { decimals: 0 } }),
+        176, 224, 0.6, BAR, [{ at: 0.1, to: { value: 6 }, duration: tRow(5) + 0.2 - 0.7, ease: 'none' }]),
+      rise(txt('{value}', NUM_X, 178, 200, { name: 'count1', weight: '700', ls: -6, ax: 1, initial: { value: 0 }, format: { decimals: 0 } }),
+        176, 224, BAR + 0.3, tOut + 0.3, [
+          { at: tLine(0) + 0.2 - (BAR + 0.3), to: { value: 18 }, duration: tLine(17) - tLine(0), ease: 'none' },
+          { at: tTap + 0.1 - (BAR + 0.3), to: { value: 3 }, duration: 0.7, ease: 'power2.inOut' },
+          { at: tTap + 0.55 - (BAR + 0.3), to: { fill: C.accent }, duration: 0.3, ease: SNAP }]),
+      rise(txt('件', W - M, 291, 64, { name: 'unit0', weight: '700', ax: 1 }), 280, 112, 0.66, BAR),
+      rise(txt('回', W - M, 291, 64, { name: 'unit1', weight: '700', ax: 1 }), 280, 112, BAR + 0.36, tOut + 0.3),
+
+      // the app
+      { type: 'composition', name: 'app', width: CARD.w, height: CARD.h, at: 0, duration: tOut + 0.36,
+        initial: { x: CARD.x, y: CARD.y },
+        keyframes: [{ at: 0, from: { y: CARD.y + 36 }, to: { y: CARD.y }, duration: 0.8, ease: SETTLE },
+                    { at: tOut, to: { y: CARD.y + 60, alpha: 0 }, duration: 0.35, ease: EXIT }],
+        sequences: app },
+
+      // the finger: a touch point that travels to the button and presses
+      { type: 'shape', shape: 'circle', name: 'touch', radius: 38, at: 3.3, duration: tTap + 0.6 - 3.3,
+        initial: { x: 764, y: CARD.y + 718, fillColor: C.ink, fillAlpha: 0.22, strokeColor: '#ffffff', strokeWidth: 3 },
+        keyframes: [{ at: 0, from: { x: 900, y: 1300, alpha: 0 }, to: { x: 764, y: CARD.y + 718, alpha: 1 }, duration: 0.6, ease: SETTLE },
+                    { at: tTap - 3.3, to: { scale: 0.8 }, duration: 0.08, ease: 'power2.out' },
+                    { at: tTap + 0.08 - 3.3, to: { scale: 1 }, duration: 0.2, ease: SNAP },
+                    { at: -0.3, to: { alpha: 0 }, duration: 0.3, ease: EXIT }] },
+      { type: 'shape', shape: 'circle', name: 'touch2', radius: 34, at: 6.55, duration: tCheck(2) + 0.5 - 6.55,
+        initial: { x: CARD.x + 776, y: CARD.y + trCy(0), fillColor: C.ink, fillAlpha: 0.22, strokeColor: '#ffffff', strokeWidth: 3 },
+        keyframes: [{ at: 0, from: { x: 900, y: 1300, alpha: 0 }, to: { x: CARD.x + 776, y: CARD.y + trCy(0), alpha: 1 }, duration: 0.4, ease: SETTLE },
+                    ...[0, 1, 2].flatMap(i => [
+                      ...(i ? [{ at: tCheck(i) - 0.32 - 6.55, to: { y: CARD.y + trCy(i) }, duration: 0.3, ease: SETTLE }] : []),
+                      { at: tCheck(i) - 0.06 - 6.55, to: { scale: 0.8 }, duration: 0.06, ease: 'power2.out' },
+                      { at: tCheck(i) - 6.55, to: { scale: 1 }, duration: 0.18, ease: SNAP }]),
+                    { at: -0.3, to: { alpha: 0, x: CARD.x + 840 }, duration: 0.3, ease: EXIT }] },
+      { type: 'shape', shape: 'circle', name: 'ripple', radius: 40, at: tTap, duration: 0.55,
+        initial: { x: 764, y: CARD.y + 718, strokeColor: '#ffffff', strokeWidth: 4, scale: 0.6 },
+        keyframes: [{ at: 0, to: { scale: 2.6, alpha: 0 }, duration: 0.55, ease: 'power2.out' }],
+        mask: { type: 'shape', shape: 'rect', width: CARD.w - 96, height: 88, cornerRadius: 44, initial: { x: 540, y: CARD.y + 712, fillColor: '#ffffff' } } },
+    ];
+
+    // END CARD: the mark splits into its two halves, the name, the promise, the proof (18 → 3)
+    const E = { y: 400 }, tE = tEnd - 0.05;
+    sequences.push(
+      { type: 'shape', shape: 'rect', name: 'mark-ink', width: 64, height: 150, cornerRadius: 16, at: tE, duration: DURATION - tE,
+        initial: { x: M + 32, y: E.y + 75, fillColor: C.ink },
+        keyframes: [{ at: 0, from: { alpha: 0, y: E.y + 105 }, to: { alpha: 1, y: E.y + 75 }, duration: 0.5, ease: SETTLE }] },
+      { type: 'shape', shape: 'rect', name: 'mark-accent', width: 64, height: 150, cornerRadius: 16, at: tE + 0.12, duration: DURATION - tE - 0.12,
+        initial: { x: M + 32 + 76, y: E.y + 75, fillColor: C.accent },
+        keyframes: [{ at: 0, from: { x: M + 32, alpha: 0 }, to: { x: M + 32 + 76, alpha: 1 }, duration: 0.6, ease: SETTLE }] },
+      rise(txt('hanbun', M - 6, E.y + 180, 150, { name: 'wordmark', weight: '800', ls: -4 }), E.y + 180, 200, tE + 0.2, DURATION),
+      rise(txt('旅の割り勘を、最小の送金で。', M, E.y + 400, 44, { name: 'tagline', weight: '700' }), E.y + 396, 64, tE + 0.35, DURATION),
+      // the proof, one line: 18 回 (struck) → 3 回
+      rise(txt('送金 18回', M, E.y + 500, 40, { name: 'proof-old', weight: '600', fill: C.mute }), E.y + 494, 60, tE + 0.5, DURATION),
+      { type: 'shape', shape: 'line', name: 'proof-strike', from: [M - 4, E.y + 526], to: [M + 196, E.y + 526], at: tE + 0.75, duration: DURATION - tE - 0.75,
+        strokeCap: 'round', initial: { strokeColor: C.ink, strokeWidth: 4, trimEnd: 0 },
+        keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.25, ease: SNAP }] },
+      { type: 'shape', shape: 'path', name: 'proof-arrow', d: `M ${M + 226} ${E.y + 526} L ${M + 290} ${E.y + 526} M ${M + 278} ${E.y + 514} L ${M + 290} ${E.y + 526} L ${M + 278} ${E.y + 538}`,
+        at: tE + 0.8, duration: DURATION - tE - 0.8, strokeCap: 'round', strokeJoin: 'round',
+        initial: { strokeColor: C.accent, strokeWidth: 4, trimEnd: 0 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.25, ease: SNAP }] },
+      rise(txt('3回', M + 314, E.y + 500, 40, { name: 'proof-new', weight: '800', fill: C.accent }), E.y + 494, 60, tE + 0.95, DURATION),
+      rise(txt('架空のアプリのコンセプト映像です', M, 1190, 24, { name: 'fine', fill: C.mute }), 1186, 36, tE + 1.0, DURATION),
+    );
+
+    // SOUND: a 120 bpm bed (cuts on bar lines), and a cue for every interaction
+    sequences.push(
+      { type: 'audio', name: 'bed', volume: 1.0, music: { bpm: 120, reverb: 0.25, tracks: [
+          { inst: 'keys', vol: 0.55, notes: 'Fmaj7:4 Em7:4 Dm7:4 G:4 Fmaj7:4 Cmaj7:4' },
+          { inst: 'bass', vol: 0.7, notes: 'f2:4 e2:4 d2:4 g1:4 f2:4 c2:4' },
+          { inst: 'pluck', vol: 0.35, notes: '_:8 a4:1 c5:1 e5:1 g5:1 f4:1 a4:1 c5:1 e5:1 c5:1 e5:1 g5:1 b5:1 c6:4' },
+        ], drums: [{ from: 0, to: 8, hat: '..o...o...o...o.' },
+                   { from: 8, to: 20, kick: 'x.......x.......', hat: 'x.o.x.o.x.o.x.o.', clap: '....x.......x...' }] } },
+      ...EXP.map((e, i) => ({ type: 'audio', sfx: { preset: 'pop', pitch: i * 2, brightness: 0.2 }, at: tRow(i) + 0.04, volume: 0.7 })),
+      ...lines.filter((_, i) => i % 3 === 0).map((_, k) => ({ type: 'audio', sfx: { preset: 'typewriter', seed: k }, at: tLine(k * 3) + 0.1, volume: 0.8 })),
+      { type: 'audio', sfx: 'click', at: tTap, volume: 2.2 },
+      { type: 'audio', sfx: 'swoosh', at: tTap + 0.05, volume: 0.9 },
+      ...SETTLE_PLAN.map((_, j) => ({ type: 'audio', sfx: { preset: 'pop', pitch: [0, 4, 7][j] }, at: tArrow(j) + 0.4, volume: 1.0 })),
+      ...SETTLE_PLAN.map((_, i) => ({ type: 'audio', sfx: { preset: 'coin', pitch: i * 2 }, at: tCheck(i), volume: 0.9 })),
+      { type: 'audio', sfx: 'chime', at: tDone, volume: 1.0 },
+      { type: 'audio', sfx: 'swoosh', at: tOut - 0.1, volume: 0.8 },
+      { type: 'audio', sfx: { preset: 'pop', pitch: 7 }, at: tEnd + 1.05, volume: 0.9 },
+    );
+
+    const movie = new Movie();
+    window.movie = movie;                         // so a script can seek / screenshot / render
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 5.6,        // the moment that stands for the video before it plays (pick your most striking one)
+        background: '#ECE8DF',
+        // assets: [{ name: 'photo', src: './photo.jpg' }, { name: 'bgm', src: './bgm.mp3' }],
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
+    }
+  </script>
+</body>
+</html>

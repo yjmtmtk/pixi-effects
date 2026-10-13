@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Quiet Woods — paper-cutout forest (pixi-effects gallery)</title>
-  <link rel="stylesheet" href="../../dist/loader.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />
   <style>
     body { background: #0d1220; margin: 0; padding: 16px; display: flex; justify-content: center; }
     .pe-stage { position: relative; width: min(960px, 100%); border-radius: 8px; --pe-loader-bg: #0d1220; background: #0d1220; }
@@ -360,6 +360,32 @@
       cloud(2, { cx: 450, cy: 300, w: 120, z: -350, at: 0.74, drift: 44 }),
     ];
     const fireflies = Array.from({ length: 16 }, (_, i) => firefly(i));
+    // ------------------------------------------------------------------ the score: a 6/8 lullaby in F major, written as text
+    // 120 quarter-beats a minute = one 6/8 bar every 1.5 s; the fox's steps (0.25 s) are the eighth notes.
+    // MUSIC_AT = 0.5 puts the bar lines on the picture's beats: bar 2 = 2.0 s (the fox walks in), bar 4 = 5.0 s (it stops),
+    // the pickup at 6.25 s (it walks on), the C7 at 8.75 s (the swoosh's peak as the label unfolds), bar 7 = 9.5 s (F: the label lands).
+    // movie seconds = MUSIC_AT + beat * 0.5. Bar 1 is free time: its five music-box notes fall on the five hill pops (0.6 … 1.4 s).
+    const MUSIC_AT = 0.5;
+    const SCORE = {
+      bpm: 120, meter: 3, grid: 2, reverb: 0.36, seed: 11,
+      tracks: [
+        // pad: the harmony, one chord a bar, fading into the held last chord
+        { inst: 'pad', vol: [[0, 0.12], [2.5, 0.5], [8.5, 0.5], [9.5, 0.36], [11.5, 0.42], [17, 0.5], [18, 0.62], [20, 0.5], [21.5, 0.25], [23, 0.03]], attack: 0.5, release: 0.6, legato: 0.94, tone: 0.45,
+          notes: 'Fadd9:3 | Fmaj7:3 | Bbmaj7:3 | Gm9:3 | Dm7:3 | C7sus4:1.5 C7:1.5 | Fadd9:4 _:1' },
+        // bass: roots, entering with the fox
+        { inst: 'bass', vol: [[0, 0.6], [8.9, 0.6], [9, 0.4], [11.9, 0.4], [12, 0.6], [19, 0.62], [23, 0.1]], tone: 0.35, reverb: 0.15,
+          notes: '_:3 | f2:3 | bb1:3 | g1:3 | d2:3 | c2:3 | f1:4 _:1' },
+        // tiptoe: plucked eighths only while the fox walks (2.0–5.0 s, then from the pickup at 6.25 s), one strum as it leaves
+        { inst: 'pluck', vol: 0.5, pan: 0.15, legato: 0.4, tone: 0.5, step: 0.5, strum: 0.02,
+          notes: '_:3 | f3 c4 a4 f4 c4 a3 | d3 f3 bb3 d4 bb3 f3 | _:2.5 c4 | d3 a3 c4 f4 c4 a3 | c3 g3 f4 e4 bb3, g3, | F:3, | _:2' },
+        // music box: the hills ping as they land (free time), two fireflies, the hero firefly's rise, the last note
+        { inst: 'musicbox', vol: 0.42, pan: -0.2, reverb: 0.6,
+          notes: '_:0.2 c5:0.4 f5:0.4 g5:0.4 a5:0.4 c6:1.2 | _:3 | _:1.5 d6:1, f6:0.5, | _:0.5 g5:0.5 bb5:0.5 d6:0.5 a6:1 | _:3 | _:3 | _:3 | f6:2,' },
+        // lead: the firefly's song as it floats to the moon, resolving as the label lands
+        { inst: 'lead', vol: 0.42, pan: 0.05, tone: 0.4, reverb: 0.5,
+          notes: '_:12 | a4:1.5 c5:1 d5:0.5 | c5:1.5 bb4:1 g4:0.5 | a4:3 | _:2' },
+      ],
+    };
     const sfx = (preset, at, volume, name) => ({ type: 'audio', sfx: preset, name, at: snap(at), volume });
 
     const sequences = [
@@ -378,12 +404,11 @@
       { type: 'shape', shape: 'rect', name: 'vignette', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2' },
         fillGradient: { type: 'radial', radius: 0.8, stops: [[0.45, 'rgba(8,4,14,0)'], [1, 'rgba(8,4,14,0.62)']] } },
       // --- sound
-      { type: 'audio', asset: 'bgm', name: 'bgm', loop: true, volume: 0,
-        keyframes: [{ at: 0, to: { volume: 0.3 }, duration: 2 }, { at: -2.5, to: { volume: 0 }, duration: 2.5 }] },
-      ...HILL_IN.map((t, i) => sfx('pop', t + 0.3, 0.29, 'sfx-place-' + (i + 1))),
-      sfx('swoosh', CARD.at, 0.6, 'sfx-unfold'),
-      ...letters.map((l, i) => sfx('pop', CARD.at + l.at, 0.16, 'sfx-letter-' + (i + 1))),
-      sfx('chime', CARD.at + CARD.dashAt, 0.13, 'sfx-done'),
+      ...HILL_IN.map((t, i) => sfx('pop', t + 0.3, 1.0, 'sfx-place-' + (i + 1))),
+      sfx('swoosh', CARD.at, 1.85, 'sfx-unfold'),
+      ...letters.map((l, i) => sfx('pop', CARD.at + l.at, 0.64, 'sfx-letter-' + (i + 1))),
+      sfx('chime', CARD.at + CARD.dashAt, 1.05, 'sfx-done'),
+      { type: 'audio', name: 'score', at: MUSIC_AT, volume: 1.2, music: SCORE },
     ];
 
     const movie = new Movie();
@@ -395,8 +420,7 @@
         canvas: document.getElementById('stage'),
         width: W, height: H, duration: DURATION, frameRate: FPS, poster: POSTER_FRAME / FPS,
         background: P.skyTop,
-        assets: [...assets,
-          { name: 'bgm', src: '../_assets/bgm.mp3' }],
+        assets,
         composition: { sequences },
       });
       window.__ready = true;

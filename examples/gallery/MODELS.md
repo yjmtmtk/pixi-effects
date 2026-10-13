@@ -18,7 +18,7 @@ Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same br
 | fable | Spectrum — One heavy word whose gradient turns through four colours while a radial glow drifts behind it | 1280×720 | gradient-type.html |
 | opus | The Long Night — Main-title sequence for an imaginary thriller: a three.js shard in fog, letterboxed credits, film grain | 1280×720 | film-titles.html |
 | opus | Orbits — A seeded loop of pendulum-wave rings, epicycle rosettes and Lissajous comets | 1080×1080 | generative-orbits.html |
-| opus | A short history of computing — An editorial timeline, 1936 to 2023: a line draws while the camera pans past eight drawn milestones | 1280×720 | history-timeline.html |
+| opus | Route Atlas — An invented archipelago, one vermilion route, five harbours named in calm type | 1280×720 | route-atlas.html |
 | opus | Paper Planes — A karaoke lyric video for an invented song: words light up on a 120 BPM grid under a bouncing ball, each verse shifts the sky, the chorus hits big. | 1280×720 | lyric-video.html |
 | opus | What happens when you open a page — A flat explainer: client, CDN, server and database, one packet and 130 ms at a time | 1280×720 | network-explainer.html |
 | opus | NORTH 24 — Breaking — A broadcast news package: channel stinger, BREAKING flash, wipe-masked lower third, live ticker and running clock | 1280×720 | news-package.html |
@@ -27,28 +27,28 @@ Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same br
 | opus | ORRI ONE — A glossy three.js product turntable with spec callouts and a brand lock-up, studio white to graphite | 1280×720 | three-product-spin.html |
 | opus | Transitions Reel — Seven cuts, seven colours: every transition kind in one tight typographic reel | 1280×720 | transitions-reel.html |
 | opus | UI motion kit — Six microinteractions on a 3×2 board — toggle, ripple + check, like burst, loader, download, bell — played as a cascade, then all at once | 1280×720 | ui-microinteractions.html |
-| sonnet | Happy Birthday, Mika! — Balloons, a layered cake, flickering candles, a blow-out and a confetti burst | 1280×720 | birthday-card.html |
-| sonnet | The Corner House — A blueprint that draws itself: walls, doors and furniture stroked on, dimensions typed out, a title block whose status changes from DRAFT to APPROVED | 1280×720 | blueprint-house.html |
-| sonnet | Countdown to 2027 — 10 to 1 with ring pulses, then a seeded fireworks finale | 1280×720 | countdown-newyear.html |
-| sonnet | Loader Gallery — Nine hypnotic loading loops on one dark board, each a different idea. | 1080×1080 | loader-gallery.html |
-| sonnet | Night Drive — A neon music visualizer: seeded pseudo-spectrum bars, a beat-locked radial pulse and a progress ring over the sample bgm. | 1280×720 | music-visualizer.html |
-| sonnet | Orrery — A museum plate of the solar system in ivory and brass: orbit rings draw on one by one, planets ride nested rotating layers (a moon on the Earth's), a legend and a serif title arrive in quiet waves, the whole plate breathes by hand | 1280×720 | orbit-rig.html |
-| sonnet | Form Follows — A Bauhaus-style poster in motion: a red square becomes a yellow circle becomes a blue triangle, a small black dot circles it, and the line of type changes to FUNCTION, FEELING and FUTURE with each shape | 1280×720 | shape-shift.html |
+| opus | 還暦 — Kanreki — A 60th-birthday greeting: one vermilion line travels the sixty-year calendar from 丙午 1966 back to 丙午 2026 | 1280×720 | kanreki-cycle.html |
+| opus | One Stroke — 一 is one line: a hairline becomes the letter, keeps its single stroke through 13 typefaces, and is left alone at the end | 1280×720 | one-stroke.html |
+| opus | Made of Seconds — Sixty seconds close into a minute, and on up to a year: 31,536,000 ticks, and then the next one. | 1080×1080 | made-of-seconds.html |
+| opus | Small Motions — One dot becomes a loader, a progress bar, a toggle, a check and a spinner, and comes home: a seamless 12 s loop | 1080×1080 | loop-morph.html |
+| opus | 影送り KAGEOKURI — Opening titles for a drama that does not exist: light passes over every name and leaves an afterimage; the title arrives as its own shadow. | 1280×720 | kageokuri.html |
+| opus | Pythagoras, Rearranged — Four triangles slide; the empty space goes from c² to a² + b² without changing its area | 1280×720 | pythagoras-rearranged.html |
+| opus | Still Field — 633 strokes of a lattice, raked into rings: one wave goes out ember and comes back pale, a seamless 12 s loop | 1080×1080 | still-field.html |
 | sonnet | The Quiet Hours — A five-page talk as one movie: press Present and the arrow keys, Space, a click or a swipe move through the pages and the steps inside them (bullets, a growing chart), stopping exactly where the stops are; or just press play and watch it | 1280×720 | quiet-hours.html |
 | sonnet | Hanabi Night — A summer fireworks festival title card in indigo, gold and vermilion: rockets streak up, a gold peony opens over the skyline, the vertical title rises and a red seal stamps in | 1280×720 | hanabi-night.html |
-| sonnet | Lemon Pasta Recipe Card — A 4:5 animated recipe card: ingredients that check themselves off, three timed steps with countdowns, and a plated dish that assembles from circles. | 1080×1350 | recipe-card.html |
-| sonnet | Still Water — Three lakes, three real photographs: slow Ken Burns moves, a viewfinder that draws itself on, and a caption that re-types for each photo | 1280×720 | still-water.html |
+| opus | hanbun — A fictional split-the-bill app: one tap folds eighteen transfers into three | 1080×1350 | hanbun-app.html |
+| opus | ひかりの音 — A four-line poem written top to bottom, right to left, each syllable landing on a note of its own tune | 720×1280 | hikari-no-oto.html |
 | sonnet | Social Quote Card — A vertical 9:16 quote card: drifting warm blobs, line-by-line masked reveal, animated underline and a swipe cue. | 720×1280 | social-quote-vertical.html |
-| sonnet | Teatime — Four museum teapots as transparent WebP cutouts (about 80 KB each instead of 700 KB as PNG) pop in over a giant TEA, with feathered PNG shadows and steam that draws itself | 1280×720 | teatime.html |
-| sonnet | Four days in Iceland — A fictional travel slideshow: four procedurally painted landscapes, Ken Burns, four different transitions, captions and a day counter. | 1280×720 | travel-slideshow.html |
-| sonnet | Harbor City Forecast — A five-day broadcast forecast: shifting skies, glass cards, animated icons and a self-drawing temperature line. | 1280×720 | weather-report.html |
-| sonnet | Christmas Eve — A snowy night at a lit cottage and a small tree, with a slow music-box lullaby written as text: there is no audio file in this piece | 1280×720 | christmas-eve.html |
+| opus | Fourteen Days of Rain — 365 day-bars re-sort themselves: half a year's rain falls on 14 days (illustrative data) | 1280×720 | rain-fourteen-days.html |
+| opus | Wild Geese Return — 寒露 初候「鴻雁来」: one micro-season in sumi on kinari paper | 1280×720 | wild-geese.html |
+| opus | 発車標 Departure Board — A station board where nothing moves unless the information changed: a departure, a delay, a track change | 1280×720 | hasshahyo.html |
+| opus | HOZO — A logo sting for an invented joinery workshop: two blocks slide out of a close-up and lock with one wooden click | 1280×720 | tenon-joint.html |
 | opus | 間 MA — the space between — A 48-second kinetic essay about one word: a hairline of light becomes a gate, a corridor, a silence, a sun and a seal, cut to a score written as text | 1920×1080 | ma.html |
 | fable | Again. — A title card is built, rewound like a tape, held, and replayed in slow motion: one composition with its own clock, its sounds running backward with it | 1280×720 | rewind-title.html |
 | opus | Now Showing — A vintage cinema marquee at night: bulbs snap on, letters bounce onto the rail, a ticket stub wobbles in, all under one film grain | 1280×720 | spring-marquee.html |
-| haiku | REPLAY — One great shot, live, then again in slow motion with the arc drawn on: a composition whose own clock slows, freezes and resumes | 1280×720 | replay-highlight.html |
-| haiku | Eight Bars — A four-bar tune written as text, falling down a piano roll: each bar flashes and rings the moment its note sounds | 1080×1080 | piano-roll.html |
-| haiku | Last Train — A split-flap station board at night, in Japanese and English: the cascade, one status change, and the last train of the night | 720×1280 | departure-board.html |
+| opus | NAGIRO — A quiet product film for an invented table light, told only with light on aluminium and opal glass | 1280×720 | nagiro-light.html |
+| opus | Loop Grid — An original two-bar loop written as text; every cell is a note and flares the moment it sounds | 1080×1080 | loop-grid.html |
+| opus | ただいま — A small ball hops ten ledges down to the one spot that fits it; the trip is shown again as a chronophotograph. | 720×1280 | tadaima.html |
 | sonnet | Rack focus — A shallow-depth still life that is about the camera's focus: the lens racks from a coral badge to the title to a small sign that only resolves when the focus lands on it, and back, with a slow dolly and bokeh lamps | 1280×720 | rack-focus.html |
 | sonnet | Light leaks — A dusk city told only by blend modes: a soft-light colour cast, a color-dodge light leak, a multiply vignette, a screen haze and a difference flash on the title | 1280×720 | light-leaks.html |
 | sonnet | Matte reel — One moving matte shared by many layers: a growing disc, an inverted hole, a luma headline, a multiply band and a luma wipe to an end card | 1280×720 | matte-reel.html |
@@ -57,7 +57,7 @@ Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same br
 | sonnet | d3 × pixi-effects — d3 computes, pixi-effects performs: a bar chart, a self-drawing line, a donut and a world map with great-circle routes, every number from d3 scales, line, pie, arc and geoPath | 1280×720 | d3-story.html |
 | sonnet | Sketch to Launch — A notebook page where a rocket draws itself stroke by stroke, is coloured in with hachure, counts down and lifts off toward a moon; every wobbly line comes from Rough.js as plain path data | 1280×720 | sketch-launch.html |
 
-Counts: fable 13, opus 13, sonnet 23, haiku 3 (52 pieces).
+Counts: fable 13, opus 29, sonnet 10, haiku 0 (52 pieces).
 
 `rack-focus` (sonnet): made on 2026-10-09 by one subagent from the brief and the docs of the unreleased 0.21 (depth of field: camera `focus` / `aperture`); the model name is the author's self-report (Claude Sonnet 5.5).
 

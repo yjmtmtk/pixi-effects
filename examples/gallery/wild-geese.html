@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Wild Geese Return</title>
+  <script type="application/json" id="piece-meta">{ "title": "Wild Geese Return", "subtitle": "寒露 初候「鴻雁来」: one micro-season in sumi on kinari paper", "tags": ["wa", "ink", "season", "minimal", "japanese", "procedural"], "width": 1280, "height": 720, "duration": 12, "model": "opus" }</script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />   <!-- the loader: HTML + CSS only, so it is on screen at once and keeps moving while the page builds the video -->
+  <style>
+    body { background: #151413; margin: 0; padding: 16px; min-height: 100vh; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+    .stage { position: relative; width: min(960px, 100%); }                 /* the player and the loader both sit inside this box */
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 2px; }
+    /* the loader (pixi-effects/loader.css, linked above): movie.init() fades it out when the movie is ready */
+    /* Screenshots: the player bar overlays the bottom ~60px of the canvas (it is NOT part of the exported video).
+       Uncomment to hide it while you check the layout:  .movie-controller { display: none !important; } */
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>   <!-- shared loader: .pe-loader--pulse / --bar for other looks, --custom for your own -->
+  </div>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":  "../../dist/present.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js" />   <!-- after the import map: the library downloads while the page is parsed -->
+
+  <script type="module">
+    import { Movie, random, followPath } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    // 寒露 初候「鴻雁来」: the wild geese return. Sumi on kinari paper; see brief.md.
+    const W = 1280, H = 720, FPS = 30, DURATION = 12;
+    const PAPER = '#ECE6DA', SUMI = '#1D1C1A', USU = '#9C968B', BENGARA = '#8F3A24';
+    const MINCHO = '"Hiragino Mincho ProN", "Hiragino Mincho Pro", "Yu Mincho", "YuMincho", "Noto Serif JP", "Noto Serif CJK JP", serif';
+    const HORIZON = 468;                 // 65 % of the height
+    const LINE_X0 = 96, LINE_LEN = 800;  // the stroke starts on the left margin and stops at column 9
+    const T = {                          // the beats (movie seconds), see the shot plan in brief.md
+      stroke: 0.8, hills: 1.8, skein: 3.0, glyphs: 4.2, glyphGap: 0.55, ruby: 5.9, label: 6.4, english: 6.9, index: 9.6,
+    };
+
+    // ---------- procedural ink: canvases drawn once, seeded, handed to the movie as data URLs ----------
+    const cv = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; };
+    const rgba = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
+
+    function paper() {
+      const [c, g] = cv(W, H); const r = random(11);
+      g.fillStyle = PAPER; g.fillRect(0, 0, W, H);
+      for (let i = 0; i < 70; i++) {                         // mottling of the sheet
+        const x = r() * W, y = r() * H, rad = 60 + r() * 200;
+        const gr = g.createRadialGradient(x, y, 0, x, y, rad);
+        gr.addColorStop(0, rgba('#b3a68f', 0.03)); gr.addColorStop(1, rgba('#b3a68f', 0));
+        g.fillStyle = gr; g.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+      }
+      for (let i = 0; i < 3200; i++) {                       // kozo fibres, dark and light
+        const x = r() * W, y = r() * H, len = 4 + r() * 18, a = r() * Math.PI * 2;
+        g.strokeStyle = r() < 0.55 ? rgba('#7d7262', 0.04 + r() * 0.06) : rgba('#ffffff', 0.10 + r() * 0.14);
+        g.lineWidth = 0.4 + r() * 0.7;
+        g.beginPath(); g.moveTo(x, y);
+        g.quadraticCurveTo(x + Math.cos(a) * len * 0.5 + (r() - 0.5) * 5, y + Math.sin(a) * len * 0.5 + (r() - 0.5) * 5,
+                           x + Math.cos(a) * len, y + Math.sin(a) * len);
+        g.stroke();
+      }
+      const v = g.createRadialGradient(W / 2, H * 0.46, H * 0.4, W / 2, H / 2, W * 0.75);   // the sheet's edge, not a hero gradient
+      v.addColorStop(0, rgba('#5e5444', 0)); v.addColorStop(1, rgba('#5e5444', 0.13));
+      g.fillStyle = v; g.fillRect(0, 0, W, H);
+      return c.toDataURL();
+    }
+
+    // One dry-brush horizontal stroke: pooled ink where the brush touches down, bristles that run dry toward the lift.
+    const STROKE_PAD = 24, STROKE_H = 64;
+    function brushStroke() {
+      const w = LINE_LEN + STROKE_PAD * 2, h = STROKE_H, cy = h / 2;
+      const [c, g] = cv(w, h); const r = random(5);
+      // thickness: the press (12 → 18 px), a long body that breathes, a lift that thins to a few splayed hairs
+      const thick = u => (u < 0.025 ? 12 + 6 * (u / 0.025) : 2 + 16 * (1 - Math.pow((u - 0.025) / 0.975, 1.5)))
+                         * (1 + 0.12 * Math.sin(u * 11 + 0.7) + 0.06 * Math.sin(u * 29 + 2.1));
+      // smooth value noise: the paper's tooth and each hair's wander, so the dry gaps are streaks, not dots
+      const noiseFor = (scale) => { const tab = Array.from({ length: 128 }, () => r()); return x => {
+        const p = x / scale, i = Math.floor(p), f = p - i, s = f * f * (3 - 2 * f);
+        return tab[((i % 128) + 128) % 128] * (1 - s) + tab[(((i + 1) % 128) + 128) % 128] * s; }; };
+      for (let i = 0; i < 6; i++) {                          // ink pooled where the brush touched down
+        g.fillStyle = rgba(SUMI, 0.22 + r() * 0.22);
+        g.beginPath(); g.ellipse(STROKE_PAD + 8 + r() * 10, cy + (r() - 0.5) * 3, 8 + r() * 5, 6 + r() * 2.5, (r() - 0.5) * 0.4, 0, Math.PI * 2); g.fill();
+      }
+      // many thin hairs: where they crowd the ink is black, where they part the paper shows through as fine light streaks
+      const N = 44; g.lineCap = 'round';
+      for (let k = 0; k < N; k++) {
+        const off = (r() + r() + r()) / 3 - 0.5;            // more hairs in the middle of the brush
+        const edge = Math.min(1, Math.abs(off) * 2.2);
+        const load0 = 1.02 - edge * 0.3 + r() * 0.2, dry = 0.45 + edge * 0.9 + r() * 0.6;
+        const tooth = noiseFor(30 + r() * 40), wander = noiseFor(60 + r() * 60);
+        const width = 0.6 + r() * 0.8, ink = 0.45 + r() * 0.4;
+        g.lineWidth = width;
+        let px = null, py = null;
+        for (let x = 0; x <= LINE_LEN; x += 1.5) {
+          const u = x / LINE_LEN, t = thick(u);
+          const y = cy + off * t * (1 + 0.9 * u * u * u) + (wander(x) - 0.5) * 2.2 - u * 2.5 + Math.sin(u * 3.1) * 1.1;
+          const load = load0 - u * dry;
+          if (tooth(x) < load) {
+            if (px !== null) { g.strokeStyle = rgba(SUMI, ink * Math.min(1, 0.5 + load)); g.beginPath(); g.moveTo(STROKE_PAD + px, py); g.lineTo(STROKE_PAD + x, y); g.stroke(); }
+            px = x; py = y;
+          } else px = null;
+        }
+      }
+      const [c2, g2] = cv(w, h);                            // ink on paper bleeds a little: a faint wet halo under the crisp stroke
+      g2.filter = 'blur(2.5px)'; g2.globalAlpha = 0.25; g2.drawImage(c, 0, 0);
+      g2.filter = 'blur(0.45px)'; g2.globalAlpha = 1; g2.drawImage(c, 0, 0);
+      return c2.toDataURL();
+    }
+
+    // Far hills: two washes, the far one in usuzumi, the near one a little darker; the foot dissolves into mist.
+    const HILLS_H = 300;
+    function hills() {
+      const [c, g] = cv(W, HILLS_H); const h = HILLS_H;
+      const ridge = (peaks, ph) => x => {
+        let y = 0; for (const [px, hh, pw] of peaks) y = Math.max(y, hh * Math.exp(-(((x - px) / pw) ** 2)));
+        y += (Math.sin(x * 0.029 + ph) * 0.5 + Math.sin(x * 0.083 + ph * 2) * 0.3 + Math.sin(x * 0.19 + ph) * 0.2) * 7 * (y / (y + 25));
+        return h - y;
+      };
+      const wash = (f, color, alpha, top, blurPx, rim) => {
+        g.save(); g.filter = `blur(${blurPx}px)`;
+        const gr = g.createLinearGradient(0, top, 0, h);
+        gr.addColorStop(0, rgba(color, alpha)); gr.addColorStop(0.45, rgba(color, alpha * 0.55)); gr.addColorStop(1, rgba(color, 0));
+        g.fillStyle = gr; g.beginPath(); g.moveTo(0, h);
+        for (let x = 0; x <= W; x += 3) g.lineTo(x, f(x));
+        g.lineTo(W, h); g.closePath(); g.fill();
+        g.lineWidth = 1.4;                                   // the wet edge where the wash dried: darker, uneven
+        for (let x = 0; x <= W; x += 3) {
+          const y0 = f(x), y1 = f(x + 3); if (y0 > h - 8) continue;
+          g.strokeStyle = rgba(color, rim * (0.4 + 0.6 * Math.abs(Math.sin(x * 0.013 + top) * Math.sin(x * 0.047))));
+          g.beginPath(); g.moveTo(x, y0 + 0.5); g.lineTo(x + 3, y1 + 0.5); g.stroke();
+        }
+        g.restore();
+      };
+      wash(ridge([[470, 112, 120], [600, 84, 90], [380, 52, 80]], 1.3), USU, 0.72, h - 120, 1.6, 0.34);
+      wash(ridge([[700, 150, 105], [835, 92, 85], [920, 40, 60]], 4.1), SUMI, 0.46, h - 155, 0.9, 0.4);
+      // granulation: pigment settles in the paper's tooth, so the wash is never flat
+      const r = random(41); g.globalCompositeOperation = 'destination-out';
+      for (let i = 0; i < 14000; i++) {
+        g.fillStyle = `rgba(0,0,0,${0.06 + r() * 0.2})`;
+        g.beginPath(); g.arc(r() * W, r() * h, 0.35 + r() * 0.7, 0, Math.PI * 2); g.fill();
+      }
+      g.globalCompositeOperation = 'source-over';
+      for (let i = 0; i < 2600; i++) {                       // and a few darker grains
+        g.fillStyle = rgba(SUMI, 0.03 + r() * 0.05);
+        g.beginPath(); g.arc(250 + r() * 720, h - 160 + r() * 150, 0.4 + r() * 0.9, 0, Math.PI * 2); g.fill();
+      }
+      g.globalCompositeOperation = 'destination-in';        // the grains only where there is wash
+      const [cm, gm] = cv(W, h); gm.drawImage(c, 0, 0);
+      g.drawImage(cm, 0, 0); g.globalCompositeOperation = 'source-over';
+      return c.toDataURL();
+    }
+
+    const MIST_W = 620;
+    function mist() {                                        // paper-coloured breath that hides the foot of the hills
+      const w = MIST_W, h = 110; const [c, g] = cv(w, h); const r = random(31);
+      for (let i = 0; i < 24; i++) {
+        const x = 110 + r() * (w - 220), y = h / 2 + (r() - 0.5) * 20, rad = 50 + r() * 80;
+        g.save(); g.translate(x, y); g.scale(1, 0.24);
+        const gr = g.createRadialGradient(0, 0, 0, 0, 0, rad);
+        gr.addColorStop(0, rgba('#E8E2D6', 0.6)); gr.addColorStop(1, rgba('#E8E2D6', 0));
+        g.fillStyle = gr; g.fillRect(-rad, -rad, rad * 2, rad * 2); g.restore();
+      }
+      g.globalCompositeOperation = 'destination-in';        // no edges: fade both ends of the band
+      const fade = g.createLinearGradient(0, 0, w, 0);
+      fade.addColorStop(0, 'rgba(0,0,0,0)'); fade.addColorStop(0.25, 'rgba(0,0,0,1)'); fade.addColorStop(0.75, 'rgba(0,0,0,1)'); fade.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = fade; g.fillRect(0, 0, w, h);
+      return c.toDataURL();
+    }
+
+    // One goose seen from below and far away: two wings as tapering dabs of ink, a body dot. Centred on the body.
+    const GOOSE_W = 72, GOOSE_H = 40;
+    function goose() {
+      const [c, g] = cv(GOOSE_W, GOOSE_H); const cx = GOOSE_W / 2, cy = GOOSE_H / 2 + 2;
+      g.fillStyle = SUMI;
+      for (const sx of [-1, 1]) for (let i = 0; i <= 48; i++) {
+        const t = i / 48, x1 = cx + sx * 12, y1 = cy - 13, x2 = cx + sx * 31, y2 = cy - 3;
+        const x = (1 - t) ** 2 * cx + 2 * (1 - t) * t * x1 + t * t * x2;
+        const y = (1 - t) ** 2 * cy + 2 * (1 - t) * t * y1 + t * t * y2;
+        g.beginPath(); g.arc(x, y, 3.3 * (1 - t) + 0.6, 0, Math.PI * 2); g.fill();
+      }
+      g.beginPath(); g.ellipse(cx, cy + 1, 3.6, 2.7, 0, 0, Math.PI * 2); g.fill();
+      return c.toDataURL();
+    }
+
+    // ---------- the composition ----------
+    const soak = (name, at, dur, blur = 10) => ({          // ink soaking into paper: blur → sharp, alpha 0 → 1
+      filters: [{ type: 'blur', name, strength: blur, quality: 4 }],
+      keyframes: [                                           // the blur resolves first, the ink darkens after: the blurry state is never strong
+        { at, from: { alpha: 0 }, to: { alpha: 1 }, duration: dur, ease: 'sine.in' },
+        { at, from: { [`filters.${name}.strength`]: blur }, to: { [`filters.${name}.strength`]: 0 }, duration: dur * 0.7, ease: 'sine.out' },
+      ],
+    });
+    const vertical = s => [...s].join('\n');
+
+    // the skein: a loose check-mark, the leader in front (flying left and down, away from us)
+    const FORMATION = [[0, 0], [52, -22], [100, -40], [150, -62], [48, 20], [96, 34], [142, 50]];
+    const r = random(77);
+    const SKEIN_DUR = DURATION - 3.0, FLAP = 0.45;
+    const geese = FORMATION.map(([dx, dy], i) => {
+      const phase = r() * FLAP * 2;
+      return {
+        type: 'image', asset: 'goose', name: `goose${i}`, parent: 'skein', at: T.skein, duration: SKEIN_DUR,
+        initial: { x: dx + (r() - 0.5) * 10, y: dy + (r() - 0.5) * 8, anchorX: 0.5, anchorY: 0.55, rotation: -8 + (r() - 0.5) * 8 },
+        keyframes: [
+          { at: phase, to: { scaleY: -0.75 }, duration: FLAP, ease: 'sine.inOut', yoyo: true, repeat: Math.ceil((SKEIN_DUR - phase) / FLAP) - 1 },
+          { at: 0, to: { x: dx + (r() - 0.5) * 26, y: dy + (r() - 0.5) * 14 }, duration: SKEIN_DUR, ease: 'sine.inOut' },
+        ],
+      };
+    });
+
+    const TITLE_X = 1130, TITLE_TOP = 180, TITLE_SIZE = 46, TITLE_STEP = 71;
+    const glyphs = [...'鴻雁来'].map((ch, i) => ({
+      type: 'text', name: `title${i}`, text: ch, at: T.glyphs + i * T.glyphGap, duration: DURATION - (T.glyphs + i * T.glyphGap),
+      style: { fontFamily: MINCHO, fontSize: TITLE_SIZE, fill: SUMI, padding: 24 },
+      initial: { x: TITLE_X, y: TITLE_TOP + i * TITLE_STEP, anchorX: 0.5, anchorY: 0 },
+      ...soak(`ink${i}`, 0, 1.8, 6),
+    }));
+
+    const smallVertical = (name, text, x, y, size, fill, at, lh = 1.3) => ({
+      type: 'text', name, text: vertical(text), at, duration: DURATION - at,
+      style: { fontFamily: MINCHO, fontSize: size, fill, align: 'center', lineHeight: Math.round(size * lh), padding: 16 },
+      initial: { x, y, anchorX: 0.5, anchorY: 0 },
+      ...soak(`${name}Ink`, 0, 1.4, 6),
+    });
+
+    const sequences = [
+      { type: 'image', asset: 'paper', name: 'paper', initial: { x: 0, y: 0 } },
+
+      { type: 'image', asset: 'hills', name: 'hills', at: T.hills, duration: DURATION - T.hills,
+        initial: { x: 0, y: HORIZON - HILLS_H + 2 }, ...soak('hillsInk', 0, 2.6, 14) },
+      { type: 'image', asset: 'mist', name: 'mist', at: T.hills, duration: DURATION - T.hills,
+        initial: { x: 340, y: HORIZON - 72, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 2.4, ease: 'sine.inOut' },
+                    { at: 0, to: { x: 400 }, duration: DURATION - T.hills, ease: 'none' }] },
+
+      // the horizon: revealed by a soft-edged matte that slides left → right
+      { type: 'shape', shape: 'rect', name: 'brushWipe', anchorX: 0, width: 1800, height: 120,
+        fillGradient: { angle: 0, stops: [[0, '#ffffff'], [0.5, '#ffffff'], [0.535, 'rgba(255,255,255,0)'], [1, 'rgba(255,255,255,0)']] },
+        initial: { x: LINE_X0 - STROKE_PAD - 963, y: HORIZON },
+        keyframes: [{ at: T.stroke, to: { x: LINE_X0 + LINE_LEN + STROKE_PAD - 900 }, duration: 2.0, ease: 'power2.inOut' }] },
+      { type: 'image', asset: 'stroke', name: 'horizon', mask: 'brushWipe',
+        initial: { x: LINE_X0 - STROKE_PAD, y: HORIZON - STROKE_H / 2 } },
+
+      // the skein: a null carries the formation along the path and away from us
+      { type: 'null', name: 'skein', at: T.skein, duration: SKEIN_DUR,
+        initial: { scale: 0.62, alpha: 1 },
+        keyframes: [
+          ...followPath({ d: 'M 1360 34 C 1110 70 760 210 300 400', duration: SKEIN_DUR, ease: 'none', frameRate: FPS }),
+          { at: 0, to: { scale: 0.3 }, duration: SKEIN_DUR, ease: 'sine.out' },
+          { at: 6.4, to: { alpha: 0 }, duration: 1.5, ease: 'sine.inOut' },
+        ] },
+      ...geese,
+
+      // the name of the season, set vertically in the right margin
+      ...glyphs,
+      smallVertical('ruby', 'こうがんきたる', TITLE_X + 40, TITLE_TOP + 4, 15, USU, T.ruby, 1.28),
+      smallVertical('label', '寒露　初候', TITLE_X - 68, TITLE_TOP + 4, 16, rgba(SUMI, 0.8), T.label, 1.4),
+      smallVertical('index', '第四十九候', TITLE_X - 68, HORIZON - 5 * 18, 14, BENGARA, T.index, 1.28),
+      { type: 'text', name: 'english', text: 'the wild geese return', at: T.english, duration: DURATION - T.english,
+        style: { fontFamily: 'Georgia, "Times New Roman", serif', fontStyle: 'italic', fontSize: 17, fill: USU, letterSpacing: 0.5, padding: 12 },
+        initial: { x: LINE_X0, y: HORIZON + 26 }, ...soak('enInk', 0, 1.6, 5) },
+
+      // sound: a pad bed at 60 bpm, a koto-like pluck for each glyph, the skein's wind, and a bell for the index: the seal on the finished sheet
+      { type: 'audio', at: 0, volume: 1.1, music: {
+          bpm: 60, reverb: 0.5, humanize: 0,
+          tracks: [
+            { inst: 'pad', vol: [[0, 0], [2, 0.55], [9, 0.5], [12, 0.25]], attack: 2.5, release: 3, tone: 0.35, notes: '[d3 a3 e4]:7 [g2 d3 a3 b3]:5' },
+            { inst: 'pluck', vol: 0.55, tone: 0.45, reverb: 0.7, notes: `_:${T.glyphs} a4:${T.glyphGap} b4:${T.glyphGap} e5:3` },
+            { inst: 'bell', vol: 0.22, ring: 4, reverb: 0.8, notes: `_:${T.index} e6:4` },
+          ],
+      } },
+      { type: 'audio', at: T.skein + 0.2, duration: 3.6, volume: 0.7,
+        sfx: { voices: [
+          { wave: 'noise', filter: { type: 'bandpass', freq: [700, 260], q: 0.8 }, envelope: 'swell', pan: [0.7, -0.6] },
+        ] } },
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;                         // so a script can seek / screenshot / render
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 8.4,
+        background: PAPER,
+        assets: [
+          { name: 'paper', src: paper() }, { name: 'stroke', src: brushStroke() }, { name: 'hills', src: hills() },
+          { name: 'mist', src: mist() }, { name: 'goose', src: goose() },
+        ],
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
+    }
+  </script>
+</body>
+</html>

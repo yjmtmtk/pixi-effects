@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Orbits — generative</title>
-  <link rel="stylesheet" href="../../dist/loader.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />
   <style>
     html, body { background: #08080c; margin: 0; }
     body { padding: 16px; box-sizing: border-box; display: flex; justify-content: center; }
@@ -232,6 +232,53 @@
       { fontSize: 26, fontWeight: '300', letterSpacing: 6, fontFamily: 'system-ui, -apple-system, Helvetica, Arial, sans-serif' }));
     sequences.push(title('seed', `seed ${String(SEED).padStart(4, '0')} · ${TB - TA} lobes · ${FX}:${FY}`, 996,
       { fontSize: 15, letterSpacing: 2, fill: '#8e88b8', fontFamily: "ui-monospace, 'SF Mono', Menlo, monospace" }));
+
+    // ───────────────────────────── 5. sound ─────────────────────────────
+    // The picture already has a clock: the core halo breathes every T/4 = 3.5 s (peaks at 1.75 + 3.5k) and the
+    // rings line up into spokes at 0, T/2 and T. So one bar = 3.5 s: 4 beats of 0.875 s (480/7 bpm), 4 bars = the loop.
+    // D Lydian, no drums but one soft crash: Dmaj9 | E/D (the Lydian lift) | Gmaj7#11 (rings aligned, full bloom) | Dmaj9 (fades to the seam).
+    const BEAT = T / 16, BPM = 60 / BEAT;                // 68.571… bpm
+    const beat = s => s * BEAT;                           // beats → movie seconds (the music starts at 0)
+    const tri = 2 / 3;                                    // a quarter-note triplet: three against two, as the 3:2 Lissajous
+    const music = {
+      bpm: BPM, reverb: 0.5, seed: SEED,
+      tracks: [
+        // bed: swells into the climax (beat 8 = 7.0 s) and fades to nothing at the loop seam
+        { inst: 'pad', attack: 1.2, release: 1.2, reverb: 0.7, tone: 0.55,
+          vol: [[0, 0.25], [4, 0.5], [8, 0.8], [12, 0.6], [14, 0.45], [16, 0]],
+          notes: 'Dmaj9:4 | E/d:4 | Gmaj7#11:4 | Dmaj9:4' },
+        // heartbeat under the core: a root on every downbeat, a softer restrike on the halo's peak (beat 3 of each bar)
+        { inst: 'sub', legato: 0.9, reverb: 0.1, vol: [[0, 0.15], [4, 0.35], [8, 0.45], [12, 0.35], [14, 0.2], [15.5, 0]],
+          notes: 'd2:2 d2:2, | d2:2 d2:2, | g1:2 g1:2, | d2:2 d2:2,' },
+        // the pendulum rings: a 3-note cell over 8th notes, so the figure slips against the bar like the rings slip against each other
+        { inst: 'musicbox', step: 0.5, pan: -0.35, ring: 1.2, reverb: 0.6,
+          vol: [[0, 0.3], [4, 0.5], [8, 0.65], [12, 0.45], [16, 0.2]],
+          notes: 'f#5 a5 e6 f#5 a5 e6 f#5 a5 | e6 g#5 b5 e6 g#5 b5 e6 g#5 | b5 c#6 f#5 b5 c#6 f#5 b5 c#6 | f#5 e6 d6:3,' },
+        // the five rose comets: five rising bell notes from the halo's first peak (1.75 s), landing on bar 2; a high B at the bloom
+        { inst: 'bell', vol: 0.42, pan: 0.15, ring: 2.4, reverb: 0.8,
+          notes: `_:2 a5:0.5 b5:0.5 d6:0.5 e6:0.5 f#6:4 | b6:3 _:5` },
+        // the two Lissajous comets (3:2): pluck triplets against the duple bed, from beat 6 (5.25 s) until the title (beat 12)
+        { inst: 'pluck', pan: 0.35, tone: 0.6, reverb: 0.5, vol: [[6, 0.5], [9, 0.6], [12, 0.35]],
+          notes: `_:6 e5:${tri} g#5:${tri} b5:${tri} | d6:${tri} b5:${tri} f#5:${tri} a5:${tri} f#5:${tri} d5:${tri} | _:4` },
+      ],
+      drums: [{ from: 8, to: 12, crash: 'o...............' }],   // one soft cymbal as the spokes align
+    };
+    sequences.push({ type: 'audio', name: 'score', at: 0, volume: 1.3, music });
+
+    // sound effects on the picture's reveals (all quiet: the score leads)
+    const tunedChime = (freqs) => ({ voices: freqs.map((f, i) => ({ wave: i ? 'sine' : 'triangle', freq: f, envelope: 'fall', gain: [0.55, 0.4, 0.18][i], pan: [-0.2, 0.25, 0][i] })) });
+    sequences.push(
+      // the rose curve starts to draw: a dark, slow air movement peaking on the halo's first breath (1.75 s)
+      { type: 'audio', name: 'sfx-rose', at: beat(2) - 0.16, volume: 0.28, sfx: { preset: 'swoosh', brightness: -0.6, seed: 3 } },
+      // the Lissajous comets fade in (4.8 s): a second, higher breath on beat 5.5
+      { type: 'audio', name: 'sfx-lissajous', at: beat(5.5) - 0.16, volume: 0.24, sfx: { preset: 'swoosh', pitch: 4, brightness: -0.3, seed: 8 } },
+      // build into the bloom: the riser is loudest at its end = the rings snapping into spokes at 7.0 s
+      { type: 'audio', name: 'sfx-riser', at: beat(8) - beat(3), duration: beat(3), volume: 0.32, sfx: { preset: 'riser', brightness: -0.5 } },
+      // the alignment itself: a soft low thump under the crash
+      { type: 'audio', name: 'sfx-bloom', at: beat(8), volume: 0.4, sfx: { preset: 'hit', pitch: -5, brightness: -0.7 } },
+      // the title plate (fades in from 10.2 s): a chime tuned to the key (D6, A6, D7) on bar 4 = 10.5 s
+      { type: 'audio', name: 'sfx-title', at: beat(12), duration: 2.4, volume: 0.5, sfx: tunedChime([1174.66, 1760.0, 2349.32]) },
+    );
 
     // ───────────────────────────── init ─────────────────────────────
     const movie = new Movie();

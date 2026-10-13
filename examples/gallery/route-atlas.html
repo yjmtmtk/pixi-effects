@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Route Atlas</title>
+  <script type="application/json" id="piece-meta">{ "title": "Route Atlas", "subtitle": "An invented archipelago, one vermilion route, five harbours named in calm type", "tags": ["map", "cartography", "route", "draw-on", "typography", "japanese", "music"], "width": 1280, "height": 720, "duration": 12, "model": "opus" }</script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />   <!-- the loader: HTML + CSS only, so it is on screen at once and keeps moving while the page builds the video -->
+  <style>
+    body { background: #15181b; margin: 0; padding: 16px; min-height: 100vh; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+    .stage { position: relative; width: min(960px, 100%); }                 /* the player and the loader both sit inside this box */
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+    /* the loader (pixi-effects/loader.css, linked above): movie.init() fades it out when the movie is ready */
+    /* Screenshots: the player bar overlays the bottom ~60px of the canvas (it is NOT part of the exported video).
+       Uncomment to hide it while you check the layout:  .movie-controller { display: none !important; } */
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>   <!-- shared loader: .pe-loader--pulse / --bar for other looks, --custom for your own -->
+  </div>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":  "../../dist/present.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js" />   <!-- after the import map: the library downloads while the page is parsed -->
+
+  <script type="module">
+    import { Movie, followPath, random } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+    // import { registerThree, three } from 'pixi-effects/three';   // only for a three.js layer; call registerThree() before init
+    // import * as THREE from 'three';
+    // A talk instead of a video: import { deck, Presenter } from 'pixi-effects/present';  (the import map above has "pixi-effects/present")
+    //   const d = deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops: [at, ...], notes, sequences }] });
+    //   composition: d.composition, duration: d.duration; then new Presenter(movie, { canvas }) instead of the Controller. Docs: reference/cheatsheet.md → Presets (the deck lines).
+
+    const W = 1280, H = 720, FPS = 30, DURATION = 12;
+    const BEAT = 60 / 80;                       // 80 bpm: a beat is 0.75 s, a bar 3 s
+
+    // ── palette (brief.md) ─────────────────────────────────────────────
+    const PAPER = '#ECE5D3', WATER = '#B4C7C4', INK = '#22303A', RED = '#D2452B';
+    const MINCHO = '"Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif CJK JP", serif';
+    const MONO = 'ui-monospace, "SF Mono", Menlo, monospace';
+
+    // ── invented geography: islands as noisy polar blobs ───────────────
+    // features: { deg, depth (+ cape, - bay), width (deg) }: the coast bulges or bites at that bearing
+    function makeIsland(cx, cy, rx, ry, seed, rough = 1, features = []) {
+      const r = random(seed);
+      const waves = [];
+      for (let k = 2; k <= 4; k++) waves.push({ k, a: (0.10 / k) * rough * (0.4 + r()), p: r() * Math.PI * 2 });
+      for (let k = 5; k <= 9; k++) waves.push({ k, a: 0.012 * rough * (0.3 + r()), p: r() * Math.PI * 2 });
+      for (let k = 14; k <= 46; k += 3) waves.push({ k, a: (0.05 / k) * rough * (0.2 + r()), p: r() * Math.PI * 2 });
+      const angDist = (a, b) => { let d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+      const radius = th => {
+        const deg = th * 180 / Math.PI;
+        let v = 1 + waves.reduce((s, w) => s + w.a * Math.sin(w.k * th + w.p), 0);
+        for (const f of features) v += f.depth * Math.exp(-Math.pow(angDist(deg, f.deg) / f.width, 2));
+        return v;
+      };
+      return { cx, cy, rx, ry, radius, summit: [rx * 0.15 * (r() - 0.5) * 2, ry * 0.15 * (r() - 0.5) * 2] };
+    }
+    // one outline of an island at a scale factor (s < 1 = a contour inland, s > 1 = a depth line at sea)
+    function outline(isl, s, wobble = 0, seed = 1) {
+      const r = random(seed), N = 220, ph1 = r() * 6.28, ph2 = r() * 6.28, pts = [];
+      // inland contours drift toward a summit that is not the centre, and smooth out as they climb
+      const pull = s < 1 ? (1 - s) : 0;
+      for (let i = 0; i < N; i++) {
+        const th = (i / N) * Math.PI * 2;
+        const base = isl.radius(th), smooth = s < 1 ? 1 + (base - 1) * (0.35 + 0.65 * s) : base;
+        const rr = smooth * s * (1 + wobble * (Math.sin(3 * th + ph1) + 0.6 * Math.sin(7 * th + ph2)));
+        const x = isl.cx + Math.cos(th) * isl.rx * rr, y = isl.cy + Math.sin(th) * isl.ry * rr;
+        pts.push([x + isl.summit[0] * pull * 1.6, y + isl.summit[1] * pull * 1.6]);
+      }
+      return 'M ' + pts.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' L ') + ' Z';
+    }
+    const coastPoint = (isl, deg, inset = 0.985) => {
+      const th = deg * Math.PI / 180, rr = isl.radius(th) * inset;
+      return [isl.cx + Math.cos(th) * isl.rx * rr, isl.cy + Math.sin(th) * isl.ry * rr];
+    };
+
+    // the main island: long, a deep bay on its south shore (白砂 sits at its mouth), a spit to the west
+    const A = makeIsland(420, 470, 228, 122, 3, 1, [
+      { deg: 95, depth: -0.34, width: 16 }, { deg: 184, depth: 0.16, width: 9 }, { deg: 300, depth: 0.14, width: 22 }]);
+    // the cape island: a long lighthouse cape to the south-west, an inlet (霧ノ浦) on the north-east
+    const B = makeIsland(842, 292, 126, 104, 8, 1, [
+      { deg: 150, depth: 0.42, width: 10 }, { deg: 318, depth: -0.3, width: 12 }, { deg: 40, depth: 0.12, width: 25 }]);
+    // the far island: a crescent opening north-west, 遠音 inside the curve
+    const C = makeIsland(1074, 546, 128, 90, 21, 1, [
+      { deg: 222, depth: -0.36, width: 20 }, { deg: 180, depth: 0.18, width: 10 }, { deg: 262, depth: 0.12, width: 10 }]);
+    const ISLETS = [
+      makeIsland(640, 640, 20, 13, 31, 1.6), makeIsland(560, 288, 12, 9, 32, 1.6),
+      makeIsland(1196, 420, 13, 9, 33, 1.6), makeIsland(1172, 300, 24, 16, 34, 1.6),
+      makeIsland(196, 632, 15, 10, 35, 1.6), makeIsland(1006, 168, 11, 8, 36, 1.6),
+    ];
+
+    // ── the journey ────────────────────────────────────────────────────
+    // lx / ly: which side of the dot the label sits on; halo: the colour behind it (water or paper)
+    const STOPS = [
+      { kanji: '汐見',   roman: 'SHIOMI',        p: coastPoint(A, 184), lx: -1, ly: -1, halo: WATER },
+      { kanji: '白砂',   roman: 'SHIRASUNA',     p: coastPoint(A, 76),  lx: 1,  ly: 1,  halo: WATER },
+      { kanji: '灯台岬', roman: 'TŌDAI-MISAKI',  p: coastPoint(B, 150), lx: -1, ly: -1, halo: WATER },
+      { kanji: '霧ノ浦', roman: 'KIRINOURA',     p: coastPoint(B, 318), lx: -1, ly: -1, halo: PAPER },
+      { kanji: '遠音',   roman: 'TŌNE',          p: coastPoint(C, 222), lx: -1, ly: -1, halo: WATER },
+    ];
+    // legs: cubic curves between stops, controls as offsets from each end
+    const LEGS = [
+      { kind: 'road',  c1: [110, -60], c2: [-60, -90], sway: 9, waves: 2.5, start: 2 * BEAT, end: 4 * BEAT },
+      { kind: 'ferry', c1: [170, 20],  c2: [20, 150],  start: 4.5 * BEAT, end: 7 * BEAT },
+      { kind: 'road',  c1: [70, -10],  c2: [-60, 40],  sway: 7, waves: 2,   start: 7.5 * BEAT, end: 9 * BEAT },
+      { kind: 'ferry', c1: [80, -95],  c2: [50, -170], start: 9.5 * BEAT, end: 12 * BEAT },
+    ];
+    const bez = (p0, c1, c2, p1, t) => {
+      const u = 1 - t;
+      return [0, 1].map(i => u * u * u * p0[i] + 3 * u * u * t * c1[i] + 3 * u * t * t * c2[i] + t * t * t * p1[i]);
+    };
+    LEGS.forEach((L, i) => {
+      const p0 = STOPS[i].p, p1 = STOPS[i + 1].p;
+      L.p0 = p0; L.p1 = p1;
+      L.k1 = [p0[0] + L.c1[0], p0[1] + L.c1[1]];
+      L.k2 = [p1[0] + L.c2[0], p1[1] + L.c2[1]];
+      const f = v => v.toFixed(1);
+      L.d = `M ${f(p0[0])} ${f(p0[1])} C ${f(L.k1[0])} ${f(L.k1[1])} ${f(L.k2[0])} ${f(L.k2[1])} ${f(p1[0])} ${f(p1[1])}`;
+      // dashes for a ferry: sample by arc length, alternate 10 px on / 7 px off
+      const samples = [];
+      let len = 0, prev = p0;
+      for (let j = 0; j <= 400; j++) {
+        const q = bez(p0, L.k1, L.k2, p1, j / 400);
+        len += Math.hypot(q[0] - prev[0], q[1] - prev[1]); prev = q;
+        samples.push({ q, len });
+      }
+      L.length = len;
+      if (L.kind === 'ferry') {
+        const DASH = 10, GAP = 7, parts = [];
+        let pos = 0, si = 0;
+        const at = s => { while (si < samples.length - 1 && samples[si + 1].len < s) si++; return samples[Math.min(si + 1, samples.length - 1)].q; };
+        while (pos < len) {
+          si = 0;
+          const a = at(pos), b = at(Math.min(pos + DASH, len));
+          parts.push(`M ${f(a[0])} ${f(a[1])} L ${f(b[0])} ${f(b[1])}`);
+          pos += DASH + GAP;
+        }
+        L.dDraw = parts.join(' ');
+      } else {
+        // a road meanders: a small sideways sway along the curve, quiet at both ends
+        const pts = [];
+        for (let j = 0; j <= 120; j++) {
+          const t = j / 120, q = bez(p0, L.k1, L.k2, p1, t);
+          const a = bez(p0, L.k1, L.k2, p1, Math.max(0, t - 0.01)), b = bez(p0, L.k1, L.k2, p1, Math.min(1, t + 0.01));
+          const dx = b[0] - a[0], dy = b[1] - a[1], n = Math.hypot(dx, dy) || 1;
+          const off = L.sway * Math.sin(Math.PI * 2 * L.waves * t + 0.6) * Math.sin(Math.PI * t);
+          pts.push([q[0] - dy / n * off, q[1] + dx / n * off]);
+        }
+        L.d = 'M ' + pts.map(q => f(q[0]) + ' ' + f(q[1])).join(' L ');
+        L.dDraw = L.d;
+      }
+    });
+
+    // ── layer builders ─────────────────────────────────────────────────
+    const map = [];
+    const ISLANDS = [A, B, C];
+
+    // graticule: the sheet exists before the land does
+    [330, 730, 1130].forEach((x, i) => {
+      map.push({ type: 'shape', shape: 'line', name: `meridian-${i}`, from: [x, 0], to: [x, H], trimEnd: 0,
+        initial: { strokeColor: INK, strokeWidth: 0.7, strokeAlpha: 0.1 },
+        keyframes: [{ at: 0.05 * i, to: { trimEnd: 1 }, duration: 1.1, ease: 'power2.inOut' }] });
+      map.push({ type: 'text', name: `meridian-t-${i}`, text: `132°${20 + i * 10}′E`, at: 0.4 + i * 0.08, duration: DURATION,
+        style: { fontFamily: MONO, fontSize: 9.5, fill: INK, letterSpacing: 1 },
+        initial: { x: x - 6, y: 652, anchorX: 1, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.45 }, duration: 0.8 }] });
+    });
+    [250, 560].forEach((y, i) => map.push({ type: 'shape', shape: 'line', name: `parallel-${i}`, from: [0, y], to: [W, y], trimEnd: 0,
+      initial: { strokeColor: INK, strokeWidth: 0.7, strokeAlpha: 0.1 },
+      keyframes: [{ at: 0.1 + 0.05 * i, to: { trimEnd: 1 }, duration: 1.2, ease: 'power2.inOut' }] }));
+
+    // depth lines at sea (drawn first: under the land)
+    [...ISLANDS, ...ISLETS].forEach((isl, i) => {
+      const big = i < 3;
+      (big ? [1.13, 1.30] : [1.45]).forEach((s, j) => map.push({
+        type: 'shape', shape: 'path', name: `depth-${i}-${j}`, d: outline(isl, s, 0.02, 100 + i * 7 + j),
+        initial: { strokeColor: INK, strokeWidth: 0.8, strokeAlpha: big ? (j ? 0.12 : 0.2) : 0.14, alpha: 0 },
+        keyframes: [{ at: 0.5 + i * 0.06 + j * 0.15, to: { alpha: 1 }, duration: 1.2, ease: 'power1.inOut' }],
+      }));
+    });
+    // land: paper fill, coast draws on, then the fill settles in
+    [...ISLANDS, ...ISLETS].forEach((isl, i) => {
+      const t0 = 0.15 + i * 0.07;
+      map.push({
+        type: 'shape', shape: 'path', name: `land-${i}`, d: outline(isl, 1, 0, 0),
+        initial: { fillColor: PAPER, fillAlpha: 0 },
+        keyframes: [{ at: t0 + 1.05, to: { fillAlpha: 1 }, duration: 0.7, ease: 'power1.inOut' }],
+      });
+      map.push({
+        type: 'shape', shape: 'path', name: `coast-${i}`, d: outline(isl, 1, 0, 0), trimEnd: 0,
+        initial: { strokeColor: INK, strokeWidth: i < 3 ? 1.6 : 1.2, strokeJoin: 'round' },
+        keyframes: [{ at: t0, to: { trimEnd: 1 }, duration: 1.4, ease: 'power2.inOut' }],
+      });
+    });
+    // contours inland (thin ink, staggered)
+    ISLANDS.forEach((isl, i) => {
+      const levels = [0.8, 0.62, 0.45, 0.29, 0.15];
+      levels.forEach((s, j) => map.push({
+        type: 'shape', shape: 'path', name: `contour-${i}-${j}`, d: outline(isl, s, 0.035, 200 + i * 10 + j), trimEnd: 0,
+        initial: { strokeColor: INK, strokeWidth: j === 2 ? 0.9 : 0.6, strokeAlpha: j === 2 ? 0.42 : 0.26 },
+        keyframes: [{ at: 0.7 + i * 0.12 + j * 0.06, to: { trimEnd: 1 }, duration: 1.3, ease: 'power1.inOut' }],
+      }));
+    });
+
+    // a sea name, the cartographer's way: spaced, italic, quiet
+    map.push(
+      { type: 'text', name: 'sea-kanji', text: '凪ノ瀬戸', at: 1.8, duration: DURATION,
+        style: { fontFamily: MINCHO, fontSize: 15, fill: INK, letterSpacing: 16 },
+        initial: { x: 800, y: 600, anchorX: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.55 }, duration: 1.4, ease: 'power1.inOut' }] },
+      { type: 'text', name: 'sea-roman', text: 'Nagi Strait', at: 2.0, duration: DURATION,
+        style: { fontFamily: 'Georgia, serif', fontStyle: 'italic', fontSize: 13, fill: INK, letterSpacing: 3 },
+        initial: { x: 800, y: 626, anchorX: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.5 }, duration: 1.4, ease: 'power1.inOut' }] },
+    );
+
+    // route legs (under the stop markers)
+    LEGS.forEach((L, i) => map.push({
+      type: 'shape', shape: 'path', name: `leg-${i + 1}`, d: L.dDraw, trimEnd: 0,
+      at: L.start, duration: DURATION - L.start, strokeCap: L.kind === 'road' ? 'round' : 'butt',
+      initial: { strokeColor: RED, strokeWidth: L.kind === 'road' ? 3 : 2.4 },
+      keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: L.end - L.start, ease: 'power2.inOut' }],
+    }));
+
+    // stop markers: hollow rings appear as the plan; each fills on arrival
+    const arrive = i => i === 0 ? LEGS[0].start : LEGS[i - 1].end;
+    STOPS.forEach((S, i) => {
+      map.push({
+        type: 'shape', shape: 'circle', name: `stop-${i + 1}`, radius: 6.5, at: 1.15 + i * 0.09, duration: DURATION,
+        initial: { x: S.p[0], y: S.p[1], fillColor: PAPER, strokeColor: INK, strokeWidth: 1.6, scale: 0 },
+        keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.5, ease: 'power3.out' },
+                    { at: arrive(i) - (1.15 + i * 0.09), to: { strokeColor: RED }, duration: 0.3, ease: 'power2.out' }],
+      });
+      map.push({
+        type: 'shape', shape: 'circle', name: `stop-fill-${i + 1}`, radius: 3.6, at: arrive(i), duration: DURATION,
+        initial: { x: S.p[0], y: S.p[1], fillColor: RED, scale: 0 },
+        keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.4, ease: 'power3.out' }],
+      });
+      // label: index, kanji, romanisation beside the dot
+      const t = arrive(i) - (i === 0 ? 0.25 : 0.05);
+      const ox = S.lx * 16, alignX = S.lx < 0 ? 1 : 0;
+      const top = S.ly < 0 ? S.p[1] - 66 : S.p[1] + 10;
+      const rise = (k, extra = 0) => [{ at: extra, from: { alpha: 0, y: k + 9 }, to: { alpha: 1, y: k }, duration: 0.75, ease: 'power3.out' }];
+      map.push({ type: 'text', name: `idx-${i + 1}`, text: String(i + 1).padStart(2, '0'), at: t, duration: DURATION,
+        style: { fontFamily: MONO, fontSize: 11, fill: RED, letterSpacing: 2, stroke: { color: S.halo, width: 4, join: 'round' } },
+        initial: { x: S.p[0] + ox, y: top, anchorX: alignX }, keyframes: rise(top) });
+      map.push({ type: 'text', name: `kanji-${i + 1}`, text: S.kanji, at: t, duration: DURATION,
+        style: { fontFamily: MINCHO, fontSize: 24, fill: INK, fontWeight: '600', letterSpacing: 2, stroke: { color: S.halo, width: 5, join: 'round' } },
+        initial: { x: S.p[0] + ox, y: top + 15, anchorX: alignX }, keyframes: rise(top + 15, 0.06) });
+      map.push({ type: 'text', name: `roman-${i + 1}`, text: S.roman, at: t, duration: DURATION,
+        style: { fontFamily: MONO, fontSize: 10.5, fill: INK, letterSpacing: 2.5, stroke: { color: S.halo, width: 4, join: 'round' } },
+        initial: { x: S.p[0] + ox, y: top + 46, anchorX: alignX, alpha: 0 }, keyframes: rise(top + 46, 0.12) });
+    });
+
+    // the traveller: a dot riding the head of each leg
+    map.push({
+      type: 'shape', shape: 'circle', name: 'traveller', radius: 5.5, at: LEGS[0].start, duration: LEGS[3].end - LEGS[0].start + 0.2,
+      initial: { x: STOPS[0].p[0], y: STOPS[0].p[1], fillColor: RED, strokeColor: PAPER, strokeWidth: 2 },
+      keyframes: LEGS.flatMap(L => followPath({ d: L.d, duration: L.end - L.start, at: L.start - LEGS[0].start, ease: 'power2.inOut', frameRate: FPS })),
+    });
+    // arrival ring at the destination: "you are here", once
+    const END = LEGS[3].end;
+    map.push({
+      type: 'shape', shape: 'circle', name: 'arrival-ring', radius: 8, at: END, duration: 1.6,
+      initial: { x: STOPS[4].p[0], y: STOPS[4].p[1], strokeColor: RED, strokeWidth: 1.4, fillAlpha: 0, alpha: 1 },
+      keyframes: [{ at: 0, to: { scale: 3.6, alpha: 0 }, duration: 1.5, ease: 'power2.out' }],
+    });
+
+    // ── page furniture outside the map (static) ───────────────────────
+    const MX = 64, MY = 48;
+    const furniture = [];
+    const rise = (y, at, dur = 0.8) => [{ at: 0, from: { alpha: 0, y: y + 10 }, to: { alpha: 1, y }, duration: dur, ease: 'power3.out' }];
+    furniture.push(
+      { type: 'text', name: 'title', text: '汐路', at: 0.35, duration: DURATION,
+        style: { fontFamily: MINCHO, fontSize: 64, fill: INK, fontWeight: '600', letterSpacing: 10 },
+        initial: { x: MX - 2, y: MY }, keyframes: rise(MY) },
+      { type: 'text', name: 'subtitle', text: 'A route through five harbours', at: 0.6, duration: DURATION,
+        style: { fontFamily: 'Georgia, serif', fontStyle: 'italic', fontSize: 19, fill: INK },
+        initial: { x: MX, y: MY + 84 }, keyframes: rise(MY + 84) },
+      { type: 'text', name: 'meta', text: 'AN INVENTED ARCHIPELAGO  ·  1 : 250 000', at: 0.85, duration: DURATION,
+        style: { fontFamily: MONO, fontSize: 11, fill: INK, letterSpacing: 2 },
+        initial: { x: MX, y: MY + 116, alpha: 0 }, keyframes: [{ at: 0, from: { alpha: 0 }, to: { alpha: 0.6 }, duration: 0.8 }] },
+      { type: 'shape', shape: 'line', name: 'title-rule', from: [MX, MY + 108], to: [MX + 300, MY + 108], trimEnd: 0, at: 0.7, duration: DURATION,
+        initial: { strokeColor: INK, strokeWidth: 1, strokeAlpha: 0.5 }, keyframes: [{ at: 0, to: { trimEnd: 1 }, duration: 0.9, ease: 'power2.inOut' }] },
+    );
+    // summary after arrival
+    const SUM_T = END + 0.45;
+    furniture.push(
+      { type: 'text', name: 'summary', text: '5 HARBOURS  ·  4 LEGS  ·  186 KM', at: SUM_T, duration: DURATION - SUM_T,
+        style: { fontFamily: MONO, fontSize: 11, fill: RED, letterSpacing: 2 },
+        initial: { x: MX, y: MY + 138 }, keyframes: rise(MY + 138) },
+    );
+    // north arrow + scale bar + legend, top right
+    const RX = W - 64;
+    const nx = RX - 10, ny = MY + 6;
+    furniture.push(
+      { type: 'shape', shape: 'polygon', name: 'north', points: [[nx, ny], [nx + 7, ny + 26], [nx, ny + 20], [nx - 7, ny + 26]], at: 1.0, duration: DURATION,
+        initial: { fillColor: INK, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8 }] },
+      { type: 'text', name: 'north-n', text: 'N', at: 1.0, duration: DURATION, style: { fontFamily: MONO, fontSize: 11, fill: INK },
+        initial: { x: nx, y: ny + 32, anchorX: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8 }] },
+    );
+    const sbY = MY + 62, sbX = RX - 206;
+    for (let k = 0; k < 4; k++) furniture.push({
+      type: 'shape', shape: 'rect', name: `scale-${k}`, width: 40, height: 4, at: 1.1 + k * 0.05, duration: DURATION,
+      initial: { x: sbX + 20 + k * 40, y: sbY, fillColor: k % 2 ? PAPER : INK, strokeColor: INK, strokeWidth: 1, alpha: 0 },
+      keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6 }],
+    });
+    ['0', '10', '20 KM'].forEach((s, k) => furniture.push({
+      type: 'text', name: `scale-n-${k}`, text: s, at: 1.2, duration: DURATION, style: { fontFamily: MONO, fontSize: 10, fill: INK, letterSpacing: 1 },
+      initial: { x: sbX + k * 80, y: sbY + 8, anchorX: k === 2 ? 0.17 : 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.7 }, duration: 0.6 }],
+    }));
+    // legend: road / ferry
+    const lgY = sbY + 40;
+    furniture.push(
+      { type: 'shape', shape: 'line', name: 'lg-road', from: [sbX, lgY], to: [sbX + 26, lgY], strokeCap: 'round', at: 1.3, duration: DURATION,
+        initial: { strokeColor: RED, strokeWidth: 3, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6 }] },
+      { type: 'text', name: 'lg-road-t', text: 'ROAD', at: 1.3, duration: DURATION, style: { fontFamily: MONO, fontSize: 10, fill: INK, letterSpacing: 2 },
+        initial: { x: sbX + 36, y: lgY, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.7 }, duration: 0.6 }] },
+      { type: 'shape', shape: 'path', name: 'lg-ferry', d: `M ${sbX + 86} ${lgY} L ${sbX + 95} ${lgY} M ${sbX + 101} ${lgY} L ${sbX + 112} ${lgY}`, at: 1.4, duration: DURATION,
+        initial: { strokeColor: RED, strokeWidth: 2.4, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6 }] },
+      { type: 'text', name: 'lg-ferry-t', text: 'FERRY', at: 1.4, duration: DURATION, style: { fontFamily: MONO, fontSize: 10, fill: INK, letterSpacing: 2 },
+        initial: { x: sbX + 122, y: lgY, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 0.7 }, duration: 0.6 }] },
+    );
+
+    // ── sound: a calm pad, a bell on every departure / arrival beat ───
+    const sound = [{
+      type: 'audio', name: 'score', volume: 0.95,
+      music: {
+        bpm: 80, reverb: 0.45, seed: 4,
+        tracks: [
+          { inst: 'pad', notes: 'Dmaj7:4 Bm7:4 Gmaj7:4 Dmaj7:4', vol: [[0, 0.0], [2, 0.5], [13.5, 0.5], [16, 0.0]] },
+          { inst: 'sub', notes: 'd2:4 b1:4 g1:4 d2:4', vol: [[0, 0.3], [13.5, 0.3], [16, 0.0]] },
+          { inst: 'bell', notes: '_:2 a4:2 d5:3 f#5:2 e5:3 d5:4', vol: 0.95 },
+        ],
+      },
+    }];
+    // a soft pen scratch while the coast draws
+    sound.push({ type: 'audio', name: 'pen', at: 0.1, duration: 1.6, volume: 0.25,
+      sfx: { voices: [{ wave: 'noise', filter: { type: 'bandpass', freq: [2200, 3400] }, envelope: 'bell', pan: [-0.4, 0.4] }] } });
+    // each ferry leaves with a low wash of water
+    LEGS.filter(L => L.kind === 'ferry').forEach((L, i) => sound.push({
+      type: 'audio', name: `wash-${i + 1}`, at: L.start, duration: 1.6, volume: 0.4,
+      sfx: { preset: 'swoosh', brightness: -0.8, pitch: -9, seed: 3 + i } }));
+
+    const sequences = [
+      { type: 'shape', shape: 'rect', name: 'water', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: WATER } },
+      { type: 'composition', name: 'map', width: W, height: H, duration: DURATION,
+        // a slow settle from the west (where the trip begins) to the whole sheet, landing as the summary appears
+        initial: { pivotX: 640, pivotY: 420, x: 690, y: 430, scale: 1.1 },
+        keyframes: [{ at: 0, to: { x: 640, y: 420, scale: 1 }, duration: 10.2, ease: 'sine.inOut' }],
+        sequences: map },
+      ...furniture,
+      ...sound,
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;                         // so a script can seek / screenshot / render
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 10.4,                   // the finished journey: every harbour named, the summary in place
+        background: WATER,
+        // assets: [{ name: 'photo', src: './photo.jpg' }, { name: 'bgm', src: './bgm.mp3' }],
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));   // keep this try/catch: it makes failures visible
+    }
+  </script>
+</body>
+</html>

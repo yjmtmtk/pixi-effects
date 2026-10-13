@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>影送り KAGEOKURI</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/loader.css" />   <!-- the loader: HTML + CSS only, so it is on screen at once and keeps moving while the page builds the video -->
+  <style>
+    body { background: #0e0d0c; margin: 0; padding: 16px; min-height: 100vh; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+    .stage { position: relative; width: min(960px, 100%); }                 /* the player and the loader both sit inside this box */
+    .stage canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+    /* the loader (pixi-effects/loader.css, linked above): movie.init() fades it out when the movie is ready */
+    /* Screenshots: the player bar overlays the bottom ~60px of the canvas (it is NOT part of the exported video).
+       Uncomment to hide it while you check the layout:  .movie-controller { display: none !important; } */
+  </style>
+</head>
+<body>
+  <script type="application/json" id="piece-meta">{ "title": "影送り KAGEOKURI", "subtitle": "Opening titles for a drama that does not exist: light passes over every name and leaves an afterimage; the title arrives as its own shadow.", "tags": ["title sequence", "light", "shadow", "typography", "music", "2.5D"], "width": 1280, "height": 720, "duration": 14, "model": "opus" }</script>
+  <div class="stage">
+    <canvas id="stage" width="1280" height="720"></canvas>
+    <div class="pe-loader" data-label="LOADING"></div>   <!-- shared loader: .pe-loader--pulse / --bar for other looks, --custom for your own -->
+  </div>
+
+  <script>
+    // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
+    //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+    window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));
+  </script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":              "https://esm.sh/mediabunny",
+      "pixi-effects":            "../../dist/index.js",
+      "pixi-effects/controller": "../../dist/Controller.js",
+      "pixi-effects/present":  "../../dist/present.js",
+      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
+      "three":                   "https://esm.sh/three@0.178.0"
+    }
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js" />   <!-- after the import map: the library downloads while the page is parsed -->
+
+  <script type="module">
+    import { Movie, splitText, measureText } from 'pixi-effects';
+    import { Controller } from 'pixi-effects/controller';
+
+    // 影送り KAGEOKURI: opening titles for a drama that does not exist.
+    // Light moves, type does not. Where the light has passed, a cold afterimage lingers and fades.
+    const W = 1280, H = 720, FPS = 30, DURATION = 14;
+    const BEAT = 60 / 80;                    // 80 bpm: a beat is 0.75 s, a bar 3 s; cuts at 0, 3, 6, 12 s
+    const C = { night: '#0b0a09', tungsten: '#f1d9a8', after: '#7f98a6', ember: '#c4482f' };
+    const MINCHO = '"Hiragino Mincho ProN", "Hiragino Mincho Pro", "Yu Mincho", YuMincho, "Noto Serif CJK JP", serif';
+    const SERIF = 'Georgia, "Times New Roman", serif';
+    const SCOPE = 92;                        // 2.39:1 letterbox bars
+    const warm = a => `rgba(241,217,168,${a})`;
+
+    const roleStyle = { fontFamily: MINCHO, fontSize: 15, fontWeight: '400', fill: C.after, letterSpacing: 9 };
+    const nameStyle = { fontFamily: MINCHO, fontSize: 38, fontWeight: '300', fill: C.tungsten, letterSpacing: 13 };
+    const titleStyle = { fontFamily: MINCHO, fontSize: 150, fontWeight: '600', fill: C.tungsten, letterSpacing: 27 };
+
+    // ---------- scene 1 (bar 1): a slit of light, a door left ajar, crosses the director's credit ----------
+    const SLIT = { from: 110, to: 1170, at: 0.45, dur: 3.0, width: 130 };
+    const SLIT_END = SLIT.at + SLIT.dur;
+    const slitTimeAt = x => SLIT.at + (x - SLIT.from) / (SLIT.to - SLIT.from) * SLIT.dur;
+    const slitMove = { at: SLIT.at, from: { x: SLIT.from }, to: { x: SLIT.to }, duration: SLIT.dur, ease: 'none' };
+    const band = (name, width, stops, extra = {}) => ({
+      type: 'shape', shape: 'rect', name, width, height: H, at: 0, duration: SLIT_END + 0.3,
+      initial: { x: SLIT.from, y: H / 2, alpha: 0 }, fillGradient: { angle: 0, stops },
+      keyframes: [{ at: 0.3, to: { alpha: 1 }, duration: 0.25, ease: 'power2.out' }, slitMove,
+                  { at: SLIT_END - 0.1, to: { alpha: 0 }, duration: 0.3, ease: 'sine.in' }],
+      ...extra,
+    });
+    // a credit the light reads letter by letter: the lit copy shows only inside the slit; every letter leaves an afterimage
+    function slitCredit(name, text, style, x, y) {
+      const out = [];
+      for (const p of splitText(text, style, { x, y })) {
+        const tc = slitTimeAt(p.x + p.width / 2);
+        out.push({ type: 'text', name: `${name}-after${p.index}`, text: p.text, style: { ...style, fill: C.after },
+          at: tc - 0.05, duration: 2.8, initial: { x: p.x, y: p.y, alpha: 0 },
+          keyframes: [{ at: 0, to: { alpha: 0.8 }, duration: 0.3, ease: 'power2.out' },
+                      { at: 0.6, to: { alpha: 0 }, duration: 1.6, ease: 'sine.in' }] });
+      }
+      out.push({ type: 'text', name: `${name}-lit`, text, style, at: 0, duration: SLIT_END + 0.3,
+        initial: { x, y }, mask: { layer: 'slitMatte', channel: 'luma' } });
+      return out;
+    }
+    const scene1 = [
+      band('slitMatte', SLIT.width, [[0, '#000000'], [0.5, '#ffffff'], [1, '#000000']]),
+      band('slitHalo', 560, [[0, warm(0)], [0.5, warm(0.07)], [1, warm(0)]], { blendMode: 'add' }),
+      band('slitLight', SLIT.width, [[0, warm(0)], [0.5, warm(0.2)], [1, warm(0)]], { blendMode: 'add' }),
+      band('slitCore', 2, [[0, warm(0.55)], [1, warm(0.55)]], { blendMode: 'add' }),
+      ...slitCredit('role1', '監督', roleStyle, 384, 296),
+      ...slitCredit('name1', '宮下 晴', nameStyle, 384, 322),
+    ];
+
+    // ---------- scene 2 (bar 2): venetian-blind light drifts down over the cast ----------
+    const BL = { at: 3.0, dur: 3.0, x: 820, y0: 200, y1: 470, rot: -14 };
+    const blindsD = Array.from({ length: 11 }, (_, i) => {
+      const y = -275 + i * 50;
+      return `M -820 ${y} H 820 V ${y + 20} H -820 Z`;
+    }).join(' ');
+    const blinds = (name, extra) => ({
+      type: 'shape', shape: 'path', name, d: blindsD, at: BL.at, duration: BL.dur,
+      initial: { x: BL.x, y: BL.y0, rotation: BL.rot, fillColor: '#ffffff' },
+      keyframes: [{ at: 0, to: { y: BL.y1 }, duration: BL.dur, ease: 'none' }],
+      ...extra,
+    });
+    const castLines = [['role2', '出演', roleStyle, 780, 282], ['name2', '早瀬 灯', nameStyle, 780, 308], ['name3', '久遠 朔', nameStyle, 780, 364]];
+    const scene2 = [
+      blinds('blinds', { filters: [{ type: 'blur', strength: 2 }] }),
+      // the light on the wall IS the matte: a warm pool seen only through the slats, so the lit letters always sit in a lit stripe
+      { type: 'shape', shape: 'rect', name: 'blindsLight', width: W, height: H, at: BL.at, duration: BL.dur, mask: 'blinds', blendMode: 'add',
+        initial: { x: W / 2, y: H / 2, alpha: 0 }, fillGradient: { angle: 0, stops: [[0.2, warm(0)], [0.62, warm(0.16)], [1, warm(0.05)]] },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.6, ease: 'power2.out' }, { at: 2.3, to: { alpha: 0 }, duration: 0.7, ease: 'sine.in' }] },
+      ...castLines.map(([name, text, style, x, y]) => ({ type: 'text', name: `${name}-after`, text, style: { ...style, fill: C.after },
+        at: BL.at, duration: BL.dur, initial: { x, y, alpha: 0 },
+        keyframes: [{ at: 0.4, to: { alpha: 0.3 }, duration: 1.2, ease: 'power2.out' }, { at: 2.4, to: { alpha: 0 }, duration: 0.55, ease: 'sine.in' }] })),
+      ...castLines.map(([name, text, style, x, y]) => ({ type: 'text', name: `${name}-lit`, text, style,
+        at: BL.at, duration: BL.dur, initial: { x, y }, mask: 'blinds',
+        keyframes: [{ at: 2.4, to: { alpha: 0 }, duration: 0.55, ease: 'sine.in' }] })),
+    ];
+
+    // ---------- scene 3 (bars 3-4): one lamp, a wall, and the title's own shadow ----------
+    const T = { at: 6.0, off: 12.0, x: 580, y: 330 };
+    const titleW = measureText('影送り', titleStyle).width;
+    const titleLeft = T.x - titleW / 2;
+    const scene3 = [
+      { type: 'camera' },
+      { type: 'light', kind: 'ambient', at: T.at, duration: DURATION - T.at, initial: { intensity: 0.05 } },
+      { type: 'light', kind: 'spot', name: 'lamp', castsShadows: true, at: T.at, duration: DURATION - T.at,
+        initial: { x: 240, y: 880, z: 620, lookAtX: 660, lookAtY: 330, lookAtZ: -70, coneAngle: 62, coneFeather: 0.85,
+                   intensity: 0, color: C.tungsten, shadowDarkness: 0.75, shadowDiffusion: 14 },
+        keyframes: [
+          { at: 0, to: { intensity: 1.1 }, duration: 0.05 },
+          { at: 0.09, to: { intensity: 0.3 }, duration: 0.05 },
+          { at: 0.2, to: { intensity: 1.3 }, duration: 0.12 },
+          { at: 0.45, to: { x: 150, y: 60, lookAtX: 700, lookAtY: 360 }, duration: 5.0, ease: 'sine.inOut' },
+          { at: T.off - T.at, to: { intensity: 0 }, duration: 0.08 },
+        ] },
+      { type: 'shape', shape: 'rect', name: 'wall', threeD: true, width: 2400, height: 1400, at: T.at, duration: DURATION - T.at,
+        initial: { x: W / 2, y: H / 2, z: -70, fillColor: '#6a5e4f' } },
+      // the title arrives as its own shadow: its letters start the colour of the wall and only warm up after the shadow has been read
+      { type: 'text', name: 'title', threeD: true, castsShadows: true, text: '影送り', style: { ...titleStyle, fill: '#6a5e4f' }, at: T.at, duration: DURATION - T.at,
+        initial: { x: T.x, y: T.y, z: 0, anchorX: 0.5, anchorY: 0.5 },
+        keyframes: [{ at: 1.2, to: { fill: C.tungsten }, duration: 1.8, ease: 'sine.inOut' }] },
+      // the afterimage of the title when the lamp goes out
+      { type: 'text', name: 'title-after', text: '影送り', style: { ...titleStyle, fill: C.after }, at: T.off, duration: DURATION - T.off,
+        initial: { x: T.x, y: T.y, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 0.75 }, duration: 0.2, ease: 'power2.out' }, { at: 0.3, to: { alpha: 0.42 }, duration: 1.4, ease: 'sine.out' }] },
+      { type: 'text', name: 'latin', text: 'KAGEOKURI', style: { fontFamily: SERIF, fontSize: 16, fill: C.after, letterSpacing: 13 },
+        at: 9.0, duration: DURATION - 9.0, initial: { x: titleLeft + 6, y: T.y + 128, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 1.2, ease: 'power2.out' }] },
+      { type: 'shape', shape: 'rect', name: 'ember', width: 28, height: 1, at: 9.75, duration: DURATION - 9.75,
+        initial: { x: 1000, y: 560, fillColor: C.ember, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.8, ease: 'power2.out' }] },
+      { type: 'text', name: 'year', text: '二〇二七年 冬', style: { fontFamily: MINCHO, fontSize: 19, fill: C.tungsten, letterSpacing: 9 },
+        at: 9.75, duration: DURATION - 9.75, initial: { x: 1030, y: 560, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0, to: { alpha: 1 }, duration: 1.0, ease: 'power2.out' }] },
+    ];
+
+    // ---------- sound: written as text, on the 80 bpm grid ----------
+    const score = {
+      bpm: 80, reverb: 0.45, humanize: 0.006,
+      tracks: [
+        { inst: 'pad', vol: [[0, 0], [3, 0.6], [16, 0.6], [20, 0.25]], attack: 1.6, release: 2.5, tone: 0.35,
+          notes: 'Amadd9:8 Fmaj7#11:8 Amadd9:4' },
+        // a music-box note when the light touches a name (beats 2, 4, 6, 7.5) and one when the lamp goes out (beat 16)
+        { inst: 'musicbox', vol: 0.45, reverb: 0.8, ring: 2.5, notes: '_:2 e5:2 b4:2 c5:1.5 a4:0.5 _:8 e6:4' },
+        // a heartbeat under the title
+        { inst: 'sub', vol: 0.9, notes: '_:8 a1:0.5 _:0.5 a1:0.5 _:2.5 a1:0.5 _:0.5 a1:0.5 _:2.5 _:4' },
+      ],
+    };
+    const sound = [
+      { type: 'audio', name: 'music', at: 0, volume: 1.35, music: score },
+      { type: 'audio', name: 'lamp-on', sfx: { preset: 'click', pitch: -12, brightness: -0.4 }, at: 0.3, volume: 0.6 },
+      { type: 'audio', name: 'riser', sfx: { preset: 'riser', brightness: -0.3 }, at: T.at - 2, duration: 2, volume: 1.0 },
+      { type: 'audio', name: 'hit', sfx: { preset: 'hit', pitch: -5, brightness: -0.5 }, at: T.at },
+      { type: 'audio', name: 'lamp-off', sfx: { preset: 'click', pitch: -12, brightness: -0.4 }, at: T.off },
+    ];
+
+    const letterbox = [
+      { type: 'shape', shape: 'rect', name: 'scope-top', width: W, height: SCOPE, initial: { x: W / 2, y: SCOPE / 2, fillColor: '#000000' } },
+      { type: 'shape', shape: 'rect', name: 'scope-bottom', width: W, height: SCOPE, initial: { x: W / 2, y: H - SCOPE / 2, fillColor: '#000000' } },
+    ];
+
+    const sequences = [
+      { type: 'shape', shape: 'rect', name: 'room', width: W, height: H, initial: { x: W / 2, y: H / 2, fillColor: C.night } },
+      ...scene1, ...scene2, ...scene3, ...letterbox, ...sound,
+    ];
+
+    const movie = new Movie();
+    window.movie = movie;
+    new Controller(movie, { canvas: document.getElementById('stage') });
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'),
+        width: W, height: H, duration: DURATION, frameRate: FPS,
+        poster: 10.5,
+        background: C.night,
+        composition: { sequences, filters: [{ type: 'grain', amount: 0.03, size: 1.2 }] },
+      });
+      window.__ready = true;
+    } catch (e) {
+      window.__logs.push('init failed: ' + (e && e.message || e));
+    }
+  </script>
+</body>
+</html>

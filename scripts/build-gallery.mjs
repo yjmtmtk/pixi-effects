@@ -27,14 +27,14 @@ export const FEATURED = [
   'generative-orbits',
   'news-package',
   'aura-launch',
-  'travel-slideshow',
+  'wild-geese',
   'sports-scoreboard',
   'data-story',
   'app-promo',
   'network-explainer',
   'transitions-reel',
-  'countdown-newyear',
-  'music-visualizer',
+  'made-of-seconds',
+  'kageokuri',
 ];
 
 const META_RE = /<script[^>]*\bid=["']piece-meta["'][^>]*>([\s\S]*?)<\/script>/i;

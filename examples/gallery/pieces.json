@@ -185,25 +185,25 @@
       "notes": "_notes/aura-launch.md"
     },
     {
-      "id": "travel-slideshow",
-      "title": "Four days in Iceland",
-      "subtitle": "A fictional travel slideshow: four procedurally painted landscapes, Ken Burns, four different transitions, captions and a day counter.",
+      "id": "wild-geese",
+      "title": "Wild Geese Return",
+      "subtitle": "寒露 初候「鴻雁来」: one micro-season in sumi on kinari paper",
       "tags": [
-        "slideshow",
-        "ken burns",
-        "transitions",
-        "procedural images",
-        "audio",
-        "captions"
+        "wa",
+        "ink",
+        "season",
+        "minimal",
+        "japanese",
+        "procedural"
       ],
       "width": 1280,
       "height": 720,
-      "duration": 14,
-      "posterFrame": 400,
-      "model": "sonnet",
-      "page": "travel-slideshow.html",
-      "poster": "posters/travel-slideshow.jpg",
-      "notes": "_notes/travel-slideshow.md"
+      "duration": 12,
+      "posterFrame": 252,
+      "model": "opus",
+      "page": "wild-geese.html",
+      "poster": "posters/wild-geese.jpg",
+      "notes": "_notes/wild-geese.md"
     },
     {
       "id": "sports-scoreboard",
@@ -307,45 +307,45 @@
       "notes": "_notes/transitions-reel.md"
     },
     {
-      "id": "countdown-newyear",
-      "title": "Countdown to 2027",
-      "subtitle": "10 to 1 with ring pulses, then a seeded fireworks finale",
+      "id": "made-of-seconds",
+      "title": "Made of Seconds",
+      "subtitle": "Sixty seconds close into a minute, and on up to a year: 31,536,000 ticks, and then the next one.",
       "tags": [
-        "countdown",
-        "fireworks",
-        "particles",
+        "time",
+        "minimal",
+        "clock",
         "typography",
-        "audio"
+        "sound"
       ],
-      "width": 1280,
-      "height": 720,
-      "duration": 12,
-      "posterFrame": 288,
-      "model": "sonnet",
-      "page": "countdown-newyear.html",
-      "poster": "posters/countdown-newyear.jpg",
-      "notes": "_notes/countdown-newyear.md"
+      "width": 1080,
+      "height": 1080,
+      "duration": 13.8,
+      "posterFrame": 306,
+      "model": "opus",
+      "page": "made-of-seconds.html",
+      "poster": "posters/made-of-seconds.jpg",
+      "notes": "_notes/made-of-seconds.md"
     },
     {
-      "id": "music-visualizer",
-      "title": "Night Drive",
-      "subtitle": "A neon music visualizer that really listens: 48 bars from a 24-band analysis of the sample music, a radial pulse and rings on its actual kicks, and a progress ring.",
+      "id": "kageokuri",
+      "title": "影送り KAGEOKURI",
+      "subtitle": "Opening titles for a drama that does not exist: light passes over every name and leaves an afterimage; the title arrives as its own shadow.",
       "tags": [
+        "title sequence",
+        "light",
+        "shadow",
+        "typography",
         "music",
-        "audio",
-        "audio-reactive",
-        "spectrum",
-        "glow",
-        "loop"
+        "2.5D"
       ],
       "width": 1280,
       "height": 720,
-      "duration": 12,
-      "posterFrame": 195,
-      "model": "sonnet",
-      "page": "music-visualizer.html",
-      "poster": "posters/music-visualizer.jpg",
-      "notes": "_notes/music-visualizer.md"
+      "duration": 14,
+      "posterFrame": 315,
+      "model": "opus",
+      "page": "kageokuri.html",
+      "poster": "posters/kageokuri.jpg",
+      "notes": "_notes/kageokuri.md"
     },
     {
       "id": "solar-system",
@@ -366,27 +366,6 @@
       "page": "solar-system.html",
       "poster": "posters/solar-system.jpg",
       "notes": "_notes/solar-system.md"
-    },
-    {
-      "id": "history-timeline",
-      "title": "A short history of computing",
-      "subtitle": "An editorial timeline, 1936 to 2023: a line draws while the camera pans past eight drawn milestones",
-      "tags": [
-        "infographic",
-        "timeline",
-        "editorial",
-        "counter",
-        "parallax",
-        "icons"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 14,
-      "posterFrame": 405,
-      "model": "opus",
-      "page": "history-timeline.html",
-      "poster": "posters/history-timeline.jpg",
-      "notes": "_notes/history-timeline.md"
     },
     {
       "id": "rewind-title",
@@ -411,28 +390,6 @@
       "notes": "_notes/rewind-title.md"
     },
     {
-      "id": "christmas-eve",
-      "title": "Christmas Eve",
-      "subtitle": "A snowy night at a lit cottage and a small tree, with a slow music-box lullaby written as text: there is no audio file in this piece",
-      "tags": [
-        "christmas",
-        "winter",
-        "snow",
-        "night",
-        "music",
-        "typography",
-        "particles"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 22,
-      "posterFrame": 330,
-      "model": "sonnet",
-      "page": "christmas-eve.html",
-      "poster": "posters/christmas-eve.jpg",
-      "notes": "_notes/christmas-eve.md"
-    },
-    {
       "id": "d3-story",
       "title": "d3 × pixi-effects",
       "subtitle": "d3 computes, pixi-effects performs: a bar chart, a self-drawing line, a donut and a world map with great-circle routes, every number from d3 scales, line, pie, arc and geoPath",
@@ -453,27 +410,6 @@
       "page": "d3-story.html",
       "poster": "posters/d3-story.jpg",
       "notes": "_notes/d3-story.md"
-    },
-    {
-      "id": "piano-roll",
-      "title": "Eight Bars",
-      "subtitle": "A four-bar tune written as text, falling down a piano roll: each bar flashes and rings the moment its note sounds",
-      "tags": [
-        "music",
-        "piano roll",
-        "sound from text",
-        "rhythm",
-        "minimal",
-        "typography"
-      ],
-      "width": 1080,
-      "height": 1080,
-      "duration": 14,
-      "posterFrame": 270,
-      "model": "haiku",
-      "page": "piano-roll.html",
-      "poster": "posters/piano-roll.jpg",
-      "notes": "_notes/piano-roll.md"
     },
     {
       "id": "liquid-flow-title",
@@ -498,26 +434,24 @@
       "notes": "_notes/liquid-flow-title.md"
     },
     {
-      "id": "shape-shift",
-      "title": "Form Follows",
-      "subtitle": "A Bauhaus-style poster in motion: a red square becomes a yellow circle becomes a blue triangle, a small black dot circles it, and the line of type changes to FUNCTION, FEELING and FUTURE with each shape",
+      "id": "rain-fourteen-days",
+      "title": "Fourteen Days of Rain",
+      "subtitle": "365 day-bars re-sort themselves: half a year's rain falls on 14 days (illustrative data)",
       "tags": [
-        "morph",
-        "follow-path",
-        "animate-text",
-        "typography",
-        "poster",
-        "bauhaus",
-        "sfx"
+        "data story",
+        "chart",
+        "sort",
+        "japanese",
+        "editorial"
       ],
       "width": 1280,
       "height": 720,
-      "duration": 12,
-      "posterFrame": 216,
-      "model": "sonnet",
-      "page": "shape-shift.html",
-      "poster": "posters/shape-shift.jpg",
-      "notes": "_notes/shape-shift.md"
+      "duration": 13,
+      "posterFrame": 354,
+      "model": "opus",
+      "page": "rain-fourteen-days.html",
+      "poster": "posters/rain-fourteen-days.jpg",
+      "notes": "_notes/rain-fourteen-days.md"
     },
     {
       "id": "hanabi-night",
@@ -541,45 +475,43 @@
       "notes": "_notes/hanabi-night.md"
     },
     {
-      "id": "birthday-card",
-      "title": "Happy Birthday, Mika!",
-      "subtitle": "Balloons, a layered cake, flickering candles, a blow-out and a confetti burst",
+      "id": "hanbun-app",
+      "title": "hanbun",
+      "subtitle": "A fictional split-the-bill app: one tap folds eighteen transfers into three",
       "tags": [
-        "birthday",
-        "celebration",
-        "confetti",
-        "cake",
-        "typography",
-        "audio"
+        "ui",
+        "app promo",
+        "japanese",
+        "portrait"
       ],
-      "width": 1280,
-      "height": 720,
+      "width": 1080,
+      "height": 1350,
       "duration": 12,
-      "posterFrame": 285,
-      "model": "sonnet",
-      "page": "birthday-card.html",
-      "poster": "posters/birthday-card.jpg",
-      "notes": "_notes/birthday-card.md"
+      "posterFrame": 168,
+      "model": "opus",
+      "page": "hanbun-app.html",
+      "poster": "posters/hanbun-app.jpg",
+      "notes": "_notes/hanbun-app.md"
     },
     {
-      "id": "weather-report",
-      "title": "Harbor City Forecast",
-      "subtitle": "A five-day broadcast forecast: shifting skies, glass cards, animated icons and a self-drawing temperature line.",
+      "id": "tenon-joint",
+      "title": "HOZO",
+      "subtitle": "A logo sting for an invented joinery workshop: two blocks slide out of a close-up and lock with one wooden click",
       "tags": [
-        "weather",
-        "broadcast",
-        "data",
-        "icons",
-        "glass"
+        "logo",
+        "sting",
+        "brand",
+        "sound",
+        "geometric"
       ],
       "width": 1280,
       "height": 720,
-      "duration": 12,
-      "posterFrame": 300,
-      "model": "sonnet",
-      "page": "weather-report.html",
-      "poster": "posters/weather-report.jpg",
-      "notes": "_notes/weather-report.md"
+      "duration": 9,
+      "posterFrame": 195,
+      "model": "opus",
+      "page": "tenon-joint.html",
+      "poster": "posters/tenon-joint.jpg",
+      "notes": "_notes/tenon-joint.md"
     },
     {
       "id": "isometric-city",
@@ -602,46 +534,6 @@
       "notes": "_notes/isometric-city.md"
     },
     {
-      "id": "departure-board",
-      "title": "Last Train",
-      "subtitle": "A split-flap station board at night: the cascade, one status change, and the last train of the night",
-      "tags": [
-        "typography",
-        "split-flap",
-        "japanese",
-        "vertical",
-        "sound"
-      ],
-      "width": 720,
-      "height": 1280,
-      "duration": 12,
-      "posterFrame": 300,
-      "model": "haiku",
-      "page": "departure-board.html",
-      "poster": "posters/departure-board.jpg",
-      "notes": "_notes/departure-board.md"
-    },
-    {
-      "id": "recipe-card",
-      "title": "Lemon Pasta Recipe Card",
-      "subtitle": "A 4:5 animated recipe card: ingredients that check themselves off, three timed steps with countdowns, and a plated dish that assembles from circles.",
-      "tags": [
-        "portrait",
-        "illustration",
-        "food",
-        "counters",
-        "shapes"
-      ],
-      "width": 1080,
-      "height": 1350,
-      "duration": 12,
-      "posterFrame": 345,
-      "model": "sonnet",
-      "page": "recipe-card.html",
-      "poster": "posters/recipe-card.jpg",
-      "notes": "_notes/recipe-card.md"
-    },
-    {
       "id": "light-leaks",
       "title": "Light leaks",
       "subtitle": "A dusk city told only by blend modes: a soft-light colour cast, a colour-dodge light leak, a multiply vignette",
@@ -662,23 +554,24 @@
       "notes": "_notes/light-leaks.md"
     },
     {
-      "id": "loader-gallery",
-      "title": "Loader Gallery",
-      "subtitle": "Nine hypnotic loading loops on one dark board, each a different idea.",
+      "id": "loop-grid",
+      "title": "Loop Grid",
+      "subtitle": "An original two-bar loop written as text; every cell is a note and flares the moment it sounds",
       "tags": [
-        "loops",
-        "ui-motion",
-        "generative",
+        "music",
+        "sequencer",
+        "audio-reactive",
+        "grid",
         "square"
       ],
       "width": 1080,
       "height": 1080,
-      "duration": 10,
-      "posterFrame": 262,
-      "model": "sonnet",
-      "page": "loader-gallery.html",
-      "poster": "posters/loader-gallery.jpg",
-      "notes": "_notes/loader-gallery.md"
+      "duration": 13,
+      "posterFrame": 210,
+      "model": "opus",
+      "page": "loop-grid.html",
+      "poster": "posters/loop-grid.jpg",
+      "notes": "_notes/loop-grid.md"
     },
     {
       "id": "matte-reel",
@@ -702,6 +595,26 @@
       "notes": "_notes/matte-reel.md"
     },
     {
+      "id": "nagiro-light",
+      "title": "NAGIRO",
+      "subtitle": "A quiet product film for an invented table light, told only with light on aluminium and opal glass",
+      "tags": [
+        "product",
+        "shader",
+        "raymarching",
+        "light",
+        "music"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 13,
+      "posterFrame": 360,
+      "model": "opus",
+      "page": "nagiro-light.html",
+      "poster": "posters/nagiro-light.jpg",
+      "notes": "_notes/nagiro-light.md"
+    },
+    {
       "id": "spring-marquee",
       "title": "Now Showing",
       "subtitle": "A vintage cinema marquee at night: bulbs snap on, letters bounce onto the rail, a ticket stub wobbles in, all under one film grain",
@@ -722,26 +635,25 @@
       "notes": "_notes/spring-marquee.md"
     },
     {
-      "id": "orbit-rig",
-      "title": "Orrery",
-      "subtitle": "A museum plate of the solar system in ivory and brass: orbit rings draw on one by one, planets ride nested rotating layers (a moon on the Earth's), a legend and a serif title arrive in quiet waves, the whole plate breathes by hand",
+      "id": "one-stroke",
+      "title": "One Stroke",
+      "subtitle": "一 is one line: a hairline becomes the letter, keeps its single stroke through 13 typefaces, and is left alone at the end",
       "tags": [
-        "orbit",
-        "null-parent",
-        "wiggle",
-        "stagger",
         "typography",
-        "diagram",
-        "sfx"
+        "kinetic type",
+        "japanese",
+        "poster",
+        "specimen",
+        "music"
       ],
       "width": 1280,
       "height": 720,
-      "duration": 12,
-      "posterFrame": 240,
-      "model": "sonnet",
-      "page": "orbit-rig.html",
-      "poster": "posters/orbit-rig.jpg",
-      "notes": "_notes/orbit-rig.md"
+      "duration": 14,
+      "posterFrame": 315,
+      "model": "opus",
+      "page": "one-stroke.html",
+      "poster": "posters/one-stroke.jpg",
+      "notes": "_notes/one-stroke.md"
     },
     {
       "id": "three-product-spin",
@@ -784,6 +696,26 @@
       "notes": "_notes/lyric-video.md"
     },
     {
+      "id": "pythagoras-rearranged",
+      "title": "Pythagoras, Rearranged",
+      "subtitle": "Four triangles slide; the empty space goes from c² to a² + b² without changing its area",
+      "tags": [
+        "explainer",
+        "math",
+        "geometry",
+        "editorial",
+        "japanese"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 12.5,
+      "posterFrame": 345,
+      "model": "opus",
+      "page": "pythagoras-rearranged.html",
+      "poster": "posters/pythagoras-rearranged.jpg",
+      "notes": "_notes/pythagoras-rearranged.md"
+    },
+    {
       "id": "paper-cutout-forest",
       "title": "Quiet Woods",
       "subtitle": "A cut-paper diorama in 2.5D: layered hills and pines under a paper moon, a fox crossing the mid-ground, fireflies, and a hand-lettered label that unfolds",
@@ -824,23 +756,26 @@
       "notes": "_notes/rack-focus.md"
     },
     {
-      "id": "replay-highlight",
-      "title": "REPLAY",
-      "subtitle": "One great shot, live, then again in slow motion with the arc drawn on.",
+      "id": "route-atlas",
+      "title": "Route Atlas",
+      "subtitle": "An invented archipelago, one vermilion route, five harbours named in calm type",
       "tags": [
-        "sports",
-        "replay",
-        "slow motion",
-        "sound"
+        "map",
+        "cartography",
+        "route",
+        "draw-on",
+        "typography",
+        "japanese",
+        "music"
       ],
       "width": 1280,
       "height": 720,
       "duration": 12,
-      "posterFrame": 231,
-      "model": "haiku",
-      "page": "replay-highlight.html",
-      "poster": "posters/replay-highlight.jpg",
-      "notes": "_notes/replay-highlight.md"
+      "posterFrame": 312,
+      "model": "opus",
+      "page": "route-atlas.html",
+      "poster": "posters/route-atlas.jpg",
+      "notes": "_notes/route-atlas.md"
     },
     {
       "id": "shader-garden",
@@ -885,6 +820,26 @@
       "notes": "_notes/sketch-launch.md"
     },
     {
+      "id": "loop-morph",
+      "title": "Small Motions",
+      "subtitle": "One dot becomes a loader, a progress bar, a toggle, a check and a spinner, and comes home: a seamless 12 s loop",
+      "tags": [
+        "loop",
+        "micro-interaction",
+        "loader",
+        "ui",
+        "music"
+      ],
+      "width": 1080,
+      "height": 1080,
+      "duration": 12,
+      "posterFrame": 204,
+      "model": "opus",
+      "page": "loop-morph.html",
+      "poster": "posters/loop-morph.jpg",
+      "notes": "_notes/loop-morph.md"
+    },
+    {
       "id": "gradient-type",
       "title": "Spectrum",
       "subtitle": "One heavy word whose gradient turns through four colours while a radial glow drifts behind it",
@@ -926,67 +881,23 @@
       "notes": "_notes/spotlight-room.md"
     },
     {
-      "id": "still-water",
-      "title": "Still Water",
-      "subtitle": "Three lakes, three real photographs: slow Ken Burns moves, a viewfinder that draws itself on, and a caption that re-types for each photo",
+      "id": "still-field",
+      "title": "Still Field",
+      "subtitle": "633 strokes of a lattice, raked into rings: one wave goes out ember and comes back pale, a seamless 12 s loop",
       "tags": [
-        "photo",
-        "ken-burns",
-        "transitions",
-        "typewriter",
-        "viewfinder",
-        "audio"
+        "generative",
+        "loop",
+        "pattern",
+        "music"
       ],
-      "width": 1280,
-      "height": 720,
+      "width": 1080,
+      "height": 1080,
       "duration": 12,
-      "posterFrame": 270,
-      "model": "sonnet",
-      "page": "still-water.html",
-      "poster": "posters/still-water.jpg",
-      "notes": "_notes/still-water.md"
-    },
-    {
-      "id": "teatime",
-      "title": "Teatime",
-      "subtitle": "Four museum teapots as transparent WebP cutouts (about 80 KB each instead of 700 KB as PNG) pop in over a giant TEA, with feathered PNG shadows and steam that draws itself",
-      "tags": [
-        "transparent-webp",
-        "transparent-png",
-        "cutout",
-        "typography",
-        "draw-on",
-        "audio"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 12,
-      "posterFrame": 280,
-      "model": "sonnet",
-      "page": "teatime.html",
-      "poster": "posters/teatime.jpg",
-      "notes": "_notes/teatime.md"
-    },
-    {
-      "id": "blueprint-house",
-      "title": "The Corner House",
-      "subtitle": "A blueprint that draws itself: walls, doors and furniture stroked on, dimensions typed out, a title block whose status changes from DRAFT to APPROVED",
-      "tags": [
-        "blueprint",
-        "draw-on",
-        "architecture",
-        "typewriter",
-        "diagram",
-        "audio"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 12,
-      "posterFrame": 324,
-      "model": "sonnet",
-      "page": "blueprint-house.html",
-      "poster": "posters/blueprint-house.jpg",
-      "notes": "_notes/blueprint-house.md"
+      "posterFrame": 132,
+      "model": "opus",
+      "page": "still-field.html",
+      "poster": "posters/still-field.jpg",
+      "notes": "_notes/still-field.md"
     },
     {
       "id": "quiet-hours",
@@ -1072,6 +983,86 @@
       "page": "wedding-invitation.html",
       "poster": "posters/wedding-invitation.jpg",
       "notes": "_notes/wedding-invitation.md"
+    },
+    {
+      "id": "tadaima",
+      "title": "ただいま",
+      "subtitle": "A small ball hops ten ledges down to the one spot that fits it; the trip is shown again as a chronophotograph.",
+      "tags": [
+        "vertical",
+        "story",
+        "physics",
+        "music",
+        "japanese"
+      ],
+      "width": 720,
+      "height": 1280,
+      "duration": 13,
+      "posterFrame": 345,
+      "model": "opus",
+      "page": "tadaima.html",
+      "poster": "posters/tadaima.jpg",
+      "notes": "_notes/tadaima.md"
+    },
+    {
+      "id": "hikari-no-oto",
+      "title": "ひかりの音",
+      "subtitle": "A four-line poem written top to bottom, right to left, each syllable landing on a note of its own tune",
+      "tags": [
+        "lyric",
+        "vertical",
+        "japanese",
+        "typography",
+        "music"
+      ],
+      "width": 720,
+      "height": 1280,
+      "duration": 13.5,
+      "posterFrame": 360,
+      "model": "opus",
+      "page": "hikari-no-oto.html",
+      "poster": "posters/hikari-no-oto.jpg",
+      "notes": "_notes/hikari-no-oto.md"
+    },
+    {
+      "id": "hasshahyo",
+      "title": "発車標 Departure Board",
+      "subtitle": "A station board where nothing moves unless the information changed: a departure, a delay, a track change",
+      "tags": [
+        "information design",
+        "typography",
+        "grid",
+        "japanese",
+        "data"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 10,
+      "posterFrame": 255,
+      "model": "opus",
+      "page": "hasshahyo.html",
+      "poster": "posters/hasshahyo.jpg",
+      "notes": "_notes/hasshahyo.md"
+    },
+    {
+      "id": "kanreki-cycle",
+      "title": "還暦 — Kanreki",
+      "subtitle": "A 60th-birthday greeting: one vermilion line travels the sixty-year calendar from 丙午 1966 back to 丙午 2026",
+      "tags": [
+        "celebration",
+        "birthday",
+        "japanese",
+        "typography",
+        "music"
+      ],
+      "width": 1280,
+      "height": 720,
+      "duration": 12.5,
+      "posterFrame": 330,
+      "model": "opus",
+      "page": "kanreki-cycle.html",
+      "poster": "posters/kanreki-cycle.jpg",
+      "notes": "_notes/kanreki-cycle.md"
     }
   ]
 }
