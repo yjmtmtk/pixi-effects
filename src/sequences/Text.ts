@@ -17,7 +17,33 @@ import type { Timeline } from '../core/timelineEngine';
 
 export type CounterState = { value: number; visibleChars: number };
 
+const TIME_PATTERNS = ['hh:mm:ss', 'h:mm:ss', 'hh:mm', 'mm:ss', 'm:ss'] as const;
+let timeWarned = new Set<string>();
+
+/** `format.time`: the value in seconds as a clock. The hours do not wrap (25:00 after 24:59: use `mod` in an expression for a day clock); without an hour field the minutes carry them. */
+function formatTime(v: number, pattern: string): string | null {
+  if (!(TIME_PATTERNS as readonly string[]).includes(pattern)) {
+    if (!timeWarned.has(pattern)) {
+      timeWarned.add(pattern);
+      console.warn(`pixi-effects: format.time "${pattern}" is not one of ${TIME_PATTERNS.map(p => `"${p}"`).join(', ')}: the value is printed as a number`);
+    }
+    return null;
+  }
+  const total = Math.floor(Math.abs(v));
+  const h = Math.floor(total / 3600), m = Math.floor((total % 3600) / 60), sec = total % 60;
+  const two = (n: number): string => String(n).padStart(2, '0');
+  const sign = v < 0 ? '-' : '';
+  switch (pattern) {
+    case 'hh:mm:ss': return `${sign}${two(h)}:${two(m)}:${two(sec)}`;
+    case 'h:mm:ss': return `${sign}${h}:${two(m)}:${two(sec)}`;
+    case 'hh:mm': return `${sign}${two(h)}:${two(m)}`;
+    case 'mm:ss': return `${sign}${two(Math.floor(total / 60))}:${two(sec)}`;
+    default: return `${sign}${Math.floor(total / 60)}:${two(sec)}`;                // 'm:ss'
+  }
+}
+
 function formatValue(v: number, f: TextSequenceSpec['format']): string {
+  if (f?.time !== undefined) { const t = formatTime(v, String(f.time)); if (t !== null) return t; }
   const fixed = v.toFixed(Math.max(0, Math.floor(f?.decimals ?? 0)));
   const pad = Math.max(0, Math.floor(f?.pad ?? 0));
   if (!f?.grouping && !pad) return fixed;
@@ -81,6 +107,11 @@ export class TextSequence extends Sequence {
       label: this.spec.name,
     });
     text.cullable = true;
+    if (this.spec.resolution !== undefined) {
+      const r = this.spec.resolution as unknown;
+      if (typeof r === 'number' && r >= 1 && r <= 8) text.resolution = r;
+      else console.warn(`pixi-effects: ${describeLayer(this.spec)}: resolution must be a number from 1 to 8 (the text is drawn at that many times the pixels), got ${JSON.stringify(r)}: ignored`);
+    }
     this.target = text;
     this.intrinsicWidth = text.width;
     this.intrinsicHeight = text.height;

@@ -191,3 +191,33 @@ describe('analyzeAudio — a layer made inaudible by its own volume, and a sane 
     });
   });
 });
+
+describe('analyzeAudio: a sound buried under the rest of the mix (an author who cannot listen needs the number)', () => {
+  const loud = (t: number) => 0.5 * Math.sin(2 * Math.PI * 300 * t);                      // the bed: about −6 dBFS the whole time
+  const sfx = (layer: string, start: number, amp: number): AudioDescriptor => ({
+    synth: { key: layer, render: () => [tone(1000, 1, amp), tone(1000, 1, amp)] as [Float32Array, Float32Array] },
+    layer, source: `sfx "${layer}"`, loop: false, start, end: start + 1, initialVolume: 1, volumeKeyframes: [],
+  });
+  const bed: AudioDescriptor = { ...src('layer "bed"', 'music', 0, 6), synth: { key: 'bed', render: () => [tone(300, 6, 0.5), tone(300, 6, 0.5)] as [Float32Array, Float32Array] } };
+  const run = (amp: number) => analyzeAudio(pcm(6, t => loud(t) + (t >= 2 && t < 3 ? amp * Math.sin(2 * Math.PI * 1000 * t) : 0)), [bed, sfx('hit', 2, amp)], { peak: 0.5 + amp, peakAt: 2 }, 6, { window: 1 });
+
+  it('each source says how far below the loudest sample of the mix (itself included) around its own loudest moment it is: an equal bed makes 6 dB, a tenth of its amplitude 20', () => {
+    const quiet = run(0.04).sources.find(x => x.layer === 'hit')!;
+    expect(quiet.belowMixDb).toBeGreaterThan(15);
+    expect(run(0.5).sources.find(x => x.layer === 'hit')!.belowMixDb).toBeCloseTo(6, 0);                // as loud as the bed: the sum is 6 dB above it
+  });
+
+  it('a short sound effect more than 10 dB under the mix gets a note naming it, the two levels and the moment', () => {
+    const note = run(0.04).notes.find(n => /hit/.test(n))!;
+    expect(note).toMatch(/hit \(sfx "hit"\) is buried/);
+    expect(note).toMatch(/buried/);
+    expect(note).toMatch(/dBFS/);
+    expect(note).toMatch(/\(2(\.\d+)? s\)/);
+    expect(run(0.5).notes.some(n => /buried/.test(n))).toBe(false);
+  });
+
+  it('a music bed is never "buried", and a sound under the limit of 10 dB is left alone', () => {
+    expect(run(0.04).notes.some(n => /bed/.test(n) && /buried/.test(n))).toBe(false);
+    expect(run(0.3).notes.some(n => /buried/.test(n))).toBe(false);                       // about 9 dB under: still audible
+  });
+});

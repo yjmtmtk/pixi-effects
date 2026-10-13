@@ -131,7 +131,7 @@ A text layer has one animatable number, `value`, printed wherever the text conta
 }
 ```
 
-`format`: `decimals` (default 0), thousands `grouping` (default false) and `pad` (zero-pad the whole part to that many digits: `pad: 2` gives `05`, so a clock is `text: '18:42:{value}'` with `format: { pad: 2 }`). Put prefixes and suffixes in the text (`'${value}'`, `'{value}%'`). If `value` is animated but the text has no `{value}`, a warning says so.
+`resolution` (1 to 8, default the renderer's own) draws the text at that many times the pixels: text is drawn once at its own size and then stretched by its parents, so text inside a group scaled up to 3x is soft unless it has `resolution: 3`. `format`: `decimals` (default 0), thousands `grouping` (default false) and `pad` (zero-pad the whole part to that many digits: `pad: 2` gives `05`, so a clock is `text: '18:42:{value}'` with `format: { pad: 2 }`) and `time` (print the value, in SECONDS, as a clock: `'hh:mm:ss'`, `'h:mm:ss'`, `'hh:mm'`, `'mm:ss'` or `'m:ss'`; the seconds are cut, not rounded, and the hours do not wrap, so a day clock keeps the value inside 0–86399 with `mod`: `{ value: 15000 }` with `format: { time: 'hh:mm' }` is `04:10`). Put prefixes and suffixes in the text (`'${value}'`, `'{value}%'`). If `value` is animated but the text has no `{value}`, a warning says so.
 
 **Colour inside one text layer: `spans`.** Instead of `text`, write an array of strings (drawn in the layer's own `style`) and `{ text, fill, … }` objects; they are shown one after the other, and `\n` inside a span starts a new line:
 
@@ -145,7 +145,7 @@ A span may change `fill`, `fontWeight`, `fontStyle`, `fontVariant`, `letterSpaci
 
 ### `image`
 
-Renders a [PIXI.Sprite](https://pixijs.com/8.x/guides/components/scene-objects/sprite/sprite) from a registered asset. Intrinsic `w`/`h` come from the loaded texture.
+Renders a [PIXI.Sprite](https://pixijs.com/8.x/guides/components/scene-objects/sprite/sprite) from a registered asset. Intrinsic `w`/`h` come from the loaded texture. `scaleMode: 'nearest'` draws the pixels as hard squares when the picture is scaled up (pixel art, a sprite drawn small and shown big); the default `'linear'` smooths. It belongs to the asset: every layer that shows it gets it.
 
 ```ts
 {

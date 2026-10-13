@@ -72,6 +72,7 @@ interface AudioSfxSpec extends AudioBase
   music?: undefined
   sfx: SfxPreset | SfxOptions
 interface AudioSourceReport
+  belowMixDb?: number
   end: number
   layer: string
   music?: MusicSummary
@@ -193,6 +194,7 @@ interface GradientSpec
 interface ImageSequenceSpec extends SequenceCommon
   asset: string
   colorSpace?: "rgb" | "oklab" | "oklch"
+  scaleMode?: "linear" | "nearest"
   type: "image"
 interface InspectOptions
   layers?: "all" | "visible" | "none"
@@ -673,7 +675,8 @@ type TextPreset = keyof typeof PRESETS
 interface TextSequenceSpec extends SequenceCommon
   colorSpace?: "rgb" | "oklab" | "oklch"
   fillGradient?: GradientSpec
-  format?: { decimals?: number | undefined; grouping?: boolean | undefined; pad?: number | undefined; }
+  format?: { decimals?: number | undefined; grouping?: boolean | undefined; pad?: number | undefined; time?: "hh:mm:ss" …
+  resolution?: number
   spans?: (string | TextSpan)[]
   style?: Record<string, PropValue | { color?: PropValue | undefined; width?: PropValue | undefined; }>
   text?: string
@@ -935,8 +938,8 @@ every layer: type name parent at duration initial keyframes filters filterArea m
 null layer: 
 camera layer: 
 light layer: kind falloff
-text layer: text spans format style colorSpace fillGradient
-image layer: asset colorSpace
+text layer: text spans format resolution style colorSpace fillGradient
+image layer: asset colorSpace scaleMode
 video layer: asset loop audio volume speed
 audio layer: volume asset loop sfx music speed
 composition layer: width height sequences transitions speed

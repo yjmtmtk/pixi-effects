@@ -29,7 +29,7 @@ A text layer has one number you can animate, `value`, printed wherever the text 
   keyframes: [{ at: 0.5, to: { value: 2480 }, duration: 2, ease: 'power2.out' }] }       // 0 users … 2,480 users
 ```
 
-`format` takes `decimals`, `grouping` (thousands separators) and `pad` (zero-pad: `pad: 2` shows `05`, so a clock is `text: '18:42:{value}'`).
+`format` takes `decimals`, `grouping` (thousands separators), `pad` (zero-pad: `pad: 2` shows `05`) and `time` (the value in seconds printed as a clock: `format: { time: 'mm:ss' }` shows 75 as `01:15`; also `'hh:mm:ss'`, `'h:mm:ss'`, `'hh:mm'`, `'m:ss'`).
 
 {{demo examples/_guide/count-up.html}}
 

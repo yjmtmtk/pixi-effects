@@ -129,7 +129,7 @@ export function resolveSpansStyle(style: Record<string, unknown>, scope: Record<
 }
 
 /** Keys a text layer has and a group does not (the pieces carry the style; the string is the spans). */
-const TEXT_ONLY = ['type', 'spans', 'text', 'style', 'format', 'colorSpace', 'fillGradient', 'initial', 'keyframes'];
+const TEXT_ONLY = ['type', 'spans', 'text', 'style', 'format', 'colorSpace', 'fillGradient', 'initial', 'keyframes', 'resolution'];
 /** Properties of one text that cannot be one number for a group of pieces. */
 const NOT_FOR_A_GROUP = ['fill', 'text', 'value', 'fillGradient'];
 
@@ -177,6 +177,7 @@ export function expandSpans(spec: TextSequenceSpec, warn: Warn = defaultWarn, sc
     type: 'text' as const, name: `${baseName}.${i}`, text: p.text,
     style: { ...style, ...p.style },
     initial: { x: p.x, y: p.y, ...(typed ? { visibleChars: p.length } : {}) },
+    ...(s.resolution !== undefined ? { resolution: s.resolution } : {}),                // the pieces are what is drawn
   }));
   const rest: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(s)) if (!TEXT_ONLY.includes(k)) rest[k] = v;

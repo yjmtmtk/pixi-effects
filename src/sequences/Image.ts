@@ -7,6 +7,7 @@ import { tweenColor } from '../expr/colorTween';
 import type { ColorInput, ColorSpace } from '../expr/colorInterp';
 import type { ImageSequenceSpec, Keyframe, Props } from '../types';
 import type { Timeline } from '../core/timelineEngine';
+import { describeLayer } from '../core/lint';
 
 
 
@@ -15,6 +16,11 @@ export class ImageSequence extends Sequence {
 
   async build(): Promise<void> {
     const texture = await Assets.get<Texture>(this.spec.asset);
+    const mode = this.spec.scaleMode as unknown;
+    if (mode !== undefined) {
+      if (mode === 'nearest' || mode === 'linear') (texture as unknown as { source: { scaleMode: string } }).source.scaleMode = mode;       // of the asset: every layer that shows it
+      else console.warn(`pixi-effects: ${describeLayer(this.spec)}: scaleMode "${String(mode)}" is not "nearest" or "linear": ignored`);
+    }
     const sprite = new Sprite({ texture, label: this.spec.name });
     sprite.cullable = true;
     this.target = sprite;

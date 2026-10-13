@@ -108,4 +108,32 @@ describe('text `{value}` — lint and zero-padding', () => {
     const grouped = await bound({ text: '{value}', format: { pad: 6, grouping: true }, initial: { value: 1234 } });
     expect(textOf(grouped.s)).toBe('001,234');
   });
+
+  it('format.time prints the value (seconds) as a clock: hh:mm:ss, h:mm:ss, hh:mm, mm:ss, m:ss; the hours do not wrap', async () => {
+    const at = async (time: string, v: number) => textOf((await bound({ text: '{value}', format: { time } as never, initial: { value: v } })).s);
+    expect(await at('mm:ss', 75)).toBe('01:15');
+    expect(await at('m:ss', 75)).toBe('1:15');
+    expect(await at('m:ss', 3599)).toBe('59:59');
+    expect(await at('hh:mm:ss', 3725)).toBe('01:02:05');
+    expect(await at('h:mm:ss', 3725)).toBe('1:02:05');
+    expect(await at('hh:mm', 15000)).toBe('04:10');                  // 4 h 10 min; the seconds are cut, not rounded up
+    expect(await at('hh:mm', 84300)).toBe('23:25');
+    expect(await at('hh:mm', 90000)).toBe('25:00');
+    expect(await at('mm:ss', 3725)).toBe('62:05');                    // the minutes carry the hours when there is no hour field
+  });
+
+  it('format.time follows an animated value, rounds down to whole seconds, and shows a negative value with a minus', async () => {
+    const { s, tl } = await bound({ text: '{value}', format: { time: 'mm:ss' } as never, initial: { value: 0 }, keyframes: [{ at: 0, to: { value: 61 }, duration: 1, ease: 'none' }] });
+    expect(textOf(s)).toBe('00:00');
+    tl.time(0.5);  expect(textOf(s)).toBe('00:30');
+    tl.time(1);    expect(textOf(s)).toBe('01:01');
+    expect(textOf((await bound({ text: '{value}', format: { time: 'mm:ss' } as never, initial: { value: -75 } })).s)).toBe('-01:15');
+  });
+
+  it('a time pattern that is not one of the five is said, with the list, and the value prints as a plain number', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const r = await bound({ text: '{value}', format: { time: 'hh:mm:ss.s' } as never, initial: { value: 75 } });
+    expect(textOf(r.s)).toBe('75');
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/format\.time.*"hh:mm:ss\.s".*hh:mm:ss.*m:ss/));
+  });
 });

@@ -35,6 +35,11 @@ export interface AudioSourceReport {
   /** Loudest sample of the MIX while this source plays, dBFS (−120 = silence). */
   peakDb: number;
   sound: SoundMeasure;
+  /**
+   * How far below the loudest sample of the MIX around its own loudest moment this source is, dB (0 = it is the loudest thing there; 20 = the mix is 20 dB louder, so
+   * the source is hardly heard). Absent for a sound inside a remapped composition (its time is not the movie's).
+   */
+  belowMixDb?: number;
   /** For a `music` layer: its score read back (bars per track, what starts in each bar, the drum spans). */
   music?: MusicSummary;
 }
@@ -186,7 +191,17 @@ export function analyzeAudio(
       const over = s.music.seconds - plays;
       if (over > 2 && over / s.music.seconds > 0.15) scoreNotes.push(`${layer} (${source}): the score is ${Math.round(s.music.seconds * 10) / 10}s long but only ${Math.round(plays * 100) / 100}s of it play, so it is cut off mid-phrase. Write fewer bars (or a faster tempo) so it ends with the movie`);
     }
-    return { layer, source, start: s.start, end: s.end, peakDb, sound, ...(s.music ? { music: s.music } : {}) };
+    // Buried: the sound's own peak against the mix around its loudest moment. A short sound effect more than 10 dB under what plays with it is a hit nobody hears.
+    let belowMixDb: number | undefined;
+    if (!clock && s.start < movieDuration && ownDb > INAUDIBLE_DB) {
+      const at = s.start + sound.loudestAt;
+      const around = db(peakIn(Math.max(0, at - 0.05), Math.min(movieDuration, at + 0.05)));
+      belowMixDb = Math.max(0, Math.round((around - ownDb) * 10) / 10);
+      if (!s.music && source.startsWith('sfx') && sound.length <= 4 && belowMixDb > 10) {
+        scoreNotes.push(`${layer} (${source}) is buried: its own peak is ${ownDb} dBFS at volume ${topVolume}, and the mix around its loudest moment (${(Math.round(at * 100) / 100)} s) peaks at ${around} dBFS, ${belowMixDb} dB louder: raise this sound's volume (an accent over music needs 2 to 3) or lower what plays there`);
+      }
+    }
+    return { layer, source, start: s.start, end: s.end, peakDb, sound, ...(belowMixDb !== undefined ? { belowMixDb } : {}), ...(s.music ? { music: s.music } : {}) };
   });
 
   // the mix as a whole, scene by scene, and the advice

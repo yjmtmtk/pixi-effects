@@ -297,6 +297,11 @@ export interface ImageSequenceSpec extends SequenceCommon {
    * as on `shape`.
    */
   colorSpace?: 'rgb' | 'oklab' | 'oklch';
+  /**
+   * How the picture is filtered when it is drawn larger or smaller than it is: `'linear'` (smooth, the default) or `'nearest'` (hard square pixels: pixel art, a sprite
+   * sheet). It belongs to the asset, so every layer that shows the same asset gets it.
+   */
+  scaleMode?: 'nearest' | 'linear';
 }
 /**
  * One piece of a text layer's `spans`: its text and what it changes of the layer's `style`: only what keeps the baseline (colours, weight, slant,
@@ -333,8 +338,13 @@ export interface TextSequenceSpec extends SequenceCommon {
    * `style.align` places the lines (default `'center'`, like every text). Measuring needs the fonts loaded (`await document.fonts.load(...)`).
    */
   spans?: Array<string | TextSpan>;
+  /**
+   * Draw the text at this many times the pixels (1 to 8; default: the renderer's own). A text is drawn once at its own size and then stretched by its parents, so text inside a
+   * group that is scaled up (a zoom, a pull-in) is soft: give it `resolution: 3` for a group that grows to 3x. The cost is the memory of a picture that much larger.
+   */
+  resolution?: number;
   /** How `{value}` is printed: `decimals` (default 0) and thousands `grouping` (default false). */
-  format?: { decimals?: number; grouping?: boolean; /** Zero-pad the whole part to this many digits (`pad: 2` → `05`; a clock `18:42:05`). */ pad?: number };
+  format?: { decimals?: number; grouping?: boolean; /** Zero-pad the whole part to this many digits (`pad: 2` → `05`; a clock `18:42:05`). */ pad?: number; /** Print `value` (seconds) as a clock: `'hh:mm:ss'`, `'h:mm:ss'`, `'hh:mm'`, `'mm:ss'` or `'m:ss'` (the seconds are cut, not rounded; the hours do not wrap). */ time?: 'hh:mm:ss' | 'h:mm:ss' | 'hh:mm' | 'mm:ss' | 'm:ss' };
   /** Subset of PIXI v8 TextStyleOptions. String values may be exprs (e.g. fontSize: 'GW * 0.05'). */
   style?: Record<string, PropValue | { color?: PropValue; width?: PropValue }>;
   /**

@@ -50,6 +50,28 @@ describe('text style values', () => {
     expect((bare.target as unknown as { style: Record<string, unknown> }).style.fill).toBe(0x00ff00);      // a number works, and no style is needed
   });
 
+  it('resolution draws the text at that many times the pixels, so a parent that scales it up (a zoom, a pull-in) keeps it sharp; without it the renderer\'s own resolution stays', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const t = new TextSequence({ type: 'text', text: 'hi', resolution: 3 } as unknown as SequenceSpec, comp, comp);
+    await t.build();
+    expect((t.target as unknown as { resolution: number }).resolution).toBe(3);
+    const plain = new TextSequence({ type: 'text', text: 'hi' } as unknown as SequenceSpec, comp, comp);
+    await plain.build();
+    expect((plain.target as unknown as { resolution: number }).resolution).not.toBe(3);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('a resolution that is not a number from 1 to 8 is said and ignored', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    for (const bad of [0, 12, 'big', -2]) {
+      const t = new TextSequence({ type: 'text', name: 'title', text: 'hi', resolution: bad } as unknown as SequenceSpec, comp, comp);
+      await t.build();
+      expect((t.target as unknown as { resolution: number }).resolution).not.toBe(bad);
+    }
+    expect(warn).toHaveBeenCalledTimes(4);
+    expect(String(warn.mock.calls[0]![0])).toMatch(/title.*resolution.*1 (and|to) 8/);
+  });
+
   it('a named colour given directly as stroke is kept as it is', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const t = new TextSequence({ type: 'text', text: 'hi', style: { stroke: 'white' } } as unknown as SequenceSpec, comp, comp);
