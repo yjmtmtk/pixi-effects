@@ -1,6 +1,6 @@
 # The `canvas` layer, and plugins on top of it (0.37 / 0.38)
 
-Status: DRAFT 2026-10-14, for the owner's review. Agreed in conversation: the layer is named `canvas`; it draws into its OWN canvas and is placed in the layer stack like an image (it does not draw on what is below it); plugins are built on it, not the other way round; the weekend AI trials write plugins for what is missing, similar ones that recur are promoted into the core. Everything marked **DECISION** is a recommendation waiting for a yes or a change.
+Status: DRAFT 2026-10-14, for the owner's review. Agreed in conversation: the layer is named `canvas`; it draws into its OWN canvas and is placed in the layer stack like an image (it does not draw on what is below it); plugins are built on it, not the other way round; the weekend AI trials write plugins for what is missing, similar ones that recur are promoted into the core. **Option B chosen 2026-10-14: the plugin framework registers ONE kind of thing, a named canvas layer; the collecting and comparing tools are the other half.** Presets, eases, expression functions and review rules were cut from the first version because nobody asked for them (see §5). Everything marked **DECISION** is a recommendation waiting for a yes or a change.
 
 Evidence (the 18 Opus authors of 2026-10-13, and the two re-make experiments U1 / U2): the missing thing is not a filter or an ease but "let me draw this myself". What the authors did instead: five delayed copies of a dot for an afterimage (U2); 100 hand-keyframed rings for tree rings (T31); 15 layers and their keyframes for a pendulum wave (T34); a canvas drawn into a `data:` image that could not move (T25, T35); `Rough.js` / `d3` output pasted as path data (S15, `d3-story`); a pixel-art bake at 4x (T25); a 140-keyframe `set` list for a clock (T22). Each of these is a few lines of drawing code that is a function of the time.
 
@@ -50,7 +50,7 @@ How it is made (built on what `shader` already does): a `Sprite` whose texture i
 
 ## 5. Plugins (phase 2, on top of the layer)
 
-A plugin gives a name to something that the core does not have, so that a spec can use it **by name and stay plain data**.
+A plugin gives a name to a way of drawing that the core does not have, so that a spec can use it **by name and stay plain data**. In the first version a plugin registers **one** kind of thing: a named canvas layer.
 
 ```js
 export default {
@@ -68,25 +68,22 @@ export default {
 // the page: import trail from './plugins/trail.js'; movie.use(trail);  then  { type: 'trail', initial: { x: 640, y: 360 }, params: { copies: 12 } }
 ```
 
-**Extension points of the first version** (each is registered through the same registry that the core's own features use, so a plugin that proves itself moves into the core as a file):
-1. `api.canvasLayer(type, def)`: a named canvas layer (`def` = the keys of §3). The spec says `{ type: 'trail', … }`: data.
-2. `api.preset(name, fn)`: a spec-to-spec function like `animateText` / `particles`, exposed as `{ type: 'preset', name, … }` expanded at build time into ordinary layers.
-3. `api.ease(name, fn)`: a pure `fn(p) → p` usable as `ease: 'name'` or `'name(args)'`.
-4. `api.fn(name, fn)`: a pure number function usable in expressions (`'wobble(t)'`).
-5. `api.review(fn)`: a function called by `check` with the inspect report; it returns sentences (an extra rule such as "a hairline over text").
+**Why only this (the evidence).** The 18 trial authors and the two re-make experiments asked, again and again, for ways of DRAWING something (an afterimage, tree rings, a pendulum wave, a brush stroke, a pixel sprite). Nobody asked for a new ease, a new expression function, a preset that the layer could not express, or a new review rule that was not better added to `check` itself. A registry for each of those would be code and a promise to keep it, for a need that has not appeared. They are added the day a second trial asks for one (the registry in §5.2 is built so that adding a kind is small).
 
-**Later (not in the first version), each because it needs its own registry design:** named filters and blend modes, transitions, animatable properties, audio voices / instruments, frame hooks, export formats, player parts. The `three` entry and `registerSequenceType` stay as they are.
+**5.1 The one extension point.** `api.canvasLayer(type, def)`: `def` = the keys of §3 (`draw`, `setup`, `params` defaults, `width`, `height`, `resolution`, `smoothing`, `seed`). The spec says `{ type: 'trail', … }`; the layer takes the usual keys (`initial`, `keyframes`, `filters`, `mask`, …) and `params` overrides the defaults of the plugin, animatable. Registered through the same function the core's own named layers use (`registerSequenceType` inside), so a plugin that proves itself moves into the core as a file.
 
-**Rules.** A plugin is a module with `name`, `version` (semver), `description`, `wantedFor`, `tags`, `install`. A name collision with a core feature or another plugin is an error that says which. `movie.plugins` lists what is installed (name, version, a hash of the source); a spec may say `plugins: ['trail@0.1']` and `check` warns when it is missing. Everything a plugin registers is subject to §4. The plugin API is **unstable in 0.x** and the docs say so in the first line.
+**5.2 Registry.** One place, `plugins` of the movie. `movie.use(plugin)` before `movie.init`, or `Movie.use(plugin)` for every movie of the page. A name that collides with a core layer type or another plugin is an error that says which. `movie.plugins` lists what is installed (name, version, a hash of the source); a spec may say `plugins: ['trail@0.1']` and `check` warns when it is missing. The registry is a map from "kind" to "name → definition"; the first version has one kind. The plugin API is **unstable in 0.x** and the docs say so in the first line.
 
-**`pixi-effects plugin check <file>`** (the gate before a plugin counts): the manifest is complete; `install` runs on a fresh movie without a warning; a built-in example (the plugin ships an `example` spec) builds and draws; it draws the same frames twice with identical pixels; the layers it registers take `mask`, `filters`, `keyframes` and `blendMode` like any layer (a smoke test with each).
+**5.3 The gate: `pixi-effects plugin check <file>`.** The manifest is complete (`name`, `version`, `description`, `wantedFor`, `tags`); `install` runs on a fresh movie without a warning; the plugin ships an `example` spec, which builds and draws; it draws the same frames twice with identical pixels (§4); the layer takes `mask`, `filters`, `keyframes` and `blendMode` like any layer (a smoke test with each).
+
+**Later, each when a trial asks for it:** presets (spec to spec), eases, expression functions, review rules for `check`, named filters and blend modes, transitions, animatable properties, audio voices and instruments, frame hooks, export formats, player parts. The `three` entry and `registerSequenceType` stay as they are.
 
 ## 6. Collecting, comparing, promoting
 
 For the weekend trials of many AI sessions at once.
 
 - **Where.** Trial plugins go to an **inbox outside git** (`pixi-effects-opus/plugins-inbox/<run>/<name>/`, like the existing trial workspaces); **DECISION 1:** curated plugins live in the repository's `plugins/` only after promotion or an explicit yes. The repository never receives a trial's raw output.
-- **A plugin folder:** `plugin.js`, `plugin.json` (the manifest: `name`, `version`, `description`, `wantedFor`, `tags`, `provides` (the extension points and names), `author` (the agent / slot), `run` (the trial's label), `date`), `example.html`, `notes.md` (how it went, in the usability-record format).
+- **A plugin folder:** `plugin.js`, `plugin.json` (the manifest: `name`, `version`, `description`, `wantedFor`, `tags`, `provides` (the named layers it registers), `author` (the agent / slot), `run` (the trial's label), `date`), `example.html`, `notes.md` (how it went, in the usability-record format).
 - **Commands:** `plugin new <name>` (a scaffold that already passes `plugin check`), `plugin check <path>`, `plugin list <dir>` (one line per plugin: name, provides, wantedFor, run), `plugin similar <dir>` (groups plugins by the overlap of the words in `name` + `tags` + `wantedFor` + `provides` (Jaccard, threshold 0.4, explained in the output) and counts the **distinct runs** in each group), `plugin promote-report <dir>` (the groups with at least N distinct runs, each with the plugins side by side, the common parts of their `draw` and a proposed core API).
 - **Promotion is the owner's decision.** **DECISION 2:** a group enters the report at **3 distinct runs**. Then the best member is reviewed against `docs/philosophy.md`, folded into the core (a named layer, a preset or a core ease), tested, documented, and the others are retired with a note. Promotion is a file move because core features use the same registry.
 - **Provenance is kept** so the count is honest: two plugins written by the same session are one run; a plugin that is copied is not a second vote (a source hash is compared).
@@ -108,9 +105,9 @@ Frame hooks, plugins that replace the renderer, a plugin registry on npm and its
 
 1. **Inbox outside git, curated `plugins/` after promotion** (§6).
 2. **Promotion at 3 distinct runs** (§6).
-3. **First version of §5 has five extension points** (canvasLayer, preset, ease, fn, review); named filters, transitions, properties, audio voices wait for a second round.
+3. **First version of §5 has ONE extension point, the named canvas layer** (option B, chosen 2026-10-14); presets, eases, expression functions, review rules, filters, transitions, properties, audio voices wait until a trial asks for one.
 4. Release split: **0.37.0 = the `canvas` layer** (usable by itself, with docs, recipes, `check` determinism test); **0.38.0 = the plugin framework and the collecting tools**. (The `canvas` layer is useful even if the plugin part is changed or dropped.)
 
 ## 10. Testing
 
-`canvas` layer: unit tests on the mock (keys and did-you-mean; `draw` gets `t`, `frame`, `params`, a cleared canvas; `params` keyframes; `setup` state; an error in `draw`; a missing `draw`; sizes and clamps; the seeded `random`; one draw per distinct `(t, params)`); real-browser tests (a rectangle at `t` is where it should be in `snapshot`; two renders of one frame are byte-identical; it takes a mask, a filter and a blend mode; it exports); a `check` test with a layer that uses `Math.random` (the warning) and one that does not. Plugins: unit tests of the registry (collisions, order, errors), `plugin check` on a good and on three bad plugins (no manifest, a warning, non-deterministic), the similarity grouping on a hand-made inbox (the groups, the distinct-run count, the copy that is not a vote). Mutation checks on the guards (the determinism comparison, the collision error, the distinct-run count).
+`canvas` layer: unit tests on the mock (keys and did-you-mean; `draw` gets `t`, `frame`, `params`, a cleared canvas; `params` keyframes; `setup` state; an error in `draw`; a missing `draw`; sizes and clamps; the seeded `random`; one draw per distinct `(t, params)`); real-browser tests (a rectangle at `t` is where it should be in `snapshot`; two renders of one frame are byte-identical; it takes a mask, a filter and a blend mode; it exports); a `check` test with a layer that uses `Math.random` (the warning) and one that does not. Plugins: unit tests of the registry (a named layer takes the usual keys, `params` overrides the defaults and is animatable, collisions with a core type and with another plugin, a missing `plugins: [...]` name is a `check` warning), `plugin check` on a good and on three bad plugins (no manifest, a warning, non-deterministic), the similarity grouping on a hand-made inbox (the groups, the distinct-run count, the copy that is not a vote). Mutation checks on the guards (the determinism comparison, the collision error, the distinct-run count).
