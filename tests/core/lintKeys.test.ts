@@ -125,3 +125,18 @@ describe('the tables cover the type (compile time) and what they list is sane', 
     expect(STYLE_KEYS).toContain('fontSize');
   });
 });
+
+describe('lintKeys: a canvas layer', () => {
+  it('knows the keys of the canvas layer (no warning for the documented ones)', () => {
+    expect(warns({ type: 'canvas', name: 'c', width: 800, height: 450, resolution: 2, smoothing: false, seed: 3, params: { a: 1 }, setup: () => 1, draw: () => {}, initial: { x: 5 } })).toEqual([]);
+  });
+
+  it('a typo in a canvas key names the closest key, and says what the layer has', () => {
+    const w = warns({ type: 'canvas', draws: () => {}, draw: () => {} });
+    expect(w).toHaveLength(1);
+    expect(w[0]).toContain('"draws"');
+    expect(w[0]).toContain('canvas');
+    expect(w[0]).toMatch(/did you mean "draw"/);
+  });
+});
+

@@ -77,7 +77,7 @@ export function usesMatteRoute(spec: { mask?: unknown }): boolean {
   const s = maskSourceOf(spec.mask);
   if (s.kind !== 'inline') return false;
   const t = s.spec.type;
-  return s.invert || s.channel === 'luma' || t === 'text' || t === 'image' || t === 'video' || t === 'shader';       // a sprite-backed mask: a stencil would paint it over the layer
+  return s.invert || s.channel === 'luma' || t === 'text' || t === 'image' || t === 'video' || t === 'shader' || t === 'canvas';       // a sprite-backed mask: a stencil would paint it over the layer
 }
 
 /** More mattes than this in one composition warns (each is a full-composition texture). */

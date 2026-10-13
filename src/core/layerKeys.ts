@@ -1,6 +1,6 @@
 import type {
   SequenceCommon, VideoSequenceSpec, ImageSequenceSpec, TextSequenceSpec, AudioAssetSpec, AudioSfxSpec, AudioMusicSpec,
-  CompositionSequenceSpec, CameraSequenceSpec, LightSequenceSpec, ShaderSequenceSpec, NullSequenceSpec, SequenceSpec,
+  CompositionSequenceSpec, CameraSequenceSpec, LightSequenceSpec, ShaderSequenceSpec, CanvasSequenceSpec, NullSequenceSpec, SequenceSpec,
   RectShapeSpec, CircleShapeSpec, EllipseShapeSpec, ArcShapeSpec, LineShapeSpec, PolygonShapeSpec, PathShapeSpec,
 } from '../types';
 
@@ -23,6 +23,7 @@ const COMPOSITION = [...COMMON, 'width', 'height', 'sequences', 'transitions', '
 const CAMERA = [...COMMON] as const satisfies readonly KeysOfUnion<CameraSequenceSpec>[];
 const LIGHT = [...COMMON, 'kind', 'falloff'] as const satisfies readonly KeysOfUnion<LightSequenceSpec>[];
 const SHADER = [...COMMON, 'fragment', 'uniforms', 'width', 'height', 'resolution', 'transparent'] as const satisfies readonly KeysOfUnion<ShaderSequenceSpec>[];
+const CANVAS = [...COMMON, 'draw', 'setup', 'width', 'height', 'resolution', 'params', 'seed', 'smoothing'] as const satisfies readonly KeysOfUnion<CanvasSequenceSpec>[];
 const NULL = [...COMMON] as const satisfies readonly KeysOfUnion<NullSequenceSpec>[];
 
 const SHAPE = [...COMMON, 'shape', 'fillGradient', 'colorSpace', 'strokeCap', 'strokeJoin'] as const;
@@ -39,14 +40,14 @@ const PATH = [...SHAPE, ...TRIM, 'd', 'fillRule', 'morphTo', 'morph', 'morphPoin
 export type __Covered = [
   Assert<Covers<VideoSequenceSpec, typeof VIDEO>>, Assert<Covers<ImageSequenceSpec, typeof IMAGE>>, Assert<Covers<TextSequenceSpec, typeof TEXT>>,
   Assert<Covers<AudioAssetSpec | AudioSfxSpec | AudioMusicSpec, typeof AUDIO>>, Assert<Covers<CompositionSequenceSpec, typeof COMPOSITION>>,
-  Assert<Covers<CameraSequenceSpec, typeof CAMERA>>, Assert<Covers<LightSequenceSpec, typeof LIGHT>>, Assert<Covers<ShaderSequenceSpec, typeof SHADER>>, Assert<Covers<NullSequenceSpec, typeof NULL>>,
+  Assert<Covers<CameraSequenceSpec, typeof CAMERA>>, Assert<Covers<LightSequenceSpec, typeof LIGHT>>, Assert<Covers<ShaderSequenceSpec, typeof SHADER>>, Assert<Covers<CanvasSequenceSpec, typeof CANVAS>>, Assert<Covers<NullSequenceSpec, typeof NULL>>,
   Assert<Covers<RectShapeSpec, typeof RECT>>, Assert<Covers<CircleShapeSpec, typeof CIRCLE>>, Assert<Covers<EllipseShapeSpec, typeof ELLIPSE>>,
   Assert<Covers<ArcShapeSpec, typeof ARC>>, Assert<Covers<LineShapeSpec, typeof LINE>>, Assert<Covers<PolygonShapeSpec, typeof POLYGON>>,
   Assert<Covers<PathShapeSpec, typeof PATH>>,
 ];
 
 const SHAPES: Record<string, readonly string[]> = { rect: RECT, circle: CIRCLE, ellipse: ELLIPSE, arc: ARC, line: LINE, polygon: POLYGON, path: PATH };
-const BY_TYPE: Record<string, readonly string[]> = { video: VIDEO, image: IMAGE, text: TEXT, audio: AUDIO, composition: COMPOSITION, camera: CAMERA, light: LIGHT, shader: SHADER, null: NULL };
+const BY_TYPE: Record<string, readonly string[]> = { video: VIDEO, image: IMAGE, text: TEXT, audio: AUDIO, composition: COMPOSITION, camera: CAMERA, light: LIGHT, shader: SHADER, canvas: CANVAS, null: NULL };
 
 /** The keys that shape what is drawn: a layer that is never drawn (audio, a camera, a light) accepts them in its type but they do nothing there. */
 const PICTURE_KEYS = ['filters', 'filterArea', 'mask', 'blendMode', 'threeD', 'hideBehindCamera', 'lit', 'castsShadows'] as const;

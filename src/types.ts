@@ -563,6 +563,53 @@ export interface ShaderSequenceSpec extends SequenceCommon {
   transparent?: boolean;
 }
 
+/** What `draw` (and `setup`) of a canvas layer is given besides the time. */
+export interface CanvasInfo {
+  /** The layer's own frame number (0 at its start): `Math.round(t * frameRate)`. */
+  frame: number;
+  duration: number;
+  /** `t / duration`, 0 to 1. */
+  progress: number;
+  /** The layer's size in its own pixels (`ctx` is already scaled by `resolution`). */
+  width: number;
+  height: number;
+  resolution: number;
+  frameRate: number;
+  /** The values of `params` at this time (keyframes already applied). */
+  params: Record<string, number>;
+  /** What `setup` returned (undefined without one). */
+  state: unknown;
+  /** A seeded random generator: its sequence starts again at every call of `draw`, so a frame always draws the same numbers. */
+  random: () => number;
+}
+
+/**
+ * A canvas layer: its picture is drawn by a function of the time into a canvas of its own and shown like an image, in its place in the stack. Everything a
+ * layer can do works on it (initial, keyframes, mask, filters, blendMode, threeD, lights). It cannot see or paint on what is below it. A spec that has one holds functions, so it
+ * is no longer pure JSON: an escape hatch like `three` and the `custom` filter.
+ */
+export interface CanvasSequenceSpec extends SequenceCommon {
+  type: 'canvas';
+  /**
+   * Draws the picture at `t` (seconds since this layer started). `ctx` is the 2D context of the layer's own canvas, already cleared, with the layer's pixels as units. The same `t` and
+   * the same `params` must give the same pixels: no `Math.random`, no `Date.now`, nothing that outlives the call (a trail is drawn from the positions of the past).
+   */
+  draw: (ctx: CanvasRenderingContext2D, t: number, info: CanvasInfo) => void;
+  /** Called once when the layer is built (may be async): heavy preparation, such as a whole simulation computed in advance and read by frame. Its result is `info.state`. */
+  setup?: (info: CanvasInfo) => unknown;
+  /** Layer size in px (expressions allowed, at most 8192). Default: the composition's size. */
+  width?: number | string;
+  height?: number | string;
+  /** Canvas pixels per layer pixel, 0.25 to 4 (default 1). Text and fine lines under a zoom need 2 or more. */
+  resolution?: number;
+  /** Numbers that keyframes can animate as `'params.amount'` and that `draw` reads as `info.params`. */
+  params?: Record<string, number>;
+  /** Seeds `info.random()` (an integer, default 0). */
+  seed?: number;
+  /** `false`: hard pixels when the picture is scaled (pixel art). Default `true`. */
+  smoothing?: boolean;
+}
+
 // ─── Shape sequence ──────────────────────────────────────────────────────
 //
 // `type: 'shape'` renders a parametric primitive (rect / circle / ellipse /
@@ -744,6 +791,7 @@ export type SequenceSpec =
   | CameraSequenceSpec
   | LightSequenceSpec
   | ShaderSequenceSpec
+  | CanvasSequenceSpec
   | ShapeSequenceSpec;
 
 /** Top-level composition (root node) — same as `CompositionSequenceSpec` minus the discriminant. */

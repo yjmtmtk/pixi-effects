@@ -119,6 +119,8 @@ export type {
   CameraSequenceSpec,
   LightSequenceSpec,
   ShaderSequenceSpec,
+  CanvasSequenceSpec,
+  CanvasInfo,
   NullSequenceSpec,
   ShapeSequenceSpec,
   RectShapeSpec,
