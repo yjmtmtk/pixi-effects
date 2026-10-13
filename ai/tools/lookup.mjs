@@ -155,6 +155,8 @@ export function newPage(name, { cwd = process.cwd(), root = PACKAGE_ROOT, force 
     .replace('<title>pixi-effects video</title>', `<title>${base.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</title>`)
     // the size sits in two places (the canvas attributes and W / H) and the length in one; the poster follows DURATION
     .replace('<canvas id="stage" width="1280" height="720">', size ? `<canvas id="stage" width="${size.width}" height="${size.height}">` : '<canvas id="stage" width="1280" height="720">')
+    // a tall or square page would be 960 px wide and far taller than a laptop screen: its width follows a height of about 760 px
+    .replace('.stage { position: relative; width: min(960px, 100%); }', size ? `.stage { position: relative; width: min(${Math.min(960, Math.round(760 * size.width / size.height))}px, 100%); }` : '.stage { position: relative; width: min(960px, 100%); }')
     .replace('const W = 1280, H = 720, FPS = 30, DURATION = 6;', `const W = ${size ? size.width : 1280}, H = ${size ? size.height : 720}, FPS = 30, DURATION = ${duration ?? 6};`);
   fs.writeFileSync(file, html);
   return { file };

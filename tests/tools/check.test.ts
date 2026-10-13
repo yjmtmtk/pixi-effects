@@ -82,6 +82,9 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     const r1 = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));
     expect(r1.at.map((x: any) => x.frame)).toEqual([30, 60, 12, 89]);
     expect(r1.inspect.checkedFrames).toBeGreaterThan(14);                     // the 0.25 s grid (4 s), not the old ~60-frame stride
+    await run(['--out', out, '--no-export', '--at', '2']);                    // a second run into the same folder: the pictures of the first are not left beside the new one
+    expect(existsSync(join(out, 'frames/2.00s.png'))).toBe(true);
+    for (const f of ['frames/1.00s.png', 'frames/50pct.png', 'frames/f12.png', 'frames/title-end.png']) expect(existsSync(join(out, f)), f).toBe(false);
 
     const out2 = mkdtempSync(join(tmpdir(), 'check-draft-'));
     await run(['--out', out2, '--draft', '--frames', '4']);
@@ -299,6 +302,12 @@ describe('check: where the time went while the page loaded', () => {
       tracks: [{ inst: 'pad', beats: 16, bars: 4, events: 1, perBar: ['C', '', '', ''] }, { inst: 'lead', beats: 10, bars: 2.5, events: 1, perBar: ['c4', '', ''] }], drums: [],
     } }]);
     expect(early[2]).toBe('            lead   2.5 bars (ends early: silent from beat 10) | c4 | – | –');
+    // decimal note lengths add up with float noise (13.000002 against 13): a gap of a few millionths of a beat is not "ends early"
+    const noise = tool.formatMusic([{ layer: 'layer "n"', source: 'music', music: {
+      bpm: 90, meter: 4, meterSet: true, beats: 13.000002, bars: 3.25, seconds: 8.7, tail: 2,
+      tracks: [{ inst: 'pad', beats: 13, bars: 3.25, events: 1, perBar: ['C', '', '', ''] }, { inst: 'lead', beats: 13.000002, bars: 3.25, events: 1, perBar: ['c4', '', '', ''] }], drums: [],
+    } }]);
+    expect(noise.join('\n')).not.toContain('ends early');
     const waltz = (meterSet: boolean) => tool.formatMusic([{ layer: 'layer "w"', source: 'music', music: {
       bpm: 90, meter: 3, meterSet, beats: 10, bars: 3.333, seconds: 6, tail: 2,
       tracks: [{ inst: 'pad', beats: 10, bars: 3.333, events: 1, perBar: ['C', '', '', ''] }], drums: [],

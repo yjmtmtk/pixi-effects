@@ -7,7 +7,7 @@
  * It starts a private static server and a private headless Chrome (nothing shared with other sessions), opens the page,
  * waits for `window.__ready === true`, then checks: console warnings / errors, `movie.inspect` over the whole timeline
  * (grouped), `movie.inspectAudio()`, a contact sheet (a PNG you can look at), and a real export (`movie.render`) that it
- * decodes again: video size / length, audio length, loudness per second, silence. Output goes to `check-out/<name>/`
+ * decodes again: video size / length, audio length, loudness per second, silence. Output goes to `check-out/<name>/` (`--out DIR` writes straight into DIR, with no <name>/ inside it)
  * (`sheet.png`, `<name>.<format>`, `report.json`; a presentation with `stops` also gets `stops.png`, one picture per stop) and a short summary is printed. Exit code 0 = nothing to fix, 1 = problems.
  *
  * Needs: Node >= 22 (built-in WebSocket), Chrome / Chromium installed (or --chrome PATH / CHROME=PATH). No npm dependencies.
@@ -44,8 +44,8 @@ export function formatMusic(sources) {
     out.push(`  music     ${s.layer} · ${num(m.bpm)} bpm · ${num(m.beats)} beats = ${num(m.bars)} bars of ${m.meter} beats${assumed} · ${num(Math.round(m.seconds * 10) / 10)} s (+ ${num(m.tail)} s tail)`);
     for (const t of m.tracks) {
       const whole = Math.abs(t.bars - Math.round(t.bars)) < 1e-6;
-      // a track shorter than the longest stops early (whatever its length in bars); a short BAR can only be the longest track's, and only the author's meter can say so
-      const note = t.beats < m.beats - 1e-6 ? ` (ends early: silent from beat ${num(t.beats)})` : !whole && m.meterSet !== false ? ' (not a whole number of bars: a bar is short)' : '';
+      // a track shorter than the longest stops early (whatever its length in bars; decimal note lengths add up with float noise, so a gap under 1e-4 of a beat is none); a short BAR can only be the longest track's, and only the author's meter can say so
+      const note = t.beats < m.beats - 1e-4 ? ` (ends early: silent from beat ${num(t.beats)})` : !whole && m.meterSet !== false ? ' (not a whole number of bars: a bar is short)' : '';
       const cell = names => { const n = names.match(/\[[^\]]*\]\S*|\S+/g) ?? []; return n.length === 0 ? '–' : n.length > 4 ? `${n.slice(0, 4).join(' ')} …` : n.join(' '); };
       const shown = t.perBar.slice(0, 16).map(cell).join(' | ');
       out.push(`${pad}${t.inst.padEnd(6)} ${num(t.bars)} bar${t.bars === 1 ? '' : 's'}${note} | ${shown}${t.perBar.length > 16 ? ` | … (${t.perBar.length - 16} more)` : ''}`);
@@ -398,6 +398,7 @@ export async function runCheck(opts, log = console.log) {
       const wanted = atList;
       const framesDir = path.join(outDir, 'frames');
       fs.mkdirSync(framesDir, { recursive: true });
+      for (const old of fs.readdirSync(framesDir)) if (old.endsWith('.png')) fs.rmSync(path.join(framesDir, old));        // the pictures of an earlier run: frames/ shows this run's moments only
       for (const w of wanted) {
         const png = await cdp.eval(`movie.snapshot(${w.frame}, { as: 'dataURL' })`);
         fs.writeFileSync(path.join(framesDir, `${w.label}.png`), Buffer.from(png.slice(png.indexOf(',') + 1), 'base64'));

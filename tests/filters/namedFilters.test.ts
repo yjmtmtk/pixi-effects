@@ -114,6 +114,43 @@ describe('declarative filters: { type: "glow", … }', () => {
   });
 });
 
+describe('an option that is undefined (a misspelt variable, a missing field) is not passed to the filter, and is said', () => {
+  it('leaves the key out so the filter keeps its default (pixi-filters\' own defaults are overwritten by an explicit undefined: bloom then fails with "reading x" at init)', () => {
+    registerFilterLibrary(FAKE_LIB);
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const f = createFilter(spec({ type: 'glow', outerStrength: undefined, color: '#ffd166' })) as unknown as GlowFilter;
+    expect('outerStrength' in (f.opts ?? {})).toBe(false);
+    expect(f.opts).toEqual({ color: '#ffd166' });
+  });
+
+  it('works for pixi.js\'s own filters and for the single-value ones too', () => {
+    registerFilterLibrary(FAKE_LIB);
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(Object.keys((createFilter(spec({ type: 'blur', strength: undefined })) as unknown as { opts: object }).opts)).toEqual([]);
+    expect((createFilter(spec({ type: 'pixelate', size: undefined })) as unknown as PixelateFilter).size).toBeUndefined();
+  });
+
+  it('warns once per filter, naming the filter and the options, and says the default is used', () => {
+    registerFilterLibrary(FAKE_LIB);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    createFilter(spec({ type: 'glow', outerStrength: undefined, distance: undefined }));
+    expect(warn).toHaveBeenCalledTimes(1);
+    const text = String(warn.mock.calls[0]![0]);
+    expect(text).toContain('glow');
+    expect(text).toContain('outerStrength');
+    expect(text).toContain('distance');
+    expect(text).toMatch(/undefined/);
+    expect(text).toMatch(/default/);
+  });
+
+  it('is silent when every option has a value', () => {
+    registerFilterLibrary(FAKE_LIB);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    createFilter(spec({ type: 'glow', outerStrength: 3 }));
+    expect(warn).not.toHaveBeenCalled();
+  });
+});
+
 describe('needsFilterLibrary / ensureFilterLibrary', () => {
   const comp = (filters: unknown[]) => ({ sequences: [{ type: 'composition', sequences: [{ type: 'text', filters }] }] });
 

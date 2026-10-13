@@ -108,6 +108,8 @@ export class TextSequence extends Sequence {
       this.intrinsicWidth = text.width;
       this.intrinsicHeight = text.height;
     }
+    const startFill = initialProps.fill;                                                                    // `initial: { fill }` is the colour from the start, like a `fill` keyframe later (it used to be dropped without a word)
+    if (typeof startFill === 'string' || typeof startFill === 'number') (text.style as unknown as Record<string, unknown>).fill = startFill;
     validateGradientKeyframes(this.spec as never, describeLayer(this.spec), undefined, 'text');              // once, here, not at every evaluation of the timeline
     const gradientSpec = this.spec.fillGradient ?? (initialProps.fillGradient as GradientSpec | undefined);
     if (gradientSpec) { this._grad = { grad: gradStateFrom(gradientSpec) }; this._applyGradient(); }

@@ -13,7 +13,7 @@ A text layer is `type: 'text'` with a `text` and a `style`. `style` takes the Pi
 ```
 
 - The default anchor is the **top-left**; set `anchorX` / `anchorY` to `0.5` to place the *centre* at `x, y`.
-- Colour is `style.fill` (and the `fill` keyframe animates it); the text's size is available to expressions as `w` and `h` after the style is applied.
+- Colour is `style.fill` (`initial: { fill }` sets it from the start, and the `fill` keyframe animates it); the text's size is available to expressions as `w` and `h` after the style is applied.
 - Use **system fonts** (`system-ui`, `Georgia`, `ui-monospace`…) unless you load a web font first: `await document.fonts.load('48px "My Font"')` before `movie.init`.
 - A `dropShadow` glow is clipped unless you give the text `padding` of at least twice its `blur`.
 

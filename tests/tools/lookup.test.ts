@@ -116,6 +116,16 @@ describe('new --size WxH --duration S: the page starts at the size and length as
     expect(html).toContain('poster: DURATION * 0.75');
   });
 
+  it('a tall or square page is shown at a width that fits a laptop screen (about 760 px high at most), a wide one stays 960 px wide', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'new-size-'));
+    const stage = (args: string[], name: string) => { cli(['new', name, ...args], dir); return readFileSync(join(dir, `${name}.html`), 'utf8').match(/\.stage \{ position: relative; width: ([^;]+);/)![1];  };
+    expect(stage(['--size', '1280x720'], 'wide')).toBe('min(960px, 100%)');
+    expect(stage([], 'plain')).toBe('min(960px, 100%)');
+    expect(stage(['--size', '1080x1920'], 'tall')).toBe('min(428px, 100%)');
+    expect(stage(['--size', '1080x1080'], 'square')).toBe('min(760px, 100%)');
+    expect(stage(['--size', '1080x1350'], 'four-five')).toBe('min(608px, 100%)');
+  });
+
   it('without them the page is the usual 1280x720, 6 s; a bad size or duration says what is accepted and writes nothing', () => {
     const dir = mkdtempSync(join(tmpdir(), 'new-size-'));
     expect(readFileSync(lookup.newPage('plain', { cwd: dir, root }).file, 'utf8')).toContain('const W = 1280, H = 720, FPS = 30, DURATION = 6;');

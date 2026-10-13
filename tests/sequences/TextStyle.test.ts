@@ -39,6 +39,17 @@ describe('text style values', () => {
     expect(String(warn.mock.calls[0]![0])).toContain('big');
   });
 
+  it('initial.fill is the text\'s colour from the start (it used to be ignored without a word): it wins over style.fill', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const t = new TextSequence({ type: 'text', text: 'hi', style: { fill: '#ffffff' }, initial: { fill: '#ff0000' } } as unknown as SequenceSpec, comp, comp);
+    await t.build();
+    expect((t.target as unknown as { style: Record<string, unknown> }).style.fill).toBe('#ff0000');
+    expect(warn).not.toHaveBeenCalled();
+    const bare = new TextSequence({ type: 'text', text: 'hi', initial: { fill: 0x00ff00 } } as unknown as SequenceSpec, comp, comp);
+    await bare.build();
+    expect((bare.target as unknown as { style: Record<string, unknown> }).style.fill).toBe(0x00ff00);      // a number works, and no style is needed
+  });
+
   it('a named colour given directly as stroke is kept as it is', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const t = new TextSequence({ type: 'text', text: 'hi', style: { stroke: 'white' } } as unknown as SequenceSpec, comp, comp);

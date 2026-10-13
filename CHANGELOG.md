@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+**From 18 fresh Opus authors (2026-10-13): the claims that were verified on the real build**
+
+- **Fixed: `initial: { fill }` on a text layer was dropped without a word** (only a `fill` keyframe worked). It is now the colour from the start (it wins over `style.fill`).
+- **Fixed: a filter option set to `undefined` (a misspelt variable) overwrote the filter's own default**: `{ type: 'bloom', strength: undefined }` made `movie.init` fail with "Cannot read properties of undefined (reading 'x')". The key is now left out and a warning names the filter and the options.
+- **`check --at`** no longer leaves the pictures of an earlier run in `frames/` (it cleared nothing, so an old frame could be taken for the current one). The music read-back no longer says "ends early" for a track that is a few millionths of a beat shorter (decimal note lengths add up with float noise).
+- **`pixi-effects new --size`** sizes the shown page for a tall or square movie (it was 960 px wide, so a 9:16 page was 1700 px tall).
+- Docs: `--out DIR` writes straight into DIR (no `<name>/` inside); pitfalls 112 (text under a scaled-up parent is soft) and 113 (an `sfx` lasts at most 10 s, a `music` layer plays 16 tracks).
+- Gallery and guide: 59 pieces (18 new, 17 swapped, 11 removed); the guide no longer shows gallery pieces (its demos are built from its own recipes, `scripts/build-guide-demos.mjs`); `scripts/gallery-swap.mjs` also adds (`--add`) and removes (`--remove`).
+
 ## 0.35.0
 
 **The player's seek-bar preview (`thumbnails: true`, off by default) and `movie.thumbnail()`**

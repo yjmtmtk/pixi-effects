@@ -49,6 +49,11 @@ export function createFilter(spec: FilterSpec): NamedFilter {
     return named;
   }
   const { type, name, ...given } = spec as Record<string, unknown> & { type: string; name?: string };
+  const unset = Object.keys(given).filter(k => given[k] === undefined);
+  if (unset.length > 0) {                                                  // an explicit undefined would overwrite the filter's own default (bloom: "reading 'x'" at init)
+    console.warn(`pixi-effects: the "${type}" filter has ${unset.map(k => `"${k}"`).join(', ')} set to undefined (a misspelt variable or a missing field?): the filter's default is used instead.`);
+    for (const k of unset) delete given[k];
+  }
   const params = copyPlain(given);
   const Cls = registry[type];
   const inst = (Cls ? new Cls(params) : createNamedFilter(type, params)) as NamedFilter;
