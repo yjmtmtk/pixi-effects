@@ -460,6 +460,36 @@ commands.frames = async ({ file, opts }, io, env = {}) => {
   return 0;
 };
 
+/** The longest sound `sound` decodes into memory (a stereo hour would be gigabytes). */
+export const SOUND_MAX_SECONDS = 600;
+
+function soundText(r, file, waveform) {
+  const dbText = (n) => (n === null || n === undefined ? 'n/a' : String(n));
+  const L = [`${file}`, `  ${r.duration} s · ${r.sampleRate} Hz · ${r.channels} ch`,
+    `  loudness  ${dbText(r.loudness.integratedLufs)} LUFS · true peak ${dbText(r.loudness.truePeakDb)} dBTP · peak ${dbText(r.peakDb)} dBFS · ${r.loudness.clippedSamples} sample(s) at full scale`];
+  L.push(`  silences  ${r.loudness.silences.length ? r.loudness.silences.slice(0, 6).map(q => `${round(q.from, 1)}–${round(q.to, 1)} s`).join(', ') + (r.loudness.silences.length > 6 ? `, … (${r.loudness.silences.length})` : '') : 'none (nothing quieter than −70 dBFS for a second or more)'}`);
+  const step = Math.max(1, Math.ceil(r.windows.length / 16));
+  L.push(`  level     ${r.windows.filter((_, i) => i % step === 0).map(w => Math.round(w.rmsDb)).join(' ')} dBFS rms, every ${round(step * (r.windows.length > 1 ? r.windows[1].t - r.windows[0].t : 1), 1)} s`);
+  for (const n of r.notes.slice(0, 3)) L.push(`  note      ${n}`);
+  if (r.notes.length > 3) L.push(`  note      … ${r.notes.length - 3} more (--json)`);
+  if (waveform) L.push(`  ${waveform}`);
+  return L.join('\n');
+}
+
+commands.sound = async ({ file, opts }, io, env = {}) => {
+  const probe = await probeFile(file);
+  if (!probe.audio.length) throw new Error(`no audio track in ${file}${probe.video.length ? ' (it is a video with no sound)' : ''}: sound measures the sound of a file`);
+  if (probe.duration > SOUND_MAX_SECONDS) throw new Error(`${file} is ${round(probe.duration, 0)} s long: sound decodes the whole sound into memory, so it takes up to ${SOUND_MAX_SECONDS} s; for longer files use ffmpeg (ffmpeg -i file -af ebur128 -f null -) or measure a part (trim it first)`);
+  const outDir = path.resolve(opts.o ?? `${path.basename(file).replace(/\.[^.]*$/, '') || 'sound'}-sound`);
+  const { withBrowser } = await import(pathToFileURL(path.join(HERE, 'mediaBrowser.mjs')).href);
+  const inputs = new Map([['s1', isUrl(file) ? file : path.resolve(file)]]);
+  const window = Math.max(1, probe.duration / 120);                                  // a row per second for a short file, at most ~120 rows for a long one
+  const r = await withBrowser({ chrome: opts.chrome, inputs, outDir, requestLog: env.requestLog }, ({ call }) => call('sound', { id: 's1', waveform: !!opts.waveform, window }));
+  const report = { file, ...r, waveform: r.waveform ? path.join(outDir, r.waveform) : null };
+  io.log(opts.json ? JSON.stringify(report, null, 2) : soundText(report, file, report.waveform));
+  return 0;
+};
+
 const self = fileURLToPath(import.meta.url);
 if (process.argv[1] && fs.realpathSync(path.resolve(process.argv[1])) === fs.realpathSync(self)) {
   runMedia(process.argv.slice(2)).then(code => process.exit(code));

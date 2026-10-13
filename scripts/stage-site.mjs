@@ -16,6 +16,7 @@ export async function stageSite(outDir, { root = ROOT } = {}) {
     cpSync(join(root, from), join(outDir, to), { recursive: true });
   };
   for (const dir of ['dist', 'examples', 'ai', 'skills']) copy(dir);
+  rmSync(join(outDir, 'ai/tools/media-page.html'), { force: true });      // the browser page of the media commands is served by their own local server (/__mb/, /__in/): it is not a page of the site
   for (const f of ['docs/dsl.md', 'docs/api.md', 'llms.txt', 'llms-full.txt']) copy(f);
   copy('index.html');
   copy('site/landing/landing.css');

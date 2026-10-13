@@ -249,3 +249,33 @@ export function analyzeAudio(
     notes,
   };
 }
+
+/** What `inspectSound` says about a sound. */
+export interface SoundReport {
+  /** Seconds, the sample rate and the number of channels of what was measured. */
+  duration: number;
+  sampleRate: number;
+  channels: number;
+  /** The loudest sample, dBFS. */
+  peakDb: number;
+  /** ITU-R BS.1770 loudness, true peak, samples at full scale and silences, as `check` reports them for a movie's mix. */
+  loudness: AudioReport['loudness'];
+  /** The level over time: the RMS of each window (`window` seconds, 0.1 by default), dBFS. */
+  windows: Array<{ t: number; rmsDb: number }>;
+  /** Advice (quiet or loud for web video, little headroom, silent stretches) and what would distort when encoded. */
+  notes: string[];
+}
+
+/**
+ * Measure the sound of any file, not only a movie's mix: its loudness, peak, clipping, silences and level over time, with the same code `movie.inspectAudio()` uses, so
+ * `check` and the `pixi-effects sound` command give the same numbers for the same samples. Takes decoded PCM (an AudioBuffer works).
+ */
+export function inspectSound(pcm: PcmLike, opts: { window?: number } = {}): SoundReport {
+  const duration = pcm.length / pcm.sampleRate;
+  const r = analyzeAudio(pcm, [], null, duration, opts.window ? { window: opts.window } : {});
+  return {
+    duration: Math.round(duration * 1000) / 1000, sampleRate: pcm.sampleRate, channels: pcm.numberOfChannels, peakDb: r.peakDb,
+    loudness: r.loudness, windows: r.windows.map(w => ({ t: w.t, rmsDb: w.rmsDb })), notes: [...r.notes, ...r.issues],
+  };
+}
+

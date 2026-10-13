@@ -12,6 +12,7 @@
 -->
 <script type="module">
   import * as mb from '/__mb/mediabunny.min.mjs';
+  import { inspectSound } from '/__lib/sound.js';        // the loudness code `check` uses, built with no PixiJS in it
   mb.Logging.level = mb.LogLevel.Silent;
 
   const put = async (name, blob) => {
@@ -57,6 +58,44 @@
       return { frames, sheet: sheetFile };
     },
   };
+  /** Loudness, peak, clipping, silences and level over time of the first audio track (all of it is decoded into memory: the command refuses very long files), and with `waveform` a picture. */
+  window.media.sound = async ({ id, waveform, window: windowSeconds }) => {
+    const input = await open(id);
+    const track = await input.getPrimaryAudioTrack();
+    if (!track) throw new Error('no audio track');
+    if (!(await track.canDecode())) throw new Error('this browser cannot decode ' + track.codec + ' (the audio codec of the file)');
+    const duration = await input.computeDuration();
+    const sink = new mb.AudioBufferSink(track);
+    const parts = [];
+    let rate = 0, channels = 0;
+    for await (const { buffer, timestamp } of sink.buffers()) {
+      rate = buffer.sampleRate; channels = buffer.numberOfChannels;
+      parts.push({ at: Math.round(timestamp * rate), data: Array.from({ length: channels }, (_, c) => buffer.getChannelData(c).slice()) });
+    }
+    if (!parts.length) throw new Error('the audio track has no samples');
+    const total = Math.max(parts.reduce((m, p) => Math.max(m, p.at + p.data[0].length), 0), Math.round(duration * rate));
+    const data = Array.from({ length: channels }, () => new Float32Array(total));
+    for (const p of parts) p.data.forEach((d, c) => data[c].set(d, Math.max(0, p.at)));
+    const pcm = { numberOfChannels: channels, sampleRate: rate, length: total, getChannelData: (c) => data[c] };
+    const report = inspectSound(pcm, { window: windowSeconds });
+    let waveformFile = null;
+    if (waveform) {
+      const W = 1200, H = 240, c = new OffscreenCanvas(W, H), g = c.getContext('2d');
+      g.fillStyle = '#10141d'; g.fillRect(0, 0, W, H);
+      g.fillStyle = '#7fb4ff';
+      const per = Math.max(1, Math.floor(total / W));
+      for (let x = 0; x < W; x++) {
+        let lo = 0, hi = 0;
+        for (let i = x * per; i < Math.min(total, (x + 1) * per); i++) { const v = data[0][i]; if (v < lo) lo = v; if (v > hi) hi = v; }
+        g.fillRect(x, H / 2 - hi * (H / 2 - 4), 1, Math.max(1, (hi - lo) * (H / 2 - 4)));
+      }
+      g.fillStyle = '#e9edf5'; g.font = '13px ui-monospace, Menlo, monospace'; g.fillText('0 s', 6, H - 6); g.fillText(report.duration.toFixed(1) + ' s', W - 60, H - 6);
+      waveformFile = 'waveform.png';
+      await put(waveformFile, await c.convertToBlob({ type: 'image/png' }));
+    }
+    return { ...report, waveform: waveformFile };
+  };
+
   const FORMATS = { '.mp4': mb.Mp4OutputFormat, '.m4v': mb.Mp4OutputFormat, '.m4a': mb.Mp4OutputFormat, '.mov': mb.MovOutputFormat, '.webm': mb.WebMOutputFormat, '.mkv': mb.MkvOutputFormat, '.mka': mb.MkvOutputFormat };
 
   /** [start, end] re-encoded (every track), so the cut starts on the frame asked for; the file is held in memory until it is handed back. */

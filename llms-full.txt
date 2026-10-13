@@ -4009,6 +4009,25 @@ interface AudioReport {
 }
 ```
 
+### `inspectSound(pcm, options?): SoundReport`
+
+The same measurement for the sound of ANY file (not only a movie's mix): decode it to PCM (an `AudioBuffer` works) and ask. The numbers are the ones `movie.inspectAudio()` gives for the same samples, so `check` and `pixi-effects sound` agree. `options.window`: seconds per row of `windows` (default 0.1).
+
+```ts
+import { inspectSound } from 'pixi-effects';
+// pcm: { numberOfChannels, sampleRate, length, getChannelData(ch): Float32Array }
+interface SoundReport {
+  duration: number; sampleRate: number; channels: number;
+  peakDb: number;                                  // the loudest sample, dBFS
+  loudness: { integratedLufs: number | null;       // ITU-R BS.1770; null for a sound under 0.4 s or with nothing above −70 LUFS
+              truePeakDb: number; clippedSamples: number; silences: Array<{ from: number; to: number }> };
+  windows: Array<{ t: number; rmsDb: number }>;    // the level over time
+  notes: string[];                                 // quiet or loud for web video, little headroom, silent stretches
+}
+```
+
+The command line wraps it: `pixi-effects sound <file>` (see `docs/media.md`). The page of that command loads it from `dist/sound.js`, a build of this function with no PixiJS in it.
+
 `render()` encodes this same mix: AAC in mp4 / mov (the encoder delay is trimmed with an edit list), Opus in webm / mkv.
 
 ### `movie.render(options?): Promise<Blob>`

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { analyzeAudio } from '../../src/core/inspectAudio';
+import { analyzeAudio, inspectSound } from '../../src/core/inspectAudio';
 import type { AudioDescriptor } from '../../src/types';
 
 const SR = 8000;
@@ -245,3 +245,52 @@ describe('analyzeAudio: a sound buried under the rest of the mix (an author who 
     expect(r.notes.some(n => /buried/.test(n))).toBe(false);
   });
 });
+
+describe('inspectSound: the sound of ANY file, measured with the code `check` uses for a movie', () => {
+  const SR = 48000;
+  /** A stereo 997 Hz sine at `dbfs` peak for `seconds`, with `gap` seconds of silence from `gapAt`. */
+  const tone = (dbfs: number, seconds = 4, gap?: { at: number; for: number }) => {
+    const n = Math.round(SR * seconds), amp = 10 ** (dbfs / 20), d = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const t = i / SR; d[i] = gap && t >= gap.at && t < gap.at + gap.for ? 0 : Math.max(-1, Math.min(1, amp * Math.sin(2 * Math.PI * 997 * t))); }
+    return { numberOfChannels: 2, sampleRate: SR, length: n, getChannelData: () => d };
+  };
+
+  it('a sine 6 dB lower is 6.0 ± 0.1 LU quieter (the loudness is BS.1770, not a guess)', () => {
+    const a = inspectSound(tone(-20)).loudness.integratedLufs!, b = inspectSound(tone(-26)).loudness.integratedLufs!;
+    expect(a - b).toBeGreaterThan(5.9);
+    expect(a - b).toBeLessThan(6.1);
+    expect(a).toBeLessThan(-15);
+    expect(a).toBeGreaterThan(-30);
+  });
+
+  it('says its length, rate and channels; a sine with a gap has one silence of that gap; a clean sine has none and clips nothing', () => {
+    const r = inspectSound(tone(-20, 6, { at: 2, for: 2 }));
+    expect([r.duration, r.sampleRate, r.channels]).toEqual([6, SR, 2]);
+    expect(r.loudness.silences).toHaveLength(1);
+    expect(r.loudness.silences[0]!.from).toBeCloseTo(2, 1);
+    expect(r.loudness.silences[0]!.to).toBeCloseTo(4, 1);
+    const clean = inspectSound(tone(-20));
+    expect(clean.loudness.silences).toEqual([]);
+    expect(clean.loudness.clippedSamples).toBe(0);
+  });
+
+  it('counts the samples that hit full scale (a sine pushed past 0 dBFS and clipped)', () => {
+    const loud = tone(6);                                                       // +6 dB, clipped to ±1 by the helper
+    expect(inspectSound(loud).loudness.clippedSamples).toBeGreaterThan(100);
+    expect(inspectSound(loud).peakDb).toBeGreaterThanOrEqual(-0.1);
+  });
+
+  it('the numbers are the ones analyzeAudio gives for the same samples (check and sound cannot disagree), and `window` sets the level rows', () => {
+    const pcm = tone(-20);
+    const whole = analyzeAudio(pcm, [], null, 4).loudness;
+    expect(inspectSound(pcm).loudness).toEqual(whole);
+    expect(inspectSound(pcm, { window: 1 }).windows.length).toBeLessThanOrEqual(5);
+    expect(inspectSound(pcm, { window: 1 }).windows[0]).toMatchObject({ t: 0 });
+    expect(Object.keys(inspectSound(pcm, { window: 1 }).windows[0]!).sort()).toEqual(['rmsDb', 't']);
+  });
+
+  it('a sound shorter than 0.4 s has no integrated loudness (null), not a made-up number', () => {
+    expect(inspectSound(tone(-20, 0.2)).loudness.integratedLufs).toBeNull();
+  });
+});
+

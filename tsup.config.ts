@@ -6,6 +6,7 @@ export default defineConfig({
     Controller: 'src/Controller.ts',
     present: 'src/present/index.ts',
     three: 'src/three/index.ts',
+    sound: 'src/core/soundEntry.ts',
   },
   format: ['esm', 'cjs'],
   dts: true,

@@ -229,6 +229,7 @@ interface InspectReport
   layers: LayerInfo[]
   summary: { layers: number; visible: number; }
   time: number
+function inspectSound(pcm: PcmLike, opts?: { window?: number | undefined; }): SoundReport
 interface IrisTransition extends TransitionCommon
   kind: "iris"
   mode?: "in" | "out"
@@ -663,6 +664,14 @@ interface SoundMeasure
   length: number
   loudestAt: number
   peakDb: number
+interface SoundReport
+  channels: number
+  duration: number
+  loudness: { integratedLufs: number | null; truePeakDb: number; clippedSamples: number; silences: { from: number; to: nu…
+  notes: string[]
+  peakDb: number
+  sampleRate: number
+  windows: { t: number; rmsDb: number; }[]
 interface SplitOptions
   align?: "left" | "center" | "right"
   by?: "chars" | "words" | "lines"
