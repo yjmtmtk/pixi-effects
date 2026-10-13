@@ -16,6 +16,7 @@
  * a long transcode, use ffmpeg: this is for looking, listening and cutting, with structured answers.
  */
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -222,7 +223,8 @@ async function copyWindow(mb, input, start, stop) {
  * Cuts [start, end] out of a file. By copy when the codecs allow (no re-encode, no loss): it can only start on a frame and the container's rules decide how the start is
  * made (`boundary`). With `exact` the cut is re-encoded in the browser so it starts on the frame asked for (see `trimExact`). The result says what was really done.
  */
-export async function trimFile({ input: file, start, end, out, exact = false, force = false, copy = { boundaryPolicy: 'shrink', shiftTolerance: Infinity } }) {
+export async function trimFile({ input: file, start, end, out, exact = false, force = false, chrome = null, requestLog = null, copy = { boundaryPolicy: 'shrink', shiftTolerance: Infinity } }) {
+  const env = { chrome, requestLog };
   if (!(end > start)) throw new UsageError(`start must be before end (got ${start} and ${end})`);
   if (start < 0) throw new UsageError(`start must not be negative (got ${start})`);
   const ext = path.extname(out).toLowerCase();
@@ -234,7 +236,7 @@ export async function trimFile({ input: file, start, end, out, exact = false, fo
   if (start >= duration) throw new Error(`start ${start} s is past the end of the file (${round(duration, 3)} s)`);
   let stop = end;
   if (end > duration) { stop = duration; notes.push(`end is past the file (${round(duration, 3)} s): cut at ${round(duration, 3)}`); }
-  if (exact) throw new Error('--exact needs the browser engine, which this build does not have yet');
+  if (exact) return trimExact({ mb, input, file, start, end, stop, duration, out, ext, force, notes, env });
   const { input: probe } = await openInput(file);
   const window = await copyWindow(mb, probe, start, stop);
   if (window && window.none) {
@@ -260,14 +262,42 @@ export async function trimFile({ input: file, start, end, out, exact = false, fo
   return { requested: [start, end], actual, mode: 'copy', reencoded: false, tracks, bytes: fs.statSync(path.resolve(out)).size, out, notes };
 }
 
+/** The cut re-encoded in the browser, so it starts on the frame asked for. The file is made in a temporary folder (the page may only write plain names) and moved to `out`. */
+async function trimExact({ mb, input, file, start, end, stop, duration, out, ext, force, notes, env }) {
+  prepareOutput(out, { force });
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pixi-effects-trim-'));
+  try {
+    const { withBrowser } = await import(pathToFileURL(path.join(HERE, 'mediaBrowser.mjs')).href);
+    const inputs = new Map([['t1', isUrl(file) ? file : path.resolve(file)]]);
+    const name = `cut${ext}`;
+    await withBrowser({ chrome: env.chrome, inputs, outDir: tmp, requestLog: env.requestLog }, ({ call }) => call('trimExact', { id: 't1', start, end: stop, ext, outName: name }));
+    fs.copyFileSync(path.join(tmp, name), path.resolve(out));
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+  const made = await probeFile(out);
+  // the frame the cut starts on: the first frame at or after the start (frames are on a grid, so a start between two is the next)
+  const track = await input.getPrimaryVideoTrack();
+  let from = start;
+  if (track) {
+    const sink = new mb.EncodedPacketSink(track);
+    const key = (await sink.getKeyPacket(start, { metadataOnly: true })) ?? (await sink.getFirstPacket({ metadataOnly: true }));
+    const times = [];
+    if (key) for await (const p of sink.packets(key, undefined, { metadataOnly: true })) { times.push(p.timestamp); if (p.timestamp > start + 4) break; }
+    const after = times.filter(t => t >= start - 1e-6).sort((a, b) => a - b)[0];
+    if (after !== undefined) from = after;
+  }
+  const actual = [round(from, 3), round(Math.min(stop, duration), 3)];
+  const tracks = [...made.video.map(v => `video ${v.codec}`), ...made.audio.map(a => `audio ${a.codec}`)];
+  return { requested: [start, end], actual, mode: 'reencode', reencoded: true, tracks, bytes: fs.statSync(path.resolve(out)).size, out, notes };
+}
+
 function trimText(r) {
-  const L = [`${r.out}  ${kb(r.bytes)}`, `  asked ${r.requested[0]}–${r.requested[1]} s, got ${r.actual[0]}–${r.actual[1]} s`, `  copied: ${r.tracks.join(', ')} (no re-encode)`];
+  const L = [`${r.out}  ${kb(r.bytes)}`, `  asked ${r.requested[0]}–${r.requested[1]} s, got ${r.actual[0]}–${r.actual[1]} s`, r.reencoded ? `  re-encoded: ${r.tracks.join(', ')}` : `  copied: ${r.tracks.join(', ')} (no re-encode)`];
   for (const n of r.notes) L.push(`  note   ${n}`);
   return L.join('\n');
 }
 
-commands.trim = async ({ file, opts }, io) => {
-  const r = await trimFile({ input: file, start: opts.start, end: opts.end, out: opts.out, exact: !!opts.exact, force: !!opts.force });
+commands.trim = async ({ file, opts }, io, env = {}) => {
+  const r = await trimFile({ input: file, start: opts.start, end: opts.end, out: opts.out, exact: !!opts.exact, force: !!opts.force, chrome: opts.chrome ?? null, requestLog: env.requestLog ?? null });
   io.log(opts.json ? JSON.stringify(r, null, 2) : trimText(r));
   return 0;
 };
@@ -276,13 +306,13 @@ commands.trim = async ({ file, opts }, io) => {
 
 
 /** Runs a media command line; resolves to the exit code (0 done, 1 a problem, 2 usage). */
-export async function runMedia(argv, io = defaultIo) {
+export async function runMedia(argv, io = defaultIo, env = {}) {
   let parsed;
   try { parsed = parseMediaArgs(argv); }
   catch (e) { if (e instanceof UsageError) { io.err(`pixi-effects: ${e.message}\n${USAGE}`); return 2; } throw e; }
   const run = commands[parsed.command];
   if (!run) { io.err(`pixi-effects ${parsed.command}: not available in this build`); return 1; }
-  try { return await run(parsed, io); }
+  try { return await run(parsed, io, env); }
   catch (e) {
     if (e instanceof UsageError) { io.err(`pixi-effects: ${e.message}\n${USAGE}`); return 2; }
     io.err(`pixi-effects ${parsed.command}: ${e && e.message ? e.message : String(e)}`);       // a sentence, never a stack
@@ -311,6 +341,19 @@ function sendFile(req, res, file) {
   fs.createReadStream(file).pipe(res);
 }
 
+/** A remote input, passed through with its Range (the page may not be allowed to read the other site, and this adds no CORS rules to learn). */
+async function proxy(req, res, url) {
+  try {
+    const { Readable } = await import('node:stream');
+    const up = await fetch(url, { headers: req.headers.range ? { range: req.headers.range } : {} });
+    const headers = { 'cache-control': 'no-store', 'access-control-allow-origin': '*' };
+    for (const h of ['content-type', 'content-length', 'content-range', 'accept-ranges']) if (up.headers.get(h)) headers[h] = up.headers.get(h);
+    res.writeHead(up.status, headers);
+    if (req.method === 'HEAD' || !up.body) { res.end(); return; }
+    Readable.fromWeb(up.body).on('error', () => res.destroy()).pipe(res);
+  } catch (e) { if (!res.headersSent) res.writeHead(502).end(`could not read ${url}: ${e.message}`); else res.destroy(); }
+}
+
 /** Where mediabunny's browser bundle is (this package's own copy, so the page works offline and with the version pixi-effects uses). */
 export function mediabunnyBundle() {
   const main = createRequire(import.meta.url).resolve('mediabunny');                  // .../dist/bundles/mediabunny.cjs (its package.json is not exported)
@@ -325,7 +368,7 @@ export function mediabunnyBundle() {
  *   GET      /__lib/<name>.js           a file of this package's dist/ by name (the sound measurement), nothing else
  * Resolves `{ server, port, close() }`.
  */
-export async function serveMedia({ inputs, outDir, root = PACKAGE_ROOT }) {
+export async function serveMedia({ inputs, outDir, root = PACKAGE_ROOT, requestLog = null }) {
   const { serve } = await import(pathToFileURL(path.join(HERE, 'check.mjs')).href);
   const onRequest = (req, res) => {
     const url = new URL(req.url, 'http://x');
@@ -333,6 +376,8 @@ export async function serveMedia({ inputs, outDir, root = PACKAGE_ROOT }) {
     let m;
     if ((m = p.match(/^\/__in\/([A-Za-z0-9_-]+)$/)) && (req.method === 'GET' || req.method === 'HEAD')) {
       const file = inputs.get(m[1]);
+      requestLog?.push({ id: m[1], range: req.headers.range ?? null });
+      if (file && isUrl(file)) { proxy(req, res, file); return true; }
       if (!file || !fs.existsSync(file)) { res.writeHead(404).end('not found'); return true; }
       sendFile(req, res, file); return true;
     }
@@ -362,6 +407,58 @@ export async function serveMedia({ inputs, outDir, root = PACKAGE_ROOT }) {
   const { server, port } = await serve(root, onRequest);
   return { server, port, close: () => new Promise(r => { server.close(r); server.closeAllConnections?.(); }) };
 }
+
+const MAX_FRAMES = 60;
+const AT_HELP = 'use seconds (3.5), a percentage (50%), a frame (f120), start, end or every 2s';
+
+/**
+ * `--at` for a file with no layers: `3.5`, `50%`, `f120`, `start`, `end` (the last frame), `every 2s`, separated by commas → [{ t, label }] (a label safe in a file name).
+ * The same words as `check --at` where they overlap; a time outside the file is refused with the length of the file in the sentence.
+ */
+export function parseTimes(list, { duration, fps }) {
+  const out = [], seen = new Set(), last = Math.max(0, duration - 1 / fps);
+  const add = (t, label) => { if (!seen.has(label)) { seen.add(label); out.push({ t, label }); } };
+  const inside = (t, raw) => { if (t > duration + 1e-6) throw new Error(`${raw} s is past the end of the file (${round(duration, 3)} s)`); return Math.min(t, last > t ? t : Math.max(t, 0)); };
+  for (const raw of String(list).split(',').map(x => x.trim()).filter(Boolean)) {
+    let m;
+    if ((m = raw.match(/^every\s+(\d+(?:\.\d+)?)\s*s?$/i))) {
+      const step = Number(m[1]);
+      if (!(step > 0)) throw new Error(`--at "${raw}": every needs a step above 0 (every 2s)`);
+      const n = Math.ceil(duration / step);
+      if (n > MAX_FRAMES) throw new Error(`--at "${raw}": that is ${n} frames of a ${round(duration, 1)} s file, too many (at most ${MAX_FRAMES}): a larger step, or a range of times`);
+      for (let k = 0; k * step < duration - 1e-6; k++) add(round(k * step, 4), `${round(k * step, 2).toFixed(2)}s`);
+    } else if (/^start$/i.test(raw)) add(0, 'start');
+    else if (/^end$/i.test(raw)) add(round(last, 4), 'end');
+    else if ((m = raw.match(/^(\d+(?:\.\d+)?)%$/))) {
+      if (Number(m[1]) > 100) throw new Error(`--at "${raw}": a percentage is 0–100`);
+      add(round(Math.min(last, duration * Number(m[1]) / 100), 4), `${m[1]}pct`);
+    } else if ((m = raw.match(/^f(\d+)$/i))) add(round(inside(Number(m[1]) / fps, `frame ${m[1]} is ${round(Number(m[1]) / fps, 3)}`), 4), `f${m[1]}`);
+    else if (/^\d+(\.\d+)?$/.test(raw)) add(round(inside(Number(raw), raw), 4), `${Number(raw).toFixed(2)}s`);
+    else throw new Error(`--at: cannot read "${raw}": ${AT_HELP}`);
+  }
+  if (!out.length) throw new Error(`--at is empty: ${AT_HELP}`);
+  if (out.length > MAX_FRAMES) throw new Error(`--at asks for ${out.length} frames, too many (at most ${MAX_FRAMES})`);
+  return out;
+}
+
+commands.frames = async ({ file, opts }, io, env = {}) => {
+  const probe = await probeFile(file);
+  if (!probe.video.length) throw new Error(`no video track in ${file} (${probe.notes.join('; ')}): frames takes a video`);
+  const times = parseTimes(opts.at ?? '0,25%,50%,75%,end', { duration: probe.duration, fps: probe.video[0].fps || 30 });
+  const outDir = path.resolve(opts.o ?? `${path.basename(file).replace(/\.[^.]*$/, '') || 'video'}-frames`);
+  const { withBrowser } = await import(pathToFileURL(path.join(HERE, 'mediaBrowser.mjs')).href);
+  const inputs = new Map([['f1', isUrl(file) ? file : path.resolve(file)]]);
+  const r = await withBrowser({ chrome: opts.chrome, inputs, outDir, requestLog: env.requestLog }, ({ call }) => call('frames', { id: 'f1', times, size: opts.size ?? 480, sheet: !!opts.sheet }));
+  const report = { file, duration: probe.duration, outDir, frames: r.frames.map(f => ({ ...f, path: path.join(outDir, f.file) })), sheet: r.sheet };
+  if (opts.json) io.log(JSON.stringify(report, null, 2));
+  else {
+    const L = [`${r.frames.length} frame(s) of ${file} → ${outDir}${path.sep}`];
+    for (const f of r.frames) L.push(`  ${f.file}  ${round(f.actual, 3)} s${Math.abs(f.actual - f.requested) > 1 / (probe.video[0].fps || 30) ? ` (asked ${f.requested})` : ''}  ${f.width}×${f.height}`);
+    if (r.sheet) L.push(`  ${r.sheet}  all of them, with their times`);
+    io.log(L.join('\n'));
+  }
+  return 0;
+};
 
 const self = fileURLToPath(import.meta.url);
 if (process.argv[1] && fs.realpathSync(path.resolve(process.argv[1])) === fs.realpathSync(self)) {

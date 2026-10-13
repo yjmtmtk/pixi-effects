@@ -44,4 +44,41 @@ describe.skipIf(!chrome || process.env.SKIP_BROWSER_TESTS)('trim by copy: what a
       expect(r.at).toEqual({ 0.2: 'blue', 1.5: 'yellow' });
     } finally { rmSync(dir, { recursive: true, force: true }); }
   }, 60_000);
+
+  it('--exact starts on the frame asked for, between key frames (3.3 s: yellow until 4 s, then magenta), says it re-encoded, and reports the real start', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'trim-chrome-'));
+    try {
+      const out = join(dir, 'ex ñ.mp4');
+      const t = await media.trimFile({ input: fx('colors.mp4'), start: 3.3, end: 4.9, out, exact: true });
+      expect(t).toMatchObject({ mode: 'reencode', reencoded: true });
+      expect(Math.abs(t.actual[0] - 3.3)).toBeLessThan(0.04);
+      expect(t.tracks.join(' ')).toMatch(/video.*audio/);
+      const r = await colorsAt(out, [0.05, 0.3, 0.6, 0.8, 1.2, 1.5]);
+      expect(Math.abs(r.duration - 1.6)).toBeLessThan(0.15);
+      expect(r.at).toEqual({ 0.05: 'yellow', 0.3: 'yellow', 0.6: 'yellow', 0.8: 'magenta', 1.2: 'magenta', 1.5: 'magenta' });
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }, 90_000);
+
+  it('--exact can cut a range that has no key frame inside (2.5–3.5 s: blue, then yellow), which a copy refuses', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'trim-chrome-'));
+    try {
+      const out = join(dir, 'short.mp4');
+      const t = await media.trimFile({ input: fx('colors.mp4'), start: 2.5, end: 3.5, out, exact: true });
+      expect(t.reencoded).toBe(true);
+      const r = await colorsAt(out, [0.1, 0.4, 0.6, 0.9]);
+      expect(r.at).toEqual({ 0.1: 'blue', 0.4: 'blue', 0.6: 'yellow', 0.9: 'yellow' });
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }, 90_000);
+
+  it('--exact through the command: the text says re-encoded, the file exists, and a missing Chrome is a sentence', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'trim-chrome-'));
+    try {
+      const lines: string[] = [], errs: string[] = [];
+      const io = { log: (s: string) => lines.push(s), err: (s: string) => errs.push(s) };
+      expect(await media.runMedia(['trim', fx('colors.mp4'), '2.5', '3.5', '-o', join(dir, 'c.mp4'), '--exact'], io)).toBe(0);
+      expect(lines.join('\n')).toMatch(/re-encoded: video avc/);
+      expect(await media.runMedia(['trim', fx('colors.mp4'), '2.5', '3.5', '-o', join(dir, 'd.mp4'), '--exact', '--chrome', '/nonexistent/chrome'], io)).toBe(1);
+      expect(errs.join('\n')).toMatch(/Chrome|chrome/);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }, 90_000);
 });

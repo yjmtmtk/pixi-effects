@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>pixi-effects media</title>
+</head>
+<body>
+<!--
+  The browser side of `pixi-effects frames | sound | trim --exact` (ai/tools/media.mjs opens it in the headless Chrome the other tools use).
+  It reads the input by Range requests from /__in/<id>, decodes with mediabunny's own bundle (/__mb/, so it works offline), and hands every file it makes back with
+  PUT /__out/<name>: a long video never goes through CDP. `window.media.<name>(args)` returns a plain object (JSON) or throws a sentence.
+-->
+<script type="module">
+  import * as mb from '/__mb/mediabunny.min.mjs';
+  mb.Logging.level = mb.LogLevel.Silent;
+
+  const put = async (name, blob) => {
+    const res = await fetch('/__out/' + name, { method: 'PUT', body: blob });
+    if (!res.ok) throw new Error('could not hand ' + name + ' to the command (' + res.status + ')');
+  };
+  const open = (id) => new mb.Input({ source: new mb.UrlSource('/__in/' + id, { getRetryDelay: (n) => (n < 3 ? 0.3 * n : null) }), formats: mb.ALL_FORMATS });
+  const toBlob = (canvas) => (canvas.convertToBlob ? canvas.convertToBlob({ type: 'image/png' }) : new Promise((ok) => canvas.toBlob(ok, 'image/png')));
+  const pad = (n) => String(n).padStart(2, '0');
+
+  window.media = {
+    /** PNGs of the frames at `times` ([{ t, label }]), `size` px wide at most (a small video is not enlarged), and with `sheet` one contact sheet. */
+    async frames({ id, times, size, sheet }) {
+      const input = await open(id);
+      const track = await input.getPrimaryVideoTrack();
+      if (!track) throw new Error('no video track');
+      if (!(await track.canDecode())) throw new Error('this browser cannot decode ' + track.codec + ' (the video codec of the file)');
+      const width = Math.min(size || 480, await track.getDisplayWidth());              // the width as it is shown (after the turn of a rotated video); a small video is not enlarged
+      const sink = new mb.CanvasSink(track, { width });
+      const frames = [], kept = [];
+      for (let i = 0; i < times.length; i++) {
+        const wrapped = await sink.getCanvas(times[i].t);
+        if (!wrapped) throw new Error('there is no frame at ' + times[i].t + ' s');
+        const file = pad(i + 1) + '-' + times[i].label + '.png';
+        await put(file, await toBlob(wrapped.canvas));
+        frames.push({ file, requested: times[i].t, actual: wrapped.timestamp, width: wrapped.canvas.width, height: wrapped.canvas.height });
+        if (sheet) kept.push(wrapped.canvas);
+      }
+      let sheetFile = null;
+      if (sheet && kept.length) {
+        const cols = Math.min(kept.length, 3), rows = Math.ceil(kept.length / cols), cw = kept[0].width, ch = kept[0].height, strip = 22;
+        const c = new OffscreenCanvas(cols * cw, rows * (ch + strip)), g = c.getContext('2d');
+        g.fillStyle = '#10141d'; g.fillRect(0, 0, c.width, c.height);
+        g.font = '14px ui-monospace, Menlo, monospace'; g.textBaseline = 'middle';
+        kept.forEach((k, i) => {
+          const x = (i % cols) * cw, y = Math.floor(i / cols) * (ch + strip);
+          g.drawImage(k, x, y);
+          g.fillStyle = '#e9edf5'; g.fillText(frames[i].actual.toFixed(2) + ' s', x + 8, y + ch + strip / 2);
+        });
+        sheetFile = 'sheet.png';
+        await put(sheetFile, await c.convertToBlob({ type: 'image/png' }));
+      }
+      return { frames, sheet: sheetFile };
+    },
+  };
+  const FORMATS = { '.mp4': mb.Mp4OutputFormat, '.m4v': mb.Mp4OutputFormat, '.m4a': mb.Mp4OutputFormat, '.mov': mb.MovOutputFormat, '.webm': mb.WebMOutputFormat, '.mkv': mb.MkvOutputFormat, '.mka': mb.MkvOutputFormat };
+
+  /** [start, end] re-encoded (every track), so the cut starts on the frame asked for; the file is held in memory until it is handed back. */
+  window.media.trimExact = async ({ id, start, end, ext, outName }) => {
+    const input = await open(id);
+    const Format = FORMATS[ext];
+    if (!Format) throw new Error('cannot write ' + ext);
+    const target = new mb.BufferTarget();
+    const output = new mb.Output({ format: new Format(), target });
+    const conversion = await mb.Conversion.init({ input, output, trim: { start, end }, copy: false, showWarnings: false });
+    if (!conversion.isValid || conversion.discardedTracks.length) {
+      throw new Error('this browser cannot re-encode it into ' + ext + ' (' + conversion.discardedTracks.map((d) => d.track.type + ': ' + d.reason).join(', ') + ')');
+    }
+    await conversion.execute();
+    await put(outName, new Blob([target.buffer]));
+    return { bytes: target.buffer.byteLength };
+  };
+
+  window.__mediaReady = true;
+</script>
+</body>
+</html>
