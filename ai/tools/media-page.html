@@ -32,9 +32,10 @@
       if (!(await track.canDecode())) throw new Error('this browser cannot decode ' + track.codec + ' (the video codec of the file)');
       const width = Math.min(size || 480, await track.getDisplayWidth());              // the width as it is shown (after the turn of a rotated video); a small video is not enlarged
       const sink = new mb.CanvasSink(track, { width });
+      const firstFrame = await track.getFirstTimestamp();
       const frames = [], kept = [];
       for (let i = 0; i < times.length; i++) {
-        const wrapped = await sink.getCanvas(times[i].t);
+        const wrapped = await sink.getCanvas(Math.max(times[i].t, firstFrame));           // a time before the first frame is the first frame
         if (!wrapped) throw new Error('there is no frame at ' + times[i].t + ' s');
         const file = pad(i + 1) + '-' + times[i].label + '.png';
         await put(file, await toBlob(wrapped.canvas));
@@ -86,7 +87,7 @@
       const per = Math.max(1, Math.floor(total / W));
       for (let x = 0; x < W; x++) {
         let lo = 0, hi = 0;
-        for (let i = x * per; i < Math.min(total, (x + 1) * per); i++) { const v = data[0][i]; if (v < lo) lo = v; if (v > hi) hi = v; }
+        for (let c = 0; c < channels; c++) for (let i = x * per; i < Math.min(total, (x + 1) * per); i++) { const v = data[c][i]; if (v < lo) lo = v; if (v > hi) hi = v; }       // every channel: a sound only on one side is not an empty picture
         g.fillRect(x, H / 2 - hi * (H / 2 - 4), 1, Math.max(1, (hi - lo) * (H / 2 - 4)));
       }
       g.fillStyle = '#e9edf5'; g.font = '13px ui-monospace, Menlo, monospace'; g.fillText('0 s', 6, H - 6); g.fillText(report.duration.toFixed(1) + ' s', W - 60, H - 6);

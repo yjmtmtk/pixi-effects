@@ -14,7 +14,7 @@ const NAME = `(r, g, b) => (r > 200 && g < 60 && b < 60 ? 'red' : g > 200 && r <
  * What a real browser's <video> shows at these times of a file made of flat colours (the colors.* fixtures and cuts of them): the colour's name at the centre of the frame.
  * It is the check that a file is good for players, which a decoder in a test cannot give.
  */
-export async function colorsAt(file: string, times: number[]): Promise<{ duration: number; frames: number; at: Record<string, string> }> {
+export async function colorsAt(file: string, times: number[]): Promise<{ duration: number; frames: number; first: number | null; at: Record<string, string> }> {
   const { server, port } = await check.serve(dirname(resolve(file)));
   const dir = mkdtempSync(join(tmpdir(), 'video-colors-'));
   const { proc, cdp } = await launchPage(chrome!, dir);
@@ -35,8 +35,8 @@ export async function colorsAt(file: string, times: number[]): Promise<{ duratio
       await v.play();
       await done;
       const at = {};
-      for (const t of ${JSON.stringify(times)}) { let pick = frames[0]; for (const f of frames) if (f.t <= t + 1e-3) pick = f; at[t] = pick ? pick.colour : 'no frame'; }
-      return { duration: v.duration, frames: frames.length, at };
+      for (const t of ${JSON.stringify(times)}) { let pick = null; for (const f of frames) if (f.t <= t + 0.05) pick = f; at[t] = pick ? pick.colour : 'no frame'; }       // before the first presented frame there is NO frame (a file that starts late must not pass for one that starts at 0)
+      return { duration: v.duration, frames: frames.length, first: frames.length ? frames[0].t : null, at };
     })()`);
   } finally { try { proc.kill(); } catch { /* gone */ } server.close(); await check.sleep(100); rmSync(dir, { recursive: true, force: true }); }
 }

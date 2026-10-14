@@ -86,6 +86,26 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('sound: lou
     expect(j.loudness.silences).toEqual([]);
   }, 90_000);
 
+  it('the text says the silence threshold the code uses (−60 dBFS), and --force is not an option of sound', async () => {
+    const r = await run(['sound', fx('colors.mp4')]);
+    expect(r.out).toMatch(/−60 dBFS/);
+    expect(r.out).not.toMatch(/−70 dBFS/);
+    expect((await run(['sound', fx('colors.mp4'), '--force'])).code).toBe(2);
+  }, 90_000);
+
+  it('the waveform draws every channel: a sound only in the RIGHT channel is not an empty picture', async () => {
+    const dir = tmp();
+    try {
+      writeTone(join(dir, 'right.wav'), -6, 3, undefined, 'right');
+      const r = await run(['sound', join(dir, 'right.wav'), '--waveform', '-o', join(dir, 'o')]);
+      expect(r.code, r.err).toBe(0);
+      const { readPng } = await import('../support/png');
+      const png = readPng(join(dir, 'o', 'waveform.png'));
+      let lit = 0; for (let x = 0; x < png.width; x += 7) for (let y = 0; y < png.height; y += 3) { const p = png.pixel(x, y); if (Math.abs(y - 120) > 20 && p[0]! > 100 && p[2]! > 200) lit++; }       // far from the centre line: a real waveform, not the 1 px line of silence
+      expect(lit).toBeGreaterThan(50);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }, 90_000);
+
   it('a video with no audio track is exit 1 with a sentence; a file longer than the limit is refused with ffmpeg named', async () => {
     const a = await run(['sound', fx('video-only.mp4')]);
     expect(a.code).toBe(1);

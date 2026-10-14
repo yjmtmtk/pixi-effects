@@ -36,8 +36,8 @@ export const USAGE = `usage:
 const COMMANDS = {
   probe:  { positional: ['file'], flags: { '--keyframes': 'bool', '--json': 'bool' } },
   trim:   { positional: ['file', 'start', 'end'], flags: { '-o': 'str', '--out': 'str', '--exact': 'bool', '--force': 'bool', '--json': 'bool', '--chrome': 'str' } },
-  frames: { positional: ['file'], flags: { '--at': 'str', '--size': 'num', '--sheet': 'bool', '-o': 'str', '--out': 'str', '--force': 'bool', '--json': 'bool', '--chrome': 'str' } },
-  sound:  { positional: ['file'], flags: { '--waveform': 'bool', '-o': 'str', '--out': 'str', '--force': 'bool', '--json': 'bool', '--chrome': 'str' } },
+  frames: { positional: ['file'], flags: { '--at': 'str', '--size': 'num', '--sheet': 'bool', '-o': 'str', '--out': 'str', '--json': 'bool', '--chrome': 'str' } },
+  sound:  { positional: ['file'], flags: { '--waveform': 'bool', '-o': 'str', '--out': 'str', '--json': 'bool', '--chrome': 'str' } },
 };
 export const MEDIA_COMMANDS = Object.keys(COMMANDS);
 
@@ -155,10 +155,13 @@ export async function probeFile(file, { keyframes = false } = {}) {
       const fpsVaries = gaps.length > 4 && median > 0 && (gaps[gaps.length - 1] - gaps[0]) / median > 0.35;
       const stats = await track.computePacketStats(300);
       const rotation = await track.getRotation();
+      const first = await track.getFirstTimestamp(), end = await track.computeDuration();
       video.push({
         codec: track.codec, width: await track.getDisplayWidth(), height: await track.getDisplayHeight(), rotation,
         fps: round(stats.averagePacketRate, 2), fpsVaries, bitrate: Math.round(stats.averageBitrate),
+        first: round(first, 4), end: round(end, 6), frameGap: round(median, 6),
       });
+      if (first > 0.05) notes.push(`the video starts at ${round(first, 3)} s (its first frame is not at 0, so the sound can start before the picture; frames before ${round(first, 3)} s show the first frame)`);
       if (rotation) notes.push(`rotated ${rotation}° (the file stores it sideways and asks players to turn it; frames, and anything that places the picture, need that turn)`);
       if (fpsVaries) notes.push(`variable frame rate (the gaps between frames range from ${round(gaps[0] * 1000, 1)} to ${round(gaps[gaps.length - 1] * 1000, 1)} ms): a clip from a phone or a screen recording; cut and sample by time, not by frame number`);
       if (keyframes && !keys) {
@@ -184,7 +187,7 @@ function probeText(r, keyframes) {
   const L = [`${r.file}`, `  ${r.container} · ${r.duration} s${r.bytes != null ? ` · ${kb(r.bytes)}` : ''}`];
   for (const v of r.video) L.push(`  video  ${v.codec} ${v.width}×${v.height} · ${v.fps}${v.fpsVaries ? ' (varies)' : ''} fps${v.bitrate ? ` · ${Math.round(v.bitrate / 1000)} kb/s` : ''}${v.rotation ? ` · rotated ${v.rotation}°` : ''}`);
   for (const a of r.audio) L.push(`  audio  ${a.codec} ${a.sampleRate} Hz · ${a.channels} ch${a.bitrate ? ` · ${Math.round(a.bitrate / 1000)} kb/s` : ''}`);
-  if (keyframes) L.push(`  key packets at: ${r.keyframes.slice(0, 12).join(', ')}${r.keyframes.length > 12 ? `, … (${r.keyframes.length})` : ''} s`);
+  if (keyframes && r.video.length) L.push(`  key packets at: ${r.keyframes.slice(0, 12).join(', ')}${r.keyframes.length > 12 ? `, … (${r.keyframes.length})` : ''} s`);
   for (const n of r.notes) L.push(`  note   ${n}`);
   return L.join('\n');
 }
@@ -244,22 +247,32 @@ export async function trimFile({ input: file, start, end, out, exact = false, fo
     throw new Error(`no key frame between ${start} s and ${round(stop, 3)} s${around ? ` (the nearest are at ${around})` : ''}: a copy can only start on a key frame, so a cut this short cannot be copied; use --exact (re-encodes, needs Chrome)`);
   }
   prepareOutput(out, { force });
-  const target = new mb.FilePathTarget(path.resolve(out));
-  const output = new mb.Output({ format: new mb[OUTPUT_FORMATS[ext]](), target });
-  // 'shrink' + a shift: the cut starts on its first key frame and the file starts there (at 0), a plain file with no hidden frames. mediabunny's default, 'expand', starts the
-  // cut exactly where asked by writing the frames before it as hidden pre-roll with negative timestamps; measured by playing the cut in Chrome and decoding it in ffmpeg,
-  // both show it right, but other players handle pre-roll and edit lists differently and were not measured, and a glitch there would be invisible to an agent. So the
-  // default is the form that is right everywhere, at the cost of a later start, which the report says; --exact is for a start on the frame asked for.
-  const conversion = await mb.Conversion.init({ input, output, trim: { start, end: stop }, copy: { mode: 'forced', ...copy }, showWarnings: false });
-  if (!conversion.isValid || conversion.discardedTracks.length) {
-    const why = conversion.discardedTracks.map(d => `${d.track.type}: ${d.reason}`).join(', ');
-    throw new Error(`${file} cannot be cut by copy into ${ext} (${why || 'no track can be copied'}): use a different output type, or --exact (re-encodes, needs Chrome)`);
-  }
-  await conversion.execute();
-  const actual = window ? [round(window.from, 3), round(Math.min(window.to, duration), 3)] : [start, stop];
-  const tracks = conversion.utilizedTracks.map(t => `${t.type} ${t.codec ?? ''}`.trim());
-  if (actual[0] - start > 1e-3) notes.push(`a copy can only start on a key frame: it starts on the next key frame, ${actual[0]} s, not ${start} s (${round(actual[0] - start, 3)} s later); use --exact to start on ${start} s (re-encodes, needs Chrome), or probe --keyframes to pick a key frame`);
-  return { requested: [start, end], actual, mode: 'copy', reencoded: false, tracks, bytes: fs.statSync(path.resolve(out)).size, out, notes };
+  // The cut is made aside and moved into place only when it worked: a refused or failed copy must leave nothing, and must never truncate a file that was already there.
+  const aside = path.join(path.dirname(path.resolve(out)), `.pixi-effects-${process.pid}-${Date.now()}${ext}`);
+  let output = null;
+  try {
+    output = new mb.Output({ format: new mb[OUTPUT_FORMATS[ext]](), target: new mb.FilePathTarget(aside) });
+    // The cut STARTS ON THE KEY FRAME (`window.from`), not on the time asked: a copy asked to start between key frames leaves the picture starting late (at key frame − start) while the sound
+    // starts at the time asked, so the file is longer than the cut and has sound over nothing. Starting on the key frame gives picture and sound that start together, at 0.
+    const conversion = await mb.Conversion.init({ input, output, trim: { start: window ? window.from : start, end: stop }, copy: { mode: 'forced', ...copy }, showWarnings: false });
+    if (!conversion.isValid || conversion.discardedTracks.length) {
+      const why = conversion.discardedTracks.map(d => `${d.track.type}: ${d.reason}`).join(', ');
+      throw new Error(`${file} cannot be cut by copy into ${ext} (${why || 'no track can be copied'}): use a different output type, or --exact (re-encodes, needs Chrome)`);
+    }
+    await conversion.execute();
+    fs.renameSync(aside, path.resolve(out));
+    const tracks = conversion.utilizedTracks.map(t => `${t.type} ${t.codec ?? ''}`.trim());
+    // what the cut really is: read the FILE back (its first picture and how long it lasts), not a prediction
+    const { input: made } = await openInput(out);
+    const lead = (await made.getPrimaryVideoTrack()) ?? (await made.getPrimaryAudioTrack());
+    const from = window ? window.from : start;
+    const actual = lead ? [round(from + (await lead.getFirstTimestamp()), 3), round(from + (await lead.computeDuration()), 3)] : [start, stop];
+    if (actual[0] - start > 1e-3) notes.push(`a copy can only start on a key frame: it starts on the next key frame, ${actual[0]} s, not ${start} s (${round(actual[0] - start, 3)} s later); use --exact to start on ${start} s (re-encodes, needs Chrome), or probe --keyframes to pick a key frame`);
+    return { requested: [start, end], actual, mode: 'copy', reencoded: false, tracks, bytes: fs.statSync(path.resolve(out)).size, out, notes };
+  } catch (e) {
+    try { await output?.cancel(); } catch { /* it had not started */ }                 // close its file handle first, or the file comes back after it is removed
+    throw e;
+  } finally { fs.rmSync(aside, { force: true }); }
 }
 
 /** The cut re-encoded in the browser, so it starts on the frame asked for. The file is made in a temporary folder (the page may only write plain names) and moved to `out`. */
@@ -325,6 +338,7 @@ const SAFE_NAME = /^[A-Za-z0-9._-]+$/;
 /** One file by path, with `Range` (what the page's UrlSource reads by). */
 function sendFile(req, res, file) {
   const stat = fs.statSync(file), size = stat.size;
+  if (!stat.isFile()) { res.writeHead(404).end('not a file'); return; }
   const headers = { 'accept-ranges': 'bytes', 'cache-control': 'no-store', 'access-control-allow-origin': '*', 'content-type': 'application/octet-stream' };
   const m = String(req.headers.range ?? '').match(/^bytes=(\d*)-(\d*)$/);
   if (m && (m[1] !== '' || m[2] !== '')) {
@@ -333,12 +347,12 @@ function sendFile(req, res, file) {
     if (start >= size || start > end) { res.writeHead(416, { 'content-range': `bytes */${size}` }).end(); return; }
     res.writeHead(206, { ...headers, 'content-range': `bytes ${start}-${end}/${size}`, 'content-length': end - start + 1 });
     if (req.method === 'HEAD') { res.end(); return; }
-    fs.createReadStream(file, { start, end }).pipe(res);
+    fs.createReadStream(file, { start, end }).on('error', () => res.destroy()).pipe(res);
     return;
   }
   res.writeHead(200, { ...headers, 'content-length': size });
   if (req.method === 'HEAD') { res.end(); return; }
-  fs.createReadStream(file).pipe(res);
+  fs.createReadStream(file).on('error', () => res.destroy()).pipe(res);
 }
 
 /** A remote input, passed through with its Range (the page may not be allowed to read the other site, and this adds no CORS rules to learn). */
@@ -415,8 +429,8 @@ const AT_HELP = 'use seconds (3.5), a percentage (50%), a frame (f120), start, e
  * `--at` for a file with no layers: `3.5`, `50%`, `f120`, `start`, `end` (the last frame), `every 2s`, separated by commas → [{ t, label }] (a label safe in a file name).
  * The same words as `check --at` where they overlap; a time outside the file is refused with the length of the file in the sentence.
  */
-export function parseTimes(list, { duration, fps }) {
-  const out = [], seen = new Set(), last = Math.max(0, duration - 1 / fps);
+export function parseTimes(list, { duration, fps, first = 0, last: lastFrame }) {
+  const out = [], seen = new Set(), last = Math.max(first, lastFrame ?? duration - 1 / fps);
   const add = (t, label) => { if (!seen.has(label)) { seen.add(label); out.push({ t, label }); } };
   const inside = (t, raw) => { if (t > duration + 1e-6) throw new Error(`${raw} s is past the end of the file (${round(duration, 3)} s)`); return Math.min(t, last > t ? t : Math.max(t, 0)); };
   for (const raw of String(list).split(',').map(x => x.trim()).filter(Boolean)) {
@@ -427,7 +441,7 @@ export function parseTimes(list, { duration, fps }) {
       const n = Math.ceil(duration / step);
       if (n > MAX_FRAMES) throw new Error(`--at "${raw}": that is ${n} frames of a ${round(duration, 1)} s file, too many (at most ${MAX_FRAMES}): a larger step, or a range of times`);
       for (let k = 0; k * step < duration - 1e-6; k++) add(round(k * step, 4), `${round(k * step, 2).toFixed(2)}s`);
-    } else if (/^start$/i.test(raw)) add(0, 'start');
+    } else if (/^start$/i.test(raw)) add(round(first, 4), 'start');
     else if (/^end$/i.test(raw)) add(round(last, 4), 'end');
     else if ((m = raw.match(/^(\d+(?:\.\d+)?)%$/))) {
       if (Number(m[1]) > 100) throw new Error(`--at "${raw}": a percentage is 0–100`);
@@ -444,8 +458,10 @@ export function parseTimes(list, { duration, fps }) {
 commands.frames = async ({ file, opts }, io, env = {}) => {
   const probe = await probeFile(file);
   if (!probe.video.length) throw new Error(`no video track in ${file} (${probe.notes.join('; ')}): frames takes a video`);
-  const times = parseTimes(opts.at ?? '0,25%,50%,75%,end', { duration: probe.duration, fps: probe.video[0].fps || 30 });
+  const v = probe.video[0];
+  const times = parseTimes(opts.at ?? '0,25%,50%,75%,end', { duration: v.end, fps: v.fps || 30, first: v.first, last: v.end - (v.frameGap || 1 / (v.fps || 30)) });          // the VIDEO's own length and last frame (a file's audio may be longer)
   const outDir = path.resolve(opts.o ?? `${path.basename(file).replace(/\.[^.]*$/, '') || 'video'}-frames`);
+  if (fs.existsSync(outDir) && !fs.statSync(outDir).isDirectory()) throw new Error(`${outDir} is a file, not a folder: frames writes its pictures into a folder (-o <folder>)`);
   const { withBrowser } = await import(pathToFileURL(path.join(HERE, 'mediaBrowser.mjs')).href);
   const inputs = new Map([['f1', isUrl(file) ? file : path.resolve(file)]]);
   const r = await withBrowser({ chrome: opts.chrome, inputs, outDir, requestLog: env.requestLog }, ({ call }) => call('frames', { id: 'f1', times, size: opts.size ?? 480, sheet: !!opts.sheet }));
@@ -467,7 +483,7 @@ function soundText(r, file, waveform) {
   const dbText = (n) => (n === null || n === undefined ? 'n/a' : String(n));
   const L = [`${file}`, `  ${r.duration} s · ${r.sampleRate} Hz · ${r.channels} ch`,
     `  loudness  ${dbText(r.loudness.integratedLufs)} LUFS · true peak ${dbText(r.loudness.truePeakDb)} dBTP · peak ${dbText(r.peakDb)} dBFS · ${r.loudness.clippedSamples} sample(s) at full scale`];
-  L.push(`  silences  ${r.loudness.silences.length ? r.loudness.silences.slice(0, 6).map(q => `${round(q.from, 1)}–${round(q.to, 1)} s`).join(', ') + (r.loudness.silences.length > 6 ? `, … (${r.loudness.silences.length})` : '') : 'none (nothing quieter than −70 dBFS for a second or more)'}`);
+  L.push(`  silences  ${r.loudness.silences.length ? r.loudness.silences.slice(0, 6).map(q => `${round(q.from, 1)}–${round(q.to, 1)} s`).join(', ') + (r.loudness.silences.length > 6 ? `, … (${r.loudness.silences.length})` : '') : 'none (nothing quieter than −60 dBFS for a second or more)'}`);
   const step = Math.max(1, Math.ceil(r.windows.length / 16));
   L.push(`  level     ${r.windows.filter((_, i) => i % step === 0).map(w => Math.round(w.rmsDb)).join(' ')} dBFS rms, every ${round(step * (r.windows.length > 1 ? r.windows[1].t - r.windows[0].t : 1), 1)} s`);
   for (const n of r.notes.slice(0, 3)) L.push(`  note      ${n}`);

@@ -17,9 +17,9 @@ describe.skipIf(!chrome || process.env.SKIP_BROWSER_TESTS)('trim by copy: what a
     try {
       const out = join(dir, 'cut.mp4');
       await media.trimFile({ input: fx('colors.mp4'), start: 2, end: 4, out });
-      const r = await colorsAt(out, [0, 0.5, 0.95, 1.05, 1.5, 1.9]);
+      const r = await colorsAt(out, [0, 0.5, 0.9, 1.15, 1.5, 1.9]);
       expect(Math.abs(r.duration - 2)).toBeLessThan(0.1);
-      expect(r.at).toEqual({ 0: 'blue', 0.5: 'blue', 0.95: 'blue', 1.05: 'yellow', 1.5: 'yellow', 1.9: 'yellow' });
+      expect(r.at).toEqual({ 0: 'blue', 0.5: 'blue', 0.9: 'blue', 1.15: 'yellow', 1.5: 'yellow', 1.9: 'yellow' });
     } finally { rmSync(dir, { recursive: true, force: true }); }
   }, 60_000);
 
@@ -30,6 +30,8 @@ describe.skipIf(!chrome || process.env.SKIP_BROWSER_TESTS)('trim by copy: what a
       const t = await media.trimFile({ input: fx('colors.mp4'), start: 3.3, end: 4.9, out });
       expect(t.actual[0]).toBe(4);
       const r = await colorsAt(out, [0, 0.1, 0.3, 0.5, 0.8]);
+      expect(r.first).toBeLessThan(0.05);                                       // the picture starts at 0, not after a gap
+      expect(Math.abs(r.duration - 0.9)).toBeLessThan(0.1);
       expect(Object.values(r.at)).toEqual(['magenta', 'magenta', 'magenta', 'magenta', 'magenta']);
     } finally { rmSync(dir, { recursive: true, force: true }); }
   }, 60_000);

@@ -4487,7 +4487,7 @@ footage.mp4
   key packets at: 0, 2, 4, 6 s
 ```
 
-Container, duration, size, and a row per track: codec, size **as it is shown** (a rotated clip says `180×320 … rotated 90°`), frame rate (and whether it varies), bitrate, sample rate, channels. `--keyframes` lists the key packets (the only places a cut by copy can start). Notes say what an author would trip on: `no audio`, `no video`, `rotated 90°`, `variable frame rate`. Runs in Node, no browser.
+Container, duration, size, and a row per track: codec, size **as it is shown** (a rotated clip says `180×320 … rotated 90°`), frame rate (and whether it varies), bitrate, sample rate, channels. `--keyframes` lists the key packets (the only places a cut by copy can start). Notes say what an author would trip on: `no audio`, `no video`, `rotated 90°`, `variable frame rate`, `the video starts at 0.5 s` (the first frame is not at 0, so the sound can start before the picture). Runs in Node, no browser.
 
 ## trim
 
@@ -4508,7 +4508,7 @@ cut.mp4  13 KB
   note   a copy can only start on a key frame: it starts on the next key frame, 4 s, not 3.3 s (0.7 s later); use --exact to start on 3.3 s …
 ```
 
-Read `got`, not `asked`: `--json` has `requested`, `actual`, `reencoded`. A range with no key frame inside it (a cut shorter than the gap between key frames) is refused with the key frames around it. Why the next key frame and not mediabunny's default of starting exactly where asked with hidden earlier frames: the default file plays right in Chrome and in ffmpeg (measured), but other players treat those hidden frames differently and were not measured, and a glitch there would be invisible to an agent; this file is plain and right everywhere. `probe --keyframes` lists where a copy can start.
+Read `got`, not `asked`: `--json` has `requested`, `actual`, `reencoded`. A range with no key frame inside it (a cut shorter than the gap between key frames) is refused with the key frames around it. The cut is made starting ON that key frame, so picture and sound start together at 0 and the file is as long as `got` says (checked by reading the file back: both tracks start within 0.05 s of 0 and last what the report says). Why not mediabunny's default, which starts exactly where asked by writing the frames before it as hidden earlier frames: it plays right in Chrome and in ffmpeg (measured), but other players treat those hidden frames differently and were not measured, and a glitch there would be invisible to an agent. The report is read back from the written file, not predicted; the output is made aside and moved into place only when it worked, so a refused copy leaves no file and never empties one that was there. `probe --keyframes` lists where a copy can start.
 
 **`--exact`** re-encodes in the browser so the cut starts on the frame asked for. The cut is held in memory until it is written, so it is for clips, not for hours: for those, ffmpeg.
 
@@ -4518,7 +4518,7 @@ Read `got`, not `asked`: `--json` has `requested`, `actual`, `reencoded`. A rang
 npx pixi-effects frames footage.mp4 --at 0.5,50%,end --sheet -o looks
 ```
 
-`frames <file> [--at <list>] [--size 480] [--sheet] [-o dir]`: a PNG of the frame at each time, named by time (`01-0.50s.png`), and with `--sheet` one **contact sheet** (`sheet.png`: every frame with its time under it) so a whole clip is one picture to look at. `--at` takes seconds (`3.5`), a percentage (`50%`), a frame (`f120`), `start`, `end` (the last frame) and `every 2s`, separated by commas; the default is `0,25%,50%,75%,end`. At most 60 frames. `--size` is the width in pixels (default 480; a smaller video is not enlarged). A rotated video comes out the way up it is shown. A time past the end of the file is refused with the length of the file.
+`frames <file> [--at <list>] [--size 480] [--sheet] [-o dir]`: a PNG of the frame at each time, named by time (`01-0.50s.png`), and with `--sheet` one **contact sheet** (`sheet.png`: every frame with its time under it) so a whole clip is one picture to look at. `--at` takes seconds (`3.5`), a percentage (`50%`), a frame (`f120`), `start`, `end` (the last frame) and `every 2s`, separated by commas; the default is `0,25%,50%,75%,end`. At most 60 frames. `--size` is the width in pixels (default 480; a smaller video is not enlarged). A rotated video comes out the way up it is shown. A time past the end of the file is refused with the length of the file; a time before the first frame (a video that starts at 0.5 s, which `probe` says) gives the first frame; `end` and `%` are of the VIDEO, not of a longer sound. Pictures with the same names in an existing folder are replaced and nothing else in it is touched or removed.
 
 The words are the ones `check --at` uses where they overlap (seconds, `%`, `f120`), so a time you read off one works in the other.
 
@@ -4532,7 +4532,7 @@ npx pixi-effects sound footage.mp4 --waveform -o sound-report
 footage.mp4
   6.036 s · 48000 Hz · 2 ch
   loudness  -12.7 LUFS · true peak -10.4 dBTP · peak -11.9 dBFS · 0 sample(s) at full scale
-  silences  none (nothing quieter than −70 dBFS for a second or more)
+  silences  none (nothing quieter than −60 dBFS for a second or more)
   level     -15 -15 -15 -15 -15 -15 dBFS rms, every 1 s
 ```
 

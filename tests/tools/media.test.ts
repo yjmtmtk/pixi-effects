@@ -7,6 +7,7 @@ import { join, resolve } from 'node:path';
 import http from 'node:http';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { writeLateVideo } from '../support/offsetVideo';
 const root = resolve(__dirname, '../..');
 const media: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/media.mjs')).href);
 const cli: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/pixi-effects.mjs')).href);
@@ -123,6 +124,28 @@ describe('probe: what is in a file', () => {
     expect(a.notes.join(' ')).toMatch(/no video/);
   });
 
+  it('a video whose first frame is not at 0 says where it starts (video[].first and a note), and the end of the video is its own, not rounded', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'probe-late-'));
+    try {
+      const late = join(dir, 'late.mp4');
+      await writeLateVideo(fx('colors.mp4'), late, 0.5);
+      const p = await media.probeFile(late);
+      expect(Math.abs(p.video[0].first - 0.5)).toBeLessThan(0.01);
+      expect(p.notes.join(' ')).toMatch(/video starts at 0\.5 s/);
+      const plain = await media.probeFile(fx('video-only.mp4'));
+      expect(plain.video[0].first).toBe(0);
+      expect(plain.notes.join(' ')).not.toMatch(/video starts at/);
+      expect(Math.abs(plain.video[0].end - (6 + 1 / 30))).toBeLessThan(0.002);          // 181 frames at 30 fps: the last frame is at 6.0 and ends at 6.0333, not 6.033
+      expect(Math.abs(plain.video[0].frameGap - 1 / 30)).toBeLessThan(0.0005);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('--keyframes on a file with no video does not print an empty key-frame line', async () => {
+    const r = await run(['probe', fx('audio-only.m4a'), '--keyframes']);
+    expect(r.out).not.toMatch(/key packets at/);
+    expect(JSON.parse((await run(['probe', fx('audio-only.m4a'), '--keyframes', '--json'])).out).keyframes).toEqual([]);
+  });
+
   it('--keyframes lists the key packets (0, 2, 4 s); --json is the same facts as JSON', async () => {
     const p = await media.probeFile(fx('colors.mp4'), { keyframes: true });
     expect(p.keyframes.slice(0, 3)).toEqual([0, 2, 4]);
@@ -209,6 +232,15 @@ describe('trim: a cut by copy, with the real times', () => {
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 
+  /** First timestamp and length of each track of a file, read back with mediabunny (what a player gets, not what a report says). */
+  async function tracksOf(file: string) {
+    const mb = await import('mediabunny');
+    const input = new mb.Input({ source: new mb.FilePathSource(file), formats: mb.ALL_FORMATS });
+    const out: Record<string, { first: number; end: number }> = {};
+    for (const [name, t] of [['video', await input.getPrimaryVideoTrack()], ['audio', await input.getPrimaryAudioTrack()]] as const) if (t) out[name] = { first: await t.getFirstTimestamp(), end: await t.computeDuration() };
+    return out;
+  }
+
   it('between key frames (3.3 s): a copy cannot start there, so it starts on the NEXT key frame (4 s) and says so, in the report and in actual', async () => {
     const dir = tmp();
     try {
@@ -219,8 +251,30 @@ describe('trim: a cut by copy, with the real times', () => {
       expect(j.requested).toEqual([3.3, 4.9]);
       expect(j.actual).toEqual([4, 4.9]);
       expect(j.notes.join(' ')).toMatch(/next key frame.*4.*--exact/s);
+      // the FILE is what the report says: picture and sound both start at 0 and last 0.9 s (a copy that kept the sound from 3.3 s, or put the picture at 0.7 s, is 1.6 s long)
+      const t = await tracksOf(out);
+      expect(t.video!.first).toBeLessThan(0.05);
+      expect(t.audio!.first).toBeLessThan(0.05);
+      expect(Math.abs(t.video!.end - 0.9)).toBeLessThan(0.05);
+      expect(Math.abs(t.audio!.end - 0.9)).toBeLessThan(0.06);
       const text = (await run(['trim', fx('colors.mp4'), '3.3', '4.9', '-o', out, '--force'])).out;
       expect(text).toMatch(/asked 3\.3–4\.9 s, got 4–4\.9 s/);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('a copy that is refused leaves nothing behind and never touches a file that was already there (the output is made aside and moved into place only when it worked)', async () => {
+    const dir = tmp();
+    try {
+      const keep = join(dir, 'keep.webm'); copyFileSync(fx('colors.webm'), keep);
+      const before = readFileSync(keep);
+      const r = await run(['trim', fx('colors.mp4'), '2', '4', '-o', keep, '--force']);      // an H.264 track cannot be copied into webm
+      expect(r.code).toBe(1);
+      expect(r.err).toMatch(/cannot be cut by copy into \.webm/);
+      expect(readFileSync(keep).equals(before)).toBe(true);
+      const fresh = join(dir, 'new.webm');
+      expect((await run(['trim', fx('colors.mp4'), '2', '4', '-o', fresh])).code).toBe(1);
+      expect(existsSync(fresh)).toBe(false);
+      expect(readdirSync(dir).sort()).toEqual(['keep.webm']);                                  // no half-written part files either
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -264,6 +318,22 @@ describe('trim: a cut by copy, with the real times', () => {
       expect(w.tracks.join(' ')).toMatch(/vp9/);
       const m = await media.trimFile({ input: fx('colors.mov'), start: 2, end: 4, out: join(dir, 'm.mov') });
       expect(m.actual).toEqual([2, 4]);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+describe('the local server survives a bad input', () => {
+  it('an input id that is a folder (or a file that vanished) is an error response and the server keeps answering', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'media-srv2-'));
+    try {
+      const file = join(dir, 'a.bin'); writeFileSync(file, Buffer.alloc(100, 7));
+      const srv = await media.serveMedia({ inputs: new Map([['dir', dir], ['file', file]]), outDir: join(dir, 'out') });
+      try {
+        const base = `http://127.0.0.1:${srv.port}`;
+        const r = await fetch(`${base}/__in/dir`).then(x => x.status, () => 'closed');
+        expect(r === 'closed' || r >= 400).toBe(true);
+        expect((await fetch(`${base}/__in/file`)).status).toBe(200);                      // still alive
+      } finally { await srv.close(); }
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 });

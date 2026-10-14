@@ -1,12 +1,13 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { chrome } from '../support/videoColors';
 import { readPng, colourName } from '../support/png';
 import { resolveAtList } from '../../src/core/review';
+import { writeLateVideo } from '../support/offsetVideo';
 
 const root = resolve(__dirname, '../..');
 const media: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/media.mjs')).href);
@@ -107,6 +108,31 @@ describe.skipIf(!chrome || process.env.SKIP_BROWSER_TESTS)('frames: pictures of 
       expect(t.code).toBe(1);
       expect(t.err).toMatch(/99 s is past the end of the file/);
       expect(existsSync(dir) ? readdirSync(dir) : []).toEqual([]);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }, 90_000);
+
+  it('a video whose first frame is after 0 s still gives the default frames: a time before the first frame is the first frame (and `end` is the real last frame)', async () => {
+    const dir = tmp();
+    try {
+      const late = join(dir, 'late.mp4');
+      await writeLateVideo(fx('colors.mp4'), late, 0.5);
+      const r = await run(['frames', late, '-o', join(dir, 'f'), '--json']);
+      expect(r.code, r.err).toBe(0);
+      const j = JSON.parse(r.out);
+      expect(Math.abs(j.frames[0].actual - 0.5)).toBeLessThan(0.04);
+      const e = JSON.parse((await run(['frames', fx('video-only.mp4'), '--at', 'end,100%', '-o', join(dir, 'g'), '--json'])).out);
+      for (const f of e.frames) expect(f.actual).toBeGreaterThan(5.99);                     // the 181st frame (6.0 s), not the 180th
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }, 90_000);
+
+  it('--force is not an option of frames (it never did anything), and an output path that is a file is a sentence', async () => {
+    const dir = tmp();
+    try {
+      expect((await run(['frames', fx('colors.mp4'), '--force'])).code).toBe(2);
+      const f = join(dir, 'afile'); writeFileSync(f, 'x');
+      const r = await run(['frames', fx('colors.mp4'), '-o', f]);
+      expect(r.code).toBe(1);
+      expect(r.err).toMatch(/is a file, not a folder/);
     } finally { rmSync(dir, { recursive: true, force: true }); }
   }, 90_000);
 
