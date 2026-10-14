@@ -19,8 +19,8 @@ describe('what an agent does in a browser chat\'s sandbox is written down (AGENT
       });
       it('says the page goes to the person as it is (CDN imports) and the person exports with the download button of the player bar, not the sandbox', () => {
         expect(section).toMatch(/download button/i);
-        expect(section).toMatch(/do not (render|export)/i);
-        expect(section).toMatch(/GPU/);
+        expect(section).toMatch(/do not (start chrome or )?(render|export)/i);
+        expect(section).toMatch(/weak/i);                                                   // the container is weak: Chrome and rendering are very slow there (not "no GPU": software rendering was not slower on a strong machine)
       });
       it('says to follow the chat way (the template from CHAT.md, edited and handed over, warnings come back from the red box) with no npx, no npm and no check / render / view', () => {
         expect(section).toMatch(/CHAT\.md/);
