@@ -103,4 +103,15 @@ describe.skipIf(!chrome || process.env.SKIP_BROWSER_TESTS)('trim by copy: what a
       for (const b of got) expect(src.has(b)).toBe(true);
     } finally { rmSync(dir, { recursive: true, force: true }); }
   }, 90_000);
+
+  it('--exact says when the picture came out in another codec than it went in (a VP9 webm cut into an mp4 is H.264 now), and says nothing when it did not change', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'trim-chrome-'));
+    try {
+      const changed = await media.trimFile({ input: fx('colors.webm'), start: 2.5, end: 3.5, out: join(dir, 'a.mp4'), exact: true });
+      expect(changed.tracks.join(' ')).toMatch(/video avc/);
+      expect(changed.notes.join(' ')).toMatch(/re-encoded as avc \(the source is vp9\)/);
+      const same = await media.trimFile({ input: fx('colors.mp4'), start: 2.5, end: 3.5, out: join(dir, 'b.mp4'), exact: true });
+      expect(same.notes.join(' ')).not.toMatch(/re-encoded as/);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }, 90_000);
 });

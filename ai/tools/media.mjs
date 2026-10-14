@@ -313,6 +313,8 @@ async function trimExact({ mb, input, file, start, end, stop, duration, out, ext
   const lasts = made.video.length ? made.video[0].end - made.video[0].first : made.duration;
   const actual = [round(from, 3), round(from + lasts, 3)];
   const tracks = [...made.video.map(v => `video ${v.codec}`), ...made.audio.map(a => `audio ${a.codec}`)];
+  const sourceCodec = track ? track.codec : null;
+  if (made.video.length && sourceCodec && made.video[0].codec !== sourceCodec) notes.push(`the picture was re-encoded as ${made.video[0].codec} (the source is ${sourceCodec}): a re-encode uses the usual codec of the output type, so the file is a different codec and size from the source`);
   return { requested: [start, end], actual, mode: 'reencode', reencoded: true, tracks, bytes: fs.statSync(path.resolve(out)).size, out, notes };
 }
 
