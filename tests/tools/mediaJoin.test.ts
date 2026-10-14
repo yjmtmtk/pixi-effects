@@ -6,6 +6,9 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import * as mb from 'mediabunny';
 import { colorsAt, chrome } from '../support/videoColors';
+import { remux } from '../support/remux';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 
 const root = resolve(__dirname, '../..');
 const media: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/media.mjs')).href);
@@ -18,9 +21,9 @@ async function look(file: string, kind: 'video' | 'audio') {
   const input = new mb.Input({ source: new mb.FilePathSource(file), formats: mb.ALL_FORMATS });
   const track = kind === 'video' ? await input.getPrimaryVideoTrack() : await input.getPrimaryAudioTrack();
   if (!track) return null;
-  const packets: string[] = [];
-  for await (const p of new mb.EncodedPacketSink(track).packets()) packets.push(Buffer.from(p.data).toString('base64'));
-  return { packets, first: await track.getFirstTimestamp(), end: await track.computeDuration(), codec: track.codec };
+  const packets: string[] = [], playable: string[] = [];
+  for await (const p of new mb.EncodedPacketSink(track).packets()) { const b = Buffer.from(p.data).toString('base64'); packets.push(b); if (p.timestamp >= -1e-6) playable.push(b); }
+  return { packets, playable, first: await track.getFirstTimestamp(), end: await track.computeDuration(), codec: track.codec };
 }
 
 describe('audio: the sound of a file, copied out', () => {
@@ -90,7 +93,7 @@ describe('concat: clips joined by copy', () => {
       const a = (await look(fx('colors.mp4'), 'video'))!, b = (await look(fx('colors-rev.mp4'), 'video'))!, c = (await look(out, 'video'))!;
       expect(c.packets).toEqual([...a.packets, ...b.packets]);
       const sa = (await look(fx('colors.mp4'), 'audio'))!, sb = (await look(fx('colors-rev.mp4'), 'audio'))!, sc = (await look(out, 'audio'))!;
-      expect(sc.packets).toEqual([...sa.packets, ...sb.packets]);
+      expect(sc.packets).toEqual([...sa.playable, ...sb.playable]);              // the sources' own bytes (the encoder-delay packet before 0 is not copied into a join)
       expect(c.first).toBeLessThan(0.05);
       expect(Math.abs(sc.end - c.end)).toBeLessThan(0.08);                                // no drift between picture and sound
     } finally { rmSync(dir, { recursive: true, force: true }); }
@@ -186,3 +189,133 @@ describe('concat: clips joined by copy', () => {
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 });
+
+describe('concat: what the first review found', () => {
+  it('the same codec with other parameters (another profile, level or parameter sets) is refused: only the first clip\'s decoder config can go into the file, so the others would decode as garbage', async () => {
+    const dir = tmp();
+    try {
+      const other = join(dir, 'other.mp4');
+      await remux(fx('colors.mp4'), other, { tweakVideoConfig: true });
+      const out = join(dir, 'x.mp4');
+      const r = await run(['concat', fx('colors.mp4'), other, '-o', out]);
+      expect(r.code).toBe(1);
+      expect(r.err).toMatch(/decoder (parameters|configuration)|profile|parameter sets/i);
+      expect(r.err.trim().split('\n')).toHaveLength(1);
+      expect(existsSync(out)).toBe(false);
+      expect((await run(['concat', fx('colors.mp4'), fx('colors-rev.mp4'), '-o', out])).code).toBe(0);      // identical parameters still join
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it.skipIf(!chrome || process.env.SKIP_BROWSER_TESTS)('a clip cut with --exact is re-encoded by the browser, so it may differ from its source in parameters: the join is either refused with the reason or plays right (never garbage)', async () => {
+    const dir = tmp();
+    try {
+      const ex = join(dir, 'ex.mp4');
+      await media.trimFile({ input: fx('colors-rev.mp4'), start: 0, end: 2, out: ex, exact: true });
+      const out = join(dir, 'j.mp4');
+      const r = await run(['concat', fx('colors.mp4'), ex, '-o', out]);
+      if (r.code === 0) {
+        const c = await colorsAt(out, [0.5, 6.5, 7.5]);
+        expect(c.at).toEqual({ 0.5: 'red', 6.5: 'cyan', 7.5: 'magenta' });
+      } else expect(r.err).toMatch(/decoder (parameters|configuration)|profile|parameter sets/i);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }, 120_000);
+
+  it('a clip whose sound starts later than its picture keeps that offset in every clip (one start for both tracks, not one per track)', async () => {
+    const dir = tmp();
+    try {
+      const late = join(dir, 'late.mp4');
+      await remux(fx('colors.mp4'), late, { audioShift: 0.5 });
+      const out = join(dir, 'j.mp4');
+      const r = await media.concatFiles({ inputs: [late, late], out });
+      const input = new mb.Input({ source: new mb.FilePathSource(out), formats: mb.ALL_FORMATS });
+      const a = (await input.getPrimaryAudioTrack())!;
+      const times: number[] = [];
+      for await (const p of new mb.EncodedPacketSink(a).packets()) times.push(p.timestamp);
+      times.sort((x, y) => x - y);
+      expect(Math.abs(times[0]! - 0.5)).toBeLessThan(0.05);                                  // the first clip's sound still starts 0.5 s after its picture
+      const second = times.find(t => t > r.clips[1].from)!;
+      expect(Math.abs(second - (r.clips[1].from + 0.5))).toBeLessThan(0.05);               // and so does the second's: not at the clip's start
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('the encoder-delay packet of AAC (before 0) is not copied into the middle of the file, where it decodes to silence: no sound packet starts before its clip', async () => {
+    const dir = tmp();
+    try {
+      const primed = join(dir, 'primed.mp4');
+      await remux(fx('colors.mp4'), primed, { audioShift: -0.0213 });
+      const out = join(dir, 'j.mp4');
+      const r = await media.concatFiles({ inputs: [primed, primed], out });
+      const input = new mb.Input({ source: new mb.FilePathSource(out), formats: mb.ALL_FORMATS });
+      const a = (await input.getPrimaryAudioTrack())!;
+      for await (const p of new mb.EncodedPacketSink(a).packets()) expect(p.timestamp).toBeGreaterThanOrEqual(-1e-6);
+      const v = (await look(out, 'video'))!, s = (await look(out, 'audio'))!;
+      expect(Math.abs(s.end - v.end)).toBeLessThan(0.08);
+      expect(r.clips[1].from).toBeGreaterThan(5.9);
+      expect(v.first).toBeLessThan(0.01);                                                  // the picture is not pushed back by the sound's lead-in packet
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('an output that is an input under another spelling of the name (a, A.MP4 on a case-insensitive disk) is not allowed to overwrite it', async () => {
+    const dir = tmp();
+    try {
+      const a = join(dir, 'a.mp4'); copyFileSync(fx('colors.mp4'), a);
+      const b = join(dir, 'b.mp4'); copyFileSync(fx('colors-rev.mp4'), b);
+      const same = join(dir, 'A.MP4');
+      if (!existsSync(same)) return;                                                           // a case-sensitive disk: A.MP4 is another file
+      const before = readFileSync(a);
+      expect((await run(['concat', a, b, '-o', same, '--force'])).err).toMatch(/would overwrite the input/);
+      expect((await run(['audio', a, '-o', same, '--force'])).err).toMatch(/would overwrite the input/);
+      expect(readFileSync(a).equals(before)).toBe(true);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('many inputs do not hold a file open each: 200 clips join with only 128 file descriptors allowed', async () => {
+    if (process.platform === 'win32') return;
+    const dir = tmp();
+    try {
+      const files = Array.from({ length: 200 }, () => fx('video-only.mp4'));
+      const out = join(dir, 'many.mp4');
+      const cli = join(root, 'ai/tools/pixi-effects.mjs');
+      const code = await promisify(execFile)('bash', ['-c', `ulimit -n 128; "${process.execPath}" "${cli}" concat ${files.map(f => `"${f}"`).join(' ')} -o "${out}"`], { timeout: 120_000 }).then(() => 0, (e: any) => e.code);
+      expect(code).toBe(0);
+      expect(existsSync(out)).toBe(true);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }, 150_000);
+
+  it('a refused command leaves no new folder behind (concat, audio, trim into a type that cannot hold it)', async () => {
+    const dir = tmp();
+    try {
+      expect((await run(['concat', fx('colors.mp4'), fx('colors.webm'), '-o', join(dir, 'n1', 'sub', 'x.mp4')])).code).toBe(1);
+      expect((await run(['audio', fx('colors.mp4'), '-o', join(dir, 'n2', 'x.webm')])).code).toBe(1);
+      expect((await run(['trim', fx('colors.mp4'), '2', '4', '-o', join(dir, 'n3', 'x.webm')])).code).toBe(1);
+      expect(readdirSync(dir)).toEqual([]);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('what concat leaves out or cannot hide is said in the report: a second sound track is not joined, a sound-only type cannot hold a picture, and a clip whose sound is much longer than its picture is flagged', async () => {
+    const dir = tmp();
+    try {
+      const two = join(dir, 'two.mp4'); await remux(fx('colors.mp4'), two, { twoAudioTracks: true });
+      const j = JSON.parse((await run(['concat', two, two, '-o', join(dir, 'a.mp4'), '--json'])).out);
+      expect(j.notes.join(' ')).toMatch(/only the first sound track/);
+      const m4a = await run(['concat', fx('colors.mp4'), fx('colors-rev.mp4'), '-o', join(dir, 'p.m4a')]);
+      expect(m4a.code).toBe(1);
+      expect(m4a.err).toMatch(/\.m4a.*sound|picture.*\.mp4/);
+      const short = join(dir, 'short.mp4'); await remux(fx('colors.mp4'), short, { videoUntil: 2 });
+      const k = JSON.parse((await run(['concat', short, short, '-o', join(dir, 'k.mp4'), '--json'])).out);
+      expect(k.notes.join(' ')).toMatch(/more sound than picture|picture ends/);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('audio says when the sound starts later than the picture did in the source (the new file starts at 0, so that offset is gone)', async () => {
+    const dir = tmp();
+    try {
+      const late = join(dir, 'late.mp4'); await remux(fx('colors.mp4'), late, { audioShift: 0.5 });
+      const j = JSON.parse((await run(['audio', late, '-o', join(dir, 's.m4a'), '--json'])).out);
+      expect(j.notes.join(' ')).toMatch(/started 0\.[45]\d* s after the picture/);
+      const plain = JSON.parse((await run(['audio', fx('colors.mp4'), '-o', join(dir, 't.m4a'), '--json'])).out);
+      expect(plain.notes ?? []).toEqual([]);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+

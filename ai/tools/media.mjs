@@ -106,10 +106,22 @@ export function parseMediaArgs(argv) {
   return { command, file, opts };
 }
 
-/** The output file's folder is made; an existing file is only replaced with --force. */
+/** Is this the very same file (not just the same spelling: `a.mp4` and `A.MP4` are one file on a disk that ignores case, a link is one too)? */
+export function sameFile(a, b) {
+  try { const x = fs.statSync(a), y = fs.statSync(b); return x.ino === y.ino && x.dev === y.dev; } catch { return path.resolve(a) === path.resolve(b); }
+}
+
+/**
+ * The output file's folder is made; an existing file is only replaced with --force. Returns `{ undo() }`: it removes the folders THIS call made (when they are empty), so a command
+ * that fails after this leaves no empty `newdir/sub` behind.
+ */
 export function prepareOutput(out, { force = false } = {}) {
   if (fs.existsSync(out) && !force) throw new Error(`${out} already exists: pass --force to overwrite it`);
-  fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });
+  const dir = path.dirname(path.resolve(out));
+  const made = [];
+  for (let d = dir; !fs.existsSync(d); d = path.dirname(d)) made.push(d);              // deepest first
+  fs.mkdirSync(dir, { recursive: true });
+  return { undo() { for (const d of made) { try { fs.rmdirSync(d); } catch { break; } } } };
 }
 
 const defaultIo = { log: (s) => console.log(s), err: (s) => console.error(s) };
@@ -244,7 +256,7 @@ export async function trimFile({ input: file, start, end, out, exact = false, fo
   if (start < 0) throw new UsageError(`start must not be negative (got ${start})`);
   const ext = path.extname(out).toLowerCase();
   if (!OUTPUT_FORMATS[ext]) throw new UsageError(`cannot write "${ext || out}": name the output .mp4, .mov, .webm, .mkv or .m4a`);
-  if (!isUrl(file) && path.resolve(file) === path.resolve(out)) throw new Error(`the output ${out} would overwrite the input: choose another name`);
+  if (!isUrl(file) && sameFile(file, out)) throw new Error(`the output ${out} would overwrite the input: choose another name`);
   const { mb, input } = await openInput(file);
   const duration = await input.computeDuration();
   const notes = [];
@@ -258,7 +270,6 @@ export async function trimFile({ input: file, start, end, out, exact = false, fo
     const around = [window.before, window.after].filter(t => t !== null).map(t => `${round(t, 3)} s`).join(' and ');
     throw new Error(`no key frame between ${start} s and ${round(stop, 3)} s${around ? ` (the nearest are at ${around})` : ''}: a copy can only start on a key frame, so a cut this short cannot be copied; use --exact (re-encodes, needs Chrome)`);
   }
-  prepareOutput(out, { force });
   // The cut is made aside and moved into place only when it worked: a refused or failed copy must leave nothing, and must never truncate a file that was already there.
   const aside = path.join(path.dirname(path.resolve(out)), `.pixi-effects-${process.pid}-${Date.now()}${ext}`);
   const copyOptions = { mode: 'forced', ...copy };
@@ -272,6 +283,7 @@ export async function trimFile({ input: file, start, end, out, exact = false, fo
     if (refused) throw new Error(`${file} cannot be cut by copy into ${ext} (${why || 'no track can be copied'}): use a different output type, or --exact (re-encodes, needs Chrome)`);
   }
   const { input: again } = await openInput(file);                        // a Conversion consumes its input: the real one gets a fresh one
+  const prepared = prepareOutput(out, { force });
   let output = null;
   try {
     output = new mb.Output({ format: new mb[OUTPUT_FORMATS[ext]](), target: new mb.FilePathTarget(aside) });
@@ -290,13 +302,14 @@ export async function trimFile({ input: file, start, end, out, exact = false, fo
     return { requested: [start, end], actual, mode: 'copy', reencoded: false, tracks, bytes: fs.statSync(path.resolve(out)).size, out, notes };
   } catch (e) {
     try { await output?.cancel(); } catch { /* it had not started */ }                 // close its file handle first, or the file comes back after it is removed
+    prepared.undo();
     throw e;
   } finally { fs.rmSync(aside, { force: true }); }
 }
 
 /** The cut re-encoded in the browser, so it starts on the frame asked for. The file is made in a temporary folder (the page may only write plain names) and moved to `out`. */
 async function trimExact({ mb, input, file, start, end, stop, duration, out, ext, force, notes, env }) {
-  prepareOutput(out, { force });
+  const prepared = prepareOutput(out, { force });
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pixi-effects-trim-'));
   try {
     const { withBrowser } = await import(pathToFileURL(path.join(HERE, 'mediaBrowser.mjs')).href);
@@ -304,6 +317,9 @@ async function trimExact({ mb, input, file, start, end, stop, duration, out, ext
     const name = `cut${ext}`;
     await withBrowser({ chrome: env.chrome, inputs, outDir: tmp, requestLog: env.requestLog }, ({ call }) => call('trimExact', { id: 't1', start, end: stop, ext, outName: name }));
     fs.copyFileSync(path.join(tmp, name), path.resolve(out));
+  } catch (e) {
+    prepared.undo();
+    throw e;
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
   const made = await probeFile(out);
   // the frame the cut starts on: the first frame at or after the start (frames are on a grid, so a start between two is the next)
@@ -543,6 +559,15 @@ commands.sound = async ({ file, opts }, io, env = {}) => {
   return 0;
 };
 
+/** A note when the sound began later than the picture in the source: a file of the sound alone starts at 0, so that offset is gone. */
+async function soundLead(input, audioTrack) {
+  const a = await audioTrack.getFirstTimestamp();
+  const video = await input.getPrimaryVideoTrack();
+  const v = video ? await video.getFirstTimestamp() : 0;
+  const lead = Math.max(a, 0) - Math.max(v, 0);
+  return lead > 0.05 ? `the sound started ${round(lead, 3)} s after the picture in the source (it begins at 0 in this file, so that offset is gone)` : null;
+}
+
 const AUDIO_HOME = { aac: '.m4a', opus: '.webm', vorbis: '.webm' };
 
 /**
@@ -552,13 +577,12 @@ const AUDIO_HOME = { aac: '.m4a', opus: '.webm', vorbis: '.webm' };
 export async function audioFile({ input: file, out, force = false }) {
   const ext = path.extname(out).toLowerCase();
   if (!OUTPUT_FORMATS[ext]) throw new UsageError(`cannot write "${ext || out}": name the output .m4a, .webm, .mka, .mp4, .mov or .mkv`);
-  if (!isUrl(file) && path.resolve(file) === path.resolve(out)) throw new Error(`the output ${out} would overwrite the input: choose another name`);
+  if (!isUrl(file) && sameFile(file, out)) throw new Error(`the output ${out} would overwrite the input: choose another name`);
   const { mb, input } = await openInput(file);
   const track = await input.getPrimaryAudioTrack();
   if (!track) throw new Error(`no audio track in ${file}: audio takes the sound out of a file that has some`);
   const options = { video: { discard: true }, copy: { mode: 'forced' }, showWarnings: false };
   const refusal = `${file} has ${track.codec} sound, which a ${ext} file cannot hold by copy: write it as ${AUDIO_HOME[track.codec] ?? '.mka'} (or .mka, which holds any codec)`;
-  prepareOutput(out, { force });
   {                                                                      // can the output type hold it? asked of a throwaway output in memory: a refusal creates no file
     const trial = new mb.Output({ format: new mb[OUTPUT_FORMATS[ext]](), target: new mb.BufferTarget() });
     const dry = await mb.Conversion.init({ input, output: trial, ...options });
@@ -567,6 +591,8 @@ export async function audioFile({ input: file, out, force = false }) {
     if (refused) throw new Error(refusal);
   }
   const { input: again } = await openInput(file);
+  const lead = await soundLead(input, track);
+  const prepared = prepareOutput(out, { force });
   const aside = path.join(path.dirname(path.resolve(out)), `.pixi-effects-${process.pid}-${Date.now()}${ext}`);
   let output = null;
   try {
@@ -576,25 +602,30 @@ export async function audioFile({ input: file, out, force = false }) {
     fs.renameSync(aside, path.resolve(out));
   } catch (e) {
     try { await output?.cancel(); } catch { /* it had not started */ }
+    prepared.undo();
     throw e;
   } finally { fs.rmSync(aside, { force: true }); }
   const { input: made } = await openInput(out);
   const a = await made.getPrimaryAudioTrack();
-  return { file, out, mode: 'copy', reencoded: false, codec: a.codec, sampleRate: a.sampleRate, channels: a.numberOfChannels, duration: round(await a.computeDuration(), 3), bytes: fs.statSync(path.resolve(out)).size };
+  const notes = lead ? [lead] : [];
+  return { file, out, mode: 'copy', reencoded: false, codec: a.codec, sampleRate: a.sampleRate, channels: a.numberOfChannels, duration: round(await a.computeDuration(), 3), bytes: fs.statSync(path.resolve(out)).size, notes };
 }
 
 commands.audio = async ({ file, opts }, io) => {
   const r = await audioFile({ input: file, out: opts.out, force: !!opts.force });
-  io.log(opts.json ? JSON.stringify(r, null, 2) : `${r.out}  ${kb(r.bytes)}\n  ${r.codec} ${r.sampleRate} Hz · ${r.channels} ch · ${r.duration} s, copied (no re-encode)`);
+  io.log(opts.json ? JSON.stringify(r, null, 2) : [`${r.out}  ${kb(r.bytes)}`, `  ${r.codec} ${r.sampleRate} Hz · ${r.channels} ch · ${r.duration} s, copied (no re-encode)`, ...r.notes.map(n => `  note   ${n}`)].join('\n'));
   return 0;
 };
 
-/** What decides whether clips can be joined by copy: the codecs, the SHOWN size and rotation of the picture, and the sound's codec, rate and channels. */
+/** What decides whether clips can be joined by copy: the codecs AND their decoder parameters, the SHOWN size and rotation of the picture, and the sound's codec, rate and channels. */
 async function describeClip(input) {
   const v = await input.getPrimaryVideoTrack(), a = await input.getPrimaryAudioTrack();
+  const vc = v ? await v.getDecoderConfig() : null, ac = a ? await a.getDecoderConfig() : null;
+  const hex = (d) => (d ? Buffer.from(d instanceof ArrayBuffer ? new Uint8Array(d) : new Uint8Array(d.buffer, d.byteOffset, d.byteLength)).toString('hex') : '');
   return {
-    video: v ? { codec: v.codec, width: await v.getDisplayWidth(), height: await v.getDisplayHeight(), rotation: await v.getRotation() } : null,
-    audio: a ? { codec: a.codec, rate: a.sampleRate, channels: a.numberOfChannels } : null,
+    video: v ? { codec: v.codec, width: await v.getDisplayWidth(), height: await v.getDisplayHeight(), rotation: await v.getRotation(), config: `${vc?.codec ?? ''}|${hex(vc?.description)}` } : null,
+    audio: a ? { codec: a.codec, rate: a.sampleRate, channels: a.numberOfChannels, config: `${ac?.codec ?? ''}|${hex(ac?.description)}` } : null,
+    audioTracks: (await input.getAudioTracks()).length,
   };
 }
 
@@ -603,12 +634,14 @@ function differences(a, b) {
   if (!!a.video !== !!b.video) d.push(a.video ? 'the first has a picture, the other has none' : 'the first has no picture, the other has one');
   else if (a.video) {
     if (a.video.codec !== b.video.codec) d.push(`video codec ${a.video.codec} against ${b.video.codec}`);
+    else if (a.video.config !== b.video.config) d.push(`the ${a.video.codec} decoder parameters differ (the same codec encoded with other settings: profile, level or parameter sets; a joined file can carry only the first clip's, so the others would decode as garbage)`);
     if (a.video.width !== b.video.width || a.video.height !== b.video.height) d.push(`shown size ${a.video.width}×${a.video.height} against ${b.video.width}×${b.video.height}`);
     if (a.video.rotation !== b.video.rotation) d.push(`rotation ${a.video.rotation}° against ${b.video.rotation}°`);
   }
   if (!!a.audio !== !!b.audio) d.push(a.audio ? 'the first has sound, the other has none' : 'the first has no sound, the other has some');
   else if (a.audio) {
     if (a.audio.codec !== b.audio.codec) d.push(`audio codec ${a.audio.codec} against ${b.audio.codec}`);
+    else if (a.audio.config !== b.audio.config && a.audio.rate === b.audio.rate && a.audio.channels === b.audio.channels) d.push(`the ${a.audio.codec} sound's decoder parameters differ`);
     if (a.audio.rate !== b.audio.rate) d.push(`sample rate ${a.audio.rate} against ${b.audio.rate} Hz`);
     if (a.audio.channels !== b.audio.channels) d.push(`${a.audio.channels} against ${b.audio.channels} audio channels`);
   }
@@ -616,26 +649,35 @@ function differences(a, b) {
 }
 
 /**
- * Joins clips one after another by copy (no re-encode): their packets are the sources' own bytes. Every clip starts where the longest track of the one before it ends, so
- * picture and sound stay together however many are joined. Clips that differ in a way a copy cannot hide are refused with what differs.
+ * Joins clips one after another by copy (no re-encode): their packets are the sources' own bytes. Every clip starts where the longest track of the one before it ends, and its
+ * picture and sound keep their own offset to each other (one start per clip, not one per track), so they stay together however many are joined. The encoder-delay packet of AAC
+ * (before 0) is not copied: in the middle of a file it decodes to silence. Clips that differ in a way a copy cannot hide are refused with what differs.
  */
 export async function concatFiles({ inputs, out, force = false }) {
   const ext = path.extname(out).toLowerCase();
   if (!OUTPUT_FORMATS[ext]) throw new UsageError(`cannot write "${ext || out}": name the output .mp4, .mov, .webm, .mkv or .m4a`);
-  for (const f of inputs) if (!isUrl(f) && path.resolve(f) === path.resolve(out)) throw new Error(`the output ${out} would overwrite the input ${f}: choose another name`);
-  const opened = [];
-  for (const file of inputs) { const o = await openInput(file); opened.push({ file, ...o, kind: await describeClip(o.input) }); }
-  const mb = opened[0].mb;
-  for (let i = 1; i < opened.length; i++) {
-    const d = differences(opened[0].kind, opened[i].kind);
-    if (d.length) throw new Error(`${opened[i].file} cannot be joined to ${opened[0].file} by copy: ${d.join('; ')}; a copy needs the same codecs, shown size, rotation and sound in every clip, so make them the same first (ffmpeg's concat filter does that)`);
+  for (const f of inputs) if (!isUrl(f) && sameFile(f, out)) throw new Error(`the output ${out} would overwrite the input ${f}: choose another name`);
+  let mb = null;
+  const kinds = [];
+  for (const file of inputs) {                                           // one clip open at a time: hundreds of inputs must not hold a file each
+    const o = await openInput(file);
+    mb = o.mb;
+    kinds.push(await describeClip(o.input));
+    o.input.dispose();
   }
-  if (!opened[0].kind.video && !opened[0].kind.audio) throw new Error(`${opened[0].file} has no picture and no sound to join`);
-  prepareOutput(out, { force });
+  for (let i = 1; i < kinds.length; i++) {
+    const d = differences(kinds[0], kinds[i]);
+    if (d.length) throw new Error(`${inputs[i]} cannot be joined to ${inputs[0]} by copy: ${d.join('; ')}; a copy needs the same codecs, decoder parameters, shown size, rotation and sound in every clip, so make them the same first (ffmpeg's concat filter does that)`);
+  }
+  const first = kinds[0];
+  if (!first.video && !first.audio) throw new Error(`${inputs[0]} has no picture and no sound to join`);
+  if (first.video && (ext === '.m4a' || ext === '.mka')) throw new Error(`a ${ext} file is for sound: the clips have a picture, so name the output .mp4, .mov, .webm or .mkv`);
+  const notes = [];
+  kinds.forEach((k, i) => { if (k.audioTracks > 1) notes.push(`clip ${i + 1} (${path.basename(inputs[i])}) has ${k.audioTracks} sound tracks: only the first sound track is joined`); });
+  const prepared = prepareOutput(out, { force });
   const aside = path.join(path.dirname(path.resolve(out)), `.pixi-effects-${process.pid}-${Date.now()}${ext}`);
   const output = new mb.Output({ format: new mb[OUTPUT_FORMATS[ext]](), target: new mb.FilePathTarget(aside) });
   try {
-    const first = opened[0].kind;
     let vSrc = null, aSrc = null;
     try {
       if (first.video) { vSrc = new mb.EncodedVideoPacketSource(first.video.codec); output.addVideoTrack(vSrc, { rotation: first.video.rotation }); }
@@ -644,38 +686,46 @@ export async function concatFiles({ inputs, out, force = false }) {
     await output.start();
     const clips = [];
     let offset = 0;
-    for (const c of opened) {
-      const v = c.kind.video ? await c.input.getPrimaryVideoTrack() : null, a = c.kind.audio ? await c.input.getPrimaryAudioTrack() : null;
-      const vBase = v ? await v.getFirstTimestamp() : 0, aBase = a ? await a.getFirstTimestamp() : 0;
+    for (let n = 0; n < inputs.length; n++) {
+      const { input } = await openInput(inputs[n]);
+      const v = first.video ? await input.getPrimaryVideoTrack() : null, a = first.audio ? await input.getPrimaryAudioTrack() : null;
+      const vFirst = v ? await v.getFirstTimestamp() : Infinity;
+      const aFirst = a ? Math.max(await a.getFirstTimestamp(), 0) : Infinity;
+      const base = Math.min(vFirst, aFirst);                             // ONE start for both tracks: a sound that begins later than its picture still does
       const vCfg = v ? await v.getDecoderConfig() : null, aCfg = a ? await a.getDecoderConfig() : null;
       const vIt = v ? new mb.EncodedPacketSink(v).packets()[Symbol.asyncIterator]() : null, aIt = a ? new mb.EncodedPacketSink(a).packets()[Symbol.asyncIterator]() : null;
-      let vn = vIt ? await vIt.next() : { done: true }, an = aIt ? await aIt.next() : { done: true };
-      let vFirst = true, aFirst = true, end = offset;
+      const nextSound = async () => { let r = aIt ? await aIt.next() : { done: true }; while (!r.done && r.value.timestamp < -1e-6) r = await aIt.next(); return r; };       // the encoder-delay packet before 0 is left out
+      let vn = vIt ? await vIt.next() : { done: true }, an = await nextSound();
+      let vFirstPacket = true, aFirstPacket = true, vEnd = offset, aEnd = offset;
       // picture and sound are written in the order of their times, so the muxer never has to hold a whole track of one kind while waiting for the other
       while (!vn.done || !an.done) {
-        const takeVideo = !vn.done && (an.done || vn.value.timestamp - vBase <= an.value.timestamp - aBase);
+        const takeVideo = !vn.done && (an.done || vn.value.timestamp - base <= an.value.timestamp - base);
         if (takeVideo) {
-          const p = vn.value, ts = p.timestamp - vBase + offset;
-          await vSrc.add(p.clone({ timestamp: ts }), vFirst ? { decoderConfig: vCfg } : undefined); vFirst = false;
-          end = Math.max(end, ts + p.duration);
+          const p = vn.value, ts = p.timestamp - base + offset;
+          await vSrc.add(p.clone({ timestamp: ts }), vFirstPacket ? { decoderConfig: vCfg } : undefined); vFirstPacket = false;
+          vEnd = Math.max(vEnd, ts + p.duration);
           vn = await vIt.next();
         } else {
-          const p = an.value, ts = p.timestamp - aBase + offset;
-          await aSrc.add(p.clone({ timestamp: ts }), aFirst ? { decoderConfig: aCfg } : undefined); aFirst = false;
-          end = Math.max(end, ts + p.duration);
-          an = await aIt.next();
+          const p = an.value, ts = p.timestamp - base + offset;
+          await aSrc.add(p.clone({ timestamp: ts }), aFirstPacket ? { decoderConfig: aCfg } : undefined); aFirstPacket = false;
+          aEnd = Math.max(aEnd, ts + p.duration);
+          an = await nextSound();
         }
       }
-      clips.push({ file: c.file, from: round(offset, 3), to: round(end, 3) });
+      input.dispose();
+      const end = Math.max(vEnd, aEnd);
+      if (v && a && Math.abs(vEnd - aEnd) > 0.25) notes.push(`clip ${n + 1} (${path.basename(inputs[n])}) has ${round(Math.abs(aEnd - vEnd), 2)} s ${aEnd > vEnd ? 'more sound than picture: the picture ends first and the last frame stays on screen while the sound goes on' : 'more picture than sound: the sound ends first and the next clip\'s sound starts only at the end of the picture'}`);
+      clips.push({ file: inputs[n], from: round(offset, 3), to: round(end, 3) });
       offset = end;
     }
     await output.finalize();
     fs.renameSync(aside, path.resolve(out));
     const { input: made } = await openInput(out);
     const tracks = [first.video && `video ${first.video.codec}`, first.audio && `audio ${first.audio.codec}`].filter(Boolean);
-    return { inputs, out, mode: 'copy', reencoded: false, clips, duration: round(await made.computeDuration(), 3), tracks, bytes: fs.statSync(path.resolve(out)).size };
+    return { inputs, out, mode: 'copy', reencoded: false, clips, duration: round(await made.computeDuration(), 3), tracks, bytes: fs.statSync(path.resolve(out)).size, notes };
   } catch (e) {
     try { await output.cancel(); } catch { /* it had not started */ }
+    prepared.undo();
     throw e;
   } finally { fs.rmSync(aside, { force: true }); }
 }
@@ -686,6 +736,8 @@ commands.concat = async ({ opts }, io) => {
   const L = [`${r.out}  ${kb(r.bytes)}`, `  ${r.clips.length} clips, ${r.duration} s, joined by copy (no re-encode): ${r.tracks.join(', ')}`];
   r.clips.slice(0, 8).forEach((c, i) => L.push(`  ${i + 1}  ${path.basename(c.file)}  ${c.from}–${c.to} s`));
   if (r.clips.length > 8) L.push(`  … ${r.clips.length - 8} more (--json)`);
+  for (const n of r.notes.slice(0, 3)) L.push(`  note   ${n}`);
+  if (r.notes.length > 3) L.push(`  note   … ${r.notes.length - 3} more (--json)`);
   io.log(L.join('\n'));
   return 0;
 };
