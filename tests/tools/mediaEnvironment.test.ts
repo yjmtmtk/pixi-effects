@@ -11,6 +11,8 @@ const root = resolve(__dirname, '../..');
 const cli = join(root, 'ai/tools/pixi-effects.mjs');
 const fx = (n: string) => join(root, 'tests/fixtures/media', n);
 const built = existsSync(join(root, 'dist/sound.js'));
+/** The browser parts run only where browser tests run: not in CI (`SKIP_BROWSER_TESTS`), and only with a Chrome and a built dist. */
+const browser = !!chrome && built && !process.env.SKIP_BROWSER_TESTS;
 type Run = { code: number; stdout: string; stderr: string };
 /** Runs the real command line with an environment of our choosing. */
 const spawn = (args: string[], env: NodeJS.ProcessEnv = process.env): Promise<Run> =>
@@ -27,10 +29,14 @@ describe('the media commands need no ffmpeg', () => {
     try {
       expect((await spawn(['probe', fx('colors.mp4')], bareEnv())).code).toBe(0);
       expect((await spawn(['trim', fx('colors.mp4'), '2', '4', '-o', join(dir, 'cut.mp4')], bareEnv())).code).toBe(0);
-      if (chrome && built) {
-        const f = await spawn(['frames', fx('colors.mp4'), '--at', '1', '-o', join(dir, 'f')], bareEnv({ CHROME_PATH: chrome }));
+      // The browser commands too, still with no ffmpeg anywhere on PATH. Chrome itself needs the basic system folders (on Linux `google-chrome` is a shell script that calls dirname and
+      // readlink), so they are on the PATH here, and the test first proves ffmpeg is not in them; where it is, only the two commands above are proved.
+      const withBasics = bareEnv({ CHROME_PATH: chrome ?? '', PATH: `${dirname(process.execPath)}:/usr/bin:/bin` });
+      const ffmpegThere = await promisify(execFile)('ffmpeg', ['-version'], { env: withBasics }).then(() => true, () => false);
+      if (browser && !ffmpegThere) {
+        const f = await spawn(['frames', fx('colors.mp4'), '--at', '1', '-o', join(dir, 'f')], withBasics);
         expect(f.code, f.stderr).toBe(0);
-        const s = await spawn(['sound', fx('colors.mp4')], bareEnv({ CHROME_PATH: chrome }));
+        const s = await spawn(['sound', fx('colors.mp4')], withBasics);
         expect(s.code, s.stderr).toBe(0);
       }
     } finally { rmSync(dir, { recursive: true, force: true }); }
@@ -89,7 +95,7 @@ describe('a name with spaces and non-Latin letters', () => {
       const t = await spawn(['trim', odd, '2', '4', '-o', join(dir, 'ünï côde', 'cut 切.mp4')]);
       expect(t.code, t.stderr).toBe(0);
       expect(existsSync(join(dir, 'ünï côde', 'cut 切.mp4'))).toBe(true);
-      if (chrome && built) {
+      if (browser) {
         const f = await spawn(['frames', odd, '--at', '1', '-o', join(dir, 'frames ñ')]);
         expect(f.code, f.stderr).toBe(0);
         expect(readdirSync(join(dir, 'frames ñ')).some(n => n.endsWith('.png'))).toBe(true);
