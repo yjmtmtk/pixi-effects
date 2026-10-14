@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **The release gate is shorter when only documents changed.** `npm run release:check` compares the tree with the last `v*` tag (`scripts/release-scope.mjs`): when every changed file is a document (the changelog, README, AGENTS, SKILL.md, `docs/*.md`, the generated llms files) or a bump of this package's own version (the old number turned into the new one, and in the manifests only the `"version"` key), it runs the unit and document tests and leaves out the real-browser ones (about 4 of the 5 minutes) and says so; anything else, a file added or deleted outside the documents, no tag, or any doubt is a full run. `--scope` says the decision and why without running anything, `--full` forces everything; the stamp that `npm publish` checks records the mode. Tested on real git repositories and with the mutations that must fail (a site file counted as a document, a dependency bump taken for a version bump, a pure reordering taken for a bump, an empty change taken for docs-only).
+- **CI had been red since 0.38.0, and it is fixed (tests only, nothing in the package).** A test of the media commands ran `frames` with a `PATH` of only node's folder: on Linux `google-chrome` is a shell script that needs `dirname`, so Chrome exited with code 127, and the test also ignored `SKIP_BROWSER_TESTS`, which CI sets. The browser parts of that test, and of the docs example runner, now run only where browser tests run, and the PATH keeps the basic system folders (the test first proves ffmpeg is not in them). The two pushes (0.38.0, 0.38.1) were made without looking at CI: the red mail came from the maintainer.
+
 ## 0.38.1
 
 **Docs, and 21 pieces leave the gallery (64 → 43)**
