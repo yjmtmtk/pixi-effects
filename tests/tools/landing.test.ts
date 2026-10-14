@@ -182,7 +182,9 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the landin
       await check.sleep(1500);
       // every tile links to its own piece (the fallback without JavaScript, and what "open in a new tab" does)
       const links = await cdp.eval(`[...document.querySelectorAll('a.piece')].map(a => [a.querySelector('img').getAttribute('src').split('/').pop().replace('.jpg', ''), a.getAttribute('href')])`);
-      expect(links.length).toBe(15);
+      const cards = (readFileSync(join(root, 'index.html'), 'utf8').match(/<a class="piece" href="examples\/gallery\/#/g) ?? []).length;       // the strip's own count (it changes when pieces come and go): every card of the page is a tile, and there are some
+      expect(links.length).toBe(cards);
+      expect(cards).toBeGreaterThanOrEqual(8);
       for (const [id, href] of links) expect(href, id).toBe(`examples/gallery/#${id}`);
       await cdp.eval(`document.querySelector('a.piece[data-piece="synthwave-drive"]').click()`);
       let state: any = null;

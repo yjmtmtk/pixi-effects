@@ -2,7 +2,9 @@
 
 ## 0.38.1
 
-**Docs only: what an agent does in a browser chat's sandbox**
+**Docs, and 21 pieces leave the gallery (64 → 43)**
+
+- **Gallery: 21 pieces removed** at the owner's choice (AURA ONE, Orbits, KAGEOKURI, Escapement, Hanabi Night, hanbun, Nengajo: Hatsuhi, Now Showing, Paper Planes, Tadaima, Hikari no oto, Same Grey, Nenrin, KOYU, Key and Lock, Pendulum Wave, Yakou ressha, Hanon Trio Night, Binary Counted, Made of Seconds, Kanreki): their pages, posters, notes, cards and counts are gone (`scripts/gallery-swap.mjs --remove`); the measurements in the guide and FACTS that named Hanabi Night now say "a firework piece".
 
 - **Docs: what an agent does when its shell is a browser chat's sandbox** (AGENTS.md, SKILL.md). An agent in claude.ai's code execution (a small root container with a weak CPU and a network limited to package managers: starting Chrome and rendering there is very slow) stalled for minutes on `check` (Chrome refuses to start as root without `--no-sandbox`; with the CDNs unreachable `check` waits its whole 240 s and says only "timed out") and on rewiring the page to local libraries, and was stopped by the person twice. The docs now say: there, follow the chat way (the template from CHAT.md, no `npx`, no `npm i`, no `check` / `render` / `view`), hand over the page, do not render in the sandbox (the person exports with the player's download button on their own computer, warnings come back from the red box), stop after two tries at anything that stalls, say what was not checked. Not changed yet: `check` still hides Chrome's own error and the reason a page did not load (proposals in the project notes).
 

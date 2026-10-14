@@ -66,7 +66,7 @@ Restyle it with variables on the element or any ancestor: `--pe-loader-color`, `
 
 **Why it does not freeze.** The loader is plain HTML and CSS, so it is on screen before any script runs, and it animates only `transform` and `opacity`. The browser runs those animations on its compositor thread, so they keep moving smoothly even while the main thread is busy building your piece. A loader driven by JavaScript, `requestAnimationFrame`, `setInterval`, an SVG stroke or the canvas itself freezes together with the page; **a loader of your own is welcome, just animate only `transform` and `opacity`**.
 
-**Keep the build light, too.** Hundreds of particle layers are fine; thousands cost time. The gallery's [hanabi-night](../examples/gallery/hanabi-night.html) has a loader of its own (a tiny rocket that bursts) on the shared frame.
+**Keep the build light, too.** Hundreds of particle layers are fine; thousands cost time.
 
 ## For a talk: stops and the Presenter
 

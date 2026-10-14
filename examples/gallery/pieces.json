@@ -103,26 +103,6 @@
       "notes": "_notes/film-titles.md"
     },
     {
-      "id": "generative-orbits",
-      "title": "Orbits",
-      "subtitle": "A seeded loop of pendulum-wave rings, epicycle rosettes and Lissajous comets",
-      "tags": [
-        "generative",
-        "loop",
-        "orbit",
-        "lissajous",
-        "epicycles"
-      ],
-      "width": 1080,
-      "height": 1080,
-      "duration": 14,
-      "posterFrame": 180,
-      "model": "opus",
-      "page": "generative-orbits.html",
-      "poster": "posters/generative-orbits.jpg",
-      "notes": "_notes/generative-orbits.md"
-    },
-    {
       "id": "news-package",
       "title": "NORTH 24 — Breaking",
       "subtitle": "A broadcast news package: channel stinger, BREAKING flash, wipe-masked lower third, live ticker and running clock",
@@ -142,27 +122,6 @@
       "page": "news-package.html",
       "poster": "posters/news-package.jpg",
       "notes": "_notes/news-package.md"
-    },
-    {
-      "id": "aura-launch",
-      "title": "AURA ONE",
-      "subtitle": "2.5D launch teaser for imaginary wireless headphones — a headline from depth, floating feature cards, an orbit with a dolly zoom",
-      "tags": [
-        "2.5D",
-        "camera",
-        "dolly-zoom",
-        "product",
-        "typography",
-        "particles"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 12,
-      "posterFrame": 190,
-      "model": "fable",
-      "page": "aura-launch.html",
-      "poster": "posters/aura-launch.jpg",
-      "notes": "_notes/aura-launch.md"
     },
     {
       "id": "wild-geese",
@@ -268,47 +227,6 @@
       "notes": "_notes/network-explainer.md"
     },
     {
-      "id": "made-of-seconds",
-      "title": "Made of Seconds",
-      "subtitle": "Sixty seconds close into a minute, and on up to a year: 31,536,000 ticks, and then the next one.",
-      "tags": [
-        "time",
-        "minimal",
-        "clock",
-        "typography",
-        "sound"
-      ],
-      "width": 1080,
-      "height": 1080,
-      "duration": 13.8,
-      "posterFrame": 306,
-      "model": "opus",
-      "page": "made-of-seconds.html",
-      "poster": "posters/made-of-seconds.jpg",
-      "notes": "_notes/made-of-seconds.md"
-    },
-    {
-      "id": "kageokuri",
-      "title": "影送り KAGEOKURI",
-      "subtitle": "Opening titles for a drama that does not exist: light passes over every name and leaves an afterimage; the title arrives as its own shadow.",
-      "tags": [
-        "title sequence",
-        "light",
-        "shadow",
-        "typography",
-        "music",
-        "2.5D"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 14,
-      "posterFrame": 315,
-      "model": "opus",
-      "page": "kageokuri.html",
-      "poster": "posters/kageokuri.jpg",
-      "notes": "_notes/kageokuri.md"
-    },
-    {
       "id": "solar-system",
       "title": "A Flight Through the Solar System",
       "subtitle": "An educational camera flight from the Sun to Neptune: orbits, facts and a recap",
@@ -345,25 +263,6 @@
       "page": "line-again.html",
       "poster": "posters/line-again.jpg",
       "notes": "_notes/line-again.md"
-    },
-    {
-      "id": "binary-count",
-      "title": "Binary, Counted",
-      "subtitle": "One digit that holds only 0 or 1: when it overflows, a new digit is born, worth twice as much",
-      "tags": [
-        "explainer",
-        "typography",
-        "japanese",
-        "math"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 13,
-      "posterFrame": 348,
-      "model": "opus",
-      "page": "binary-count.html",
-      "poster": "posters/binary-count.jpg",
-      "notes": "_notes/binary-count.md"
     },
     {
       "id": "d3-story",
@@ -407,27 +306,6 @@
       "notes": "_notes/elastic-exposure.md"
     },
     {
-      "id": "escapement",
-      "title": "Escapement",
-      "subtitle": "A watch movement seen from its heartbeat outward: five exact steps a second turn every wheel.",
-      "tags": [
-        "mechanism",
-        "macro",
-        "procedural",
-        "shader",
-        "music",
-        "japanese"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 12.8,
-      "posterFrame": 369,
-      "model": "opus",
-      "page": "escapement.html",
-      "poster": "posters/escapement.jpg",
-      "notes": "_notes/escapement.md"
-    },
-    {
       "id": "rain-fourteen-days",
       "title": "Fourteen Days of Rain",
       "subtitle": "365 day-bars re-sort themselves: half a year's rain falls on 14 days (illustrative data)",
@@ -446,66 +324,6 @@
       "page": "rain-fourteen-days.html",
       "poster": "posters/rain-fourteen-days.jpg",
       "notes": "_notes/rain-fourteen-days.md"
-    },
-    {
-      "id": "hanabi-night",
-      "title": "Hanabi Night",
-      "subtitle": "A summer fireworks festival title card in indigo, gold and vermilion: rockets streak up, a gold peony opens over the skyline, the vertical title rises and a red seal stamps in",
-      "tags": [
-        "particles",
-        "motion-blur",
-        "typography",
-        "japanese",
-        "poster",
-        "sfx"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 12,
-      "posterFrame": 282,
-      "model": "sonnet",
-      "page": "hanabi-night.html",
-      "poster": "posters/hanabi-night.jpg",
-      "notes": "_notes/hanabi-night.md"
-    },
-    {
-      "id": "hanbun-app",
-      "title": "hanbun",
-      "subtitle": "A fictional split-the-bill app: one tap folds eighteen transfers into three",
-      "tags": [
-        "ui",
-        "app promo",
-        "japanese",
-        "portrait"
-      ],
-      "width": 1080,
-      "height": 1350,
-      "duration": 12,
-      "posterFrame": 168,
-      "model": "opus",
-      "page": "hanbun-app.html",
-      "poster": "posters/hanbun-app.jpg",
-      "notes": "_notes/hanbun-app.md"
-    },
-    {
-      "id": "hanon-trio-night",
-      "title": "Hanon Trio Night",
-      "subtitle": "A basement jazz bar's poster, set note by note by a walking bass, a Rhodes and a vibes line",
-      "tags": [
-        "typography",
-        "music",
-        "jazz",
-        "poster",
-        "japanese"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 14,
-      "posterFrame": 390,
-      "model": "opus",
-      "page": "hanon-trio-night.html",
-      "poster": "posters/hanon-trio-night.jpg",
-      "notes": "_notes/hanon-trio-night.md"
     },
     {
       "id": "tenon-joint",
@@ -629,48 +447,6 @@
       "notes": "_notes/nagiro-light.md"
     },
     {
-      "id": "nengajo-hatsuhi",
-      "title": "Nengajo: Hatsuhi",
-      "subtitle": "A New Year card: the first sunrise over washi, a mizuhiki cord tied in gold and vermilion, a seal to close",
-      "tags": [
-        "japanese",
-        "new-year",
-        "card",
-        "typography",
-        "vertical-text",
-        "draw-on",
-        "music"
-      ],
-      "width": 1080,
-      "height": 1350,
-      "duration": 12,
-      "posterFrame": 330,
-      "model": "opus",
-      "page": "nengajo-hatsuhi.html",
-      "poster": "posters/nengajo-hatsuhi.jpg",
-      "notes": "_notes/nengajo-hatsuhi.md"
-    },
-    {
-      "id": "spring-marquee",
-      "title": "Now Showing",
-      "subtitle": "A vintage cinema marquee at night: bulbs snap on, letters bounce onto the rail, a ticket stub wobbles in, all under one film grain",
-      "tags": [
-        "spring easing",
-        "film grain",
-        "typography",
-        "marquee",
-        "music"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 11,
-      "posterFrame": 306,
-      "model": "opus",
-      "page": "spring-marquee.html",
-      "poster": "posters/spring-marquee.jpg",
-      "notes": "_notes/spring-marquee.md"
-    },
-    {
       "id": "one-stroke",
       "title": "One Stroke",
       "subtitle": "一 is one line: a hairline becomes the letter, keeps its single stroke through 13 typefaces, and is left alone at the end",
@@ -710,26 +486,6 @@
       "page": "three-product-spin.html",
       "poster": "posters/three-product-spin.jpg",
       "notes": "_notes/three-product-spin.md"
-    },
-    {
-      "id": "lyric-video",
-      "title": "Paper Planes",
-      "subtitle": "A karaoke lyric video for an invented song: words light up on a 120 BPM grid under a bouncing ball, each verse shifts the sky, the chorus hits big.",
-      "tags": [
-        "karaoke",
-        "lyrics",
-        "typography",
-        "music",
-        "beat-sync"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 12.5,
-      "posterFrame": 340,
-      "model": "opus",
-      "page": "lyric-video.html",
-      "poster": "posters/lyric-video.jpg",
-      "notes": "_notes/lyric-video.md"
     },
     {
       "id": "cycle-lane-race",
@@ -1037,88 +793,6 @@
       "notes": "_notes/aiai-gasa.md"
     },
     {
-      "id": "tadaima",
-      "title": "ただいま",
-      "subtitle": "A small ball hops ten ledges down to the one spot that fits it; the trip is shown again as a chronophotograph.",
-      "tags": [
-        "vertical",
-        "story",
-        "physics",
-        "music",
-        "japanese"
-      ],
-      "width": 720,
-      "height": 1280,
-      "duration": 13,
-      "posterFrame": 345,
-      "model": "opus",
-      "page": "tadaima.html",
-      "poster": "posters/tadaima.jpg",
-      "notes": "_notes/tadaima.md"
-    },
-    {
-      "id": "hikari-no-oto",
-      "title": "ひかりの音",
-      "subtitle": "A four-line poem written top to bottom, right to left, each syllable landing on a note of its own tune",
-      "tags": [
-        "lyric",
-        "vertical",
-        "japanese",
-        "typography",
-        "music"
-      ],
-      "width": 720,
-      "height": 1280,
-      "duration": 13.5,
-      "posterFrame": 360,
-      "model": "opus",
-      "page": "hikari-no-oto.html",
-      "poster": "posters/hikari-no-oto.jpg",
-      "notes": "_notes/hikari-no-oto.md"
-    },
-    {
-      "id": "same-grey",
-      "title": "同じ灰色 — Same Grey",
-      "subtitle": "One #808080 looks light, dark, graded, and then disappears: value is decided by the neighbour.",
-      "tags": [
-        "colour",
-        "value",
-        "albers",
-        "illusion",
-        "minimal",
-        "music"
-      ],
-      "width": 1080,
-      "height": 1080,
-      "duration": 14,
-      "posterFrame": 228,
-      "model": "opus",
-      "page": "same-grey.html",
-      "poster": "posters/same-grey.jpg",
-      "notes": "_notes/same-grey.md"
-    },
-    {
-      "id": "yakou-ressha",
-      "title": "夜をゆく",
-      "subtitle": "A night-train window at 2 a.m.: the world slides past in layers, and only the moon stays.",
-      "tags": [
-        "parallax",
-        "night",
-        "japanese",
-        "landscape",
-        "ambient",
-        "sound"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 13,
-      "posterFrame": 354,
-      "model": "opus",
-      "page": "yakou-ressha.html",
-      "poster": "posters/yakou-ressha.jpg",
-      "notes": "_notes/yakou-ressha.md"
-    },
-    {
       "id": "nocturne-hachi",
       "title": "夜想曲 Nocturne",
       "subtitle": "Eight bars of an original piano nocturne, every note an ink bar landing on the key it lights",
@@ -1136,45 +810,6 @@
       "page": "nocturne-hachi.html",
       "poster": "posters/nocturne-hachi.jpg",
       "notes": "_notes/nocturne-hachi.md"
-    },
-    {
-      "id": "nenrin",
-      "title": "年輪 nenrin",
-      "subtitle": "A hundred springs, summers, autumns and winters, written into one tree as rings",
-      "tags": [
-        "nature",
-        "japanese",
-        "generative",
-        "time-lapse",
-        "music"
-      ],
-      "width": 1080,
-      "height": 1350,
-      "duration": 13.2,
-      "posterFrame": 366,
-      "model": "opus",
-      "page": "nenrin.html",
-      "poster": "posters/nenrin.jpg",
-      "notes": "_notes/nenrin.md"
-    },
-    {
-      "id": "pendulum-wave",
-      "title": "振り子の波 — Pendulum Wave",
-      "subtitle": "Fifteen pendulums released together drift into waves and meet again eight seconds later; each one rings at its turn",
-      "tags": [
-        "physics",
-        "generative",
-        "music",
-        "minimal"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 13,
-      "posterFrame": 228,
-      "model": "opus",
-      "page": "pendulum-wave.html",
-      "poster": "posters/pendulum-wave.jpg",
-      "notes": "_notes/pendulum-wave.md"
     },
     {
       "id": "moon-phases",
@@ -1235,67 +870,6 @@
       "page": "sora-no-ichinichi.html",
       "poster": "posters/sora-no-ichinichi.jpg",
       "notes": "_notes/sora-no-ichinichi.md"
-    },
-    {
-      "id": "kanreki-cycle",
-      "title": "還暦 — Kanreki",
-      "subtitle": "A 60th-birthday greeting: one vermilion line travels the sixty-year calendar from 丙午 1966 back to 丙午 2026",
-      "tags": [
-        "celebration",
-        "birthday",
-        "japanese",
-        "typography",
-        "music"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 12.5,
-      "posterFrame": 330,
-      "model": "opus",
-      "page": "kanreki-cycle.html",
-      "poster": "posters/kanreki-cycle.jpg",
-      "notes": "_notes/kanreki-cycle.md"
-    },
-    {
-      "id": "key-and-lock",
-      "title": "鍵と錠",
-      "subtitle": "Public-key cryptography in one gesture: anyone can close the lock, only one key opens it",
-      "tags": [
-        "explainer",
-        "japanese",
-        "diagram",
-        "line-art"
-      ],
-      "width": 1280,
-      "height": 720,
-      "duration": 13,
-      "posterFrame": 363,
-      "model": "opus",
-      "page": "key-and-lock.html",
-      "poster": "posters/key-and-lock.jpg",
-      "notes": "_notes/key-and-lock.md"
-    },
-    {
-      "id": "koyu-incense",
-      "title": "香結 KOYU — No.07",
-      "subtitle": "A vertical incense ad: one thread of procedural smoke on washi, vertical Mincho copy, the brand arrives last",
-      "tags": [
-        "vertical",
-        "ad",
-        "japanese",
-        "shader",
-        "typography",
-        "minimal",
-        "music"
-      ],
-      "width": 720,
-      "height": 1280,
-      "duration": 12,
-      "posterFrame": 342,
-      "model": "opus",
-      "page": "koyu-incense.html",
-      "poster": "posters/koyu-incense.jpg",
-      "notes": "_notes/koyu-incense.md"
     }
   ]
 }

@@ -9,20 +9,10 @@
     "posterFrame": 182,
     "hash": "eaecfe0a62542cdc0fed3ecd0e6af034f5ab85b8"
   },
-  "aura-launch": {
-    "poster": 6.333333333333333,
-    "posterFrame": 190,
-    "hash": "c5c6a08904d57a5b58585e5a8199adaa4f44cf85"
-  },
   "aurora-logo": {
     "poster": 7,
     "posterFrame": 210,
     "hash": "85ad31f0091d4c60eeb46a3dacecc6afb7912483"
-  },
-  "binary-count": {
-    "poster": 11.6,
-    "posterFrame": 348,
-    "hash": "dcfb50f5365ee58b74f823e534c234f9eb6dfbb0"
   },
   "cycle-lane-race": {
     "poster": 13.2,
@@ -44,75 +34,25 @@
     "posterFrame": 384,
     "hash": "65674a99f31ee9b15ee19ecec5b9aa4c9fdcc742"
   },
-  "escapement": {
-    "poster": 12.3,
-    "posterFrame": 369,
-    "hash": "22c873447601eab088f8986c1c14217c5685997e"
-  },
   "film-titles": {
     "poster": 13.5,
     "posterFrame": 405,
     "hash": "3c0345c00cf54ae5026c5c56aaf06f4d0928a0c8"
-  },
-  "generative-orbits": {
-    "poster": 6,
-    "posterFrame": 180,
-    "hash": "ced540e663861e44b686d2a8ddeb177f98c9fa60"
-  },
-  "hanabi-night": {
-    "poster": 9.4,
-    "posterFrame": 282,
-    "hash": "630aa76faeeda3561f9f0615f58845abeeae35e2"
-  },
-  "hanbun-app": {
-    "poster": 5.6,
-    "posterFrame": 168,
-    "hash": "76d76fab9b3f004f95e29758b6b84f44b2b9d1b9"
-  },
-  "hanon-trio-night": {
-    "poster": 13,
-    "posterFrame": 390,
-    "hash": "0733459e172eaaed01b18bf26357d1de2ac3cd63"
   },
   "hasshahyo": {
     "poster": 8.5,
     "posterFrame": 255,
     "hash": "057accecfbc2aa8dd40c3c25cc29bf282e13bef9"
   },
-  "hikari-no-oto": {
-    "poster": 12,
-    "posterFrame": 360,
-    "hash": "e57af719bfbd6f504aef9a3c32c747c92b020384"
-  },
   "isometric-city": {
     "poster": 11.166666666666666,
     "posterFrame": 335,
     "hash": "a970354bff65e6cf4472d43fa59a30ae530f01ae"
   },
-  "kageokuri": {
-    "poster": 10.5,
-    "posterFrame": 315,
-    "hash": "0d0d7789eb416ab68093246626934794a03cdc23"
-  },
-  "kanreki-cycle": {
-    "poster": 11,
-    "posterFrame": 330,
-    "hash": "1d119875580b3c1498ae8ac4086463b0906b9582"
-  },
-  "key-and-lock": {
-    "poster": 12.1,
-    "posterFrame": 363,
-    "hash": "e1573783b9af54a11d5d94a241c865ea72c114e1"
-  },
   "kinetic-manifesto": {
     "poster": 1.4,
     "posterFrame": 42,
     "hash": "fd074a896c54c5b090474fc1aa59c2664efd36cc"
-  },
-  "koyu-incense": {
-    "poster": 11.4,
-    "posterFrame": 342,
-    "hash": "b224de70f005f4798b35f63220cf8bca1baaf5bf"
   },
   "lamplighter": {
     "poster": 4.5,
@@ -139,20 +79,10 @@
     "posterFrame": 204,
     "hash": "b78918ab40580fcffac63d6e6d6426a8ca2e5f27"
   },
-  "lyric-video": {
-    "poster": 11.333333333333334,
-    "posterFrame": 340,
-    "hash": "3ad18b822e3b762f60e178731fd340ec6f248db5"
-  },
   "ma": {
     "poster": 43.5,
     "posterFrame": 1305,
     "hash": "766eba4a3c1904b9b455e4a320cab41a90ad04db"
-  },
-  "made-of-seconds": {
-    "poster": 10.2,
-    "posterFrame": 306,
-    "hash": "fd1d73e97afc39a8ae2d9cd988963fc39c3c0520"
   },
   "moon-phases": {
     "poster": 6.6,
@@ -163,16 +93,6 @@
     "poster": 12,
     "posterFrame": 360,
     "hash": "b008e5ac35f0fe801613c25cb31d797afdb080ab"
-  },
-  "nengajo-hatsuhi": {
-    "poster": 11,
-    "posterFrame": 330,
-    "hash": "4af16a27b03b2ccec71f022fa00a087cbb5ea78b"
-  },
-  "nenrin": {
-    "poster": 12.2,
-    "posterFrame": 366,
-    "hash": "af48ba18b0e5d71a6301f1ba09b940982a1768d1"
   },
   "network-explainer": {
     "poster": 7.633333333333334,
@@ -198,11 +118,6 @@
     "poster": 5.6,
     "posterFrame": 168,
     "hash": "1a030cd3d82498405913335e3b25409432e35e77"
-  },
-  "pendulum-wave": {
-    "poster": 7.6,
-    "posterFrame": 228,
-    "hash": "7e4256aa6daad094178b71ee50fc6482d056dda3"
   },
   "pour-over": {
     "poster": 12,
@@ -234,11 +149,6 @@
     "posterFrame": 312,
     "hash": "349704f0accbcf6edc708bd28da58b37e5ea1819"
   },
-  "same-grey": {
-    "poster": 7.6,
-    "posterFrame": 228,
-    "hash": "c33341da7ad63944ba7f9346f757482c014f0726"
-  },
   "sketch-launch": {
     "poster": 8.5,
     "posterFrame": 255,
@@ -259,11 +169,6 @@
     "posterFrame": 285,
     "hash": "cdf5fbf2f25d802c3ad9b50947527f63db849c13"
   },
-  "spring-marquee": {
-    "poster": 10.2,
-    "posterFrame": 306,
-    "hash": "2a16895c2ec3cf07ea5f5cf8f4a13f5c8e4983d1"
-  },
   "sprint-trace": {
     "poster": 13.2,
     "posterFrame": 396,
@@ -278,11 +183,6 @@
     "poster": 5.6,
     "posterFrame": 168,
     "hash": "bc7c7212d1486c1dcf86c437ce73757d570f7002"
-  },
-  "tadaima": {
-    "poster": 11.5,
-    "posterFrame": 345,
-    "hash": "59b8811898186df650d76d5300e53d9540f4f757"
   },
   "tenon-joint": {
     "poster": 6.5,
@@ -313,10 +213,5 @@
     "poster": 8.4,
     "posterFrame": 252,
     "hash": "314d7ae8889b7a62341a1a6477749f41a4c7c858"
-  },
-  "yakou-ressha": {
-    "poster": 11.8,
-    "posterFrame": 354,
-    "hash": "10deeb4632c6117e9dd54a5ab0d6616b60124c7a"
   }
 }

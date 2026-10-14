@@ -23,16 +23,12 @@ export const FEATURED = [
   'aurora-logo',
   'kinetic-manifesto',
   'film-titles',
-  'generative-orbits',
   'news-package',
-  'aura-launch',
   'wild-geese',
   'sports-scoreboard',
   'data-story',
   'app-promo',
   'network-explainer',
-  'made-of-seconds',
-  'kageokuri',
 ];
 
 const META_RE = /<script[^>]*\bid=["']piece-meta["'][^>]*>([\s\S]*?)<\/script>/i;
