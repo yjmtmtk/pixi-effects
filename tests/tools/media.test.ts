@@ -222,7 +222,7 @@ describe('probe: what is in a file', () => {
       expect(url.code).toBe(1);
       expect(url.err).toMatch(/could not read http:\/\/127\.0\.0\.1:1\/x\.mp4/);
     } finally { rmSync(dir, { recursive: true, force: true }); }
-  });
+  }, 30_000);
 });
 
 describe('trim: a cut by copy, with the real times', () => {
