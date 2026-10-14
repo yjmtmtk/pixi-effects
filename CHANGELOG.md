@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.38.1
+
+**Docs only: what an agent does in a browser chat's sandbox**
 
 - **Docs: what an agent does when its shell is a browser chat's sandbox** (AGENTS.md, SKILL.md). An agent in claude.ai's code execution (a root container, no GPU, a network limited to package managers) stalled for minutes on `check` (Chrome refuses to start as root without `--no-sandbox`; with the CDNs unreachable `check` waits its whole 240 s and says only "timed out") and on rewiring the page to local libraries, and was stopped by the person twice. The docs now say: there, follow the chat way (the template from CHAT.md, no `npx`, no `npm i`, no `check` / `render` / `view`), hand over the page, do not render in the sandbox (the person exports with the player's download button on their own GPU, warnings come back from the red box), stop after two tries at anything that stalls, say what was not checked. Not changed yet: `check` still hides Chrome's own error and the reason a page did not load (proposals in the project notes).
 
