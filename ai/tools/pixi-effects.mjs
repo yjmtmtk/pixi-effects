@@ -15,7 +15,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runLookup, LOOKUP_COMMANDS } from './lookup.mjs';
 
-const MEDIA = ['probe', 'trim', 'frames', 'sound'];          // footage tools: one file, `media.mjs`, which gets the command word too
+const MEDIA = ['probe', 'trim', 'frames', 'sound', 'audio', 'concat'];          // footage tools: one file, `media.mjs`, which gets the command word too
 
 const TOOLS = { check: 'check.mjs', render: 'render.mjs', view: 'view.mjs' };
 const USAGE = `usage:
@@ -26,6 +26,8 @@ const USAGE = `usage:
   pixi-effects trim   <file|url> <start> <end> -o <out>     cut a file (by copy when it can) and say the real times
   pixi-effects frames <file|url> [--at 1,50%,end] [--sheet] pictures of a video at those times
   pixi-effects sound  <file|url> [--waveform]               loudness, peak, silences of a file's sound
+  pixi-effects audio  <file|url> -o <out.m4a>               the sound of a file, copied out
+  pixi-effects concat <a> <b> … -o <out>                    join clips by copy and say where each starts
   pixi-effects new    <name> [--size 1080x1920] [--duration 20]   a page to start from (<name>.html), 1280x720 and 6 s unless asked
   pixi-effects recipe [id]                                  the tested recipes; with an id, one of them with its code
   pixi-effects help   <word>                                the docs about a word (mask, threeD, keyframes, music …)

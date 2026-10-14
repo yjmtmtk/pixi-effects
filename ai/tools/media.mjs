@@ -6,6 +6,8 @@
  *   npx pixi-effects trim   <file|url> <start> <end> -o <out> [--exact] [--force] [--json]
  *                                                                        cut [start, end] (seconds, or 1:02.5): by COPY when it can (no re-encode, no loss),
  *                                                                        and it says the real times; --exact re-encodes so the start is the frame asked for
+ *   npx pixi-effects audio  <file|url> -o <out.m4a> [--force] [--json]  the sound of a file, copied out (no re-encode): .m4a for AAC, .webm for Opus, .mka for any
+ *   npx pixi-effects concat <a> <b> [<c> …] -o <out> [--force] [--json] join clips by copy (no re-encode): they must have the same codecs, shown size, rotation and sound; it says where each clip starts
  *   npx pixi-effects frames <file|url> [--at 1,3.5,50%,f120,end,"every 2s"] [--size 480] [--sheet] [-o dir] [--json]
  *                                                                        PNGs of the frames at those times (default: 0, 25%, 50%, 75%, end), and a contact sheet
  *   npx pixi-effects sound  <file|url> [--waveform] [-o dir] [--json]    loudness (LUFS), true peak, clipping, silences, level over time; a waveform picture
@@ -29,6 +31,8 @@ export class UsageError extends Error { constructor(message) { super(message); t
 export const USAGE = `usage:
   pixi-effects probe  <file|url> [--keyframes] [--json]
   pixi-effects trim   <file|url> <start> <end> -o <out> [--exact] [--force] [--json]
+  pixi-effects audio  <file|url> -o <out.m4a> [--force] [--json]
+  pixi-effects concat <a> <b> [<c> …] -o <out> [--force] [--json]
   pixi-effects frames <file|url> [--at 1,3.5,50%,f120,end] [--size 480] [--sheet] [-o dir] [--json]
   pixi-effects sound  <file|url> [--waveform] [-o dir] [--json]`;
 
@@ -36,6 +40,8 @@ export const USAGE = `usage:
 const COMMANDS = {
   probe:  { positional: ['file'], flags: { '--keyframes': 'bool', '--json': 'bool' } },
   trim:   { positional: ['file', 'start', 'end'], flags: { '-o': 'str', '--out': 'str', '--exact': 'bool', '--force': 'bool', '--json': 'bool', '--chrome': 'str' } },
+  audio:  { positional: ['file'], flags: { '-o': 'str', '--out': 'str', '--force': 'bool', '--json': 'bool' } },
+  concat: { positional: ['file', 'file'], variadic: true, flags: { '-o': 'str', '--out': 'str', '--force': 'bool', '--json': 'bool' } },
   frames: { positional: ['file'], flags: { '--at': 'str', '--size': 'num', '--sheet': 'bool', '-o': 'str', '--out': 'str', '--json': 'bool', '--chrome': 'str' } },
   sound:  { positional: ['file'], flags: { '--waveform': 'bool', '--window': 'num', '-o': 'str', '--out': 'str', '--json': 'bool', '--chrome': 'str' } },
 };
@@ -85,9 +91,11 @@ export function parseMediaArgs(argv) {
   if (opts.out && opts.o === undefined) opts.o = opts.out;
   delete opts.out;
   if (command === 'frames' && /^every$/i.test(opts.at ?? '')) throw new UsageError('frames: --at every needs its step in the same argument: write --at every:2s (or quote it: --at "every 2s"), also inside a list: --at "every:2s,end"');
-  if (words.length < spec.positional.length) throw new UsageError(`${command}: needs ${spec.positional.map(p => `<${p}>`).join(' ')}${words.length ? ` (got ${words.length})` : ''}`);
-  if (words.length > spec.positional.length) throw new UsageError(`${command}: unexpected "${words[spec.positional.length]}" (a path with spaces needs quotes)`);
+  if (words.length < spec.positional.length) throw new UsageError(`${command}: needs ${spec.variadic ? `at least ${spec.positional.length} files` : spec.positional.map(p => `<${p}>`).join(' ')}${words.length ? ` (got ${words.length})` : ''}`);
+  if (words.length > spec.positional.length && !spec.variadic) throw new UsageError(`${command}: unexpected "${words[spec.positional.length]}" (a path with spaces needs quotes)`);
   const file = words[0];
+  if (command === 'concat') { opts.inputs = words; if (!opts.o) throw new UsageError('concat: needs -o <output file> (for example -o joined.mp4)'); opts.out = opts.o; delete opts.o; }
+  if (command === 'audio') { if (!opts.o) throw new UsageError('audio: needs -o <output file> (for example -o sound.m4a)'); opts.out = opts.o; delete opts.o; }
   if (command === 'sound' && opts.window !== undefined && !(opts.window >= 0.05 && opts.window <= 60)) throw new UsageError(`sound: --window is the width of a level row in seconds, from 0.05 to 60 (got ${opts.window})`);
   if (command === 'trim') {
     opts.start = parseTime(words[1], 'start');
@@ -532,6 +540,153 @@ commands.sound = async ({ file, opts }, io, env = {}) => {
   const reference = lufs === null ? null : { webTargetLufs: [-16, -14], luToTarget: round(-14 - lufs, 1), headroomDb: round(-1 - r.loudness.truePeakDb, 1), raiseToTargetNeedsLimiter: -14 - lufs > -1 - r.loudness.truePeakDb };
   const report = { file, ...r, window: round(window, 3), loudest: span(loudest), quietest: span(quietest), reference, waveform: r.waveform ? path.join(outDir, r.waveform) : null };
   io.log(opts.json ? JSON.stringify(report, null, 2) : soundText(report, file, report.waveform));
+  return 0;
+};
+
+const AUDIO_HOME = { aac: '.m4a', opus: '.webm', vorbis: '.webm' };
+
+/**
+ * Takes the sound out of a file by copy: the audio packets are the source's own bytes in a file of their own. The output is made aside and moved into place when it worked
+ * (a refusal leaves nothing and never empties a file that was there).
+ */
+export async function audioFile({ input: file, out, force = false }) {
+  const ext = path.extname(out).toLowerCase();
+  if (!OUTPUT_FORMATS[ext]) throw new UsageError(`cannot write "${ext || out}": name the output .m4a, .webm, .mka, .mp4, .mov or .mkv`);
+  if (!isUrl(file) && path.resolve(file) === path.resolve(out)) throw new Error(`the output ${out} would overwrite the input: choose another name`);
+  const { mb, input } = await openInput(file);
+  const track = await input.getPrimaryAudioTrack();
+  if (!track) throw new Error(`no audio track in ${file}: audio takes the sound out of a file that has some`);
+  const options = { video: { discard: true }, copy: { mode: 'forced' }, showWarnings: false };
+  const refusal = `${file} has ${track.codec} sound, which a ${ext} file cannot hold by copy: write it as ${AUDIO_HOME[track.codec] ?? '.mka'} (or .mka, which holds any codec)`;
+  prepareOutput(out, { force });
+  {                                                                      // can the output type hold it? asked of a throwaway output in memory: a refusal creates no file
+    const trial = new mb.Output({ format: new mb[OUTPUT_FORMATS[ext]](), target: new mb.BufferTarget() });
+    const dry = await mb.Conversion.init({ input, output: trial, ...options });
+    const refused = !dry.isValid || dry.discardedTracks.some(d => d.reason !== 'discarded_by_user');
+    try { await trial.cancel(); } catch { /* it had not started */ }
+    if (refused) throw new Error(refusal);
+  }
+  const { input: again } = await openInput(file);
+  const aside = path.join(path.dirname(path.resolve(out)), `.pixi-effects-${process.pid}-${Date.now()}${ext}`);
+  let output = null;
+  try {
+    output = new mb.Output({ format: new mb[OUTPUT_FORMATS[ext]](), target: new mb.FilePathTarget(aside) });
+    const conversion = await mb.Conversion.init({ input: again, output, ...options });
+    await conversion.execute();
+    fs.renameSync(aside, path.resolve(out));
+  } catch (e) {
+    try { await output?.cancel(); } catch { /* it had not started */ }
+    throw e;
+  } finally { fs.rmSync(aside, { force: true }); }
+  const { input: made } = await openInput(out);
+  const a = await made.getPrimaryAudioTrack();
+  return { file, out, mode: 'copy', reencoded: false, codec: a.codec, sampleRate: a.sampleRate, channels: a.numberOfChannels, duration: round(await a.computeDuration(), 3), bytes: fs.statSync(path.resolve(out)).size };
+}
+
+commands.audio = async ({ file, opts }, io) => {
+  const r = await audioFile({ input: file, out: opts.out, force: !!opts.force });
+  io.log(opts.json ? JSON.stringify(r, null, 2) : `${r.out}  ${kb(r.bytes)}\n  ${r.codec} ${r.sampleRate} Hz · ${r.channels} ch · ${r.duration} s, copied (no re-encode)`);
+  return 0;
+};
+
+/** What decides whether clips can be joined by copy: the codecs, the SHOWN size and rotation of the picture, and the sound's codec, rate and channels. */
+async function describeClip(input) {
+  const v = await input.getPrimaryVideoTrack(), a = await input.getPrimaryAudioTrack();
+  return {
+    video: v ? { codec: v.codec, width: await v.getDisplayWidth(), height: await v.getDisplayHeight(), rotation: await v.getRotation() } : null,
+    audio: a ? { codec: a.codec, rate: a.sampleRate, channels: a.numberOfChannels } : null,
+  };
+}
+
+function differences(a, b) {
+  const d = [];
+  if (!!a.video !== !!b.video) d.push(a.video ? 'the first has a picture, the other has none' : 'the first has no picture, the other has one');
+  else if (a.video) {
+    if (a.video.codec !== b.video.codec) d.push(`video codec ${a.video.codec} against ${b.video.codec}`);
+    if (a.video.width !== b.video.width || a.video.height !== b.video.height) d.push(`shown size ${a.video.width}×${a.video.height} against ${b.video.width}×${b.video.height}`);
+    if (a.video.rotation !== b.video.rotation) d.push(`rotation ${a.video.rotation}° against ${b.video.rotation}°`);
+  }
+  if (!!a.audio !== !!b.audio) d.push(a.audio ? 'the first has sound, the other has none' : 'the first has no sound, the other has some');
+  else if (a.audio) {
+    if (a.audio.codec !== b.audio.codec) d.push(`audio codec ${a.audio.codec} against ${b.audio.codec}`);
+    if (a.audio.rate !== b.audio.rate) d.push(`sample rate ${a.audio.rate} against ${b.audio.rate} Hz`);
+    if (a.audio.channels !== b.audio.channels) d.push(`${a.audio.channels} against ${b.audio.channels} audio channels`);
+  }
+  return d;
+}
+
+/**
+ * Joins clips one after another by copy (no re-encode): their packets are the sources' own bytes. Every clip starts where the longest track of the one before it ends, so
+ * picture and sound stay together however many are joined. Clips that differ in a way a copy cannot hide are refused with what differs.
+ */
+export async function concatFiles({ inputs, out, force = false }) {
+  const ext = path.extname(out).toLowerCase();
+  if (!OUTPUT_FORMATS[ext]) throw new UsageError(`cannot write "${ext || out}": name the output .mp4, .mov, .webm, .mkv or .m4a`);
+  for (const f of inputs) if (!isUrl(f) && path.resolve(f) === path.resolve(out)) throw new Error(`the output ${out} would overwrite the input ${f}: choose another name`);
+  const opened = [];
+  for (const file of inputs) { const o = await openInput(file); opened.push({ file, ...o, kind: await describeClip(o.input) }); }
+  const mb = opened[0].mb;
+  for (let i = 1; i < opened.length; i++) {
+    const d = differences(opened[0].kind, opened[i].kind);
+    if (d.length) throw new Error(`${opened[i].file} cannot be joined to ${opened[0].file} by copy: ${d.join('; ')}; a copy needs the same codecs, shown size, rotation and sound in every clip, so make them the same first (ffmpeg's concat filter does that)`);
+  }
+  if (!opened[0].kind.video && !opened[0].kind.audio) throw new Error(`${opened[0].file} has no picture and no sound to join`);
+  prepareOutput(out, { force });
+  const aside = path.join(path.dirname(path.resolve(out)), `.pixi-effects-${process.pid}-${Date.now()}${ext}`);
+  const output = new mb.Output({ format: new mb[OUTPUT_FORMATS[ext]](), target: new mb.FilePathTarget(aside) });
+  try {
+    const first = opened[0].kind;
+    let vSrc = null, aSrc = null;
+    try {
+      if (first.video) { vSrc = new mb.EncodedVideoPacketSource(first.video.codec); output.addVideoTrack(vSrc, { rotation: first.video.rotation }); }
+      if (first.audio) { aSrc = new mb.EncodedAudioPacketSource(first.audio.codec); output.addAudioTrack(aSrc); }
+    } catch (e) { throw new Error(`a ${ext} file cannot hold these tracks (${[first.video && `${first.video.codec} video`, first.audio && `${first.audio.codec} sound`].filter(Boolean).join(', ')}): ${e.message}; name the output .mp4, .mov or .mkv`); }
+    await output.start();
+    const clips = [];
+    let offset = 0;
+    for (const c of opened) {
+      const v = c.kind.video ? await c.input.getPrimaryVideoTrack() : null, a = c.kind.audio ? await c.input.getPrimaryAudioTrack() : null;
+      const vBase = v ? await v.getFirstTimestamp() : 0, aBase = a ? await a.getFirstTimestamp() : 0;
+      const vCfg = v ? await v.getDecoderConfig() : null, aCfg = a ? await a.getDecoderConfig() : null;
+      const vIt = v ? new mb.EncodedPacketSink(v).packets()[Symbol.asyncIterator]() : null, aIt = a ? new mb.EncodedPacketSink(a).packets()[Symbol.asyncIterator]() : null;
+      let vn = vIt ? await vIt.next() : { done: true }, an = aIt ? await aIt.next() : { done: true };
+      let vFirst = true, aFirst = true, end = offset;
+      // picture and sound are written in the order of their times, so the muxer never has to hold a whole track of one kind while waiting for the other
+      while (!vn.done || !an.done) {
+        const takeVideo = !vn.done && (an.done || vn.value.timestamp - vBase <= an.value.timestamp - aBase);
+        if (takeVideo) {
+          const p = vn.value, ts = p.timestamp - vBase + offset;
+          await vSrc.add(p.clone({ timestamp: ts }), vFirst ? { decoderConfig: vCfg } : undefined); vFirst = false;
+          end = Math.max(end, ts + p.duration);
+          vn = await vIt.next();
+        } else {
+          const p = an.value, ts = p.timestamp - aBase + offset;
+          await aSrc.add(p.clone({ timestamp: ts }), aFirst ? { decoderConfig: aCfg } : undefined); aFirst = false;
+          end = Math.max(end, ts + p.duration);
+          an = await aIt.next();
+        }
+      }
+      clips.push({ file: c.file, from: round(offset, 3), to: round(end, 3) });
+      offset = end;
+    }
+    await output.finalize();
+    fs.renameSync(aside, path.resolve(out));
+    const { input: made } = await openInput(out);
+    const tracks = [first.video && `video ${first.video.codec}`, first.audio && `audio ${first.audio.codec}`].filter(Boolean);
+    return { inputs, out, mode: 'copy', reencoded: false, clips, duration: round(await made.computeDuration(), 3), tracks, bytes: fs.statSync(path.resolve(out)).size };
+  } catch (e) {
+    try { await output.cancel(); } catch { /* it had not started */ }
+    throw e;
+  } finally { fs.rmSync(aside, { force: true }); }
+}
+
+commands.concat = async ({ opts }, io) => {
+  const r = await concatFiles({ inputs: opts.inputs, out: opts.out, force: !!opts.force });
+  if (opts.json) { io.log(JSON.stringify(r, null, 2)); return 0; }
+  const L = [`${r.out}  ${kb(r.bytes)}`, `  ${r.clips.length} clips, ${r.duration} s, joined by copy (no re-encode): ${r.tracks.join(', ')}`];
+  r.clips.slice(0, 8).forEach((c, i) => L.push(`  ${i + 1}  ${path.basename(c.file)}  ${c.from}–${c.to} s`));
+  if (r.clips.length > 8) L.push(`  … ${r.clips.length - 8} more (--json)`);
+  io.log(L.join('\n'));
   return 0;
 };
 

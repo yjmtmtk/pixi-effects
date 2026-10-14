@@ -14,7 +14,7 @@ const built = existsSync(join(root, 'dist/sound.js'));
 
 describe('the media tools in the docs an agent reads', () => {
   it('help media, probe, trim, frames and sound each print the media reference', () => {
-    for (const word of ['media', 'probe', 'trim', 'frames', 'sound']) {
+    for (const word of ['media', 'probe', 'trim', 'frames', 'sound', 'concat']) {            // (`help audio` is the DSL's audio layer: the audio command is found by `help media`)
       const r = cli(['help', word]);
       expect(r.status, word).toBe(0);
       expect(r.stdout, word).toMatch(/pixi-effects (probe|trim|frames|sound)/);
@@ -25,7 +25,7 @@ describe('the media tools in the docs an agent reads', () => {
   it('help media opens with the four commands (one line each, pointing to help probe | trim | frames | sound), not with a section of another document', () => {
     const out = cli(['help', 'media']).stdout;
     const first = out.split('\n').slice(0, 45).join('\n');
-    for (const c of ['probe', 'trim', 'frames', 'sound']) expect(first, c).toMatch(new RegExp(`pixi-effects ${c}\\b`));
+    for (const c of ['probe', 'trim', 'frames', 'sound', 'concat', 'audio']) expect(first, c).toMatch(new RegExp(`pixi-effects ${c}\\b`));
     expect(first).toMatch(/help (probe|frames|sound|trim)/);
     expect(out).not.toMatch(/Composition/);
   });
@@ -52,8 +52,10 @@ describe('the media tools in the docs an agent reads', () => {
 
   it('every example command in docs/media.md runs on a fixture and exits 0 (so the docs cannot lie)', async () => {
     const md = read('docs/media.md');
-    const lines = [...md.matchAll(/^```sh\n([\s\S]*?)```/gm)].flatMap(m => m[1]!.split('\n')).map(l => l.trim()).filter(l => /^npx pixi-effects (probe|trim|frames|sound) /.test(l));
-    expect(lines.length).toBeGreaterThanOrEqual(6);
+    const lines = [...md.matchAll(/^```sh\n([\s\S]*?)```/gm)].flatMap(m => m[1]!.split('\n')).map(l => l.trim()).filter(l => /^npx pixi-effects (probe|trim|frames|sound|concat|audio) /.test(l));
+    expect(lines.length).toBeGreaterThanOrEqual(8);
+    expect(lines.some(l => /concat /.test(l))).toBe(true);
+    expect(lines.some(l => /audio /.test(l))).toBe(true);
     const dir = mkdtempSync(join(tmpdir(), 'media-docs-'));
     try {
       for (const line of lines) {

@@ -1,6 +1,6 @@
-# Media tools: look at, listen to and cut footage
+# Media tools: look at, listen to, cut and join footage
 
-Four commands for an AI agent (or a person) who is handed a video or a sound and has no ffmpeg: `probe` says what is in it, `frames` shows it, `sound` measures it, `trim` cuts it. They read and write files with [mediabunny](https://mediabunny.dev) (which ships with pixi-effects), so there is nothing else to install; the ones that decode or re-encode use the headless Chrome that `check` and `render` already use.
+Six commands for an AI agent (or a person) who is handed a video or a sound and has no ffmpeg: `probe` says what is in it, `frames` shows it, `sound` measures it, `trim` cuts it, `concat` joins clips, `audio` takes the sound out. They read and write files with [mediabunny](https://mediabunny.dev) (which ships with pixi-effects), so there is nothing else to install; the ones that decode or re-encode use the headless Chrome that `check` and `render` already use.
 
 **If ffmpeg is installed and the job is a long transcode, use ffmpeg.** It is faster at that, and it does far more. These commands are for the other cases: no ffmpeg, a quick look, and answers shaped for an agent: structured output (`--json`), the real times of a cut, and no flag-order traps.
 
@@ -13,9 +13,11 @@ pixi-effects probe  <file|url> [--keyframes]                      what is in it:
 pixi-effects frames <file|url> [--at 1,50%,end] [--sheet]        pictures of a video, and a contact sheet       (help frames)
 pixi-effects sound  <file|url> [--waveform] [--window 0.5]       loudness, peak, silences, loudest stretch      (help sound)
 pixi-effects trim   <file|url> <start> <end> -o <out> [--exact]  cut it, and say the real times                 (help trim)
+pixi-effects concat <a> <b> [<c> …] -o <out>                     join clips by copy, and say where each starts  (help concat)
+pixi-effects audio  <file|url> -o <out.m4a>                      the sound of a file, copied out                (help media: `help audio` is the DSL's audio layer)
 ```
 
-All four take a path or an `http(s)` URL and `--json`. `probe` and `trim` by copy need no browser; `frames`, `sound` and `trim --exact` use Chrome. A mistake exits 1 (the file, the browser, the job as asked) or 2 (usage) with one sentence.
+All of them take a path or an `http(s)` URL and `--json`. `probe`, `trim` by copy, `concat` and `audio` need no browser; `frames`, `sound` and `trim --exact` use Chrome. A mistake exits 1 (the file, the browser, the job as asked) or 2 (usage) with one sentence.
 
 ## Look before you use footage
 
@@ -67,6 +69,29 @@ Read `got`, not `asked`: `--json` has `requested`, `actual`, `reencoded`. A rang
 
 **`--exact`** re-encodes the picture in the browser so the cut starts on the frame asked for (the sound is copied, not re-encoded: its packets are the source's own); `actual` is read back from the file, so it is where the picture really stops. The cut is held in memory until it is written, so it is for clips, not for hours: for those, ffmpeg.
 
+## concat
+
+```sh
+npx pixi-effects concat footage.mp4 footage.mp4 -o joined.mp4
+```
+
+```
+joined.mp4  1.9 MB
+  2 clips, 12.07 s, joined by copy (no re-encode): video avc, audio aac
+  1  footage.mp4  0–6.03 s
+  2  footage.mp4  6.03–12.07 s
+```
+
+`concat <a> <b> [<c> …] -o <out>`: the clips one after another, in the order given, by copy: the packets are the sources' own bytes, so there is no loss and it takes a moment. The report says where each clip starts in the output (`from`), which is where to look for a seam with `frames`. A copy cannot hide a difference between clips, so clips are refused, naming what differs, when their **video codec, shown size, rotation, audio codec, sample rate, channel count** or the presence of sound or picture differ: make them the same first (re-encode them with ffmpeg, whose concat filter does that). A clip you cut with `trim` joins the clips it came from. Each clip starts where the longest track of the one before it ends, so picture and sound stay together however many are joined (the sound of a phone clip is often 20–40 ms longer than its picture; per-track placement let that add up). The output is made aside and moved into place when it worked, so a refused join leaves no file and never empties one that was there; an existing output needs `--force`.
+
+## audio
+
+```sh
+npx pixi-effects audio footage.mp4 -o sound.m4a
+```
+
+`audio <file> -o <out>`: the first sound track of a file as a file of its own, copied: the packets are the source's, nothing is re-encoded. The output type decides what can go in: AAC → `.m4a`, Opus or Vorbis → `.webm`, anything → `.mka`; a codec the type cannot hold is refused naming the codec and a type that can. A file with no sound is refused. mediabunny leaves out the first packet of AAC (the encoder delay, which starts before 0 and which no player plays). `sound` measures the result like any file.
+
 ## frames
 
 ```sh
@@ -103,5 +128,5 @@ Integrated loudness (ITU-R BS.1770), true peak, the number of samples at full sc
 ## What was measured, and what was not
 
 - A lossless cut of 5.6 s of a 3.9 MB file took 0.05–0.15 s in ffmpeg and 0.10–0.15 s with mediabunny in plain Node; a 5.6 s re-encode took 0.6–0.75 s in ffmpeg (the browser re-encode was not timed). **One file, one machine.**
-- The files tried: H.264 + AAC made by our own renderer, the same as WebM (VP9 + Opus) and MOV, and a rotated and a one-track version of it; and **one real iPhone clip** (6.4 s, HEVC 1080×1920 stored 1920×1080 and turned 90°, variable frame rate around 59.94 fps, AAC, key frames every 0.93 s). On it: `probe` said all of that; `frames` came out upright and sharp in 2.4 s; `sound` read −41.8 LUFS (a quiet room) with its note; a copy cut took 0.2 s and kept HEVC; `--exact` took 8 s and came out as H.264 (the note says so); the first and last frame of each of four cuts matched the source's frame at that time when put side by side. Not tried: other phones and cameras, ProRes sources, files over 1 GB, clips over a few minutes.
+- The files tried: H.264 + AAC made by our own renderer, the same as WebM (VP9 + Opus) and MOV, and a rotated and a one-track version of it; and **one real iPhone clip** (6.4 s, HEVC 1080×1920 stored 1920×1080 and turned 90°, variable frame rate around 59.94 fps, AAC, key frames every 0.93 s). On it: `probe` said all of that; `frames` came out upright and sharp in 2.4 s; `sound` read −41.8 LUFS (a quiet room) with its note; a copy cut took 0.2 s and kept HEVC; three cuts joined with `concat` (HEVC, 6.7 s) had their seams checked frame by frame, and `audio` gave a 127 KB `.m4a` that `sound` measured at the same −41.8 LUFS; `--exact` took 8 s and came out as H.264 (the note says so); the first and last frame of each of four cuts matched the source's frame at that time when put side by side. Not tried: other phones and cameras, ProRes sources, files over 1 GB, clips over a few minutes.
 - A cut was checked in Chrome by playing it and reading the colour of every frame, and its packets were compared byte for byte with the source's. Not checked: QuickTime, VLC, a phone.

@@ -3,6 +3,7 @@
 //   node scripts/make-media-fixtures.mjs
 //
 // colors.{mp4,webm,mov}: 320x180, 30 fps, 6 s, second k is ONE flat colour (red green blue yellow magenta cyan) with a 440 Hz tone, made by our own renderer.
+// colors-rev.mp4: the same with the colours the other way round (cyan first), a second clip with known content for the joins of `concat`.
 // rotated.mp4, video-only.mp4, audio-only.m4a: colors.mp4 copied packet by packet with mediabunny (a rotation flag; one kind of track).
 // (the tones of the loudness tests are not committed: tests/support/tone.ts writes them into a temp folder when a test needs one.)
 // The outputs are committed (each under 200 KB); run this again only when a fixture has to change.
@@ -19,6 +20,10 @@ for (const ext of ['mp4', 'webm', 'mov']) {
   const r = spawnSync(process.execPath, [join(root, 'ai/tools/render.mjs'), join(dir, 'colors.html'), '-o', join(dir, `colors.${ext}`), '--root', root], { stdio: 'inherit' });
   if (r.status !== 0) throw new Error(`rendering colors.${ext} failed`);
 }
+{
+  const r = spawnSync(process.execPath, [join(root, 'ai/tools/render.mjs'), join(dir, 'colors.html'), '-o', join(dir, 'colors-rev.mp4'), '--query', 'reverse=1', '--root', root], { stdio: 'inherit' });
+  if (r.status !== 0) throw new Error('rendering colors-rev.mp4 failed');
+}
 
 /** colors.mp4 → `out`, by copy, with the given conversion options. */
 async function derive(out, options) {
@@ -32,6 +37,6 @@ await derive('rotated.mp4', { video: { rotate: 90 } });
 await derive('video-only.mp4', { audio: { discard: true } });
 await derive('audio-only.m4a', { video: { discard: true } });
 
-for (const f of ['colors.mp4', 'colors.webm', 'colors.mov', 'rotated.mp4', 'video-only.mp4', 'audio-only.m4a']) {
+for (const f of ['colors.mp4', 'colors-rev.mp4', 'colors.webm', 'colors.mov', 'rotated.mp4', 'video-only.mp4', 'audio-only.m4a']) {
   console.log(`${f.padEnd(16)} ${existsSync(join(dir, f)) ? `${(statSync(join(dir, f)).size / 1024).toFixed(0)} KB` : 'MISSING'}`);
 }

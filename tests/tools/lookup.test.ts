@@ -215,7 +215,7 @@ describe('the command: pixi-effects recipe | help | new', () => {
 
   it('the usage and the unknown-command message name the new commands', () => {
     expect(cli([]).stdout + cli([]).stderr).toMatch(/recipe/);
-    expect(cli(['zzz']).stderr).toMatch(/check, render, view, probe, trim, frames, sound, recipe, help, new/);
+    expect(cli(['zzz']).stderr).toMatch(/check, render, view, probe, trim, frames, sound, audio, concat, recipe, help, new/);
     expect(cli(['recepie']).stderr).toMatch(/did you mean "recipe"/);
   });
 });
