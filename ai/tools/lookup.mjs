@@ -118,11 +118,14 @@ export function searchDocs(root, word) {
       };
       const call = tokens.some(calls);
       const exact = tokens.length === 1 && flat(heading) === flat(tokens[0]);                // the heading IS the word
-      scored.push({ s, score: (exact ? 1500 : 0) + (inHeading ? 1000 : 0) + (row ? 1100 : 0) + (call ? 300 : 0) + Math.min(count, 50) + bonus });
+      scored.push({ s, exact, strong: exact || inHeading || row || call, score: (exact ? 1500 : 0) + (inHeading ? 1000 : 0) + (row ? 1100 : 0) + (call ? 300 : 0) + Math.min(count, 50) + bonus });
     }
   }
   scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, MAX_HITS).map(({ s }) => {
+  // a section that IS the word (an exact heading) is the answer: other documents that only mention the word are noise next to it (`help media` is the media tools, not a line of the DSL that says "media")
+  const top = scored[0];
+  const kept = top && top.exact ? scored.filter(h => h.s.file === top.s.file || h.strong) : scored;
+  return kept.slice(0, MAX_HITS).map(({ s }) => {
     const body = s.lines.filter((l, i) => i === 0 || l.trim() !== '' || true);
     const shown = body.slice(0, MAX_LINES_PER_HIT);
     return { file: s.file, line: s.line, heading: s.heading, lines: shown, more: Math.max(0, body.length - shown.length) };

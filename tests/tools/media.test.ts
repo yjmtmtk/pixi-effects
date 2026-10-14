@@ -114,6 +114,15 @@ describe('probe: what is in a file', () => {
     expect((await media.probeFile(fx('colors.mov'))).container).toMatch(/mov|quicktime/i);
   });
 
+  it('a rotated clip says what is stored and what is shown and which way it turns, without assuming the common case (stored sideways): rotated.mp4 is stored 320×180 and shown 180×320', async () => {
+    const p = await media.probeFile(fx('rotated.mp4'));
+    expect(p.video[0]).toMatchObject({ width: 180, height: 320, rotation: 90, stored: { width: 320, height: 180 } });
+    const text = (await run(['probe', fx('rotated.mp4')])).out;
+    expect(text).toMatch(/180×320 shown \(stored 320×180, turned 90° clockwise\)/);
+    expect(p.notes.join(' ')).toMatch(/stored 320×180.*shown 180×320/);
+    expect(p.notes.join(' ')).not.toMatch(/stores it sideways/);                      // that is true of a phone clip, not of every rotated file
+  });
+
   it('rotated.mp4 says "rotated 90°", video-only.mp4 says "no audio", audio-only.m4a says "no video"', async () => {
     const r = await media.probeFile(fx('rotated.mp4'));
     expect(r.video[0].rotation).toBe(90);
@@ -137,6 +146,21 @@ describe('probe: what is in a file', () => {
       expect(plain.notes.join(' ')).not.toMatch(/video starts at/);
       expect(Math.abs(plain.video[0].end - (6 + 1 / 30))).toBeLessThan(0.002);          // 181 frames at 30 fps: the last frame is at 6.0 and ends at 6.0333, not 6.033
       expect(Math.abs(plain.video[0].frameGap - 1 / 30)).toBeLessThan(0.0005);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('the audio bitrate is measured from the packets (as the video\'s is): it equals the bytes of the packets over the length of the sound, so a cut reads as what it is', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'probe-br-'));
+    try {
+      const cut = join(dir, 'cut.mp4');
+      await media.trimFile({ input: fx('colors.mp4'), start: 2, end: 4, out: cut });
+      const mb = await import('mediabunny');
+      const input = new mb.Input({ source: new mb.FilePathSource(cut), formats: mb.ALL_FORMATS });
+      const track = (await input.getPrimaryAudioTrack())!;
+      let bytes = 0; for await (const p of new mb.EncodedPacketSink(track).packets()) bytes += p.data.length;
+      const expected = (bytes * 8) / (await track.computeDuration());
+      const got = (await media.probeFile(cut)).audio[0].bitrate;
+      expect(Math.abs(got - expected) / expected).toBeLessThan(0.05);
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 

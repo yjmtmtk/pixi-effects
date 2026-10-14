@@ -22,11 +22,21 @@ describe('the media tools in the docs an agent reads', () => {
     expect(cli(['help', 'frames']).stdout).toMatch(/contact sheet/i);
   });
 
+  it('help media opens with the four commands (one line each, pointing to help probe | trim | frames | sound), not with a section of another document', () => {
+    const out = cli(['help', 'media']).stdout;
+    const first = out.split('\n').slice(0, 45).join('\n');
+    for (const c of ['probe', 'trim', 'frames', 'sound']) expect(first, c).toMatch(new RegExp(`pixi-effects ${c}\\b`));
+    expect(first).toMatch(/help (probe|frames|sound|trim)/);
+    expect(out).not.toMatch(/Composition/);
+  });
+
   it('docs/media.md says to use ffmpeg for a long transcode, names the limits and the measured numbers with where they came from, and ships in the package', () => {
     const md = read('docs/media.md');
     expect(md).toMatch(/if ffmpeg is installed and the job is a long transcode, use ffmpeg/i);
     expect(md).toMatch(/one file, one machine|one machine/i);
     expect(md).toMatch(/next key frame/);
+    expect(md).toMatch(/−24 LUFS/);                                           // where the notes of `sound` start (LOUDNESS_NOTES), so an empty note is not read as "fine for the web"
+    expect(md).toMatch(/every:2s/);
     expect(md).toMatch(/Exit code/i);
     expect(JSON.parse(read('package.json')).files).toContain('docs/media.md');
   });

@@ -25,6 +25,8 @@ describe('frames: the times asked for', () => {
     expect(t.map((x: any) => x.label)).toEqual(['1.00s', '3.50s', '50pct', 'f60', 'end', 'start']);
     expect(media.parseTimes('every 2s', ctx).map((x: any) => x.t)).toEqual([0, 2, 4]);
     expect(media.parseTimes('every 2', ctx).map((x: any) => x.t)).toEqual([0, 2, 4]);
+    expect(media.parseTimes('every:2s', ctx).map((x: any) => x.t)).toEqual([0, 2, 4]);          // no space: needs no quotes on a command line
+    expect(media.parseTimes('every:2s,end', ctx).map((x: any) => x.t).length).toBe(4);
   });
   it('agrees with `check --at` (resolveAtList) on the syntax they share: seconds, a percentage, a frame', () => {
     const list = '0,0.5,1.25,3.5,25%,50%,100%,f0,f45,f179';
@@ -38,6 +40,16 @@ describe('frames: the times asked for', () => {
     expect(() => media.parseTimes('soon', ctx)).toThrow(/cannot read "soon"/);
     expect(() => media.parseTimes('every 0s', ctx)).toThrow(/every/);
     expect(() => media.parseTimes('every 0.01s', { duration: 600, fps: 30 })).toThrow(/too many/);
+  });
+});
+
+describe('frames: --at on a command line', () => {
+  it('"--at every 2s,end" without quotes says to quote it or write every:2s, instead of blaming a path with spaces', async () => {
+    const errs: string[] = [];
+    expect(await media.runMedia(['frames', fx('colors.mp4'), '--at', 'every', '2s,end'], { log: () => {}, err: (s: string) => errs.push(s) })).toBe(2);
+    expect(errs.join('\n')).toMatch(/every:2s/);
+    expect(errs.join('\n')).toMatch(/quote/i);
+    expect(errs.join('\n')).not.toMatch(/path with spaces/);
   });
 });
 

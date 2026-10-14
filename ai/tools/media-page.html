@@ -106,7 +106,8 @@
     if (!Format) throw new Error('cannot write ' + ext);
     const target = new mb.BufferTarget();
     const output = new mb.Output({ format: new Format(), target });
-    const conversion = await mb.Conversion.init({ input, output, trim: { start, end }, copy: false, showWarnings: false });
+    // only the PICTURE is re-encoded (that is what makes the start exact); the sound is copied: re-encoding it squeezed a 157 kb/s track to 55 kb/s and left it running 70-80 ms past the picture
+    const conversion = await mb.Conversion.init({ input, output, trim: { start, end }, video: { forceTranscode: true }, showWarnings: false });
     if (!conversion.isValid || conversion.discardedTracks.length) {
       throw new Error('this browser cannot re-encode it into ' + ext + ' (' + conversion.discardedTracks.map((d) => d.track.type + ': ' + d.reason).join(', ') + ')');
     }

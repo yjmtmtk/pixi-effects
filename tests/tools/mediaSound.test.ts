@@ -86,6 +86,27 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('sound: lou
     expect(j.loudness.silences).toEqual([]);
   }, 90_000);
 
+  it('the text names the loudest and quietest windows (with times and one decimal), --window sets their width, and the web-video reference says how far under and the headroom to −1 dBTP', async () => {
+    const dir = tmp();
+    try {
+      writeTone(join(dir, 'g.wav'), -26, 6, { at: 3, for: 2 });                      // a quiet tone with a gap
+      const r = await run(['sound', join(dir, 'g.wav')]);
+      expect(r.code, r.err).toBe(0);
+      expect(r.out).toMatch(/loudest +\d/);
+      expect(r.out).toMatch(/quietest +\d/);
+      expect(r.out).toMatch(/web video/);
+      expect(r.out).toMatch(/headroom/);
+      const j = JSON.parse((await run(['sound', join(dir, 'g.wav'), '--json', '--window', '0.5'])).out);
+      expect(j.windows.length).toBeGreaterThan(10);                                     // 0.5 s windows of a 6 s file
+      expect(j.reference.webTargetLufs).toEqual([-16, -14]);
+      expect(j.reference.luToTarget).toBeCloseTo(-14 - j.loudness.integratedLufs, 1);
+      expect(j.reference.headroomDb).toBeCloseTo(-1 - j.loudness.truePeakDb, 1);
+      expect(j.loudest.from).toBeLessThan(3);                                          // the tone, not the gap
+      expect(j.quietest.from).toBeGreaterThanOrEqual(2.5);
+      expect((await run(['sound', join(dir, 'g.wav'), '--window', '0'])).code).toBe(2);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }, 90_000);
+
   it('the text says the silence threshold the code uses (−60 dBFS), and --force is not an option of sound', async () => {
     const r = await run(['sound', fx('colors.mp4')]);
     expect(r.out).toMatch(/−60 dBFS/);

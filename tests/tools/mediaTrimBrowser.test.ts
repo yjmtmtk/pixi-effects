@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { colorsAt, chrome } from '../support/videoColors';
+import * as mbm from 'mediabunny';
 
 const root = resolve(__dirname, '../..');
 const media: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/media.mjs')).href);
@@ -81,6 +82,25 @@ describe.skipIf(!chrome || process.env.SKIP_BROWSER_TESTS)('trim by copy: what a
       expect(lines.join('\n')).toMatch(/re-encoded: video avc/);
       expect(await media.runMedia(['trim', fx('colors.mp4'), '2.5', '3.5', '-o', join(dir, 'd.mp4'), '--exact', '--chrome', '/nonexistent/chrome'], io)).toBe(1);
       expect(errs.join('\n')).toMatch(/Chrome|chrome/);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }, 90_000);
+
+  it('--exact: picture and sound end together (the sound is not left running past the picture), the sound keeps its quality, and the reported end is the file\'s own', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'trim-chrome-'));
+    try {
+      const out = join(dir, 'ex.mp4');
+      const t = await media.trimFile({ input: fx('colors.mp4'), start: 2.5, end: 4.5, out, exact: true });
+      const input = new mbm.Input({ source: new mbm.FilePathSource(out), formats: mbm.ALL_FORMATS });
+      const v = (await input.getPrimaryVideoTrack())!, a = (await input.getPrimaryAudioTrack())!;
+      const ve = await v.computeDuration(), ae = await a.computeDuration();
+      expect(Math.abs(ae - ve)).toBeLessThan(0.03);
+      expect(Math.abs(t.actual[1] - (t.actual[0] + ve))).toBeLessThan(0.05);
+      expect(Math.abs(ve - 2)).toBeLessThan(0.08);
+      // the sound was COPIED, not re-encoded: every audio packet of the cut is, byte for byte, one of the source's
+      const bytes = async (file: string) => { const i = new mbm.Input({ source: new mbm.FilePathSource(file), formats: mbm.ALL_FORMATS }); const out = new Set<string>(); for await (const p of new mbm.EncodedPacketSink((await i.getPrimaryAudioTrack())!).packets()) out.add(Buffer.from(p.data).toString('base64')); return out; };
+      const src = await bytes(fx('colors.mp4')), got = await bytes(out);
+      expect(got.size).toBeGreaterThan(20);
+      for (const b of got) expect(src.has(b)).toBe(true);
     } finally { rmSync(dir, { recursive: true, force: true }); }
   }, 90_000);
 });

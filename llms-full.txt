@@ -4463,6 +4463,17 @@ Four commands for an AI agent (or a person) who is handed a video or a sound and
 
 Exit code: **0** done · **1** a problem (the file, the browser, the job as asked) · **2** usage. Every command prints a short report, or the same facts as JSON with `--json`. A file argument is a path or an `http(s)` URL. A mistake is one sentence that names the file and what to do, never a stack trace.
 
+## Media
+
+```
+pixi-effects probe  <file|url> [--keyframes]                      what is in it: codecs, size, rotation, sound   (help probe)
+pixi-effects frames <file|url> [--at 1,50%,end] [--sheet]        pictures of a video, and a contact sheet       (help frames)
+pixi-effects sound  <file|url> [--waveform] [--window 0.5]       loudness, peak, silences, loudest stretch      (help sound)
+pixi-effects trim   <file|url> <start> <end> -o <out> [--exact]  cut it, and say the real times                 (help trim)
+```
+
+All four take a path or an `http(s)` URL and `--json`. `probe` and `trim` by copy need no browser; `frames`, `sound` and `trim --exact` use Chrome. A mistake exits 1 (the file, the browser, the job as asked) or 2 (usage) with one sentence.
+
 ## Look before you use footage
 
 Footage you have not looked at is footage you do not know. Before a clip goes into a video: `probe` it (size, length, rotation, sound), look at a few frames with `frames --sheet` and read the numbers of `sound`. A clip from a phone is often rotated and has a variable frame rate; a screen recording often has no sound; a download may be 4K when the video is 720p. Each of those is one line of `probe`.
@@ -4487,9 +4498,10 @@ footage.mp4
   key packets at: 0, 2, 4, 6 s
 ```
 
-Container, duration, size, and a row per track: codec, size **as it is shown** (a rotated clip says `180×320 … rotated 90°`), frame rate (and whether it varies), bitrate, sample rate, channels. `--keyframes` lists the key packets (the only places a cut by copy can start). Notes say what an author would trip on: `no audio`, `no video`, `rotated 90°`, `variable frame rate`, `the video starts at 0.5 s` (the first frame is not at 0, so the sound can start before the picture). Runs in Node, no browser.
+Container, duration, size, and a row per track: codec, size **as it is shown** (a rotated clip says `180×320 shown (stored 320×180, turned 90° clockwise)`: the stored size, the shown size and the direction are all there, and whether the picture then reads upright depends on how the file was made, so look at a frame), frame rate (and whether it varies), bitrate, sample rate, channels. `--keyframes` lists the key packets (the only places a cut by copy can start). Notes say what an author would trip on: `no audio`, `no video`, `rotated 90°`, `variable frame rate`, `the video starts at 0.5 s` (the first frame is not at 0, so the sound can start before the picture). Runs in Node, no browser.
 
 ## trim
+
 
 ```sh
 npx pixi-effects trim footage.mp4 2 4 -o cut.mp4
@@ -4510,7 +4522,7 @@ cut.mp4  13 KB
 
 Read `got`, not `asked`: `--json` has `requested`, `actual`, `reencoded`. A range with no key frame inside it (a cut shorter than the gap between key frames) is refused with the key frames around it. The cut is made starting ON that key frame, so picture and sound start together at 0 and the file is as long as `got` says (checked by reading the file back: both tracks start within 0.05 s of 0 and last what the report says). Why not mediabunny's default, which starts exactly where asked by writing the frames before it as hidden earlier frames: it plays right in Chrome and in ffmpeg (measured), but other players treat those hidden frames differently and were not measured, and a glitch there would be invisible to an agent. The report is read back from the written file, not predicted; the output is made aside and moved into place only when it worked, so a refused copy leaves no file and never empties one that was there. `probe --keyframes` lists where a copy can start.
 
-**`--exact`** re-encodes in the browser so the cut starts on the frame asked for. The cut is held in memory until it is written, so it is for clips, not for hours: for those, ffmpeg.
+**`--exact`** re-encodes the picture in the browser so the cut starts on the frame asked for (the sound is copied, not re-encoded: its packets are the source's own); `actual` is read back from the file, so it is where the picture really stops. The cut is held in memory until it is written, so it is for clips, not for hours: for those, ffmpeg.
 
 ## frames
 
@@ -4518,7 +4530,7 @@ Read `got`, not `asked`: `--json` has `requested`, `actual`, `reencoded`. A rang
 npx pixi-effects frames footage.mp4 --at 0.5,50%,end --sheet -o looks
 ```
 
-`frames <file> [--at <list>] [--size 480] [--sheet] [-o dir]`: a PNG of the frame at each time, named by time (`01-0.50s.png`), and with `--sheet` one **contact sheet** (`sheet.png`: every frame with its time under it) so a whole clip is one picture to look at. `--at` takes seconds (`3.5`), a percentage (`50%`), a frame (`f120`), `start`, `end` (the last frame) and `every 2s`, separated by commas; the default is `0,25%,50%,75%,end`. At most 60 frames. `--size` is the width in pixels (default 480; a smaller video is not enlarged). A rotated video comes out the way up it is shown. A time past the end of the file is refused with the length of the file; a time before the first frame (a video that starts at 0.5 s, which `probe` says) gives the first frame; `end` and `%` are of the VIDEO, not of a longer sound. Pictures with the same names in an existing folder are replaced and nothing else in it is touched or removed.
+`frames <file> [--at <list>] [--size 480] [--sheet] [-o dir]`: a PNG of the frame at each time, named by time (`01-0.50s.png`), and with `--sheet` one **contact sheet** (`sheet.png`: every frame with its time under it) so a whole clip is one picture to look at. `--at` takes seconds (`3.5`), a percentage (`50%`), a frame (`f120`), `start`, `end` (the last frame) and `every:2s`, separated by commas (`--at every:2s,end`; with a space, quote the whole value: `--at "every 2s"`); the default is `0,25%,50%,75%,end`. At most 60 frames. `--size` is the width in pixels (default 480; a smaller video is not enlarged). A rotated video comes out the way up it is shown. A time past the end of the file is refused with the length of the file; a time before the first frame (a video that starts at 0.5 s, which `probe` says) gives the first frame; `end` and `%` are of the VIDEO, not of a longer sound. Pictures with the same names in an existing folder are replaced and nothing else in it is touched or removed.
 
 The words are the ones `check --at` uses where they overlap (seconds, `%`, `f120`), so a time you read off one works in the other.
 
@@ -4536,7 +4548,7 @@ footage.mp4
   level     -15 -15 -15 -15 -15 -15 dBFS rms, every 1 s
 ```
 
-Integrated loudness (ITU-R BS.1770), true peak, the number of samples at full scale, silences with their times, the level over time, and notes (quiet or loud for web video, little headroom). `--waveform` writes `waveform.png`. These are the numbers `check` gives for a movie's mix, from the same code (`inspectSound`, see [the API reference](./api.md)), so a clip you measure here and the movie you check agree. Measured on one of our own exports, `sound` read the −14.8 LUFS that `check` had said (true peak −3.6 against −3.7: the file is AAC, `check` measured the mix before encoding); on a second, very quiet one it read −30 where `check` had said −29.7. The whole sound is decoded into memory, so it takes sounds up to 600 s; for longer, ffmpeg's `-af ebur128`. A last window shorter than half a window is not shown as a row (a file that ends 36 ms into a second would read −90 dBFS there).
+Integrated loudness (ITU-R BS.1770), true peak, the number of samples at full scale, silences with their times, the level over time in rows of `--window` seconds (default 1; the rows are in the text with one decimal and in `--json` with their times), the **loudest and quietest** rows with times, and a `reference` line: web video is typically −14 to −16 LUFS, so it says how many LU under (or over) −14 this is and the **headroom** (how many dB it can be raised before the true peak reaches −1 dBTP), and whether raising it to −14 would need a limiter (plain gain would clip). The `notes` are the library's advice and start late on purpose: **below −24 LUFS** (quiet), **above −9 LUFS** (loud), or less than 1 dB of headroom, so an empty note does not mean "fine for the web": read `reference`. `--waveform` writes `waveform.png`. These are the numbers `check` gives for a movie's mix, from the same code (`inspectSound`, see [the API reference](./api.md)), so a clip you measure here and the movie you check agree. Measured on one of our own exports, `sound` read the −14.8 LUFS that `check` had said (true peak −3.6 against −3.7: the file is AAC, `check` measured the mix before encoding); on a second, very quiet one it read −30 where `check` had said −29.7. The whole sound is decoded into memory, so it takes sounds up to 600 s; for longer, ffmpeg's `-af ebur128`. A last window shorter than half a window is not shown as a row (a file that ends 36 ms into a second would read −90 dBFS there).
 
 ## What it needs
 

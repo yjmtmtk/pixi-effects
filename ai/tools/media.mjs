@@ -37,7 +37,7 @@ const COMMANDS = {
   probe:  { positional: ['file'], flags: { '--keyframes': 'bool', '--json': 'bool' } },
   trim:   { positional: ['file', 'start', 'end'], flags: { '-o': 'str', '--out': 'str', '--exact': 'bool', '--force': 'bool', '--json': 'bool', '--chrome': 'str' } },
   frames: { positional: ['file'], flags: { '--at': 'str', '--size': 'num', '--sheet': 'bool', '-o': 'str', '--out': 'str', '--json': 'bool', '--chrome': 'str' } },
-  sound:  { positional: ['file'], flags: { '--waveform': 'bool', '-o': 'str', '--out': 'str', '--json': 'bool', '--chrome': 'str' } },
+  sound:  { positional: ['file'], flags: { '--waveform': 'bool', '--window': 'num', '-o': 'str', '--out': 'str', '--json': 'bool', '--chrome': 'str' } },
 };
 export const MEDIA_COMMANDS = Object.keys(COMMANDS);
 
@@ -84,9 +84,11 @@ export function parseMediaArgs(argv) {
   }
   if (opts.out && opts.o === undefined) opts.o = opts.out;
   delete opts.out;
+  if (command === 'frames' && /^every$/i.test(opts.at ?? '')) throw new UsageError('frames: --at every needs its step in the same argument: write --at every:2s (or quote it: --at "every 2s"), also inside a list: --at "every:2s,end"');
   if (words.length < spec.positional.length) throw new UsageError(`${command}: needs ${spec.positional.map(p => `<${p}>`).join(' ')}${words.length ? ` (got ${words.length})` : ''}`);
   if (words.length > spec.positional.length) throw new UsageError(`${command}: unexpected "${words[spec.positional.length]}" (a path with spaces needs quotes)`);
   const file = words[0];
+  if (command === 'sound' && opts.window !== undefined && !(opts.window >= 0.05 && opts.window <= 60)) throw new UsageError(`sound: --window is the width of a level row in seconds, from 0.05 to 60 (got ${opts.window})`);
   if (command === 'trim') {
     opts.start = parseTime(words[1], 'start');
     opts.end = parseTime(words[2], 'end');
@@ -160,9 +162,10 @@ export async function probeFile(file, { keyframes = false } = {}) {
         codec: track.codec, width: await track.getDisplayWidth(), height: await track.getDisplayHeight(), rotation,
         fps: round(stats.averagePacketRate, 2), fpsVaries, bitrate: Math.round(stats.averageBitrate),
         first: round(first, 4), end: round(end, 6), frameGap: round(median, 6),
+        stored: { width: await track.getCodedWidth(), height: await track.getCodedHeight() },
       });
       if (first > 0.05) notes.push(`the video starts at ${round(first, 3)} s (its first frame is not at 0, so the sound can start before the picture; frames before ${round(first, 3)} s show the first frame)`);
-      if (rotation) notes.push(`rotated ${rotation}° (the file stores it sideways and asks players to turn it; frames, and anything that places the picture, need that turn)`);
+      if (rotation) notes.push(`rotated ${rotation}° clockwise: stored ${await track.getCodedWidth()}×${await track.getCodedHeight()}, shown ${await track.getDisplayWidth()}×${await track.getDisplayHeight()} (frames and anything that places the picture use the shown size; whether the picture then reads upright depends on how the file was made, so look at a frame)`);
       if (fpsVaries) notes.push(`variable frame rate (the gaps between frames range from ${round(gaps[0] * 1000, 1)} to ${round(gaps[gaps.length - 1] * 1000, 1)} ms): a clip from a phone or a screen recording; cut and sample by time, not by frame number`);
       if (keyframes && !keys) {
         keys = [];
@@ -171,7 +174,8 @@ export async function probeFile(file, { keyframes = false } = {}) {
         while (packet && keys.length < 5000) { keys.push(round(packet.timestamp, 3)); packet = await sink.getNextKeyPacket(packet, { metadataOnly: true }); }
       }
     } else if (track.isAudioTrack()) {
-      audio.push({ codec: track.codec, sampleRate: track.sampleRate, channels: track.numberOfChannels, bitrate: await track.getBitrate() });
+      const stats = await track.computePacketStats(300);                                                 // measured from the packets, like the video's: a declared figure and a measured one made a cut look re-encoded
+      audio.push({ codec: track.codec, sampleRate: track.sampleRate, channels: track.numberOfChannels, bitrate: Math.round(stats.averageBitrate) });
     }
   }
   if (!video.length) notes.push('no video');
@@ -185,7 +189,7 @@ const kb = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(2)} MB` : `${Math.max
 
 function probeText(r, keyframes) {
   const L = [`${r.file}`, `  ${r.container} · ${r.duration} s${r.bytes != null ? ` · ${kb(r.bytes)}` : ''}`];
-  for (const v of r.video) L.push(`  video  ${v.codec} ${v.width}×${v.height} · ${v.fps}${v.fpsVaries ? ' (varies)' : ''} fps${v.bitrate ? ` · ${Math.round(v.bitrate / 1000)} kb/s` : ''}${v.rotation ? ` · rotated ${v.rotation}°` : ''}`);
+  for (const v of r.video) L.push(`  video  ${v.codec} ${v.width}×${v.height}${v.rotation ? ` shown (stored ${v.stored.width}×${v.stored.height}, turned ${v.rotation}° clockwise)` : ''} · ${v.fps}${v.fpsVaries ? ' (varies)' : ''} fps${v.bitrate ? ` · ${Math.round(v.bitrate / 1000)} kb/s` : ''}`);
   for (const a of r.audio) L.push(`  audio  ${a.codec} ${a.sampleRate} Hz · ${a.channels} ch${a.bitrate ? ` · ${Math.round(a.bitrate / 1000)} kb/s` : ''}`);
   if (keyframes && r.video.length) L.push(`  key packets at: ${r.keyframes.slice(0, 12).join(', ')}${r.keyframes.length > 12 ? `, … (${r.keyframes.length})` : ''} s`);
   for (const n of r.notes) L.push(`  note   ${n}`);
@@ -249,16 +253,23 @@ export async function trimFile({ input: file, start, end, out, exact = false, fo
   prepareOutput(out, { force });
   // The cut is made aside and moved into place only when it worked: a refused or failed copy must leave nothing, and must never truncate a file that was already there.
   const aside = path.join(path.dirname(path.resolve(out)), `.pixi-effects-${process.pid}-${Date.now()}${ext}`);
+  const copyOptions = { mode: 'forced', ...copy };
+  const trimRange = { start: window ? window.from : start, end: stop };
+  {                                                                      // can it be copied into this type? asked of a throwaway output in memory, so a refusal creates no file
+    const trial = new mb.Output({ format: new mb[OUTPUT_FORMATS[ext]](), target: new mb.BufferTarget() });
+    const dry = await mb.Conversion.init({ input, output: trial, trim: trimRange, copy: copyOptions, showWarnings: false });
+    const refused = !dry.isValid || dry.discardedTracks.length;
+    const why = dry.discardedTracks.map(d => `${d.track.type}: ${d.reason}`).join(', ');
+    try { await trial.cancel(); } catch { /* it had not started */ }
+    if (refused) throw new Error(`${file} cannot be cut by copy into ${ext} (${why || 'no track can be copied'}): use a different output type, or --exact (re-encodes, needs Chrome)`);
+  }
+  const { input: again } = await openInput(file);                        // a Conversion consumes its input: the real one gets a fresh one
   let output = null;
   try {
     output = new mb.Output({ format: new mb[OUTPUT_FORMATS[ext]](), target: new mb.FilePathTarget(aside) });
     // The cut STARTS ON THE KEY FRAME (`window.from`), not on the time asked: a copy asked to start between key frames leaves the picture starting late (at key frame − start) while the sound
     // starts at the time asked, so the file is longer than the cut and has sound over nothing. Starting on the key frame gives picture and sound that start together, at 0.
-    const conversion = await mb.Conversion.init({ input, output, trim: { start: window ? window.from : start, end: stop }, copy: { mode: 'forced', ...copy }, showWarnings: false });
-    if (!conversion.isValid || conversion.discardedTracks.length) {
-      const why = conversion.discardedTracks.map(d => `${d.track.type}: ${d.reason}`).join(', ');
-      throw new Error(`${file} cannot be cut by copy into ${ext} (${why || 'no track can be copied'}): use a different output type, or --exact (re-encodes, needs Chrome)`);
-    }
+    const conversion = await mb.Conversion.init({ input: again, output, trim: trimRange, copy: copyOptions, showWarnings: false });
     await conversion.execute();
     fs.renameSync(aside, path.resolve(out));
     const tracks = conversion.utilizedTracks.map(t => `${t.type} ${t.codec ?? ''}`.trim());
@@ -298,7 +309,9 @@ async function trimExact({ mb, input, file, start, end, stop, duration, out, ext
     const after = times.filter(t => t >= start - 1e-6).sort((a, b) => a - b)[0];
     if (after !== undefined) from = after;
   }
-  const actual = [round(from, 3), round(Math.min(stop, duration), 3)];
+  // the end is the FILE's own (where its picture stops), not the end asked for: a re-encoded cut lasts to the frame boundary, and the report says what it lasts
+  const lasts = made.video.length ? made.video[0].end - made.video[0].first : made.duration;
+  const actual = [round(from, 3), round(from + lasts, 3)];
   const tracks = [...made.video.map(v => `video ${v.codec}`), ...made.audio.map(a => `audio ${a.codec}`)];
   return { requested: [start, end], actual, mode: 'reencode', reencoded: true, tracks, bytes: fs.statSync(path.resolve(out)).size, out, notes };
 }
@@ -423,7 +436,7 @@ export async function serveMedia({ inputs, outDir, root = PACKAGE_ROOT, requestL
 }
 
 const MAX_FRAMES = 60;
-const AT_HELP = 'use seconds (3.5), a percentage (50%), a frame (f120), start, end or every 2s';
+const AT_HELP = 'use seconds (3.5), a percentage (50%), a frame (f120), start, end or every:2s';
 
 /**
  * `--at` for a file with no layers: `3.5`, `50%`, `f120`, `start`, `end` (the last frame), `every 2s`, separated by commas → [{ t, label }] (a label safe in a file name).
@@ -435,7 +448,7 @@ export function parseTimes(list, { duration, fps, first = 0, last: lastFrame }) 
   const inside = (t, raw) => { if (t > duration + 1e-6) throw new Error(`${raw} s is past the end of the file (${round(duration, 3)} s)`); return Math.min(t, last > t ? t : Math.max(t, 0)); };
   for (const raw of String(list).split(',').map(x => x.trim()).filter(Boolean)) {
     let m;
-    if ((m = raw.match(/^every\s+(\d+(?:\.\d+)?)\s*s?$/i))) {
+    if ((m = raw.match(/^every(?:\s+|:)(\d+(?:\.\d+)?)\s*s?$/i))) {
       const step = Number(m[1]);
       if (!(step > 0)) throw new Error(`--at "${raw}": every needs a step above 0 (every 2s)`);
       const n = Math.ceil(duration / step);
@@ -481,11 +494,18 @@ export const SOUND_MAX_SECONDS = 600;
 
 function soundText(r, file, waveform) {
   const dbText = (n) => (n === null || n === undefined ? 'n/a' : String(n));
+  const span = (w) => `${round(w.from, 2)}–${round(w.to, 2)} s (${w.rmsDb.toFixed(1)} dBFS rms)`;
   const L = [`${file}`, `  ${r.duration} s · ${r.sampleRate} Hz · ${r.channels} ch`,
     `  loudness  ${dbText(r.loudness.integratedLufs)} LUFS · true peak ${dbText(r.loudness.truePeakDb)} dBTP · peak ${dbText(r.peakDb)} dBFS · ${r.loudness.clippedSamples} sample(s) at full scale`];
   L.push(`  silences  ${r.loudness.silences.length ? r.loudness.silences.slice(0, 6).map(q => `${round(q.from, 1)}–${round(q.to, 1)} s`).join(', ') + (r.loudness.silences.length > 6 ? `, … (${r.loudness.silences.length})` : '') : 'none (nothing quieter than −60 dBFS for a second or more)'}`);
+  if (r.loudest) L.push(`  loudest   ${span(r.loudest)}`, `  quietest  ${span(r.quietest)}   (rows of ${r.window} s)`);
   const step = Math.max(1, Math.ceil(r.windows.length / 16));
-  L.push(`  level     ${r.windows.filter((_, i) => i % step === 0).map(w => Math.round(w.rmsDb)).join(' ')} dBFS rms, every ${round(step * (r.windows.length > 1 ? r.windows[1].t - r.windows[0].t : 1), 1)} s`);
+  L.push(`  level     ${r.windows.filter((_, i) => i % step === 0).map(w => w.rmsDb.toFixed(1)).join(' ')} dBFS rms, every ${round(step * r.window, 2)} s from 0`);
+  if (r.reference) {
+    const ref = r.reference, d = ref.luToTarget;
+    const where = d > 0 ? `${d} LU under −14` : d < -2 ? `${-d} LU over −14` : 'within the usual range';
+    L.push(`  reference web video is typically −14 to −16 LUFS: this is ${where} · headroom ${ref.headroomDb} dB before the true peak reaches −1 dBTP${ref.raiseToTargetNeedsLimiter ? ' (raising it to −14 would need a limiter)' : ''}`);
+  }
   for (const n of r.notes.slice(0, 3)) L.push(`  note      ${n}`);
   if (r.notes.length > 3) L.push(`  note      … ${r.notes.length - 3} more (--json)`);
   if (waveform) L.push(`  ${waveform}`);
@@ -499,9 +519,16 @@ commands.sound = async ({ file, opts }, io, env = {}) => {
   const outDir = path.resolve(opts.o ?? `${path.basename(file).replace(/\.[^.]*$/, '') || 'sound'}-sound`);
   const { withBrowser } = await import(pathToFileURL(path.join(HERE, 'mediaBrowser.mjs')).href);
   const inputs = new Map([['s1', isUrl(file) ? file : path.resolve(file)]]);
-  const window = Math.max(1, probe.duration / 120);                                  // a row per second for a short file, at most ~120 rows for a long one
+  const window = opts.window ?? Math.max(1, probe.duration / 120);                  // a row per second for a short file, at most ~120 rows for a long one; --window sets it
   const r = await withBrowser({ chrome: opts.chrome, inputs, outDir, requestLog: env.requestLog }, ({ call }) => call('sound', { id: 's1', waveform: !!opts.waveform, window }));
-  const report = { file, ...r, waveform: r.waveform ? path.join(outDir, r.waveform) : null };
+  const rows = r.windows;
+  const span = (w) => w && { from: round(w.t, 3), to: round(Math.min(w.t + window, r.duration), 3), rmsDb: w.rmsDb };
+  const loudest = rows.length ? rows.reduce((best, w) => (w.rmsDb > best.rmsDb ? w : best), rows[0]) : null;
+  const quietest = rows.length ? rows.reduce((best, w) => (w.rmsDb < best.rmsDb ? w : best), rows[0]) : null;
+  const lufs = r.loudness.integratedLufs;
+  // the loudness the web usually wants, and how much room there is to get there: numbers an agent can act on (raising by the gap needs the headroom, or a limiter)
+  const reference = lufs === null ? null : { webTargetLufs: [-16, -14], luToTarget: round(-14 - lufs, 1), headroomDb: round(-1 - r.loudness.truePeakDb, 1), raiseToTargetNeedsLimiter: -14 - lufs > -1 - r.loudness.truePeakDb };
+  const report = { file, ...r, window: round(window, 3), loudest: span(loudest), quietest: span(quietest), reference, waveform: r.waveform ? path.join(outDir, r.waveform) : null };
   io.log(opts.json ? JSON.stringify(report, null, 2) : soundText(report, file, report.waveform));
   return 0;
 };
