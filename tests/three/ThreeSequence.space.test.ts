@@ -13,7 +13,8 @@ import type { CameraState } from '../../src/space/math';
 
 const cam = (x: number): CameraState => ({ x, y: 150, z: 600, lookAtX: 480, lookAtY: 270, lookAtZ: 0, fov: 60 });
 const lamp: LightState = { kind: 'point', x: 300, y: 100, z: 700, lookAtX: 480, lookAtY: 270, lookAtZ: 0, r: 1, g: 1, b: 1, intensity: 1, coneAngle: 90, coneFeather: 0.5, falloff: 'none', radius: 500, falloffDistance: 500, castsShadows: false, shadowDarkness: 1, shadowDiffusion: 0 };
-const spaceAt = vi.fn((t: number) => ({ camera: cam(480 + 100 * t), lights: [lamp] }));
+let fogNow: { r: number; g: number; b: number; near: number; far: number; amount: number } | null = { r: 0.1, g: 0.2, b: 0.4, near: 300, far: 900, amount: 1 };
+const spaceAt = vi.fn((t: number) => ({ camera: cam(480 + 100 * t), lights: [lamp], fog: fogNow }));
 const shape: CompositionShape = { width: 960, height: 540, duration: 10, spaceAt };
 const make = (over: Partial<ThreeSequenceSpec> = {}) => {
   const seen: { ctx?: ThreeContext; camAtUpdate?: number[] } = {};
@@ -22,7 +23,7 @@ const make = (over: Partial<ThreeSequenceSpec> = {}) => {
 };
 const sceneOf = (seq: ThreeSequence) => (seq as any)._scene;
 const lightsIn = (seq: ThreeSequence) => (sceneOf(seq).children as any[]).filter((c) => c.isLight);
-beforeEach(() => { spaceAt.mockClear(); vi.restoreAllMocks(); });
+beforeEach(() => { spaceAt.mockClear(); vi.restoreAllMocks(); fogNow = { r: 0.1, g: 0.2, b: 0.4, near: 300, far: 900, amount: 1 }; });
 
 describe('followCamera', () => {
   it("puts the layer's camera where the composition camera is at this moment (the layer's time + where the layer starts), before the layer's own update runs", async () => {
@@ -122,6 +123,35 @@ describe('followLights', () => {
     await seq.build(); await seq.awaitFrameAt(1);
     expect(seen.camAtUpdate).toEqual([0, 0, 0]);                              // the camera is still the layer's own
     expect(lightsIn(seq)).toHaveLength(1);
+  });
+});
+
+describe('followFog', () => {
+  it("the composition camera's fog is the scene's Fog, every frame; the camera is not touched; it follows the camera going over", async () => {
+    const { seq, seen } = make({ followFog: true });
+    await seq.build(); await seq.awaitFrameAt(1);
+    const fog = sceneOf(seq).fog;
+    expect([fog.near, fog.far]).toEqual([300, 900]);
+    expect(seen.camAtUpdate).toEqual([0, 0, 0]);
+    fogNow = null;
+    await seq.awaitFrameAt(2);
+    expect(sceneOf(seq).fog).toBeNull();
+  });
+
+  it('is off unless asked', async () => {
+    const { seq } = make();
+    await seq.build(); await seq.awaitFrameAt(1);
+    expect(sceneOf(seq).fog).toBeNull();
+  });
+
+  it("fogAmount below 1 has no equivalent in three's Fog: said once, naming the layer, and the full amount is used", async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    fogNow = { ...fogNow!, amount: 0.5 };
+    const { seq } = make({ followFog: true, name: 'world' });
+    await seq.build(); await seq.awaitFrameAt(1); await seq.awaitFrameAt(2);
+    const said = warn.mock.calls.map((c) => String(c[0])).filter((m) => /fogAmount/.test(m));
+    expect(said).toHaveLength(1);
+    expect(said[0]).toMatch(/"world"/);
   });
 });
 

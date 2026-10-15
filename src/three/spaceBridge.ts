@@ -5,9 +5,10 @@
  * +z is toward the viewer in both). A three camera with the composition camera's position, look-at point and vertical fov then projects that point to the pixel the
  * composition's own projection gives it (tests/three/spaceBridge.test.ts checks it to 1e-6 px).
  */
-import { AmbientLight, Color, DirectionalLight, PerspectiveCamera, PointLight, SRGBColorSpace, SpotLight, type Light, type Object3D } from 'three';
+import { AmbientLight, Color, DirectionalLight, Fog, PerspectiveCamera, PointLight, SRGBColorSpace, SpotLight, type Light, type Object3D, type Scene } from 'three';
 import type { CameraState } from '../space/math';
 import type { LightState } from '../space/lighting';
+import type { FogState } from '../space/LitMaterial';
 
 /** The camera's near plane and far plane in composition pixels: the home camera sits about 740 px from the picture, a long dolly can be several thousand. */
 const NEAR = 1;
@@ -96,4 +97,32 @@ export class LightMirror {
     light.updateMatrixWorld?.();
     e.target?.updateMatrixWorld?.();
   }
+}
+
+/**
+ * The composition camera's fog as the scene's `Fog`: the same colour, `near` and `far` (distances along the view, in composition pixels). three's Fog fades with `smoothstep` where the
+ * composition's fades linearly, and has no amount below 1: close, not equal (see docs/dsl.md). The Fog is made when the camera has one and removed when it has not; a Fog the layer made
+ * itself is never touched.
+ */
+export class FogMirror {
+  private own: Fog | null = null;
+  constructor(private readonly scene: Scene) {}
+
+  update(fog: FogState | null): void {
+    if (!fog) {
+      if (this.own && this.scene.fog === this.own) this.scene.fog = null;
+      this.own = null;
+      return;
+    }
+    if (!this.own || this.scene.fog !== this.own) {
+      if (this.scene.fog && this.scene.fog !== this.own) return;                // the layer has its own fog: leave it
+      this.own = new Fog(0x000000, fog.near, fog.far);
+      this.scene.fog = this.own;
+    }
+    this.own.color.setRGB(fog.r, fog.g, fog.b, SRGBColorSpace);
+    this.own.near = fog.near;
+    this.own.far = fog.far;
+  }
+
+  dispose(): void { this.update(null); }
 }

@@ -447,7 +447,7 @@ export class CompositionSequence extends Sequence {
     const { width, height } = this._compositionShape!;
     const compEnd = this._childBase + (this.duration ?? 0);
     const active = pickActiveCamera(this._cameras.map(cam => ({ cam, ...cam.window() })), t, compEnd);
-    return { camera: active ? active.cam.state() : homeCamera(width, height), lights: this._liveLights(t, compEnd).map(l => l.state()) };
+    return { camera: active ? active.cam.state() : homeCamera(width, height), lights: this._liveLights(t, compEnd).map(l => l.state()), fog: active?.cam.fogState() ?? null };
   }
 
   /**

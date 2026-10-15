@@ -49,6 +49,8 @@ export interface ThreeSequenceSpec extends SequenceCommon {
   followCamera?: boolean;
   /** The composition's `light` layers become three lights in this scene (ambient, point, spot, parallel; same position, colour, intensity, cone), moved every frame. Shadows are not mirrored. */
   followLights?: boolean;
+  /** The composition camera's fog (`fogNear` / `fogFar` / `fogColor`) becomes the scene's `Fog`, every frame. three's Fog fades by `smoothstep` where the composition's is linear, and has no `fogAmount` below 1. */
+  followFog?: boolean;
   /**
    * Build the scene. Add objects to `ctx.scene`, position `ctx.camera`
    * (or replace it entirely by returning `{ camera }`). Async so GLTF /

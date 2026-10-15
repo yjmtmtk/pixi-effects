@@ -1,6 +1,7 @@
 import type { MusicSummary } from './audio/music/events';
 import type { CameraState } from './space/math';
 import type { LightState } from './space/lighting';
+import type { FogState } from './space/LitMaterial';
 /**
  * pixi-effects public DSL types.
  *
@@ -834,7 +835,7 @@ export interface CompositionShape {
 }
 
 /** The composition's camera and the lights alive at one moment (what its `camera` and `light` layers say, after their keyframes). */
-export interface SpaceNow { camera: CameraState; lights: LightState[] }
+export interface SpaceNow { camera: CameraState; lights: LightState[]; /** The active camera's depth fog (linear, by the depth along the view), or null when it writes none. */ fog: FogState | null }
 
 /** Audio descriptor pushed to the mixdown queue by AudioSequence/VideoSequence. */
 export interface AudioDescriptor {

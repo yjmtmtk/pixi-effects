@@ -43,6 +43,19 @@ runFilms('Three layer in the composition\'s space: the same camera and lights as
     expect(w.mean, 'if this ever drops under 0.4 the default pipeline matches the cards: say so in docs/dsl.md').toBeGreaterThan(0.4);
   }, 120_000);
 
+  it("followFog: three's Fog is close to the composition's fog, not equal (three fades with smoothstep, the composition linearly): measured mean 0.5–1.8 of 255 against the card, where the fog itself changes the picture by 2–7", async () => {
+    const at = [0, 20, 45];
+    const fogged = await frames('mode=board&lights=none&fog=1', at), three = await frames('mode=three&lights=none&fog=1', at), plain = await frames('mode=board&lights=none', at);
+    for (let k = 0; k < at.length; k++) {
+      const off = diff(fogged[k]!, three[k]!).mean, effect = diff(fogged[k]!, plain[k]!).mean;
+      expect(effect, `frame ${at[k]}: the fog really changes the card`).toBeGreaterThan(1.5);
+      expect(off, `frame ${at[k]}: three's fog against the card's`).toBeLessThan(0.5 * effect);
+      expect(off).toBeLessThan(3);
+    }
+    const unfogged = await frames('mode=three&lights=none', at);
+    expect(diff(three[0]!, unfogged[0]!).mean, 'and followFog really fogs the three scene').toBeGreaterThan(1.5);
+  }, 120_000);
+
   it('a light that only lives from 1 s to 2 s lights the layer exactly then (the frames before and after match the cards; the lit frame is not the unlit one)', async () => {
     const at = [15, 45, 75];
     const card = await frames('mode=board&lamp=late&cm=0', at), three = await frames('mode=three&lamp=late&cm=0', at);

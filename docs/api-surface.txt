@@ -677,6 +677,7 @@ interface SoundReport
   windows: { t: number; rmsDb: number; }[]
 interface SpaceNow
   camera: CameraState
+  fog: FogState | null
   lights: LightState[]
 interface SplitOptions
   align?: "left" | "center" | "right"
@@ -981,6 +982,7 @@ interface ThreeSequenceSpec extends SequenceCommon
   antialias?: boolean
   dispose?: ((ctx: ThreeContext) => void)
   followCamera?: boolean
+  followFog?: boolean
   followLights?: boolean
   height?: PropValue
   renderer?: "webgl" | "webgpu"

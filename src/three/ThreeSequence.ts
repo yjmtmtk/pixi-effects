@@ -8,7 +8,7 @@ import type { PathRouters } from '../core/Timeline';
 import type { PropValue } from '../types';
 import type { ThreeContext, ThreeSequenceSpec } from './types';
 import { checkRendererKind, getPageRenderer } from './defaults';
-import { applyCameraState, LightMirror } from './spaceBridge';
+import { applyCameraState, FogMirror, LightMirror } from './spaceBridge';
 import { releaseThree, trackThree } from './budget';
 import type { CanvasCheck } from '../sequences/Canvas';
 
@@ -30,6 +30,7 @@ export class ThreeSequence extends Sequence {
   private _warnedNodeFrame = false;
   private _warnedPaths = new Set<string>();
   private _lightMirror: LightMirror | null = null;
+  private _fogMirror: FogMirror | null = null;
   private _warnedSpace = new Set<string>();
   private _tracked = false;
 
@@ -208,11 +209,11 @@ export class ThreeSequence extends Sequence {
   /** `followCamera` / `followLights`: before each frame, ask the composition for its camera and lights at this moment (the layer's time on the composition's clock) and mirror them in the scene. */
   private _followSpace(t: number): void {
     const spec = this._threeSpec;
-    if (!spec.followCamera && !spec.followLights) return;
+    if (!spec.followCamera && !spec.followLights && !spec.followFog) return;
     const ctx = this._ctx, scene = this._scene;
     if (!ctx || !scene) return;
     if (!this.parent?.spaceAt) {
-      this._saidOnce('parent', `followCamera / followLights need the layer to sit in a composition that has a camera or a light to follow; this layer's parent cannot say (it keeps its own camera and lights)`, spec.name);
+      this._saidOnce('parent', `followCamera / followLights / followFog need the layer to sit in a composition that has a camera or a light to follow; this layer's parent cannot say (it keeps its own camera and lights)`, spec.name);
       return;
     }
     const space = this.parent.spaceAt((this.absoluteStart ?? this.at) + t);
@@ -223,6 +224,10 @@ export class ThreeSequence extends Sequence {
       else applyCameraState(camera, space.camera, ctx.width / ctx.height);
     }
     if (spec.followLights) (this._lightMirror ??= new LightMirror(scene)).update(space.lights);
+    if (spec.followFog) {
+      if (space.fog && space.fog.amount !== 1) this._saidOnce('fogAmount', `followFog: the camera's fogAmount is ${space.fog.amount}, and three's Fog has no amount below 1: the layer uses the full amount (set fogColor to the colour you want at the far end, or leave followFog off and make the fog yourself from ctx.space.fog)`, spec.name);
+      (this._fogMirror ??= new FogMirror(scene)).update(space.fog);
+    }
   }
 
   /** followCamera shows the whole composition through the layer's picture: a layer of another shape would show it squeezed or cut. Said once at build. */
@@ -361,6 +366,8 @@ export class ThreeSequence extends Sequence {
     const texture = (this.target as Sprite | null)?.texture;
     this._lightMirror?.dispose();
     this._lightMirror = null;
+    this._fogMirror?.dispose();
+    this._fogMirror = null;
     this._disposeRenderer();
     this._scene = null;
     this._camera = null;

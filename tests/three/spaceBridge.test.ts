@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { AmbientLight, DirectionalLight, PerspectiveCamera, PointLight, Scene, SpotLight, Vector3 } from 'three';
-import { applyCameraState, LightMirror } from '../../src/three/spaceBridge';
+import { AmbientLight, DirectionalLight, Fog, PerspectiveCamera, PointLight, Scene, SpotLight, SRGBColorSpace, Vector3 } from 'three';
+import { applyCameraState, FogMirror, LightMirror } from '../../src/three/spaceBridge';
 import { cameraBasis, homeCamera, projectPoint, type CameraState } from '../../src/space/math';
 import type { LightState } from '../../src/space/lighting';
 
@@ -101,5 +101,40 @@ describe('the composition lights, in three', () => {
     mirror.dispose();
     expect(lightsOf(scene)).toHaveLength(0);
     expect(scene.children).toHaveLength(0);                                  // the spot light's target too
+  });
+});
+
+describe('the composition fog, in three (a linear Fog by the depth along the view)', () => {
+  const fog = { r: 0.1, g: 0.2, b: 0.4, near: 300, far: 900, amount: 1 };
+
+  it('makes the scene\'s Fog with the colour and the distances, and moves the same object after', () => {
+    const scene = new Scene(); const mirror = new FogMirror(scene);
+    mirror.update(fog);
+    const made = scene.fog as Fog;
+    expect(made).toBeInstanceOf(Fog);
+    expect([made.near, made.far]).toEqual([300, 900]);
+    const rgb = (f: Fog) => f.color.getRGB({ r: 0, g: 0, b: 0 }, SRGBColorSpace);            // the colour as authored (three keeps it in linear light)
+    expect(rgb(made).r).toBeCloseTo(0.1, 4); expect(rgb(made).b).toBeCloseTo(0.4, 4);
+    mirror.update({ ...fog, near: 400, far: 1000, r: 1 });
+    expect(scene.fog).toBe(made);
+    expect([made.near, made.far]).toEqual([400, 1000]);
+    expect(rgb(made).r).toBeCloseTo(1, 4);
+  });
+
+  it('no fog now (the camera that wrote it is over): the Fog it made goes; a Fog the layer made itself is never touched', () => {
+    const scene = new Scene(); const mirror = new FogMirror(scene);
+    mirror.update(fog); mirror.update(null);
+    expect(scene.fog).toBeNull();
+    const mine = new Fog(0xff0000, 1, 2);
+    const scene2 = new Scene(); scene2.fog = mine;
+    const mirror2 = new FogMirror(scene2);
+    mirror2.update(null);
+    expect(scene2.fog).toBe(mine);
+  });
+
+  it('dispose takes its own Fog out and leaves the layer\'s', () => {
+    const scene = new Scene(); const mirror = new FogMirror(scene);
+    mirror.update(fog); mirror.dispose();
+    expect(scene.fog).toBeNull();
   });
 });
