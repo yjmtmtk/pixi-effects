@@ -16,6 +16,7 @@ export class ThreeSequence extends Sequence {
   private _ctx: ThreeContext | null = null;
   private _objects: Record<string, object> = {};
   private _warnedUpdate = false;
+  private _warnedNodeFrame = false;
   private _warnedPaths = new Set<string>();
 
   private get _threeSpec(): ThreeSequenceSpec {
@@ -77,8 +78,9 @@ export class ThreeSequence extends Sequence {
       this._objects = { ...(result?.objects ?? {}) };
       if (!('camera' in this._objects)) this._objects.camera = this._camera;
 
+      if (this._gpu) this._warnWebGpuMaterials(scene, spec.name);
       // Frame 0 so the texture is never blank before the first tick.
-      this._draw();
+      this._draw(0);
 
       const texture = Texture.from(canvas);
       const sprite = new Sprite({ texture, label: spec.name });
@@ -116,14 +118,59 @@ export class ThreeSequence extends Sequence {
         }
       }
     }
-    this._draw();
+    this._draw(t);
     (this.target as Sprite | null)?.texture.source.update();
   }
 
-  /** One render of the scene. WebGPURenderer.render() needs `await init()` first (done in build); it queues the GPU work, and PixiJS reads the canvas after. */
-  private _draw(): void {
+  /**
+   * One render of the scene at the layer-local time `t`. WebGPURenderer.render() needs `await init()` first (done in build); it queues the GPU work, and PixiJS reads the canvas after.
+   *
+   * Three's WebGPU node system updates the light uniforms (and its `time`) once per FRAME ID, and bumps that id in its own requestAnimationFrame loop only. Renders that
+   * follow each other in one task (a seek, an export) would all show the lights of the last animation frame: a lamp keyframed with `three.lamp.intensity` would not move.
+   * So before each render the layer advances the node frame itself, and gives `time` the layer's own time (not three's wall clock).
+   */
+  private _draw(t: number): void {
     if (!this._renderer || !this._scene || !this._camera) return;
+    if (this._gpu) this._advanceNodeFrame(t);
     this._renderer.render(this._scene, this._camera);
+  }
+
+  /**
+   * The WebGPU renderer turns three's materials into node materials: a ShaderMaterial / RawShaderMaterial cannot run there, and `onBeforeCompile` (a patch of the WebGL shader text)
+   * is ignored, so the effect would silently be missing. Say so once per layer, naming the first such material.
+   */
+  private _warnWebGpuMaterials(scene: Scene, layerName: string | undefined): void {
+    const bad: string[] = [];
+    const seen = new Set<unknown>();
+    const check = (m: unknown): void => {
+      if (!m || typeof m !== 'object' || seen.has(m)) return;
+      seen.add(m);
+      const mat = m as { type?: string; name?: string; isShaderMaterial?: boolean; isRawShaderMaterial?: boolean };
+      const label = `${mat.name ? `"${mat.name}" ` : ''}${mat.type ?? 'material'}`;
+      if (mat.isShaderMaterial || mat.isRawShaderMaterial) bad.push(`${label} is a ShaderMaterial (it cannot run on the WebGPU renderer)`);
+      else if (Object.prototype.hasOwnProperty.call(mat, 'onBeforeCompile')) bad.push(`${label} sets onBeforeCompile (the WebGPU renderer ignores it)`);
+    };
+    scene.traverse?.((o: unknown) => {
+      const mats = (o as { material?: unknown }).material;
+      for (const m of Array.isArray(mats) ? mats : [mats]) check(m);
+    });
+    if (!bad.length) return;
+    console.warn(`pixi-effects: three layer${layerName ? ` "${layerName}"` : ''} with renderer: 'webgpu': ${bad[0]}${bad.length > 1 ? ` (and ${bad.length - 1} more)` : ''}; ` +
+      `draw this layer with renderer: 'webgl', or write the look with three's node materials (TSL)`);
+  }
+
+  private _advanceNodeFrame(t: number): void {
+    const frame = (this._renderer as unknown as { _nodes?: { nodeFrame?: { update?: () => void; time: number; deltaTime: number } } })._nodes?.nodeFrame;
+    if (!frame || typeof frame.update !== 'function') {
+      if (!this._warnedNodeFrame) {
+        this._warnedNodeFrame = true;
+        console.warn("pixi-effects: this three has no node frame to advance (renderer: 'webgpu'): a light animated by keyframes may not follow the time in a seek or an export; use renderer: 'webgl' or report the three version");
+      }
+      return;
+    }
+    frame.update();
+    frame.time = t;
+    frame.deltaTime = 1 / ((this.root as { frameRate?: number }).frameRate ?? 30);
   }
 
   private _resolveThreePath(path: string): { target: object; prop: string } | null {
