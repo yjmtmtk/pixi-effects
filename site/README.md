@@ -34,7 +34,7 @@ The repository root is also the site root, but the staged copy is the truth: `st
 
 ## Checks
 
-- `npm run test:fast`: includes the shell, the tokens, the examples list and the link check of the staged site: in every page, each `href` / `src` / `poster` / `srcset`, each import-map target and each relative `import` in an inline module script must resolve to a file, and none may start with `/` (which breaks under `/pixi-effects/`). It does not follow links inside separate script or style files, and it does not run the pages (the real-browser tests do).
+- `npm run test:fast`: includes the shell, the tokens and the link check of the staged site: in every page, each `href` / `src` / `poster` / `srcset`, each import-map target and each relative `import` in an inline module script must resolve to a file, and none may start with `/` (which breaks under `/pixi-effects/`). It does not follow links inside separate script or style files, and it does not run the pages (the real-browser tests do).
 - `node scripts/site-links.mjs _site`: the same link check on a staged folder.
 - `tests/tools/siteShell.test.ts` and `tests/tools/gallery.test.ts` (real Chrome): the header fits at 390 and 1440 px, the theme switch changes the colours, the gallery filters and theatre still work.
 

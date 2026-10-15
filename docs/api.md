@@ -462,7 +462,7 @@ Flips `muted` and returns the new value.
 
 ## Building your own player
 
-`Controller` is one optional player; everything it does is public on the movie, so a player of your own is plain HTML + CSS + a few handlers (`examples/15-custom-player.html` is a complete one):
+`Controller` is one optional player; everything it does is public on the movie, so a player of your own is plain HTML + CSS + a few handlers:
 
 ```js
 const el = id => document.getElementById(id);

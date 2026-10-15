@@ -112,7 +112,7 @@ Always route `three` through the importmap — both your code and `pixi-effects/
 </script>
 ```
 
-The layer is a normal sprite once built, so 2D keyframes, masks and filters work on it. Full spec, rules and caveats (one WebGL context per layer, `update(t)` must be a pure function of `t`): [DSL reference § three](./docs/dsl.md#three) and [API reference](./docs/api.md#pixi-effectsthree). Runnable: [`examples/10-three.html`](./examples/10-three.html).
+The layer is a normal sprite once built, so 2D keyframes, masks and filters work on it. Full spec, rules and caveats (one WebGL context per layer, `update(t)` must be a pure function of `t`): [DSL reference § three](./docs/dsl.md#three) and [API reference](./docs/api.md#pixi-effectsthree).
 
 With a bundler, `import { registerThree, three } from 'pixi-effects/three'` works the same once you've installed `three`.
 
@@ -164,7 +164,7 @@ sequences: [
 ]
 ```
 
-`+z` is toward the viewer, rotations are degrees (CSS signs), and with `z = 0` and the default camera a `threeD` layer looks identical to a 2D one. Add `{ type: 'light', kind: 'spot', … }` layers for shading and shadows, and `fogNear` / `fogFar` on the camera for depth fog (nothing changes in a composition with neither). See [DSL reference § 3D layers & camera](./docs/dsl.md#3d-layers--camera) and [`examples/11-depth.html`](./examples/11-depth.html).
+`+z` is toward the viewer, rotations are degrees (CSS signs), and with `z = 0` and the default camera a `threeD` layer looks identical to a 2D one. Add `{ type: 'light', kind: 'spot', … }` layers for shading and shadows, and `fogNear` / `fogFar` on the camera for depth fog (nothing changes in a composition with neither). See [DSL reference § 3D layers & camera](./docs/dsl.md#3d-layers--camera).
 
 ## For AI agents
 
@@ -188,23 +188,9 @@ They ship in the npm package (`node_modules/pixi-effects/ai/`).
 - [**DSL reference**](./docs/dsl.md) — composition, sequences, 3D layers & camera, three.js layer, keyframes, expressions, filters
 - [**API reference**](./docs/api.md) — `Movie`, `Controller`, `pixi-effects/present`, `pixi-effects/three`, events, render options
 - [**Interactive movies**](./examples/interactive/) — nine live samples of a movie you change while it plays (variables, `setVars`, `rebuild`, loop): rock paper scissors, a scrolling city, a tune from four chords, a card for anyone, choose your ending … ([docs/api.md](./docs/api.md))
-- [**Examples**](./examples/) — runnable HTML files (read in order):
-  - `01-hello.html` — minimum viable composition
-  - `02-keyframes.html` — keyframes, easings, expressions
-  - `03-shapes.html` — every shape primitive
-  - `04-media.html` — image / video / audio
-  - `05-composition-mask.html` — nested compositions and masks
-  - `06-filters.html` — built-in and pixi-filters (as `{ type: 'custom' }`; most can now be written by name, see `docs/dsl.md` → Named filters)
-  - `07-transitions.html` — all seven transition kinds in one timeline
-  - `08-presets-export.html` — `kenBurns` preset and `movie.render()` from code
-  - `09-audio.html` — multi-track audio mixing with BGM ducking and SFX cues
-  - `10-three.html` — a three.js scene as a layer (`pixi-effects/three`)
-  - `11-depth.html` — 2.5D layers and camera: parallax, spin, dolly zoom
-  - `12-title-motion.html` — a staggered 2.5D title: letters fly in from depth, particles, orbiting camera
-  - `13-sfx.html` — synthesised sound effects (no audio files), a riser into a hit, a custom voice
-  - `15-custom-player.html` — a complete player of your own in about 40 lines (play, seek, volume, replay) using the movie's events
-  - `14-draw-on.html` — draw-on strokes (`trimStart` / `trimEnd`) and text that changes over time (`visibleChars`, `set: { text }`)
-  - `playground.html` — in-browser editor on the chat template's edit block: twelve examples, a problems panel from `movie.review()`, share links, save as HTML, and WebMCP tools for an AI agent
+- [**Gallery**](./examples/gallery/) — 43 complete pieces, each one HTML file of data
+- [**Recipes**](./skills/pixi-effects/reference/recipes.md) — tested code you can copy (`npx pixi-effects recipe`)
+- [**Playground**](./examples/playground.html) — in-browser editor on the chat template's edit block: twelve examples, a problems panel from `movie.review()`, share links, save as HTML, and WebMCP tools for an AI agent
 
 ## Browser support
 

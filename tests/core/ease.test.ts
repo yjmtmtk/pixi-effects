@@ -27,11 +27,10 @@ describe('checkEase', () => {
     for (let i = 0; i < 5; i++) checkEase('bogus', 'keyframe');
     expect(w).toHaveBeenCalledTimes(1);
   });
-  it('every ease the repository itself writes is a real one (no false alarm on the examples, the gallery or the docs)', () => {
+  it('every ease the repository itself writes is a real one (no false alarm on the gallery or the docs)', () => {
     const root = resolve(__dirname, '../..');
     const files = ['skills/pixi-effects/reference/cheatsheet.md', 'skills/pixi-effects/reference/recipes.md', 'docs/dsl.md',
-      ...readdirSync(resolve(root, 'examples/gallery')).filter((f) => f.endsWith('.html')).map((f) => `examples/gallery/${f}`),
-      ...readdirSync(resolve(root, 'examples')).filter((f) => /^\d\d-.*\.html$/.test(f)).map((f) => `examples/${f}`)];
+      ...readdirSync(resolve(root, 'examples/gallery')).filter((f) => f.endsWith('.html')).map((f) => `examples/gallery/${f}`)];
     const names = new Set<string>();
     for (const f of files) for (const m of readFileSync(resolve(root, f), 'utf8').matchAll(/\bease\s*:\s*['"]([^'"$`]+)['"]/g)) names.add(m[1]!);
     expect(names.size).toBeGreaterThan(8);

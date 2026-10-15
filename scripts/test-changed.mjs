@@ -21,7 +21,6 @@ export const AREAS = [
   { name: 'key warnings', paths: ['src/core/lint.ts', 'src/core/layerKeys.ts', 'src/core/options.ts', 'src/sequences/Composition.ts'], tests: ['tests/tools/noFalseWarnings.test.ts'] },
   { name: 'test films', paths: ['tests/films/'], tests: ['tests/films/'] },
   { name: 'gallery pieces', paths: ['examples/gallery/'], tests: ['tests/tools/gallery.test.ts', 'tests/tools/noFalseWarnings.test.ts'] },
-  { name: 'numbered examples', paths: ['examples/0', 'examples/1'], tests: ['tests/tools/noFalseWarnings.test.ts'] },
   { name: 'text, motion, seeking', paths: ['src/text/', 'src/presets/animateText.ts', 'src/presets/wiggle.ts', 'src/presets/followPath.ts', 'src/presets/cameraPath.ts', 'src/presets/orbit.ts'], tests: ['tests/tools/animateText.test.ts', 'tests/tools/pathMotion.test.ts', 'tests/films/determinism-seeded.test.ts', 'tests/films/determinism.test.ts'] },
   { name: 'particles', paths: ['src/presets/particles.ts'], tests: ['tests/tools/particles.test.ts', 'tests/films/determinism.test.ts'] },
   { name: '2.5D and cards', paths: ['src/space/', 'src/three/'], tests: ['tests/films/determinism-card-seek.test.ts', 'tests/tools/parent.test.ts'] },
