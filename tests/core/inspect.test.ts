@@ -25,6 +25,23 @@ async function scene(sequences: unknown[]) {
 }
 beforeEach(() => { vi.restoreAllMocks(); });
 
+class Gpu extends Box { renderer: string | null = 'webgpu'; backend: string | null = 'webgl2'; }
+class Gl extends Box { renderer: string | null = 'webgl'; backend: string | null = 'webgl'; }
+registerSequenceType('__gpu', Gpu as never);
+registerSequenceType('__gl', Gl as never);
+
+describe('inspectScene: the renderer of a three.js-based layer', () => {
+  it('a layer that says which renderer and backend it drew with (three, model) has them in its info; others have neither', async () => {
+    const comp = await scene([{ type: '__gpu', name: 'g' }, { type: '__gl', name: 'w' }, { type: '__box', name: 'b' }]);
+    const r = inspectScene(comp, 0, 0, { width: 1280, height: 720 });
+    const by = (n: string) => r.layers.find((l) => l.name === n)!;
+    expect([by('g').renderer, by('g').backend]).toEqual(['webgpu', 'webgl2']);
+    expect([by('w').renderer, by('w').backend]).toEqual(['webgl', 'webgl']);
+    expect(by('b').renderer).toBeUndefined();
+    expect('backend' in by('b')).toBe(false);
+  });
+});
+
 describe('inspectScene', () => {
   it('lists every layer with name, type, visibility and canvas-space bounds', async () => {
     const comp = await scene([

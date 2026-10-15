@@ -24,6 +24,17 @@ describe('lintKeys: a layer key that does not exist', () => {
   });
 });
 
+describe("lintKeys: the neutral 'model' layer (a glTF model as data: the spec language's name, drawn by whichever engine is registered)", () => {
+  it('knows its keys: a typo gets the did-you-mean, the real keys do not warn', () => {
+    expect(warns({ type: 'model', asset: 'a.glb', animaton: 'Run' })[0]).toMatch(/"animaton" is not a model layer key — did you mean "animation"\?/);
+    expect(warns({ type: 'model', asset: 'a.glb', animation: 'Run', animationSpeed: 2, animationOffset: 0.5, loop: false, fit: 'contain', camera: { fov: 30 }, light: 'none',
+      width: 100, height: 100, resolution: 2, three: { renderer: 'webgpu', antialias: false }, initial: { x: 1 } })).toEqual([]);
+  });
+  it("an engine's own options live in a block named for the engine: `renderer` at the top is not a model key", () => {
+    expect(warns({ type: 'model', asset: 'a.glb', renderer: 'webgpu' })[0]!).toMatch(/"renderer" is not a model layer key/);
+  });
+});
+
 describe('lintKeys: a property written on the layer instead of in initial', () => {
   it('a path with z: says "put it in initial", and does not guess "did you mean d"', () => {
     const w = warns({ type: 'shape', shape: 'path', d: 'M 0 0 L 10 10', threeD: true, z: -300 });

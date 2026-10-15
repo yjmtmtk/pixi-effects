@@ -26,6 +26,9 @@ export interface LayerInfo {
   depthBlur?: number;
   /** Light (threeD layers that receive lights): how lit the layer is this frame, 0..1+ (the brightness of the light falling on its middle; 1 = as with no light, 0 = black). Left out when there is no light. */
   light?: number;
+  /** A three.js-based layer (`three`, `model`): the renderer it draws with (`'webgl'` / `'webgpu'`) and the backend under it (`'webgl2'`: three's WebGPURenderer found no WebGPU and used its own WebGL2 backend: the same picture). */
+  renderer?: 'webgl' | 'webgpu';
+  backend?: 'webgl' | 'webgpu' | 'webgl2';
 }
 
 export interface InspectReport {
@@ -179,6 +182,8 @@ export function inspectScene(
       const info: LayerInfo = { path: prefix + label, name, type: seq.spec.type, threeD, visible, alpha, moving, bounds, onCanvas };
       if (threeD) info.depthBlur = Number(depthBlur.toFixed(2));
       if (threeD && light !== undefined) info.light = Number(light.toFixed(2));
+      const drawn = seq as unknown as { renderer?: unknown; backend?: unknown };
+      if (typeof drawn.renderer === 'string') { info.renderer = drawn.renderer as LayerInfo['renderer']; if (typeof drawn.backend === 'string') info.backend = drawn.backend as LayerInfo['backend']; }
       layers.push(info);
       chainAlpha.set(info, parentAlpha * alpha);
       chains.set(info, chainOf(display));

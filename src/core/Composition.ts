@@ -70,7 +70,9 @@ export async function buildSequenceTree(
       Cls = (await getCompositionSequence()) as unknown as SequenceCtor;
     }
     if (!Cls) {
-      console.warn(`pixi-effects: unknown sequence type "${(spec as { type: string }).type}"`);
+      console.warn(spec.type === 'model'
+        ? `pixi-effects: a "model" layer needs a 3D engine: import { registerThree } from 'pixi-effects/three' and call registerThree() before Movie.init (three.js is the only engine today)`
+        : `pixi-effects: unknown sequence type "${(spec as { type: string }).type}"`);
       await root.onLayerBuilt?.();                    // it was counted: count it done, or the bar would stop short
       continue;
     }

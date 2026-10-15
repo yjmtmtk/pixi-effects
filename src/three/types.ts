@@ -21,8 +21,8 @@ export interface ThreeSetupResult {
   camera?: Camera;
 }
 
-export interface ThreeSequenceSpec extends SequenceCommon {
-  type: 'three';
+/** What every three.js-based layer (`three`, `model`) shares: its size, supersampling, antialiasing and renderer. */
+export interface ThreeLayerBase extends SequenceCommon {
   /** Layer size in composition px. Expressions allowed (e.g. 'W * 0.5'). Default: parent composition size. */
   width?: PropValue;
   height?: PropValue;
@@ -39,6 +39,10 @@ export interface ThreeSequenceSpec extends SequenceCommon {
   antialias?: boolean;
   /** Supersampling factor for the offscreen canvas. Default 1. */
   resolution?: number;
+}
+
+export interface ThreeSequenceSpec extends ThreeLayerBase {
+  type: 'three';
   /**
    * Build the scene. Add objects to `ctx.scene`, position `ctx.camera`
    * (or replace it entirely by returning `{ camera }`). Async so GLTF /
@@ -55,3 +59,4 @@ export interface ThreeSequenceSpec extends SequenceCommon {
   /** Cleanup for user-created GPU resources (geometries, materials, textures). Called from destroy(). */
   dispose?: (ctx: ThreeContext) => void;
 }
+
