@@ -1822,7 +1822,7 @@ Without `followCamera` the layer keeps its own camera: `threeFrameCamera(ctx.cam
 
 ## A model running through a spotlight, with its shadow on a wall (`castsShadows` in three)
 
-A dark room: a wall that RECEIVES the shadow, a model that CASTS it, one spot light that sweeps (a `light` layer with keyframes, so it moves like any layer), and a flat caption that the same light reveals. The light is the composition's; the layer mirrors it into three (`followLights`). A `three` wall under `MeshStandardMaterial` is brighter than a flat card under the same light (three lights in linear light, the composition shades sRGB values): pick the wall's `color` dark, and look at the picture.
+A dark room: a wall that RECEIVES the shadow, a model that CASTS it, one spot light that sweeps (a `light` layer with keyframes, so it moves like any layer), and a flat caption that the same light reveals. The light is the composition's; the layer mirrors it into three (`followLights`). A `three` wall under `MeshStandardMaterial` is brighter than a flat card under the same light (three lights in linear light, the composition shades sRGB values): pick the wall's `color` dark (a mid grey `0x6d717b` reads as a bright disc, not a dark room; `0x3f434b` is moody and the shadow still shows) and look at the picture. Placement, size and facing are as in `gltf-in-space` (`position.set(x, -y, z)`; `fit(px)`; `rotation.y = Math.PI / 2` runs the model toward +x); the `.glb` path is relative to the page.
 
 ```js
 // @docs-only gltf-shadow-room
@@ -1841,7 +1841,7 @@ return [
       fox.object.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });         // the model casts
       fox.object.position.set(150, -540, 0);                                                                   // the composition point (150, 540), y flipped: it runs on the floor
       ctx.scene.add(fox.object);
-      const wall = new THREE.Mesh(new THREE.PlaneGeometry(2600, 1400), new THREE.MeshStandardMaterial({ color: 0x6d717b, roughness: 0.95 }));
+      const wall = new THREE.Mesh(new THREE.PlaneGeometry(2600, 1400), new THREE.MeshStandardMaterial({ color: 0x3f434b, roughness: 0.95 }));
       wall.position.set(640, -330, -130); wall.receiveShadow = true; ctx.scene.add(wall);                      // the wall receives
     },
     update: (t) => { fox.pose(t); fox.object.position.x = 150 + 980 * Math.min(1, t / 4.6); } },              // placed from t: a function of the time
