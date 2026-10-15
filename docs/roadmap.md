@@ -1,6 +1,6 @@
 # Roadmap: more expressive, still easy for an AI
 
-Status: rewritten 2026-10-14, current release 0.38.1 (a docs fix for browser-chat sandboxes: follow the chat way, no npx / check / render there); 0.38.0 added the media tools (`pixi-effects probe | trim | frames | sound | concat | audio` to look at, listen to, cut and join footage with no ffmpeg, and the library export `inspectSound`); 0.37.0 added the `canvas` layer (a picture drawn by your own function of the time, with `info.time` / `info.start` / `info.canvas`, `samplePath`, `noise2`, and a `check` that reports canvas layers); 0.36.0 added vertical writing, `check` that lists a picture over text and `--crop`, path holes with `fillRule: 'evenodd'`, `format.time`, text `resolution`, image `scaleMode`; 0.35.0 added the player's seek-bar preview `thumbnails: true` and `movie.thumbnail()`, 0.34.0 fixed a radial blur on WebGPU and tested the recommended filters on both backends, 0.33.0 made `check` tell the truth, 0.32.0 brought spans and point options. Nothing here is promised; the order is the proposal.
+Status: rewritten 2026-10-15, current release 0.39.0 (the tools tell the truth and a file can be checked against what it must be: an export is exactly `duration × frameRate` frames, `probe --expect`, `check --seam`, `grain` with a loop, a sweep of stray Chromes); 0.38.x added the media tools (`pixi-effects probe | trim | frames | sound | concat | audio`) and the sandbox guidance.
 
 ## The gate every item passes
 
@@ -23,6 +23,15 @@ The measure of success is not the feature list: it is a **fresh agent given one 
 | 0.28.0 | `musicEvents()`, `music.meter`, a music read-back in `check`, the `Sequence` export (a layer type can live outside the library) | the music items M1 and M3 of the old draft are mostly done; a spike showed that a new score syntax (`bars` / `play`, `key` / degrees) adds no correctness, so M4 and M9 are dropped |
 | 0.28.1–0.28.2 | `reference/direction.md` (how to direct a film), the viewer says "Updated … reload" and never switches by itself, the first address goes out within two minutes | the work on the AI's way of making a film moved from the library to the skill and the tools |
 | 2026-10-12 | five films made by fresh AI agents with the library (a minimal-prompt reel, two 45-second films with Rough.js, D3 and three.js, a promo for a real site; two of them now on the landing page) | the gaps they hit become the next releases (steps 6 and 7) instead of the old candidate list; Rough.js, D3 and three.js were shown to work as plain data and need no new feature (no new recipes either: the typewriter-terminal opener stays a gallery piece) |
+
+## After 0.39.0 (decided with the owner, 2026-10-15)
+
+The library is made for AI to use, not for people to learn. What a person needs from the site is how expressive it is and that one sentence to an AI is enough; everything else is for the AI (`docs/`, the skill, `help`, `recipe`).
+
+1. **Test films** (`docs/superpowers/specs/2026-10-15-test-films-design.md`): the real tests become small compositions made for the tests, each with an answer known in advance (15 groups of guarantees: determinism, time, export, geometry, shapes, text, camera, colour and blend, media, sound, layer contracts, interactive, the tools' truth, warnings, both backends). Seeded by `examples/_checks`. The gallery's tests become the secondary net. First: the harness, then export and determinism.
+2. **The site shows, it does not teach** (`docs/superpowers/specs/2026-10-15-site-restructure-design.md`): a short landing page (the reel, the sentence to tell an AI, the two films), the gallery, interactive movies, the playground and one page for AI. The Guide, the comparison with other tools, the music lab and `examples/` leave the site; the numbered tour is deleted once its coverage is carried by test films.
+3. **A shader / three authoring kit** (candidate, evidence from 13 clips made as one `shader` layer each): safe helpers, thin-lens depth of field, loop-periodic grain and colour dither, a `three` bloom with a threshold, array and reserved-word notes in `help shader`, a determinism line for shader layers in `check`. Where it lives (a library export or recipes) is undecided.
+4. Carried over: the sandbox fixes of `ai/` (Chrome's own error, `--no-sandbox` for root, a reason when the CDN cannot be reached), the capability gaps (`textOnPath`), what `check` says next, interactive movies, hardening before 1.0.
 
 ## The order now
 

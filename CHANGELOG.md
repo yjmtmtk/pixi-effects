@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.39.0
+
+**The tools tell the truth, and a file can be checked against what it must be**
 
 - **`probe` names the colour tags, and `--expect` can ask for them (`matrix=bt709`, `transfer=…`).** The plain report says `colour bt709 (transfer iec61966-2-1, limited range)` and `--json` has `video[].color`. The files `render()` writes carry the Rec.709 primaries and matrix, limited range and the **sRGB transfer** (`iec61966-2-1`); it was listed as a defect to change to `bt709`, and it is left: the pixels are drawn as sRGB, so that is the true tag (rewriting it would mean patching the container and the H.264 bitstream to say something less exact; editors and players read it as Rec.709 in practice). A platform that asks for Rec.709 is answered by `probe file --expect matrix=bt709`.
 - **New: `grain` has `loop: seconds`, so a clip made to loop has the same grain at its seam.** `{ type: 'grain', loop: 10 }` repeats the pattern every 10 s (the grain frame is taken modulo `loop × fps`): the frame after the last is the first again. `loop × fps` must be a whole number of grain frames (10 s at 24 fps is 240); anything else, and a `loop` that is not above 0, warns and says what to change. The library's grain had no period, so two stock-clip agents wrote their own grain inside a shader to close a loop. Tests: the grain frame at the seam, the warnings, and a living filter's `loop`.
