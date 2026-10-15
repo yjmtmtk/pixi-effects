@@ -186,8 +186,50 @@ export class Cdp {
   }
 }
 
+/** The file in a private profile folder that names the process that started the browser: the next tool start can tell a profile that is still in use from one whose owner is gone. */
+export const OWNER_FILE = 'pixi-owner.pid';
+
+/**
+ * Sweep what a dead owner left: every `pixi-effects-*` folder in `tmp` whose owner file names a process that no longer exists has everything that was
+ * started with it stopped (found with `ps`, stopped by process id: no pkill, which a sandbox may refuse) and is removed. A profile whose owner is alive
+ * (another tool running right now), one with no owner file (a tool that is just starting) and any folder that is not ours are left alone.
+ * Never throws: a launch must not fail because of a cleanup. Returns `{ removed: [folders], stopped: number }`. (POSIX only; nothing to do elsewhere.)
+ */
+export function reapStaleChrome(tmp = os.tmpdir()) {
+  const result = { removed: [], stopped: 0 };
+  if (process.platform === 'win32') return result;
+  try {
+    const alive = pid => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
+    let stale = [];
+    for (const name of fs.readdirSync(tmp)) {
+      if (!name.startsWith('pixi-effects-')) continue;
+      const dir = path.join(tmp, name);
+      let owner;
+      try { owner = Number(fs.readFileSync(path.join(dir, OWNER_FILE), 'utf8').trim()); } catch { continue; }       // no owner file: not ours to take yet
+      if (Number.isInteger(owner) && owner > 0 && !alive(owner)) stale.push(dir);
+    }
+    if (!stale.length) return result;
+    const ps = spawnSync('ps', ['-axo', 'pid=,command='], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    const lines = ps.status === 0 ? ps.stdout.split('\n') : [];
+    for (const dir of stale) {
+      const flag = `--user-data-dir=${dir}`;
+      for (const line of lines) {
+        const at = line.indexOf(flag);
+        if (at < 0 || (line[at + flag.length] !== undefined && line[at + flag.length] !== ' ')) continue;       // the whole folder name, not one that only starts like it
+        const pid = Number(line.trim().split(/\s+/, 1)[0]);
+        if (!Number.isInteger(pid) || pid === process.pid) continue;
+        try { process.kill(pid, 'SIGKILL'); result.stopped++; } catch { /* already gone */ }
+      }
+      try { fs.rmSync(dir, { recursive: true, force: true }); result.removed.push(dir); } catch { /* held a moment longer: the next start takes it */ }
+    }
+  } catch { /* a cleanup never stops a launch */ }
+  return result;
+}
+
 /** Start a private headless Chrome. `extraArgs`: more command-line flags (the tests use it for `--enable-features=WebMCP`). */
 export async function launchChrome(chrome, userDataDir, extraArgs = []) {
+  reapStaleChrome();                                                           // what an earlier run left behind (its owner is gone) goes first
+  try { fs.writeFileSync(path.join(userDataDir, OWNER_FILE), String(process.pid)); } catch { /* a profile that cannot be marked is simply never swept */ }
   const args = [
     '--headless=new', '--remote-debugging-port=0', `--user-data-dir=${userDataDir}`, '--no-first-run', '--no-default-browser-check',
     '--autoplay-policy=no-user-gesture-required', '--mute-audio', '--disable-audio-output', '--ignore-gpu-blocklist', '--enable-unsafe-swiftshader', '--window-size=1400,900', ...extraArgs, 'about:blank',
