@@ -41,6 +41,35 @@ describe('the grain filter', () => {
     expect([f.amount, f.size, f.seed, f.fps, f.color]).toEqual([0.2, 3, 7, 12, 0.5]);
     f.size = 0; expect(f.size).toBeGreaterThan(0);                                            // a size of 0 would divide by 0
   });
+  it('loop: the pattern repeats every `loop` seconds, so a clip made to loop has no jump in its grain at the seam (the film-grain of a loop is the same at 0 s and at `loop` s)', () => {
+    const f = new GrainFilter({ fps: 24, loop: 10 }) as unknown as GrainFilter & { resources: { grainUniforms: { uniforms: Record<string, number> } } };
+    const frame = () => f.resources.grainUniforms.uniforms.uFrame!;
+    f.setTime(0); expect(frame()).toBe(0);
+    f.setTime(9.9667); expect(frame()).toBe(239);                      // the last frame of a 10 s, 30 fps movie
+    f.setTime(10); expect(frame()).toBe(0);                            // the frame after the last is the first again
+    f.setTime(10 + 2 / 30); expect(frame()).toBe(1);
+    f.setTime(25); expect(frame()).toBe(120);                          // 600 mod 240 = 120
+    const g = new GrainFilter({ fps: 24 }) as unknown as GrainFilter & { resources: { grainUniforms: { uniforms: Record<string, number> } } };
+    g.setTime(10); expect(g.resources.grainUniforms.uniforms.uFrame).toBe(240);       // no loop: it goes on
+  });
+  it('loop is checked: a loop of a whole number of grain frames repeats exactly, anything else warns and says what to change', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    new GrainFilter({ fps: 24, loop: 10 });
+    new GrainFilter({ fps: 24, loop: 9.9667 });                       // 239.2 grain frames: not a whole number
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]![0])).toMatch(/grain.*loop 9\.9667 s at 24 fps is 239\.2 grain frames.*whole number.*fps/);
+    warn.mockClear();
+    new GrainFilter({ fps: 0, loop: 10 });                             // a still pattern needs no loop: no warning
+    expect(warn).not.toHaveBeenCalled();
+    expect(() => new GrainFilter({ loop: -1 })).not.toThrow();
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/grain.*loop.*above 0/));
+  });
+  it('loop can be changed on a living filter, and 0 or undefined turns it off', () => {
+    const f = new GrainFilter({ fps: 24 }) as unknown as GrainFilter & { loop: number; resources: { grainUniforms: { uniforms: Record<string, number> } } };
+    f.loop = 5; f.setTime(5); expect(f.resources.grainUniforms.uniforms.uFrame).toBe(0);
+    f.loop = 0; f.setTime(5); expect(f.resources.grainUniforms.uniforms.uFrame).toBe(120);
+  });
+
   it('setTime turns seconds into the grain frame: new grain every 1/fps s, a still pattern at fps 0', () => {
     const f = new GrainFilter({ fps: 24 }) as unknown as GrainFilter & { resources: { grainUniforms: { uniforms: Record<string, number> } } };
     const frame = () => f.resources.grainUniforms.uniforms.uFrame;

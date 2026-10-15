@@ -178,7 +178,7 @@ export function grainValue(x: number, y: number, frame: number, seed: number): n
   return (s / 255 - 2) * 1.7320508;
 }
 
-const GRAIN_KEYS = ['amount', 'size', 'seed', 'fps', 'color'] as const;
+const GRAIN_KEYS = ['amount', 'size', 'seed', 'fps', 'color', 'loop'] as const;
 
 export interface GrainOptions {
   /** Standard deviation of the grain at mid-grey, 0–1 of full scale (default 0.08). */
@@ -191,13 +191,19 @@ export interface GrainOptions {
   fps?: number;
   /** 0 = luminance only, 1 = independent per colour channel (default 0). */
   color?: number;
+  /**
+   * Seconds after which the pattern starts again (default: never). Give the movie's duration for a clip made to loop, so the grain at the seam is the grain at 0 s
+   * and not a jump; `loop × fps` must be a whole number of grain frames (a 10 s clip at 24 fps is 240), or the pattern does not repeat exactly (it warns).
+   */
+  loop?: number;
 }
 
 export class GrainFilter extends Filter {
   private _fps: number;
+  private _loop = 0;
   constructor(options: GrainOptions = {}) {
     warnUnknownOptions('grain filter', options, GRAIN_KEYS);
-    const { amount = 0.08, size = 1.5, seed = 0, fps = 24, color = 0 } = options;
+    const { amount = 0.08, size = 1.5, seed = 0, fps = 24, color = 0, loop } = options;
     super({
       glProgram: GlProgram.from({ vertex: GL_VERTEX, fragment: GL_FRAGMENT, name: 'grain-filter' }),
       gpuProgram: GpuProgram.from({ vertex: { source: WGSL_SOURCE, entryPoint: 'mainVertex' }, fragment: { source: WGSL_SOURCE, entryPoint: 'mainFragment' } }),
@@ -209,6 +215,7 @@ export class GrainFilter extends Filter {
       },
     });
     this._fps = fps;
+    if (loop !== undefined) this.loop = loop;
   }
   private get u(): Record<string, number> { return this.resources.grainUniforms.uniforms as Record<string, number>; }
   get amount(): number { return this.u.uAmount!; }
@@ -221,10 +228,26 @@ export class GrainFilter extends Filter {
   set color(v: number) { this.u.uColor = v; }
   get fps(): number { return this._fps; }
   set fps(v: number) { this._fps = v; }
+  /** Seconds after which the pattern repeats (0 = never). */
+  get loop(): number { return this._loop; }
+  set loop(v: number) {
+    if (!(v > 0)) {
+      if (v !== 0) console.warn(`pixi-effects: grain: loop must be above 0 (seconds), got ${String(v)}: ignored (leave it out for a pattern that never repeats)`);
+      this._loop = 0;
+      return;
+    }
+    const n = v * this._fps;
+    if (this._fps > 0 && Math.abs(n - Math.round(n)) > 1e-3) {
+      console.warn(`pixi-effects: grain: loop ${v} s at ${this._fps} fps is ${(Math.round(n * 10) / 10).toString()} grain frames, not a whole number: the pattern would not repeat exactly at the seam. Change fps (or loop) so that loop × fps is whole`);
+    }
+    this._loop = v;
+  }
   /** The movie calls this with the time (s) of the frame it is about to draw: the grain is new every 1/fps s. */
   setTime(t: number): void {
     // A thousandth of a grain frame of slack: a time that should sit ON a boundary (k / fps) arrives a hair under it when it passes
     // through a remapped clock (the timeline rounds time to 1e-7 s), and the grain would be the previous frame's, a different picture.
-    this.u.uFrame = this._fps > 0 ? Math.floor(t * this._fps + 1e-3) : 0;
+    const frame = this._fps > 0 ? Math.floor(t * this._fps + 1e-3) : 0;
+    const period = this._fps > 0 && this._loop > 0 ? Math.round(this._loop * this._fps) : 0;       // a loop: the pattern comes round again after `loop` seconds
+    this.u.uFrame = period > 0 ? frame % period : frame;
   }
 }
