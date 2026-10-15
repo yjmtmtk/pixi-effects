@@ -33,7 +33,6 @@ export type { MeasureStyle, TextSize, SplitOptions, TextPiece } from './text/mea
 
 export { warnUnknownOptions } from './core/options';
 export { registerSequenceType } from './core/Composition';
-export { model } from './core/model';
 export type { SequenceCtor } from './core/Composition';
 export type { CompositionShape } from './types';
 export { Sequence } from './sequences/Base';

@@ -787,37 +787,6 @@ export interface NullSequenceSpec extends SequenceCommon {
   type: 'null';
 }
 
-/**
- * A glTF model as data: loaded, its animation posed by the layer's time, framed and lit by default. The spec language owns this name: whichever 3D engine
- * is registered draws it (`registerThree()` from `pixi-effects/three` registers three.js, today's only engine).
- * Keyframes can address the objects the layer exposes with the engine's own paths (three.js: `three.model.<path>`, `three.camera.<path>`, `three.key.intensity`).
- */
-export interface ModelSequenceSpec extends SequenceCommon {
-  type: 'model';
-  /** URL of a `.glb` / `.gltf` (relative to the page). Draco, KTX2 and Meshopt are not set up. */
-  asset: string;
-  /** A clip name, a clip index, or `false` (no animation: the bind pose). Default: the first clip, if the file has one. */
-  animation?: string | number | false;
-  /** The clip time is `t × animationSpeed + animationOffset` (layer-local seconds). Defaults 1 and 0. */
-  animationSpeed?: number;
-  animationOffset?: number;
-  /** `true` (default): the clip repeats; `false`: it holds its last pose. */
-  loop?: boolean;
-  /** `'contain'` (default): the camera is placed to show the whole model; `false`: no automatic camera (the camera is `camera`, or at (0, 0, 5)). */
-  fit?: 'contain' | false;
-  /** Each part overrides the automatic camera. `fov` is vertical degrees (default 40). */
-  camera?: { fov?: number; position?: [number, number, number]; lookAt?: [number, number, number] };
-  /** `'studio'` (default): a key light, a fill light and an ambient light; `'none'`: only the lights the file brings (`KHR_lights_punctual`). */
-  light?: 'studio' | 'none';
-  /** Layer size in px (expressions allowed). Default: the composition's size. */
-  width?: number | string;
-  height?: number | string;
-  /** Canvas pixels per layer pixel (supersampling). Default 1. */
-  resolution?: number;
-  /** What only three.js has: its renderer (`'webgl'` by default, or `'webgpu'`) and multisampling (`antialias`, default `true`). A page default: `registerThree({ renderer })`. */
-  three?: { renderer?: 'webgl' | 'webgpu'; antialias?: boolean };
-}
-
 export type SequenceSpec =
   | NullSequenceSpec
   | VideoSequenceSpec
@@ -829,7 +798,6 @@ export type SequenceSpec =
   | LightSequenceSpec
   | ShaderSequenceSpec
   | CanvasSequenceSpec
-  | ModelSequenceSpec
   | ShapeSequenceSpec;
 
 /** Top-level composition (root node) — same as `CompositionSequenceSpec` minus the discriminant. */

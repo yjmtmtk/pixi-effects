@@ -208,7 +208,7 @@ Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha stro
 
 **camera** (2.5D) — props in `initial`/keyframes: `x y z lookAtX lookAtY lookAtZ fov focus aperture` (defaults: centred, looking at the z = 0 plane, `fov` 40, `z` auto = `(H/2)/tan(fov/2)` ≈ 989 at 720p). **Depth of field:** `focus` = the sharp plane (a `threeD` layer's name = its first z, or a z number), `aperture` = the lens diameter in px (30 default, 0 off); writing either blurs the other `threeD` layers by their distance from the focus (a rack focus is a keyframe on `focus`; recipe `rack-focus`; `inspect` reports `depthBlur`, and `check --at 2.4` prints each layer's blur). A dolly with no typed distance: leave `z` automatic and animate `offsetZ`. Never on the camera object itself. An orbit is `orbit()`; by hand: `x = cx + R·sin θ`, `z = R·cos θ`, `R = (H/2)/tan(fov/2)`, `lookAt` = the centre at `z = 0`.
 
-**three** (optional entry `pixi-effects/three`) — `three({ type:'three', width, height, setup(ctx) { …; return { objects: { knot } } }, update?, dispose? })`; drive with `'three.knot.rotation.y'` keyframes. Call `registerThree()` before `init` (`registerThree({ renderer: 'webgpu' })` makes WebGPU the page's default; the default is `'webgl'`: GLSL `ShaderMaterial` / `onBeforeCompile` need it). **model** (the spec language's own layer; `registerThree()` makes three.js draw it) — a glTF as data, no `setup`: `model({ type:'model', asset:'fox.glb', animation:'Run', camera?, light?: 'studio'|'none', loop?, animationSpeed?, three?: { renderer?, antialias? } })` (`model` is exported by `pixi-effects`); the clip is posed by the layer's time, the camera fits the model; keyframes `'three.model.rotation.y'`, `'three.key.intensity'`; the import map needs `"three/addons/"`.
+**three** (optional entry `pixi-effects/three`) — `three({ type:'three', width, height, setup(ctx) { …; return { objects: { knot } } }, update?, dispose? })`; drive with `'three.knot.rotation.y'` keyframes. Call `registerThree()` before `init`.
 
 ## Camera flight and a camera shake
 
@@ -2900,45 +2900,6 @@ keyframes: [
 3. Each three sequence owns one WebGL context (an offscreen canvas + renderer). Browsers cap live WebGL contexts at roughly 8–16 — budget accordingly if a composition uses several three layers.
 4. Like `custom` filters, the spec carries functions (`setup`, optionally `update` / `dispose`) and is **not** JSON-serializable.
 5. The scene renders into the layer rectangle: anything that projects outside it is clipped at the layer's edges. Frame the camera with margin for the whole animation — rotating objects often project taller/wider than their resting pose (a `TorusKnotGeometry(radius, tube)`, for instance, extends to `1.5 * radius + tube`, not `radius`).
-
----
-
-## model
-
-A glTF model as data: loaded, its animation posed by the layer's time, framed and lit by default. **`model` is the spec language's own name**: whichever 3D engine is registered draws it (`registerThree()` from `pixi-effects/three` registers three.js, today's only engine; without one the layer warns and says so). What only three.js has (its renderer, its multisampling) lives in a block named for it: `three: { renderer, antialias }`.
-
-```ts
-import { Movie, model } from 'pixi-effects';
-import { registerThree } from 'pixi-effects/three';
-registerThree();                       // registers 'three' and the three.js drawing of 'model'
-
-model({
-  type: 'model', name: 'fox', asset: 'models/fox.glb',          // a URL relative to the page
-  animation: 'Run',                                              // a clip name or index; default: the first clip
-  initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
-  keyframes: [{ at: 0, to: { 'three.model.rotation.y': Math.PI * 2 }, duration: 6 }],   // the glTF root, with the vocabulary of every layer
-})
-```
-
-With three.js the page's import map needs `"three/addons/"` next to `"three"` (`".../three/examples/jsm/"`): the loader is an addon, loaded only by pages that use a model layer. Draco, KTX2 and Meshopt decoders are not set up.
-
-| Field | Meaning | Default |
-|---|---|---|
-| `asset` | URL of a `.glb` / `.gltf` | required |
-| `animation` | a clip name, a clip index, or `false` (the bind pose) | the first clip, if the file has one |
-| `animationSpeed`, `animationOffset` | clip time = `t × animationSpeed + animationOffset` (layer-local seconds) | 1, 0 |
-| `loop` | `true`: the clip repeats; `false`: it holds its last pose | `true` |
-| `fit` | `'contain'`: the camera looks at the model's centre from a three-quarter view (a little from the side and above) at the smallest distance where the whole bounding box (bind pose) fits both the vertical and the horizontal view, with a 10 % margin; `false`: no automatic camera | `'contain'` |
-| `camera` | `{ fov, position: [x, y, z], lookAt: [x, y, z] }`, each part optional; overrides the automatic camera (with `fit: false` and no `camera` it is at (0, 0, 5)) | fov 40 |
-| `light` | `'studio'`: a key, a fill and an ambient light; `'none'`: only the lights the file brings (`KHR_lights_punctual`) | `'studio'` |
-| `width`, `height`, `resolution` | layer size (expressions allowed) and supersampling | the composition's size, 1 |
-| `three` | `{ renderer: 'webgl' \| 'webgpu', antialias }`: as on the `three` layer (`registerThree({ renderer })` is the page default) | `'webgl'`, `true` |
-
-- **Time is the layer's.** The clip is posed with `AnimationMixer.setTime`, which re-evaluates from zero on every call: a seek forward, backward or by jumps gives the same pose, and real time passing changes nothing (the mixer is never attached to a ticker).
-- **Keyframe paths** (three.js): `three.model.<path>` (the glTF root), `three.camera.<path>`, and with `light: 'studio'` `three.key.intensity`, `three.fill.intensity`, `three.ambient.intensity` (and their `color` / `position`).
-- **The camera is fitted to the model's bind pose.** A clip that travels far (a walk across the picture) needs an explicit `camera`.
-- A missing clip name stops the build and lists the clips the file has; a failed load names the URL; a misspelt key gets the usual did-you-mean.
-- `movie.inspect()` reports `renderer` and `backend` of a model or three layer.
 
 ---
 

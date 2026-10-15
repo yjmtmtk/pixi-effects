@@ -830,45 +830,6 @@ keyframes: [
 
 ---
 
-## model
-
-A glTF model as data: loaded, its animation posed by the layer's time, framed and lit by default. **`model` is the spec language's own name**: whichever 3D engine is registered draws it (`registerThree()` from `pixi-effects/three` registers three.js, today's only engine; without one the layer warns and says so). What only three.js has (its renderer, its multisampling) lives in a block named for it: `three: { renderer, antialias }`.
-
-```ts
-import { Movie, model } from 'pixi-effects';
-import { registerThree } from 'pixi-effects/three';
-registerThree();                       // registers 'three' and the three.js drawing of 'model'
-
-model({
-  type: 'model', name: 'fox', asset: 'models/fox.glb',          // a URL relative to the page
-  animation: 'Run',                                              // a clip name or index; default: the first clip
-  initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
-  keyframes: [{ at: 0, to: { 'three.model.rotation.y': Math.PI * 2 }, duration: 6 }],   // the glTF root, with the vocabulary of every layer
-})
-```
-
-With three.js the page's import map needs `"three/addons/"` next to `"three"` (`".../three/examples/jsm/"`): the loader is an addon, loaded only by pages that use a model layer. Draco, KTX2 and Meshopt decoders are not set up.
-
-| Field | Meaning | Default |
-|---|---|---|
-| `asset` | URL of a `.glb` / `.gltf` | required |
-| `animation` | a clip name, a clip index, or `false` (the bind pose) | the first clip, if the file has one |
-| `animationSpeed`, `animationOffset` | clip time = `t × animationSpeed + animationOffset` (layer-local seconds) | 1, 0 |
-| `loop` | `true`: the clip repeats; `false`: it holds its last pose | `true` |
-| `fit` | `'contain'`: the camera looks at the model's centre from a three-quarter view (a little from the side and above) at the smallest distance where the whole bounding box (bind pose) fits both the vertical and the horizontal view, with a 10 % margin; `false`: no automatic camera | `'contain'` |
-| `camera` | `{ fov, position: [x, y, z], lookAt: [x, y, z] }`, each part optional; overrides the automatic camera (with `fit: false` and no `camera` it is at (0, 0, 5)) | fov 40 |
-| `light` | `'studio'`: a key, a fill and an ambient light; `'none'`: only the lights the file brings (`KHR_lights_punctual`) | `'studio'` |
-| `width`, `height`, `resolution` | layer size (expressions allowed) and supersampling | the composition's size, 1 |
-| `three` | `{ renderer: 'webgl' \| 'webgpu', antialias }`: as on the `three` layer (`registerThree({ renderer })` is the page default) | `'webgl'`, `true` |
-
-- **Time is the layer's.** The clip is posed with `AnimationMixer.setTime`, which re-evaluates from zero on every call: a seek forward, backward or by jumps gives the same pose, and real time passing changes nothing (the mixer is never attached to a ticker).
-- **Keyframe paths** (three.js): `three.model.<path>` (the glTF root), `three.camera.<path>`, and with `light: 'studio'` `three.key.intensity`, `three.fill.intensity`, `three.ambient.intensity` (and their `color` / `position`).
-- **The camera is fitted to the model's bind pose.** A clip that travels far (a walk across the picture) needs an explicit `camera`.
-- A missing clip name stops the build and lists the clips the file has; a failed load names the URL; a misspelt key gets the usual did-you-mean.
-- `movie.inspect()` reports `renderer` and `backend` of a model or three layer.
-
----
-
 ## Masks
 
 > A mask is a layer in the **parent's** coordinate space and does **not** follow the layer it masks: slide the content and the mask separately. Reveal by growing the mask's `width` from a fixed edge (`anchorX: 0`); exit by tweening `x` and `width` together.

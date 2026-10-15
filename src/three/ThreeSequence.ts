@@ -6,7 +6,7 @@ import { buildScope } from '../expr/Scope';
 import { evaluateExpr } from '../expr/Parser';
 import type { PathRouters } from '../core/Timeline';
 import type { PropValue } from '../types';
-import type { ThreeContext, ThreeLayerBase, ThreeSetupResult } from './types';
+import type { ThreeContext, ThreeSequenceSpec } from './types';
 import { checkRendererKind, getPageRenderer } from './defaults';
 
 export class ThreeSequence extends Sequence {
@@ -24,25 +24,8 @@ export class ThreeSequence extends Sequence {
   private _warnedNodeFrame = false;
   private _warnedPaths = new Set<string>();
 
-  private get _threeSpec(): ThreeLayerBase {
-    return this.spec as unknown as ThreeLayerBase;
-  }
-
-  /** What only three.js has, read from the spec: a `three` layer has them at its top level, a `model` layer in its `three` block. */
-  protected engineOptions(): { renderer?: 'webgl' | 'webgpu'; antialias?: boolean } {
-    const spec = this.spec as unknown as ThreeLayerBase;
-    return { renderer: spec.renderer, antialias: spec.antialias };
-  }
-
-  /** The three hooks a three.js-based layer fills in: a `three` layer calls the spec's own functions, a `model` layer builds the scene from its data. */
-  protected async userSetup(ctx: ThreeContext): Promise<ThreeSetupResult | void> {
-    return (this.spec as unknown as { setup: (c: ThreeContext) => Promise<ThreeSetupResult | void> | ThreeSetupResult | void }).setup(ctx);
-  }
-  protected userUpdate(t: number, ctx: ThreeContext): void {
-    (this.spec as unknown as { update?: (t: number, c: ThreeContext) => void }).update?.(t, ctx);
-  }
-  protected userDispose(ctx: ThreeContext): void {
-    (this.spec as unknown as { dispose?: (c: ThreeContext) => void }).dispose?.(ctx);
+  private get _threeSpec(): ThreeSequenceSpec {
+    return this.spec as unknown as ThreeSequenceSpec;
   }
 
   protected override pathRouters(): PathRouters {
@@ -65,9 +48,8 @@ export class ThreeSequence extends Sequence {
     // Offscreen canvas — never attached to the DOM. document.createElement
     // (not OffscreenCanvas) so PIXI's Texture.from and three both accept it.
     const canvas = document.createElement('canvas');
-    const options = this.engineOptions();
-    const antialias = options.antialias ?? true;
-    const kind = options.renderer ?? getPageRenderer();
+    const antialias = spec.antialias ?? true;
+    const kind = spec.renderer ?? getPageRenderer();
     checkRendererKind(kind, "a three layer's renderer");
     this._gpu = kind === 'webgpu';
     this.renderer = kind;
@@ -101,8 +83,8 @@ export class ThreeSequence extends Sequence {
       const camera: Camera = new PerspectiveCamera(50, width / height, 0.1, 2000);
       const ctx: ThreeContext = { scene, camera, renderer, width, height };
 
-      let result: ThreeSetupResult | void;
-      try { result = await this.userSetup(ctx); } catch (err) { throw this._gpu ? this._explainWebGpuError(err, spec.name) : err; }
+      let result: Awaited<ReturnType<ThreeSequenceSpec['setup']>>;
+      try { result = await spec.setup(ctx); } catch (err) { throw this._gpu ? this._explainWebGpuError(err, spec.name) : err; }
       if (result?.camera) ctx.camera = result.camera;
       this._scene = scene;
       this._camera = ctx.camera;
@@ -138,13 +120,16 @@ export class ThreeSequence extends Sequence {
    */
   async awaitFrameAt(local: number): Promise<void> {
     if (!this._renderer || !this._scene || !this._camera || !this._ctx) return;
+    const spec = this._threeSpec;
     const t = Math.max(0, Math.min(local, this.duration ?? local));
-    try {
-      this.userUpdate(t, this._ctx);
-    } catch (err) {
-      if (!this._warnedUpdate) {
-        this._warnedUpdate = true;
-        console.warn('pixi-effects: three update() threw (reported once) —', err);
+    if (spec.update) {
+      try {
+        spec.update(t, this._ctx);
+      } catch (err) {
+        if (!this._warnedUpdate) {
+          this._warnedUpdate = true;
+          console.warn('pixi-effects: three update() threw (reported once) —', err);
+        }
       }
     }
     this._draw(t);
@@ -257,8 +242,9 @@ export class ThreeSequence extends Sequence {
   }
 
   override destroy(): void {
-    if (this._ctx) {
-      try { this.userDispose(this._ctx); } catch (err) {
+    const spec = this._threeSpec;
+    if (this._ctx && spec.dispose) {
+      try { spec.dispose(this._ctx); } catch (err) {
         console.warn('pixi-effects: three dispose() threw —', err);
       }
     }

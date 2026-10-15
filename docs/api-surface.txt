@@ -295,7 +295,6 @@ interface MatteRefSpec
   layer: string | SequenceSpec
 type MeasureStyle = Record<string, unknown>
 function measureText(text: string, style?: MeasureStyle): TextSize
-function model(spec: ModelSequenceSpec): SequenceSpec
 interface MotionBlurOptions
   samples?: number
   shutter?: number
@@ -937,29 +936,6 @@ interface ThreeContext
   renderer: WebGLRenderer | WebGPURenderer
   scene: Scene<Object3DEventMap>
   width: number
-interface ThreeLayerBase extends SequenceCommon
-  antialias?: boolean
-  height?: PropValue
-  renderer?: "webgl" | "webgpu"
-  resolution?: number
-  width?: PropValue
-class ThreeModelSequence
-  at: number
-  awaitFrameAt(local: number): Promise<void>
-  backend: "webgl" | "webgpu" | "webgl2" | null
-  build(): Promise<void>
-  buildFilters(): void
-  destroy(): void
-  duration: number
-  intrinsicHeight: number
-  intrinsicWidth: number
-  parent: CompositionShape | null
-  renderer: "webgl" | "webgpu" | null
-  root: CompositionShape
-  scope(): Scope
-  spec: SequenceSpec
-  target: Container<ContainerChild> | null
-  constructor(spec: SequenceSpec, parent: CompositionShape | null, root: CompositionShape)
 type ThreeRendererKind = 'webgl' | 'webgpu'
 class ThreeSequence
   at: number
@@ -978,11 +954,16 @@ class ThreeSequence
   spec: SequenceSpec
   target: Container<ContainerChild> | null
   constructor(spec: SequenceSpec, parent: CompositionShape | null, root: CompositionShape)
-interface ThreeSequenceSpec extends ThreeLayerBase
+interface ThreeSequenceSpec extends SequenceCommon
+  antialias?: boolean
   dispose?: ((ctx: ThreeContext) => void)
+  height?: PropValue
+  renderer?: "webgl" | "webgpu"
+  resolution?: number
   setup: (ctx: ThreeContext) => void | ThreeSetupResult | Promise<void | ThreeSetupResult>
   type: "three"
   update?: ((t: number, ctx: ThreeContext) => void)
+  width?: PropValue
 interface ThreeSetupResult
   camera?: Camera
   objects?: Record<string, object>

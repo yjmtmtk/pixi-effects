@@ -31,7 +31,7 @@ registerSequenceType('__gpu', Gpu as never);
 registerSequenceType('__gl', Gl as never);
 
 describe('inspectScene: the renderer of a three.js-based layer', () => {
-  it('a layer that says which renderer and backend it drew with (three, model) has them in its info; others have neither', async () => {
+  it('a layer that says which renderer and backend it drew with (the three layer) has them in its info; others have neither', async () => {
     const comp = await scene([{ type: '__gpu', name: 'g' }, { type: '__gl', name: 'w' }, { type: '__box', name: 'b' }]);
     const r = inspectScene(comp, 0, 0, { width: 1280, height: 720 });
     const by = (n: string) => r.layers.find((l) => l.name === n)!;
