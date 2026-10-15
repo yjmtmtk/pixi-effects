@@ -123,7 +123,7 @@ describe('for-ai.html (the one page for AI)', () => {
   });
 });
 ```
-Update `tests/docs/SiteShell.test.ts`: NAV ids expected `['gallery','interactive','playground','forai']`; header hrefs `['../../', '../../examples/gallery/', '../../examples/interactive/', '../../examples/playground.html', '../../for-ai.html']`; footer `need` list: replace `'../guide/'`, `'../examples/'`, `'../examples/music-lab.html'` by `'../for-ai.html'`. In `tests/tools/siteShell.test.ts` add `['for-ai.html']` to `PAGES` (leave the others until they are removed in Tasks 3–5).
+Update `tests/docs/SiteShell.test.ts`: NAV ids expected `['gallery','interactive','playground','forai']`; header hrefs `['../../', '../../examples/gallery/', '../../examples/interactive/', '../../examples/playground.html', '../../for-ai.html']`; footer `need` list: replace `'../guide/'`, `'../examples/'`, `'../examples/music-lab.html'` by `'../for-ai.html'`. In `tests/tools/siteShell.test.ts` add `['for-ai.html']` to `PAGES` (leave the others until they are removed in Tasks 4–6).
 
 - [ ] **Step 2: Run.** `npx vitest run tests/docs/ForAi.test.ts tests/docs/SiteShell.test.ts` → Expected: FAIL (file missing; NAV differs).
 - [ ] **Step 3: Implement.** `NAV` as in Interfaces; in `renderFooter` remove the Music lab link and keep the rest (it is built from NAV). In `sync-site.mjs` add
