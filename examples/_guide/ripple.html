@@ -6,9 +6,10 @@
   <title>Waves with stagger</title>
   <!-- written by scripts/build-guide-demos.mjs from the `// @recipe ripple` block of site/guide/motion.md: edit the guide, then run the script -->
   <style>
-    body { margin: 0; padding: 16px; background: #0d1220; }
-    canvas { width: min(960px, 100%); border-radius: 8px; }
-    .movie-controller-wrap { width: min(960px, 100%); }
+    /* the page IS the picture: it fills the guide's frame exactly (no padding, no inline-canvas gap), so it never scrolls inside it */
+    html, body { margin: 0; padding: 0; overflow: hidden; line-height: 0; background: #0d1220; }       /* line-height 0: the picture sits on a text line; a line of text under it is a gap */
+    canvas { display: block; width: 100%; height: auto; }
+    .movie-controller-wrap { width: 100%; }
   </style>
 </head>
 <body>

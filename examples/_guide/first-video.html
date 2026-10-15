@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>My first video</title>
   <style>
-    body { margin: 0; padding: 16px; background: #0d1220; }
-    canvas { width: min(960px, 100%); border-radius: 8px; }
-    .movie-controller-wrap { width: min(960px, 100%); }
+    body { margin: 0; line-height: 0; background: #0d1220; }       /* line-height 0: the picture sits on a text line, and a line of text under it is a gap that makes the page scroll */
+    canvas { display: block; width: 100%; max-width: 960px; height: auto; }
+    .movie-controller-wrap { width: 100%; max-width: 960px; }
   </style>
 </head>
 <body>
