@@ -95,7 +95,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
   }, 190_000);
 
   it('--crop X,Y,W,H (with --at) writes each picture as that part of the canvas, enlarged, so a 40 px figure can be judged; a bad crop or --crop without --at exits 2', async () => {
-    const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/render-range.html'), ...args, '--timeout', '150'], { timeout: 170_000 });
+    const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'tests/films/export-range.html'), ...args, '--timeout', '150'], { timeout: 170_000 });
     const out = mkdtempSync(join(tmpdir(), 'check-crop-'));
     await run(['--out', out, '--no-export', '--at', '1,2', '--crop', '0,0,160,90']);
     const png = (f: string) => { const b = readFileSync(join(out, f)); return { sig: b.subarray(1, 4).toString(), w: b.readUInt32BE(16), h: b.readUInt32BE(20) }; };
@@ -110,7 +110,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
   }, 280_000);
 
   it('--at writes the pictures you name (and a sheet); --draft makes the export a half-size draft; a bad --at exits 2 naming the layers', async () => {
-    const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/render-range.html'), ...args, '--timeout', '150'], { timeout: 170_000 });
+    const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'tests/films/export-range.html'), ...args, '--timeout', '150'], { timeout: 170_000 });
     const out = mkdtempSync(join(tmpdir(), 'check-at-'));
     await run(['--out', out, '--no-export', '--at', '1,50%,f12,title@end']);
     for (const f of ['frames/1.00s.png', 'frames/50pct.png', 'frames/f12.png', 'frames/title-end.png', 'at.png']) {
@@ -176,7 +176,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
   it('audio: the report gives loudness, scenes and cues, the printout says LUFS and dBTP, waveform.png is a real picture; a silent movie has no waveform', async () => {
     const run = (page: string, out: string) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, page), '--no-export', '--out', out, '--timeout', '150'], { timeout: 170_000 });
     const out = mkdtempSync(join(tmpdir(), 'check-wave-'));
-    const { stdout } = await run('examples/_checks/render-range.html', out);
+    const { stdout } = await run('tests/films/export-range.html', out);
     expect(stdout).toMatch(/LUFS/);
     expect(stdout).toMatch(/dBTP/);
     const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));

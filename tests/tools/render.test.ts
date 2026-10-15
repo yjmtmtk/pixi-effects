@@ -133,7 +133,7 @@ const built = existsSync(join(root, 'dist/index.js'));
 describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('render.mjs — the command, run for real in Chrome', () => {
   it('--range / --scene / --draft write a smaller file for part of the movie (and --scene with an unknown name exits 1 saying so)', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'render-range-'));
-    const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), join(root, 'examples/_checks/render-range.html'), ...args, '--quiet', '--timeout', '150'], { timeout: 170_000 });
+    const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), join(root, 'tests/films/export-range.html'), ...args, '--quiet', '--timeout', '150'], { timeout: 170_000 });
     const full = join(dir, 'full.mp4'), part = join(dir, 'part.mp4'), scene = join(dir, 'scene.mp4');
     await run(['-o', full]);
     await run(['-o', part, '--range', '1:2.5', '--draft']);
@@ -150,7 +150,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('render.mjs
 
   it('the line it prints says how long the FILE is: a range of 1 s is not announced as the whole 4 s movie', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'render-len-'));
-    const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), join(root, 'examples/_checks/render-range.html'), ...args, '--quiet', '--timeout', '150'], { timeout: 170_000 });
+    const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), join(root, 'tests/films/export-range.html'), ...args, '--quiet', '--timeout', '150'], { timeout: 170_000 });
     const seconds = (stdout: string): number => Number(/· ([0-9.]+) s ·/.exec(stdout)?.[1]);
     const whole = await run(['-o', join(dir, 'whole.mp4')]);
     expect(whole.stdout, 'the result line gives the real bitrate').toMatch(/· [0-9.]+ Mbps ·/);

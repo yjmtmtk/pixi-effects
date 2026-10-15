@@ -19,6 +19,7 @@ export const AREAS = [
   { name: 'gradients', paths: ['src/sequences/gradient', 'src/sequences/Shape.ts', 'src/sequences/Text.ts', 'src/expr/colorTween.ts', 'src/expr/colorInterp.ts'], tests: ['tests/tools/gradientAnim.test.ts', 'tests/tools/maskBugs.test.ts', 'tests/tools/lastFrame.test.ts'] },
   { name: 'grain and filters', paths: ['src/filters/', 'src/core/timeFilters.ts'], tests: ['tests/tools/grain.test.ts'] },
   { name: 'key warnings', paths: ['src/core/lint.ts', 'src/core/layerKeys.ts', 'src/core/options.ts', 'src/sequences/Composition.ts'], tests: ['tests/tools/noFalseWarnings.test.ts'] },
+  { name: 'test films', paths: ['tests/films/'], tests: ['tests/films/'] },
   { name: 'gallery pieces', paths: ['examples/gallery/'], tests: ['tests/tools/gallery.test.ts', 'tests/tools/noFalseWarnings.test.ts'] },
   { name: 'numbered examples', paths: ['examples/0', 'examples/1'], tests: ['tests/tools/noFalseWarnings.test.ts'] },
   { name: 'text, motion, seeking', paths: ['src/text/', 'src/presets/animateText.ts', 'src/presets/wiggle.ts', 'src/presets/followPath.ts', 'src/presets/cameraPath.ts', 'src/presets/orbit.ts'], tests: ['tests/tools/animateText.test.ts', 'tests/tools/pathMotion.test.ts', 'tests/tools/seeded.test.ts'] },
@@ -34,7 +35,7 @@ export const AREAS = [
   { name: 'playground', paths: ['examples/playground', 'examples/_checks/sandbox-runner.html'], tests: ['tests/tools/playground.test.ts', 'tests/tools/playgroundSandbox.test.ts', 'tests/tools/playgroundMcp.test.ts'] },
   { name: 'chat template', paths: ['ai/chat-template.html', 'ai/CHAT.md'], tests: ['tests/tools/chatTemplate.test.ts', 'tests/tools/playground.test.ts'] },
   { name: 'player and presenter', paths: ['src/Controller.ts', 'src/present/', 'src/core/stops.ts', 'src/core/Movie.ts', 'src/loader.css', 'src/core/loader.ts'], tests: ['tests/tools/controllerLayout.test.ts', 'tests/tools/presenter.test.ts', 'tests/tools/loader.test.ts'] },
-  { name: 'export and frames', paths: ['src/core/Renderer.ts', 'src/core/renderRange.ts', 'src/core/motionBlur.ts', 'src/core/onion.ts', 'src/core/frames.ts', 'src/core/poster.ts'], tests: ['tests/tools/renderRange.test.ts', 'tests/tools/motionBlur.test.ts', 'tests/tools/onion.test.ts', 'tests/tools/poster.test.ts', 'tests/tools/lastFrame.test.ts'] },
+  { name: 'export and frames', paths: ['src/core/Renderer.ts', 'src/core/renderRange.ts', 'src/core/motionBlur.ts', 'src/core/onion.ts', 'src/core/frames.ts', 'src/core/poster.ts'], tests: ['tests/films/export-range.test.ts', 'tests/films/export-formats.test.ts', 'tests/tools/motionBlur.test.ts', 'tests/tools/onion.test.ts', 'tests/tools/poster.test.ts', 'tests/tools/lastFrame.test.ts'] },
   { name: 'site and landing', paths: ['site/', 'index.html', 'scripts/sync-site.mjs', 'scripts/site-parts.mjs', 'scripts/stage-site.mjs'], tests: ['tests/tools/siteShell.test.ts', 'tests/tools/landing.test.ts', 'tests/tools/guideDemo.test.ts'] },
 ];
 
