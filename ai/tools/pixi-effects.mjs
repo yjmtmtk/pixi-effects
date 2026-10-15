@@ -22,7 +22,7 @@ const USAGE = `usage:
   pixi-effects check  <page.html> [--at 3,6] [--out dir]    review a video page: warnings, layout, sound, contact sheet, real export
   pixi-effects render <page.html> -o <file.mp4>             export the video
   pixi-effects view   <page.html>                           look at it in a browser, with a timeline
-  pixi-effects probe  <file|url>                            what is in a video or audio file (codecs, size, duration), with no ffmpeg
+  pixi-effects probe  <file|url>                            what is in a video or audio file (codecs, size, duration), with no ffmpeg; or a .glb / .gltf model (its clips and its size)
   pixi-effects trim   <file|url> <start> <end> -o <out>     cut a file (by copy when it can) and say the real times
   pixi-effects frames <file|url> [--at 1,50%,end] [--sheet] pictures of a video at those times
   pixi-effects sound  <file|url> [--waveform]               loudness, peak, silences of a file's sound

@@ -42,7 +42,8 @@
       "pixi-effects/present":  "https://cdn.jsdelivr.net/npm/pixi-effects@0.39.0/dist/present.js",
       "pixi-effects/three":      "https://cdn.jsdelivr.net/npm/pixi-effects@0.39.0/dist/three.js",
       "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
-      "three":                   "https://esm.sh/three@0.178.0"
+      "three":                   "https://esm.sh/three@0.178.0",
+      "three/addons/":           "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/"
     }
   }
   </script>
@@ -51,7 +52,7 @@
   <script type="module">
     import { Movie, kenBurns, withFade } from 'pixi-effects';
     import { Controller } from 'pixi-effects/controller';
-    // import { registerThree, three } from 'pixi-effects/three';   // only for a three.js layer; call registerThree() before init
+    // import { registerThree, threeGltf } from 'pixi-effects/three';   // only for a three.js layer (call registerThree() before init); threeGltf loads a .glb: recipe gltf-in-space
     // import * as THREE from 'three';
     // A talk instead of a video: import { deck, Presenter } from 'pixi-effects/present';  (the import map above has "pixi-effects/present")
     //   const d = deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops: [at, ...], notes, sequences }] });

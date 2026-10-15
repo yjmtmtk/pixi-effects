@@ -44,7 +44,7 @@ A browser chat's code execution is a small container (often root, a weak CPU, a 
 
 ## Look at footage before you use it
 
-If you are handed a video or a sound (a clip to put in the video, a reference to match), look at it first, with no ffmpeg needed: `npx pixi-effects probe clip.mp4` (size, length, rotation, whether it has sound), `npx pixi-effects frames clip.mp4 --sheet -o looks` (a contact sheet: open the PNG), `npx pixi-effects sound clip.mp4` (loudness, peak, silences), `npx pixi-effects trim clip.mp4 3 8 -o cut.mp4` to cut it (by copy, starting on the next key frame, and it says the real times; `--exact` re-encodes), `npx pixi-effects concat a.mp4 b.mp4 -o both.mp4` to join clips by copy (same codecs, size, rotation and sound, or it says what differs) and `npx pixi-effects audio clip.mp4 -o sound.m4a` for the sound alone. A clip you have not looked at is a clip you do not know: phone clips are often rotated, screen recordings often have no sound. `frames`, `sound` and `trim --exact` use Chrome; if ffmpeg is installed and the job is a long transcode, use ffmpeg. `npx pixi-effects help media` has the reference.
+If you are handed a 3D model (.glb / .gltf), `probe model.glb` lists its clip names and its size before you write any code (recipe `gltf-in-space`). If you are handed a video or a sound (a clip to put in the video, a reference to match), look at it first, with no ffmpeg needed: `npx pixi-effects probe clip.mp4` (size, length, rotation, whether it has sound), `npx pixi-effects frames clip.mp4 --sheet -o looks` (a contact sheet: open the PNG), `npx pixi-effects sound clip.mp4` (loudness, peak, silences), `npx pixi-effects trim clip.mp4 3 8 -o cut.mp4` to cut it (by copy, starting on the next key frame, and it says the real times; `--exact` re-encodes), `npx pixi-effects concat a.mp4 b.mp4 -o both.mp4` to join clips by copy (same codecs, size, rotation and sound, or it says what differs) and `npx pixi-effects audio clip.mp4 -o sound.m4a` for the sound alone. A clip you have not looked at is a clip you do not know: phone clips are often rotated, screen recordings often have no sound. `frames`, `sound` and `trim --exact` use Chrome; if ffmpeg is installed and the job is a long transcode, use ffmpeg. `npx pixi-effects help media` has the reference.
 
 The same command checks a file you MADE before it goes somewhere with rules (a stock site, a platform, a client): `npx pixi-effects probe out.mp4 --expect "size=3840x2160 fps=30 frames=300 bitrate>=35M audio=none"` measures the file itself and prints ok / FAIL per number (exit 1 if any fails). A render's `bitrate` is a ceiling, not a target: a quiet picture is written far under it, so ask `probe`, do not trust the setting.
 
@@ -1785,29 +1785,40 @@ three({
 
 ## A glTF model that runs in the same space as the flat layers (`threeGltf`, `followCamera`)
 
-A `three` layer is the free box: `threeGltf` and `threeFrameCamera` (from `pixi-effects/three`) only do the two things that are easy to get wrong by hand: pose the clip by the layer's time (`AnimationMixer.setTime`, never `mixer.update(dt)`: a seek and an export must give the same frame) and frame the whole model. With `followCamera` / `followLights` the composition's own `camera` and `light` layers drive the scene, so ONE `cameraPath()` flies through the flat layers and the model. The scene is in composition pixels with y flipped: the composition's `(x, y, z)` is `(x, -y, z)`. The page's import map needs `"three"` and `"three/addons/"`. Keep the file small and local (a model with Draco, KTX2 or Meshopt compression needs its decoder set up by hand).
+A `three` layer is the free box: `threeGltf` and `threeFrameCamera` (from `pixi-effects/three`) only do the two things that are easy to get wrong by hand: pose the clip by the layer's time (`AnimationMixer.setTime`, never `mixer.update(dt)`: a seek and an export must give the same frame) and frame the whole model. With `followCamera` / `followLights` the composition's own `camera` and `light` layers drive the scene, so ONE `cameraPath()` or `orbit()` flies through the flat layers and the model together.
+
+Rules to read before you copy:
+- **Placement.** The scene is in composition pixels with y flipped: the composition point `(x, y, z)` is `object.position.set(x, -y, z)`. The middle of a 1280 × 720 composition is `position.set(640, -360, 0)`.
+- **Size.** `fit(px)` scales the model so its longest side (its bounding box in the file's bind pose, which may be longer than a running pose) is `px` pixels. Size it against the other layers: a 480 px fox beside a 420 px title.
+- **Facing.** glTF models usually face +z (toward the viewer). `object.rotation.y = Math.PI / 2` turns one to run toward +x.
+- **Light.** With a `light` layer present, `threeD` text and shapes are lit too: a bright colour can blow out, and a dark one can sink. `lit: false` keeps a layer's own colour.
+- **Order.** The three layer is an ordinary layer in the stack: flat `threeD` layers listed after it are drawn over it (a label), those before it are behind it (a title). Depth does not interleave them.
+- **Clips.** `npx pixi-effects probe Fox.glb` lists the clip names and the size of the model before you write code.
+- **The page.** The template's import map already has `three` and `three/addons/`; uncomment the `import { registerThree, threeGltf } from 'pixi-effects/three'` line and call `registerThree()` before `movie.init`. The `.glb` is fetched next to the page.
 
 ```js
 // @docs-only gltf-in-space
-// registerThree();   import { threeGltf } from 'pixi-effects/three'
+// import { registerThree, threeGltf } from 'pixi-effects/three';   registerThree();   (before movie.init)
+// composition 1280 x 720, 4 s
 let fox;
 return [
-  { type: 'camera', keyframes: [{ at: 0, from: { x: 300, lookAtX: 'GW/2' }, to: { x: 660 }, duration: 4, ease: 'sine.inOut' }] },   // moves the text card AND the fox
+  { type: 'camera', keyframes: [{ at: 0, from: { x: 420, lookAtX: 'GW/2' }, to: { x: 860 }, duration: 4, ease: 'sine.inOut' }] },   // moves the text card AND the fox
   { type: 'light', kind: 'ambient', initial: { intensity: 0.7 } },
-  { type: 'light', kind: 'parallel', initial: { x: 100, y: -200, z: 700, lookAtX: 'GW/2', lookAtY: 'GH/2', lookAtZ: 0, intensity: 1.2 } },
-  { type: 'text', text: 'FOX', threeD: true, style: { fontSize: 300, fontWeight: '900', fill: '#ff7a1a' }, initial: { x: 'GW/2', y: 'GH/2', z: -400, anchorX: 0.5, anchorY: 0.5 } },
-  { type: 'three', name: 'fox', followCamera: true, followLights: true,                      // the layer covers the composition; it sits in the stack like any layer
+  { type: 'light', kind: 'parallel', initial: { x: 140, y: -260, z: 900, lookAtX: 'GW/2', lookAtY: 'GH/2', lookAtZ: 0, intensity: 1.2 } },
+  { type: 'text', text: 'FOX', threeD: true, style: { fontSize: 420, fontWeight: '900', fill: '#ff7a1a' }, initial: { x: 'GW/2', y: 'GH/2', z: -500, anchorX: 0.5, anchorY: 0.5 } },
+  { type: 'three', name: 'fox', followCamera: true, followLights: true,                 // a plain spec: the layer covers the composition and sits in the stack like any layer
     setup: async (ctx) => {
-      fox = await threeGltf('Fox.glb', { animation: 'Run' });                                 // a clip name, an index, or false (the bind pose); speed, offset, loop
-      fox.fit(380);                                                                          // the longest side in px: the model is in metres, the scene in pixels
-      fox.object.position.set(480, -300, 0);                                                 // the middle of a 960 x 540 composition, y flipped
+      fox = await threeGltf('Fox.glb', { animation: 'Run' });                            // a clip name, an index, or false (the bind pose); speed, offset, loop
+      fox.fit(480);                                                                      // the longest side in px: the model is in metres, the scene in pixels
+      fox.object.rotation.y = Math.PI / 2;                                               // faces +x
+      fox.object.position.set(640, -400, 0);                                             // the composition point (640, 400), y flipped
       ctx.scene.add(fox.object);
     },
-    update: (t) => fox.pose(t) },                                                            // the clip at the layer's time: a function of t
+    update: (t) => fox.pose(t) },                                                        // the clip at the layer's time: a function of t
 ];
 ```
 
-Without `followCamera` the layer keeps its own camera: `threeFrameCamera(ctx.camera, fox.object)` puts it where the whole model fits (a three-quarter view; `{ direction, margin }` change it). Shadows and fog of the composition are not mirrored into the scene; with three's default colour management a `MeshStandardMaterial` answers the lights the way three does, close to (not equal to) a card's shading.
+Without `followCamera` the layer keeps its own camera: `threeFrameCamera(ctx.camera, fox.object)` puts it where the whole model fits (a three-quarter view; `{ direction, margin }` change it). Shadows work too: give a light `castsShadows: true` and mark your meshes `castShadow` / `receiveShadow`. Fog: `followFog: true`. With three's default colour management a `MeshStandardMaterial` answers the lights the way three does, close to (not equal to) a card's shading.
 
 ## Subtitles from an SRT file
 
@@ -4567,7 +4578,7 @@ Exit code: **0** done · **1** a problem (the file, the browser, the job as aske
 ## Media
 
 ```
-pixi-effects probe  <file|url> [--keyframes] [--expect "…"]      what is in it: codecs, size, rotation, sound   (help probe)
+pixi-effects probe  <file|url> [--keyframes] [--expect "…"]      what is in it: codecs, size, rotation, sound; for a .glb / .gltf model its clips and size   (help probe)
 pixi-effects frames <file|url> [--at 1,50%,end] [--sheet]        pictures of a video, and a contact sheet       (help frames)
 pixi-effects sound  <file|url> [--waveform] [--window 0.5]       loudness, peak, silences, loudest stretch      (help sound)
 pixi-effects trim   <file|url> <start> <end> -o <out> [--exact]  cut it, and say the real times                 (help trim)

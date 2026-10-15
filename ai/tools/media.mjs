@@ -2,7 +2,7 @@
 /**
  * pixi-effects probe | trim | frames | sound — look at, listen to and cut footage, with no ffmpeg installed.
  *
- *   npx pixi-effects probe  <file|url> [--keyframes] [--json]            what is in a file: container, duration, tracks, codecs, size, notes
+ *   npx pixi-effects probe  <file|url> [--keyframes] [--json]            what is in a file: container, duration, tracks, codecs, size, notes (a .glb / .gltf model: clips and size)
  *   npx pixi-effects trim   <file|url> <start> <end> -o <out> [--exact] [--force] [--json]
  *                                                                        cut [start, end] (seconds, or 1:02.5): by COPY when it can (no re-encode, no loss),
  *                                                                        and it says the real times; --exact re-encodes so the start is the frame asked for
@@ -22,6 +22,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { gltfText, isGltfFile, probeGltf } from './gltfProbe.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = path.resolve(HERE, '../..');
@@ -314,6 +315,12 @@ export function checkExpect(report, items) {
 function bitrateWanted(op, raw) { const n = expectNumber('bitrate', raw); return `${op}${Math.round(n / 1e5) / 10} Mbps`; }
 
 commands.probe = async ({ file, opts }, io) => {
+  if (isGltfFile(file)) {                                                                        // a model, not footage: read in Node, no container library, no browser
+    if (opts.expect !== undefined || opts.keyframes) throw new UsageError('probe on a glTF model takes no --expect or --keyframes (they are for video and audio files); it prints the clips and the size');
+    const r = await probeGltf(file);
+    io.log(opts.json ? JSON.stringify(r, null, 2) : gltfText(r));
+    return 0;
+  }
   const items = opts.expect !== undefined ? parseExpect(opts.expect) : null;                      // a bad expectation is a usage error before any file is read
   const r = await probeFile(file, { keyframes: !!opts.keyframes, exact: !!items });
   const results = items ? checkExpect(r, items) : null;

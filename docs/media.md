@@ -9,7 +9,7 @@ Exit code: **0** done · **1** a problem (the file, the browser, the job as aske
 ## Media
 
 ```
-pixi-effects probe  <file|url> [--keyframes] [--expect "…"]      what is in it: codecs, size, rotation, sound   (help probe)
+pixi-effects probe  <file|url> [--keyframes] [--expect "…"]      what is in it: codecs, size, rotation, sound; for a .glb / .gltf model its clips and size   (help probe)
 pixi-effects frames <file|url> [--at 1,50%,end] [--sheet]        pictures of a video, and a contact sheet       (help frames)
 pixi-effects sound  <file|url> [--waveform] [--window 0.5]       loudness, peak, silences, loudest stretch      (help sound)
 pixi-effects trim   <file|url> <start> <end> -o <out> [--exact]  cut it, and say the real times                 (help trim)
