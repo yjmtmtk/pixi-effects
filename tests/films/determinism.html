@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · determinism</title></head>
+<body>
+  <!-- Test film (tests/films/determinism.test.ts): a 3 s movie with one layer of every kind that must be a pure function of the time: a seeded wiggle, a typed-out text,
+       a canvas layer with its own seeded random, seeded particles and film grain on the root. The page gives the test hashOf(frame) and psnrAgainstFile(base64, frame). -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }</script>
+  <script type="module">
+    import { Movie, wiggle, particles } from '../../dist/index.js';
+    import * as mb from 'mediabunny';
+    const movie = new Movie();
+    window.movie = movie;
+
+    /** A 32-bit FNV-1a hash of the pixels of a frame: two pictures are the same picture when their hashes are. */
+    window.hashOf = async (frame) => {
+      const d = (await movie.snapshot(frame, { as: 'imageData' })).data;
+      let h = 0x811c9dc5;
+      for (let i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); }
+      return (h >>> 0).toString(16);
+    };
+
+    /** The picture of an exported file at `frame` (decoded in the page) against the snapshot of the same frame: PSNR in dB over the colour channels. */
+    window.psnrAgainstFile = async (b64, frame) => {
+      const input = new mb.Input({ source: new mb.BufferSource(Uint8Array.from(atob(b64), c => c.charCodeAt(0))), formats: mb.ALL_FORMATS });
+      const sink = new mb.CanvasSink(await input.getPrimaryVideoTrack(), { width: 320, height: 180, fit: 'fill' });
+      const got = await sink.getCanvas(frame / movie.frameRate + 1e-4);
+      const a = got.canvas.getContext('2d').getImageData(0, 0, 320, 180).data;
+      const b = (await movie.snapshot(frame, { as: 'imageData' })).data;
+      let se = 0, n = 0;
+      for (let i = 0; i < a.length; i += 4) for (let c = 0; c < 3; c++) { const d = a[i + c] - b[i + c]; se += d * d; n++; }
+      return se === 0 ? 99 : 10 * Math.log10(255 * 255 / (se / n));
+    };
+
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: 30, background: '#102040',
+        composition: {
+          filters: [{ type: 'grain', seed: 7, amount: 0.05 }],
+          sequences: [
+            { type: 'shape', shape: 'rect', name: 'box', width: 40, height: 40, initial: { x: 160, y: 90, fillColor: '#ffffff' },
+              keyframes: wiggle({ duration: 3, freq: 4, seed: 3, props: { x: { around: 160, amp: 100 }, rotation: { around: 0, amp: 30 } } }) },
+            { type: 'text', name: 'type', text: 'determinism', style: { fontSize: 22, fill: '#ffd166' }, initial: { x: 12, y: 12 },
+              keyframes: [{ at: 0, from: { visibleChars: 0 }, to: { visibleChars: 11 }, duration: 2.5, ease: 'none' }] },
+            { type: 'canvas', name: 'dots', width: 320, height: 90, seed: 11, initial: { x: 0, y: 90 },
+              draw: (ctx, t, info) => {
+                ctx.fillStyle = '#3ddc97';
+                for (let i = 0; i < 24; i++) ctx.fillRect(info.random() * 310, info.random() * 80, 4, 4);
+                ctx.fillStyle = '#ff3d81'; ctx.beginPath(); ctx.arc(30 + t * 80, 45 + Math.sin(t * 5) * 20, 8, 0, Math.PI * 2); ctx.fill();
+              } },
+            ...particles({ count: 40, at: 0.2, emit: 1, life: [0.5, 1.5], area: { x: 80, y: 170, width: 60 }, angle: [-120, -60], speed: [40, 90], gravity: 60, size: [2, 4], colors: ['#ff8844', '#ffd166'], seed: 5, sampleRate: 30 }),
+          ],
+        } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+  </script>
+</body>
+</html>
