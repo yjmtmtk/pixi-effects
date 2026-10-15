@@ -9,7 +9,7 @@ Exit code: **0** done · **1** a problem (the file, the browser, the job as aske
 ## Media
 
 ```
-pixi-effects probe  <file|url> [--keyframes]                      what is in it: codecs, size, rotation, sound   (help probe)
+pixi-effects probe  <file|url> [--keyframes] [--expect "…"]      what is in it: codecs, size, rotation, sound   (help probe)
 pixi-effects frames <file|url> [--at 1,50%,end] [--sheet]        pictures of a video, and a contact sheet       (help frames)
 pixi-effects sound  <file|url> [--waveform] [--window 0.5]       loudness, peak, silences, loudest stretch      (help sound)
 pixi-effects trim   <file|url> <start> <end> -o <out> [--exact]  cut it, and say the real times                 (help trim)
@@ -44,6 +44,21 @@ footage.mp4
 ```
 
 Container, duration, size, and a row per track: codec, size **as it is shown** (a rotated clip says `180×320 shown (stored 320×180, turned 90° clockwise)`: the stored size, the shown size and the direction are all there, and whether the picture then reads upright depends on how the file was made, so look at a frame), frame rate (and whether it varies), bitrate, sample rate, channels. `--keyframes` lists the key packets (the only places a cut by copy can start). Notes say what an author would trip on: `no audio`, `no video`, `rotated 90°`, `variable frame rate`, `the video starts at 0.5 s` (the first frame is not at 0, so the sound can start before the picture). Runs in Node, no browser.
+
+**Check a file against what it must be: `--expect`.** A platform or a brief asks for numbers (a size, a frame rate, a frame count, a bitrate, no sound). Write them, and `probe` measures the file (every packet, not a header) and answers one line each, exit 1 when one does not hold:
+
+```sh
+npx pixi-effects probe footage.mp4 --expect "size=320x180 fps=30 frames=181 audio=aac container=mp4"
+```
+
+```
+  ok    size      320x180  (wanted =320x180)
+  ok    frames    181  (wanted =181)
+  …
+RESULT: all 5 expectations hold
+```
+
+The words: `size` (`3840x2160`), `width`, `height`, `fps`, `frames`, `duration` (seconds, right to half a frame), `bitrate` (of the whole file's picture: `35M`, `800k` or bits a second), `video` and `audio` (a codec, `none` or, for audio, `any`), `container`. Operators: `=` `!=` `>=` `<=` `>` `<` (`size`, `video`, `audio` and `container` take only `=` and `!=`). Separate by spaces or commas; a misspelt word gets `did you mean`. `--json` adds an `expect` list with `got` and `ok` for each. Remember: a render's `bitrate` is a ceiling, not a target (a quiet or mostly black picture is written far under it): ask `probe` what the file really has.
 
 ## trim
 

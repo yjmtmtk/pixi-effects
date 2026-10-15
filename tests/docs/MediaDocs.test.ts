@@ -61,7 +61,7 @@ describe('the media tools in the docs an agent reads', () => {
       for (const line of lines) {
         const needsChrome = /^npx pixi-effects (frames|sound) /.test(line) || /--exact/.test(line);
         if (needsChrome && (!chrome || !built || process.env.SKIP_BROWSER_TESTS)) continue;
-        const raw = line.replace(/^npx pixi-effects /, '').split(/\s+/);
+        const raw = (line.replace(/^npx pixi-effects /, '').match(/"[^"]*"|\S+/g) ?? []).map(w => w.replace(/^"|"$/g, ''));          // a quoted argument is one word, as a shell would give it
         const args = raw.map((w, i) => w === 'footage.mp4' ? join(root, 'tests/fixtures/media/colors.mp4') : raw[i - 1] === '-o' ? join(dir, w) : w);        // the input is the fixture, every -o goes to a temp folder
         const r = await promisify(execFile)(process.execPath, [join(root, 'ai/tools/pixi-effects.mjs'), ...args], { cwd: root, timeout: 120_000 }).then(() => 0, (e: any) => ({ code: e.code, err: String(e.stderr) }));
         expect(r, line).toBe(0);

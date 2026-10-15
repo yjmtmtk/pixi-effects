@@ -38,7 +38,7 @@ export const USAGE = `usage:
 
 /** How each command reads its command line: the positional words, and each option with the kind of value it takes. */
 const COMMANDS = {
-  probe:  { positional: ['file'], flags: { '--keyframes': 'bool', '--json': 'bool' } },
+  probe:  { positional: ['file'], flags: { '--keyframes': 'bool', '--expect': 'str', '--json': 'bool' } },
   trim:   { positional: ['file', 'start', 'end'], flags: { '-o': 'str', '--out': 'str', '--exact': 'bool', '--force': 'bool', '--json': 'bool', '--chrome': 'str' } },
   audio:  { positional: ['file'], flags: { '-o': 'str', '--out': 'str', '--force': 'bool', '--json': 'bool' } },
   concat: { positional: ['file', 'file'], variadic: true, flags: { '-o': 'str', '--out': 'str', '--force': 'bool', '--json': 'bool' } },
@@ -157,7 +157,7 @@ async function openInput(file) {
 }
 
 /** What is in a file: container, duration, size, one row per track, key packet times with `keyframes`, and notes about what an author would trip on. */
-export async function probeFile(file, { keyframes = false } = {}) {
+export async function probeFile(file, { keyframes = false, exact = false } = {}) {
   const { mb, input, format } = await openInput(file);
   const notes = [];
   let duration;
@@ -184,6 +184,11 @@ export async function probeFile(file, { keyframes = false } = {}) {
         first: round(first, 4), end: round(end, 6), frameGap: round(median, 6),
         stored: { width: await track.getCodedWidth(), height: await track.getCodedHeight() },
       });
+      if (exact) {                                                                                           // every packet, not the first 300: the real frame count and the bitrate of the whole file
+        const all = await track.computePacketStats(Infinity);
+        video[video.length - 1].frames = all.packetCount;
+        video[video.length - 1].bitrateAll = Math.round(all.averageBitrate);
+      }
       if (first > 0.05) notes.push(`the video starts at ${round(first, 3)} s (its first frame is not at 0, so the sound can start before the picture; frames before ${round(first, 3)} s show the first frame)`);
       if (rotation) notes.push(`rotated ${rotation}° clockwise: stored ${await track.getCodedWidth()}×${await track.getCodedHeight()}, shown ${await track.getDisplayWidth()}×${await track.getDisplayHeight()} (frames and anything that places the picture use the shown size; whether the picture then reads upright depends on how the file was made, so look at a frame)`);
       if (fpsVaries) notes.push(`variable frame rate (the gaps between frames range from ${round(gaps[0] * 1000, 1)} to ${round(gaps[gaps.length - 1] * 1000, 1)} ms): a clip from a phone or a screen recording; cut and sample by time, not by frame number`);
@@ -216,10 +221,110 @@ function probeText(r, keyframes) {
   return L.join('\n');
 }
 
+// ───────────────────────────── probe --expect ─────────────────────────────
+
+const EXPECT_KEYS = ['size', 'width', 'height', 'fps', 'frames', 'duration', 'bitrate', 'video', 'audio', 'container'];
+const EXPECT_NUMERIC = ['width', 'height', 'fps', 'frames', 'duration', 'bitrate'];
+
+/**
+ * `size=3840x2160 fps=30 frames=300 bitrate>=35M duration<=60s audio=none video=avc container=mp4` → [{ key, op, raw }].
+ * Words are separated by spaces or commas; the operators are = != >= <= > <; a bitrate may end in k or M, a duration in s.
+ */
+export function parseExpect(text) {
+  const items = [];
+  for (const word of String(text ?? '').split(/[\s,]+/).filter(Boolean)) {
+    const m = word.match(/^([A-Za-z]+)(>=|<=|!=|=|>|<)(.*)$/);
+    if (!m) {
+      const name = word.match(/^[A-Za-z]+/)?.[0];
+      if (name && EXPECT_KEYS.includes(name.toLowerCase())) throw new UsageError(`probe --expect: ${name}: write a comparison such as ${name}=30 or ${name}>=30 (words: ${EXPECT_KEYS.join(' ')})`);
+      throw new UsageError(`probe --expect: cannot read "${word}": write name, operator and value, for example frames=300 or bitrate>=35M (words: ${EXPECT_KEYS.join(' ')})`);
+    }
+    const key = m[1].toLowerCase(), op = m[2], raw = m[3];
+    if (!EXPECT_KEYS.includes(key)) {
+      const guess = nearest(key, EXPECT_KEYS);
+      throw new UsageError(`probe --expect: unknown "${m[1]}"${guess ? `; did you mean "${guess}"?` : ''} (words: ${EXPECT_KEYS.join(' ')})`);
+    }
+    if (!raw) throw new UsageError(`probe --expect: ${key}${op} needs a value`);
+    if (!EXPECT_NUMERIC.includes(key) && op !== '=' && op !== '!=') throw new UsageError(`probe --expect: ${key} takes only = or != (got ${op})`);
+    if (EXPECT_NUMERIC.includes(key) && !Number.isFinite(expectNumber(key, raw))) throw new UsageError(`probe --expect: ${key} wants a number${key === 'bitrate' ? ' (35M, 800k or bits a second)' : key === 'duration' ? ' of seconds (10 or 10s)' : ''}, got "${raw}"`);
+    items.push({ key, op, raw });
+  }
+  if (!items.length) throw new UsageError(`probe --expect: nothing to check: write what the file should be, for example size=3840x2160 fps=30 frames=300 (words: ${EXPECT_KEYS.join(' ')})`);
+  return items;
+}
+
+/** The number of an expectation's value: bits a second for a bitrate (k, M), seconds for a duration (an s is allowed). */
+function expectNumber(key, raw) {
+  const m = String(raw).trim().match(/^(\d+(?:\.\d+)?|\.\d+)\s*([kKmM]?)\s*(?:s)?$/);
+  if (!m) return NaN;
+  const unit = m[2].toLowerCase();
+  if (unit && key !== 'bitrate') return NaN;
+  return Number(m[1]) * (unit === 'k' ? 1e3 : unit === 'm' ? 1e6 : 1);
+}
+
+const compare = (got, op, want, tol = 0) => {
+  switch (op) {
+    case '=': return Math.abs(got - want) <= tol;
+    case '!=': return Math.abs(got - want) > tol;
+    case '>': return got > want + tol;
+    case '<': return got < want - tol;
+    case '>=': return got >= want - tol;
+    case '<=': return got <= want + tol;
+  }
+  return false;
+};
+
+/** Each expectation against the numbers of a `probeFile(file, { exact: true })` report: [{ key, op, want, got, ok, line }]. */
+export function checkExpect(report, items) {
+  const v = report.video?.[0], a = report.audio?.[0];
+  const mbps = n => `${Math.round(n / 1e5) / 10} Mbps`;
+  return items.map(({ key, op, raw }) => {
+    let got, ok, shown;
+    if (['size', 'width', 'height', 'fps', 'frames', 'duration', 'bitrate', 'video'].includes(key) && !v) {
+      got = null; ok = false; shown = 'no video';
+    } else if (key === 'size') {
+      got = `${v.width}x${v.height}`; ok = (got === raw.toLowerCase().replace('×', 'x')) === (op === '='); shown = got;
+    } else if (key === 'width' || key === 'height' || key === 'frames') {
+      got = v[key]; if (got === undefined) { ok = false; shown = 'not measured'; } else { ok = compare(got, op, expectNumber(key, raw)); shown = String(got); }
+    } else if (key === 'fps') {
+      got = v.fps; ok = compare(got, op, expectNumber(key, raw), 0.01); shown = `${got}`;
+    } else if (key === 'duration') {
+      const frame = v.frameGap || 1 / (v.fps || 30);
+      got = v.end; ok = compare(got, op, expectNumber(key, raw), frame / 2); shown = `${got} s`;
+    } else if (key === 'bitrate') {
+      got = v.bitrateAll ?? v.bitrate; ok = compare(got, op, expectNumber(key, raw)); shown = mbps(got);
+    } else if (key === 'video') {
+      got = v.codec; ok = (String(got).toLowerCase() === raw.toLowerCase()) === (op === '='); shown = String(got);
+    } else if (key === 'audio') {
+      const r = raw.toLowerCase();
+      got = a ? a.codec : 'none';
+      ok = (r === 'none' ? !a : r === 'any' ? !!a : !!a && String(a.codec).toLowerCase() === r) === (op === '=');
+      shown = a ? String(a.codec) : 'none';
+    } else {
+      got = String(report.container ?? '').toLowerCase(); ok = (got === raw.toLowerCase()) === (op === '='); shown = got;
+    }
+    return { key, op, want: raw, got, ok, line: `  ${ok ? 'ok  ' : 'FAIL'}  ${key.padEnd(9)} ${shown}  (wanted ${key === 'bitrate' ? bitrateWanted(op, raw) : `${op}${raw}`})` };
+  });
+}
+
+function bitrateWanted(op, raw) { const n = expectNumber('bitrate', raw); return `${op}${Math.round(n / 1e5) / 10} Mbps`; }
+
 commands.probe = async ({ file, opts }, io) => {
-  const r = await probeFile(file, { keyframes: !!opts.keyframes });
-  io.log(opts.json ? JSON.stringify(r, null, 2) : probeText(r, !!opts.keyframes));
-  return 0;
+  const items = opts.expect !== undefined ? parseExpect(opts.expect) : null;                      // a bad expectation is a usage error before any file is read
+  const r = await probeFile(file, { keyframes: !!opts.keyframes, exact: !!items });
+  const results = items ? checkExpect(r, items) : null;
+  if (results) r.expect = results.map(({ line, ...rest }) => rest);
+  if (opts.json) io.log(JSON.stringify(r, null, 2));
+  else {
+    const L = [probeText(r, !!opts.keyframes)];
+    if (results) {
+      L.push('', ...results.map(x => x.line));
+      const bad = results.filter(x => !x.ok).length;
+      L.push(bad ? `RESULT: ${bad} of ${results.length} expectations do not hold` : `RESULT: all ${results.length} expectations hold`);
+    }
+    io.log(L.join('\n'));
+  }
+  return results && results.some(x => !x.ok) ? 1 : 0;
 };
 
 const OUTPUT_FORMATS = { '.mp4': 'Mp4OutputFormat', '.m4v': 'Mp4OutputFormat', '.m4a': 'Mp4OutputFormat', '.mov': 'MovOutputFormat', '.webm': 'WebMOutputFormat', '.mkv': 'MkvOutputFormat', '.mka': 'MkvOutputFormat' };
