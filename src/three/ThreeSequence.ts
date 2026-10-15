@@ -8,6 +8,7 @@ import type { PathRouters } from '../core/Timeline';
 import type { PropValue } from '../types';
 import type { ThreeContext, ThreeSequenceSpec } from './types';
 import { checkRendererKind, getPageRenderer } from './defaults';
+import { applyCameraState, LightMirror } from './spaceBridge';
 
 export class ThreeSequence extends Sequence {
   private _renderer: WebGLRenderer | WebGPURenderer | null = null;
@@ -23,6 +24,8 @@ export class ThreeSequence extends Sequence {
   private _warnedUpdate = false;
   private _warnedNodeFrame = false;
   private _warnedPaths = new Set<string>();
+  private _lightMirror: LightMirror | null = null;
+  private _warnedSpace = new Set<string>();
 
   private get _threeSpec(): ThreeSequenceSpec {
     return this.spec as unknown as ThreeSequenceSpec;
@@ -82,6 +85,7 @@ export class ThreeSequence extends Sequence {
       const scene = new Scene();
       const camera: Camera = new PerspectiveCamera(50, width / height, 0.1, 2000);
       const ctx: ThreeContext = { scene, camera, renderer, width, height };
+      if (spec.followCamera) this._checkFollowShape(width, height, spec.name);
 
       let result: Awaited<ReturnType<ThreeSequenceSpec['setup']>>;
       try { result = await spec.setup(ctx); } catch (err) { throw this._gpu ? this._explainWebGpuError(err, spec.name) : err; }
@@ -122,6 +126,7 @@ export class ThreeSequence extends Sequence {
     if (!this._renderer || !this._scene || !this._camera || !this._ctx) return;
     const spec = this._threeSpec;
     const t = Math.max(0, Math.min(local, this.duration ?? local));
+    this._followSpace(t);
     if (spec.update) {
       try {
         spec.update(t, this._ctx);
@@ -134,6 +139,40 @@ export class ThreeSequence extends Sequence {
     }
     this._draw(t);
     (this.target as Sprite | null)?.texture.source.update();
+  }
+
+  /** `followCamera` / `followLights`: before each frame, ask the composition for its camera and lights at this moment (the layer's time on the composition's clock) and mirror them in the scene. */
+  private _followSpace(t: number): void {
+    const spec = this._threeSpec;
+    if (!spec.followCamera && !spec.followLights) return;
+    const ctx = this._ctx, scene = this._scene;
+    if (!ctx || !scene) return;
+    if (!this.parent?.spaceAt) {
+      this._saidOnce('parent', `followCamera / followLights need the layer to sit in a composition that has a camera or a light to follow; this layer's parent cannot say (it keeps its own camera and lights)`, spec.name);
+      return;
+    }
+    const space = this.parent.spaceAt((this.absoluteStart ?? this.at) + t);
+    ctx.space = space;
+    if (spec.followCamera) {
+      const camera = ctx.camera as PerspectiveCamera;
+      if (!camera.isPerspectiveCamera) this._saidOnce('camera', `followCamera needs a PerspectiveCamera (this layer's camera is a ${(ctx.camera as { type?: string }).type ?? 'different camera'}); it keeps it as it is`, spec.name);
+      else applyCameraState(camera, space.camera, ctx.width / ctx.height);
+    }
+    if (spec.followLights) (this._lightMirror ??= new LightMirror(scene)).update(space.lights);
+  }
+
+  /** followCamera shows the whole composition through the layer's picture: a layer of another shape would show it squeezed or cut. Said once at build. */
+  private _checkFollowShape(width: number, height: number, name: string | undefined): void {
+    const p = this.parent;
+    if (!p || !(p.width > 0 && p.height > 0)) return;
+    if (Math.abs(width * p.height - height * p.width) <= 1e-3 * width * p.height) return;
+    this._saidOnce('shape', `followCamera: the layer is ${width} x ${height} but the composition is ${p.width} x ${p.height}; the camera shows the whole composition, so the layer needs its aspect ratio (drop width / height to cover the composition)`, name);
+  }
+
+  private _saidOnce(key: string, message: string, name: string | undefined): void {
+    if (this._warnedSpace.has(key)) return;
+    this._warnedSpace.add(key);
+    console.warn(`pixi-effects: three layer${name ? ` "${name}"` : ''}: ${message}`);
   }
 
   /**
@@ -249,6 +288,8 @@ export class ThreeSequence extends Sequence {
       }
     }
     const texture = (this.target as Sprite | null)?.texture;
+    this._lightMirror?.dispose();
+    this._lightMirror = null;
     this._disposeRenderer();
     this._scene = null;
     this._camera = null;

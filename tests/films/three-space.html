@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · three layer in the composition's space</title></head>
+<body>
+  <!-- Test film (tests/films/three-space.test.ts): the same composition (a camera that moves and changes fov, optionally lights) drawn two ways:
+       ?mode=board: three flat cards (shape layers with threeD: true), the composition's own 2.5D;  ?mode=three: three flat planes in ONE `three` layer with followCamera / followLights.
+       ?lights=none|ambient|point|parallel|spot  ?lamp=late: a point light that only lives from 1 s to 2 s  ?cm=0: colour management off in the layer (what makes a Lambert plane shade like a card).
+       The page gives the test framePixels, hashOf and pngOf. -->
+  <canvas id="stage" width="480" height="270"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+    "three": "../../node_modules/three/build/three.module.js", "three/webgpu": "../../node_modules/three/build/three.webgpu.js",
+    "three/addons/": "../../node_modules/three/examples/jsm/" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    import { registerThree } from '../../dist/three.js';
+    import * as THREE from 'three';
+    const q = new URLSearchParams(location.search);
+    const mode = q.get('mode') || 'board', kind = q.get('lights') || 'none', lamp = q.get('lamp');
+    const cm = q.get('cm') !== '0', renderer = q.get('renderer') || undefined;
+    registerThree();
+    const W = 480, H = 270, DUR = 3, K = W / 960;   // the composition is 480 x 270; numbers below are written for 960 x 540 and scaled
+    const s = (n) => n * K;
+    const BOXES = [ { x: 300, y: 270, z: 0, c: '#3a6ea5' }, { x: 660, y: 270, z: -300, c: '#d96a3a' }, { x: 480, y: 330, z: 250, c: '#3aa56e' } ];
+    const LIGHTS = {
+      none: [],
+      ambient: [{ kind: 'ambient', initial: { intensity: 0.3 } }],
+      point: [{ kind: 'ambient', initial: { intensity: 0.2 } }, { kind: 'point', initial: { x: s(300), y: s(100), z: s(700), intensity: 1 } }],
+      parallel: [{ kind: 'ambient', initial: { intensity: 0.2 } }, { kind: 'parallel', initial: { x: s(100), y: s(50), z: s(500), lookAtX: s(480), lookAtY: s(270), lookAtZ: 0, intensity: 0.8 } }],
+      spot: [{ kind: 'ambient', initial: { intensity: 0.2 } }, { kind: 'spot', initial: { x: s(420), y: s(60), z: s(700), lookAtX: s(480), lookAtY: s(300), lookAtZ: 0, coneAngle: 50, coneFeather: 0.5, intensity: 1 } }],
+      lampOnly: [{ kind: 'ambient', initial: { intensity: 0.2 } }, { kind: 'point', at: 1, duration: 1, initial: { x: s(300), y: s(100), z: s(700), intensity: 1 } }],
+    }[lamp === 'late' ? 'lampOnly' : kind];
+    const sequences = [
+      { type: 'camera', name: 'cam', keyframes: [{ at: 0, from: { x: W / 2, y: H / 2, fov: 40 }, to: { x: s(780), y: s(150), fov: 70 }, duration: DUR, ease: 'none' }] },
+      ...LIGHTS.map((l) => ({ type: 'light', ...l })),
+    ];
+    if (mode === 'board') {
+      for (const b of BOXES) sequences.push({ type: 'shape', shape: 'rect', width: s(200), height: s(200), threeD: true, initial: { x: s(b.x), y: s(b.y), z: s(b.z), anchorX: 0.5, anchorY: 0.5, fillColor: b.c } });
+    } else {
+      sequences.push({ type: 'three', name: 'scene3d', antialias: false, renderer, followCamera: true, followLights: true,
+        setup: (ctx) => {
+          if (!cm) { THREE.ColorManagement.enabled = false; ctx.renderer.outputColorSpace = THREE.LinearSRGBColorSpace; }
+          for (const b of BOXES) {
+            const lit = LIGHTS.length > 0;
+            const m = new THREE.Mesh(new THREE.PlaneGeometry(s(200), s(200)), lit ? new THREE.MeshLambertMaterial({ color: b.c }) : new THREE.MeshBasicMaterial({ color: b.c }));
+            m.position.set(s(b.x), -s(b.y), s(b.z)); ctx.scene.add(m);
+          }
+        } });
+    }
+    const movie = new Movie();
+    window.movie = movie;
+    window.framePixels = async (frame) => Array.from((await movie.snapshot(frame, { as: 'imageData' })).data);
+    window.hashOf = async (frame) => { const d = (await movie.snapshot(frame, { as: 'imageData' })).data; let h = 0x811c9dc5; for (let i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); };
+    window.pngOf = async (frame) => { const img = await movie.snapshot(frame, { as: 'imageData' }); const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; c.getContext('2d').putImageData(img, 0, 0); return c.toDataURL('image/png'); };
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: W, height: H, duration: DUR, frameRate: 30, background: '#101820', composition: { sequences } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

@@ -775,10 +775,12 @@ three({
 | `antialias?` | `boolean`                                                   | multisampling of the layer's canvas. Default `true`. `false` makes WebGL and WebGPU agree (see below). |
 | `renderer?`  | `'webgl' \| 'webgpu'`                                        | which three.js renderer draws the layer. Default `'webgl'` (`WebGLRenderer`). `'webgpu'` uses `WebGPURenderer` from `three/webgpu` (see below). |
 | `setup`      | `(ctx: ThreeContext) => Promise<ThreeSetupResult \| void> \| ThreeSetupResult \| void` | builds the scene once. Add objects to `ctx.scene`, position `ctx.camera` (or replace it via `{ camera }`). Async, so `Movie.init` can await GLTF / texture loading. |
+| `followCamera?` | `boolean`                                                | the layer's camera is the composition's `camera` layer (see [below](#living-in-the-compositions-space-followcamera-followlights)). |
+| `followLights?` | `boolean`                                                | the composition's `light` layers become three lights in the scene (see below).            |
 | `update?`    | `(t: number, ctx: ThreeContext) => void`                    | optional per-frame hook; `t` is sequence-local time in seconds.                          |
 | `dispose?`   | `(ctx: ThreeContext) => void`                                | cleanup for user-created GPU resources (geometries, materials, textures). Called from `destroy()`. |
 
-`ThreeContext` is `{ scene, camera, renderer, width, height }` — the three.js `Scene`, `Camera`, `WebGLRenderer`, and the resolved layer size in composition px.
+`ThreeContext` is `{ scene, camera, renderer, width, height, space? }` — the three.js `Scene`, `Camera`, `WebGLRenderer`, the resolved layer size in composition px, and (with `followCamera` / `followLights`) `space`: the composition's camera and the lights alive at this moment, as plain numbers.
 
 ### `renderer: 'webgpu'`
 
@@ -801,6 +803,30 @@ Found in `light-as-material` (a brighter amber highlight on WebGPU, mean 2.9 of 
 - **Multisampling** (`antialias`, on by default) is resolved in linear light before tone mapping on WebGPU, after it on WebGL: thin, hot edges come out brighter on WebGPU. `antialias: false` on the layer removes this (use `resolution` for supersampling).
 
 With `antialias: false` and no fog the two agree to 0.04 of 255 (the real film: 0.09). three.js calls the WebGPU order "more correct"; keep one renderer per look, and re-tune fog density or exposure when you switch.
+
+### Living in the composition's space: `followCamera`, `followLights`
+
+By default a `three` layer is a flat picture with a camera and lights of its own: the composition's `camera` and `light` layers move it as a card (with `threeD: true`) but do not reach the scene inside. Two switches make the scene part of the composition's space instead:
+
+```ts
+three({ type: 'three', name: 'world', followCamera: true, followLights: true,        // the layer covers the composition (its default size) and sits in the stack like any layer
+  setup: (ctx) => {
+    for (const [x, y, z, color] of [[300, 270, 0, 0x3a6ea5], [660, 270, -300, 0xd96a3a]]) {
+      const card = new THREE.Mesh(new THREE.BoxGeometry(200, 200, 200), new THREE.MeshLambertMaterial({ color }));
+      card.position.set(x, -y, z);                                                    // composition pixels, y flipped: the composition's (x, y, z) is (x, -y, z) here
+      ctx.scene.add(card);
+    }
+  } }),
+{ type: 'camera', keyframes: [{ at: 0, to: { x: 780, fov: 70 }, duration: 3 }] },    // moves the flat layers AND this scene (cameraPath() works the same)
+{ type: 'light', kind: 'point', initial: { x: 300, y: 100, z: 700 } },
+```
+
+- **`followCamera`** puts the layer's `PerspectiveCamera` where the composition's active camera is, every frame: position, look-at point and vertical `fov` (also the `offset` props of a handheld shake). The scene is in **composition pixels with y flipped** (three's y runs up, the composition's down; +z is toward the viewer in both), so a flat layer and a three object at the same `(x, -y, z)` land on the same pixel (checked to 1e-6 px for several cameras, and in the real picture against the composition's own cards: mean 0.14–0.19 of 255, edges only). `near` is 1 and `far` 20000 (it is px: the default camera is about 740 away). The camera must be a `PerspectiveCamera` and the layer must have the composition's aspect ratio (the camera shows the whole composition): both are warned once. Your own `update(t, ctx)` runs after the camera is set, so it may nudge it.
+- **`followLights`** makes the composition's `light` layers three lights in `ctx.scene`, one per light alive, moved every frame (a light that ended is switched off). `ambient` → `AmbientLight`, `point` → `PointLight`, `spot` → `SpotLight` (`coneAngle` / 2 is the angle, `coneFeather` the penumbra), `parallel` → `DirectionalLight` toward its look-at point; position `(x, -y, z)`, colour and `intensity` as written (three divides a diffuse surface by π, so the layer multiplies by π: intensity 1 is "as bright as the colour", like a card). `falloff: 'none'` is no attenuation; `'inverseSquare'` is decay 2 and full at `radius`; `'smooth'` is three's own cutoff at `radius + falloffDistance` (the same idea, not the same curve). **Shadows and fog are not mirrored** (`ctx.space` has the camera and the lights if you want to build them yourself). The layer's own lights stay as they are.
+- **How close the light is to a card's.** The composition shades a card on sRGB values (`colour × (ambient + the lights)`); three lights in linear light. With `MeshLambertMaterial` and three's colour management off (`THREE.ColorManagement.enabled = false` and `ctx.renderer.outputColorSpace = THREE.LinearSRGBColorSpace` at the top of `setup`; **both are global to the page's three**, so they colour every three layer there) the planes shade like the cards: measured mean 0.02–0.04 of 255 (ambient), 0.16–0.20 (point), 0.11–0.14 (parallel), 0.14–0.16 (spot). With three's defaults (the right choice for glTF models and `MeshStandardMaterial`) the lights are close and not equal: mean 0.8–1.4 of 255. A physically based material answers the light the way it does in three, not the way a card does.
+- **Where it sits.** The layer is an ordinary layer at its place in the stack (not a `threeD` card): flat `threeD` layers and this scene order by the stack, not by depth, and there are no shadows between them. Give the layer `threeD: true` only if you want the whole picture to be a card again.
+- `ctx.space` is `{ camera: { x, y, z, lookAtX, lookAtY, lookAtZ, fov }, lights: [...] }` in composition pixels, the numbers before the y flip. A composition with a `camera` or `light` and no `threeD` layer no longer warns "has no effect" when a three layer follows it.
+- The layer's frame is a function of the time: the camera and the lights are read for the layer's own moment, so a seek, an export and a repeat give the same picture (`tests/films/three-space`, also across a light that begins and ends, and with `renderer: 'webgpu'`).
 
 ### Keyframe paths: `three.<name>.<path>`
 

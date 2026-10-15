@@ -1,0 +1,99 @@
+/**
+ * What lets a `three` layer live in the composition's space (`followCamera`, `followLights`): the composition's camera and lights, in three.
+ *
+ * The scene is in composition pixels with y flipped: a point the composition calls (x, y, z) is `new Vector3(x, -y, z)` here (the composition's y runs down, three's up;
+ * +z is toward the viewer in both). A three camera with the composition camera's position, look-at point and vertical fov then projects that point to the pixel the
+ * composition's own projection gives it (tests/three/spaceBridge.test.ts checks it to 1e-6 px).
+ */
+import { AmbientLight, Color, DirectionalLight, PerspectiveCamera, PointLight, SRGBColorSpace, SpotLight, type Light, type Object3D } from 'three';
+import type { CameraState } from '../space/math';
+import type { LightState } from '../space/lighting';
+
+/** The camera's near plane and far plane in composition pixels: the home camera sits about 740 px from the picture, a long dolly can be several thousand. */
+const NEAR = 1;
+const FAR = 20000;
+
+/** Put a three camera where the composition camera is. The aspect is the layer's (it must be the composition's: see `followCamera`). */
+export function applyCameraState(camera: PerspectiveCamera, s: CameraState, aspect: number): void {
+  camera.fov = s.fov;
+  camera.aspect = aspect;
+  camera.near = NEAR;
+  camera.far = FAR;
+  camera.up.set(0, 1, 0);
+  camera.position.set(s.x, -s.y, s.z);
+  const same = Math.hypot(s.lookAtX - s.x, s.lookAtY - s.y, s.lookAtZ - s.z) < 1e-9;       // the composition then looks along -z
+  camera.lookAt(same ? s.x : s.lookAtX, same ? -s.y : -s.lookAtY, same ? s.z - 1 : s.lookAtZ);
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld();
+}
+
+interface Entry { kind: LightState['kind']; light: Light; target: Object3D | null }
+
+/**
+ * The composition's lights as three lights, one per light layer alive, in layer order. The objects are made once and moved every frame (a light that has ended is switched off,
+ * not removed: the shader of a three layer must not be rebuilt as lights come and go).
+ *
+ * Intensity: three divides a diffuse surface by pi, so a light of intensity 1 is multiplied by pi to be "as bright as the colour" like a card's shading. Falloff: 'none' is no
+ * attenuation; 'inverseSquare' is decay 2 with the intensity scaled so it is full at `radius`; 'smooth' is three's own cutoff at radius + falloffDistance (the same idea, not the
+ * same curve). Shadows are not mirrored.
+ */
+export class LightMirror {
+  private entries: Entry[] = [];
+  constructor(private readonly scene: Object3D) {}
+
+  update(lights: readonly LightState[]): void {
+    lights.forEach((s, i) => {
+      let e = this.entries[i];
+      if (!e || e.kind !== s.kind) {
+        if (e) this.remove(e);
+        e = this.entries[i] = this.make(s.kind);
+      }
+      this.configure(e, s);
+    });
+    for (let i = lights.length; i < this.entries.length; i++) this.entries[i]!.light.visible = false;
+  }
+
+  dispose(): void {
+    for (const e of this.entries) this.remove(e);
+    this.entries = [];
+  }
+
+  private make(kind: LightState['kind']): Entry {
+    const light: Light = kind === 'ambient' ? new AmbientLight() : kind === 'parallel' ? new DirectionalLight() : kind === 'spot' ? new SpotLight() : new PointLight();
+    light.name = 'pixi-effects:composition-light';
+    const target = (light as DirectionalLight | SpotLight).target ?? null;
+    this.scene.add(light);
+    if (target) this.scene.add(target);
+    return { kind, light, target };
+  }
+
+  private remove(e: Entry): void {
+    this.scene.remove(e.light);
+    if (e.target) this.scene.remove(e.target);
+  }
+
+  private configure(e: Entry, s: LightState): void {
+    const { light } = e;
+    light.visible = true;
+    light.color = (light.color ?? new Color()).setRGB(s.r, s.g, s.b, SRGBColorSpace);
+    let intensity = s.intensity * Math.PI;
+    if (s.kind !== 'ambient') {
+      light.position.set(s.x, -s.y, s.z);
+      e.target?.position.set(s.lookAtX, -s.lookAtY, s.lookAtZ);
+    }
+    if (s.kind === 'point' || s.kind === 'spot') {
+      const l = light as PointLight | SpotLight;
+      if (s.falloff === 'inverseSquare') { l.distance = 0; l.decay = 2; intensity *= s.radius * s.radius; }
+      else if (s.falloff === 'smooth') { l.distance = s.radius + s.falloffDistance; l.decay = 0; }
+      else { l.distance = 0; l.decay = 0; }
+    }
+    if (s.kind === 'spot') {
+      const l = light as SpotLight;
+      l.angle = ((s.coneAngle / 2) * Math.PI) / 180;
+      l.penumbra = s.coneFeather;
+    }
+    light.intensity = intensity;
+    light.updateMatrixWorld?.();
+    e.target?.updateMatrixWorld?.();
+  }
+}

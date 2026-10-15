@@ -1,6 +1,6 @@
 import type { Camera, Scene, WebGLRenderer } from 'three';
 import type { WebGPURenderer } from 'three/webgpu';
-import type { SequenceCommon, PropValue } from '../types';
+import type { SequenceCommon, PropValue, SpaceNow } from '../types';
 
 /** Handed to setup / update / dispose. One per three sequence. */
 export interface ThreeContext {
@@ -12,6 +12,8 @@ export interface ThreeContext {
   /** Resolved layer size in composition px. */
   width: number;
   height: number;
+  /** The composition's camera and the lights alive at this moment, set before every `update` when the layer has `followCamera` or `followLights`; undefined otherwise. */
+  space?: SpaceNow;
 }
 
 export interface ThreeSetupResult {
@@ -39,6 +41,14 @@ export interface ThreeSequenceSpec extends SequenceCommon {
   antialias?: boolean;
   /** Supersampling factor for the offscreen canvas. Default 1. */
   resolution?: number;
+  /**
+   * Live in the composition's space: before every frame the layer's camera (a PerspectiveCamera) is put where the composition's `camera` layer is (position, look-at, vertical fov), so a
+   * `cameraPath()` flies through the flat layers and this scene together. The scene is in composition PIXELS with y flipped: a point the composition calls (x, y, z) is `(x, -y, z)` here.
+   * Give the layer the composition's size (the default). The layer is drawn at its place in the stack (it is not a `threeD` card).
+   */
+  followCamera?: boolean;
+  /** The composition's `light` layers become three lights in this scene (ambient, point, spot, parallel; same position, colour, intensity, cone), moved every frame. Shadows are not mirrored. */
+  followLights?: boolean;
   /**
    * Build the scene. Add objects to `ctx.scene`, position `ctx.camera`
    * (or replace it entirely by returning `{ camera }`). Async so GLTF /

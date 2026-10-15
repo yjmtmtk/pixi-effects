@@ -144,6 +144,7 @@ interface CompositionShape
   frameRate?: number
   height: number
   onLayerBuilt?: (() => void | Promise<void>)
+  spaceAt?: ((t: number) => SpaceNow)
   vars?: Record<string, number>
   width: number
 interface CompositionSpec extends SequenceCommon
@@ -674,6 +675,9 @@ interface SoundReport
   peakDb: number
   sampleRate: number
   windows: { t: number; rmsDb: number; }[]
+interface SpaceNow
+  camera: CameraState
+  lights: LightState[]
 interface SplitOptions
   align?: "left" | "center" | "right"
   by?: "chars" | "words" | "lines"
@@ -935,6 +939,7 @@ interface ThreeContext
   height: number
   renderer: WebGLRenderer | WebGPURenderer
   scene: Scene<Object3DEventMap>
+  space?: SpaceNow
   width: number
 type ThreeRendererKind = 'webgl' | 'webgpu'
 class ThreeSequence
@@ -957,6 +962,8 @@ class ThreeSequence
 interface ThreeSequenceSpec extends SequenceCommon
   antialias?: boolean
   dispose?: ((ctx: ThreeContext) => void)
+  followCamera?: boolean
+  followLights?: boolean
   height?: PropValue
   renderer?: "webgl" | "webgpu"
   resolution?: number

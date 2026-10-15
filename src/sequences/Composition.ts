@@ -20,7 +20,7 @@ import { describeLayer, lintText, lintTiming, summarizeWarnings, lintKeys } from
 import { applyBlendMode, maxConcurrentAdvanced, MANY_ADVANCED, type BlendReport } from '../core/blend';
 import { cameraBasis, homeCamera, projectPoint, NEAR, type CameraBasis, type CameraState } from '../space/math';
 import { timeRemapOf, remapOf, contentLength, bindClock, clockTable, type TimeRemap, type ClockTable } from '../core/remap';
-import type { CompositionSequenceSpec, AudioDescriptor, CompositionShape, SequenceSpec } from '../types';
+import type { CompositionSequenceSpec, AudioDescriptor, CompositionShape, SequenceSpec, SpaceNow } from '../types';
 
 
 
@@ -93,7 +93,7 @@ export class CompositionSequence extends Sequence {
     const span = base ? contentLength(base, this.duration) : this.duration;
     this._remap = base ? remapOf(this.spec as never, 'time', span) : null;
     this._contentSpan = span;
-    this._compositionShape = { width, height, duration: span };
+    this._compositionShape = { width, height, duration: span, spaceAt: (t) => this._spaceAt(t) };
 
     const lateKeyframes: string[] = [];
     for (const s of this.spec.sequences ?? []) {
@@ -241,10 +241,10 @@ export class CompositionSequence extends Sequence {
       this._visual.forEach((v, i) => {
         (v.layer?.display ?? v.seq.target!).zIndex = i;
       });
-    } else if (this._cameras.length > 0) {
-      console.warn('pixi-effects: camera has no effect: this composition has no threeD layers');
+    } else if (this._cameras.length > 0 && !this._children.some(c => (c.spec as { followCamera?: boolean }).followCamera)) {
+      console.warn('pixi-effects: camera has no effect: this composition has no threeD layers (a three layer with followCamera: true follows it)');
     }
-    if (this._layers3d.length === 0 && this._lights.length > 0) {
+    if (this._layers3d.length === 0 && this._lights.length > 0 && !this._children.some(c => (c.spec as { followLights?: boolean }).followLights)) {
       console.warn(`pixi-effects: ${describeLayer(this.spec)}: a light has no effect: this composition has no threeD layers (a light lights only the threeD layers of its own composition, not those of the compositions nested in it: put the light inside the composition that holds them)`);
     }
 
@@ -437,6 +437,19 @@ export class CompositionSequence extends Sequence {
     });
   }
 
+  /** The light layers alive at `t` (their own `at` and `duration`; one that runs to the end of the composition is alive at the last instant too). */
+  private _liveLights(t: number, compEnd: number): LightSequence[] {
+    return this._lights.filter(l => { const w = l.window(); return t >= w.start && (t < w.end || (w.end >= compEnd && t <= w.end)); });
+  }
+
+  /** What a `three` layer that follows the composition asks for: the camera and the lights alive at `t` on this composition's clock (the same pick `updateSpace` makes). */
+  private _spaceAt(t: number): SpaceNow {
+    const { width, height } = this._compositionShape!;
+    const compEnd = this._childBase + (this.duration ?? 0);
+    const active = pickActiveCamera(this._cameras.map(cam => ({ cam, ...cam.window() })), t, compEnd);
+    return { camera: active ? active.cam.state() : homeCamera(width, height), lights: this._liveLights(t, compEnd).map(l => l.state()) };
+  }
+
   /**
    * Lights and fog: when the composition has a light layer or the camera writes fog, every threeD layer draws with the lit shader, fed with
    * the lights alive NOW (a pure function of the lights, the camera and the layers; nothing is remembered between frames). With neither,
@@ -448,8 +461,7 @@ export class CompositionSequence extends Sequence {
     // decided on what the composition HAS, not on this frame's camera: once a layer has the lit shader, every later frame must write its uniforms
     // (a fog camera that is over, or a cut to a camera without fog, would leave the last frame's fog on the layers)
     if (this._lights.length === 0 && !this._cameras.some(c => c.fog)) return;
-    const live = this._lights.filter(l => { const w = l.window(); return t >= w.start && (t < w.end || (w.end >= compEnd && t <= w.end)); });
-    const states = live.map(l => l.state());
+    const states = this._liveLights(t, compEnd).map(l => l.state());
     const packed = states.length > 0 ? packLights(states) : null;
     this._lighting = states.length > 0 ? { states, cam: { x: basis.cx, y: basis.cy, z: basis.cz } } : null;
     // A shadow needs a light that makes shadows AND layers that cast them: the casters are the visible layers with `castsShadows`, drawn this frame

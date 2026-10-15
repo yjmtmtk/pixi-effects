@@ -1,4 +1,6 @@
 import type { MusicSummary } from './audio/music/events';
+import type { CameraState } from './space/math';
+import type { LightState } from './space/lighting';
 /**
  * pixi-effects public DSL types.
  *
@@ -827,7 +829,12 @@ export interface CompositionShape {
   onLayerBuilt?: () => void | Promise<void>;
   /** The numbers declared as variables (`movie.init({ vars })`), on the root shape only: an expression reads them as identifiers. */
   vars?: Record<string, number>;
+  /** What a layer that lives in the composition's space (a `three` layer with `followCamera` / `followLights`) asks for: the camera and the lights alive at time `t` (the composition's own clock). Set by the composition. */
+  spaceAt?: (t: number) => SpaceNow;
 }
+
+/** The composition's camera and the lights alive at one moment (what its `camera` and `light` layers say, after their keyframes). */
+export interface SpaceNow { camera: CameraState; lights: LightState[] }
 
 /** Audio descriptor pushed to the mixdown queue by AudioSequence/VideoSequence. */
 export interface AudioDescriptor {
