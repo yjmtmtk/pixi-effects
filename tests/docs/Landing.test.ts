@@ -18,9 +18,9 @@ describe('the landing page (index.html at the repository root, deployed as the s
   });
 
   it('every picture it links to exists, from the repository root (which is the site root)', () => {
-    const srcs = [...html.matchAll(/(?:src|data-src|srcset)="((?:examples|guide)\/[^"]+\.(?:jpg|png|webp))"/g)].map(m => m[1]!);
+    const srcs = [...html.matchAll(/(?:src|data-src|srcset)="((?:examples)\/[^"]+\.(?:jpg|png|webp))"/g)].map(m => m[1]!);
     expect(srcs.length).toBeGreaterThan(15);
-    const missing = [...new Set(srcs)].filter(s => !existsSync(resolve(root, s.startsWith('guide/') ? `site/${s}` : s)));
+    const missing = [...new Set(srcs)].filter(s => !existsSync(resolve(root, s)));
     expect(missing).toEqual([]);
   });
 

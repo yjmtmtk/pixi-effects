@@ -22,4 +22,4 @@ A film is `<area>-<what>.html` with `<area>-<what>.test.ts` beside it. The pages
 | 14 | **Warnings are instructions** | a misspelt option, a unit mistake and a silent failure each give one sentence that says what to write | | (inside the unit tests) | a film per warning family, asserting the text |
 | 15 | **Backends agree** | WebGL and WebGPU draw the same film within a tolerance; a filter that differs is named | | (scattered) | the runner runs each film on both and compares |
 
-The numbered tour (`examples/01-15-*.html`) and the Guide's 24 recipe blocks are not films: they are deleted when this list shows that nothing in them is unique (the site design).
+The numbered tour (`examples/01-15-*.html`) is not a set of films: it is deleted (kept at the git tag `pre-test-films`), and what it showed is carried by the groups above as they are built. The Guide is gone; its 24 recipe blocks added no API the AI recipes lack.

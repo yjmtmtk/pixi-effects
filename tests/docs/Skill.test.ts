@@ -7,7 +7,7 @@ const dir = resolve(root, 'skills/pixi-effects');
 const read = (p: string) => readFileSync(join(dir, p), 'utf8');
 const pkg = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as { version: string; files: string[] };
 const walk = (d: string): string[] => readdirSync(d).flatMap(f => statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : [join(d, f)]);
-const SKIP = /node_modules|\/\.git\/|\/\.claude\/|\/dist\/|\/\.superpowers\/|\/_site\/|\/\.playwright-mcp\/|\/guide-preview\//;
+const SKIP = /node_modules|\/\.git\/|\/\.claude\/|\/dist\/|\/\.superpowers\/|\/_site\/|\/\.playwright-mcp\//;
 
 describe('skills/pixi-effects — what an agent installs', () => {
   const skill = read('SKILL.md');

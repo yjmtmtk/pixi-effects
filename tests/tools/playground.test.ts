@@ -116,7 +116,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the Playgr
         })()`);
         for (const [id, right] of Object.entries(r.rights)) expect(right as number, id).toBeLessThanOrEqual(r.width + 1);
         expect(r.overflow).toBeLessThanOrEqual(0);
-        expect(r.links).toEqual(expect.arrayContaining(['Guide', 'Gallery', 'Examples', 'Playground']));
+        expect(r.links).toEqual(expect.arrayContaining(['Gallery', 'Interactive', 'Playground', 'For AI']));
       });
     }, 120000);
   }

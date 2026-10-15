@@ -31,7 +31,7 @@ describe('release scope: when the heavy browser tests of a release can be left o
   });
 
   it('anything else is full: source, tests, the tools, the gallery, the site, the recipes (they feed the tests), a script', () => {
-    for (const p of ['src/core/Movie.ts', 'tests/tools/media.test.ts', 'ai/tools/media.mjs', 'examples/gallery/aiai-gasa.html', 'site/guide/export.md', 'site/landing/FACTS.md', 'skills/pixi-effects/reference/recipes.md', 'scripts/release-check.mjs', 'tsup.config.ts', 'index.html']) {
+    for (const p of ['src/core/Movie.ts', 'tests/tools/media.test.ts', 'ai/tools/media.mjs', 'examples/gallery/aiai-gasa.html', 'site/shared/site.css', 'site/landing/FACTS.md', 'skills/pixi-effects/reference/recipes.md', 'scripts/release-check.mjs', 'tsup.config.ts', 'index.html']) {
       const r = scope.classify([mod('CHANGELOG.md'), mod(p, ['a'], ['b'])], ctx);
       expect(r.mode, p).toBe('full');
       expect(r.reasons.join(' '), p).toContain(p);

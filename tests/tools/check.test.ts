@@ -10,7 +10,7 @@ const root = resolve(__dirname, '../..');
 // loaded by URL: the tool is a plain .mjs script outside src/
 const tool: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
 
-// the guide's first-video page pins pixi-effects@<this version> on the CDN; just before a release it is not published yet.
+// the first-video page (examples/_checks) pins pixi-effects@<this version> on the CDN; just before a release it is not published yet.
 // `check` needs a library with `movie.review()` (0.18+): a page pinned to an older release cannot be checked by this tool.
 const libraryHasReview = Number(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version.split('.')[1]) >= 18;
 const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
@@ -223,10 +223,10 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     expect(String(strict?.stdout)).toMatch(/none of the fonts "ThisFontDoesNotExist123, NopeNope" is available/);
   }, 200_000);
 
-  it.skipIf(!onCdn || !libraryHasReview)('the guide\'s first-video page (loaded from the CDN, as a reader would) passes the check, sound included', async () => {
+  it.skipIf(!onCdn || !libraryHasReview)('the first-video page (loaded from the CDN, as a reader would) passes the check, sound included', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-test-'));
     const { stdout } = await promisify(execFile)('node', [
-      join(root, 'ai/tools/check.mjs'), join(root, 'examples/_guide/first-video.html'), '--out', out, '--frames', '4', '--timeout', '150',
+      join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/first-video.html'), '--out', out, '--frames', '4', '--timeout', '150',
     ], { timeout: 170_000 });
     expect(stdout).toContain('RESULT: OK');
     const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));

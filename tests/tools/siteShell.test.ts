@@ -1,11 +1,10 @@
 // @vitest-environment node
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 // @ts-expect-error plain ESM script without types
-import { buildGuide } from '../../scripts/build-guide.mjs';
 import { launchPage } from '../support/browser';
 
 const root = resolve(__dirname, '../..');
@@ -14,7 +13,7 @@ const chrome = check.findChrome();
 const built = existsSync(join(root, 'dist/index.js'));
 
 /** Pages that carry the shared header (each task that moves a page onto the shared shell adds it here). */
-const PAGES: Array<[string]> = [['index.html'], ['for-ai.html'], ['guide-preview/getting-started.html'], ['examples/index.html'], ['examples/music-lab.html'], ['examples/playground.html'], ['examples/gallery/index.html'], ['examples/interactive/index.html']];
+const PAGES: Array<[string]> = [['index.html'], ['for-ai.html'], ['examples/index.html'], ['examples/music-lab.html'], ['examples/playground.html'], ['examples/gallery/index.html'], ['examples/interactive/index.html']];
 
 async function withPage<T>(path: string, width: number, fn: (cdp: any) => Promise<T>): Promise<T> {
   const { server, port } = await check.serve(root);
@@ -30,7 +29,6 @@ async function withPage<T>(path: string, width: number, fn: (cdp: any) => Promis
 }
 
 describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the shared header, in a real browser', () => {
-  beforeAll(async () => { await buildGuide({ srcDir: join(root, 'site/guide'), outDir: join(root, 'guide-preview'), root }); });   // the guide is built, not stored
   for (const width of [390, 1440]) {
     it.each(PAGES)(`%s at ${width}px: all the entrances are on screen, nothing scrolls sideways`, async (path) => {
       await withPage(path, width, async (cdp) => {

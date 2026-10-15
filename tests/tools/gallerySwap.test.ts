@@ -20,7 +20,7 @@ function fixture() {
   const r = mkdtempSync(join(tmpdir(), 'swap-'));
   const g = join(r, 'examples/gallery');
   mkdirSync(join(g, 'posters'), { recursive: true }); mkdirSync(join(g, '_notes'), { recursive: true });
-  mkdirSync(join(r, 'scripts')); mkdirSync(join(r, 'site/guide'), { recursive: true }); mkdirSync(join(r, 'site/landing'), { recursive: true });
+  mkdirSync(join(r, 'scripts')); mkdirSync(join(r, 'docs'), { recursive: true }); mkdirSync(join(r, 'site/landing'), { recursive: true });
   mkdirSync(join(r, 'skills/pixi-effects/reference'), { recursive: true }); mkdirSync(join(r, 'docs/superpowers/plans'), { recursive: true });
   writeFileSync(join(g, 'old.html'), page(META_OLD, '', '"pixi-effects": "../../dist/index.js"'));
   writeFileSync(join(g, 'other.html'), page({ ...META_OLD, title: 'Other', model: 'fable' }));
@@ -30,7 +30,7 @@ function fixture() {
   writeFileSync(join(g, 'MODELS.md'), `# Gallery\n\n| Model | Piece | Size | File |\n|---|---|---|---|\n| fable | Other — x | 1280×720 | other.html |\n| sonnet | Old Piece — the weak one | 1280×720 | old.html |\n\nCounts: fable 1, opus 0, sonnet 1, haiku 0 (2 pieces).\n\n\`old\` (sonnet): made on 2026-10-06.\n`);
   writeFileSync(join(r, 'scripts/build-gallery.mjs'), `export const FEATURED = [\n  'other',\n  'old',\n];\n`);
   writeFileSync(join(r, 'index.html'), `<h2>2 pieces</h2>\n<h2 id="h-gal">2 pieces, each one file of data</h2>\n      <a class="piece" href="examples/gallery/#other" data-piece="other"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/other.jpg" width="640" height="360" loading="lazy" alt="Other"></div><figcaption><b>Other</b><span>1280×720 · 12 s · fable</span></figcaption></figure></a>\n      <a class="piece" href="examples/gallery/#old" data-piece="old"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/old.jpg" width="640" height="360" loading="lazy" alt="Old"></div><figcaption><b>Old Piece</b><span>1280×720 · 12 s · sonnet</span></figcaption></figure></a>\n      <p class="tally"><span>2 pieces</span><span>written by <b>fable 1</b> · <b>sonnet 1</b></span><span>+ 15 numbered examples</span></p>\n`);
-  writeFileSync(join(r, 'site/guide/motion.md'), `Some text.\n\n{{demo examples/gallery/old.html}}\n\nThe old piece above shows springs.\n`);
+  writeFileSync(join(r, 'docs/example.md'), `Some text.\n\nSee examples/gallery/old.html for springs.\n`);
   writeFileSync(join(r, 'site/landing/FACTS.md'), `- Gallery: 2 complete pieces (fable 1, opus 0, sonnet 1, haiku 0), from type to data.\n`);
   writeFileSync(join(r, 'skills/pixi-effects/reference/cheatsheet.md'), `See old for a worked example.\n`);
   writeFileSync(join(r, 'CHANGELOG.md'), `## 0.1\nAdded the old piece (old).\n`);
@@ -65,7 +65,7 @@ describe('gallery-swap: replace one piece by another', () => {
     expect(html).toContain('https://esm.sh/pixi.js@8.22.0?bundle-deps');            // the other imports stay as they are
   });
 
-  it('rewrites every place that names the piece: MODELS row and counts, FEATURED, the landing card and tally, the guide embed, FACTS', async () => {
+  it('rewrites every place that names the piece: MODELS row and counts, FEATURED, the landing card and tally, FACTS', async () => {
     const r = fixture(); const file = newPage();
     await swap.swapPiece(r, { oldId: 'old', file, newId: 'fresh', posters: false });
     const models = read(r, 'examples/gallery/MODELS.md');
@@ -80,15 +80,14 @@ describe('gallery-swap: replace one piece by another', () => {
     expect(index).toContain('<figcaption><b>New Piece</b><span>720×1280 · 10 s · opus</span></figcaption>');
     expect(index).not.toContain('data-piece="old"');
     expect(index).toContain('<span>written by <b>fable 1</b> · <b>opus 1</b></span>');
-    expect(read(r, 'site/guide/motion.md')).toContain('{{demo examples/gallery/fresh.html}}');
     expect(read(r, 'site/landing/FACTS.md')).toContain('(fable 1, opus 1, sonnet 0, haiku 0)');
   });
 
-  it('lists what only a person can fix (prose near an embed, other mentions) and leaves the history alone', async () => {
+  it('lists what only a person can fix (other mentions) and leaves the history alone', async () => {
     const r = fixture(); const file = newPage();
     const res = await swap.swapPiece(r, { oldId: 'old', file, newId: 'fresh', posters: false });
     const review = res.review.join('\n');
-    expect(review).toMatch(/site\/guide\/motion\.md/);                 // the prose after the embed may describe the old piece
+    expect(review).toMatch(/docs\/example\.md/);                       // prose that names the old piece
     expect(review).toMatch(/skills\/pixi-effects\/reference\/cheatsheet\.md/);
     expect(review).not.toMatch(/CHANGELOG|docs\/superpowers/);
     expect(read(r, 'CHANGELOG.md')).toContain('old');
@@ -123,7 +122,7 @@ describe('gallery-swap: replace one piece by another', () => {
     expect(read(r, 'examples/gallery/old.html')).toContain('New Piece');
     expect(existsSync(join(r, 'examples/gallery/posters/old.jpg'))).toBe(false);          // regenerated by make-posters
     expect(JSON.parse(read(r, 'examples/gallery/posters/manifest.json')).old).toBeUndefined();
-    expect(read(r, 'site/guide/motion.md')).toContain('{{demo examples/gallery/old.html}}');
+    expect(read(r, 'docs/example.md')).toContain('examples/gallery/old.html');
     expect(read(r, 'scripts/build-gallery.mjs')).toContain("'old'");
   });
 
@@ -173,11 +172,11 @@ describe('gallery-swap: remove a piece for good', () => {
     expect(read(r, 'site/landing/FACTS.md')).toContain('Gallery: 1 complete pieces');
   });
 
-  it('lists the guide embed and the other mentions for a person, and never touches the history files', async () => {
+  it('lists the mentions for a person, and never touches the history files', async () => {
     const r = fixture();
     const { review } = await swap.removePiece(r, { id: 'old', posters: false });
     const text = review.join('\n');
-    expect(text).toMatch(/site\/guide\/motion\.md:3/);
+    expect(text).toMatch(/docs\/example\.md:3/);
     expect(text).toMatch(/skills\/pixi-effects\/reference\/cheatsheet\.md:1/);
     expect(text).not.toMatch(/CHANGELOG|docs\/superpowers/);
     expect(read(r, 'CHANGELOG.md')).toContain('(old)');

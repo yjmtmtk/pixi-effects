@@ -6,8 +6,8 @@
 //
 // What it does: puts the new page into examples/gallery/ (its importmap pointed at the local build), removes the old page, its poster, its notes and
 // its poster-manifest entry, replaces the row in MODELS.md, the card and the tally on the landing page (index.html), the entry in build-gallery.mjs's FEATURED,
-// the `{{demo …}}` embeds in site/**/*.md and the model tally in site/landing/FACTS.md, then makes the new poster and regenerates pieces.json.
-// It lists (and does not touch) what only a person can fix: prose that may describe the old piece, and any other mention outside the history files.
+// the model tally in site/landing/FACTS.md, then makes the new poster and regenerates pieces.json.
+// It lists (and does not touch) what only a person can fix: any other mention outside the history files.
 // With the SAME id it updates the piece in place (for example after music was added): the page is replaced and its poster is made again.
 import { readFileSync, writeFileSync, existsSync, rmSync, readdirSync, statSync, copyFileSync } from 'node:fs';
 import { join, resolve, basename, relative, sep } from 'node:path';
@@ -16,7 +16,7 @@ import { readPiece, MODELS, GALLERY_DIR, DEFAULT_ROOT } from './build-gallery.mj
 
 const META_RE = /<script[^>]*\bid=["']piece-meta["'][^>]*>([\s\S]*?)<\/script>/i;
 const ALLOWED_HOSTS = ['cdn.jsdelivr.net', 'esm.sh'];             // the importmap and the loader stylesheet; nothing else may be fetched
-const HISTORY = [/^CHANGELOG\.md$/, /^docs\/superpowers\//, /^llms(-full)?\.txt$/, /^examples\/gallery\/pieces\.json$/, /^examples\/gallery\/posters\/manifest\.json$/, /^node_modules\//, /^dist\//, /^_site\//, /^guide-preview\//, /^\.git\//, /^examples\/gallery\/_notes\//, /^package-lock\.json$/];
+const HISTORY = [/^CHANGELOG\.md$/, /^docs\/superpowers\//, /^llms(-full)?\.txt$/, /^examples\/gallery\/pieces\.json$/, /^examples\/gallery\/posters\/manifest\.json$/, /^node_modules\//, /^dist\//, /^_site\//, /^\.git\//, /^examples\/gallery\/_notes\//, /^package-lock\.json$/];
 
 const fmtDuration = (d) => `${Number.isInteger(d) ? d : String(d)} s`;
 
@@ -130,24 +130,17 @@ export async function swapPiece(root, { oldId, file, newId, notes = null, dryRun
   const card = `<a class="piece" href="examples/gallery/#${newId}" data-piece="${newId}"><figure style="margin:0"><div class="frame"><img src="examples/gallery/posters/${newId}.jpg" width="${size.width}" height="${size.height}" loading="lazy" alt="${alt}"></div><figcaption><b>${meta.title}</b><span>${meta.width}×${meta.height} · ${fmtDuration(meta.duration)} · ${meta.model}</span></figcaption></figure></a>`;
   edit('index.html', (t) => {
     let out = same ? t : t.replace(new RegExp(`<a class="piece" href="examples/gallery/#${oldId}" data-piece="${oldId}">[\\s\\S]*?</a>`), card);      // an update in place keeps the hand-written card
-    out = out.replace(/(<span>written by )[^\n]*?(<\/span><span>\+)/, `$1${tally.map((x) => x.replace(/^(\S+) (\d+)$/, '<b>$1 $2</b>')).join(' · ')}$2`);
+    out = out.replace(/(<span>written by )[^\n]*?(<\/span>)/, `$1${tally.map((x) => x.replace(/^(\S+) (\d+)$/, '<b>$1 $2</b>')).join(' · ')}$2`);
     return out.replace(/<span>\d+ pieces<\/span>/, `<span>${total} pieces</span>`);
   }, 'the card and the tally');
 
   edit('site/landing/FACTS.md', (t) => t.replace(/\(fable \d+[^)]*\)/, `(${MODELS.map((m) => `${m} ${counts[m]}`).join(', ')})`), 'the model tally');
 
-  // 3. embeds in the guide, and a list of everything else for a person
-  const embedRe = new RegExp(`\\{\\{demo examples/gallery/${oldId}\\.html\\}\\}`, 'g');
+  // 3. a list of everything else for a person
   for (const p of walk(root, root)) {
     if (p.startsWith(`${GALLERY_DIR}/${oldId}.html`) || p === `${GALLERY_DIR}/${newId}.html`) continue;
-    const full = join(root, p), text = writes.get(full) ?? readFileSync(full, 'utf8');
-    if (!same && p.endsWith('.md') && embedRe.test(text)) {
-      embedRe.lastIndex = 0;
-      queueWrite(full, text.replace(embedRe, `{{demo examples/gallery/${newId}.html}}`), 'the embed now shows the new piece');
-      const lines = text.split('\n'); lines.forEach((l, i) => { if (new RegExp(`gallery/${oldId}\\.html`).test(l)) review.push(`${p}:${i + 1}: the text around this embed may describe the old piece "${oldId}"`); });
-      continue;
-    }
     if (same) continue;
+    const full = join(root, p), text = writes.get(full) ?? readFileSync(full, 'utf8');
     const lines = text.split('\n');
     lines.forEach((l, i) => { if (new RegExp(`(?<![\\w-])${oldId}(?![\\w-])`).test(l)) review.push(`${p}:${i + 1}: still names "${oldId}": ${l.trim().slice(0, 110)}`); });
   }
@@ -166,7 +159,7 @@ export async function swapPiece(root, { oldId, file, newId, notes = null, dryRun
 
 /**
  * Take a piece out of the gallery for good, everywhere it is written down (no replacement): its page, poster, notes and manifest entry, its row in MODELS.md,
- * its line in FEATURED, its landing card, and the counts. The guide embeds and every other mention are listed for a person (they cannot be removed blindly).
+ * its line in FEATURED, its landing card, and the counts. Every other mention is listed for a person (they cannot be removed blindly).
  * @param {string} root the repository root
  * @param {{ id: string, dryRun?: boolean, posters?: boolean }} opts `posters: false` leaves pieces.json alone
  * @returns {Promise<{ changes: string[], review: string[] }>}

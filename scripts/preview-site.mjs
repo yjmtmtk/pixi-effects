@@ -1,5 +1,5 @@
 // npm run site: build the site exactly as GitHub Pages serves it (scripts/stage-site.mjs) into _site/ and serve it on http://127.0.0.1:8080/
-// (or the port in PORT). The repository root alone is not enough: the guide is built, so only the staged copy has /guide/.
+// (or the port in PORT).
 import { join } from 'node:path';
 import { serve } from '../ai/tools/check.mjs';
 import { ROOT, stageSite } from './stage-site.mjs';

@@ -2,7 +2,7 @@
 
 > **Status**: experimental — current release `0.39.0`. The API may still change between minor versions; see the [CHANGELOG](./CHANGELOG.md) for what each release changed.
 
-**[Guide →](https://yjmtmtk.github.io/pixi-effects/guide/)** · **[Gallery →](https://yjmtmtk.github.io/pixi-effects/examples/gallery/)** · 52 portfolio pieces written as plain data by AI models · **[Examples →](https://yjmtmtk.github.io/pixi-effects/examples/)** · 15 numbered examples, a music lab + an in-browser playground.
+**[Gallery →](https://yjmtmtk.github.io/pixi-effects/examples/gallery/)** · 43 pieces written as plain data by AI models · **[For AI →](https://yjmtmtk.github.io/pixi-effects/for-ai.html)** · what an AI reads and runs · **[Playground →](https://yjmtmtk.github.io/pixi-effects/examples/playground.html)** in the browser.
 
 ## Make a video by asking an AI
 
@@ -21,7 +21,7 @@ Declarative composition and video rendering for the web. After Effects-style tim
 - **Draw-on strokes and changing text** — `trimEnd` 0 → 1 draws a line, border or SVG path on; a keyframe `set: { text }` swaps a string and `visibleChars` is a typewriter.
 - **Masks, transitions, chroma key** — inline masks; chroma key; eight scene transitions (`crossfade`, `wipe`, `iris`, `slide`, `dip`, `zoom`, `dissolve`, `luma`).
 - **Presets** — `kenBurns` for stills, `withFade` for fade-in/out; `wiggle`, `stagger`, `animateText`, `followPath`, `particles` and `react` return keyframes or layers (seeded, so every render is the same).
-- **Presentations** — `stops` in the composition pause the movie where you say; `Presenter` (`pixi-effects/present`) moves on with arrow keys, a click or a swipe, with a page overview (G), a presenter view with notes and a timer (P), and `deck()` to lay out pages and steps. Export a deck as PDF (`exportPDF(movie)`, `pixi-effects render talk.html -o talk.pdf`). See the [Presenting guide](https://yjmtmtk.github.io/pixi-effects/guide/presenting.html).
+- **Presentations** — `stops` in the composition pause the movie where you say; `Presenter` (`pixi-effects/present`) moves on with arrow keys, a click or a swipe, with a page overview (G), a presenter view with notes and a timer (P), and `deck()` to lay out pages and steps. Export a deck as PDF (`exportPDF(movie)`, `pixi-effects render talk.html -o talk.pdf`).
 - **Music written as text** — `{ type: 'audio', music: { bpm: 96, tracks: [{ inst: 'keys', notes: 'Cmaj7:4 Am7:4' }], drums: { kick: 'x...x...' } } }`: a tune with no audio file, played by a small built-in synthesiser (keys, pluck, pad, bass, lead, bell, music box, drums; chords by name, swing, fades, a ritardando). Deterministic, in the exported file at the same moment; an AI writes it as easily as a title.
 - **Audio-reactive visuals** — `audioEnvelope('music.mp3')` analyses loudness, bass / mid / treble and the beats per frame; `react()` turns them into keyframes, so the picture follows the music and still renders identically.
 - **2.5D layers & camera** — add `threeD: true`, `z`, `rotationX/Y` and a `{ type: 'camera' }` layer for parallax, flips and dolly zooms; no three.js needed.
@@ -187,7 +187,7 @@ They ship in the npm package (`node_modules/pixi-effects/ai/`).
 
 - [**DSL reference**](./docs/dsl.md) — composition, sequences, 3D layers & camera, three.js layer, keyframes, expressions, filters
 - [**API reference**](./docs/api.md) — `Movie`, `Controller`, `pixi-effects/present`, `pixi-effects/three`, events, render options
-- [**Interactive movies**](./examples/interactive/) — nine live samples of a movie you change while it plays (variables, `setVars`, `rebuild`, loop): rock paper scissors, a scrolling city, a tune from four chords, a card for anyone, choose your ending … ([the guide chapter](./site/guide/interactive.md))
+- [**Interactive movies**](./examples/interactive/) — nine live samples of a movie you change while it plays (variables, `setVars`, `rebuild`, loop): rock paper scissors, a scrolling city, a tune from four chords, a card for anyone, choose your ending … ([docs/api.md](./docs/api.md))
 - [**Examples**](./examples/) — runnable HTML files (read in order):
   - `01-hello.html` — minimum viable composition
   - `02-keyframes.html` — keyframes, easings, expressions

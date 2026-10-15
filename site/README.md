@@ -1,6 +1,6 @@
 # The pixi-effects site
 
-The GitHub Pages site is five entrances that share one look: **Home** (the landing page), **Guide**, **Gallery**, **Examples** and **Playground**.
+The GitHub Pages site is four entrances that share one look: **Home** (the landing page), **Gallery**, **Interactive**, **Playground**, and **For AI** (the one page for AI). It shows what the library can do; everything an AI reads lives in `docs/` and `skills/`.
 This folder holds what they share. The rest of each page lives next to its own content.
 
 ## Where things are
@@ -8,13 +8,13 @@ This folder holds what they share. The rest of each page lives next to its own c
 | Entrance | Address | Source | Its own styles |
 |---|---|---|---|
 | Home | `/` | `index.html` (repository root) | `site/landing/landing.css` |
-| Guide | `/guide/` | `site/guide/*.md`, built by `scripts/build-guide.mjs` | `site/guide/guide.css` |
 | Gallery | `/examples/gallery/` | `examples/gallery/index.html` + `pieces.json` (pieces: `<id>.html`) | `examples/gallery/gallery.css` |
-| Examples | `/examples/` | `examples/index.html`, list in `examples/examples.json`, pages `NN-*.html` | `examples/examples.css` |
+| Interactive | `/examples/interactive/` | `examples/interactive/index.html` + the sample pages | inline |
+| For AI | `/for-ai.html` | `for-ai.html` (repository root); the recipe list is generated (`recipe-list` region) | `site/landing/landing.css` |
 | Playground | `/examples/playground.html` | `examples/playground.html` | inline (an app, not a document) |
 
 **Preview the whole site: `npm run site`.** It builds exactly what Pages serves (`scripts/stage-site.mjs`, the same script the workflow runs) into `_site/` and serves it on http://127.0.0.1:8080/. Run it again to pick up changes.
-The repository root is also the site root, so a plain static server over it shows everything *except* the Guide: the guide is built, not stored (`site/guide/*.md` become `guide/*.html`), so `/guide/` does not exist there. `npm run guide` writes just the guide to `guide-preview/`.
+The repository root is also the site root, but the staged copy is the truth: `stage-site.mjs` copies a list (never `examples/_checks`).
 
 ## What is shared (`site/shared/`)
 
@@ -27,9 +27,8 @@ The repository root is also the site root, so a plain static server over it show
 
 ## Common jobs
 
-- **Change the navigation, the header or the footer**: edit `scripts/site-parts.mjs` (the entrances are `NAV`; the footer is built from it too), run `npm run site:sync`. A test fails while any page is out of date (`node scripts/sync-site.mjs --check`). The guide pages are not synced: they take the new parts the next time the guide is rebuilt (`npm run site`, `npm run guide`, or the Pages deploy), so rebuild `guide-preview/` if you have one.
+- **Change the navigation, the header or the footer**: edit `scripts/site-parts.mjs` (the entrances are `NAV`; the footer is built from it too), run `npm run site:sync`. A test fails while any page is out of date (`node scripts/sync-site.mjs --check`).
 - **Add a page**: put the three markers and `<main id="main">` in it, add it to `site/pages.json` (`current` is the nav entry it belongs to; `parts` limits the markers, `regions` asks for generated lists), run `npm run site:sync`, and add it to `PAGES` in `tests/tools/siteShell.test.ts`.
-- **Add an example**: add the file as `examples/NN-name.html` and an entry to `examples/examples.json`, then `npm run site:sync` (a test fails if a numbered file is missing from the list).
 - **Add a gallery piece**: see `examples/gallery/BRIEF.md`; `node scripts/build-gallery.mjs` and `node scripts/make-posters.mjs`.
 - **Where a style goes**: shared by two or more pages → `site/shared/site.css`; used by one page → that page's own stylesheet.
 

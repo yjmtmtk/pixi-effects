@@ -31,8 +31,7 @@ describe('checkEase', () => {
     const root = resolve(__dirname, '../..');
     const files = ['skills/pixi-effects/reference/cheatsheet.md', 'skills/pixi-effects/reference/recipes.md', 'docs/dsl.md',
       ...readdirSync(resolve(root, 'examples/gallery')).filter((f) => f.endsWith('.html')).map((f) => `examples/gallery/${f}`),
-      ...readdirSync(resolve(root, 'examples')).filter((f) => /^\d\d-.*\.html$/.test(f)).map((f) => `examples/${f}`),
-      ...readdirSync(resolve(root, 'site/guide')).filter((f) => f.endsWith('.md')).map((f) => `site/guide/${f}`)];
+      ...readdirSync(resolve(root, 'examples')).filter((f) => /^\d\d-.*\.html$/.test(f)).map((f) => `examples/${f}`)];
     const names = new Set<string>();
     for (const f of files) for (const m of readFileSync(resolve(root, f), 'utf8').matchAll(/\bease\s*:\s*['"]([^'"$`]+)['"]/g)) names.add(m[1]!);
     expect(names.size).toBeGreaterThan(8);

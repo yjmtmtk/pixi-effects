@@ -16,8 +16,8 @@ describe('music is documented as it is built', () => {
     for (const kind of Object.keys(CHORD_KINDS).filter(k => k !== '')) expect(music, `chord kind ${kind}`).toContain(`\`${kind}\``);
   });
 
-  it('the cheatsheet, SKILL and the audio guide name every instrument and drum', () => {
-    for (const file of ['skills/pixi-effects/reference/cheatsheet.md', 'site/guide/audio.md']) {
+  it('the cheatsheet and SKILL name every instrument and drum', () => {
+    for (const file of ['skills/pixi-effects/reference/cheatsheet.md']) {
       const text = read(file);
       for (const i of INSTRUMENTS) expect(text, `${file}: ${i}`).toContain(i);
       for (const d of DRUMS) expect(text, `${file}: ${d}`).toContain(d);
