@@ -70,6 +70,17 @@ runFilms('Three layer in the composition\'s space: the same camera and lights as
     }
   }, 180_000);
 
+  it('shadows do not depend on the size of the composition: at 1280 x 720 (everything scaled) the shadow is still there and still the same (a bias in depth units that ignores the scale hid every caster within about 250 px of the wall: found by an AI trial)', async () => {
+    const grab = async (q: string) => withFilm('three-space', async (film) => {
+      expect(await film.eval<string>('JSON.stringify(window.__logs)'), q).toBe('[]');
+      return { all: await film.eval<number[]>('framePixels(0)'), shadow: await film.eval<number[]>('pixelAt(0, 720, 427)'), lit: await film.eval<number[]>('pixelAt(0, 880, 240)') };
+    }, { query: q });
+    const card = await grab('mode=board&shadow=1&cm=0&big=1'), three = await grab('mode=three&shadow=1&cm=0&big=1');
+    expect(diff(card.all, three.all).mean, 'the picture').toBeLessThan(1);
+    for (let c = 0; c < 3; c++) expect(Math.abs(card.shadow[c]! - three.shadow[c]!), `inside the shadow, channel ${c}`).toBeLessThan(16);
+    expect(three.lit[2]! - three.shadow[2]!, 'the shadow is darker than the lit wall beside it').toBeGreaterThan(60);
+  }, 180_000);
+
   it('a light that only lives from 1 s to 2 s lights the layer exactly then (the frames before and after match the cards; the lit frame is not the unlit one)', async () => {
     const at = [15, 45, 75];
     const card = await frames('mode=board&lamp=late&cm=0', at), three = await frames('mode=three&lamp=late&cm=0', at);

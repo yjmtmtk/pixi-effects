@@ -1352,7 +1352,39 @@ return [
 ];
 ```
 
-Without `followCamera` the layer keeps its own camera: `threeFrameCamera(ctx.camera, fox.object)` puts it where the whole model fits (a three-quarter view; `{ direction, margin }` change it). Shadows work too: give a light `castsShadows: true` and mark your meshes `castShadow` / `receiveShadow`. Fog: `followFog: true`. With three's default colour management a `MeshStandardMaterial` answers the lights the way three does, close to (not equal to) a card's shading.
+Without `followCamera` the layer keeps its own camera: `threeFrameCamera(ctx.camera, fox.object)` puts it where the whole model fits (a three-quarter view; `{ direction, margin }` change it). Shadows work too: give a light `castsShadows: true` and mark your meshes `castShadow` / `receiveShadow` (a wall that receives, a model that casts; `threeGltf` models cast with `model.object.traverse(o => { if (o.isMesh) o.castShadow = true; })`). Fog: `followFog: true`. A `three` wall under `MeshStandardMaterial` is much brighter than a flat card under the same light (three lights in linear light with physical materials, the composition shades sRGB values), so a flat 2D caption on a three wall can look dark: raise its colour, or give the wall a darker `color`, or make the wall a `MeshLambertMaterial` with three's colour management off (`npx pixi-effects help followLights`).
+
+## A model running through a spotlight, with its shadow on a wall (`castsShadows` in three)
+
+A dark room: a wall that RECEIVES the shadow, a model that CASTS it, one spot light that sweeps (a `light` layer with keyframes, so it moves like any layer), and a flat caption that the same light reveals. The light is the composition's; the layer mirrors it into three (`followLights`). A `three` wall under `MeshStandardMaterial` is brighter than a flat card under the same light (three lights in linear light, the composition shades sRGB values): pick the wall's `color` dark, and look at the picture.
+
+```js
+// @docs-only gltf-shadow-room
+// import { registerThree, threeGltf } from 'pixi-effects/three';   registerThree();   import * as THREE from 'three';   (before movie.init)
+// composition 1280 x 720, 5 s. The model faces +z in the file: rotation.y = PI / 2 runs it toward +x.
+let fox;
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#030305' } },
+  { type: 'light', kind: 'ambient', initial: { intensity: 0.05 } },
+  { type: 'light', kind: 'spot', castsShadows: true, initial: { x: -160, y: 430, z: 560, lookAtX: 260, lookAtY: 340, lookAtZ: -100, coneAngle: 40, coneFeather: 0.7, intensity: 1.6, shadowDiffusion: 6 },
+    keyframes: [{ at: 0.3, to: { x: 600, lookAtX: 1020 }, duration: 4.4, ease: 'sine.inOut' }] },      // the beam sweeps across the wall
+  { type: 'three', name: 'world', followCamera: true, followLights: true,
+    setup: async (ctx) => {
+      fox = await threeGltf('Fox.glb', { animation: 'Run' });
+      fox.fit(360); fox.object.rotation.y = Math.PI / 2;
+      fox.object.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });         // the model casts
+      fox.object.position.set(150, -540, 0);                                                                   // the composition point (150, 540), y flipped: it runs on the floor
+      ctx.scene.add(fox.object);
+      const wall = new THREE.Mesh(new THREE.PlaneGeometry(2600, 1400), new THREE.MeshStandardMaterial({ color: 0x6d717b, roughness: 0.95 }));
+      wall.position.set(640, -330, -130); wall.receiveShadow = true; ctx.scene.add(wall);                      // the wall receives
+    },
+    update: (t) => { fox.pose(t); fox.object.position.x = 150 + 980 * Math.min(1, t / 4.6); } },              // placed from t: a function of the time
+  { type: 'text', text: 'RUN THROUGH THE LIGHT', threeD: true, style: { fontSize: 46, fontWeight: '800', fill: '#ffffff', letterSpacing: 6 },
+    initial: { x: 'GW/2', y: 330, z: -126, anchorX: 0.5, anchorY: 0.5 } },                                      // a flat caption just in front of the wall, lit by the same light
+];
+```
+
+A moving, shadow-casting model is held to "a function of the time" by `check`: place it from `t` in `update` (as above) and let `threeGltf` load it (it draws a skinned mesh always: three culls it by a bounding sphere that does not follow it).
 
 ## Subtitles from an SRT file
 

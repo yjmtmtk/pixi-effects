@@ -58,6 +58,10 @@ export async function threeGltf(url: string, options: ThreeGltfOptions = {}): Pr
 
   // The origin of the group is the centre of the box, so the model is placed and turned about its centre.
   const root: Object3D = gltf.scene;
+  // A skinned mesh is always drawn. three culls a mesh by a bounding sphere, and a skinned mesh's sphere does not follow its animation or its place: a model that MOVES and throws a shadow
+  // drew its shadow differently depending on the frames drawn before it (found on the Khronos Fox: `check` reported the layer as not a function of the time; with culling off the
+  // pictures are the same in any order). The cost is that an off-screen model is still drawn.
+  root.traverse((o) => { if ((o as { isSkinnedMesh?: boolean }).isSkinnedMesh) o.frustumCulled = false; });
   const object = new Group();
   object.add(root);
   const bounds = new Box3().setFromObject(root);

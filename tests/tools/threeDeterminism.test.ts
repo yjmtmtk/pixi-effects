@@ -53,6 +53,12 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check hold
     expect(r.stdout).toMatch(/three +1 three layer\(s\) drew the same picture twice/);
   }, 200_000);
 
+  it('a skinned model that MOVES and throws a shadow passes (found on the Khronos Fox: three culls a skinned mesh by a bounding sphere that does not follow it, so its shadow depended on the frames drawn before; threeGltf turns that culling off. This small fixture did not show the fault before the fix: the Fox did)', async () => {
+    const r = await run('skin=1');
+    expect(r.stdout).toMatch(/three +1 three layer\(s\) drew the same picture twice/);
+    expect(r.code).toBe(0);
+  }, 200_000);
+
   it("with renderer: 'webgpu' the layer is checked as well (the picture is read from the WebGPU canvas in the same task)", async () => {
     const r = await run('renderer=webgpu');
     expect(r.code).toBe(0);

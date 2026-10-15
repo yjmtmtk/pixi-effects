@@ -47,7 +47,7 @@ export interface ThreeSequenceSpec extends SequenceCommon {
    * Give the layer the composition's size (the default). The layer is drawn at its place in the stack (it is not a `threeD` card).
    */
   followCamera?: boolean;
-  /** The composition's `light` layers become three lights in this scene (ambient, point, spot, parallel; same position, colour, intensity, cone), moved every frame. Shadows are not mirrored. */
+  /** The composition's `light` layers become three lights in this scene (ambient, point, spot, parallel; same position, colour, intensity, cone), moved every frame. A light with `castsShadows` casts in three: mark your meshes `castShadow` / `receiveShadow`. */
   followLights?: boolean;
   /** The composition camera's fog (`fogNear` / `fogFar` / `fogColor`) becomes the scene's `Fog`, every frame. three's Fog fades by `smoothstep` where the composition's is linear, and has no `fogAmount` below 1. */
   followFog?: boolean;

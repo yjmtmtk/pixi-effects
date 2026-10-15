@@ -6,7 +6,7 @@
        ?mode=board: three flat cards (shape layers with threeD: true), the composition's own 2.5D;  ?mode=three: three flat planes in ONE `three` layer with followCamera / followLights.
        ?shadow=1: a spot light that casts shadows, a wall and a card in front of it that casts one;  ?fog=1: the camera writes fog (near 150, far 600, #0a1020);  ?lights=none|ambient|point|parallel|spot  ?lamp=late: a point light that only lives from 1 s to 2 s  ?cm=0: colour management off in the layer (what makes a Lambert plane shade like a card).
        The page gives the test framePixels, pixelAt, hashOf and pngOf. -->
-  <canvas id="stage" width="480" height="270"></canvas>
+  <canvas id="stage" width="480" height="270"></canvas>        <!-- ?big=1: the same film at 1280 x 720 (everything scaled), where a scale-blind shadow bias loses the shadow -->
   <script>
     window.__logs = [];
     for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
@@ -23,7 +23,9 @@
     const mode = q.get('mode') || 'board', kind = q.get('lights') || 'none', lamp = q.get('lamp');
     const cm = q.get('cm') !== '0', renderer = q.get('renderer') || undefined;
     registerThree();
-    const W = 480, H = 270, DUR = 3, K = W / 960;   // the composition is 480 x 270; numbers below are written for 960 x 540 and scaled
+    const BIG = q.get('big') === '1';
+    const W = BIG ? 1280 : 480, H = BIG ? 720 : 270, DUR = 3, K = W / 960;   // the composition is 480 x 270 (1280 x 720 with ?big=1); numbers below are written for 960 x 540 and scaled
+    document.getElementById('stage').width = W; document.getElementById('stage').height = H;
     const s = (n) => n * K;
     const BOXES = [ { x: 300, y: 270, z: 0, c: '#3a6ea5' }, { x: 660, y: 270, z: -300, c: '#d96a3a' }, { x: 480, y: 330, z: 250, c: '#3aa56e' } ];
     const LIGHTS = {
@@ -44,7 +46,7 @@
       ...LIGHTS.map((l) => ({ type: 'light', ...l })),
     ];
     if (shadow) {
-      const WALL = { x: 240, y: 135, z: -150, w: 440, h: 240, c: '#3a6ea5' }, CARD = { x: 220, y: 135, z: 0, w: 100, h: 100, c: '#d96a3a' };
+      const WALL = { x: s(480), y: s(270), z: s(-300), w: s(880), h: s(480), c: '#3a6ea5' }, CARD = { x: s(440), y: s(270), z: 0, w: s(200), h: s(200), c: '#d96a3a' };
       if (mode === 'board') {
         sequences.push({ type: 'shape', shape: 'rect', width: WALL.w, height: WALL.h, threeD: true, initial: { x: WALL.x, y: WALL.y, z: WALL.z, anchorX: 0.5, anchorY: 0.5, fillColor: WALL.c } });
         sequences.push({ type: 'shape', shape: 'rect', width: CARD.w, height: CARD.h, threeD: true, castsShadows: true, initial: { x: CARD.x, y: CARD.y, z: CARD.z, anchorX: 0.5, anchorY: 0.5, fillColor: CARD.c } });

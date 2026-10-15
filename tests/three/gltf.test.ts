@@ -10,7 +10,7 @@ vi.mock('three/addons/loaders/GLTFLoader.js', async () => {
     async loadAsync(url: string) {
       loaded.push(url);
       if (/missing/.test(url)) throw new Error('404 Not Found');
-      return this.parseAsync(readFileSync(resolve(__dirname, '../fixtures', /long/.test(url) ? 'long-box.gltf' : 'spin-box.gltf'), 'utf8'), '');
+      return this.parseAsync(readFileSync(resolve(__dirname, '../fixtures', /long/.test(url) ? 'long-box.gltf' : /skinned/.test(url) ? 'skinned-box.gltf' : 'spin-box.gltf'), 'utf8'), '');
     }
   }
   return { GLTFLoader };
@@ -102,6 +102,27 @@ describe('threeGltf: the clip is posed by the time, never by a clock', () => {
   it('a model with no clip can be posed (nothing happens) and disposed', async () => {
     const m = await threeGltf('models/long-box.gltf');
     expect(() => { m.pose(1); m.dispose(); }).not.toThrow();
+  });
+});
+
+describe('threeGltf: skinned meshes', () => {
+  it('a skinned mesh is never culled by its bounding sphere (a model that moves and casts a shadow drew it depending on the frames before: found on the Fox), a plain mesh keeps three\'s default', async () => {
+    const skinned = await threeGltf('models/skinned-box.gltf');
+    const found: Array<{ isSkinnedMesh?: boolean; frustumCulled: boolean }> = [];
+    skinned.object.traverse((o) => { if ((o as { isMesh?: boolean }).isMesh) found.push(o as never); });
+    expect(found.some((m) => m.isSkinnedMesh), 'the fixture really has a skinned mesh').toBe(true);
+    expect(found.filter((m) => m.isSkinnedMesh).every((m) => m.frustumCulled === false)).toBe(true);
+    const plain = await threeGltf('models/spin-box.gltf');
+    const plainMeshes: Array<{ frustumCulled: boolean }> = [];
+    plain.object.traverse((o) => { if ((o as { isMesh?: boolean }).isMesh) plainMeshes.push(o as never); });
+    expect(plainMeshes.every((m) => m.frustumCulled === true)).toBe(true);
+  });
+
+  it('the skinned fixture plays its clip "Wave" and its size is the box', async () => {
+    const m = await threeGltf('models/skinned-box.gltf');
+    expect(m.clips).toEqual(['Wave']);
+    expect(m.size.toArray().map((v) => +v.toFixed(3))).toEqual([1, 1, 1]);
+    expect(() => { m.pose(0.5); }).not.toThrow();
   });
 });
 

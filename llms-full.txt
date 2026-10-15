@@ -1818,7 +1818,39 @@ return [
 ];
 ```
 
-Without `followCamera` the layer keeps its own camera: `threeFrameCamera(ctx.camera, fox.object)` puts it where the whole model fits (a three-quarter view; `{ direction, margin }` change it). Shadows work too: give a light `castsShadows: true` and mark your meshes `castShadow` / `receiveShadow`. Fog: `followFog: true`. With three's default colour management a `MeshStandardMaterial` answers the lights the way three does, close to (not equal to) a card's shading.
+Without `followCamera` the layer keeps its own camera: `threeFrameCamera(ctx.camera, fox.object)` puts it where the whole model fits (a three-quarter view; `{ direction, margin }` change it). Shadows work too: give a light `castsShadows: true` and mark your meshes `castShadow` / `receiveShadow` (a wall that receives, a model that casts; `threeGltf` models cast with `model.object.traverse(o => { if (o.isMesh) o.castShadow = true; })`). Fog: `followFog: true`. A `three` wall under `MeshStandardMaterial` is much brighter than a flat card under the same light (three lights in linear light with physical materials, the composition shades sRGB values), so a flat 2D caption on a three wall can look dark: raise its colour, or give the wall a darker `color`, or make the wall a `MeshLambertMaterial` with three's colour management off (`npx pixi-effects help followLights`).
+
+## A model running through a spotlight, with its shadow on a wall (`castsShadows` in three)
+
+A dark room: a wall that RECEIVES the shadow, a model that CASTS it, one spot light that sweeps (a `light` layer with keyframes, so it moves like any layer), and a flat caption that the same light reveals. The light is the composition's; the layer mirrors it into three (`followLights`). A `three` wall under `MeshStandardMaterial` is brighter than a flat card under the same light (three lights in linear light, the composition shades sRGB values): pick the wall's `color` dark, and look at the picture.
+
+```js
+// @docs-only gltf-shadow-room
+// import { registerThree, threeGltf } from 'pixi-effects/three';   registerThree();   import * as THREE from 'three';   (before movie.init)
+// composition 1280 x 720, 5 s. The model faces +z in the file: rotation.y = PI / 2 runs it toward +x.
+let fox;
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#030305' } },
+  { type: 'light', kind: 'ambient', initial: { intensity: 0.05 } },
+  { type: 'light', kind: 'spot', castsShadows: true, initial: { x: -160, y: 430, z: 560, lookAtX: 260, lookAtY: 340, lookAtZ: -100, coneAngle: 40, coneFeather: 0.7, intensity: 1.6, shadowDiffusion: 6 },
+    keyframes: [{ at: 0.3, to: { x: 600, lookAtX: 1020 }, duration: 4.4, ease: 'sine.inOut' }] },      // the beam sweeps across the wall
+  { type: 'three', name: 'world', followCamera: true, followLights: true,
+    setup: async (ctx) => {
+      fox = await threeGltf('Fox.glb', { animation: 'Run' });
+      fox.fit(360); fox.object.rotation.y = Math.PI / 2;
+      fox.object.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });         // the model casts
+      fox.object.position.set(150, -540, 0);                                                                   // the composition point (150, 540), y flipped: it runs on the floor
+      ctx.scene.add(fox.object);
+      const wall = new THREE.Mesh(new THREE.PlaneGeometry(2600, 1400), new THREE.MeshStandardMaterial({ color: 0x6d717b, roughness: 0.95 }));
+      wall.position.set(640, -330, -130); wall.receiveShadow = true; ctx.scene.add(wall);                      // the wall receives
+    },
+    update: (t) => { fox.pose(t); fox.object.position.x = 150 + 980 * Math.min(1, t / 4.6); } },              // placed from t: a function of the time
+  { type: 'text', text: 'RUN THROUGH THE LIGHT', threeD: true, style: { fontSize: 46, fontWeight: '800', fill: '#ffffff', letterSpacing: 6 },
+    initial: { x: 'GW/2', y: 330, z: -126, anchorX: 0.5, anchorY: 0.5 } },                                      // a flat caption just in front of the wall, lit by the same light
+];
+```
+
+A moving, shadow-casting model is held to "a function of the time" by `check`: place it from `t` in `update` (as above) and let `threeGltf` load it (it draws a skinned mesh always: three culls it by a bounding sphere that does not follow it).
 
 ## Subtitles from an SRT file
 
@@ -2954,7 +2986,7 @@ three({ type: 'three', width: 'GW', height: 'GH',
 
 - **`threeGltf(url, { animation, speed, offset, loop })`** loads the file with three's `GLTFLoader` and returns `{ object, clips, size, pose(t), fit(px), dispose() }`. `object` is a `Group` whose origin is the centre of the model's bounding box (bind pose): place it, turn it and scale it about its centre. `clips` are the names in the file; `animation` is a name, an index or `false` (the bind pose), default the first clip. **`pose(t)`** puts the model in the pose of the clip at `t × speed + offset` seconds (`loop: false` holds the last pose): `AnimationMixer.setTime` re-evaluates the clip from zero on every call, so a seek, an export and a repeat give the same frame. (`mixer.update(dt)` or a clock in `update` would not: they are what the layer's rule 2 forbids.) A failed load names the URL; a clip name the file does not have lists the ones it has. **`fit(px)`** scales `object` so the model's longest side is `px`: a glTF is in metres, a scene that follows the composition is in pixels.
 - **`threeFrameCamera(camera, object, { direction, margin })`** puts a `PerspectiveCamera` where the whole of `object` (its box now, with its scale and place) fits the frame, looking at its centre, from a three-quarter view (`direction` default `[0.45, 0.3, 1]`) with 10 % room (`margin` 1.1): the smallest distance at which the 8 corners of the box fit both the vertical and the horizontal field of view (a bounding sphere would leave a long model small and head-on). It uses the camera's own `fov` and `aspect` and sets `near` / `far`. The box is the bind pose: a clip that travels far needs a camera of your own.
-- With `followCamera` the composition's camera is the layer's camera (do not call `threeFrameCamera`); with `followLights` its lights light the model. See the recipe `gltf-in-space`.
+- With `followCamera` the composition's camera is the layer's camera (do not call `threeFrameCamera`); with `followLights` its lights light the model. See the recipes `gltf-in-space` and `gltf-shadow-room`. `orbit()` and `cameraPath()` drive the composition's `camera` layer, so they carry a following scene too.
 
 ### Keyframe paths: `three.<name>.<path>`
 

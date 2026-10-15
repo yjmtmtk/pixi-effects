@@ -3,7 +3,7 @@
 <head><meta charset="UTF-8" /><title>film · three layer determinism (check)</title></head>
 <body>
   <!-- Test film (tests/tools/threeDeterminism.test.ts): one three layer, a box turning with the time. ?leaky=random: update uses Math.random; ?leaky=dt: update turns the box by a speed that builds up
-       from call to call (an integrator: the state a mixer advanced with update(dt) keeps); ?renderer=webgpu; ?follow=1: followCamera and followLights with a moving camera. -->
+       from call to call (an integrator: the state a mixer advanced with update(dt) keeps); ?renderer=webgpu; ?follow=1: followCamera and followLights with a moving camera; ?skin=1: a skinned model (tests/fixtures/skinned-box.gltf) that MOVES, throwing a shadow on a wall under a spot light. -->
   <canvas id="stage" width="320" height="180"></canvas>
   <script>
     window.__logs = [];
@@ -15,10 +15,10 @@
     "three/addons/": "../../node_modules/three/examples/jsm/" } }</script>
   <script type="module">
     import { Movie } from '../../dist/index.js';
-    import { registerThree } from '../../dist/three.js';
+    import { registerThree, threeGltf } from '../../dist/three.js';
     import * as THREE from 'three';
     const q = new URLSearchParams(location.search);
-    const leaky = q.get('leaky'), renderer = q.get('renderer') || undefined, follow = q.get('follow') === '1';
+    const leaky = q.get('leaky'), renderer = q.get('renderer') || undefined, follow = q.get('follow') === '1', skin = q.get('skin') === '1';
     registerThree();
     let box, last = 0, v = 0;
     const update = leaky === 'random' ? (t) => { box.rotation.y = Math.random() * 6; }
@@ -27,6 +27,25 @@
     const movie = new Movie();
     window.movie = movie;
     try {
+      if (skin) {
+        let model;
+        await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: 30, background: '#102040', composition: { sequences: [
+          { type: 'light', kind: 'ambient', initial: { intensity: 0.4 } },
+          { type: 'light', kind: 'spot', castsShadows: true, initial: { x: -40, y: 60, z: 280, lookAtX: 100, lookAtY: 90, lookAtZ: -30, coneAngle: 40, intensity: 1.2 } },
+          { type: 'three', name: 'spin', renderer, followCamera: true, followLights: true, antialias: false,
+            setup: async (ctx) => {
+              model = await threeGltf('../fixtures/skinned-box.gltf');
+              model.fit(60);
+              model.object.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+              model.object.position.set(20, -90, 0);                  // placed before the first draw, as a page does
+              ctx.scene.add(model.object);
+              const wall = new THREE.Mesh(new THREE.PlaneGeometry(500, 300), new THREE.MeshLambertMaterial({ color: 0x6d717b }));
+              wall.position.set(160, -90, -60); wall.receiveShadow = true; ctx.scene.add(wall);
+            },
+            update: (t) => { model.pose(t); model.object.position.set(20 + 280 * (t / 3), -90, 0); } },
+        ] } });
+        window.__ready = true;
+      } else {
       await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: 30, background: '#102040', composition: { sequences: [
         ...(follow ? [{ type: 'camera', keyframes: [{ at: 0, to: { x: 240, lookAtX: 160 }, duration: 3, ease: 'none' }] }, { type: 'light', kind: 'ambient', initial: { intensity: 0.5 } }, { type: 'light', kind: 'point', initial: { x: 60, y: 20, z: 300 } }] : []),
         { type: 'three', name: 'spin', renderer, followCamera: follow, followLights: follow, antialias: false,
@@ -37,6 +56,7 @@
           }, update },
       ] } });
       window.__ready = true;
+      }
     } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
   </script>
 </body>

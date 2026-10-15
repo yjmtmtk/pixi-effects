@@ -36,7 +36,7 @@ interface Entry { kind: LightState['kind']; light: Light; target: Object3D | nul
  *
  * Intensity: three divides a diffuse surface by pi, so a light of intensity 1 is multiplied by pi to be "as bright as the colour" like a card's shading. Falloff: 'none' is no
  * attenuation; 'inverseSquare' is decay 2 with the intensity scaled so it is full at `radius`; 'smooth' is three's own cutoff at radius + falloffDistance (the same idea, not the
- * same curve). Shadows are not mirrored.
+ * same curve). Shadows follow the light (castsShadows: the layer's own meshes cast and receive).
  */
 export class LightMirror {
   private entries: Entry[] = [];
@@ -104,9 +104,13 @@ export class LightMirror {
         l.shadow.mapSize.set(2048, 2048);
         l.shadow.intensity = s.shadowDarkness;
         l.shadow.radius = Math.max(1, s.shadowDiffusion / 4);
-        l.shadow.bias = -0.0005;
+        // Scale-aware: three compares depths AFTER the perspective divide, so a bias of b is about b·d²/near world units at distance d from the light. A near plane of 1 px and a bias of
+        // -0.0005 hid every caster within ~250 px of its receiver at 1280 x 720 (found by an AI trial). The near plane follows the size of the composition (~20 px at 1280 x 720) and the
+        // bias is small, so the gap is about a pixel or two; normalBias (world units, along the surface normal) is a pixel or two too.
+        l.shadow.bias = -0.00005;
+        l.shadow.normalBias = this.extent / 1000;
         const cam = l.shadow.camera;
-        cam.near = 1; cam.far = 20000;
+        cam.near = Math.max(1, this.extent / 128); cam.far = 20000;
         if (s.kind === 'parallel') { const o = cam as OrthographicCamera; o.left = -this.extent; o.right = this.extent; o.top = this.extent; o.bottom = -this.extent; }
         cam.updateProjectionMatrix();
       }

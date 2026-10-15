@@ -115,8 +115,17 @@ describe('shadows of the composition lights, in three', () => {
     expect(l.shadow.intensity).toBeCloseTo(0.8, 9);
     expect(l.shadow.radius).toBeCloseTo(5, 9);                                 // 20 px of diffusion
     expect(l.shadow.mapSize.x).toBeGreaterThanOrEqual(2048);
-    expect(l.shadow.camera.near).toBe(1); expect(l.shadow.camera.far).toBeGreaterThanOrEqual(20000);
+    expect(l.shadow.camera.near).toBeGreaterThanOrEqual(1); expect(l.shadow.camera.far).toBeGreaterThanOrEqual(20000);
+    expect(l.shadow.bias, 'a bias in depth units: small enough not to hide casters near their receiver').toBeGreaterThan(-0.0001);
     expect(mirror.castsShadows).toBe(true);
+  });
+
+  it('the shadow camera follows the size of the composition (a near plane of 1 px at 1280 x 720 puts the depth bias at hundreds of px): a bigger composition, a farther near plane, the same gap in px', () => {
+    const small = made([casting()], 960).lights[0]!, big = made([casting()], 2560).lights[0]!;
+    expect(big.shadow.camera.near).toBeGreaterThan(small.shadow.camera.near);
+    const gap = (l: typeof small, d: number) => Math.abs(l.shadow.bias) * d * d / l.shadow.camera.near;       // world units hidden at distance d
+    expect(gap(big, 700 * 2.67) / (700 * 2.67), 'a bias of well under 1 % of the distance (the old -0.0005 with near 1 was 70 %)').toBeLessThan(0.006);
+    expect(gap(small, 700) / 700).toBeLessThan(0.006);
   });
 
   it('a hard light (no diffusion) has radius 1; a light without castsShadows casts nothing; an ambient light never does', () => {
