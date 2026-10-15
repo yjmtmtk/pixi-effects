@@ -452,7 +452,7 @@ const buffer = await musicBuffer(music, { sampleRate: 44100, duration?, loop? })
 const src = audioContext.createBufferSource(); src.buffer = buffer; src.connect(audioContext.destination); src.start();
 ```
 
-The sound of [`music`](dsl.md#music-written-as-text-music) as a Web Audio buffer, for a page that plays tunes without a movie (a jingle on a button, your own player; [`examples/music-lab.html`](../examples/music-lab.html) is one). `duration` (seconds) cuts it or, with `loop: true`, repeats it up to that length; the default is the music's length plus its tail. Warnings are printed like for an audio layer; it throws, saying why, when the score cannot play. Async: the synthesiser is its own chunk.
+The sound of [`music`](dsl.md#music-written-as-text-music) as a Web Audio buffer, for a page that plays tunes without a movie (a jingle on a button, your own player). `duration` (seconds) cuts it or, with `loop: true`, repeats it up to that length; the default is the music's length plus its tail. Warnings are printed like for an audio layer; it throws, saying why, when the score cannot play. Async: the synthesiser is its own chunk.
 
 ### `movie.toggleMute(): boolean`
 

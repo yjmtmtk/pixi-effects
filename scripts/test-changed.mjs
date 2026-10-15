@@ -31,7 +31,7 @@ export const AREAS = [
   { name: 'warp', paths: ['src/filters/Warp.ts', 'src/filters/named.ts', 'examples/_checks/warp.html'], tests: ['tests/tools/warp.test.ts'] },
   { name: 'blend modes', paths: ['src/core/blend.ts', 'src/filters/blendModes.ts', 'src/space/Layer3D.ts', 'examples/_checks/blend-modes.html', 'tests/support/blendReference.ts'], tests: ['tests/tools/blendModes.test.ts'] },
   { name: 'depth of field', paths: ['src/space/', 'src/filters/DiscBlur.ts', 'src/core/inspect.ts', 'src/sequences/Composition.ts', 'examples/_checks/depth-of-field.html'], tests: ['tests/tools/depthOfField.test.ts'] },
-  { name: 'audio', paths: ['src/audio/', 'src/core/AudioMixer.ts', 'src/core/inspectAudio.ts'], tests: ['tests/tools/audioReact.test.ts', 'tests/tools/musicLab.test.ts'] },
+  { name: 'audio', paths: ['src/audio/', 'src/core/AudioMixer.ts', 'src/core/inspectAudio.ts'], tests: ['tests/tools/audioReact.test.ts'] },
   { name: 'playground', paths: ['examples/playground', 'examples/_checks/sandbox-runner.html'], tests: ['tests/tools/playground.test.ts', 'tests/tools/playgroundSandbox.test.ts', 'tests/tools/playgroundMcp.test.ts'] },
   { name: 'chat template', paths: ['ai/chat-template.html', 'ai/CHAT.md'], tests: ['tests/tools/chatTemplate.test.ts', 'tests/tools/playground.test.ts'] },
   { name: 'player and presenter', paths: ['src/Controller.ts', 'src/present/', 'src/core/stops.ts', 'src/core/Movie.ts', 'src/loader.css', 'src/core/loader.ts'], tests: ['tests/tools/controllerLayout.test.ts', 'tests/tools/presenter.test.ts', 'tests/tools/loader.test.ts'] },

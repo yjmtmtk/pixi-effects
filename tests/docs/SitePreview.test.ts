@@ -23,6 +23,8 @@ describe('previewing the whole site locally', () => {
       await stageSite(out);
       expect(existsSync(join(out, 'guide'))).toBe(false);
       expect(existsSync(join(out, 'examples/_guide'))).toBe(false);
+      expect(existsSync(join(out, 'examples/music-lab.html'))).toBe(false);
+      expect(existsSync(join(out, 'examples/music-lab'))).toBe(false);
     } finally { rmSync(out, { recursive: true, force: true }); }
   }, 60_000);
 });

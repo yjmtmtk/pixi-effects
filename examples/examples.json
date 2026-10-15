@@ -14,6 +14,5 @@
   { "id": "13", "file": "13-sfx.html", "title": "sound effects", "blurb": "Every sound is synthesised from data: no audio files." },
   { "id": "14", "file": "14-draw-on.html", "title": "draw-on strokes, changing text", "blurb": "Strokes that draw themselves on, and text that types or changes over time." },
   { "id": "15", "file": "15-custom-player.html", "title": "your own player", "blurb": "The Controller is optional: build a player from the movie's public methods and events." },
-  { "id": "music-lab", "file": "music-lab.html", "title": "music lab", "blurb": "Eight tunes written as text and played by the built-in synthesiser, with their scores." },
   { "id": "playground", "file": "playground.html", "title": "playground", "blurb": "Edit a composition in the page and run it." }
 ] }
