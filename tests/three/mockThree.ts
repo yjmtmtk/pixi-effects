@@ -24,7 +24,8 @@ export class MockWebGLRenderer {
   clearColor: [unknown, number] | null = null;
   disposed = false;
   contextLost = false;
-  constructor(opts: { canvas: HTMLCanvasElement }) { this.domElement = opts.canvas; }
+  opts: Record<string, unknown>;
+  constructor(opts: { canvas: HTMLCanvasElement }) { this.opts = opts; this.domElement = opts.canvas; }
   setSize(w: number, h: number, updateStyle?: boolean) {
     this.setSizeCalls.push([w, h, updateStyle]);
     this.domElement.width = w;

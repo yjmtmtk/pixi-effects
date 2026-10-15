@@ -32,6 +32,11 @@ export interface ThreeSequenceSpec extends SequenceCommon {
    * (`onBeforeCompile`, `ShaderMaterial`) do not run on the WebGPU renderer.
    */
   renderer?: 'webgl' | 'webgpu';
+  /**
+   * Multisampling of the layer's own canvas. Default `true`. Turn it off (and use `resolution` for supersampling) when the WebGL and WebGPU renderers must give the same picture:
+   * WebGPURenderer resolves the multisampling in linear light BEFORE tone mapping and the sRGB encode, WebGLRenderer after them, so a thin, hot edge comes out brighter on WebGPU.
+   */
+  antialias?: boolean;
   /** Supersampling factor for the offscreen canvas. Default 1. */
   resolution?: number;
   /**

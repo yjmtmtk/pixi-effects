@@ -950,6 +950,7 @@ class ThreeSequence
   target: Container<ContainerChild> | null
   constructor(spec: SequenceSpec, parent: CompositionShape | null, root: CompositionShape)
 interface ThreeSequenceSpec extends SequenceCommon
+  antialias?: boolean
   dispose?: ((ctx: ThreeContext) => void)
   height?: PropValue
   renderer?: "webgl" | "webgpu"

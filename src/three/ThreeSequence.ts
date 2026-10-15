@@ -43,6 +43,7 @@ export class ThreeSequence extends Sequence {
     // Offscreen canvas — never attached to the DOM. document.createElement
     // (not OffscreenCanvas) so PIXI's Texture.from and three both accept it.
     const canvas = document.createElement('canvas');
+    const antialias = spec.antialias ?? true;
     const kind = spec.renderer ?? 'webgl';
     if (kind !== 'webgl' && kind !== 'webgpu') {
       throw new Error(`pixi-effects: a three layer's renderer must be 'webgl' or 'webgpu' (got ${JSON.stringify(kind)})`);
@@ -54,12 +55,12 @@ export class ThreeSequence extends Sequence {
       try { mod = await import('three/webgpu'); } catch (err) {
         throw new Error(`pixi-effects: renderer: 'webgpu' needs three 0.17x or later with "three/webgpu" in the import map (${err instanceof Error ? err.message : err})`);
       }
-      renderer = new mod.WebGPURenderer({ canvas, alpha: true, antialias: true });
+      renderer = new mod.WebGPURenderer({ canvas, alpha: true, antialias });
       this._renderer = renderer;
       try { await renderer.init(); }          // the device is made here: nothing may render before
       catch (err) { this._disposeRenderer(); throw err; }
     } else {
-      renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true });
+      renderer = new WebGLRenderer({ canvas, alpha: true, antialias });
       this._renderer = renderer;
     }
     try {

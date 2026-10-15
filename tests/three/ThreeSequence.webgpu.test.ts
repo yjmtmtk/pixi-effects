@@ -136,6 +136,23 @@ describe('a WebGPU renderer that cannot start', () => {
   });
 });
 
+describe('the antialias option', () => {
+  it('is on by default, for both renderers (as it always was)', async () => {
+    for (const renderer of ['webgl', 'webgpu'] as const) {
+      const seq = makeSeq({ renderer });
+      await seq.build();
+      expect((rendererOf(seq) as any).opts?.antialias ?? (rendererOf(seq) as any).antialias, renderer).toBe(true);
+    }
+  });
+  it('antialias: false reaches the renderer (WebGPU resolves the multisampling in linear light, before tone mapping, WebGL after: they only agree without it)', async () => {
+    for (const renderer of ['webgl', 'webgpu'] as const) {
+      const seq = makeSeq({ renderer, antialias: false });
+      await seq.build();
+      expect((rendererOf(seq) as any).opts?.antialias ?? (rendererOf(seq) as any).antialias, renderer).toBe(false);
+    }
+  });
+});
+
 describe('the renderer option', () => {
   it("is 'webgl' when absent: the WebGLRenderer, as before", async () => {
     const seq = makeSeq();

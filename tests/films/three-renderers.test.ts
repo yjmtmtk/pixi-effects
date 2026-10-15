@@ -57,3 +57,44 @@ runFilms('Three layer: the WebGL and the WebGPU renderer draw the same scene', (
     }
   }, 180_000);
 });
+
+// Where the two renderers legitimately differ (found 2026-10-15 on examples/films/light-as-material: mean 2.9 of 255, gone with both switches below):
+// WebGPURenderer blends fog and resolves the multisampling in LINEAR light, before tone mapping and the sRGB encode; WebGLRenderer does both after them (three.js:
+// Renderer.js _getFrameBufferTarget, NodeMaterial.js setupOutput; the WebGPU way is the documented "more correct" one). A thin, hot edge and a hot highlight in fog
+// therefore come out brighter on WebGPU. If a three release makes them agree, the "differ" tests below fail: then remove them and say so in docs/dsl.md.
+const diffOf = async (query: string) => {
+  const grab = async (which: string) => withFilm('three-renderers', async (film) => {
+    const out: number[][] = [];
+    for (const f of [60, 75]) out.push(await film.eval<number[]>(`framePixels(${f})`));
+    return out;
+  }, { query: `renderer=${which}&${query}` });
+  const gl = await grab('webgl'), gpu = await grab('webgpu');
+  let worst = 0, worstBig = 0;
+  for (let k = 0; k < gl.length; k++) {
+    let sum = 0, big = 0, n = 0;
+    for (let i = 0; i < gl[k]!.length; i++) { if (i % 4 === 3) continue; const d = Math.abs(gl[k]![i]! - gpu[k]![i]!); sum += d; n++; if (d > 32) big++; }
+    worst = Math.max(worst, sum / n); worstBig = Math.max(worstBig, big);
+  }
+  return { mean: worst, big: worstBig };
+};
+
+runFilms('Three layer: where WebGL and WebGPU differ on purpose (the output pipeline)', () => {
+  it('with tone mapping and no antialias and no fog the two agree (measured mean 0.04 of 255, no channel off by more than 32)', async () => {
+    const d = await diffOf('aa=0&fog=0&tone=1');
+    expect(d.mean).toBeLessThan(0.3);
+    expect(d.big).toBeLessThan(50);
+  }, 300_000);
+
+  it('DIFFER: with antialias and tone mapping the edges are brighter on WebGPU (measured 222 channels off by more than 32, against 0 without antialias)', async () => {
+    const aa = await diffOf('aa=1&fog=0&tone=1');
+    const noAa = await diffOf('aa=0&fog=0&tone=1');
+    expect(aa.big, 'with antialias').toBeGreaterThan(100);
+    expect(noAa.big, 'without antialias').toBeLessThan(50);
+  }, 300_000);
+
+  it('DIFFER: fog is blended before tone mapping on WebGPU and after on WebGL: a lit scene in fog is brighter there (measured mean 3.1 of 255, ~7,800 channels off by more than 32)', async () => {
+    const d = await diffOf('aa=0&fog=1&tone=1');
+    expect(d.mean).toBeGreaterThan(1.5);
+    expect(d.big).toBeGreaterThan(2000);
+  }, 300_000);
+});
