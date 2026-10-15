@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · too many three layers</title></head>
+<body>
+  <!-- Test film (tests/films/three-budget.test.ts): ?n=20 three layers, each a coloured box; ?renderer=webgl|webgpu. The page gives the test its warnings (window.__logs). -->
+  <canvas id="stage" width="160" height="90"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+    "three": "../../node_modules/three/build/three.module.js", "three/webgpu": "../../node_modules/three/build/three.webgpu.js",
+    "three/addons/": "../../node_modules/three/examples/jsm/" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    import { registerThree } from '../../dist/three.js';
+    import * as THREE from 'three';
+    const q = new URLSearchParams(location.search);
+    const n = Number(q.get('n') || 20), renderer = q.get('renderer') || undefined;
+    registerThree();
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 160, height: 90, duration: 1, frameRate: 30, background: '#102040', composition: { sequences:
+        Array.from({ length: n }, (_, i) => ({ type: 'three', name: 'box' + i, width: 40, height: 40, renderer, initial: { x: 10 + (i % 10) * 14, y: 10 + Math.floor(i / 10) * 40 },
+          setup: (ctx) => { ctx.scene.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xff8800 }))); ctx.camera.position.z = 3; } })) } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

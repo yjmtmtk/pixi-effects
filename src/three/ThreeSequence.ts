@@ -9,6 +9,7 @@ import type { PropValue } from '../types';
 import type { ThreeContext, ThreeSequenceSpec } from './types';
 import { checkRendererKind, getPageRenderer } from './defaults';
 import { applyCameraState, LightMirror } from './spaceBridge';
+import { releaseThree, trackThree } from './budget';
 import type { CanvasCheck } from '../sequences/Canvas';
 
 /** What makes a frame depend on more than the time (the same list as the canvas layer's). */
@@ -30,6 +31,7 @@ export class ThreeSequence extends Sequence {
   private _warnedPaths = new Set<string>();
   private _lightMirror: LightMirror | null = null;
   private _warnedSpace = new Set<string>();
+  private _tracked = false;
 
   private get _threeSpec(): ThreeSequenceSpec {
     return this.spec as unknown as ThreeSequenceSpec;
@@ -71,6 +73,7 @@ export class ThreeSequence extends Sequence {
       }
       renderer = new mod.WebGPURenderer({ canvas, alpha: true, antialias });
       this._renderer = renderer;
+      this._track();
       // The device is made here: nothing may render before. Where there is no WebGPU three uses its own WebGL2 backend and says so with a warning: that is not a problem
       // (it draws the same picture), so it becomes `backend: 'webgl2'` instead of a line in the author's console.
       const warn = console.warn;
@@ -83,6 +86,13 @@ export class ThreeSequence extends Sequence {
     } else {
       renderer = new WebGLRenderer({ canvas, alpha: true, antialias });
       this._renderer = renderer;
+      this._track();
+      let said = false;
+      canvas.addEventListener('webglcontextlost', () => {              // the browser took the context away: the layer draws nothing from now on
+        if (said) return;
+        said = true;
+        console.warn(`pixi-effects: three layer${spec.name ? ` "${spec.name}"` : ''}: the browser took this layer's WebGL context away (a page keeps about 16 for all its layers, PixiJS and shader layers: too many were alive), so the layer draws nothing. Put several objects in one three layer, or destroy layers that are over`);
+      });
       this.backend = 'webgl';
     }
     try {
@@ -323,8 +333,15 @@ export class ThreeSequence extends Sequence {
     console.warn(`pixi-effects: keyframe path three.${path} ${why}; skipped`);
   }
 
+  /** Count this layer's renderer against the page's allowance of graphics contexts (given back when the renderer is disposed). */
+  private _track(): void {
+    this._tracked = true;
+    trackThree(this._gpu ? 'webgpu' : 'webgl');
+  }
+
   private _disposeRenderer(): void {
     if (!this._renderer) return;
+    if (this._tracked) { this._tracked = false; releaseThree(this._gpu ? 'webgpu' : 'webgl'); }
     try {
       this._renderer.dispose();
       if (!this._gpu) (this._renderer as WebGLRenderer).forceContextLoss();
