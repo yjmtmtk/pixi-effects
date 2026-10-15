@@ -1317,6 +1317,32 @@ three({
 })
 ```
 
+## A glTF model that runs in the same space as the flat layers (`threeGltf`, `followCamera`)
+
+A `three` layer is the free box: `threeGltf` and `threeFrameCamera` (from `pixi-effects/three`) only do the two things that are easy to get wrong by hand: pose the clip by the layer's time (`AnimationMixer.setTime`, never `mixer.update(dt)`: a seek and an export must give the same frame) and frame the whole model. With `followCamera` / `followLights` the composition's own `camera` and `light` layers drive the scene, so ONE `cameraPath()` flies through the flat layers and the model. The scene is in composition pixels with y flipped: the composition's `(x, y, z)` is `(x, -y, z)`. The page's import map needs `"three"` and `"three/addons/"`. Keep the file small and local (a model with Draco, KTX2 or Meshopt compression needs its decoder set up by hand).
+
+```js
+// @docs-only gltf-in-space
+// registerThree();   import { threeGltf } from 'pixi-effects/three'
+let fox;
+return [
+  { type: 'camera', keyframes: [{ at: 0, from: { x: 300, lookAtX: 'GW/2' }, to: { x: 660 }, duration: 4, ease: 'sine.inOut' }] },   // moves the text card AND the fox
+  { type: 'light', kind: 'ambient', initial: { intensity: 0.7 } },
+  { type: 'light', kind: 'parallel', initial: { x: 100, y: -200, z: 700, lookAtX: 'GW/2', lookAtY: 'GH/2', lookAtZ: 0, intensity: 1.2 } },
+  { type: 'text', text: 'FOX', threeD: true, style: { fontSize: 300, fontWeight: '900', fill: '#ff7a1a' }, initial: { x: 'GW/2', y: 'GH/2', z: -400, anchorX: 0.5, anchorY: 0.5 } },
+  { type: 'three', name: 'fox', followCamera: true, followLights: true,                      // the layer covers the composition; it sits in the stack like any layer
+    setup: async (ctx) => {
+      fox = await threeGltf('Fox.glb', { animation: 'Run' });                                 // a clip name, an index, or false (the bind pose); speed, offset, loop
+      fox.fit(380);                                                                          // the longest side in px: the model is in metres, the scene in pixels
+      fox.object.position.set(480, -300, 0);                                                 // the middle of a 960 x 540 composition, y flipped
+      ctx.scene.add(fox.object);
+    },
+    update: (t) => fox.pose(t) },                                                            // the clip at the layer's time: a function of t
+];
+```
+
+Without `followCamera` the layer keeps its own camera: `threeFrameCamera(ctx.camera, fox.object)` puts it where the whole model fits (a three-quarter view; `{ direction, margin }` change it). Shadows and fog of the composition are not mirrored into the scene; with three's default colour management a `MeshStandardMaterial` answers the lights the way three does, close to (not equal to) a card's shading.
+
 ## Subtitles from an SRT file
 
 Subtitles are just text layers. The function reads a `.srt` (numbers, `00:00:01,000 --> 00:00:03,500`, the words) and returns one layer per cue: it appears and disappears over 0.12 s, sits 90 px above the bottom edge, wraps at 1000 px (about 80 % of a 1280 px picture) and has a black outline so it reads on any picture. Two cues that overlap in time are drawn on top of each other: split a long line into two lines in the `.srt` rather than relying on wrapping. Check the result with `pixi-effects check`; it reports text that is cut off by the edge.

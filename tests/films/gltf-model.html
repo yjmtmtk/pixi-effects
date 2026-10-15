@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · a glTF model in a three layer (threeGltf, threeFrameCamera)</title></head>
+<body>
+  <!-- Test film (tests/films/gltf-model.test.ts): a unit box that turns 360° in 2 s (tests/fixtures/spin-box.gltf), loaded with threeGltf, over a 2D band.
+       ?mode=own: the layer's own camera, framed by threeFrameCamera;  ?mode=space: followCamera, the model fit to 200 px and placed at the middle of the composition, the composition's camera moving sideways.
+       ?renderer=webgl|webgpu. The page gives the test pixelAt, framePixels, hashOf. -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+    "three": "../../node_modules/three/build/three.module.js", "three/webgpu": "../../node_modules/three/build/three.webgpu.js",
+    "three/addons/": "../../node_modules/three/examples/jsm/" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    import { registerThree, threeGltf, threeFrameCamera } from '../../dist/three.js';
+    import * as THREE from 'three';
+    const q = new URLSearchParams(location.search);
+    const mode = q.get('mode') || 'own', renderer = q.get('renderer') || undefined;
+    registerThree();
+    let fox;
+    const layer = mode === 'own'
+      ? { type: 'three', name: 'model', width: 320, height: 180, renderer, initial: { x: 160, y: 90, anchorX: 0.5, anchorY: 0.5 },
+          setup: async (ctx) => { fox = await threeGltf('../fixtures/spin-box.gltf'); ctx.scene.add(fox.object, new THREE.AmbientLight(0xffffff, 1.2), new THREE.DirectionalLight(0xffffff, 2)); threeFrameCamera(ctx.camera, fox.object); },
+          update: (t) => fox.pose(t) }
+      : { type: 'three', name: 'model', renderer, followCamera: true, followLights: true,
+          setup: async (ctx) => { fox = await threeGltf('../fixtures/spin-box.gltf', { animation: false }); fox.fit(100); fox.object.position.set(160, -90, 0); ctx.scene.add(fox.object); },
+          update: (t) => fox.pose(t) };
+    const sequences = [
+      { type: 'shape', shape: 'rect', name: 'band', width: 320, height: 24, initial: { x: 160, y: 168, fillColor: '#f2c14e' } },
+      ...(mode === 'space' ? [{ type: 'camera', keyframes: [{ at: 0, to: { x: 240, lookAtX: 240 }, duration: 3, ease: 'none' }] }, { type: 'light', kind: 'ambient', initial: { intensity: 0.4 } }, { type: 'light', kind: 'parallel', initial: { x: 80, y: 20, z: 400, lookAtX: 160, lookAtY: 90, lookAtZ: 0, intensity: 0.9 } }] : []),
+      layer,
+    ];
+    const movie = new Movie();
+    window.movie = movie;
+    window.hashOf = async (frame) => { const d = (await movie.snapshot(frame, { as: 'imageData' })).data; let h = 0x811c9dc5; for (let i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); };
+    window.pixelAt = async (frame, x, y) => { const img = await movie.snapshot(frame, { as: 'imageData' }); const i = (y * img.width + x) * 4; return Array.from(img.data.slice(i, i + 4)); };
+    window.framePixels = async (frame) => Array.from((await movie.snapshot(frame, { as: 'imageData' })).data);
+    window.pngOf = async (frame) => { const img = await movie.snapshot(frame, { as: 'imageData' }); const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; c.getContext('2d').putImageData(img, 0, 0); return c.toDataURL('image/png'); };
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: 30, background: '#102040', composition: { sequences } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

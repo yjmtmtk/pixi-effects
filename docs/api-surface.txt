@@ -941,6 +941,23 @@ interface ThreeContext
   scene: Scene<Object3DEventMap>
   space?: SpaceNow
   width: number
+function threeFrameCamera(camera: Camera | PerspectiveCamera, object: Object3D<Object3DEventMap>, options?: ThreeFrameCameraOptions): void
+interface ThreeFrameCameraOptions
+  direction?: [number, number, number]
+  margin?: number
+function threeGltf(url: string, options?: ThreeGltfOptions): Promise<ThreeGltfModel>
+interface ThreeGltfModel
+  clips: string[]
+  dispose(): void
+  fit(px: number): void
+  object: Group<Object3DEventMap>
+  pose(t: number): void
+  size: Vector3
+interface ThreeGltfOptions
+  animation?: string | number | false
+  loop?: boolean
+  offset?: number
+  speed?: number
 type ThreeRendererKind = 'webgl' | 'webgpu'
 class ThreeSequence
   at: number

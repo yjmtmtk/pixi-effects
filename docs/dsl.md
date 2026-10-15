@@ -828,6 +828,22 @@ three({ type: 'three', name: 'world', followCamera: true, followLights: true,   
 - `ctx.space` is `{ camera: { x, y, z, lookAtX, lookAtY, lookAtZ, fov }, lights: [...] }` in composition pixels, the numbers before the y flip. A composition with a `camera` or `light` and no `threeD` layer no longer warns "has no effect" when a three layer follows it.
 - The layer's frame is a function of the time: the camera and the lights are read for the layer's own moment, so a seek, an export and a repeat give the same picture (`tests/films/three-space`, also across a light that begins and ends, and with `renderer: 'webgpu'`).
 
+### glTF models: `threeGltf`, `threeFrameCamera`
+
+A `three` layer stays the free box; two helpers from `pixi-effects/three` do what is easy to get wrong by hand (the page's import map needs `"three/addons/"` next to `"three"`; Draco / KTX2 / Meshopt files need their decoder set up by hand):
+
+```ts
+import { threeGltf, threeFrameCamera } from 'pixi-effects/three';
+let fox;
+three({ type: 'three', width: 'GW', height: 'GH',
+  setup: async (ctx) => { fox = await threeGltf('Fox.glb', { animation: 'Run' }); ctx.scene.add(fox.object, new THREE.AmbientLight(0xffffff, 1.2), new THREE.DirectionalLight(0xffffff, 2)); threeFrameCamera(ctx.camera, fox.object); },
+  update: (t) => fox.pose(t) })
+```
+
+- **`threeGltf(url, { animation, speed, offset, loop })`** loads the file with three's `GLTFLoader` and returns `{ object, clips, size, pose(t), fit(px), dispose() }`. `object` is a `Group` whose origin is the centre of the model's bounding box (bind pose): place it, turn it and scale it about its centre. `clips` are the names in the file; `animation` is a name, an index or `false` (the bind pose), default the first clip. **`pose(t)`** puts the model in the pose of the clip at `t × speed + offset` seconds (`loop: false` holds the last pose): `AnimationMixer.setTime` re-evaluates the clip from zero on every call, so a seek, an export and a repeat give the same frame. (`mixer.update(dt)` or a clock in `update` would not: they are what the layer's rule 2 forbids.) A failed load names the URL; a clip name the file does not have lists the ones it has. **`fit(px)`** scales `object` so the model's longest side is `px`: a glTF is in metres, a scene that follows the composition is in pixels.
+- **`threeFrameCamera(camera, object, { direction, margin })`** puts a `PerspectiveCamera` where the whole of `object` (its box now, with its scale and place) fits the frame, looking at its centre, from a three-quarter view (`direction` default `[0.45, 0.3, 1]`) with 10 % room (`margin` 1.1): the smallest distance at which the 8 corners of the box fit both the vertical and the horizontal field of view (a bounding sphere would leave a long model small and head-on). It uses the camera's own `fov` and `aspect` and sets `near` / `far`. The box is the bind pose: a clip that travels far needs a camera of your own.
+- With `followCamera` the composition's camera is the layer's camera (do not call `threeFrameCamera`); with `followLights` its lights light the model. See the recipe `gltf-in-space`.
+
 ### Keyframe paths: `three.<name>.<path>`
 
 Objects returned from `setup`'s `{ objects }` are addressable from keyframes as `three.<name>.<path>`, using the same `from`/`to`/`set` vocabulary as every other prop:

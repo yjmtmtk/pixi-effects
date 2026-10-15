@@ -208,7 +208,7 @@ Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha stro
 
 **camera** (2.5D) — props in `initial`/keyframes: `x y z lookAtX lookAtY lookAtZ fov focus aperture` (defaults: centred, looking at the z = 0 plane, `fov` 40, `z` auto = `(H/2)/tan(fov/2)` ≈ 989 at 720p). **Depth of field:** `focus` = the sharp plane (a `threeD` layer's name = its first z, or a z number), `aperture` = the lens diameter in px (30 default, 0 off); writing either blurs the other `threeD` layers by their distance from the focus (a rack focus is a keyframe on `focus`; recipe `rack-focus`; `inspect` reports `depthBlur`, and `check --at 2.4` prints each layer's blur). A dolly with no typed distance: leave `z` automatic and animate `offsetZ`. Never on the camera object itself. An orbit is `orbit()`; by hand: `x = cx + R·sin θ`, `z = R·cos θ`, `R = (H/2)/tan(fov/2)`, `lookAt` = the centre at `z = 0`.
 
-**three** (optional entry `pixi-effects/three`) — `three({ type:'three', width, height, setup(ctx) { …; return { objects: { knot } } }, update?, dispose? })`; drive with `'three.knot.rotation.y'` keyframes. Call `registerThree()` before `init`. **In the composition's space:** `followCamera: true` (the layer's PerspectiveCamera is the composition's `camera`; the scene is in composition px with y flipped: the composition's `(x, y, z)` is `(x, -y, z)`; give the layer the composition's size) and `followLights: true` (the `light` layers become three lights; shadows and fog are not mirrored); `ctx.space` has the raw numbers.
+**three** (optional entry `pixi-effects/three`) — `three({ type:'three', width, height, setup(ctx) { …; return { objects: { knot } } }, update?, dispose? })`; drive with `'three.knot.rotation.y'` keyframes. Call `registerThree()` before `init`. **In the composition's space:** `followCamera: true` (the layer's PerspectiveCamera is the composition's `camera`; the scene is in composition px with y flipped: the composition's `(x, y, z)` is `(x, -y, z)`; give the layer the composition's size) and `followLights: true` (the `light` layers become three lights; shadows and fog are not mirrored); `ctx.space` has the raw numbers. **glTF:** `import { threeGltf, threeFrameCamera } from 'pixi-effects/three'`: `const m = await threeGltf(url, { animation: 'Run' | 0 | false, speed, offset, loop })` in `setup` (`ctx.scene.add(m.object)`; `m.fit(px)` scales the longest side to px; `m.clips` names the clips), `update: (t) => m.pose(t)` (a function of t: never `mixer.update(dt)`), `threeFrameCamera(ctx.camera, m.object)` frames the whole model from a three-quarter view. Needs `"three/addons/"` in the import map. Recipe `gltf-in-space`.
 
 ## Camera flight and a camera shake
 
@@ -1783,6 +1783,32 @@ three({
 })
 ```
 
+## A glTF model that runs in the same space as the flat layers (`threeGltf`, `followCamera`)
+
+A `three` layer is the free box: `threeGltf` and `threeFrameCamera` (from `pixi-effects/three`) only do the two things that are easy to get wrong by hand: pose the clip by the layer's time (`AnimationMixer.setTime`, never `mixer.update(dt)`: a seek and an export must give the same frame) and frame the whole model. With `followCamera` / `followLights` the composition's own `camera` and `light` layers drive the scene, so ONE `cameraPath()` flies through the flat layers and the model. The scene is in composition pixels with y flipped: the composition's `(x, y, z)` is `(x, -y, z)`. The page's import map needs `"three"` and `"three/addons/"`. Keep the file small and local (a model with Draco, KTX2 or Meshopt compression needs its decoder set up by hand).
+
+```js
+// @docs-only gltf-in-space
+// registerThree();   import { threeGltf } from 'pixi-effects/three'
+let fox;
+return [
+  { type: 'camera', keyframes: [{ at: 0, from: { x: 300, lookAtX: 'GW/2' }, to: { x: 660 }, duration: 4, ease: 'sine.inOut' }] },   // moves the text card AND the fox
+  { type: 'light', kind: 'ambient', initial: { intensity: 0.7 } },
+  { type: 'light', kind: 'parallel', initial: { x: 100, y: -200, z: 700, lookAtX: 'GW/2', lookAtY: 'GH/2', lookAtZ: 0, intensity: 1.2 } },
+  { type: 'text', text: 'FOX', threeD: true, style: { fontSize: 300, fontWeight: '900', fill: '#ff7a1a' }, initial: { x: 'GW/2', y: 'GH/2', z: -400, anchorX: 0.5, anchorY: 0.5 } },
+  { type: 'three', name: 'fox', followCamera: true, followLights: true,                      // the layer covers the composition; it sits in the stack like any layer
+    setup: async (ctx) => {
+      fox = await threeGltf('Fox.glb', { animation: 'Run' });                                 // a clip name, an index, or false (the bind pose); speed, offset, loop
+      fox.fit(380);                                                                          // the longest side in px: the model is in metres, the scene in pixels
+      fox.object.position.set(480, -300, 0);                                                 // the middle of a 960 x 540 composition, y flipped
+      ctx.scene.add(fox.object);
+    },
+    update: (t) => fox.pose(t) },                                                            // the clip at the layer's time: a function of t
+];
+```
+
+Without `followCamera` the layer keeps its own camera: `threeFrameCamera(ctx.camera, fox.object)` puts it where the whole model fits (a three-quarter view; `{ direction, margin }` change it). Shadows and fog of the composition are not mirrored into the scene; with three's default colour management a `MeshStandardMaterial` answers the lights the way three does, close to (not equal to) a card's shading.
+
 ## Subtitles from an SRT file
 
 Subtitles are just text layers. The function reads a `.srt` (numbers, `00:00:01,000 --> 00:00:03,500`, the words) and returns one layer per cue: it appears and disappears over 0.12 s, sits 90 px above the bottom edge, wraps at 1000 px (about 80 % of a 1280 px picture) and has a black outline so it reads on any picture. Two cues that overlap in time are drawn on top of each other: split a long line into two lines in the `.srt` rather than relying on wrapping. Check the result with `pixi-effects check`; it reports text that is cut off by the edge.
@@ -2900,6 +2926,22 @@ three({ type: 'three', name: 'world', followCamera: true, followLights: true,   
 - **Where it sits.** The layer is an ordinary layer at its place in the stack (not a `threeD` card): flat `threeD` layers and this scene order by the stack, not by depth, and there are no shadows between them. Give the layer `threeD: true` only if you want the whole picture to be a card again.
 - `ctx.space` is `{ camera: { x, y, z, lookAtX, lookAtY, lookAtZ, fov }, lights: [...] }` in composition pixels, the numbers before the y flip. A composition with a `camera` or `light` and no `threeD` layer no longer warns "has no effect" when a three layer follows it.
 - The layer's frame is a function of the time: the camera and the lights are read for the layer's own moment, so a seek, an export and a repeat give the same picture (`tests/films/three-space`, also across a light that begins and ends, and with `renderer: 'webgpu'`).
+
+### glTF models: `threeGltf`, `threeFrameCamera`
+
+A `three` layer stays the free box; two helpers from `pixi-effects/three` do what is easy to get wrong by hand (the page's import map needs `"three/addons/"` next to `"three"`; Draco / KTX2 / Meshopt files need their decoder set up by hand):
+
+```ts
+import { threeGltf, threeFrameCamera } from 'pixi-effects/three';
+let fox;
+three({ type: 'three', width: 'GW', height: 'GH',
+  setup: async (ctx) => { fox = await threeGltf('Fox.glb', { animation: 'Run' }); ctx.scene.add(fox.object, new THREE.AmbientLight(0xffffff, 1.2), new THREE.DirectionalLight(0xffffff, 2)); threeFrameCamera(ctx.camera, fox.object); },
+  update: (t) => fox.pose(t) })
+```
+
+- **`threeGltf(url, { animation, speed, offset, loop })`** loads the file with three's `GLTFLoader` and returns `{ object, clips, size, pose(t), fit(px), dispose() }`. `object` is a `Group` whose origin is the centre of the model's bounding box (bind pose): place it, turn it and scale it about its centre. `clips` are the names in the file; `animation` is a name, an index or `false` (the bind pose), default the first clip. **`pose(t)`** puts the model in the pose of the clip at `t × speed + offset` seconds (`loop: false` holds the last pose): `AnimationMixer.setTime` re-evaluates the clip from zero on every call, so a seek, an export and a repeat give the same frame. (`mixer.update(dt)` or a clock in `update` would not: they are what the layer's rule 2 forbids.) A failed load names the URL; a clip name the file does not have lists the ones it has. **`fit(px)`** scales `object` so the model's longest side is `px`: a glTF is in metres, a scene that follows the composition is in pixels.
+- **`threeFrameCamera(camera, object, { direction, margin })`** puts a `PerspectiveCamera` where the whole of `object` (its box now, with its scale and place) fits the frame, looking at its centre, from a three-quarter view (`direction` default `[0.45, 0.3, 1]`) with 10 % room (`margin` 1.1): the smallest distance at which the 8 corners of the box fit both the vertical and the horizontal field of view (a bounding sphere would leave a long model small and head-on). It uses the camera's own `fov` and `aspect` and sets `near` / `far`. The box is the bind pose: a clip that travels far needs a camera of your own.
+- With `followCamera` the composition's camera is the layer's camera (do not call `threeFrameCamera`); with `followLights` its lights light the model. See the recipe `gltf-in-space`.
 
 ### Keyframe paths: `three.<name>.<path>`
 

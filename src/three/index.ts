@@ -12,6 +12,8 @@ import type { SequenceSpec } from '../types';
 import type { ThreeSequenceSpec } from './types';
 
 export { ThreeSequence } from './ThreeSequence';
+export { threeGltf, threeFrameCamera } from './gltf';
+export type { ThreeGltfModel, ThreeGltfOptions, ThreeFrameCameraOptions } from './gltf';
 export type { ThreeContext, ThreeSetupResult, ThreeSequenceSpec } from './types';
 export type { ThreeRendererKind } from './defaults';
 
