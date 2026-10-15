@@ -91,7 +91,7 @@ export function defineTools(api) {
       { range: { type: 'range' } },
       async ({ range }) => ok(text(await api.call('render', { draft: true, ...(range !== undefined ? { range } : {}) })))),
 
-    tool('list_examples', 'Lists the examples that can be loaded into the editor (id and label): hello, keyframes, shapes, media, masks, filters, transitions, presets, audio, depth, sound effects, draw-on. A good start for a new video.',
+    tool('list_examples', 'Lists the examples that can be loaded into the editor (id and label): hello, then tested recipes: a spring card, shifting gradients, a morph, canvas drawing, particles, 2.5D depth and a camera flight, a rack focus, a light leak, a shader, a warp, music written as text. A good start for a new video.',
       obj(), {}, async () => ok(text(api.examples())), readOnly),
 
     tool('load_example', 'Replaces the editor\'s code with an example and runs it. Returns the same summary as run.',

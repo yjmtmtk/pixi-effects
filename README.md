@@ -190,7 +190,7 @@ They ship in the npm package (`node_modules/pixi-effects/ai/`).
 - [**Interactive movies**](./examples/interactive/) — nine live samples of a movie you change while it plays (variables, `setVars`, `rebuild`, loop): rock paper scissors, a scrolling city, a tune from four chords, a card for anyone, choose your ending … ([docs/api.md](./docs/api.md))
 - [**Gallery**](./examples/gallery/) — 43 complete pieces, each one HTML file of data
 - [**Recipes**](./skills/pixi-effects/reference/recipes.md) — tested code you can copy (`npx pixi-effects recipe`)
-- [**Playground**](./examples/playground.html) — in-browser editor on the chat template's edit block: twelve examples, a problems panel from `movie.review()`, share links, save as HTML, and WebMCP tools for an AI agent
+- [**Playground**](./examples/playground.html) — in-browser editor on the chat template's edit block: fourteen examples (the tested recipes), a problems panel from `movie.review()`, share links, save as HTML, and WebMCP tools for an AI agent
 
 ## Browser support
 

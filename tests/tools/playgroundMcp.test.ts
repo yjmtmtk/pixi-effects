@@ -135,10 +135,10 @@ describe.skipIf(!chrome || !built || !hasWebMcp || process.env.SKIP_BROWSER_TEST
   it('examples and docs: list, load one (it runs), read the cheatsheet of the same site', async () => {
     await open(async (cdp) => {
       const list = body(await exec(cdp, 'list_examples'));
-      expect(list.map((e: any) => e.id)).toContain('13-sfx');
-      const loaded = body(await exec(cdp, 'load_example', { id: '13-sfx' }));
-      expect(loaded).toMatchObject({ ready: true, duration: 14 });
-      expect(await cdp.eval(`window.__playground.editor.get().includes("PRESETS = ['click'")`)).toBe(true);
+      expect(list.map((e: any) => e.id)).toContain('music-lofi');
+      const loaded = body(await exec(cdp, 'load_example', { id: 'music-lofi' }));
+      expect(loaded).toMatchObject({ ready: true, duration: 12 });
+      expect(await cdp.eval(`window.__playground.editor.get().includes("inst: 'keys'")`)).toBe(true);
       const sound = body(await exec(cdp, 'check'));
       expect(sound.audio.cues).toBeUndefined();                                                                  // the sound curve is left out of what an agent reads
       expect(sound.audio.windows).toBeUndefined();

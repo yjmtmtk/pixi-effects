@@ -58,7 +58,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the Playgr
       expect(s.state).toMatch(/^Ready · 4 s · 1280×720 · 30 fps$/);
       expect(s.panel).toBe('ok');
       expect(s.text).toMatch(/No problems/);
-      expect(s.presets).toBe(18);
+      expect(s.presets).toBe(1 + JSON.parse(readFileSync(join(root, 'examples/playground/presets/list.json'), 'utf8')).length);       // hello and the recipes
       expect(s.label).toBe('Preset');
       expect(s.code).toBe(true);
     });
@@ -85,7 +85,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the Playgr
       messages.length = 0;
       let frames = 0;
       for (let i = 0; i < 20; i++) {
-        const r = await runPreset(cdp, '01-hello');
+        const r = await runPreset(cdp, 'hello');
         expect(r.ready, `run ${i + 1}`).toBe(true);
         frames = Math.max(frames, await cdp.eval(`document.querySelectorAll('iframe').length`));
       }
@@ -147,10 +147,22 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the Playgr
       expect(r.text.length).toBeGreaterThan(30);
       expect(r.alive).toBe(1);
       // and it recovers: the next preset runs clean
-      expect((await runPreset(cdp, '01-hello')).ready).toBe(true);
+      expect((await runPreset(cdp, 'hello')).ready).toBe(true);
     });
   }, 120000);
-  describe('share, save, copy', () => {
+  // a piece that names the Playground's own files and imports pixi-filters (no preset does any more)
+const FILES_AND_FILTERS = `import { GlowFilter } from 'pixi-filters';
+const W = 1280, H = 720, FPS = 30, DURATION = 2;
+const BACKGROUND = '#0a0a0f';
+const glow = new GlowFilter({ outerStrength: 3, color: 0xff66cc, distance: 18 });
+const sequences = [
+  { type: 'image', asset: 'photo', initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5, scale: 0.5 }, filters: [{ name: 'glow', type: 'custom', filter: glow }] },
+];
+const INIT = { assets: [{ name: 'photo', src: '_assets/photos/lake-dusk.jpg' }] };
+const POSTER = 1;
+`;
+
+describe('share, save, copy', () => {
     it('a share link round-trips: opened in another page it shows the same code, does NOT run, and runs when Run is pressed', async () => {
       let url = '';
       await withPlayground(1440, async (cdp) => {
@@ -197,18 +209,19 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the Playgr
     }, 120000);
 
     it.skipIf(!pinnedOnCdn)('Save HTML makes a page that runs on its own (the library from the CDN, filters from esm.sh, files from the site), for a plain piece and for one with files and pixi-filters', async () => {
-      for (const id of ['01-hello', '06-filters']) {
+      for (const [id, code] of [['hello', null], ['filters-and-files', FILES_AND_FILTERS]] as const) {
         const file = join(root, 'examples/_checks', `_saved-${id}.html`);
         try {
           await withPlayground(1440, async (cdp) => {
-            await cdp.eval(`window.__playground.load(${JSON.stringify(id)})`);
+            if (code) await cdp.eval(`window.__playground.editor.set(${JSON.stringify(code)})`);
+            else await cdp.eval(`window.__playground.load(${JSON.stringify(id)})`);
             await cdp.eval(`document.getElementById('save').click()`);
             let html = '';
             for (let i = 0; i < 50 && !html; i++) { html = await cdp.eval('window.__lastSave || ""'); await check.sleep(100); }
             expect(html, id).toContain('EDIT FROM HERE');
             expect(html).not.toContain('__pixiEffectsBridge');                   // the bridge is for the sandboxed frame only
-            expect(html.includes('"pixi-filters"'), id).toBe(id === '06-filters');
-            expect(html.includes('<base href='), id).toBe(id === '06-filters');   // only a piece that names the Playground's own files gets an address for them
+            expect(html.includes('"pixi-filters"'), id).toBe(id === 'filters-and-files');
+            expect(html.includes('<base href='), id).toBe(id === 'filters-and-files');   // only a piece that names the Playground's own files gets an address for them
             writeFileSync(file, html);
             const port = await cdp.eval('location.port');
             await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/_checks/_saved-${id}.html` });

@@ -1,0 +1,15 @@
+[
+  { "id": "spring-pop",         "recipe": "spring-pop",         "label": "a card that lands (spring)",        "duration": 4,  "background": "#0a0a0f", "poster": 2 },
+  { "id": "gradient-shift",     "recipe": "gradient-shift",     "label": "gradient fills that shift",         "duration": 4,  "background": "#0a0a0f", "poster": 3 },
+  { "id": "morph",              "recipe": "morph",              "label": "one shape becomes another",         "duration": 4,  "background": "#0a0a0f", "poster": 2 },
+  { "id": "canvas-rings",       "recipe": "canvas-rings",       "label": "draw it yourself: tree rings",      "duration": 8,  "background": "#0a0a0f", "poster": 7 },
+  { "id": "canvas-trail",       "recipe": "canvas-trail",       "label": "draw it yourself: an afterimage",   "duration": 6,  "background": "#0a0a0f", "poster": 2 },
+  { "id": "particles",          "recipe": "particles",          "label": "sparks (seeded particles)",         "duration": 5,  "background": "#0a0a0f", "poster": 2 },
+  { "id": "depth-title",        "recipe": "depth-title",        "label": "letters fly in from depth",         "duration": 7,  "background": "#0a0a0f", "poster": 5 },
+  { "id": "camera-fly-through", "recipe": "camera-fly-through", "label": "a camera flight down a corridor",   "duration": 8,  "background": "#0a0a0f", "poster": 5 },
+  { "id": "rack-focus",         "recipe": "rack-focus",         "label": "a rack focus (depth of field)",     "duration": 5,  "background": "#0a0a0f", "poster": 3 },
+  { "id": "light-leak",         "recipe": "light-leak",         "label": "a light leak (blend modes)",        "duration": 6,  "background": "#0a0a0f", "poster": 4 },
+  { "id": "shader-plasma",      "recipe": "shader-plasma",      "label": "a shader: plasma",                  "duration": 6,  "background": "#0a0a0f", "poster": 3 },
+  { "id": "warp-water",         "recipe": "warp-water",         "label": "text bent like water (warp)",       "duration": 6,  "background": "#0a0a0f", "poster": 3 },
+  { "id": "music-lofi",         "recipe": "music-lofi",         "label": "music written as text",             "duration": 12, "background": "#0a0a0f", "poster": 3 }
+]
