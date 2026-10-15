@@ -35,6 +35,30 @@ export class MockWebGLRenderer {
   forceContextLoss() { this.contextLost = true; }
 }
 
+/** What `three/webgpu`'s WebGPURenderer looks like to the layer: async init, async render, a dispose. */
+export class MockWebGPURenderer {
+  domElement: HTMLCanvasElement;
+  opts: Record<string, unknown>;
+  initCalls = 0;
+  renderCalls: Array<{ scene: unknown; camera: unknown }> = [];
+  setSizeCalls: Array<[number, number, boolean | undefined]> = [];
+  clearColor: [unknown, number] | null = null;
+  disposed = false;
+  /** the order things happened in, to check that init comes before the first render */
+  log: string[] = [];
+  constructor(opts: { canvas: HTMLCanvasElement }) { this.opts = opts; this.domElement = opts.canvas; }
+  async init() { this.initCalls++; this.log.push('init'); }
+  setSize(w: number, h: number, updateStyle?: boolean) {
+    this.setSizeCalls.push([w, h, updateStyle]);
+    this.domElement.width = w; this.domElement.height = h;
+  }
+  setClearColor(color: unknown, alpha: number) { this.clearColor = [color, alpha]; }
+  render(scene: unknown, camera: unknown) { this.log.push('render'); this.renderCalls.push({ scene, camera }); }
+  /** deprecated in three (it warns on every use): the layer must not call it */
+  async renderAsync() { throw new Error('renderAsync is deprecated: use render() after init()'); }
+  dispose() { this.disposed = true; }
+}
+
 /** Call at the top of every three test file, BEFORE importing ThreeSequence. */
 export function mockThreeModule() {
   vi.mock('three', () => ({
@@ -42,4 +66,5 @@ export function mockThreeModule() {
     PerspectiveCamera: MockPerspectiveCamera,
     WebGLRenderer: MockWebGLRenderer,
   }));
+  vi.mock('three/webgpu', () => ({ WebGPURenderer: MockWebGPURenderer }));
 }

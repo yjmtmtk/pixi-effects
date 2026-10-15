@@ -1,5 +1,6 @@
 import { Sprite, Texture } from 'pixi.js';
 import { PerspectiveCamera, Scene, WebGLRenderer, type Camera } from 'three';
+import type { WebGPURenderer } from 'three/webgpu';
 import { Sequence } from '../sequences/Base';
 import { buildScope } from '../expr/Scope';
 import { evaluateExpr } from '../expr/Parser';
@@ -8,7 +9,8 @@ import type { PropValue } from '../types';
 import type { ThreeContext, ThreeSequenceSpec } from './types';
 
 export class ThreeSequence extends Sequence {
-  private _renderer: WebGLRenderer | null = null;
+  private _renderer: WebGLRenderer | WebGPURenderer | null = null;
+  private _gpu = false;                       // renderer: 'webgpu': async init and async render
   private _scene: Scene | null = null;
   private _camera: Camera | null = null;
   private _ctx: ThreeContext | null = null;
@@ -40,8 +42,25 @@ export class ThreeSequence extends Sequence {
     // Offscreen canvas — never attached to the DOM. document.createElement
     // (not OffscreenCanvas) so PIXI's Texture.from and three both accept it.
     const canvas = document.createElement('canvas');
-    const renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true });
-    this._renderer = renderer;
+    const kind = spec.renderer ?? 'webgl';
+    if (kind !== 'webgl' && kind !== 'webgpu') {
+      throw new Error(`pixi-effects: a three layer's renderer must be 'webgl' or 'webgpu' (got ${JSON.stringify(kind)})`);
+    }
+    this._gpu = kind === 'webgpu';
+    let renderer: WebGLRenderer | WebGPURenderer;
+    if (this._gpu) {
+      let mod: typeof import('three/webgpu');
+      try { mod = await import('three/webgpu'); } catch (err) {
+        throw new Error(`pixi-effects: renderer: 'webgpu' needs three 0.17x or later with "three/webgpu" in the import map (${err instanceof Error ? err.message : err})`);
+      }
+      renderer = new mod.WebGPURenderer({ canvas, alpha: true, antialias: true });
+      this._renderer = renderer;
+      try { await renderer.init(); }          // the device is made here: nothing may render before
+      catch (err) { this._disposeRenderer(); throw err; }
+    } else {
+      renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true });
+      this._renderer = renderer;
+    }
     try {
       renderer.setSize(Math.round(width * resolution), Math.round(height * resolution), false);
       renderer.setClearColor(0x000000, 0);
@@ -59,7 +78,7 @@ export class ThreeSequence extends Sequence {
       if (!('camera' in this._objects)) this._objects.camera = this._camera;
 
       // Frame 0 so the texture is never blank before the first tick.
-      renderer.render(scene, this._camera);
+      this._draw();
 
       const texture = Texture.from(canvas);
       const sprite = new Sprite({ texture, label: spec.name });
@@ -97,8 +116,14 @@ export class ThreeSequence extends Sequence {
         }
       }
     }
-    this._renderer.render(this._scene, this._camera);
+    this._draw();
     (this.target as Sprite | null)?.texture.source.update();
+  }
+
+  /** One render of the scene. WebGPURenderer.render() needs `await init()` first (done in build); it queues the GPU work, and PixiJS reads the canvas after. */
+  private _draw(): void {
+    if (!this._renderer || !this._scene || !this._camera) return;
+    this._renderer.render(this._scene, this._camera);
   }
 
   private _resolveThreePath(path: string): { target: object; prop: string } | null {
@@ -137,7 +162,7 @@ export class ThreeSequence extends Sequence {
     if (!this._renderer) return;
     try {
       this._renderer.dispose();
-      this._renderer.forceContextLoss();
+      if (!this._gpu) (this._renderer as WebGLRenderer).forceContextLoss();
     } catch (err) {
       console.warn('pixi-effects: three renderer dispose threw —', err);
     }

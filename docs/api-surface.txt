@@ -931,7 +931,7 @@ function three(spec: ThreeSequenceSpec): SequenceSpec
 interface ThreeContext
   camera: Camera
   height: number
-  renderer: WebGLRenderer
+  renderer: WebGLRenderer | WebGPURenderer
   scene: Scene<Object3DEventMap>
   width: number
 class ThreeSequence
@@ -952,6 +952,7 @@ class ThreeSequence
 interface ThreeSequenceSpec extends SequenceCommon
   dispose?: ((ctx: ThreeContext) => void)
   height?: PropValue
+  renderer?: "webgl" | "webgpu"
   resolution?: number
   setup: (ctx: ThreeContext) => void | ThreeSetupResult | Promise<void | ThreeSetupResult>
   type: "three"

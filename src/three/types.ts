@@ -1,4 +1,5 @@
 import type { Camera, Scene, WebGLRenderer } from 'three';
+import type { WebGPURenderer } from 'three/webgpu';
 import type { SequenceCommon, PropValue } from '../types';
 
 /** Handed to setup / update / dispose. One per three sequence. */
@@ -6,7 +7,8 @@ export interface ThreeContext {
   scene: Scene;
   /** Default: PerspectiveCamera(50, width/height, 0.1, 2000). Replaced when setup returns { camera }. */
   camera: Camera;
-  renderer: WebGLRenderer;
+  /** The renderer the layer draws with: a WebGLRenderer, or a WebGPURenderer when the spec says `renderer: 'webgpu'`. */
+  renderer: WebGLRenderer | WebGPURenderer;
   /** Resolved layer size in composition px. */
   width: number;
   height: number;
@@ -24,6 +26,12 @@ export interface ThreeSequenceSpec extends SequenceCommon {
   /** Layer size in composition px. Expressions allowed (e.g. 'W * 0.5'). Default: parent composition size. */
   width?: PropValue;
   height?: PropValue;
+  /**
+   * Which three.js renderer draws the layer: `'webgl'` (the default, `WebGLRenderer`) or `'webgpu'` (`WebGPURenderer` from `three/webgpu`: it needs three 0.17x or later and
+   * `three/webgpu` in the import map; three itself falls back to its WebGL2 backend where the browser has no WebGPU). Materials that rewrite three's shaders
+   * (`onBeforeCompile`, `ShaderMaterial`) do not run on the WebGPU renderer.
+   */
+  renderer?: 'webgl' | 'webgpu';
   /** Supersampling factor for the offscreen canvas. Default 1. */
   resolution?: number;
   /**

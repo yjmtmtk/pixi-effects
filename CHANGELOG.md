@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **New: a `three` layer can draw with three's WebGPU renderer (`renderer: 'webgpu'`).** The layer used `WebGLRenderer` always, in its own offscreen context, even when PixiJS ran on WebGPU. `renderer: 'webgpu'` uses `WebGPURenderer` from `three/webgpu` (it needs three 0.17x or later and `three/webgpu` in the import map); the default is still `'webgl'`. The same lit scene draws within 0.06 of 255 per channel of the WebGL picture, and each renderer is a function of the time (`tests/films/three-renderers`). Measured once on an Apple (Metal) machine: the render alone is about the same for a box, and about twice as fast on WebGPU for 2,880 instanced rods under two point lights; an MP4 export is limited by the encode and took the same time. Materials that rewrite three's shaders (`onBeforeCompile`, `ShaderMaterial`) do not run on the WebGPU renderer. See `docs/dsl.md` → three.
+- **Changed (types only): `ThreeContext.renderer` is `WebGLRenderer | WebGPURenderer`.** TypeScript code that used WebGL-only members of `ctx.renderer` has to narrow it (`ctx.renderer instanceof WebGLRenderer`); `setClearColor`, `toneMapping` and `toneMappingExposure` exist on both.
+
 ## 0.39.0
 
 **The tools tell the truth, and a file can be checked against what it must be**

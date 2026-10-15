@@ -772,11 +772,20 @@ three({
 | `width?`     | `PropValue`                                                 | layer size in composition px; expressions allowed (e.g. `'W * 0.5'`). Default: parent composition size. |
 | `height?`    | `PropValue`                                                 | see `width`.                                                                              |
 | `resolution?` | `number`                                                    | supersampling factor for the offscreen canvas. Default `1`.                              |
+| `renderer?`  | `'webgl' \| 'webgpu'`                                        | which three.js renderer draws the layer. Default `'webgl'` (`WebGLRenderer`). `'webgpu'` uses `WebGPURenderer` from `three/webgpu` (see below). |
 | `setup`      | `(ctx: ThreeContext) => Promise<ThreeSetupResult \| void> \| ThreeSetupResult \| void` | builds the scene once. Add objects to `ctx.scene`, position `ctx.camera` (or replace it via `{ camera }`). Async, so `Movie.init` can await GLTF / texture loading. |
 | `update?`    | `(t: number, ctx: ThreeContext) => void`                    | optional per-frame hook; `t` is sequence-local time in seconds.                          |
 | `dispose?`   | `(ctx: ThreeContext) => void`                                | cleanup for user-created GPU resources (geometries, materials, textures). Called from `destroy()`. |
 
 `ThreeContext` is `{ scene, camera, renderer, width, height }` — the three.js `Scene`, `Camera`, `WebGLRenderer`, and the resolved layer size in composition px.
+
+### `renderer: 'webgpu'`
+
+The layer's own three.js renderer is `WebGLRenderer` unless you ask for `renderer: 'webgpu'`, which makes it three's `WebGPURenderer` (the picture is still copied into the layer's texture, so filters, masks, blend modes and mattes work as on any layer). It needs three 0.17x or later and `three/webgpu` in the import map next to `three` (both files import the same `three.core.js`, so they share one copy of three). Where the browser has no WebGPU, three itself falls back to its WebGL2 backend.
+
+- `ctx.renderer` is a `WebGLRenderer` or a `WebGPURenderer`; `setClearColor`, `toneMapping` and `toneMappingExposure` exist on both.
+- Materials that rewrite three's shaders (`onBeforeCompile`, `ShaderMaterial`, `RawShaderMaterial`) do not run on the WebGPU renderer; the built-in `Mesh*Material`s, `InstancedMesh` and `Points` do.
+- Measured on one Apple (Metal) machine, headless Chrome, 2026-10-15: the same lit box drew with a mean difference of 0.04–0.06 (of 255) per channel from the WebGL picture (only edge pixels differ). The render alone, waiting for the GPU, took about 0.8–0.9 ms either way for a box; for 2,880 instanced rods under two point lights it took about 0.9–1.2 ms on WebGPU against 1.7–2.1 ms on WebGL (1280×720 to 1920×1080). A 90-frame MP4 export took the same time with either (about 22 frames per second: the encode, not three, was the limit).
 
 ### Keyframe paths: `three.<name>.<path>`
 
