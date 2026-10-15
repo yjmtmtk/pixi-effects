@@ -17,6 +17,7 @@
  *          --query "a=1&b=2" (added to the page address: for a page that reads it, such as one video of a batch) ·
  *          --crop X,Y,W,H (with --at: each picture is that part of the canvas, in canvas pixels, enlarged up to 4x so a small figure can be judged) ·
  *          --onion A:B (one picture of the movement between A and B seconds, frames overlaid: onion.png) ·
+ *          --seam (a movie made to loop: the last frame to the first is compared with the steps between ordinary neighbouring frames; a jump is a problem) ·
  *          --strict (text overlaps and stops where the picture is still changing fail the check; by default they are only listed for review) · --out DIR · --frames N (contact sheet tiles, default 12) · --formats mp4,webm (default mp4) · --no-export ·
  *          --timeout SECONDS (default 240) · --root DIR (static server root; default: the nearest folder above the page with dist/) · --chrome PATH
  */
@@ -80,10 +81,10 @@ export function findChrome(env = process.env, exists = fs.existsSync, platform =
   return candidates.find(c => c && exists(c)) ?? null;
 }
 
-export const USAGE = 'usage: node ai/tools/check.mjs <page.html> [--out DIR] [--frames N] [--formats mp4,webm] [--no-export] [--draft] [--at 3.5,title@end] [--crop X,Y,W,H] [--onion 1:3] [--query a=1&b=2] [--var name=value] [--size 1920x1080,1080x1920] [--timeout S] [--root DIR] [--chrome PATH] [--strict] [--help]\n(the header of ai/tools/check.mjs explains each option)';
+export const USAGE = 'usage: node ai/tools/check.mjs <page.html> [--out DIR] [--frames N] [--formats mp4,webm] [--no-export] [--draft] [--at 3.5,title@end] [--crop X,Y,W,H] [--onion 1:3] [--seam] [--query a=1&b=2] [--var name=value] [--size 1920x1080,1080x1920] [--timeout S] [--root DIR] [--chrome PATH] [--strict] [--help]\n(the header of ai/tools/check.mjs explains each option)';
 
 export function parseArgs(argv) {
-  const o = { page: null, out: null, frames: 12, formats: ['mp4'], export: true, timeout: 240, root: null, chrome: null, strict: false, at: null, crop: null, draft: false, onion: null, query: null, vars: [], sizes: [], help: false };
+  const o = { page: null, out: null, frames: 12, formats: ['mp4'], export: true, timeout: 240, root: null, chrome: null, strict: false, at: null, crop: null, draft: false, onion: null, seam: false, query: null, vars: [], sizes: [], help: false };
   const need = (i, name) => { if (i + 1 >= argv.length) throw new Error(`${name} needs a value`); return argv[i + 1]; };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -103,6 +104,7 @@ export function parseArgs(argv) {
     }
     else if (a === '--var') o.vars.push(parseVar(need(i++, a)));
     else if (a === '--size') o.sizes.push(...parseSizes(need(i++, a)));
+    else if (a === '--seam') o.seam = true;
     else if (a === '--onion') {
       const m = need(i++, a).match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/);
       if (!m || !(Number(m[1]) < Number(m[2]))) throw new Error(`--onion must look like 1:3 (seconds, from before to), got "${argv[i]}"`);
@@ -488,6 +490,16 @@ export async function runCheck(opts, log = console.log) {
       report.files.onion = shown(onionFile);
     }
 
+    // --seam: a movie made to loop must not jump where it starts again
+    if (opts.seam) {
+      const m = await cdp.eval(SEAM_SCRIPT);
+      if (m.error) report.problems.push(`--seam: ${m.error}`);
+      else {
+        report.seam = { ...seamVerdict(m), frames: m.frames };
+        if (!report.seam.ok) report.problems.push(`the loop jumps at its seam: the last frame to the first differs by ${report.seam.seam}, ${report.seam.ratio}× the largest ordinary step (${report.seam.max})`);
+      }
+    }
+
     // a presentation (composition.stops): one picture of every stop, in order, so the pages and steps can be read at a glance
     const stops = await cdp.eval(`(() => { const s = movie.stops || []; return s.length ? { count: s.length, pages: new Set(s.map(x => x.pageIndex)).size, items: s.map(x => ({ at: Math.round(x.at * 100) / 100, frame: x.frame, page: x.page, pageStart: x.pageStart, notes: !!x.notes, pdf: x.pdf })) } : null; })()`).catch(() => null);
     if (stops) {
@@ -607,6 +619,37 @@ export async function runCheck(opts, log = console.log) {
 }
 
 /**
+ * `check --seam`: does a movie made to loop close without a jump? `seam` is how much the last frame differs from the first (mean absolute difference of the colour
+ * channels, 0 to 1), `steps` are the same number for ordinary neighbouring frames of the movie, so the movie is its own measure. A seam up to 1.5 times the largest
+ * ordinary step (or under the noise floor of 0.001) closes; more is a jump.
+ */
+export function seamVerdict({ seam, steps }) {
+  const sorted = [...steps].sort((a, b) => a - b);
+  const median = sorted.length ? sorted[sorted.length >> 1] : 0, max = sorted.length ? sorted[sorted.length - 1] : 0;
+  const ok = seam <= Math.max(max * 1.5, 0.001);
+  const ratio = max > 0 ? seam / max : (seam > 0 ? Infinity : 0);
+  const n = x => (x < 0.1 ? x.toFixed(4) : x.toFixed(3));
+  const line = ok
+    ? `  seam      the loop closes: the last frame to the first differs by ${n(seam)}, an ordinary step by ${n(median)} (largest ${n(max)})`
+    : `  seam      JUMP: the last frame to the first differs by ${n(seam)}, ${Number.isFinite(ratio) ? `${(Math.round(ratio * 10) / 10).toFixed(1)}×` : 'against nothing'} the largest ordinary step (${n(max)}): the picture jumps when the movie loops (make every motion periodic over the duration)`;
+  return { seam: Math.round(seam * 1e6) / 1e6, median: Math.round(median * 1e6) / 1e6, max: Math.round(max * 1e6) / 1e6, ratio: Number.isFinite(ratio) ? Math.round(ratio * 100) / 100 : null, ok, line };
+}
+
+/** In the page: the seam (last frame against the first) and nine ordinary steps (the first and the last of them next to the seam), on pictures a quarter of the size. */
+const SEAM_SCRIPT = `(async () => {
+  const total = movie.totalFrames;
+  if (total < 4) return { error: 'a movie of fewer than 4 frames has no loop to measure' };
+  const cache = new Map();
+  const grab = async f => { if (!cache.has(f)) cache.set(f, (await movie.snapshot(f, { as: 'imageData', scale: 0.25, motionBlur: false })).data); return cache.get(f); };
+  const mae = (a, b) => { let s = 0; for (let i = 0; i < a.length; i += 4) s += Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]); return s / (a.length / 4 * 3) / 255; };
+  const picks = new Set([0, total - 2]);
+  for (let k = 1; k <= 7; k++) picks.add(Math.round((total - 2) * k / 8));
+  const steps = [];
+  for (const k of [...picks].sort((a, b) => a - b)) steps.push(mae(await grab(k), await grab(k + 1)));
+  return { seam: mae(await grab(total - 1), await grab(0)), steps, frames: total };
+})()`;
+
+/**
  * The line `check` prints for its own export. That export is made to see that the movie can be written and read back, at a low bitrate and with no way to
  * ask for another: it is not the file to deliver (`render` is: `--video-bitrate`), and the line says so, with the real bitrate so nobody mistakes it for one.
  */
@@ -681,6 +724,7 @@ function finish(report, outDir, log) {
     for (const l of formatMusic(a?.sources)) L.push(l);
     for (const n of a?.notes ?? []) L.push(`  note      ${n}`);
   }
+  if (report.seam) L.push(report.seam.line);
   for (const ex of report.exports ?? []) L.push(exportLine(ex));
   L.push(`  files     ${Object.values(report.files).join('  ')}`);
   L.push(report.problems.length ? `RESULT: ${report.problems.length} PROBLEM(S)\n  - ${report.problems.join('\n  - ')}` : 'RESULT: OK — nothing to fix. Look at the contact sheet before you call it done.');

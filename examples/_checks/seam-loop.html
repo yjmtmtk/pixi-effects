@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>check · the loop seam</title>
+</head>
+<body>
+  <!--
+    Acceptance check (not an example): a 2 s movie of one circle. It goes out and comes back (50 to 250 to 50 in 2 s): frame 0 is where the movie would arrive again, so the loop has no jump. tests/tools/checkSeam.test.ts.
+  -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":      "https://esm.sh/mediabunny@1.61.3"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 320, height: 180, duration: 2, frameRate: 30,
+        composition: { sequences: [
+          { type: 'shape', shape: 'rect', name: 'background', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#102040' } },
+          { type: 'shape', shape: 'circle', name: 'dot', radius: 20, initial: { x: 50, y: 90, fillColor: '#ffffff' },
+            keyframes: [{ at: 0, to: { x: 250 }, duration: 1, ease: 'sine.inOut' }, { at: 1, to: { x: 50 }, duration: 1, ease: 'sine.inOut' }] },
+        ] },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init: ' + e.message); }
+  </script>
+</body>
+</html>
