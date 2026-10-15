@@ -13,6 +13,12 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const REGIONS = {};
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+/** Every id of the AI recipes (`// @recipe <id>` in recipes.md), for the For AI page. */
+REGIONS['recipe-list'] = ({ root_dir }) => {
+  const md = readFileSync(join(root_dir, 'skills/pixi-effects/reference/recipes.md'), 'utf8');
+  const ids = [...md.matchAll(/\/\/ @recipe ([^\n]+)/g)].map((m) => esc(m[1].trim()));
+  return `<ul class="recipe-ids">\n${ids.map((id) => `<li><code>${id}</code></li>`).join('\n')}\n</ul>`;
+};
 const isNumbered = (e) => /^\d\d$/.test(e.id);
 
 /** The cards of examples/index.html, from examples/examples.json. */

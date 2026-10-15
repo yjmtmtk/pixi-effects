@@ -15,10 +15,10 @@ describe('site-parts: the header, footer and head every page shares', () => {
     expect([0, 1, 2].map(rootPrefix)).toEqual(['', '../', '../../']);
   });
 
-  it('the header has the brand and the five entrances, relative to the page, and marks the current one', () => {
+  it('the header has the brand and the four entrances, relative to the page, and marks the current one', () => {
     const h = renderHeader({ root: '../../', current: 'gallery' });
-    expect(hrefs(h)).toEqual(expect.arrayContaining(['../../', '../../guide/', '../../examples/gallery/', '../../examples/interactive/', '../../examples/', '../../examples/playground.html']));
-    expect(NAV.map((n: any) => n.id)).toEqual(['guide', 'gallery', 'interactive', 'examples', 'playground']);
+    expect(hrefs(h)).toEqual(expect.arrayContaining(['../../', '../../examples/gallery/', '../../examples/interactive/', '../../examples/playground.html', '../../for-ai.html']));
+    expect(NAV.map((n: any) => n.id)).toEqual(['gallery', 'interactive', 'playground', 'forai']);
     expect(h.match(/aria-current="page"/g)).toHaveLength(1);
     expect(h).toMatch(/<a href="\.\.\/\.\.\/examples\/gallery\/" aria-current="page">Gallery<\/a>/);
     expect(h).toContain('id="themeBtn"');
@@ -31,7 +31,7 @@ describe('site-parts: the header, footer and head every page shares', () => {
 
   it('the footer links to every entrance, the repository, npm and the AI entry', () => {
     const f = renderFooter({ root: '../' });
-    for (const need of ['../guide/', '../examples/gallery/', '../examples/', '../examples/playground.html', '../examples/music-lab.html', '../llms.txt', 'https://github.com/yjmtmtk/pixi-effects', 'https://www.npmjs.com/package/pixi-effects', 'https://x.com/t_yjm']) {
+    for (const need of ['../for-ai.html', '../examples/gallery/', '../examples/interactive/', '../examples/playground.html', '../llms.txt', 'https://github.com/yjmtmtk/pixi-effects', 'https://www.npmjs.com/package/pixi-effects', 'https://x.com/t_yjm']) {
       expect(hrefs(f), need).toContain(need);
     }
   });

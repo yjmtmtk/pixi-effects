@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>For AI — pixi-effects</title>
+<meta name="description" content="What to paste to an AI to get a video, and everything an AI reads or runs to make and check one with pixi-effects.">
+<link rel="canonical" href="https://yjmtmtk.github.io/pixi-effects/for-ai.html">
+<meta name="color-scheme" content="dark light">
+<!--site:head-->
+<link rel="stylesheet" href="site/shared/tokens.css">
+<link rel="stylesheet" href="site/shared/site.css">
+<script>try{var t=localStorage.getItem('pe-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+<script src="site/shared/site.js" defer></script>
+<!--/site:head-->
+<link rel="stylesheet" href="site/landing/landing.css">
+<style>
+  .reads{list-style:none;margin:24px 0 0;padding:0;display:grid;gap:0;max-width:78ch}
+  .reads li{padding:12px 0;border-top:1px solid var(--line);font-size:15.5px;line-height:1.5;color:var(--ink-2)}
+  .reads li:last-child{border-bottom:1px solid var(--line)}
+  .reads a,.reads code{color:var(--ink)}
+  .recipe-ids{list-style:none;margin:20px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+  .recipe-ids li code{display:inline-block;padding:4px 9px;border:1px solid var(--line);border-radius:6px;font-size:12.5px}
+  #main section{padding:56px 0 8px}
+  #main .top1{padding-top:72px}
+</style>
+</head>
+<body>
+<!--site:header-->
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./"><span class="dia" aria-hidden="true"></span>pixi-effects</a>
+    <nav aria-label="Site">
+      <a href="examples/gallery/">Gallery</a>
+      <a href="examples/interactive/">Interactive</a>
+      <a href="examples/playground.html">Playground</a>
+      <a href="for-ai.html" aria-current="page">For AI</a>
+      <a class="only-wide" href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
+    </nav>
+    <button class="theme" type="button" id="themeBtn" aria-label="Colour theme: auto. Click to change">auto</button>
+  </div>
+</header>
+<!--/site:header-->
+
+<main id="main">
+
+<section class="top1" aria-labelledby="h1">
+  <div class="wrap">
+    <h1 id="h1">For AI</h1>
+    <p class="deck">Everything an AI needs to make a video with this library and check it, and nothing it has to read twice.</p>
+  </div>
+</section>
+
+<section id="paste" aria-labelledby="h-paste">
+  <div class="wrap">
+    <header class="ch"><span class="n">01</span><span class="dia" aria-hidden="true"></span><h2 id="h-paste">Paste this to an AI</h2><span class="rule" aria-hidden="true"></span></header>
+    <div class="prompt">
+      <div class="prompt-bar"><span>the sentence</span><span>tap an ending to swap it, then copy</span></div>
+      <p class="prompt-text" id="promptText">Use <span class="url">https://github.com/yjmtmtk/pixi-effects</span> to make a video: <span class="ending" id="ending">a 10-second title for a bakery, warm cream colours, a soft chime at the end</span></p>
+      <div class="prompt-foot">
+        <div class="chips" role="group" aria-label="Example endings">
+          <span class="lbl">Endings</span>
+          <button type="button" class="chip" aria-pressed="true" data-ending="a 10-second title for a bakery, warm cream colours, a soft chime at the end">Bakery title</button>
+          <button type="button" class="chip" aria-pressed="false" data-ending="a lo-fi loop with a clock counting down to midnight">Lo-fi midnight loop</button>
+          <button type="button" class="chip" aria-pressed="false" data-ending="a 20-second launch teaser for headphones, dark, 2.5D">Headphones teaser, 2.5D</button>
+        </div>
+        <button type="button" class="btn primary" id="copyPrompt">Copy the sentence</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="reads" aria-labelledby="h-reads">
+  <div class="wrap">
+    <header class="ch"><span class="n">02</span><span class="dia" aria-hidden="true"></span><h2 id="h-reads">What it reads</h2><span class="rule" aria-hidden="true"></span></header>
+    <ul class="reads">
+      <li><a href="https://github.com/yjmtmtk/pixi-effects/blob/main/AGENTS.md">AGENTS.md</a>: the first screen of the repository. It tells an AI with a shell which path to take and what not to read.</li>
+      <li><a href="https://github.com/yjmtmtk/pixi-effects/blob/main/skills/pixi-effects/SKILL.md">skills/pixi-effects/SKILL.md</a>: the workflow and the rules that cause most failures. Install it for an agent with <code>npx skills add yjmtmtk/pixi-effects</code>.</li>
+      <li><a href="llms.txt">llms.txt</a> (the index) and <a href="llms-full.txt">llms-full.txt</a> (all the documents in one file).</li>
+      <li><a href="https://github.com/yjmtmtk/pixi-effects/blob/main/ai/CHAT.md">ai/CHAT.md</a>: for an AI in a browser chat with no shell and no files. One HTML file; every warning shows in a red box to paste back.</li>
+      <li>Ask the docs instead of reading them: <code>npx pixi-effects help &lt;word&gt;</code> prints the sections about a word; <code>npx pixi-effects recipe [id]</code> lists the tested recipes and prints one with its code.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="tools" aria-labelledby="h-tools">
+  <div class="wrap">
+    <header class="ch"><span class="n">03</span><span class="dia" aria-hidden="true"></span><h2 id="h-tools">What it runs</h2><span class="rule" aria-hidden="true"></span></header>
+    <ul class="reads">
+      <li><code>npx pixi-effects check page.html</code>: library warnings (each says what to change), layout and sound problems, a real export decoded again, and a contact sheet picture to look at.</li>
+      <li><code>npx pixi-effects render page.html -o out.mp4</code>: export, whole or a range (<code>--range</code>, <code>--scene</code>).</li>
+      <li><code>npx pixi-effects view page.html</code>: the page with a zoomable timeline under it.</li>
+      <li><code>probe</code>, <code>frames</code>, <code>trim</code>, <code>sound</code>, <code>concat</code>, <code>audio</code>: look into and cut a finished file, with no ffmpeg.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="recipes" aria-labelledby="h-recipes">
+  <div class="wrap">
+    <header class="ch"><span class="n">04</span><span class="dia" aria-hidden="true"></span><h2 id="h-recipes">The tested recipes</h2><span class="rule" aria-hidden="true"></span></header>
+    <p class="deck">Each one is built and linted by the test suite. Print one with <code>npx pixi-effects recipe &lt;id&gt;</code>.</p>
+<!--site:recipe-list-->
+<ul class="recipe-ids">
+<li><code>slam-words</code></li>
+<li><code>lower-third</code></li>
+<li><code>spring-pop</code></li>
+<li><code>rewind-and-replay</code></li>
+<li><code>scene-zoom</code></li>
+<li><code>parallax-strips</code></li>
+<li><code>canvas-trail</code></li>
+<li><code>canvas-rings</code></li>
+<li><code>canvas-pixel-sprite</code></li>
+<li><code>canvas-life</code></li>
+<li><code>canvas-text-mask</code></li>
+<li><code>canvas-text-on-path</code></li>
+<li><code>canvas-bars</code></li>
+<li><code>marquee</code></li>
+<li><code>count-up</code></li>
+<li><code>bar-chart</code></li>
+<li><code>depth-title</code></li>
+<li><code>camera-orbit</code></li>
+<li><code>depth-cards</code></li>
+<li><code>scene-flood</code></li>
+<li><code>slideshow</code></li>
+<li><code>slideshow-cuts</code></li>
+<li><code>music-lofi</code></li>
+<li><code>sfx-minimal</code></li>
+<li><code>sfx-cues</code></li>
+<li><code>progress-ring</code></li>
+<li><code>draw-on-and-type</code></li>
+<li><code>split-text</code></li>
+<li><code>stagger</code></li>
+<li><code>animate-text</code></li>
+<li><code>vertical-text</code></li>
+<li><code>follow-path</code></li>
+<li><code>morph</code></li>
+<li><code>audio-react</code></li>
+<li><code>deck</code></li>
+<li><code>camera-fly-through</code></li>
+<li><code>rack-focus</code></li>
+<li><code>pulse</code></li>
+<li><code>particles</code></li>
+<li><code>particles-snow</code></li>
+<li><code>null-orbit</code></li>
+<li><code>light-leak</code></li>
+<li><code>shared-matte</code></li>
+<li><code>luma-wipe</code></li>
+<li><code>spot-room</code></li>
+<li><code>fog-depth</code></li>
+<li><code>shader-plasma</code></li>
+<li><code>warp-water</code></li>
+<li><code>wiggle</code></li>
+<li><code>gradient-background</code></li>
+<li><code>gradient-shift</code></li>
+<li><code>film-grain</code></li>
+<li><code>subtitles</code></li>
+</ul>
+<!--/site:recipe-list-->
+  </div>
+</section>
+
+<section id="honest" aria-labelledby="h-honest">
+  <div class="wrap">
+    <header class="ch"><span class="n">05</span><span class="dia" aria-hidden="true"></span><h2 id="h-honest">Honest notes</h2><span class="rule" aria-hidden="true"></span></header>
+    <ul class="honest">
+      <li>The AI has to be able to read a web page: it fetches the repository, and in a chat, <code>ai/CHAT.md</code>.</li>
+      <li>In a chat with no preview window you save the file it gives you and open it in a browser.</li>
+      <li>It is a young library, and the first try may need a couple of rounds: if a red box appears, paste back what it says; each message names what to change.</li>
+      <li>The check can tell the AI that nothing is broken, not that the video is good. That judgement is still yours.</li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<!--site:footer-->
+<footer class="site-foot">
+  <div class="wrap">
+    <p class="links">
+      <a href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
+      <a href="https://www.npmjs.com/package/pixi-effects">npm: pixi-effects</a>
+      <a href="examples/gallery/">Gallery</a>
+      <a href="examples/interactive/">Interactive</a>
+      <a href="examples/playground.html">Playground</a>
+      <a href="for-ai.html">For AI</a>
+      <a href="https://github.com/yjmtmtk/pixi-effects/blob/main/skills/pixi-effects/SKILL.md">AI skill</a>
+      <a href="llms.txt">llms.txt</a>
+      <a href="https://x.com/t_yjm" rel="me noopener">Author on X</a>
+    </p>
+    <p class="end"><span class="dia" aria-hidden="true"></span><span>pixi-effects · MIT · built on PixiJS v8 and mediabunny · ease names after GSAP, with thanks</span></p>
+  </div>
+</footer>
+<!--/site:footer-->
+
+<script>
+(function(){
+  var ending=document.getElementById('ending'), chips=document.querySelectorAll('.chip'), cp=document.getElementById('copyPrompt');
+  chips.forEach(function(c){ c.addEventListener('click',function(){ ending.textContent=c.getAttribute('data-ending'); chips.forEach(function(x){ x.setAttribute('aria-pressed', x===c ? 'true' : 'false'); }); }); });
+  if(cp) cp.addEventListener('click',function(){
+    var text=document.getElementById('promptText').textContent.replace(/\s+/g,' ').trim(); var orig=cp.textContent;
+    var done=function(){ cp.textContent='Copied'; setTimeout(function(){ cp.textContent=orig; },1400); };
+    if(navigator.clipboard) navigator.clipboard.writeText(text).then(done,done); else done();
+  });
+})();
+</script>
+</body>
+</html>

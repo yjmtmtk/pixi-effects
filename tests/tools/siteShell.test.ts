@@ -14,7 +14,7 @@ const chrome = check.findChrome();
 const built = existsSync(join(root, 'dist/index.js'));
 
 /** Pages that carry the shared header (each task that moves a page onto the shared shell adds it here). */
-const PAGES: Array<[string]> = [['index.html'], ['guide-preview/getting-started.html'], ['examples/index.html'], ['examples/music-lab.html'], ['examples/playground.html'], ['examples/gallery/index.html'], ['examples/interactive/index.html']];
+const PAGES: Array<[string]> = [['index.html'], ['for-ai.html'], ['guide-preview/getting-started.html'], ['examples/index.html'], ['examples/music-lab.html'], ['examples/playground.html'], ['examples/gallery/index.html'], ['examples/interactive/index.html']];
 
 async function withPage<T>(path: string, width: number, fn: (cdp: any) => Promise<T>): Promise<T> {
   const { server, port } = await check.serve(root);
@@ -47,7 +47,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the shared
           };
         })()`);
         expect(r.overflow).toBeLessThanOrEqual(0);
-        expect(r.names).toEqual(expect.arrayContaining(['Guide', 'Gallery', 'Examples', 'Playground']));
+        expect(r.names).toEqual(expect.arrayContaining(['Gallery', 'Interactive', 'Playground', 'For AI']));
         expect(r.inside).toBe(true);
         expect(r.main).toBe(true);
         expect(r.mainRight).toBeLessThanOrEqual(r.width + 1);

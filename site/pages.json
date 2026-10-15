@@ -5,6 +5,13 @@
       "current": "home"
     },
     {
+      "file": "for-ai.html",
+      "current": "forai",
+      "regions": [
+        "recipe-list"
+      ]
+    },
+    {
       "file": "examples/index.html",
       "current": "examples",
       "regions": [

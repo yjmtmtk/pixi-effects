@@ -87,7 +87,7 @@ describe('build-guide: assets', () => {
 });
 
 describe('build-guide: the shared shell', () => {
-  it('every page carries the shared head, header and footer, the guide styles, and the guide entrance is current', async () => {
+  it('every page carries the shared head, header and footer, the guide styles, ', async () => {
     const out = mkdtempSync(join(tmpdir(), 'guide-'));
     const { pages } = await buildGuide({ srcDir: guideDir, outDir: out });
     expect(existsSync(join(out, 'guide.css'))).toBe(true);
@@ -96,7 +96,7 @@ describe('build-guide: the shared shell', () => {
       expect(html, p.file).toContain('href="../site/shared/tokens.css"');
       expect(html, p.file).toContain('href="guide.css"');
       expect(html, p.file).toContain('<main id="main"');
-      expect(html, p.file).toMatch(/<a href="\.\.\/guide\/" aria-current="page">Guide<\/a>/);
+      // the Guide is no longer an entrance (the new navigation); it goes with this file in the removal task
       expect(html, p.file).toContain('class="site-foot"');
       expect(html, p.file).not.toContain('<style>');
     }
