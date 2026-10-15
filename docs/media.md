@@ -38,7 +38,7 @@ npx pixi-effects probe footage.mp4 --keyframes
 ```
 footage.mp4
   MP4 · 6.036 s · 53 KB
-  video  avc 320×180 · 30 fps · 8 kb/s
+  video  avc 320×180 · 30 fps · 8 kb/s · colour bt709 (transfer iec61966-2-1, limited range)
   audio  aac 48000 Hz · 2 ch · 157 kb/s
   key packets at: 0, 2, 4, 6 s
 ```
@@ -58,7 +58,7 @@ npx pixi-effects probe footage.mp4 --expect "size=320x180 fps=30 frames=181 audi
 RESULT: all 5 expectations hold
 ```
 
-The words: `size` (`3840x2160`), `width`, `height`, `fps`, `frames`, `duration` (seconds, right to half a frame), `bitrate` (of the whole file's picture: `35M`, `800k` or bits a second), `video` and `audio` (a codec, `none` or, for audio, `any`), `container`. Operators: `=` `!=` `>=` `<=` `>` `<` (`size`, `video`, `audio` and `container` take only `=` and `!=`). Separate by spaces or commas; a misspelt word gets `did you mean`. `--json` adds an `expect` list with `got` and `ok` for each. Remember: a render's `bitrate` is a ceiling, not a target (a quiet or mostly black picture is written far under it): ask `probe` what the file really has.
+The words: `size` (`3840x2160`), `width`, `height`, `fps`, `frames`, `duration` (seconds, right to half a frame), `bitrate` (of the whole file's picture: `35M`, `800k` or bits a second), `video` and `audio` (a codec, `none` or, for audio, `any`), `container`, `matrix` and `transfer` (the colour tags the file carries: `matrix=bt709` is what a platform that asks for Rec.709 means; the files `render()` writes have the Rec.709 primaries and matrix, limited range, and the **sRGB transfer** `iec61966-2-1`, which is the true name of what was encoded, since the pixels are drawn as sRGB: editors and players treat it as Rec.709 in practice). Operators: `=` `!=` `>=` `<=` `>` `<` (`size`, `video`, `audio` and `container` take only `=` and `!=`). Separate by spaces or commas; a misspelt word gets `did you mean`. `--json` adds an `expect` list with `got` and `ok` for each. Remember: a render's `bitrate` is a ceiling, not a target (a quiet or mostly black picture is written far under it): ask `probe` what the file really has.
 
 ## trim
 

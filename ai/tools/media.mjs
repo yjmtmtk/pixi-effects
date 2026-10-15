@@ -184,6 +184,8 @@ export async function probeFile(file, { keyframes = false, exact = false } = {})
         first: round(first, 4), end: round(end, 6), frameGap: round(median, 6),
         stored: { width: await track.getCodedWidth(), height: await track.getCodedHeight() },
       });
+      const cs = await track.getColorSpace().catch(() => null);                                              // what the file says about its colours (a decoder reads this, not the encoder's intent)
+      if (cs && (cs.primaries || cs.transfer || cs.matrix)) video[video.length - 1].color = { primaries: cs.primaries ?? null, transfer: cs.transfer ?? null, matrix: cs.matrix ?? null, fullRange: !!cs.fullRange };
       if (exact) {                                                                                           // every packet, not the first 300: the real frame count and the bitrate of the whole file
         const all = await track.computePacketStats(Infinity);
         video[video.length - 1].frames = all.packetCount;
@@ -214,7 +216,7 @@ const kb = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(2)} MB` : `${Math.max
 
 function probeText(r, keyframes) {
   const L = [`${r.file}`, `  ${r.container} · ${r.duration} s${r.bytes != null ? ` · ${kb(r.bytes)}` : ''}`];
-  for (const v of r.video) L.push(`  video  ${v.codec} ${v.width}×${v.height}${v.rotation ? ` shown (stored ${v.stored.width}×${v.stored.height}, turned ${v.rotation}° clockwise)` : ''} · ${v.fps}${v.fpsVaries ? ' (varies)' : ''} fps${v.bitrate ? ` · ${Math.round(v.bitrate / 1000)} kb/s` : ''}`);
+  for (const v of r.video) L.push(`  video  ${v.codec} ${v.width}×${v.height}${v.rotation ? ` shown (stored ${v.stored.width}×${v.stored.height}, turned ${v.rotation}° clockwise)` : ''} · ${v.fps}${v.fpsVaries ? ' (varies)' : ''} fps${v.bitrate ? ` · ${Math.round(v.bitrate / 1000)} kb/s` : ''}${v.color ? ` · colour ${v.color.matrix ?? '?'} (transfer ${v.color.transfer ?? '?'}, ${v.color.fullRange ? 'full' : 'limited'} range)` : ''}`);
   for (const a of r.audio) L.push(`  audio  ${a.codec} ${a.sampleRate} Hz · ${a.channels} ch${a.bitrate ? ` · ${Math.round(a.bitrate / 1000)} kb/s` : ''}`);
   if (keyframes && r.video.length) L.push(`  key packets at: ${r.keyframes.slice(0, 12).join(', ')}${r.keyframes.length > 12 ? `, … (${r.keyframes.length})` : ''} s`);
   for (const n of r.notes) L.push(`  note   ${n}`);
@@ -223,7 +225,7 @@ function probeText(r, keyframes) {
 
 // ───────────────────────────── probe --expect ─────────────────────────────
 
-const EXPECT_KEYS = ['size', 'width', 'height', 'fps', 'frames', 'duration', 'bitrate', 'video', 'audio', 'container'];
+const EXPECT_KEYS = ['size', 'width', 'height', 'fps', 'frames', 'duration', 'bitrate', 'video', 'audio', 'container', 'matrix', 'transfer'];
 const EXPECT_NUMERIC = ['width', 'height', 'fps', 'frames', 'duration', 'bitrate'];
 
 /**
@@ -280,7 +282,7 @@ export function checkExpect(report, items) {
   const mbps = n => `${Math.round(n / 1e5) / 10} Mbps`;
   return items.map(({ key, op, raw }) => {
     let got, ok, shown;
-    if (['size', 'width', 'height', 'fps', 'frames', 'duration', 'bitrate', 'video'].includes(key) && !v) {
+    if (['size', 'width', 'height', 'fps', 'frames', 'duration', 'bitrate', 'video', 'matrix', 'transfer'].includes(key) && !v) {
       got = null; ok = false; shown = 'no video';
     } else if (key === 'size') {
       got = `${v.width}x${v.height}`; ok = (got === raw.toLowerCase().replace('×', 'x')) === (op === '='); shown = got;
@@ -295,6 +297,8 @@ export function checkExpect(report, items) {
       got = v.bitrateAll ?? v.bitrate; ok = compare(got, op, expectNumber(key, raw)); shown = mbps(got);
     } else if (key === 'video') {
       got = v.codec; ok = (String(got).toLowerCase() === raw.toLowerCase()) === (op === '='); shown = String(got);
+    } else if (key === 'matrix' || key === 'transfer') {
+      got = v.color?.[key] ?? null; shown = got ?? 'not tagged'; ok = got !== null && ((String(got).toLowerCase() === raw.toLowerCase()) === (op === '='));
     } else if (key === 'audio') {
       const r = raw.toLowerCase();
       got = a ? a.codec : 'none';
