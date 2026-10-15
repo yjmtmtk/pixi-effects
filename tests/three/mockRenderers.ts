@@ -4,6 +4,7 @@ export class MockWebGLRenderer {
   renderCalls: Array<{ scene: unknown; camera: unknown }> = [];
   setSizeCalls: Array<[number, number, boolean | undefined]> = [];
   clearColor: [unknown, number] | null = null;
+  shadowMap = { enabled: false };
   disposed = false;
   contextLost = false;
   opts: Record<string, unknown>;
@@ -27,6 +28,7 @@ export class MockWebGPURenderer {
   renderCalls: Array<{ scene: unknown; camera: unknown }> = [];
   setSizeCalls: Array<[number, number, boolean | undefined]> = [];
   clearColor: [unknown, number] | null = null;
+  shadowMap = { enabled: false };
   disposed = false;
   /** three's node system: FRAME-type nodes (light uniforms, `time`) update when frameId changes; three bumps it in its own requestAnimationFrame loop only */
   _nodes: { nodeFrame: { frameId: number; time: number; deltaTime: number; update: () => void } } | undefined = {

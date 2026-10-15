@@ -57,6 +57,12 @@ describe('lightSetProblems', () => {
     const casters = [0, 1, 2, 3, 4].map(i => card({ name: 'c' + i, castsShadows: true }));
     expect(lightSetProblems([light({ kind: 'ambient' }), light({ castsShadows: true }), ...casters, card()]).join('\n')).toMatch(/5 layers cast shadows.*4.*"c4"/);
   });
+  it("a light that casts shadows needs no casting layer in the composition when a three layer follows the lights (its own meshes cast, in three)", () => {
+    const lights = [light({ kind: 'spot', castsShadows: true }), light({ kind: 'ambient' })];
+    expect(lightSetProblems([...lights, card()]).join('\n')).toContain('no layer has castsShadows');
+    expect(lightSetProblems([...lights, S({ type: 'three', followLights: true })]).join('\n')).not.toContain('no layer has castsShadows');
+    expect(lightSetProblems([...lights, S({ type: 'three' })]).join('\n')).toContain('no layer has castsShadows');       // a three layer that does not follow the lights is no host
+  });
 });
 
 describe('soft shadows from many lights', () => {

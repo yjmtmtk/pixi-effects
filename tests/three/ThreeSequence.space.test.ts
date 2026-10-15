@@ -126,6 +126,18 @@ describe('followLights', () => {
   });
 });
 
+describe('shadows of followed lights', () => {
+  it("switch the layer's shadow map on when a light alive casts, and leave it off otherwise (the meshes that cast and receive are the layer's own: castShadow / receiveShadow)", async () => {
+    const on = make({ followLights: true });
+    await on.seq.build(); await on.seq.awaitFrameAt(1);
+    expect((on.seq as any)._renderer.shadowMap.enabled).toBe(false);
+    spaceAt.mockImplementation((t: number) => ({ camera: cam(480 + 100 * t), lights: [{ ...lamp, kind: 'spot' as const, castsShadows: true }], fog: fogNow }));
+    await on.seq.awaitFrameAt(2);
+    expect((on.seq as any)._renderer.shadowMap.enabled).toBe(true);
+    spaceAt.mockImplementation((t: number) => ({ camera: cam(480 + 100 * t), lights: [lamp], fog: fogNow }));
+  });
+});
+
 describe('followFog', () => {
   it("the composition camera's fog is the scene's Fog, every frame; the camera is not touched; it follows the camera going over", async () => {
     const { seq, seen } = make({ followFog: true });

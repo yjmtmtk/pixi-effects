@@ -105,7 +105,8 @@ export function lightSetProblems(layers: readonly SequenceSpec[]): string[] {
   const lightsCast = lights.some(l => kindOf(l) !== 'ambient' && (l as { castsShadows?: boolean }).castsShadows);
   const casters = layers.filter(l => l.type !== 'light' && (l as { castsShadows?: boolean }).castsShadows && (l as { threeD?: boolean }).threeD);
   if (casters.length > 0 && !lightsCast) out.push(`${casters.length} layer${casters.length > 1 ? 's have' : ' has'} castsShadows but no light has castsShadows: add castsShadows: true to the light that should make the shadows`);
-  if (lightsCast && casters.length === 0) out.push('a light has castsShadows but no layer has castsShadows: add castsShadows: true to the threeD layers that should cast a shadow');
+  const hostsThree = layers.some(l => (l as { type?: string }).type === 'three' && (l as { followLights?: boolean }).followLights);     // its own meshes cast, in three
+  if (lightsCast && casters.length === 0 && !hostsThree) out.push('a light has castsShadows but no layer has castsShadows: add castsShadows: true to the threeD layers that should cast a shadow');
   if (lightsCast && casters.length > MAX_CASTERS) {
     const dropped = casters.slice(MAX_CASTERS).map(c => nameOf(c, layers.indexOf(c)));
     out.push(`${casters.length} layers cast shadows, but a layer receives shadows from at most ${MAX_CASTERS} (the first ${MAX_CASTERS}, in layer order); ${dropped.join(', ')} and later cast none`);

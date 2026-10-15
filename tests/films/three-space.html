@@ -4,8 +4,8 @@
 <body>
   <!-- Test film (tests/films/three-space.test.ts): the same composition (a camera that moves and changes fov, optionally lights) drawn two ways:
        ?mode=board: three flat cards (shape layers with threeD: true), the composition's own 2.5D;  ?mode=three: three flat planes in ONE `three` layer with followCamera / followLights.
-       ?fog=1: the camera writes fog (near 150, far 600, #0a1020);  ?lights=none|ambient|point|parallel|spot  ?lamp=late: a point light that only lives from 1 s to 2 s  ?cm=0: colour management off in the layer (what makes a Lambert plane shade like a card).
-       The page gives the test framePixels, hashOf and pngOf. -->
+       ?shadow=1: a spot light that casts shadows, a wall and a card in front of it that casts one;  ?fog=1: the camera writes fog (near 150, far 600, #0a1020);  ?lights=none|ambient|point|parallel|spot  ?lamp=late: a point light that only lives from 1 s to 2 s  ?cm=0: colour management off in the layer (what makes a Lambert plane shade like a card).
+       The page gives the test framePixels, pixelAt, hashOf and pngOf. -->
   <canvas id="stage" width="480" height="270"></canvas>
   <script>
     window.__logs = [];
@@ -35,11 +35,30 @@
       lampOnly: [{ kind: 'ambient', initial: { intensity: 0.2 } }, { kind: 'point', at: 1, duration: 1, initial: { x: s(300), y: s(100), z: s(700), intensity: 1 } }],
     }[lamp === 'late' ? 'lampOnly' : kind];
     const fog = q.get('fog') === '1';
-    const sequences = [
+    const shadow = q.get('shadow') === '1';
+    const sequences = shadow ? [
+      { type: 'light', kind: 'ambient', initial: { intensity: 0.3 } },
+      { type: 'light', kind: 'spot', castsShadows: true, initial: { x: s(300), y: s(80), z: s(700), lookAtX: s(480), lookAtY: s(270), lookAtZ: 0, coneAngle: 70, coneFeather: 0.3, intensity: 1, shadowDarkness: 0.8 } },
+    ] : [
       { type: 'camera', name: 'cam', ...(fog ? { initial: { fogNear: 150, fogFar: 600, fogColor: '#0a1020' } } : {}), keyframes: [{ at: 0, from: { x: W / 2, y: H / 2, fov: 40 }, to: { x: s(780), y: s(150), fov: 70 }, duration: DUR, ease: 'none' }] },
       ...LIGHTS.map((l) => ({ type: 'light', ...l })),
     ];
-    if (mode === 'board') {
+    if (shadow) {
+      const WALL = { x: 240, y: 135, z: -150, w: 440, h: 240, c: '#3a6ea5' }, CARD = { x: 220, y: 135, z: 0, w: 100, h: 100, c: '#d96a3a' };
+      if (mode === 'board') {
+        sequences.push({ type: 'shape', shape: 'rect', width: WALL.w, height: WALL.h, threeD: true, initial: { x: WALL.x, y: WALL.y, z: WALL.z, anchorX: 0.5, anchorY: 0.5, fillColor: WALL.c } });
+        sequences.push({ type: 'shape', shape: 'rect', width: CARD.w, height: CARD.h, threeD: true, castsShadows: true, initial: { x: CARD.x, y: CARD.y, z: CARD.z, anchorX: 0.5, anchorY: 0.5, fillColor: CARD.c } });
+      } else {
+        sequences.push({ type: 'three', name: 'scene3d', antialias: false, renderer, followCamera: true, followLights: true,
+          setup: (ctx) => {
+            if (!cm) { THREE.ColorManagement.enabled = false; ctx.renderer.outputColorSpace = THREE.LinearSRGBColorSpace; }
+            for (const [o, cast] of [[WALL, false], [CARD, true]]) {
+              const m = new THREE.Mesh(new THREE.PlaneGeometry(o.w, o.h), new THREE.MeshLambertMaterial({ color: o.c, side: THREE.DoubleSide, shadowSide: THREE.DoubleSide }));
+              m.position.set(o.x, -o.y, o.z); m.castShadow = cast; m.receiveShadow = !cast; ctx.scene.add(m);
+            }
+          } });
+      }
+    } else if (mode === 'board') {
       for (const b of BOXES) sequences.push({ type: 'shape', shape: 'rect', width: s(200), height: s(200), threeD: true, initial: { x: s(b.x), y: s(b.y), z: s(b.z), anchorX: 0.5, anchorY: 0.5, fillColor: b.c } });
     } else {
       sequences.push({ type: 'three', name: 'scene3d', antialias: false, renderer, followCamera: true, followLights: true, followFog: true,
@@ -55,6 +74,7 @@
     const movie = new Movie();
     window.movie = movie;
     window.framePixels = async (frame) => Array.from((await movie.snapshot(frame, { as: 'imageData' })).data);
+    window.pixelAt = async (frame, x, y) => { const img = await movie.snapshot(frame, { as: 'imageData' }); const i = (y * img.width + x) * 4; return Array.from(img.data.slice(i, i + 4)); };
     window.hashOf = async (frame) => { const d = (await movie.snapshot(frame, { as: 'imageData' })).data; let h = 0x811c9dc5; for (let i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); };
     window.pngOf = async (frame) => { const img = await movie.snapshot(frame, { as: 'imageData' }); const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; c.getContext('2d').putImageData(img, 0, 0); return c.toDataURL('image/png'); };
     try {

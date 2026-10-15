@@ -223,7 +223,11 @@ export class ThreeSequence extends Sequence {
       if (!camera.isPerspectiveCamera) this._saidOnce('camera', `followCamera needs a PerspectiveCamera (this layer's camera is a ${(ctx.camera as { type?: string }).type ?? 'different camera'}); it keeps it as it is`, spec.name);
       else applyCameraState(camera, space.camera, ctx.width / ctx.height);
     }
-    if (spec.followLights) (this._lightMirror ??= new LightMirror(scene)).update(space.lights);
+    if (spec.followLights) {
+      const mirror = (this._lightMirror ??= new LightMirror(scene, Math.max(ctx.width, ctx.height) * 2));
+      mirror.update(space.lights);
+      if (mirror.castsShadows && !ctx.renderer.shadowMap.enabled) ctx.renderer.shadowMap.enabled = true;
+    }
     if (spec.followFog) {
       if (space.fog && space.fog.amount !== 1) this._saidOnce('fogAmount', `followFog: the camera's fogAmount is ${space.fog.amount}, and three's Fog has no amount below 1: the layer uses the full amount (set fogColor to the colour you want at the far end, or leave followFog off and make the fog yourself from ctx.space.fog)`, spec.name);
       (this._fogMirror ??= new FogMirror(scene)).update(space.fog);

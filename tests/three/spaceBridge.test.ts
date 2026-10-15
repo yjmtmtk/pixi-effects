@@ -104,6 +104,37 @@ describe('the composition lights, in three', () => {
   });
 });
 
+describe('shadows of the composition lights, in three', () => {
+  const casting = (over: Partial<LightState> = {}) => light({ kind: 'spot', castsShadows: true, shadowDarkness: 0.8, shadowDiffusion: 20, ...over });
+  const made = (lights: LightState[], extent?: number) => { const scene = new Scene(); const mirror = new LightMirror(scene, extent); mirror.update(lights); return { scene, mirror, lights: scene.children.filter((c) => (c as { isLight?: boolean }).isLight) as Array<SpotLight & DirectionalLight & PointLight> }; };
+
+  it('a light with castsShadows casts in three: the darkness is the shadow intensity, the diffusion softens the edge, the shadow camera reaches across a scene in pixels', () => {
+    const { lights, mirror } = made([casting()]);
+    const l = lights[0]!;
+    expect(l.castShadow).toBe(true);
+    expect(l.shadow.intensity).toBeCloseTo(0.8, 9);
+    expect(l.shadow.radius).toBeCloseTo(5, 9);                                 // 20 px of diffusion
+    expect(l.shadow.mapSize.x).toBeGreaterThanOrEqual(2048);
+    expect(l.shadow.camera.near).toBe(1); expect(l.shadow.camera.far).toBeGreaterThanOrEqual(20000);
+    expect(mirror.castsShadows).toBe(true);
+  });
+
+  it('a hard light (no diffusion) has radius 1; a light without castsShadows casts nothing; an ambient light never does', () => {
+    const { lights, mirror } = made([casting({ shadowDiffusion: 0 }), light({ kind: 'point' }), light({ kind: 'ambient', castsShadows: true })]);
+    expect(lights[0]!.shadow.radius).toBe(1);
+    expect(lights[1]!.castShadow).toBe(false);
+    expect(lights[2]!.castShadow).toBeFalsy();
+    mirror.update([light({ kind: 'point' })]);
+    expect(mirror.castsShadows).toBe(false);
+  });
+
+  it("a parallel light's shadow camera is an orthographic box of the extent given (composition pixels), not three's default 10 units", () => {
+    const { lights } = made([casting({ kind: 'parallel' })], 1500);
+    const cam = lights[0]!.shadow.camera as unknown as { left: number; right: number; top: number; bottom: number };
+    expect([cam.left, cam.right, cam.top, cam.bottom]).toEqual([-1500, 1500, 1500, -1500]);
+  });
+});
+
 describe('the composition fog, in three (a linear Fog by the depth along the view)', () => {
   const fog = { r: 0.1, g: 0.2, b: 0.4, near: 300, far: 900, amount: 1 };
 

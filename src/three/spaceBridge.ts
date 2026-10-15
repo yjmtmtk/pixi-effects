@@ -5,7 +5,7 @@
  * +z is toward the viewer in both). A three camera with the composition camera's position, look-at point and vertical fov then projects that point to the pixel the
  * composition's own projection gives it (tests/three/spaceBridge.test.ts checks it to 1e-6 px).
  */
-import { AmbientLight, Color, DirectionalLight, Fog, PerspectiveCamera, PointLight, SRGBColorSpace, SpotLight, type Light, type Object3D, type Scene } from 'three';
+import { AmbientLight, Color, DirectionalLight, Fog, OrthographicCamera, PerspectiveCamera, PointLight, SRGBColorSpace, SpotLight, type Light, type Object3D, type Scene } from 'three';
 import type { CameraState } from '../space/math';
 import type { LightState } from '../space/lighting';
 import type { FogState } from '../space/LitMaterial';
@@ -40,9 +40,12 @@ interface Entry { kind: LightState['kind']; light: Light; target: Object3D | nul
  */
 export class LightMirror {
   private entries: Entry[] = [];
-  constructor(private readonly scene: Object3D) {}
+  /** True when a light alive casts shadows: the layer's renderer must have its shadow map on. */
+  castsShadows = false;
+  constructor(private readonly scene: Object3D, private readonly extent = 2000) {}
 
   update(lights: readonly LightState[]): void {
+    this.castsShadows = lights.some((s) => s.castsShadows && s.kind !== 'ambient');
     lights.forEach((s, i) => {
       let e = this.entries[i];
       if (!e || e.kind !== s.kind) {
@@ -94,6 +97,20 @@ export class LightMirror {
       l.penumbra = s.coneFeather;
     }
     light.intensity = intensity;
+    if (s.kind !== 'ambient') {
+      const l = light as PointLight | SpotLight | DirectionalLight;
+      l.castShadow = s.castsShadows;
+      if (s.castsShadows) {
+        l.shadow.mapSize.set(2048, 2048);
+        l.shadow.intensity = s.shadowDarkness;
+        l.shadow.radius = Math.max(1, s.shadowDiffusion / 4);
+        l.shadow.bias = -0.0005;
+        const cam = l.shadow.camera;
+        cam.near = 1; cam.far = 20000;
+        if (s.kind === 'parallel') { const o = cam as OrthographicCamera; o.left = -this.extent; o.right = this.extent; o.top = this.extent; o.bottom = -this.extent; }
+        cam.updateProjectionMatrix();
+      }
+    }
     light.updateMatrixWorld?.();
     e.target?.updateMatrixWorld?.();
   }

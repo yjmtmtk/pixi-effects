@@ -56,6 +56,20 @@ runFilms('Three layer in the composition\'s space: the same camera and lights as
     expect(diff(three[0]!, unfogged[0]!).mean, 'and followFog really fogs the three scene').toBeGreaterThan(1.5);
   }, 120_000);
 
+  it("followLights with castsShadows: the card in front throws the same shadow on the wall as the composition's cards do (measured mean 0.2–0.35 of 255, the rest is the edge of the shadow map); the shadow is really there", async () => {
+    const grab = async (q: string) => withFilm('three-space', async (film) => {
+      expect(await film.eval<string>('JSON.stringify(window.__logs)'), q).toBe('[]');
+      return { all: await film.eval<number[]>('framePixels(0)'), shadow: await film.eval<number[]>('pixelAt(0, 270, 160)'), lit: await film.eval<number[]>('pixelAt(0, 330, 90)') };
+    }, { query: q });
+    const card = await grab('mode=board&shadow=1&cm=0');
+    for (const renderer of ['', '&renderer=webgpu']) {
+      const three = await grab(`mode=three&shadow=1&cm=0${renderer}`);
+      expect(diff(card.all, three.all).mean, `renderer${renderer}: the picture`).toBeLessThan(1);
+      for (let c = 0; c < 3; c++) expect(Math.abs(card.shadow[c]! - three.shadow[c]!), `renderer${renderer}: inside the shadow, channel ${c}`).toBeLessThan(16);
+      expect(three.lit[2]! - three.shadow[2]!, `renderer${renderer}: the shadow is darker than the lit wall beside it`).toBeGreaterThan(60);
+    }
+  }, 180_000);
+
   it('a light that only lives from 1 s to 2 s lights the layer exactly then (the frames before and after match the cards; the lit frame is not the unlit one)', async () => {
     const at = [15, 45, 75];
     const card = await frames('mode=board&lamp=late&cm=0', at), three = await frames('mode=three&lamp=late&cm=0', at);
