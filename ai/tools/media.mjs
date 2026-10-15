@@ -470,6 +470,9 @@ const AT_HELP = 'use seconds (3.5), a percentage (50%), a frame (f120), start, e
  */
 export function parseTimes(list, { duration, fps, first = 0, last: lastFrame }) {
   const out = [], seen = new Set(), last = Math.max(first, lastFrame ?? duration - 1 / fps);
+  // A frame is shown from its own time until the next frame's: a time asked for a FRAME (f12, start, end) rounds UP to four decimals, never down (1/30 s as 0.0333 is
+  // before frame 1 and gives frame 0). A time asked in seconds is the instant asked for, and keeps the plain rounding.
+  const onFrame = t => Math.ceil(t * 1e4 - 1e-7) / 1e4 + 0;                  // + 0: Math.ceil(-0.00000001) is -0
   const add = (t, label) => { if (!seen.has(label)) { seen.add(label); out.push({ t, label }); } };
   const inside = (t, raw) => { if (t > duration + 1e-6) throw new Error(`${raw} s is past the end of the file (${round(duration, 3)} s)`); return Math.min(t, last > t ? t : Math.max(t, 0)); };
   for (const raw of String(list).split(',').map(x => x.trim()).filter(Boolean)) {
@@ -480,12 +483,12 @@ export function parseTimes(list, { duration, fps, first = 0, last: lastFrame }) 
       const n = Math.ceil(duration / step);
       if (n > MAX_FRAMES) throw new Error(`--at "${raw}": that is ${n} frames of a ${round(duration, 1)} s file, too many (at most ${MAX_FRAMES}): a larger step, or a range of times`);
       for (let k = 0; k * step < duration - 1e-6; k++) add(round(k * step, 4), `${round(k * step, 2).toFixed(2)}s`);
-    } else if (/^start$/i.test(raw)) add(round(first, 4), 'start');
-    else if (/^end$/i.test(raw)) add(round(last, 4), 'end');
+    } else if (/^start$/i.test(raw)) add(onFrame(first), 'start');
+    else if (/^end$/i.test(raw)) add(onFrame(last), 'end');
     else if ((m = raw.match(/^(\d+(?:\.\d+)?)%$/))) {
       if (Number(m[1]) > 100) throw new Error(`--at "${raw}": a percentage is 0–100`);
       add(round(Math.min(last, duration * Number(m[1]) / 100), 4), `${m[1]}pct`);
-    } else if ((m = raw.match(/^f(\d+)$/i))) add(round(inside(Number(m[1]) / fps, `frame ${m[1]} is ${round(Number(m[1]) / fps, 3)}`), 4), `f${m[1]}`);
+    } else if ((m = raw.match(/^f(\d+)$/i))) add(onFrame(inside(Number(m[1]) / fps, `frame ${m[1]} is ${round(Number(m[1]) / fps, 3)}`)), `f${m[1]}`);
     else if (/^\d+(\.\d+)?$/.test(raw)) add(round(inside(Number(raw), raw), 4), `${Number(raw).toFixed(2)}s`);
     else throw new Error(`--at: cannot read "${raw}": ${AT_HELP}`);
   }

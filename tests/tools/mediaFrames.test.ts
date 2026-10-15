@@ -34,6 +34,22 @@ describe('frames: the times asked for', () => {
     const mine = media.parseTimes(list, ctx);
     expect(mine.map((x: any) => Math.min(179, Math.round(x.t * 30)))).toEqual(theirs.map((x) => Math.min(179, x.frame)));
   });
+  it('a frame number asks for a time that is on that frame, never before it (f1 of a 30 fps file was 0.0333, which is frame 0: the 4-decimal rounding went down)', () => {
+    for (const fps of [24, 25, 29.97, 30, 48, 50, 59.94, 60]) {
+      const dur = 10;
+      for (let n = 0; n < Math.floor(dur * fps); n++) {
+        const t = media.parseTimes(`f${n}`, { duration: dur, fps })[0].t;
+        expect(t, `f${n} at ${fps} fps`).toBeGreaterThanOrEqual(n / fps - 1e-9);
+        expect(t, `f${n} at ${fps} fps is on the next frame`).toBeLessThan((n + 1) / fps);
+      }
+    }
+  });
+  it('"end" is not before the last frame either', () => {
+    for (const [dur, fps] of [[10, 30], [6, 30], [9.9667, 30], [4.2, 29.97], [3.7, 60], [12.34, 25]] as [number, number][]) {
+      const last = dur - 1 / fps;
+      expect(media.parseTimes('end', { duration: dur, fps })[0].t, `end of ${dur} s at ${fps} fps`).toBeGreaterThanOrEqual(last - 1e-9);
+    }
+  });
   it('refuses what is outside the file or unreadable, with the duration in the sentence', () => {
     expect(() => media.parseTimes('99', ctx)).toThrow(/99 s is past the end of the file \(6 s\)/);
     expect(() => media.parseTimes('-1', ctx)).toThrow(/cannot read "-1"/);
@@ -72,6 +88,17 @@ describe.skipIf(!chrome || process.env.SKIP_BROWSER_TESTS)('frames: pictures of 
       }
       expect(names).toEqual(['red', 'green', 'blue', 'cyan']);
       expect(readdirSync(dir).filter(n => n.endsWith('.png')).sort()).toEqual(j.frames.map((f: any) => f.file).sort());
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }, 90_000);
+
+  it('f1, f4 and f7 give frames 1, 4 and 7, not the frame before (colors.mp4 is 30 fps: 1/30 s rounded down to four decimals used to give frame 0)', async () => {
+    const dir = tmp();
+    try {
+      const r = await run(['frames', fx('colors.mp4'), '--at', 'f0,f1,f4,f7,f30', '-o', dir, '--json']);
+      expect(r.code, r.err).toBe(0);
+      const j = JSON.parse(r.out);
+      const fps = 30;
+      expect(j.frames.map((f: any) => Math.round(f.actual * fps))).toEqual([0, 1, 4, 7, 30]);
     } finally { rmSync(dir, { recursive: true, force: true }); }
   }, 90_000);
 
