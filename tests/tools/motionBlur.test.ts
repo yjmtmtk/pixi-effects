@@ -84,7 +84,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('motion blu
       })()`);
       expect(r.size).toBeGreaterThan(2000);
       expect(r.events).toBe(r.total + 1);
-      expect(r.frame).toBe(r.total);
+      expect(r.frame).toBe(r.total - 1);                                       // the last EXPORTED frame: the file is [0, total), the end moment is not a frame
     });
   }, 180_000);
 

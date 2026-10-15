@@ -101,7 +101,10 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('time remap
   it('a loop wraps (a negative speed too); speed alone makes the layer as long as the file divided by |speed|', async () => {
     await withPage(async (cdp) => {
       await cdp.eval(`mk({ duration: 6, composition: { sequences: [{ type: 'video', asset: 'clip', duration: 6, loop: true, audio: false, initial: { scale: 2 }, speed: -1 }] } })`);
-      expect(await cdp.eval('frameAt(0)')).toBe(89);                                  // starts at the end of the file ... counting back
+      // the layer starts at file time 6 = two whole passes of the 3 s clip: that single instant is the wrap boundary (the start AND the end of the file; it used to read
+      // as the end only because the page's clip was one frame too long). One frame in, it is unambiguous: the last frame of the file, counting back.
+      expect(await cdp.eval('frameAt(1)')).toBe(89);
+      expect([0, 89]).toContain(await cdp.eval('frameAt(0)'));
       const f = await cdp.eval('frameAt(100)');                                       // 3.33 s: wrapped, counting back from 6 - 3.33 = 2.67 s in file time
       expect(Math.abs(f - shown(((6 - 100 / FPS) % 3 + 3) % 3))).toBeLessThanOrEqual(1);
       const lasts = async (extra: string) => {

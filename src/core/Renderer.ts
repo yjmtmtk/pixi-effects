@@ -187,7 +187,8 @@ export async function exportFrames(movie: Movie, options: RenderOptions = {}): P
   const keyframeIntervalFrames = Math.max(1, Math.round(interval * movie.frameRate));
   try {
     const count = Math.max(1, range.toFrame - range.fromFrame);
-    for (let frame = range.fromFrame; frame <= range.toFrame; frame++) {
+    // [from, to): the moment `to` belongs to the NEXT frame, so a movie of 10 s at 30 fps is 300 frames and a file of exactly 10 s (it was 301: the end moment was written as an extra frame)
+    for (let frame = range.fromFrame; frame < range.toFrame; frame++) {
       if (mb && blurCanvas) await movie._exposeFrame(frame, mb, blurCanvas, false);
       else await movie.gotoFrame(frame, true);
       if (small && smallCtx) smallCtx.drawImage(blurCanvas ?? stage, 0, 0, small.width, small.height);
@@ -198,9 +199,10 @@ export async function exportFrames(movie: Movie, options: RenderOptions = {}): P
       const progress = Math.floor((rel / count) * 100);
       movie.emit('progress', { progress, frame, totalFrames: movie.totalFrames });
     }
+    movie.emit('progress', { progress: 100, frame: range.toFrame, totalFrames: movie.totalFrames });   // the frames are [from, to): the last one drawn is 99 %, the finished file is 100
     await canvasSource.close();
     await output.finalize();
-    if (mb) await movie.gotoFrame(range.toFrame, true);              // the stage shows the last exported frame itself, not its last sample
+    if (mb) await movie.gotoFrame(range.toFrame - 1, true);          // the stage shows the last exported frame itself, not its last sample
     return new Blob([output.target.buffer as ArrayBuffer], { type: output.format.mimeType });
   } finally {
     movie.app!.ticker.start();

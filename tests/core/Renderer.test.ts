@@ -253,21 +253,21 @@ describe('Renderer — quality preset mapping', () => {
 // ── encode loop & keyframes ──────────────────────────────────────────────
 
 describe('Renderer — encode loop', () => {
-  it('iterates frame 0..totalFrames inclusive, calling gotoFrame(force=true)', async () => {
+  it('iterates frame 0..totalFrames-1 (the end moment is not a frame: 5 frames are a file of 5 frames), calling gotoFrame(force=true)', async () => {
     const { movie, local } = fakeMovie({ totalFrames: 5, frameRate: 30 });
     await exportFrames(asMovie(movie));
-    expect(local.gotoFrame.map((c) => c.frame)).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(local.gotoFrame.map((c) => c.frame)).toEqual([0, 1, 2, 3, 4]);
     expect(local.gotoFrame.every((c) => c.force === true)).toBe(true);
-    expect(calls.canvasSourceAdds.map((c) => c.t)).toEqual([0, 1 / 30, 2 / 30, 3 / 30, 4 / 30, 5 / 30]);
+    expect(calls.canvasSourceAdds.map((c) => c.t)).toEqual([0, 1 / 30, 2 / 30, 3 / 30, 4 / 30]);
     expect(calls.canvasSourceAdds.every((c) => c.dt === 1 / 30)).toBe(true);
   });
 
-  it('a range encodes only those frames (the end included), the file starts at 0, and progress counts within the range', async () => {
+  it('a range encodes only those frames [from, to) (a second is 30 frames), the file starts at 0, and progress counts within the range', async () => {
     const { movie, local } = fakeMovie({ totalFrames: 300, frameRate: 30 });
     await exportFrames(asMovie(movie), { range: [2, 3] });
-    expect(local.gotoFrame.map((c) => c.frame)).toEqual(Array.from({ length: 31 }, (_, i) => 60 + i));
+    expect(local.gotoFrame.map((c) => c.frame)).toEqual(Array.from({ length: 30 }, (_, i) => 60 + i));
     expect(calls.canvasSourceAdds[0]!.t).toBe(0);
-    expect(calls.canvasSourceAdds[30]!.t).toBeCloseTo(1, 10);
+    expect(calls.canvasSourceAdds[29]!.t).toBeCloseTo(29 / 30, 10);
     const progress = local.emit.filter((e) => e.event === 'progress').map((e) => (e.data as { progress: number }).progress);
     expect(progress[0]).toBe(0); expect(progress[progress.length - 1]).toBe(100);
     expect((calls.canvasSourceAdds[0]!.opts as { keyFrame?: true }).keyFrame).toBe(true);        // the first frame of the file is a keyframe
@@ -276,32 +276,32 @@ describe('Renderer — encode loop', () => {
   it('a range with motion blur draws each frame of the range blurred, and leaves the stage on the last frame it exported (not the end of the movie)', async () => {
     const { movie, local } = fakeMovie({ totalFrames: 300, frameRate: 30 });
     await exportFrames(asMovie(movie), { range: [1, 2], motionBlur: { samples: 2 } });
-    expect(local.exposed).toEqual(Array.from({ length: 31 }, (_, i) => 30 + i));
-    expect(local.gotoFrame.map((c) => c.frame)).toEqual([60]);                  // only the final "show the frame itself, not its last sample"
+    expect(local.exposed).toEqual(Array.from({ length: 30 }, (_, i) => 30 + i));
+    expect(local.gotoFrame.map((c) => c.frame)).toEqual([59]);                  // only the final "show the frame itself, not its last sample": the last exported frame
   });
 
   it('a layer name is a range', async () => {
     const { movie, local } = fakeMovie({ totalFrames: 300, frameRate: 30 });
     await exportFrames(asMovie(movie), { range: 'title' });
     expect(local.gotoFrame[0]!.frame).toBe(30);
-    expect(local.gotoFrame[local.gotoFrame.length - 1]!.frame).toBe(60);
+    expect(local.gotoFrame[local.gotoFrame.length - 1]!.frame).toBe(59);          // the layer's span is [30, 60): its last frame is 59
   });
 
   it('a movie that is encoded whole is unchanged: the same frames and timestamps as without any new option', async () => {
     const { movie, local } = fakeMovie({ totalFrames: 4, frameRate: 30 });
     await exportFrames(asMovie(movie), { range: [0, 4 / 30] });
-    expect(local.gotoFrame.map((c) => c.frame)).toEqual([0, 1, 2, 3, 4]);
+    expect(local.gotoFrame.map((c) => c.frame)).toEqual([0, 1, 2, 3]);
   });
 
   it('forces a keyframe at frame 0 and every ~2 seconds (fps 30 → every 60 frames)', async () => {
     const { movie } = fakeMovie({ totalFrames: 180, frameRate: 30 });
     await exportFrames(asMovie(movie));
     const keyFrames = calls.canvasSourceAdds.filter((c) => c.opts && (c.opts as { keyFrame?: true }).keyFrame === true);
-    expect(keyFrames.map((_, i) => i * 60)).toEqual([0, 60, 120, 180]);
-    expect(keyFrames).toHaveLength(4);
+    expect(keyFrames.map((_, i) => i * 60)).toEqual([0, 60, 120]);
+    expect(keyFrames).toHaveLength(3);
     // Non-keyframe slots: opts is undefined.
     const nonKey = calls.canvasSourceAdds.filter((c) => c.opts === undefined);
-    expect(nonKey).toHaveLength(180 + 1 - 4);
+    expect(nonKey).toHaveLength(180 - 3);
   });
 
   it('clamps the keyframe interval to at least 1 frame even at sub-1 fps', async () => {
@@ -309,7 +309,7 @@ describe('Renderer — encode loop', () => {
     await exportFrames(asMovie(movie));
     // Math.max(1, round(0.8)) === 1 → every frame is a keyframe.
     const keyFrames = calls.canvasSourceAdds.filter((c) => c.opts && (c.opts as { keyFrame?: true }).keyFrame === true);
-    expect(keyFrames).toHaveLength(4);
+    expect(keyFrames).toHaveLength(3);
   });
 
   it('emits "progress" once per frame with rounded percent', async () => {
@@ -321,7 +321,7 @@ describe('Renderer — encode loop', () => {
       { progress: 25,  frame: 1, totalFrames: 4 },
       { progress: 50,  frame: 2, totalFrames: 4 },
       { progress: 75,  frame: 3, totalFrames: 4 },
-      { progress: 100, frame: 4, totalFrames: 4 },
+      { progress: 100, frame: 4, totalFrames: 4 },             // after the last frame: the finished file
     ]);
   });
 });
@@ -525,7 +525,7 @@ describe('Renderer — video options', () => {
     await exportFrames(asMovie(movie), { video: { hardware: 'prefer-hardware', keyFrameInterval: 1 } });
     expect((calls.CanvasSource[0]!.opts as unknown as { hardwareAcceleration: string }).hardwareAcceleration).toBe('prefer-hardware');
     const keys = calls.canvasSourceAdds.filter(c => c.opts && c.opts.keyFrame === true).length;
-    expect(keys).toBe(4);                                                   // frames 0, 30, 60, 90
+    expect(keys).toBe(3);                                                   // frames 0, 30, 60 (the file is frames 0..89)
     await expect(exportFrames(asMovie(movie), { video: { hardware: 'gpu' as never } })).rejects.toThrow(/prefer-hardware/);
     await expect(exportFrames(asMovie(movie), { video: { keyFrameInterval: 0 } })).rejects.toThrow(/keyFrameInterval/);
   });

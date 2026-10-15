@@ -6,6 +6,7 @@ export interface RangeContext {
   /** The movie's timeline rows (`movie.timelineData().rows`): a range may name a top-level layer. */
   rows?: Array<{ name: string; start: number; end: number; depth: number; parts?: Array<{ start: number; end: number }>; partNames?: string[]; local?: string }>;
 }
+/** `[fromFrame, toFrame)`: `toFrame` is the first frame NOT written (the end moment belongs to the next frame), so `toFrame - fromFrame` is the number of frames in the file. */
 export interface ResolvedRange { fromFrame: number; toFrame: number; fromSec: number; toSec: number; partial: boolean }
 
 export function resolveRange(range: [number, number] | string | undefined, ctx: RangeContext): ResolvedRange {

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { launchPage } from '../support/browser';
+import * as mb from 'mediabunny';
 
 const root = resolve(__dirname, '../..');
 const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
@@ -26,6 +27,20 @@ const RENDER = (opts: object) => `(async () => {
   return info;
 })()`;
 
+/** Render in the page and hand the FILE back: the number of picture frames in it and the picture's own length, counted from the packets (a <video>'s duration also counts the sound's padding). */
+const FILE = (opts: object) => `(async () => {
+  const blob = await movie.render(${JSON.stringify(opts)});
+  const bytes = new Uint8Array(await blob.arrayBuffer()); let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+})()`;
+async function pictureFrames(base64: string): Promise<{ frames: number; seconds: number }> {
+  const input = new mb.Input({ source: new mb.BufferSource(new Uint8Array(Buffer.from(base64, 'base64'))), formats: mb.ALL_FORMATS });
+  const v = (await input.getPrimaryVideoTrack())!;
+  let frames = 0;
+  for await (const _ of new mb.EncodedPacketSink(v).packets()) frames++;
+  return { frames, seconds: await v.computeDuration() };
+}
+
 async function withMovie<T>(fn: (cdp: any) => Promise<T>): Promise<T> {
   const { server, port } = await check.serve(root);
   const dir = mkdtempSync(join(tmpdir(), 'range-'));
@@ -40,6 +55,20 @@ async function withMovie<T>(fn: (cdp: any) => Promise<T>): Promise<T> {
 }
 
 describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('render({ range, scale, draft }), in a real browser', () => {
+  it('the file is exactly as long as the movie: the end moment is not an extra frame (4 s = 120 frames, not 121; a range 1 to 2.5 s = 45 frames, not 46)', async () => {
+    await withMovie(async (cdp) => {
+      const fps = await cdp.eval('movie.frameRate');
+      const full = await pictureFrames(await cdp.eval(FILE({})));
+      expect(full.frames, `the whole movie: ${full.seconds} s`).toBe(4 * fps);
+      expect(full.seconds).toBeCloseTo(4, 3);
+      const part = await pictureFrames(await cdp.eval(FILE({ range: [1, 2.5] })));
+      expect(part.frames, `the range: ${part.seconds} s`).toBe(1.5 * fps);
+      expect(part.seconds).toBeCloseTo(1.5, 3);
+      const layer = await pictureFrames(await cdp.eval(FILE({ range: 'title' })));
+      expect(layer.frames, 'a named layer (at 1, 2 s long)').toBe(2 * fps);
+    });
+  }, 180000);
+
   it('the whole movie as before; a range of seconds cuts the picture AND the sound; a named layer is its span', async () => {
     await withMovie(async (cdp) => {
       const full = await cdp.eval(RENDER({}));
@@ -79,7 +108,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('render({ r
       expect([r.video.width, r.video.height]).toEqual([160, 90]);
       expect(Math.abs(r.video.duration - 1)).toBeLessThan(0.2);
       expect(Math.abs(r.audio.duration - 1)).toBeLessThan(0.2);
-      expect(await cdp.eval('movie.currentFrame')).toBe(60);                       // the stage is left on the last exported frame, not the end of the movie
+      expect(await cdp.eval('movie.currentFrame')).toBe(59);                       // the stage is left on the last exported frame (59: the range is [30, 60), the moment 2 s belongs to the next frame), not the end of the movie
     });
   }, 180000);
 

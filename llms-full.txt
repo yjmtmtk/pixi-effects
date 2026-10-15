@@ -4040,7 +4040,7 @@ The command line wraps it: `pixi-effects sound <file>` (see `docs/media.md`). Th
 
 ### `movie.render(options?): Promise<Blob>`
 
-Renders the entire timeline to a single video file. Pauses playback first.
+Renders the entire timeline to a single video file. Pauses playback first. **The file has exactly `duration × frameRate` frames** (a 10 s movie at 30 fps is 300 frames and 10.000 s: frames 0 to 299; the moment `duration` itself is not a frame, it belongs to the next one), and a `range: [a, b]` is the frames from `a` up to, not including, `b` (`[1, 2]` is 30 frames at 30 fps). So a clip made to loop has no repeated frame at its seam. `movie.totalFrames` is that number, and `movie.seek` / `gotoFrame` may still go to the end moment (frame `totalFrames`) to look at it.
 
 ```ts
 interface RenderOptions {
