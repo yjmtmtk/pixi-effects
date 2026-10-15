@@ -19,6 +19,39 @@ describe('render.mjs — pure helpers', () => {
     expect(tool.fileSeconds({ length: null, duration: 4 }, { range: null })).toBe(4);
   });
 
+  it('--help lists every option the command takes (--video-bitrate was missing: an agent could not find it)', () => {
+    for (const flag of ['--video-bitrate', '--video-codec', '--audio-codec', '--motion-blur', '--shutter', '--all-stops', '--format', '--quality', '--range', '--scene', '--scale', '--draft', '--query', '--var', '--size', '--strict', '--quiet', '--timeout', '--root', '--chrome']) {
+      expect(tool.USAGE, flag).toContain(flag);
+    }
+  });
+
+  it('progress: a terminal gets one rewritten line; a command whose stderr is not a terminal (an agent, a script) gets a line now and then, so a long render is not silent; --quiet gets nothing', () => {
+    const run = (o: { quiet: boolean; isTTY: boolean }, steps: [number, number][]) => {
+      const out: string[] = []; let clock = 0;
+      const p = tool.makeProgress({ ...o, write: (s: string) => out.push(s), now: () => clock });
+      for (const [t, pct] of steps) { clock = t; p(pct); }
+      return out;
+    };
+    expect(run({ quiet: true, isTTY: false }, [[0, 1], [60_000, 50]])).toEqual([]);
+    expect(run({ quiet: true, isTTY: true }, [[0, 1], [60_000, 50]])).toEqual([]);
+    expect(run({ quiet: false, isTTY: true }, [[0, 1], [100, 1], [200, 2]])).toEqual(['\rrendering 1%', '\rrendering 2%']);
+    const quiet = run({ quiet: false, isTTY: false }, [[0, 0], [400, 1], [5_000, 3], [14_000, 9], [16_000, 11], [20_000, 12], [31_000, 25], [47_000, 40]]);
+    expect(quiet).toEqual(['rendering 0%\n', 'rendering 11% (16 s)\n', 'rendering 25% (31 s)\n', 'rendering 40% (47 s)\n']);           // the first at once, then no more than one every 15 s
+  });
+
+  it('bitrateLine: the real bitrate of the file, and a sentence when --video-bitrate asked for far more than it got (55M gave 17.8 Mbps on a mostly black picture)', () => {
+    const got = tool.bitrateLine(2_225_000, 1, '55M');                       // 2 225 000 bytes in 1 s = 17.8 Mbps
+    expect(got.mbps).toBe(17.8);
+    expect(got.note).toMatch(/asked 55M, got 17\.8 Mbps/);
+    expect(got.note).toMatch(/ceiling|quiet|probe/i);
+    expect(tool.bitrateLine(2_225_000, 1, '20M').note).toBe('');              // 17.8 of 20: close enough
+    expect(tool.bitrateLine(2_225_000, 1, 'high').note).toBe('');             // a quality word has no number to miss
+    expect(tool.bitrateLine(2_225_000, 1, null).note).toBe('');
+    expect(tool.bitrateLine(2_225_000, 1, '8000000').note).toBe('');          // plain bits a second: 8 Mbps, got more
+    expect(tool.bitrateLine(250_000, 1, '800k').note).toBe('');               // 2 Mbps of 0.8: more than asked
+    expect(tool.bitrateLine(1000, 0, '8M').mbps).toBeNull();                  // no length: no number
+  });
+
   it('formatFromPath: the container follows the output file extension', () => {
     expect(tool.formatFromPath('out.mp4')).toBe('mp4');
     expect(tool.formatFromPath('/a/b/clip.WEBM')).toBe('webm');
@@ -120,6 +153,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('render.mjs
     const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), join(root, 'examples/_checks/render-range.html'), ...args, '--quiet', '--timeout', '150'], { timeout: 170_000 });
     const seconds = (stdout: string): number => Number(/· ([0-9.]+) s ·/.exec(stdout)?.[1]);
     const whole = await run(['-o', join(dir, 'whole.mp4')]);
+    expect(whole.stdout, 'the result line gives the real bitrate').toMatch(/· [0-9.]+ Mbps ·/);
     expect(seconds(whole.stdout)).toBeGreaterThan(3.8);
     expect(seconds(whole.stdout)).toBeLessThan(4.2);
     const part = await run(['-o', join(dir, 'part.mp4'), '--range', '1:2']);

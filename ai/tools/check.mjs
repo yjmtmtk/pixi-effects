@@ -606,6 +606,19 @@ export async function runCheck(opts, log = console.log) {
   }
 }
 
+/**
+ * The line `check` prints for its own export. That export is made to see that the movie can be written and read back, at a low bitrate and with no way to
+ * ask for another: it is not the file to deliver (`render` is: `--video-bitrate`), and the line says so, with the real bitrate so nobody mistakes it for one.
+ */
+export function exportLine(ex) {
+  if (ex.error) return `  export    ${ex.format}: FAILED — ${ex.error}`;
+  const v = ex.video?.error ? `video: ${ex.video.error}` : `video ${ex.video.duration.toFixed(2)} s ${ex.video.width}×${ex.video.height}`;
+  const au = ex.audio ? (ex.audio.error ? `audio: ${ex.audio.error}` : `audio ${ex.audio.duration} s, peak ${ex.audio.peakDb} dBFS, rms/s [${ex.audio.rmsDbPerSecond.join(' ')}]`) : 'no audio track';
+  const seconds = ex.video && !ex.video.error ? ex.video.duration : 0;
+  const rate = seconds > 0 ? ` · ${Math.round(ex.bytes * 8 / seconds / 1e5) / 10} Mbps (for looking at; \`render\` writes the file to deliver)` : '';
+  return `  export    ${ex.format}${ex.draft ? ' (draft)' : ''} ok · ${kb(ex.bytes)}${rate} · ${v} · ${au}`;
+}
+
 function finish(report, outDir, log) {
   const reportFile = path.join(outDir, 'report.json');
   report.files.report = shown(reportFile);
@@ -668,12 +681,7 @@ function finish(report, outDir, log) {
     for (const l of formatMusic(a?.sources)) L.push(l);
     for (const n of a?.notes ?? []) L.push(`  note      ${n}`);
   }
-  for (const ex of report.exports ?? []) {
-    if (ex.error) { L.push(`  export    ${ex.format}: FAILED — ${ex.error}`); continue; }
-    const v = ex.video?.error ? `video: ${ex.video.error}` : `video ${ex.video.duration.toFixed(2)} s ${ex.video.width}×${ex.video.height}`;
-    const au = ex.audio ? (ex.audio.error ? `audio: ${ex.audio.error}` : `audio ${ex.audio.duration} s, peak ${ex.audio.peakDb} dBFS, rms/s [${ex.audio.rmsDbPerSecond.join(' ')}]`) : 'no audio track';
-    L.push(`  export    ${ex.format}${ex.draft ? ' (draft)' : ''} ok · ${kb(ex.bytes)} · ${v} · ${au}`);
-  }
+  for (const ex of report.exports ?? []) L.push(exportLine(ex));
   L.push(`  files     ${Object.values(report.files).join('  ')}`);
   L.push(report.problems.length ? `RESULT: ${report.problems.length} PROBLEM(S)\n  - ${report.problems.join('\n  - ')}` : 'RESULT: OK — nothing to fix. Look at the contact sheet before you call it done.');
   log(L.join('\n'));

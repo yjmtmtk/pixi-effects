@@ -44,7 +44,7 @@ export function defaultOutput(page, format) {
   return path.resolve(path.basename(page).replace(/\.[^.]+$/, '') + '.' + format);
 }
 
-export const USAGE = 'usage: node ai/tools/render.mjs <page.html> [-o out.mp4] [--format mp4|webm|mov|mkv|pdf] [--range A:B | --scene NAME] [--scale S] [--draft] [--quality very-low|low|medium|high|very-high] [--query a=1] [--var name=value] [--size 1080x1920] [--strict] [--quiet] [--timeout S] [--root DIR] [--chrome PATH]';
+export const USAGE = 'usage: node ai/tools/render.mjs <page.html> [-o out.mp4] [--format mp4|webm|mov|mkv|wav|ogg|pdf] [--range A:B | --scene NAME] [--scale S] [--draft] [--quality very-low|low|medium|high|very-high] [--video-codec avc|hevc|vp9|av1|vp8] [--video-bitrate 8M|high] [--audio-codec C] [--motion-blur SAMPLES] [--shutter FRACTION] [--all-stops] [--query a=1] [--var name=value] [--size 1080x1920] [--strict] [--quiet] [--timeout S] [--root DIR] [--chrome PATH] [--help]\n(the header of ai/tools/render.mjs explains each option)';
 
 export function parseRenderArgs(argv) {
   const o = { range: null, scene: null, scale: null, draft: false, qualityGiven: false, page: null, out: null, format: null, quality: 'high', videoCodec: null, videoBitrate: null, audioCodec: null, allStops: false, motionBlur: null, shutter: null, query: null, vars: [], size: null, strict: false, quiet: false, timeout: 900, root: null, chrome: null };
@@ -144,6 +144,34 @@ export function fileSeconds(r, opts) {
   if (r.length != null) return r.length;
   if (opts.range && r.duration != null) return Math.round(((opts.range[1] ?? r.duration) - (opts.range[0] ?? 0)) * 10) / 10;
   return r.duration;
+}
+
+/**
+ * The progress of a render. A terminal gets one line that is rewritten; a command whose stderr is not a terminal (an agent, a script, CI) used to get NOTHING,
+ * so a render that took minutes (a heavy shader, a busy GPU) looked hung: it gets a line at once and then one every `every` ms. `--quiet` gets none.
+ */
+export function makeProgress({ quiet = false, isTTY = false, write, now = Date.now, every = 15000 }) {
+  if (quiet) return () => {};
+  let last = -1, start = null, lastAt = 0;
+  return p => {
+    const pct = Math.min(100, Math.round(p));
+    if (isTTY) { if (pct !== last) { last = pct; write(`\rrendering ${pct}%`); } return; }
+    const t = now();
+    if (start === null) { start = t; lastAt = t; write(`rendering ${pct}%\n`); return; }
+    if (t - lastAt >= every) { lastAt = t; write(`rendering ${pct}% (${Math.round((t - start) / 1000)} s)\n`); }
+  };
+}
+
+/** The real bitrate of a written file, and a sentence when `--video-bitrate` asked for far more than the encoder spent (55M gave 17.8 Mbps on a mostly black picture: it is not a target). */
+export function bitrateLine(bytes, seconds, asked) {
+  const mbps = seconds > 0 ? Math.round(bytes * 8 / seconds / 1e5) / 10 : null;
+  let note = '';
+  const m = typeof asked === 'string' ? asked.trim().match(/^(\d+(?:\.\d+)?)\s*([kKmM]?)$/) : null;
+  if (m && mbps !== null) {
+    const askedMbps = Number(m[1]) * ({ k: 1e3, m: 1e6 }[m[2].toLowerCase()] ?? 1) / 1e6;
+    if (askedMbps > 0 && mbps < askedMbps * 0.5) note = `asked ${asked}, got ${mbps} Mbps: the encoder used fewer bits than asked (a quiet or mostly black picture needs fewer; grain and fine detail need more). Read the real rate with probe, and ask for more if a platform needs it`;
+  }
+  return { mbps, note };
 }
 
 export async function runRender(opts, log = console.log, progress = () => {}) {
@@ -248,12 +276,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process
       console.error(USAGE);
       process.exit(2);
     }
-    let last = -1;
-    const progress = p => {
-      if (opts.quiet || !process.stderr.isTTY) return;
-      const pct = Math.min(100, Math.round(p));
-      if (pct !== last) { last = pct; process.stderr.write(`\rrendering ${pct}%`); }
-    };
+    const progress = makeProgress({ quiet: opts.quiet, isTTY: !!process.stderr.isTTY, write: s => process.stderr.write(s) });
     const r = await runRender(opts, console.log, progress);
     if (!opts.quiet && process.stderr.isTTY) process.stderr.write('\r              \r');
     for (const w of r.logs) console.error(`page: ${w.length > 300 ? w.slice(0, 297) + '…' : w}`);
@@ -261,7 +284,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process
       console.error(`pixi-effects render failed: ${r.problems.join('; ') || 'no file written'}`);
       process.exit(1);
     }
-    console.log(`${shown(r.file)}  ${kb(r.bytes)} · ${fileSeconds(r, opts)} s · ${SOUND_ONLY.includes(opts.format) ? 'sound only' : `${r.width}×${r.height} @ ${r.frameRate} fps`} · ${opts.format} · rendered in ${r.seconds} s`);
+    const picture = !SOUND_ONLY.includes(opts.format) && opts.format !== 'pdf';
+    const rate = picture ? bitrateLine(r.bytes, fileSeconds(r, opts), opts.videoBitrate) : { mbps: null, note: '' };
+    console.log(`${shown(r.file)}  ${kb(r.bytes)} · ${fileSeconds(r, opts)} s${rate.mbps !== null ? ` · ${rate.mbps} Mbps` : ''} · ${SOUND_ONLY.includes(opts.format) ? 'sound only' : `${r.width}×${r.height} @ ${r.frameRate} fps`} · ${opts.format} · rendered in ${r.seconds} s`);
+    if (rate.note) console.error(`note: ${rate.note}`);
     process.exit(opts.strict && r.logs.length ? 1 : 0);
   } catch (e) {
     console.error(`pixi-effects render failed: ${e.message}`);

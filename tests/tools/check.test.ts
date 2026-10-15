@@ -43,6 +43,17 @@ describe('check.mjs — pure helpers', () => {
     expect(tool.findRoot('/proj/examples/gallery', has)).toBe('/proj');
     expect(tool.findRoot('/elsewhere/a', has)).toBe('/elsewhere/a');
   });
+
+  it('exportLine: the real bitrate of check\'s own export, and that it is for looking, not the file to deliver (check writes a low bitrate; render has --video-bitrate)', () => {
+    const l = tool.exportLine({ format: 'mp4', bytes: 2_225_000, video: { duration: 1, width: 1920, height: 1080 }, audio: null });
+    expect(l).toContain('export    mp4 ok');
+    expect(l).toContain('17.8 Mbps');
+    expect(l).toMatch(/for looking.*render/);
+    expect(l).toContain('no audio track');
+    expect(tool.exportLine({ format: 'mp4', draft: true, bytes: 100_000, video: { duration: 2, width: 960, height: 540 }, audio: null })).toContain('(draft)');
+    expect(tool.exportLine({ format: 'webm', error: 'no encoder' })).toBe('  export    webm: FAILED — no encoder');
+    expect(tool.exportLine({ format: 'mp4', bytes: 5000, video: { error: 'no readable video' }, audio: null })).toContain('video: no readable video');
+  });
 });
 
 const chrome = tool.findChrome();
