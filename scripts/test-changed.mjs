@@ -22,9 +22,9 @@ export const AREAS = [
   { name: 'test films', paths: ['tests/films/'], tests: ['tests/films/'] },
   { name: 'gallery pieces', paths: ['examples/gallery/'], tests: ['tests/tools/gallery.test.ts', 'tests/tools/noFalseWarnings.test.ts'] },
   { name: 'numbered examples', paths: ['examples/0', 'examples/1'], tests: ['tests/tools/noFalseWarnings.test.ts'] },
-  { name: 'text, motion, seeking', paths: ['src/text/', 'src/presets/animateText.ts', 'src/presets/wiggle.ts', 'src/presets/followPath.ts', 'src/presets/cameraPath.ts', 'src/presets/orbit.ts'], tests: ['tests/tools/animateText.test.ts', 'tests/tools/pathMotion.test.ts', 'tests/tools/seeded.test.ts'] },
+  { name: 'text, motion, seeking', paths: ['src/text/', 'src/presets/animateText.ts', 'src/presets/wiggle.ts', 'src/presets/followPath.ts', 'src/presets/cameraPath.ts', 'src/presets/orbit.ts'], tests: ['tests/tools/animateText.test.ts', 'tests/tools/pathMotion.test.ts', 'tests/films/determinism-seeded.test.ts'] },
   { name: 'particles', paths: ['src/presets/particles.ts'], tests: ['tests/tools/particles.test.ts'] },
-  { name: '2.5D and cards', paths: ['src/space/', 'src/three/'], tests: ['tests/tools/cardSeek.test.ts', 'tests/tools/parent.test.ts'] },
+  { name: '2.5D and cards', paths: ['src/space/', 'src/three/'], tests: ['tests/films/determinism-card-seek.test.ts', 'tests/tools/parent.test.ts'] },
   { name: 'mattes', paths: ['src/core/matte.ts', 'src/core/MatteSet.ts', 'src/filters/Matte.ts', 'src/filters/LumaWipe.ts', 'src/core/Transitions.ts', 'examples/_checks/mattes.html'], tests: ['tests/tools/mattes.test.ts', 'tests/tools/blendModes.test.ts'] },
   { name: 'light', paths: ['src/space/', 'src/sequences/Composition.ts', 'examples/_checks/light.html'], tests: ['tests/tools/light.test.ts'] },
   { name: 'shader', paths: ['src/sequences/Shader.ts', 'src/core/glShared.ts', 'src/core/shaderChecks.ts', 'examples/_checks/shader.html'], tests: ['tests/tools/shader.test.ts'] },
@@ -35,7 +35,7 @@ export const AREAS = [
   { name: 'playground', paths: ['examples/playground', 'examples/_checks/sandbox-runner.html'], tests: ['tests/tools/playground.test.ts', 'tests/tools/playgroundSandbox.test.ts', 'tests/tools/playgroundMcp.test.ts'] },
   { name: 'chat template', paths: ['ai/chat-template.html', 'ai/CHAT.md'], tests: ['tests/tools/chatTemplate.test.ts', 'tests/tools/playground.test.ts'] },
   { name: 'player and presenter', paths: ['src/Controller.ts', 'src/present/', 'src/core/stops.ts', 'src/core/Movie.ts', 'src/loader.css', 'src/core/loader.ts'], tests: ['tests/tools/controllerLayout.test.ts', 'tests/tools/presenter.test.ts', 'tests/tools/loader.test.ts'] },
-  { name: 'export and frames', paths: ['src/core/Renderer.ts', 'src/core/renderRange.ts', 'src/core/motionBlur.ts', 'src/core/onion.ts', 'src/core/frames.ts', 'src/core/poster.ts'], tests: ['tests/films/export-range.test.ts', 'tests/films/export-formats.test.ts', 'tests/tools/motionBlur.test.ts', 'tests/tools/onion.test.ts', 'tests/tools/poster.test.ts', 'tests/tools/lastFrame.test.ts'] },
+  { name: 'export and frames', paths: ['src/core/Renderer.ts', 'src/core/renderRange.ts', 'src/core/motionBlur.ts', 'src/core/onion.ts', 'src/core/frames.ts', 'src/core/poster.ts'], tests: ['tests/films/export-range.test.ts', 'tests/films/export-formats.test.ts', 'tests/tools/motionBlur.test.ts', 'tests/tools/onion.test.ts', 'tests/films/determinism-poster.test.ts', 'tests/tools/lastFrame.test.ts'] },
   { name: 'site and landing', paths: ['site/', 'index.html', 'scripts/sync-site.mjs', 'scripts/site-parts.mjs', 'scripts/stage-site.mjs'], tests: ['tests/tools/siteShell.test.ts', 'tests/tools/landing.test.ts', 'tests/tools/guideDemo.test.ts'] },
 ];
 

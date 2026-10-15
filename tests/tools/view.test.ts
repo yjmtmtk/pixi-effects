@@ -148,7 +148,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('view.mjs â
 
   it('tells you the work changed but never switches by itself; reload keeps the place; auto reloads only when the movie is paused', async () => {
     const live = join(root, 'examples/_checks/view-live.tmp.html');
-    writeFileSync(live, readFileSync(join(root, 'examples/_checks/first-frame.html'), 'utf8').replace('duration: 2,', 'duration: 60,'));          // long enough to still be playing when the edit arrives
+    writeFileSync(live, readFileSync(join(root, 'tests/films/determinism-first-frame.html'), 'utf8').replace('duration: 2,', 'duration: 60,'));          // long enough to still be playing when the edit arrives
     const proc = spawn('node', [join(root, 'ai/tools/view.mjs'), live, '--no-open'], { stdio: ['ignore', 'pipe', 'inherit'] });
     const url: string = await new Promise((res, rej) => {
       let buf = '';
@@ -198,7 +198,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('view.mjs â
   }, 120_000);
 
   it('puts the page in the middle of the viewer even when the page itself is left-aligned', async () => {
-    const proc = spawn('node', [join(root, 'ai/tools/view.mjs'), join(root, 'examples/_checks/first-frame.html'), '--no-open'], { stdio: ['ignore', 'pipe', 'inherit'] });   // a 640 px canvas at the left edge of the page
+    const proc = spawn('node', [join(root, 'ai/tools/view.mjs'), join(root, 'tests/films/determinism-first-frame.html'), '--no-open'], { stdio: ['ignore', 'pipe', 'inherit'] });   // a 640 px canvas at the left edge of the page
     const url: string = await new Promise((res, rej) => {
       let buf = '';
       const t = setTimeout(() => rej(new Error('the viewer did not print its address')), 15000);

@@ -189,7 +189,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     expect(report.files.waveform).toMatch(/waveform\.png$/);
 
     const quietOut = mkdtempSync(join(tmpdir(), 'check-nowave-'));
-    await run('examples/_checks/poster.html', quietOut);
+    await run('tests/films/determinism-poster.html', quietOut);
     expect(existsSync(join(quietOut, 'waveform.png'))).toBe(false);
   }, 200_000);
 
@@ -253,7 +253,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
   it('a movie with no sound says "no audio track", not a decoding error', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-test-'));
     const { stdout } = await promisify(execFile)('node', [
-      join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/poster.html'), '--out', out, '--frames', '4', '--timeout', '150',
+      join(root, 'ai/tools/check.mjs'), join(root, 'tests/films/determinism-poster.html'), '--out', out, '--frames', '4', '--timeout', '150',
     ], { timeout: 170_000 });
     expect(stdout).toContain('RESULT: OK');
     expect(stdout).toContain('no audio track');

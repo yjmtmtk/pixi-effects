@@ -21,7 +21,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the last f
       await cdp.send('Runtime.enable');
       await cdp.send('Page.enable');
       // the poster page: a white square crosses the canvas from x = 100 (0 s) to x = 1100 (4 s) and lives for the whole 4 s
-      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/_checks/poster.html` });
+      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/tests/films/determinism-poster.html` });
       let ready = false;
       for (let i = 0; i < 100 && !ready; i++) { await check.sleep(300); ready = await cdp.eval('window.__ready === true').catch(() => false); }
       expect(ready).toBe(true);
