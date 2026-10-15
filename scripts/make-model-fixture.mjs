@@ -49,3 +49,9 @@ const gltf = {
 };
 writeFileSync(out, JSON.stringify(gltf) + '\n');
 console.log(`${out}: ${JSON.stringify(gltf).length} bytes`);
+
+// tests/fixtures/long-box.gltf: the same box stretched to a plank (0.5 x 0.5 x 3), no animation: a long model like an animal seen from its front
+const plank = { ...gltf, nodes: [{ name: 'plank', mesh: 0, scale: [0.5, 0.5, 3] }], animations: undefined };
+const longOut = out.replace('spin-box.gltf', 'long-box.gltf');
+writeFileSync(longOut, JSON.stringify(plank) + '\n');
+console.log(`${longOut}: ${JSON.stringify(plank).length} bytes`);

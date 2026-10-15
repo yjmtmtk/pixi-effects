@@ -52,7 +52,8 @@ export class ThreeModelSequence extends ThreeSequence {
       this._clipDuration = clip.duration;
     }
 
-    // the camera: framed on the model (its bounding sphere in the vertical field of view, with a 10 % margin) unless the spec says otherwise
+    // the camera: framed on the model from a three-quarter view (a little from the side and above): the distance is the smallest at which the 8 corners of the model's
+    // bounding box (bind pose) all fit the vertical AND the horizontal field of view, with a 10 % margin, unless the spec says otherwise
     const bounds = new Box3().setFromObject(root);
     const centre = bounds.getCenter(new Vector3());
     const radius = Math.max(bounds.getBoundingSphere(new Sphere()).radius, 1e-6);
@@ -60,8 +61,16 @@ export class ThreeModelSequence extends ThreeSequence {
     const camera = new PerspectiveCamera(fov, ctx.width / ctx.height, 0.1, 2000);
     if (spec.fit === false) camera.position.set(0, 0, 5);
     else {
-      const distance = (radius / Math.sin((fov * Math.PI) / 360)) * 1.1;
-      camera.position.copy(centre).addScaledVector(new Vector3(0, 0.25, 1).normalize(), distance);
+      const toCamera = new Vector3(0.45, 0.3, 1).normalize();
+      const right = new Vector3().crossVectors(new Vector3(0, 1, 0), toCamera).normalize();
+      const up = new Vector3().crossVectors(toCamera, right);
+      const tanV = Math.tan((fov * Math.PI) / 360), tanH = tanV * (ctx.width / ctx.height);
+      let distance = 1e-3;
+      for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) {
+        const r = new Vector3(x, y, z).sub(centre);
+        distance = Math.max(distance, r.dot(toCamera) + (Math.abs(r.dot(right)) * 1.1) / tanH, r.dot(toCamera) + (Math.abs(r.dot(up)) * 1.1) / tanV);
+      }
+      camera.position.copy(centre).addScaledVector(toCamera, distance);
       camera.near = Math.max(distance / 100, 1e-4);
       camera.far = distance * 100;
     }

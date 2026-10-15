@@ -16,7 +16,7 @@ vi.mock('three/addons/loaders/GLTFLoader.js', async () => {
     async loadAsync(url: string) {
       loaded.push(url);
       if (/missing/.test(url)) throw new Error('404 Not Found');
-      return this.parseAsync(readFileSync(resolve(__dirname, '../fixtures/spin-box.gltf'), 'utf8'), '');
+      return this.parseAsync(readFileSync(resolve(__dirname, '../fixtures', /long/.test(url) ? 'long-box.gltf' : 'spin-box.gltf'), 'utf8'), '');
     }
   }
   return { GLTFLoader };
@@ -113,21 +113,37 @@ describe('model layer: the clip is posed by the time, never by a clock', () => {
 });
 
 describe('model layer: the camera and the lights', () => {
-  it('fit: the whole model is inside the camera frustum, and the camera looks at its centre from the distance that just holds its bounding sphere (with a 10 % margin)', async () => {
-    const seq = make(); await seq.build();
+  /** The model's 8 bounding-box corners in the camera's normalised device coordinates. */
+  const corners = (seq: ThreeModelSequence) => {
     const cam = objects(seq).camera as PerspectiveCamera;
     cam.updateMatrixWorld(true);
-    const frustum = new Frustum().setFromProjectionMatrix(new Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse));
     const bounds = new Box3().setFromObject(objects(seq).model);
-    expect(frustum.intersectsBox(bounds)).toBe(true);
-    for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) {
-      expect(frustum.containsPoint(new Vector3(x, y, z)), `corner ${x},${y},${z}`).toBe(true);
+    const out: Vector3[] = [];
+    for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) out.push(new Vector3(x, y, z).project(cam));
+    return out;
+  };
+
+  it('fit: the whole model is inside the frame, and it FILLS the frame (the limiting side of the bounding box lands at 85-95 % of the way to the edge: a 10 % margin, not a sphere that leaves a long model small)', async () => {
+    for (const asset of ['models/spin-box.gltf', 'models/long-box.gltf']) {
+      const seq = make({ asset }); await seq.build();
+      const c = corners(seq);
+      const reach = Math.max(...c.flatMap((p) => [Math.abs(p.x), Math.abs(p.y)]));
+      expect(reach, `${asset}: reach (1 = the edge of the frame)`).toBeLessThanOrEqual(1);
+      expect(reach, `${asset}: reach`).toBeGreaterThan(0.85);
+      expect(c.every((p) => p.z < 1 && p.z > -1), `${asset}: in front of the camera, inside near and far`).toBe(true);
     }
-    const radius = bounds.getBoundingSphere(new Sphere()).radius;
-    const centre = bounds.getCenter(new Vector3());
-    expect(cam.position.distanceTo(centre)).toBeCloseTo((radius / Math.sin((cam.fov * Math.PI) / 360)) * 1.1, 2);
+  });
+
+  it('fit: the camera looks at the centre of the model from a three-quarter view (a little from the side and above), not head-on', async () => {
+    const seq = make({ asset: 'models/long-box.gltf' }); await seq.build();
+    const cam = objects(seq).camera as PerspectiveCamera;
+    const centre = new Box3().setFromObject(objects(seq).model).getCenter(new Vector3());
     const forward = new Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
     expect(forward.dot(centre.clone().sub(cam.position).normalize())).toBeGreaterThan(0.9999);
+    const away = cam.position.clone().sub(centre).normalize();
+    expect(away.x, 'from the side').toBeGreaterThan(0.2);
+    expect(away.y, 'from above').toBeGreaterThan(0.1);
+    expect(away.z, 'still mostly in front').toBeGreaterThan(0.6);
   });
 
   it('camera: { fov, position, lookAt } overrides the automatic one; fit: false with no camera is a camera at (0, 0, 5)', async () => {

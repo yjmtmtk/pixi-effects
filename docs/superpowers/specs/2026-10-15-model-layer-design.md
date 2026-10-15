@@ -19,8 +19,8 @@ A `three` layer needs a `setup(ctx)` function: imperative code, which is what an
 | `animation` | A clip name, a clip index, or `false` (no animation: the model's bind pose). | the first clip, if there is one |
 | `animationSpeed`, `animationOffset` | The clip time is `t × animationSpeed + animationOffset` (layer-local seconds). | 1, 0 |
 | `loop` | `true`: the clip repeats; `false`: it holds its last pose. | `true` |
-| `fit` | `'contain'`: the camera is placed to show the whole bounding sphere of the model; `false`: no automatic camera (give `camera.position`). | `'contain'` |
-| `camera` | `{ fov, position: [x,y,z], lookAt: [x,y,z] }`, each optional; overrides the automatic one. | fov 40, in front, slightly above |
+| `fit` | `'contain'`: the camera shows the whole bounding box of the model from a three-quarter view; `false`: no automatic camera (give `camera.position`). | `'contain'` |
+| `camera` | `{ fov, position: [x,y,z], lookAt: [x,y,z] }`, each optional; overrides the automatic one. | fov 40, three-quarter view (from the side and above) |
 | `light` | `'studio'`: a key, a fill and an ambient light; `'none'`: only the lights the file brings (`KHR_lights_punctual`). | `'studio'` |
 | `width`, `height`, `resolution` | as on the `three` layer. | as there |
 | `three` | `{ renderer: 'webgl' \| 'webgpu', antialias }`: what only three.js has, in a block named for it (the page default of `registerThree`). | `'webgl'`, `true` |
@@ -31,7 +31,7 @@ Keyframes use the same vocabulary as every layer, plus `three.<name>.<path>` for
 
 - `ThreeModelSequence extends ThreeSequence`. ThreeSequence gets three protected hooks (`userSetup`, `userUpdate`, `userDispose`) that call the spec's `setup` / `update` / `dispose`; ModelSequence overrides them. Everything else (the renderer, its WebGPU handling, the node frame, the layer's canvas becoming a Pixi texture, keyframe paths) is shared.
 - **Time is ours.** The clip is posed with `AnimationMixer.setTime(clipTime)`, which resets and re-evaluates: a seek forward, backward or by jumps gives the same pose; the mixer is never attached to a ticker.
-- **Auto-fit:** from the bounding box of the loaded scene: centre, bounding sphere radius `r`, distance `r / sin(fov / 2) × 1.1`, direction (0, 0.25, 1) normalised, `near`/`far` from the distance. The bind pose is measured, so a clip that travels far needs an explicit camera.
+- **Auto-fit:** from the bounding box of the loaded scene: centre, direction (0.45, 0.3, 1) normalised (a three-quarter view); the distance is the smallest at which the 8 corners of the box, projected, fit the vertical and the horizontal field of view with a 10 % margin (a sphere would leave an elongated model small and seen head-on, found with Fox.glb); `near`/`far` from the distance. The bind pose is measured, so a clip that travels far needs an explicit camera.
 - Dynamic `import()` of the loader: pages without a `model` layer never load the addon.
 - `registerThree()` registers `three` and `model`. A `model()` helper types the spec like `three()`.
 

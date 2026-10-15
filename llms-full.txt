@@ -2928,7 +2928,7 @@ With three.js the page's import map needs `"three/addons/"` next to `"three"` (`
 | `animation` | a clip name, a clip index, or `false` (the bind pose) | the first clip, if the file has one |
 | `animationSpeed`, `animationOffset` | clip time = `t × animationSpeed + animationOffset` (layer-local seconds) | 1, 0 |
 | `loop` | `true`: the clip repeats; `false`: it holds its last pose | `true` |
-| `fit` | `'contain'`: the camera shows the whole bounding sphere of the model (distance `r / sin(fov/2) × 1.1`, in front and a little above); `false`: no automatic camera | `'contain'` |
+| `fit` | `'contain'`: the camera looks at the model's centre from a three-quarter view (a little from the side and above) at the smallest distance where the whole bounding box (bind pose) fits both the vertical and the horizontal view, with a 10 % margin; `false`: no automatic camera | `'contain'` |
 | `camera` | `{ fov, position: [x, y, z], lookAt: [x, y, z] }`, each part optional; overrides the automatic camera (with `fit: false` and no `camera` it is at (0, 0, 5)) | fov 40 |
 | `light` | `'studio'`: a key, a fill and an ambient light; `'none'`: only the lights the file brings (`KHR_lights_punctual`) | `'studio'` |
 | `width`, `height`, `resolution` | layer size (expressions allowed) and supersampling | the composition's size, 1 |
