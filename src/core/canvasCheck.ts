@@ -16,6 +16,8 @@ export interface CanvasRow {
   ok: boolean;
   /** Why not, in a sentence (empty when ok). */
   problem: string;
+  /** Which kind of layer drew it: a `canvas` layer or a `three` layer (both are held to "a function of the time"). */
+  kind: 'canvas' | 'three';
 }
 
 const describeDiff = (d: CanvasCheck['differs'][number]): string =>
@@ -33,14 +35,16 @@ export function canvasReport(root: CompositionSequence): CanvasRow[] {
       const moments = [0.15, 0.4, 0.65, 0.9].map(f => Math.round(f * length * 1000) / 1000);
       const { differs, drawMs, threw } = seq.checkDeterminism(moments);
       const name = describeLayer(seq.spec);
+      const kind: CanvasRow['kind'] = (seq.spec as { type: string }).type === 'three' ? 'three' : 'canvas';
       const problem = threw.length
-        ? `${name} could not draw at ${threw.map(t => `${t} s`).join(', ')} (its draw threw, or the layer failed to build): it shows a magenta checkerboard there; the warning above says why, so the layer cannot be called deterministic`
+        ? `${name} could not draw at ${threw.map(t => `${t} s`).join(', ')} (its ${kind === 'three' ? 'update or render threw' : 'draw threw'}, or the layer failed to build): ${kind === 'three' ? 'the warning above says why' : 'it shows a magenta checkerboard there; the warning above says why'}, so the layer cannot be called deterministic`
         : differs.length
-        ? `${name} does not draw the same picture for the same time (checked at ${differs.map(describeDiff).join(', ')}; drawn in two orders after one draw that was thrown away): ` +
-          'usually its draw uses Math.random, Date.now or state that outlives the call (a value it keeps from the last call), so playback, a seek and an export would not agree: use info.random() (seeded) and derive everything from t. ' +
-          'If it uses none of these, look at the canvases it draws from: make sprites and masks with info.canvas(w, h) (not document.createElement) and draw them into the picture before the strokes that depend on them'
+        ? `${name} does not draw the same picture for the same time (checked at ${differs.map(describeDiff).join(', ')}; drawn in two orders after one draw that was thrown away): ` + (kind === 'three'
+          ? 'usually its update uses Math.random, Date.now, a clock, or state that builds up from call to call: a mixer advanced with mixer.update(dt) is one (pose a clip with mixer.setTime(t), or threeGltf(url).pose(t)), and so is a value moved by the time since the last call. Set every object from t, so playback, a seek and an export agree'
+          : 'usually its draw uses Math.random, Date.now or state that outlives the call (a value it keeps from the last call), so playback, a seek and an export would not agree: use info.random() (seeded) and derive everything from t. ' +
+            'If it uses none of these, look at the canvases it draws from: make sprites and masks with info.canvas(w, h) (not document.createElement) and draw them into the picture before the strokes that depend on them')
         : '';
-      out.push({ name: seq.spec.name ?? name, moments, drawMs, ok: !differs.length && !threw.length, problem });
+      out.push({ name: seq.spec.name ?? name, moments, drawMs, ok: !differs.length && !threw.length, problem, kind });
     }
     if (seq instanceof CompositionSequence) walk(seq);
   };

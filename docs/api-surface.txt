@@ -965,6 +965,7 @@ class ThreeSequence
   backend: "webgl" | "webgpu" | "webgl2" | null
   build(): Promise<void>
   buildFilters(): void
+  checkDeterminism(times: number[]): CanvasCheck
   destroy(): void
   duration: number
   intrinsicHeight: number

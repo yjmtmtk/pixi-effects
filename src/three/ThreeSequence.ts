@@ -9,6 +9,10 @@ import type { PropValue } from '../types';
 import type { ThreeContext, ThreeSequenceSpec } from './types';
 import { checkRendererKind, getPageRenderer } from './defaults';
 import { applyCameraState, LightMirror } from './spaceBridge';
+import type { CanvasCheck } from '../sequences/Canvas';
+
+/** What makes a frame depend on more than the time (the same list as the canvas layer's). */
+const NOT_PURE = /\bMath\s*\.\s*random\s*\(|\bDate\s*\.\s*now\s*\(|\bperformance\s*\.\s*now\s*\(|\bnew\s+Date\s*\(/;
 
 export class ThreeSequence extends Sequence {
   private _renderer: WebGLRenderer | WebGPURenderer | null = null;
@@ -39,6 +43,9 @@ export class ThreeSequence extends Sequence {
     const spec = this._threeSpec;
     if (this.duration === undefined) {
       this.duration = this.parent?.duration ?? this.root.duration;
+    }
+    if (typeof spec.update === 'function' && NOT_PURE.test(spec.update.toString())) {
+      console.warn(`pixi-effects: three layer${spec.name ? ` "${spec.name}"` : ''}: update calls Math.random, Date.now, performance.now or new Date, so it is not deterministic: the same frame would draw differently in playback, in a seek and in an export. Derive the value from t`);
     }
 
     // Resolve layer size. Expressions see the usual scope; intrinsic w/h are
@@ -139,6 +146,53 @@ export class ThreeSequence extends Sequence {
     }
     this._draw(t);
     (this.target as Sprite | null)?.texture.source.update();
+  }
+
+  /**
+   * The determinism check (`check`, `movie.review()`): the scene drawn at a few moments in two orders, with one draw thrown away first, and the pictures compared, as the canvas layer
+   * does. A layer whose same frame is not the same picture (a clock, `Math.random`, a mixer advanced with `update(dt)`, any state that builds up from call to call) is reported.
+   * It runs the layer's own `update`, draws with its renderer and reads the picture from the renderer's canvas in the same task; the next real frame draws again, so nothing is left behind.
+   */
+  checkDeterminism(times: number[]): CanvasCheck {
+    const none: CanvasCheck = { differs: [], drawMs: 0, threw: [] };
+    const renderer = this._renderer, ctx = this._ctx;
+    if (!renderer || !this._scene || !this._camera || !ctx) return none;
+    const source = (renderer as unknown as { domElement: HTMLCanvasElement }).domElement;
+    const w = source.width, h = source.height;
+    const scratch = document.createElement('canvas');
+    scratch.width = w; scratch.height = h;
+    const g = scratch.getContext('2d', { willReadFrequently: true });
+    if (!g) return none;
+    const keep = w * h * 4 * times.length <= 96e6;
+    const hash = (d: Uint8ClampedArray): number => { let x = 0x811c9dc5; for (let i = 0; i < d.length; i++) { x ^= d[i]!; x = Math.imul(x, 0x01000193); } return x >>> 0; };
+    const ms: number[] = [];
+    const threw = new Set<number>();
+    const once = (t: number, timed: boolean): Uint8ClampedArray => {
+      const from = performance.now();
+      try {
+        this._followSpace(t);
+        this._threeSpec.update?.(t, ctx);
+        this._draw(t);
+        g.clearRect(0, 0, w, h);
+        g.drawImage(source, 0, 0);
+      } catch { threw.add(t); }
+      if (timed) { g.getImageData(0, 0, 1, 1); ms.push(performance.now() - from); }
+      return g.getImageData(0, 0, w, h).data;
+    };
+    for (const t of times) once(t, false);                         // the warm-up
+    const first = times.map(t => { const d = once(t, true); return keep ? d.slice() : hash(d); });
+    const second = [...times].reverse().map(t => once(t, false)).reverse();
+    scratch.width = scratch.height = 1;
+    const differs: CanvasCheck['differs'] = [];
+    times.forEach((t, i) => {
+      const a = first[i]!, b = second[i]!;
+      if (typeof a === 'number') { if (a !== hash(b)) differs.push({ t, pixels: -1, maxDiff: -1 }); return; }
+      let pixels = 0, maxDiff = 0;
+      for (let k = 0; k < a.length; k++) { const d = Math.abs(a[k]! - b[k]!); if (d) { pixels++; if (d > maxDiff) maxDiff = d; } }
+      if (pixels) differs.push({ t, pixels, maxDiff });
+    });
+    ms.sort((x, y) => x - y);
+    return { differs: differs.filter(d => !threw.has(d.t)), drawMs: ms.length ? ms[Math.floor(ms.length / 2)]! : 0, threw: times.filter(t => threw.has(t)) };
   }
 
   /** `followCamera` / `followLights`: before each frame, ask the composition for its camera and lights at this moment (the layer's time on the composition's clock) and mirror them in the scene. */
