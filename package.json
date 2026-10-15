@@ -103,6 +103,7 @@
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:fast": "SKIP_BROWSER_TESTS=1 vitest run",
+    "test:films": "vitest run tests/films",
     "release:check": "node scripts/release-check.mjs",
     "post-publish:check": "node scripts/post-publish-check.mjs",
     "test:changed": "node scripts/test-changed.mjs",

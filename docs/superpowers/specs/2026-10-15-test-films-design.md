@@ -1,6 +1,6 @@
 # Test films: what the library must always guarantee (2026-10-15)
 
-Status: design, written by Claude on the owner's instruction ("leave the list of what must be protected to me"); for review. Nothing is built.
+Status: design, written by Claude on the owner's instruction ("leave the list of what must be protected to me"). **Phase 1 built 2026-10-15** (`docs/superpowers/plans/2026-10-15-test-films-phase1.md`): the harness, groups 1 Determinism and 3 Export; the live list is `tests/films/COVERAGE.md`.
 
 ## Why
 
