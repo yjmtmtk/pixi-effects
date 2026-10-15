@@ -30,8 +30,10 @@ export async function withFilm<T>(name: string, fn: (film: Film) => Promise<T>, 
   if (!existsSync(file)) throw new Error(`film "${name}" not found: looked for tests/films/${name}.html`);
   const { server, port } = await check.serve(root);
   const dir = mkdtempSync(join(tmpdir(), 'film-'));
-  const { proc, cdp } = await launchPage(chrome, dir);
+  let proc: { kill(): void } | undefined;
   try {
+    const page = await launchPage(chrome, dir);
+    proc = page.proc; const cdp = page.cdp;
     await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
     await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/tests/films/${name}.html${o.query ? `?${o.query}` : ''}` });
     let ready = false;
@@ -48,7 +50,7 @@ export async function withFilm<T>(name: string, fn: (film: Film) => Promise<T>, 
     };
     return await fn(film);
   } finally {
-    try { proc.kill(); } catch { /* gone */ }
+    try { proc?.kill(); } catch { /* gone */ }
     server.close();
     try { rmSync(dir, { recursive: true, force: true }); } catch { /* held a moment longer */ }
   }

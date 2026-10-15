@@ -8,7 +8,8 @@ runFilms('Determinism: a frame is a function of the script and the time, whichev
   it('the film loads clean and really changes from frame to frame', async () => {
     await withFilm('determinism', async (film) => {
       expect(await film.eval<string>('JSON.stringify(window.__logs)')).toBe('[]');
-      const hashes = await Promise.all(FRAMES.map((f) => film.eval<string>(`hashOf(${f})`)));
+      const hashes: string[] = [];
+      for (const f of FRAMES) hashes.push(await film.eval<string>(`hashOf(${f})`));       // one after the other: a snapshot moves the one stage
       expect(new Set(hashes).size, 'eight frames, eight pictures').toBe(FRAMES.length);
     });
   }, 300_000);

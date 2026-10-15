@@ -40,6 +40,17 @@ describe('testsFor: which browser tests a change needs', () => {
     expect(testsFor(['tests/tools/grain.test.ts'])).toEqual({ full: false, files: ['tests/tools/grain.test.ts'] });
     expect(testsFor(['tests/core/spring.test.ts'])).toEqual({ full: false, files: [] });          // a unit test: the fast run has it
   });
+  it('a test film that changed runs, whether the page, its test or the harness changed (never the skipped fast run only)', () => {
+    for (const f of ['tests/films/export-frames.html', 'tests/films/export-frames.test.ts', 'tests/films/support/withFilm.ts']) {
+      expect(testsFor([f]), f).toEqual({ full: false, files: ['tests/films/'] });
+    }
+  });
+  it('a renderer change runs the export films, and a change to what the determinism film draws runs the determinism film', () => {
+    expect(testsFor(['src/core/Renderer.ts']).files).toEqual(expect.arrayContaining(['tests/films/export-frames.test.ts', 'tests/films/determinism.test.ts']));
+    for (const f of ['src/filters/Grain.ts', 'src/presets/particles.ts', 'src/presets/wiggle.ts', 'src/text/spans.ts']) {
+      expect(testsFor([f]).files, f).toContain('tests/films/determinism.test.ts');
+    }
+  });
   it('every test file the table names exists', () => {
     for (const a of AREAS) for (const f of a.tests) expect(existsSync(join(root, f)), `${a.name}: ${f}`).toBe(true);
     expect(readdirSync(join(root, 'tests/tools')).length).toBeGreaterThan(10);

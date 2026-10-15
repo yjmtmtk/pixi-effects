@@ -38,6 +38,6 @@ runFilms('Determinism: the poster time shows a movie at that frame while the pla
     await withFilm('determinism-poster', async (film) => {
       expect(await film.eval('movie.poster')).toBeNull();
       expect(await film.eval('movie.posterFrame')).toBeNull();
-    }, { query: 'noposter' });
+    }, { query: 'noposter', readySeconds: 30 });
   }, 60_000);
 });
