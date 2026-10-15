@@ -25,7 +25,7 @@ Use ONLY these facts. Do not invent numbers, benchmarks, users, quotes, awards, 
 - Honest limits (say them plainly, a trusted LP does): pre-1.0 and experimental; **no GUI editor** (there is a timeline viewer, not an editor); smaller ecosystem than the established tools; export needs a WebCodecs browser; it draws in a browser (WebGPU where the browser has it, WebGL otherwise: PixiJS tries WebGPU first and falls back by itself) rather than in a native pipeline and it has not been benchmarked against other tools (do not claim it is faster or slower than them; the numbers above are its own). Not a replacement for editing existing footage (a `video` layer plays a clip inside a composition).
 - A real minimal composition (use this style for any code shown):
 ```js
-import { Movie, kenBurns } from 'pixi-effects';
+import { Movie } from 'pixi-effects';
 const movie = new Movie();
 await movie.init({
   canvas, width: 1280, height: 720, duration: 6, frameRate: 30, background: '#0a0a0f',
