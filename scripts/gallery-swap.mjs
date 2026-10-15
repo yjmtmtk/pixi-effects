@@ -192,7 +192,7 @@ export async function removePiece(root, { id, dryRun = false, posters = true }) 
     .replace(/Counts: [^\n]*\(\d+ pieces\)\./, `Counts: ${MODELS.map((m) => `${m} ${counts[m]}`).join(', ')} (${total} pieces).`), 'the row and the counts');
   edit('scripts/build-gallery.mjs', (t) => t.replace(new RegExp(`^[ \\t]*'${id}',[ \\t]*\\n`, 'm'), ''), 'FEATURED');
   edit('index.html', (t) => t.replace(new RegExp(`[ \\t]*<a class="piece" href="examples/gallery/#${id}" data-piece="${id}">[\\s\\S]*?</a>\\n?`), '')
-    .replace(/(<span>written by )[^\n]*?(<\/span><span>\+)/, `$1${tally.map((x) => x.replace(/^(\S+) (\d+)$/, '<b>$1 $2</b>')).join(' · ')}$2`)
+    .replace(/(<span>written by )[^\n]*?(<\/span>)/, `$1${tally.map((x) => x.replace(/^(\S+) (\d+)$/, '<b>$1 $2</b>')).join(' · ')}$2`)
     .replace(/<span>\d+ pieces<\/span>/, `<span>${total} pieces</span>`)
     .replace(/(<h2 id="h-gal">)\d+( pieces)/, `$1${total}$2`), 'the card, the tally and the heading');
   edit('site/landing/FACTS.md', (t) => t.replace(/\(fable \d+[^)]*\)/, `(${MODELS.map((m) => `${m} ${counts[m]}`).join(', ')})`).replace(/Gallery: \d+ complete pieces/, `Gallery: ${total} complete pieces`), 'the model tally and the count');
@@ -247,7 +247,7 @@ export async function addPiece(root, { file, id, notes = null, dryRun = false, p
     if (last !== undefined) lines.splice(last + 1, 0, row);
     return lines.join('\n').replace(/Counts: [^\n]*\(\d+ pieces\)\./, `Counts: ${MODELS.map((m) => `${m} ${counts[m]}`).join(', ')} (${total} pieces).`);
   }, 'the row and the counts');
-  edit('index.html', (t) => t.replace(/(<span>written by )[^\n]*?(<\/span><span>\+)/, `$1${tally.map((x) => x.replace(/^(\S+) (\d+)$/, '<b>$1 $2</b>')).join(' · ')}$2`)
+  edit('index.html', (t) => t.replace(/(<span>written by )[^\n]*?(<\/span>)/, `$1${tally.map((x) => x.replace(/^(\S+) (\d+)$/, '<b>$1 $2</b>')).join(' · ')}$2`)
     .replace(/<span>\d+ pieces<\/span>/, `<span>${total} pieces</span>`)
     .replace(/(<h2 id="h-gal">)\d+( pieces)/, `$1${total}$2`), 'the tally and the heading');
   edit('site/landing/FACTS.md', (t) => t.replace(/\(fable \d+[^)]*\)/, `(${MODELS.map((m) => `${m} ${counts[m]}`).join(', ')})`).replace(/Gallery: \d+ complete pieces/, `Gallery: ${total} complete pieces`), 'the model tally and the count');

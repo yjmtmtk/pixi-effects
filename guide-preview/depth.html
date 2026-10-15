@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2.5D and camera — pixi-effects guide</title>
+<meta name="description" content="Depth, perspective and a camera for parallax, flips and dolly zooms, with no 3D engine.">
+<link rel="stylesheet" href="../site/shared/tokens.css">
+<link rel="stylesheet" href="../site/shared/site.css">
+<script>try{var t=localStorage.getItem('pe-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+<script src="../site/shared/site.js" defer></script>
+<link rel="stylesheet" href="guide.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../"><span class="dia" aria-hidden="true"></span>pixi-effects</a>
+    <nav aria-label="Site">
+      <a href="../examples/gallery/">Gallery</a>
+      <a href="../examples/interactive/">Interactive</a>
+      <a href="../examples/playground.html">Playground</a>
+      <a href="../for-ai.html">For AI</a>
+      <a class="only-wide" href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
+    </nav>
+    <button class="theme" type="button" id="themeBtn" aria-label="Colour theme: auto. Click to change">auto</button>
+  </div>
+</header>
+<details class="mobile-nav"><summary>Menu</summary><h4>Start</h4>
+<a href="index.html">pixi-effects</a>
+<a href="getting-started.html">Your first video</a>
+<a href="concepts.html">How it works</a>
+<h4>Guides</h4>
+<a href="text.html">Text</a>
+<a href="shapes.html">Shapes</a>
+<a href="images-video.html">Images and video</a>
+<a href="audio.html">Audio</a>
+<a href="filters.html">Filters</a>
+<a href="transitions.html">Transitions</a>
+<a href="motion.html">Motion: groups, waves and randomness</a>
+<a href="depth.html" aria-current="page">2.5D and camera</a>
+<a href="shaders.html">Shaders and warps</a>
+<a href="export.html">Exporting video</a>
+<a href="player.html">The player</a>
+<a href="interactive.html">Interactive movies</a>
+<a href="presenting.html">Presenting: slides that move</a>
+<a href="review.html">Reviewing your video</a>
+<a href="playground.html">Playground</a>
+<h4>Cookbook</h4>
+<a href="cookbook.html">Cookbook</a>
+<h4>More</h4>
+<a href="with-ai.html">Working with an AI</a>
+<a href="faq.html">FAQ and troubleshooting</a></details>
+<div class="layout"><aside class="side"><h4>Start</h4>
+<a href="index.html">pixi-effects</a>
+<a href="getting-started.html">Your first video</a>
+<a href="concepts.html">How it works</a>
+<h4>Guides</h4>
+<a href="text.html">Text</a>
+<a href="shapes.html">Shapes</a>
+<a href="images-video.html">Images and video</a>
+<a href="audio.html">Audio</a>
+<a href="filters.html">Filters</a>
+<a href="transitions.html">Transitions</a>
+<a href="motion.html">Motion: groups, waves and randomness</a>
+<a href="depth.html" aria-current="page">2.5D and camera</a>
+<a href="shaders.html">Shaders and warps</a>
+<a href="export.html">Exporting video</a>
+<a href="player.html">The player</a>
+<a href="interactive.html">Interactive movies</a>
+<a href="presenting.html">Presenting: slides that move</a>
+<a href="review.html">Reviewing your video</a>
+<a href="playground.html">Playground</a>
+<h4>Cookbook</h4>
+<a href="cookbook.html">Cookbook</a>
+<h4>More</h4>
+<a href="with-ai.html">Working with an AI</a>
+<a href="faq.html">FAQ and troubleshooting</a></aside>
+<main id="main"><article>
+<h1>2.5D and camera</h1>
+<p class="lead">Depth, perspective and a camera for parallax, flips and dolly zooms, with no 3D engine.</p><div class="toc"><b>On this page</b><ul><li class="l2"><a href="#a-camera">A camera</a></li><li class="l2"><a href="#a-flight-and-a-handheld-shake">A flight, and a handheld shake</a></li><li class="l2"><a href="#depth-of-field">Depth of field</a></li><li class="l2"><a href="#light-shadow-and-fog">Light, shadow and fog</a></li><li class="l2"><a href="#groups-in-depth-a-composition-as-a-card">Groups in depth: a composition as a card</a></li><li class="l2"><a href="#what-it-does-not-do">What it does not do</a></li></ul></div>
+<p>Add <code>threeD: true</code> to any visual layer and it gains depth: <code>z</code> (toward the viewer is positive, so bigger and nearer), <code>rotationX</code> and <code>rotationY</code> (degrees). A layer at <code>z: 0</code> with the default camera looks exactly like a normal 2D layer, so you opt in one layer at a time.</p>
+<pre><code class="language-js">{ type: 'image', asset: 'poster', threeD: true, initial: { x: 640, y: 360, z: 0, anchorX: 0.5, anchorY: 0.5, scale: 'cover' },
+  keyframes: [{ at: 0, from: { rotationY: -60, z: -400 }, to: { rotationY: 0, z: 0 }, duration: 1.5, ease: 'power3.out' }] }</code></pre>
+<ul>
+<li>Rotate about the <strong>centre</strong> by giving the layer <code>anchorX: 0.5</code> and <code>anchorY: 0.5</code> (or <code>pivotX</code> / <code>pivotY</code>).</li>
+<li><code>threeD</code> layers are drawn farthest first (equal <code>z</code> keeps array order). Layers without <code>threeD</code> ignore the camera and keep array order, so a title can sit in front of everything.</li>
+<li>Layers at or behind the camera plane are hidden.</li>
+</ul>
+<figure class="demo"><div class="frame" style="aspect-ratio:16/9"><iframe src="../examples/11-depth.html" loading="lazy" title="Live demo: 11-depth.html" allow="autoplay; fullscreen"></iframe></div><figcaption>Live demo · <a href="../examples/11-depth.html">open it on its own page ↗</a></figcaption></figure><h2 id="a-camera">A camera<a class="anchor" href="#a-camera" aria-label="Link to this section">#</a></h2>
+<p>Add a layer of <code>type: &#39;camera&#39;</code> and animate it. Its properties go in <code>initial</code> / <code>keyframes</code>: <code>x y z lookAtX lookAtY lookAtZ fov</code>. By default it is centred, looks at the <code>z = 0</code> plane and has a field of view of 40°.</p>
+<pre><code class="language-js">{ type: 'camera', initial: { x: 640, y: 360 },
+  keyframes: [{ at: 0, to: { x: 900 }, duration: 4, ease: 'sine.inOut' }] }        // a slow pan: near layers move more than far ones (parallax)</code></pre>
+<p>For a camera that circles a point, use the <code>orbit</code> preset:</p>
+<pre><code class="language-js">import { orbit } from 'pixi-effects';
+orbit({ duration: 6, degrees: 40 })      // a camera layer that swings ±20° about the centre</code></pre>
+<p>An orbit makes the side the camera swings toward the <em>near</em> side: a card that is &quot;far&quot; at <code>z: -200</code> can end up bigger than 1× there. Pull such cards inward, and look at a frame at the extreme of the sweep.</p>
+<figure class="demo"><div class="frame" style="aspect-ratio:16/9"><iframe src="../examples/12-title-motion.html" loading="lazy" title="Live demo: 12-title-motion.html" allow="autoplay; fullscreen"></iframe></div><figcaption>Live demo · <a href="../examples/12-title-motion.html">open it on its own page ↗</a></figcaption></figure><h2 id="a-flight-and-a-handheld-shake">A flight, and a handheld shake<a class="anchor" href="#a-flight-and-a-handheld-shake" aria-label="Link to this section">#</a></h2>
+<p><code>cameraPath()</code> writes a camera flight as keyframes: a smooth curve through <code>[x, y, z]</code> points at an even speed, facing where it flies. An <code>ease</code> of <code>&#39;power2.in&#39;</code> makes it an accelerating rush. A handheld shake goes on the camera&#39;s <strong>offsets</strong> (<code>offsetX</code>, <code>offsetY</code>, <code>offsetZ</code>), which are added to the move, so a <code>wiggle()</code> never fights the flight. Layers the camera flies past on purpose take <code>hideBehindCamera: true</code>, so they are hidden quietly behind it instead of printing a warning.</p>
+<pre><code class="language-js">{ type: 'camera', keyframes: [
+  ...cameraPath({ points: [[640, 360, 2200], [690, 330, 900], [640, 360, -3000]], duration: 7, ease: 'power2.in', frameRate: 30 }),
+  ...wiggle({ duration: 7, freq: 9, props: { offsetX: { around: 0, amp: 5 }, offsetY: { around: 0, amp: 3 } } }),
+] }</code></pre>
+<p>The whole corridor of gates is the <code>camera-fly-through</code> recipe.</p>
+<h2 id="depth-of-field">Depth of field<a class="anchor" href="#depth-of-field" aria-label="Link to this section">#</a></h2>
+<p>Two more camera properties turn on the blur of a real lens: <code>focus</code> (which plane is sharp: a <code>threeD</code> layer&#39;s name, or a <code>z</code>) and <code>aperture</code> (how shallow, 30 by default, 0 = off). The other <code>threeD</code> layers blur by how far they are from the plane in focus; with neither property written, nothing is blurred and nothing costs anything.</p>
+<pre><code class="language-js">{ type: 'camera', initial: { focus: 'title' } }                    // the title is sharp, the rest softens with distance</code></pre>
+<p>A <strong>rack focus</strong> moves the focus from one layer to another with an ordinary keyframe (a layer&#39;s name works there too), and a handheld <code>wiggle()</code> or a dolly can run at the same time:</p>
+<pre><code class="language-js">{ type: 'camera', initial: { focus: 'near', aperture: 40 },
+  keyframes: [{ at: 1, to: { focus: 'far' }, duration: 1, ease: 'power2.inOut' }] }</code></pre>
+<p><code>aperture</code> is the lens diameter in pixels: 30 is clearly shallow, 60 is strong, 100 is extreme. A name in <code>focus</code> means that layer&#39;s first <code>z</code>, so to follow a layer that moves, write <code>focus</code> as numbers. The blur is the same over the whole layer, and a card (a <code>threeD</code> composition) blurs as one layer. The whole example is the <code>rack-focus</code> recipe.</p>
+<h2 id="light-shadow-and-fog">Light, shadow and fog<a class="anchor" href="#light-shadow-and-fog" aria-label="Link to this section">#</a></h2>
+<p>Add a <code>light</code> layer and every <code>threeD</code> layer in the same composition is lit: it gets darker and brighter with its angle to the light and its distance from it, so flat cards start to look like a room. A light is a layer like the camera: it draws nothing, and its numbers go in <code>initial</code> and <code>keyframes</code>, so a spotlight can cross the picture.</p>
+<pre><code class="language-js">{ type: 'light', kind: 'ambient', initial: { intensity: 0.2 } },
+{ type: 'light', kind: 'spot', initial: { x: 160, y: -120, z: 700, lookAtX: 260, lookAtY: 330, coneAngle: 34, coneFeather: 0.7 },
+  keyframes: [{ at: 0.5, to: { x: 1100, lookAtX: 1020 }, duration: 4.5, ease: 'sine.inOut' }] },</code></pre>
+<p>The kinds are <code>ambient</code> (the same colour everywhere), <code>point</code>, <code>spot</code> (a cone) and <code>parallel</code> (the sun). <strong>What no light reaches is black</strong>, so keep a dim ambient light in the scene. A layer you want flat is <code>lit: false</code>. A shadow needs <code>castsShadows: true</code> on the light <strong>and</strong> on the layer that casts it; <code>shadowDiffusion</code> makes the edge soft, wider the farther the shadow falls. A layer takes shadows from up to four casters, and soft shadows are the costly part, so use them on one or two lights.</p>
+<p>Fog belongs to the camera: <code>fogNear</code>, <code>fogFar</code>, <code>fogColor</code> (and <code>fogAmount</code>) fade <code>threeD</code> layers into a colour with distance. Draw the background in the same colour so the far things dissolve into it.</p>
+<p>Layers are still drawn in distance order and there is no depth buffer, so a room is built from big layers (a wall behind, a floor whose origin is at its far edge), not from planes that cross. The <code>spot-room</code> and <code>fog-depth</code> recipes are complete examples.</p>
+<h2 id="groups-in-depth-a-composition-as-a-card">Groups in depth: a composition as a card<a class="anchor" href="#groups-in-depth-a-composition-as-a-card" aria-label="Link to this section">#</a></h2>
+<p>A <code>composition</code> with <code>threeD: true</code> is a <strong>card</strong>: its children are drawn into one texture that moves, spins and tilts as a unit. Give it <code>width</code> and <code>height</code>; content outside that rectangle is clipped, so size it for a soft shadow too.</p>
+<h2 id="what-it-does-not-do">What it does not do<a class="anchor" href="#what-it-does-not-do" aria-label="Link to this section">#</a></h2>
+<p><code>threeD</code> layers do not support masks, transitions or <code>filterArea</code> (put those on a plain layer or on the card&#39;s parent). For real 3D models, add the optional <code>pixi-effects/three</code> entry and use a <code>three</code> layer: a three.js scene whose objects you drive with keyframes such as <code>&#39;three.cube.rotation.y&#39;</code>.</p>
+<figure class="demo"><div class="frame" style="aspect-ratio:16/9"><iframe src="../examples/10-three.html" loading="lazy" title="Live demo: 10-three.html" allow="autoplay; fullscreen"></iframe></div><figcaption>Live demo · <a href="../examples/10-three.html">open it on its own page ↗</a></figcaption></figure>
+<nav class="pager"><a class="prev" href="motion.html"><small>Previous</small>Motion: groups, waves and randomness</a><a class="next" href="shaders.html"><small>Next</small>Shaders and warps</a></nav>
+</article></main></div>
+<footer class="site-foot">
+  <div class="wrap">
+    <p class="links">
+      <a href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
+      <a href="https://www.npmjs.com/package/pixi-effects">npm: pixi-effects</a>
+      <a href="../examples/gallery/">Gallery</a>
+      <a href="../examples/interactive/">Interactive</a>
+      <a href="../examples/playground.html">Playground</a>
+      <a href="../for-ai.html">For AI</a>
+      <a href="https://github.com/yjmtmtk/pixi-effects/blob/main/skills/pixi-effects/SKILL.md">AI skill</a>
+      <a href="../llms.txt">llms.txt</a>
+      <a href="https://x.com/t_yjm" rel="me noopener">Author on X</a>
+    </p>
+    <p class="end"><span class="dia" aria-hidden="true"></span><span>pixi-effects · MIT · built on PixiJS v8 and mediabunny · ease names after GSAP, with thanks</span></p>
+  </div>
+</footer>
+<script>document.querySelectorAll('article pre').forEach(function (pre) { var b = document.createElement('button'); b.className = 'copy'; b.type = 'button'; b.textContent = 'Copy';
+  b.onclick = function () { navigator.clipboard.writeText(pre.querySelector('code').textContent).then(function () { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1200); }); }; pre.appendChild(b); });
+document.querySelectorAll('.facade').forEach(function (f) {
+  f.addEventListener('click', function () {
+    if (f.dataset.loaded) return; f.dataset.loaded = '1'; f.classList.add('loading');
+    var ifr = document.createElement('iframe'); ifr.title = 'Live demo'; ifr.allow = 'autoplay; fullscreen'; ifr.src = f.dataset.embed; f.appendChild(ifr);
+    var tries = 0;
+    (function wait() {                                                    // when the piece is ready: rewind to 0:00 and play (this click allows the sound); a deck plays to its first stop
+      var w = null; try { w = ifr.contentWindow; } catch (e) { /* still loading */ }
+      if (w && w.__ready === true && w.movie) {
+        Promise.resolve(w.movie.gotoFrame(0, true)).then(function () { var s0 = (w.movie.stops || []).filter(function (s) { return s.frame > 0; })[0]; if (s0) w.movie.playUntil(s0.at); else w.movie.play(); f.classList.remove('loading'); f.classList.add('live'); });
+        return;
+      }
+      if (++tries > 200) { f.classList.remove('loading'); f.classList.add('live'); return; }
+      setTimeout(wait, 100);
+    })();
+  });
+});</script>
+</body></html>

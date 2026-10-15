@@ -350,7 +350,7 @@ movie.play();
 
   // Playing a gallery piece here. A piece opens at its poster and waits for its own play button. The click that opened it is the gesture that
   // lets the sound start, so when the frame is on this page's own origin (the published site) play it from here once it is ready, as the
-  // guide's demos do (a deck plays to its first stop). From another origin (a local preview) the frame cannot be reached: press play in it.
+  // the old guide demos did. From another origin (a local preview) the frame cannot be reached: press play in it.
   var GALLERY=window.__GALLERY_BASE||'https://yjmtmtk.github.io/pixi-effects/examples/gallery/';
   function openPiece(id,host,url){
     var f=document.createElement('iframe'); f.src=url||(GALLERY+id+'.html'); f.allow='autoplay; fullscreen'; f.loading='eager'; host.appendChild(f);

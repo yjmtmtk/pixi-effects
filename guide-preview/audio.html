@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audio — pixi-effects guide</title>
+<meta name="description" content="Music files, music written as text, sound effects with no files at all, and how to check a sound you cannot hear.">
+<link rel="stylesheet" href="../site/shared/tokens.css">
+<link rel="stylesheet" href="../site/shared/site.css">
+<script>try{var t=localStorage.getItem('pe-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+<script src="../site/shared/site.js" defer></script>
+<link rel="stylesheet" href="guide.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../"><span class="dia" aria-hidden="true"></span>pixi-effects</a>
+    <nav aria-label="Site">
+      <a href="../examples/gallery/">Gallery</a>
+      <a href="../examples/interactive/">Interactive</a>
+      <a href="../examples/playground.html">Playground</a>
+      <a href="../for-ai.html">For AI</a>
+      <a class="only-wide" href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
+    </nav>
+    <button class="theme" type="button" id="themeBtn" aria-label="Colour theme: auto. Click to change">auto</button>
+  </div>
+</header>
+<details class="mobile-nav"><summary>Menu</summary><h4>Start</h4>
+<a href="index.html">pixi-effects</a>
+<a href="getting-started.html">Your first video</a>
+<a href="concepts.html">How it works</a>
+<h4>Guides</h4>
+<a href="text.html">Text</a>
+<a href="shapes.html">Shapes</a>
+<a href="images-video.html">Images and video</a>
+<a href="audio.html" aria-current="page">Audio</a>
+<a href="filters.html">Filters</a>
+<a href="transitions.html">Transitions</a>
+<a href="motion.html">Motion: groups, waves and randomness</a>
+<a href="depth.html">2.5D and camera</a>
+<a href="shaders.html">Shaders and warps</a>
+<a href="export.html">Exporting video</a>
+<a href="player.html">The player</a>
+<a href="interactive.html">Interactive movies</a>
+<a href="presenting.html">Presenting: slides that move</a>
+<a href="review.html">Reviewing your video</a>
+<a href="playground.html">Playground</a>
+<h4>Cookbook</h4>
+<a href="cookbook.html">Cookbook</a>
+<h4>More</h4>
+<a href="with-ai.html">Working with an AI</a>
+<a href="faq.html">FAQ and troubleshooting</a></details>
+<div class="layout"><aside class="side"><h4>Start</h4>
+<a href="index.html">pixi-effects</a>
+<a href="getting-started.html">Your first video</a>
+<a href="concepts.html">How it works</a>
+<h4>Guides</h4>
+<a href="text.html">Text</a>
+<a href="shapes.html">Shapes</a>
+<a href="images-video.html">Images and video</a>
+<a href="audio.html" aria-current="page">Audio</a>
+<a href="filters.html">Filters</a>
+<a href="transitions.html">Transitions</a>
+<a href="motion.html">Motion: groups, waves and randomness</a>
+<a href="depth.html">2.5D and camera</a>
+<a href="shaders.html">Shaders and warps</a>
+<a href="export.html">Exporting video</a>
+<a href="player.html">The player</a>
+<a href="interactive.html">Interactive movies</a>
+<a href="presenting.html">Presenting: slides that move</a>
+<a href="review.html">Reviewing your video</a>
+<a href="playground.html">Playground</a>
+<h4>Cookbook</h4>
+<a href="cookbook.html">Cookbook</a>
+<h4>More</h4>
+<a href="with-ai.html">Working with an AI</a>
+<a href="faq.html">FAQ and troubleshooting</a></aside>
+<main id="main"><article>
+<h1>Audio</h1>
+<p class="lead">Music files, music written as text, sound effects with no files at all, and how to check a sound you cannot hear.</p><div class="toc"><b>On this page</b><ul><li class="l2"><a href="#music-and-recorded-sound">Music and recorded sound</a></li><li class="l2"><a href="#sound-effects-with-no-files">Sound effects with no files</a></li><li class="l2"><a href="#music-written-as-text">Music written as text</a></li><li class="l2"><a href="#visuals-that-follow-the-music">Visuals that follow the music</a></li><li class="l2"><a href="#mixing">Mixing</a></li><li class="l2"><a href="#check-what-you-cannot-hear">Check what you cannot hear</a></li><li class="l2"><a href="#in-the-exported-file">In the exported file</a></li></ul></div>
+<h2 id="music-and-recorded-sound">Music and recorded sound<a class="anchor" href="#music-and-recorded-sound" aria-label="Link to this section">#</a></h2>
+<p>An <code>audio</code> layer with an <code>asset</code> plays a file. Fade it with volume keyframes:</p>
+<pre><code class="language-js">{ type: 'audio', asset: 'music', loop: true, volume: 0, duration: 12,
+  keyframes: [{ at: 0, to: { volume: 0.4 }, duration: 1.5 }, { at: -2, to: { volume: 0 }, duration: 2 }] }</code></pre>
+<ul>
+<li>A one-shot clip lasts exactly as long as the clip. A music file <strong>shorter than the movie needs <code>loop: true</code></strong>, or it falls silent after its end.</li>
+<li><code>volume</code> is 0 to 1 and animatable (that is how you duck music under a voice).</li>
+</ul>
+<h2 id="sound-effects-with-no-files">Sound effects with no files<a class="anchor" href="#sound-effects-with-no-files" aria-label="Link to this section">#</a></h2>
+<p><code>sfx</code> makes a sound from data. There is nothing to download, license or host:</p>
+<pre><code class="language-js">{ type: 'audio', sfx: 'swoosh', at: 2 }
+{ type: 'audio', sfx: { preset: 'pop', pitch: 5, seed: 2 }, at: 3, volume: 0.6 }</code></pre>
+<p>The presets: <code>click</code>, <code>pop</code>, <code>swoosh</code>, <code>swipe</code>, <code>hit</code>, <code>riser</code>, <code>chime</code>, <code>beep</code>, <code>coin</code>, <code>glitch</code>, <code>typewriter</code>. <code>pitch</code> shifts by semitones, <code>brightness</code> darkens or brightens, <code>seed</code> gives another take. The layer lasts exactly as long as the sound.</p>
+<ul>
+<li><strong>Line up the loud part, not the start.</strong> A <code>riser</code> is loudest at its end (<code>at = hit − duration</code>), a <code>swoosh</code> 0.16 s in.</li>
+<li>One layer per hit; use a loop for many (a <code>typewriter</code> tick for each letter).</li>
+<li>For a sound of your own, <code>sfx: { voices: [{ wave: &#39;square&#39;, freq: [1600, 200], filter: { type: &#39;lowpass&#39;, freq: 3000 }, envelope: &#39;fall&#39; }] }</code>.</li>
+</ul>
+<figure class="demo"><div class="frame" style="aspect-ratio:16/9"><iframe src="../examples/13-sfx.html" loading="lazy" title="Live demo: 13-sfx.html" allow="autoplay; fullscreen"></iframe></div><figcaption>Live demo · <a href="../examples/13-sfx.html">open it on its own page ↗</a></figcaption></figure><h2 id="music-written-as-text">Music written as text<a class="anchor" href="#music-written-as-text" aria-label="Link to this section">#</a></h2>
+<p>No music file? Write the tune. An audio layer with <code>music</code> takes tracks of notes and chords as plain strings, drum patterns, and a tempo, and a small built-in synthesiser plays them. The same text gives the same sound every time, in the preview and in the exported file.</p>
+<pre><code class="language-js">// @recipe music-guide
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#10131c' } },
+  { type: 'text', text: 'a tune from text', style: { fontSize: 72, fill: '#ffffff' }, initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 } },
+  { type: 'audio', volume: 0.8, music: {
+      bpm: 92, swing: 0.12,
+      tracks: [
+        { inst: 'keys', strum: 0.012, notes: 'Cmaj7:4 Am7:4 Dm7:4 G7:4' },           // chords by name, 4 beats each
+        { inst: 'bass', notes: 'c2:2 g2:2 | a1:2 e2:2 | d2:2 a2:2 | g1:2 d2:2' },     // notes: name, octave, length in beats
+        { inst: 'bell', vol: 0.5, notes: '_:4 | e6:1 g6:1 e6:2 | d6:4 | b5:2 d6:2' },  // _ is a rest
+      ],
+      drums: [{ from: 4, kick: 'x.......x.x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.x.' }],
+  } },
+];</code></pre>
+<ul>
+<li><strong>A note</strong> is its name in lowercase, octave and length in beats: <code>c4</code>, <code>f#3:0.5</code>, <code>bb2:2</code> (c4 is middle C; a bar of 4/4 is 4 beats). <strong>A chord</strong> starts with a capital letter (<code>G7</code> is a chord, <code>g7</code> a very high note): <code>Am7</code>, <code>Dsus4</code>, <code>Gmaj7</code>, <code>C@4</code> (root in octave 4), <code>Am7/e</code> (e in the bass), or written out: <code>[c4 e4 g4]:2</code>. <code>_</code> is a rest, <code>~</code> holds the note before, <code>|</code> marks a bar and is ignored.</li>
+<li><strong>Instruments:</strong> <code>keys</code> (electric piano), <code>pluck</code> (guitar or harp), <code>pad</code> (slow synth pad), <code>bass</code>, <code>sub</code> (pure sine bass), <code>lead</code>, <code>bell</code>, <code>musicbox</code>. <strong>Drums:</strong> <code>kick snare hat openhat clap rim tom crash shaker sleigh</code>, each a string of steps (<code>x</code> hit, <code>o</code> soft hit, <code>.</code> nothing) that repeats. Put <code>from: 8</code> on a drum object to bring the groove in later, or give a list of them for sections.</li>
+<li><strong>Shape the music:</strong> <code>swing</code> (a lilt on the off-beats), <code>reverb</code>, per-track <code>vol</code> (a list like <code>[[0, 0], [8, 0.7]]</code> fades it in over 8 beats), <code>pan</code>, <code>tone</code> (darker when lower), <code>transpose</code>, and a tempo that slows: <code>bpm: [[0, 96], [28, 96], [32, 60]]</code>.</li>
+<li><strong>Length and loop:</strong> the layer lasts the music plus its reverb tail, and ends with the movie; <code>loop: true</code> repeats it until the layer ends. At <code>volume: 1</code> it peaks at −6 dBFS, so use 0.5 to 0.8 under speech or effects.</li>
+</ul>
+<figure class="demo"><div class="frame" style="aspect-ratio:16/9"><iframe src="../examples/_guide/music.html" loading="lazy" title="Live demo: music.html" allow="autoplay; fullscreen"></iframe></div><figcaption>Live demo · <a href="../examples/_guide/music.html">open it on its own page ↗</a></figcaption></figure><ul>
+<li><strong>Listen first:</strong> the <a href="../examples/music-lab.html">music lab</a> plays eight tunes (a lo-fi loop, a launch build, a jingle, a thriller opening, three Christmas pieces) and shows each score as source; seven were written by AI sessions from the notation alone. <code>await musicBuffer(music)</code> gives you the sound as a Web Audio buffer for a page of your own.</li>
+<li><strong>It is an AI&#39;s friend:</strong> a score is text, so an AI can write a Christmas waltz, a lo-fi loop or a thriller opening and check it with <code>movie.inspectAudio()</code>. Mistakes (an instrument or drum name that does not exist, a note it cannot read) print a warning that names the track and the token. The complete reference is the <a href="https://github.com/yjmtmtk/pixi-effects/blob/main/docs/dsl.md#music-written-as-text-music">DSL reference</a>.</li>
+</ul>
+<h2 id="visuals-that-follow-the-music">Visuals that follow the music<a class="anchor" href="#visuals-that-follow-the-music" aria-label="Link to this section">#</a></h2>
+<p>Make things move with the sound, and the video is the same every time you play or export it. Analyse the music <strong>before</strong> <code>movie.init</code>, then <code>react()</code> turns what it does into keyframes.</p>
+<pre><code class="language-js">// @recipe audio-react-guide
+const env = bpmEnvelope(120, { duration: 8, frameRate: 30 });      // with a real file: const env = await audioEnvelope('music.mp3', { frameRate: 30 })
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#07060f' } },
+  { type: 'shape', shape: 'circle', radius: 110, duration: 8, initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ff2d95' },
+    keyframes: react(env, { duration: 8, props: {
+      scale: { base: 1, amount: 0.45, band: 'bass', attack: 0.02, release: 0.2 },        // swells with the low end, falls back slowly
+      alpha: { base: 0.5, amount: 0.5, beats: true, decay: 0.15 },                      // flashes on every beat
+    } }) },
+];</code></pre>
+<ul>
+<li><code>audioEnvelope(url)</code> gives, per video frame, the loudness (<code>level</code>) and the energy in <code>bass</code>, <code>mid</code> and <code>treble</code> (or bands you name, in Hz) as numbers from 0 to 1 on a perceptual scale, the times of the beats (<code>env.beats</code>) and the tempo (<code>env.bpm</code>). A quiet file gives the same shape as a loud one.</li>
+<li><code>react(env, { duration, props })</code> returns keyframes: each property is <code>base + amount × level</code>. Use <code>band</code> to pick the low, middle or high end, <code>beats: true</code> for a pulse that jumps on each beat and fades (<code>decay</code>), <code>attack</code> / <code>release</code> (seconds) to smooth the rise and fall like a level meter, and <code>audioOffset</code> / <code>loop</code> to line it up with a music layer that starts late or repeats.</li>
+<li>Many bands make an equaliser: <code>bands: { b0: [50, 80], b1: [80, 130], … }</code>, one bar per band with <code>height: { base: 6, amount: 220, band: &#39;b7&#39; }</code>.</li>
+<li>No audio file? <code>bpmEnvelope(120, { duration })</code> is a kick, a snare and hats exactly on a tempo. If the music is itself written as text, <code>await musicEnvelope(music, { frameRate })</code> analyses that very score (exact beats, bass / mid / treble that follow the notes): pass it to <code>react()</code> just like <code>audioEnvelope()</code>.</li>
+<li>To make the picture follow the notes themselves (light the keys of the chord that sounds, caption its name), <code>await musicEvents(music)</code> lists every note and drum hit with its beat, time, bar and pitches. <code>check</code> prints the same facts as a <code>music</code> block (bars per track, what starts in each bar, the drum span), so you can verify a score without listening; set <code>meter: 3</code> for a waltz.</li>
+</ul>
+<figure class="demo"><div class="frame" style="aspect-ratio:16/9"><iframe src="../examples/_guide/audio-react.html" loading="lazy" title="Live demo: audio-react.html" allow="autoplay; fullscreen"></iframe></div><figcaption>Live demo · <a href="../examples/_guide/audio-react.html">open it on its own page ↗</a></figcaption></figure><h2 id="mixing">Mixing<a class="anchor" href="#mixing" aria-label="Link to this section">#</a></h2>
+<p>Every audio layer is mixed down into one soundtrack. The mix is soft-limited above 0.9 (a quieter mix is untouched) and a warning names the layers if it would have clipped, so a pile of loud layers cannot ruin the file. Typical levels: music at 0.25 to 0.4 under effects.</p>
+<figure class="demo"><div class="frame" style="aspect-ratio:16/9"><iframe src="../examples/09-audio.html" loading="lazy" title="Live demo: 09-audio.html" allow="autoplay; fullscreen"></iframe></div><figcaption>Live demo · <a href="../examples/09-audio.html">open it on its own page ↗</a></figcaption></figure><h2 id="check-what-you-cannot-hear">Check what you cannot hear<a class="anchor" href="#check-what-you-cannot-hear" aria-label="Link to this section">#</a></h2>
+<p><code>movie.inspectAudio()</code> reports, for every sound, when it plays, how loud it is and what it sounds like (its pitch centre), plus the loudness of the mix second by second and a list of problems: a sound cut off by the end of the movie, a layer so quiet it is inaudible, a limited mix. The <a href="review.html">review tools</a> run it for you.</p>
+<h2 id="in-the-exported-file">In the exported file<a class="anchor" href="#in-the-exported-file" aria-label="Link to this section">#</a></h2>
+<p>MP4 and MOV carry AAC audio, WebM carries Opus. A browser that cannot encode AAC (Chrome on Linux) gets Opus in the MP4 instead, with a warning. The sound lands where it plays in the browser, to within a few milliseconds.</p>
+
+<nav class="pager"><a class="prev" href="images-video.html"><small>Previous</small>Images and video</a><a class="next" href="filters.html"><small>Next</small>Filters</a></nav>
+</article></main></div>
+<footer class="site-foot">
+  <div class="wrap">
+    <p class="links">
+      <a href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
+      <a href="https://www.npmjs.com/package/pixi-effects">npm: pixi-effects</a>
+      <a href="../examples/gallery/">Gallery</a>
+      <a href="../examples/interactive/">Interactive</a>
+      <a href="../examples/playground.html">Playground</a>
+      <a href="../for-ai.html">For AI</a>
+      <a href="https://github.com/yjmtmtk/pixi-effects/blob/main/skills/pixi-effects/SKILL.md">AI skill</a>
+      <a href="../llms.txt">llms.txt</a>
+      <a href="https://x.com/t_yjm" rel="me noopener">Author on X</a>
+    </p>
+    <p class="end"><span class="dia" aria-hidden="true"></span><span>pixi-effects · MIT · built on PixiJS v8 and mediabunny · ease names after GSAP, with thanks</span></p>
+  </div>
+</footer>
+<script>document.querySelectorAll('article pre').forEach(function (pre) { var b = document.createElement('button'); b.className = 'copy'; b.type = 'button'; b.textContent = 'Copy';
+  b.onclick = function () { navigator.clipboard.writeText(pre.querySelector('code').textContent).then(function () { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1200); }); }; pre.appendChild(b); });
+document.querySelectorAll('.facade').forEach(function (f) {
+  f.addEventListener('click', function () {
+    if (f.dataset.loaded) return; f.dataset.loaded = '1'; f.classList.add('loading');
+    var ifr = document.createElement('iframe'); ifr.title = 'Live demo'; ifr.allow = 'autoplay; fullscreen'; ifr.src = f.dataset.embed; f.appendChild(ifr);
+    var tries = 0;
+    (function wait() {                                                    // when the piece is ready: rewind to 0:00 and play (this click allows the sound); a deck plays to its first stop
+      var w = null; try { w = ifr.contentWindow; } catch (e) { /* still loading */ }
+      if (w && w.__ready === true && w.movie) {
+        Promise.resolve(w.movie.gotoFrame(0, true)).then(function () { var s0 = (w.movie.stops || []).filter(function (s) { return s.frame > 0; })[0]; if (s0) w.movie.playUntil(s0.at); else w.movie.play(); f.classList.remove('loading'); f.classList.add('live'); });
+        return;
+      }
+      if (++tries > 200) { f.classList.remove('loading'); f.classList.add('live'); return; }
+      setTimeout(wait, 100);
+    })();
+  });
+});</script>
+</body></html>

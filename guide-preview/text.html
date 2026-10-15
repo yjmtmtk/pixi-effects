@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Text — pixi-effects guide</title>
+<meta name="description" content="Styled text, counters, a typewriter, changing words, and per-letter animation in one call.">
+<link rel="stylesheet" href="../site/shared/tokens.css">
+<link rel="stylesheet" href="../site/shared/site.css">
+<script>try{var t=localStorage.getItem('pe-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+<script src="../site/shared/site.js" defer></script>
+<link rel="stylesheet" href="guide.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../"><span class="dia" aria-hidden="true"></span>pixi-effects</a>
+    <nav aria-label="Site">
+      <a href="../examples/gallery/">Gallery</a>
+      <a href="../examples/interactive/">Interactive</a>
+      <a href="../examples/playground.html">Playground</a>
+      <a href="../for-ai.html">For AI</a>
+      <a class="only-wide" href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
+    </nav>
+    <button class="theme" type="button" id="themeBtn" aria-label="Colour theme: auto. Click to change">auto</button>
+  </div>
+</header>
+<details class="mobile-nav"><summary>Menu</summary><h4>Start</h4>
+<a href="index.html">pixi-effects</a>
+<a href="getting-started.html">Your first video</a>
+<a href="concepts.html">How it works</a>
+<h4>Guides</h4>
+<a href="text.html" aria-current="page">Text</a>
+<a href="shapes.html">Shapes</a>
+<a href="images-video.html">Images and video</a>
+<a href="audio.html">Audio</a>
+<a href="filters.html">Filters</a>
+<a href="transitions.html">Transitions</a>
+<a href="motion.html">Motion: groups, waves and randomness</a>
+<a href="depth.html">2.5D and camera</a>
+<a href="shaders.html">Shaders and warps</a>
+<a href="export.html">Exporting video</a>
+<a href="player.html">The player</a>
+<a href="interactive.html">Interactive movies</a>
+<a href="presenting.html">Presenting: slides that move</a>
+<a href="review.html">Reviewing your video</a>
+<a href="playground.html">Playground</a>
+<h4>Cookbook</h4>
+<a href="cookbook.html">Cookbook</a>
+<h4>More</h4>
+<a href="with-ai.html">Working with an AI</a>
+<a href="faq.html">FAQ and troubleshooting</a></details>
+<div class="layout"><aside class="side"><h4>Start</h4>
+<a href="index.html">pixi-effects</a>
+<a href="getting-started.html">Your first video</a>
+<a href="concepts.html">How it works</a>
+<h4>Guides</h4>
+<a href="text.html" aria-current="page">Text</a>
+<a href="shapes.html">Shapes</a>
+<a href="images-video.html">Images and video</a>
+<a href="audio.html">Audio</a>
+<a href="filters.html">Filters</a>
+<a href="transitions.html">Transitions</a>
+<a href="motion.html">Motion: groups, waves and randomness</a>
+<a href="depth.html">2.5D and camera</a>
+<a href="shaders.html">Shaders and warps</a>
+<a href="export.html">Exporting video</a>
+<a href="player.html">The player</a>
+<a href="interactive.html">Interactive movies</a>
+<a href="presenting.html">Presenting: slides that move</a>
+<a href="review.html">Reviewing your video</a>
+<a href="playground.html">Playground</a>
+<h4>Cookbook</h4>
+<a href="cookbook.html">Cookbook</a>
+<h4>More</h4>
+<a href="with-ai.html">Working with an AI</a>
+<a href="faq.html">FAQ and troubleshooting</a></aside>
+<main id="main"><article>
+<h1>Text</h1>
+<p class="lead">Styled text, counters, a typewriter, changing words, and per-letter animation in one call.</p><div class="toc"><b>On this page</b><ul><li class="l2"><a href="#counters">Counters</a></li><li class="l2"><a href="#typewriter-and-changing-words">Typewriter and changing words</a></li><li class="l2"><a href="#colour-inside-one-line-spans">Colour inside one line: spans</a></li><li class="l2"><a href="#gradient-letters">Gradient letters</a></li><li class="l2"><a href="#per-letter-and-per-word-animation">Per-letter and per-word animation</a></li><li class="l2"><a href="#vertical-writing">Vertical writing</a></li><li class="l2"><a href="#things-that-go-wrong">Things that go wrong</a></li></ul></div>
+<p>A text layer is <code>type: &#39;text&#39;</code> with a <code>text</code> and a <code>style</code>. <code>style</code> takes the PixiJS text style fields you would expect: <code>fontSize</code>, <code>fontFamily</code>, <code>fontWeight</code>, <code>fill</code>, <code>letterSpacing</code>, <code>lineHeight</code>, <code>align</code>, <code>wordWrap</code> with <code>wordWrapWidth</code>, <code>stroke</code>, <code>dropShadow</code>.</p>
+<pre><code class="language-js">{ type: 'text', text: 'Launch day', style: { fontSize: 96, fontWeight: '800', fill: '#ffffff', fontFamily: 'system-ui, sans-serif' },
+  initial: { x: 'GW / 2', y: 'GH / 2', anchorX: 0.5, anchorY: 0.5 } }</code></pre>
+<ul>
+<li>The default anchor is the <strong>top-left</strong>; set <code>anchorX</code> / <code>anchorY</code> to <code>0.5</code> to place the <em>centre</em> at <code>x, y</code>.</li>
+<li>Colour is <code>style.fill</code> (<code>initial: { fill }</code> sets it from the start, and the <code>fill</code> keyframe animates it); the text&#39;s size is available to expressions as <code>w</code> and <code>h</code> after the style is applied.</li>
+<li>Use <strong>system fonts</strong> (<code>system-ui</code>, <code>Georgia</code>, <code>ui-monospace</code>…) unless you load a web font first: <code>await document.fonts.load(&#39;48px &quot;My Font&quot;&#39;)</code> before <code>movie.init</code>.</li>
+<li>A <code>dropShadow</code> glow is clipped unless you give the text <code>padding</code> of at least twice its <code>blur</code>.</li>
+</ul>
+<figure class="demo"><div class="frame" style="aspect-ratio:16/9"><iframe src="../examples/_guide/animate-text.html" loading="lazy" title="Live demo: animate-text.html" allow="autoplay; fullscreen"></iframe></div><figcaption>Live demo · <a href="../examples/_guide/animate-text.html">open it on its own page ↗</a></figcaption></figure><h2 id="counters">Counters<a class="anchor" href="#counters" aria-label="Link to this section">#</a></h2>
+<p>A text layer has one number you can animate, <code>value</code>, printed wherever the text contains <code>{value}</code>:</p>
+<pre><code class="language-js">{ type: 'text', text: '{value} users', format: { decimals: 0, grouping: true },
+  style: { fontSize: 72, fill: '#fff' }, initial: { x: 100, y: 100, value: 0 },
+  keyframes: [{ at: 0.5, to: { value: 2480 }, duration: 2, ease: 'power2.out' }] }       // 0 users … 2,480 users</code></pre>
+<p><code>format</code> takes <code>decimals</code>, <code>grouping</code> (thousands separators), <code>pad</code> (zero-pad: <code>pad: 2</code> shows <code>05</code>) and <code>time</code> (the value in seconds printed as a clock: <code>format: { time: &#39;mm:ss&#39; }</code> shows 75 as <code>01:15</code>; also <code>&#39;hh:mm:ss&#39;</code>, <code>&#39;h:mm:ss&#39;</code>, <code>&#39;hh:mm&#39;</code>, <code>&#39;m:ss&#39;</code>).</p>
+<figure class="demo"><div class="frame" style="aspect-ratio:16/9"><iframe src="../examples/_guide/count-up.html" loading="lazy" title="Live demo: count-up.html" allow="autoplay; fullscreen"></iframe></div><figcaption>Live demo · <a href="../examples/_guide/count-up.html">open it on its own page ↗</a></figcaption></figure><h2 id="typewriter-and-changing-words">Typewriter and changing words<a class="anchor" href="#typewriter-and-changing-words" aria-label="Link to this section">#</a></h2>
+<p><code>visibleChars</code> shows only the first N characters; animate it from 0 to the length with an <code>&#39;none&#39;</code> ease and you have a typewriter. A keyframe <code>set: { text: &#39;…&#39; }</code> swaps the whole string at a moment, and swaps it back when you scrub backwards:</p>
+<pre><code class="language-js">{ type: 'text', text: 'No masks, no per-letter layers.', style: { fontSize: 40, fontFamily: 'ui-monospace, monospace', fill: '#fff' },
+  initial: { x: 120, y: 520, anchorX: 0, anchorY: 0.5, visibleChars: 0 },       // left-anchored: it grows to the right
+  keyframes: [{ at: 0, to: { visibleChars: 30 }, duration: 2.4, ease: 'none' }] }
+
+{ type: 'text', text: '3', style: { fontSize: 150, fill: '#ffd166' }, initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5 },
+  keyframes: [{ at: 1, set: { text: '2' } }, { at: 2, set: { text: '1' } }, { at: 3, set: { text: 'Go!' } }] }</code></pre>
+<p>Anchor a typewriter on its <strong>left</strong> edge, or each new letter re-centres the line. <code>visibleChars</code> counts characters as you see them (an emoji is one). <code>to</code> and <code>from</code> cannot animate a string: use <code>set</code>.</p>
+<figure class="demo"><div class="frame" style="aspect-ratio:16/9"><iframe src="../examples/14-draw-on.html" loading="lazy" title="Live demo: 14-draw-on.html" allow="autoplay; fullscreen"></iframe></div><figcaption>Live demo · <a href="../examples/14-draw-on.html">open it on its own page ↗</a></figcaption></figure><h2 id="colour-inside-one-line-spans">Colour inside one line: <code>spans</code><a class="anchor" href="#colour-inside-one-line-spans" aria-label="Link to this section">#</a></h2>
+<p>A text layer takes <code>spans</code> instead of <code>text</code>: strings in the layer&#39;s own <code>style</code>, and <code>{ text, fill, fontWeight … }</code> objects that change how that part looks. It is how a line of code, a price with a coloured number, or a headline with one orange word is written, in one layer:</p>
+<pre><code class="language-js">{ type: 'text', style: { fontFamily: 'Menlo', fontSize: 30, fill: '#e8f5e8', align: 'left' },
+  spans: [{ text: 'type', fill: '#7fa07f' }, ': ', { text: &quot;'text'&quot;, fill: '#ffd166', fontWeight: '700' }, ',\n  at: 0.5'],
+  initial: { x: 120, y: 200 } }</code></pre>
+<p>A span changes colour, weight, slant, letter spacing or shadow, never the size, the font or the outline (one size, one font and one outline per layer; the warning says where to put them). <code>\n</code> starts a new line, and <code>style.align</code> places the lines on the block. The layer becomes a group of plain text layers named <code>&lt;name&gt;.0</code>, <code>&lt;name&gt;.1</code> …, so the keyframes (position, alpha, scale, rotation, a typewriter), filters and masks of a text layer work on it (not <code>fill</code>, <code>text</code> or <code>value</code>, which a group cannot carry), and <code>anchorX: 0.5</code> centres the whole block. A typewriter (<code>visibleChars</code>) counts over all the spans in order. For a web font, load it before the page builds the movie (<code>await document.fonts.load(...)</code>): the pieces are placed by measuring.</p>
+<h2 id="gradient-letters">Gradient letters<a class="anchor" href="#gradient-letters" aria-label="Link to this section">#</a></h2>
+<p>A text layer takes a <code>fillGradient</code> for its letters, and a keyframe can move it (the same partial gradient as on a shape, but <strong>linear only</strong>: <code>angle</code> and <code>stops</code> apply; for a radial gradient use a shape):</p>
+<pre><code class="language-js">{ type: 'text', text: 'GRADIENT', style: { fontSize: 200, fontWeight: '900' }, initial: { x: 640, y: 360, anchorX: 0.5, anchorY: 0.5 },
+  colorSpace: 'oklch', fillGradient: { angle: 0, stops: [[0, '#ff2d55'], [1, '#0ea5e9']] },
+  keyframes: [{ at: 0, duration: 2, to: { fillGradient: { angle: 180, stops: [[0, '#ffd60a'], [1, '#22c55e']] } } }] }</code></pre>
+<p>The letters are drawn again on every change (about 0.4 ms for a line at 1080p), so a long page of animated gradient text costs more than one headline.</p>
+<h2 id="per-letter-and-per-word-animation">Per-letter and per-word animation<a class="anchor" href="#per-letter-and-per-word-animation" aria-label="Link to this section">#</a></h2>
+<p><code>animateText()</code> does it in one call (<code>x</code> and <code>y</code> are pixel numbers, not expressions, and <code>y</code> is the top of the line): one text layer per character, word or line, laid out exactly like the whole text, arriving (and leaving) in a wave; leave <code>out</code> out and the pieces simply stay until the layer ends. Letters turn and scale about their own centre. The result is plain layers: spread it into <code>sequences</code>. <code>duration</code> is how long until every piece is gone. <code>out</code> leaves <strong>from that end</strong> by default: to be gone at 8 s, with <code>at: 0.4</code>, write <code>duration: 7.6</code>. To start the exit at a time you name, give it an <code>at</code>: <code>out: { preset: &#39;fade&#39;, at: 6 }</code> (composition seconds; the pieces leave in the same wave from 6 s and stay gone until the end).</p>
+<pre><code class="language-js">// @recipe animate-text
+const style = { fontFamily: 'Arial, sans-serif', fontSize: 110, fontWeight: 'bold', fill: '#ffffff' };
+return [
+  ...animateText('Kinetic type', style, { x: 640, y: 230, align: 'center', at: 0.3, duration: 5,
+    in: 'rise', out: 'fade', stagger: { each: 0.05, from: 'center' }, idle: { y: 5, rotation: 1 },
+    styleFor: p =&gt; (p.index === 0 ? { fill: '#ffd166' } : {}) }),
+  ...animateText('one word at a time', { fontFamily: 'Arial, sans-serif', fontSize: 44, fill: '#8fa0bf' },
+    { by: 'words', x: 640, y: 420, align: 'center', at: 1.6, duration: 3.7, in: 'pop', stagger: { each: 0.25 } }),
+];</code></pre>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>duration</code></td>
+<td><strong>required</strong>: seconds from <code>at</code> until every piece is gone, the last one included (an error says how long the wave needs)</td>
+</tr>
+<tr>
+<td><code>in</code></td>
+<td>how a piece arrives: <code>&#39;rise&#39;</code> (default), <code>&#39;drop&#39;</code>, <code>&#39;fade&#39;</code>, <code>&#39;pop&#39;</code>, <code>&#39;zoom&#39;</code>, <code>&#39;slide&#39;</code>, <code>&#39;spin&#39;</code>, your own <code>{ from, to, duration, ease }</code> (<code>x</code> / <code>y</code> in <code>from</code> are offsets from the resting place), a preset with changes <code>{ preset: &#39;rise&#39;, duration: 0.9 }</code>, or <code>false</code></td>
+</tr>
+<tr>
+<td><code>out</code></td>
+<td>how it leaves, in the same wave: the same choices; a preset runs backwards. Default none</td>
+</tr>
+<tr>
+<td><code>stagger</code></td>
+<td>the wave: <code>{ each, amount, from, grid, ease, seed }</code>, see <a href="motion.html#waves-stagger">Motion</a>. Default <code>{ each: 0.04 }</code></td>
+</tr>
+<tr>
+<td><code>idle</code></td>
+<td>a seeded drift between the entrance and the exit, each piece its own: <code>{ y: 4, rotation: 1, freq: 1 }</code></td>
+</tr>
+<tr>
+<td><code>styleFor</code></td>
+<td><code>piece =&gt; ({ fill: … })</code>: a different style for some pieces</td>
+</tr>
+<tr>
+<td><code>by</code>, <code>x</code>, <code>y</code>, <code>align</code>, <code>name</code>, <code>at</code></td>
+<td>as for <code>splitText</code>; layers are named <code>&lt;name&gt;-0</code>, <code>&lt;name&gt;-1</code>, …</td>
+</tr>
+</tbody></table>
+<p>If you want full control, cut the text yourself with <code>splitText</code> (it measures with the renderer&#39;s own fonts, so the pieces line up exactly like the whole text) and make one text layer per piece:</p>
+<pre><code class="language-js">// @recipe split-letters
+const style = { fontSize: 110, fontWeight: 'bold', fill: '#ffffff' };
+const pieces = splitText('Kinetic', style, { by: 'chars', x: 640, y: 300, align: 'center' });
+return pieces.map(p =&gt; ({
+  type: 'text', text: p.text, style, at: 0.15 * p.index,
+  initial: { x: p.x, y: p.y, alpha: 0 },
+  keyframes: [{ at: 0, from: { alpha: 0, y: p.y + 60 }, to: { alpha: 1, y: p.y }, duration: 0.5, ease: 'back.out(2)' }],
+}));</code></pre>
+<p><code>splitText(text, style, { by: &#39;chars&#39; | &#39;words&#39; | &#39;lines&#39;, x, y, align })</code> returns <code>{ text, x, y, width, index, line }</code> for each piece; use <code>measureText(text, style)</code> to size a background pill from the real width. Load a web font first if you use one.</p>
+<h2 id="vertical-writing">Vertical writing<a class="anchor" href="#vertical-writing" aria-label="Link to this section">#</a></h2>
+<p>Japanese (and Chinese) can be set downward, one column after another from the right. Give <code>animateText</code> <code>vertical: true</code>: the characters go down a column, a new line (<code>\n</code>) is a new column to the left, and <code>x</code> is the <strong>right</strong> edge of the first column. The commas <code>、。</code> move to the upper right of their cell, small kana a little up and right, and the long vowel mark <code>ー</code>, dashes, waves and brackets <code>「」</code> lie turned a quarter, as in print. Latin letters and digits stay upright, one to a cell.</p>
+<pre><code class="language-js">// @recipe vertical-text-guide
+const style = { fontFamily: 'Hiragino Mincho ProN, Yu Mincho, serif', fontSize: 56, fill: '#1c1a17' };
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#efe9dc' } },
+  ...animateText('雨のあと、\nコーヒーは「ゆっくり」', style, { x: 900, y: 70, vertical: true, at: 0.3, duration: 4.4, in: 'fade', stagger: { each: 0.04 } }),
+];</code></pre>
+<figure class="demo"><div class="frame" style="aspect-ratio:16/9"><iframe src="../examples/_guide/vertical-text.html" loading="lazy" title="Live demo: vertical-text.html" allow="autoplay; fullscreen"></iframe></div><figcaption>Live demo · <a href="../examples/_guide/vertical-text.html">open it on its own page ↗</a></figcaption></figure><p>With <code>splitText(text, style, { vertical: true, ... })</code> each piece also has <code>cx</code> / <code>cy</code> (the centre of its cell) and <code>rotation</code>: place a text layer at <code>cx</code> / <code>cy</code> with <code>anchorX: 0.5, anchorY: 0.5</code> and <code>rotation: p.rotation</code>. A line is cut only where you write <code>\n</code> (there is no automatic line breaking), and <code>by: &#39;words&#39;</code> or <code>&#39;lines&#39;</code> has no vertical form.</p>
+<h2 id="things-that-go-wrong">Things that go wrong<a class="anchor" href="#things-that-go-wrong" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Text is cut off or off-screen.</strong> Run the <a href="review.html">review tools</a>: <code>movie.inspect()</code> reports text that leaves the canvas, is cut by an edge, or overlaps other text. Centred text needs <code>anchorX: 0.5</code>.</li>
+<li><strong>A glow is clipped.</strong> Add <code>padding</code> to the style (at least twice the blur).</li>
+<li><strong>The font is not the one you asked for.</strong> A web font must be loaded before <code>init</code>; otherwise the browser&#39;s fallback font is measured and drawn.</li>
+</ul>
+
+<nav class="pager"><a class="prev" href="concepts.html"><small>Previous</small>How it works</a><a class="next" href="shapes.html"><small>Next</small>Shapes</a></nav>
+</article></main></div>
+<footer class="site-foot">
+  <div class="wrap">
+    <p class="links">
+      <a href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
+      <a href="https://www.npmjs.com/package/pixi-effects">npm: pixi-effects</a>
+      <a href="../examples/gallery/">Gallery</a>
+      <a href="../examples/interactive/">Interactive</a>
+      <a href="../examples/playground.html">Playground</a>
+      <a href="../for-ai.html">For AI</a>
+      <a href="https://github.com/yjmtmtk/pixi-effects/blob/main/skills/pixi-effects/SKILL.md">AI skill</a>
+      <a href="../llms.txt">llms.txt</a>
+      <a href="https://x.com/t_yjm" rel="me noopener">Author on X</a>
+    </p>
+    <p class="end"><span class="dia" aria-hidden="true"></span><span>pixi-effects · MIT · built on PixiJS v8 and mediabunny · ease names after GSAP, with thanks</span></p>
+  </div>
+</footer>
+<script>document.querySelectorAll('article pre').forEach(function (pre) { var b = document.createElement('button'); b.className = 'copy'; b.type = 'button'; b.textContent = 'Copy';
+  b.onclick = function () { navigator.clipboard.writeText(pre.querySelector('code').textContent).then(function () { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1200); }); }; pre.appendChild(b); });
+document.querySelectorAll('.facade').forEach(function (f) {
+  f.addEventListener('click', function () {
+    if (f.dataset.loaded) return; f.dataset.loaded = '1'; f.classList.add('loading');
+    var ifr = document.createElement('iframe'); ifr.title = 'Live demo'; ifr.allow = 'autoplay; fullscreen'; ifr.src = f.dataset.embed; f.appendChild(ifr);
+    var tries = 0;
+    (function wait() {                                                    // when the piece is ready: rewind to 0:00 and play (this click allows the sound); a deck plays to its first stop
+      var w = null; try { w = ifr.contentWindow; } catch (e) { /* still loading */ }
+      if (w && w.__ready === true && w.movie) {
+        Promise.resolve(w.movie.gotoFrame(0, true)).then(function () { var s0 = (w.movie.stops || []).filter(function (s) { return s.frame > 0; })[0]; if (s0) w.movie.playUntil(s0.at); else w.movie.play(); f.classList.remove('loading'); f.classList.add('live'); });
+        return;
+      }
+      if (++tries > 200) { f.classList.remove('loading'); f.classList.add('live'); return; }
+      setTimeout(wait, 100);
+    })();
+  });
+});</script>
+</body></html>

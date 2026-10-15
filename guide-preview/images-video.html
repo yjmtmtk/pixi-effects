@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Images and video — pixi-effects guide</title>
+<meta name="description" content="Load pictures and clips, move them with Ken Burns, cut them with masks, and key out a green screen.">
+<link rel="stylesheet" href="../site/shared/tokens.css">
+<link rel="stylesheet" href="../site/shared/site.css">
+<script>try{var t=localStorage.getItem('pe-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+<script src="../site/shared/site.js" defer></script>
+<link rel="stylesheet" href="guide.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../"><span class="dia" aria-hidden="true"></span>pixi-effects</a>
+    <nav aria-label="Site">
+      <a href="../examples/gallery/">Gallery</a>
+      <a href="../examples/interactive/">Interactive</a>
+      <a href="../examples/playground.html">Playground</a>
+      <a href="../for-ai.html">For AI</a>
+      <a class="only-wide" href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
+    </nav>
+    <button class="theme" type="button" id="themeBtn" aria-label="Colour theme: auto. Click to change">auto</button>
+  </div>
+</header>
+<details class="mobile-nav"><summary>Menu</summary><h4>Start</h4>
+<a href="index.html">pixi-effects</a>
+<a href="getting-started.html">Your first video</a>
+<a href="concepts.html">How it works</a>
+<h4>Guides</h4>
+<a href="text.html">Text</a>
+<a href="shapes.html">Shapes</a>
+<a href="images-video.html" aria-current="page">Images and video</a>
+<a href="audio.html">Audio</a>
+<a href="filters.html">Filters</a>
+<a href="transitions.html">Transitions</a>
+<a href="motion.html">Motion: groups, waves and randomness</a>
+<a href="depth.html">2.5D and camera</a>
+<a href="shaders.html">Shaders and warps</a>
+<a href="export.html">Exporting video</a>
+<a href="player.html">The player</a>
+<a href="interactive.html">Interactive movies</a>
+<a href="presenting.html">Presenting: slides that move</a>
+<a href="review.html">Reviewing your video</a>
+<a href="playground.html">Playground</a>
+<h4>Cookbook</h4>
+<a href="cookbook.html">Cookbook</a>
+<h4>More</h4>
+<a href="with-ai.html">Working with an AI</a>
+<a href="faq.html">FAQ and troubleshooting</a></details>
+<div class="layout"><aside class="side"><h4>Start</h4>
+<a href="index.html">pixi-effects</a>
+<a href="getting-started.html">Your first video</a>
+<a href="concepts.html">How it works</a>
+<h4>Guides</h4>
+<a href="text.html">Text</a>
+<a href="shapes.html">Shapes</a>
+<a href="images-video.html" aria-current="page">Images and video</a>
+<a href="audio.html">Audio</a>
+<a href="filters.html">Filters</a>
+<a href="transitions.html">Transitions</a>
+<a href="motion.html">Motion: groups, waves and randomness</a>
+<a href="depth.html">2.5D and camera</a>
+<a href="shaders.html">Shaders and warps</a>
+<a href="export.html">Exporting video</a>
+<a href="player.html">The player</a>
+<a href="interactive.html">Interactive movies</a>
+<a href="presenting.html">Presenting: slides that move</a>
+<a href="review.html">Reviewing your video</a>
+<a href="playground.html">Playground</a>
+<h4>Cookbook</h4>
+<a href="cookbook.html">Cookbook</a>
+<h4>More</h4>
+<a href="with-ai.html">Working with an AI</a>
+<a href="faq.html">FAQ and troubleshooting</a></aside>
+<main id="main"><article>
+<h1>Images and video</h1>
+<p class="lead">Load pictures and clips, move them with Ken Burns, cut them with masks, and key out a green screen.</p><div class="toc"><b>On this page</b><ul><li class="l2"><a href="#assets-and-image-layers">Assets and image layers</a></li><li class="l2"><a href="#ken-burns-a-still-that-moves">Ken Burns: a still that moves</a></li><li class="l2"><a href="#transparent-images">Transparent images</a></li><li class="l2"><a href="#video-clips">Video clips</a></li><li class="l2"><a href="#masks">Masks</a></li><li class="l3"><a href="#one-mask-for-several-layers">One mask for several layers</a></li><li class="l2"><a href="#blend-modes-and-chroma-key">Blend modes and chroma key</a></li></ul></div>
+<h2 id="assets-and-image-layers">Assets and image layers<a class="anchor" href="#assets-and-image-layers" aria-label="Link to this section">#</a></h2>
+<p>List the files in <code>assets</code> when you call <code>movie.init</code>, then refer to them by <code>name</code>:</p>
+<pre><code class="language-js">await movie.init({
+  /* … */
+  assets: [{ name: 'photo', src: './photo.jpg' }, { name: 'clip', src: './clip.mp4' }],
+  composition: { sequences: [{ type: 'image', asset: 'photo', initial: { x: 0, y: 0 } }] },
+});</code></pre>
+<p><code>src</code> can be a URL, a <code>data:</code> URL or a <code>blob:</code> URL, so an image drawn on a canvas (<code>canvas.toDataURL()</code>) works too. An image&#39;s natural size is <code>w</code> and <code>h</code> in expressions; <code>initial: { scale: &#39;cover&#39; }</code> makes it cover its parent (<code>&#39;contain&#39;</code> fits inside). The default anchor is the top-left. Colour an image with <code>tint</code>.</p>
+<p><strong>Make source images at least as large as the canvas</strong> (1920×1080 for a 1280×720 video): zooming in on a small image looks soft.</p>
+<h2 id="ken-burns-a-still-that-moves">Ken Burns: a still that moves<a class="anchor" href="#ken-burns-a-still-that-moves" aria-label="Link to this section">#</a></h2>
+<p><code>kenBurns</code> is a preset that returns a ready image layer which covers the canvas and moves slowly:</p>
+<pre><code class="language-js">import { kenBurns } from 'pixi-effects';
+kenBurns({ asset: 'photo', name: 'scene1', at: 0, duration: 5, motion: 'scale', zoom: 1.15, origin: [0.55, 0.6], ease: 'sine.inOut' })
+kenBurns({ asset: 'photo', at: 5, duration: 5, motion: 'position', from: [0.4, 0.5], to: [0.6, 0.5], zoom: 1.12 })</code></pre>
+<p><code>motion</code> is <code>&#39;still&#39;</code>, <code>&#39;scale&#39;</code> (zoom in or out about <code>origin</code>), <code>&#39;rotation&#39;</code> or <code>&#39;position&#39;</code> (pan). Combine it with <a href="transitions.html">transitions</a> for a slideshow.</p>
+<h2 id="transparent-images">Transparent images<a class="anchor" href="#transparent-images" aria-label="Link to this section">#</a></h2>
+<p>A PNG or WebP with an alpha channel just works, and <strong>WebP is much smaller</strong>: a museum teapot cut out of its background was 64–94 KB as WebP and about 650–700 KB as PNG. Put them in front of other layers, give them a soft shadow that is itself a feathered PNG, and the transparency does the rest.</p>
+<h2 id="video-clips">Video clips<a class="anchor" href="#video-clips" aria-label="Link to this section">#</a></h2>
+<pre><code class="language-js">{ type: 'video', asset: 'clip', initial: { scale: 'cover' }, loop: true, volume: 0.8 }</code></pre>
+<p><code>audio</code> and <code>volume</code> control the clip&#39;s own sound; <code>loop</code> repeats it. Video layers are frame-accurate when you scrub and when you export.</p>
+<p>Change the speed with <code>speed</code>: <code>{ type: &#39;video&#39;, asset: &#39;clip&#39;, speed: 0.5 }</code> is slow motion, <code>speed: -1</code> plays backward, <code>speed: 2</code> is twice as fast (with no <code>duration</code> the layer is as long as the clip divided by the speed). For a freeze or a ramp animate <code>time</code>, the position in the file in seconds, like any property: <code>keyframes: [{ at: 0, from: { time: 0 }, to: { time: 2 }, duration: 1 }, { at: 1, to: { time: 2 }, duration: 0.5 }]</code> plays two seconds, then holds. The sound follows, pitch included. <a href="motion.html#time-slow-motion-rewind-freeze">Motion</a> has the same idea for any group of layers.</p>
+<h2 id="masks">Masks<a class="anchor" href="#masks" aria-label="Link to this section">#</a></h2>
+<p>Any layer can be a <strong>mask</strong> for another: only the part under the mask shows. A mask is a layer spec, so it can be a shape, a text, or even an image:</p>
+<pre><code class="language-js">{ type: 'image', asset: 'photo', initial: { scale: 'cover' },
+  mask: { type: 'shape', shape: 'circle', radius: 220, initial: { x: 640, y: 360 },
+          keyframes: [{ at: 0, from: { radius: 0 }, to: { radius: 420 }, duration: 1.2, ease: 'power2.out' }] } }     // an iris that opens</code></pre>
+<p><code>mask: { layer: { …the mask… }, invert: true }</code> cuts a hole instead. A mask with no <code>at</code> of its own lives exactly as long as the layer it masks, and its keyframes count from that layer&#39;s start. Text, image and video masks and inverted masks have soft edges and work together with <code>blendMode</code>.</p>
+<h3 id="one-mask-for-several-layers">One mask for several layers<a class="anchor" href="#one-mask-for-several-layers" aria-label="Link to this section">#</a></h3>
+<p>Give the mask layer a <code>name</code> and write that name as the <code>mask</code> of every layer it should cut. The named layer is the <strong>matte</strong>: it is drawn once per frame and not shown itself, so you can move one shape and have three layers follow it.</p>
+<pre><code class="language-js">{ type: 'shape', shape: 'rect', name: 'band', anchorX: 0, width: 0, height: 420,
+  initial: { x: 60, y: 300 }, keyframes: [{ at: 0.3, to: { width: 560 }, duration: 1.5 }] },
+{ type: 'text', text: 'SHARED', mask: 'band' },
+{ type: 'image', asset: 'photo', mask: { layer: 'band', invert: true } },    // everywhere but the band</code></pre>
+<p>By default a matte works by <strong>opacity</strong> (<code>channel: &#39;alpha&#39;</code>); <code>channel: &#39;luma&#39;</code> works by <strong>brightness</strong>, so a grayscale image or a gradient makes a soft, shaded cut. <code>invert: true</code> flips it. A list, <code>mask: [&#39;panel&#39;, { layer: &#39;hole&#39;, invert: true }]</code>, keeps what every entry lets through, which is also how you subtract. The matte has to be in the same composition and alive whenever the layers it cuts are; a wrong name is warned about with the closest name. Each matte costs a picture the size of the composition, so share one instead of making many.</p>
+<figure class="demo"><div class="frame" style="aspect-ratio:16/9"><iframe src="../examples/05-composition-mask.html" loading="lazy" title="Live demo: 05-composition-mask.html" allow="autoplay; fullscreen"></iframe></div><figcaption>Live demo · <a href="../examples/05-composition-mask.html">open it on its own page ↗</a></figcaption></figure><h2 id="blend-modes-and-chroma-key">Blend modes and chroma key<a class="anchor" href="#blend-modes-and-chroma-key" aria-label="Link to this section">#</a></h2>
+<p><code>blendMode</code> on a layer mixes it with what is behind it, with the same 18 names as CSS <code>mix-blend-mode</code> (<code>add</code>, <code>screen</code>, <code>multiply</code>, <code>overlay</code>, <code>soft-light</code>, <code>color-dodge</code>, <code>hue</code>, …): <code>add</code> and <code>color-dodge</code> for glows and light leaks, <code>soft-light</code> for a colour cast over a photo, <code>multiply</code> for a vignette (the recipe <code>light-leak</code>). On a composition each child blends; to blend a composition as one picture give it <code>threeD: true</code> or a filter. <code>filters: [{ type: &#39;chromaKey&#39;, keyColor: &#39;#00ff00&#39; }]</code> removes a green screen from a video; its <code>threshold</code>, <code>smoothing</code> and <code>spill</code> are animatable.</p>
+<figure class="demo"><div class="frame" style="aspect-ratio:16/9"><iframe src="../examples/04-media.html" loading="lazy" title="Live demo: 04-media.html" allow="autoplay; fullscreen"></iframe></div><figcaption>Live demo · <a href="../examples/04-media.html">open it on its own page ↗</a></figcaption></figure>
+<nav class="pager"><a class="prev" href="shapes.html"><small>Previous</small>Shapes</a><a class="next" href="audio.html"><small>Next</small>Audio</a></nav>
+</article></main></div>
+<footer class="site-foot">
+  <div class="wrap">
+    <p class="links">
+      <a href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
+      <a href="https://www.npmjs.com/package/pixi-effects">npm: pixi-effects</a>
+      <a href="../examples/gallery/">Gallery</a>
+      <a href="../examples/interactive/">Interactive</a>
+      <a href="../examples/playground.html">Playground</a>
+      <a href="../for-ai.html">For AI</a>
+      <a href="https://github.com/yjmtmtk/pixi-effects/blob/main/skills/pixi-effects/SKILL.md">AI skill</a>
+      <a href="../llms.txt">llms.txt</a>
+      <a href="https://x.com/t_yjm" rel="me noopener">Author on X</a>
+    </p>
+    <p class="end"><span class="dia" aria-hidden="true"></span><span>pixi-effects · MIT · built on PixiJS v8 and mediabunny · ease names after GSAP, with thanks</span></p>
+  </div>
+</footer>
+<script>document.querySelectorAll('article pre').forEach(function (pre) { var b = document.createElement('button'); b.className = 'copy'; b.type = 'button'; b.textContent = 'Copy';
+  b.onclick = function () { navigator.clipboard.writeText(pre.querySelector('code').textContent).then(function () { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1200); }); }; pre.appendChild(b); });
+document.querySelectorAll('.facade').forEach(function (f) {
+  f.addEventListener('click', function () {
+    if (f.dataset.loaded) return; f.dataset.loaded = '1'; f.classList.add('loading');
+    var ifr = document.createElement('iframe'); ifr.title = 'Live demo'; ifr.allow = 'autoplay; fullscreen'; ifr.src = f.dataset.embed; f.appendChild(ifr);
+    var tries = 0;
+    (function wait() {                                                    // when the piece is ready: rewind to 0:00 and play (this click allows the sound); a deck plays to its first stop
+      var w = null; try { w = ifr.contentWindow; } catch (e) { /* still loading */ }
+      if (w && w.__ready === true && w.movie) {
+        Promise.resolve(w.movie.gotoFrame(0, true)).then(function () { var s0 = (w.movie.stops || []).filter(function (s) { return s.frame > 0; })[0]; if (s0) w.movie.playUntil(s0.at); else w.movie.play(); f.classList.remove('loading'); f.classList.add('live'); });
+        return;
+      }
+      if (++tries > 200) { f.classList.remove('loading'); f.classList.add('live'); return; }
+      setTimeout(wait, 100);
+    })();
+  });
+});</script>
+</body></html>

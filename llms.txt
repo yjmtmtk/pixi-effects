@@ -32,4 +32,4 @@ Rules that cause most failures (details in the skill and pitfalls):
 ## Optional
 
 - [Everything above in one file](https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/llms-full.txt)
-- [Examples and playground](https://yjmtmtk.github.io/pixi-effects/examples/)
+- [Gallery](https://yjmtmtk.github.io/pixi-effects/examples/gallery/), [playground](https://yjmtmtk.github.io/pixi-effects/examples/playground.html) and [For AI](https://yjmtmtk.github.io/pixi-effects/for-ai.html)

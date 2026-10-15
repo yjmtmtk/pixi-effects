@@ -9,6 +9,14 @@ const root = resolve(__dirname, '../..');
 describe('llms.txt / llms-full.txt', () => {
   const { llms, full } = buildLlms() as { llms: string; full: string };
 
+  it('every page of the site that llms.txt links to exists (a dead link in the file AI agents read)', () => {
+    const SITE = 'https://yjmtmtk.github.io/pixi-effects/';
+    const paths = [...llms.matchAll(/\]\((https:\/\/yjmtmtk\.github\.io\/pixi-effects\/[^)#\s]*)/g)].map((m) => m[1]!.slice(SITE.length));
+    expect(paths.length).toBeGreaterThan(0);
+    const missing = paths.filter((p) => !existsSync(resolve(root, p === '' || p.endsWith('/') ? `${p}index.html` : p)));
+    expect(missing).toEqual([]);
+  });
+
   it('are committed and up to date (run `npm run build:ai` after editing ai/ or docs/)', () => {
     expect(existsSync(resolve(root, 'llms.txt'))).toBe(true);
     expect(readFileSync(resolve(root, 'llms.txt'), 'utf8')).toBe(llms);

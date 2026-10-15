@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-/** Documents: changing one cannot change a browser test. (`site/` and the skill's `reference/` are NOT here: the guide demos and the recipe tests are built from them.) */
+/** Documents: changing one cannot change a browser test. (`site/` and the skill's `reference/` are NOT here: the site tests and the recipe tests are built from them.) */
 const DOCUMENT = [
   /^(CHANGELOG|README|AGENTS|CLAUDE)\.md$/, /^llms(-full)?\.txt$/, /^docs\/.+\.(md|txt)$/, /^skills\/pixi-effects\/SKILL\.md$/,
 ];

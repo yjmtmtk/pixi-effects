@@ -120,9 +120,9 @@
     "mediabunny": "^1.61.3"
   },
   "peerDependencies": {
+    "pixi-filters": "^6.1.0",
     "pixi.js": "^8.0.0",
-    "three": ">=0.150.0",
-    "pixi-filters": "^6.1.0"
+    "three": ">=0.150.0"
   },
   "peerDependenciesMeta": {
     "three": {
@@ -133,16 +133,15 @@
     }
   },
   "devDependencies": {
+    "@types/three": "^0.185.0",
+    "gsap": "3.15.0",
+    "happy-dom": "^15.0.0",
+    "pixi-filters": "^6.1.5",
+    "pixi.js": "^8.22.0",
+    "three": "^0.185.1",
     "tsup": "^8.0.0",
     "typescript": "^5.5.0",
-    "vitest": "^2.1.0",
-    "happy-dom": "^15.0.0",
-    "gsap": "3.15.0",
-    "marked": "^18.0.14",
-    "pixi.js": "^8.22.0",
-    "pixi-filters": "^6.1.5",
-    "three": "^0.185.1",
-    "@types/three": "^0.185.0"
+    "vitest": "^2.1.0"
   },
   "engines": {
     "node": ">=18"

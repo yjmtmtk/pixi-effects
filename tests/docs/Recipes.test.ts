@@ -71,7 +71,7 @@ describe('skills/pixi-effects/reference/recipes.md', () => {
     expect(blocks.filter(b => b.kind === 'docs-only').length).toBeGreaterThanOrEqual(2);
   });
 
-  it('has the subtitles recipe (an SRT as timed text layers), merged from the old Guide', () => {
+  it('has the subtitles recipe (an SRT as timed text layers)', () => {
     expect(recipes.map(r => r.name)).toContain('subtitles');
   });
 

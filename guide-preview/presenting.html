@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Presenting: slides that move — pixi-effects guide</title>
+<meta name="description" content="A talk as one movie. Stops pause it where you say, the arrow keys, a click or a swipe move on, and a deck helper lays out pages and steps.">
+<link rel="stylesheet" href="../site/shared/tokens.css">
+<link rel="stylesheet" href="../site/shared/site.css">
+<script>try{var t=localStorage.getItem('pe-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+<script src="../site/shared/site.js" defer></script>
+<link rel="stylesheet" href="guide.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../"><span class="dia" aria-hidden="true"></span>pixi-effects</a>
+    <nav aria-label="Site">
+      <a href="../examples/gallery/">Gallery</a>
+      <a href="../examples/interactive/">Interactive</a>
+      <a href="../examples/playground.html">Playground</a>
+      <a href="../for-ai.html">For AI</a>
+      <a class="only-wide" href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
+    </nav>
+    <button class="theme" type="button" id="themeBtn" aria-label="Colour theme: auto. Click to change">auto</button>
+  </div>
+</header>
+<details class="mobile-nav"><summary>Menu</summary><h4>Start</h4>
+<a href="index.html">pixi-effects</a>
+<a href="getting-started.html">Your first video</a>
+<a href="concepts.html">How it works</a>
+<h4>Guides</h4>
+<a href="text.html">Text</a>
+<a href="shapes.html">Shapes</a>
+<a href="images-video.html">Images and video</a>
+<a href="audio.html">Audio</a>
+<a href="filters.html">Filters</a>
+<a href="transitions.html">Transitions</a>
+<a href="motion.html">Motion: groups, waves and randomness</a>
+<a href="depth.html">2.5D and camera</a>
+<a href="shaders.html">Shaders and warps</a>
+<a href="export.html">Exporting video</a>
+<a href="player.html">The player</a>
+<a href="interactive.html">Interactive movies</a>
+<a href="presenting.html" aria-current="page">Presenting: slides that move</a>
+<a href="review.html">Reviewing your video</a>
+<a href="playground.html">Playground</a>
+<h4>Cookbook</h4>
+<a href="cookbook.html">Cookbook</a>
+<h4>More</h4>
+<a href="with-ai.html">Working with an AI</a>
+<a href="faq.html">FAQ and troubleshooting</a></details>
+<div class="layout"><aside class="side"><h4>Start</h4>
+<a href="index.html">pixi-effects</a>
+<a href="getting-started.html">Your first video</a>
+<a href="concepts.html">How it works</a>
+<h4>Guides</h4>
+<a href="text.html">Text</a>
+<a href="shapes.html">Shapes</a>
+<a href="images-video.html">Images and video</a>
+<a href="audio.html">Audio</a>
+<a href="filters.html">Filters</a>
+<a href="transitions.html">Transitions</a>
+<a href="motion.html">Motion: groups, waves and randomness</a>
+<a href="depth.html">2.5D and camera</a>
+<a href="shaders.html">Shaders and warps</a>
+<a href="export.html">Exporting video</a>
+<a href="player.html">The player</a>
+<a href="interactive.html">Interactive movies</a>
+<a href="presenting.html" aria-current="page">Presenting: slides that move</a>
+<a href="review.html">Reviewing your video</a>
+<a href="playground.html">Playground</a>
+<h4>Cookbook</h4>
+<a href="cookbook.html">Cookbook</a>
+<h4>More</h4>
+<a href="with-ai.html">Working with an AI</a>
+<a href="faq.html">FAQ and troubleshooting</a></aside>
+<main id="main"><article>
+<h1>Presenting: slides that move</h1>
+<p class="lead">A talk as one movie. Stops pause it where you say, the arrow keys, a click or a swipe move on, and a deck helper lays out pages and steps.</p><div class="toc"><b>On this page</b><ul><li class="l2"><a href="#stops">Stops</a></li><li class="l2"><a href="#the-presenter">The Presenter</a></li><li class="l2"><a href="#deck-pages-and-steps-without-the-arithmetic">deck(): pages and steps without the arithmetic</a></li><li class="l2"><a href="#the-overview-and-the-presenter-view">The overview and the presenter view</a></li><li class="l2"><a href="#a-deck-as-a-pdf">A deck as a PDF</a></li><li class="l2"><a href="#reviewing-a-deck">Reviewing a deck</a></li><li class="l2"><a href="#also-useful">Also useful</a></li></ul></div>
+<p>A presentation is a movie that <strong>waits for you</strong>. You say where it pauses (the <em>stops</em>), and a <code>Presenter</code> plays it like slides with animation: press next and it plays to the next stop and stops exactly there; press back and it jumps to the one before.</p>
+<figure class="demo"><div class="frame" style="aspect-ratio:16/9"><iframe src="../examples/_guide/deck.html" loading="lazy" title="Live demo: deck.html" allow="autoplay; fullscreen"></iframe></div><figcaption>Live demo · <a href="../examples/_guide/deck.html">open it on its own page ↗</a></figcaption></figure><p>The page above is a three-page talk made this way (the code is below). Press the <strong>Present</strong> button on its player bar (it appears because the movie has stops), then use the arrow keys, Space, a click or a swipe. Or just press play and watch it as a video.</p>
+<h2 id="stops">Stops<a class="anchor" href="#stops" aria-label="Link to this section">#</a></h2>
+<p>Put them in the composition: seconds, or an object.</p>
+<pre><code class="language-js">composition: {
+  sequences: [ /* … */ ],
+  stops: [
+    { at: 2.4, page: 'Title', notes: 'Welcome.' },   // the title, settled: page 1
+    { at: 5.0, page: 'The problem' },                // page 2
+    7.5,                                             // a step of page 2: a bullet appeared
+    { at: 10, page: 'The plan', advance: 4 },        // page 3; with `advance` it moves on by itself after 4 s (a kiosk)
+  ],
+}</code></pre>
+<p>A stop with <code>page</code> begins a page; the others are <strong>steps</strong> of it (a bullet appears, a chart grows). With no <code>page</code> anywhere, every stop is a page. A negative time counts back from the end.</p>
+<p><strong>A step is just a layer that starts at the previous stop and ends at this one.</strong> Press next, the movie plays that animation and pauses on its last frame. The <code>Controller</code> (the player bar) does the same: its play button, Space and a click on the picture play to the next stop and pause there, and every stop is a mark on the seek bar (a small dot for a step, a larger ringed dot where a page starts). To play straight through instead, <code>new Controller(movie, { pauseAtStops: false })</code>; a bare <code>movie.play()</code> always plays through.</p>
+<h2 id="the-presenter">The Presenter<a class="anchor" href="#the-presenter" aria-label="Link to this section">#</a></h2>
+<pre><code class="language-js">import { Presenter } from 'pixi-effects/present';
+const presenter = new Presenter(movie, { canvas });      // use it instead of Controller
+await presenter.start();                                 // from a button: fullscreen, then play to the first stop</code></pre>
+<table>
+<thead>
+<tr>
+<th>To</th>
+<th>Press</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>next (plays to the next stop; pressed while it plays, it skips to that stop)</td>
+<td>→ ↓ Space Enter PageDown, a click or tap, a swipe left</td>
+</tr>
+<tr>
+<td>back one stop</td>
+<td>← ↑ Backspace PageUp, a swipe right</td>
+</tr>
+<tr>
+<td>first page / last stop</td>
+<td>Home / End</td>
+</tr>
+<tr>
+<td>a page</td>
+<td>type its number, then Enter</td>
+</tr>
+<tr>
+<td>black screen / white screen</td>
+<td>B or <code>.</code> / W or <code>,</code></td>
+</tr>
+<tr>
+<td>the overview: every page as a picture</td>
+<td>G (arrows choose, Enter or a click goes there)</td>
+</tr>
+<tr>
+<td>the presenter view: a second window with the notes</td>
+<td>P</td>
+</tr>
+<tr>
+<td>fullscreen</td>
+<td>F</td>
+</tr>
+<tr>
+<td>the list of keys</td>
+<td><code>?</code> or H</td>
+</tr>
+<tr>
+<td>close / leave</td>
+<td>Esc</td>
+</tr>
+</tbody></table>
+<p>It draws only a small page counter (<code>3 / 8</code>), the page name and a thin progress line, which fade out when nothing happens, and the pointer hides with them. A movie shown through a <code>Controller</code> gets a <strong>Present</strong> button for free; <code>Esc</code> brings the bar back. Options: <code>clickToAdvance</code>, <code>swipe</code>, <code>keyboard</code>, <code>indicator</code>, <code>autoAdvance</code>, <code>loop</code>, <code>accent</code>.</p>
+<p>From code, the same moves are <code>next(movie)</code>, <code>prev(movie)</code>, <code>goToStop(movie, i)</code>, <code>goToPage(movie, n)</code>, and <code>onStop(movie, fn)</code> tells you where it landed (all from <code>pixi-effects/present</code>; add <code>&quot;pixi-effects/present&quot;</code> to the import map, next to <code>&quot;pixi-effects&quot;</code>). Underneath is one move of the core, <code>movie.playUntil(seconds)</code>: play, then pause exactly there.</p>
+<h2 id="deck-pages-and-steps-without-the-arithmetic"><code>deck()</code>: pages and steps without the arithmetic<a class="anchor" href="#deck-pages-and-steps-without-the-arithmetic" aria-label="Link to this section">#</a></h2>
+<p>Writing absolute times for a whole talk is tedious. <code>deck()</code> lets you write each page in <strong>its own time</strong> and does the rest: it lays the pages out one after the other, turns their stops into absolute ones, and joins them with a transition.</p>
+<pre><code class="language-js">// @recipe present-deck
+const paper = { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#f4efe6' } };
+const style = { fontFamily: 'Georgia, serif', fontSize: 80, fill: '#1c1a17' };
+const line = (text, y, at, dur) =&gt; animateText(text, style, { by: 'words', x: 96, y, align: 'left', name: 'l' + y, at, duration: dur - at,
+  in: { from: { y: 40, alpha: 0 }, duration: 0.8, ease: 'power3.out' }, stagger: { each: 0.1 } });
+const T = 0.6;                                           // the slide between pages
+const d = deck({
+  transition: { kind: 'slide', direction: 'left', duration: T, ease: 'power3.inOut' },
+  pages: [
+    { name: 'Hello', duration: 2 + T, stops: [2], sequences: [paper, ...line('The Quiet Hours', 260, 0.4, 2 + T)] },
+    { name: 'Two steps', duration: 3.4 + T, stops: [1.6, 3.4], notes: 'pause after the first line',
+      sequences: [paper, ...line('We measure speed.', 200, 0.4, 3.4 + T), ...line('We rarely measure attention.', 340, 1.6, 3.4 + T)] },
+    { name: 'Thanks', duration: 3, stops: [2], sequences: [paper, ...line('Go slowly.', 260, 0.4, 3)] },
+  ],
+});
+return { duration: d.duration, sequences: d.composition.sequences, transitions: d.composition.transitions };</code></pre>
+<p>In the page, spread the result into <code>init</code>:</p>
+<pre><code class="language-js">await movie.init({ canvas, width: 1280, height: 720, frameRate: 30, ...deck({ /* as above */ }) });
+new Presenter(movie, { canvas });</code></pre>
+<ul>
+<li>Each page is a nested composition, so <code>at: 0</code> inside a page is the start of that page, and its layers stop at the page&#39;s end.</li>
+<li><code>stops</code> are page-local; the first of each page begins the page, the rest are steps. Without <code>stops</code> a page stops where the transition into the next one begins.</li>
+<li><strong>Make each page last its last stop plus the transition</strong>: after the last stop, the next press plays the rest of the page and the slide into the next one, so extra time is just waiting.</li>
+<li><code>transition</code> takes any <a href="transitions.html">transition</a> (<code>crossfade</code>, <code>slide</code>, <code>wipe</code>, <code>iris</code>, <code>dip</code>, <code>zoom</code>, <code>dissolve</code>) without <code>from</code> / <code>to</code> / <code>at</code>; the next page starts that many seconds early. It must be shorter than every page.</li>
+<li>A page may carry <code>initial</code> and <code>keyframes</code> like any layer, to fade or move the whole page.</li>
+</ul>
+<h2 id="the-overview-and-the-presenter-view">The overview and the presenter view<a class="anchor" href="#the-overview-and-the-presenter-view" aria-label="Link to this section">#</a></h2>
+<p>Press <strong>G</strong> for a grid of every page, each as a picture (its last stop, fully built); choose with the arrows and Enter, or click, to jump. Press <strong>P</strong> for the <strong>presenter view</strong>, a second window for you alone: the picture that is on screen (live), the picture of what comes next, <strong>your notes for the page</strong>, a timer, and Back / Next buttons; the keys work there too. Put the audience&#39;s window on the projector and this one on your screen. (A browser needs a click or key press to open a popup; <code>P</code> is one. If it is blocked, allow popups for the page.)</p>
+<p>Both use a picture of every stop that <code>presenter.start()</code> makes <strong>before</strong> the audience sees anything, behind a short &quot;Preparing…&quot; cover, because taking them moves the playhead through the deck and back. Notes are the <code>notes</code> on a page&#39;s first stop (<code>deck()</code> takes <code>notes</code> on a page).</p>
+<h2 id="a-deck-as-a-pdf">A deck as a PDF<a class="anchor" href="#a-deck-as-a-pdf" aria-label="Link to this section">#</a></h2>
+<pre><code class="language-bash">npx pixi-effects render my-talk.html -o my-talk.pdf</code></pre>
+<p>One PDF page per page of the deck, each the page fully built, as a picture at the canvas size (<code>--all-stops</code> makes a page of every stop). From code, <code>await exportPDF(movie, { title })</code> returns the Blob, and <code>stopImages(movie)</code> gives you the pictures themselves (for a handout, a thumbnail strip, a page list of your own). Give the movie a <code>background</code>: a transparent one comes out black in a JPEG.</p>
+<p><strong>Choosing the picture of a page.</strong> Normally a page is pictured by its last stop. If that moment is wrong on paper (the page is already leaving, or the last step is a transition), say so in the stops: <code>{ at: 4, pdf: true }</code> makes this stop the page&#39;s picture, <code>{ at: 5, pdf: false }</code> keeps a stop out of the PDF. In <code>deck()</code> write the page&#39;s stops as <code>stops: [1.2, { at: 3, pdf: true }, { at: 4.2, pdf: false }]</code>. The page overview shows the same pictures.</p>
+<p>The player bar&#39;s download panel has the same choice: for a deck its format list also offers <strong>PDF (pages)</strong> and <strong>PDF (every step)</strong>.</p>
+<h2 id="reviewing-a-deck">Reviewing a deck<a class="anchor" href="#reviewing-a-deck" aria-label="Link to this section">#</a></h2>
+<p><code>await movie.contactSheet({ frames: movie.stops.map(s =&gt; s.frame), as: &#39;dataURL&#39; })</code> is one picture of every stop: the whole talk at a glance. Check it as you would any piece. <code>await inspectStops(movie)</code> checks for you whether the picture at each stop has stopped moving: a stop that lands a few frames before an animation ends (a line still growing, a word still fading in) is listed with its page and time, and <code>pixi-effects check</code> prints the same list. A stop where something moves on purpose is fine; otherwise move the stop later, or flag a settled stop of the page <code>pdf: true</code> for the PDF.</p>
+<h2 id="also-useful">Also useful<a class="anchor" href="#also-useful" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Export:</strong> <code>movie.render()</code> still renders the whole talk as one video, and <code>pixi-effects render</code> does it from a script.</li>
+<li><strong>Speaker notes</strong> live on the stops (<code>notes</code>) and are available as <code>movie.stops[i].notes</code> for a view of your own.</li>
+<li><strong>Kiosks and demos:</strong> give stops <code>advance</code> and the Presenter <code>loop: true</code>.</li>
+</ul>
+
+<nav class="pager"><a class="prev" href="interactive.html"><small>Previous</small>Interactive movies</a><a class="next" href="review.html"><small>Next</small>Reviewing your video</a></nav>
+</article></main></div>
+<footer class="site-foot">
+  <div class="wrap">
+    <p class="links">
+      <a href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
+      <a href="https://www.npmjs.com/package/pixi-effects">npm: pixi-effects</a>
+      <a href="../examples/gallery/">Gallery</a>
+      <a href="../examples/interactive/">Interactive</a>
+      <a href="../examples/playground.html">Playground</a>
+      <a href="../for-ai.html">For AI</a>
+      <a href="https://github.com/yjmtmtk/pixi-effects/blob/main/skills/pixi-effects/SKILL.md">AI skill</a>
+      <a href="../llms.txt">llms.txt</a>
+      <a href="https://x.com/t_yjm" rel="me noopener">Author on X</a>
+    </p>
+    <p class="end"><span class="dia" aria-hidden="true"></span><span>pixi-effects · MIT · built on PixiJS v8 and mediabunny · ease names after GSAP, with thanks</span></p>
+  </div>
+</footer>
+<script>document.querySelectorAll('article pre').forEach(function (pre) { var b = document.createElement('button'); b.className = 'copy'; b.type = 'button'; b.textContent = 'Copy';
+  b.onclick = function () { navigator.clipboard.writeText(pre.querySelector('code').textContent).then(function () { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1200); }); }; pre.appendChild(b); });
+document.querySelectorAll('.facade').forEach(function (f) {
+  f.addEventListener('click', function () {
+    if (f.dataset.loaded) return; f.dataset.loaded = '1'; f.classList.add('loading');
+    var ifr = document.createElement('iframe'); ifr.title = 'Live demo'; ifr.allow = 'autoplay; fullscreen'; ifr.src = f.dataset.embed; f.appendChild(ifr);
+    var tries = 0;
+    (function wait() {                                                    // when the piece is ready: rewind to 0:00 and play (this click allows the sound); a deck plays to its first stop
+      var w = null; try { w = ifr.contentWindow; } catch (e) { /* still loading */ }
+      if (w && w.__ready === true && w.movie) {
+        Promise.resolve(w.movie.gotoFrame(0, true)).then(function () { var s0 = (w.movie.stops || []).filter(function (s) { return s.frame > 0; })[0]; if (s0) w.movie.playUntil(s0.at); else w.movie.play(); f.classList.remove('loading'); f.classList.add('live'); });
+        return;
+      }
+      if (++tries > 200) { f.classList.remove('loading'); f.classList.add('live'); return; }
+      setTimeout(wait, 100);
+    })();
+  });
+});</script>
+</body></html>

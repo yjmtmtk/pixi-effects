@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Interactive movies — pixi-effects guide</title>
+<meta name="description" content="Change a movie while it plays: declare variables, read them from the film, rebuild at the same frame, and still render the same file to MP4.">
+<link rel="stylesheet" href="../site/shared/tokens.css">
+<link rel="stylesheet" href="../site/shared/site.css">
+<script>try{var t=localStorage.getItem('pe-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+<script src="../site/shared/site.js" defer></script>
+<link rel="stylesheet" href="guide.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../"><span class="dia" aria-hidden="true"></span>pixi-effects</a>
+    <nav aria-label="Site">
+      <a href="../examples/gallery/">Gallery</a>
+      <a href="../examples/interactive/">Interactive</a>
+      <a href="../examples/playground.html">Playground</a>
+      <a href="../for-ai.html">For AI</a>
+      <a class="only-wide" href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
+    </nav>
+    <button class="theme" type="button" id="themeBtn" aria-label="Colour theme: auto. Click to change">auto</button>
+  </div>
+</header>
+<details class="mobile-nav"><summary>Menu</summary><h4>Start</h4>
+<a href="index.html">pixi-effects</a>
+<a href="getting-started.html">Your first video</a>
+<a href="concepts.html">How it works</a>
+<h4>Guides</h4>
+<a href="text.html">Text</a>
+<a href="shapes.html">Shapes</a>
+<a href="images-video.html">Images and video</a>
+<a href="audio.html">Audio</a>
+<a href="filters.html">Filters</a>
+<a href="transitions.html">Transitions</a>
+<a href="motion.html">Motion: groups, waves and randomness</a>
+<a href="depth.html">2.5D and camera</a>
+<a href="shaders.html">Shaders and warps</a>
+<a href="export.html">Exporting video</a>
+<a href="player.html">The player</a>
+<a href="interactive.html" aria-current="page">Interactive movies</a>
+<a href="presenting.html">Presenting: slides that move</a>
+<a href="review.html">Reviewing your video</a>
+<a href="playground.html">Playground</a>
+<h4>Cookbook</h4>
+<a href="cookbook.html">Cookbook</a>
+<h4>More</h4>
+<a href="with-ai.html">Working with an AI</a>
+<a href="faq.html">FAQ and troubleshooting</a></details>
+<div class="layout"><aside class="side"><h4>Start</h4>
+<a href="index.html">pixi-effects</a>
+<a href="getting-started.html">Your first video</a>
+<a href="concepts.html">How it works</a>
+<h4>Guides</h4>
+<a href="text.html">Text</a>
+<a href="shapes.html">Shapes</a>
+<a href="images-video.html">Images and video</a>
+<a href="audio.html">Audio</a>
+<a href="filters.html">Filters</a>
+<a href="transitions.html">Transitions</a>
+<a href="motion.html">Motion: groups, waves and randomness</a>
+<a href="depth.html">2.5D and camera</a>
+<a href="shaders.html">Shaders and warps</a>
+<a href="export.html">Exporting video</a>
+<a href="player.html">The player</a>
+<a href="interactive.html" aria-current="page">Interactive movies</a>
+<a href="presenting.html">Presenting: slides that move</a>
+<a href="review.html">Reviewing your video</a>
+<a href="playground.html">Playground</a>
+<h4>Cookbook</h4>
+<a href="cookbook.html">Cookbook</a>
+<h4>More</h4>
+<a href="with-ai.html">Working with an AI</a>
+<a href="faq.html">FAQ and troubleshooting</a></aside>
+<main id="main"><article>
+<h1>Interactive movies</h1>
+<p class="lead">Change a movie while it plays: declare variables, read them from the film, rebuild at the same frame, and still render the same file to MP4.</p><div class="toc"><b>On this page</b><ul><li class="l2"><a href="#declare-variables-read-them-by-name">Declare variables, read them by name</a></li><li class="l2"><a href="#change-them-and-the-film-is-built-again">Change them, and the film is built again</a></li><li class="l2"><a href="#patterns">Patterns</a></li><li class="l2"><a href="#loop-and-the-player">Loop, and the player</a></li><li class="l2"><a href="#check-and-render-with-values">Check and render with values</a></li><li class="l2"><a href="#things-to-know">Things to know</a></li></ul></div>
+<p>An <strong>interactive movie</strong> is a film you can change while it plays: a name, a colour, the scroll of the page, the pointer, a roll of the dice. It is still a movie. The same file renders to MP4 with the values you choose, so what you tried on screen is what you ship.</p>
+<p><a href="../examples/interactive/janken.html"><img src="../examples/interactive/posters/janken.jpg" alt="Rock paper scissors"></a>
+<a href="../examples/interactive/scroll-city.html"><img src="../examples/interactive/posters/scroll-city.jpg" alt="Scroll through a city"></a>
+<a href="../examples/interactive/card.html"><img src="../examples/interactive/posters/card.jpg" alt="A card for anyone"></a></p>
+<p><em>Nine live samples are in <a href="../examples/interactive/">Interactive movies</a>: each one is a single HTML file you can read and copy.</em></p>
+<h2 id="declare-variables-read-them-by-name">Declare variables, read them by name<a class="anchor" href="#declare-variables-read-them-by-name" aria-label="Link to this section">#</a></h2>
+<pre><code class="language-js">await movie.init({
+  canvas, width: 1280, height: 720, duration: 6,
+  vars: { name: 'Aiko', accent: '#ff5d73', shift: 0 },        // a number or a string
+  composition: { sequences: [
+    { type: 'text', text: 'Happy birthday, {name}!', style: { fill: '{accent}' },
+      initial: { x: 'W/2 + shift', y: 'H/2' } },
+  ] },
+});</code></pre>
+<table>
+<thead>
+<tr>
+<th>Where</th>
+<th>How a variable is read</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>a numeric value (<code>x</code>, <code>scale</code>, <code>alpha</code>, <code>width</code>, <code>fontSize</code> …)</td>
+<td>by <strong>name</strong>, like <code>W</code> or <code>GW</code>: <code>&#39;W/2 + shift&#39;</code>. Only number variables.</td>
+</tr>
+<tr>
+<td>any string in the film (<code>text</code>, a colour, an <code>asset</code>, a layer name, <code>sfx</code>, a music <code>notes</code> string)</td>
+<td>as <strong><code>{name}</code></strong>: <code>&#39;{name}&#39;</code>, <code>&#39;{accent}&#39;</code>, <code>&#39;{lang}-logo&#39;</code></td>
+</tr>
+</tbody></table>
+<p>Some names are taken: <code>w h W H GW GH t d T contain cover value</code>, the expression functions and <code>PI</code>. A variable that nothing reads, or a <code>{name}</code> nobody declared, is said when the movie starts (with &quot;did you mean&quot;). <code>$</code> is not used for variables because it is a price in a text.</p>
+<h2 id="change-them-and-the-film-is-built-again">Change them, and the film is built again<a class="anchor" href="#change-them-and-the-film-is-built-again" aria-label="Link to this section">#</a></h2>
+<pre><code class="language-js">await movie.setVars({ name: 'Ben' });          // only declared names; the same values do nothing
+await movie.resize(1080, 1920);                // W / H / GW / GH follow
+await movie.rebuild({ composition, vars, width, height });   // the general form
+movie.on('rebuilt', r =&gt; console.log(r.ms, r.audio));        // { reason, ms, audio, frame, playing }</code></pre>
+<p>The new film is built <strong>beside the old one</strong> and swapped in whole, at the <strong>same frame</strong>. A playing movie keeps playing; if you paused, sought or played meanwhile, that is kept. The sound is mixed again <strong>only if it changed</strong> (<code>audio: &#39;reused&#39;</code>): a rebuild takes 11 to 42 ms on four gallery pieces measured, and 0.6 to 0.8 s when the sound has to be mixed again. Calls that arrive during a rebuild are joined, so a slider or a pointer can call <code>setVars</code> on every move. A rebuild that fails leaves the old film in place and rejects.</p>
+<p>A variable moves <strong>values</strong>, not timing: <code>at</code> and <code>duration</code> are plain numbers. To change the structure, make the composition with your own function and hand it to <code>rebuild({ composition })</code>; presets that expand to layers (<code>animateText</code>, <code>particles</code>, <code>deck</code>) are called before the film exists, so they are rebuilt this way too.</p>
+<h2 id="patterns">Patterns<a class="anchor" href="#patterns" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>A form</strong> (<a href="../examples/interactive/sliders.html">sliders</a>, <a href="../examples/interactive/card.html">a card</a>): inputs call <code>setVars</code>. The card also makes one MP4 per name in the browser: <code>setVars</code>, then <code>movie.render()</code>, once per name.</li>
+<li><strong>Scroll or pointer</strong> (<a href="../examples/interactive/scroll-city.html">a city</a>, <a href="../examples/interactive/pointer.html">the pointer</a>): one number from the page is a variable; the camera, the sky and the glow of every window are expressions on it.</li>
+<li><strong>The window</strong> (<a href="../examples/interactive/liquid.html">liquid</a>): a <code>ResizeObserver</code> on a box around the canvas calls <code>rebuild({ composition, width, height })</code> with a layout written for that shape.</li>
+<li><strong>Choices</strong> (<a href="../examples/interactive/ending.html">choose your ending</a>): every ending is a group of layers that is on only when a number says so (<code>alpha: &#39;step(0.5, 1 - abs(path - 1))&#39;</code>). The page stops the film at the fork, sets the number and plays on; going back before the fork clears it.</li>
+<li><strong>Luck</strong> (<a href="../examples/interactive/janken.html">rock paper scissors</a>): a new roll when the playhead goes from after the reveal to before it, the same ending anywhere after. Listen to <code>seeking</code> / <code>seeked</code> (a person&#39;s seeks) and the loop, not to every <code>frame</code>: the tools read frames too.</li>
+<li><strong>Music as text</strong> (<a href="../examples/interactive/chords.html">four chords</a>): a chord is a variable in the score, so the tune is made again.</li>
+</ul>
+<h2 id="loop-and-the-player">Loop, and the player<a class="anchor" href="#loop-and-the-player" aria-label="Link to this section">#</a></h2>
+<p><code>movie.loop = true</code> (or <code>init({ loop: true })</code>) sends playback back to the start at the end instead of stopping: no <code>ended</code>, no <code>pause</code> / <code>play</code> events at the wrap. <code>playUntil()</code> and <code>render()</code> ignore it. The player bar has a loop button next to the volume and the <code>L</code> key; <code>loopButton: false</code> hides it. If your film has things to click, <code>clickToPlay: false</code> leaves the canvas alone. See <a href="player.html">The player</a>.</p>
+<h2 id="check-and-render-with-values">Check and render with values<a class="anchor" href="#check-and-render-with-values" aria-label="Link to this section">#</a></h2>
+<pre><code class="language-bash">npx pixi-effects check film.html --var name=Ben --size 1920x1080,1080x1920   # a contact sheet and a layout review per size
+npx pixi-effects render film.html --var name=Ben --var accent='#2b7fff' --size 1080x1920 -o ben.mp4</code></pre>
+<p>The page needs nothing for this: the tool builds it again once it is ready. A number variable is given a number; a name the page did not declare stops the run with the nearest one. A film is a function of the script <strong>and</strong> the variables, so <code>render</code> with the same values is always the same video.</p>
+<h2 id="things-to-know">Things to know<a class="anchor" href="#things-to-know" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Sound waits for a click.</strong> Browsers keep sound off until the page has been clicked; the picture plays at once and the sound starts from where it is. Say so on the page (the samples do).</li>
+<li><strong>Load web fonts before the first rebuild that changes a text</strong>: text is measured again each time.</li>
+<li><strong>Do not make something move by <code>setVars</code> every frame</strong>: that is what keyframes are for. Variables are for what a person or the page decides.</li>
+<li><strong>The film does not know about the page.</strong> Keep the rule that turns input into a number in the page; the film only reads the number.</li>
+</ul>
+
+<nav class="pager"><a class="prev" href="player.html"><small>Previous</small>The player</a><a class="next" href="presenting.html"><small>Next</small>Presenting: slides that move</a></nav>
+</article></main></div>
+<footer class="site-foot">
+  <div class="wrap">
+    <p class="links">
+      <a href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
+      <a href="https://www.npmjs.com/package/pixi-effects">npm: pixi-effects</a>
+      <a href="../examples/gallery/">Gallery</a>
+      <a href="../examples/interactive/">Interactive</a>
+      <a href="../examples/playground.html">Playground</a>
+      <a href="../for-ai.html">For AI</a>
+      <a href="https://github.com/yjmtmtk/pixi-effects/blob/main/skills/pixi-effects/SKILL.md">AI skill</a>
+      <a href="../llms.txt">llms.txt</a>
+      <a href="https://x.com/t_yjm" rel="me noopener">Author on X</a>
+    </p>
+    <p class="end"><span class="dia" aria-hidden="true"></span><span>pixi-effects · MIT · built on PixiJS v8 and mediabunny · ease names after GSAP, with thanks</span></p>
+  </div>
+</footer>
+<script>document.querySelectorAll('article pre').forEach(function (pre) { var b = document.createElement('button'); b.className = 'copy'; b.type = 'button'; b.textContent = 'Copy';
+  b.onclick = function () { navigator.clipboard.writeText(pre.querySelector('code').textContent).then(function () { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1200); }); }; pre.appendChild(b); });
+document.querySelectorAll('.facade').forEach(function (f) {
+  f.addEventListener('click', function () {
+    if (f.dataset.loaded) return; f.dataset.loaded = '1'; f.classList.add('loading');
+    var ifr = document.createElement('iframe'); ifr.title = 'Live demo'; ifr.allow = 'autoplay; fullscreen'; ifr.src = f.dataset.embed; f.appendChild(ifr);
+    var tries = 0;
+    (function wait() {                                                    // when the piece is ready: rewind to 0:00 and play (this click allows the sound); a deck plays to its first stop
+      var w = null; try { w = ifr.contentWindow; } catch (e) { /* still loading */ }
+      if (w && w.__ready === true && w.movie) {
+        Promise.resolve(w.movie.gotoFrame(0, true)).then(function () { var s0 = (w.movie.stops || []).filter(function (s) { return s.frame > 0; })[0]; if (s0) w.movie.playUntil(s0.at); else w.movie.play(); f.classList.remove('loading'); f.classList.add('live'); });
+        return;
+      }
+      if (++tries > 200) { f.classList.remove('loading'); f.classList.add('live'); return; }
+      setTimeout(wait, 100);
+    })();
+  });
+});</script>
+</body></html>
