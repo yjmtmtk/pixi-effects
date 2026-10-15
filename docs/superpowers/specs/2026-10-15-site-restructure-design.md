@@ -13,7 +13,7 @@ The site was written for a human who learns the library: a 21-page Guide (23,000
 3. **The two long films** (`ink-and-paper`, `light-as-material`) **stay on the landing page** (the top), played live as now. There is no films page, and they do not go into the gallery.
 4. **Interactive movies** keep their own page and are one tile in the landing page's grid of what it can do.
 5. **No music lab** on the site (a user need not know it; the AI knows the music layer from the docs).
-6. **No new "examples".** An AI's tested examples are the recipes (`pixi-effects recipe`); a human's are the gallery. The numbered tour (01–15) and the check pages are the tests' net: they are kept as such and **not shown**.
+6. **No "examples" at all.** `examples/` is deleted as a concept: an AI's tested examples are the recipes (`pixi-effects recipe`), a human's are the gallery. The **real tests** become purpose-built **test films** (`tests/films/`: small, deterministic compositions, each exercising one area of the library with an answer known in advance); the gallery pieces are the **secondary** net (each still loads, plays, and checks clean). The old numbered tour (01–15) is not moved: it is deleted once its coverage is carried by test films.
 
 ## The site after
 
@@ -45,8 +45,8 @@ Removed from the page: the comparison section (830 words), "Written by AI, check
 | Comparison section, `site/landing/NOTES.md` and `FACTS.md` lines about Remotion / fframes, the matching `Landing.test.ts` checks, the mention in `SKILL.md` | Removed |
 | `examples/films/`, the films block on the landing page, `landing.css` rules for it | **Stay** (the top of the landing page); `stage-site.mjs` copies the folder |
 | `examples/music-lab.html`, its tests (`MusicLab.test.ts`, `musicLab.test.ts`), its nav entry, the mentions in README, `docs/api.md`, `docs/dsl.md`, `FACTS.md` | Removed. The music layer itself and its docs stay |
-| `examples/01-15-*.html`, `examples/examples.json`, `examples/index.html`, `examples/examples.css`, `ExamplesIndex.test.ts`, the examples part of `sync-site.mjs` and `pages.json` | The pages **move to `tests/pages/`** (the tests that scan them follow: `ease.test.ts` and others); the index, its list and its test are removed; nothing of them is published |
-| `examples/_checks/` (51 pages used by about 25 tests) | **Moves to `tests/pages/_checks/`** in the same mechanical step (decided: the tests' net is kept clean and separate) |
+| `examples/01-15-*.html`, `examples/examples.json`, `examples/index.html`, `examples/examples.css`, `ExamplesIndex.test.ts`, the examples part of `sync-site.mjs` and `pages.json` | **Deleted**, after a coverage list (what each page and each test that reads them proves) shows every point is carried by a test film; nothing of them is published |
+| `examples/_checks/` (51 pages used by about 25 tests) | These are already test-only pages with assertions: they are the **seed of the test films** and move to `tests/films/` (renamed by area as they are folded in) |
 | `examples/gallery`, `showreel`, `interactive`, `playground*`, `_assets` | Stay. `stage-site.mjs` stops copying all of `examples/` and copies only these and `films` (a list), so nothing else can ship by accident |
 | `README.md` (3 links to `/guide/`), `docs/*.md` (12), tests (8) that name `/guide/` | Re-pointed: to For AI, or to the `docs/` file |
 
@@ -57,7 +57,7 @@ The npm package does not ship `examples/` (`files` lists `dist`, `ai`, `skills`,
 1. **The Guide's 24 recipe blocks.** `Recipes.test.ts` builds and lints every `// @recipe` block of the AI recipes and of the Guide's cookbook. List the 24, compare each with `recipes.md`, merge the ones that add a case the AI recipes lack (as AI recipes, with the same tests), and drop the rest knowingly (the feature they exercised is still covered by the numbered tour moved to `tests/pages/`). The `recipe` command and its tests do not change.
 2. **For AI page and the new landing page** (written short; `FACTS.md` and `Landing.test.ts` updated to the new claims; the endings widget kept). Both old and new coexist until step 3.
 3. **Navigation and removals**: new `NAV`, remove the Guide, the comparison, the music lab, the films block; `stage-site.mjs` copies a list; `pages.json`, `sync-site.mjs` and `site/README.md` updated.
-4. **The tests' net**: move `examples/NN-*.html` and `examples/_checks/` to `tests/pages/`, change the paths in the tests that read them with one mechanical replacement; delete the index, its list and its test.
+4. **Test films, then delete `examples/`.** (a) A coverage list: for every numbered page and every `_checks` page, the features it draws and the tests that read it. (b) `tests/films/`: the `_checks` pages move in (they already carry assertions) and are grouped by area; a few new films fill the gaps the list shows (each film: deterministic, a known answer at named times, and `check` clean). (c) Only when the list is covered, delete the numbered tour, the index and its list and test. The gallery's tests stay as the secondary net.
 5. **Docs**: README, `docs/`, `skills/` and `llms*` regenerated (`npm run build:ai`); the roadmap's site lines rewritten.
 
 Not in this design: new examples, a redesign of the look (the tokens and header stay), a human tutorial of any kind.
@@ -66,10 +66,11 @@ Not in this design: new examples, a redesign of the look (the tokens and header 
 
 - Old addresses (`/guide/...`, `/examples/`, `/examples/music-lab.html`) stop working. The only user is the owner: accepted.
 - The Guide's 24 recipe blocks are test coverage, not an AI-facing feature (the `recipe` command reads `recipes.md`): step 1 decides each one before anything is deleted.
-- About 25 tests read `examples/_checks`: moving them is mechanical but wide; it is done as its own commit, so a red run for a path is fixed or the commit is reverted without touching the rest.
+- About 25 tests read `examples/_checks`: moving them to `tests/films/` is mechanical but wide; it is its own commit, so a red run for a path is fixed or the commit reverted without touching the rest.
+- The test films are new work, not a move: coverage must not drop while the tour is deleted, so the coverage list (step 4a) comes first and gates the deletion.
 
 ## Decided after review (2026-10-15)
 
 - The films stay on the landing page's top; no films page, none in the gallery.
-- The tests' net is moved clean: the numbered tour and `_checks` both go to `tests/pages/`.
-- What "fewer tests" means here, exactly: only the Guide's own tests (`Guide.test.ts`, `guideDemo*.test.ts`, the guide parts of the site tests) and its 24 recipe blocks are at risk, because the Guide itself goes; each recipe block is decided in step 1. The numbered tour and `_checks` are moved, not deleted, so no test is lost there.
+- `examples/` goes away. The real tests are new test films (`tests/films/`), seeded by the `_checks` pages; the gallery's tests are the secondary net.
+- What "fewer tests" means here, exactly: the Guide's own tests (`Guide.test.ts`, `guideDemo*.test.ts`, the guide parts of the site tests) and its 24 recipe blocks go with the Guide (each recipe block is decided in step 1); the numbered tour is deleted only after a coverage list shows its points are carried by test films.
