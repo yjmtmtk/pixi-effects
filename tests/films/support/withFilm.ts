@@ -25,7 +25,7 @@ export interface Film {
   render(opts?: object): Promise<Buffer>;
 }
 
-export async function withFilm<T>(name: string, fn: (film: Film) => Promise<T>, o: { query?: string; /** how long to wait for `window.__ready` (default 60) */ readySeconds?: number } = {}): Promise<T> {
+export async function withFilm<T>(name: string, fn: (film: Film) => Promise<T>, o: { query?: string; /** how long to wait for `window.__ready` (default 60) */ readySeconds?: number; /** a script run in the page before anything else on every load (e.g. to remove `navigator.gpu`) */ beforeLoad?: string } = {}): Promise<T> {
   const file = join(root, 'tests/films', `${name}.html`);
   if (!existsSync(file)) throw new Error(`film "${name}" not found: looked for tests/films/${name}.html`);
   const { server, port } = await check.serve(root);
@@ -35,6 +35,7 @@ export async function withFilm<T>(name: string, fn: (film: Film) => Promise<T>, 
     const page = await launchPage(chrome, dir);
     proc = page.proc; const cdp = page.cdp;
     await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
+    if (o.beforeLoad) await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: o.beforeLoad });
     await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/tests/films/${name}.html${o.query ? `?${o.query}` : ''}` });
     let ready = false;
     const readySeconds = o.readySeconds ?? 60;

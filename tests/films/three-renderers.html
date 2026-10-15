@@ -16,7 +16,8 @@
     import { Movie } from '../../dist/index.js';
     import { registerThree, three } from '../../dist/three.js';
     import * as THREE from 'three';
-    registerThree();
+    const PAGE = new URLSearchParams(location.search).get('page');                          // ?page=webgpu: the page default, and the layer names no renderer
+    registerThree(PAGE ? { renderer: PAGE } : undefined);
     const q = new URLSearchParams(location.search);
     const which = q.get('renderer') || 'webgl';
     const AA = q.get('aa') !== '0', FOG = q.get('fog') === '1', TONE = q.get('tone') === '1';       // the output pipeline switches the test compares
@@ -35,7 +36,7 @@
         composition: { sequences: [
           { type: 'shape', shape: 'rect', name: 'band', width: 320, height: 24, initial: { x: 160, y: 168, fillColor: '#f2c14e' } },
           three({
-            type: 'three', name: 'scene3d', renderer: which, antialias: AA, width: 320, height: 180, initial: { x: 160, y: 90, anchorX: 0.5, anchorY: 0.5 },
+            type: 'three', name: 'scene3d', ...(PAGE ? {} : { renderer: which }), antialias: AA, width: 320, height: 180, initial: { x: 160, y: 90, anchorX: 0.5, anchorY: 0.5 },
             setup: (ctx) => {
               const box = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.4, 1.4), new THREE.MeshStandardMaterial({ color: 0x7fb4ff, roughness: 0.5, metalness: 0.1 }));
               const ball = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 16), new THREE.MeshStandardMaterial({ color: 0xff7a5c, roughness: 0.4 }));

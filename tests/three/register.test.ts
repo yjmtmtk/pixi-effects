@@ -9,6 +9,36 @@ import type { CompositionShape } from '../../src/types';
 
 const shape: CompositionShape = { width: 100, height: 100, duration: 5 };
 
+import { MockWebGLRenderer, MockWebGPURenderer } from './mockThree';
+
+describe('registerThree({ renderer }): the page-level default of the three layers', () => {
+  const rendererOf = async (over: Record<string, unknown> = {}) => {
+    const seq = (await buildSequenceTree([three({ type: 'three', setup: () => {}, ...over } as any)], shape, shape))[0] as ThreeSequence;
+    return (seq as any)._renderer;
+  };
+
+  it("is 'webgl' without options, as before", async () => {
+    registerThree();
+    expect(await rendererOf()).toBeInstanceOf(MockWebGLRenderer);
+  });
+
+  it("registerThree({ renderer: 'webgpu' }) makes layers with no renderer of their own use WebGPU", async () => {
+    registerThree({ renderer: 'webgpu' });
+    try { expect(await rendererOf()).toBeInstanceOf(MockWebGPURenderer); } finally { registerThree(); }
+  });
+
+  it("a layer's own renderer wins over the page default, in both directions", async () => {
+    registerThree({ renderer: 'webgpu' });
+    try { expect(await rendererOf({ renderer: 'webgl' })).toBeInstanceOf(MockWebGLRenderer); } finally { registerThree(); }
+    registerThree();
+    expect(await rendererOf({ renderer: 'webgpu' })).toBeInstanceOf(MockWebGPURenderer);
+  });
+
+  it('a bad page default is refused when it is registered, saying what is allowed', () => {
+    expect(() => registerThree({ renderer: 'gpu' as any })).toThrow(/'webgl' or 'webgpu'/);
+  });
+});
+
 describe('registerThree', () => {
   it('makes buildSequenceTree construct ThreeSequence for type "three"', async () => {
     registerThree();

@@ -86,41 +86,76 @@ describe("three's WebGPU node frame (the light uniforms follow it)", () => {
   });
 });
 
-describe('materials the WebGPU renderer cannot use as written', () => {
-  const warnings = (warn: ReturnType<typeof vi.spyOn>) => warn.mock.calls.map((c) => String(c[0])).filter((m) => /WebGPU/.test(m));
+describe("content the WebGPU renderer cannot run (the author chose renderer: 'webgpu': stop, with the fix, instead of drawing a broken picture)", () => {
+  const fix = /renderer: 'webgl'/;
 
-  it("warns, naming the layer and the material, when a material sets onBeforeCompile (the WebGPU renderer ignores it: the effect would silently be missing)", async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  it('a material that sets onBeforeCompile stops the build, naming the layer and the material', async () => {
     const seq = makeSeq({ renderer: 'webgpu', name: 'product', setup: (ctx) => { (ctx.scene as any).add({ material: { type: 'MeshStandardMaterial', name: 'mirror', onBeforeCompile() {} } }); } });
-    await seq.build();
-    const w = warnings(warn);
-    warn.mockRestore();
-    expect(w).toHaveLength(1);
-    expect(w[0]).toMatch(/product/);
-    expect(w[0]).toMatch(/mirror|MeshStandardMaterial/);
-    expect(w[0]).toMatch(/onBeforeCompile/);
-    expect(w[0]).toMatch(/renderer: 'webgl'/);
+    const err = await seq.build().then(() => null, (e) => e as Error);
+    expect(err).not.toBeNull();
+    expect(err!.message).toMatch(/product/);
+    expect(err!.message).toMatch(/mirror|MeshStandardMaterial/);
+    expect(err!.message).toMatch(/onBeforeCompile/);
+    expect(err!.message).toMatch(fix);
   });
 
-  it('warns for a ShaderMaterial or RawShaderMaterial (they do not run on the WebGPU renderer), once per layer, however many meshes share it', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  it('a ShaderMaterial or RawShaderMaterial stops it too, once however many meshes share it, and releases the renderer', async () => {
     const shared = { type: 'ShaderMaterial', isShaderMaterial: true };
     const seq = makeSeq({ renderer: 'webgpu', setup: (ctx) => { (ctx.scene as any).add({ material: shared }, { material: shared }, { material: [shared] }); } });
-    await seq.build();
-    const w = warnings(warn);
-    warn.mockRestore();
-    expect(w).toHaveLength(1);
-    expect(w[0]).toMatch(/ShaderMaterial/);
+    await expect(seq.build()).rejects.toThrow(/ShaderMaterial/);
+    expect((seq as any)._renderer).toBeNull();
   });
 
-  it('says nothing for ordinary materials, and nothing on the WebGL renderer for the same ones', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  it("the same content builds on the WebGL renderer (it is only 'webgpu' that cannot run it)", async () => {
     const fancy = { material: { type: 'ShaderMaterial', isShaderMaterial: true, onBeforeCompile() {} } };
-    await makeSeq({ renderer: 'webgpu', setup: (ctx) => { (ctx.scene as any).add({ material: { type: 'MeshStandardMaterial' } }); } }).build();
-    await makeSeq({ setup: (ctx) => { (ctx.scene as any).add(fancy); } }).build();
-    const w = warnings(warn);
-    warn.mockRestore();
-    expect(w).toEqual([]);
+    await expect(makeSeq({ setup: (ctx) => { (ctx.scene as any).add(fancy); } }).build()).resolves.toBeUndefined();
+    await expect(makeSeq({ renderer: 'webgpu', setup: (ctx) => { (ctx.scene as any).add({ material: { type: 'MeshStandardMaterial' } }); } }).build()).resolves.toBeUndefined();
+  });
+
+  it("a PMREMGenerator taken from 'three' (not 'three/webgpu') fails inside setup with a TypeError nobody can act on: it is translated", async () => {
+    const seq = makeSeq({ renderer: 'webgpu', name: 'rods', setup: () => { throw new TypeError("Cannot read properties of undefined (reading 'buffers')"); } });
+    const err = await seq.build().then(() => null, (e) => e as Error);
+    expect(err!.message).toMatch(/rods/);
+    expect(err!.message).toMatch(/PMREMGenerator/);
+    expect(err!.message).toMatch(/three\/webgpu/);
+    expect(err!.message).toMatch(fix);
+    expect(err!.cause).toBeInstanceOf(TypeError);                                     // the original is kept
+  });
+
+  it('any other error from setup passes through untouched', async () => {
+    const boom = new Error('texture 404');
+    await expect(makeSeq({ renderer: 'webgpu', setup: () => { throw boom; } }).build()).rejects.toBe(boom);
+  });
+});
+
+describe("the backend (three's WebGPURenderer uses its own WebGL2 backend where the browser has no WebGPU: the same picture, so it is information, not a warning)", () => {
+  it("is 'webgpu' normally, and 'webgl' on the WebGLRenderer", async () => {
+    const gpu = makeSeq({ renderer: 'webgpu' }); await gpu.build();
+    const gl = makeSeq(); await gl.build();
+    expect(gpu.renderer).toBe('webgpu');
+    expect(gpu.backend).toBe('webgpu');
+    expect(gl.renderer).toBe('webgl');
+    expect(gl.backend).toBe('webgl');
+  });
+
+  it("is 'webgl2' when three says WebGPU is not available, and that warning does not reach the console", async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const orig = MockWebGPURenderer.prototype.init;
+    MockWebGPURenderer.prototype.init = async function (this: MockWebGPURenderer) { console.warn('THREE.WebGPURenderer: WebGPU is not available, running under WebGL2 backend.'); };
+    try {
+      const seq = makeSeq({ renderer: 'webgpu' });
+      await seq.build();
+      expect(seq.backend).toBe('webgl2');
+      expect(warn.mock.calls.filter((c) => /not available/.test(String(c[0])))).toEqual([]);
+    } finally { MockWebGPURenderer.prototype.init = orig; warn.mockRestore(); }
+  });
+
+  it('another warning during init is not swallowed', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const orig = MockWebGPURenderer.prototype.init;
+    MockWebGPURenderer.prototype.init = async function (this: MockWebGPURenderer) { console.warn('something else'); };
+    try { await makeSeq({ renderer: 'webgpu' }).build(); expect(warn.mock.calls.map((c) => String(c[0]))).toContain('something else'); }
+    finally { MockWebGPURenderer.prototype.init = orig; warn.mockRestore(); }
   });
 });
 

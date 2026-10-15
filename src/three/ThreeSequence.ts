@@ -7,9 +7,14 @@ import { evaluateExpr } from '../expr/Parser';
 import type { PathRouters } from '../core/Timeline';
 import type { PropValue } from '../types';
 import type { ThreeContext, ThreeSequenceSpec } from './types';
+import { checkRendererKind, getPageRenderer } from './defaults';
 
 export class ThreeSequence extends Sequence {
   private _renderer: WebGLRenderer | WebGPURenderer | null = null;
+  /** The renderer this layer draws with (`'webgl'` or `'webgpu'`), once it is built. */
+  renderer: 'webgl' | 'webgpu' | null = null;
+  /** The backend under it: `'webgl'`, `'webgpu'`, or `'webgl2'` when three's WebGPURenderer found no WebGPU in this browser and used its own WebGL2 backend (the same picture). */
+  backend: 'webgl' | 'webgpu' | 'webgl2' | null = null;
   private _gpu = false;                       // renderer: 'webgpu': async init and async render
   private _scene: Scene | null = null;
   private _camera: Camera | null = null;
@@ -44,11 +49,10 @@ export class ThreeSequence extends Sequence {
     // (not OffscreenCanvas) so PIXI's Texture.from and three both accept it.
     const canvas = document.createElement('canvas');
     const antialias = spec.antialias ?? true;
-    const kind = spec.renderer ?? 'webgl';
-    if (kind !== 'webgl' && kind !== 'webgpu') {
-      throw new Error(`pixi-effects: a three layer's renderer must be 'webgl' or 'webgpu' (got ${JSON.stringify(kind)})`);
-    }
+    const kind = spec.renderer ?? getPageRenderer();
+    checkRendererKind(kind, "a three layer's renderer");
     this._gpu = kind === 'webgpu';
+    this.renderer = kind;
     let renderer: WebGLRenderer | WebGPURenderer;
     if (this._gpu) {
       let mod: typeof import('three/webgpu');
@@ -57,11 +61,19 @@ export class ThreeSequence extends Sequence {
       }
       renderer = new mod.WebGPURenderer({ canvas, alpha: true, antialias });
       this._renderer = renderer;
-      try { await renderer.init(); }          // the device is made here: nothing may render before
+      // The device is made here: nothing may render before. Where there is no WebGPU three uses its own WebGL2 backend and says so with a warning: that is not a problem
+      // (it draws the same picture), so it becomes `backend: 'webgl2'` instead of a line in the author's console.
+      const warn = console.warn;
+      let noGpu = false;
+      console.warn = (...args: unknown[]) => { if (/WebGPU is not available/.test(String(args[0]))) noGpu = true; else warn.apply(console, args as []); };
+      try { await renderer.init(); }
       catch (err) { this._disposeRenderer(); throw err; }
+      finally { console.warn = warn; }
+      this.backend = noGpu ? 'webgl2' : 'webgpu';
     } else {
       renderer = new WebGLRenderer({ canvas, alpha: true, antialias });
       this._renderer = renderer;
+      this.backend = 'webgl';
     }
     try {
       renderer.setSize(Math.round(width * resolution), Math.round(height * resolution), false);
@@ -71,7 +83,8 @@ export class ThreeSequence extends Sequence {
       const camera: Camera = new PerspectiveCamera(50, width / height, 0.1, 2000);
       const ctx: ThreeContext = { scene, camera, renderer, width, height };
 
-      const result = await spec.setup(ctx);
+      let result: Awaited<ReturnType<ThreeSequenceSpec['setup']>>;
+      try { result = await spec.setup(ctx); } catch (err) { throw this._gpu ? this._explainWebGpuError(err, spec.name) : err; }
       if (result?.camera) ctx.camera = result.camera;
       this._scene = scene;
       this._camera = ctx.camera;
@@ -79,7 +92,7 @@ export class ThreeSequence extends Sequence {
       this._objects = { ...(result?.objects ?? {}) };
       if (!('camera' in this._objects)) this._objects.camera = this._camera;
 
-      if (this._gpu) this._warnWebGpuMaterials(scene, spec.name);
+      if (this._gpu) this._checkWebGpuMaterials(scene, spec.name);
       // Frame 0 so the texture is never blank before the first tick.
       this._draw(0);
 
@@ -137,10 +150,11 @@ export class ThreeSequence extends Sequence {
   }
 
   /**
-   * The WebGPU renderer turns three's materials into node materials: a ShaderMaterial / RawShaderMaterial cannot run there, and `onBeforeCompile` (a patch of the WebGL shader text)
-   * is ignored, so the effect would silently be missing. Say so once per layer, naming the first such material.
+   * The author chose renderer: 'webgpu'. Three's WebGPU renderer turns materials into node materials: a ShaderMaterial / RawShaderMaterial cannot run there (three logs an error on
+   * every render and draws a default material) and `onBeforeCompile` (a patch of the WebGL shader text) is ignored without a word. Stop, once, naming the first such material and the fix,
+   * instead of drawing a picture that is wrong without saying so.
    */
-  private _warnWebGpuMaterials(scene: Scene, layerName: string | undefined): void {
+  private _checkWebGpuMaterials(scene: Scene, layerName: string | undefined): void {
     const bad: string[] = [];
     const seen = new Set<unknown>();
     const check = (m: unknown): void => {
@@ -156,8 +170,18 @@ export class ThreeSequence extends Sequence {
       for (const m of Array.isArray(mats) ? mats : [mats]) check(m);
     });
     if (!bad.length) return;
-    console.warn(`pixi-effects: three layer${layerName ? ` "${layerName}"` : ''} with renderer: 'webgpu': ${bad[0]}${bad.length > 1 ? ` (and ${bad.length - 1} more)` : ''}; ` +
-      `draw this layer with renderer: 'webgl', or write the look with three's node materials (TSL)`);
+    this._disposeRenderer();
+    throw new Error(`pixi-effects: three layer${layerName ? ` "${layerName}"` : ''} with renderer: 'webgpu': ${bad[0]}${bad.length > 1 ? ` (and ${bad.length - 1} more)` : ''}. ` +
+      `Add renderer: 'webgl' to this layer (or registerThree({ renderer: 'webgl' }) for the page), or write the look with three's node materials (TSL).`);
+  }
+
+  /** The one setup failure everybody meets on the WebGPU renderer: a PMREMGenerator imported from 'three' reads WebGL state the WebGPU renderer does not have. */
+  private _explainWebGpuError(err: unknown, layerName: string | undefined): unknown {
+    if (err instanceof TypeError && /reading 'buffers'|renderer\.state/.test(err.message)) {
+      return new Error(`pixi-effects: three layer${layerName ? ` "${layerName}"` : ''} with renderer: 'webgpu': setup used a WebGL-only helper, most likely a PMREMGenerator imported from 'three'. ` +
+        `Import it from 'three/webgpu' (import * as THREE from 'three/webgpu'), or add renderer: 'webgl' to this layer.`, { cause: err });
+    }
+    return err;
   }
 
   private _advanceNodeFrame(t: number): void {

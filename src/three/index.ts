@@ -7,14 +7,23 @@
  */
 import { registerSequenceType, type SequenceCtor } from '../core/Composition';
 import { ThreeSequence } from './ThreeSequence';
+import { checkRendererKind, setPageRenderer, type ThreeRendererKind } from './defaults';
 import type { SequenceSpec } from '../types';
 import type { ThreeSequenceSpec } from './types';
 
 export { ThreeSequence } from './ThreeSequence';
 export type { ThreeContext, ThreeSetupResult, ThreeSequenceSpec } from './types';
+export type { ThreeRendererKind } from './defaults';
 
-/** Register the 'three' sequence type. Idempotent; explicit call so `sideEffects: false` bundlers can't drop it. */
-export function registerThree(): void {
+/**
+ * Register the 'three' sequence type. Explicit call so `sideEffects: false` bundlers can't drop it; calling it again is fine.
+ * `registerThree({ renderer: 'webgpu' })` makes every three layer that does not name a `renderer` of its own use three's WebGPU renderer; the default is `'webgl'`
+ * (the last call wins).
+ */
+export function registerThree(options: { renderer?: ThreeRendererKind } = {}): void {
+  const kind = options.renderer ?? 'webgl';
+  checkRendererKind(kind, "registerThree's renderer");
+  setPageRenderer(kind);
   registerSequenceType('three', ThreeSequence as unknown as SequenceCtor);
 }
 

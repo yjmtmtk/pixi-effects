@@ -98,3 +98,46 @@ runFilms('Three layer: where WebGL and WebGPU differ on purpose (the output pipe
     expect(d.big).toBeGreaterThan(2000);
   }, 300_000);
 });
+
+const NO_WEBGPU = "Object.defineProperty(navigator, 'gpu', { value: undefined, configurable: true });";   // what three sees in a browser without WebGPU (its own code path: navigator.gpu missing)
+
+runFilms("Three layer: the page default, and a browser with no WebGPU", () => {
+  it("registerThree({ renderer: 'webgpu' }) is the default of a layer that names no renderer; the layer's own renderer still wins", async () => {
+    const info = (query: string) => withFilm('three-renderers', (film) => film.eval<{ cls: string }>('window.threeInfo'), { query });
+    expect((await info('page=webgpu')).cls).toBe('WebGPURenderer');
+    expect((await info('page=webgl')).cls).toBe('WebGLRenderer');
+    expect((await info('renderer=webgpu')).cls).toBe('WebGPURenderer');
+  }, 120_000);
+
+  it("with no WebGPU in the browser three's WebGPURenderer draws with its WebGL2 backend: no warning in the page, deterministic, and the same picture as the WebGPU backend (measured: no antialias 0.00 of 255; with antialias edges only)", async () => {
+    const noGpu = (aa: number) => withFilm('three-renderers', async (film) => {
+      const info = await film.eval<{ cls: string; gpuBackend: boolean }>('window.threeInfo');
+      const logs = await film.eval<string>('JSON.stringify(window.__logs)');
+      const h = async (f: number) => film.eval<string>(`hashOf(${f})`);
+      const forward = [await h(0), await h(30), await h(60)];
+      const back = [await h(60), await h(30), await h(0)].reverse();
+      const px: number[][] = [];
+      for (const f of FRAMES) px.push(await film.eval<number[]>(`framePixels(${f})`));
+      return { info, logs, forward, back, px };
+    }, { query: `renderer=webgpu&fog=1&tone=1&aa=${aa}`, beforeLoad: NO_WEBGPU });
+    const withGpu = (aa: number) => withFilm('three-renderers', async (film) => {
+      const px: number[][] = [];
+      for (const f of FRAMES) px.push(await film.eval<number[]>(`framePixels(${f})`));
+      return px;
+    }, { query: `renderer=webgpu&fog=1&tone=1&aa=${aa}` });
+    for (const aa of [0, 1]) {
+      const a = await noGpu(aa);
+      expect(a.info.cls, `aa=${aa}`).toBe('WebGPURenderer');
+      expect(a.info.gpuBackend, 'there is no WebGPU: the WebGL2 backend').toBe(false);
+      expect(a.logs, 'the "WebGPU is not available" warning is information, not a console line').not.toMatch(/WebGPU is not available/);
+      expect(a.back, 'a function of the time').toEqual(a.forward);
+      const b = await withGpu(aa);
+      for (let k = 0; k < FRAMES.length; k++) {
+        let sum = 0, big = 0, n = 0;
+        for (let i = 0; i < a.px[k]!.length; i++) { if (i % 4 === 3) continue; const d = Math.abs(a.px[k]![i]! - b[k]![i]!); sum += d; n++; if (d > 32) big++; }
+        expect(sum / n, `aa=${aa} frame ${FRAMES[k]} mean difference`).toBeLessThan(aa ? 0.3 : 0.05);
+        expect(big, `aa=${aa} frame ${FRAMES[k]} channels off by more than 32`).toBeLessThan(aa ? 500 : 5);
+      }
+    }
+  }, 600_000);
+});

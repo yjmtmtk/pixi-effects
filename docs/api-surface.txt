@@ -926,7 +926,7 @@ interface StopImagesOptions
 const stopIndex: (movie: Movie) => number
 
 == pixi-effects/three ==
-function registerThree(): void
+function registerThree(options?: { renderer?: ThreeRendererKind | undefined; }): void
 function three(spec: ThreeSequenceSpec): SequenceSpec
 interface ThreeContext
   camera: Camera
@@ -934,9 +934,11 @@ interface ThreeContext
   renderer: WebGLRenderer | WebGPURenderer
   scene: Scene<Object3DEventMap>
   width: number
+type ThreeRendererKind = 'webgl' | 'webgpu'
 class ThreeSequence
   at: number
   awaitFrameAt(local: number): Promise<void>
+  backend: "webgl" | "webgpu" | "webgl2" | null
   build(): Promise<void>
   buildFilters(): void
   destroy(): void
@@ -944,6 +946,7 @@ class ThreeSequence
   intrinsicHeight: number
   intrinsicWidth: number
   parent: CompositionShape | null
+  renderer: "webgl" | "webgpu" | null
   root: CompositionShape
   scope(): Scope
   spec: SequenceSpec
