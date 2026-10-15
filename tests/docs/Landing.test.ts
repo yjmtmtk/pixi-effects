@@ -26,7 +26,7 @@ describe('the landing page (index.html at the repository root, deployed as the s
 
   it('says the current release (bump it with the other pins when you release)', () => {
     const mentioned = [...html.matchAll(/v?(\d+\.\d+\.\d+)/g)].map(m => m[1]!).filter(v => /^0\.\d+\.\d+$/.test(v));
-    expect(mentioned.length).toBeGreaterThan(2);
+    expect(mentioned.length).toBeGreaterThanOrEqual(2);      // the importmap pin and the status line
     expect(new Set(mentioned)).toEqual(new Set([version]));
   });
 
@@ -34,26 +34,30 @@ describe('the landing page (index.html at the repository root, deployed as the s
     const plain = html.replace(/<[^>]+>/g, '');                       // the sentence is built from spans (the ending swaps)
     expect(plain).toContain('Use https://github.com/yjmtmtk/pixi-effects to make a video:');
     expect(read('README.md')).toContain('Use https://github.com/yjmtmtk/pixi-effects to make a video');
-    expect(html).toContain('AGENTS.md');
-    expect(html).toContain('ai/CHAT.md');
+    expect(read('for-ai.html')).toContain('AGENTS.md');                 // the reading list lives on the For AI page
+    expect(read('for-ai.html')).toContain('ai/CHAT.md');
   });
 
-  it('compares fairly: the other two projects linked, the date, an honest "not pixi-effects when", and no benchmark claim', () => {
-    expect(html).toContain('https://www.remotion.dev/');
-    expect(html).toContain('https://fframes.studio/');
-    expect(html).toMatch(/checked 2026-10-07/i);
-    expect(html).toMatch(/Not pixi-effects when/i);
-    expect(html).toMatch(/not been benchmarked against either tool/i);
-    expect(html).not.toMatch(/\b(fastest|raw render speed)\b/i);               // no ranking of speed without a measurement of our own
-    expect(html).not.toMatch(/\b(faster|fastest) than (remotion|fframes)\b/i);
+  const mainText = () => html.slice(html.indexOf('<main'), html.indexOf('</main>'))
+    .replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<pre[\s\S]*?<\/pre>/g, ' ').replace(/<style[\s\S]*?<\/style>/g, ' ')
+    .replace(/<figcaption[\s\S]*?<\/figcaption>/g, ' ').replace(/<p class="(?:fmeta|tally|sr)"[\s\S]*?<\/p>/g, ' ')    // labels and captions are not copy
+    .replace(/<[^>]+>/g, ' ');
+  it('is short: at most 400 visible words in <main>, captions and labels aside (measured 381 on 2026-10-15; it was 3,420)', () => {
+    expect(mainText().split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(400);
   });
-
-  it('credits the mediabunny benchmark with its real numbers and says what it is (and is not)', () => {
-    expect(html).toContain('https://github.com/Vanilagy/fframes-mediabunny-benchmark');
-    expect(html).toContain('13.8 s against 17.7 s');
-    expect(html).toMatch(/not a pixi-effects one/i);
-    expect(html).toMatch(/105–115 frames per second/);                       // measured on the author's M1 Pro (see FACTS.md)
+  it('shows, it does not teach: no Guide link, no comparison, no music lab, and the removed sections are gone', () => {
+    expect(html).not.toMatch(/href="(?:\.\/)?guide\//);
+    expect(html).not.toMatch(/remotion|fframes|music-lab/i);
+    for (const id of ['get', 'ai', 'compare', 'start']) expect(html, id).not.toContain(`<section id="${id}"`);
+    for (const id of ['reel', 'films', 'one', 'gallery', 'interactive', 'way']) expect(html, id).toMatch(new RegExp(`id="${id}"`));
   });
+  it('keeps both films at the top, before the sentence', () => {
+    expect(html.indexOf('id="films"')).toBeGreaterThan(0);
+    expect(html.indexOf('id="films"')).toBeLessThan(html.indexOf('id="one"'));
+    expect(html).toContain('examples/films/ink-and-paper.html');
+    expect(html).toContain('examples/films/light-as-material.html');
+  });
+  it('points to the For AI page', () => { expect(html).toContain('href="for-ai.html"'); });
 
   it('runs its hero demo from the snippet it shows: one source, shown and executed (no second copy of the data)', () => {
     expect(html).toContain('importmap');

@@ -67,22 +67,15 @@
     <h1 id="h1"><span class="w">Video,</span> <span class="w">written</span> <span class="w">as</span> <span class="w"><em>data.</em></span></h1>
     <div class="hero-grid">
       <div>
-        <p class="lede">pixi-effects turns a tree of plain objects — text, shapes, images, keyframes, a camera, sound — into motion graphics. <strong>The same data plays in the browser, scrubs frame by frame, and exports MP4 with no server.</strong> Written by you, or by an AI that can check its own work.</p>
+        <p class="lede">A video is a tree of plain objects. <strong>Tell an AI one sentence and it writes one</strong>: it plays in the browser and exports MP4.</p>
         <div class="cta">
           <a class="btn primary" href="examples/gallery/">Watch the gallery <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2l10 6-10 6z" fill="currentColor"/></svg></a>
-          <a class="btn" href="guide/">Read the guide</a>
+          <a class="btn" href="for-ai.html">For AI</a>
           <a class="btn" href="https://github.com/yjmtmtk/pixi-effects">GitHub</a>
         </div>
-        <p class="cta-note">Or skip the learning: <a href="#one">tell any AI one sentence ↓</a></p>
+        <p class="cta-note"><a href="#one">Tell any AI one sentence ↓</a></p>
         <p class="cta-note">Or give your agent the skill: <code>npx skills add yjmtmtk/pixi-effects</code></p>
       </div>
-      <dl class="slate" aria-label="Key facts">
-        <div><dt>Output</dt><dd>MP4 · WebM · MOV, encoded in the browser (WebCodecs)</dd></div>
-        <div><dt>Runs</dt><dd>Entirely in the browser, no server; headless with Node 22 + Chrome</dd></div>
-        <div><dt>Install</dt><dd><code>npm install pixi-effects pixi.js</code> — or one HTML file, no bundler</dd></div>
-        <div><dt>Depends on</dt><dd>mediabunny only; PixiJS v8 as a peer</dd></div>
-        <div><dt>Licence</dt><dd>MIT · v0.39.0 · experimental, pre-1.0</dd></div>
-      </dl>
     </div>
 
     <!-- the reel: everything the library does, in one 81-second video (plays from the published page, same origin) -->
@@ -97,7 +90,7 @@
       <div class="feature-info">
         <p class="lbl"><span class="dia" aria-hidden="true"></span>The reel</p>
         <h3>Everything it does, in 81 seconds</h3>
-        <p>Type, shapes, depth, light, blends and mattes, shaders and warps, particles, motion, sound, data — twelve chapters, <strong>one HTML page of data</strong>, music written as text. Each chapter was made by a fresh AI model from the docs alone. The last chapter prints the reel's own data.</p>
+        <p>Twelve chapters, one HTML page of data, music written as text.</p>
         <p class="fmeta"><span>1920×1080</span><span>81 s</span><span>no files, no assets</span><span><a href="examples/showreel/pixi-effects-reel.html">open the page with controls</a></span></p>
       </div>
     </div>
@@ -115,7 +108,7 @@
         <div class="feature-info">
           <p class="lbl"><span class="dia" aria-hidden="true"></span>A film · paper and ink</p>
           <h3>A film an AI wrote, in one page</h3>
-          <p>It opens in a terminal where an AI is asked for a video, then plays it: hand-drawn data (Rough.js, D3), a three.js knot, a paper diorama lit by one spot, a shader, sound written as text, and the whole film rewinding. <strong>One HTML page of data</strong>, written by an AI model from the docs and a short brief.</p>
+          <p>Hand-drawn data, a three.js knot, a paper diorama lit by one spot, and sound written as text.</p>
           <p class="fmeta"><span>1920×1080</span><span>45 s</span><span>Rough.js · D3 · three.js</span><span><a href="examples/films/ink-and-paper.html">open the page with controls</a></span></p>
         </div>
       </div>
@@ -130,7 +123,7 @@
         <div class="feature-info">
           <p class="lbl"><span class="dia" aria-hidden="true"></span>A film · light as a material</p>
           <h3>The same idea, at night</h3>
-          <p>A spot light with cast shadows, 2,880 rods drawn by three.js and moved by one function of time, the film's own layer tree laid out by D3, a hand-drawn lens, a camera flight with focus pulls, and music written as text.</p>
+          <p>A spot light with cast shadows, 2,880 rods, a camera flight with focus pulls.</p>
           <p class="fmeta"><span>1920×1080</span><span>45 s</span><span>three.js · D3 · Rough.js</span><span><a href="examples/films/light-as-material.html">open the page with controls</a></span></p>
         </div>
       </div>
@@ -192,7 +185,7 @@ movie.play();
           </div>
           <div class="vinfo">
             <p class="vtitle">This exact data, running live in your browser</p>
-            <p class="vsub">Press play: the page imports pixi-effects from a CDN, gives the code on the left a <code>canvas</code>, runs it as written and plays the result — the word rising in 0.6 s, the chime at 1.1 s, six seconds in all. Nothing is pre-rendered; the still is the real frame at 1.2 s.</p>
+            <p class="vsub">Press play: nothing is pre-rendered; this text runs as written.</p>
             <p class="vmeta"><span>1280×720</span><span>6 s</span><span>30 fps</span><span>sfx chime · no audio file</span></p>
           </div>
           <div class="comp-foot">
@@ -208,8 +201,8 @@ movie.play();
 <!-- ================= 01 ONE SENTENCE ================= -->
 <section id="one" aria-labelledby="h-one">
   <div class="wrap">
-    <header class="ch"><span class="n">01</span><span class="dia" aria-hidden="true"></span><h2 id="h-one">Start with one sentence</h2><span class="rule" aria-hidden="true"></span></header>
-    <p class="deck">You do not have to learn the library. Tell any AI this one sentence and it understands and gets to work: <strong>the repository's first screen tells an AI where to go</strong>, and the library checks what it makes.</p>
+    <header class="ch"><span class="n">01</span><span class="dia" aria-hidden="true"></span><h2 id="h-one">One sentence</h2><span class="rule" aria-hidden="true"></span></header>
+    <p class="deck">Tell any AI this. <strong>It reads the repository and checks what it makes.</strong></p>
 
     <div class="prompt">
       <div class="prompt-bar"><span>the sentence</span><span>tap an ending to swap it, then copy</span></div>
@@ -224,155 +217,14 @@ movie.play();
         <button type="button" class="btn primary" id="copyPrompt">Copy the sentence</button>
       </div>
     </div>
-
-    <div class="steps">
-      <div class="stp">
-        <p class="n"><span class="dia" aria-hidden="true"></span>1 · the AI opens the repository</p>
-        <h3>Its first screen says where to go</h3>
-        <p>The top of the README, <code>AGENTS.md</code> and <code>skills/pixi-effects/SKILL.md</code> tell an AI with a shell what to read and what to skip (“do not read the whole repository”). An AI in a browser chat with no shell is sent to <code>ai/CHAT.md</code> instead.</p>
-      </div>
-      <div class="stp">
-        <p class="n"><span class="dia" aria-hidden="true"></span>2 · it writes, then checks</p>
-        <h3>One HTML file of plain data</h3>
-        <p>The video is a tree of plain objects in one file that loads the library from a CDN. The AI runs <code>npx pixi-effects check</code>: the warnings say what to change, and the tool writes a contact sheet the AI looks at before it says it is done. In a chat, the page itself shows the warnings in a red box.</p>
-      </div>
-      <div class="stp">
-        <p class="n"><span class="dia" aria-hidden="true"></span>3 · you watch it</p>
-        <h3>Open the file, press download</h3>
-        <p>Open the file in a browser, watch it, and press the download button in the player bar for the MP4 — or the AI renders it with one command, <code>npx pixi-effects render your-video.html -o your-video.mp4</code>.</p>
-      </div>
-    </div>
-
-    <div class="works">
-      <p class="works-in"><span class="lbl">Works in</span>ChatGPT, Claude in a browser, Codex, Cursor, Claude Code — any AI that can open a link.</p>
-      <ul class="honest" aria-label="Honest notes">
-        <li>The AI has to be able to read a web page: it fetches the repository, and in a chat, <code>ai/CHAT.md</code>.</li>
-        <li>In a chat with no preview window you save the file it gives you and open it in a browser.</li>
-        <li>It is a young library, and the first try may need a couple of rounds: if a red box appears, paste back what it says — each message names what to change.</li>
-        <li>The check can tell the AI that nothing is broken, not that the video is good. That judgement is still yours.</li>
-      </ul>
-    </div>
-  </div>
-</section>
-
-<!-- ================= 02 WHAT YOU GET ================= -->
-<section id="get" aria-labelledby="h-get">
-  <div class="wrap">
-    <header class="ch"><span class="n">02</span><span class="dia" aria-hidden="true"></span><h2 id="h-get">What you get</h2><span class="rule" aria-hidden="true"></span></header>
-    <p class="deck">One vocabulary for every layer: <code>at</code> / <code>duration</code> / <code>initial</code> / <code>keyframes</code> / <code>filters</code> / <code>mask</code>. Repeated structure is a JS loop that returns objects. Any number can be an expression string like <code>'GW/2'</code>. <strong>Same data, same video</strong> — seeded, no wall clock, and the preview equals the export.</p>
-
-    <div class="cards">
-      <article class="card">
-        <p class="lbl">composition</p>
-        <h3>Write it as data</h3>
-        <p>A tree of plain objects: text, shapes, images, video, audio and nested compositions, each with <code>at</code>, <code>duration</code>, <code>initial</code>, <code>keyframes</code>, <code>filters</code>, <code>mask</code>. Numbers may be expressions (<code>'min(W,H)*0.4'</code>). Deterministic and seeded, so the file you export is the frame you saw. The timeline is the library's own: the picture at a time comes from the data and the time alone, so scrubbing forward, backward or at random shows the same frame.</p>
-      </article>
-      <article class="card">
-        <p class="lbl">export</p>
-        <h3>Runs in the browser, exports MP4</h3>
-        <p>Play, scrub and export MP4 / WebM / MOV with no server — WebCodecs via mediabunny. A starter is <b>one HTML file</b> with an import map; <code>npm install</code> works too. Headless from a script: <code>npx pixi-effects render page.html -o out.mp4</code> (Node 22 and Chrome).</p>
-        <ul><li>Documented: Chrome 94+, Edge 94+, Safari 16.4+, Firefox 130+. <b>Verified by the author in Chrome</b>; Safari and Firefox are documented, not independently verified.</li></ul>
-      </article>
-      <article class="card">
-        <p class="lbl">camera</p>
-        <h3>2.5D camera, After Effects layers</h3>
-        <p>Layers, keyframes, expressions, masks, blend modes, nested compositions. Add <code>threeD</code>, <code>z</code>, <code>rotationX/Y</code> and a <code>camera</code> layer for parallax, dolly zooms, orbits and <code>cameraPath()</code> flights. An optional real three.js layer when you need it. Rack focus with depth of field.</p>
-      </article>
-      <article class="card">
-        <p class="lbl">light</p>
-        <h3>Lights, soft shadows, fog</h3>
-        <p><code>ambient</code>, <code>point</code>, <code>spot</code> and <code>parallel</code> lights shade the 2.5D layers per pixel. <code>castsShadows</code> throws soft shadows onto what stands behind; the camera can add depth fog. A spotlight in a dark room is one layer and a few numbers.</p>
-      </article>
-      <article class="card">
-        <p class="lbl">shader</p>
-        <h3>Shaders, warps, mattes, blends</h3>
-        <p>A <code>shader</code> layer draws a Shadertoy-style <code>mainImage</code> (GLSL) with animated uniforms; the <code>warp</code> filter bends a layer's picture like a flag or heat haze. A layer can name a <b>matte</b> that cuts several others, and 18 CSS blend modes mix layers like After Effects.</p>
-      </article>
-      <article class="card">
-        <p class="lbl">motion</p>
-        <h3>Text, particles, morphing, motion blur</h3>
-        <p><code>animateText</code> per letter, word or line; <code>wiggle</code>, <code>stagger</code>, <code>followPath</code>, path morphing, draw-on strokes (<code>trimEnd</code>), <code>particles()</code> — all seeded and baked into keyframes. True motion blur at export by sub-frame averaging.</p>
-        <ul><li>Filters by name, no import: <code>blur noise alpha colorMatrix</code> plus the 38 filters of pixi-filters (<code>glow dropShadow crt rgbSplit oldFilm glitch pixelate twist …</code>). Eight transitions (<code>crossfade wipe iris slide dip zoom dissolve luma</code>), chroma key, time remapping and springs.</li></ul>
-      </article>
-      <article class="card audio">
-        <p class="lbl">audio</p>
-        <h3>Sound with no audio files</h3>
-        <p><code>sfx</code>: 11 synthesised presets (click, pop, swoosh, riser, hit, chime …) or your own voices. <b>Music written as text</b>: notes, chords and drum patterns as strings — 8 instruments, 10 drums, swing, fades, tempo changes, loop. Deterministic, and in the exported file at the same moment.</p>
-        <ul><li>Audio-reactive visuals: <code>audioEnvelope()</code>, <code>musicEnvelope()</code>, <code>react()</code>. Hear eight tunes written as text in the <a href="examples/music-lab.html">music lab</a>.</li></ul>
-      </article>
-      <article class="card">
-        <p class="lbl">presenter</p>
-        <h3>Presentations, PDF, a player</h3>
-        <p><code>deck()</code> and a <code>Presenter</code>: slides that move, with stops, arrow keys / click / swipe, a page overview, a presenter view with notes, and PDF export.</p>
-        <ul><li>A drop-in video-style player (play, scrub, volume, fullscreen, download), themed with one accent colour — or build your own on the movie's events.</li></ul>
-      </article>
-    </div>
-  </div>
-</section>
-
-<!-- ================= 03 BUILT FOR AI ================= -->
-<section id="ai" aria-labelledby="h-ai">
-  <div class="wrap">
-    <header class="ch"><span class="n">03</span><span class="dia" aria-hidden="true"></span><h2 id="h-ai">Written by AI, checked by AI</h2><span class="rule" aria-hidden="true"></span></header>
-    <p class="deck">This is what happens after <a href="#one">the one sentence</a>. A model cannot watch its own video, so the library reports back in text it can act on: <strong>warnings written as instructions</strong>, a contact sheet, a timeline, and a real export decoded again. Most of the gallery was made this way.</p>
-
-    <div class="loop">
-      <div class="step">
-        <p class="n"><span class="dia" aria-hidden="true"></span>1 · write</p>
-        <h3>One HTML file of data</h3>
-        <p>The agent follows the skill (<code>skills/pixi-effects/SKILL.md</code>) with a cheatsheet, tested recipes, a pitfalls list and <code>llms.txt</code> / <code>llms-full.txt</code>. The recipes in the docs are executed by the test suite, so they stay true.</p>
-      </div>
-      <div class="step">
-        <p class="n"><span class="dia" aria-hidden="true"></span>2 · check</p>
-        <h3><code>pixi-effects check page.html</code></h3>
-        <p>Opens the page in headless Chrome and reports, with exit code 0 or 1:</p>
-        <ul>
-          <li>library warnings, written as instructions with “did you mean”</li>
-          <li>layout problems: text cut off or off-canvas</li>
-          <li>sound problems, via <code>movie.inspectAudio()</code></li>
-          <li>a contact sheet PNG and a timeline</li>
-          <li>a real export, decoded again</li>
-        </ul>
-      </div>
-      <div class="step">
-        <p class="n"><span class="dia" aria-hidden="true"></span>3 · look</p>
-        <h3>Frames and a timeline, as data</h3>
-        <p><code>movie.inspect(frame)</code>, <code>contactSheet()</code> and <code>snapshot()</code> from code; <code>pixi-effects view page.html</code> opens the page with a zoomable timeline under it, every layer a bar, every keyframe a mark.</p>
-      </div>
-      <div class="step">
-        <p class="n"><span class="dia" aria-hidden="true"></span>4 · fix</p>
-        <h3>Warnings are instructions</h3>
-        <p>Each message names what to change. The agent edits the data, runs the check again, and stops when it exits 0. No GUI in the loop — which is the point when the author is a model.</p>
-      </div>
-    </div>
-
-    <div class="shots">
-      <figure class="shot">
-        <div class="frame"><img src="guide/assets/contact-sheet.jpg" width="1440" height="1184" loading="lazy" alt="A contact sheet written by the check tool: twelve frames of the piece Still Water laid out in a grid, each labelled with its frame number and time, from frame 0 at 0.00 s to frame 360 at 12.00 s"></div>
-        <figcaption><b>The contact sheet</b> that <code>pixi-effects check</code> writes: twelve frames of <i>Still Water</i> with frame numbers and times. A model reads it like a storyboard.</figcaption>
-      </figure>
-      <figure class="shot">
-        <div class="frame"><img src="guide/assets/timeline-view.jpg" width="1280" height="633" loading="lazy" alt="The timeline viewer: the piece Still Water paused at 9.00 s above a track view in which every layer is a horizontal bar on a time axis, with keyframe diamonds and a pink playhead"></div>
-        <div class="frame"><img src="guide/assets/timeline-collapsed.jpg" width="1280" height="633" loading="lazy" alt="The timeline chart of Countdown to 2027: 28 rows over 12 seconds, each layer a bar, keyframe starts as diamonds, shaded bands for transitions, groups of layers such as star# ×70 collapsed into one row"></div>
-        <figcaption><b>The timeline</b>: <code>pixi-effects view</code> opens the movie with every layer as a bar, keyframes as diamonds and a playhead you can drag (top); the chart of <i>Countdown to 2027</i>, 28 rows over 12 s, with repeated layers collapsed into one row (bottom).</figcaption>
-      </figure>
-    </div>
-
-    <div class="chat">
-      <div>
-        <h3>No shell? A chat is enough.</h3>
-        <p style="margin-top:8px"><a href="#one">The one sentence</a> works in a browser chat too; this longer prompt points the model straight at the chat entry. That entry (<code>ai/CHAT.md</code> + <code>ai/chat-template.html</code>) is for ChatGPT or Claude in a browser: the model returns one HTML file that loads the library from one CDN, and the page shows any warnings in a red box for you to paste back. The download button in the player gives you the MP4.</p>
-      </div>
-      <div class="quote" id="prompt">Read <span class="k">https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/CHAT.md</span> and follow it. Make a 10-second 1280×720 title video for <span class="s">… (what you see, the colours, what you hear)</span>. Give me the whole HTML file.<button class="copy" type="button" data-copy="prompt" aria-label="Copy this prompt">Copy</button></div>
-    </div>
   </div>
 </section>
 
 <!-- ================= 04 GALLERY ================= -->
 <section id="gallery" aria-labelledby="h-gal">
   <div class="wrap">
-    <header class="ch"><span class="n">04</span><span class="dia" aria-hidden="true"></span><h2 id="h-gal">43 pieces, each one file of data</h2><span class="rule" aria-hidden="true"></span></header>
-    <p class="deck">Kinetic type, data stories, broadcast packages, 2.5D dioramas, a 48-second showpiece. <strong>Every piece is one HTML file</strong>, and AI models wrote most of them. Every poster below opens the <a href="examples/gallery/">live gallery</a>, where they play.</p>
+    <header class="ch"><span class="n">02</span><span class="dia" aria-hidden="true"></span><h2 id="h-gal">43 pieces, each one file</h2><span class="rule" aria-hidden="true"></span></header>
+    <p class="deck">Every poster opens the piece, playing live.</p>
 
     <div class="feature">
       <div class="facade" id="kmFacade">
@@ -385,7 +237,7 @@ movie.play();
       <div class="feature-info">
         <p class="lbl"><span class="dia" aria-hidden="true"></span>A real piece, live</p>
         <h3>Kinetic Manifesto</h3>
-        <p>One HTML file of data, written by an AI model (fable): five bilingual statements on making things, slammed onto a 100 BPM grid. Made the same way as the snippet at the top — just more of it. Click to load the published gallery page and play it here.</p>
+        <p>Five bilingual statements slammed onto a 100 BPM grid, written by an AI model.</p>
         <p class="fmeta"><span>1280×720</span><span>12 s</span><span>sfx · no audio files</span><span>loads from yjmtmtk.github.io</span></p>
       </div>
     </div>
@@ -406,7 +258,7 @@ movie.play();
     </div>
 
     <div class="gal-foot">
-      <p class="tally"><span>43 pieces</span><span>written by <b>fable 9</b> · <b>opus 32</b> · <b>sonnet 2</b></span><span>+ 15 numbered examples and a playground</span></p>
+      <p class="tally"><span>43 pieces</span><span>written by <b>fable 9</b> · <b>opus 32</b> · <b>sonnet 2</b></span></p>
       <a class="btn" href="examples/gallery/">Open the live gallery <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2l10 6-10 6z" fill="currentColor"/></svg></a>
     </div>
   </div>
@@ -415,19 +267,8 @@ movie.play();
 <!-- ================= 05 INTERACTIVE MOVIES ================= -->
 <section id="interactive" aria-labelledby="h-int">
   <div class="wrap">
-    <header class="ch"><span class="n">05</span><span class="dia" aria-hidden="true"></span><h2 id="h-int">A movie you can change while it plays</h2><span class="rule" aria-hidden="true"></span></header>
-    <p class="deck">Declare a few <strong>variables</strong> and read them from the film: a name, a colour, the scroll of the page, the pointer, a roll of the dice. Change one and the film is built again <strong>at the same frame</strong>, and the sound is kept when it did not change. <strong>It is still a movie</strong>: the same file renders to MP4 with the values you choose. Every poster below opens a live sample.</p>
-
-    <figure class="code-fig">
-<pre><code>await movie.init({
-  vars: { name: 'Aiko', accent: '#ff5d73' },
-  composition: { sequences: [
-    { type: 'text', text: 'Happy birthday, {name}!', style: { fill: '{accent}' }, initial: { x: 'W/2', y: 'H/2' } },
-  ] },
-});
-await movie.setVars({ name: 'Ben' });          // built again at the same frame; the sound is reused
-// pixi-effects render card.html --var name=Ben -o ben.mp4</code></pre>
-    </figure>
+    <header class="ch"><span class="n">03</span><span class="dia" aria-hidden="true"></span><h2 id="h-int">Change it while it plays</h2><span class="rule" aria-hidden="true"></span></header>
+    <p class="deck">A name, a colour, the pointer: change one and the film is built again at the same frame.</p>
 
     <div class="masonry">
       <a class="ipiece" href="examples/interactive/janken.html"><figure style="margin:0"><div class="frame"><img src="examples/interactive/posters/janken.jpg" width="640" height="360" loading="lazy" alt="Rock paper scissors: a hand and a fist under the words YOU WIN with confetti"></div><figcaption><b>Rock paper scissors</b><span>A new throw every time you seek back before “SHOOT!”</span></figcaption></figure></a>
@@ -439,117 +280,18 @@ await movie.setVars({ name: 'Ben' });          // built again at the same frame;
     </div>
 
     <div class="gal-foot">
-      <p class="tally"><span>9 live samples</span><span>11–42 ms to rebuild, sound reused</span><span>seekable · loopable · renderable</span></p>
+      <p class="tally"><span>9 live samples</span><span>seekable · loopable · renderable</span></p>
       <a class="btn" href="examples/interactive/">Open the interactive movies <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2l10 6-10 6z" fill="currentColor"/></svg></a>
     </div>
   </div>
 </section>
 
-<!-- ================= 06 COMPARE ================= -->
-<section id="compare" aria-labelledby="h-cmp">
+<!-- ================= WAY IN ================= -->
+<section id="way" aria-labelledby="h-way">
   <div class="wrap">
-    <header class="ch"><span class="n">06</span><span class="dia" aria-hidden="true"></span><h2 id="h-cmp">Next to Remotion and fframes</h2><span class="rule" aria-hidden="true"></span></header>
-    <p class="deck">Three different answers to “video from code”. Remotion is the mature one, fframes is the native GPU one, pixi-effects is the one where the video is data and a model can check it. <strong>None of them is better overall</strong>; pick by what you are making and who is writing it.</p>
-    <p class="cmp-note">Checked 2026-10-07, from their own pages: <a href="https://www.remotion.dev/">remotion.dev</a> · <a href="https://fframes.studio/">fframes.studio</a> and its <a href="https://github.com/dmtrKovalenko/fframes">repository</a>. No benchmark of pixi-effects against either has been made.</p>
-
-    <table class="cmp">
-      <thead><tr><th scope="col">&nbsp;</th><th scope="col" class="me">pixi-effects</th><th scope="col">Remotion</th><th scope="col">fframes</th></tr></thead>
-      <tbody>
-        <tr><th scope="row">How a video is written</th>
-          <td class="me" data-col="pixi-effects"><b>A tree of plain objects</b> (JSON-shaped) with keyframes and expression strings; JS loops for repetition. No per-frame code.</td>
-          <td data-col="Remotion">React components. Three ways to work: agentically, interactively (drag-and-drop in Remotion Studio), or programmatically.</td>
-          <td data-col="fframes">Rust and SVG.</td></tr>
-        <tr><th scope="row">Where it runs, what you install</th>
-          <td class="me" data-col="pixi-effects">Entirely in the browser: one HTML file with an import map, or <code>npm install pixi-effects pixi.js</code>. Headless render needs Node 22 and Chrome.</td>
-          <td data-col="Remotion">A React / npm project. Server-side and client-side rendering; Remotion Lambda for cloud rendering.</td>
-          <td data-col="fframes">Prebuilt binaries for macOS and Linux (arm64, x86_64); building needs Rust and ffmpeg libraries; Windows needs a separate FFmpeg setup.</td></tr>
-        <tr><th scope="row">Preview and editing</th>
-          <td class="me" data-col="pixi-effects">A video-style player (play, scrub, export) and a zoomable timeline viewer. <b>No GUI editor.</b></td>
-          <td data-col="Remotion">Remotion Studio (interactive, drag-and-drop), a Player component for your own app, an Editor Starter.</td>
-          <td data-col="fframes">A real-time GPU preview window and a browser-based editor (WebAssembly) with a timeline.</td></tr>
-        <tr><th scope="row">Rendering</th>
-          <td class="me" data-col="pixi-effects">WebGPU where the browser has it and WebGL otherwise (PixiJS, chosen automatically), encoded with WebCodecs through mediabunny to MP4 / WebM / MOV; needs a WebCodecs browser. Preview equals export. It is quick: on the author's M1 Pro most gallery pieces export at 105–115 frames per second, 3.5 to 3.8 times real time (a 48 s 1080p film included); a piece with thousands of particle layers is slower (21 fps). <a href="https://github.com/Vanilagy/fframes-mediabunny-benchmark">mediabunny's author benchmarked</a> that same encoder path against fframes on one scene (an M4: 13.8 s against 17.7 s); that is a mediabunny measurement, not a pixi-effects one, and pixi-effects itself has not been benchmarked against either tool.</td>
-          <td data-col="Remotion">Server-side, client-side and batch rendering, plus Remotion Lambda in the cloud.</td>
-          <td data-col="fframes">GPU (Skia on Metal or Vulkan), no headless browser, ffmpeg linked in for encoding. Its README says about 10× faster than its own CPU backend and mentions a 128 s video rendered in 36 s.</td></tr>
-        <tr><th scope="row">Sound</th>
-          <td class="me" data-col="pixi-effects">Synthesised <code>sfx</code> (11 presets) and <b>music written as text</b>, with no audio files; audio-reactive helpers. Checked as numbers by <code>inspectAudio()</code>.</td>
-          <td data-col="Remotion" class="na">Not covered by the pages checked for this comparison.</td>
-          <td data-col="fframes"><code>audio analyze</code>: loudness (LUFS), true peak, clipping.</td></tr>
-        <tr><th scope="row">AI-agent workflow</th>
-          <td class="me" data-col="pixi-effects">A check tool that reports warnings as instructions, layout and sound problems, a contact sheet, a timeline and a decoded export; a skill, <code>llms.txt</code>, and a chat-only entry that needs no shell.</td>
-          <td data-col="Remotion">11 agent skills, installed with <code>npx skills add remotion-dev/skills</code>; agents preview their work in Remotion Studio.</td>
-          <td data-col="fframes"><code>inspect</code> (missing fonts, text cutoff), <code>audio analyze</code>, and a skill for coding agents via <code>npx skills add</code>.</td></tr>
-        <tr><th scope="row">Licence</th>
-          <td class="me" data-col="pixi-effects"><b>MIT.</b></td>
-          <td data-col="Remotion">Source-available. Free for individuals, non-profits and organisations of up to 3 people; larger for-profit organisations need a Company licence (from $100 / month, usage-based); Enterprise from $500 / month.</td>
-          <td data-col="fframes"><b>MIT.</b></td></tr>
-        <tr><th scope="row">Maturity</th>
-          <td class="me" data-col="pixi-effects">0.39.0, experimental, pre-1.0: the API can still change between minor versions. Small ecosystem.</td>
-          <td data-col="Remotion">About 62,000 GitHub stars (stated on its page). Large ecosystem of React components.</td>
-          <td data-col="fframes">Its README says it “stayed unreleased for years” before this release and does not say whether the API is stable.</td></tr>
-        <tr><th scope="row">Best for</th>
-          <td class="me" data-col="pixi-effects">Motion graphics described as data, written by an AI or by hand, that must play and export in a browser with no server.</td>
-          <td data-col="Remotion">Teams working in React who want a studio, a player for their app, a large ecosystem and cloud rendering at scale.</td>
-          <td data-col="fframes">A native GPU pipeline with no browser, for people at home in Rust and SVG on macOS or Linux.</td></tr>
-      </tbody>
-    </table>
-
-    <div class="choose">
-      <article class="me">
-        <h3>Choose pixi-effects when…</h3>
-        <p>the video should be <b>data</b> so an AI can write it and a tool can check it; it must play, scrub and export in the browser with no server; you want sound and music with no audio files; you want MIT and a starter that is one HTML file.</p>
-      </article>
-      <article>
-        <h3>Choose Remotion when…</h3>
-        <p>you live in React and want the mature ecosystem: Remotion Studio, a Player component in your product, batch and cloud rendering with Lambda, and a large community. Budget for the Company licence if your for-profit organisation has more than three people.</p>
-      </article>
-      <article>
-        <h3>Choose fframes when…</h3>
-        <p>you want a native GPU pipeline with no browser in the loop (Skia on Metal or Vulkan, ffmpeg built in, MIT) and you are comfortable in Rust and SVG on macOS or Linux.</p>
-      </article>
-      <article class="not">
-        <h3>Not pixi-effects when…</h3>
-        <p>you want a GUI editor; you need the React ecosystem or cloud rendering at scale; you need a native pipeline with no browser in the loop; you need to edit existing footage (a <code>video</code> layer plays a clip inside a composition, nothing more); or you need an API that will not change before 1.0.</p>
-      </article>
-    </div>
-  </div>
-</section>
-
-<!-- ================= 07 START ================= -->
-<section id="start" aria-labelledby="h-start">
-  <div class="wrap">
-    <header class="ch"><span class="n">07</span><span class="dia" aria-hidden="true"></span><h2 id="h-start">Start in one minute</h2><span class="rule" aria-hidden="true"></span></header>
-    <p class="deck">Three doors, same library. The shortest is <a href="#one">the one sentence</a>; for your own hands, the snippet at the top of this page is a complete movie — paste it into either of the first two and press play.</p>
-
-    <div class="ways">
-      <div class="way">
-        <p class="n">A · ONE FILE</p>
-        <h3>One HTML file, no bundler</h3>
-        <p>The starter page loads the library from a CDN through an import map and runs in the browser as is: play, scrub, download MP4.</p>
-        <div class="quote" id="cdn">https://cdn.jsdelivr.net/npm/pixi-effects@0.39.0/dist/index.js<button class="copy" type="button" data-copy="cdn" aria-label="Copy the CDN address">Copy</button></div>
-        <a class="more" href="https://github.com/yjmtmtk/pixi-effects/blob/main/skills/pixi-effects/template.html">The full starter: skills/pixi-effects/template.html on GitHub →</a>
-      </div>
-      <div class="way">
-        <p class="n">B · NPM</p>
-        <h3>Install into a project</h3>
-        <p>PixiJS is a peer dependency; three.js and pixi-filters are optional and only needed if you use them.</p>
-        <div class="quote" id="npm">npm install pixi-effects pixi.js<button class="copy" type="button" data-copy="npm" aria-label="Copy the install command">Copy</button></div>
-        <div class="quote" id="render">npx pixi-effects render page.html -o out.mp4<button class="copy" type="button" data-copy="render" aria-label="Copy the headless render command">Copy</button></div>
-        <a class="more" href="guide/">The guide: 18 pages →</a>
-      </div>
-      <div class="way">
-        <p class="n">C · ONE SENTENCE</p>
-        <h3>Let an AI write it</h3>
-        <p>Give any AI <a href="#one">the one sentence from section 01</a>. With a shell it reads <code>AGENTS.md</code> and <code>skills/pixi-effects/SKILL.md</code> and runs <code>pixi-effects check</code>; in a browser chat it follows <code>ai/CHAT.md</code> and you open the file it returns.</p>
-        <a class="more" href="https://github.com/yjmtmtk/pixi-effects/blob/main/skills/pixi-effects/SKILL.md">skills/pixi-effects/SKILL.md on GitHub →</a>
-        <a class="more" href="https://github.com/yjmtmtk/pixi-effects/blob/main/ai/CHAT.md">ai/CHAT.md on GitHub →</a>
-      </div>
-    </div>
-
-    <div class="status">
-      <p class="row"><span>status</span><span>v0.39.0</span><span>experimental · pre-1.0</span><span>MIT</span></p>
-      <p><b>Honest status.</b> pixi-effects is experimental and pre-1.0: the API can still change between minor versions. There is a timeline viewer but no GUI editor; the ecosystem is small; export needs a WebCodecs browser; it draws in a browser (WebGPU where the browser has it, WebGL otherwise) rather than in a native pipeline, and it has not been benchmarked against other tools. On the author's M1 Pro most gallery pieces export at 105–115 frames per second (the 48 s 1080p film in about 14 s; with 16-sample motion blur it took 99 s), and a piece with thousands of particle layers exports at 21 fps. It is not a tool for editing existing footage.</p>
-    </div>
+    <header class="ch"><span class="n">04</span><span class="dia" aria-hidden="true"></span><h2 id="h-way">Start</h2><span class="rule" aria-hidden="true"></span></header>
+    <p class="cta"><a class="btn primary" href="for-ai.html">Tell an AI: For AI</a> <a class="btn" href="https://github.com/yjmtmtk/pixi-effects">GitHub</a> <a class="btn" href="https://www.npmjs.com/package/pixi-effects">npm</a></p>
+    <p class="way-status mono">v0.39.0 · experimental · pre-1.0 · MIT</p>
   </div>
 </section>
 
@@ -560,10 +302,6 @@ await movie.setVars({ name: 'Ben' });          // built again at the same frame;
   <div class="pframe" id="pframe"></div>
 </dialog>
 
-<div class="colophon wrap">
-  <p>pixi-effects is an open-source library for writing motion-graphics video as plain data, playing it in the browser and exporting MP4, WebM or MOV. Built on PixiJS v8 and mediabunny. MIT licence; no company licence.</p>
-  <p class="end"><span class="dia" aria-hidden="true"></span><span>v0.39.0 · experimental · MIT · comparison facts checked 2026-10-07</span></p>
-</div>
 <!--site:footer-->
 <footer class="site-foot">
   <div class="wrap">

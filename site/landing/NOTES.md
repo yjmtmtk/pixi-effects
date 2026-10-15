@@ -14,16 +14,17 @@ Code panels stay dark in both themes (they are "monitors"); the page chrome flip
 - Amber `#f2c14e` / `#e0a526`, only for the "clip" bars (the timeline viewer's colour for visual layers) — decorative, never text.
 - Type: system stack. Display and body `Helvetica Neue / Inter / Segoe UI / system-ui`, data and labels `ui-monospace / SF Mono / Menlo`. Hero at `clamp(50px, 14.5vw, 128px)`, body 17 px, labels 11–12 px mono with tracking.
 
-## Sections, and what each is for
+## Sections, and what each is for (restructured 2026-10-15: show, do not teach)
 
-0. **Top bar**: wordmark + version pill, chapter links, timecode readout, theme button (auto → light → dark, persisted in `localStorage`; `data-theme` on `<html>` also lets you force a theme).
-1. **Hero**: headline, lede, three CTAs (gallery / guide / GitHub), a "slate" of hard facts (output, where it runs, install, dependency, licence), then the composition panel with the real snippet, the plotted timeline, and the poster facade. Clicking the poster loads `examples/gallery/kinetic-manifesto.html` in an iframe (one of the published pieces). Nothing loads from the network until that click.
-2. **01 What you get**: six capability groups as an open, rule-separated track list (composition, export, camera, motion, audio, presenter) — every claim taken from FACTS.md, including the browser-support caveat.
-3. **02 Written by AI, checked by AI**: the differentiator, as a four-step loop (write → check → look → fix), with the real contact sheet and both timeline screenshots, and the chat-only entry with the prompt from the README and a Copy button.
-4. **03 Gallery**: 16 of the 52 posters in a CSS-columns masonry (16:9, 9:16, 1:1, 4:5), each with title, size, duration and model; all link to the live gallery index (per-piece pages are not all published). The tally gives the fable / opus / sonnet counts.
-5. **04 Compare**: a nine-row table (responsive: becomes labelled cards under 820 px) and four "Choose … when" blocks, including "Not pixi-effects when…". "Checked 2026-10-07, from their own pages" with links; where the fact sheet had nothing (Remotion and sound) the cell says so instead of guessing.
-6. **05 Start**: one file (CDN address + link to `skills/pixi-effects/template.html`), npm (install and headless render lines), chat/agent; then the honest status block (experimental, pre-1.0, no GUI editor, WebCodecs browser, no benchmark, 99 s export figure).
-7. **Footer**: links (GitHub, npm, guide, gallery, music lab, skill), the plain-sentence description, licence.
+The page shows what the library can do and that one sentence to an AI is enough. Everything an AI reads lives on `for-ai.html`; there is no Guide, no comparison, no music lab and no tour.
+
+0. **Top bar**: wordmark, the four entrances (Gallery, Interactive, Playground, For AI), theme button.
+1. **Hero**: headline, one sentence of lede, the reel (played live from the published page), the two films (`ink-and-paper`, `light-as-material`, played live the same way) and the composition panel with the real minimal snippet and its plotted timeline.
+2. **01 One sentence**: the sentence an AI is told, with endings that swap and a Copy button. The heart of the page.
+3. **02 Gallery**: 43 pieces; a real piece plays on a click, a masonry of 12 posters opens each piece in a dialog.
+4. **03 Interactive**: six posters of the live samples and a link.
+5. **04 Start**: links to For AI, GitHub and npm, and the status line.
+6. **Footer**: from `scripts/site-parts.mjs`.
 
 ## How it was checked
 
@@ -42,7 +43,6 @@ Code panels stay dark in both themes (they are "monitors"); the page chrome flip
 ## With more time
 
 - A real recorded loop of a piece (muted WebM, a few seconds) in the hero facade instead of a still poster — the page claims motion but shows stills until the click.
-- A second interactive moment: hovering a row of the comparison table could highlight the matching "Choose when" card.
 - Per-piece deep links once every gallery page is published, and `srcset` for the posters (the 640 px sources are soft on 2× screens at 1440).
 - An inline SVG "how it fits" diagram (data → one frame path → play / scrub / export) in section 01.
 - Tighten the `Not pixi-effects when…` copy with the author; it is the paragraph that earns the reader's trust and deserves their voice.
