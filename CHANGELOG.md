@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.40.0
 
 The `three` layer grows up: it can live in the composition's space, it loads glTF models, `check` holds it to the library's contract, and it can use three's WebGPU renderer. Nothing else changed; one type-only break (the last entry).
 

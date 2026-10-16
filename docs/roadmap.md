@@ -1,6 +1,6 @@
 # Roadmap: more expressive, still easy for an AI
 
-Status: rewritten 2026-10-15, current release 0.39.0 (the tools tell the truth and a file can be checked against what it must be: an export is exactly `duration × frameRate` frames, `probe --expect`, `check --seam`, `grain` with a loop, a sweep of stray Chromes); 0.38.x added the media tools (`pixi-effects probe | trim | frames | sound | concat | audio`) and the sandbox guidance.
+Status: rewritten 2026-10-15, current release 0.40.0 (the `three` layer grows up: it lives in the composition's space with its camera, lights, shadows and fog, loads glTF models, and `check` holds it to "a function of the time"; it can use three's WebGPU renderer). 0.39.0 was the tools telling the truth (the tools tell the truth and a file can be checked against what it must be: an export is exactly `duration × frameRate` frames, `probe --expect`, `check --seam`, `grain` with a loop, a sweep of stray Chromes); 0.38.x added the media tools (`pixi-effects probe | trim | frames | sound | concat | audio`) and the sandbox guidance.
 
 ## The gate every item passes
 
