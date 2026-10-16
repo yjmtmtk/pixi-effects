@@ -1,7 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.43.0
 
+A `three` layer on WebGPU shares PixiJS's GPU device, and the tests stop depending on the gallery. Nothing breaks.
+
+- **Changed (tests, nothing for users): no library test uses a gallery piece as its subject.** The tests whose subject is the gallery or the site are in `tests/site/` (`npm run test:site`); the pages made for the tests, formerly `examples/_checks/`, are in `tests/films/`; the player and the timeline viewer have films of their own; `noFalseWarnings` runs every test film.
 - **New: a `three` layer with `renderer: 'webgpu'` draws on PixiJS's own GPU device (`shareGpu`, default `true`).** In a movie PixiJS draws on WebGPU, the layer renders into a texture that PixiJS samples directly: no canvas of its own, no copy. The picture is the same (0 of 255 different in every channel of nine pictures, with antialias, fog and tone mapping), it is faster (spike: 0.7 against 1.1 ms for one layer, 1.6 against 5.7 ms for ten), and the browser's limit of about 32 WebGPU canvases no longer applies (a 60-layer film draws every layer; such a layer is not counted by the "too many three layers" warning). `shareGpu: false` keeps a canvas of its own; PixiJS on WebGL or any failure of the shared route does the same (one warning, before `setup`). `movie.inspect()` shows `sharedGpu`. The default `renderer` stays `'webgl'`. `tests/films/three-renderers`, `three-budget`, `tests/core/gpuShare.test.ts`.
 
 ## 0.42.0
