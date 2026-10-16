@@ -15,6 +15,7 @@ import { expandTransitions, carryTransitionWindows } from './Transitions';
 import { canvasProblems, canvasReport, type CanvasRow } from './canvasCheck';
 import { inspectScene, type InspectReport, type InspectOptions } from './inspect';
 import { pickScene, type PickHit, type PickOptions } from './pick';
+import { startHover, type HoverOptions } from './hover';
 import { collectTimeline, timelineHtml, timelineSvg, type TimelineData, type TimelineHtmlOptions, type TimelineSvgOptions } from './timelineChart';
 import { pickFrames, sheetLayout } from './frames';
 import { warnUnknownOptions, suggestName } from './options';
@@ -907,6 +908,19 @@ export class Movie {
     this._requireReady('pick');
     if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error(`pixi-effects: movie.pick(x, y) needs two numbers (canvas pixels), got ${x}, ${y}. For a pointer event: movie.pick(...movie.canvasPoint(event))`);
     return pickScene(this._rootSequence as CompositionSequence, x, y, opts);
+  }
+
+  /**
+   * Which layer the pointer is over, as callbacks: `onEnter(hit)` when the layer (or, in a `three` layer, the object) under the pointer changes to another, `onLeave(hit)` for the one it
+   * left (also when the pointer leaves the picture). While the pointer rests inside, it is asked again on every frame, so a picture that moves under a still pointer is followed.
+   * `{ only, ignore }` as for `pick`; `cursor: true` (or a CSS cursor) shows it while something is hovered. Returns the function that stops it. A page-side tool: an exported video has no pointer.
+   */
+  hover(opts: HoverOptions = {}): () => void {
+    warnUnknownOptions('movie.hover()', opts, ['onEnter', 'onLeave', 'cursor', 'only', 'ignore']);
+    this._requireReady('hover');
+    const canvas = this.app?.canvas as HTMLCanvasElement | undefined;
+    if (!canvas) throw new Error("pixi-effects: movie.hover needs the movie's canvas");
+    return startHover({ canvas, pick: (x, y, o) => this.pick(x, y, o), point: (e) => this.canvasPoint(e) }, opts);
   }
 
   /** A pointer event's place in canvas pixels (the canvas may be shown larger or smaller than its own size): `movie.pick(...movie.canvasPoint(event))`. */

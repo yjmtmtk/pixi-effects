@@ -24,6 +24,7 @@ export type {
 
 export type { InspectReport, InspectOptions, LayerInfo } from './core/inspect';
 export type { PickHit, PickOptions } from './core/pick';
+export type { HoverOptions } from './core/hover';
 export type { TimelineData, TimelineRow, TimelineTransition, TimelineHtmlOptions, TimelineSvgOptions } from './core/timelineChart';
 export type { AudioReport, AudioSourceReport, SoundMeasure, AudioInspectOptions, SoundReport } from './core/inspectAudio';
 export { inspectSound } from './core/inspectAudio';

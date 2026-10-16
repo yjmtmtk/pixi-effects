@@ -302,6 +302,7 @@ await movie.snapshot(60, { as: 'dataURL' })             // one frame, canvas onl
 await movie.inspect(60, { layers: 'none' })             // issues only (default lists the visible layers); text off-canvas / cut off / empty / overlapping text. Name your layers so paths are readable
 await movie.onionSkin({ from: 1, to: 3, count: 8, as: 'dataURL' })  // frames overlaid into ONE picture of a movement (later = stronger): path and easing at a glance
 movie.pick(x, y)                                 // what is under a canvas point at the frame on screen: { name, path, type, kind: 'flat' | 'card' | 'three', local?, three?: { object, point, distance } } or null (pickAll: the whole stack, top first; { only, ignore }); in a click handler: `movie.pick(...movie.canvasPoint(event))`; to ask about another frame: `await movie.snapshot(f)` first
+movie.hover({ onEnter: (hit) => …, onLeave: (hit) => …, ignore: ['background'], cursor: true })   // which layer the pointer is over (built on pick; follows a picture that moves under a still pointer); returns the stop function. Drag and drop: recipe `drag-drop`
 movie.review({ at: 'title@end' })                 // what `pixi-effects check` looks at, as data: { frames, problems (text cut off, off-canvas, no size), review (text overlaps: look at them), fonts, audio, at }; leaves the movie as it was. `strict: true` makes every issue a problem
 movie.resolveAt('3.5, 50%, f120, title@end')      // moments → [{ label, frame }]; a mistake says what could not be read
 movie.inspectFonts()                             // { missing: [{ layer, family }] (no font of the list is installed), failed: [web fonts whose file did not load] }
@@ -1867,14 +1868,43 @@ canvas.addEventListener('click', (event) => {
   if (hit.kind === 'three' && hit.three.object === 'fox') console.log('the fox, at distance', hit.three.distance);   // a three layer: the object the ray met
   else if (hit.name === 'title') movie.play();                    // a flat layer: by its name
 });
-canvas.addEventListener('pointermove', (event) => {
-  const hit = movie.pick(...movie.canvasPoint(event), { ignore: ['background'] });   // { only } / { ignore }: layer names or paths
-  canvas.style.cursor = hit ? 'pointer' : 'default';
-});
+movie.hover({ ignore: ['background'], cursor: true,           // enter / leave as callbacks (it follows a picture that moves under a still pointer)
+  onEnter: (hit) => console.log('over', hit.name),
+  onLeave: (hit) => console.log('left', hit.name) });
 // a test, or an AI checking its own page, asks about a chosen frame:  await movie.snapshot(90);  movie.pick(640, 360)
 ```
 
-`pick` reads the frame as the last draw left it (it takes no time and has no clock), so a paused movie answers for the frame it shows. A transparent corner of a picture still counts as the picture; hover effects and dragging are yours to build on `pick`.
+`pick` reads the frame as the last draw left it (it takes no time and has no clock), so a paused movie answers for the frame it shows. A transparent corner of a picture still counts as the picture; dragging is built on `pick` too: recipe `drag-drop`.
+
+## Drag a layer and drop it on a target (`pick` and variables)
+
+A layer whose place is two variables moves when the page sets them: `movie.setVars({ cx, cy })` builds the composition again at the same frame (tens of milliseconds for a light composition; calls that fall behind are joined, so it is safe from `pointermove`). `pick` says what is taken (`only`) and what lies under it when it is let go (`ignore` the dragged layer). Listen on the window while it is held, so the pointer may leave the canvas. A heavy composition (a model to load again, a long sound) rebuilds slowly: for it, keep the dragged thing a light layer in the page's own overlay, and tell the movie only at the drop.
+
+```js
+// @docs-only drag-drop
+// the composition: the card's place is the variables cx and cy; the zone is where it can be dropped
+//   await movie.init({ canvas, width: 960, height: 540, vars: { cx: 200, cy: 200 }, composition: { sequences: [
+//     { type: 'shape', shape: 'rect', name: 'zone', width: 280, height: 280, initial: { x: 760, y: 400, anchorX: 0.5, anchorY: 0.5, fillColor: '#2a3a66' } },
+//     { type: 'shape', shape: 'rect', name: 'card', width: 200, height: 120, initial: { x: 'cx', y: 'cy', anchorX: 0.5, anchorY: 0.5, fillColor: '#f2c14e' } },
+//   ] } });
+//   movie.pause();                                    // a still picture: nothing plays while it is dragged
+canvas.addEventListener('pointerdown', (e) => {
+  const [x, y] = movie.canvasPoint(e);
+  if (!movie.pick(x, y, { only: ['card'] })) return;                 // only the card can be picked up
+  const grip = { dx: movie.vars.cx - x, dy: movie.vars.cy - y };      // where in the card it was taken, so it does not jump
+  const place = (ev) => { const [px, py] = movie.canvasPoint(ev); return movie.setVars({ cx: px + grip.dx, cy: py + grip.dy }); };
+  const move = (ev) => { place(ev); };
+  const up = async (ev) => {
+    window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
+    await place(ev);                                                  // the card is where it was let go: now ask what is under it
+    const [px, py] = movie.canvasPoint(ev);
+    const under = movie.pick(px, py, { ignore: ['card'] });           // the dragged layer is not what it lies on
+    if (under?.name === 'zone') await movie.setVars({ cx: 760, cy: 400 });   // snap into the zone
+  };
+  window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+});
+movie.hover({ only: ['card'], cursor: 'grab' });                       // the cursor says it can be taken
+```
 
 ## Subtitles from an SRT file
 
@@ -4177,6 +4207,14 @@ interface PickHit {
 ```
 
 How a layer is asked: a flat layer by its own shape (a rotated one by its rotated rectangle, a shape by its outline: a circle is hit inside the circle, not at the corners of its box), text, images and video by their box; a `threeD` layer by its projected quad (the card seen from behind is hit too; a `threeD` composition is one card: what is inside it is not asked); a `three` layer by a ray through its camera (with `followCamera` the composition's camera), skipping invisible objects: `hit.three.object` is the name of the object it met (its own, or its nearest ancestor's that has one) and `object3d` the live three object. A layer not alive at the frame, at alpha 0, hidden by a parent, or outside its mask is not hit; a group (a nested composition without `threeD`) is not a target, the layers in it are. A transparent corner of a picture still counts as the picture (the box is what is asked). What is not here: hover and cursor, dragging, touch with several fingers.
+
+### `movie.hover(options?): () => void`
+
+Which layer the pointer is over, as two callbacks, built on `pick`: `onEnter(hit)` when the layer under the pointer (or, in a `three` layer, the object: `hit.three.object`) changes to another, `onLeave(hit)` for the one it left, also when the pointer leaves the picture or the returned function is called. While the pointer rests inside the picture it is asked again on every frame, so a picture that moves under a still pointer is followed (the runner leaves, the cursor changes) with no pointer event in between. Options: `only` / `ignore` as for `pick`, `cursor` (`true` is `'pointer'`, or any CSS cursor: shown while something is hovered, put back otherwise). Returns the function that stops it. Pointer events cover a mouse, a pen and a finger (a touch is "entered" when it lands and "left" when it lifts). It is a page-side tool: an exported video has no pointer. A handler that throws is said once and does not stop the next hover.
+
+```ts
+const stop = movie.hover({ ignore: ['background'], cursor: true, onEnter: (hit) => glow(hit.name), onLeave: (hit) => unglow(hit.name) });
+```
 
 ### `movie.inspectAudio(options?): AudioReport`
 

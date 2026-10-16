@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **New: `movie.hover({ onEnter, onLeave })`, and the recipe `drag-drop`.** `hover` says which layer the pointer is over (in a `three` layer, which object), as callbacks, on top of `pick`: `onEnter(hit)` when the layer under the pointer changes to another, `onLeave(hit)` for the one it left (also when the pointer leaves the picture or the returned stop function is called). While the pointer rests inside it is asked again on every frame, so a picture that moves under a still pointer is followed (a runner leaves the pointer with no pointer event in between: tested in real Chrome). `{ only, ignore }`, `cursor: true` (or a CSS cursor). The recipe `drag-drop` takes a layer by `pick`, moves it with the variables (`setVars` from `pointermove`: a rebuild of tens of milliseconds, joined when it falls behind), and asks `pick` with `ignore` what it was dropped on; the film `tests/films/interact` runs the same logic (with its own numbers). Page-side tools: an exported video has no pointer. `tests/core/hover.test.ts`, `tests/films/interact`.
+
 ## 0.41.0
 
 `movie.pick` (what is under a point of the canvas) and a better fit of the light falloff in a `three` layer. Nothing breaks.

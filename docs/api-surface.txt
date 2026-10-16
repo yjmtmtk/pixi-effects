@@ -216,6 +216,10 @@ interface GradientSpec
   radius?: number
   stops: ([number, string | number] | { offset: number; color: string | number; })[]
   type?: "linear" | "radial"
+interface HoverOptions extends PickOptions
+  cursor?: string | boolean
+  onEnter?: ((hit: PickHit) => void)
+  onLeave?: ((hit: PickHit) => void)
 interface ImageSequenceSpec extends SequenceCommon
   asset: string
   colorSpace?: "rgb" | "oklab" | "oklch"
@@ -316,6 +320,7 @@ class Movie
   frameRate: number
   gotoFrame(frame: number, force?: boolean): Promise<void>
   height: number
+  hover(opts?: HoverOptions): () => void
   init(options?: MovieOptions): Promise<void>
   inspect(frame?: number, opts?: InspectOptions): Promise<InspectReport>
   inspectAudio(opts?: AudioInspectOptions): AudioReport

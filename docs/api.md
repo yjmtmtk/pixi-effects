@@ -182,6 +182,14 @@ interface PickHit {
 
 How a layer is asked: a flat layer by its own shape (a rotated one by its rotated rectangle, a shape by its outline: a circle is hit inside the circle, not at the corners of its box), text, images and video by their box; a `threeD` layer by its projected quad (the card seen from behind is hit too; a `threeD` composition is one card: what is inside it is not asked); a `three` layer by a ray through its camera (with `followCamera` the composition's camera), skipping invisible objects: `hit.three.object` is the name of the object it met (its own, or its nearest ancestor's that has one) and `object3d` the live three object. A layer not alive at the frame, at alpha 0, hidden by a parent, or outside its mask is not hit; a group (a nested composition without `threeD`) is not a target, the layers in it are. A transparent corner of a picture still counts as the picture (the box is what is asked). What is not here: hover and cursor, dragging, touch with several fingers.
 
+### `movie.hover(options?): () => void`
+
+Which layer the pointer is over, as two callbacks, built on `pick`: `onEnter(hit)` when the layer under the pointer (or, in a `three` layer, the object: `hit.three.object`) changes to another, `onLeave(hit)` for the one it left, also when the pointer leaves the picture or the returned function is called. While the pointer rests inside the picture it is asked again on every frame, so a picture that moves under a still pointer is followed (the runner leaves, the cursor changes) with no pointer event in between. Options: `only` / `ignore` as for `pick`, `cursor` (`true` is `'pointer'`, or any CSS cursor: shown while something is hovered, put back otherwise). Returns the function that stops it. Pointer events cover a mouse, a pen and a finger (a touch is "entered" when it lands and "left" when it lifts). It is a page-side tool: an exported video has no pointer. A handler that throws is said once and does not stop the next hover.
+
+```ts
+const stop = movie.hover({ ignore: ['background'], cursor: true, onEnter: (hit) => glow(hit.name), onLeave: (hit) => unglow(hit.name) });
+```
+
 ### `movie.inspectAudio(options?): AudioReport`
 
 The soundtrack as numbers — for checking sound without listening. Every sound is also measured on its own, so overlaps do not blur it. `options.window`: seconds per row of `windows` (default 0.1).

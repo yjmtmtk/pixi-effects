@@ -1400,14 +1400,43 @@ canvas.addEventListener('click', (event) => {
   if (hit.kind === 'three' && hit.three.object === 'fox') console.log('the fox, at distance', hit.three.distance);   // a three layer: the object the ray met
   else if (hit.name === 'title') movie.play();                    // a flat layer: by its name
 });
-canvas.addEventListener('pointermove', (event) => {
-  const hit = movie.pick(...movie.canvasPoint(event), { ignore: ['background'] });   // { only } / { ignore }: layer names or paths
-  canvas.style.cursor = hit ? 'pointer' : 'default';
-});
+movie.hover({ ignore: ['background'], cursor: true,           // enter / leave as callbacks (it follows a picture that moves under a still pointer)
+  onEnter: (hit) => console.log('over', hit.name),
+  onLeave: (hit) => console.log('left', hit.name) });
 // a test, or an AI checking its own page, asks about a chosen frame:  await movie.snapshot(90);  movie.pick(640, 360)
 ```
 
-`pick` reads the frame as the last draw left it (it takes no time and has no clock), so a paused movie answers for the frame it shows. A transparent corner of a picture still counts as the picture; hover effects and dragging are yours to build on `pick`.
+`pick` reads the frame as the last draw left it (it takes no time and has no clock), so a paused movie answers for the frame it shows. A transparent corner of a picture still counts as the picture; dragging is built on `pick` too: recipe `drag-drop`.
+
+## Drag a layer and drop it on a target (`pick` and variables)
+
+A layer whose place is two variables moves when the page sets them: `movie.setVars({ cx, cy })` builds the composition again at the same frame (tens of milliseconds for a light composition; calls that fall behind are joined, so it is safe from `pointermove`). `pick` says what is taken (`only`) and what lies under it when it is let go (`ignore` the dragged layer). Listen on the window while it is held, so the pointer may leave the canvas. A heavy composition (a model to load again, a long sound) rebuilds slowly: for it, keep the dragged thing a light layer in the page's own overlay, and tell the movie only at the drop.
+
+```js
+// @docs-only drag-drop
+// the composition: the card's place is the variables cx and cy; the zone is where it can be dropped
+//   await movie.init({ canvas, width: 960, height: 540, vars: { cx: 200, cy: 200 }, composition: { sequences: [
+//     { type: 'shape', shape: 'rect', name: 'zone', width: 280, height: 280, initial: { x: 760, y: 400, anchorX: 0.5, anchorY: 0.5, fillColor: '#2a3a66' } },
+//     { type: 'shape', shape: 'rect', name: 'card', width: 200, height: 120, initial: { x: 'cx', y: 'cy', anchorX: 0.5, anchorY: 0.5, fillColor: '#f2c14e' } },
+//   ] } });
+//   movie.pause();                                    // a still picture: nothing plays while it is dragged
+canvas.addEventListener('pointerdown', (e) => {
+  const [x, y] = movie.canvasPoint(e);
+  if (!movie.pick(x, y, { only: ['card'] })) return;                 // only the card can be picked up
+  const grip = { dx: movie.vars.cx - x, dy: movie.vars.cy - y };      // where in the card it was taken, so it does not jump
+  const place = (ev) => { const [px, py] = movie.canvasPoint(ev); return movie.setVars({ cx: px + grip.dx, cy: py + grip.dy }); };
+  const move = (ev) => { place(ev); };
+  const up = async (ev) => {
+    window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
+    await place(ev);                                                  // the card is where it was let go: now ask what is under it
+    const [px, py] = movie.canvasPoint(ev);
+    const under = movie.pick(px, py, { ignore: ['card'] });           // the dragged layer is not what it lies on
+    if (under?.name === 'zone') await movie.setVars({ cx: 760, cy: 400 });   // snap into the zone
+  };
+  window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+});
+movie.hover({ only: ['card'], cursor: 'grab' });                       // the cursor says it can be taken
+```
 
 ## Subtitles from an SRT file
 
