@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.41.0
+
+`movie.pick` (what is under a point of the canvas) and a better fit of the light falloff in a `three` layer. Nothing breaks.
 
 - **New: `movie.pick(x, y)`, `pickAll`, `canvasPoint(event)`: what is under a point of the canvas.** The layer on top (or every layer under the point, the top first) at the frame on screen, in canvas pixels: a flat layer by its own shape (a rotated bar by its rotated rectangle, a circle by the circle), a `threeD` card by its projected quad, a `three` layer by a ray through its camera (`hit.three.object` names the object it met, with the point and the distance; with `followCamera` it is the composition's camera). `canvasPoint(event)` turns a pointer event into canvas pixels when the canvas is shown at another size. A layer outside its life, at alpha 0, hidden by a parent or outside its mask is not hit; `{ only, ignore }` choose by name or path. No clock: it reads the frame as the last draw left it, so it is a function of the frame (a seek back gives the same answer). Not in this version: alpha-exact hits, hover and drag. `check --at 3.5 --pick 640,360` (repeatable) prints what is under that point at each moment, so an AI can answer "is the button where I think" without looking. Recipe `pick-click`; `docs/api.md`; tests `tests/core/pick.test.ts`, `tests/films/pick` (real Chrome: rotated bar, circle, a turned card, a cube, a gliding camera, a canvas shown at twice its size).
 
