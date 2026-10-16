@@ -16,6 +16,7 @@
  * Options: --draft (the export is a draft: half size, low quality, no motion blur: a much smaller file; the drawing itself is not faster) · --at LIST (pictures at moments you name: 3.5, 50%, f120, title@end → frames/*.png and at.png) ·
  *          --query "a=1&b=2" (added to the page address: for a page that reads it, such as one video of a batch) ·
  *          --crop X,Y,W,H (with --at: each picture is that part of the canvas, in canvas pixels, enlarged up to 4x so a small figure can be judged) ·
+ *          --pick X,Y (with --at, repeatable: what is under that canvas point at each moment, the top layer first, and the object a three layer met: `movie.pick`) ·
  *          --onion A:B (one picture of the movement between A and B seconds, frames overlaid: onion.png) ·
  *          --seam (a movie made to loop: the last frame to the first is compared with the steps between ordinary neighbouring frames; a jump is a problem) ·
  *          --strict (text overlaps and stops where the picture is still changing fail the check; by default they are only listed for review) · --out DIR · --frames N (contact sheet tiles, default 12) · --formats mp4,webm (default mp4) · --no-export ·
@@ -81,10 +82,10 @@ export function findChrome(env = process.env, exists = fs.existsSync, platform =
   return candidates.find(c => c && exists(c)) ?? null;
 }
 
-export const USAGE = 'usage: node ai/tools/check.mjs <page.html> [--out DIR] [--frames N] [--formats mp4,webm] [--no-export] [--draft] [--at 3.5,title@end] [--crop X,Y,W,H] [--onion 1:3] [--seam] [--query a=1&b=2] [--var name=value] [--size 1920x1080,1080x1920] [--timeout S] [--root DIR] [--chrome PATH] [--strict] [--help]\n(the header of ai/tools/check.mjs explains each option)';
+export const USAGE = 'usage: node ai/tools/check.mjs <page.html> [--out DIR] [--frames N] [--formats mp4,webm] [--no-export] [--draft] [--at 3.5,title@end] [--crop X,Y,W,H] [--pick X,Y] [--onion 1:3] [--seam] [--query a=1&b=2] [--var name=value] [--size 1920x1080,1080x1920] [--timeout S] [--root DIR] [--chrome PATH] [--strict] [--help]\n(the header of ai/tools/check.mjs explains each option)';
 
 export function parseArgs(argv) {
-  const o = { page: null, out: null, frames: 12, formats: ['mp4'], export: true, timeout: 240, root: null, chrome: null, strict: false, at: null, crop: null, draft: false, onion: null, seam: false, query: null, vars: [], sizes: [], help: false };
+  const o = { page: null, out: null, frames: 12, formats: ['mp4'], export: true, timeout: 240, root: null, chrome: null, strict: false, at: null, crop: null, draft: false, onion: null, seam: false, query: null, pick: [], vars: [], sizes: [], help: false };
   const need = (i, name) => { if (i + 1 >= argv.length) throw new Error(`${name} needs a value`); return argv[i + 1]; };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -102,6 +103,11 @@ export function parseArgs(argv) {
       if (m.length !== 4 || !m.every(Number.isFinite) || m[0] < 0 || m[1] < 0 || m[2] < 1 || m[3] < 1) throw new Error(`--crop must look like 100,200,400,300 (x, y, width, height in canvas pixels, width and height at least 1), got "${argv[i]}"`);
       o.crop = { x: Math.round(m[0]), y: Math.round(m[1]), width: Math.round(m[2]), height: Math.round(m[3]) };
     }
+    else if (a === '--pick') {
+      const m = need(i++, a).split(',').map(Number);
+      if (m.length !== 2 || !m.every(Number.isFinite)) throw new Error(`--pick must look like 640,360 (x, y in canvas pixels), got "${argv[i]}"`);
+      o.pick.push({ x: m[0], y: m[1] });
+    }
     else if (a === '--var') o.vars.push(parseVar(need(i++, a)));
     else if (a === '--size') o.sizes.push(...parseSizes(need(i++, a)));
     else if (a === '--seam') o.seam = true;
@@ -118,6 +124,7 @@ export function parseArgs(argv) {
     else throw new Error(`unexpected argument ${a}`);
   }
   if (o.crop && !o.at) throw new Error('--crop crops the pictures of --at: give --at too (for example --at 3.5 --crop 100,200,400,300)');
+  if (o.pick.length && !o.at) throw new Error('--pick asks about the moments of --at: give --at too (for example --at 3.5 --pick 640,360)');
   return o;
 }
 
@@ -466,6 +473,10 @@ export async function runCheck(opts, log = console.log) {
         // depth of field: the blur (px) each threeD layer has at this moment, so a focus pull can be read as numbers (0 = sharp)
         const rows = await cdp.eval(`movie.inspect(${w.frame}).then(r => r.layers.filter(l => l.depthBlur !== undefined).map(l => [l.path, l.depthBlur]))`).catch(() => []);
         if (rows.some(([, px]) => px > 0)) w.depthBlur = Object.fromEntries(rows);
+        // pick: what is under each --pick point at this moment (the frame is on screen after the snapshot above)
+        if (opts.pick.length) {
+          w.pick = await cdp.eval(`(${JSON.stringify(opts.pick)}).map(p => ({ x: p.x, y: p.y, hits: movie.pickAll(p.x, p.y).map(h => ({ name: h.name ?? h.path, path: h.path, kind: h.kind, object: h.three ? h.three.object : undefined })) }))`).catch(() => []);
+        }
         // light: how lit each threeD layer is at this moment (left out when the composition has no light)
         const lit = await cdp.eval(`movie.inspect(${w.frame}).then(r => r.layers.filter(l => l.light !== undefined).map(l => [l.path, l.light]))`).catch(() => []);
         if (lit.length) w.light = Object.fromEntries(lit);
@@ -701,6 +712,12 @@ function finish(report, outDir, log) {
     const g = report.sizes;
     L.push(`  sizes     ${g.map(x => `${x.size} ${x.issues.length ? x.issues.length + ' layout issue kind(s)' : 'no layout issue'}`).join(' · ')}${g.length > 1 ? ' (one contact sheet each: sheet.png, sheet-<size>.png)' : ''}`);
     for (const x of g) for (const i of x.issues.slice(0, 3)) L.push(`            - ${x.size}: ${i.message}`);
+  }
+  for (const w of (report.at ?? []).filter(x => x.pick)) {
+    for (const p of w.pick) {
+      const says = p.hits.length ? p.hits.map(h => h.kind === 'three' ? `${h.name} (three: ${h.object || '?'})` : h.name).join(', ') : 'nothing';
+      L.push(`  pick      ${w.label} (${p.x}, ${p.y}) — ${says}`);
+    }
   }
   for (const w of (report.at ?? []).filter(x => x.depthBlur)) {
     const shown = Object.entries(w.depthBlur).slice(0, 8).map(([k, px]) => `${k} ${px} px`).join(', ');

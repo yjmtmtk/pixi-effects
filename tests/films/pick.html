@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · movie.pick</title></head>
+<body style="margin:0">
+  <!-- Test film (tests/films/pick.test.ts): what is under a point. A rotated bar 'button', a round 'dot', a 'title', a threeD card 'card' (turned 40° about y), a three layer 'world' with a box 'cube' that
+       follows the composition's camera, which glides sideways. The canvas is shown at twice its size (CSS) for the canvasPoint test. The page gives the test pickAt(frame, x, y, opts) and pointFor(x, y). -->
+  <canvas id="stage" width="480" height="270" style="width:960px;height:540px;display:block"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+    "three": "../../node_modules/three/build/three.module.js", "three/webgpu": "../../node_modules/three/build/three.webgpu.js",
+    "three/addons/": "../../node_modules/three/examples/jsm/" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    import { registerThree } from '../../dist/three.js';
+    import * as THREE from 'three';
+    registerThree();
+    const movie = new Movie();
+    window.movie = movie;
+    const strip = (h) => h && JSON.parse(JSON.stringify(h, (k, v) => (k === 'object3d' ? undefined : v)));
+    window.pickAt = async (frame, x, y, opts) => { await movie.snapshot(frame, { as: 'imageData' }); return strip(movie.pick(x, y, opts)); };
+    window.pickAllAt = async (frame, x, y, opts) => { await movie.snapshot(frame, { as: 'imageData' }); return movie.pickAll(x, y, opts).map(strip); };
+    window.clientPointFor = (x, y) => { const r = document.getElementById('stage').getBoundingClientRect(); return { clientX: r.left + x * r.width / 480, clientY: r.top + y * r.height / 270 }; };
+    window.canvasPointOf = (ev) => movie.canvasPoint(ev);
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 480, height: 270, duration: 3, frameRate: 30, background: '#102040', composition: { sequences: [
+        { type: 'camera', name: 'cam', keyframes: [{ at: 0, to: { x: 400, lookAtX: 400 }, duration: 3, ease: 'none' }] },
+        { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1c2b4d' } },
+        { type: 'shape', shape: 'rect', name: 'button', width: 120, height: 20, initial: { x: 100, y: 60, anchorX: 0.5, anchorY: 0.5, rotation: 45, fillColor: '#f2c14e' } },
+        { type: 'shape', shape: 'circle', name: 'dot', radius: 30, initial: { x: 380, y: 60, anchorX: 0.5, anchorY: 0.5, fillColor: '#d96a3a' } },
+        { type: 'text', name: 'title', text: 'PICK ME', style: { fontSize: 32, fill: '#ffffff', fontFamily: 'Arial' }, initial: { x: 240, y: 240, anchorX: 0.5, anchorY: 0.5 } },
+        { type: 'shape', shape: 'rect', name: 'card', width: 100, height: 60, threeD: true, initial: { x: 150, y: 150, z: 0, anchorX: 0.5, anchorY: 0.5, rotationY: 40, fillColor: '#3a6ea5' } },
+        { type: 'three', name: 'world', followCamera: true, antialias: false,
+          setup: (ctx) => { const cube = new THREE.Mesh(new THREE.BoxGeometry(60, 60, 60), new THREE.MeshBasicMaterial({ color: 0x3aa56e })); cube.name = 'cube'; cube.position.set(330, -170, 0); ctx.scene.add(cube); } },
+      ] } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

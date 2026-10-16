@@ -87,6 +87,8 @@ export class Layer3D {
   private blurFilter: DiscBlurFilter | null = null;
   private blendWas = 'normal';
   private blendFilter: BlendFilterLike | null = null;
+  /** The projected corners of the card (TL, TR, BR, BL as x0, y0 … x3, y3, in the space of the composition that holds it), or null while it is not drawn: what a hit test reads. */
+  corners: number[] | null = null;
   /** The plane in world space from the last update (a texture uv of 0..1 maps to `o + u·U + v·V`): what shading and shadows need. */
   world: PlaneFrame | null = null;
   /** The lit shader: made only when the composition has a light or fog (a composition with neither makes nothing). */
@@ -168,6 +170,7 @@ export class Layer3D {
       clearColor: [0, 0, 0, 0],
     });
     this.display.geometry.setCorners(...projected.corners);
+    this.corners = projected.corners;
     this.material?.setTexture(this.rt!.source);
     this.display.visible = true;
   }

@@ -14,6 +14,7 @@ import { exportFrames } from './Renderer';
 import { expandTransitions, carryTransitionWindows } from './Transitions';
 import { canvasProblems, canvasReport, type CanvasRow } from './canvasCheck';
 import { inspectScene, type InspectReport, type InspectOptions } from './inspect';
+import { pickScene, type PickHit, type PickOptions } from './pick';
 import { collectTimeline, timelineHtml, timelineSvg, type TimelineData, type TimelineHtmlOptions, type TimelineSvgOptions } from './timelineChart';
 import { pickFrames, sheetLayout } from './frames';
 import { warnUnknownOptions, suggestName } from './options';
@@ -891,6 +892,32 @@ export class Movie {
    * Where every layer is drawn at `frame` (canvas pixels, visibility) plus `issues` — text that is off
    * the canvas, cut by an edge, empty, or overlapping other text. Seeks there and stays there.
    */
+  /**
+   * What is under the canvas point (x, y) (canvas pixels: the movie's own `width` x `height`; `canvasPoint(event)` makes them from a pointer event) at the frame on screen: the layer on
+   * top, or null. A flat layer is hit by its own shape, a `threeD` card by its projected quad, a `three` layer by a ray through its camera (`hit.three` has the object). It reads the
+   * frame as the last draw left it, so after `await movie.snapshot(frame)` or any seek it answers for that frame. `opts.only` / `opts.ignore`: layer names or paths.
+   */
+  pick(x: number, y: number, opts: PickOptions = {}): PickHit | null {
+    return this.pickAll(x, y, opts)[0] ?? null;
+  }
+
+  /** Every layer under the canvas point, the one on top first (see `pick`). */
+  pickAll(x: number, y: number, opts: PickOptions = {}): PickHit[] {
+    warnUnknownOptions('movie.pick()', opts, ['only', 'ignore']);
+    this._requireReady('pick');
+    if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error(`pixi-effects: movie.pick(x, y) needs two numbers (canvas pixels), got ${x}, ${y}. For a pointer event: movie.pick(...movie.canvasPoint(event))`);
+    return pickScene(this._rootSequence as CompositionSequence, x, y, opts);
+  }
+
+  /** A pointer event's place in canvas pixels (the canvas may be shown larger or smaller than its own size): `movie.pick(...movie.canvasPoint(event))`. */
+  canvasPoint(event: { clientX: number; clientY: number }): [number, number] {
+    this._requireReady('canvasPoint');
+    const canvas = this.app?.canvas as HTMLCanvasElement | undefined;
+    if (!canvas) throw new Error('pixi-effects: movie.canvasPoint needs the movie\'s canvas');
+    const r = canvas.getBoundingClientRect();
+    return [((event.clientX - r.left) * this.width) / (r.width || this.width), ((event.clientY - r.top) * this.height) / (r.height || this.height)];
+  }
+
   async inspect(frame: number = this.currentFrame, opts: InspectOptions = { layers: 'visible' }): Promise<InspectReport> {
     warnUnknownOptions('movie.inspect()', opts, ['layers']);
     this._requireReady('inspect');

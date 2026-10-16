@@ -334,7 +334,7 @@ export class CompositionSequence extends Sequence {
    * Drawn children in stack order, with the display object that stands in for each (the mesh for a threeD layer).
    * Null layers draw nothing and are left out; the layers inside them follow, with the null layers that carry them.
    */
-  layers(): Array<{ seq: Sequence; display: Container; threeD: boolean; carriers: NullSequence[]; depthBlur: number; light?: number }> {
+  layers(): Array<{ seq: Sequence; display: Container; threeD: boolean; carriers: NullSequence[]; depthBlur: number; light?: number; quad: number[] | null }> {
     const carriersOf = (seq: Sequence): NullSequence[] => {
       const out: NullSequence[] = [];
       for (let p = this._parentOf.get(seq); p; p = this._parentOf.get(p)) out.push(p);
@@ -350,6 +350,7 @@ export class CompositionSequence extends Sequence {
           threeD: layer !== null,
           carriers: carriersOf(seq),
           depthBlur: layer?.blur ?? 0,
+          quad: layer && layer.display.visible ? layer.corners : null,
           // how lit it is (threeD layers that receive the lights of the last frame only); computed here, not per frame
           light: layer && this._lighting && layer.world && layer.spec.lit !== false ? lightLevel(layer.world, this._lighting.cam, this._lighting.states) : undefined,
         };

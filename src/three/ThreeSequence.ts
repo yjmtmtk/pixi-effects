@@ -1,5 +1,5 @@
 import { Sprite, Texture } from 'pixi.js';
-import { Box3, PerspectiveCamera, Scene, Vector3, WebGLRenderer, type Camera } from 'three';
+import { Box3, PerspectiveCamera, Raycaster, Scene, Vector2, Vector3, WebGLRenderer, type Camera, type Object3D } from 'three';
 import type { WebGPURenderer } from 'three/webgpu';
 import { Sequence } from '../sequences/Base';
 import { buildScope } from '../expr/Scope';
@@ -157,6 +157,27 @@ export class ThreeSequence extends Sequence {
     }
     this._draw(t);
     (this.target as Sprite | null)?.texture.source.update();
+  }
+
+  /**
+   * `movie.pick`: a ray through the point (u, v) of the layer's picture (0..1, v down) from the layer's camera, and what it meets first: the object's name (its own, or its nearest
+   * ancestor's that has one), where, and how far from the camera. Invisible objects and groups are not met. null when the ray meets nothing.
+   */
+  pickAt(u: number, v: number): { object: string; point: [number, number, number]; distance: number; object3d: Object3D } | null {
+    const scene = this._scene, camera = this._camera;
+    if (!scene || !camera) return null;
+    scene.updateMatrixWorld();
+    camera.updateMatrixWorld();
+    const ray = new Raycaster();
+    ray.setFromCamera(new Vector2(u * 2 - 1, -(v * 2 - 1)), camera);
+    const visibleChain = (o: Object3D | null): boolean => { for (let n = o; n; n = n.parent) if (!n.visible) return false; return true; };
+    for (const hit of ray.intersectObjects(scene.children, true)) {
+      if (!visibleChain(hit.object)) continue;
+      let name = '';
+      for (let n: Object3D | null = hit.object; n && n !== scene; n = n.parent) if (n.name) { name = n.name; break; }
+      return { object: name, point: hit.point.toArray() as [number, number, number], distance: hit.distance, object3d: hit.object };
+    }
+    return null;
   }
 
   /**

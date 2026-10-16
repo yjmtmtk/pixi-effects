@@ -1386,6 +1386,29 @@ return [
 
 A moving, shadow-casting model is held to "a function of the time" by `check`: place it from `t` in `update` (as above) and let `threeGltf` load it (it draws a skinned mesh always: three culls it by a bounding sphere that does not follow it).
 
+## Click a layer: what is under the pointer (`movie.pick`)
+
+`movie.pick(x, y)` answers "what is drawn under this point, at the frame on screen" with no hit-testing code of yours: a flat layer by its own shape, a `threeD` card by its projected quad, a `three` layer by a ray (the hit says which object). `movie.canvasPoint(event)` turns a pointer event into canvas pixels, whatever size the canvas is shown at. Name the layers you want to react to.
+
+```js
+// @docs-only pick-click
+// in the page, after movie.init(...): a click on the fox, on the title, or on the wall behind them
+const canvas = document.getElementById('stage');
+canvas.addEventListener('click', (event) => {
+  const hit = movie.pick(...movie.canvasPoint(event));           // the layer on top of that point, or null
+  if (!hit) return;
+  if (hit.kind === 'three' && hit.three.object === 'fox') console.log('the fox, at distance', hit.three.distance);   // a three layer: the object the ray met
+  else if (hit.name === 'title') movie.play();                    // a flat layer: by its name
+});
+canvas.addEventListener('pointermove', (event) => {
+  const hit = movie.pick(...movie.canvasPoint(event), { ignore: ['background'] });   // { only } / { ignore }: layer names or paths
+  canvas.style.cursor = hit ? 'pointer' : 'default';
+});
+// a test, or an AI checking its own page, asks about a chosen frame:  await movie.snapshot(90);  movie.pick(640, 360)
+```
+
+`pick` reads the frame as the last draw left it (it takes no time and has no clock), so a paused movie answers for the frame it shows. A transparent corner of a picture still counts as the picture; hover effects and dragging are yours to build on `pick`.
+
 ## Subtitles from an SRT file
 
 Subtitles are just text layers. The function reads a `.srt` (numbers, `00:00:01,000 --> 00:00:03,500`, the words) and returns one layer per cue: it appears and disappears over 0.12 s, sits 90 px above the bottom edge, wraps at 1000 px (about 80 % of a 1280 px picture) and has a black outline so it reads on any picture. Two cues that overlap in time are drawn on top of each other: split a long line into two lines in the `.srt` rather than relying on wrapping. Check the result with `pixi-effects check`; it reports text that is cut off by the edge.

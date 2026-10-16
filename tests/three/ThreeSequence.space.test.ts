@@ -4,7 +4,7 @@ import { MockWebGLRenderer } from './mockRenderers';
 // the real three (cameras, lights, maths), a stand-in renderer: this file is about what the layer hands to the scene, not about pixels (the film tests/films/three-space does those)
 vi.mock('three', async (orig) => ({ ...(await orig<typeof import('three')>()), WebGLRenderer: (await import('./mockRenderers')).MockWebGLRenderer }));
 
-import { BoxGeometry, Mesh, MeshBasicMaterial, OrthographicCamera, PerspectiveCamera, PointLight } from 'three';
+import { BoxGeometry, Group, Mesh, MeshBasicMaterial, OrthographicCamera, PerspectiveCamera, PlaneGeometry, PointLight } from 'three';
 import { ThreeSequence } from '../../src/three/ThreeSequence';
 import type { ThreeContext, ThreeSequenceSpec } from '../../src/three/types';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
@@ -154,6 +154,54 @@ describe("followLights and an inverse-square light with objects inside its radiu
     }
     expect(said(warn)).toHaveLength(0);
     restore();
+  });
+});
+
+describe('pickAt: a ray through a point of the layer\'s picture', () => {
+  const cube = (ctx: ThreeContext) => {
+    const m = new Mesh(new BoxGeometry(1, 1, 1), new MeshBasicMaterial()); m.name = 'cube'; ctx.scene.add(m);
+    (ctx.camera as PerspectiveCamera).position.z = 5;
+  };
+
+  it("hits the object in the middle of the picture (its name, where, how far from the camera) and nothing at the corner", async () => {
+    const { seq } = make({ setup: cube });
+    await seq.build();
+    const hit = seq.pickAt(0.5, 0.5)!;
+    expect(hit.object).toBe('cube');
+    expect(hit.distance).toBeCloseTo(4.5, 3);                                 // the front face of a unit box at the origin, seen from z = 5
+    expect(hit.point[2]).toBeCloseTo(0.5, 3);
+    expect((hit.object3d as { name: string }).name).toBe('cube');
+    expect(seq.pickAt(0.02, 0.02)).toBeNull();
+  });
+
+  it('an object with no name of its own is named by its nearest ancestor that has one (a glTF mesh part is "Object_5" inside the node you know)', async () => {
+    const { seq } = make({ setup: (ctx: ThreeContext) => {
+      const group = new Group(); group.name = 'fox';
+      group.add(new Mesh(new BoxGeometry(1, 1, 1), new MeshBasicMaterial())); ctx.scene.add(group);
+      (ctx.camera as PerspectiveCamera).position.z = 5;
+    } });
+    await seq.build();
+    expect(seq.pickAt(0.5, 0.5)!.object).toBe('fox');
+  });
+
+  it('an invisible object, or one inside an invisible group, is not hit', async () => {
+    const { seq } = make({ setup: cube });
+    await seq.build();
+    (sceneOf(seq).children[0] as { visible: boolean }).visible = false;
+    expect(seq.pickAt(0.5, 0.5)).toBeNull();
+  });
+
+  it("with followCamera the ray goes through the composition's camera: the point where a plane at (x, y, 0) is drawn finds it", async () => {
+    const home = { x: 480, y: 270, z: 270 / Math.tan((40 * Math.PI) / 360), lookAtX: 480, lookAtY: 270, lookAtZ: 0, fov: 40 };
+    spaceAt.mockImplementation(() => ({ camera: home, lights: [], fog: null }));
+    const { seq } = make({ followCamera: true, width: 960, height: 540, setup: (ctx: ThreeContext) => {
+      const plane = new Mesh(new PlaneGeometry(100, 100), new MeshBasicMaterial()); plane.name = 'card'; plane.position.set(300, -270, 0); ctx.scene.add(plane);
+    } });
+    await seq.build(); await seq.awaitFrameAt(0);
+    expect(seq.pickAt(300 / 960, 270 / 540)!.object).toBe('card');
+    expect(seq.pickAt(340 / 960, 270 / 540)!.object, '40 px right of its middle: still on the 100 px card').toBe('card');
+    expect(seq.pickAt(400 / 960, 270 / 540), '100 px right: off it').toBeNull();
+    spaceAt.mockImplementation((t: number) => ({ camera: cam(480 + 100 * t), lights: [lamp], fog: fogNow }));
   });
 });
 

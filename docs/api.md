@@ -165,6 +165,23 @@ interface InspectReport {
 }
 ```
 
+### `movie.pick(x, y, options?): PickHit | null`, `movie.pickAll(x, y, options?): PickHit[]`, `movie.canvasPoint(event): [x, y]`
+
+What is under a point of the canvas, at the frame that is on screen: the layer on top (`pick`), or every layer under the point, the top first (`pickAll`). `x`, `y` are canvas pixels (the movie's own `width` × `height`); `canvasPoint(event)` makes them from a pointer event (`clientX` / `clientY`) when the canvas is shown larger or smaller than its own size: `movie.pick(...movie.canvasPoint(event))`. It reads the frame as the last draw left it, so after `await movie.snapshot(frame)` or any seek it answers for that frame; it takes no time and has no clock.
+
+```ts
+interface PickHit {
+  name?: string; path: string; type: string;     // path: as in inspect(), names or type#index joined by '/'
+  kind: 'flat' | 'card' | 'three';               // a 2D layer, a threeD layer (its projected card), a three layer
+  point: { x: number; y: number };               // the point asked about
+  local?: { x: number; y: number };              // a flat layer: the point in the layer's own pixels
+  three?: { object: string; point: [number, number, number]; distance: number; object3d: unknown };   // a three layer: what the ray met first
+}
+// options: { only?: string[], ignore?: string[] }   layer names or paths
+```
+
+How a layer is asked: a flat layer by its own shape (a rotated one by its rotated rectangle, a shape by its outline: a circle is hit inside the circle, not at the corners of its box), text, images and video by their box; a `threeD` layer by its projected quad (the card seen from behind is hit too; a `threeD` composition is one card: what is inside it is not asked); a `three` layer by a ray through its camera (with `followCamera` the composition's camera), skipping invisible objects: `hit.three.object` is the name of the object it met (its own, or its nearest ancestor's that has one) and `object3d` the live three object. A layer not alive at the frame, at alpha 0, hidden by a parent, or outside its mask is not hit; a group (a nested composition without `threeD`) is not a target, the layers in it are. A transparent corner of a picture still counts as the picture (the box is what is asked). What is not here: hover and cursor, dragging, touch with several fingers.
+
 ### `movie.inspectAudio(options?): AudioReport`
 
 The soundtrack as numbers — for checking sound without listening. Every sound is also measured on its own, so overlaps do not blur it. `options.window`: seconds per row of `windows` (default 0.1).

@@ -305,6 +305,7 @@ class Movie
   audioBlocked: boolean
   audioBuffer: AudioBuffer | null
   background: string
+  canvasPoint(event: { clientX: number; clientY: number; }): [number, number]
   canvasProblems(): string[]
   canvasReport(): CanvasRow[]
   contactSheet(opts?: (ContactSheetOptions & { as?: "blob" | undefined; }) | undefined): Promise<Blob>
@@ -342,6 +343,8 @@ class Movie
   onionSkin(opts: OnionSkinOptions & { as: "dataURL"; }): Promise<string>
   pause(): void
   peek<T>(fn: () => Promise<T>): Promise<T>
+  pick(x: number, y: number, opts?: PickOptions): PickHit | null
+  pickAll(x: number, y: number, opts?: PickOptions): PickHit[]
   play(): void
   playUntil(seconds?: number | undefined): Promise<boolean>
   poster: number | null
@@ -526,6 +529,17 @@ interface PathShapeSpec extends ShapeBase, Trimmable
   morphPoints?: number
   morphTo?: string
   shape: "path"
+interface PickHit
+  kind: "flat" | "card" | "three"
+  local?: { x: number; y: number; }
+  name?: string
+  path: string
+  point: { x: number; y: number; }
+  three?: { object: unknown; point: [number, number, number]; distance: number; object3d?: unknown; }
+  type: string
+interface PickOptions
+  ignore?: string[]
+  only?: string[]
 interface PolygonShapeSpec extends ShapeBase, Trimmable
   open?: boolean
   points: [PropValue, PropValue][]
@@ -972,6 +986,7 @@ class ThreeSequence
   intrinsicHeight: number
   intrinsicWidth: number
   parent: CompositionShape | null
+  pickAt(u: number, v: number): { object: string; point: [number, number, number]; distance: number; object3d: Object3D<Object3DEventMap>; } | null
   renderer: "webgl" | "webgpu" | null
   root: CompositionShape
   scope(): Scope
