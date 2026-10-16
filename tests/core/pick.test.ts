@@ -108,6 +108,18 @@ describe('pickScene: what is under a point of the canvas', () => {
     expect(pickScene(comp, 300, 300, { only: ['button'] })).toEqual([]);
   });
 
+  it('naming a group (a nested composition) in only / ignore means everything in it: a card with a label is one target', async () => {
+    const comp = await scene([
+      { type: '__flat', name: 'bg', x: 0, y: 0, w: 500, h: 500 },
+      { type: 'composition', name: 'card', width: 200, height: 100, duration: 10, sequences: [{ type: '__flat', name: 'face', x: 10, y: 10, w: 100, h: 60 }, { type: '__flat', name: 'label', x: 30, y: 20, w: 40, h: 20 }] },
+      { type: '__flat', name: 'cardinal', x: 300, y: 300, w: 50, h: 50 },
+    ]);
+    expect(pickScene(comp, 40, 25, { only: ['card'] }).map((h) => h.path), 'both parts of the card').toEqual(['card/label', 'card/face']);
+    expect(pickScene(comp, 40, 25, { ignore: ['card'] }).map((h) => h.path), 'none of it').toEqual(['bg']);
+    expect(pickScene(comp, 40, 25, { only: ['card/label'] }).map((h) => h.path), 'a path to one part still works').toEqual(['card/label']);
+    expect(pickScene(comp, 320, 320, { only: ['card'] }).map((h) => h.path), '"cardinal" is not in "card"').toEqual([]);
+  });
+
   it('a three layer is asked with the point in 0..1 of its picture; its answer becomes the hit (the object, the point and the distance), and no answer lets the layer below be hit', async () => {
     const comp = await scene([{ type: '__flat', name: 'wall', x: 0, y: 0, w: 400, h: 400 }, { type: '__threelike', name: 'world', x: 0, y: 0, w: 400, h: 200 }]);
     const three = comp.layers().find((l) => l.seq.spec.name === 'world')!.seq as unknown as ThreeLike;

@@ -33,6 +33,8 @@ export class ThreeSequence extends Sequence {
   private _fogMirror: FogMirror | null = null;
   private _warnedSpace = new Set<string>();
   private _tracked = false;
+  /** Set when this layer lets its renderer go on purpose: the context loss that follows is its own doing, not the browser's. */
+  private _closing = false;
 
   private get _threeSpec(): ThreeSequenceSpec {
     return this.spec as unknown as ThreeSequenceSpec;
@@ -90,7 +92,7 @@ export class ThreeSequence extends Sequence {
       this._track();
       let said = false;
       canvas.addEventListener('webglcontextlost', () => {              // the browser took the context away: the layer draws nothing from now on
-        if (said) return;
+        if (said || this._closing) return;                              // not the browser's doing: this layer is letting its context go
         said = true;
         console.warn(`pixi-effects: three layer${spec.name ? ` "${spec.name}"` : ''}: the browser took this layer's WebGL context away (a page keeps about 16 for all its layers, PixiJS and shader layers: too many were alive), so the layer draws nothing. Put several objects in one three layer, or destroy layers that are over`);
       });
@@ -421,6 +423,7 @@ export class ThreeSequence extends Sequence {
 
   private _disposeRenderer(): void {
     if (!this._renderer) return;
+    this._closing = true;
     if (this._tracked) { this._tracked = false; releaseThree(this._gpu ? 'webgpu' : 'webgl'); }
     try {
       this._renderer.dispose();

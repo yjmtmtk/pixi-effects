@@ -55,4 +55,22 @@ describe('how many three layers a page can hold (a browser keeps about 16 WebGL 
     expect(m[0]).toMatch(/WebGL context/);
     expect(m[0]).toMatch(/too many|16/);
   });
+
+  it("a layer that is destroyed (a rebuild: setVars, resize) releases its context on purpose: the loss event that follows is not a warning", async () => {
+    const seq = make({ name: 'fox' });
+    await seq.build();
+    const canvas = ((seq as any)._renderer as { domElement: HTMLCanvasElement }).domElement;
+    seq.destroy();
+    canvas.dispatchEvent(new Event('webglcontextlost', { cancelable: true }));          // what forceContextLoss() makes the browser send, a moment after
+    expect(said(warn)).toHaveLength(0);
+  });
+
+  it("a loss event during the destroy itself (sent at once by some browsers) is not a warning either", async () => {
+    const seq = make({ name: 'fox' });
+    await seq.build();
+    const renderer = (seq as any)._renderer as { domElement: HTMLCanvasElement; forceContextLoss: () => void };
+    renderer.forceContextLoss = () => { renderer.domElement.dispatchEvent(new Event('webglcontextlost', { cancelable: true })); };
+    seq.destroy();
+    expect(said(warn)).toHaveLength(0);
+  });
 });

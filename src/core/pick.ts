@@ -56,9 +56,9 @@ export interface PickOptions {
    * Off by default (the box is the picture, and nothing is read). Shapes are always hit by their outline, text and `shader` layers by their box; a picture that cannot be read (from another origin) stays a hit.
    */
   alpha?: number;
-  /** Only these layers can be hit (by `name` or by `path`). */
+  /** Only these layers can be hit (by `name` or by `path`; a group's name stands for everything in it). */
   only?: string[];
-  /** These layers cannot be hit (by `name` or by `path`). */
+  /** These layers cannot be hit (by `name` or by `path`; a group's name stands for everything in it). */
   ignore?: string[];
 }
 
@@ -96,9 +96,11 @@ export function pickScene(root: CompositionSequence, x: number, y: number, opts:
   if (opts.alpha !== undefined && !(opts.alpha >= 0 && opts.alpha <= 1)) throw new Error(`pixi-effects: pick: alpha must be a number from 0 to 1 (a pixel at or below it is not a hit), got ${opts.alpha}`);
   const readAlpha = deps.readAlpha ?? readResourceAlpha;
   const found: Array<{ hit: PickHit; order: Array<[number, number]> }> = [];
+  // an entry names a layer (its name or its whole path) or a group: everything inside a nested composition of that name or path
+  const names = (list: string[], name: string | undefined, path: string): boolean => list.some((e) => e === path || (name !== undefined && e === name) || path.startsWith(e + '/') || path.split('/').slice(0, -1).includes(e));
   const wanted = (name: string | undefined, path: string): boolean => {
-    if (opts.ignore && (opts.ignore.includes(path) || (name !== undefined && opts.ignore.includes(name)))) return false;
-    if (opts.only && !(opts.only.includes(path) || (name !== undefined && opts.only.includes(name)))) return false;
+    if (opts.ignore && names(opts.ignore, name, path)) return false;
+    if (opts.only && !names(opts.only, name, path)) return false;
     return true;
   };
   const inside = (b: { x: number; y: number; width: number; height: number }, p: { x: number; y: number }): boolean => p.x >= b.x && p.x <= b.x + b.width && p.y >= b.y && p.y <= b.y + b.height;

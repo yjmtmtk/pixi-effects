@@ -13,6 +13,17 @@ runFilms('A page with too many three layers says so (it does not go blank in sil
     expect((await logsOf('n=12')).filter((l) => /context|three layers are alive/.test(l))).toEqual([]);
   }, 180_000);
 
+  it("rebuilding a page that has a three layer (setVars, resize, rebuild) does not say the browser took its context: the layer let it go itself", async () => {
+    await withFilm('three-budget', async (film) => {
+      await film.eval('movie.rebuild()');                                                // the old layer is destroyed (forceContextLoss) and a new one built
+      await film.eval('new Promise(r => setTimeout(r, 600))');                           // the browser's loss event arrives a moment after
+      await film.eval('movie.rebuild()');
+      await film.eval('new Promise(r => setTimeout(r, 600))');
+      const logs = JSON.parse(await film.eval<string>('JSON.stringify(window.__logs)')) as string[];
+      expect(logs.filter((l) => /took this layer's WebGL context away|three layers are alive/.test(l))).toEqual([]);
+    }, { query: 'n=2' });
+  }, 120_000);
+
   it('20 WebGL three layers: a warning at the 13th with the numbers and the way out, and every layer the browser took the context from names itself', async () => {
     const logs = await logsOf('n=20');
     const budget = logs.filter((l) => /three layers are alive/.test(l));

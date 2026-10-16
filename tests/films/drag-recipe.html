@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · the recipe drag-drop, as written</title></head>
+<body style="margin:0">
+  <!-- Test film (tests/films/drag-recipe.test.ts): the recipe `drag-drop` of skills/pixi-effects/reference/recipes.md, its page and handlers as written (the composition uncommented, a group card with a label, a zone that
+       lights by a variable, snap or return). fire(type, x, y) sends a pointer event at canvas pixel (x, y). -->
+  <canvas id="stage" width="960" height="540" style="display:block;touch-action:none"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const canvas = document.getElementById('stage');
+    const movie = new Movie();
+    window.movie = movie;
+    window.fire = (type, x, y) => { const r = canvas.getBoundingClientRect(); canvas.dispatchEvent(new PointerEvent(type, { clientX: r.left + x * r.width / 960, clientY: r.top + y * r.height / 540, bubbles: type !== 'pointerleave', pointerId: 1 })); };
+    await movie.init({ canvas, width: 960, height: 540, vars: { cx: 200, cy: 270, doneLit: 0 }, composition: { sequences: [
+      { type: 'shape', shape: 'rect', name: 'done', width: 260, height: 200, initial: { x: 770, y: 270, anchorX: 0.5, anchorY: 0.5, fillColor: '#182038' } },
+      { type: 'shape', shape: 'rect', name: 'done-glow', width: 260, height: 200, initial: { x: 770, y: 270, anchorX: 0.5, anchorY: 0.5, fillColor: '#3ddc97', alpha: 'doneLit' } },
+      { type: 'composition', name: 'card', width: 200, height: 120, duration: 1, initial: { x: 'cx', y: 'cy', pivotX: 100, pivotY: 60 }, sequences: [
+        { type: 'shape', shape: 'rect', name: 'face', width: 200, height: 120, cornerRadius: 14, initial: { x: 100, y: 60, anchorX: 0.5, anchorY: 0.5, fillColor: '#f2c14e' } },
+        { type: 'text', name: 'label', text: 'Task', style: { fontSize: 34, fill: '#1b1b1b' }, initial: { x: 100, y: 60, anchorX: 0.5, anchorY: 0.5 } },
+      ] },
+    ] } });
+    movie.pause();
+    // --- the recipe, as written
+    movie.hover({ only: ['card'], cursor: 'grab' });
+    canvas.addEventListener('pointerdown', (e) => {
+      const [x, y] = movie.canvasPoint(e);
+      if (!movie.pick(x, y, { only: ['card'] })) return;
+      const grip = { dx: movie.vars.cx - x, dy: movie.vars.cy - y };
+      canvas.style.cursor = 'grabbing';
+      const place = (ev) => {
+        const [px, py] = movie.canvasPoint(ev);
+        const cx = px + grip.dx, cy = py + grip.dy;
+        const over = movie.pick(cx, cy, { only: ['done'] });
+        return movie.setVars({ cx, cy, doneLit: over ? 0.6 : 0 });
+      };
+      const move = (ev) => { place(ev); };
+      const up = async (ev) => {
+        window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
+        canvas.style.cursor = '';
+        await place(ev);
+        const [px, py] = movie.canvasPoint(ev);
+        const under = movie.pick(px + grip.dx, py + grip.dy, { only: ['done'] });
+        if (under) await movie.setVars({ cx: 770, cy: 270, doneLit: 0 });
+        else await movie.setVars({ cx: 200, cy: 270, doneLit: 0 });
+      };
+      window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+    });
+    window.__ready = true;
+  </script>
+</body>
+</html>

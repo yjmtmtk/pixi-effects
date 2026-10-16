@@ -34,6 +34,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
 **Read `reference/direction.md` before writing a composition for a product film, a company introduction, a launch or a data story.** It is renderer-neutral: write `brief.md` (the one sentence to remember, the REAL assets with paths, what must never be invented; if a needed asset is missing, stop and ask), `style-guide.md` (palette and type taken from the real source, a motion rule per class of object) and `shotlist.md` (a row per beat with entry and exit state) next to the page; then build, then review the rendered frames cold. What is specific to this library:
 
 - **Time and sound:** pick a tempo whose bar is a round number of seconds (96 bpm: 2.5 s; 120 bpm: 2 s), put every cut on a bar line and every sfx on its beat. `npx pixi-effects check` prints a `music` read-back (bars per track, what starts on which beat, the drum span): verify the sound with it.
+- **Interactive pages (a person clicks, hovers, drags):** `movie.pick(x, y)` says what is under a point, `movie.hover({ onEnter, onLeave })` and the recipes `pick-click`, `drag-drop`, `drag-3d` build on it; `check` does not click, so **test the page by sending pointer events and reading the state** (serve the folder over http: a model, an image or a module beside the page does not load from file://). In a browser tool or over Chrome's protocol: `const r = canvas.getBoundingClientRect(); canvas.dispatchEvent(new PointerEvent('pointerdown', { clientX: r.left + x * r.width / W, clientY: r.top + y * r.height / H, bubbles: true, pointerId: 1 }))` (then `pointermove`, `pointerup`, with a `settle` of 300 ms after a `setVars` rebuild), and read `movie.vars`, `movie.currentFrame`, `movie.isPlaying`, `movie.pick(x, y)` and the canvas's `style.cursor`. A canvas for touch has `style="touch-action: none"`.
 - **Review:** `check --at 3.5,title@end,50% --pick 640,360` also says what is under that canvas point at each moment (the layers, top first; a three layer names the object) — a layout question you can answer without looking; `check --at 3.5,title@end,50%` writes the contact sheet and single frames; look at mid-transition frames of the exported file too. Frames are seekable and deterministic here: render the same range twice and compare the frames if you doubt it.
 - **Formats:** make the formats the human asked for, one if they did not say. When a vertical cut is wanted it is its own composition: one source, a layout function, `?f=9x16` (recipe `two-formats`); `check` and `render` take `--query f=9x16`.
 - Fit a picture into a rectangle with the `photo()` helper of that recipe (`scale: 'cover'` fits the PARENT only); designed pictures (posters, flyers, screenshots) are shown whole, never cropped.
@@ -1857,54 +1858,78 @@ A moving, shadow-casting model is held to "a function of the time" by `check`: p
 
 ## Click a layer: what is under the pointer (`movie.pick`)
 
-`movie.pick(x, y)` answers "what is drawn under this point, at the frame on screen" with no hit-testing code of yours: a flat layer by its own shape, a `threeD` card by its projected quad, a `three` layer by a ray (the hit says which object). `movie.canvasPoint(event)` turns a pointer event into canvas pixels, whatever size the canvas is shown at. Name the layers you want to react to.
+`movie.pick(x, y)` answers "what is drawn under this point, at the frame on screen" with no hit-testing code of yours: a flat layer by its own shape, a `threeD` card by its projected quad, a `three` layer by a ray (the hit says which object). `movie.canvasPoint(event)` turns a pointer event into canvas pixels, whatever size the canvas is shown at. Name the layers you want to react to: `only` / `ignore` take layer names (or paths; a group's name stands for everything in it). A `three` layer covers its whole picture but only what the ray meets is a hit: elsewhere the layers below are hit (the title, the background).
+
+An interactive page is the template with three changes: no `Controller` (it adds a player bar), `movie.loop = true` or `movie.pause()` as the page needs, and a handler on the canvas. A text that changes on a click is a **variable** (`{title}` in the text, `vars: { title }`, then `movie.setVars({ title })`: it rebuilds at the same frame, and a paused movie stays paused); `at` and `duration` are not variables. A **reaction** is a short animation: put its keyframes on the layer, seek to its start and play (`await movie.gotoFrame(0, true); movie.play()`); a movie that is not looping stops at its end by itself.
 
 ```js
 // @docs-only pick-click
-// in the page, after movie.init(...): a click on the fox, on the title, or on the wall behind them
+// the page: a title, and a fox (a three layer, name 'fox', followCamera) running in front of it
+//   await movie.init({ canvas, width: 960, height: 540, duration: 6, frameRate: 30, loop: true, vars: { title: 'CATCH THE FOX', hint: 'click it' },
+//     composition: { sequences: [
+//       { type: 'text', name: 'title', text: '{title}', style: { fontSize: 110, fill: '#ffffff' }, initial: { x: 'GW/2', y: 150, anchorX: 0.5, anchorY: 0.5 } },
+//       { type: 'text', name: 'hint', text: '{hint}', style: { fontSize: 32, fill: '#8fa0c8' }, initial: { x: 'GW/2', y: 500, anchorX: 0.5, anchorY: 0.5 } },
+//       { type: 'three', name: 'fox', followCamera: true, setup: ..., update: (t) => fox.pose(t) },        // recipe gltf-in-space
+//     ] } });
+//   movie.play();
 const canvas = document.getElementById('stage');
-canvas.addEventListener('click', (event) => {
-  const hit = movie.pick(...movie.canvasPoint(event));           // the layer on top of that point, or null
-  if (!hit) return;
-  if (hit.kind === 'three' && hit.three.object === 'fox') console.log('the fox, at distance', hit.three.distance);   // a three layer: the object the ray met
-  else if (hit.name === 'title') movie.play();                    // a flat layer: by its name
-});
-movie.hover({ ignore: ['background'], cursor: true,           // enter / leave as callbacks (it follows a picture that moves under a still pointer)
+movie.hover({ only: ['fox'], cursor: true,                         // 'pointer' over the fox, the normal arrow elsewhere (the title and the background are not listed)
   onEnter: (hit) => console.log('over', hit.name),
   onLeave: (hit) => console.log('left', hit.name) });
-// a test, or an AI checking its own page, asks about a chosen frame:  await movie.snapshot(90);  movie.pick(640, 360)
+canvas.addEventListener('click', async (event) => {
+  const hit = movie.pick(...movie.canvasPoint(event), { only: ['fox'] });   // null for a click anywhere else: nothing happens
+  if (!hit) return;
+  movie.pause();                                                    // the fox stops running
+  await movie.setVars({ title: 'GOTCHA!', hint: 'the fox stopped running' });   // the text is a variable: the movie is built again at this frame, still paused
+});
+// to ask about another frame, or from a test:  await movie.snapshot(90);  movie.pick(480, 270)
+// after something outside the movie that a layer reads changes while the movie is paused:  await movie.redraw();
 ```
 
-`pick` reads the frame as the last draw left it (it takes no time and has no clock), so a paused movie answers for the frame it shows. `movie.pick(x, y, { alpha: 0.1 })` looks at the picture and not its box (a transparent corner of a logo, the clear part of a drawn circle: not a hit). Dragging is built on `pick` too: recipes `drag-drop` (a flat layer) and `drag-3d` (an object of a three layer).
+`pick` reads the frame as the last draw left it (it takes no time and has no clock). `movie.pick(x, y, { alpha: 0.1 })` looks at the picture and not its box (a transparent corner of a logo, the clear part of a drawn circle: not a hit). Dragging is built on `pick` too: recipes `drag-drop` (a flat layer) and `drag-3d` (an object of a three layer). **Test an interactive page** by sending pointer events and reading the state (`SKILL.md`, "Interactive pages"): `check` does not click.
 
 ## Drag a layer and drop it on a target (`pick` and variables)
 
-A layer whose place is two variables moves when the page sets them: `movie.setVars({ cx, cy })` builds the composition again at the same frame (tens of milliseconds for a light composition; calls that fall behind are joined, so it is safe from `pointermove`). `pick` says what is taken (`only`) and what lies under it when it is let go (`ignore` the dragged layer). Listen on the window while it is held, so the pointer may leave the canvas. A heavy composition (a model to load again, a long sound) rebuilds slowly: for it, keep the dragged thing a light layer in the page's own overlay, and tell the movie only at the drop.
+A layer whose place is two variables moves when the page sets them: `movie.setVars({ cx, cy })` builds the composition again at the same frame (tens of milliseconds for a light composition; calls that fall behind are joined, so it is safe from `pointermove`). A glow whose `alpha` is a variable is a light that is on or off (`alpha: 'doneLit'`: any number a layer takes can be a variable name; write 0 and 1, not booleans). `pick` says what is taken (`only`) and what lies under it when it is let go (`ignore` the dragged layer). Listen on the window while it is held, so the pointer may leave the canvas. A heavy composition (a model to load again, a long sound) rebuilds slowly: keep what moves a light layer, and for a three scene read the place in `update` and call `await movie.redraw()` (recipe `drag-3d`).
+
+A card with a label is two layers: name the card's group (a `composition` layer, whose children are one target) or pass both names (`only: ['card', 'card-label']`). A zone with a label is two layers as well: ask with `only: ['done', 'trash']` and the labels are not in the way. Which zone is the card over: the zone under the card's middle (`pick(cx, cy)`), not under the pointer.
 
 ```js
 // @docs-only drag-drop
-// the composition: the card's place is the variables cx and cy; the zone is where it can be dropped
-//   await movie.init({ canvas, width: 960, height: 540, vars: { cx: 200, cy: 200 }, composition: { sequences: [
-//     { type: 'shape', shape: 'rect', name: 'zone', width: 280, height: 280, initial: { x: 760, y: 400, anchorX: 0.5, anchorY: 0.5, fillColor: '#2a3a66' } },
-//     { type: 'shape', shape: 'rect', name: 'card', width: 200, height: 120, initial: { x: 'cx', y: 'cy', anchorX: 0.5, anchorY: 0.5, fillColor: '#f2c14e' } },
+// the page: a canvas with  style="touch-action: none"  (a finger dragging must not scroll the page)
+//   await movie.init({ canvas, width: 960, height: 540, vars: { cx: 200, cy: 270, doneLit: 0 }, composition: { sequences: [
+//     { type: 'shape', shape: 'rect', name: 'done', width: 260, height: 200, initial: { x: 770, y: 270, anchorX: 0.5, anchorY: 0.5, fillColor: '#182038' } },
+//     { type: 'shape', shape: 'rect', name: 'done-glow', width: 260, height: 200, initial: { x: 770, y: 270, anchorX: 0.5, anchorY: 0.5, fillColor: '#3ddc97', alpha: 'doneLit' } },   // the light: a variable
+//     { type: 'composition', name: 'card', width: 200, height: 120, duration: 1, initial: { x: 'cx', y: 'cy', pivotX: 100, pivotY: 60 }, sequences: [   // the card and its label: ONE target (the group's name); a composition turns and sits about its pivot
+//       { type: 'shape', shape: 'rect', name: 'face', width: 200, height: 120, cornerRadius: 14, initial: { x: 100, y: 60, anchorX: 0.5, anchorY: 0.5, fillColor: '#f2c14e' } },
+//       { type: 'text', name: 'label', text: 'Task', style: { fontSize: 34, fill: '#1b1b1b' }, initial: { x: 100, y: 60, anchorX: 0.5, anchorY: 0.5 } },
+//     ] },
 //   ] } });
 //   movie.pause();                                    // a still picture: nothing plays while it is dragged
+movie.hover({ only: ['card'], cursor: 'grab' });                     // the cursor says it can be taken
 canvas.addEventListener('pointerdown', (e) => {
   const [x, y] = movie.canvasPoint(e);
-  if (!movie.pick(x, y, { only: ['card'] })) return;                 // only the card can be picked up
+  if (!movie.pick(x, y, { only: ['card'] })) return;                 // only the card (and its label) can be picked up
   const grip = { dx: movie.vars.cx - x, dy: movie.vars.cy - y };      // where in the card it was taken, so it does not jump
-  const place = (ev) => { const [px, py] = movie.canvasPoint(ev); return movie.setVars({ cx: px + grip.dx, cy: py + grip.dy }); };
+  canvas.style.cursor = 'grabbing';
+  const place = (ev) => {
+    const [px, py] = movie.canvasPoint(ev);
+    const cx = px + grip.dx, cy = py + grip.dy;
+    const over = movie.pick(cx, cy, { only: ['done'] });             // the zone under the card's middle: it lights while the card is over it
+    return movie.setVars({ cx, cy, doneLit: over ? 0.6 : 0 });
+  };
   const move = (ev) => { place(ev); };
   const up = async (ev) => {
     window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
+    canvas.style.cursor = '';
     await place(ev);                                                  // the card is where it was let go: now ask what is under it
     const [px, py] = movie.canvasPoint(ev);
-    const under = movie.pick(px, py, { ignore: ['card'] });           // the dragged layer is not what it lies on
-    if (under?.name === 'zone') await movie.setVars({ cx: 760, cy: 400 });   // snap into the zone
+    const under = movie.pick(px + grip.dx, py + grip.dy, { only: ['done'] });
+    if (under) await movie.setVars({ cx: 770, cy: 270, doneLit: 0 });          // snap into the middle of the zone
+    else await movie.setVars({ cx: 200, cy: 270, doneLit: 0 });                // anywhere else: back where it started
   };
   window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
 });
-movie.hover({ only: ['card'], cursor: 'grab' });                       // the cursor says it can be taken
 ```
 
 ## Drag an object of a three layer (`hit.three.grab`)
@@ -1931,7 +1956,34 @@ canvas.addEventListener('pointerdown', (e) => {
 });
 ```
 
-The grabbed point stays under the pointer exactly, whatever the camera does (the maths is the camera's own ray, not a guess of pixels per unit). To keep an object on the ground use `'floor'`; a pointer ray that points above the horizon never meets it and `move` answers null.
+The grabbed point stays under the pointer exactly, whatever the camera does (the maths is the camera's own ray, not a guess of pixels per unit).
+
+**On the ground:** use `'floor'`. Then `m.delta[1]` is 0: write only `pos.x` and `pos.z`, never `y`, and the object stays on the floor. A pointer ray that points above the horizon never meets the floor and `move` answers null (the `if (!m) return` keeps the object where it was). To see a floor in perspective: a camera above it, looking down at it (the composition's `y` runs DOWN, so a camera `y` smaller than the floor's is above it), and a floor big enough that its far edge stays above the horizon of the view.
+
+```js
+// @docs-only drag-3d-floor
+// in the composition:   { type: 'camera', initial: { x: 480, y: 40, z: 900, lookAtX: 480, lookAtY: 340, lookAtZ: 0 } },
+//                       { type: 'three', name: 'world', followCamera: true, setup, update: () => cube.position.set(pos.x, pos.y, pos.z) }
+// in setup:   the floor, 9000 px square, turned flat, its top at the composition's y = 440 (three's -440), and the cube standing on it (a 100 px cube: its middle 50 px above)
+//   const floor = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000), new THREE.MeshLambertMaterial({ color: 0x3b4f7a }));
+//   floor.rotation.x = -Math.PI / 2;  floor.position.set(480, -440, -400);  ctx.scene.add(floor);
+const pos = { x: 600, y: -390, z: -40 };                               // y is the cube's middle: it never changes
+canvas.addEventListener('pointerdown', (e) => {
+  const hit = movie.pick(...movie.canvasPoint(e), { only: ['world'] });
+  if (hit?.three?.object !== 'cube') return;                         // the floor is a hit of the same layer, with another object name
+  const grab = hit.three.grab('floor');
+  const start = { ...pos };
+  const move = (ev) => {
+    const m = grab.move(...movie.canvasPoint(ev));
+    if (!m) return;                                                  // above the horizon: leave it
+    pos.x = Math.max(60, Math.min(900, start.x + m.delta[0]));       // along the floor, kept inside it
+    pos.z = Math.max(-600, Math.min(300, start.z + m.delta[2]));     // nearer or farther; y is never written
+    movie.redraw();
+  };
+  const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+  window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+});
+```
 
 ## Subtitles from an SRT file
 
@@ -4149,6 +4201,7 @@ interface RebuildReport { reason: 'vars' | 'resize' | 'rebuild'; ms: number; aud
 - The new composition is built while the old one goes on; at the swap the movie keeps doing what it is doing at that moment: the same frame, playing or paused (a `pause()`, a seek or a `play()` you made during the build is kept), the poster if it was shown. A playing movie whose sound is unchanged (`audio: 'reused'`) is not stopped at all: the frame clock and the sound go on and only the picture is swapped, so rebuilds in a row (a pointer) do not hold the playhead back. When the sound changed, the movie stops and plays on from the same frame with the new sound. A `playUntil()` in flight ends. The canvas changes size at the swap, not before. A `render()` or `peek()` in flight is not interrupted: the swap waits for it.
 - The sound is mixed only when it changed: `audio: 'reused'` means the same mix as before (the mix is the slow part, 0.6 to 0.8 s for a film; the rest takes about 20 ms). A time remap (`warp` / `sourceMap`) turns the cache off.
 - Calls that arrive during a rebuild are joined: at most one rebuild runs and one waits, with the latest values. Safe to call from `pointermove` or `scroll`: a rebuild that leaves the sound alone takes tens of milliseconds (11 to 42 ms on four gallery pieces), one that mixes the sound again 0.6 to 0.8 s, so a slider that changes the sound will lag behind the hand.
+- A rebuild builds every layer again, a `three` layer included (its `setup` runs again: a model is loaded again, a renderer made again): fine for a click, slow for what changes while the pointer moves in a three scene. For that, keep the object's place in a variable of the page, read it in the layer's `update`, and call `await movie.redraw()` (recipe `drag-3d`).
 - A rebuild that fails (a bad expression, a missing asset, a size that is not pixels) rejects, emits `error` with `where: 'rebuild'`, and the movie goes on with what it had. A `destroy()` during a rebuild ends it the same way.
 - To follow a window: observe a CSS-sized box around the canvas, not the canvas itself (the movie sets the canvas's pixel size): `new ResizeObserver(() => movie.resize(Math.round(box.clientWidth * devicePixelRatio), Math.round(box.clientHeight * devicePixelRatio))).observe(box)` (the `liquid-layout` recipe).
 
@@ -4233,6 +4286,8 @@ interface PickHit {
 }
 // options: { only?: string[], ignore?: string[], alpha?: number }   layer names or paths; alpha: see below
 ```
+
+A `three` layer covers its whole picture, but only what its ray meets is a hit: elsewhere the layers below are hit (a title, the background). `only` / `ignore` entries are layer names or paths, and a group's name (a nested composition) stands for everything in it: a card and its label are one target as `only: ['card']`.
 
 How a layer is asked: a flat layer by its own shape (a rotated one by its rotated rectangle, a shape by its outline: a circle is hit inside the circle, not at the corners of its box), text, images and video by their box; a `threeD` layer by its projected quad (the card seen from behind is hit too; a `threeD` composition is one card: what is inside it is not asked); a `three` layer by a ray through its camera (with `followCamera` the composition's camera), skipping invisible objects: `hit.three.object` is the name of the object it met (its own, or its nearest ancestor's that has one) and `object3d` the live three object. A layer not alive at the frame, at alpha 0, hidden by a parent, or outside its mask is not hit; a group (a nested composition without `threeD`) is not a target, the layers in it are. **`{ alpha }` looks at the picture, not the box**: `movie.pick(x, y, { alpha: 0.1 })` leaves out a pixel of an image, a video or a `canvas` layer whose alpha is at or below 0.1 (a transparent corner of a logo, the clear part of a circle drawn on a canvas); without it the box is the picture and nothing is read. Shapes are always hit by their outline, text and `shader` layers by their box (a shader's WebGL picture cannot be read back safely). A picture that cannot be read (an image from another origin: load it with `crossorigin="anonymous"` or from the same site) stays a hit, with one warning. What is not here: touch with several fingers.
 

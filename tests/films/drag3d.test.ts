@@ -32,6 +32,31 @@ runFilms('Dragging a three object with hit.three.grab', () => {
     });
   }, 180_000);
 
+  it("on a floor seen in perspective the cube slides along the floor ('floor' plane): its height does not change, it follows the pointer, and a pointer above the horizon moves nothing", async () => {
+    await withFilm('drag3d', async (film) => {
+      expect(await film.eval<string>('JSON.stringify(window.__logs)')).toBe('[]');
+      // find the cube on the screen: it is the object named "cube" under some point
+      let at: [number, number] | null = null;
+      for (let y = 100; y < 270 && !at; y += 4) for (let x = 100; x < 400; x += 4) { if ((await under(film, x, y))?.three?.object === 'cube') { at = [x, y]; break; } }
+      expect(at, 'the cube is on screen').not.toBeNull();
+      const [x0, y0] = at!;
+      const before = await film.eval<{ x: number; y: number; z: number }>('({ ...window.__pos })').catch(() => null);
+      await fire(film, 'pointerdown', x0, y0);
+      await fire(film, 'pointermove', x0 + 60, y0 + 30); await fire(film, 'pointermove', x0 + 90, y0 + 40);
+      await settle(film);
+      const now = await under(film, x0 + 90, y0 + 40);
+      expect(now?.three?.object, 'the cube is under the pointer after the drag').toBe('cube');
+      const pos = await film.eval<{ x: number; y: number; z: number }>('JSON.parse(JSON.stringify(window.__pos))');
+      expect(pos.y, 'it did not float up or sink: y is the floor').toBeCloseTo(-170, 6);
+      expect(pos.x, 'it moved along the floor (x)').toBeGreaterThan(240);
+      expect(pos.z, 'and nearer the camera (z), the pointer having gone down the picture').toBeGreaterThan(-60);
+      await fire(film, 'pointermove', x0 + 90, 2);                            // far above: the ray goes over the horizon and never meets the floor
+      await settle(film);
+      expect(await film.eval<{ x: number; y: number; z: number }>('JSON.parse(JSON.stringify(window.__pos))'), 'a ray that misses the floor leaves the cube where it was').toEqual(pos);
+      void before;
+    }, { query: 'floor=1' });
+  }, 180_000);
+
   it('only the cube can be taken: a press on the background drags nothing', async () => {
     await withFilm('drag3d', async (film) => {
       await fire(film, 'pointerdown', 20, 20);

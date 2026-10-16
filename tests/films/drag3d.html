@@ -3,7 +3,7 @@
 <head><meta charset="UTF-8" /><title>film · dragging an object of a three layer</title></head>
 <body style="margin:0">
   <!-- Test film (tests/films/drag3d.test.ts): a cube in a three layer that follows the composition's camera; the page holds its place (`pos`, read by update) and moves it by hit.three.grab('wall') while
-       the pointer is held: the code of the recipe `drag-3d`. The canvas is shown at twice its size. fire(type, x, y) sends a pointer event at canvas pixel (x, y). -->
+       the pointer is held: the code of the recipe `drag-3d`. ?floor=1: the camera is above a floor seen in perspective and the cube slides on it ('floor' plane). The canvas is shown at twice its size. fire(type, x, y) sends a pointer event at canvas pixel (x, y). -->
   <canvas id="stage" width="480" height="270" style="width:960px;height:540px;display:block"></canvas>
   <script>
     window.__logs = [];
@@ -21,13 +21,18 @@
     const movie = new Movie();
     window.movie = movie;
     window.fire = (type, x, y) => { const r = canvas.getBoundingClientRect(); canvas.dispatchEvent(new PointerEvent(type, { clientX: r.left + x * r.width / 480, clientY: r.top + y * r.height / 270, bubbles: type !== 'pointerleave', pointerId: 1 })); };
-    const pos = { x: 240, y: -135, z: 0 };                                   // where the cube is, in three's units (here: composition pixels, y up); update reads it
+    const FLOOR = new URLSearchParams(location.search).get('floor') === '1';
+    const pos = FLOOR ? { x: 240, y: -170, z: -60 } : { x: 240, y: -135, z: 0 };                                   // where the cube is, in three's units (here: composition pixels, y up); update reads it
+    window.__pos = pos;
     let cube;
     await movie.init({ canvas, width: 480, height: 270, duration: 3, frameRate: 30, background: '#102040', composition: { sequences: [
       { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1c2b4d' } },
-      { type: 'camera' },
+      FLOOR ? { type: 'camera', initial: { x: 240, y: 20, z: 450, lookAtX: 240, lookAtY: 170, lookAtZ: 0 } } : { type: 'camera' },       // y runs DOWN: a camera y smaller than the floor's is above it
       { type: 'three', name: 'world', followCamera: true, antialias: false,
-        setup: (ctx) => { cube = new THREE.Mesh(new THREE.BoxGeometry(60, 60, 60), new THREE.MeshBasicMaterial({ color: 0x3aa56e })); cube.name = 'cube'; ctx.scene.add(cube); },
+        setup: (ctx) => {
+          cube = new THREE.Mesh(new THREE.BoxGeometry(60, 60, 60), new THREE.MeshBasicMaterial({ color: 0x3aa56e })); cube.name = 'cube'; ctx.scene.add(cube);
+          if (FLOOR) { const floor = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), new THREE.MeshBasicMaterial({ color: 0x3b4f7a })); floor.rotation.x = -Math.PI / 2; floor.position.set(240, -200, -400); ctx.scene.add(floor); }   // big, so its far edge stays above the horizon of the view
+        },
         update: () => { cube.position.set(pos.x, pos.y, pos.z); } },
     ] } });
     movie.pause();
@@ -35,8 +40,8 @@
     // --- the recipe `drag-3d`
     canvas.addEventListener('pointerdown', (e) => {
       const hit = movie.pick(...movie.canvasPoint(e), { only: ['world'] });
-      if (hit?.three?.object !== 'cube') return;                              // only the cube can be taken
-      const grab = hit.three.grab('wall');                                    // it slides on the wall plane through the point it was taken at
+      if (hit?.three?.object !== 'cube') return;                              // (the floor is a hit too, with another object name)                              // only the cube can be taken
+      const grab = hit.three.grab(FLOOR ? 'floor' : 'wall');                  // it slides on the plane through the point it was taken at ('floor': along the ground, 'wall': across the picture)
       const start = { ...pos };
       const move = (ev) => {
         const m = grab.move(...movie.canvasPoint(ev));                        // where the pointer's ray meets that plane, and how far from where it was taken
