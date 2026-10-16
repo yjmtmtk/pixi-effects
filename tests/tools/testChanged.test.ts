@@ -18,7 +18,7 @@ describe('testsFor: which browser tests a change needs', () => {
   it('a change to the key lint or a gallery piece needs the corpus test', () => {
     expect(testsFor(['src/core/lint.ts']).files).toContain('tests/tools/noFalseWarnings.test.ts');
     const piece = testsFor(['examples/gallery/aurora-logo.html']).files;
-    expect(piece).toEqual(expect.arrayContaining(['tests/tools/noFalseWarnings.test.ts', 'tests/tools/gallery.test.ts']));
+    expect(piece).toEqual(expect.arrayContaining(['tests/tools/noFalseWarnings.test.ts', 'tests/site/galleryBrowser.test.ts']));
   });
   it('a change to documents needs no browser test at all', () => {
     const r = testsFor(['docs/dsl.md', 'skills/pixi-effects/reference/cheatsheet.md', 'CHANGELOG.md', 'llms-full.txt']);

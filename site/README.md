@@ -28,7 +28,7 @@ The repository root is also the site root, but the staged copy is the truth: `st
 ## Common jobs
 
 - **Change the navigation, the header or the footer**: edit `scripts/site-parts.mjs` (the entrances are `NAV`; the footer is built from it too), run `npm run site:sync`. A test fails while any page is out of date (`node scripts/sync-site.mjs --check`).
-- **Add a page**: put the three markers and `<main id="main">` in it, add it to `site/pages.json` (`current` is the nav entry it belongs to; `parts` limits the markers, `regions` asks for generated lists), run `npm run site:sync`, and add it to `PAGES` in `tests/tools/siteShell.test.ts`.
+- **Add a page**: put the three markers and `<main id="main">` in it, add it to `site/pages.json` (`current` is the nav entry it belongs to; `parts` limits the markers, `regions` asks for generated lists), run `npm run site:sync`, and add it to `PAGES` in `tests/site/siteShellBrowser.test.ts`.
 - **Add a gallery piece**: see `examples/gallery/BRIEF.md`; `node scripts/build-gallery.mjs` and `node scripts/make-posters.mjs`.
 - **Where a style goes**: shared by two or more pages → `site/shared/site.css`; used by one page → that page's own stylesheet.
 
@@ -36,7 +36,7 @@ The repository root is also the site root, but the staged copy is the truth: `st
 
 - `npm run test:fast`: includes the shell, the tokens and the link check of the staged site: in every page, each `href` / `src` / `poster` / `srcset`, each import-map target and each relative `import` in an inline module script must resolve to a file, and none may start with `/` (which breaks under `/pixi-effects/`). It does not follow links inside separate script or style files, and it does not run the pages (the real-browser tests do).
 - `node scripts/site-links.mjs _site`: the same link check on a staged folder.
-- `tests/tools/siteShell.test.ts` and `tests/tools/gallery.test.ts` (real Chrome): the header fits at 390 and 1440 px, the theme switch changes the colours, the gallery filters and theatre still work.
+- `tests/site/siteShellBrowser.test.ts` and `tests/site/galleryBrowser.test.ts` (real Chrome): the header fits at 390 and 1440 px, the theme switch changes the colours, the gallery filters and theatre still work.
 
 ## Release
 

@@ -20,7 +20,7 @@ export const AREAS = [
   { name: 'grain and filters', paths: ['src/filters/', 'src/core/timeFilters.ts'], tests: ['tests/tools/grain.test.ts', 'tests/films/determinism.test.ts'] },
   { name: 'key warnings', paths: ['src/core/lint.ts', 'src/core/layerKeys.ts', 'src/core/options.ts', 'src/sequences/Composition.ts'], tests: ['tests/tools/noFalseWarnings.test.ts'] },
   { name: 'test films', paths: ['tests/films/'], tests: ['tests/films/'] },
-  { name: 'gallery pieces', paths: ['examples/gallery/'], tests: ['tests/tools/gallery.test.ts', 'tests/tools/noFalseWarnings.test.ts'] },
+  { name: 'gallery pieces', paths: ['examples/gallery/'], tests: ['tests/site/galleryBrowser.test.ts', 'tests/tools/noFalseWarnings.test.ts'] },
   { name: 'text, motion, seeking', paths: ['src/text/', 'src/presets/animateText.ts', 'src/presets/wiggle.ts', 'src/presets/followPath.ts', 'src/presets/cameraPath.ts', 'src/presets/orbit.ts'], tests: ['tests/tools/animateText.test.ts', 'tests/tools/pathMotion.test.ts', 'tests/films/determinism-seeded.test.ts', 'tests/films/determinism.test.ts'] },
   { name: 'particles', paths: ['src/presets/particles.ts'], tests: ['tests/tools/particles.test.ts', 'tests/films/determinism.test.ts'] },
   { name: 'pick', paths: ['src/core/pick.ts', 'src/core/hover.ts'], tests: ['tests/films/pick.test.ts', 'tests/films/interact.test.ts', 'tests/films/drag3d.test.ts', 'tests/films/drag-recipe.test.ts'] },
@@ -36,17 +36,17 @@ export const AREAS = [
   { name: 'chat template', paths: ['ai/chat-template.html', 'ai/CHAT.md'], tests: ['tests/tools/chatTemplate.test.ts', 'tests/tools/playground.test.ts'] },
   { name: 'player and presenter', paths: ['src/Controller.ts', 'src/present/', 'src/core/stops.ts', 'src/core/Movie.ts', 'src/loader.css', 'src/core/loader.ts'], tests: ['tests/tools/controllerLayout.test.ts', 'tests/tools/presenter.test.ts', 'tests/tools/loader.test.ts'] },
   { name: 'export and frames', paths: ['src/core/Renderer.ts', 'src/core/renderRange.ts', 'src/core/motionBlur.ts', 'src/core/onion.ts', 'src/core/frames.ts', 'src/core/poster.ts'], tests: ['tests/films/export-range.test.ts', 'tests/films/export-formats.test.ts', 'tests/films/export-frames.test.ts', 'tests/films/determinism.test.ts', 'tests/tools/motionBlur.test.ts', 'tests/tools/onion.test.ts', 'tests/films/determinism-poster.test.ts', 'tests/tools/lastFrame.test.ts'] },
-  { name: 'site and landing', paths: ['site/', 'index.html', 'for-ai.html', 'scripts/sync-site.mjs', 'scripts/site-parts.mjs', 'scripts/stage-site.mjs'], tests: ['tests/tools/siteShell.test.ts', 'tests/tools/landing.test.ts'] },
+  { name: 'site and landing', paths: ['site/', 'index.html', 'for-ai.html', 'scripts/sync-site.mjs', 'scripts/site-parts.mjs', 'scripts/stage-site.mjs'], tests: ['tests/site/siteShellBrowser.test.ts', 'tests/site/landing.test.ts'] },
 ];
 
 /** Changes that need no browser test: documents and generated texts (the unit tests, which always run, read them). */
-const NO_BROWSER = [/\.md$/, /^llms(-full)?\.txt$/, /^docs\//, /^CHANGELOG/, /^tests\/(?!tools\/|support\/|films\/)/, /^examples\/gallery\/(_notes|posters)\//, /^\.superpowers\//, /^README/];
+const NO_BROWSER = [/\.md$/, /^llms(-full)?\.txt$/, /^docs\//, /^CHANGELOG/, /^tests\/(?!tools\/|site\/|support\/|films\/)/, /^examples\/gallery\/(_notes|posters)\//, /^\.superpowers\//, /^README/];
 
 /** → { full, files }: `full` when something unknown changed; else the browser test files to run (none for documents only). */
 export function testsFor(changed) {
   const files = new Set();
   for (const f of [...new Set(changed)]) {
-    if (/^tests\/tools\/.+\.test\.ts$/.test(f)) { files.add(f); continue; }              // a browser test that changed runs itself
+    if (/^tests\/(tools|site)\/.+\.test\.ts$/.test(f)) { files.add(f); continue; }              // a browser test that changed runs itself
     if (NO_BROWSER.some(re => re.test(f))) continue;
     const hit = AREAS.filter(a => a.paths.some(p => f === p || f.startsWith(p)));
     if (!hit.length) return { full: true, files: [] };                                    // unknown (or the build, or the test tools): everything
