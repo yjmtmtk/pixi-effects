@@ -35,8 +35,8 @@ interface Entry { kind: LightState['kind']; light: Light; target: Object3D | nul
  * not removed: the shader of a three layer must not be rebuilt as lights come and go).
  *
  * Intensity: three divides a diffuse surface by pi, so a light of intensity 1 is multiplied by pi to be "as bright as the colour" like a card's shading. Falloff: 'none' is no
- * attenuation; 'inverseSquare' is decay 2 with the intensity scaled so it is full at `radius`; 'smooth' is three's own cutoff at radius + falloffDistance (the same idea, not the
- * same curve). Shadows follow the light (castsShadows: the layer's own meshes cast and receive).
+ * attenuation; 'inverseSquare' is decay 2 with the intensity scaled so it is full at `radius` (it keeps rising inside it, where the composition's stays at 1); 'smooth' is three's
+ * cut-off fitted to the composition's curve (see below). Shadows follow the light (castsShadows: the layer's own meshes cast and receive).
  */
 export class LightMirror {
   private entries: Entry[] = [];
@@ -88,7 +88,13 @@ export class LightMirror {
     if (s.kind === 'point' || s.kind === 'spot') {
       const l = light as PointLight | SpotLight;
       if (s.falloff === 'inverseSquare') { l.distance = 0; l.decay = 2; intensity *= s.radius * s.radius; }
-      else if (s.falloff === 'smooth') { l.distance = s.radius + s.falloffDistance; l.decay = 0; }
+      else if (s.falloff === 'smooth') {
+        // The composition: 1 inside `radius`, a smoothstep down to 0 at radius + falloffDistance. three's cut-off distance D with decay 0 attenuates by saturate(1 - (d/D)^4)^2, a gentler curve that
+        // starts to fall at once. A cut-off and a gain chosen from where the fall starts (p = radius / (radius + falloffDistance)) halve the largest difference over the range (0.15-0.40 with
+        // D = radius + falloffDistance and no gain, 0.09-0.17 here for a fall that is not steep); a fall that is steep against its radius cannot be matched by three's curve.
+        const reach = s.radius + Math.max(s.falloffDistance, 1e-3), p = s.radius / reach;
+        l.distance = reach * (0.8 + 0.45 * p); l.decay = 0; intensity *= 0.87 + 0.45 * p;
+      }
       else { l.distance = 0; l.decay = 0; }
     }
     if (s.kind === 'spot') {

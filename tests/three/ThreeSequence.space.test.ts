@@ -4,7 +4,7 @@ import { MockWebGLRenderer } from './mockRenderers';
 // the real three (cameras, lights, maths), a stand-in renderer: this file is about what the layer hands to the scene, not about pixels (the film tests/films/three-space does those)
 vi.mock('three', async (orig) => ({ ...(await orig<typeof import('three')>()), WebGLRenderer: (await import('./mockRenderers')).MockWebGLRenderer }));
 
-import { OrthographicCamera, PerspectiveCamera, PointLight } from 'three';
+import { BoxGeometry, Mesh, MeshBasicMaterial, OrthographicCamera, PerspectiveCamera, PointLight } from 'three';
 import { ThreeSequence } from '../../src/three/ThreeSequence';
 import type { ThreeContext, ThreeSequenceSpec } from '../../src/three/types';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
@@ -123,6 +123,37 @@ describe('followLights', () => {
     await seq.build(); await seq.awaitFrameAt(1);
     expect(seen.camAtUpdate).toEqual([0, 0, 0]);                              // the camera is still the layer's own
     expect(lightsIn(seq)).toHaveLength(1);
+  });
+});
+
+describe("followLights and an inverse-square light with objects inside its radius", () => {
+  const box = (ctx: ThreeContext) => { ctx.scene.add(new Mesh(new BoxGeometry(100, 100, 100), new MeshBasicMaterial())); };
+  const inverse = (radius: number, falloff: 'inverseSquare' | 'smooth' | 'none' = 'inverseSquare') => { spaceAt.mockImplementation((t: number) => ({ camera: cam(480 + 100 * t), lights: [{ ...lamp, falloff, radius }], fog: fogNow })); };
+  const said = (warn: ReturnType<typeof vi.spyOn>) => warn.mock.calls.map((c) => String(c[0])).filter((m) => /inverseSquare/.test(m));
+  const restore = () => spaceAt.mockImplementation((t: number) => ({ camera: cam(480 + 100 * t), lights: [lamp], fog: fogNow }));
+
+  it("the composition holds an inverse-square light at full strength inside its radius, three's keeps rising: said once, naming the layer, the light, how close and the way out", async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    inverse(2000);                                                            // the lamp is ~770 px from the box: well inside 2000
+    const { seq } = make({ followLights: true, name: 'world', setup: box });
+    await seq.build(); await seq.awaitFrameAt(1); await seq.awaitFrameAt(2);
+    const m = said(warn);
+    expect(m).toHaveLength(1);
+    expect(m[0]).toMatch(/"world"/);
+    expect(m[0]).toMatch(/radius 2000/);
+    expect(m[0]).toMatch(/smooth|radius/);
+    restore();
+  });
+
+  it("an object beyond the radius is matched exactly: no warning; neither for 'smooth' nor with no falloff", async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    for (const [falloff, radius] of [['inverseSquare', 300], ['smooth', 2000], ['none', 2000]] as const) {
+      inverse(radius, falloff);
+      const { seq } = make({ followLights: true, setup: box });
+      await seq.build(); await seq.awaitFrameAt(1);
+    }
+    expect(said(warn)).toHaveLength(0);
+    restore();
   });
 });
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Changed: `followLights` fits the falloff better.** `falloff: 'smooth'` on a mirrored light is now three's cut-off distance and gain chosen from where the fall starts (before: the cut-off at `radius + falloffDistance`), which halves the largest difference to the composition's curve (0.15–0.40 before, 0.09–0.17 for a fall that is not steep; in the real picture mean 0.08–0.28 of 255, was 1.0–1.2). `'inverseSquare'` was already exact outside the radius (mean 0.02–0.03) but blows out inside it (three keeps rising where the composition holds 1; measured mean 21 of 255 with the lit objects inside the radius): the layer now says so once, with the distance and the way out (a smaller radius, or `'smooth'`). `tests/films/three-space`, `tests/three/spaceBridge.test.ts`.
+
 ## 0.40.0
 
 The `three` layer grows up: it can live in the composition's space, it loads glTF models, `check` holds it to the library's contract, and it can use three's WebGPU renderer. Nothing else changed; one type-only break (the last entry).

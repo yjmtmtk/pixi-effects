@@ -43,6 +43,25 @@ runFilms('Three layer in the composition\'s space: the same camera and lights as
     expect(w.mean, 'if this ever drops under 0.4 the default pipeline matches the cards: say so in docs/dsl.md').toBeGreaterThan(0.4);
   }, 120_000);
 
+  for (const light of ['point', 'spot']) {
+    it(`falloff 'smooth' on a ${light} light: three's cut-off is fitted to the composition's curve (measured mean 0.08–0.28 of 255 where the fall changes the card by 10–23; the plain cut-off at radius + falloffDistance was 1.0–1.2)`, async () => {
+      const q = `lights=${light}&falloff=smooth&radius=200&falldist=400&cm=0`;
+      const card = await frames(`mode=board&${q}`, [0, 45, 89]), three = await frames(`mode=three&${q}`, [0, 45, 89]);
+      expect(worst(card, three).mean).toBeLessThan(0.6);
+    }, 120_000);
+  }
+
+  it("falloff 'inverseSquare' outside the radius matches the composition's (measured mean 0.02–0.03 of 255); inside the radius three keeps rising where the composition holds 1, and the layer says so once", async () => {
+    const outside = 'lights=point&falloff=inverseSquare&radius=200&cm=0';
+    const card = await frames(`mode=board&${outside}`, [0, 45, 89]), three = await frames(`mode=three&${outside}`, [0, 45, 89]);
+    expect(worst(card, three).mean).toBeLessThan(0.15);
+    const inside = 'lights=point&falloff=inverseSquare&radius=900&cm=0';
+    const cardIn = await withFilm('three-space', (film) => film.eval<number[]>('framePixels(0)'), { query: `mode=board&${inside}` });
+    const { px, logs } = await withFilm('three-space', async (film) => ({ px: await film.eval<number[]>('framePixels(0)'), logs: JSON.parse(await film.eval<string>('JSON.stringify(window.__logs)')) as string[] }), { query: `mode=three&${inside}` });
+    expect(diff(cardIn, px).mean, 'the blow-out is real (measured mean 21): the warning is not for nothing').toBeGreaterThan(5);
+    expect(logs.filter((l) => /inverseSquare/.test(l))).toHaveLength(1);
+  }, 180_000);
+
   it("followFog: three's Fog is close to the composition's fog, not equal (three fades with smoothstep, the composition linearly): measured mean 0.5–1.8 of 255 against the card, where the fog itself changes the picture by 2–7", async () => {
     const at = [0, 20, 45];
     const fogged = await frames('mode=board&lights=none&fog=1', at), three = await frames('mode=three&lights=none&fog=1', at), plain = await frames('mode=board&lights=none', at);

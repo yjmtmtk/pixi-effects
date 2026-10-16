@@ -4,7 +4,7 @@
 <body>
   <!-- Test film (tests/films/three-space.test.ts): the same composition (a camera that moves and changes fov, optionally lights) drawn two ways:
        ?mode=board: three flat cards (shape layers with threeD: true), the composition's own 2.5D;  ?mode=three: three flat planes in ONE `three` layer with followCamera / followLights.
-       ?shadow=1: a spot light that casts shadows, a wall and a card in front of it that casts one;  ?fog=1: the camera writes fog (near 150, far 600, #0a1020);  ?lights=none|ambient|point|parallel|spot  ?lamp=late: a point light that only lives from 1 s to 2 s  ?cm=0: colour management off in the layer (what makes a Lambert plane shade like a card).
+       ?falloff=smooth|inverseSquare (with ?lights=point|spot: the light falls off with the distance; radius and falloffDistance are 300 / 300 at 960 x 540);  ?shadow=1: a spot light that casts shadows, a wall and a card in front of it that casts one;  ?fog=1: the camera writes fog (near 150, far 600, #0a1020);  ?lights=none|ambient|point|parallel|spot  ?lamp=late: a point light that only lives from 1 s to 2 s  ?cm=0: colour management off in the layer (what makes a Lambert plane shade like a card).
        The page gives the test framePixels, pixelAt, hashOf and pngOf. -->
   <canvas id="stage" width="480" height="270"></canvas>        <!-- ?big=1: the same film at 1280 x 720 (everything scaled), where a scale-blind shadow bias loses the shadow -->
   <script>
@@ -38,6 +38,8 @@
     }[lamp === 'late' ? 'lampOnly' : kind];
     const fog = q.get('fog') === '1';
     const shadow = q.get('shadow') === '1';
+    const FALL = q.get('falloff'), RADIUS = Number(q.get('radius') || 300), FALLDIST = Number(q.get('falldist') || 300);
+    if (FALL) for (const l of LIGHTS) if (l.kind === 'point' || l.kind === 'spot') { l.falloff = FALL; l.initial = { ...l.initial, radius: s(RADIUS), falloffDistance: s(FALLDIST) }; }
     const sequences = shadow ? [
       { type: 'light', kind: 'ambient', initial: { intensity: 0.3 } },
       { type: 'light', kind: 'spot', castsShadows: true, initial: { x: s(300), y: s(80), z: s(700), lookAtX: s(480), lookAtY: s(270), lookAtZ: 0, coneAngle: 70, coneFeather: 0.3, intensity: 1, shadowDarkness: 0.8 } },

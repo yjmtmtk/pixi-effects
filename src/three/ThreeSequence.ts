@@ -1,5 +1,5 @@
 import { Sprite, Texture } from 'pixi.js';
-import { PerspectiveCamera, Scene, WebGLRenderer, type Camera } from 'three';
+import { Box3, PerspectiveCamera, Scene, Vector3, WebGLRenderer, type Camera } from 'three';
 import type { WebGPURenderer } from 'three/webgpu';
 import { Sequence } from '../sequences/Base';
 import { buildScope } from '../expr/Scope';
@@ -226,11 +226,30 @@ export class ThreeSequence extends Sequence {
     if (spec.followLights) {
       const mirror = (this._lightMirror ??= new LightMirror(scene, Math.max(ctx.width, ctx.height) * 2));
       mirror.update(space.lights);
+      if (!this._warnedSpace.has('inverseSquare')) this._checkInverseSquare(space.lights, scene, spec.name);
       if (mirror.castsShadows && !ctx.renderer.shadowMap.enabled) ctx.renderer.shadowMap.enabled = true;
     }
     if (spec.followFog) {
       if (space.fog && space.fog.amount !== 1) this._saidOnce('fogAmount', `followFog: the camera's fogAmount is ${space.fog.amount}, and three's Fog has no amount below 1: the layer uses the full amount (set fogColor to the colour you want at the far end, or leave followFog off and make the fog yourself from ctx.space.fog)`, spec.name);
       (this._fogMirror ??= new FogMirror(scene)).update(space.fog);
+    }
+  }
+
+  /**
+   * An inverse-square light is held at full strength inside its `radius` by the composition; three's decay-2 light keeps rising (4x at half the radius, 11x at a third). When the scene has
+   * an object closer to such a light than 0.8 of its radius, say so once, with the way out. (The check is the scene's bounding box against the light's place: no object is measured.)
+   */
+  private _checkInverseSquare(lights: ReadonlyArray<{ kind: string; falloff: string; radius: number; x: number; y: number; z: number }>, scene: Scene, name: string | undefined): void {
+    const near = lights.filter((l) => l.falloff === 'inverseSquare' && (l.kind === 'point' || l.kind === 'spot'));
+    if (!near.length) return;
+    const box = new Box3().setFromObject(scene);
+    if (box.isEmpty()) return;
+    for (const l of near) {
+      const d = box.distanceToPoint(new Vector3(l.x, -l.y, l.z));
+      if (d < 0.8 * l.radius) {
+        this._saidOnce('inverseSquare', `followLights: a light with falloff 'inverseSquare' and radius ${l.radius} is only ${Math.round(d)} px from the nearest part of the scene. The composition holds such a light at full strength inside its radius; three's inverse-square light keeps rising there (${(Math.pow(l.radius / Math.max(d, 1), 2)).toFixed(1)}x at that distance), so those parts come out much brighter. Make the radius smaller than that distance, or use falloff 'smooth' (it is fitted to the composition's curve)`, name);
+        return;
+      }
     }
   }
 

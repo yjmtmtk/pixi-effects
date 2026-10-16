@@ -63,12 +63,35 @@ describe('the composition lights, in three', () => {
     expect(spot.target.position.toArray()).toEqual([480, -270, 0]);
   });
 
-  it("falloff 'none' is no attenuation (distance 0, decay 0); 'inverseSquare' is decay 2 and full at `radius` (intensity x radius^2); 'smooth' reaches nothing at radius + falloffDistance", () => {
-    const { scene } = made([light({ falloff: 'none' }), light({ falloff: 'inverseSquare', radius: 400 }), light({ falloff: 'smooth', radius: 300, falloffDistance: 200 })]);
-    const [a, b, c] = lightsOf(scene) as PointLight[];
+  it("falloff 'none' is no attenuation (distance 0, decay 0); 'inverseSquare' is decay 2 and full at `radius` (intensity x radius^2)", () => {
+    const { scene } = made([light({ falloff: 'none' }), light({ falloff: 'inverseSquare', radius: 400 })]);
+    const [a, b] = lightsOf(scene) as PointLight[];
     expect([a!.distance, a!.decay]).toEqual([0, 0]);
     expect(b!.decay).toBe(2); expect(b!.intensity).toBeCloseTo(Math.PI * 400 * 400, 3);
-    expect(c!.distance).toBe(500);
+  });
+
+  describe("falloff 'smooth' (full inside radius, nothing at radius + falloffDistance, smoothstep between)", () => {
+    // three's own attenuation of a point light with a cut-off distance and decay 0, and the composition's, as numbers
+    const clamp = (x: number, a: number, b: number) => Math.min(b, Math.max(a, x));
+    const composition = (d: number, r: number, fd: number) => { const t = clamp((d - r) / fd, 0, 1); return 1 - t * t * (3 - 2 * t); };
+    const threes = (d: number, l: PointLight) => (l.intensity / Math.PI) * clamp(1 - Math.pow(d / l.distance, 4), 0, 1) ** 2;
+    const worst = (r: number, fd: number) => {
+      const { scene } = made([light({ falloff: 'smooth', radius: r, falloffDistance: fd })]);
+      const l = lightsOf(scene)[0] as PointLight;
+      let w = 0; for (let i = 0; i <= 400; i++) { const d = ((r + fd) * i) / 400; w = Math.max(w, Math.abs(composition(d, r, fd) - threes(d, l))); }
+      return w;
+    };
+
+    it('fits three\'s attenuation to the composition\'s: the largest difference over the whole range is under 0.17 where the fall is wide enough (it was 0.15-0.40 with the plain cut-off at radius + falloffDistance)', () => {
+      for (const [r, fd] of [[0, 300], [100, 500], [200, 400], [300, 300], [300, 200], [400, 200]] as const) expect(worst(r, fd), `radius ${r}, falloffDistance ${fd}`).toBeLessThan(0.17);
+    });
+
+    it('a fall that is steep against its radius cannot be matched by three\'s curve (it is gentler): the difference stays under 0.55, and the light reaches nothing past the cut-off', () => {
+      for (const [r, fd] of [[500, 100], [800, 100], [1000, 10]] as const) expect(worst(r, fd), `radius ${r}, falloffDistance ${fd}`).toBeLessThan(0.55);
+      const { scene } = made([light({ falloff: 'smooth', radius: 300, falloffDistance: 200 })]);
+      const l = lightsOf(scene)[0] as PointLight;
+      expect(threes(l.distance * 1.01, l)).toBe(0);
+    });
   });
 
   it('the colour of the light is the colour (a warm light is warm)', () => {
