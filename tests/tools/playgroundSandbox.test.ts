@@ -124,10 +124,10 @@ const W = 640, H = 360, FPS = 30, DURATION = 1, BACKGROUND = '#000000', POSTER =
     });
   }, 120000);
 
-  it('assets resolve from the examples folder, and sound goes through the mix', async () => {
+  it('assets resolve from the page's own folder, and sound goes through the mix', async () => {
     await withRunner(async (cdp) => {
       const code = `const W = 640, H = 360, FPS = 30, DURATION = 2, BACKGROUND = '#000000', POSTER = 1;
-const INIT = { assets: [{ name: 'bg', src: '_assets/photos/${photo}' }] };
+const INIT = { assets: [{ name: 'bg', src: '../../examples/_assets/photos/${photo}' }] };
 const sequences = [
   { type: 'image', asset: 'bg', initial: { x: 0, y: 0 } },
   { type: 'audio', sfx: 'pop', at: 0.2 },

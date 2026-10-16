@@ -35,7 +35,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('audio-reac
       expect(Math.min(...env.level)).toBeLessThan(0.7);                     // it is not flat: the music has loud and quiet moments
 
       // the same file analysed again gives the same numbers
-      const same = await cdp.eval(`(async () => { const { audioEnvelope } = await import('../../dist/index.js'); const a = await audioEnvelope('../_assets/bgm.mp3'); return JSON.stringify(Array.from(a.beats)) === JSON.stringify(window.env.beats) && Array.from(a.series.level).every((v, i) => v === window.env.level[i]); })()`);
+      const same = await cdp.eval(`(async () => { const { audioEnvelope } = await import('../../dist/index.js'); const a = await audioEnvelope('../../examples/_assets/bgm.mp3'); return JSON.stringify(Array.from(a.beats)) === JSON.stringify(window.env.beats) && Array.from(a.series.level).every((v, i) => v === window.env.level[i]); })()`);
       expect(same).toBe(true);
 
       // the circle: how many white pixels on the frame of a beat, and on a frame 0.3 s after it (the pulse has decayed)
