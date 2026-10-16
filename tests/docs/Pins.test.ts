@@ -8,7 +8,7 @@ const root = resolve(__dirname, '../..');
 describe('release pins', () => {
   it('the first-video page pins the current release on the CDN (bump it with README and skills/pixi-effects/template.html when you release)', () => {
     const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
-    const page = readFileSync(join(root, 'examples/_checks/first-video.html'), 'utf8');
+    const page = readFileSync(join(root, 'tests/films/first-video.html'), 'utf8');
     expect([...page.matchAll(/pixi-effects@([\d.]+)\//g)].map(m => m[1])).toEqual([version, version]);
   });
 });

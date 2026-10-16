@@ -18,7 +18,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('movie.insp
     const { proc, cdp } = await launchPage(chrome, dir);
     try {
       await cdp.send('Runtime.enable'); await cdp.send('Page.enable');
-      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/_checks/fonts.html` });
+      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/tests/films/fonts.html` });
       for (let i = 0; i < 100; i++) { if (await cdp.eval('window.__ready === true').catch(() => false)) break; await check.sleep(200); }
       expect(await cdp.eval('window.__ready === true')).toBe(true);
       const r = await cdp.eval('JSON.stringify(movie.inspectFonts())').then(JSON.parse);

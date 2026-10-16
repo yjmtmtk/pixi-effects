@@ -20,7 +20,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('null layer
     try {
       await cdp.send('Runtime.enable');
       await cdp.send('Page.enable');
-      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/_checks/parent.html` });
+      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/tests/films/parent.html` });
       let ready = false;
       for (let i = 0; i < 100 && !ready; i++) { await check.sleep(300); ready = await cdp.eval('window.__ready === true').catch(() => false); }
       expect(ready).toBe(true);

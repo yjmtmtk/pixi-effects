@@ -21,7 +21,7 @@ async function open<T>(fn: (cdp: any) => Promise<T>, query = ''): Promise<T> {
   const { proc, cdp } = await launchPage(chrome, dir);
   try {
     await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
-    await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/_checks/blend-modes.html${query}` });
+    await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/tests/films/blend-modes.html${query}` });
     for (let i = 0; i < 300; i++) { if (await cdp.eval('window.__ready === true').catch(() => false)) break; await check.sleep(200); }
     expect(await cdp.eval('window.__ready === true'), JSON.stringify(await cdp.eval('window.__logs'))).toBe(true);
     return await fn(cdp);

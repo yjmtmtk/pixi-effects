@@ -22,7 +22,7 @@
     const movie = new Movie();
     window.movie = movie;
     try {
-      const env = await audioEnvelope('../_assets/bgm.mp3', { frameRate: 30 });
+      const env = await audioEnvelope('../../examples/_assets/bgm.mp3', { frameRate: 30 });
       window.env = { frames: env.frames, duration: env.duration, bpm: env.bpm, beats: env.beats, level: Array.from(env.series.level), bass: Array.from(env.series.bass) };
       await movie.init({
         canvas: document.getElementById('stage'), width: 640, height: 360, duration: 8, frameRate: 30, background: '#000000',

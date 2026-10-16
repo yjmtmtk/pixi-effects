@@ -18,7 +18,7 @@ async function withPage(query: string, fn: (cdp: any) => Promise<void>): Promise
     const { proc, cdp } = await launchPage(chrome, dir);
     try {
       await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
-      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/_checks/point-options.html${query}` });
+      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/tests/films/point-options.html${query}` });
       for (let i = 0; i < 150; i++) { if (await cdp.eval('window.__ready').catch(() => false)) break; await check.sleep(200); }
       expect(await cdp.eval('window.__ready === true'), JSON.stringify(await cdp.eval('window.__logs'))).toBe(true);
       await fn(cdp);
@@ -42,7 +42,7 @@ run('a point option of a filter, on a real browser', () => {
     const { proc, cdp } = await launchPage(chrome, dir);
     try {
       await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
-      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/_checks/point-options.html` });
+      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/tests/films/point-options.html` });
       for (let i = 0; i < 150; i++) { if (await cdp.eval('window.__ready').catch(() => false)) break; await check.sleep(200); }
       expect(await cdp.eval('window.__ready === true'), JSON.stringify(await cdp.eval('window.__logs'))).toBe(true);
       const at0 = await cdp.eval('redShift(0)'), at15 = await cdp.eval('redShift(15)'), at30 = await cdp.eval('redShift(30)');

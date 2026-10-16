@@ -28,7 +28,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('movie.onio
     const { proc, cdp } = await launchPage(chrome, dir);
     try {
       await cdp.send('Runtime.enable'); await cdp.send('Page.enable');
-      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/_checks/onion.html` });
+      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/tests/films/onion.html` });
       for (let i = 0; i < 100; i++) { if (await cdp.eval('window.__ready === true').catch(() => false)) break; await check.sleep(200); }
       expect(await cdp.eval('window.__ready === true')).toBe(true);
 

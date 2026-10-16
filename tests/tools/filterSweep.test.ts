@@ -31,7 +31,7 @@ async function grabAll(types: string[], webgl: boolean): Promise<Record<string, 
     await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
     for (const t of types) {
       for (let attempt = 0; attempt < 3; attempt++) {                          // a CDN hiccup is not a filter's fault
-        await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/_checks/filter-sweep.html?f=${t}${webgl ? '&backend=webgl' : ''}&r=${Math.random()}` });
+        await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/tests/films/filter-sweep.html?f=${t}${webgl ? '&backend=webgl' : ''}&r=${Math.random()}` });
         for (let i = 0; i < 100; i++) { if (await cdp.eval('window.__ready').catch(() => false)) break; await check.sleep(250); }
         if (await cdp.eval('window.__ready === true').catch(() => false)) break;
       }

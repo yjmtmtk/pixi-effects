@@ -8,8 +8,8 @@
   -->
   <div id="host" style="width:640px;height:360px"></div>
   <script type="module">
-    import { createRunner } from '../playground/host.js';
-    import { editRegion } from '../playground/doc.js';
+    import { createRunner } from '../../examples/playground/host.js';
+    import { editRegion } from '../../examples/playground/doc.js';
     const templateUrl = new URL('../../ai/chat-template.html', location.href).href;
     const base = { container: document.getElementById('host'), templateUrl, distBase: new URL('../../dist/', location.href).href, assetBase: new URL('../', location.href).href };
     window.runner = createRunner(base);

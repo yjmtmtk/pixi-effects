@@ -20,7 +20,7 @@ async function withPage<T>(query: string, fn: (cdp: any) => Promise<T>): Promise
     await cdp.send('Runtime.enable');
     await cdp.send('Page.enable');
     await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1000, height: 600, deviceScaleFactor: 1, mobile: false });
-    await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/_checks/presenter.html${query}` });
+    await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/tests/films/presenter.html${query}` });
     let ready = false;
     for (let i = 0; i < 100 && !ready; i++) { await check.sleep(250); ready = await cdp.eval('window.__ready === true').catch(() => false); }
     expect(ready).toBe(true);

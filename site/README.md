@@ -14,7 +14,7 @@ This folder holds what they share. The rest of each page lives next to its own c
 | Playground | `/examples/playground.html` | `examples/playground.html` | inline (an app, not a document) |
 
 **Preview the whole site: `npm run site`.** It builds exactly what Pages serves (`scripts/stage-site.mjs`, the same script the workflow runs) into `_site/` and serves it on http://127.0.0.1:8080/. Run it again to pick up changes.
-The repository root is also the site root, but the staged copy is the truth: `stage-site.mjs` copies a list (never `examples/_checks`).
+The repository root is also the site root, but the staged copy is the truth: `stage-site.mjs` copies a list (never `tests/films`).
 
 ## What is shared (`site/shared/`)
 

@@ -18,7 +18,7 @@ async function withPage(query: string, fn: (cdp: any) => Promise<void>): Promise
   const { proc, cdp } = await launchPage(chrome, dir);
   try {
     await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
-    await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/_checks/thumbnail.html${query}` });
+    await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/tests/films/thumbnail.html${query}` });
     for (let i = 0; i < 150; i++) { if (await cdp.eval('window.__ready').catch(() => false)) break; await check.sleep(200); }
     expect(await cdp.eval('window.__ready === true'), JSON.stringify(await cdp.eval('window.__logs'))).toBe(true);
     await cdp.eval(`window.pixels = (c) => c.getContext('2d').getImageData(0, 0, c.width, c.height).data;

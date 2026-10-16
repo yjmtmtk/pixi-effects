@@ -25,7 +25,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the canvas
     const { proc, cdp } = await launchPage(chrome, dir);
     try {
       await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
-      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/_checks/canvas-layer.html` });
+      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/tests/films/canvas-layer.html` });
       for (let i = 0; i < 120; i++) { if (await cdp.eval('window.__ready').catch(() => false)) break; await check.sleep(250); }
       expect(await cdp.eval('window.__ready === true'), JSON.stringify(await cdp.eval('window.__logs').catch(() => []))).toBe(true);
       expect(await cdp.eval('window.__logs')).toEqual([]);
@@ -72,7 +72,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the canvas
 
   it('check says that the canvas layers are deterministic (and how long a draw takes) when they pass, and names a draw that uses Math.random (a problem, with the moments and how much differs)', async () => {
     let stdout = '';
-    const run = (query: string, out: string) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/canvas-layer.html'), '--no-export', '--out', out, '--timeout', '120', ...(query ? ['--query', query] : [])], { timeout: 150_000 }).then((r) => { stdout = r.stdout; return 0; }, (e: any) => { stdout = e.stdout ?? ''; return e.code as number; });
+    const run = (query: string, out: string) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'tests/films/canvas-layer.html'), '--no-export', '--out', out, '--timeout', '120', ...(query ? ['--query', query] : [])], { timeout: 150_000 }).then((r) => { stdout = r.stdout; return 0; }, (e: any) => { stdout = e.stdout ?? ''; return e.code as number; });
     const clean = mkdtempSync(join(tmpdir(), 'canvas-clean-')), dirty = mkdtempSync(join(tmpdir(), 'canvas-leaky-'));
     expect(await run('', clean)).toBe(0);
     expect(stdout).toMatch(/canvas +\d+ canvas layer\(s\) drew the same picture twice at 4 moments[^\n]*deterministic[^\n]*slowest draw [\d.]+ ms/);
@@ -92,7 +92,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the canvas
   }, 300_000);
 
   it('a mask made in setup (document.createElement or info.canvas) and drawn with destination-in over many anti-aliased strokes is not reported: the browser draws it differently the first time, which the check throws away', async () => {
-    const run = (query: string, out: string) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/canvas-layer.html'), '--no-export', '--out', out, '--timeout', '120', '--query', query], { timeout: 150_000 }).then(() => 0, (e: any) => e.code as number);
+    const run = (query: string, out: string) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'tests/films/canvas-layer.html'), '--no-export', '--out', out, '--timeout', '120', '--query', query], { timeout: 150_000 }).then(() => 0, (e: any) => e.code as number);
     for (const kind of ['plain', 'helper']) {
       const out = mkdtempSync(join(tmpdir(), `canvas-mask-${kind}-`));
       expect(await run(`mask=${kind}`, out), kind).toBe(0);

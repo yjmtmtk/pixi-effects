@@ -19,7 +19,7 @@ async function withPage<T>(mode: string, fn: (cdp: any) => Promise<T>): Promise<
   try {
     await cdp.send('Runtime.enable');
     await cdp.send('Page.enable');
-    await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/_checks/particles.html?mode=${mode}` });
+    await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/tests/films/particles.html?mode=${mode}` });
     let ready = false;
     for (let i = 0; i < 100 && !ready; i++) { await check.sleep(300); ready = await cdp.eval('window.__ready === true').catch(() => false); }
     expect(ready).toBe(true);

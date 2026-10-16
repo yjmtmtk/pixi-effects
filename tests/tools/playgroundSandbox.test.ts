@@ -18,7 +18,7 @@ async function withRunner<T>(fn: (cdp: any) => Promise<T>): Promise<T> {
   const { proc, cdp } = await launchPage(chrome, dir);
   try {
     await cdp.send('Runtime.enable'); await cdp.send('Page.enable');
-    await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/_checks/sandbox-runner.html` });
+    await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/tests/films/sandbox-runner.html` });
     for (let i = 0; i < 100; i++) { if (await cdp.eval('window.__ready === true').catch(() => false)) break; await check.sleep(200); }
     expect(await cdp.eval('window.__ready === true'), 'the runner page became ready').toBe(true);
     return await fn(cdp);
@@ -63,7 +63,7 @@ const W = 640, H = 360, FPS = 30, DURATION = 1, BACKGROUND = '#000000', POSTER =
       expect(logs.filter((l) => l.startsWith('LEAK'))).toEqual([]);
       expect(logs.filter((l) => l.startsWith('blocked:'))).toHaveLength(3);
       expect(await cdp.eval('document.title')).toBe(title);
-      expect(await cdp.eval('location.pathname')).toBe('/examples/_checks/sandbox-runner.html');
+      expect(await cdp.eval('location.pathname')).toBe('/tests/films/sandbox-runner.html');
     });
   }, 120000);
 

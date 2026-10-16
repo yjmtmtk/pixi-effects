@@ -147,7 +147,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('view.mjs â
   }, 90_000);
 
   it('tells you the work changed but never switches by itself; reload keeps the place; auto reloads only when the movie is paused', async () => {
-    const live = join(root, 'examples/_checks/view-live.tmp.html');
+    const live = join(root, 'tests/films/view-live.tmp.html');
     writeFileSync(live, readFileSync(join(root, 'tests/films/determinism-first-frame.html'), 'utf8').replace('duration: 2,', 'duration: 60,'));          // long enough to still be playing when the edit arrives
     const proc = spawn('node', [join(root, 'ai/tools/view.mjs'), live, '--no-open'], { stdio: ['ignore', 'pipe', 'inherit'] });
     const url: string = await new Promise((res, rej) => {

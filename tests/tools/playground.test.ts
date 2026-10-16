@@ -210,7 +210,7 @@ describe('share, save, copy', () => {
 
     it.skipIf(!pinnedOnCdn)('Save HTML makes a page that runs on its own (the library from the CDN, filters from esm.sh, files from the site), for a plain piece and for one with files and pixi-filters', async () => {
       for (const [id, code] of [['hello', null], ['filters-and-files', FILES_AND_FILTERS]] as const) {
-        const file = join(root, 'examples/_checks', `_saved-${id}.html`);
+        const file = join(root, 'tests/films', `_saved-${id}.html`);
         try {
           await withPlayground(1440, async (cdp) => {
             if (code) await cdp.eval(`window.__playground.editor.set(${JSON.stringify(code)})`);
@@ -224,7 +224,7 @@ describe('share, save, copy', () => {
             expect(html.includes('<base href='), id).toBe(id === 'filters-and-files');   // only a piece that names the Playground's own files gets an address for them
             writeFileSync(file, html);
             const port = await cdp.eval('location.port');
-            await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/_checks/_saved-${id}.html` });
+            await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/tests/films/_saved-${id}.html` });
             let ready = false, logs: string[] = [];
             for (let i = 0; i < 150 && !ready; i++) {
               await check.sleep(200);

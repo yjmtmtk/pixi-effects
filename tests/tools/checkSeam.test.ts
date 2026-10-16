@@ -49,7 +49,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check --se
   const run = async (page: string) => {
     const out = mkdtempSync(join(tmpdir(), 'check-seam-'));
     try {
-      const r = await promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, `examples/_checks/${page}.html`), '--seam', '--no-export', '--frames', '2', '--out', out, '--timeout', '150'], { timeout: 170_000 })
+      const r = await promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, `tests/films/${page}.html`), '--seam', '--no-export', '--frames', '2', '--out', out, '--timeout', '150'], { timeout: 170_000 })
         .then((x) => ({ code: 0, stdout: x.stdout }), (e: any) => ({ code: e.code, stdout: String(e.stdout) }));
       const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));
       return { ...r, report };
@@ -73,7 +73,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check --se
   it('without --seam the report has no seam and nothing is measured', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-seam-'));
     try {
-      await promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/seam-jump.html'), '--no-export', '--frames', '2', '--out', out, '--timeout', '150'], { timeout: 170_000 }).catch(() => null);
+      await promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'tests/films/seam-jump.html'), '--no-export', '--frames', '2', '--out', out, '--timeout', '150'], { timeout: 170_000 }).catch(() => null);
       expect(JSON.parse(readFileSync(join(out, 'report.json'), 'utf8')).seam).toBeUndefined();
     } finally { rmSync(out, { recursive: true, force: true }); }
   }, 200_000);

@@ -19,7 +19,7 @@ async function withPage<T>(query: string, fn: (cdp: any) => Promise<T>): Promise
   try {
     await cdp.send('Runtime.enable');
     await cdp.send('Page.enable');
-    await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/_checks/loader.html${query}` });
+    await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/tests/films/loader.html${query}` });
     await check.sleep(500);
     return await fn(cdp);
   } finally {

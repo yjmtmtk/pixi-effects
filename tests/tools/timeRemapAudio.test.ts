@@ -17,7 +17,7 @@ async function withPage<T>(fn: (cdp: any) => Promise<T>): Promise<T> {
   const { proc, cdp } = await launchPage(chrome, dir);
   try {
     await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
-    await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/_checks/time-remap.html` });
+    await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/tests/films/time-remap.html` });
     for (let i = 0; i < 600; i++) { if (await cdp.eval('window.__ready === true').catch(() => false)) break; await check.sleep(200); }       // up to 2 minutes: the page renders its own clip first
     expect(await cdp.eval('window.__ready === true'), JSON.stringify(await cdp.eval('window.__logs'))).toBe(true);
     return await fn(cdp);

@@ -61,7 +61,7 @@ describe('release scope: when the heavy browser tests of a release can be left o
   });
 
   it('a file added, deleted or renamed outside the documents is full; a document that is added or deleted is fine', () => {
-    expect(scope.classify([{ path: 'examples/_checks/new.html', status: 'A', minus: [], plus: [] }], ctx).mode).toBe('full');
+    expect(scope.classify([{ path: 'tests/films/new.html', status: 'A', minus: [], plus: [] }], ctx).mode).toBe('full');
     expect(scope.classify([{ path: 'src/old.ts', status: 'D', minus: [], plus: [] }], ctx).mode).toBe('full');
     expect(scope.classify([{ path: 'src/new.ts', status: 'R', minus: [], plus: [] }], ctx).mode).toBe('full');
     expect(scope.classify([{ path: 'docs/old.md', status: 'D', minus: [], plus: [] }, { path: 'docs/superpowers/specs/x.md', status: 'A', minus: [], plus: [] }], ctx).mode).toBe('docs-only');

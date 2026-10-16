@@ -16,7 +16,7 @@ const run = describe.skipIf(!check.findChrome() || !existsSync(join(root, 'dist/
 run('check: a faded-in text that is cut off by the edge is reported (real browser)', () => {
   it('the title, a rise + fade title that has settled, and a label of a null rig that only fades are listed; a ticker and a zoom, whose geometry is animated, are not', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-cutoff-'));
-    const { stdout } = await promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/layout-cutoff.html'), '--no-export', '--out', out, '--timeout', '150'], { timeout: 170_000 })
+    const { stdout } = await promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'tests/films/layout-cutoff.html'), '--no-export', '--out', out, '--timeout', '150'], { timeout: 170_000 })
       .catch((e: any) => ({ stdout: String(e.stdout) }));          // a layout issue fails the check: the printout is what is read
     expect(stdout).toMatch(/text layer "title" is cut off by the canvas edge: \d+px beyond the right edge/);
     expect(stdout).toMatch(/text layer "label" is cut off/);

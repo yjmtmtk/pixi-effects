@@ -22,11 +22,11 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the cookbo
       for (const [i, [name, score]] of rows.entries()) {
         const query = `name=${encodeURIComponent(name!)}&score=${score}`;
         const out = join(dir, `video-${i}.mp4`);
-        await run('render.mjs', 'examples/_checks/batch.html', ['--query', query, '--draft', '--quiet', '-o', out]);
+        await run('render.mjs', 'tests/films/batch.html', ['--query', query, '--draft', '--quiet', '-o', out]);
         expect(statSync(out).size).toBeGreaterThan(1000);
         videos.push(readFileSync(out));
         const ck = join(dir, `ck-${i}`);
-        await run('check.mjs', 'examples/_checks/batch.html', ['--query', query, '--no-export', '--at', '0.5', '--out', ck]);
+        await run('check.mjs', 'tests/films/batch.html', ['--query', query, '--no-export', '--at', '0.5', '--out', ck]);
         frames.push(readFileSync(join(ck, 'frames/0.50s.png')));
       }
       expect(frames[0]!.equals(frames[1]!)).toBe(false);          // the words differ

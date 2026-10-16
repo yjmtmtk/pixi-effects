@@ -11,14 +11,14 @@ const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/
 const chrome = check.findChrome();
 const built = existsSync(join(root, 'dist/index.js'));
 
-/** Open examples/_checks/mask-bugs.html?case=… (optionally forcing WebGL), and return the picture as RGBA bytes plus `at(x, y)` brightness readers. */
+/** Open tests/films/mask-bugs.html?case=… (optionally forcing WebGL), and return the picture as RGBA bytes plus `at(x, y)` brightness readers. */
 async function picture(query: string): Promise<{ rgba: number[]; backend: string }> {
   const { server, port } = await check.serve(root);
   const dir = mkdtempSync(join(tmpdir(), 'maskbugs-'));
   const { proc, cdp } = await launchPage(chrome, dir);
   try {
     await cdp.send('Runtime.enable'); await cdp.send('Page.enable');
-    await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/_checks/mask-bugs.html?${query}` });
+    await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/tests/films/mask-bugs.html?${query}` });
     for (let i = 0; i < 100; i++) { if (await cdp.eval('window.__ready === true').catch(() => false)) break; await check.sleep(200); }
     expect(await cdp.eval('window.__ready === true'), 'the page became ready').toBe(true);
     const out = await cdp.eval(`(async () => {
@@ -44,7 +44,7 @@ async function seekPair(query: string): Promise<{ fresh: number[]; afterSeek: nu
   const { proc, cdp } = await launchPage(chrome, dir);
   try {
     await cdp.send('Runtime.enable'); await cdp.send('Page.enable');
-    await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/examples/_checks/mask-bugs.html?${query}` });
+    await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/tests/films/mask-bugs.html?${query}` });
     for (let i = 0; i < 100; i++) { if (await cdp.eval('window.__ready === true').catch(() => false)) break; await check.sleep(200); }
     return await cdp.eval(`(async () => {
       const read = async () => { const url = await movie.snapshot(15, { as: 'dataURL' }); const img = new Image(); img.src = url; await img.decode();

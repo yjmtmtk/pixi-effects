@@ -12,7 +12,7 @@ const root = resolve(__dirname, '../..');
 const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
 const chrome = check.findChrome();
 const built = existsSync(join(root, 'dist/index.js'));
-const page = join(root, 'examples/_checks/vars-page.html');
+const page = join(root, 'tests/films/vars-page.html');
 const run = (tool: string, args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools', tool), page, ...args, '--timeout', '150'], { timeout: 200_000 });
 const fail = async (tool: string, args: string[]) => { try { await run(tool, args); } catch (e: any) { return e; } throw new Error('expected the command to fail'); };
 

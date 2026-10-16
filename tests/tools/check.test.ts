@@ -10,7 +10,7 @@ const root = resolve(__dirname, '../..');
 // loaded by URL: the tool is a plain .mjs script outside src/
 const tool: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
 
-// the first-video page (examples/_checks) pins pixi-effects@<this version> on the CDN; just before a release it is not published yet.
+// the first-video page (tests/films) pins pixi-effects@<this version> on the CDN; just before a release it is not published yet.
 // `check` needs a library with `movie.review()` (0.18+): a page pinned to an older release cannot be checked by this tool.
 const libraryHasReview = Number(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version.split('.')[1]) >= 18;
 const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
@@ -59,10 +59,10 @@ describe('check.mjs — pure helpers', () => {
 const chrome = tool.findChrome();
 const built = existsSync(join(root, 'dist/index.js'));
 describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs — the command, run for real in Chrome', () => {
-  it('checks examples/_checks/sfx-export.html: exit 0, no warnings, sheet.png and a decoded mp4 with its audio', async () => {
+  it('checks tests/films/sfx-export.html: exit 0, no warnings, sheet.png and a decoded mp4 with its audio', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-test-'));
     const { stdout } = await promisify(execFile)('node', [
-      join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/sfx-export.html'), '--out', out, '--frames', '4', '--timeout', '150',
+      join(root, 'ai/tools/check.mjs'), join(root, 'tests/films/sfx-export.html'), '--out', out, '--frames', '4', '--timeout', '150',
     ], { timeout: 170_000 });                                  // a non-zero exit would reject
     expect(stdout).toContain('RESULT: OK');
     const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));
@@ -85,7 +85,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
 
   it('a picture that hides or cuts through text is listed for review (an opaque card over it, a rule through it) and a shadow, a glow, a ring and a backdrop are not', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-overlap-'));
-    await promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/overlap-picture.html'), '--no-export', '--out', out, '--timeout', '150'], { timeout: 170_000 });
+    await promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'tests/films/overlap-picture.html'), '--no-export', '--out', out, '--timeout', '150'], { timeout: 170_000 });
     const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));
     const said = report.inspect.review.map((g: { message: string }) => g.message).join('\n');
     expect(said).toMatch(/"hidden-text" and shape layer "card-over" overlap/);
@@ -145,7 +145,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
 
   it('--at: a threeD scene with depth of field gets each moment\'s blur in the printout and in report.at (so a focus pull can be read, not only seen)', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-dof-'));
-    const { stdout } = await promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/rack-focus.html'), '--no-export', '--frames', '2', '--at', '0.5,2.4', '--out', out, '--timeout', '150'], { timeout: 170_000 });
+    const { stdout } = await promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'tests/films/rack-focus.html'), '--no-export', '--frames', '2', '--at', '0.5,2.4', '--out', out, '--timeout', '150'], { timeout: 170_000 });
     const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));
     expect(report.at).toHaveLength(2);
     const early = report.at[0].depthBlur, later = report.at[1].depthBlur;
@@ -161,7 +161,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
 
   it('--at: a scene with lights gets each moment\'s light level in the printout (the most lit first) and in report.at', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-light-'));
-    const { stdout } = await promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/spotlight-room.html'), '--no-export', '--frames', '2', '--at', '1.5,4.4', '--out', out, '--timeout', '150'], { timeout: 170_000 });
+    const { stdout } = await promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'tests/films/spotlight-room.html'), '--no-export', '--frames', '2', '--at', '1.5,4.4', '--out', out, '--timeout', '150'], { timeout: 170_000 });
     const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));
     const early = report.at[0].light, later = report.at[1].light;
     const named = (o: Record<string, number>, part: string) => Object.entries(o).find(([k]) => k.includes(part))![1];
@@ -194,7 +194,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
   }, 200_000);
 
   it('--onion A:B writes onion.png, one picture of the movement; past the end exits 2', async () => {
-    const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/onion.html'), '--no-export', ...args, '--timeout', '150'], { timeout: 170_000 });
+    const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'tests/films/onion.html'), '--no-export', ...args, '--timeout', '150'], { timeout: 170_000 });
     const out = mkdtempSync(join(tmpdir(), 'check-onion-'));
     await run(['--out', out, '--onion', '0:2']);
     const png = readFileSync(join(out, 'onion.png'));
@@ -207,7 +207,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
   }, 200_000);
 
   it('fonts: a web font that failed to load fails the check; a layer with no available font is listed for review (and fails with --strict)', async () => {
-    const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/fonts.html'), '--no-export', ...args, '--timeout', '150'], { timeout: 170_000 });
+    const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'tests/films/fonts.html'), '--no-export', ...args, '--timeout', '150'], { timeout: 170_000 });
     const out = mkdtempSync(join(tmpdir(), 'check-fonts-'));
     const failed = await run(['--out', out]).then(() => null, (e: any) => e);
     expect(failed?.code).toBe(1);                                                    // the web font that cannot load is a problem
@@ -226,7 +226,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
   it.skipIf(!onCdn || !libraryHasReview)('the first-video page (loaded from the CDN, as a reader would) passes the check, sound included', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-test-'));
     const { stdout } = await promisify(execFile)('node', [
-      join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/first-video.html'), '--out', out, '--frames', '4', '--timeout', '150',
+      join(root, 'ai/tools/check.mjs'), join(root, 'tests/films/first-video.html'), '--out', out, '--frames', '4', '--timeout', '150',
     ], { timeout: 170_000 });
     expect(stdout).toContain('RESULT: OK');
     const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));
@@ -237,7 +237,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
   it('a movie whose only sound is `music` (a tune written as text) has that sound in the mix and in the exported file', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-test-'));
     const { stdout } = await promisify(execFile)('node', [
-      join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/music.html'), '--out', out, '--frames', '4', '--timeout', '150',
+      join(root, 'ai/tools/check.mjs'), join(root, 'tests/films/music.html'), '--out', out, '--frames', '4', '--timeout', '150',
     ], { timeout: 170_000 });
     expect(stdout).toContain('RESULT: OK');
     const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));
@@ -262,10 +262,10 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
     expect(report.exports[0].audio).toBeNull();
   }, 190_000);
 
-  it('a presentation (examples/_checks/quiet-hours) gets stops.png and a stops section in the report', async () => {
+  it('a presentation (tests/films/quiet-hours) gets stops.png and a stops section in the report', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-test-'));
     const { stdout } = await promisify(execFile)('node', [
-      join(root, 'ai/tools/check.mjs'), join(root, 'examples/_checks/quiet-hours.html'), '--out', out, '--frames', '4', '--no-export', '--timeout', '150',
+      join(root, 'ai/tools/check.mjs'), join(root, 'tests/films/quiet-hours.html'), '--out', out, '--frames', '4', '--no-export', '--timeout', '150',
     ], { timeout: 170_000 });
     expect(stdout).toMatch(/stops\s+\d+ stop\(s\) on 5 page\(s\)/);
     const report = JSON.parse(readFileSync(join(out, 'report.json'), 'utf8'));
@@ -278,7 +278,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
   }, 190_000);
 
   it('a deck with a stop that lands mid-animation is listed for review, and fails with --strict', async () => {
-    const dir = join(root, 'examples/_checks');
+    const dir = join(root, 'tests/films');
     const out = mkdtempSync(join(tmpdir(), 'check-test-'));
     const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(dir, 'presenter.html'), '--out', out, '--no-export', '--timeout', '120', ...args], { timeout: 150_000 });
     const { stdout } = await run([]);                                           // the white square slides all the time: its stops are never still
@@ -289,7 +289,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check.mjs 
 
   it('exits 1 and names the problem when the page has one', async () => {
     const out = mkdtempSync(join(tmpdir(), 'check-test-'));
-    const dir = join(root, 'examples/_checks');
+    const dir = join(root, 'tests/films');
     const bad = join(dir, '__bad-check-fixture.html');
     writeFileSync(bad, readFileSync(join(dir, 'sfx-export.html'), 'utf8').replace("['click', 0.5]", "['whoosh', 0.5]"));
     try {

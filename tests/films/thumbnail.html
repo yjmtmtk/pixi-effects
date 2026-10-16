@@ -36,7 +36,7 @@
     if (!q.get('vars')) sequences[3].text = '{value}';
     const options = { canvas: document.getElementById('stage'), width: 640, height: 360, duration: 4, frameRate: 30, loader: false, background: '#000',
       composition: { sequences, filters: [{ type: 'grain', amount: 0.2, size: 1.5, fps: 30, seed: 3 }] } };
-    if (q.get('video')) options.assets = [{ name: 'green', src: '../_assets/green.mp4' }];
+    if (q.get('video')) options.assets = [{ name: 'green', src: '../../examples/_assets/green.mp4' }];
     if (q.get('vars')) options.vars = { a: 'n ' };
     if (q.get('poster')) options.poster = 2;
     await movie.init(options);

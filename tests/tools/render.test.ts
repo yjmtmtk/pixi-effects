@@ -168,7 +168,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('render.mjs
     const dir = mkdtempSync(join(tmpdir(), 'render-test-'));
     const out = join(dir, 'clip.mp4');
     const { stdout } = await promisify(execFile)('node', [
-      join(root, 'ai/tools/render.mjs'), join(root, 'examples/_checks/sfx-export.html'), '-o', out, '--quiet', '--timeout', '150',
+      join(root, 'ai/tools/render.mjs'), join(root, 'tests/films/sfx-export.html'), '-o', out, '--quiet', '--timeout', '150',
     ], { timeout: 170_000 });
     expect(existsSync(out)).toBe(true);
     expect(statSync(out).size).toBeGreaterThan(2000);
@@ -180,7 +180,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('render.mjs
   it('--motion-blur renders every frame as an average of samples and still writes the file', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'render-test-'));
     const out = join(dir, 'blur.mp4');
-    await promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), join(root, 'examples/_checks/motion-blur.html'), '-o', out, '--motion-blur', '3', '--shutter', '0.5', '--quiet', '--timeout', '150'], { timeout: 170_000 });
+    await promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), join(root, 'tests/films/motion-blur.html'), '-o', out, '--motion-blur', '3', '--shutter', '0.5', '--quiet', '--timeout', '150'], { timeout: 170_000 });
     expect(statSync(out).size).toBeGreaterThan(2000);
     expect(readFileSync(out).subarray(4, 8).toString()).toBe('ftyp');
   }, 190_000);
@@ -188,28 +188,28 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('render.mjs
   it('a .pdf output is the deck as pages: a real PDF with one page per page of the talk', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'render-test-'));
     const out = join(dir, 'deck.pdf');
-    const { stdout } = await promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), join(root, 'examples/_checks/presenter.html'), '-o', out, '--quiet', '--timeout', '150'], { timeout: 170_000 });
+    const { stdout } = await promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), join(root, 'tests/films/presenter.html'), '-o', out, '--quiet', '--timeout', '150'], { timeout: 170_000 });
     const s = readFileSync(out).toString('latin1');
     expect(s.startsWith('%PDF-1.4')).toBe(true);
     expect((s.match(/\/Type \/Page\b(?!s)/g) ?? [])).toHaveLength(3);
     expect(stdout).toMatch(/deck\.pdf.*pdf/);
     const all = join(dir, 'all.pdf');
-    await promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), join(root, 'examples/_checks/presenter.html'), '-o', all, '--all-stops', '--quiet', '--timeout', '150'], { timeout: 170_000 });
+    await promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), join(root, 'tests/films/presenter.html'), '-o', all, '--all-stops', '--quiet', '--timeout', '150'], { timeout: 170_000 });
     expect((readFileSync(all).toString('latin1').match(/\/Type \/Page\b(?!s)/g) ?? [])).toHaveLength(4);
   }, 190_000);
 
   it('picks the container from the extension (webm)', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'render-test-'));
     const out = join(dir, 'clip.webm');
-    await promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), join(root, 'examples/_checks/sfx-export.html'), '-o', out, '--quiet', '--timeout', '150'], { timeout: 170_000 });
+    await promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), join(root, 'tests/films/sfx-export.html'), '-o', out, '--quiet', '--timeout', '150'], { timeout: 170_000 });
     expect(readFileSync(out).subarray(0, 4).toString('hex')).toBe('1a45dfa3');     // the EBML header of Matroska / WebM
   }, 190_000);
 
   it('exits 1 with the page\'s own message when it never becomes ready, and writes no file', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'render-test-'));
     const out = join(dir, 'nope.mp4');
-    const bad = join(root, 'examples/_checks/__bad-render-fixture.html');
-    writeFileSync(bad, readFileSync(join(root, 'examples/_checks/sfx-export.html'), 'utf8').replace('await movie.init({', "throw new Error('boom'); await movie.init({"));
+    const bad = join(root, 'tests/films/__bad-render-fixture.html');
+    writeFileSync(bad, readFileSync(join(root, 'tests/films/sfx-export.html'), 'utf8').replace('await movie.init({', "throw new Error('boom'); await movie.init({"));
     try {
       await expect(promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), bad, '-o', out, '--timeout', '60', '--quiet'], { timeout: 90_000 }))
         .rejects.toMatchObject({ code: 1 });
@@ -220,8 +220,8 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('render.mjs
   it('--strict: a page warning still writes the file, but the exit code is 1', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'render-test-'));
     const out = join(dir, 'warned.mp4');
-    const warn = join(root, 'examples/_checks/__warn-render-fixture.html');
-    writeFileSync(warn, readFileSync(join(root, 'examples/_checks/sfx-export.html'), 'utf8').replace("['click', 0.5]", "['whoosh', 0.5]"));
+    const warn = join(root, 'tests/films/__warn-render-fixture.html');
+    writeFileSync(warn, readFileSync(join(root, 'tests/films/sfx-export.html'), 'utf8').replace("['click', 0.5]", "['whoosh', 0.5]"));
     try {
       await expect(promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), warn, '-o', out, '--strict', '--timeout', '120', '--quiet'], { timeout: 150_000 }))
         .rejects.toMatchObject({ code: 1 });
