@@ -25,7 +25,7 @@ Declarative composition and video rendering for the web. After Effects-style tim
 - **Music written as text** — `{ type: 'audio', music: { bpm: 96, tracks: [{ inst: 'keys', notes: 'Cmaj7:4 Am7:4' }], drums: { kick: 'x...x...' } } }`: a tune with no audio file, played by a small built-in synthesiser (keys, pluck, pad, bass, lead, bell, music box, drums; chords by name, swing, fades, a ritardando). Deterministic, in the exported file at the same moment; an AI writes it as easily as a title.
 - **Audio-reactive visuals** — `audioEnvelope('music.mp3')` analyses loudness, bass / mid / treble and the beats per frame; `react()` turns them into keyframes, so the picture follows the music and still renders identically.
 - **2.5D layers & camera** — add `threeD: true`, `z`, `rotationX/Y` and a `{ type: 'camera' }` layer for parallax, flips and dolly zooms; no three.js needed.
-- **three.js layer** *(optional)* — drop a real three.js scene in as a layer via `pixi-effects/three`; keyframes drive its objects (`three.cube.rotation.y`).
+- **three.js layer** *(optional)* — drop a real three.js scene in as a layer via `pixi-effects/three`; keyframes drive its objects (`three.cube.rotation.y`). It can live in the composition's space: the composition's camera, lights, shadows and fog drive the scene, so one `cameraPath()` flies through the flat layers and a glTF model together (`threeGltf`).
 - **Built-in player UI — or your own** — a drop-in HTML5-`<video>`-style overlay controller (play, scrub, mute, volume, fullscreen, export-to-file) whose colours are one option (`theme: { accent: '#ff4d6d' }`); or build a player yourself on the movie's `<video>`-named events (`play pause ended seeking seeked volumechange error`).
 - **MP4 / WebM / MOV export** — pick container and quality from the controller, call `movie.render()` from code, or render headless from the command line (`pixi-effects render`).
 - **A timeline you can read and scrub** — `movie.timelineChart()` draws every layer as a bar on a time axis; `pixi-effects view` opens the page with that timeline under it, zoomable, with a playhead you can drag.
@@ -69,7 +69,7 @@ Load the `dist/` files **as they are** (jsDelivr's `/npm/…/dist/…`, or unpkg
 
 #### Adding three.js (optional)
 
-Add two more entries to the importmap above: three.js itself, and the `pixi-effects/three` entry.
+Add two more entries to the importmap above: three.js itself, and the `pixi-effects/three` entry (and `three/addons/` if you load a glTF model with `threeGltf`).
 
 ```html
 <script type="importmap">
@@ -77,6 +77,7 @@ Add two more entries to the importmap above: three.js itself, and the `pixi-effe
   "imports": {
     "...":                     "(everything from the importmap above)",
     "three":                   "https://esm.sh/three@0.178.0",
+    "three/addons/":           "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/",
     "pixi-effects/three":      "https://cdn.jsdelivr.net/npm/pixi-effects@0.39.0/dist/three.js"
   }
 }

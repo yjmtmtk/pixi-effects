@@ -593,33 +593,43 @@ The bar uses fixed colors (`#007AFF` for the active track / fill / confirm butto
 Optional three.js integration, imported from its own entry so the core `pixi-effects` entry never touches three.js:
 
 ```ts
-import { registerThree, three, ThreeSequence } from 'pixi-effects/three';
+import { registerThree, three, threeGltf, threeFrameCamera, ThreeSequence } from 'pixi-effects/three';
 ```
 
-**Install:** `npm i three`. `three` is a peer dependency marked optional (`peerDependenciesMeta.three.optional = true`) — consumers who never import `pixi-effects/three` are unaffected either way.
+**Install:** `npm i three`. `three` is a peer dependency marked optional (`peerDependenciesMeta.three.optional = true`) — consumers who never import `pixi-effects/three` are unaffected either way. A page that loads a glTF with `threeGltf` also needs `"three/addons/"` in its import map (three's `examples/jsm/`); `renderer: 'webgpu'` needs three 0.17x or later and `"three/webgpu"`.
 
-For the `type: 'three'` spec shape (fields, keyframe paths, rules), see [DSL reference § three](./dsl.md#three).
+For the `type: 'three'` spec shape (fields, keyframe paths, `followCamera` / `followLights` / `followFog`, rules), see [DSL reference § three](./dsl.md#three).
 
-### `registerThree(): void`
+### `registerThree(options?: { renderer?: 'webgl' | 'webgpu' }): void`
 
-Registers the `'three'` sequence type with the composition builder. Call once, before `Movie.init()` builds a composition containing a `type: 'three'` sequence. Idempotent.
+Registers the `'three'` sequence type with the composition builder. Call once, before `Movie.init()` builds a composition containing a `type: 'three'` sequence. Idempotent. `renderer` is the page-level default of every three layer that names no `renderer` of its own (default `'webgl'`; the last call wins).
 
 ### `three(spec: ThreeSequenceSpec): SequenceSpec`
 
 Typing helper — accepts a strongly-typed three spec and returns it as a plain `SequenceSpec`, so it drops straight into `composition.sequences` alongside `text` / `image` / etc. A cast only; not required for the sequence to work, but gives editor autocomplete on `setup` / `update` / `dispose`.
 
+### `threeGltf(url: string, options?: ThreeGltfOptions): Promise<ThreeGltfModel>`
+
+Loads a `.glb` / `.gltf` with three's `GLTFLoader` (a page that never calls it never loads the addon) for use in a three layer's `setup` / `update`. Options: `animation` (a clip name, an index, or `false` for the bind pose; default the first clip), `speed`, `offset`, `loop`. Returns `{ object, clips, size, pose(t), fit(px), dispose() }`: `object` is a `Group` whose origin is the centre of the model's bounding box; `pose(t)` poses the clip at `t × speed + offset` seconds with `AnimationMixer.setTime` (a function of the time: a seek, an export and a repeat give the same frame); `fit(px)` scales `object` so the model's longest side is `px`. Skinned meshes are drawn always (`frustumCulled = false`). A failed load names the URL; an unknown clip name lists the clips the file has. Draco / KTX2 / Meshopt files need a decoder you set up yourself (`npx pixi-effects probe model.glb` says whether a file needs one).
+
+### `threeFrameCamera(camera, object, options?: { direction?, margin? }): void`
+
+Puts a `PerspectiveCamera` where the whole of `object` (its bounding box now, with its scale and place) fits the frame, looking at its centre, from a three-quarter view (`direction` default `[0.45, 0.3, 1]`) with 10 % room (`margin` 1.1). Uses the camera's own `fov` and `aspect`; sets `near` and `far`.
+
 ### `ThreeSequence`
 
-The `Sequence` subclass that backs `type: 'three'`. Exported for advanced use (e.g. `instanceof` checks); most consumers only need `registerThree()` and `three()`.
+The `Sequence` subclass that backs `type: 'three'`. Exported for advanced use (e.g. `instanceof` checks). `renderer` (`'webgl'` / `'webgpu'`) and `backend` (`'webgl'` / `'webgpu'` / `'webgl2'`: three's WebGPURenderer found no WebGPU and used its WebGL2 backend) say what drew it once it is built; `checkDeterminism(times)` is what `check` and `movie.review()` call to hold the layer to "a function of the time".
 
 ### Exported types
 
 ```ts
-import type { ThreeContext, ThreeSetupResult, ThreeSequenceSpec } from 'pixi-effects/three';
+import type { ThreeContext, ThreeSetupResult, ThreeSequenceSpec, ThreeGltfModel, ThreeGltfOptions, ThreeFrameCameraOptions, ThreeRendererKind } from 'pixi-effects/three';
 ```
 
 | Type                | Notes                                                                          |
 | ------------------- | ------------------------------------------------------------------------------- |
-| `ThreeContext`      | `{ scene, camera, renderer, width, height }` handed to `setup` / `update` / `dispose`. |
+| `ThreeContext`      | `{ scene, camera, renderer, width, height, space? }` handed to `setup` / `update` / `dispose`; `renderer` is a `WebGLRenderer` or a `WebGPURenderer`; `space` is the composition's camera, lights and fog when the layer follows them. |
 | `ThreeSetupResult`  | `{ objects?, camera? }` returned from `setup`.                                 |
 | `ThreeSequenceSpec` | the `type: 'three'` sequence spec.                                             |
+| `ThreeGltfModel`, `ThreeGltfOptions`, `ThreeFrameCameraOptions` | what `threeGltf` and `threeFrameCamera` take and return. |
+| `ThreeRendererKind` | `'webgl' \| 'webgpu'`.                                                         |
