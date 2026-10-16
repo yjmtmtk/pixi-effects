@@ -29,6 +29,8 @@ export interface LayerInfo {
   /** A `three` layer: the renderer it draws with (`'webgl'` / `'webgpu'`) and the backend under it (`'webgl2'`: three's WebGPURenderer found no WebGPU and used its own WebGL2 backend: the same picture). */
   renderer?: 'webgl' | 'webgpu';
   backend?: 'webgl' | 'webgpu' | 'webgl2';
+  /** A `three` layer with `renderer: 'webgpu'`: true when it draws on PixiJS's own GPU device (no canvas of its own); false when it has a canvas of its own (`shareGpu: false`, or PixiJS is on WebGL). */
+  sharedGpu?: boolean;
 }
 
 export interface InspectReport {
@@ -182,8 +184,8 @@ export function inspectScene(
       const info: LayerInfo = { path: prefix + label, name, type: seq.spec.type, threeD, visible, alpha, moving, bounds, onCanvas };
       if (threeD) info.depthBlur = Number(depthBlur.toFixed(2));
       if (threeD && light !== undefined) info.light = Number(light.toFixed(2));
-      const drawn = seq as unknown as { renderer?: unknown; backend?: unknown };
-      if (typeof drawn.renderer === 'string') { info.renderer = drawn.renderer as LayerInfo['renderer']; if (typeof drawn.backend === 'string') info.backend = drawn.backend as LayerInfo['backend']; }
+      const drawn = seq as unknown as { renderer?: unknown; backend?: unknown; sharedGpu?: unknown };
+      if (typeof drawn.renderer === 'string') { info.renderer = drawn.renderer as LayerInfo['renderer']; if (typeof drawn.backend === 'string') info.backend = drawn.backend as LayerInfo['backend']; if (info.renderer === 'webgpu') info.sharedGpu = drawn.sharedGpu === true; }
       layers.push(info);
       chainAlpha.set(info, parentAlpha * alpha);
       chains.set(info, chainOf(display));

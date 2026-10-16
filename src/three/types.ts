@@ -35,6 +35,12 @@ export interface ThreeSequenceSpec extends SequenceCommon {
    */
   renderer?: 'webgl' | 'webgpu';
   /**
+   * `renderer: 'webgpu'` in a movie that PixiJS draws on WebGPU: the layer draws on PixiJS's own GPU device into a texture PixiJS samples, with no canvas of its own and no copy: the same
+   * picture, faster, and a page can hold far more such layers than the browser's limit of about 32 WebGPU canvases. `false` gives the layer a canvas of its own as before (a layer is also
+   * made again on its own canvas, with one warning, if the shared route fails). Default `true`; it does nothing on a `'webgl'` layer.
+   */
+  shareGpu?: boolean;
+  /**
    * Multisampling of the layer's own canvas. Default `true`. Turn it off (and use `resolution` for supersampling) when the WebGL and WebGPU renderers must give the same picture:
    * WebGPURenderer resolves the multisampling in linear light BEFORE tone mapping and the sRGB encode, WebGLRenderer after them, so a thin, hot edge comes out brighter on WebGPU.
    */

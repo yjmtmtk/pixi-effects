@@ -33,4 +33,28 @@ runFilms('A page with too many three layers says so (it does not go blank in sil
     expect(lost.length, 'Chrome takes the oldest contexts when the page asks for more than it keeps: at least one layer says so').toBeGreaterThan(0);
     expect(lost[0]).toMatch(/"box\d+"/);
   }, 180_000);
+
+  it("60 webgpu three layers that share Pixi's GPU device: no budget warning, no lost layer, and every one of them draws (the context cap of about 32 does not apply)", async () => {
+    await withFilm('three-budget', async (film) => {
+      const picture = await film.eval<number[]>('movie.snapshot(0, { as: "imageData" }).then(i => Array.from(i.data))');
+      const logs = JSON.parse(await film.eval<string>('JSON.stringify(window.__logs)')) as string[];
+      expect(logs.filter((l) => /three layers are alive|context/.test(l))).toEqual([]);
+      const layers = await film.eval<Array<{ sharedGpu?: boolean }>>('movie.inspect(0).then(r => r.layers)');
+      expect(layers.filter((l) => l.sharedGpu).length, 'they really share').toBe(60);
+      // each layer is 40 x 40 at (20 + 40 i, 20 + 40 j); count the orange pixels in its cell
+      let drawn = 0;
+      for (let i = 0; i < 60; i++) {
+        const x0 = (i % 15) * 40, y0 = Math.floor(i / 15) * 40;
+        let orange = 0;
+        for (let y = y0; y < y0 + 40; y += 2) for (let x = x0; x < x0 + 40; x += 2) { const k = (y * 600 + x) * 4; if (picture[k]! > 200 && picture[k + 2]! < 80) orange++; }
+        if (orange > 10) drawn++;
+      }
+      expect(drawn, 'layers whose cell holds the orange box').toBe(60);
+    }, { query: 'n=60&renderer=webgpu', readySeconds: 120 });
+  }, 240_000);
+
+  it("without sharing (`shareGpu: false`) 60 webgpu layers still hit the budget warning as before", async () => {
+    const logs = await logsOf('n=40&renderer=webgpu&share=0');
+    expect(logs.filter((l) => /three layers are alive/.test(l))).toHaveLength(1);
+  }, 240_000);
 });

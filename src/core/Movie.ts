@@ -1,4 +1,5 @@
 import { usesAdvancedBlend, enableAdvancedBlend } from './blend';
+import { sharedGpuOf } from './gpuShare';
 import { Application, Container, Culler, Rectangle, extensions, CullerPlugin } from 'pixi.js';
 import { createTimeline, lengthen, type Timeline } from './timelineEngine';
 import { loadAssetBundle } from './AssetLoader';
@@ -453,8 +454,11 @@ export class Movie {
    */
   private async _construct(composition: CompositionSpec | undefined, vars: Vars, width: number, height: number, lp?: LoadProgress, sizeWins = this._resized): Promise<CompositionSequence> {
     const spec = applyVars(composition, vars);
+    const gpu = sharedGpuOf(this.app?.renderer);
+    const gpuField = gpu ? { gpu } : {};
     const rootShape: CompositionShape = {
       width, height, duration: this.duration, frameRate: this.frameRate, vars: numericVars(vars),
+      ...gpuField,
       ...(lp ? { onLayerBuilt: async () => { lp.tick(); await lp.yieldIfDue(); } } : {}),
     };
     // Inject root dimensions before expanding transitions: the macro

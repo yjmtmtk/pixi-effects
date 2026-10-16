@@ -142,6 +142,7 @@ interface CompositionSequenceSpec extends SequenceCommon
 interface CompositionShape
   duration: number
   frameRate?: number
+  gpu?: SharedGpu
   height: number
   onLayerBuilt?: (() => void | Promise<void>)
   spaceAt?: ((t: number) => SpaceNow)
@@ -268,6 +269,7 @@ interface LayerInfo
   onCanvas: "none" | "full" | "partial" | null
   path: string
   renderer?: "webgl" | "webgpu"
+  sharedGpu?: boolean
   threeD: boolean
   type: string
   visible: boolean
@@ -998,6 +1000,7 @@ class ThreeSequence
   renderer: "webgl" | "webgpu" | null
   root: CompositionShape
   scope(): Scope
+  sharedGpu: boolean
   spec: SequenceSpec
   target: Container<ContainerChild> | null
   constructor(spec: SequenceSpec, parent: CompositionShape | null, root: CompositionShape)
@@ -1011,6 +1014,7 @@ interface ThreeSequenceSpec extends SequenceCommon
   renderer?: "webgl" | "webgpu"
   resolution?: number
   setup: (ctx: ThreeContext) => void | ThreeSetupResult | Promise<void | ThreeSetupResult>
+  shareGpu?: boolean
   type: "three"
   update?: ((t: number, ctx: ThreeContext) => void)
   width?: PropValue

@@ -2,6 +2,7 @@ import type { MusicSummary } from './audio/music/events';
 import type { CameraState } from './space/math';
 import type { LightState } from './space/lighting';
 import type { FogState } from './space/LitMaterial';
+import type { SharedGpu } from './core/gpuShare';
 /**
  * pixi-effects public DSL types.
  *
@@ -832,6 +833,8 @@ export interface CompositionShape {
   vars?: Record<string, number>;
   /** What a layer that lives in the composition's space (a `three` layer with `followCamera` / `followLights`) asks for: the camera and the lights alive at time `t` (the composition's own clock). Set by the composition. */
   spaceAt?: (t: number) => SpaceNow;
+  /** The GPU device PixiJS draws with, on the root shape only and only when PixiJS runs on WebGPU: a `three` layer with `renderer: 'webgpu'` draws on it instead of on a canvas of its own. */
+  gpu?: SharedGpu;
 }
 
 /** The composition's camera and the lights alive at one moment (what its `camera` and `light` layers say, after their keyframes). */

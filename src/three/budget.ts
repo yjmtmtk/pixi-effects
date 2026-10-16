@@ -1,7 +1,7 @@
 /**
  * How many three layers a page can hold. Each `three` layer owns a renderer, and a browser keeps only so many live graphics contexts for a whole page: about 16 for WebGL, about 32 for
  * WebGPU (measured 2026-10-15 on Chrome: layers beyond it draw nothing, without an error). PixiJS and a `shader` layer use contexts of their own, so the warning comes a little before the
- * limit: more than 12 WebGL layers, more than 28 WebGPU layers.
+ * limit: more than 12 WebGL layers, more than 28 WebGPU layers. A WebGPU layer that draws on PixiJS's own GPU device has no context of its own and is not counted.
  */
 export type ThreeKind = 'webgl' | 'webgpu';
 
@@ -16,7 +16,7 @@ export function trackThree(kind: ThreeKind): void {
   if (live[kind] > WARN_ABOVE[kind] && !warned.has(kind)) {
     warned.add(kind);
     console.warn(`pixi-effects: ${live[kind]} three layers are alive with renderer: '${kind}', and a browser keeps ${LIMIT[kind]} for the whole page; layers beyond that draw nothing, without an error. ` +
-      `Put several objects in one three layer, destroy layers that are over, ` + (kind === 'webgl' ? `or use renderer: 'webgpu' for some (its limit is about 32)` : `or use renderer: 'webgl' for some of them (a different pool of contexts)`));
+      `Put several objects in one three layer, destroy layers that are over, ` + (kind === 'webgl' ? `or use renderer: 'webgpu' for some (in a movie PixiJS draws on WebGPU they share its GPU device and have no limit; otherwise it is about 32)` : `or use renderer: 'webgl' for some of them (a different pool of contexts), or leave shareGpu on in a movie PixiJS draws on WebGPU (the layers then share its device)`));
   }
 }
 

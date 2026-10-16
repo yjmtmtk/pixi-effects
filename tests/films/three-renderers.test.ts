@@ -140,4 +140,54 @@ runFilms("Three layer: the page default, and a browser with no WebGPU", () => {
       }
     }
   }, 600_000);
+
+  // A webgpu layer shares Pixi's GPU device (no canvas of its own, no copy): the picture must be the one the layer's own canvas gives.
+  const sharedOf = (query: string) => withFilm('three-renderers', async (film) => {
+    const layers = await film.eval<Array<{ name: string; renderer?: string; backend?: string; sharedGpu?: boolean }>>('movie.inspect(30).then(r => r.layers)');
+    return layers.find((l) => l.name === 'scene3d')!;
+  }, { query });
+
+  it("a webgpu layer shares Pixi's GPU device, a webgl layer and `shareGpu: false` do not (inspect says which)", async () => {
+    expect((await sharedOf('renderer=webgpu')).sharedGpu).toBe(true);
+    expect((await sharedOf('renderer=webgpu&share=0')).sharedGpu).toBe(false);
+    expect((await sharedOf('renderer=webgl')).sharedGpu).toBeFalsy();
+  }, 120_000);
+
+  it('the shared route draws the picture of the layer\'s own canvas: antialias, fog and tone mapping included (measured 2026-10-17: identical, 0 channels differ in all nine pictures; the bounds leave room for another GPU)', async () => {
+    for (const extra of ['', '&aa=0', '&fog=1&tone=1']) {
+      const shared = await framesOf(`webgpu${extra}`);
+      const own = await framesOf(`webgpu&share=0${extra}`);
+      for (let k = 0; k < FRAMES.length; k++) {
+        let sum = 0, big = 0;
+        for (let i = 0; i < shared[k]!.length; i++) { if (i % 4 === 3) continue; const d = Math.abs(shared[k]![i]! - own[k]![i]!); sum += d; if (d > 8) big++; }
+        expect(sum / (shared[k]!.length * 3 / 4), `${extra || 'default'} frame ${FRAMES[k]} mean difference`).toBeLessThan(0.05);
+        expect(big, `${extra || 'default'} frame ${FRAMES[k]} channels off by more than 8`).toBeLessThan(20);
+      }
+    }
+  }, 240_000);
+
+  it('the shared route is a function of the time too: forward, backward and a repeat give one picture per frame', async () => {
+    await withFilm('three-renderers', async (film) => {
+      const h = async (f: number) => film.eval<string>(`hashOf(${f})`);
+      const forward = [await h(0), await h(30), await h(60), await h(75)];
+      const back = [await h(75), await h(60), await h(30), await h(0)].reverse();
+      expect(back).toEqual(forward);
+      expect(new Set(forward).size).toBe(4);
+      expect(await film.eval<string>('JSON.stringify(window.__logs)')).toBe('[]');
+    }, { query: 'renderer=webgpu' });
+  }, 120_000);
+
+  it("if the shared route cannot work (PixiJS keeps its GPU textures elsewhere) the layer says so once and is made again on a canvas of its own: the same picture, not a blank layer", async () => {
+    const broken = await withFilm('three-renderers', async (film) => ({
+      logs: JSON.parse(await film.eval<string>('JSON.stringify(window.__logs)')) as string[],
+      layer: (await film.eval<Array<{ name: string; sharedGpu?: boolean; backend?: string }>>('movie.inspect(30).then(r => r.layers)')).find((l) => l.name === 'scene3d')!,
+      picture: await film.eval<number[]>('framePixels(30)'),
+    }), { query: 'renderer=webgpu&break=1' });
+    expect(broken.logs.filter((l) => /could not draw on PixiJS's GPU device/.test(l))).toHaveLength(1);
+    expect(broken.logs.filter((l) => /_gpuData/.test(l)), 'the reason is in the sentence').toHaveLength(1);
+    expect(broken.layer.sharedGpu).toBe(false);
+    expect(broken.layer.backend).toBe('webgpu');
+    const own = await framesOf('webgpu&share=0');
+    expect(broken.picture).toEqual(own[1]);
+  }, 120_000);
 });

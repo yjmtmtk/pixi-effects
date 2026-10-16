@@ -64,4 +64,15 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check hold
     expect(r.code).toBe(0);
     expect(r.stdout).toMatch(/three +1 three layer\(s\) drew the same picture twice/);
   }, 200_000);
+
+  it("a webgpu layer with a canvas of its own (shareGpu: false) is caught when it leaks", async () => {
+    const r = await run('renderer=webgpu&share=0&leaky=random');
+    expect(r.report.inspect.canvas.join('\n')).toMatch(/"spin" does not draw the same picture/);
+  }, 200_000);
+
+  it("a webgpu layer on PixiJS's GPU device is checked on a real picture, not a blank canvas: a leaky update is caught there too", async () => {
+    const r = await run('renderer=webgpu&leaky=random');
+    expect(r.code).toBe(1);
+    expect(r.report.inspect.canvas.join('\n')).toMatch(/"spin" does not draw the same picture/);
+  }, 200_000);
 });

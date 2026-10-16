@@ -3,7 +3,7 @@
 <head><meta charset="UTF-8" /><title>film · three renderers</title></head>
 <body>
   <!-- Test film (tests/films/three-renderers.test.ts): one three layer (a lit box that turns with the time, a sphere, a point light) over a 2D shape, drawn by three's
-       WebGLRenderer or WebGPURenderer (?renderer=webgl|webgpu). The page gives the test pixelAt(frame, x, y), hashOf(frame) and backend (the renderer PixiJS chose). -->
+       WebGLRenderer or WebGPURenderer (?renderer=webgl|webgpu; ?break=1 makes the shared route fail on purpose; ?share=0 keeps a webgpu layer on its own canvas instead of Pixi's GPU device). The page gives the test pixelAt(frame, x, y), hashOf(frame) and backend (the renderer PixiJS chose). -->
   <canvas id="stage" width="320" height="180"></canvas>
   <script>
     window.__logs = [];
@@ -20,7 +20,14 @@
     registerThree(PAGE ? { renderer: PAGE } : undefined);
     const q = new URLSearchParams(location.search);
     const which = q.get('renderer') || 'webgl';
+    const SHARE = q.get('share') !== '0';
     const AA = q.get('aa') !== '0', FOG = q.get('fog') === '1', TONE = q.get('tone') === '1';       // the output pipeline switches the test compares
+    if (q.get('break') === '1') {                                                           // a PixiJS that keeps its GPU textures elsewhere: the shared route cannot adopt a texture
+      const { TextureSource } = await import('pixi.js');
+      const store = new WeakMap();
+      Object.defineProperty(TextureSource.prototype, '_gpuData', { configurable: true,
+        get() { return /^three layer/.test(this.label) ? undefined : (store.get(this) ?? (store.set(this, Object.create(null)), store.get(this))); }, set(v) { store.set(this, v); } });
+    }
     const movie = new Movie();
     window.movie = movie;
     window.hashOf = async (frame) => {
@@ -36,7 +43,7 @@
         composition: { sequences: [
           { type: 'shape', shape: 'rect', name: 'band', width: 320, height: 24, initial: { x: 160, y: 168, fillColor: '#f2c14e' } },
           three({
-            type: 'three', name: 'scene3d', ...(PAGE ? {} : { renderer: which }), antialias: AA, width: 320, height: 180, initial: { x: 160, y: 90, anchorX: 0.5, anchorY: 0.5 },
+            type: 'three', name: 'scene3d', ...(PAGE ? {} : { renderer: which }), antialias: AA, ...(SHARE ? {} : { shareGpu: false }), width: 320, height: 180, initial: { x: 160, y: 90, anchorX: 0.5, anchorY: 0.5 },
             setup: (ctx) => {
               const box = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.4, 1.4), new THREE.MeshStandardMaterial({ color: 0x7fb4ff, roughness: 0.5, metalness: 0.1 }));
               const ball = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 16), new THREE.MeshStandardMaterial({ color: 0xff7a5c, roughness: 0.4 }));

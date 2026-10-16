@@ -1,5 +1,5 @@
-import { Sprite, Texture } from 'pixi.js';
-import { Box3, PerspectiveCamera, Plane, Quaternion, Raycaster, Scene, Vector2, Vector3, WebGLRenderer, type Camera, type Object3D } from 'three';
+import { Sprite, Texture, TextureSource } from 'pixi.js';
+import { Box3, PerspectiveCamera, Plane, Quaternion, Raycaster, RenderTarget, Scene, Vector2, Vector3, WebGLRenderer, type Camera, type Object3D } from 'three';
 import type { WebGPURenderer } from 'three/webgpu';
 import { Sequence } from '../sequences/Base';
 import { buildScope } from '../expr/Scope';
@@ -11,6 +11,7 @@ import { checkRendererKind, getPageRenderer } from './defaults';
 import { applyCameraState, FogMirror, LightMirror } from './spaceBridge';
 import { releaseThree, trackThree } from './budget';
 import type { CanvasCheck } from '../sequences/Canvas';
+import type { SharedGpu } from '../core/gpuShare';
 
 /** What makes a frame depend on more than the time (the same list as the canvas layer's). */
 const NOT_PURE = /\bMath\s*\.\s*random\s*\(|\bDate\s*\.\s*now\s*\(|\bperformance\s*\.\s*now\s*\(|\bnew\s+Date\s*\(/;
@@ -22,6 +23,10 @@ export class ThreeSequence extends Sequence {
   /** The backend under it: `'webgl'`, `'webgpu'`, or `'webgl2'` when three's WebGPURenderer found no WebGPU in this browser and used its own WebGL2 backend (the same picture). */
   backend: 'webgl' | 'webgpu' | 'webgl2' | null = null;
   private _gpu = false;                       // renderer: 'webgpu': async init and async render
+  /** True when the layer draws on PixiJS's own GPU device into a texture PixiJS samples directly (no canvas of its own, no copy, no share of the page's context cap). */
+  sharedGpu = false;
+  private _rt: RenderTarget | null = null;     // the texture a shared layer draws into
+  private _sharedTexture: Texture | null = null;
   private _scene: Scene | null = null;
   private _camera: Camera | null = null;
   private _ctx: ThreeContext | null = null;
@@ -74,18 +79,31 @@ export class ThreeSequence extends Sequence {
       try { mod = await import('three/webgpu'); } catch (err) {
         throw new Error(`pixi-effects: renderer: 'webgpu' needs three 0.17x or later with "three/webgpu" in the import map (${err instanceof Error ? err.message : err})`);
       }
-      renderer = new mod.WebGPURenderer({ canvas, alpha: true, antialias });
-      this._renderer = renderer;
-      this._track();
-      // The device is made here: nothing may render before. Where there is no WebGPU three uses its own WebGL2 backend and says so with a warning: that is not a problem
-      // (it draws the same picture), so it becomes `backend: 'webgl2'` instead of a line in the author's console.
-      const warn = console.warn;
-      let noGpu = false;
-      console.warn = (...args: unknown[]) => { if (/WebGPU is not available/.test(String(args[0]))) noGpu = true; else warn.apply(console, args as []); };
-      try { await renderer.init(); }
-      catch (err) { this._disposeRenderer(); throw err; }
-      finally { console.warn = warn; }
-      this.backend = noGpu ? 'webgl2' : 'webgpu';
+      // On PixiJS's own GPU device when there is one (a WebGPU movie): the layer draws into a texture PixiJS samples, with no canvas of its own. Anything that goes wrong there is said once
+      // and the layer is made again on a canvas of its own, before its setup has run.
+      let shared = spec.shareGpu === false ? undefined : this.root.gpu;
+      for (;;) {
+        renderer = new mod.WebGPURenderer(shared ? { device: shared.device as never, alpha: true, antialias } : { canvas, alpha: true, antialias });
+        this._renderer = renderer;
+        if (!shared) this._track();
+        // The device is made here: nothing may render before. Where there is no WebGPU three uses its own WebGL2 backend and says so with a warning: that is not a problem
+        // (it draws the same picture), so it becomes `backend: 'webgl2'` instead of a line in the author's console.
+        const warn = console.warn;
+        let noGpu = false;
+        console.warn = (...args: unknown[]) => { if (/WebGPU is not available/.test(String(args[0]))) noGpu = true; else warn.apply(console, args as []); };
+        try {
+          await renderer.init();
+          if (shared) { renderer.setSize(Math.round(width * resolution), Math.round(height * resolution), false); renderer.setClearColor(0x000000, 0); this._prepareShared(renderer, shared, width, height, resolution, antialias); }
+          this.backend = noGpu ? 'webgl2' : 'webgpu';
+          break;
+        } catch (err) {
+          this._disposeRenderer();
+          if (!shared) throw err;
+          console.warn(`pixi-effects: three layer${spec.name ? ` "${spec.name}"` : ''}: could not draw on PixiJS's GPU device (${err instanceof Error ? err.message : err}); it uses a canvas of its own (shareGpu: false does this on purpose)`);
+          shared = undefined;
+          this._closing = false;
+        } finally { console.warn = warn; }
+      }
     } else {
       renderer = new WebGLRenderer({ canvas, alpha: true, antialias });
       this._renderer = renderer;
@@ -120,7 +138,7 @@ export class ThreeSequence extends Sequence {
       // Frame 0 so the texture is never blank before the first tick.
       this._draw(0);
 
-      const texture = Texture.from(canvas);
+      const texture = this._sharedTexture ?? Texture.from(canvas);
       const sprite = new Sprite({ texture, label: spec.name });
       sprite.cullable = true;
       // Texture is canvas-sized (layer px × resolution); scale back to comp px.
@@ -158,7 +176,7 @@ export class ThreeSequence extends Sequence {
       }
     }
     this._draw(t);
-    (this.target as Sprite | null)?.texture.source.update();
+    if (!this.sharedGpu) (this.target as Sprite | null)?.texture.source.update();       // a shared layer's texture is the GPU's own: it is already the new picture
   }
 
   /**
@@ -237,7 +255,7 @@ export class ThreeSequence extends Sequence {
       try {
         this._followSpace(t);
         this._threeSpec.update?.(t, ctx);
-        this._draw(t);
+        this._draw(t, true);                                           // (a shared layer draws to the renderer's own canvas here: the same scene and update, the picture readable now)
         g.clearRect(0, 0, w, h);
         g.drawImage(source, 0, 0);
       } catch { threw.add(t); }
@@ -328,10 +346,34 @@ export class ThreeSequence extends Sequence {
    * follow each other in one task (a seek, an export) would all show the lights of the last animation frame: a lamp keyframed with `three.lamp.intensity` would not move.
    * So before each render the layer advances the node frame itself, and gives `time` the layer's own time (not three's wall clock).
    */
-  private _draw(t: number): void {
+  private _draw(t: number, toCanvas = false): void {
     if (!this._renderer || !this._scene || !this._camera) return;
     if (this._gpu) this._advanceNodeFrame(t);
-    this._renderer.render(this._scene, this._camera);
+    if (!this._rt || toCanvas) { this._renderer.render(this._scene, this._camera); return; }
+    // A shared layer draws into its texture. setOutputRenderTarget (not setRenderTarget) keeps the canvas route's output pass: tone mapping, the sRGB encode, fog and the multisample resolve.
+    const r = this._renderer as unknown as { setOutputRenderTarget(rt: RenderTarget | null): void; setRenderTarget(rt: RenderTarget | null): void };
+    r.setOutputRenderTarget(this._rt);
+    try { this._renderer.render(this._scene, this._camera); } finally { r.setOutputRenderTarget(null); r.setRenderTarget(null); }       // (three leaves the output target set as the render target too)
+  }
+
+  /**
+   * A shared layer's texture: a render target of the layer's size, drawn into once (the GPU texture exists only after a draw) and adopted by a PixiJS texture source. Throws when something
+   * is not as this expects (the build then makes the layer again on a canvas of its own). Done before `setup`, so nothing the author made yet depends on the renderer.
+   */
+  private _prepareShared(renderer: WebGPURenderer, shared: SharedGpu, width: number, height: number, resolution: number, antialias: boolean): void {
+    const w = Math.round(width * resolution), h = Math.round(height * resolution);
+    const rt = new RenderTarget(w, h, { depthBuffer: true, samples: antialias ? 4 : 0 });
+    this._rt = rt;
+    const r = renderer as unknown as { setOutputRenderTarget(rt: RenderTarget | null): void; setRenderTarget(rt: RenderTarget | null): void; backend?: { get?(t: unknown): { texture?: { format?: string; createView?: unknown } } | undefined } };
+    if (typeof r.setOutputRenderTarget !== 'function') throw new Error('this three has no setOutputRenderTarget');
+    r.setOutputRenderTarget(rt);
+    try { renderer.render(new Scene(), new PerspectiveCamera()); } finally { r.setOutputRenderTarget(null); r.setRenderTarget(null); }
+    const gpuTexture = r.backend?.get?.(rt.texture)?.texture;
+    if (!gpuTexture || typeof gpuTexture.createView !== 'function') throw new Error("three keeps no GPU texture for a render target");
+    const source = new TextureSource({ width: w, height: h, format: gpuTexture.format as never, label: 'three layer (shared GPU)' });
+    shared.adopt(source, gpuTexture);
+    this._sharedTexture = new Texture({ source });
+    this.sharedGpu = true;
   }
 
   /**
@@ -432,6 +474,8 @@ export class ThreeSequence extends Sequence {
       console.warn('pixi-effects: three renderer dispose threw —', err);
     }
     this._renderer = null;
+    try { this._rt?.dispose(); } catch { /* the renderer took the texture with it */ }
+    this._rt = null;
   }
 
   override destroy(): void {
@@ -452,7 +496,8 @@ export class ThreeSequence extends Sequence {
     this._ctx = null;
     this._objects = {};
     super.destroy();
-    texture?.destroy(true); // canvas-backed source is per-sequence; safe to kill
+    texture?.destroy(true); // canvas-backed source is per-sequence; safe to kill (a shared layer's source owns no GPU texture: the render target did)
+    this._sharedTexture = null;
   }
 }
 
