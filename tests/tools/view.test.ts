@@ -101,7 +101,7 @@ const chrome = check.findChrome();
 const built = existsSync(join(root, 'dist/index.js'));
 describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('view.mjs â€” the viewer, run for real in Chrome', () => {
   it('shows the timeline under the page; a click on it seeks the movie and the playhead follows the movie when it plays', async () => {
-    const proc = spawn('node', [join(root, 'ai/tools/view.mjs'), join(root, 'examples/gallery/kinetic-manifesto.html'), '--no-open'], { stdio: ['ignore', 'pipe', 'inherit'] });
+    const proc = spawn('node', [join(root, 'ai/tools/view.mjs'), join(root, 'tests/films/timeline.html'), '--no-open'], { stdio: ['ignore', 'pipe', 'inherit'] });
     const url: string = await new Promise((res, rej) => {
       let buf = '';
       const t = setTimeout(() => rej(new Error('the viewer did not print its address')), 15000);
@@ -226,7 +226,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('view.mjs â
   }, 90_000);
 
   it('zooms: fit shows the whole movie without sideways scrolling; + makes the chart wider; the names stay in a fixed column; clicks still seek to the right time', async () => {
-    const proc = spawn('node', [join(root, 'ai/tools/view.mjs'), join(root, 'examples/gallery/kinetic-manifesto.html'), '--no-open'], { stdio: ['ignore', 'pipe', 'inherit'] });
+    const proc = spawn('node', [join(root, 'ai/tools/view.mjs'), join(root, 'tests/films/timeline.html'), '--no-open'], { stdio: ['ignore', 'pipe', 'inherit'] });
     const url: string = await new Promise((res, rej) => {
       let buf = '';
       const t = setTimeout(() => rej(new Error('the viewer did not print its address')), 15000);

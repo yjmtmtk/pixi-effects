@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · a movie with a timeline worth viewing</title></head>
+<body>
+  <!-- Test film (tests/tools/view.test.ts): eight named layers that start and end at different times over 12 seconds (the viewer zooms in to 12 px a frame at most: a short movie cannot be zoomed three times), so its timeline has rows to draw, click and zoom. -->
+  <canvas id="stage" width="640" height="360"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const movie = new Movie();
+    window.movie = movie;
+    const NAMES = ['sun', 'moon', 'river', 'ridge', 'cloud', 'tower', 'bridge', 'harbour'];      // distinct names: similar ones (bar-1, bar-2) are one row in the timeline
+    const layer = (i) => ({ type: 'shape', shape: 'rect', name: NAMES[i], width: 60, height: 30, at: i * 1.2, duration: 12 - i * 1.2,
+      initial: { x: 60 + i * 70, y: 60 + i * 30, fillColor: ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#c77dff'][i % 5] },
+      keyframes: [{ at: 0, to: { x: 80 + i * 70 }, duration: 2, ease: 'power2.out' }] });
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 12, frameRate: 30, background: '#101828',
+        composition: { sequences: Array.from({ length: 8 }, (_, i) => layer(i)) } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>
