@@ -18,6 +18,9 @@
     import { registerThree } from '../../dist/three.js';
     import * as THREE from 'three';
     registerThree();
+    // a picture with a transparent left half (100 x 60: the right half is opaque green), as a data URI for an image layer
+    const half = document.createElement('canvas'); half.width = 100; half.height = 60;
+    const g = half.getContext('2d'); g.fillStyle = '#3aa56e'; g.fillRect(50, 0, 50, 60);
     const movie = new Movie();
     window.movie = movie;
     const strip = (h) => h && JSON.parse(JSON.stringify(h, (k, v) => (k === 'object3d' ? undefined : v)));
@@ -26,13 +29,15 @@
     window.clientPointFor = (x, y) => { const r = document.getElementById('stage').getBoundingClientRect(); return { clientX: r.left + x * r.width / 480, clientY: r.top + y * r.height / 270 }; };
     window.canvasPointOf = (ev) => movie.canvasPoint(ev);
     try {
-      await movie.init({ canvas: document.getElementById('stage'), width: 480, height: 270, duration: 3, frameRate: 30, background: '#102040', composition: { sequences: [
+      await movie.init({ canvas: document.getElementById('stage'), width: 480, height: 270, duration: 3, frameRate: 30, background: '#102040', assets: [{ name: 'half', src: half.toDataURL('image/png') }], composition: { sequences: [
         { type: 'camera', name: 'cam', keyframes: [{ at: 0, to: { x: 400, lookAtX: 400 }, duration: 3, ease: 'none' }] },
         { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1c2b4d' } },
         { type: 'shape', shape: 'rect', name: 'button', width: 120, height: 20, initial: { x: 100, y: 60, anchorX: 0.5, anchorY: 0.5, rotation: 45, fillColor: '#f2c14e' } },
         { type: 'shape', shape: 'circle', name: 'dot', radius: 30, initial: { x: 380, y: 60, anchorX: 0.5, anchorY: 0.5, fillColor: '#d96a3a' } },
         { type: 'text', name: 'title', text: 'PICK ME', style: { fontSize: 32, fill: '#ffffff', fontFamily: 'Arial' }, initial: { x: 240, y: 240, anchorX: 0.5, anchorY: 0.5 } },
         { type: 'shape', shape: 'rect', name: 'card', width: 100, height: 60, threeD: true, initial: { x: 150, y: 150, z: 0, anchorX: 0.5, anchorY: 0.5, rotationY: 40, fillColor: '#3a6ea5' } },
+        { type: 'image', name: 'half', asset: 'half', initial: { x: 10, y: 195 } },
+        { type: 'canvas', name: 'ring', width: 80, height: 80, initial: { x: 400, y: 190 }, draw: (ctx) => { ctx.fillStyle = '#d96a3a'; ctx.beginPath(); ctx.arc(40, 40, 36, 0, Math.PI * 2); ctx.fill(); } },
         { type: 'three', name: 'world', followCamera: true, antialias: false,
           setup: (ctx) => { const cube = new THREE.Mesh(new THREE.BoxGeometry(60, 60, 60), new THREE.MeshBasicMaterial({ color: 0x3aa56e })); cube.name = 'cube'; cube.position.set(330, -170, 0); ctx.scene.add(cube); } },
       ] } });

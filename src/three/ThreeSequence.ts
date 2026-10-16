@@ -1,5 +1,5 @@
 import { Sprite, Texture } from 'pixi.js';
-import { Box3, PerspectiveCamera, Raycaster, Scene, Vector2, Vector3, WebGLRenderer, type Camera, type Object3D } from 'three';
+import { Box3, PerspectiveCamera, Plane, Quaternion, Raycaster, Scene, Vector2, Vector3, WebGLRenderer, type Camera, type Object3D } from 'three';
 import type { WebGPURenderer } from 'three/webgpu';
 import { Sequence } from '../sequences/Base';
 import { buildScope } from '../expr/Scope';
@@ -178,6 +178,37 @@ export class ThreeSequence extends Sequence {
       return { object: name, point: hit.point.toArray() as [number, number, number], distance: hit.distance, object3d: hit.object };
     }
     return null;
+  }
+
+  /**
+   * `hit.three.grab(plane)`: drag a grabbed point of the scene. Returns a function of a point (u, v) of the layer's picture (0..1, v down) that gives where the pointer's ray through the layer's
+   * camera meets a plane through the grabbed point, and how far that is from the grabbed point (`delta`): move the object by it and it follows the pointer exactly. `plane`: `'screen'` (facing the
+   * camera: the default), `'floor'` (horizontal, the three y up), `'wall'` (z constant), or a normal `[x, y, z]`. null where the ray never meets it (a floor seen edge-on, behind the camera).
+   */
+  dragPlane(point: [number, number, number], plane: 'screen' | 'floor' | 'wall' | [number, number, number] = 'screen'): (u: number, v: number) => { point: [number, number, number]; delta: [number, number, number] } | null {
+    const grabbed = new Vector3(...point);
+    let normal: Vector3;
+    if (plane === 'floor') normal = new Vector3(0, 1, 0);
+    else if (plane === 'wall') normal = new Vector3(0, 0, 1);
+    else if (Array.isArray(plane)) normal = new Vector3(...plane).normalize();
+    else {
+      const turn = new Quaternion();
+      this._camera?.updateMatrixWorld();
+      this._camera?.getWorldQuaternion(turn);
+      normal = new Vector3(0, 0, 1).applyQuaternion(turn);             // the camera looks along -z: its back is the plane's normal
+    }
+    const surface = new Plane().setFromNormalAndCoplanarPoint(normal, grabbed);
+    return (u, v) => {
+      const scene = this._scene, camera = this._camera;
+      if (!scene || !camera) return null;
+      scene.updateMatrixWorld();
+      camera.updateMatrixWorld();
+      const ray = new Raycaster();
+      ray.setFromCamera(new Vector2(u * 2 - 1, -(v * 2 - 1)), camera);
+      const at = ray.ray.intersectPlane(surface, new Vector3());
+      if (!at) return null;
+      return { point: at.toArray() as [number, number, number], delta: at.clone().sub(grabbed).toArray() as [number, number, number] };
+    };
   }
 
   /**

@@ -51,6 +51,21 @@ runFilms('movie.pick: what is under a point of the canvas', () => {
     });
   }, 120_000);
 
+  it("{ alpha } looks at the picture, not the box: the transparent half of an image and the corners of a canvas layer are not hit, the opaque parts are; without it the box is the picture", async () => {
+    await withFilm('pick', async (film) => {
+      // the image 'half' is 100 x 60 at (10, 195): its left half (x 10..60) is clear, its right half opaque
+      expect((await at(film, 0, 30, 225))?.name, 'no alpha option: the box').toBe('half');
+      expect((await at(film, 0, 30, 225, '{ alpha: 0.1 }'))?.name, 'a clear pixel is the background').toBe('bg');
+      expect((await at(film, 0, 90, 225, '{ alpha: 0.1 }'))?.name, 'an opaque pixel is the image').toBe('half');
+      expect((await at(film, 0, 90, 225, '{ alpha: 0.1 }'))!.local!.x).toBeCloseTo(80, 0);
+      // the canvas layer 'ring': an 80 x 80 box at (400, 190) with a circle of radius 36 in it
+      expect((await at(film, 0, 402, 192))?.name, 'the corner of its box, no alpha option').toBe('ring');
+      expect((await at(film, 0, 402, 192, '{ alpha: 0.1 }'))?.name, 'the corner is clear').toBe('bg');
+      expect((await at(film, 0, 440, 230, '{ alpha: 0.1 }'))?.name, 'the middle of the circle').toBe('ring');
+      expect(await film.eval<string>('JSON.stringify(window.__logs)'), 'no warning: both pictures can be read').toBe('[]');
+    });
+  }, 120_000);
+
   it('pickAll lists what is under a point, the top first; only / ignore choose', async () => {
     await withFilm('pick', async (film) => {
       const all = await film.eval<Array<{ name: string }>>('pickAllAt(0, 100, 60)');

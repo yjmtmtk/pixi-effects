@@ -1406,7 +1406,7 @@ movie.hover({ ignore: ['background'], cursor: true,           // enter / leave a
 // a test, or an AI checking its own page, asks about a chosen frame:  await movie.snapshot(90);  movie.pick(640, 360)
 ```
 
-`pick` reads the frame as the last draw left it (it takes no time and has no clock), so a paused movie answers for the frame it shows. A transparent corner of a picture still counts as the picture; dragging is built on `pick` too: recipe `drag-drop`.
+`pick` reads the frame as the last draw left it (it takes no time and has no clock), so a paused movie answers for the frame it shows. `movie.pick(x, y, { alpha: 0.1 })` looks at the picture and not its box (a transparent corner of a logo, the clear part of a drawn circle: not a hit). Dragging is built on `pick` too: recipes `drag-drop` (a flat layer) and `drag-3d` (an object of a three layer).
 
 ## Drag a layer and drop it on a target (`pick` and variables)
 
@@ -1437,6 +1437,32 @@ canvas.addEventListener('pointerdown', (e) => {
 });
 movie.hover({ only: ['card'], cursor: 'grab' });                       // the cursor says it can be taken
 ```
+
+## Drag an object of a three layer (`hit.three.grab`)
+
+The scene is the `three` layer's own, so what is taken is a three object: `movie.pick` says which (`hit.three.object`), `hit.three.grab(plane)` fixes a plane through the point that was taken, and `grab.move(x, y)` says where the pointer's ray meets that plane and how far that is from the point taken (`delta`). Planes: `'wall'` (z constant: slides across the picture), `'floor'` (horizontal: slides along the ground), `'screen'` (facing the camera), or a normal. The layer's `update` reads the object's place from a variable of the page, and `await movie.redraw()` draws the paused frame again after each move (a playing movie draws it by itself).
+
+```js
+// @docs-only drag-3d
+// the three layer (followCamera: true, so the composition's camera is the layer's):  update: () => { cube.position.set(pos.x, pos.y, pos.z); }
+// the page's state is the cube's place in three's units (the composition's (x, y, z) is (x, -y, z)):  const pos = { x: 480, y: -270, z: 0 };
+canvas.addEventListener('pointerdown', (e) => {
+  const hit = movie.pick(...movie.canvasPoint(e), { only: ['world'] });
+  if (hit?.three?.object !== 'cube') return;                         // only the cube can be taken
+  const grab = hit.three.grab('wall');                               // it slides on the wall plane through the point it was taken at
+  const start = { ...pos };                                          // where it was
+  const move = (ev) => {
+    const m = grab.move(...movie.canvasPoint(ev));                   // the ray of the pointer meets the plane here, this far from the point taken
+    if (!m) return;                                                  // a ray that never meets the plane (a floor seen edge-on): leave it
+    pos.x = start.x + m.delta[0]; pos.y = start.y + m.delta[1]; pos.z = start.z + m.delta[2];
+    movie.redraw();                                                  // the layer reads `pos`: draw the frame again
+  };
+  const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+  window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+});
+```
+
+The grabbed point stays under the pointer exactly, whatever the camera does (the maths is the camera's own ray, not a guess of pixels per unit). To keep an object on the ground use `'floor'`; a pointer ray that points above the horizon never meets it and `move` answers null.
 
 ## Subtitles from an SRT file
 

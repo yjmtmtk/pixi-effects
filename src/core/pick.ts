@@ -20,10 +20,42 @@ export interface PickHit {
   /** A flat layer: the point in the layer's own pixels (the top-left of its picture is 0, 0). */
   local?: { x: number; y: number };
   /** A `three` layer: what the ray through that point met first: the object (its name, or `''`), where (three's own units), and how far from the camera. */
-  three?: { object: unknown; point: [number, number, number]; distance: number; object3d?: unknown };
+  three?: {
+    object: unknown; point: [number, number, number]; distance: number; object3d?: unknown;
+    /**
+     * Drag what the ray met: `grab(plane)` fixes a plane through the hit point (`'screen'` facing the camera, the default; `'floor'`; `'wall'`; or a normal `[x, y, z]`), and `move(x, y)` takes the pointer
+     * in canvas pixels and gives where its ray meets that plane (`point`) and how far that is from the hit point (`delta`): move the object by it. null where the ray never meets the plane.
+     */
+    grab?: (plane?: 'screen' | 'floor' | 'wall' | [number, number, number]) => { move: (x: number, y: number) => { point: [number, number, number]; delta: [number, number, number] } | null };
+  };
 }
 
+/** How opaque a picture's resource (an image, a canvas, a video frame) is at a pixel of its own, 0..1, or null when it cannot be read (a picture from another origin). */
+export type AlphaReader = (resource: unknown, x: number, y: number) => number | null;
+
+let scratch: CanvasRenderingContext2D | null | undefined;
+/** The layers whose picture could not be read, said once each. */
+const saidBlind = new Set<string>();
+/** The browser's reader: draw the one pixel into a 1 x 1 canvas and look at its alpha. */
+const readResourceAlpha: AlphaReader = (resource, x, y) => {
+  try {
+    if (scratch === undefined) {
+      const c = document.createElement('canvas'); c.width = c.height = 1;
+      scratch = c.getContext('2d', { willReadFrequently: true });
+    }
+    if (!scratch) return null;
+    scratch.clearRect(0, 0, 1, 1);
+    scratch.drawImage(resource as CanvasImageSource, x, y, 1, 1, 0, 0, 1, 1);
+    return scratch.getImageData(0, 0, 1, 1).data[3]! / 255;
+  } catch { return null; }                                              // a picture from another origin taints the canvas: it cannot be read
+};
+
 export interface PickOptions {
+  /**
+   * Look at the picture, not the box: a pixel of an image, a video or a `canvas` layer whose alpha is at or below this (0..1; `0.1` leaves out what is nearly clear) is not a hit.
+   * Off by default (the box is the picture, and nothing is read). Shapes are always hit by their outline, text and `shader` layers by their box; a picture that cannot be read (from another origin) stays a hit.
+   */
+  alpha?: number;
   /** Only these layers can be hit (by `name` or by `path`). */
   only?: string[];
   /** These layers cannot be hit (by `name` or by `path`). */
@@ -60,7 +92,9 @@ const above = (a: Array<[number, number]>, b: Array<[number, number]>): number =
 };
 
 /** Every layer under the canvas point (x, y), the one on top first. */
-export function pickScene(root: CompositionSequence, x: number, y: number, opts: PickOptions = {}): PickHit[] {
+export function pickScene(root: CompositionSequence, x: number, y: number, opts: PickOptions = {}, deps: { readAlpha?: AlphaReader } = {}): PickHit[] {
+  if (opts.alpha !== undefined && !(opts.alpha >= 0 && opts.alpha <= 1)) throw new Error(`pixi-effects: pick: alpha must be a number from 0 to 1 (a pixel at or below it is not a hit), got ${opts.alpha}`);
+  const readAlpha = deps.readAlpha ?? readResourceAlpha;
   const found: Array<{ hit: PickHit; order: Array<[number, number]> }> = [];
   const wanted = (name: string | undefined, path: string): boolean => {
     if (opts.ignore && (opts.ignore.includes(path) || (name !== undefined && opts.ignore.includes(name)))) return false;
@@ -93,8 +127,29 @@ export function pickScene(root: CompositionSequence, x: number, y: number, opts:
         if (inside(lb, local)) {
           const three = typeof (seq as unknown as { pickAt?: unknown }).pickAt === 'function'
             ? (seq as unknown as { pickAt(u: number, v: number): PickHit['three'] | null }).pickAt((local.x - lb.x) / lb.width, (local.y - lb.y) / lb.height) : undefined;
-          if (three) hit = { name, path, type: seq.spec.type, kind: 'three', point, three };
-          else if (three === undefined && (typeof d.containsPoint !== 'function' || d.containsPoint(local))) hit = { name, path, type: seq.spec.type, kind: 'flat', point, local: { x: local.x - lb.x, y: local.y - lb.y } };
+          if (three) {
+            const planeOf = (seq as unknown as { dragPlane?: (p: [number, number, number], plane?: unknown) => (u: number, v: number) => { point: [number, number, number]; delta: [number, number, number] } | null }).dragPlane;
+            if (planeOf) {
+              three.grab = (plane = 'screen') => {
+                const along = planeOf.call(seq, three.point, plane);
+                return { move: (cx: number, cy: number) => { const lp = d.toLocal({ x: cx, y: cy }); const b = d.getLocalBounds(); return along((lp.x - b.x) / b.width, (lp.y - b.y) / b.height); } };
+              };
+            }
+            hit = { name, path, type: seq.spec.type, kind: 'three', point, three };
+          }
+          else if (three === undefined && (typeof d.containsPoint !== 'function' || d.containsPoint(local))) {
+            let opaque = true;
+            // a shader layer's picture lives in a WebGL canvas whose drawing buffer is not kept: reading it back would call a lit pixel clear, so its box stays its picture
+            const tex = opts.alpha !== undefined && seq.spec.type !== 'shader' ? (d as unknown as { texture?: { frame: { x: number; y: number; width: number; height: number }; source?: { resolution?: number; resource?: unknown } } }).texture : undefined;
+            if (tex?.source?.resource) {
+              const res = tex.source.resolution ?? 1;
+              const a = readAlpha(tex.source.resource, (tex.frame.x + ((local.x - lb.x) / lb.width) * tex.frame.width) * res, (tex.frame.y + ((local.y - lb.y) / lb.height) * tex.frame.height) * res);
+              if (a === null) {
+                if (!saidBlind.has(path)) { saidBlind.add(path); console.warn(`pixi-effects: pick: the picture of layer "${path}" cannot be read for { alpha } (a picture from another origin: load it with crossorigin="anonymous" or from the same site), so the box counts as the picture`); }
+              } else opaque = a > opts.alpha!;
+            }
+            if (opaque) hit = { name, path, type: seq.spec.type, kind: 'flat', point, local: { x: local.x - lb.x, y: local.y - lb.y } };
+          }
         }
       }
       if (!hit) return;

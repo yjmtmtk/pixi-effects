@@ -671,6 +671,15 @@ export class Movie {
     this.emit('seeked', { frame: this.currentFrame, totalFrames: this.totalFrames } satisfies FrameEvent);
   }
 
+  /**
+   * Draw the frame on screen again, quietly (no `seeking` / `seeked`). For a paused movie when something outside it that a layer reads has changed: a `three` layer whose `update` reads the page's own
+   * state (a dragged object's place) shows it after `await movie.redraw()`. A playing movie needs no call: the next frame draws it.
+   */
+  async redraw(): Promise<void> {
+    this._requireReady('redraw');
+    await this._quietly(() => this.gotoFrame(this.currentFrame, true));
+  }
+
   /** Run `fn` with `seeking` / `seeked` silenced: the movie is moving its own playhead, not answering a seek. */
   private async _quietly<T>(fn: () => Promise<T>): Promise<T> {
     this._quiet++;
@@ -904,7 +913,7 @@ export class Movie {
 
   /** Every layer under the canvas point, the one on top first (see `pick`). */
   pickAll(x: number, y: number, opts: PickOptions = {}): PickHit[] {
-    warnUnknownOptions('movie.pick()', opts, ['only', 'ignore']);
+    warnUnknownOptions('movie.pick()', opts, ['only', 'ignore', 'alpha']);
     this._requireReady('pick');
     if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error(`pixi-effects: movie.pick(x, y) needs two numbers (canvas pixels), got ${x}, ${y}. For a pointer event: movie.pick(...movie.canvasPoint(event))`);
     return pickScene(this._rootSequence as CompositionSequence, x, y, opts);

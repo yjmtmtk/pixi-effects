@@ -4,7 +4,7 @@ import { Container, Rectangle } from 'pixi.js';
 import { CompositionSequence } from '../../src/sequences/Composition';
 import { Sequence } from '../../src/sequences/Base';
 import { registerSequenceType } from '../../src/core/Composition';
-import { pickScene, pointInQuad } from '../../src/core/pick';
+import { pickScene, pointInQuad, type AlphaReader } from '../../src/core/pick';
 import { createTimeline } from '../../src/core/timelineEngine';
 import type { CompositionSequenceSpec, CompositionShape } from '../../src/types';
 
@@ -37,7 +37,9 @@ class Flat extends Sequence {
 class ThreeLike extends Flat {
   asked: Array<[number, number]> = [];
   answer: unknown = null;
+  planes: Array<{ point: unknown; plane: unknown; at: Array<[number, number]> }> = [];
   pickAt(u: number, v: number) { this.asked.push([u, v]); return this.answer; }
+  dragPlane(point: unknown, plane: unknown) { const rec = { point, plane, at: [] as Array<[number, number]> }; this.planes.push(rec); return (u: number, v: number) => { rec.at.push([u, v]); return { point: [u, v, 0], delta: [u * 10, v * 10, 0] }; }; }
 }
 registerSequenceType('__flat', Flat as never);
 registerSequenceType('__threelike', ThreeLike as never);
@@ -118,6 +120,21 @@ describe('pickScene: what is under a point of the canvas', () => {
   });
 });
 
+describe('a three hit can be grabbed: the pointer, in canvas pixels, moves the grabbed point on a plane', () => {
+  it('hit.three.grab(plane) maps canvas pixels to the picture of the layer (0..1) for the layer\'s dragPlane, and gives back its answer', async () => {
+    const comp = await scene([{ type: '__threelike', name: 'world', x: 100, y: 50, w: 400, h: 200 }]);
+    const three = comp.layers()[0]!.seq as unknown as ThreeLike;
+    three.answer = { object: 'fox', point: [1, 2, 3], distance: 5 };
+    const [hit] = pickScene(comp, 200, 100);
+    const grab = hit!.three!.grab!('floor');
+    expect(three.planes[0]).toMatchObject({ point: [1, 2, 3], plane: 'floor' });
+    expect(grab.move(300, 150)).toEqual({ point: [0.5, 0.5, 0], delta: [5, 5, 0] });         // (300, 150) is the middle of the layer: 0.5, 0.5
+    expect(three.planes[0]!.at).toEqual([[0.5, 0.5]]);
+    expect(hit!.three!.grab!().move(100, 50)).toEqual({ point: [0, 0, 0], delta: [0, 0, 0] });   // no plane named: the screen plane
+    expect(three.planes[1]!.plane).toBe('screen');
+  });
+});
+
 describe('pointInQuad: the projected card of a threeD layer', () => {
   const quad = [0, 0, 100, 10, 90, 100, 5, 80];                          // TL, TR, BR, BL: a slightly skewed card
   it('inside, outside and on the right side of each edge', () => {
@@ -130,5 +147,57 @@ describe('pointInQuad: the projected card of a threeD layer', () => {
     const back = [100, 10, 0, 0, 5, 80, 90, 100];
     expect(pointInQuad(back, 50, 50)).toBe(true);
     expect(pointInQuad(back, 120, 50)).toBe(false);
+  });
+});
+
+describe('pickScene with { alpha }: a transparent part of a picture is not the picture', () => {
+  /** A picture layer: a display object with a texture (frame, source resolution, a resource) as a Sprite has. The reader is the test's: it says how opaque the resource is at a pixel. */
+  class Picture extends Flat {
+    async build(): Promise<void> {
+      await super.build();
+      const d = this.target as unknown as Fake & { texture?: unknown };
+      d.texture = { frame: { x: 0, y: 0, width: 100, height: 60 }, source: { resolution: 2, resource: { tag: 'resource' } } };
+    }
+  }
+  registerSequenceType('__picture', Picture as never);
+  const calls: Array<{ x: number; y: number }> = [];
+  // the left half of the 200 x 120 pixel resource (resolution 2) is transparent, the right half opaque
+  const reader: AlphaReader = (_resource, px, py) => { calls.push({ x: px, y: py }); return px < 100 ? 0 : 1; };
+
+  it('without the option nothing is read: the box is the picture', async () => {
+    calls.length = 0;
+    const comp = await scene([{ type: '__picture', name: 'logo', x: 0, y: 0 }]);
+    expect(pickScene(comp, 10, 30, {}, { readAlpha: reader }).map((h) => h.name)).toEqual(['logo']);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('with it, a pixel at or below the threshold is not a hit and one above it is; the resource pixel is found through the frame and the source resolution', async () => {
+    calls.length = 0;
+    const comp = await scene([{ type: '__flat', name: 'under', x: 0, y: 0, w: 300, h: 300 }, { type: '__picture', name: 'logo', x: 0, y: 0 }]);
+    expect(pickScene(comp, 10, 30, { alpha: 0.1 }, { readAlpha: reader }).map((h) => h.name), 'on the transparent half: the layer below').toEqual(['under']);
+    expect(pickScene(comp, 70, 30, { alpha: 0.1 }, { readAlpha: reader }).map((h) => h.name), 'on the opaque half').toEqual(['logo', 'under']);
+    expect(calls[1]).toEqual({ x: 140, y: 60 });                               // (70, 30) in a 100 x 60 box is (140, 60) in a resource of twice the pixels
+    expect(pickScene(comp, 70, 30, { alpha: 1 }, { readAlpha: reader }).map((h) => h.name), 'alpha 1: nothing is opaque enough (> 1)').toEqual(['under']);
+  });
+
+  it('a layer whose picture cannot be read stays a hit, and the page is told once', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const comp = await scene([{ type: '__picture', name: 'logo', x: 0, y: 0 }]);
+    const blind: AlphaReader = () => null;
+    expect(pickScene(comp, 10, 30, { alpha: 0.1 }, { readAlpha: blind }).map((h) => h.name)).toEqual(['logo']);
+    pickScene(comp, 10, 30, { alpha: 0.1 }, { readAlpha: blind });
+    expect(warn.mock.calls.filter((c) => /alpha/.test(String(c[0])))).toHaveLength(1);
+  });
+
+  it("a shader layer is decided by its box (its WebGL picture cannot be read back safely)", async () => {
+    const comp = await scene([{ type: '__picture', name: 'plain', x: 0, y: 0 }]);
+    comp.layers()[0]!.seq.spec = { ...comp.layers()[0]!.seq.spec, type: 'shader' } as never;
+    expect(pickScene(comp, 10, 30, { alpha: 0.1 }, { readAlpha: reader }).map((h) => h.name)).toEqual(['plain']);
+  });
+
+  it('a layer with no texture (a shape, a group) is decided as before; a bad alpha is said', async () => {
+    const comp = await scene([{ type: '__flat', name: 'box', x: 0, y: 0 }]);
+    expect(pickScene(comp, 10, 10, { alpha: 0.5 }, { readAlpha: reader }).map((h) => h.name)).toEqual(['box']);
+    expect(() => pickScene(comp, 10, 10, { alpha: 2 })).toThrow(/alpha.*0.*1/);
   });
 });

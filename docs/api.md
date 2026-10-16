@@ -175,12 +175,21 @@ interface PickHit {
   kind: 'flat' | 'card' | 'three';               // a 2D layer, a threeD layer (its projected card), a three layer
   point: { x: number; y: number };               // the point asked about
   local?: { x: number; y: number };              // a flat layer: the point in the layer's own pixels
-  three?: { object: string; point: [number, number, number]; distance: number; object3d: unknown };   // a three layer: what the ray met first
+  three?: { object: string; point: [number, number, number]; distance: number; object3d: unknown;     // a three layer: what the ray met first
+            grab?: (plane?) => { move: (x, y) => { point, delta } | null } };                          // drag it: see below
 }
-// options: { only?: string[], ignore?: string[] }   layer names or paths
+// options: { only?: string[], ignore?: string[], alpha?: number }   layer names or paths; alpha: see below
 ```
 
-How a layer is asked: a flat layer by its own shape (a rotated one by its rotated rectangle, a shape by its outline: a circle is hit inside the circle, not at the corners of its box), text, images and video by their box; a `threeD` layer by its projected quad (the card seen from behind is hit too; a `threeD` composition is one card: what is inside it is not asked); a `three` layer by a ray through its camera (with `followCamera` the composition's camera), skipping invisible objects: `hit.three.object` is the name of the object it met (its own, or its nearest ancestor's that has one) and `object3d` the live three object. A layer not alive at the frame, at alpha 0, hidden by a parent, or outside its mask is not hit; a group (a nested composition without `threeD`) is not a target, the layers in it are. A transparent corner of a picture still counts as the picture (the box is what is asked). What is not here: hover and cursor, dragging, touch with several fingers.
+How a layer is asked: a flat layer by its own shape (a rotated one by its rotated rectangle, a shape by its outline: a circle is hit inside the circle, not at the corners of its box), text, images and video by their box; a `threeD` layer by its projected quad (the card seen from behind is hit too; a `threeD` composition is one card: what is inside it is not asked); a `three` layer by a ray through its camera (with `followCamera` the composition's camera), skipping invisible objects: `hit.three.object` is the name of the object it met (its own, or its nearest ancestor's that has one) and `object3d` the live three object. A layer not alive at the frame, at alpha 0, hidden by a parent, or outside its mask is not hit; a group (a nested composition without `threeD`) is not a target, the layers in it are. **`{ alpha }` looks at the picture, not the box**: `movie.pick(x, y, { alpha: 0.1 })` leaves out a pixel of an image, a video or a `canvas` layer whose alpha is at or below 0.1 (a transparent corner of a logo, the clear part of a circle drawn on a canvas); without it the box is the picture and nothing is read. Shapes are always hit by their outline, text and `shader` layers by their box (a shader's WebGL picture cannot be read back safely). A picture that cannot be read (an image from another origin: load it with `crossorigin="anonymous"` or from the same site) stays a hit, with one warning. What is not here: touch with several fingers.
+
+**Dragging an object of a `three` layer**: `hit.three.grab(plane)` fixes a plane through the point that was taken (`'screen'` facing the camera, the default; `'floor'` horizontal; `'wall'` with z constant; or a normal `[x, y, z]`), and `grab.move(x, y)` takes the pointer in canvas pixels and gives where its ray meets that plane (`point`) and how far that is from the point taken (`delta`; `null` where the ray never meets the plane: a floor seen edge-on). Move the object by `delta`, from where it was when it was taken, and it follows the pointer exactly. The ray is the layer's own camera's (with `followCamera`, the composition's). The layer's `update` should read where the object is from the page's own state, and the page calls `await movie.redraw()` to draw the frame again while the movie is paused (recipe `drag-3d`).
+
+### `movie.redraw(): Promise<void>`
+
+Draws the frame on screen again, quietly (no `seeking` / `seeked`). For a paused movie when something outside it that a layer reads has changed, such as a `three` layer whose `update` reads the page's own state. A playing movie needs no call: the next frame draws it.
+
+Hover is `movie.hover` (below); drag and drop of a flat layer is the recipe `drag-drop`.
 
 ### `movie.hover(options?): () => void`
 

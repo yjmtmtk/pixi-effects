@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · dragging an object of a three layer</title></head>
+<body style="margin:0">
+  <!-- Test film (tests/films/drag3d.test.ts): a cube in a three layer that follows the composition's camera; the page holds its place (`pos`, read by update) and moves it by hit.three.grab('wall') while
+       the pointer is held: the code of the recipe `drag-3d`. The canvas is shown at twice its size. fire(type, x, y) sends a pointer event at canvas pixel (x, y). -->
+  <canvas id="stage" width="480" height="270" style="width:960px;height:540px;display:block"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+    "three": "../../node_modules/three/build/three.module.js", "three/webgpu": "../../node_modules/three/build/three.webgpu.js" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    import { registerThree } from '../../dist/three.js';
+    import * as THREE from 'three';
+    registerThree();
+    const canvas = document.getElementById('stage');
+    const movie = new Movie();
+    window.movie = movie;
+    window.fire = (type, x, y) => { const r = canvas.getBoundingClientRect(); canvas.dispatchEvent(new PointerEvent(type, { clientX: r.left + x * r.width / 480, clientY: r.top + y * r.height / 270, bubbles: type !== 'pointerleave', pointerId: 1 })); };
+    const pos = { x: 240, y: -135, z: 0 };                                   // where the cube is, in three's units (here: composition pixels, y up); update reads it
+    let cube;
+    await movie.init({ canvas, width: 480, height: 270, duration: 3, frameRate: 30, background: '#102040', composition: { sequences: [
+      { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1c2b4d' } },
+      { type: 'camera' },
+      { type: 'three', name: 'world', followCamera: true, antialias: false,
+        setup: (ctx) => { cube = new THREE.Mesh(new THREE.BoxGeometry(60, 60, 60), new THREE.MeshBasicMaterial({ color: 0x3aa56e })); cube.name = 'cube'; ctx.scene.add(cube); },
+        update: () => { cube.position.set(pos.x, pos.y, pos.z); } },
+    ] } });
+    movie.pause();
+
+    // --- the recipe `drag-3d`
+    canvas.addEventListener('pointerdown', (e) => {
+      const hit = movie.pick(...movie.canvasPoint(e), { only: ['world'] });
+      if (hit?.three?.object !== 'cube') return;                              // only the cube can be taken
+      const grab = hit.three.grab('wall');                                    // it slides on the wall plane through the point it was taken at
+      const start = { ...pos };
+      const move = (ev) => {
+        const m = grab.move(...movie.canvasPoint(ev));                        // where the pointer's ray meets that plane, and how far from where it was taken
+        if (!m) return;                                                       // a ray that never meets the plane: leave it where it is
+        pos.x = start.x + m.delta[0]; pos.y = start.y + m.delta[1]; pos.z = start.z + m.delta[2];
+        movie.redraw();                                                       // the layer reads `pos`: draw the frame again
+      };
+      const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+      window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+    });
+    window.__ready = true;
+  </script>
+</body>
+</html>

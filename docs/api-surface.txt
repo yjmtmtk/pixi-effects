@@ -357,6 +357,7 @@ class Movie
   posterImage(opts?: (SnapshotOptions & { as?: "blob" | undefined; }) | undefined): Promise<Blob>
   posterImage(opts: SnapshotOptions & { as: "dataURL"; }): Promise<string>
   rebuild(change?: RebuildOptions, reason?: RebuildReason): Promise<RebuildReport>
+  redraw(): Promise<void>
   render(options?: RenderOptions | undefined): Promise<Blob>
   resize(width: number, height: number): Promise<RebuildReport>
   resolveAt(list: string): { label: string; frame: number; }[]
@@ -540,9 +541,10 @@ interface PickHit
   name?: string
   path: string
   point: { x: number; y: number; }
-  three?: { object: unknown; point: [number, number, number]; distance: number; object3d?: unknown; }
+  three?: { object: unknown; point: [number, number, number]; distance: number; object3d?: unknown; grab?: ((plane?: [n…
   type: string
 interface PickOptions
+  alpha?: number
   ignore?: string[]
   only?: string[]
 interface PolygonShapeSpec extends ShapeBase, Trimmable
@@ -987,6 +989,7 @@ class ThreeSequence
   buildFilters(): void
   checkDeterminism(times: number[]): CanvasCheck
   destroy(): void
+  dragPlane(point: [number, number, number], plane?: [number, number, number] | "screen" | "floor" | "wall"): (u: number, v: number) => { point: [number, number, number];…
   duration: number
   intrinsicHeight: number
   intrinsicWidth: number

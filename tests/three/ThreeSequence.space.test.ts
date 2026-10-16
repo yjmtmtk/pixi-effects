@@ -4,7 +4,7 @@ import { MockWebGLRenderer } from './mockRenderers';
 // the real three (cameras, lights, maths), a stand-in renderer: this file is about what the layer hands to the scene, not about pixels (the film tests/films/three-space does those)
 vi.mock('three', async (orig) => ({ ...(await orig<typeof import('three')>()), WebGLRenderer: (await import('./mockRenderers')).MockWebGLRenderer }));
 
-import { BoxGeometry, Group, Mesh, MeshBasicMaterial, OrthographicCamera, PerspectiveCamera, PlaneGeometry, PointLight } from 'three';
+import { BoxGeometry, Group, Mesh, MeshBasicMaterial, OrthographicCamera, PerspectiveCamera, PlaneGeometry, PointLight, Vector3 } from 'three';
 import { ThreeSequence } from '../../src/three/ThreeSequence';
 import type { ThreeContext, ThreeSequenceSpec } from '../../src/three/types';
 import type { CompositionShape, SequenceSpec } from '../../src/types';
@@ -202,6 +202,54 @@ describe('pickAt: a ray through a point of the layer\'s picture', () => {
     expect(seq.pickAt(340 / 960, 270 / 540)!.object, '40 px right of its middle: still on the 100 px card').toBe('card');
     expect(seq.pickAt(400 / 960, 270 / 540), '100 px right: off it').toBeNull();
     spaceAt.mockImplementation((t: number) => ({ camera: cam(480 + 100 * t), lights: [lamp], fog: fogNow }));
+  });
+});
+
+describe('dragPlane: a point of the picture on a plane through the grabbed point', () => {
+  const NDC = (u: number, v: number) => [u * 2 - 1, -(v * 2 - 1)] as const;
+  const scene = (ctx: ThreeContext) => {
+    const m = new Mesh(new BoxGeometry(1, 1, 1), new MeshBasicMaterial()); m.name = 'cube'; ctx.scene.add(m);
+    const cam = ctx.camera as PerspectiveCamera; cam.position.set(0, 3, 5); cam.lookAt(0, 0, 0);
+  };
+  const build = async () => { const { seq } = make({ setup: scene }); await seq.build(); return seq; };
+
+  it('whatever the plane, the new point seen through the camera is exactly where the pointer is (the property that makes a drag follow the pointer)', async () => {
+    const seq = await build();
+    const cam = (seq as any)._camera as PerspectiveCamera;
+    const grab = seq.pickAt(0.5, 0.5)!;
+    for (const plane of ['screen', 'floor', 'wall', [1, 1, 0]] as const) {
+      const move = seq.dragPlane(grab.point, plane as never);
+      for (const [u, v] of [[0.5, 0.5], [0.62, 0.41], [0.4, 0.7]] as const) {
+        const r = move(u, v)!;
+        expect(r, `${plane}`).not.toBeNull();
+        const ndc = new Vector3(...r.point).project(cam);
+        expect(ndc.x, `${plane} x at ${u},${v}`).toBeCloseTo(NDC(u, v)[0], 6);
+        expect(ndc.y, `${plane} y at ${u},${v}`).toBeCloseTo(NDC(u, v)[1], 6);
+      }
+    }
+  });
+
+  it("the delta is from the grabbed point and stays on the plane: 'floor' keeps y, 'wall' keeps z, 'screen' keeps the distance from the camera", async () => {
+    const seq = await build();
+    const cam = (seq as any)._camera as PerspectiveCamera;
+    const grab = seq.pickAt(0.5, 0.5)!;
+    const atRest = seq.dragPlane(grab.point, 'floor')(0.5, 0.5)!;
+    expect(atRest.delta.map((d) => Math.abs(d) < 1e-9)).toEqual([true, true, true]);          // the pointer has not moved: nothing moves
+    const floor = seq.dragPlane(grab.point, 'floor')(0.7, 0.6)!;
+    expect(floor.delta[1]).toBeCloseTo(0, 9);
+    expect(Math.hypot(floor.delta[0], floor.delta[2])).toBeGreaterThan(0.1);
+    expect(seq.dragPlane(grab.point, 'wall')(0.7, 0.4)!.delta[2]).toBeCloseTo(0, 9);
+    const screen = seq.dragPlane(grab.point, 'screen')(0.7, 0.4)!;
+    const toCamera = (p: number[]) => new Vector3(...p).sub(cam.position).dot(new Vector3(0, 0, -1).applyQuaternion(cam.quaternion));
+    expect(toCamera(screen.point)).toBeCloseTo(toCamera(grab.point), 6);                       // the same depth along the view
+  });
+
+  it('a pointer whose ray never meets the plane (a floor seen edge-on, or behind the camera) gives null, not a far-away number', async () => {
+    const { seq } = make({ setup: (ctx: ThreeContext) => { const cam = ctx.camera as PerspectiveCamera; cam.position.set(0, 3, 5); cam.lookAt(0, 3, 0); } });     // looking along the horizon
+    await seq.build();
+    const floor = seq.dragPlane([0, 0, 0], 'floor');
+    expect(floor(0.5, 0.0), 'a ray above the horizon never reaches the floor').toBeNull();
+    expect(floor(0.5, 1.0), 'a ray below it does').not.toBeNull();
   });
 });
 
