@@ -1,8 +1,8 @@
 // @vitest-environment node
-// The condition for shipping a warning about a key: every page this repository shows as correct (the gallery) runs
-// with NOT ONE warning. A key lint that cries wolf on a correct piece is worse than none.
+// The condition for shipping a warning about a key: every page the tests themselves call correct (the test films and the check pages) runs
+// with NOT ONE warning. A lint that cries wolf on a correct movie is worse than none.
 import { describe, it, expect } from 'vitest';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -12,13 +12,18 @@ const root = resolve(__dirname, '../..');
 const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
 const chrome = check.findChrome();
 const built = existsSync(join(root, 'dist/index.js'));
-const pieces = (JSON.parse(readFileSync(join(root, 'examples/gallery/pieces.json'), 'utf8')).pieces as Array<{ id: string }>).map((p) => `examples/gallery/${p.id}.html`);
+/** Pages that are not correct movies on purpose, or that are not movies: left out, each with its reason. */
+const NOT_CORRECT: Record<string, string> = {
+  'tests/films/three-budget.html': 'holds 20 three layers by default, to see the budget warning',
+};
+const htmlIn = (dir: string) => readdirSync(join(root, dir)).filter((f) => f.endsWith('.html') && !NOT_CORRECT[`${dir}/${f}`]).sort().map((f) => `${dir}/${f}`);
+const pieces = [...htmlIn('tests/films'), ...htmlIn('examples/_checks')];
 const COLLECT = `(() => { window.__nfw = []; for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__nfw.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; } window.addEventListener('error', e => window.__nfw.push('uncaught: ' + e.message)); })();`;
 
 const LANES = 4;                                                         // tabs working through the pages at the same time
 
 describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('no false warnings on any page the repository shows as correct', () => {
-  it(`runs the ${pieces.length} gallery pieces with no warning at all`, async () => {
+  it(`runs the ${pieces.length} test films and check pages with no warning at all`, async () => {
     const { server, port } = await check.serve(root);
     const dir = mkdtempSync(join(tmpdir(), 'nfw-'));
     const all = pieces;

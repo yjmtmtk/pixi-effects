@@ -1,6 +1,6 @@
 # What the test films guarantee, and what is still to do
 
-The real tests of the library are the **test films** in this folder: small compositions made for the tests, each with an answer known in advance (a frame count, a measured length, a hash of pixels compared between paths, a warning text), opened with `support/withFilm.ts`. The gallery's tests (`tests/tools/gallery.test.ts`, `noFalseWarnings.test.ts`) are the secondary net: every piece loads, plays and checks clean. Design: `docs/superpowers/specs/2026-10-15-test-films-design.md`. Run them: `npm run test:films`.
+The real tests of the library are the **test films** in this folder: small compositions made for the tests, each with an answer known in advance (a frame count, a measured length, a hash of pixels compared between paths, a warning text), opened with `support/withFilm.ts`. No library test uses a gallery piece as its subject: the tests whose subject is the gallery or the site live in `tests/site/` (`npm run test:site`), and `tests/tools/noFalseWarnings.test.ts` runs every film and check page and wants no warning at all. Design: `docs/superpowers/specs/2026-10-15-test-films-design.md`. Run them: `npm run test:films`.
 
 A film is `<area>-<what>.html` with `<area>-<what>.test.ts` beside it. The pages in `examples/_checks/` are the seeds of the films still to come: each is read by a test today and moves here, renamed by area, when its group is built.
 
