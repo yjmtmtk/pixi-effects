@@ -777,6 +777,7 @@ three({
 | `setup`      | `(ctx: ThreeContext) => Promise<ThreeSetupResult \| void> \| ThreeSetupResult \| void` | builds the scene once. Add objects to `ctx.scene`, position `ctx.camera` (or replace it via `{ camera }`). Async, so `Movie.init` can await GLTF / texture loading. |
 | `followCamera?` | `boolean`                                                | the layer's camera is the composition's `camera` layer (see [below](#living-in-the-compositions-space-followcamera-followlights)). |
 | `followLights?` | `boolean`                                                | the composition's `light` layers become three lights in the scene (see below).            |
+| `reuse?`     | `boolean`                                                   | a rebuild (`setVars`, `resize`, `rebuild`) keeps a layer that did not change (same `name`, `setup`, size, options): its `setup` runs once. Default `true`; `false` runs `setup` at every rebuild (when it reads a value that variables change). |
 | `update?`    | `(t: number, ctx: ThreeContext) => void`                    | optional per-frame hook; `t` is sequence-local time in seconds.                          |
 | `dispose?`   | `(ctx: ThreeContext) => void`                                | cleanup for user-created GPU resources (geometries, materials, textures). Called from `destroy()`. |
 

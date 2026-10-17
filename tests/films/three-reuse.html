@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · setVars keeps a three layer</title></head>
+<body style="margin:0">
+  <!-- Test film (tests/films/three-reuse.test.ts): a text layer with a variable and a `three` layer (a box that turns with the time). setVars builds the movie again; a three layer whose setup, size and
+       options did not change keeps its scene and its renderer (setup is not run again). The page counts: __setups (setup ran), __disposes (dispose ran), __scene (the scene's uuid at the last setup).
+       ?reuse=0: the layer says reuse: false. ?label=b: the first value of the variable. ?renderer=webgpu. window.__layer(opts) and window.__text give the layers to build other compositions with. -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+    "three": "../../node_modules/three/build/three.module.js", "three/webgpu": "../../node_modules/three/build/three.webgpu.js" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    import { registerThree, three } from '../../dist/three.js';
+    import * as THREE from 'three';
+    registerThree();
+    const q = new URLSearchParams(location.search);
+    window.__setups = 0; window.__disposes = 0; window.__scene = null;
+    const setup = (ctx) => {
+      window.__setups++; window.__scene = ctx.scene.uuid;
+      const box = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.4, 1.4), new THREE.MeshStandardMaterial({ color: 0x7fb4ff, roughness: 0.5 }));
+      box.name = 'box';
+      const key = new THREE.DirectionalLight(0xffffff, 2.5); key.position.set(2, 3, 4);
+      ctx.scene.add(box, key, new THREE.AmbientLight(0xffffff, 0.4));
+      ctx.camera.position.set(0, 0.4, 5);
+      return { objects: { box } };
+    };
+    window.__layer = (over = {}) => three({ type: 'three', name: 'world', ...(q.get('renderer') ? { renderer: q.get('renderer') } : {}), ...(q.get('reuse') === '0' ? { reuse: false } : {}), antialias: false,
+      width: 320, height: 180, initial: { x: 160, y: 90, anchorX: 0.5, anchorY: 0.5 }, setup, update: (t, ctx) => { ctx.scene.getObjectByName('box').rotation.set(0.4, t * 1.2, 0); },
+      dispose: () => { window.__disposes++; }, ...over });
+    window.__text = { type: 'text', name: 'label', text: '{label}', style: { fontSize: 40, fill: '#ffffff' }, initial: { x: 160, y: 24, anchorX: 0.5, anchorY: 0.5 } };
+    const movie = new Movie();
+    window.movie = movie;
+    window.hashOf = async (frame) => {
+      const d = (await movie.snapshot(frame, { as: 'imageData' })).data;
+      let h = 0x811c9dc5;
+      for (let i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); }
+      return (h >>> 0).toString(16);
+    };
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: 30, background: '#102040', vars: { label: q.get('label') || 'a' },
+        composition: { sequences: [window.__text, window.__layer()] } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

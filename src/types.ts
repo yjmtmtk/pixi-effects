@@ -3,6 +3,7 @@ import type { CameraState } from './space/math';
 import type { LightState } from './space/lighting';
 import type { FogState } from './space/LitMaterial';
 import type { SharedGpu } from './core/gpuShare';
+import type { ReusePool } from './core/reuse';
 /**
  * pixi-effects public DSL types.
  *
@@ -835,6 +836,8 @@ export interface CompositionShape {
   spaceAt?: (t: number) => SpaceNow;
   /** The GPU device PixiJS draws with, on the root shape only and only when PixiJS runs on WebGPU: a `three` layer with `renderer: 'webgpu'` draws on it instead of on a canvas of its own. */
   gpu?: SharedGpu;
+  /** The layers of the tree that a rebuild replaces, that a new layer of the same kind may take the state of instead of building its own (`three` layers: see core/reuse.ts). Root shape only. */
+  reuse?: ReusePool;
 }
 
 /** The composition's camera and the lights alive at one moment (what its `camera` and `light` layers say, after their keyframes). */

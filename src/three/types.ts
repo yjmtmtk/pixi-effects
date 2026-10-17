@@ -41,6 +41,12 @@ export interface ThreeSequenceSpec extends SequenceCommon {
    */
   shareGpu?: boolean;
   /**
+   * A rebuild (`setVars`, `resize`, `rebuild`) keeps this layer's scene, renderer and texture when the layer did not change (same `name`, same `setup` function, size and options): `setup` runs once,
+   * not at every rebuild, and a model is not loaded again. Default `true`; a layer with no `name` is always built again. `false`: `setup` runs again at every rebuild (when it reads something that a
+   * variable changes: a value taken from `movie.vars`, say). `update` is the new composition's own and runs on the kept scene.
+   */
+  reuse?: boolean;
+  /**
    * Multisampling of the layer's own canvas. Default `true`. Turn it off (and use `resolution` for supersampling) when the WebGL and WebGPU renderers must give the same picture:
    * WebGPURenderer resolves the multisampling in linear light BEFORE tone mapping and the sRGB encode, WebGLRenderer after them, so a thin, hot edge comes out brighter on WebGPU.
    */

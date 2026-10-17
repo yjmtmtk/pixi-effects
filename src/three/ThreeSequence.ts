@@ -27,6 +27,13 @@ export class ThreeSequence extends Sequence {
   sharedGpu = false;
   private _rt: RenderTarget | null = null;     // the texture a shared layer draws into
   private _sharedTexture: Texture | null = null;
+  private _texture: Texture | null = null;       // what the layer's sprite shows (the canvas's, or the shared render target's)
+  /** What a rebuilt layer is compared with to take this one's place (core/reuse.ts); null: this layer is never kept (`reuse: false`, no `name`). */
+  private _key: string | null = null;
+  /** The layer of the tree being replaced whose state this one is using until the new tree is on stage (`commitReuse`): not this layer's to let go. */
+  private _borrowed: ThreeSequence | null = null;
+  /** True once another layer owns this layer's state: destroying this one must not let it go. */
+  private _donated = false;
   private _scene: Scene | null = null;
   private _camera: Camera | null = null;
   private _ctx: ThreeContext | null = null;
@@ -65,14 +72,21 @@ export class ThreeSequence extends Sequence {
     const height = resolveDim(spec.height, scope) ?? this.parent?.height ?? this.root.height;
     const resolution = spec.resolution ?? 1;
 
-    // Offscreen canvas — never attached to the DOM. document.createElement
-    // (not OffscreenCanvas) so PIXI's Texture.from and three both accept it.
-    const canvas = document.createElement('canvas');
     const antialias = spec.antialias ?? true;
     const kind = spec.renderer ?? getPageRenderer();
     checkRendererKind(kind, "a three layer's renderer");
     this._gpu = kind === 'webgpu';
     this.renderer = kind;
+
+    // A rebuild (setVars, resize) builds this layer while the old one still plays: when it cannot be told apart from one of the old tree it takes over that one's scene and renderer (setup does not run again).
+    this._key = spec.reuse === false || !spec.name ? null
+      : JSON.stringify([spec.name, idOf(spec.setup), width, height, resolution, antialias, kind, spec.shareGpu !== false && !!this.root.gpu, !!spec.followCamera, !!spec.followLights, !!spec.followFog]);
+    const donor = this._key !== null ? (this.root.reuse?.claim(this._key) as ThreeSequence | null | undefined) : null;
+    if (donor && donor._lendable()) { this._borrow(donor, width, height, spec.name); return; }
+
+    // Offscreen canvas — never attached to the DOM. document.createElement
+    // (not OffscreenCanvas) so PIXI's Texture.from and three both accept it.
+    const canvas = document.createElement('canvas');
     let renderer: WebGLRenderer | WebGPURenderer;
     if (this._gpu) {
       let mod: typeof import('three/webgpu');
@@ -138,20 +152,47 @@ export class ThreeSequence extends Sequence {
       // Frame 0 so the texture is never blank before the first tick.
       this._draw(0);
 
-      const texture = this._sharedTexture ?? Texture.from(canvas);
-      const sprite = new Sprite({ texture, label: spec.name });
-      sprite.cullable = true;
-      // Texture is canvas-sized (layer px × resolution); scale back to comp px.
-      sprite.width = width;
-      sprite.height = height;
-      this.target = sprite;
-      this.intrinsicWidth = width;
-      this.intrinsicHeight = height;
-      this.buildFilters();
+      this._texture = this._sharedTexture ?? Texture.from(canvas);
+      this._makeSprite(this._texture, width, height, spec.name);
     } catch (err) {
       this._disposeRenderer();
       throw err;
     }
+  }
+
+  private _makeSprite(texture: Texture, width: number, height: number, name: string | undefined): void {
+    const sprite = new Sprite({ texture, label: name });
+    sprite.cullable = true;
+    // Texture is canvas-sized (layer px × resolution); scale back to comp px.
+    sprite.width = width;
+    sprite.height = height;
+    this.target = sprite;
+    this.intrinsicWidth = width;
+    this.intrinsicHeight = height;
+    this.buildFilters();
+  }
+
+  /** Reuse (core/reuse.ts): the key this layer is matched by, while it can still lend its state. */
+  reuseKey(): string | null { return this._renderer && !this._donated && !this._closing ? this._key : null; }
+  private _lendable(): boolean { return this.reuseKey() !== null && !!this._scene && !!this._ctx && !!this._texture; }
+
+  /** Take over a layer of the tree being replaced: its scene, renderer, texture and mirrors. Nothing is drawn until the new tree is on stage; the old layer goes on drawing meanwhile. */
+  private _borrow(d: ThreeSequence, width: number, height: number, name: string | undefined): void {
+    this.renderer = d.renderer; this.backend = d.backend; this._gpu = d._gpu; this.sharedGpu = d.sharedGpu;
+    this._renderer = d._renderer; this._scene = d._scene; this._camera = d._camera; this._ctx = d._ctx; this._objects = d._objects;
+    this._rt = d._rt; this._sharedTexture = d._sharedTexture; this._texture = d._texture;
+    this._lightMirror = d._lightMirror; this._fogMirror = d._fogMirror; this._tracked = d._tracked;
+    this._borrowed = d;
+    if (this.spec && (this._threeSpec as { followCamera?: boolean }).followCamera) this._checkFollowShape(width, height, name);
+    this._makeSprite(this._texture!, width, height, name);
+  }
+
+  /** The new tree is on stage: the layer this one borrowed from has given its state away for good. */
+  commitReuse(): void {
+    const d = this._borrowed;
+    if (!d) return;
+    d._donated = true; d._tracked = false;
+    this._borrowed = null;
   }
 
   /**
@@ -480,23 +521,30 @@ export class ThreeSequence extends Sequence {
 
   override destroy(): void {
     const spec = this._threeSpec;
-    if (this._ctx && spec.dispose) {
+    // another layer has this layer's state, or has not yet let go of it (a rebuild in progress): the scene, the renderer and the texture are not this layer's to let go
+    const kept = this._donated || this._borrowed !== null;
+    if (!kept && this._ctx && spec.dispose) {
       try { spec.dispose(this._ctx); } catch (err) {
         console.warn('pixi-effects: three dispose() threw —', err);
       }
     }
-    const texture = (this.target as Sprite | null)?.texture;
-    this._lightMirror?.dispose();
+    const texture = this._texture;
+    if (!kept) {
+      this._lightMirror?.dispose();
+      this._fogMirror?.dispose();
+      this._disposeRenderer();
+    }
     this._lightMirror = null;
-    this._fogMirror?.dispose();
     this._fogMirror = null;
-    this._disposeRenderer();
+    this._renderer = null;
+    this._rt = null;
     this._scene = null;
     this._camera = null;
     this._ctx = null;
     this._objects = {};
     super.destroy();
-    texture?.destroy(true); // canvas-backed source is per-sequence; safe to kill (a shared layer's source owns no GPU texture: the render target did)
+    if (!kept) texture?.destroy(true); // canvas-backed source is per-sequence; safe to kill (a shared layer's source owns no GPU texture: the render target did)
+    this._texture = null;
     this._sharedTexture = null;
   }
 }
@@ -505,4 +553,14 @@ function resolveDim(v: PropValue | undefined, scope: Record<string, number>): nu
   if (v === undefined) return undefined;
   if (typeof v === 'number') return v;
   return evaluateExpr(v, scope);
+}
+
+/** A number for each function: two layers are the same layer only when their `setup` is the same function. */
+const ids = new WeakMap<object, number>();
+let lastId = 0;
+function idOf(fn: unknown): number {
+  if (typeof fn !== 'function') return 0;
+  let id = ids.get(fn);
+  if (id === undefined) { id = ++lastId; ids.set(fn, id); }
+  return id;
 }

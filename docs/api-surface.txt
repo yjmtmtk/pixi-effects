@@ -145,6 +145,7 @@ interface CompositionShape
   gpu?: SharedGpu
   height: number
   onLayerBuilt?: (() => void | Promise<void>)
+  reuse?: ReusePool
   spaceAt?: ((t: number) => SpaceNow)
   vars?: Record<string, number>
   width: number
@@ -990,6 +991,7 @@ class ThreeSequence
   build(): Promise<void>
   buildFilters(): void
   checkDeterminism(times: number[]): CanvasCheck
+  commitReuse(): void
   destroy(): void
   dragPlane(point: [number, number, number], plane?: [number, number, number] | "screen" | "floor" | "wall"): (u: number, v: number) => { point: [number, number, number];…
   duration: number
@@ -998,6 +1000,7 @@ class ThreeSequence
   parent: CompositionShape | null
   pickAt(u: number, v: number): { object: string; point: [number, number, number]; distance: number; object3d: Object3D<Object3DEventMap>; } | null
   renderer: "webgl" | "webgpu" | null
+  reuseKey(): string | null
   root: CompositionShape
   scope(): Scope
   sharedGpu: boolean
@@ -1013,6 +1016,7 @@ interface ThreeSequenceSpec extends SequenceCommon
   height?: PropValue
   renderer?: "webgl" | "webgpu"
   resolution?: number
+  reuse?: boolean
   setup: (ctx: ThreeContext) => void | ThreeSetupResult | Promise<void | ThreeSetupResult>
   shareGpu?: boolean
   type: "three"

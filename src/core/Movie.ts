@@ -17,6 +17,7 @@ import { canvasProblems, canvasReport, type CanvasRow } from './canvasCheck';
 import { inspectScene, type InspectReport, type InspectOptions } from './inspect';
 import { pickScene, type PickHit, type PickOptions } from './pick';
 import { textPictureOf } from './textPicture';
+import { commitReuse, reusePoolOf, type ReusePool } from './reuse';
 import { startHover, type HoverOptions } from './hover';
 import { collectTimeline, timelineHtml, timelineSvg, type TimelineData, type TimelineHtmlOptions, type TimelineSvgOptions } from './timelineChart';
 import { pickFrames, sheetLayout } from './frames';
@@ -453,13 +454,14 @@ export class Movie {
    * Build the composition tree for these variables and this size, off stage: `{name}` replaced, the root shape (with the numeric variables for the
    * expressions), transitions expanded, every layer built. Used by `init` and by `rebuild`.
    */
-  private async _construct(composition: CompositionSpec | undefined, vars: Vars, width: number, height: number, lp?: LoadProgress, sizeWins = this._resized): Promise<CompositionSequence> {
+  private async _construct(composition: CompositionSpec | undefined, vars: Vars, width: number, height: number, lp?: LoadProgress, sizeWins = this._resized, reuse?: ReusePool): Promise<CompositionSequence> {
     const spec = applyVars(composition, vars);
     const gpu = sharedGpuOf(this.app?.renderer);
     const gpuField = gpu ? { gpu } : {};
     const rootShape: CompositionShape = {
       width, height, duration: this.duration, frameRate: this.frameRate, vars: numericVars(vars),
       ...gpuField,
+      ...(reuse ? { reuse } : {}),
       ...(lp ? { onLayerBuilt: async () => { lp.tick(); await lp.yieldIfDue(); } } : {}),
     };
     // Inject root dimensions before expanding transitions: the macro
@@ -602,7 +604,7 @@ export class Movie {
       if (!changed) return { reason, ms: 0, audio: 'none', frame: this.currentFrame, playing: this.isPlaying, unchanged: true };
 
       // build the new composition and its sound off the stage, while the old one goes on (playing, seekable): the size and the swap come last
-      sequence = await this._construct(composition, vars, width, height, undefined, this._resized || sizeChanged);
+      sequence = await this._construct(composition, vars, width, height, undefined, this._resized || sizeChanged, reusePoolOf(this._rootSequence as CompositionSequence | null));
       alive();
       const timeline = createTimeline({ paused: true, defaults: { ease: 'none' } });
       lengthen(timeline, this.duration);
@@ -638,6 +640,7 @@ export class Movie {
         if (old?.target) root.removeChild(old.target);
         if (sequence.target) root.addChild(sequence.target);
         this._rootSequence = sequence;
+        commitReuse(sequence);                                                // a layer that took over an old layer's state owns it now
         this.timeline = timeline;
         this._timeFilters = collectTimeFilters(sequence);
         const unmute = muteBoundTextureWarning();
