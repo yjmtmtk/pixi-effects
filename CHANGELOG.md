@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **New: three samples on the Interactive page that click, hover and drag.** `click.html` (pop the bubbles: `movie.hover` and `movie.pick` on layers of the film), `drop.html` (drag cards onto zones: `pick` and variables), `move3d.html` (drag three.js objects along a floor under the film's own light: `hit.three.grab('floor')`, `movie.redraw()`). Until now the page only showed variables. `tests/site/interactiveClicks.test.ts` drives each with real mouse events in Chrome.
+- **Docs: what a `pick` hit names.** The hit is the layer drawn at the point, not its group: the group is the first segment of `hit.path` (found while writing the samples: `hit.name` of a bubble made of a group and an unnamed circle was undefined).
+
 ## 0.43.0
 
 A `three` layer on WebGPU shares PixiJS's GPU device, and the tests stop depending on the gallery. Nothing breaks.

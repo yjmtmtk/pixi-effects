@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Interactive movie · move the objects</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+  <link rel="stylesheet" href="vars.css" />
+  <style> .stage canvas { touch-action: none; } </style>
+</head>
+<body>
+  <h1>Move the objects <small>drag an object of a three.js scene along the floor: <code>hit.three.grab('floor')</code></small></h1>
+  <div class="stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
+
+  <div class="panel">
+    <div class="row"><button id="reset" type="button">Put them back</button><span class="status" id="status">Take an object.</span></div>
+    <p class="note">The scene is a <code>three</code> layer that follows the movie's camera and light (<code>followCamera</code>, <code>followLights</code>), so the shadow is the movie's light's. <code>movie.pick</code> says which object is under the pointer, <code>hit.three.grab('floor')</code> keeps the point that was taken under the pointer while the object slides on the floor, and <code>movie.redraw()</code> draws the frame again. No object is moved by code that knows the camera.</p>
+  </div>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  { "imports": {
+      "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+      "pixi-effects": "../../dist/index.js",
+      "pixi-effects/three": "../../dist/three.js",
+      "three": "https://esm.sh/three@0.178.0" } }
+  </script>
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+    import { registerThree } from 'pixi-effects/three';
+    import * as THREE from 'three';
+
+    registerThree();
+    const W = 1280, H = 720, FONT = 'system-ui, -apple-system, "Hiragino Sans", "Segoe UI", sans-serif';
+    const FLOOR_Y = 600;                                                      // the composition's y of the floor (it runs DOWN); in three it is -600
+    const START = { cube: { x: 420, z: -80 }, ball: { x: 700, z: 60 }, knot: { x: 960, z: -140 } };
+    const REST = { cube: 60, ball: 70, knot: 85 };                            // how far each object's middle is above the floor
+    const pos = Object.fromEntries(Object.entries(START).map(([k, v]) => [k, { ...v }]));
+    const objects = {};
+
+    await (async () => {
+      const canvas = document.getElementById('stage');
+      const movie = new Movie();
+      window.movie = movie;
+      window.__pos = pos;
+      await movie.init({ canvas, width: W, height: H, duration: 1, frameRate: 30, background: '#0f1626', composition: { sequences: [
+        { type: 'camera', initial: { x: 640, y: 60, z: 1180, lookAtX: 640, lookAtY: 470, lookAtZ: 0 } },
+        { type: 'light', kind: 'ambient', initial: { intensity: 0.55 } },
+        { type: 'light', kind: 'parallel', castsShadows: true, initial: { x: 300, y: -500, z: 900, lookAtX: 640, lookAtY: FLOOR_Y, lookAtZ: 0, intensity: 1.15, shadowDarkness: 0.75 } },
+        { type: 'three', name: 'world', followCamera: true, followLights: true,
+          setup: ctx => {
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000), new THREE.MeshStandardMaterial({ color: 0x2c3e66, roughness: 0.9 }));
+            floor.rotation.x = -Math.PI / 2; floor.position.set(640, -FLOOR_Y, -400); floor.name = 'floor'; floor.receiveShadow = true; ctx.scene.add(floor);
+            const mat = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.45, metalness: 0.1 });
+            objects.cube = new THREE.Mesh(new THREE.BoxGeometry(120, 120, 120), mat(0xf2c14e));
+            objects.ball = new THREE.Mesh(new THREE.SphereGeometry(70, 48, 32), mat(0xff6b6b));
+            objects.knot = new THREE.Mesh(new THREE.TorusKnotGeometry(55, 20, 120, 16), mat(0x7bd88f));
+            for (const [name, mesh] of Object.entries(objects)) { mesh.name = name; mesh.castShadow = true; ctx.scene.add(mesh); }
+          },
+          update: t => {
+            for (const [name, mesh] of Object.entries(objects)) {
+              mesh.position.set(pos[name].x, -(FLOOR_Y - REST[name]), pos[name].z);
+              if (name === 'cube') mesh.rotation.y = 0.5; if (name === 'knot') mesh.rotation.set(0.4, 0.3, 0);
+            }
+          } },
+        { type: 'text', name: 'hint', text: 'drag an object', style: { fontFamily: FONT, fontSize: 28, fill: '#8fa0c8' }, initial: { x: 'GW/2', y: 44, anchorX: 0.5, anchorY: 0.5 } },
+      ] } });
+      movie.pause();
+
+      const status = document.getElementById('status');
+      const names = Object.keys(START);
+      const objectUnder = (x, y) => { const hit = movie.pick(x, y, { only: ['world'] }); return names.includes(hit?.three?.object) ? hit : null; };
+      movie.hover({ only: ['world'], onEnter: hit => { canvas.style.cursor = names.includes(hit.three?.object) ? 'grab' : ''; }, onLeave: () => { canvas.style.cursor = ''; } });
+      canvas.addEventListener('pointerdown', e => {
+        const hit = objectUnder(...movie.canvasPoint(e));
+        if (!hit) return;                                                     // the floor is a hit of the same layer, with another object name
+        const name = hit.three.object;
+        const grab = hit.three.grab('floor');                                 // it slides on the floor plane through the point that was taken
+        const start = { ...pos[name] };
+        canvas.style.cursor = 'grabbing';
+        const move = ev => {
+          const m = grab.move(...movie.canvasPoint(ev));
+          if (!m) return;                                                     // a ray above the horizon never meets the floor: leave it
+          pos[name].x = Math.max(120, Math.min(1160, start.x + m.delta[0]));  // along the floor, kept inside the picture
+          pos[name].z = Math.max(-700, Math.min(380, start.z + m.delta[2]));  // nearer or farther; y is never written: it stays on the floor
+          status.textContent = `${name}: x ${Math.round(pos[name].x)} · z ${Math.round(pos[name].z)}`;
+          movie.redraw();
+        };
+        const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); canvas.style.cursor = ''; };
+        window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+      });
+      document.getElementById('reset').addEventListener('click', () => { for (const k of names) Object.assign(pos[k], START[k]); status.textContent = 'Take an object.'; movie.redraw(); });
+    })();
+    window.__ready = true;
+  </script>
+</body>
+</html>

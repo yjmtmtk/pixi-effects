@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Interactive movie · pop the bubbles</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+  <link rel="stylesheet" href="vars.css" />
+  <style> .stage canvas { touch-action: manipulation; } </style>
+</head>
+<body>
+  <h1>Pop the bubbles <small>hover and click on layers of the movie: <code>movie.hover</code> and <code>movie.pick</code></small></h1>
+  <div class="stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
+
+  <div class="panel">
+    <div class="status" id="status">Move over a bubble, then click it.</div>
+    <p class="note">The page names six layers and asks the movie what is under the pointer: <code>movie.hover({ only: names, cursor: true, onEnter, onLeave })</code> and <code>movie.pick(...movie.canvasPoint(event), { only: names })</code>. A bubble's size is an expression of two variables of its own (<code>h2</code> hover, <code>p2</code> popped); the page sets them with <code>movie.setVars</code>, and the movie keeps playing.</p>
+  </div>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  { "imports": {
+      "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+      "pixi-effects": "../../dist/index.js" } }
+  </script>
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+
+    const W = 1280, H = 720, FONT = 'system-ui, -apple-system, "Hiragino Sans", "Segoe UI", sans-serif';
+    const BUBBLES = [
+      { name: 'Coral',   x: 220, y: 300, r: 92,  c: '#ff6b6b' },
+      { name: 'Amber',   x: 470, y: 470, r: 70,  c: '#ffb454' },
+      { name: 'Lime',    x: 690, y: 290, r: 104, c: '#7bd88f' },
+      { name: 'Sky',     x: 930, y: 480, r: 76,  c: '#5cc8ff' },
+      { name: 'Violet',  x: 1060, y: 270, r: 88, c: '#a98bff' },
+      { name: 'Rose',    x: 330, y: 560, r: 56,  c: '#ff8fc7' },
+    ];
+    const params = new URLSearchParams(location.search);                       // ?popped=1,4 and ?hover=2: a state to start from (the poster of this sample)
+    const startPopped = (params.get('popped') ?? '').split(',').filter(Boolean).map(Number), startHover = params.has('hover') ? Number(params.get('hover')) : -1;
+    const vars = { score: startPopped.length, title: startPopped.length ? 'POP!' : 'POP THEM ALL', hint: startHover >= 0 ? `${BUBBLES[startHover]?.name}: click to pop` : 'hover, then click' };
+    BUBBLES.forEach((_, i) => { vars['h' + i] = i === startHover ? 1 : 0; vars['p' + i] = startPopped.includes(i) ? 1 : 0; });
+
+    const bubble = (b, i) => ({ type: 'composition', name: b.name, width: 2 * b.r, height: 2 * b.r, duration: 8,
+      initial: { x: b.x, y: b.y, pivotX: b.r, pivotY: b.r, scale: `(1 + 0.16 * h${i}) * (1 - 0.55 * p${i})`, alpha: `1 - 0.7 * p${i}` },
+      keyframes: [{ at: i * 0.35, to: { y: '-=22' }, duration: 1.4 + (i % 3) * 0.3, ease: 'sine.inOut', repeat: 12, yoyo: true }],
+      sequences: [
+        { type: 'shape', shape: 'circle', radius: b.r, initial: { x: b.r, y: b.r, fillColor: b.c, fillAlpha: 0.92 } },
+        { type: 'shape', shape: 'circle', radius: b.r * 0.2, initial: { x: b.r * 0.68, y: b.r * 0.62, fillColor: '#ffffff', fillAlpha: 0.55 } },
+      ] });
+    const composition = { sequences: [
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101a30' } },
+      { type: 'shape', shape: 'rect', name: 'band', width: 'GW', height: 220, initial: { x: 'GW/2', y: 'GH - 110', fillColor: '#0c1428' } },
+      { type: 'text', name: 'title', text: '{title}', style: { fontFamily: FONT, fontSize: 64, fontWeight: '800', fill: '#ffffff', letterSpacing: 6 }, initial: { x: 'GW/2', y: 78, anchorX: 0.5, anchorY: 0.5 } },
+      { type: 'text', name: 'hint', text: '{hint}', style: { fontFamily: FONT, fontSize: 28, fill: '#8fa0c8' }, initial: { x: 'GW/2', y: 640, anchorX: 0.5, anchorY: 0.5 } },
+      { type: 'text', name: 'score', text: 'popped {score} / 6', style: { fontFamily: FONT, fontSize: 30, fontWeight: '700', fill: '#7bd88f' }, initial: { x: 40, y: 676, anchorX: 0, anchorY: 0.5 } },
+      ...BUBBLES.map(bubble),
+    ] };
+
+    const canvas = document.getElementById('stage');
+    const movie = new Movie();
+    window.movie = movie;
+    await movie.init({ canvas, width: W, height: H, duration: 8, frameRate: 30, loop: true, background: '#000', vars, composition });
+    movie.play();
+
+    const names = BUBBLES.map(b => b.name);
+    const nameOf = hit => hit.path.split('/')[0];                           // the hit is the leaf ("Lime/shape#0"): the bubble is its first path segment
+    const indexOf = name => names.indexOf(name);
+    const state = { ...vars };
+    let timers = new Map();
+    const set = patch => { Object.assign(state, patch); return movie.setVars(state); };
+    const popped = () => BUBBLES.reduce((n, _, i) => n + (state['p' + i] ? 1 : 0), 0);
+
+    movie.hover({ only: names, cursor: true,
+      onEnter: hit => { const i = indexOf(nameOf(hit)); if (i >= 0) set({ ['h' + i]: 1, hint: state['p' + i] ? `${nameOf(hit)} is coming back` : `${nameOf(hit)}: click to pop` }); },
+      onLeave: hit => { const i = indexOf(nameOf(hit)); if (i >= 0) set({ ['h' + i]: 0, hint: 'hover, then click' }); } });
+
+    canvas.addEventListener('click', event => {
+      const hit = movie.pick(...movie.canvasPoint(event), { only: names });
+      if (!hit) return;
+      const i = indexOf(nameOf(hit));
+      if (state['p' + i]) return;                                             // already popped: it is on its way back
+      set({ ['p' + i]: 1, score: popped() + 1, title: popped() + 1 === BUBBLES.length ? 'ALL POPPED!' : 'POP!' });
+      clearTimeout(timers.get(i));
+      timers.set(i, setTimeout(() => { set({ ['p' + i]: 0, score: popped() - 1, title: 'POP THEM ALL' }); }, 1600));
+    });
+
+    const status = document.getElementById('status');
+    movie.on('rebuilt', r => { status.textContent = `popped ${popped()} · last rebuild ${r.ms} ms · the movie keeps playing`; });
+    window.__ready = true;
+  </script>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Interactive movie · drag the cards</title>
+  <link rel="stylesheet" href="../../dist/loader.css" />
+  <link rel="stylesheet" href="vars.css" />
+  <style> .stage canvas { touch-action: none; } </style>
+</head>
+<body>
+  <h1>Drag the cards <small>pick a card up, drop it on a zone: <code>movie.pick</code> and variables</small></h1>
+  <div class="stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
+
+  <div class="panel">
+    <div class="row"><button id="reset" type="button">Put the cards back</button><span class="status" id="status">Take a card.</span></div>
+    <p class="note">A card is a group named <code>card0</code>… whose place is two variables; <code>movie.pick(x, y, { only: ['card0', …] })</code> says which card is taken and <code>movie.pick(cx, cy, { only: ['done', 'later'] })</code> which zone lies under its middle. A zone's glow is a layer whose <code>alpha</code> is a variable. The page listens on the window while a card is held, so the pointer may leave the picture.</p>
+  </div>
+
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  { "imports": {
+      "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+      "pixi-effects": "../../dist/index.js" } }
+  </script>
+  <script type="module">
+    import { Movie } from 'pixi-effects';
+
+    const W = 1280, H = 720, FONT = 'system-ui, -apple-system, "Hiragino Sans", "Segoe UI", sans-serif';
+    const CARDS = [
+      { label: 'Write the intro',  c: '#f2c14e' },
+      { label: 'Fix the timing',   c: '#7bd88f' },
+      { label: 'Pick the music',   c: '#8fb7ff' },
+    ];
+    const ZONES = [
+      { name: 'done',  title: 'Done',  x: 770,  c: '#3ddc97' },
+      { name: 'later', title: 'Later', x: 1100, c: '#ffb454' },
+    ];
+    const ZONE_Y = 380, ZONE_W = 290, ZONE_H = 560, CARD_W = 230, CARD_H = 110;
+    const home = i => ({ x: 190, y: 170 + i * 190 });
+    const slot = (zone, k) => ({ x: ZONES.find(z => z.name === zone).x, y: 240 + k * 140 });
+
+    const placed = (new URLSearchParams(location.search).get('placed') ?? '').split(',');   // ?placed=done,later,done: cards already in zones (the poster of this sample)
+    const where = CARDS.map((_, i) => ZONES.some(z => z.name === placed[i]) ? placed[i] : null);    // which zone a card is in (null: still in the tray)
+    const placeOf = i => {
+      if (!where[i]) return home(i);
+      const k = where.slice(0, i).filter(w => w === where[i]).length;       // the cards of one zone stack in the order they are numbered
+      return slot(where[i], k);
+    };
+    const vars = { doneLit: 0, laterLit: 0, status: `Done ${where.filter(w => w === 'done').length} · Later ${where.filter(w => w === 'later').length}` };
+    CARDS.forEach((_, i) => { vars['c' + i + 'x'] = Math.round(placeOf(i).x); vars['c' + i + 'y'] = Math.round(placeOf(i).y); });
+
+    const card = (c, i) => ({ type: 'composition', name: 'card' + i, width: CARD_W, height: CARD_H, duration: 1,
+      initial: { x: `c${i}x`, y: `c${i}y`, pivotX: CARD_W / 2, pivotY: CARD_H / 2 },
+      sequences: [
+        { type: 'shape', shape: 'rect', name: 'shadow' + i, width: CARD_W, height: CARD_H, cornerRadius: 16, initial: { x: CARD_W / 2 + 4, y: CARD_H / 2 + 8, anchorX: 0.5, anchorY: 0.5, fillColor: '#000000', fillAlpha: 0.35 } },
+        { type: 'shape', shape: 'rect', name: 'face' + i, width: CARD_W, height: CARD_H, cornerRadius: 16, initial: { x: CARD_W / 2, y: CARD_H / 2, anchorX: 0.5, anchorY: 0.5, fillColor: c.c } },
+        { type: 'text', name: 'label' + i, text: c.label, style: { fontFamily: FONT, fontSize: 28, fontWeight: '700', fill: '#1b1b1b' }, initial: { x: CARD_W / 2, y: CARD_H / 2, anchorX: 0.5, anchorY: 0.5 } },
+      ] });
+    const zone = z => [
+      { type: 'shape', shape: 'rect', name: z.name, width: ZONE_W, height: ZONE_H, cornerRadius: 22, initial: { x: z.x, y: ZONE_Y, anchorX: 0.5, anchorY: 0.5, fillColor: '#18213a' } },
+      { type: 'shape', shape: 'rect', name: z.name + '-glow', width: ZONE_W, height: ZONE_H, cornerRadius: 22, initial: { x: z.x, y: ZONE_Y, anchorX: 0.5, anchorY: 0.5, fillColor: z.c, alpha: `${z.name}Lit` } },
+      { type: 'text', name: z.name + '-title', text: z.title.toUpperCase(), style: { fontFamily: FONT, fontSize: 26, fontWeight: '800', fill: z.c, letterSpacing: 4 }, initial: { x: z.x, y: 128, anchorX: 0.5, anchorY: 0.5 } },
+    ];
+    const composition = { sequences: [
+      { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0f1424' } },
+      { type: 'text', name: 'tray-title', text: 'TO DO', style: { fontFamily: FONT, fontSize: 26, fontWeight: '800', fill: '#8fa0c8', letterSpacing: 4 }, initial: { x: 190, y: 56, anchorX: 0.5, anchorY: 0.5 } },
+      { type: 'text', name: 'status', text: '{status}', style: { fontFamily: FONT, fontSize: 26, fill: '#8fa0c8' }, initial: { x: 'GW/2', y: 686, anchorX: 0.5, anchorY: 0.5 } },
+      ...ZONES.flatMap(zone),
+      ...CARDS.map(card),
+    ] };
+
+    const canvas = document.getElementById('stage');
+    const movie = new Movie();
+    window.movie = movie;
+    await movie.init({ canvas, width: W, height: H, duration: 1, frameRate: 30, background: '#000', vars, composition });
+    movie.pause();                                                            // a still picture: nothing plays while a card is dragged
+
+    const cardNames = CARDS.map((_, i) => 'card' + i);
+    const zoneNames = ZONES.map(z => z.name);
+    const set = patch => movie.setVars(patch);
+    const layout = (moving = -1, at = null, lit = {}) => {
+      const patch = { doneLit: lit.done ? 0.45 : 0, laterLit: lit.later ? 0.45 : 0, status: `Done ${where.filter(w => w === 'done').length} · Later ${where.filter(w => w === 'later').length}` };
+      CARDS.forEach((_, i) => { const p = i === moving ? at : placeOf(i); patch['c' + i + 'x'] = Math.round(p.x); patch['c' + i + 'y'] = Math.round(p.y); });
+      return set(patch);
+    };
+
+    movie.hover({ only: cardNames, cursor: 'grab' });                        // the cursor says a card can be taken
+    canvas.addEventListener('pointerdown', e => {
+      const [x, y] = movie.canvasPoint(e);
+      const hit = movie.pick(x, y, { only: cardNames });
+      if (!hit) return;
+      const i = cardNames.indexOf(hit.path.split('/')[0]);                   // the hit is a layer inside the card ("card0/face0"): the card is the first path segment
+      const at0 = placeOf(i);
+      const grip = { dx: at0.x - x, dy: at0.y - y };                          // where in the card it was taken, so it does not jump
+      where[i] = null;                                                        // taken out of its zone
+      canvas.style.cursor = 'grabbing';
+      const zoneUnder = p => movie.pick(p.x, p.y, { only: zoneNames })?.path.split('/')[0] ?? null;
+      const here = ev => { const [px, py] = movie.canvasPoint(ev); return { x: px + grip.dx, y: py + grip.dy }; };
+      const move = ev => { const p = here(ev); layout(i, p, { [zoneUnder(p)]: true }); };
+      const up = async ev => {
+        window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
+        canvas.style.cursor = '';
+        const p = here(ev);
+        await layout(i, p);                                                  // the card is where it was let go: now ask what is under its middle
+        where[i] = zoneUnder(p);                                             // a zone: it stays there; anywhere else: back to the tray
+        await layout();
+      };
+      layout(i, { x: x + grip.dx, y: y + grip.dy });
+      window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+    });
+    document.getElementById('reset').addEventListener('click', () => { where.fill(null); layout(); });
+
+    const status = document.getElementById('status');
+    movie.on('rebuilt', r => { status.textContent = `rebuilt in ${r.ms} ms (the movie is paused: a drag is a series of rebuilds at frame 0)`; });
+    window.__ready = true;
+  </script>
+</body>
+</html>
