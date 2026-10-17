@@ -16,6 +16,7 @@ import { expandTransitions, carryTransitionWindows } from './Transitions';
 import { canvasProblems, canvasReport, type CanvasRow } from './canvasCheck';
 import { inspectScene, type InspectReport, type InspectOptions } from './inspect';
 import { pickScene, type PickHit, type PickOptions } from './pick';
+import { textPictureOf } from './textPicture';
 import { startHover, type HoverOptions } from './hover';
 import { collectTimeline, timelineHtml, timelineSvg, type TimelineData, type TimelineHtmlOptions, type TimelineSvgOptions } from './timelineChart';
 import { pickFrames, sheetLayout } from './frames';
@@ -920,7 +921,9 @@ export class Movie {
     warnUnknownOptions('movie.pick()', opts, ['only', 'ignore', 'alpha']);
     this._requireReady('pick');
     if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error(`pixi-effects: movie.pick(x, y) needs two numbers (canvas pixels), got ${x}, ${y}. For a pointer event: movie.pick(...movie.canvasPoint(event))`);
-    return pickScene(this._rootSequence as CompositionSequence, x, y, opts);
+    // a text layer is a PixiJS Text drawn into a canvas: with { alpha } its letters are looked at, not its box
+    const textureOf = textPictureOf;
+    return pickScene(this._rootSequence as CompositionSequence, x, y, opts, { textureOf });
   }
 
   /**

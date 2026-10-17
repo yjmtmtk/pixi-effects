@@ -36,6 +36,9 @@ export type AlphaReader = (resource: unknown, x: number, y: number) => number | 
 let scratch: CanvasRenderingContext2D | null | undefined;
 /** The layers whose picture could not be read, said once each. */
 const saidBlind = new Set<string>();
+/** A drawn picture and where a layer's own pixels are in it: what `{ alpha }` reads. */
+export interface PictureOf { frame: { x: number; y: number; width: number; height: number }; source?: { resolution?: number; resource?: unknown } }
+
 /** The browser's reader: draw the one pixel into a 1 x 1 canvas and look at its alpha. */
 const readResourceAlpha: AlphaReader = (resource, x, y) => {
   try {
@@ -52,8 +55,8 @@ const readResourceAlpha: AlphaReader = (resource, x, y) => {
 
 export interface PickOptions {
   /**
-   * Look at the picture, not the box: a pixel of an image, a video or a `canvas` layer whose alpha is at or below this (0..1; `0.1` leaves out what is nearly clear) is not a hit.
-   * Off by default (the box is the picture, and nothing is read). Shapes are always hit by their outline, text and `shader` layers by their box; a picture that cannot be read (from another origin) stays a hit.
+   * Look at the picture, not the box: a pixel of an image, a video, a `canvas` layer or the letters of a text layer whose alpha is at or below this (0..1; `0.1` leaves out what is nearly clear) is not a hit.
+   * Off by default (the box is the picture, and nothing is read). Shapes are always hit by their outline, a `shader` layer by its box (and text by its box too unless `alpha` is given); a picture that cannot be read (from another origin) stays a hit.
    */
   alpha?: number;
   /** Only these layers can be hit (by `name` or by `path`; a group's name stands for everything in it). */
@@ -92,7 +95,7 @@ const above = (a: Array<[number, number]>, b: Array<[number, number]>): number =
 };
 
 /** Every layer under the canvas point (x, y), the one on top first. */
-export function pickScene(root: CompositionSequence, x: number, y: number, opts: PickOptions = {}, deps: { readAlpha?: AlphaReader } = {}): PickHit[] {
+export function pickScene(root: CompositionSequence, x: number, y: number, opts: PickOptions = {}, deps: { readAlpha?: AlphaReader; /** The picture a text layer is drawn from (PixiJS keeps it in a canvas): its glyphs are looked at for `{ alpha }`. */ textureOf?: (display: unknown) => PictureOf | null | undefined } = {}): PickHit[] {
   if (opts.alpha !== undefined && !(opts.alpha >= 0 && opts.alpha <= 1)) throw new Error(`pixi-effects: pick: alpha must be a number from 0 to 1 (a pixel at or below it is not a hit), got ${opts.alpha}`);
   const readAlpha = deps.readAlpha ?? readResourceAlpha;
   const found: Array<{ hit: PickHit; order: Array<[number, number]> }> = [];
@@ -142,7 +145,7 @@ export function pickScene(root: CompositionSequence, x: number, y: number, opts:
           else if (three === undefined && (typeof d.containsPoint !== 'function' || d.containsPoint(local))) {
             let opaque = true;
             // a shader layer's picture lives in a WebGL canvas whose drawing buffer is not kept: reading it back would call a lit pixel clear, so its box stays its picture
-            const tex = opts.alpha !== undefined && seq.spec.type !== 'shader' ? (d as unknown as { texture?: { frame: { x: number; y: number; width: number; height: number }; source?: { resolution?: number; resource?: unknown } } }).texture : undefined;
+            const tex: PictureOf | null | undefined = opts.alpha !== undefined && seq.spec.type !== 'shader' ? ((d as unknown as { texture?: PictureOf }).texture ?? deps.textureOf?.(d)) : undefined;
             if (tex?.source?.resource) {
               const res = tex.source.resolution ?? 1;
               const a = readAlpha(tex.source.resource, (tex.frame.x + ((local.x - lb.x) / lb.width) * tex.frame.width) * res, (tex.frame.y + ((local.y - lb.y) / lb.height) * tex.frame.height) * res);

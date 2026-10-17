@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **New: `movie.pick(x, y, { alpha })` looks at the letters of a text layer.** A text layer was its box (the gap between letters and the hole of an O were hits); with `alpha` it is its glyphs, including the pieces of a `spans` line and an outline. The letters are drawn again with PixiJS's own generator once per text and style. `tests/films/pick-text`: over 95 % agreement with the picture on three texts.
 - **New: three samples on the Interactive page that click, hover and drag.** `click.html` (pop the bubbles: `movie.hover` and `movie.pick` on layers of the film), `drop.html` (drag cards onto zones: `pick` and variables), `move3d.html` (drag three.js objects along a floor under the film's own light: `hit.three.grab('floor')`, `movie.redraw()`). Until now the page only showed variables. `tests/site/interactiveClicks.test.ts` drives each with real mouse events in Chrome.
 - **Docs: what a `pick` hit names.** The hit is the layer drawn at the point, not its group: the group is the first segment of `hit.path` (found while writing the samples: `hit.name` of a bubble made of a group and an unnamed circle was undefined).
 
