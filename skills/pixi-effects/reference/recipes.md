@@ -1416,7 +1416,7 @@ canvas.addEventListener('click', async (event) => {
 // after something outside the movie that a layer reads changes while the movie is paused:  await movie.redraw();
 ```
 
-`pick` reads the frame as the last draw left it (it takes no time and has no clock). `movie.pick(x, y, { alpha: 0.1 })` looks at the picture and not its box (a transparent corner of a logo, the clear part of a drawn circle: not a hit). Dragging is built on `pick` too: recipes `drag-drop` (a flat layer) and `drag-3d` (an object of a three layer). **Test an interactive page** by sending pointer events and reading the state (`SKILL.md`, "Interactive pages"): `check` does not click.
+`pick` reads the frame as the last draw left it (it takes no time and has no clock). `movie.pick(x, y, { alpha: 0.1 })` looks at the picture and not its box (a transparent corner of a logo, the clear part of a drawn circle: not a hit). Dragging is built on `pick` too: recipes `drag-drop` (a flat layer) and `drag-3d` (an object of a three layer). **Test an interactive page** with `check --do "click fox; drag card > 770,240"` (real mouse events, what was under the pointer, the variables that changed, a picture per step: `SKILL.md`, "Interactive pages").
 
 ## Drag a layer and drop it on a target (`pick` and variables)
 

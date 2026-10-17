@@ -17,6 +17,9 @@
  *          --query "a=1&b=2" (added to the page address: for a page that reads it, such as one video of a batch) ·
  *          --crop X,Y,W,H (with --at: each picture is that part of the canvas, in canvas pixels, enlarged up to 4x so a small figure can be judged) ·
  *          --pick X,Y (with --at, repeatable: what is under that canvas point at each moment, the top layer first, and the object a three layer met: `movie.pick`) ·
+
+ *          --do "click Lime; hover 640,360; drag card > 770,240; wait 1; key Space" (real mouse and key events on the page, one step after the other, after everything else: what was under the pointer, which
+ *          variables changed, whether the page warned, one picture per step in steps/; a point is x,y in canvas pixels or a layer name (the middle of its box); repeatable) ·
  *          --onion A:B (one picture of the movement between A and B seconds, frames overlaid: onion.png) ·
  *          --seam (a movie made to loop: the last frame to the first is compared with the steps between ordinary neighbouring frames; a jump is a problem) ·
  *          --strict (text overlaps and stops where the picture is still changing fail the check; by default they are only listed for review) · --out DIR · --frames N (contact sheet tiles, default 12) · --formats mp4,webm (default mp4) · --no-export ·
@@ -82,10 +85,41 @@ export function findChrome(env = process.env, exists = fs.existsSync, platform =
   return candidates.find(c => c && exists(c)) ?? null;
 }
 
-export const USAGE = 'usage: node ai/tools/check.mjs <page.html> [--out DIR] [--frames N] [--formats mp4,webm] [--no-export] [--draft] [--at 3.5,title@end] [--crop X,Y,W,H] [--pick X,Y] [--onion 1:3] [--seam] [--query a=1&b=2] [--var name=value] [--size 1920x1080,1080x1920] [--timeout S] [--root DIR] [--chrome PATH] [--strict] [--help]\n(the header of ai/tools/check.mjs explains each option)';
+export const USAGE = 'usage: node ai/tools/check.mjs <page.html> [--out DIR] [--frames N] [--formats mp4,webm] [--no-export] [--draft] [--at 3.5,title@end] [--crop X,Y,W,H] [--pick X,Y] [--do "click Lime; drag card > 770,240"] [--onion 1:3] [--seam] [--query a=1&b=2] [--var name=value] [--size 1920x1080,1080x1920] [--timeout S] [--root DIR] [--chrome PATH] [--strict] [--help]\n(the header of ai/tools/check.mjs explains each option)';
+
+const DO_VERBS = ['click', 'hover', 'drag', 'wait', 'key'];
+const pointOf = (text) => { const m = text.trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/); return m ? { x: Number(m[1]), y: Number(m[2]) } : { name: text.trim() }; };
+/**
+ * `--do` steps: "click 640,360; hover Lime; drag card > 770,240; wait 0.5; key Space" (`;` or a new line between steps). A point is `x,y` in canvas pixels or a layer name; the points of a
+ * drag are separated by `>` or by spaces (a name with spaces needs `>`). Returns [{ verb, points?, seconds?, key? }].
+ */
+export function parseDo(text) {
+  const steps = [];
+  for (const raw of String(text).split(/[;\n]/).map(s => s.trim()).filter(Boolean)) {
+    const [verb, ...rest] = raw.split(/\s+/);
+    const arg = rest.join(' ');
+    if (!DO_VERBS.includes(verb)) throw new Error(`--do: "${verb}" is not a step; the steps are ${DO_VERBS.join(', ')} (for example --do "click 640,360; drag card > 770,240")`);
+    if (verb === 'wait') {
+      if (!arg || !Number.isFinite(Number(arg)) || Number(arg) < 0) throw new Error(`--do: wait needs a number of seconds, got "${arg}"`);
+      steps.push({ verb, seconds: Number(arg) });
+    } else if (verb === 'key') {
+      if (!arg) throw new Error('--do: key needs a key name (Space, Enter, ArrowLeft, a, …)');
+      steps.push({ verb, key: arg });
+    } else if (verb === 'drag') {
+      const parts = arg.includes('>') ? arg.split('>') : arg.split(/\s+/);
+      const points = parts.map(p => p.trim()).filter(Boolean).map(pointOf);
+      if (points.length < 2) throw new Error(`--do: drag needs two points or more (from > to), got "${arg}"`);
+      steps.push({ verb, points });
+    } else {
+      if (!arg) throw new Error(`--do: ${verb} needs a point (x,y in canvas pixels, or a layer name), for example "${verb} 640,360"`);
+      steps.push({ verb, points: [pointOf(arg)] });
+    }
+  }
+  return steps;
+}
 
 export function parseArgs(argv) {
-  const o = { page: null, out: null, frames: 12, formats: ['mp4'], export: true, timeout: 240, root: null, chrome: null, strict: false, at: null, crop: null, draft: false, onion: null, seam: false, query: null, pick: [], vars: [], sizes: [], help: false };
+  const o = { page: null, out: null, frames: 12, formats: ['mp4'], export: true, timeout: 240, root: null, chrome: null, strict: false, at: null, crop: null, draft: false, onion: null, seam: false, query: null, pick: [], do: [], vars: [], sizes: [], help: false };
   const need = (i, name) => { if (i + 1 >= argv.length) throw new Error(`${name} needs a value`); return argv[i + 1]; };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -108,6 +142,7 @@ export function parseArgs(argv) {
       if (m.length !== 2 || !m.every(Number.isFinite)) throw new Error(`--pick must look like 640,360 (x, y in canvas pixels), got "${argv[i]}"`);
       o.pick.push({ x: m[0], y: m[1] });
     }
+    else if (a === '--do') o.do.push(...parseDo(need(i++, a)));
     else if (a === '--var') o.vars.push(parseVar(need(i++, a)));
     else if (a === '--size') o.sizes.push(...parseSizes(need(i++, a)));
     else if (a === '--seam') o.seam = true;
@@ -620,6 +655,15 @@ export async function runCheck(opts, log = console.log) {
       report.logs.push(...fresh);
       report.problems.push(`${fresh.length} more console warning(s) / error(s) while the page was built at the other size(s) — each says what to change`);
     }
+    // --do: real clicks, hovers, drags and keys on the page, last (they change what the page shows and remembers)
+    if (opts.do.length) {
+      report.steps = await runSteps(cdp, opts.do, outDir, { width: info.width, height: info.height }, consoleLines, report.logs);
+      report.files.steps = shown(path.join(outDir, 'steps'));
+      report.steps.forEach((st, i) => {
+        if (st.error) report.problems.push(`step ${i + 1} (${st.label}): ${st.error}`);
+        if (st.warnings?.length) report.problems.push(`step ${i + 1} (${st.label}): ${st.warnings.length} console warning(s) — ${st.warnings[0].slice(0, 200)}`);
+      });
+    }
     return finish(report, outDir, log);
   } finally {
     try { chromeProc?.kill(); } catch { /* already gone */ }
@@ -673,6 +717,85 @@ export function exportLine(ex) {
   return `  export    ${ex.format}${ex.draft ? ' (draft)' : ''} ok · ${kb(ex.bytes)}${rate} · ${v} · ${au}`;
 }
 
+const KEYS = { Space: [' ', 'Space'], Enter: ['Enter', 'Enter'], Escape: ['Escape', 'Escape'], Tab: ['Tab', 'Tab'], Backspace: ['Backspace', 'Backspace'], ArrowLeft: ['ArrowLeft', 'ArrowLeft'], ArrowRight: ['ArrowRight', 'ArrowRight'], ArrowUp: ['ArrowUp', 'ArrowUp'], ArrowDown: ['ArrowDown', 'ArrowDown'] };
+const keyEvent = (name) => KEYS[name] ? { key: KEYS[name][0], code: KEYS[name][1] } : { key: name, code: /^[a-z]$/i.test(name) ? `Key${name.toUpperCase()}` : /^\d$/.test(name) ? `Digit${name}` : name };
+
+/**
+ * `check --do`: the steps, run on the page with real mouse and key events (the page's own handlers run: nothing is simulated), one picture of the canvas after each, in `steps/`.
+ * Returns [{ verb, label, hits, vars, frame, playing, warnings, picture, error? }]: what was under the last point, the variables that changed ([before, after]), what the page warned.
+ */
+export async function runSteps(cdp, steps, outDir, size, consoleLines, seenLogs) {
+  const dir = path.join(outDir, 'steps');
+  fs.mkdirSync(dir, { recursive: true });
+  for (const old of fs.readdirSync(dir)) if (old.endsWith('.png')) fs.rmSync(path.join(dir, old));
+  await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1400, height: 1000, deviceScaleFactor: 1, mobile: false });
+  await cdp.eval(`movie.app.canvas.scrollIntoView({ block: 'center', inline: 'center' })`);
+  await sleep(150);
+  const seen = new Set(seenLogs);
+  const results = [];
+  const pageLogs = async () => [...new Set([...(await cdp.eval('window.__logs || []').catch(() => [])), ...consoleLines])];
+  const geometry = () => cdp.eval(`(() => { const r = movie.app.canvas.getBoundingClientRect(); return { left: r.left, top: r.top, w: r.width, h: r.height }; })()`);
+  const mouse = async (g, p, type, extra = {}) => cdp.send('Input.dispatchMouseEvent', { type, x: g.left + p.x * g.w / size.width, y: g.top + p.y * g.h / size.height, ...extra });
+  let n = 0;
+  for (const step of steps) {
+    n++;
+    const res = { verb: step.verb, label: step.verb + (step.points ? ' ' + step.points.map(pt => pt.name ?? `${pt.x},${pt.y}`).join(' > ') : '') };   // (a name that is found gets its place added below)
+    const before = await cdp.eval('JSON.parse(JSON.stringify(movie.vars || {}))').catch(() => ({}));
+    let last = null;
+    try {
+      if (step.verb === 'wait') { res.label = `wait ${step.seconds}`; await sleep(step.seconds * 1000); }
+      else if (step.verb === 'key') {
+        res.label = `key ${step.key}`;
+        const e = keyEvent(step.key);
+        await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', ...e, text: e.key.length === 1 ? e.key : undefined });
+        await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', ...e });
+      } else {
+        const points = [];
+        for (const pt of step.points) {
+          if (pt.name === undefined) { points.push({ ...pt }); continue; }
+          const box = await cdp.eval(`(async () => { const r = (await movie.inspect(movie.currentFrame)).layers.find(l => l.name === ${JSON.stringify(pt.name)} || l.path === ${JSON.stringify(pt.name)}); return r && r.bounds ? { x: r.bounds.x + r.bounds.width / 2, y: r.bounds.y + r.bounds.height / 2 } : null; })()`);
+          if (!box) throw new Error(`no layer named "${pt.name}" at this moment (it may not be alive yet: put a wait before, or give x,y)`);
+          points.push({ x: Math.round(box.x), y: Math.round(box.y), name: pt.name });
+        }
+        res.label = `${step.verb} ${points.map(pt => pt.name ? `${pt.name} (${pt.x}, ${pt.y})` : `${pt.x},${pt.y}`).join(' > ')}`;
+        res.points = points.map(({ x, y }) => ({ x, y }));
+        for (const pt of points) if (!(pt.x >= 0 && pt.x <= size.width && pt.y >= 0 && pt.y <= size.height)) throw new Error(`the point ${pt.x},${pt.y} is outside the picture (0..${size.width} × 0..${size.height})`);
+        const g = await geometry();
+        last = points[points.length - 1];
+        if (step.verb === 'hover') await mouse(g, points[0], 'mouseMoved');
+        else if (step.verb === 'click') {
+          await mouse(g, points[0], 'mouseMoved'); await sleep(60);
+          await mouse(g, points[0], 'mousePressed', { button: 'left', clickCount: 1 }); await sleep(40);
+          await mouse(g, points[0], 'mouseReleased', { button: 'left', clickCount: 1 });
+        } else {                                                           // drag: press at the first point, move through the others in small steps, release at the last
+          await mouse(g, points[0], 'mouseMoved'); await sleep(60);
+          await mouse(g, points[0], 'mousePressed', { button: 'left', clickCount: 1, buttons: 1 }); await sleep(60);
+          for (let i = 1; i < points.length; i++) for (let k = 1; k <= 8; k++) {
+            const a = points[i - 1], b = points[i];
+            await mouse(g, { x: a.x + (b.x - a.x) * k / 8, y: a.y + (b.y - a.y) * k / 8 }, 'mouseMoved', { buttons: 1 }); await sleep(25);
+          }
+          await mouse(g, last, 'mouseReleased', { button: 'left', clickCount: 1 });
+        }
+      }
+    } catch (e) { res.error = e.message; }
+    await sleep(300);                                                       // the page's handlers and rebuilds settle
+    const after = await cdp.eval('JSON.parse(JSON.stringify(movie.vars || {}))').catch(() => ({}));
+    res.vars = Object.fromEntries(Object.keys({ ...before, ...after }).filter(k => JSON.stringify(before[k]) !== JSON.stringify(after[k])).map(k => [k, [before[k], after[k]]]));
+    if (last) res.hits = await cdp.eval(`movie.pickAll(${last.x}, ${last.y}).map(h => h.kind === 'three' ? h.path + ' (three: ' + (h.three && h.three.object || '?') + ')' : h.path)`).catch(() => []);
+    res.frame = await cdp.eval('movie.currentFrame').catch(() => null);
+    res.playing = await cdp.eval('!!movie.isPlaying').catch(() => null);
+    const now = await pageLogs();
+    res.warnings = now.filter(l => !seen.has(l));
+    for (const l of res.warnings) seen.add(l);
+    const g = await geometry();
+    const shot = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: g.left, y: g.top, width: g.w, height: g.h, scale: 1 } }).catch(() => null);
+    if (shot?.data) { const file = path.join(dir, `${String(n).padStart(2, '0')}-${step.verb}.png`); fs.writeFileSync(file, Buffer.from(shot.data, 'base64')); res.picture = shown(file); }
+    results.push(res);
+  }
+  return results;
+}
+
+const fmtVar = (v) => typeof v === 'string' ? JSON.stringify(v.length > 24 ? v.slice(0, 21) + '…' : v) : String(v);
 function finish(report, outDir, log) {
   const reportFile = path.join(outDir, 'report.json');
   report.files.report = shown(reportFile);
@@ -726,6 +849,12 @@ function finish(report, outDir, log) {
   for (const w of (report.at ?? []).filter(x => x.light)) {
     const shown = Object.entries(w.light).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => `${k} ${v}`).join(', ');   // the most lit first
     L.push(`  light     ${w.label} — ${shown}${Object.keys(w.light).length > 8 ? ', …' : ''} (the most lit threeD layers first: 1 = as bright as with no light, 0 = black; the number is the layer's middle, not what you can see)`);
+  }
+  for (const [i, st] of (report.steps ?? []).entries()) {
+    const vars = Object.entries(st.vars ?? {});
+    const changed = vars.length ? vars.slice(0, 6).map(([k, [a, b]]) => `${k} ${fmtVar(a)}→${fmtVar(b)}`).join(', ') + (vars.length > 6 ? `, … (${vars.length - 6} more)` : '') : 'no variable changed';
+    const over = st.hits ? ` — over ${st.hits.length ? st.hits.join(', ') : 'nothing'}` : '';
+    L.push(`  do        ${i + 1} ${st.label}${over} · ${st.error ? 'NOT RUN: ' + st.error : changed}${st.warnings?.length ? ` · ${st.warnings.length} warning(s)` : ''}${st.picture ? '' : ''}`);
   }
   if (report.stops) {
     const s = report.stops;

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · an interactive page for `check --do`</title></head>
+<body style="margin:0">
+  <!-- Test film (tests/tools/checkDo.test.ts): what `check --do "click …; hover …; drag …"` is run against. Layers: 'button' (a click sets the variable `clicks` one up and says so in `hint`), 'card' (dragged: its place is the
+       variables cx, cy), 'hot' (hovering sets `hot` to 1). ?warn=1: a click on 'button' logs a console warning (a page whose handler is wrong). The canvas is shown at half its size (320 x 180 for 640 x 360). -->
+  <canvas id="stage" width="640" height="360" style="width:320px;height:180px;display:block;margin:20px"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const canvas = document.getElementById('stage');
+    const movie = new Movie();
+    window.movie = movie;
+    const WARN = new URLSearchParams(location.search).get('warn') === '1';
+    await movie.init({ canvas, width: 640, height: 360, duration: 4, frameRate: 30, background: '#101828', vars: { clicks: 0, cx: 120, cy: 260, hot: 0, hint: 'ready' }, composition: { sequences: [
+      { type: 'shape', shape: 'rect', name: 'button', width: 200, height: 80, cornerRadius: 12, initial: { x: 160, y: 100, anchorX: 0.5, anchorY: 0.5, fillColor: '#3aa56e' } },
+      { type: 'shape', shape: 'rect', name: 'hot', width: 160, height: 80, initial: { x: 480, y: 100, anchorX: 0.5, anchorY: 0.5, fillColor: '#c0392b', alpha: '0.4 + 0.6 * hot' } },
+      { type: 'shape', shape: 'rect', name: 'card', width: 120, height: 70, initial: { x: 'cx', y: 'cy', anchorX: 0.5, anchorY: 0.5, fillColor: '#f2c14e' } },
+      { type: 'text', name: 'hint', text: '{hint} {clicks}', style: { fontSize: 28, fill: '#ffffff' }, initial: { x: 320, y: 330, anchorX: 0.5, anchorY: 0.5 } },
+    ] } });
+    movie.pause();
+    movie.hover({ only: ['hot'], onEnter: () => movie.setVars({ hot: 1 }), onLeave: () => movie.setVars({ hot: 0 }) });
+    canvas.addEventListener('click', (e) => {
+      const hit = movie.pick(...movie.canvasPoint(e), { only: ['button'] });
+      if (!hit) return;
+      if (WARN) console.warn('pixi-effects: (test page) the click handler is wrong');
+      movie.setVars({ clicks: movie.vars.clicks + 1, hint: 'clicked' });
+    });
+    canvas.addEventListener('pointerdown', (e) => {
+      const [x, y] = movie.canvasPoint(e);
+      if (!movie.pick(x, y, { only: ['card'] })) return;
+      const move = (ev) => { const [px, py] = movie.canvasPoint(ev); movie.setVars({ cx: Math.round(px), cy: Math.round(py) }); };
+      const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+      window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+    });
+    window.__ready = true;
+  </script>
+</body>
+</html>
