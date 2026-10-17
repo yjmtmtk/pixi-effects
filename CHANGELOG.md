@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Fixed: `check` no longer waits a silent minute when the page's module cannot be loaded.** A wrong path in the import map or a CDN that is down raises nothing in the page, so a page that never got ready ended with only `window.movie is missing` after 60 s, and an AI agent could not tell why (seen in a Haiku trial, five times in one earlier session, and in the claude.ai sandbox). `check` now listens to the browser's requests: after a failed script or page load it stops within seconds and names the address and how it failed (`…/no-such-module.js answered 404 (not found)`, or `could not be fetched (net::ERR_CONNECTION_RESET)`), says whether it is a file of the page's own server or another site, and tries once more, from the start, when it was another site's network failure or a 5xx (a hiccup of a CDN); the report says `retried` and lists `loadFailures`. 61 s → about 4 s for a 404, about 6 s with the retry. `tests/tools/checkLoadFailures.test.ts`.
+- **Changed: `pixi-effects new` says where the file is, in full** (`in the folder …: /full/path.html`), so an agent whose shell stands in another folder finds the file again (two of five agents in a trial edited or checked in the wrong folder).
 ## 0.44.0
 
 An AI can now click, hover and drag on a page it made and see what happened (`check --do`), a text layer can be picked by its letters, a rebuild keeps a `three` layer that did not change, and the Interactive page has three samples that click, hover and drag. Nothing breaks.

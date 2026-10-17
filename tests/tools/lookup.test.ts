@@ -84,6 +84,14 @@ describe('help: search the docs for a word', () => {
 });
 
 describe('new: a page to start from', () => {
+  it('says where the file is, in full, and which folder it is in (an agent that works from another folder finds it again)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'new-'));
+    const out = lookup.runLookup('new', ['where'], { root: lookup.PACKAGE_ROOT, cwd: dir }).stdout;
+    expect(out).toContain(join(dir, 'where.html'));
+    expect(out).toMatch(/created where\.html/);
+    expect(out).toMatch(/in the folder/);
+  });
+
   it('writes <name>.html from the template, titled with the name and pinned to this package\'s version; it will not overwrite', () => {
     const dir = mkdtempSync(join(tmpdir(), 'new-'));
     const r = lookup.newPage('My Film', { cwd: dir, root });

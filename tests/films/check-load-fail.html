@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · a page whose module cannot be loaded</title></head>
+<body>
+  <!-- Test film (tests/tools/checkLoadFailures.test.ts): what `check` says when the page's module script cannot be loaded. a static import of a file of this repository that does not exist (404), as a page with a wrong path in its
+       import map would have. Nothing here ever sets window.__ready. (check-load-fail-net.html: an address nobody listens on, a network failure as when a CDN is down.) -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script type="module">
+    import { Movie } from '/tests/films/no-such-module.js';
+    window.movie = new Movie();
+    window.__ready = true;
+  </script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · a page whose CDN cannot be reached</title></head>
+<body>
+  <!-- Test film (tests/tools/checkLoadFailures.test.ts): a static import from an address nobody listens on (a network failure, as when a CDN is down). Nothing here ever sets window.__ready. -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script type="module">
+    import { Movie } from 'http://127.0.0.1:9/never.js';
+    window.movie = new Movie();
+    window.__ready = true;
+  </script>
+</body>
+</html>

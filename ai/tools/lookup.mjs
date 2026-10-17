@@ -243,6 +243,7 @@ export function runLookup(cmd, args, { cwd = process.cwd(), root = PACKAGE_ROOT 
       const f = shownPath(file, cwd);
       return ok([
         `created ${f} (the template: a ${size ? `${size.width}x${size.height}` : '1280x720'} page, ${duration ?? 6} s, that collects every warning in window.__logs)`,
+        `in the folder ${path.dirname(file)}: ${file}   (the next commands take this path; a file edited from another folder is another file)`,
         `next: npx pixi-effects view ${f}     look at it as you edit (it says when the file changed)`,
         `      npx pixi-effects check ${f}    review it: warnings, layout, sound, a contact sheet, a real export`,
         '      npx pixi-effects recipe        tested pieces to copy  ·  npx pixi-effects help <word>',

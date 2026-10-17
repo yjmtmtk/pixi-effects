@@ -87,6 +87,20 @@ export function findChrome(env = process.env, exists = fs.existsSync, platform =
 
 export const USAGE = 'usage: node ai/tools/check.mjs <page.html> [--out DIR] [--frames N] [--formats mp4,webm] [--no-export] [--draft] [--at 3.5,title@end] [--crop X,Y,W,H] [--pick X,Y] [--do "click Lime; drag card > 770,240"] [--onion 1:3] [--seam] [--query a=1&b=2] [--var name=value] [--size 1920x1080,1080x1920] [--timeout S] [--root DIR] [--chrome PATH] [--strict] [--help]\n(the header of ai/tools/check.mjs explains each option)';
 
+/** One failed request, as a sentence the person (or the AI) can act on. `f` is { url, status? , error?, type? }. */
+export function describeLoadFailure(f) {
+  const how = f.status ? `answered ${f.status}${f.status === 404 ? ' (not found)' : ''}` : `could not be fetched (${f.error || 'a network error'})`;
+  return `${f.url} ${how}`;
+}
+/** A failure worth one more try: the network failed or the server had a bad moment (5xx, 429) on another site (a CDN); a missing file of the page's own server never gets better. */
+export function isTransientLoadFailure(f, ownOrigin) {
+  const foreign = !String(f.url).startsWith(ownOrigin);
+  if (f.error) return foreign;
+  return foreign && (f.status >= 500 || f.status === 429);
+}
+/** The kinds of request without which the page cannot start. */
+const CRITICAL_TYPES = new Set(['Script', 'Document', 'Stylesheet', 'Other', undefined]);
+
 const DO_VERBS = ['click', 'hover', 'drag', 'wait', 'key'];
 const pointOf = (text) => { const m = text.trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/); return m ? { x: Number(m[1]), y: Number(m[2]) } : { name: text.trim() }; };
 /**
@@ -419,13 +433,25 @@ export async function runCheck(opts, log = console.log) {
     const { proc, cdp } = await launchChrome(chrome, userDataDir);
     chromeProc = proc;
     const consoleLines = [];
+    // the requests that failed (a wrong path in the import map, a CDN that is down): a module that cannot be loaded raises nothing in the page, so without this the only sign is a page that never gets ready
+    const requests = new Map(), loadFailures = [];
+    let failureAt = 0;
     cdp.on(m => {
       if (m.method === 'Runtime.exceptionThrown') consoleLines.push(`uncaught: ${m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text}`);
+      else if (m.method === 'Network.requestWillBeSent') requests.set(m.params.requestId, { url: m.params.request.url, type: m.params.type });
+      else if (m.method === 'Network.responseReceived' && m.params.response.status >= 400) {
+        loadFailures.push({ url: m.params.response.url, status: m.params.response.status, type: m.params.type }); failureAt = Date.now();
+      } else if (m.method === 'Network.loadingFailed' && !m.params.canceled) {
+        const r = requests.get(m.params.requestId) ?? {};
+        if (r.url && !/favicon\.ico/.test(r.url)) { loadFailures.push({ url: r.url, error: m.params.errorText, type: m.params.type ?? r.type }); failureAt = Date.now(); }
+      }
     });
     await cdp.send('Runtime.enable');
     await cdp.send('Page.enable');
+    await cdp.send('Network.enable');
+    const pageUrl = `http://127.0.0.1:${port}/${path.relative(root, pagePath).split(path.sep).join('/')}${opts.query ? `?${opts.query}` : ''}`;
     const t0 = Date.now();
-    await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/${path.relative(root, pagePath).split(path.sep).join('/')}${opts.query ? `?${opts.query}` : ''}` });
+    await cdp.send('Page.navigate', { url: pageUrl });
 
     // wait for the movie to be ready (or the page to say it failed)
     let info = null;
@@ -438,6 +464,16 @@ export async function runCheck(opts, log = console.log) {
         const failed = (info.logs || []).some(l => /^(init:|uncaught)/.test(l));
         if (ready || failed || consoleLines.length) break;
       } catch { /* the page is still loading */ }
+      // a script or the page itself could not be loaded and nothing has started since: no use in waiting out the minute
+      const critical = loadFailures.filter(f => CRITICAL_TYPES.has(f.type) && !/\.(png|jpe?g|gif|webp|svg|woff2?|ttf|otf|mp3|mp4|wav)(\?|$)/i.test(f.url));
+      if (critical.length && Date.now() - failureAt > 2500) {
+        if (critical.some(f => isTransientLoadFailure(f, `http://127.0.0.1:${port}`)) && !report.retried) {      // a hiccup of a CDN: once more, from the start
+          report.retried = true; loadFailures.length = 0; failureAt = 0; requests.clear();
+          await cdp.send('Page.navigate', { url: pageUrl });
+          continue;
+        }
+        break;
+      }
       if (Date.now() - t0 > 60000) break;
     }
     info = await cdp.eval(INFO).catch(() => info) ?? info;
@@ -445,8 +481,15 @@ export async function runCheck(opts, log = console.log) {
     report.readySeconds = Math.round((Date.now() - t0) / 100) / 10;
     report.loadStages = await cdp.eval('(window.movie && window.movie.loadStages) || null').catch(() => null);
     report.logs = [...new Set([...(info?.logs ?? []), ...consoleLines])];
+    if (loadFailures.length) report.loadFailures = loadFailures.map(({ url, status, error, type }) => ({ url, ...(status ? { status } : {}), ...(error ? { error } : {}), ...(type ? { type } : {}) }));
     if (!report.ready) {
-      report.problems.push(`the page did not become ready (window.__ready !== true within 60 s${info?.hasMovie ? '' : '; window.movie is missing'})`);
+      const lost = (report.loadFailures ?? []).filter(f => CRITICAL_TYPES.has(f.type));
+      if (lost.length) {
+        const own = lost.every(f => String(f.url).startsWith(`http://127.0.0.1:${port}`));
+        report.problems.push(`the page could not be loaded completely: ${lost.slice(0, 3).map(describeLoadFailure).join('; ')}${lost.length > 3 ? ` (+${lost.length - 3} more)` : ''}${report.retried ? ' — tried twice' : ''}. `
+          + (own ? `That is a file of the page's own server (the folder served is ${root}): check the path in the page's import map or its <script src>.` : 'That address is not served here (a CDN or another site): check it is spelled right and reachable, then run the check again.'));
+      }
+      report.problems.push(`the page did not become ready (window.__ready !== true${lost.length ? ', because of the failed load above' : ' within 60 s'}${info?.hasMovie ? '' : '; window.movie is missing'})`);
       return finish(report, outDir, log);
     }
     // --var / --size: the page is rebuilt once with what the command line gave (the first size; the others are looked at after the export)
