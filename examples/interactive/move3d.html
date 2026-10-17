@@ -9,12 +9,12 @@
   <style> .stage canvas { touch-action: none; } </style>
 </head>
 <body>
-  <h1>Move the objects <small>drag an object of a three.js scene along the floor: <code>hit.three.grab('floor')</code></small></h1>
+  <h1>Move the objects <small>drag an object of a three.js scene along a platform: <code>hit.three.grab('floor')</code></small></h1>
   <div class="stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
 
   <div class="panel">
     <div class="row"><button id="reset" type="button">Put them back</button><span class="status" id="status">Take an object.</span></div>
-    <p class="note">The scene is a <code>three</code> layer that follows the movie's camera and light (<code>followCamera</code>, <code>followLights</code>), so the shadow is the movie's light's. <code>movie.pick</code> says which object is under the pointer, <code>hit.three.grab('floor')</code> keeps the point that was taken under the pointer while the object slides on the floor, and <code>movie.redraw()</code> draws the frame again. No object is moved by code that knows the camera.</p>
+    <p class="note">The scene is a <code>three</code> layer that follows the movie's camera and light (<code>followCamera</code>, <code>followLights</code>), so the shadow is the movie's light's. <code>movie.pick</code> says which object is under the pointer, <code>hit.three.grab('floor')</code> keeps the point that was taken under the pointer while the object slides on the floor (the page stops it at the edge of the platform: a limit that is drawn can be felt), and <code>movie.redraw()</code> draws the frame again. No object is moved by code that knows the camera.</p>
   </div>
 
   <script>
@@ -40,6 +40,8 @@
     const FLOOR_Y = 600;                                                      // the composition's y of the floor (it runs DOWN); in three it is -600
     const START = { cube: { x: 420, z: -80 }, ball: { x: 700, z: 60 }, knot: { x: 960, z: -140 } };
     const REST = { cube: 60, ball: 70, knot: 85 };                            // how far each object's middle is above the floor
+    const REACH = { cube: 85, ball: 70, knot: 80 };                           // how far each object reaches sideways from its middle (the cube's corner: 60 x 1.41)
+    const STAGE = { x0: 100, x1: 1180, z0: -500, z1: 380, thick: 30 };        // the platform the objects stand on: the only place they can go, and drawn, so the edge can be seen
     const pos = Object.fromEntries(Object.entries(START).map(([k, v]) => [k, { ...v }]));
     const objects = {};
 
@@ -48,14 +50,17 @@
       const movie = new Movie();
       window.movie = movie;
       window.__pos = pos;
+      window.__limits = { STAGE, REACH };
       await movie.init({ canvas, width: W, height: H, duration: 1, frameRate: 30, background: '#0f1626', composition: { sequences: [
         { type: 'camera', initial: { x: 640, y: 60, z: 1180, lookAtX: 640, lookAtY: 470, lookAtZ: 0 } },
         { type: 'light', kind: 'ambient', initial: { intensity: 0.55 } },
         { type: 'light', kind: 'parallel', castsShadows: true, initial: { x: 300, y: -500, z: 900, lookAtX: 640, lookAtY: FLOOR_Y, lookAtZ: 0, intensity: 1.15, shadowDarkness: 0.75 } },
         { type: 'three', name: 'world', followCamera: true, followLights: true,
           setup: ctx => {
-            const floor = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000), new THREE.MeshStandardMaterial({ color: 0x2c3e66, roughness: 0.9 }));
-            floor.rotation.x = -Math.PI / 2; floor.position.set(640, -FLOOR_Y, -400); floor.name = 'floor'; floor.receiveShadow = true; ctx.scene.add(floor);
+            const ground = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000), new THREE.MeshStandardMaterial({ color: 0x1b2640, roughness: 0.95 }));
+            ground.rotation.x = -Math.PI / 2; ground.position.set(640, -(FLOOR_Y + STAGE.thick), -400); ground.name = 'ground'; ground.receiveShadow = true; ctx.scene.add(ground);
+            const stage = new THREE.Mesh(new THREE.BoxGeometry(STAGE.x1 - STAGE.x0, STAGE.thick, STAGE.z1 - STAGE.z0), new THREE.MeshStandardMaterial({ color: 0x4a5f93, roughness: 0.8 }));
+            stage.position.set((STAGE.x0 + STAGE.x1) / 2, -(FLOOR_Y + STAGE.thick / 2), (STAGE.z0 + STAGE.z1) / 2); stage.name = 'stage'; stage.receiveShadow = true; stage.castShadow = true; ctx.scene.add(stage);
             const mat = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.45, metalness: 0.1 });
             objects.cube = new THREE.Mesh(new THREE.BoxGeometry(120, 120, 120), mat(0xf2c14e));
             objects.ball = new THREE.Mesh(new THREE.SphereGeometry(70, 48, 32), mat(0xff6b6b));
@@ -86,8 +91,9 @@
         const move = ev => {
           const m = grab.move(...movie.canvasPoint(ev));
           if (!m) return;                                                     // a ray above the horizon never meets the floor: leave it
-          pos[name].x = Math.max(120, Math.min(1160, start.x + m.delta[0]));  // along the floor, kept inside the picture
-          pos[name].z = Math.max(-700, Math.min(380, start.z + m.delta[2]));  // nearer or farther; y is never written: it stays on the floor
+          const r = REACH[name];
+          pos[name].x = Math.max(STAGE.x0 + r, Math.min(STAGE.x1 - r, start.x + m.delta[0]));   // along the platform, stopped at its edge
+          pos[name].z = Math.max(STAGE.z0 + r, Math.min(STAGE.z1 - r, start.z + m.delta[2]));   // nearer or farther; y is never written: it stays on the platform
           status.textContent = `${name}: x ${Math.round(pos[name].x)} · z ${Math.round(pos[name].z)}`;
           movie.redraw();
         };

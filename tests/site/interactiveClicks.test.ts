@@ -104,6 +104,13 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the click,
       expect(after.cube!.z - before.cube!.z, 'and toward the viewer').toBeGreaterThan(10);
       expect(after.ball).toEqual(before.ball);
       expect(after.knot).toEqual(before.knot);
+      // an object is stopped at the edge of the platform (drawn, so the limit can be seen), by its own reach: pulled far to the back and the left it rests against both edges
+      const { STAGE, REACH } = await ev<{ STAGE: { x0: number; z0: number }; REACH: Record<string, number> }>('window.__limits');
+      const now = await ev<{ x: number; y: number }>(`(() => { for (let y = 120; y < 720; y += 6) for (let x = 100; x < 1200; x += 6) if (movie.pick(x, y, { only: ['world'] })?.three?.object === 'cube') return { x, y }; return null; })()`);
+      await mouse('mouseMoved', now.x, now.y); await mouse('mousePressed', now.x, now.y); await mouse('mouseMoved', 400, 200); await mouse('mouseMoved', 20, 135); await mouse('mouseReleased', 20, 135);
+      const edge = await pos();
+      expect(edge.cube!.x, 'the left edge').toBe(STAGE.x0 + REACH.cube!);
+      expect(edge.cube!.z, 'the back edge').toBe(STAGE.z0 + REACH.cube!);
       await ev('document.getElementById("reset").click()');
       expect(await pos()).toEqual(before);
     });
