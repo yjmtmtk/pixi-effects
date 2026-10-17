@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.45.0
+
+`check` stops waiting in silence when a page cannot load, says how the picture moves and ends, and the whole mix can be set to a loudness in one line. Nothing breaks.
 
 - **Changed: `check` / `inspectAudio()` call a mix quiet from -20 LUFS down (it was -24).** The note says `movie.init({ loudness: -16 })` is the one-line fix. In a second trial of Haiku films the note never fired for mixes at -20.8 and -22.8 LUFS, so nobody met the new option (the agent that read the -14 to -16 norm raised `volume` by hand, to -15.4). A mix of -20 to -24 is still 4 to 8 dB under what web video usually has; the note is advice, never a failure. `tests/core/inspectAudio.test.ts`.
 - **New: `check` says how the picture moves and how it ends, in numbers.** A new `motion` line: how much of the movie moves, when the last movement ends, the longest stretch that does not move, and (for review, never a failure) a last frame that is one plain colour (with the colour and since when), nothing on screen for the first second or more, and a hold of 3 s or a third of the movie (`the picture does not move from 3.1 s to 10.4 s`). `check` only said `OK — nothing to fix` for a picture that fades in, holds still for nine seconds and ends empty, so an agent stopped there (in a trial of ten Haiku films a blind judge named thin motion, long holds and empty endings as the common weakness; the new numbers name the same three things in eight of them). A presentation (stops) is not reviewed. Sampled at 10 % size, up to 90 frames: 2–3 s more. `tests/tools/checkMotion.test.ts`, `tests/films/check-motion`.
