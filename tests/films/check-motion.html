@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · how a movie moves and ends, for check's motion line</title></head>
+<body style="margin:0">
+  <!-- Test film (tests/tools/checkMotion.test.ts), 10 s. ?case=lively: a ball moving all the time, something on screen at both ends. ?case=still: a card moves for 2 s and then stays for 8 s.
+       ?case=blankend: it moves for 6 s and then fades away completely, leaving the plain background for the last 3 s. ?case=blankstart: nothing is on screen until 2 s. -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const which = new URLSearchParams(location.search).get('case') || 'lively';
+    const ball = (extra = {}) => ({ type: 'shape', shape: 'circle', name: 'ball', radius: 30, initial: { x: 60, y: 90, fillColor: '#f2c14e' }, ...extra });
+    const cases = {
+      lively: [ball({ duration: 10, keyframes: [{ at: 0, to: { x: 260 }, duration: 5, ease: 'sine.inOut' }, { at: 5, to: { x: 60 }, duration: 5, ease: 'sine.inOut' }] })],
+      still: [{ type: 'shape', shape: 'rect', name: 'card', width: 120, height: 70, initial: { x: 40, y: 90, fillColor: '#f2c14e' }, keyframes: [{ at: 0, to: { x: 160 }, duration: 2, ease: 'power2.out' }] }],
+      blankend: [ball({ duration: 8, keyframes: [{ at: 0, to: { x: 260 }, duration: 6, ease: 'sine.inOut' }, { at: 6, to: { alpha: 0 }, duration: 1.5 }] })],
+      blankstart: [ball({ at: 2, duration: 8, keyframes: [{ at: 0, to: { x: 260 }, duration: 8, ease: 'none' }] })],
+    };
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 10, frameRate: 30, background: '#101828', composition: { sequences: cases[which] } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

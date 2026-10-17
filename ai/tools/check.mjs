@@ -589,6 +589,15 @@ export async function runCheck(opts, log = console.log) {
       }
     }
 
+    // the motion: how much of the movie moves, when the last movement ends, the longest hold, and how it starts and ends (numbers for review, never a failure)
+    {
+      const m = await cdp.eval(MOTION_SCRIPT).catch(() => null);
+      if (m && !m.error && m.samples) {
+        report.motion = motionVerdict(m.samples, { duration: m.duration, hasStops: m.hasStops });
+        report.motion.line = motionLine(report.motion, m.duration);
+      }
+    }
+
     // a presentation (composition.stops): one picture of every stop, in order, so the pages and steps can be read at a glance
     const stops = await cdp.eval(`(() => { const s = movie.stops || []; return s.length ? { count: s.length, pages: new Set(s.map(x => x.pageIndex)).size, items: s.map(x => ({ at: Math.round(x.at * 100) / 100, frame: x.frame, page: x.page, pageStart: x.pageStart, notes: !!x.notes, pdf: x.pdf })) } : null; })()`).catch(() => null);
     if (stops) {
@@ -734,6 +743,68 @@ export function seamVerdict({ seam, steps }) {
 }
 
 /** In the page: the seam (last frame against the first) and nine ordinary steps (the first and the last of them next to the seam), on pictures a quarter of the size. */
+const MOVING = 0.001;                                           // the mean change of a pixel between two samples above which the picture is moving (0..1)
+const PLAIN = 0.012;                                            // the spread of the picture below which it is one plain colour (0..1)
+const hex2 = v => Math.max(0, Math.min(255, Math.round(v * 255))).toString(16).padStart(2, '0');
+const sec = x => +x.toFixed(1);
+/**
+ * `check`'s motion line: from samples of the picture over the movie (`{ t, diff, spread, mean }`: how much it changed since the sample before, how much is on screen, its average colour) say how much of the
+ * movie moves, when the last movement ends, the longest stretch that does not move, and whether the first and last frames are one plain colour. These are for review, never a failure: a hold or a fade to black
+ * may be the point. A presentation (stops) is meant to stand still and is not reviewed.
+ */
+export function motionVerdict(samples, { duration, hasStops = false }) {
+  const steps = samples.slice(1);
+  const moving = steps.filter(s => s.diff > MOVING);
+  const out = { steps: steps.length, movingShare: steps.length ? moving.length / steps.length : 0, lastMotionAt: moving.length ? moving[moving.length - 1].t : 0, longestStill: null, first: { plain: false, visibleFrom: 0 }, last: { plain: false, plainFrom: null, color: null }, review: [], presentation: hasStops };
+  let run = null;
+  for (let i = 1; i < samples.length; i++) {
+    if (samples[i].diff <= MOVING) { if (!run) run = { from: samples[i - 1].t, i0: i - 1 }; run.to = samples[i].t; run.i1 = i; }
+    else run = null;
+    if (run && (!out.longestStill || run.to - run.from > out.longestStill.seconds)) out.longestStill = { from: sec(run.from), to: sec(run.to), seconds: sec(run.to - run.from), i0: run.i0, i1: run.i1 };
+  }
+  const visible = samples.find(s => s.spread >= PLAIN);
+  out.first = { plain: samples[0].spread < PLAIN, visibleFrom: visible ? visible.t : null };
+  const lastS = samples[samples.length - 1];
+  if (lastS && lastS.spread < PLAIN) {
+    let k = samples.length - 1;
+    while (k > 0 && samples[k - 1].spread < PLAIN) k--;
+    out.last = { plain: true, plainFrom: samples[k].t, color: `#${hex2(lastS.mean[0])}${hex2(lastS.mean[1])}${hex2(lastS.mean[2])}` };
+  }
+  if (!hasStops) {
+    if (out.last.plain && duration - out.last.plainFrom >= 0.4) out.review.push(`the last frame is one plain colour (${out.last.color}): nothing on screen from ${sec(out.last.plainFrom)} s to the end (on purpose for a fade to black or a held background; otherwise the ending is missing)`);
+    if (out.first.visibleFrom !== null && out.first.visibleFrom >= 1) out.review.push(`nothing is on screen until ${sec(out.first.visibleFrom)} s (the first second or more is a plain colour: a viewer may think the video is broken)`);
+    const still = out.longestStill;
+    if (still && still.seconds >= Math.max(3, duration * 0.35)) {
+      const emptyInside = samples.slice(still.i0, still.i1 + 1).every(s => s.spread < PLAIN);          // an empty picture is told by its first or last frame above, not twice
+      const inEmptyTail = out.last.plain && still.from >= out.last.plainFrom - 0.5;
+      if (!emptyInside && !inEmptyTail) out.review.push(`the picture does not move from ${still.from} s to ${still.to} s (${still.seconds} s of ${sec(duration)} s): a long hold; give it a slow drift, a second movement, or a reason to stay (a pause for the music or the reading is fine)`);
+    }
+  }
+  if (out.longestStill) { delete out.longestStill.i0; delete out.longestStill.i1; }
+  return out;
+}
+export function motionLine(v, duration) {
+  if (v.presentation) return '  motion    presentation: its stops are meant to stand still, so the motion is not reviewed';
+  const still = v.longestStill && v.longestStill.seconds >= 1 ? ` · longest still stretch ${v.longestStill.seconds} s (${v.longestStill.from}–${v.longestStill.to} s)` : '';
+  return `  motion    moves in ${Math.round(v.movingShare * 100)} % of the movie · last movement ends at ${sec(v.lastMotionAt)} s of ${sec(duration)} s${still}`;
+}
+const MOTION_SCRIPT = `(async () => {
+  const total = movie.totalFrames, fps = movie.frameRate;
+  if (total < 3) return { error: 'a movie of fewer than 3 frames has no motion to measure' };
+  const n = Math.min(90, Math.max(3, Math.round(movie.duration * 10) + 1));
+  const frames = [...new Set(Array.from({ length: n }, (_, i) => Math.round(i / (n - 1) * (total - 1))))];
+  const out = []; let prev = null;
+  for (const f of frames) {
+    const d = (await movie.snapshot(f, { as: 'imageData', scale: 0.1, motionBlur: false })).data;
+    let r = 0, g = 0, b = 0, l = 0, l2 = 0, diff = null; const px = d.length / 4;
+    for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; const y = (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255; l += y; l2 += y * y; }
+    if (prev) { let s = 0; for (let i = 0; i < d.length; i += 4) s += Math.abs(d[i] - prev[i]) + Math.abs(d[i + 1] - prev[i + 1]) + Math.abs(d[i + 2] - prev[i + 2]); diff = s / (px * 3 * 255); }
+    out.push({ t: f / fps, diff, spread: Math.sqrt(Math.max(0, l2 / px - (l / px) ** 2)), mean: [r / px / 255, g / px / 255, b / px / 255] });
+    prev = d;
+  }
+  return { samples: out, hasStops: !!(movie.stops && movie.stops.length), duration: movie.duration };
+})()`;
+
 const SEAM_SCRIPT = `(async () => {
   const total = movie.totalFrames;
   if (total < 4) return { error: 'a movie of fewer than 4 frames has no loop to measure' };
@@ -915,6 +986,7 @@ function finish(report, outDir, log) {
     for (const l of formatMusic(a?.sources)) L.push(l);
     for (const n of a?.notes ?? []) L.push(`  note      ${n}`);
   }
+  if (report.motion) { L.push(report.motion.line); for (const r of report.motion.review) L.push(`            - ${r}`); }
   if (report.seam) L.push(report.seam.line);
   for (const ex of report.exports ?? []) L.push(exportLine(ex));
   L.push(`  files     ${Object.values(report.files).join('  ')}`);
