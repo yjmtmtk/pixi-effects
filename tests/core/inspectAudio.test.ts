@@ -16,6 +16,16 @@ const src = (layer: string, source: string, start: number, end: number, synth = 
 });
 
 describe('analyzeAudio', () => {
+  it('a mix around -22 LUFS is quiet for web video (typical -14 to -16): the note names the loudness option; one around -18 is left alone (found in a trial: films at -21 to -23 were never told)', () => {
+    const noteAt = (amp: number) => analyzeAudio(pcm(4, t => amp * Math.sin(2 * Math.PI * 1000 * t)), [src('layer "m"', 'music', 0, 4)], { peak: amp, peakAt: 1 }, 4, { window: 1 });
+    const quiet = noteAt(0.11);
+    expect(quiet.loudness.integratedLufs!).toBeLessThan(-20);
+    expect(quiet.loudness.integratedLufs!).toBeGreaterThan(-24);
+    expect(quiet.notes.join('\n')).toMatch(/quiet for web video.*loudness: -16/s);
+    const fine = noteAt(0.18);
+    expect(fine.loudness.integratedLufs!).toBeGreaterThan(-20);
+    expect(fine.notes.join('\n')).not.toMatch(/quiet for web video/);
+  });
   it('a music layer\'s summary is passed through to its source, so the report can say what the score is', () => {
     const music = { bpm: 120, meter: 4, beats: 8, bars: 2, seconds: 4, tail: 2.5, tracks: [{ inst: 'keys', beats: 8, bars: 2, events: 2, perBar: ['C', 'G'] }], drums: [] };
     const r = analyzeAudio(pcm(4, t => 0.3 * Math.sin(2 * Math.PI * 1000 * t)), [{ ...src('layer "m"', 'music', 0, 4), music }], { peak: 0.3, peakAt: 1 }, 4, { window: 1 });
