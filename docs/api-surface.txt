@@ -396,6 +396,7 @@ interface MovieOptions
   height?: number
   loader?: LoaderOption
   loop?: boolean
+  loudness?: number | false
   motionBlur?: MotionBlurSpec
   poster?: number
   vars?: Vars

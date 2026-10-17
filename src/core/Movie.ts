@@ -4,7 +4,7 @@ import { Application, Container, Culler, Rectangle, extensions, CullerPlugin } f
 import { createTimeline, lengthen, type Timeline } from './timelineEngine';
 import { loadAssetBundle } from './AssetLoader';
 import { CompositionSequence } from '../sequences/Composition';
-import { mixdown, limitMix, type MixStats } from './AudioMixer';
+import { mixdown, limitMix, normalizeMix, type MixStats } from './AudioMixer';
 import { analyzeAudio, type AudioReport, type AudioInspectOptions } from './inspectAudio';
 import { inspectFonts, type FontReport } from './inspectFonts';
 import { namedScenes } from './scenes';
@@ -73,6 +73,12 @@ export interface MovieOptions {
   loader?: LoaderOption;
   /** Start with `movie.loop` on: playing goes back to the start at the end instead of stopping. Default false (like a `<video>`). */
   loop?: boolean;
+  /**
+   * The loudness of the whole mix in LUFS (ITU-R BS.1770): `-16` is usual for web video. The finished mix gets one gain (up or down) so its integrated loudness is that number, but the loudest sample
+   * never passes -1 dBFS: a mix with one loud click in a quiet bed stops short, and `inspectAudio()` / `check` say how far it got. Default: off (the mix is what the layers make; `check` says when it is quiet).
+   * A number of 0 or below, or `false`.
+   */
+  loudness?: number | false;
 }
 
 export type { MotionBlurSpec, MotionBlurOptions };
@@ -255,6 +261,7 @@ export class Movie {
   /** What went into the mix, and its peak before limiting — kept for inspectAudio(). */
   private _audioSources: AudioDescriptor[] = [];
   private _mixStats: MixStats | null = null;
+  private _loudness: number | null = null;          // init({ loudness }): the LUFS the whole mix is brought to (null: left as it is)
 
   on(event: 'ready', fn: () => void): this;
   on(event: 'frame', fn: (e: FrameEvent) => void): this;
@@ -350,7 +357,11 @@ export class Movie {
   }
 
   async init(options: MovieOptions = {}): Promise<void> {
-    warnUnknownOptions('movie.init()', options, ['width', 'height', 'duration', 'frameRate', 'background', 'canvas', 'assets', 'composition', 'vars', 'poster', 'motionBlur', 'loader', 'loop']);
+    warnUnknownOptions('movie.init()', options, ['width', 'height', 'duration', 'frameRate', 'background', 'canvas', 'assets', 'composition', 'vars', 'poster', 'motionBlur', 'loader', 'loop', 'loudness']);
+    if (options.loudness !== undefined && options.loudness !== false && !(typeof options.loudness === 'number' && Number.isFinite(options.loudness) && options.loudness <= 0 && options.loudness >= -70)) {
+      throw new Error(`pixi-effects: movie.init({ loudness }) is the loudness of the whole mix in LUFS: a number from -70 to 0 (-16 is usual for web video: loudness: -16), or false for no change; got ${JSON.stringify(options.loudness)}`);
+    }
+    this._loudness = options.loudness === undefined || options.loudness === false ? null : options.loudness;
     this._initState = 'pending';
     try {
       this.width = options.width ?? 1920;
@@ -502,12 +513,14 @@ export class Movie {
     if (audios.length === 0) {
       this.audioBuffer = null; this._mixStats = null; this._mixCache.set(null, null);
     } else {
-      const key = mixKey(audios, this.duration, audioContext.sampleRate);
+      const baseKey = mixKey(audios, this.duration, audioContext.sampleRate);
+      const key = baseKey === null ? null : `${baseKey}|loudness:${this._loudness}`;
       const hit = this._mixCache.get(key);
       if (hit) { this.audioBuffer = hit.buffer; this._mixStats = hit.extra; status = 'reused'; }
       else {
         this.audioBuffer = await mixdown(audios, this.duration, audioContext.sampleRate, lp ? async (done) => { lp.part(done); await lp.yieldIfDue(); } : undefined);
-        this._mixStats = this.audioBuffer ? limitMix(this.audioBuffer, audios) : null;
+        const loudness = this.audioBuffer && this._loudness !== null ? normalizeMix(this.audioBuffer, this._loudness) : undefined;      // before the limiter: it then has nothing to do
+        this._mixStats = this.audioBuffer ? { ...limitMix(this.audioBuffer, audios), ...(loudness ? { loudness } : {}) } : null;
         this._mixCache.set(key, this.audioBuffer, this._mixStats);
         status = 'mixed';
       }

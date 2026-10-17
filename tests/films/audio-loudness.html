@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · a loudness target for the whole mix</title></head>
+<body style="margin:0">
+  <!-- Test film (tests/films/audio-loudness.test.ts): a few synthesised sounds on a 4 s movie. ?loudness=-16 (or another number, or `off`, or a mistake such as `loud`) is passed to movie.init as the loudness option;
+       without it nothing is asked. window.initError is the message when init refused the option. -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const q = new URLSearchParams(location.search).get('loudness');
+    const movie = new Movie();
+    window.movie = movie;
+    const opts = q === null ? {} : { loudness: q === 'off' ? false : (Number.isNaN(Number(q)) ? q : Number(q)) };
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 4, frameRate: 30, background: '#101828', ...opts,
+        composition: { sequences: [
+          { type: 'audio', sfx: 'chime', at: 0.2, volume: 0.15 },
+          { type: 'audio', sfx: 'pop', at: 1.4, volume: 0.15 },
+          { type: 'audio', sfx: 'chime', at: 2.4, volume: 0.15 },
+        ] } });
+      window.__ready = true;
+    } catch (e) { window.initError = String((e && e.message) || e); window.__ready = true; }
+  </script>
+</body>
+</html>

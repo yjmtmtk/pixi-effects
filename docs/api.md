@@ -44,6 +44,7 @@ interface MovieOptions {
   composition?: CompositionSpec;    // root composition (see DSL reference)
   vars?:       Record<string, number | string>;   // named values the composition reads: a number as a name in an expression, any as {name} in a string (see Variables)
   loop?:       boolean;             // start with movie.loop on: playing goes back to the start at the end (default false, like a <video>)
+  loudness?:   number | false;      // the whole mix at this many LUFS (-16 is usual for web video): one gain, up or down, the loudest sample kept at -1 dBFS or under; false / left out: the mix as the layers make it (check says when it is quiet)
   poster?:     number;              // seconds: the frame shown before play (negative: from the end), see movie.poster
   motionBlur?: boolean | number | { samples?: number; shutter?: number };   // blur for render() / snapshot() / contactSheet(), not live playback; see Motion blur
   loader?:     HTMLElement | string | false;   // the page's loader (see pixi-effects/loader.css): shows how far init is (a bar, "BUILDING LAYERS 62%"), faded out when ready, stopped if init fails; default: a .pe-loader next to the canvas

@@ -222,10 +222,15 @@ export function analyzeAudio(
   if (whole.truePeakDb! > 0) issues.push(`the mix's true peak is ${whole.truePeakDb} dBTP: it will distort when the video is encoded — lower the volume`);
   const notes: string[] = [...scoreNotes];
   if (whole.integratedLufs !== null) {
-    if (whole.integratedLufs < LOUDNESS_NOTES.quietBelow) notes.push(`the mix is quiet for web video: ${whole.integratedLufs} LUFS (typical −14 to −16); raise the volume if that is not on purpose`);
+    if (whole.integratedLufs < LOUDNESS_NOTES.quietBelow) notes.push(`the mix is quiet for web video: ${whole.integratedLufs} LUFS (typical −14 to −16); raise the volume, or ask for a loudness: movie.init({ loudness: -16 }), if that is not on purpose`);
     else if (whole.integratedLufs > LOUDNESS_NOTES.loudAbove) notes.push(`the mix is loud: ${whole.integratedLufs} LUFS (typical web video −14 to −16)`);
   }
   if (whole.truePeakDb! > LOUDNESS_NOTES.headroomDb && whole.truePeakDb! <= 0) notes.push(`the true peak is ${whole.truePeakDb} dBTP: little headroom left for encoding (keep it below ${LOUDNESS_NOTES.headroomDb} dBTP)`);
+  const asked = stats?.loudness;
+  if (asked) {
+    if (asked.gainDb !== 0) notes.push(`the whole mix was ${asked.gainDb > 0 ? 'raised' : 'lowered'} by ${Math.abs(asked.gainDb)} dB to reach ${asked.target} LUFS (init({ loudness: ${asked.target} }))`);
+    if (asked.limited) notes.push(`the mix could not reach ${asked.target} LUFS: its loudest sample would pass -1 dBFS, so it stopped at ${asked.reachedLufs} LUFS; lower the sound that peaks (a click or hit on top of a quiet bed), or ask for less`);
+  }
   for (const q of silences.slice(0, 3)) notes.push(`the mix is silent from ${q.from} s to ${q.to} s (${Math.round((q.to - q.from) * 10) / 10} s)`);
   if (silences.length > 3) notes.push(`and ${silences.length - 3} more silent stretch(es) (loudness.silences lists them all)`);
   const sceneList = (opts.scenes && opts.scenes.length ? opts.scenes : [{ name: 'movie', start: 0, end: movieDuration }]).map(sc => {

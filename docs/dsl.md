@@ -224,6 +224,8 @@ Audio-only sequence. No visual. Volume is animatable via keyframes.
 
 Audio is mixed during `Movie.init()` and during `Movie.render()`. Volume keyframes interpolate linearly.
 
+**The loudness of the whole mix: `movie.init({ loudness: -16 })`.** Layers make whatever level their `volume` gives (a few `sfx` at volume 0.15 mix to about -40 LUFS, far quieter than web video's -14 to -16). `loudness` is a target for the finished mix in LUFS (ITU-R BS.1770): one gain, up or down, applied before the limiter and the same for playback and export. The loudest sample may not pass -1 dBFS, so a mix with one loud click in a quiet bed stops short of the target, and `check` / `inspectAudio()` say so (`reached -19.4 LUFS`) with the fix (lower that sound, or ask for less). `false` or no option leaves the mix as the layers make it; `check` then says when it is quiet (found in a trial of nine films with sound: eight were -22 to -26 LUFS and only one was raised).
+
 #### Sound effects without files: `sfx`
 
 ```ts

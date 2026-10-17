@@ -1,3 +1,4 @@
+import { measureLoudness } from '../audio/loudness';
 import type { AudioDescriptor } from '../types';
 import { resampleThrough, playSpan } from './audioRemap';
 export type { AudioDescriptor };
@@ -80,10 +81,37 @@ export async function mixdown(
 export interface MixStats {
   peak: number;
   peakAt: number;
+  /** Set when the movie asked for a loudness (`init({ loudness })`): what was done to the mix to get there. */
+  loudness?: LoudnessResult;
 }
+
+/** What `normalizeMix` did: the target asked for, the gain applied (dB), the loudness the mix has now (null: nothing to measure) and whether the peak ceiling stopped it short of the target. */
+export interface LoudnessResult { target: number; gainDb: number; reachedLufs: number | null; limited: boolean }
 
 /** Above this the mix is bent smoothly toward 1 instead of clipping. */
 const KNEE = 0.9;
+
+/** The loudest sample a normalised mix may have (dBFS): a little under full scale, so the encoder does not clip it. */
+export const LOUDNESS_CEILING_DB = -1;
+
+/**
+ * Bring the whole mix to `target` LUFS (ITU-R BS.1770 integrated loudness) with one gain, in place: a quiet mix is raised, a loud one lowered. The loudest sample may not pass
+ * `LOUDNESS_CEILING_DB`: a mix with one loud click in a quiet bed gets less gain than the target asks for (`limited: true`, and `reachedLufs` says where it ended). Silence is left alone.
+ * Pure and deterministic; run before `limitMix`, which then has nothing to do.
+ */
+export function normalizeMix(buffer: AudioBuffer, target: number): LoudnessResult {
+  const chans: Float32Array[] = [];
+  for (let ch = 0; ch < buffer.numberOfChannels; ch++) chans.push(buffer.getChannelData(ch));
+  const m = measureLoudness(chans, buffer.sampleRate, { truePeak: false });
+  if (m.integratedLufs === null) return { target, gainDb: 0, reachedLufs: null, limited: false };
+  let gainDb = target - m.integratedLufs;
+  const room = LOUDNESS_CEILING_DB - m.samplePeakDb;                      // how far the loudest sample may be raised
+  const limited = gainDb > room;
+  if (limited) gainDb = room;
+  const gain = 10 ** (gainDb / 20);
+  for (const d of chans) for (let i = 0; i < d.length; i++) d[i] = d[i]! * gain;
+  return { target, gainDb: Math.round(gainDb * 10) / 10, reachedLufs: Math.round((m.integratedLufs + gainDb) * 10) / 10, limited };
+}
 
 /**
  * Keep the finished mix inside [-1, 1]: samples above KNEE are soft-limited (tanh), so overlapping sounds
