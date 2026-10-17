@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.44.0
+
+An AI can now click, hover and drag on a page it made and see what happened (`check --do`), a text layer can be picked by its letters, a rebuild keeps a `three` layer that did not change, and the Interactive page has three samples that click, hover and drag. Nothing breaks.
 
 - **New: `setVars` / `resize` / `rebuild` keep a `three` layer that did not change.** A rebuild built every layer again, so a text variable changed with a model in the scene loaded the model again (and made a renderer again). A named `three` layer with the same `setup` function, size and options now takes over the old layer's scene, renderer, texture and mirrored lights: `setup` runs once (15 ms → 1 ms for a rebuild with a box scene on WebGL, 7 → 1 on WebGPU; more with a model). The new tree is built while the old one plays, the new layer only borrows until the swap, so a rebuild that fails changes nothing and the old layer is disposed once. `reuse: false` opts out (a `setup` that reads `movie.vars`). `tests/films/three-reuse`, `tests/three/ThreeSequence.reuse.test.ts`.
 - **New: `check --do "click Lime; hover 640,360; drag card > 770,240; wait 1; key Space"` clicks, hovers, drags and presses keys on the page.** Real mouse and key events (the page's own handlers run), after everything else; a point is `x,y` in canvas pixels or a layer name. The report says per step what was under the pointer (`over Lime/shape#0`), which variables changed (`score 0→1`), whether the page warned, and keeps a picture of the canvas after each step in `steps/`. A layer that is not there, a point outside the picture, or a console warning during a step is a problem. Until now `check` could not click and every page had to be tested by hand over Chrome's protocol. `tests/tools/checkDo.test.ts` (a test page, `tests/films/check-do.html`).
