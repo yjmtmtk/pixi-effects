@@ -194,6 +194,19 @@ runFilms('threeLayerTexture: a live 2D layer on a mesh of a three layer', () => 
     }, { query: 'mode=ui' });
   }, 120_000);
 
+  it('a layer of the screen that lies below the picture is drawn, on the very first draw and after every jump (the screen is taller than the picture: a layer there was culled by the stage\'s own cull)', async () => {
+    await withFilm('three-layer-texture', async (film) => {
+      expect(await film.eval<string | undefined>('window.initError')).toBeUndefined();
+      const at = async (frame: number) => (await film.eval<number[][]>(`pixelsAt(${frame}, [[320, 301], [320, 100]])`));
+      const first = await at(60);                                                     // the first picture after the load, a jump to 2 s: the bar (y 700 of 800) has grown
+      expect(first[0], 'the bar, on the first draw').toEqual(BAR);
+      expect(first[1], 'the background above it').toEqual(BG);
+      expect((await at(0))[0], 'at 0 the bar has no width: the background').toEqual(BG);
+      expect((await at(60))[0], 'and back at 2 s it is there again').toEqual(BAR);
+      expect((await at(45))[0], 'a jump again (1.5 s, the bar just full)').toEqual(BAR);
+    }, { query: 'mode=tall' });
+  }, 120_000);
+
   it('a layer that is not alive does not answer through the mesh, and nothing changes for a mesh that shows no layer', async () => {
     await withFilm('three-layer-texture', async (film) => {
       const early = await film.eval<string | null>("(async () => { await movie.gotoFrame(10, true); const h = movie.pick(320, 80); return h && h.path; })()");

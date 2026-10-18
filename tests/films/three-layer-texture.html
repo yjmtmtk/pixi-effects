@@ -5,7 +5,7 @@
   <!-- Test film (tests/films/three-layer-texture.test.ts): a 2D composition named `screen` (480 x 270: a blue background, a yellow dot that moves, the text {label}, a green bar that grows) shown on a mesh of a
        `three` layer with threeLayerTexture(ctx, 'screen'). ?mode=flat: a plane that fills the picture (the picture must equal the 2D layer, pixel for pixel) · half: the plane is half the picture (the
        corners must stay the page background: the 2D layer is not drawn on the stage) · cube: a turning cube with the screen on one face · lifespan: `screen` starts at 1.5 s · late: `screen` is listed AFTER the three layer ·
-       stripes: the screen is 1-pixel black and white stripes and the plane is a quarter of the picture (a texture seen small: aliased without mipmaps) · alpha: the screen is a half-transparent red disc on nothing and the layer asks for `transparent: true` · ui: the screen has a green button (`button`, at 240,60 of the screen: in the upper part, so that a mapping turned upside down is caught, 160 x 60) and the mesh is a plane that fills the picture; the page records what a click and a hover name in window.__clicked / window.__entered · notcomp: the name is a shape layer · missing: no such name · ?share=0: the three layer has a canvas of its own. ?transparent=0 (with alpha): the layer does not ask for it. window.initError is init's message when it refused. -->
+       stripes: the screen is 1-pixel black and white stripes and the plane is a quarter of the picture (a texture seen small: aliased without mipmaps) · alpha: the screen is a half-transparent red disc on nothing and the layer asks for `transparent: true` · ui: the screen has a green button (`button`, at 240,60 of the screen: in the upper part, so that a mapping turned upside down is caught, 160 x 60) and the mesh is a plane that fills the picture; the page records what a click and a hover name in window.__clicked / window.__entered · tall: the screen is 480 x 800, taller than the 360-pixel picture, with a green bar at y 700 that grows from nothing, shown on a plane that fits it (a layer of the screen that lies below the picture is still drawn, and on the first draw too) · notcomp: the name is a shape layer · missing: no such name · ?share=0: the three layer has a canvas of its own. ?transparent=0 (with alpha): the layer does not ask for it. window.initError is init's message when it refused. -->
   <canvas id="stage" width="640" height="360"></canvas>
   <script>
     window.__logs = []; window.__setups = 0;
@@ -28,6 +28,11 @@
     const screenUi = () => ({ type: 'composition', name: 'screen', width: SW, height: SH, duration: 4, initial: { x: 0, y: 0 }, sequences: [
       { type: 'shape', shape: 'rect', name: 'sbg', width: SW, height: SH, initial: { x: SW / 2, y: SH / 2, anchorX: 0.5, anchorY: 0.5, fillColor: '#1d3a6e' } },
       { type: 'shape', shape: 'rect', name: 'button', width: 160, height: 60, cornerRadius: 12, initial: { x: 240, y: 60, anchorX: 0.5, anchorY: 0.5, fillColor: '#3ddc97' } },
+    ] });
+    const TH = 800;
+    const screenTall = () => ({ type: 'composition', name: 'screen', width: SW, height: TH, duration: 4, initial: { x: 0, y: 0 }, sequences: [
+      { type: 'shape', shape: 'rect', name: 'sbg', width: SW, height: TH, initial: { x: SW / 2, y: TH / 2, anchorX: 0.5, anchorY: 0.5, fillColor: '#1d3a6e' } },
+      { type: 'shape', shape: 'rect', name: 'bar', width: 400, height: 40, initial: { x: 240, y: 700, anchorX: 0.5, anchorY: 0.5, fillColor: '#3ddc97', scaleX: 0 }, keyframes: [{ at: 0.5, to: { scaleX: 1 }, duration: 1 }] },
     ] });
     const screenAlpha = () => ({ type: 'composition', name: 'screen', width: SW, height: SH, duration: 4, initial: { x: 0, y: 0 }, sequences: [
       { type: 'shape', shape: 'circle', name: 'disc', radius: 100, initial: { x: 240, y: 135, fillColor: '#ff0000', fillAlpha: 0.5 } },
@@ -52,14 +57,14 @@
         } else {
           const fov = 40, dist = (360 / 2) / Math.tan((fov / 2) * Math.PI / 180), k = mode === 'half' ? 0.5 : mode === 'stripes' ? 0.25 : 1;
           ctx.camera = new THREE.PerspectiveCamera(fov, 640 / 360, 1, 5000); ctx.camera.position.set(0, 0, dist);
-          mesh = new THREE.Mesh(new THREE.PlaneGeometry(640 * k, 360 * k), s.material);
+          mesh = new THREE.Mesh(mode === 'tall' ? new THREE.PlaneGeometry(360 * 0.9 * (SW / TH), 360 * 0.9) : new THREE.PlaneGeometry(640 * k, 360 * k), s.material);
         }
         mesh.name = 'plane';
         ctx.scene.add(mesh);
         return { objects: { mesh } };
       },
       update: (t, ctx) => { const m = ctx.scene.children[0]; if (mode === 'cube' && m) { m.rotation.y = 0.35 + 0.5 * Math.sin(t * 1.2); m.rotation.x = -0.12; } } });
-    const sourceLayer = mode === 'stripes' ? screenStripes() : mode === 'ui' ? screenUi() : mode === 'alpha' ? screenAlpha() : screen(mode === 'lifespan' ? { at: 1.5, duration: 2.5 } : {});
+    const sourceLayer = mode === 'stripes' ? screenStripes() : mode === 'ui' ? screenUi() : mode === 'tall' ? screenTall() : mode === 'alpha' ? screenAlpha() : screen(mode === 'lifespan' ? { at: 1.5, duration: 2.5 } : {});
     const seqs = mode === 'late' ? [{ type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0b0f1a' } }, world(), screen()]
       : [{ type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0b0f1a' } }, sourceLayer, world()];
     const movie = new Movie();
@@ -68,7 +73,7 @@
     window.regionStats = async (frame, x0, y0, w, h) => { const d = await movie.snapshot(frame, { as: 'imageData' }); let n = 0, sum = 0, sum2 = 0; for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) { const i = (y * d.width + x) * 4, l = (0.2126 * d.data[i] + 0.7152 * d.data[i + 1] + 0.0722 * d.data[i + 2]); n++; sum += l; sum2 += l * l; } const mean = sum / n; return { mean, std: Math.sqrt(Math.max(0, sum2 / n - mean * mean)) }; };
     window.pixelsAt = async (frame, points) => { const d = await movie.snapshot(frame, { as: 'imageData' }); return points.map(([x, y]) => Array.from(d.data.slice((y * d.width + x) * 4, (y * d.width + x) * 4 + 3))); };
     try {
-      await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 4, frameRate: 30, background: '#0b0f1a', vars: mode === 'stripes' || mode === 'alpha' || mode === 'ui' ? {} : { label: 'LIVE 2D' }, composition: { sequences: seqs } });
+      await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 4, frameRate: 30, background: '#0b0f1a', vars: mode === 'stripes' || mode === 'alpha' || mode === 'ui' || mode === 'tall' ? {} : { label: 'LIVE 2D' }, composition: { sequences: seqs } });
       movie.pause();
       const canvas = document.getElementById('stage');
       canvas.addEventListener('click', (e) => { const h = movie.pick(...movie.canvasPoint(e)); window.__clicked = h ? h.path : null; });

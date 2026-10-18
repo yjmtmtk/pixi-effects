@@ -122,9 +122,14 @@ export async function threeLayerTexture(ctx: ThreeContext, name: string, options
   hide();
 
   // drawn at the layer's own place in the frame: the timeline has put every layer at this frame before a three layer draws. The layer's own transform is left out (identity): its content is at (0, 0) to (width, height).
+  // The stage's cull (Movie._renderNow) skips what is hidden, so the layers of the source keep the `culled` flag they got when they were last measured against the PICTURE: a layer of a screen that lies
+  // beyond the picture's edge (a phone screen is taller than the picture), or one that was empty then (scale 0), stayed culled and was missing until a second draw. The texture is the layer's own
+  // rectangle, not the picture: nothing in it is culled.
+  const uncull = (c: Container): void => { if (c.culled) c.culled = false; for (const k of c.children) uncull(k); };
   const refresh = (): void => {
     const m = new Matrix().scale(sx, sy);
     display.visible = true;
+    uncull(display);
     try { pixi.render({ container: display, target: rt, transform: m, clear: true, clearColor: [0, 0, 0, 0] }); } finally { display.visible = false; }
     if (gpuTexture) rt.source.updateMipmaps();
     if (readCanvas) {
