@@ -56,8 +56,9 @@ export async function buildSequenceTree(
   specs: SequenceSpec[],
   parent: CompositionShape | null,
   root: CompositionShape,
+  /** Filled one by one as each layer is built: a layer's setup (a `three` layer) can find the layers listed before it. */
+  out: Sequence[] = [],
 ): Promise<Sequence[]> {
-  const out: Sequence[] = [];
   for (let spec of specs) {
     let Cls: SequenceCtor | undefined = staticTypes[spec.type] ?? registry[spec.type];
     // a text layer with `spans` stands for a group of text layers, one per piece (src/text/spans.ts)

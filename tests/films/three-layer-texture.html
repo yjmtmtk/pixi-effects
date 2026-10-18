@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · a 2D layer shown on a mesh of a three layer</title></head>
+<body style="margin:0;background:#000">
+  <!-- Test film (tests/films/three-layer-texture.test.ts): a 2D composition named `screen` (480 x 270: a blue background, a yellow dot that moves, the text {label}, a green bar that grows) shown on a mesh of a
+       `three` layer with threeLayerTexture(ctx, 'screen'). ?mode=flat: a plane that fills the picture (the picture must equal the 2D layer, pixel for pixel) · half: the plane is half the picture (the
+       corners must stay the page background: the 2D layer is not drawn on the stage) · cube: a turning cube with the screen on one face · lifespan: `screen` starts at 1.5 s · late: `screen` is listed AFTER the three layer ·
+       notcomp: the name is a shape layer · missing: no such name · ?share=0: the three layer has a canvas of its own. window.initError is init's message when it refused. -->
+  <canvas id="stage" width="640" height="360"></canvas>
+  <script>
+    window.__logs = []; window.__setups = 0;
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+    "three": "../../node_modules/three/build/three.module.js", "three/webgpu": "../../node_modules/three/build/three.webgpu.js", "three/tsl": "../../node_modules/three/build/three.tsl.js" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    import { registerThree, three, threeLayerTexture } from '../../dist/three.js';
+    import * as THREE from 'three';
+    registerThree();
+    const q = new URLSearchParams(location.search);
+    const mode = q.get('mode') || 'flat', share = q.get('share') !== '0', res = Number(q.get('res') || 1);
+    const SW = 480, SH = 270;
+    const screen = (extra = {}) => ({ type: 'composition', name: 'screen', width: SW, height: SH, duration: 4, initial: { x: 0, y: 0 }, ...extra, sequences: [
+      { type: 'shape', shape: 'rect', name: 'sbg', width: SW, height: SH, initial: { x: SW / 2, y: SH / 2, anchorX: 0.5, anchorY: 0.5, fillColor: '#1d3a6e' } },
+      { type: 'shape', shape: 'circle', name: 'dot', radius: 40, initial: { x: 60, y: 135, fillColor: '#f2c14e' }, keyframes: [{ at: 0, to: { x: 420 }, duration: 4, ease: 'sine.inOut' }] },
+      { type: 'text', name: 'label', text: '{label}', style: { fontSize: 56, fill: '#ffffff', fontWeight: '800' }, initial: { x: SW / 2, y: 60, anchorX: 0.5, anchorY: 0.5 } },
+      { type: 'shape', shape: 'rect', name: 'bar', width: 380, height: 18, initial: { x: 50, y: 230, fillColor: '#3ddc97' }, keyframes: [{ at: 0, from: { scaleX: 0.02 }, to: { scaleX: 1 }, duration: 4, ease: 'none' }] },
+    ] });
+    const world = () => three({ type: 'three', name: 'world', renderer: 'webgpu', ...(share ? {} : { shareGpu: false }), antialias: false, width: 640, height: 360, initial: { x: 320, y: 180, anchorX: 0.5, anchorY: 0.5 },
+      setup: async (ctx) => {
+        window.__setups++;
+        const name = mode === 'missing' ? 'nothing-here' : mode === 'notcomp' ? 'bg' : 'screen';
+        const s = await threeLayerTexture(ctx, name, { resolution: res });
+        window.__screen = { width: s.width, height: s.height };
+        let mesh;
+        if (mode === 'cube') {
+          ctx.camera.position.set(0, 0.6, 5);
+          const dark = () => new THREE.MeshBasicMaterial({ color: 0x223 });
+          mesh = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.8, 0.4), [dark(), dark(), dark(), dark(), s.material, dark()]);
+        } else {
+          const fov = 40, dist = (360 / 2) / Math.tan((fov / 2) * Math.PI / 180), k = mode === 'half' ? 0.5 : 1;
+          ctx.camera = new THREE.PerspectiveCamera(fov, 640 / 360, 1, 5000); ctx.camera.position.set(0, 0, dist);
+          mesh = new THREE.Mesh(new THREE.PlaneGeometry(640 * k, 360 * k), s.material);
+        }
+        ctx.scene.add(mesh);
+        return { objects: { mesh } };
+      },
+      update: (t, ctx) => { const m = ctx.scene.children[0]; if (mode === 'cube' && m) { m.rotation.y = 0.35 + 0.5 * Math.sin(t * 1.2); m.rotation.x = -0.12; } } });
+    const seqs = mode === 'late' ? [{ type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0b0f1a' } }, world(), screen()]
+      : [{ type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0b0f1a' } }, screen(mode === 'lifespan' ? { at: 1.5, duration: 2.5 } : {}), world()];
+    const movie = new Movie();
+    window.movie = movie;
+    window.hashOf = async (frame) => { const d = (await movie.snapshot(frame, { as: 'imageData' })).data; let h = 0x811c9dc5; for (let i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); };
+    window.pixelsAt = async (frame, points) => { const d = await movie.snapshot(frame, { as: 'imageData' }); return points.map(([x, y]) => Array.from(d.data.slice((y * d.width + x) * 4, (y * d.width + x) * 4 + 3))); };
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 4, frameRate: 30, background: '#0b0f1a', vars: { label: 'LIVE 2D' }, composition: { sequences: seqs } });
+      movie.pause();
+      window.__ready = true;
+    } catch (e) { window.initError = String((e && e.message) || e); window.__ready = true; }
+  </script>
+</body>
+</html>

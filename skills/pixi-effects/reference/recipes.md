@@ -1386,6 +1386,38 @@ return [
 
 A moving, shadow-casting model is held to "a function of the time" by `check`: place it from `t` in `update` (as above) and let `threeGltf` load it (it draws a skinned mesh always: three culls it by a bounding sphere that does not follow it).
 
+## An app or video on a phone, a television, a billboard (`threeLayerTexture`)
+
+A 2D composition is the screen; a `three` layer holds the object it is on. The composition keeps animating (its own keyframes, text, charts, a counter) and the mesh shows it live, turning with the object. Put the composition BEFORE the three layer, give it a background rect, and `await threeLayerTexture(ctx, 'screen')` in `setup`: `screen.material` goes on the face of the mesh. The page's import map needs `"three/webgpu"` and `"three/tsl"` next to `"three"` (the template's has them when it has `three`).
+
+```js
+// @docs-only three-screen
+// import { registerThree, threeLayerTexture } from 'pixi-effects/three';   registerThree();   (before movie.init)
+// composition 1280 x 720, 8 s
+let phone;
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#e9e4dc' } },
+  { type: 'composition', name: 'screen', width: 390, height: 844, duration: 8, sequences: [                    // the app: any 2D layers; this is what the phone shows
+    { type: 'shape', shape: 'rect', width: 390, height: 844, initial: { x: 195, y: 422, fillColor: '#101a33' } },
+    { type: 'text', text: 'Hello', style: { fontSize: 72, fill: '#ffffff', fontWeight: '800' }, initial: { x: 195, y: 160, anchorX: 0.5, anchorY: 0.5 },
+      keyframes: [{ at: 0.4, from: { alpha: 0, y: 200 }, to: { alpha: 1, y: 160 }, duration: 0.8, ease: 'power3.out' }] },
+  ] },
+  { type: 'three', name: 'phone', width: 'GW', height: 'GH',
+    setup: async (ctx) => {
+      const screen = await threeLayerTexture(ctx, 'screen', { resolution: 2 });                             // a screen that is seen large: 2 x the pixels
+      const body = new THREE.Mesh(new THREE.BoxGeometry(1.0, 2.1, 0.09), new THREE.MeshStandardMaterial({ color: 0x15171c, metalness: 0.6, roughness: 0.35 }));
+      const face = new THREE.Mesh(new THREE.PlaneGeometry(0.92, 2.0), screen.material);                      // the layer's colours, as they are in 2D
+      face.position.z = 0.046;                                                                              // just in front of the body
+      phone = new THREE.Group(); phone.add(body, face);
+      ctx.scene.add(phone, new THREE.AmbientLight(0xffffff, 0.8), new THREE.DirectionalLight(0xffffff, 2.2));
+      ctx.camera.position.set(0, 0, 2.9);
+    },
+    update: (t) => { phone.rotation.y = 0.6 * Math.sin(t * 0.7); } },                                       // a function of t, like any three layer
+];
+```
+
+Rules: the layer must be a `composition` with a `width` and `height`; a mistake in the name lists the names that are there; the material is unlit (a screen shines by itself) so keep the scene's lights for the body; empty parts of the composition are black on the mesh, not transparent. The full rules, the two routes (no copy on the shared GPU, a read-back otherwise) and what is not in this version: `pixi-effects help threeLayerTexture`.
+
 ## Click a layer: what is under the pointer (`movie.pick`)
 
 `movie.pick(x, y)` answers "what is drawn under this point, at the frame on screen" with no hit-testing code of yours: a flat layer by its own shape, a `threeD` card by its projected quad, a `three` layer by a ray (the hit says which object). `movie.canvasPoint(event)` turns a pointer event into canvas pixels, whatever size the canvas is shown at. Name the layers you want to react to: `only` / `ignore` take layer names (or paths; a group's name stands for everything in it). A `three` layer covers its whole picture but only what the ray meets is a hit: elsewhere the layers below are hit (the title, the background).

@@ -14,6 +14,8 @@ export interface ThreeContext {
   height: number;
   /** The composition's camera and the lights alive at this moment, set before every `update` when the layer has `followCamera` or `followLights`; undefined otherwise. */
   space?: SpaceNow;
+  /** Internal: what `threeLayerTexture` needs from the layer that owns this context. */
+  _host?: import('./layerTexture').ThreeLayerHost;
 }
 
 export interface ThreeSetupResult {

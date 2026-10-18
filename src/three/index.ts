@@ -13,6 +13,8 @@ import type { ThreeSequenceSpec } from './types';
 
 export { ThreeSequence } from './ThreeSequence';
 export { threeGltf, threeFrameCamera } from './gltf';
+export { threeLayerTexture } from './layerTexture';
+export type { ThreeLayerTexture, ThreeLayerTextureOptions } from './layerTexture';
 export type { ThreeGltfModel, ThreeGltfOptions, ThreeFrameCameraOptions } from './gltf';
 export type { ThreeContext, ThreeSetupResult, ThreeSequenceSpec } from './types';
 export type { ThreeRendererKind } from './defaults';

@@ -838,6 +838,11 @@ export interface CompositionShape {
   gpu?: SharedGpu;
   /** The layers of the tree that a rebuild replaces, that a new layer of the same kind may take the state of instead of building its own (`three` layers: see core/reuse.ts). Root shape only. */
   reuse?: ReusePool;
+  /** A layer of this composition by its `name`, among those already built (the ones listed before the asker): a `three` layer shows one of them on a mesh (`threeLayerTexture`). */
+  findLayer?: (name: string) => import('./sequences/Base').Sequence | null;
+  layerNames?: () => string[];
+  /** PixiJS's renderer, on the root shape only: what draws a layer into a texture for `threeLayerTexture`. */
+  pixiRenderer?: import('pixi.js').Renderer;
 }
 
 /** The composition's camera and the lights alive at one moment (what its `camera` and `light` layers say, after their keyframes). */

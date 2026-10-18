@@ -141,10 +141,13 @@ interface CompositionSequenceSpec extends SequenceCommon
   width?: number
 interface CompositionShape
   duration: number
+  findLayer?: ((name: string) => Sequence | null)
   frameRate?: number
   gpu?: SharedGpu
   height: number
+  layerNames?: (() => string[])
   onLayerBuilt?: (() => void | Promise<void>)
+  pixiRenderer?: Renderer<HTMLCanvasElement>
   reuse?: ReusePool
   spaceAt?: ((t: number) => SpaceNow)
   vars?: Record<string, number>
@@ -984,6 +987,15 @@ interface ThreeGltfOptions
   loop?: boolean
   offset?: number
   speed?: number
+function threeLayerTexture(ctx: ThreeContext, name: string, options?: ThreeLayerTextureOptions): Promise<ThreeLayerTexture>
+interface ThreeLayerTexture
+  dispose(): void
+  height: number
+  material: Material<MaterialEventMap>
+  texture: Texture<unknown, TextureEventMap>
+  width: number
+interface ThreeLayerTextureOptions
+  resolution?: number
 type ThreeRendererKind = 'webgl' | 'webgpu'
 class ThreeSequence
   at: number

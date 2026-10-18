@@ -850,6 +850,28 @@ three({ type: 'three', width: 'GW', height: 'GH',
 - **`threeFrameCamera(camera, object, { direction, margin })`** puts a `PerspectiveCamera` where the whole of `object` (its box now, with its scale and place) fits the frame, looking at its centre, from a three-quarter view (`direction` default `[0.45, 0.3, 1]`) with 10 % room (`margin` 1.1): the smallest distance at which the 8 corners of the box fit both the vertical and the horizontal field of view (a bounding sphere would leave a long model small and head-on). It uses the camera's own `fov` and `aspect` and sets `near` / `far`. The box is the bind pose: a clip that travels far needs a camera of your own.
 - With `followCamera` the composition's camera is the layer's camera (do not call `threeFrameCamera`); with `followLights` its lights light the model. See the recipes `gltf-in-space` and `gltf-shadow-room`. `orbit()` and `cameraPath()` drive the composition's `camera` layer, so they carry a following scene too.
 
+### A 2D layer on a mesh: `threeLayerTexture`
+
+`threeLayerTexture(ctx, 'screen')` makes a live 2D layer (a `composition`) the picture on a mesh of a `three` layer: a phone or laptop screen with an app running, a television, a billboard, a label on a bottle, a card with moving type. The 2D layer stays an ordinary layer (the timeline drives it, its own `at` / `duration` / keyframes / filters apply) but is no longer drawn on the stage: just before the three layer draws, PixiJS draws it into a texture and the mesh shows that texture.
+
+```js
+import { threeLayerTexture } from 'pixi-effects/three';
+// in the composition, the 2D layer FIRST, then the three layer
+{ type: 'composition', name: 'screen', width: 480, height: 270, duration: 8, sequences: [ /* a background rect, your UI */ ] },
+three({ type: 'three', width: 'GW', height: 'GH',
+  setup: async (ctx) => {
+    const screen = await threeLayerTexture(ctx, 'screen', { resolution: 2 });       // { material, texture, width, height, dispose }
+    ctx.scene.add(new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.9), screen.material));
+  } })
+```
+
+- **The rules.** The layer must be a `composition` with a `width` and `height`, in the same composition as the three layer and **listed before it** (a layer built later cannot be found: the error lists the names that are there). `await` the call in `setup`. `resolution` (default 1) is the pixels of the texture per pixel of the layer: 2 for a screen that is seen large. The layer's own place, scale and rotation do not matter: its content is drawn from (0, 0) to (width, height); its alpha and filters do.
+- **The material.** `screen.material` is unlit (a screen shines by itself; scene lights do not shade it) and carries the colour decoding; put it on a mesh, or on one face of a box (`[dark, dark, dark, dark, screen.material, dark]`). Use `screen.texture` yourself and its colours may be wrong. Give the composition a background rect: what it leaves empty is black on the mesh (it is not transparent).
+- **Two routes, the same colours** (measured: the background, a moving dot and a growing bar equal the 2D layer, channel for channel, on both). When the three layer draws on PixiJS's own GPU device (`renderer: 'webgpu'` in a WebGPU movie, the default) the texture is PixiJS's own GPU texture used through three's `ExternalTexture`: no copy, 0.3 ms a frame, and the page's import map needs `"three/webgpu"` and `"three/tsl"` next to `"three"`. Otherwise (the layer has a canvas of its own with `shareGpu: false`, a `renderer: 'webgl'` layer, or PixiJS on WebGL) the pixels are read back into a canvas: 1.6 ms a frame at 480 x 270, 4 ms at 1280 x 720.
+- **A function of the time.** The 2D layer is drawn when the three layer draws, after the timeline has put every layer at the frame: a seek, an export and a repeat give the same picture (`check` draws the layer twice, in two orders, as for any three layer). A layer that has not started yet, or has ended, shows nothing on the mesh.
+- **A rebuild** (`setVars`, `resize`) keeps the three layer and shows the layer of the new tree (the text that changed shows on the mesh); a layer that changed size is drawn stretched to the texture.
+- **Not in this version:** a transparent picture (a half-transparent sticker), mipmaps (a screen seen very small or at a grazing angle is aliased), and a click on the mesh reaching the layer behind it (`movie.pick` says the mesh; the hidden layer is not picked).
+
 ### Keyframe paths: `three.<name>.<path>`
 
 Objects returned from `setup`'s `{ objects }` are addressable from keyframes as `three.<name>.<path>`, using the same `from`/`to`/`set` vocabulary as every other prop:

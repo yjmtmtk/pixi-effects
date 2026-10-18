@@ -112,11 +112,11 @@ export function pickScene(root: CompositionSequence, x: number, y: number, opts:
     comp.layers().forEach(({ seq, display, threeD, carriers, quad }, i) => {
       const d = display as unknown as Display | null;
       if (!d) return;                                                     // a layer with no picture (a sound)
-      const t = seq.target as (Container & { renderable: boolean; alpha: number }) | null;
+      const t = seq.target as (Container & { renderable: boolean; visible: boolean; alpha: number }) | null;
       const name = seq.spec.name;
       const path = prefix + (name ?? `${seq.spec.type}#${i}`);
       const alpha = (t?.alpha ?? 1) * carriers.reduce((a, c) => a * ((c.target as { alpha?: number } | null)?.alpha ?? 1), 1);
-      const alive = (threeD ? d.visible : (t?.renderable ?? true)) && carriers.every((c) => c.target?.renderable ?? true);
+      const alive = (threeD ? d.visible : (t?.renderable ?? true) && t?.visible !== false) && carriers.every((c) => c.target?.renderable ?? true);
       const visible = parentVisible && alive && alpha > 0;
       if (!visible) return;
       const isComposition = seq instanceof CompositionSequence;

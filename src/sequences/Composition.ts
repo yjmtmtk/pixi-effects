@@ -93,7 +93,7 @@ export class CompositionSequence extends Sequence {
     const span = base ? contentLength(base, this.duration) : this.duration;
     this._remap = base ? remapOf(this.spec as never, 'time', span) : null;
     this._contentSpan = span;
-    this._compositionShape = { width, height, duration: span, spaceAt: (t) => this._spaceAt(t) };
+    this._compositionShape = { width, height, duration: span, spaceAt: (t) => this._spaceAt(t), findLayer: (name) => this._children.find(c => c.spec.name === name) ?? null, layerNames: () => this._children.map(c => c.spec.name).filter((n): n is string => !!n) };
 
     const lateKeyframes: string[] = [];
     for (const s of this.spec.sequences ?? []) {
@@ -110,10 +110,12 @@ export class CompositionSequence extends Sequence {
       console.warn(`pixi-effects: ${describeLayer(this.spec)}: ${crowd} layers with an advanced blendMode are on screen at once (a composition with one counts each layer inside it, since its children blend one by one); each is a full-frame pass (about 2 ms on WebGL). Put fewer layers in the blend (or draw the glow as one layer), or use add / screen / multiply`);
     }
 
-    this._children = await buildSequenceTree(
+    this._children = [];
+    await buildSequenceTree(
       this.spec.sequences ?? [],
       this._compositionShape,
       this.root,
+      this._children,
     );
     this._resolveParents();
     // Named mattes: a layer that another layer names in `mask` is drawn into a texture (once per frame), not on screen

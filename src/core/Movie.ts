@@ -472,6 +472,7 @@ export class Movie {
     const rootShape: CompositionShape = {
       width, height, duration: this.duration, frameRate: this.frameRate, vars: numericVars(vars),
       ...gpuField,
+      ...(this.app?.renderer ? { pixiRenderer: this.app.renderer } : {}),
       ...(reuse ? { reuse } : {}),
       ...(lp ? { onLayerBuilt: async () => { lp.tick(); await lp.yieldIfDue(); } } : {}),
     };

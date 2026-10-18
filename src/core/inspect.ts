@@ -153,12 +153,12 @@ export function inspectScene(
       if (now >= start - 1e-9 && now <= end + 1e-9) { blending.add(w.from); blending.add(w.to); }
     }
     comp.layers().forEach(({ seq, display, threeD, carriers, depthBlur, light }, i) => {
-      const t = seq.target as (Container & { renderable: boolean; alpha: number }) | null;
+      const t = seq.target as (Container & { renderable: boolean; visible: boolean; alpha: number }) | null;
       const name = seq.spec.name;
       const label = name ?? `${seq.spec.type}#${i}`;
       // a null layer that carries this layer hides it, fades it and moves it too
       const alpha = (t?.alpha ?? 1) * carriers.reduce((a, c) => a * ((c.target as { alpha?: number } | null)?.alpha ?? 1), 1);
-      const alive = (threeD ? display.visible : (t?.renderable ?? true)) && carriers.every(c => c.target?.renderable ?? true);
+      const alive = (threeD ? display.visible : (t?.renderable ?? true) && t?.visible !== false) && carriers.every(c => c.target?.renderable ?? true);
       const visible = parentVisible && alive && alpha > 0;
       let bounds: Rect | null = null;
       if (!insideThreeD) {

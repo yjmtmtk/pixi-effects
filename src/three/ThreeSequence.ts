@@ -12,6 +12,7 @@ import { applyCameraState, FogMirror, LightMirror } from './spaceBridge';
 import { releaseThree, trackThree } from './budget';
 import type { CanvasCheck } from '../sequences/Canvas';
 import type { SharedGpu } from '../core/gpuShare';
+import type { Rebindable, ThreeLayerHost } from './layerTexture';
 
 /** What makes a frame depend on more than the time (the same list as the canvas layer's). */
 const NOT_PURE = /\bMath\s*\.\s*random\s*\(|\bDate\s*\.\s*now\s*\(|\bperformance\s*\.\s*now\s*\(|\bnew\s+Date\s*\(/;
@@ -34,6 +35,9 @@ export class ThreeSequence extends Sequence {
   private _borrowed: ThreeSequence | null = null;
   /** True once another layer owns this layer's state: destroying this one must not let it go. */
   private _donated = false;
+  /** Things to do just before every draw (the 2D layers shown on meshes: `threeLayerTexture`), and those layers' handles. Both go with the state to a layer that takes it over. */
+  private _drawHooks = new Set<() => void>();
+  private _layerTextures: Rebindable[] = [];
   private _scene: Scene | null = null;
   private _camera: Camera | null = null;
   private _ctx: ThreeContext | null = null;
@@ -136,7 +140,7 @@ export class ThreeSequence extends Sequence {
 
       const scene = new Scene();
       const camera: Camera = new PerspectiveCamera(50, width / height, 0.1, 2000);
-      const ctx: ThreeContext = { scene, camera, renderer, width, height };
+      const ctx: ThreeContext = { scene, camera, renderer, width, height, _host: this._makeHost() };
       if (spec.followCamera) this._checkFollowShape(width, height, spec.name);
 
       let result: Awaited<ReturnType<ThreeSequenceSpec['setup']>>;
@@ -172,6 +176,18 @@ export class ThreeSequence extends Sequence {
     this.buildFilters();
   }
 
+  /** What `threeLayerTexture` asks of this layer: the layers listed before it, PixiJS's renderer, whether the GPU device is shared, and a place to hook in before every draw. */
+  private _makeHost(): ThreeLayerHost {
+    return {
+      findLayer: (name) => this.parent?.findLayer?.(name) ?? null,
+      layerNames: () => this.parent?.layerNames?.() ?? [],
+      pixiRenderer: this.root.pixiRenderer ?? null,
+      shared: this.sharedGpu,
+      beforeDraw: (fn) => { this._drawHooks.add(fn); return () => { this._drawHooks.delete(fn); }; },
+      track: (handle) => { this._layerTextures.push(handle); },
+    };
+  }
+
   /** Reuse (core/reuse.ts): the key this layer is matched by, while it can still lend its state. */
   reuseKey(): string | null { return this._renderer && !this._donated && !this._closing ? this._key : null; }
   private _lendable(): boolean { return this.reuseKey() !== null && !!this._scene && !!this._ctx && !!this._texture; }
@@ -183,6 +199,9 @@ export class ThreeSequence extends Sequence {
     this._rt = d._rt; this._sharedTexture = d._sharedTexture; this._texture = d._texture;
     this._lightMirror = d._lightMirror; this._fogMirror = d._fogMirror; this._tracked = d._tracked;
     this._borrowed = d;
+    this._drawHooks = d._drawHooks; this._layerTextures = d._layerTextures;
+    const host = this._makeHost();
+    for (const h of this._layerTextures) h.rebind(host);                       // the 2D layers of the new tree are the ones shown now
     if (this.spec && (this._threeSpec as { followCamera?: boolean }).followCamera) this._checkFollowShape(width, height, name);
     this._makeSprite(this._texture!, width, height, name);
   }
@@ -389,6 +408,7 @@ export class ThreeSequence extends Sequence {
    */
   private _draw(t: number, toCanvas = false): void {
     if (!this._renderer || !this._scene || !this._camera) return;
+    for (const hook of this._drawHooks) hook();                          // the 2D layers shown on meshes are drawn into their textures first
     if (this._gpu) this._advanceNodeFrame(t);
     if (!this._rt || toCanvas) { this._renderer.render(this._scene, this._camera); return; }
     // A shared layer draws into its texture. setOutputRenderTarget (not setRenderTarget) keeps the canvas route's output pass: tone mapping, the sRGB encode, fog and the multisample resolve.
@@ -530,6 +550,7 @@ export class ThreeSequence extends Sequence {
     }
     const texture = this._texture;
     if (!kept) {
+      for (const h of this._layerTextures) { try { h.dispose(); } catch { /* the 2D layer is gone with its tree */ } }
       this._lightMirror?.dispose();
       this._fogMirror?.dispose();
       this._disposeRenderer();
