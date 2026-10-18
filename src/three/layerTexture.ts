@@ -17,6 +17,11 @@ import type { ThreeContext } from './types';
 export interface ThreeLayerTextureOptions {
   /** Pixels of the texture per pixel of the 2D layer: 2 for a screen that is seen large. Default 1. */
   resolution?: number;
+  /**
+   * The 2D layer's empty and half-transparent parts let what is behind the mesh show through (a sticker, a label with rounded corners, a hologram). Default `false`: an opaque screen, empty parts black,
+   * which is cheaper and never has the sorting trouble of transparent meshes (give the composition a background rect and use that). With `true` the material blends and does not write depth.
+   */
+  transparent?: boolean;
 }
 
 export interface ThreeLayerTexture {
@@ -56,6 +61,7 @@ export async function threeLayerTexture(ctx: ThreeContext, name: string, options
   if (!host) throw new Error(`${label}: call it from the setup of a three layer: const screen = await threeLayerTexture(ctx, 'screen')`);
   if (typeof name !== 'string' || !name) throw new Error(`${label}: the second argument is the name of a 2D layer: threeLayerTexture(ctx, 'screen')`);
   const resolution = options.resolution ?? 1;
+  const transparent = options.transparent === true;
   if (!(Number.isFinite(resolution) && resolution > 0 && resolution <= 4)) throw new Error(`${label}: resolution is a number from above 0 to 4 (2 = twice the pixels), got ${JSON.stringify(options.resolution)}`);
   const pixi = host.pixiRenderer;
   if (!pixi) throw new Error(`${label}: PixiJS's renderer is not available here (the movie is not ready)`);
@@ -71,8 +77,10 @@ export async function threeLayerTexture(ctx: ThreeContext, name: string, options
   }
 
   const width = Math.max(1, Math.round(source.intrinsicWidth * resolution)), height = Math.max(1, Math.round(source.intrinsicHeight * resolution));
-  const rt = RenderTexture.create({ width, height, resolution: 1 });
-  const gpuTexture = host.shared && pixi.name === 'webgpu' ? (pixi as unknown as { texture: { getGpuSource?: (s: unknown) => unknown } }).texture.getGpuSource?.(rt.source) : undefined;
+  const sharedRoute = host.shared && pixi.name === 'webgpu';
+  // on the shared GPU device the mesh samples PixiJS's texture itself: it needs its mip levels (a screen seen small or at a slant would alias to stripes), made after every draw. A read-back canvas gets them from three.
+  const rt = RenderTexture.create({ width, height, resolution: 1, ...(sharedRoute ? { autoGenerateMipmaps: true } : {}) });
+  const gpuTexture = sharedRoute ? (pixi as unknown as { texture: { getGpuSource?: (s: unknown) => unknown } }).texture.getGpuSource?.(rt.source) : undefined;
 
   let texture: Texture, material: Material, readCanvas: HTMLCanvasElement | null = null;
   if (gpuTexture) {
@@ -83,10 +91,18 @@ export async function threeLayerTexture(ctx: ThreeContext, name: string, options
     }
     const ext = new webgpu.ExternalTexture(gpuTexture as never);
     ext.colorSpace = webgpu.NoColorSpace;
+    ext.minFilter = webgpu.LinearMipmapLinearFilter; ext.magFilter = webgpu.LinearFilter; ext.generateMipmaps = false; ext.anisotropy = 4;       // the levels are PixiJS's; four taps along a slant
     ext.repeat.set(1, -1); ext.offset.set(0, 1);                    // the GPU texture's rows run top to bottom: a texture that three uploads is flipped, this is not
     const m = new webgpu.MeshBasicNodeMaterial();
-    m.colorNode = tsl.sRGBTransferEOTF(tsl.texture(ext)) as never;
+    const t = tsl.texture(ext);
+    // PixiJS stores the picture premultiplied by its alpha, in sRGB bytes: divide the alpha out (the blend of the mesh is the ordinary one), then decode
+    // TSL's own types do not describe swizzles (`.rgb`, `.a`) on a plain Node: a loose view of the three nodes used below
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tex = t as any, vec4 = tsl.vec4 as any, eotf = tsl.sRGBTransferEOTF as any, max = tsl.max as any;
+    const straight = eotf(vec4(tex.rgb.div(max(tex.a, 0.0001)), 1));
+    m.colorNode = (transparent ? vec4(straight.rgb, tex.a) : vec4(eotf(vec4(tex.rgb, 1)).rgb, 1)) as never;
     m.toneMapped = false;
+    if (transparent) { m.transparent = true; m.depthWrite = false; }
     texture = ext; material = m;
   } else {
     const three = await import('three');
@@ -95,7 +111,7 @@ export async function threeLayerTexture(ctx: ThreeContext, name: string, options
     const ct = new three.CanvasTexture(readCanvas);
     ct.colorSpace = three.SRGBColorSpace;
     texture = ct;
-    material = new three.MeshBasicMaterial({ map: ct, toneMapped: false });
+    material = new three.MeshBasicMaterial({ map: ct, toneMapped: false, ...(transparent ? { transparent: true, depthWrite: false } : {}) });
   }
 
   let display: Container = source.target as Container;
@@ -109,10 +125,21 @@ export async function threeLayerTexture(ctx: ThreeContext, name: string, options
     const m = new Matrix().scale(sx, sy);
     display.visible = true;
     try { pixi.render({ container: display, target: rt, transform: m, clear: true, clearColor: [0, 0, 0, 0] }); } finally { display.visible = false; }
+    if (gpuTexture) rt.source.updateMipmaps();
     if (readCanvas) {
       const g = readCanvas.getContext('2d')!;
-      g.clearRect(0, 0, width, height);
-      g.drawImage(pixi.extract.canvas(rt) as unknown as CanvasImageSource, 0, 0);
+      if (transparent) {
+        // PixiJS's pixels are premultiplied by the alpha (and `extract.canvas` would treat them as straight: a half-transparent part would come out twice as dark): divide the alpha out
+        const { pixels, width: w, height: h } = pixi.extract.pixels(rt);
+        for (let i = 0; i < pixels.length; i += 4) {
+          const a = pixels[i + 3]!;
+          if (a > 0 && a < 255) { const k = 255 / a; pixels[i] = pixels[i]! * k; pixels[i + 1] = pixels[i + 1]! * k; pixels[i + 2] = pixels[i + 2]! * k; }
+        }
+        g.putImageData(new ImageData(pixels as unknown as Uint8ClampedArray<ArrayBuffer>, w, h), 0, 0);
+      } else {
+        g.clearRect(0, 0, width, height);
+        g.drawImage(pixi.extract.canvas(rt) as unknown as CanvasImageSource, 0, 0);
+      }
       texture.needsUpdate = true;
     }
   };

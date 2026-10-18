@@ -1416,7 +1416,7 @@ return [
 ];
 ```
 
-Rules: the layer must be a `composition` with a `width` and `height`; a mistake in the name lists the names that are there; the material is unlit (a screen shines by itself) so keep the scene's lights for the body; empty parts of the composition are black on the mesh, not transparent. The full rules, the two routes (no copy on the shared GPU, a read-back otherwise) and what is not in this version: `pixi-effects help threeLayerTexture`.
+Rules: the layer must be a `composition` with a `width` and `height`; a mistake in the name lists the names that are there; the material is unlit (a screen shines by itself) so keep the scene's lights for the body; empty parts of the composition are black on the mesh unless you pass `{ transparent: true }` (a sticker or a rounded label). The full rules, the two routes (no copy on the shared GPU, a read-back otherwise) and what is not in this version: `pixi-effects help threeLayerTexture`.
 
 ## Click a layer: what is under the pointer (`movie.pick`)
 

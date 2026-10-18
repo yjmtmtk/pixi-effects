@@ -5,7 +5,7 @@
   <!-- Test film (tests/films/three-layer-texture.test.ts): a 2D composition named `screen` (480 x 270: a blue background, a yellow dot that moves, the text {label}, a green bar that grows) shown on a mesh of a
        `three` layer with threeLayerTexture(ctx, 'screen'). ?mode=flat: a plane that fills the picture (the picture must equal the 2D layer, pixel for pixel) · half: the plane is half the picture (the
        corners must stay the page background: the 2D layer is not drawn on the stage) · cube: a turning cube with the screen on one face · lifespan: `screen` starts at 1.5 s · late: `screen` is listed AFTER the three layer ·
-       notcomp: the name is a shape layer · missing: no such name · ?share=0: the three layer has a canvas of its own. window.initError is init's message when it refused. -->
+       stripes: the screen is 1-pixel black and white stripes and the plane is a quarter of the picture (a texture seen small: aliased without mipmaps) · alpha: the screen is a half-transparent red disc on nothing and the layer asks for `transparent: true` · notcomp: the name is a shape layer · missing: no such name · ?share=0: the three layer has a canvas of its own. ?transparent=0 (with alpha): the layer does not ask for it. window.initError is init's message when it refused. -->
   <canvas id="stage" width="640" height="360"></canvas>
   <script>
     window.__logs = []; window.__setups = 0;
@@ -22,6 +22,12 @@
     const q = new URLSearchParams(location.search);
     const mode = q.get('mode') || 'flat', share = q.get('share') !== '0', res = Number(q.get('res') || 1);
     const SW = 480, SH = 270;
+    const screenStripes = (extra = {}) => ({ type: 'composition', name: 'screen', width: SW, height: SH, duration: 4, initial: { x: 0, y: 0 }, ...extra, sequences: [
+      { type: 'canvas', name: 'stripes', width: SW, height: SH, initial: { x: 0, y: 0, anchorX: 0, anchorY: 0 }, smoothing: false, draw: (ctx) => { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, SW, SH); ctx.fillStyle = '#000'; for (let x = 0; x < SW; x += 2) ctx.fillRect(x, 0, 1, SH); } },
+    ] });
+    const screenAlpha = () => ({ type: 'composition', name: 'screen', width: SW, height: SH, duration: 4, initial: { x: 0, y: 0 }, sequences: [
+      { type: 'shape', shape: 'circle', name: 'disc', radius: 100, initial: { x: 240, y: 135, fillColor: '#ff0000', fillAlpha: 0.5 } },
+    ] });
     const screen = (extra = {}) => ({ type: 'composition', name: 'screen', width: SW, height: SH, duration: 4, initial: { x: 0, y: 0 }, ...extra, sequences: [
       { type: 'shape', shape: 'rect', name: 'sbg', width: SW, height: SH, initial: { x: SW / 2, y: SH / 2, anchorX: 0.5, anchorY: 0.5, fillColor: '#1d3a6e' } },
       { type: 'shape', shape: 'circle', name: 'dot', radius: 40, initial: { x: 60, y: 135, fillColor: '#f2c14e' }, keyframes: [{ at: 0, to: { x: 420 }, duration: 4, ease: 'sine.inOut' }] },
@@ -32,7 +38,7 @@
       setup: async (ctx) => {
         window.__setups++;
         const name = mode === 'missing' ? 'nothing-here' : mode === 'notcomp' ? 'bg' : 'screen';
-        const s = await threeLayerTexture(ctx, name, { resolution: res });
+        const s = await threeLayerTexture(ctx, name, { resolution: res, ...(mode === 'alpha' && q.get('transparent') !== '0' ? { transparent: true } : {}) });
         window.__screen = { width: s.width, height: s.height };
         let mesh;
         if (mode === 'cube') {
@@ -40,7 +46,7 @@
           const dark = () => new THREE.MeshBasicMaterial({ color: 0x223 });
           mesh = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.8, 0.4), [dark(), dark(), dark(), dark(), s.material, dark()]);
         } else {
-          const fov = 40, dist = (360 / 2) / Math.tan((fov / 2) * Math.PI / 180), k = mode === 'half' ? 0.5 : 1;
+          const fov = 40, dist = (360 / 2) / Math.tan((fov / 2) * Math.PI / 180), k = mode === 'half' ? 0.5 : mode === 'stripes' ? 0.25 : 1;
           ctx.camera = new THREE.PerspectiveCamera(fov, 640 / 360, 1, 5000); ctx.camera.position.set(0, 0, dist);
           mesh = new THREE.Mesh(new THREE.PlaneGeometry(640 * k, 360 * k), s.material);
         }
@@ -48,14 +54,16 @@
         return { objects: { mesh } };
       },
       update: (t, ctx) => { const m = ctx.scene.children[0]; if (mode === 'cube' && m) { m.rotation.y = 0.35 + 0.5 * Math.sin(t * 1.2); m.rotation.x = -0.12; } } });
+    const sourceLayer = mode === 'stripes' ? screenStripes() : mode === 'alpha' ? screenAlpha() : screen(mode === 'lifespan' ? { at: 1.5, duration: 2.5 } : {});
     const seqs = mode === 'late' ? [{ type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0b0f1a' } }, world(), screen()]
-      : [{ type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0b0f1a' } }, screen(mode === 'lifespan' ? { at: 1.5, duration: 2.5 } : {}), world()];
+      : [{ type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0b0f1a' } }, sourceLayer, world()];
     const movie = new Movie();
     window.movie = movie;
     window.hashOf = async (frame) => { const d = (await movie.snapshot(frame, { as: 'imageData' })).data; let h = 0x811c9dc5; for (let i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); };
+    window.regionStats = async (frame, x0, y0, w, h) => { const d = await movie.snapshot(frame, { as: 'imageData' }); let n = 0, sum = 0, sum2 = 0; for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) { const i = (y * d.width + x) * 4, l = (0.2126 * d.data[i] + 0.7152 * d.data[i + 1] + 0.0722 * d.data[i + 2]); n++; sum += l; sum2 += l * l; } const mean = sum / n; return { mean, std: Math.sqrt(Math.max(0, sum2 / n - mean * mean)) }; };
     window.pixelsAt = async (frame, points) => { const d = await movie.snapshot(frame, { as: 'imageData' }); return points.map(([x, y]) => Array.from(d.data.slice((y * d.width + x) * 4, (y * d.width + x) * 4 + 3))); };
     try {
-      await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 4, frameRate: 30, background: '#0b0f1a', vars: { label: 'LIVE 2D' }, composition: { sequences: seqs } });
+      await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 4, frameRate: 30, background: '#0b0f1a', vars: mode === 'stripes' || mode === 'alpha' ? {} : { label: 'LIVE 2D' }, composition: { sequences: seqs } });
       movie.pause();
       window.__ready = true;
     } catch (e) { window.initError = String((e && e.message) || e); window.__ready = true; }

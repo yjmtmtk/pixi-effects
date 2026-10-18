@@ -996,6 +996,7 @@ interface ThreeLayerTexture
   width: number
 interface ThreeLayerTextureOptions
   resolution?: number
+  transparent?: boolean
 type ThreeRendererKind = 'webgl' | 'webgpu'
 class ThreeSequence
   at: number

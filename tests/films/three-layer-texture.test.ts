@@ -100,4 +100,39 @@ runFilms('threeLayerTexture: a live 2D layer on a mesh of a three layer', () => 
     expect(await say('mode=notcomp')).toMatch(/"bg".*(shape).*composition/s);
     expect(await say('mode=late')).toMatch(/"screen".*(before|after|not built)/s);
   }, 180_000);
+
+  it('a texture seen small is filtered, not aliased: 1-pixel stripes on a plane a quarter of the picture come out as one even grey on every route (without mipmaps they came out as black and white stripes, spread 127)', async () => {
+    // the grey is the average of black and white: PixiJS's GPU mip levels average the stored (sRGB) bytes, so on the shared GPU it is 128; a read-back canvas gets three's mipmaps, made in linear light: 188
+    for (const [query, o, grey] of [['mode=stripes', {}, 128], ['mode=stripes&share=0', {}, 188], ['mode=stripes', { beforeLoad: NO_GPU }, 188]] as const) {
+      await withFilm('three-layer-texture', async (film) => {
+        const stats = await film.eval<{ mean: number; std: number }>('regionStats(0, 260, 150, 120, 60)');
+        const where = `${query}${o.beforeLoad ? ' (no WebGPU)' : ''}`;
+        expect(Math.abs(stats.mean - grey), `${where}: the grey is ${grey}, got ${stats.mean}`).toBeLessThan(4);
+        expect(stats.std, `${where}: no stripes left`).toBeLessThan(8);
+      }, { query, ...o });
+    }
+  }, 180_000);
+
+  // a half-transparent red disc on nothing, over the page background (11, 15, 26): in the 2D movie the disc is (255 x 0.5 + 11 x 0.5, 15 x 0.5, 26 x 0.5) = (133, 7.5, 13)
+  it('transparent: true lets what is behind show through the empty and the half-transparent parts: the same colours as the 2D layer would give over the same background, on every route', async () => {
+    for (const [query, o] of [['mode=alpha', {}], ['mode=alpha&share=0', {}], ['mode=alpha', { beforeLoad: NO_GPU }]] as const) {
+      await withFilm('three-layer-texture', async (film) => {
+        const [centre, outside] = await film.eval<number[][]>('pixelsAt(0, [[320, 180], [30, 30]])');
+        const where = `${query}${o.beforeLoad ? ' (no WebGPU)' : ''}`;
+        expect(centre[0]!, `${where}: red over the background`).toBeGreaterThanOrEqual(131); expect(centre[0]!).toBeLessThanOrEqual(135);
+        expect(centre[1]!).toBeGreaterThanOrEqual(6); expect(centre[1]!).toBeLessThanOrEqual(10);
+        expect(centre[2]!).toBeGreaterThanOrEqual(11); expect(centre[2]!).toBeLessThanOrEqual(15);
+        expect(outside, `${where}: the empty part is the background`).toEqual(PAGE);
+      }, { query, ...o });
+    }
+  }, 180_000);
+
+  it('without it the empty parts are black (an opaque screen), on every route', async () => {
+    for (const [query, o] of [['mode=alpha&transparent=0', {}], ['mode=alpha&transparent=0&share=0', {}], ['mode=alpha&transparent=0', { beforeLoad: NO_GPU }]] as const) {
+      await withFilm('three-layer-texture', async (film) => {
+        const [outside] = await film.eval<number[][]>('pixelsAt(0, [[30, 30]])');
+        expect(outside, `${query}${o.beforeLoad ? ' (no WebGPU)' : ''}`).toEqual([0, 0, 0]);
+      }, { query, ...o });
+    }
+  }, 180_000);
 });
