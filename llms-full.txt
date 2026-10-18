@@ -1886,6 +1886,8 @@ return [
 ];
 ```
 
+A tap on the phone's screen reaches the app: `movie.pick(...movie.canvasPoint(event))` answers with the layer inside the screen (`screen/button`, with `via` naming the phone), so the click and hover recipes work on a mesh as on a flat layer.
+
 Rules: the layer must be a `composition` with a `width` and `height`; a mistake in the name lists the names that are there; the material is unlit (a screen shines by itself) so keep the scene's lights for the body; empty parts of the composition are black on the mesh unless you pass `{ transparent: true }` (a sticker or a rounded label). The full rules, the two routes (no copy on the shared GPU, a read-back otherwise) and what is not in this version: `pixi-effects help threeLayerTexture`.
 
 ## Click a layer: what is under the pointer (`movie.pick`)
@@ -3178,7 +3180,8 @@ three({ type: 'three', width: 'GW', height: 'GH',
 - **A function of the time.** The 2D layer is drawn when the three layer draws, after the timeline has put every layer at the frame: a seek, an export and a repeat give the same picture (`check` draws the layer twice, in two orders, as for any three layer). A layer that has not started yet, or has ended, shows nothing on the mesh.
 - **A rebuild** (`setVars`, `resize`) keeps the three layer and shows the layer of the new tree (the text that changed shows on the mesh); a layer that changed size is drawn stretched to the texture.
 - **Seen small or at a slant** the texture is filtered, not aliased (1-pixel stripes on a plane a quarter of the picture come out as one even grey, not black and white stripes; four taps along a slant). The mip levels are PixiJS's own on the shared GPU, averaged in the stored sRGB values, so very fine bright detail seen very small is a little darker there than on a read-back canvas, whose mipmaps three makes in linear light (stripes average to 128 and 188).
-- **Not in this version:** a click on the mesh reaching the layer behind it (`movie.pick` says the mesh; the hidden layer is not picked).
+- **A click reaches the screen.** `movie.pick(x, y)` on a point of the mesh answers for the layers INSIDE the 2D layer, at the point of its picture under the pointer: the top hit is `screen/button` (a flat hit with `local` in the layer's own pixels), with `via: { path: 'phone', object: 'face' }` naming the three layer and the mesh it came through; under it come the screen's other layers, then the mesh itself. `only` / `ignore` see through the mesh (`only: ['screen']` is the screen's layers wherever they are shown), `movie.hover` and the click recipes work on a phone's screen as they do on a flat layer, and a layer that is not alive does not answer. A page asks the layer by its own name, so the button is one `pick` away: `if (movie.pick(...movie.canvasPoint(event), { only: ['button'] })) …`.
+- **Not in this version:** several meshes showing the same layer are answered through the first one the ray meets (that is the right one), but a layer shown on a mesh seen through another transparent mesh is not looked behind.
 
 ### Keyframe paths: `three.<name>.<path>`
 
@@ -4341,6 +4344,7 @@ interface PickHit {
   kind: 'flat' | 'card' | 'three';               // a 2D layer, a threeD layer (its projected card), a three layer
   point: { x: number; y: number };               // the point asked about
   local?: { x: number; y: number };              // a flat layer: the point in the layer's own pixels
+  via?: { path: string; object: string };        // the layer is shown on a mesh of a `three` layer (threeLayerTexture) and the point is on that mesh: the three layer and the object it came through
   three?: { object: string; point: [number, number, number]; distance: number; object3d: unknown;     // a three layer: what the ray met first
             grab?: (plane?) => { move: (x, y) => { point, delta } | null } };                          // drag it: see below
 }

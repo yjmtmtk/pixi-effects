@@ -19,6 +19,8 @@ export interface PickHit {
   point: { x: number; y: number };
   /** A flat layer: the point in the layer's own pixels (the top-left of its picture is 0, 0). */
   local?: { x: number; y: number };
+  /** The layer is shown on a mesh of a `three` layer (`threeLayerTexture`) and the point is on that mesh: the layer (`path` of the three layer) and the object (its name) it came through. `point` is still the canvas point; `local` is the point in the layer's own pixels. */
+  via?: { path: string; object: string };
   /** A `three` layer: what the ray through that point met first: the object (its name, or `''`), where (three's own units), and how far from the camera. */
   three?: {
     object: unknown; point: [number, number, number]; distance: number; object3d?: unknown;
@@ -108,7 +110,25 @@ export function pickScene(root: CompositionSequence, x: number, y: number, opts:
   };
   const inside = (b: { x: number; y: number; width: number; height: number }, p: { x: number; y: number }): boolean => p.x >= b.x && p.x <= b.x + b.width && p.y >= b.y && p.y <= b.y + b.height;
 
-  const walk = (comp: CompositionSequence, prefix: string, parentVisible: boolean): void => {
+  // a 2D layer that a mesh of a three layer shows (`threeLayerTexture`) is not on the stage (visible = false): a point on the mesh is answered for it, below
+  const hiddenSources = new Map<CompositionSequence, string>();
+  const forwards: Array<{ source: CompositionSequence; uv: { u: number; v: number }; via: { path: string; object: string }; order: Array<[number, number]> }> = [];
+  type RayHit = { object: string; point: [number, number, number]; distance: number; object3d: unknown; uv?: { u: number; v: number }; material?: unknown };
+  const rays = new Map<unknown, RayHit | null>();
+  const rayOf = (seq: Sequence, d: Display, local: { x: number; y: number }, lb: { x: number; y: number; width: number; height: number }): RayHit | null => {
+    if (typeof (seq as unknown as { pickAt?: unknown }).pickAt !== 'function') return null;
+    if (!rays.has(seq)) rays.set(seq, (seq as unknown as { pickAt(u: number, v: number): RayHit | null }).pickAt((local.x - lb.x) / lb.width, (local.y - lb.y) / lb.height));
+    return rays.get(seq)!;
+  };
+  const forwardThrough = (seq: Sequence, d: Display, path: string, local: { x: number; y: number }, lb: { x: number; y: number; width: number; height: number }): void => {
+    const shows = (seq as unknown as { screenOf?: (m: unknown) => { source: CompositionSequence } | null }).screenOf;
+    if (!shows || !inside(lb, local)) return;
+    const r = rayOf(seq, d, local, lb);
+    const shown = r?.uv ? shows.call(seq, r.material) : null;
+    if (r?.uv && shown) forwards.push({ source: shown.source, uv: r.uv, via: { path, object: String(r.object) }, order: orderOf(d) });
+  };
+
+  const walk = (comp: CompositionSequence, prefix: string, parentVisible: boolean, at: { x: number; y: number } = { x, y }, orderBase?: Array<[number, number]>, via?: { path: string; object: string }): void => {
     comp.layers().forEach(({ seq, display, threeD, carriers, quad }, i) => {
       const d = display as unknown as Display | null;
       if (!d) return;                                                     // a layer with no picture (a sound)
@@ -118,11 +138,18 @@ export function pickScene(root: CompositionSequence, x: number, y: number, opts:
       const alpha = (t?.alpha ?? 1) * carriers.reduce((a, c) => a * ((c.target as { alpha?: number } | null)?.alpha ?? 1), 1);
       const alive = (threeD ? d.visible : (t?.renderable ?? true) && t?.visible !== false) && carriers.every((c) => c.target?.renderable ?? true);
       const visible = parentVisible && alive && alpha > 0;
-      if (!visible) return;
+      if (!visible) {
+        // hidden from the stage on purpose but alive: the picture of a mesh
+        if (seq instanceof CompositionSequence && !threeD && parentVisible && alpha > 0 && t?.visible === false && (t?.renderable ?? true) && carriers.every((c) => c.target?.renderable ?? true)) hiddenSources.set(seq, path);
+        return;
+      }
       const isComposition = seq instanceof CompositionSequence;
-      if (isComposition && !threeD) { walk(seq as CompositionSequence, path + '/', visible); return; }   // a group is not a target: what is in it is
-      if (!wanted(name, path)) return;
-      const point = { x, y };
+      if (isComposition && !threeD) { walk(seq as CompositionSequence, path + '/', visible, at, orderBase, via); return; }   // a group is not a target: what is in it is
+      if (!wanted(name, path)) {
+        if (!threeD) { const lp = d.toLocal(at); forwardThrough(seq, d, path, lp, d.getLocalBounds()); }          // not wanted itself, but it may show a layer that is
+        return;
+      }
+      const point = at;
       let hit: PickHit | null = null;
       if (threeD) {
         if (quad && pointInQuad(quad, d.toLocal(point).x, d.toLocal(point).y)) hit = { name, path, type: seq.spec.type, kind: 'card', point };
@@ -130,8 +157,10 @@ export function pickScene(root: CompositionSequence, x: number, y: number, opts:
         const local = d.toLocal(point);
         const lb = d.getLocalBounds();
         if (inside(lb, local)) {
-          const three = typeof (seq as unknown as { pickAt?: unknown }).pickAt === 'function'
-            ? (seq as unknown as { pickAt(u: number, v: number): PickHit['three'] | null }).pickAt((local.x - lb.x) / lb.width, (local.y - lb.y) / lb.height) : undefined;
+          const isThree = typeof (seq as unknown as { pickAt?: unknown }).pickAt === 'function';
+          const ray = isThree ? rayOf(seq, d, local, lb) : undefined;
+          if (isThree) forwardThrough(seq, d, path, local, lb);
+          const three: PickHit['three'] | null | undefined = ray ? { object: ray.object, point: ray.point, distance: ray.distance, object3d: ray.object3d } : isThree ? null : undefined;
           if (three) {
             const planeOf = (seq as unknown as { dragPlane?: (p: [number, number, number], plane?: unknown) => (u: number, v: number) => { point: [number, number, number]; delta: [number, number, number] } | null }).dragPlane;
             if (planeOf) {
@@ -162,10 +191,17 @@ export function pickScene(root: CompositionSequence, x: number, y: number, opts:
       const maskTarget = seq.maskSequence?.target as Container | null | undefined;
       const maskSrc = maskSourceOf((seq.spec as { mask?: unknown }).mask);
       if (maskTarget && !(maskSrc.kind === 'inline' && maskSrc.invert) && !inside(maskTarget.getBounds(), point)) return;
-      found.push({ hit, order: orderOf(d) });
+      found.push({ hit: via ? { ...hit, point: { x, y }, via } : hit, order: orderBase ? [...orderBase, ...orderOf(d)] : orderOf(d) });
     });
   };
   walk(root, '', true);
+  // the point is on a mesh that shows a 2D layer: ask that layer's own layers at the point of the picture under it (above the mesh in the answer)
+  for (const f of forwards) {
+    const path = hiddenSources.get(f.source);
+    if (path === undefined) continue;                                      // the layer is not alive now: the mesh shows nothing of it
+    const g = (f.source.target as unknown as Display).toGlobal({ x: f.uv.u * f.source.intrinsicWidth, y: (1 - f.uv.v) * f.source.intrinsicHeight });
+    walk(f.source, path + '/', true, g, f.order, f.via);
+  }
   return found.sort((a, b) => above(a.order, b.order)).map((f) => f.hit);
 }
 

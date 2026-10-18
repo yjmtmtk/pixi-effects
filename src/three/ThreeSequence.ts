@@ -176,6 +176,12 @@ export class ThreeSequence extends Sequence {
     this.buildFilters();
   }
 
+  /** The 2D layer that a material shows (`threeLayerTexture`), for a click on the mesh to reach it (movie.pick); null for any other material. */
+  screenOf(material: unknown): { source: Sequence } | null {
+    const handle = this._layerTextures.find((h) => h.material === material);
+    return handle ? { source: handle.source() } : null;
+  }
+
   /** What `threeLayerTexture` asks of this layer: the layers listed before it, PixiJS's renderer, whether the GPU device is shared, and a place to hook in before every draw. */
   private _makeHost(): ThreeLayerHost {
     return {
@@ -243,7 +249,7 @@ export class ThreeSequence extends Sequence {
    * `movie.pick`: a ray through the point (u, v) of the layer's picture (0..1, v down) from the layer's camera, and what it meets first: the object's name (its own, or its nearest
    * ancestor's that has one), where, and how far from the camera. Invisible objects and groups are not met. null when the ray meets nothing.
    */
-  pickAt(u: number, v: number): { object: string; point: [number, number, number]; distance: number; object3d: Object3D } | null {
+  pickAt(u: number, v: number): { object: string; point: [number, number, number]; distance: number; object3d: Object3D; uv?: { u: number; v: number }; material?: unknown } | null {
     const scene = this._scene, camera = this._camera;
     if (!scene || !camera) return null;
     scene.updateMatrixWorld();
@@ -255,7 +261,9 @@ export class ThreeSequence extends Sequence {
       if (!visibleChain(hit.object)) continue;
       let name = '';
       for (let n: Object3D | null = hit.object; n && n !== scene; n = n.parent) if (n.name) { name = n.name; break; }
-      return { object: name, point: hit.point.toArray() as [number, number, number], distance: hit.distance, object3d: hit.object };
+      const m = (hit.object as unknown as { material?: unknown }).material;
+      const material = Array.isArray(m) ? m[hit.face?.materialIndex ?? 0] : m;
+      return { object: name, point: hit.point.toArray() as [number, number, number], distance: hit.distance, object3d: hit.object, ...(hit.uv ? { uv: { u: hit.uv.x, v: hit.uv.y } } : {}), material };
     }
     return null;
   }

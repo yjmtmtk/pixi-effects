@@ -177,6 +177,7 @@ interface PickHit {
   kind: 'flat' | 'card' | 'three';               // a 2D layer, a threeD layer (its projected card), a three layer
   point: { x: number; y: number };               // the point asked about
   local?: { x: number; y: number };              // a flat layer: the point in the layer's own pixels
+  via?: { path: string; object: string };        // the layer is shown on a mesh of a `three` layer (threeLayerTexture) and the point is on that mesh: the three layer and the object it came through
   three?: { object: string; point: [number, number, number]; distance: number; object3d: unknown;     // a three layer: what the ray met first
             grab?: (plane?) => { move: (x, y) => { point, delta } | null } };                          // drag it: see below
 }

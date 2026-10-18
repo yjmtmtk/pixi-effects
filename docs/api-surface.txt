@@ -550,6 +550,7 @@ interface PickHit
   point: { x: number; y: number; }
   three?: { object: unknown; point: [number, number, number]; distance: number; object3d?: unknown; grab?: ((plane?: [n…
   type: string
+  via?: { path: string; object: string; }
 interface PickOptions
   alpha?: number
   ignore?: string[]
@@ -1012,11 +1013,12 @@ class ThreeSequence
   intrinsicHeight: number
   intrinsicWidth: number
   parent: CompositionShape | null
-  pickAt(u: number, v: number): { object: string; point: [number, number, number]; distance: number; object3d: Object3D<Object3DEventMap>; } | null
+  pickAt(u: number, v: number): { object: string; point: [number, number, number]; distance: number; object3d: Object3D<Object3DEventMap>; uv?: { u: number; v: number;…
   renderer: "webgl" | "webgpu" | null
   reuseKey(): string | null
   root: CompositionShape
   scope(): Scope
+  screenOf(material: unknown): { source: Sequence; } | null
   sharedGpu: boolean
   spec: SequenceSpec
   target: Container<ContainerChild> | null

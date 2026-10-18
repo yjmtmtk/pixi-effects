@@ -52,7 +52,7 @@ export interface ThreeLayerHost {
 }
 
 /** What a rebuild that keeps the three layer needs: show the layer of the new tree with the same name. */
-export interface Rebindable { rebind(host: ThreeLayerHost): void; dispose(): void }
+export interface Rebindable { material: Material; source(): Sequence; rebind(host: ThreeLayerHost): void; dispose(): void }
 
 const label = 'pixi-effects: threeLayerTexture';
 
@@ -114,6 +114,7 @@ export async function threeLayerTexture(ctx: ThreeContext, name: string, options
     material = new three.MeshBasicMaterial({ map: ct, toneMapped: false, ...(transparent ? { transparent: true, depthWrite: false } : {}) });
   }
 
+  let current: Sequence = source;
   let display: Container = source.target as Container;
   let sx = width / source.intrinsicWidth, sy = height / source.intrinsicHeight;
   let hidden = false;
@@ -148,9 +149,11 @@ export async function threeLayerTexture(ctx: ThreeContext, name: string, options
 
   const handle: ThreeLayerTexture & Rebindable = {
     material, texture, width, height,
+    source: () => current,
     rebind(next) {
       const again = next.findLayer(name);
       if (!again) throw new Error(`${label}: after a rebuild there is no layer "${name}" before the three layer any more`);
+      current = again;
       display = again.target as Container;
       sx = width / again.intrinsicWidth; sy = height / again.intrinsicHeight;          // a layer that changed size is drawn stretched to the texture
       hide();

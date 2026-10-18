@@ -135,4 +135,71 @@ runFilms('threeLayerTexture: a live 2D layer on a mesh of a three layer', () => 
       }, { query, ...o });
     }
   }, 180_000);
+
+  // the picture at (x, y) of a plane that fills 640 x 360 shows the point (x * 0.75, y * 0.75) of the 480 x 270 screen: the button (240,60, 160 x 60: in the UPPER part) is at (320,80) of the picture
+  it('a click on the mesh reaches the 2D layer behind it: the top hit is the layer inside the screen at the point under the pointer (with its own pixels), and it says which mesh it came through', async () => {
+    await withFilm('three-layer-texture', async (film) => {
+      const hit = await film.eval<{ path: string; kind: string; local: { x: number; y: number }; via?: { path: string; object: string } } | null>('(() => { const h = movie.pick(320, 80); return h && { path: h.path, kind: h.kind, local: h.local, via: h.via }; })()');
+      expect(hit!.path).toBe('screen/button');
+      expect(hit!.kind).toBe('flat');
+      expect(Math.abs(hit!.local.x - 80), 'the middle of the button: 80 of its 160 pixels').toBeLessThanOrEqual(1.5);
+      expect(Math.abs(hit!.local.y - 30)).toBeLessThanOrEqual(1.5);
+      const mirrored = await film.eval<{ path: string } | null>('movie.pick(320, 280)');
+      expect(mirrored!.path, 'the mirror image of the button (turned upside down) is the background').toBe('screen/sbg');
+      expect(hit!.via).toEqual({ path: 'world', object: 'plane' });
+      const off = await film.eval<{ path: string } | null>('movie.pick(100, 50)');
+      expect(off!.path, 'beside the button: the screen background').toBe('screen/sbg');
+      const all = await film.eval<string[]>('movie.pickAll(320, 80).map(h => h.path)');
+      expect(all.slice(0, 3), 'under it: the screen background, then the three layer itself, then the page background').toEqual(['screen/button', 'screen/sbg', 'world']);
+    }, { query: 'mode=ui' });
+  }, 120_000);
+
+  it('only / ignore see through the mesh: only the screen\'s layers, or only the three layer, or everything but the screen', async () => {
+    await withFilm('three-layer-texture', async (film) => {
+      expect(await film.eval<string | null>("(() => { const h = movie.pick(320, 80, { only: ['screen'] }); return h && h.path; })()")).toBe('screen/button');
+      expect(await film.eval<string | null>("(() => { const h = movie.pick(320, 80, { only: ['button'] }); return h && h.path; })()"), 'a layer by its own name').toBe('screen/button');
+      expect(await film.eval<string | null>("(() => { const h = movie.pick(320, 80, { only: ['world'] }); return h && h.path + ':' + h.kind; })()")).toBe('world:three');
+      expect(await film.eval<string | null>("(() => { const h = movie.pick(320, 80, { ignore: ['screen'] }); return h && h.path; })()"), 'ignoring the screen leaves the mesh').toBe('world');
+      expect(await film.eval<string | null>("(() => { const h = movie.pick(320, 80, { ignore: ['button'] }); return h && h.path; })()")).toBe('screen/sbg');
+    }, { query: 'mode=ui' });
+  }, 120_000);
+
+  it('the same on a turning cube: wherever the picture shows the green bar at the BOTTOM of the screen, the pick says screen/bar (the screen is not mirrored or turned by the mapping)', async () => {
+    await withFilm('three-layer-texture', async (film) => {
+      const r = await film.eval<{ dots: number; agree: number }>(`(async () => {
+        const d = await movie.snapshot(60, { as: 'imageData' }); let dots = 0, agree = 0;
+        for (let y = 0; y < d.height; y += 3) for (let x = 0; x < d.width; x += 3) {
+          const i = (y * d.width + x) * 4;
+          if (d.data[i] === 61 && d.data[i + 1] === 220 && d.data[i + 2] === 151) { dots++; const h = movie.pick(x, y); if (h && h.path === 'screen/bar') agree++; }
+        }
+        return { dots, agree };
+      })()`);
+      expect(r.dots, 'the bar is on the picture').toBeGreaterThan(40);
+      expect(r.agree / r.dots, `${r.agree} of ${r.dots} points of the bar are picked as the bar`).toBeGreaterThan(0.97);
+    }, { query: 'mode=cube' });
+  }, 120_000);
+
+  it('a real click and a real hover on the mesh arrive as the layer inside the screen', async () => {
+    await withFilm('three-layer-texture', async (film) => {
+      const mouse = async (type: string, x: number, y: number) => film.cdp.send('Input.dispatchMouseEvent', type === 'mouseMoved' ? { type, x, y } : { type, x, y, button: 'left', clickCount: 1 });
+      await mouse('mouseMoved', 320, 80);
+      await new Promise((r) => setTimeout(r, 150));
+      expect(await film.eval('window.__entered'), 'the hover entered the button').toBe('screen/button');
+      await mouse('mousePressed', 320, 80); await mouse('mouseReleased', 320, 80);
+      await new Promise((r) => setTimeout(r, 100));
+      expect(await film.eval('window.__clicked')).toBe('screen/button');
+      await mouse('mouseMoved', 100, 50); await mouse('mousePressed', 100, 50); await mouse('mouseReleased', 100, 50);
+      await new Promise((r) => setTimeout(r, 100));
+      expect(await film.eval('window.__clicked')).toBe('screen/sbg');
+    }, { query: 'mode=ui' });
+  }, 120_000);
+
+  it('a layer that is not alive does not answer through the mesh, and nothing changes for a mesh that shows no layer', async () => {
+    await withFilm('three-layer-texture', async (film) => {
+      const early = await film.eval<string | null>("(async () => { await movie.gotoFrame(10, true); const h = movie.pick(320, 80); return h && h.path; })()");
+      expect(early, 'before the screen starts (1.5 s) the mesh itself is what is there').toBe('world');
+      await film.eval('movie.gotoFrame(60, true)');
+      expect(await film.eval<string | null>("(() => { const h = movie.pick(5, 5); return h && h.path; })()"), 'a point of the page behind the mesh').toBeTruthy();
+    }, { query: 'mode=lifespan' });
+  }, 120_000);
 });
