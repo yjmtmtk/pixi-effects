@@ -44,7 +44,23 @@ export function defaultOutput(page, format) {
   return path.resolve(path.basename(page).replace(/\.[^.]+$/, '') + '.' + format);
 }
 
-export const USAGE = 'usage: node ai/tools/render.mjs <page.html> [-o out.mp4] [--format mp4|webm|mov|mkv|wav|ogg|pdf] [--range A:B | --scene NAME] [--scale S] [--draft] [--quality very-low|low|medium|high|very-high] [--video-codec avc|hevc|vp9|av1|vp8] [--video-bitrate 8M|high] [--audio-codec C] [--motion-blur SAMPLES] [--shutter FRACTION] [--all-stops] [--query a=1] [--var name=value] [--size 1080x1920] [--strict] [--quiet] [--timeout S] [--root DIR] [--chrome PATH] [--help]\n(the header of ai/tools/render.mjs explains each option)';
+const USAGE_LINE = 'usage: node ai/tools/render.mjs <page.html> [-o out.mp4] [--format mp4|webm|mov|mkv|wav|ogg|pdf] [--range A:B | --scene NAME] [--scale S] [--draft] [--quality very-low|low|medium|high|very-high] [--video-codec avc|hevc|vp9|av1|vp8] [--video-bitrate 8M|high] [--audio-codec C] [--motion-blur SAMPLES] [--shutter FRACTION] [--all-stops] [--query a=1] [--var name=value] [--size 1080x1920] [--strict] [--quiet] [--timeout S] [--root DIR] [--chrome PATH] [--help]';
+export const USAGE = [
+  '%s',
+  'options:',
+  '  -o, --out FILE       the file to write (default ./<page name>.<format>; the container follows the extension: mp4 webm mov mkv)',
+  '  --format F           mp4 webm mov mkv wav ogg pdf (wav / ogg: only the movie\'s sound; pdf: the deck as pages, one picture per page of a movie with `stops`; --all-stops makes a page of every stop)',
+  '  --quality Q          very-low low medium high very-high: video and audio bitrate (default high)',
+  '  --range A:B          only seconds A to B (2: runs to the end, :5 starts at the beginning) · --scene NAME: the span of a top-level layer, a movie\'s scene',
+  '  --scale S            output size, 0 < S <= 1: a smaller picture, a smaller file',
+  '  --draft              for looking: half size, low quality, no motion blur (a --quality you give still wins)',
+  '  --motion-blur N      2-64: each frame is drawn N times over the shutter and averaged (overrides the page\'s own motionBlur) · --shutter F: how long the shutter is open, 0-1 of a frame (default 0.5)',
+  '  --video-codec C      avc hevc vp9 av1 vp8 · --video-bitrate B: a quality or bits a second (8M, 800k) · --audio-codec C',
+  '  --query "a=1&b=2"    added to the page URL · --var name=value: a variable of the movie · --size WxH: render at another size',
+  '  --strict             exit 1 when the page logged a warning (the file is still written) · --quiet: no progress line',
+  '  --timeout S          seconds to wait (default 900) · --root DIR: the folder served (default: the nearest folder above the page with dist/) · --chrome PATH',
+  'exit code: 0 the file was written, 1 the page or the render failed (no file), 2 bad usage',
+].join('\n').replace('%s', USAGE_LINE);
 
 export function parseRenderArgs(argv) {
   const o = { range: null, scene: null, scale: null, draft: false, qualityGiven: false, page: null, out: null, format: null, quality: 'high', videoCodec: null, videoBitrate: null, audioCodec: null, allStops: false, motionBlur: null, shutter: null, query: null, vars: [], size: null, strict: false, quiet: false, timeout: 900, root: null, chrome: null };

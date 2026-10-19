@@ -50,6 +50,17 @@ describe('analyzeAudio', () => {
     expect(r.sources[0]!.music).toEqual(music);
     expect(analyzeAudio(pcm(4, () => 0.3), [src('layer "s"', 'sfx "pop"', 0, 1)], { peak: 0.3, peakAt: 0 }, 4, { window: 1 }).sources[0]).not.toHaveProperty('music');
   });
+  it('a music track a bar or more shorter than the longest one falls silent early: said as a NOTE with the beat and bar (a trial: three agents miscounted a track and only the read-back showed it)', () => {
+    const music = (beats: number[]) => ({ bpm: 120, meter: 4, meterSet: true, beats: Math.max(...beats), bars: Math.max(...beats) / 4, seconds: Math.max(...beats) / 2, tail: 2.5, drums: [],
+      tracks: beats.map((b, i) => ({ inst: ['keys', 'bass', 'bell'][i]!, beats: b, bars: b / 4, events: 4, perBar: [] })) });
+    const run = (beats: number[]) => analyzeAudio(pcm(12, t => 0.2 * Math.sin(2 * Math.PI * 1000 * t)), [{ ...src('layer "bgm"', 'music', 0, 12), music: music(beats) }], { peak: 0.2, peakAt: 1 }, 12, { window: 1 }).notes.join('\n');
+    const said = run([24, 16, 24]);
+    expect(said).toMatch(/bass.*16 beats.*24/s);
+    expect(said).toMatch(/silent from beat 16|bar 5/);
+    expect(run([24, 24, 24])).not.toMatch(/falls silent|silent from beat/);
+    expect(run([24, 22, 24]), 'less than a bar short is not a miscount worth a note').not.toMatch(/silent from beat/);
+  });
+
   it('a written music score much longer than what plays is a NOTE (advice, not a fault: music that outlasts the movie ends with it): how long it is and how much plays', () => {
     const music = (seconds: number) => ({ bpm: 100, meter: 4, beats: Math.round(seconds * 100 / 60), bars: 1, seconds, tail: 2.5, tracks: [], drums: [] });
     const run = (seconds: number, movie: number, start = 0, end = movie, loop = false) => analyzeAudio(pcm(movie, t => 0.2 * Math.sin(2 * Math.PI * 1000 * t)),

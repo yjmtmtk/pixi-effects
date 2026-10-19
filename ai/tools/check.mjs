@@ -13,7 +13,7 @@
  * Needs: Node >= 22 (built-in WebSocket), Chrome / Chromium installed (or --chrome PATH / CHROME=PATH). No npm dependencies.
  * The page must follow skills/pixi-effects/template.html: it exposes `window.movie` and sets `window.__ready = true` (and `window.__logs`).
  *
- * Options: --draft (the export is a draft: half size, low quality, no motion blur: a much smaller file; the drawing itself is not faster) · --at LIST (pictures at moments you name: 3.5, 50%, f120, title@end → frames/*.png and at.png) ·
+ * Options: --draft (the export is a draft: half size, low quality, no motion blur: a much smaller file; the drawing itself is not faster) · --at LIST (pictures at moments you name: 3.5, 50%, f120, title@end → frames/*.png and at.png: they are NOT in sheet.png, which is evenly spaced frames) ·
  *          --query "a=1&b=2" (added to the page address: for a page that reads it, such as one video of a batch) ·
  *          --crop X,Y,W,H (with --at: each picture is that part of the canvas, in canvas pixels, enlarged up to 4x so a small figure can be judged) ·
  *          --pick X,Y (with --at, repeatable: what is under that canvas point at each moment, the top layer first, and the object a three layer met: `movie.pick`) ·

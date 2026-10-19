@@ -194,6 +194,13 @@ export function analyzeAudio(
       const over = s.music.seconds - plays;
       if (over > 2 && over / s.music.seconds > 0.15) scoreNotes.push(`${layer} (${source}): the score is ${Math.round(s.music.seconds * 10) / 10}s long but only ${Math.round(plays * 100) / 100}s of it play, so it is cut off mid-phrase. Write fewer bars (or a faster tempo) so it ends with the movie`);
     }
+    // A track a bar or more shorter than the longest one is silent from its end on: usually a miscount of the beats (a trial: three agents; only the read-back showed it). A note, not a fault: a bell may come and go on purpose.
+    if (s.music && s.music.tracks.length > 1) {
+      const short = s.music.tracks.filter(t => t.beats <= s.music!.beats - s.music!.meter);
+      if (short.length > 0) {
+        scoreNotes.push(`${layer} (${source}): ${short.slice(0, 3).map(t => `the ${t.inst} track is ${Math.round(t.beats * 100) / 100} beats long against ${s.music!.beats} for the longest and falls silent from beat ${Math.round(t.beats * 100) / 100} (bar ${Math.floor(t.beats / s.music!.meter) + 1})`).join('; ')}. If that is a miscount, add its missing beats (a rest is \`_:4\`); if it is on purpose, ignore this`);
+      }
+    }
     // Buried: the sound's own peak against the mix around its loudest moment. A short sound effect 12 dB or more under what plays with it is a hit nobody hears.
     // (A layer with its own speed or `time` plays the sound at another pace: its loudest moment is not at start + loudestAt, so it is left out.)
     let belowMixDb: number | undefined;

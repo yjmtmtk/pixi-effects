@@ -227,3 +227,14 @@ describe('the command: pixi-effects recipe | help | new', () => {
     expect(cli(['recepie']).stderr).toMatch(/did you mean "recipe"/);
   });
 });
+
+describe('quickstart: the first page, as a command (an agent typed `npx pixi-effects quickstart`; AGENTS.md names a file)', () => {
+  it('prints the quickstart of the package and is a command like recipe and help', () => {
+    const r = cli(['quickstart']);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe(readFileSync(join(root, 'skills/pixi-effects/reference/quickstart.md'), 'utf8').replace(/\n?$/, '\n'));
+    expect(r.stdout.length).toBeGreaterThan(500);
+    expect(lookup.LOOKUP_COMMANDS).toContain('quickstart');
+    expect(cli([]).stdout + cli([]).stderr, 'the usage lists it').toMatch(/quickstart/);
+  });
+});

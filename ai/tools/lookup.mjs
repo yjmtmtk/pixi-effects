@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 
 export const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const RECIPES = 'skills/pixi-effects/reference/recipes.md';
+const QUICKSTART = 'skills/pixi-effects/reference/quickstart.md';
 /** What `help` reads, most useful first (the number is a small bonus in the ranking). */
 const CORPUS = [
   ['docs/dsl.md', 10], ['skills/pixi-effects/reference/cheatsheet.md', 8], ['skills/pixi-effects/reference/pitfalls.md', 6],
@@ -178,12 +179,16 @@ export function newPage(name, { cwd = process.cwd(), root = PACKAGE_ROOT, force 
 
 const shownPath = (file, cwd) => { const r = path.relative(cwd, file); return r.startsWith('..') || path.isAbsolute(r) ? file : r; };
 
-export const LOOKUP_COMMANDS = ['recipe', 'help', 'new'];
+export const LOOKUP_COMMANDS = ['recipe', 'help', 'new', 'quickstart'];
 
 /** Run one of the commands: { code, stdout, stderr } (nothing is printed here). */
 export function runLookup(cmd, args, { cwd = process.cwd(), root = PACKAGE_ROOT } = {}) {
   const ok = (stdout) => ({ code: 0, stdout: stdout.endsWith('\n') ? stdout : stdout + '\n', stderr: '' });
   const fail = (stderr, code = 1) => ({ code, stdout: '', stderr: stderr.endsWith('\n') ? stderr : stderr + '\n' });
+  if (cmd === 'quickstart') {
+    const md = readIf(path.join(root, QUICKSTART));
+    return md ? ok(md) : fail(`the quickstart is missing from this package (${QUICKSTART})`);
+  }
   if (cmd === 'recipe') {
     const md = readIf(path.join(root, RECIPES));
     if (!md) return fail(`the recipes are missing from this package (${RECIPES})`);
