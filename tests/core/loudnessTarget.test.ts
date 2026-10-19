@@ -34,15 +34,43 @@ describe('normalizeMix: the whole mix brought to a loudness (LUFS)', () => {
     expect(lufs(b).integratedLufs!).toBeCloseTo(-16, 0);
   });
 
-  it("stops short when the loudest moment would clip, and says so: the peak stays at or under -1 dBFS and the mix is quieter than the target", async () => {
-    const b = await mix(tone('peaky', 0.02, 4, { at: 2, peak: 0.6 }), 4);
+  it('reaches the target with a click on top of a quiet bed: a limiter takes the click down (a trial: 5 of 16 films stopped at -17 to -20 for want of this)', async () => {
+    const b = await mix(tone('peaky', 0.05, 4, { at: 2, peak: 0.5 }), 4);     // the click is 20 dB over the bed
+    const r = normalizeMix(b, -16);
+    expect(r.limited, 'the target is reachable').toBe(false);
+    expect(lufs(b).integratedLufs!).toBeGreaterThan(-16.3);
+    expect(lufs(b).integratedLufs!).toBeLessThan(-15.7);
+    expect(r.reachedLufs!).toBeCloseTo(lufs(b).integratedLufs!, 1);
+    expect(r.limiterDb!).toBeGreaterThan(3);                                  // it says how hard it had to pull the peak down, and where
+    expect(r.limiterAt!).toBeGreaterThan(1.9); expect(r.limiterAt!).toBeLessThan(2.1);
+    expect(measureLoudness([b.getChannelData(0), b.getChannelData(1)], SR).truePeakDb!, 'the true peak, not only the sample peak').toBeLessThanOrEqual(-1 + 0.05);
+  });
+
+  it('the limiter leaves the bed alone: a sample far from the click is the bed times the gain, to the last digit', async () => {
+    const plain = await mix(tone('bed', 0.05, 4), 4), peaky = await mix(tone('bed', 0.05, 4, { at: 3, peak: 0.5 }), 4);
+    const r = normalizeMix(peaky, -16);
+    const before = plain.getChannelData(0)[24000];                          // 0.5 s in, 2.5 s before the click
+    expect(peaky.getChannelData(0)[24000]).toBeCloseTo(before! * 10 ** (r.gainDb / 20), 3);
+  });
+
+  it('a mix whose peak is not over the ceiling gets the gain only (no limiter): the same samples as before', async () => {
+    const b = await mix(tone('steady', 0.04, 4), 4), plain = await mix(tone('steady', 0.04, 4), 4);
+    const r = normalizeMix(b, -16);
+    expect(r.limiterDb ?? 0).toBe(0);
+    const g = 10 ** (r.gainDb / 20);
+    for (const i of [1000, 24000, 100000]) expect(b.getChannelData(0)[i]).toBeCloseTo(plain.getChannelData(0)[i]! * g, 5);
+  });
+
+  it("an extreme mix (a click 30 dB over a very quiet bed) stops short, and says so: the limiter never takes more than 10 dB off, and the peak stays at or under -1 dBTP", async () => {
+    const b = await mix(tone('extreme', 0.02, 4, { at: 2, peak: 0.6 }), 4);
     const r = normalizeMix(b, -16);
     expect(r.limited).toBe(true);
     expect(r.reachedLufs!).toBeLessThan(-16);
     expect(r.reachedLufs!).toBeCloseTo(lufs(b).integratedLufs!, 1);
-    const peak = peakOf(b);
-    expect(peak).toBeLessThanOrEqual(10 ** (-1 / 20) + 1e-6);
-    expect(peak).toBeGreaterThan(10 ** (-1.5 / 20));                          // and it went right up to the ceiling: no gain is wasted
+    expect(r.limiterDb!).toBeLessThanOrEqual(10.5);
+    const tp = measureLoudness([b.getChannelData(0), b.getChannelData(1)], SR).truePeakDb!;
+    expect(tp).toBeLessThanOrEqual(-1 + 0.05);
+    expect(tp).toBeGreaterThan(-1.6);                                         // and it went up to the ceiling (between the samples: a click of alternating samples is higher there): no gain is wasted
   });
 
   it('leaves silence alone (nothing to measure)', async () => {

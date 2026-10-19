@@ -26,6 +26,24 @@ describe('analyzeAudio', () => {
     expect(fine.loudness.integratedLufs!).toBeGreaterThan(-20);
     expect(fine.notes.join('\n')).not.toMatch(/quiet for web video/);
   });
+  it('a loudness target that was out of reach names WHERE the peak is and WHICH sounds play there (a trial: 11 of 16 agents guessed at it)', () => {
+    const loud = { target: -16, gainDb: 12, reachedLufs: -19.2, limited: true, limiterDb: 10, limiterAt: 2.5 };
+    const r = analyzeAudio(pcm(4, t => 0.3 * Math.sin(2 * Math.PI * 1000 * t)), [src('layer "bed"', 'music', 0, 4), src('layer "hit"', 'sfx "hit"', 2, 3), src('layer "late"', 'sfx "pop"', 3.5, 4)],
+      { peak: 0.3, peakAt: 1, loudness: loud }, 4, { window: 1 });
+    const said = r.notes.join('\n');
+    expect(said).toMatch(/could not reach -16 LUFS.*stopped at -19\.2 LUFS/s);
+    expect(said).toMatch(/at 2\.5 s/);
+    expect(said).toMatch(/bed.*hit|hit.*bed/s);                              // the layers that play at 2.5 s
+    expect(said).not.toMatch(/late/);                                       // and not the one that does not
+  });
+
+  it('a limiter that took 3 dB or more off a peak is said, with the place and the sounds; a light touch is not', () => {
+    const at = (db: number) => analyzeAudio(pcm(4, t => 0.3 * Math.sin(2 * Math.PI * 1000 * t)), [src('layer "bed"', 'music', 0, 4), src('layer "hit"', 'sfx "hit"', 2, 3)],
+      { peak: 0.3, peakAt: 1, loudness: { target: -16, gainDb: 8, reachedLufs: -16, limited: false, limiterDb: db, limiterAt: 2.5 } }, 4, { window: 1 }).notes.join('\n');
+    expect(at(5.2)).toMatch(/limiter.*5\.2 dB.*2\.5 s.*(hit)/s);
+    expect(at(1.1)).not.toMatch(/limiter/);
+  });
+
   it('a music layer\'s summary is passed through to its source, so the report can say what the score is', () => {
     const music = { bpm: 120, meter: 4, beats: 8, bars: 2, seconds: 4, tail: 2.5, tracks: [{ inst: 'keys', beats: 8, bars: 2, events: 2, perBar: ['C', 'G'] }], drums: [] };
     const r = analyzeAudio(pcm(4, t => 0.3 * Math.sin(2 * Math.PI * 1000 * t)), [{ ...src('layer "m"', 'music', 0, 4), music }], { peak: 0.3, peakAt: 1 }, 4, { window: 1 });
@@ -215,6 +233,14 @@ describe('analyzeAudio: a sound buried under the rest of the mix (an author who 
     const quiet = run(0.04).sources.find(x => x.layer === 'hit')!;
     expect(quiet.belowMixDb).toBeGreaterThan(15);
     expect(run(0.5).sources.find(x => x.layer === 'hit')!.belowMixDb).toBeCloseTo(6, 0);                // as loud as the bed: the sum is 6 dB above it
+  });
+
+  it('the note gives a volume to try for the worst one (about 3 dB under the mix), not only "raise it"', () => {
+    const note = run(0.1).notes.find(n => /buried/.test(n))!;
+    expect(note).toMatch(/to about \d+(\.\d)?/);
+    const m = /to about (\d+(?:\.\d)?)/.exec(note)!;
+    expect(Number(m[1])).toBeGreaterThan(1);                                // it is below the mix at volume 1, so it needs more than 1
+    expect(Number(m[1])).toBeLessThanOrEqual(4);                            // and never an absurd number
   });
 
   it('short sound effects more than 12 dB under the mix get ONE note: how many, the worst one by name, the two levels and the moment', () => {

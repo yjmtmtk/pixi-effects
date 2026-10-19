@@ -213,7 +213,7 @@ export function analyzeAudio(
     const worst = buried.reduce((a, b) => (b.belowMixDb > a.belowMixDb ? b : a));
     // layers with no name all carry the same label, so they are counted one by one; a named layer that plays many times counts once
     const distinct = new Set(buried.map(x => (x.layer === 'an audio layer' ? `#${buried.indexOf(x)}` : x.layer) + x.source)).size;
-    scoreNotes.push(`${distinct === 1 ? '1 sound effect is' : `${distinct} sound effects are`} buried (${BURIED_DB} dB or more under the loudest sample of the mix around its loudest moment${buried.length > distinct ? `, ${buried.length} times in all` : ''}): the worst is ${worst.layer} (${worst.source}), its own peak ${worst.ownDb} dBFS at volume ${Math.round(worst.topVolume * 100) / 100} against ${worst.around} dBFS at ${worst.at} s, ${worst.belowMixDb} dB louder. If it is meant to be heard, raise its volume (an accent over music needs 2 to 3) or lower what plays there; every source's belowMixDb has its own number`);
+    scoreNotes.push(`${distinct === 1 ? '1 sound effect is' : `${distinct} sound effects are`} buried (${BURIED_DB} dB or more under the loudest sample of the mix around its loudest moment${buried.length > distinct ? `, ${buried.length} times in all` : ''}): the worst is ${worst.layer} (${worst.source}), its own peak ${worst.ownDb} dBFS at volume ${Math.round(worst.topVolume * 100) / 100} against ${worst.around} dBFS at ${worst.at} s, ${worst.belowMixDb} dB louder. If it is meant to be heard, raise its volume (this one to about ${Math.round(Math.min(4, worst.topVolume * 10 ** ((worst.belowMixDb - 3) / 20)) * 10) / 10}, which puts it about 3 dB under the mix; an accent over music needs 2 to 3) or lower what plays there; every source's belowMixDb has its own number`);
   }
   // the mix as a whole, scene by scene, and the advice
   const whole = measureLoudness(chans, sr);
@@ -228,8 +228,17 @@ export function analyzeAudio(
   if (whole.truePeakDb! > LOUDNESS_NOTES.headroomDb && whole.truePeakDb! <= 0) notes.push(`the true peak is ${whole.truePeakDb} dBTP: little headroom left for encoding (keep it below ${LOUDNESS_NOTES.headroomDb} dBTP)`);
   const asked = stats?.loudness;
   if (asked) {
+    // which layers play at a moment (the ones a peak there is made of); an unnamed layer is told by what it plays
+    const playingAt = (t: number): string => {
+      const at = sources.filter(x => x.start <= t && t < Math.min(x.end, movieDuration)).map(x => (x.layer && x.layer !== 'an audio layer' ? `${x.layer}${x.source ? ` (${x.source})` : ''}` : x.source ?? 'audio'));
+      return [...new Set(at)].slice(0, 6).join(', ') || 'nothing that is listed';
+    };
     if (asked.gainDb !== 0) notes.push(`the whole mix was ${asked.gainDb > 0 ? 'raised' : 'lowered'} by ${Math.abs(asked.gainDb)} dB to reach ${asked.target} LUFS (init({ loudness: ${asked.target} }))`);
-    if (asked.limited) notes.push(`the mix could not reach ${asked.target} LUFS: its loudest sample would pass -1 dBFS, so it stopped at ${asked.reachedLufs} LUFS; lower the sound that peaks (a click or hit on top of a quiet bed), or ask for less`);
+    if (asked.limited) {
+      notes.push(`the mix could not reach ${asked.target} LUFS: it stopped at ${asked.reachedLufs} LUFS because its loudest moment${asked.limiterAt !== undefined ? ` (at ${asked.limiterAt} s, where ${playingAt(asked.limiterAt)} play)` : ''} would need more than ${asked.limiterDb ?? 10} dB of limiting to stay under -1 dBTP; lower the sound that peaks there (a click or hit on top of a quiet bed), or ask for less`);
+    } else if (asked.limiterDb !== undefined && asked.limiterDb >= 3) {
+      notes.push(`a limiter took up to ${asked.limiterDb} dB off the loudest peak (at ${asked.limiterAt} s, where ${playingAt(asked.limiterAt ?? 0)} play) so that the mix reaches ${asked.target} LUFS without passing -1 dBTP: if that sound should hit harder, lower what plays under it`);
+    }
   }
   for (const q of silences.slice(0, 3)) notes.push(`the mix is silent from ${q.from} s to ${q.to} s (${Math.round((q.to - q.from) * 10) / 10} s)`);
   if (silences.length > 3) notes.push(`and ${silences.length - 3} more silent stretch(es) (loudness.silences lists them all)`);

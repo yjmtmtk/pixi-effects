@@ -85,32 +85,94 @@ export interface MixStats {
   loudness?: LoudnessResult;
 }
 
-/** What `normalizeMix` did: the target asked for, the gain applied (dB), the loudness the mix has now (null: nothing to measure) and whether the peak ceiling stopped it short of the target. */
-export interface LoudnessResult { target: number; gainDb: number; reachedLufs: number | null; limited: boolean }
+/**
+ * What `normalizeMix` did: the target asked for, the gain applied (dB), the loudness the mix has now (null: nothing to measure) and whether the target was out of reach (`limited`: the mix has
+ * peaks so far above its body that even `MAX_LIMIT_DB` of limiting did not get it there). `limiterDb` is the most the limiter took off a peak (absent: it did nothing) and `limiterAt` where (s).
+ */
+export interface LoudnessResult { target: number; gainDb: number; reachedLufs: number | null; limited: boolean; limiterDb?: number; limiterAt?: number }
 
 /** Above this the mix is bent smoothly toward 1 instead of clipping. */
 const KNEE = 0.9;
 
-/** The loudest sample a normalised mix may have (dBFS): a little under full scale, so the encoder does not clip it. */
+/** The highest true peak a normalised mix may have (dBTP): a little under full scale, so the encoder does not clip it. */
 export const LOUDNESS_CEILING_DB = -1;
 
+/** The most the limiter of `normalizeMix` may take off a peak (dB): more would be pumping, not mastering. A click 30 dB over its bed is out of reach, and is said to be. */
+const MAX_LIMIT_DB = 10;
+
 /**
- * Bring the whole mix to `target` LUFS (ITU-R BS.1770 integrated loudness) with one gain, in place: a quiet mix is raised, a loud one lowered. The loudest sample may not pass
- * `LOUDNESS_CEILING_DB`: a mix with one loud click in a quiet bed gets less gain than the target asks for (`limited: true`, and `reachedLufs` says where it ended). Silence is left alone.
- * Pure and deterministic; run before `limitMix`, which then has nothing to do.
+ * Copy `source` times `gain` into `out` and pull every peak that would pass `ceil` (linear) down, with a look-ahead limiter: the reduction starts 3 ms before the peak, so nothing is clipped, and
+ * lets go over 80 ms, so a bass note is not modulated. The channels are limited together (one gain for all). Pure and deterministic. Returns the largest reduction (dB) and where (s).
+ */
+function limitInto(source: Float32Array[], out: Float32Array[], gain: number, ceil: number, sampleRate: number): { reductionDb: number; at: number } {
+  const n = source[0]?.length ?? 0;
+  const req = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    let p = 0;
+    for (const c of source) { const a = Math.abs(c[i]!) * gain; if (a > p) p = a; }
+    req[i] = p > ceil ? ceil / p : 1;
+  }
+  const L = Math.max(1, Math.round(0.003 * sampleRate));
+  // 1. the lowest gain asked for in the next L samples (a sliding minimum, so the dip starts before the peak)
+  const mn = new Float32Array(n), dq = new Int32Array(n); let head = 0, tail = 0;
+  for (let i = n - 1; i >= 0; i--) {
+    while (tail > head && req[dq[tail - 1]!]! >= req[i]!) tail--;
+    dq[tail++] = i;
+    while (dq[head]! > i + L) head++;
+    mn[i] = req[dq[head]!]!;
+  }
+  // 2. the average of the last L+1 of those: the gain falls in a straight ramp that is never above what the sample asks for, then 3. lets go slowly
+  const release = 1 - Math.exp(-1 / (0.08 * sampleRate));
+  let run = 0, prev = 1, lowest = 1, lowestAt = 0;
+  const gains = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    run += mn[i]!; if (i > L) run -= mn[i - L - 1]!;
+    const avg = run / Math.min(i + 1, L + 1);
+    const g = Math.min(avg, prev + (1 - prev) * release);
+    gains[i] = g; prev = g;
+    if (g < lowest) { lowest = g; lowestAt = i; }
+  }
+  for (let ch = 0; ch < source.length; ch++) {
+    const s = source[ch]!, o = out[ch]!;
+    for (let i = 0; i < n; i++) { const v = s[i]! * gain * gains[i]!; o[i] = v > ceil ? ceil : v < -ceil ? -ceil : v; }          // (the clamp is a guard: the ramp above is never over the ceiling)
+  }
+  return { reductionDb: lowest < 1 ? -20 * Math.log10(lowest) : 0, at: lowestAt / sampleRate };
+}
+
+/**
+ * Bring the whole mix to `target` LUFS (ITU-R BS.1770 integrated loudness): one gain, up or down, and a look-ahead limiter that takes a click or a hit down so that no peak passes
+ * `LOUDNESS_CEILING_DB` (true peak). A mix with peaks that no limiter should be asked for (more than `MAX_LIMIT_DB`) stops short of the target (`limited: true`, `reachedLufs` says where it
+ * ended). A mix whose peak is under the ceiling gets the gain only. Silence is left alone. Pure and deterministic; run before `limitMix`, which then has nothing to do.
  */
 export function normalizeMix(buffer: AudioBuffer, target: number): LoudnessResult {
   const chans: Float32Array[] = [];
   for (let ch = 0; ch < buffer.numberOfChannels; ch++) chans.push(buffer.getChannelData(ch));
-  const m = measureLoudness(chans, buffer.sampleRate, { truePeak: false });
+  const sr = buffer.sampleRate;
+  const m = measureLoudness(chans, sr, { truePeak: false });
   if (m.integratedLufs === null) return { target, gainDb: 0, reachedLufs: null, limited: false };
+  const original = chans.map(c => Float32Array.from(c));
   let gainDb = target - m.integratedLufs;
-  const room = LOUDNESS_CEILING_DB - m.samplePeakDb;                      // how far the loudest sample may be raised
-  const limited = gainDb > room;
-  if (limited) gainDb = room;
-  const gain = 10 ** (gainDb / 20);
-  for (const d of chans) for (let i = 0; i < d.length; i++) d[i] = d[i]! * gain;
-  return { target, gainDb: Math.round(gainDb * 10) / 10, reachedLufs: Math.round((m.integratedLufs + gainDb) * 10) / 10, limited };
+  let ceilDb = LOUDNESS_CEILING_DB;
+  let applied = { reductionDb: 0, at: 0 }, measured = m;
+  for (let round = 0; round < 8; round++) {
+    const cap = MAX_LIMIT_DB + ceilDb - m.samplePeakDb;                             // the gain at which the loudest sample needs MAX_LIMIT_DB of limiting
+    if (gainDb > cap) gainDb = cap;
+    applied = limitInto(original, chans, 10 ** (gainDb / 20), 10 ** (ceilDb / 20), sr);
+    measured = measureLoudness(chans, sr);
+    const overTp = measured.truePeakDb! - LOUDNESS_CEILING_DB;
+    if (overTp > 0.02) { ceilDb -= overTp + 0.02; continue; }                       // between the samples the peak is higher than at them: the ceiling for the samples goes down by that
+    const deficit = target - measured.integratedLufs!;                              // the limiter takes a little loudness with it: ask for that much more gain (as far as the cap allows)
+    if (Math.abs(deficit) <= 0.15) break;
+    const next = Math.min(gainDb + deficit, cap);
+    if (Math.abs(next - gainDb) < 0.05) break;
+    gainDb = next;
+  }
+  const limited = measured.integratedLufs! < target - 0.15;
+  const reduction = Math.round(applied.reductionDb * 10) / 10;
+  return {
+    target, gainDb: Math.round(gainDb * 10) / 10, reachedLufs: measured.integratedLufs, limited,
+    ...(reduction >= 0.1 ? { limiterDb: reduction, limiterAt: Math.round(applied.at * 100) / 100 } : {}),
+  };
 }
 
 /**
