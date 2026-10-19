@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.47.0
+
+`init({ loudness })` now reaches its target over peaks, and the small things that cost 16 fresh agents time are fixed. Nothing breaks.
 
 Found by a trial of 16 fresh agents (four models, four briefs) making videos with the published 0.46.0: all 16 delivered; these are what cost them time.
 
