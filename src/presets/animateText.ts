@@ -4,7 +4,7 @@ import { measureText, splitText, type MeasureStyle, type TextPiece } from '../te
 import { stagger, type StaggerOptions } from './stagger';
 import { wiggle } from './wiggle';
 
-const TWEEN_KEYS = ['preset', 'from', 'to', 'duration', 'ease'] as const;
+const TWEEN_KEYS = ['preset', 'from', 'to', 'duration', 'ease'] as const;      // (`stagger` is read for `out` only, below)
 const TIME_KEYS = ['at', 'delay', 'start', 'begin', 'time'];
 const KEYS = ['by', 'x', 'y', 'align', 'vertical', 'name', 'at', 'duration', 'in', 'out', 'stagger', 'idle', 'styleFor'] as const;
 
@@ -34,6 +34,8 @@ export interface AnimateTextTween {
   ease?: string;
   /** `out` only: the composition second the exit starts at (every piece leaves in the same wave from then on, and holds its exit state until the layer ends). Without it the exit is the end of the layer run backwards. Not for `in` (an entrance starts with its piece: the options' `at`). */
   at?: number;
+  /** `out` only: the wave of the exit, when it should not be the entrance's: `0` (all pieces leave at once), or `{ each: 0.1 }` and the other {@link stagger} options. Default: the same wave as the entrance (the options' `stagger`). */
+  stagger?: StaggerOptions | 0;
 }
 
 export interface AnimateTextOptions {
@@ -64,7 +66,7 @@ export interface AnimateTextOptions {
   styleFor?: (piece: TextPiece) => MeasureStyle;
 }
 
-interface Resolved { from: Record<string, number>; to: Record<string, number>; duration: number; ease: string; /** `out` only: the composition second the exit starts at. */ at?: number }
+interface Resolved { from: Record<string, number>; to: Record<string, number>; duration: number; ease: string; /** `out` only: the composition second the exit starts at. */ at?: number; /** `out` only: its own wave. */ stagger?: StaggerOptions }
 
 /**
  * Per-character, per-word or per-line text animation in one call: one text layer per piece, laid out exactly like the
@@ -91,11 +93,16 @@ export function animateText(text: string, style: MeasureStyle, options: AnimateT
   if (pieces.length === 0) return [];
 
   const lineHeight = measureText('M', style).height;
-  const inTween = options.in === false ? null : resolveTween(options.in ?? 'rise', 'in');
-  const outTween = options.out === undefined || options.out === false ? null : resolveTween(options.out, 'out');
+  const given = <T>(v: T | false | 'none' | undefined): T | undefined => (v === false || v === 'none' ? undefined : v);        // (an agent wrote out: 'none': it means what false means)
+  const inSpec = options.in === undefined ? 'rise' : given(options.in), outSpec = given(options.out);
+  const inTween = inSpec === undefined ? null : resolveTween(inSpec, 'in');
+  const outTween = outSpec === undefined ? null : resolveTween(outSpec, 'out');
   const delays = stagger(pieces.length, options.stagger ?? { each: 0.04 });
   const wave = Math.max(...delays);
-  const need = (inTween?.duration ?? 0) + (outTween?.duration ?? 0) + wave;
+  const outDelays = outTween?.stagger ? stagger(pieces.length, outTween.stagger) : delays;           // the exit's own wave, or the entrance's
+  const outWave = Math.max(...outDelays);
+  const lead = Math.max(...delays.map((d, i) => d - outDelays[i]!));                                 // how much later a piece enters than it leaves, after the exit's start
+  const need = (inTween?.duration ?? 0) + (outTween ? outTween.duration + outWave + lead : wave);
   if (duration < need - 1e-9) {
     throw new Error(`animateText(): duration ${duration} is too short for this wave: the entrance${outTween ? ', the exit' : ''} and the stagger need at least ${+need.toFixed(3)} s`);
   }
@@ -103,9 +110,9 @@ export function animateText(text: string, style: MeasureStyle, options: AnimateT
   const end = at + duration;
   if (outTween?.at !== undefined) {
     if (outTween.at < at - 1e-9) console.warn(`pixi-effects: animateText(): out.at ${outTween.at} is before the layer starts (at ${at}): the exit starts with the piece; use out.at ≥ ${at}`);
-    const latest = end - outTween.duration - wave;
-    if (outTween.at > latest + 1e-9) console.warn(`pixi-effects: animateText(): out.at ${outTween.at} leaves after the layer ends (the exit and the wave take ${+(outTween.duration + wave).toFixed(3)} s and the layer ends at ${+end.toFixed(3)} s): use out.at ≤ ${+latest.toFixed(3)}, or a longer duration`);
-    if (inTween && outTween.at - at < inTween.duration - 1e-9) console.warn(`pixi-effects: animateText(): out.at ${outTween.at} is before the entrance has finished (it takes ${inTween.duration} s from at ${at}): use out.at ≥ ${+(at + inTween.duration).toFixed(3)}`);
+    const latest = end - outTween.duration - outWave;
+    if (outTween.at > latest + 1e-9) console.warn(`pixi-effects: animateText(): out.at ${outTween.at} leaves after the layer ends (the exit and the wave take ${+(outTween.duration + outWave).toFixed(3)} s and the layer ends at ${+end.toFixed(3)} s): use out.at ≤ ${+latest.toFixed(3)}, or a longer duration`);
+    if (inTween && outTween.at - at < inTween.duration + lead - 1e-9) console.warn(`pixi-effects: animateText(): out.at ${outTween.at} is before the entrance has finished (it takes ${inTween.duration} s from at ${at}): use out.at ≥ ${+(at + inTween.duration + lead).toFixed(3)}`);
   }
   return pieces.map((p, i) => {
     const cx = p.cx ?? p.x + p.width / 2, cy = p.cy ?? p.y + lineHeight / 2;                   // vertical pieces come with their centre and a turn
@@ -125,8 +132,8 @@ export function animateText(text: string, style: MeasureStyle, options: AnimateT
     if (outTween) {
       // `out.at` (composition seconds) starts every piece's exit at the same local time (their own starts shift by their delays, so does the wave);
       // without it the exit is the end of the layer run backwards: the last piece finishes exactly at the end
-      const begin = outTween.at !== undefined ? undefined : outTween.duration + (wave - delays[i]!);      // seconds before this piece's end
-      const local = outTween.at !== undefined ? Math.max(0, outTween.at - at) : -begin!;       // (a negative keyframe time means "from the end", so an `out.at` before the start is held at 0)
+      const begin = outTween.at !== undefined ? undefined : outTween.duration + (outWave - outDelays[i]!);      // seconds before this piece's end
+      const local = outTween.at !== undefined ? Math.max(0, outTween.at + outDelays[i]! - start) : -begin!;       // (a negative keyframe time means "from the end", so an `out.at` before the start is held at 0)
       idleEnd = outTween.at !== undefined ? local : len - begin!;
       keyframes.push({
         at: local, duration: outTween.duration, ease: outTween.ease,
@@ -157,6 +164,10 @@ function resolveTween(spec: TextPreset | AnimateTextTween, which: 'in' | 'out'):
   if (typeof spec === 'object' && spec) {
     for (const key of Object.keys(spec)) {
       if ((TWEEN_KEYS as readonly string[]).includes(key)) continue;
+      if (key === 'stagger') {
+        if (which === 'in') console.warn('pixi-effects: animateText(): in.stagger is ignored: the entrance wave is the options\' `stagger` (only `out` can have a wave of its own: out: { stagger: 0 } leaves all at once)');
+        continue;
+      }
       if (which === 'out' && key === 'at') {
         if (typeof (spec as AnimateTextTween & { at?: unknown }).at !== 'number' || !Number.isFinite((spec as { at?: number }).at)) console.warn(`pixi-effects: animateText(): out.at must be a number of seconds (the composition second the exit starts at), got ${JSON.stringify((spec as { at?: unknown }).at)}; ignored`);
         continue;
@@ -169,7 +180,7 @@ function resolveTween(spec: TextPreset | AnimateTextTween, which: 'in' | 'out'):
   }
   if (t.preset !== undefined && !(t.preset in PRESETS)) {
     const guess = suggestName(String(t.preset), PRESET_NAMES);
-    throw new Error(`animateText(): ${which} "${t.preset}" is not a preset${guess ? `; did you mean "${guess}"?` : ''} (presets: ${PRESET_NAMES.map(n => `"${n}"`).join(', ')})`);
+    throw new Error(`animateText(): ${which} "${t.preset}" is not a preset${guess ? `; did you mean "${guess}"?` : ''} (presets: ${PRESET_NAMES.map(n => `"${n}"`).join(', ')}; for no ${which === 'out' ? 'exit: omit `out` or write out: false (the pieces stay until the layer ends)' : 'entrance: in: false'})`);
   }
   const base = t.preset ? PRESETS[t.preset] : undefined;
   const from: Record<string, number> = { ...(base?.from ?? {}), ...(t.from ?? {}) };
@@ -178,9 +189,12 @@ function resolveTween(spec: TextPreset | AnimateTextTween, which: 'in' | 'out'):
   for (const k of Object.keys(from)) {
     if (!known.has(k) && to[k] === undefined) throw new Error(`animateText(): ${which}.from has "${k}", which has no resting value; give ${which}.to: { ${k}: … }`);
   }
-  if (Object.keys(from).length === 0) throw new Error(`animateText(): ${which} needs a preset or a from`);
+  if (Object.keys(from).length === 0) {
+    throw new Error(`animateText(): ${which} needs a preset or a from${which === 'out' && Object.keys(to).length ? ` — ${which} takes \`from\`: the state the piece leaves to (out: { from: { y: 18, alpha: 0 } }); \`to\` is only the resting value of a property that has none` : ''}`);
+  }
   let ease = t.ease ?? base?.ease ?? 'power2.out';
   if (which === 'out' && t.ease === undefined) ease = ease.replace('.out', '.in');
   const at = which === 'out' && typeof t.at === 'number' && Number.isFinite(t.at) ? t.at : undefined;
-  return { from, to: { ...to }, duration: t.duration ?? base?.duration ?? 0.5, ease, ...(at !== undefined ? { at } : {}) };
+  const wave = which === 'out' && t.stagger !== undefined ? (t.stagger === 0 ? { each: 0 } : t.stagger) : undefined;
+  return { from, to: { ...to }, duration: t.duration ?? base?.duration ?? 0.5, ease, ...(at !== undefined ? { at } : {}), ...(wave ? { stagger: wave } : {}) };
 }

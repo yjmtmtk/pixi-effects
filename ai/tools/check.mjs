@@ -439,7 +439,7 @@ export async function runCheck(opts, log = console.log) {
     cdp.on(m => {
       if (m.method === 'Runtime.exceptionThrown') consoleLines.push(`uncaught: ${m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text}`);
       else if (m.method === 'Network.requestWillBeSent') requests.set(m.params.requestId, { url: m.params.request.url, type: m.params.type });
-      else if (m.method === 'Network.responseReceived' && m.params.response.status >= 400) {
+      else if (m.method === 'Network.responseReceived' && m.params.response.status >= 400 && !/\/favicon\.ico(\?|$)/.test(m.params.response.url)) {      // (a page without an icon link makes the browser ask for /favicon.ico: not a failed load)
         loadFailures.push({ url: m.params.response.url, status: m.params.response.status, type: m.params.type }); failureAt = Date.now();
       } else if (m.method === 'Network.loadingFailed' && !m.params.canceled) {
         const r = requests.get(m.params.requestId) ?? {};

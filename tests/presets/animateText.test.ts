@@ -234,3 +234,41 @@ describe('animateText(): x and y are pixel numbers (no expression strings), and 
   });
 });
 
+
+describe('animateText(): leaving, found by trial agents (2026-10-20)', () => {
+  const exitAt = (l: any) => { const k = kf(l)[kf(l).length - 1].at; return l.at + (k < 0 ? l.duration + k : k); };   // composition second the exit starts, for one piece (a negative keyframe time counts from the end of the layer)
+
+  it("'none' for `in` or `out` is the same as false: nothing arrives or leaves (an agent wrote out: 'none')", () => {
+    const a = animateText('AB', style, { duration: 4, in: 'none' as any, out: 'none' as any }) as any[];
+    const b = animateText('AB', style, { duration: 4, in: false, out: false }) as any[];
+    expect(a).toEqual(b);
+  });
+
+  it('a word that is not a preset says how to have no exit', () => {
+    expect(() => animateText('AB', style, { duration: 4, out: 'vanish' as any })).toThrow(/omit `out`|out: false/);
+  });
+
+  it('`out: { to }` says that an exit is described by `from`, the state the piece leaves to', () => {
+    expect(() => animateText('AB', style, { duration: 4, out: { to: { y: 18, alpha: 0 } } })).toThrow(/out takes `from`.*leaves to/s);
+  });
+
+  it('out.stagger 0: every piece leaves at the same moment, though they came one by one', () => {
+    const pieces = animateText('ABCD', style, { at: 1, duration: 6, in: 'fade', out: { preset: 'fade', at: 4, stagger: 0 }, stagger: { each: 0.2 } }) as any[];
+    const starts = pieces.map(exitAt);
+    expect(starts.every((s) => Math.abs(s - 4) < 1e-6), JSON.stringify(starts)).toBe(true);
+    const ins = pieces.map((l) => l.at);
+    expect(ins[3]! - ins[0]!).toBeCloseTo(0.6, 6);                                    // the entrance wave is unchanged
+  });
+
+  it('out.stagger is its own wave: { each: 0.1 } leaves one by one, 0.1 s apart, from the out.at', () => {
+    const pieces = animateText('ABCD', style, { at: 1, duration: 6, in: 'fade', out: { preset: 'fade', at: 4, stagger: { each: 0.1 } }, stagger: { each: 0.2 } }) as any[];
+    const starts = pieces.map(exitAt);
+    expect(starts.map((s) => +s.toFixed(6))).toEqual([4, 4.1, 4.2, 4.3]);
+  });
+
+  it('without out.at the last piece still finishes exactly at the end of the layer, whatever the exit wave is', () => {
+    const pieces = animateText('ABCD', style, { at: 1, duration: 6, in: false, out: { preset: 'fade', duration: 0.5, stagger: 0 } }) as any[];
+    const ends = pieces.map((l) => exitAt(l) + 0.5);
+    expect(ends.every((e) => Math.abs(e - 7) < 1e-6), JSON.stringify(ends)).toBe(true);
+  });
+});

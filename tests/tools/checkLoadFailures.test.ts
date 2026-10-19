@@ -49,6 +49,13 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check on a
     expect(r.report.retried, 'a 404 of our own file is not retried').toBeFalsy();
   }, 150_000);
 
+  it('a favicon.ico 404 is not a failed load: a page that starts slowly is waited for, and the favicon is not named', async () => {
+    const r = await run('check-favicon-slow.html');
+    expect(r.report.ready, 'the page became ready after its 5 s of waiting').toBe(true);
+    expect(r.report.problems.join('\n')).not.toMatch(/favicon|could not be loaded/i);
+    expect(JSON.stringify(r.report.loadFailures ?? [])).not.toMatch(/favicon/);
+  }, 150_000);
+
   it('a network failure is tried once more (a hiccup of a CDN), then said, naming the address and that it tried twice', async () => {
     const r = await run('check-load-fail-net.html');
     expect(r.code).toBe(1);

@@ -20,6 +20,7 @@ interface AnimateTextTween
   ease?: string
   from?: Record<string, number>
   preset?: "rise" | "drop" | "fade" | "pop" | "zoom" | "slide" | "spin"
+  stagger?: 0 | StaggerOptions
   to?: Record<string, number>
 interface ArcShapeSpec extends ShapeBase
   endAngle?: PropValue

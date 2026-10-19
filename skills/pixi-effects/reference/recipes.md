@@ -1388,7 +1388,7 @@ A moving, shadow-casting model is held to "a function of the time" by `check`: p
 
 ## An app or video on a phone, a television, a billboard (`threeLayerTexture`)
 
-A 2D composition is the screen; a `three` layer holds the object it is on. The composition keeps animating (its own keyframes, text, charts, a counter) and the mesh shows it live, turning with the object. Put the composition BEFORE the three layer, give it a background rect, and `await threeLayerTexture(ctx, 'screen')` in `setup`: `screen.material` goes on the face of the mesh. The page's import map needs `"three/webgpu"` and `"three/tsl"` next to `"three"` (the template's has them when it has `three`).
+A 2D composition is the screen; a `three` layer holds the object it is on. The composition keeps animating (its own keyframes, text, charts, a counter) and the mesh shows it live, turning with the object. Put the composition BEFORE the three layer, give it a background rect, and `await threeLayerTexture(ctx, 'screen')` in `setup`: `screen.material` goes on the face of the mesh. The three layer as written here (the default `renderer`, WebGL) needs nothing beyond the template's import map: the screen's pixels are read back each frame. Only a layer with `renderer: 'webgpu'` (the no-copy route) also needs `"three/webgpu"` and `"three/tsl"` next to `"three"`.
 
 ```js
 // @docs-only three-screen
