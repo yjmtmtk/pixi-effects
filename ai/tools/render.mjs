@@ -40,6 +40,13 @@ export function formatFromPath(file) {
   return ext;
 }
 
+/** The setting the file was made with, for the result line: `--quality` is relative to the picture (a flat one is small at 'high'), so the line says which one was used. */
+export function qualityLabel(opts) {
+  if (opts.videoBitrate) return `video bitrate ${opts.videoBitrate}`;
+  if (opts.draft && !opts.qualityGiven) return 'draft: quality low';
+  return `quality ${opts.quality}`;
+}
+
 export function defaultOutput(page, format) {
   return path.resolve(path.basename(page).replace(/\.[^.]+$/, '') + '.' + format);
 }
@@ -302,7 +309,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process
     }
     const picture = !SOUND_ONLY.includes(opts.format) && opts.format !== 'pdf';
     const rate = picture ? bitrateLine(r.bytes, fileSeconds(r, opts), opts.videoBitrate) : { mbps: null, note: '' };
-    console.log(`${shown(r.file)}  ${kb(r.bytes)} · ${fileSeconds(r, opts)} s${rate.mbps !== null ? ` · ${rate.mbps} Mbps` : ''} · ${SOUND_ONLY.includes(opts.format) ? 'sound only' : `${r.width}×${r.height} @ ${r.frameRate} fps`} · ${opts.format} · rendered in ${r.seconds} s`);
+    console.log(`${shown(r.file)}  ${kb(r.bytes)} · ${fileSeconds(r, opts)} s${rate.mbps !== null ? ` · ${rate.mbps} Mbps (${qualityLabel(opts)})` : ''} · ${SOUND_ONLY.includes(opts.format) ? 'sound only' : `${r.width}×${r.height} @ ${r.frameRate} fps`} · ${opts.format} · rendered in ${r.seconds} s`);
     if (rate.note) console.error(`note: ${rate.note}`);
     process.exit(opts.strict && r.logs.length ? 1 : 0);
   } catch (e) {

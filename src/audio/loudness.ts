@@ -2,7 +2,7 @@
 export interface LoudnessReport { integratedLufs: number | null; truePeakDb: number | null; samplePeakDb: number; clippedSamples: number }
 
 /** Where the advice in `inspectAudio().notes` starts: one place, so the docs can point at it. */
-export const LOUDNESS_NOTES = { quietBelow: -20, loudAbove: -9, headroomDb: -1 } as const;
+export const LOUDNESS_NOTES = { quietBelow: -18, loudAbove: -9, headroomDb: -1 } as const;
 
 interface Biquad { b: [number, number, number]; a: [number, number, number] }
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+Second batch from the 16-agent and 21-agent trials.
+
+- **Changed: `check` calls a mix quiet from -18 LUFS (it was -20).** Four Sonnet films ended at -17 to -19 LUFS without ever being told; the note names `movie.init({ loudness: -16 })`.
+- **Changed: an `sfx` knob written beside `sfx:` says where it goes.** `{ sfx: 'click', pitch: 1.2 }` warned "not an audio layer key" with the key list; it now says `write it inside — sfx: { preset: 'click', pitch: 1.2 }` and that pitch is in semitones (3 agents over two waves).
+- **Changed: `render` says which quality the file was made with** (`1.2 Mbps (quality high)`): a flat picture is small at `high`, and two agents could not tell whether `--quality high` had been applied.
+- **Docs: the skill warns about two shell traps** (zsh runs `echo ====` as a command, macOS `sed -i` needs `''`) that cost 8 trial agents a command.
+
 ## 0.47.0
 
 `init({ loudness })` now reaches its target over peaks, and the small things that cost 16 fresh agents time are fixed. Nothing breaks.

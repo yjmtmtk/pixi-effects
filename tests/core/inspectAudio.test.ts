@@ -22,8 +22,11 @@ describe('analyzeAudio', () => {
     expect(quiet.loudness.integratedLufs!).toBeLessThan(-20);
     expect(quiet.loudness.integratedLufs!).toBeGreaterThan(-24);
     expect(quiet.notes.join('\n')).toMatch(/quiet for web video.*loudness: -16/s);
-    const fine = noteAt(0.18);
-    expect(fine.loudness.integratedLufs!).toBeGreaterThan(-20);
+    const mid = noteAt(0.14);                                                 // about -19: below the line since 0.47 (a trial: four Sonnet films at -17 to -19 were never told)
+    expect(mid.loudness.integratedLufs!).toBeLessThan(-18);
+    expect(mid.notes.join('\n')).toMatch(/quiet for web video.*loudness: -16/s);
+    const fine = noteAt(0.25);
+    expect(fine.loudness.integratedLufs!).toBeGreaterThan(-18);
     expect(fine.notes.join('\n')).not.toMatch(/quiet for web video/);
   });
   it('a loudness target that was out of reach names WHERE the peak is and WHICH sounds play there (a trial: 11 of 16 agents guessed at it)', () => {

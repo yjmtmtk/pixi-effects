@@ -140,3 +140,20 @@ describe('lintKeys: a canvas layer', () => {
   });
 });
 
+describe('lintKeys: the knobs of an sfx go inside `sfx` (a trial: three agents wrote pitch beside `sfx:` over two waves)', () => {
+  it("names the fix with their own preset: sfx: { preset: 'click', pitch: 1.2 }, and says pitch is in semitones", () => {
+    const w = warns({ type: 'audio', sfx: 'click', at: 1, pitch: 1.2 });
+    expect(w).toHaveLength(1);
+    expect(w[0]).toMatch(/"pitch".*sfx: \{ preset: 'click', pitch: 1\.2 \}/s);
+    expect(w[0]).toMatch(/semitones/);
+  });
+  it('the same for brightness and seed, and when the sfx is already an object it says to put the knob in it', () => {
+    expect(warns({ type: 'audio', sfx: 'hit', brightness: 0.5 })[0]).toMatch(/sfx: \{ preset: 'hit', brightness: 0\.5 \}/);
+    expect(warns({ type: 'audio', sfx: 'pop', seed: 3 })[0]).toMatch(/sfx: \{ preset: 'pop', seed: 3 \}/);
+    expect(warns({ type: 'audio', sfx: { preset: 'swoosh' }, pitch: -2 })[0]).toMatch(/inside the `sfx` object|sfx: \{ preset: 'swoosh', pitch: -2 \}/);
+  });
+  it('a pitch on a file audio layer is still the plain unknown key (no sfx to put it in)', () => {
+    expect(warns({ type: 'audio', asset: 'a.mp3', pitch: 1 })[0]).not.toMatch(/preset/);
+  });
+});
+

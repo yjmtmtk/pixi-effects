@@ -140,6 +140,9 @@ const REMOVED_KEYS: Record<string, string> = {
   maskInverted: 'a hole instead of a crop is `mask: { layer: <the mask layer>, invert: true }`',
 };
 
+/** The knobs of a sound effect: they are keys of `sfx: { … }`, not of the layer. */
+const SFX_KNOBS = new Set(['pitch', 'brightness', 'seed']);
+
 /** Where a layer is and how it is turned: always `initial` or a keyframe, even for a kind of layer that has such a name as a key of another meaning (`anchorX` on a shape). */
 const TRANSFORM_KEYS = new Set(['x', 'y', 'z', 'alpha', 'rotation', 'rotationX', 'rotationY', 'scale', 'scaleX', 'scaleY', 'anchor', 'anchorX', 'anchorY',
   'pivot', 'pivotX', 'pivotY', 'skew', 'skewX', 'skewY', 'position', 'positionX', 'positionY', 'tint', 'visible', 'autoAlpha']);
@@ -152,6 +155,15 @@ export function lintKeys(spec: SequenceSpec, warn: Warn = defaultWarn): void {
       if (valid.includes(key) || (spec as unknown as Record<string, unknown>)[key] === undefined) continue;       // a spread that sets a key only when it applies leaves `undefined`
       if (REMAPPABLE.has(spec.type) && REMAP_NAMES.has(key)) continue;                                            // lintRemap has its own message for these
       if (REMOVED_KEYS[key]) { warn(`pixi-effects: ${who}: "${key}" is not a ${kindName(spec as { type: string; shape?: string })} key: ${REMOVED_KEYS[key]}`); continue; }
+      // `pitch`, `brightness`, `seed` are knobs of the sound effect, they go inside `sfx` (a trial: three agents wrote them beside `sfx:`)
+      if (spec.type === 'audio' && SFX_KNOBS.has(key) && (spec as { sfx?: unknown }).sfx !== undefined) {
+        const sfx = (spec as { sfx?: unknown }).sfx;
+        const preset = typeof sfx === 'string' ? sfx : (sfx as { preset?: string } | null)?.preset;
+        const v = (spec as unknown as Record<string, unknown>)[key];
+        const shown = typeof v === 'number' || (typeof v === 'string' && v.length <= 24) ? JSON.stringify(v) : '…';
+        warn(`pixi-effects: ${who}: "${key}" is a knob of the sound effect, so it is ignored beside \`sfx\`: write it inside — sfx: { ${preset ? `preset: '${preset}', ` : ''}${key}: ${shown} }${key === 'pitch' ? ' (pitch is in semitones, ±24: 12 is an octave up)' : key === 'brightness' ? ' (brightness is −1 dark … 1 bright)' : ''}`);
+        continue;
+      }
       // `z`, `x`, `alpha`, `rotationX` … are properties of the picture: they go in `initial` (or a keyframe), not on the layer. Say that, not a guess at another key.
       if (TRANSFORM_KEYS.has(key) || (PROP_KEYS.has(key) && kindsWithKey(key).length === 0)) {                 // (a key some other kind of layer owns, `radius` on a rect, keeps its "it belongs to" sentence below)
         const v = (spec as unknown as Record<string, unknown>)[key];

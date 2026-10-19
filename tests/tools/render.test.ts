@@ -39,6 +39,13 @@ describe('render.mjs — pure helpers', () => {
     expect(quiet).toEqual(['rendering 0%\n', 'rendering 11% (16 s)\n', 'rendering 25% (31 s)\n', 'rendering 40% (47 s)\n']);           // the first at once, then no more than one every 15 s
   });
 
+  it('qualityLabel: says which setting the file was made with (two agents asked whether --quality high was applied: the file was as small as the preview)', () => {
+    expect(tool.qualityLabel({ quality: 'high', qualityGiven: false, draft: false, videoBitrate: null })).toBe('quality high');
+    expect(tool.qualityLabel({ quality: 'very-high', qualityGiven: true, draft: false, videoBitrate: null })).toBe('quality very-high');
+    expect(tool.qualityLabel({ quality: 'high', qualityGiven: false, draft: true, videoBitrate: null })).toBe('draft: quality low');
+    expect(tool.qualityLabel({ quality: 'high', qualityGiven: false, draft: false, videoBitrate: '8M' })).toBe('video bitrate 8M');
+  });
+
   it('bitrateLine: the real bitrate of the file, and a sentence when --video-bitrate asked for far more than it got (55M gave 17.8 Mbps on a mostly black picture)', () => {
     const got = tool.bitrateLine(2_225_000, 1, '55M');                       // 2 225 000 bytes in 1 s = 17.8 Mbps
     expect(got.mbps).toBe(17.8);
@@ -153,7 +160,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('render.mjs
     const run = (args: string[]) => promisify(execFile)('node', [join(root, 'ai/tools/render.mjs'), join(root, 'tests/films/export-range.html'), ...args, '--quiet', '--timeout', '150'], { timeout: 170_000 });
     const seconds = (stdout: string): number => Number(/· ([0-9.]+) s ·/.exec(stdout)?.[1]);
     const whole = await run(['-o', join(dir, 'whole.mp4')]);
-    expect(whole.stdout, 'the result line gives the real bitrate').toMatch(/· [0-9.]+ Mbps ·/);
+    expect(whole.stdout, 'the result line gives the real bitrate and the quality it was made with').toMatch(/· [0-9.]+ Mbps \(quality high\) ·/);
     expect(seconds(whole.stdout)).toBeGreaterThan(3.8);
     expect(seconds(whole.stdout)).toBeLessThan(4.2);
     const part = await run(['-o', join(dir, 'part.mp4'), '--range', '1:2']);

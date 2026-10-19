@@ -53,6 +53,7 @@ The same command checks a file you MADE before it goes somewhere with rules (a s
 
 - **Keyframe `at` starts at 0 when the layer appears** (negative = back from the layer's end). A layer's own `at` and a transition's `at` are composition time.
 - **Layers are hidden, not removed, after their lifespan; z-order is array order.** Switch scenes by stacking layers with `at`/`duration` over an opaque background rect.
+- **Shell traps** (8 trial agents lost a command to these): zsh runs `echo ====` as a command (quote it, or leave the separator out); macOS `sed -i` needs an empty suffix, `sed -i '' …`.
 - **Angles are degrees. `+z` is toward the viewer. Numbers can be expressions** (`'GW/2 - w/2'`; no `pi`; no per-frame variable).
 - **Anchors**: rect/circle/ellipse are centred on `x,y`; text and image are top-left (use `anchorX/anchorY: 0.5`); compositions use `pivotX/pivotY`. A bar that grows from its base needs `anchorY: 1`.
 - **Sound effects need no files:** `{ type: 'audio', sfx: 'swoosh', at: 2 }` — presets `click pop swoosh swipe hit riser chime beep coin glitch typewriter`; knobs `pitch`, `brightness`, `seed`. The layer lasts as long as the sound (`duration` stretches it); a `riser` is loudest at its end (`at = hit − duration`), a `swoosh` 0.16 s in. A music file shorter than its layer goes silent — `loop: true`.
