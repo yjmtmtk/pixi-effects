@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>check · Japanese text in a narrow box: wordWrap alone does not wrap, breakWords breaks between any two characters</title>
+</head>
+<body>
+  <!--
+    Acceptance check (not an example): one Japanese sentence of 20 characters with no spaces, twice.
+    'nowrap': wordWrap true + wordWrapWidth, no breakWords (docs/dsl.md "Wrapping and fonts for Japanese": the line does not wrap and runs off the canvas).
+    'wrap':   the same + breakWords true (it breaks between any two characters, so a line may start with 、 or a small kana, and the last line may be an orphan).
+    The box is sized from the measured width of one character: wordWrapWidth = (per + 0.5) characters, so exactly `per` characters fit on a line.
+    ?per=N changes how many characters fit (default 6).
+  -->
+  <canvas id="stage" width="640" height="360"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":      "https://esm.sh/mediabunny@1.61.3"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie, measureText } from '../../dist/index.js';
+    import { CanvasTextMetrics, TextStyle } from 'pixi.js';
+    const per = Number(new URLSearchParams(location.search).get('per') || 6);
+    const TEXT = 'わたしたちは、ちいさなしゃしんをとった。';
+    const base = { fontSize: 20, fontFamily: 'Hiragino Sans, Hiragino Kaku Gothic ProN, Noto Sans JP, sans-serif', fill: '#ffffff', align: 'left' };
+    const charWidths = Array.from(TEXT, ch => measureText(ch, base).width);
+    const w = charWidths[0];
+    const W = Math.round((per + 0.5) * w);
+    const nowrapStyle = { ...base, wordWrap: true, wordWrapWidth: W };
+    const wrapStyle = { ...base, wordWrap: true, wordWrapWidth: W, breakWords: true };
+    window.__film = { TEXT, base, per, w, W, charWidths, nowrapStyle, wrapStyle };
+    // the lines PixiJS draws for a style (a text layer is a PIXI.Text with its `style`)
+    window.__drawnLines = (style) => CanvasTextMetrics.measureText(TEXT, new TextStyle(style)).lines;
+    window.__measureText = measureText;
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 640, height: 360, duration: 1, frameRate: 30, background: '#000000',
+        composition: { sequences: [
+          { type: 'text', name: 'wrap', text: TEXT, style: wrapStyle, initial: { x: 20, y: 60 } },
+          { type: 'text', name: 'nowrap', text: TEXT, style: nowrapStyle, initial: { x: 300, y: 10 } },
+        ] },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

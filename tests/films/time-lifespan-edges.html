@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · lifespan edges</title></head>
+<body style="margin:0">
+  <!--
+    Test film (tests/films/time-lifespan-edges.test.ts): a layer is alive in [at, at + duration).
+    A 320 x 180 black movie, 3 s at 30 fps. One red 40 x 40 rect 'life' (centred on x, y) with at: 1, duration: 1, which slides from x 60 to x 260
+    with a keyframe at its OWN 0 (layer-local time), over 1 s, ease 'none'. Frames 29 / 30 / 59 / 60 are the edges: before, on the start, the last inside, the end.
+    ?at=<s>&duration=<s> change the lifespan (the defaults are 1 and 1).
+  -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":      "https://esm.sh/mediabunny@1.61.3"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const q = new URLSearchParams(location.search);
+    const AT = q.has('at') ? Number(q.get('at')) : 1;
+    const DURATION = q.has('duration') ? Number(q.get('duration')) : 1;
+    const movie = new Movie();
+    window.movie = movie;
+    // the RGB of one canvas pixel at a frame, from the picture snapshot() makes (the same draw as a seek)
+    window.pixelAt = async (frame, x, y) => {
+      const img = await movie.snapshot(frame, { as: 'imageData' });
+      const i = (Math.round(y) * img.width + Math.round(x)) * 4;
+      return [img.data[i], img.data[i + 1], img.data[i + 2]];
+    };
+    // what movie.inspect says about 'life' at a frame (every layer, not only the visible ones)
+    window.lifeAt = async (frame) => {
+      const r = await movie.inspect(frame, { layers: 'all' });
+      const l = r.layers.find((x) => x.name === 'life');
+      return l ? { frame: r.frame, time: r.time, visible: l.visible, bounds: l.bounds } : { frame: r.frame, time: r.time, missing: true };
+    };
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: 30, background: '#000000',
+        composition: { sequences: [
+          { type: 'shape', shape: 'rect', name: 'life', at: AT, duration: DURATION, width: 40, height: 40,
+            initial: { x: 60, y: 90, fillColor: '#ff0000' },
+            keyframes: [{ at: 0, to: { x: 260 }, duration: 1, ease: 'none' }] },
+        ] },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

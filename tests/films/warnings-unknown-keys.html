@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>film · a misspelt layer key is one warning that names the layer, the key and what to write</title>
+</head>
+<body>
+  <!--
+    Test film (not an example). The same nine layers, built two ways:
+      (no query)      every key correct: the page gives NO warning (tests/tools/noFalseWarnings.test.ts opens it like this);
+      ?mistakes=1     six layers each carry ONE wrong key, three correct layers stand next to them:
+                        bar    rect   duraton: 2        (a typo of duration)
+                        panel  rect   anchorx: 0        (a typo of anchorX, a rect's top-level key)
+                        card   rect   cornerradius: 8   (a typo of cornerRadius)
+                        dot    rect   x: 40             (a property on the layer instead of in initial)
+                        pill   rect   radius: 10        (a circle's key on a rect)
+                        title  text   anchorX: 0.5      (an anchor on a text layer instead of in initial)
+                        okRect / okCircle / okText: correct, with their geometry at the top level and their anchors where they belong.
+      &pill=circle    the "pill" layer is a circle: radius is then its own key and that mistake is gone.
+  -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":      "https://esm.sh/mediabunny@1.61.3"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const q = new URLSearchParams(location.search);
+    const wrong = q.get('mistakes') === '1';
+    const pillShape = q.get('pill') === 'circle' ? 'circle' : 'rect';
+    const fill = (c) => ({ fillColor: c });
+    // each mistaken layer: the wrong key when ?mistakes=1, the right way to write it otherwise
+    const sequences = [
+      { type: 'shape', shape: 'rect', name: 'bar', width: 60, height: 12, ...(wrong ? { duraton: 2 } : { duration: 2 }), initial: { x: 40, y: 20, ...fill('#e04040') } },
+      { type: 'shape', shape: 'rect', name: 'panel', width: 60, height: 12, ...(wrong ? { anchorx: 0 } : { anchorX: 0 }), initial: { x: 120, y: 20, ...fill('#40e040') } },
+      { type: 'shape', shape: 'rect', name: 'card', width: 60, height: 30, ...(wrong ? { cornerradius: 8 } : { cornerRadius: 8 }), initial: { x: 220, y: 30, ...fill('#4040e0') } },
+      wrong
+        ? { type: 'shape', shape: 'rect', name: 'dot', width: 16, height: 16, x: 40, initial: { y: 70, ...fill('#e0e040') } }
+        : { type: 'shape', shape: 'rect', name: 'dot', width: 16, height: 16, initial: { x: 40, y: 70, ...fill('#e0e040') } },
+      pillShape === 'circle'
+        ? { type: 'shape', shape: 'circle', name: 'pill', radius: 10, initial: { x: 120, y: 70, ...fill('#e040e0') } }
+        : { type: 'shape', shape: 'rect', name: 'pill', width: 40, height: 20, ...(wrong ? { radius: 10 } : { cornerRadius: 10 }), initial: { x: 120, y: 70, ...fill('#e040e0') } },
+      wrong
+        ? { type: 'text', name: 'title', text: 'Keys', anchorX: 0.5, style: { fontSize: 20, fill: '#ffffff' }, initial: { x: 220, y: 70 } }
+        : { type: 'text', name: 'title', text: 'Keys', style: { fontSize: 20, fill: '#ffffff' }, initial: { x: 220, y: 70, anchorX: 0.5 } },
+      // correct neighbours: shape geometry and a shape's anchor at the top level are keys of a shape (docs/dsl.md "Shape geometry … may be written at the top level")
+      { type: 'shape', shape: 'rect', name: 'okRect', width: 60, height: 20, cornerRadius: 6, anchorX: 0, anchorY: 1, duration: 3, initial: { x: 20, y: 150, ...fill('#40e0e0') } },
+      { type: 'shape', shape: 'circle', name: 'okCircle', radius: 14, initial: { x: 160, y: 140, ...fill('#e08040') } },
+      { type: 'text', name: 'okText', text: 'ok', style: { fontSize: 18, fill: '#ffffff' }, initial: { x: 260, y: 140, anchorX: 0.5, anchorY: 0.5 } },
+    ];
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: 30, background: '#101010',
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

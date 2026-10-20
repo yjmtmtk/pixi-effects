@@ -59,7 +59,7 @@ const widthOf = (text: string, style: TextStyle): number => CanvasTextMetrics.me
  */
 export function measureText(text: string, style: MeasureStyle = {}): TextSize {
   const m = CanvasTextMetrics.measureText(text, new TextStyle(style as never));
-  return { width: m.width, height: m.height, lines: text.split('\n').length };
+  return { width: m.width, height: m.height, lines: m.lines?.length ?? text.split('\n').length };          // the lines as drawn: a wrapped text has more than its \n + 1
 }
 
 /**

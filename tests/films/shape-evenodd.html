@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · path fillRule evenodd</title></head>
+<body style="margin:0">
+  <!--
+    Test film (tests/films/shape-evenodd.test.ts): holes in a path with several sub-paths (docs/dsl.md "Holes (fillRule: 'evenodd') on a path", the path row of the cheatsheet's shape table).
+    A 640 x 360 canvas on black, four yellow paths (no x / y: each sits where its d says), no stroke:
+      top row     a donut written as two circles (outer r 70, inner r 35): 'donutLeft' at (160, 90), 'donutRight' at (480, 90)
+      bottom row  a five-pointed star (outer r 55, inner r 25) written FIRST, then a 140 x 140 square around it: 'starLeft' at (160, 270), 'starRight' at (480, 270)
+    The left column has no fillRule, the right column fillRule: 'evenodd'. ?flip=1 swaps them (the left column gets evenodd, the right none).
+    The page gives the test pixelsAt([[x, y], …]) -> { size, px: [[r, g, b], …] } of frame 0 and window.centres.
+  -->
+  <canvas id="stage" width="640" height="360"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">{ "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const flip = new URLSearchParams(location.search).get('flip') === '1';
+    const ruleLeft = flip ? 'evenodd' : undefined, ruleRight = flip ? undefined : 'evenodd';
+    // a circle as one closed sub-path in absolute coordinates (the docs' own donut is written this way)
+    const circle = (cx, cy, r, sweep) => `M ${cx} ${cy - r} A ${r} ${r} 0 1 ${sweep} ${cx} ${cy + r} A ${r} ${r} 0 1 ${sweep} ${cx} ${cy - r} Z`;
+    const donut = (cx, cy) => `${circle(cx, cy, 70, 1)} ${circle(cx, cy, 35, 0)}`;
+    // a five-pointed star (tip up, outer r 55, inner r 25), then the square around it: the hole is written first, the biggest sub-path second
+    const star = (cx, cy) => {
+      const pts = [];
+      for (let i = 0; i < 10; i++) { const r = i % 2 ? 25 : 55, a = -Math.PI / 2 + i * Math.PI / 5; pts.push(`${(cx + r * Math.cos(a)).toFixed(3)} ${(cy + r * Math.sin(a)).toFixed(3)}`); }
+      return `M ${pts[0]} ${pts.slice(1).map(p => 'L ' + p).join(' ')} Z M ${cx - 70} ${cy - 70} L ${cx + 70} ${cy - 70} L ${cx + 70} ${cy + 70} L ${cx - 70} ${cy + 70} Z`;
+    };
+    const path = (name, d, fillRule) => ({ type: 'shape', shape: 'path', name, d, ...(fillRule ? { fillRule } : {}), initial: { fillColor: '#ffcc00' } });
+    window.centres = { donutLeft: [160, 90], donutRight: [480, 90], starLeft: [160, 270], starRight: [480, 270] };
+    const movie = new Movie();
+    window.movie = movie;
+    // the [r, g, b] of frame 0 at each [x, y] (one snapshot at the canvas's own size)
+    window.pixelsAt = async (points) => { const img = await movie.snapshot(0, { as: 'imageData' }); return { size: [img.width, img.height], px: points.map(([x, y]) => { const i = (y * img.width + x) * 4; return [img.data[i], img.data[i + 1], img.data[i + 2]]; }) }; };
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 1, frameRate: 30, background: '#000000', composition: { sequences: [
+        path('donutLeft', donut(160, 90), ruleLeft),
+        path('donutRight', donut(480, 90), ruleRight),
+        path('starLeft', star(160, 270), ruleLeft),
+        path('starRight', star(480, 270), ruleRight),
+      ] } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

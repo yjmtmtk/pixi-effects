@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Five new test films from the coverage plan (lifespan edges, skew, Japanese wrapping, even-odd holes, misspelt layer keys), each written from the documents and then broken on purpose to see it fail.
+
+- **Fixed: `measureText(text, style).lines` counted only the `\n` of the text,** so a wrapped text reported 1 line while its height was 4 (found by the Japanese-wrapping film; the docs promise "the same numbers a text layer with that `style` has").
+- **Fixed: the did-you-mean warning ended `…"duration"?. Valid keys: …`** (a full stop after the question mark).
+- **Docs: what `skewX` / `skewY` do** (PixiJS's axes turn about the anchor, not CSS's shear: the layer gets shorter), **that horizontal wrapping has no line-start rules** (a line may start with 、 or a small kana), and the real sentence of the "property, not a key" warning.
+
 ## 0.47.2
 
 A rebuild no longer blacks out a screen on a mesh, a mesh shows the right frame of the layer it carries, `pick` hits masked layers, and `init({ loudness })` is exact and fast. Nothing breaks.

@@ -175,7 +175,7 @@ export function lintKeys(spec: SequenceSpec, warn: Warn = defaultWarn): void {
       const owners = kindsWithKey(key);
       const belongs = owners.length ? ` (it belongs to ${owners.slice(0, 3).join(', ')})` : '';
       const hint = guess ? ` — did you mean "${guess}"?${belongs}` : belongs;
-      warn(`pixi-effects: ${who}: "${key}" is not a ${kindName(spec as { type: string; shape?: string })} key${hint}. Valid keys: ${valid.join(', ')}`);
+      warn(`pixi-effects: ${who}: "${key}" is not a ${kindName(spec as { type: string; shape?: string })} key${hint}${/[?.)]$/.test(hint) ? ' ' : '. '}Valid keys: ${valid.join(', ')}`);
     }
   }
   for (const { key, why } of pictureKeysIgnored(spec as unknown as { type: string } & Record<string, unknown>)) warn(`pixi-effects: ${who}: "${key}" does nothing on ${why}`);
