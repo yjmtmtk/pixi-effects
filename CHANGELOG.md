@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.47.3
+
+`measureText().lines` counts the lines a wrapped text draws, and the docs say what `skew` does. Nothing breaks.
 
 Five new test films from the coverage plan (lifespan edges, skew, Japanese wrapping, even-odd holes, misspelt layer keys), each written from the documents and then broken on purpose to see it fail.
 
