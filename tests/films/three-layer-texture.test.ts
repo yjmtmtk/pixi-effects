@@ -275,6 +275,14 @@ runFilms('threeLayerTexture: a live 2D layer on a mesh of a three layer', () => 
     }, { query: 'mode=maskoff' });
   }, 120_000);
 
+  it('a click on the mesh respects the screen composition\'s own mask: where the mesh shows nothing of the screen, nothing of it is hit (it named a button in black space)', async () => {
+    await withFilm('three-layer-texture', async (film) => {
+      const names = (x: number, y: number) => film.eval<string[]>(`(async () => { await movie.snapshot(0, { as: 'imageData' }); return movie.pickAll(${x}, ${y}).map((h) => h.path); })()`);
+      expect(await names(320, 180), 'inside the mask (the middle of the screen)').toContain('screen/sbg');
+      expect(await names(50, 50), 'outside the mask').not.toContain('screen/sbg');
+    }, { query: 'mode=masked' });
+  }, 120_000);
+
   it('a layer that is not alive does not answer through the mesh, and nothing changes for a mesh that shows no layer', async () => {
     await withFilm('three-layer-texture', async (film) => {
       const early = await film.eval<string | null>("(async () => { await movie.gotoFrame(10, true); const h = movie.pick(320, 80); return h && h.path; })()");

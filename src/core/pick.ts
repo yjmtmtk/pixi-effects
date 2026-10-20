@@ -110,6 +110,20 @@ export function pickScene(root: CompositionSequence, x: number, y: number, opts:
   };
   const inside = (b: { x: number; y: number; width: number; height: number }, p: { x: number; y: number }): boolean => p.x >= b.x && p.x <= b.x + b.width && p.y >= b.y && p.y <= b.y + b.height;
 
+  // A masked layer's box: PixiJS cuts `getLocalBounds()` by the mask with the wrong matrix (the mask is a sibling), so the box of the layer itself is read from the view where there is one
+  const boxOf = (d: Display, masked: boolean): { x: number; y: number; width: number; height: number } => {
+    const v = (d as unknown as { bounds?: { minX: number; minY: number; maxX: number; maxY: number } }).bounds;
+    if (masked && v && Number.isFinite(v.minX) && Number.isFinite(v.maxX)) return { x: v.minX, y: v.minY, width: v.maxX - v.minX, height: v.maxY - v.minY };
+    return d.getLocalBounds();
+  };
+  // Is the point inside an inline mask? A mask has no measurable box of its own (PixiJS sets measurable = false on it), so its box says nothing: ask its shape
+  const inMask = (maskTarget: Container, p: { x: number; y: number }): boolean => {
+    const c = maskTarget as unknown as { containsPoint?: (q: { x: number; y: number }) => boolean; toLocal: (q: { x: number; y: number }) => { x: number; y: number }; measurable?: boolean; getBounds: () => { x: number; y: number; width: number; height: number } };
+    if (typeof c.containsPoint === 'function') return c.containsPoint(c.toLocal(p));
+    const was = c.measurable; c.measurable = true;
+    try { return inside(c.getBounds(), p); } finally { c.measurable = was; }
+  };
+
   // a 2D layer that a mesh of a three layer shows (`threeLayerTexture`) is not on the stage (visible = false): a point on the mesh is answered for it, below
   const hiddenSources = new Map<CompositionSequence, string>();
   const forwards: Array<{ source: CompositionSequence; uv: { u: number; v: number }; via: { path: string; object: string }; order: Array<[number, number]> }> = [];
@@ -144,7 +158,11 @@ export function pickScene(root: CompositionSequence, x: number, y: number, opts:
         return;
       }
       const isComposition = seq instanceof CompositionSequence;
-      if (isComposition && !threeD) { walk(seq as CompositionSequence, path + '/', visible, at, orderBase, via); return; }   // a group is not a target: what is in it is
+      if (isComposition && !threeD) {                                                                 // a group is not a target: what is in it is
+        const gm = seq.maskSequence?.target as Container | null | undefined, gs = maskSourceOf((seq.spec as { mask?: unknown }).mask);
+        if (gm && gs.kind === 'inline' && !gs.invert && !inMask(gm, at)) return;                      // ... but not what its own mask cuts away
+        walk(seq as CompositionSequence, path + '/', visible, at, orderBase, via); return;
+      }
       if (!wanted(name, path)) {
         if (!threeD) { const lp = d.toLocal(at); forwardThrough(seq, d, path, lp, d.getLocalBounds()); }          // not wanted itself, but it may show a layer that is
         return;
@@ -155,7 +173,7 @@ export function pickScene(root: CompositionSequence, x: number, y: number, opts:
         if (quad && pointInQuad(quad, d.toLocal(point).x, d.toLocal(point).y)) hit = { name, path, type: seq.spec.type, kind: 'card', point };
       } else {
         const local = d.toLocal(point);
-        const lb = d.getLocalBounds();
+        const lb = boxOf(d, !!seq.maskSequence);
         if (inside(lb, local)) {
           const isThree = typeof (seq as unknown as { pickAt?: unknown }).pickAt === 'function';
           const ray = isThree ? rayOf(seq, d, local, lb) : undefined;
@@ -190,7 +208,7 @@ export function pickScene(root: CompositionSequence, x: number, y: number, opts:
       // a mask cuts the layer: what is outside it is not under the point (an inverted mask cuts a hole, which is not looked at here)
       const maskTarget = seq.maskSequence?.target as Container | null | undefined;
       const maskSrc = maskSourceOf((seq.spec as { mask?: unknown }).mask);
-      if (maskTarget && !(maskSrc.kind === 'inline' && maskSrc.invert) && !inside(maskTarget.getBounds(), point)) return;
+      if (maskTarget && !(maskSrc.kind === 'inline' && maskSrc.invert) && !(maskSrc.kind === 'inline' ? inMask(maskTarget, point) : inside(maskTarget.getBounds(), point))) return;
       found.push({ hit: via ? { ...hit, point: { x, y }, via } : hit, order: orderBase ? [...orderBase, ...orderOf(d)] : orderOf(d) });
     });
   };
@@ -200,6 +218,8 @@ export function pickScene(root: CompositionSequence, x: number, y: number, opts:
     const path = hiddenSources.get(f.source);
     if (path === undefined) continue;                                      // the layer is not alive now: the mesh shows nothing of it
     const g = (f.source.target as unknown as Display).toGlobal({ x: f.uv.u * f.source.intrinsicWidth, y: (1 - f.uv.v) * f.source.intrinsicHeight });
+    const sm = f.source.maskSequence?.target as Container | null | undefined, ss = maskSourceOf((f.source.spec as { mask?: unknown }).mask);
+    if (sm && ss.kind === 'inline' && !ss.invert && !inMask(sm, g)) continue;                    // the screen's own mask: the mesh shows nothing of it there
     walk(f.source, path + '/', true, g, f.order, f.via);
   }
   return found.sort((a, b) => above(a.order, b.order)).map((f) => f.hit);

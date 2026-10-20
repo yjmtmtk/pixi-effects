@@ -66,6 +66,18 @@ runFilms('movie.pick: what is under a point of the canvas', () => {
     });
   }, 120_000);
 
+  it('a layer with an inline mask is hit inside its mask and only there (the avatar-crop pattern was never hit: the mask had no measurable box and the layer\'s own box was cut by it)', async () => {
+    await withFilm('pick', async (film) => {
+      const at = async (x: number, y: number) => (await film.eval<any>(`pickAt(0, ${x}, ${y})`))?.name;
+      expect(await at(240, 135), 'the middle of the circle').toBe('avatar');
+      expect(await at(262, 135), 'inside the circle, off the middle').toBe('avatar');
+      expect(await at(240 + 45, 135), 'inside the rect, outside the circle: the mask cuts it away').not.toBe('avatar');
+      const hit = await film.eval<any>('pickAt(0, 250, 140)');
+      expect(hit.kind).toBe('flat');
+      expect(hit.local.x, 'a point of the layer\'s own pixels (the rect is 120 wide, the point is 10 right of its middle)').toBeCloseTo(70, 0);
+    });
+  }, 120_000);
+
   it('pickAll lists what is under a point, the top first; only / ignore choose', async () => {
     await withFilm('pick', async (film) => {
       const all = await film.eval<Array<{ name: string }>>('pickAllAt(0, 100, 60)');
