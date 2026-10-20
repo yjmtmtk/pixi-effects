@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.47.5
+
+An island inside a hole no longer draws a wedge, and `init({ loudness })` is never quieter than the plain gain. Nothing breaks.
 
 Eight more test films (playback against seek, same-`at` keyframes and `speed`, the sound in an exported file, a stroke round holes, the loudness target, two more warning families, a matte under a crossfade, what `check` leaves alone).
 
