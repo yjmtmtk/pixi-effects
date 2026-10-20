@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.47.2
+
+A rebuild no longer blacks out a screen on a mesh, a mesh shows the right frame of the layer it carries, `pick` hits masked layers, and `init({ loudness })` is exact and fast. Nothing breaks.
 
 Found by an adversarial review of 0.45 to 0.47.1 (six reviewers, 31 findings, each reproduced by a second agent, then again here).
 
