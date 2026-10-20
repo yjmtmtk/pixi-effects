@@ -86,9 +86,16 @@ describe('splitEvenOdd — the biggest sub-path is the shape, every other one is
   });
 
   it('the order of the sub-paths does not matter, and there can be several holes', () => {
-    const r = splitEvenOdd(`${SMALL} ${BIG}  ${TINY}`);
+    const SIDE = 'M 80 10 L 90 10 L 90 20 L 80 20 Z';                             // a second hole beside the first, not inside it
+    const r = splitEvenOdd(`${SMALL} ${BIG}  ${SIDE}`);
     expect(r.main).toBe(BIG);
-    expect(r.holes).toEqual([SMALL, TINY]);
+    expect(r.holes).toEqual([SMALL, SIDE]);
+  });
+
+  it('an island inside a hole is not a hole (it is not drawn, and cutting it out of the hole drew a wedge of fill: found by the island film)', () => {
+    const r = splitEvenOdd(`${BIG} ${SMALL} ${TINY}`);                           // TINY is inside SMALL
+    expect(r.main).toBe(BIG);
+    expect(r.holes).toEqual([SMALL]);
   });
 
   it('a curved outer and inner circle (the donut)', () => {

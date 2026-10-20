@@ -198,6 +198,17 @@ export async function normalizeMix(buffer: AudioBuffer, target: number, between?
       gainDb = next;
     }
   }
+  // The limiter must never leave the mix quieter than the plain way would (one gain, the loudest sample at the ceiling): when a click carries the loudness of the plain mix, limiting it can take the
+  // very quiet bed back into the gate of the measurement and the integrated loudness FALLS. Then the plain gain is what is applied.
+  if (original && final.integratedLufs !== null && m.integratedLufs !== null) {
+    const plainDb = Math.min(target - m.integratedLufs, LOUDNESS_CEILING_DB - m.samplePeakDb);
+    if (final.integratedLufs < m.integratedLufs + plainDb - 0.1) {
+      const k = 10 ** (plainDb / 20);
+      for (let ch = 0; ch < chans.length; ch++) { const o = original[ch]!, d = chans[ch]!; for (let i = 0; i < d.length; i++) d[i] = o[i]! * k; }
+      gainDb = plainDb; applied = { reductionDb: 0, at: 0 };
+      final = measureLoudness(chans, sr);
+    }
+  }
   // a last fixed trim makes the -1 dBTP certain where the rounds did not get there (a flat-topped noise peak overshoots more as it is limited more); the trim is linear, so the loudness shifts by it
   let trimDb = 0;
   if (final.truePeakDb! > LOUDNESS_CEILING_DB) {

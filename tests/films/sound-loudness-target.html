@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · the whole mix brought to a loudness target</title></head>
+<body style="margin:0">
+  <!--
+    Test film (tests/films/sound-loudness-target.test.ts): movie.init({ loudness: T }) on five mixes, read back with movie.inspectAudio().
+    A 320 x 180 movie, 3 s at 30 fps, a card and synthesised sound only:
+      'bed'    a steady 1 kHz sine (a custom sfx with the 'hold' envelope) over the whole movie, at volume BED x vol;
+      'hit'    (?mix=hit)   a 'click' preset at 1.5 s, volume 1.2, over the bed at 0.1: reaching -16 LUFS needs a few dB of limiting (well under 10);
+      'spike'  (?mix=spike) a 'click' preset at 1.5 s, volume 2, over the bed at 0.05: the click peaks 30 dB over the bed (the docs' example of a mix out of reach);
+      'spike'  (?mix=bare)  the same click over the bed at 0.01: almost nothing under the click (its own loudness is the mix's).
+    ?mix=quiet (default) | loud | hit | spike | bare   which mix (quiet: the bed at 0.1; loud: the bed at 2.5; the others: the bed with a click on it)
+    ?loudness=<LUFS> | off                      passed to movie.init as the loudness option (left out: no option at all)
+    ?vol=<x>                                    multiplies the bed's volume (default 1)
+  -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":      "https://esm.sh/mediabunny@1.61.3"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const q = new URLSearchParams(location.search);
+    const MIX = q.get('mix') ?? 'quiet';
+    const VOL = q.has('vol') ? Number(q.get('vol')) : 1;
+    const DURATION = 3, CLICK_AT = 1.5;
+    const BED = { quiet: 0.1, loud: 2.5, hit: 0.1, spike: 0.05, bare: 0.01 }[MIX];
+    const movie = new Movie();
+    window.movie = movie;
+    const sequences = [
+      { type: 'shape', shape: 'rect', name: 'card', width: 120, height: 40, initial: { x: 160, y: 90, fillColor: '#3a86ff' } },
+      { type: 'audio', name: 'bed', at: 0, duration: DURATION, volume: BED * VOL, sfx: { voices: [{ wave: 'sine', freq: 1000, envelope: 'hold' }] } },
+    ];
+    if (MIX === 'hit') sequences.push({ type: 'audio', name: 'hit', sfx: 'click', at: CLICK_AT, volume: 1.2 });
+    if (MIX === 'spike' || MIX === 'bare') sequences.push({ type: 'audio', name: 'spike', sfx: 'click', at: CLICK_AT, volume: 2 });
+    const l = q.get('loudness');
+    const opts = l === null ? {} : { loudness: l === 'off' ? false : Number(l) };
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: DURATION, frameRate: 30, background: '#101828', ...opts,
+        composition: { sequences } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

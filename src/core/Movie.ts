@@ -74,8 +74,8 @@ export interface MovieOptions {
   /** Start with `movie.loop` on: playing goes back to the start at the end instead of stopping. Default false (like a `<video>`). */
   loop?: boolean;
   /**
-   * The loudness of the whole mix in LUFS (ITU-R BS.1770): `-16` is usual for web video. The finished mix gets one gain (up or down) so its integrated loudness is that number, but the loudest sample
-   * never passes -1 dBFS: a mix with one loud click in a quiet bed stops short, and `inspectAudio()` / `check` say how far it got. Default: off (the mix is what the layers make; `check` says when it is quiet).
+   * The loudness of the whole mix in LUFS (ITU-R BS.1770): `-16` is usual for web video. The finished mix gets one gain (up or down) so its integrated loudness is that number: a look-ahead limiter takes a click or a hit on top of a quiet bed down (by up to 10 dB) and the true peak
+   * never passes -1 dBTP. A mix whose peaks are out of that reach stops short, and `inspectAudio()` / `check` say how far it got and why. Default: off (the mix is what the layers make; `check` says when it is quiet).
    * A number of 0 or below, or `false`.
    */
   loudness?: number | false;

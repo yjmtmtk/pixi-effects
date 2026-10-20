@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Eight more test films (playback against seek, same-`at` keyframes and `speed`, the sound in an exported file, a stroke round holes, the loudness target, two more warning families, a matte under a crossfade, what `check` leaves alone).
+
+- **Fixed: an island inside a hole of an `evenodd` path drew a wedge of the fill inside the hole** (cutting a shape out of a hole that was already cut). The island is now neither filled nor cut nor stroked, as the docs say.
+- **Fixed: `init({ loudness })` could leave a mix QUIETER than with no option** when a loud click carried the plain mix's loudness: limiting the click let the very quiet bed back into the loudness gate and the integrated loudness fell. The limiter result is compared with the plain gain and the plain gain is used when the limiter would be worse.
+- **Docs, each pinned by a film:** a frame drawn while playing is the snapshot of that frame; keyframes with the same `at`; the loudness of an exported file against the mix (an mp4's sound is padded to a whole AAC frame); the stroke of a shape is centred on its outline; crossfade is not a linear mix and a composition's `alpha` goes into each child; where a wipe starts and ends; `canvas`'s build warning for `Math.random` catches only a direct call; what `check` samples (every 0.25 s) and the layout sentences; the `loudness` JSDoc and the out-of-reach note were stale.
+
 ## 0.47.4
 
 A morph between two quads keeps its corners when one is written with a closing line, and `style.colour` points at `fill`. Nothing breaks.

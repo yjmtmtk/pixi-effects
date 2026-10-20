@@ -75,7 +75,7 @@ Seeks to a specific frame. Pauses if currently playing? **No** — does not chan
 
 ### `movie.playUntil(seconds?): Promise<boolean>`
 
-Play, and pause exactly at `seconds` (the frame `round(seconds × frameRate)`). It resolves `true` when the playhead has landed there; `false` when something else ended it first (a `pause()`, a seek, a newer `playUntil()`) or when there is nothing to play toward (a time at or before the playhead: it also pauses the movie where it is; a movie that is not ready). A time at or past the end lands on the last frame; with no time at all it plays to the end, says `ended`, and resolves `true`. An ordinary `play()` is not affected. It is the one move a presentation (`pixi-effects/present`) is built on; it is also the way to "play the intro, then wait": `await movie.playUntil(4.5)`.
+Play, and pause exactly at `seconds` (the frame `round(seconds × frameRate)`). **A frame drawn while playing is the picture `snapshot(frame)` gives** (within one renderer, pixel for pixel: pinned by `tests/films/determinism-playback-vs-seek`); which frames a playing movie draws is not promised (it may draw the start frame again). It resolves `true` when the playhead has landed there; `false` when something else ended it first (a `pause()`, a seek, a newer `playUntil()`) or when there is nothing to play toward (a time at or before the playhead: it also pauses the movie where it is; a movie that is not ready). A time at or past the end lands on the last frame; with no time at all it plays to the end, says `ended`, and resolves `true`. An ordinary `play()` is not affected. It is the one move a presentation (`pixi-effects/present`) is built on; it is also the way to "play the intro, then wait": `await movie.playUntil(4.5)`.
 
 ### `movie.peek(fn): Promise<T>`
 
@@ -149,7 +149,7 @@ splitText('Hello world', style, { by: 'words', x: 640, y: 300, align: 'center' }
 
 ### `movie.inspect(frame?, options?): Promise<InspectReport>`
 
-Where every layer is drawn at `frame`, as JSON — for checking layout without eyes. Seeks there and stays there. `options.layers`: `'visible'` (default, only layers drawn at this frame), `'all'`, or `'none'` (just `summary` and `issues`). Faint layers (alpha < 0.3) and text whose x / y is animated (tickers) are not reported.
+Where every layer is drawn at `frame`, as JSON — for checking layout without eyes. Seeks there and stays there. `options.layers`: `'visible'` (default, only layers drawn at this frame), `'all'`, or `'none'` (just `summary` and `issues`). Faint layers (alpha < 0.3) are not reported, and neither is text WHILE a geometry keyframe (x, y, scale, rotation …) runs on it: once it has settled it is (a title that rises is reported when it stops). `check` looks at the first and last frame, scene edges, and one frame every 0.25 s, so a fault that lasts less than that between samples can go unseen; the layout issues are `text layer "X" is cut off by the canvas edge: …` and `text layer "X" is entirely outside the canvas (…)`.
 
 ```ts
 interface InspectReport {

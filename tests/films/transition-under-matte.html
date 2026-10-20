@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · a transition under a matte</title></head>
+<body style="margin:0">
+  <!--
+    Test film (tests/films/transition-under-matte.test.ts): a layer cut by a moving named matte, while a transition takes scene A to scene B.
+    A 320 x 180 black movie, 2 s at 30 fps:
+      'bg'  a red 320 x 180 rect, centred on (160, 90), for the whole movie;
+      'blk' a white 40 x 180 rect, the matte (not drawn): x 80 at 0 s to 240 at 2 s, ease 'none';
+      'A'   a green 320 x 60 bar centred on (160, 90), mask: 'blk', 0..2 s;
+      'B'   a blue 320 x 180 rect, 0.5..2 s;
+      one transition A → B at 0.5 s for 1 s, ease 'none'.
+    ?kind=crossfade (default) | wipe (direction 'left', smoothing 0.004) | dissolve (seed 0); ?dur=<seconds> the transition's length (default 1).
+    ?scene=comp: 'bg', 'blk' and the bar go inside a 320 x 180 composition named 'A' (the matte lives inside the scene instead of beside the layer).
+    The page gives the test rowsAt(frames, y): for each frame, the RGB of every pixel of row y (r, g, b, r, g, b, …) from movie.snapshot().
+  -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":      "https://esm.sh/mediabunny@1.61.3"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const q = new URLSearchParams(location.search);
+    const KIND = ['wipe', 'dissolve'].includes(q.get('kind')) ? q.get('kind') : 'crossfade';
+    const DUR = Number(q.get('dur')) > 0 ? Number(q.get('dur')) : 1;
+    const SCENE = q.get('scene') === 'comp' ? 'comp' : 'layer';
+
+    const bg = { type: 'shape', shape: 'rect', name: 'bg', width: 320, height: 180, initial: { x: 160, y: 90, fillColor: '#ff0000' } };
+    const blk = { type: 'shape', shape: 'rect', name: 'blk', width: 40, height: 180, initial: { x: 80, y: 90, fillColor: '#ffffff' },
+      keyframes: [{ at: 0, to: { x: 240 }, duration: 2, ease: 'none' }] };
+    const bar = { type: 'shape', shape: 'rect', width: 320, height: 60, initial: { x: 160, y: 90, fillColor: '#00ff00' }, mask: 'blk' };
+    const B = { type: 'shape', shape: 'rect', name: 'B', at: 0.5, duration: 1.5, width: 320, height: 180, initial: { x: 160, y: 90, fillColor: '#0000ff' } };
+    const sequences = SCENE === 'comp'
+      ? [{ type: 'composition', name: 'A', at: 0, duration: 2, width: 320, height: 180, sequences: [bg, blk, { ...bar, name: 'bar' }] }, B]
+      : [bg, blk, { ...bar, name: 'A', at: 0, duration: 2 }, B];
+    const extra = KIND === 'wipe' ? { direction: 'left', smoothing: 0.004 } : KIND === 'dissolve' ? { seed: 0 } : {};
+    const transitions = [{ kind: KIND, from: 'A', to: 'B', at: 0.5, duration: DUR, ease: 'none', ...extra }];
+
+    const movie = new Movie();
+    window.movie = movie;
+    window.rowsAt = async (frames, y) => {
+      const out = [];
+      for (const f of frames) {
+        const img = await movie.snapshot(f, { as: 'imageData' });
+        const row = [];
+        for (let x = 0; x < img.width; x++) { const i = (y * img.width + x) * 4; row.push(img.data[i], img.data[i + 1], img.data[i + 2]); }
+        out.push(row);
+      }
+      return out;
+    };
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 320, height: 180, duration: 2, frameRate: 30, background: '#000000',
+        composition: { sequences, transitions },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

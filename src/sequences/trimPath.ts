@@ -128,5 +128,18 @@ export function splitEvenOdd(d: string): { main: string; holes: string[] } {
   }, 0);
   const areas = parts.map(area);
   const big = areas.indexOf(Math.max(...areas));
-  return { main: parts[big]!, holes: parts.filter((_, i) => i !== big) };
+  const holes = parts.filter((_, i) => i !== big);
+  // An island inside a hole is not drawn (and not cut either: cutting a shape out of a hole that is already cut drew a wedge of fill inside the hole): a sub-path whose first point lies inside another hole is dropped
+  const pointOf = (sub: string): [number, number] => { const p0 = flattenSvgPath(sub)[0]?.pts ?? [0, 0]; return [p0[0]!, p0[1]!]; };
+  const inPoly = (sub: string, [x, y]: [number, number]): boolean => {
+    const line = flattenSvgPath(sub)[0]?.pts ?? [];
+    let inside = false;
+    for (let i = 0, j = line.length - 2; i < line.length; j = i, i += 2) {
+      const xi = line[i]!, yi = line[i + 1]!, xj = line[j]!, yj = line[j + 1]!;
+      if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  };
+  const real = holes.filter((h, i) => !holes.some((o, k) => k !== i && area(o) > area(h) && inPoly(o, pointOf(h))));
+  return { main: parts[big]!, holes: real };
 }

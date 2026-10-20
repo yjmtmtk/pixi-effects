@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · evenodd: the stroke round the holes, an island inside a hole</title></head>
+<body style="margin:0">
+  <!--
+    Test film (tests/films/shape-evenodd-stroke-and-islands.test.ts): one path of three nested squares, all centred on (320, 180), on black, 640 x 360, 1 s:
+      outer  300 x 300 (x 170..470, y 30..330)   the shape
+      hole   200 x 200 (x 220..420, y 80..280)   a hole cut out of it
+      island 100 x 100 (x 270..370, y 130..230)  an island inside the hole
+    fill #ffcc00 (yellow), stroke #0066ff (blue), strokeWidth 10; no x / y (the path sits where its d says), fillRule: 'evenodd'.
+    Query: ?island=0 leaves the island out (two squares: a frame with a plain hole); ?rule=none leaves fillRule out; ?stroke=N sets strokeWidth to N; ?order=reverse writes the sub-paths island, hole, outer (the biggest is still the shape).
+    The page gives the test line(axis, at) -> the [r, g, b] of every pixel of frame 0 along row y = at (axis 'x') or column x = at (axis 'y'),
+    and countNear(rgb, x0, y0, x1, y1) -> how many pixels of frame 0 in that box are that colour (within 2 per channel).
+  -->
+  <canvas id="stage" width="640" height="360"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">{ "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const q = new URLSearchParams(location.search);
+    const rule = q.get('rule') === 'none' ? undefined : 'evenodd';
+    const strokeWidth = q.has('stroke') ? Number(q.get('stroke')) : 10;
+    const reverse = q.get('order') === 'reverse';
+    // a square of half-size h round (320, 180), one closed sub-path in absolute coordinates
+    const square = (h) => `M ${320 - h} ${180 - h} L ${320 + h} ${180 - h} L ${320 + h} ${180 + h} L ${320 - h} ${180 + h} Z`;
+    const subs = q.get('island') === '0' ? [square(150), square(100)] : [square(150), square(100), square(50)];
+    const d = (reverse ? subs.reverse() : subs).join(' ');
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 1, frameRate: 30, background: '#000000', composition: { sequences: [
+        { type: 'shape', shape: 'path', name: 'squares', d, ...(rule ? { fillRule: rule } : {}), initial: { fillColor: '#ffcc00', strokeColor: '#0066ff', strokeWidth } },
+      ] } });
+      const img = await movie.snapshot(0, { as: 'imageData' });
+      window.__size = [img.width, img.height];
+      const px = (x, y) => { const i = (y * img.width + x) * 4; return [img.data[i], img.data[i + 1], img.data[i + 2]]; };
+      window.line = (axis, at) => Array.from({ length: axis === 'x' ? img.width : img.height }, (_, i) => (axis === 'x' ? px(i, at) : px(at, i)));
+      // how many pixels of [x0, x1) x [y0, y1) are within 2 of rgb on every channel
+      window.countNear = (rgb, x0, y0, x1, y1) => { let n = 0; for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const p = px(x, y); if (p.every((v, c) => Math.abs(v - rgb[c]) <= 2)) n++; } return n; };
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

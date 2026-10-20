@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · same at, and edges inside a composition with speed</title></head>
+<body style="margin:0">
+  <!--
+    Test film (tests/films/time-same-at-and-speed-edges.test.ts). A 320 x 180 black movie, 3 s at 30 fps, two subjects:
+    (1) 'tie': a red 20 x 20 rect (centred on x, y), initial x 40, y 40, with two `to` keyframes on x at the SAME `at`, ease 'none':
+          A: { at: 0.5, to: { x: 160 }, duration: 1 }    B: { at: 0.5, to: { x: 280 }, duration: 1 }
+        listed [A, B]; ?tie=reverse lists [B, A].
+    (2) 'clock': a composition (320 x 180, at COMP_AT, duration 2 of outer time) with `speed: SPEED`, holding 'life': a green 40 x 40 rect,
+        at: 1, duration: 1 in composition seconds, initial x 60, y 130, sliding to x 260 with a keyframe at its own 0 over 1 s, ease 'none'.
+        ?speed=<n> (default 2) and ?compAt=<s> (default 0).
+    The page gives the test seenAt(name, frames) (visible and centre x from movie.inspect) and pixelAt(frame, x, y) (RGB of a snapshot pixel).
+  -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":      "https://esm.sh/mediabunny@1.61.3"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const q = new URLSearchParams(location.search);
+    const REVERSE = q.get('tie') === 'reverse';
+    const SPEED = q.has('speed') ? Number(q.get('speed')) : 2;
+    const COMP_AT = q.has('compAt') ? Number(q.get('compAt')) : 0;
+    const A = { at: 0.5, to: { x: 160 }, duration: 1, ease: 'none' };
+    const B = { at: 0.5, to: { x: 280 }, duration: 1, ease: 'none' };
+    const movie = new Movie();
+    window.movie = movie;
+    // for each frame: is the layer called `name` visible, and its centre x (from movie.inspect bounds, canvas pixels)
+    window.seenAt = async (name, frames) => {
+      const out = [];
+      for (const f of frames) {
+        const r = await movie.inspect(f, { layers: 'all' });
+        const l = r.layers.find((x) => x.name === name);
+        out.push(l ? { visible: l.visible, cx: l.bounds ? l.bounds.x + l.bounds.width / 2 : null } : { visible: false, cx: null, missing: true });
+      }
+      return out;
+    };
+    // the RGB of one canvas pixel at a frame, from the picture snapshot() makes (the same draw as a seek)
+    window.pixelAt = async (frame, x, y) => {
+      const img = await movie.snapshot(frame, { as: 'imageData' });
+      const i = (Math.round(y) * img.width + Math.round(x)) * 4;
+      return [img.data[i], img.data[i + 1], img.data[i + 2]];
+    };
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: 30, background: '#000000',
+        composition: { sequences: [
+          { type: 'shape', shape: 'rect', name: 'tie', width: 20, height: 20,
+            initial: { x: 40, y: 40, fillColor: '#ff0000' },
+            keyframes: REVERSE ? [B, A] : [A, B] },
+          { type: 'composition', name: 'clock', width: 320, height: 180, at: COMP_AT, duration: 2, speed: SPEED,
+            sequences: [
+              { type: 'shape', shape: 'rect', name: 'life', at: 1, duration: 1, width: 40, height: 40,
+                initial: { x: 60, y: 130, fillColor: '#00ff00' },
+                keyframes: [{ at: 0, to: { x: 260 }, duration: 1, ease: 'none' }] },
+            ] },
+        ] },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

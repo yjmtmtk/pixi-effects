@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>film · an sfx knob beside sfx and a removed key are one warning each that says what to write</title>
+</head>
+<body style="margin:0">
+  <!--
+    Test film (tests/films/warnings-sfx-knob-and-removed-key.test.ts), 320 x 180, 2 s. Seven layers, built two ways:
+      (no query)      every key written the documented way: the page gives NO warning (tests/tools/noFalseWarnings.test.ts opens it like this);
+      ?mistakes=1     five layers each carry ONE mistake, three correct layers stand next to them:
+                        tick   audio  sfx: 'click',      pitch: 3        (a knob beside sfx instead of inside it)
+                        thud   audio  sfx: 'hit',        brightness: -0.5
+                        keys   audio  sfx: 'typewriter', seed: 7
+                        pop    audio  sfx: { preset: 'pop' }, pitch: 2  (the sfx is already an object; the knob is still beside it)
+                        panel  rect   mask: <circle>, maskInverted: true (the removed key; the documented form is mask: { layer: <circle>, invert: true })
+                        okChime / okSwoosh / okHole: correct (all three knobs inside sfx; a bare preset; an inverted mask written the documented way).
+      &pitch=-7       tick's pitch (default 3), so the value in its sentence changes.
+    window.__probes holds [r, g, b] at frame 0: panelCentre (80, 90), panelCorner (40, 50), holeCentre (240, 90), holeCorner (200, 50).
+    panel is a red 100 x 100 rect at (80, 90), okHole a blue one at (240, 90); each mask is a circle of radius 30 at the rect's centre (the corner probe is 56 px away).
+  -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":      "https://esm.sh/mediabunny@1.61.3"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const q = new URLSearchParams(location.search);
+    const wrong = q.get('mistakes') === '1';
+    const pitch = q.has('pitch') ? Number(q.get('pitch')) : 3;
+    // a knob beside sfx when ?mistakes=1, inside sfx otherwise
+    const knob = (name, preset, key, value, at, asObject = false) => wrong
+      ? { type: 'audio', name, sfx: asObject ? { preset } : preset, [key]: value, at }
+      : { type: 'audio', name, sfx: { preset, [key]: value }, at };
+    const circle = (x) => ({ type: 'shape', shape: 'circle', radius: 30, initial: { x, y: 90, fillColor: '#ffffff' } });
+    const sequences = [
+      knob('tick', 'click', 'pitch', pitch, 0.1),
+      knob('thud', 'hit', 'brightness', -0.5, 0.3),
+      knob('keys', 'typewriter', 'seed', 7, 0.6),
+      knob('pop', 'pop', 'pitch', 2, 0.8, true),
+      { type: 'shape', shape: 'rect', name: 'panel', width: 100, height: 100, initial: { x: 80, y: 90, fillColor: '#ff0000' },
+        ...(wrong ? { mask: circle(80), maskInverted: true } : { mask: { layer: circle(80), invert: true } }) },
+      // correct neighbours
+      { type: 'audio', name: 'okChime', sfx: { preset: 'chime', pitch: -5, brightness: 0.5, seed: 2 }, at: 0.2 },
+      { type: 'audio', name: 'okSwoosh', sfx: 'swoosh', at: 1 },
+      { type: 'shape', shape: 'rect', name: 'okHole', width: 100, height: 100, initial: { x: 240, y: 90, fillColor: '#0000ff' }, mask: { layer: circle(240), invert: true } },
+    ];
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 320, height: 180, duration: 2, frameRate: 30, background: '#101010',
+        composition: { sequences },
+      });
+      const img = await movie.snapshot(0, { as: 'imageData' });
+      const px = (x, y) => { const i = (y * img.width + x) * 4; return [img.data[i], img.data[i + 1], img.data[i + 2]]; };
+      window.__probes = { panelCentre: px(80, 90), panelCorner: px(40, 50), holeCentre: px(240, 90), holeCorner: px(200, 50) };
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

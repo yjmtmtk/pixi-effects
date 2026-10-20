@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · playback against seek</title></head>
+<body style="margin:0">
+  <!--
+    Test film (tests/films/determinism-playback-vs-seek.test.ts): is the frame a playing movie shows the frame a seek (snapshot) gives?
+    A 320 x 180 movie, 3 s at 30 fps (?fps=24: 24 fps), background #101828, five layers that each change on every frame:
+      'box'    a red 30 x 30 rect moving x 30 -> 290 over 3 s (ease none)
+      'count'  a counter text '{value}', value 0 -> 90 over 3 s (ease none)
+      'dot'    a white circle whose alpha goes 0 -> 1 over 1.5 s, then -> 0.2 over 1.5 s
+      'shake'  a yellow square shaken by wiggle({ seed: 4 }) (seeded random over time)
+      'dots'   a canvas layer drawing 20 dots placed with info.random() (seed 9) and a bar whose length is t
+    ?unseeded=1 makes the canvas layer place its dots with Math.random() instead: a film that breaks the contract on purpose (it warns, as documented),
+    so the test can see that its comparison does catch a picture that is not a function of the time.
+    The page gives the test:
+      startRecording() / stopRecording(): every 'frame' event in between, its frame, whether the movie was playing, and the canvas as it was right then
+      playTo(seconds): await movie.playUntil(seconds); then the canvas read inside the PixiJS ticker (after its own render of the stage) at rest
+      hashOfSnapshot(frame), compareWithSnapshot(kind, frame): the snapshot of a frame against what was recorded; backend: the PixiJS renderer's name
+    The test also opens it with no navigator.gpu, so that PixiJS draws on WebGL.
+  -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":      "https://esm.sh/mediabunny@1.61.3"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie, wiggle } from '../../dist/index.js';
+    const q = new URLSearchParams(location.search);
+    const FPS = q.get('fps') ? Number(q.get('fps')) : 30;
+    const UNSEEDED = q.get('unseeded') === '1';
+    const movie = new Movie();
+    window.movie = movie;
+
+    /** The pixels of the stage canvas as they are right now, through a 2D canvas (the way snapshot() copies it). */
+    const readCanvas = () => {
+      const src = movie.app.canvas;
+      const c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+      const g = c.getContext('2d'); g.drawImage(src, 0, 0);
+      return g.getImageData(0, 0, c.width, c.height).data;
+    };
+    const fnv = (d) => { let h = 0x811c9dc5; for (let i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); };
+
+    // what the page showed: 'played' = each 'frame' event while recording, 'rest' = the ticker's picture after a playUntil() landed
+    const store = { played: new Map(), rest: new Map() };
+    let events = null;
+    movie.on('frame', ({ frame }) => {
+      if (!events) return;
+      const data = readCanvas();                                    // right after the frame was drawn (api.md: gotoFrame renders, then emits 'frame')
+      events.push({ frame, playing: movie.isPlaying, hash: fnv(data) });
+      if (movie.isPlaying) store.played.set(frame, data);           // (the last one drawn for a frame wins; the same frame is the same picture anyway)
+    });
+    window.startRecording = () => { events = []; };
+    window.stopRecording = () => { const e = events; events = null; return e; };
+
+    /** The canvas inside a tick of PixiJS's own ticker, after its render of the stage (priority -50 runs after the render at LOW, -25). */
+    const tickerPicture = () => new Promise((resolve) => {
+      const t = movie.app.ticker;
+      const once = () => { t.remove(once); resolve(readCanvas()); };
+      t.add(once, null, -50);
+    });
+
+    window.playTo = async (seconds) => {
+      const landed = await movie.playUntil(seconds);
+      await tickerPicture();                                        // one tick to let the page settle, then the picture of the next
+      const data = await tickerPicture();
+      store.rest.set(movie.currentFrame, data);
+      return { landed, currentFrame: movie.currentFrame, isPlaying: movie.isPlaying, hash: fnv(data) };
+    };
+
+    window.hashOfSnapshot = async (frame) => fnv((await movie.snapshot(frame, { as: 'imageData' })).data);
+
+    /** The snapshot of `frame` against the recorded picture: how many pixels differ and by how much at most (0 / 0: the same picture). */
+    window.compareWithSnapshot = async (kind, frame) => {
+      const a = store[kind].get(frame);
+      if (!a) return null;
+      const b = (await movie.snapshot(frame, { as: 'imageData' })).data;
+      let differing = 0, maxDiff = 0;
+      for (let i = 0; i < a.length; i += 4) {
+        let d = 0;
+        for (let c = 0; c < 4; c++) d = Math.max(d, Math.abs(a[i + c] - b[i + c]));
+        if (d > 0) { differing++; if (d > maxDiff) maxDiff = d; }
+      }
+      return { differing, maxDiff, recorded: fnv(a), snapshot: fnv(b) };
+    };
+    window.playedFrames = () => [...store.played.keys()].sort((x, y) => x - y);
+
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: FPS, background: '#101828',
+        composition: { sequences: [
+          { type: 'shape', shape: 'rect', name: 'box', width: 30, height: 30, initial: { x: 30, y: 40, fillColor: '#ff3030' },
+            keyframes: [{ at: 0, to: { x: 290 }, duration: 3, ease: 'none' }] },
+          { type: 'text', name: 'count', text: '{value}', style: { fontSize: 28, fill: '#ffffff' }, initial: { x: 12, y: 110, value: 0 },
+            keyframes: [{ at: 0, to: { value: 90 }, duration: 3, ease: 'none' }] },
+          { type: 'shape', shape: 'circle', name: 'dot', radius: 20, initial: { x: 250, y: 130, alpha: 0, fillColor: '#ffffff' },
+            keyframes: [{ at: 0, to: { alpha: 1 }, duration: 1.5, ease: 'none' }, { at: 1.5, to: { alpha: 0.2 }, duration: 1.5, ease: 'none' }] },
+          { type: 'shape', shape: 'rect', name: 'shake', width: 16, height: 16, initial: { x: 160, y: 100, fillColor: '#ffd166' },
+            keyframes: wiggle({ duration: 3, freq: 4, seed: 4, props: { y: { around: 100, amp: 40 }, rotation: { around: 0, amp: 40 } } }) },
+          { type: 'canvas', name: 'dots', width: 320, height: 40, seed: 9, initial: { x: 0, y: 140 },
+            draw: UNSEEDED
+              ? (ctx, t) => {                                       // the contract broken on purpose: not a function of the time
+                  ctx.fillStyle = '#3ddc97';
+                  for (let i = 0; i < 20; i++) ctx.fillRect(Math.random() * 310, Math.random() * 30, 4, 4);
+                  ctx.fillStyle = '#4da3ff'; ctx.fillRect(0, 36, t * 100, 4);
+                }
+              : (ctx, t, info) => {
+                  ctx.fillStyle = '#3ddc97';
+                  for (let i = 0; i < 20; i++) ctx.fillRect(info.random() * 310, info.random() * 30, 4, 4);
+                  ctx.fillStyle = '#4da3ff'; ctx.fillRect(0, 36, t * 100, 4);
+                } },
+        ] },
+      });
+      window.backend = movie.app.renderer.name || String(movie.app.renderer.type);
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

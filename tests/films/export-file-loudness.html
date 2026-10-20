@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · the loudness of the sound in the exported file</title></head>
+<body style="margin:0">
+  <!--
+    Test film (tests/films/export-file-loudness.test.ts): the sound IN THE FILE that render() writes is the mix that movie.inspectAudio() measures,
+    and with movie.init({ loudness }) that mix is at the target.
+    A 320 x 180 movie at 30 fps, 3 s, with no files:
+      'bed'   a music bed (keys + bass + kick, 120 bpm, three chords of 1 s) at volume 0.3, under the whole movie,
+      'hit1'  a hit at 0.5 s, 'chime' a chime at 1.2 s, 'pop' a pop at 2.2 s, each at volume 0.6, on top of the bed,
+      'click' a click at 1.8 s at volume 2: a short peak far over the bed, so that at -16 LUFS the limiter must take it down to the -1 dBTP ceiling.
+    The picture is a card that slides across, so the mp4 has a moving picture too.
+    ?loudness=<n>  the target in LUFS passed to movie.init (default -16)
+    ?loudness=off  the option is left out: the mix is as the layers make it (quiet: well under -16)
+  -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":      "https://esm.sh/mediabunny@1.61.3"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const q = new URLSearchParams(location.search).get('loudness');
+    const opts = q === 'off' ? {} : { loudness: q === null ? -16 : Number(q) };
+    const movie = new Movie();
+    window.movie = movie;
+    const sequences = [
+      { type: 'shape', shape: 'rect', name: 'card', width: 80, height: 40, initial: { x: 40, y: 90, fillColor: '#3a86ff' },
+        keyframes: [{ at: 0, duration: 3, to: { x: 280 } }] },
+      { type: 'audio', name: 'bed', at: 0, volume: 0.3,
+        music: { bpm: 120, tracks: [{ inst: 'keys', notes: 'Am7:2 G7:2 Fmaj7:2' }, { inst: 'bass', notes: 'a1:2 g1:2 f1:2' }], drums: { kick: 'x...x...x...' } } },
+      { type: 'audio', name: 'hit1', sfx: 'hit', at: 0.5, volume: 0.6 },
+      { type: 'audio', name: 'chime', sfx: 'chime', at: 1.2, volume: 0.6 },
+      { type: 'audio', name: 'pop', sfx: 'pop', at: 2.2, volume: 0.6 },
+      { type: 'audio', name: 'click', sfx: 'click', at: 1.8, volume: 2 },
+    ];
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: 30, background: '#101828', ...opts,
+        composition: { sequences } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>
