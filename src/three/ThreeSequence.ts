@@ -38,6 +38,7 @@ export class ThreeSequence extends Sequence {
   /** Things to do just before every draw (the 2D layers shown on meshes: `threeLayerTexture`), and those layers' handles. Both go with the state to a layer that takes it over. */
   private _drawHooks = new Set<() => void>();
   private _layerTextures: Rebindable[] = [];
+  private _pendingRebinds: Array<() => void> = [];
   private _scene: Scene | null = null;
   private _camera: Camera | null = null;
   private _ctx: ThreeContext | null = null;
@@ -190,7 +191,7 @@ export class ThreeSequence extends Sequence {
       pixiRenderer: this.root.pixiRenderer ?? null,
       shared: this.sharedGpu,
       beforeDraw: (fn) => { this._drawHooks.add(fn); return () => { this._drawHooks.delete(fn); }; },
-      track: (handle) => { this._layerTextures.push(handle); },
+      track: (handle) => { this._layerTextures.push(handle); return () => { const i = this._layerTextures.indexOf(handle); if (i >= 0) this._layerTextures.splice(i, 1); }; },
     };
   }
 
@@ -207,7 +208,7 @@ export class ThreeSequence extends Sequence {
     this._borrowed = d;
     this._drawHooks = d._drawHooks; this._layerTextures = d._layerTextures;
     const host = this._makeHost();
-    for (const h of this._layerTextures) h.rebind(host);                       // the 2D layers of the new tree are the ones shown now
+    this._pendingRebinds = this._layerTextures.map(h => h.prepare(host));       // the 2D layers of the new tree are shown from the swap on (commitReuse), not before: the old layer goes on drawing its own
     if (this.spec && (this._threeSpec as { followCamera?: boolean }).followCamera) this._checkFollowShape(width, height, name);
     this._makeSprite(this._texture!, width, height, name);
   }
@@ -218,6 +219,8 @@ export class ThreeSequence extends Sequence {
     if (!d) return;
     d._donated = true; d._tracked = false;
     this._borrowed = null;
+    for (const apply of this._pendingRebinds) apply();
+    this._pendingRebinds = [];
   }
 
   /**

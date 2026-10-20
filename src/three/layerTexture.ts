@@ -47,12 +47,13 @@ export interface ThreeLayerHost {
   shared: boolean;
   /** Run `fn` just before every draw of the three layer; returns the function that stops it. */
   beforeDraw(fn: () => void): () => void;
-  /** Remember a handle: a rebuild that keeps the three layer gives it the new tree's layer (`rebind`). */
-  track(handle: Rebindable): void;
+  /** Remember a handle: a rebuild that keeps the three layer gives it the new tree's layer (`prepare`). */
+  track(handle: Rebindable): () => void;
 }
 
 /** What a rebuild that keeps the three layer needs: show the layer of the new tree with the same name. */
-export interface Rebindable { material: Material; source(): Sequence; rebind(host: ThreeLayerHost): void; dispose(): void }
+/** `prepare` looks for the layer in the new tree and throws if it is gone, but changes nothing; the function it returns puts the handle on the new tree's layer (called when that tree is on stage, so a rebuild that fails or is slow leaves the old movie showing its own screen). */
+export interface Rebindable { material: Material; source(): Sequence; prepare(host: ThreeLayerHost): () => void; dispose(): void }
 
 const label = 'pixi-effects: threeLayerTexture';
 
@@ -76,29 +77,54 @@ export async function threeLayerTexture(ctx: ThreeContext, name: string, options
     throw new Error(`${label}: "${name}" is a ${source.spec.type} layer: a layer shown on a mesh must be a composition (wrap it: { type: 'composition', name: '${name}', width: 480, height: 270, sequences: [ … ] })`);
   }
 
-  const width = Math.max(1, Math.round(source.intrinsicWidth * resolution)), height = Math.max(1, Math.round(source.intrinsicHeight * resolution));
-  const sharedRoute = host.shared && pixi.name === 'webgpu';
+  // A mask or a matte on the screen composition itself is placed in the PARENT's space; the content is drawn from the origin: unless the screen sits at the origin untouched, the mask lands shifted on the mesh.
+  {
+    const ini = ((source.spec as { initial?: Record<string, unknown> }).initial ?? {}) as Record<string, unknown>;          // (its place, as the spec says it: the timeline has not put it there yet)
+    const moved = ['x', 'y', 'rotation', 'pivotX', 'pivotY'].some(k => typeof ini[k] === 'number' && ini[k] !== 0) || ['scale', 'scaleX', 'scaleY'].some(k => typeof ini[k] === 'number' && ini[k] !== 1);
+    if (moved && (source.maskSequence || (source.spec as { mask?: unknown }).mask !== undefined)) {
+      console.warn(`${label}: "${name}" has a mask and is not at x: 0, y: 0 (anchor 0, scale 1, rotation 0): on the mesh its content is drawn from (0, 0) but its mask stays where the parent puts it, so the mask lands shifted. ` +
+        `Put the screen at the origin (or mask a layer INSIDE the screen: that mask moves with it).`);
+    }
+  }
+  // The texture is made at the layer's own size and the resolution asked for, drawn with no scale: PixiJS then scales filters, masks and mattes by the resolution itself, so `resolution` sharpens the screen and does
+  // not change it (a blur is the same width at 1 and 2). `width` / `height` are the pixels of the texture.
+  const logicalW = Math.max(1, Math.round(source.intrinsicWidth)), logicalH = Math.max(1, Math.round(source.intrinsicHeight));
+  const width = Math.max(1, Math.round(logicalW * resolution)), height = Math.max(1, Math.round(logicalH * resolution));
+  const limit = (() => {
+    const g = pixi as unknown as { gpu?: { device?: { limits?: { maxTextureDimension2D?: number } } }; gl?: WebGL2RenderingContext | WebGLRenderingContext };
+    return g.gpu?.device?.limits?.maxTextureDimension2D ?? (g.gl ? (g.gl.getParameter(g.gl.MAX_TEXTURE_SIZE) as number) : null) ?? 8192;
+  })();
+  if (width > limit || height > limit) {
+    throw new Error(`${label}: the texture would be ${width} x ${height} pixels (the layer is ${logicalW} x ${logicalH}, resolution ${resolution}), above what this GPU allows (${limit}). Use resolution ${Math.max(1, Math.floor((limit / Math.max(logicalW, logicalH)) * 10) / 10)} or lower, or a smaller composition.`);
+  }
+  let sharedRoute = host.shared && pixi.name === 'webgpu';
+  let webgpu: typeof import('three/webgpu') | undefined, tsl: typeof import('three/tsl') | undefined;
+  if (sharedRoute) {
+    try { [webgpu, tsl] = await Promise.all([import('three/webgpu'), import('three/tsl')]); } catch (err) {
+      throw new Error(`${label}: needs "three/webgpu" and "three/tsl" in the import map (${err instanceof Error ? err.message : err})`);
+    }
+    if (typeof (webgpu as { ExternalTexture?: unknown }).ExternalTexture !== 'function') {                 // three before r180 has no ExternalTexture: read the pixels back instead
+      console.warn(`${label}: this page's three has no ExternalTexture (it came with three 0.180): the screen is read back every frame (1.6 ms at 480 x 270) instead of shared with the GPU. Use three 0.180 or later for the no-copy route.`);
+      sharedRoute = false;
+    }
+  }
   // on the shared GPU device the mesh samples PixiJS's texture itself: it needs its mip levels (a screen seen small or at a slant would alias to stripes), made after every draw. A read-back canvas gets them from three.
-  const rt = RenderTexture.create({ width, height, resolution: 1, ...(sharedRoute ? { autoGenerateMipmaps: true } : {}) });
+  const rt = RenderTexture.create({ width: logicalW, height: logicalH, resolution, ...(sharedRoute ? { autoGenerateMipmaps: true } : {}) });
   const gpuTexture = sharedRoute ? (pixi as unknown as { texture: { getGpuSource?: (s: unknown) => unknown } }).texture.getGpuSource?.(rt.source) : undefined;
 
   let texture: Texture, material: Material, readCanvas: HTMLCanvasElement | null = null;
   if (gpuTexture) {
     // three's WebGPU renderer takes a GPUTexture made on its own device; sRGB decoding is done by the material (an external texture is read as plain rgba8)
-    let webgpu: typeof import('three/webgpu'), tsl: typeof import('three/tsl');
-    try { [webgpu, tsl] = await Promise.all([import('three/webgpu'), import('three/tsl')]); } catch (err) {
-      throw new Error(`${label}: needs "three/webgpu" and "three/tsl" in the import map (${err instanceof Error ? err.message : err})`);
-    }
-    const ext = new webgpu.ExternalTexture(gpuTexture as never);
-    ext.colorSpace = webgpu.NoColorSpace;
-    ext.minFilter = webgpu.LinearMipmapLinearFilter; ext.magFilter = webgpu.LinearFilter; ext.generateMipmaps = false; ext.anisotropy = 4;       // the levels are PixiJS's; four taps along a slant
+    const ext = new webgpu!.ExternalTexture(gpuTexture as never);
+    ext.colorSpace = webgpu!.NoColorSpace;
+    ext.minFilter = webgpu!.LinearMipmapLinearFilter; ext.magFilter = webgpu!.LinearFilter; ext.generateMipmaps = false; ext.anisotropy = 4;       // the levels are PixiJS's; four taps along a slant
     ext.repeat.set(1, -1); ext.offset.set(0, 1);                    // the GPU texture's rows run top to bottom: a texture that three uploads is flipped, this is not
-    const m = new webgpu.MeshBasicNodeMaterial();
-    const t = tsl.texture(ext);
+    const m = new webgpu!.MeshBasicNodeMaterial();
+    const t = tsl!.texture(ext);
     // PixiJS stores the picture premultiplied by its alpha, in sRGB bytes: divide the alpha out (the blend of the mesh is the ordinary one), then decode
     // TSL's own types do not describe swizzles (`.rgb`, `.a`) on a plain Node: a loose view of the three nodes used below
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const tex = t as any, vec4 = tsl.vec4 as any, eotf = tsl.sRGBTransferEOTF as any, max = tsl.max as any;
+    const tex = t as any, vec4 = tsl!.vec4 as any, eotf = tsl!.sRGBTransferEOTF as any, max = tsl!.max as any;
     const straight = eotf(vec4(tex.rgb.div(max(tex.a, 0.0001)), 1));
     m.colorNode = (transparent ? vec4(straight.rgb, tex.a) : vec4(eotf(vec4(tex.rgb, 1)).rgb, 1)) as never;
     m.toneMapped = false;
@@ -116,7 +142,7 @@ export async function threeLayerTexture(ctx: ThreeContext, name: string, options
 
   let current: Sequence = source;
   let display: Container = source.target as Container;
-  let sx = width / source.intrinsicWidth, sy = height / source.intrinsicHeight;
+  let sx = logicalW / source.intrinsicWidth, sy = logicalH / source.intrinsicHeight;          // 1, unless a rebuild gave the layer another size (it is then drawn stretched to the texture)
   let hidden = false;
   const hide = (): void => { display.visible = false; hidden = true; };
   hide();
@@ -143,8 +169,16 @@ export async function threeLayerTexture(ctx: ThreeContext, name: string, options
         }
         g.putImageData(new ImageData(pixels as unknown as Uint8ClampedArray<ArrayBuffer>, w, h), 0, 0);
       } else {
-        g.clearRect(0, 0, width, height);
-        g.drawImage(pixi.extract.canvas(rt) as unknown as CanvasImageSource, 0, 0);
+        // The mesh shows the layer OVER BLACK, as the other route does: a layer at alpha 0.5 shows half its colour. On WebGL PixiJS's bytes are premultiplied by the alpha (so over black they are the colour as
+        // they stand, alpha set to 1); `extract.canvas` there would treat them as straight and darken a half-transparent layer twice. On WebGPU the canvas it gives is straight: composite it over black.
+        if (pixi.name === 'webgl') {
+          const { pixels, width: w, height: h } = pixi.extract.pixels(rt);
+          for (let i = 3; i < pixels.length; i += 4) pixels[i] = 255;
+          g.putImageData(new ImageData(pixels as unknown as Uint8ClampedArray<ArrayBuffer>, w, h), 0, 0);
+        } else {
+          g.globalCompositeOperation = 'source-over'; g.fillStyle = '#000'; g.fillRect(0, 0, width, height);
+          g.drawImage(pixi.extract.canvas(rt) as unknown as CanvasImageSource, 0, 0);
+        }
       }
       texture.needsUpdate = true;
     }
@@ -152,17 +186,21 @@ export async function threeLayerTexture(ctx: ThreeContext, name: string, options
   const stop = host.beforeDraw(refresh);
   refresh();
 
+  let disposed = false;
   const handle: ThreeLayerTexture & Rebindable = {
     material, texture, width, height,
     source: () => current,
-    rebind(next) {
+    prepare(next) {
       const again = next.findLayer(name);
+      if (disposed) return () => {};
       if (!again) throw new Error(`${label}: after a rebuild there is no layer "${name}" before the three layer any more`);
-      current = again;
-      display = again.target as Container;
-      sx = width / again.intrinsicWidth; sy = height / again.intrinsicHeight;          // a layer that changed size is drawn stretched to the texture
-      hide();
-      refresh();
+      return () => {
+        current = again;
+        display = again.target as Container;
+        sx = logicalW / again.intrinsicWidth; sy = logicalH / again.intrinsicHeight;          // a layer that changed size is drawn stretched to the texture
+        hide();
+        refresh();
+      };
     },
     dispose() {
       stop();
@@ -171,6 +209,7 @@ export async function threeLayerTexture(ctx: ThreeContext, name: string, options
       texture.dispose?.(); material.dispose?.();
     },
   };
-  host.track(handle);
+  const untrack = host.track(handle);
+  handle.dispose = ((inner: () => void) => () => { if (disposed) return; disposed = true; untrack(); inner(); })(handle.dispose);
   return handle;
 }

@@ -207,6 +207,74 @@ runFilms('threeLayerTexture: a live 2D layer on a mesh of a three layer', () => 
     }, { query: 'mode=tall' });
   }, 120_000);
 
+  it('a rebuild that fails leaves the old movie showing its own screen (the old layer was drawing the NEW tree\'s source from the moment of the loan), and so does one that is slow', async () => {
+    await withFilm('three-layer-texture', async (film) => {
+      expect(await film.eval<string | undefined>('window.initError')).toBeUndefined();
+      const dot = async () => (await film.eval<number[][]>('pixelsAt(60, [[480, 270]])'))[0];
+      const before = await dot();
+      expect(before, 'the dot (or the bar) of the screen is there before').not.toEqual(PAGE);
+      // slow: a snapshot taken while the new tree is still building shows the old screen, not a black mesh
+      await film.eval('window.__slow = true; window.__pending = movie.setVars({ label: "SLOW" }); 1');
+      await new Promise((r) => setTimeout(r, 600));
+      expect(await dot(), 'during a slow rebuild').toEqual(before);
+      await film.eval('window.__pending.then(() => 1)');
+      await film.eval('window.__slow = false; window.__fail = true; 1');
+      const failed = await film.eval<string>('movie.setVars({ label: "FAIL" }).then(() => "resolved", (e) => String(e.message))');
+      expect(failed).toMatch(/boom/);
+      expect(await film.eval<string>("movie.snapshot(60, { as: 'imageData' }).then(() => 'ok', (e) => 'threw: ' + e.message)"), 'a snapshot after the failed rebuild').toBe('ok');
+      expect(await dot(), 'after a failed rebuild').toEqual(before);
+    }, { query: 'mode=rebuild' });
+  }, 120_000);
+
+  it('the screen composition\'s own alpha is shown the same on every route: over black (a screen that fades in fades on the mesh; the read-back route used to show full colour)', async () => {
+    const at = (query: string, o: { beforeLoad?: string } = {}) => withFilm('three-layer-texture', async (film) => {
+      expect(await film.eval<string | undefined>('window.initError')).toBeUndefined();
+      return (await film.eval<number[][]>('pixelsAt(0, [[50, 50]])'))[0]!;
+    }, { query, ...(o.beforeLoad ? { beforeLoad: o.beforeLoad } : {}) });
+    const shared = await at('mode=fade'), ownCanvas = await at('mode=fade&share=0'), webgl = await at('mode=fade', { beforeLoad: NO_GPU });
+    expect(shared[0]!, 'half of the blue background over black').toBeLessThan(BG[0]! * 0.8);
+    for (const [name, got] of [['its own canvas', ownCanvas], ['WebGL', webgl]] as const) {
+      for (let c = 0; c < 3; c++) expect(Math.abs(got[c]! - shared[c]!), `${name}: channel ${c} ${got} against ${shared}`).toBeLessThanOrEqual(3);
+    }
+  }, 180_000);
+
+  it('resolution does not change the picture: a blur inside the screen is the same width on the mesh at resolution 1 and 2 (it was half as wide at 2)', async () => {
+    const edge = (res: number) => withFilm('three-layer-texture', async (film) => {
+      expect(await film.eval<string | undefined>('window.initError')).toBeUndefined();
+      // the block is 200 wide, centred in 480 x 270 -> on the 640 x 360 picture its left edge is at x = 253 +- the blur; read the row through the middle
+      const row = await film.eval<number[]>(`(async () => { const d = await movie.snapshot(0, { as: 'imageData' }); const y = 180; return Array.from({ length: 640 }, (_, x) => d.data[(y * d.width + x) * 4]); })()`);
+      const peak = Math.max(...row), at = (f: number) => row.findIndex((v) => v >= f * peak);
+      return at(0.9) - at(0.1);                                                  // the width of the edge, in pixels of the picture
+    }, { query: `mode=blur&res=${res}` });
+    const w1 = await edge(1), w2 = await edge(2);
+    expect(w1, 'there is a blurred edge to measure').toBeGreaterThan(4);
+    expect(Math.abs(w2 - w1) / w1, `edge widths ${w1} and ${w2}`).toBeLessThan(0.2);
+  }, 180_000);
+
+  it('a texture wider than the GPU allows is said in a sentence that names the size and the option, not by a flood of GPU errors', async () => {
+    await withFilm('three-layer-texture', async (film) => {
+      const err = await film.eval<string | undefined>('window.initError');
+      expect(err).toMatch(/texture would be 12000 x 1200/);
+      expect(err).toMatch(/resolution/);
+    }, { query: 'mode=huge&res=4' });
+  }, 120_000);
+
+  it('screen.dispose() takes the handle out of the rebuilds: the next setVars still works (it failed with an opaque null error)', async () => {
+    await withFilm('three-layer-texture', async (film) => {
+      expect(await film.eval<string | undefined>('window.initError')).toBeUndefined();
+      await film.eval('window.__handle.dispose(); 1');
+      const r = await film.eval<string>('movie.setVars({ label: "AFTER" }).then(() => "ok", (e) => String(e.message))');
+      expect(r).toBe('ok');
+    }, { query: 'mode=flat' });
+  }, 120_000);
+
+  it('a source that has a mask and is not at the origin says so (its content is drawn from the origin, the mask stays where the parent puts it)', async () => {
+    await withFilm('three-layer-texture', async (film) => {
+      expect(await film.eval<string | undefined>('window.initError')).toBeUndefined();
+      expect((await film.eval<string[]>('window.__logs')).join('\n')).toMatch(/"screen" has a mask.*x: 0, y: 0|mask.*not at the origin/s);
+    }, { query: 'mode=maskoff' });
+  }, 120_000);
+
   it('a layer that is not alive does not answer through the mesh, and nothing changes for a mesh that shows no layer', async () => {
     await withFilm('three-layer-texture', async (film) => {
       const early = await film.eval<string | null>("(async () => { await movie.gotoFrame(10, true); const h = movie.pick(320, 80); return h && h.path; })()");
