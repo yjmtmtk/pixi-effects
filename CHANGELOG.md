@@ -1,8 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.47.1
 
-Second batch from the 16-agent and 21-agent trials.
+Second batch from the 16-agent and 21-agent trials: a mix is called quiet from -18 LUFS, an sfx knob in the wrong place says where it goes, `render` says its quality. Nothing breaks.
 
 - **Changed: `check` calls a mix quiet from -18 LUFS (it was -20).** Four Sonnet films ended at -17 to -19 LUFS without ever being told; the note names `movie.init({ loudness: -16 })`.
 - **Changed: an `sfx` knob written beside `sfx:` says where it goes.** `{ sfx: 'click', pitch: 1.2 }` warned "not an audio layer key" with the key list; it now says `write it inside — sfx: { preset: 'click', pitch: 1.2 }` and that pitch is in semitones (3 agents over two waves).
