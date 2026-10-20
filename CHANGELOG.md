@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.47.4
+
+A morph between two quads keeps its corners when one is written with a closing line, and `style.colour` points at `fill`. Nothing breaks.
 
 Eight more test films from the coverage plan (keyframe order, nested compositions, morph, perspective, image size, silences, two warning families, WebGL against WebGPU).
 
