@@ -272,3 +272,31 @@ describe('animateText(): leaving, found by trial agents (2026-10-20)', () => {
     expect(ends.every((e) => Math.abs(e - 7) < 1e-6), JSON.stringify(ends)).toBe(true);
   });
 });
+
+describe('animateText(): the exit time keeps the numbers of 0.45 (review 2026-10-20: float noise from a regrouped sum dropped one letter\'s idle drift)', () => {
+  it('out.at with idle: every piece keeps its drift when the span is exactly 1 / freq', () => {
+    const p = animateText('ABCDEFGH', style, { at: 0.2, duration: 8, in: 'fade', out: { preset: 'fade', at: 1.7 }, stagger: { each: 0.04 }, idle: { y: 4, freq: 1 } }) as any[];
+    expect(p.map(l => l.keyframes.length)).toEqual([4, 4, 4, 4, 4, 4, 4, 4]);
+  });
+  it('the exit keyframe time of a shared wave is out.at - at to the last digit (no noise)', () => {
+    const p = animateText('ABCDEFGH', style, { at: 0.2, duration: 8, in: 'fade', out: { preset: 'fade', at: 1.7 }, stagger: { each: 0.04 } }) as any[];
+    for (const l of p) expect(kf(l)[kf(l).length - 1].at).toBe(1.7 - 0.2);
+  });
+});
+
+describe('stagger: a bare number is GSAP\'s `each` (review: stagger: 0 and out.stagger: 0.05 silently became a 0.1 s wave)', () => {
+  it('stagger(4, 0.05) is 0.05 apart and stagger(4, 0) is all at once', async () => {
+    const { stagger } = await import('../../src/presets/stagger');
+    expect(stagger(4, 0.05 as any).map((v) => +v.toFixed(6))).toEqual([0, 0.05, 0.1, 0.15]);
+    expect(stagger(4, 0 as any)).toEqual([0, 0, 0, 0]);
+    expect(() => stagger(4, 'x' as any)).toThrow(/stagger\(\)/);
+  });
+  it('animateText: stagger: 0 starts every piece together, out.stagger: 0.05 leaves 0.05 apart', () => {
+    const together = animateText('ABCD', style, { at: 1, duration: 5, in: 'fade', stagger: 0 as any }) as any[];
+    expect(together.map(l => l.at)).toEqual([1, 1, 1, 1]);
+    const leaves = animateText('ABCD', style, { at: 1, duration: 6, in: 'fade', out: { preset: 'fade', at: 4, stagger: 0.05 as any }, stagger: { each: 0.2 } }) as any[];
+    const starts = leaves.map((l) => { const k = kf(l)[kf(l).length - 1].at; return l.at + k; });
+    expect(starts.map((v) => +v.toFixed(6))).toEqual([4, 4.05, 4.1, 4.15]);
+  });
+});
+

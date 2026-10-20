@@ -150,10 +150,21 @@ describe('lintKeys: the knobs of an sfx go inside `sfx` (a trial: three agents w
   it('the same for brightness and seed, and when the sfx is already an object it says to put the knob in it', () => {
     expect(warns({ type: 'audio', sfx: 'hit', brightness: 0.5 })[0]).toMatch(/sfx: \{ preset: 'hit', brightness: 0\.5 \}/);
     expect(warns({ type: 'audio', sfx: 'pop', seed: 3 })[0]).toMatch(/sfx: \{ preset: 'pop', seed: 3 \}/);
-    expect(warns({ type: 'audio', sfx: { preset: 'swoosh' }, pitch: -2 })[0]).toMatch(/inside the `sfx` object|sfx: \{ preset: 'swoosh', pitch: -2 \}/);
+    expect(warns({ type: 'audio', sfx: { preset: 'swoosh' }, pitch: -2 })[0]).toMatch(/inside the sfx object you have.*pitch: -2/s);
   });
   it('a pitch on a file audio layer is still the plain unknown key (no sfx to put it in)', () => {
     expect(warns({ type: 'audio', asset: 'a.mp3', pitch: 1 })[0]).not.toMatch(/preset/);
+  });
+});
+
+describe('lintKeys: the sfx knob fix keeps what the author already wrote (review: it told them to replace a voices object or drop other knobs)', () => {
+  it('an sfx object with voices or knobs is added to, not replaced', () => {
+    const w = warns({ type: 'audio', sfx: { voices: [{ wave: 'sine', freq: 440 }] }, pitch: 3 })[0]!;
+    expect(w).toMatch(/inside the sfx object you have/);
+    expect(w).not.toMatch(/sfx: \{ pitch: 3 \}/);
+    const w2 = warns({ type: 'audio', sfx: { preset: 'hit', brightness: 0.4 }, pitch: -2 })[0]!;
+    expect(w2).toMatch(/inside the sfx object you have/);
+    expect(w2).toMatch(/pitch: -2/);
   });
 });
 

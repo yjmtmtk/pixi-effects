@@ -35,7 +35,7 @@ export interface AnimateTextTween {
   /** `out` only: the composition second the exit starts at (every piece leaves in the same wave from then on, and holds its exit state until the layer ends). Without it the exit is the end of the layer run backwards. Not for `in` (an entrance starts with its piece: the options' `at`). */
   at?: number;
   /** `out` only: the wave of the exit, when it should not be the entrance's: `0` (all pieces leave at once), or `{ each: 0.1 }` and the other {@link stagger} options. Default: the same wave as the entrance (the options' `stagger`). */
-  stagger?: StaggerOptions | 0;
+  stagger?: StaggerOptions | number;
 }
 
 export interface AnimateTextOptions {
@@ -59,7 +59,7 @@ export interface AnimateTextOptions {
   /** How a piece leaves, in the same wave (the entrance backwards, eased the other way). With `{ preset, at: T }` the exit starts at composition second T; without `at` it leaves from the END of the layer (`at + duration`), the last piece finishing exactly then. Default none. */
   out?: TextPreset | AnimateTextTween | false;
   /** The wave: see {@link stagger}. Default `{ each: 0.04 }`. */
-  stagger?: StaggerOptions;
+  stagger?: StaggerOptions | number;
   /** A seeded drift between the entrance and the exit, each piece its own: `{ y: 4, rotation: 1 }` (amounts), `freq` (default 1 target per second), `seed`. */
   idle?: { x?: number; y?: number; rotation?: number; scale?: number; freq?: number; seed?: number };
   /** Style changes for one piece (a colour for the first letter): merged over `style`. */
@@ -133,7 +133,7 @@ export function animateText(text: string, style: MeasureStyle, options: AnimateT
       // `out.at` (composition seconds) starts every piece's exit at the same local time (their own starts shift by their delays, so does the wave);
       // without it the exit is the end of the layer run backwards: the last piece finishes exactly at the end
       const begin = outTween.at !== undefined ? undefined : outTween.duration + (outWave - outDelays[i]!);      // seconds before this piece's end
-      const local = outTween.at !== undefined ? Math.max(0, outTween.at + outDelays[i]! - start) : -begin!;       // (a negative keyframe time means "from the end", so an `out.at` before the start is held at 0)
+      const local = outTween.at !== undefined ? Math.max(0, (outTween.at - at) + (outDelays[i]! - delays[i]!)) : -begin!;       // (a negative keyframe time means "from the end", so an `out.at` before the start is held at 0)
       idleEnd = outTween.at !== undefined ? local : len - begin!;
       keyframes.push({
         at: local, duration: outTween.duration, ease: outTween.ease,
@@ -146,7 +146,7 @@ export function animateText(text: string, style: MeasureStyle, options: AnimateT
       for (const k of ['x', 'y', 'rotation', 'scale'] as const) if (idle[k] !== undefined) props[k] = { around: rest[k]!, amp: idle[k]! };
       const freq = idle.freq ?? 1;
       const from = inTween?.duration ?? 0;
-      if (Object.keys(props).length > 0 && idleEnd - from >= 1 / freq) {
+      if (Object.keys(props).length > 0 && idleEnd - from >= 1 / freq - 1e-9) {
         keyframes.push(...wiggle({ at: from, duration: idleEnd - from, freq, seed: (idle.seed ?? 0) * 1000 + i, props }));
       }
     }
@@ -195,6 +195,6 @@ function resolveTween(spec: TextPreset | AnimateTextTween, which: 'in' | 'out'):
   let ease = t.ease ?? base?.ease ?? 'power2.out';
   if (which === 'out' && t.ease === undefined) ease = ease.replace('.out', '.in');
   const at = which === 'out' && typeof t.at === 'number' && Number.isFinite(t.at) ? t.at : undefined;
-  const wave = which === 'out' && t.stagger !== undefined ? (t.stagger === 0 ? { each: 0 } : t.stagger) : undefined;
+  const wave = which === 'out' && t.stagger !== undefined ? (typeof t.stagger === 'number' ? { each: t.stagger } : t.stagger) : undefined;
   return { from, to: { ...to }, duration: t.duration ?? base?.duration ?? 0.5, ease, ...(at !== undefined ? { at } : {}), ...(wave ? { stagger: wave } : {}) };
 }

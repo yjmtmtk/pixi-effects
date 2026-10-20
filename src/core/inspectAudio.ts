@@ -161,6 +161,7 @@ export function analyzeAudio(
     return measure(Array.from({ length: b.numberOfChannels }, (_, c) => b.getChannelData(c)), b.sampleRate);
   };
   const scoreNotes: string[] = [];
+  const normGain = stats?.loudness?.gainDb ?? 0;
   const buried: Array<{ layer: string; source: string; ownDb: number; topVolume: number; around: number; belowMixDb: number; at: number }> = [];
   const list = [...sources].sort((a, b) => a.start - b.start).map(s => {
     const layer = s.layer ?? 'an audio layer';
@@ -196,9 +197,12 @@ export function analyzeAudio(
     }
     // A track a bar or more shorter than the longest one is silent from its end on: usually a miscount of the beats (a trial: three agents; only the read-back showed it). A note, not a fault: a bell may come and go on purpose.
     if (s.music && s.music.tracks.length > 1) {
-      const short = s.music.tracks.filter(t => t.beats <= s.music!.beats - s.music!.meter);
+      const longest = Math.max(...s.music.tracks.map(t => t.beats));
+      const short = s.music.tracks.filter(t => t.beats <= longest - s.music!.meter);
       if (short.length > 0) {
-        scoreNotes.push(`${layer} (${source}): ${short.slice(0, 3).map(t => `the ${t.inst} track is ${Math.round(t.beats * 100) / 100} beats long against ${s.music!.beats} for the longest and falls silent from beat ${Math.round(t.beats * 100) / 100} (bar ${Math.floor(t.beats / s.music!.meter) + 1})`).join('; ')}. If that is a miscount, add its missing beats (a rest is \`_:4\`); if it is on purpose, ignore this`);
+        scoreNotes.push(`${layer} (${source}): ${short.slice(0, 3).map(t => `the ${t.inst} track is ${Math.round(t.beats * 100) / 100} beats long against ${longest} for the longest and falls silent from beat ${Math.round(t.beats * 100) / 100} (bar ${Math.floor(t.beats / s.music!.meter) + 1})`).join('; ')}. If that is a miscount, add its missing beats (a rest is \`_:4\`); if it is on purpose, ignore this`);
+      } else if (s.music.beats >= longest + s.music.meter) {
+        scoreNotes.push(`${layer} (${source}): the drums run to beat ${s.music.beats}, past the end of every track at beat ${longest}: from there only the drums play`);
       }
     }
     // Buried: the sound's own peak against the mix around its loudest moment. A short sound effect 12 dB or more under what plays with it is a hit nobody hears.
@@ -207,9 +211,9 @@ export function analyzeAudio(
     if (!clock && !s.sourceMap && s.start < movieDuration && ownDb > INAUDIBLE_DB) {
       const at = s.start + sound.loudestAt;
       const around = db(peakIn(Math.max(0, at - 0.05), Math.min(movieDuration, at + 0.05)));
-      belowMixDb = Math.max(0, Math.round((around - ownDb) * 10) / 10);
+      belowMixDb = Math.max(0, Math.round((around - (ownDb + normGain)) * 10) / 10);                  // (the mix may have been raised to a loudness target: the sound's own peak is read before that, so it gets the same gain)
       if (!s.music && source.startsWith('sfx') && sound.length <= 4 && belowMixDb >= BURIED_DB) {
-        buried.push({ layer, source, ownDb, topVolume, around, belowMixDb, at: Math.round(at * 100) / 100 });
+        buried.push({ layer, source, ownDb: Math.round((ownDb + normGain) * 10) / 10, topVolume, around, belowMixDb, at: Math.round(at * 100) / 100 });
       }
     }
     return { layer, source, start: s.start, end: s.end, peakDb, sound, ...(belowMixDb !== undefined ? { belowMixDb } : {}), ...(s.music ? { music: s.music } : {}) };
@@ -229,7 +233,7 @@ export function analyzeAudio(
   if (whole.truePeakDb! > 0) issues.push(`the mix's true peak is ${whole.truePeakDb} dBTP: it will distort when the video is encoded — lower the volume`);
   const notes: string[] = [...scoreNotes];
   if (whole.integratedLufs !== null) {
-    if (whole.integratedLufs < LOUDNESS_NOTES.quietBelow) notes.push(`the mix is quiet for web video: ${whole.integratedLufs} LUFS (typical −14 to −16); raise the volume, or ask for a loudness: movie.init({ loudness: -16 }), if that is not on purpose`);
+    if (whole.integratedLufs < LOUDNESS_NOTES.quietBelow && !stats?.loudness) notes.push(`the mix is quiet for web video: ${whole.integratedLufs} LUFS (typical −14 to −16); raise the volume, or ask for a loudness: movie.init({ loudness: -16 }), if that is not on purpose`);
     else if (whole.integratedLufs > LOUDNESS_NOTES.loudAbove) notes.push(`the mix is loud: ${whole.integratedLufs} LUFS (typical web video −14 to −16)`);
   }
   if (whole.truePeakDb! > LOUDNESS_NOTES.headroomDb && whole.truePeakDb! <= 0) notes.push(`the true peak is ${whole.truePeakDb} dBTP: little headroom left for encoding (keep it below ${LOUDNESS_NOTES.headroomDb} dBTP)`);
@@ -240,7 +244,7 @@ export function analyzeAudio(
       const at = sources.filter(x => x.start <= t && t < Math.min(x.end, movieDuration)).map(x => (x.layer && x.layer !== 'an audio layer' ? `${x.layer}${x.source ? ` (${x.source})` : ''}` : x.source ?? 'audio'));
       return [...new Set(at)].slice(0, 6).join(', ') || 'nothing that is listed';
     };
-    if (asked.gainDb !== 0) notes.push(`the whole mix was ${asked.gainDb > 0 ? 'raised' : 'lowered'} by ${Math.abs(asked.gainDb)} dB to reach ${asked.target} LUFS (init({ loudness: ${asked.target} }))`);
+    if (asked.gainDb !== 0) notes.push(`the whole mix was ${asked.gainDb > 0 ? 'raised' : 'lowered'} by ${Math.abs(asked.gainDb)} dB ${asked.limited ? 'toward' : 'to reach'} ${asked.target} LUFS (init({ loudness: ${asked.target} }))`);
     if (asked.limited) {
       notes.push(`the mix could not reach ${asked.target} LUFS: it stopped at ${asked.reachedLufs} LUFS because its loudest moment${asked.limiterAt !== undefined ? ` (at ${asked.limiterAt} s, where ${playingAt(asked.limiterAt)} play)` : ''} would need more than ${asked.limiterDb ?? 10} dB of limiting to stay under -1 dBTP; lower the sound that peaks there (a click or hit on top of a quiet bed), or ask for less`);
     } else if (asked.limiterDb !== undefined && asked.limiterDb >= 3) {

@@ -32,9 +32,12 @@ export interface StaggerOptions {
  * Given a layer array it returns new layers whose `at` is shifted by their delay; the originals are not touched.
  * Everything is a pure function of the options (`from: 'random'` is seeded), so playback and export agree.
  */
-export function stagger(count: number, options?: StaggerOptions): number[];
-export function stagger<T extends { at?: number }>(layers: readonly T[], options?: StaggerOptions): T[];
-export function stagger<T extends { at?: number }>(items: number | readonly T[], options: StaggerOptions = {}): number[] | T[] {
+export function stagger(count: number, options?: StaggerOptions | number): number[];
+export function stagger<T extends { at?: number }>(layers: readonly T[], options?: StaggerOptions | number): T[];
+export function stagger<T extends { at?: number }>(items: number | readonly T[], spec: StaggerOptions | number = {}): number[] | T[] {
+  // a bare number is GSAP's `each` (0.05: 0.05 s between neighbours; 0: all at once): it used to be read as an object and silently became the default 0.1 s wave
+  if (typeof spec !== 'number' && (typeof spec !== 'object' || spec === null)) throw new Error(`stagger(): the second argument is { each, from, … } or a number of seconds between neighbours, got ${JSON.stringify(spec)}`);
+  const options: StaggerOptions = typeof spec === 'number' ? { each: spec } : spec;
   const isCount = typeof items === 'number';
   const n = isCount ? items : items.length;
   if (!Number.isInteger(n) || n < 0) throw new Error(`stagger(): count must be a whole number of items, got ${n}`);

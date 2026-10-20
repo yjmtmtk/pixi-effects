@@ -158,10 +158,10 @@ export function lintKeys(spec: SequenceSpec, warn: Warn = defaultWarn): void {
       // `pitch`, `brightness`, `seed` are knobs of the sound effect, they go inside `sfx` (a trial: three agents wrote them beside `sfx:`)
       if (spec.type === 'audio' && SFX_KNOBS.has(key) && (spec as { sfx?: unknown }).sfx !== undefined) {
         const sfx = (spec as { sfx?: unknown }).sfx;
-        const preset = typeof sfx === 'string' ? sfx : (sfx as { preset?: string } | null)?.preset;
         const v = (spec as unknown as Record<string, unknown>)[key];
         const shown = typeof v === 'number' || (typeof v === 'string' && v.length <= 24) ? JSON.stringify(v) : '…';
-        warn(`pixi-effects: ${who}: "${key}" is a knob of the sound effect, so it is ignored beside \`sfx\`: write it inside — sfx: { ${preset ? `preset: '${preset}', ` : ''}${key}: ${shown} }${key === 'pitch' ? ' (pitch is in semitones, ±24: 12 is an octave up)' : key === 'brightness' ? ' (brightness is −1 dark … 1 bright)' : ''}`);
+        const where = typeof sfx === 'string' ? `sfx: { preset: '${sfx}', ${key}: ${shown} }` : `inside the sfx object you have (sfx: { …, ${key}: ${shown} })`;
+        warn(`pixi-effects: ${who}: "${key}" is a knob of the sound effect, so it is ignored beside \`sfx\`: write it ${where}${key === 'pitch' ? ' (pitch is in semitones, ±24: 12 is an octave up)' : key === 'brightness' ? ' (brightness is −1 dark … 1 bright)' : ''}`);
         continue;
       }
       // `z`, `x`, `alpha`, `rotationX` … are properties of the picture: they go in `initial` (or a keyframe), not on the layer. Say that, not a guess at another key.

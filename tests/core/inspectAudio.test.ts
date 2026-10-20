@@ -352,3 +352,33 @@ describe('inspectSound: the sound of ANY file, measured with the code `check` us
   });
 });
 
+describe('analyzeAudio: what the review of 2026-10-20 found in the loudness notes', () => {
+  const bed = (amp: number) => (t: number) => amp * Math.sin(2 * Math.PI * 300 * t);
+  it('with a loudness target, the sfx level is compared on the same scale as the mix (the mix had been raised, the sfx peak was read before that): the loudest sound is not "buried"', () => {
+    // the mix as it is AFTER normalising (+17 dB): a bed at 0.45 and a pop at 0.5; the pop sound file itself peaks at 0.06 (volume 1), before the gain
+    const pop: AudioDescriptor = { synth: { key: 'pop', render: () => [tone(1000, 1, 0.06), tone(1000, 1, 0.06)] as [Float32Array, Float32Array] }, layer: 'layer "pop"', source: 'sfx "pop"', loop: false, start: 2, end: 3, initialVolume: 1, volumeKeyframes: [] };
+    const bedSrc: AudioDescriptor = { ...src('layer "bed"', 'music', 0, 6), synth: { key: 'bed2', render: () => [tone(300, 6, 0.05), tone(300, 6, 0.05)] as [Float32Array, Float32Array] } };
+    const mix = pcm(6, t => bed(0.45)(t) + (t >= 2 && t < 3 ? 0.5 * Math.sin(2 * Math.PI * 1000 * t) : 0));
+    const without = analyzeAudio(mix, [bedSrc, pop], { peak: 0.9, peakAt: 2 }, 6, { window: 1 });
+    expect(without.notes.join('\n'), 'without a target the numbers say buried (the mix is that loud, the sound is that quiet)').toMatch(/buried/);
+    const asked = analyzeAudio(mix, [bedSrc, pop], { peak: 0.9, peakAt: 2, loudness: { target: -16, gainDb: 18, reachedLufs: -16, limited: false } }, 6, { window: 1 });
+    expect(asked.notes.join('\n'), 'with the gain it was given it is level with the mix').not.toMatch(/buried/);
+  });
+  it('a target that was out of reach does not also say "quiet ... ask for movie.init({ loudness })", and does not say it was reached', () => {
+    const r = analyzeAudio(pcm(4, t => 0.01 * Math.sin(2 * Math.PI * 1000 * t)), [src('layer "bed"', 'music', 0, 4)],
+      { peak: 0.01, peakAt: 1, loudness: { target: -16, gainDb: 9.2, reachedLufs: -31.1, limited: true, limiterDb: 10, limiterAt: 2 } }, 4, { window: 1 });
+    const said = r.notes.join('\n');
+    expect(said).toMatch(/could not reach -16 LUFS/);
+    expect(said).not.toMatch(/quiet for web video/);
+    expect(said).not.toMatch(/to reach -16 LUFS \(init/);                  // "raised by 9.2 dB toward -16", not "to reach"
+    expect(said).toMatch(/toward -16 LUFS/);
+  });
+  it('the short-track note compares with the longest TRACK: tracks of equal length under drums that run longer are not blamed', () => {
+    const music = { bpm: 120, meter: 4, meterSet: true, beats: 24, bars: 6, seconds: 12, tail: 2.5, drums: [{ from: 0, to: 24, kinds: ['kick'] }],
+      tracks: [{ inst: 'keys', beats: 16, bars: 4, events: 4, perBar: [] }, { inst: 'bass', beats: 16, bars: 4, events: 4, perBar: [] }] };
+    const said = analyzeAudio(pcm(12, t => 0.2 * Math.sin(2 * Math.PI * 1000 * t)), [{ ...src('layer "bgm"', 'music', 0, 12), music }], { peak: 0.2, peakAt: 1 }, 12, { window: 1 }).notes.join('\n');
+    expect(said).not.toMatch(/keys track is 16 beats.*against 24/);
+    expect(said).toMatch(/drums run to beat 24.*past the end of every track at beat 16/s);
+  });
+});
+

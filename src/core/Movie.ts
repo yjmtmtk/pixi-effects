@@ -4,7 +4,7 @@ import { Application, Container, Culler, Rectangle, extensions, CullerPlugin } f
 import { createTimeline, lengthen, type Timeline } from './timelineEngine';
 import { loadAssetBundle } from './AssetLoader';
 import { CompositionSequence } from '../sequences/Composition';
-import { mixdown, limitMix, normalizeMix, type MixStats } from './AudioMixer';
+import { mixdown, limitMix, normalizeMix, cleanMix, type MixStats } from './AudioMixer';
 import { analyzeAudio, type AudioReport, type AudioInspectOptions } from './inspectAudio';
 import { inspectFonts, type FontReport } from './inspectFonts';
 import { namedScenes } from './scenes';
@@ -520,7 +520,8 @@ export class Movie {
       if (hit) { this.audioBuffer = hit.buffer; this._mixStats = hit.extra; status = 'reused'; }
       else {
         this.audioBuffer = await mixdown(audios, this.duration, audioContext.sampleRate, lp ? async (done) => { lp.part(done); await lp.yieldIfDue(); } : undefined);
-        const loudness = this.audioBuffer && this._loudness !== null ? normalizeMix(this.audioBuffer, this._loudness) : undefined;      // before the limiter: it then has nothing to do
+        if (this.audioBuffer) cleanMix(this.audioBuffer, audios);                                                 // a NaN or an Infinity would silence or blind everything after
+        const loudness = this.audioBuffer && this._loudness !== null ? await normalizeMix(this.audioBuffer, this._loudness, lp ? () => lp.yieldIfDue() : undefined) : undefined;      // before the limiter: it then has nothing to do
         this._mixStats = this.audioBuffer ? { ...limitMix(this.audioBuffer, audios), ...(loudness ? { loudness } : {}) } : null;
         this._mixCache.set(key, this.audioBuffer, this._mixStats);
         status = 'mixed';
