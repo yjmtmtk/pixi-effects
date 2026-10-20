@@ -61,7 +61,15 @@ function align(a: number[], b: number[]): number[] {
  * reversed so they do not twist, and sub-paths are paired by order. A sub-path with no partner grows out of (or shrinks
  * into) its own centre. Empty on either side: nothing to morph.
  */
+/** A closed outline written with a line back to its start before Z has its start twice: it has the corners it has, not one more (a quad stays a quad for the corner-to-corner pairing). */
+function withoutClosingPoint(p: Polyline): Polyline {
+  const n = p.pts.length;
+  if (p.closed && n >= 4 && p.pts[0] === p.pts[n - 2] && p.pts[1] === p.pts[n - 1]) return { ...p, pts: p.pts.slice(0, n - 2) };
+  return p;
+}
+
 export function buildMorph(from: Polyline[], to: Polyline[], n = 128): MorphPair[] {
+  from = from.map(withoutClosingPoint); to = to.map(withoutClosingPoint);
   if (from.length === 0 || to.length === 0) return [];
   const pairs: MorphPair[] = [];
   const count = Math.max(from.length, to.length);

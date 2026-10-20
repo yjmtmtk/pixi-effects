@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · silent stretches of the mix</title></head>
+<body style="margin:0">
+  <!--
+    Test film (tests/films/sound-silences.test.ts): where the mix is silent, as movie.inspectAudio() reports it.
+    A 320 x 180 movie at 30 fps with two synthesised sound effects and nothing else:
+      'rise'  a riser at 0 s (its preset length is 1 s and it is loudest at its END: the sound stops at 1 s),
+      'beep'  a beep at SECOND s (preset length 0.16 s, flat: it is loud from its first sample).
+    The movie lasts SECOND + 0.5 s, so after the beep there is 0.34 s of quiet: less than a second.
+    ?second=<s>  where the beep starts (default 4: the mix is quiet from 1 s to 4 s).
+    ?fill=1      adds 'bed', a steady sine (a custom sfx with the 'hold' envelope) over the whole movie: no silence anywhere.
+    ?faint=<v>   adds 'faint', a beep at 2.5 s at volume v, inside the quiet stretch.
+  -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":      "https://esm.sh/mediabunny@1.61.3"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const q = new URLSearchParams(location.search);
+    const SECOND = q.has('second') ? Number(q.get('second')) : 4;
+    const DURATION = SECOND + 0.5;
+    const movie = new Movie();
+    window.movie = movie;
+    const sequences = [
+      { type: 'shape', shape: 'rect', name: 'card', width: 120, height: 40, initial: { x: 160, y: 90, fillColor: '#3a86ff' } },
+      { type: 'audio', name: 'rise', sfx: 'riser', at: 0 },
+      { type: 'audio', name: 'beep', sfx: 'beep', at: SECOND },
+    ];
+    if (q.get('fill') === '1') sequences.push({ type: 'audio', name: 'bed', at: 0, duration: DURATION, volume: 0.5,
+      sfx: { voices: [{ wave: 'sine', freq: 220, envelope: 'hold' }] } });
+    if (q.has('faint')) sequences.push({ type: 'audio', name: 'faint', sfx: 'beep', at: 2.5, volume: Number(q.get('faint')) });
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: DURATION, frameRate: 30, background: '#101828',
+        composition: { sequences } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

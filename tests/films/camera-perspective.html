@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · perspective of the default camera</title></head>
+<body style="margin:0">
+  <!-- Test film (tests/films/camera-perspective.test.ts): one white threeD rect "card", 200 x 100, centred on (320, 180) of a black 640 x 360 canvas, 1 s at 30 fps.
+       The query sets its depth and the camera: ?z=-400 (a number, or "cam" = exactly on the camera plane, (H/2)/tan(fov/2)), ?fov=60 (adds a camera layer with only fov;
+       without it there is no camera layer: the default camera), ?hideBehindCamera=1. With no query the rect is at z = 0 under the default camera.
+       The page gives the test shot(frame) (takes the snapshot the probes read), pixel(x, y) (its red channel), runs(axis, at) (the white runs along a row or a column)
+       and countWhite() (the white pixels of the whole frame). -->
+  <canvas id="stage" width="640" height="360"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const q = new URLSearchParams(location.search);
+    const fov = q.has('fov') ? Number(q.get('fov')) : 40;
+    const camZ = (360 / 2) / Math.tan(fov / 2 * Math.PI / 180);          // docs/dsl.md, Camera: z defaults to (H/2) / tan(fov/2)
+    const z = q.get('z') === 'cam' ? camZ : q.has('z') ? Number(q.get('z')) : 0;
+    const sequences = [];
+    if (q.has('fov')) sequences.push({ type: 'camera', name: 'cam', initial: { fov } });
+    sequences.push({ type: 'shape', shape: 'rect', name: 'card', width: 200, height: 100, threeD: true,
+      ...(q.get('hideBehindCamera') === '1' ? { hideBehindCamera: true } : {}),
+      initial: { x: 320, y: 180, z, fillColor: '#ffffff' } });
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 640, height: 360, duration: 1, frameRate: 30, background: '#000000',
+        composition: { sequences },
+      });
+      let img = null;
+      window.shot = async (frame) => { img = await movie.snapshot(frame, { as: 'imageData' }); window.__size = [img.width, img.height]; return true; };
+      window.pixel = (x, y) => { const X = Math.floor(x), Y = Math.floor(y); if (X < 0 || Y < 0 || X >= img.width || Y >= img.height) return -1; return img.data[(Y * img.width + X) * 4]; };
+      // the white runs (red > 128) along column x = at (axis 'y') or row y = at (axis 'x'): [[start, endExclusive], ...]
+      window.runs = (axis, at) => { const n = axis === 'y' ? img.height : img.width; const out = []; let s = -1;
+        for (let i = 0; i <= n; i++) { const v = i < n ? (axis === 'y' ? pixel(at, i) : pixel(i, at)) : 0; if (v > 128 && s < 0) s = i; if (v <= 128 && s >= 0) { out.push([s, i]); s = -1; } }
+        return out; };
+      window.countWhite = () => { let c = 0; for (let i = 0; i < img.data.length; i += 4) if (img.data[i] > 128) c++; return c; };
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

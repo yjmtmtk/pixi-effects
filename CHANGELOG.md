@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Eight more test films from the coverage plan (keyframe order, nested compositions, morph, perspective, image size, silences, two warning families, WebGL against WebGPU).
+
+- **Fixed: a quad written with a line back to its start before `Z` was counted as having five corners,** so morphing it into another quad fell back to resampling and cut the corners half way (the docs promise corner-to-corner pairing for two quads).
+- **Fixed: `style.colour` / `style.color` (and `fontcolor`, `textcolor`) got no did-you-mean;** the warning now says `fill`.
+- **Docs, each pinned by a film:** keyframes of one property run in the order of their `at` (not of the list) and an overlap makes the picture jump; a positive `rotation` is clockwise and a composition scales first, then rotates, about its pivot; what counts as a corner for a morph; the perspective scale of a flat layer is `camZ / (camZ − z)` and a layer at the camera plane is hidden with a warning; an image's `width` alone stretches, `scale` keeps the ratio, `cover` / `contain` work for images; what a silence is (1 s below −60 dBFS) and what the note says; the sentences of the property and style-key warnings and the PixiJS shorthands that are valid properties; the measured difference of 2D layers between the two backends.
+
 ## 0.47.3
 
 `measureText().lines` counts the lines a wrapped text draws, and the docs say what `skew` does. Nothing breaks.

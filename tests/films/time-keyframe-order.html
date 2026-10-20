@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · the order of two keyframes on one property</title></head>
+<body style="margin:0">
+  <!--
+    Test film (tests/films/time-keyframe-order.test.ts): two `to` keyframes on the x of one layer; does the order of the list matter, and what happens when they overlap?
+    A 320 x 180 black movie, 3 s at 30 fps. One red 20 x 20 rect 'box' (centred on x, y), initial x 40, y 90, and two keyframes, ease 'none':
+      A: { at: 0.5, to: { x: 160 }, duration: 1 }
+      B: { at: 2,   to: { x: 280 }, duration: 0.5 }      (?overlap=1: { at: 1, to: { x: 280 }, duration: 1 }: it starts while A still runs, A ends at 1.5)
+    ?order=time (the default) lists them [A, B]; ?order=reverse lists them [B, A].
+    The page gives the test centreAt(frames) (the rect's centre x from movie.inspect bounds) and pixelAt(frame, x, y) (RGB of a snapshot pixel).
+  -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":      "https://esm.sh/mediabunny@1.61.3"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const q = new URLSearchParams(location.search);
+    const ORDER = q.get('order') === 'reverse' ? 'reverse' : 'time';
+    const OVERLAP = q.get('overlap') === '1';
+    const A = { at: 0.5, to: { x: 160 }, duration: 1, ease: 'none' };
+    const B = OVERLAP ? { at: 1, to: { x: 280 }, duration: 1, ease: 'none' } : { at: 2, to: { x: 280 }, duration: 0.5, ease: 'none' };
+    const movie = new Movie();
+    window.movie = movie;
+    // the centre x of 'box' at each frame, from movie.inspect (bounds in canvas pixels)
+    window.centreAt = async (frames) => {
+      const out = [];
+      for (const f of frames) {
+        const r = await movie.inspect(f, { layers: 'all' });
+        const l = r.layers.find((x) => x.name === 'box');
+        out.push(l && l.bounds ? l.bounds.x + l.bounds.width / 2 : null);
+      }
+      return out;
+    };
+    // the RGB of one canvas pixel at a frame, from the picture snapshot() makes (the same draw as a seek)
+    window.pixelAt = async (frame, x, y) => {
+      const img = await movie.snapshot(frame, { as: 'imageData' });
+      const i = (Math.round(y) * img.width + Math.round(x)) * 4;
+      return [img.data[i], img.data[i + 1], img.data[i + 2]];
+    };
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: 30, background: '#000000',
+        composition: { sequences: [
+          { type: 'shape', shape: 'rect', name: 'box', width: 20, height: 20,
+            initial: { x: 40, y: 90, fillColor: '#ff0000' },
+            keyframes: ORDER === 'reverse' ? [B, A] : [A, B] },
+        ] },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

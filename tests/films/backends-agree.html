@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · backends agree</title></head>
+<body style="margin:0">
+  <!--
+    Test film (tests/films/backends-agree.test.ts): the same small film on WebGPU (the default) and on WebGL (the test opens it again with
+    navigator.gpu removed, so PixiJS falls back to WebGL), compared picture against picture.
+    640 x 360, 2 s at 30 fps, background #1e2a38. Only what is documented as working the same on both backends:
+      'panel'  a 240 x 110 rect at (150, 100), fillGradient angle 0 (left → right) from #ff9a3c to #3c5bff;
+      'disc'   a circle, radius 50, at (450, 120), #ff3030 at alpha 0.6;
+      'tile'   a 90 x 90 rect at (510, 170), #80e0ff, blendMode 'multiply', rotation 0 → 45 degrees over 1.5 s (ease 'none'), over the disc's lower right;
+      'label'  the text "Backends agree", white, 40 px, at (200, 280), centred;
+      'glow'   a circle, radius 36, at (560, 300), #ffd166, with a blur filter (strength 8) and a filterArea wide enough for it.
+    ?alpha=<0..1> sets the disc's alpha (default 0.6).
+    ?drift=<px> moves the tile right by that many px ON WEBGL ONLY (where the page has no navigator.gpu): a film that is wrong on one backend on purpose, to see the comparison catch it
+    and name the layer (default 0: the film is the same everywhere).
+    The page gives the test: backend (the PixiJS renderer's name), grid(frame, step) (the picture point-sampled every `step` px as base64 RGB,
+    and for each sample whether its 3 x 3 neighbourhood is flat), pixelAt(frame, x, y) and layersNear(frame, x, y) (movie.pick's paths within 1.5 px of a pixel).
+  -->
+  <canvas id="stage" width="640" height="360"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":      "https://esm.sh/mediabunny@1.61.3"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const q = new URLSearchParams(location.search);
+    const ALPHA = q.has('alpha') ? Number(q.get('alpha')) : 0.6;
+    const DRIFT = q.has('drift') ? Number(q.get('drift')) : 0;
+    // the film made wrong on one backend on purpose (?drift): with no navigator.gpu PixiJS draws on WebGL, and the tile stands DRIFT px further right there
+    const TILE_X = 510 + (navigator.gpu ? 0 : DRIFT);
+    const movie = new Movie();
+    window.movie = movie;
+    const pictures = new Map();
+    const picture = async (frame) => {
+      if (!pictures.has(frame)) pictures.set(frame, await movie.snapshot(frame, { as: 'imageData' }));
+      return pictures.get(frame);
+    };
+    window.pixelAt = async (frame, x, y) => {
+      const img = await picture(frame);
+      const i = (Math.round(y) * img.width + Math.round(x)) * 4;
+      return [img.data[i], img.data[i + 1], img.data[i + 2]];
+    };
+    // the picture sampled at (x, y) = (step/2 + i*step, step/2 + j*step): rgb as base64 (3 bytes a sample) and flat as base64 (1 byte: 1 when every
+    // pixel of the 3 x 3 around the sample is within 2 of the sample in every channel, i.e. not an edge)
+    window.grid = async (frame, step) => {
+      const img = await picture(frame), W = img.width, H = img.height, d = img.data;
+      const cols = Math.floor(W / step), rows = Math.floor(H / step);
+      const rgb = new Uint8Array(cols * rows * 3), flat = new Uint8Array(cols * rows);
+      for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+        const x = Math.floor(step / 2) + i * step, y = Math.floor(step / 2) + j * step, k = (y * W + x) * 4, n = j * cols + i;
+        rgb[n * 3] = d[k]; rgb[n * 3 + 1] = d[k + 1]; rgb[n * 3 + 2] = d[k + 2];
+        let f = 1;
+        for (let dy = -1; dy <= 1 && f; dy++) for (let dx = -1; dx <= 1 && f; dx++) {
+          const X = Math.min(W - 1, Math.max(0, x + dx)), Y = Math.min(H - 1, Math.max(0, y + dy)), m = (Y * W + X) * 4;
+          for (let c = 0; c < 3; c++) if (Math.abs(d[m + c] - d[k + c]) > 2) { f = 0; break; }
+        }
+        flat[n] = f;
+      }
+      const b64 = (u) => { let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(s); };
+      return { width: W, height: H, cols, rows, rgb: b64(rgb), flat: b64(flat) };
+    };
+    // the layers on top within 1.5 px of the pixel (x, y), asked at pixel centres (movie.pick): what an edge sample belongs to; [] = the background
+    window.layersNear = async (frame, x, y) => {
+      await movie.snapshot(frame);
+      const out = new Set();
+      for (const dy of [-1.5, 0, 1.5]) for (const dx of [-1.5, 0, 1.5]) { const h = movie.pick(x + 0.5 + dx, y + 0.5 + dy); if (h) out.add(h.path); }
+      return [...out].sort();
+    };
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 640, height: 360, duration: 2, frameRate: 30, background: '#1e2a38',
+        composition: { sequences: [
+          { type: 'shape', shape: 'rect', name: 'panel', width: 240, height: 110,
+            fillGradient: { angle: 0, stops: [[0, '#ff9a3c'], [1, '#3c5bff']] },
+            initial: { x: 150, y: 100 } },
+          { type: 'shape', shape: 'circle', name: 'disc', radius: 50,
+            initial: { x: 450, y: 120, fillColor: '#ff3030', alpha: ALPHA } },
+          { type: 'shape', shape: 'rect', name: 'tile', width: 90, height: 90, blendMode: 'multiply',
+            initial: { x: TILE_X, y: 170, fillColor: '#80e0ff', rotation: 0 },
+            keyframes: [{ at: 0, duration: 1.5, to: { rotation: 45 }, ease: 'none' }] },
+          { type: 'text', name: 'label', text: 'Backends agree',
+            style: { fontFamily: 'Arial', fontSize: 40, fill: '#ffffff' },
+            initial: { x: 200, y: 280, anchorX: 0.5, anchorY: 0.5 } },
+          { type: 'shape', shape: 'circle', name: 'glow', radius: 36,
+            filterArea: { x: -76, y: -76, width: 152, height: 152 },
+            filters: [{ type: 'blur', strength: 8 }],
+            initial: { x: 560, y: 300, fillColor: '#ffd166' } },
+        ] },
+      });
+      window.backend = movie.app.renderer.name || String(movie.app.renderer.type);
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

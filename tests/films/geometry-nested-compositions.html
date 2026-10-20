@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · nested compositions two deep</title></head>
+<body style="margin:0">
+  <!-- Test film (tests/films/geometry-nested-compositions.test.ts): three compositions inside each other on black, 640 x 360, 1 s.
+       outer  (400 x 200) at (outerX, outerY) = (100, 40), no pivot (its top-left corner sits there);
+       middle (100 x 60)  inside outer at (20, 10), scale midScale = 2, no pivot;
+       inner  (60 x 40)   inside middle at (50, 30), rotation innerRot = 90 about (innerPivotX, innerPivotY) = (30, 20), its middle.
+       In inner, in its own coordinates: a blue 60 x 40 rect filling its rectangle (anchor top-left at 0, 0), a white 8 x 4 marker "markerA"
+       centred at (50, 10) (inside the rectangle), and a green 6 x 6 marker "markerB" centred at (90, 20) (OUTSIDE inner's 60 x 40, and outside middle's 100 x 60 once placed).
+       The query changes any of outerX, outerY, midScale, innerRot, innerPivotX, innerPivotY.
+       The page gives the test pixel(x, y) ('white' | 'green' | 'blue' | 'black' | 'other' at frame 0), runs(axis, at, cls) (the runs of a class along a column or a row)
+       and bounds(name) (movie.inspect(0)'s canvas bounds of a layer). -->
+  <canvas id="stage" width="640" height="360"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const q = new URLSearchParams(location.search);
+    const num = (k, d) => (q.has(k) ? Number(q.get(k)) : d);
+    const outerX = num('outerX', 100), outerY = num('outerY', 40), midScale = num('midScale', 2);
+    const innerRot = num('innerRot', 90), innerPivotX = num('innerPivotX', 30), innerPivotY = num('innerPivotY', 20);
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 640, height: 360, duration: 1, frameRate: 30, background: '#000000',
+        composition: { sequences: [
+          { type: 'composition', name: 'outer', width: 400, height: 200, initial: { x: outerX, y: outerY }, sequences: [
+            { type: 'composition', name: 'middle', width: 100, height: 60, initial: { x: 20, y: 10, scale: midScale }, sequences: [
+              { type: 'composition', name: 'inner', width: 60, height: 40, initial: { x: 50, y: 30, rotation: innerRot, pivotX: innerPivotX, pivotY: innerPivotY }, sequences: [
+                { type: 'shape', shape: 'rect', name: 'frame', width: 60, height: 40, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#0000ff' } },
+                { type: 'shape', shape: 'rect', name: 'markerA', width: 8, height: 4, initial: { x: 50, y: 10, fillColor: '#ffffff' } },
+                { type: 'shape', shape: 'rect', name: 'markerB', width: 6, height: 6, initial: { x: 90, y: 20, fillColor: '#00ff00' } },
+              ] },
+            ] },
+          ] },
+        ] },
+      });
+      const report = await movie.inspect(0, { layers: 'all' });
+      window.bounds = (name) => { const l = report.layers.find(l => l.name === name); return l ? l.bounds : null; };
+      const img = await movie.snapshot(0, { as: 'imageData' });
+      window.__size = [img.width, img.height];
+      window.pixel = (x, y) => { const X = Math.floor(x), Y = Math.floor(y); if (X < 0 || Y < 0 || X >= img.width || Y >= img.height) return 'out';
+        const i = (Y * img.width + X) * 4, r = img.data[i], g = img.data[i + 1], b = img.data[i + 2];
+        if (r > 200 && g > 200 && b > 200) return 'white';
+        if (g > 200 && r < 60 && b < 60) return 'green';
+        if (b > 200 && r < 60 && g < 60) return 'blue';
+        if (r < 40 && g < 40 && b < 40) return 'black';
+        return 'other'; };
+      // the runs of class cls along column x = at (axis 'y') or row y = at (axis 'x'): [[start, endExclusive], ...]
+      window.runs = (axis, at, cls) => { const n = axis === 'y' ? img.height : img.width; const out = []; let s = -1;
+        for (let i = 0; i <= n; i++) { const v = i < n && (axis === 'y' ? pixel(at, i) : pixel(i, at)) === cls; if (v && s < 0) s = i; if (!v && s >= 0) { out.push([s, i]); s = -1; } }
+        return out; };
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

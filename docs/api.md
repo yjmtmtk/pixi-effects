@@ -237,9 +237,9 @@ interface SoundReport {
   duration: number; sampleRate: number; channels: number;
   peakDb: number;                                  // the loudest sample, dBFS
   loudness: { integratedLufs: number | null;       // ITU-R BS.1770; null for a sound under 0.4 s or with nothing above −70 LUFS
-              truePeakDb: number; clippedSamples: number; silences: Array<{ from: number; to: number }> };
+              truePeakDb: number; clippedSamples: number; silences: Array<{ from: number; to: number }> };   // runs of 1 s or more where every channel stays below −60 dBFS, in seconds
   windows: Array<{ t: number; rmsDb: number }>;    // the level over time
-  notes: string[];                                 // quiet or loud for web video, little headroom, silent stretches
+  notes: string[];                                 // quiet or loud for web video, little headroom, silent stretches (`the mix is silent from X s to Y s (N s)`, at most 3, then `and N more silent stretch(es)`)
 }
 ```
 

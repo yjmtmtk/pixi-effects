@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · an image's size and ratio</title></head>
+<body style="margin:0">
+  <!-- Test film (tests/films/media-image-size.test.ts): one image layer 'pic' on blue (#0000ff), 640 x 360, 1 s. The picture is generated here:
+       a 200 x 100 canvas, the left half white, the right half black, as a PNG data URI.
+       The query sets the layer: ?x=20&y=30 (the defaults), &anchor=0.5 (anchorX and anchorY), &scale=2 | contain | cover, &width=300, &height=200;
+       a value that is not a number (GW/2 - w/2, cover) is passed as the expression it is.
+       The page gives the test kindAt(x, y) ('W' white, 'K' black, 'B' the blue background: the nearest of the three, frame 0),
+       spans(axis, at) (for a row y = at (axis 'x') or a column x = at (axis 'y'): for each kind [first, last + 1, count] or null)
+       and layerOf(frame) (the layer's entry in movie.inspect). -->
+  <canvas id="stage" width="640" height="360"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const q = new URLSearchParams(location.search);
+    const val = (k, d) => { if (!q.has(k)) return d; const v = q.get(k); return Number.isFinite(Number(v)) && v.trim() !== '' ? Number(v) : v; };
+    const initial = { x: val('x', 20), y: val('y', 30) };
+    if (q.has('anchor')) { initial.anchorX = val('anchor'); initial.anchorY = val('anchor'); }
+    for (const k of ['scale', 'width', 'height']) if (q.has(k)) initial[k] = val(k);
+    // the picture: 200 x 100, white | black
+    const pic = document.createElement('canvas'); pic.width = 200; pic.height = 100;
+    const g = pic.getContext('2d'); g.fillStyle = '#ffffff'; g.fillRect(0, 0, 100, 100); g.fillStyle = '#000000'; g.fillRect(100, 0, 100, 100);
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 640, height: 360, duration: 1, frameRate: 30, background: '#0000ff',
+        assets: [{ name: 'halves', src: pic.toDataURL('image/png') }],
+        composition: { sequences: [ { type: 'image', name: 'pic', asset: 'halves', initial } ] },
+      });
+      const img = await movie.snapshot(0, { as: 'imageData' });
+      window.__size = [img.width, img.height];
+      const KINDS = [['W', 255, 255, 255], ['K', 0, 0, 0], ['B', 0, 0, 255]];
+      window.kindAt = (x, y) => { const X = Math.floor(x), Y = Math.floor(y); if (X < 0 || Y < 0 || X >= img.width || Y >= img.height) return null;
+        const i = (Y * img.width + X) * 4, d = img.data; let best = null, bd = Infinity;
+        for (const [k, r, gg, b] of KINDS) { const dd = (d[i] - r) ** 2 + (d[i + 1] - gg) ** 2 + (d[i + 2] - b) ** 2; if (dd < bd) { bd = dd; best = k; } }
+        return best; };
+      window.spans = (axis, at) => { const n = axis === 'y' ? img.height : img.width; const out = { W: null, K: null, B: null };
+        for (let i = 0; i < n; i++) { const k = axis === 'y' ? kindAt(at, i) : kindAt(i, at); const s = out[k]; if (!s) out[k] = [i, i + 1, 1]; else { s[1] = i + 1; s[2]++; } }
+        return out; };
+      window.layerOf = async (frame) => { const rep = await movie.inspect(frame, { layers: 'all' }); const l = rep.layers.find(l => l.name === 'pic'); return l ? { visible: l.visible, bounds: l.bounds, onCanvas: l.onCanvas } : null; };
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

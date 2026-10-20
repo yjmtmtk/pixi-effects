@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>film · a mistyped property or text style key is one warning that names the layer, the key and what to write</title>
+</head>
+<body>
+  <!--
+    Test film (not an example). The same eight layers, built two ways:
+      (no query)      every key correct: the page gives NO warning (tests/tools/noFalseWarnings.test.ts opens it like this);
+      ?mistakes=1     six layers each carry ONE wrong key, two correct layers stand next to them:
+                        fader     rect   initial: { alhpa: 0.5 } AND keyframe from/to { alhpa }   (a typo of alpha, written three times)
+                        mover     rect   keyframe to: { fillcolor: '#ff0000' }                    (a shape's style key, fillColor, in the wrong case)
+                        spinner   text   keyframe to: { rotaton: 90 }                             (a typo of rotation)
+                        (unnamed) rect   initial: { scal: 1.5 }                                   (a typo of scale, on a layer with no name)
+                        heading   text   style: { fontsize: 20 }                                  (a typo of fontSize)
+                        caption   text   style: { colour: '#ffcc00' }                             (the text colour is style.fill)
+                        okShape / okText: correct; okShape also moves by positionX / positionY (docs/dsl.md "PIXI shorthands"),
+                          okText's style holds every style key the cheatsheet names.
+      &fixed=a,b      the layers named (use "unnamed" for the unnamed rect) are written correctly even with ?mistakes=1.
+  -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) {
+      const orig = console[k].bind(console);
+      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+    }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js":         "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "mediabunny":      "https://esm.sh/mediabunny@1.61.3"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const q = new URLSearchParams(location.search);
+    const fixed = new Set((q.get('fixed') || '').split(',').filter(Boolean));
+    const wrong = (name) => q.get('mistakes') === '1' && !fixed.has(name);
+    // each mistaken layer: the wrong key when it is wrong, the right way to write it otherwise
+    const a = wrong('fader') ? 'alhpa' : 'alpha';
+    const sequences = [
+      { type: 'shape', shape: 'rect', name: 'fader', width: 40, height: 20,
+        initial: { x: 40, y: 30, fillColor: '#e04040', [a]: 0.5 },
+        keyframes: [{ at: 0.5, from: { [a]: 0 }, to: { [a]: 1 }, duration: 1 }] },
+      { type: 'shape', shape: 'rect', name: 'mover', width: 40, height: 20,
+        initial: { x: 40, y: 70, fillColor: '#40e040' },
+        keyframes: [{ at: 0, to: { x: 200, [wrong('mover') ? 'fillcolor' : 'fillColor']: '#ff0000' }, duration: 2 }] },
+      { type: 'text', name: 'spinner', text: 'spin', style: { fontSize: 16, fill: '#ffffff' },
+        initial: { x: 40, y: 110, anchorX: 0.5, anchorY: 0.5 },
+        keyframes: [{ at: 0, to: { [wrong('spinner') ? 'rotaton' : 'rotation']: 90 }, duration: 2 }] },
+      { type: 'shape', shape: 'rect', width: 16, height: 16,
+        initial: { x: 40, y: 150, fillColor: '#e0e040', [wrong('unnamed') ? 'scal' : 'scale']: 1.5 } },
+      { type: 'text', name: 'heading', text: 'Heading',
+        style: { [wrong('heading') ? 'fontsize' : 'fontSize']: 20, fill: '#ffffff' }, initial: { x: 120, y: 20 } },
+      { type: 'text', name: 'caption', text: 'caption',
+        style: { fontSize: 14, [wrong('caption') ? 'colour' : 'fill']: '#ffcc00' }, initial: { x: 120, y: 60 } },
+      // correct neighbours: the animatable properties of cheatsheet.md 48 (and a shape's style, a text's fill) in initial and in keyframes,
+      // and every text style key cheatsheet.md 54 names
+      { type: 'shape', shape: 'rect', name: 'okShape', width: 40, height: 20,
+        initial: { x: 260, y: 30, alpha: 0.8, rotation: 0, scale: 1, scaleX: 1, scaleY: 1, anchorX: 0.5, anchorY: 0.5, skewX: 0, skewY: 0, fillColor: '#4040e0', fillAlpha: 1, strokeColor: '#ffffff', strokeWidth: 1, strokeAlpha: 1 },
+        keyframes: [{ at: 0, to: { positionX: 280, positionY: 40, alpha: 1, rotation: 20, scale: 1.2, fillColor: '#40e0e0', strokeWidth: 2 }, duration: 2 },
+                    { at: 1.5, set: { visible: true } }] },
+      { type: 'text', name: 'okText', text: 'ok text', initial: { x: 200, y: 120, fill: '#ffffff', alpha: 1 },
+        style: { fontSize: 16, fontFamily: 'Arial', fontWeight: '700', fill: '#ffffff', letterSpacing: 1, lineHeight: 20, align: 'left',
+                 wordWrap: true, wordWrapWidth: 110, stroke: { color: '#000000', width: 2 }, dropShadow: false, padding: 4 },
+        keyframes: [{ at: 0, to: { fill: '#80ff80', alpha: 0.9, y: 130 }, duration: 2 }] },
+    ];
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 320, height: 180, duration: 2, frameRate: 30, background: '#101010',
+        composition: { sequences },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

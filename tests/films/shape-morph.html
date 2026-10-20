@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · path morph corner to corner</title></head>
+<body style="margin:0">
+  <!--
+    Test film (tests/films/shape-morph.test.ts): a path that morphs (docs/dsl.md "Morph (morphTo / morph)", the path row of the cheatsheet's shape table).
+    A 640 x 360 canvas on black, 2 s at 30 fps, one white path 'morpher' (no x / y: it sits where its d says), no stroke:
+      d        an 80 x 80 square, corners (60, 40) (140, 40) (140, 120) (60, 120), written from its top-left corner, clockwise
+               (?close=line: the same square ending with 'L 60 40 Z', a line back to the start before closing; the same four corners)
+      morphTo  ?to=square (default): a 200 x 200 square, corners (400, 140) .. (600, 340)
+               ?to=wide: a 320 x 80 rectangle, corners (300, 240) .. (620, 320) (its edges are NOT in proportion to the first square's)
+               both written from their BOTTOM-RIGHT corner, counter-clockwise (another start point and the other direction than d)
+      morph    0 in initial, one keyframe { at: 0, to: { morph: 1 }, duration: 1, ease: 'none' }: frame f (0..30) is morph f / 30, and it holds 1 after
+    The page gives the test pixel(frame, x, y) (the red channel of that frame's snapshot, -1 off the canvas), runs(frame, axis, at)
+    (the white runs along column x = at (axis 'y') or row y = at (axis 'x')) and bounds(frame) (what movie.inspect says of 'morpher').
+  -->
+  <canvas id="stage" width="640" height="360"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">{ "imports": { "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const q = new URLSearchParams(location.search);
+    const to = q.get('to') || 'square';
+    // ?close=line writes the same square with a line back to its start before Z (the way many SVG editors write it): still four corners
+    const D = q.get('close') === 'line' ? 'M 60 40 L 140 40 L 140 120 L 60 120 L 60 40 Z' : 'M 60 40 L 140 40 L 140 120 L 60 120 Z';
+    const TO = {
+      square: 'M 600 340 L 600 140 L 400 140 L 400 340 Z',
+      wide: 'M 620 320 L 620 240 L 300 240 L 300 320 Z',
+    }[to];
+    const movie = new Movie();
+    window.movie = movie;
+    const shots = new Map();
+    const shot = async (f) => { if (!shots.has(f)) shots.set(f, await movie.snapshot(f, { as: 'imageData' })); return shots.get(f); };
+    window.pixel = async (f, x, y) => { const img = await shot(f); const X = Math.floor(x), Y = Math.floor(y); if (X < 0 || Y < 0 || X >= img.width || Y >= img.height) return -1; return img.data[(Y * img.width + X) * 4]; };
+    window.runs = async (f, axis, at) => { const img = await shot(f); const n = axis === 'y' ? img.height : img.width; const px = (x, y) => img.data[(y * img.width + x) * 4]; const out = []; let s = -1;
+      for (let i = 0; i <= n; i++) { const v = i < n ? (axis === 'y' ? px(at, i) : px(i, at)) : 0; if (v > 128 && s < 0) s = i; if (v <= 128 && s >= 0) { out.push([s, i]); s = -1; } }
+      return out; };
+    window.bounds = async (f) => { const r = await movie.inspect(f, { layers: 'all' }); const l = r.layers.find((x) => x.name === 'morpher'); return l ? l.bounds : null; };
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 640, height: 360, duration: 2, frameRate: 30, background: '#000000', composition: { sequences: [
+        { type: 'shape', shape: 'path', name: 'morpher', d: D, morphTo: TO,
+          initial: { morph: 0, fillColor: '#ffffff' },
+          keyframes: [{ at: 0, to: { morph: 1 }, duration: 1, ease: 'none' }] },
+      ] } });
+      window.size = async (f) => { const img = await shot(f); return [img.width, img.height]; };
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>
