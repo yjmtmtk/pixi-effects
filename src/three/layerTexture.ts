@@ -53,7 +53,7 @@ export interface ThreeLayerHost {
 
 /** What a rebuild that keeps the three layer needs: show the layer of the new tree with the same name. */
 /** `prepare` looks for the layer in the new tree and throws if it is gone, but changes nothing; the function it returns puts the handle on the new tree's layer (called when that tree is on stage, so a rebuild that fails or is slow leaves the old movie showing its own screen). */
-export interface Rebindable { material: Material; source(): Sequence; prepare(host: ThreeLayerHost): () => void; dispose(): void }
+export interface Rebindable { material: Material; source(): Sequence; /** Where in the source (0..1 across, 0..1 down) a point (u, v) of the mesh's uv shows: the texture's own repeat / offset / rotation taken into account. */ sourceAt(u: number, v: number): { x: number; y: number }; prepare(host: ThreeLayerHost): () => void; keepHidden(): void; dispose(): void }
 
 const label = 'pixi-effects: threeLayerTexture';
 
@@ -190,6 +190,13 @@ export async function threeLayerTexture(ctx: ThreeContext, name: string, options
   const handle: ThreeLayerTexture & Rebindable = {
     material, texture, width, height,
     source: () => current,
+    sourceAt(u, v) {
+      const t = texture as unknown as { updateMatrix?: () => void; matrix?: { elements: number[] } };
+      t.updateMatrix?.();
+      const e = t.matrix?.elements;
+      const tu = e ? e[0]! * u + e[3]! * v + e[6]! : u, tv = e ? e[1]! * u + e[4]! * v + e[7]! : v;          // the texture's own matrix: what the picture samples there
+      return { x: tu, y: gpuTexture ? tv : 1 - tv };                                                           // a shared texture's rows run top to bottom (its matrix holds the flip); an uploaded canvas is flipped by three
+    },
     prepare(next) {
       const again = next.findLayer(name);
       if (disposed) return () => {};
@@ -202,6 +209,7 @@ export async function threeLayerTexture(ctx: ThreeContext, name: string, options
         refresh();
       };
     },
+    keepHidden() { if (hidden && !disposed) display.visible = false; },          // (the timeline can put it back: autoAlpha writes `visible`)
     dispose() {
       stop();
       if (hidden) { display.visible = true; hidden = false; }

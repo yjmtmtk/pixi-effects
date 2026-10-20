@@ -741,13 +741,21 @@ export class Movie {
     const collected: VideoLike[] = [];
     const clocks = new Map<VideoLike, () => number>();
     collectVideoSequences(this._rootSequence, collected, clocks);
-    await Promise.all(collected.map(v => {
+    const wait = (v: VideoLike): Promise<void> => {
       if (v.selfTimed) return v.awaitFrameAt(t);                          // a video knows the playhead its own timeline wrote (remapped, local inside a remapped composition)
       // a layer inside a composition with its own time lives in THAT composition's seconds: its `absoluteStart` is local
       const local = (clocks.get(v)?.() ?? t) - (v.absoluteStart ?? v.at);
       if (local < 0 || local > (v.duration ?? 0)) return Promise.resolve();
       return v.awaitFrameAt(local);
-    }));
+    };
+    // A three layer that shows a 2D layer on a mesh draws that layer into a texture when it draws: it must come AFTER everything the layer holds is up to date: the frames of its videos (awaited
+    // with the others) and its mattes and cards (made by the space update, which normally comes after this wait). So those layers wait for the rest, and for one space update.
+    const late = collected.filter(v => (v as VideoLike & { showsLayers?: boolean }).showsLayers === true);
+    await Promise.all(collected.filter(v => !late.includes(v)).map(wait));
+    if (late.length > 0) {
+      this._updateSpace(t);
+      await Promise.all(late.map(wait));
+    }
   }
 
   /**

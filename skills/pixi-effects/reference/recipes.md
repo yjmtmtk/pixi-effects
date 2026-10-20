@@ -1407,7 +1407,7 @@ return [
       const screen = await threeLayerTexture(ctx, 'screen', { resolution: 2 });                             // a screen that is seen large: 2 x the pixels
       const body = new THREE.Mesh(new THREE.BoxGeometry(1.0, 2.1, 0.09), new THREE.MeshStandardMaterial({ color: 0x15171c, metalness: 0.6, roughness: 0.35 }));
       const face = new THREE.Mesh(new THREE.PlaneGeometry(0.92, 2.0), screen.material);                      // the layer's colours, as they are in 2D
-      face.position.z = 0.046;                                                                              // just in front of the body
+      face.position.z = 0.046; face.name = 'face';                                                          // just in front of the body (a name makes hit.via.object say which mesh a tap came through)
       phone = new THREE.Group(); phone.add(body, face);
       ctx.scene.add(phone, new THREE.AmbientLight(0xffffff, 0.8), new THREE.DirectionalLight(0xffffff, 2.2));
       ctx.camera.position.set(0, 0, 2.9);

@@ -283,6 +283,41 @@ runFilms('threeLayerTexture: a live 2D layer on a mesh of a three layer', () => 
     }, { query: 'mode=masked' });
   }, 120_000);
 
+  it('what the screen holds is up to date on the mesh at the FIRST draw after a jump: a matte inside the screen is where the clock says, not where it was at the previous draw', async () => {
+    await withFilm('three-layer-texture', async (film) => {
+      expect(await film.eval<string | undefined>('window.initError')).toBeUndefined();
+      // the matte block is 100 wide and moves from x 50 to 430 over 4 s: at 3 s (frame 90) its middle is at 335, so the green bar shows around source x 335 (picture x 335 / 0.75 = 447)
+      const green = (r: number[]) => r[1]! > 150 && r[0]! < 100;
+      const probe = async (frame: number) => { const px = await film.eval<number[][]>(`pixelsAt(${frame}, [[447, 180], [100, 180]])`); return { right: green(px[0]!), left: green(px[1]!) }; };
+      const first = await probe(90);                                           // the very first picture after the load, a jump from frame 0 (the matte is at the left there)
+      expect(first.right, 'the matte is at the right at 3 s').toBe(true);
+      expect(first.left, 'and not at the left, where it was at the draw before').toBe(false);
+      const back = await probe(0);                                             // and back: the matte is at the left
+      expect(back.left, 'at 0 the matte is at the left').toBe(true);
+      expect(back.right).toBe(false);
+    }, { query: 'mode=matte' });
+  }, 180_000);
+
+  it('a screen that fades with autoAlpha stays off the stage while its three layer is not alive (the timeline put visible back to true and nothing hid it again)', async () => {
+    await withFilm('three-layer-texture', async (film) => {
+      expect(await film.eval<string | undefined>('window.initError')).toBeUndefined();
+      // frame 45 (1.5 s): the screen is alive and faded in, the three layer starts at 2 s: nothing of the screen may be on the stage (its blue background would be at the top left)
+      const px = (await film.eval<number[][]>('pixelsAt(45, [[10, 10], [320, 30]])'));
+      expect(px[0], 'the stage at the top left is the page background, not the flat screen').toEqual(PAGE);
+      expect(px[1]).toEqual(PAGE);
+    }, { query: 'mode=autoalpha' });
+  }, 120_000);
+
+  it('a screen shown cropped with texture.repeat / offset is picked where the picture shows it (the uv was used raw: the cropped half answered for the whole screen)', async () => {
+    await withFilm('three-layer-texture', async (film) => {
+      expect(await film.eval<string | undefined>('window.initError')).toBeUndefined();
+      const names = (x: number, y: number) => film.eval<string | null>(`(async () => { await movie.snapshot(0, { as: 'imageData' }); const h = movie.pick(${x}, ${y}); return h && h.path; })()`);
+      // the picture shows the right half (screen x 240..480) over 640 px: the button (screen x 160..320, y 30..90) is the LEFT 213 px of the picture, at picture y 40..120
+      expect(await names(100, 80), 'the button, in the left of the cropped picture').toBe('screen/button');
+      expect(await names(500, 80), 'the background, in the right of it').toBe('screen/sbg');
+    }, { query: 'mode=crop&share=0' });
+  }, 120_000);
+
   it('a layer that is not alive does not answer through the mesh, and nothing changes for a mesh that shows no layer', async () => {
     await withFilm('three-layer-texture', async (film) => {
       const early = await film.eval<string | null>("(async () => { await movie.gotoFrame(10, true); const h = movie.pick(320, 80); return h && h.path; })()");

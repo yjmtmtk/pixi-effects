@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+Found by an adversarial review of 0.45 to 0.47.1 (six reviewers, 31 findings, each reproduced by a second agent, then again here).
+
+- **Fixed: a rebuild that fails, or is slow, no longer blacks out the screen on a mesh.** `setVars` / `resize` borrowed the old three layer's handles and pointed them at the new tree's 2D layer at once; a later layer that threw left every snapshot throwing and the mesh black, and a slow rebuild showed black for its whole length. The swap now happens with the new tree (`commitReuse`).
+- **Fixed: a video, a matte or a card inside the screen showed the PREVIOUS frame on the mesh** (after a jump, and one frame late in an export). A three layer that shows a 2D layer is now drawn after the rest of the frame and one space update.
+- **Fixed: the read-back route showed the screen at full colour whatever its alpha;** a screen that fades in did not fade, and the two routes gave different colours. Both routes now show the layer over black. `resolution` no longer changes the picture (filters and mattes were half as strong at 2: the texture is made at the layer's size and the resolution asked for), a texture over the GPU's limit and a three older than r180 (no `ExternalTexture`: it falls back to the read-back with a warning) are said in a sentence, `screen.dispose()` leaves the rebuilds, a screen with a mask that is not at the origin warns, and a screen that fades with `autoAlpha` stays off the stage while its three layer is not alive.
+- **Fixed: `movie.pick` / `pickAll` / `hover` never hit a layer with an inline mask** (the avatar-crop pattern): the mask had no measurable box and the layer's own box was cut by it. A hit through a mesh also respects the screen composition's own mask and the texture's `repeat` / `offset`. What `pick` still cannot do through a mesh is listed in the docs.
+- **Fixed: `init({ loudness })`.** The result now describes the buffer it left (`gainDb` was not the gain applied when the rounds ran out), the true peak is held at -1 dBTP by a last fixed trim (noise hats overshot between samples), a minute of mix takes about 0.3 s in one pass with constant extra memory (it took 1.4 to 2.6 s and several full copies) and lets the page paint between passes, and a NaN or an Infinity in the mix is silenced and named (one Infinity silenced the whole film). The `buried` check compares on the mix's scale (with a target it called the loudest sound buried), the notes no longer say "quiet, ask for loudness" and "raised to reach" for a target that was out of reach, and the short-track note compares with the longest track.
+- **Fixed: `animateText` with `out.at` and `idle` could lose one letter's drift** (a regrouped sum made the exit time differ from 0.45 by 1e-16); a bare number as a stagger (`stagger: 0`, `out: { stagger: 0.05 }`) is GSAP's `each` and was silently a 0.1 s wave; the `sfx` knob warning keeps the voices and knobs the author wrote.
+
 ## 0.47.1
 
 Second batch from the 16-agent and 21-agent trials: a mix is called quiet from -18 LUFS, an sfx knob in the wrong place says where it goes, `render` says its quality. Nothing breaks.

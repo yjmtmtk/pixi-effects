@@ -126,7 +126,7 @@ export function pickScene(root: CompositionSequence, x: number, y: number, opts:
 
   // a 2D layer that a mesh of a three layer shows (`threeLayerTexture`) is not on the stage (visible = false): a point on the mesh is answered for it, below
   const hiddenSources = new Map<CompositionSequence, string>();
-  const forwards: Array<{ source: CompositionSequence; uv: { u: number; v: number }; via: { path: string; object: string }; order: Array<[number, number]> }> = [];
+  const forwards: Array<{ source: CompositionSequence; at: { x: number; y: number }; via: { path: string; object: string }; order: Array<[number, number]> }> = [];
   type RayHit = { object: string; point: [number, number, number]; distance: number; object3d: unknown; uv?: { u: number; v: number }; material?: unknown };
   const rays = new Map<unknown, RayHit | null>();
   const rayOf = (seq: Sequence, d: Display, local: { x: number; y: number }, lb: { x: number; y: number; width: number; height: number }): RayHit | null => {
@@ -135,11 +135,11 @@ export function pickScene(root: CompositionSequence, x: number, y: number, opts:
     return rays.get(seq)!;
   };
   const forwardThrough = (seq: Sequence, d: Display, path: string, local: { x: number; y: number }, lb: { x: number; y: number; width: number; height: number }): void => {
-    const shows = (seq as unknown as { screenOf?: (m: unknown) => { source: CompositionSequence } | null }).screenOf;
+    const shows = (seq as unknown as { screenOf?: (m: unknown) => { source: CompositionSequence; at(u: number, v: number): { x: number; y: number } } | null }).screenOf;
     if (!shows || !inside(lb, local)) return;
     const r = rayOf(seq, d, local, lb);
     const shown = r?.uv ? shows.call(seq, r.material) : null;
-    if (r?.uv && shown) forwards.push({ source: shown.source, uv: r.uv, via: { path, object: String(r.object) }, order: orderOf(d) });
+    if (r?.uv && shown) forwards.push({ source: shown.source, at: shown.at(r.uv.u, r.uv.v), via: { path, object: String(r.object) }, order: orderOf(d) });
   };
 
   const walk = (comp: CompositionSequence, prefix: string, parentVisible: boolean, at: { x: number; y: number } = { x, y }, orderBase?: Array<[number, number]>, via?: { path: string; object: string }): void => {
@@ -217,7 +217,7 @@ export function pickScene(root: CompositionSequence, x: number, y: number, opts:
   for (const f of forwards) {
     const path = hiddenSources.get(f.source);
     if (path === undefined) continue;                                      // the layer is not alive now: the mesh shows nothing of it
-    const g = (f.source.target as unknown as Display).toGlobal({ x: f.uv.u * f.source.intrinsicWidth, y: (1 - f.uv.v) * f.source.intrinsicHeight });
+    const g = (f.source.target as unknown as Display).toGlobal({ x: f.at.x * f.source.intrinsicWidth, y: f.at.y * f.source.intrinsicHeight });
     const sm = f.source.maskSequence?.target as Container | null | undefined, ss = maskSourceOf((f.source.spec as { mask?: unknown }).mask);
     if (sm && ss.kind === 'inline' && !ss.invert && !inMask(sm, g)) continue;                    // the screen's own mask: the mesh shows nothing of it there
     walk(f.source, path + '/', true, g, f.order, f.via);

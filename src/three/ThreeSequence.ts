@@ -39,6 +39,13 @@ export class ThreeSequence extends Sequence {
   private _drawHooks = new Set<() => void>();
   private _layerTextures: Rebindable[] = [];
   private _pendingRebinds: Array<() => void> = [];
+  /** Every frame, whether this layer is alive or not: a 2D layer it shows stays off the stage (a tween of `autoAlpha` writes `visible = true` on it). */
+  override syncFrame(): void {
+    super.syncFrame();
+    for (const h of this._layerTextures) h.keepHidden();
+  }
+  /** True when this layer shows 2D layers on its meshes (`threeLayerTexture`): the movie draws it after the rest of the frame is ready. */
+  get showsLayers(): boolean { return this._layerTextures.length > 0; }
   private _scene: Scene | null = null;
   private _camera: Camera | null = null;
   private _ctx: ThreeContext | null = null;
@@ -178,9 +185,9 @@ export class ThreeSequence extends Sequence {
   }
 
   /** The 2D layer that a material shows (`threeLayerTexture`), for a click on the mesh to reach it (movie.pick); null for any other material. */
-  screenOf(material: unknown): { source: Sequence } | null {
+  screenOf(material: unknown): { source: Sequence; at(u: number, v: number): { x: number; y: number } } | null {
     const handle = this._layerTextures.find((h) => h.material === material);
-    return handle ? { source: handle.source() } : null;
+    return handle ? { source: handle.source(), at: (u, v) => handle.sourceAt(u, v) } : null;
   }
 
   /** What `threeLayerTexture` asks of this layer: the layers listed before it, PixiJS's renderer, whether the GPU device is shared, and a place to hook in before every draw. */

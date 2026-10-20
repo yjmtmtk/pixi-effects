@@ -9,7 +9,7 @@ interface AnimateTextOptions
   in?: false | "rise" | "drop" | "fade" | "pop" | "zoom" | "slide" | "spin" | AnimateTextTween
   name?: string
   out?: false | "rise" | "drop" | "fade" | "pop" | "zoom" | "slide" | "spin" | AnimateTextTween
-  stagger?: StaggerOptions
+  stagger?: number | StaggerOptions
   styleFor?: ((piece: TextPiece) => MeasureStyle)
   vertical?: boolean
   x?: number
@@ -20,7 +20,7 @@ interface AnimateTextTween
   ease?: string
   from?: Record<string, number>
   preset?: "rise" | "drop" | "fade" | "pop" | "zoom" | "slide" | "spin"
-  stagger?: 0 | StaggerOptions
+  stagger?: number | StaggerOptions
   to?: Record<string, number>
 interface ArcShapeSpec extends ShapeBase
   endAngle?: PropValue
@@ -716,8 +716,8 @@ interface SplitOptions
   x?: number
   y?: number
 function splitText(text: string, style?: MeasureStyle, opts?: SplitOptions): TextPiece[]
-function stagger(count: number, options?: StaggerOptions | undefined): number[]
-function stagger<T extends { at?: number; }>(layers: readonly T[], options?: StaggerOptions | undefined): T[]
+function stagger(count: number, options?: number | StaggerOptions | undefined): number[]
+function stagger<T extends { at?: number; }>(layers: readonly T[], options?: number | StaggerOptions | undefined): T[]
 interface StaggerOptions
   amount?: number
   each?: number
@@ -1019,9 +1019,11 @@ class ThreeSequence
   reuseKey(): string | null
   root: CompositionShape
   scope(): Scope
-  screenOf(material: unknown): { source: Sequence; } | null
+  screenOf(material: unknown): { source: Sequence; at(u: number, v: number): { x: number; y: number; }; } | null
   sharedGpu: boolean
+  showsLayers: boolean
   spec: SequenceSpec
+  syncFrame(): void
   target: Container<ContainerChild> | null
   constructor(spec: SequenceSpec, parent: CompositionShape | null, root: CompositionShape)
 interface ThreeSequenceSpec extends SequenceCommon
