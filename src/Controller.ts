@@ -1,5 +1,6 @@
 import type { Movie } from './core/Movie';
 import { warnUnknownOptions } from './core/options';
+import { loadMediabunny } from './core/mediabunny';
 import { CONTROLLER_CSS } from './controller/css';
 import { formatTime, frameToPercent, pxToFrame, pxToFraction, extensionForMimeType } from './controller/helpers';
 
@@ -863,6 +864,9 @@ export class Controller {
       // Keep the bar visible while the popover is open.
       if (this.hideTimer) { clearTimeout(this.hideTimer); this.hideTimer = null; }
       this.setVisible(true);
+      // The encoder is fetched on demand (a page that only plays never loads it): start now, while a format is chosen, so the export does not wait
+      // for it. A failure is not shown here: the export itself reports it (and tries again).
+      loadMediabunny().catch(() => {});
     } else {
       // Resume normal auto-hide cadence after closing.
       this.kickIdleTimer();

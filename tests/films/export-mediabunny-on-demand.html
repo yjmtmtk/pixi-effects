@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · export-mediabunny-on-demand</title></head>
+<body>
+  <!-- Test film (tests/films/export-mediabunny-on-demand.test.ts): mediabunny is fetched only when something needs it (an export, a video layer).
+       A one-second movie of a rect crossing the frame. The query sets it:
+         ?map=1     the import map names mediabunny (this package's own bundle, so it works offline); without it the page has no entry for it at all
+         &video=1   a video layer (tests/fixtures/media/colors.mp4)
+         &give=fn   useMediabunny(() => import(<the bundle>)) before init; &give=url: useMediabunny(<the bundle's URL>)
+       window.mediabunnyFetched() says whether the browser has fetched the bundle; window.__initError is init's message when it failed. -->
+  <canvas id="stage" width="160" height="90"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+    window.MB_URL = '/node_modules/mediabunny/dist/bundles/mediabunny.min.mjs';
+    window.mediabunnyFetched = () => performance.getEntriesByType('resource').some((e) => e.name.includes('mediabunny'));
+    const imports = { 'pixi.js': 'https://esm.sh/pixi.js@8.22.0?bundle-deps' };
+    if (new URLSearchParams(location.search).has('map')) imports.mediabunny = window.MB_URL;
+    const map = document.createElement('script');             // written before the first module script, so the browser takes it as the page's import map
+    map.type = 'importmap';
+    map.textContent = JSON.stringify({ imports });
+    document.currentScript.after(map);
+  </script>
+  <script type="module">
+    import { Movie, useMediabunny } from '../../dist/index.js';
+    window.useMediabunny = useMediabunny;
+    const q = new URLSearchParams(location.search);
+    if (q.get('give') === 'fn') useMediabunny(() => import(window.MB_URL));
+    if (q.get('give') === 'url') useMediabunny(window.MB_URL);
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 160, height: 90, duration: 1, frameRate: 30, background: '#102040',
+        ...(q.has('video') ? { assets: [{ name: 'clip', src: '../fixtures/media/colors.mp4' }] } : {}),
+        composition: { sequences: [
+          ...(q.has('video') ? [{ type: 'video', asset: 'clip', name: 'clip', audio: false, duration: 1, initial: { x: 0, y: 0, scale: 0.2 } }] : []),
+          { type: 'shape', shape: 'rect', name: 'box', width: 40, height: 40, initial: { x: 20, y: 45, fillColor: '#ffffff' }, keyframes: [{ at: 0, to: { x: 140 }, duration: 1, ease: 'none' }] },
+        ] } });
+    } catch (e) { window.__initError = String(e?.message ?? e); }
+    window.__ready = true;
+  </script>
+</body>
+</html>

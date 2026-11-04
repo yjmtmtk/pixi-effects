@@ -1,6 +1,8 @@
 export { Movie } from './core/Movie';
 export type { Stop, StopSpec } from './core/stops';
 export { resolveLoader, dismissLoader, failLoader } from './core/loader';
+export { useMediabunny } from './core/mediabunny';
+export type { MediabunnyModule, MediabunnySource } from './core/mediabunny';
 export type { LoaderOption } from './core/loader';
 export type { LoadProgressState, LoadStage } from './core/loadProgress';
 export type {

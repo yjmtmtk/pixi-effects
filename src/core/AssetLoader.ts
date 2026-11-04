@@ -1,8 +1,6 @@
 import { Assets, ExtensionType, extensions } from 'pixi.js';
-import {
-  Input, BlobSource, ALL_FORMATS, Output, WavOutputFormat,
-  BufferTarget, Conversion, VideoSampleSink,
-} from 'mediabunny';
+import type { VideoSampleSink, InputVideoTrack } from 'mediabunny';
+import { loadMediabunny } from './mediabunny';   // fetched for the first video asset, never by a movie without one
 import type { AssetSpec } from '../types';
 
 export interface AudioAssetData {
@@ -16,7 +14,7 @@ export interface VideoAssetData {
   videoDuration: number;
   audioDuration: number;
   duration: number;
-  sink: InstanceType<typeof VideoSampleSink>;
+  sink: VideoSampleSink;
 }
 
 let registered = false;
@@ -41,7 +39,8 @@ export function ensureLoadersRegistered(audioContext: AudioContext): void {
     extension: { type: ExtensionType.LoadParser, name: 'pixi-effects-video', priority: 1 },
     test: (url: string) => /\.(mp4|webm|mov|mkv)$/i.test(url),
     async load(url: string): Promise<VideoAssetData> {
-      const blob = await fetch(url).then(r => r.blob());
+      const [M, blob] = await Promise.all([loadMediabunny(), fetch(url).then(r => r.blob())]);
+      const { Input, BlobSource, ALL_FORMATS, Output, WavOutputFormat, BufferTarget, Conversion, VideoSampleSink } = M;
       const input = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS });
       const videoTrack = await input.getPrimaryVideoTrack();
       if (!videoTrack || !await videoTrack.canDecode()) {
@@ -57,7 +56,7 @@ export function ensureLoadersRegistered(audioContext: AudioContext): void {
           const out = new Output({ format: new WavOutputFormat(), target: new BufferTarget() });
           const conv = await Conversion.init({ input, output: out, video: { discard: true } });
           await conv.execute();
-          audioBuffer = await audioContext.decodeAudioData((out.target as BufferTarget).buffer as ArrayBuffer);
+          audioBuffer = await audioContext.decodeAudioData((out.target as InstanceType<typeof BufferTarget>).buffer as ArrayBuffer);
         } catch (e) {
           console.warn('pixi-effects: audio extraction failed:', e);
         }
@@ -68,7 +67,7 @@ export function ensureLoadersRegistered(audioContext: AudioContext): void {
         videoDuration,
         audioDuration,
         duration: Math.max(videoDuration, audioDuration),
-        sink: new VideoSampleSink(videoTrack as import('mediabunny').InputVideoTrack),
+        sink: new VideoSampleSink(videoTrack as InputVideoTrack),
       };
     },
   });

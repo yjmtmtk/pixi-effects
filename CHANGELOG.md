@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+A page that only plays no longer loads mediabunny (about 180 KB gzipped, a third of what such a page loaded). Nothing breaks.
+
+- **mediabunny is fetched the first time something needs it:** the first `movie.render()` (or the download button), or a movie with a `video` asset at `init`. Before, every page imported it at load, and a page whose import map had no `"mediabunny"` entry failed to load at all. Now the entry is needed only to export or for a video layer; a bundler puts it in a chunk of its own.
+- **New: `useMediabunny(source)`** says where it comes from: the module itself, a URL to `import()`, or a function that returns the module. With nothing said, the bare name `'mediabunny'` is imported as before. When it cannot be loaded, the export rejects with a sentence that says what to add, and the next call tries again.
+- A test film (`export-mediabunny-on-demand`) holds it: no fetch while playing, the export and the video layer fetch it, the error and the retry.
+
 ## 0.47.5
 
 An island inside a hole no longer draws a wedge, and `init({ loudness })` is never quieter than the plain gain. Nothing breaks.

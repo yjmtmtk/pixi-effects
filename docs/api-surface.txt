@@ -307,6 +307,8 @@ interface MatteRefSpec
   layer: string | SequenceSpec
 type MeasureStyle = Record<string, unknown>
 function measureText(text: string, style?: MeasureStyle): TextSize
+type MediabunnyModule = typeof Mediabunny
+type MediabunnySource = MediabunnyModule | string | (() => Promise<MediabunnyModule>)
 interface MotionBlurOptions
   samples?: number
   shutter?: number
@@ -811,6 +813,7 @@ interface TransitionCommon
   from: string
   to: string
 type TransitionSpec = | CrossfadeTransition | WipeTransition | IrisTransition | SlideTransition | DipTransition | ZoomTransition | DissolveTransition | LumaTransition
+function useMediabunny(from: MediabunnySource): void
 interface VideoSequenceSpec extends SequenceCommon
   asset: string
   audio?: boolean

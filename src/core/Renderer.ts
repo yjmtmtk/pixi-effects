@@ -1,9 +1,5 @@
-import {
-  Output, Mp4OutputFormat, MovOutputFormat, WebMOutputFormat, MkvOutputFormat, WavOutputFormat, OggOutputFormat,
-  BufferTarget, CanvasSource, AudioBufferSource, getFirstEncodableAudioCodec, canEncodeVideo,
-  QUALITY_VERY_LOW, QUALITY_LOW, QUALITY_MEDIUM, QUALITY_HIGH, QUALITY_VERY_HIGH,
-  Quality,
-} from 'mediabunny';
+import type { Quality } from 'mediabunny';
+import { loadMediabunny, type MediabunnyModule } from './mediabunny';   // fetched on the first export, never by a page that only plays
 import type { Movie, RenderOptions } from './Movie';
 import { resolveMotionBlur } from './motionBlur';
 import type { MotionBlurSpec } from './motionBlur';
@@ -26,12 +22,12 @@ const AUDIO_PREFERENCE = {
  * `AUDIO_PREFERENCE` that this browser can encode (and say so); a codec the caller named is never swapped, but a failure says which would work.
  */
 async function chooseAudioCodec(
-  fmt: 'mp4' | 'mov' | 'webm' | 'mkv' | 'ogg', requested: string | undefined, container: unknown, audio: AudioBuffer, bitrate: Quality | number,
+  M: MediabunnyModule, fmt: 'mp4' | 'mov' | 'webm' | 'mkv' | 'ogg', requested: string | undefined, container: unknown, audio: AudioBuffer, bitrate: Quality | number,
 ): Promise<string> {
   const supported = (container as { getSupportedAudioCodecs?: () => string[] }).getSupportedAudioCodecs?.();
   const preferred = AUDIO_PREFERENCE[fmt].filter(c => !supported || supported.includes(c));
   const canEncode = (list: readonly string[]): Promise<string | null> =>
-    getFirstEncodableAudioCodec(list as never, { numberOfChannels: audio.numberOfChannels ?? 2, sampleRate: audio.sampleRate, bitrate }) as Promise<string | null>;
+    M.getFirstEncodableAudioCodec(list as never, { numberOfChannels: audio.numberOfChannels ?? 2, sampleRate: audio.sampleRate, bitrate }) as Promise<string | null>;
   if (requested) {
     if (await canEncode([requested])) return requested;
     const alt = await canEncode(preferred.filter(c => c !== requested));
@@ -49,26 +45,28 @@ async function chooseAudioCodec(
 /** Samples of silence an AAC encoder puts in front of the audio (its priming / encoder delay). */
 const AAC_PRIMING_SAMPLES = 2112;
 
-const qualityMap: Record<string, Quality> = {
-  'very-low': QUALITY_VERY_LOW,
-  'low': QUALITY_LOW,
-  'medium': QUALITY_MEDIUM,
-  'high': QUALITY_HIGH,
-  'very-high': QUALITY_VERY_HIGH,
-};
-
-/** A bitrate option (a quality name, bits a second, '8M') as what mediabunny takes. */
-function bitrateOf(v: unknown, fallback: Quality): Quality | number {
-  const b = parseBitrate(v);
-  return b.bps ?? (b.quality ? qualityMap[b.quality]! : fallback);
+function qualityOf(M: MediabunnyModule, name: string): Quality {
+  switch (name) {
+    case 'very-low': return M.QUALITY_VERY_LOW;
+    case 'low': return M.QUALITY_LOW;
+    case 'medium': return M.QUALITY_MEDIUM;
+    case 'very-high': return M.QUALITY_VERY_HIGH;
+    default: return M.QUALITY_HIGH;
+  }
 }
 
-function makeOutputFormat(name: 'mp4' | 'mov' | 'webm' | 'mkv') {
+/** A bitrate option (a quality name, bits a second, '8M') as what mediabunny takes ('high' when it is left out). */
+function bitrateOf(M: MediabunnyModule, v: unknown): Quality | number {
+  const b = parseBitrate(v);
+  return b.bps ?? qualityOf(M, b.quality ?? 'high');
+}
+
+function makeOutputFormat(M: MediabunnyModule, name: 'mp4' | 'mov' | 'webm' | 'mkv') {
   switch (name) {
-    case 'mp4': return new Mp4OutputFormat({ fastStart: 'in-memory' });
-    case 'mov': return new MovOutputFormat({ fastStart: 'in-memory' });
-    case 'webm': return new WebMOutputFormat();
-    case 'mkv': return new MkvOutputFormat();
+    case 'mp4': return new M.Mp4OutputFormat({ fastStart: 'in-memory' });
+    case 'mov': return new M.MovOutputFormat({ fastStart: 'in-memory' });
+    case 'webm': return new M.WebMOutputFormat();
+    case 'mkv': return new M.MkvOutputFormat();
   }
 }
 
@@ -87,18 +85,19 @@ async function exportAudioOnly(movie: Movie, options: RenderOptions, fmt: AudioF
     throw new Error(`pixi-effects: render({ format: '${fmt}' }): this movie has no sound to export (add an audio layer, an sfx or a music score); for the picture use mp4, webm, mov or mkv`);
   }
   if (options.video) console.warn(`pixi-effects: render({ format: '${fmt}' }): video options are ignored, only the sound is written`);
+  const M = await loadMediabunny();
   const audio = range.partial ? sliceAudio(movie.audioBuffer, range.fromSec, range.toSec, range.fromFrame > 0, range.toFrame < movie.totalFrames) : movie.audioBuffer;
-  const container = fmt === 'wav' ? new WavOutputFormat() : new OggOutputFormat();
+  const container = fmt === 'wav' ? new M.WavOutputFormat() : new M.OggOutputFormat();
   let codec: string;
   if (fmt === 'wav') {
     codec = options.audio?.codec ?? 'pcm-s16';
     const held = (container as unknown as { getSupportedAudioCodecs(): string[] }).getSupportedAudioCodecs();
     if (!held.includes(codec)) throw new Error(`pixi-effects: render({ format: 'wav', audio: { codec: "${codec}" } }): wav holds ${held.join(', ')} (the usual is pcm-s16)`);
   } else {
-    codec = await chooseAudioCodec('ogg', options.audio?.codec, container, audio, bitrateOf(options.audio?.bitrate, QUALITY_HIGH));
+    codec = await chooseAudioCodec(M, 'ogg', options.audio?.codec, container, audio, bitrateOf(M, options.audio?.bitrate));
   }
-  const output = new Output({ format: container, target: new BufferTarget() });
-  const source = new AudioBufferSource({ codec: codec as never, ...(fmt === 'wav' ? {} : { bitrate: bitrateOf(options.audio?.bitrate, QUALITY_HIGH) }) });
+  const output = new M.Output({ format: container, target: new M.BufferTarget() });
+  const source = new M.AudioBufferSource({ codec: codec as never, ...(fmt === 'wav' ? {} : { bitrate: bitrateOf(M, options.audio?.bitrate) }) });
   output.addAudioTrack(source);
   movie.emit('progress', { progress: 0, frame: range.fromFrame, totalFrames: movie.totalFrames });
   await output.start();
@@ -117,23 +116,24 @@ export async function exportFrames(movie: Movie, options: RenderOptions = {}): P
   if (!['mp4', 'mov', 'webm', 'mkv'].includes(fmt)) throw new Error(`pixi-effects: render({ format: "${String(fmt)}" }): use mp4, mov, webm, mkv (a picture) or wav, ogg (only the sound)`);
   warnUnknownOptions('movie.render({ video })', options.video, ['codec', 'bitrate', 'hardware', 'keyFrameInterval']);
   warnUnknownOptions('movie.render({ audio })', options.audio, ['codec', 'bitrate']);
-  const videoBitrate = bitrateOf(eff.bitrate ?? 'high', QUALITY_HIGH);
+  const M = await loadMediabunny();
+  const videoBitrate = bitrateOf(M, eff.bitrate ?? 'high');
   const opts = {
     format: fmt,
     video: { codec: '' as string, bitrate: videoBitrate },
     audio: {
       codec: options.audio?.codec ?? (fmt === 'mp4' || fmt === 'mov' ? 'aac' : 'opus'),
-      bitrate: bitrateOf(options.audio?.bitrate, QUALITY_HIGH),
+      bitrate: bitrateOf(M, options.audio?.bitrate),
     },
   };
 
-  const container = makeOutputFormat(opts.format);
+  const container = makeOutputFormat(M, opts.format);
   // a range cuts the audio the same way (with a short fade on a cut edge, not on the movie's own start or end)
   const audio = movie.audioBuffer && range.partial ? sliceAudio(movie.audioBuffer, range.fromSec, range.toSec, range.fromFrame > 0, range.toFrame < movie.totalFrames) : movie.audioBuffer;
-  if (audio) opts.audio.codec = await chooseAudioCodec(fmt, options.audio?.codec, container, audio, opts.audio.bitrate) as never;
-  const output = new Output({
+  if (audio) opts.audio.codec = await chooseAudioCodec(M, fmt, options.audio?.codec, container, audio, opts.audio.bitrate) as never;
+  const output = new M.Output({
     format: container,
-    target: new BufferTarget(),
+    target: new M.BufferTarget(),
   });
   // With motion blur every frame is drawn several times and averaged into this canvas, which is what gets encoded.
   const mb = eff.motionBlur !== undefined ? resolveMotionBlur(eff.motionBlur as MotionBlurSpec, 'movie.render()') : (movie.motionBlur ?? null);
@@ -148,7 +148,7 @@ export async function exportFrames(movie: Movie, options: RenderOptions = {}): P
   const chosen = await chooseVideoCodec({
     fmt, requested: options.video?.codec,
     supported: (container as unknown as { getSupportedVideoCodecs(): string[] }).getSupportedVideoCodecs(),
-    canEncode: c => canEncodeVideo(c as never, { width: picture.width, height: picture.height, bitrate: opts.video.bitrate as never }),
+    canEncode: c => M.canEncodeVideo(c as never, { width: picture.width, height: picture.height, bitrate: opts.video.bitrate as never }),
   });
   if (chosen.fellBackFrom) console.warn(`pixi-effects: this browser cannot encode ${chosen.fellBackFrom.toUpperCase()} video, so the ${fmt} carries ${chosen.codec.toUpperCase()} instead (name a codec with render({ video: { codec } }) to choose yourself).`);
   opts.video.codec = chosen.codec;
@@ -156,7 +156,7 @@ export async function exportFrames(movie: Movie, options: RenderOptions = {}): P
   if (hardware !== undefined && !['no-preference', 'prefer-hardware', 'prefer-software'].includes(hardware)) {
     throw new Error(`pixi-effects: render({ video: { hardware: "${String(hardware)}" } }): use 'prefer-hardware', 'prefer-software' or 'no-preference'`);
   }
-  const canvasSource = new CanvasSource(picture, {
+  const canvasSource = new M.CanvasSource(picture, {
     codec: opts.video.codec as any,
     bitrate: opts.video.bitrate,
     ...(hardware ? { hardwareAcceleration: hardware } : {}),
@@ -167,7 +167,7 @@ export async function exportFrames(movie: Movie, options: RenderOptions = {}): P
     // AAC encoders emit AAC_PRIMING_SAMPLES of silence first. Starting the track that much earlier makes
     // mediabunny write an edit list that trims them, so the file's audio starts where the browser's does
     // (without it every sound in an MP4 / MOV was ~45 ms late). Opus signals its own pre-skip.
-    const audioSource = new AudioBufferSource({
+    const audioSource = new M.AudioBufferSource({
       codec: opts.audio.codec as any,
       bitrate: opts.audio.bitrate,
     }, { startTimestamp: opts.audio.codec === 'aac' ? -AAC_PRIMING_SAMPLES / audio.sampleRate : 0 });

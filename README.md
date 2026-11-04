@@ -29,7 +29,7 @@ Declarative composition and video rendering for the web. After Effects-style tim
 - **Built-in player UI — or your own** — a drop-in HTML5-`<video>`-style overlay controller (play, scrub, mute, volume, fullscreen, export-to-file) whose colours are one option (`theme: { accent: '#ff4d6d' }`); or build a player yourself on the movie's `<video>`-named events (`play pause ended seeking seeked volumechange error`).
 - **MP4 / WebM / MOV export** — pick container and quality from the controller, call `movie.render()` from code, or render headless from the command line (`pixi-effects render`).
 - **A timeline you can read and scrub** — `movie.timelineChart()` draws every layer as a bar on a time axis; `pixi-effects view` opens the page with that timeline under it, zoomable, with a playhead you can drag.
-- **Tiny dependency surface** — only `mediabunny` (runtime) plus PixiJS (a peer dep). three.js is an *optional* peer, needed only if you import `pixi-effects/three`.
+- **Tiny dependency surface** — only `mediabunny` (runtime) plus PixiJS (a peer dep). three.js is an *optional* peer, needed only if you import `pixi-effects/three`. mediabunny is fetched only when you export or use a video layer: a page that only plays never loads it.
 
 ## Install
 
@@ -60,6 +60,8 @@ Drop the imports into an [importmap](https://developer.mozilla.org/docs/Web/HTML
   // ...
 </script>
 ```
+
+The `mediabunny` line is needed only to export (the download button, `movie.render()`) or for a `video` layer; a page that only plays can leave it out and never fetches it (or call `useMediabunny(url)` instead, see [the API](docs/api.md#where-the-encoder-comes-from-usemediabunnysource)).
 
 Load the `dist/` files **as they are** (jsDelivr's `/npm/…/dist/…`, or unpkg's `https://unpkg.com/pixi-effects@0.47.5/dist/index.js`) rather than a CDN-rebundled build such as `esm.sh/pixi-effects` or jsDelivr's `+esm`: the entries (`pixi-effects`, `…/controller`, `…/three`) share internal chunks, which only works when each file is served untouched.
 

@@ -287,6 +287,21 @@ Returns a `Blob` whose `type` is the container's MIME (e.g. `video/mp4`). Emits 
 
 The renderer also forces a keyframe every ~2 seconds so the resulting file scrubs efficiently in standard players.
 
+#### Where the encoder comes from: `useMediabunny(source)`
+
+Writing a file (and decoding a `video` layer) is done by [mediabunny](https://mediabunny.dev/), about 180 KB gzipped. It is **fetched the first time something needs it**: the first `render()` (or the download button), or a movie with a `video` asset at `init`. A page that only plays never fetches it and needs no import map entry for it, so a published movie can leave the `"mediabunny"` line out.
+
+With nothing said, the bare name `'mediabunny'` is imported, which a bundler (it becomes a chunk of its own) or the page's import map resolves. `useMediabunny()` says where it comes from instead; call it before the first export or `init` with a video:
+
+```ts
+import { useMediabunny } from 'pixi-effects';
+useMediabunny('https://cdn.jsdelivr.net/npm/mediabunny@1.61.3/+esm');   // a URL to import(): a page with no import map entry for it
+useMediabunny(() => import('mediabunny'));                              // a function that returns the module: your own copy, a chunk
+import * as mb from 'mediabunny'; useMediabunny(mb);                      // the module itself: ready, nothing is fetched later
+```
+
+When it cannot be loaded, `render()` (or `init` with a video) rejects with `could not load mediabunny from …`, saying what to add; the next call tries again.
+
 ### Poster time: `movie.init({ poster })`, `movie.poster`, `movie.posterImage()`
 
 A movie can say which moment stands for it before it plays, the way `<video poster>` names a picture, except that here it is a **time**, so the picture comes from the same data and needs no separate image file:
