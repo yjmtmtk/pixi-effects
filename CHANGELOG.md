@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.48.0
 
 A page that only plays no longer loads mediabunny (about 180 KB gzipped, a third of what such a page loaded). Nothing breaks.
 
