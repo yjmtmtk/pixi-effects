@@ -184,6 +184,18 @@ describe('needsFilterLibrary / ensureFilterLibrary', () => {
     await expect(ensureFilterLibrary(comp([{ type: 'glow' }]), load)).rejects.toThrow(/pixi-filters.*import map.*npm i pixi-filters/s);
   });
 
+  it('that sentence names the filters that need the package and the layer that uses each (each type once), not a placeholder', async () => {
+    const load = async () => { throw new Error('Failed to resolve module specifier "pixi-filters"'); };
+    const one = ensureFilterLibrary({ sequences: [{ type: 'shape', name: 'box', filters: [{ type: 'blur' }, { type: 'glow' }] }] }, load);
+    await expect(one).rejects.toThrow('the filter "glow" (layer "box") comes from the pixi-filters package');
+    const many = ensureFilterLibrary({ sequences: [
+      { type: 'text', name: 'title', filters: [{ type: 'glow' }] },
+      { type: 'composition', sequences: [{ type: 'shape', filters: [{ type: 'crt' }] }, { type: 'text', name: 'sub', filters: [{ type: 'glow' }] }] },
+    ] }, load);
+    await expect(many).rejects.toThrow('the filters "glow" (layer "title"), "crt" come from the pixi-filters package');
+    await expect(ensureFilterLibrary(comp([{ type: 'glow' }]), load)).rejects.not.toThrow(/see the type/);
+  });
+
   it('an unknown type is reported before anything is loaded', async () => {
     const load = vi.fn(async () => FAKE_LIB);
     await expect(ensureFilterLibrary(comp([{ type: 'glwo' }]), load)).rejects.toThrow(/did you mean "glow"/);

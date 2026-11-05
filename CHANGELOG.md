@@ -3,6 +3,7 @@
 ## Unreleased
 
 - **Fixed: `movie.destroy()` on a movie that had just played printed PixiJS's "a textureSource was destroyed while still bound to a shader" a few hundred times on WebGPU** (closing a modal with a movie in it, for example). The movie never draws again, so the warning said nothing; `destroy()` now silences that one message during its synchronous teardown, as a rebuild already did. Any other warning goes through, and `console.warn` is put back. A test film (`warnings-none-at-destroy`) holds it.
+- **Fixed: when `pixi-filters` could not be loaded, the error named no filter** (`the filter "(see the type in your filters)"`). It now names each filter that needs the package and the layer that uses it: `the filters "glow" (layer "title"), "crt" come from the pixi-filters package …`.
 
 ## 0.48.0
 

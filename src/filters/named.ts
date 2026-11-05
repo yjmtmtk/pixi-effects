@@ -61,13 +61,14 @@ export function registerFilterLibrary(mod: Record<string, unknown>): void {
 }
 export function resetFilterLibrary(): void { library = null; }
 
-const MISSING = (type: string, why?: string): Error => new Error(
-  `pixi-effects: the filter "${type}" comes from the pixi-filters package${why ? ` (${why})` : ''}. ` +
+/** `what`: `"glow"`, or a list of quoted types each with its layer (`"glow" (layer "title"), "crt"`); `many` when it names more than one. */
+const MISSING = (what: string, why?: string, many = false): Error => new Error(
+  `pixi-effects: the ${many ? 'filters' : 'filter'} ${what} ${many ? 'come' : 'comes'} from the pixi-filters package${why ? ` (${why})` : ''}. ` +
   'Add it to your import map ("pixi-filters": "https://esm.sh/pixi-filters@6.1.5?external=pixi.js") or run `npm i pixi-filters`.');
 
-/** Does any layer in this composition use a filter that needs the pixi-filters package? Also rejects unknown types. */
-export function needsFilterLibrary(spec: unknown): boolean {
-  let needs = false;
+/** The pixi-filters types this composition uses, each once, with the first named layer that uses it. Also rejects unknown types. */
+function libraryFilters(spec: unknown): Map<string, string | undefined> {
+  const found = new Map<string, string | undefined>();
   const visit = (node: unknown): void => {
     if (!node || typeof node !== 'object') return;
     if (Array.isArray(node)) { node.forEach(visit); return; }
@@ -75,26 +76,31 @@ export function needsFilterLibrary(spec: unknown): boolean {
     if (Array.isArray(o.filters)) {
       for (const f of o.filters as Array<{ type?: unknown }>) {
         if (typeof f?.type !== 'string' || !isNamedFilterType(f.type)) continue;
-        if (isLibraryType(f.type)) needs = true;
+        if (isLibraryType(f.type)) { if (!found.get(f.type)) found.set(f.type, typeof o.name === 'string' && o.name ? o.name : undefined); }
         else if (!isCoreType(f.type)) throw unknownType(f.type);
       }
     }
     for (const key of ['sequences', 'mask', 'layer']) visit(o[key]);          // ('layer': a mask written as { layer: <spec>, invert })
   };
   visit(spec);
-  return needs;
+  return found;
 }
+
+/** Does any layer in this composition use a filter that needs the pixi-filters package? Also rejects unknown types. */
+export function needsFilterLibrary(spec: unknown): boolean { return libraryFilters(spec).size > 0; }
 
 /** Load `pixi-filters` (once) when the composition uses one of its filters. Call before building the layers. */
 export async function ensureFilterLibrary(
   spec: unknown,
   load: () => Promise<Record<string, unknown>> = () => import('pixi-filters') as unknown as Promise<Record<string, unknown>>,
 ): Promise<void> {
-  if (!needsFilterLibrary(spec) || library) return;
+  const used = libraryFilters(spec);
+  if (!used.size || library) return;
   try {
     registerFilterLibrary(await load());
   } catch (e) {
-    throw MISSING('(see the type in your filters)', (e as Error).message);
+    const what = [...used].map(([type, layer]) => `"${type}"${layer ? ` (layer "${layer}")` : ''}`).join(', ');
+    throw MISSING(what, (e as Error).message, used.size > 1);
   }
 }
 
@@ -164,7 +170,7 @@ export function createNamedFilter(type: string, params: Record<string, unknown>)
   if (core) return new ((PIXI as unknown as Record<string, FilterCtor>)[core[1]]!)(params);
   if (!isLibraryType(type)) throw unknownType(type);
   const Ctor = library?.get(lower(type));
-  if (!Ctor) throw MISSING(type, library ? 'not found in the loaded package' : 'not loaded yet');
+  if (!Ctor) throw MISSING(`"${type}"`, library ? 'not found in the loaded package' : 'not loaded yet');
   const single = SINGLE_VALUE[Object.keys(SINGLE_VALUE).find(k => lower(k) === lower(type)) ?? ''];
   if (single) return new (Ctor as unknown as new (v?: unknown) => Filter)(params[single]);
   const made = new Ctor(lower(type) === 'colorgradient' ? colorGradientParams(params) : params);
