@@ -1325,12 +1325,15 @@ export class Movie {
   async destroy(): Promise<void> {
     safeRun(() => this.pause());
     this._timeFilters = [];
-    safeRun(() => this._rootSequence?.destroy());
-    this._rootSequence = null;
-    safeRun(() => this.timeline?.kill());
-    this.timeline = null;
-    safeRun(() => this.app?.destroy(true, { children: true, texture: true }));
-    this.app = null;
+    const unmute = muteBoundTextureWarning();                                 // the textures it drew with a moment ago go; it never draws again
+    try {
+      safeRun(() => this._rootSequence?.destroy());
+      this._rootSequence = null;
+      safeRun(() => this.timeline?.kill());
+      this.timeline = null;
+      safeRun(() => this.app?.destroy(true, { children: true, texture: true }));
+      this.app = null;
+    } finally { unmute(); }
     this.audioBuffer = null;
     this._audioSources = [];
     this._mixStats = null;
@@ -1346,8 +1349,9 @@ const END_MARGIN = 1e-4;
 
 /**
  * PixiJS warns "a textureSource was destroyed while still bound to a shader" when a layer that was drawn a moment ago is destroyed. A rebuild does
- * exactly that to the composition it replaces; the renderer builds its bind groups again on the next draw, so the warning says nothing here and
- * would make `check` count a problem. Silenced for the synchronous destroy only; any other warning goes through.
+ * exactly that to the composition it replaces (the renderer builds its bind groups again on the next draw), and `destroy()` to the whole movie (it
+ * never draws again), so the warning says nothing there and would make `check` count a problem. Silenced for the synchronous destroy only; any
+ * other warning goes through.
  */
 function muteBoundTextureWarning(): () => void {
   const original = console.warn;
