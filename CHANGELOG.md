@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **An app that bundles pixi-effects (Vite, webpack, esbuild) no longer keeps all of pixi.js.** The named filters read pixi.js's classes from a namespace by a string, so a bundler kept every export, renderers and `@xmldom/xmldom` included. They are imported by name now. Measured on a Vite app that only plays: 366.6 KB gzipped before, 266.4 KB (WebGPU) / 270.5 KB (WebGL) after, the renderer fetched on demand, no `@xmldom/xmldom`. A test keeps `import * as … from 'pixi.js'` out of `src/`.
+- **Fixed: closing a few movies on one page used up PixiJS's 500 warnings** ("PixiJS Warning: too many warnings", reported on 0.48.1 after the second closed modal), and then PixiJS's real warnings were gone for that page. 0.48.1 only hid the "destroyed while still bound to a shader" lines; PixiJS still counted them. Now a teardown (`destroy()`, a rebuild) unbinds a destroyed texture or buffer from its bind group without calling PixiJS's `warn()` at all, so nothing is counted; at any other time PixiJS warns as before. (Destroying in another order does not help: PixiJS's own renderer teardown warns about a filter's buffers, and `app.destroy(true)` empties the texture pool shared by the page.) The film `warnings-none-at-destroy` now also makes, plays and destroys three movies on one page and checks that 499 later PixiJS warnings all print.
+
 ## 0.48.1
 
 Two fixes, nothing breaks: `movie.destroy()` no longer makes PixiJS print hundreds of warnings, and a missing pixi-filters names the filters that need it.

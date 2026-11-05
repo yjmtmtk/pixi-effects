@@ -1,5 +1,5 @@
-import * as PIXI from 'pixi.js';
-import type { Filter } from 'pixi.js';
+import { AlphaFilter, BlurFilter, ColorMatrixFilter, GpuProgram, NoiseFilter } from 'pixi.js';   // by name, not `* as`: a namespace read by a
+import type { Filter } from 'pixi.js';                                                         // string keeps all of pixi.js in an app's bundle
 import type { NamedFilterType } from '../types';
 import { suggestName } from '../core/options';
 import { GrainFilter } from './Grain';
@@ -15,7 +15,8 @@ import { WarpFilter } from './Warp';
 type FilterCtor = new (options?: Record<string, unknown>) => Filter;
 
 /** pixi.js's own filters: no extra package. Looked up when used (a test may mock pixi.js without them). */
-const CORE: Record<string, string> = { blur: 'BlurFilter', noise: 'NoiseFilter', alpha: 'AlphaFilter' };
+/** Read when a filter is made, not when this module loads (a test that mocks pixi.js without the filters still loads it). */
+const CORE: Record<string, () => FilterCtor> = { blur: () => BlurFilter as unknown as FilterCtor, noise: () => NoiseFilter as unknown as FilterCtor, alpha: () => AlphaFilter as unknown as FilterCtor };
 const CORE_TYPES = ['blur', 'noise', 'alpha', 'colorMatrix', 'grain', 'warp'] as const;
 
 /** The filters of pixi-filters v6, by type name. */
@@ -110,7 +111,7 @@ const SINGLE_VALUE: Record<string, string> = { pixelate: 'size', emboss: 'streng
 const MATRIX_PRESETS = ['sepia', 'grayscale', 'negative', 'polaroid', 'technicolor', 'vintage', 'kodachrome', 'browni'] as const;
 
 function colorMatrix(params: Record<string, unknown>): Filter {
-  const f = new (PIXI as unknown as Record<string, new () => unknown>).ColorMatrixFilter!() as unknown as Record<string, unknown> & { matrix: number[] };
+  const f = new ColorMatrixFilter() as unknown as Record<string, unknown> & { matrix: number[] };
   const preset = params.preset as string | undefined;
   if (preset !== undefined) {
     if (!(MATRIX_PRESETS as readonly string[]).includes(preset)) {
@@ -154,9 +155,8 @@ function lintBulgeCenter(params: Record<string, unknown>): void {
 function fixRadialBlurGpu(f: Filter): Filter {
   const holder = f as unknown as { gpuProgram?: { name?: string; vertex: unknown; fragment: { source: string } } };
   const gp = holder.gpuProgram;
-  const GpuProgram = (PIXI as unknown as { GpuProgram?: { from(o: unknown): unknown } }).GpuProgram;
-  if (!gp || !GpuProgram || !/uKernelSize\s*:\s*f32/.test(gp.fragment.source)) return f;
-  holder.gpuProgram = GpuProgram.from({ name: gp.name, vertex: gp.vertex, fragment: { ...gp.fragment, source: gp.fragment.source.replace(/uKernelSize(\s*):\s*f32/, 'uKernelSize$1: i32') } }) as typeof gp;
+  if (!gp || !/uKernelSize\s*:\s*f32/.test(gp.fragment.source)) return f;
+  holder.gpuProgram = GpuProgram.from({ name: gp.name, vertex: gp.vertex as Parameters<typeof GpuProgram.from>[0]['vertex'], fragment: { ...gp.fragment, source: gp.fragment.source.replace(/uKernelSize(\s*):\s*f32/, 'uKernelSize$1: i32') } }) as typeof gp;
   return f;
 }
 
@@ -167,7 +167,7 @@ export function createNamedFilter(type: string, params: Record<string, unknown>)
   if (lower(type) === 'grain') return new GrainFilter(params) as unknown as Filter;
   if (lower(type) === 'warp') return new WarpFilter(params) as unknown as Filter;
   const core = Object.entries(CORE).find(([k]) => lower(k) === lower(type));
-  if (core) return new ((PIXI as unknown as Record<string, FilterCtor>)[core[1]]!)(params);
+  if (core) return new (core[1]())(params);
   if (!isLibraryType(type)) throw unknownType(type);
   const Ctor = library?.get(lower(type));
   if (!Ctor) throw MISSING(`"${type}"`, library ? 'not found in the loaded package' : 'not loaded yet');
