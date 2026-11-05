@@ -1,6 +1,6 @@
 import { usesAdvancedBlend, enableAdvancedBlend } from './blend';
 import { sharedGpuOf } from './gpuShare';
-import { Application, Container, Culler, Rectangle, extensions, CullerPlugin } from 'pixi.js';
+import { Application, BindGroup, Container, Culler, Rectangle, extensions, CullerPlugin } from 'pixi.js';
 import { createTimeline, lengthen, type Timeline } from './timelineEngine';
 import { loadAssetBundle } from './AssetLoader';
 import { CompositionSequence } from '../sequences/Composition';
@@ -400,6 +400,7 @@ export class Movie {
         preserveDrawingBuffer: true,
         canvas: options.canvas,
       };
+      installQuietUnbind();                                                   // before the first bind group (see quietUnbind)
       this.app = new Application();
       try {
         await this.app.init({ ...baseAppOptions, preference: 'webgpu' });
@@ -658,8 +659,8 @@ export class Movie {
         commitReuse(sequence);                                                // a layer that took over an old layer's state owns it now
         this.timeline = timeline;
         this._timeFilters = collectTimeFilters(sequence);
-        const unmute = muteBoundTextureWarning();
-        try { safeRun(() => old?.destroy()); } finally { unmute(); }
+        const loud = quietUnbind();
+        try { safeRun(() => old?.destroy()); } finally { loud(); }
         safeRun(() => oldTimeline?.kill());
         this._vars = vars;
         this._composition = composition;
@@ -1325,7 +1326,7 @@ export class Movie {
   async destroy(): Promise<void> {
     safeRun(() => this.pause());
     this._timeFilters = [];
-    const unmute = muteBoundTextureWarning();                                 // the textures it drew with a moment ago go; it never draws again
+    const loud = quietUnbind();                                               // the textures it drew with a moment ago go; it never draws again
     try {
       safeRun(() => this._rootSequence?.destroy());
       this._rootSequence = null;
@@ -1333,7 +1334,7 @@ export class Movie {
       this.timeline = null;
       safeRun(() => this.app?.destroy(true, { children: true, texture: true }));
       this.app = null;
-    } finally { unmute(); }
+    } finally { loud(); }
     this.audioBuffer = null;
     this._audioSources = [];
     this._mixStats = null;
@@ -1348,16 +1349,36 @@ export class Movie {
 const END_MARGIN = 1e-4;
 
 /**
- * PixiJS warns "a textureSource was destroyed while still bound to a shader" when a layer that was drawn a moment ago is destroyed. A rebuild does
- * exactly that to the composition it replaces (the renderer builds its bind groups again on the next draw), and `destroy()` to the whole movie (it
- * never draws again), so the warning says nothing there and would make `check` count a problem. Silenced for the synchronous destroy only; any
- * other warning goes through.
+ * PixiJS warns "a <resource> was destroyed while still bound to a shader" when a texture, sampler or buffer that a bind group still holds is
+ * destroyed. Tearing down a movie does exactly that: a rebuild to the composition it replaces (the renderer builds its bind groups again on the
+ * next draw), `destroy()` to the whole movie (it never draws again; PixiJS's own renderer teardown warns too, for a filter's buffers). The warning
+ * says nothing there. Hiding the console line is not enough: PixiJS's `warn()` counts every warning before it prints and stops for good at 500,
+ * so a page that closed a few movies lost its real PixiJS warnings.
+ *
+ * So while a teardown runs (`quietUnbind()` … the function it returns), a bind group unbinds a destroyed resource as PixiJS does
+ * (`resources[i] = null`, dirty) without calling `warn()`; at any other time, and for any other change, PixiJS's own handler runs. The handler is
+ * put on `BindGroup.prototype` once, before the first renderer exists: a bind group registers the function it finds there as its listener and
+ * removes that same function in its `destroy()`, so swapping it only for the teardown would miss the listeners and leave them behind.
  */
-function muteBoundTextureWarning(): () => void {
-  const original = console.warn;
-  const ours = (...args: unknown[]) => { if (args.some(a => /destroyed while still bound/.test(String(a)))) return; original.apply(console, args); };
-  console.warn = ours;
-  return () => { if (console.warn === ours) console.warn = original; };
+let quietDepth = 0;
+let quietInstalled = false;
+function installQuietUnbind(): void {
+  if (quietInstalled) return;
+  quietInstalled = true;
+  const proto = BindGroup.prototype as unknown as { onResourceChange: (resource: { destroyed?: boolean }) => void };
+  const original = proto.onResourceChange;
+  if (typeof original !== 'function') return;
+  proto.onResourceChange = function (this: { resources: Record<string, unknown> | null; _dirty: boolean }, resource: { destroyed?: boolean }): void {
+    if (!quietDepth || !resource?.destroyed) { original.call(this, resource); return; }
+    this._dirty = true;
+    const resources = this.resources;
+    if (resources) for (const i in resources) if (resources[i] === resource) resources[i] = null;
+  };
+}
+function quietUnbind(): () => void {
+  quietDepth++;
+  let done = false;
+  return () => { if (!done) { done = true; quietDepth--; } };
 }
 
 const clampFrame = (f: number, last: number): number => Math.max(0, Math.min(Math.round(f), last));

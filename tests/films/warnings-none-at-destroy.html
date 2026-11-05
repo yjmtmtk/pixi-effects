@@ -9,11 +9,13 @@
     Test film (tests/films/warnings-none-at-destroy.test.ts), 320 x 180, 2 s, 30 fps. Layers that own textures the renderer has just drawn with:
     six texts (each its own texture), a blurred circle and a glowing rect (filters draw through render textures), a nested composition with a
     crossfade between two texts, and a gradient rect. The test plays it for a moment, then calls movie.destroy() while it plays (or just after).
-    Up to 0.48.0, PixiJS printed "a textureSource was destroyed while still bound to a shader" a few hundred times on WebGPU at that point.
+    Up to 0.48.0, PixiJS printed "a textureSource was destroyed while still bound to a shader" a few hundred times on WebGPU at that point;
+    0.48.1 hid the lines, but PixiJS still counted them towards its limit of 500 warnings a page. window.make() makes a new movie on a new
+    canvas (as reopening a modal does); window.PIXI is the page's pixi.js (the library's own copy, through the import map).
     window.__logs holds every console.warn / console.error of the page (the page's own console.warn wraps the original, so the test can also see
     whether console.warn is still that wrapper after the destroy).
   -->
-  <canvas id="stage" width="320" height="180"></canvas>
+  <div id="holder"></div>
   <script>
     window.__logs = [];
     for (const k of ['warn', 'error']) {
@@ -34,12 +36,19 @@
   </script>
   <script type="module">
     import { Movie } from '../../dist/index.js';
+    import * as PIXI from 'pixi.js';
+    window.PIXI = PIXI;
     const text = (name, y, words) => ({ type: 'text', name, text: words, at: 0, duration: 2, initial: { x: 160, y, alpha: 0 },
       style: { fontFamily: 'sans-serif', fontSize: 16, fill: '#ffffff' }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.5 }] });
-    const movie = new Movie();
-    window.movie = movie;
-    await movie.init({
-      canvas: document.getElementById('stage'), width: 320, height: 180, duration: 2, frameRate: 30, background: '#102040',
+    /** A new movie on a new canvas (the old canvas goes with the old movie, as a closed modal's does). */
+    window.make = async () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 320; canvas.height = 180;
+      document.getElementById('holder').replaceChildren(canvas);   // destroy() takes the old canvas out of the page
+      const movie = new Movie();
+      window.movie = movie;
+      await movie.init({
+      canvas, width: 320, height: 180, duration: 2, frameRate: 30, background: '#102040',
       composition: { sequences: [
         { type: 'shape', shape: 'rect', name: 'ramp', width: 320, height: 40, initial: { x: 160, y: 20 },
           fillGradient: { angle: 0, stops: [[0, '#ff9a3c'], [1, '#3c5bff']] } },
@@ -53,7 +62,9 @@
           { ...text('b', 160, 'second'), at: 0.6, duration: 1.4 },
         ], transitions: [{ kind: 'crossfade', from: 'a', to: 'b', at: 0.6, duration: 0.4 }] },
       ] },
-    });
+      });
+    };
+    await window.make();
     window.__ready = true;
   </script>
 </body>

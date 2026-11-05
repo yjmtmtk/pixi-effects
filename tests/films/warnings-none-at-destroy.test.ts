@@ -1,16 +1,28 @@
 // @vitest-environment node
-// Group 14 (Warnings are instructions), the other side: no warning where nothing is wrong. movie.destroy() on a movie that has just drawn makes
+// Group 14 (Warnings are instructions), the other side: no warning where nothing is wrong. movie.destroy() on a movie that has just drawn made
 // PixiJS warn "a textureSource was destroyed while still bound to a shader" (a few hundred times on WebGPU, reported from an app that closed a
-// modal with a movie in it, pixi-effects 0.48.0). The movie never draws again, so the warning says nothing; a rebuild already silenced the same
-// message for the same reason (src/core/Movie.ts, muteBoundTextureWarning). Expected, written before the film was run:
+// modal with a movie in it, pixi-effects 0.48.0). The movie never draws again, so the warning says nothing. Hiding the line is not enough
+// (reported again on 0.48.1): PixiJS's warn() counts every warning before it prints, stops for good at 500 with "too many warnings", and the
+// count cannot be reset, so after a few closed movies the page's real PixiJS warnings were gone too. Expected, written before the film was run:
 //  - destroy() while playing, and destroy() just after pausing: no console.warn / console.error at all from the page;
-//  - any other warning printed during the destroy still reaches the console (only that one message is silenced);
-//  - after the destroy, console.warn is the page's own function again (the silencing is undone, also when a destroy step throws).
+//  - make, play, destroy three times on one page (WebGPU and WebGL): no line starting "PixiJS Warning", and PixiJS's count is untouched:
+//    499 warnings of the page's own afterwards all print, none is "too many warnings";
+//  - any other warning printed during the destroy still reaches the console;
+//  - after the destroy, console.warn is the page's own function and PixiJS warns again about a resource destroyed while bound (also when a
+//    destroy step throws): the quiet lasts for the teardown only.
 import { it, expect } from 'vitest';
 import { runFilms, withFilm, type Film } from './support/withFilm';
 
+const NO_GPU = 'delete Navigator.prototype.gpu;';
 const play = (ms: number) => `(async () => { movie.play(); await new Promise((r) => setTimeout(r, ${ms})); })()`;
-const restored = 'console.warn === window.__pageWarn';
+/** After a teardown, PixiJS's own warning works again: a texture destroyed while a bind group holds it is reported (this probe uses one of the 500). */
+const restored = `(() => {
+  const before = window.__logs.length, source = new PIXI.TextureSource(), group = new PIXI.BindGroup({ 0: source });
+  source.destroy();
+  const told = window.__logs.slice(before).some((l) => /PixiJS Warning.*'textureSource' was destroyed while still bound/.test(l));
+  window.__logs.length = before;
+  return console.warn === window.__pageWarn && told && group.resources[0] === null;
+})()`;
 
 async function destroyQuietly(film: Film, pauseFirst: boolean): Promise<void> {
   await film.eval(play(600));
@@ -18,7 +30,21 @@ async function destroyQuietly(film: Film, pauseFirst: boolean): Promise<void> {
   await film.eval('window.__logs.length = 0');
   await film.eval('movie.destroy()');
   expect(await film.eval<string[]>('window.__logs')).toEqual([]);
-  expect(await film.eval<boolean>(restored), 'console.warn is the page\'s own again').toBe(true);
+  expect(await film.eval<boolean>(restored), 'console.warn is the page\'s own and PixiJS warns again after the destroy').toBe(true);
+}
+
+/** Make, play, destroy three times; then 499 of the page's own PixiJS warnings, which all print only if the destroys used none of the 500. */
+async function threeTimes(film: Film): Promise<void> {
+  for (let i = 0; i < 3; i++) {
+    if (i) await film.eval('make()');
+    await film.eval(play(400));
+    await film.eval('movie.destroy()');
+  }
+  expect((await film.eval<string[]>('window.__logs')).filter((l) => /PixiJS Warning/.test(l))).toEqual([]);
+  await film.eval(`for (let i = 0; i < 499; i++) PIXI.warn('probe ' + i)`);
+  const after = await film.eval<string[]>('window.__logs');
+  expect(after.filter((l) => /too many warnings/.test(l)), 'PixiJS\'s count of 500 was not used by the destroys').toEqual([]);
+  expect(after.filter((l) => /PixiJS Warning: +probe/.test(l))).toHaveLength(499);
 }
 
 runFilms('Warnings: destroying a movie that has just played is silent', () => {
@@ -34,15 +60,20 @@ runFilms('Warnings: destroying a movie that has just played is silent', () => {
     await withFilm('warnings-none-at-destroy', async (film) => {
       expect(await film.eval<string>('movie.app.renderer.name')).toBe('webgl');
       await destroyQuietly(film, true);
-    }, { beforeLoad: 'delete Navigator.prototype.gpu;' });
+    }, { beforeLoad: NO_GPU });
   }, 180_000);
 
-  it('only that one message is silenced: another warning during the destroy still reaches the console, and console.warn comes back even when a step throws', async () => {
+  it('three movies made and destroyed on one page leave PixiJS\'s warning count untouched (WebGPU and WebGL)', async () => {
+    await withFilm('warnings-none-at-destroy', threeTimes);
+    await withFilm('warnings-none-at-destroy', threeTimes, { beforeLoad: NO_GPU });
+  }, 180_000);
+
+  it('only that one message is kept back: another warning during the destroy still reaches the console, and everything is put back even when a step throws', async () => {
     await withFilm('warnings-none-at-destroy', async (film) => {
       await film.eval(play(300));
       await film.eval(`(() => {
         const seq = movie._rootSequence, own = seq.destroy.bind(seq);
-        seq.destroy = () => { console.warn('a textureSource was destroyed while still bound to a shader'); console.warn('some other warning'); own(); throw new Error('a step failed'); };
+        seq.destroy = () => { console.warn('some other warning'); own(); throw new Error('a step failed'); };
       })()`);
       await film.eval('window.__logs.length = 0');
       await film.eval('movie.destroy()');
