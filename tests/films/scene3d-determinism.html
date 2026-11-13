@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · scene3d determinism check</title></head>
+<body style="margin:0">
+  <!-- Test film (tests/films/scene3d-determinism.test.ts, run through `check`): one scene3d layer 'spin', a lit cube. By default it is turned from t (a function of the time).
+       ?leaky=1: update integrates a velocity from call to call (not a function of t): check must say so. -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+    "@pixi/3d": "../../node_modules/@pixi/3d/dist/pixijs-3d.mjs", "@pixi/3d/extras": "../../node_modules/@pixi/3d/dist/pixijs-3d-extras.mjs" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    import { register3D } from '../../dist/3d.js';
+    import { Mesh3D, CubeGeometry, Material3D, DirectionalLight, AmbientLight } from '@pixi/3d';
+    register3D();
+    const LEAKY = new URLSearchParams(location.search).get('leaky') === '1';
+    let v = 0, angle = 0;
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 2, frameRate: 30, background: '#102040',
+        composition: { sequences: [
+          { type: 'scene3d', name: 'spin', width: 320, height: 180, initial: { x: 160, y: 90, anchorX: 0.5, anchorY: 0.5 },
+            setup: ({ root, camera }) => {
+              const cube = new Mesh3D({ geometry: new CubeGeometry({ width: 1.4, height: 1.4, depth: 1.4 }), material: new Material3D({ baseColor: 0x7fb4ff, roughness: 0.5, metallic: 0 }) });
+              const sun = new DirectionalLight({ intensity: 3 }); sun.rotation.set(-0.8, 0.5, 0);
+              root.addChild(cube, sun, new AmbientLight({ intensity: 0.6 }));
+              camera.position.set(0, 0.6, 5); camera.lookAt({ x: 0, y: 0, z: 0 });
+              return { objects: { cube } };
+            },
+            update: LEAKY
+              ? (t, { objects }) => { v += 0.3; angle += v * 0.03; objects.cube.rotation.set(0.4, angle, 0); }
+              : (t, { objects }) => { objects.cube.rotation.set(0.4, t * 1.2, 0); } },
+        ] } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); window.__ready = true; }
+  </script>
+</body>
+</html>

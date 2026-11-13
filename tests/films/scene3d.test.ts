@@ -62,6 +62,18 @@ runFilms('scene3d: a PixiJS 3D scene as a layer', () => {
     }
   }, 180_000);
 
+  it('the shader time uTime that PixiJS 3D hands its materials is the layer\'s time, not the wall clock (a shader bit that reads it is a function of the time)', async () => {
+    for (const [name, beforeLoad] of BACKENDS) {
+      await on(beforeLoad, async (film) => {
+        for (const f of [45, 15]) {
+          await film.eval(`movie.snapshot(${f}, { as: 'imageData' })`);
+          const u = await film.eval<number>("(() => { let v = null; const w = c => { if (c.label === 'hero') v = c; for (const k of c.children ?? []) w(k); }; w(movie.app.stage); return v._gpuData[movie.app.renderer.uid].globalUniformGroup.uniforms.uTime; })()");
+          expect(u, `${name} frame ${f}`).toBeCloseTo(f / 30, 5);
+        }
+      });
+    }
+  }, 180_000);
+
   it('a keyframe on scene3d.cube.position.x moves the cube: it is further right at 2 s than at 1 s', async () => {
     for (const [name, beforeLoad] of BACKENDS) {
       await on(beforeLoad, async (film) => {
