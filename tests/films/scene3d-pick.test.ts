@@ -84,4 +84,34 @@ runFilms('scene3d: pick, hover and drag', () => {
     const r = await promisify(execFile)('node', [join(root, 'ai/tools/check.mjs'), join(root, 'tests/films/scene3d-pick.html'), '--no-export', '--out', mkdtempSync(join(tmpdir(), 'pick-')), '--at', '0', '--pick', `${Math.round(xy[0])},${Math.round(xy[1])}`], { timeout: 150_000 }).catch((e: any) => e);
     expect(r.stdout).toMatch(/pick .*world \(scene3d: red\)/);
   }, 200_000);
+
+  it("PixiJS 3D's own pointer events work too: mesh.on('pointerdown' / 'pointerover' / 'pointerout') answer a real click and a real hover, for the frame on screen, and agree with movie.pick", async () => {
+    for (const [name, beforeLoad] of BACKENDS) {
+      await on(beforeLoad, async (film) => {
+        await film.eval('movie.snapshot(0, { as: "imageData" })');
+        await film.eval(`(() => {
+          let v = null; const w = (c) => { if (c.label === 'world') v = c; for (const k of c.children ?? []) w(k); }; w(movie.app.stage);
+          window.__native = [];
+          for (const label of ['red', 'blue', 'mover']) {
+            const n = v.root.getChildByLabel(label, true);
+            n.eventMode = 'static';
+            for (const type of ['pointerdown', 'pointerover', 'pointerout']) n.on(type, () => window.__native.push(type + ':' + label));
+          }
+        })()`);
+        const mouse = async (type: string, x: number, y: number) => film.cdp.send('Input.dispatchMouseEvent', type === 'mouseMoved' ? { type, x, y } : { type, x, y, button: 'left', clickCount: 1 });
+        const [rx, ry] = await film.eval<[number, number]>("screenOf('red')");
+        await mouse('mouseMoved', rx, ry);
+        await mouse('mousePressed', rx, ry); await mouse('mouseReleased', rx, ry);
+        await mouse('mouseMoved', 240, 20);                                              // empty space: the pointer leaves red
+        expect(await film.eval<string[]>('window.__native'), `${name} red`).toEqual(['pointerover:red', 'pointerdown:red', 'pointerout:red']);
+        expect(await film.eval<any>(`movie.pick(${rx}, ${ry})?.scene3d?.object`), `${name} pick agrees`).toBe('red');
+        // after a seek the mover is elsewhere: the native hit test follows the frame on screen as movie.pick does
+        await film.eval('movie.snapshot(80, { as: "imageData" }); window.__native = []');
+        const [mx, my] = await film.eval<[number, number]>("screenOf('mover')");
+        await mouse('mouseMoved', mx, my); await mouse('mousePressed', mx, my); await mouse('mouseReleased', mx, my);
+        expect(await film.eval<string[]>('window.__native'), `${name} mover`).toEqual(['pointerover:mover', 'pointerdown:mover']);
+        expect(await film.eval<string[]>('window.__logs'), name).toEqual([]);
+      });
+    }
+  }, 180_000);
 });
