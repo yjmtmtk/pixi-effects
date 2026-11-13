@@ -25,7 +25,9 @@
     window.__setups = 0; window.__disposes = 0; window.__cube = null;
     const setup = async (ctx) => {
       window.__setups++;
-      const material = SCREEN ? (await layerTexture(ctx, 'screen')).material : new P3D.Material3D({ baseColor: 0x7fb4ff, roughness: 0.5, metallic: 0 });
+      const shown = SCREEN ? await layerTexture(ctx, 'screen') : null;
+      window.__shown = shown;                                              // the handle, for a test that lets it go by hand
+      const material = shown ? shown.material : new P3D.Material3D({ baseColor: 0x7fb4ff, roughness: 0.5, metallic: 0 });
       const cube = new P3D.Mesh3D({ label: 'cube', geometry: new P3D.CubeGeometry({ width: 1.4, height: 1.4, depth: 1.4 }), material });
       window.__cube = cube;
       const sun = new P3D.DirectionalLight({ intensity: 3 }); sun.rotation.set(-0.8, 0.5, 0);

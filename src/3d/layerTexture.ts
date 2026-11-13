@@ -25,7 +25,7 @@ export interface LayerTexture {
   /** The size of the texture in pixels. */
   width: number;
   height: number;
-  /** Stop showing the layer (it is drawn on the stage again). Called when the scene3d layer is destroyed. */
+  /** Stop showing the layer on the mesh (it is drawn on the stage again; the mesh keeps the last picture). The material and the texture are freed with the scene3d layer. */
   dispose(): void;
 }
 
@@ -38,6 +38,8 @@ export interface LayerTextureHost {
   beforeDraw(fn: () => void): () => void;
   /** Remember a handle (picking through the mesh, keeping the layer hidden, rebinding after a rebuild). */
   track(handle: ShownLayer): () => void;
+  /** Let the scene3d layer free a resource when it goes (a material a mesh may still use cannot be freed earlier: PixiJS 3D would draw a destroyed material). */
+  own(free: () => void): void;
 }
 
 /** What the scene3d layer keeps of each layer shown on a mesh. */
@@ -119,10 +121,12 @@ export async function layerTexture(ctx: Scene3DContext, name: string, options: L
       untrack();
       stop();
       if (hidden) { display.visible = true; hidden = false; }
-      try { material.destroy?.(); } catch { /* gone with the scene */ }
-      try { rt.destroy(true); } catch { /* the renderer is gone */ }
     },
   };
   const untrack = host.track(handle);
+  host.own(() => {
+    try { material.destroy?.(); } catch { /* gone with the scene */ }
+    try { rt.destroy(true); } catch { /* the renderer is gone */ }
+  });
   return handle;
 }

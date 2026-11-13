@@ -41,6 +41,8 @@ export class Scene3DSequence extends Sequence {
   /** Things to do before every frame of the scene is drawn (the 2D layers shown on meshes: `layerTexture`), and their handles. */
   private _drawHooks = new Set<() => void>();
   private _shown: ShownLayer[] = [];
+  /** Resources the 2D layers on meshes leave to this layer to free when it goes (shared, like `_shown`, with a layer that takes the scene over). */
+  private _owned: Array<() => void> = [];
   /** What a rebuild matches this layer by (core/reuse.ts); null: never kept (`reuse: false`, no `name`, view options that are not plain data). */
   private _key: string | null = null;
   /** The layer of the tree being replaced whose scene this one takes over at the swap (`commitReuse`): until then it is not this layer's. */
@@ -181,6 +183,7 @@ export class Scene3DSequence extends Sequence {
     this._fogMirror = null;                                                // made again for this view at the next frame
     this._shown = d._shown;
     this._drawHooks = d._drawHooks;
+    this._owned = d._owned;
     d._donated = true;
     this._borrowed = null;
     for (const apply of this._pendingRebinds) apply();
@@ -419,6 +422,7 @@ export class Scene3DSequence extends Sequence {
       pixiRenderer: renderer,
       beforeDraw: (fn) => { this._drawHooks.add(fn); return () => { this._drawHooks.delete(fn); }; },
       track: (handle) => { this._shown.push(handle); return () => { const i = this._shown.indexOf(handle); if (i >= 0) this._shown.splice(i, 1); }; },
+      own: (free) => { this._owned.push(free); },
     };
   }
 
@@ -540,10 +544,11 @@ export class Scene3DSequence extends Sequence {
       }
       for (const h of [...this._shown]) { try { h.dispose(); } catch { /* the 2D layer is gone with its tree */ } }
       this._drawHooks.clear();
+      for (const free of this._owned.splice(0)) free();
       this._lightMirror?.dispose();
     }
-    this._shown = [];
-    this._drawHooks = new Set();
+    // a layer whose scene moved on keeps pointing at the shared list and set: a 2D layer's handle (made by this layer's host) removes itself from them when it is let go
+    if (!kept) { this._shown = []; this._drawHooks = new Set(); this._owned = []; }
     this._pendingRebinds = [];
     this._borrowed = null;
     this._lightMirror = null;

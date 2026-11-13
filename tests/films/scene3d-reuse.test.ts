@@ -100,6 +100,17 @@ runFilms('setVars keeps a scene3d layer that did not change', () => {
     });
   }, 180_000);
 
+  it('a 2D layer shown on a mesh, let go by hand (screen.dispose()) after a rebuild, is drawn on the stage again and nothing goes on drawing into its texture', async () => {
+    await on('screen=1', async (film) => {
+      await film.eval("movie.setVars({ label: 'b' })");
+      await film.eval('window.__shown.dispose()');
+      const px = await film.eval<number[]>('(async () => { const img = await movie.snapshot(40, { as: "imageData" }); const i = (170 * 320 + 5) * 4; return Array.from(img.data.slice(i, i + 4)); })()');
+      expect(px, 'the screen composition (#203040) is on the stage again').toEqual([32, 48, 64, 255]);
+      await film.eval('movie.snapshot(70, { as: "imageData" })');
+      expect(await film.eval<string[]>('window.__logs')).toEqual([]);
+    });
+  }, 120_000);
+
   it('a 2D layer shown on a mesh follows the rebuild: the mesh shows the new tree\'s layer (the variable\'s new value), as a page built with it does', async () => {
     const fresh = await on('screen=1&label=b', (film) => film.eval<string>('hashOf(30)'));
     await on('screen=1', async (film) => {
