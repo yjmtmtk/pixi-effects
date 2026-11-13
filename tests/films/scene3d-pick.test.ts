@@ -40,6 +40,23 @@ runFilms('scene3d: pick, hover and drag', () => {
     }
   }, 180_000);
 
+  it('fifty picks in one frame (a hover follows the pointer) walk the scene once, not fifty times; a new frame walks it again (an object added in update is picked)', async () => {
+    await on(undefined, async (film) => {
+      await film.eval('movie.snapshot(10, { as: "imageData" })');
+      const walks = await film.eval<number>(`(() => {
+        let v = null; const w = (c) => { if (c.label === 'world') v = c; for (const k of c.children ?? []) w(k); }; w(movie.app.stage);
+        const root = v.root; const orig = root.traverse.bind(root); let n = 0; root.traverse = (...a) => { n++; return orig(...a); };
+        const [x, y] = screenOf('red'); for (let i = 0; i < 50; i++) movie.pick(x + (i % 5), y);
+        window.__walks = () => n; return n;
+      })()`);
+      expect(walks).toBeLessThanOrEqual(1);
+      await film.eval('movie.snapshot(20, { as: "imageData" })');
+      const [x, y] = await film.eval<[number, number]>("screenOf('mover')");
+      expect(await film.eval<any>(`movie.pick(${x}, ${y})?.scene3d?.object`)).toBe('mover');
+      expect(await film.eval<number>('window.__walks()')).toBe(2);
+    });
+  }, 120_000);
+
   it("grab('floor').move(x, y): the pointer's ray meets the floor through the hit point, and delta is how far that is from it (exact to a thousandth of a unit)", async () => {
     for (const [name, beforeLoad] of BACKENDS) {
       await on(beforeLoad, async (film) => {

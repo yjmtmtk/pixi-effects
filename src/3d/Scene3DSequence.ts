@@ -53,6 +53,8 @@ export class Scene3DSequence extends Sequence {
   private _lightMirror: LightMirror | null = null;
   private _fogMirror: FogMirror | null = null;
   private _pinned = false;
+  /** The scene may have changed since the meshes were last made pickable (a frame ran `update`): the next pick walks it again, the picks after it do not. */
+  private _pickStale = true;
 
   /** The PixiJS 3D view this layer shows (null before build and after destroy). */
   get view(): View3D | null { return this._view; }
@@ -181,6 +183,7 @@ export class Scene3DSequence extends Sequence {
     this._lightMirror = d._lightMirror;
     this._lightMirror?.rehome(view.root);
     this._fogMirror = null;                                                // made again for this view at the next frame
+    this._pickStale = true;
     this._shown = d._shown;
     this._drawHooks = d._drawHooks;
     this._owned = d._owned;
@@ -325,6 +328,7 @@ export class Scene3DSequence extends Sequence {
     if (!this._ctx || this._borrowed) return;                            // a layer waiting for the swap: the scene is still the old layer's
     const t = Math.max(0, Math.min(local, this.duration ?? local));
     this._time = t;
+    this._pickStale = true;
     this._pinShaderTime();
     this._followSpace(t);
     const update = this._spec.update;
@@ -449,6 +453,8 @@ export class Scene3DSequence extends Sequence {
    * layer on the mesh needs); the author's own choice is kept.
    */
   private _makePickable(): void {
+    if (!this._pickStale) return;                                          // (a hover picks at every pointer move: one walk per frame is enough)
+    this._pickStale = false;
     const root = this._view?.root as unknown as { traverse(cb: (n: unknown) => void): void } | undefined;
     root?.traverse((node) => {
       const n = node as { eventMode?: string; geometry?: unknown; hitVolume?: unknown };
