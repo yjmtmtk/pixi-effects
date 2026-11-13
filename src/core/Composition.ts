@@ -52,6 +52,12 @@ export function registerSequenceType(type: string, ctor: SequenceCtor): void {
   registry[type] = ctor;
 }
 
+/** Layer types that live in an optional entry: an unregistered one names the entry and the call. */
+const OPTIONAL_ENTRIES: Record<string, { from: string; call: string }> = {
+  scene3d: { from: 'pixi-effects/3d', call: 'register3D' },
+  three: { from: 'pixi-effects/three', call: 'registerThree' },
+};
+
 export async function buildSequenceTree(
   specs: SequenceSpec[],
   parent: CompositionShape | null,
@@ -71,7 +77,9 @@ export async function buildSequenceTree(
       Cls = (await getCompositionSequence()) as unknown as SequenceCtor;
     }
     if (!Cls) {
-      console.warn(`pixi-effects: unknown sequence type "${(spec as { type: string }).type}"`);
+      const type = (spec as { type: string }).type;
+      const entry = OPTIONAL_ENTRIES[type];
+      console.warn(`pixi-effects: unknown sequence type "${type}"${entry ? `: import { ${entry.call} } from '${entry.from}' and call ${entry.call}() before movie.init` : ''}`);
       await root.onLayerBuilt?.();                    // it was counted: count it done, or the bar would stop short
       continue;
     }

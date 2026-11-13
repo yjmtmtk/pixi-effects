@@ -8,6 +8,7 @@ import type { PathRouters } from '../core/Timeline';
 import { COMMON } from '../core/layerKeys';
 import { suggestName } from '../core/options';
 import { NOT_PURE } from '../core/purity';
+import { blendFilterFor, isAdvancedBlend, type BlendFilterLike } from '../core/blend';
 import type { PropValue } from '../types';
 import type { Scene3DContext, Scene3DSequenceSpec } from './types';
 
@@ -29,10 +30,10 @@ export class Scene3DSequence extends Sequence {
   private _warned = new Set<string>();
   /** The animation players under the root (found after setup). */
   private _players: ClipPlayer[] = [];
-  /** Clips left playing after `update` (nobody posed them: `autoPlay`): the layer poses them from its own time every frame. */
-  private _playedClips = new Set<ClipState>();
   /** The layer's own last filter: what PixiJS 3D ignores on its view (alpha, its parents' alpha, a basic blend mode) applied to the view's picture. Only there while needed. */
   private _look: AlphaFilter | null = null;
+  /** An advanced blend mode on a layer with no filter of its own: its blend filter, owned by the layer (the view's own blend mode would be shut inside the look filter's pass). */
+  private _blend: BlendFilterLike | null = null;
   /** The layer's time, what PixiJS 3D's shader time `uTime` reads once pinned (see `_pinShaderTime`). */
   private _time = 0;
   private _pinned = false;
@@ -157,19 +158,29 @@ export class Scene3DSequence extends Sequence {
     if (!view) return;
     let alpha = 1;
     for (let c: Container | null = view; c; c = c.parent) alpha *= c.alpha;
-    const mode = String(view.blendMode ?? 'normal');
-    const blends = mode === 'add' || mode === 'screen' || mode === 'multiply';
-    const need = alpha < 1 || blends;
     const current = (view.filters ?? []) as readonly Filter[];
-    const others = current.filter(f => f !== this._look);
+    const others = current.filter(f => f !== this._look && f !== (this._blend as unknown));
+    // Where the blend goes (blend.ts put it on the view, or on the last of the layer's filters):
+    // - filters of its own (the author's, a matte, an advanced blend appended to them): the blend sits on the last of them; the look filter goes FIRST and only fades.
+    // - no filter, a basic mode: the view's own mode is ignored by PixiJS 3D, so the look filter carries it, as the only pass.
+    // - no filter, an advanced mode: a blend filter of the layer's own ends the chain (the view's own mode would be shut inside the look filter's pass); the view stays normal.
+    const authored = String((this.spec as { blendMode?: unknown }).blendMode ?? 'normal');
+    if (others.length === 0 && isAdvancedBlend(authored) && !this._blend) {
+      this._blend = blendFilterFor(authored);
+      if (this._blend) view.blendMode = 'normal';
+    }
+    const mode = String(view.blendMode ?? 'normal');
+    const basic = others.length === 0 && (mode === 'add' || mode === 'screen' || mode === 'multiply');
+    const need = alpha < 1 || basic;
+    const own = this._blend && others.length === 0 ? [this._blend as unknown as Filter] : [];
+    let next: Filter[] = [...others, ...own];
     if (need) {
       const look = (this._look ??= new AlphaFilter({ alpha: 1 }));
       look.alpha = alpha;
-      look.blendMode = (blends ? mode : 'normal') as AlphaFilter['blendMode'];
-      if (current[current.length - 1] !== look) view.filters = [...others, look];
-    } else if (others.length !== current.length) {
-      view.filters = others.length ? others : null;
+      look.blendMode = (basic ? mode : 'normal') as AlphaFilter['blendMode'];
+      next = others.length || own.length ? [look, ...others, ...own] : [look];
     }
+    if (next.length !== current.length || next.some((f, k) => f !== current[k])) view.filters = next.length ? next : null;
   }
 
   /**
@@ -214,22 +225,22 @@ export class Scene3DSequence extends Sequence {
 
   /**
    * A clip still playing after `update` (a model made with `autoPlay`, a `player.play(name)` in setup) is posed by nobody: it would move with the ticker, or not at all.
-   * The layer takes it over and poses it from its own time (its speed and loop kept), so it plays in the video as it would in a page. A clip `update` poses itself
-   * (`gotoAndStop(t)` stops it) is left alone.
+   * The layer poses it from its own time (its speed and loop kept) and leaves it playing, so it plays in the video as it would in a page. A clip `update` poses itself
+   * (`gotoAndStop(t)` stops it) is left alone. Nothing is remembered from one frame to the next: the frame depends on this frame's `update` only.
    */
   private _poseClips(t: number): void {
     for (const player of this._players) {
       for (const label of player.animationLabels) {
         const state = player.getState(label);
-        if (state.playing) this._playedClips.add(state);
+        if (!state.playing) continue;
+        const length = state.animation.duration;
+        const x = t * (state.animationSpeed ?? 1);
+        state.gotoAndStop(length > 0 ? (state.loop ? ((x % length) + length) % length : Math.min(Math.max(x, 0), length)) : 0);
+        state.play();                                                                   // still playing: posed again next frame (no ticker advances it)
       }
     }
-    for (const state of this._playedClips) {
-      const length = state.animation.duration;
-      const x = t * (state.animationSpeed ?? 1);
-      state.gotoAndStop(length > 0 ? (state.loop ? ((x % length) + length) % length : Math.min(Math.max(x, 0), length)) : 0);
-    }
   }
+
 
   /**
    * The determinism check (`check`, `movie.review()`): the scene set by `update` and drawn at a few moments in two orders, with one draw thrown away first, and the pictures
@@ -322,16 +333,17 @@ export class Scene3DSequence extends Sequence {
     this._ctx = null;
     this._objects = {};
     this._players = [];
-    this._playedClips.clear();
     this._destroyView();
     this._look?.destroy();
     this._look = null;
+    this._blend?.destroy();
+    this._blend = null;
     super.destroy();
   }
 }
 
 /** What the layer uses of a PixiJS 3D animation player (public API only). */
-interface ClipState { readonly playing: boolean; readonly animation: { duration: number }; animationSpeed?: number; loop: boolean; gotoAndStop(time: number): unknown }
+interface ClipState { readonly playing: boolean; readonly animation: { duration: number }; animationSpeed?: number; loop: boolean; gotoAndStop(time: number): unknown; play(): unknown }
 interface ClipPlayer { autoUpdate?: unknown; readonly animationLabels: readonly string[]; getState(label: string): ClipState }
 
 function resolveDim(v: PropValue | undefined, scope: Record<string, number>): number | undefined {

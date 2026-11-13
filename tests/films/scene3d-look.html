@@ -4,9 +4,9 @@
 <body style="margin:0">
   <!-- Test film (tests/films/scene3d-look.test.ts): PixiJS 3D ignores alpha and blendMode on its view; a scene3d layer must not. Four columns of 80 px over a #4080c0 background:
        top row (y 15..75) a 2D reference rect, bottom row (y 105..165) a scene3d layer whose unlit plane fills its 60 × 60 view in the same colour (#e05030), each column with the same look:
-       0 'alpha' layer alpha 0.5 · 1 'parent' inside a composition at alpha 0.5 · 2 'add' blendMode add · 3 'multiply' blendMode multiply. A fifth scene3d 'plain' (alpha 1, normal) sits off to the
-       canvas (x 400) and must carry no filter of the layer's own. ?tint=1 adds a tint keyframe to 'alpha'. The page gives framePixels(frame), filtersOf(label), window.__logs. -->
-  <canvas id="stage" width="320" height="180"></canvas>
+       0 'alpha' layer alpha 0.5 · 1 'parent' inside a composition at alpha 0.5 · 2 'add' blendMode add · 3 'multiply' blendMode multiply · 4 'blur-screen' a blur filter, blendMode screen, alpha 0.5 · 5 'overlay' blendMode overlay, alpha 0.5. A scene3d 'plain' (alpha 1, normal) sits off to the
+       canvas (x 600) and must carry no filter of the layer's own. ?tint=1 adds a tint keyframe to 'alpha'. The page gives framePixels(frame), filtersOf(label), window.__logs. -->
+  <canvas id="stage" width="480" height="180"></canvas>
   <script>
     window.__logs = [];
     for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
@@ -27,10 +27,10 @@
       camera.position.set(0, 0, 5); camera.lookAt({ x: 0, y: 0, z: 0 });
     };
     const cell = (k) => 80 * k + 40;
-    const ref = (k, extra = {}) => ({ type: 'shape', shape: 'rect', name: `ref${k}`, width: 60, height: 60, initial: { x: cell(k), y: 45, fillColor: '#e05030', ...(extra.initial ?? {}) }, ...(extra.blendMode ? { blendMode: extra.blendMode } : {}) });
+    const ref = (k, extra = {}) => ({ type: 'shape', shape: 'rect', name: `ref${k}`, width: 60, height: 60, initial: { x: cell(k), y: 45, fillColor: '#e05030', ...(extra.initial ?? {}) }, ...(extra.blendMode ? { blendMode: extra.blendMode } : {}), ...(extra.filters ? { filters: extra.filters } : {}) });
     const s3d = (k, name, extra = {}) => ({ type: 'scene3d', name, width: 60, height: 60, initial: { x: cell(k), y: 135, anchorX: 0.5, anchorY: 0.5, ...(extra.initial ?? {}) }, setup: plane,
-      ...(extra.blendMode ? { blendMode: extra.blendMode } : {}), ...(extra.keyframes ? { keyframes: extra.keyframes } : {}) });
-    const half = (child) => ({ type: 'composition', name: `wrap-${child.name}`, width: 320, height: 180, initial: { alpha: 0.5 }, sequences: [child] });
+      ...(extra.blendMode ? { blendMode: extra.blendMode } : {}), ...(extra.keyframes ? { keyframes: extra.keyframes } : {}), ...(extra.filters ? { filters: extra.filters } : {}) });
+    const half = (child) => ({ type: 'composition', name: `wrap-${child.name}`, width: 480, height: 180, initial: { alpha: 0.5 }, sequences: [child] });
 
     const movie = new Movie();
     window.movie = movie;
@@ -42,13 +42,15 @@
       return found ? (found.filters ?? []).map(f => f.constructor.name) : null;
     };
     try {
-      await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 1, frameRate: 30, background: '#4080c0',
+      await movie.init({ canvas: document.getElementById('stage'), width: 480, height: 180, duration: 1, frameRate: 30, background: '#4080c0',
         composition: { sequences: [
           ref(0, { initial: { alpha: 0.5 } }), s3d(0, 'alpha', { initial: { alpha: 0.5 }, ...(q.get('tint') === '1' ? { keyframes: [{ at: 0, to: { tint: '#ff0000' }, duration: 1 }] } : {}) }),
           half(ref(1)), half(s3d(1, 'parent')),
           ref(2, { blendMode: 'add' }), s3d(2, 'add', { blendMode: 'add' }),
           ref(3, { blendMode: 'multiply' }), s3d(3, 'multiply', { blendMode: 'multiply' }),
-          s3d(3, 'plain', { initial: { x: 400, y: 90 } }),
+          ref(4, { blendMode: 'screen', initial: { alpha: 0.5 }, filters: [{ type: 'blur', strength: 2 }] }), s3d(4, 'blur-screen', { blendMode: 'screen', initial: { alpha: 0.5 }, filters: [{ type: 'blur', strength: 2 }] }),
+          ref(5, { blendMode: 'overlay', initial: { alpha: 0.5 } }), s3d(5, 'overlay', { blendMode: 'overlay', initial: { alpha: 0.5 } }),
+          s3d(3, 'plain', { initial: { x: 600, y: 90 } }),
         ] } });
       window.__ready = true;
     } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); window.__ready = true; }

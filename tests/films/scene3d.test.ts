@@ -62,6 +62,16 @@ runFilms('scene3d: a PixiJS 3D scene as a layer', () => {
     }
   }, 180_000);
 
+  it('a clip the layer played early is the author\'s again once update poses it: from 1 s the model holds the pose update gives it (the layer keeps no memory of the frames it drew)', async () => {
+    for (const [name, beforeLoad] of BACKENDS) {
+      await on(beforeLoad, async (film) => {
+        const model = async (f: number) => (await film.eval<number[]>(`framePixels(${f})`)).filter((_, i) => { const p = i >> 2, x = p % 320, y = (p / 320) | 0; return x > 5 && x < 105 && y > 10 && y < 90; }).join(',');
+        expect(await model(10), `${name}: before 1 s the layer plays the clip`).not.toBe(await model(20));
+        expect(await model(60), `${name}: from 1 s update's pose holds`).toBe(await model(68));
+      }, 'condplay=1');
+    }
+  }, 180_000);
+
   it('the shader time uTime that PixiJS 3D hands its materials is the layer\'s time, not the wall clock (a shader bit that reads it is a function of the time)', async () => {
     for (const [name, beforeLoad] of BACKENDS) {
       await on(beforeLoad, async (film) => {
