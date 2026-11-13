@@ -648,7 +648,7 @@ The bar uses fixed colors (`#007AFF` for the active track / fill / confirm butto
 ## `pixi-effects/3d`
 
 ```ts
-import { register3D, scene3d, Scene3DSequence } from 'pixi-effects/3d';
+import { register3D, scene3d, layerTexture, loadModel, fitCamera, Scene3DSequence } from 'pixi-effects/3d';
 import { Mesh3D, Model3D, DirectionalLight } from '@pixi/3d';
 ```
 
@@ -662,14 +662,26 @@ Registers the `scene3d` layer type (explicit, so a bundler cannot drop it; calli
 
 Typing helper: takes a typed scene3d spec and returns it as a core `SequenceSpec`.
 
+### `layerTexture(ctx, name, options?): Promise<LayerTexture>`
+
+In a scene3d layer's `setup`: the 2D layer `name` (a composition listed before the scene3d layer) shown on a mesh. Returns `{ material, texture, width, height, dispose }`; options `resolution`, `transparent`. See [DSL: scene3d](./dsl.md#a-2d-layer-on-a-mesh-layertexture).
+
+### `loadModel(url, options?): Promise<LoadedModel>`
+
+Loads a glTF / GLB as a PixiJS 3D `Model3D`: `{ object, model, clips, size(), fit(n), pose(t) }`; options `animation` (a name, an index, `false`), `speed`, `offset`, `loop`.
+
+### `fitCamera(ctx, object, options?): void`
+
+Puts the layer's camera where the whole of `object` fits; options `direction` (default `[0.45, 0.3, 1]`), `margin` (default 1.1).
+
 ### `Scene3DSequence`
 
-The layer class; `view` is its `View3D`. `checkDeterminism(times)` is what `check` runs.
+The layer class; `view` is its `View3D`. `checkDeterminism(times)` is what `check` runs; `pickAt(u, v)` and `dragPlane(point, plane)` are what `movie.pick` and `hit.scene3d.grab` call.
 
 ### Exported types
 
 ```ts
-import type { Scene3DContext, Scene3DSetupResult, Scene3DSequenceSpec } from 'pixi-effects/3d';
+import type { Scene3DContext, Scene3DSetupResult, Scene3DSequenceSpec, LayerTexture, LayerTextureOptions, LoadedModel, LoadModelOptions, FitCameraOptions } from 'pixi-effects/3d';
 ```
 
 ## `pixi-effects/three`

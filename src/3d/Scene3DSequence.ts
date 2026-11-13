@@ -16,7 +16,7 @@ import type { Scene3DContext, Scene3DSequenceSpec } from './types';
 
 /** The keys a scene3d layer has besides the common ones. */
 const OWN_KEYS = ['width', 'height', 'view', 'resolution', 'setup', 'update', 'dispose', 'followCamera', 'followLights', 'followFog', 'reuse'] as const;
-/** Keys a `three` layer has that a scene3d layer does not have yet (they come in a later release). */
+/** Keys of a `three` layer about three's own renderer: a scene3d layer is drawn by PixiJS itself and has no such option. */
 const THREE_ONLY = ['renderer', 'shareGpu', 'antialias'] as const;
 /** What the layer owns: given in `view`, they are ignored. */
 const LAYER_OWNED = ['width', 'height', 'autoResize'] as const;
@@ -178,12 +178,12 @@ export class Scene3DSequence extends Sequence {
     this._pendingRebinds = [];
   }
 
-  /** Unknown keys (with the likely one), and the keys only a three layer has yet. */
+  /** Unknown keys (with the likely one), and the keys only a three layer has. */
   private _checkKeys(): void {
     const valid: readonly string[] = [...COMMON, ...OWN_KEYS];
     for (const key of Object.keys(this.spec)) {
       if (valid.includes(key)) continue;
-      if ((THREE_ONLY as readonly string[]).includes(key)) { this._say(`key:${key}`, `${key} is not on scene3d yet; a three layer has it (type: 'three')`); continue; }
+      if ((THREE_ONLY as readonly string[]).includes(key)) { this._say(`key:${key}`, `${key} is about three's own renderer; a scene3d layer is drawn by PixiJS itself, so it has no such option (ignored)`); continue; }
       const guess = suggestName(key, valid);
       this._say(`key:${key}`, `unknown key "${key}"${guess ? `; did you mean "${guess}"?` : ''} (a scene3d layer has ${OWN_KEYS.join(', ')} and the keys every layer has)`);
     }
