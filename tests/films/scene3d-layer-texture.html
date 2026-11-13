@@ -4,7 +4,7 @@
 <body style="margin:0">
   <!-- Test film (tests/films/scene3d-layer-texture.test.ts): a composition "screen" (240 x 135: a top half "top" whose fill turns from #e05030 to #30e050 over 3 s, and a bottom half "bottom" #3080e0, a white threeD card "tilt" that turns about y over 3 s (projected by the screen's own space step), and a text "count" whose
        value counts up with the time) shown on a face-on plane that fills a scene3d layer of the same size, with an orthographic camera (so a pixel of the plane is a pixel of the screen).
-       ?flat=1: the screen composition drawn flat instead (the reference). ?bad=1: layerTexture asks for a name that is not there. The page gives framePixels, exportPixel, window.__logs. -->
+       ?flat=1: the screen composition drawn flat instead (the reference). ?bad=1: layerTexture asks for a name that is not there. ?cube=1: the screen on the front face of a CubeGeometry instead of a plane. The page gives framePixels, exportPixel, window.__logs. -->
   <canvas id="stage" width="240" height="135"></canvas>
   <script>
     window.__logs = [];
@@ -44,7 +44,9 @@
           { type: 'scene3d', name: 'tv',
             setup: async (ctx) => {
               const screen = await layerTexture(ctx, q.get('bad') === '1' ? 'screne' : 'screen');
-              const plane = new P3D.Mesh3D({ label: 'panel', geometry: new P3D.PlaneGeometry({ width: 2, height: 2 * 135 / 240 }), material: screen.material });
+              const geometry = q.get('cube') === '1'                            // ?cube=1: the screen on the front face of a box (its depth points at the camera)
+                ? new P3D.CubeGeometry({ width: 2, height: 2 * 135 / 240, depth: 0.5 }) : new P3D.PlaneGeometry({ width: 2, height: 2 * 135 / 240 });
+              const plane = new P3D.Mesh3D({ label: 'panel', geometry, material: screen.material });
               ctx.root.addChild(plane);
               ctx.camera.mode = 'orthographic'; ctx.camera.orthographicSize = 1;
               ctx.camera.position.set(0, 0, 5); ctx.camera.lookAt({ x: 0, y: 0, z: 0 });

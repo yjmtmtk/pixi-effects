@@ -21,6 +21,17 @@ runFilms('scene3d: a 2D layer on a mesh (layerTexture)', () => {
     }
   }, 300_000);
 
+  it('on the front face of a CubeGeometry the 2D layer is upright and not mirrored too (the same picture as drawn flat), and a pick on it names the layer under the point', async () => {
+    for (const [name, beforeLoad] of BACKENDS) {
+      const grab = (q: string) => withFilm('scene3d-layer-texture', async (f) => ({ logs: await f.eval<string[]>('window.__logs'), px: await f.eval<number[]>('framePixels(75)'),
+        top: await f.eval<any>('(() => { const h = movie.pick(30, 20); return h && h.path; })()'), bottom: await f.eval<any>('(() => { const h = movie.pick(30, 115); return h && h.path; })()') }), { query: q, ...(beforeLoad ? { beforeLoad } : {}) });
+      const flat = await grab('flat=1'), cube = await grab('cube=1');
+      expect(cube.logs, name).toEqual([]);
+      expect(mean(flat.px, cube.px), `${name}: the cube face against the flat layer`).toBeLessThan(3);
+      expect([cube.top, cube.bottom], name).toEqual(['screen/top', 'screen/bottom']);
+    }
+  }, 300_000);
+
   it('the 2D layer animates with the movie in an EXPORT (the count differs between two frames of the file), not with a ticker', async () => {
     await withFilm('scene3d-layer-texture', async (film) => {
       const [a, b] = await film.eval<number[][]>('exportPixels([0, 2], [0.5, 1.5])');

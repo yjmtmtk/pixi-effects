@@ -87,6 +87,19 @@ runFilms('setVars keeps a scene3d layer that did not change', () => {
     });
   }, 120_000);
 
+  it('a layer that follows the composition\'s camera and lights keeps them across setVars: the lights, the shadow and the camera are the ones of a page built with that value (no light twice, no shadow lost)', async () => {
+    const fresh = await on('lights=1&label=b', (film) => Promise.all([film.eval<string>('hashOf(15)'), film.eval<string>('hashOf(60)')]));
+    await on('lights=1', async (film) => {
+      await film.eval("movie.setVars({ label: 'b' })");
+      expect(await film.eval<number>('window.__setups')).toBe(1);
+      expect([await film.eval<string>('hashOf(15)'), await film.eval<string>('hashOf(60)')]).toEqual(fresh);
+      await film.eval("movie.setVars({ label: 'c' })");
+      await film.eval("movie.setVars({ label: 'b' })");
+      expect([await film.eval<string>('hashOf(15)'), await film.eval<string>('hashOf(60)')], 'after two more rebuilds').toEqual(fresh);
+      expect(await film.eval<string[]>('window.__logs')).toEqual([]);
+    });
+  }, 180_000);
+
   it('a 2D layer shown on a mesh follows the rebuild: the mesh shows the new tree\'s layer (the variable\'s new value), as a page built with it does', async () => {
     const fresh = await on('screen=1&label=b', (film) => film.eval<string>('hashOf(30)'));
     await on('screen=1', async (film) => {

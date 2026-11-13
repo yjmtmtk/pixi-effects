@@ -4,7 +4,7 @@
 <body style="margin:0">
   <!-- Test film (tests/films/scene3d-reuse.test.ts): a text layer with a variable and a scene3d layer "world" (a cube that turns with the time). setVars builds the movie again; a scene3d layer
        whose setup, size and options did not change keeps its scene (setup is not run again). The page counts: __setups, __disposes, and keeps __cube (the cube made by the last setup).
-       ?reuse=0: the layer says reuse: false. ?viewset=1: setup sets the view's background and exposure and switches to a camera of its own, and a keyframe moves scene3d.view.exposure. ?screen=1: the cube shows a 2D layer "screen" (a composition with the variable in it) through layerTexture. window.__layer(over) and window.__text. -->
+       ?reuse=0: the layer says reuse: false. ?lights=1: the layer follows the composition's camera and a spot light that casts a shadow on a wall (followCamera, followLights). ?viewset=1: setup sets the view's background and exposure and switches to a camera of its own, and a keyframe moves scene3d.view.exposure. ?screen=1: the cube shows a 2D layer "screen" (a composition with the variable in it) through layerTexture. window.__layer(over) and window.__text. -->
   <canvas id="stage" width="320" height="180"></canvas>
   <script>
     window.__logs = [];
@@ -21,6 +21,7 @@
     const q = new URLSearchParams(location.search);
     const SCREEN = q.get('screen') === '1';
     const VIEWSET = q.get('viewset') === '1';
+    const LIGHTS = q.get('lights') === '1';
     window.__setups = 0; window.__disposes = 0; window.__cube = null;
     const setup = async (ctx) => {
       window.__setups++;
@@ -40,12 +41,28 @@
     };
     const update = (t, { objects }) => { objects.cube.rotation.set(0.4, t * 1.2, 0); };
     const dispose = () => { window.__disposes++; };
-    window.__layer = (over = {}) => ({ type: 'scene3d', name: 'world', ...(q.get('reuse') === '0' ? { reuse: false } : {}), ...(VIEWSET ? { keyframes: [{ at: 1, to: { 'scene3d.view.exposure': 0.6 }, duration: 1 }] } : {}), width: 320, height: 180, initial: { x: 160, y: 90, anchorX: 0.5, anchorY: 0.5 }, setup, update, dispose, ...over });
+    // ?lights=1: the composition's camera and a spot light that casts, followed by the layer; a floor behind the cube receives its shadow
+    const lightSetup = async (ctx) => {
+      window.__setups++;
+      const cube = new P3D.Mesh3D({ label: 'cube', geometry: new P3D.CubeGeometry({ width: 60, height: 60, depth: 60 }), material: new P3D.PhongMaterial({ baseColor: 0x7fb4ff, specularStrength: 0 }) });
+      cube.position.set(160, -90, 0);
+      const wall = new P3D.Mesh3D({ geometry: new P3D.PlaneGeometry({ width: 400, height: 260 }), material: new P3D.PhongMaterial({ baseColor: 0xd0c0a0, specularStrength: 0 }), castShadow: false });
+      wall.position.set(160, -90, -120);
+      window.__cube = cube;
+      ctx.root.addChild(cube, wall);
+      return { objects: { cube } };
+    };
+    window.__lights = [
+      { type: 'camera' },
+      { type: 'light', kind: 'ambient', initial: { intensity: 0.2 } },
+      { type: 'light', kind: 'spot', castsShadows: true, initial: { x: 60, y: 20, z: 400, lookAtX: 160, lookAtY: 90, lookAtZ: 0, coneAngle: 60, coneFeather: 0.3, intensity: 1 } },
+    ];
+    window.__layer = (over = {}) => LIGHTS ? ({ type: 'scene3d', name: 'world', followCamera: true, followLights: true, setup: lightSetup, update, dispose, ...over }) : ({ type: 'scene3d', name: 'world', ...(q.get('reuse') === '0' ? { reuse: false } : {}), ...(VIEWSET ? { keyframes: [{ at: 1, to: { 'scene3d.view.exposure': 0.6 }, duration: 1 }] } : {}), width: 320, height: 180, initial: { x: 160, y: 90, anchorX: 0.5, anchorY: 0.5 }, setup, update, dispose, ...over });
     window.__text = { type: 'text', name: 'label', text: '{label}', style: { fontSize: 40, fill: '#ffffff' }, initial: { x: 160, y: 24, anchorX: 0.5, anchorY: 0.5 } };
     window.__screen = { type: 'composition', name: 'screen', width: 200, height: 200, sequences: [
       { type: 'shape', shape: 'rect', width: 200, height: 200, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#203040' } },
       { type: 'text', text: '{label}', style: { fontSize: 120, fill: '#ffcc33', fontWeight: '900' }, initial: { x: 100, y: 100, anchorX: 0.5, anchorY: 0.5 } } ] };
-    window.__sequences = () => SCREEN ? [window.__screen, window.__text, window.__layer()] : [window.__text, window.__layer()];
+    window.__sequences = () => LIGHTS ? [...window.__lights, window.__text, window.__layer()] : SCREEN ? [window.__screen, window.__text, window.__layer()] : [window.__text, window.__layer()];
     const movie = new Movie();
     window.movie = movie;
     window.hashOf = async (frame) => { const d = (await movie.snapshot(frame, { as: 'imageData' })).data; let h = 0x811c9dc5; for (let i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); };
