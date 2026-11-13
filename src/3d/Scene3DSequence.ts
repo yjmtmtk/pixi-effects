@@ -244,6 +244,9 @@ export class Scene3DSequence extends Sequence {
     if (!view || !ctx || !renderer) return none;
     const w = Math.max(1, Math.ceil(ctx.width)), h = Math.max(1, Math.ceil(ctx.height));
     const rt = RenderTexture.create({ width: w, height: h });
+    // PixiJS makes a container it renders on its own a render group (AbstractRenderer.render: enableRenderGroup); a view left as one loses its stencil mask
+    // in the stage's later draws (found 2026-11-13: check's contact sheet showed a masked scene3d unmasked). Put it back as it was.
+    const wasGroup = view.isRenderGroup;
     const at = new Matrix().translate(view.anchor.x * w, view.anchor.y * h);       // the view alone, its top-left at the texture's
     const keep = w * h * 4 * times.length <= 96e6;
     const hash = (d: Uint8Array | Uint8ClampedArray): number => { let x = 0x811c9dc5; for (let i = 0; i < d.length; i++) { x ^= d[i]!; x = Math.imul(x, 0x01000193); } return x >>> 0; };
@@ -279,6 +282,7 @@ export class Scene3DSequence extends Sequence {
       return { differs: differs.filter(d => !threw.has(d.t)), drawMs: ms.length ? ms[Math.floor(ms.length / 2)]! : 0, threw: times.filter(t => threw.has(t)) };
     } finally {
       rt.destroy(true);
+      if (!wasGroup && view.isRenderGroup) view.disableRenderGroup();
     }
   }
 

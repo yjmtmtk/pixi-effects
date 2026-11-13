@@ -25,6 +25,20 @@ runFilms('scene3d: masks', () => {
     }
   }, 180_000);
 
+  it('the determinism check (what check runs before its contact sheet) leaves the masks working: the circle still cuts the scene afterwards', async () => {
+    for (const [name, beforeLoad] of BACKENDS) {
+      await withFilm('scene3d-mask', async (film) => {
+        const rows = await film.eval<Array<{ name: string; ok: boolean }>>('movie.canvasReport()');
+        expect(rows.length, name).toBeGreaterThan(0);
+        const outside = await film.eval<number[]>('pixelAt(0, 10, 62)');
+        const inside = await film.eval<number[]>('pixelAt(0, 40, 90)');
+        expect(near(outside, BG, 24), `${name} outside the circle after the check: ${outside}`).toBe(true);
+        expect(near(inside, SCENE, 24), `${name} inside the circle after the check: ${inside}`).toBe(true);
+        expect(await film.eval<string[]>('window.__logs'), name).toEqual([]);
+      }, { beforeLoad });
+    }
+  }, 180_000);
+
   it('a scene3d layer inside a threeD composition card shows on the card', async () => {
     for (const [name, beforeLoad] of BACKENDS) {
       await withFilm('scene3d-mask', async (film) => {
