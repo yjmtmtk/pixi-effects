@@ -8,6 +8,7 @@ import type { PathRouters } from '../core/Timeline';
 import { COMMON } from '../core/layerKeys';
 import { suggestName } from '../core/options';
 import { NOT_PURE } from '../core/purity';
+import { SetupValues } from '../core/setupValues';
 import { applyCameraState, FogMirror, LightMirror } from './spaceBridge';
 import { HOST, type LayerTextureHost, type ShownLayer } from './layerTexture';
 import { blendFilterFor, isAdvancedBlend, type BlendFilterLike } from '../core/blend';
@@ -49,6 +50,8 @@ export class Scene3DSequence extends Sequence {
   private _borrowed: Scene3DSequence | null = null;
   /** True once another layer took this layer's scene: destroying this one must not let it go. */
   private _donated = false;
+  /** What setup left on the objects the keyframes reach, shared with a layer that takes the scene over (core/setupValues.ts). */
+  private _setupValues = new SetupValues();
   private _pendingRebinds: Array<() => void> = [];
   private _lightMirror: LightMirror | null = null;
   private _fogMirror: FogMirror | null = null;
@@ -112,7 +115,7 @@ export class Scene3DSequence extends Sequence {
     // A rebuild (setVars, resize) builds this layer while the old one still plays: when it cannot be told apart from one of the old tree it takes over that one's scene at the swap
     // (setup does not run again)
     this._key = spec.reuse === false || !spec.name ? null : reuseKeyOf(spec, width, height);
-    const donor = this._key !== null ? (this.root.reuse?.claim(this._key) as Scene3DSequence | null | undefined) : null;
+    const donor = this._key !== null ? (this.root.reuse?.claim(this._key, this) as Scene3DSequence | null | undefined) : null;
     if (donor && donor._lendable()) {
       this._borrow(donor, view, renderer ?? null, width, height);
       if (spec.followCamera) this._checkFollowShape(width, height);
@@ -155,6 +158,7 @@ export class Scene3DSequence extends Sequence {
     const objects: Record<string, object> = { ...d._objects, ...(d._objects.view === d._view ? { view } : {}) };
     this._objects = objects;
     this._players = d._players;
+    this._setupValues = d._setupValues;
     const ctx: Scene3DContext = { view, root: view.root, camera: d._view!.camera, renderer: renderer as Renderer, width, height, objects };
     const host = this._makeHost(renderer);
     Object.defineProperty(ctx, HOST, { value: host, enumerable: false });
@@ -167,6 +171,7 @@ export class Scene3DSequence extends Sequence {
     const d = this._borrowed, view = this._view, ctx = this._ctx;
     if (!d || !view || !ctx) return;
     const from = d._view!;
+    this._setupValues.restore();                                          // the new timeline starts from setup's picture (the frame drawn next writes the rest)
     const own = view.camera;
     for (const child of [...from.root.children]) view.root.addChild(child);
     view.camera = ctx.camera;                                              // the old view's camera, now under this view's root
@@ -526,7 +531,7 @@ export class Scene3DSequence extends Sequence {
     }
     const prop = segs[segs.length - 1]!;
     if (typeof obj !== 'object' || !(prop in (obj as object))) { this._warnPath(path, `no property "${prop}"`); return null; }
-    return { target: obj as object, prop };
+    return this._borrowed ? this._setupValues.view(obj as object, prop, () => this._borrowed !== null) : (this._setupValues.note(obj as object, prop), { target: obj as object, prop });
   }
 
   private _warnPath(path: string, why: string): void {

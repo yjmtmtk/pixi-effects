@@ -20,6 +20,18 @@ runFilms('setVars keeps a scene3d layer that did not change', () => {
     });
   }, 120_000);
 
+  it('a rebuild late in the movie starts the kept scene\'s keyframes from setup\'s values (a fresh page\'s picture), not from the frame the old movie showed last', async () => {
+    const fresh = await withFilm('scene3d-reuse', (film) => film.eval<string>('hashOf(30)'), { query: 'late=1&label=b' });
+    await withFilm('scene3d-reuse', async (film) => {
+      const before = await film.eval<string>('hashOf(30)');
+      await film.eval('hashOf(75)');                                           // the cube is out of the picture now
+      await film.eval('movie.setVars({ label: "b" })');
+      expect(await film.eval<number>('window.__setups')).toBe(1);
+      expect(await film.eval<string>('hashOf(30)')).toBe(fresh);
+      expect(fresh).not.toBe(before);
+    }, { query: 'late=1' });
+  }, 180_000);
+
   it('the layer goes on turning with the time after a rebuild, forward and backward', async () => {
     await on('', async (film) => {
       await film.eval("movie.setVars({ label: 'b' })");

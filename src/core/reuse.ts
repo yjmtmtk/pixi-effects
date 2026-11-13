@@ -11,8 +11,8 @@ import { CompositionSequence } from '../sequences/Composition';
 
 /** What a layer that can lend its state answers to (duck-typed: the core does not import the layers). */
 export interface Lendable { reuseKey(): string | null }
-/** What a layer that can borrow calls. */
-export interface ReusePool { claim(key: string): Sequence | null }
+/** What a layer that can borrow calls: `claim(key, by)` hands it a layer of the old tree (or null), and remembers `by` so the swap commits it wherever it sits in the new tree. */
+export interface ReusePool { claim(key: string, by?: Sequence): Sequence | null; readonly borrowers?: readonly Sequence[] }
 
 const lendable = (s: Sequence): s is Sequence & Lendable => typeof (s as Partial<Lendable>).reuseKey === 'function';
 const borrower = (s: Sequence): s is Sequence & { commitReuse(): void } => typeof (s as { commitReuse?: unknown }).commitReuse === 'function';
@@ -34,10 +34,18 @@ export function reusePoolOf(old: CompositionSequence | null): ReusePool {
     const key = seq.reuseKey();
     if (key !== null) free.set(key, [...(free.get(key) ?? []), seq]);
   });
-  return { claim: (key) => free.get(key)?.shift() ?? null };
+  const borrowers: Sequence[] = [];
+  return {
+    claim: (key, by) => { const d = free.get(key)?.shift() ?? null; if (d && by) borrowers.push(by); return d; },
+    borrowers,
+  };
 }
 
 /** The new tree is on stage: every layer that borrowed from the old tree owns what it borrowed now. */
-export function commitReuse(root: CompositionSequence): void {
-  walk(root, (seq) => { if (borrower(seq)) seq.commitReuse(); });
+export function commitReuse(root: CompositionSequence, pool?: ReusePool | null): void {
+  const done = new Set<Sequence>();
+  const commit = (seq: Sequence): void => { if (!done.has(seq) && borrower(seq)) { done.add(seq); seq.commitReuse(); } };
+  walk(root, commit);
+  // a borrower the walk does not reach (a layer used as a matte source is not among its composition's layers) is committed all the same
+  for (const seq of pool?.borrowers ?? []) commit(seq);
 }

@@ -145,6 +145,14 @@ const PIXI_SHORTHANDS = new Set([
   'fillColor', 'fillAlpha',
 ]);
 
+/**
+ * A property a path router found (`scene2d.box.tint`): a `tint` goes through the colour shorthand, so it moves channel by channel and takes any colour form
+ * (a plain number would be interpolated as one number, and a hex string would start from a number the colour reader cannot read). Anything else is written as it is.
+ */
+function routedProp(prop: string, value: unknown): Record<string, unknown> {
+  return prop === 'tint' ? { pixi: { tint: value } } : { [prop]: value };
+}
+
 function pixiwrap(props: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   const pixi: Record<string, unknown> = {};
@@ -175,7 +183,7 @@ export function applyKeyframes(
     if (kf.kind === 'set') {
       const resolved = normalizeProps(kf.set!, scope, { skipKeys, relative: 'allow' });
       const { rest, routed } = splitRouted(resolved, routers);
-      for (const r of routed) timeline.set(r.target, { [r.prop]: r.value }, at);
+      for (const r of routed) timeline.set(r.target, routedProp(r.prop, r.value), at);
       const { ownProps, filterProps } = partitionProps(rest);
       if (Object.keys(ownProps).length > 0) timeline.set(target, pixiwrap(ownProps), at);
       for (const [name, props] of Object.entries(filterProps)) {
@@ -187,7 +195,7 @@ export function applyKeyframes(
       const resolved = normalizeProps(kf.to!, scope, { skipKeys, relative: 'allow' });
       const { rest, routed } = splitRouted(resolved, routers);
       for (const r of routed)
-        timeline.to(r.target, { [r.prop]: r.value, duration: kf.duration, ease: kf.ease, ...kf.loop }, at);
+        timeline.to(r.target, { ...routedProp(r.prop, r.value), duration: kf.duration, ease: kf.ease, ...kf.loop }, at);
       const { ownProps, filterProps } = partitionProps(rest);
       if (Object.keys(ownProps).length > 0)
         timeline.to(target, { ...pixiwrap(ownProps), duration: kf.duration, ease: kf.ease, ...kf.loop }, at);
@@ -200,7 +208,7 @@ export function applyKeyframes(
       const resolved = normalizeProps(kf.from!, scope, { skipKeys, relative: 'allow' });
       const { rest, routed } = splitRouted(resolved, routers);
       for (const r of routed)
-        timeline.from(r.target, { [r.prop]: r.value, duration: kf.duration, ease: kf.ease, ...kf.loop }, at);
+        timeline.from(r.target, { ...routedProp(r.prop, r.value), duration: kf.duration, ease: kf.ease, ...kf.loop }, at);
       const { ownProps, filterProps } = partitionProps(rest);
       if (Object.keys(ownProps).length > 0)
         timeline.from(target, { ...pixiwrap(ownProps), duration: kf.duration, ease: kf.ease, ...kf.loop }, at);
@@ -220,14 +228,14 @@ export function applyKeyframes(
         const f = fromByKey.get(r.key);
         fromByKey.delete(r.key);
         if (f) {
-          timeline.fromTo(r.target, { [r.prop]: f.value },
-            { [r.prop]: r.value, duration: kf.duration, ease: kf.ease, ...kf.loop }, at);
+          timeline.fromTo(r.target, routedProp(r.prop, f.value),
+            { ...routedProp(r.prop, r.value), duration: kf.duration, ease: kf.ease, ...kf.loop }, at);
         } else {
-          timeline.to(r.target, { [r.prop]: r.value, duration: kf.duration, ease: kf.ease, ...kf.loop }, at);
+          timeline.to(r.target, { ...routedProp(r.prop, r.value), duration: kf.duration, ease: kf.ease, ...kf.loop }, at);
         }
       }
       for (const f of fromByKey.values())
-        timeline.from(f.target, { [f.prop]: f.value, duration: kf.duration, ease: kf.ease, ...kf.loop }, at);
+        timeline.from(f.target, { ...routedProp(f.prop, f.value), duration: kf.duration, ease: kf.ease, ...kf.loop }, at);
       const fromSplit = partitionProps(fromRouted.rest);
       const toSplit = partitionProps(toRouted.rest);
       const ownKeys = new Set([...Object.keys(fromSplit.ownProps), ...Object.keys(toSplit.ownProps)]);
@@ -267,7 +275,7 @@ export function applyInitial(
   if (!initial) return;
   const resolved = normalizeProps(initial, scope, { skipKeys, where: 'initial' });
   const { rest, routed } = splitRouted(resolved, routers);
-  for (const r of routed) setNow(r.target, { [r.prop]: r.value });
+  for (const r of routed) setNow(r.target, routedProp(r.prop, r.value));
   const { ownProps, filterProps } = partitionProps(rest);
   if (Object.keys(ownProps).length > 0) setNow(target, pixiwrap(ownProps));
   for (const [name, props] of Object.entries(filterProps)) {

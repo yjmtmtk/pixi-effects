@@ -29,7 +29,7 @@
       ctx.camera.position.set(0, 0.4, 5);
       return { objects: { box } };
     };
-    window.__layer = (over = {}) => three({ type: 'three', name: 'world', ...(q.get('renderer') ? { renderer: q.get('renderer') } : {}), ...(q.get('reuse') === '0' ? { reuse: false } : {}), antialias: false,
+    window.__layer = (over = {}) => three({ type: 'three', name: 'world', ...(q.get('renderer') ? { renderer: q.get('renderer') } : {}), ...(q.get('reuse') === '0' ? { reuse: false } : {}), ...(q.get('late') === '1' ? { keyframes: [{ at: 2, to: { 'three.box.position.y': 9 }, duration: 0.01 }] } : {}), antialias: false,
       width: 320, height: 180, initial: { x: 160, y: 90, anchorX: 0.5, anchorY: 0.5 }, setup, update: (t, ctx) => { ctx.scene.getObjectByName('box').rotation.set(0.4, t * 1.2, 0); },
       dispose: () => { window.__disposes++; }, ...over });
     window.__text = { type: 'text', name: 'label', text: '{label}', style: { fontSize: 40, fill: '#ffffff' }, initial: { x: 160, y: 24, anchorX: 0.5, anchorY: 0.5 } };

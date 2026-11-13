@@ -593,6 +593,7 @@ export class Movie {
     if (!root || !app) throw new Error('pixi-effects: movie.rebuild() needs a ready movie — await movie.init(...) first');
     const who = `movie.${reason === 'vars' ? 'setVars' : 'rebuild'}()`;
     let sequence: CompositionSequence | null = null;
+    let reusePool: ReusePool | null = null;
     const alive = () => { if (this._initState !== 'ready') throw new Error('pixi-effects: the movie was destroyed while it was being rebuilt'); };
     try {
       // what changes
@@ -620,7 +621,8 @@ export class Movie {
       if (!changed) return { reason, ms: 0, audio: 'none', frame: this.currentFrame, playing: this.isPlaying, unchanged: true };
 
       // build the new composition and its sound off the stage, while the old one goes on (playing, seekable): the size and the swap come last
-      sequence = await this._construct(composition, vars, width, height, undefined, this._resized || sizeChanged, reusePoolOf(this._rootSequence as CompositionSequence | null));
+      reusePool = reusePoolOf(this._rootSequence as CompositionSequence | null);
+      sequence = await this._construct(composition, vars, width, height, undefined, this._resized || sizeChanged, reusePool);
       alive();
       const timeline = createTimeline({ paused: true, defaults: { ease: 'none' } });
       lengthen(timeline, this.duration);
@@ -656,7 +658,7 @@ export class Movie {
         if (old?.target) root.removeChild(old.target);
         if (sequence.target) root.addChild(sequence.target);
         this._rootSequence = sequence;
-        commitReuse(sequence);                                                // a layer that took over an old layer's state owns it now
+        commitReuse(sequence, reusePool);                                     // a layer that took over an old layer's state owns it now
         this.timeline = timeline;
         this._timeFilters = collectTimeFilters(sequence);
         const loud = quietUnbind();

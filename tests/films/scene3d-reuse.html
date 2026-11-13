@@ -2,7 +2,7 @@
 <html lang="en">
 <head><meta charset="UTF-8" /><title>film · setVars keeps a scene3d layer</title></head>
 <body style="margin:0">
-  <!-- Test film (tests/films/scene3d-reuse.test.ts): a text layer with a variable and a scene3d layer "world" (a cube that turns with the time). setVars builds the movie again; a scene3d layer
+  <!-- Test film (tests/films/scene3d-reuse.test.ts): ?late=1: a keyframe moves the cube out of the picture at 2 s (scene3d.cube.position.y). a text layer with a variable and a scene3d layer "world" (a cube that turns with the time). setVars builds the movie again; a scene3d layer
        whose setup, size and options did not change keeps its scene (setup is not run again). The page counts: __setups, __disposes, and keeps __cube (the cube made by the last setup).
        ?reuse=0: the layer says reuse: false. ?lights=1: the layer follows the composition's camera and a spot light that casts a shadow on a wall (followCamera, followLights). ?viewset=1: setup sets the view's background and exposure and switches to a camera of its own, and a keyframe moves scene3d.view.exposure. ?screen=1: the cube shows a 2D layer "screen" (a composition with the variable in it) through layerTexture. window.__layer(over) and window.__text. -->
   <canvas id="stage" width="320" height="180"></canvas>
@@ -59,7 +59,7 @@
       { type: 'light', kind: 'ambient', initial: { intensity: 0.2 } },
       { type: 'light', kind: 'spot', castsShadows: true, initial: { x: 60, y: 20, z: 400, lookAtX: 160, lookAtY: 90, lookAtZ: 0, coneAngle: 60, coneFeather: 0.3, intensity: 1 } },
     ];
-    window.__layer = (over = {}) => LIGHTS ? ({ type: 'scene3d', name: 'world', followCamera: true, followLights: true, setup: lightSetup, update, dispose, ...over }) : ({ type: 'scene3d', name: 'world', ...(q.get('reuse') === '0' ? { reuse: false } : {}), ...(VIEWSET ? { keyframes: [{ at: 1, to: { 'scene3d.view.exposure': 0.6 }, duration: 1 }] } : {}), width: 320, height: 180, initial: { x: 160, y: 90, anchorX: 0.5, anchorY: 0.5 }, setup, update, dispose, ...over });
+    window.__layer = (over = {}) => LIGHTS ? ({ type: 'scene3d', name: 'world', followCamera: true, followLights: true, setup: lightSetup, update, dispose, ...over }) : ({ type: 'scene3d', name: 'world', ...(q.get('reuse') === '0' ? { reuse: false } : {}), ...(q.get('late') === '1' ? { keyframes: [{ at: 2, to: { 'scene3d.cube.position.y': 9 }, duration: 0.01 }] } : {}), ...(VIEWSET ? { keyframes: [{ at: 1, to: { 'scene3d.view.exposure': 0.6 }, duration: 1 }] } : {}), width: 320, height: 180, initial: { x: 160, y: 90, anchorX: 0.5, anchorY: 0.5 }, setup, update, dispose, ...over });
     window.__text = { type: 'text', name: 'label', text: '{label}', style: { fontSize: 40, fill: '#ffffff' }, initial: { x: 160, y: 24, anchorX: 0.5, anchorY: 0.5 } };
     window.__screen = { type: 'composition', name: 'screen', width: 200, height: 200, sequences: [
       { type: 'shape', shape: 'rect', width: 200, height: 200, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#203040' } },

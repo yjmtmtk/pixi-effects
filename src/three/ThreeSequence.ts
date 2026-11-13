@@ -14,6 +14,7 @@ import type { CanvasCheck } from '../sequences/Canvas';
 import type { SharedGpu } from '../core/gpuShare';
 import type { Rebindable, ThreeLayerHost } from './layerTexture';
 import { NOT_PURE } from '../core/purity';
+import { SetupValues } from '../core/setupValues';
 
 
 export class ThreeSequence extends Sequence {
@@ -34,6 +35,8 @@ export class ThreeSequence extends Sequence {
   private _borrowed: ThreeSequence | null = null;
   /** True once another layer owns this layer's state: destroying this one must not let it go. */
   private _donated = false;
+  /** What setup left on the objects the keyframes reach, shared with a layer that takes the scene over (core/setupValues.ts). */
+  private _setupValues = new SetupValues();
   /** Things to do just before every draw (the 2D layers shown on meshes: `threeLayerTexture`), and those layers' handles. Both go with the state to a layer that takes it over. */
   private _drawHooks = new Set<() => void>();
   private _layerTextures: Rebindable[] = [];
@@ -92,7 +95,7 @@ export class ThreeSequence extends Sequence {
     // A rebuild (setVars, resize) builds this layer while the old one still plays: when it cannot be told apart from one of the old tree it takes over that one's scene and renderer (setup does not run again).
     this._key = spec.reuse === false || !spec.name ? null
       : JSON.stringify([spec.name, idOf(spec.setup), width, height, resolution, antialias, kind, spec.shareGpu !== false && !!this.root.gpu, !!spec.followCamera, !!spec.followLights, !!spec.followFog]);
-    const donor = this._key !== null ? (this.root.reuse?.claim(this._key) as ThreeSequence | null | undefined) : null;
+    const donor = this._key !== null ? (this.root.reuse?.claim(this._key, this) as ThreeSequence | null | undefined) : null;
     if (donor && donor._lendable()) { this._borrow(donor, width, height, spec.name); return; }
 
     // Offscreen canvas — never attached to the DOM. document.createElement
@@ -208,7 +211,7 @@ export class ThreeSequence extends Sequence {
   /** Take over a layer of the tree being replaced: its scene, renderer, texture and mirrors. Nothing is drawn until the new tree is on stage; the old layer goes on drawing meanwhile. */
   private _borrow(d: ThreeSequence, width: number, height: number, name: string | undefined): void {
     this.renderer = d.renderer; this.backend = d.backend; this._gpu = d._gpu; this.sharedGpu = d.sharedGpu;
-    this._renderer = d._renderer; this._scene = d._scene; this._camera = d._camera; this._ctx = d._ctx; this._objects = d._objects;
+    this._renderer = d._renderer; this._scene = d._scene; this._camera = d._camera; this._ctx = d._ctx; this._objects = d._objects; this._setupValues = d._setupValues;
     this._rt = d._rt; this._sharedTexture = d._sharedTexture; this._texture = d._texture;
     this._lightMirror = d._lightMirror; this._fogMirror = d._fogMirror; this._tracked = d._tracked;
     this._borrowed = d;
@@ -223,6 +226,7 @@ export class ThreeSequence extends Sequence {
   commitReuse(): void {
     const d = this._borrowed;
     if (!d) return;
+    this._setupValues.restore();                                          // the new timeline starts from setup's picture (the frame drawn next writes the rest)
     d._donated = true; d._tracked = false;
     this._borrowed = null;
     for (const apply of this._pendingRebinds) apply();
@@ -526,7 +530,7 @@ export class ThreeSequence extends Sequence {
       this._warnPath(path, `no property "${prop}"`);
       return null;
     }
-    return { target: obj as object, prop };
+    return this._borrowed ? this._setupValues.view(obj as object, prop, () => this._borrowed !== null) : (this._setupValues.note(obj as object, prop), { target: obj as object, prop });
   }
 
   private _warnPath(path: string, why: string): void {

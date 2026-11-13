@@ -9,7 +9,7 @@
        scene2d.box.alpha takes the box to 0 at 2 s. A text layer "label" shows the variable {label} (?label=b starts with b). window.__setups counts setup calls.
        Parts: ?anchor=1 a second layer "framed" 100 x 100 with anchorX/anchorY 0.5 at 160,90 whose root fills its box in white · ?impure=1 update calls Math.random ·
        ?leaky=1 update keeps a counter from call to call · ?nosetup=1 the layer has no setup · ?badpath=1 a keyframe on scene2d.nope.x · ?throws=1 setup throws ·
-       ?video=1 a sprite shows a <video> texture · ?noreuse=1 the layer has reuse: false · ?asset=1 a sprite of the asset "chip" (a cyan #00e0e0 picture) via ctx.texture at 150,20, 20 x 20 · ?asset=missing setup asks ctx.texture('nope'). -->
+       ?video=1 a sprite shows a <video> texture · ?noreuse=1 the layer has reuse: false · ?asset=1 a sprite of the asset "chip" (a cyan #00e0e0 picture) via ctx.texture at 150,20, 20 x 20 · ?asset=missing setup asks ctx.texture('nope') · ?tint=1 a keyframe takes scene2d.box.tint (white, PixiJS's default) to #000000 over the first second · ?pickedge=1 a Graphics "cutter" (100..140, 100..140) used as the mask of a sprite elsewhere, and a container "zone" whose hitArea is 0..10 square holding a square "inner" at 160..180, 100..120. -->
   <canvas id="stage" width="320" height="180"></canvas>
   <script>
     window.__logs = [];
@@ -39,6 +39,13 @@
         const anim = new AnimatedSprite({ textures: ['#ff0000', '#00ff00', '#0000ff'].map(solid), label: 'anim', animationSpeed: 0.5 });
         anim.position.set(10, 140); anim.width = anim.height = 20; anim.play();
         root.addChild(box, ball, pair, anim);
+        if (has('pickedge')) {
+          const cutter = new Graphics({ label: 'cutter' }).rect(100, 100, 40, 40).fill('#ffffff');
+          const masked = new Sprite(Texture.WHITE); masked.position.set(200, 120); masked.mask = cutter;
+          const zone = new Container({ label: 'zone' }); zone.hitArea = { contains: (x, y) => x >= 0 && x <= 10 && y >= 0 && y <= 10 };
+          zone.addChild(new Graphics({ label: 'inner' }).rect(160, 100, 20, 20).fill('#8080ff'));
+          root.addChild(cutter, masked, zone);
+        }
         if (has('video')) { const v = document.createElement('video'); root.addChild(new Sprite(new Texture({ source: new VideoSource({ resource: v, autoPlay: false }) }))); }
         return { objects: { box, ball, pair, anim } };
       },
@@ -47,7 +54,7 @@
         : has('leaky')
         ? (t, { objects }) => { leak += 7; objects.ball.position.set(40 + (leak % 200), 90); }
         : (t, { objects }) => { objects.ball.position.set(40 + 80 * t, 90); objects.ball.tint = 0xf2c14e; },
-      keyframes: [{ at: 2, to: { 'scene2d.box.alpha': 0 }, duration: 0.01 }, ...(has('badpath') ? [{ at: 0, to: { 'scene2d.nope.x': 5 }, duration: 1 }] : [])],
+      keyframes: [{ at: 2, to: { 'scene2d.box.alpha': 0 }, duration: 0.01 }, ...(has('badpath') ? [{ at: 0, to: { 'scene2d.nope.x': 5 }, duration: 1 }] : []), ...(has('tint') ? [{ at: 0, to: { 'scene2d.box.tint': '#000000' }, duration: 1 }] : [])],
     };
     if (has('nosetup')) delete world.setup;
     const framed = { type: 'scene2d', name: 'framed', width: 100, height: 100, initial: { x: 160, y: 90, anchorX: 0.5, anchorY: 0.5 },

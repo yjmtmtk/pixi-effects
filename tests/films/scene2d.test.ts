@@ -94,6 +94,15 @@ runFilms('scene2d: PixiJS 2D built by code, as a layer', () => {
     });
   }, 120_000);
 
+  it('pick skips what PixiJS would never hit: a node used as a mask, and the children of a node whose hitArea does not hold the point', async () => {
+    await on(async (film) => {
+      await film.eval('movie.snapshot(0, { as: "imageData" })');
+      expect(await film.eval<any>('movie.pick(120, 120)?.scene2d?.object ?? null'), 'the mask shape').toBeNull();
+      expect(await film.eval<any>('movie.pick(170, 110)?.scene2d?.object ?? null'), 'outside the hitArea').toBeNull();
+      expect(await film.eval<any>('movie.pick(5, 5)?.scene2d?.object ?? null'), 'inside the hitArea').toBe('zone');
+    }, { query: 'pickedge=1' });
+  }, 120_000);
+
   it("PixiJS's own pointer events work on a scene2d object (eventMode 'static', on('pointerdown'))", async () => {
     await on(async (film) => {
       await film.eval('movie.snapshot(0, { as: "imageData" })');
@@ -124,6 +133,25 @@ runFilms('scene2d: PixiJS 2D built by code, as a layer', () => {
       expect(await film.eval<string>('hashOf(30)')).toBe(fresh);
     }, { query: 'noreuse=1' });
   }, 180_000);
+
+  it('a rebuild late in the movie starts the kept scene\'s keyframes from setup\'s values, as a fresh page does (not from the frame the old movie showed last)', async () => {
+    await on(async (film) => {
+      expect(await film.eval<number[]>('pixelAt(75, 270, 40)'), 'the box is gone at 2.5 s').toEqual(BACKGROUND);
+      await film.eval('movie.setVars({ label: "b" })');
+      expect(await film.eval<number>('window.__setups')).toBe(1);
+      expect(await film.eval<number[]>('pixelAt(30, 270, 40)'), 'and back at 1 s after the rebuild').toEqual(RED_BOX);
+      expect(await film.eval<number[]>('pixelAt(75, 270, 40)')).toEqual(BACKGROUND);
+    });
+  }, 120_000);
+
+  it('a tint keyframe into the scene moves the colour channel by channel (white to black: half-way is half the colour)', async () => {
+    await on(async (film) => {
+      const px = await film.eval<number[]>('pixelAt(15, 270, 40)');
+      expect(near(px, [112, 32, 48, 255], 10), String(px)).toBe(true);
+      expect(await film.eval<number[]>('pixelAt(0, 270, 40)')).toEqual(RED_BOX);
+      expect(await film.eval<string[]>('window.__logs')).toEqual([]);
+    }, { query: 'tint=1' });
+  }, 120_000);
 
   it('ctx.texture(name) is the texture of a movie asset; an unknown name says which assets there are', async () => {
     await on(async (film) => {

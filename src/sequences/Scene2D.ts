@@ -5,6 +5,7 @@ import { evaluateExpr } from '../expr/Parser';
 import { buildScope } from '../expr/Scope';
 import type { PathRouters } from '../core/Timeline';
 import { NOT_PURE } from '../core/purity';
+import { SetupValues } from '../core/setupValues';
 import type { Scene2DContext, Scene2DSequenceSpec } from '../types';
 
 /**
@@ -65,6 +66,8 @@ export class Scene2DSequence extends Sequence {
   private _borrowed: Scene2DSequence | null = null;
   /** True once another layer took this layer's scene: destroying this one must not let it go. */
   private _donated = false;
+  /** What setup left on the objects the keyframes reach, shared with a layer that takes the scene over (core/setupValues.ts). */
+  private _setupValues = new SetupValues();
 
   private get _spec(): Scene2DSequenceSpec { return this.spec as unknown as Scene2DSequenceSpec; }
 
@@ -104,12 +107,13 @@ export class Scene2DSequence extends Sequence {
     this.intrinsicHeight = height;
 
     this._key = spec.reuse === false || !spec.name ? null : JSON.stringify(['scene2d', spec.name, idOf(spec.setup), width, height]);
-    const donor = this._key !== null ? (this.root.reuse?.claim(this._key) as Scene2DSequence | null | undefined) : null;
+    const donor = this._key !== null ? (this.root.reuse?.claim(this._key, this) as Scene2DSequence | null | undefined) : null;
     if (donor && donor._lendable()) {
       // the scene stays in the old layer (which goes on drawing) until the swap; the objects are the same ones, so keyframes bind to them now
       this._borrowed = donor;
       this._objects = donor._objects;
       this._flipbooks = donor._flipbooks;
+      this._setupValues = donor._setupValues;
       this._ctx = { ...donor._ctx!, width, height };
       this.buildFilters();
       return;
@@ -144,6 +148,7 @@ export class Scene2DSequence extends Sequence {
   commitReuse(): void {
     const d = this._borrowed, box = this._box;
     if (!d || !box || !this._ctx) return;
+    this._setupValues.restore();                                          // the new timeline starts from setup's picture (the frame drawn next writes the rest)
     box.addChild(this._ctx.root);
     d._donated = true;
     this._borrowed = null;
@@ -223,16 +228,18 @@ export class Scene2DSequence extends Sequence {
     const root = this._ctx?.root;
     if (!root || this._borrowed) return null;
     const hitIn = (node: Container): Container | null => {
-      if (!node.visible || !node.renderable || node.alpha <= 0) return null;
+      // what PixiJS's own event boundary leaves out: a hidden or clear node, one used as a mask (not measurable, not drawn), eventMode 'none'
+      if (!node.visible || !node.renderable || node.alpha <= 0 || node.measurable === false) return null;
       const mode = (node as { eventMode?: string }).eventMode;
       if (mode === 'none') return null;
+      const local = node.toLocal(global);
+      const area = node === root ? null : (node as { hitArea?: { contains(x: number, y: number): boolean } | null }).hitArea;
+      if (area && !area.contains(local.x, local.y)) return null;           // a hitArea that does not hold the point: nothing in it is hit either
       if (node.interactiveChildren !== false) {
         for (let i = node.children.length - 1; i >= 0; i--) { const h = hitIn(node.children[i] as Container); if (h) return h; }
       }
       if (node === root) return null;
-      const local = node.toLocal(global);
-      const area = (node as { hitArea?: { contains(x: number, y: number): boolean } | null }).hitArea;
-      if (area) return area.contains(local.x, local.y) ? node : null;
+      if (area) return node;
       const contains = (node as { containsPoint?: (p: Point) => boolean }).containsPoint;
       return typeof contains === 'function' && contains.call(node, new Point(local.x, local.y)) ? node : null;
     };
@@ -320,7 +327,7 @@ export class Scene2DSequence extends Sequence {
     }
     const prop = segs[segs.length - 1]!;
     if (typeof obj !== 'object' || !(prop in (obj as object))) { this._warnPath(path, `no property "${prop}"`); return null; }
-    return { target: obj as object, prop };
+    return this._borrowed ? this._setupValues.view(obj as object, prop, () => this._borrowed !== null) : (this._setupValues.note(obj as object, prop), { target: obj as object, prop });
   }
 
   private _warnPath(path: string, why: string): void {

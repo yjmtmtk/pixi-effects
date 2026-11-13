@@ -628,7 +628,7 @@ export interface Scene2DContext {
   root: Container;
   /** PixiJS's renderer (the one that draws every layer). */
   renderer: Renderer;
-  /** The layer's box in composition px. Nothing is clipped to it (add a `mask` to clip); it is the box `anchorX` / `anchorY`, the layout check and `check`'s picture use. */
+  /** The layer's box in composition px. Nothing is clipped to it (add a `mask` to clip); `anchorX` / `anchorY` name a point of it and `check` draws it for the determinism test (the layout check measures what is drawn). */
   width: number;
   height: number;
   /** What setup returned in `objects`, plus `root`: the names keyframes reach as `scene2d.<name>.<path>`. */

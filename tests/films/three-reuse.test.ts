@@ -6,6 +6,18 @@ import { runFilms, withFilm } from './support/withFilm';
 const counts = (film: { eval: <T>(e: string) => Promise<T> }) => film.eval<{ setups: number; disposes: number; scene: string; logs: string[] }>('({ setups: window.__setups, disposes: window.__disposes, scene: window.__scene, logs: window.__logs })');
 
 runFilms('setVars keeps a three layer that did not change', () => {
+  it('a rebuild late in the movie starts the kept scene\'s keyframes from setup\'s values (a fresh page\'s picture), not from the frame the old movie showed last', async () => {
+    const fresh = await withFilm('three-reuse', (film) => film.eval<string>('hashOf(30)'), { query: 'late=1&label=b' });
+    await withFilm('three-reuse', async (film) => {
+      const before = await film.eval<string>('hashOf(30)');
+      await film.eval('hashOf(75)');                                           // the box is out of the picture now
+      await film.eval('movie.setVars({ label: "b" })');
+      expect(await film.eval<number>('window.__setups')).toBe(1);
+      expect(await film.eval<string>('hashOf(30)')).toBe(fresh);
+      expect(fresh).not.toBe(before);
+    }, { query: 'late=1' });
+  }, 180_000);
+
   it('setVars of a text variable does not run setup again, keeps the scene, and the picture is the one of a page built with that value from the start', async () => {
     const fresh = await withFilm('three-reuse', (film) => film.eval<string>('hashOf(15)'), { query: 'label=b' });
     await withFilm('three-reuse', async (film) => {
