@@ -51,6 +51,18 @@ describe('engine names (docs/philosophy.md: Engine names)', () => {
     expect(names.filter(n => !/three/i.test(n))).toEqual([]);
   });
 
+  it('the 3d entry (the main engine) exists and everything it exports is neutral', () => {
+    const entries = Object.keys(JSON.parse(read('package.json')).exports as Record<string, unknown>);
+    expect(entries).toContain('./3d');
+    const names = exportedNames(read('src/3d/index.ts'));
+    expect(names).toEqual(expect.arrayContaining(['register3D', 'scene3d', 'Scene3DSequence']));
+    expect(names.filter(n => ENGINE.test(n))).toEqual([]);
+  });
+
+  it('the main entry does not load the main 3D engine (a page without 3D must not pay for it)', () => {
+    expect(read('src/index.ts')).not.toMatch(/@pixi\/3d|\.\/3d\//);
+  });
+
   it('the rule is written down: philosophy.md has the section "Engine names"', () => {
     const doc = read('docs/philosophy.md');
     expect(doc).toMatch(/^### Engine names$/m);

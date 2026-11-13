@@ -35,6 +35,16 @@
         "default": "./dist/present.cjs"
       }
     },
+    "./3d": {
+      "import": {
+        "types": "./dist/3d.d.ts",
+        "default": "./dist/3d.js"
+      },
+      "require": {
+        "types": "./dist/3d.d.cts",
+        "default": "./dist/3d.cjs"
+      }
+    },
     "./three": {
       "import": {
         "types": "./dist/three.d.ts",
@@ -78,6 +88,7 @@
     "webgl",
     "keyframe",
     "typescript",
+    "pixijs-3d",
     "three",
     "threejs"
   ],
@@ -121,19 +132,24 @@
     "mediabunny": "^1.61.3"
   },
   "peerDependencies": {
+    "@pixi/3d": "^0.1.0",
     "pixi-filters": "^6.1.0",
     "pixi.js": "^8.0.0",
     "three": ">=0.150.0"
   },
   "peerDependenciesMeta": {
-    "three": {
+    "@pixi/3d": {
       "optional": true
     },
     "pixi-filters": {
       "optional": true
+    },
+    "three": {
+      "optional": true
     }
   },
   "devDependencies": {
+    "@pixi/3d": "^0.1.0",
     "@types/three": "^0.185.0",
     "gsap": "3.15.0",
     "happy-dom": "^15.0.0",
