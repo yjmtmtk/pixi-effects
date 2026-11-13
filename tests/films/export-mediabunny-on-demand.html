@@ -14,7 +14,7 @@
     for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
     window.MB_URL = '/node_modules/mediabunny/dist/bundles/mediabunny.min.mjs';
     window.mediabunnyFetched = () => performance.getEntriesByType('resource').some((e) => e.name.includes('mediabunny'));
-    const imports = { 'pixi.js': 'https://esm.sh/pixi.js@8.22.0?bundle-deps' };
+    const imports = { 'pixi.js': 'https://esm.sh/pixi.js@8.23.0?bundle-deps' };
     if (new URLSearchParams(location.search).has('map')) imports.mediabunny = window.MB_URL;
     const map = document.createElement('script');             // written before the first module script, so the browser takes it as the page's import map
     map.type = 'importmap';

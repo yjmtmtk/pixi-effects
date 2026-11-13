@@ -12,7 +12,7 @@
     for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
   </script>
   <script type="importmap">{ "imports": {
-    "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+    "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
     "three": "../../node_modules/three/build/three.module.js", "three/webgpu": "../../node_modules/three/build/three.webgpu.js", "three/tsl": "../../node_modules/three/build/three.tsl.js" } }</script>
   <script type="module">
     import { Movie } from '../../dist/index.js';

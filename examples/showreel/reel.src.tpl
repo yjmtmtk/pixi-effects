@@ -31,7 +31,7 @@
   </script>
   <script type="importmap">
   { "imports": {
-      "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+      "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny": "https://esm.sh/mediabunny",
       "pixi-effects": "@@DIST@@index.js",
       "pixi-effects/controller": "@@DIST@@Controller.js",
