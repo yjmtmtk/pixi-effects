@@ -30,7 +30,7 @@
       const { Mesh3D, CubeGeometry, Material3D, DirectionalLight, AmbientLight } = p3d;
       return {
         type: 'scene3d', name: 'hero', width: 320, height: 180, initial: { x: 160, y: 90, anchorX: 0.5, anchorY: 0.5 },
-        ...(q.get('badkey') === '1' ? { setUp: () => {}, followCamera: true } : {}),
+        ...(q.get('badkey') === '1' ? { setUp: () => {}, shareGpu: true } : {}),
         setup: async ({ root, camera }) => {
           if (q.get('throw') === '1') await Promise.reject(new Error('the model was not found'));
           const cube = new Mesh3D({ geometry: new CubeGeometry({ width: 1.4, height: 1.4, depth: 1.4 }), material: new Material3D({ baseColor: 0x7fb4ff, roughness: 0.5, metallic: 0 }) });

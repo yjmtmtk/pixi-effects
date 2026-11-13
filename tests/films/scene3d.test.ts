@@ -106,7 +106,7 @@ runFilms('scene3d: a PixiJS 3D scene as a layer', () => {
     await on(undefined, async (film) => {
       const logs = (await film.eval<string[]>('window.__logs')).join('\n');
       expect(logs).toMatch(/scene3d layer "hero": unknown key "setUp"; did you mean "setup"\?/);
-      expect(logs).toMatch(/scene3d layer "hero": followCamera is not on scene3d yet; a three layer has it/);
+      expect(logs).toMatch(/scene3d layer "hero": shareGpu is not on scene3d yet; a three layer has it/);
       expect(logs).toMatch(/scene3d\.nope\.x: unknown object "nope" \(known: cube, camera, view\)/);
     }, 'badkey=1');
   }, 120_000);

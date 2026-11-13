@@ -8,14 +8,15 @@ import type { PathRouters } from '../core/Timeline';
 import { COMMON } from '../core/layerKeys';
 import { suggestName } from '../core/options';
 import { NOT_PURE } from '../core/purity';
+import { applyCameraState } from './spaceBridge';
 import { blendFilterFor, isAdvancedBlend, type BlendFilterLike } from '../core/blend';
 import type { PropValue } from '../types';
 import type { Scene3DContext, Scene3DSequenceSpec } from './types';
 
 /** The keys a scene3d layer has besides the common ones. */
-const OWN_KEYS = ['width', 'height', 'view', 'resolution', 'setup', 'update', 'dispose'] as const;
+const OWN_KEYS = ['width', 'height', 'view', 'resolution', 'setup', 'update', 'dispose', 'followCamera'] as const;
 /** Keys a `three` layer has that a scene3d layer does not have yet (they come in a later release). */
-const THREE_ONLY = ['followCamera', 'followLights', 'followFog', 'renderer', 'shareGpu', 'antialias', 'reuse'] as const;
+const THREE_ONLY = ['followLights', 'followFog', 'renderer', 'shareGpu', 'antialias', 'reuse'] as const;
 /** What the layer owns: given in `view`, they are ignored. */
 const LAYER_OWNED = ['width', 'height', 'autoResize'] as const;
 
@@ -106,6 +107,7 @@ export class Scene3DSequence extends Sequence {
     this._objects = objects;
     this._ctx = ctx;
     this._stopSelfUpdating(view.root);
+    if (spec.followCamera) this._checkFollowShape(width, height);
     this.buildFilters();
   }
 
@@ -139,6 +141,32 @@ export class Scene3DSequence extends Sequence {
       return;
     }
     Object.defineProperty(uniforms, 'uTime', { configurable: true, enumerable: true, get: () => this._time, set: () => { /* the pipe's wall clock: ignored */ } });
+  }
+
+  /**
+   * `followCamera` (and, later, `followLights` / `followFog`): before each frame, ask the composition for its camera at this moment (the layer's time on the composition's
+   * clock) and put the view's camera there. `ctx.space` keeps the raw numbers for `update`, which runs after and may override.
+   */
+  private _followSpace(t: number): void {
+    const spec = this._spec;
+    if (!spec.followCamera) return;
+    const ctx = this._ctx, view = this._view;
+    if (!ctx || !view) return;
+    if (!this.parent?.spaceAt) {
+      this._say('parent', 'followCamera needs the layer to sit in a composition that has a camera to follow; this layer\'s parent cannot say (it keeps its own camera)');
+      return;
+    }
+    const space = this.parent.spaceAt((this.absoluteStart ?? this.at) + t);
+    ctx.space = space;
+    applyCameraState(view.camera, space.camera);
+  }
+
+  /** followCamera shows the whole composition through the layer's picture: a layer of another shape would show it squeezed or cut. Said once at build. */
+  private _checkFollowShape(width: number, height: number): void {
+    const p = this.parent;
+    if (!p || !(p.width > 0 && p.height > 0)) return;
+    if (Math.abs(width * p.height - height * p.width) <= 1e-3 * width * p.height) return;
+    this._say('shape', `followCamera: the layer is ${width} x ${height} but the composition is ${p.width} x ${p.height}; the camera shows the whole composition, so the layer needs its aspect ratio (drop width / height to cover the composition)`);
   }
 
   /** PixiJS 3D draws the view in its materials' colours: a tint does nothing. Said once, at build. */
@@ -212,6 +240,7 @@ export class Scene3DSequence extends Sequence {
     const t = Math.max(0, Math.min(local, this.duration ?? local));
     this._time = t;
     this._pinShaderTime();
+    this._followSpace(t);
     const update = this._spec.update;
     if (update) {
       try {
@@ -269,6 +298,7 @@ export class Scene3DSequence extends Sequence {
       let pixels: Uint8Array | Uint8ClampedArray = new Uint8Array(0);
       try {
         this._time = t;
+        this._followSpace(t);
         update?.(t, ctx);
         this._poseClips(t);
         renderer.render({ container: view, target: rt, clear: true, transform: at });

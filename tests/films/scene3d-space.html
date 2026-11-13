@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · scene3d layer in the composition's space</title></head>
+<body>
+  <!-- Test film (tests/films/scene3d-space.test.ts): the same composition (a camera that moves and changes fov) drawn two ways:
+       ?mode=board: three flat cards (shape layers with threeD: true), the composition's own 2.5D;  ?mode=scene3d: three flat unlit planes in ONE scene3d layer with followCamera.
+       ?big=1: 1280 x 720 (everything scaled) instead of 480 x 270. ?aspect=1: the scene3d layer is given a size of another shape (it must warn).
+       The page gives the test framePixels, pixelAt, hashOf. -->
+  <canvas id="stage" width="480" height="270"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+    "@pixi/3d": "../../node_modules/@pixi/3d/dist/pixijs-3d.mjs", "@pixi/3d/extras": "../../node_modules/@pixi/3d/dist/pixijs-3d-extras.mjs" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    import { register3D } from '../../dist/3d.js';
+    import * as P3D from '@pixi/3d';
+    register3D();
+    const q = new URLSearchParams(location.search);
+    const mode = q.get('mode') || 'board';
+    const BIG = q.get('big') === '1';
+    const W = BIG ? 1280 : 480, H = BIG ? 720 : 270, DUR = 3, K = W / 960;
+    document.getElementById('stage').width = W; document.getElementById('stage').height = H;
+    const s = (n) => n * K;
+    const BOXES = [ { x: 300, y: 270, z: 0, c: '#3a6ea5' }, { x: 660, y: 270, z: -300, c: '#d96a3a' }, { x: 480, y: 330, z: 250, c: '#3aa56e' } ];
+    const sequences = [
+      { type: 'camera', name: 'cam', keyframes: [{ at: 0, from: { x: W / 2, y: H / 2, fov: 40 }, to: { x: s(780), y: s(150), fov: 70 }, duration: DUR, ease: 'none' }] },
+    ];
+    if (mode === 'board') {
+      for (const b of BOXES) sequences.push({ type: 'shape', shape: 'rect', width: s(200), height: s(200), threeD: true, initial: { x: s(b.x), y: s(b.y), z: s(b.z), anchorX: 0.5, anchorY: 0.5, fillColor: b.c } });
+    } else {
+      sequences.push({ type: 'scene3d', name: 'world', followCamera: true, ...(q.get('aspect') === '1' ? { width: W, height: W } : {}),
+        setup: ({ root }) => {
+          for (const b of BOXES) {
+            const m = new P3D.Mesh3D({ geometry: new P3D.PlaneGeometry({ width: s(200), height: s(200) }), material: new P3D.FlatMaterial({ baseColor: b.c }) });
+            m.position.set(s(b.x), -s(b.y), s(b.z)); root.addChild(m);
+          }
+        } });
+    }
+    const movie = new Movie();
+    window.movie = movie;
+    window.framePixels = async (frame) => Array.from((await movie.snapshot(frame, { as: 'imageData' })).data);
+    window.pixelAt = async (frame, x, y) => { const img = await movie.snapshot(frame, { as: 'imageData' }); const i = (y * img.width + x) * 4; return Array.from(img.data.slice(i, i + 4)); };
+    window.hashOf = async (frame) => { const d = (await movie.snapshot(frame, { as: 'imageData' })).data; let h = 0x811c9dc5; for (let i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); };
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: W, height: H, duration: DUR, frameRate: 30, background: '#101820', composition: { sequences } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); window.__ready = true; }
+  </script>
+</body>
+</html>

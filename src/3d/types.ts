@@ -1,6 +1,6 @@
 import type { Renderer } from 'pixi.js';
 import type { Camera3D, Container3D, View3D, View3DOptions } from '@pixi/3d';
-import type { SequenceCommon, PropValue } from '../types';
+import type { SequenceCommon, PropValue, SpaceNow } from '../types';
 
 /** Handed to setup / update / dispose. One per scene3d layer. */
 export interface Scene3DContext {
@@ -17,6 +17,8 @@ export interface Scene3DContext {
   height: number;
   /** What setup returned in `objects`, plus `camera` and `view`: the names keyframes reach as `scene3d.<name>.<path>`. */
   objects: Record<string, object>;
+  /** With `followCamera`: the composition's camera (and lights, fog) at this moment, as plain numbers, set before every `update`; undefined otherwise. */
+  space?: SpaceNow;
 }
 
 export interface Scene3DSetupResult {
@@ -34,6 +36,12 @@ export interface Scene3DSequenceSpec extends SequenceCommon {
    * The layer draws with `cull: 'cpu'` unless you name one (the GPU cull of large batches is not the same from draw to draw on WebGPU).
    */
   view?: Omit<View3DOptions, 'width' | 'height' | 'autoResize'>;
+  /**
+   * Live in the composition's space: before every frame the view's camera is put where the composition's `camera` layer is (position, look-at, vertical fov), so a
+   * `cameraPath()` flies through the flat layers and this scene together. The scene is in composition PIXELS with y flipped: a point the composition calls (x, y, z) is
+   * (x, -y, z) here. Give the layer the composition's size (the default).
+   */
+  followCamera?: boolean;
   /** The view's resolution (1 draws at the layer's size; another value draws the scene at that scale and composites it). */
   resolution?: number;
   /** Build the scene: add objects to `ctx.root`, place `ctx.camera`. May be async (a model loads): Movie.init waits for it. */
