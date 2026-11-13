@@ -13,14 +13,22 @@ export interface PickHit {
   /** Names (or `type#index`) from the root, joined by `/`: the same as `movie.inspect()`'s `path`. */
   path: string;
   type: string;
-  /** `'flat'`: a 2D layer; `'card'`: a `threeD` layer (its projected card); `'three'`: a `three` layer, and `three` says what the ray met. */
-  kind: 'flat' | 'card' | 'three';
+  /** `'flat'`: a 2D layer; `'card'`: a `threeD` layer (its projected card); `'scene3d'`: a `scene3d` layer, and `scene3d` says what the ray met; `'three'`: a `three` layer, and `three` says what the ray met. */
+  kind: 'flat' | 'card' | 'scene3d' | 'three';
   /** The point asked about, in canvas pixels. */
   point: { x: number; y: number };
   /** A flat layer: the point in the layer's own pixels (the top-left of its picture is 0, 0). */
   local?: { x: number; y: number };
   /** The layer is shown on a mesh of a `three` layer (`threeLayerTexture`) and the point is on that mesh: the layer (`path` of the three layer) and the object (its name) it came through. `point` is still the canvas point; `local` is the point in the layer's own pixels. */
   via?: { path: string; object: string };
+  /**
+   * A `scene3d` layer: what the ray through that point met first: the object (its label, or its nearest labelled ancestor's, or `''`), where (the scene's own units), how far from
+   * the camera, and the node itself. `grab(plane)` drags it, as `three.grab` does.
+   */
+  scene3d?: {
+    object: string; point: [number, number, number]; distance: number; node?: unknown;
+    grab?: (plane?: 'screen' | 'floor' | 'wall' | [number, number, number]) => { move: (x: number, y: number) => { point: [number, number, number]; delta: [number, number, number] } | null };
+  };
   /** A `three` layer: what the ray through that point met first: the object (its name, or `''`), where (three's own units), and how far from the camera. */
   three?: {
     object: unknown; point: [number, number, number]; distance: number; object3d?: unknown;
@@ -187,7 +195,10 @@ export function pickScene(root: CompositionSequence, x: number, y: number, opts:
                 return { move: (cx: number, cy: number) => { const lp = d.toLocal({ x: cx, y: cy }); const b = d.getLocalBounds(); return along((lp.x - b.x) / b.width, (lp.y - b.y) / b.height); } };
               };
             }
-            hit = { name, path, type: seq.spec.type, kind: 'three', point, three };
+            const type = (seq.spec as { type: string }).type;
+            hit = type === 'scene3d'
+              ? { name, path, type, kind: 'scene3d', point, scene3d: { object: String(three.object), point: three.point, distance: three.distance, node: three.object3d, ...(three.grab ? { grab: three.grab } : {}) } }
+              : { name, path, type, kind: 'three', point, three };
           }
           else if (three === undefined && (typeof d.containsPoint !== 'function' || d.containsPoint(local))) {
             let opaque = true;

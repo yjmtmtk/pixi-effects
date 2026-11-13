@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · pick into a scene3d layer</title></head>
+<body style="margin:0">
+  <!-- Test film (tests/films/scene3d-pick.test.ts): a scene3d layer over a 2D backdrop rect, with a red cube "red" (left), a blue sphere "blue" (right) and a green box "mover"
+       that slides from x = -1 to x = 1 over 3 s (set from t in update). The page gives screenOf(name) (the canvas point of a node's centre, from the view's own projection),
+       worldToCanvas([x, y, z]), window.__logs. -->
+  <canvas id="stage" width="480" height="270"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+    "@pixi/3d": "../../node_modules/@pixi/3d/dist/pixijs-3d.mjs", "@pixi/3d/extras": "../../node_modules/@pixi/3d/dist/pixijs-3d-extras.mjs" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    import { register3D } from '../../dist/3d.js';
+    import * as P3D from '@pixi/3d';
+    register3D();
+    let view = null;
+    const movie = new Movie();
+    window.movie = movie;
+    window.screenOf = (name) => { const n = view.root.getChildByLabel(name, true); const g = n.getGlobalTransform(new P3D.Matrix4()); return worldToCanvas([g.elements[12], g.elements[13], g.elements[14]]); };
+    window.worldToCanvas = (p) => { const s = view.worldToScreen({ x: p[0], y: p[1], z: p[2] }); return s ? [s.x, s.y] : null; };
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 480, height: 270, duration: 3, frameRate: 30, background: '#101820',
+        composition: { sequences: [
+          { type: 'shape', shape: 'rect', name: 'backdrop', width: 480, height: 270, initial: { x: 240, y: 135, fillColor: '#203040' } },
+          { type: 'scene3d', name: 'world',
+            setup: ({ root, camera, view: v }) => {
+              view = v;
+              const mat = (c) => new P3D.Material3D({ baseColor: c, roughness: 0.6, metallic: 0 });
+              root.addChild(new P3D.Mesh3D({ label: 'red', geometry: new P3D.CubeGeometry({ width: 1, height: 1, depth: 1 }), material: mat(0xdd4444), position: { x: -2, y: 0.6, z: 0 } }));
+              root.addChild(new P3D.Mesh3D({ label: 'blue', geometry: new P3D.SphereGeometry({ radius: 0.6 }), material: mat(0x4466dd), position: { x: 2, y: 0.6, z: 0 } }));
+              const group = new P3D.Container3D({ label: 'mover' });                 // a named group: a hit on its unnamed child is answered with the group's name
+              group.addChild(new P3D.Mesh3D({ geometry: new P3D.CubeGeometry({ width: 0.6, height: 0.6, depth: 0.6 }), material: mat(0x44dd66) }));
+              root.addChild(group);
+              const sun = new P3D.DirectionalLight({ intensity: 3 }); sun.rotation.set(-0.8, 0.5, 0); root.addChild(sun, new P3D.AmbientLight({ intensity: 0.8 }));
+              camera.position.set(0, 1.5, 6); camera.lookAt({ x: 0, y: 0, z: 0 });
+              return { objects: { group } };
+            },
+            update: (t, { objects }) => { objects.group.position.set(-1 + (2 * t) / 3, -0.8, 0); } },
+        ] } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); window.__ready = true; }
+  </script>
+</body>
+</html>

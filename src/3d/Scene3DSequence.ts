@@ -1,4 +1,4 @@
-import { View3D, type Container3D } from '@pixi/3d';
+import { Plane, Vector3, View3D, type Container3D } from '@pixi/3d';
 import { AlphaFilter, Matrix, RenderTexture, type Container, type Filter, type Renderer } from 'pixi.js';
 import type { CanvasCheck } from '../sequences/Canvas';
 import { Sequence } from '../sequences/Base';
@@ -333,6 +333,71 @@ export class Scene3DSequence extends Sequence {
       rt.destroy(true);
       if (!wasGroup && view.isRenderGroup) view.disableRenderGroup();
     }
+  }
+
+  /** The view's global point at (u, v) of its picture (0..1, v down). */
+  private _globalAt(u: number, v: number): { x: number; y: number } | null {
+    const view = this._view;
+    if (!view) return null;
+    const b = view.getLocalBounds();
+    return view.toGlobal({ x: b.x + u * b.width, y: b.y + v * b.height });
+  }
+
+  /** Make the scene's objects hit by a ray (PixiJS 3D only hits nodes whose eventMode is not 'passive'); an author's own choice ('none', 'static', …) is kept. */
+  private _makePickable(): void {
+    const root = this._view?.root as unknown as { traverse(cb: (n: unknown) => void): void } | undefined;
+    root?.traverse((node) => {
+      const n = node as { eventMode?: string; geometry?: unknown; children?: unknown[] };
+      if (n.eventMode === 'passive' && n.geometry !== undefined) n.eventMode = 'static';
+    });
+  }
+
+  /**
+   * `movie.pick`: a ray through (u, v) of the layer's picture (0..1, v down) from the view's camera, and what it meets first: the object's name (its own label, or its nearest
+   * labelled ancestor's), where (scene units), how far from the camera, and the node. Uses the transforms of the last render, which is the frame on screen. null when it meets nothing.
+   */
+  pickAt(u: number, v: number): { object: string; point: [number, number, number]; distance: number; object3d: unknown; uv?: { u: number; v: number }; material?: unknown } | null {
+    const view = this._view;
+    const at = this._globalAt(u, v);
+    if (!view || !at) return null;
+    this._makePickable();
+    const hit = (view as unknown as { raycast(p: { x: number; y: number }): { target: unknown; point: { x: number; y: number; z: number }; distance: number; uv?: { x: number; y: number } | null } | null }).raycast(at);
+    if (!hit) return null;
+    let name = '';
+    // a node made without a label carries its class name (PixiJS 3D's default: 'Mesh3D'): that is no name, the nearest ancestor's is
+    for (let n = hit.target as { label?: string | null; parent?: unknown; constructor?: { name?: string } } | null; n && n !== (view.root as unknown); n = n.parent as typeof n) {
+      if (n.label && n.label !== n.constructor?.name) { name = n.label; break; }
+    }
+    return {
+      object: name, point: [hit.point.x, hit.point.y, hit.point.z], distance: hit.distance, object3d: hit.target,
+      ...(hit.uv ? { uv: { u: hit.uv.x, v: hit.uv.y } } : {}), material: (hit.target as { material?: unknown }).material,
+    };
+  }
+
+  /**
+   * `hit.scene3d.grab(plane)`: a function of a point (u, v) of the layer's picture that gives where the pointer's ray meets a plane through the grabbed point, and how far that is
+   * from it (`delta`): move the object by it. `plane`: 'screen' (facing the camera: the default), 'floor' (horizontal: y up), 'wall' (z constant), or a normal [x, y, z].
+   * null where the ray never meets the plane.
+   */
+  dragPlane(point: [number, number, number], plane: 'screen' | 'floor' | 'wall' | [number, number, number] = 'screen'): (u: number, v: number) => { point: [number, number, number]; delta: [number, number, number] } | null {
+    const view = this._view;
+    const grabbed = new Vector3(...point);
+    let normal: Vector3;
+    if (plane === 'floor') normal = new Vector3(0, 1, 0);
+    else if (plane === 'wall') normal = new Vector3(0, 0, 1);
+    else if (Array.isArray(plane)) normal = new Vector3(...plane).normalize();
+    else {
+      const m = view?.camera.worldTransform.elements;                                   // the camera looks down its -z: its z axis is the plane's normal
+      normal = m ? new Vector3(m[8], m[9], m[10]).normalize() : new Vector3(0, 0, 1);
+    }
+    const surface = new Plane().setFromNormalAndCoplanarPoint(normal, grabbed);
+    return (u, v) => {
+      const at = this._globalAt(u, v);
+      if (!view || !at) return null;
+      const meet = view.screenToRay(at).intersectPlane(surface, new Vector3());
+      if (!meet) return null;
+      return { point: [meet.x, meet.y, meet.z], delta: [meet.x - grabbed.x, meet.y - grabbed.y, meet.z - grabbed.z] };
+    };
   }
 
   private _resolvePath(path: string): { target: object; prop: string } | null {

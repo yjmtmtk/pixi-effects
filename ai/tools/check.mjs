@@ -553,7 +553,7 @@ export async function runCheck(opts, log = console.log) {
         if (rows.some(([, px]) => px > 0)) w.depthBlur = Object.fromEntries(rows);
         // pick: what is under each --pick point at this moment (the frame is on screen after the snapshot above)
         if (opts.pick.length) {
-          w.pick = await cdp.eval(`(${JSON.stringify(opts.pick)}).map(p => ({ x: p.x, y: p.y, hits: movie.pickAll(p.x, p.y).map(h => ({ name: h.name ?? h.path, path: h.path, kind: h.kind, object: h.three ? h.three.object : undefined })) }))`).catch(() => []);
+          w.pick = await cdp.eval(`(${JSON.stringify(opts.pick)}).map(p => ({ x: p.x, y: p.y, hits: movie.pickAll(p.x, p.y).map(h => ({ name: h.name ?? h.path, path: h.path, kind: h.kind, object: h.three ? h.three.object : h.scene3d ? h.scene3d.object : undefined })) }))`).catch(() => []);
         }
         // light: how lit each threeD layer is at this moment (left out when the composition has no light)
         const lit = await cdp.eval(`movie.inspect(${w.frame}).then(r => r.layers.filter(l => l.light !== undefined).map(l => [l.path, l.light]))`).catch(() => []);
@@ -895,7 +895,7 @@ export async function runSteps(cdp, steps, outDir, size, consoleLines, seenLogs)
     await sleep(300);                                                       // the page's handlers and rebuilds settle
     const after = await cdp.eval('JSON.parse(JSON.stringify(movie.vars || {}))').catch(() => ({}));
     res.vars = Object.fromEntries(Object.keys({ ...before, ...after }).filter(k => JSON.stringify(before[k]) !== JSON.stringify(after[k])).map(k => [k, [before[k], after[k]]]));
-    if (last) res.hits = await cdp.eval(`movie.pickAll(${last.x}, ${last.y}).map(h => h.kind === 'three' ? h.path + ' (three: ' + (h.three && h.three.object || '?') + ')' : h.path)`).catch(() => []);
+    if (last) res.hits = await cdp.eval(`movie.pickAll(${last.x}, ${last.y}).map(h => h.kind === 'three' ? h.path + ' (three: ' + (h.three && h.three.object || '?') + ')' : h.kind === 'scene3d' ? h.path + ' (scene3d: ' + (h.scene3d && h.scene3d.object || '?') + ')' : h.path)`).catch(() => []);
     res.frame = await cdp.eval('movie.currentFrame').catch(() => null);
     res.playing = await cdp.eval('!!movie.isPlaying').catch(() => null);
     const now = await pageLogs();
@@ -952,7 +952,7 @@ function finish(report, outDir, log) {
   }
   for (const w of (report.at ?? []).filter(x => x.pick)) {
     for (const p of w.pick) {
-      const says = p.hits.length ? p.hits.map(h => h.kind === 'three' ? `${h.name} (three: ${h.object || '?'})` : h.name).join(', ') : 'nothing';
+      const says = p.hits.length ? p.hits.map(h => h.kind === 'three' || h.kind === 'scene3d' ? `${h.name} (${h.kind}: ${h.object || '?'})` : h.name).join(', ') : 'nothing';
       L.push(`  pick      ${w.label} (${p.x}, ${p.y}) — ${says}`);
     }
   }
