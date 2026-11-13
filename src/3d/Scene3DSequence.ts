@@ -586,11 +586,16 @@ function idOf(fn: unknown): number {
   return id;
 }
 
-/** The key a rebuild matches a scene3d layer by: its name, its setup, its size and its options. View options that are not plain data make the layer one that is built again. */
-function reuseKeyOf(spec: Scene3DSequenceSpec, width: number, height: number): string | null {
+/**
+ * The key a rebuild matches a scene3d layer by: its kind (so it can never equal a three layer's key in the shared pool), its name, its setup, its size and its options as JSON.
+ * View options that cannot be written as JSON (a cycle) make the layer one that is built again; an object of a class (an effect in `passes`) is written as its own fields, so two
+ * such options that differ only inside the class may count as the same.
+ * @internal exported for its unit test
+ */
+export function reuseKeyOf(spec: Scene3DSequenceSpec, width: number, height: number): string | null {
   let view: string;
   try { view = JSON.stringify(spec.view ?? null) ?? 'null'; } catch { return null; }
-  return JSON.stringify([spec.name, idOf(spec.setup), width, height, spec.resolution ?? 1, view, !!spec.followCamera, !!spec.followLights, !!spec.followFog]);
+  return JSON.stringify(['scene3d', spec.name, idOf(spec.setup), width, height, spec.resolution ?? 1, view, !!spec.followCamera, !!spec.followLights, !!spec.followFog]);
 }
 
 function resolveDim(v: PropValue | undefined, scope: Record<string, number>): number | undefined {
