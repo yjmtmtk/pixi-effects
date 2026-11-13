@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · scene3d layer</title></head>
+<body style="margin:0">
+  <!-- Test film (tests/films/scene3d.test.ts): a `scene3d` layer (PixiJS 3D) over a 2D band: a lit cube that turns with the time and slides right on a `scene3d.cube.position.x` keyframe
+       (1–2 s), and a second layer with a glTF model (tests/fixtures/spin-box.gltf) made the ordinary way (`new Model3D({ source })`, no autoUpdate: false) whose clip is posed from t.
+       A text layer shows the variable {label} (setVars rebuilds the movie). The page gives pixelAt(frame, x, y), hashOf(frame), framePixels(frame), window.__logs, window.__error.
+       ?badkey=1: the layer also has `setUp` and `followCamera` keys and a keyframe `scene3d.nope.x`. ?throw=1: the cube layer's setup rejects. ?selfplay=1: the model is made with autoPlay: true and nothing poses it (the layer plays the clip on its own time). ?late=1: the movie starts with no 3D
+       (pixi-effects/3d not imported), then imports it and rebuilds with a scene3d layer: the rebuild must fail with a sentence that says what to do. -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+    "@pixi/3d": "../../node_modules/@pixi/3d/dist/pixijs-3d.mjs", "@pixi/3d/extras": "../../node_modules/@pixi/3d/dist/pixijs-3d-extras.mjs" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const q = new URLSearchParams(location.search);
+    const LATE = q.get('late') === '1';
+    const SELFPLAY = q.get('selfplay') === '1';
+    let p3d = null, entry = null;
+    if (!LATE) { entry = await import('../../dist/3d.js'); p3d = await import('@pixi/3d'); entry.register3D(); }
+
+    const BAND = { type: 'shape', shape: 'rect', name: 'band', width: 320, height: 24, initial: { x: 160, y: 168, fillColor: '#f2c14e' } };
+    const TEXT = { type: 'text', name: 'label', text: '{label}', style: { fontSize: 20, fill: '#ffffff' }, initial: { x: 8, y: 8 } };
+    const cubeLayer = () => {
+      const { Mesh3D, CubeGeometry, Material3D, DirectionalLight, AmbientLight } = p3d;
+      return {
+        type: 'scene3d', name: 'hero', width: 320, height: 180, initial: { x: 160, y: 90, anchorX: 0.5, anchorY: 0.5 },
+        ...(q.get('badkey') === '1' ? { setUp: () => {}, followCamera: true } : {}),
+        setup: async ({ root, camera }) => {
+          if (q.get('throw') === '1') await Promise.reject(new Error('the model was not found'));
+          const cube = new Mesh3D({ geometry: new CubeGeometry({ width: 1.4, height: 1.4, depth: 1.4 }), material: new Material3D({ baseColor: 0x7fb4ff, roughness: 0.5, metallic: 0 }) });
+          const sun = new DirectionalLight({ intensity: 3 }); sun.rotation.set(-0.8, 0.5, 0);
+          root.addChild(cube, sun, new AmbientLight({ intensity: 0.6 }));
+          camera.position.set(0, 0.6, 5); camera.lookAt({ x: 0, y: 0, z: 0 });
+          return { objects: { cube } };
+        },
+        update: (t, { objects }) => { objects.cube.rotation.set(0.4, t * 1.2, 0); },
+        keyframes: [{ at: 1, to: { 'scene3d.cube.position.x': 1 }, duration: 1 }, ...(q.get('badkey') === '1' ? [{ at: 0, to: { 'scene3d.nope.x': 1 }, duration: 1 }] : [])],
+      };
+    };
+    const modelLayer = () => {
+      const { Model3D, DirectionalLight, AmbientLight } = p3d;
+      let state = null;
+      return {
+        type: 'scene3d', name: 'model', width: 100, height: 80, initial: { x: 55, y: 50, anchorX: 0.5, anchorY: 0.5 },
+        setup: async ({ root, camera }) => {
+          const { Assets } = await import('pixi.js');
+          const source = await Assets.load('../fixtures/spin-box.gltf');
+          const model = SELFPLAY ? new Model3D({ source, autoPlay: true })     // ?selfplay=1: the clip plays by itself (nothing poses it in update)
+            : new Model3D({ source });
+          const sun = new DirectionalLight({ intensity: 3 }); sun.rotation.set(-0.7, 0.7, 0);
+          root.addChild(model, sun, new AmbientLight({ intensity: 0.8 }));
+          camera.position.set(0, 1.2, 3.2); camera.lookAt({ x: 0, y: 0, z: 0 });
+          state = model.player.getState(model.player.animationLabels[0]);
+          return { objects: { model } };
+        },
+        ...(SELFPLAY ? {} : { update: (t) => { state.gotoAndStop(t % state.animation.duration); } }),
+      };
+    };
+
+    const movie = new Movie();
+    window.movie = movie;
+    window.hashOf = async (frame) => {
+      const d = (await movie.snapshot(frame, { as: 'imageData' })).data;
+      let h = 0x811c9dc5;
+      for (let i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); }
+      return (h >>> 0).toString(16);
+    };
+    window.pixelAt = async (frame, x, y) => { const img = await movie.snapshot(frame, { as: 'imageData' }); const i = (y * img.width + x) * 4; return Array.from(img.data.slice(i, i + 4)); };
+    window.framePixels = async (frame) => Array.from((await movie.snapshot(frame, { as: 'imageData' })).data);
+    // what playback showed: the canvas right after each frame was drawn while playing (as tests/films/determinism-playback-vs-seek.html reads it)
+    const fnv = (d) => { let h = 0x811c9dc5; for (let i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); };
+    const readCanvas = () => {
+      const src = movie.app.canvas;
+      const c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+      const g = c.getContext('2d'); g.drawImage(src, 0, 0);
+      return g.getImageData(0, 0, c.width, c.height).data;
+    };
+    window.playAndRecord = async (seconds) => {                           // play, record { frame: hash } of every frame drawn while playing
+      const played = {};
+      const on = ({ frame }) => { if (movie.isPlaying) played[frame] = fnv(readCanvas()); };
+      movie.on('frame', on);
+      await movie.playUntil(seconds);
+      movie.off?.('frame', on);
+      return played;
+    };
+    window.backend = () => movie.app.renderer.name;
+    window.exportPixel = async (range, time, x, y) => {                     // export a range, decode the file at `time` (seconds of the file), read one pixel
+      const blob = await movie.render({ range });
+      const mb = await import('mediabunny');
+      const input = new mb.Input({ source: new mb.BlobSource(blob), formats: mb.ALL_FORMATS });
+      const track = await input.getPrimaryVideoTrack();
+      const frame = await new mb.CanvasSink(track).getCanvas(time);
+      const g = frame.canvas.getContext('2d');
+      return Array.from(g.getImageData(x, y, 1, 1).data);
+    };
+    try {
+      if (LATE) {
+        await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: 30, background: '#102040', vars: { label: 'a' },
+          composition: { sequences: [BAND, TEXT] } });
+        entry = await import('../../dist/3d.js'); p3d = await import('@pixi/3d'); entry.register3D();
+        try { await movie.rebuild({ composition: { sequences: [BAND, TEXT, cubeLayer()] } }); } catch (e) { window.__error = String(e && e.message || e); }
+      } else {
+        await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: 30, background: '#102040', vars: { label: 'a' },
+          composition: { sequences: [BAND, cubeLayer(), modelLayer(), TEXT] } });
+      }
+      window.__ready = true;
+    } catch (e) { window.__error = String(e && e.message || e); window.__ready = true; }
+  </script>
+</body>
+</html>

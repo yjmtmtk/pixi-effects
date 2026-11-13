@@ -13,9 +13,8 @@ import { releaseThree, trackThree } from './budget';
 import type { CanvasCheck } from '../sequences/Canvas';
 import type { SharedGpu } from '../core/gpuShare';
 import type { Rebindable, ThreeLayerHost } from './layerTexture';
+import { NOT_PURE } from '../core/purity';
 
-/** What makes a frame depend on more than the time (the same list as the canvas layer's). */
-const NOT_PURE = /\bMath\s*\.\s*random\s*\(|\bDate\s*\.\s*now\s*\(|\bperformance\s*\.\s*now\s*\(|\bnew\s+Date\s*\(/;
 
 export class ThreeSequence extends Sequence {
   private _renderer: WebGLRenderer | WebGPURenderer | null = null;

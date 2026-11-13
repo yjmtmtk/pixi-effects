@@ -6,6 +6,7 @@ import { describeLayer } from '../core/lint';
 import { suggestName } from '../core/options';
 import type { PathRouters } from '../core/Timeline';
 import type { CanvasInfo, CanvasSequenceSpec, PropValue } from '../types';
+import { NOT_PURE } from '../core/purity';
 
 /** What the determinism check found: the moments whose two pictures differ (channel values that differ, the largest difference out of 255; -1 when only a hash was compared) and the usual time of one draw. */
 export interface CanvasCheck { differs: Array<{ t: number; pixels: number; maxDiff: number }>; drawMs: number; /** Moments where `draw` threw (or the layer has no working draw): the picture there is a checkerboard, which is not a picture that is the same twice. */ threw: number[] }
@@ -13,8 +14,6 @@ export interface CanvasCheck { differs: Array<{ t: number; pixels: number; maxDi
 const MAX_SIZE = 8192;
 const MIN_RESOLUTION = 0.25;
 const MAX_RESOLUTION = 4;
-/** What makes a picture depend on more than the time. */
-const NOT_PURE = /\bMath\s*\.\s*random\s*\(|\bDate\s*\.\s*now\s*\(|\bperformance\s*\.\s*now\s*\(|\bnew\s+Date\s*\(/;
 
 /** A small seeded generator (mulberry32): the same seed gives the same sequence. */
 function seeded(seed: number): () => number {

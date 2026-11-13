@@ -13,7 +13,7 @@ type KeysOfUnion<T> = T extends unknown ? keyof T : never;
 type Covers<T, K extends readonly string[]> = [Exclude<KeysOfUnion<T>, K[number]>] extends [never] ? true : { missing: Exclude<KeysOfUnion<T>, K[number]> };
 type Assert<T extends true> = T;
 
-const COMMON = ['type', 'name', 'parent', 'at', 'duration', 'initial', 'keyframes', 'filters', 'filterArea', 'mask', 'blendMode', 'threeD', 'hideBehindCamera', 'lit', 'castsShadows'] as const satisfies readonly KeysOfUnion<SequenceCommon | { type: string }>[];
+export const COMMON = ['type', 'name', 'parent', 'at', 'duration', 'initial', 'keyframes', 'filters', 'filterArea', 'mask', 'blendMode', 'threeD', 'hideBehindCamera', 'lit', 'castsShadows'] as const satisfies readonly KeysOfUnion<SequenceCommon | { type: string }>[];
 
 const VIDEO = [...COMMON, 'asset', 'loop', 'audio', 'volume', 'speed'] as const satisfies readonly KeysOfUnion<VideoSequenceSpec>[];
 const IMAGE = [...COMMON, 'asset', 'colorSpace', 'scaleMode'] as const satisfies readonly KeysOfUnion<ImageSequenceSpec>[];
