@@ -49,7 +49,7 @@ Drop the imports into an [importmap](https://developer.mozilla.org/docs/Web/HTML
 <script type="importmap">
 {
   "imports": {
-    "pixi.js":                 "https://esm.sh/pixi.js@8.22.0?bundle-deps",
+    "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
     "mediabunny":              "https://esm.sh/mediabunny",
     "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@0.49.0/dist/index.js",
     "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.49.0/dist/Controller.js"
