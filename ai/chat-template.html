@@ -61,7 +61,10 @@
       "mediabunny":              "https://cdn.jsdelivr.net/npm/mediabunny@1.61.3/+esm",
       "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@0.48.2/dist/index.js",
       "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.48.2/dist/Controller.js",
-      "pixi-effects/present":  "https://cdn.jsdelivr.net/npm/pixi-effects@0.48.2/dist/present.js"
+      "pixi-effects/present":  "https://cdn.jsdelivr.net/npm/pixi-effects@0.48.2/dist/present.js",
+      "pixi-effects/3d":         "https://cdn.jsdelivr.net/npm/pixi-effects@0.48.2/dist/3d.js",
+      "@pixi/3d":                "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d.min.mjs",
+      "@pixi/3d/extras":         "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d-extras.min.mjs"
     }
   }
   </script>
@@ -70,6 +73,7 @@
     import { Movie, kenBurns, withFade, wiggle, stagger, animateText, followPath, particles } from 'pixi-effects';
     import { Controller } from 'pixi-effects/controller';
     // A talk instead of a video: import { deck, Presenter } from 'pixi-effects/present'; use deck({ pages: [...] }) and new Presenter(movie, { canvas }) instead of the Controller.
+    // A 3D scene as a layer (inside the edit block, before init): const { register3D } = await import('pixi-effects/3d'); const { Mesh3D, CubeGeometry, Material3D, DirectionalLight } = await import('@pixi/3d'); register3D(); then { type: 'scene3d', setup, update }.
 
     // ===================== EDIT FROM HERE =====================
     const W = 1280, H = 720, FPS = 30, DURATION = 6;

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **3D scenes drawn by PixiJS 3D: the `scene3d` layer** (new optional entry `pixi-effects/3d`, `register3D()`, needs `@pixi/3d` and pixi.js 8.23+). PixiJS 3D (`@pixi/3d`, now public) becomes the main 3D engine; three.js stays as the sub engine under its own names. A scene3d layer is a free box like the three layer: `setup({ view, root, camera })` builds the scene with `@pixi/3d`, `update(t, ctx)` sets it from the time, keyframes reach `scene3d.<object>.<path>`. It is drawn inside PixiJS's own renderer, in the layer's place: no second renderer, no canvas, no copy, no context budget; masks, filters, nested compositions and `threeD` cards work on it, and the layer applies `alpha` (with its parents') and `add` / `screen` / `multiply`, which PixiJS 3D ignores on its own. A frame is a function of the time: models and animation players do not run on the ticker (a clip left playing is posed from the layer's time), the shader time `uTime` is the layer's time, `update` with a clock or `Math.random` warns, and `check` draws each scene3d layer in two orders and names one that differs. Typos (did you mean), keys only a three layer has, unknown keyframe paths, a failed `setup` and PixiJS 3D loaded after `movie.init` are each said in a sentence. Recipe `scene3d-basics`; template and README import maps carry `pixi-effects/3d`, `@pixi/3d`, `@pixi/3d/extras`. Measured: WebGL and WebGPU draw a lit scene within 0.03–0.04 of 255.
+- **PixiJS 8.23** in the template, the chat template and the library's own pages and tests (PixiJS 3D needs it; the main entry still accepts pixi.js 8.x).
+
 ## 0.48.2
 
 Nothing breaks: an app that bundles pixi-effects keeps about 100 KB (gzipped) less of pixi.js, and closing movies no longer uses up PixiJS's 500 warnings.

@@ -40,6 +40,9 @@
       "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@0.48.2/dist/index.js",
       "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.48.2/dist/Controller.js",
       "pixi-effects/present":  "https://cdn.jsdelivr.net/npm/pixi-effects@0.48.2/dist/present.js",
+      "pixi-effects/3d":         "https://cdn.jsdelivr.net/npm/pixi-effects@0.48.2/dist/3d.js",
+      "@pixi/3d":                "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d.min.mjs",
+      "@pixi/3d/extras":         "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d-extras.min.mjs",
       "pixi-effects/three":      "https://cdn.jsdelivr.net/npm/pixi-effects@0.48.2/dist/three.js",
       "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
       "three":                   "https://esm.sh/three@0.178.0",
@@ -52,7 +55,9 @@
   <script type="module">
     import { Movie, kenBurns, withFade } from 'pixi-effects';
     import { Controller } from 'pixi-effects/controller';
-    // import { registerThree, threeGltf } from 'pixi-effects/three';   // only for a three.js layer (call registerThree() before init); threeGltf loads a .glb: recipe gltf-in-space
+    // import { register3D } from 'pixi-effects/3d';   // a 3D scene (PixiJS 3D: meshes, glTF models, lights) as a layer: call register3D() before init; recipe scene3d-basics
+    // import { Mesh3D, Model3D, CubeGeometry, Material3D, DirectionalLight } from '@pixi/3d';
+    // import { registerThree, threeGltf } from 'pixi-effects/three';   // a three.js layer instead, for followCamera / followLights / pick / a 2D layer on a mesh (call registerThree() before init); threeGltf loads a .glb: recipe gltf-in-space
     // import * as THREE from 'three';
     // A talk instead of a video: import { deck, Presenter } from 'pixi-effects/present';  (the import map above has "pixi-effects/present")
     //   const d = deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops: [at, ...], notes, sequences }] });

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · the recipe scene3d-basics, as written</title></head>
+<body style="margin:0">
+  <!-- Test film (tests/films/scene3d-recipe.test.ts): the recipe `scene3d-basics` of skills/pixi-effects/reference/recipes.md, fetched and run as written (only 'model.glb' is pointed at
+       tests/fixtures/spin-box.gltf). 1280 × 720, 5 s. The page gives pixelAt(frame, x, y), window.__logs. -->
+  <canvas id="stage" width="1280" height="720"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+    "@pixi/3d": "../../node_modules/@pixi/3d/dist/pixijs-3d.mjs", "@pixi/3d/extras": "../../node_modules/@pixi/3d/dist/pixijs-3d-extras.mjs" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    import { register3D } from '../../dist/3d.js';
+    import { Mesh3D, Model3D, PlaneGeometry, CubeGeometry, Material3D, DirectionalLight } from '@pixi/3d';
+    import { Assets } from 'pixi.js';
+    register3D();
+    const movie = new Movie();
+    window.movie = movie;
+    window.pixelAt = async (frame, x, y) => { const img = await movie.snapshot(frame, { as: 'imageData' }); const i = (y * img.width + x) * 4; return Array.from(img.data.slice(i, i + 4)); };
+    try {
+      const md = await (await fetch('../../skills/pixi-effects/reference/recipes.md')).text();
+      const body = md.split('// @docs-only scene3d-basics')[1].split('```')[0].replaceAll("'model.glb'", "'../fixtures/spin-box.gltf'");
+      const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+      const sequences = await new AsyncFunction('Mesh3D', 'Model3D', 'PlaneGeometry', 'CubeGeometry', 'Material3D', 'DirectionalLight', 'Assets', body)(Mesh3D, Model3D, PlaneGeometry, CubeGeometry, Material3D, DirectionalLight, Assets);
+      await movie.init({ canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 5, frameRate: 30, background: '#000000', composition: { sequences } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); window.__ready = true; }
+  </script>
+</body>
+</html>

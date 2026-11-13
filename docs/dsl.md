@@ -735,9 +735,61 @@ The camera takes `fogNear`, `fogFar` (distances along the view direction, px), `
 
 ---
 
+## scene3d
+
+A real 3D scene (meshes, glTF models, PBR materials, lights, shadows) as a layer, drawn by [PixiJS 3D](https://pixijs.com/3d) (`@pixi/3d`), the main 3D engine of pixi-effects. The scene is drawn **inside PixiJS's own renderer**, in the layer's place in the stack: no second renderer, no canvas per layer, no copy. Everything a layer has works on it: `at` / `duration`, transform keyframes, `alpha` (and a parent's alpha), `blendMode`, [filters](#filters), [masks](#masks), nesting in compositions and in `threeD` cards.
+
+`type: 'scene3d'` lives in the optional `pixi-effects/3d` entry (see [API reference](./api.md#pixi-effects3d)). **Import it before `movie.init`**: PixiJS loads the 3D drawing code while its renderer starts, so a renderer that started before `@pixi/3d` was imported cannot draw a scene3d layer (the build says so).
+
+```ts
+import { register3D, scene3d } from 'pixi-effects/3d';
+import { Mesh3D, CubeGeometry, Material3D, DirectionalLight } from '@pixi/3d';
+
+register3D();   // once, before Movie.init
+
+scene3d({
+  type: 'scene3d',
+  name: 'hero',
+  view: { toneMapping: 'aces', environment: { skyColor: 0xbcd4f0, groundColor: 0x6b6250, intensity: 0.7 } },
+  setup: ({ root, camera }) => {
+    const cube = new Mesh3D({ geometry: new CubeGeometry(), material: new Material3D({ baseColor: 0xdd4444, roughness: 0.5 }) });
+    const sun = new DirectionalLight({ intensity: 3 });
+    sun.rotation.set(-0.8, 0.5, 0);
+    root.addChild(cube, sun);
+    camera.position.set(0, 1.5, 5);
+    camera.lookAt({ x: 0, y: 0, z: 0 });
+    return { objects: { cube } };     // exposes `cube` to keyframes
+  },
+  update: (t, { objects }) => { objects.cube.rotation.y = t * 1.2; },          // set everything from t
+  keyframes: [{ at: 1, to: { 'scene3d.cube.position.x': 1.5 }, duration: 1 }],
+})
+```
+
+| Field | Type | Notes |
+|---|---|---|
+| `width?`, `height?` | `PropValue` | layer size in composition px; expressions allowed. Default: the parent composition's size. Place it like any layer (`initial: { x, y, anchorX, anchorY }`). |
+| `view?` | `View3DOptions` | options of the PixiJS 3D view: `environment`, `toneMapping` (`'none'` default; `'aces'` for strong lights), `exposure`, `shadowQuality`, `passes` (bloom, SSAO … from `@pixi/3d/extras`), `cull`. The layer owns `width` / `height` / `autoResize`, and draws with `cull: 'cpu'` unless you name one. |
+| `resolution?` | `number` | the view's resolution (a value other than 1 draws the scene at that scale and composites it). |
+| `setup` | `(ctx) => { objects? } \| Promise<…>` | builds the scene once; async, so `Movie.init` waits for a model to load. A setup that throws stops `init` with the layer's name and the reason. |
+| `update?` | `(t, ctx) => void` | per frame, `t` = the layer's own time in seconds. Set everything from `t`. |
+| `dispose?` | `(ctx) => void` | cleanup for what you made (the view and everything under its root are destroyed by the layer). |
+
+`ctx` is `{ view, root, camera, renderer, width, height, objects }`: the `View3D`, its `root` (add meshes, models and lights here), its `camera` (`fov` in degrees, `mode: 'perspective' | 'orthographic'`; place it with `position.set` and `lookAt`), PixiJS's renderer, the layer size, and the `objects` setup returned (plus `camera` and `view`). Keyframes reach any of them as **`scene3d.<object>.<path>`** (`'scene3d.cube.rotation.y'`, `'scene3d.view.exposure'`); a path to an object setup did not name warns once with the known names.
+
+**Time.** A frame is a function of the time, in playback, a seek and an export:
+- `register3D()` turns off the self-updating of models and animation players (`autoUpdate`); anything else under the root that still updates itself on PixiJS's ticker (a particle system, an `autoUpdate: true` you passed) is turned off after `setup`, with one warning.
+- **A model's clip:** pose it in `update`: `model.player.getState('Run').gotoAndStop(t % clip.duration)`. A clip left playing (a `Model3D` made with `autoPlay`) and posed by nobody is played on the layer's time by the layer (its speed and loop kept).
+- PixiJS 3D's shader time `uTime` reads the layer's time (it is the wall clock in PixiJS 3D itself).
+- `update` that calls `Math.random`, `Date.now`, `performance.now` or `new Date` warns at build; `check` draws the layer at four moments in two orders and reports a layer whose same frame is not the same picture (state kept from call to call, a particle system or a `MotionBlurEffect`, which reads the frame drawn before).
+- Particles (`ParticleSystem3D`): give a `seed`; their births add up from frame to frame, so a seek does not reproduce them: drive a `ParticleContainer3D` from `t` instead, or keep particles in 2D (`particles()`).
+
+**Look.** PixiJS 3D ignores `alpha` and `blendMode` on its view; the layer applies them (and a parent composition's alpha) through one filter of its own, added only while the layer is not at full strength or blends (`add`, `screen`, `multiply`; the other modes work as on any layer). `tint` does nothing on a scene3d layer (it warns): colour the materials, or use a filter. The two backends draw nearly the same scene (measured 2026-11-13 on one Apple machine: a mean difference of 0.03–0.04 of 255 between WebGL and WebGPU for a lit cube), but they are separate pipelines in PixiJS 3D and are not required to match.
+
+**What a scene3d layer does not have yet** (a `three` layer has them): `followCamera` / `followLights` / `followFog` (living in the composition's camera and lights), `movie.pick` into the scene, a 2D layer on a mesh, `reuse` across rebuilds. Writing one of these keys on a scene3d layer warns and names the `three` layer.
+
 ## three
 
-Composites a [three.js](https://threejs.org/) scene as a normal layer. Each frame, the scene is rendered into an offscreen WebGL canvas and uploaded into the sequence's PIXI texture — so once built, the layer is a plain sprite: 2D `initial` / keyframe props, [masks](#masks), and [filters](#filters) all apply to it exactly like any other sequence type.
+The sub 3D engine. Choose it over [`scene3d`](#scene3d) when you need what scene3d does not have yet (`followCamera` / `followLights` / `followFog`, picking into the scene, a 2D layer on a mesh) or three.js's own ecosystem. Composites a [three.js](https://threejs.org/) scene as a normal layer. Each frame, the scene is rendered into an offscreen WebGL canvas and uploaded into the sequence's PIXI texture — so once built, the layer is a plain sprite: 2D `initial` / keyframe props, [masks](#masks), and [filters](#filters) all apply to it exactly like any other sequence type.
 
 `type: 'three'` lives in the optional `pixi-effects/three` entry, not core `pixi-effects` — see [API reference](./api.md#pixi-effectsthree) for install/import details.
 

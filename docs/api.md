@@ -2,7 +2,8 @@
 
 - [`Movie`](#movie) — composition runtime: init, playback, render
 - [`Controller`](#controller) — drop-in player UI overlay
-- [`pixi-effects/three`](#pixi-effectsthree) — optional three.js integration
+- [`pixi-effects/3d`](#pixi-effects3d) — 3D scenes drawn by PixiJS 3D (the main 3D engine)
+- [`pixi-effects/three`](#pixi-effectsthree) — optional three.js integration (the sub 3D engine)
 
 For DSL types (composition spec, sequences, filters, keyframes, expressions), see [DSL reference](./dsl.md).
 
@@ -643,6 +644,33 @@ Active when `keyboard: true` and the key target is not `<input>`/`<textarea>`/`<
 ### Theming
 
 The bar uses fixed colors (`#007AFF` for the active track / fill / confirm button, white for icons, `rgba(0,0,0,0.75)` gradient background). Override by adding stricter CSS rules under `.movie-controller`. A theming API (CSS custom properties) is on the roadmap.
+
+## `pixi-effects/3d`
+
+```ts
+import { register3D, scene3d, Scene3DSequence } from 'pixi-effects/3d';
+import { Mesh3D, Model3D, DirectionalLight } from '@pixi/3d';
+```
+
+**Install:** `npm i @pixi/3d` (it needs `pixi.js` 8.23.0 or later). `@pixi/3d` is a peer dependency marked optional — a page that never imports `pixi-effects/3d` does not load it. On a page with an import map: `"pixi-effects/3d"`, `"@pixi/3d": "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d.min.mjs"` and `"@pixi/3d/extras": "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d-extras.min.mjs"` (the template has them). **Import it before `movie.init`.** The layer is described in [DSL: scene3d](./dsl.md#scene3d).
+
+### `register3D(): void`
+
+Registers the `scene3d` layer type (explicit, so a bundler cannot drop it; calling it again is fine) and turns off the self-updating of `Model3D` and `AnimationPlayer` (`defaultOptions.autoUpdate = false`): a video draws from the time. Warns once when PixiJS is older than 8.23.
+
+### `scene3d(spec: Scene3DSequenceSpec): SequenceSpec`
+
+Typing helper: takes a typed scene3d spec and returns it as a core `SequenceSpec`.
+
+### `Scene3DSequence`
+
+The layer class; `view` is its `View3D`. `checkDeterminism(times)` is what `check` runs.
+
+### Exported types
+
+```ts
+import type { Scene3DContext, Scene3DSetupResult, Scene3DSequenceSpec } from 'pixi-effects/3d';
+```
 
 ## `pixi-effects/three`
 

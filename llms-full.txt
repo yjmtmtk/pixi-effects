@@ -64,6 +64,7 @@ The same command checks a file you MADE before it goes somewhere with rules (a s
 - **Built in:** `animateText()` (per-letter / per-word / per-line entrances and exits in one call: `...animateText('Title', style, { x, y, align: 'center', at: 0.5, duration: 5, in: 'rise', out: 'fade', stagger: { each: 0.05 } })`), `splitText()` / `measureText()` (per-letter / per-word layers, exact positions, by hand), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) `wiggle()` (a seeded shake as keyframes; on a camera put it on `offsetX` / `offsetY` so it rides on the move) `cameraPath()` (a camera flight through `[x, y, z]` points as keyframes; layers it passes: `hideBehindCamera: true`) depth of field (camera `focus` + `aperture`: `{ type: 'camera', initial: { focus: 'title' } }` blurs the other threeD layers by depth; a rack focus is a keyframe on `focus`) `music` (a tune with no file: `{ type: 'audio', music: { bpm, tracks: [{ inst: 'keys', notes: 'Cmaj7:4 Am7:4' }, { inst: 'bass', notes: 'c2:2 g1:2' }], drums: { from: 8, kick: 'x...x...' } } }`: notes and chords as text, counted in beats; instruments `keys pluck pad bass sub lead bell musicbox`; `musicEnvelope(music)` feeds `react()`), `audioEnvelope()` / `bpmEnvelope()` + `react()` (visuals that follow music: `const env = await audioEnvelope('music.mp3', { frameRate })` before `movie.init`, then `keyframes: react(env, { duration, props: { scale: { base: 1, amount: 0.4, band: 'bass', release: 0.2 } } })`; `beats: true` pulses on the beats; `bpmEnvelope(120, …)` when there is no file), `deck()` + `Presenter` from `pixi-effects/present` (a talk as one movie: pages, steps, stops that pause playback, arrow keys / click / swipe to move on: `...deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops, sequences }] })`, `new Presenter(movie, { canvas })` from `pixi-effects/presenter`; G = page overview, P = presenter view with notes and a timer; `pixi-effects render talk.html -o talk.pdf` = a PDF of the pages), `particles()` (bursts, snow, confetti, sparks as seeded layers: `...particles({ count: 90, at: 2, life: [1, 1.8], area: { x: 640, y: 330 }, speed: [120, 420], gravity: 240, fade: { out: 0.6 } })`), `followPath()` (a layer along an SVG path: `keyframes: followPath({ d, duration, orient: true })`), path morphing (`{ shape: 'path', d, morphTo, initial/keyframes: morph 0 → 1 }`) and `stagger()` (delays for a wave of layers: `stagger(letters, { each: 0.05, from: 'center' })`, or `stagger(n, …)` for numbers; GSAP-style `each` / `amount` / `from` / `grid` / `ease`). **Not in the DSL (hand-roll with a JS loop):** other per-frame curves (waves, spirals: sample them into short linear keyframes). (Draw-on strokes `trimEnd`, text that changes over time `set: { text }` / `visibleChars`, shake `wiggle()` and particles are built in.)
 - **Draw it yourself (`canvas` layer):** when nothing in the library draws what you need (an afterimage, rings, a brush stroke, a pixel sprite, a chart), `{ type: 'canvas', width, height, draw: (ctx, t, info) => { … } }`: your function of the time draws into the layer's own cleared 2D canvas and it is a normal layer. Pure function of `t` and `info.params` (`info.random()` is seeded; no `Math.random` / `Date.now`); a simulation is computed in `setup` and read by `info.frame`. `info.time` is the movie's clock (several layers share it; never add `at` by hand), `info.canvas(w, h)` makes sprites and masks in `setup`, data shared by several canvas layers lives in module scope, and `import { ease, noise, noise2, random, samplePath } from 'pixi-effects'` gives the library's easing, seeded noise and a path walked by length. `check` prints a `canvas` line (deterministic, slowest draw in ms) and does NOT see text drawn in a canvas. `help canvas`, recipes `canvas-trail`, `canvas-life`, `canvas-text-mask`, `canvas-text-on-path`, `canvas-bars`.
 - **Shader layer and warp:** `{ type: 'shader', fragment: 'void mainImage(out vec4 fragColor, in vec2 fragCoord) { … }', uniforms: { speed: 1, tint: '#ff8040' } }` draws a Shadertoy-style formula (GLSL ES 3.00; `iTime` `iResolution` `iFrame` are declared; keyframes move `'uniforms.speed'`; opaque by default; it cannot read the layers behind it; a compile error comes back in your own line numbers). `filters: [{ type: 'warp', kind: 'wave' | 'haze', strength: 6 }]` bends a layer's picture like water or heat.
+- **A real 3D scene** (meshes, a glTF model, PBR, lights, shadows) is a `scene3d` layer (`pixi-effects/3d`, PixiJS 3D; `register3D()` before `init`; recipe `scene3d-basics`): `setup` builds it with `@pixi/3d`, `update(t)` sets it from the time, keyframes reach `scene3d.<object>.<path>`; masks, filters, `alpha` and `blendMode` work on it. A `three` layer (`pixi-effects/three`) is for what scene3d does not have yet: the composition's camera and lights inside the scene (`followCamera` / `followLights`), picking into it, a 2D layer on a mesh.
 - **Light, shadow, fog (2.5D):** a `{ type: 'light', kind: 'ambient', initial: { intensity: 0.2 } }` plus a `spot` / `point` / `parallel` light (`castsShadows: true` on the light AND on the `threeD` layers that cast) shades every `threeD` layer by angle and distance; `lit: false` opts a layer out; camera `fogNear` / `fogFar` / `fogColor` fade what is far. What no light reaches is black (add the ambient light); layers are drawn in distance order (no depth buffer). `check --at` prints how lit each layer is.
 - **Blend modes:** `blendMode` takes 18 CSS names (`add` `screen` `multiply` `overlay` `soft-light` `hard-light` `color-dodge` `color-burn` `darken` `lighten` `difference` `exclusion` `hue` `saturation` `color` `luminosity` `linear-burn`, hyphenated) on any layer: glows and light leaks (`add`, `color-dodge`), colour casts and contrast (`soft-light`, `overlay`), vignettes (`multiply`). It blends with everything below the layer; on a composition each child blends (as one picture: `threeD: true` or a filter); 10+ of the new modes on screen at once warn; it works with every mask.
 - **One `Movie` per page.** A sound effect needs no `duration` (it lasts as long as its clip). Seeking is safe: counters, colours and growing shapes are right after any jump.
@@ -76,7 +77,7 @@ Centred text must be positioned by `anchorX/anchorY: 0.5`; estimate text width a
 
 - For an AI in a chat with no shell, the short version is https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/CHAT.md (it copies https://raw.githubusercontent.com/yjmtmtk/pixi-effects/main/ai/chat-template.html: one self-contained page that loads from a single CDN and shows warnings in a red box).
 - `reference/cheatsheet.md` — every layer type, prop, default and rule on one page.
-- `reference/recipes.md` — tested building blocks: slam type, lower-third, marquee, count-up, bar chart, 2.5D title, camera orbit, slideshow with transitions + music, looping, particles, gradients/vignette, three.js metal.
+- `reference/recipes.md` — tested building blocks: slam type, lower-third, marquee, count-up, bar chart, 2.5D title, camera orbit, slideshow with transitions + music, looping, particles, gradients/vignette, a 3D scene (scene3d), three.js metal.
 - `reference/pitfalls.md` — the full list of real mistakes, with status.
 - `reference/direction.md` — how to direct a film (any renderer): brief, style guide, shot list, assets rule, sound on the beat grid, review protocol, formats, gates.
 - `npx pixi-effects check` — the one-command review (see Workflow step 5).
@@ -209,6 +210,8 @@ Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha stro
 **null + `parent`** — `{ type: 'null', name: 'rig', initial: { x, y }, keyframes: [...] }` draws nothing; layers with `parent: 'rig'` are drawn inside it and follow its `x y rotation scale skew alpha pivotX pivotY`. Their `x / y` are measured **from the null's origin** (null at (640,360), child `x: 200` → drawn at 840), so rotating the null makes the child circle it. Nulls chain (`parent` on a null). Children are drawn at the null's place in the stack, together. Only `null` layers can be parents; not for `threeD` layers; a mask follows its layer.
 
 **camera** (2.5D) — props in `initial`/keyframes: `x y z lookAtX lookAtY lookAtZ fov focus aperture` (defaults: centred, looking at the z = 0 plane, `fov` 40, `z` auto = `(H/2)/tan(fov/2)` ≈ 989 at 720p). **Depth of field:** `focus` = the sharp plane (a `threeD` layer's name = its first z, or a z number), `aperture` = the lens diameter in px (30 default, 0 off); writing either blurs the other `threeD` layers by their distance from the focus (a rack focus is a keyframe on `focus`; recipe `rack-focus`; `inspect` reports `depthBlur`, and `check --at 2.4` prints each layer's blur). A dolly with no typed distance: leave `z` automatic and animate `offsetZ`. Never on the camera object itself. An orbit is `orbit()`; by hand: `x = cx + R·sin θ`, `z = R·cos θ`, `R = (H/2)/tan(fov/2)`, `lookAt` = the centre at `z = 0`.
+
+**scene3d** (optional entry `pixi-effects/3d`, PixiJS 3D: the main 3D engine) — `{ type: 'scene3d', name, width?, height?, view?: { toneMapping: 'aces', environment, shadowQuality, passes }, setup({ view, root, camera }) { root.addChild(mesh, light); camera.position.set(0, 1.5, 5); camera.lookAt({ x: 0, y: 0, z: 0 }); return { objects: { cube } } }, update?(t, { objects }), dispose? }`; drive with `'scene3d.cube.rotation.y'` keyframes. `import { register3D } from 'pixi-effects/3d'` and call `register3D()` **before** `init`; meshes, models and lights come from `@pixi/3d` (`Mesh3D`, `Model3D` + `Assets.load('model.glb')`, `CubeGeometry`, `PlaneGeometry`, `Material3D`, `DirectionalLight` …). Drawn inside PixiJS: masks, filters, `alpha`, `blendMode` work as on any layer (`tint` does not). A clip: `model.player.getState(name).gotoAndStop(t)` in `update`. Not yet: followCamera / followLights / pick / a 2D layer on a mesh (use `three` for those). Recipe `scene3d-basics`.
 
 **three** (optional entry `pixi-effects/three`) — `three({ type:'three', width, height, setup(ctx) { …; return { objects: { knot } } }, update?, dispose? })`; drive with `'three.knot.rotation.y'` keyframes. Call `registerThree()` before `init`. **In the composition's space:** `followCamera: true` (the layer's PerspectiveCamera is the composition's `camera`; the scene is in composition px with y flipped: the composition's `(x, y, z)` is `(x, -y, z)`; give the layer the composition's size), `followLights: true` (the `light` layers become three lights) and `followFog: true` (the camera's fog becomes the scene's `Fog`: close to, not equal to, the card fog); a light's `castsShadows` casts in three (mark your meshes `castShadow` / `receiveShadow`); `ctx.space` has the raw numbers. **glTF:** `import { threeGltf, threeFrameCamera } from 'pixi-effects/three'`: `const m = await threeGltf(url, { animation: 'Run' | 0 | false, speed, offset, loop })` in `setup` (`ctx.scene.add(m.object)`; `m.fit(px)` scales the longest side to px; `m.clips` names the clips), `update: (t) => m.pose(t)` (a function of t: never `mixer.update(dt)`), `threeFrameCamera(ctx.camera, m.object)` frames the whole model from a three-quarter view. Needs `"three/addons/"` in the import map. Recipe `gltf-in-space`. **A 2D layer on a mesh** (a phone screen, a television): `const screen = await threeLayerTexture(ctx, 'screen')` in `setup`, `screen.material` on a mesh; `screen` is a `composition` listed BEFORE the three layer (recipe `three-screen`).
 
@@ -466,12 +469,22 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 118. **`check` does not see text drawn in a canvas.** The layout test (cut-off, off-canvas, overlap) reads the text layers; a label or a caption you draw with `fillText` can run off the edge or collide with another without a word, and "no cut-off text" only speaks for the text layers. Look at the sheet and at `--at … --crop`, and keep a margin.
 119. **`bitrate` is a ceiling, not a target: a quiet or mostly black picture is written far below it, and no setting changes that.** Asking for `'150M'` gave 105 to 151 Mbps on grainy dark pictures and 13 to 18 Mbps on clean ones (a platform that wants at least 35 Mbps for 4K then rejects the file). The encoder spends bits on what changes: a constant bitrate mode reaches the encoder (it was measured, with H.264, HEVC and VP9) and still writes 0.1 Mbps for a black frame with a circle, because no encoder pads. So read the real rate of the file (`render` prints it and says when it is far under what you asked; `npx pixi-effects probe file.mp4` too) and, when a minimum is needed, raise it by what the picture really has: fine film grain (a seeded noise of about ±2/255 in the darks, which also hides banding in dark gradients) costs bits and looks right. Do not stretch it with an invisible pattern.
 
+## 3D scenes (`scene3d`, PixiJS 3D)
+
+120. **Import `pixi-effects/3d` before `movie.init` and call `register3D()`.** PixiJS loads the 3D drawing code while its renderer starts; a scene3d layer built on a renderer that started before `@pixi/3d` was imported stops the build with `PixiJS 3D was loaded after the renderer started`. The import map needs `pixi-effects/3d`, `@pixi/3d` and `@pixi/3d/extras`, and `pixi.js` 8.23.0 or later. *(warns)*
+121. **`update(t)` sets everything from `t`.** `angle += 0.02` per call, a velocity carried from the last call, `Math.random()` or a clock draw a different picture in playback, a seek and an export; `check` draws the layer in two orders and names it. A model's clip: `model.player.getState(name).gotoAndStop(t % clip.animation.duration)` (a clip left playing with `autoPlay` is played on the layer's time by the layer). *(check catches it)*
+122. **Particle systems (`ParticleSystem3D`) and a `MotionBlurEffect` are not a function of the time.** Particle births add up from frame to frame (a seek does not reproduce them) and motion blur reads the camera of the frame drawn before. Keep particles in 2D (`particles()`) or drive a `ParticleContainer3D` from `t`; leave motion blur out of a scene3d layer. *(check catches it)*
+123. **An inline shape mask needs a `fillColor`.** A circle or rect with no fill masks out everything: the layer disappears without a word. Give the mask shape `initial: { fillColor: '#fff' }`. (Any layer, not only scene3d.)
+124. **`tint` does nothing on a scene3d layer** (PixiJS 3D draws its materials' colours): colour the materials, or put a filter on the layer. `alpha` and `blendMode` do work (the layer applies them). *(warns)*
+125. **PixiJS 3D's units are not pixels.** The scene has its own units (a glTF is in metres: a fox is about 1.3 units long) and its own camera (`fov` in degrees, default 60, the camera looks down its `-z`); `width` / `height` only size the layer's rectangle. Place the camera with `camera.position.set(…)` and `camera.lookAt({ x, y, z })`; read a model's size with `model.getLocalBounds()` before scaling it.
+126. **A light is aimed by its rotation, a plane lies in XY.** `DirectionalLight` / `SpotLight` look down their local `-z` (`sun.rotation.set(-0.9, 0.6, 0)`, or `lookAt`); `PlaneGeometry` faces `+z`, so a floor is `rotation: { x: -Math.PI / 2, y: 0, z: 0 }`. A view's `toneMapping` is `'none'` by default: strong lights clip, use `view: { toneMapping: 'aces' }`.
+
 
 <!-- ===== skills/pixi-effects/reference/recipes.md ===== -->
 
 # pixi-effects recipes
 
-Copy, adapt, run. Every block marked `@recipe` is a function body that **returns the composition's `sequences`** (or `{ sequences, transitions, duration }`); the repo's tests build each one and fail on any warning, so they stay correct. Blocks marked `@docs-only` need a browser (canvas / three.js) and are not executed by the tests.
+Copy, adapt, run. Every block marked `@recipe` is a function body that **returns the composition's `sequences`** (or `{ sequences, transitions, duration }`); the repo's tests build each one and fail on any warning, so they stay correct. Blocks marked `@docs-only` need a browser (canvas / 3D / three.js) and are not executed by the tests.
 
 Assumed canvas: 1280×720 @ 30 fps. `kenBurns`, `withFade` and `orbit` come from `pixi-effects`.
 
@@ -1763,6 +1776,52 @@ function placeholderPhoto(name, hueA, hueB, w = 1920, h = 1080) {
 
 ---
 
+## A 3D scene with a model, a light and a shadow, under a title (`scene3d`)
+
+A real 3D scene as one layer, drawn by PixiJS 3D inside PixiJS itself: a floor that receives a shadow, a glTF model whose clip is posed from the time, a cube moved by a keyframe, a sun that casts. The layer takes a mask like any layer: a circle wipe reveals it, and a 2D title sits over it. Everything in `update` is set from `t` (a function of the time: playback, a seek and an export agree). The model is the file's size: read `model.getLocalBounds()` and set `model.scale` if it is not about 1–2 units tall.
+
+```js
+// @docs-only scene3d-basics
+// import { register3D } from 'pixi-effects/3d';   register3D();   (before movie.init)
+// import { Mesh3D, Model3D, PlaneGeometry, CubeGeometry, Material3D, DirectionalLight } from '@pixi/3d';   import { Assets } from 'pixi.js';
+// composition 1280 x 720, 5 s. 'model.glb' sits next to the page.
+let clip = null;
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0d1220' } },
+  { type: 'scene3d', name: 'stage',
+    view: { toneMapping: 'aces', shadowQuality: 'medium', environment: { skyColor: 0xbcd4f0, groundColor: 0x3a3226, intensity: 0.6 } },
+    setup: async ({ root, camera }) => {
+      const floor = new Mesh3D({ geometry: new PlaneGeometry({ width: 40, height: 40 }), material: new Material3D({ baseColor: 0x2a3142, roughness: 0.9 }),
+        rotation: { x: -Math.PI / 2, y: 0, z: 0 }, receiveShadow: true });                              // a plane lies in XY: turned flat, it is a floor
+      const model = new Model3D({ source: await Assets.load('model.glb'), castShadow: true });
+      const cube = new Mesh3D({ geometry: new CubeGeometry({ width: 0.8, height: 0.8, depth: 0.8 }), material: new Material3D({ baseColor: 0xff7a1a, roughness: 0.4 }),
+        position: { x: -2.2, y: 0.4, z: 0 }, castShadow: true });
+      const sun = new DirectionalLight({ intensity: 3, castShadow: true });
+      sun.rotation.set(-0.9, 0.6, 0);                                                                   // lights look down their -z: aim by rotation
+      root.addChild(floor, model, cube, sun);
+      camera.position.set(0, 2.2, 6);
+      camera.lookAt({ x: 0, y: 0.6, z: 0 });
+      const label = model.player.animationLabels[0];                                                    // the file's first clip, if it has one
+      clip = label ? model.player.getState(label) : null;
+      return { objects: { cube, model } };                                                              // keyframes reach them as scene3d.cube.…
+    },
+    update: (t, { objects }) => {
+      clip?.gotoAndStop(t % clip.animation.duration);                                                   // the clip at the layer's time
+      objects.cube.rotation.y = t * 1.5;
+    },
+    keyframes: [{ at: 1, to: { 'scene3d.cube.position.x': 2.2 }, duration: 2.5, ease: 'sine.inOut' }],
+    mask: { type: 'shape', shape: 'circle', radius: 1, initial: { x: 'GW/2', y: 'GH/2', fillColor: '#ffffff' },    // a mask shape needs a fill
+      keyframes: [{ at: 0, to: { radius: 760 }, duration: 1.2, ease: 'power2.inOut' }] } },           // a circle wipe reveals the scene
+  { type: 'text', text: 'PIXIJS 3D', style: { fontSize: 72, fontWeight: '900', fill: '#ffffff', letterSpacing: 8 },
+    initial: { x: 'GW/2', y: 110, anchorX: 0.5, anchorY: 0.5 },
+    keyframes: [{ at: 0.8, from: { alpha: 0, y: '+=20' }, duration: 0.6, ease: 'power2.out' }] },
+];
+```
+
+Opacity, blend modes and filters work on the layer as on any layer (`alpha` fades the whole scene). What it does not have yet: following the composition's camera and lights, picking into the scene, a 2D layer on a mesh — a `three` layer has those (recipes below).
+
+---
+
 ## Metallic three.js object
 
 `ctx.renderer` is a normal `WebGLRenderer`, so an environment map works; lights alone make `metalness: 1` look black. `three/addons` is not in the importmap: build the environment yourself. Size the layer to the area you want (it clips at its own rectangle) and pull the camera back (`z ≈ 5.4` for a radius-1 torus knot at fov 50).
@@ -3045,9 +3104,61 @@ The camera takes `fogNear`, `fogFar` (distances along the view direction, px), `
 
 ---
 
+## scene3d
+
+A real 3D scene (meshes, glTF models, PBR materials, lights, shadows) as a layer, drawn by [PixiJS 3D](https://pixijs.com/3d) (`@pixi/3d`), the main 3D engine of pixi-effects. The scene is drawn **inside PixiJS's own renderer**, in the layer's place in the stack: no second renderer, no canvas per layer, no copy. Everything a layer has works on it: `at` / `duration`, transform keyframes, `alpha` (and a parent's alpha), `blendMode`, [filters](#filters), [masks](#masks), nesting in compositions and in `threeD` cards.
+
+`type: 'scene3d'` lives in the optional `pixi-effects/3d` entry (see [API reference](./api.md#pixi-effects3d)). **Import it before `movie.init`**: PixiJS loads the 3D drawing code while its renderer starts, so a renderer that started before `@pixi/3d` was imported cannot draw a scene3d layer (the build says so).
+
+```ts
+import { register3D, scene3d } from 'pixi-effects/3d';
+import { Mesh3D, CubeGeometry, Material3D, DirectionalLight } from '@pixi/3d';
+
+register3D();   // once, before Movie.init
+
+scene3d({
+  type: 'scene3d',
+  name: 'hero',
+  view: { toneMapping: 'aces', environment: { skyColor: 0xbcd4f0, groundColor: 0x6b6250, intensity: 0.7 } },
+  setup: ({ root, camera }) => {
+    const cube = new Mesh3D({ geometry: new CubeGeometry(), material: new Material3D({ baseColor: 0xdd4444, roughness: 0.5 }) });
+    const sun = new DirectionalLight({ intensity: 3 });
+    sun.rotation.set(-0.8, 0.5, 0);
+    root.addChild(cube, sun);
+    camera.position.set(0, 1.5, 5);
+    camera.lookAt({ x: 0, y: 0, z: 0 });
+    return { objects: { cube } };     // exposes `cube` to keyframes
+  },
+  update: (t, { objects }) => { objects.cube.rotation.y = t * 1.2; },          // set everything from t
+  keyframes: [{ at: 1, to: { 'scene3d.cube.position.x': 1.5 }, duration: 1 }],
+})
+```
+
+| Field | Type | Notes |
+|---|---|---|
+| `width?`, `height?` | `PropValue` | layer size in composition px; expressions allowed. Default: the parent composition's size. Place it like any layer (`initial: { x, y, anchorX, anchorY }`). |
+| `view?` | `View3DOptions` | options of the PixiJS 3D view: `environment`, `toneMapping` (`'none'` default; `'aces'` for strong lights), `exposure`, `shadowQuality`, `passes` (bloom, SSAO … from `@pixi/3d/extras`), `cull`. The layer owns `width` / `height` / `autoResize`, and draws with `cull: 'cpu'` unless you name one. |
+| `resolution?` | `number` | the view's resolution (a value other than 1 draws the scene at that scale and composites it). |
+| `setup` | `(ctx) => { objects? } \| Promise<…>` | builds the scene once; async, so `Movie.init` waits for a model to load. A setup that throws stops `init` with the layer's name and the reason. |
+| `update?` | `(t, ctx) => void` | per frame, `t` = the layer's own time in seconds. Set everything from `t`. |
+| `dispose?` | `(ctx) => void` | cleanup for what you made (the view and everything under its root are destroyed by the layer). |
+
+`ctx` is `{ view, root, camera, renderer, width, height, objects }`: the `View3D`, its `root` (add meshes, models and lights here), its `camera` (`fov` in degrees, `mode: 'perspective' | 'orthographic'`; place it with `position.set` and `lookAt`), PixiJS's renderer, the layer size, and the `objects` setup returned (plus `camera` and `view`). Keyframes reach any of them as **`scene3d.<object>.<path>`** (`'scene3d.cube.rotation.y'`, `'scene3d.view.exposure'`); a path to an object setup did not name warns once with the known names.
+
+**Time.** A frame is a function of the time, in playback, a seek and an export:
+- `register3D()` turns off the self-updating of models and animation players (`autoUpdate`); anything else under the root that still updates itself on PixiJS's ticker (a particle system, an `autoUpdate: true` you passed) is turned off after `setup`, with one warning.
+- **A model's clip:** pose it in `update`: `model.player.getState('Run').gotoAndStop(t % clip.duration)`. A clip left playing (a `Model3D` made with `autoPlay`) and posed by nobody is played on the layer's time by the layer (its speed and loop kept).
+- PixiJS 3D's shader time `uTime` reads the layer's time (it is the wall clock in PixiJS 3D itself).
+- `update` that calls `Math.random`, `Date.now`, `performance.now` or `new Date` warns at build; `check` draws the layer at four moments in two orders and reports a layer whose same frame is not the same picture (state kept from call to call, a particle system or a `MotionBlurEffect`, which reads the frame drawn before).
+- Particles (`ParticleSystem3D`): give a `seed`; their births add up from frame to frame, so a seek does not reproduce them: drive a `ParticleContainer3D` from `t` instead, or keep particles in 2D (`particles()`).
+
+**Look.** PixiJS 3D ignores `alpha` and `blendMode` on its view; the layer applies them (and a parent composition's alpha) through one filter of its own, added only while the layer is not at full strength or blends (`add`, `screen`, `multiply`; the other modes work as on any layer). `tint` does nothing on a scene3d layer (it warns): colour the materials, or use a filter. The two backends draw nearly the same scene (measured 2026-11-13 on one Apple machine: a mean difference of 0.03–0.04 of 255 between WebGL and WebGPU for a lit cube), but they are separate pipelines in PixiJS 3D and are not required to match.
+
+**What a scene3d layer does not have yet** (a `three` layer has them): `followCamera` / `followLights` / `followFog` (living in the composition's camera and lights), `movie.pick` into the scene, a 2D layer on a mesh, `reuse` across rebuilds. Writing one of these keys on a scene3d layer warns and names the `three` layer.
+
 ## three
 
-Composites a [three.js](https://threejs.org/) scene as a normal layer. Each frame, the scene is rendered into an offscreen WebGL canvas and uploaded into the sequence's PIXI texture — so once built, the layer is a plain sprite: 2D `initial` / keyframe props, [masks](#masks), and [filters](#filters) all apply to it exactly like any other sequence type.
+The sub 3D engine. Choose it over [`scene3d`](#scene3d) when you need what scene3d does not have yet (`followCamera` / `followLights` / `followFog`, picking into the scene, a 2D layer on a mesh) or three.js's own ecosystem. Composites a [three.js](https://threejs.org/) scene as a normal layer. Each frame, the scene is rendered into an offscreen WebGL canvas and uploaded into the sequence's PIXI texture — so once built, the layer is a plain sprite: 2D `initial` / keyframe props, [masks](#masks), and [filters](#filters) all apply to it exactly like any other sequence type.
 
 `type: 'three'` lives in the optional `pixi-effects/three` entry, not core `pixi-effects` — see [API reference](./api.md#pixi-effectsthree) for install/import details.
 
@@ -4176,7 +4287,8 @@ The added keyframes are layered on top of any keyframes the spec already has. `w
 
 - [`Movie`](#movie) — composition runtime: init, playback, render
 - [`Controller`](#controller) — drop-in player UI overlay
-- [`pixi-effects/three`](#pixi-effectsthree) — optional three.js integration
+- [`pixi-effects/3d`](#pixi-effects3d) — 3D scenes drawn by PixiJS 3D (the main 3D engine)
+- [`pixi-effects/three`](#pixi-effectsthree) — optional three.js integration (the sub 3D engine)
 
 For DSL types (composition spec, sequences, filters, keyframes, expressions), see [DSL reference](./dsl.md).
 
@@ -4817,6 +4929,33 @@ Active when `keyboard: true` and the key target is not `<input>`/`<textarea>`/`<
 ### Theming
 
 The bar uses fixed colors (`#007AFF` for the active track / fill / confirm button, white for icons, `rgba(0,0,0,0.75)` gradient background). Override by adding stricter CSS rules under `.movie-controller`. A theming API (CSS custom properties) is on the roadmap.
+
+## `pixi-effects/3d`
+
+```ts
+import { register3D, scene3d, Scene3DSequence } from 'pixi-effects/3d';
+import { Mesh3D, Model3D, DirectionalLight } from '@pixi/3d';
+```
+
+**Install:** `npm i @pixi/3d` (it needs `pixi.js` 8.23.0 or later). `@pixi/3d` is a peer dependency marked optional — a page that never imports `pixi-effects/3d` does not load it. On a page with an import map: `"pixi-effects/3d"`, `"@pixi/3d": "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d.min.mjs"` and `"@pixi/3d/extras": "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d-extras.min.mjs"` (the template has them). **Import it before `movie.init`.** The layer is described in [DSL: scene3d](./dsl.md#scene3d).
+
+### `register3D(): void`
+
+Registers the `scene3d` layer type (explicit, so a bundler cannot drop it; calling it again is fine) and turns off the self-updating of `Model3D` and `AnimationPlayer` (`defaultOptions.autoUpdate = false`): a video draws from the time. Warns once when PixiJS is older than 8.23.
+
+### `scene3d(spec: Scene3DSequenceSpec): SequenceSpec`
+
+Typing helper: takes a typed scene3d spec and returns it as a core `SequenceSpec`.
+
+### `Scene3DSequence`
+
+The layer class; `view` is its `View3D`. `checkDeterminism(times)` is what `check` runs.
+
+### Exported types
+
+```ts
+import type { Scene3DContext, Scene3DSetupResult, Scene3DSequenceSpec } from 'pixi-effects/3d';
+```
 
 ## `pixi-effects/three`
 

@@ -18,7 +18,7 @@ const chrome = check.findChrome();
 
 describe('ai/chat-template.html', () => {
   it('pins this release, loads only from cdn.jsdelivr.net, and needs no stylesheet or esm.sh', () => {
-    expect([...template.matchAll(/pixi-effects@([\d.]+)\//g)].map((m) => m[1])).toEqual([version, version, version]);
+    expect([...template.matchAll(/pixi-effects@([\d.]+)\//g)].map((m) => m[1])).toEqual([version, version, version, version]);                 // index, controller, present, 3d
     const urls = [...template.matchAll(/https?:\/\/[^\s"')]+/g)].map((m) => new URL(m[0]).host);
     expect(urls.filter((h) => h !== 'cdn.jsdelivr.net' && h !== 'raw.githubusercontent.com')).toEqual([]);
     expect(template).not.toContain('<link');

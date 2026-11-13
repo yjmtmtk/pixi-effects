@@ -25,16 +25,18 @@ Declarative composition and video rendering for the web. After Effects-style tim
 - **Music written as text** — `{ type: 'audio', music: { bpm: 96, tracks: [{ inst: 'keys', notes: 'Cmaj7:4 Am7:4' }], drums: { kick: 'x...x...' } } }`: a tune with no audio file, played by a small built-in synthesiser (keys, pluck, pad, bass, lead, bell, music box, drums; chords by name, swing, fades, a ritardando). Deterministic, in the exported file at the same moment; an AI writes it as easily as a title.
 - **Audio-reactive visuals** — `audioEnvelope('music.mp3')` analyses loudness, bass / mid / treble and the beats per frame; `react()` turns them into keyframes, so the picture follows the music and still renders identically.
 - **2.5D layers & camera** — add `threeD: true`, `z`, `rotationX/Y` and a `{ type: 'camera' }` layer for parallax, flips and dolly zooms; no three.js needed.
+- **3D scenes** *(optional)* — a real 3D scene (meshes, glTF models, PBR, lights, shadows) as a layer via `pixi-effects/3d`, drawn by [PixiJS 3D](https://pixijs.com/3d) inside PixiJS's own renderer, so masks, filters, blend modes and opacity work on it like on any layer; keyframes drive its objects (`scene3d.cube.rotation.y`).
 - **three.js layer** *(optional)* — drop a real three.js scene in as a layer via `pixi-effects/three`; keyframes drive its objects (`three.cube.rotation.y`). It can live in the composition's space: the composition's camera, lights, shadows and fog drive the scene, so one `cameraPath()` flies through the flat layers and a glTF model together (`threeGltf`).
 - **Built-in player UI — or your own** — a drop-in HTML5-`<video>`-style overlay controller (play, scrub, mute, volume, fullscreen, export-to-file) whose colours are one option (`theme: { accent: '#ff4d6d' }`); or build a player yourself on the movie's `<video>`-named events (`play pause ended seeking seeked volumechange error`).
 - **MP4 / WebM / MOV export** — pick container and quality from the controller, call `movie.render()` from code, or render headless from the command line (`pixi-effects render`).
 - **A timeline you can read and scrub** — `movie.timelineChart()` draws every layer as a bar on a time axis; `pixi-effects view` opens the page with that timeline under it, zoomable, with a playhead you can drag.
-- **Tiny dependency surface** — only `mediabunny` (runtime) plus PixiJS (a peer dep). three.js is an *optional* peer, needed only if you import `pixi-effects/three`. mediabunny is fetched only when you export or use a video layer: a page that only plays never loads it.
+- **Tiny dependency surface** — only `mediabunny` (runtime) plus PixiJS (a peer dep). `@pixi/3d` and three.js are *optional* peers, needed only if you import `pixi-effects/3d` or `pixi-effects/three`. mediabunny is fetched only when you export or use a video layer: a page that only plays never loads it.
 
 ## Install
 
 ```bash
 npm install pixi-effects pixi.js
+npm install @pixi/3d     # optional — only if you import `pixi-effects/3d` (needs pixi.js 8.23+)
 npm install three        # optional — only if you import `pixi-effects/three`
 npm install pixi-filters # optional — only if a layer uses a named filter other than blur / noise / alpha / colorMatrix
 ```
@@ -65,9 +67,51 @@ The `mediabunny` line is needed only to export (the download button, `movie.rend
 
 Load the `dist/` files **as they are** (jsDelivr's `/npm/…/dist/…`, or unpkg's `https://unpkg.com/pixi-effects@0.48.2/dist/index.js`) rather than a CDN-rebundled build such as `esm.sh/pixi-effects` or jsDelivr's `+esm`: the entries (`pixi-effects`, `…/controller`, `…/three`) share internal chunks, which only works when each file is served untouched.
 
-> **Using three.js?** Add two more entries (`three` and `pixi-effects/three`) to this importmap — see [Adding three.js](#adding-threejs-optional) below.
+> **A 3D scene?** Add three more entries (`pixi-effects/3d`, `@pixi/3d`, `@pixi/3d/extras`) — see [Adding a 3D scene](#adding-a-3d-scene-optional) below. **Using three.js?** Add two more entries (`three` and `pixi-effects/three`) to this importmap — see [Adding three.js](#adding-threejs-optional) below.
 >
 > **Want the unreleased `main`?** Point the `pixi-effects*` entries at the GitHub Pages build instead: `https://yjmtmtk.github.io/pixi-effects/dist/index.js` (and `Controller.js`, `three.js`).
+
+#### Adding a 3D scene (optional)
+
+Add three entries to the importmap above (PixiJS 3D needs `pixi.js` 8.23.0 or later):
+
+```html
+<script type="importmap">
+{
+  "imports": {
+    "...":                     "(everything from the importmap above)",
+    "pixi-effects/3d":         "https://cdn.jsdelivr.net/npm/pixi-effects@0.48.2/dist/3d.js",
+    "@pixi/3d":                "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d.min.mjs",
+    "@pixi/3d/extras":         "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d-extras.min.mjs"
+  }
+}
+</script>
+```
+
+```html
+<script type="module">
+  import { Movie } from 'pixi-effects';
+  import { register3D, scene3d } from 'pixi-effects/3d';         // BEFORE movie.init()
+  import { Mesh3D, TorusKnotGeometry, Material3D, DirectionalLight } from '@pixi/3d';
+
+  register3D();
+
+  // ...inside composition.sequences:
+  scene3d({
+    type: 'scene3d', name: 'knot',
+    setup: ({ root, camera }) => {
+      const knot = new Mesh3D({ geometry: new TorusKnotGeometry(), material: new Material3D({ baseColor: 0x7fb4ff, roughness: 0.4 }) });
+      const sun = new DirectionalLight({ intensity: 3 }); sun.rotation.set(-0.8, 0.5, 0);
+      root.addChild(knot, sun);
+      camera.position.set(0, 0, 6); camera.lookAt({ x: 0, y: 0, z: 0 });
+      return { objects: { knot } };        // addressable from keyframes
+    },
+    keyframes: [{ at: 0, to: { 'scene3d.knot.rotation.y': Math.PI * 2 }, duration: 6 }],
+  })
+</script>
+```
+
+The scene is drawn inside PixiJS's renderer in the layer's place, so masks, filters, blend modes and opacity apply. `update(t)` must set everything from `t`. Full spec: [DSL reference § scene3d](./docs/dsl.md#scene3d) and [API reference](./docs/api.md#pixi-effects3d).
 
 #### Adding three.js (optional)
 
