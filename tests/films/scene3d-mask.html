@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · scene3d masks</title></head>
+<body style="margin:0">
+  <!-- Test film (tests/films/scene3d-mask.test.ts): masks on scene3d layers. Four cells at x = 40, 120, 200, 280 (y 90) over #4080c0; each a 70 × 70 scene3d whose unlit plane fills it in
+       #e05030: 0 an inline circle mask (radius 25), 1 the same with a blur filter on the layer, 2 the same inside a composition that has a filter (in PixiJS 3D 0.1.0 on WebGL a stencil-masked
+       view inside a filtered container drew nothing), 3 no mask, inside a threeD composition card under a camera. The page gives pixelAt(frame, x, y), window.__logs. -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+    "@pixi/3d": "../../node_modules/@pixi/3d/dist/pixijs-3d.mjs", "@pixi/3d/extras": "../../node_modules/@pixi/3d/dist/pixijs-3d-extras.mjs" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    import { register3D } from '../../dist/3d.js';
+    import { Mesh3D, PlaneGeometry, FlatMaterial } from '@pixi/3d';
+    register3D();
+    const plane = ({ root, camera }) => {
+      root.addChild(new Mesh3D({ geometry: new PlaneGeometry({ width: 2, height: 2 }), material: new FlatMaterial({ baseColor: 0xe05030 }) }));
+      camera.mode = 'orthographic'; camera.orthographicSize = 1;
+      camera.position.set(0, 0, 5); camera.lookAt({ x: 0, y: 0, z: 0 });
+    };
+    const circle = (x) => ({ type: 'shape', shape: 'circle', radius: 25, initial: { x, y: 90, fillColor: '#ffffff' } });
+    const s3d = (x, name, extra = {}) => ({ type: 'scene3d', name, width: 70, height: 70, initial: { x, y: 90, anchorX: 0.5, anchorY: 0.5 }, setup: plane, ...extra });
+    const movie = new Movie();
+    window.movie = movie;
+    window.pixelAt = async (frame, x, y) => { const img = await movie.snapshot(frame, { as: 'imageData' }); const i = (y * img.width + x) * 4; return Array.from(img.data.slice(i, i + 4)); };
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 1, frameRate: 30, background: '#4080c0',
+        composition: { sequences: [
+          s3d(40, 'masked', { mask: circle(40) }),
+          s3d(120, 'masked-blurred', { mask: circle(120), filters: [{ type: 'blur', strength: 1 }] }),
+          { type: 'composition', name: 'filtered-parent', width: 320, height: 180, filters: [{ type: 'blur', strength: 0.5 }], sequences: [s3d(200, 'masked-in-filter', { mask: circle(200) })] },
+          { type: 'composition', name: 'card', threeD: true, width: 70, height: 70, initial: { x: 245, y: 55, rotationY: 20 },
+            sequences: [s3d(35, 'in-card', { initial: { x: 35, y: 35, anchorX: 0.5, anchorY: 0.5 } })] },
+          { type: 'camera' },
+        ] } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); window.__ready = true; }
+  </script>
+</body>
+</html>
