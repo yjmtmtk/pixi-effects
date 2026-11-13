@@ -35,6 +35,7 @@ export class Scene3DSequence extends Sequence {
   private _look: AlphaFilter | null = null;
   /** The layer's time, what PixiJS 3D's shader time `uTime` reads once pinned (see `_pinShaderTime`). */
   private _time = 0;
+  private _pinned = false;
 
   /** The PixiJS 3D view this layer shows (null before build and after destroy). */
   get view(): View3D | null { return this._view; }
@@ -104,7 +105,6 @@ export class Scene3DSequence extends Sequence {
     this._objects = objects;
     this._ctx = ctx;
     this._stopSelfUpdating(view.root);
-    if (renderer) this._pinShaderTime(view, renderer);
     this.buildFilters();
   }
 
@@ -121,23 +121,23 @@ export class Scene3DSequence extends Sequence {
 
   /**
    * PixiJS 3D (0.1.0) writes `performance.now()` into the shader time `uTime` of every view at every draw: a shader bit that reads it would follow the wall clock.
-   * The view's global uniforms exist after its first draw, so draw it once into a small texture, then make `uTime` read the layer's time and ignore the pipe's write.
-   * This reaches into the view's per-renderer data (`_gpuData[renderer.uid].globalUniformGroup.uniforms`); when that is not there (another version), say so once.
+   * The view's global uniforms exist once PixiJS has drawn it; from then on `uTime` reads the layer's time and the pipe's write is ignored. Tried before every frame
+   * until it holds (drawing the view on its own at build to make them sooner broke a stencil mask on it later). This reaches into the view's per-renderer data
+   * (`_gpuData[renderer.uid].globalUniformGroup.uniforms`); when that is there but has no `uTime` (another version), say so once.
    */
-  private _pinShaderTime(view: View3D, renderer: Renderer): void {
-    let rt: RenderTexture | null = null;
-    try {
-      rt = RenderTexture.create({ width: 1, height: 1 });
-      renderer.render({ container: view, target: rt, clear: true });
-      const data = (view as unknown as { _gpuData?: Record<number, { globalUniformGroup?: { uniforms?: Record<string, unknown> } }> })._gpuData?.[renderer.uid];
-      const uniforms = data?.globalUniformGroup?.uniforms;
-      if (!uniforms || !('uTime' in uniforms)) throw new Error('no global uniforms found');
-      Object.defineProperty(uniforms, 'uTime', { configurable: true, enumerable: true, get: () => this._time, set: () => { /* the pipe's wall clock: ignored */ } });
-    } catch (err) {
-      this._say('uTime', `could not tie PixiJS 3D's shader time uTime to the video's time (${err instanceof Error ? err.message : String(err)}): a custom shader bit that reads uTime follows the wall clock; give it a uniform you set from t instead`);
-    } finally {
-      rt?.destroy(true);
+  private _pinShaderTime(): void {
+    if (this._pinned) return;
+    const view = this._view, renderer = this.root.pixiRenderer as Renderer | undefined;
+    if (!view || !renderer) return;
+    const data = (view as unknown as { _gpuData?: Record<number, { globalUniformGroup?: { uniforms?: Record<string, unknown> } }> })._gpuData?.[renderer.uid];
+    if (!data) return;                                                                   // not drawn yet
+    this._pinned = true;
+    const uniforms = data.globalUniformGroup?.uniforms;
+    if (!uniforms || !('uTime' in uniforms)) {
+      this._say('uTime', "could not tie PixiJS 3D's shader time uTime to the video's time (no global uniforms found): a custom shader bit that reads uTime follows the wall clock; give it a uniform you set from t instead");
+      return;
     }
+    Object.defineProperty(uniforms, 'uTime', { configurable: true, enumerable: true, get: () => this._time, set: () => { /* the pipe's wall clock: ignored */ } });
   }
 
   /** PixiJS 3D draws the view in its materials' colours: a tint does nothing. Said once, at build. */
@@ -200,6 +200,7 @@ export class Scene3DSequence extends Sequence {
     if (!this._ctx) return;
     const t = Math.max(0, Math.min(local, this.duration ?? local));
     this._time = t;
+    this._pinShaderTime();
     const update = this._spec.update;
     if (update) {
       try {
