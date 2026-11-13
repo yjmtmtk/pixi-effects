@@ -1,5 +1,5 @@
 import { View3D, type Container3D } from '@pixi/3d';
-import type { Renderer } from 'pixi.js';
+import { AlphaFilter, type Container, type Filter, type Renderer } from 'pixi.js';
 import { Sequence } from '../sequences/Base';
 import { buildScope } from '../expr/Scope';
 import { evaluateExpr } from '../expr/Parser';
@@ -30,6 +30,8 @@ export class Scene3DSequence extends Sequence {
   private _players: ClipPlayer[] = [];
   /** Clips left playing after `update` (nobody posed them: `autoPlay`): the layer poses them from its own time every frame. */
   private _playedClips = new Set<ClipState>();
+  /** The layer's own last filter: what PixiJS 3D ignores on its view (alpha, its parents' alpha, a basic blend mode) applied to the view's picture. Only there while needed. */
+  private _look: AlphaFilter | null = null;
 
   /** The PixiJS 3D view this layer shows (null before build and after destroy). */
   get view(): View3D | null { return this._view; }
@@ -57,6 +59,7 @@ export class Scene3DSequence extends Sequence {
     const spec = this._spec;
     if (this.duration === undefined) this.duration = this.parent?.duration ?? this.root.duration;
     this._checkKeys();
+    this._checkTint();
     if (typeof spec.update === 'function' && NOT_PURE.test(spec.update.toString())) {
       this._say('pure', 'update calls Math.random, Date.now, performance.now or new Date, so it is not deterministic: the same frame would draw differently in playback, in a seek and in an export. Derive the value from t');
     }
@@ -109,6 +112,38 @@ export class Scene3DSequence extends Sequence {
       if ((THREE_ONLY as readonly string[]).includes(key)) { this._say(`key:${key}`, `${key} is not on scene3d yet; a three layer has it (type: 'three')`); continue; }
       const guess = suggestName(key, valid);
       this._say(`key:${key}`, `unknown key "${key}"${guess ? `; did you mean "${guess}"?` : ''} (a scene3d layer has ${OWN_KEYS.join(', ')} and the keys every layer has)`);
+    }
+  }
+
+  /** PixiJS 3D draws the view in its materials' colours: a tint does nothing. Said once, at build. */
+  private _checkTint(): void {
+    const spec = this._spec as { initial?: Record<string, unknown>; keyframes?: Array<{ to?: Record<string, unknown>; from?: Record<string, unknown> }> };
+    const uses = spec.initial?.tint !== undefined || (spec.keyframes ?? []).some(k => k?.to?.tint !== undefined || k?.from?.tint !== undefined);
+    if (uses) this._say('tint', 'tint is ignored on a scene3d layer (PixiJS 3D draws its own colours): colour the materials, or put a filter on the layer');
+  }
+
+  /**
+   * Every frame, before the draw: PixiJS 3D ignores the view's alpha (and its parents') and a basic blend mode, so when the layer is not at full strength or blends,
+   * its picture goes through one AlphaFilter of the layer's own, last in its filter list, that applies them. A layer at alpha 1 with a normal blend has no such filter.
+   */
+  override syncFrame(): void {
+    super.syncFrame();
+    const view = this._view;
+    if (!view) return;
+    let alpha = 1;
+    for (let c: Container | null = view; c; c = c.parent) alpha *= c.alpha;
+    const mode = String(view.blendMode ?? 'normal');
+    const blends = mode === 'add' || mode === 'screen' || mode === 'multiply';
+    const need = alpha < 1 || blends;
+    const current = (view.filters ?? []) as readonly Filter[];
+    const others = current.filter(f => f !== this._look);
+    if (need) {
+      const look = (this._look ??= new AlphaFilter({ alpha: 1 }));
+      look.alpha = alpha;
+      look.blendMode = (blends ? mode : 'normal') as AlphaFilter['blendMode'];
+      if (current[current.length - 1] !== look) view.filters = [...others, look];
+    } else if (others.length !== current.length) {
+      view.filters = others.length ? others : null;
     }
   }
 
@@ -207,6 +242,8 @@ export class Scene3DSequence extends Sequence {
     this._players = [];
     this._playedClips.clear();
     this._destroyView();
+    this._look?.destroy();
+    this._look = null;
     super.destroy();
   }
 }
