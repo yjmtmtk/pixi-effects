@@ -2,8 +2,8 @@
 <html lang="en">
 <head><meta charset="UTF-8" /><title>film · the recipe scene3d-basics, as written</title></head>
 <body style="margin:0">
-  <!-- Test film (tests/films/scene3d-recipe.test.ts): the recipe `scene3d-basics` of skills/pixi-effects/reference/recipes.md, fetched and run as written (only 'model.glb' is pointed at
-       tests/fixtures/spin-box.gltf). 1280 × 720, 5 s. The page gives pixelAt(frame, x, y), window.__logs. -->
+  <!-- Test film (tests/films/scene3d-recipe.test.ts): the recipe ?recipe=scene3d-basics (default) or scene3d-in-space of skills/pixi-effects/reference/recipes.md, fetched and run as written (only 'model.glb' is pointed at
+       tests/fixtures/spin-box.gltf). 1280 × 720, 5 s (the model and its clip are pointed at the fixture: spin-box.gltf, 'Spin'). The page gives pixelAt(frame, x, y), window.__logs. -->
   <canvas id="stage" width="1280" height="720"></canvas>
   <script>
     window.__logs = [];
@@ -14,7 +14,7 @@
     "@pixi/3d": "../../node_modules/@pixi/3d/dist/pixijs-3d.mjs", "@pixi/3d/extras": "../../node_modules/@pixi/3d/dist/pixijs-3d-extras.mjs" } }</script>
   <script type="module">
     import { Movie } from '../../dist/index.js';
-    import { register3D } from '../../dist/3d.js';
+    import { register3D, loadModel } from '../../dist/3d.js';
     import { Mesh3D, Model3D, PlaneGeometry, CubeGeometry, Material3D, DirectionalLight } from '@pixi/3d';
     import { Assets } from 'pixi.js';
     register3D();
@@ -23,9 +23,11 @@
     window.pixelAt = async (frame, x, y) => { const img = await movie.snapshot(frame, { as: 'imageData' }); const i = (y * img.width + x) * 4; return Array.from(img.data.slice(i, i + 4)); };
     try {
       const md = await (await fetch('../../skills/pixi-effects/reference/recipes.md')).text();
-      const body = md.split('// @docs-only scene3d-basics')[1].split('```')[0].replaceAll("'model.glb'", "'../fixtures/spin-box.gltf'");
+      const id = new URLSearchParams(location.search).get('recipe') || 'scene3d-basics';
+      const body = md.split(`// @docs-only ${id}`)[1].split('```')[0]
+        .replaceAll("'model.glb'", "'../fixtures/spin-box.gltf'").replaceAll("'Fox.glb'", "'../fixtures/spin-box.gltf'").replaceAll("animation: 'Run'", "animation: 'Spin'");      // the fixture model and its clip
       const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-      const sequences = await new AsyncFunction('Mesh3D', 'Model3D', 'PlaneGeometry', 'CubeGeometry', 'Material3D', 'DirectionalLight', 'Assets', body)(Mesh3D, Model3D, PlaneGeometry, CubeGeometry, Material3D, DirectionalLight, Assets);
+      const sequences = await new AsyncFunction('loadModel', 'Mesh3D', 'Model3D', 'PlaneGeometry', 'CubeGeometry', 'Material3D', 'DirectionalLight', 'Assets', body)(loadModel, Mesh3D, Model3D, PlaneGeometry, CubeGeometry, Material3D, DirectionalLight, Assets);
       await movie.init({ canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 5, frameRate: 30, background: '#000000', composition: { sequences } });
       window.__ready = true;
     } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); window.__ready = true; }

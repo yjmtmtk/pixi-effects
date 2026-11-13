@@ -14,6 +14,8 @@ import type { Scene3DSequenceSpec } from './types';
 
 export { Scene3DSequence } from './Scene3DSequence';
 export { layerTexture } from './layerTexture';
+export { loadModel, fitCamera } from './gltf';
+export type { LoadModelOptions, LoadedModel, FitCameraOptions } from './gltf';
 export type { LayerTexture, LayerTextureOptions } from './layerTexture';
 export type { Scene3DContext, Scene3DSetupResult, Scene3DSequenceSpec } from './types';
 

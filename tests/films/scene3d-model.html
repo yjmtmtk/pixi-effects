@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · loadModel and fitCamera</title></head>
+<body style="margin:0">
+  <!-- Test film (tests/films/scene3d-model.test.ts): loadModel('../fixtures/long-box.gltf' or spin-box.gltf) in a scene3d layer, fit to a size, posed from t; fitCamera puts the
+       camera where the whole model fits. ?file=spin|long ?fit=N ?animation=Spin|0|false ?speed ?offset ?loop=0 ?dir=x,y,z ?margin. The page gives window.model (clips, size()),
+       corners() (the canvas points of the model's 8 box corners), hashOf(frame), window.__logs. -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+    "@pixi/3d": "../../node_modules/@pixi/3d/dist/pixijs-3d.mjs", "@pixi/3d/extras": "../../node_modules/@pixi/3d/dist/pixijs-3d-extras.mjs" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    import { register3D, loadModel, fitCamera } from '../../dist/3d.js';
+    import * as P3D from '@pixi/3d';
+    register3D();
+    const q = new URLSearchParams(location.search);
+    const file = q.get('file') === 'long' ? '../fixtures/long-box.gltf' : '../fixtures/spin-box.gltf';
+    const anim = q.get('animation'); const animation = anim === null ? undefined : anim === 'false' ? false : /^\d+$/.test(anim) ? Number(anim) : anim;
+    let view = null;
+    const movie = new Movie();
+    window.movie = movie;
+    window.hashOf = async (frame) => { const d = (await movie.snapshot(frame, { as: 'imageData' })).data; let h = 0x811c9dc5; for (let i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); };
+    window.corners = () => {
+      const o = window.model.object;
+      const b = o.getLocalBounds().applyMatrix4(o.getGlobalTransform(new P3D.Matrix4()));
+      const out = [];
+      for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) for (const z of [b.min.z, b.max.z]) { const s = view.worldToScreen({ x, y, z }); out.push(s ? [s.x, s.y] : null); }
+      return out;
+    };
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: 30, background: '#101820',
+        composition: { sequences: [
+          { type: 'scene3d', name: 'stage',
+            setup: async (ctx) => {
+              view = ctx.view;
+              const m = await loadModel(file, { ...(animation !== undefined ? { animation } : {}), ...(q.get('speed') ? { speed: Number(q.get('speed')) } : {}), ...(q.get('offset') ? { offset: Number(q.get('offset')) } : {}), ...(q.get('loop') === '0' ? { loop: false } : {}) });
+              window.model = m;
+              if (q.get('fit')) m.fit(Number(q.get('fit')));
+              ctx.root.addChild(m.object, new P3D.AmbientLight({ intensity: 1 }));
+              const sun = new P3D.DirectionalLight({ intensity: 3 }); sun.rotation.set(-0.7, 0.6, 0); ctx.root.addChild(sun);
+              fitCamera(ctx, m.object, { ...(q.get('dir') ? { direction: q.get('dir').split(',').map(Number) } : {}), ...(q.get('margin') ? { margin: Number(q.get('margin')) } : {}) });
+            },
+            update: (t) => window.model.pose(t) },
+        ] } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); window.__ready = true; }
+  </script>
+</body>
+</html>

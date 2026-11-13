@@ -1294,14 +1294,14 @@ function placeholderPhoto(name, hueA, hueB, w = 1920, h = 1080) {
 
 ## A 3D scene with a model, a light and a shadow, under a title (`scene3d`)
 
-A real 3D scene as one layer, drawn by PixiJS 3D inside PixiJS itself: a floor that receives a shadow, a glTF model whose clip is posed from the time, a cube moved by a keyframe, a sun that casts. The layer takes a mask like any layer: a circle wipe reveals it, and a 2D title sits over it. Everything in `update` is set from `t` (a function of the time: playback, a seek and an export agree). The model is the file's size: read `model.getLocalBounds()` and set `model.scale` if it is not about 1–2 units tall.
+A real 3D scene as one layer, drawn by PixiJS 3D inside PixiJS itself: a floor that receives a shadow, a glTF model whose clip is posed from the time, a cube moved by a keyframe, a sun that casts. The layer takes a mask like any layer: a circle wipe reveals it, and a 2D title sits over it. Everything in `update` is set from `t` (a function of the time: playback, a seek and an export agree). `loadModel` names the clips (`model.clips`), measures the model (`model.size()`), fits it (`model.fit(n)`: the longest side n units) and poses it from the time (`model.pose(t)`); `fitCamera(ctx, model.object)` puts the camera where the whole model fits.
 
 ```js
 // @docs-only scene3d-basics
-// import { register3D } from 'pixi-effects/3d';   register3D();   (before movie.init)
-// import { Mesh3D, Model3D, PlaneGeometry, CubeGeometry, Material3D, DirectionalLight } from '@pixi/3d';   import { Assets } from 'pixi.js';
+// import { register3D, loadModel } from 'pixi-effects/3d';   register3D();   (before movie.init)
+// import { Mesh3D, PlaneGeometry, CubeGeometry, Material3D, DirectionalLight } from '@pixi/3d';
 // composition 1280 x 720, 5 s. 'model.glb' sits next to the page.
-let clip = null;
+let model;
 return [
   { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#0d1220' } },
   { type: 'scene3d', name: 'stage',
@@ -1309,20 +1309,20 @@ return [
     setup: async ({ root, camera }) => {
       const floor = new Mesh3D({ geometry: new PlaneGeometry({ width: 40, height: 40 }), material: new Material3D({ baseColor: 0x2a3142, roughness: 0.9 }),
         rotation: { x: -Math.PI / 2, y: 0, z: 0 }, receiveShadow: true });                              // a plane lies in XY: turned flat, it is a floor
-      const model = new Model3D({ source: await Assets.load('model.glb'), castShadow: true });
+      model = await loadModel('model.glb');                                                             // its first clip, posed from t below
+      model.fit(1.6);                                                                                   // the longest side 1.6 units, whatever the file's own size
+      model.object.position.set(0, 0.8, 0);                                                             // its centre: standing on the floor
       const cube = new Mesh3D({ geometry: new CubeGeometry({ width: 0.8, height: 0.8, depth: 0.8 }), material: new Material3D({ baseColor: 0xff7a1a, roughness: 0.4 }),
         position: { x: -2.2, y: 0.4, z: 0 }, castShadow: true });
       const sun = new DirectionalLight({ intensity: 3, castShadow: true });
       sun.rotation.set(-0.9, 0.6, 0);                                                                   // lights look down their -z: aim by rotation
-      root.addChild(floor, model, cube, sun);
+      root.addChild(floor, model.object, cube, sun);
       camera.position.set(0, 2.2, 6);
       camera.lookAt({ x: 0, y: 0.6, z: 0 });
-      const label = model.player.animationLabels[0];                                                    // the file's first clip, if it has one
-      clip = label ? model.player.getState(label) : null;
-      return { objects: { cube, model } };                                                              // keyframes reach them as scene3d.cube.…
+      return { objects: { cube } };                                                                     // keyframes reach it as scene3d.cube.…
     },
     update: (t, { objects }) => {
-      clip?.gotoAndStop(t % clip.animation.duration);                                                   // the clip at the layer's time
+      model.pose(t);                                                                                    // the clip at the layer's time
       objects.cube.rotation.y = t * 1.5;
     },
     keyframes: [{ at: 1, to: { 'scene3d.cube.position.x': 2.2 }, duration: 2.5, ease: 'sine.inOut' }],
@@ -1334,7 +1334,37 @@ return [
 ];
 ```
 
-Opacity, blend modes and filters work on the layer as on any layer (`alpha` fades the whole scene). What it does not have yet: following the composition's camera and lights, picking into the scene, a 2D layer on a mesh — a `three` layer has those (recipes below).
+Opacity, blend modes and filters work on the layer as on any layer (`alpha` fades the whole scene). It can live in the composition's own camera and lights (`followCamera`, `followLights`: recipe `scene3d-in-space`), be clicked into (`movie.pick` names the object), and show a 2D layer on a mesh (`layerTexture`).
+
+---
+
+## A model that runs through the composition's space, past a title (`scene3d`, `followCamera`, `followLights`)
+
+The scene3d layer lives in the composition's space: its camera IS the composition's `camera` layer and the composition's `light` layers light it, so one camera move carries a flat text card and a 3D model together. The scene is in composition pixels with y flipped: a composition point (x, y, z) is (x, −y, z) in the scene; `fit(px)` sizes a model in metres to pixels. PixiJS 3D lights in linear light, so a 3D surface is brighter in the shade than a flat card under the same light: pick the intensities by looking.
+
+```js
+// @docs-only scene3d-in-space
+// import { register3D, loadModel } from 'pixi-effects/3d';   register3D();   (before movie.init)
+// composition 1280 x 720, 4 s. 'Fox.glb' sits next to the page; the model faces +z in the file: rotation.y = PI / 2 runs it toward +x.
+let fox;
+return [
+  { type: 'camera', keyframes: [{ at: 0, from: { x: 420, lookAtX: 'GW/2' }, to: { x: 860 }, duration: 4, ease: 'sine.inOut' }] },   // moves the text card AND the model
+  { type: 'light', kind: 'ambient', initial: { intensity: 0.4 } },
+  { type: 'light', kind: 'parallel', initial: { x: 140, y: -260, z: 900, lookAtX: 'GW/2', lookAtY: 'GH/2', lookAtZ: 0, intensity: 0.8 } },
+  { type: 'text', text: 'FOX', threeD: true, style: { fontSize: 420, fontWeight: '900', fill: '#ff7a1a' }, initial: { x: 'GW/2', y: 'GH/2', z: -500, anchorX: 0.5, anchorY: 0.5 } },
+  { type: 'scene3d', name: 'fox', followCamera: true, followLights: true,               // covers the composition and sits in the stack like any layer
+    setup: async ({ root }) => {
+      fox = await loadModel('Fox.glb', { animation: 'Run' });                            // a clip name, an index, or false (the bind pose); speed, offset, loop
+      fox.fit(480);                                                                      // the longest side in px: the model is in metres, the scene in pixels
+      fox.object.rotation.y = Math.PI / 2;                                               // faces +x
+      fox.object.position.set(640, -400, 0);                                             // the composition point (640, 400), y flipped
+      root.addChild(fox.object);
+    },
+    update: (t) => fox.pose(t) },                                                        // the clip at the layer's time: a function of t
+];
+```
+
+Shadows: give a `parallel` or `spot` light `castsShadows: true` (meshes cast and receive by default in PixiJS 3D; a point light casts none). Fog: `followFog: true`.
 
 ---
 
