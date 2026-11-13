@@ -42,6 +42,13 @@ export interface Scene3DSequenceSpec extends SequenceCommon {
    * (x, -y, z) here. Give the layer the composition's size (the default).
    */
   followCamera?: boolean;
+  /**
+   * The composition's `light` layers become PixiJS 3D lights in this scene (ambient, point, spot, parallel; same position, colour, intensity, cone, falloff), moved every
+   * frame. A parallel or spot light with `castsShadows` casts in the scene (meshes cast and receive by default in PixiJS 3D); a point light cannot cast in PixiJS 3D (it says so).
+   */
+  followLights?: boolean;
+  /** The composition camera's fog (`fogNear` / `fogFar` / `fogColor`) becomes the view's linear fog, every frame (PixiJS 3D fades by smoothstep; no `fogAmount` below 1). */
+  followFog?: boolean;
   /** The view's resolution (1 draws at the layer's size; another value draws the scene at that scale and composites it). */
   resolution?: number;
   /** Build the scene: add objects to `ctx.root`, place `ctx.camera`. May be async (a model loads): Movie.init waits for it. */

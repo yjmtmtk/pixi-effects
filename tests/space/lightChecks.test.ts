@@ -61,6 +61,7 @@ describe('lightSetProblems', () => {
     const lights = [light({ kind: 'spot', castsShadows: true }), light({ kind: 'ambient' })];
     expect(lightSetProblems([...lights, card()]).join('\n')).toContain('no layer has castsShadows');
     expect(lightSetProblems([...lights, S({ type: 'three', followLights: true })]).join('\n')).not.toContain('no layer has castsShadows');
+    expect(lightSetProblems([...lights, S({ type: 'scene3d', followLights: true })]).join('\n')).not.toContain('no layer has castsShadows');      // a scene3d layer's own meshes cast
     expect(lightSetProblems([...lights, S({ type: 'three' })]).join('\n')).toContain('no layer has castsShadows');       // a three layer that does not follow the lights is no host
   });
 });

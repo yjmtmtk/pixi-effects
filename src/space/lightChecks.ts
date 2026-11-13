@@ -105,7 +105,7 @@ export function lightSetProblems(layers: readonly SequenceSpec[]): string[] {
   const lightsCast = lights.some(l => kindOf(l) !== 'ambient' && (l as { castsShadows?: boolean }).castsShadows);
   const casters = layers.filter(l => l.type !== 'light' && (l as { castsShadows?: boolean }).castsShadows && (l as { threeD?: boolean }).threeD);
   if (casters.length > 0 && !lightsCast) out.push(`${casters.length} layer${casters.length > 1 ? 's have' : ' has'} castsShadows but no light has castsShadows: add castsShadows: true to the light that should make the shadows`);
-  const hostsThree = layers.some(l => (l as { type?: string }).type === 'three' && (l as { followLights?: boolean }).followLights);     // its own meshes cast, in three
+  const hostsThree = layers.some(l => ((l as { type?: string }).type === 'three' || (l as { type?: string }).type === 'scene3d') && (l as { followLights?: boolean }).followLights);     // its own meshes cast, in the 3D scene
   if (lightsCast && casters.length === 0 && !hostsThree) out.push('a light has castsShadows but no layer has castsShadows: add castsShadows: true to the threeD layers that should cast a shadow');
   if (lightsCast && casters.length > MAX_CASTERS) {
     const dropped = casters.slice(MAX_CASTERS).map(c => nameOf(c, layers.indexOf(c)));

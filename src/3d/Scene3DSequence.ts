@@ -8,15 +8,15 @@ import type { PathRouters } from '../core/Timeline';
 import { COMMON } from '../core/layerKeys';
 import { suggestName } from '../core/options';
 import { NOT_PURE } from '../core/purity';
-import { applyCameraState } from './spaceBridge';
+import { applyCameraState, FogMirror, LightMirror } from './spaceBridge';
 import { blendFilterFor, isAdvancedBlend, type BlendFilterLike } from '../core/blend';
 import type { PropValue } from '../types';
 import type { Scene3DContext, Scene3DSequenceSpec } from './types';
 
 /** The keys a scene3d layer has besides the common ones. */
-const OWN_KEYS = ['width', 'height', 'view', 'resolution', 'setup', 'update', 'dispose', 'followCamera'] as const;
+const OWN_KEYS = ['width', 'height', 'view', 'resolution', 'setup', 'update', 'dispose', 'followCamera', 'followLights', 'followFog'] as const;
 /** Keys a `three` layer has that a scene3d layer does not have yet (they come in a later release). */
-const THREE_ONLY = ['followLights', 'followFog', 'renderer', 'shareGpu', 'antialias', 'reuse'] as const;
+const THREE_ONLY = ['renderer', 'shareGpu', 'antialias', 'reuse'] as const;
 /** What the layer owns: given in `view`, they are ignored. */
 const LAYER_OWNED = ['width', 'height', 'autoResize'] as const;
 
@@ -37,6 +37,8 @@ export class Scene3DSequence extends Sequence {
   private _blend: BlendFilterLike | null = null;
   /** The layer's time, what PixiJS 3D's shader time `uTime` reads once pinned (see `_pinShaderTime`). */
   private _time = 0;
+  private _lightMirror: LightMirror | null = null;
+  private _fogMirror: FogMirror | null = null;
   private _pinned = false;
 
   /** The PixiJS 3D view this layer shows (null before build and after destroy). */
@@ -149,17 +151,23 @@ export class Scene3DSequence extends Sequence {
    */
   private _followSpace(t: number): void {
     const spec = this._spec;
-    if (!spec.followCamera) return;
+    if (!spec.followCamera && !spec.followLights && !spec.followFog) return;
     const ctx = this._ctx, view = this._view;
     if (!ctx || !view) return;
     if (!this.parent?.spaceAt) {
-      this._say('parent', 'followCamera needs the layer to sit in a composition that has a camera to follow; this layer\'s parent cannot say (it keeps its own camera)');
+      this._say('parent', 'followCamera / followLights / followFog need the layer to sit in a composition that has a camera or a light to follow; this layer\'s parent cannot say (it keeps its own camera and lights)');
       return;
     }
     const space = this.parent.spaceAt((this.absoluteStart ?? this.at) + t);
     ctx.space = space;
-    applyCameraState(view.camera, space.camera);
+    if (spec.followCamera) applyCameraState(view.camera, space.camera);
+    if (spec.followLights) (this._lightMirror ??= new LightMirror(view.root, Math.max(ctx.width, ctx.height) * 2, (m) => this._say(`light:${m}`, m), { x: ctx.width / 2, y: -ctx.height / 2, z: 0 })).update(space.lights);
+    if (spec.followFog) {
+      if (space.fog && space.fog.amount !== 1) this._say('fogAmount', `followFog: the camera's fogAmount is ${space.fog.amount}, and PixiJS 3D's fog has no amount below 1: the layer uses the full amount (set fogColor to the colour you want at the far end, or leave followFog off and set view.fog yourself from ctx.space.fog)`);
+      (this._fogMirror ??= new FogMirror(view)).update(space.fog);
+    }
   }
+
 
   /** followCamera shows the whole composition through the layer's picture: a layer of another shape would show it squeezed or cut. Said once at build. */
   private _checkFollowShape(width: number, height: number): void {
@@ -360,6 +368,9 @@ export class Scene3DSequence extends Sequence {
     if (this._ctx && spec.dispose) {
       try { spec.dispose(this._ctx); } catch (err) { console.warn(`${this._who()}: dispose() threw —`, err); }
     }
+    this._lightMirror?.dispose();
+    this._lightMirror = null;
+    this._fogMirror = null;
     this._ctx = null;
     this._objects = {};
     this._players = [];

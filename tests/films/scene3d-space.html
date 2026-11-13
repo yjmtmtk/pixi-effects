@@ -4,7 +4,7 @@
 <body>
   <!-- Test film (tests/films/scene3d-space.test.ts): the same composition (a camera that moves and changes fov) drawn two ways:
        ?mode=board: three flat cards (shape layers with threeD: true), the composition's own 2.5D;  ?mode=scene3d: three flat unlit planes in ONE scene3d layer with followCamera.
-       ?big=1: 1280 x 720 (everything scaled) instead of 480 x 270. ?aspect=1: the scene3d layer is given a size of another shape (it must warn).
+       ?big=1: 1280 x 720 (everything scaled) instead of 480 x 270. ?aspect=1: the scene3d layer is given a size of another shape (it must warn). ?lights=none|ambient|point|parallel|spot ?falloff=smooth|inverseSquare (&radius, &falldist) ?lamp=late (a point light from 1 s to 2 s) ?fog=1 (&fogAmount) ?shadow=spot|parallel|point (&gap: caster to wall, px at 960 x 540) ?ownLight=1 (the scene's own ambient light, no light layer). ?noshadow=1: the same shadow scene with castsShadows off (the reference). ?lamp=off: the late lamp's scene without the lamp.
        The page gives the test framePixels, pixelAt, hashOf. -->
   <canvas id="stage" width="480" height="270"></canvas>
   <script>
@@ -26,18 +26,49 @@
     document.getElementById('stage').width = W; document.getElementById('stage').height = H;
     const s = (n) => n * K;
     const BOXES = [ { x: 300, y: 270, z: 0, c: '#3a6ea5' }, { x: 660, y: 270, z: -300, c: '#d96a3a' }, { x: 480, y: 330, z: 250, c: '#3aa56e' } ];
-    const sequences = [
-      { type: 'camera', name: 'cam', keyframes: [{ at: 0, from: { x: W / 2, y: H / 2, fov: 40 }, to: { x: s(780), y: s(150), fov: 70 }, duration: DUR, ease: 'none' }] },
+    const kind = q.get('lights') || 'none', lamp = q.get('lamp');
+    const LIGHTS = {
+      none: [],
+      ambient: [{ kind: 'ambient', initial: { intensity: 0.3 } }],
+      point: [{ kind: 'ambient', initial: { intensity: 0.2 } }, { kind: 'point', initial: { x: s(300), y: s(100), z: s(700), intensity: 1 } }],
+      parallel: [{ kind: 'ambient', initial: { intensity: 0.2 } }, { kind: 'parallel', initial: { x: s(100), y: s(50), z: s(500), lookAtX: s(480), lookAtY: s(270), lookAtZ: 0, intensity: 0.8 } }],
+      spot: [{ kind: 'ambient', initial: { intensity: 0.2 } }, { kind: 'spot', initial: { x: s(420), y: s(60), z: s(700), lookAtX: s(480), lookAtY: s(300), lookAtZ: 0, coneAngle: 50, coneFeather: 0.5, intensity: 1 } }],
+      lampOnly: [{ kind: 'ambient', initial: { intensity: 0.2 } }, { kind: 'point', at: 1, duration: 1, initial: { x: s(300), y: s(100), z: s(700), intensity: 1 } }],
+      lampOff: [{ kind: 'ambient', initial: { intensity: 0.2 } }],
+    }[lamp === 'late' ? 'lampOnly' : lamp === 'off' ? 'lampOff' : kind];
+    const fog = q.get('fog') === '1', fogAmount = q.get('fogAmount');
+    const shadow = q.get('shadow');                                     // 'spot' | 'parallel' | 'point'
+    const GAP = Number(q.get('gap') || 300);                            // how far the caster stands in front of the wall (px at 960 x 540)
+    const FALL = q.get('falloff'), RADIUS = Number(q.get('radius') || 300), FALLDIST = Number(q.get('falldist') || 300);
+    if (FALL) for (const l of LIGHTS) if (l.kind === 'point' || l.kind === 'spot') { l.falloff = FALL; l.initial = { ...l.initial, radius: s(RADIUS), falloffDistance: s(FALLDIST) }; }
+    const lit = LIGHTS.length > 0 || !!shadow;
+    const material = (c) => lit ? new P3D.PhongMaterial({ baseColor: c, specularStrength: 0, doubleSided: true }) : new P3D.FlatMaterial({ baseColor: c });
+    const plane = (root, o) => { const m = new P3D.Mesh3D({ geometry: new P3D.PlaneGeometry({ width: o.w, height: o.h }), material: material(o.c) }); m.position.set(o.x, -o.y, o.z); root.addChild(m); return m; };
+    const sequences = shadow ? [
+      { type: 'light', kind: 'ambient', initial: { intensity: 0.3 } },
+      shadow === 'parallel'
+        ? { type: 'light', kind: 'parallel', castsShadows: q.get('noshadow') !== '1', initial: { x: s(300), y: s(80), z: s(700), lookAtX: s(480), lookAtY: s(270), lookAtZ: 0, intensity: 1 } }
+        : { type: 'light', kind: shadow, castsShadows: q.get('noshadow') !== '1', initial: { x: s(300), y: s(80), z: s(700), lookAtX: s(480), lookAtY: s(270), lookAtZ: 0, coneAngle: 70, coneFeather: 0.3, intensity: 1 } },
+    ] : [
+      { type: 'camera', name: 'cam', ...(fog ? { initial: { fogNear: s(150 * 2), fogFar: s(600 * 2), fogColor: '#0a1020', ...(fogAmount ? { fogAmount: Number(fogAmount) } : {}) } } : {}), keyframes: [{ at: 0, from: { x: W / 2, y: H / 2, fov: 40 }, to: { x: s(780), y: s(150), fov: 70 }, duration: DUR, ease: 'none' }] },
+      ...LIGHTS.map((l) => ({ type: 'light', ...l })),
     ];
-    if (mode === 'board') {
+    if (shadow) {
+      const WALL = { x: s(480), y: s(270), z: s(-GAP), w: s(880), h: s(480), c: '#3a6ea5' }, CARD = { x: s(440), y: s(270), z: 0, w: s(200), h: s(200), c: '#d96a3a' };
+      if (mode === 'board') {
+        sequences.push({ type: 'shape', shape: 'rect', width: WALL.w, height: WALL.h, threeD: true, initial: { x: WALL.x, y: WALL.y, z: WALL.z, anchorX: 0.5, anchorY: 0.5, fillColor: WALL.c } });
+        sequences.push({ type: 'shape', shape: 'rect', width: CARD.w, height: CARD.h, threeD: true, castsShadows: q.get('noshadow') !== '1', initial: { x: CARD.x, y: CARD.y, z: CARD.z, anchorX: 0.5, anchorY: 0.5, fillColor: CARD.c } });
+      } else {
+        sequences.push({ type: 'scene3d', name: 'world', followCamera: true, followLights: true,
+          setup: ({ root }) => { const w = plane(root, WALL); w.castShadow = false; w.receiveShadow = true; const c = plane(root, CARD); c.castShadow = true; c.receiveShadow = false; } });
+      }
+    } else if (mode === 'board') {
       for (const b of BOXES) sequences.push({ type: 'shape', shape: 'rect', width: s(200), height: s(200), threeD: true, initial: { x: s(b.x), y: s(b.y), z: s(b.z), anchorX: 0.5, anchorY: 0.5, fillColor: b.c } });
     } else {
-      sequences.push({ type: 'scene3d', name: 'world', followCamera: true, ...(q.get('aspect') === '1' ? { width: W, height: W } : {}),
+      sequences.push({ type: 'scene3d', name: 'world', followCamera: true, followLights: true, followFog: true, ...(q.get('aspect') === '1' ? { width: W, height: W } : {}),
         setup: ({ root }) => {
-          for (const b of BOXES) {
-            const m = new P3D.Mesh3D({ geometry: new P3D.PlaneGeometry({ width: s(200), height: s(200) }), material: new P3D.FlatMaterial({ baseColor: b.c }) });
-            m.position.set(s(b.x), -s(b.y), s(b.z)); root.addChild(m);
-          }
+          for (const b of BOXES) plane(root, { x: s(b.x), y: s(b.y), z: s(b.z), w: s(200), h: s(200), c: b.c });
+          if (q.get('ownLight') === '1') { const own = new P3D.AmbientLight({ intensity: 2 }); root.addChild(own); }
         } });
     }
     const movie = new Movie();
