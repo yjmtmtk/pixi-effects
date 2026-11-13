@@ -520,7 +520,7 @@ export async function runCheck(opts, log = console.log) {
     const layoutProblems = rv.problems.filter(g => g.kind !== 'canvas'), canvasProblems = rv.problems.filter(g => g.kind === 'canvas');
     report.inspect = { checkedFrames: rv.frames, issues: layoutProblems, review: rv.review, canvas: canvasProblems.map(g => g.message), canvasLayers: rv.canvas ?? [] };
     if (layoutProblems.length) report.problems.push(`${layoutProblems.length} kind(s) of layout issue from movie.inspect`);
-    if (canvasProblems.length) report.problems.push(`${canvasProblems.length} layer(s) (canvas / three / scene3d) that do not draw the same picture for the same time (movie.canvasProblems)`);
+    if (canvasProblems.length) report.problems.push(`${canvasProblems.length} layer(s) (canvas / three / scene3d / scene2d) that do not draw the same picture for the same time (movie.canvasProblems)`);
     // fonts: a web font whose file did not load is a problem (the library lists a layer with no available font for review)
     report.fonts = rv.fonts;
     if (rv.fonts.failed.length) report.problems.push(`${rv.fonts.failed.length} web font(s) failed to load: ${rv.fonts.failed.join(', ')} (the layers that use them are drawn in a fallback)`);
@@ -553,7 +553,7 @@ export async function runCheck(opts, log = console.log) {
         if (rows.some(([, px]) => px > 0)) w.depthBlur = Object.fromEntries(rows);
         // pick: what is under each --pick point at this moment (the frame is on screen after the snapshot above)
         if (opts.pick.length) {
-          w.pick = await cdp.eval(`(${JSON.stringify(opts.pick)}).map(p => ({ x: p.x, y: p.y, hits: movie.pickAll(p.x, p.y).map(h => ({ name: h.name ?? h.path, path: h.path, kind: h.kind, object: h.three ? h.three.object : h.scene3d ? h.scene3d.object : undefined })) }))`).catch(() => []);
+          w.pick = await cdp.eval(`(${JSON.stringify(opts.pick)}).map(p => ({ x: p.x, y: p.y, hits: movie.pickAll(p.x, p.y).map(h => ({ name: h.name ?? h.path, path: h.path, kind: h.kind, object: h.three ? h.three.object : h.scene3d ? h.scene3d.object : h.scene2d ? h.scene2d.object : undefined })) }))`).catch(() => []);
         }
         // light: how lit each threeD layer is at this moment (left out when the composition has no light)
         const lit = await cdp.eval(`movie.inspect(${w.frame}).then(r => r.layers.filter(l => l.light !== undefined).map(l => [l.path, l.light]))`).catch(() => []);
@@ -895,7 +895,7 @@ export async function runSteps(cdp, steps, outDir, size, consoleLines, seenLogs)
     await sleep(300);                                                       // the page's handlers and rebuilds settle
     const after = await cdp.eval('JSON.parse(JSON.stringify(movie.vars || {}))').catch(() => ({}));
     res.vars = Object.fromEntries(Object.keys({ ...before, ...after }).filter(k => JSON.stringify(before[k]) !== JSON.stringify(after[k])).map(k => [k, [before[k], after[k]]]));
-    if (last) res.hits = await cdp.eval(`movie.pickAll(${last.x}, ${last.y}).map(h => h.kind === 'three' ? h.path + ' (three: ' + (h.three && h.three.object || '?') + ')' : h.kind === 'scene3d' ? h.path + ' (scene3d: ' + (h.scene3d && h.scene3d.object || '?') + ')' : h.path)`).catch(() => []);
+    if (last) res.hits = await cdp.eval(`movie.pickAll(${last.x}, ${last.y}).map(h => h.kind === 'three' ? h.path + ' (three: ' + (h.three && h.three.object || '?') + ')' : h.kind === 'scene3d' ? h.path + ' (scene3d: ' + (h.scene3d && h.scene3d.object || '?') + ')' : h.kind === 'scene2d' ? h.path + ' (scene2d: ' + (h.scene2d && h.scene2d.object || '?') + ')' : h.path)`).catch(() => []);
     res.frame = await cdp.eval('movie.currentFrame').catch(() => null);
     res.playing = await cdp.eval('!!movie.isPlaying').catch(() => null);
     const now = await pageLogs();
@@ -930,8 +930,8 @@ function finish(report, outDir, log) {
     if (g.length > 8) L.push(`            … ${g.length - 8} more (report.json)`);
     const cv = report.inspect.canvas ?? [];
     const rows = report.inspect.canvasLayers ?? [];
-    if (cv.length) { L.push(`  canvas    ${cv.length} layer(s) (canvas / three / scene3d) that do not draw the same picture for the same time:`); for (const m of cv.slice(0, 4)) L.push(`            - ${m}`); }
-    for (const kind of ['canvas', 'three', 'scene3d']) {                       // silence must not be the only sign that the check ran
+    if (cv.length) { L.push(`  canvas    ${cv.length} layer(s) (canvas / three / scene3d / scene2d) that do not draw the same picture for the same time:`); for (const m of cv.slice(0, 4)) L.push(`            - ${m}`); }
+    for (const kind of ['canvas', 'three', 'scene3d', 'scene2d']) {                       // silence must not be the only sign that the check ran
       const mine = rows.filter(r => (r.kind ?? 'canvas') === kind);
       if (!mine.length) continue;
       const good = mine.filter(r => r.ok), slow = [...mine].sort((a, b) => b.drawMs - a.drawMs)[0];
@@ -952,7 +952,7 @@ function finish(report, outDir, log) {
   }
   for (const w of (report.at ?? []).filter(x => x.pick)) {
     for (const p of w.pick) {
-      const says = p.hits.length ? p.hits.map(h => h.kind === 'three' || h.kind === 'scene3d' ? `${h.name} (${h.kind}: ${h.object || '?'})` : h.name).join(', ') : 'nothing';
+      const says = p.hits.length ? p.hits.map(h => h.kind === 'three' || h.kind === 'scene3d' || h.kind === 'scene2d' ? `${h.name} (${h.kind}: ${h.object || '?'})` : h.name).join(', ') : 'nothing';
       L.push(`  pick      ${w.label} (${p.x}, ${p.y}) — ${says}`);
     }
   }

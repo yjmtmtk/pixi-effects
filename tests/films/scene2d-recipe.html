@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · the recipe scene2d-basics, as written</title></head>
+<body style="margin:0">
+  <!-- Test film (tests/films/scene2d-recipe.test.ts): the recipe scene2d-basics of skills/pixi-effects/reference/recipes.md, fetched and run as written. 1280 × 720, 4 s.
+       The page gives pixelAt(frame, x, y), hashOf(frame), window.__logs. -->
+  <canvas id="stage" width="1280" height="720"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": { "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }</script>
+  <script type="module">
+    import { Movie, random } from '../../dist/index.js';
+    import { Graphics } from 'pixi.js';
+    const movie = new Movie();
+    window.movie = movie;
+    window.pixelAt = async (frame, x, y) => { const img = await movie.snapshot(frame, { as: 'imageData' }); const i = (y * img.width + x) * 4; return Array.from(img.data.slice(i, i + 4)); };
+    window.hashOf = async (frame) => { const d = (await movie.snapshot(frame, { as: 'imageData' })).data; let h = 0x811c9dc5; for (let i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); };
+    try {
+      const md = await (await fetch('../../skills/pixi-effects/reference/recipes.md')).text();
+      const body = md.split('// @docs-only scene2d-basics')[1].split('```')[0];
+      const sequences = new Function('random', 'Graphics', body)(random, Graphics);
+      await movie.init({ canvas: document.getElementById('stage'), width: 1280, height: 720, duration: 4, frameRate: 30, background: '#000000', composition: { sequences } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); window.__ready = true; }
+  </script>
+</body>
+</html>

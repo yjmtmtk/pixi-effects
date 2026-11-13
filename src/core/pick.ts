@@ -13,8 +13,8 @@ export interface PickHit {
   /** Names (or `type#index`) from the root, joined by `/`: the same as `movie.inspect()`'s `path`. */
   path: string;
   type: string;
-  /** `'flat'`: a 2D layer; `'card'`: a `threeD` layer (its projected card); `'scene3d'`: a `scene3d` layer, and `scene3d` says what the ray met; `'three'`: a `three` layer, and `three` says what the ray met. */
-  kind: 'flat' | 'card' | 'scene3d' | 'three';
+  /** `'flat'`: a 2D layer; `'card'`: a `threeD` layer (its projected card); `'scene2d'`: a `scene2d` layer, and `scene2d` says which of its objects is under the point; `'scene3d'`: a `scene3d` layer, and `scene3d` says what the ray met; `'three'`: a `three` layer, and `three` says what the ray met. */
+  kind: 'flat' | 'card' | 'scene3d' | 'scene2d' | 'three';
   /** The point asked about, in canvas pixels. */
   point: { x: number; y: number };
   /** A flat layer: the point in the layer's own pixels (the top-left of its picture is 0, 0). */
@@ -29,6 +29,11 @@ export interface PickHit {
     object: string; point: [number, number, number]; distance: number; node?: unknown;
     grab?: (plane?: 'screen' | 'floor' | 'wall' | [number, number, number]) => { move: (x: number, y: number) => { point: [number, number, number]; delta: [number, number, number] } | null };
   };
+  /**
+   * A `scene2d` layer: the top object of its scene under the point (its label, or its nearest labelled ancestor's, or `''`), the node itself, and the point in the layer's own
+   * pixels. `grab().move(x, y)` takes the pointer in canvas pixels and gives where it is in the node's parent's pixels and how far that is from where it was grabbed (`delta`).
+   */
+  scene2d?: { object: string; node: unknown; point: [number, number]; grab: () => { move: (x: number, y: number) => { point: [number, number]; delta: [number, number] } } };
   /** A `three` layer: what the ray through that point met first: the object (its name, or `''`), where (three's own units), and how far from the camera. */
   three?: {
     object: unknown; point: [number, number, number]; distance: number; object3d?: unknown;
@@ -177,7 +182,15 @@ export function pickScene(root: CompositionSequence, x: number, y: number, opts:
       }
       const point = at;
       let hit: PickHit | null = null;
-      if (threeD) {
+      const scene2d = (seq as unknown as { pick2d?: (p: { x: number; y: number }) => { object: string; node: Container; point: [number, number] } | null }).pick2d;
+      if (typeof scene2d === 'function' && !threeD) {
+        // a scene2d layer is hit where one of its objects is, not by its box: empty space falls through to the layer below
+        const found = scene2d.call(seq, point);
+        if (found) {
+          const s2 = seq as unknown as { dragFrom(n: Container, p: { x: number; y: number }): (x: number, y: number) => { point: [number, number]; delta: [number, number] } };
+          hit = { name, path, type: seq.spec.type, kind: 'scene2d', point, scene2d: { object: found.object, node: found.node, point: found.point, grab: () => ({ move: s2.dragFrom(found.node, point) }) } };
+        }
+      } else if (threeD) {
         if (quad && pointInQuad(quad, d.toLocal(point).x, d.toLocal(point).y)) hit = { name, path, type: seq.spec.type, kind: 'card', point };
       } else {
         const local = d.toLocal(point);

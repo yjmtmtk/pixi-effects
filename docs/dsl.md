@@ -553,6 +553,40 @@ It is a layer like any other: `name`, `at`, `duration`, `initial`, `keyframes`, 
 
 Mistakes are said at build time with the layer's name: no `draw`, a `draw` or `setup` that throws (the frame is a magenta checkerboard and the next frames are tried again), a bad `width` / `height` / `resolution` / `params`, an unknown key (did you mean …), a `params.name` keyframe that names nothing. A draw costs time on every frame that changes (`draw` is called once for each distinct time, so a still picture still redraws every frame of a moving movie: draw what never changes once into a canvas from `info.canvas` in `setup` and `drawImage` it): a slow `draw` slows the export in proportion, and `check` prints the usual time of one draw. The layer's `duration` defaults to its parent's length: with `at` greater than 0 and no `duration`, `info.progress` stops short of 1 when the movie ends, so give a `duration` when you draw from `progress`. `check` draws each canvas layer in a scratch canvas (so reading its pixels does not change how the real one is drawn) at four moments: one draw of each is thrown away (a browser can draw a canvas from `setup` differently the first time), then each moment is drawn twice and in two orders. It prints a `canvas` line when every layer passed (`deterministic · slowest draw 3.2 ms`), so silence is never the only sign that it ran, and a layer that is not deterministic is reported under that heading with the moments, how many channel values differ and by how much (up to N of 255).
 
+### `scene2d`
+
+**PixiJS 2D built by your own code**: display objects (`Graphics`, `Sprite`, `Text`, `AnimatedSprite`, `ParticleContainer`, `Mesh`, …) made in `setup` and set from the time in `update`, shown in the layer's place in the stack. Use it when the data cannot say it (160 pieces that each fly their own way, a generated pattern, a sprite sheet) and you want PixiJS's objects rather than a 2D context (`canvas`) or a formula (`shader`). It is in core `pixi-effects`: nothing to import or register. Its shape is the `scene3d` layer's.
+
+```ts
+import { Graphics } from 'pixi.js';
+{ type: 'scene2d', name: 'dots', duration: 4,
+  setup: ({ root, width, height }) => {                       // once: build the scene in ctx.root (the layer's pixels, 0, 0 = top-left of its box)
+    const dot = new Graphics({ label: 'dot' }).circle(0, 0, 30).fill('#ff4f1a');
+    root.addChild(dot);
+    return { objects: { dot } };                              // keyframes reach it as scene2d.dot.<path>
+  },
+  update: (t, { objects, width }) => { objects.dot.position.set(width * (t / 4), 360); },   // per frame: SET everything from t
+  keyframes: [{ at: 1, to: { 'scene2d.dot.alpha': 0.3 }, duration: 1 }] }
+```
+
+It is a layer like any other: `name`, `at`, `duration`, `initial` (`anchorX` / `anchorY` name a point of its box, as on a canvas layer), `keyframes`, `filters`, `mask`, `blendMode`, `parent`, `threeD`, transitions, mattes, export all work on it.
+
+| Key | Meaning |
+|---|---|
+| `setup(ctx)` | **Required.** Builds the scene once (may be async: Movie.init waits). Returns `{ objects }`: the names `scene2d.<name>.<path>` keyframes reach (`root` is added). |
+| `update(t, ctx)` | Per frame, `t` the layer's own seconds. Sets the scene from the time. |
+| `dispose(ctx)` | Frees what you made (the root and everything under it are destroyed by the layer; textures you made are yours). |
+| `width`, `height` | The layer's box in px or an expression; default the composition's size. Nothing is clipped to it (give a `mask` to clip); anchor, the layout check and `check`'s picture use it. |
+| `reuse` | Default `true`: a rebuild (`setVars`, `resize`) keeps the scene of a named layer whose `setup` function and size did not change, so `setup` runs once. `false`: setup runs at every rebuild. |
+
+`ctx` is `{ root, renderer, width, height, objects, texture(name) }`: `root` is a PixiJS `Container` of the layer's own, `texture('photo')` is the texture of the movie asset `photo` (`init({ assets })`; an unknown name says which there are). Keyframe paths are raw PixiJS values: `scene2d.dot.rotation` is in radians (`angle` is degrees), `scene2d.dot.scale.x`, `scene2d.dot.tint`.
+
+**The contract: a function of the time.** The same `t` must give the same picture in playback, a seek and an export, so `update` sets every object from `t` (never `x += …`), uses no `Math.random`, `Date.now`, `performance.now` or `new Date` (a warning at build says so; `random(seed)` from `pixi-effects` is repeatable: draw its numbers before the layer or in `setup`), and keeps nothing from the last call. What runs on PixiJS's ticker by itself is turned off after `setup`: an **`AnimatedSprite` left playing is posed by the layer from its time** (frame `floor(t × 60 × animationSpeed)`, as fast as in a plain PixiJS page; its loop and per-frame times kept), anything else with `autoUpdate` is turned off with one warning, a sprite that shows a `<video>` warns (footage is a `video` layer). A `Ticker.shared.add` of your own is not seen: don't. `check` draws each scene2d layer at four moments in two orders and names one whose same frame differs.
+
+**Pick.** `movie.pick(x, y)` returns `kind: 'scene2d'` and `scene2d: { object, node, point, grab }` for the top object of the scene under the point, by PixiJS's own `containsPoint` (a `Graphics` by its shape, a `Sprite` or `Text` by its box) or its `hitArea`; `eventMode: 'none'` and `interactiveChildren: false` are honoured. `object` is the node's `label`, or its nearest labelled ancestor's (a node made without a label carries its kind, `'Graphics'`, which counts as no name: label a `Container` to name a group). Empty space in the box is not the layer: the point falls through to the layer below. `hit.scene2d.grab().move(x, y)` gives `{ point, delta }` in the node's parent's pixels (`node.x += delta[0]`); `check --pick X,Y` prints `world (scene2d: box)`. PixiJS's own pointer events (`node.eventMode = 'static'; node.on('pointerdown', …)`) work too in a playing page; prefer `movie.pick` (one vocabulary, testable by `check`).
+
+Mistakes are said with the layer's name: no `setup`, a `setup` that throws (with its message), an `update` that throws (once), a keyframe path that names nothing (with the known objects), an unknown key (did you mean …). A spec that holds a `scene2d` layer holds functions, so it is not pure JSON (like `canvas`, `scene3d` and `three`). Recipe `scene2d-basics`.
+
 ## 3D layers & camera
 
 Place any 2D layer in depth and view it through a camera — After Effects style, no three.js. Everything uses the normal `initial` / `keyframes` / expression vocabulary.

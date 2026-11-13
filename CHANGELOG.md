@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **PixiJS 2D built by code: the `scene2d` layer** (core, nothing to import). `{ type: 'scene2d', setup({ root, width, height, texture }), update(t, ctx), dispose, width, height, reuse }`: your PixiJS display objects (`Graphics`, `Sprite`, `AnimatedSprite`, `Text`, a thousand pieces) as one layer, shaped like the `scene3d` layer, so a free box of PixiJS 2D no longer needs a `Sequence` subclass. Keyframes reach `scene2d.<object>.<path>` (raw PixiJS values); `anchorX` / `anchorY` place its box; `update` with a clock or `Math.random` warns; an `AnimatedSprite` left playing is posed from the layer's time (anything else with `autoUpdate` is turned off and said, a `<video>` texture is said); `check` draws it in two orders and names a layer whose same frame differs; `movie.pick` names the object under a point (`kind: 'scene2d'`, `hit.scene2d.object` by its label, `grab().move(x, y)`; empty space falls through) and `check --pick` prints it; `ctx.texture(name)` is a movie asset's texture; a named layer keeps its scene across `setVars` (`setup` runs once). Recipe `scene2d-basics`.
+- PixiJS 3D's own pointer events (`mesh.on('pointerdown')`) are tested to work in a scene3d layer; README and every gallery / interactive example load pixi.js 8.23.0.
+
 ## 0.49.0
 
 Nothing breaks: 3D scenes drawn by PixiJS 3D (`@pixi/3d`), the new main 3D engine, as a `scene3d` layer (entry `pixi-effects/3d`); three.js stays as the sub engine. PixiJS 8.23 in the template.

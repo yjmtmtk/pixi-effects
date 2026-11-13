@@ -63,6 +63,7 @@ The same command checks a file you MADE before it goes somewhere with rules (a s
 - **Time:** `speed` (slow motion, backward) and `time` (a curve of the layer's own seconds: freeze, rewind, ramp) on video, audio-file and composition layers; put what you want to rewind in a composition. Children of such a composition are in ITS seconds. `ease: 'cubic-bezier(.4, 0, .2, 1)'` is the CSS curve. See the recipe `rewind-and-replay` and pitfalls 69–73.
 - **Built in:** `animateText()` (per-letter / per-word / per-line entrances and exits in one call: `...animateText('Title', style, { x, y, align: 'center', at: 0.5, duration: 5, in: 'rise', out: 'fade', stagger: { each: 0.05 } })`), `splitText()` / `measureText()` (per-letter / per-word layers, exact positions, by hand), `shape: 'arc'` (progress rings, pie / donut slices: animate `endAngle`), `fillGradient` (linear/radial, alpha stops → vignettes), `{value}` counters, `repeat`/`yoyo`, `orbit()`, seeded randomness (`rand(seed)` / `noise(x, seed)` in expressions, `random(seed)` in JS, never `Math.random()`) `wiggle()` (a seeded shake as keyframes; on a camera put it on `offsetX` / `offsetY` so it rides on the move) `cameraPath()` (a camera flight through `[x, y, z]` points as keyframes; layers it passes: `hideBehindCamera: true`) depth of field (camera `focus` + `aperture`: `{ type: 'camera', initial: { focus: 'title' } }` blurs the other threeD layers by depth; a rack focus is a keyframe on `focus`) `music` (a tune with no file: `{ type: 'audio', music: { bpm, tracks: [{ inst: 'keys', notes: 'Cmaj7:4 Am7:4' }, { inst: 'bass', notes: 'c2:2 g1:2' }], drums: { from: 8, kick: 'x...x...' } } }`: notes and chords as text, counted in beats; instruments `keys pluck pad bass sub lead bell musicbox`; `musicEnvelope(music)` feeds `react()`), `audioEnvelope()` / `bpmEnvelope()` + `react()` (visuals that follow music: `const env = await audioEnvelope('music.mp3', { frameRate })` before `movie.init`, then `keyframes: react(env, { duration, props: { scale: { base: 1, amount: 0.4, band: 'bass', release: 0.2 } } })`; `beats: true` pulses on the beats; `bpmEnvelope(120, …)` when there is no file), `deck()` + `Presenter` from `pixi-effects/present` (a talk as one movie: pages, steps, stops that pause playback, arrow keys / click / swipe to move on: `...deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops, sequences }] })`, `new Presenter(movie, { canvas })` from `pixi-effects/presenter`; G = page overview, P = presenter view with notes and a timer; `pixi-effects render talk.html -o talk.pdf` = a PDF of the pages), `particles()` (bursts, snow, confetti, sparks as seeded layers: `...particles({ count: 90, at: 2, life: [1, 1.8], area: { x: 640, y: 330 }, speed: [120, 420], gravity: 240, fade: { out: 0.6 } })`), `followPath()` (a layer along an SVG path: `keyframes: followPath({ d, duration, orient: true })`), path morphing (`{ shape: 'path', d, morphTo, initial/keyframes: morph 0 → 1 }`) and `stagger()` (delays for a wave of layers: `stagger(letters, { each: 0.05, from: 'center' })`, or `stagger(n, …)` for numbers; GSAP-style `each` / `amount` / `from` / `grid` / `ease`). **Not in the DSL (hand-roll with a JS loop):** other per-frame curves (waves, spirals: sample them into short linear keyframes). (Draw-on strokes `trimEnd`, text that changes over time `set: { text }` / `visibleChars`, shake `wiggle()` and particles are built in.)
 - **Draw it yourself (`canvas` layer):** when nothing in the library draws what you need (an afterimage, rings, a brush stroke, a pixel sprite, a chart), `{ type: 'canvas', width, height, draw: (ctx, t, info) => { … } }`: your function of the time draws into the layer's own cleared 2D canvas and it is a normal layer. Pure function of `t` and `info.params` (`info.random()` is seeded; no `Math.random` / `Date.now`); a simulation is computed in `setup` and read by `info.frame`. `info.time` is the movie's clock (several layers share it; never add `at` by hand), `info.canvas(w, h)` makes sprites and masks in `setup`, data shared by several canvas layers lives in module scope, and `import { ease, noise, noise2, random, samplePath } from 'pixi-effects'` gives the library's easing, seeded noise and a path walked by length. `check` prints a `canvas` line (deterministic, slowest draw in ms) and does NOT see text drawn in a canvas. `help canvas`, recipes `canvas-trail`, `canvas-life`, `canvas-text-mask`, `canvas-text-on-path`, `canvas-bars`.
+- **PixiJS 2D by code (`scene2d` layer):** when you want PixiJS objects (`Graphics`, `Sprite`, `AnimatedSprite`, `Text`, many pieces that each move their own way) rather than a 2D context, `{ type: 'scene2d', setup({ root }) { root.addChild(...); return { objects } }, update(t, { objects }) { … } }` (core, nothing to import; recipe `scene2d-basics`): `update` SETS every object from `t`, keyframes reach `scene2d.<object>.<path>` (raw PixiJS values), `movie.pick` names the object under a point (its `label`).
 - **Shader layer and warp:** `{ type: 'shader', fragment: 'void mainImage(out vec4 fragColor, in vec2 fragCoord) { … }', uniforms: { speed: 1, tint: '#ff8040' } }` draws a Shadertoy-style formula (GLSL ES 3.00; `iTime` `iResolution` `iFrame` are declared; keyframes move `'uniforms.speed'`; opaque by default; it cannot read the layers behind it; a compile error comes back in your own line numbers). `filters: [{ type: 'warp', kind: 'wave' | 'haze', strength: 6 }]` bends a layer's picture like water or heat.
 - **A real 3D scene** (meshes, a glTF model, PBR, lights, shadows) is a `scene3d` layer (`pixi-effects/3d`, PixiJS 3D; `register3D()` before `init`; recipe `scene3d-basics`): `setup` builds it with `@pixi/3d`, `update(t)` sets it from the time, keyframes reach `scene3d.<object>.<path>`; masks, filters, `alpha` and `blendMode` work on it; `followCamera` / `followLights` / `followFog` put it in the composition's own camera and lights (recipe `scene3d-in-space`), `loadModel` / `fitCamera` load and frame a glTF, `layerTexture(ctx, 'screen')` shows a 2D layer on a mesh, `movie.pick` names what is clicked. A `three` layer (`pixi-effects/three`) is for three.js's own ecosystem.
 - **Light, shadow, fog (2.5D):** a `{ type: 'light', kind: 'ambient', initial: { intensity: 0.2 } }` plus a `spot` / `point` / `parallel` light (`castsShadows: true` on the light AND on the `threeD` layers that cast) shades every `threeD` layer by angle and distance; `lit: false` opts a layer out; camera `fogNear` / `fogFar` / `fogColor` fade what is far. What no light reaches is black (add the ambient light); layers are drawn in distance order (no depth buffer). `check --at` prints how lit each layer is.
@@ -204,6 +205,8 @@ Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha stro
 **composition** — `width height duration sequences transitions`, **`speed`** (the composition's own time: its content plays backward, in slow motion, … — `time` keyframes give a freeze, a rewind, a ramp; a composition's sound and sfx follow; its own x / alpha keyframes stay in the outer time; **children are placed in the composition's local seconds**; the content is as long as the larger of `duration` and the farthest `time` it reaches (`speed: 2` → twice `duration`; `time` keyframes → their largest number), and children default to that length. A child whose life ends exactly where a held `time` stands is hidden during the hold (a life is [at, at + duration)): give it a `duration` that reaches past. `time` keyframes and ordinary ones (`x`, `alpha`, a `wiggle`) may share one `keyframes` list. A sound inside goes silent while the clock stands still). With `threeD: true` it is a **card**: its children are drawn into one texture (content outside its `width × height` is clipped: size it for a soft shadow too; a plain 2D composition does not clip, but is skipped when its whole rectangle is off screen) and move / rotate in depth together. Children use the composition's local coordinates and times. Position/rotate/scale it as a unit; to rotate/scale about its centre set `pivotX/pivotY` to the centre and `x/y` to where that point should sit.
 
 **canvas** — `{ type: 'canvas', width, height, draw: (ctx, t, info) => { … }, setup?, params?, seed?, resolution?, smoothing? }`: a picture drawn by YOUR function of the time into the layer's own cleared canvas (`t` = the layer's seconds; `info` = `{ frame, duration, progress, width, height, resolution, frameRate, params, state, random, start, time, canvas }`: `time` is the MOVIE's seconds (`start + t`; share it between layers instead of adding `at` by hand), `canvas(w, h)` an offscreen canvas for sprites and masks made in `setup`). It is a normal layer (initial, keyframes, mask, filters, blendMode …); `params` are numbers keyframes animate as `'params.x'`; no `Math.random` / `Date.now` (`info.random()` is seeded); a simulation is computed in `setup` and read by `info.frame`; it cannot see what is below it. Data several canvas layers share lives in module scope; `import { ease, noise, noise2, random, rand, samplePath } from 'pixi-effects'` for easing by keyframe name, seeded noise and a path walked by length (`samplePath(d).at(u)` / `.trim(a, b)`). `check` draws it twice per moment (one draw thrown away first) and reports a picture that differs, with how much; it prints a `canvas` line when all pass and does NOT see text drawn in a canvas.
+
+**scene2d** (PixiJS 2D built by code, core: nothing to import) — `{ type: 'scene2d', name, width?, height?, setup({ root, width, height, texture }) { const g = new Graphics({ label: 'dot' }).circle(0, 0, 30).fill('#f40'); root.addChild(g); return { objects: { dot: g } } }, update?(t, { objects }) { objects.dot.x = 100 + 200 * t }, dispose?, reuse? }`: your PixiJS objects as one layer; `update` SETS everything from `t`; keyframes `'scene2d.dot.alpha'` (raw PixiJS values: `rotation` radians); an `AnimatedSprite` left playing is posed from the time; `texture('photo')` = a movie asset; `movie.pick` → `kind: 'scene2d'`, `hit.scene2d.object` (the label), `hit.scene2d.grab().move(x, y)`. Recipe `scene2d-basics`.
 
 **shader** — `{ type: 'shader', fragment: 'void mainImage(out vec4 fragColor, in vec2 fragCoord) { … }', uniforms: { speed: 1, tint: '#ff8040', pos: [0.5, 0.5] }, width?, height?, resolution?: 0.5, transparent?: false }` — a Shadertoy fragment shader drawn into a layer (GLSL ES 3.00): `iResolution` `iTime` (the layer's own seconds) `iFrame` and your uniforms are declared for you; keyframes move uniforms as `'uniforms.speed'` and components as `'uniforms.tint.0'`; opaque unless `transparent: true`; it cannot read what is behind it (no `iChannel` / `iMouse` / `iDate`); no `while` or non-constant `for`; a compile error is reported in your own line numbers and the layer is a checkerboard.
 
@@ -482,6 +485,12 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 128. **`followLights` matches where light falls, not how bright the shade is.** PixiJS 3D lights in linear light, the composition's cards shade the sRGB values: a 3D surface under ambient 0.3 is 0.58 × its colour, a card 0.3 ×. A point light casts no shadow in PixiJS 3D (use a spot or a parallel light); `shadowDarkness` / `shadowDiffusion` are not mirrored. *(warns)*
 129. **A 2D layer for `layerTexture` is a `composition` listed BEFORE the scene3d layer**, in the same composition. It is no longer drawn on the stage (it shows only on the mesh). *(warns with the names it found)*
 130. **After a rebuild (`setVars`) the scene is the same but the view is a new one.** Its settings (background, environment, exposure, tone mapping, effects, the active camera) move with the scene; read the view from `ctx.view` (or `objects.view`), not from a variable kept in `setup`.
+
+## PixiJS 2D by code (`scene2d`)
+
+131. **`update` SETS each object from `t`; it never adds to it.** `g.x += 2` per call, a velocity kept between calls, or a particle list that grows each frame draws a different picture in a seek and an export than in playback (`check` names the layer). Compute where each object is at `t` (`x = x0 + v * t`, `y = y0 + g * t * t / 2`); draw random numbers once with `random(seed)` (before the layer or in `setup`), never `Math.random` in `update`.
+132. **Keyframe paths into a scene2d layer are raw PixiJS values.** `'scene2d.dot.rotation'` is in radians (the layer's own `rotation` keyframe is degrees); `'scene2d.dot.angle'` is degrees. Scale is `'scene2d.dot.scale.x'` and `'…scale.y'` (two paths), colour `'scene2d.dot.tint'`.
+133. **Name what `movie.pick` should name.** A node made without a `label` carries its kind (`'Graphics'`), which counts as no name: the hit is named by its nearest labelled ancestor, or `''`. Give the objects you want to tell apart a `label`, or label a `Container` to name a group. Empty space in the layer's box is not the layer (the point falls through).
 
 
 <!-- ===== skills/pixi-effects/reference/recipes.md ===== -->
@@ -1780,6 +1789,48 @@ function placeholderPhoto(name, hueA, hueB, w = 1920, h = 1080) {
 
 ---
 
+## PixiJS 2D built by code: a burst of confetti and a ring (`scene2d`)
+
+When the data cannot say it (160 pieces that each fly their own way), build PixiJS display objects in `setup` and set them from the time in `update`. The pieces' angles and speeds come from `random(seed)`, a repeatable stream, computed once before the layer: every load, every seek and the export draw the same burst. A keyframe reaches an object of the scene as `scene2d.<name>.<path>` (raw PixiJS values: `rotation` in radians). `movie.pick` names the object under a point (its `label`).
+
+```js
+// @docs-only scene2d-basics
+// import { random } from 'pixi-effects';   import { Graphics } from 'pixi.js';
+// composition 1280 x 720, 4 s.
+const rand = random(7);                                                                                 // the same numbers at every load
+const COLORS = ['#ffd166', '#ef476f', '#06d6a0', '#118ab2'];
+const bits = Array.from({ length: 160 }, () => ({ angle: rand() * Math.PI * 2, speed: 260 + rand() * 520, spin: (rand() - 0.5) * 14, size: 10 + rand() * 16, color: COLORS[Math.floor(rand() * 4)] }));
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101425' } },
+  { type: 'scene2d', name: 'burst',
+    setup: ({ root, width, height }) => {
+      const pieces = bits.map((b) => root.addChild(new Graphics().rect(-b.size / 2, -b.size / 4, b.size, b.size / 2).fill(b.color)));
+      const ring = new Graphics({ label: 'ring' }).circle(0, 0, 120).stroke({ width: 8, color: '#ffffff' });
+      ring.position.set(width / 2, height / 2);
+      root.addChild(ring);
+      return { objects: { ring, pieces } };                                                            // keyframes reach them as scene2d.ring.…
+    },
+    update: (t, { objects, width, height }) => {
+      objects.pieces.forEach((g, i) => {                                                               // where each piece is at t: set, never added to
+        const b = bits[i], d = b.speed * t;
+        g.position.set(width / 2 + Math.cos(b.angle) * d, height / 2 + Math.sin(b.angle) * d + 420 * t * t);
+        g.rotation = b.spin * t;
+      });
+    },
+    keyframes: [
+      { at: 0, from: { 'scene2d.ring.scale.x': 0.2, 'scene2d.ring.scale.y': 0.2 }, to: { 'scene2d.ring.scale.x': 2.4, 'scene2d.ring.scale.y': 2.4 }, duration: 1, ease: 'expo.out' },
+      { at: 0.3, to: { 'scene2d.ring.alpha': 0 }, duration: 0.9 },
+    ] },
+  { type: 'text', text: 'HAPPY NEW YEAR', style: { fontSize: 84, fontWeight: '900', fill: '#ffffff', letterSpacing: 6 },
+    initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+    keyframes: [{ at: 0.5, from: { alpha: 0, scale: 0.8 }, duration: 0.6, ease: 'back.out' }] },
+];
+```
+
+The layer is a layer like any other (`at`, `alpha`, `mask`, `filters`, `blendMode`, `threeD`). An `AnimatedSprite` left playing is posed from the layer's time; `ctx.texture(name)` gives a movie asset's texture for a `Sprite`.
+
+---
+
 ## A 3D scene with a model, a light and a shadow, under a title (`scene3d`)
 
 A real 3D scene as one layer, drawn by PixiJS 3D inside PixiJS itself: a floor that receives a shadow, a glTF model whose clip is posed from the time, a cube moved by a keyframe, a sun that casts. The layer takes a mask like any layer: a circle wipe reveals it, and a 2D title sits over it. Everything in `update` is set from `t` (a function of the time: playback, a seek and an export agree). `loadModel` names the clips (`model.clips`), measures the model (`model.size()`), fits it (`model.fit(n)`: the longest side n units) and poses it from the time (`model.pose(t)`); `fitCamera(ctx, model.object)` puts the camera where the whole model fits.
@@ -2955,6 +3006,40 @@ It is a layer like any other: `name`, `at`, `duration`, `initial`, `keyframes`, 
 **What it cannot do.** It cannot see or paint on what is below it in the stack (the stage is drawn by the GPU, not by a 2D context): use `filters`, a matte or a composition that holds the layers for that. **`check` does not see text drawn in a canvas**: its layout test (cut-off, off-canvas, overlap) reads the text layers only, so labels and captions you draw yourself can collide without a word; look at the contact sheet and at `--crop` enlargements. It is not audio. For a picture made by a formula on the GPU, the `shader` layer is faster. A spec that holds a `canvas` layer holds functions, so it is not pure JSON (the same standing as `three` and the `custom` filter).
 
 Mistakes are said at build time with the layer's name: no `draw`, a `draw` or `setup` that throws (the frame is a magenta checkerboard and the next frames are tried again), a bad `width` / `height` / `resolution` / `params`, an unknown key (did you mean …), a `params.name` keyframe that names nothing. A draw costs time on every frame that changes (`draw` is called once for each distinct time, so a still picture still redraws every frame of a moving movie: draw what never changes once into a canvas from `info.canvas` in `setup` and `drawImage` it): a slow `draw` slows the export in proportion, and `check` prints the usual time of one draw. The layer's `duration` defaults to its parent's length: with `at` greater than 0 and no `duration`, `info.progress` stops short of 1 when the movie ends, so give a `duration` when you draw from `progress`. `check` draws each canvas layer in a scratch canvas (so reading its pixels does not change how the real one is drawn) at four moments: one draw of each is thrown away (a browser can draw a canvas from `setup` differently the first time), then each moment is drawn twice and in two orders. It prints a `canvas` line when every layer passed (`deterministic · slowest draw 3.2 ms`), so silence is never the only sign that it ran, and a layer that is not deterministic is reported under that heading with the moments, how many channel values differ and by how much (up to N of 255).
+
+### `scene2d`
+
+**PixiJS 2D built by your own code**: display objects (`Graphics`, `Sprite`, `Text`, `AnimatedSprite`, `ParticleContainer`, `Mesh`, …) made in `setup` and set from the time in `update`, shown in the layer's place in the stack. Use it when the data cannot say it (160 pieces that each fly their own way, a generated pattern, a sprite sheet) and you want PixiJS's objects rather than a 2D context (`canvas`) or a formula (`shader`). It is in core `pixi-effects`: nothing to import or register. Its shape is the `scene3d` layer's.
+
+```ts
+import { Graphics } from 'pixi.js';
+{ type: 'scene2d', name: 'dots', duration: 4,
+  setup: ({ root, width, height }) => {                       // once: build the scene in ctx.root (the layer's pixels, 0, 0 = top-left of its box)
+    const dot = new Graphics({ label: 'dot' }).circle(0, 0, 30).fill('#ff4f1a');
+    root.addChild(dot);
+    return { objects: { dot } };                              // keyframes reach it as scene2d.dot.<path>
+  },
+  update: (t, { objects, width }) => { objects.dot.position.set(width * (t / 4), 360); },   // per frame: SET everything from t
+  keyframes: [{ at: 1, to: { 'scene2d.dot.alpha': 0.3 }, duration: 1 }] }
+```
+
+It is a layer like any other: `name`, `at`, `duration`, `initial` (`anchorX` / `anchorY` name a point of its box, as on a canvas layer), `keyframes`, `filters`, `mask`, `blendMode`, `parent`, `threeD`, transitions, mattes, export all work on it.
+
+| Key | Meaning |
+|---|---|
+| `setup(ctx)` | **Required.** Builds the scene once (may be async: Movie.init waits). Returns `{ objects }`: the names `scene2d.<name>.<path>` keyframes reach (`root` is added). |
+| `update(t, ctx)` | Per frame, `t` the layer's own seconds. Sets the scene from the time. |
+| `dispose(ctx)` | Frees what you made (the root and everything under it are destroyed by the layer; textures you made are yours). |
+| `width`, `height` | The layer's box in px or an expression; default the composition's size. Nothing is clipped to it (give a `mask` to clip); anchor, the layout check and `check`'s picture use it. |
+| `reuse` | Default `true`: a rebuild (`setVars`, `resize`) keeps the scene of a named layer whose `setup` function and size did not change, so `setup` runs once. `false`: setup runs at every rebuild. |
+
+`ctx` is `{ root, renderer, width, height, objects, texture(name) }`: `root` is a PixiJS `Container` of the layer's own, `texture('photo')` is the texture of the movie asset `photo` (`init({ assets })`; an unknown name says which there are). Keyframe paths are raw PixiJS values: `scene2d.dot.rotation` is in radians (`angle` is degrees), `scene2d.dot.scale.x`, `scene2d.dot.tint`.
+
+**The contract: a function of the time.** The same `t` must give the same picture in playback, a seek and an export, so `update` sets every object from `t` (never `x += …`), uses no `Math.random`, `Date.now`, `performance.now` or `new Date` (a warning at build says so; `random(seed)` from `pixi-effects` is repeatable: draw its numbers before the layer or in `setup`), and keeps nothing from the last call. What runs on PixiJS's ticker by itself is turned off after `setup`: an **`AnimatedSprite` left playing is posed by the layer from its time** (frame `floor(t × 60 × animationSpeed)`, as fast as in a plain PixiJS page; its loop and per-frame times kept), anything else with `autoUpdate` is turned off with one warning, a sprite that shows a `<video>` warns (footage is a `video` layer). A `Ticker.shared.add` of your own is not seen: don't. `check` draws each scene2d layer at four moments in two orders and names one whose same frame differs.
+
+**Pick.** `movie.pick(x, y)` returns `kind: 'scene2d'` and `scene2d: { object, node, point, grab }` for the top object of the scene under the point, by PixiJS's own `containsPoint` (a `Graphics` by its shape, a `Sprite` or `Text` by its box) or its `hitArea`; `eventMode: 'none'` and `interactiveChildren: false` are honoured. `object` is the node's `label`, or its nearest labelled ancestor's (a node made without a label carries its kind, `'Graphics'`, which counts as no name: label a `Container` to name a group). Empty space in the box is not the layer: the point falls through to the layer below. `hit.scene2d.grab().move(x, y)` gives `{ point, delta }` in the node's parent's pixels (`node.x += delta[0]`); `check --pick X,Y` prints `world (scene2d: box)`. PixiJS's own pointer events (`node.eventMode = 'static'; node.on('pointerdown', …)`) work too in a playing page; prefer `movie.pick` (one vocabulary, testable by `check`).
+
+Mistakes are said with the layer's name: no `setup`, a `setup` that throws (with its message), an `update` that throws (once), a keyframe path that names nothing (with the known objects), an unknown key (did you mean …). A spec that holds a `scene2d` layer holds functions, so it is not pure JSON (like `canvas`, `scene3d` and `three`). Recipe `scene2d-basics`.
 
 ## 3D layers & camera
 
@@ -4522,10 +4607,13 @@ What is under a point of the canvas, at the frame that is on screen: the layer o
 ```ts
 interface PickHit {
   name?: string; path: string; type: string;     // path: as in inspect(), names or type#index joined by '/'
-  kind: 'flat' | 'card' | 'three';               // a 2D layer, a threeD layer (its projected card), a three layer
+  kind: 'flat' | 'card' | 'scene2d' | 'scene3d' | 'three';   // a 2D layer, a threeD layer (its projected card), a scene2d / scene3d / three layer
   point: { x: number; y: number };               // the point asked about
   local?: { x: number; y: number };              // a flat layer: the point in the layer's own pixels
   via?: { path: string; object: string };        // the layer is shown on a mesh of a `three` layer (threeLayerTexture) and the point is on that mesh: the three layer and the object it came through
+  scene2d?: { object: string; node: unknown; point: [number, number];                                // a scene2d layer: the top object of its scene under the point (its label)
+             grab: () => { move: (x, y) => { point, delta } } };                                      // drag it: delta in the node's parent's pixels
+  scene3d?: { object: string; point: [number, number, number]; distance: number; node?: unknown; grab? };   // a scene3d layer: what the ray met first
   three?: { object: string; point: [number, number, number]; distance: number; object3d: unknown;     // a three layer: what the ray met first
             grab?: (plane?) => { move: (x, y) => { point, delta } | null } };                          // drag it: see below
 }

@@ -175,10 +175,13 @@ What is under a point of the canvas, at the frame that is on screen: the layer o
 ```ts
 interface PickHit {
   name?: string; path: string; type: string;     // path: as in inspect(), names or type#index joined by '/'
-  kind: 'flat' | 'card' | 'three';               // a 2D layer, a threeD layer (its projected card), a three layer
+  kind: 'flat' | 'card' | 'scene2d' | 'scene3d' | 'three';   // a 2D layer, a threeD layer (its projected card), a scene2d / scene3d / three layer
   point: { x: number; y: number };               // the point asked about
   local?: { x: number; y: number };              // a flat layer: the point in the layer's own pixels
   via?: { path: string; object: string };        // the layer is shown on a mesh of a `three` layer (threeLayerTexture) and the point is on that mesh: the three layer and the object it came through
+  scene2d?: { object: string; node: unknown; point: [number, number];                                // a scene2d layer: the top object of its scene under the point (its label)
+             grab: () => { move: (x, y) => { point, delta } } };                                      // drag it: delta in the node's parent's pixels
+  scene3d?: { object: string; point: [number, number, number]; distance: number; node?: unknown; grab? };   // a scene3d layer: what the ray met first
   three?: { object: string; point: [number, number, number]; distance: number; object3d: unknown;     // a three layer: what the ray met first
             grab?: (plane?) => { move: (x, y) => { point, delta } | null } };                          // drag it: see below
 }

@@ -1292,6 +1292,48 @@ function placeholderPhoto(name, hueA, hueB, w = 1920, h = 1080) {
 
 ---
 
+## PixiJS 2D built by code: a burst of confetti and a ring (`scene2d`)
+
+When the data cannot say it (160 pieces that each fly their own way), build PixiJS display objects in `setup` and set them from the time in `update`. The pieces' angles and speeds come from `random(seed)`, a repeatable stream, computed once before the layer: every load, every seek and the export draw the same burst. A keyframe reaches an object of the scene as `scene2d.<name>.<path>` (raw PixiJS values: `rotation` in radians). `movie.pick` names the object under a point (its `label`).
+
+```js
+// @docs-only scene2d-basics
+// import { random } from 'pixi-effects';   import { Graphics } from 'pixi.js';
+// composition 1280 x 720, 4 s.
+const rand = random(7);                                                                                 // the same numbers at every load
+const COLORS = ['#ffd166', '#ef476f', '#06d6a0', '#118ab2'];
+const bits = Array.from({ length: 160 }, () => ({ angle: rand() * Math.PI * 2, speed: 260 + rand() * 520, spin: (rand() - 0.5) * 14, size: 10 + rand() * 16, color: COLORS[Math.floor(rand() * 4)] }));
+return [
+  { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#101425' } },
+  { type: 'scene2d', name: 'burst',
+    setup: ({ root, width, height }) => {
+      const pieces = bits.map((b) => root.addChild(new Graphics().rect(-b.size / 2, -b.size / 4, b.size, b.size / 2).fill(b.color)));
+      const ring = new Graphics({ label: 'ring' }).circle(0, 0, 120).stroke({ width: 8, color: '#ffffff' });
+      ring.position.set(width / 2, height / 2);
+      root.addChild(ring);
+      return { objects: { ring, pieces } };                                                            // keyframes reach them as scene2d.ring.…
+    },
+    update: (t, { objects, width, height }) => {
+      objects.pieces.forEach((g, i) => {                                                               // where each piece is at t: set, never added to
+        const b = bits[i], d = b.speed * t;
+        g.position.set(width / 2 + Math.cos(b.angle) * d, height / 2 + Math.sin(b.angle) * d + 420 * t * t);
+        g.rotation = b.spin * t;
+      });
+    },
+    keyframes: [
+      { at: 0, from: { 'scene2d.ring.scale.x': 0.2, 'scene2d.ring.scale.y': 0.2 }, to: { 'scene2d.ring.scale.x': 2.4, 'scene2d.ring.scale.y': 2.4 }, duration: 1, ease: 'expo.out' },
+      { at: 0.3, to: { 'scene2d.ring.alpha': 0 }, duration: 0.9 },
+    ] },
+  { type: 'text', text: 'HAPPY NEW YEAR', style: { fontSize: 84, fontWeight: '900', fill: '#ffffff', letterSpacing: 6 },
+    initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
+    keyframes: [{ at: 0.5, from: { alpha: 0, scale: 0.8 }, duration: 0.6, ease: 'back.out' }] },
+];
+```
+
+The layer is a layer like any other (`at`, `alpha`, `mask`, `filters`, `blendMode`, `threeD`). An `AnimatedSprite` left playing is posed from the layer's time; `ctx.texture(name)` gives a movie asset's texture for a `Sprite`.
+
+---
+
 ## A 3D scene with a model, a light and a shadow, under a title (`scene3d`)
 
 A real 3D scene as one layer, drawn by PixiJS 3D inside PixiJS itself: a floor that receives a shadow, a glTF model whose clip is posed from the time, a cube moved by a keyframe, a sun that casts. The layer takes a mask like any layer: a circle wipe reveals it, and a 2D title sits over it. Everything in `update` is set from `t` (a function of the time: playback, a seek and an export agree). `loadModel` names the clips (`model.clips`), measures the model (`model.size()`), fits it (`model.fit(n)`: the longest side n units) and poses it from the time (`model.pose(t)`); `fitCamera(ctx, model.object)` puts the camera where the whole model fits.

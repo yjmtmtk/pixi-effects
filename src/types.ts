@@ -4,6 +4,7 @@ import type { LightState } from './space/lighting';
 import type { FogState } from './space/LitMaterial';
 import type { SharedGpu } from './core/gpuShare';
 import type { ReusePool } from './core/reuse';
+import type { Container, Renderer, Texture } from 'pixi.js';
 /**
  * pixi-effects public DSL types.
  *
@@ -621,6 +622,51 @@ export interface CanvasSequenceSpec extends SequenceCommon {
   smoothing?: boolean;
 }
 
+/** Handed to a scene2d layer's setup / update / dispose. One per layer. */
+export interface Scene2DContext {
+  /** The layer's own PixiJS container, in the layer's pixels (0, 0 is the top-left of its box): add Graphics, Sprites, Text, a ParticleContainer, Meshes here. */
+  root: Container;
+  /** PixiJS's renderer (the one that draws every layer). */
+  renderer: Renderer;
+  /** The layer's box in composition px. Nothing is clipped to it (add a `mask` to clip); it is the box `anchorX` / `anchorY`, the layout check and `check`'s picture use. */
+  width: number;
+  height: number;
+  /** What setup returned in `objects`, plus `root`: the names keyframes reach as `scene2d.<name>.<path>`. */
+  objects: Record<string, object>;
+  /** The texture of a movie asset (`init({ assets })`) by its name. An unknown name throws with the known names. */
+  texture(name: string): Texture;
+}
+
+export interface Scene2DSetupResult {
+  /** Objects addressable from keyframes as `scene2d.<name>.<path>` (`root` is added unless you name your own). */
+  objects?: Record<string, object>;
+}
+
+/**
+ * A scene2d layer: PixiJS 2D display objects built by your code (`setup`) and set from the time (`update`), shown in the layer's place in the stack. Everything a layer can do works on
+ * it (initial, keyframes, mask, filters, blendMode, threeD). A spec that has one holds functions, so it is no longer pure JSON: an escape hatch like `canvas`, `scene3d` and `three`.
+ */
+export interface Scene2DSequenceSpec extends SequenceCommon {
+  type: 'scene2d';
+  /** The layer's box in px (expressions allowed). Default: the composition's size. */
+  width?: number | string;
+  height?: number | string;
+  /** Build the scene: add display objects to `ctx.root`. May be async (a texture loads): Movie.init waits for it. */
+  setup: (ctx: Scene2DContext) => Promise<Scene2DSetupResult | void> | Scene2DSetupResult | void;
+  /**
+   * Per frame; `t` is the layer's own time in seconds. MUST set everything from `t` (no clock, no unseeded randomness, no state carried from the last call): playback, a seek and an
+   * export each draw a frame on their own. An AnimatedSprite left playing is posed from the layer's time by the layer.
+   */
+  update?: (t: number, ctx: Scene2DContext) => void;
+  /** Cleanup for resources you made (the root and everything under it are destroyed by the layer; textures you made are yours). */
+  dispose?: (ctx: Scene2DContext) => void;
+  /**
+   * A rebuild (`setVars`, `resize`, `rebuild`) keeps this layer's scene when the layer did not change (same `name`, same `setup` function, same size): `setup` runs once. Default `true`;
+   * a layer with no `name` is always built again. `false`: `setup` runs again at every rebuild (when it reads something a variable changes).
+   */
+  reuse?: boolean;
+}
+
 // ─── Shape sequence ──────────────────────────────────────────────────────
 //
 // `type: 'shape'` renders a parametric primitive (rect / circle / ellipse /
@@ -803,6 +849,7 @@ export type SequenceSpec =
   | LightSequenceSpec
   | ShaderSequenceSpec
   | CanvasSequenceSpec
+  | Scene2DSequenceSpec
   | ShapeSequenceSpec;
 
 /** Top-level composition (root node) — same as `CompositionSequenceSpec` minus the discriminant. */

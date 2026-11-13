@@ -8,6 +8,7 @@ import { CameraSequence } from '../space/CameraSequence';
 import { LightSequence } from '../space/LightSequence';
 import { ShaderSequence } from '../sequences/Shader';
 import { CanvasSequence } from '../sequences/Canvas';
+import { Scene2DSequence } from '../sequences/Scene2D';
 import type { Sequence } from '../sequences/Base';
 import { expandSpans } from '../text/spans';
 import { buildScope } from '../expr/Scope';
@@ -39,6 +40,7 @@ const staticTypes: Partial<Record<SequenceSpec['type'], SequenceCtor>> = {
   light: LightSequence as unknown as SequenceCtor,
   shader: ShaderSequence as unknown as SequenceCtor,
   canvas: CanvasSequence as unknown as SequenceCtor,
+  scene2d: Scene2DSequence as unknown as SequenceCtor,
   null: NullSequence as unknown as SequenceCtor,
 };
 

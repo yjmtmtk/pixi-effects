@@ -546,11 +546,12 @@ interface PathShapeSpec extends ShapeBase, Trimmable
   morphTo?: string
   shape: "path"
 interface PickHit
-  kind: "flat" | "card" | "scene3d" | "three"
+  kind: "flat" | "card" | "scene3d" | "scene2d" | "three"
   local?: { x: number; y: number; }
   name?: string
   path: string
   point: { x: number; y: number; }
+  scene2d?: { object: string; node: unknown; point: [number, number]; grab: () => { move: (x: number, y: number) => { poi…
   scene3d?: { object: string; point: [number, number, number]; distance: number; node?: unknown; grab?: ((plane?: [number…
   three?: { object: unknown; point: [number, number, number]; distance: number; object3d?: unknown; grab?: ((plane?: [n…
   type: string
@@ -631,6 +632,23 @@ interface ReviewReport
   problems: IssueGroup[]
   review: IssueGroup[]
 function samplePath(d: string): PathSampler
+interface Scene2DContext
+  height: number
+  objects: Record<string, object>
+  renderer: Renderer
+  root: Container<ContainerChild>
+  texture(name: string): Texture<TextureSource<any>>
+  width: number
+interface Scene2DSequenceSpec extends SequenceCommon
+  dispose?: ((ctx: Scene2DContext) => void)
+  height?: string | number
+  reuse?: boolean
+  setup: (ctx: Scene2DContext) => void | Scene2DSetupResult | Promise<void | Scene2DSetupResult>
+  type: "scene2d"
+  update?: ((t: number, ctx: Scene2DContext) => void)
+  width?: string | number
+interface Scene2DSetupResult
+  objects?: Record<string, object>
 class Sequence
   at: number
   build(): Promise<void>

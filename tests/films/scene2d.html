@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · scene2d (PixiJS 2D built by code)</title></head>
+<body style="margin:0">
+  <!-- Test film (tests/films/scene2d.test.ts, scene2d-check.test.ts). 320 x 180, background #102040, 3 s at 30 fps. A scene2d layer "world" (the composition's size)
+       builds in setup: a red square "box" (#e04060, 40 x 40 at 250, 20), a yellow circle "ball" (#f2c14e, radius 20; update puts it at x = 40 + 80 t, y = 90),
+       a group "pair" holding two unlabelled 10 x 10 squares at 20,20 and 40,20 (#40e080), and an AnimatedSprite "anim" at 10,140 (20 x 20) of three frames
+       (red #ff0000, green #00ff00, blue #0000ff) left playing at animationSpeed 0.5 (posed by the layer: frame floor(t * 30) % 3). A keyframe on
+       scene2d.box.alpha takes the box to 0 at 2 s. A text layer "label" shows the variable {label} (?label=b starts with b). window.__setups counts setup calls.
+       Parts: ?anchor=1 a second layer "framed" 100 x 100 with anchorX/anchorY 0.5 at 160,90 whose root fills its box in white · ?impure=1 update calls Math.random ·
+       ?leaky=1 update keeps a counter from call to call · ?nosetup=1 the layer has no setup · ?badpath=1 a keyframe on scene2d.nope.x · ?throws=1 setup throws ·
+       ?video=1 a sprite shows a <video> texture · ?noreuse=1 the layer has reuse: false · ?asset=1 a sprite of the asset "chip" (a cyan #00e0e0 picture) via ctx.texture at 150,20, 20 x 20 · ?asset=missing setup asks ctx.texture('nope'). -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": { "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    import { Graphics, AnimatedSprite, Texture, Sprite, Container, VideoSource } from 'pixi.js';
+    const q = new URLSearchParams(location.search);
+    const has = (k) => q.get(k) === '1';
+    window.__setups = 0;
+    let leak = 0;
+    const solid = (color) => { const c = document.createElement('canvas'); c.width = c.height = 4; const g = c.getContext('2d'); g.fillStyle = color; g.fillRect(0, 0, 4, 4); return Texture.from(c); };
+
+    const world = {
+      type: 'scene2d', name: 'world', ...(has('noreuse') ? { reuse: false } : {}),
+      setup: ({ root, texture }) => {
+        window.__setups++;
+        if (q.get('asset') === 'missing') texture('nope');
+        if (has('asset')) { const s = new Sprite(texture('chip')); s.position.set(150, 20); s.width = s.height = 20; root.addChild(s); }
+        if (has('throws')) throw new Error('no such texture');
+        const box = new Graphics({ label: 'box' }).rect(0, 0, 40, 40).fill('#e04060'); box.position.set(250, 20);
+        const ball = new Graphics({ label: 'ball' }).circle(0, 0, 20).fill('#ffffff');
+        const pair = new Container({ label: 'pair' });
+        pair.addChild(new Graphics().rect(20, 20, 10, 10).fill('#40e080'), new Graphics().rect(40, 20, 10, 10).fill('#40e080'));
+        const anim = new AnimatedSprite({ textures: ['#ff0000', '#00ff00', '#0000ff'].map(solid), label: 'anim', animationSpeed: 0.5 });
+        anim.position.set(10, 140); anim.width = anim.height = 20; anim.play();
+        root.addChild(box, ball, pair, anim);
+        if (has('video')) { const v = document.createElement('video'); root.addChild(new Sprite(new Texture({ source: new VideoSource({ resource: v, autoPlay: false }) }))); }
+        return { objects: { box, ball, pair, anim } };
+      },
+      update: has('impure')
+        ? (t, { objects }) => { objects.ball.position.set(40 + 80 * t + Math.random() * 0, 90); }
+        : has('leaky')
+        ? (t, { objects }) => { leak += 7; objects.ball.position.set(40 + (leak % 200), 90); }
+        : (t, { objects }) => { objects.ball.position.set(40 + 80 * t, 90); objects.ball.tint = 0xf2c14e; },
+      keyframes: [{ at: 2, to: { 'scene2d.box.alpha': 0 }, duration: 0.01 }, ...(has('badpath') ? [{ at: 0, to: { 'scene2d.nope.x': 5 }, duration: 1 }] : [])],
+    };
+    if (has('nosetup')) delete world.setup;
+    const framed = { type: 'scene2d', name: 'framed', width: 100, height: 100, initial: { x: 160, y: 90, anchorX: 0.5, anchorY: 0.5 },
+      setup: ({ root, width, height }) => { root.addChild(new Graphics().rect(0, 0, width, height).fill('#ffffff')); } };
+    const label = { type: 'text', name: 'label', text: '{label}', style: { fontSize: 30, fill: '#ffffff' }, initial: { x: 160, y: 160, anchorX: 0.5, anchorY: 0.5 } };
+    const sequences = [world, label, ...(has('anchor') ? [framed] : [])];
+
+    const chip = () => { const c = document.createElement('canvas'); c.width = c.height = 8; const g = c.getContext('2d'); g.fillStyle = '#00e0e0'; g.fillRect(0, 0, 8, 8); return c.toDataURL('image/png'); };
+    const movie = new Movie();
+    window.movie = movie;
+    window.pixelAt = async (frame, x, y) => { const img = await movie.snapshot(frame, { as: 'imageData' }); const i = (y * img.width + x) * 4; return Array.from(img.data.slice(i, i + 4)); };
+    window.hashOf = async (frame) => { const d = (await movie.snapshot(frame, { as: 'imageData' })).data; let h = 0x811c9dc5; for (let i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); };
+    window.backend = () => movie.app.renderer.name;
+    window.exportPixel = async (range, time, x, y) => {
+      const blob = await movie.render({ range });
+      const mb = await import('mediabunny');
+      const input = new mb.Input({ source: new mb.BlobSource(blob), formats: mb.ALL_FORMATS });
+      const frame = await new mb.CanvasSink(await input.getPrimaryVideoTrack()).getCanvas(time);
+      return Array.from(frame.canvas.getContext('2d').getImageData(x, y, 1, 1).data);
+    };
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: 30, background: '#102040',
+        vars: { label: q.get('label') || 'a' }, composition: { sequences }, ...(q.get('asset') ? { assets: [{ name: 'chip', src: chip() }] } : {}) });
+      window.__ready = true;
+    } catch (e) { window.__error = String(e && e.message || e); window.__ready = true; }
+  </script>
+</body>
+</html>
