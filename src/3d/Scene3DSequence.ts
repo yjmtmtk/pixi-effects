@@ -146,11 +146,12 @@ export class Scene3DSequence extends Sequence {
    * value an author kept from setup: the camera, the meshes) are the same objects.
    */
   private _borrow(d: Scene3DSequence, view: View3D, renderer: Renderer | null, width: number, height: number): void {
-    const old = d._ctx!;
     this._borrowed = d;
-    this._objects = d._objects;
+    // the objects are the same ones, but `view` is this layer's: keyframes on scene3d.view.* are bound now, before the swap; the camera is the one the old view shows (setup may have switched it)
+    const objects: Record<string, object> = { ...d._objects, ...(d._objects.view === d._view ? { view } : {}) };
+    this._objects = objects;
     this._players = d._players;
-    const ctx: Scene3DContext = { view, root: view.root, camera: old.camera, renderer: renderer as Renderer, width, height, objects: d._objects };
+    const ctx: Scene3DContext = { view, root: view.root, camera: d._view!.camera, renderer: renderer as Renderer, width, height, objects };
     const host = this._makeHost(renderer);
     Object.defineProperty(ctx, HOST, { value: host, enumerable: false });
     this._ctx = ctx;
@@ -166,7 +167,15 @@ export class Scene3DSequence extends Sequence {
     for (const child of [...from.root.children]) view.root.addChild(child);
     view.camera = ctx.camera;                                              // the old view's camera, now under this view's root
     if (own !== ctx.camera) { own.removeFromParent(); own.destroy(); }
-    if (ctx.objects.view === from) ctx.objects.view = view;
+    // what setup (or update) did to the view itself goes with the scene: its background, environment, exposure, tone mapping, post effects, shadow settings, and a fog it set
+    // (a fog the old layer's followFog made is made again for this view at the next frame)
+    const keep = ['background', 'environment', 'exposure', 'toneMapping', 'shadowQuality', 'shadowFilter', 'cull', ...(d._fogMirror ? [] : ['fog'])] as const;
+    const src = from as unknown as Record<string, unknown>, dst = view as unknown as Record<string, unknown>;
+    for (const key of keep) { try { if (key in src && dst[key] !== src[key]) dst[key] = src[key]; } catch { /* a setting this version cannot take */ } }
+    try {
+      const passes = src.passes as unknown[] | undefined;
+      if (Array.isArray(passes) && passes.length) { dst.passes = [...passes]; src.passes = []; }          // the effects move with the scene; the old view lets them go
+    } catch { /* passes this version cannot move */ }
     this._lightMirror = d._lightMirror;
     this._lightMirror?.rehome(view.root);
     this._fogMirror = null;                                                // made again for this view at the next frame
@@ -412,6 +421,9 @@ export class Scene3DSequence extends Sequence {
       track: (handle) => { this._shown.push(handle); return () => { const i = this._shown.indexOf(handle); if (i >= 0) this._shown.splice(i, 1); }; },
     };
   }
+
+  /** True when this layer shows 2D layers on its meshes (`layerTexture`): the movie runs its frame after the rest of the frame is ready (projections, filters fed), as for a three layer. */
+  get showsLayers(): boolean { return this._shown.length > 0; }
 
   /** The 2D layer that a material shows (`layerTexture`), for a click on the mesh to reach it (movie.pick); null for any other material. */
   screenOf(material: unknown): { source: Sequence; at(u: number, v: number): { x: number; y: number } } | null {

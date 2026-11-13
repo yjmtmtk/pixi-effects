@@ -2,7 +2,7 @@
 <html lang="en">
 <head><meta charset="UTF-8" /><title>film · a 2D layer on a mesh of a scene3d layer</title></head>
 <body style="margin:0">
-  <!-- Test film (tests/films/scene3d-layer-texture.test.ts): a composition "screen" (240 x 135: a top half "top" #e05030 and a bottom half "bottom" #3080e0, and a text "count" whose
+  <!-- Test film (tests/films/scene3d-layer-texture.test.ts): a composition "screen" (240 x 135: a top half "top" whose fill turns from #e05030 to #30e050 over 3 s, and a bottom half "bottom" #3080e0, a white threeD card "tilt" that turns about y over 3 s (projected by the screen's own space step), and a text "count" whose
        value counts up with the time) shown on a face-on plane that fills a scene3d layer of the same size, with an orthographic camera (so a pixel of the plane is a pixel of the screen).
        ?flat=1: the screen composition drawn flat instead (the reference). ?bad=1: layerTexture asks for a name that is not there. The page gives framePixels, exportPixel, window.__logs. -->
   <canvas id="stage" width="240" height="135"></canvas>
@@ -20,8 +20,9 @@
     register3D();
     const q = new URLSearchParams(location.search);
     const SCREEN = { type: 'composition', name: 'screen', width: 240, height: 135, sequences: [
-      { type: 'shape', shape: 'rect', name: 'top', width: 240, height: 68, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#e05030' } },
+      { type: 'shape', shape: 'rect', name: 'top', width: 240, height: 68, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#e05030' }, keyframes: [{ at: 0, to: { fillColor: '#30e050', width: 120 }, duration: 3 }] },
       { type: 'shape', shape: 'rect', name: 'bottom', width: 240, height: 67, anchorX: 0, anchorY: 0, initial: { x: 0, y: 68, fillColor: '#3080e0' } },
+      { type: 'shape', shape: 'rect', name: 'tilt', threeD: true, width: 60, height: 60, initial: { x: 200, y: 34, anchorX: 0.5, anchorY: 0.5, fillColor: '#ffffff', rotationY: 0 }, keyframes: [{ at: 0, to: { rotationY: 80 }, duration: 3 }] },
       { type: 'text', name: 'count', text: '{value}', style: { fontSize: 40, fill: '#ffffff', fontWeight: '800' }, initial: { x: 120, y: 68, anchorX: 0.5, anchorY: 0.5, value: 0 }, keyframes: [{ at: 0, to: { value: 99 }, duration: 3 }] },
     ] };
     const movie = new Movie();

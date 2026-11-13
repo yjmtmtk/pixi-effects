@@ -8,7 +8,7 @@ const BACKENDS = [['webgpu', undefined], ['webgl', WEBGL]] as const;
 const mean = (a: number[], b: number[]) => { let s = 0, n = 0; for (let i = 0; i < a.length; i++) { if (i % 4 === 3) continue; s += Math.abs(a[i]! - b[i]!); n++; } return s / n; };
 
 runFilms('scene3d: a 2D layer on a mesh (layerTexture)', () => {
-  it('a face-on plane shows the 2D layer as it is drawn flat: the same colours, upright (mean under 3 of 255), at two frames', async () => {
+  it('a face-on plane shows the 2D layer as it is drawn flat: the same colours, upright (mean under 3 of 255), at two frames, its animated shape included (drawn after the frame is ready, not one frame late)', async () => {
     for (const [name, beforeLoad] of BACKENDS) {
       const grab = (q: string) => withFilm('scene3d-layer-texture', async (f) => ({ logs: await f.eval<string[]>('window.__logs'), px: [await f.eval<number[]>('framePixels(15)'), await f.eval<number[]>('framePixels(75)')] }), { query: q, ...(beforeLoad ? { beforeLoad } : {}) });
       const flat = await grab('flat=1'), mesh = await grab('');

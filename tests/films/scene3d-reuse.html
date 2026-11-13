@@ -4,7 +4,7 @@
 <body style="margin:0">
   <!-- Test film (tests/films/scene3d-reuse.test.ts): a text layer with a variable and a scene3d layer "world" (a cube that turns with the time). setVars builds the movie again; a scene3d layer
        whose setup, size and options did not change keeps its scene (setup is not run again). The page counts: __setups, __disposes, and keeps __cube (the cube made by the last setup).
-       ?reuse=0: the layer says reuse: false. ?screen=1: the cube shows a 2D layer "screen" (a composition with the variable in it) through layerTexture. window.__layer(over) and window.__text. -->
+       ?reuse=0: the layer says reuse: false. ?viewset=1: setup sets the view's background and exposure and switches to a camera of its own, and a keyframe moves scene3d.view.exposure. ?screen=1: the cube shows a 2D layer "screen" (a composition with the variable in it) through layerTexture. window.__layer(over) and window.__text. -->
   <canvas id="stage" width="320" height="180"></canvas>
   <script>
     window.__logs = [];
@@ -20,6 +20,7 @@
     register3D();
     const q = new URLSearchParams(location.search);
     const SCREEN = q.get('screen') === '1';
+    const VIEWSET = q.get('viewset') === '1';
     window.__setups = 0; window.__disposes = 0; window.__cube = null;
     const setup = async (ctx) => {
       window.__setups++;
@@ -29,11 +30,17 @@
       const sun = new P3D.DirectionalLight({ intensity: 3 }); sun.rotation.set(-0.8, 0.5, 0);
       ctx.root.addChild(cube, sun, new P3D.AmbientLight({ intensity: 0.8 }));
       ctx.camera.position.set(0, 0.4, 5); ctx.camera.lookAt({ x: 0, y: 0, z: 0 });
+      if (VIEWSET) {                                                       // setup changes the view itself: a background, an exposure, another camera
+        ctx.view.background = 0x402030;
+        ctx.view.exposure = 1.6;
+        const close = new P3D.Camera3D(); close.position.set(1.2, 0.6, 3); close.lookAt({ x: 0, y: 0, z: 0 });
+        ctx.root.addChild(close); ctx.view.camera = close;
+      }
       return { objects: { cube } };
     };
     const update = (t, { objects }) => { objects.cube.rotation.set(0.4, t * 1.2, 0); };
     const dispose = () => { window.__disposes++; };
-    window.__layer = (over = {}) => ({ type: 'scene3d', name: 'world', ...(q.get('reuse') === '0' ? { reuse: false } : {}), width: 320, height: 180, initial: { x: 160, y: 90, anchorX: 0.5, anchorY: 0.5 }, setup, update, dispose, ...over });
+    window.__layer = (over = {}) => ({ type: 'scene3d', name: 'world', ...(q.get('reuse') === '0' ? { reuse: false } : {}), ...(VIEWSET ? { keyframes: [{ at: 1, to: { 'scene3d.view.exposure': 0.6 }, duration: 1 }] } : {}), width: 320, height: 180, initial: { x: 160, y: 90, anchorX: 0.5, anchorY: 0.5 }, setup, update, dispose, ...over });
     window.__text = { type: 'text', name: 'label', text: '{label}', style: { fontSize: 40, fill: '#ffffff' }, initial: { x: 160, y: 24, anchorX: 0.5, anchorY: 0.5 } };
     window.__screen = { type: 'composition', name: 'screen', width: 200, height: 200, sequences: [
       { type: 'shape', shape: 'rect', width: 200, height: 200, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#203040' } },
