@@ -546,11 +546,12 @@ interface PathShapeSpec extends ShapeBase, Trimmable
   morphTo?: string
   shape: "path"
 interface PickHit
-  kind: "flat" | "card" | "three"
+  kind: "flat" | "card" | "scene3d" | "three"
   local?: { x: number; y: number; }
   name?: string
   path: string
   point: { x: number; y: number; }
+  scene3d?: { object: string; point: [number, number, number]; distance: number; node?: unknown; grab?: ((plane?: [number…
   three?: { object: unknown; point: [number, number, number]; distance: number; object3d?: unknown; grab?: ((plane?: [n…
   type: string
   via?: { path: string; object: string; }
