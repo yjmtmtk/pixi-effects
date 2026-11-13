@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · setVars keeps a scene3d layer</title></head>
+<body style="margin:0">
+  <!-- Test film (tests/films/scene3d-reuse.test.ts): a text layer with a variable and a scene3d layer "world" (a cube that turns with the time). setVars builds the movie again; a scene3d layer
+       whose setup, size and options did not change keeps its scene (setup is not run again). The page counts: __setups, __disposes, and keeps __cube (the cube made by the last setup).
+       ?reuse=0: the layer says reuse: false. ?screen=1: the cube shows a 2D layer "screen" (a composition with the variable in it) through layerTexture. window.__layer(over) and window.__text. -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+    "@pixi/3d": "../../node_modules/@pixi/3d/dist/pixijs-3d.mjs", "@pixi/3d/extras": "../../node_modules/@pixi/3d/dist/pixijs-3d-extras.mjs" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    import { register3D, layerTexture } from '../../dist/3d.js';
+    import * as P3D from '@pixi/3d';
+    register3D();
+    const q = new URLSearchParams(location.search);
+    const SCREEN = q.get('screen') === '1';
+    window.__setups = 0; window.__disposes = 0; window.__cube = null;
+    const setup = async (ctx) => {
+      window.__setups++;
+      const material = SCREEN ? (await layerTexture(ctx, 'screen')).material : new P3D.Material3D({ baseColor: 0x7fb4ff, roughness: 0.5, metallic: 0 });
+      const cube = new P3D.Mesh3D({ label: 'cube', geometry: new P3D.CubeGeometry({ width: 1.4, height: 1.4, depth: 1.4 }), material });
+      window.__cube = cube;
+      const sun = new P3D.DirectionalLight({ intensity: 3 }); sun.rotation.set(-0.8, 0.5, 0);
+      ctx.root.addChild(cube, sun, new P3D.AmbientLight({ intensity: 0.8 }));
+      ctx.camera.position.set(0, 0.4, 5); ctx.camera.lookAt({ x: 0, y: 0, z: 0 });
+      return { objects: { cube } };
+    };
+    const update = (t, { objects }) => { objects.cube.rotation.set(0.4, t * 1.2, 0); };
+    const dispose = () => { window.__disposes++; };
+    window.__layer = (over = {}) => ({ type: 'scene3d', name: 'world', ...(q.get('reuse') === '0' ? { reuse: false } : {}), width: 320, height: 180, initial: { x: 160, y: 90, anchorX: 0.5, anchorY: 0.5 }, setup, update, dispose, ...over });
+    window.__text = { type: 'text', name: 'label', text: '{label}', style: { fontSize: 40, fill: '#ffffff' }, initial: { x: 160, y: 24, anchorX: 0.5, anchorY: 0.5 } };
+    window.__screen = { type: 'composition', name: 'screen', width: 200, height: 200, sequences: [
+      { type: 'shape', shape: 'rect', width: 200, height: 200, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#203040' } },
+      { type: 'text', text: '{label}', style: { fontSize: 120, fill: '#ffcc33', fontWeight: '900' }, initial: { x: 100, y: 100, anchorX: 0.5, anchorY: 0.5 } } ] };
+    window.__sequences = () => SCREEN ? [window.__screen, window.__text, window.__layer()] : [window.__text, window.__layer()];
+    const movie = new Movie();
+    window.movie = movie;
+    window.hashOf = async (frame) => { const d = (await movie.snapshot(frame, { as: 'imageData' })).data; let h = 0x811c9dc5; for (let i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); };
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 320, height: 180, duration: 3, frameRate: 30, background: '#102040', vars: { label: q.get('label') || 'a' },
+        composition: { sequences: window.__sequences() } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); window.__ready = true; }
+  </script>
+</body>
+</html>

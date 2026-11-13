@@ -15,9 +15,9 @@ import type { PropValue } from '../types';
 import type { Scene3DContext, Scene3DSequenceSpec } from './types';
 
 /** The keys a scene3d layer has besides the common ones. */
-const OWN_KEYS = ['width', 'height', 'view', 'resolution', 'setup', 'update', 'dispose', 'followCamera', 'followLights', 'followFog'] as const;
+const OWN_KEYS = ['width', 'height', 'view', 'resolution', 'setup', 'update', 'dispose', 'followCamera', 'followLights', 'followFog', 'reuse'] as const;
 /** Keys a `three` layer has that a scene3d layer does not have yet (they come in a later release). */
-const THREE_ONLY = ['renderer', 'shareGpu', 'antialias', 'reuse'] as const;
+const THREE_ONLY = ['renderer', 'shareGpu', 'antialias'] as const;
 /** What the layer owns: given in `view`, they are ignored. */
 const LAYER_OWNED = ['width', 'height', 'autoResize'] as const;
 
@@ -41,6 +41,13 @@ export class Scene3DSequence extends Sequence {
   /** Things to do before every frame of the scene is drawn (the 2D layers shown on meshes: `layerTexture`), and their handles. */
   private _drawHooks = new Set<() => void>();
   private _shown: ShownLayer[] = [];
+  /** What a rebuild matches this layer by (core/reuse.ts); null: never kept (`reuse: false`, no `name`, view options that are not plain data). */
+  private _key: string | null = null;
+  /** The layer of the tree being replaced whose scene this one takes over at the swap (`commitReuse`): until then it is not this layer's. */
+  private _borrowed: Scene3DSequence | null = null;
+  /** True once another layer took this layer's scene: destroying this one must not let it go. */
+  private _donated = false;
+  private _pendingRebinds: Array<() => void> = [];
   private _lightMirror: LightMirror | null = null;
   private _fogMirror: FogMirror | null = null;
   private _pinned = false;
@@ -98,6 +105,17 @@ export class Scene3DSequence extends Sequence {
     this.intrinsicWidth = width;
     this.intrinsicHeight = height;
 
+    // A rebuild (setVars, resize) builds this layer while the old one still plays: when it cannot be told apart from one of the old tree it takes over that one's scene at the swap
+    // (setup does not run again)
+    this._key = spec.reuse === false || !spec.name ? null : reuseKeyOf(spec, width, height);
+    const donor = this._key !== null ? (this.root.reuse?.claim(this._key) as Scene3DSequence | null | undefined) : null;
+    if (donor && donor._lendable()) {
+      this._borrow(donor, view, renderer ?? null, width, height);
+      if (spec.followCamera) this._checkFollowShape(width, height);
+      this.buildFilters();
+      return;
+    }
+
     const objects: Record<string, object> = {};
     const ctx: Scene3DContext = { view, root: view.root, camera: view.camera, renderer: renderer as Renderer, width, height, objects };
     Object.defineProperty(ctx, HOST, { value: this._makeHost(renderer ?? null), enumerable: false });
@@ -116,6 +134,48 @@ export class Scene3DSequence extends Sequence {
     this._stopSelfUpdating(view.root);
     if (spec.followCamera) this._checkFollowShape(width, height);
     this.buildFilters();
+  }
+
+  /** Reuse (core/reuse.ts): the key this layer is matched by, while it can still lend its scene. */
+  reuseKey(): string | null { return this._lendable() ? this._key : null; }
+  private _lendable(): boolean { return !!this._view && !!this._ctx && !this._donated && !this._borrowed; }
+
+  /**
+   * Take over a layer of the tree being replaced. The view is a PixiJS display object with one parent, so the old view stays in the old tree (which goes on drawing while this tree is
+   * built); this layer has a view of its own, and at the swap (`commitReuse`) the old view's whole scene, its camera with it, moves into this one. The objects setup made (and every
+   * value an author kept from setup: the camera, the meshes) are the same objects.
+   */
+  private _borrow(d: Scene3DSequence, view: View3D, renderer: Renderer | null, width: number, height: number): void {
+    const old = d._ctx!;
+    this._borrowed = d;
+    this._objects = d._objects;
+    this._players = d._players;
+    const ctx: Scene3DContext = { view, root: view.root, camera: old.camera, renderer: renderer as Renderer, width, height, objects: d._objects };
+    const host = this._makeHost(renderer);
+    Object.defineProperty(ctx, HOST, { value: host, enumerable: false });
+    this._ctx = ctx;
+    this._pendingRebinds = d._shown.map((h) => h.prepare(host));          // the 2D layers of the new tree are shown from the swap on, not before: the old layer goes on drawing its own
+  }
+
+  /** The new tree is on stage: the scene of the layer this one borrowed from moves into this layer's view, for good. */
+  commitReuse(): void {
+    const d = this._borrowed, view = this._view, ctx = this._ctx;
+    if (!d || !view || !ctx) return;
+    const from = d._view!;
+    const own = view.camera;
+    for (const child of [...from.root.children]) view.root.addChild(child);
+    view.camera = ctx.camera;                                              // the old view's camera, now under this view's root
+    if (own !== ctx.camera) { own.removeFromParent(); own.destroy(); }
+    if (ctx.objects.view === from) ctx.objects.view = view;
+    this._lightMirror = d._lightMirror;
+    this._lightMirror?.rehome(view.root);
+    this._fogMirror = null;                                                // made again for this view at the next frame
+    this._shown = d._shown;
+    this._drawHooks = d._drawHooks;
+    d._donated = true;
+    this._borrowed = null;
+    for (const apply of this._pendingRebinds) apply();
+    this._pendingRebinds = [];
   }
 
   /** Unknown keys (with the likely one), and the keys only a three layer has yet. */
@@ -250,7 +310,7 @@ export class Scene3DSequence extends Sequence {
    * `update` sets the scene from the time; PixiJS draws the view with the rest of the stage.
    */
   async awaitFrameAt(local: number): Promise<void> {
-    if (!this._ctx) return;
+    if (!this._ctx || this._borrowed) return;                            // a layer waiting for the swap: the scene is still the old layer's
     const t = Math.max(0, Math.min(local, this.duration ?? local));
     this._time = t;
     this._pinShaderTime();
@@ -460,30 +520,55 @@ export class Scene3DSequence extends Sequence {
 
   override destroy(): void {
     const spec = this._spec;
-    if (this._ctx && spec.dispose) {
-      try { spec.dispose(this._ctx); } catch (err) { console.warn(`${this._who()}: dispose() threw —`, err); }
+    // another layer has this layer's scene (or this layer never took the one it borrowed): the scene, the 2D layers on meshes and the lights are not this layer's to let go
+    const kept = this._donated || this._borrowed !== null;
+    if (!kept) {
+      if (this._ctx && spec.dispose) {
+        try { spec.dispose(this._ctx); } catch (err) { console.warn(`${this._who()}: dispose() threw —`, err); }
+      }
+      for (const h of [...this._shown]) { try { h.dispose(); } catch { /* the 2D layer is gone with its tree */ } }
+      this._drawHooks.clear();
+      this._lightMirror?.dispose();
     }
-    for (const h of [...this._shown]) { try { h.dispose(); } catch { /* the 2D layer is gone with its tree */ } }
     this._shown = [];
-    this._drawHooks.clear();
-    this._lightMirror?.dispose();
+    this._drawHooks = new Set();
+    this._pendingRebinds = [];
+    this._borrowed = null;
     this._lightMirror = null;
     this._fogMirror = null;
     this._ctx = null;
     this._objects = {};
     this._players = [];
-    this._destroyView();
+    this._destroyView();                                                   // (a view whose scene moved on is empty)
     this._look?.destroy();
     this._look = null;
     this._blend?.destroy();
     this._blend = null;
     super.destroy();
   }
+
 }
 
 /** What the layer uses of a PixiJS 3D animation player (public API only). */
 interface ClipState { readonly playing: boolean; readonly animation: { duration: number }; animationSpeed?: number; loop: boolean; gotoAndStop(time: number): unknown; play(): unknown }
 interface ClipPlayer { autoUpdate?: unknown; readonly animationLabels: readonly string[]; getState(label: string): ClipState }
+
+/** A number for each function: two layers are the same layer only when their `setup` is the same function. */
+const ids = new WeakMap<object, number>();
+let lastId = 0;
+function idOf(fn: unknown): number {
+  if (typeof fn !== 'function') return 0;
+  let id = ids.get(fn);
+  if (id === undefined) { id = ++lastId; ids.set(fn, id); }
+  return id;
+}
+
+/** The key a rebuild matches a scene3d layer by: its name, its setup, its size and its options. View options that are not plain data make the layer one that is built again. */
+function reuseKeyOf(spec: Scene3DSequenceSpec, width: number, height: number): string | null {
+  let view: string;
+  try { view = JSON.stringify(spec.view ?? null) ?? 'null'; } catch { return null; }
+  return JSON.stringify([spec.name, idOf(spec.setup), width, height, spec.resolution ?? 1, view, !!spec.followCamera, !!spec.followLights, !!spec.followFog]);
+}
 
 function resolveDim(v: PropValue | undefined, scope: Record<string, number>): number | undefined {
   if (v === undefined) return undefined;

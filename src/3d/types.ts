@@ -49,6 +49,12 @@ export interface Scene3DSequenceSpec extends SequenceCommon {
   followLights?: boolean;
   /** The composition camera's fog (`fogNear` / `fogFar` / `fogColor`) becomes the view's linear fog, every frame (PixiJS 3D fades by smoothstep; no `fogAmount` below 1). */
   followFog?: boolean;
+  /**
+   * A rebuild (`setVars`, `resize`, `rebuild`) keeps this layer's scene when the layer did not change (same `name`, same `setup` function, size and options): `setup` runs once,
+   * not at every rebuild, and a model is not loaded again. Default `true`; a layer with no `name` is always built again. `false`: `setup` runs again at every rebuild (when it
+   * reads something a variable changes). `update` is the new composition's own and runs on the kept scene.
+   */
+  reuse?: boolean;
   /** The view's resolution (1 draws at the layer's size; another value draws the scene at that scale and composites it). */
   resolution?: number;
   /** Build the scene: add objects to `ctx.root`, place `ctx.camera`. May be async (a model loads): Movie.init waits for it. */

@@ -66,6 +66,11 @@ export class LightMirror {
     this.entries = [];
   }
 
+  /** The lights now live under another root (a rebuild moved the scene into a new view): new lights go there. */
+  rehome(root: Container3D): void {
+    (this as unknown as { root: Container3D }).root = root;
+  }
+
   private once(key: string, message: string): void {
     if (this.said.has(key)) return;
     this.said.add(key);
