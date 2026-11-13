@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · a 2D layer on a mesh of a scene3d layer</title></head>
+<body style="margin:0">
+  <!-- Test film (tests/films/scene3d-layer-texture.test.ts): a composition "screen" (240 x 135: a top half "top" #e05030 and a bottom half "bottom" #3080e0, and a text "count" whose
+       value counts up with the time) shown on a face-on plane that fills a scene3d layer of the same size, with an orthographic camera (so a pixel of the plane is a pixel of the screen).
+       ?flat=1: the screen composition drawn flat instead (the reference). ?bad=1: layerTexture asks for a name that is not there. The page gives framePixels, exportPixel, window.__logs. -->
+  <canvas id="stage" width="240" height="135"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+    "@pixi/3d": "../../node_modules/@pixi/3d/dist/pixijs-3d.mjs", "@pixi/3d/extras": "../../node_modules/@pixi/3d/dist/pixijs-3d-extras.mjs" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    import { register3D, layerTexture } from '../../dist/3d.js';
+    import * as P3D from '@pixi/3d';
+    register3D();
+    const q = new URLSearchParams(location.search);
+    const SCREEN = { type: 'composition', name: 'screen', width: 240, height: 135, sequences: [
+      { type: 'shape', shape: 'rect', name: 'top', width: 240, height: 68, anchorX: 0, anchorY: 0, initial: { x: 0, y: 0, fillColor: '#e05030' } },
+      { type: 'shape', shape: 'rect', name: 'bottom', width: 240, height: 67, anchorX: 0, anchorY: 0, initial: { x: 0, y: 68, fillColor: '#3080e0' } },
+      { type: 'text', name: 'count', text: '{value}', style: { fontSize: 40, fill: '#ffffff', fontWeight: '800' }, initial: { x: 120, y: 68, anchorX: 0.5, anchorY: 0.5, value: 0 }, keyframes: [{ at: 0, to: { value: 99 }, duration: 3 }] },
+    ] };
+    const movie = new Movie();
+    window.movie = movie;
+    window.framePixels = async (frame) => Array.from((await movie.snapshot(frame, { as: 'imageData' })).data);
+    window.exportPixels = async (range, times) => {                         // export a range, decode the file at each time, return its pixels
+      const blob = await movie.render({ range });
+      const mb = await import('mediabunny');
+      const input = new mb.Input({ source: new mb.BlobSource(blob), formats: mb.ALL_FORMATS });
+      const sink = new mb.CanvasSink(await input.getPrimaryVideoTrack());
+      const out = [];
+      for (const t of times) { const f = await sink.getCanvas(t); out.push(Array.from(f.canvas.getContext('2d').getImageData(0, 0, 240, 135).data)); }
+      return out;
+    };
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 240, height: 135, duration: 3, frameRate: 30, background: '#000000',
+        composition: { sequences: q.get('flat') === '1' ? [SCREEN] : [
+          SCREEN,
+          { type: 'scene3d', name: 'tv',
+            setup: async (ctx) => {
+              const screen = await layerTexture(ctx, q.get('bad') === '1' ? 'screne' : 'screen');
+              const plane = new P3D.Mesh3D({ label: 'panel', geometry: new P3D.PlaneGeometry({ width: 2, height: 2 * 135 / 240 }), material: screen.material });
+              ctx.root.addChild(plane);
+              ctx.camera.mode = 'orthographic'; ctx.camera.orthographicSize = 1;
+              ctx.camera.position.set(0, 0, 5); ctx.camera.lookAt({ x: 0, y: 0, z: 0 });
+            } },
+        ] } });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); window.__ready = true; }
+  </script>
+</body>
+</html>

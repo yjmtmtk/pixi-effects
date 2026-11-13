@@ -9,6 +9,7 @@ import { COMMON } from '../core/layerKeys';
 import { suggestName } from '../core/options';
 import { NOT_PURE } from '../core/purity';
 import { applyCameraState, FogMirror, LightMirror } from './spaceBridge';
+import { HOST, type LayerTextureHost, type ShownLayer } from './layerTexture';
 import { blendFilterFor, isAdvancedBlend, type BlendFilterLike } from '../core/blend';
 import type { PropValue } from '../types';
 import type { Scene3DContext, Scene3DSequenceSpec } from './types';
@@ -37,6 +38,9 @@ export class Scene3DSequence extends Sequence {
   private _blend: BlendFilterLike | null = null;
   /** The layer's time, what PixiJS 3D's shader time `uTime` reads once pinned (see `_pinShaderTime`). */
   private _time = 0;
+  /** Things to do before every frame of the scene is drawn (the 2D layers shown on meshes: `layerTexture`), and their handles. */
+  private _drawHooks = new Set<() => void>();
+  private _shown: ShownLayer[] = [];
   private _lightMirror: LightMirror | null = null;
   private _fogMirror: FogMirror | null = null;
   private _pinned = false;
@@ -96,6 +100,7 @@ export class Scene3DSequence extends Sequence {
 
     const objects: Record<string, object> = {};
     const ctx: Scene3DContext = { view, root: view.root, camera: view.camera, renderer: renderer as Renderer, width, height, objects };
+    Object.defineProperty(ctx, HOST, { value: this._makeHost(renderer ?? null), enumerable: false });
     let result: Awaited<ReturnType<Scene3DSequenceSpec['setup']>>;
     try {
       result = await spec.setup(ctx);
@@ -190,6 +195,7 @@ export class Scene3DSequence extends Sequence {
    */
   override syncFrame(): void {
     super.syncFrame();
+    for (const h of this._shown) h.keepHidden();                         // a 2D layer shown on a mesh stays off the stage (a tween of autoAlpha writes visible = true)
     const view = this._view;
     if (!view) return;
     let alpha = 1;
@@ -258,6 +264,7 @@ export class Scene3DSequence extends Sequence {
       }
     }
     this._poseClips(t);
+    for (const hook of this._drawHooks) hook();                          // the 2D layers shown on meshes, drawn into their textures at this frame
   }
 
   /**
@@ -335,6 +342,23 @@ export class Scene3DSequence extends Sequence {
     }
   }
 
+  /** What `layerTexture` asks of this layer: the layers listed before it, PixiJS's renderer, and a place to hook in before every frame. */
+  private _makeHost(renderer: Renderer | null): LayerTextureHost {
+    return {
+      findLayer: (name) => this.parent?.findLayer?.(name) ?? null,
+      layerNames: () => this.parent?.layerNames?.() ?? [],
+      pixiRenderer: renderer,
+      beforeDraw: (fn) => { this._drawHooks.add(fn); return () => { this._drawHooks.delete(fn); }; },
+      track: (handle) => { this._shown.push(handle); return () => { const i = this._shown.indexOf(handle); if (i >= 0) this._shown.splice(i, 1); }; },
+    };
+  }
+
+  /** The 2D layer that a material shows (`layerTexture`), for a click on the mesh to reach it (movie.pick); null for any other material. */
+  screenOf(material: unknown): { source: Sequence; at(u: number, v: number): { x: number; y: number } } | null {
+    const handle = this._shown.find((h) => h.material === material);
+    return handle ? { source: handle.source(), at: (u, v) => handle.sourceAt(u, v) } : null;
+  }
+
   /** The view's global point at (u, v) of its picture (0..1, v down). */
   private _globalAt(u: number, v: number): { x: number; y: number } | null {
     const view = this._view;
@@ -343,12 +367,18 @@ export class Scene3DSequence extends Sequence {
     return view.toGlobal({ x: b.x + u * b.width, y: b.y + v * b.height });
   }
 
-  /** Make the scene's objects hit by a ray (PixiJS 3D only hits nodes whose eventMode is not 'passive'); an author's own choice ('none', 'static', …) is kept. */
+  /**
+   * Make the scene's meshes hit by a ray, exactly: PixiJS 3D only hits nodes whose eventMode is not 'passive', and by default against the mesh's bounding box (a sphere's corners
+   * count, and the hit has no uv). A mesh the author left as it was gets eventMode 'static' and hitVolume 'geometry' (per triangle: the silhouette, the normal and the uv a 2D
+   * layer on the mesh needs); the author's own choice is kept.
+   */
   private _makePickable(): void {
     const root = this._view?.root as unknown as { traverse(cb: (n: unknown) => void): void } | undefined;
     root?.traverse((node) => {
-      const n = node as { eventMode?: string; geometry?: unknown; children?: unknown[] };
-      if (n.eventMode === 'passive' && n.geometry !== undefined) n.eventMode = 'static';
+      const n = node as { eventMode?: string; geometry?: unknown; hitVolume?: unknown };
+      if (n.eventMode !== 'passive' || n.geometry === undefined) return;
+      n.eventMode = 'static';
+      if (n.hitVolume === undefined || n.hitVolume === null) n.hitVolume = 'geometry';
     });
   }
 
@@ -433,6 +463,9 @@ export class Scene3DSequence extends Sequence {
     if (this._ctx && spec.dispose) {
       try { spec.dispose(this._ctx); } catch (err) { console.warn(`${this._who()}: dispose() threw —`, err); }
     }
+    for (const h of [...this._shown]) { try { h.dispose(); } catch { /* the 2D layer is gone with its tree */ } }
+    this._shown = [];
+    this._drawHooks.clear();
     this._lightMirror?.dispose();
     this._lightMirror = null;
     this._fogMirror = null;
