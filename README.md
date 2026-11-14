@@ -1,6 +1,6 @@
 # pixi-effects
 
-> **Status**: experimental — current release `0.49.0`. The API may still change between minor versions; see the [CHANGELOG](./CHANGELOG.md) for what each release changed.
+> **Status**: experimental — current release `0.50.0`. The API may still change between minor versions; see the [CHANGELOG](./CHANGELOG.md) for what each release changed.
 
 **[Gallery →](https://yjmtmtk.github.io/pixi-effects/examples/gallery/)** · 43 pieces written as plain data by AI models · **[For AI →](https://yjmtmtk.github.io/pixi-effects/for-ai.html)** · what an AI reads and runs · **[Playground →](https://yjmtmtk.github.io/pixi-effects/examples/playground.html)** in the browser.
 
@@ -52,8 +52,8 @@ Drop the imports into an [importmap](https://developer.mozilla.org/docs/Web/HTML
   "imports": {
     "pixi.js":                 "https://esm.sh/pixi.js@8.23.0?bundle-deps",
     "mediabunny":              "https://esm.sh/mediabunny",
-    "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@0.49.0/dist/index.js",
-    "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.49.0/dist/Controller.js"
+    "pixi-effects":            "https://cdn.jsdelivr.net/npm/pixi-effects@0.50.0/dist/index.js",
+    "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.50.0/dist/Controller.js"
   }
 }
 </script>
@@ -66,7 +66,7 @@ Drop the imports into an [importmap](https://developer.mozilla.org/docs/Web/HTML
 
 The `mediabunny` line is needed only to export (the download button, `movie.render()`) or for a `video` layer; a page that only plays can leave it out and never fetches it (or call `useMediabunny(url)` instead, see [the API](docs/api.md#where-the-encoder-comes-from-usemediabunnysource)).
 
-Load the `dist/` files **as they are** (jsDelivr's `/npm/…/dist/…`, or unpkg's `https://unpkg.com/pixi-effects@0.49.0/dist/index.js`) rather than a CDN-rebundled build such as `esm.sh/pixi-effects` or jsDelivr's `+esm`: the entries (`pixi-effects`, `…/controller`, `…/three`) share internal chunks, which only works when each file is served untouched.
+Load the `dist/` files **as they are** (jsDelivr's `/npm/…/dist/…`, or unpkg's `https://unpkg.com/pixi-effects@0.50.0/dist/index.js`) rather than a CDN-rebundled build such as `esm.sh/pixi-effects` or jsDelivr's `+esm`: the entries (`pixi-effects`, `…/controller`, `…/three`) share internal chunks, which only works when each file is served untouched.
 
 > **A 3D scene?** Add three more entries (`pixi-effects/3d`, `@pixi/3d`, `@pixi/3d/extras`) — see [Adding a 3D scene](#adding-a-3d-scene-optional) below. **Using three.js?** Add two more entries (`three` and `pixi-effects/three`) to this importmap — see [Adding three.js](#adding-threejs-optional) below.
 >
@@ -81,7 +81,7 @@ Add three entries to the importmap above (PixiJS 3D needs `pixi.js` 8.23.0 or la
 {
   "imports": {
     "...":                     "(everything from the importmap above)",
-    "pixi-effects/3d":         "https://cdn.jsdelivr.net/npm/pixi-effects@0.49.0/dist/3d.js",
+    "pixi-effects/3d":         "https://cdn.jsdelivr.net/npm/pixi-effects@0.50.0/dist/3d.js",
     "@pixi/3d":                "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d.min.mjs",
     "@pixi/3d/extras":         "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d-extras.min.mjs"
   }
@@ -125,7 +125,7 @@ Add two more entries to the importmap above: three.js itself, and the `pixi-effe
     "...":                     "(everything from the importmap above)",
     "three":                   "https://esm.sh/three@0.178.0",
     "three/addons/":           "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/",
-    "pixi-effects/three":      "https://cdn.jsdelivr.net/npm/pixi-effects@0.49.0/dist/three.js"
+    "pixi-effects/three":      "https://cdn.jsdelivr.net/npm/pixi-effects@0.50.0/dist/three.js"
   }
 }
 </script>

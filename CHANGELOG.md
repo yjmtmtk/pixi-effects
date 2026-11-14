@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.50.0
+
+Nothing breaks: `scene2d`, a layer of PixiJS 2D objects built by your code (core, nothing to import), and two fixes for every engine: a rebuild that keeps a scene starts its keyframes from setup's values, and a routed `tint` keyframe moves by channel.
 
 - **PixiJS 2D built by code: the `scene2d` layer** (core, nothing to import). `{ type: 'scene2d', setup({ root, width, height, texture }), update(t, ctx), dispose, width, height, reuse }`: your PixiJS display objects (`Graphics`, `Sprite`, `AnimatedSprite`, `Text`, a thousand pieces) as one layer, shaped like the `scene3d` layer, so a free box of PixiJS 2D no longer needs a `Sequence` subclass. Keyframes reach `scene2d.<object>.<path>` (raw PixiJS values); `anchorX` / `anchorY` place its box; `update` with a clock or `Math.random` warns; an `AnimatedSprite` left playing is posed from the layer's time (anything else with `autoUpdate` is turned off and said, a `<video>` texture is said); `check` draws it in two orders and names a layer whose same frame differs; `movie.pick` names the object under a point (`kind: 'scene2d'`, `hit.scene2d.object` by its label, `grab().move(x, y)`; empty space falls through) and `check --pick` prints it; `ctx.texture(name)` is a movie asset's texture; a named layer keeps its scene across `setVars` (`setup` runs once). Recipe `scene2d-basics`.
 - **Fixed: a rebuild that keeps a scene (`scene2d`, `scene3d`, `three` with `reuse`) started its keyframes from the last frame the old movie showed.** After `setVars` late in a movie, a keyframe into the scene (`scene3d.cube.position.y`, `three.box.position.y`) began where the old movie had left the object, not where `setup` put it, so the picture differed from a fresh page. The values `setup` left are noted and put back at the swap; the old movie is not touched while the new tree is built. A layer used as a matte source that keeps its scene is committed too.
