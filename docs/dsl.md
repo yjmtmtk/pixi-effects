@@ -203,6 +203,22 @@ A `null` layer draws nothing; it only moves. Any layer can name it as its `paren
 - A **mask** on a child shares the child's space, so it follows the null as well.
 - Only `null` layers can be parents (not shapes, text or images), and a `threeD` layer or a camera cannot have a parent. These cases, an unknown name and a cycle are each warned about, and the layer is drawn without a parent.
 
+### `follow`: a layer next to an object of a scene
+
+`follow: 'planets/Mars'` carries a 2D layer (a text, a shape, an image, a composition, a null with its children) to where an object is on screen, **every frame**: an object of a `scene3d`, `three` or `scene2d` layer (a name its `setup` returned in `objects`, or the label / `name` of any node in it: a part of a glTF model), or another layer (`follow: 'title'`: its anchor point). The layer's own `x` / `y` (in `initial` and keyframes) become an **offset from that point**, in px; the rest of it (alpha, scale, keyframes, masks, `parent`) works as usual.
+
+```js
+{ type: 'scene3d', name: 'planets', setup: …, update: … },                       // its setup returns { objects: { Mars: mars, … } }
+{ type: 'text', text: 'Mars', follow: 'planets/Mars',
+  initial: { x: 18, y: -14, anchorX: 0, anchorY: 1, fontSize: 18, fillColor: '#ffffff' } },   // 18 px right of and 14 px above the planet's centre
+```
+
+- The target is `'<layer>/<object>'` or `'<layer>'`. `<layer>` is a name, or a path through nested compositions (`'system/planets/Mars'`); a name is also found anywhere in the movie when only one layer has it. A name nobody has is warned with the names there are (did you mean).
+- It is placed after every layer has been set for the frame (the scene layers' `update(t)`, `followCamera`), so it is exactly where the object is drawn, in playback, a seek and an export. While the object is **behind the camera**, or the followed layer is **not on screen** (before its `at`, after its end, hidden), the follower is hidden.
+- `movie.project('planets/Mars')` returns the same point (`{ x, y }` in canvas pixels, or null), for your own code; `check --do "click planets/Mars"` clicks there.
+- Not yet: a `threeD` layer cannot follow, and a layer inside a `threeD` card cannot follow or be followed (the card is projected after the layers are placed); both are warned. There is no 3D offset: for a point on a model (the tip of a wing), add a named node there in `setup` and follow it.
+- Write the offset, not the place: `initial: { x: 640, y: 360 }` on a follower puts it 640 px right of the object (an offset larger than the composition is warned).
+
 ### `audio`
 
 Audio-only sequence. No visual. Volume is animatable via keyframes.

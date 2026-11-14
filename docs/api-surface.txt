@@ -365,6 +365,7 @@ class Movie
   posterFrame: number | null
   posterImage(opts?: (SnapshotOptions & { as?: "blob" | undefined; }) | undefined): Promise<Blob>
   posterImage(opts: SnapshotOptions & { as: "dataURL"; }): Promise<string>
+  project(target: string): { x: number; y: number; } | null
   rebuild(change?: RebuildOptions, reason?: RebuildReason): Promise<RebuildReport>
   redraw(): Promise<void>
   render(options?: RenderOptions | undefined): Promise<Blob>
@@ -670,6 +671,7 @@ interface SequenceCommon
   duration?: number
   filterArea?: { x: number; y: number; width: number; height: number; }
   filters?: FilterSpec[]
+  follow?: string
   hideBehindCamera?: boolean
   initial?: Props
   keyframes?: Keyframe[]
@@ -1036,6 +1038,7 @@ class ThreeSequence
   duration: number
   intrinsicHeight: number
   intrinsicWidth: number
+  objectNames(): string[]
   parent: CompositionShape | null
   pickAt(u: number, v: number): { object: string; point: [number, number, number]; distance: number; object3d: Object3D<Object3DEventMap>; uv?: { u: number; v: number;…
   renderer: "webgl" | "webgpu" | null
@@ -1043,6 +1046,7 @@ class ThreeSequence
   root: CompositionShape
   scope(): Scope
   screenOf(material: unknown): { source: Sequence; at(u: number, v: number): { x: number; y: number; }; } | null
+  screenPoint(object: string): { x: number; y: number; } | null | undefined
   sharedGpu: boolean
   showsLayers: boolean
   spec: SequenceSpec
@@ -1074,6 +1078,7 @@ interface SequenceCommon (not exported; the keys of the types above)
   duration?: number
   filterArea?: { x: number; y: number; width: number; height: number; }
   filters?: FilterSpec[]
+  follow?: string
   hideBehindCamera?: boolean
   initial?: Props
   keyframes?: Keyframe[]
@@ -1084,7 +1089,7 @@ interface SequenceCommon (not exported; the keys of the types above)
   threeD?: boolean
 
 == DSL (the runtime tables) ==
-every layer: type name parent at duration initial keyframes filters filterArea mask blendMode threeD hideBehindCamera lit castsShadows
+every layer: type name parent follow at duration initial keyframes filters filterArea mask blendMode threeD hideBehindCamera lit castsShadows
 null layer: 
 camera layer: 
 light layer: kind falloff

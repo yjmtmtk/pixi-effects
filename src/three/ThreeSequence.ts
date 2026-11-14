@@ -260,6 +260,38 @@ export class ThreeSequence extends Sequence {
   }
 
   /**
+   * `follow` / `movie.project`: where an object of the scene is on the canvas (a name setup returned in `objects`, or any object's `name`): its world origin through the layer's
+   * camera onto the layer's picture; null while it is outside the camera's depth range (behind it) or hidden, undefined for no such object.
+   */
+  screenPoint(object: string): { x: number; y: number } | null | undefined {
+    const obj = this._objectNamed(object);
+    if (!obj) return undefined;
+    const camera = this._camera, sprite = this.target as Sprite | null;
+    if (!camera || !sprite) return null;
+    for (let n: Object3D | null = obj; n; n = n.parent) if (!n.visible) return null;
+    this._scene?.updateMatrixWorld();
+    camera.updateMatrixWorld();
+    const v = obj.getWorldPosition(new Vector3()).project(camera);
+    if (!(v.z >= -1 && v.z <= 1)) return null;
+    const b = sprite.getLocalBounds();
+    const p = sprite.toGlobal({ x: b.x + ((v.x + 1) / 2) * b.width, y: b.y + ((1 - v.y) / 2) * b.height });
+    return { x: p.x, y: p.y };
+  }
+
+  /** The names `screenPoint` knows: the objects setup returned, then the named objects of the scene. */
+  objectNames(): string[] {
+    const names = new Set(Object.keys(this._objects).filter((k) => this._objectNamed(k)));
+    this._scene?.traverse((o) => { if (o.name) names.add(o.name); });
+    return [...names];
+  }
+
+  private _objectNamed(name: string): Object3D | null {
+    const own = this._objects[name] as Partial<Object3D> | undefined;
+    if (own && typeof own.getWorldPosition === 'function') return own as Object3D;
+    return this._scene?.getObjectByName(name) ?? null;
+  }
+
+  /**
    * `movie.pick`: a ray through the point (u, v) of the layer's picture (0..1, v down) from the layer's camera, and what it meets first: the object's name (its own, or its nearest
    * ancestor's that has one), where, and how far from the camera. Invisible objects and groups are not met. null when the ray meets nothing.
    */

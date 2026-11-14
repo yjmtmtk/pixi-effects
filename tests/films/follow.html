@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · follow an object of a scene</title></head>
+<body style="margin:0">
+  <!-- Test film (tests/films/follow.test.ts): small square "followers" that `follow` an object of a scene3d layer ("world/mover", a group that slides
+       x -1 → 1 over 3 s), an object of a scene2d layer ("flat/dot", at (60 + 40 t, 200) in a layer placed at 0,0), a plain layer ("box", keyframed
+       x 300 → 420), a layer inside a nested composition ("group/inner" at (40, 30) in a composition at (200, 0)), an object behind the camera
+       ("world/behind") and a layer that lives only from 2 s ("late"). Parts by query: bad=1 (an unknown object), flat3d=1 (a threeD follower),
+       far=1 (an offset bigger than the movie), card=1 (a target inside a threeD card).
+       The page gives centreOf(name) (the centre of a layer's drawn box, from inspect), shown(name) (alive and on screen), worldToCanvas([x, y, z])
+       and screenOf(label) (independent: the view's own projection), pixelAt(frame, x, y), hashOf(frame), window.__logs. -->
+  <canvas id="stage" width="480" height="270"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+  </script>
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
+    "@pixi/3d": "../../node_modules/@pixi/3d/dist/pixijs-3d.mjs", "@pixi/3d/extras": "../../node_modules/@pixi/3d/dist/pixijs-3d-extras.mjs" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    import { register3D } from '../../dist/3d.js';
+    import * as P3D from '@pixi/3d';
+    import { Graphics } from 'pixi.js';
+    register3D();
+    const q = new URLSearchParams(location.search);
+    let view = null;
+    const movie = new Movie();
+    window.movie = movie;
+    window.screenOf = (label) => { const n = view.root.getChildByLabel(label, true); const g = n.getGlobalTransform(new P3D.Matrix4()); return window.worldToCanvas([g.elements[12], g.elements[13], g.elements[14]]); };
+    window.worldToCanvas = (p) => { const s = view.worldToScreen({ x: p[0], y: p[1], z: p[2] }); return s ? [s.x, s.y] : null; };
+    const dot = (name, follow, colour, extra = {}) => ({ type: 'shape', shape: 'rect', name, follow, width: 6, height: 6, ...extra, initial: { fillColor: colour, ...(extra.initial ?? {}) } });
+    const sequences = [
+      { type: 'shape', shape: 'rect', name: 'backdrop', width: 480, height: 270, initial: { x: 240, y: 135, fillColor: '#000000' } },
+      { type: 'scene3d', name: 'world',
+        setup: ({ root, camera, view: v }) => {
+          view = v;
+          const mat = (c) => new P3D.Material3D({ baseColor: c, roughness: 0.6, metallic: 0 });
+          const group = new P3D.Container3D({ label: 'mover' });
+          group.addChild(new P3D.Mesh3D({ geometry: new P3D.CubeGeometry({ width: 0.5, height: 0.5, depth: 0.5 }), material: mat(0x2266ff) }));
+          root.addChild(group);
+          root.addChild(new P3D.Mesh3D({ label: 'behind', geometry: new P3D.CubeGeometry(), material: mat(0xffffff), position: { x: 0, y: 0, z: 10 } }));
+          root.addChild(new P3D.AmbientLight({ intensity: 2 }));
+          camera.position.set(0, 0, 6); camera.lookAt({ x: 0, y: 0, z: 0 });
+          return { objects: { group } };
+        },
+        update: (t, { objects }) => { objects.group.position.set(-1 + (2 * t) / 3, 0.5, 0); } },
+      { type: 'scene2d', name: 'flat', initial: { x: 0, y: 0, anchorX: 0, anchorY: 0 },
+        setup: ({ root }) => { const g = new Graphics({ label: 'dot' }).circle(0, 0, 3).fill(0x444444); root.addChild(g); return { objects: { dot: g } }; },
+        update: (t, { objects }) => { objects.dot.position.set(60 + 40 * t, 200); } },
+      { type: 'shape', shape: 'rect', name: 'box', width: 10, height: 10, initial: { x: 300, y: 60, fillColor: '#333333' }, keyframes: [{ at: 0, to: { x: 420 }, duration: 3, ease: 'none' }] },
+      { type: 'composition', name: 'group', width: 200, height: 100, initial: { x: 200, y: 0, anchorX: 0, anchorY: 0 }, sequences: [
+        { type: 'shape', shape: 'rect', name: 'inner', width: 4, height: 4, initial: { x: 40, y: 30, fillColor: '#333333' } },
+      ] },
+      { type: 'shape', shape: 'rect', name: 'late', at: 2, width: 4, height: 4, initial: { x: 440, y: 240, fillColor: '#333333' } },
+      dot('f3d', 'world/mover', '#ff0000'),
+      dot('f2d', 'flat/dot', '#00ff00', { initial: { x: 10, y: 0 } }),
+      dot('fbox', 'box', '#ffff00'),
+      dot('fnest', 'group/inner', '#00ffff'),
+      dot('fbehind', 'world/behind', '#ff00ff'),
+      dot('flate', 'late', '#ff8800'),
+    ];
+    if (q.get('bad')) sequences.push(dot('fbad', 'world/Marz', '#ffffff'));
+    if (q.get('flat3d')) sequences.push(dot('f3dcard', 'box', '#ffffff', { threeD: true }));
+    if (q.get('far')) sequences.push(dot('ffar', 'box', '#ffffff', { initial: { x: 640, y: 360 } }));
+    if (q.get('card')) sequences.push({ type: 'composition', name: 'cardcomp', threeD: true, width: 100, height: 100, initial: { x: 240, y: 135 }, sequences: [{ type: 'shape', shape: 'rect', name: 'incard', width: 4, height: 4, initial: { x: 50, y: 50 } }] }, dot('fcard', 'cardcomp/incard', '#ffffff'));
+    try {
+      await movie.init({ canvas: document.getElementById('stage'), width: 480, height: 270, duration: 3, frameRate: 30, background: '#000000', composition: { sequences } });
+      window.centreOf = async (name) => { const l = (await movie.inspect(movie.currentFrame)).layers.find((x) => x.name === name); return l && l.bounds ? [l.bounds.x + l.bounds.width / 2, l.bounds.y + l.bounds.height / 2] : null; };
+      window.shown = async (name) => { const l = (await movie.inspect(movie.currentFrame)).layers.find((x) => x.name === name); return !!l; };
+      window.pixelAt = async (frame, x, y) => { await movie.gotoFrame(frame, true); const img = await movie.snapshot(frame, { as: 'imageData' }); const i = (Math.round(y) * img.width + Math.round(x)) * 4; return [img.data[i], img.data[i + 1], img.data[i + 2], img.data[i + 3]]; };
+      window.hashOf = async (frame) => { const img = await movie.snapshot(frame, { as: 'imageData' }); let h = 0; for (let i = 0; i < img.data.length; i += 7) h = (h * 31 + img.data[i]) | 0; return String(h); };
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); window.__error = String(e && e.message || e); window.__ready = true; }
+  </script>
+</body>
+</html>

@@ -46,6 +46,10 @@ export class CompositionSequence extends Sequence {
   private _nested: Sequence[] = [];
   /** The null layer each parented layer is drawn inside. */
   private _parentOf = new Map<Sequence, NullSequence>();
+  /** The layers with `follow`: each is drawn inside an internal null layer (its carrier), which Movie places every frame (core/follow.ts). */
+  readonly follows: Array<{ carrier: NullSequence; follower: Sequence; target: string }> = [];
+  /** Every layer of this composition as built (cameras, lights, nulls and the follow carriers included). */
+  get childLayers(): readonly Sequence[] { return this._children; }
   /** Set when this composition's own time is remapped: the children live on `_inner` in LOCAL time, driven by `_clock`. */
   private _inner: Timeline | null = null;
   private _clock: { time: number } | null = null;
@@ -118,6 +122,7 @@ export class CompositionSequence extends Sequence {
       this._children,
     );
     this._resolveParents();
+    await this._resolveFollows(width, height);
     // Named mattes: a layer that another layer names in `mask` is drawn into a texture (once per frame), not on screen
     const matteNames = new Set<string>();
     for (const c of this._children) for (const n of refNames((c.spec as { mask?: unknown }).mask)) matteNames.add(n);
@@ -357,6 +362,31 @@ export class CompositionSequence extends Sequence {
           light: layer && this._lighting && layer.world && layer.spec.lit !== false ? lightLevel(layer.world, this._lighting.cam, this._lighting.states) : undefined,
         };
       });
+  }
+
+  /**
+   * `follow`: each follower gets a carrier, an internal null layer put in the follower's place in the stack (inside the follower's own `parent`, if any), and is drawn
+   * inside it as a parented layer is; Movie moves the carrier every frame. What cannot follow is said and drawn where its own x / y put it.
+   */
+  private async _resolveFollows(width: number, height: number): Promise<void> {
+    for (const child of [...this._children]) {
+      const want = (child.spec as { follow?: unknown }).follow;
+      if (want === undefined) continue;
+      const who = describeLayer(child.spec);
+      if (typeof want !== 'string' || want.trim() === '') { console.warn(`pixi-effects: ${who}: follow must be a layer name or "layer/object" (a string), got ${JSON.stringify(want)}; ignored`); continue; }
+      if (child instanceof CameraSequence || child instanceof LightSequence || !child.target) { console.warn(`pixi-effects: ${who}: a ${child.spec.type} layer cannot follow (it has no picture to carry); follow "${want}" ignored`); continue; }
+      if (child.spec.threeD) { console.warn(`pixi-effects: ${who}: follow "${want}": a threeD layer cannot follow (the camera projects it after the layers are placed); put a flat layer next to the object instead`); continue; }
+      const init = (child.spec.initial ?? {}) as { x?: unknown; y?: unknown };
+      const far = (typeof init.x === 'number' && Math.abs(init.x) > width) || (typeof init.y === 'number' && Math.abs(init.y) > height);
+      if (far) console.warn(`pixi-effects: ${who}: follow "${want}": x / y are measured from the followed point, so x ${init.x ?? 0}, y ${init.y ?? 0} puts the layer that far away from it; leave x / y out (or small: 20, -14) to sit next to it`);
+      const carrier = new NullSequence({ type: 'null', at: 0, duration: this._contentSpan } as SequenceSpec, this._compositionShape, this.root);
+      await carrier.build();
+      this._children.splice(this._children.indexOf(child), 0, carrier);
+      const holder = this._parentOf.get(child);
+      if (holder) this._parentOf.set(carrier, holder);
+      this._parentOf.set(child, carrier);
+      this.follows.push({ carrier, follower: child, target: want });
+    }
   }
 
   /** Match every `parent: 'name'` to a null layer; anything that cannot work is said out loud and drawn unparented. */

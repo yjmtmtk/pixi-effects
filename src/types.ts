@@ -225,6 +225,14 @@ export interface SequenceCommon {
    * drawn where the null is in the stack, not where it is listed. Only `null` layers can be parents (they chain); not for `threeD` layers.
    */
   parent?: string;
+  /**
+   * Stay next to an object of a scene, or another layer, every frame: `'planets/Mars'` (an object of the `scene3d`, `three` or `scene2d`
+   * layer "planets": a name its setup returned in `objects`, or the label of a node in it) or `'title'` (another layer's anchor point; a path
+   * through nested compositions, `'group/title'`, or a name found anywhere when it is unique). This layer's own `x` / `y` become an offset
+   * from that point, in px. It is hidden while the object is behind the camera or the followed layer is not on screen. Not for `threeD`
+   * layers. `movie.project(target)` says where the same target is.
+   */
+  follow?: string;
   at?: number;
   duration?: number;
   initial?: Props;

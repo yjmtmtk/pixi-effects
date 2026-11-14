@@ -492,6 +492,34 @@ export class Scene3DSequence extends Sequence {
   }
 
   /**
+   * `follow` / `movie.project`: where an object of the scene is on the canvas (a name setup returned in `objects`, or the label of any node), from the view's own projection
+   * of the node's origin; null while it is behind the camera, undefined for no such object.
+   */
+  screenPoint(object: string): { x: number; y: number } | null | undefined {
+    const node = this._nodeNamed(object);
+    if (!node) return undefined;
+    const p = this._view?.worldToScreen(node.getGlobalPosition(new Vector3()));
+    return p ? { x: p.x, y: p.y } : null;
+  }
+
+  /** The names `screenPoint` knows: the objects setup returned, then the labelled nodes of the scene. */
+  objectNames(): string[] {
+    const names = new Set(Object.keys(this._objects).filter((k) => this._nodeNamed(k)));
+    const visit = (n: { label?: string | null; children?: unknown[]; constructor?: { name?: string } }): void => {
+      if (n.label && n.label !== n.constructor?.name) names.add(n.label);
+      for (const c of n.children ?? []) visit(c as typeof n);
+    };
+    if (this._view) for (const c of this._view.root.children) visit(c as never);
+    return [...names];
+  }
+
+  private _nodeNamed(name: string): Container3D | null {
+    const own = this._objects[name] as Partial<Container3D> | undefined;
+    if (own && typeof own.getGlobalPosition === 'function') return own as Container3D;
+    return (this._view?.root.getChildByLabel(name, true) as Container3D | null | undefined) ?? null;
+  }
+
+  /**
    * `hit.scene3d.grab(plane)`: a function of a point (u, v) of the layer's picture that gives where the pointer's ray meets a plane through the grabbed point, and how far that is
    * from it (`delta`): move the object by it. `plane`: 'screen' (facing the camera: the default), 'floor' (horizontal: y up), 'wall' (z constant), or a normal [x, y, z].
    * null where the ray never meets the plane.

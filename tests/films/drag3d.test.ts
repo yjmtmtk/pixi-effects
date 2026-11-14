@@ -66,3 +66,15 @@ runFilms('Dragging a three object with hit.three.grab', () => {
     });
   }, 120_000);
 });
+
+runFilms('movie.project into a three layer', () => {
+  it('names where an object of a three layer is on the canvas: the cube at three (240, -135, 0) with followCamera is at canvas (240, 135); a name nobody has throws', async () => {
+    await withFilm('drag3d', async (film) => {
+      const p = await film.eval<{ x: number; y: number } | null>('movie.project("world/cube")');
+      expect(p).not.toBeNull();
+      expect(Math.abs(p!.x - 240)).toBeLessThan(0.5);
+      expect(Math.abs(p!.y - 135)).toBeLessThan(0.5);
+      expect(await film.eval('(() => { try { movie.project("world/cub"); return null } catch (e) { return e.message } })()')).toMatch(/no object "cub" \(did you mean "cube"\?\)/);
+    });
+  }, 120_000);
+});

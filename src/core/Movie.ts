@@ -16,6 +16,7 @@ import { expandTransitions, carryTransitionWindows } from './Transitions';
 import { canvasProblems, canvasReport, type CanvasRow } from './canvasCheck';
 import { inspectScene, type InspectReport, type InspectOptions } from './inspect';
 import { pickScene, type PickHit, type PickOptions } from './pick';
+import { placeFollows, pointOf, resolveTarget, type FollowComposition, type Resolved } from './follow';
 import { textPictureOf } from './textPicture';
 import { commitReuse, reusePoolOf, type ReusePool } from './reuse';
 import { startHover, type HoverOptions } from './hover';
@@ -945,6 +946,21 @@ export class Movie {
     return this.pickAll(x, y, opts)[0] ?? null;
   }
 
+  /**
+   * Where `target` is on the canvas in the frame on screen (canvas pixels, as `pick` takes them), or null while it is not seen (behind the camera, or its layer is not on
+   * screen). `target` is what a layer's `follow` takes: `'planets/Mars'` (an object of a scene3d, three or scene2d layer: a name its setup returned in `objects`, or a
+   * node's label) or `'title'` (a layer's anchor point; a path through nested compositions, or a name found anywhere when it is unique). An unknown name throws with the names there are.
+   */
+  project(target: string): { x: number; y: number } | null {
+    this._requireReady('project()');
+    const r = resolveTarget(this._rootSequence as unknown as FollowComposition, target);
+    if ('error' in r) throw new Error(`pixi-effects: project("${target}"): ${r.error}`);
+    return pointOf(r);
+  }
+
+  /** @internal What each follower's target is, per build (a mistake is said once). */
+  private _follows = new WeakMap<object, Resolved>();
+
   /** Every layer under the canvas point, the one on top first (see `pick`). */
   pickAll(x: number, y: number, opts: PickOptions = {}): PickHit[] {
     warnUnknownOptions('movie.pick()', opts, ['only', 'ignore', 'alpha']);
@@ -1097,6 +1113,7 @@ export class Movie {
     if (!this._rootSequence || !this.app) return;
     this._rootSequence.syncFrame();
     this._synced = true;
+    placeFollows(this._rootSequence as unknown as FollowComposition, this._follows as WeakMap<never, Resolved>);   // after every layer is set for the frame, before the threeD projection
     this._rootSequence.updateSpace(t, this.app.renderer);
   }
 

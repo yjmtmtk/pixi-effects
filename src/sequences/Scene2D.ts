@@ -221,6 +221,32 @@ export class Scene2DSequence extends Sequence {
   }
 
   /**
+   * `follow` / `movie.project`: where an object of the scene is on the canvas (a name setup returned in `objects`, or the label of any node under the root): its origin,
+   * through every transform above it; null while it or a container above it is hidden, undefined for no such object.
+   */
+  screenPoint(object: string): { x: number; y: number } | null | undefined {
+    const node = this._nodeNamed(object);
+    if (!node) return undefined;
+    for (let c: Container | null = node; c && c !== this._ctx?.root; c = c.parent) if (!c.visible || !c.renderable) return null;
+    const p = node.getGlobalPosition();
+    return { x: p.x, y: p.y };
+  }
+
+  /** The names `screenPoint` knows: the objects setup returned, then the labelled nodes under the root. */
+  objectNames(): string[] {
+    const names = new Set(Object.keys(this._objects).filter((k) => this._nodeNamed(k)));
+    const visit = (n: Container): void => { if (n.label && !DEFAULT_LABELS.has(n.label)) names.add(n.label); for (const c of n.children) visit(c); };
+    if (this._ctx) for (const c of this._ctx.root.children) visit(c);
+    return [...names];
+  }
+
+  private _nodeNamed(name: string): Container | null {
+    const own = this._objects[name];
+    if (own instanceof Container) return own;
+    return (this._ctx?.root.getChildByLabel(name, true) as Container | null | undefined) ?? null;
+  }
+
+  /**
    * `movie.pick`: the top object of the scene under a canvas point, by PixiJS's own `containsPoint` (a Graphics by its shape, a Sprite or Text by its box) or its `hitArea`.
    * `eventMode: 'none'` and `interactiveChildren: false` are honoured; hidden, unrenderable and clear nodes are not hit. null: nothing of the scene is there (the point falls through).
    */

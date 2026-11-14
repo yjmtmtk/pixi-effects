@@ -196,6 +196,15 @@ How a layer is asked: a flat layer by its own shape (a rotated one by its rotate
 
 **Dragging an object of a `three` layer**: `hit.three.grab(plane)` fixes a plane through the point that was taken (`'screen'` facing the camera, the default; `'floor'` horizontal; `'wall'` with z constant; or a normal `[x, y, z]`), and `grab.move(x, y)` takes the pointer in canvas pixels and gives where its ray meets that plane (`point`) and how far that is from the point taken (`delta`; `null` where the ray never meets the plane: a floor seen edge-on). Move the object by `delta`, from where it was when it was taken, and it follows the pointer exactly. The ray is the layer's own camera's (with `followCamera`, the composition's). The layer's `update` should read where the object is from the page's own state, and the page calls `await movie.redraw()` to draw the frame again while the movie is paused (recipe `drag-3d`).
 
+### `movie.project(target): { x, y } | null`
+
+Where `target` is on the canvas in the frame on screen, in canvas pixels (the space `movie.pick` takes): `'planets/Mars'` is an object of a `scene3d`, `three` or `scene2d` layer (a name its `setup` returned in `objects`, or a node's label / `name`), `'title'` a layer's anchor point (a path through nested compositions, or a name found anywhere when it is unique). null while it is behind the camera or its layer is not on screen; an unknown name throws with the names there are. It is what a layer's `follow` uses every frame (see the DSL reference, `follow`), and what `check --do "click planets/Mars"` clicks.
+
+```ts
+await movie.gotoFrame(90);
+const p = movie.project('planets/Mars');        // { x: 812.4, y: 301.7 } or null
+```
+
 ### `movie.redraw(): Promise<void>`
 
 Draws the frame on screen again, quietly (no `seeking` / `seeked`). For a paused movie when something outside it that a layer reads has changed, such as a `three` layer whose `update` reads the page's own state. A playing movie needs no call: the next frame draws it.

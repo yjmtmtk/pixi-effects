@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+Nothing breaks: a 2D layer can stay next to an object of a scene.
+
+- **`follow: 'planets/Mars'`: a label next to an object, every frame.** Any 2D layer (text, shape, image, composition, null) is carried to where an object of a `scene3d`, `three` or `scene2d` layer is on screen (a name its setup returned in `objects`, or a node's label / `name`), or another layer's anchor point (`follow: 'title'`, a path through nested compositions, or a unique name found anywhere); its own `x` / `y` become an offset from there. It is placed after every layer is set for the frame (the scene layers' `update(t)` and `followCamera`), so it sits where the object is drawn in playback, a seek and an export, and it is hidden while the object is behind the camera or the followed layer is not on screen. An unknown layer or object is warned with the names there are (did you mean); a `threeD` follower, a target inside a `threeD` card and an offset larger than the composition are said in a sentence. In a trial (2026-11-14) both agents that labelled orbiting planets wrote the camera projection by hand and copied the camera's ease. Film `follow`.
+- **`movie.project(target)`** → `{ x, y } | null`: the same point for your own code, in canvas pixels (the space `movie.pick` takes).
+- **`check --do "click planets/Mars"`** clicks an object of a scene by name, where `movie.project` says it is (it knew only layer names).
+- **`release:check` runs the files that failed in the full run once more, alone** (not when more than 8 failed): three full runs in a row had each timed out a different real-browser test under the load of the run itself; it names the files it ran again.
+
 ## 0.50.1
 
 Fixes from a trial of 8 fresh agents (Sonnet, Opus) making videos with `scene2d` / `scene3d` on 0.50.0; nothing breaks.

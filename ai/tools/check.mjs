@@ -19,7 +19,7 @@
  *          --pick X,Y (with --at, repeatable: what is under that canvas point at each moment, the top layer first, and the object a three layer met: `movie.pick`) ·
 
  *          --do "click Lime; hover 640,360; drag card > 770,240; wait 1; key Space" (real mouse and key events on the page, one step after the other, after everything else: what was under the pointer, which
- *          variables changed, whether the page warned, one picture per step in steps/; a point is x,y in canvas pixels or a layer name (the middle of its box); repeatable) ·
+ *          variables changed, whether the page warned, one picture per step in steps/; a point is x,y in canvas pixels, a layer name (the middle of its box) or layer/object, an object of a scene3d, three or scene2d layer (where movie.project says it is); repeatable) ·
  *          --onion A:B (one picture of the movement between A and B seconds, frames overlaid: onion.png) ·
  *          --seam (a movie made to loop: the last frame to the first is compared with the steps between ordinary neighbouring frames; a jump is a problem) ·
  *          --strict (text overlaps and stops where the picture is still changing fail the check; by default they are only listed for review) · --out DIR · --frames N (contact sheet tiles, default 12) · --formats mp4,webm (default mp4) · --no-export ·
@@ -104,7 +104,7 @@ const CRITICAL_TYPES = new Set(['Script', 'Document', 'Stylesheet', 'Other', und
 const DO_VERBS = ['click', 'hover', 'drag', 'wait', 'key'];
 const pointOf = (text) => { const m = text.trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/); return m ? { x: Number(m[1]), y: Number(m[2]) } : { name: text.trim() }; };
 /**
- * `--do` steps: "click 640,360; hover Lime; drag card > 770,240; wait 0.5; key Space" (`;` or a new line between steps). A point is `x,y` in canvas pixels or a layer name; the points of a
+ * `--do` steps: "click 640,360; hover Lime; drag card > 770,240; wait 0.5; key Space" (`;` or a new line between steps). A point is `x,y` in canvas pixels, a layer name or `layer/object` (an object of a scene layer); the points of a
  * drag are separated by `>` or by spaces (a name with spaces needs `>`). Returns [{ verb, points?, seconds?, key? }].
  */
 export function parseDo(text) {
@@ -867,8 +867,14 @@ export async function runSteps(cdp, steps, outDir, size, consoleLines, seenLogs)
         const points = [];
         for (const pt of step.points) {
           if (pt.name === undefined) { points.push({ ...pt }); continue; }
-          const box = await cdp.eval(`(async () => { const r = (await movie.inspect(movie.currentFrame)).layers.find(l => l.name === ${JSON.stringify(pt.name)} || l.path === ${JSON.stringify(pt.name)}); return r && r.bounds ? { x: r.bounds.x + r.bounds.width / 2, y: r.bounds.y + r.bounds.height / 2 } : null; })()`);
-          if (!box) throw new Error(`no layer named "${pt.name}" at this moment (it may not be alive yet: put a wait before, or give x,y)`);
+          let box = await cdp.eval(`(async () => { const r = (await movie.inspect(movie.currentFrame)).layers.find(l => l.name === ${JSON.stringify(pt.name)} || l.path === ${JSON.stringify(pt.name)}); return r && r.bounds ? { x: r.bounds.x + r.bounds.width / 2, y: r.bounds.y + r.bounds.height / 2 } : null; })()`);
+          if (!box) {
+            // not a layer: an object of a scene ("world/mover"), where movie.project says it is
+            const p = await cdp.eval(`(() => { try { const p = movie.project(${JSON.stringify(pt.name)}); return p ? { x: p.x, y: p.y } : { hidden: true }; } catch (e) { return { error: String(e && e.message || e).replace(/^pixi-effects: /, '') }; } })()`);
+            if (p && Number.isFinite(p.x)) box = p;
+            else if (p?.hidden) throw new Error(`"${pt.name}" is not on screen at this moment (behind the camera, or its layer is not alive: put a wait before, or give x,y)`);
+            else throw new Error(pt.name.includes('/') && p?.error ? p.error : `no layer named "${pt.name}" at this moment (it may not be alive yet: put a wait before, or give x,y)`);
+          }
           points.push({ x: Math.round(box.x), y: Math.round(box.y), name: pt.name });
         }
         res.label = `${step.verb} ${points.map(pt => pt.name ? `${pt.name} (${pt.x}, ${pt.y})` : `${pt.x},${pt.y}`).join(' > ')}`;
