@@ -470,7 +470,7 @@ export class Movie {
     const spec = applyVars(composition, vars);
     const rootShape: CompositionShape = {
       width, height, duration: this.duration, frameRate: this.frameRate, vars: numericVars(vars),
-      ...(this.app?.renderer ? { pixiRenderer: this.app.renderer } : {}),
+      ...(this.app?.renderer ? { renderer: this.app.renderer } : {}),
       ...(reuse ? { reuse } : {}),
       ...(lp ? { onLayerBuilt: async () => { lp.tick(); await lp.yieldIfDue(); } } : {}),
     };

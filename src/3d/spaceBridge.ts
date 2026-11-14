@@ -47,7 +47,7 @@ interface Entry { kind: LightState['kind']; light: AnyLight }
 export class LightMirror {
   private entries: Entry[] = [];
   private said = new Set<string>();
-  constructor(private readonly root: Container3D, private readonly extent = 2000, private readonly say: (message: string) => void = () => {}, private readonly center: { x: number; y: number; z: number } = { x: 0, y: 0, z: 0 }) {}
+  constructor(private root: Container3D, private readonly extent: number, private readonly say: (message: string) => void, private readonly center: { x: number; y: number; z: number }) {}
 
   update(lights: readonly LightState[]): void {
     lights.forEach((s, i) => {
@@ -68,7 +68,7 @@ export class LightMirror {
 
   /** The lights now live under another root (a rebuild moved the scene into a new view): new lights go there. */
   rehome(root: Container3D): void {
-    (this as unknown as { root: Container3D }).root = root;
+    this.root = root;
   }
 
   private once(key: string, message: string): void {

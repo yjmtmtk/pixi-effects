@@ -33,7 +33,6 @@ export interface LayerTexture {
 export interface LayerTextureHost {
   findLayer(name: string): Sequence | null;
   layerNames(): string[];
-  pixiRenderer: Renderer | null;
   /** Run `fn` before every frame of the scene3d layer is drawn; returns the function that stops it. */
   beforeDraw(fn: () => void): () => void;
   /** Remember a handle (picking through the mesh, keeping the layer hidden, rebinding after a rebuild). */
@@ -63,7 +62,7 @@ export async function layerTexture(ctx: Scene3DContext, name: string, options: L
   if (typeof name !== 'string' || !name) throw new Error(`${label}: the second argument is the name of a 2D layer: layerTexture(ctx, 'screen')`);
   const resolution = options.resolution ?? 1;
   if (!(Number.isFinite(resolution) && resolution > 0 && resolution <= 4)) throw new Error(`${label}: resolution is a number from above 0 to 4 (2 = twice the pixels), got ${JSON.stringify(options.resolution)}`);
-  const pixi = host.pixiRenderer;
+  const pixi = ctx.renderer as Renderer | undefined;
   if (!pixi) throw new Error(`${label}: PixiJS's renderer is not available here (the movie is not ready)`);
   const source = host.findLayer(name);
   if (!source) {

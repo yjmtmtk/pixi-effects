@@ -8,6 +8,7 @@ import type { PathRouters } from '../core/Timeline';
 import { COMMON } from '../core/layerKeys';
 import { suggestName } from '../core/options';
 import { NOT_PURE } from '../core/purity';
+import type { DragPlane, DragStep, RayHit, RayPickable } from '../core/pick';
 import { SetupValues } from '../core/setupValues';
 import { applyCameraState, FogMirror, LightMirror } from './spaceBridge';
 import { HOST, type LayerTextureHost, type ShownLayer } from './layerTexture';
@@ -24,7 +25,7 @@ const LAYER_OWNED = ['width', 'height', 'autoResize'] as const;
  * A `scene3d` layer: a PixiJS 3D scene (`View3D`) drawn inside PixiJS's own renderer, in the layer's place in the stack. The author builds the scene in `setup` and
  * sets it from the time in `update`; `awaitFrameAt` (the per-frame hook `Movie` awaits for playback, seek and export alike) runs `update`, and PixiJS draws the view with the stage.
  */
-export class Scene3DSequence extends Sequence {
+export class Scene3DSequence extends Sequence implements RayPickable {
   private _view: View3D | null = null;
   private _ctx: Scene3DContext | null = null;
   private _objects: Record<string, object> = {};
@@ -88,7 +89,7 @@ export class Scene3DSequence extends Sequence {
       this._say('pure', 'update calls Math.random, Date.now, performance.now or new Date, so it is not deterministic: the same frame would draw differently in playback, in a seek and in an export. Derive the value from t');
     }
 
-    const renderer = this.root.pixiRenderer as Renderer | undefined;
+    const renderer = this.root.renderer as Renderer | undefined;
     if (renderer && !(renderer.renderPipes as unknown as Record<string, unknown>).view3d) {
       throw new Error(`${this._who()}: PixiJS 3D was loaded after the renderer started; import 'pixi-effects/3d' (and call register3D()) before movie.init`);
     }
@@ -123,7 +124,7 @@ export class Scene3DSequence extends Sequence {
 
     const objects: Record<string, object> = {};
     const ctx: Scene3DContext = { view, root: view.root, camera: view.camera, renderer: renderer as Renderer, width, height, objects };
-    Object.defineProperty(ctx, HOST, { value: this._makeHost(renderer ?? null), enumerable: false });
+    Object.defineProperty(ctx, HOST, { value: this._makeHost(), enumerable: false });
     let result: Awaited<ReturnType<Scene3DSequenceSpec['setup']>>;
     try {
       result = await spec.setup(ctx);
@@ -158,7 +159,7 @@ export class Scene3DSequence extends Sequence {
     this._players = d._players;
     this._setupValues = d._setupValues;
     const ctx: Scene3DContext = { view, root: view.root, camera: d._view!.camera, renderer: renderer as Renderer, width, height, objects };
-    const host = this._makeHost(renderer);
+    const host = this._makeHost();
     Object.defineProperty(ctx, HOST, { value: host, enumerable: false });
     this._ctx = ctx;
     this._pendingRebinds = d._shown.map((h) => h.prepare(host));          // the 2D layers of the new tree are shown from the swap on, not before: the old layer goes on drawing its own
@@ -214,7 +215,7 @@ export class Scene3DSequence extends Sequence {
    */
   private _pinShaderTime(): void {
     if (this._pinned) return;
-    const view = this._view, renderer = this.root.pixiRenderer as Renderer | undefined;
+    const view = this._view, renderer = this.root.renderer as Renderer | undefined;
     if (!view || !renderer) return;
     const data = (view as unknown as { _gpuData?: Record<number, { globalUniformGroup?: { uniforms?: Record<string, unknown> } }> })._gpuData?.[renderer.uid];
     if (!data) return;                                                                   // not drawn yet
@@ -373,7 +374,7 @@ export class Scene3DSequence extends Sequence {
   checkDeterminism(times: number[]): CanvasCheck {
     const none: CanvasCheck = { differs: [], drawMs: 0, threw: [] };
     const view = this._view, ctx = this._ctx;
-    const renderer = this.root.pixiRenderer as Renderer | undefined;
+    const renderer = this.root.renderer as Renderer | undefined;
     if (!view || !ctx || !renderer) return none;
     const w = Math.max(1, Math.ceil(ctx.width)), h = Math.max(1, Math.ceil(ctx.height));
     const rt = RenderTexture.create({ width: w, height: h });
@@ -420,12 +421,11 @@ export class Scene3DSequence extends Sequence {
     }
   }
 
-  /** What `layerTexture` asks of this layer: the layers listed before it, PixiJS's renderer, and a place to hook in before every frame. */
-  private _makeHost(renderer: Renderer | null): LayerTextureHost {
+  /** What `layerTexture` asks of this layer: the layers listed before it and a place to hook in before every frame (PixiJS's renderer is on the context). */
+  private _makeHost(): LayerTextureHost {
     return {
       findLayer: (name) => this.parent?.findLayer?.(name) ?? null,
       layerNames: () => this.parent?.layerNames?.() ?? [],
-      pixiRenderer: renderer,
       beforeDraw: (fn) => { this._drawHooks.add(fn); return () => { this._drawHooks.delete(fn); }; },
       track: (handle) => { this._shown.push(handle); return () => { const i = this._shown.indexOf(handle); if (i >= 0) this._shown.splice(i, 1); }; },
       own: (free) => { this._owned.push(free); },
@@ -439,14 +439,6 @@ export class Scene3DSequence extends Sequence {
   screenOf(material: unknown): { source: Sequence; at(u: number, v: number): { x: number; y: number } } | null {
     const handle = this._shown.find((h) => h.material === material);
     return handle ? { source: handle.source(), at: (u, v) => handle.sourceAt(u, v) } : null;
-  }
-
-  /** The view's global point at (u, v) of its picture (0..1, v down). */
-  private _globalAt(u: number, v: number): { x: number; y: number } | null {
-    const view = this._view;
-    if (!view) return null;
-    const b = view.getLocalBounds();
-    return view.toGlobal({ x: b.x + u * b.width, y: b.y + v * b.height });
   }
 
   /**
@@ -467,13 +459,12 @@ export class Scene3DSequence extends Sequence {
   }
 
   /**
-   * `movie.pick`: a ray through (u, v) of the layer's picture (0..1, v down) from the view's camera, and what it meets first: the object's name (its own label, or its nearest
+   * `movie.pick`: a ray through a canvas point (the stage's global space) from the view's camera, and what it meets first: the object's name (its own label, or its nearest
    * labelled ancestor's), where (scene units), how far from the camera, and the node. Uses the transforms of the last render, which is the frame on screen. null when it meets nothing.
    */
-  pickAt(u: number, v: number): { object: string; point: [number, number, number]; distance: number; object3d: unknown; uv?: { u: number; v: number }; material?: unknown } | null {
+  pickAt(at: { x: number; y: number }): RayHit | null {
     const view = this._view;
-    const at = this._globalAt(u, v);
-    if (!view || !at) return null;
+    if (!view) return null;
     this._makePickable();
     const hit = (view as unknown as { raycast(p: { x: number; y: number }): { target: unknown; point: { x: number; y: number; z: number }; distance: number; uv?: { x: number; y: number } | null } | null }).raycast(at);
     if (!hit) return null;
@@ -483,7 +474,7 @@ export class Scene3DSequence extends Sequence {
       if (n.label && n.label !== n.constructor?.name) { name = n.label; break; }
     }
     return {
-      object: name, point: [hit.point.x, hit.point.y, hit.point.z], distance: hit.distance, object3d: hit.target,
+      object: name, point: [hit.point.x, hit.point.y, hit.point.z], distance: hit.distance, node: hit.target,
       ...(hit.uv ? { uv: { u: hit.uv.x, v: hit.uv.y } } : {}), material: (hit.target as { material?: unknown }).material,
     };
   }
@@ -517,11 +508,11 @@ export class Scene3DSequence extends Sequence {
   }
 
   /**
-   * `hit.scene3d.grab(plane)`: a function of a point (u, v) of the layer's picture that gives where the pointer's ray meets a plane through the grabbed point, and how far that is
+   * `hit.scene3d.grab(plane)`: a function of a canvas point that gives where the pointer's ray meets a plane through the grabbed point, and how far that is
    * from it (`delta`): move the object by it. `plane`: 'screen' (facing the camera: the default), 'floor' (horizontal: y up), 'wall' (z constant), or a normal [x, y, z].
    * null where the ray never meets the plane.
    */
-  dragPlane(point: [number, number, number], plane: 'screen' | 'floor' | 'wall' | [number, number, number] = 'screen'): (u: number, v: number) => { point: [number, number, number]; delta: [number, number, number] } | null {
+  dragPlane(point: [number, number, number], plane: DragPlane = 'screen'): (x: number, y: number) => DragStep | null {
     const view = this._view;
     const grabbed = new Vector3(...point);
     let normal: Vector3;
@@ -533,10 +524,9 @@ export class Scene3DSequence extends Sequence {
       normal = m ? new Vector3(m[8], m[9], m[10]).normalize() : new Vector3(0, 0, 1);
     }
     const surface = new Plane().setFromNormalAndCoplanarPoint(normal, grabbed);
-    return (u, v) => {
-      const at = this._globalAt(u, v);
-      if (!view || !at) return null;
-      const meet = view.screenToRay(at).intersectPlane(surface, new Vector3());
+    return (x, y) => {
+      if (!view) return null;
+      const meet = view.screenToRay({ x, y }).intersectPlane(surface, new Vector3());
       if (!meet) return null;
       return { point: [meet.x, meet.y, meet.z], delta: [meet.x - grabbed.x, meet.y - grabbed.y, meet.z - grabbed.z] };
     };

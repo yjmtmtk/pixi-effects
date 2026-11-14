@@ -121,7 +121,7 @@ export class Scene2DSequence extends Sequence {
 
     const root = new Container({ label: 'root' });
     box.addChild(root);
-    const renderer = this.root.pixiRenderer as Renderer;
+    const renderer = this.root.renderer as Renderer;
     const objects: Record<string, object> = {};
     const ctx: Scene2DContext = { root, renderer, width, height, objects, texture: (name) => textureOf(name) };
     let result: Awaited<ReturnType<Scene2DSequenceSpec['setup']>>;
@@ -296,7 +296,7 @@ export class Scene2DSequence extends Sequence {
   checkDeterminism(times: number[]): CanvasCheck {
     const none: CanvasCheck = { differs: [], drawMs: 0, threw: [] };
     const ctx = this._ctx;
-    const renderer = this.root.pixiRenderer as Renderer | undefined;
+    const renderer = this.root.renderer as Renderer | undefined;
     if (!ctx || !renderer || this._borrowed) return none;
     const root = ctx.root;
     const w = Math.max(1, Math.ceil(ctx.width)), h = Math.max(1, Math.ceil(ctx.height));

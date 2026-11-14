@@ -47,4 +47,14 @@ runFilms('scene3d: masks', () => {
       }, { beforeLoad });
     }
   }, 180_000);
+  it('a pick on a masked scene3d layer sends the ray through the point asked about: 10 px right of the centre meets the plane at x = 10 / 35 (the mask cuts the layer\'s box; the ray must not be placed in the cut box)', async () => {
+    await withFilm('scene3d-mask', async (film) => {
+      await film.eval('movie.snapshot(0)');
+      const hit = await film.eval<{ kind: string; x: number; y: number } | null>(`(() => { const h = movie.pick(50, 90, { only: ['masked'] }); return h && h.scene3d ? { kind: h.kind, x: h.scene3d.point[0], y: h.scene3d.point[1] } : null; })()`);
+      expect(hit?.kind).toBe('scene3d');
+      expect(hit!.x).toBeCloseTo(10 / 35, 2);                     // the plane spans 70 px over 2 units: 35 px a unit, centred on x = 40
+      expect(hit!.y).toBeCloseTo(0, 2);
+    });
+  }, 120_000);
 });
+

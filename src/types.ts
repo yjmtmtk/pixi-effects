@@ -894,7 +894,7 @@ export interface CompositionShape {
   findLayer?: (name: string) => import('./sequences/Base').Sequence | null;
   layerNames?: () => string[];
   /** PixiJS's renderer, on the root shape only: what draws a layer into a texture for a `scene3d` layer's `layerTexture` and a `scene2d` layer. */
-  pixiRenderer?: import('pixi.js').Renderer;
+  renderer?: import('pixi.js').Renderer;
 }
 
 /** The composition's camera and the lights alive at one moment (what its `camera` and `light` layers say, after their keyframes). */

@@ -696,7 +696,7 @@ Puts the layer's camera where the whole of `object` fits; options `direction` (d
 
 ### `Scene3DSequence`
 
-The layer class; `view` is its `View3D`. `checkDeterminism(times)` is what `check` runs; `pickAt(u, v)` and `dragPlane(point, plane)` are what `movie.pick` and `hit.scene3d.grab` call.
+The layer class; `view` is its `View3D`. `checkDeterminism(times)` is what `check` runs; `pickAt({ x, y })` (a canvas point) and `dragPlane(point, plane)` are what `movie.pick` and `hit.scene3d.grab` call.
 
 ### Exported types
 

@@ -33,13 +33,14 @@ class Flat extends Sequence {
     this.intrinsicWidth = d.w; this.intrinsicHeight = d.h;
   }
 }
-/** A scene3d layer as far as picking knows it: it answers pickAt(u, v) with a hit or null. */
+/** A scene3d layer as far as picking knows it: it answers pickAt(canvas point) with a hit or null. */
 class SceneLike extends Flat {
   asked: Array<[number, number]> = [];
   answer: unknown = null;
   planes: Array<{ point: unknown; plane: unknown; at: Array<[number, number]> }> = [];
-  pickAt(u: number, v: number) { this.asked.push([u, v]); return this.answer; }
-  dragPlane(point: unknown, plane: unknown) { const rec = { point, plane, at: [] as Array<[number, number]> }; this.planes.push(rec); return (u: number, v: number) => { rec.at.push([u, v]); return { point: [u, v, 0], delta: [u * 10, v * 10, 0] }; }; }
+  pickAt(at: { x: number; y: number }) { this.asked.push([at.x, at.y]); return this.answer; }
+  screenOf() { return null; }
+  dragPlane(point: unknown, plane: unknown) { const rec = { point, plane, at: [] as Array<[number, number]> }; this.planes.push(rec); return (x: number, y: number) => { rec.at.push([x, y]); return { point: [x, y, 0], delta: [x * 10, y * 10, 0] }; }; }
 }
 registerSequenceType('__flat', Flat as never);
 registerSequenceType('__scenelike', SceneLike as never);
@@ -120,11 +121,11 @@ describe('pickScene: what is under a point of the canvas', () => {
     expect(pickScene(comp, 320, 320, { only: ['card'] }).map((h) => h.path), '"cardinal" is not in "card"').toEqual([]);
   });
 
-  it('a scene3d layer is asked with the point in 0..1 of its picture; its answer becomes the hit (the object, the point and the distance), and no answer lets the layer below be hit', async () => {
+  it('a scene3d layer is asked with the canvas point itself (no detour through its picture); its answer becomes the hit (the object, the point and the distance), and no answer lets the layer below be hit', async () => {
     const comp = await scene([{ type: '__flat', name: 'wall', x: 0, y: 0, w: 400, h: 400 }, { type: '__scenelike', name: 'world', x: 0, y: 0, w: 400, h: 200 }]);
     const layer3d = comp.layers().find((l) => l.seq.spec.name === 'world')!.seq as unknown as SceneLike;
     expect(pickScene(comp, 100, 50).map((h) => h.name), 'the scene3d layer found nothing there: the wall below is hit').toEqual(['wall']);
-    expect(layer3d.asked[0]).toEqual([0.25, 0.25]);
+    expect(layer3d.asked[0]).toEqual([100, 50]);
     layer3d.answer = { object: 'fox', point: [1, 2, 3], distance: 42 };
     const [hit] = pickScene(comp, 100, 50);
     expect(hit).toMatchObject({ name: 'world', kind: 'scene3d', scene3d: { object: 'fox', point: [1, 2, 3], distance: 42 } });
@@ -133,16 +134,16 @@ describe('pickScene: what is under a point of the canvas', () => {
 });
 
 describe('a scene3d hit can be grabbed: the pointer, in canvas pixels, moves the grabbed point on a plane', () => {
-  it('hit.scene3d.grab(plane) maps canvas pixels to the picture of the layer (0..1) for the layer\'s dragPlane, and gives back its answer', async () => {
+  it('hit.scene3d.grab(plane) hands the canvas pixels to the layer\'s dragPlane as they are, and gives back its answer', async () => {
     const comp = await scene([{ type: '__scenelike', name: 'world', x: 100, y: 50, w: 400, h: 200 }]);
     const layer3d = comp.layers()[0]!.seq as unknown as SceneLike;
     layer3d.answer = { object: 'fox', point: [1, 2, 3], distance: 5 };
     const [hit] = pickScene(comp, 200, 100);
     const grab = hit!.scene3d!.grab!('floor');
     expect(layer3d.planes[0]).toMatchObject({ point: [1, 2, 3], plane: 'floor' });
-    expect(grab.move(300, 150)).toEqual({ point: [0.5, 0.5, 0], delta: [5, 5, 0] });         // (300, 150) is the middle of the layer: 0.5, 0.5
-    expect(layer3d.planes[0]!.at).toEqual([[0.5, 0.5]]);
-    expect(hit!.scene3d!.grab!().move(100, 50)).toEqual({ point: [0, 0, 0], delta: [0, 0, 0] });   // no plane named: the screen plane
+    expect(grab.move(300, 150)).toEqual({ point: [300, 150, 0], delta: [3000, 1500, 0] });
+    expect(layer3d.planes[0]!.at).toEqual([[300, 150]]);
+    expect(hit!.scene3d!.grab!().move(100, 50)).toEqual({ point: [100, 50, 0], delta: [1000, 500, 0] });   // no plane named: the screen plane
     expect(layer3d.planes[1]!.plane).toBe('screen');
   });
 });

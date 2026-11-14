@@ -29,7 +29,7 @@ export interface PickHit {
    */
   scene3d?: {
     object: string; point: [number, number, number]; distance: number; node?: unknown;
-    grab?: (plane?: 'screen' | 'floor' | 'wall' | [number, number, number]) => { move: (x: number, y: number) => { point: [number, number, number]; delta: [number, number, number] } | null };
+    grab?: (plane?: DragPlane) => { move: (x: number, y: number) => DragStep | null };
   };
   /**
    * A `scene2d` layer: the top object of its scene under the point (its label, or its nearest labelled ancestor's, or `''`), the node itself, and the point in the layer's own
@@ -37,6 +37,23 @@ export interface PickHit {
    */
   scene2d?: { object: string; node: unknown; point: [number, number]; grab: () => { move: (x: number, y: number) => { point: [number, number]; delta: [number, number] } } };
 }
+
+/** A plane to drag on: `'screen'` facing the camera, `'floor'` (horizontal), `'wall'` (z constant), or a normal `[x, y, z]`. */
+export type DragPlane = 'screen' | 'floor' | 'wall' | [number, number, number];
+/** Where the pointer's ray meets the drag plane (`point`, the scene's units) and how far that is from the point taken (`delta`). */
+export interface DragStep { point: [number, number, number]; delta: [number, number, number] }
+/** What a ray through a canvas point met first in a scene3d layer. */
+export interface RayHit { object: string; point: [number, number, number]; distance: number; node: unknown; uv?: { u: number; v: number }; material?: unknown }
+/**
+ * What a layer that is hit by a ray answers to (a scene3d layer; duck-typed: the core does not import PixiJS 3D). Points are canvas pixels (the stage's global space).
+ * `pickAt` casts the ray; `dragPlane` gives a function of the pointer for a plane through the point taken; `screenOf` names the 2D layer a material shows (`layerTexture`).
+ */
+export interface RayPickable {
+  pickAt(at: { x: number; y: number }): RayHit | null;
+  dragPlane(point: [number, number, number], plane?: DragPlane): (x: number, y: number) => DragStep | null;
+  screenOf(material: unknown): { source: Sequence; at(u: number, v: number): { x: number; y: number } } | null;
+}
+const rayPickable = (s: Sequence): s is Sequence & RayPickable => typeof (s as unknown as Partial<RayPickable>).pickAt === 'function';
 
 /** How opaque a picture's resource (an image, a canvas, a video frame) is at a pixel of its own, 0..1, or null when it cannot be read (a picture from another origin). */
 export type AlphaReader = (resource: unknown, x: number, y: number) => number | null;
@@ -133,19 +150,17 @@ export function pickScene(root: CompositionSequence, x: number, y: number, opts:
   // a 2D layer that a mesh of a scene3d layer shows (`layerTexture`) is not on the stage (visible = false): a point on the mesh is answered for it, below
   const hiddenSources = new Map<CompositionSequence, string>();
   const forwards: Array<{ source: CompositionSequence; at: { x: number; y: number }; via: { path: string; object: string }; order: Array<[number, number]> }> = [];
-  type RayHit = { object: string; point: [number, number, number]; distance: number; object3d: unknown; uv?: { u: number; v: number }; material?: unknown };
-  const rays = new Map<unknown, RayHit | null>();
-  const rayOf = (seq: Sequence, d: Display, local: { x: number; y: number }, lb: { x: number; y: number; width: number; height: number }): RayHit | null => {
-    if (typeof (seq as unknown as { pickAt?: unknown }).pickAt !== 'function') return null;
-    if (!rays.has(seq)) rays.set(seq, (seq as unknown as { pickAt(u: number, v: number): RayHit | null }).pickAt((local.x - lb.x) / lb.width, (local.y - lb.y) / lb.height));
+  const rays = new Map<Sequence, RayHit | null>();
+  /** The ray through a canvas point, once per layer per pick (a layer is asked about one point). */
+  const rayOf = (seq: Sequence & RayPickable, at: { x: number; y: number }): RayHit | null => {
+    if (!rays.has(seq)) rays.set(seq, seq.pickAt(at));
     return rays.get(seq)!;
   };
-  const forwardThrough = (seq: Sequence, d: Display, path: string, local: { x: number; y: number }, lb: { x: number; y: number; width: number; height: number }): void => {
-    const shows = (seq as unknown as { screenOf?: (m: unknown) => { source: CompositionSequence; at(u: number, v: number): { x: number; y: number } } | null }).screenOf;
-    if (!shows || !inside(lb, local)) return;
-    const r = rayOf(seq, d, local, lb);
-    const shown = r?.uv ? shows.call(seq, r.material) : null;
-    if (r?.uv && shown) forwards.push({ source: shown.source, at: shown.at(r.uv.u, r.uv.v), via: { path, object: String(r.object) }, order: orderOf(d) });
+  /** The point is on a mesh that shows a 2D layer: remember to ask that layer's own layers too. */
+  const forwardThrough = (seq: Sequence & RayPickable, d: Display, path: string, at: { x: number; y: number }): void => {
+    const r = rayOf(seq, at);
+    const shown = r?.uv ? seq.screenOf(r.material) : null;
+    if (r?.uv && shown) forwards.push({ source: shown.source as CompositionSequence, at: shown.at(r.uv.u, r.uv.v), via: { path, object: r.object }, order: orderOf(d) });
   };
 
   const walk = (comp: CompositionSequence, prefix: string, parentVisible: boolean, at: { x: number; y: number } = { x, y }, orderBase?: Array<[number, number]>, via?: { path: string; object: string }): void => {
@@ -170,7 +185,7 @@ export function pickScene(root: CompositionSequence, x: number, y: number, opts:
         walk(seq as CompositionSequence, path + '/', visible, at, orderBase, via); return;
       }
       if (!wanted(name, path)) {
-        if (!threeD) { const lp = d.toLocal(at); forwardThrough(seq, d, path, lp, d.getLocalBounds()); }          // not wanted itself, but it may show a layer that is
+        if (!threeD && rayPickable(seq) && inside(boxOf(d, !!seq.maskSequence), d.toLocal(at))) forwardThrough(seq, d, path, at);   // not wanted itself, but it may show a layer that is
         return;
       }
       const point = at;
@@ -189,18 +204,14 @@ export function pickScene(root: CompositionSequence, x: number, y: number, opts:
         const local = d.toLocal(point);
         const lb = boxOf(d, !!seq.maskSequence);
         if (inside(lb, local)) {
-          const isScene = typeof (seq as unknown as { pickAt?: unknown }).pickAt === 'function';      // a scene3d layer: a ray through its camera
-          const ray = isScene ? rayOf(seq, d, local, lb) : undefined;
-          if (isScene) forwardThrough(seq, d, path, local, lb);
-          if (ray) {
-            const scene3d: NonNullable<PickHit['scene3d']> = { object: String(ray.object), point: ray.point, distance: ray.distance, node: ray.object3d };
-            const planeOf = (seq as unknown as { dragPlane?: (p: [number, number, number], plane?: unknown) => (u: number, v: number) => { point: [number, number, number]; delta: [number, number, number] } | null }).dragPlane;
-            if (planeOf) {
-              scene3d.grab = (plane = 'screen') => {
-                const along = planeOf.call(seq, ray.point, plane);
-                return { move: (cx: number, cy: number) => { const lp = d.toLocal({ x: cx, y: cy }); const b = d.getLocalBounds(); return along((lp.x - b.x) / b.width, (lp.y - b.y) / b.height); } };
-              };
-            }
+          const isScene = rayPickable(seq);                                                          // a scene3d layer: a ray through its camera
+          const ray = isScene ? rayOf(seq, point) : undefined;
+          if (isScene) forwardThrough(seq, d, path, point);
+          if (isScene && ray) {
+            const scene3d: NonNullable<PickHit['scene3d']> = {
+              object: ray.object, point: ray.point, distance: ray.distance, node: ray.node,
+              grab: (plane = 'screen') => ({ move: seq.dragPlane(ray.point, plane) }),
+            };
             hit = { name, path, type: seq.spec.type, kind: 'scene3d', point, scene3d };
           }
           else if (!isScene && (typeof d.containsPoint !== 'function' || d.containsPoint(local))) {

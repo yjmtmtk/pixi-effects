@@ -147,7 +147,7 @@ interface CompositionShape
   height: number
   layerNames?: (() => string[])
   onLayerBuilt?: (() => void | Promise<void>)
-  pixiRenderer?: Renderer<HTMLCanvasElement>
+  renderer?: Renderer<HTMLCanvasElement>
   reuse?: ReusePool
   spaceAt?: ((t: number) => SpaceNow)
   vars?: Record<string, number>
@@ -549,7 +549,7 @@ interface PickHit
   path: string
   point: { x: number; y: number; }
   scene2d?: { object: string; node: unknown; point: [number, number]; grab: () => { move: (x: number, y: number) => { poi…
-  scene3d?: { object: string; point: [number, number, number]; distance: number; node?: unknown; grab?: ((plane?: [number…
+  scene3d?: { object: string; point: [number, number, number]; distance: number; node?: unknown; grab?: ((plane?: DragPla…
   type: string
   via?: { path: string; object: string; }
 interface PickOptions
@@ -1028,13 +1028,13 @@ class Scene3DSequence
   checkDeterminism(times: number[]): CanvasCheck
   commitReuse(): void
   destroy(): void
-  dragPlane(point: [number, number, number], plane?: [number, number, number] | "screen" | "floor" | "wall"): (u: number, v: number) => { point: [number, number, number];…
+  dragPlane(point: [number, number, number], plane?: DragPlane): (x: number, y: number) => DragStep | null
   duration: number
   intrinsicHeight: number
   intrinsicWidth: number
   objectNames(): string[]
   parent: CompositionShape | null
-  pickAt(u: number, v: number): { object: string; point: [number, number, number]; distance: number; object3d: unknown; uv?: { u: number; v: number; } | undefined; mat…
+  pickAt(at: { x: number; y: number; }): RayHit | null
   reuseKey(): string | null
   root: CompositionShape
   scope(): Scope

@@ -63,7 +63,7 @@ const light = (over: Partial<LightState>): LightState => ({
 });
 
 describe('the composition lights, in PixiJS 3D', () => {
-  const made = (lights: LightState[], said: string[] = []) => { const root = new Container3D(); const mirror = new LightMirror(root, 1000, (m) => said.push(m)); mirror.update(lights); return { root, mirror, said }; };
+  const made = (lights: LightState[], said: string[] = []) => { const root = new Container3D(); const mirror = new LightMirror(root, 1000, (m) => said.push(m), { x: 0, y: 0, z: 0 }); mirror.update(lights); return { root, mirror, said }; };
   const lightsOf = (root: Container3D) => root.children.filter((c) => c instanceof AmbientLight || c instanceof DirectionalLight || c instanceof PointLight || c instanceof SpotLight);
 
   it('each kind becomes its PixiJS 3D light, at (x, -y, z), with the intensity times pi (PixiJS 3D divides direct and ambient light by pi)', () => {
@@ -147,7 +147,7 @@ describe("falloff 'smooth': the window fitted to the composition's smoothstep", 
   for (const [r, f, bound] of [[300, 300, 0.13], [100, 600, 0.15], [50, 500, 0.16], [500, 200, 0.25]] as const) {
     it(`radius ${r}, falloffDistance ${f}: the largest difference over the whole range stays under ${bound} of full light`, () => {
       const root = new Container3D();
-      const mirror = new LightMirror(root, 1000);
+      const mirror = new LightMirror(root, 1000, () => {}, { x: 0, y: 0, z: 0 });
       mirror.update([light({ kind: 'point', falloff: 'smooth', radius: r, falloffDistance: f })]);
       const pt = root.children.find((c) => c instanceof PointLight) as PointLight;
       let worst = 0;
