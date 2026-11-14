@@ -132,8 +132,8 @@ function lintRemap(spec: SequenceSpec, warn: Warn): void {
 /**
  * Keys that do not exist, which the library used to ignore without a word (a typo in a layer key, a mistyped property in a keyframe, a
  * style key Pixi does not know). Said once each, with what was probably meant. A warning, never an error. Not checked here: dotted
- * paths (`filters.g.amount`, `three.box.x`: their routers say what is wrong), the names `fillGradient` says itself (`gradientAngle`),
- * and a kind of layer registered elsewhere (`three`).
+ * paths (`filters.g.amount`, `scene3d.box.x`: their routers say what is wrong), the names `fillGradient` says itself (`gradientAngle`),
+ * and a kind of layer registered elsewhere (`scene3d`).
  */
 /** Keys the library used to have: the sentence says what to write now. */
 const REMOVED_KEYS: Record<string, string> = {

@@ -1,12 +1,12 @@
 /**
- * `movie.hover({ onEnter, onLeave })`: which layer (or which object of a three layer) the pointer is over, as two callbacks. It is a page-side tool on top of `movie.pick`: it listens to the
+ * `movie.hover({ onEnter, onLeave })`: which layer (or which object of a scene3d or scene2d layer) the pointer is over, as two callbacks. It is a page-side tool on top of `movie.pick`: it listens to the
  * canvas, asks `pick` where the pointer is, and calls `onEnter(hit)` when the layer under it changes to another and `onLeave(hit)` for the one it left. While the pointer rests inside the
  * picture it asks again on every frame, so a layer that runs away from a still pointer is left. Nothing here is part of the video: an exported file has no pointer.
  */
 import type { PickHit, PickOptions } from './pick';
 
 export interface HoverOptions extends PickOptions {
-  /** The layer (or, in a `three` layer, the object) the pointer has just come onto. */
+  /** The layer (or, in a `scene3d` or `scene2d` layer, the object) the pointer has just come onto. */
   onEnter?: (hit: PickHit) => void;
   /** The one it has just left (also when the pointer leaves the picture, or `stop()` is called). */
   onLeave?: (hit: PickHit) => void;
@@ -23,7 +23,7 @@ export interface HoverHost {
   cancelFrame?: (id: number) => void;
 }
 
-const keyOf = (h: PickHit | null): string | null => (h ? `${h.path}${h.three ? `#${h.three.object}` : ''}` : null);
+const keyOf = (h: PickHit | null): string | null => (h ? `${h.path}${h.scene3d ? `#${h.scene3d.object}` : h.scene2d ? `#${h.scene2d.object}` : ''}` : null);
 
 /** Start watching the pointer over `host.canvas`. Returns the function that stops it. */
 export function startHover(host: HoverHost, opts: HoverOptions = {}): () => void {

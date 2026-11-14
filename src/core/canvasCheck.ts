@@ -16,8 +16,8 @@ export interface CanvasRow {
   ok: boolean;
   /** Why not, in a sentence (empty when ok). */
   problem: string;
-  /** Which kind of layer drew it: a `canvas`, a `three`, a `scene3d` or a `scene2d` layer (all are held to "a function of the time"). */
-  kind: 'canvas' | 'three' | 'scene3d' | 'scene2d';
+  /** Which kind of layer drew it: a `canvas`, a `scene3d` or a `scene2d` layer (all are held to "a function of the time"). */
+  kind: 'canvas' | 'scene3d' | 'scene2d';
 }
 
 const describeDiff = (d: CanvasCheck['differs'][number]): string =>
@@ -36,14 +36,12 @@ export function canvasReport(root: CompositionSequence): CanvasRow[] {
       const { differs, drawMs, threw } = seq.checkDeterminism(moments);
       const name = describeLayer(seq.spec);
       const type = (seq.spec as { type: string }).type;
-      const kind: CanvasRow['kind'] = type === 'three' ? 'three' : type === 'scene3d' ? 'scene3d' : type === 'scene2d' ? 'scene2d' : 'canvas';
+      const kind: CanvasRow['kind'] = type === 'scene3d' ? 'scene3d' : type === 'scene2d' ? 'scene2d' : 'canvas';
       const drawn = kind === 'canvas' ? 'draw threw' : 'update or render threw';
       const problem = threw.length
         ? `${name} could not draw at ${threw.map(t => `${t} s`).join(', ')} (its ${drawn}, or the layer failed to build): ${kind === 'canvas' ? 'it shows a magenta checkerboard there; the warning above says why' : 'the warning above says why'}, so the layer cannot be called deterministic`
         : differs.length
-        ? `${name} does not draw the same picture for the same time (checked at ${differs.map(describeDiff).join(', ')}; drawn in two orders after one draw that was thrown away): ` + (kind === 'three'
-          ? 'usually its update uses Math.random, Date.now, a clock, or state that builds up from call to call: a mixer advanced with mixer.update(dt) is one (pose a clip with mixer.setTime(t), or threeGltf(url).pose(t)), and so is a value moved by the time since the last call. A skinned model of your own (not loaded by threeGltf) that moves and casts a shadow does it too: three culls a skinned mesh by a bounding sphere that does not follow it, so set mesh.frustumCulled = false. Set every object from t, so playback, a seek and an export agree'
-          : kind === 'scene3d'
+        ? `${name} does not draw the same picture for the same time (checked at ${differs.map(describeDiff).join(', ')}; drawn in two orders after one draw that was thrown away): ` + (kind === 'scene3d'
           ? 'usually its update keeps state from call to call (a value moved by the time since the last call), uses Math.random or a clock, or a model\'s player or a particle system runs on its own clock (pose a clip with model.player.getState(name).gotoAndStop(t)), or a MotionBlurEffect reads the camera of the frame drawn before. Set every object from t, so playback, a seek and an export agree'
           : kind === 'scene2d'
           ? 'usually its update keeps state from call to call (a value moved by the time since the last call, a position added to instead of set), uses Math.random or a clock, or something runs on PixiJS\'s ticker (a Ticker.shared.add of your own, a video texture). Set every object from t, so playback, a seek and an export agree'

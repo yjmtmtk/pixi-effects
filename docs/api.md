@@ -3,7 +3,6 @@
 - [`Movie`](#movie) — composition runtime: init, playback, render
 - [`Controller`](#controller) — drop-in player UI overlay
 - [`pixi-effects/3d`](#pixi-effects3d) — 3D scenes drawn by PixiJS 3D (the main 3D engine)
-- [`pixi-effects/three`](#pixi-effectsthree) — optional three.js integration (the sub 3D engine)
 
 For DSL types (composition spec, sequences, filters, keyframes, expressions), see [DSL reference](./dsl.md).
 
@@ -98,7 +97,7 @@ interface RebuildReport { reason: 'vars' | 'resize' | 'rebuild'; ms: number; aud
 - The new composition is built while the old one goes on; at the swap the movie keeps doing what it is doing at that moment: the same frame, playing or paused (a `pause()`, a seek or a `play()` you made during the build is kept), the poster if it was shown. A playing movie whose sound is unchanged (`audio: 'reused'`) is not stopped at all: the frame clock and the sound go on and only the picture is swapped, so rebuilds in a row (a pointer) do not hold the playhead back. When the sound changed, the movie stops and plays on from the same frame with the new sound. A `playUntil()` in flight ends. The canvas changes size at the swap, not before. A `render()` or `peek()` in flight is not interrupted: the swap waits for it.
 - The sound is mixed only when it changed: `audio: 'reused'` means the same mix as before (the mix is the slow part, 0.6 to 0.8 s for a film; the rest takes about 20 ms). A time remap (`warp` / `sourceMap`) turns the cache off.
 - Calls that arrive during a rebuild are joined: at most one rebuild runs and one waits, with the latest values. Safe to call from `pointermove` or `scroll`: a rebuild that leaves the sound alone takes tens of milliseconds (11 to 42 ms on four gallery pieces), one that mixes the sound again 0.6 to 0.8 s, so a slider that changes the sound will lag behind the hand.
-- A rebuild builds every layer again, **except a `three` layer that did not change**: one with a `name`, the same `setup` function, the same size and options keeps its scene, its renderer (and its graphics context) and its texture, so `setup` does not run again and a model is not loaded again (measured on a box scene: 15 ms for a rebuild of a WebGL layer built again, 1 ms kept; WebGPU 7 ms against 1 ms). `update` is the new composition's own and runs on the kept scene. A layer with no `name`, another size or another `setup`, or `reuse: false` is built again (the old one is disposed once, when the swap is done; a rebuild that fails leaves the old one untouched). Put what must follow a variable in `update` or in keyframes, not in `setup`; a `setup` that reads `movie.vars` needs `reuse: false`. A model still loads again when the composition changes (`rebuild({ composition })` with a new `setup` function).
+- A rebuild builds every layer again, **except a `scene3d` or `scene2d` layer that did not change**: one with a `name`, the same `setup` function, the same size and options keeps its scene, so `setup` does not run again and a model is not loaded again. `update` is the new composition's own and runs on the kept scene. A layer with no `name`, another size or another `setup`, or `reuse: false` is built again (the old one is disposed once, when the swap is done; a rebuild that fails leaves the old one untouched). Put what must follow a variable in `update` or in keyframes, not in `setup`; a `setup` that reads `movie.vars` needs `reuse: false`. A model still loads again when the composition changes (`rebuild({ composition })` with a new `setup` function).
 - A rebuild that fails (a bad expression, a missing asset, a size that is not pixels) rejects, emits `error` with `where: 'rebuild'`, and the movie goes on with what it had. A `destroy()` during a rebuild ends it the same way.
 - To follow a window: observe a CSS-sized box around the canvas, not the canvas itself (the movie sets the canvas's pixel size): `new ResizeObserver(() => movie.resize(Math.round(box.clientWidth * devicePixelRatio), Math.round(box.clientHeight * devicePixelRatio))).observe(box)` (the `liquid-layout` recipe).
 
@@ -175,30 +174,29 @@ What is under a point of the canvas, at the frame that is on screen: the layer o
 ```ts
 interface PickHit {
   name?: string; path: string; type: string;     // path: as in inspect(), names or type#index joined by '/'
-  kind: 'flat' | 'card' | 'scene2d' | 'scene3d' | 'three';   // a 2D layer, a threeD layer (its projected card), a scene2d / scene3d / three layer
+  kind: 'flat' | 'card' | 'scene2d' | 'scene3d';   // a 2D layer, a threeD layer (its projected card), a scene2d / scene3d layer
   point: { x: number; y: number };               // the point asked about
   local?: { x: number; y: number };              // a flat layer: the point in the layer's own pixels
-  via?: { path: string; object: string };        // the layer is shown on a mesh of a `three` layer (threeLayerTexture) and the point is on that mesh: the three layer and the object it came through
+  via?: { path: string; object: string };        // the layer is shown on a mesh of a `scene3d` layer (layerTexture) and the point is on that mesh: the scene3d layer and the object it came through
   scene2d?: { object: string; node: unknown; point: [number, number];                                // a scene2d layer: the top object of its scene under the point (its label)
              grab: () => { move: (x, y) => { point, delta } } };                                      // drag it: delta in the node's parent's pixels
-  scene3d?: { object: string; point: [number, number, number]; distance: number; node?: unknown; grab? };   // a scene3d layer: what the ray met first
-  three?: { object: string; point: [number, number, number]; distance: number; object3d: unknown;     // a three layer: what the ray met first
-            grab?: (plane?) => { move: (x, y) => { point, delta } | null } };                          // drag it: see below
+  scene3d?: { object: string; point: [number, number, number]; distance: number; node?: unknown;       // a scene3d layer: what the ray met first
+              grab?: (plane?) => { move: (x, y) => { point, delta } | null } };                        // drag it: see below
 }
 // options: { only?: string[], ignore?: string[], alpha?: number }   layer names or paths; alpha: see below
 ```
 
 The hit is the layer that was drawn at the point, not the group it is in: a card made of a `composition` with a face and a label gives the face (`name: 'face0'`, `path: 'card0/face0'`), and a layer with no name of its own gives no `name` at all. To know which group was hit, read the first segment of the path (`hit.path.split('/')[0]`); `only: ['card0']` asks only about the group (a group's name stands for everything in it).
 
-A `three` layer covers its whole picture, but only what its ray meets is a hit: elsewhere the layers below are hit (a title, the background). `only` / `ignore` entries are layer names or paths, and a group's name (a nested composition) stands for everything in it: a card and its label are one target as `only: ['card']`.
+A `scene3d` layer covers its whole picture, but only what its ray meets is a hit: elsewhere the layers below are hit (a title, the background). `only` / `ignore` entries are layer names or paths, and a group's name (a nested composition) stands for everything in it: a card and its label are one target as `only: ['card']`.
 
-How a layer is asked: a flat layer by its own shape (a rotated one by its rotated rectangle, a shape by its outline: a circle is hit inside the circle, not at the corners of its box), text, images and video by their box (or by their picture with `alpha`); a `threeD` layer by its projected quad (the card seen from behind is hit too; a `threeD` composition is one card: what is inside it is not asked); a `three` layer by a ray through its camera (with `followCamera` the composition's camera), skipping invisible objects: `hit.three.object` is the name of the object it met (its own, or its nearest ancestor's that has one) and `object3d` the live three object. A layer not alive at the frame, at alpha 0, hidden by a parent, or outside its mask is not hit; a group (a nested composition without `threeD`) is not a target, the layers in it are. **`{ alpha }` looks at the picture, not the box**: `movie.pick(x, y, { alpha: 0.1 })` leaves out a pixel of an image, a video, a `canvas` layer or the letters of a `text` layer (the gap between letters, the hole of an O: a text layer is its glyphs, drawn again once per text and style with PixiJS's own generator; measured 2026-10-17: it agrees with the picture on over 95 % of the points of three texts, the rest are antialiased edges) whose alpha is at or below 0.1 (a transparent corner of a logo, the clear part of a circle drawn on a canvas); without it the box is the picture and nothing is read. Shapes are always hit by their outline, text and `shader` layers by their box (a shader's WebGL picture cannot be read back safely). A picture that cannot be read (an image from another origin: load it with `crossorigin="anonymous"` or from the same site) stays a hit, with one warning. What is not here: touch with several fingers.
+How a layer is asked: a flat layer by its own shape (a rotated one by its rotated rectangle, a shape by its outline: a circle is hit inside the circle, not at the corners of its box), text, images and video by their box (or by their picture with `alpha`); a `threeD` layer by its projected quad (the card seen from behind is hit too; a `threeD` composition is one card: what is inside it is not asked); a `scene3d` layer by a ray through its camera (with `followCamera` the composition's camera), skipping invisible objects: `hit.scene3d.object` is the name of the object it met (its label, or its nearest labelled ancestor's) and `node` the live PixiJS 3D node; a `scene2d` layer by its objects (empty space falls through to the layer below). A layer not alive at the frame, at alpha 0, hidden by a parent, or outside its mask is not hit; a group (a nested composition without `threeD`) is not a target, the layers in it are. **`{ alpha }` looks at the picture, not the box**: `movie.pick(x, y, { alpha: 0.1 })` leaves out a pixel of an image, a video, a `canvas` layer or the letters of a `text` layer (the gap between letters, the hole of an O: a text layer is its glyphs, drawn again once per text and style with PixiJS's own generator; measured 2026-10-17: it agrees with the picture on over 95 % of the points of three texts, the rest are antialiased edges) whose alpha is at or below 0.1 (a transparent corner of a logo, the clear part of a circle drawn on a canvas); without it the box is the picture and nothing is read. Shapes are always hit by their outline, text and `shader` layers by their box (a shader's WebGL picture cannot be read back safely). A picture that cannot be read (an image from another origin: load it with `crossorigin="anonymous"` or from the same site) stays a hit, with one warning. What is not here: touch with several fingers.
 
-**Dragging an object of a `three` layer**: `hit.three.grab(plane)` fixes a plane through the point that was taken (`'screen'` facing the camera, the default; `'floor'` horizontal; `'wall'` with z constant; or a normal `[x, y, z]`), and `grab.move(x, y)` takes the pointer in canvas pixels and gives where its ray meets that plane (`point`) and how far that is from the point taken (`delta`; `null` where the ray never meets the plane: a floor seen edge-on). Move the object by `delta`, from where it was when it was taken, and it follows the pointer exactly. The ray is the layer's own camera's (with `followCamera`, the composition's). The layer's `update` should read where the object is from the page's own state, and the page calls `await movie.redraw()` to draw the frame again while the movie is paused (recipe `drag-3d`).
+**Dragging an object of a `scene3d` layer**: `hit.scene3d.grab(plane)` fixes a plane through the point that was taken (`'screen'` facing the camera, the default; `'floor'` horizontal; `'wall'` with z constant; or a normal `[x, y, z]`), and `grab.move(x, y)` takes the pointer in canvas pixels and gives where its ray meets that plane (`point`) and how far that is from the point taken (`delta`; `null` where the ray never meets the plane: a floor seen edge-on). Move the object by `delta`, from where it was when it was taken, and it follows the pointer exactly. The ray is the layer's own camera's (with `followCamera`, the composition's). The layer's `update` should read where the object is from the page's own state, and the page calls `await movie.redraw()` to draw the frame again while the movie is paused (recipe `drag-3d`).
 
 ### `movie.project(target): { x, y } | null`
 
-Where `target` is on the canvas in the frame on screen, in canvas pixels (the space `movie.pick` takes): `'planets/Mars'` is an object of a `scene3d`, `three` or `scene2d` layer (a name its `setup` returned in `objects`, or a node's label / `name`), `'title'` a layer's anchor point (a path through nested compositions, or a name found anywhere when it is unique). null while it is behind the camera or its layer is not on screen; an unknown name throws with the names there are. It is what a layer's `follow` uses every frame (see the DSL reference, `follow`), and what `check --do "click planets/Mars"` clicks.
+Where `target` is on the canvas in the frame on screen, in canvas pixels (the space `movie.pick` takes): `'planets/Mars'` is an object of a `scene3d` or `scene2d` layer (a name its `setup` returned in `objects`, or a node's label / `name`), `'title'` a layer's anchor point (a path through nested compositions, or a name found anywhere when it is unique). null while it is behind the camera or its layer is not on screen; an unknown name throws with the names there are. It is what a layer's `follow` uses every frame (see the DSL reference, `follow`), and what `check --do "click planets/Mars"` clicks.
 
 ```ts
 await movie.gotoFrame(90);
@@ -207,13 +205,13 @@ const p = movie.project('planets/Mars');        // { x: 812.4, y: 301.7 } or nul
 
 ### `movie.redraw(): Promise<void>`
 
-Draws the frame on screen again, quietly (no `seeking` / `seeked`). For a paused movie when something outside it that a layer reads has changed, such as a `three` layer whose `update` reads the page's own state. A playing movie needs no call: the next frame draws it.
+Draws the frame on screen again, quietly (no `seeking` / `seeked`). For a paused movie when something outside it that a layer reads has changed, such as a `scene3d` layer whose `update` reads the page's own state. A playing movie needs no call: the next frame draws it.
 
 Hover is `movie.hover` (below); drag and drop of a flat layer is the recipe `drag-drop`.
 
 ### `movie.hover(options?): () => void`
 
-Which layer the pointer is over, as two callbacks, built on `pick`: `onEnter(hit)` when the layer under the pointer (or, in a `three` layer, the object: `hit.three.object`) changes to another, `onLeave(hit)` for the one it left, also when the pointer leaves the picture or the returned function is called. While the pointer rests inside the picture it is asked again on every frame, so a picture that moves under a still pointer is followed (the runner leaves, the cursor changes) with no pointer event in between. Options: `only` / `ignore` as for `pick`, `cursor` (`true` is `'pointer'`, or any CSS cursor: shown while something is hovered, put back otherwise). Returns the function that stops it. Pointer events cover a mouse, a pen and a finger (a touch is "entered" when it lands and "left" when it lifts). It is a page-side tool: an exported video has no pointer. A handler that throws is said once and does not stop the next hover.
+Which layer the pointer is over, as two callbacks, built on `pick`: `onEnter(hit)` when the layer under the pointer (or, in a `scene3d` or `scene2d` layer, the object: `hit.scene3d.object`, `hit.scene2d.object`) changes to another, `onLeave(hit)` for the one it left, also when the pointer leaves the picture or the returned function is called. While the pointer rests inside the picture it is asked again on every frame, so a picture that moves under a still pointer is followed (the runner leaves, the cursor changes) with no pointer event in between. Options: `only` / `ignore` as for `pick`, `cursor` (`true` is `'pointer'`, or any CSS cursor: shown while something is hovered, put back otherwise). Returns the function that stops it. Pointer events cover a mouse, a pen and a finger (a touch is "entered" when it lands and "left" when it lifts). It is a page-side tool: an exported video has no pointer. A handler that throws is said once and does not stop the next hover.
 
 ```ts
 const stop = movie.hover({ ignore: ['background'], cursor: true, onEnter: (hit) => glow(hit.name), onLeave: (hit) => unglow(hit.name) });
@@ -360,7 +358,7 @@ The function behind an ease name (`ease('power2.out')(0.5)`, `ease('spring.bounc
 
 ### `random(seed): () => number` and `rand(seed): number`
 
-Seeded randomness for plain JS (a `canvas`, `scene2d`, `scene3d` or `three` layer, a loop that builds layers): the same seed gives the same numbers in every load, seek and export, which `Math.random` does not (a free box that calls it is warned). `const r = random(7); r(); r()` is a repeatable stream in [0, 1); `rand(seed)` is one number in [0, 1) for a seed (`rand(i)` per piece, `rand(i + 0.5)` for its second value). Draw the numbers before the layer or in `setup`, then read them in `update`; a piece that respawns takes `rand(i * 1000 + cycle)` so each cycle is new and still repeatable. In expressions (`'W/2 + rand(3) * 200'`) the same `rand(seed)` and `noise(x, seed)` exist.
+Seeded randomness for plain JS (a `canvas`, `scene2d` or `scene3d` layer, a loop that builds layers): the same seed gives the same numbers in every load, seek and export, which `Math.random` does not (a free box that calls it is warned). `const r = random(7); r(); r()` is a repeatable stream in [0, 1); `rand(seed)` is one number in [0, 1) for a seed (`rand(i)` per piece, `rand(i + 0.5)` for its second value). Draw the numbers before the layer or in `setup`, then read them in `update`; a piece that respawns takes `rand(i * 1000 + cycle)` so each cycle is new and still repeatable. In expressions (`'W/2 + rand(3) * 200'`) the same `rand(seed)` and `noise(x, seed)` exist.
 
 ```ts
 import { random, rand } from 'pixi-effects';
@@ -705,49 +703,3 @@ The layer class; `view` is its `View3D`. `checkDeterminism(times)` is what `chec
 ```ts
 import type { Scene3DContext, Scene3DSetupResult, Scene3DSequenceSpec, LayerTexture, LayerTextureOptions, LoadedModel, LoadModelOptions, FitCameraOptions } from 'pixi-effects/3d';
 ```
-
-## `pixi-effects/three`
-
-Optional three.js integration, imported from its own entry so the core `pixi-effects` entry never touches three.js:
-
-```ts
-import { registerThree, three, threeGltf, threeFrameCamera, ThreeSequence } from 'pixi-effects/three';
-```
-
-**Install:** `npm i three`. `three` is a peer dependency marked optional (`peerDependenciesMeta.three.optional = true`) — consumers who never import `pixi-effects/three` are unaffected either way. A page that loads a glTF with `threeGltf` also needs `"three/addons/"` in its import map (three's `examples/jsm/`); `renderer: 'webgpu'` needs three 0.17x or later and `"three/webgpu"`.
-
-For the `type: 'three'` spec shape (fields, keyframe paths, `followCamera` / `followLights` / `followFog`, rules), see [DSL reference § three](./dsl.md#three).
-
-### `registerThree(options?: { renderer?: 'webgl' | 'webgpu' }): void`
-
-Registers the `'three'` sequence type with the composition builder. Call once, before `Movie.init()` builds a composition containing a `type: 'three'` sequence. Idempotent. `renderer` is the page-level default of every three layer that names no `renderer` of its own (default `'webgl'`; the last call wins).
-
-### `three(spec: ThreeSequenceSpec): SequenceSpec`
-
-Typing helper — accepts a strongly-typed three spec and returns it as a plain `SequenceSpec`, so it drops straight into `composition.sequences` alongside `text` / `image` / etc. A cast only; not required for the sequence to work, but gives editor autocomplete on `setup` / `update` / `dispose`.
-
-### `threeGltf(url: string, options?: ThreeGltfOptions): Promise<ThreeGltfModel>`
-
-Loads a `.glb` / `.gltf` with three's `GLTFLoader` (a page that never calls it never loads the addon) for use in a three layer's `setup` / `update`. Options: `animation` (a clip name, an index, or `false` for the bind pose; default the first clip), `speed`, `offset`, `loop`. Returns `{ object, clips, size, pose(t), fit(px), dispose() }`: `object` is a `Group` whose origin is the centre of the model's bounding box; `pose(t)` poses the clip at `t × speed + offset` seconds with `AnimationMixer.setTime` (a function of the time: a seek, an export and a repeat give the same frame); `fit(px)` scales `object` so the model's longest side is `px`. Skinned meshes are drawn always (`frustumCulled = false`). A failed load names the URL; an unknown clip name lists the clips the file has. Draco / KTX2 / Meshopt files need a decoder you set up yourself (`npx pixi-effects probe model.glb` says whether a file needs one).
-
-### `threeFrameCamera(camera, object, options?: { direction?, margin? }): void`
-
-Puts a `PerspectiveCamera` where the whole of `object` (its bounding box now, with its scale and place) fits the frame, looking at its centre, from a three-quarter view (`direction` default `[0.45, 0.3, 1]`) with 10 % room (`margin` 1.1). Uses the camera's own `fov` and `aspect`; sets `near` and `far`.
-
-### `ThreeSequence`
-
-The `Sequence` subclass that backs `type: 'three'`. Exported for advanced use (e.g. `instanceof` checks). `renderer` (`'webgl'` / `'webgpu'`) and `backend` (`'webgl'` / `'webgpu'` / `'webgl2'`: three's WebGPURenderer found no WebGPU and used its WebGL2 backend) say what drew it once it is built; `checkDeterminism(times)` is what `check` and `movie.review()` call to hold the layer to "a function of the time".
-
-### Exported types
-
-```ts
-import type { ThreeContext, ThreeSetupResult, ThreeSequenceSpec, ThreeGltfModel, ThreeGltfOptions, ThreeFrameCameraOptions, ThreeRendererKind } from 'pixi-effects/three';
-```
-
-| Type                | Notes                                                                          |
-| ------------------- | ------------------------------------------------------------------------------- |
-| `ThreeContext`      | `{ scene, camera, renderer, width, height, space? }` handed to `setup` / `update` / `dispose`; `renderer` is a `WebGLRenderer` or a `WebGPURenderer`; `space` is the composition's camera, lights and fog when the layer follows them. |
-| `ThreeSetupResult`  | `{ objects?, camera? }` returned from `setup`.                                 |
-| `ThreeSequenceSpec` | the `type: 'three'` sequence spec.                                             |
-| `ThreeGltfModel`, `ThreeGltfOptions`, `ThreeFrameCameraOptions` | what `threeGltf` and `threeFrameCamera` take and return. |
-| `ThreeRendererKind` | `'webgl' \| 'webgpu'`.                                                         |

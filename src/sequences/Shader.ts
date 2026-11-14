@@ -16,7 +16,7 @@ void main() { vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2
 type UniformSlot = number | Record<string, number>;
 
 /**
- * `type: 'shader'`: a Shadertoy `mainImage` drawn into a picture. Like the `three` layer it is a sprite whose texture is a canvas that is redrawn
+ * `type: 'shader'`: a Shadertoy `mainImage` drawn into a picture. Like the `canvas` layer it is a sprite whose texture is a canvas that is redrawn
  * for every frame (`awaitFrameAt`, the one frame path playback and export share), but every shader layer draws with ONE shared WebGL2 context
  * and copies the result into a 2D canvas of its own, so the number of layers is not limited by the browser's number of contexts.
  */

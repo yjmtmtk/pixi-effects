@@ -7,7 +7,7 @@ const WEBGL_RUN = process.env.PE_BACKEND === 'webgl';
 
 // Backends agree: one small film of what is documented to work on both renderers (a linear-gradient rect, a circle at alpha 0.6, a rotating rect
 // in blendMode 'multiply', a text, a blurred circle), drawn on WebGPU (the default) and on WebGL (navigator.gpu removed before the page loads,
-// as tests/films/three-layer-texture.test.ts does: PixiJS then falls back to WebGL), compared picture against picture at frames 0, 30 and 59.
+// as the WebGL run does: PixiJS then falls back to WebGL), compared picture against picture at frames 0, 30 and 59.
 //
 // Where the answers come from (written before the film was run):
 // - docs/philosophy.md "Two renderers, one library: WebGPU first, WebGL as the fallback … Determinism holds within one renderer; across the two,
@@ -15,9 +15,8 @@ const WEBGL_RUN = process.env.PE_BACKEND === 'webgl';
 //   pictures) must agree on the two backends, and only edge samples may differ.
 // - docs/dsl.md, Blend modes: "Checked against the W3C formulas on WebGPU and WebGL: every pixel within 2/255 … Another GPU can differ by a step
 //   or two."  That is the per-pixel tolerance used below: 2 of 255, for the flat samples and for the colours the formulas give.
-// - docs/dsl.md, three, "Measured on one Apple (Metal) machine …: the same lit box drew with a mean difference of 0.04–0.06 (of 255) per channel
-//   from the WebGL picture (only edge pixels differ)" and "With antialias: false and no fog the two agree to 0.04 of 255 (the real film: 0.09)".
-//   These are the only numbers the documents give for a whole picture on the two backends; the mean tolerance is the worst of them rounded up: 0.1.
+// - The mean tolerance, 0.1 of 255, came from the numbers docs/dsl.md gave for a whole lit 3D picture on the two backends (0.04–0.06, a real film 0.09:
+//   the three layer's, removed in 0.52.0). It stays: this film measured 0.02.
 // - docs/dsl.md fillGradient: "Positions are in 0–1 of the shape's own bounds", `angle: 0` is "left → right": 4 px inside the left end of a 240 px
 //   rect the colour is stop 0 moved by 4/240 of the way (≤ 3.3 of 255 here), 4 px inside the right end it is stop 1 likewise: tolerance 2 + 3.3 → 6.
 // - The colours of the probes are the compositing formulas the blend-mode section checks against (W3C): normal "source over" at alpha a is
@@ -31,7 +30,7 @@ const NO_GPU = 'delete Navigator.prototype.gpu;';
 const FRAMES = [0, 30, 59];
 const STEP = 2;                                  // the picture is point-sampled every 2 px (320 x 180 samples): edges stay edges, nothing is averaged away
 const PIXEL_TOL = 2;                             // dsl.md blend modes: "within 2/255", "a step or two"
-const MEAN_TOL = 0.1;                            // dsl.md three: 0.04–0.06, "the real film: 0.09"
+const MEAN_TOL = 0.1;                            // see above: a whole lit 3D picture measured 0.04–0.09; this film 0.02
 
 type RGB = [number, number, number];
 const BG: RGB = [0x1e, 0x2a, 0x38], DISC: RGB = [0xff, 0x30, 0x30], TILE: RGB = [0x80, 0xe0, 0xff], GLOW: RGB = [0xff, 0xd1, 0x66];

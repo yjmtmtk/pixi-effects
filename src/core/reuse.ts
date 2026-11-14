@@ -1,7 +1,7 @@
 /**
  * Keeping a layer's expensive state across a rebuild (`setVars`, `resize`, `rebuild`): the new tree is built while the old one still plays, and a layer that cannot be told apart from
- * one of the old tree (same name, same setup, same size and options) may take over that layer's scene and renderer instead of building its own. Today only the `three` layer does:
- * its setup may load a model, and its renderer owns a graphics context.
+ * one of the old tree (same name, same setup, same size and options) may take over that layer's scene instead of building its own: the `scene2d` and `scene3d` layers do
+ * (their setup runs once: it may load a model).
  *
  * It is a loan until the swap: the new layer borrows, the old one goes on drawing, and `commitReuse` (called by the movie once the new tree is on stage) makes it the owner. A new tree that
  * is thrown away before that leaves the old layers as they were.

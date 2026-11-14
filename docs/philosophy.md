@@ -45,32 +45,19 @@ Everything below follows from that sentence. A composition is a JSON-shaped spec
 
 ## 3D direction
 
-The author wants **After Effects-style 3D**, not "a three.js escape hatch":
-- Layers can be 3D: `z`, `rotationX/Y`, a composition camera, lights, perspective.
-- 3D models (glTF) and 3D primitives appear as ordinary layers.
-- All of it is described with the same vocabulary (principle 2) and expressions (principle 3), animated by the same keyframes.
-- three.js is an implementation detail behind an optional entry (principle 6). Users never need to know three's API to use 3D.
+The author wants **After Effects-style 3D**, not "an engine escape hatch":
+- Layers can be 3D: `z`, `rotationX/Y`, a composition camera, lights, perspective (2.5D, any 2D layer: `threeD`).
+- A real 3D scene (meshes, glTF models, PBR, shadows) is one more layer, `scene3d`, drawn by [PixiJS 3D](https://pixijs.com/3d) (`@pixi/3d`, entry `pixi-effects/3d`) **inside PixiJS's own renderer**: no second renderer, no canvas per layer, no copy. It lives in the same space as the cards (`followCamera`, `followLights`, `followFog`) and takes the same keyframes, masks, filters and blend modes.
+- **PixiJS 3D is the main line, and the only 3D engine.** three.js was supported as a second engine until 0.51; it was removed in 0.52.0: two engines meant every feature built and tested twice, and the second engine kept bending the design of the first. A helper or a recipe for another engine never bends the core: three.js can still be drawn by a `canvas` layer (recipe `three-in-canvas`), with nothing in the library for it.
 
-Order of work: (1) **2.5D without three.js** — any 2D layer gets `threeD` / `z` / `rotationX/Y`, the camera is a layer, drawn with Pixi's `PerspectiveMesh` (see `docs/superpowers/specs/2026-10-06-2-5d-layers-design.md`); (2) JSON-described 3D model layers on three.js, optional entry, same camera and vocabulary; (3) lights/shadows/plane intersection via a three.js compositor if ever needed. The spec language stays renderer-independent, so step 3 never changes what users write.
-
-### Known drift (to be corrected)
-The first three.js integration (`type: 'three'`) kept the good foundations (one-sprite output, deterministic `awaitFrameAt`, prefix-routed keyframe paths, optional entry) but:
-- put functions (`setup` / `update` / `dispose`) in the spec, so 3D content is code, not data (breaks 1);
-- exposes three's own object model to keyframes and scene authoring instead of the shared vocabulary (breaks 2);
-- allows expressions only on layer size, not on scene values (breaks 3);
-- needs `registerThree()`, a `three()` cast and the user's own `import * as THREE` (works against 5 and 6);
-- explicitly listed "declarative / JSON-serializable 3D scene" as a non-goal, which is the root of the drift.
+`scene3d` is a free box: `setup` builds the scene with PixiJS 3D's own objects, `update(t)` sets it from the time. The library does not wrap PixiJS 3D in a closed spec of its own; it adds what makes the box safe and easy to write: rules (a frame is a function of `t`), helpers (`loadModel`, `fitCamera`, `layerTexture`), and a checker (`check` draws each moment twice and names a layer that differs).
 
 ### Engine names
 
-3D can be drawn by more than one engine. Today there are two: the **main** engine is [PixiJS 3D](https://pixijs.com/3d) (`@pixi/3d`, entry `pixi-effects/3d`, layer `scene3d`: it draws inside PixiJS's own renderer), and the **sub** engine is three.js (entry `pixi-effects/three`, layer `three`). The spec language must not depend on which, and the first engine to arrive must not take the names the others will need. Rules:
-
-1. **The spec language owns the neutral names.** Layer types, keys and functions such as `model`, `light`, `camera`, `scene3d`, `threeD` and `register3D()` belong to pixi-effects. No engine takes one of them, and none of them carries an engine's name.
-2. **An engine's name appears only where the code is truly specific to that engine**: an escape hatch that hands the author the engine's own objects (`type: 'three'`, the keyframe paths `three.<name>.<path>`), an adapter, the registration (`registerThree()`), an option only that engine has, and its optional entry (`pixi-effects/three`). Everything such an entry exports says the engine's name, all the way down.
-3. **When there are two engines, one is the default and the other is named.** With nothing said, a neutral layer is drawn by the default (main) engine; the other (sub) engine is asked for by name. The main engine never gets a suffix or a prefix (`Scene3DOther`) to make room for another: the neutral name is its name.
-4. **The library chooses the engine, not the author.** An AI writing a video must not need to know which engine draws it (principles 2 and 5).
-5. **Differences between engines are reported, not named.** An engine that cannot do something in a neutral spec says so with a warning (`this engine ignores X`), as a renderer that cannot do a blend mode does. The spec stays one language.
-6. **It is guarded**: `tests/docs/EngineNames.test.ts` fails when the main entry, the spec types, the main 3D engine's entry (`./3d`) or a package entry (other than `./three`) carries an engine's name, and when the main entry loads `@pixi/3d`.
+1. **The spec language owns the neutral names.** Layer types, keys and functions such as `model`, `light`, `camera`, `scene3d`, `threeD` and `register3D()` belong to pixi-effects, not to an engine; none of them carries an engine's name.
+2. **An engine's name appears only in the engine's own objects**, the ones the author imports from it (`Mesh3D`, `Material3D` from `@pixi/3d`).
+3. **Differences are reported, not named.** Something the engine cannot do in a neutral spec says so with a warning, as a renderer that cannot do a blend mode does.
+4. **It is guarded**: `tests/docs/EngineNames.test.ts` fails when the main entry, the spec types, the `./3d` entry or any package entry carries an engine's name, when three.js comes back into the package, and when the main entry loads `@pixi/3d`.
 
 ## Delivery
 

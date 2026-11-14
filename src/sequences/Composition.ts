@@ -249,7 +249,7 @@ export class CompositionSequence extends Sequence {
         (v.layer?.display ?? v.seq.target!).zIndex = i;
       });
     } else if (this._cameras.length > 0 && !this._children.some(c => (c.spec as { followCamera?: boolean }).followCamera)) {
-      console.warn('pixi-effects: camera has no effect: this composition has no threeD layers (a three layer with followCamera: true follows it)');
+      console.warn('pixi-effects: camera has no effect: this composition has no threeD layers (a scene3d layer with followCamera: true follows it)');
     }
     if (this._layers3d.length === 0 && this._lights.length > 0 && !this._children.some(c => (c.spec as { followLights?: boolean }).followLights)) {
       console.warn(`pixi-effects: ${describeLayer(this.spec)}: a light has no effect: this composition has no threeD layers (a light lights only the threeD layers of its own composition, not those of the compositions nested in it: put the light inside the composition that holds them)`);
@@ -475,7 +475,7 @@ export class CompositionSequence extends Sequence {
     return this._lights.filter(l => { const w = l.window(); return t >= w.start && (t < w.end || (w.end >= compEnd && t <= w.end)); });
   }
 
-  /** What a `three` layer that follows the composition asks for: the camera and the lights alive at `t` on this composition's clock (the same pick `updateSpace` makes). */
+  /** What a `scene3d` layer that follows the composition asks for: the camera and the lights alive at `t` on this composition's clock (the same pick `updateSpace` makes). */
   private _spaceAt(t: number): SpaceNow {
     const { width, height } = this._compositionShape!;
     const compEnd = this._childBase + (this.duration ?? 0);

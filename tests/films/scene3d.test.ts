@@ -105,11 +105,11 @@ runFilms('scene3d: a PixiJS 3D scene as a layer', () => {
     });
   }, 180_000);
 
-  it('says what is wrong: a typo of a key (did you mean), a key only a three layer has, and a keyframe path to an object setup did not name', async () => {
+  it('says what is wrong: a typo of a key (did you mean), a key a scene3d layer does not have (shareGpu), and a keyframe path to an object setup did not name', async () => {
     await on(undefined, async (film) => {
       const logs = (await film.eval<string[]>('window.__logs')).join('\n');
       expect(logs).toMatch(/scene3d layer "hero": unknown key "setUp"; did you mean "setup"\?/);
-      expect(logs).toMatch(/scene3d layer "hero": shareGpu is about three's own renderer; a scene3d layer is drawn by PixiJS itself, so it has no such option/);
+      expect(logs).toMatch(/scene3d layer "hero": unknown key "shareGpu"/);
       expect(logs).toMatch(/scene3d\.nope\.x: unknown object "nope" \(known: cube, camera, view\)/);
     }, 'badkey=1');
   }, 120_000);

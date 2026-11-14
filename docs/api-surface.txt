@@ -144,7 +144,6 @@ interface CompositionShape
   duration: number
   findLayer?: ((name: string) => Sequence | null)
   frameRate?: number
-  gpu?: SharedGpu
   height: number
   layerNames?: (() => string[])
   onLayerBuilt?: (() => void | Promise<void>)
@@ -265,7 +264,6 @@ interface Keyframe
   yoyo?: boolean
 interface LayerInfo
   alpha: number
-  backend?: "webgl" | "webgpu" | "webgl2"
   bounds: Rect | null
   depthBlur?: number
   light?: number
@@ -273,8 +271,6 @@ interface LayerInfo
   name?: string
   onCanvas: "none" | "full" | "partial" | null
   path: string
-  renderer?: "webgl" | "webgpu"
-  sharedGpu?: boolean
   threeD: boolean
   type: string
   visible: boolean
@@ -547,14 +543,13 @@ interface PathShapeSpec extends ShapeBase, Trimmable
   morphTo?: string
   shape: "path"
 interface PickHit
-  kind: "flat" | "card" | "scene3d" | "scene2d" | "three"
+  kind: "flat" | "card" | "scene3d" | "scene2d"
   local?: { x: number; y: number; }
   name?: string
   path: string
   point: { x: number; y: number; }
   scene2d?: { object: string; node: unknown; point: [number, number]; grab: () => { move: (x: number, y: number) => { poi…
   scene3d?: { object: string; point: [number, number, number]; distance: number; node?: unknown; grab?: ((plane?: [number…
-  three?: { object: unknown; point: [number, number, number]; distance: number; object3d?: unknown; grab?: ((plane?: [n…
   type: string
   via?: { path: string; object: string; }
 interface PickOptions
@@ -986,49 +981,48 @@ interface StopImagesOptions
   which?: "pages" | "stops"
 const stopIndex: (movie: Movie) => number
 
-== pixi-effects/three ==
-function registerThree(options?: { renderer?: ThreeRendererKind | undefined; }): void
-function three(spec: ThreeSequenceSpec): SequenceSpec
-interface ThreeContext
-  camera: Camera
-  height: number
-  objects?: Record<string, object>
-  renderer: WebGLRenderer | WebGPURenderer
-  scene: Scene<Object3DEventMap>
-  space?: SpaceNow
-  width: number
-function threeFrameCamera(camera: Camera | PerspectiveCamera, object: Object3D<Object3DEventMap>, options?: ThreeFrameCameraOptions): void
-interface ThreeFrameCameraOptions
+== pixi-effects/3d ==
+function fitCamera(ctx: Scene3DContext, object: Container3D, options?: FitCameraOptions): void
+interface FitCameraOptions
   direction?: [number, number, number]
   margin?: number
-function threeGltf(url: string, options?: ThreeGltfOptions): Promise<ThreeGltfModel>
-interface ThreeGltfModel
-  clips: string[]
+function layerTexture(ctx: Scene3DContext, name: string, options?: LayerTextureOptions): Promise<LayerTexture>
+interface LayerTexture
   dispose(): void
-  fit(px: number): void
-  object: Group<Object3DEventMap>
+  height: number
+  material: FlatMaterial
+  texture: RenderTexture
+  width: number
+interface LayerTextureOptions
+  resolution?: number
+  transparent?: boolean
+interface LoadedModel
+  clips: string[]
+  fit(n: number): void
+  model: Model3D
+  object: Container3D
   pose(t: number): void
-  size: Vector3
-interface ThreeGltfOptions
+  size(): { x: number; y: number; z: number; }
+function loadModel(url: string, options?: LoadModelOptions): Promise<LoadedModel>
+interface LoadModelOptions
   animation?: string | number | false
   loop?: boolean
   offset?: number
   speed?: number
-function threeLayerTexture(ctx: ThreeContext, name: string, options?: ThreeLayerTextureOptions): Promise<ThreeLayerTexture>
-interface ThreeLayerTexture
-  dispose(): void
+function register3D(): void
+function scene3d(spec: Scene3DSequenceSpec): SequenceSpec
+interface Scene3DContext
+  camera: Camera3D
   height: number
-  material: Material<MaterialEventMap>
-  texture: Texture<unknown, TextureEventMap>
+  objects: Record<string, object>
+  renderer: Renderer
+  root: Container3D
+  space?: SpaceNow
+  view: View3D<Container3D>
   width: number
-interface ThreeLayerTextureOptions
-  resolution?: number
-  transparent?: boolean
-type ThreeRendererKind = 'webgl' | 'webgpu'
-class ThreeSequence
+class Scene3DSequence
   at: number
   awaitFrameAt(local: number): Promise<void>
-  backend: "webgl" | "webgpu" | "webgl2" | null
   build(): Promise<void>
   buildFilters(): void
   checkDeterminism(times: number[]): CanvasCheck
@@ -1040,36 +1034,32 @@ class ThreeSequence
   intrinsicWidth: number
   objectNames(): string[]
   parent: CompositionShape | null
-  pickAt(u: number, v: number): { object: string; point: [number, number, number]; distance: number; object3d: Object3D<Object3DEventMap>; uv?: { u: number; v: number;…
-  renderer: "webgl" | "webgpu" | null
+  pickAt(u: number, v: number): { object: string; point: [number, number, number]; distance: number; object3d: unknown; uv?: { u: number; v: number; } | undefined; mat…
   reuseKey(): string | null
   root: CompositionShape
   scope(): Scope
   screenOf(material: unknown): { source: Sequence; at(u: number, v: number): { x: number; y: number; }; } | null
   screenPoint(object: string): { x: number; y: number; } | null | undefined
-  sharedGpu: boolean
   showsLayers: boolean
   spec: SequenceSpec
   syncFrame(): void
   target: Container<ContainerChild> | null
+  view: View3D<Container3D> | null
   constructor(spec: SequenceSpec, parent: CompositionShape | null, root: CompositionShape)
-interface ThreeSequenceSpec extends SequenceCommon
-  antialias?: boolean
-  dispose?: ((ctx: ThreeContext) => void)
+interface Scene3DSequenceSpec extends SequenceCommon
+  dispose?: ((ctx: Scene3DContext) => void)
   followCamera?: boolean
   followFog?: boolean
   followLights?: boolean
   height?: PropValue
-  renderer?: "webgl" | "webgpu"
   resolution?: number
   reuse?: boolean
-  setup: (ctx: ThreeContext) => void | ThreeSetupResult | Promise<void | ThreeSetupResult>
-  shareGpu?: boolean
-  type: "three"
-  update?: ((t: number, ctx: ThreeContext) => void)
+  setup: (ctx: Scene3DContext) => void | Scene3DSetupResult | Promise<void | Scene3DSetupResult>
+  type: "scene3d"
+  update?: ((t: number, ctx: Scene3DContext) => void)
+  view?: Omit<View3DOptions<Container3D>, "width" | "height" | "autoResize">
   width?: PropValue
-interface ThreeSetupResult
-  camera?: Camera
+interface Scene3DSetupResult
   objects?: Record<string, object>
 interface SequenceCommon (not exported; the keys of the types above)
   at?: number

@@ -85,9 +85,9 @@
     {
       "id": "film-titles",
       "title": "The Long Night",
-      "subtitle": "Main-title sequence for an imaginary thriller: a three.js shard in fog, letterboxed credits, film grain",
+      "subtitle": "Main-title sequence for an imaginary thriller: a PixiJS 3D shard in fog, letterboxed credits, film grain",
       "tags": [
-        "three.js",
+        "PixiJS 3D",
         "title sequence",
         "typography",
         "film grain",
@@ -468,11 +468,11 @@
       "notes": "_notes/one-stroke.md"
     },
     {
-      "id": "three-product-spin",
+      "id": "product-spin",
       "title": "ORRI ONE",
-      "subtitle": "A glossy three.js product turntable with spec callouts and a brand lock-up, studio white to graphite",
+      "subtitle": "A glossy PixiJS 3D product turntable with spec callouts and a brand lock-up, studio white to graphite",
       "tags": [
-        "three.js",
+        "PixiJS 3D",
         "product",
         "PBR",
         "callouts",
@@ -483,9 +483,9 @@
       "duration": 12,
       "posterFrame": 246,
       "model": "opus",
-      "page": "three-product-spin.html",
-      "poster": "posters/three-product-spin.jpg",
-      "notes": "_notes/three-product-spin.md"
+      "page": "product-spin.html",
+      "poster": "posters/product-spin.jpg",
+      "notes": "_notes/product-spin.md"
     },
     {
       "id": "cycle-lane-race",

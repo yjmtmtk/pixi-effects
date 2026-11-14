@@ -70,7 +70,7 @@ export function kindName(spec: { type: string; shape?: string }): string {
   return spec.type === 'shape' && spec.shape ? `${spec.shape} shape` : `${spec.type} layer`;
 }
 
-/** The keys a layer may have, or null for a kind this library does not know (a `three` layer: registered elsewhere, so not checked). */
+/** The keys a layer may have, or null for a kind this library does not know (a `scene3d` layer: registered elsewhere, so not checked here). */
 export function layerKeys(spec: { type: string; shape?: string }): readonly string[] | null {
   if (spec.type === 'shape') return (spec.shape && SHAPES[spec.shape]) || null;
   return BY_TYPE[spec.type] ?? null;
@@ -84,7 +84,7 @@ export function kindsWithKey(key: string): string[] {
   return out;
 }
 
-/** Names a keyframe or `initial` may animate. Dotted paths (`filters.g.amount`, `three.box.x`) belong to their routers and are not looked up here. */
+/** Names a keyframe or `initial` may animate. Dotted paths (`filters.g.amount`, `scene3d.box.x`) belong to their routers and are not looked up here. */
 export const PROP_KEYS: ReadonlySet<string> = new Set([
   // transform and look
   'x', 'y', 'z', 'alpha', 'rotation', 'rotationX', 'rotationY', 'width', 'height', 'visible', 'autoAlpha',

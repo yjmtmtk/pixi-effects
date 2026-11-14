@@ -81,3 +81,19 @@ const mirror = product.clone(true); mirror.scale.y = -1;
 mirror.traverse(o => { if (o.isMesh) { o.material = mirrorMaterial(o.material); o.renderOrder = 1; } });
 // floor: MeshPhysicalMaterial({ transparent: true, opacity: 0.6, clearcoat: 1 }), renderOrder 2, top face at y = 0
 ```
+
+## Port to `scene3d` (PixiJS 3D), 2026-11-15
+three.js left the library; the piece now draws its product with one `scene3d` layer (`register3D()`, `@pixi/3d@0.1.0`). The file name stays for now. Everything 2D (callouts, chrome, lock-up, backgrounds, audio) and every time is unchanged; the contact sheets before and after match by eye.
+
+How each three.js part became PixiJS 3D:
+- **Studio light (PMREM of a dome + softboxes)** → the same dome and five softboxes computed directly as a float equirectangular panorama in JS (ray against each softbox rectangle, else the dome gradient) and turned into a float cube with `equirectToCube` (exported by `@pixi/3d`, marked internal; it is what its `.hdr` loader uses). `view.environment = cube`. No lights in the scene, as before.
+- **`NeutralToneMapping`, exposure 1.12** → PixiJS 3D has `'none' | 'aces' | 'reinhard' | 'uncharted2'`. ACES shifted the whites; `'none'` left the grille and the dark floor visibly lighter (Neutral's toe darkens the darks). So a shader bit (`lobePostLighting`) applies the Khronos PBR Neutral curve to each lit material, and the view stays at `'none'`.
+- **`envMapIntensity` 1 → 0.5 on the floor** → no such field; a second bit multiplies the floor's light by `material.data.envScale`, keyframed as `'scene3d.discMat.data.envScale'` (with no lights, all its light is the environment's).
+- **Camera rig (Group + child camera)** → a plain `rig` object `{ x, y, rx, z }` exposed in `objects` and keyframed (`'scene3d.rig.z'` …); `update` places the camera on the rig (`camAt`) and `lookAt`s the rig point. `project()` for the callouts is the same math by hand.
+- **LatheGeometry** → a 30-line `Geometry3D` lathe with the same averaged profile normals. Half-sphere cap → a full sphere (the lower half is inside the cap). Torus: PixiJS 3D's lies in XZ (no rotation for the trims and the ring; the carry loop is the `arc: π` torus turned −π/2 about x).
+- **Mirrored reflection** → the product built a second time with `scale.y = -1` and `material.clone({ alphaMode: 'blend', extraBits: [fade] })`, `state.cullMode = 'front'` (a mirrored node turns its triangles inside out). The fade bit is the old `onBeforeCompile` line, reading the world `vPosition.y`.
+- **`renderOrder`** (mirror → floor → contact shadow) → PixiJS 3D sorts transparent meshes by their node's distance only. The floor top and the shadow are custom disc geometries drawn 1 and 1.5 units BELOW their nodes, so their nodes sit higher (nearer the camera) than the mirrored meshes' and they draw after them. The disc edge is an open cylinder with the same material.
+- **Canvas textures** → `new Texture({ source: new CanvasSource({ resource, autoGenerateMipmaps: true, maxAnisotropy: 8 }) })`; base colour textures decode as sRGB by themselves. The disc's UVs are written so the texture lands as three.js's cylinder cap put it.
+- **`'three.discMat.color.r/g/b'` keyframes** → a `floor.dark` 0 → 1 value; `update` mixes the two floor colours in linear light into `discMat.baseColor`.
+
+Still different: the dark floor is a little more even than three.js's (its far half reflected a little more of the studio); otherwise the same picture.

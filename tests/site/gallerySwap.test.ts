@@ -8,7 +8,7 @@ import { pathToFileURL } from 'node:url';
 const root = resolve(__dirname, '../..');
 const swap: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'scripts/gallery-swap.mjs')).href);
 
-const page = (meta: object, extra = '', importmap = '"pixi-effects": "https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js", "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/Controller.js", "pixi-effects/three": "https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/three.js", "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps"') =>
+const page = (meta: object, extra = '', importmap = '"pixi-effects": "https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/index.js", "pixi-effects/controller": "https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/Controller.js", "pixi-effects/3d": "https://cdn.jsdelivr.net/npm/pixi-effects@0.35.0/dist/3d.js", "pixi.js": "https://esm.sh/pixi.js@8.22.0?bundle-deps"') =>
   `<!doctype html><html><head><title>t</title><script type="importmap">{ "imports": { ${importmap} } }</script></head><body>
 <script type="application/json" id="piece-meta">${JSON.stringify(meta)}</script>${extra}</body></html>`;
 
@@ -61,7 +61,7 @@ describe('gallery-swap: replace one piece by another', () => {
     const html = read(r, `${g}/fresh.html`);
     expect(html).toContain('"pixi-effects": "../../dist/index.js"');
     expect(html).toContain('"pixi-effects/controller": "../../dist/Controller.js"');
-    expect(html).toContain('"pixi-effects/three": "../../dist/three.js"');
+    expect(html).toContain('"pixi-effects/3d": "../../dist/3d.js"');                // an entry whose name has a digit too
     expect(html).toContain('https://esm.sh/pixi.js@8.22.0?bundle-deps');            // the other imports stay as they are
   });
 

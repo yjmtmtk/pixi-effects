@@ -49,10 +49,7 @@
       "pixi-effects/3d":         "https://cdn.jsdelivr.net/npm/pixi-effects@0.51.1/dist/3d.js",
       "@pixi/3d":                "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d.min.mjs",
       "@pixi/3d/extras":         "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d-extras.min.mjs",
-      "pixi-effects/three":      "https://cdn.jsdelivr.net/npm/pixi-effects@0.51.1/dist/three.js",
-      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
-      "three":                   "https://esm.sh/three@0.178.0",
-      "three/addons/":           "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/"
+      "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js"
     }
   }
   </script>
@@ -64,8 +61,6 @@
     // PixiJS 2D objects built by code (Graphics, Sprites, a thousand pieces): { type: 'scene2d', setup({ root }) { root.addChild(…); return { objects } }, update(t, { objects }) { … } } — no import; recipe scene2d-basics
     // import { register3D } from 'pixi-effects/3d';   // a 3D scene (PixiJS 3D: meshes, glTF models, lights) as a layer: call register3D() before init; recipe scene3d-basics
     // import { Mesh3D, Model3D, CubeGeometry, Material3D, DirectionalLight } from '@pixi/3d';
-    // import { registerThree, threeGltf } from 'pixi-effects/three';   // a three.js layer instead, for three.js's own loaders, materials and post-processing (call registerThree() before init); threeGltf loads a .glb: recipe gltf-in-space
-    // import * as THREE from 'three';
     // A talk instead of a video: import { deck, Presenter } from 'pixi-effects/present';  (the import map above has "pixi-effects/present")
     //   const d = deck({ transition: { kind: 'slide', duration: 0.6 }, pages: [{ name, duration, stops: [at, ...], notes, sequences }] });
     //   composition: d.composition, duration: d.duration; then new Presenter(movie, { canvas }) instead of the Controller. Docs: reference/cheatsheet.md → Presets (the deck lines).

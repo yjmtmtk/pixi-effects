@@ -21,11 +21,11 @@ async function run(args: string[]): Promise<{ code: number; stdout: string; stde
 }
 
 describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('check --pick: what is under a point at each --at moment (a layout question an AI can answer without looking)', () => {
-  it('prints, for each moment, the layers under the point, the top first, and names the object a three layer met', async () => {
+  it('prints, for each moment, the layers under the point, the top first, and names the object a scene3d layer met', async () => {
     const r = await run(['--at', '0,2', '--pick', '100,60', '--pick', '330,170']);
     expect(r.code, r.stderr).toBe(0);
     expect(r.stdout).toMatch(/pick +\S+ \(100, 60\) — button, bg/);
-    expect(r.stdout).toMatch(/pick +\S+ \(330, 170\) — world \(three: cube\), bg/);
+    expect(r.stdout).toMatch(/pick +\S+ \(330, 170\) — world \(scene3d: cube\), bg/);
     expect(r.stdout, 'two seconds later the camera has moved: the cube is not there').toMatch(/pick +2\S*s \(330, 170\) — bg/);
     const first = r.report.at[0].pick;
     expect(first[0]).toMatchObject({ x: 100, y: 60 });

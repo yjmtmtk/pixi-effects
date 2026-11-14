@@ -37,9 +37,9 @@
       "mediabunny":              "https://esm.sh/mediabunny@1.61.3",
       "pixi-effects":            "../../dist/index.js",
       "pixi-effects/controller": "../../dist/Controller.js",
-      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-effects/3d":         "../../dist/3d.js",
       "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
-      "three":                   "https://esm.sh/three@0.178.0",
+      "@pixi/3d":                "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d.min.mjs",
       "roughjs":                 "https://esm.sh/roughjs@4.6.6",
       "d3-shape":                "https://esm.sh/d3-shape@3.2.0",
       "d3-scale":                "https://esm.sh/d3-scale@4.0.2",
@@ -52,14 +52,15 @@
   <script type="module">
     import { Movie, animateText, measureText, particles, cameraPath, wiggle, react, musicEnvelope, random } from 'pixi-effects';
     import { Controller } from 'pixi-effects/controller';
-    import { registerThree, three } from 'pixi-effects/three';
-    import * as THREE from 'three';
+    import { register3D, scene3d } from 'pixi-effects/3d';
+    import { BatchedMesh3D, CubeGeometry, Material3D, PointLight, Container3D, RenderPassBit } from '@pixi/3d';
+    import { BufferImageSource, CubeTexture, Texture } from 'pixi.js';
     import rough from 'roughjs';
     import { line as d3line, pie as d3pie, curveCatmullRom } from 'd3-shape';
     import { scaleLinear } from 'd3-scale';
     import { forceSimulation, forceManyBody, forceLink, forceCenter, forceCollide } from 'd3-force';
 
-    registerThree();
+    register3D();                                                    // before movie.init: PixiJS loads the 3D drawing code while its renderer starts
     // web fonts (the same look on every machine) must be ready before anything is measured or drawn
     await Promise.all([document.fonts.load('100 60px "Albert Sans"'), document.fonts.load('500 24px "Albert Sans"'), document.fonts.load('400 24px "PT Mono"')]);
 
@@ -218,7 +219,7 @@
         "  { type: 'camera', initial: { focus: 'title', aperture: 34, fogFar: 3600 } },",
         "  { type: 'light', kind: 'spot', castsShadows: true, initial: { intensity: 1.5 } },",
         "  { type: 'text', text: 'LIGHT AS A MATERIAL', threeD: true, style: thin(190) },",
-        "  three({ setup: rods, update: t => wave(t) }),",
+        "  { type: 'scene3d', setup: rods, update: t => wave(t) },",
         "  ...particles({ count: 150, life: [1.2, 2.6], blendMode: 'add' }),",
         "  ...graph.links.map(l => ({ type: 'shape', shape: 'line', trimEnd: 0 })),",
         "  { type: 'shape', shape: 'path', d: rough.ellipse(960, 540, 120, 560) },",
@@ -345,53 +346,92 @@
       return scene('light', at, dur, seqs);
     }
 
-    // ───────────────────────── 02 · MATERIAL (16–22): a three.js field of 2,880 metal rods, a wave, two lamps that trade places ─────────────────────────
+    // a light room for the metal to reflect, as float cube faces (values above 1): three strips of light around the field, over black
+    // (an amber one up left, a cyan one right, a dim white one overhead). PixiJS 3D prefilters it for the roughness on first use.
+    // ENV: PixiJS 3D's prefiltered reflection of a thin strip is tighter and hotter than three.js's PMREM blur was, so the strips shine at half their old strength
+    function stripRoom(size = 128, ENV = 0.5) {
+      const lin = (hex, k) => [1, 3, 5].map(i => Math.pow(parseInt(hex.slice(i, i + 2), 16) / 255, 2.2) * k);
+      const strips = [[6, 1.2, [-6, 6, 2], lin(AMBER_HI, 4 * ENV)], [1.2, 8, [7, 3, -3], lin(CYAN, 3 * ENV)], [8, 2, [0, 8, -6], lin('#ffffff', 1.2 * ENV)]].map(([w, h, c, rgb]) => {
+        const len = Math.hypot(...c), z = c.map(v => -v / len);                      // the strip faces the centre
+        const x = [z[2], 0, -z[0]].map((v, _, a) => v / Math.hypot(...a));          // up × z: its width runs level
+        const y = [z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0]];
+        return { w, h, c, n: z, x, y, rgb };
+      });
+      const f32 = new Float32Array(1), u32 = new Uint32Array(f32.buffer);
+      const half = (v) => { f32[0] = v; const b = u32[0], e = ((b >>> 23) & 0xff) - 112; return e <= 0 ? 0 : e >= 31 ? 0x7c00 : (e << 10) | ((b >>> 13) & 0x3ff); };
+      const dirs = { right: (s, t) => [1, -t, -s], left: (s, t) => [-1, -t, s], top: (s, t) => [s, 1, t], bottom: (s, t) => [s, -1, -t], front: (s, t) => [s, -t, 1], back: (s, t) => [-s, -t, -1] };
+      const faces = {};
+      for (const [face, dir] of Object.entries(dirs)) {
+        const data = new Uint16Array(size * size * 4);
+        for (let j = 0; j < size; j++) for (let i = 0; i < size; i++) {
+          const d = dir((2 * i + 1) / size - 1, (2 * j + 1) / size - 1), rgb = [0, 0, 0];
+          for (const st of strips) {
+            const dn = d[0] * st.n[0] + d[1] * st.n[1] + d[2] * st.n[2];
+            if (dn >= 0) continue;                                                    // looking away from the strip
+            const k = (st.c[0] * st.n[0] + st.c[1] * st.n[1] + st.c[2] * st.n[2]) / dn, p = d.map((v, q) => v * k - st.c[q]);
+            if (Math.abs(p[0] * st.x[0] + p[1] * st.x[1] + p[2] * st.x[2]) <= st.w / 2 && Math.abs(p[0] * st.y[0] + p[1] * st.y[1] + p[2] * st.y[2]) <= st.h / 2) st.rgb.forEach((v, q) => { rgb[q] += v; });
+          }
+          const o = (j * size + i) * 4;
+          data[o] = half(rgb[0]); data[o + 1] = half(rgb[1]); data[o + 2] = half(rgb[2]); data[o + 3] = half(1);
+        }
+        faces[face] = new Texture({ source: new BufferImageSource({ resource: data, width: size, height: size, format: 'rgba16float', alphaMode: 'no-premultiply-alpha' }) });
+      }
+      return CubeTexture.from({ faces });
+    }
+
+    // ───────────────────────── 02 · MATERIAL (16–22): a PixiJS 3D field of 2,880 metal rods, a wave, two lamps that trade places ─────────────────────────
     function materialScene() {
       const at = T.material, dur = T.data - T.material;
       const N = 72, M = 40;
-      let rods;
-      const m4 = new THREE.Matrix4(), p3 = new THREE.Vector3(), q4 = new THREE.Quaternion(), s3 = new THREE.Vector3(), eu = new THREE.Euler();
-      const field = three({
-        type: 'three', name: 'rods', width: W, height: H, resolution: 1.25,
+      // PixiJS 3D's point lights fall off with the square of the distance; three.js's fell off as d^-1.6. Each lamp sits 2 units further out from the field
+      // (on the line from the field's centre), which flattens the fall to about d^-1.6 over the 4–12 units to the rods, and shines 2.4 × as strong (picked by eye).
+      const LAMP = 2.4;
+      const field = scene3d({
+        type: 'scene3d', name: 'rods', width: W, height: H, resolution: 1.25,
         initial: { x: W / 2, y: H / 2, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
-        setup: (ctx) => {
-          const { scene: sc, renderer } = ctx;
-          renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
-          sc.fog = new THREE.FogExp2(new THREE.Color(INK), 0.075);
-          const envScene = new THREE.Scene();
-          const strip = (w, h, x, y, z, color, k) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(k), side: THREE.DoubleSide })); m.position.set(x, y, z); m.lookAt(0, 0, 0); envScene.add(m); };
-          strip(6, 1.2, -6, 6, 2, AMBER_HI, 4); strip(1.2, 8, 7, 3, -3, CYAN, 3); strip(8, 2, 0, 8, -6, '#ffffff', 1.2);
-          const pm = new THREE.PMREMGenerator(renderer); sc.environment = pm.fromScene(envScene, 0.04).texture; pm.dispose();
-          const mat = new THREE.MeshStandardMaterial({ color: 0xaab2c4, metalness: 0.92, roughness: 0.32 });
-          const geo = new THREE.BoxGeometry(0.07, 1, 0.07); geo.translate(0, 0.5, 0);
-          rods = new THREE.InstancedMesh(geo, mat, N * M); sc.add(rods);
-          const lampA = new THREE.PointLight(new THREE.Color(AMBER), 150, 40, 1.6); lampA.position.set(-5.5, 3.2, 2.5); sc.add(lampA);
-          const lampB = new THREE.PointLight(new THREE.Color(CYAN), 60, 40, 1.6); lampB.position.set(6, 2.6, -3); sc.add(lampB);
-          const rig = new THREE.Group(); sc.add(rig);
-          const camera = new THREE.PerspectiveCamera(34, ctx.width / ctx.height, 0.1, 100);
-          camera.position.set(0, 2.4, 10.5); camera.lookAt(0, 0.3, -1); rig.add(camera);
-          return { camera, objects: { rig, lampA, lampB } };
+        view: { toneMapping: 'aces', exposure: 1.05, fog: { type: 'exp2', color: INK, density: 0.075 } },
+        setup: ({ root, camera, view }) => {
+          view.environment = stripRoom();
+          const mat = new Material3D({ baseColor: 0xaab2c4, metallic: 0.92, roughness: 0.42 });   // three.js had 0.32: PixiJS 3D's lamp highlight is tighter, 0.42 spreads it as three.js drew it
+          const geo = new CubeGeometry({ width: 0.07, height: 1, depth: 0.07 });
+          const rods = new BatchedMesh3D({ size: N * M });
+          for (let k = 0; k < N * M; k++) { rods.setGeometryAt(k, geo); rods.setMaterialAt(k, mat); rods.setPassesAt(k, RenderPassBit.OPAQUE); }
+          const lampA = new PointLight({ color: AMBER, intensity: 150 * LAMP, range: 40, position: { x: -6.96, y: 4.05, z: 3.56 } });
+          const lampB = new PointLight({ color: CYAN, intensity: 60 * LAMP, range: 40, position: { x: 7.79, y: 3.37, z: -3.45 } });
+          const rig = new Container3D();                   // the camera rides a rig that turns about y; the camera itself only moves
+          root.addChild(rods, lampA, lampB, rig);
+          camera.fov = 34; camera.near = 0.1; camera.far = 100;
+          camera.position.set(0, 2.4, 10.5); camera.lookAt({ x: 0, y: 0.3, z: -1 });
+          rig.addChild(camera);
+          return { objects: { rods, rig, lampA, lampB } };
         },
-        update: (t) => {                                   // a pure function of t: the wave, and the kick of the score
+        update: (t, { objects }) => {                      // a pure function of t: the wave, and the kick of the score
+          const { rods } = objects;
           const amp = 0.42 + 0.3 * smooth((t - 4.2) / 1.6);
           const kick = env.at(t + at, 'bass');
+          const { data, stride, offset } = rods.matrices;
           let k = 0;
           for (let j = 0; j < M; j++) for (let i = 0; i < N; i++, k++) {
             const x = (i - (N - 1) / 2) * 0.21, z = (j - (M - 1) / 2) * 0.21 - 1.5;
             const w1 = Math.sin(x * 0.75 - t * 1.4 + Math.sin(z * 0.6 + t * 0.6) * 0.8);
             const w2 = Math.cos(z * 0.9 + x * 0.3 - t * 1.1);
             const h = 0.35 + amp * (0.5 + 0.5 * w1) + 0.2 * (0.5 + 0.5 * w2) + 0.3 * kick * Math.exp(-(x * x + (z + 1.5) * (z + 1.5)) * 0.05);
-            eu.set(0.32 * w2, 0, -0.32 * w1); q4.setFromEuler(eu); p3.set(x, 0, z); s3.set(1, h, 1);
-            m4.compose(p3, q4, s3); rods.setMatrixAt(k, m4);
+            // the rod's matrix, column-major: tilt x by 0.32·w2 then z by −0.32·w1 (Euler XYZ), stretch y by h, stand its foot at (x, 0, z)
+            const ca = Math.cos(0.32 * w2), sa = Math.sin(0.32 * w2), cc = Math.cos(-0.32 * w1), sc = Math.sin(-0.32 * w1);
+            const o = offset + k * stride;
+            data[o] = cc; data[o + 1] = ca * sc; data[o + 2] = sa * sc; data[o + 3] = 0;
+            data[o + 4] = -sc * h; data[o + 5] = ca * cc * h; data[o + 6] = sa * cc * h; data[o + 7] = 0;
+            data[o + 8] = 0; data[o + 9] = -sa; data[o + 10] = ca; data[o + 11] = 0;
+            data[o + 12] = x + data[o + 4] * 0.5; data[o + 13] = data[o + 5] * 0.5; data[o + 14] = z + data[o + 6] * 0.5; data[o + 15] = 1;   // the box is centred: lift it half its height
           }
-          rods.instanceMatrix.needsUpdate = true;
+          rods.matrices.update();
         },
         keyframes: [
           { at: 0, to: { alpha: 1 }, duration: 0.5, ease: 'power2.out' },
-          { at: 0, to: { 'three.rig.rotation.y': 0.42 }, duration: dur, ease: 'sine.inOut' },
-          { at: 0, to: { 'three.camera.position.z': 8.6, 'three.camera.position.y': 2.0 }, duration: dur, ease: 'sine.inOut' },
-          { at: 2.0, to: { 'three.lampA.intensity': 14, 'three.lampB.intensity': 170 }, duration: 0.6, ease: 'power2.inOut' },     // bar 10: the cold lamp takes over
-          { at: 4.0, to: { 'three.lampA.intensity': 160, 'three.lampB.intensity': 110 }, duration: 0.8, ease: 'power2.inOut' },    // bar 11: both
+          { at: 0, to: { 'scene3d.rig.rotation.y': 0.42 }, duration: dur, ease: 'sine.inOut' },
+          { at: 0, to: { 'scene3d.camera.position.z': 8.6, 'scene3d.camera.position.y': 2.0 }, duration: dur, ease: 'sine.inOut' },
+          { at: 2.0, to: { 'scene3d.lampA.intensity': 14 * LAMP, 'scene3d.lampB.intensity': 170 * LAMP }, duration: 0.6, ease: 'power2.inOut' },     // bar 10: the cold lamp takes over
+          { at: 4.0, to: { 'scene3d.lampA.intensity': 160 * LAMP, 'scene3d.lampB.intensity': 110 * LAMP }, duration: 0.8, ease: 'power2.inOut' },    // bar 11: both
         ],
       });
       const seqs = [bg(INK), field];
@@ -646,7 +686,7 @@
     function overlays() {
       const CH = [
         ['01', 'LIGHT', T.light + 0.6, T.material, "{ type: 'light', kind: 'spot', castsShadows: true }   ·   shadowDiffusion: 14"],
-        ['02', 'MATERIAL', T.material + 0.3, T.data, "three({ setup, update: t => wave(t) })   ·   InstancedMesh × 2,880   ·   PointLight × 2"],
+        ['02', 'MATERIAL', T.material + 0.3, T.data, "{ type: 'scene3d', setup, update: t => wave(t) }   ·   BatchedMesh3D × 2,880   ·   PointLight × 2"],
         ['03', 'DATA', T.data + 0.3, T.sketch, "d3.forceSimulation(tree).tick(320)  →  { type: 'shape' }   ·   d3.pie  →  shape: 'arc'"],
         ['04', 'BY HAND', T.sketch + 0.4, T.flight, "rough.generator().toPaths(lens)  →  { shape: 'path', d, trimEnd: 0 → 1 }"],
         ['05', 'DEPTH', T.flight + 0.3, T.end, "cameraPath({ points })   ·   focus: −420 → −3900   ·   aperture: 34   ·   fogFar: 2600"],

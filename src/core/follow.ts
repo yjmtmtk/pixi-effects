@@ -1,5 +1,5 @@
 /**
- * `follow: '<layer>/<object>'` and `movie.project(target)`: where an object of a scene (scene3d, three, scene2d) or another layer is on the canvas
+ * `follow: '<layer>/<object>'` and `movie.project(target)`: where an object of a scene (scene3d, scene2d) or another layer is on the canvas
  * in the frame on screen, and the internal null layers ("carriers") that carry the layers that follow one there, every frame.
  *
  * A follower is drawn inside a carrier, as a layer with `parent` is drawn inside its null layer, so masks, mattes, pick, inspect and the stack work
@@ -52,7 +52,7 @@ export function resolveTarget(root: FollowComposition, target: string): Resolved
       const hint = suggestName(rest[1]!, known);
       return { error: `the ${seq.spec.type} layer "${seq.spec.name}" has no object "${rest[1]}"${hint ? ` (did you mean "${hint}"?)` : ''} (objects: ${known.slice(0, 12).join(', ') || 'none'})` };
     }
-    return { error: `"${rest.slice(1).join('/')}" is not inside the ${seq.spec.type} layer "${seq.spec.name}": only a composition has layers, and only a scene3d, three or scene2d layer has objects` };
+    return { error: `"${rest.slice(1).join('/')}" is not inside the ${seq.spec.type} layer "${seq.spec.name}": only a composition has layers, and only a scene3d or scene2d layer has objects` };
   };
   const fromRoot = walk(root, segs, false);
   if (fromRoot) return fromRoot;

@@ -10,7 +10,7 @@
     .pe-stage { position: relative; width: min(960px, 100%); border-radius: 6px; --pe-loader-bg: #111214; background: #111214; }
     .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
   </style>
-  <script type="application/json" id="piece-meta">{ "title": "ORRI ONE", "subtitle": "A glossy three.js product turntable with spec callouts and a brand lock-up, studio white to graphite", "tags": ["three.js", "product", "PBR", "callouts", "lock-up"], "width": 1280, "height": 720, "duration": 12, "model": "opus" }</script>
+  <script type="application/json" id="piece-meta">{ "title": "ORRI ONE", "subtitle": "A glossy PixiJS 3D product turntable with spec callouts and a brand lock-up, studio white to graphite", "tags": ["PixiJS 3D", "product", "PBR", "callouts", "lock-up"], "width": 1280, "height": 720, "duration": 12, "model": "opus" }</script>
 </head>
 <body>
   <div class="pe-stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
@@ -32,8 +32,8 @@
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
       "pixi-effects/controller": "../../dist/Controller.js",
-      "pixi-effects/three":      "../../dist/three.js",
-      "three":                   "https://esm.sh/three@0.178.0"
+      "pixi-effects/3d":         "../../dist/3d.js",
+      "@pixi/3d":                "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d.min.mjs"
     }
   }
   </script>
@@ -41,10 +41,12 @@
   <script type="module">
     import { Movie } from 'pixi-effects';
     import { Controller } from 'pixi-effects/controller';
-    import { registerThree, three } from 'pixi-effects/three';
-    import * as THREE from 'three';
+    import { register3D } from 'pixi-effects/3d';
+    import { Container3D, CylinderGeometry, FlatMaterial, Geometry3D, Material3D, Mesh3D, SphereGeometry, TorusGeometry,
+      equirectToCube, linearToSrgb, srgbToLinear } from '@pixi/3d';
+    import { CanvasSource, Texture } from 'pixi.js';
 
-    registerThree();
+    register3D();     // before movie.init
 
     const W = 1280, H = 720, FPS = 30, DURATION = 12;
     const POSTER_FRAME = 246;
@@ -71,30 +73,30 @@
       lockup: 9.8,
     };
 
-    // ───────────── camera poses (rig = a group at the look-at point; camera = its child on +z) ─────────────
+    // ───────────── camera poses (a look-at point + an elevation + a distance; the scene3d camera is placed from them in update) ─────────────
     const FOV = 30;
     const POSE = {
       open:   { x: 0,    y: 2.05, rx: -0.30, z: 5.0 },
       spec:   { x: 0,    y: 1.35, rx: -0.16, z: 9.2 },
       lockup: { x: 1.55, y: 1.30, rx: -0.13, z: 9.8 },
     };
+    // where the camera of a pose sits: on the +z axis of a rig at the look-at point, tilted by rx around x
+    const camAt = (p) => ({ x: p.x, y: p.y - p.z * Math.sin(p.rx), z: p.z * Math.cos(p.rx) });
     // project a world point to canvas px for a pose (used to pin the 2D callouts onto the product)
     function project([px, py, pz], pose) {
-      const rig = new THREE.Group(); rig.position.set(pose.x, pose.y, 0); rig.rotation.x = pose.rx;
-      const cam = new THREE.PerspectiveCamera(FOV, W / H, 0.1, 100); cam.position.z = pose.z; rig.add(cam);
-      rig.updateMatrixWorld(true);
-      const v = new THREE.Vector3(px, py, pz).project(cam);
-      return [Math.round((v.x + 1) / 2 * W), Math.round((1 - v.y) / 2 * H)];
+      const c = camAt(pose), cos = Math.cos(pose.rx), sin = Math.sin(pose.rx);
+      const dx = px - c.x, dy = py - c.y, dz = pz - c.z;
+      const xc = dx, yc = dy * cos + dz * sin, zc = -dy * sin + dz * cos;      // camera axes: x, (0, cos, sin), (0, -sin, cos)
+      const f = 1 / Math.tan(FOV * Math.PI / 360);
+      const nx = xc / -zc * f / (W / H), ny = yc / -zc * f;
+      return [Math.round((nx + 1) / 2 * W), Math.round((1 - ny) / 2 * H)];
     }
 
     // ───────────── procedural textures ─────────────
-    function canvasTex(w, h, draw, srgb = true) {
+    function canvasTex(w, h, draw) {
       const c = Object.assign(document.createElement('canvas'), { width: w, height: h });
       draw(c.getContext('2d'), w, h);
-      const t = new THREE.CanvasTexture(c);
-      if (srgb) t.colorSpace = THREE.SRGBColorSpace;
-      t.anisotropy = 8;
-      return t;
+      return new Texture({ source: new CanvasSource({ resource: c, autoGenerateMipmaps: true, maxAnisotropy: 8 }) });
     }
     const grilleTex = () => canvasTex(2048, 512, (g, w, h) => {
       g.fillStyle = '#383a3f'; g.fillRect(0, 0, w, h);
@@ -125,129 +127,236 @@
       g.fillStyle = gr; g.fillRect(0, 0, w, w);
     });
 
-    // environment: a gradient dome + HDR softboxes (RoomEnvironment-like; three/addons is not in the importmap)
-    function studioEnvironment(renderer) {
-      const env = new THREE.Scene();
-      const dome = new THREE.SphereGeometry(30, 48, 24);
-      const col = [], pos = dome.attributes.position;
-      const top = new THREE.Color('#f2f2f0'), bottom = new THREE.Color('#1a1b1e'), c = new THREE.Color();
-      for (let i = 0; i < pos.count; i++) {
-        const k = THREE.MathUtils.smoothstep(pos.getY(i) / 30, -0.35, 0.55);
-        c.copy(bottom).lerp(top, k); col.push(c.r * 0.9, c.g * 0.9, c.b * 0.9);
+    // ───────────── studio light: a gradient dome + five HDR softboxes, written as a float panorama ─────────────
+    // (no lights at all: the product is lit by the environment, as by a photo studio). Each pixel of the panorama is the light seen
+    // from the centre in that direction: a softbox in front of the dome, or the dome.
+    const lin = (hex) => { const n = parseInt(hex.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255].map(v => srgbToLinear(v / 255)); };
+    function studioEnvironment() {
+      const PW = 512, PH = 256, data = new Float32Array(PW * PH * 3);
+      const top = lin('#f2f2f0'), bottom = lin('#1a1b1e');
+      const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+      const norm = (a) => { const l = Math.hypot(...a); return a.map(v => v / l); };
+      const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+      //               w    h    x    y    z   radiance
+      const boxes = [[7,   5,   -8,  7,   7,  7  ],   // key, high left front
+                     [1.4, 9,    9,  3,   2,  9  ],   // tall strip, right
+                     [1.2, 9,   -7,  3,  -7,  6  ],   // rim strip, back left
+                     [6,   6,    0,  13,  0,  3  ],   // overhead
+                     [3,   1.5,  4,  0.8, 9,  2.5]]   // low front fill
+        .map(([w, h, x, y, z, k]) => {
+          const P = [x, y, z], Z = norm([-x, 1.2 - y, -z]), X = norm(cross([0, 1, 0], Z)), Y = cross(Z, X);   // each faces the point (0, 1.2, 0)
+          return { P, Z, X, Y, w, h, k, pz: dot(P, Z) };
+        });
+      for (let py = 0; py < PH; py++) {
+        const lat = (0.5 - (py + 0.5) / PH) * Math.PI;
+        for (let px = 0; px < PW; px++) {
+          const lon = ((px + 0.5) / PW - 0.5) * 2 * Math.PI;
+          const d = [Math.cos(lat) * Math.cos(lon), Math.sin(lat), Math.cos(lat) * Math.sin(lon)];
+          const s = Math.min(1, Math.max(0, (d[1] + 0.35) / 0.9)), k = s * s * (3 - 2 * s);
+          let c = [0, 1, 2].map(i => (bottom[i] + (top[i] - bottom[i]) * k) * 0.9), near = 30;
+          for (const b of boxes) {
+            const dn = dot(d, b.Z);
+            if (Math.abs(dn) < 1e-6) continue;
+            const t = b.pz / dn;
+            if (t <= 0 || t >= near) continue;
+            const hit = [d[0] * t - b.P[0], d[1] * t - b.P[1], d[2] * t - b.P[2]];
+            if (Math.abs(dot(hit, b.X)) <= b.w / 2 && Math.abs(dot(hit, b.Y)) <= b.h / 2) { near = t; c = [b.k, b.k, b.k]; }
+          }
+          data.set(c, (py * PW + px) * 3);
+        }
       }
-      dome.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-      env.add(new THREE.Mesh(dome, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
-      const box = (w, h, x, y, z, k) => {
-        const m = new THREE.MeshBasicMaterial({ color: new THREE.Color(k, k, k), side: THREE.DoubleSide });
-        const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m); p.position.set(x, y, z); p.lookAt(0, 1.2, 0); env.add(p);
-      };
-      box(7, 5, -8, 7, 7, 7);        // key, high left front
-      box(1.4, 9, 9, 3, 2, 9);       // tall strip, right
-      box(1.2, 9, -7, 3, -7, 6);     // rim strip, back left
-      box(6, 6, 0, 13, 0, 3);        // overhead
-      box(3, 1.5, 4, 0.8, 9, 2.5);   // low front fill
-      const pmrem = new THREE.PMREMGenerator(renderer);
-      const tex = pmrem.fromScene(env, 0.035).texture;
-      pmrem.dispose();
-      return tex;
+      return equirectToCube({ width: PW, height: PH, data }, 128, 'orri-studio');
     }
 
-    // reflection copy: same meshes mirrored below the floor, alpha fading with depth
+    // ───────────── geometry PixiJS 3D has no built-in for ─────────────
+    // a lathe (a profile turned around +y), smooth: each profile point's normal averages its two segments
+    function latheGeometry(profile, segments) {
+      const n = profile.length, rows = segments + 1;
+      const positions = new Float32Array(rows * n * 3), normals = new Float32Array(rows * n * 3), uvs = new Float32Array(rows * n * 2);
+      const pn = [];
+      let prev = null;
+      for (let j = 0; j < n; j++) {
+        if (j === n - 1) { const l = Math.hypot(prev[0], prev[1]); pn.push([prev[0] / l, prev[1] / l]); break; }
+        const dx = profile[j + 1][0] - profile[j][0], dy = profile[j + 1][1] - profile[j][1];
+        const cur = [dy, -dx];
+        const v = j === 0 ? cur : [cur[0] + prev[0], cur[1] + prev[1]];
+        const l = Math.hypot(v[0], v[1]); pn.push([v[0] / l, v[1] / l]);
+        prev = cur;
+      }
+      for (let i = 0; i < rows; i++) {
+        const phi = i / segments * Math.PI * 2, sin = Math.sin(phi), cos = Math.cos(phi);
+        for (let j = 0; j < n; j++) {
+          const k = i * n + j, [r, y] = profile[j];
+          positions.set([r * sin, y, r * cos], k * 3);
+          normals.set([pn[j][0] * sin, pn[j][1], pn[j][0] * cos], k * 3);
+          uvs.set([i / segments, j / (n - 1)], k * 2);
+        }
+      }
+      const indices = new Uint32Array(segments * (n - 1) * 6);
+      let o = 0;
+      for (let i = 0; i < segments; i++) for (let j = 0; j < n - 1; j++) {
+        const a = j + i * n, b = a + n, c = b + 1, d = a + 1;
+        indices.set([a, b, d, c, d, b], o); o += 6;
+      }
+      return new Geometry3D({ positions, normals, uvs, indices });
+    }
+    // a flat disc facing +y, drawn `drop` below its node: transparent surfaces are drawn back to front by their NODE's distance,
+    // so lifting the node (not the surface) makes the floor draw after the reflection under it, and the contact shadow after the floor.
+    // The texture's centre is the disc's centre.
+    function discGeometry(radius, segments, drop) {
+      const positions = [0, -drop, 0], normals = [0, 1, 0], uvs = [0.5, 0.5], indices = [];
+      for (let i = 0; i <= segments; i++) {
+        const a = i / segments * Math.PI * 2, x = Math.sin(a) * radius, z = Math.cos(a) * radius;
+        positions.push(x, -drop, z); normals.push(0, 1, 0); uvs.push(z / (2 * radius) + 0.5, 0.5 - x / (2 * radius));
+        if (i > 0) indices.push(0, i, i + 1);
+      }
+      return new Geometry3D({ positions: new Float32Array(positions), normals: new Float32Array(normals), uvs: new Float32Array(uvs), indices: new Uint32Array(indices) });
+    }
+
+    // the tone curve: the Khronos PBR Neutral curve (exposure 1.12), which keeps product colours true and gives the darks a soft toe.
+    // PixiJS 3D's view curves are 'aces', 'reinhard' and 'uncharted2' (all shift colours), so each lit material applies Neutral itself, after all its light,
+    // and the view stays at 'none' (the sRGB encode alone). The unlit contact shadow keeps its colours as drawn.
+    const neutralBit = {
+      name: 'orriNeutralTone',
+      gpu: { fragment: { lobePostLighting: `{
+        var nc = finalColor * 1.12;
+        let nx = min(nc.r, min(nc.g, nc.b));
+        nc = nc - select(0.04, nx - 6.25 * nx * nx, nx < 0.08);
+        let np = max(nc.r, max(nc.g, nc.b));
+        if (np >= 0.76) {
+          let nnp = 1.0 - 0.0576 / (np - 0.52);
+          nc = nc * (nnp / np);
+          nc = mix(nc, vec3<f32>(nnp), 1.0 - 1.0 / (0.15 * (np - nnp) + 1.0));
+        }
+        finalColor = nc;
+      }` } },
+      gl: { fragment: { lobePostLighting: `{
+        vec3 nc = finalColor * 1.12;
+        float nx = min(nc.r, min(nc.g, nc.b));
+        nc -= (nx < 0.08 ? nx - 6.25 * nx * nx : 0.04);
+        float np = max(nc.r, max(nc.g, nc.b));
+        if (np >= 0.76) {
+          float nnp = 1.0 - 0.0576 / (np - 0.52);
+          nc *= nnp / np;
+          nc = mix(nc, vec3(nnp), 1.0 - 1.0 / (0.15 * (np - nnp) + 1.0));
+        }
+        finalColor = nc;
+      }` } },
+    };
+    // how much of the studio a surface reflects (1 = all of it): the floor turns most of it down for the dark end. With no lights in the scene, all its light is the studio's.
+    const envScaleBit = {
+      name: 'orriEnvScale',
+      bindings: { material: { envScale: 'f32' } },
+      gpu: { fragment: { lobePostLighting: '{ finalColor = finalColor * material.envScale; }' } },
+      gl: { fragment: { lobePostLighting: '{ finalColor = finalColor * material.envScale; }' } },
+    };
+    const lit = (options, bits = []) => new Material3D({ ...options, extraBits: [...bits, neutralBit] });
+
+    // reflection copy: the same meshes mirrored below the floor, alpha fading with depth (a shader bit on a copy of each material)
     const FADE_DEPTH = 0.62;
+    const fadeCode = (y) => `{ alpha = alpha * 0.7 * pow(clamp(1.0 + ${y} / ${FADE_DEPTH.toFixed(2)}, 0.0, 1.0), 1.7); }`;
+    const mirrorFadeBit = {
+      name: 'orriMirrorFade',
+      gpu: { fragment: { material: fadeCode('input.vPosition.y') } },
+      gl: { fragment: { material: fadeCode('vPosition.y') } },
+    };
     function mirrorMaterial(mat) {
-      const m = mat.clone();
-      m.transparent = true;
-      m.onBeforeCompile = (s) => {
-        s.vertexShader = 'varying float vMirY;\n' + s.vertexShader.replace('#include <begin_vertex>',
-          '#include <begin_vertex>\n  vMirY = (modelMatrix * vec4(transformed, 1.0)).y;');
-        s.fragmentShader = 'varying float vMirY;\n' + s.fragmentShader.replace('#include <dithering_fragment>',
-          `#include <dithering_fragment>\n  gl_FragColor.a *= 0.7 * pow(clamp(1.0 + vMirY / ${FADE_DEPTH.toFixed(2)}, 0.0, 1.0), 1.7);`);
-      };
-      m.customProgramCacheKey = () => 'mirror-fade';
+      const m = mat.clone({ alphaMode: 'blend', extraBits: [mirrorFadeBit] });
+      m.state.cullMode = 'front';       // a node scaled by -1 turns its triangles inside out: keep the faces that now point at the camera
       return m;
     }
 
     // ───────────── the product (world units; floor at y = 0) ─────────────
     const BODY_R = 0.62;
     const Y = { ring: 2.37, core: 1.72, sound: 0.80, base: 0.17 };
-    function buildProduct() {
+    function productParts() {
       const mats = {
-        body: new THREE.MeshPhysicalMaterial({ color: '#f1f0ec', roughness: 0.34, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.06 }),
-        alu: new THREE.MeshStandardMaterial({ color: '#c8cbd0', metalness: 1, roughness: 0.26 }),
-        grille: new THREE.MeshStandardMaterial({ map: grilleTex(), roughness: 0.82, metalness: 0 }),
-        rubber: new THREE.MeshStandardMaterial({ color: '#25272b', roughness: 0.55, metalness: 0 }),
-        ring: new THREE.MeshStandardMaterial({ color: '#202124', emissive: C.accent, emissiveIntensity: 0, roughness: 0.3 }),
+        body: lit({ baseColor: '#f1f0ec', roughness: 0.34, metallic: 0, clearcoat: { factor: 1, roughness: 0.06 } }),
+        alu: lit({ baseColor: '#c8cbd0', metallic: 1, roughness: 0.26 }),
+        grille: lit({ baseColorTexture: grilleTex(), roughness: 0.82, metallic: 0 }),
+        rubber: lit({ baseColor: '#25272b', roughness: 0.55, metallic: 0 }),
+        ring: lit({ baseColor: '#202124', roughness: 0.3, metallic: 0, emissive: { color: C.accent, strength: 0 } }),
       };
-      const g = new THREE.Group();
-      const add = (geo, mat, setup) => { const m = new THREE.Mesh(geo, mat); setup?.(m); g.add(m); return m; };
-      const profile = [[0, 0], [0.50, 0], [0.57, 0.012], [0.605, 0.04], [0.62, 0.09], [0.62, 2.20], [0.612, 2.28], [0.59, 2.33], [0.555, 2.36], [0, 2.36]]
-        .map(([x, y]) => new THREE.Vector2(x, y));
-      add(new THREE.LatheGeometry(profile, 128), mats.body);
-      add(new THREE.CylinderGeometry(0.627, 0.627, 0.95, 160, 1, true), mats.grille, m => { m.position.y = Y.sound; });
-      for (const y of [Y.sound - 0.485, Y.sound + 0.485])                        // thin aluminium trims at the grille edges
-        add(new THREE.TorusGeometry(0.628, 0.008, 8, 160), mats.alu, m => { m.position.y = y; m.rotation.x = Math.PI / 2; });
-      add(new THREE.TorusGeometry(0.565, 0.026, 8, 64), mats.rubber, m => { m.position.y = 0.03; m.rotation.x = Math.PI / 2; });
-      add(new THREE.TorusGeometry(0.566, 0.022, 16, 160), mats.ring, m => { m.position.y = Y.ring; m.rotation.x = Math.PI / 2; });
-      add(new THREE.CylinderGeometry(0.53, 0.55, 0.14, 128), mats.alu, m => { m.position.y = 2.43; });
-      add(new THREE.SphereGeometry(0.53, 96, 24, 0, Math.PI * 2, 0, Math.PI / 2), mats.alu, m => { m.position.y = 2.5; m.scale.y = 0.16; });
-      add(new THREE.TorusGeometry(0.3, 0.048, 24, 80, Math.PI), mats.rubber, m => { m.position.y = 2.53; });   // carry loop
-      add(new THREE.SphereGeometry(0.085, 32, 16), mats.alu, m => { m.position.set(0, Y.core + 0.02, BODY_R - 0.012); m.scale.z = 0.35; });  // button
-      add(new THREE.SphereGeometry(0.018, 16, 8), mats.ring, m => { m.position.set(0, Y.core + 0.15, BODY_R - 0.004); m.scale.z = 0.4; });  // status pip
-      return { group: g, mats };
+      const profile = [[0, 0], [0.50, 0], [0.57, 0.012], [0.605, 0.04], [0.62, 0.09], [0.62, 2.20], [0.612, 2.28], [0.59, 2.33], [0.555, 2.36], [0, 2.36]];
+      // [geometry, material key, position, rotation, scale]
+      const parts = [
+        [latheGeometry(profile, 128), 'body'],
+        [new CylinderGeometry({ radiusTop: 0.627, radiusBottom: 0.627, height: 0.95, radialSegments: 160, openEnded: true }), 'grille', [0, Y.sound, 0]],
+        ...[Y.sound - 0.485, Y.sound + 0.485].map(y =>                                      // thin aluminium trims at the grille edges
+          [new TorusGeometry({ radius: 0.628, tube: 0.008, radialSegments: 8, tubularSegments: 160 }), 'alu', [0, y, 0]]),
+        [new TorusGeometry({ radius: 0.565, tube: 0.026, radialSegments: 8, tubularSegments: 64 }), 'rubber', [0, 0.03, 0]],
+        [new TorusGeometry({ radius: 0.566, tube: 0.022, radialSegments: 16, tubularSegments: 160 }), 'ring', [0, Y.ring, 0]],
+        [new CylinderGeometry({ radiusTop: 0.53, radiusBottom: 0.55, height: 0.14, radialSegments: 128 }), 'alu', [0, 2.43, 0]],
+        [new SphereGeometry({ radius: 0.53, widthSegments: 96, heightSegments: 48 }), 'alu', [0, 2.5, 0], null, [1, 0.16, 1]],   // its lower half is inside the cap
+        [new TorusGeometry({ radius: 0.3, tube: 0.048, radialSegments: 24, tubularSegments: 80, arc: Math.PI }), 'rubber', [0, 2.53, 0], [-Math.PI / 2, 0, 0]],   // carry loop
+        [new SphereGeometry({ radius: 0.085, widthSegments: 32, heightSegments: 16 }), 'alu', [0, Y.core + 0.02, BODY_R - 0.012], null, [1, 1, 0.35]],   // button
+        [new SphereGeometry({ radius: 0.018, widthSegments: 16, heightSegments: 8 }), 'ring', [0, Y.core + 0.15, BODY_R - 0.004], null, [1, 1, 0.4]],    // status pip
+      ];
+      const build = (materials) => {
+        const g = new Container3D();
+        for (const [geometry, key, p = [0, 0, 0], r = [0, 0, 0], s = [1, 1, 1]] of parts) {
+          const m = new Mesh3D({ geometry, material: materials[key] });
+          m.position.set(...p); m.rotation.set(...(r || [0, 0, 0])); m.scale.set(...(s || [1, 1, 1]));
+          g.addChild(m);
+        }
+        return g;
+      };
+      return { mats, build };
     }
 
-    // ───────────── the three.js layer ─────────────
-    const linear = (hex) => { const c = new THREE.Color(hex); return { r: c.r, g: c.g, b: c.b }; };
-    const floorDark = linear(C.floorDark);
-    const product3d = three({
-      type: 'three', name: 'product', width: W, height: H, resolution: 1.5,
+    // ───────────── the 3D layer (PixiJS 3D) ─────────────
+    const floorLight = lin(C.floorLight), floorDark = lin(C.floorDark);
+    const product3d = {
+      type: 'scene3d', name: 'product', width: W, height: H, resolution: 1.5,
       initial: { x: W / 2, y: H / 2, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
-      setup: (ctx) => {
-        const { scene, renderer } = ctx;
-        renderer.toneMapping = THREE.NeutralToneMapping;
-        renderer.toneMappingExposure = 1.12;
-        scene.environment = studioEnvironment(renderer);
+      view: { toneMapping: 'none' },          // the curve is in the materials (neutralBit)
+      setup: ({ view, root, camera }) => {
+        view.environment = studioEnvironment();
 
-        const turntable = new THREE.Group(); turntable.rotation.y = 0.55; scene.add(turntable);
-        const { group, mats } = buildProduct();
-        turntable.add(group);
+        const turntable = new Container3D(); turntable.rotation.y = 0.55; root.addChild(turntable);
+        const { mats, build } = productParts();
+        turntable.addChild(build(mats));
 
         // reflection
-        const mirror = group.clone(true);
+        const mirrored = Object.fromEntries(Object.entries(mats).map(([k, m]) => [k, mirrorMaterial(m)]));
+        const mirror = build(mirrored);
         mirror.scale.y = -1;
-        const mirrored = new Map();
-        mirror.traverse(o => { if (o.isMesh) { if (!mirrored.has(o.material)) mirrored.set(o.material, mirrorMaterial(o.material)); o.material = mirrored.get(o.material); o.renderOrder = 1; } });
-        turntable.add(mirror);
+        turntable.addChild(mirror);
 
-        // floor disc (glossy, translucent so the reflection reads through it)
-        const discMat = new THREE.MeshPhysicalMaterial({ color: C.floorLight, map: discTex(), roughness: 0.2, clearcoat: 1, clearcoatRoughness: 0.04,
-          transparent: true, opacity: 0.6 });
-        const disc = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.0, 0.07, 192), discMat);
-        disc.position.y = -0.035; disc.renderOrder = 2; turntable.add(disc);
-        const shadow = new THREE.Mesh(new THREE.PlaneGeometry(1.95, 1.95),
-          new THREE.MeshBasicMaterial({ map: shadowTex(), transparent: true, depthWrite: false, toneMapped: false }));
-        shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.003; shadow.renderOrder = 3; turntable.add(shadow);
+        // floor disc (glossy, translucent so the reflection reads through it) + a soft contact shadow on it
+        const discMat = lit({ baseColor: C.floorLight, baseColorTexture: discTex(), roughness: 0.2, metallic: 0,
+          clearcoat: { factor: 1, roughness: 0.04 }, alphaMode: 'blend', alpha: 0.6 }, [envScaleBit]);
+        discMat.data.envScale = 1;
+        const discTop = new Mesh3D({ geometry: discGeometry(2.0, 192, 1), material: discMat, position: { x: 0, y: 1, z: 0 } });
+        const discEdge = new Mesh3D({ geometry: new CylinderGeometry({ radiusTop: 2.0, radiusBottom: 2.0, height: 0.07, radialSegments: 192, openEnded: true }),
+          material: discMat, position: { x: 0, y: -0.035, z: 0 } });
+        const shadow = new Mesh3D({ geometry: discGeometry(0.975, 96, 1.497), material: new FlatMaterial({ baseColorTexture: shadowTex(), alphaMode: 'blend' }),
+          position: { x: 0, y: 1.5, z: 0 } });
+        turntable.addChild(discTop, discEdge, shadow);
 
-        // camera rig
-        const rig = new THREE.Group();
-        rig.position.set(POSE.open.x, POSE.open.y, 0); rig.rotation.x = POSE.open.rx;
-        const camera = new THREE.PerspectiveCamera(FOV, ctx.width / ctx.height, 0.1, 100);
-        camera.position.z = POSE.open.z;
-        rig.add(camera); scene.add(rig);
-
-        return { camera, objects: { camera, rig, turntable, ringMat: mats.ring, ringMatM: mirrored.get(mats.ring), discMat } };
+        camera.fov = FOV; camera.near = 0.1; camera.far = 100;
+        // what the keyframes move: the rig (look-at point, tilt, distance) and how dark the floor is
+        const rig = { ...POSE.open }, floor = { dark: 0 };
+        return { objects: { rig, floor, turntable, ringMat: mats.ring, ringMatM: mirrored.ring, discMat } };
+      },
+      update: (t, { camera, objects: { rig, floor, discMat } }) => {
+        const c = camAt(rig);
+        camera.position.set(c.x, c.y, c.z);
+        camera.lookAt({ x: rig.x, y: rig.y, z: 0 });
+        // the floor colour mixes in linear light
+        discMat.baseColor = floorLight.map((a, i) => linearToSrgb(a + (floorDark[i] - a) * floor.dark));
       },
       keyframes: [
         { at: 0, to: { alpha: 1 }, duration: 0.9, ease: 'power2.out' },
-        { at: 0, to: { 'three.turntable.rotation.y': 0.55 + Math.PI * 2 }, duration: DURATION, ease: 'none' },
+        { at: 0, to: { 'scene3d.turntable.rotation.y': 0.55 + Math.PI * 2 }, duration: DURATION, ease: 'none' },
         // reveal: from a close look at the cap, pull back to the whole product
-        { at: 0, to: { 'three.camera.position.z': POSE.spec.z, 'three.rig.position.y': POSE.spec.y, 'three.rig.rotation.x': POSE.spec.rx }, duration: T.revealEnd, ease: MOVE },
-        { at: T.ledOn, to: { 'three.ringMat.emissiveIntensity': 1.25, 'three.ringMatM.emissiveIntensity': 1.25 }, duration: 0.9, ease: 'power2.out' },
+        { at: 0, to: { 'scene3d.rig.z': POSE.spec.z, 'scene3d.rig.y': POSE.spec.y, 'scene3d.rig.rx': POSE.spec.rx }, duration: T.revealEnd, ease: MOVE },
+        { at: T.ledOn, to: { 'scene3d.ringMat.emissive.strength': 1.25, 'scene3d.ringMatM.emissive.strength': 1.25 }, duration: 0.9, ease: 'power2.out' },
         // lock-up: truck right (product moves left), floor darkens with the background
-        { at: T.toGraphite, to: { 'three.rig.position.x': POSE.lockup.x, 'three.rig.position.y': POSE.lockup.y, 'three.rig.rotation.x': POSE.lockup.rx, 'three.camera.position.z': POSE.lockup.z }, duration: 1.6, ease: MOVE },
-        { at: T.toGraphite, to: { 'three.discMat.color.r': floorDark.r, 'three.discMat.color.g': floorDark.g, 'three.discMat.color.b': floorDark.b, 'three.discMat.envMapIntensity': 0.5, 'three.discMat.clearcoat': 0.1 }, duration: 1.1, ease: 'power2.inOut' },
+        { at: T.toGraphite, to: { 'scene3d.rig.x': POSE.lockup.x, 'scene3d.rig.y': POSE.lockup.y, 'scene3d.rig.rx': POSE.lockup.rx, 'scene3d.rig.z': POSE.lockup.z }, duration: 1.6, ease: MOVE },
+        { at: T.toGraphite, to: { 'scene3d.floor.dark': 1, 'scene3d.discMat.data.envScale': 0.5, 'scene3d.discMat.clearcoat.factor': 0.1 }, duration: 1.1, ease: 'power2.inOut' },
       ],
-    });
+    };
 
     // ───────────── 2D helpers ─────────────
     const rect = (name, x, y, w, h, fill, extra = {}) => ({ type: 'shape', shape: 'rect', name, width: w, height: h, ...extra, initial: { x, y, fillColor: fill, ...(extra.initial || {}) } });

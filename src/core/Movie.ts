@@ -1,5 +1,4 @@
 import { usesAdvancedBlend, enableAdvancedBlend, usesBackdropFilter, useBackBuffer } from './blend';
-import { sharedGpuOf } from './gpuShare';
 import { Application, BindGroup, Container, Culler, Rectangle, extensions, CullerPlugin } from 'pixi.js';
 import { createTimeline, lengthen, type Timeline } from './timelineEngine';
 import { loadAssetBundle } from './AssetLoader';
@@ -469,11 +468,8 @@ export class Movie {
    */
   private async _construct(composition: CompositionSpec | undefined, vars: Vars, width: number, height: number, lp?: LoadProgress, sizeWins = this._resized, reuse?: ReusePool): Promise<CompositionSequence> {
     const spec = applyVars(composition, vars);
-    const gpu = sharedGpuOf(this.app?.renderer);
-    const gpuField = gpu ? { gpu } : {};
     const rootShape: CompositionShape = {
       width, height, duration: this.duration, frameRate: this.frameRate, vars: numericVars(vars),
-      ...gpuField,
       ...(this.app?.renderer ? { pixiRenderer: this.app.renderer } : {}),
       ...(reuse ? { reuse } : {}),
       ...(lp ? { onLayerBuilt: async () => { lp.tick(); await lp.yieldIfDue(); } } : {}),
@@ -700,7 +696,7 @@ export class Movie {
   }
 
   /**
-   * Draw the frame on screen again, quietly (no `seeking` / `seeked`). For a paused movie when something outside it that a layer reads has changed: a `three` layer whose `update` reads the page's own
+   * Draw the frame on screen again, quietly (no `seeking` / `seeked`). For a paused movie when something outside it that a layer reads has changed: a `scene3d` or `scene2d` layer whose `update` reads the page's own
    * state (a dragged object's place) shows it after `await movie.redraw()`. A playing movie needs no call: the next frame draws it.
    */
   async redraw(): Promise<void> {
@@ -753,7 +749,7 @@ export class Movie {
       if (local < 0 || local > (v.duration ?? 0)) return Promise.resolve();
       return v.awaitFrameAt(local);
     };
-    // A three layer that shows a 2D layer on a mesh draws that layer into a texture when it draws: it must come AFTER everything the layer holds is up to date: the frames of its videos (awaited
+    // A scene3d layer that shows a 2D layer on a mesh draws that layer into a texture when it draws: it must come AFTER everything the layer holds is up to date: the frames of its videos (awaited
     // with the others) and its mattes and cards (made by the space update, which normally comes after this wait). So those layers wait for the rest, and for one space update.
     const late = collected.filter(v => (v as VideoLike & { showsLayers?: boolean }).showsLayers === true);
     await Promise.all(collected.filter(v => !late.includes(v)).map(wait));
@@ -955,7 +951,7 @@ export class Movie {
    */
   /**
    * What is under the canvas point (x, y) (canvas pixels: the movie's own `width` x `height`; `canvasPoint(event)` makes them from a pointer event) at the frame on screen: the layer on
-   * top, or null. A flat layer is hit by its own shape, a `threeD` card by its projected quad, a `three` layer by a ray through its camera (`hit.three` has the object). It reads the
+   * top, or null. A flat layer is hit by its own shape, a `threeD` card by its projected quad, a `scene3d` layer by a ray through its camera (`hit.scene3d` has the object), a `scene2d` layer by its objects. It reads the
    * frame as the last draw left it, so after `await movie.snapshot(frame)` or any seek it answers for that frame. `opts.only` / `opts.ignore`: layer names or paths.
    */
   pick(x: number, y: number, opts: PickOptions = {}): PickHit | null {
@@ -964,7 +960,7 @@ export class Movie {
 
   /**
    * Where `target` is on the canvas in the frame on screen (canvas pixels, as `pick` takes them), or null while it is not seen (behind the camera, or its layer is not on
-   * screen). `target` is what a layer's `follow` takes: `'planets/Mars'` (an object of a scene3d, three or scene2d layer: a name its setup returned in `objects`, or a
+   * screen). `target` is what a layer's `follow` takes: `'planets/Mars'` (an object of a scene3d or scene2d layer: a name its setup returned in `objects`, or a
    * node's label) or `'title'` (a layer's anchor point; a path through nested compositions, or a name found anywhere when it is unique). An unknown name throws with the names there are.
    */
   project(target: string): { x: number; y: number } | null {
@@ -988,7 +984,7 @@ export class Movie {
   }
 
   /**
-   * Which layer the pointer is over, as callbacks: `onEnter(hit)` when the layer (or, in a `three` layer, the object) under the pointer changes to another, `onLeave(hit)` for the one it
+   * Which layer the pointer is over, as callbacks: `onEnter(hit)` when the layer (or, in a `scene3d` or `scene2d` layer, the object) under the pointer changes to another, `onLeave(hit)` for the one it
    * left (also when the pointer leaves the picture). While the pointer rests inside, it is asked again on every frame, so a picture that moves under a still pointer is followed.
    * `{ only, ignore }` as for `pick`; `cursor: true` (or a CSS cursor) shows it while something is hovered. Returns the function that stops it. A page-side tool: an exported video has no pointer.
    */
@@ -1440,7 +1436,7 @@ function safeRun(fn: () => unknown): void {
  * Exported for tests/internal use only — not part of the public API.
  * Walks a sequence tree (including mask sequences) collecting any node
  * that exposes `awaitFrameAt`, so Movie can await frame-driven sequences
- * (video, three) wherever they appear, including inside masks.
+ * (video, scene3d) wherever they appear, including inside masks.
  */
 export function collectVideoSequences(seq: Sequence, out: VideoLike[], clocks?: Map<VideoLike, () => number>, clock: (() => number) | null = null): void {
   if (typeof (seq as Sequence & Partial<VideoLike>).awaitFrameAt === 'function') {

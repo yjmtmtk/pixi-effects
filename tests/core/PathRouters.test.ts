@@ -7,7 +7,7 @@ import type { Timeline } from '../../src/core/timelineEngine';
 /** Router resolving against a plain-object registry, walking dotted paths. */
 function makeRouter(registry: Record<string, object>): PathRouters {
   return {
-    three: (path: string) => {
+    scene3d: (path: string) => {
       const segs = path.split('.');
       let obj: unknown = registry[segs[0]!];
       for (let i = 1; i < segs.length - 1; i++) {
@@ -22,8 +22,8 @@ function makeRouter(registry: Record<string, object>): PathRouters {
 
 describe('splitRouted', () => {
   it('returns everything as rest when no routers given', () => {
-    const { rest, routed } = splitRouted({ x: 1, 'three.cube.rotation.y': 2 }, undefined);
-    expect(rest).toEqual({ x: 1, 'three.cube.rotation.y': 2 });
+    const { rest, routed } = splitRouted({ x: 1, 'scene3d.cube.rotation.y': 2 }, undefined);
+    expect(rest).toEqual({ x: 1, 'scene3d.cube.rotation.y': 2 });
     expect(routed).toEqual([]);
   });
 
@@ -31,16 +31,16 @@ describe('splitRouted', () => {
     const cube = { rotation: { y: 0 } };
     const routers = makeRouter({ cube });
     const { rest, routed } = splitRouted(
-      { x: 1, 'filters.b.strength': 8, 'three.cube.rotation.y': 2 }, routers,
+      { x: 1, 'filters.b.strength': 8, 'scene3d.cube.rotation.y': 2 }, routers,
     );
     expect(rest).toEqual({ x: 1, 'filters.b.strength': 8 });
     expect(routed).toHaveLength(1);
-    expect(routed[0]).toMatchObject({ target: cube.rotation, prop: 'y', key: 'three.cube.rotation.y', value: 2 });
+    expect(routed[0]).toMatchObject({ target: cube.rotation, prop: 'y', key: 'scene3d.cube.rotation.y', value: 2 });
   });
 
   it('drops keys the router cannot resolve', () => {
     const routers = makeRouter({});
-    const { rest, routed } = splitRouted({ 'three.missing.x': 1 }, routers);
+    const { rest, routed } = splitRouted({ 'scene3d.missing.x': 1 }, routers);
     expect(rest).toEqual({});
     expect(routed).toEqual([]);
   });
@@ -50,7 +50,7 @@ describe('applyKeyframes with routers', () => {
   it('tweens routed props (to)', () => {
     const cube = { rotation: { x: 0, y: 0 } };
     const tl = createTimeline({ paused: true });
-    applyKeyframes(tl, {}, [{ at: 0, to: { 'three.cube.rotation.y': 2 }, duration: 1 }],
+    applyKeyframes(tl, {}, [{ at: 0, to: { 'scene3d.cube.rotation.y': 2 }, duration: 1 }],
       10, {}, [], 0, makeRouter({ cube }));
     tl.progress(1);
     expect(cube.rotation.y).toBeCloseTo(2);
@@ -60,7 +60,7 @@ describe('applyKeyframes with routers', () => {
   it('sets routed props (set)', () => {
     const cube = { visible: 0 };
     const tl = createTimeline({ paused: true });
-    applyKeyframes(tl, {}, [{ at: 0, set: { 'three.cube.visible': 1 } }],
+    applyKeyframes(tl, {}, [{ at: 0, set: { 'scene3d.cube.visible': 1 } }],
       10, {}, [], 0, makeRouter({ cube }));
     tl.progress(1);
     expect(cube.visible).toBe(1);
@@ -71,7 +71,7 @@ describe('applyKeyframes with routers', () => {
     const cube = { position: { z: 99 } };
     const tl = createTimeline({ paused: true });
     applyKeyframes(tl, {},
-      [{ at: 0, from: { 'three.cube.position.z': 0 }, to: { 'three.cube.position.z': 10 }, duration: 1 }],
+      [{ at: 0, from: { 'scene3d.cube.position.z': 0 }, to: { 'scene3d.cube.position.z': 10 }, duration: 1 }],
       10, {}, [], 0, makeRouter({ cube }));
     tl.progress(0);
     expect(cube.position.z).toBeCloseTo(0);
@@ -84,7 +84,7 @@ describe('applyKeyframes with routers', () => {
     const cube = { rotation: { y: 0 } };
     const tl = createTimeline({ paused: true });
     tl.add(spacer(10)); // give the timeline room
-    applyKeyframes(tl, {}, [{ at: 0, to: { 'three.cube.rotation.y': 2 }, duration: 2 }],
+    applyKeyframes(tl, {}, [{ at: 0, to: { 'scene3d.cube.rotation.y': 2 }, duration: 2 }],
       10, {}, [], 4, makeRouter({ cube })); // offset = 4
     tl.time(4);
     expect(cube.rotation.y).toBeCloseTo(0);
@@ -97,7 +97,7 @@ describe('applyKeyframes with routers', () => {
     const cube = { rotation: { y: 0 } };
     const sprite = { x: 0 };
     const tl = createTimeline({ paused: true });
-    applyKeyframes(tl, sprite, [{ at: 0, to: { x: 50, 'three.cube.rotation.y': 2 }, duration: 1 }],
+    applyKeyframes(tl, sprite, [{ at: 0, to: { x: 50, 'scene3d.cube.rotation.y': 2 }, duration: 1 }],
       10, {}, [], 0, makeRouter({ cube }));
     tl.progress(1);
     expect(sprite.x).toBeCloseTo(50);
@@ -109,7 +109,7 @@ describe('applyKeyframes with routers', () => {
 describe('applyInitial with routers', () => {
   it('sets routed props immediately', () => {
     const cube = { position: { z: 0 } };
-    applyInitial({}, { 'three.cube.position.z': 5 }, {}, [], makeRouter({ cube }));
+    applyInitial({}, { 'scene3d.cube.position.z': 5 }, {}, [], makeRouter({ cube }));
     expect(cube.position.z).toBe(5);
   });
 });

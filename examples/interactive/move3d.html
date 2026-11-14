@@ -9,12 +9,12 @@
   <style> .stage canvas { touch-action: none; } </style>
 </head>
 <body>
-  <h1>Move the objects <small>drag an object of a three.js scene along a platform: <code>hit.three.grab('floor')</code></small></h1>
+  <h1>Move the objects <small>drag an object of a 3D scene along a platform: <code>hit.scene3d.grab('floor')</code></small></h1>
   <div class="stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
 
   <div class="panel">
     <div class="row"><button id="reset" type="button">Put them back</button><span class="status" id="status">Take an object.</span></div>
-    <p class="note">The scene is a <code>three</code> layer that follows the movie's camera and light (<code>followCamera</code>, <code>followLights</code>), so the shadow is the movie's light's. <code>movie.pick</code> says which object is under the pointer, <code>hit.three.grab('floor')</code> keeps the point that was taken under the pointer while the object slides on the floor (the page stops it at the edge of the platform: a limit that is drawn can be felt), and <code>movie.redraw()</code> draws the frame again. No object is moved by code that knows the camera.</p>
+    <p class="note">The scene is a <code>scene3d</code> layer (PixiJS 3D) that follows the movie's camera and light (<code>followCamera</code>, <code>followLights</code>), so the shadow is the movie's light's. <code>movie.pick</code> says which object is under the pointer (its <code>label</code>), <code>hit.scene3d.grab('floor')</code> keeps the point that was taken under the pointer while the object slides on the floor (the page stops it at the edge of the platform: a limit that is drawn can be felt), and <code>movie.redraw()</code> draws the frame again. No object is moved by code that knows the camera.</p>
   </div>
 
   <script>
@@ -27,17 +27,17 @@
       "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps",
       "mediabunny": "https://esm.sh/mediabunny@1.61.3",
       "pixi-effects": "../../dist/index.js",
-      "pixi-effects/three": "../../dist/three.js",
-      "three": "https://esm.sh/three@0.178.0" } }
+      "pixi-effects/3d": "../../dist/3d.js",
+      "@pixi/3d": "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d.min.mjs" } }
   </script>
   <script type="module">
     import { Movie } from 'pixi-effects';
-    import { registerThree } from 'pixi-effects/three';
-    import * as THREE from 'three';
+    import { register3D } from 'pixi-effects/3d';
+    import { Mesh3D, CubeGeometry, PlaneGeometry, SphereGeometry, TorusKnotGeometry, Material3D } from '@pixi/3d';
 
-    registerThree();
+    register3D();                                                             // before movie.init
     const W = 1280, H = 720, FONT = 'system-ui, -apple-system, "Hiragino Sans", "Segoe UI", sans-serif';
-    const FLOOR_Y = 600;                                                      // the composition's y of the floor (it runs DOWN); in three it is -600
+    const FLOOR_Y = 600;                                                      // the composition's y of the floor (it runs DOWN); in the scene it is -600 (y up)
     const START = { cube: { x: 420, z: -80 }, ball: { x: 700, z: 60 }, knot: { x: 960, z: -140 } };
     const REST = { cube: 60, ball: 70, knot: 85 };                            // how far each object's middle is above the floor
     const REACH = { cube: 85, ball: 70, knot: 80 };                           // how far each object reaches sideways from its middle (the cube's corner: 60 x 1.41)
@@ -54,24 +54,22 @@
       await movie.init({ canvas, width: W, height: H, duration: 1, frameRate: 30, background: '#0f1626', composition: { sequences: [
         { type: 'camera', initial: { x: 640, y: 60, z: 1180, lookAtX: 640, lookAtY: 470, lookAtZ: 0 } },
         { type: 'light', kind: 'ambient', initial: { intensity: 0.55 } },
-        { type: 'light', kind: 'parallel', castsShadows: true, initial: { x: 300, y: -500, z: 900, lookAtX: 640, lookAtY: FLOOR_Y, lookAtZ: 0, intensity: 1.15, shadowDarkness: 0.75 } },
-        { type: 'three', name: 'world', followCamera: true, followLights: true,
-          setup: ctx => {
-            const ground = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000), new THREE.MeshStandardMaterial({ color: 0x1b2640, roughness: 0.95 }));
-            ground.rotation.x = -Math.PI / 2; ground.position.set(640, -(FLOOR_Y + STAGE.thick), -400); ground.name = 'ground'; ground.receiveShadow = true; ctx.scene.add(ground);
-            const stage = new THREE.Mesh(new THREE.BoxGeometry(STAGE.x1 - STAGE.x0, STAGE.thick, STAGE.z1 - STAGE.z0), new THREE.MeshStandardMaterial({ color: 0x4a5f93, roughness: 0.8 }));
-            stage.position.set((STAGE.x0 + STAGE.x1) / 2, -(FLOOR_Y + STAGE.thick / 2), (STAGE.z0 + STAGE.z1) / 2); stage.name = 'stage'; stage.receiveShadow = true; stage.castShadow = true; ctx.scene.add(stage);
-            const mat = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.45, metalness: 0.1 });
-            objects.cube = new THREE.Mesh(new THREE.BoxGeometry(120, 120, 120), mat(0xf2c14e));
-            objects.ball = new THREE.Mesh(new THREE.SphereGeometry(70, 48, 32), mat(0xff6b6b));
-            objects.knot = new THREE.Mesh(new THREE.TorusKnotGeometry(55, 20, 120, 16), mat(0x7bd88f));
-            for (const [name, mesh] of Object.entries(objects)) { mesh.name = name; mesh.castShadow = true; ctx.scene.add(mesh); }
+        { type: 'light', kind: 'parallel', castsShadows: true, initial: { x: 300, y: -500, z: 900, lookAtX: 640, lookAtY: FLOOR_Y, lookAtZ: 0, intensity: 1.15 } },
+        { type: 'scene3d', name: 'world', followCamera: true, followLights: true,      // meshes cast and receive shadows by default in PixiJS 3D
+          setup: ({ root }) => {
+            const flat = { x: -Math.PI / 2, y: 0, z: 0 };                               // a plane lies in XY: turned flat, it is a floor
+            root.addChild(new Mesh3D({ label: 'ground', geometry: new PlaneGeometry({ width: 9000, height: 9000 }), material: new Material3D({ baseColor: 0x1b2640, roughness: 0.95 }),
+              rotation: flat, position: { x: 640, y: -(FLOOR_Y + STAGE.thick), z: -400 } }));
+            root.addChild(new Mesh3D({ label: 'stage', geometry: new CubeGeometry({ width: STAGE.x1 - STAGE.x0, height: STAGE.thick, depth: STAGE.z1 - STAGE.z0 }), material: new Material3D({ baseColor: 0x4a5f93, roughness: 0.8 }),
+              position: { x: (STAGE.x0 + STAGE.x1) / 2, y: -(FLOOR_Y + STAGE.thick / 2), z: (STAGE.z0 + STAGE.z1) / 2 } }));
+            const mat = (c) => new Material3D({ baseColor: c, roughness: 0.45, metallic: 0.1 });
+            objects.cube = new Mesh3D({ label: 'cube', geometry: new CubeGeometry({ width: 120, height: 120, depth: 120 }), material: mat(0xf2c14e), rotation: { x: 0, y: 0.5, z: 0 } });
+            objects.ball = new Mesh3D({ label: 'ball', geometry: new SphereGeometry({ radius: 70, widthSegments: 48, heightSegments: 32 }), material: mat(0xff6b6b) });
+            objects.knot = new Mesh3D({ label: 'knot', geometry: new TorusKnotGeometry({ radius: 55, tube: 20, tubularSegments: 120, radialSegments: 16 }), material: mat(0x7bd88f), rotation: { x: 0.4, y: 0.3, z: 0 } });
+            root.addChild(objects.cube, objects.ball, objects.knot);                  // the label is the name movie.pick gives
           },
-          update: t => {
-            for (const [name, mesh] of Object.entries(objects)) {
-              mesh.position.set(pos[name].x, -(FLOOR_Y - REST[name]), pos[name].z);
-              if (name === 'cube') mesh.rotation.y = 0.5; if (name === 'knot') mesh.rotation.set(0.4, 0.3, 0);
-            }
+          update: () => {
+            for (const [name, mesh] of Object.entries(objects)) mesh.position.set(pos[name].x, -(FLOOR_Y - REST[name]), pos[name].z);   // read from the page's state
           } },
         { type: 'text', name: 'hint', text: 'drag an object', style: { fontFamily: FONT, fontSize: 28, fill: '#8fa0c8' }, initial: { x: 'GW/2', y: 44, anchorX: 0.5, anchorY: 0.5 } },
       ] } });
@@ -79,13 +77,13 @@
 
       const status = document.getElementById('status');
       const names = Object.keys(START);
-      const objectUnder = (x, y) => { const hit = movie.pick(x, y, { only: ['world'] }); return names.includes(hit?.three?.object) ? hit : null; };
-      movie.hover({ only: ['world'], onEnter: hit => { canvas.style.cursor = names.includes(hit.three?.object) ? 'grab' : ''; }, onLeave: () => { canvas.style.cursor = ''; } });
+      const objectUnder = (x, y) => { const hit = movie.pick(x, y, { only: ['world'] }); return names.includes(hit?.scene3d?.object) ? hit : null; };
+      movie.hover({ only: ['world'], onEnter: hit => { canvas.style.cursor = names.includes(hit.scene3d?.object) ? 'grab' : ''; }, onLeave: () => { canvas.style.cursor = ''; } });
       canvas.addEventListener('pointerdown', e => {
         const hit = objectUnder(...movie.canvasPoint(e));
         if (!hit) return;                                                     // the floor is a hit of the same layer, with another object name
-        const name = hit.three.object;
-        const grab = hit.three.grab('floor');                                 // it slides on the floor plane through the point that was taken
+        const name = hit.scene3d.object;
+        const grab = hit.scene3d.grab('floor');                                 // it slides on the floor plane through the point that was taken
         const start = { ...pos[name] };
         canvas.style.cursor = 'grabbing';
         const move = ev => {

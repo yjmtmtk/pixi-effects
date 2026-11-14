@@ -27,7 +27,7 @@ const FILMS = [
   ['determinism', [0, 45, 89]], ['camera-perspective', [0, 30]], ['spotlight-room', [0, 30]], ['rack-focus', [0, 30]],
   ['named-filters', [0]], ['named-filters-2', [0]], ['backdrop-blur', [0]], ['radial-blur', [0]], ['motion-blur', [15]], ['particles', [30]],
   ['transition-under-matte', [0, 30]], ['gradient-anim', [0, 30]], ['shape-morph', [0, 30]], ['text-japanese-wrap', [0]], ['vertical-text', [0]],
-  ['spans', [0]], ['fonts', [0]], ['scene2d', [0, 30]], ['scene3d', [0, 30]], ['follow', [0, 45]], ['three-renderers', [0]], ['music', [0]],
+  ['spans', [0]], ['fonts', [0]], ['scene2d', [0, 30]], ['scene3d', [0, 30]], ['follow', [0, 45]], ['scene3d-space', [0, 30]], ['music', [0]],
   ['audio-formats?ext=ogg', [0]], ['first-video', [0, 60]],
   ['examples/gallery/aiai-gasa.html', [0, 90], { export: false }], ['examples/gallery/loop-morph.html', [0, 60], { export: false }],
   ['examples/gallery/aurora-logo.html', [0, 60], { export: false }], ['examples/gallery/isometric-city.html', [0, 90], { export: false }],

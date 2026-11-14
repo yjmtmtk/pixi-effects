@@ -24,21 +24,19 @@ Declarative composition and video rendering for the web. After Effects-style tim
 - **Presentations** — `stops` in the composition pause the movie where you say; `Presenter` (`pixi-effects/present`) moves on with arrow keys, a click or a swipe, with a page overview (G), a presenter view with notes and a timer (P), and `deck()` to lay out pages and steps. Export a deck as PDF (`exportPDF(movie)`, `pixi-effects render talk.html -o talk.pdf`).
 - **Music written as text** — `{ type: 'audio', music: { bpm: 96, tracks: [{ inst: 'keys', notes: 'Cmaj7:4 Am7:4' }], drums: { kick: 'x...x...' } } }`: a tune with no audio file, played by a small built-in synthesiser (keys, pluck, pad, bass, lead, bell, music box, drums; chords by name, swing, fades, a ritardando). Deterministic, in the exported file at the same moment; an AI writes it as easily as a title.
 - **Audio-reactive visuals** — `audioEnvelope('music.mp3')` analyses loudness, bass / mid / treble and the beats per frame; `react()` turns them into keyframes, so the picture follows the music and still renders identically.
-- **2.5D layers & camera** — add `threeD: true`, `z`, `rotationX/Y` and a `{ type: 'camera' }` layer for parallax, flips and dolly zooms; no three.js needed.
+- **2.5D layers & camera** — add `threeD: true`, `z`, `rotationX/Y` and a `{ type: 'camera' }` layer for parallax, flips and dolly zooms; no 3D engine needed.
 - **PixiJS 2D by code** — a `scene2d` layer hands you a PixiJS container: build `Graphics`, `Sprite`s, `AnimatedSprite`s or a thousand pieces in `setup`, set them from the time in `update`, and it is a layer like any other (keyframes reach its objects as `scene2d.dot.alpha`, `movie.pick` names them, `check` holds it to "a function of the time").
 - **3D scenes** *(optional)* — a real 3D scene (meshes, glTF models, PBR, lights, shadows) as a layer via `pixi-effects/3d`, drawn by [PixiJS 3D](https://pixijs.com/3d) inside PixiJS's own renderer, so masks, filters, blend modes and opacity work on it like on any layer; keyframes drive its objects (`scene3d.cube.rotation.y`). It can live in the composition's space (`followCamera`, `followLights`, `followFog`), load and pose a glTF from the time (`loadModel`), show a 2D layer on a mesh (`layerTexture`) and be clicked into (`movie.pick`).
-- **three.js layer** *(optional)* — drop a real three.js scene in as a layer via `pixi-effects/three`; keyframes drive its objects (`three.cube.rotation.y`). It can live in the composition's space: the composition's camera, lights, shadows and fog drive the scene, so one `cameraPath()` flies through the flat layers and a glTF model together (`threeGltf`).
 - **Built-in player UI — or your own** — a drop-in HTML5-`<video>`-style overlay controller (play, scrub, mute, volume, fullscreen, export-to-file) whose colours are one option (`theme: { accent: '#ff4d6d' }`); or build a player yourself on the movie's `<video>`-named events (`play pause ended seeking seeked volumechange error`).
 - **MP4 / WebM / MOV export** — pick container and quality from the controller, call `movie.render()` from code, or render headless from the command line (`pixi-effects render`).
 - **A timeline you can read and scrub** — `movie.timelineChart()` draws every layer as a bar on a time axis; `pixi-effects view` opens the page with that timeline under it, zoomable, with a playhead you can drag.
-- **Tiny dependency surface** — only `mediabunny` (runtime) plus PixiJS (a peer dep). `@pixi/3d` and three.js are *optional* peers, needed only if you import `pixi-effects/3d` or `pixi-effects/three`. mediabunny is fetched only when you export or use a video layer: a page that only plays never loads it.
+- **Tiny dependency surface** — only `mediabunny` (runtime) plus PixiJS (a peer dep). `@pixi/3d` is an *optional* peer, needed only if you import `pixi-effects/3d`. mediabunny is fetched only when you export or use a video layer: a page that only plays never loads it.
 
 ## Install
 
 ```bash
 npm install pixi-effects pixi.js
 npm install @pixi/3d     # optional — only if you import `pixi-effects/3d` (needs pixi.js 8.23+)
-npm install three        # optional — only if you import `pixi-effects/three`
 npm install pixi-filters # optional — only if a layer uses a named filter other than blur / noise / alpha / colorMatrix
 ```
 
@@ -66,11 +64,11 @@ Drop the imports into an [importmap](https://developer.mozilla.org/docs/Web/HTML
 
 The `mediabunny` line is needed only to export (the download button, `movie.render()`) or for a `video` layer; a page that only plays can leave it out and never fetches it (or call `useMediabunny(url)` instead, see [the API](docs/api.md#where-the-encoder-comes-from-usemediabunnysource)).
 
-Load the `dist/` files **as they are** (jsDelivr's `/npm/…/dist/…`, or unpkg's `https://unpkg.com/pixi-effects@0.51.1/dist/index.js`) rather than a CDN-rebundled build such as `esm.sh/pixi-effects` or jsDelivr's `+esm`: the entries (`pixi-effects`, `…/controller`, `…/three`) share internal chunks, which only works when each file is served untouched.
+Load the `dist/` files **as they are** (jsDelivr's `/npm/…/dist/…`, or unpkg's `https://unpkg.com/pixi-effects@0.51.1/dist/index.js`) rather than a CDN-rebundled build such as `esm.sh/pixi-effects` or jsDelivr's `+esm`: the entries (`pixi-effects`, `…/controller`, `…/3d`) share internal chunks, which only works when each file is served untouched.
 
-> **A 3D scene?** Add three more entries (`pixi-effects/3d`, `@pixi/3d`, `@pixi/3d/extras`) — see [Adding a 3D scene](#adding-a-3d-scene-optional) below. **Using three.js?** Add two more entries (`three` and `pixi-effects/three`) to this importmap — see [Adding three.js](#adding-threejs-optional) below.
+> **A 3D scene?** Add three more entries (`pixi-effects/3d`, `@pixi/3d`, `@pixi/3d/extras`) — see [Adding a 3D scene](#adding-a-3d-scene-optional) below.
 >
-> **Want the unreleased `main`?** Point the `pixi-effects*` entries at the GitHub Pages build instead: `https://yjmtmtk.github.io/pixi-effects/dist/index.js` (and `Controller.js`, `three.js`).
+> **Want the unreleased `main`?** Point the `pixi-effects*` entries at the GitHub Pages build instead: `https://yjmtmtk.github.io/pixi-effects/dist/index.js` (and `Controller.js`, `3d.js`).
 
 #### Adding a 3D scene (optional)
 
@@ -114,55 +112,9 @@ Add three entries to the importmap above (PixiJS 3D needs `pixi.js` 8.23.0 or la
 
 The scene is drawn inside PixiJS's renderer in the layer's place, so masks, filters, blend modes and opacity apply. `update(t)` must set everything from `t`. Full spec: [DSL reference § scene3d](./docs/dsl.md#scene3d) and [API reference](./docs/api.md#pixi-effects3d).
 
-#### Adding three.js (optional)
+#### three.js
 
-Add two more entries to the importmap above: three.js itself, and the `pixi-effects/three` entry (and `three/addons/` if you load a glTF model with `threeGltf`).
-
-```html
-<script type="importmap">
-{
-  "imports": {
-    "...":                     "(everything from the importmap above)",
-    "three":                   "https://esm.sh/three@0.178.0",
-    "three/addons/":           "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/",
-    "pixi-effects/three":      "https://cdn.jsdelivr.net/npm/pixi-effects@0.51.1/dist/three.js"
-  }
-}
-</script>
-```
-
-Always route `three` through the importmap — both your code and `pixi-effects/three` then share **one** copy of three.js. Don't load a second copy from another URL (objects from one copy are not `instanceof` the other).
-
-```html
-<script type="module">
-  import { Movie } from 'pixi-effects';
-  import { registerThree, three } from 'pixi-effects/three';
-  import * as THREE from 'three';
-
-  registerThree();   // once, before movie.init()
-
-  // ...inside composition.sequences:
-  three({
-    type: 'three', name: 'knot',
-    width: 'GW * 0.6', height: 'GH * 0.6',
-    initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5 },
-    setup: (ctx) => {
-      const knot = new THREE.Mesh(
-        new THREE.TorusKnotGeometry(1, 0.35, 128, 32),
-        new THREE.MeshStandardMaterial({ color: 0x7fb4ff }),
-      );
-      ctx.scene.add(knot, new THREE.AmbientLight(0xffffff, 0.4));
-      ctx.camera.position.z = 6;
-      return { objects: { knot } };        // addressable from keyframes
-    },
-    keyframes: [{ at: 0, to: { 'three.knot.rotation.y': Math.PI * 2 }, duration: 6 }],
-  })
-</script>
-```
-
-The layer is a normal sprite once built, so 2D keyframes, masks and filters work on it. Full spec, rules and caveats (one WebGL context per layer, `update(t)` must be a pure function of `t`): [DSL reference § three](./docs/dsl.md#three) and [API reference](./docs/api.md#pixi-effectsthree).
-
-With a bundler, `import { registerThree, three } from 'pixi-effects/three'` works the same once you've installed `three`.
+There is no three.js layer (it was removed in 0.52.0: PixiJS 3D is the 3D engine). To draw three.js itself, render it in a `canvas` layer: recipe `three-in-canvas` (`npx pixi-effects recipe three-in-canvas`). It plays, seeks and exports like any layer; it cannot be clicked or follow the composition's camera.
 
 ## Quickstart
 
@@ -202,7 +154,7 @@ const blob = await movie.render({ format: 'mp4' });
 
 ## 2.5D layers & camera
 
-Any layer can be placed in depth and viewed through a camera — no three.js involved:
+Any layer can be placed in depth and viewed through a camera — no 3D engine involved:
 
 ```ts
 sequences: [
@@ -233,8 +185,8 @@ They ship in the npm package (`node_modules/pixi-effects/ai/`).
 
 ## Documentation
 
-- [**DSL reference**](./docs/dsl.md) — composition, sequences, 3D layers & camera, three.js layer, keyframes, expressions, filters
-- [**API reference**](./docs/api.md) — `Movie`, `Controller`, `pixi-effects/present`, `pixi-effects/three`, events, render options
+- [**DSL reference**](./docs/dsl.md) — composition, sequences, 3D layers & camera, 3D scenes (scene3d), keyframes, expressions, filters
+- [**API reference**](./docs/api.md) — `Movie`, `Controller`, `pixi-effects/present`, `pixi-effects/3d`, events, render options
 - [**Interactive movies**](./examples/interactive/) — nine live samples of a movie you change while it plays (variables, `setVars`, `rebuild`, loop): rock paper scissors, a scrolling city, a tune from four chords, a card for anyone, choose your ending … ([docs/api.md](./docs/api.md))
 - [**Gallery**](./examples/gallery/) — 43 complete pieces, each one HTML file of data
 - [**Recipes**](./skills/pixi-effects/reference/recipes.md) — tested code you can copy (`npx pixi-effects recipe`)

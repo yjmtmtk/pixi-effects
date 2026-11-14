@@ -57,7 +57,7 @@ writeFileSync(longOut, JSON.stringify(plank) + '\n');
 console.log(`${longOut}: ${JSON.stringify(plank).length} bytes`);
 
 // tests/fixtures/skinned-box.gltf: the box skinned to two joints (the upper half follows the tip joint, the lower half the root joint) with one clip "Wave" (the tip joint bends 30° about z and back
-// in 1 s). Its mesh is a SkinnedMesh in three: the kind of model whose bounding sphere is made from the pose it was first measured in (see threeGltf).
+// in 1 s). Its mesh is skinned: the kind of model whose bounds are made from the pose it was first measured in (see loadModel).
 {
   const n = pos.length / 3;
   const joints = new Uint8Array(n * 4), weights = new Float32Array(n * 4);

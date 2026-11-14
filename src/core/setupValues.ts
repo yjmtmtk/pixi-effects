@@ -1,5 +1,5 @@
 /**
- * What `setup` left on the objects a layer's keyframes reach (`scene2d.box.alpha`, `scene3d.cube.position.x`, `three.knot.rotation.y`), kept for a rebuild that takes the scene
+ * What `setup` left on the objects a layer's keyframes reach (`scene2d.box.alpha`, `scene3d.cube.position.x`), kept for a rebuild that takes the scene
  * over (core/reuse.ts). The timeline reads where a property starts when it is built, from the object: a new tree built while the old one still plays would read the value
  * of the frame the old movie showed last (a box faded out at 2 s stays faded at 1 s after the rebuild). So:
  * - the layer that ran `setup` notes each property the first time one of its paths reaches it, before any keyframe writes it;

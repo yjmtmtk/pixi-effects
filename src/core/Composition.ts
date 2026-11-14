@@ -44,7 +44,7 @@ const staticTypes: Partial<Record<SequenceSpec['type'], SequenceCtor>> = {
   null: NullSequence as unknown as SequenceCtor,
 };
 
-// Externally-registered sequence types (e.g. `pixi-effects/three`).
+// Externally-registered sequence types (e.g. `scene3d` from `pixi-effects/3d`).
 // tsup splits shared code into common chunks, so every entry point sees this
 // single module instance.
 const registry: Record<string, SequenceCtor> = {};
@@ -57,14 +57,17 @@ export function registerSequenceType(type: string, ctor: SequenceCtor): void {
 /** Layer types that live in an optional entry: an unregistered one names the entry and the call. */
 const OPTIONAL_ENTRIES: Record<string, { from: string; call: string }> = {
   scene3d: { from: 'pixi-effects/3d', call: 'register3D' },
-  three: { from: 'pixi-effects/three', call: 'registerThree' },
+};
+/** Layer types that are gone, with what to write instead (said in place of "unknown"). */
+const REMOVED_TYPES: Record<string, string> = {
+  three: "the three layer was removed in 0.52.0: a 3D scene is a scene3d layer (PixiJS 3D: import { register3D } from 'pixi-effects/3d'); three.js itself can still be drawn in a canvas layer (recipe three-in-canvas)",
 };
 
 export async function buildSequenceTree(
   specs: SequenceSpec[],
   parent: CompositionShape | null,
   root: CompositionShape,
-  /** Filled one by one as each layer is built: a layer's setup (a `three` layer) can find the layers listed before it. */
+  /** Filled one by one as each layer is built: a layer's setup (a `scene3d` layer's `layerTexture`) can find the layers listed before it. */
   out: Sequence[] = [],
 ): Promise<Sequence[]> {
   for (let spec of specs) {
@@ -80,8 +83,8 @@ export async function buildSequenceTree(
     }
     if (!Cls) {
       const type = (spec as { type: string }).type;
-      const entry = OPTIONAL_ENTRIES[type];
-      console.warn(`pixi-effects: unknown sequence type "${type}"${entry ? `: import { ${entry.call} } from '${entry.from}' and call ${entry.call}() before movie.init` : ''}`);
+      const entry = OPTIONAL_ENTRIES[type], removed = REMOVED_TYPES[type];
+      console.warn(removed ? `pixi-effects: ${removed}` : `pixi-effects: unknown sequence type "${type}"${entry ? `: import { ${entry.call} } from '${entry.from}' and call ${entry.call}() before movie.init` : ''}`);
       await root.onLayerBuilt?.();                    // it was counted: count it done, or the bar would stop short
       continue;
     }

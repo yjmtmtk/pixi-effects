@@ -19,8 +19,8 @@ describe('lintKeys: a layer key that does not exist', () => {
   it('one warning per wrong key', () => {
     expect(warns({ type: 'text', text: 'a', bogus: 1, other: 2 })).toHaveLength(2);
   });
-  it('a layer of a kind registered elsewhere (three) is not checked: nothing is known about its keys here', () => {
-    expect(warns({ type: 'three', setup() {}, anything: 1 })).toEqual([]);
+  it('a layer of a kind registered elsewhere (scene3d) is not checked here: its own build checks its keys', () => {
+    expect(warns({ type: 'scene3d', setup() {}, anything: 1 })).toEqual([]);
   });
 });
 
@@ -84,8 +84,8 @@ describe('lintKeys: animatable property names (initial, set, to, from)', () => {
     ok({ type: 'audio', sfx: 'pop' }, ['volume']);
     ok({ type: 'image', asset: 'a' }, ['x', 'y', 'tint', 'alpha', 'scale']);
   });
-  it("routed paths ('filters.g.amount', 'three.box.x') are for their routers: not checked here", () => {
-    expect(warns({ type: 'image', asset: 'a', keyframes: [{ at: 0, to: { 'filters.g.amount': 1, 'three.box.x': 2 }, duration: 1 }] })).toEqual([]);
+  it("routed paths ('filters.g.amount', 'scene3d.box.x') are for their routers: not checked here", () => {
+    expect(warns({ type: 'image', asset: 'a', keyframes: [{ at: 0, to: { 'filters.g.amount': 1, 'scene3d.box.x': 2 }, duration: 1 }] })).toEqual([]);
   });
   it("fillGradient's own mistakes are said by its own check, not twice", () => {
     expect(warns({ type: 'shape', shape: 'rect', width: 1, height: 1, fillGradient: { stops: [[0, '#fff'], [1, '#000']] }, keyframes: [{ at: 0, to: { gradientAngle: 90, fillGradient: { angle: 1 } }, duration: 1 }] })).toEqual([]);
@@ -120,7 +120,7 @@ describe('the tables cover the type (compile time) and what they list is sane', 
     }
     expect(layerKeys({ type: 'shape', shape: 'circle' } as never)).toContain('radius');
     expect(layerKeys({ type: 'shape', shape: 'circle' } as never)).not.toContain('width');
-    expect(layerKeys({ type: 'three' } as never)).toBeNull();
+    expect(layerKeys({ type: 'scene3d' } as never)).toBeNull();
     expect(PROP_KEYS.has('alpha')).toBe(true);
     expect(STYLE_KEYS).toContain('fontSize');
   });

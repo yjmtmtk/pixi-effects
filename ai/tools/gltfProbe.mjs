@@ -1,6 +1,6 @@
 /**
- * `pixi-effects probe model.glb` — what is in a glTF model, read in Node with no browser and no three.js: the clips (name and length), the size of the model in the file's own units
- * (the bounding box of the meshes through the transforms of the nodes: the pose the file is stored in, which is what `threeGltf(...).size` measures), what it holds, and the notes an
+ * `pixi-effects probe model.glb` — what is in a glTF model, read in Node with no browser and no 3D engine: the clips (name and length), the size of the model in the file's own units
+ * (the bounding box of the meshes through the transforms of the nodes: the pose the file is stored in, which is what `loadModel(...).size()` measures before `fit`), what it holds, and the notes an
  * author trips on (a file that needs a decoder, a model with no clip).
  */
 import fs from 'node:fs';
@@ -79,10 +79,10 @@ export function describeGltf(json, { file, bytes, container }) {
     for (const s of a.samplers ?? []) { const t = accessors[s.input]; if (t?.max?.[0] > duration) duration = t.max[0]; }
     return { index, name: a.name ?? `(unnamed ${index})`, duration: round(duration) };
   });
-  if (!animations.length) notes.push('no animation: threeGltf poses nothing; the model stays in the pose it is stored in');
+  if (!animations.length) notes.push('no animation: loadModel poses nothing; the model stays in the pose it is stored in');
   const required = json.extensionsRequired ?? [];
   const decoders = required.filter((e) => /draco|meshopt|basisu|ktx2|webp/i.test(e));
-  if (decoders.length) notes.push(`needs ${decoders.join(', ')}: three's GLTFLoader needs a decoder for it (DRACOLoader / KTX2Loader / MeshoptDecoder), and threeGltf does not set one up: re-export the model without that compression, or load it yourself`);
+  if (decoders.length) notes.push(`needs ${decoders.join(', ')}: PixiJS 3D's loader has its own decoders for Draco and Meshopt; KTX2 / Basis textures need import 'pixi.js/ktx2' on the page: look at the model once in a picture (check), or re-export it without that compression`);
   const external = [...(json.buffers ?? []), ...(json.images ?? [])].filter((x) => x.uri && !/^data:/i.test(x.uri));
   if (external.length) notes.push(`${external.length} file(s) are loaded next to the model (${external.slice(0, 3).map((x) => x.uri).join(', ')}${external.length > 3 ? ', …' : ''}): keep them beside it`);
   return {
@@ -115,7 +115,7 @@ export function gltfText(r) {
   const L = [r.file, `  ${r.container}${r.bytes != null ? ` · ${kb(r.bytes)}` : ''}`];
   const c = r.counts;
   L.push(`  model  ${plural(c.nodes, 'node')} · ${plural(c.meshes, 'mesh').replace('meshs', 'meshes')} · ${plural(c.skins, 'skin')} · ${plural(c.materials, 'material')} · ${plural(c.textures, 'texture')}`);
-  if (r.size) L.push(`  size   ${r.size.map(num).join(' × ')}  (x × y × z in the file's units, as stored: the longest side is ${num(r.longest)}; threeGltf's fit(px) scales that side to px)`);
+  if (r.size) L.push(`  size   ${r.size.map(num).join(' × ')}  (x × y × z in the file's units, as stored: the longest side is ${num(r.longest)}; loadModel's fit(n) scales that side to n)`);
   for (const a of r.animations) L.push(`  clip   ${a.index} "${a.name}" ${num(a.duration)} s`);
   for (const n of r.notes) L.push(`  note   ${n}`);
   return L.join('\n');

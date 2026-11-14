@@ -33,7 +33,7 @@ interface Entry { kind: LightState['kind']; light: AnyLight }
  * The composition's lights as PixiJS 3D lights, one per light layer alive, in layer order. Made once and moved every frame; a light that has ended is switched off
  * (`visible = false`), not removed.
  *
- * Intensity: PixiJS 3D divides direct and ambient light by pi (as three does), so intensity 1 is multiplied by pi to be "as bright as the colour" like a card's shading.
+ * Intensity: PixiJS 3D divides direct and ambient light by pi, so intensity 1 is multiplied by pi to be "as bright as the colour" like a card's shading.
  * Falloff: a point / spot light attenuates by window(range) / sqrt(d^4 + R^4), R being its bulb `radius`:
  *   - 'none': a bulb far larger than the scene (R = 100 x the extent) and the intensity times R^2: 1 everywhere in the scene, to 1e-8.
  *   - 'inverseSquare': R = the composition's radius and the intensity times R^2: (radius / d)^2 far out, exactly; at d = radius 0.71 instead of the composition's 1.

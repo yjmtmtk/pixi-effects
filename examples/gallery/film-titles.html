@@ -10,7 +10,7 @@
     .pe-stage { position: relative; width: min(960px, 100%); border-radius: 6px; --pe-loader-bg: #0b0d0e; background: #0b0d0e; }
     .pe-stage canvas { display: block; width: 100%; height: auto; border-radius: inherit; }
   </style>
-  <script type="application/json" id="piece-meta">{ "title": "The Long Night", "subtitle": "Main-title sequence for an imaginary thriller: a three.js shard in fog, letterboxed credits, film grain", "tags": ["three.js", "title sequence", "typography", "film grain", "letterbox"], "width": 1280, "height": 720, "duration": 14, "model": "opus" }</script>
+  <script type="application/json" id="piece-meta">{ "title": "The Long Night", "subtitle": "Main-title sequence for an imaginary thriller: a PixiJS 3D shard in fog, letterboxed credits, film grain", "tags": ["PixiJS 3D", "title sequence", "typography", "film grain", "letterbox"], "width": 1280, "height": 720, "duration": 14, "model": "opus" }</script>
 </head>
 <body>
   <div class="pe-stage"><canvas id="stage" width="1280" height="720"></canvas><div class="pe-loader" data-label="LOADING"></div></div>
@@ -32,8 +32,8 @@
       "mediabunny":              "https://esm.sh/mediabunny",
       "pixi-effects":            "../../dist/index.js",
       "pixi-effects/controller": "../../dist/Controller.js",
-      "pixi-effects/three":      "../../dist/three.js",
-      "three":                   "https://esm.sh/three@0.178.0"
+      "pixi-effects/3d":         "../../dist/3d.js",
+      "@pixi/3d":                "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d.min.mjs"
     }
   }
   </script>
@@ -41,11 +41,11 @@
   <script type="module">
     import { Movie } from 'pixi-effects';
     import { Controller } from 'pixi-effects/controller';
-    import { registerThree, three } from 'pixi-effects/three';
+    import { register3D } from 'pixi-effects/3d';
+    import { Container3D, DirectionalLight, FlatMaterial, Geometry3D, Material3D, Mesh3D, ParticleContainer3D, PointLight, TorusGeometry } from '@pixi/3d';
     import { BlurFilter } from 'pixi.js';
-    import * as THREE from 'three';
 
-    registerThree();
+    register3D();     // before movie.init
 
     const W = 1280, H = 720, FPS = 30, DURATION = 14;
     const POSTER_FRAME = 405;
@@ -66,91 +66,125 @@
     // seeded RNG (Park–Miller) so playback, scrubbing and export are identical
     const rng = (seed) => () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 
+    const SWEEP_PEAK = 115;                            // the passing light's peak (see the sweep light below)
+
     const blur = (name, strength) => ({ type: 'custom', name, filter: new BlurFilter({ strength, quality: 3 }) });
 
     // ---------- 3D: a faceted shard in fog, amber key, teal rim, a passing light ----------
-    const shard = three({
-      type: 'three', name: 'shard', width: 'GW', height: 'GH',
-      initial: { x: 0, y: 0 },
-      setup: (ctx) => {
-        const { scene, camera } = ctx;
-        // no scene.background: the 2D haze behind shows through (renderer is transparent?)
-        scene.fog = new THREE.FogExp2(C.fog, 0.075);
+    // the stone: an icosahedron split once (each face into four, pushed out to the sphere), every corner pulled in or out
+    // by a seeded amount and stretched in y, so it reads as a cut stone, not a ball; flat faces, one normal per triangle
+    function shardGeometry() {
+      const g = (1 + Math.sqrt(5)) / 2;
+      const V = [[-1, g, 0], [1, g, 0], [-1, -g, 0], [1, -g, 0], [0, -1, g], [0, 1, g], [0, -1, -g], [0, 1, -g], [g, 0, -1], [g, 0, 1], [-g, 0, -1], [-g, 0, 1]];
+      const F = [0, 11, 5, 0, 5, 1, 0, 1, 7, 0, 7, 10, 0, 10, 11, 1, 5, 9, 5, 11, 4, 11, 10, 2, 10, 7, 6, 7, 1, 8,
+                 3, 9, 4, 3, 4, 2, 3, 2, 6, 3, 6, 8, 3, 8, 9, 4, 9, 5, 2, 4, 11, 6, 2, 10, 8, 6, 7, 9, 8, 1];
+      const lerp = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+      const tri = [];                                            // one subdivision: 4 triangles per face, in a fixed order
+      for (let f = 0; f < F.length; f += 3) {
+        const [a, b, c] = [V[F[f]], V[F[f + 1]], V[F[f + 2]]];
+        const a1 = lerp(a, c, 0.5), b1 = lerp(b, c, 0.5);
+        const v = [[a, lerp(a, b, 0.5), lerp(a, b, 1)], [a1, lerp(a1, b1, 1)], [lerp(a, c, 1)]];
+        tri.push(v[0][1], v[1][0], v[0][0],  v[0][1], v[1][1], v[1][0],  v[0][2], v[1][1], v[0][1],  v[1][1], v[2][0], v[1][0]);
+      }
+      const R = 1.22, r = rng(11), moved = new Map();
+      const pos = new Float32Array(tri.length * 3);
+      tri.forEach((p, i) => {
+        const inv = 1 / (Math.sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]) || 1), s = p.map(n => n * inv * R);
+        const f32 = Float32Array.from(s);
+        const key = Array.from(f32, n => n.toFixed(3)).join(',');
+        if (!moved.has(key)) moved.set(key, 0.82 + r() * 0.3);
+        const k = moved.get(key);
+        pos.set([f32[0] * k, f32[1] * k * 1.25, f32[2] * k], i * 3);
+      });
+      const nrm = new Float32Array(pos.length);
+      for (let i = 0; i < pos.length; i += 9) {
+        const e1 = [pos[i + 3] - pos[i], pos[i + 4] - pos[i + 1], pos[i + 5] - pos[i + 2]];
+        const e2 = [pos[i + 6] - pos[i], pos[i + 7] - pos[i + 1], pos[i + 8] - pos[i + 2]];
+        const n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
+        const l = Math.hypot(...n);
+        for (let k = 0; k < 3; k++) nrm.set([n[0] / l, n[1] / l, n[2] / l], i + k * 3);
+      }
+      // its edges: every side of every triangle once (the facets all differ, so every side is a crease)
+      const seen = new Set(), lines = [];
+      const keyOf = (i) => `${pos[i * 3].toFixed(4)},${pos[i * 3 + 1].toFixed(4)},${pos[i * 3 + 2].toFixed(4)}`;
+      for (let t = 0; t < pos.length / 9; t++) for (const [a, b] of [[0, 1], [1, 2], [2, 0]]) {
+        const ia = t * 3 + a, ib = t * 3 + b, ka = keyOf(ia), kb = keyOf(ib), k = ka < kb ? ka + '|' + kb : kb + '|' + ka;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        lines.push(...pos.subarray(ia * 3, ia * 3 + 3), ...pos.subarray(ib * 3, ib * 3 + 3));
+      }
+      return {
+        solid: new Geometry3D({ positions: pos, normals: nrm }),
+        edges: new Geometry3D({ positions: new Float32Array(lines), topology: 'line-list' }),
+      };
+    }
 
-        const geo = new THREE.IcosahedronGeometry(1.22, 1);
-        // pull vertices a little so it reads as a cut stone, not a ball (seeded)
-        const r = rng(11), pos = geo.attributes.position, v = new THREE.Vector3();
-        const moved = new Map();
-        for (let i = 0; i < pos.count; i++) {
-          v.fromBufferAttribute(pos, i);
-          const key = v.toArray().map(n => n.toFixed(3)).join(',');
-          if (!moved.has(key)) moved.set(key, 0.82 + r() * 0.3);
-          v.multiplyScalar(moved.get(key));
-          pos.setXYZ(i, v.x, v.y * 1.25, v.z);
-        }
-        geo.computeVertexNormals();
-        const stone = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
-          color: 0x1b2427, roughness: 0.42, metalness: 0.35, flatShading: true,
-        }));
-        const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 1),
-          new THREE.LineBasicMaterial({ color: 0x7fa6a8, transparent: true, opacity: 0.18 }));
-        stone.add(edges);
-        const pivot = new THREE.Group();
-        pivot.add(stone);
+    const shard = {
+      type: 'scene3d', name: 'shard', width: 'GW', height: 'GH',
+      initial: { x: 0, y: 0 },
+      // no background: the 2D haze behind shows through; the fog colours the stone and the dust only
+      view: { toneMapping: 'none', fog: { type: 'exp2', color: C.fog, density: 0.075 },
+              environment: { skyColor: 0x2c4a4d, groundColor: 0x050607, intensity: 0.9 / Math.PI } },    // the hemisphere fill
+      setup: ({ root, camera }) => {
+        const { solid, edges } = shardGeometry();
+        const stone = new Mesh3D({ geometry: solid, material: new Material3D({ baseColor: 0x1b2427, roughness: 0.42, metallic: 0.35, flatShading: true }) });
+        stone.addChild(new Mesh3D({ geometry: edges, castShadow: false,
+          material: new FlatMaterial({ baseColor: 0x7fa6a8, alphaMode: 'blend', alpha: 0.18 }) }));
+        const pivot = new Container3D();
+        pivot.addChild(stone);
         pivot.position.set(0, 0.62, 0);
         pivot.rotation.z = 0.12;
-        scene.add(pivot);
+        root.addChild(pivot);
 
-        // a thin orbit ring, barely there
-        const ring = new THREE.Mesh(new THREE.TorusGeometry(2.25, 0.006, 6, 220),
-          new THREE.MeshBasicMaterial({ color: 0xc4975c, transparent: true, opacity: 0.35 }));
+        // a thin orbit ring, barely there (a torus lies in XZ: stood up into XY, then tilted)
+        const ring = new Container3D();
         ring.rotation.set(1.32, 0.18, 0);
-        pivot.add(ring);
+        ring.addChild(new Mesh3D({ geometry: new TorusGeometry({ radius: 2.25, tube: 0.006, radialSegments: 6, tubularSegments: 220 }),
+          rotation: { x: Math.PI / 2, y: 0, z: 0 }, castShadow: false,
+          material: new FlatMaterial({ baseColor: 0xc4975c, alphaMode: 'blend', alpha: 0.35 }) }));
+        pivot.addChild(ring);
 
-        // dust in the fog (seeded, drifted purely from t in update)
-        const dr = rng(5), N = 160, pts = new Float32Array(N * 3);
+        // dust in the fog (seeded; the cloud drifts purely from t in update): small square specks, sized in world units
+        // (0.014: one to three pixels across, as far as the dust reaches)
+        const dr = rng(5), N = 160;
+        const dust = new ParticleContainer3D({ capacity: N, space: 'local' });
         for (let i = 0; i < N; i++) {
-          pts[i * 3] = (dr() - 0.5) * 12; pts[i * 3 + 1] = (dr() - 0.5) * 7; pts[i * 3 + 2] = (dr() - 0.5) * 8;
+          dust.setParticleAt(i, (dr() - 0.5) * 12, (dr() - 0.5) * 7, (dr() - 0.5) * 8, 0.014, 0, 0x9fb6b4, 0.35);
         }
-        const dustGeo = new THREE.BufferGeometry();
-        dustGeo.setAttribute('position', new THREE.BufferAttribute(pts, 3));
-        const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({
-          color: 0x9fb6b4, size: 0.03, transparent: true, opacity: 0.35, sizeAttenuation: true,
-        }));
-        scene.add(dust);
+        dust.upload();
+        root.addChild(dust);
 
-        scene.add(new THREE.HemisphereLight(0x2c4a4d, 0x050607, 0.9));
-        const key = new THREE.DirectionalLight(0xd29a58, 3.4);
-        key.position.set(-4, 3, 3);
-        scene.add(key);
-        const rim = new THREE.DirectionalLight(0x6f9a9a, 2.2);
-        rim.position.set(3.5, 1.5, -4);
-        scene.add(rim);
-        const sweep = new THREE.PointLight(0xe0a865, 0, 14, 1.2);   // headlights passing, driven by keyframes
-        sweep.position.set(-7, -0.6, 3.2);
-        scene.add(sweep);
+        const key = new DirectionalLight({ color: 0xd29a58, intensity: 3.4, position: { x: -4, y: 3, z: 3 } });
+        key.lookAt({ x: 0, y: 0, z: 0 });
+        const rim = new DirectionalLight({ color: 0x6f9a9a, intensity: 2.2, position: { x: 3.5, y: 1.5, z: -4 } });
+        rim.lookAt({ x: 0, y: 0, z: 0 });
+        // headlights passing, driven by keyframes; PixiJS 3D's point light falls with the square of the distance (three.js's decay 1.2 fell slower),
+        // so its peak is set higher for the same light on the stone as it passes in front
+        const sweep = new PointLight({ color: 0xe0a865, intensity: 0, range: 14, position: { x: -7, y: -0.6, z: 3.2 } });
+        root.addChild(key, rim, sweep);
 
+        camera.fov = 50; camera.near = 0.1; camera.far = 2000;
         camera.position.set(0, 0.15, 8.2);
-        camera.lookAt(0, 0.2, 0);
+        camera.lookAt({ x: 0, y: 0.2, z: 0 });      // the push-in below moves it along z; it keeps this aim
         return { objects: { stone, pivot, key, sweep, dust } };
       },
-      update: (t, ctx) => {
-        const dust = ctx.scene.children.find(o => o.isPoints);
-        if (dust) { dust.rotation.y = t * 0.018; dust.position.y = t * 0.025; }
+      update: (t, { objects: { dust } }) => {
+        dust.rotation.y = t * 0.018;
+        dust.position.y = t * 0.025;
       },
       keyframes: [
-        { at: 0, to: { 'three.pivot.rotation.y': Math.PI * 0.85 }, duration: DURATION, ease: 'none' },
-        { at: 0, to: { 'three.stone.rotation.x': 0.35 }, duration: DURATION, ease: EASE_MOVE },
+        { at: 0, to: { 'scene3d.pivot.rotation.y': Math.PI * 0.85 }, duration: DURATION, ease: 'none' },
+        { at: 0, to: { 'scene3d.stone.rotation.x': 0.35 }, duration: DURATION, ease: EASE_MOVE },
         // the slow push-in
-        { at: 0, to: { 'three.camera.position.z': 5.9 }, duration: DURATION, ease: 'power1.inOut' },
+        { at: 0, to: { 'scene3d.camera.position.z': 5.9 }, duration: DURATION, ease: 'power1.inOut' },
         // a light passes left -> right, like a car outside
-        { at: 4.6, to: { 'three.sweep.intensity': 38 }, duration: 1.6, ease: 'sine.in' },
-        { at: 4.6, to: { 'three.sweep.position.x': 7 }, duration: 5.2, ease: EASE_MOVE },
-        { at: 8.2, to: { 'three.sweep.intensity': 0 }, duration: 1.6, ease: 'sine.out' },
+        { at: 4.6, to: { 'scene3d.sweep.intensity': SWEEP_PEAK }, duration: 1.6, ease: 'sine.in' },
+        { at: 4.6, to: { 'scene3d.sweep.position.x': 7 }, duration: 5.2, ease: EASE_MOVE },
+        { at: 8.2, to: { 'scene3d.sweep.intensity': 0 }, duration: 1.6, ease: 'sine.out' },
         // the key light drops when the title arrives: the night closes in
-        { at: 9.6, to: { 'three.key.intensity': 1.5 }, duration: 2.4, ease: EASE_MOVE },
+        { at: 9.6, to: { 'scene3d.key.intensity': 1.5 }, duration: 2.4, ease: EASE_MOVE },
       ],
-    });
+    };
 
     // vignette over the 3D, under the type
     const vignette = {

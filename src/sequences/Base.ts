@@ -72,8 +72,8 @@ export abstract class Sequence {
   }
 
   /**
-   * Prefix routers contributed to the keyframe pipeline (e.g. `three.` in
-   * pixi-effects/three). Base sequences route nothing extra.
+   * Prefix routers contributed to the keyframe pipeline (e.g. `scene3d.` in
+   * pixi-effects/3d). Base sequences route nothing extra.
    */
   protected pathRouters(): PathRouters {
     return {};

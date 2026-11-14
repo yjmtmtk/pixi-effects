@@ -86,7 +86,7 @@ export function partitionProps(props: Record<string, unknown>): Partitioned {
 /**
  * Resolves a routed keyframe path to a concrete tween target.
  * `path` is everything after the registered prefix + dot (for
- * `three.cube.rotation.y` under prefix `three`, path = `cube.rotation.y`).
+ * `scene3d.cube.rotation.y` under prefix `scene3d`, path = `cube.rotation.y`).
  * Return null to skip the key (the router is expected to have warned).
  */
 export type PathRouter = (path: string) => { target: object; prop: string } | null;

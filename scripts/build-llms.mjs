@@ -13,7 +13,7 @@ const stripFrontmatter = (s) => s.replace(/^---\n[\s\S]*?\n---\n/, '');
 export function buildLlms() {
   const llms = `# pixi-effects
 
-> Declarative motion graphics and video for the web. Describe a video as plain objects (text, shapes, images, video, audio, nested compositions, a 2.5D camera, optional three.js), play it in a canvas, export MP4 / WebM / MOV. Built on PixiJS v8 and mediabunny. Written to be authored by AI: no per-frame code.
+> Declarative motion graphics and video for the web. Describe a video as plain objects (text, shapes, images, video, audio, nested compositions, a 2.5D camera, PixiJS 2D and 3D scenes built by code), play it in a canvas, export MP4 / WebM / MOV. Built on PixiJS v8 and mediabunny. Written to be authored by AI: no per-frame code.
 
 Rules that cause most failures (details in the skill and pitfalls):
 
@@ -38,7 +38,7 @@ Rules that cause most failures (details in the skill and pitfalls):
 ## Reference
 
 - [DSL reference](${RAW}/docs/dsl.md): composition, sequences, 3D layers and camera, keyframes, expressions, filters, transitions, presets (wiggle, stagger, animateText, followPath, particles, react, deck), music written as text, stops for presentations
-- [API reference](${RAW}/docs/api.md): Movie, Controller, Presenter (presentations, PDF export), audio analysis (audioEnvelope), events, render options, pixi-effects/three
+- [API reference](${RAW}/docs/api.md): Movie, Controller, Presenter (presentations, PDF export), audio analysis (audioEnvelope), events, render options, pixi-effects/3d
 - [Media tools](${RAW}/docs/media.md): \`npx pixi-effects probe | trim | frames | sound\`: look at, listen to and cut a video or sound you were handed, with no ffmpeg installed
 - [README](${RAW}/README.md): install, CDN import map, quickstart
 

@@ -1,4 +1,4 @@
-// The public surface of the library as plain text: every export of every entry (pixi-effects, /controller, /present, /three), the public members of
+// The public surface of the library as plain text: every export of every entry (pixi-effects, /controller, /present, /3d), the public members of
 // classes, the properties of interfaces, and the signatures of functions. It is read from the TypeScript sources, so it cannot drift from the code.
 //
 //   node scripts/api-surface.mjs            print it
@@ -17,7 +17,7 @@ const ENTRIES = [
   ['pixi-effects', 'src/index.ts'],
   ['pixi-effects/controller', 'src/Controller.ts'],
   ['pixi-effects/present', 'src/present/index.ts'],
-  ['pixi-effects/three', 'src/three/index.ts'],
+  ['pixi-effects/3d', 'src/3d/index.ts'],
 ];
 
 /** What the DSL accepts, from the runtime tables (src/core/layerKeys.ts, src/filters/named.ts): the keys of each kind of layer, the animatable names, the text style keys, the filter types. */

@@ -21,7 +21,7 @@ function setup(opts: Parameters<typeof startHover>[1] = {}) {
   const tick = () => { const run = frames; frames = []; run.forEach((f) => f()); };
   return { canvas, answers, picks, stop, move, leave, tick, cancelled: () => cancelled, pending: () => frames.length };
 }
-const hit = (name: string, object?: string): PickHit => ({ name, path: name, type: 'x', kind: object ? 'three' : 'flat', point: { x: 0, y: 0 }, ...(object ? { three: { object, point: [0, 0, 0] as [number, number, number], distance: 1 } } : {}) });
+const hit = (name: string, object?: string): PickHit => ({ name, path: name, type: 'x', kind: object ? 'scene3d' : 'flat', point: { x: 0, y: 0 }, ...(object ? { scene3d: { object, point: [0, 0, 0] as [number, number, number], distance: 1 } } : {}) });
 beforeEach(() => { vi.restoreAllMocks(); });
 
 describe('hover: onEnter / onLeave for what is under the pointer', () => {
@@ -46,9 +46,9 @@ describe('hover: onEnter / onLeave for what is under the pointer', () => {
     expect(h.picks[0]).toEqual({ x: 40, y: 50, opts: { only: ['button'], ignore: ['bg'] } });
   });
 
-  it('another object of the same three layer is another hover (the fox, then the cube in the same layer)', () => {
+  it('another object of the same scene3d layer is another hover (the fox, then the cube in the same layer)', () => {
     const log: string[] = [];
-    const h = setup({ onEnter: (x) => log.push('in ' + x.three!.object), onLeave: (x) => log.push('out ' + x.three!.object) });
+    const h = setup({ onEnter: (x) => log.push('in ' + x.scene3d!.object), onLeave: (x) => log.push('out ' + x.scene3d!.object) });
     h.answers.hit = hit('world', 'fox'); h.move(1, 1);
     h.answers.hit = hit('world', 'cube'); h.move(2, 2);
     expect(log).toEqual(['in fox', 'out fox', 'in cube']);

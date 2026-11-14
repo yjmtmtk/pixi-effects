@@ -24,7 +24,7 @@ function toGlb(json: object): Buffer {
   return Buffer.concat([head, body]);
 }
 
-describe('probe on a glTF model: what an author needs before writing the page (no browser, no three)', () => {
+describe('probe on a glTF model: what an author needs before writing the page (no browser, no 3D engine)', () => {
   it('a .gltf: the clip names with their lengths, the size of the model in the file\'s units, and what the file holds', async () => {
     const r = await probe(fixture('spin-box.gltf'));
     expect(r.code, r.stderr).toBe(0);
@@ -54,7 +54,7 @@ describe('probe on a glTF model: what an author needs before writing the page (n
     expect(report.longest).toBeCloseTo(1, 6);
   });
 
-  it('a file that needs a decoder (Draco, KTX2, Meshopt) says so: threeGltf does not set one up', async () => {
+  it('a file that needs a decoder (Draco, KTX2, Meshopt) says so, and what PixiJS 3D needs for it', async () => {
     const json = JSON.parse(readFileSync(fixture('spin-box.gltf'), 'utf8'));
     json.extensionsUsed = ['KHR_draco_mesh_compression']; json.extensionsRequired = ['KHR_draco_mesh_compression'];
     const f = join(tmp, 'draco.gltf');

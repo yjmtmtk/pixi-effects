@@ -17,8 +17,6 @@ import type { Scene3DContext, Scene3DSequenceSpec } from './types';
 
 /** The keys a scene3d layer has besides the common ones. */
 const OWN_KEYS = ['width', 'height', 'view', 'resolution', 'setup', 'update', 'dispose', 'followCamera', 'followLights', 'followFog', 'reuse'] as const;
-/** Keys of a `three` layer about three's own renderer: a scene3d layer is drawn by PixiJS itself and has no such option. */
-const THREE_ONLY = ['renderer', 'shareGpu', 'antialias'] as const;
 /** What the layer owns: given in `view`, they are ignored. */
 const LAYER_OWNED = ['width', 'height', 'autoResize'] as const;
 
@@ -198,12 +196,11 @@ export class Scene3DSequence extends Sequence {
     this._pendingRebinds = [];
   }
 
-  /** Unknown keys (with the likely one), and the keys only a three layer has. */
+  /** Unknown keys (with the likely one). */
   private _checkKeys(): void {
     const valid: readonly string[] = [...COMMON, ...OWN_KEYS];
     for (const key of Object.keys(this.spec)) {
       if (valid.includes(key)) continue;
-      if ((THREE_ONLY as readonly string[]).includes(key)) { this._say(`key:${key}`, `${key} is about three's own renderer; a scene3d layer is drawn by PixiJS itself, so it has no such option (ignored)`); continue; }
       const guess = suggestName(key, valid);
       this._say(`key:${key}`, `unknown key "${key}"${guess ? `; did you mean "${guess}"?` : ''} (a scene3d layer has ${OWN_KEYS.join(', ')} and the keys every layer has)`);
     }
@@ -326,7 +323,7 @@ export class Scene3DSequence extends Sequence {
   }
 
   /**
-   * Per-frame hook, duck-typed by `Movie._awaitVideoFrames` (as the video and three layers are): the single frame path of playback, seek and export.
+   * Per-frame hook, duck-typed by `Movie._awaitVideoFrames` (as the video layer is): the single frame path of playback, seek and export.
    * `update` sets the scene from the time; PixiJS draws the view with the rest of the stage.
    */
   async awaitFrameAt(local: number): Promise<void> {
@@ -369,7 +366,7 @@ export class Scene3DSequence extends Sequence {
 
   /**
    * The determinism check (`check`, `movie.review()`): the scene set by `update` and drawn at a few moments in two orders, with one draw thrown away first, and the pictures
-   * compared, as the canvas and three layers are. A scene whose same frame is not the same picture (state kept from call to call, a clock, a player or particle system on its
+   * compared, as the canvas and scene2d layers are. A scene whose same frame is not the same picture (state kept from call to call, a clock, a player or particle system on its
    * own clock, a motion blur that reads the last frame) is reported. It draws the view alone into a texture of its own size with PixiJS's renderer; the next real frame sets
    * the scene again, so nothing is left behind.
    */
@@ -435,7 +432,7 @@ export class Scene3DSequence extends Sequence {
     };
   }
 
-  /** True when this layer shows 2D layers on its meshes (`layerTexture`): the movie runs its frame after the rest of the frame is ready (projections, filters fed), as for a three layer. */
+  /** True when this layer shows 2D layers on its meshes (`layerTexture`): the movie runs its frame after the rest of the frame is ready (projections, filters fed). */
   get showsLayers(): boolean { return this._shown.length > 0; }
 
   /** The 2D layer that a material shows (`layerTexture`), for a click on the mesh to reach it (movie.pick); null for any other material. */
@@ -620,7 +617,7 @@ function idOf(fn: unknown): number {
 }
 
 /**
- * The key a rebuild matches a scene3d layer by: its kind (so it can never equal a three layer's key in the shared pool), its name, its setup, its size and its options as JSON.
+ * The key a rebuild matches a scene3d layer by: its kind (so it can never equal a scene2d layer's key in the shared pool), its name, its setup, its size and its options as JSON.
  * View options that cannot be written as JSON (a cycle) make the layer one that is built again; an object of a class (an effect in `passes`) is written as its own fields, so two
  * such options that differ only inside the class may count as the same.
  * @internal exported for its unit test

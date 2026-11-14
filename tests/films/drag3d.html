@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8" /><title>film · dragging an object of a three layer</title></head>
+<head><meta charset="UTF-8" /><title>film · dragging an object of a scene3d layer</title></head>
 <body style="margin:0">
-  <!-- Test film (tests/films/drag3d.test.ts): a cube in a three layer that follows the composition's camera; the page holds its place (`pos`, read by update) and moves it by hit.three.grab('wall') while
-       the pointer is held: the code of the recipe `drag-3d`. ?floor=1: the camera is above a floor seen in perspective and the cube slides on it ('floor' plane). The canvas is shown at twice its size. fire(type, x, y) sends a pointer event at canvas pixel (x, y). -->
+  <!-- Test film (tests/films/drag3d.test.ts): a cube "cube" in a scene3d layer "world" that follows the composition's camera; the page holds its place (`pos`, read by update) and moves it by
+       hit.scene3d.grab('wall') while the pointer is held: the code of the recipe `drag-3d`. ?floor=1: the camera is above a floor "floor" seen in perspective and the cube slides on it ('floor' plane).
+       The canvas is shown at twice its size. fire(type, x, y) sends a pointer event at canvas pixel (x, y); window.__pos is the cube's place (scene units: composition pixels, y up). -->
   <canvas id="stage" width="480" height="270" style="width:960px;height:540px;display:block"></canvas>
   <script>
     window.__logs = [];
@@ -11,48 +12,54 @@
   </script>
   <script type="importmap">{ "imports": {
     "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
-    "three": "../../node_modules/three/build/three.module.js", "three/webgpu": "../../node_modules/three/build/three.webgpu.js" } }</script>
+    "@pixi/3d": "../../node_modules/@pixi/3d/dist/pixijs-3d.mjs", "@pixi/3d/extras": "../../node_modules/@pixi/3d/dist/pixijs-3d-extras.mjs" } }</script>
   <script type="module">
     import { Movie } from '../../dist/index.js';
-    import { registerThree } from '../../dist/three.js';
-    import * as THREE from 'three';
-    registerThree();
+    import { register3D } from '../../dist/3d.js';
+    import * as P3D from '@pixi/3d';
+    register3D();
     const canvas = document.getElementById('stage');
     const movie = new Movie();
     window.movie = movie;
     window.fire = (type, x, y) => { const r = canvas.getBoundingClientRect(); canvas.dispatchEvent(new PointerEvent(type, { clientX: r.left + x * r.width / 480, clientY: r.top + y * r.height / 270, bubbles: type !== 'pointerleave', pointerId: 1 })); };
     const FLOOR = new URLSearchParams(location.search).get('floor') === '1';
-    const pos = FLOOR ? { x: 240, y: -170, z: -60 } : { x: 240, y: -135, z: 0 };                                   // where the cube is, in three's units (here: composition pixels, y up); update reads it
+    const pos = FLOOR ? { x: 240, y: -170, z: -60 } : { x: 240, y: -135, z: 0 };                                   // where the cube is, in the scene's units (here: composition pixels, y up); update reads it
     window.__pos = pos;
-    let cube;
-    await movie.init({ canvas, width: 480, height: 270, duration: 3, frameRate: 30, background: '#102040', composition: { sequences: [
-      { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1c2b4d' } },
-      FLOOR ? { type: 'camera', initial: { x: 240, y: 20, z: 450, lookAtX: 240, lookAtY: 170, lookAtZ: 0 } } : { type: 'camera' },       // y runs DOWN: a camera y smaller than the floor's is above it
-      { type: 'three', name: 'world', followCamera: true, antialias: false,
-        setup: (ctx) => {
-          cube = new THREE.Mesh(new THREE.BoxGeometry(60, 60, 60), new THREE.MeshBasicMaterial({ color: 0x3aa56e })); cube.name = 'cube'; ctx.scene.add(cube);
-          if (FLOOR) { const floor = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), new THREE.MeshBasicMaterial({ color: 0x3b4f7a })); floor.rotation.x = -Math.PI / 2; floor.position.set(240, -200, -400); ctx.scene.add(floor); }   // big, so its far edge stays above the horizon of the view
-        },
-        update: () => { cube.position.set(pos.x, pos.y, pos.z); } },
-    ] } });
-    movie.pause();
+    try {
+      await movie.init({ canvas, width: 480, height: 270, duration: 3, frameRate: 30, background: '#102040', composition: { sequences: [
+        { type: 'shape', shape: 'rect', name: 'bg', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1c2b4d' } },
+        FLOOR ? { type: 'camera', initial: { x: 240, y: 20, z: 450, lookAtX: 240, lookAtY: 170, lookAtZ: 0 } } : { type: 'camera' },       // y runs DOWN: a camera y smaller than the floor's is above it
+        { type: 'scene3d', name: 'world', followCamera: true,
+          setup: ({ root }) => {
+            const cube = new P3D.Mesh3D({ label: 'cube', geometry: new P3D.CubeGeometry({ width: 60, height: 60, depth: 60 }), material: new P3D.FlatMaterial({ baseColor: 0x3aa56e }) });
+            root.addChild(cube);
+            if (FLOOR) {                                                                                                // big, so its far edge stays above the horizon of the view
+              const floor = new P3D.Mesh3D({ label: 'floor', geometry: new P3D.PlaneGeometry({ width: 6000, height: 6000 }), material: new P3D.FlatMaterial({ baseColor: 0x3b4f7a, doubleSided: true }) });
+              floor.rotation.set(-Math.PI / 2, 0, 0); floor.position.set(240, -200, -400); root.addChild(floor);
+            }
+            return { objects: { cube } };
+          },
+          update: (t, { objects }) => { objects.cube.position.set(pos.x, pos.y, pos.z); } },
+      ] } });
+      movie.pause();
 
-    // --- the recipe `drag-3d`
-    canvas.addEventListener('pointerdown', (e) => {
-      const hit = movie.pick(...movie.canvasPoint(e), { only: ['world'] });
-      if (hit?.three?.object !== 'cube') return;                              // (the floor is a hit too, with another object name)                              // only the cube can be taken
-      const grab = hit.three.grab(FLOOR ? 'floor' : 'wall');                  // it slides on the plane through the point it was taken at ('floor': along the ground, 'wall': across the picture)
-      const start = { ...pos };
-      const move = (ev) => {
-        const m = grab.move(...movie.canvasPoint(ev));                        // where the pointer's ray meets that plane, and how far from where it was taken
-        if (!m) return;                                                       // a ray that never meets the plane: leave it where it is
-        pos.x = start.x + m.delta[0]; pos.y = start.y + m.delta[1]; pos.z = start.z + m.delta[2];
-        movie.redraw();                                                       // the layer reads `pos`: draw the frame again
-      };
-      const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
-      window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
-    });
-    window.__ready = true;
+      // --- the recipe `drag-3d`
+      canvas.addEventListener('pointerdown', (e) => {
+        const hit = movie.pick(...movie.canvasPoint(e), { only: ['world'] });
+        if (hit?.scene3d?.object !== 'cube') return;                            // only the cube can be taken (the floor is a hit too, with another object name)
+        const grab = hit.scene3d.grab(FLOOR ? 'floor' : 'wall');                // it slides on the plane through the point it was taken at ('floor': along the ground, 'wall': across the picture)
+        const start = { ...pos };
+        const move = (ev) => {
+          const m = grab.move(...movie.canvasPoint(ev));                        // where the pointer's ray meets that plane, and how far from where it was taken
+          if (!m) return;                                                       // a ray that never meets the plane: leave it where it is
+          pos.x = start.x + m.delta[0]; pos.y = start.y + m.delta[1]; pos.z = start.z + m.delta[2];
+          movie.redraw();                                                       // the layer reads `pos`: draw the frame again
+        };
+        const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+        window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); window.__ready = true; }
   </script>
 </body>
 </html>

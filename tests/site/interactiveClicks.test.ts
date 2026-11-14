@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { launchPage } from '../support/browser';
 
 // The Interactive page's click, drag and drop samples (examples/interactive/click.html, drop.html, move3d.html), driven by real mouse events in Chrome:
-// each shows one of movie.hover / movie.pick / hit.three.grab, so each must really react.
+// each shows one of movie.hover / movie.pick / hit.scene3d.grab, so each must really react.
 const root = resolve(__dirname, '../..');
 const check: any = await import(/* @vite-ignore */ pathToFileURL(join(root, 'ai/tools/check.mjs')).href);
 const chrome = check.findChrome();
@@ -94,7 +94,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the click,
       const pos = () => ev<Record<string, { x: number; z: number }>>('JSON.parse(JSON.stringify(window.__pos))');
       const before = await pos();
       // where the cube is drawn: scan the picture for a point whose pick is the cube
-      const at = await ev<{ x: number; y: number } | null>(`(() => { for (let y = 120; y < 720; y += 6) for (let x = 100; x < 1200; x += 6) if (movie.pick(x, y, { only: ['world'] })?.three?.object === 'cube') return { x, y }; return null; })()`);
+      const at = await ev<{ x: number; y: number } | null>(`(() => { for (let y = 120; y < 720; y += 6) for (let x = 100; x < 1200; x += 6) if (movie.pick(x, y, { only: ['world'] })?.scene3d?.object === 'cube') return { x, y }; return null; })()`);
       expect(at, 'the cube is somewhere in the picture').not.toBeNull();
       await mouse('mouseMoved', 100, 640); await mouse('mousePressed', 100, 640); await mouse('mouseMoved', 300, 640); await mouse('mouseReleased', 300, 640);
       expect(await pos(), 'dragging the floor moves nothing').toEqual(before);
@@ -106,7 +106,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('the click,
       expect(after.knot).toEqual(before.knot);
       // an object is stopped at the edge of the platform (drawn, so the limit can be seen), by its own reach: pulled far to the back and the left it rests against both edges
       const { STAGE, REACH } = await ev<{ STAGE: { x0: number; z0: number }; REACH: Record<string, number> }>('window.__limits');
-      const now = await ev<{ x: number; y: number }>(`(() => { for (let y = 120; y < 720; y += 6) for (let x = 100; x < 1200; x += 6) if (movie.pick(x, y, { only: ['world'] })?.three?.object === 'cube') return { x, y }; return null; })()`);
+      const now = await ev<{ x: number; y: number }>(`(() => { for (let y = 120; y < 720; y += 6) for (let x = 100; x < 1200; x += 6) if (movie.pick(x, y, { only: ['world'] })?.scene3d?.object === 'cube') return { x, y }; return null; })()`);
       await mouse('mouseMoved', now.x, now.y); await mouse('mousePressed', now.x, now.y); await mouse('mouseMoved', 400, 200); await mouse('mouseMoved', 20, 135); await mouse('mouseReleased', 20, 135);
       const edge = await pos();
       expect(edge.cube!.x, 'the left edge').toBe(STAGE.x0 + REACH.cube!);

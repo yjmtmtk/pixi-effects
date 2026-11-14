@@ -9,8 +9,6 @@ const read = (p: string): string => readFileSync(resolve(root, p), 'utf8');
 
 /** Names of 3D engines (`threeD`, the 2.5D flag, is a property name, not an exported name, and is not caught: it is not listed here on purpose). */
 const ENGINE = /three|pixi-?3d|babylon|playcanvas|cannon/i;
-/** The entries and files that are allowed to carry an engine's name. */
-const ENGINE_ENTRIES = ['./three'];
 
 /** The names a source file exports: `export { A, type B } from`, `export type { C }`, `export function|const|class|interface|type|enum D`. */
 function exportedNames(src: string): string[] {
@@ -39,16 +37,15 @@ describe('engine names (docs/philosophy.md: Engine names)', () => {
     expect(names.filter(n => ENGINE.test(n))).toEqual([]);
   });
 
-  it('package entries: only the explicit engine entries carry an engine\'s name', () => {
+  it('no package entry carries an engine\'s name (PixiJS 3D is the 3D engine, under the neutral ./3d; three.js was removed in 0.52.0)', () => {
     const entries = Object.keys(JSON.parse(read('package.json')).exports as Record<string, unknown>);
-    expect(entries).toContain('./three');
-    expect(entries.filter(e => ENGINE.test(e) && !ENGINE_ENTRIES.includes(e))).toEqual([]);
+    expect(entries.filter(e => ENGINE.test(e))).toEqual([]);
   });
 
-  it('everything the three entry exports says "three" (an engine\'s entry is engine-named all the way down)', () => {
-    const names = exportedNames(read('src/three/index.ts'));
-    expect(names).toEqual(expect.arrayContaining(['ThreeSequence', 'registerThree']));
-    expect(names.filter(n => !/three/i.test(n))).toEqual([]);
+  it('three.js is gone from the package: no dependency, no peer, no build entry', () => {
+    const pkg = JSON.parse(read('package.json'));
+    for (const field of ['dependencies', 'peerDependencies', 'peerDependenciesMeta', 'devDependencies']) expect(Object.keys(pkg[field] ?? {}).filter(n => /^(three|@types\/three)$/.test(n)), field).toEqual([]);
+    expect(read('tsup.config.ts')).not.toMatch(/src\/three|'three'/);
   });
 
   it('the 3d entry (the main engine) exists and everything it exports is neutral', () => {

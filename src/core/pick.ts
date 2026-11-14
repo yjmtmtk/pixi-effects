@@ -1,6 +1,6 @@
 /**
  * `movie.pick(x, y)`: what is under a point of the canvas, at the frame that is on screen. The layers are asked in the way each is drawn: a flat layer by its own shape (a rotated one by its
- * rotated rectangle, a round one by its circle), a `threeD` card by its projected quad, a `three` layer by a ray through its camera. No clock: it reads the display tree as the last render left it.
+ * rotated rectangle, a round one by its circle), a `threeD` card by its projected quad, a `scene3d` layer by a ray through its camera, a `scene2d` layer by its objects. No clock: it reads the display tree as the last render left it.
  */
 import type { Container } from 'pixi.js';
 import type { Sequence } from '../sequences/Base';
@@ -13,17 +13,19 @@ export interface PickHit {
   /** Names (or `type#index`) from the root, joined by `/`: the same as `movie.inspect()`'s `path`. */
   path: string;
   type: string;
-  /** `'flat'`: a 2D layer; `'card'`: a `threeD` layer (its projected card); `'scene2d'`: a `scene2d` layer, and `scene2d` says which of its objects is under the point; `'scene3d'`: a `scene3d` layer, and `scene3d` says what the ray met; `'three'`: a `three` layer, and `three` says what the ray met. */
-  kind: 'flat' | 'card' | 'scene3d' | 'scene2d' | 'three';
+  /** `'flat'`: a 2D layer; `'card'`: a `threeD` layer (its projected card); `'scene2d'`: a `scene2d` layer, and `scene2d` says which of its objects is under the point; `'scene3d'`: a `scene3d` layer, and `scene3d` says what the ray met. */
+  kind: 'flat' | 'card' | 'scene3d' | 'scene2d';
   /** The point asked about, in canvas pixels. */
   point: { x: number; y: number };
   /** A flat layer: the point in the layer's own pixels (the top-left of its picture is 0, 0). */
   local?: { x: number; y: number };
-  /** The layer is shown on a mesh of a `three` layer (`threeLayerTexture`) and the point is on that mesh: the layer (`path` of the three layer) and the object (its name) it came through. `point` is still the canvas point; `local` is the point in the layer's own pixels. */
+  /** The layer is shown on a mesh of a `scene3d` layer (`layerTexture`) and the point is on that mesh: the layer (`path` of the scene3d layer) and the object (its name) it came through. `point` is still the canvas point; `local` is the point in the layer's own pixels. */
   via?: { path: string; object: string };
   /**
    * A `scene3d` layer: what the ray through that point met first: the object (its label, or its nearest labelled ancestor's, or `''`), where (the scene's own units), how far from
-   * the camera, and the node itself. `grab(plane)` drags it, as `three.grab` does.
+   * the camera, and the node itself. `grab(plane)` fixes a plane through the hit point (`'screen'` facing the camera, the default; `'floor'`; `'wall'`; or a normal `[x, y, z]`), and
+   * `move(x, y)` takes the pointer in canvas pixels and gives where its ray meets that plane (`point`) and how far that is from the hit point (`delta`): move the object by it. null where
+   * the ray never meets the plane.
    */
   scene3d?: {
     object: string; point: [number, number, number]; distance: number; node?: unknown;
@@ -34,15 +36,6 @@ export interface PickHit {
    * pixels. `grab().move(x, y)` takes the pointer in canvas pixels and gives where it is in the node's parent's pixels and how far that is from where it was grabbed (`delta`).
    */
   scene2d?: { object: string; node: unknown; point: [number, number]; grab: () => { move: (x: number, y: number) => { point: [number, number]; delta: [number, number] } } };
-  /** A `three` layer: what the ray through that point met first: the object (its name, or `''`), where (three's own units), and how far from the camera. */
-  three?: {
-    object: unknown; point: [number, number, number]; distance: number; object3d?: unknown;
-    /**
-     * Drag what the ray met: `grab(plane)` fixes a plane through the hit point (`'screen'` facing the camera, the default; `'floor'`; `'wall'`; or a normal `[x, y, z]`), and `move(x, y)` takes the pointer
-     * in canvas pixels and gives where its ray meets that plane (`point`) and how far that is from the hit point (`delta`): move the object by it. null where the ray never meets the plane.
-     */
-    grab?: (plane?: 'screen' | 'floor' | 'wall' | [number, number, number]) => { move: (x: number, y: number) => { point: [number, number, number]; delta: [number, number, number] } | null };
-  };
 }
 
 /** How opaque a picture's resource (an image, a canvas, a video frame) is at a pixel of its own, 0..1, or null when it cannot be read (a picture from another origin). */
@@ -137,7 +130,7 @@ export function pickScene(root: CompositionSequence, x: number, y: number, opts:
     try { return inside(c.getBounds(), p); } finally { c.measurable = was; }
   };
 
-  // a 2D layer that a mesh of a three layer shows (`threeLayerTexture`) is not on the stage (visible = false): a point on the mesh is answered for it, below
+  // a 2D layer that a mesh of a scene3d layer shows (`layerTexture`) is not on the stage (visible = false): a point on the mesh is answered for it, below
   const hiddenSources = new Map<CompositionSequence, string>();
   const forwards: Array<{ source: CompositionSequence; at: { x: number; y: number }; via: { path: string; object: string }; order: Array<[number, number]> }> = [];
   type RayHit = { object: string; point: [number, number, number]; distance: number; object3d: unknown; uv?: { u: number; v: number }; material?: unknown };
@@ -196,24 +189,21 @@ export function pickScene(root: CompositionSequence, x: number, y: number, opts:
         const local = d.toLocal(point);
         const lb = boxOf(d, !!seq.maskSequence);
         if (inside(lb, local)) {
-          const isThree = typeof (seq as unknown as { pickAt?: unknown }).pickAt === 'function';
-          const ray = isThree ? rayOf(seq, d, local, lb) : undefined;
-          if (isThree) forwardThrough(seq, d, path, local, lb);
-          const three: PickHit['three'] | null | undefined = ray ? { object: ray.object, point: ray.point, distance: ray.distance, object3d: ray.object3d } : isThree ? null : undefined;
-          if (three) {
+          const isScene = typeof (seq as unknown as { pickAt?: unknown }).pickAt === 'function';      // a scene3d layer: a ray through its camera
+          const ray = isScene ? rayOf(seq, d, local, lb) : undefined;
+          if (isScene) forwardThrough(seq, d, path, local, lb);
+          if (ray) {
+            const scene3d: NonNullable<PickHit['scene3d']> = { object: String(ray.object), point: ray.point, distance: ray.distance, node: ray.object3d };
             const planeOf = (seq as unknown as { dragPlane?: (p: [number, number, number], plane?: unknown) => (u: number, v: number) => { point: [number, number, number]; delta: [number, number, number] } | null }).dragPlane;
             if (planeOf) {
-              three.grab = (plane = 'screen') => {
-                const along = planeOf.call(seq, three.point, plane);
+              scene3d.grab = (plane = 'screen') => {
+                const along = planeOf.call(seq, ray.point, plane);
                 return { move: (cx: number, cy: number) => { const lp = d.toLocal({ x: cx, y: cy }); const b = d.getLocalBounds(); return along((lp.x - b.x) / b.width, (lp.y - b.y) / b.height); } };
               };
             }
-            const type = (seq.spec as { type: string }).type;
-            hit = type === 'scene3d'
-              ? { name, path, type, kind: 'scene3d', point, scene3d: { object: String(three.object), point: three.point, distance: three.distance, node: three.object3d, ...(three.grab ? { grab: three.grab } : {}) } }
-              : { name, path, type, kind: 'three', point, three };
+            hit = { name, path, type: seq.spec.type, kind: 'scene3d', point, scene3d };
           }
-          else if (three === undefined && (typeof d.containsPoint !== 'function' || d.containsPoint(local))) {
+          else if (!isScene && (typeof d.containsPoint !== 'function' || d.containsPoint(local))) {
             let opaque = true;
             // a shader layer's picture lives in a WebGL canvas whose drawing buffer is not kept: reading it back would call a lit pixel clear, so its box stays its picture
             const tex: PictureOf | null | undefined = opts.alpha !== undefined && seq.spec.type !== 'shader' ? ((d as unknown as { texture?: PictureOf }).texture ?? deps.textureOf?.(d)) : undefined;

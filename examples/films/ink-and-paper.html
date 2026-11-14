@@ -37,9 +37,10 @@
       "mediabunny":              "https://esm.sh/mediabunny@1.61.3",
       "pixi-effects":            "../../dist/index.js",
       "pixi-effects/controller": "../../dist/Controller.js",
-      "pixi-effects/three":      "../../dist/three.js",
+      "pixi-effects/3d":         "../../dist/3d.js",
       "pixi-filters":            "https://esm.sh/pixi-filters@6.1.5?external=pixi.js",
-      "three":                   "https://esm.sh/three@0.178.0",
+      "@pixi/3d":                "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d.min.mjs",
+      "@pixi/3d/extras":         "https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/dist/pixijs-3d-extras.min.mjs",
       "roughjs":                 "https://esm.sh/roughjs@4.6.6",
       "d3-shape":                "https://esm.sh/d3-shape@3.2.0",
       "d3-scale":                "https://esm.sh/d3-scale@4.0.2",
@@ -52,8 +53,9 @@
   <script type="module">
     import { Movie, splitText, animateText, measureText, particles, cameraPath, musicEnvelope, react, random } from 'pixi-effects';
     import { Controller } from 'pixi-effects/controller';
-    import { registerThree, three } from 'pixi-effects/three';
-    import * as THREE from 'three';
+    import { register3D, scene3d } from 'pixi-effects/3d';
+    import { Geometry3D, Mesh3D, DirectionalLight, AmbientLight } from '@pixi/3d';
+    import { ToonMaterial, OutlinePass } from '@pixi/3d/extras';
     import rough from 'roughjs';
     import { arc, pie, line, area, curveCatmullRom } from 'd3-shape';
     import { scaleLinear } from 'd3-scale';
@@ -292,7 +294,7 @@
     let tEnd = T.code;
     CODE.forEach((l, i) => { tEnd = Math.max(tEnd, streamLine(T.code + i * 0.1, 4 + i, l, 230)); });
     for (let tt = T.code; tt < tEnd; tt = snap(tt + 0.09)) sfx('click', tt, { volume: 0.12, pitch: 9 + Math.round(rnd() * 3), seed: 2 });
-    const LINES = 851;                                                          // the length of this very file (kept honest by hand)
+    const LINES = 877;                                                          // the length of this very file (kept honest by hand)
     term.push({ type: 'text', name: 'lines', text: '{value} lines', at: T.code, style: tmono(DIM), format: { decimals: 0 },
       initial: { x: colX(94), y: rowY(3), anchorX: 1, anchorY: 0.5, value: 0 }, keyframes: [{ at: 0, to: { value: LINES }, duration: tEnd - T.code + 0.1, ease: 'power1.out' }] });
 
@@ -446,28 +448,52 @@
       return seqs;
     }
 
-    // ── 03 3D (8–12): a toon-shaded three.js knot with an ink outline, and a tree of layers laid out by d3-force ──
-    function threeScene(dur) {
+    // a (2, 3) torus knot in the xy plane, built as three.js built it (PixiJS 3D's TorusKnotGeometry lies in xz: turned upright it is the mirror image)
+    function trefoil(radius, tube, tubular, radial, p = 2, q = 3) {
+      const curve = (u) => { const r = radius * (2 + Math.cos(q / p * u)) * 0.5; return [r * Math.cos(u), r * Math.sin(u), radius * Math.sin(q / p * u) * 0.5]; };
+      const n = (tubular + 1) * (radial + 1), positions = new Float32Array(n * 3), normals = new Float32Array(n * 3), uvs = new Float32Array(n * 2);
+      const norm = (v) => { const l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; };
+      const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+      for (let i = 0, k = 0; i <= tubular; i++) {
+        const u = i / tubular * p * Math.PI * 2, P1 = curve(u), P2 = curve(u + 0.01);
+        const T = [P2[0] - P1[0], P2[1] - P1[1], P2[2] - P1[2]], B = norm(cross(T, [P2[0] + P1[0], P2[1] + P1[1], P2[2] + P1[2]])), N = norm(cross(B, T));
+        for (let j = 0; j <= radial; j++, k++) {
+          const v = j / radial * Math.PI * 2, cx = -tube * Math.cos(v), cy = tube * Math.sin(v);
+          for (let c = 0; c < 3; c++) { positions[k * 3 + c] = P1[c] + cx * N[c] + cy * B[c]; normals[k * 3 + c] = (cx * N[c] + cy * B[c]) / tube; }
+          uvs[k * 2] = i / tubular; uvs[k * 2 + 1] = j / radial;
+        }
+      }
+      const indices = new Uint32Array(tubular * radial * 6);
+      for (let j = 1, o = 0; j <= tubular; j++) for (let i = 1; i <= radial; i++, o += 6) {
+        const a = (radial + 1) * (j - 1) + (i - 1), b = (radial + 1) * j + (i - 1), c = (radial + 1) * j + i, d = (radial + 1) * (j - 1) + i;
+        indices.set([a, b, d, b, c, d], o);
+      }
+      return new Geometry3D({ positions, normals, uvs, indices });
+    }
+
+    // ── 03 3D (8–12): a toon-shaded PixiJS 3D knot with an ink outline, and a tree of layers laid out by d3-force ──
+    function knotScene(dur) {
       const seqs = [bg(PAPER)];
-      seqs.push(three({
-        type: 'three', name: 'knot', width: 1000, height: 1000, duration: dur,
+      seqs.push(scene3d({
+        type: 'scene3d', name: 'knot', width: 1000, height: 1000, duration: dur,
         initial: { x: 540, y: 540, anchorX: 0.5, anchorY: 0.5, scale: 0 },
-        setup: (ctx) => {
-          ctx.renderer.setClearColor(0x000000, 0);
-          const steps = new Uint8Array([70, 150, 215, 255]);
-          const grad = new THREE.DataTexture(steps, 4, 1, THREE.RedFormat);
-          grad.minFilter = THREE.NearestFilter; grad.magFilter = THREE.NearestFilter; grad.generateMipmaps = false; grad.needsUpdate = true;
-          const body = new THREE.Mesh(new THREE.TorusKnotGeometry(1, 0.34, 240, 40), new THREE.MeshToonMaterial({ color: new THREE.Color(RED), gradientMap: grad }));
-          const outline = new THREE.Mesh(new THREE.TorusKnotGeometry(1, 0.34 + 0.055, 240, 40), new THREE.MeshBasicMaterial({ color: new THREE.Color(INK), side: THREE.BackSide }));
-          const knot = new THREE.Group(); knot.add(outline, body); ctx.scene.add(knot);
-          const sun = new THREE.DirectionalLight(0xffffff, 2.4); sun.position.set(3, 5, 6); ctx.scene.add(sun);
-          ctx.scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-          ctx.camera.position.z = 6.4;
+        view: { passes: [new OutlinePass({ width: 0.055, color: INK })] },             // the ink line: a back-face shell 0.055 units out, as the hand-made hull was
+        setup: ({ root, camera }) => {
+          // flat tones, no highlight, no rim: the look of a gradient map. ToonMaterial lights only the side facing the sun, so the ambient
+          // carries the shade (0.4 × 1.9 of the colour) and the sun the rest (four steps up to full colour). specularSize below 0 turns its highlight off.
+          const knot = new Mesh3D({ geometry: trefoil(1, 0.34, 240, 40),
+            material: new ToonMaterial({ baseColor: RED, bands: 3, specularSize: -0.1, rimIntensity: 0 }), castShadow: false, receiveShadow: false });
+          const sun = new DirectionalLight({ intensity: 0.3, position: { x: 3, y: 5, z: 6 } });
+          sun.lookAt({ x: 0, y: 0, z: 0 });                                             // lights shine down their -z: aim it at the knot
+          root.addChild(knot, sun, new AmbientLight({ intensity: 1.9 }));
+          camera.fov = 50;
+          camera.position.set(0, 0, 6.4);
+          camera.lookAt({ x: 0, y: 0, z: 0 });
           return { objects: { knot } };
         },
         keyframes: [
           { at: 0, to: { scale: 1 }, duration: 0.9, ease: 'spring.bouncy' },
-          { at: 0, from: { 'three.knot.rotation.y': -1.2, 'three.knot.rotation.x': 0.5 }, to: { 'three.knot.rotation.y': 2.8, 'three.knot.rotation.x': 1.1 }, duration: dur, ease: 'none' },
+          { at: 0, from: { 'scene3d.knot.rotation.y': -1.2, 'scene3d.knot.rotation.x': 0.5 }, to: { 'scene3d.knot.rotation.y': 2.8, 'scene3d.knot.rotation.x': 1.1 }, duration: dur, ease: 'none' },
         ],
       }));
       // a paper shadow under it
@@ -502,7 +528,7 @@
           initial: { x: GX + n.x, y: GY + n.y + n.r + 22, anchorX: 0.5, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.25 }] });
         if (n.depth === 1) sfx('pop', S(8 + at), { volume: 0.4, pitch: 2 + n.k * 2 });
       });
-      seqs.push(note("{ type: 'three' }  —  a three.js scene is a layer too", 150, 958, { at: 1.4, duration: dur - 1.4, size: 50, fill: INK, rotation: -2 }));
+      seqs.push(note("{ type: 'scene3d' }  —  a PixiJS 3D scene is a layer too", 150, 958, { at: 1.4, duration: dur - 1.4, size: 50, fill: INK, rotation: -2 }));
       seqs.push(note('a tree of plain objects', 1500, 160, { at: 0.9, duration: dur - 0.9, size: 56, fill: RED, rotation: 3, anchorX: 0.5 }));
       seqs.push(...roughArrow([[1500, 200], [1440, 260], [1400, 320]], { at: 1.25, dur: 0.3, duration: dur - 1.25, seed: 41, name: 'arrow3' }));
       sfx('swoosh', S(8.02), { volume: 0.6, pitch: -4 }); sfx('pop', S(8.3), { volume: 0.5, pitch: -2 }); sfx('chime', S(9.1), { volume: 0.25, pitch: 5, duration: 1.0 });
@@ -714,7 +740,7 @@
       const CAPS = [
         [0, 4, '01 — TYPE', 'animateText · springs · particles · rough.js'],
         [4, 8, '02 — DATA', 'd3-shape → rough.js → path layers · trimEnd · counters'],
-        [8, 12, '03 — 3D', 'three.js as a layer · d3-force, 300 ticks at build time'],
+        [8, 12, '03 — 3D', 'PixiJS 3D as a layer · d3-force, 300 ticks at build time'],
         [12, 16, '04 — DEPTH', '2.5D · cameraPath · one spot light · shadows · depth of field'],
         [16, 20, '05 — WORDS', 'splitText · a cut on every beat'],
         [20, 24, '06 — TEXTURE', 'a shader layer · warp · blend modes'],
@@ -742,7 +768,7 @@
     const SCENES = [
       ['title', 0, titleScene, null],
       ['data', 4, dataScene, { kind: 'luma', map: 'diagonal', softness: 0.3 }],
-      ['three', 8, threeScene, { kind: 'wipe', direction: 'left' }],
+      ['knot-scene', 8, knotScene, { kind: 'wipe', direction: 'left' }],
       ['depth', 12, depthScene, null],
       ['words', 16, wordsScene, null],
       ['texture', 20, textureScene, { kind: 'luma', map: 'radial', softness: 0.22 }],
@@ -824,7 +850,7 @@
     ];
     window.__T = T;
 
-    registerThree();
+    register3D();                            // before movie.init: PixiJS loads the 3D drawing code while its renderer starts
     const movie = new Movie();
     window.movie = movie;
     new Controller(movie, { canvas: document.getElementById('stage') });

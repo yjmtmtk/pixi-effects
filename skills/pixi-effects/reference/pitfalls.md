@@ -1,6 +1,6 @@
 # pixi-effects pitfalls — what actually went wrong
 
-Collected by having fresh AI sessions build pieces from the docs alone: first six (kinetic type, news lower-third, slideshow, 2.5D showcase, three.js title, bar chart), then a portfolio of 16 more (items 32 and up), made by three different models. Each entry is a real stumble. **Status**: `fixed` = the library now handles or warns; `docs` = nothing can catch it, so remember it; `hand-roll` = the DSL has no feature, see the workaround.
+Collected by having fresh AI sessions build pieces from the docs alone: first six (kinetic type, news lower-third, slideshow, 2.5D showcase, a 3D title, bar chart), then a portfolio of 16 more (items 32 and up), made by three different models. Each entry is a real stumble. **Status**: `fixed` = the library now handles or warns; `docs` = nothing can catch it, so remember it; `hand-roll` = the DSL has no feature, see the workaround.
 
 A good habit that catches most of these: after `init`, read `window.__logs` (see `template.html`) — every pixi-effects warning says what to change.
 
@@ -37,14 +37,14 @@ A good habit that catches most of these: after `init`, read `window.__logs` (see
 22. **Colour tweens look muddy in RGB** (red→green passes through brown). Use `colorSpace: 'oklab'` or `'oklch'` on the layer. In `oklch`, a nearly grey end (chroma < ~0.08, e.g. `#9a9ab4`) borrows the other end's hue, so grey → yellow no longer flashes through pink. *(docs / fixed)*
 23. **Generated images**: `canvas.toDataURL()` as an asset `src` works. Make them ≥ canvas size or `kenBurns` zooms look soft. *(docs)*
 
-## 2.5D / three.js
+## 2.5D / 3D
 
 24. **`threeD` is required** for `z`, `rotationX`, `rotationY` (they warn otherwise). Camera props go in `initial`/keyframes, never on the camera object. `+z` is toward the viewer. *(fixed: warns)*
 25. **A layer at/behind the camera plane is hidden** — the default camera sits at `z = (H/2)/tan(fov/2)` ≈ 989 at 720p, fov 40 (≈ 808 at fov 48, lower at higher fov). Keep every layer's `z` below it. *(fixed: warns once)* **It is hidden whole when ANY corner of it passes the camera plane**: a big plane tilted with `rotationX` / `rotationY` (a ground plane, an orbit ring) vanishes as soon as one corner swings behind the camera (the warning then says a corner reaches the plane). Tilt it less, shrink it, or keep the camera clear of its depth range. *(docs / fixed: warns)*
 26. **Under a dolly zoom only the `z = 0` plane stays put**; everything nearer balloons and clips. Headline at `z: 0`, near cards `z ≤ ~70`. Perspective also pulls far layers toward the centre: put far cards at the outer x, near cards inward, and keep ~10 % margin for an orbit sweep. `orbit({ dollyZoom: { from, to } })` does both together. *(docs)*
 27. **Combining orbit and dolly zoom**: `orbit()` specifies `z`, so it stops following `fov` — write your own `fov` and `z = (H/2)/tan(fov/2)` keyframes for the zoom. *(docs)*
 28. **Nearer `threeD` layers sort on top of text** — lay out around them; equal `z` keeps array order. A card (rect + icon + label that move together) is a `composition` with `threeD: true`. A final call-to-action or overlay should be a plain 2D layer (last in the array): it ignores the camera, and fade the 3D scene and headline out before it appears (a dim rect alone leaves them visible). *(docs)*
-29. **three.js**: the layer clips at its own rectangle — size it to the area you want and pull the camera back (`z ≈ 5.4` for a radius-1 torus knot at fov 50). Metal needs an environment map (`PMREMGenerator(ctx.renderer)`); `three/addons` is not in the importmap. Route `three` through the importmap so there is one copy. Masks/transitions/`filterArea` are not supported on `threeD` layers. *(docs)*
+29. **A `scene3d` layer clips at its own rectangle** (`width` / `height`, default the composition's): size it to the area you want and frame the camera with margin for the whole animation (`fitCamera`), or put it in the composition's space with `followCamera`. Metal needs something to reflect: give the view an `environment`. Masks/transitions/`filterArea` are not supported on `threeD` layers. *(docs)*
 
 ## Tooling (agent harness)
 

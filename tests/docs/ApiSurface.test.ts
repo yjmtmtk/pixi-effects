@@ -18,7 +18,7 @@ describe('the public surface', () => {
 
   it('lists the four entries and the DSL tables', async () => {
     const kept = readFileSync(join(root, 'docs/api-surface.txt'), 'utf8');
-    for (const h of ['== pixi-effects ==', '== pixi-effects/controller ==', '== pixi-effects/present ==', '== pixi-effects/three ==', '== DSL (the runtime tables) ==']) expect(kept).toContain(h);
+    for (const h of ['== pixi-effects ==', '== pixi-effects/controller ==', '== pixi-effects/present ==', '== pixi-effects/3d ==', '== DSL (the runtime tables) ==']) expect(kept).toContain(h);
     expect(kept).toMatch(/^class Movie$/m);
     expect(kept).toMatch(/^  playUntil\(/m);
     expect(kept).toMatch(/^filter types: chromaKey custom .*\bblur noise alpha colorMatrix grain warp adjustment\b/m);       // the runtime filter tables, in full

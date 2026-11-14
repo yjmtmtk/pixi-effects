@@ -12,7 +12,7 @@ import { collectVideoSequences } from '../../src/core/Movie';
 import type { CompositionSequenceSpec, CompositionShape } from '../../src/types';
 import { createTimeline } from '../../src/core/timelineEngine';
 
-/** A frame-driven layer like a three.js one: Movie asks it to draw for a time it works out. */
+/** A frame-driven layer like a scene3d one: Movie asks it to draw for a time it works out. */
 class Frame extends Sequence {
   async build(): Promise<void> { this.target = new Container(); this.intrinsicWidth = 10; this.intrinsicHeight = 10; }
   async awaitFrameAt(): Promise<void> { /* the test reads what Movie would pass */ }
@@ -38,7 +38,7 @@ async function build(stage: Record<string, unknown>) {
 /** What Movie passes a frame-driven layer: the time of ITS composition minus the layer's own start. */
 const localOf = (v: any, t: number, clocks: Map<any, () => number>): number => (clocks.get(v)?.() ?? t) - (v.absoluteStart ?? v.at);
 
-describe('a frame-driven layer (three) inside a composition with its own time', () => {
+describe('a frame-driven layer (scene3d) inside a composition with its own time', () => {
   it('is asked for the composition\'s local time: at movie 1.5 s of a speed-2 composition the layer (at 1) is 2 s in; outside it is the movie\'s time', async () => {
     const { tl, out, clocks } = await build({ speed: 2 });
     tl.time(1.5);

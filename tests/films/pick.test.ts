@@ -2,8 +2,8 @@
 import { it, expect } from 'vitest';
 import { runFilms, withFilm } from './support/withFilm';
 
-// movie.pick in a real browser: flat layers by their own shape, a threeD card by its projected quad, a three layer by a ray through its camera; the canvas shown at twice its size.
-type Hit = { name?: string; kind: string; local?: { x: number; y: number }; three?: { object: string; distance: number } } | null;
+// movie.pick in a real browser: flat layers by their own shape, a threeD card by its projected quad, a scene3d layer by a ray through its camera; the canvas shown at twice its size.
+type Hit = { name?: string; kind: string; local?: { x: number; y: number }; scene3d?: { object: string; distance: number; point: number[] } } | null;
 const at = (film: { eval: <T>(e: string) => Promise<T> }, frame: number, x: number, y: number, opts = 'undefined') => film.eval<Hit>(`pickAt(${frame}, ${x}, ${y}, ${opts})`);
 
 runFilms('movie.pick: what is under a point of the canvas', () => {
@@ -26,17 +26,20 @@ runFilms('movie.pick: what is under a point of the canvas', () => {
     });
   }, 120_000);
 
-  it('a threeD card is hit by its projected quad (turned 40°: the box around it has corners that are not the card), a three layer by a ray: the object is named, with its distance', async () => {
+  it('a threeD card is hit by its projected quad (turned 40°: the box around it has corners that are not the card), a scene3d layer by a ray: the object is named, with where the ray met it and its distance', async () => {
     await withFilm('pick', async (film) => {
       const card = await at(film, 0, 150, 150);
       expect(card).toMatchObject({ name: 'card', kind: 'card' });
       // the card is 100 x 60 turned about y: narrower on screen than 100 px, so 48 px to the right of the middle is off it, inside the box of a flat 100 px card
       expect((await at(film, 0, 150 + 48, 150))?.name).toBe('bg');
       const cube = await at(film, 0, 330, 170);
-      expect(cube).toMatchObject({ name: 'world', kind: 'three' });
-      expect(cube!.three!.object).toBe('cube');
-      expect(cube!.three!.distance).toBeGreaterThan(0);
-      expect((await at(film, 0, 330 + 60, 170))?.name, 'beside the cube the three layer has nothing: the layer below is hit').toBe('bg');
+      expect(cube).toMatchObject({ name: 'world', path: 'world', kind: 'scene3d' });
+      expect(cube!.scene3d!.object).toBe('cube');
+      // the default camera (z about 371 from the picture) looks straight at the cube's front face (z = 30): the ray meets it there, about 341 away
+      expect(cube!.scene3d!.point[2]).toBeCloseTo(30, 2);
+      expect(cube!.scene3d!.distance).toBeGreaterThan(300);
+      expect(cube!.scene3d!.distance).toBeLessThan(380);
+      expect((await at(film, 0, 330 + 60, 170))?.name, 'beside the cube the scene3d layer has nothing: the layer below is hit').toBe('bg');
     });
   }, 120_000);
 

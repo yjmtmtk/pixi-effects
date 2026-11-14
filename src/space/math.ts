@@ -2,7 +2,7 @@
  * Pure 2.5D projection math. No Pixi, no DOM.
  *
  * Coordinates are comp pixels: +x right, +y down, +z toward the viewer
- * (CSS `translateZ` / three.js convention). Rotations are radians here; the
+ * (CSS `translateZ` convention). Rotations are radians here; the
  * DSL speaks degrees and Layer3D converts. Rotation signs match CSS
  * `rotateX()` / `rotateY()` / `rotateZ()`.
  */

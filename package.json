@@ -44,16 +44,6 @@
         "types": "./dist/3d.d.cts",
         "default": "./dist/3d.cjs"
       }
-    },
-    "./three": {
-      "import": {
-        "types": "./dist/three.d.ts",
-        "default": "./dist/three.js"
-      },
-      "require": {
-        "types": "./dist/three.d.cts",
-        "default": "./dist/three.cjs"
-      }
     }
   },
   "main": "./dist/index.cjs",
@@ -88,9 +78,7 @@
     "webgl",
     "keyframe",
     "typescript",
-    "pixijs-3d",
-    "three",
-    "threejs"
+    "pixijs-3d"
   ],
   "license": "MIT",
   "author": {
@@ -135,8 +123,7 @@
   "peerDependencies": {
     "@pixi/3d": "^0.1.0",
     "pixi-filters": "^6.1.0",
-    "pixi.js": "^8.0.0",
-    "three": ">=0.150.0"
+    "pixi.js": "^8.0.0"
   },
   "peerDependenciesMeta": {
     "@pixi/3d": {
@@ -144,19 +131,14 @@
     },
     "pixi-filters": {
       "optional": true
-    },
-    "three": {
-      "optional": true
     }
   },
   "devDependencies": {
     "@pixi/3d": "^0.1.0",
-    "@types/three": "^0.185.0",
     "gsap": "3.15.0",
     "happy-dom": "^15.0.0",
     "pixi-filters": "^6.1.5",
     "pixi.js": "^8.23.0",
-    "three": "^0.185.1",
     "tsup": "^8.0.0",
     "typescript": "^5.5.0",
     "vitest": "^2.1.0"

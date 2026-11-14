@@ -2,7 +2,7 @@
 <html lang="en">
 <head><meta charset="UTF-8" /><title>film · movie.pick</title></head>
 <body style="margin:0">
-  <!-- Test film (tests/films/pick.test.ts): what is under a point. A rect 'avatar' cropped by a circle mask (what is outside the circle is not it) in the middle, a rotated bar 'button', a round 'dot', a 'title', a threeD card 'card' (turned 40° about y), a three layer 'world' with a box 'cube' that
+  <!-- Test film (tests/films/pick.test.ts): what is under a point. A rect 'avatar' cropped by a circle mask (what is outside the circle is not it) in the middle, a rotated bar 'button', a round 'dot', a 'title', a threeD card 'card' (turned 40° about y), a scene3d layer 'world' with a box 'cube' that
        follows the composition's camera, which glides sideways. The canvas is shown at twice its size (CSS) for the canvasPoint test. The page gives the test pickAt(frame, x, y, opts) and pointFor(x, y). -->
   <canvas id="stage" width="480" height="270" style="width:960px;height:540px;display:block"></canvas>
   <script>
@@ -11,19 +11,18 @@
   </script>
   <script type="importmap">{ "imports": {
     "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3",
-    "three": "../../node_modules/three/build/three.module.js", "three/webgpu": "../../node_modules/three/build/three.webgpu.js",
-    "three/addons/": "../../node_modules/three/examples/jsm/" } }</script>
+    "@pixi/3d": "../../node_modules/@pixi/3d/dist/pixijs-3d.mjs", "@pixi/3d/extras": "../../node_modules/@pixi/3d/dist/pixijs-3d-extras.mjs" } }</script>
   <script type="module">
     import { Movie } from '../../dist/index.js';
-    import { registerThree } from '../../dist/three.js';
-    import * as THREE from 'three';
-    registerThree();
+    import { register3D } from '../../dist/3d.js';
+    import * as P3D from '@pixi/3d';
+    register3D();
     // a picture with a transparent left half (100 x 60: the right half is opaque green), as a data URI for an image layer
     const half = document.createElement('canvas'); half.width = 100; half.height = 60;
     const g = half.getContext('2d'); g.fillStyle = '#3aa56e'; g.fillRect(50, 0, 50, 60);
     const movie = new Movie();
     window.movie = movie;
-    const strip = (h) => h && JSON.parse(JSON.stringify(h, (k, v) => (k === 'object3d' ? undefined : v)));
+    const strip = (h) => h && JSON.parse(JSON.stringify(h, (k, v) => (k === 'node' ? undefined : v)));
     window.pickAt = async (frame, x, y, opts) => { await movie.snapshot(frame, { as: 'imageData' }); return strip(movie.pick(x, y, opts)); };
     window.pickAllAt = async (frame, x, y, opts) => { await movie.snapshot(frame, { as: 'imageData' }); return movie.pickAll(x, y, opts).map(strip); };
     window.clientPointFor = (x, y) => { const r = document.getElementById('stage').getBoundingClientRect(); return { clientX: r.left + x * r.width / 480, clientY: r.top + y * r.height / 270 }; };
@@ -40,8 +39,8 @@
         { type: 'canvas', name: 'ring', width: 80, height: 80, initial: { x: 400, y: 190 }, draw: (ctx) => { ctx.fillStyle = '#d96a3a'; ctx.beginPath(); ctx.arc(40, 40, 36, 0, Math.PI * 2); ctx.fill(); } },
         { type: 'shape', shape: 'rect', name: 'avatar', width: 120, height: 80, initial: { x: 240, y: 135, anchorX: 0.5, anchorY: 0.5, fillColor: '#c04040' },
           mask: { type: 'shape', shape: 'circle', radius: 30, initial: { x: 240, y: 135, fillColor: '#ffffff' } } },
-        { type: 'three', name: 'world', followCamera: true, antialias: false,
-          setup: (ctx) => { const cube = new THREE.Mesh(new THREE.BoxGeometry(60, 60, 60), new THREE.MeshBasicMaterial({ color: 0x3aa56e })); cube.name = 'cube'; cube.position.set(330, -170, 0); ctx.scene.add(cube); } },
+        { type: 'scene3d', name: 'world', followCamera: true,
+          setup: ({ root }) => { root.addChild(new P3D.Mesh3D({ label: 'cube', geometry: new P3D.CubeGeometry({ width: 60, height: 60, depth: 60 }), material: new P3D.FlatMaterial({ baseColor: 0x3aa56e }), position: { x: 330, y: -170, z: 0 } })); } },
       ] } });
       window.__ready = true;
     } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }

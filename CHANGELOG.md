@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+**Breaking: three.js is gone.** PixiJS 3D (`scene3d`, `pixi-effects/3d`) is the 3D engine of pixi-effects, and the only one. Two engines meant every 3D feature built and tested twice, three.js changes its API every month, and the second engine kept bending the design of the first; from here on the 3D line is designed for PixiJS 3D alone.
+
+- **Removed: the `three` layer and the `pixi-effects/three` entry** (`registerThree`, `three()`, `ThreeSequence`, `threeGltf`, `threeFrameCamera`, `threeLayerTexture`, `hit.three`, `kind: 'three'`), the `renderer` / `shareGpu` options and their shared GPU device, the three-layer budget warning, and `three` from the package's peer and dev dependencies. A page that still writes `type: 'three'` is told what to write instead.
+- **What to write instead.** A 3D scene is a `scene3d` layer: `loadModel` / `fitCamera` for a glTF model, `followCamera` / `followLights` / `followFog` for the composition's space, `layerTexture` for a 2D layer on a mesh, `hit.scene3d.grab(plane)` to drag an object, keyframes into `scene3d.<object>.<path>`. To draw three.js itself, render it in a `canvas` layer: recipe `three-in-canvas` (copy-paste code with a glTF loader posed from the time and a camera framer; it plays, seeks and exports like any layer, it cannot be clicked or follow the composition's camera). The library has nothing for it, on purpose.
+- **`movie.pick` answers a scene3d layer directly** (it went through the three layer's path and was translated); `movie.hover` names the object of a `scene3d` or `scene2d` layer.
+- **The gallery and the films that used three.js now use PixiJS 3D**, and the recipes about three (metal, a glTF model in space, a model in a spotlight, a screen on a mesh, dragging an object) are scene3d recipes.
+- **Fixed: `gallery-swap` left `pixi-effects/3d` on the CDN** (an entry whose name has a digit was not pointed at the local build).
+- **`docs/api-surface.txt` lists `pixi-effects/3d`** (it listed `/three` and not the 3D entry).
+
 ## 0.51.1
 
 Nothing breaks. Toward 1.0: every browser test now also runs with WebGL drawing.

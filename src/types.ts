@@ -2,7 +2,6 @@ import type { MusicSummary } from './audio/music/events';
 import type { CameraState } from './space/math';
 import type { LightState } from './space/lighting';
 import type { FogState } from './space/LitMaterial';
-import type { SharedGpu } from './core/gpuShare';
 import type { ReusePool } from './core/reuse';
 import type { Container, Renderer, Texture } from 'pixi.js';
 /**
@@ -226,7 +225,7 @@ export interface SequenceCommon {
    */
   parent?: string;
   /**
-   * Stay next to an object of a scene, or another layer, every frame: `'planets/Mars'` (an object of the `scene3d`, `three` or `scene2d`
+   * Stay next to an object of a scene, or another layer, every frame: `'planets/Mars'` (an object of the `scene3d` or `scene2d`
    * layer "planets": a name its setup returned in `objects`, or the label of a node in it) or `'title'` (another layer's anchor point; a path
    * through nested compositions, `'group/title'`, or a name found anywhere when it is unique). This layer's own `x` / `y` become an offset
    * from that point, in px. It is hidden while the object is behind the camera or the followed layer is not on screen. Not for `threeD`
@@ -606,7 +605,7 @@ export interface CanvasInfo {
 /**
  * A canvas layer: its picture is drawn by a function of the time into a canvas of its own and shown like an image, in its place in the stack. Everything a
  * layer can do works on it (initial, keyframes, mask, filters, blendMode, threeD, lights). It cannot see or paint on what is below it. A spec that has one holds functions, so it
- * is no longer pure JSON: an escape hatch like `three` and the `custom` filter.
+ * is no longer pure JSON: an escape hatch like `scene3d` and the `custom` filter.
  */
 export interface CanvasSequenceSpec extends SequenceCommon {
   type: 'canvas';
@@ -652,7 +651,7 @@ export interface Scene2DSetupResult {
 
 /**
  * A scene2d layer: PixiJS 2D display objects built by your code (`setup`) and set from the time (`update`), shown in the layer's place in the stack. Everything a layer can do works on
- * it (initial, keyframes, mask, filters, blendMode, threeD). A spec that has one holds functions, so it is no longer pure JSON: an escape hatch like `canvas`, `scene3d` and `three`.
+ * it (initial, keyframes, mask, filters, blendMode, threeD). A spec that has one holds functions, so it is no longer pure JSON: an escape hatch like `canvas`, `scene2d` and `scene3d`.
  */
 export interface Scene2DSequenceSpec extends SequenceCommon {
   type: 'scene2d';
@@ -887,16 +886,14 @@ export interface CompositionShape {
   onLayerBuilt?: () => void | Promise<void>;
   /** The numbers declared as variables (`movie.init({ vars })`), on the root shape only: an expression reads them as identifiers. */
   vars?: Record<string, number>;
-  /** What a layer that lives in the composition's space (a `three` layer with `followCamera` / `followLights`) asks for: the camera and the lights alive at time `t` (the composition's own clock). Set by the composition. */
+  /** What a layer that lives in the composition's space (a `scene3d` layer with `followCamera` / `followLights`) asks for: the camera and the lights alive at time `t` (the composition's own clock). Set by the composition. */
   spaceAt?: (t: number) => SpaceNow;
-  /** The GPU device PixiJS draws with, on the root shape only and only when PixiJS runs on WebGPU: a `three` layer with `renderer: 'webgpu'` draws on it instead of on a canvas of its own. */
-  gpu?: SharedGpu;
-  /** The layers of the tree that a rebuild replaces, that a new layer of the same kind may take the state of instead of building its own (`three` layers: see core/reuse.ts). Root shape only. */
+  /** The layers of the tree that a rebuild replaces, that a new layer of the same kind may take the state of instead of building its own (`scene2d` and `scene3d` layers: see core/reuse.ts). Root shape only. */
   reuse?: ReusePool;
-  /** A layer of this composition by its `name`, among those already built (the ones listed before the asker): a `three` layer shows one of them on a mesh (`threeLayerTexture`). */
+  /** A layer of this composition by its `name`, among those already built (the ones listed before the asker): a `scene3d` layer shows one of them on a mesh (`layerTexture`). */
   findLayer?: (name: string) => import('./sequences/Base').Sequence | null;
   layerNames?: () => string[];
-  /** PixiJS's renderer, on the root shape only: what draws a layer into a texture for `threeLayerTexture`. */
+  /** PixiJS's renderer, on the root shape only: what draws a layer into a texture for a `scene3d` layer's `layerTexture` and a `scene2d` layer. */
   pixiRenderer?: import('pixi.js').Renderer;
 }
 

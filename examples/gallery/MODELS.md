@@ -19,7 +19,7 @@ Built on 2026-10-06 / 07 by parallel subagents, one piece each, from the same br
 | opus | NORTH 24 — Breaking — A broadcast news package: channel stinger, BREAKING flash, wipe-masked lower third, live ticker and running clock | 1280×720 | news-package.html |
 | opus | A Flight Through the Solar System — An educational camera flight from the Sun to Neptune: orbits, facts and a recap | 1280×720 | solar-system.html |
 | opus | Matchday Graphics — Broadcast football package: crests, count-up score, stat bars, momentum graph and a GOAL stinger | 1280×720 | sports-scoreboard.html |
-| opus | ORRI ONE — A glossy three.js product turntable with spec callouts and a brand lock-up, studio white to graphite | 1280×720 | three-product-spin.html |
+| opus | ORRI ONE — A glossy PixiJS 3D product turntable with spec callouts and a brand lock-up, studio white to graphite | 1280×720 | product-spin.html |
 | opus | UI motion kit — Six microinteractions on a 3×2 board — toggle, ripple + check, like burst, loader, download, bell — played as a cascade, then all at once | 1280×720 | ui-microinteractions.html |
 | opus | One Stroke — 一 is one line: a hairline becomes the letter, keeps its single stroke through 13 typefaces, and is left alone at the end | 1280×720 | one-stroke.html |
 | opus | Small Motions — One dot becomes a loader, a progress bar, a toggle, a check and a spinner, and comes home: a seamless 12 s loop | 1080×1080 | loop-morph.html |
