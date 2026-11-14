@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.51.0
 
 Nothing breaks: a 2D layer can stay next to an object of a scene.
 
