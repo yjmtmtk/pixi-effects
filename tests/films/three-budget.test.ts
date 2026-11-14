@@ -2,6 +2,9 @@
 import { it, expect } from 'vitest';
 import { runFilms, withFilm } from './support/withFilm';
 
+// `npm run test:webgl` (PE_BACKEND=webgl) draws every page with WebGL: the tests marked with it are about WebGPU itself (the backend, the shared GPU device, a WebGPU-only limit) and are left out of that run.
+const WEBGL_RUN = process.env.PE_BACKEND === 'webgl';
+
 // A page with more three layers than a browser keeps contexts for: measured 2026-10-15 on Chrome, about 16 WebGL contexts and about 32 WebGPU ones; the rest draw nothing, without an error.
 const logsOf = (query: string) => withFilm('three-budget', async (film) => {
   await film.eval('movie.snapshot(0, { as: "dataURL" })');                                  // a frame: any lost context has been reported by now
@@ -34,7 +37,7 @@ runFilms('A page with too many three layers says so (it does not go blank in sil
     expect(lost[0]).toMatch(/"box\d+"/);
   }, 180_000);
 
-  it("60 webgpu three layers that share Pixi's GPU device: no budget warning, no lost layer, and every one of them draws (the context cap of about 32 does not apply)", async () => {
+  it.skipIf(WEBGL_RUN)("60 webgpu three layers that share Pixi's GPU device: no budget warning, no lost layer, and every one of them draws (the context cap of about 32 does not apply)", async () => {
     await withFilm('three-budget', async (film) => {
       const picture = await film.eval<number[]>('movie.snapshot(0, { as: "imageData" }).then(i => Array.from(i.data))');
       const logs = JSON.parse(await film.eval<string>('JSON.stringify(window.__logs)')) as string[];

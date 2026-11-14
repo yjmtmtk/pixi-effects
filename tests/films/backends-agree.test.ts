@@ -2,6 +2,9 @@
 import { it, expect } from 'vitest';
 import { runFilms, withFilm, type Film } from './support/withFilm';
 
+// `npm run test:webgl` (PE_BACKEND=webgl) draws every page with WebGL: the tests marked with it are about WebGPU itself (the backend, the shared GPU device, a WebGPU-only limit) and are left out of that run.
+const WEBGL_RUN = process.env.PE_BACKEND === 'webgl';
+
 // Backends agree: one small film of what is documented to work on both renderers (a linear-gradient rect, a circle at alpha 0.6, a rotating rect
 // in blendMode 'multiply', a text, a blurred circle), drawn on WebGPU (the default) and on WebGL (navigator.gpu removed before the page loads,
 // as tests/films/three-layer-texture.test.ts does: PixiJS then falls back to WebGL), compared picture against picture at frames 0, 30 and 59.
@@ -135,7 +138,7 @@ function expectProbes(side: Side, alpha: number, label: string) {
 
 runFilms('Backends agree: WebGPU and WebGL draw the same film (only edge pixels may differ)', () => {
   for (const [name, query, alpha] of [['the film as written (disc alpha 0.6)', '', 0.6], ['the disc at alpha 0.3 (?alpha=0.3)', 'alpha=0.3', 0.3]] as const) {
-    it(`${name}: each backend draws the documented colours, flat samples agree within ${PIXEL_TOL}/255, the mean difference is under ${MEAN_TOL}/255 per channel`, async () => {
+    it.skipIf(WEBGL_RUN)(`${name}: each backend draws the documented colours, flat samples agree within ${PIXEL_TOL}/255, the mean difference is under ${MEAN_TOL}/255 per channel`, async () => {
       const { gpu, gl, diffs, rows } = await run(query, alpha);
       expect(gpu.backend, 'the default run is on WebGPU').toBe('webgpu');
       expect(gl.backend, 'the run with navigator.gpu removed is on WebGL').toBe('webgl');
@@ -161,7 +164,7 @@ runFilms('Backends agree: WebGPU and WebGL draw the same film (only edge pixels 
     }, 240_000);
   }
 
-  it('a film that IS different on WebGL (?drift=12: the tile 12 px further right there) is caught, and the difference is named as the tile', async () => {
+  it.skipIf(WEBGL_RUN)('a film that IS different on WebGL (?drift=12: the tile 12 px further right there) is caught, and the difference is named as the tile', async () => {
     const { gpu, gl, diffs } = await run('drift=12', 0.6);
     expect(gl.backend).toBe('webgl');
     // the documented answer for a tile moved by 12 px on one backend only: the left 12 px of the tile (a strip 12 x ~90 px: ~270 samples at

@@ -2,6 +2,9 @@
 import { it, expect } from 'vitest';
 import { runFilms, withFilm } from './support/withFilm';
 
+// `npm run test:webgl` (PE_BACKEND=webgl) draws every page with WebGL: the tests marked with it are about WebGPU itself (the backend, the shared GPU device, a WebGPU-only limit) and are left out of that run.
+const WEBGL_RUN = process.env.PE_BACKEND === 'webgl';
+
 // The scene3d layer (PixiJS 3D drawn inside PixiJS's renderer): it draws, it is a function of the time, its keyframes reach the scene's objects, it exports,
 // and its mistakes (a typo, a key only three has, a setup that fails, PixiJS 3D loaded too late) are said in a sentence. Each on WebGL and on WebGPU.
 const BACKGROUND = [16, 32, 64, 255];                                    // #102040
@@ -21,7 +24,7 @@ const cubeX = (px: number[]): number => {
 };
 
 runFilms('scene3d: a PixiJS 3D scene as a layer', () => {
-  it('draws on both backends: the cube over the background, the 2D band under it, the corner left alone, and no warning', async () => {
+  it.skipIf(WEBGL_RUN)('draws on both backends: the cube over the background, the 2D band under it, the corner left alone, and no warning', async () => {
     for (const [name, beforeLoad] of BACKENDS) {
       await on(beforeLoad, async (film) => {
         expect(await film.eval('window.__error ?? null'), name).toBeNull();

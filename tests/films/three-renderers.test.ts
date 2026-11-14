@@ -2,6 +2,9 @@
 import { it, expect } from 'vitest';
 import { runFilms, withFilm } from './support/withFilm';
 
+// `npm run test:webgl` (PE_BACKEND=webgl) draws every page with WebGL: the tests marked with it are about WebGPU itself (the backend, the shared GPU device, a WebGPU-only limit) and are left out of that run.
+const WEBGL_RUN = process.env.PE_BACKEND === 'webgl';
+
 // The three layer drawn by three's WebGLRenderer and by its WebGPURenderer (`renderer: 'webgpu'`): the same scene, over a 2D shape, in the same movie.
 const FRAMES = [0, 30, 75];
 const BACKGROUND = [16, 32, 64, 255];                                    // #102040
@@ -24,7 +27,7 @@ runFilms('Three layer: the WebGL and the WebGPU renderer draw the same scene', (
     }
   }, 180_000);
 
-  it("really use the renderer the layer asks for (an ignored option would make the next test pass for nothing)", async () => {
+  it.skipIf(WEBGL_RUN)("really use the renderer the layer asks for (an ignored option would make the next test pass for nothing)", async () => {
     const info = async (which: string) => withFilm('three-renderers', (film) => film.eval<{ cls: string; gpuBackend: boolean }>('window.threeInfo'), { query: `renderer=${which}` });
     expect((await info('webgl')).cls).toBe('WebGLRenderer');
     const gpu = await info('webgpu');
@@ -85,7 +88,7 @@ runFilms('Three layer: where WebGL and WebGPU differ on purpose (the output pipe
     expect(d.big).toBeLessThan(50);
   }, 300_000);
 
-  it('DIFFER: with antialias and tone mapping the edges are brighter on WebGPU (measured 222 channels off by more than 32, against 0 without antialias)', async () => {
+  it.skipIf(WEBGL_RUN)('DIFFER: with antialias and tone mapping the edges are brighter on WebGPU (measured 222 channels off by more than 32, against 0 without antialias)', async () => {
     const aa = await diffOf('aa=1&fog=0&tone=1');
     const noAa = await diffOf('aa=0&fog=0&tone=1');
     expect(aa.big, 'with antialias').toBeGreaterThan(100);
@@ -147,7 +150,7 @@ runFilms("Three layer: the page default, and a browser with no WebGPU", () => {
     return layers.find((l) => l.name === 'scene3d')!;
   }, { query });
 
-  it("a webgpu layer shares Pixi's GPU device, a webgl layer and `shareGpu: false` do not (inspect says which)", async () => {
+  it.skipIf(WEBGL_RUN)("a webgpu layer shares Pixi's GPU device, a webgl layer and `shareGpu: false` do not (inspect says which)", async () => {
     expect((await sharedOf('renderer=webgpu')).sharedGpu).toBe(true);
     expect((await sharedOf('renderer=webgpu&share=0')).sharedGpu).toBe(false);
     expect((await sharedOf('renderer=webgl')).sharedGpu).toBeFalsy();
@@ -177,7 +180,7 @@ runFilms("Three layer: the page default, and a browser with no WebGPU", () => {
     }, { query: 'renderer=webgpu' });
   }, 120_000);
 
-  it("if the shared route cannot work (PixiJS keeps its GPU textures elsewhere) the layer says so once and is made again on a canvas of its own: the same picture, not a blank layer", async () => {
+  it.skipIf(WEBGL_RUN)("if the shared route cannot work (PixiJS keeps its GPU textures elsewhere) the layer says so once and is made again on a canvas of its own: the same picture, not a blank layer", async () => {
     const broken = await withFilm('three-renderers', async (film) => ({
       logs: JSON.parse(await film.eval<string>('JSON.stringify(window.__logs)')) as string[],
       layer: (await film.eval<Array<{ name: string; sharedGpu?: boolean; backend?: string }>>('movie.inspect(30).then(r => r.layers)')).find((l) => l.name === 'scene3d')!,

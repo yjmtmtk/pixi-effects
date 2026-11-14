@@ -20,6 +20,7 @@
 
  *          --do "click Lime; hover 640,360; drag card > 770,240; wait 1; key Space" (real mouse and key events on the page, one step after the other, after everything else: what was under the pointer, which
  *          variables changed, whether the page warned, one picture per step in steps/; a point is x,y in canvas pixels, a layer name (the middle of its box) or layer/object, an object of a scene3d, three or scene2d layer (where movie.project says it is); repeatable) ·
+ *          --webgl (draw with WebGL, as a browser without WebGPU does: PixiJS prefers WebGPU where it exists; the page line says which one drew; PE_BACKEND=webgl does the same) ·
  *          --onion A:B (one picture of the movement between A and B seconds, frames overlaid: onion.png) ·
  *          --seam (a movie made to loop: the last frame to the first is compared with the steps between ordinary neighbouring frames; a jump is a problem) ·
  *          --strict (text overlaps and stops where the picture is still changing fail the check; by default they are only listed for review) · --out DIR · --frames N (contact sheet tiles, default 12) · --formats mp4,webm (default mp4) · --no-export ·
@@ -85,7 +86,7 @@ export function findChrome(env = process.env, exists = fs.existsSync, platform =
   return candidates.find(c => c && exists(c)) ?? null;
 }
 
-export const USAGE = 'usage: node ai/tools/check.mjs <page.html> [--out DIR] [--frames N] [--formats mp4,webm] [--no-export] [--draft] [--at 3.5,title@end] [--crop X,Y,W,H] [--pick X,Y] [--do "click Lime; drag card > 770,240"] [--onion 1:3] [--seam] [--query a=1&b=2] [--var name=value] [--size 1920x1080,1080x1920] [--timeout S] [--root DIR] [--chrome PATH] [--strict] [--help]\n(the header of ai/tools/check.mjs explains each option)';
+export const USAGE = 'usage: node ai/tools/check.mjs <page.html> [--out DIR] [--frames N] [--formats mp4,webm] [--no-export] [--draft] [--at 3.5,title@end] [--crop X,Y,W,H] [--pick X,Y] [--do "click Lime; drag card > 770,240"] [--onion 1:3] [--seam] [--query a=1&b=2] [--var name=value] [--size 1920x1080,1080x1920] [--timeout S] [--root DIR] [--chrome PATH] [--webgl] [--strict] [--help]\n(the header of ai/tools/check.mjs explains each option)';
 
 /** One failed request, as a sentence the person (or the AI) can act on. `f` is { url, status? , error?, type? }. */
 export function describeLoadFailure(f) {
@@ -142,6 +143,7 @@ export function parseArgs(argv) {
     else if (a === '--frames') o.frames = Math.max(1, Math.round(Number(need(i++, a))) || 12);
     else if (a === '--formats') o.formats = need(i++, a).split(',').map(s => s.trim()).filter(Boolean);
     else if (a === '--no-export') o.export = false;
+    else if (a === '--webgl') o.webgl = true;
     else if (a === '--strict') o.strict = true;
     else if (a === '--draft') o.draft = true;
     else if (a === '--query') o.query = need(i++, a).replace(/^\?/, '');
@@ -319,10 +321,15 @@ export async function launchChrome(chrome, userDataDir, extraArgs = []) {
 
 // ───────────────────────────── in-page scripts ─────────────────────────────
 
+/** What `--webgl` (or PE_BACKEND=webgl) runs in the page before anything else: no WebGPU, so PixiJS draws with WebGL, as in a browser without WebGPU. */
+export const FORCE_WEBGL = "Object.defineProperty(Navigator.prototype, 'gpu', { get: () => undefined, configurable: true })";
+/** Is WebGL forced: the option, or PE_BACKEND=webgl (the test suite's switch to run every browser test on WebGL). */
+export const wantsWebgl = (opts) => opts.webgl === true || process.env.PE_BACKEND === 'webgl';
+
 const INFO = `(() => { const m = window.movie; if (!m) return { hasMovie: false, logs: window.__logs || [] };
   const c = document.querySelector('canvas');
   return { hasMovie: true, logs: window.__logs || [], totalFrames: m.totalFrames, frameRate: m.frameRate, duration: m.duration,
-           width: m.width ?? (c && c.width), height: m.height ?? (c && c.height), hasAudio: !!m.audioBuffer, hasReview: typeof m.review === 'function' }; })()`;
+           width: m.width ?? (c && c.width), height: m.height ?? (c && c.height), hasAudio: !!m.audioBuffer, hasReview: typeof m.review === 'function', backend: m.app?.renderer?.name ?? null }; })()`;
 
 const exportScript = (format, draft = false) => `(() => {
   window.__x = { state: 'running' };
@@ -450,6 +457,7 @@ export async function runCheck(opts, log = console.log) {
     await cdp.send('Page.enable');
     await cdp.send('Network.enable');
     const pageUrl = `http://127.0.0.1:${port}/${path.relative(root, pagePath).split(path.sep).join('/')}${opts.query ? `?${opts.query}` : ''}`;
+    if (wantsWebgl(opts)) await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: FORCE_WEBGL });
     const t0 = Date.now();
     await cdp.send('Page.navigate', { url: pageUrl });
 
@@ -499,7 +507,7 @@ export async function runCheck(opts, log = console.log) {
       report.logs = [...new Set([...(info?.logs ?? []), ...consoleLines])];
     }
     report.vars = await cdp.eval('JSON.parse(JSON.stringify((window.movie && window.movie.vars) || {}))').catch(() => ({}));
-    Object.assign(report, { width: info.width, height: info.height, frameRate: info.frameRate, totalFrames: info.totalFrames, duration: info.duration, hasAudio: info.hasAudio });
+    Object.assign(report, { width: info.width, height: info.height, frameRate: info.frameRate, totalFrames: info.totalFrames, duration: info.duration, hasAudio: info.hasAudio, backend: info.backend });
     if (report.logs.length) report.problems.push(`${report.logs.length} console warning(s) / error(s) — each says what to change`);
 
     // the library reviews the movie (layout over the whole timeline, fonts, sound): the same call the Playground and the WebMCP tools make
@@ -923,7 +931,7 @@ function finish(report, outDir, log) {
   fs.writeFileSync(reportFile, JSON.stringify(report, null, 2));
   const L = [];
   L.push(`pixi-effects check — ${report.page}`);
-  if (report.ready) L.push(`  page      ready in ${report.readySeconds} s · ${report.width}×${report.height} · ${report.frameRate} fps · ${report.totalFrames} frames (${report.duration} s)${report.hasAudio ? ' · audio' : ''}`);
+  if (report.ready) L.push(`  page      ready in ${report.readySeconds} s · ${report.width}×${report.height} · ${report.frameRate} fps · ${report.totalFrames} frames (${report.duration} s)${report.hasAudio ? ' · audio' : ''}${report.backend ? ` · ${report.backend}` : ''}`);
   else L.push('  page      NOT READY');
   if (report.loadStages) L.push(`  loading   ${formatLoadStages(report.loadStages)}`);
   if (report.vars && Object.keys(report.vars).length) L.push(`  vars      ${Object.entries(report.vars).map(([k, v]) => `${k}=${typeof v === 'string' && v.length > 40 ? v.slice(0, 37) + '…' : v}`).join(', ')}${report.rebuilt ? ' (after --var / --size: the page was built again)' : ''}`);

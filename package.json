@@ -114,6 +114,7 @@
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:fast": "SKIP_BROWSER_TESTS=1 vitest run",
+    "test:webgl": "PE_BACKEND=webgl vitest run",
     "test:films": "vitest run tests/films",
     "test:site": "vitest run tests/site",
     "release:check": "node scripts/release-check.mjs",

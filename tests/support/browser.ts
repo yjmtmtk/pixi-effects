@@ -39,7 +39,7 @@ afterAll(closeAll);
  * browser stays for the next test). `dir` is only used when `PE_FRESH_BROWSER` is set.
  */
 export async function launchPage(chrome: string, dir: string, extraArgs: string[] = []): Promise<{ proc: { kill(): boolean }; cdp: Cdp }> {
-  if (process.env.PE_FRESH_BROWSER) return check.launchChrome(chrome, dir, extraArgs);
+  if (process.env.PE_FRESH_BROWSER) return withBackend(await check.launchChrome(chrome, dir, extraArgs));
   const key = JSON.stringify(extraArgs);
   let entry = shared.get(key);
   if (!entry) { entry = start(chrome, extraArgs); shared.set(key, entry); entry.catch(() => shared.delete(key)); }
@@ -48,8 +48,14 @@ export async function launchPage(chrome: string, dir: string, extraArgs: string[
   const ws = new WebSocket(`ws://127.0.0.1:${port}/devtools/page/${targetId}`);
   await new Promise<void>((ok, bad) => { ws.onopen = () => ok(); ws.onerror = () => bad(new Error('could not connect to the new tab')); });
   const cdp: Cdp = new check.Cdp(ws);
-  return {
+  return withBackend({
     cdp,
     proc: { kill: () => { browser.send('Target.closeTarget', { targetId }).catch(() => {}); try { ws.close(); } catch { /* closed */ } return true; } },
-  };
+  });
+}
+
+/** PE_BACKEND=webgl (`npm run test:webgl`): every page of the run is drawn with WebGL, as in a browser without WebGPU (PixiJS prefers WebGPU where it exists). */
+async function withBackend<T extends { cdp: Cdp }>(page: T): Promise<T> {
+  if (process.env.PE_BACKEND === 'webgl') await page.cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: check.FORCE_WEBGL });
+  return page;
 }

@@ -2,6 +2,9 @@
 import { it, expect } from 'vitest';
 import { runFilms, withFilm } from './support/withFilm';
 
+// `npm run test:webgl` (PE_BACKEND=webgl) draws every page with WebGL: the tests marked with it are about WebGPU itself (the backend, the shared GPU device, a WebGPU-only limit) and are left out of that run.
+const WEBGL_RUN = process.env.PE_BACKEND === 'webgl';
+
 // The scene2d layer: PixiJS 2D built by code (setup) and set from the time (update), as a layer of the movie. It draws, it is a function of the time (an
 // AnimatedSprite left playing is posed from the layer's time), keyframes reach its objects, it exports, pick names its objects, a rebuild keeps its scene,
 // and its mistakes are said in a sentence. The drawing is checked on WebGL and on WebGPU.
@@ -15,7 +18,7 @@ const on = <T>(fn: Parameters<typeof withFilm<T>>[1], o: { beforeLoad?: string; 
 const near = (a: number[], b: number[], tol: number) => a.every((v, i) => Math.abs(v - b[i]!) <= tol);
 
 runFilms('scene2d: PixiJS 2D built by code, as a layer', () => {
-  it('draws on both backends: the box, the ball where update puts it, the group, the background where nothing is, and no warning', async () => {
+  it.skipIf(WEBGL_RUN)('draws on both backends: the box, the ball where update puts it, the group, the background where nothing is, and no warning', async () => {
     for (const [name, beforeLoad] of BACKENDS) {
       await on(async (film) => {
         expect(await film.eval('window.__error ?? null'), name).toBeNull();

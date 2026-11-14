@@ -2,6 +2,9 @@
 import { it, expect } from 'vitest';
 import { runFilms, withFilm } from './support/withFilm';
 
+// `npm run test:webgl` (PE_BACKEND=webgl) draws every page with WebGL: the tests marked with it are about WebGPU itself (the backend, the shared GPU device, a WebGPU-only limit) and are left out of that run.
+const WEBGL_RUN = process.env.PE_BACKEND === 'webgl';
+
 // threeLayerTexture(ctx, 'screen'): a live 2D composition on a mesh of a three layer. The picture of a plane that fills the frame must be the 2D layer itself, pixel for pixel, on every route:
 // Pixi and the layer on one GPU device (no copy: three's ExternalTexture), the layer on a canvas of its own, and Pixi on WebGL (pixels read back).
 const BG = [29, 58, 110], DOT = [242, 193, 78], BAR = [61, 220, 151], PAGE = [11, 15, 26];
@@ -18,14 +21,14 @@ const parity = (query: string, o: { beforeLoad?: string } = {}) => withFilm('thr
 }, { query, ...(o.beforeLoad ? { beforeLoad: o.beforeLoad } : {}) });
 
 runFilms('threeLayerTexture: a live 2D layer on a mesh of a three layer', () => {
-  it('on the shared GPU device (no copy) the plane equals the 2D layer: the background, the moving dot and the growing bar, colour for colour', async () => {
+  it.skipIf(WEBGL_RUN)('on the shared GPU device (no copy) the plane equals the 2D layer: the background, the moving dot and the growing bar, colour for colour', async () => {
     const r = await parity('mode=flat');
     expect(r.pixi).toBe('webgpu');
     expect(r.bg).toEqual(BG); expect(r.dot).toEqual(DOT); expect(r.bar).toEqual(BAR);
     expect(r.logs).toEqual([]);
   }, 120_000);
 
-  it('with the three layer on a canvas of its own (shareGpu: false) the pixels are read back and the picture is the same', async () => {
+  it.skipIf(WEBGL_RUN)('with the three layer on a canvas of its own (shareGpu: false) the pixels are read back and the picture is the same', async () => {
     const r = await parity('mode=flat&share=0');
     expect(r.pixi).toBe('webgpu');
     expect(r.bg).toEqual(BG); expect(r.dot).toEqual(DOT); expect(r.bar).toEqual(BAR);
@@ -101,7 +104,7 @@ runFilms('threeLayerTexture: a live 2D layer on a mesh of a three layer', () => 
     expect(await say('mode=late')).toMatch(/"screen".*(before|after|not built)/s);
   }, 180_000);
 
-  it('a texture seen small is filtered, not aliased: 1-pixel stripes on a plane a quarter of the picture come out as one even grey on every route (without mipmaps they came out as black and white stripes, spread 127)', async () => {
+  it.skipIf(WEBGL_RUN)('a texture seen small is filtered, not aliased: 1-pixel stripes on a plane a quarter of the picture come out as one even grey on every route (without mipmaps they came out as black and white stripes, spread 127)', async () => {
     // the grey is the average of black and white: PixiJS's GPU mip levels average the stored (sRGB) bytes, so on the shared GPU it is 128; a read-back canvas gets three's mipmaps, made in linear light: 188
     for (const [query, o, grey] of [['mode=stripes', {}, 128], ['mode=stripes&share=0', {}, 188], ['mode=stripes', { beforeLoad: NO_GPU }, 188]] as const) {
       await withFilm('three-layer-texture', async (film) => {
@@ -251,7 +254,7 @@ runFilms('threeLayerTexture: a live 2D layer on a mesh of a three layer', () => 
     expect(Math.abs(w2 - w1) / w1, `edge widths ${w1} and ${w2}`).toBeLessThan(0.2);
   }, 180_000);
 
-  it('a texture wider than the GPU allows is said in a sentence that names the size and the option, not by a flood of GPU errors', async () => {
+  it.skipIf(WEBGL_RUN)('a texture wider than the GPU allows is said in a sentence that names the size and the option, not by a flood of GPU errors', async () => {
     await withFilm('three-layer-texture', async (film) => {
       const err = await film.eval<string | undefined>('window.initError');
       expect(err).toMatch(/texture would be 12000 x 1200/);

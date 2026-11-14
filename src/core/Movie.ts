@@ -1,4 +1,4 @@
-import { usesAdvancedBlend, enableAdvancedBlend } from './blend';
+import { usesAdvancedBlend, enableAdvancedBlend, usesBackdropFilter, useBackBuffer } from './blend';
 import { sharedGpuOf } from './gpuShare';
 import { Application, BindGroup, Container, Culler, Rectangle, extensions, CullerPlugin } from 'pixi.js';
 import { createTimeline, lengthen, type Timeline } from './timelineEngine';
@@ -491,7 +491,8 @@ export class Movie {
         }
       : undefined;
     await ensureFilterLibrary(seededComposition);            // pixi-filters, only when a layer names one of its filters
-    if (usesAdvancedBlend(seededComposition)) await enableAdvancedBlend(this.app!.renderer);   // (on the spec after {name} is replaced: a variable may name the mode)
+    if (usesAdvancedBlend(seededComposition)) await enableAdvancedBlend(this.app!.renderer);
+    if (usesBackdropFilter(seededComposition)) useBackBuffer(this.app!.renderer);                 // backdropBlur reads what is behind the layer: on WebGL from the back buffer   // (on the spec after {name} is replaced: a variable may name the mode)
     const userComposition = seededComposition ? expandTransitions(seededComposition) : undefined;
     const rootSeqSpec = {
       type: 'composition' as const,

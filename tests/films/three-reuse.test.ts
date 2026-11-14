@@ -2,6 +2,9 @@
 import { it, expect } from 'vitest';
 import { runFilms, withFilm } from './support/withFilm';
 
+// `npm run test:webgl` (PE_BACKEND=webgl) draws every page with WebGL: the tests marked with it are about WebGPU itself (the backend, the shared GPU device, a WebGPU-only limit) and are left out of that run.
+const WEBGL_RUN = process.env.PE_BACKEND === 'webgl';
+
 // A three layer whose setup, size and options did not change is not built again by setVars: it keeps its scene, its renderer (and its context) and its texture. Setup, which may load a model, runs once.
 const counts = (film: { eval: <T>(e: string) => Promise<T> }) => film.eval<{ setups: number; disposes: number; scene: string; logs: string[] }>('({ setups: window.__setups, disposes: window.__disposes, scene: window.__scene, logs: window.__logs })');
 
@@ -85,7 +88,7 @@ runFilms('setVars keeps a three layer that did not change', () => {
     });
   }, 240_000);
 
-  it("webgpu: the layer that shares Pixi's GPU device keeps its texture across setVars too (no new render target, the same picture)", async () => {
+  it.skipIf(WEBGL_RUN)("webgpu: the layer that shares Pixi's GPU device keeps its texture across setVars too (no new render target, the same picture)", async () => {
     const fresh = await withFilm('three-reuse', (film) => film.eval<string>('hashOf(15)'), { query: 'renderer=webgpu&label=b' });
     await withFilm('three-reuse', async (film) => {
       expect(await film.eval<boolean>("movie.inspect(0).then(r => r.layers.find(l => l.name === 'world').sharedGpu)")).toBe(true);

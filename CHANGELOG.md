@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Nothing breaks. Toward 1.0: every browser test now also runs with WebGL drawing.
+
+- **Fixed: `backdropBlur` blurred nothing on WebGL.** It reads what is already drawn behind the layer, which on WebGL needs the renderer's back buffer; the movie turned that on only for an advanced `blendMode`, so on WebGL (a browser without WebGPU) the panel showed what was behind it sharp, with a PixiJS warning. A movie with a `backdropBlur` filter now turns it on. Film `backdrop-blur` (both backends).
+- **`check --webgl` / `render --webgl`** draw the page with WebGL, as a browser without WebGPU does (PixiJS prefers WebGPU where it exists); `check`'s page line says which backend drew (`webgpu` or `webgl`); `PE_BACKEND=webgl` does the same.
+- **`npm run test:webgl`** runs every browser test with WebGL drawing (the tests about WebGPU itself, the shared GPU device and WebGPU-only limits are left out of that run). Its first run found the `backdropBlur` bug above; everything else drew the same.
+
 ## 0.51.0
 
 Nothing breaks: a 2D layer can stay next to an object of a scene.

@@ -14,6 +14,7 @@
  * Options: -o, --out FILE (default ./<page name>.<format>; the container follows the extension: mp4 webm mov mkv) ·
  *          --format mp4|webm|mov|mkv|wav|ogg|pdf (wav / ogg: only the movie's sound, no picture; a .pdf is the deck as pages: one picture per page of a movie with `stops`; --all-stops makes a page of every stop) · --quality very-low|low|medium|high|very-high (video and audio bitrate, default high) ·
  *          --range A:B (only seconds A to B; 2: runs to the end, :5 starts at the beginning) · --scene NAME (the span of a top-level layer: a movie's scene) · --scale S (output size, 0 < S <= 1: smaller picture, smaller file) ·
+ *          --webgl (draw with WebGL, as a browser without WebGPU does; PE_BACKEND=webgl does the same) ·
  *          --draft (for looking: half size, low quality, no motion blur; a --quality you give still wins) ·
  *          --motion-blur SAMPLES (2-64: each frame is drawn that many times over the shutter and averaged; overrides the page's own motionBlur) ·
  *          --shutter FRACTION (with --motion-blur: how long the shutter is open, 0-1 of a frame, default 0.5) ·
@@ -25,7 +26,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { findChrome, findRoot, serve, launchChrome, shown, sleep, LOAD_PRESENT } from './check.mjs';
+import { findChrome, findRoot, serve, launchChrome, shown, sleep, LOAD_PRESENT, FORCE_WEBGL, wantsWebgl } from './check.mjs';
 import { parseVar, parseSizes, applyToPage } from './varArgs.mjs';
 
 const FORMATS = ['mp4', 'webm', 'mov', 'mkv', 'wav', 'ogg', 'pdf'];
@@ -51,7 +52,7 @@ export function defaultOutput(page, format) {
   return path.resolve(path.basename(page).replace(/\.[^.]+$/, '') + '.' + format);
 }
 
-const USAGE_LINE = 'usage: node ai/tools/render.mjs <page.html> [-o out.mp4] [--format mp4|webm|mov|mkv|wav|ogg|pdf] [--range A:B | --scene NAME] [--scale S] [--draft] [--quality very-low|low|medium|high|very-high] [--video-codec avc|hevc|vp9|av1|vp8] [--video-bitrate 8M|high] [--audio-codec C] [--motion-blur SAMPLES] [--shutter FRACTION] [--all-stops] [--query a=1] [--var name=value] [--size 1080x1920] [--strict] [--quiet] [--timeout S] [--root DIR] [--chrome PATH] [--help]';
+const USAGE_LINE = 'usage: node ai/tools/render.mjs <page.html> [-o out.mp4] [--format mp4|webm|mov|mkv|wav|ogg|pdf] [--range A:B | --scene NAME] [--scale S] [--draft] [--quality very-low|low|medium|high|very-high] [--video-codec avc|hevc|vp9|av1|vp8] [--video-bitrate 8M|high] [--audio-codec C] [--motion-blur SAMPLES] [--shutter FRACTION] [--all-stops] [--query a=1] [--var name=value] [--size 1080x1920] [--strict] [--quiet] [--timeout S] [--root DIR] [--chrome PATH] [--webgl] [--help]';
 export const USAGE = [
   '%s',
   'options:',
@@ -115,6 +116,7 @@ export function parseRenderArgs(argv) {
     else if (a === '--strict') o.strict = true;
     else if (a === '--fail-on-warn') throw new Error('--fail-on-warn is now --strict (the same word as in check: a warning, or anything it would only list, fails the run)');
     else if (a === '--quiet') o.quiet = true;
+    else if (a === '--webgl') o.webgl = true;
     else if (a === '--timeout') o.timeout = Math.max(10, Number(need(i++, a)) || 900);
     else if (a === '--root') o.root = need(i++, a);
     else if (a === '--chrome') o.chrome = need(i++, a);
@@ -232,6 +234,7 @@ export async function runRender(opts, log = console.log, progress = () => {}) {
     await cdp.send('Runtime.enable');
     await cdp.send('Page.enable');
     const url = `http://127.0.0.1:${port}/${path.relative(root, pagePath).split(path.sep).join('/')}${opts.query ? '?' + opts.query : ''}`;
+    if (wantsWebgl(opts)) await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: FORCE_WEBGL });
     const t0 = Date.now();
     await cdp.send('Page.navigate', { url });
 

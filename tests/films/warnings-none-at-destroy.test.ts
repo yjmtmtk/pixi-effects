@@ -13,6 +13,9 @@
 import { it, expect } from 'vitest';
 import { runFilms, withFilm, type Film } from './support/withFilm';
 
+// `npm run test:webgl` (PE_BACKEND=webgl) draws every page with WebGL: the tests marked with it are about WebGPU itself (the backend, the shared GPU device, a WebGPU-only limit) and are left out of that run.
+const WEBGL_RUN = process.env.PE_BACKEND === 'webgl';
+
 const NO_GPU = 'delete Navigator.prototype.gpu;';
 const play = (ms: number) => `(async () => { movie.play(); await new Promise((r) => setTimeout(r, ${ms})); })()`;
 /** After a teardown, PixiJS's own warning works again: a texture destroyed while a bind group holds it is reported (this probe uses one of the 500). */
@@ -48,7 +51,7 @@ async function threeTimes(film: Film): Promise<void> {
 }
 
 runFilms('Warnings: destroying a movie that has just played is silent', () => {
-  it('destroy() while playing gives no warning (WebGPU)', async () => {
+  it.skipIf(WEBGL_RUN)('destroy() while playing gives no warning (WebGPU)', async () => {
     await withFilm('warnings-none-at-destroy', async (film) => {
       expect(await film.eval<string>('movie.app.renderer.name')).toBe('webgpu');
       await destroyQuietly(film, false);

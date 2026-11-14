@@ -34,6 +34,27 @@ export function usesAdvancedBlend(spec: unknown): boolean {
   return visit(spec);
 }
 
+/** The filters that read what is already drawn behind the layer: on WebGL they need the renderer's back buffer, as an advanced blend does. */
+const BACKDROP_FILTERS = new Set(['backdropBlur']);
+
+/** Does any layer of the movie (or a composition) use a filter that reads the backdrop: `filters: [{ type: 'backdropBlur' }]`. */
+export function usesBackdropFilter(spec: unknown): boolean {
+  const visit = (n: unknown): boolean => {
+    if (!n || typeof n !== 'object') return false;
+    if (Array.isArray(n)) return n.some(visit);
+    const o = n as Record<string, unknown>;
+    const own = Array.isArray(o.filters) && o.filters.some((f) => !!f && typeof f === 'object' && BACKDROP_FILTERS.has(String((f as { type?: unknown }).type)));
+    return own || visit(o.sequences) || visit(o.mask) || visit(o.layer);
+  };
+  return visit(spec);
+}
+
+/** On WebGL: draw into a back buffer, so a filter or a blend can read what is already drawn (WebGPU copies the backdrop by itself and has no such switch). */
+export function useBackBuffer(renderer: unknown): void {
+  const bb = (renderer as { backBuffer?: { useBackBuffer: boolean } }).backBuffer;
+  if (bb) bb.useBackBuffer = true;
+}
+
 /** What to say about a layer's blend mode: `Composition` collects these per build, so the same mistake in 300 particle layers is said once. */
 export type BlendReport = (message: string, spec: { name?: string; type: string }) => void;
 const sayNow: BlendReport = (message, spec) => console.warn(`pixi-effects: ${describeLayer(spec)}: ${message}`);
@@ -110,8 +131,7 @@ export async function enableAdvancedBlend(renderer: unknown): Promise<void> {
     console.warn(`pixi-effects: the blend filters could not be loaded (${why}); layers with an advanced blendMode are drawn normal. Serve the whole dist/ folder (the filters are the blendModes-*.js file next to index.js)`);
     return;
   }
-  const bb = (renderer as { backBuffer?: { useBackBuffer: boolean } }).backBuffer;
-  if (bb) bb.useBackBuffer = true;
+  useBackBuffer(renderer);
 }
 
 /** This many layers with an advanced blend on screen at once is slow: each is a full-frame pass (measured on WebGL: about 1.5–2 ms each at 1080p). */
