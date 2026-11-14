@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.52.0
 
 **Breaking: three.js is gone.** PixiJS 3D (`scene3d`, `pixi-effects/3d`) is the 3D engine of pixi-effects, and the only one. Two engines meant every 3D feature built and tested twice, three.js changes its API every month, and the second engine kept bending the design of the first; from here on the 3D line is designed for PixiJS 3D alone.
 
