@@ -8,13 +8,17 @@
  *                           else, or any doubt, is a full run) leaves out the real-browser tests, about 4 minutes of the 5, and says so.
  *   npm run release:check -- --scope   only say what it would run, and why
  *   npm run release:check -- --full    run everything whatever the change
+ *                           A full run loads the machine and has timed out a different real-browser test each time: the files that failed are run
+ *                           once more, alone (scripts/release-retry.mjs; not when more than 8 failed). The check passes only if they pass there,
+ *                           and it names them, also in the stamp.
  *   prepublishOnly (--gate) `npm publish` calls this. If the stamp matches the tree being published (clean working tree, same
  *                           HEAD tree), the tests are NOT run a second time: only the build, which is quick. Otherwise it runs
  *                           everything, like release:check.
  */
 import { execSync, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { scopeSince } from './release-scope.mjs';
+import { retryPlan } from './release-retry.mjs';
 
 const gate = process.argv.includes('--gate');
 const scope = process.argv.includes('--full') ? { mode: 'full', base: null, reasons: ['--full was given'] } : scopeSince(process.cwd());
@@ -44,8 +48,22 @@ run('npm run build:ai');
 run('npm run typecheck');
 run('npm run build');
 saySope();
-run(testCommand());
+let retried = [];
+if (scope.mode === 'docs-only') run(testCommand());
+else {
+  const reportFile = sh('git rev-parse --git-path release-tests.json');
+  const cmd = `npx vitest run --reporter=default --reporter=json --outputFile.json=${reportFile}`;
+  console.log(`\n$ ${cmd}`);
+  if (existsSync(reportFile)) rmSync(reportFile);
+  if (spawnSync(cmd, { shell: true, stdio: 'inherit' }).status !== 0) {
+    const plan = retryPlan(existsSync(reportFile) ? JSON.parse(readFileSync(reportFile, 'utf8')) : null, process.cwd());
+    if (!plan.files) { console.error(`\nrelease check failed at: ${cmd}\n(not run again: ${plan.reason})`); process.exit(1); }
+    console.log(`\nrelease check: ${plan.files.length} file(s) failed in the full run; running them once more, alone (the full run loads the machine):\n  ${plan.files.join('\n  ')}`);
+    run(`npx vitest run ${plan.files.join(' ')}`);
+    retried = plan.files;
+  }
+}
 const after = sh('git status --porcelain');
 if (after) { console.error(`\nrelease check: the check changed tracked or new files (generated docs?). Commit them and run it again:\n${after}`); process.exit(1); }
-writeFileSync(stampFile, JSON.stringify({ tree, at: new Date().toISOString(), mode: scope.mode, base: scope.base }));
-console.log(`\nrelease check passed (${scope.mode === 'docs-only' ? 'docs-only: the real-browser tests were left out' : 'full'}) for tree ${tree.slice(0, 8)}; \`npm publish\` will not repeat the tests.`);
+writeFileSync(stampFile, JSON.stringify({ tree, at: new Date().toISOString(), mode: scope.mode, base: scope.base, retried }));
+console.log(`\nrelease check passed (${scope.mode === 'docs-only' ? 'docs-only: the real-browser tests were left out' : 'full'}) for tree ${tree.slice(0, 8)}; \`npm publish\` will not repeat the tests.${retried.length ? `\nRun again alone and passed (failed only in the full run): ${retried.join(', ')}` : ''}`);
