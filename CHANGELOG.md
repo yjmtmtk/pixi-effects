@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.51.1
 
 Nothing breaks. Toward 1.0: every browser test now also runs with WebGL drawing.
 
