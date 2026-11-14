@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.50.1
 
 Fixes from a trial of 8 fresh agents (Sonnet, Opus) making videos with `scene2d` / `scene3d` on 0.50.0; nothing breaks.
 
