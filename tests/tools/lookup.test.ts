@@ -76,6 +76,14 @@ describe('help: search the docs for a word', () => {
     expect(inv).toMatch(/invert: true/);                                        // the pitfall that says what replaced it
   });
 
+  it('`help random` and `help rand` answer with the seeded random functions first (a trial agent got the canvas layer)', () => {
+    for (const word of ['random', 'rand']) {
+      const top = lookup.searchDocs(root, word)[0];
+      expect(top?.heading, word).toMatch(/random\(seed\)/);
+      expect(top?.lines.join('\n'), word).toMatch(/rand\(seed\)/);
+    }
+  });
+
   it('formatHelp keeps the whole answer short (at most 170 lines) and ends with the next step', () => {
     const out = lookup.formatHelp(lookup.searchDocs(root, 'text'), 'text');
     expect(out.length).toBeLessThanOrEqual(170);

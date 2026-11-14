@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+Fixes from a trial of 8 fresh agents (Sonnet, Opus) making videos with `scene2d` / `scene3d` on 0.50.0; nothing breaks.
+
+- **Fixed: an `.ogg` sound played nothing, with no warning.** PixiJS's own video loader took `.ogg` as a video, so an audio layer on it was silent and `check` said nothing; `.m4a`, `.flac` and `.opus` had no loader at all and stopped `init` with "Cannot read properties of null". An audio asset may now be `.mp3`, `.wav`, `.ogg`, `.oga`, `.m4a`, `.aac`, `.flac` or `.opus` (a query after the name is fine), and a sound asset that did not load, or a video with no sound track used as one, stops `init` with the layer, the asset, its file and the formats. Test film `audio-formats`.
+- **PixiJS's official skills are named where an agent writes PixiJS code.** `scene2d` and `scene3d` hold plain PixiJS / PixiJS 3D code, and PixiJS publishes official skills for both (`npx skills add pixijs/pixijs-skills`, MIT); SKILL.md, AGENTS.md, the README, the For AI page and the `scene2d` / `scene3d` sections say so, with the copy inside the npm package of the version the template loads (`pixi.js@8.23.0/skills/pixijs`, `@pixi/3d@0.1.0/skills/pixijs-3d`), readable with no install. The `scene3d` section lists the @pixi/3d geometries with their options and the materials (`emissive: { color, strength }`), and says that @pixi/3d ignores an option it does not know (3 of 4 agents grepped the package's types for them; one passed `tubeRadius` to `TorusGeometry` and got a fat ring).
+- **A PixiJS deprecation keeps its message in `check` and the chat's red box.** PixiJS prints it as a collapsed console group titled with the message and only the stack inside, so the collected warning was a bare stack; both templates now put an open group's title before the warnings inside it.
+- **The sound-effect knobs are shown in place.** 4 of 8 agents wrote `pitch` beside `sfx: 'chime'` (the warning caught it); SKILL.md and CHAT.md now show `sfx: { preset: 'chime', pitch: 7 }` with the units.
+- **`three`: `ctx.objects`** in `update`, what setup returned plus `camera`, as the `scene2d` and `scene3d` layers already have.
+- **`random(seed)` and `rand(seed)` have their own section** in the API reference, so `help random` answers with them (it printed the canvas layer).
+
 ## 0.50.0
 
 Nothing breaks: `scene2d`, a layer of PixiJS 2D objects built by your code (core, nothing to import), and two fixes for every engine: a rebuild that keeps a scene starts its keyframes from setup's values, and a routed `tint` keyframe moves by channel.

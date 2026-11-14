@@ -43,6 +43,15 @@ describe('ThreeSequence.awaitFrameAt', () => {
     expect(update).toHaveBeenNthCalledWith(2, 4, expect.anything());
   });
 
+  it('update sees what setup named in ctx.objects, plus the camera, as a scene2d or scene3d layer does', async () => {
+    const knot = { isKnot: true };
+    let seen: Record<string, unknown> | undefined;
+    const seq = await build({ setup: () => ({ objects: { knot } as never }), update: (_t, ctx) => { seen = (ctx as any).objects; } });
+    await seq.awaitFrameAt(1);
+    expect(seen?.knot).toBe(knot);
+    expect(seen?.camera).toBe((seq as any)._camera);
+  });
+
   it('renders with the adopted camera', async () => {
     const custom = { isMockCamera: true, projection: 1 };
     const seq = await build({ setup: () => ({ camera: custom as never }) });

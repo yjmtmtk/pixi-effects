@@ -161,6 +161,7 @@ export class ThreeSequence extends Sequence {
       this._ctx = ctx;
       this._objects = { ...(result?.objects ?? {}) };
       if (!('camera' in this._objects)) this._objects.camera = this._camera;
+      ctx.objects = this._objects;
 
       if (this._gpu) this._checkWebGpuMaterials(scene, spec.name);
       // Frame 0 so the texture is never blank before the first tick.

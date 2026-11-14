@@ -579,7 +579,7 @@ It is a layer like any other: `name`, `at`, `duration`, `initial` (`anchorX` / `
 | `width`, `height` | The layer's box in px or an expression; default the composition's size. Nothing is clipped to it (give a `mask` to clip); `anchorX` / `anchorY` name a point of it and `check` draws it for the determinism test (the layout check measures what is drawn). |
 | `reuse` | Default `true`: a rebuild (`setVars`, `resize`) keeps the scene of a named layer whose `setup` function and size did not change, so `setup` runs once. `false`: setup runs at every rebuild. |
 
-`ctx` is `{ root, renderer, width, height, objects, texture(name) }`: `root` is a PixiJS `Container` of the layer's own, `texture('photo')` is the texture of the movie asset `photo` (`init({ assets })`; an unknown name says which there are). Keyframe paths are raw PixiJS values: `scene2d.dot.rotation` is in radians (`angle` is degrees), `scene2d.dot.scale.x`, `scene2d.dot.tint`.
+`ctx` is `{ root, renderer, width, height, objects, texture(name) }`: `root` is a PixiJS `Container` of the layer's own, `texture('photo')` is the texture of the movie asset `photo` (`init({ assets })`; an unknown name says which there are). Keyframe paths are raw PixiJS values: `scene2d.dot.rotation` is in radians (`angle` is degrees), `scene2d.dot.scale.x`, `scene2d.dot.tint`. For the PixiJS API itself, the official PixiJS skill: `npx skills add pixijs/pixijs-skills`, or https://cdn.jsdelivr.net/npm/pixi.js@8.23.0/skills/pixijs/SKILL.md (a router to topic files: Graphics, Text, AnimatedSprite, …); its ticker examples become `update(t)` here.
 
 **The contract: a function of the time.** The same `t` must give the same picture in playback, a seek and an export, so `update` sets every object from `t` (never `x += …`), uses no `Math.random`, `Date.now`, `performance.now` or `new Date` (a warning at build says so; `random(seed)` from `pixi-effects` is repeatable: draw its numbers before the layer or in `setup`), and keeps nothing from the last call. What runs on PixiJS's ticker by itself is turned off after `setup`: an **`AnimatedSprite` left playing is posed by the layer from its time** (frame `floor(t × 60 × animationSpeed)` from its first frame, as fast as in a plain PixiJS page; its loop and per-frame times kept; one that does not loop holds its last frame, and `onComplete` / `onLoop` are not called: for any other timing pose it yourself with `gotoAndStop(frame)` in `update`: a stopped sprite is left alone), anything else with `autoUpdate` is turned off with one warning, a sprite that shows a `<video>` warns (footage is a `video` layer). A `Ticker.shared.add` of your own is not seen: don't. `check` draws each scene2d layer at four moments in two orders and names one whose same frame differs.
 
@@ -812,6 +812,8 @@ scene3d({
 
 `ctx` is `{ view, root, camera, renderer, width, height, objects, space? }`: the `View3D`, its `root` (add meshes, models and lights here), its `camera` (`fov` in degrees, `mode: 'perspective' | 'orthographic'`; place it with `position.set` and `lookAt`), PixiJS's renderer, the layer size, and the `objects` setup returned (plus `camera` and `view`). Keyframes reach any of them as **`scene3d.<object>.<path>`** (`'scene3d.cube.rotation.y'`, `'scene3d.view.exposure'`); a path to an object setup did not name warns once with the known names.
 
+**The @pixi/3d API itself.** Geometries: `CubeGeometry`, `SphereGeometry({ radius, widthSegments, heightSegments })`, `PlaneGeometry`, `CylinderGeometry({ radiusTop, radiusBottom, height })`, `ConeGeometry`, `CapsuleGeometry({ radius, height })`, `TorusGeometry({ radius, tube })`, `TorusKnotGeometry`, `IcosahedronGeometry`; materials: `Material3D({ baseColor, roughness, metallic, emissive: { color, strength }, alphaMode })` (PBR), `PhongMaterial`, `FlatMaterial` (unlit), `ToonMaterial`. An option @pixi/3d does not know is ignored with no warning, so read the official PixiJS 3D skill before guessing: `npx skills add pixijs/pixijs-skills`, or the copy in the npm package the template loads, https://cdn.jsdelivr.net/npm/@pixi/3d@0.1.0/skills/pixijs-3d/SKILL.md (topic files under `references/`: `geometry.md`, `materials.md`, `scene-and-lighting.md`, `cameras.md`, `models-and-animation.md`). Its ticker-driven examples become `update(t)` here.
+
 **Time.** A frame is a function of the time, in playback, a seek and an export:
 - `register3D()` turns off the self-updating of models and animation players (`autoUpdate`); anything else under the root that still updates itself on PixiJS's ticker (a particle system, an `autoUpdate: true` you passed) is turned off after `setup`, with one warning.
 - **A model's clip:** pose it in `update`: `model.player.getState('Run').gotoAndStop(t % clip.duration)`. A clip left playing (a `Model3D` made with `autoPlay`) and posed by nobody is played on the layer's time by the layer (its speed and loop kept).
@@ -897,7 +899,7 @@ three({
 | `update?`    | `(t: number, ctx: ThreeContext) => void`                    | optional per-frame hook; `t` is sequence-local time in seconds.                          |
 | `dispose?`   | `(ctx: ThreeContext) => void`                                | cleanup for user-created GPU resources (geometries, materials, textures). Called from `destroy()`. |
 
-`ThreeContext` is `{ scene, camera, renderer, width, height, space? }` — the three.js `Scene`, `Camera`, `WebGLRenderer`, the resolved layer size in composition px, and (with `followCamera` / `followLights`) `space`: the composition's camera and the lights alive at this moment, as plain numbers.
+`ThreeContext` is `{ scene, camera, renderer, width, height, objects, space? }` — the three.js `Scene`, `Camera`, `WebGLRenderer`, the resolved layer size in composition px, in `update` the `objects` setup returned (plus `camera`), and (with `followCamera` / `followLights`) `space`: the composition's camera and the lights alive at this moment, as plain numbers.
 
 ### `renderer: 'webgpu'`
 
@@ -1187,7 +1189,7 @@ await movie.init({
 });
 ```
 
-Supported formats are whatever PixiJS Assets and the browser's audio/video decoders accept (typically PNG/JPG/WebP for images; MP3/AAC/Opus for audio; MP4/WebM for video).
+Formats: images are what PixiJS Assets loads (PNG, JPG, WebP, …); sound is a file named `.mp3`, `.wav`, `.ogg`, `.m4a`, `.aac`, `.flac` or `.opus` (decoded by the browser); video is `.mp4`, `.webm`, `.mov` or `.mkv`. The extension decides: a sound asset under any other name, or a file that does not decode, stops `init` with the asset's name and the formats.
 
 ---
 

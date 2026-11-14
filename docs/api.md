@@ -349,6 +349,16 @@ registerSequenceType('mine', Mine);
 
 The function behind an ease name (`ease('power2.out')(0.5)`, `ease('spring.bouncy')`, `ease('cubic-bezier(.4, 0, .2, 1)')`), for a preset or a check of your own. A name nobody knows warns once and runs as `power1.out`.
 
+### `random(seed): () => number` and `rand(seed): number`
+
+Seeded randomness for plain JS (a `canvas`, `scene2d`, `scene3d` or `three` layer, a loop that builds layers): the same seed gives the same numbers in every load, seek and export, which `Math.random` does not (a free box that calls it is warned). `const r = random(7); r(); r()` is a repeatable stream in [0, 1); `rand(seed)` is one number in [0, 1) for a seed (`rand(i)` per piece, `rand(i + 0.5)` for its second value). Draw the numbers before the layer or in `setup`, then read them in `update`; a piece that respawns takes `rand(i * 1000 + cycle)` so each cycle is new and still repeatable. In expressions (`'W/2 + rand(3) * 200'`) the same `rand(seed)` and `noise(x, seed)` exist.
+
+```ts
+import { random, rand } from 'pixi-effects';
+const r = random(42);
+const stars = Array.from({ length: 400 }, () => ({ x: r() * 1280, y: r() * 720, speed: 40 + r() * 80 }));
+```
+
 ### `movie.destroy(): Promise<void>`
 
 Pauses playback, destroys the underlying PIXI Application, releases audio buffers and AudioContext, and marks the instance unusable.

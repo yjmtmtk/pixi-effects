@@ -4,7 +4,7 @@ import { normalizeKeyframe } from '../core/Timeline';
 import { describeLayer } from '../core/lint';
 import { remapOf, clockTable, type TimeRemap } from '../core/remap';
 import type { AudioSequenceSpec, AudioAssetSpec, AudioSfxSpec, AudioMusicSpec, AudioDescriptor } from '../types';
-import type { AudioAssetData } from '../core/AssetLoader';
+import { AUDIO_FORMATS, type AudioAssetData } from '../core/AssetLoader';
 
 export class AudioSequence extends Sequence {
   declare spec: AudioSequenceSpec;
@@ -21,6 +21,13 @@ export class AudioSequence extends Sequence {
     const spec = this.spec as AudioAssetSpec;
     this._source = `asset "${spec.asset}"`;
     const data = await Assets.get<AudioAssetData>(spec.asset);
+    if (!data?.audioBuffer) {
+      const src = Assets.resolver.resolve(spec.asset)?.src;
+      const file = typeof src === 'string' && src !== spec.asset ? ` (${src})` : '';
+      throw new Error(typeof data === 'object' && data !== null && 'videoTrack' in data
+        ? `pixi-effects: ${describeLayer(spec)}: audio asset "${spec.asset}"${file} is a video with no sound track`
+        : `pixi-effects: ${describeLayer(spec)}: audio asset "${spec.asset}"${file} did not load as sound: use ${AUDIO_FORMATS} (listed in movie.init({ assets }))`);
+    }
     this._audioBuffer = data.audioBuffer;
     this._remap = remapOf(spec as never, 'time', data.duration ?? null);
     // At a constant speed the file lasts its length divided by |speed|; with `time` keyframes it is the keyframes' business.

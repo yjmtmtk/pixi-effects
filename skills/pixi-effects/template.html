@@ -24,9 +24,15 @@
     // Harness: every console warning/error is collected. pixi-effects warnings are INSTRUCTIONS — read them.
     //   agent-browser eval "JSON.stringify({ ready: window.__ready, logs: window.__logs })"
     window.__logs = [];
+    // A console group's title leads the warnings inside it (PixiJS prints a deprecation as a group titled with its message, the stack inside).
+    let group = '';
+    const text = (a) => { if (typeof a[0] === 'string' && a[0].includes('%')) { let i = 1; a = [a[0].replace(/%([csdifoO])/g, (_, f) => f === 'c' ? (i++, '') : String(a[i++])), ...a.slice(i)]; } return a.map(x => (x && x.message) || String(x)).join(' '); };
+    const gc = console.groupCollapsed.bind(console), ge = console.groupEnd.bind(console);
+    console.groupCollapsed = (...a) => { group = text(a); gc(...a); };
+    console.groupEnd = () => { group = ''; ge(); };
     for (const k of ['warn', 'error']) {
       const orig = console[k].bind(console);
-      console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); orig(...a); };
+      console[k] = (...a) => { window.__logs.push(k + ': ' + (group ? group + ' — ' : '') + text(a)); orig(...a); };
     }
     window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
     window.addEventListener('unhandledrejection', e => window.__logs.push('unhandled: ' + (e.reason && e.reason.message || e.reason)));

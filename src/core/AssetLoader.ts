@@ -17,6 +17,10 @@ export interface VideoAssetData {
   sink: VideoSampleSink;
 }
 
+/** The sound files an audio asset may be: what browsers decode with `decodeAudioData` (a query or a hash after the name is allowed). */
+const AUDIO_FILE = /\.(mp3|wav|ogg|oga|m4a|aac|flac|opus)([?#].*)?$/i;
+export const AUDIO_FORMATS = 'mp3, wav, ogg, m4a, flac or opus';
+
 let registered = false;
 
 export function ensureLoadersRegistered(audioContext: AudioContext): void {
@@ -24,20 +28,23 @@ export function ensureLoadersRegistered(audioContext: AudioContext): void {
   registered = true;
 
   extensions.add({
-    extension: { type: ExtensionType.LoadParser, name: 'pixi-effects-audio' },
-    test: (url: string) => /\.(mp3|wav|ogg)$/i.test(url),
+    // Above PixiJS's own video loader, which takes `.ogg` as a video (an `.ogg` sound then played nothing, with no warning).
+    extension: { type: ExtensionType.LoadParser, name: 'pixi-effects-audio', priority: 1 },
+    test: (url: string) => AUDIO_FILE.test(url),
     async load(url: string): Promise<AudioAssetData> {
       const res = await fetch(url);
-      if (!res.ok) throw new Error(`pixi-effects: failed to load ${url}: ${res.statusText}`);
+      if (!res.ok) throw new Error(`pixi-effects: failed to load ${url}: ${res.status} ${res.statusText}`);
       const buffer = await res.arrayBuffer();
-      const audioBuffer = await audioContext.decodeAudioData(buffer);
+      let audioBuffer: AudioBuffer;
+      try { audioBuffer = await audioContext.decodeAudioData(buffer); }
+      catch (err) { throw new Error(`pixi-effects: ${url} could not be decoded as sound (${err instanceof Error ? err.message : String(err)}); use ${AUDIO_FORMATS}`); }
       return { audioBuffer, duration: audioBuffer.duration };
     },
   });
 
   extensions.add({
     extension: { type: ExtensionType.LoadParser, name: 'pixi-effects-video', priority: 1 },
-    test: (url: string) => /\.(mp4|webm|mov|mkv)$/i.test(url),
+    test: (url: string) => /\.(mp4|webm|mov|mkv)([?#].*)?$/i.test(url),
     async load(url: string): Promise<VideoAssetData> {
       const [M, blob] = await Promise.all([loadMediabunny(), fetch(url).then(r => r.blob())]);
       const { Input, BlobSource, ALL_FORMATS, Output, WavOutputFormat, BufferTarget, Conversion, VideoSampleSink } = M;

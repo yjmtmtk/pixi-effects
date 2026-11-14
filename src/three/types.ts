@@ -12,6 +12,8 @@ export interface ThreeContext {
   /** Resolved layer size in composition px. */
   width: number;
   height: number;
+  /** What setup returned in `objects`, plus `camera`: the names keyframes reach as `three.<name>.<path>` (set after setup, so `update` reads them here). */
+  objects?: Record<string, object>;
   /** The composition's camera and the lights alive at this moment, set before every `update` when the layer has `followCamera` or `followLights`; undefined otherwise. */
   space?: SpaceNow;
   /** Internal: what `threeLayerTexture` needs from the layer that owns this context. */

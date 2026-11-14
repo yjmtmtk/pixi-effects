@@ -990,6 +990,7 @@ function three(spec: ThreeSequenceSpec): SequenceSpec
 interface ThreeContext
   camera: Camera
   height: number
+  objects?: Record<string, object>
   renderer: WebGLRenderer | WebGPURenderer
   scene: Scene<Object3DEventMap>
   space?: SpaceNow
