@@ -1619,7 +1619,7 @@ Name a filter (`name: 'halo'`) to animate it with `'filters.halo.<option>'`. `bl
 | `type` | Options (the useful ones) | What it does |
 |---|---|---|
 | `blur` | `strength`, `quality` | Gaussian blur (pixi.js) |
-| `noise` | `noise` (0–1), `seed` | Uniform noise (pixi.js): one frozen pattern (the seed is random unless you give it), the same strength at every tone, it lifts blacks. For film grain use `grain` |
+| `noise` | `noise` (0–1), `seed` | Uniform noise (pixi.js): one frozen pattern (`seed` 0.5 unless you give it: the same grain on every load; animate `seed` for a grain that moves), the same strength at every tone, it lifts blacks. For film grain use `grain` |
 | `grain` | `amount` (0.08: the standard deviation at mid-grey, of full scale), `size` (px, 1.5), `seed` (0), `fps` (24: new grain this many times a second, 0 = still), `color` (0 = luminance only, 1 = per channel), `loop` (seconds after which the pattern starts again: give the movie's `duration` for a clip made to loop, so the grain has no jump at the seam; `loop × fps` must be a whole number of grain frames, e.g. 10 s at 24 fps, or it warns) | Film grain: seeded, new every 1/`fps` s, weighted to the mid-tones (it fades out toward black and white: blacks are not lifted, the mean brightness does not move), an integer hash so every GPU draws the same grain pattern (the 8-bit values agree to within 1/255). The grain is anchored to the filter's own frame: on a layer it moves with the layer, on the root it is fixed to the picture. On a layer or on the root `composition.filters`. A static pattern is `fps: 0`. Keyframe it by name: `'filters.g.amount'`. Grain eats video bitrate (see pitfall 119 in `skills/pixi-effects/reference/pitfalls.md`) |
 | `alpha` | `alpha` | Whole-layer opacity (pixi.js) |
 | `colorMatrix` | `preset`: `'sepia' 'grayscale' 'negative' 'polaroid' 'technicolor' 'vintage' 'kodachrome' 'browni'`, or `matrix` (20 numbers) | Colour grade (pixi.js) |
@@ -1633,7 +1633,7 @@ Name a filter (`name: 'halo'`) to animate it with `'filters.halo.<option>'`. `bl
 | `crt` | `curvature lineWidth lineContrast noise vignetting vignettingAlpha time` | Old monitor |
 | `rgbSplit` | `red green blue` (each `{ x, y }` offset) | Chromatic aberration |
 | `oldFilm` | `sepia noise scratch scratchDensity vignetting seed` | Aged film |
-| `glitch` | `slices offset direction seed average` | Digital glitch |
+| `glitch` | `slices offset direction seed average` | Digital glitch. The slices are cut from `seed` and `slices`: the same on every load and seek (another `seed`, other slices) |
 | `warp` | `kind: 'wave' \| 'haze'`, `strength` (max shift, px, 6), `scale` (wavelength or cell size, px, 80), `speed` (0.5), `angle` (degrees: the way a wave travels, 0), `seed` (`haze`) | Bends the picture: a travelling wave (flags, water) or drifting noise (heat haze). This library's own, time-driven |
 | `bulgePinch` | `center radius strength` (`center`: 0–1 of the layer) | Bulge (+) / pinch (−) |
 | `twist` | `radius angle offset: { x, y }` | Swirl |

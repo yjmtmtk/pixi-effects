@@ -776,6 +776,21 @@ export class Movie {
     return this._captureFrame(clampFrame(frame, this.totalFrames), { scale: opts.scale ?? 1, type: opts.type ?? 'image/png', quality: opts.quality, as: opts.as ?? 'blob', motionBlur: opts.motionBlur });
   }
 
+  /**
+   * Copy the canvas the movie draws on into a 2D context, for a picture of it. Through a VideoFrame where the browser has one, as the export reads
+   * it: WebKit (Safari's engine) returned the picture shown before from drawImage of its WebGPU canvas now and then (a snapshot of frame 30 that was
+   * frame 0, in a run of many pages), while a VideoFrame of the same canvas was always the frame drawn, in every browser.
+   */
+  private _copyCanvas(g: CanvasRenderingContext2D, source: HTMLCanvasElement, x: number, y: number, w: number, h: number): void {
+    if (source === this.app?.canvas && typeof VideoFrame === 'function') {
+      let frame: VideoFrame | null = null;
+      try { frame = new VideoFrame(source, { timestamp: 0 }); g.drawImage(frame, x, y, w, h); return; }
+      catch { /* a browser that cannot make one of this canvas: read it directly */ }
+      finally { frame?.close(); }
+    }
+    g.drawImage(source, x, y, w, h);
+  }
+
   /** Seek to `frame` (quietly, and stay there) and draw the canvas on a new canvas of `scale` times its size. */
   private async _frameCanvas(frame: number, scale: number, motionBlur?: MotionBlurSpec): Promise<HTMLCanvasElement> {
     const mb = this._blurFor(motionBlur, 'a picture');            // undefined: the movie's own setting; false: none
@@ -785,7 +800,7 @@ export class Movie {
     const out = document.createElement('canvas');
     out.width = Math.max(1, Math.round(this.width * scale));
     out.height = Math.max(1, Math.round(this.height * scale));
-    out.getContext('2d')!.drawImage(source, 0, 0, out.width, out.height);
+    this._copyCanvas(out.getContext('2d')!, source, 0, 0, out.width, out.height);
     return out;
   }
 
@@ -840,7 +855,7 @@ export class Movie {
       await this._awaitVideoFrames(t);                         // 3D and shader layers prepare their picture here, as in a seek
       this._updateSpace(t);
       this._renderNow();
-      out.getContext('2d')!.drawImage(stage, 0, 0, w, h);
+      this._copyCanvas(out.getContext('2d')!, stage, 0, 0, w, h);
     } finally {
       this._nominalTime = keep;                                 // and the scene goes back, drawn the same way: the canvas ends as it was
       try {
@@ -882,7 +897,7 @@ export class Movie {
         if (mb && blurred) await this._quietly(() => this._exposeFrame(f, mb, blurred, true));
         else await this._quietly(() => this.gotoFrame(f, true));
         g.globalAlpha = alphas[i]!;
-        g.drawImage(blurred ?? (this.app!.canvas as HTMLCanvasElement), 0, 0, out.width, out.height);
+        this._copyCanvas(g, blurred ?? (this.app!.canvas as HTMLCanvasElement), 0, 0, out.width, out.height);
       }
     } finally {
       g.globalAlpha = 1;
@@ -921,7 +936,7 @@ export class Movie {
         if (mb && blurred) await this._quietly(() => this._exposeFrame(f, mb, blurred, true));
         else await this._quietly(() => this.gotoFrame(f, true));
         const { x, y } = L.positions[i]!;
-        g.drawImage(blurred ?? (this.app!.canvas as HTMLCanvasElement), x, y + LABEL_H, L.cellW, L.cellH);
+        this._copyCanvas(g, blurred ?? (this.app!.canvas as HTMLCanvasElement), x, y + LABEL_H, L.cellW, L.cellH);
         g.fillStyle = '#e8ecf8';
         g.font = '600 15px system-ui, sans-serif';
         g.textBaseline = 'middle';

@@ -1,3 +1,4 @@
+import { random } from '../expr/random';
 import { AlphaFilter, BlurFilter, ColorMatrixFilter, GpuProgram, NoiseFilter } from 'pixi.js';   // by name, not `* as`: a namespace read by a
 import type { Filter } from 'pixi.js';                                                         // string keeps all of pixi.js in an app's bundle
 import type { NamedFilterType } from '../types';
@@ -160,6 +161,31 @@ function fixRadialBlurGpu(f: Filter): Filter {
   return f;
 }
 
+/** `noise` with no `seed`: PixiJS would take Math.random(), another grain on every load; a fixed one is the same picture every time (animate `seed` for a grain that moves). */
+const NOISE_SEED = 0.5;
+
+/**
+ * `glitch`: pixi-filters cuts its slices and their offsets with Math.random(), when it is made and whenever `slices` changes, so a load (or a seek
+ * that changes `slices`) drew other slices. Here the random numbers come from a stream seeded by the filter's `seed` and its number of slices: the
+ * same settings give the same slices, in any order of seeking.
+ */
+function seededGlitch(Ctor: FilterCtor, params: Record<string, unknown>): Filter {
+  const keyOf = (seed: unknown, slices: unknown): number => (Number(seed) || 0) * 7919 + (Number(slices) || 5) * 104729 + 17;
+  const made = withRandom(keyOf(params.seed, params.slices), () => new Ctor(params)) as Filter & { refresh?: () => void; shuffle?: () => void; seed?: number; slices?: number };
+  for (const m of ['refresh', 'shuffle'] as const) {
+    const own = made[m]?.bind(made);
+    if (own) made[m] = () => withRandom(keyOf(made.seed, made.slices) + (m === 'shuffle' ? 1 : 0), own);
+  }
+  return made;
+}
+
+/** Run `fn` with Math.random() drawing from a seeded stream (mulberry32), then put Math.random back. */
+function withRandom<T>(seed: number, fn: () => T): T {
+  const was = Math.random;
+  Math.random = random(seed);
+  try { return fn(); } finally { Math.random = was; }
+}
+
 /** Build the filter a `{ type: 'glow', … }` spec names. */
 export function createNamedFilter(type: string, params: Record<string, unknown>): Filter {
   if (lower(type) === 'bulgepinch') lintBulgeCenter(params);
@@ -167,12 +193,13 @@ export function createNamedFilter(type: string, params: Record<string, unknown>)
   if (lower(type) === 'grain') return new GrainFilter(params) as unknown as Filter;
   if (lower(type) === 'warp') return new WarpFilter(params) as unknown as Filter;
   const core = Object.entries(CORE).find(([k]) => lower(k) === lower(type));
-  if (core) return new (core[1]())(params);
+  if (core) return new (core[1]())(lower(type) === 'noise' && params.seed === undefined ? { ...params, seed: NOISE_SEED } : params);
   if (!isLibraryType(type)) throw unknownType(type);
   const Ctor = library?.get(lower(type));
   if (!Ctor) throw MISSING(`"${type}"`, library ? 'not found in the loaded package' : 'not loaded yet');
   const single = SINGLE_VALUE[Object.keys(SINGLE_VALUE).find(k => lower(k) === lower(type)) ?? ''];
   if (single) return new (Ctor as unknown as new (v?: unknown) => Filter)(params[single]);
+  if (lower(type) === 'glitch') return seededGlitch(Ctor, params);
   const made = new Ctor(lower(type) === 'colorgradient' ? colorGradientParams(params) : params);
   return lower(type) === 'radialblur' ? fixRadialBlurGpu(made) : made;
 }

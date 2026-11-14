@@ -76,7 +76,8 @@ Interactive input is this same mechanism with a different source. Pick, drag, br
 
 ## Hardening before 1.0
 
-- Every browser test on both backends; Safari and Firefox checked by hand (documented, not yet verified).
+- Every browser test on both backends: `npm run test:webgl` (2026-11-14: one real difference, `backdropBlur` on WebGL, fixed; run by hand before 1.0 and after a change to drawing, not in `release:check`).
+- Safari and Firefox: `node scripts/browsers.mjs` opens 29 pages (test films and gallery pieces) in Chrome, WebKit and Firefox through Playwright and compares (2026-11-14, WebKit 26 / Firefox 158: every page ready, no warning, every export written, pictures within a mean of 4.3 / 255 of Chrome's, text the largest; found and fixed: a stale picture from WebKit's WebGPU canvas, `noise` / `glitch` not seeded). Still to do once before 1.0: look at the real Safari.app by eye.
 - The two bugs of the old list are **not reproducible on the 0.28 code**: an inline shape mask under a transition (fixed in 0.25 with the matte work) and a 4000 x 2400 `threeD` layer black on WebGPU (not seen on WebGPU or WebGL, for a layer or a card). Both are pinned by real-browser tests; if either comes back, the test says so.
 - The API freeze of step 3, and a freeze checklist.
 
