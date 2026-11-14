@@ -22,6 +22,7 @@
     import { register3D } from '../../dist/3d.js';
     import * as P3D from '@pixi/3d';
     import { Graphics } from 'pixi.js';
+    import * as mb from 'mediabunny';
     register3D();
     const q = new URLSearchParams(location.search);
     let view = null;
@@ -63,9 +64,30 @@
     if (q.get('bad')) sequences.push(dot('fbad', 'world/Marz', '#ffffff'));
     if (q.get('flat3d')) sequences.push(dot('f3dcard', 'box', '#ffffff', { threeD: true }));
     if (q.get('far')) sequences.push(dot('ffar', 'box', '#ffffff', { initial: { x: 640, y: 360 } }));
+    if (q.get('space')) sequences.push(
+      { type: 'camera', initial: { x: 240, y: 135 }, keyframes: [{ at: 0, to: { x: 340, y: 95 }, duration: 3, ease: 'none' }] },        // the composition's camera pans: the scene below follows it
+      { type: 'shape', shape: 'rect', name: 'ref', threeD: true, width: 4, height: 4, initial: { x: 240, y: 135, z: 0, fillColor: '#333333' } },   // a card at the ball's place: where the composition draws that point
+      { type: 'scene3d', name: 'orbit', followCamera: true,
+        setup: ({ root }) => {
+          const ball = new P3D.Mesh3D({ label: 'ball', geometry: new P3D.SphereGeometry({ radius: 8 }), material: new P3D.Material3D({ baseColor: 0xffffff }) });
+          ball.position.set(240, -135, 0);                                    // composition pixels, y up (followCamera)
+          root.addChild(ball, new P3D.AmbientLight({ intensity: 2 }));
+          return { objects: { ball } };
+        } },
+      dot('fball', 'orbit/ball', '#ff0000'),
+      { type: 'text', name: 'pass', text: 'pass {pass}', style: { fontSize: 10, fill: '#888888' }, initial: { x: 4, y: 4, anchorX: 0, anchorY: 0 } });   // what the variable changes: setVars rebuilds the movie
     if (q.get('card')) sequences.push({ type: 'composition', name: 'cardcomp', threeD: true, width: 100, height: 100, initial: { x: 240, y: 135 }, sequences: [{ type: 'shape', shape: 'rect', name: 'incard', width: 4, height: 4, initial: { x: 50, y: 50 } }] }, dot('fcard', 'cardcomp/incard', '#ffffff'));
     try {
-      await movie.init({ canvas: document.getElementById('stage'), width: 480, height: 270, duration: 3, frameRate: 30, background: '#000000', composition: { sequences } });
+      await movie.init({ canvas: document.getElementById('stage'), width: 480, height: 270, duration: 3, frameRate: 30, background: '#000000', composition: { sequences }, ...(q.get('space') ? { vars: { pass: 0 } } : {}) });
+      // the exported file, decoded in the page: the colour at (x, y) of `frame` (rendered once)
+      let file = null;
+      window.pixelInFile = async (frame, x, y) => {
+        file ??= new Uint8Array(await (await movie.render({ format: 'mp4' })).arrayBuffer());
+        const input = new mb.Input({ source: new mb.BufferSource(file), formats: mb.ALL_FORMATS });
+        const sink = new mb.CanvasSink(await input.getPrimaryVideoTrack(), { width: 480, height: 270, fit: 'fill' });
+        const got = await sink.getCanvas(frame / movie.frameRate + 1e-4);
+        return Array.from(got.canvas.getContext('2d').getImageData(Math.round(x), Math.round(y), 1, 1).data);
+      };
       window.centreOf = async (name) => { const l = (await movie.inspect(movie.currentFrame)).layers.find((x) => x.name === name); return l && l.bounds ? [l.bounds.x + l.bounds.width / 2, l.bounds.y + l.bounds.height / 2] : null; };
       window.shown = async (name) => { const l = (await movie.inspect(movie.currentFrame)).layers.find((x) => x.name === name); return !!l; };
       window.pixelAt = async (frame, x, y) => { await movie.gotoFrame(frame, true); const img = await movie.snapshot(frame, { as: 'imageData' }); const i = (Math.round(y) * img.width + Math.round(x)) * 4; return [img.data[i], img.data[i + 1], img.data[i + 2], img.data[i + 3]]; };

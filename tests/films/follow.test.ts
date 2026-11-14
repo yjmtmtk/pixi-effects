@@ -59,6 +59,41 @@ runFilms('follow: a layer that stays next to an object of a scene', () => {
     });
   }, 120_000);
 
+  it('the exported file shows the followers where the seek does: on the scene2d dot, on the scene3d group, and not before the followed layer starts', async () => {
+    await on(async (film) => {
+      const near = (got: number[], want: number[]) => got.slice(0, 3).every((v, i) => Math.abs(v - want[i]!) <= 60);
+      await film.eval('movie.gotoFrame(45, true)');
+      const mover = await film.eval<P>(`screenOf('mover')`);
+      expect(near(await film.eval<number[]>('pixelInFile(45, 70 + 40 * 1.5, 200)'), [0, 255, 0]), 'f2d in the file').toBe(true);
+      expect(near(await film.eval<number[]>(`pixelInFile(45, ${mover[0]}, ${mover[1]})`), [255, 0, 0]), 'f3d in the file').toBe(true);
+      expect(near(await film.eval<number[]>('pixelInFile(30, 440, 240)'), [0, 0, 0]), 'flate not yet in the file').toBe(true);
+      expect(near(await film.eval<number[]>('pixelInFile(75, 440, 240)'), [255, 136, 0]), 'flate in the file once "late" is on').toBe(true);
+    });
+  }, 240_000);
+
+  it('follows an object of a scene that follows the composition\'s moving camera, and keeps following after setVars rebuilds the movie', async () => {
+    await on(async (film) => {
+      expect(await film.eval('window.__error ?? null')).toBeNull();
+      const check = async (when: string) => {
+        for (const frame of [0, 45, 89]) {
+          await film.eval(`movie.gotoFrame(${frame}, true)`);
+          const ref = await film.eval<P>('centreOf("ref")');                      // the card at the ball's place: drawn by the composition's own camera
+          const ball = await film.eval<P>('centreOf("fball")');
+          const p = await film.eval<{ x: number; y: number }>('movie.project("orbit/ball")');
+          expect(close(ball, ref, 1.5), `${when} frame ${frame}: follower ${ball} vs card ${ref}`).toBe(true);
+          expect(close([p.x, p.y], ref, 1.5), `${when} frame ${frame}: project ${p.x},${p.y} vs card ${ref}`).toBe(true);
+        }
+      };
+      await check('before setVars');
+      const first = await film.eval<P>('(async () => { await movie.gotoFrame(89, true); return centreOf("fball"); })()');
+      expect(first[0]).toBeGreaterThan(150);                                     // the camera panned right and up: the ball moved left and down on screen
+      await film.eval('movie.setVars({ pass: 1 })');
+      expect(await film.eval('movie.vars.pass')).toBe(1);                     // the movie was built again
+      await check('after setVars');
+      expect(await film.eval<string[]>('window.__logs')).toEqual([]);
+    }, 'space=1');
+  }, 240_000);
+
   it('says its mistakes: an unknown object with the known ones, a threeD follower, an offset bigger than the movie, a target inside a threeD card', async () => {
     const logs = (q: string) => on((film) => film.eval<string[]>('window.__logs'), q);
     expect((await logs('bad=1')).join('\n')).toMatch(/fbad.*follow "world\/Marz": the scene3d layer "world" has no object "Marz".*mover/);
