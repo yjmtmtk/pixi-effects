@@ -25,14 +25,18 @@ export type Props = Record<string, PropValue>;
 export type KeyframeProps = Props & { fillGradient?: Partial<GradientSpec> };
 
 /** A single keyframe entry. Either `set`, `to`, `from`, or `from`+`to` is meaningful per kind. */
+/** A moment by name, for a layer's `at`: `'host@in'`, `'title@end + 0.2'`, `'@drop'`. */
+export type Moment = `${string}@${string}`;
+
 export interface Keyframe {
   /**
    * Start time in seconds, measured from the start of the sequence this
    * keyframe belongs to (After Effects style): `0` = the moment the layer
    * appears. Negative values count back from the sequence's end
-   * (`-0.5` = 0.5 s before it ends).
+   * (`-0.5` = 0.5 s before it ends). Or a moment by name, as for a layer's `at` (`'host@out'`): made seconds from the start of the layer
+   * before the movie is built.
    */
-  at?: number;
+  at?: number | Moment;
   /** Seconds, or 'auto' with a spring ease: the time the spring takes to settle (within 0.5 %). */
   duration?: number | 'auto';
   ease?: string;
@@ -232,7 +236,12 @@ export interface SequenceCommon {
    * layers. `movie.project(target)` says where the same target is.
    */
   follow?: string;
-  at?: number;
+  /**
+   * When the layer starts, in seconds of the composition it is in; or a moment by name: `'host@in'` (marker `in` of the composition
+   * `host`), `'title@end + 0.2'` (any layer has `@start`, `@mid`, `@end`), `'@drop'` (a marker of the composition it is in, or of one
+   * around it). A name is looked for nearest first. Resolved to seconds before the movie is built. A keyframe's `at` takes a moment too.
+   */
+  at?: number | Moment;
   duration?: number;
   initial?: Props;
   keyframes?: Keyframe[];
@@ -551,6 +560,11 @@ export interface CompositionSequenceSpec extends SequenceCommon {
    * many seconds. Its sounds play again each time round.
    */
   loop?: boolean | number;
+  /**
+   * Named moments of this composition, in its own seconds (negative: from its end): `{ in: 0.6, out: 2.4 }`. Layers anywhere name them in
+   * their `at`: `'host@in'` from outside (on their own clock, through `speed` and `time`), `'@in'` from inside. `check --at host@in` too.
+   */
+  markers?: Record<string, number>;
   /** The values of the component's params for this place (the rest keep their defaults): `{title}` in its strings, a number as a word in its expressions. */
   params?: Record<string, number | string>;
 }
@@ -901,6 +915,8 @@ export interface CompositionSpec extends SequenceCommon {
    * `{ use: 'lowerThird', params: { title: 'Aiko' }, at, initial }` anywhere in the movie (also inside another component).
    */
   components?: Record<string, ComponentSpec>;
+  /** Named moments of the movie, in seconds: `{ drop: 12.5 }`. Any layer names one as `at: '@drop'` (on its own clock). */
+  markers?: Record<string, number>;
 }
 
 // ─── Internal shape types (used by sequences and core) ────────────────────

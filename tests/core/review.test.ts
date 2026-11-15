@@ -34,6 +34,11 @@ describe('resolveAtList', () => {
     expect(() => resolveAtList('inner@end', { ...ctx, rows })).toThrow(/layer "inner" is inside a time-remapped composition \(stage ×0\.5\).*local seconds.*stage@end/);
     expect(resolveAtList('stage@end', { ...ctx, rows }).map((x: any) => x.frame)).toEqual([89]);          // the composition itself is in the movie's time
   });
+  it('a marker of a composition (host@in) and of the root (@drop), on the movie\'s clock; an unknown one lists the markers there are', () => {
+    const markers = [{ layer: 'host', name: 'in', time: 2.6 }, { layer: null, name: 'drop', time: 5 }];
+    expect(resolveAtList('host@in, @drop', { ...ctx, markers })).toEqual([{ label: 'host-in', frame: 78 }, { label: 'drop', frame: 150 }]);
+    expect(() => resolveAtList('host@inn', { ...ctx, markers })).toThrow(/--at "host@inn": no marker "inn" on "host" \(markers: host@in, @drop; any layer also has @start, @mid, @end\)/);
+  });
   it('labels are readable and unique (they become file names)', () => {
     const l = resolveAtList('3.5,title@end', ctx).map((x: any) => x.label);
     expect(l).toEqual(['3.50s', 'title-end']);

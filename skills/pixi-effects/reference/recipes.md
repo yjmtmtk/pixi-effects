@@ -101,6 +101,43 @@ return {
 
 ---
 
+## Sound on the beat of a part, by name (markers)
+
+Name the moments of a composition with `markers` (its own seconds: `{ land: 0.5 }`) and start other layers there: `at: 'badge@land'` is where the `badge` lands, wherever the badge is placed or moved later; `'badge@end'` / `'@start'` / `'@mid'` work on any layer, `'+ 0.2'` / `'- 0.16'` shift it, and `'@drop'` is a marker of the composition the layer is in (or of one around it: the root's `markers`). No sums by hand, so moving the part keeps its sounds and its followers in step. `check --at badge@land` looks at that moment.
+
+```js
+// @recipe markers-sync
+const components = {
+  badge: {
+    width: 360, height: 360, duration: 3,
+    markers: { land: 0.5, leave: 2.4 },                       // its own seconds: where it lands and where it starts to leave
+    sequences: [
+      { type: 'shape', shape: 'circle', name: 'disc', radius: 150, initial: { x: 180, y: 180, fillColor: '#e63946', scale: 0 },
+        keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.5, ease: 'back.out(2)' }, { at: 2.4, to: { scale: 0 }, duration: 0.4, ease: 'power2.in' }] },
+      { type: 'text', name: 'label', text: 'NEW', style: { fontSize: 72, fontWeight: 'bold', fill: '#ffffff' },
+        initial: { x: 180, y: 180, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0.5, to: { alpha: 1 }, duration: 0.2 }, { at: 2.4, to: { alpha: 0 }, duration: 0.2 }] },
+    ],
+  },
+};
+return {
+  components,
+  duration: 6,
+  markers: { drop: 4.5 },                                     // a moment of the whole movie
+  sequences: [
+    { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1d3557' } },
+    { use: 'badge', name: 'badge', at: 1, initial: { x: 'GW/2 - 180', y: 'GH/2 - 220' } },
+    { type: 'audio', sfx: 'hit', at: 'badge@land' },                       // 1.5 s, and still on the landing if the badge moves to at: 2
+    { type: 'audio', sfx: 'swoosh', at: 'badge@leave - 0.16' },            // a swoosh is loudest 0.16 s in
+    { type: 'text', name: 'caption', text: 'Out now', at: 'badge@end', style: { fontSize: 64, fontWeight: 'bold', fill: '#f1faee' },
+      initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] },
+    { type: 'audio', sfx: 'hit', at: '@drop' },
+  ],
+};
+```
+
+---
+
 ## Pop in with a spring: a card that lands, a badge that bounces
 
 A spring overshoots and settles: `duration: 'auto'` lets the physics set the length, a preset names the feel (`spring.gentle`, `snappy`, `bouncy`, `wobbly`, `slow`). Different presets on one layer's properties read as different materials.

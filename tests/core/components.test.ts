@@ -65,6 +65,12 @@ describe('expandComponents', () => {
     expect((placed.filters as Array<{ type: string }>).map(f => f.type)).toEqual(['blur', 'grain']);
   });
 
+  it('the component\'s markers come with it; a placement may add or move one', () => {
+    const card = { width: 10, height: 10, duration: 3, markers: { in: 0.6, out: 2.4 }, sequences: [{ type: 'shape', shape: 'rect', width: 10, height: 10 }] };
+    const { spec } = expandComponents(movieWith([{ use: 'card', markers: { out: 2, hit: 1 } }], { card }));
+    expect((spec as { sequences: Array<Record<string, unknown>> }).sequences[0]!.markers).toEqual({ in: 0.6, out: 2, hit: 1 });
+  });
+
   it('a number param given a string: a number written as text becomes the number; anything else is said', () => {
     const { spec, warnings } = expandComponents(movieWith([{ use: 'lowerThird', params: { shift: '12' } }]));
     expect(warnings).toEqual([]);

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · markers</title></head>
+<body style="margin:0">
+  <!-- Test film (tests/films/markers.test.ts): layers placed by named moments, 320 x 180 on black, 4 s at 30 fps.
+       'card' (a component, 2 s, markers { in: 0.5, out: 1.5 }) placed as 'host' at 1 s. The root has markers { drop: 2.5 }.
+       'slow' is a composition at 0 s with speed 0.5 and markers { hit: 1 } (its clock reaches 1 after 2 s of the movie).
+       p1 red    x 0..40    at 'host@in'           → 1.5 s, for 0.5 s
+       p2 green  x 50..90   at 'host@out + 0.2'    → 2.7 s, for 0.3 s
+       p3 blue   x 100..140 inside 'scene' (at 1 s), at '@drop' → 1.5 s on the scene's clock = 2.5 s, for 0.5 s
+       p4 yellow x 150..190 at 'slow@hit'          → 2 s, for 0.5 s
+       p5 magenta x 200..240 at 0.5, a keyframe at 'host@out' sets alpha 0 → hidden from 2.5 s (2 s after the layer starts)
+       The page gives px(t, x, y) = [r, g, b] at the frame of t seconds, and at(list) = movie.resolveAt(list). -->
+  <canvas id="stage" width="320" height="180"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const movie = new Movie();
+    window.movie = movie;
+    window.px = async (t, x, y) => {
+      const img = await movie.snapshot(Math.round(t * 30), { as: 'imageData' });
+      const i = (Math.floor(y) * img.width + Math.floor(x)) * 4; return [img.data[i], img.data[i + 1], img.data[i + 2]];
+    };
+    window.at = (list) => movie.resolveAt(list);
+    const probe = (name, colour, x, at, duration) => ({ type: 'shape', shape: 'rect', name, at, duration, width: 40, height: 40, anchorX: 0, anchorY: 0, initial: { x, y: 70, fillColor: colour } });
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 320, height: 180, duration: 4, frameRate: 30, background: '#000000',
+        composition: {
+          markers: { drop: 2.5 },
+          components: {
+            card: { width: 320, height: 40, duration: 2, markers: { in: 0.5, out: 1.5 }, sequences: [
+              { type: 'shape', shape: 'rect', name: 'bar', width: 320, height: 10, anchorX: 0, anchorY: 0, initial: { fillColor: '#808080' } },
+            ] },
+          },
+          sequences: [
+            { use: 'card', name: 'host', at: 1 },
+            { type: 'composition', name: 'slow', at: 0, duration: 4, speed: 0.5, markers: { hit: 1 }, width: 10, height: 10, sequences: [
+              { type: 'shape', shape: 'rect', name: 'dot', width: 2, height: 2, initial: { x: -100, fillColor: '#000000' } },
+            ] },
+            probe('p1', '#ff0000', 0, 'host@in', 0.5),
+            probe('p2', '#00ff00', 50, 'host@out + 0.2', 0.3),
+            { type: 'composition', name: 'scene', at: 1, duration: 3, width: 320, height: 180, sequences: [probe('p3', '#0000ff', 100, '@drop', 0.5)] },
+            probe('p4', '#ffff00', 150, 'slow@hit', 0.5),
+            { ...probe('p5', '#ff00ff', 200, 0.5, 3), keyframes: [{ at: 'host@out', set: { alpha: 0 } }] },
+          ],
+        },
+      });
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

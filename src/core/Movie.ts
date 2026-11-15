@@ -24,6 +24,7 @@ import { pickFrames, sheetLayout } from './frames';
 import { warnUnknownOptions, suggestName } from './options';
 import { normalizeVars, applyVars, numericVars, lintVars, type Vars } from './vars';
 import { expandComponents } from './components';
+import { resolveMoments, type MarkerTime } from './moments';
 import { mixKey, MixCache } from './mixCache';
 import { startWhenRunning, audioIsBlocked } from './startWhenRunning';
 import { normalizePoster } from './poster';
@@ -242,6 +243,8 @@ export class Movie {
   private _raf: number | null = null;
   /** The variables now, and the names that were declared (a `setVars` of any other name is refused). */
   private _vars: Vars = {};
+  /** @internal Every composition's markers on the movie's clock (for `check --at host@in`). */
+  _markers: MarkerTime[] = [];
   private _declared = new Set<string>();
   /** The composition as the author wrote it (before `{name}` is replaced): a rebuild starts from it. */
   private _composition: CompositionSpec | undefined;
@@ -378,7 +381,7 @@ export class Movie {
       this._declared = new Set(Object.keys(this._vars));
       this._composition = options.composition;
       this._resized = false;
-      for (const w of lintComposition(options.composition, this._vars)) console.warn(w);
+      for (const w of lintComposition(options.composition, this._vars, this.duration, this.frameRate)) console.warn(w);
       this._mixCache.set(null, null);
       this.stops = normalizeStops(applyVars(options.composition, this._vars)?.stops, this.duration, this.frameRate);
       this._posterFrame = poster.frame;
@@ -468,7 +471,10 @@ export class Movie {
    * expressions), transitions expanded, every layer built. Used by `init` and by `rebuild`.
    */
   private async _construct(composition: CompositionSpec | undefined, vars: Vars, width: number, height: number, lp?: LoadProgress, sizeWins = this._resized, reuse?: ReusePool): Promise<CompositionSequence> {
-    const spec = applyVars(expandComponents(composition).spec, vars);                 // components placed first: their {params} before the movie's {vars}
+    // components placed first (their {params} before the movie's {vars}), then the moments by name (`at: 'host@in'`) become seconds
+    const timed = resolveMoments(applyVars(expandComponents(composition).spec, vars), { duration: this.duration, frameRate: this.frameRate });
+    const spec = timed.spec;
+    this._markers = timed.markers;
     const rootShape: CompositionShape = {
       width, height, duration: this.duration, frameRate: this.frameRate, vars: numericVars(vars),
       ...(this.app?.renderer ? { renderer: this.app.renderer } : {}),
@@ -615,7 +621,7 @@ export class Movie {
       const width = change.width ?? this.width, height = change.height ?? this.height;
       const sizeChanged = width !== this.width || height !== this.height;
       const composition = change.composition ?? this._composition;
-      if (change.composition !== undefined) for (const w of lintComposition(change.composition, vars)) console.warn(w);
+      if (change.composition !== undefined) for (const w of lintComposition(change.composition, vars, this.duration, this.frameRate)) console.warn(w);
       changed = changed || sizeChanged || change.composition !== undefined || reason === 'rebuild';
       if (!changed) return { reason, ms: 0, audio: 'none', frame: this.currentFrame, playing: this.isPlaying, unchanged: true };
 
@@ -1054,7 +1060,7 @@ export class Movie {
   /** The pictures to look at for moments such as `3.5`, `50%`, `f120`, `title@end` (comma-separated). A mistake says what could not be read. */
   resolveAt(list: string): Array<{ label: string; frame: number }> {
     this._requireReady('resolveAt');
-    return resolveAtList(list, { frameRate: this.frameRate, totalFrames: this.totalFrames, duration: this.duration, rows: this.timelineData().rows });
+    return resolveAtList(list, { frameRate: this.frameRate, totalFrames: this.totalFrames, duration: this.duration, rows: this.timelineData().rows, markers: this._markers });
   }
 
   /**
@@ -1466,7 +1472,8 @@ function countLayers(spec: { sequences?: unknown[] } | undefined): number {
 }
 
 /** What the composition says about its components and its variables (said once, when it is given: not on every rebuild). */
-function lintComposition(composition: CompositionSpec | undefined, vars: Vars): string[] {
+function lintComposition(composition: CompositionSpec | undefined, vars: Vars, duration: number, frameRate: number): string[] {
   const { spec, warnings } = expandComponents(composition, Object.keys(vars));
-  return [...warnings, ...lintVars(spec, vars)];
+  const moments = resolveMoments(applyVars(spec, vars), { duration, frameRate }).warnings;
+  return [...warnings, ...lintVars(spec, vars), ...moments];
 }

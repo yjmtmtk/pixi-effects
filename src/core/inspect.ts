@@ -5,6 +5,7 @@ import type { Keyframe } from '../types';
 import { parseSpring, springDuration } from './spring';
 import { transitionWindowsOf } from './Transitions';
 import { maskSourceOf } from './matte';
+import { layerAt } from './layerAt';
 
 export interface Rect { x: number; y: number; width: number; height: number }
 
@@ -103,7 +104,7 @@ function motionOf(keyframes: Keyframe[] | undefined, local: number, lives: numbe
     if (typeof kf.duration === 'number') length = kf.duration;
     else if (kf.duration === 'auto') { const sp = parseSpring(kf.ease); length = sp ? Math.round(springDuration(sp) * 1000) / 1000 : 0.5; }   // what the timeline does with 'auto'
     if (!(length > 0)) continue;
-    const kat = kf.at ?? 0;
+    const kat = layerAt(kf);
     const start = kat < 0 ? lives + kat : kat;
     const repeats = kf.repeat ?? 0;
     const end = start + length * (repeats + 1) + (kf.repeatDelay ?? 0) * repeats;
@@ -147,7 +148,7 @@ export function inspectScene(
     const now = comp.childTime(time);                                   // the time its children live in (local when it is remapped)
     // a camera with a tween running now carries every threeD layer of the composition with it (a pan is not "cut off"); one at rest, or one that only `set`s values, carries nothing
     const cameraMotion = (comp.spec.sequences ?? []).filter(q => q.type === 'camera').reduce((m: Motion, q) =>
-      either(m, motionOf(q.keyframes, now - comp.childBase - (q.at ?? 0), q.duration ?? comp.duration ?? Infinity, () => true)), NO_MOTION);
+      either(m, motionOf(q.keyframes, now - comp.childBase - layerAt(q), q.duration ?? comp.duration ?? Infinity, () => true)), NO_MOTION);
     for (const w of transitionWindowsOf(comp.spec)) {
       const start = comp.childBase + w.start, end = comp.childBase + w.end;
       if (now >= start - 1e-9 && now <= end + 1e-9) { blending.add(w.from); blending.add(w.to); }

@@ -134,8 +134,8 @@ export function expandComponents<T>(spec: T, varNames: readonly string[] = []): 
     }
     const body = substitute(def.body, values) as Plain;
     const placed: Plain = { ...body, ...rest, type: 'composition', params: values };
-    // the place adds to what the component has: its initial key by key, its keyframes and filters after the component's
-    if (isPlain(body.initial) && isPlain(rest.initial)) placed.initial = { ...body.initial, ...rest.initial };
+    // the place adds to what the component has: its initial and markers key by key, its keyframes and filters after the component's
+    for (const bag of ['initial', 'markers'] as const) if (isPlain(body[bag]) && isPlain(rest[bag])) placed[bag] = { ...body[bag], ...rest[bag] };
     for (const list of ['keyframes', 'filters'] as const) if (Array.isArray(body[list]) && Array.isArray(rest[list])) placed[list] = [...(body[list] as unknown[]), ...(rest[list] as unknown[])];
     placed.sequences = expandList(body.sequences ?? [], [...stack, use]);
     if (isPlain(placed.mask)) placed.mask = expandMask(placed.mask, stack);

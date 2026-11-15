@@ -2,6 +2,7 @@ import type { SequenceSpec } from '../types';
 import { collectPropKeys } from '../space/specKeys';
 import { suggestName } from './options';
 import { layerKeys, kindName, kindsWithKey, pictureKeysIgnored, PROP_KEYS, STYLE_KEYS } from './layerKeys';
+import { layerAt } from './layerAt';
 
 type Warn = (message: string, kind?: 'late-keyframe') => void;
 const defaultWarn: Warn = m => console.warn(m);
@@ -19,7 +20,7 @@ export function describeLayer(spec: { name?: string; type: string }): string {
  */
 export function lintTiming(spec: SequenceSpec, parentDuration: number, warn: Warn = defaultWarn): void {
   const who = describeLayer(spec);
-  const at = spec.at ?? 0;
+  const at = layerAt(spec);
   if (at >= parentDuration) {
     warn(`pixi-effects: ${who} starts at ${at}s, after its composition ends (${parentDuration}s), so it is never visible`);
   }
@@ -29,7 +30,7 @@ export function lintTiming(spec: SequenceSpec, parentDuration: number, warn: War
   const lives = spec.duration ?? Math.max(0, parentDuration - at);          // without a duration a layer lives until its composition ends
   const ms = (x: number) => Math.round(x * 1000) / 1000;
   (spec.keyframes ?? []).forEach((kf, i) => {
-    const kat = kf.at ?? 0;
+    const kat = layerAt(kf);
     if (kat >= lives) {
       warn(
         `pixi-effects: ${who}: keyframes[${i}] starts at ${kat}s, after the layer ends (duration ${ms(lives)}s), so it never plays. ` +

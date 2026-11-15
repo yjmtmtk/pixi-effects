@@ -381,6 +381,29 @@ composition: {
 - A place may also be a mask (`mask: { use: 'blob' }` or `mask: { layer: { use: 'blob' }, invert: true }`). What is built is an ordinary composition per place, so `inspect`, `check`, `pick` and `follow` see every layer by its path (`'guest/name'`).
 - Checked when the movie is built, each with what to write: a `use` with no such component (did you mean), a param the component does not have (did you mean, and its list), a value that is not a number or a string, a param nothing inside reads, a `{name}` in a component that is none of its params nor a movie variable, a component nothing uses, a component that uses itself. Param names follow the variable rules (reserved words are refused). Words other tools use warn with ours: `component:` / `ref:` → `use`, `props:` → `params`.
 
+### Markers: moments by name (`markers`, `at: 'host@in'`)
+
+A layer's `at` may name a **moment** instead of a number of seconds, so a sound or a follower stays on the beat of a part wherever the part is placed (After Effects: composition markers, seen from outside the precomp):
+
+```js
+components: { badge: { width: 360, height: 360, duration: 3, markers: { land: 0.5, leave: 2.4 }, sequences: [ … ] } },
+markers: { drop: 12.5 },                                         // the root's: moments of the whole movie
+sequences: [
+  { use: 'badge', name: 'badge', at: 1 },
+  { type: 'audio', sfx: 'hit', at: 'badge@land' },               // 1.5 s
+  { type: 'audio', sfx: 'swoosh', at: 'badge@leave - 0.16' },    // 3.24 s
+  { type: 'text', text: 'Out now', at: 'badge@end' },            // 4 s: where the badge's life ends
+  { type: 'composition', name: 'scene', at: 10, sequences: [ { type: 'text', text: 'DROP', at: '@drop' } ] },   // 2.5 s on the scene's clock
+]
+```
+
+- **`markers: { name: seconds }`** on a composition (a component's come with every place; a place may add or move one, key by key) or on the root. Seconds of the composition's own clock; negative counts back from its end (`out: -0.5`). A name is a word (letters, digits, `_`); `start`, `mid` and `end` are taken.
+- **`'name@marker'`** — a marker of the layer called `name`; **`'name@start'`, `'name@mid'`, `'name@end'`** — any layer's (a layer with no `duration` lasts to the end of its composition; an audio or video file with no `duration` has no end known before it loads: give it one). **`'@marker'`** — a marker of the composition the layer is in, or of one around it (the root's too); **`'@end'`** — the end of its own composition. **`+ 0.2` / `- 0.16`** shift it by seconds.
+- A name is looked for **nearest first**: beside the layer, then inside its siblings, then around it; `'scene/host@in'` goes down by names. Two layers of one name equally near warn (the first is used): give them different names.
+- The moment is brought onto the clock of the composition the layer is in, through `speed` and `time` (a marker in a slowed composition is reached later). Moments may name moments, in any order; a circle warns.
+- A **keyframe's** `at` takes a moment too (`keyframes: [{ at: 'host@out', to: { alpha: 0 }, duration: 0.3 }]`): it becomes seconds from the start of its layer (a moment before the layer starts warns). Resolved once, after components and variables, before anything is built: `inspect` and the timeline show seconds. `check --at badge@land` (and `movie.resolveAt`, `review({ at })`) look at a marker; `--at @drop` at the root's.
+- Mistakes say what to write: an unknown layer or marker (did you mean, and the markers it has), markers on a layer that is not a composition, a marker past its composition's end, a moment its composition's clock never reaches, a string that is no moment. Words other tools use (`cues`, `cuePoints`, `marks`) warn "did you mean `markers`".
+
 ### `shape`
 
 Parametric primitive backed by PIXI v8 `Graphics`. Six kinds, discriminated by `shape`. All geometry props accept the [expression language](#expressions), so dimensions can follow the canvas:
@@ -1605,7 +1628,7 @@ The image is centred on the canvas; `fit` (default `'cover'`) controls how the t
 | `asset`    | string                | image asset name (registered via `Movie.init({ assets })`)                           |
 | `duration` | number                | seconds of animation (required)                                                      |
 | `name?`    | string                | sequence name so transitions can reference it                                        |
-| `at?`      | number                | start time, parent-relative seconds                                                  |
+| `at?`      | number \| string      | start time, parent-relative seconds; or a moment: `'host@in'`, `'title@end + 0.2'`, `'@drop'` (see [Markers](#markers-moments-by-name-markers-at-hostin)) |
 | `fit?`     | `'cover'` \| `'contain'` | how the texture fills the canvas. Default `'cover'`.                              |
 | `ease?`    | string                | Ease name. Default `'sine.inOut'`.                                            |
 

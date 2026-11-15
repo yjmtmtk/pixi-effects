@@ -22,6 +22,7 @@ import { cameraBasis, homeCamera, projectPoint, NEAR, type CameraBasis, type Cam
 import { timeRemapOf, remapOf, contentLength, bindClock, clockTable, type TimeRemap, type ClockTable } from '../core/remap';
 import { kfDuration } from '../core/spring';
 import type { CompositionSequenceSpec, AudioDescriptor, CompositionShape, SequenceSpec, SpaceNow } from '../types';
+import { layerAt } from '../core/layerAt';
 
 
 
@@ -762,7 +763,7 @@ function loopTime(t: number, L: number): number {
 function contentEnd(layers: readonly SequenceSpec[], span: number): number | null {
   let end = 0;
   for (const l of layers) {
-    const at = l.at ?? 0;
+    const at = layerAt(l);
     if (typeof l.duration === 'number') { end = Math.max(end, at + l.duration); continue; }
     let last = at;
     for (const kf of l.keyframes ?? []) {

@@ -3,6 +3,7 @@ import type { AudioReport } from './inspectAudio';
 import type { FontReport } from './inspectFonts';
 import type { CanvasRow } from './canvasCheck';
 import { namedScenes } from './scenes';
+import type { MarkerTime } from './moments';
 
 /** One kind of issue, with how many frames it was seen in. Issues that differ only by numbers are one kind. */
 export interface IssueGroup { message: string; count: number; firstFrame: number; lastFrame: number; /** `'canvas'`: a canvas layer that does not draw the same picture for the same time (not about the layout; `check` lists it under its own heading). */ kind?: 'canvas' }
@@ -52,11 +53,11 @@ export function sampleFrames({ totalFrames, frameRate, scenes = [], step = 0.25,
   return [...frames].sort((a, b) => a - b);
 }
 
-const AT_HELP = "use seconds (3.5), a percentage (50%), a frame (f120) or a layer's start / mid / end (name@end)";
+const AT_HELP = "use seconds (3.5), a percentage (50%), a frame (f120), a layer's start / mid / end (name@end) or a marker (host@in, @drop)";
 
 /** A list such as `3.5, 50%, f120, title@end` → frames, each with a label for a file name. A mistake says what could not be read. */
-export function resolveAtList(list: string, ctx: { frameRate: number; totalFrames: number; duration: number; rows: Row[] }): Array<{ label: string; frame: number }> {
-  const { frameRate: fps, totalFrames, duration, rows } = ctx;
+export function resolveAtList(list: string, ctx: { frameRate: number; totalFrames: number; duration: number; rows: Row[]; markers?: MarkerTime[] }): Array<{ label: string; frame: number }> {
+  const { frameRate: fps, totalFrames, duration, rows, markers = [] } = ctx;
   const out: Array<{ label: string; frame: number }> = [], used = new Set<string>();
   // layers by their own names: a family the timeline folds into one row (`pop-# ×4`) gives its members back
   const named = rows.filter((r) => !r.local).flatMap((r) => (r.parts && r.partNames ? r.partNames.map((name, i) => ({ name, start: r.parts![i]!.start, end: r.parts![i]!.end })) : [r]));
@@ -69,6 +70,13 @@ export function resolveAtList(list: string, ctx: { frameRate: number; totalFrame
       if (!row) throw new Error(`--at "${raw}": no layer named "${m[1]}" (names: ${named.slice(0, 40).map((r) => r.name).join(', ')}${named.length > 40 ? ', …' : ''})`);
       const t = m[2] === 'start' ? row.start : m[2] === 'mid' ? (row.start + row.end) / 2 : row.end - 1 / fps;
       frame = Math.round(t * fps); label = `${m[1]}-${m[2]}`;
+    } else if ((m = raw.match(/^(.*?)\s*@\s*([A-Za-z_][A-Za-z0-9_]*)$/))) {
+      const layer = m[1] || null, mark = markers.find((k) => k.layer === layer && k.name === m![2]);
+      if (!mark) {
+        const list = markers.map((k) => `${k.layer ?? ''}@${k.name}`).join(', ') || 'none';
+        throw new Error(`--at "${raw}": no marker "${m[2]}" on ${layer ? `"${layer}"` : 'the root composition'} (markers: ${list}; any layer also has @start, @mid, @end)`);
+      }
+      frame = Math.round(mark.time * fps); label = layer ? `${layer}-${m[2]}` : m[2]!;
     } else if ((m = raw.match(/^(\d+(?:\.\d+)?)%$/))) { frame = Math.round(Number(m[1]) / 100 * totalFrames); label = `${m[1]}pct`; }
     else if ((m = raw.match(/^f(\d+)$/i))) { frame = Number(m[1]); label = `f${m[1]}`; }
     else if (/^\d+(\.\d+)?$/.test(raw)) { frame = Math.round(Number(raw) * fps); label = `${Number(raw).toFixed(2)}s`; }
@@ -112,7 +120,7 @@ export function splitIssues(groups: IssueGroup[], strict = false): { problems: I
 /** What `pixi-effects check` and the Playground tell about a movie that is ready. Warnings come from the page (`window.__logs`), the rest from here. */
 export async function reviewMovie(movie: Movie, opts: ReviewOptions = {}): Promise<ReviewReport> {
   const rows = movie.timelineData().rows;
-  const at = opts.at ? resolveAtList(opts.at, { frameRate: movie.frameRate, totalFrames: movie.totalFrames, duration: movie.duration, rows }) : [];
+  const at = opts.at ? resolveAtList(opts.at, { frameRate: movie.frameRate, totalFrames: movie.totalFrames, duration: movie.duration, rows, markers: movie._markers }) : [];
   const frames = sampleFrames({ totalFrames: movie.totalFrames, frameRate: movie.frameRate, scenes: namedScenes(rows) });
   const perFrame: Array<{ frame: number; issues: string[] }> = [];
   for (const frame of frames) {

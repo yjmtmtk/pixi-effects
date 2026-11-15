@@ -6,6 +6,7 @@ import { createFilter, type NamedFilter } from '../filters';
 import type { CompositionShape, SequenceSpec, AudioDescriptor } from '../types';
 import type { SpaceHost } from '../space/Layer3D';
 import type { Timeline } from '../core/timelineEngine';
+import { layerAt } from '../core/layerAt';
 
 
 
@@ -46,7 +47,7 @@ export abstract class Sequence {
     this.spec = spec;
     this.parent = parent;
     this.root = root;
-    this.at = spec.at ?? 0;
+    this.at = layerAt(spec);
     this.duration = spec.duration;
   }
 

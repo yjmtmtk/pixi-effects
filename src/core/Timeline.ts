@@ -41,8 +41,8 @@ export function loopVars(kf: { repeat?: number; yoyo?: boolean; repeatDelay?: nu
   return out;
 }
 
-export function resolveAt(at: number | undefined | null, duration: number): number {
-  if (at === undefined || at === null) return 0;
+export function resolveAt(at: unknown, duration: number): number {
+  if (typeof at !== 'number') return 0;                    // undefined, or a moment by name that was not made seconds (core/moments.ts does it before building)
   return at < 0 ? duration + at : at;
 }
 

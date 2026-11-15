@@ -1,5 +1,6 @@
 import { suggestName } from './options';
 import type { SequenceSpec } from '../types';
+import { layerAt } from './layerAt';
 
 export const MATTE_CHANNELS = ['alpha', 'luma'] as const;
 
@@ -83,9 +84,9 @@ export function usesMatteRoute(spec: { mask?: unknown }): boolean {
 /** More mattes than this in one composition warns (each is a full-composition texture). */
 export const MANY_MATTES = 8;
 
-type Timed = { at?: number; duration?: number };
-const startOf = (s: Timed): number => Math.max(0, s.at ?? 0);
-const endOf = (s: Timed, span: number): number => (s.duration === undefined ? span : (s.at ?? 0) + s.duration);
+type Timed = { at?: unknown; duration?: number };
+const startOf = (s: Timed): number => Math.max(0, layerAt(s));
+const endOf = (s: Timed, span: number): number => (s.duration === undefined ? span : layerAt(s) + s.duration);
 const num = (n: number): string => String(Number(n.toFixed(3)));
 
 /** A layer can be a matte only if it draws something: not a camera, an audio layer, a null layer or a threeD layer. */

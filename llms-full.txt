@@ -24,7 +24,7 @@ You describe a video as a tree of plain objects; the library plays it in a canva
    - `await movie.inspect(frame)` → every layer's canvas bounds and visibility, plus `issues` (text off the canvas, cut off by an edge, empty, overlapping other text, or hidden / struck through by a picture: an opaque shape or image drawn OVER part of it, or a thin line drawn over its body; a shadow, a glow, a ring or a backdrop under it is not reported). Run it at several frames; fix every issue it names.
    - `await movie.snapshot(frame, { as: 'dataURL' })` → one frame, canvas only (no player bar).
    - `movie.inspectAudio()` → **hear with numbers**: for every sound its `start`, `sound.length`, `sound.peakDb`, `sound.loudestAt` (line this up with the picture) and `sound.brightnessHz` (< 500 dark, > 8000 airy), plus `issues` (limited mix, inaudible or cut-off sounds). Check it whenever the movie has audio; `render()` encodes this same mix.
-   - **A moment, a movement, the sound (`pixi-effects check` options):** `--at 3.5,title@end,50%,f120` writes those pictures to `check-out/<name>/frames/*.png` (and `at.png`; with `--out DIR` they land in `DIR/frames/` and `DIR/at.png`, there is no `<name>/` inside DIR); add `--crop X,Y,W,H` (canvas pixels) to get each picture as just that part, enlarged up to 4x, so a 40 px figure, a fine line or a texture can be judged (the contact sheet tiles are too small for that): the last frame of a layer is `name@end`, the middle `name@mid`. `--seam` (for a movie made to loop) compares the last frame with the first against the steps between ordinary neighbouring frames and says `the loop closes` or `JUMP` with the numbers (a jump is a problem, exit 1); `--onion 1:3` writes `onion.png`, eight frames of seconds 1–3 overlaid (the later the stronger): a trail that shows a movement's path and easing (even steps = constant speed, bunched = slow). `report.audio` now has `loudness` (`integratedLufs`, `truePeakDb`, `clippedSamples`, `silences`), `scenes` (per named top-level composition), `cues` (when each sound starts) and `notes` (advice: quiet or loud for web video, little headroom, silent stretches; web video is typically −14 to −16 LUFS); `waveform.png` draws the mix with the scene edges and the cues. A web font that failed to load fails the check; a text layer none of whose fonts is installed is listed for review.
+   - **A moment, a movement, the sound (`pixi-effects check` options):** `--at 3.5,title@end,50%,f120` writes those pictures to `check-out/<name>/frames/*.png` (and `at.png`; with `--out DIR` they land in `DIR/frames/` and `DIR/at.png`, there is no `<name>/` inside DIR); add `--crop X,Y,W,H` (canvas pixels) to get each picture as just that part, enlarged up to 4x, so a 40 px figure, a fine line or a texture can be judged (the contact sheet tiles are too small for that): the last frame of a layer is `name@end`, the middle `name@mid`, a composition's marker `name@marker` (the root's `@marker`). `--seam` (for a movie made to loop) compares the last frame with the first against the steps between ordinary neighbouring frames and says `the loop closes` or `JUMP` with the numbers (a jump is a problem, exit 1); `--onion 1:3` writes `onion.png`, eight frames of seconds 1–3 overlaid (the later the stronger): a trail that shows a movement's path and easing (even steps = constant speed, bunched = slow). `report.audio` now has `loudness` (`integratedLufs`, `truePeakDb`, `clippedSamples`, `silences`), `scenes` (per named top-level composition), `cues` (when each sound starts) and `notes` (advice: quiet or loud for web video, little headroom, silent stretches; web video is typically −14 to −16 LUFS); `waveform.png` draws the mix with the scene edges and the cues. A web font that failed to load fails the check; a text layer none of whose fonts is installed is listed for review.
    - **A deck** (`composition.stops`, `deck()`): `await movie.contactSheet({ frames: movie.stops.map(s => s.frame), as: 'dataURL' })` is one picture of every stop (the check writes it as `stops.png`); what the audience reads while a page waits is that picture, so check every one. `await inspectStops(movie)` (from `pixi-effects/present`) lists the stops where the picture is still changing (a stop landing before its animation ends); the check prints it as a review list: move the stop later or flag a settled one `pdf: true`. `await stopImages(movie, { which: 'pages' })` / `exportPDF(movie)` give the pages themselves.
    From a browser tool the result is a `data:` URL string: `agent-browser eval "movie.contactSheet({ count: 6, as: 'dataURL' })" | python3 scripts/save-image.py /absolute/sheet.png`, then open the PNG. Sheet tiles are small (~480 px): use `snapshot` for detail. `inspect` output is long on busy scenes: pass `{ layers: 'none' }` and read `issues` first. Give layers a `name` so inspect paths are readable. A moving ticker is not flagged as cut off.
 6. **Iterate** on what you saw (clipped text, collisions, wrong timing). Fast motion looks choppy: add `motionBlur: true` to `movie.init` (render, snapshot and contact sheet then show a film-style blur; renders take ~8× longer). Then export: `const blob = await movie.render({ format: 'mp4' })` (about real time; `movie.on('progress', …)` reports 0–100). **While you iterate, do not export the whole movie:** `check --no-export --at <the moment you changed>` takes seconds (3 to 10 s on the gallery pieces: most of it is loading the page and measuring the sound); to see motion, `render({ range: [from, to] })` / `pixi-effects render --range 10:15` / `--scene name` exports only that part (picture and sound); `draft: true` / `--draft` is half size, low quality and no motion blur: a much smaller file (a piece that asks for motion blur renders much faster as a draft: 4 s of a firework piece took 14.0 s, and 8.2 s as a draft, about 7 s of either being the browser's start-up), but the drawing itself is not faster. Export the whole movie once, at the end.
@@ -204,6 +204,8 @@ Keyframe kinds: `set` (jump at `at`; undone when you seek back), `to` (animate t
 Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha strokeWidth`; `colorSpace: 'oklab'|'oklch'` for clean colour tweens. rect/circle/ellipse are **centred on `x,y` by default** (`anchorX/anchorY` default 0.5): for a bar growing from its base use `anchorY: 1` (or `anchorX: 0` for left-to-right). **`fillGradient`** (top level or `initial`; instead of `fillColor`): `{ type?: 'linear'|'radial', stops: [[0, '#000'], [1, 'rgba(0,0,0,.6)']], angle? /* linear, deg; DEFAULT 90 = top→bottom, 0 = left→right: a wide gradient slid sideways as a matte needs angle: 0 */, center?, innerRadius?, radius? /* radial, 0–1 of the SHAPE's own bounds, not the canvas: a glow on a 1500 px circle is placed with fractions of that circle */ }` — stops may have alpha, so a radial transparent→dark is a vignette. **Animate it** with a partial gradient in a keyframe (`to: { fillGradient: { angle: 360, stops: [...] } }`: keys you leave out stay; the same number of stops; `type` cannot change; a start gradient is required; use `colorSpace: 'oklch'` for a vivid fade). A text layer takes `fillGradient` too (LINEAR only: angle and stops; type / center / radius are ignored with a warning; letters re-rasterised per change). `from` alone runs from that gradient to the layer's own. The names `'fillGradient.angle'` / `gradientAngle` are not properties: write `fillGradient: { angle }`. Stroke ends and corners: `strokeCap: 'butt'|'round'|'square'`, `strokeJoin: 'miter'|'round'|'bevel'` (top level or in `initial`; not animated — `round` keeps sharp corners like an M from poking out).
 
 **components** (root) + **`use`** + **`params`** — a composition written once (`components: { card: { params: { title: 'x' }, width, height, sequences } }`) and placed many times (`{ use: 'card', params: { title: 'A' }, at, initial }`); params read like variables: `{title}` in strings, a number param as a word in expressions.
+
+**markers** — named moments of a composition, in its own seconds (`markers: { in: 0.6, out: -0.5 }`; on the root too). A layer's `at` names a moment: `'host@in'`, `'title@end + 0.2'` (any layer has `@start` `@mid` `@end`), `'@drop'` (a marker of its own composition or one around it); nearest name first, brought onto the layer's own clock (through `speed` / `time`). A keyframe's `at` too (`{ at: 'host@out', to: { alpha: 0 } }`: seconds from the start of its layer). `check --at host@in`. Recipe `markers-sync`.
 
 **composition** — `width height duration sequences transitions`, **`loop`** (true: repeat what happens inside; 2: repeat its first 2 s), **`frameRate`** (8: the content steps on 8 pictures a second, stop-motion feel), **`clip`** (true: cut to `width × height`, CSS `overflow: hidden`; default false). It is **one picture**: its `alpha`, `blendMode`, `filters`, `mask` act on what its layers drew together (CSS element / AE precomp), nothing to switch on. **`speed`** (the composition's own time: its content plays backward, in slow motion, … — `time` keyframes give a freeze, a rewind, a ramp; a composition's sound and sfx follow; its own x / alpha keyframes stay in the outer time; **children are placed in the composition's local seconds**; the content is as long as the larger of `duration` and the farthest `time` it reaches (`speed: 2` → twice `duration`; `time` keyframes → their largest number), and children default to that length. A child whose life ends exactly where a held `time` stands is hidden during the hold (a life is [at, at + duration)): give it a `duration` that reaches past. `time` keyframes and ordinary ones (`x`, `alpha`, a `wiggle`) may share one `keyframes` list. A sound inside goes silent while the clock stands still). With `threeD: true` it is a **card**: its children are drawn into one texture (content outside its `width × height` is clipped: size it for a soft shadow too; a plain 2D composition clips only with `clip: true`) and move / rotate in depth together. Children use the composition's local coordinates and times. Position/rotate/scale it as a unit; to rotate/scale about its centre set `pivotX/pivotY` to the centre and `x/y` to where that point should sit.
 
@@ -601,6 +603,43 @@ return {
     { use: 'lowerThird', name: 'host', at: 0.5, params: { name: 'Aiko Mori', role: 'Host' }, initial: { x: 80, y: 560 } },
     { use: 'lowerThird', name: 'guest', at: 4.5, params: { name: 'Ben Ito', role: 'Engineer', accent: '#2a9d8f' }, initial: { x: 80, y: 560 } },
     { use: 'lowerThird', name: 'guest2', at: 8.5, params: { name: 'Chika Sato', role: 'Designer', accent: '#e9c46a', indent: 12 }, initial: { x: 80, y: 560 } },
+  ],
+};
+```
+
+---
+
+## Sound on the beat of a part, by name (markers)
+
+Name the moments of a composition with `markers` (its own seconds: `{ land: 0.5 }`) and start other layers there: `at: 'badge@land'` is where the `badge` lands, wherever the badge is placed or moved later; `'badge@end'` / `'@start'` / `'@mid'` work on any layer, `'+ 0.2'` / `'- 0.16'` shift it, and `'@drop'` is a marker of the composition the layer is in (or of one around it: the root's `markers`). No sums by hand, so moving the part keeps its sounds and its followers in step. `check --at badge@land` looks at that moment.
+
+```js
+// @recipe markers-sync
+const components = {
+  badge: {
+    width: 360, height: 360, duration: 3,
+    markers: { land: 0.5, leave: 2.4 },                       // its own seconds: where it lands and where it starts to leave
+    sequences: [
+      { type: 'shape', shape: 'circle', name: 'disc', radius: 150, initial: { x: 180, y: 180, fillColor: '#e63946', scale: 0 },
+        keyframes: [{ at: 0, to: { scale: 1 }, duration: 0.5, ease: 'back.out(2)' }, { at: 2.4, to: { scale: 0 }, duration: 0.4, ease: 'power2.in' }] },
+      { type: 'text', name: 'label', text: 'NEW', style: { fontSize: 72, fontWeight: 'bold', fill: '#ffffff' },
+        initial: { x: 180, y: 180, anchorX: 0.5, anchorY: 0.5, alpha: 0 },
+        keyframes: [{ at: 0.5, to: { alpha: 1 }, duration: 0.2 }, { at: 2.4, to: { alpha: 0 }, duration: 0.2 }] },
+    ],
+  },
+};
+return {
+  components,
+  duration: 6,
+  markers: { drop: 4.5 },                                     // a moment of the whole movie
+  sequences: [
+    { type: 'shape', shape: 'rect', width: 'GW', height: 'GH', initial: { x: 'GW/2', y: 'GH/2', fillColor: '#1d3557' } },
+    { use: 'badge', name: 'badge', at: 1, initial: { x: 'GW/2 - 180', y: 'GH/2 - 220' } },
+    { type: 'audio', sfx: 'hit', at: 'badge@land' },                       // 1.5 s, and still on the landing if the badge moves to at: 2
+    { type: 'audio', sfx: 'swoosh', at: 'badge@leave - 0.16' },            // a swoosh is loudest 0.16 s in
+    { type: 'text', name: 'caption', text: 'Out now', at: 'badge@end', style: { fontSize: 64, fontWeight: 'bold', fill: '#f1faee' },
+      initial: { x: 'GW/2', y: 'GH/2', anchorX: 0.5, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }] },
+    { type: 'audio', sfx: 'hit', at: '@drop' },
   ],
 };
 ```
@@ -2995,6 +3034,29 @@ composition: {
 - A place may also be a mask (`mask: { use: 'blob' }` or `mask: { layer: { use: 'blob' }, invert: true }`). What is built is an ordinary composition per place, so `inspect`, `check`, `pick` and `follow` see every layer by its path (`'guest/name'`).
 - Checked when the movie is built, each with what to write: a `use` with no such component (did you mean), a param the component does not have (did you mean, and its list), a value that is not a number or a string, a param nothing inside reads, a `{name}` in a component that is none of its params nor a movie variable, a component nothing uses, a component that uses itself. Param names follow the variable rules (reserved words are refused). Words other tools use warn with ours: `component:` / `ref:` → `use`, `props:` → `params`.
 
+### Markers: moments by name (`markers`, `at: 'host@in'`)
+
+A layer's `at` may name a **moment** instead of a number of seconds, so a sound or a follower stays on the beat of a part wherever the part is placed (After Effects: composition markers, seen from outside the precomp):
+
+```js
+components: { badge: { width: 360, height: 360, duration: 3, markers: { land: 0.5, leave: 2.4 }, sequences: [ … ] } },
+markers: { drop: 12.5 },                                         // the root's: moments of the whole movie
+sequences: [
+  { use: 'badge', name: 'badge', at: 1 },
+  { type: 'audio', sfx: 'hit', at: 'badge@land' },               // 1.5 s
+  { type: 'audio', sfx: 'swoosh', at: 'badge@leave - 0.16' },    // 3.24 s
+  { type: 'text', text: 'Out now', at: 'badge@end' },            // 4 s: where the badge's life ends
+  { type: 'composition', name: 'scene', at: 10, sequences: [ { type: 'text', text: 'DROP', at: '@drop' } ] },   // 2.5 s on the scene's clock
+]
+```
+
+- **`markers: { name: seconds }`** on a composition (a component's come with every place; a place may add or move one, key by key) or on the root. Seconds of the composition's own clock; negative counts back from its end (`out: -0.5`). A name is a word (letters, digits, `_`); `start`, `mid` and `end` are taken.
+- **`'name@marker'`** — a marker of the layer called `name`; **`'name@start'`, `'name@mid'`, `'name@end'`** — any layer's (a layer with no `duration` lasts to the end of its composition; an audio or video file with no `duration` has no end known before it loads: give it one). **`'@marker'`** — a marker of the composition the layer is in, or of one around it (the root's too); **`'@end'`** — the end of its own composition. **`+ 0.2` / `- 0.16`** shift it by seconds.
+- A name is looked for **nearest first**: beside the layer, then inside its siblings, then around it; `'scene/host@in'` goes down by names. Two layers of one name equally near warn (the first is used): give them different names.
+- The moment is brought onto the clock of the composition the layer is in, through `speed` and `time` (a marker in a slowed composition is reached later). Moments may name moments, in any order; a circle warns.
+- A **keyframe's** `at` takes a moment too (`keyframes: [{ at: 'host@out', to: { alpha: 0 }, duration: 0.3 }]`): it becomes seconds from the start of its layer (a moment before the layer starts warns). Resolved once, after components and variables, before anything is built: `inspect` and the timeline show seconds. `check --at badge@land` (and `movie.resolveAt`, `review({ at })`) look at a marker; `--at @drop` at the root's.
+- Mistakes say what to write: an unknown layer or marker (did you mean, and the markers it has), markers on a layer that is not a composition, a marker past its composition's end, a moment its composition's clock never reaches, a string that is no moment. Words other tools use (`cues`, `cuePoints`, `marks`) warn "did you mean `markers`".
+
 ### `shape`
 
 Parametric primitive backed by PIXI v8 `Graphics`. Six kinds, discriminated by `shape`. All geometry props accept the [expression language](#expressions), so dimensions can follow the canvas:
@@ -4219,7 +4281,7 @@ The image is centred on the canvas; `fit` (default `'cover'`) controls how the t
 | `asset`    | string                | image asset name (registered via `Movie.init({ assets })`)                           |
 | `duration` | number                | seconds of animation (required)                                                      |
 | `name?`    | string                | sequence name so transitions can reference it                                        |
-| `at?`      | number                | start time, parent-relative seconds                                                  |
+| `at?`      | number \| string      | start time, parent-relative seconds; or a moment: `'host@in'`, `'title@end + 0.2'`, `'@drop'` (see [Markers](#markers-moments-by-name-markers-at-hostin)) |
 | `fit?`     | `'cover'` \| `'contain'` | how the texture fills the canvas. Default `'cover'`.                              |
 | `ease?`    | string                | Ease name. Default `'sine.inOut'`.                                            |
 
