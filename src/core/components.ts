@@ -19,6 +19,7 @@ import type { SequenceSpec } from '../types';
 type Plain = Record<string, unknown>;
 const NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const TOKEN = /\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
+const NUMBER = /^\s*[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?\s*$/i;
 const isPlain = (v: unknown): v is Plain => !!v && typeof v === 'object' && (Object.getPrototypeOf(v) === Object.prototype || Object.getPrototypeOf(v) === null);
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -95,7 +96,7 @@ export function expandComponents<T>(spec: T, varNames: readonly string[] = []): 
     if (layer.use === undefined) {
       let out: Plain = layer;
       if (Array.isArray(layer.sequences)) out = { ...out, sequences: expandList(layer.sequences, stack) };
-      if (isPlain(layer.mask)) out = { ...out, mask: expandLayer(layer.mask, stack) };
+      if (isPlain(layer.mask)) out = { ...out, mask: expandMask(layer.mask, stack) };
       return out;
     }
     const { use, params: given, sequences: own, ...rest } = layer;
@@ -120,15 +121,28 @@ export function expandComponents<T>(spec: T, varNames: readonly string[] = []): 
         say(`${who}: params: "${k}" is not a param of component "${use}"${guess ? ` — did you mean "${guess}"?` : ''} (its params: ${Object.keys(def.params).join(', ') || 'none'}); ignored`);
         continue;
       }
+      const want = def.params[k];
+      if (typeof want === 'number' && typeof v === 'string') {
+        // a number param: a number written as text is that number; a {variable} becomes one after the movie's variables are put in
+        if (NUMBER.test(v)) { values[k] = Number(v); continue; }
+        if (/^\{[A-Za-z_][A-Za-z0-9_]*\}$/.test(v.trim())) { values[k] = v; continue; }
+        say(`${who}: param "${k}" is a number (its default is ${want}): give a number, or a {variable} that holds one; ${JSON.stringify(v)} is not evaluated here; the default is used`);
+        continue;
+      }
       if ((typeof v === 'number' && Number.isFinite(v)) || typeof v === 'string') values[k] = v;
       else say(`${who}: param "${k}" must be a number or a string, got ${JSON.stringify(v)}; the default ${JSON.stringify(def.params[k])} is used`);
     }
     const body = substitute(def.body, values) as Plain;
     const placed: Plain = { ...body, ...rest, type: 'composition', params: values };
+    // the place adds to what the component has: its initial key by key, its keyframes and filters after the component's
+    if (isPlain(body.initial) && isPlain(rest.initial)) placed.initial = { ...body.initial, ...rest.initial };
+    for (const list of ['keyframes', 'filters'] as const) if (Array.isArray(body[list]) && Array.isArray(rest[list])) placed[list] = [...(body[list] as unknown[]), ...(rest[list] as unknown[])];
     placed.sequences = expandList(body.sequences ?? [], [...stack, use]);
-    if (isPlain(placed.mask)) placed.mask = expandLayer(placed.mask, stack);
+    if (isPlain(placed.mask)) placed.mask = expandMask(placed.mask, stack);
     return placed;
   };
+  // a mask is a layer, or `{ layer: <a layer>, invert, channel }`
+  const expandMask = (mask: Plain, stack: string[]): unknown => (isPlain(mask.layer) && mask.type === undefined ? { ...mask, layer: expandLayer(mask.layer, stack) } : expandLayer(mask, stack));
 
   const { components: _drop, ...root } = spec;
   void _drop;
@@ -141,5 +155,5 @@ export function expandComponents<T>(spec: T, varNames: readonly string[] = []): 
 /** Is there a `use` anywhere in these layers (nested compositions and inline masks included)? */
 function usesAny(list: unknown): boolean {
   if (!Array.isArray(list)) return false;
-  return list.some(l => isPlain(l) && (l.use !== undefined || usesAny(l.sequences) || (isPlain(l.mask) && usesAny([l.mask]))));
+  return list.some(l => isPlain(l) && (l.use !== undefined || usesAny(l.sequences) || (isPlain(l.mask) && usesAny([l.mask])) || (isPlain(l.layer) && usesAny([l.layer]))));
 }

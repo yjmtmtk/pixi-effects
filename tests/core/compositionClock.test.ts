@@ -70,6 +70,20 @@ describe('loop: the content repeats', () => {
     const { xAt } = await stage({ loop: true, frameRate: 4 });
     expect(xAt(1 + 1.3)).toBeCloseTo(25, 5);
   });
+  it('a keyframe with no `at` (from 0) and a spring with duration auto count as what happens inside', async () => {
+    const plainKf = [{ type: '__box', name: 'm', keyframes: [{ from: { x: 0 }, to: { x: 100 }, duration: 1 }] }];
+    expect((await stage({ loop: true }, plainKf)).xAt(1 + 1.5)).toBeCloseTo(50, 5);
+    const spring = [{ type: '__box', name: 's', keyframes: [{ at: 0, from: { x: 0 }, to: { x: 100 }, duration: 'auto', ease: 'spring.snappy' }] }];
+    const r = await stage({ loop: true }, spring);
+    expect(r.warnings).toEqual([]);
+    expect(r.xAt(1 + 0.42 + 0.0001)).toBeCloseTo(0, 0);               // spring.snappy settles in 0.42 s: then it starts again
+  });
+  it('a loop with nothing measurable inside (no duration, no keyframes) is said, not a loop of 0 s', async () => {
+    const still = [{ type: '__box', name: 'still' }];
+    const r = await stage({ loop: true }, still);
+    expect(r.warnings).toEqual([expect.stringMatching(/loop: nothing inside has a length \(no duration, no keyframes\), so it cannot tell what to repeat; give the length: loop: 2/)]);
+    expect(Number.isFinite(r.st.childTime(3))).toBe(true);
+  });
   it('says when it cannot repeat: the content lasts the whole composition, or a loop length past the end', async () => {
     const whole = [{ type: '__box', name: 'still', duration: 6 }];
     expect((await stage({ loop: true }, whole)).warnings[0]).toMatch(/loop: what happens inside lasts the whole composition \(6s\), so nothing repeats; give the length to repeat: loop: 2/);

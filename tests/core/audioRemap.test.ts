@@ -56,6 +56,12 @@ describe('resampleThrough', () => {
     expect(hzIn(r.L, 1.1, 1.3)).toBeCloseTo(hzIn(r.L, 0.1, 0.3), -1);     // the second time round sounds as the first
     expect(hzIn(r.L, 0.995, 1.02)).toBeLessThan(400);                  // around the jump: the start of the sweep, not a dash through all of it
   });
+  it('a jump in the last cell before the warp ends (NaN after it) writes no NaN sample', () => {
+    const src = tone(440, 1);
+    const r = resampleThrough(desc({ end: 1, warp: t => (t > 2 ? NaN : t % 1) }), src, src, SR, SR, 3)!;
+    expect(r.L.every(Number.isFinite)).toBe(true);
+    expect(r.R.every(Number.isFinite)).toBe(true);
+  });
   it('a sound that is never audible is null; the loop wraps the position', () => {
     const src = tone(440, 1);
     expect(resampleThrough(desc({ start: 2, end: 3, warp: () => 0 }), src, src, SR, SR, 4)).toBeNull();

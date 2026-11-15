@@ -47,6 +47,32 @@ describe('expandComponents', () => {
     expect(inner.sequences![0]!.sequences![1]!.text).toBe('Hi!');
   });
 
+  it('a placement inside a mask written as { layer, invert } is placed too', () => {
+    const blob = { params: { r: 10 }, width: 50, height: 50, sequences: [{ type: 'shape', shape: 'circle', radius: 'r' }] };
+    const { spec, warnings } = expandComponents(movieWith([{ type: 'shape', shape: 'rect', width: 10, height: 10, mask: { layer: { use: 'blob', params: { r: 20 } }, invert: true } }], { blob }));
+    expect(warnings).toEqual([]);
+    const m = (spec as { sequences: Array<{ mask: { layer: Layer; invert: boolean } }> }).sequences[0]!.mask;
+    expect(m.invert).toBe(true);
+    expect(m.layer).toMatchObject({ type: 'composition', width: 50, params: { r: 20 } });
+  });
+
+  it('the component\'s own initial, keyframes and filters are kept and the placement\'s are added (initial key by key, the lists one after the other)', () => {
+    const card = { width: 10, height: 10, initial: { alpha: 0, scale: 0.9 }, keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }], filters: [{ type: 'blur', strength: 1 }], sequences: [{ type: 'shape', shape: 'rect', width: 10, height: 10 }] };
+    const { spec } = expandComponents(movieWith([{ use: 'card', initial: { x: 5, scale: 1 }, keyframes: [{ at: -0.3, to: { alpha: 0 }, duration: 0.3 }], filters: [{ type: 'grain' }] }], { card }));
+    const placed = (spec as { sequences: Array<Record<string, unknown>> }).sequences[0]!;
+    expect(placed.initial).toEqual({ alpha: 0, scale: 1, x: 5 });
+    expect((placed.keyframes as unknown[]).length).toBe(2);
+    expect((placed.filters as Array<{ type: string }>).map(f => f.type)).toEqual(['blur', 'grain']);
+  });
+
+  it('a number param given a string: a number written as text becomes the number; anything else is said', () => {
+    const { spec, warnings } = expandComponents(movieWith([{ use: 'lowerThird', params: { shift: '12' } }]));
+    expect(warnings).toEqual([]);
+    expect((spec as { sequences: Layer[] }).sequences[0]!.params!.shift).toBe(12);
+    expect(expandComponents(movieWith([{ use: 'lowerThird', params: { shift: '{gap}' } }]), ['gap']).warnings).toEqual([]);     // a movie variable: a number after {vars}
+    expect(expandComponents(movieWith([{ use: 'lowerThird', params: { shift: 'W * 0.1' } }])).warnings[0]).toMatch(/param "shift" is a number \(its default is 0\): give a number, or a \{variable\} that holds one; "W \* 0\.1" is not evaluated here; the default is used/);
+  });
+
   it('a spec with no components and no use comes back as it is', () => {
     const plain = { sequences: [{ type: 'text', text: '{title}' }] };
     expect(expandComponents(plain).spec).toBe(plain);

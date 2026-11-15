@@ -20,6 +20,7 @@ import { describeLayer, lintText, lintTiming, summarizeWarnings, lintKeys } from
 import { applyBlendMode, maxConcurrentAdvanced, MANY_ADVANCED, usesBackdropFilter, type BlendReport } from '../core/blend';
 import { cameraBasis, homeCamera, projectPoint, NEAR, type CameraBasis, type CameraState } from '../space/math';
 import { timeRemapOf, remapOf, contentLength, bindClock, clockTable, type TimeRemap, type ClockTable } from '../core/remap';
+import { kfDuration } from '../core/spring';
 import type { CompositionSequenceSpec, AudioDescriptor, CompositionShape, SequenceSpec, SpaceNow } from '../types';
 
 
@@ -128,7 +129,7 @@ export class CompositionSequence extends Sequence {
     // the number params of a component (and those of the components around it) are words in the expressions of everything inside
     const params = (this.spec as { params?: Record<string, unknown> }).params;
     const inherited = (this.parent ?? this.root).vars;
-    const numbers = params ? Object.fromEntries(Object.entries(params).filter((e): e is [string, number] => typeof e[1] === 'number')) : {};
+    const numbers = numberParams(params);
     const vars = Object.keys(numbers).length ? { ...(inherited ?? {}), ...numbers } : inherited;
     this._compositionShape = { width, height, duration: span, ...(vars ? { vars } : {}), spaceAt: (t) => this._spaceAt(t), findLayer: (name) => this._children.find(c => c.spec.name === name) ?? null, layerNames: () => this._children.map(c => c.spec.name).filter((n): n is string => !!n) };
 
@@ -348,21 +349,22 @@ export class CompositionSequence extends Sequence {
     const scope = this.scope() as unknown as Record<string, number>;
     if (remap.start !== undefined && remap.timeKfs.length === 0) clock.time = remap.start;
     const start = offset + this.at, end = start + this.duration!;
-    const table = clockTable(remap, 'time', this.duration!, start, scope, end);
     const fps = this._fps;
+    const plain = remap.timeKfs.length === 0 && remap.speed === undefined && remap.start === undefined;
+    // the clock as a function of the movie's time (sampled every millisecond): built only where it is read
+    const table = !plain ? clockTable(remap, 'time', this.duration!, start, scope, end) : null;
     if (fps === null) bindClock(timeline, clock, 'time', remap, this.duration!, start, scope);
     else {
       // `frameRate`: the screen's time inside the composition is held on steps of 1 / fps, then read through the clock (speed, time keyframes)
-      const plain = remap.timeKfs.length === 0 && remap.speed === undefined && remap.start === undefined;
       let elapsed = 0;
       const steps = {
         get elapsed(): number { return elapsed; },
-        set elapsed(e: number) { elapsed = e; const q = Math.floor(e * fps + 1e-6) / fps; clock.time = plain ? q : table.at(start + q); },
+        set elapsed(e: number) { elapsed = e; const q = Math.floor(e * fps + 1e-6) / fps; clock.time = table ? table.at(start + q) : q; },
       };
       steps.elapsed = 0;
       timeline.fromTo(steps, { elapsed: 0 }, { elapsed: this.duration!, duration: this.duration!, ease: 'none' }, start);
     }
-    if (remap.timeKfs.length || remap.speed !== undefined) this._warnUnreachable(table, start, end);
+    if (table && (remap.timeKfs.length || remap.speed !== undefined)) this._warnUnreachable(table, start, end);
     if (L !== null) {
       for (const child of this._children) {
         if (child.at >= L && child.at < this._contentSpan) console.warn(`pixi-effects: ${describeLayer(child.spec)} starts at ${child.at}s of ${describeLayer(this.spec)}'s own time, but it loops its first ${Number(L.toFixed(3))}s, so it is never visible`);
@@ -392,6 +394,7 @@ export class CompositionSequence extends Sequence {
       return v;
     }
     const L = contentEnd(this.spec.sequences ?? [], span);
+    if (L !== null && L <= 1e-9) { console.warn(`pixi-effects: ${who}: loop: nothing inside has a length (no duration, no keyframes), so it cannot tell what to repeat; give the length: loop: 2`); return null; }
     if (L === null || L >= span - 1e-9) { console.warn(`pixi-effects: ${who}: loop: what happens inside lasts the whole composition (${Number(span.toFixed(3))}s), so nothing repeats; give the length to repeat: loop: 2`); return null; }
     return L;
   }
@@ -520,6 +523,13 @@ export class CompositionSequence extends Sequence {
     }
   }
 
+  /** A component's number params are words in its own expressions too (its `initial`, its keyframes), not only in its layers'. */
+  override scope(): ReturnType<Sequence['scope']> {
+    const base = super.scope();
+    const numbers = numberParams((this.spec as { params?: Record<string, unknown> }).params);
+    return Object.keys(numbers).length ? { ...numbers, ...base } : base;
+  }
+
   /** Draw this composition as its layers, not as one picture (it is a stencil mask): its alpha goes back to the container. */
   releaseGroup(): void {
     const group = this._group, display = this.target;
@@ -646,6 +656,7 @@ export class CompositionSequence extends Sequence {
     // The children's sounds are described in local time; each one is given a warp from the movie's time to it.
     const inner: AudioDescriptor[] = [];
     for (const child of this._children) child.collectAudio(inner, 0);
+    if (inner.length === 0) return;                                       // no sound inside: no clock table to build
     const lo = baseTime + this.at, hi = lo + this.duration!;
     const table = clockTable(remap, 'time', this.duration!, lo, this.scope() as unknown as Record<string, number>, hi);
     const L = this._loop;
@@ -755,10 +766,12 @@ function contentEnd(layers: readonly SequenceSpec[], span: number): number | nul
     if (typeof l.duration === 'number') { end = Math.max(end, at + l.duration); continue; }
     let last = at;
     for (const kf of l.keyframes ?? []) {
-      const d = (kf as { duration?: unknown }).duration ?? 0;
-      if (typeof kf.at !== 'number' || kf.at < 0 || typeof d !== 'number') return null;
+      const kAt = kf.at ?? 0;
+      const raw = (kf as { duration?: unknown }).duration;
+      if (typeof kAt !== 'number' || kAt < 0 || (raw !== undefined && raw !== 'auto' && typeof raw !== 'number')) return null;
+      const d = kfDuration(kf as { duration?: number | 'auto'; ease?: string });                 // a spring's 'auto' is the time it takes to settle
       const repeat = Math.max(0, (kf as { repeat?: number }).repeat ?? 0), gap = (kf as { repeatDelay?: number }).repeatDelay ?? 0;
-      last = Math.max(last, at + kf.at + d * (repeat + 1) + gap * repeat);
+      last = Math.max(last, at + kAt + d * (repeat + 1) + gap * repeat);
     }
     if (l.type === 'composition') {
       const inner = contentEnd((l as { sequences?: SequenceSpec[] }).sequences ?? [], span);
@@ -768,4 +781,14 @@ function contentEnd(layers: readonly SequenceSpec[], span: number): number | nul
     end = Math.max(end, last);
   }
   return Math.min(end, span);
+}
+
+/** The params that are numbers (a number, or a number written as text: a `{variable}` put in a param leaves its value as text). */
+function numberParams(params: Record<string, unknown> | undefined): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(params ?? {})) {
+    if (typeof v === 'number' && Number.isFinite(v)) out[k] = v;
+    else if (typeof v === 'string' && /^\s*[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?\s*$/i.test(v)) out[k] = Number(v);
+  }
+  return out;
 }

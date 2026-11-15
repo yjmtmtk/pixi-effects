@@ -70,3 +70,19 @@ describe('a composition is one picture: the group pass', () => {
     expect(mask.filters ?? []).toEqual([]);
   });
 });
+
+describe('a component\'s number params', () => {
+  it('are words in the composition\'s own expressions (its initial, its keyframes), not only in its layers\'', async () => {
+    const comp = await root([{ type: 'composition', width: 100, height: 100, params: { margin: 40 }, initial: { x: 'margin * 2', y: 'margin' }, sequences: [rect({ initial: { x: 'margin' } })] }]);
+    comp.bindTimeline((await import('../../src/core/timelineEngine')).createTimeline({ paused: true }));
+    const placed = comp.layers()[0]!.display as unknown as { x: number; y: number };
+    expect(placed.x).toBe(80);
+    expect(placed.y).toBe(40);
+  });
+
+  it('a param given as a number in text (after a {variable} was put in) is a number word too', async () => {
+    const comp = await root([{ type: 'composition', width: 100, height: 100, params: { margin: '25' }, initial: { x: 'margin' }, sequences: [rect()] }]);
+    comp.bindTimeline((await import('../../src/core/timelineEngine')).createTimeline({ paused: true }));
+    expect((comp.layers()[0]!.display as unknown as { x: number }).x).toBe(25);
+  });
+});

@@ -47,7 +47,11 @@ export function resampleThrough(
     if (!(Number.isFinite(u0) && Number.isFinite(u1))) { prevPos = NaN; continue; }
     // a jump of the clock (a looping composition going round) is a cut, not a dash through the sound: each side keeps its own pace
     const jump = Math.abs(u1 - u0) > JUMP;
-    const u = !jump ? u0 * (1 - f) + u1 * f : f < 0.5 ? u0 + (U[k]! - (U[k - 1] ?? U[k]!)) * f : u1 - ((U[k + 2] ?? u1) - u1) * (1 - f);
+    // each side of a jump keeps the pace of its own neighbour cell; a neighbour that is NaN (outside the span) or missing gives no pace
+    const prev = U[k - 1], next = U[k + 2];
+    const before = prev !== undefined && Number.isFinite(prev) ? u0 - prev : 0, after = next !== undefined && Number.isFinite(next) ? next - u1 : 0;
+    const u = !jump ? u0 * (1 - f) + u1 * f : f < 0.5 ? u0 + before * f : u1 - after * (1 - f);
+    if (!Number.isFinite(u)) { prevPos = NaN; continue; }
     if (u < a.start || u >= a.end) { prevPos = NaN; continue; }
     const raw = a.sourceMap ? a.sourceMap(u) : u - a.start;
     let pos = raw;
