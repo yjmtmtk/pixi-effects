@@ -269,7 +269,7 @@ export interface SequenceCommon {
    * How this layer blends with what is behind it (everything drawn below it). `'add'` and `'screen'` brighten (glows, light
    * leaks, overlapping halos add up instead of covering each other), `'multiply'` darkens; `'overlay'`, `'soft-light'`,
    * `'color-dodge'`, `'hue'`, ... are the CSS `mix-blend-mode` modes. Default `'normal'`.
-   * On a composition the mode is inherited by its children: each one blends with what is behind it.
+   * A composition blends as one picture: its layers are drawn normally inside it, then the picture is blended with what is behind it.
    */
   blendMode?: BlendModeName;
   /**

@@ -23,6 +23,10 @@ its text while it crossfades", "its rectangle culls it even when a child is back
 - The group pass ends the composition's own filters (CSS: opacity after filter); the parent's matte and blend filters come after it.
 - `clip: true`: a stencil rect on the inner container (the layer's own `mask` stays free for the outer one); the outer container is culled by
   its rectangle only when clipped. Unclipped compositions are not culled by their rectangle (each child is culled on its own).
+- Review round (fresh reviewer): a composition whose layers reach the backdrop (blendMode / backdropBlur at any depth) and has no blendMode of its
+  own is NOT isolated (alpha per layer, as before): isolating it changed a screen glow into a flat colour and made the look jump when a fade
+  started. The pass is inserted into the filter list only while needed (no batch break at alpha 1). A stencil-mask composition has no pass.
+  `clip: true` is honoured by pick and by inspect's overlap test.
 - The advanced-blend crowd count: a composition with an advanced mode is 1 pass plus what its layers add.
 
 ## Proof

@@ -137,7 +137,7 @@ export function inspectScene(
   const chains = new Map<LayerInfo, number[] | null>();
   const chainAlpha = new Map<LayerInfo, number>();
 
-  const walk = (comp: CompositionSequence, prefix: string, insideThreeD: boolean, parentVisible: boolean, parentScene?: string, parentMotion: Motion = NO_MOTION, parentZero = false, parentAlpha = 1): void => {
+  const walk = (comp: CompositionSequence, prefix: string, insideThreeD: boolean, parentVisible: boolean, parentScene?: string, parentMotion: Motion = NO_MOTION, parentZero = false, parentAlpha = 1, parentClip: Rect | null = null): void => {
     const blending = new Set<string>();
     const now = comp.childTime(time);                                   // the time its children live in (local when it is remapped)
     // a camera with a tween running now carries every threeD layer of the composition with it (a pan is not "cut off"); one at rest, or one that only `set`s values, carries nothing
@@ -186,6 +186,7 @@ export function inspectScene(
       kinds.set(info, seq.spec.type === 'shape' ? String((seq.spec as { shape?: string }).shape) : seq.spec.type);
       if (motion.ever) hasMotion.add(info);
       let shown = bounds ? clip(bounds, view) : null;
+      if (shown && parentClip) shown = clip(shown, parentClip);           // what a clip: true composition around it cuts away is not seen
       const maskTarget = seq.maskSequence?.target as Container | null | undefined;
       const maskSrc = maskSourceOf((seq.spec as { mask?: unknown }).mask);
       if (shown && maskTarget && !(maskSrc.kind === 'inline' && maskSrc.invert)) {
@@ -196,7 +197,17 @@ export function inspectScene(
       const group = parentScene ?? (name !== undefined && blending.has(name) ? name : undefined);
       if (group) scene.set(info, group);
       if (zero || (seq as { showsNothingYet?: boolean }).showsNothingYet) scaledToNothing.add(info);
-      if (seq instanceof CompositionSequence) walk(seq, prefix + label + '/', insideThreeD || threeD, visible, group, motion, zero, parentAlpha * alpha);
+      if (seq instanceof CompositionSequence) {
+        let inner = parentClip;
+        if ((seq.spec as { clip?: unknown }).clip === true && !insideThreeD && !threeD && t) {
+          // the composition's rectangle on the canvas (the box around its four corners, for a rotated one)
+          const corners = [[0, 0], [seq.intrinsicWidth, 0], [0, seq.intrinsicHeight], [seq.intrinsicWidth, seq.intrinsicHeight]].map(([px, py]) => t.toGlobal({ x: px!, y: py! }));
+          const xs = corners.map(c => c.x), ys = corners.map(c => c.y);
+          const box = { x: Math.min(...xs), y: Math.min(...ys), width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) };
+          inner = inner ? clip(box, inner) ?? { x: box.x, y: box.y, width: 0, height: 0 } : box;
+        }
+        walk(seq, prefix + label + '/', insideThreeD || threeD, visible, group, motion, zero, parentAlpha * alpha, inner);
+      }
     });
   };
   walk(root, '', false, true);

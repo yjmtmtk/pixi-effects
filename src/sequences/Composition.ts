@@ -17,7 +17,7 @@ import { layerInitialZ, blurRadius, MANY_BLURRED } from '../space/focus';
 import { matteProblems, maskSourceOf, refNames, usesMatteRoute, canBeMatte, MANY_MATTES } from '../core/matte';
 import { MatteSet } from '../core/MatteSet';
 import { describeLayer, lintText, lintTiming, summarizeWarnings, lintKeys } from '../core/lint';
-import { applyBlendMode, maxConcurrentAdvanced, MANY_ADVANCED, type BlendReport } from '../core/blend';
+import { applyBlendMode, maxConcurrentAdvanced, MANY_ADVANCED, usesBackdropFilter, type BlendReport } from '../core/blend';
 import { cameraBasis, homeCamera, projectPoint, NEAR, type CameraBasis, type CameraState } from '../space/math';
 import { timeRemapOf, remapOf, contentLength, bindClock, clockTable, type TimeRemap, type ClockTable } from '../core/remap';
 import type { CompositionSequenceSpec, AudioDescriptor, CompositionShape, SequenceSpec, SpaceNow } from '../types';
@@ -97,7 +97,11 @@ export class CompositionSequence extends Sequence {
       wrapper.addChild(frame);
       inner.mask = frame;
     }
-    this._group = groupPicture(wrapper, isBlended(this.spec.blendMode));
+    const blended = isBlended(this.spec.blendMode);
+    // A composition whose layers blend with what is behind it (a screen glow over the scene, a backdropBlur) is not isolated: drawn as one picture,
+    // they would blend with nothing, and the look would jump when a fade starts. Its alpha goes to each layer (After Effects' collapse, CSS without isolation).
+    const through = !blended && reachesBackdrop(this.spec.sequences);
+    this._group = through ? null : groupPicture(wrapper, blended, () => this.filters.length);
 
     this.target = wrapper;
     this.intrinsicWidth = width;
@@ -227,7 +231,9 @@ export class CompositionSequence extends Sequence {
             const f = this._mattes.filterFor(key, { channel: maskSrc.channel, invert: maskSrc.invert });
             if (f) matteFilters.push(f);
           } else {
-            // a plain shape mask is a stencil: the mask's geometry (cheap, and the canvas anti-aliasing makes its edge)
+            // a plain shape mask is a stencil: the mask's geometry (cheap, and the canvas anti-aliasing makes its edge). A composition as a stencil
+            // mask has no group pass: a filter inside a stencil mask writes its whole box into the stencil
+            if (maskSeq instanceof CompositionSequence) maskSeq.releaseGroup();
             into.addChild(maskSeq.target);
             const t = child.target as Container & { setMask?: (opts: { mask: Container | null; inverse?: boolean }) => void; mask: Container | null };
             if (typeof t.setMask === 'function') t.setMask({ mask: maskSeq.target, inverse: false });
@@ -267,8 +273,9 @@ export class CompositionSequence extends Sequence {
     }
 
     this.buildFilters();
-    // the group pass ends the composition's own filters (CSS: opacity after filter); the parent adds a matte and a blend after it
-    wrapper.filters = [...this.filters, this._group];
+    // the group pass ends the composition's own filters (CSS: opacity after filter); the parent adds a matte and a blend after it. A blended
+    // composition always has it; any other gets it only while its alpha is between 0 and 1 (no texture, no batch break at alpha 1)
+    if (this._group && blended) wrapper.filters = [...this.filters, this._group];
   }
 
   protected override displayProps(): { initial: CompositionSequenceSpec['initial']; keyframes: CompositionSequenceSpec['keyframes'] } {
@@ -448,6 +455,19 @@ export class CompositionSequence extends Sequence {
     }
   }
 
+  /** Draw this composition as its layers, not as one picture (it is a stencil mask): its alpha goes back to the container. */
+  releaseGroup(): void {
+    const group = this._group, display = this.target;
+    if (!group || !display) return;
+    const alpha = display.alpha;
+    delete (display as unknown as { alpha?: number }).alpha;          // the accessor of its own: PixiJS's own alpha again
+    display.alpha = alpha;
+    const list = (display.filters ?? []) as unknown[];
+    if (list.includes(group)) { const rest = list.filter(f => f !== group); display.filters = (rest.length ? rest : null) as never; }
+    group.destroy();
+    this._group = null;
+  }
+
   override syncFrame(): void {
     super.syncFrame();
     for (const child of this._children) child.syncFrame();
@@ -602,17 +622,27 @@ function alphaSetter(display: object): ((v: number) => void) | null {
   return null;
 }
 
+/** Does any layer here (at any depth of nested compositions) blend with what is behind it: a `blendMode`, or a filter that reads the backdrop? */
+function reachesBackdrop(sequences: unknown): boolean {
+  if (!Array.isArray(sequences)) return false;
+  return sequences.some((q) => {
+    const o = q as { blendMode?: unknown; type?: string; sequences?: unknown } | null;
+    if (!o || typeof o !== 'object') return false;
+    return isBlended(o.blendMode) || usesBackdropFilter({ sequences: [{ ...o, sequences: undefined }] }) || (o.type === 'composition' && reachesBackdrop(o.sequences));
+  });
+}
+
 /**
  * A composition is ONE picture, as a CSS element or an After Effects precomp: its alpha fades what its layers drew together (an overlap shows the
  * top layer alone, never the one below through it), and its blend mode mixes that picture with the backdrop. PixiJS multiplies a container's alpha
  * into each child, so the alpha the timeline writes is kept here and handed to a pass that draws the content first: the container's own alpha
- * stays 1 while it is between 0 and 1. The pass is off (no texture, no cost) at alpha 1 and 0 unless the composition blends.
+ * stays 1 while it is between 0 and 1. A blended composition always has the pass; any other has it in its filter list only while its alpha is
+ * between 0 and 1 (after its own `ownCount()` filters, before what its parent added: a matte), so at alpha 1 it costs nothing.
  * `display.alpha` still reads the value written, so inspect, hover and the checks see the composition's alpha.
  */
-function groupPicture(display: Container, blended: boolean): AlphaFilter {
+function groupPicture(display: Container, blended: boolean, ownCount: () => number): AlphaFilter {
   // the content's resolution and anti-aliasing: a fading composition draws its edges exactly as a solid one does
   const pass = new AlphaFilter({ alpha: 1, resolution: 'inherit', antialias: 'inherit' });
-  pass.enabled = blended;
   const own = alphaSetter(display);
   let alpha = display.alpha;
   Object.defineProperty(display, 'alpha', {
@@ -623,7 +653,11 @@ function groupPicture(display: Container, blended: boolean): AlphaFilter {
       const between = v > 0 && v < 1;
       own?.(between ? 1 : v);
       pass.alpha = between ? v : 1;
-      pass.enabled = between || blended;
+      if (blended) return;
+      const list = (display.filters ?? []) as unknown[];
+      const has = list.includes(pass);
+      if (between && !has) { const next = [...list]; next.splice(Math.min(ownCount(), next.length), 0, pass); display.filters = next as never; }
+      else if (!between && has) { const rest = list.filter(f => f !== pass); display.filters = (rest.length ? rest : null) as never; }
     },
   });
   return pass;

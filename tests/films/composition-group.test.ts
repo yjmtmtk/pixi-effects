@@ -24,6 +24,7 @@ runFilms('composition: one picture', () => {
           ['no clip: a child past the rectangle is drawn', 330, 170, [255, 255, 0]],
           ['a composition whose rectangle is off the canvas still draws a child placed back on it', 410, 170, [255, 0, 255]],
           ['threeD card at alpha 0.5: the overlap is the blue rect at half', 95, 280, [0, 0, 128]],
+          ['a fading composition whose layer adds to the backdrop keeps adding (not isolated): grey + half of (0, 0, 128)', 280, 280, [128, 128, 192]],
         ];
         for (const [what, x, y, want] of cells) {
           const got = await px(x, y);
@@ -35,6 +36,11 @@ runFilms('composition: one picture', () => {
           expect.soft(near(almost, solid, 3), `${name} edge at ${dx}: ${solid} vs ${almost}`).toBe(true);
         }
         expect(await film.eval<number>("alphaOf('groupA')"), `${name} inspect reads the composition's alpha`).toBeCloseTo(0.5, 5);
+        // what clip: true hides is not there for pick and for the layout check
+        expect.soft(await film.eval<string | null>('(movie.pick(150, 170) || {}).path ?? null'), `${name} pick outside the clipped window`).toBeNull();
+        expect.soft(await film.eval<string | null>('(movie.pick(60, 170) || {}).path ?? null'), `${name} pick inside the clipped window`).toMatch(/^clipped\//);
+        expect.soft(await film.eval<string | null>("(movie.pick(520, 337, { only: ['outsideText', 'other'] }) || {}).name ?? null"), `${name} pick where the hidden text would be`).toBe('other');
+        expect.soft((await film.eval<string[]>('issues')).filter(i => i.includes('outsideText')), `${name} inspect: a text hidden by clip overlaps nothing`).toEqual([]);
       }, { beforeLoad });
     }
   }, 180_000);

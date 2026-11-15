@@ -40,7 +40,7 @@ describe('blendMode on a layer', () => {
     const group = comp.layers()[0]!.display as unknown as { blendMode?: string; filters: Array<{ blendMode?: string; enabled?: boolean }> };
     expect(group.blendMode).toBeUndefined();
     expect(group.filters.at(-1)!.blendMode).toBe('add');
-    expect(group.filters.at(-1)!.enabled).toBe(true);           // a blended composition is drawn as one picture even at alpha 1
+    expect(group.filters).toHaveLength(1);                       // a blended composition is drawn as one picture even at alpha 1
     expect(blendOf(comp, 1)).toBe('screen');
   });
 

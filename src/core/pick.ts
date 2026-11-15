@@ -182,6 +182,10 @@ export function pickScene(root: CompositionSequence, x: number, y: number, opts:
       if (isComposition && !threeD) {                                                                 // a group is not a target: what is in it is
         const gm = seq.maskSequence?.target as Container | null | undefined, gs = maskSourceOf((seq.spec as { mask?: unknown }).mask);
         if (gm && gs.kind === 'inline' && !gs.invert && !inMask(gm, at)) return;                      // ... but not what its own mask cuts away
+        if ((seq.spec as { clip?: unknown }).clip === true) {                                        // ... nor what `clip: true` cuts away
+          const l = d.toLocal(at);
+          if (l.x < 0 || l.y < 0 || l.x > seq.intrinsicWidth || l.y > seq.intrinsicHeight) return;
+        }
         walk(seq as CompositionSequence, path + '/', visible, at, orderBase, via); return;
       }
       if (!wanted(name, path)) {

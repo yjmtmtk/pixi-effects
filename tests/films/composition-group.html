@@ -11,6 +11,10 @@
        D  culling         comp at x = 700 (its rectangle wholly off the canvas, no clip), a magenta rect placed back at -320: drawn at 380..440.
        E  edges           a white circle r 30 in a comp at alpha 1 (centre 520, 170) and in one at alpha 0.999 (centre 600, 170): the same edge pixels.
        F  card            a threeD comp (20, 240) 160 x 80, alpha 0.5: red 0..100, blue 50..150: the overlap is blue at half.
+       G  through         grey backdrop at (200, 240); a comp at alpha 0.5 whose rect (0, 0, 128) blends 'add': the rect keeps adding to the backdrop
+                          while it fades, (128, 128, 192), as at alpha 1 (a composition whose layers blend with what is behind it is not isolated).
+       H  clip and checks comp 'win' (400, 322) 60 x 30, clip: true, its text 'outsideText' at x 120 (outside the window, so not drawn) sits where
+                          the text 'other' is drawn: pick does not find it and inspect reports no overlap.
        The page gives the test px(x, y) = [r, g, b] at frame 0 and alphaOf(name) = the alpha movie.inspect(0) reports. -->
   <canvas id="stage" width="640" height="360"></canvas>
   <script>
@@ -43,10 +47,16 @@
           circle('solid', 520, 1),
           circle('almost', 600, 0.999),
           { type: 'composition', name: 'card', width: 160, height: 80, threeD: true, initial: { x: 20, y: 240, alpha: 0.5 }, sequences: pair('#ff0000', '#0000ff') },
+          rect('grey', 200, 240, 160, 80, '#808080'),
+          { type: 'composition', name: 'glow', width: 160, height: 80, initial: { x: 200, y: 240, alpha: 0.5 }, sequences: [{ ...rect('glowRect', 0, 0, 160, 80, '#000080'), blendMode: 'add' }] },
+          { type: 'composition', name: 'win', width: 60, height: 30, clip: true, initial: { x: 400, y: 322 }, sequences: [
+            { type: 'text', name: 'outsideText', text: 'ABC', style: { fontSize: 20, fill: '#ffffff' }, initial: { x: 120, y: 15, anchorX: 0.5, anchorY: 0.5 } }] },
+          { type: 'text', name: 'other', text: 'ABC', style: { fontSize: 20, fill: '#ffffff' }, initial: { x: 520, y: 337, anchorX: 0.5, anchorY: 0.5 } },
         ] },
       });
       const report = await movie.inspect(0, { layers: 'all' });
       window.alphaOf = (name) => { const l = report.layers.find(l => l.name === name); return l ? l.alpha : null; };
+      window.issues = report.issues;
       const img = await movie.snapshot(0, { as: 'imageData' });
       window.px = (x, y) => { const i = (Math.floor(y) * img.width + Math.floor(x)) * 4; return [img.data[i], img.data[i + 1], img.data[i + 2]]; };
       window.__ready = true;
