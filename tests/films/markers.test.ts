@@ -29,6 +29,10 @@ runFilms('markers', () => {
         { label: 'host-in', frame: 45 }, { label: 'host-out', frame: 75 }, { label: 'drop', frame: 75 }, { label: 'slow-hit', frame: 60 },
       ]);
       expect(await film.eval<string[]>('window.__logs')).toEqual([]);
+      expect(near(await px(1.5, 270), [255, 255, 255]), 'p6: {who}@in with who = host').toBe(true);
+      await film.eval('setWho("hots")');
+      const logs = await film.eval<string[]>('window.__logs');
+      expect(logs.some(l => /layer "p6": at: "hots@in": no layer named "hots" — did you mean "host"\?/.test(l)), logs.join('\n')).toBe(true);
     });
   }, 120_000);
 });

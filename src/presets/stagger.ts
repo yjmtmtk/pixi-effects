@@ -1,6 +1,7 @@
 import { warnUnknownOptions } from '../core/options';
 import { random } from '../expr/random';
 import { parseEase } from './_ease';
+import type { Moment } from '../types';
 
 const STAGGER_KEYS = ['each', 'amount', 'from', 'grid', 'ease', 'seed'] as const;
 const FROM_NAMES = ['start', 'end', 'center', 'edges', 'random'] as const;
@@ -33,8 +34,8 @@ export interface StaggerOptions {
  * Everything is a pure function of the options (`from: 'random'` is seeded), so playback and export agree.
  */
 export function stagger(count: number, options?: StaggerOptions | number): number[];
-export function stagger<T extends { at?: number }>(layers: readonly T[], options?: StaggerOptions | number): T[];
-export function stagger<T extends { at?: number }>(items: number | readonly T[], spec: StaggerOptions | number = {}): number[] | T[] {
+export function stagger<T extends { at?: number | Moment }>(layers: readonly T[], options?: StaggerOptions | number): T[];
+export function stagger<T extends { at?: number | Moment }>(items: number | readonly T[], spec: StaggerOptions | number = {}): number[] | T[] {
   // a bare number is GSAP's `each` (0.05: 0.05 s between neighbours; 0: all at once): it used to be read as an object and silently became the default 0.1 s wave
   if (typeof spec !== 'number' && (typeof spec !== 'object' || spec === null)) throw new Error(`stagger(): the second argument is { each, from, … } or a number of seconds between neighbours, got ${JSON.stringify(spec)}`);
   const options: StaggerOptions = typeof spec === 'number' ? { each: spec } : spec;
@@ -61,7 +62,14 @@ export function stagger<T extends { at?: number }>(items: number | readonly T[],
   const clamp01 = (v: number): number => Math.min(1, Math.max(0, v));                // a spring (or any overshooting ease) must not push a delay past the spread, or below 0
   const delays = dist.map(d => (max === 0 ? 0 : Math.round(total * clamp01(shape(d / max)) * 1e6) / 1e6));
   if (isCount) return delays;
-  return (items as readonly T[]).map((layer, i) => ({ ...layer, at: Math.round(((layer.at ?? 0) + delays[i]!) * 1e6) / 1e6 }));
+  return (items as readonly T[]).map((layer, i) => {
+    const at: unknown = layer.at, d = delays[i]!;
+    // a moment by name keeps its name and gains the delay ('host@in' → 'host@in + 0.1'): it is made seconds when the movie is built
+    if (typeof at === 'string' && at.includes('@')) return { ...layer, at: d === 0 ? at : `${at} + ${d}` };
+    const base = at === undefined ? 0 : typeof at === 'number' ? at : typeof at === 'string' && at.trim() !== '' && Number.isFinite(Number(at)) ? Number(at) : NaN;
+    if (!Number.isFinite(base)) throw new Error(`stagger(): item ${i} has at: ${JSON.stringify(at)}: give seconds or a moment ("host@in")`);
+    return { ...layer, at: Math.round((base + d) * 1e6) / 1e6 };
+  });
 }
 
 /** How far each item is from where the wave starts, in item steps (a straight line across a grid). */

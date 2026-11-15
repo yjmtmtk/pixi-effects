@@ -37,6 +37,7 @@ describe('resolveAtList', () => {
   it('a marker of a composition (host@in) and of the root (@drop), on the movie\'s clock; an unknown one lists the markers there are', () => {
     const markers = [{ layer: 'host', name: 'in', time: 2.6 }, { layer: null, name: 'drop', time: 5 }];
     expect(resolveAtList('host@in, @drop', { ...ctx, markers })).toEqual([{ label: 'host-in', frame: 78 }, { label: 'drop', frame: 150 }]);
+    expect(resolveAtList('scene/host@in', { ...ctx, markers })).toEqual([{ label: 'scene-host-in', frame: 78 }]);      // a path, as a layer's at takes it
     expect(() => resolveAtList('host@inn', { ...ctx, markers })).toThrow(/--at "host@inn": no marker "inn" on "host" \(markers: host@in, @drop; any layer also has @start, @mid, @end\)/);
   });
   it('labels are readable and unique (they become file names)', () => {

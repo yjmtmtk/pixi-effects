@@ -8,6 +8,11 @@ describe('stagger(count, options): delays in seconds', () => {
     close(stagger(5, { each: 0.1 }), [0, 0.1, 0.2, 0.3, 0.4]);
   });
 
+  it('layers that start at a moment by name keep it, shifted ("host@in + 0.1"); anything else that is not a number is said', () => {
+    const out = stagger([{ at: 'host@in' }, { at: 'host@in' }, { at: 'host@in + 0.5' }] as never[], { each: 0.1 }) as Array<{ at: unknown }>;
+    expect(out.map(l => l.at)).toEqual(['host@in', 'host@in + 0.1', 'host@in + 0.5 + 0.2']);
+    expect(() => stagger([{ at: 'soon' }] as never[], { each: 0.1 })).toThrow(/stagger\(\): item 0 has at: "soon": give seconds or a moment \("host@in"\)/);
+  });
   it('with no options the gap is 0.1 s', () => {
     close(stagger(3), [0, 0.1, 0.2]);
   });

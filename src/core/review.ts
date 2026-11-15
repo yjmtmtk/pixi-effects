@@ -71,7 +71,9 @@ export function resolveAtList(list: string, ctx: { frameRate: number; totalFrame
       const t = m[2] === 'start' ? row.start : m[2] === 'mid' ? (row.start + row.end) / 2 : row.end - 1 / fps;
       frame = Math.round(t * fps); label = `${m[1]}-${m[2]}`;
     } else if ((m = raw.match(/^(.*?)\s*@\s*([A-Za-z_][A-Za-z0-9_]*)$/))) {
-      const layer = m[1] || null, mark = markers.find((k) => k.layer === layer && k.name === m![2]);
+      // a path (scene/host@in) names the composition by its last part, as the markers list knows it
+      const layer = m[1] || null, bare = layer ? layer.split('/').pop()!.trim() : null;
+      const mark = markers.find((k) => k.layer === bare && k.name === m![2]);
       if (!mark) {
         const list = markers.map((k) => `${k.layer ?? ''}@${k.name}`).join(', ') || 'none';
         throw new Error(`--at "${raw}": no marker "${m[2]}" on ${layer ? `"${layer}"` : 'the root composition'} (markers: ${list}; any layer also has @start, @mid, @end)`);

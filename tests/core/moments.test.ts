@@ -121,3 +121,53 @@ describe('resolveMoments: what is wrong is said, with what to write', () => {
       .toMatch(/at: "r@hit": the clock of composition "r" never reaches its marker "hit" \(2 s\)/);
   });
 });
+
+describe('resolveMoments: review round', () => {
+  it('a composition with no duration lasts its parent\'s whole clock (here 8 s inside a 4 s composition at speed 2), as the runtime does', () => {
+    const r = run([{ type: 'composition', name: 'A', duration: 4, speed: 2, sequences: [{ type: 'composition', name: 'B', markers: { x: 6 }, sequences: [{ type: 'text', name: 't' }] }] },
+      { type: 'audio', name: 'hit', sfx: 'hit', at: 'B@x' } as L]);
+    expect(r.warnings).toEqual([]);
+    expect(ats(r)[1]).toBeCloseTo(3, 9);
+  });
+
+  it('a composition whose time keyframe starts at a moment: its clock is built from the resolved keyframe', () => {
+    const r = run([{ type: 'composition', name: 'r', duration: 4, markers: { hit: 2 }, keyframes: [{ at: '@go', to: { time: 8 }, duration: 2 }], sequences: [{ type: 'text', name: 't' }] },
+      { type: 'text', name: 'x', at: 'r@hit' }], { markers: { go: 1 } });
+    expect(r.warnings).toEqual([]);
+    expect(ats(r)[1]).toBeCloseTo(1.5, 3);
+    expect(r.markers.find(m => m.layer === 'r')!.time).toBeCloseTo(1.5, 3);
+  });
+
+  it('an inline mask (and what is inside it) takes moments: its at is composition time, like a layer\'s', () => {
+    const r = run([lowerThird('host', 2), { type: 'shape', name: 's', duration: 5, mask: { type: 'shape', shape: 'rect', width: 10, height: 10, at: 'host@in' } } as L,
+      { type: 'shape', name: 'u', duration: 5, mask: { layer: { type: 'composition', width: 10, height: 10, sequences: [{ type: 'shape', shape: 'rect', width: 5, height: 5, at: '@drop', keyframes: [{ at: 'host@out', set: { alpha: 0 } }] }] }, invert: true } } as L], { markers: { drop: 1 } });
+    expect(r.warnings).toEqual([]);
+    const seqs = (r.spec as { sequences: Array<Record<string, any>> }).sequences;
+    expect(seqs[1]!.mask.at).toBeCloseTo(2.6, 9);
+    const inner = seqs[2]!.mask.layer.sequences[0];
+    expect(inner.at).toBe(1);
+    expect(inner.keyframes[0].at).toBeCloseTo(3.4, 9);
+  });
+
+  it('a transition\'s at takes a moment, on the clock of the composition it is in', () => {
+    const r = run([{ type: 'text', name: 'a', at: 0, duration: 5 }, { type: 'text', name: 'b', at: 4, duration: 5 }], { transitions: [{ from: 'a', to: 'b', kind: 'crossfade', at: 'a@end - 1', duration: 1 }] });
+    expect(r.warnings).toEqual([]);
+    expect((r.spec as { transitions: Array<{ at: number }> }).transitions[0]!.at).toBe(4);
+  });
+
+  it('several shifts add up (what stagger() writes: "host@in + 0.2 + 0.1"); a moment lands on a frame, not a hair beside it', () => {
+    const r = run([lowerThird('host', 2), { type: 'text', name: 'x', at: 'host@in + 0.2 + 0.1 - 0.05' }]);
+    expect(r.warnings).toEqual([]);
+    expect(ats(r)[1]).toBe(2.85);
+  });
+
+  it('a warning about a keyframe names the keyframe\'s moment, and is said once', () => {
+    const twice = [lowerThird('host', 1), lowerThird('host', 2), { type: 'text', name: 't', at: 0.5, keyframes: [{ at: 'host@in', set: { alpha: 0 } }, { at: 'host@out', set: { alpha: 1 } }] }];
+    const w = run(twice).warnings;
+    expect(w.filter(x => /2 layers are named "host"/.test(x))).toHaveLength(2);
+    expect(w[0]).toMatch(/layer "t": keyframe at: "host@in": 2 layers are named "host" beside each other/);
+    const cyc = run([{ type: 'text', name: 'a', at: 'b@end' }, { type: 'text', name: 'b', at: 'a@end' }, { type: 'text', name: 'c', at: 'd@start' }, { type: 'text', name: 'd', at: 1 }, { type: 'text', name: 'd', at: 2 }]).warnings;
+    expect(new Set(cyc).size).toBe(cyc.length);
+  });
+});
+

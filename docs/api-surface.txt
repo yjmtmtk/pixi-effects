@@ -743,7 +743,7 @@ interface SplitOptions
   y?: number
 function splitText(text: string, style?: MeasureStyle, opts?: SplitOptions): TextPiece[]
 function stagger(count: number, options?: number | StaggerOptions | undefined): number[]
-function stagger<T extends { at?: number; }>(layers: readonly T[], options?: number | StaggerOptions | undefined): T[]
+function stagger<T extends { at?: number | Moment; }>(layers: readonly T[], options?: number | StaggerOptions | undefined): T[]
 interface StaggerOptions
   amount?: number
   each?: number

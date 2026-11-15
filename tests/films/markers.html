@@ -10,6 +10,7 @@
        p3 blue   x 100..140 inside 'scene' (at 1 s), at '@drop' → 1.5 s on the scene's clock = 2.5 s, for 0.5 s
        p4 yellow x 150..190 at 'slow@hit'          → 2 s, for 0.5 s
        p5 magenta x 200..240 at 0.5, a keyframe at 'host@out' sets alpha 0 → hidden from 2.5 s (2 s after the layer starts)
+       p6 white  x 250..290 at '{who}@in' with the variable who = 'host' → 1.5 s; setWho(name) sets the variable (a bad name must warn).
        The page gives px(t, x, y) = [r, g, b] at the frame of t seconds, and at(list) = movie.resolveAt(list). -->
   <canvas id="stage" width="320" height="180"></canvas>
   <script>
@@ -28,10 +29,12 @@
       const i = (Math.floor(y) * img.width + Math.floor(x)) * 4; return [img.data[i], img.data[i + 1], img.data[i + 2]];
     };
     window.at = (list) => movie.resolveAt(list);
+    window.setWho = (who) => movie.setVars({ who });
     const probe = (name, colour, x, at, duration) => ({ type: 'shape', shape: 'rect', name, at, duration, width: 40, height: 40, anchorX: 0, anchorY: 0, initial: { x, y: 70, fillColor: colour } });
     try {
       await movie.init({
         canvas: document.getElementById('stage'), width: 320, height: 180, duration: 4, frameRate: 30, background: '#000000',
+        vars: { who: 'host' },
         composition: {
           markers: { drop: 2.5 },
           components: {
@@ -49,6 +52,7 @@
             { type: 'composition', name: 'scene', at: 1, duration: 3, width: 320, height: 180, sequences: [probe('p3', '#0000ff', 100, '@drop', 0.5)] },
             probe('p4', '#ffff00', 150, 'slow@hit', 0.5),
             { ...probe('p5', '#ff00ff', 200, 0.5, 3), keyframes: [{ at: 'host@out', set: { alpha: 0 } }] },
+            probe('p6', '#ffffff', 250, '{who}@in', 0.5),
           ],
         },
       });

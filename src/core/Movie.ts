@@ -243,8 +243,11 @@ export class Movie {
   private _raf: number | null = null;
   /** The variables now, and the names that were declared (a `setVars` of any other name is refused). */
   private _vars: Vars = {};
-  /** @internal Every composition's markers on the movie's clock (for `check --at host@in`). */
+  /** @internal Every composition's markers on the movie's clock (for `check --at host@in`): those of the tree on stage. */
   _markers: MarkerTime[] = [];
+  /** the markers of each built tree, taken over when that tree goes on stage (a rebuild that fails keeps the old ones) */
+  private _markersOf = new WeakMap<object, MarkerTime[]>();
+  private _saidMoments = new Set<string>();
   private _declared = new Set<string>();
   /** The composition as the author wrote it (before `{name}` is replaced): a rebuild starts from it. */
   private _composition: CompositionSpec | undefined;
@@ -381,7 +384,7 @@ export class Movie {
       this._declared = new Set(Object.keys(this._vars));
       this._composition = options.composition;
       this._resized = false;
-      for (const w of lintComposition(options.composition, this._vars, this.duration, this.frameRate)) console.warn(w);
+      for (const w of lintComposition(options.composition, this._vars)) console.warn(w);
       this._mixCache.set(null, null);
       this.stops = normalizeStops(applyVars(options.composition, this._vars)?.stops, this.duration, this.frameRate);
       this._posterFrame = poster.frame;
@@ -437,6 +440,7 @@ export class Movie {
 
       const composition = await this._construct(this._composition, this._vars, this.width, this.height, lp);
       this._rootSequence = composition;
+      this._markers = this._markersOf.get(composition) ?? [];
       if (composition.target) root.addChild(composition.target);
       composition.bindTimeline(this.timeline);
       this._timeFilters = collectTimeFilters(composition);
@@ -474,7 +478,8 @@ export class Movie {
     // components placed first (their {params} before the movie's {vars}), then the moments by name (`at: 'host@in'`) become seconds
     const timed = resolveMoments(applyVars(expandComponents(composition).spec, vars), { duration: this.duration, frameRate: this.frameRate });
     const spec = timed.spec;
-    this._markers = timed.markers;
+    // said once each for the movie's life: a rebuild (new variables, a new composition) says only what is new
+    for (const w of timed.warnings) if (!this._saidMoments.has(w)) { this._saidMoments.add(w); console.warn(w); }
     const rootShape: CompositionShape = {
       width, height, duration: this.duration, frameRate: this.frameRate, vars: numericVars(vars),
       ...(this.app?.renderer ? { renderer: this.app.renderer } : {}),
@@ -509,6 +514,7 @@ export class Movie {
     lp?.begin('build', countLayers(rootSeqSpec));
     try { await sequence.build(); }
     catch (err) { safeRun(() => sequence.destroy()); throw err; }
+    this._markersOf.set(sequence, timed.markers);
     return sequence;
   }
 
@@ -621,7 +627,7 @@ export class Movie {
       const width = change.width ?? this.width, height = change.height ?? this.height;
       const sizeChanged = width !== this.width || height !== this.height;
       const composition = change.composition ?? this._composition;
-      if (change.composition !== undefined) for (const w of lintComposition(change.composition, vars, this.duration, this.frameRate)) console.warn(w);
+      if (change.composition !== undefined) for (const w of lintComposition(change.composition, vars)) console.warn(w);
       changed = changed || sizeChanged || change.composition !== undefined || reason === 'rebuild';
       if (!changed) return { reason, ms: 0, audio: 'none', frame: this.currentFrame, playing: this.isPlaying, unchanged: true };
 
@@ -663,6 +669,7 @@ export class Movie {
         if (old?.target) root.removeChild(old.target);
         if (sequence.target) root.addChild(sequence.target);
         this._rootSequence = sequence;
+        this._markers = this._markersOf.get(sequence) ?? [];
         commitReuse(sequence, reusePool);                                     // a layer that took over an old layer's state owns it now
         this.timeline = timeline;
         this._timeFilters = collectTimeFilters(sequence);
@@ -1472,8 +1479,7 @@ function countLayers(spec: { sequences?: unknown[] } | undefined): number {
 }
 
 /** What the composition says about its components and its variables (said once, when it is given: not on every rebuild). */
-function lintComposition(composition: CompositionSpec | undefined, vars: Vars, duration: number, frameRate: number): string[] {
+function lintComposition(composition: CompositionSpec | undefined, vars: Vars): string[] {
   const { spec, warnings } = expandComponents(composition, Object.keys(vars));
-  const moments = resolveMoments(applyVars(spec, vars), { duration, frameRate }).warnings;
-  return [...warnings, ...lintVars(spec, vars), ...moments];
+  return [...warnings, ...lintVars(spec, vars)];
 }
