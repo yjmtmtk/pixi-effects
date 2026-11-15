@@ -70,6 +70,9 @@ const intersection = (a: Rect, b: Rect): number => {
   return w > 0 && h > 0 ? w * h : 0;
 };
 
+/** The window of a `clip: true` composition on the canvas, and the composition's path. */
+type Clip = { rect: Rect; path: string };
+
 const clip = (a: Rect, b: Rect): Rect | null => {
   const x = Math.max(a.x, b.x), y = Math.max(a.y, b.y);
   const w = Math.min(a.x + a.width, b.x + b.width) - x, h = Math.min(a.y + a.height, b.y + b.height) - y;
@@ -136,8 +139,10 @@ export function inspectScene(
   // Where each layer is in the display tree (child indices from the stage) and its alpha with every group above it: what is drawn over what, and how opaque, is a fact of the tree.
   const chains = new Map<LayerInfo, number[] | null>();
   const chainAlpha = new Map<LayerInfo, number>();
+  // The innermost `clip: true` composition around each layer: the part of its canvas it shows, and its path
+  const clippedBy = new Map<LayerInfo, Clip>();
 
-  const walk = (comp: CompositionSequence, prefix: string, insideThreeD: boolean, parentVisible: boolean, parentScene?: string, parentMotion: Motion = NO_MOTION, parentZero = false, parentAlpha = 1, parentClip: Rect | null = null): void => {
+  const walk = (comp: CompositionSequence, prefix: string, insideThreeD: boolean, parentVisible: boolean, parentScene?: string, parentMotion: Motion = NO_MOTION, parentZero = false, parentAlpha = 1, parentClip: Clip | null = null): void => {
     const blending = new Set<string>();
     const now = comp.childTime(time);                                   // the time its children live in (local when it is remapped)
     // a camera with a tween running now carries every threeD layer of the composition with it (a pan is not "cut off"); one at rest, or one that only `set`s values, carries nothing
@@ -186,7 +191,8 @@ export function inspectScene(
       kinds.set(info, seq.spec.type === 'shape' ? String((seq.spec as { shape?: string }).shape) : seq.spec.type);
       if (motion.ever) hasMotion.add(info);
       let shown = bounds ? clip(bounds, view) : null;
-      if (shown && parentClip) shown = clip(shown, parentClip);           // what a clip: true composition around it cuts away is not seen
+      if (shown && parentClip) shown = clip(shown, parentClip.rect);      // what a clip: true composition around it cuts away is not seen
+      if (parentClip) clippedBy.set(info, parentClip);
       const maskTarget = seq.maskSequence?.target as Container | null | undefined;
       const maskSrc = maskSourceOf((seq.spec as { mask?: unknown }).mask);
       if (shown && maskTarget && !(maskSrc.kind === 'inline' && maskSrc.invert)) {
@@ -204,7 +210,7 @@ export function inspectScene(
           const corners = [[0, 0], [seq.intrinsicWidth, 0], [0, seq.intrinsicHeight], [seq.intrinsicWidth, seq.intrinsicHeight]].map(([px, py]) => t.toGlobal({ x: px!, y: py! }));
           const xs = corners.map(c => c.x), ys = corners.map(c => c.y);
           const box = { x: Math.min(...xs), y: Math.min(...ys), width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) };
-          inner = inner ? clip(box, inner) ?? { x: box.x, y: box.y, width: 0, height: 0 } : box;
+          inner = { rect: inner ? clip(box, inner.rect) ?? { x: box.x, y: box.y, width: 0, height: 0 } : box, path: prefix + label };
         }
         walk(seq, prefix + label + '/', insideThreeD || threeD, visible, group, motion, zero, parentAlpha * alpha, inner);
       }
@@ -234,6 +240,19 @@ export function inspectScene(
       if (b.y + b.height > canvas.height) over.push(`${Math.round(b.y + b.height - canvas.height)}px beyond the bottom edge`);
       issues.push(`${who} is cut off by the canvas edge: ${over.join(', ')}`);
     }
+    // the same for the window of a clip: true composition (a text that moves through it, a carousel, a ticker, is on purpose)
+    const win = clippedBy.get(l);
+    if (!win || b.width < 1 || b.height < 1 || l.moving || scene.has(l) || l.onCanvas === 'none' || hasMotion.has(l)) continue;
+    const r = win.rect;
+    const inside = intersection(b, r);
+    if (inside <= 0) { issues.push(`${who} is hidden by the clip of composition "${win.path}" (it is wholly outside its width × height)`); continue; }
+    if (inside >= b.width * b.height - 1) continue;
+    const cut: string[] = [];
+    if (b.x < r.x - 0.5) cut.push(`${Math.round(r.x - b.x)}px beyond its left edge`);
+    if (b.x + b.width > r.x + r.width + 0.5) cut.push(`${Math.round(b.x + b.width - r.x - r.width)}px beyond its right edge`);
+    if (b.y < r.y - 0.5) cut.push(`${Math.round(r.y - b.y)}px beyond its top edge`);
+    if (b.y + b.height > r.y + r.height + 0.5) cut.push(`${Math.round(b.y + b.height - r.y - r.height)}px beyond its bottom edge`);
+    if (cut.length) issues.push(`${who} is cut off by the clip of composition "${win.path}": ${cut.join(', ')}`);
   }
   for (let i = 0; i < texts.length; i++) {
     for (let j = i + 1; j < texts.length; j++) {

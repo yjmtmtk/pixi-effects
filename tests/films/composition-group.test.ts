@@ -40,7 +40,10 @@ runFilms('composition: one picture', () => {
         expect.soft(await film.eval<string | null>('(movie.pick(150, 170) || {}).path ?? null'), `${name} pick outside the clipped window`).toBeNull();
         expect.soft(await film.eval<string | null>('(movie.pick(60, 170) || {}).path ?? null'), `${name} pick inside the clipped window`).toMatch(/^clipped\//);
         expect.soft(await film.eval<string | null>("(movie.pick(520, 337, { only: ['outsideText', 'other'] }) || {}).name ?? null"), `${name} pick where the hidden text would be`).toBe('other');
-        expect.soft((await film.eval<string[]>('issues')).filter(i => i.includes('outsideText')), `${name} inspect: a text hidden by clip overlaps nothing`).toEqual([]);
+        const issues = await film.eval<string[]>('issues');
+        expect.soft(issues.filter(i => i.includes('outsideText') && i.includes('overlap')), `${name} inspect: a text hidden by clip overlaps nothing`).toEqual([]);
+        expect.soft(issues.find(i => i.includes('outsideText')), `${name} inspect: a text wholly outside its clip is said to be hidden`).toMatch(/text layer "win\/outsideText" is hidden by the clip of composition "win"/);
+        expect.soft(issues.find(i => i.includes('halfText')), `${name} inspect: a text half outside its clip is said to be cut`).toMatch(/text layer "win2\/halfText" is cut off by the clip of composition "win2": \d+px beyond its right edge/);
       }, { beforeLoad });
     }
   }, 180_000);

@@ -14,7 +14,8 @@
        G  through         grey backdrop at (200, 240); a comp at alpha 0.5 whose rect (0, 0, 128) blends 'add': the rect keeps adding to the backdrop
                           while it fades, (128, 128, 192), as at alpha 1 (a composition whose layers blend with what is behind it is not isolated).
        H  clip and checks comp 'win' (400, 322) 60 x 30, clip: true, its text 'outsideText' at x 120 (outside the window, so not drawn) sits where
-                          the text 'other' is drawn: pick does not find it and inspect reports no overlap.
+                          the text 'other' is drawn: pick does not find it, inspect reports no overlap but says it is hidden by the clip.
+       I  half cut        comp 'win2' (20, 330) 60 x 24, clip: true, a text 'halfText' wider than 60 px: inspect says the clip cuts it.
        The page gives the test px(x, y) = [r, g, b] at frame 0 and alphaOf(name) = the alpha movie.inspect(0) reports. -->
   <canvas id="stage" width="640" height="360"></canvas>
   <script>
@@ -51,6 +52,8 @@
           { type: 'composition', name: 'glow', width: 160, height: 80, initial: { x: 200, y: 240, alpha: 0.5 }, sequences: [{ ...rect('glowRect', 0, 0, 160, 80, '#000080'), blendMode: 'add' }] },
           { type: 'composition', name: 'win', width: 60, height: 30, clip: true, initial: { x: 400, y: 322 }, sequences: [
             { type: 'text', name: 'outsideText', text: 'ABC', style: { fontSize: 20, fill: '#ffffff' }, initial: { x: 120, y: 15, anchorX: 0.5, anchorY: 0.5 } }] },
+          { type: 'composition', name: 'win2', width: 60, height: 24, clip: true, initial: { x: 20, y: 330 }, sequences: [
+            { type: 'text', name: 'halfText', text: 'ABCDEFG', style: { fontSize: 20, fill: '#ffffff' }, initial: { x: 0, y: 0 } }] },
           { type: 'text', name: 'other', text: 'ABC', style: { fontSize: 20, fill: '#ffffff' }, initial: { x: 520, y: 337, anchorX: 0.5, anchorY: 0.5 } },
         ] },
       });
