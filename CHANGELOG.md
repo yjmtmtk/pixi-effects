@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.53.0
 
 **Breaking: a composition is one picture**, as a CSS element or an After Effects precomp — the behaviour an author (or an AI) already expects, with nothing to switch on.
 
