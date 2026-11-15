@@ -12,6 +12,7 @@ import { registerBlendModes } from '../../src/filters/blendModes';
 // a movie that uses an advanced blend mode registers the blend filters in Movie.init; this test builds the compositions without a movie
 registerBlendModes();
 import { expandTransitions } from '../../src/core/Transitions';
+import { expandComponents } from '../../src/core/components';
 import { kenBurns } from '../../src/presets/kenBurns';
 import { withFade } from '../../src/transforms/withFade';
 import { orbit } from '../../src/presets/orbit';
@@ -80,8 +81,11 @@ describe('skills/pixi-effects/reference/recipes.md', () => {
       if (/type: 'canvas'/.test(r.code)) installCanvas(fakeGl(), fake2d());       // a canvas layer says so when a browser gives no 2D context, and happy-dom's gives none
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const out = new Function('kenBurns', 'withFade', 'orbit', 'splitText', 'measureText', 'wiggle', 'stagger', 'animateText', 'followPath', 'cameraPath', 'particles', 'deck', 'react', 'bpmEnvelope', 'random', 'rand', 'noise', 'noise2', 'samplePath', 'ease', r.code)(kenBurns, withFade, orbit, splitText, measureText, wiggle, stagger, animateText, followPath, cameraPath, particles, deck, react, bpmEnvelope, random, rand, noise, noise2, samplePath, ease) as
-        SequenceSpec[] | { sequences: SequenceSpec[]; transitions?: unknown[]; duration?: number };
-      const sequences = Array.isArray(out) ? out : out.sequences;
+        SequenceSpec[] | { sequences: SequenceSpec[]; transitions?: unknown[]; duration?: number; components?: unknown };
+      // components are placed first (as Movie does): what is linted and built is ordinary compositions
+      const placed = expandComponents({ sequences: Array.isArray(out) ? out : out.sequences, ...(!Array.isArray(out) && out.components ? { components: out.components } : {}) });
+      expect(placed.warnings).toEqual([]);
+      const sequences = placed.spec.sequences as SequenceSpec[];
       const transitions = Array.isArray(out) ? undefined : out.transitions;
       const duration = (!Array.isArray(out) && out.duration) || 8;
       expect(sequences.length).toBeGreaterThan(0);

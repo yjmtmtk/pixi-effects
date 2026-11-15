@@ -341,6 +341,34 @@ Nested composition. Same shape as the root spec but with `type: 'composition'` a
 
 A composition can also have its **own time**: `speed` (2 = its content plays twice as fast, 0.5 = slow motion, negative = backward) and `time` keyframes (see [Time](#time-speed-and-time)). The layers inside then write `at`, `duration` and `keyframes` in the composition's own seconds; the composition's own `at`, `duration` and keyframes stay in the outer time. A sound or `sfx` inside follows the composition's clock.
 
+### Components: `components`, `use`, `params`
+
+A **component** is a composition written once and placed many times, each time with its own values: a lower third for every speaker, a price tag on every product (After Effects: one precomp used in several places, with its Essential properties; React: a component and its props). Declare them in the root composition's `components`; place one anywhere with **`use`** (also inside another component).
+
+```js
+composition: {
+  components: {
+    lowerThird: {
+      params: { name: 'Name', role: '', accent: '#e63946', indent: 0 },     // the names and their defaults: a number or a string
+      width: 640, height: 110, duration: 3.5,                                // anything a composition layer has
+      sequences: [
+        { type: 'shape', shape: 'rect', width: 8, height: 96, anchorX: 0, anchorY: 0, initial: { x: 'indent', y: 7, fillColor: '{accent}' } },
+        { type: 'text', text: '{name}', initial: { x: '28 + indent', y: 34, anchorY: 0.5 } },
+      ],
+    },
+  },
+  sequences: [
+    { use: 'lowerThird', name: 'host',  at: 0.5, params: { name: 'Aiko Mori' }, initial: { x: 80, y: 560 } },
+    { use: 'lowerThird', name: 'guest', at: 4.5, params: { name: 'Ben Ito', accent: '#2a9d8f' }, initial: { x: 80, y: 560 } },
+  ],
+}
+```
+
+- **A param is read as a [variable](#variables) is:** `{name}` in any string of the component (a text, a colour, an asset, a layer name), and a number param as a word in its expressions (`'28 + indent'`). A param the place does not give keeps its default. A param's value may itself hold a movie variable (`params: { accent: '{brand}' }`).
+- **The place is a composition layer:** `type` may be left out (`{ use: … }` is enough). Its own keys (`name`, `at`, `duration`, `initial`, `keyframes`, `filters`, `mask`, `blendMode`, `clip`, …) are put on top of the component's; the component gives the size, the time and the layers. A place has no `sequences` of its own (it warns).
+- What is built is an ordinary composition per place, so `inspect`, `check`, `pick` and `follow` see every layer by its path (`'guest/name'`).
+- Checked when the movie is built, each with what to write: a `use` with no such component (did you mean), a param the component does not have (did you mean, and its list), a value that is not a number or a string, a param nothing inside reads, a `{name}` in a component that is none of its params nor a movie variable, a component nothing uses, a component that uses itself. Param names follow the variable rules (reserved words are refused). Words other tools use warn with ours: `component:` / `ref:` → `use`, `props:` → `params`.
+
 ### `shape`
 
 Parametric primitive backed by PIXI v8 `Graphics`. Six kinds, discriminated by `shape`. All geometry props accept the [expression language](#expressions), so dimensions can follow the canvas:

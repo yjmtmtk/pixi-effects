@@ -67,6 +67,40 @@ return [
 
 ---
 
+## The same part placed many times (a component and its params)
+
+Write a part once in `components` and place it with `use`, each time with its own `params`: a lower third for every speaker, a price tag on every product, a chip in a legend. Inside the component, a param is read as a movie variable is: `{name}` in any string (a text, a colour), the bare name in an expression (`x: '20 + indent'`). The place keeps every key a layer has (`name`, `at`, `initial`, `keyframes`, …); the component gives the size, the time and the layers. Fix the part once and every place changes.
+
+```js
+// @recipe component-lower-third
+const components = {
+  lowerThird: {
+    params: { name: 'Name', role: 'Role', accent: '#e63946', indent: 0 },     // the defaults
+    width: 640, height: 110, duration: 3.5,
+    sequences: [
+      { type: 'shape', shape: 'rect', name: 'bar', width: 8, height: 96, anchorX: 0, anchorY: 0, initial: { x: 'indent', y: 7, fillColor: '{accent}', scaleY: 0 },
+        keyframes: [{ at: 0, to: { scaleY: 1 }, duration: 0.4, ease: 'power3.out' }] },
+      { type: 'text', name: 'name', text: '{name}', style: { fontSize: 40, fontWeight: 'bold', fill: '#ffffff' },
+        initial: { x: '28 + indent', y: 34, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0.2, to: { alpha: 1 }, duration: 0.3 }] },
+      { type: 'text', name: 'role', text: '{role}', style: { fontSize: 24, fill: '{accent}' },
+        initial: { x: '28 + indent', y: 80, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0.35, to: { alpha: 1 }, duration: 0.3 }] },
+    ],
+    keyframes: [{ at: -0.4, to: { alpha: 0 }, duration: 0.4 }],               // the whole part fades out as one picture
+  },
+};
+return {
+  components,
+  duration: 12,
+  sequences: [
+    { use: 'lowerThird', name: 'host', at: 0.5, params: { name: 'Aiko Mori', role: 'Host' }, initial: { x: 80, y: 560 } },
+    { use: 'lowerThird', name: 'guest', at: 4.5, params: { name: 'Ben Ito', role: 'Engineer', accent: '#2a9d8f' }, initial: { x: 80, y: 560 } },
+    { use: 'lowerThird', name: 'guest2', at: 8.5, params: { name: 'Chika Sato', role: 'Designer', accent: '#e9c46a', indent: 12 }, initial: { x: 80, y: 560 } },
+  ],
+};
+```
+
+---
+
 ## Pop in with a spring: a card that lands, a badge that bounces
 
 A spring overshoots and settles: `duration: 'auto'` lets the physics set the length, a preset names the feel (`spring.gentle`, `snappy`, `bouncy`, `wobbly`, `slow`). Different presets on one layer's properties read as different materials.

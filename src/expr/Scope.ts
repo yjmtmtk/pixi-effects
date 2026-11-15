@@ -32,6 +32,7 @@ export function buildScope(
   const cover   = (w === 0 || h === 0) ? 1 : Math.max(W / w, H / h);
   return {
     ...(root.vars ?? {}),                                  // the declared numbers first: the built-in words below win
+    ...(parent?.vars ?? {}),                               // then a component's number params (a composition passes them down to what is inside)
     w, h, W, H, GW, GH,
     contain, cover,
     t: sequence.at ?? 0,

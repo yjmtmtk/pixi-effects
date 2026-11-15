@@ -23,6 +23,7 @@ import { collectTimeline, timelineHtml, timelineSvg, type TimelineData, type Tim
 import { pickFrames, sheetLayout } from './frames';
 import { warnUnknownOptions, suggestName } from './options';
 import { normalizeVars, applyVars, numericVars, lintVars, type Vars } from './vars';
+import { expandComponents } from './components';
 import { mixKey, MixCache } from './mixCache';
 import { startWhenRunning, audioIsBlocked } from './startWhenRunning';
 import { normalizePoster } from './poster';
@@ -377,7 +378,7 @@ export class Movie {
       this._declared = new Set(Object.keys(this._vars));
       this._composition = options.composition;
       this._resized = false;
-      for (const w of lintVars(options.composition, this._vars)) console.warn(w);
+      for (const w of lintComposition(options.composition, this._vars)) console.warn(w);
       this._mixCache.set(null, null);
       this.stops = normalizeStops(applyVars(options.composition, this._vars)?.stops, this.duration, this.frameRate);
       this._posterFrame = poster.frame;
@@ -467,7 +468,7 @@ export class Movie {
    * expressions), transitions expanded, every layer built. Used by `init` and by `rebuild`.
    */
   private async _construct(composition: CompositionSpec | undefined, vars: Vars, width: number, height: number, lp?: LoadProgress, sizeWins = this._resized, reuse?: ReusePool): Promise<CompositionSequence> {
-    const spec = applyVars(composition, vars);
+    const spec = applyVars(expandComponents(composition).spec, vars);                 // components placed first: their {params} before the movie's {vars}
     const rootShape: CompositionShape = {
       width, height, duration: this.duration, frameRate: this.frameRate, vars: numericVars(vars),
       ...(this.app?.renderer ? { renderer: this.app.renderer } : {}),
@@ -614,7 +615,7 @@ export class Movie {
       const width = change.width ?? this.width, height = change.height ?? this.height;
       const sizeChanged = width !== this.width || height !== this.height;
       const composition = change.composition ?? this._composition;
-      if (change.composition !== undefined) for (const w of lintVars(change.composition, vars)) console.warn(w);
+      if (change.composition !== undefined) for (const w of lintComposition(change.composition, vars)) console.warn(w);
       changed = changed || sizeChanged || change.composition !== undefined || reason === 'rebuild';
       if (!changed) return { reason, ms: 0, audio: 'none', frame: this.currentFrame, playing: this.isPlaying, unchanged: true };
 
@@ -1462,4 +1463,10 @@ function countLayers(spec: { sequences?: unknown[] } | undefined): number {
     if (src.kind === 'inline') n += 1 + countLayers(src.spec as { sequences?: unknown[] });   // an inline mask is built as a layer too
   }
   return n;
+}
+
+/** What the composition says about its components and its variables (said once, when it is given: not on every rebuild). */
+function lintComposition(composition: CompositionSpec | undefined, vars: Vars): string[] {
+  const { spec, warnings } = expandComponents(composition, Object.keys(vars));
+  return [...warnings, ...lintVars(spec, vars)];
 }

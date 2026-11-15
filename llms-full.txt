@@ -203,6 +203,8 @@ Keyframe kinds: `set` (jump at `at`; undone when you seek back), `to` (animate t
 
 Style (`initial` / keyframes): `fillColor fillAlpha strokeColor strokeAlpha strokeWidth`; `colorSpace: 'oklab'|'oklch'` for clean colour tweens. rect/circle/ellipse are **centred on `x,y` by default** (`anchorX/anchorY` default 0.5): for a bar growing from its base use `anchorY: 1` (or `anchorX: 0` for left-to-right). **`fillGradient`** (top level or `initial`; instead of `fillColor`): `{ type?: 'linear'|'radial', stops: [[0, '#000'], [1, 'rgba(0,0,0,.6)']], angle? /* linear, deg; DEFAULT 90 = top→bottom, 0 = left→right: a wide gradient slid sideways as a matte needs angle: 0 */, center?, innerRadius?, radius? /* radial, 0–1 of the SHAPE's own bounds, not the canvas: a glow on a 1500 px circle is placed with fractions of that circle */ }` — stops may have alpha, so a radial transparent→dark is a vignette. **Animate it** with a partial gradient in a keyframe (`to: { fillGradient: { angle: 360, stops: [...] } }`: keys you leave out stay; the same number of stops; `type` cannot change; a start gradient is required; use `colorSpace: 'oklch'` for a vivid fade). A text layer takes `fillGradient` too (LINEAR only: angle and stops; type / center / radius are ignored with a warning; letters re-rasterised per change). `from` alone runs from that gradient to the layer's own. The names `'fillGradient.angle'` / `gradientAngle` are not properties: write `fillGradient: { angle }`. Stroke ends and corners: `strokeCap: 'butt'|'round'|'square'`, `strokeJoin: 'miter'|'round'|'bevel'` (top level or in `initial`; not animated — `round` keeps sharp corners like an M from poking out).
 
+**components** (root) + **`use`** + **`params`** — a composition written once (`components: { card: { params: { title: 'x' }, width, height, sequences } }`) and placed many times (`{ use: 'card', params: { title: 'A' }, at, initial }`); params read like variables: `{title}` in strings, a number param as a word in expressions.
+
 **composition** — `width height duration sequences transitions`, **`clip`** (true: cut to `width × height`, CSS `overflow: hidden`; default false). It is **one picture**: its `alpha`, `blendMode`, `filters`, `mask` act on what its layers drew together (CSS element / AE precomp), nothing to switch on. **`speed`** (the composition's own time: its content plays backward, in slow motion, … — `time` keyframes give a freeze, a rewind, a ramp; a composition's sound and sfx follow; its own x / alpha keyframes stay in the outer time; **children are placed in the composition's local seconds**; the content is as long as the larger of `duration` and the farthest `time` it reaches (`speed: 2` → twice `duration`; `time` keyframes → their largest number), and children default to that length. A child whose life ends exactly where a held `time` stands is hidden during the hold (a life is [at, at + duration)): give it a `duration` that reaches past. `time` keyframes and ordinary ones (`x`, `alpha`, a `wiggle`) may share one `keyframes` list. A sound inside goes silent while the clock stands still). With `threeD: true` it is a **card**: its children are drawn into one texture (content outside its `width × height` is clipped: size it for a soft shadow too; a plain 2D composition clips only with `clip: true`) and move / rotate in depth together. Children use the composition's local coordinates and times. Position/rotate/scale it as a unit; to rotate/scale about its centre set `pivotX/pivotY` to the centre and `x/y` to where that point should sit.
 
 **canvas** — `{ type: 'canvas', width, height, draw: (ctx, t, info) => { … }, setup?, params?, seed?, resolution?, smoothing? }`: a picture drawn by YOUR function of the time into the layer's own cleared canvas (`t` = the layer's seconds; `info` = `{ frame, duration, progress, width, height, resolution, frameRate, params, state, random, start, time, canvas }`: `time` is the MOVIE's seconds (`start + t`; share it between layers instead of adding `at` by hand), `canvas(w, h)` an offscreen canvas for sprites and masks made in `setup`). It is a normal layer (initial, keyframes, mask, filters, blendMode …); `params` are numbers keyframes animate as `'params.x'`; no `Math.random` / `Date.now` (`info.random()` is seeded); a simulation is computed in `setup` and read by `info.frame`; it cannot see what is below it. Data several canvas layers share lives in module scope; `import { ease, noise, noise2, random, rand, samplePath } from 'pixi-effects'` for easing by keyframe name, seeded noise and a path walked by length (`samplePath(d).at(u)` / `.trim(a, b)`). `check` draws it twice per moment (one draw thrown away first) and reports a picture that differs, with how much; it prints a `canvas` line when all pass and does NOT see text drawn in a canvas.
@@ -567,6 +569,40 @@ return [
     initial: { x: 100, y: 600, anchorX: 0, anchorY: 0.5, alpha: 0 },
     keyframes: [{ at: 0, to: { alpha: 1 }, duration: 0.3 }, { at: -0.4, to: { alpha: 0 }, duration: 0.3 }] },
 ];
+```
+
+---
+
+## The same part placed many times (a component and its params)
+
+Write a part once in `components` and place it with `use`, each time with its own `params`: a lower third for every speaker, a price tag on every product, a chip in a legend. Inside the component, a param is read as a movie variable is: `{name}` in any string (a text, a colour), the bare name in an expression (`x: '20 + indent'`). The place keeps every key a layer has (`name`, `at`, `initial`, `keyframes`, …); the component gives the size, the time and the layers. Fix the part once and every place changes.
+
+```js
+// @recipe component-lower-third
+const components = {
+  lowerThird: {
+    params: { name: 'Name', role: 'Role', accent: '#e63946', indent: 0 },     // the defaults
+    width: 640, height: 110, duration: 3.5,
+    sequences: [
+      { type: 'shape', shape: 'rect', name: 'bar', width: 8, height: 96, anchorX: 0, anchorY: 0, initial: { x: 'indent', y: 7, fillColor: '{accent}', scaleY: 0 },
+        keyframes: [{ at: 0, to: { scaleY: 1 }, duration: 0.4, ease: 'power3.out' }] },
+      { type: 'text', name: 'name', text: '{name}', style: { fontSize: 40, fontWeight: 'bold', fill: '#ffffff' },
+        initial: { x: '28 + indent', y: 34, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0.2, to: { alpha: 1 }, duration: 0.3 }] },
+      { type: 'text', name: 'role', text: '{role}', style: { fontSize: 24, fill: '{accent}' },
+        initial: { x: '28 + indent', y: 80, anchorX: 0, anchorY: 0.5, alpha: 0 }, keyframes: [{ at: 0.35, to: { alpha: 1 }, duration: 0.3 }] },
+    ],
+    keyframes: [{ at: -0.4, to: { alpha: 0 }, duration: 0.4 }],               // the whole part fades out as one picture
+  },
+};
+return {
+  components,
+  duration: 12,
+  sequences: [
+    { use: 'lowerThird', name: 'host', at: 0.5, params: { name: 'Aiko Mori', role: 'Host' }, initial: { x: 80, y: 560 } },
+    { use: 'lowerThird', name: 'guest', at: 4.5, params: { name: 'Ben Ito', role: 'Engineer', accent: '#2a9d8f' }, initial: { x: 80, y: 560 } },
+    { use: 'lowerThird', name: 'guest2', at: 8.5, params: { name: 'Chika Sato', role: 'Designer', accent: '#e9c46a', indent: 12 }, initial: { x: 80, y: 560 } },
+  ],
+};
 ```
 
 ---
@@ -2894,6 +2930,34 @@ Nested composition. Same shape as the root spec but with `type: 'composition'` a
 ```
 
 A composition can also have its **own time**: `speed` (2 = its content plays twice as fast, 0.5 = slow motion, negative = backward) and `time` keyframes (see [Time](#time-speed-and-time)). The layers inside then write `at`, `duration` and `keyframes` in the composition's own seconds; the composition's own `at`, `duration` and keyframes stay in the outer time. A sound or `sfx` inside follows the composition's clock.
+
+### Components: `components`, `use`, `params`
+
+A **component** is a composition written once and placed many times, each time with its own values: a lower third for every speaker, a price tag on every product (After Effects: one precomp used in several places, with its Essential properties; React: a component and its props). Declare them in the root composition's `components`; place one anywhere with **`use`** (also inside another component).
+
+```js
+composition: {
+  components: {
+    lowerThird: {
+      params: { name: 'Name', role: '', accent: '#e63946', indent: 0 },     // the names and their defaults: a number or a string
+      width: 640, height: 110, duration: 3.5,                                // anything a composition layer has
+      sequences: [
+        { type: 'shape', shape: 'rect', width: 8, height: 96, anchorX: 0, anchorY: 0, initial: { x: 'indent', y: 7, fillColor: '{accent}' } },
+        { type: 'text', text: '{name}', initial: { x: '28 + indent', y: 34, anchorY: 0.5 } },
+      ],
+    },
+  },
+  sequences: [
+    { use: 'lowerThird', name: 'host',  at: 0.5, params: { name: 'Aiko Mori' }, initial: { x: 80, y: 560 } },
+    { use: 'lowerThird', name: 'guest', at: 4.5, params: { name: 'Ben Ito', accent: '#2a9d8f' }, initial: { x: 80, y: 560 } },
+  ],
+}
+```
+
+- **A param is read as a [variable](#variables) is:** `{name}` in any string of the component (a text, a colour, an asset, a layer name), and a number param as a word in its expressions (`'28 + indent'`). A param the place does not give keeps its default. A param's value may itself hold a movie variable (`params: { accent: '{brand}' }`).
+- **The place is a composition layer:** `type` may be left out (`{ use: … }` is enough). Its own keys (`name`, `at`, `duration`, `initial`, `keyframes`, `filters`, `mask`, `blendMode`, `clip`, …) are put on top of the component's; the component gives the size, the time and the layers. A place has no `sequences` of its own (it warns).
+- What is built is an ordinary composition per place, so `inspect`, `check`, `pick` and `follow` see every layer by its path (`'guest/name'`).
+- Checked when the movie is built, each with what to write: a `use` with no such component (did you mean), a param the component does not have (did you mean, and its list), a value that is not a number or a string, a param nothing inside reads, a `{name}` in a component that is none of its params nor a movie variable, a component nothing uses, a component that uses itself. Param names follow the variable rules (reserved words are refused). Words other tools use warn with ours: `component:` / `ref:` → `use`, `props:` → `params`.
 
 ### `shape`
 

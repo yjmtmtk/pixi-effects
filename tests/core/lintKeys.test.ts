@@ -68,6 +68,10 @@ describe('lintKeys: the words other tools use for a composition and a 3D layer',
       expect(w[0], key).toMatch(/is always drawn as one picture.*alpha.*blendMode.*filters.*mask/s);
     }
   });
+  it('component, ref, instance → "use"; props, properties, args → "params" (the words React, Vue and design tools use)', () => {
+    for (const key of ['component', 'ref', 'instance']) expect(warns(comp({ [key]: 'card' }))[0], key).toMatch(/did you mean "use"\?/);
+    for (const key of ['props', 'properties', 'args']) expect(warns(comp({ [key]: { a: 1 } }))[0], key).toMatch(/did you mean "params"\?/);
+  });
   it('is3D, 3d, layer3D, threeDimensional … on any layer: did you mean "threeD"', () => {
     for (const key of ['is3D', '3d', 'three3d', 'layer3D', 'threeDimensional', 'enable3D', 'use3D', 'in3D', 'three_d']) {
       expect(warns({ type: 'shape', shape: 'rect', width: 1, height: 1, [key]: true })[0], key).toMatch(/did you mean "threeD"\?/);

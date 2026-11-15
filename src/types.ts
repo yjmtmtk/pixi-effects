@@ -536,7 +536,17 @@ export interface CompositionSequenceSpec extends SequenceCommon {
    * and keyframes stay in the outer time. To change the speed over time, animate `time` (the local playhead, in seconds).
    */
   speed?: number;
+  /**
+   * Place a component (declared in the root's `components`) here: its size, time and layers, with this layer's own keys (`name`, `at`, `initial`,
+   * `keyframes`, …) on top. In a page's plain JavaScript `type` may be left out when `use` is given.
+   */
+  use?: string;
+  /** The values of the component's params for this place (the rest keep their defaults): `{title}` in its strings, a number as a word in its expressions. */
+  params?: Record<string, number | string>;
 }
+
+/** A component: a composition written once in the root's `components` and placed with `use`. `params` are its names and default values. */
+export type ComponentSpec = Omit<CompositionSequenceSpec, 'type' | 'use' | 'params'> & { params?: Record<string, number | string> };
 
 /**
  * A camera layer. Put its props in `initial` / `keyframes`:
@@ -876,6 +886,11 @@ export interface CompositionSpec extends SequenceCommon {
    * stop at them, `Controller` shows them as marks on the seek bar.
    */
   stops?: Array<number | import('./core/stops').StopSpec>;
+  /**
+   * Compositions written once and placed many times: `{ lowerThird: { params: { title: 'Name' }, width, height, sequences } }`, placed with
+   * `{ use: 'lowerThird', params: { title: 'Aiko' }, at, initial }` anywhere in the movie (also inside another component).
+   */
+  components?: Record<string, ComponentSpec>;
 }
 
 // ─── Internal shape types (used by sequences and core) ────────────────────

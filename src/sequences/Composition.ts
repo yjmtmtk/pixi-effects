@@ -112,7 +112,12 @@ export class CompositionSequence extends Sequence {
     const span = base ? contentLength(base, this.duration) : this.duration;
     this._remap = base ? remapOf(this.spec as never, 'time', span) : null;
     this._contentSpan = span;
-    this._compositionShape = { width, height, duration: span, spaceAt: (t) => this._spaceAt(t), findLayer: (name) => this._children.find(c => c.spec.name === name) ?? null, layerNames: () => this._children.map(c => c.spec.name).filter((n): n is string => !!n) };
+    // the number params of a component (and those of the components around it) are words in the expressions of everything inside
+    const params = (this.spec as { params?: Record<string, unknown> }).params;
+    const inherited = (this.parent ?? this.root).vars;
+    const own = params ? Object.fromEntries(Object.entries(params).filter((e): e is [string, number] => typeof e[1] === 'number')) : {};
+    const vars = Object.keys(own).length ? { ...(inherited ?? {}), ...own } : inherited;
+    this._compositionShape = { width, height, duration: span, ...(vars ? { vars } : {}), spaceAt: (t) => this._spaceAt(t), findLayer: (name) => this._children.find(c => c.spec.name === name) ?? null, layerNames: () => this._children.map(c => c.spec.name).filter((n): n is string => !!n) };
 
     const lateKeyframes: string[] = [];
     for (const s of this.spec.sequences ?? []) {
