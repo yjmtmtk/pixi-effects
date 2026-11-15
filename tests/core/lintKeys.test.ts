@@ -54,6 +54,27 @@ describe('lintKeys: maskInverted is gone', () => {
   });
 });
 
+describe('lintKeys: the words other tools use for a composition and a 3D layer', () => {
+  const comp = (extra: Record<string, unknown>) => ({ type: 'composition', width: 10, height: 10, sequences: [], ...extra });
+  it('overflow, clipChildren, clipToBounds … mean clip: did you mean "clip"', () => {
+    for (const key of ['overflow', 'clipChildren', 'clipToBounds', 'masksToBounds', 'clipContent']) {
+      expect(warns(comp({ [key]: 'hidden' }))[0], key).toMatch(new RegExp(`"${key}" is not a composition layer key — did you mean "clip"\\?`));
+    }
+  });
+  it('flatten, collapse, isolation … need nothing: a composition is always one picture, and the warning says so', () => {
+    for (const key of ['flatten', 'collapse', 'collapseTransformations', 'isolation', 'isolate', 'group', 'precompose']) {
+      const w = warns(comp({ [key]: true }));
+      expect(w, key).toHaveLength(1);
+      expect(w[0], key).toMatch(/is always drawn as one picture.*alpha.*blendMode.*filters.*mask/s);
+    }
+  });
+  it('is3D, 3d, layer3D, threeDimensional … on any layer: did you mean "threeD"', () => {
+    for (const key of ['is3D', '3d', 'three3d', 'layer3D', 'threeDimensional', 'enable3D', 'use3D', 'in3D', 'three_d']) {
+      expect(warns({ type: 'shape', shape: 'rect', width: 1, height: 1, [key]: true })[0], key).toMatch(/did you mean "threeD"\?/);
+    }
+  });
+});
+
 describe('lintKeys: a picture key on a layer that is never drawn', () => {
   it('audio, a camera and a light are not drawn: filters, mask, blendMode, threeD … do nothing there, and the warning says so', () => {
     expect(warns({ type: 'audio', asset: 'a', filters: [{ type: 'blur' }] })[0]).toMatch(/"filters" does nothing on an audio layer: it is not drawn/);

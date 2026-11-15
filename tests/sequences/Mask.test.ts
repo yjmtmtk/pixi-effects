@@ -53,6 +53,7 @@ vi.mock('pixi.js', () => {
   class Sprite extends Container { texture: Texture | undefined; constructor(t?: Texture) { super(); this.texture = t; } }
   class Text extends Container { width = 0; height = 0; style: Record<string, unknown> = {}; }
   class Filter { resources: Record<string, unknown> = {}; constructor(opts?: { resources?: Record<string, unknown> }) { if (opts?.resources) this.resources = opts.resources; } apply() {} destroy() {} }
+  class AlphaFilter extends Filter { alpha = 1; enabled = true; destroy() {} }
   class GlProgram { constructor(_opts: unknown) {} static from(opts: unknown) { return new GlProgram(opts); } }
   class GpuProgram { constructor(_opts: unknown) {} static from(opts: unknown) { return new GpuProgram(opts); } }
   class UniformGroup { uniforms: Record<string, unknown>; constructor(u: Record<string, { value: unknown }>) { this.uniforms = Object.fromEntries(Object.entries(u).map(([k, v]) => [k, v.value])); } }
@@ -60,6 +61,7 @@ vi.mock('pixi.js', () => {
   return {
     Container, Graphics, GraphicsPath, Rectangle, Sprite, Text, AlphaMask, RenderTexture, Matrix, Texture,
     Filter, GlProgram, GpuProgram, UniformGroup, defaultFilterVert: '',
+    AlphaFilter,
     Assets: { get: async () => null },
   };
 });

@@ -1,4 +1,4 @@
-import { Container, Rectangle } from 'pixi.js';
+import { AlphaFilter, Container, Graphics, Rectangle } from 'pixi.js';
 import { createTimeline, type Timeline } from '../core/timelineEngine';
 import { Sequence } from './Base';
 import { NullSequence } from './Null';
@@ -56,6 +56,8 @@ export class CompositionSequence extends Sequence {
   private _remap: TimeRemap | null = null;
   private _childBase = 0;
   private _contentSpan = 0;
+  /** The pass that draws the composition as one picture (its alpha, and its blend mode): on only while it changes the picture. */
+  private _group: AlphaFilter | null = null;
 
   /** Where the children's time starts: the composition's absolute start, or 0 when their time is local (remapped). */
   get childBase(): number { return this._childBase; }
@@ -79,14 +81,23 @@ export class CompositionSequence extends Sequence {
       this.duration = this.spec.duration ?? this.parent?.duration ?? this.root.duration;
     }
     const wrapper = new Container();
-    wrapper.cullable = true;
+    const clip = this.spec.clip === true;
+    // Culled by its rectangle only when it is clipped to it: an unclipped composition draws its children wherever they are, so each child is culled on its own
+    wrapper.cullable = clip;
     wrapper.cullableChildren = true;
-    wrapper.cullArea = new Rectangle(0, 0, width, height);
+    if (clip) wrapper.cullArea = new Rectangle(0, 0, width, height);
 
     const inner = new Container();
     inner.cullable = true;
     inner.cullableChildren = true;
     wrapper.addChild(inner);
+    if (clip) {
+      // `clip: true` (CSS overflow: hidden): a stencil of the rectangle on the content; the layer's own `mask` stays free for the wrapper
+      const frame = new Graphics().rect(0, 0, width, height).fill(0xffffff);
+      wrapper.addChild(frame);
+      inner.mask = frame;
+    }
+    this._group = groupPicture(wrapper, isBlended(this.spec.blendMode));
 
     this.target = wrapper;
     this.intrinsicWidth = width;
@@ -111,7 +122,7 @@ export class CompositionSequence extends Sequence {
     for (const message of summarizeWarnings(lateKeyframes)) console.warn(message);
     const crowd = maxConcurrentAdvanced((this.spec.sequences ?? []) as Array<{ at?: number; duration?: number; blendMode?: unknown; type?: string; sequences?: unknown }>, span);
     if (crowd >= MANY_ADVANCED) {
-      console.warn(`pixi-effects: ${describeLayer(this.spec)}: ${crowd} layers with an advanced blendMode are on screen at once (a composition with one counts each layer inside it, since its children blend one by one); each is a full-frame pass (about 2 ms on WebGL). Put fewer layers in the blend (or draw the glow as one layer), or use add / screen / multiply`);
+      console.warn(`pixi-effects: ${describeLayer(this.spec)}: ${crowd} layers with an advanced blendMode are on screen at once (counted through the compositions in it; a composition with a mode is one pass, as it blends as one picture); each is a full-frame pass (about 2 ms on WebGL). Put fewer layers in the blend (or draw the glow as one layer), or use add / screen / multiply`);
     }
 
     this._children = [];
@@ -256,6 +267,8 @@ export class CompositionSequence extends Sequence {
     }
 
     this.buildFilters();
+    // the group pass ends the composition's own filters (CSS: opacity after filter); the parent adds a matte and a blend after it
+    wrapper.filters = [...this.filters, this._group];
   }
 
   protected override displayProps(): { initial: CompositionSequenceSpec['initial']; keyframes: CompositionSequenceSpec['keyframes'] } {
@@ -569,8 +582,51 @@ export class CompositionSequence extends Sequence {
     for (const c of this._children) c.destroy();
     for (const o of this._blendOwned) o.destroy();
     this._blendOwned = [];
+    this._group?.destroy();
+    this._group = null;
     super.destroy();
   }
+}
+
+/** A mode that is not the plain one: the composition then blends as one picture, so its group pass stays on. */
+function isBlended(mode: unknown): boolean {
+  return typeof mode === 'string' && mode !== 'normal' && mode !== 'inherit';
+}
+
+/** The display object's own `alpha` setter (PixiJS's Container accessor), found up its prototype chain; null when `alpha` is a plain field. */
+function alphaSetter(display: object): ((v: number) => void) | null {
+  for (let p = Object.getPrototypeOf(display); p; p = Object.getPrototypeOf(p)) {
+    const d = Object.getOwnPropertyDescriptor(p, 'alpha');
+    if (d?.set) return (v) => d.set!.call(display, v);
+  }
+  return null;
+}
+
+/**
+ * A composition is ONE picture, as a CSS element or an After Effects precomp: its alpha fades what its layers drew together (an overlap shows the
+ * top layer alone, never the one below through it), and its blend mode mixes that picture with the backdrop. PixiJS multiplies a container's alpha
+ * into each child, so the alpha the timeline writes is kept here and handed to a pass that draws the content first: the container's own alpha
+ * stays 1 while it is between 0 and 1. The pass is off (no texture, no cost) at alpha 1 and 0 unless the composition blends.
+ * `display.alpha` still reads the value written, so inspect, hover and the checks see the composition's alpha.
+ */
+function groupPicture(display: Container, blended: boolean): AlphaFilter {
+  // the content's resolution and anti-aliasing: a fading composition draws its edges exactly as a solid one does
+  const pass = new AlphaFilter({ alpha: 1, resolution: 'inherit', antialias: 'inherit' });
+  pass.enabled = blended;
+  const own = alphaSetter(display);
+  let alpha = display.alpha;
+  Object.defineProperty(display, 'alpha', {
+    configurable: true,
+    get: () => alpha,
+    set: (v: number) => {
+      alpha = v;
+      const between = v > 0 && v < 1;
+      own?.(between ? 1 : v);
+      pass.alpha = between ? v : 1;
+      pass.enabled = between || blended;
+    },
+  });
+  return pass;
 }
 
 /** Layer-space rectangle a threeD child projects: a composition's frame, otherwise its content bounds. */

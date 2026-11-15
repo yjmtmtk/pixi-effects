@@ -32,12 +32,15 @@ describe('blendMode on a layer', () => {
     expect(blendOf(comp, 3)).toBeUndefined();
   });
 
-  it('applies to a composition (the whole group blends) and to a threeD layer\'s mesh', async () => {
+  it('a composition blends as one picture, through its group pass (the last filter; its container stays normal), and a threeD layer through its mesh', async () => {
     const comp = await build([
       { type: 'composition', width: 200, height: 200, blendMode: 'add', sequences: [{ type: 'shape', shape: 'circle', radius: 10 }] },
       { type: 'shape', shape: 'circle', radius: 10, threeD: true, blendMode: 'screen' },
     ]);
-    expect(blendOf(comp, 0)).toBe('add');
+    const group = comp.layers()[0]!.display as unknown as { blendMode?: string; filters: Array<{ blendMode?: string; enabled?: boolean }> };
+    expect(group.blendMode).toBeUndefined();
+    expect(group.filters.at(-1)!.blendMode).toBe('add');
+    expect(group.filters.at(-1)!.enabled).toBe(true);           // a blended composition is drawn as one picture even at alpha 1
     expect(blendOf(comp, 1)).toBe('screen');
   });
 
@@ -193,13 +196,11 @@ describe('an inline mask that goes through the matte filter (inverted, text, ima
 });
 
 describe('many advanced blends at once', () => {
-  it('a composition with an advanced mode counts each layer inside it', async () => {
+  it('a composition with an advanced mode is one pass, whatever it holds (it blends as one picture): twelve plain layers in it do not warn', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const inside = Array.from({ length: 12 }, () => ({ type: 'shape', shape: 'circle', radius: 10 }));
     await build([{ type: 'composition', width: 200, height: 200, blendMode: 'overlay', sequences: inside }]);
-    const said = warn.mock.calls.map(c => String(c[0])).filter(m => m.includes('advanced blendMode'));
-    expect(said).toHaveLength(1);
-    expect(said[0]).toMatch(/12 layers/);
+    expect(warn.mock.calls.map(c => String(c[0])).filter(m => m.includes('advanced blendMode'))).toEqual([]);
   });
 
   it('warns once when 10 or more layers with an advanced mode are on screen together, and not for a slideshow of them', async () => {

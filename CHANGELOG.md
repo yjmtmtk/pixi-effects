@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+**Breaking: a composition is one picture**, as a CSS element or an After Effects precomp — the behaviour an author (or an AI) already expects, with nothing to switch on.
+
+- **`alpha` fades the composition as one picture.** It used to be multiplied into each child, so an overlap showed the layer below through the top one (at 0.5, red under blue gave (64, 0, 127) instead of (0, 0, 128)) and a scene's own background showed through its text during a crossfade. Now the content is drawn first and faded together. It costs a texture only while the alpha is between 0 and 1; at 1 the content is drawn straight onto the canvas, as before. `display.alpha` (inspect, hover, the checks) still reads the composition's alpha. A `threeD` card fades as one picture too.
+- **`blendMode` on a composition blends its picture** with the backdrop (its children are drawn normally inside it). It used to be inherited by each child, and the advice was to add `threeD: true` or a filter to get the whole group: no longer needed. A composition with an advanced mode counts as one pass in the "many advanced blends" warning (it counted each layer inside it).
+- **New: `clip: true`** cuts a composition's content to its `width × height` (CSS `overflow: hidden`). Default false, as before.
+- **Fixed: an unclipped composition whose rectangle was off the canvas was not drawn**, even when a child was placed back on screen (the rectangle was used to cull the group). Its children are now culled one by one; a `clip: true` composition is culled by its rectangle.
+- **Words from other tools are understood.** `overflow`, `clipChildren`, `clipToBounds`, `masksToBounds` … warn "did you mean `clip`"; `is3D`, `3d`, `layer3D`, `enable3D` … warn "did you mean `threeD`"; `flatten`, `collapse`, `isolation`, `group` … on a composition warn that nothing is needed (a composition is always one picture).
+- Pinned by the test film `tests/films/composition-group` (WebGPU and WebGL: group alpha, multiply and difference as one picture, clip, culling, a card at half alpha, the same anti-aliased edges at alpha 1 and 0.999).
+
 ## 0.52.0
 
 **Breaking: three.js is gone.** PixiJS 3D (`scene3d`, `pixi-effects/3d`) is the 3D engine of pixi-effects, and the only one. Two engines meant every 3D feature built and tested twice, three.js changes its API every month, and the second engine kept bending the design of the first; from here on the 3D line is designed for PixiJS 3D alone.

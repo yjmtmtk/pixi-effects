@@ -140,6 +140,9 @@ const REMOVED_KEYS: Record<string, string> = {
   maskInverted: 'a hole instead of a crop is `mask: { layer: <the mask layer>, invert: true }`',
 };
 
+/** Words other tools use to draw a group as one picture: a composition always is one, so they need nothing (said as such, not as a typo). */
+const ONE_PICTURE_KEYS = new Set(['flatten', 'flattened', 'collapse', 'collapsetransformations', 'isolation', 'isolate', 'group', 'groupopacity', 'precompose', 'rasterize', 'cacheastexture']);
+
 /** The knobs of a sound effect: they are keys of `sfx: { … }`, not of the layer. */
 const SFX_KNOBS = new Set(['pitch', 'brightness', 'seed']);
 
@@ -154,6 +157,7 @@ export function lintKeys(spec: SequenceSpec, warn: Warn = defaultWarn): void {
     for (const key of Object.keys(spec)) {
       if (valid.includes(key) || (spec as unknown as Record<string, unknown>)[key] === undefined) continue;       // a spread that sets a key only when it applies leaves `undefined`
       if (REMAPPABLE.has(spec.type) && REMAP_NAMES.has(key)) continue;                                            // lintRemap has its own message for these
+      if (spec.type === 'composition' && ONE_PICTURE_KEYS.has(key.toLowerCase())) { warn(`pixi-effects: ${who}: "${key}" is not needed: a composition is always drawn as one picture (its alpha, blendMode, filters and mask act on what its layers drew together, as on a CSS element or an After Effects precomp); to cut it to its width × height write clip: true`); continue; }
       if (REMOVED_KEYS[key]) { warn(`pixi-effects: ${who}: "${key}" is not a ${kindName(spec as { type: string; shape?: string })} key: ${REMOVED_KEYS[key]}`); continue; }
       // `pitch`, `brightness`, `seed` are knobs of the sound effect, they go inside `sfx` (a trial: three agents wrote them beside `sfx:`)
       if (spec.type === 'audio' && SFX_KNOBS.has(key) && (spec as { sfx?: unknown }).sfx !== undefined) {

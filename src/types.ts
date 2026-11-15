@@ -526,6 +526,11 @@ export interface CompositionSequenceSpec extends SequenceCommon {
   sequences?: SequenceSpec[];
   transitions?: TransitionSpec[];
   /**
+   * Cut the content to the composition's `width` × `height` (CSS `overflow: hidden`). Default false: a child outside the rectangle is drawn.
+   * Whatever `clip` says, the composition is one picture: its `alpha`, `blendMode`, `filters` and `mask` act on what its layers drew together.
+   */
+  clip?: boolean;
+  /**
    * The speed of this composition's own time: 2 = its content runs twice as fast, 0.5 = slow motion, negative = backward. The layers
    * inside write `at` / `duration` / `keyframes` in THIS time (the composition's local time); the composition's own `at`, `duration`
    * and keyframes stay in the outer time. To change the speed over time, animate `time` (the local playhead, in seconds).

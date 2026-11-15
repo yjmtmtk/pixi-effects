@@ -276,8 +276,10 @@ export class Scene3DSequence extends Sequence implements RayPickable {
     for (const h of this._shown) h.keepHidden();                         // a 2D layer shown on a mesh stays off the stage (a tween of autoAlpha writes visible = true)
     const view = this._view;
     if (!view) return;
+    // what PixiJS itself would multiply in: each container's own alpha (`localAlpha`). A composition fades as one picture: it keeps its alpha in a
+    // pass of its own and its container's alpha stays 1, so its fade is already in the picture this view is drawn into (reading `alpha` would fade it twice)
     let alpha = 1;
-    for (let c: Container | null = view; c; c = c.parent) alpha *= c.alpha;
+    for (let c: Container | null = view; c; c = c.parent) alpha *= (c as Container & { localAlpha?: number }).localAlpha ?? c.alpha;
     const current = (view.filters ?? []) as readonly Filter[];
     const others = current.filter(f => f !== this._look && f !== (this._blend as unknown));
     // Where the blend goes (blend.ts put it on the view, or on the last of the layer's filters):

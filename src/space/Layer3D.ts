@@ -178,7 +178,7 @@ export class Layer3D {
   /**
    * Depth-of-field blur on the projected mesh (screen space), so a tilted or scaled layer blurs by the size it is drawn at.
    * A radius under MIN_BLUR removes the filter: a sharp layer costs nothing. A blend mode moves to the filter while it is on
-   * (a filtered object blends as a whole), and comes back when it goes.
+   * (a filtered object blends as one picture), and comes back when it goes.
    */
   setBlur(radius: number): void {
     const d = this.display as unknown as { filters: unknown; blendMode: string };

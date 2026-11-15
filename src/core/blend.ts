@@ -139,26 +139,15 @@ export const MANY_ADVANCED = 10;
 
 type Counted = { at?: number; duration?: number; blendMode?: unknown; type?: string; sequences?: unknown };
 
-/** The layers a composition draws (its children each blend one by one when it has a mode): null, camera and audio layers draw nothing; nested compositions are walked. */
-function drawnLeaves(sequences: unknown): number {
-  if (!Array.isArray(sequences)) return 0;
-  let n = 0;
-  for (const s of sequences as Counted[]) {
-    if (!s || s.type === 'null' || s.type === 'camera' || s.type === 'audio') continue;
-    n += s.type === 'composition' ? drawnLeaves(s.sequences) : 1;
-  }
-  return n;
-}
-
 /**
- * The full-frame passes one layer costs while it is on screen: 1 for a layer with an advanced mode; for a composition with one, one for each
- * drawn layer inside it (its children inherit the mode and blend one by one); for a composition without, the most that its own layers add
- * at one instant (a card with three blends in it, on screen with four other cards, is twelve).
+ * The full-frame passes one layer costs while it is on screen: 1 for a layer with an advanced mode (a composition blends as one picture, so it is
+ * 1 too), plus, for a composition, the most that its own layers add at one instant (a card with three blends in it, on screen with four other
+ * cards, is twelve).
  */
 function passesOf(l: Counted, span: number): number {
-  const isComposition = l.type === 'composition';
-  if (isAdvancedBlend(l.blendMode)) return isComposition ? Math.max(1, drawnLeaves(l.sequences)) : 1;
-  return isComposition && Array.isArray(l.sequences) ? maxConcurrentAdvanced(l.sequences as Counted[], l.duration ?? span) : 0;
+  const own = isAdvancedBlend(l.blendMode) ? 1 : 0;
+  const inside = l.type === 'composition' && Array.isArray(l.sequences) ? maxConcurrentAdvanced(l.sequences as Counted[], l.duration ?? span) : 0;
+  return own + inside;
 }
 
 /** The most full-frame advanced-blend passes on screen at one instant, from the layers' `at` and `duration` (a layer with no duration lasts to the end). */

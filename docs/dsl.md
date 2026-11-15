@@ -319,7 +319,9 @@ A tune with no audio file: notes, chords and drum patterns written as strings, p
 
 Nested composition. Same shape as the root spec but with `type: 'composition'` and an explicit `width`/`height`. Children animate within the local coordinate system; the composition itself can be positioned, scaled, and rotated as a unit.
 
-**Size, clipping and culling** (measured): a 2D composition does **not** clip its children — a child far outside `width × height` is still drawn. But the rectangle `width × height` is what the renderer uses to decide the group is on screen: when that whole rectangle is off the canvas the group is skipped even if a child is placed back on screen. So keep the rectangle around what it draws (or make it canvas-sized). A `threeD: true` composition (a card) is rendered into a texture of exactly `width × height`, so it **does** clip its children there; size it for soft shadows too.
+**A composition is one picture**, as a CSS element or an After Effects precomp: its `alpha`, `blendMode`, `filters` and `mask` act on what its layers drew together, never on each layer. At `alpha: 0.5` an overlap shows the top layer at half, not the layer below through it; with `blendMode: 'multiply'` the composition's picture is multiplied onto the backdrop, its children are drawn normally inside it. There is nothing to switch on (a `flatten`, `collapse` or `isolation` key warns that it is not needed). The pass that does it costs a texture only while it changes the picture: at alpha 1 with no `blendMode` the content is drawn straight onto the canvas, as before. To fade or blend each layer on its own instead, give each its own `alpha` or `blendMode` (or put them in a `null` layer: a null moves its children but is not a picture). Pinned by `tests/films/composition-group`.
+
+**`clip: true`** cuts the content to `width × height` (CSS `overflow: hidden`). By default nothing is cut: a child far outside the rectangle is still drawn, wherever it is (each child is culled on its own when it is off the canvas). A `threeD: true` composition (a card) is rendered into a texture of exactly `width × height`, so it is always clipped there; size it for soft shadows too.
 
 ```ts
 {
@@ -993,8 +995,8 @@ Rules:
 2. **Names are CSS names, with the hyphen** (`soft-light`, not `softLight` / `soft_light`; a slip like that warns with the name you meant).
 3. **Colours are mixed as the sRGB values you see** (as CSS does), not in linear light.
 4. **`alpha` fades the blended result** (as CSS `opacity` does).
-5. **On a composition the mode is inherited by its children, each blending with what is behind it** (not as one picture). To blend a composition as a whole, give it `threeD: true` (at `z: 0` with the default camera nothing else changes) or a filter.
-6. **The 14 new modes are heavier** (each is a full-frame pass; about 1.5–2 ms a layer on WebGL at 1080p in the author's measurement, much less on WebGPU). 10 or more on screen at once warns (a composition with one counts each layer inside it, since its children blend one by one; one without counts the most that its own layers add at one time); a glow or a haze should be one layer (a gradient), not a pile.
+5. **A composition blends as one picture**: its children are drawn normally inside it, then the picture is blended with what is behind the composition (as a CSS element with `mix-blend-mode`, or an After Effects precomp). To blend each layer with the backdrop, give each layer its own `blendMode`.
+6. **The 14 new modes are heavier** (each is a full-frame pass; about 1.5–2 ms a layer on WebGL at 1080p in the author's measurement, much less on WebGPU). 10 or more on screen at once warns (a composition with one is one pass, plus what its own layers add at one time); a glow or a haze should be one layer (a gradient), not a pile.
 7. **Together with `filters`, `threeD` and depth of field they all work** (the blend is applied after the layer's own filters, and after the depth-of-field blur).
 8. **Some modes only act on some tones.** `overlay` and `soft-light` change almost nothing over a near-black or a near-white backdrop (their formulas leave 0 and 1 where they are), so a colour cast needs a **mid-tone** picture under it; `color-dodge` over a dark backdrop gives a saturated colour (each channel is lifted separately), over a bright one it burns out to white; `multiply` can only darken and `screen` / `add` only brighten.
 9. **`blendMode` is a setting of the layer, not an animatable property** (`initial` or a keyframe with it warns). To change the mode for a moment, put a second, short-lived layer (`at` / `duration`) on top, or fade a layer's `alpha`.
@@ -1301,7 +1303,7 @@ Validation runs at composition build time. Errors throw with the offending `tran
 
 ### `crossfade`
 
-Alpha cross-dissolve. `from` fades to `alpha: 0`, `to` starts at `alpha: 0` and fades to `1`, both over `[at, at + duration]`. **It is not a linear mix of the two pictures:** `to` is laid over a fading `from`, so over black the middle is darker (a red `from` and a blue `to` at the half way are (64, 0, 127), not (128, 0, 127)), and a composition's `alpha` is multiplied into each of its children (not one group opacity as in After Effects): the composition's own background shows through its top layers while it fades. Put what must stay solid on its own layer outside the two scenes. Pinned by `tests/films/transition-under-matte`.
+Alpha cross-dissolve. `from` fades to `alpha: 0`, `to` starts at `alpha: 0` and fades to `1`, both over `[at, at + duration]`. **It is not a linear mix of the two pictures:** `to` is laid over a fading `from`, so over black the middle is darker (a red `from` and a blue `to` at the half way are (64, 0, 127), not (128, 0, 127)). A composition fades as one picture: its own background does not show through its top layers while it fades. Pinned by `tests/films/transition-under-matte`.
 
 ```ts
 { kind: 'crossfade', from: 'A', to: 'B', at: 4, duration: 1, ease: 'sine.inOut' }

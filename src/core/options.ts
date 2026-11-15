@@ -31,6 +31,10 @@ const COMMON_ALIASES: Record<string, string> = {
   'linear-dodge': 'add', 'linear dodge': 'add', lineardodge: 'add', linear_dodge: 'add', 'plus-lighter': 'add', pluslighter: 'add', plus_lighter: 'add',
   luminance: 'luminosity', exclude: 'exclusion',
   // distortion filters by the names other programs use
+  // a composition cut to its rectangle, by the names CSS, Flutter, UIKit and design tools use
+  overflow: 'clip', clipchildren: 'clip', cliptobounds: 'clip', maskstobounds: 'clip', clipcontent: 'clip', cliptopadding: 'clip',
+  // a layer in 3D space (After Effects: the 3D switch)
+  is3d: 'threeD', '3d': 'threeD', three3d: 'threeD', layer3d: 'threeD', threedimensional: 'threeD', enable3d: 'threeD', use3d: 'threeD', in3d: 'threeD', three_d: 'threeD', '3dlayer': 'threeD',
   distort: 'warp', distortion: 'warp', displace: 'warp', displacement: 'warp', ripple: 'warp', wavy: 'warp', heathaze: 'warp', haze: 'warp',
 };
 

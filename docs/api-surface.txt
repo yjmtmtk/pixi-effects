@@ -134,6 +134,7 @@ interface CircleShapeSpec extends ShapeBase, Trimmable
   radius: PropValue
   shape: "circle"
 interface CompositionSequenceSpec extends SequenceCommon
+  clip?: boolean
   height?: number
   sequences?: SequenceSpec[]
   speed?: number
@@ -1087,7 +1088,7 @@ text layer: text spans format resolution style colorSpace fillGradient
 image layer: asset colorSpace scaleMode
 video layer: asset loop audio volume speed
 audio layer: volume asset loop sfx music speed
-composition layer: width height sequences transitions speed
+composition layer: width height sequences transitions speed clip
 shader layer: fragment uniforms width height resolution transparent
 rect shape: shape fillGradient colorSpace strokeCap strokeJoin trimStart trimEnd trimEach width height cornerRadius anchorX anchorY
 circle shape: shape fillGradient colorSpace strokeCap strokeJoin trimStart trimEnd trimEach radius anchorX anchorY
