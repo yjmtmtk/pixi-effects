@@ -179,6 +179,30 @@ return [
 
 ---
 
+## One cycle written once: a loop, on stepped frames (`loop`, `frameRate`)
+
+Write one cycle of a motion and let the composition repeat it: `loop: true` repeats what happens inside (up to its last keyframe), `loop: 1.5` its first 1.5 seconds. `frameRate: 12` steps the content on 12 pictures a second (a hand-made, stop-motion feel) while the rest of the movie stays smooth. A loading spinner and a bouncing dot, each written for one second:
+
+```js
+// @recipe loop-stepped
+return {
+  duration: 6,
+  sequences: [
+    { type: 'composition', name: 'spinner', width: 200, height: 200, loop: true, frameRate: 12, initial: { x: 340, y: 260 }, sequences: [
+      { type: 'shape', shape: 'arc', radius: 60, startAngle: 0, endAngle: 270, strokeCap: 'round',
+        initial: { x: 100, y: 100, strokeColor: '#ffd166', strokeWidth: 14 },
+        keyframes: [{ at: 0, to: { rotation: 360 }, duration: 1 }] },
+    ] },
+    { type: 'composition', name: 'bounce', width: 200, height: 240, loop: 1, initial: { x: 740, y: 240 }, sequences: [
+      { type: 'shape', shape: 'circle', radius: 24, initial: { x: 100, y: 200, fillColor: '#ef476f' },
+        keyframes: [{ at: 0, to: { y: 60 }, duration: 0.5, ease: 'power2.out' }, { at: 0.5, to: { y: 200 }, duration: 0.5, ease: 'power2.in' }] },
+    ] },
+  ],
+};
+```
+
+---
+
 ## Push in on a whole flat scene (the 2D "camera"): a null that scales, and text drawn big enough
 
 There is no second camera for flat scenes: the camera of the 2.5D layers is for `threeD` layers. For a push-in or pull-back of an ordinary 2D scene, put everything in a `null` layer that sits at the middle of the canvas and scale THAT (children use `parent: 'world'`, and their x / y are measured from the null's origin, so the middle of the canvas is 0, 0). Text is drawn once at its own size and then stretched, so give every text `resolution: R` where R is the biggest scale the group reaches (R 1–8); otherwise it goes soft.

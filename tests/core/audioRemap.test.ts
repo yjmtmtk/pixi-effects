@@ -50,6 +50,12 @@ describe('resampleThrough', () => {
     const rms = (a: number, b: number): number => { let s = 0, n = 0; for (let i = Math.round(a * SR); i < Math.round(b * SR); i++) { s += r.L[i]! * r.L[i]!; n++; } return Math.sqrt(s / n); };
     expect(rms(0.2, 0.6)).toBeGreaterThan(rms(3.2, 3.6) * 2);       // fading from 1 at 0 s to 0 at 4 s
   });
+  it('a looping composition (a warp that jumps back) plays the sound again each time round, with no sweep through the jump', () => {
+    const src = chirp(200, 1000, 1);
+    const r = resampleThrough(desc({ end: 1, warp: t => t % 1 }), src, src, SR, SR, 3)!;
+    expect(hzIn(r.L, 1.1, 1.3)).toBeCloseTo(hzIn(r.L, 0.1, 0.3), -1);     // the second time round sounds as the first
+    expect(hzIn(r.L, 0.995, 1.02)).toBeLessThan(400);                  // around the jump: the start of the sweep, not a dash through all of it
+  });
   it('a sound that is never audible is null; the loop wraps the position', () => {
     const src = tone(440, 1);
     expect(resampleThrough(desc({ start: 2, end: 3, warp: () => 0 }), src, src, SR, SR, 4)).toBeNull();

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>film · a composition that steps and loops</title></head>
+<body style="margin:0">
+  <!-- Test film (tests/films/composition-clock.test.ts): 320 x 80 on black, 30 fps, 3 s. A composition with frameRate: 5 and loop: true holds a
+       white 20 x 20 square whose left edge moves x 0 → 200 over 1 s (y 30..50). The query opts={json} replaces the composition's options. The page gives leftAt(t): where the square's left edge is in the
+       picture at time t, drawn at the nearest frame (-1 when it is not there). -->
+  <canvas id="stage" width="320" height="80"></canvas>
+  <script>
+    window.__logs = [];
+    for (const k of ['warn', 'error']) { const o = console[k].bind(console); console[k] = (...a) => { window.__logs.push(k + ': ' + a.map(x => (x && x.message) || String(x)).join(' ')); o(...a); }; }
+    window.addEventListener('error', e => window.__logs.push('uncaught: ' + e.message));
+  </script>
+  <script type="importmap">{ "imports": {
+    "pixi.js": "https://esm.sh/pixi.js@8.23.0?bundle-deps", "mediabunny": "https://esm.sh/mediabunny@1.61.3" } }</script>
+  <script type="module">
+    import { Movie } from '../../dist/index.js';
+    const movie = new Movie();
+    window.movie = movie;
+    try {
+      await movie.init({
+        canvas: document.getElementById('stage'), width: 320, height: 80, duration: 3, frameRate: 30, background: '#000000',
+        composition: { sequences: [
+          { type: 'composition', name: 'clip', width: 320, height: 80, ...JSON.parse(new URLSearchParams(location.search).get('opts') ?? '{"frameRate":5,"loop":true}'), sequences: [
+            { type: 'shape', shape: 'rect', name: 'sq', width: 20, height: 20, anchorX: 0, anchorY: 0, initial: { x: 0, y: 30, fillColor: '#ffffff' },
+              keyframes: [{ at: 0, to: { x: 200 }, duration: 1 }] },
+          ] },
+        ] },
+      });
+      window.leftAt = async (t) => { const img = await movie.snapshot(Math.round(t * 30), { as: "imageData" }); const k = img.width / 320, row = Math.round(40 * k); for (let x = 0; x < img.width; x++) { const i = (row * img.width + x) * 4; if (img.data[i] > 128) return Math.round(x / k); } return -1; };
+      window.__ready = true;
+    } catch (e) { window.__logs.push('init failed: ' + (e && e.message || e)); }
+  </script>
+</body>
+</html>

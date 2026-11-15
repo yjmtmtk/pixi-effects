@@ -36,6 +36,7 @@ const COMMON_ALIASES: Record<string, string> = {
   // a layer in 3D space (After Effects: the 3D switch)
   is3d: 'threeD', '3d': 'threeD', three3d: 'threeD', layer3d: 'threeD', threedimensional: 'threeD', enable3d: 'threeD', use3d: 'threeD', in3d: 'threeD', three_d: 'threeD', '3dlayer': 'threeD',
   // a component placed by name, and its values, by the words React, Vue and design tools use
+  posterize: 'frameRate', posterizetime: 'frameRate', stepped: 'frameRate', looping: 'loop', loops: 'loop', cycle: 'loop',
   component: 'use', instanceof: 'use', instance: 'use', ref: 'use', props: 'params', properties: 'params', args: 'params', inputs: 'params',
   distort: 'warp', distortion: 'warp', displace: 'warp', displacement: 'warp', ripple: 'warp', wavy: 'warp', heathaze: 'warp', haze: 'warp',
 };

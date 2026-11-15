@@ -541,6 +541,16 @@ export interface CompositionSequenceSpec extends SequenceCommon {
    * `keyframes`, …) on top. In a page's plain JavaScript `type` may be left out when `use` is given.
    */
   use?: string;
+  /**
+   * The content steps at this many pictures a second (After Effects' Posterize Time: a stop-motion or hand-drawn feel), below the movie's
+   * frame rate. The composition's own moves and its sound are not stepped.
+   */
+  frameRate?: number;
+  /**
+   * The content repeats: `true` repeats what happens inside (up to the end of its last layer or keyframe), a number repeats its first that
+   * many seconds. Its sounds play again each time round.
+   */
+  loop?: boolean | number;
   /** The values of the component's params for this place (the rest keep their defaults): `{title}` in its strings, a number as a word in its expressions. */
   params?: Record<string, number | string>;
 }

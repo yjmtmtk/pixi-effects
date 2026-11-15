@@ -14,6 +14,8 @@ function gainAt(a: RemapFields, u: number): number {
 }
 
 const CELL = 1 / 1000;
+/** A change of the clock within one cell larger than this is a jump (a loop going round), not a fast move: 50× speed. */
+const JUMP = 50 * CELL;
 
 /**
  * Render a sound through its time maps. For every output sample T: u = warp(T) (sampled every millisecond, interpolated), the position
@@ -43,7 +45,9 @@ export function resampleThrough(
     const x = T / CELL, k = Math.min(Math.floor(x), nCell - 2), f = x - k;
     const u0 = U[k]!, u1 = U[k + 1]!;
     if (!(Number.isFinite(u0) && Number.isFinite(u1))) { prevPos = NaN; continue; }
-    const u = u0 * (1 - f) + u1 * f;
+    // a jump of the clock (a looping composition going round) is a cut, not a dash through the sound: each side keeps its own pace
+    const jump = Math.abs(u1 - u0) > JUMP;
+    const u = !jump ? u0 * (1 - f) + u1 * f : f < 0.5 ? u0 + (U[k]! - (U[k - 1] ?? U[k]!)) * f : u1 - ((U[k + 2] ?? u1) - u1) * (1 - f);
     if (u < a.start || u >= a.end) { prevPos = NaN; continue; }
     const raw = a.sourceMap ? a.sourceMap(u) : u - a.start;
     let pos = raw;

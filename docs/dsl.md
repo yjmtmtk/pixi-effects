@@ -339,6 +339,18 @@ Nested composition. Same shape as the root spec but with `type: 'composition'` a
 }
 ```
 
+A composition's content can also **step** and **repeat**:
+
+- **`frameRate: 8`** — the content moves on 8 pictures a second (After Effects' Posterize Time): a stop-motion, hand-drawn or "on twos" feel, while the rest of the movie stays smooth. Below the movie's frame rate (the same or more warns and does nothing). The composition's own moves (its `x`, `alpha` keyframes) and its sound are not stepped. Works with `speed` and `time` (the steps are on the screen's clock).
+- **`loop: true`** — the content repeats for as long as the composition lasts: what repeats is what happens inside, up to the end of its last layer (`at + duration`) or last keyframe (repeats counted). **`loop: 2`** repeats its first 2 seconds. A loop that cannot repeat (the content lasts the whole composition, a keyframe measured from the end, a number not shorter than the composition) warns with what to write. Sounds inside play again each time round. A spinner, a blinking cursor, a walk cycle, a background that breathes: one cycle written once.
+
+```js
+{ type: 'composition', width: 200, height: 200, duration: 6, loop: true, frameRate: 12, sequences: [
+  { type: 'shape', shape: 'arc', radius: 60, startAngle: 0, endAngle: 270, initial: { x: 100, y: 100, strokeColor: '#ffffff', strokeWidth: 10 },
+    keyframes: [{ at: 0, to: { rotation: 360 }, duration: 1 }] },          // one turn, repeated for 6 s, on 12 pictures a second
+] }
+```
+
 A composition can also have its **own time**: `speed` (2 = its content plays twice as fast, 0.5 = slow motion, negative = backward) and `time` keyframes (see [Time](#time-speed-and-time)). The layers inside then write `at`, `duration` and `keyframes` in the composition's own seconds; the composition's own `at`, `duration` and keyframes stay in the outer time. A sound or `sfx` inside follows the composition's clock.
 
 ### Components: `components`, `use`, `params`

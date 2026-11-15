@@ -56,6 +56,10 @@ export class CompositionSequence extends Sequence {
   private _remap: TimeRemap | null = null;
   private _childBase = 0;
   private _contentSpan = 0;
+  /** `frameRate`: the content steps at this many pictures a second, or null. */
+  private _fps: number | null = null;
+  /** `loop`: the content repeats its first this-many seconds, or null. */
+  private _loop: number | null = null;
   /** The pass that draws the composition as one picture (its alpha, and its blend mode): on only while it changes the picture. */
   private _group: AlphaFilter | null = null;
 
@@ -71,7 +75,10 @@ export class CompositionSequence extends Sequence {
   remapLabel(): string | null {
     const r = this._remap;
     if (!r) return null;
-    return r.timeKfs.length ? 'time keyframes' : `×${r.speed ?? 1}`;
+    const parts = r.timeKfs.length ? ['time keyframes'] : r.speed !== undefined || r.start !== undefined ? [`×${r.speed ?? 1}`] : [];
+    if (this._fps !== null) parts.push(`${this._fps} fps`);
+    if (this._loop !== null) parts.push(`loop ${Number(this._loop.toFixed(3))}s`);
+    return parts.join(', ');
   }
 
   async build(): Promise<void> {
@@ -110,13 +117,19 @@ export class CompositionSequence extends Sequence {
     // A remapped composition's children live in LOCAL time, which can run past the composition's own duration (speed 2 reads twice as far).
     const base = timeRemapOf(this.spec as never);
     const span = base ? contentLength(base, this.duration) : this.duration;
-    this._remap = base ? remapOf(this.spec as never, 'time', span) : null;
     this._contentSpan = span;
+    // `frameRate` (the content steps) and `loop` (the content repeats) run the children on a clock of their own, as `speed` / `time` do
+    this._fps = this._frameRateOf();
+    this._loop = this._loopOf(span);
+    const own = base ? remapOf(this.spec as never, 'time', span) : null;
+    this._remap = own ?? (this._fps !== null || this._loop !== null
+      ? { timeKfs: [], restKfs: this.spec.keyframes, restInitial: this.spec.initial as Record<string, unknown> | undefined, start: undefined, speed: undefined }
+      : null);
     // the number params of a component (and those of the components around it) are words in the expressions of everything inside
     const params = (this.spec as { params?: Record<string, unknown> }).params;
     const inherited = (this.parent ?? this.root).vars;
-    const own = params ? Object.fromEntries(Object.entries(params).filter((e): e is [string, number] => typeof e[1] === 'number')) : {};
-    const vars = Object.keys(own).length ? { ...(inherited ?? {}), ...own } : inherited;
+    const numbers = params ? Object.fromEntries(Object.entries(params).filter((e): e is [string, number] => typeof e[1] === 'number')) : {};
+    const vars = Object.keys(numbers).length ? { ...(inherited ?? {}), ...numbers } : inherited;
     this._compositionShape = { width, height, duration: span, ...(vars ? { vars } : {}), spaceAt: (t) => this._spaceAt(t), findLayer: (name) => this._children.find(c => c.spec.name === name) ?? null, layerNames: () => this._children.map(c => c.spec.name).filter((n): n is string => !!n) };
 
     const lateKeyframes: string[] = [];
@@ -319,9 +332,11 @@ export class CompositionSequence extends Sequence {
   private _bindClock(timeline: Timeline, inner: Timeline, remap: TimeRemap, offset: number): void {
     let last = NaN;
     let cur = 0;
+    const L = this._loop;
     const clock = {
       get time(): number { return cur; },
-      set time(v: number) {
+      set time(raw: number) {
+        const v = L !== null ? loopTime(raw, L) : raw;      // a looping composition reads its first L seconds again and again
         cur = v;
         if (v === last) return;                          // a freeze renders nothing
         last = v;
@@ -332,8 +347,53 @@ export class CompositionSequence extends Sequence {
     this._clock = clock;
     const scope = this.scope() as unknown as Record<string, number>;
     if (remap.start !== undefined && remap.timeKfs.length === 0) clock.time = remap.start;
-    bindClock(timeline, clock, 'time', remap, this.duration!, offset + this.at, scope);
-    this._warnUnreachable(clockTable(remap, 'time', this.duration!, offset + this.at, scope, offset + this.at + this.duration!), offset + this.at, offset + this.at + this.duration!);
+    const start = offset + this.at, end = start + this.duration!;
+    const table = clockTable(remap, 'time', this.duration!, start, scope, end);
+    const fps = this._fps;
+    if (fps === null) bindClock(timeline, clock, 'time', remap, this.duration!, start, scope);
+    else {
+      // `frameRate`: the screen's time inside the composition is held on steps of 1 / fps, then read through the clock (speed, time keyframes)
+      const plain = remap.timeKfs.length === 0 && remap.speed === undefined && remap.start === undefined;
+      let elapsed = 0;
+      const steps = {
+        get elapsed(): number { return elapsed; },
+        set elapsed(e: number) { elapsed = e; const q = Math.floor(e * fps + 1e-6) / fps; clock.time = plain ? q : table.at(start + q); },
+      };
+      steps.elapsed = 0;
+      timeline.fromTo(steps, { elapsed: 0 }, { elapsed: this.duration!, duration: this.duration!, ease: 'none' }, start);
+    }
+    if (remap.timeKfs.length || remap.speed !== undefined) this._warnUnreachable(table, start, end);
+    if (L !== null) {
+      for (const child of this._children) {
+        if (child.at >= L && child.at < this._contentSpan) console.warn(`pixi-effects: ${describeLayer(child.spec)} starts at ${child.at}s of ${describeLayer(this.spec)}'s own time, but it loops its first ${Number(L.toFixed(3))}s, so it is never visible`);
+      }
+    }
+  }
+
+  /** `frameRate` of this composition, checked: a number of frames a second above 0 and below the movie's, or null. */
+  private _frameRateOf(): number | null {
+    const v = (this.spec as { frameRate?: unknown }).frameRate;
+    if (v === undefined) return null;
+    const who = describeLayer(this.spec);
+    if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0) { console.warn(`pixi-effects: ${who}: frameRate must be a number of frames a second above 0, got ${JSON.stringify(v)}; ignored`); return null; }
+    const movie = this.root.frameRate;
+    if (movie !== undefined && v >= movie) { console.warn(`pixi-effects: ${who}: frameRate ${v} is not below the movie's ${movie} frames a second: it changes nothing; ignored`); return null; }
+    return v;
+  }
+
+  /** `loop` of this composition as a length in seconds of its own time, checked, or null. */
+  private _loopOf(span: number): number | null {
+    const v = (this.spec as { loop?: unknown }).loop;
+    if (v === undefined || v === false) return null;
+    const who = describeLayer(this.spec);
+    if (v !== true && (typeof v !== 'number' || !Number.isFinite(v) || v <= 0)) { console.warn(`pixi-effects: ${who}: loop must be true or a number of seconds above 0, got ${JSON.stringify(v)}; ignored`); return null; }
+    if (typeof v === 'number') {
+      if (v >= span) { console.warn(`pixi-effects: ${who}: loop: ${v} is not shorter than the composition (${Number(span.toFixed(3))}s), so nothing repeats; ignored`); return null; }
+      return v;
+    }
+    const L = contentEnd(this.spec.sequences ?? [], span);
+    if (L === null || L >= span - 1e-9) { console.warn(`pixi-effects: ${who}: loop: what happens inside lasts the whole composition (${Number(span.toFixed(3))}s), so nothing repeats; give the length to repeat: loop: 2`); return null; }
+    return L;
   }
 
   /**
@@ -588,9 +648,11 @@ export class CompositionSequence extends Sequence {
     for (const child of this._children) child.collectAudio(inner, 0);
     const lo = baseTime + this.at, hi = lo + this.duration!;
     const table = clockTable(remap, 'time', this.duration!, lo, this.scope() as unknown as Record<string, number>, hi);
+    const L = this._loop;
+    const local = (t: number) => (L !== null ? loopTime(table.at(t), L) : table.at(t));   // a looping composition plays its sounds again each time round; frameRate does not step sound
     for (const d of inner) {
       const prev = d.warp;
-      out.push({ ...d, warp: (t: number) => (t < lo || t > hi ? NaN : prev ? prev(table.at(t)) : table.at(t)) });
+      out.push({ ...d, warp: (t: number) => (t < lo || t > hi ? NaN : prev ? prev(local(t)) : local(t)) });
     }
   }
 
@@ -674,4 +736,36 @@ function frameOf(child: Sequence): () => { x: number; y: number; width: number; 
     return () => ({ x: 0, y: 0, width: child.intrinsicWidth, height: child.intrinsicHeight });
   }
   return () => child.target!.getLocalBounds();
+}
+
+/** The time inside a composition that loops its first `L` seconds. */
+function loopTime(t: number, L: number): number {
+  return ((t % L) + L) % L;
+}
+
+/**
+ * When what happens inside ends, in the composition's own seconds: the latest end of its layers (`at + duration` when a layer has a duration,
+ * otherwise the end of its last keyframe, a nested composition's own content when it has neither). Null when it cannot be known (a keyframe
+ * measured from the end, a duration that is not a number): the content then lasts the whole composition.
+ */
+function contentEnd(layers: readonly SequenceSpec[], span: number): number | null {
+  let end = 0;
+  for (const l of layers) {
+    const at = l.at ?? 0;
+    if (typeof l.duration === 'number') { end = Math.max(end, at + l.duration); continue; }
+    let last = at;
+    for (const kf of l.keyframes ?? []) {
+      const d = (kf as { duration?: unknown }).duration ?? 0;
+      if (typeof kf.at !== 'number' || kf.at < 0 || typeof d !== 'number') return null;
+      const repeat = Math.max(0, (kf as { repeat?: number }).repeat ?? 0), gap = (kf as { repeatDelay?: number }).repeatDelay ?? 0;
+      last = Math.max(last, at + kf.at + d * (repeat + 1) + gap * repeat);
+    }
+    if (l.type === 'composition') {
+      const inner = contentEnd((l as { sequences?: SequenceSpec[] }).sequences ?? [], span);
+      if (inner === null) return null;
+      last = Math.max(last, at + inner);
+    }
+    end = Math.max(end, last);
+  }
+  return Math.min(end, span);
 }
