@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.54.0
 
 - **New: markers, moments by name.** `markers: { in: 0.6, out: 2.4 }` on a composition (a component's come with every place; the root's are the movie's), and a layer's `at` may name a moment instead of seconds: `'host@in'`, `'title@end + 0.2'` (any layer has `@start`, `@mid`, `@end`), `'@drop'` (a marker of the composition the layer is in, or of one around it); a keyframe's `at` too (`{ at: 'host@out', to: { alpha: 0 } }`, made seconds from the start of its layer), an inline mask's and a transition's; `stagger()` keeps a moment and adds its delay (`'host@in + 0.1'`). The name is looked for nearest first and the moment is brought onto the layer's own clock (through `speed` and `time`), so a sound or a follower stays on the beat of a part wherever the part is placed (After Effects: composition markers). Resolved once before the movie is built (what is built has seconds). `check --at host@in` / `--at @drop` and `movie.resolveAt` know the markers. Mistakes say what to write (unknown layer or marker with did-you-mean, a circle, two layers of one name, a marker past the end, a clock that never reaches it, an end not known before a file loads); `cues`, `cuePoints`, `marks` warn "did you mean `markers`". Recipe `markers-sync`; test film `tests/films/markers`.
 
