@@ -280,7 +280,7 @@ export class Controller {
             <div class="mc-vol-thumb"></div>
           </div>
         </div>
-        ${this.options.loopButton ? `<button class="mc-btn mc-loop" aria-label="Loop" aria-pressed="false" title="Loop (L)">${ICONS.loop}</button>` : ''}
+        ${this.options.loopButton ? `<button class="mc-btn mc-loop" aria-label="Loop" aria-pressed="false" title="Loop: off (L)">${ICONS.loop}</button>` : ''}
         <span class="mc-time">0:00 / 0:00</span>
         <div class="mc-spacer"></div>
         ${this.options.exportButton ? `<button class="mc-btn mc-export" aria-label="Export" aria-expanded="false">${ICONS.download}</button>` : ''}
@@ -542,7 +542,7 @@ export class Controller {
   private bindLoopButton(): void {
     this.loopBtn = this.root.querySelector('.mc-loop') as HTMLButtonElement | null;
     if (!this.loopBtn) return;
-    const refresh = () => { this.loopBtn!.setAttribute('aria-pressed', String(this.movie.loop)); };
+    const refresh = () => { this.loopBtn!.setAttribute('aria-pressed', String(this.movie.loop)); this.loopBtn!.title = `Loop: ${this.movie.loop ? 'on' : 'off'} (L)`; };
     this.loopBtn.addEventListener('click', () => { this.movie.loop = !this.movie.loop; refresh(); });
     this.onLoopChange = refresh;
     this.movie.on('loopchange', this.onLoopChange);

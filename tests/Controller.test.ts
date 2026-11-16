@@ -1634,6 +1634,20 @@ describe('Controller — a movie with stops (a presentation)', () => {
     afterEach(() => { document.body.innerHTML = ''; });
     const button = (canvas: HTMLCanvasElement) => canvas.parentElement!.querySelector('.mc-loop') as HTMLButtonElement | null;
 
+    it('on and off look different without a theme: the on colour has a fallback, off is dimmed, on carries a dot, and the title says which', () => {
+      expect(CONTROLLER_CSS.match(/var\(--mc-accent\)/g), 'every --mc-accent needs a fallback colour (without a theme it is unset)').toBeNull();
+      expect(CONTROLLER_CSS).toMatch(/\.mc-loop\[aria-pressed="false"\][^{]*\{[^}]*opacity:\s*0\.4/);
+      expect(CONTROLLER_CSS).toMatch(/\.mc-loop\[aria-pressed="true"\]::after/);
+      const canvas = makeCanvas();
+      const movie = makeFakeMovie();
+      const ctrl = new Controller(movie, { canvas });
+      const b = button(canvas)!;
+      expect(b.title).toBe('Loop: off (L)');
+      b.click();
+      expect(b.title).toBe('Loop: on (L)');
+      ctrl.destroy();
+    });
+
     it('is on the bar by default, shows the movie\'s loop in aria-pressed, and a click flips movie.loop', () => {
       const canvas = makeCanvas();
       const movie = makeFakeMovie();
