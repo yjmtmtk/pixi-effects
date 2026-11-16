@@ -196,3 +196,21 @@ describe('lintKeys: the sfx knob fix keeps what the author already wrote (review
   });
 });
 
+
+describe('lintKeys: the keys of a keyframe', () => {
+  const kf = (k: Record<string, unknown>) => warns({ type: 'shape', shape: 'rect', width: 1, height: 1, keyframes: [{ at: 0, duration: 1, to: { x: 1 }, ...k }] });
+  it('the words other tools use say ours: easing → ease, delay / start → at, dur / length → duration (GSAP, CSS, Lottie)', () => {
+    expect(kf({ easing: 'power2.out' })[0]).toMatch(/keyframes\[0\]: "easing" is not a keyframe key — did you mean "ease"\?/);
+    expect(kf({ delay: 1 })[0]).toMatch(/keyframes\[0\]: "delay" is not a keyframe key — did you mean "at"\?/);
+    expect(kf({ start: 1 })[0]).toMatch(/did you mean "at"\?/);
+    expect(kf({ dur: 1 })[0]).toMatch(/did you mean "duration"\?/);
+    expect(kf({ yoyoo: true })[0]).toMatch(/did you mean "yoyo"\?/);
+  });
+  it('a property written on the keyframe itself is said: it goes in to, from or set', () => {
+    expect(warns({ type: 'shape', shape: 'rect', width: 1, height: 1, keyframes: [{ at: 1, x: 50, alpha: 0.5 }] })[0])
+      .toMatch(/keyframes\[0\]: "x" is a property: write it in to, from or set \(\{ at: 1, to: \{ x: 50 \} \}\); it is ignored here/);
+  });
+  it('the keyframe words pass: at duration ease repeat yoyo repeatDelay set to from', () => {
+    expect(kf({ ease: 'none', repeat: 1, yoyo: true, repeatDelay: 0.2 })).toEqual([]);
+  });
+});

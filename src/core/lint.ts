@@ -151,6 +151,29 @@ const SFX_KNOBS = new Set(['pitch', 'brightness', 'seed']);
 const TRANSFORM_KEYS = new Set(['x', 'y', 'z', 'alpha', 'rotation', 'rotationX', 'rotationY', 'scale', 'scaleX', 'scaleY', 'anchor', 'anchorX', 'anchorY',
   'pivot', 'pivotX', 'pivotY', 'skew', 'skewX', 'skewY', 'position', 'positionX', 'positionY', 'tint', 'visible', 'autoAlpha']);
 
+/** The words of a keyframe (GSAP's): anything else is ignored by the timeline, so it is said. */
+const KEYFRAME_KEYS = ['at', 'duration', 'ease', 'repeat', 'yoyo', 'repeatDelay', 'set', 'to', 'from'];
+/** Words other tools use in a tween, and ours (GSAP `delay`, CSS / Lottie `easing`, `dur`): only for a keyframe. */
+const KEYFRAME_ALIASES: Record<string, string> = { easing: 'ease', delay: 'at', start: 'at', begin: 'at', time: 'at', startTime: 'at', dur: 'duration', length: 'duration', seconds: 'duration', repeatCount: 'repeat', loop: 'repeat', alternate: 'yoyo' };
+
+function lintKeyframeKeys(spec: SequenceSpec, who: string, warn: Warn): void {
+  (spec.keyframes ?? []).forEach((kf, i) => {
+    if (!kf || typeof kf !== 'object') return;
+    for (const key of Object.keys(kf)) {
+      if (KEYFRAME_KEYS.includes(key) || (kf as Record<string, unknown>)[key] === undefined) continue;
+      if (PROP_KEYS.has(key) || key.includes('.')) {
+        const v = (kf as Record<string, unknown>)[key];
+        const shown = typeof v === 'number' || (typeof v === 'string' && v.length <= 24) ? JSON.stringify(v) : '…';
+        const at = typeof kf.at === 'number' || typeof kf.at === 'string' ? `at: ${JSON.stringify(kf.at)}, ` : '';
+        warn(`pixi-effects: ${who}: keyframes[${i}]: "${key}" is a property: write it in to, from or set ({ ${at}to: { ${key}: ${shown} } }); it is ignored here`);
+        continue;
+      }
+      const guess = KEYFRAME_ALIASES[key] ?? KEYFRAME_ALIASES[key.toLowerCase()] ?? suggestName(key, KEYFRAME_KEYS);
+      warn(`pixi-effects: ${who}: keyframes[${i}]: "${key}" is not a keyframe key${guess ? ` — did you mean "${guess}"?` : ''} (keys: ${KEYFRAME_KEYS.join(', ')}); it is ignored`);
+    }
+  });
+}
+
 export function lintKeys(spec: SequenceSpec, warn: Warn = defaultWarn): void {
   const who = describeLayer(spec);
   const valid = layerKeys(spec as { type: string; shape?: string });
@@ -184,6 +207,7 @@ export function lintKeys(spec: SequenceSpec, warn: Warn = defaultWarn): void {
     }
   }
   for (const { key, why } of pictureKeysIgnored(spec as unknown as { type: string } & Record<string, unknown>)) warn(`pixi-effects: ${who}: "${key}" does nothing on ${why}`);
+  lintKeyframeKeys(spec, who, warn);
   lintRemap(spec, warn);
   const said = new Set<string>();
   const bags: Array<Record<string, unknown> | undefined> = [spec.initial, ...(spec.keyframes ?? []).flatMap(kf => [kf.set, kf.to, kf.from])] as Array<Record<string, unknown> | undefined>;
