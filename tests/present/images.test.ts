@@ -27,7 +27,7 @@ describe('stopImages()', () => {
   it('by default one picture per page, of the page\'s LAST stop (the page fully built)', async () => {
     const { m } = movieWith(DECK);
     const imgs = await stopImages(m, { as: 'dataURL' });
-    expect(imgs.map(i => [i.page, i.stop.index, i.image])).toEqual([[0, 1, 'img@90'], [1, 4, 'img@210'], [2, 5, 'img@270']]);
+    expect(imgs.map(i => [i.pageIndex, i.stop.index, i.image])).toEqual([[0, 1, 'img@90'], [1, 4, 'img@210'], [2, 5, 'img@270']]);
   });
 
   it('pick: "first" takes the first stop of each page instead', async () => {
@@ -40,7 +40,7 @@ describe('stopImages()', () => {
     const { m } = movieWith(DECK);
     const imgs = await stopImages(m, { which: 'stops', as: 'dataURL' });
     expect(imgs.map(i => i.stop.frame)).toEqual([60, 90, 150, 180, 210, 270]);
-    expect(imgs.map(i => i.page)).toEqual([0, 0, 1, 1, 1, 2]);
+    expect(imgs.map(i => i.pageIndex)).toEqual([0, 0, 1, 1, 1, 2]);
   });
 
   it('passes the picture options on, and a blur is off unless asked for (thumbnails are for looking, not for the file)', async () => {
@@ -55,7 +55,7 @@ describe('stopImages()', () => {
   it('onImage is called as each picture is ready, in order (a page list can fill in as it goes)', async () => {
     const { m } = movieWith(DECK);
     const seen: number[] = [];
-    await stopImages(m, { as: 'dataURL', onImage: i => seen.push(i.page) });
+    await stopImages(m, { as: 'dataURL', onImage: i => seen.push(i.pageIndex) });
     expect(seen).toEqual([0, 1, 2]);
   });
 

@@ -24,7 +24,7 @@
     import { Movie } from '../../dist/index.js';
     import * as present from '../../dist/present.js';
     const { Presenter } = present;
-    window.present = present;                                          // for the test: stopIndex(movie), goToStop(movie, i), exportPDF(movie), …
+    window.present = present;                                          // for the test: stopIndex(movie), gotoStop(movie, i), exportPDF(movie), …
     import { Controller } from '../../dist/Controller.js';
     const q = new URLSearchParams(location.search);
     const realOpen = window.open.bind(window);                        // remember the windows the presenter opens, for the test

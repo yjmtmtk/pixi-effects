@@ -8,7 +8,7 @@ import { Window as HappyWindow } from 'happy-dom';
 // timers, the page list), so those two modules hand every call to the fake movie's own methods of the same name. The movement itself is
 // tested in navigation.test.ts / images.test.ts.
 vi.mock('../../src/present/navigation', () => ({
-  next: (m: any) => m.next(), prev: (m: any) => m.prev(), goToStop: (m: any, i: number) => m.goToStop(i), goToPage: (m: any, n: number) => m.goToPage(n),
+  next: (m: any) => m.next(), prev: (m: any) => m.prev(), gotoStop: (m: any, i: number) => m.gotoStop(i), gotoPage: (m: any, n: number) => m.gotoPage(n),
   stopIndex: (m: any) => m.stopIndex, pageIndex: (m: any) => m.pageIndex, pageCount: (m: any) => m.pageCount, currentStop: (m: any) => m.currentStop,
   onStop: (m: any, fn: (e: unknown) => void) => { m.on('stop', fn); return () => m.off('stop', fn); },
 }));
@@ -28,8 +28,8 @@ function fakeMovie(raw: Parameters<typeof normalizeStops>[0] = [{ at: 2, page: '
     get currentStop() { return stops[(fake as { _i: number })._i] ?? null; },
     async next() { calls.push(['next']); },
     async prev() { calls.push(['prev']); },
-    async goToStop(i: number) { calls.push(['goToStop', i]); },
-    async goToPage(n: number) { calls.push(['goToPage', n]); },
+    async gotoStop(i: number) { calls.push(['gotoStop', i]); },
+    async gotoPage(n: number) { calls.push(['gotoPage', n]); },
     async gotoFrame(f: number) { calls.push(['gotoFrame', f]); },
     async stopImages(o: { which?: string; onImage?: (i: unknown) => void }) {
       calls.push(['stopImages', o.which ?? 'pages']);
@@ -71,7 +71,7 @@ describe('Presenter — keys', () => {
     const { movie, calls } = fakeMovie();
     const p = new Presenter(movie, { canvas: stage() });
     key('Home'); key('End');
-    expect(names(calls)).toEqual(['goToPage(0)', 'goToStop(3)']);
+    expect(names(calls)).toEqual(['gotoPage(0)', 'gotoStop(3)']);
     p.destroy();
   });
 
@@ -80,9 +80,9 @@ describe('Presenter — keys', () => {
     const p = new Presenter(movie, { canvas: stage() });
     key('2'); key('Enter');
     key('Enter');
-    expect(names(calls)).toEqual(['goToPage(1)', 'next']);
+    expect(names(calls)).toEqual(['gotoPage(1)', 'next']);
     key('1'); key('0'); key('Enter');                                          // page 10 does not exist: still asked for, the movie says so
-    expect(names(calls).at(-1)).toBe('goToPage(9)');
+    expect(names(calls).at(-1)).toBe('gotoPage(9)');
     p.destroy();
   });
 
@@ -412,7 +412,7 @@ describe('Presenter — the page overview (G)', () => {
     key('ArrowUp'); key('ArrowLeft');
     expect(cells().findIndex(c => c.getAttribute('data-selected') === 'true')).toBe(1);
     key('Enter');
-    expect(names(calls).filter(n => n.startsWith('goToPage'))).toEqual(['goToPage(1)']);
+    expect(names(calls).filter(n => n.startsWith('gotoPage'))).toEqual(['gotoPage(1)']);
     expect(open().getAttribute('data-open')).toBe('false');
     p.destroy();
   });
@@ -433,7 +433,7 @@ describe('Presenter — the page overview (G)', () => {
     const p = new Presenter(movie, { canvas: stage() });
     key('g');
     cells()[2]!.click();
-    expect(names(calls).filter(n => n.startsWith('goToPage'))).toEqual(['goToPage(2)']);
+    expect(names(calls).filter(n => n.startsWith('gotoPage'))).toEqual(['gotoPage(2)']);
     expect(open().getAttribute('data-open')).toBe('false');
     p.destroy();
   });

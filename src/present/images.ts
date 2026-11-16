@@ -4,7 +4,7 @@ import { pictureStops, changedFraction } from './stops';
 import { buildPdf } from './pdf';
 
 /** One picture of a stop (see `stopImages()`). */
-export interface StopImage { stop: Stop; /** The page it belongs to (0-based). */ page: number; image: Blob | string }
+export interface StopImage { stop: Stop; /** The page it belongs to (0-based; `stop.page` is the page's name). */ pageIndex: number; image: Blob | string }
 
 export interface StopImagesOptions {
   /** One picture per page (default) or one per stop. */
@@ -52,7 +52,7 @@ export async function stopImages(movie: Movie, opts: StopImagesOptions = {}): Pr
     const out: StopImage[] = [];
     for (const stop of picks) {
       const image = await movie.snapshot(stop.frame, shot as SnapshotOptions & { as: 'dataURL' });
-      const item: StopImage = { stop, page: stop.pageIndex, image };
+      const item: StopImage = { stop, pageIndex: stop.pageIndex, image };
       out.push(item);
       opts.onImage?.(item);
     }

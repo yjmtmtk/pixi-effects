@@ -1,7 +1,7 @@
 import type { Movie, Stop } from '../index';
 import { nextStopAfter, previousStopBefore, stopAtOrBefore, pageStarts } from './stops';
 
-/** A presentation is now on a stop (`next()` played to it, or `prev()` / `goToStop()` / `goToPage()` jumped to it). */
+/** A presentation is now on a stop (`next()` played to it, or `prev()` / `gotoStop()` / `gotoPage()` jumped to it). */
 export interface StopEvent { index: number; stop: Stop; pageIndex: number }
 
 const listeners = new WeakMap<Movie, Set<(e: StopEvent) => void>>();
@@ -65,10 +65,10 @@ export async function prev(movie: Movie): Promise<void> {
 }
 
 /** Jump to stop `index` (0-based). */
-export async function goToStop(movie: Movie, index: number): Promise<void> {
+export async function gotoStop(movie: Movie, index: number): Promise<void> {
   if (!movie.isReady) return;
   const stop = movie.stops[index];
-  if (!stop) { console.warn(`pixi-effects: goToStop(movie, ${index}): there are ${movie.stops.length} stops (0 to ${movie.stops.length - 1})`); return; }
+  if (!stop) { console.warn(`pixi-effects: gotoStop(movie, ${index}): there are ${movie.stops.length} stops (0 to ${movie.stops.length - 1})`); return; }
   toward.delete(movie);
   movie.pause();
   await movie.gotoFrame(stop.frame, true);
@@ -76,9 +76,9 @@ export async function goToStop(movie: Movie, index: number): Promise<void> {
 }
 
 /** Jump to the first stop of page `page` (0-based). */
-export async function goToPage(movie: Movie, page: number): Promise<void> {
+export async function gotoPage(movie: Movie, page: number): Promise<void> {
   const starts = pageStarts(movie.stops);
   const stop = starts[page];
-  if (!stop) { console.warn(`pixi-effects: goToPage(movie, ${page}): there are ${starts.length} pages (0 to ${starts.length - 1})`); return; }
-  await goToStop(movie, stop.index);
+  if (!stop) { console.warn(`pixi-effects: gotoPage(movie, ${page}): there are ${starts.length} pages (0 to ${starts.length - 1})`); return; }
+  await gotoStop(movie, stop.index);
 }

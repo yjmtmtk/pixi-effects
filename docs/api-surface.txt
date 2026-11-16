@@ -931,8 +931,8 @@ interface DeckResult
   duration: number
 type DeckTransition = TransitionSpec extends infer T ? (T extends TransitionSpec ? Omit<T, 'from' | 'to' | 'at'> : never) : never
 function exportPDF(movie: Movie, opts?: { which?: "pages" | "stops" | undefined; pick?: "last" | "first" | undefined; scale?: number | undefined; quality?: number | undefined; title?: str…
-function goToPage(movie: Movie, page: number): Promise<void>
-function goToStop(movie: Movie, index: number): Promise<void>
+function gotoPage(movie: Movie, page: number): Promise<void>
+function gotoStop(movie: Movie, index: number): Promise<void>
 function inspectStops(movie: Movie, opts?: { lookback?: number | undefined; tolerance?: number | undefined; }): Promise<InspectStopsReport>
 interface InspectStopsReport
   issues: string[]
@@ -970,7 +970,7 @@ interface StopEvent
   stop: Stop
 interface StopImage
   image: string | Blob
-  page: number
+  pageIndex: number
   stop: Stop
 function stopImages(movie: Movie, opts: StopImagesOptions & { as: "dataURL"; }): Promise<(StopImage & { image: string; })[]>
 function stopImages(movie: Movie, opts?: StopImagesOptions | undefined): Promise<StopImage[]>

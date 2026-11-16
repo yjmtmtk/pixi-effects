@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 vi.mock('../../src/core/Renderer', () => ({ exportFrames: vi.fn() }));
 import { Movie } from '../../src/core/Movie';
 import { normalizeStops } from '../../src/core/stops';
-import { next, prev, goToStop, goToPage, onStop, stopIndex, pageIndex, pageCount } from '../../src/present/navigation';
+import { next, prev, gotoStop, gotoPage, onStop, stopIndex, pageIndex, pageCount } from '../../src/present/navigation';
 import { createTimeline } from '../../src/core/timelineEngine';
 import { spacer } from '../../src/core/pure/PureTimeline';
 
@@ -85,7 +85,7 @@ describe('next(movie): play to the next stop and stop there', () => {
 
   it('after the last stop it plays to the end (and says ended); at the end it does nothing', async () => {
     const { m, events } = movieWithStops(DECK);
-    await goToStop(m, 3);
+    await gotoStop(m, 3);
     const last = next(m); await run(3000); await last;
     expect(m.currentFrame).toBe(300);
     expect(events.some(e => e[0] === 'ended')).toBe(true);
@@ -148,10 +148,10 @@ describe('next(movie): the edges', () => {
   });
 });
 
-describe('prev(), goToStop(), goToPage()', () => {
+describe('prev(), gotoStop(), gotoPage()', () => {
   it('prev() jumps back to the previous stop, at once (no reverse playback), and stays there', async () => {
     const { m, events } = movieWithStops(DECK);
-    await goToStop(m, 2);
+    await gotoStop(m, 2);
     await prev(m);
     expect(m.currentFrame).toBe(120);
     expect(m.isPlaying).toBe(false);
@@ -160,7 +160,7 @@ describe('prev(), goToStop(), goToPage()', () => {
 
   it('prev() from the first stop goes to the start; from the start it does nothing', async () => {
     const { m } = movieWithStops(DECK);
-    await goToStop(m, 0);
+    await gotoStop(m, 0);
     await prev(m);
     expect(m.currentFrame).toBe(0);
     await prev(m);
@@ -169,28 +169,28 @@ describe('prev(), goToStop(), goToPage()', () => {
 
   it('prev() while playing stops playback and goes back to the stop before where it is', async () => {
     const { m } = movieWithStops(DECK);
-    await goToStop(m, 1);
+    await gotoStop(m, 1);
     next(m); await run(1200);                                           // on its way from stop 1 toward stop 2
     await prev(m);
     expect(m.isPlaying).toBe(false);
     expect(m.currentFrame).toBe(120);
   });
 
-  it('goToStop(i) lands on stop i; a bad index says so and does nothing', async () => {
+  it('gotoStop(i) lands on stop i; a bad index says so and does nothing', async () => {
     const { m } = movieWithStops(DECK);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    await goToStop(m, 3);
+    await gotoStop(m, 3);
     expect(m.currentFrame).toBe(240);
-    await goToStop(m, 9);
+    await gotoStop(m, 9);
     expect(m.currentFrame).toBe(240);
-    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/goToStop\(movie, 9\)/));
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/gotoStop\(movie, 9\)/));
   });
 
-  it('goToPage(n) lands on the first stop of page n (0-based)', async () => {
+  it('gotoPage(n) lands on the first stop of page n (0-based)', async () => {
     const { m } = movieWithStops(DECK);
-    await goToPage(m, 1);
+    await gotoPage(m, 1);
     expect(m.currentFrame).toBe(180);
-    await goToPage(m, 0);
+    await gotoPage(m, 0);
     expect(m.currentFrame).toBe(60);
   });
 
@@ -198,9 +198,9 @@ describe('prev(), goToStop(), goToPage()', () => {
     const { m } = movieWithStops(DECK);
     expect(pageCount(m)).toBe(2);
     expect(pageIndex(m)).toBe(-1);                                        // before the first stop
-    await goToStop(m, 1);
+    await gotoStop(m, 1);
     expect([stopIndex(m), pageIndex(m)]).toEqual([1, 0]);
-    await goToStop(m, 2);
+    await gotoStop(m, 2);
     expect([stopIndex(m), pageIndex(m)]).toEqual([2, 1]);
   });
 

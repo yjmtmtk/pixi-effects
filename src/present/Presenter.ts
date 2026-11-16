@@ -373,13 +373,13 @@ export class Presenter {
     if (k >= '0' && k <= '9' && k.length === 1) { this.digits = (this.digits + k).slice(0, 4); this.showDigits(); }
     else if (k === 'Enter' && this.digits) {
       const page = Number(this.digits) - 1; this.digits = ''; this.showDigits();
-      this.navigate(() => { this.cancelAdvance(); void this.run(() => nav.goToPage(this.movie, page)); });
+      this.navigate(() => { this.cancelAdvance(); void this.run(() => nav.gotoPage(this.movie, page)); });
     }
     else if (k === 'Backspace' && this.digits) { this.digits = this.digits.slice(0, -1); this.showDigits(); }
     else if (NEXT_KEYS.has(k)) this.navigate(() => void this.next());
     else if (PREV_KEYS.has(k)) this.navigate(() => void this.prev());
-    else if (k === 'Home') this.navigate(() => { this.cancelAdvance(); void this.run(() => nav.goToPage(this.movie, 0)); });
-    else if (k === 'End') this.navigate(() => { this.cancelAdvance(); void this.run(() => nav.goToStop(this.movie, Math.max(0, (this.movie.stops?.length ?? 1) - 1))); });
+    else if (k === 'Home') this.navigate(() => { this.cancelAdvance(); void this.run(() => nav.gotoPage(this.movie, 0)); });
+    else if (k === 'End') this.navigate(() => { this.cancelAdvance(); void this.run(() => nav.gotoStop(this.movie, Math.max(0, (this.movie.stops?.length ?? 1) - 1))); });
     else if (k === 'b' || k === 'B' || k === '.') this.setCover(this.coverEl.getAttribute('data-mode') === 'black' ? 'off' : 'black');
     else if (k === 'w' || k === 'W' || k === ',') this.setCover(this.coverEl.getAttribute('data-mode') === 'white' ? 'off' : 'white');
     else if (k === 'p' || k === 'P') this.togglePresenterView();
@@ -543,7 +543,7 @@ export class Presenter {
       cell.setAttribute('data-selected', String(i === current));
       cell.innerHTML = `<div class="mp-cell-label"><span class="mp-cell-num">${i + 1}</span><span class="mp-cell-name"></span></div>`;
       (cell.querySelector('.mp-cell-name') as HTMLElement).textContent = s.page ?? '';
-      cell.addEventListener('click', () => { this.overviewEl.setAttribute('data-open', 'false'); this.cancelAdvance(); void this.run(() => nav.goToPage(this.movie, i)); });
+      cell.addEventListener('click', () => { this.overviewEl.setAttribute('data-open', 'false'); this.cancelAdvance(); void this.run(() => nav.gotoPage(this.movie, i)); });
       this.gridEl.appendChild(cell);
       this.fillThumb(i);
     });
@@ -573,7 +573,7 @@ export class Presenter {
       case 'ArrowLeft': this.select(this.overviewSel - 1); return true;
       case 'ArrowDown': this.select(this.overviewSel + cols); return true;
       case 'ArrowUp': this.select(this.overviewSel - cols); return true;
-      case 'Enter': { const page = this.overviewSel; this.overviewEl.setAttribute('data-open', 'false'); this.cancelAdvance(); void this.run(() => nav.goToPage(this.movie, page)); return true; }
+      case 'Enter': { const page = this.overviewSel; this.overviewEl.setAttribute('data-open', 'false'); this.cancelAdvance(); void this.run(() => nav.gotoPage(this.movie, page)); return true; }
       case 'Escape': this.overviewEl.setAttribute('data-open', 'false'); return true;
       default: return NEXT_KEYS.has(e.key) || PREV_KEYS.has(e.key);        // swallowed: the presentation does not move underneath
     }

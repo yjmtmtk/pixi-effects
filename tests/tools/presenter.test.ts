@@ -61,7 +61,7 @@ describe.skipIf(!chrome || !built || process.env.SKIP_BROWSER_TESTS)('Presenter,
 
   it('back jumps to the previous stop at once, Home to the first page, End to the last stop, and a number then Enter to that page', async () => {
     await withPage('', async (cdp) => {
-      await cdp.eval('present.goToStop(movie, 3)');
+      await cdp.eval('present.gotoStop(movie, 3)');
       expect(await waitFor(cdp, 'movie.currentFrame === 150')).toBe(true);
       await press(cdp, 'ArrowLeft', 'ArrowLeft', 37);
       expect(await waitFor(cdp, 'movie.currentFrame === 105')).toBe(true);

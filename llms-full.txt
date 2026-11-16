@@ -275,9 +275,9 @@ keyframes: followPath({ d: 'M 120 560 C 360 120 920 120 1160 560', duration: 4, 
 await movie.init({ canvas, width, height, frameRate, ...deck({ transition: { kind: 'slide', direction: 'left', duration: 0.6 },
   pages: [{ name: 'Hello', duration: 3.2 /* last stop + transition */, stops: [2.6] /* page-local */, notes, sequences: [ /* page-local time; a step = a layer starting at the previous stop */ ] }] }) });
 new Presenter(movie, { canvas });         // import { deck, Presenter, next, prev, … } from 'pixi-effects/present' (an import-map line of its own): → ↓ Space Enter click = next, ← = back, Home / End, number+Enter, B / W, F, ?
-next(movie) / prev(movie) / goToStop(movie, i) / goToPage(movie, n) / movie.stops / onStop(movie, fn)   // (from 'pixi-effects/present'; the core has movie.playUntil(seconds)) Controller: marks on the seek bar, play / Space / click = play to the next stop (pauseAtStops: false = straight through), a Present button, PDF in the download panel
+next(movie) / prev(movie) / gotoStop(movie, i) / gotoPage(movie, n) / movie.stops / onStop(movie, fn)   // (from 'pixi-effects/present'; the core has movie.playUntil(seconds)) Controller: marks on the seek bar, play / Space / click = play to the next stop (pauseAtStops: false = straight through), a Present button, PDF in the download panel
 // Presenter extras: G = page overview (pictures), P = presenter view (a second window: live picture, next picture, notes, timer); start() makes the pictures before the audience sees anything
-await stopImages(movie, { as: 'dataURL', scale: 0.25 }) // [{ stop, page, image }] one per page (its last stop); { which: 'stops' } one per stop (a page's picture honours `pdf` flags)
+await stopImages(movie, { as: 'dataURL', scale: 0.25 }) // [{ stop, pageIndex, image }] one per page (its last stop); { which: 'stops' } one per stop (a page's picture honours `pdf` flags)
 await inspectStops(movie)                              // { stops, issues }: stops whose picture is still changing (a stop landing before its animation ends); the check lists them
 await exportPDF(movie, { title })                      // Blob: a PDF page per page of the deck; CLI: pixi-effects render talk.html -o talk.pdf (--all-stops)
 const env = await audioEnvelope('music.mp3', { frameRate: 30 })   // BEFORE movie.init: .series.level|bass|mid|treble (0–1 per frame), .beats [s], .bpm, .at(t, band); bands: { name: [Hz, Hz] }
@@ -4964,14 +4964,14 @@ The names are the ones an HTML5 `<video>` uses, so a player written for `<video>
 A composition can say where a presentation pauses: `composition: { stops: [...] }`. A stop is a time in seconds or `{ at, page?, notes?, advance?, pdf? }`; a stop with `page` (a name, or `true`) begins a page, the others are steps of it; with no `page` anywhere each stop is a page; the first stop always begins one. A negative `at` counts back from the end; two stops on one frame are one; a stop outside the movie is ignored with a warning. `movie.play()` ignores the stops and plays to the end; the `Controller`'s play button, Space and a click on the picture play to the next stop and pause there (see `pauseAtStops`). `pdf: true` marks the stop whose picture stands for its page in a PDF (and in the page overview); `pdf: false` keeps a stop's picture out of the PDF (a last stop that is mid-exit, a step you do not want on paper). Without flags a page is pictured by its last stop.
 
 ```ts
-import { next, prev, goToStop, goToPage, onStop, stopIndex, pageIndex, pageCount, currentStop } from 'pixi-effects/present';
+import { next, prev, gotoStop, gotoPage, onStop, stopIndex, pageIndex, pageCount, currentStop } from 'pixi-effects/present';
 
 movie.stops                    // (the core) Stop[]: { index, at, frame, page: string | null, pageIndex, pageStart, notes?, advance?, pdf? }
 await next(movie);             // play to the next stop and pause exactly on its frame; pressed again while playing, skip to that stop at once;
                                // after the last stop play to the end. Resolves when it has landed (or stopped for another reason).
 await prev(movie);             // jump back to the previous stop at once (no reverse playback); from the first stop, to the start
-await goToStop(movie, i);      // 0-based
-await goToPage(movie, n);      // 0-based: the first stop of page n
+await gotoStop(movie, i);      // 0-based
+await gotoPage(movie, n);      // 0-based: the first stop of page n
 stopIndex(movie) / pageIndex(movie) / pageCount(movie) / currentStop(movie)      // where the playhead is (-1 / null before the first stop)
 const off = onStop(movie, ({ index, stop, pageIndex }) => …);                    // a stop was landed on; off() stops listening
 ```
@@ -5011,7 +5011,7 @@ Is the picture at each stop still changing? Each stop is compared with the pictu
 ```ts
 import { stopImages, exportPDF } from 'pixi-effects/present';
 const pages = await stopImages(movie, { as: 'dataURL', type: 'image/jpeg', scale: 0.25 });   // one picture per PAGE: its last stop, fully built
-// [{ stop, page, image }, …]; { which: 'stops' } is one per stop, { pick: 'first' } the first stop of each page; onImage(img) is called as each one is ready
+// [{ stop, pageIndex, image }, …]; { which: 'stops' } is one per stop, { pick: 'first' } the first stop of each page; onImage(img) is called as each one is ready
 const pdf = await exportPDF(movie, { title: 'My talk' });                                    // a Blob: one PDF page per page of the deck (JPEG at the canvas size)
 ```
 

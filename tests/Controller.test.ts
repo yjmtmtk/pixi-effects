@@ -7,7 +7,7 @@ import { formatTime, frameToPercent, pxToFrame, pxToFraction, extensionForMimeTy
 // The Controller reaches the presentation side through `src/present` (next, exportPDF, the Presenter): these tests check what the Controller asks for,
 // so navigation and images hand each call to the fake movie's own method of the same name (the real ones are tested in tests/present/).
 vi.mock('../src/present/navigation', () => ({
-  next: (m: any) => m.next(), prev: (m: any) => m.prev(), goToStop: (m: any, i: number) => m.goToStop(i), goToPage: (m: any, n: number) => m.goToPage(n),
+  next: (m: any) => m.next(), prev: (m: any) => m.prev(), gotoStop: (m: any, i: number) => m.gotoStop(i), gotoPage: (m: any, n: number) => m.gotoPage(n),
   stopIndex: (m: any) => m.stopIndex, pageIndex: (m: any) => m.pageIndex, pageCount: (m: any) => m.pageCount, currentStop: (m: any) => m.currentStop,
   onStop: (m: any, fn: (e: unknown) => void) => { m.on('stop', fn); return () => m.off('stop', fn); },
 }));
@@ -1476,7 +1476,7 @@ describe('Controller — a movie with stops (a presentation)', () => {
   ];
   const withStops = () => makeFakeMovie({
     stops: STOPS, stopIndex: -1, pageIndex: -1, pageCount: 2, currentStop: null,
-    async next() {}, async prev() {}, async goToPage() {}, async goToStop() {}, async gotoFrame() {}, async stopImages() { return []; },
+    async next() {}, async prev() {}, async gotoPage() {}, async gotoStop() {}, async gotoFrame() {}, async stopImages() { return []; },
   } as never);
 
   it('shows the stops as marks on the seek bar, at their place along it', () => {
