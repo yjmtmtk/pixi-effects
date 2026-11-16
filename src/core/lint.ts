@@ -150,7 +150,7 @@ const SFX_KNOBS = new Set(['pitch', 'brightness', 'seed']);
 
 /** Where a layer is and how it is turned: always `initial` or a keyframe, even for a kind of layer that has such a name as a key of another meaning (`anchorX` on a shape). */
 const TRANSFORM_KEYS = new Set(['x', 'y', 'z', 'alpha', 'rotation', 'rotationX', 'rotationY', 'scale', 'scaleX', 'scaleY', 'anchor', 'anchorX', 'anchorY',
-  'pivot', 'pivotX', 'pivotY', 'skew', 'skewX', 'skewY', 'position', 'positionX', 'positionY', 'tint', 'visible', 'autoAlpha']);
+  'pivot', 'pivotX', 'pivotY', 'skew', 'skewX', 'skewY', 'tint', 'visible', 'autoAlpha']);
 
 /** The words of a keyframe (GSAP's): anything else is ignored by the timeline, so it is said. */
 const KEYFRAME_KEYS = ['at', 'duration', 'ease', 'repeat', 'yoyo', 'repeatDelay', 'set', 'to', 'from'];

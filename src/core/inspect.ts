@@ -81,13 +81,13 @@ const clip = (a: Rect, b: Rect): Rect | null => {
 };
 
 /** What a keyframe can move on the canvas: a layer whose own or whose parent's geometry is animated crosses the edge on purpose (a ticker, a zoom-through, a fly-through). */
-const GEOMETRY = new Set(['x', 'y', 'z', 'scale', 'scaleX', 'scaleY', 'rotation', 'rotationX', 'rotationY', 'skewX', 'skewY', 'positionX', 'positionY', 'pivotX', 'pivotY', 'anchorX', 'anchorY']);
+const GEOMETRY = new Set(['x', 'y', 'z', 'scale', 'scaleX', 'scaleY', 'rotation', 'rotationX', 'rotationY', 'skewX', 'skewY', 'pivotX', 'pivotY', 'anchorX', 'anchorY']);
 interface Motion { running: boolean; ever: boolean }
 const NO_MOTION: Motion = { running: false, ever: false };
 const either = (a: Motion, b: Motion): Motion => ({ running: a.running || b.running, ever: a.ever || b.ever });
 
 /** The keys that put a layer on or off the canvas (an entrance, an exit, a fly-through): a layer waiting off the canvas for one of these tweens is not lost. */
-const TRANSLATION = new Set(['x', 'y', 'z', 'positionX', 'positionY']);
+const TRANSLATION = new Set(['x', 'y', 'z']);
 
 /**
  * Is a keyframe of this layer that animates `keys` running at `local` (seconds since the layer started), and does the layer ever have one? A tween runs from its `at` for its

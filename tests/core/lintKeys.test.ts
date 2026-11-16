@@ -243,3 +243,13 @@ describe('lintKeys: the clean-up hook of a scene layer is destroy', () => {
     expect(warns({ type: 'scene2d', setup: () => ({}), destroy: () => {} })).toEqual([]);
   });
 });
+
+describe('lintKeys: one name for a place', () => {
+  it('position, positionX / positionY (PixiJS\'s own) and left / top say x and y; tilePosition / tileScale are gone (nothing draws a tiling sprite)', () => {
+    const w = (initial: Record<string, unknown>) => warns({ type: 'shape', shape: 'rect', width: 1, height: 1, initial })[0];
+    expect(w({ positionX: 10 })).toMatch(/"positionX" is not an animatable property — did you mean "x"\?/);
+    expect(w({ positionY: 10 })).toMatch(/did you mean "y"\?/);
+    expect(w({ top: 10 })).toMatch(/did you mean "y"\?/);
+    expect(w({ tilePositionX: 10 })).toMatch(/"tilePositionX" is not an animatable property/);
+  });
+});

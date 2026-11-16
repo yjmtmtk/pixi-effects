@@ -45,7 +45,6 @@ function xy(target: Target, base: string, which: 'x' | 'y' | 'both', unit = 1): 
 
 const VEC: [string, string, number][] = [
   ['scale', 'scale', 1], ['anchor', 'anchor', 1], ['pivot', 'pivot', 1], ['skew', 'skew', DEG],
-  ['position', 'position', 1], ['tilePosition', 'tilePosition', 1], ['tileScale', 'tileScale', 1],
 ];
 
 /**

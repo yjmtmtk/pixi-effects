@@ -44,6 +44,7 @@ const COMMON_ALIASES: Record<string, string | readonly string[]> = {
   dispose: 'destroy', cleanup: 'destroy', teardown: 'destroy', unmount: 'destroy',
   component: 'use', instanceof: 'use', instance: 'use', ref: 'use', props: 'params', properties: 'params', args: 'params', inputs: 'params',
   // the words of CSS, HTML media and canvas
+  position: 'x', positionx: 'x', positiony: 'y', left: 'x', top: 'y', posx: 'x', posy: 'y',
   opacity: 'alpha', src: 'asset', url: 'asset', href: 'asset', file: 'asset', path: 'asset', repeat: 'loop', muted: 'audio', mute: 'audio',
   linewidth: 'strokeWidth', borderwidth: 'strokeWidth', strokewidth: 'strokeWidth', thickness: 'strokeWidth',
   distort: 'warp', distortion: 'warp', displace: 'warp', displacement: 'warp', ripple: 'warp', wavy: 'warp', heathaze: 'warp', haze: 'warp',

@@ -9,9 +9,8 @@
 //    So: alhpa -> alpha, rotaton -> rotation, scal -> scale.
 //  - cheatsheet.md 78 / docs/dsl.md 383 "Style": a shape's style keys in initial / keyframes are `fillColor fillAlpha strokeColor strokeAlpha strokeWidth`:
 //    so fillcolor -> fillColor.
-//  - docs/dsl.md 1161 "PIXI shorthands": `position, positionX, positionY` … are understood in initial / set / to / from: okShape moves by them and is
-//    never named. (A first draft of this film used positionX as a mistake, from the cheatsheet 48 list that leaves it out: dsl.md says it is valid,
-//    and the library agreed; reported as a doc gap in the cheatsheet.)
+//  - a place is always x / y (position / positionX / positionY were removed before 1.0: they say "did you mean x"): okShape moves by x / y and is
+//    never named.
 //  - cheatsheet.md 13: "text colour is `style.fill`": so style.colour -> what is meant is fill.
 //  - cheatsheet.md 54 / docs/dsl.md 74: the text style keys include `fontSize fontFamily fontWeight fill letterSpacing lineHeight align wordWrap
 //    wordWrapWidth stroke dropShadow padding`: so style.fontsize -> fontSize, and okText (which uses all twelve) is never named.

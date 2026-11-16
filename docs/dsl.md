@@ -1195,9 +1195,6 @@ scale, scaleX, scaleY
 anchor, anchorX, anchorY
 pivot, pivotX, pivotY
 skew, skewX, skewY
-position, positionX, positionY
-tilePosition, tilePositionX, tilePositionY
-tileScale, tileScaleX, tileScaleY
 tint, autoAlpha
 fillColor, fillAlpha                 (a shape's own colour keys)
 ```
