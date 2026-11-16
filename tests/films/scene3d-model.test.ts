@@ -6,15 +6,15 @@ import { runFilms, withFilm } from './support/withFilm';
 const on = <T>(query: string, fn: Parameters<typeof withFilm<T>>[1]) => withFilm<T>('scene3d-model', fn, { query });
 
 runFilms('scene3d: loadModel and fitCamera', () => {
-  it('names the clips and measures the model; fit(n) makes the longest side n', async () => {
+  it('names the animations and measures the model; fit(n) makes the longest side n', async () => {
     await on('file=long&fit=3', async (film) => {
       expect(await film.eval<string[]>('window.__logs')).toEqual([]);
-      const r = await film.eval<any>('({ clips: window.model.clips, size: window.model.size() })');
+      const r = await film.eval<any>('({ clips: window.model.animations, size: window.model.size() })');
       expect(Array.isArray(r.clips)).toBe(true);
       expect(Math.max(r.size.x, r.size.y, r.size.z)).toBeCloseTo(3, 4);
     });
     await on('animation=Spin', async (film) => {
-      expect(await film.eval<string[]>('window.model.clips')).toEqual(['Spin']);
+      expect(await film.eval<string[]>('window.model.animations')).toEqual(['Spin']);
     });
   }, 120_000);
 

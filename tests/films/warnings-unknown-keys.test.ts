@@ -21,7 +21,7 @@ const MISTAKES: Mistake[] = [
   { layer: 'card', key: 'cornerradius', kind: 'rect shape', must: [didYouMean('cornerRadius')] },
   { layer: 'dot', key: 'x', kind: 'rect shape', must: [/\binitial\b/, /40/], mustNot: [/did you mean/] },          // cheatsheet 48: x goes in initial; the comment: "not a guess at another key"
   { layer: 'pill', key: 'radius', kind: 'rect shape', must: [didYouMean('cornerRadius'), /belongs to [^)]*circle shape/] },   // pitfalls 67: a circle's key; a rect has cornerRadius
-  { layer: 'title', key: 'anchorX', kind: 'text layer', must: [/\binitial\b/, /0\.5/], mustNot: [/did you mean/] },  // pitfalls 67: anchors go in initial
+  { layer: 'title', key: 'alpha', kind: 'text layer', must: [/\binitial\b/, /0\.5/], mustNot: [/did you mean/] },    // a property goes in initial (anchors are taken at the top since 1.0)
 ];
 const CORRECT_NEIGHBOURS = ['okRect', 'okCircle', 'okText'];
 
